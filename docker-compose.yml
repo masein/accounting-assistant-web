@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: accounting
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/accounting
+      APP_ENV: dev
+      APP_CORS_ORIGINS: "*"
+      AI_PROVIDER: ${AI_PROVIDER:-lmstudio}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_API_KEY_HEADER: ${AI_API_KEY_HEADER:-Authorization}
+      AI_API_KEY_PREFIX: ${AI_API_KEY_PREFIX:-Bearer}
+      METIS_BASE_URL: ${METIS_BASE_URL:-https://api.metisai.ir/openai/v1}
+      METIS_MODEL: ${METIS_MODEL:-gpt-4o-mini}
+      METIS_API_KEY: ${METIS_API_KEY:-}
+      # For Dockerized API, host.docker.internal is the reliable default route to LM Studio on the host.
+      LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234}
+      LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-qwen/qwen3-4b-thinking-2507}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

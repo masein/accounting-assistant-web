@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#006d77">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Accounting Assistant — Register events and ledger</title>
+  <style>
+    :root {
+      --bg: radial-gradient(circle at 10% 10%, #e9f7f1 0%, #f3f7fb 38%, #edf2f7 100%);
+      --card: #ffffffd9;
+      --border: #d8e2ec;
+      --primary: #006d77;
+      --primary-hover: #008890;
+      --success: #059669;
+      --success-bg: #d1fae5;
+      --text: #14243b;
+      --text-muted: #4f657e;
+      --accent: #f4a261;
+      --danger: #b91c1c;
+      --shadow: 0 10px 24px rgba(10, 34, 58, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Avenir Next', 'Trebuchet MS', 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--primary); letter-spacing: 0.2px; }
+    .hero-subtitle { color: var(--text-muted); margin: 0 0 1.5rem 0; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(4px);
+      border-radius: 14px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+    .card h2 { font-size: 1.1rem; margin: 0 0 1rem 0; color: var(--text); }
+    label { display: block; margin-bottom: 0.25rem; font-weight: 600; color: var(--text-muted); font-size: 0.875rem; }
+    input, textarea, select {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
+      background: #fff;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
+    }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .row > * { flex: 1 1 140px; }
+    .lines-table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
+    .lines-table th, .lines-table td { padding: 0.5rem; border: 1px solid var(--border); text-align: left; }
+    .lines-table th { background: #f1f5f9; font-weight: 600; }
+    .lines-table input { margin: 0; }
+    .lines-table .col-debit, .lines-table .col-credit { width: 120px; }
+    .lines-table .col-code { width: 100px; }
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #e2e8f0; color: var(--text); }
+    .btn-secondary:hover { background: #cbd5e1; }
+    .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+    .alert {
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .alert-success { background: var(--success-bg); color: #065f46; border: 1px solid #6ee7b7; }
+    .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .alert-close { background: none; border: none; cursor: pointer; font-size: 1.25rem; color: inherit; opacity: 0.8; }
+    .alert-close:hover { opacity: 1; }
+    .results-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .results-table th, .results-table td { padding: 0.5rem 0.75rem; border: 1px solid var(--border); text-align: left; }
+    .results-table th { background: #f1f5f9; font-weight: 600; }
+    .results-table .num { font-variant-numeric: tabular-nums; }
+    .empty-state { color: var(--text-muted); text-align: center; padding: 2rem; }
+    .loading { opacity: 0.7; pointer-events: none; }
+    .voucher-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 1rem; }
+    .chat-col, .form-col { min-width: 0; }
+    @media (max-width: 1020px) { .voucher-layout { grid-template-columns: 1fr; } }
+    .chat-panel { display: flex; flex-direction: column; height: 380px; border: 1px solid var(--border); border-radius: 12px; background: #f8fbfd; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .chat-msg { max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; }
+    .chat-msg.user { align-self: flex-end; background: var(--primary); color: #fff; }
+    .chat-msg.assistant { align-self: flex-start; background: #fff; border: 1px solid var(--border); }
+    .chat-input-wrap { display: flex; gap: 0.5rem; padding: 0.5rem; border-top: 1px solid var(--border); background: var(--card); border-radius: 0 0 8px 8px; }
+    .chat-input-wrap input { flex: 1; margin-bottom: 0; }
+    .chat-msg.loading { color: var(--text-muted); }
+    .chat-msg.loading::after { content: ''; display: inline-block; width: 0.3em; animation: chat-dots 1s steps(4) infinite; }
+    @keyframes chat-dots { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+    .results-table tbody tr.ledger-row { cursor: pointer; transition: background 0.15s; }
+    .results-table tbody tr.ledger-row:hover { background: #e0f2f1; }
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); display: flex; align-items: center; justify-content: center;
+      z-index: 1000; padding: 1rem; overflow-y: auto;
+    }
+    .modal-card {
+      background: var(--card); border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      max-width: 720px; width: 100%; max-height: 90vh; display: flex; flex-direction: column;
+    }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+    .modal-header h2 { margin: 0; font-size: 1.15rem; color: var(--primary); }
+    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); padding: 0.25rem; line-height: 1; }
+    .modal-close:hover { color: var(--text); }
+    #account-modal-body { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
+    #account-modal-body .detail-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    #account-modal-body .detail-table th, #account-modal-body .detail-table td { padding: 0.5rem 0.75rem; border: 1px solid var(--border); text-align: left; }
+    #account-modal-body .detail-table th { background: #f1f5f9; }
+    #account-modal-body .detail-table .num { font-variant-numeric: tabular-nums; }
+    .detail-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+    .detail-summary span { font-size: 0.875rem; color: var(--text-muted); }
+    .detail-summary strong { display: block; font-size: 1rem; color: var(--text); }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
+    @media (max-width: 640px) { .charts-row { grid-template-columns: 1fr; } }
+    .chart-wrap { background: #f8fafc; border-radius: 8px; padding: 1rem; border: 1px solid var(--border); min-height: 260px; position: relative; }
+    .chart-wrap canvas { max-height: 220px; }
+    .chart-title { margin: 0 0 0.75rem 0; font-size: 0.95rem; color: var(--text-muted); }
+    .ledger-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 2fr) minmax(180px, 1.3fr) minmax(160px, 1fr) minmax(200px, 1.1fr);
+      gap: 0.75rem;
+      align-items: end;
+      margin-bottom: 0.8rem;
+    }
+    .ledger-toolbar input, .ledger-toolbar select { margin-bottom: 0; }
+    .ledger-check { display: flex; align-items: end; }
+    .ledger-check label { margin: 0; display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; }
+    .ledger-check input { width: auto; margin: 0; }
+    .ledger-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 0.65rem;
+      margin-bottom: 0.8rem;
+    }
+    .ledger-kpi {
+      background: linear-gradient(180deg, #ffffff, #f5fbfa);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.65rem 0.75rem;
+    }
+    .ledger-kpi .k {
+      color: var(--text-muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .ledger-kpi .v {
+      color: var(--text);
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-top: 0.15rem;
+      font-variant-numeric: tabular-nums;
+    }
+    #results-wrap {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: auto;
+      background: #fff;
+    }
+    #results-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      box-shadow: 0 1px 0 #d8e2ec;
+    }
+    #results-table tfoot td {
+      position: sticky;
+      bottom: 0;
+      background: #edf5f8;
+      box-shadow: 0 -1px 0 #d8e2ec;
+    }
+    .ledger-negative { color: #9f1239; font-weight: 700; }
+    .ledger-positive { color: #065f46; font-weight: 700; }
+    .attachment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
+    .attachment-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.5rem;
+      background: #fff;
+      display: grid;
+      gap: 0.35rem;
+    }
+    .attachment-item img {
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #f1f5f9;
+    }
+    .attachment-name { font-size: 0.8rem; line-height: 1.2; color: var(--text); word-break: break-word; }
+    .attachment-meta { font-size: 0.75rem; color: var(--text-muted); }
+    .attachment-topbar { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+    .attachment-help { font-size: 0.78rem; color: var(--text-muted); }
+    .btn-danger { background: #fee2e2; color: var(--danger); border: 1px solid #fecaca; }
+    .btn-danger:hover { background: #fecaca; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+    .kpi-card { border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem; background: #fff; }
+    .kpi-card .label { font-size: 0.78rem; color: var(--text-muted); }
+    .kpi-card .value { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
+    .panel { border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem; background: #fff; }
+    .panel h3 { margin: 0 0 0.5rem 0; font-size: 0.95rem; color: var(--text-muted); }
+    .mini-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .mini-table th, .mini-table td { border: 1px solid var(--border); padding: 0.35rem 0.45rem; text-align: left; }
+    .mini-table th { background: #f8fafc; }
+    #missing-refs-wrap { overflow-x: auto; padding-bottom: 0.25rem; }
+    .missing-ref-table { min-width: 960px; }
+    .missing-ref-table td { vertical-align: middle; }
+    .missing-ref-date { white-space: nowrap; min-width: 96px; }
+    .missing-ref-actions { display: inline-flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+    .missing-ref-actions .btn { min-width: 88px; white-space: nowrap; }
+    .missing-ref-file { margin: 0; min-width: 230px; max-width: 360px; }
+    .missing-ref-input { margin: 0; min-width: 150px; }
+    .missing-ref-table th:last-child, .missing-ref-table td:last-child { min-width: 108px; text-align: center; }
+    .alert-chip { border-radius: 999px; padding: 0.2rem 0.5rem; font-size: 0.74rem; font-weight: 700; display: inline-block; }
+    .alert-chip.high { background: #fee2e2; color: #991b1b; }
+    .alert-chip.medium { background: #fff7ed; color: #9a3412; }
+    .alert-chip.low { background: #ecfeff; color: #155e75; }
+    .top-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0 0 1rem 0;
+    }
+    .ai-runtime-bar {
+      display: grid;
+      grid-template-columns: 180px 1fr 1.2fr 1fr auto;
+      gap: 0.6rem;
+      align-items: end;
+      margin: 0 0 1rem 0;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #ffffffb8;
+    }
+    .ai-runtime-bar input, .ai-runtime-bar select { margin-bottom: 0; }
+    .ai-runtime-hint {
+      grid-column: 1 / -1;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-top: -0.2rem;
+    }
+    .nav-btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .nav-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .card[data-page] { display: none; }
+    .card[data-page].active-page { display: block; }
+    @media (max-width: 760px) {
+      body { padding: 0.5rem; }
+      .container { max-width: 100%; }
+      h1 { font-size: 1.45rem; margin-bottom: 0.25rem; }
+      .card { padding: 0.9rem; border-radius: 12px; }
+      .top-nav {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: rgba(243, 247, 251, 0.95);
+        backdrop-filter: blur(6px);
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 0.25rem;
+      }
+      .ai-runtime-bar { grid-template-columns: 1fr; }
+      .nav-btn { flex: 0 0 auto; min-height: 40px; }
+      .btn { min-height: 40px; }
+      .chat-panel { height: 300px; }
+      .chat-input-wrap { flex-wrap: wrap; }
+      .chat-input-wrap input { min-width: 100%; }
+      .ledger-toolbar { grid-template-columns: 1fr; }
+      .ledger-check { align-items: center; }
+      .results-table, .lines-table, .mini-table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .results-table thead, .results-table tbody, .results-table tr,
+      .lines-table thead, .lines-table tbody, .lines-table tr,
+      .mini-table thead, .mini-table tbody, .mini-table tr {
+        white-space: nowrap;
+      }
+      .missing-ref-file { min-width: 180px; max-width: 260px; }
+      .missing-ref-actions .btn { min-width: 78px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Accounting Assistant</h1>
+    <p class="hero-subtitle">Chat with AI, attach receipts, and save balanced vouchers with linked entities.</p>
+
+    <div id="alert" class="alert" role="alert" style="display: none;"></div>
+    <div class="top-nav" id="top-nav">
+      <button type="button" class="nav-btn" data-page="dashboard">Dashboard</button>
+      <button type="button" class="nav-btn" data-page="transactions">Transactions</button>
+      <button type="button" class="nav-btn" data-page="entities">Entities</button>
+      <button type="button" class="nav-btn" data-page="invoices">Invoices</button>
+      <button type="button" class="nav-btn" data-page="recurring">Recurring</button>
+      <button type="button" class="nav-btn" data-page="ledger">Ledger</button>
+    </div>
+    <div class="ai-runtime-bar">
+      <div>
+        <label for="ai-provider-select">AI provider</label>
+        <select id="ai-provider-select">
+          <option value="metis">MetisAI</option>
+          <option value="lmstudio">Local LM Studio</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div>
+        <label for="ai-model-input">Model</label>
+        <input type="text" id="ai-model-input" placeholder="e.g. gpt-4o-mini">
+      </div>
+      <div>
+        <label for="ai-base-input">Base URL (custom)</label>
+        <input type="text" id="ai-base-input" placeholder="https://api.example.com/openai/v1">
+      </div>
+      <div>
+        <label for="ai-key-input">API key (optional)</label>
+        <input type="password" id="ai-key-input" placeholder="leave empty to keep current">
+      </div>
+      <div style="display:flex; align-items:flex-end;">
+        <button type="button" class="btn btn-secondary" id="ai-save-btn">Apply AI settings</button>
+      </div>
+      <div class="ai-runtime-hint">Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.</div>
+    </div>
+
+    <div class="card" data-page="entities">
+      <h2>Entities (clients, banks, employees)</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Add parties you do business with. Link them to vouchers when saving to run reports like &quot;all transactions with client X&quot;.</p>
+      <div class="row" style="margin-bottom: 1rem;">
+        <div><label for="entity-type">Type</label><select id="entity-type"><option value="client">Client</option><option value="bank">Bank</option><option value="employee">Employee</option><option value="supplier">Supplier</option></select></div>
+        <div><label for="entity-name">Name</label><input type="text" id="entity-name" placeholder="e.g. Innotech, Melli"></div>
+        <div><label for="entity-code">Code (optional)</label><input type="text" id="entity-code" placeholder="e.g. INV-001"></div>
+        <div style="display: flex; align-items: flex-end;"><button type="button" class="btn btn-primary" id="entity-add">Add entity</button></div>
+      </div>
+      <table class="results-table" id="entities-table">
+        <thead><tr><th>Type</th><th>Name</th><th>Code</th><th>Actions</th><th></th></tr></thead>
+        <tbody id="entities-tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+      <p style="margin-top: 1rem; font-size: 0.875rem;">
+        <button type="button" class="btn btn-secondary btn-sm" id="reset-db-btn">Reset database</button>
+        <span style="color: var(--text-muted); margin-left: 0.5rem;">Clear all transactions and entities, keep chart of accounts.</span>
+      </p>
+    </div>
+
+    <div class="card" data-page="invoices">
+      <h2>Invoices</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Create sales/purchase invoices, then mark paid to automatically create a transaction.</p>
+      <div class="row" style="margin-bottom: 1rem;">
+        <div><label for="inv-number">Number</label><input type="text" id="inv-number" placeholder="e.g. INV-1001"></div>
+        <div><label for="inv-kind">Type</label><select id="inv-kind"><option value="sales">Sales</option><option value="purchase">Purchase</option></select></div>
+        <div><label for="inv-amount">Amount</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
+        <div><label for="inv-issue">Issue date</label><input type="date" id="inv-issue"></div>
+        <div><label for="inv-due">Due date</label><input type="date" id="inv-due"></div>
+      </div>
+      <div class="row" style="margin-bottom: 1rem;">
+        <div><label for="inv-entity">Entity (optional)</label><select id="inv-entity"><option value="">— None —</option></select></div>
+        <div><label for="inv-bank-code">Bank account for payment</label><select id="inv-bank-code"><option value="">— Select bank —</option></select></div>
+        <div><label for="inv-desc">Description</label><input type="text" id="inv-desc" placeholder="e.g. Software development"></div>
+        <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="inv-add">Create invoice</button></div>
+      </div>
+      <div class="row" style="margin-bottom: 1rem;">
+        <div style="flex:2 1 380px;">
+          <label for="inv-ocr-file">Import from scan (OCR)</label>
+          <input type="file" id="inv-ocr-file" accept="image/jpeg,image/png,image/webp,application/pdf">
+        </div>
+        <div style="display:flex; align-items:flex-end; gap:0.45rem;">
+          <button type="button" class="btn btn-secondary" id="inv-ocr-scan">Scan to form</button>
+          <button type="button" class="btn btn-secondary" id="inv-ocr-create">Scan + create</button>
+        </div>
+        <div style="flex:2 1 280px; display:flex; align-items:flex-end;">
+          <div id="inv-ocr-status" style="font-size:0.82rem; color:var(--text-muted);"></div>
+        </div>
+      </div>
+      <table class="results-table" id="invoices-table">
+        <thead><tr><th>No.</th><th>Type</th><th>Status</th><th>Amount</th><th>Due</th><th>Actions</th></tr></thead>
+        <tbody id="invoices-tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="card" data-page="recurring">
+      <h2>Recurring rules (AI text)</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Example: <code>I have to pay 30M rent every month from Mellat bank</code> or <code>I receive 120M yearly from client X</code>.</p>
+      <div class="row" style="margin-bottom: 0.75rem;">
+        <div style="flex: 3 1 420px;">
+          <label for="recurring-text">Tell AI your recurring payment/receipt</label>
+          <input type="text" id="recurring-text" placeholder="e.g. I pay 25M office rent every month from Mellat bank">
+        </div>
+        <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="recurring-create">Save recurring rule</button></div>
+      </div>
+      <table class="results-table" id="recurring-table">
+        <thead><tr><th>Name</th><th>Direction</th><th>Frequency</th><th>Amount</th><th>Next run</th><th>Status</th><th></th></tr></thead>
+        <tbody id="recurring-tbody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="card" data-page="transactions">
+      <h2>Register financial event (voucher)</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Describe the event in the chat. The AI accountant will ask for details needed for proper books and reports: which client, which bank account, what it was for (e.g. invoice or service type), and optionally a reference (invoice/receipt number). Then it fills the voucher with reference and line descriptions so you can run useful reports later.</p>
+      <div class="attachment-topbar">
+        <input type="file" id="attachment-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="max-width: 360px; margin: 0;">
+        <button type="button" class="btn btn-secondary" id="attachment-upload-btn">Upload receipts</button>
+        <span class="attachment-help">Supported: JPG, PNG, WEBP, PDF (max 8MB each). Used in chat and saved with voucher.</span>
+      </div>
+      <div id="attachment-grid" class="attachment-grid"></div>
+      <div class="voucher-layout" style="margin-top: 1rem;">
+        <div class="chat-col">
+          <div class="chat-panel">
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input-wrap">
+              <input type="text" id="chat-input" placeholder="e.g. I received 1M from my client" autocomplete="off">
+              <button type="button" class="btn btn-primary" id="chat-send">Send</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-col">
+      <form id="transaction-form" style="margin: 0;">
+        <div class="row">
+          <div>
+            <label for="date">Date</label>
+            <input type="date" id="date" name="date" required>
+          </div>
+          <div>
+            <label for="reference">Reference</label>
+            <input type="text" id="reference" name="reference" placeholder="e.g. INV-001, receipt no." title="Invoice or receipt number that links this voucher to a document">
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Invoice or receipt number linking to a document</span>
+          </div>
+        </div>
+        <div>
+          <label for="description">Description</label>
+          <textarea id="description" name="description" rows="2" placeholder="Event description"></textarea>
+        </div>
+        <div class="row" style="margin-bottom: 0.75rem;">
+          <label style="width: 100%; margin-bottom: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">Link to entities (optional — change AI suggestion if needed)</label>
+          <div>
+            <label for="entity-client" style="font-size: 0.75rem;">Client</label>
+            <select id="entity-client" style="min-width: 140px;"><option value="">— None —</option></select>
+          </div>
+          <div>
+            <label for="entity-bank" style="font-size: 0.75rem;">Bank</label>
+            <select id="entity-bank" style="min-width: 140px;"><option value="">— None —</option></select>
+          </div>
+          <div>
+            <label for="entity-payee" style="font-size: 0.75rem;">Payee</label>
+            <select id="entity-payee" style="min-width: 140px;"><option value="">— None —</option></select>
+          </div>
+          <div>
+            <label for="entity-supplier" style="font-size: 0.75rem;">Supplier</label>
+            <select id="entity-supplier" style="min-width: 140px;"><option value="">— None —</option></select>
+          </div>
+        </div>
+        <div>
+          <label>Lines (debit / credit)</label>
+          <table class="lines-table">
+            <thead>
+              <tr>
+                <th class="col-code">Account code</th>
+                <th>Debit</th>
+                <th>Credit</th>
+                <th>Line description</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="lines-tbody">
+              <tr class="line-row">
+                <td><input type="text" class="line-code" placeholder="e.g. 1110" required></td>
+                <td><input type="number" class="line-debit" min="0" value="0" step="1"></td>
+                <td><input type="number" class="line-credit" min="0" value="0" step="1"></td>
+                <td><input type="text" class="line-desc" placeholder="Optional"></td>
+                <td><button type="button" class="btn btn-secondary remove-line">Remove</button></td>
+              </tr>
+              <tr class="line-row">
+                <td><input type="text" class="line-code" placeholder="e.g. 4110"></td>
+                <td><input type="number" class="line-debit" min="0" value="0" step="1"></td>
+                <td><input type="number" class="line-credit" min="0" value="0" step="1"></td>
+                <td><input type="text" class="line-desc"></td>
+                <td><button type="button" class="btn btn-secondary remove-line">Remove</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <button type="button" class="btn btn-secondary" id="add-line">+ Add line</button>
+        </div>
+        <div style="margin-top: 1rem;">
+          <button type="submit" class="btn btn-primary" id="submit-btn">Save voucher</button>
+        </div>
+      </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-page="dashboard">
+      <h2>Owner insights dashboard</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Business-focused KPIs, forecasts, aging, profitability, data quality checks, and actionable alerts.</p>
+      <div id="kpi-grid" class="kpi-grid"></div>
+      <div class="dashboard-grid">
+        <div class="panel">
+          <h3>13-week cash forecast</h3>
+          <div id="forecast-wrap"></div>
+        </div>
+        <div class="panel">
+          <h3>Smart alerts</h3>
+          <div id="alerts-wrap"></div>
+        </div>
+        <div class="panel">
+          <h3>AR aging</h3>
+          <div id="ar-aging-wrap"></div>
+        </div>
+        <div class="panel">
+          <h3>AP aging</h3>
+          <div id="ap-aging-wrap"></div>
+        </div>
+        <div class="panel">
+          <h3>Expense by category</h3>
+          <div id="expense-category-wrap"></div>
+        </div>
+        <div class="panel">
+          <h3>Spend by vendor</h3>
+          <div id="vendor-spend-wrap"></div>
+        </div>
+        <div class="panel">
+          <h3>Profitability by client</h3>
+          <div id="profitability-wrap"></div>
+        </div>
+        <div class="panel">
+          <h3>Books health</h3>
+          <div id="health-wrap"></div>
+          <h3 style="margin-top:0.75rem;">Month-end checklist</h3>
+          <div id="checklist-wrap"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:1rem;">
+        <h3>Owner report pack (auto summary)</h3>
+        <pre id="owner-pack" style="white-space: pre-wrap; margin:0; font-size:0.82rem; color:var(--text);"></pre>
+      </div>
+      <div class="panel" style="margin-top:1rem;">
+        <h3>Fix missing references</h3>
+        <div id="missing-refs-wrap"></div>
+      </div>
+      <div class="panel" style="margin-top:1rem;">
+        <h3>Budget vs actual (monthly)</h3>
+        <div class="row" style="margin-bottom:0.5rem;">
+          <div><label for="budget-month">Month</label><input type="month" id="budget-month"></div>
+          <div><label for="budget-category">Category</label><input type="text" id="budget-category" placeholder="Expense account name"></div>
+          <div><label for="budget-limit">Limit</label><input type="number" id="budget-limit" min="0" step="1" value="0"></div>
+          <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="budget-save">Save budget</button></div>
+        </div>
+        <div id="budget-wrap"></div>
+      </div>
+      <div class="panel" style="margin-top:1rem;">
+        <h3>Export & notifications</h3>
+        <div class="row">
+          <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+            <a class="btn btn-secondary" href="/exports/transactions.csv" target="_blank">Export CSV</a>
+            <a class="btn btn-secondary" href="/exports/transactions.xlsx" target="_blank">Export Excel</a>
+            <button type="button" class="btn btn-secondary" id="snapshot-btn">Create monthly snapshot</button>
+            <button type="button" class="btn btn-secondary" id="notify-btn">Send alerts</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-page="ledger">
+      <h2>Ledger summary</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Professional trial-balance view with filters, comparatives, and visual analysis. Click any account row for full transaction detail.</p>
+      <div class="ledger-toolbar">
+        <div>
+          <label for="ledger-search">Search account</label>
+          <input type="text" id="ledger-search" placeholder="Code or account name">
+        </div>
+        <div>
+          <label for="ledger-sort">Sort by</label>
+          <select id="ledger-sort">
+            <option value="turnover_desc">Turnover (high to low)</option>
+            <option value="turnover_asc">Turnover (low to high)</option>
+            <option value="code_asc">Account code (A-Z)</option>
+            <option value="name_asc">Account name (A-Z)</option>
+            <option value="balance_desc">Net balance (high to low)</option>
+            <option value="balance_asc">Net balance (low to high)</option>
+          </select>
+        </div>
+        <div>
+          <label for="ledger-topn">Charts: top accounts</label>
+          <select id="ledger-topn">
+            <option value="8">Top 8</option>
+            <option value="12" selected>Top 12</option>
+            <option value="20">Top 20</option>
+            <option value="10000">All</option>
+          </select>
+        </div>
+        <div class="ledger-check">
+          <label for="ledger-nonzero">
+            <input type="checkbox" id="ledger-nonzero" checked>
+            Hide zero-activity accounts
+          </label>
+        </div>
+      </div>
+      <div class="ledger-kpis" id="ledger-kpis"></div>
+      <div id="results-wrap">
+        <table class="results-table" id="results-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Name</th>
+              <th class="num">Debit turnover</th>
+              <th class="num">Credit turnover</th>
+              <th class="num">Debit balance</th>
+              <th class="num">Credit balance</th>
+            </tr>
+          </thead>
+          <tbody id="results-tbody">
+            <tr><td colspan="6" class="empty-state">Loading…</td></tr>
+          </tbody>
+          <tfoot id="results-foot" style="display: none;">
+            <tr style="font-weight: 700; background: #f1f5f9;">
+              <td colspan="2">Total</td>
+              <td class="num" id="foot-debit-turnover">0</td>
+              <td class="num" id="foot-credit-turnover">0</td>
+              <td class="num" id="foot-debit-balance">0</td>
+              <td class="num" id="foot-credit-balance">0</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="charts-row" id="charts-row" style="display: none;">
+        <div class="chart-wrap">
+          <h3 class="chart-title">Turnover by account (top accounts)</h3>
+          <canvas id="chart-turnover" width="400" height="220"></canvas>
+        </div>
+        <div class="chart-wrap">
+          <h3 class="chart-title">Net position by account</h3>
+          <canvas id="chart-balance" width="400" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="account-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="account-modal-title">Account details</h2>
+        <button type="button" class="modal-close" aria-label="Close" id="account-modal-close">×</button>
+      </div>
+      <div id="account-modal-body">
+        <p class="empty-state">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const API = ''; // same origin
+    const alertEl = document.getElementById('alert');
+    const topNav = document.getElementById('top-nav');
+    const form = document.getElementById('transaction-form');
+    const linesTbody = document.getElementById('lines-tbody');
+    const addLineBtn = document.getElementById('add-line');
+    const submitBtn = document.getElementById('submit-btn');
+    const resultsTbody = document.getElementById('results-tbody');
+    const resultsFoot = document.getElementById('results-foot');
+    const chatMessagesEl = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send');
+    const attachmentInput = document.getElementById('attachment-input');
+    const attachmentUploadBtn = document.getElementById('attachment-upload-btn');
+    const attachmentGrid = document.getElementById('attachment-grid');
+    const invoicesTbody = document.getElementById('invoices-tbody');
+    const recurringTbody = document.getElementById('recurring-tbody');
+    const budgetWrap = document.getElementById('budget-wrap');
+    const aiProviderSelect = document.getElementById('ai-provider-select');
+    const aiModelInput = document.getElementById('ai-model-input');
+    const aiBaseInput = document.getElementById('ai-base-input');
+    const aiKeyInput = document.getElementById('ai-key-input');
+    const aiSaveBtn = document.getElementById('ai-save-btn');
+    const ledgerSearchEl = document.getElementById('ledger-search');
+    const ledgerSortEl = document.getElementById('ledger-sort');
+    const ledgerTopNEl = document.getElementById('ledger-topn');
+    const ledgerNonZeroEl = document.getElementById('ledger-nonzero');
+    const ledgerKpisEl = document.getElementById('ledger-kpis');
+
+    let chatHistory = [];
+    let lastEntityMentions = null;
+    let entityOptions = { client: [], bank: [], payee: [], supplier: [] };  // payee uses type "employee"
+    let selectedAttachments = [];
+    let entityTransactionsCache = [];
+    let currentEntityContext = null;
+    const validPages = new Set(['dashboard', 'transactions', 'entities', 'invoices', 'recurring', 'ledger']);
+
+    function showPage(page) {
+      const target = validPages.has(page) ? page : 'dashboard';
+      document.querySelectorAll('.card[data-page]').forEach(card => {
+        card.classList.toggle('active-page', card.getAttribute('data-page') === target);
+      });
+      document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-page') === target);
+      });
+      if (location.hash !== '#' + target) history.replaceState(null, '', '#' + target);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showAlert(message, isError = false) {
+      alertEl.textContent = '';
+      alertEl.className = 'alert alert-' + (isError ? 'error' : 'success');
+      alertEl.style.display = 'flex';
+      const span = document.createElement('span');
+      span.textContent = message;
+      alertEl.appendChild(span);
+      const close = document.createElement('button');
+      close.className = 'alert-close';
+      close.setAttribute('type', 'button');
+      close.setAttribute('aria-label', 'Close');
+      close.textContent = '×';
+      close.onclick = () => { alertEl.style.display = 'none'; };
+      alertEl.appendChild(close);
+    }
+
+    function formatNum(n) {
+      if (n === 0) return '0';
+      return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    function formatKpiValue(v, unit) {
+      if (v == null) return 'N/A';
+      if (unit === 'IRR') return formatNum(v) + ' IRR';
+      if (unit === 'months' && Number(v) < 0) return 'N/A';
+      if (unit === 'months') return v + ' mo';
+      return String(v);
+    }
+    function escapeHtml(s) {
+      if (s == null) return '';
+      const t = String(s);
+      return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function syncAIFieldsByProvider() {
+      const p = (aiProviderSelect && aiProviderSelect.value) || 'lmstudio';
+      const custom = p === 'custom';
+      aiBaseInput.disabled = !custom;
+      aiBaseInput.placeholder = custom ? 'https://api.example.com/openai/v1' : (p === 'metis' ? 'Auto: https://api.metisai.ir/openai/v1' : 'Auto: LM Studio URL');
+    }
+
+    async function loadAIConfig() {
+      try {
+        const res = await fetch(API + '/admin/ai-config');
+        const cfg = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+        if (aiProviderSelect) aiProviderSelect.value = cfg.provider || 'lmstudio';
+        if (aiModelInput) aiModelInput.value = (cfg.active && cfg.active.model) ? cfg.active.model : '';
+        if (aiBaseInput) aiBaseInput.value = (cfg.active && cfg.active.base_url) ? cfg.active.base_url : '';
+        if (aiKeyInput) aiKeyInput.value = '';
+        syncAIFieldsByProvider();
+      } catch (_) {}
+    }
+
+    async function saveAIConfig() {
+      const payload = {
+        provider: aiProviderSelect.value,
+        model: (aiModelInput.value || '').trim(),
+      };
+      if (aiProviderSelect.value === 'custom') {
+        payload.base_url = (aiBaseInput.value || '').trim();
+      }
+      const key = (aiKeyInput.value || '').trim();
+      if (key) payload.api_key = key;
+      try {
+        aiSaveBtn.disabled = true;
+        const res = await fetch(API + '/admin/ai-config', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Failed to update AI settings.', true); return; }
+        showAlert('AI settings updated.');
+        aiKeyInput.value = '';
+        loadAIConfig();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      } finally {
+        aiSaveBtn.disabled = false;
+      }
+    }
+
+    function renderMiniTable(elId, headers, rows) {
+      const el = document.getElementById(elId);
+      if (!rows || !rows.length) {
+        el.innerHTML = '<p class="empty-state" style="padding:0.5rem;">No data yet.</p>';
+        return;
+      }
+      const th = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+      const tr = rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+      el.innerHTML = `<table class="mini-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+    }
+
+    async function loadOwnerDashboard() {
+      try {
+        const res = await fetch(API + '/reports/owner-dashboard');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'owner dashboard error');
+
+        const kpiGrid = document.getElementById('kpi-grid');
+        kpiGrid.innerHTML = (data.kpis || []).map(k => `
+          <div class="kpi-card">
+            <div class="label">${escapeHtml(k.label)}</div>
+            <div class="value">${escapeHtml(formatKpiValue(k.value, k.unit))}</div>
+          </div>
+        `).join('');
+
+        renderMiniTable(
+          'forecast-wrap',
+          ['Week', 'Inflow', 'Outflow', 'Net', 'Cash', 'Risk'],
+          (data.forecast_13_weeks || []).map(r => [
+            escapeHtml(r.week_start),
+            formatNum(r.projected_inflow),
+            formatNum(r.projected_outflow),
+            formatNum(r.projected_net),
+            formatNum(r.projected_cash),
+            r.risk ? '<span class="alert-chip high">Risk</span>' : '<span class="alert-chip low">OK</span>'
+          ])
+        );
+
+        const alertsWrap = document.getElementById('alerts-wrap');
+        const alerts = data.alerts || [];
+        if (!alerts.length) {
+          alertsWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">No active alerts.</p>';
+        } else {
+          alertsWrap.innerHTML = alerts.map(a => `
+            <div style="border:1px solid var(--border); border-radius:10px; padding:0.55rem; margin-bottom:0.45rem;">
+              <span class="alert-chip ${escapeHtml(a.level)}">${escapeHtml((a.level || '').toUpperCase())}</span>
+              <strong style="display:block; margin-top:0.25rem;">${escapeHtml(a.title)}</strong>
+              <div style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(a.message)}</div>
+            </div>
+          `).join('');
+        }
+
+        renderMiniTable(
+          'ar-aging-wrap',
+          ['Client', 'Current', '31-60', '60+', 'Total'],
+          (data.ar_aging || []).map(r => [escapeHtml(r.name), formatNum(r.current), formatNum(r.days_31_60), formatNum(r.days_60_plus), formatNum(r.total)])
+        );
+        renderMiniTable(
+          'ap-aging-wrap',
+          ['Vendor', 'Current', '31-60', '60+', 'Total'],
+          (data.ap_aging || []).map(r => [escapeHtml(r.name), formatNum(r.current), formatNum(r.days_31_60), formatNum(r.days_60_plus), formatNum(r.total)])
+        );
+        renderMiniTable(
+          'expense-category-wrap',
+          ['Category', 'Amount'],
+          (data.expense_by_category || []).map(r => [escapeHtml(r.category), formatNum(r.amount)])
+        );
+        renderMiniTable(
+          'vendor-spend-wrap',
+          ['Vendor', 'Amount'],
+          (data.spend_by_vendor || []).map(r => [escapeHtml(r.vendor), formatNum(r.amount)])
+        );
+        renderMiniTable(
+          'profitability-wrap',
+          ['Client', 'Revenue', 'Cost', 'Profit', 'Margin %'],
+          (data.profitability_by_client || []).map(r => [escapeHtml(r.client), formatNum(r.revenue), formatNum(r.cost), formatNum(r.profit), (r.margin_pct == null ? '—' : String(r.margin_pct))])
+        );
+
+        const health = document.getElementById('health-wrap');
+        health.innerHTML = `
+          <div style="font-size:1.15rem; font-weight:700; margin-bottom:0.45rem;">Score: ${escapeHtml(data.health_score)}/100</div>
+          ${(data.health_issues || []).map(i => `<div style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(i.label)}: ${escapeHtml(i.count)} (${Math.round((i.ratio || 0) * 100)}%)</div>`).join('')}
+        `;
+
+        const checklist = document.getElementById('checklist-wrap');
+        checklist.innerHTML = (data.close_checklist || []).map(c => `
+          <div style="border:1px solid var(--border); border-radius:9px; padding:0.4rem; margin-bottom:0.35rem;">
+            <strong>${c.ok ? '✓' : '•'} ${escapeHtml(c.item)}</strong>
+            <div style="font-size:0.78rem; color:var(--text-muted);">${escapeHtml(c.detail)}</div>
+          </div>
+        `).join('');
+
+        document.getElementById('owner-pack').textContent = data.owner_pack_markdown || '';
+        loadMissingReferences();
+      } catch (err) {
+        document.getElementById('kpi-grid').innerHTML = '<p class="empty-state">Error loading owner dashboard.</p>';
+        document.getElementById('missing-refs-wrap').innerHTML = '<p class="empty-state" style="padding:0.5rem;">Error loading missing references.</p>';
+      }
+    }
+
+    function addLineRow() {
+      const tr = document.createElement('tr');
+      tr.className = 'line-row';
+      tr.innerHTML = `
+        <td><input type="text" class="line-code" placeholder="Account code"></td>
+        <td><input type="number" class="line-debit" min="0" value="0" step="1"></td>
+        <td><input type="number" class="line-credit" min="0" value="0" step="1"></td>
+        <td><input type="text" class="line-desc"></td>
+        <td><button type="button" class="btn btn-secondary remove-line">Remove</button></td>
+      `;
+      linesTbody.appendChild(tr);
+    }
+
+    function renderAttachments() {
+      attachmentGrid.innerHTML = '';
+      if (!selectedAttachments.length) {
+        attachmentGrid.innerHTML = '<div class="attachment-help">No attachments uploaded yet.</div>';
+        return;
+      }
+      selectedAttachments.forEach(att => {
+        const div = document.createElement('div');
+        div.className = 'attachment-item';
+        const isImage = (att.content_type || '').startsWith('image/');
+        const thumb = isImage ? `<img src="${escapeHtml(att.url)}" alt="${escapeHtml(att.file_name)}">` : '<img alt="PDF" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22240%22 height=%22140%22%3E%3Crect width=%22240%22 height=%22140%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23475569%22 font-size=%2222%22 dy=%228%22%3EPDF%3C/text%3E%3C/svg%3E">';
+        div.innerHTML = `
+          ${thumb}
+          <div class="attachment-name">${escapeHtml(att.file_name)}</div>
+          <div class="attachment-meta">${escapeHtml(att.content_type)} · ${formatNum(att.size_bytes || 0)} bytes</div>
+          <div style="display:flex; gap:0.35rem;">
+            <a class="btn btn-secondary btn-sm" href="${escapeHtml(att.url)}" target="_blank" rel="noreferrer" style="text-decoration:none;">Open</a>
+            <button type="button" class="btn btn-danger btn-sm remove-attachment" data-id="${att.id}">Remove</button>
+          </div>
+        `;
+        attachmentGrid.appendChild(div);
+      });
+    }
+
+    async function uploadAttachments() {
+      const files = Array.from(attachmentInput.files || []);
+      if (!files.length) {
+        showAlert('Choose at least one file.', true);
+        return;
+      }
+      attachmentUploadBtn.disabled = true;
+      try {
+        for (const f of files) {
+          const fd = new FormData();
+          fd.append('file', f);
+          const res = await fetch(API + '/transactions/attachments', { method: 'POST', body: fd });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            showAlert(data.detail || ('Failed to upload ' + f.name), true);
+            continue;
+          }
+          selectedAttachments.push(data);
+        }
+        attachmentInput.value = '';
+        renderAttachments();
+        showAlert('Attachments uploaded.');
+      } catch (err) {
+        showAlert('Attachment upload failed: ' + err.message, true);
+      } finally {
+        attachmentUploadBtn.disabled = false;
+      }
+    }
+
+    async function removeAttachment(id) {
+      try {
+        const res = await fetch(API + '/transactions/attachments/' + encodeURIComponent(id), { method: 'DELETE' });
+        if (!res.ok && res.status !== 204) {
+          const data = await res.json().catch(() => ({}));
+          showAlert(data.detail || 'Could not remove attachment.', true);
+          return;
+        }
+        selectedAttachments = selectedAttachments.filter(a => a.id !== id);
+        renderAttachments();
+      } catch (err) {
+        showAlert('Could not remove attachment: ' + err.message, true);
+      }
+    }
+
+    attachmentUploadBtn.addEventListener('click', uploadAttachments);
+    attachmentGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.remove-attachment');
+      if (btn) removeAttachment(btn.dataset.id);
+    });
+    addLineBtn.addEventListener('click', addLineRow);
+    linesTbody.addEventListener('click', (e) => {
+      if (e.target.classList.contains('remove-line') && linesTbody.querySelectorAll('.line-row').length > 2)
+        e.target.closest('.line-row').remove();
+    });
+
+    function resetVoucherForm() {
+      document.getElementById('date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('reference').value = '';
+      document.getElementById('description').value = '';
+      document.getElementById('entity-client').value = '';
+      document.getElementById('entity-bank').value = '';
+      document.getElementById('entity-payee').value = '';
+      document.getElementById('entity-supplier').value = '';
+      linesTbody.innerHTML = '';
+      addLineRow();
+      addLineRow();
+      selectedAttachments = [];
+      attachmentInput.value = '';
+      renderAttachments();
+    }
+
+    async function loadEntityOptions() {
+      try {
+        const res = await fetch(API + '/entities');
+        const list = await res.json();
+        entityOptions.client = (list || []).filter(e => e.type === 'client');
+        entityOptions.bank = (list || []).filter(e => e.type === 'bank');
+        entityOptions.payee = (list || []).filter(e => e.type === 'employee' || e.type === 'payee');
+        entityOptions.supplier = (list || []).filter(e => e.type === 'supplier');
+        const sel = (id, arr) => {
+          const el = document.getElementById(id);
+          el.innerHTML = '';
+          const none = document.createElement('option');
+          none.value = '';
+          none.textContent = '— None —';
+          el.appendChild(none);
+          (arr || []).forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.id;
+            opt.textContent = e.name;
+            el.appendChild(opt);
+          });
+        };
+        sel('entity-client', entityOptions.client);
+        sel('entity-bank', entityOptions.bank);
+        sel('entity-payee', entityOptions.payee);
+        sel('entity-supplier', entityOptions.supplier);
+        const invSel = document.getElementById('inv-entity');
+        if (invSel) {
+          invSel.innerHTML = '<option value="">— None —</option>';
+          (list || []).filter(e => e.type === 'client' || e.type === 'supplier').forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.id;
+            opt.textContent = e.type + ': ' + e.name;
+            invSel.appendChild(opt);
+          });
+        }
+        const bankSel = document.getElementById('inv-bank-code');
+        if (bankSel) {
+          bankSel.innerHTML = '';
+          const none = document.createElement('option');
+          none.value = '';
+          none.dataset.accountCode = '1110';
+          none.textContent = '— Default bank/cash (1110) —';
+          bankSel.appendChild(none);
+          (entityOptions.bank || []).forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.id;
+            opt.dataset.accountCode = (e.code || '').trim() || '1110';
+            opt.textContent = e.name + (e.code ? (' (' + e.code + ')') : '');
+            bankSel.appendChild(opt);
+          });
+          bankSel.value = '';
+        }
+      } catch (_) {}
+    }
+
+    async function loadInvoices() {
+      try {
+        const res = await fetch(API + '/invoices');
+        const list = await res.json();
+        invoicesTbody.innerHTML = '';
+        if (!list.length) {
+          invoicesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">No invoices yet.</td></tr>';
+          return;
+        }
+        list.forEach(i => {
+          const isPaid = String(i.status || '').toLowerCase() === 'paid';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${escapeHtml(i.number)}</td>
+            <td>${escapeHtml(i.kind)}</td>
+            <td>${escapeHtml(i.status)}</td>
+            <td>${formatNum(i.amount)}</td>
+            <td>${escapeHtml(i.due_date)}</td>
+            <td>
+              <button type="button" class="btn btn-secondary btn-sm inv-edit" data-id="${i.id}" data-status="${escapeHtml(i.status)}">Edit</button>
+              <button type="button" class="btn btn-secondary btn-sm inv-paid" data-id="${i.id}" data-status="${escapeHtml(i.status)}" style="margin-left:0.3rem;" ${isPaid ? 'disabled title="Already paid"' : ''}>${isPaid ? 'Paid' : 'Mark paid'}</button>
+              <a class="btn btn-secondary btn-sm" href="${escapeHtml(i.pdf_url || ('/invoices/' + i.id + '/pdf'))}" target="_blank" style="margin-left:0.3rem; text-decoration:none;">PDF</a>
+              <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}" style="margin-left:0.3rem;">Timeline</button>
+              <button type="button" class="btn btn-danger btn-sm inv-del" data-id="${i.id}" style="margin-left:0.3rem;">Delete</button>
+            </td>
+          `;
+          invoicesTbody.appendChild(tr);
+        });
+      } catch (err) {
+        invoicesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading invoices.</td></tr>';
+      }
+    }
+
+    async function loadRecurringRules() {
+      try {
+        const res = await fetch(API + '/recurring');
+        const list = await res.json();
+        recurringTbody.innerHTML = '';
+        if (!list.length) {
+          recurringTbody.innerHTML = '<tr><td colspan="7" class="empty-state">No recurring rules yet.</td></tr>';
+          return;
+        }
+        list.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${escapeHtml(r.name)}</td>
+            <td>${escapeHtml(r.direction)}</td>
+            <td>${escapeHtml(r.frequency)}</td>
+            <td>${r.amount == null ? '—' : formatNum(r.amount)}</td>
+            <td>${escapeHtml(r.next_run_date)}</td>
+            <td>${escapeHtml(r.status)}</td>
+            <td><button type="button" class="btn btn-danger btn-sm recurring-del" data-id="${r.id}">Delete</button></td>
+          `;
+          recurringTbody.appendChild(tr);
+        });
+      } catch (err) {
+        recurringTbody.innerHTML = '<tr><td colspan="7" class="empty-state">Error loading recurring rules.</td></tr>';
+      }
+    }
+
+    async function loadMissingReferences() {
+      const wrap = document.getElementById('missing-refs-wrap');
+      try {
+        const res = await fetch(API + '/reports/missing-references');
+        const data = await res.json();
+        const items = data.items || [];
+        if (!items.length) {
+          wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">No missing references.</p>';
+          return;
+        }
+        wrap.innerHTML = `
+          <table class="mini-table missing-ref-table">
+            <thead><tr><th>Date</th><th>Description</th><th>Reference</th><th>Attach receipt</th><th></th></tr></thead>
+            <tbody>
+              ${items.map(it => `
+                <tr>
+                  <td class="missing-ref-date">${escapeHtml(it.date)}</td>
+                  <td>${escapeHtml((it.description || '').slice(0, 60))}</td>
+                  <td><input type="text" class="missing-ref-input" data-id="${it.transaction_id}" value="${escapeHtml(it.suggested_reference || '')}"></td>
+                  <td>
+                    <div class="missing-ref-actions">
+                      <input type="file" class="missing-ref-file" data-id="${it.transaction_id}" accept="image/jpeg,image/png,image/webp,application/pdf" multiple>
+                      <button type="button" class="btn btn-secondary btn-sm missing-ref-upload" data-id="${it.transaction_id}">Upload</button>
+                    </div>
+                  </td>
+                  <td><button type="button" class="btn btn-primary btn-sm missing-ref-save" data-id="${it.transaction_id}">Save ref</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">Error loading missing references.</p>';
+      }
+    }
+
+    async function uploadFilesToAttachments(files) {
+      const uploaded = [];
+      for (const f of files) {
+        const fd = new FormData();
+        fd.append('file', f);
+        const res = await fetch(API + '/transactions/attachments', { method: 'POST', body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || ('Failed upload: ' + f.name));
+        uploaded.push(data);
+      }
+      return uploaded;
+    }
+
+    async function getTransactionAttachmentIds(txId) {
+      const res = await fetch(API + '/transactions/' + encodeURIComponent(txId));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Cannot read transaction');
+      return (data.attachments || []).map(a => a.id);
+    }
+
+    async function runAttachmentOCR(attachmentId) {
+      const res = await fetch(API + '/transactions/attachments/' + encodeURIComponent(attachmentId) + '/ocr', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'OCR failed');
+      return data;
+    }
+
+    async function loadBudgets() {
+      const monthVal = document.getElementById('budget-month').value || new Date().toISOString().slice(0, 7);
+      try {
+        const res = await fetch(API + '/budgets/actual-vs-budget?month=' + encodeURIComponent(monthVal));
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'budget error');
+        const rows = data.rows || [];
+        if (!rows.length) {
+          budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">No budget rows for this month.</p>';
+          return;
+        }
+        budgetWrap.innerHTML = `
+          <table class="mini-table">
+            <thead><tr><th>Category</th><th>Limit</th><th>Actual</th><th>Variance</th><th>Utilization</th></tr></thead>
+            <tbody>
+              ${rows.map(r => `<tr>
+                <td>${escapeHtml(r.category)}</td>
+                <td>${formatNum(r.limit_amount)}</td>
+                <td>${formatNum(r.actual_amount)}</td>
+                <td>${formatNum(r.variance)}</td>
+                <td>${escapeHtml(r.utilization_pct)}%</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">Error loading budgets.</p>';
+      }
+    }
+
+    function setEntityDropdownsFromResponse(resolvedEntities, mentions) {
+      const byRole = { client: 'entity-client', bank: 'entity-bank', payee: 'entity-payee', supplier: 'entity-supplier' };
+      Object.keys(byRole).forEach(role => {
+        const el = document.getElementById(byRole[role]);
+        if (el) el.value = '';
+      });
+      if (resolvedEntities && resolvedEntities.length) {
+        resolvedEntities.forEach(r => {
+          const role = (r.role || '').toLowerCase();
+          const selId = byRole[role];
+          if (r.entity_id && selId) document.getElementById(selId).value = r.entity_id;
+        });
+        return;
+      }
+      if (!mentions || !mentions.length) return;
+      mentions.forEach(m => {
+        const role = (m.role || '').toLowerCase();
+        const name = (m.name || '').trim();
+        if (!name || !byRole[role]) return;
+        const arr = entityOptions[role] || [];
+        const found = arr.find(e => (e.name || '').toLowerCase() === name.toLowerCase());
+        const selId = byRole[role];
+        if (found && selId) document.getElementById(selId).value = found.id;
+      });
+    }
+
+    function appendChatMessage(role, content, options) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg ' + role + (options && options.loading ? ' loading' : '');
+      div.textContent = content;
+      if (options && options.id) div.id = options.id;
+      chatMessagesEl.appendChild(div);
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+      return div;
+    }
+
+    function extractMessageText(text) {
+      if (typeof text !== 'string') return text || "I didn't understand.";
+      const t = text.trim();
+      if (t.startsWith('{')) {
+        try {
+          const o = JSON.parse(t);
+          if (o && typeof o.message === 'string') return o.message.trim();
+        } catch (_) {}
+      }
+      return t;
+    }
+
+    function fillFormFromSuggestion(data) {
+      document.getElementById('date').value = data.date || new Date().toISOString().slice(0, 10);
+      document.getElementById('reference').value = data.reference || '';
+      document.getElementById('description').value = data.description || '';
+      const lines = data.lines || [];
+      while (linesTbody.querySelectorAll('.line-row').length > 0) linesTbody.firstElementChild.remove();
+      for (let i = 0; i < lines.length; i++) {
+        const ln = lines[i];
+        const tr = document.createElement('tr');
+        tr.className = 'line-row';
+        tr.innerHTML = `
+          <td><input type="text" class="line-code" value="${(ln.account_code || '').replace(/"/g, '&quot;')}" required></td>
+          <td><input type="number" class="line-debit" min="0" value="${ln.debit || 0}" step="1"></td>
+          <td><input type="number" class="line-credit" min="0" value="${ln.credit || 0}" step="1"></td>
+          <td><input type="text" class="line-desc" value="${(ln.line_description || '').replace(/"/g, '&quot;')}"></td>
+          <td><button type="button" class="btn btn-secondary remove-line">Remove</button></td>
+        `;
+        linesTbody.appendChild(tr);
+      }
+    }
+
+    chatSendBtn.addEventListener('click', async () => {
+      const text = (chatInput.value || '').trim();
+      if (!text) return;
+      chatInput.value = '';
+      chatHistory.push({ role: 'user', content: text });
+      appendChatMessage('user', text);
+      chatSendBtn.disabled = true;
+      chatInput.disabled = true;
+      const loadingEl = appendChatMessage('assistant', 'Processing…', { loading: true, id: 'chat-loading' });
+      try {
+        const res = await fetch(API + '/transactions/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: chatHistory, attachment_ids: selectedAttachments.map(a => a.id) })
+        });
+        const data = await res.json().catch(() => ({}));
+        const loadingNode = document.getElementById('chat-loading');
+        if (loadingNode) loadingNode.remove();
+        if (!res.ok) {
+          const errMsg = (data.detail || res.status) + '';
+          chatHistory.push({ role: 'assistant', content: errMsg });
+          appendChatMessage('assistant', 'Error: ' + errMsg);
+          showAlert(data.detail || 'Error talking to the assistant.', true);
+          return;
+        }
+        const messageText = extractMessageText(data.message);
+        chatHistory.push({ role: 'assistant', content: messageText });
+        appendChatMessage('assistant', messageText);
+        if (data.transaction) {
+          fillFormFromSuggestion(data.transaction);
+          lastEntityMentions = data.entity_mentions || null;
+          await loadEntityOptions();
+          setEntityDropdownsFromResponse(data.resolved_entities || null, lastEntityMentions || []);
+          showAlert('Voucher ready. Edit if needed, then click Save voucher.');
+        } else {
+          lastEntityMentions = null;
+        }
+      } catch (err) {
+        const loadingNode = document.getElementById('chat-loading');
+        if (loadingNode) loadingNode.remove();
+        const errMsg = err.message + '';
+        chatHistory.push({ role: 'assistant', content: errMsg });
+        appendChatMessage('assistant', 'Connection error: ' + errMsg);
+        showAlert('Connection error: ' + err.message, true);
+      } finally {
+        chatSendBtn.disabled = false;
+        chatInput.disabled = false;
+      }
+    });
+    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const date = document.getElementById('date').value;
+      const reference = document.getElementById('reference').value.trim() || null;
+      const description = document.getElementById('description').value.trim() || null;
+      const rows = Array.from(linesTbody.querySelectorAll('.line-row'));
+      const lines = rows.map(tr => ({
+        account_code: tr.querySelector('.line-code').value.trim(),
+        debit: parseInt(tr.querySelector('.line-debit').value, 10) || 0,
+        credit: parseInt(tr.querySelector('.line-credit').value, 10) || 0,
+        line_description: tr.querySelector('.line-desc').value.trim() || null
+      })).filter(l => l.account_code);
+      if (lines.length < 2) {
+        showAlert('Please add at least two lines with an account code.', true);
+        return;
+      }
+      const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
+      const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+      if (totalDebit !== totalCredit) {
+        showAlert('Total debits must equal total credits. (Debit: ' + formatNum(totalDebit) + ', Credit: ' + formatNum(totalCredit) + ')', true);
+        return;
+      }
+      submitBtn.disabled = true;
+      document.getElementById('results-wrap').classList.add('loading');
+      const entity_links = [];
+      const ec = document.getElementById('entity-client').value;
+      const eb = document.getElementById('entity-bank').value;
+      const ep = document.getElementById('entity-payee').value;
+      if (ec) entity_links.push({ role: 'client', entity_id: ec });
+      if (eb) entity_links.push({ role: 'bank', entity_id: eb });
+      if (ep) entity_links.push({ role: 'payee', entity_id: ep });
+      const es = document.getElementById('entity-supplier').value;
+      if (es) entity_links.push({ role: 'supplier', entity_id: es });
+      try {
+        const res = await fetch(API + '/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date,
+            reference,
+            description,
+            lines,
+            entity_links,
+            attachment_ids: selectedAttachments.map(a => a.id),
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || 'Error saving voucher. ' + res.status, true);
+          return;
+        }
+        showAlert('Voucher saved. Ledger updated.');
+        loadLedger();
+        loadEntities();
+        loadOwnerDashboard();
+        resetVoucherForm();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      } finally {
+        submitBtn.disabled = false;
+        document.getElementById('results-wrap').classList.remove('loading');
+      }
+    });
+
+    let ledgerData = null;
+    let chartTurnover = null;
+    let chartBalance = null;
+
+    resultsTbody.addEventListener('click', (e) => {
+      const tr = e.target.closest('tr.ledger-row');
+      if (tr && tr.dataset.accountCode) openAccountDetail(tr.dataset.accountCode);
+    });
+
+    async function openAccountDetail(accountCode) {
+      const modal = document.getElementById('account-modal');
+      const body = document.getElementById('account-modal-body');
+      const title = document.getElementById('account-modal-title');
+      title.textContent = 'Account ' + accountCode + ' — Loading…';
+      body.innerHTML = '<p class="empty-state">Loading…</p>';
+      modal.style.display = 'flex';
+      try {
+        const res = await fetch(API + '/reports/accounts/' + encodeURIComponent(accountCode) + '/detail');
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        title.textContent = data.account_code + ' — ' + data.account_name;
+        body.innerHTML = `
+          <div class="detail-summary">
+            <div><span>Debit turnover</span><strong>${formatNum(data.debit_turnover)}</strong></div>
+            <div><span>Credit turnover</span><strong>${formatNum(data.credit_turnover)}</strong></div>
+            <div><span>Debit balance</span><strong>${formatNum(data.debit_balance)}</strong></div>
+            <div><span>Credit balance</span><strong>${formatNum(data.credit_balance)}</strong></div>
+          </div>
+          <table class="detail-table">
+            <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th>Line description</th></tr></thead>
+            <tbody>
+              ${(data.lines || []).map(l => `
+                <tr>
+                  <td>${escapeHtml(l.transaction_date)}</td>
+                  <td>${escapeHtml(l.reference || '—')}</td>
+                  <td>${escapeHtml((l.description || '—').slice(0, 40))}${(l.description && l.description.length > 40) ? '…' : ''}</td>
+                  <td class="num">${formatNum(l.debit)}</td>
+                  <td class="num">${formatNum(l.credit)}</td>
+                  <td>${escapeHtml((l.line_description || '—').slice(0, 30))}${(l.line_description && l.line_description.length > 30) ? '…' : ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        body.innerHTML = '<p class="empty-state">Error loading account details.</p>';
+      }
+    }
+
+    document.getElementById('account-modal-close').onclick = () => {
+      document.getElementById('account-modal').style.display = 'none';
+    };
+    document.getElementById('account-modal').onclick = (e) => {
+      if (e.target.id === 'account-modal') e.target.style.display = 'none';
+    };
+
+    async function loadEntities() {
+      const tbody = document.getElementById('entities-tbody');
+      try {
+        const res = await fetch(API + '/entities');
+        const list = await res.json();
+        tbody.innerHTML = '';
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No entities yet. Add a client, bank, or employee above.</td></tr>';
+          return;
+        }
+        list.forEach(e => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${escapeHtml(e.type)}</td>
+            <td>${escapeHtml(e.name)}</td>
+            <td>${escapeHtml(e.code || '—')}</td>
+            <td>
+              <button type="button" class="btn btn-secondary btn-sm edit-entity" data-entity-id="${e.id}" data-entity-type="${escapeHtml(e.type)}" data-entity-name="${escapeHtml(e.name)}" data-entity-code="${escapeHtml(e.code || '')}">Edit</button>
+              <button type="button" class="btn btn-danger btn-sm delete-entity" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}" style="margin-left:0.35rem;">Delete</button>
+            </td>
+            <td><button type="button" class="btn btn-secondary btn-sm view-entity-txns" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}">View transactions</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Error loading entities.</td></tr>';
+      }
+    }
+    document.getElementById('entities-tbody').addEventListener('click', (e) => {
+      const btn = e.target.closest('.view-entity-txns');
+      if (btn) openEntityTransactions(btn.dataset.entityId, btn.dataset.entityName || '');
+      const editBtn = e.target.closest('.edit-entity');
+      if (editBtn) editEntity(editBtn);
+      const delBtn = e.target.closest('.delete-entity');
+      if (delBtn) deleteEntity(delBtn);
+    });
+    invoicesTbody.addEventListener('click', async (e) => {
+      const tlBtn = e.target.closest('.inv-timeline');
+      if (tlBtn) {
+        try {
+          const res = await fetch(API + '/invoices/' + encodeURIComponent(tlBtn.dataset.id) + '/timeline');
+          const data = await res.json().catch(() => ([]));
+          if (!res.ok) { showAlert('Cannot load timeline.', true); return; }
+          const lines = (data || []).map(x => `${x.at} - ${x.event}${x.detail ? ': ' + x.detail : ''}`).join('\n');
+          alert(lines || 'No timeline events.');
+        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      }
+      const editBtn = e.target.closest('.inv-edit');
+      if (editBtn) {
+        const id = editBtn.dataset.id;
+        const status = prompt('Status (draft, issued, paid, canceled):', editBtn.dataset.status || 'issued');
+        if (status == null) return;
+        try {
+          const res = await fetch(API + '/invoices/' + encodeURIComponent(id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(data.detail || 'Error editing invoice.', true); return; }
+          showAlert('Invoice updated.');
+          loadInvoices();
+          loadOwnerDashboard();
+        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      }
+      const paidBtn = e.target.closest('.inv-paid');
+      if (paidBtn) {
+        if (paidBtn.disabled || String(paidBtn.dataset.status || '').toLowerCase() === 'paid') return;
+        const id = paidBtn.dataset.id;
+        const payment_date = prompt('Payment date (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
+        if (!payment_date) return;
+        const bankSel = document.getElementById('inv-bank-code');
+        const bank_entity_id = (bankSel && bankSel.value) ? bankSel.value : null;
+        const bank_account_code = (
+          bankSel &&
+          bankSel.selectedOptions &&
+          bankSel.selectedOptions[0] &&
+          bankSel.selectedOptions[0].dataset.accountCode
+        ) || '1110';
+        try {
+          const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/mark-paid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payment_date, bank_account_code, bank_entity_id })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(data.detail || 'Error marking invoice paid.', true); return; }
+          showAlert('Invoice marked paid and transaction created.');
+          loadInvoices();
+          loadLedger();
+          loadOwnerDashboard();
+        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      }
+      const delBtn = e.target.closest('.inv-del');
+      if (delBtn) {
+        if (!confirm('Delete this invoice?')) return;
+        try {
+          const res = await fetch(API + '/invoices/' + encodeURIComponent(delBtn.dataset.id), { method: 'DELETE' });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            showAlert(data.detail || 'Error deleting invoice.', true);
+            return;
+          }
+          showAlert('Invoice deleted.');
+          loadInvoices();
+          loadOwnerDashboard();
+        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      }
+    });
+
+    recurringTbody.addEventListener('click', async (e) => {
+      const delBtn = e.target.closest('.recurring-del');
+      if (!delBtn) return;
+      if (!confirm('Delete recurring rule?')) return;
+      try {
+        const res = await fetch(API + '/recurring/' + encodeURIComponent(delBtn.dataset.id), { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          showAlert(data.detail || 'Error deleting recurring rule.', true);
+          return;
+        }
+        showAlert('Recurring rule deleted.');
+        loadRecurringRules();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+
+    async function editEntity(btn) {
+      const id = btn.dataset.entityId;
+      const currentType = (btn.dataset.entityType || '').trim();
+      const currentName = (btn.dataset.entityName || '').trim();
+      const currentCode = (btn.dataset.entityCode || '').trim();
+      const name = prompt('Edit name:', currentName);
+      if (name == null) return;
+      const type = prompt('Edit type (client, bank, employee, supplier):', currentType);
+      if (type == null) return;
+      const code = prompt('Edit code (optional):', currentCode);
+      if (code == null) return;
+      try {
+        const res = await fetch(API + '/entities/' + encodeURIComponent(id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, type, code }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || 'Error updating entity.', true);
+          return;
+        }
+        showAlert('Entity updated.');
+        loadEntities();
+        loadEntityOptions();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      }
+    }
+
+    async function deleteEntity(btn) {
+      const id = btn.dataset.entityId;
+      const name = btn.dataset.entityName || 'this entity';
+      if (!confirm('Delete entity "' + name + '"?')) return;
+      try {
+        const res = await fetch(API + '/entities/' + encodeURIComponent(id), { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          showAlert(data.detail || 'Error deleting entity.', true);
+          return;
+        }
+        showAlert('Entity deleted.');
+        loadEntities();
+        loadEntityOptions();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      }
+    }
+    document.getElementById('reset-db-btn').addEventListener('click', async () => {
+      if (!confirm('Clear all transactions and entities? Chart of accounts will be kept.')) return;
+      try {
+        const res = await fetch(API + '/admin/reset-db', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Reset failed.', true); return; }
+        showAlert('Database reset. Chart of accounts re-seeded.');
+        loadLedger();
+        loadEntities();
+        loadInvoices();
+        loadRecurringRules();
+        loadOwnerDashboard();
+        loadBudgets();
+        lastEntityMentions = null;
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      }
+    });
+    document.getElementById('entity-add').addEventListener('click', async () => {
+      const type = document.getElementById('entity-type').value;
+      const name = document.getElementById('entity-name').value.trim();
+      const code = document.getElementById('entity-code').value.trim() || null;
+      if (!name) { showAlert('Enter a name for the entity.', true); return; }
+      try {
+        const res = await fetch(API + '/entities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, name, code })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Error adding entity.', true); return; }
+        showAlert('Entity added.');
+        document.getElementById('entity-name').value = '';
+        document.getElementById('entity-code').value = '';
+        loadEntities();
+        loadEntityOptions();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      }
+    });
+    document.getElementById('inv-add').addEventListener('click', async () => {
+      const number = document.getElementById('inv-number').value.trim();
+      const kind = document.getElementById('inv-kind').value;
+      const amount = parseInt(document.getElementById('inv-amount').value, 10) || 0;
+      const issue_date = document.getElementById('inv-issue').value;
+      const due_date = document.getElementById('inv-due').value;
+      const entity_id = document.getElementById('inv-entity').value || null;
+      const description = document.getElementById('inv-desc').value.trim() || null;
+      if (!number || !issue_date || !due_date) { showAlert('Invoice number, issue date, and due date are required.', true); return; }
+      try {
+        const res = await fetch(API + '/invoices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number, kind, amount, issue_date, due_date, entity_id, description, status: 'issued' })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Error creating invoice.', true); return; }
+        showAlert('Invoice created.');
+        document.getElementById('inv-number').value = '';
+        document.getElementById('inv-amount').value = '0';
+        document.getElementById('inv-desc').value = '';
+        loadInvoices();
+        loadOwnerDashboard();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+
+    async function runInvoiceOCRImport(createDirect) {
+      const fileInput = document.getElementById('inv-ocr-file');
+      const statusEl = document.getElementById('inv-ocr-status');
+      const btnScan = document.getElementById('inv-ocr-scan');
+      const btnCreate = document.getElementById('inv-ocr-create');
+      const file = (fileInput && fileInput.files && fileInput.files[0]) ? fileInput.files[0] : null;
+      if (!file) { showAlert('Choose an invoice image/PDF first.', true); return; }
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('kind', document.getElementById('inv-kind').value || 'sales');
+      fd.append('create', createDirect ? 'true' : 'false');
+      const entityId = document.getElementById('inv-entity').value || '';
+      if (entityId) fd.append('entity_id', entityId);
+      const desc = (document.getElementById('inv-desc').value || '').trim();
+      if (desc) fd.append('description', desc);
+      if (statusEl) statusEl.textContent = 'Scanning invoice...';
+      btnScan.disabled = true;
+      btnCreate.disabled = true;
+      try {
+        const res = await fetch(API + '/invoices/ocr-import', { method: 'POST', body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || 'OCR import failed.', true);
+          if (statusEl) statusEl.textContent = '';
+          return;
+        }
+        const s = data.suggested || {};
+        if (s.number) document.getElementById('inv-number').value = s.number;
+        if (s.kind) document.getElementById('inv-kind').value = s.kind;
+        if (s.amount != null) document.getElementById('inv-amount').value = String(s.amount);
+        if (s.issue_date) document.getElementById('inv-issue').value = s.issue_date;
+        if (s.due_date) document.getElementById('inv-due').value = s.due_date;
+        if (s.description) document.getElementById('inv-desc').value = s.description;
+        if (s.entity_id && document.getElementById('inv-entity')) {
+          document.getElementById('inv-entity').value = s.entity_id;
+        }
+        const conf = (data.confidence != null) ? `confidence ${Math.round((Number(data.confidence) || 0) * 100)}%` : 'confidence N/A';
+        const vendor = data.vendor_name ? `vendor: ${data.vendor_name}` : 'vendor: unknown';
+        if (statusEl) statusEl.textContent = `${vendor}, ${conf}`;
+        if (data.created_invoice && createDirect) {
+          showAlert('Invoice scanned and created.');
+          loadInvoices();
+          loadOwnerDashboard();
+        } else {
+          showAlert('Invoice scanned and form filled.');
+        }
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+        if (statusEl) statusEl.textContent = '';
+      } finally {
+        btnScan.disabled = false;
+        btnCreate.disabled = false;
+      }
+    }
+
+    document.getElementById('inv-ocr-scan').addEventListener('click', () => runInvoiceOCRImport(false));
+    document.getElementById('inv-ocr-create').addEventListener('click', () => runInvoiceOCRImport(true));
+    document.getElementById('recurring-create').addEventListener('click', async () => {
+      const text = document.getElementById('recurring-text').value.trim();
+      if (!text) { showAlert('Write a recurring instruction first.', true); return; }
+      try {
+        const res = await fetch(API + '/recurring/from-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Error creating recurring rule.', true); return; }
+        showAlert('Recurring rule saved.');
+        document.getElementById('recurring-text').value = '';
+        loadRecurringRules();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+    document.getElementById('budget-save').addEventListener('click', async () => {
+      const month = document.getElementById('budget-month').value;
+      const category = document.getElementById('budget-category').value.trim();
+      const limit_amount = parseInt(document.getElementById('budget-limit').value, 10) || 0;
+      if (!month || !category) { showAlert('Month and category are required.', true); return; }
+      try {
+        const res = await fetch(API + '/budgets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ month, category, limit_amount })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Failed to save budget.', true); return; }
+        showAlert('Budget saved.');
+        loadBudgets();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+    document.getElementById('snapshot-btn').addEventListener('click', async () => {
+      try {
+        const res = await fetch(API + '/exports/monthly-snapshot', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Snapshot failed.', true); return; }
+        showAlert('Snapshot created: ' + (data.snapshot_file || 'ok'));
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+    document.getElementById('notify-btn').addEventListener('click', async () => {
+      try {
+        const res = await fetch(API + '/notifications/check', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Notification check failed.', true); return; }
+        showAlert('Alerts checked. Delivered: ' + ((data.delivered || []).join(', ') || 'none'));
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+
+    document.getElementById('missing-refs-wrap').addEventListener('click', async (e) => {
+      const upBtn = e.target.closest('.missing-ref-upload');
+      if (upBtn) {
+        const id = upBtn.dataset.id;
+        const fileInput = document.querySelector('.missing-ref-file[data-id="' + id + '"]');
+        const files = Array.from((fileInput && fileInput.files) || []);
+        if (!files.length) {
+          showAlert('Choose image/PDF files first.', true);
+          return;
+        }
+        try {
+          upBtn.disabled = true;
+          const uploaded = await uploadFilesToAttachments(files);
+          const existingIds = await getTransactionAttachmentIds(id);
+          const allIds = existingIds.concat(uploaded.map(a => a.id));
+          const patchRes = await fetch(API + '/transactions/' + encodeURIComponent(id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ attachment_ids: allIds })
+          });
+          const patchData = await patchRes.json().catch(() => ({}));
+          if (!patchRes.ok) {
+            showAlert(patchData.detail || 'Failed linking attachments to transaction.', true);
+            return;
+          }
+          if (uploaded.length) {
+            try {
+              const ocr = await runAttachmentOCR(uploaded[0].id);
+              const refInput = document.querySelector('.missing-ref-input[data-id="' + id + '"]');
+              if (refInput && !refInput.value.trim() && ocr.invoice_or_receipt_no) {
+                refInput.value = ocr.invoice_or_receipt_no;
+              }
+              showAlert('Attachments uploaded. OCR extraction completed.');
+            } catch (_) {
+              showAlert('Attachments uploaded and linked.');
+            }
+          } else {
+            showAlert('Attachments uploaded and linked.');
+          }
+          if (fileInput) fileInput.value = '';
+          loadOwnerDashboard();
+        } catch (err) {
+          showAlert('Upload failed: ' + err.message, true);
+        } finally {
+          upBtn.disabled = false;
+        }
+        return;
+      }
+      const btn = e.target.closest('.missing-ref-save');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const input = document.querySelector('.missing-ref-input[data-id="' + id + '"]');
+      const reference = (input && input.value || '').trim();
+      if (!reference) { showAlert('Reference cannot be empty.', true); return; }
+      try {
+        const res = await fetch(API + '/transactions/' + encodeURIComponent(id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reference })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Error saving reference.', true); return; }
+        showAlert('Reference updated.');
+        loadMissingReferences();
+        loadOwnerDashboard();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+
+    async function openEntityTransactions(entityId, entityName) {
+      const modal = document.getElementById('account-modal');
+      const body = document.getElementById('account-modal-body');
+      const title = document.getElementById('account-modal-title');
+      currentEntityContext = { entityId, entityName };
+      title.textContent = 'Transactions with ' + entityName + ' — Loading…';
+      body.innerHTML = '<p class="empty-state">Loading…</p>';
+      modal.style.display = 'flex';
+      try {
+        const res = await fetch(API + '/reports/entities/' + encodeURIComponent(entityId) + '/transactions');
+        if (!res.ok) throw new Error(res.statusText);
+        const transactions = await res.json();
+        entityTransactionsCache = transactions || [];
+        await loadEntityOptions();
+        title.textContent = 'Transactions with ' + entityName;
+        if (!transactions.length) {
+          body.innerHTML = '<p class="empty-state">No transactions linked to this entity yet. Link entities when saving a voucher to see them here.</p>';
+          return;
+        }
+        body.innerHTML = `
+          <table class="detail-table">
+            <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Attachments</th><th class="num">Total debit</th><th class="num">Total credit</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${transactions.map(t => {
+                const totalD = (t.lines || []).reduce((s, l) => s + (l.debit || 0), 0);
+                const totalC = (t.lines || []).reduce((s, l) => s + (l.credit || 0), 0);
+                const att = (t.attachments || []);
+                const attHtml = att.length
+                  ? att.map(a => {
+                      const href = encodeURI(String(a.url || ''));
+                      return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(a.file_name || 'attachment')}</a>`;
+                    }).join('<br>')
+                  : '—';
+                return `<tr>
+                  <td>${escapeHtml(t.date)}</td>
+                  <td>${escapeHtml(t.reference || '—')}</td>
+                  <td>${escapeHtml((t.description || '—').slice(0, 50))}${(t.description && t.description.length > 50) ? '…' : ''}</td>
+                  <td>${attHtml}</td>
+                  <td class="num">${formatNum(totalD)}</td>
+                  <td class="num">${formatNum(totalC)}</td>
+                  <td>
+                    <button type="button" class="btn btn-secondary btn-sm entity-tx-edit" data-tx-id="${t.id}">Edit</button>
+                    <button type="button" class="btn btn-danger btn-sm entity-tx-del" data-tx-id="${t.id}" style="margin-left:0.35rem;">Delete</button>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        body.innerHTML = '<p class="empty-state">Error loading transactions.</p>';
+      }
+    }
+
+    function selectedEntityIdForRole(tx, role) {
+      const links = tx && tx.entity_links ? tx.entity_links : [];
+      const match = links.find(l => (l.role || '').toLowerCase() === role);
+      return match && match.entity_id ? String(match.entity_id) : '';
+    }
+
+    function roleSelectHtml(role, currentId) {
+      const options = entityOptions[role] || [];
+      return `
+        <option value="">— None —</option>
+        ${options.map(o => `<option value="${escapeHtml(String(o.id))}" ${String(o.id) === String(currentId || '') ? 'selected' : ''}>${escapeHtml(o.name || '')}</option>`).join('')}
+      `;
+    }
+
+    function txLineRowHtml(line) {
+      const l = line || {};
+      return `
+        <tr class="edit-tx-line-row">
+          <td><input type="text" class="edit-tx-line-code" value="${escapeHtml(l.account_code || '')}" required></td>
+          <td><input type="number" class="edit-tx-line-debit" min="0" step="1" value="${Number(l.debit || 0)}"></td>
+          <td><input type="number" class="edit-tx-line-credit" min="0" step="1" value="${Number(l.credit || 0)}"></td>
+          <td><input type="text" class="edit-tx-line-desc" value="${escapeHtml(l.line_description || '')}"></td>
+          <td><button type="button" class="btn btn-secondary btn-sm edit-tx-line-remove">Remove</button></td>
+        </tr>
+      `;
+    }
+
+    function openEntityTransactionEditor(tx) {
+      const body = document.getElementById('account-modal-body');
+      const title = document.getElementById('account-modal-title');
+      title.textContent = 'Edit transaction';
+      body.innerHTML = `
+        <form id="entity-tx-edit-form">
+          <div class="form-grid">
+            <div>
+              <label>Date</label>
+              <input type="date" id="edit-tx-date" value="${escapeHtml(tx.date || '')}" required>
+            </div>
+            <div>
+              <label>Reference</label>
+              <input type="text" id="edit-tx-reference" value="${escapeHtml(tx.reference || '')}" placeholder="e.g. INV-001">
+            </div>
+            <div style="grid-column:1 / -1;">
+              <label>Description</label>
+              <textarea id="edit-tx-description" rows="2">${escapeHtml(tx.description || '')}</textarea>
+            </div>
+            <div>
+              <label>Client</label>
+              <select id="edit-tx-client">${roleSelectHtml('client', selectedEntityIdForRole(tx, 'client'))}</select>
+            </div>
+            <div>
+              <label>Bank</label>
+              <select id="edit-tx-bank">${roleSelectHtml('bank', selectedEntityIdForRole(tx, 'bank'))}</select>
+            </div>
+            <div>
+              <label>Payee</label>
+              <select id="edit-tx-payee">${roleSelectHtml('payee', selectedEntityIdForRole(tx, 'payee'))}</select>
+            </div>
+            <div>
+              <label>Supplier</label>
+              <select id="edit-tx-supplier">${roleSelectHtml('supplier', selectedEntityIdForRole(tx, 'supplier'))}</select>
+            </div>
+            <div style="grid-column:1 / -1;">
+              <label>Lines (debit/credit)</label>
+              <table class="detail-table" style="margin-top:0.35rem;">
+                <thead><tr><th>Account code</th><th>Debit</th><th>Credit</th><th>Line description</th><th></th></tr></thead>
+                <tbody id="edit-tx-lines-body">
+                  ${(tx.lines || []).map(txLineRowHtml).join('')}
+                </tbody>
+              </table>
+              <button type="button" class="btn btn-secondary btn-sm" id="edit-tx-add-line" style="margin-top:0.45rem;">+ Add line</button>
+            </div>
+          </div>
+          <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+            <button type="submit" class="btn btn-primary">Save changes</button>
+            <button type="button" class="btn btn-secondary" id="entity-tx-edit-cancel">Back</button>
+          </div>
+        </form>
+      `;
+      const cancelBtn = document.getElementById('entity-tx-edit-cancel');
+      if (cancelBtn && currentEntityContext) {
+        cancelBtn.onclick = () => openEntityTransactions(currentEntityContext.entityId, currentEntityContext.entityName);
+      }
+      const addLineBtn = document.getElementById('edit-tx-add-line');
+      if (addLineBtn) {
+        addLineBtn.onclick = () => {
+          const bodyEl = document.getElementById('edit-tx-lines-body');
+          if (bodyEl) bodyEl.insertAdjacentHTML('beforeend', txLineRowHtml({}));
+        };
+      }
+      const linesBodyEl = document.getElementById('edit-tx-lines-body');
+      if (linesBodyEl) {
+        linesBodyEl.onclick = (e) => {
+          const rm = e.target.closest('.edit-tx-line-remove');
+          if (!rm) return;
+          const rows = linesBodyEl.querySelectorAll('.edit-tx-line-row');
+          if (rows.length <= 2) {
+            showAlert('A transaction needs at least two lines.', true);
+            return;
+          }
+          const tr = rm.closest('.edit-tx-line-row');
+          if (tr) tr.remove();
+        };
+      }
+      const form = document.getElementById('entity-tx-edit-form');
+      if (form) {
+        form.onsubmit = async (e) => {
+          e.preventDefault();
+          const lineRows = Array.from(document.querySelectorAll('#edit-tx-lines-body .edit-tx-line-row'));
+          const lines = lineRows.map((tr) => ({
+            account_code: (tr.querySelector('.edit-tx-line-code').value || '').trim(),
+            debit: parseInt(tr.querySelector('.edit-tx-line-debit').value, 10) || 0,
+            credit: parseInt(tr.querySelector('.edit-tx-line-credit').value, 10) || 0,
+            line_description: (tr.querySelector('.edit-tx-line-desc').value || '').trim() || null,
+          })).filter((l) => l.account_code);
+          if (lines.length < 2) {
+            showAlert('Please keep at least two lines with account code.', true);
+            return;
+          }
+          const totalDebit = lines.reduce((s, l) => s + (l.debit || 0), 0);
+          const totalCredit = lines.reduce((s, l) => s + (l.credit || 0), 0);
+          if (totalDebit !== totalCredit) {
+            showAlert('Debits and credits must be equal.', true);
+            return;
+          }
+          const entity_links = [];
+          const c = document.getElementById('edit-tx-client').value;
+          const b = document.getElementById('edit-tx-bank').value;
+          const p = document.getElementById('edit-tx-payee').value;
+          const s = document.getElementById('edit-tx-supplier').value;
+          if (c) entity_links.push({ role: 'client', entity_id: c });
+          if (b) entity_links.push({ role: 'bank', entity_id: b });
+          if (p) entity_links.push({ role: 'payee', entity_id: p });
+          if (s) entity_links.push({ role: 'supplier', entity_id: s });
+          const payload = {
+            date: document.getElementById('edit-tx-date').value,
+            reference: document.getElementById('edit-tx-reference').value.trim() || null,
+            description: document.getElementById('edit-tx-description').value.trim() || null,
+            lines,
+            entity_links,
+          };
+          try {
+            const res = await fetch(API + '/transactions/' + encodeURIComponent(tx.id), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              showAlert(data.detail || 'Error updating transaction.', true);
+              return;
+            }
+            showAlert('Transaction updated.');
+            if (currentEntityContext) openEntityTransactions(currentEntityContext.entityId, currentEntityContext.entityName);
+            loadOwnerDashboard();
+            loadLedger();
+          } catch (err) {
+            showAlert('Connection error: ' + err.message, true);
+          }
+        };
+      }
+    }
+
+    document.getElementById('account-modal-body').addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('.entity-tx-edit');
+      if (editBtn) {
+        const tx = entityTransactionsCache.find(x => String(x.id) === String(editBtn.dataset.txId));
+        if (tx) openEntityTransactionEditor(tx);
+        return;
+      }
+      const delBtn = e.target.closest('.entity-tx-del');
+      if (!delBtn) return;
+      if (!confirm('Delete this transaction?')) return;
+      try {
+        const res = await fetch(API + '/transactions/' + encodeURIComponent(delBtn.dataset.txId), { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          showAlert(data.detail || 'Error deleting transaction.', true);
+          return;
+        }
+        showAlert('Transaction deleted.');
+        if (currentEntityContext) openEntityTransactions(currentEntityContext.entityId, currentEntityContext.entityName);
+        loadOwnerDashboard();
+        loadLedger();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      }
+    });
+
+    function parseCode(code) {
+      const n = Number(code);
+      return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+    }
+
+    function accountTurnover(r) {
+      return (r.debit_turnover || 0) + (r.credit_turnover || 0);
+    }
+
+    function accountNet(r) {
+      return (r.debit_balance || 0) - (r.credit_balance || 0);
+    }
+
+    function renderLedgerKpis(rows) {
+      if (!rows || !rows.length) {
+        ledgerKpisEl.innerHTML = '';
+        return;
+      }
+      const totalMovement = rows.reduce((s, r) => s + accountTurnover(r), 0);
+      const net = rows.reduce((s, r) => s + accountNet(r), 0);
+      const active = rows.filter(r => accountTurnover(r) !== 0).length;
+      const topDebit = [...rows].sort((a, b) => (b.debit_turnover || 0) - (a.debit_turnover || 0))[0];
+      const topCredit = [...rows].sort((a, b) => (b.credit_turnover || 0) - (a.credit_turnover || 0))[0];
+      ledgerKpisEl.innerHTML = `
+        <div class="ledger-kpi"><div class="k">Accounts shown</div><div class="v">${formatNum(rows.length)}</div></div>
+        <div class="ledger-kpi"><div class="k">Active accounts</div><div class="v">${formatNum(active)}</div></div>
+        <div class="ledger-kpi"><div class="k">Total movement</div><div class="v">${formatNum(totalMovement)}</div></div>
+        <div class="ledger-kpi"><div class="k">Net position</div><div class="v ${net >= 0 ? 'ledger-positive' : 'ledger-negative'}">${formatNum(Math.abs(net))} ${net >= 0 ? 'DR' : 'CR'}</div></div>
+        <div class="ledger-kpi"><div class="k">Top debit</div><div class="v">${topDebit ? escapeHtml(topDebit.account_code) : '—'}</div></div>
+        <div class="ledger-kpi"><div class="k">Top credit</div><div class="v">${topCredit ? escapeHtml(topCredit.account_code) : '—'}</div></div>
+      `;
+    }
+
+    function sortLedgerRows(rows) {
+      const sortBy = ledgerSortEl.value || 'turnover_desc';
+      const out = [...rows];
+      out.sort((a, b) => {
+        if (sortBy === 'code_asc') return parseCode(a.account_code) - parseCode(b.account_code);
+        if (sortBy === 'name_asc') return String(a.account_name || '').localeCompare(String(b.account_name || ''));
+        if (sortBy === 'turnover_asc') return accountTurnover(a) - accountTurnover(b);
+        if (sortBy === 'balance_desc') return accountNet(b) - accountNet(a);
+        if (sortBy === 'balance_asc') return accountNet(a) - accountNet(b);
+        return accountTurnover(b) - accountTurnover(a);
+      });
+      return out;
+    }
+
+    function filteredLedgerRows() {
+      if (!ledgerData || !Array.isArray(ledgerData.rows)) return [];
+      const q = (ledgerSearchEl.value || '').trim().toLowerCase();
+      const onlyNonZero = !!ledgerNonZeroEl.checked;
+      let rows = ledgerData.rows.filter(r => {
+        if (onlyNonZero && accountTurnover(r) === 0) return false;
+        if (!q) return true;
+        return String(r.account_code || '').toLowerCase().includes(q) || String(r.account_name || '').toLowerCase().includes(q);
+      });
+      rows = sortLedgerRows(rows);
+      return rows;
+    }
+
+    function renderCharts(rows) {
+      const row = document.getElementById('charts-row');
+      if (!rows || rows.length === 0) { row.style.display = 'none'; return; }
+      row.style.display = 'grid';
+      const maxN = Number(ledgerTopNEl.value || 12);
+      const chartRows = rows.slice(0, maxN);
+      const labels = chartRows.map(r => r.account_code + ' ' + (r.account_name || '').slice(0, 16));
+      if (chartTurnover) chartTurnover.destroy();
+      if (chartBalance) chartBalance.destroy();
+      const colors = ['#0f766e', '#14b8a6', '#0ea5e9', '#f59e0b'];
+      chartTurnover = new Chart(document.getElementById('chart-turnover'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Debit turnover', data: chartRows.map(r => r.debit_turnover), backgroundColor: colors[0], borderRadius: 5, stack: 'turnover' },
+            { label: 'Credit turnover', data: chartRows.map(r => r.credit_turnover), backgroundColor: colors[1], borderRadius: 5, stack: 'turnover' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': ' + formatNum(ctx.raw || 0) } }
+          },
+          scales: {
+            x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true } },
+            y: { beginAtZero: true, ticks: { callback: (v) => formatNum(v) } }
+          }
+        }
+      });
+      const balanceLabels = chartRows.map(r => r.account_code);
+      const balanceData = chartRows.map(r => accountNet(r));
+      chartBalance = new Chart(document.getElementById('chart-balance'), {
+        type: 'line',
+        data: {
+          labels: balanceLabels,
+          datasets: [{
+            label: 'Net balance (debit − credit)',
+            data: balanceData,
+            borderColor: colors[2],
+            backgroundColor: balanceData.map(v => v >= 0 ? 'rgba(5, 150, 105, 0.22)' : 'rgba(185, 28, 28, 0.22)'),
+            fill: true,
+            tension: 0.25,
+            pointRadius: 3,
+            pointBackgroundColor: balanceData.map(v => v >= 0 ? '#059669' : '#b91c1c')
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': ' + formatNum(ctx.raw || 0) } }
+          },
+          scales: {
+            x: { ticks: { maxRotation: 0, autoSkip: true } },
+            y: { beginAtZero: true, ticks: { callback: (v) => formatNum(v) } }
+          }
+        }
+      });
+    }
+
+    function renderLedgerTable(rows) {
+      resultsTbody.innerHTML = '';
+      if (!rows.length) {
+        resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">No ledger rows match your filters.</td></tr>';
+        resultsFoot.style.display = 'none';
+        document.getElementById('charts-row').style.display = 'none';
+        ledgerKpisEl.innerHTML = '';
+        return;
+      }
+      rows.forEach(r => {
+        const net = accountNet(r);
+        const tr = document.createElement('tr');
+        tr.className = 'ledger-row';
+        tr.dataset.accountCode = r.account_code;
+        tr.innerHTML = `
+          <td>${r.account_code}</td>
+          <td>${r.account_name}</td>
+          <td class="num">${formatNum(r.debit_turnover)}</td>
+          <td class="num">${formatNum(r.credit_turnover)}</td>
+          <td class="num">${formatNum(r.debit_balance)}</td>
+          <td class="num ${net < 0 ? 'ledger-negative' : ''}">${formatNum(r.credit_balance)}</td>
+        `;
+        resultsTbody.appendChild(tr);
+      });
+      const totals = rows.reduce((acc, r) => {
+        acc.debitTurnover += r.debit_turnover || 0;
+        acc.creditTurnover += r.credit_turnover || 0;
+        acc.debitBalance += r.debit_balance || 0;
+        acc.creditBalance += r.credit_balance || 0;
+        return acc;
+      }, { debitTurnover: 0, creditTurnover: 0, debitBalance: 0, creditBalance: 0 });
+      resultsFoot.style.display = 'table-row-group';
+      document.getElementById('foot-debit-turnover').textContent = formatNum(totals.debitTurnover);
+      document.getElementById('foot-credit-turnover').textContent = formatNum(totals.creditTurnover);
+      document.getElementById('foot-debit-balance').textContent = formatNum(totals.debitBalance);
+      document.getElementById('foot-credit-balance').textContent = formatNum(totals.creditBalance);
+      renderLedgerKpis(rows);
+      renderCharts(rows);
+    }
+
+    function renderLedgerView() {
+      const rows = filteredLedgerRows();
+      renderLedgerTable(rows);
+    }
+
+    async function loadLedger() {
+      try {
+        const res = await fetch(API + '/reports/ledger-summary');
+        const data = await res.json();
+        ledgerData = data;
+        if (!data.rows || data.rows.length === 0) {
+          resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">No transactions yet. Use the form above to add a voucher.</td></tr>';
+          resultsFoot.style.display = 'none';
+          document.getElementById('charts-row').style.display = 'none';
+          ledgerKpisEl.innerHTML = '';
+          return;
+        }
+        renderLedgerView();
+      } catch (err) {
+        resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading ledger.</td></tr>';
+        resultsFoot.style.display = 'none';
+        document.getElementById('charts-row').style.display = 'none';
+        ledgerKpisEl.innerHTML = '';
+      }
+    }
+
+    [ledgerSearchEl, ledgerSortEl, ledgerTopNEl, ledgerNonZeroEl].forEach(el => {
+      if (!el) return;
+      el.addEventListener('input', renderLedgerView);
+      el.addEventListener('change', renderLedgerView);
+    });
+    if (aiProviderSelect) aiProviderSelect.addEventListener('change', syncAIFieldsByProvider);
+    if (aiSaveBtn) aiSaveBtn.addEventListener('click', saveAIConfig);
+
+    document.getElementById('date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('inv-issue').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('inv-due').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('budget-month').value = new Date().toISOString().slice(0, 7);
+    topNav.addEventListener('click', (e) => {
+      const btn = e.target.closest('.nav-btn[data-page]');
+      if (!btn) return;
+      showPage(btn.getAttribute('data-page'));
+    });
+    window.addEventListener('hashchange', () => showPage((location.hash || '#dashboard').slice(1)));
+    showPage((location.hash || '#dashboard').slice(1));
+    loadAIConfig();
+    renderAttachments();
+    appendChatMessage('assistant', "Hi. I'm your AI accountant. Describe the financial event (e.g. I received 1M from my client, or I paid 500k for rent). I'll ask for the details we need for the books and reports: which client, which bank account, what it was for, and optionally a reference like an invoice number. Then I'll fill the voucher with reference and line descriptions.");
+    loadLedger();
+    loadEntities();
+    loadInvoices();
+    loadRecurringRules();
+    loadOwnerDashboard();
+    loadBudgets();
+    loadEntityOptions();
+  </script>
+</body>
+</html>

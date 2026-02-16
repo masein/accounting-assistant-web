@@ -1,0 +1,17 @@
+name = "accounting-assistant"
+main = "container-worker.mjs"
+compatibility_date = "2026-02-14"
+
+[[containers]]
+class_name = "AccountingContainer"
+image = "./Dockerfile"
+instance_type = "basic"
+max_instances = 2
+
+[[durable_objects.bindings]]
+name = "ACCOUNTING_CONTAINER"
+class_name = "AccountingContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AccountingContainer"]

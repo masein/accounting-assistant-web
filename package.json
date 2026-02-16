@@ -1,0 +1,8 @@
+{
+  "name": "accounting-assistant-cloudflare",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@cloudflare/containers": "^0.0.18"
+  }
+}

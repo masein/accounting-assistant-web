@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+SQLAlchemy
+alembic
+psycopg[binary]
+pydantic-settings
+python-multipart
+httpx
+reportlab
+openpyxl
+pypdf

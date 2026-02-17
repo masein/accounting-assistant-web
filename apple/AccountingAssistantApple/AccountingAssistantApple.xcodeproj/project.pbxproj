@@ -1,0 +1,675 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0C93D5BE883946FECE8387E1 /* AccountingAssistantMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0208B59A5987119EF7D77A0F /* AccountingAssistantMacApp.swift */; };
+		10EB31573DB319964972731C /* AssistantModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1CE78C3CBF0421A0D56ED4E /* AssistantModels.swift */; };
+		2413EDF4E9AA5DC78FEB2557 /* VoiceInputManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F1FFB82CF453A64C47E2C9 /* VoiceInputManager.swift */; };
+		2583C0C3A405ED33AE79A12D /* AssistantModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B4B849EAD5D9DB22065A98 /* AssistantModels.swift */; };
+		357549E96B6E0957C5AF483E /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A53BBAA5FCFEB75ED50E297B /* AppConfig.swift */; };
+		422B4CEBD3B7A885F7528EB3 /* AccountingAssistantIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DECDA402B14E0CA0B3886EF /* AccountingAssistantIOSApp.swift */; };
+		443B99ED9C06ECED6464A00C /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6226EB63A66CEEE044F03DF5 /* ChatViewModel.swift */; };
+		5ECD3128935550F9FDE6CEC9 /* VoiceInputManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93E5B552D32E065078CA33AD /* VoiceInputManager.swift */; };
+		5F2C6D32E5E42E571789DF32 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCDBADECF0ECE68D0F2691A1 /* ChatViewModel.swift */; };
+		694D738AD070D54FAE8CEE3F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2596E16F73ACF097FD3B3ADB /* Foundation.framework */; };
+		71DC1A3E9457E8DA41E8CFF9 /* AssistantAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F269A23844B6E38AF97B3991 /* AssistantAPI.swift */; };
+		73EBD66B0CED759BE861C9E5 /* AssistantAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2EDE1E480DF2CF4840228ED /* AssistantAPI.swift */; };
+		795B20EFDE4BAB0AF8940942 /* AssistantAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8153A35B55A94BE6611FF2AC /* AssistantAPI.swift */; };
+		8D95428114E8FC36597DA964 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E236E2C2CD6D013DABB9FA39 /* Foundation.framework */; };
+		8E1BC08387F2896BC9019151 /* WatchChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B60BE892E445C395EF3FEB /* WatchChatView.swift */; };
+		92E8BD772BB93B8A64D6286D /* AssistantModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91B8C365762DFF95D0997407 /* AssistantModels.swift */; };
+		973EA1F9DD7C9707FE09D6DD /* ChatViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC21BAAF2F1EFA95A94EF14 /* ChatViews.swift */; };
+		B5889280C215A23689E97640 /* ChatViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF54B272C814AF5717826EA8 /* ChatViews.swift */; };
+		BD564A107F56AA35913DE8FB /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B97D5F50A34D03540EDFE020 /* ChatViewModel.swift */; };
+		C83BA781EF25B09AA353048A /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 447E10AE6A57F07C07518E3E /* AppConfig.swift */; };
+		CC248D7C4C67489691E31F19 /* AccountingAssistantWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20534C0AA431F352AD1969ED /* AccountingAssistantWatchApp.swift */; };
+		D519ADAB63885CE91F4E3C58 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAE5A8981742BDF1529DE0C0 /* Cocoa.framework */; };
+		D540DB9CBE7A0859BB5FC06B /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205C1B72A072115F838C45ED /* AppConfig.swift */; };
+		E0F91DF1D115EBB878B6CB7C /* VoiceInputManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC5162E2CDB1B5A9CDC39F7D /* VoiceInputManager.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0208B59A5987119EF7D77A0F /* AccountingAssistantMacApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountingAssistantMacApp.swift; sourceTree = "<group>"; };
+		074039049D4239904D194BE6 /* AccountingAssistant macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AccountingAssistant macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		20534C0AA431F352AD1969ED /* AccountingAssistantWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountingAssistantWatchApp.swift; sourceTree = "<group>"; };
+		205C1B72A072115F838C45ED /* AppConfig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		2596E16F73ACF097FD3B3ADB /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS7.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		31F1FFB82CF453A64C47E2C9 /* VoiceInputManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputManager.swift; sourceTree = "<group>"; };
+		447E10AE6A57F07C07518E3E /* AppConfig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		4AC21BAAF2F1EFA95A94EF14 /* ChatViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatViews.swift; sourceTree = "<group>"; };
+		4DECDA402B14E0CA0B3886EF /* AccountingAssistantIOSApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountingAssistantIOSApp.swift; sourceTree = "<group>"; };
+		6226EB63A66CEEE044F03DF5 /* ChatViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		8153A35B55A94BE6611FF2AC /* AssistantAPI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistantAPI.swift; sourceTree = "<group>"; };
+		90B60BE892E445C395EF3FEB /* WatchChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchChatView.swift; sourceTree = "<group>"; };
+		91B8C365762DFF95D0997407 /* AssistantModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistantModels.swift; sourceTree = "<group>"; };
+		93E5B552D32E065078CA33AD /* VoiceInputManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputManager.swift; sourceTree = "<group>"; };
+		A53BBAA5FCFEB75ED50E297B /* AppConfig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		B97D5F50A34D03540EDFE020 /* ChatViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		C6B4B849EAD5D9DB22065A98 /* AssistantModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistantModels.swift; sourceTree = "<group>"; };
+		CAE5A8981742BDF1529DE0C0 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		CC5162E2CDB1B5A9CDC39F7D /* VoiceInputManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputManager.swift; sourceTree = "<group>"; };
+		CCDBADECF0ECE68D0F2691A1 /* ChatViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		D2EDE1E480DF2CF4840228ED /* AssistantAPI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistantAPI.swift; sourceTree = "<group>"; };
+		DF54B272C814AF5717826EA8 /* ChatViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatViews.swift; sourceTree = "<group>"; };
+		E1CE78C3CBF0421A0D56ED4E /* AssistantModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistantModels.swift; sourceTree = "<group>"; };
+		E236E2C2CD6D013DABB9FA39 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		E4AABC36BA64FBC967322DFF /* AccountingAssistant watchOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AccountingAssistant watchOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F269A23844B6E38AF97B3991 /* AssistantAPI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistantAPI.swift; sourceTree = "<group>"; };
+		FC55478C77A6C84E6BF58F7F /* AccountingAssistant iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AccountingAssistant iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		063531778D83167142B7BC47 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D95428114E8FC36597DA964 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7460829EE0F4F81AFD89F56 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				694D738AD070D54FAE8CEE3F /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6E6A9EAF7C04E7B7A2F6D9B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D519ADAB63885CE91F4E3C58 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		304E734CBA8C94D83487B46D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FC55478C77A6C84E6BF58F7F /* AccountingAssistant iOS.app */,
+				074039049D4239904D194BE6 /* AccountingAssistant macOS.app */,
+				E4AABC36BA64FBC967322DFF /* AccountingAssistant watchOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		475F4FC7CD17216B85BEA1B2 = {
+			isa = PBXGroup;
+			children = (
+				304E734CBA8C94D83487B46D /* Products */,
+				9A482975DBE4C9F6C4AC74F0 /* Frameworks */,
+				5785CF30409213C1417FF4AF /* Shared */,
+				FBB602B4F2C4ED8FCC2328A3 /* iOS */,
+				CF3B722BA0BD5CCC4FE6D53A /* macOS */,
+				B7E02E282C0D27E422D5EC02 /* watchOS */,
+			);
+			sourceTree = "<group>";
+		};
+		4BB4CD17B95E14675CBF241C /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				E236E2C2CD6D013DABB9FA39 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		5785CF30409213C1417FF4AF /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				447E10AE6A57F07C07518E3E /* AppConfig.swift */,
+				91B8C365762DFF95D0997407 /* AssistantModels.swift */,
+				F269A23844B6E38AF97B3991 /* AssistantAPI.swift */,
+				CC5162E2CDB1B5A9CDC39F7D /* VoiceInputManager.swift */,
+				6226EB63A66CEEE044F03DF5 /* ChatViewModel.swift */,
+				DF54B272C814AF5717826EA8 /* ChatViews.swift */,
+				205C1B72A072115F838C45ED /* AppConfig.swift */,
+				C6B4B849EAD5D9DB22065A98 /* AssistantModels.swift */,
+				D2EDE1E480DF2CF4840228ED /* AssistantAPI.swift */,
+				93E5B552D32E065078CA33AD /* VoiceInputManager.swift */,
+				B97D5F50A34D03540EDFE020 /* ChatViewModel.swift */,
+				4AC21BAAF2F1EFA95A94EF14 /* ChatViews.swift */,
+				A53BBAA5FCFEB75ED50E297B /* AppConfig.swift */,
+				E1CE78C3CBF0421A0D56ED4E /* AssistantModels.swift */,
+				8153A35B55A94BE6611FF2AC /* AssistantAPI.swift */,
+				31F1FFB82CF453A64C47E2C9 /* VoiceInputManager.swift */,
+				CCDBADECF0ECE68D0F2691A1 /* ChatViewModel.swift */,
+				90B60BE892E445C395EF3FEB /* WatchChatView.swift */,
+			);
+			name = Shared;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		68FA9D31FA315D4383EFE019 /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				2596E16F73ACF097FD3B3ADB /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
+		9A482975DBE4C9F6C4AC74F0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4BB4CD17B95E14675CBF241C /* iOS */,
+				F75F30E3026D639D16795992 /* OS X */,
+				68FA9D31FA315D4383EFE019 /* watchOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B7E02E282C0D27E422D5EC02 /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				20534C0AA431F352AD1969ED /* AccountingAssistantWatchApp.swift */,
+			);
+			name = watchOS;
+			path = watchOS;
+			sourceTree = "<group>";
+		};
+		CF3B722BA0BD5CCC4FE6D53A /* macOS */ = {
+			isa = PBXGroup;
+			children = (
+				0208B59A5987119EF7D77A0F /* AccountingAssistantMacApp.swift */,
+			);
+			name = macOS;
+			path = macOS;
+			sourceTree = "<group>";
+		};
+		F75F30E3026D639D16795992 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				CAE5A8981742BDF1529DE0C0 /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		FBB602B4F2C4ED8FCC2328A3 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				4DECDA402B14E0CA0B3886EF /* AccountingAssistantIOSApp.swift */,
+			);
+			name = iOS;
+			path = iOS;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		71371854BFCB637E3EFF40D1 /* AccountingAssistant iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 652C8C353BC07E22B14B7EBE /* Build configuration list for PBXNativeTarget "AccountingAssistant iOS" */;
+			buildPhases = (
+				59390C5BBBF6F3425F41E498 /* Sources */,
+				063531778D83167142B7BC47 /* Frameworks */,
+				BB93A62D6807F759E5FCC3CF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "AccountingAssistant iOS";
+			productName = "AccountingAssistant iOS";
+			productReference = FC55478C77A6C84E6BF58F7F /* AccountingAssistant iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		82284602278F20466071FE8D /* AccountingAssistant watchOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3E9BD521943F60E1C88FD1C0 /* Build configuration list for PBXNativeTarget "AccountingAssistant watchOS" */;
+			buildPhases = (
+				40237B615D0D4A0CE461A03D /* Sources */,
+				A7460829EE0F4F81AFD89F56 /* Frameworks */,
+				F3ACE18C3577CDA1BDC2E025 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "AccountingAssistant watchOS";
+			productName = "AccountingAssistant watchOS";
+			productReference = E4AABC36BA64FBC967322DFF /* AccountingAssistant watchOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A55714E7F45965D9B4D224FB /* AccountingAssistant macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D44D5A37057CD1B1340C3FB8 /* Build configuration list for PBXNativeTarget "AccountingAssistant macOS" */;
+			buildPhases = (
+				D5CFBC83D15BE235BD089ECC /* Sources */,
+				D6E6A9EAF7C04E7B7A2F6D9B /* Frameworks */,
+				AAA4EB0103DDB0A79CD718E9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "AccountingAssistant macOS";
+			productName = "AccountingAssistant macOS";
+			productReference = 074039049D4239904D194BE6 /* AccountingAssistant macOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1C3F56EA7BBAB823A01CCC11 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 8A9AEEEA41DA1396DC576E1F /* Build configuration list for PBXProject "AccountingAssistantApple" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 475F4FC7CD17216B85BEA1B2;
+			productRefGroup = 304E734CBA8C94D83487B46D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				71371854BFCB637E3EFF40D1 /* AccountingAssistant iOS */,
+				A55714E7F45965D9B4D224FB /* AccountingAssistant macOS */,
+				82284602278F20466071FE8D /* AccountingAssistant watchOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AAA4EB0103DDB0A79CD718E9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB93A62D6807F759E5FCC3CF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3ACE18C3577CDA1BDC2E025 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		40237B615D0D4A0CE461A03D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				357549E96B6E0957C5AF483E /* AppConfig.swift in Sources */,
+				10EB31573DB319964972731C /* AssistantModels.swift in Sources */,
+				795B20EFDE4BAB0AF8940942 /* AssistantAPI.swift in Sources */,
+				2413EDF4E9AA5DC78FEB2557 /* VoiceInputManager.swift in Sources */,
+				5F2C6D32E5E42E571789DF32 /* ChatViewModel.swift in Sources */,
+				8E1BC08387F2896BC9019151 /* WatchChatView.swift in Sources */,
+				CC248D7C4C67489691E31F19 /* AccountingAssistantWatchApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59390C5BBBF6F3425F41E498 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C83BA781EF25B09AA353048A /* AppConfig.swift in Sources */,
+				92E8BD772BB93B8A64D6286D /* AssistantModels.swift in Sources */,
+				71DC1A3E9457E8DA41E8CFF9 /* AssistantAPI.swift in Sources */,
+				E0F91DF1D115EBB878B6CB7C /* VoiceInputManager.swift in Sources */,
+				443B99ED9C06ECED6464A00C /* ChatViewModel.swift in Sources */,
+				B5889280C215A23689E97640 /* ChatViews.swift in Sources */,
+				422B4CEBD3B7A885F7528EB3 /* AccountingAssistantIOSApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5CFBC83D15BE235BD089ECC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D540DB9CBE7A0859BB5FC06B /* AppConfig.swift in Sources */,
+				2583C0C3A405ED33AE79A12D /* AssistantModels.swift in Sources */,
+				73EBD66B0CED759BE861C9E5 /* AssistantAPI.swift in Sources */,
+				5ECD3128935550F9FDE6CEC9 /* VoiceInputManager.swift in Sources */,
+				BD564A107F56AA35913DE8FB /* ChatViewModel.swift in Sources */,
+				973EA1F9DD7C9707FE09D6DD /* ChatViews.swift in Sources */,
+				0C93D5BE883946FECE8387E1 /* AccountingAssistantMacApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		48D4636B82DE2E4945F1E6AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Accounting Assistant";
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow voice commands for accounting chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow attaching receipt images to accounting chat.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow speech-to-text for faster bookkeeping.";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.masein.accountingassistant.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		6CC37CC4C8BF8064848CE40B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Assistant;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow voice commands for accounting chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow attaching receipt images to accounting chat.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow speech-to-text for faster bookkeeping.";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.masein.accountingassistant.watchos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		77111B7C359CBB6D237C5892 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		9959C23C4DBA54F17F94BE08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Accounting Assistant";
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow voice commands for accounting chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow attaching receipt images to accounting chat.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow speech-to-text for faster bookkeeping.";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.masein.accountingassistant.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B6083AEA8D9AFA1073E199DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Accounting Assistant";
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow voice commands for accounting chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow attaching receipt images to accounting chat.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow speech-to-text for faster bookkeeping.";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.masein.accountingassistant.macos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		BD93E2A7842EC0C59EB66373 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Accounting Assistant";
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow voice commands for accounting chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow attaching receipt images to accounting chat.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow speech-to-text for faster bookkeeping.";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.masein.accountingassistant.macos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DBEE11C62BC321B872895108 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Assistant;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow voice commands for accounting chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow attaching receipt images to accounting chat.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow speech-to-text for faster bookkeeping.";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.masein.accountingassistant.watchos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		F522901B6F3EF58B16B63D15 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3E9BD521943F60E1C88FD1C0 /* Build configuration list for PBXNativeTarget "AccountingAssistant watchOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6CC37CC4C8BF8064848CE40B /* Release */,
+				DBEE11C62BC321B872895108 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		652C8C353BC07E22B14B7EBE /* Build configuration list for PBXNativeTarget "AccountingAssistant iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9959C23C4DBA54F17F94BE08 /* Release */,
+				48D4636B82DE2E4945F1E6AB /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8A9AEEEA41DA1396DC576E1F /* Build configuration list for PBXProject "AccountingAssistantApple" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				77111B7C359CBB6D237C5892 /* Debug */,
+				F522901B6F3EF58B16B63D15 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D44D5A37057CD1B1340C3FB8 /* Build configuration list for PBXNativeTarget "AccountingAssistant macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B6083AEA8D9AFA1073E199DC /* Release */,
+				BD93E2A7842EC0C59EB66373 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 1C3F56EA7BBAB823A01CCC11 /* Project object */;
+}

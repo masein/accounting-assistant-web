@@ -86,7 +86,6 @@ struct AppleChatRootView: View {
             desktopBody
             #endif
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onChange(of: vm.voice.transcript) { _, newValue in
             if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 vm.composerText = newValue
@@ -132,23 +131,19 @@ struct AppleChatRootView: View {
 
     #if os(iOS)
     private var iosBody: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .top) {
-                AnimatedBackdrop(compact: true)
-                VStack(spacing: 10) {
-                    iosTopCard
-                    attachmentStrip
-                    chatScroller
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .padding(.horizontal, 10)
-                .padding(.top, max(proxy.safeAreaInsets.top, 10))
-                .padding(.bottom, 8)
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+        ZStack(alignment: .top) {
+            AnimatedBackdrop(compact: true)
+            VStack(spacing: 10) {
+                iosTopCard
+                attachmentStrip
+                chatScroller
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .ignoresSafeArea()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             composer
                 .padding(.horizontal, 8)
@@ -156,6 +151,7 @@ struct AppleChatRootView: View {
                 .padding(.bottom, 8)
                 .background(.ultraThinMaterial)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private var iosTopCard: some View {
@@ -194,7 +190,7 @@ struct AppleChatRootView: View {
             iosQuickActions
         }
         .padding(12)
-        .background(Color.black.opacity(0.16), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.white.opacity(0.14), lineWidth: 1)

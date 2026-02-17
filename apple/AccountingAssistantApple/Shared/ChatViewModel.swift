@@ -36,6 +36,18 @@ final class ChatViewModel: ObservableObject {
         let label: String
     }
 
+    private struct CashflowTotals {
+        let inflow: Int
+        let outflow: Int
+        var net: Int { inflow - outflow }
+    }
+
+    private enum CashflowIntent {
+        case inflow
+        case outflow
+        case net
+    }
+
     init() {
         let saved = UserDefaults.standard.string(forKey: AppConfig.userDefaultsBackendKey) ?? AppConfig.defaultBackendURL
         let normalized = Self.normalizeBackendURL(saved)
@@ -44,7 +56,7 @@ final class ChatViewModel: ObservableObject {
         self.messages = [
             ChatEntry(
                 actor: .assistant,
-                text: "Hi. I can post vouchers, find transactions, and show dashboard/ledger/balance charts. Try: \"/dashboard\", \"last 10 transactions for Melli\", or \"what is my current balance\"."
+                text: "Hi. I can post vouchers, find transactions, list entities (banks/clients/employees), and show dashboard/ledger/balance charts. Try: \"/dashboard\", \"list my banks\", \"how much did I receive last week\", or \"what is my current balance\"."
             )
         ]
     }
@@ -61,7 +73,6 @@ final class ChatViewModel: ObservableObject {
         guard !trimmed.isEmpty else { return }
 
         append(.user, trimmed)
-        let lowerTrimmed = trimmed.lowercased()
 
         if await handleCommand(trimmed) {
             return
@@ -81,12 +92,7 @@ final class ChatViewModel: ObservableObject {
 
             // If backend fallback couldn't parse, retry with local structured query handlers.
             if isBackendFallbackMessage(response.message) {
-                if isTransactionQueryCommand(lowerTrimmed) {
-                    await loadTransactionQuery(query: trimmed)
-                    return
-                }
-                if isHistoryQueryCommand(lowerTrimmed) {
-                    await loadHistoryQuery(query: trimmed)
+                if await handleCommand(trimmed) {
                     return
                 }
             }
@@ -193,6 +199,12 @@ final class ChatViewModel: ObservableObject {
             await loadInvoicesCard()
             return true
         }
+        if await handleEntityDirectoryIntent(text) {
+            return true
+        }
+        if await handleCashflowSummaryIntent(text) {
+            return true
+        }
         if await handleOpeningBalanceIntent(text) {
             return true
         }
@@ -205,6 +217,79 @@ final class ChatViewModel: ObservableObject {
             return true
         }
         return false
+    }
+
+    private func handleEntityDirectoryIntent(_ text: String) async -> Bool {
+        let lower = text.lowercased()
+        guard let entityType = entityDirectoryType(in: lower) else { return false }
+
+        isWorking = true
+        defer { isWorking = false }
+
+        do {
+            let entities = try await loadEntities()
+            let filtered = entities
+                .filter { $0.type.lowercased() == entityType }
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+            let singular = entityTypeDisplayName(entityType, plural: false)
+            let plural = entityTypeDisplayName(entityType, plural: true)
+            guard !filtered.isEmpty else {
+                append(.assistant, "You do not have any \(plural) yet.")
+                return true
+            }
+
+            let names = filtered.map(\.name).joined(separator: ", ")
+            if filtered.count == 1 {
+                append(.assistant, "You have 1 \(singular): \(names).")
+            } else {
+                append(.assistant, "You have \(filtered.count) \(plural): \(names).")
+            }
+        } catch {
+            append(.system, "Entity lookup failed: \(friendlyNetworkHint(for: error))")
+        }
+        return true
+    }
+
+    private func handleCashflowSummaryIntent(_ text: String) async -> Bool {
+        let lower = text.lowercased()
+        guard let intent = parseCashflowIntent(in: lower) else { return false }
+        guard isCashflowSummaryQuestion(lower) else { return false }
+
+        isWorking = true
+        defer { isWorking = false }
+
+        do {
+            let entities = try await loadEntities()
+            let matchedEntity = matchEntity(in: lower, entities: entities)
+            let window = parseTimeWindow(in: lower)
+
+            var txns = try await loadTransactionsSource(entity: matchedEntity, requestedLimit: 200)
+            txns = sortTransactionsDescending(txns)
+            txns = filterTransactions(txns, window: window)
+
+            if txns.isEmpty, let entity = matchedEntity {
+                var globalTxns = try await api.transactions(baseURL: backendURL, limit: 200)
+                globalTxns = sortTransactionsDescending(globalTxns)
+                globalTxns = filterTransactions(globalTxns, window: window)
+                txns = filterTransactionsByEntityNameHeuristic(globalTxns, entityName: entity.name)
+            }
+
+            let totals = cashflowTotals(from: txns)
+            let scope = matchedEntity.map { " for \($0.name)" } ?? ""
+            switch intent {
+            case .inflow:
+                append(.assistant, "Total received\(scope) in \(window.label): \(CurrencyFormatter.format(totals.inflow)) IRR.")
+            case .outflow:
+                append(.assistant, "Total paid\(scope) in \(window.label): \(CurrencyFormatter.format(totals.outflow)) IRR.")
+            case .net:
+                append(.assistant, "Net cashflow\(scope) in \(window.label): \(CurrencyFormatter.format(totals.net)) IRR.")
+            }
+        } catch {
+            append(.system, "Cashflow summary failed: \(friendlyNetworkHint(for: error))")
+        }
+
+        return true
     }
 
     private func loadDashboardCard() async {
@@ -522,6 +607,18 @@ final class ChatViewModel: ObservableObject {
             }
         }
         return nil
+    }
+
+    private func cashflowTotals(from txns: [BackendTransactionRead]) -> CashflowTotals {
+        var inflow = 0
+        var outflow = 0
+        for txn in txns {
+            for line in (txn.lines ?? []) where line.account_code.hasPrefix("111") {
+                inflow += max(0, line.debit)
+                outflow += max(0, line.credit)
+            }
+        }
+        return CashflowTotals(inflow: inflow, outflow: outflow)
     }
 
     private func parseTimeWindow(in lowerQuery: String) -> TimeWindow {
@@ -849,6 +946,84 @@ final class ChatViewModel: ObservableObject {
 
     private func isInvoicesCommand(_ text: String) -> Bool {
         text.hasPrefix("/invoices") || text.contains("show invoices") || text == "invoices"
+    }
+
+    private func entityDirectoryType(in text: String) -> String? {
+        let asksDirectory =
+            text.contains("list") ||
+            text.contains("show") ||
+            text.contains("what are") ||
+            text.contains("which") ||
+            text.contains("do i have") ||
+            text.contains("any ")
+
+        guard asksDirectory else { return nil }
+        if text.contains("transaction") || text.contains("voucher") || text.contains("entry") {
+            return nil
+        }
+        if text.contains("bank") {
+            return "bank"
+        }
+        if text.contains("client") || text.contains("customer") {
+            return "client"
+        }
+        if text.contains("employee") || text.contains("staff") || text.contains("payee") {
+            return "employee"
+        }
+        if text.contains("supplier") || text.contains("vendor") {
+            return "supplier"
+        }
+        return nil
+    }
+
+    private func entityTypeDisplayName(_ type: String, plural: Bool) -> String {
+        switch type {
+        case "bank":
+            return plural ? "banks" : "bank"
+        case "client":
+            return plural ? "clients" : "client"
+        case "employee":
+            return plural ? "employees" : "employee"
+        case "supplier":
+            return plural ? "suppliers" : "supplier"
+        default:
+            return plural ? "\(type)s" : type
+        }
+    }
+
+    private func parseCashflowIntent(in text: String) -> CashflowIntent? {
+        let inflowMarkers = [
+            "receive", "received", "receipt", "receipts", "inflow", "income",
+            "collected", "collect", "got paid", "deposit", "deposits"
+        ]
+        let outflowMarkers = [
+            "pay", "paid", "payment", "payments", "outflow", "expense", "expenses",
+            "spend", "spent", "withdraw", "withdrawal"
+        ]
+        let netMarkers = ["net cash", "cashflow", "cash flow"]
+
+        let hasInflow = inflowMarkers.contains { text.contains($0) }
+        let hasOutflow = outflowMarkers.contains { text.contains($0) }
+        let hasNet = netMarkers.contains { text.contains($0) }
+
+        if hasNet || (hasInflow && hasOutflow) {
+            return .net
+        }
+        if hasInflow {
+            return .inflow
+        }
+        if hasOutflow {
+            return .outflow
+        }
+        return nil
+    }
+
+    private func isCashflowSummaryQuestion(_ text: String) -> Bool {
+        if text.contains("balance") && !text.contains("received") && !text.contains("paid") {
+            return false
+        }
+        let askWords = ["how much", "total", "sum", "amount", "money", "cash"]
+        return askWords.contains { text.contains($0) }
     }
 
     private func isTransactionQueryCommand(_ text: String) -> Bool {

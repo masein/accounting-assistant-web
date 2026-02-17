@@ -87,6 +87,18 @@ final class AssistantAPI {
         try await request(baseURL: baseURL, path: "/entities", method: "GET", body: Optional<String>.none, responseType: [EntityRead].self)
     }
 
+    func resolveEntities(baseURL: String, mentions: [BackendEntityMention]) async throws -> [BackendResolvedEntityLink] {
+        let payload = BackendEntityResolveRequest(mentions: mentions)
+        let response = try await request(
+            baseURL: baseURL,
+            path: "/entities/resolve",
+            method: "POST",
+            body: payload,
+            responseType: BackendEntityResolveResponse.self
+        )
+        return response.resolved.map { BackendResolvedEntityLink(role: $0.role, entity_id: $0.entity_id) }
+    }
+
     func transactions(baseURL: String, skip: Int = 0, limit: Int = 100) async throws -> [BackendTransactionRead] {
         let q = "/transactions?skip=\(max(0, skip))&limit=\(min(max(1, limit), 200))"
         return try await request(baseURL: baseURL, path: q, method: "GET", body: Optional<String>.none, responseType: [BackendTransactionRead].self)

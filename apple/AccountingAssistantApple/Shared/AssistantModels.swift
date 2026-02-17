@@ -63,6 +63,20 @@ struct BackendEntityMention: Codable {
     let name: String
 }
 
+struct BackendEntityResolveRequest: Codable {
+    let mentions: [BackendEntityMention]
+}
+
+struct BackendEntityResolveItem: Decodable {
+    let role: String
+    let name: String
+    let entity_id: UUID
+}
+
+struct BackendEntityResolveResponse: Decodable {
+    let resolved: [BackendEntityResolveItem]
+}
+
 struct BackendResolvedEntityLink: Codable {
     let role: String
     let entity_id: UUID

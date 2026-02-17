@@ -193,6 +193,9 @@ final class ChatViewModel: ObservableObject {
             await loadInvoicesCard()
             return true
         }
+        if await handleOpeningBalanceIntent(text) {
+            return true
+        }
         if isTransactionQueryCommand(lower) {
             await loadTransactionQuery(query: text)
             return true
@@ -213,6 +216,46 @@ final class ChatViewModel: ObservableObject {
         } catch {
             append(.system, "Dashboard failed: \(friendlyNetworkHint(for: error))")
         }
+    }
+
+    private func handleOpeningBalanceIntent(_ text: String) async -> Bool {
+        let lower = text.lowercased()
+        guard isOpeningBalanceIntent(lower) else { return false }
+
+        let entities = (try? await loadEntities()) ?? []
+        guard let bankName = parseOpeningBalanceBankName(from: text, entities: entities) else {
+            append(.assistant, "Which bank should I open with this balance? Example: \"Open Mellat bank with 1,161,743,370 as opening balance\".")
+            return true
+        }
+        guard let amount = parseOpeningBalanceAmount(from: text) else {
+            append(.assistant, "What is the opening balance amount for \(bankName)?")
+            return true
+        }
+
+        let mentions = [BackendEntityMention(role: "bank", name: bankName)]
+        let resolvedEntities: [BackendResolvedEntityLink]
+        if let resolved = try? await api.resolveEntities(baseURL: backendURL, mentions: mentions), !resolved.isEmpty {
+            resolvedEntities = resolved
+        } else {
+            resolvedEntities = []
+        }
+
+        let date = Self.isoDayFormatter.string(from: Date())
+        let description = "Opening balance for \(bankName) bank account (1110)"
+        let lines = [
+            BackendTransactionLine(account_code: "1110", debit: amount, credit: 0, line_description: "\(bankName) opening balance"),
+            BackendTransactionLine(account_code: "3110", debit: 0, credit: amount, line_description: "Owner capital opening entry")
+        ]
+        let suggestion = BackendTransactionSuggestion(
+            date: date,
+            reference: nil,
+            description: description,
+            lines: lines
+        )
+        let draft = TransactionDraft(suggestion: suggestion, resolvedEntities: resolvedEntities, mentions: mentions)
+        pendingDraft = draft
+        messages.append(ChatEntry(actor: .assistant, text: "Opening-balance voucher draft is ready for \(bankName). Review and save.", payload: .draft(draft)))
+        return true
     }
 
     private func loadLedgerCard() async {
@@ -663,6 +706,110 @@ final class ChatViewModel: ObservableObject {
         return values.isEmpty ? nil : values
     }
 
+    private func parseOpeningBalanceBankName(from text: String, entities: [EntityRead]) -> String? {
+        let lower = text.lowercased()
+        let bankEntities = entities.filter { $0.type.lowercased() == "bank" }
+
+        if let byEntity = bankEntities.first(where: { lower.contains($0.name.lowercased()) }) {
+            return byEntity.name
+        }
+
+        let patterns = [
+            #"bank(?:\s+name|\s+named|\s+called)?\s+([a-z][a-z0-9\-\s]{1,40})"#,
+            #"open\s+([a-z][a-z0-9\-\s]{1,40})\s+bank"#,
+            #"from\s+([a-z][a-z0-9\-\s]{1,40})\s+bank"#
+        ]
+        for pattern in patterns {
+            if let raw = firstRegexGroup(pattern: pattern, in: lower) {
+                let cleaned = cleanOpeningBalanceBankName(raw)
+                if !cleaned.isEmpty {
+                    return capitalizeWords(cleaned)
+                }
+            }
+        }
+
+        for message in messages.reversed() where message.actor == .user {
+            let userLower = message.text.lowercased()
+            if let byEntity = bankEntities.first(where: { userLower.contains($0.name.lowercased()) }) {
+                return byEntity.name
+            }
+            for pattern in patterns {
+                if let raw = firstRegexGroup(pattern: pattern, in: userLower) {
+                    let cleaned = cleanOpeningBalanceBankName(raw)
+                    if !cleaned.isEmpty {
+                        return capitalizeWords(cleaned)
+                    }
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private func parseOpeningBalanceAmount(from text: String) -> Int? {
+        guard let regex = try? NSRegularExpression(pattern: #"(\d{1,3}(?:[,_\s]\d{3})+|\d+(?:\.\d+)?)\s*([kmb])?"#, options: [.caseInsensitive]) else {
+            return nil
+        }
+        let nsRange = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, range: nsRange)
+        guard !matches.isEmpty else { return nil }
+
+        var values: [Int] = []
+        for match in matches {
+            guard match.numberOfRanges >= 2 else { continue }
+            guard let rawRange = Range(match.range(at: 1), in: text) else { continue }
+            var numberRaw = String(text[rawRange]).replacingOccurrences(of: ",", with: "")
+            numberRaw = numberRaw.replacingOccurrences(of: "_", with: "")
+            numberRaw = numberRaw.replacingOccurrences(of: " ", with: "")
+
+            let suffix: String
+            if match.numberOfRanges >= 3, let suffixRange = Range(match.range(at: 2), in: text) {
+                suffix = String(text[suffixRange]).lowercased()
+            } else {
+                suffix = ""
+            }
+
+            guard let base = Double(numberRaw) else { continue }
+            let multiplier: Double
+            switch suffix {
+            case "k":
+                multiplier = 1_000
+            case "m":
+                multiplier = 1_000_000
+            case "b":
+                multiplier = 1_000_000_000
+            default:
+                multiplier = 1
+            }
+            let amount = Int((base * multiplier).rounded())
+            if amount > 0 {
+                values.append(amount)
+            }
+        }
+        return values.max()
+    }
+
+    private func cleanOpeningBalanceBankName(_ raw: String) -> String {
+        raw
+            .replacingOccurrences(of: "as opening balance", with: "")
+            .replacingOccurrences(of: "opening balance", with: "")
+            .replacingOccurrences(of: "balance", with: "")
+            .replacingOccurrences(of: "account", with: "")
+            .trimmingCharacters(in: CharacterSet(charactersIn: " .,;:-"))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func capitalizeWords(_ input: String) -> String {
+        input
+            .split(separator: " ")
+            .map { part in
+                let s = String(part)
+                guard let first = s.first else { return s }
+                return String(first).uppercased() + s.dropFirst()
+            }
+            .joined(separator: " ")
+    }
+
     private func append(_ actor: ChatActor, _ text: String) {
         messages.append(ChatEntry(actor: actor, text: text))
     }
@@ -769,6 +916,28 @@ final class ChatViewModel: ObservableObject {
             "bank balance",
         ]
         return markers.contains { text.contains($0) }
+    }
+
+    private func isOpeningBalanceIntent(_ text: String) -> Bool {
+        if text.hasPrefix("/opening") {
+            return true
+        }
+        if text.contains("opening balance") {
+            return true
+        }
+        if text.contains("open it with") && text.contains("balance") {
+            return true
+        }
+        if text.contains("open with") && text.contains("balance") {
+            return true
+        }
+        if text.contains("start with") && text.contains("balance") {
+            return true
+        }
+        if text.contains("open") && text.contains("bank") && text.contains("balance") {
+            return true
+        }
+        return false
     }
 
     private func isSaveCommand(_ text: String) -> Bool {

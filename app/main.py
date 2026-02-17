@@ -43,11 +43,43 @@ def _apply_numeric_migrations() -> None:
             conn.execute(text(s))
 
 
+def _apply_entity_cleanup_migrations() -> None:
+    """
+    Cleanup malformed entity names produced by old chat parsing paths.
+    Idempotent and safe to run at startup.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    stmts = [
+        # Normalize extra whitespace globally.
+        "UPDATE entities SET name = btrim(regexp_replace(name, '\\s+', ' ', 'g'))",
+        # Fix malformed bank names like: 'Mellat With Of 1161743370' -> 'Mellat'
+        (
+            "UPDATE entities "
+            "SET name = initcap(btrim(regexp_replace(name, E'\\s+with\\s+of\\s+\\d+\\s*$', '', 'i'))) "
+            "WHERE type = 'bank' AND name ~* E'\\s+with\\s+of\\s+\\d+\\s*$'"
+        ),
+        # Keep linked transaction descriptions clean as well.
+        (
+            "UPDATE transactions t SET description = regexp_replace(t.description, E'\\s+[Ww]ith\\s+[Oo]f\\s+\\d+\\s+bank\\s+account', ' bank account', 'g') "
+            "WHERE t.description ~* E'\\s+with\\s+of\\s+\\d+\\s+bank\\s+account'"
+        ),
+        (
+            "UPDATE transaction_lines tl SET line_description = regexp_replace(tl.line_description, E'\\s+[Ww]ith\\s+[Oo]f\\s+\\d+', '', 'g') "
+            "WHERE tl.line_description ~* E'\\s+with\\s+of\\s+\\d+'"
+        ),
+    ]
+    with engine.begin() as conn:
+        for s in stmts:
+            conn.execute(text(s))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: create DB tables
     Base.metadata.create_all(bind=engine)
     _apply_numeric_migrations()
+    _apply_entity_cleanup_migrations()
     # Seed minimal chart of accounts if empty
     db = SessionLocal()
     try:

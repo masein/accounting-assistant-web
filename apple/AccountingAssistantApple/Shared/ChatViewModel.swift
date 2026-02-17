@@ -239,7 +239,9 @@ final class ChatViewModel: ObservableObject {
                 return true
             }
 
-            let names = filtered.map(\.name).joined(separator: ", ")
+            let names = filtered
+                .map { displayEntityName($0) }
+                .joined(separator: ", ")
             if filtered.count == 1 {
                 append(.assistant, "You have 1 \(singular): \(names).")
             } else {
@@ -521,7 +523,13 @@ final class ChatViewModel: ObservableObject {
 
     private func matchEntity(in lowerQuery: String, entities: [EntityRead]) -> EntityRead? {
         let hints = typeHints(in: lowerQuery)
-        let candidates = entities.filter { lowerQuery.contains($0.name.lowercased()) }
+        let candidates = entities.filter { entity in
+            let exact = lowerQuery.contains(entity.name.lowercased())
+            if exact { return true }
+            let normalized = normalizedEntityName(entity.name)
+            if normalized.isEmpty { return false }
+            return lowerQuery.contains(normalized)
+        }
         guard !candidates.isEmpty else { return nil }
 
         let sortedByNameLength = candidates.sorted { a, b in
@@ -810,16 +818,25 @@ final class ChatViewModel: ObservableObject {
         if let byEntity = bankEntities.first(where: { lower.contains($0.name.lowercased()) }) {
             return byEntity.name
         }
+        if let byNormalizedEntity = bankEntities.first(where: {
+            let normalized = normalizedEntityName($0.name)
+            return !normalized.isEmpty && lower.contains(normalized)
+        }) {
+            return byNormalizedEntity.name
+        }
 
         let patterns = [
-            #"bank(?:\s+name|\s+named|\s+called)?\s+([a-z][a-z0-9\-\s]{1,40})"#,
-            #"open\s+([a-z][a-z0-9\-\s]{1,40})\s+bank"#,
-            #"from\s+([a-z][a-z0-9\-\s]{1,40})\s+bank"#
+            #"bank(?:\s+name|\s+named|\s+called)?\s+([a-z][a-z\-\s]{1,40}?)(?:\s+(?:with|from|for|as|in|on|amount|balance|opening|open|account)\b|$)"#,
+            #"open\s+([a-z][a-z\-\s]{1,40}?)\s+bank\b"#,
+            #"from\s+([a-z][a-z\-\s]{1,40}?)\s+bank\b"#
         ]
         for pattern in patterns {
             if let raw = firstRegexGroup(pattern: pattern, in: lower) {
                 let cleaned = cleanOpeningBalanceBankName(raw)
                 if !cleaned.isEmpty {
+                    if let existing = bankEntities.first(where: { normalizedEntityName($0.name) == normalizedEntityName(cleaned) && !normalizedEntityName(cleaned).isEmpty }) {
+                        return existing.name
+                    }
                     return capitalizeWords(cleaned)
                 }
             }
@@ -830,10 +847,19 @@ final class ChatViewModel: ObservableObject {
             if let byEntity = bankEntities.first(where: { userLower.contains($0.name.lowercased()) }) {
                 return byEntity.name
             }
+            if let byNormalizedEntity = bankEntities.first(where: {
+                let normalized = normalizedEntityName($0.name)
+                return !normalized.isEmpty && userLower.contains(normalized)
+            }) {
+                return byNormalizedEntity.name
+            }
             for pattern in patterns {
                 if let raw = firstRegexGroup(pattern: pattern, in: userLower) {
                     let cleaned = cleanOpeningBalanceBankName(raw)
                     if !cleaned.isEmpty {
+                        if let existing = bankEntities.first(where: { normalizedEntityName($0.name) == normalizedEntityName(cleaned) && !normalizedEntityName(cleaned).isEmpty }) {
+                            return existing.name
+                        }
                         return capitalizeWords(cleaned)
                     }
                 }
@@ -887,13 +913,17 @@ final class ChatViewModel: ObservableObject {
     }
 
     private func cleanOpeningBalanceBankName(_ raw: String) -> String {
-        raw
-            .replacingOccurrences(of: "as opening balance", with: "")
-            .replacingOccurrences(of: "opening balance", with: "")
-            .replacingOccurrences(of: "balance", with: "")
-            .replacingOccurrences(of: "account", with: "")
+        let lower = raw.lowercased()
+        var value = lower
+            .replacingOccurrences(of: #"\d+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\b(open|opening|balance|account|with|of|from|for|as|in|it|name|bank|amount)\b"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: " .,;:-"))
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let first = value.split(separator: " ").first {
+            value = String(first)
+        }
+        return value
     }
 
     private func capitalizeWords(_ input: String) -> String {
@@ -905,6 +935,23 @@ final class ChatViewModel: ObservableObject {
                 return String(first).uppercased() + s.dropFirst()
             }
             .joined(separator: " ")
+    }
+
+    private func normalizedEntityName(_ raw: String) -> String {
+        raw
+            .lowercased()
+            .replacingOccurrences(of: #"\d+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\b(open|opening|balance|account|with|of|from|for|as|in|it|name|bank|amount)\b"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func displayEntityName(_ entity: EntityRead) -> String {
+        let cleaned = normalizedEntityName(entity.name)
+        if cleaned.isEmpty {
+            return entity.name
+        }
+        return capitalizeWords(cleaned)
     }
 
     private func append(_ actor: ChatActor, _ text: String) {

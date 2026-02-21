@@ -8,6 +8,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from app.models.account import Account, AccountLevel
+from app.models.transaction_fee import PaymentMethod
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -65,3 +66,25 @@ def seed_chart_if_empty(session: "Session") -> int:
         code_to_id[code] = acc.id
     session.commit()
     return len(SEED_ACCOUNTS)
+
+
+def seed_payment_methods_if_empty(session: "Session") -> int:
+    """
+    Insert default payment methods if none exist.
+    """
+    from sqlalchemy import func, select
+
+    count = session.execute(select(func.count(PaymentMethod.id))).scalar()
+    if count > 0:
+        return 0
+    defaults = [
+        ("paya", "Paya"),
+        ("card_to_card", "Card-to-Card"),
+        ("zaba", "Zaba"),
+        ("satna", "Satna"),
+        ("internal_transfer", "Internal Transfer"),
+    ]
+    for key, name in defaults:
+        session.add(PaymentMethod(key=key, name=name, is_active=True))
+    session.commit()
+    return len(defaults)

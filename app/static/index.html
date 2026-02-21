@@ -334,6 +334,7 @@
       <button type="button" class="nav-btn" data-page="invoices">Invoices</button>
       <button type="button" class="nav-btn" data-page="recurring">Recurring</button>
       <button type="button" class="nav-btn" data-page="ledger">Ledger</button>
+      <button type="button" class="nav-btn" data-page="manager">Manager reports</button>
     </div>
     <div class="ai-runtime-bar">
       <div>
@@ -670,6 +671,92 @@
         </div>
       </div>
     </div>
+
+    <div class="card" data-page="manager">
+      <h2>Manager reporting & financial statements</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
+        Generate balance sheet, income statement, cash flow, books, AR/AP, inventory, and sales/purchase reports.
+      </p>
+      <div class="row" style="margin-bottom:0.75rem;">
+        <div>
+          <label for="mgr-report-type">Report type</label>
+          <select id="mgr-report-type">
+            <option value="balance_sheet">Balance sheet (ترازنامه)</option>
+            <option value="income_statement">Income statement (سود و زیان)</option>
+            <option value="cash_flow">Cash flow statement (جریان وجوه نقد)</option>
+            <option value="general_journal">General journal (دفتر روزنامه)</option>
+            <option value="general_ledger">General ledger (دفتر کل)</option>
+            <option value="trial_balance">Trial balance (مرور حساب)</option>
+            <option value="account_ledger">Account ledger (گردش حساب)</option>
+            <option value="debtor_creditor">Debtor/Creditor</option>
+            <option value="inventory_balance">Inventory balance</option>
+            <option value="inventory_movement">Inventory movement</option>
+            <option value="sales_by_product">Sales by product</option>
+            <option value="sales_by_invoice">Sales by invoice</option>
+            <option value="purchase_by_product">Purchase by product</option>
+            <option value="purchase_by_invoice">Purchase by invoice</option>
+          </select>
+        </div>
+        <div>
+          <label for="mgr-from-date">From</label>
+          <input type="date" id="mgr-from-date">
+        </div>
+        <div>
+          <label for="mgr-to-date">To</label>
+          <input type="date" id="mgr-to-date">
+        </div>
+        <div>
+          <label for="mgr-account-code">Account code (for account ledger)</label>
+          <input type="text" id="mgr-account-code" placeholder="e.g. 1110">
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+          <button type="button" class="btn btn-primary" id="mgr-run-btn">Run report</button>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:0.75rem;">
+        <div>
+          <label for="mgr-inv-item-name">Inventory item name</label>
+          <input type="text" id="mgr-inv-item-name" placeholder="e.g. Product A">
+        </div>
+        <div>
+          <label for="mgr-inv-item-sku">SKU</label>
+          <input type="text" id="mgr-inv-item-sku" placeholder="optional">
+        </div>
+        <div>
+          <label for="mgr-inv-item-unit">Unit</label>
+          <input type="text" id="mgr-inv-item-unit" value="unit">
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+          <button type="button" class="btn btn-secondary" id="mgr-add-item-btn">Add inventory item</button>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:0.75rem;">
+        <div>
+          <label for="mgr-mv-item">Movement item</label>
+          <select id="mgr-mv-item"><option value="">Select item</option></select>
+        </div>
+        <div>
+          <label for="mgr-mv-type">Movement type</label>
+          <select id="mgr-mv-type"><option value="IN">IN</option><option value="OUT">OUT</option><option value="ADJUSTMENT">ADJUSTMENT</option></select>
+        </div>
+        <div>
+          <label for="mgr-mv-qty">Quantity</label>
+          <input type="number" id="mgr-mv-qty" min="0" step="0.0001" value="1">
+        </div>
+        <div>
+          <label for="mgr-mv-cost">Unit cost (IRR)</label>
+          <input type="number" id="mgr-mv-cost" min="0" step="1" value="0">
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+          <button type="button" class="btn btn-secondary" id="mgr-add-mv-btn">Add movement</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Report output (JSON + table preview)</h3>
+        <div id="mgr-report-preview" style="margin-bottom:0.6rem;"></div>
+        <pre id="mgr-report-json" style="white-space: pre-wrap; margin:0; font-size:0.8rem; color:var(--text); max-height:360px; overflow:auto;"></pre>
+      </div>
+    </div>
   </div>
 
   <div id="account-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" style="display: none;">
@@ -714,6 +801,22 @@
     const ledgerTopNEl = document.getElementById('ledger-topn');
     const ledgerNonZeroEl = document.getElementById('ledger-nonzero');
     const ledgerKpisEl = document.getElementById('ledger-kpis');
+    const mgrReportTypeEl = document.getElementById('mgr-report-type');
+    const mgrFromDateEl = document.getElementById('mgr-from-date');
+    const mgrToDateEl = document.getElementById('mgr-to-date');
+    const mgrAccountCodeEl = document.getElementById('mgr-account-code');
+    const mgrRunBtn = document.getElementById('mgr-run-btn');
+    const mgrReportJsonEl = document.getElementById('mgr-report-json');
+    const mgrReportPreviewEl = document.getElementById('mgr-report-preview');
+    const mgrAddItemBtn = document.getElementById('mgr-add-item-btn');
+    const mgrInvItemNameEl = document.getElementById('mgr-inv-item-name');
+    const mgrInvItemSkuEl = document.getElementById('mgr-inv-item-sku');
+    const mgrInvItemUnitEl = document.getElementById('mgr-inv-item-unit');
+    const mgrMvItemEl = document.getElementById('mgr-mv-item');
+    const mgrMvTypeEl = document.getElementById('mgr-mv-type');
+    const mgrMvQtyEl = document.getElementById('mgr-mv-qty');
+    const mgrMvCostEl = document.getElementById('mgr-mv-cost');
+    const mgrAddMvBtn = document.getElementById('mgr-add-mv-btn');
 
     let chatHistory = [];
     let lastEntityMentions = null;
@@ -721,7 +824,7 @@
     let selectedAttachments = [];
     let entityTransactionsCache = [];
     let currentEntityContext = null;
-    const validPages = new Set(['dashboard', 'transactions', 'entities', 'invoices', 'recurring', 'ledger']);
+    const validPages = new Set(['dashboard', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager']);
 
     function showPage(page) {
       const target = validPages.has(page) ? page : 'dashboard';
@@ -914,6 +1017,133 @@
       } catch (err) {
         document.getElementById('kpi-grid').innerHTML = '<p class="empty-state">Error loading owner dashboard.</p>';
         document.getElementById('missing-refs-wrap').innerHTML = '<p class="empty-state" style="padding:0.5rem;">Error loading missing references.</p>';
+      }
+    }
+
+    function managerEndpointFor(type) {
+      switch (type) {
+        case 'balance_sheet': return '/manager-reports/financial/balance-sheet';
+        case 'income_statement': return '/manager-reports/financial/income-statement';
+        case 'cash_flow': return '/manager-reports/financial/cash-flow';
+        case 'general_journal': return '/manager-reports/books/general-journal';
+        case 'general_ledger': return '/manager-reports/books/general-ledger';
+        case 'trial_balance': return '/manager-reports/books/trial-balance';
+        case 'account_ledger': return '/manager-reports/books/account-ledger/' + encodeURIComponent((mgrAccountCodeEl.value || '1110').trim() || '1110');
+        case 'debtor_creditor': return '/manager-reports/operational/debtor-creditor';
+        case 'inventory_balance': return '/manager-reports/inventory/balance';
+        case 'inventory_movement': return '/manager-reports/inventory/movements';
+        case 'sales_by_product': return '/manager-reports/sales/by-product';
+        case 'sales_by_invoice': return '/manager-reports/sales/by-invoice';
+        case 'purchase_by_product': return '/manager-reports/purchases/by-product';
+        case 'purchase_by_invoice': return '/manager-reports/purchases/by-invoice';
+        default: return '/manager-reports/financial/balance-sheet';
+      }
+    }
+
+    async function runManagerReport() {
+      try {
+        const type = (mgrReportTypeEl.value || '').trim();
+        const endpoint = managerEndpointFor(type);
+        const q = new URLSearchParams();
+        if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
+        if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
+        q.set('page', '1');
+        q.set('page_size', '120');
+        const url = API + endpoint + (q.toString() ? ('?' + q.toString()) : '');
+        mgrRunBtn.disabled = true;
+        const res = await fetch(url);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || 'Failed to run manager report.', true);
+          return;
+        }
+        mgrReportPreviewEl.innerHTML = renderReportPreviewHtml(data);
+        mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        showAlert('Manager report error: ' + err.message, true);
+      } finally {
+        mgrRunBtn.disabled = false;
+      }
+    }
+
+    async function loadManagerInventoryItems() {
+      if (!mgrMvItemEl) return;
+      try {
+        const res = await fetch(API + '/manager-reports/inventory/items');
+        const rows = await res.json().catch(() => ([]));
+        mgrMvItemEl.innerHTML = '<option value="">Select item</option>';
+        (rows || []).forEach(i => {
+          const opt = document.createElement('option');
+          opt.value = i.id;
+          opt.textContent = (i.sku ? (i.sku + ' - ') : '') + i.name;
+          mgrMvItemEl.appendChild(opt);
+        });
+      } catch (_) {}
+    }
+
+    async function addManagerInventoryItem() {
+      const name = (mgrInvItemNameEl.value || '').trim();
+      if (!name) {
+        showAlert('Inventory item name is required.', true);
+        return;
+      }
+      try {
+        mgrAddItemBtn.disabled = true;
+        const res = await fetch(API + '/manager-reports/inventory/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            sku: (mgrInvItemSkuEl.value || '').trim() || null,
+            unit: (mgrInvItemUnitEl.value || 'unit').trim() || 'unit'
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || 'Failed to add inventory item.', true);
+          return;
+        }
+        mgrInvItemNameEl.value = '';
+        mgrInvItemSkuEl.value = '';
+        showAlert('Inventory item added.');
+        await loadManagerInventoryItems();
+      } catch (err) {
+        showAlert('Error adding inventory item: ' + err.message, true);
+      } finally {
+        mgrAddItemBtn.disabled = false;
+      }
+    }
+
+    async function addManagerInventoryMovement() {
+      const itemId = (mgrMvItemEl.value || '').trim();
+      if (!itemId) {
+        showAlert('Select inventory item first.', true);
+        return;
+      }
+      try {
+        mgrAddMvBtn.disabled = true;
+        const payload = {
+          item_id: itemId,
+          movement_date: (mgrToDateEl.value || new Date().toISOString().slice(0, 10)),
+          movement_type: (mgrMvTypeEl.value || 'IN'),
+          quantity: parseFloat(mgrMvQtyEl.value || '0'),
+          unit_cost: parseInt(mgrMvCostEl.value || '0', 10) || 0
+        };
+        const res = await fetch(API + '/manager-reports/inventory/movements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || 'Failed to add inventory movement.', true);
+          return;
+        }
+        showAlert('Inventory movement added.');
+      } catch (err) {
+        showAlert('Error adding movement: ' + err.message, true);
+      } finally {
+        mgrAddMvBtn.disabled = false;
       }
     }
 
@@ -1270,6 +1500,58 @@
       return div;
     }
 
+    function renderObjectAsMiniTable(obj) {
+      if (!obj || typeof obj !== 'object') return '';
+      const keys = Object.keys(obj);
+      if (!keys.length) return '';
+      const rows = keys.map(k => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(obj[k])}</td></tr>`).join('');
+      return `<table class="mini-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function renderReportPreviewHtml(report) {
+      if (!report || typeof report !== 'object') return '<p class="empty-state">No report data.</p>';
+      if (Array.isArray(report.rows) && report.rows.length) {
+        const first = report.rows[0];
+        const keys = Object.keys(first);
+        const head = keys.map(k => `<th>${escapeHtml(k)}</th>`).join('');
+        const body = report.rows.slice(0, 40).map(r => `<tr>${keys.map(k => `<td>${escapeHtml(r[k])}</td>`).join('')}</tr>`).join('');
+        return `<table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      }
+      if (Array.isArray(report.items) && report.items.length) {
+        const first = report.items[0];
+        const keys = Object.keys(first).filter(k => k !== 'lines');
+        const head = keys.map(k => `<th>${escapeHtml(k)}</th>`).join('');
+        const body = report.items.slice(0, 20).map(r => `<tr>${keys.map(k => `<td>${escapeHtml(r[k])}</td>`).join('')}</tr>`).join('');
+        return `<table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      }
+      if (report.sections && typeof report.sections === 'object') {
+        const cards = Object.keys(report.sections).map(k => {
+          const sec = report.sections[k] || {};
+          return `<div class="panel" style="margin-bottom:0.45rem;">
+            <strong>${escapeHtml(sec.label || k)}</strong>
+            <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(sec.label_fa || '')}</div>
+            <div style="font-size:0.92rem; margin-top:0.2rem;">Total: ${formatNum(sec.total || sec.net || 0)}</div>
+          </div>`;
+        }).join('');
+        return cards || '<p class="empty-state">No section rows.</p>';
+      }
+      if (report.totals && typeof report.totals === 'object') {
+        return renderObjectAsMiniTable(report.totals);
+      }
+      return `<pre style="white-space:pre-wrap; margin:0;">${escapeHtml(JSON.stringify(report, null, 2))}</pre>`;
+    }
+
+    function appendChatReport(report) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg assistant';
+      div.innerHTML = `
+        <div style="font-weight:700; margin-bottom:0.35rem;">Report result</div>
+        <div>${renderReportPreviewHtml(report)}</div>
+      `;
+      chatMessagesEl.appendChild(div);
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    }
+
     function extractMessageText(text) {
       if (typeof text !== 'string') return text || "I didn't understand.";
       const t = text.trim();
@@ -1331,6 +1613,9 @@
         const messageText = extractMessageText(data.message);
         chatHistory.push({ role: 'assistant', content: messageText });
         appendChatMessage('assistant', messageText);
+        if (data.report) {
+          appendChatReport(data.report);
+        }
         if (data.transaction) {
           fillFormFromSuggestion(data.transaction);
           lastEntityMentions = data.entity_mentions || null;
@@ -2329,11 +2614,16 @@
     });
     if (aiProviderSelect) aiProviderSelect.addEventListener('change', syncAIFieldsByProvider);
     if (aiSaveBtn) aiSaveBtn.addEventListener('click', saveAIConfig);
+    if (mgrRunBtn) mgrRunBtn.addEventListener('click', runManagerReport);
+    if (mgrAddItemBtn) mgrAddItemBtn.addEventListener('click', addManagerInventoryItem);
+    if (mgrAddMvBtn) mgrAddMvBtn.addEventListener('click', addManagerInventoryMovement);
 
     document.getElementById('date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('inv-issue').value = new Date().toISOString().slice(0, 10);
     document.getElementById('inv-due').value = new Date().toISOString().slice(0, 10);
     document.getElementById('budget-month').value = new Date().toISOString().slice(0, 7);
+    if (mgrFromDateEl) mgrFromDateEl.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+    if (mgrToDateEl) mgrToDateEl.value = new Date().toISOString().slice(0, 10);
     topNav.addEventListener('click', (e) => {
       const btn = e.target.closest('.nav-btn[data-page]');
       if (!btn) return;
@@ -2343,7 +2633,7 @@
     showPage((location.hash || '#dashboard').slice(1));
     loadAIConfig();
     renderAttachments();
-    appendChatMessage('assistant', "Hi. I'm your AI accountant. Describe the financial event (e.g. I received 1M from my client, or I paid 500k for rent). I'll ask for the details we need for the books and reports: which client, which bank account, what it was for, and optionally a reference like an invoice number. Then I'll fill the voucher with reference and line descriptions.");
+    appendChatMessage('assistant', "Hi. I'm your AI accountant. Describe financial events to create vouchers, or ask reports like: 'Show me balance sheet for last month', 'گزارش سود و زیان این ماه', 'گردش حساب بانک ملت از اول سال', or 'فروش به تفکیک کالا در سه ماه اخیر'.");
     loadLedger();
     loadEntities();
     loadInvoices();
@@ -2351,6 +2641,7 @@
     loadOwnerDashboard();
     loadBudgets();
     loadEntityOptions();
+    loadManagerInventoryItems();
   </script>
 </body>
 </html>

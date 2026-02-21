@@ -7,6 +7,26 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+class InvoiceItemBase(BaseModel):
+    product_name: str = Field(..., min_length=1)
+    quantity: float = Field(default=1, gt=0)
+    unit_price: int = Field(default=0, ge=0)
+    unit_cost: int | None = Field(default=None, ge=0)
+    line_total: int | None = Field(default=None, ge=0)
+    description: str | None = None
+    inventory_item_id: UUID | None = None
+
+
+class InvoiceItemCreate(InvoiceItemBase):
+    pass
+
+
+class InvoiceItemRead(InvoiceItemBase):
+    id: UUID
+
+    model_config = {"from_attributes": True}
+
+
 class InvoiceBase(BaseModel):
     number: str = Field(..., min_length=1)
     kind: str = Field(..., description="sales or purchase")
@@ -16,6 +36,7 @@ class InvoiceBase(BaseModel):
     currency: str = Field(default="IRR")
     description: Optional[str] = None
     entity_id: UUID | None = None
+    items: list[InvoiceItemCreate] = Field(default_factory=list)
 
 
 class InvoiceCreate(InvoiceBase):
@@ -32,6 +53,7 @@ class InvoiceUpdate(BaseModel):
     currency: str | None = None
     description: str | None = None
     entity_id: UUID | None = None
+    items: list[InvoiceItemCreate] | None = None
 
 
 class MarkInvoicePaidRequest(BaseModel):
@@ -47,6 +69,7 @@ class InvoiceRead(InvoiceBase):
     status: str
     transaction_id: UUID | None = None
     pdf_url: str | None = None
+    items: list[InvoiceItemRead] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

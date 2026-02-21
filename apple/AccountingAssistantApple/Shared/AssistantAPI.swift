@@ -3,10 +3,15 @@ import Foundation
 final class AssistantAPI {
     private let jsonDecoder: JSONDecoder
     private let jsonEncoder: JSONEncoder
+    private let session: URLSession
 
     init() {
         self.jsonDecoder = JSONDecoder()
         self.jsonEncoder = JSONEncoder()
+        let cfg = URLSessionConfiguration.default
+        cfg.timeoutIntervalForRequest = 180
+        cfg.timeoutIntervalForResource = 300
+        self.session = URLSession(configuration: cfg)
     }
 
     func sendChat(
@@ -62,7 +67,7 @@ final class AssistantAPI {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = makeMultipartBody(boundary: boundary, fileData: fileData, filename: filename, mimeType: mimeType)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try throwIfNeeded(data: data, response: response)
         return try jsonDecoder.decode(UploadedAttachment.self, from: data)
     }
@@ -144,7 +149,7 @@ final class AssistantAPI {
             request.httpBody = try jsonEncoder.encode(body)
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try throwIfNeeded(data: data, response: response)
         return try jsonDecoder.decode(responseType, from: data)
     }

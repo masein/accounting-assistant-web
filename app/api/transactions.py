@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import uuid
 from datetime import date, timedelta
 from pathlib import Path
@@ -14,6 +15,7 @@ from app.db.session import get_db
 from app.models.account import Account, AccountLevel
 from app.models.entity import Entity, TransactionEntity
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
+from app.models.transaction_fee import FeeApplicationStatus, PaymentMethod, TransactionFee, TransactionFeeApplication
 from app.schemas.transaction import (
     AttachmentRead,
     AttachmentOCRResponse,
@@ -31,6 +33,14 @@ from app.schemas.transaction import (
     TransactionLineRead,
     TransactionUpdate,
 )
+from app.schemas.transaction_fee import (
+    PaymentMethodRead,
+    TransactionFeeCalculateRequest,
+    TransactionFeeCalculateResponse,
+    TransactionFeeRead,
+    TransactionFeeUpsertRequest,
+    TransactionFeeUpsertResponse,
+)
 from app.services.ai_suggest import (
     AISuggestError,
     chat_turn as ai_chat_turn,
@@ -38,6 +48,29 @@ from app.services.ai_suggest import (
     suggest_transaction as ai_suggest_transaction,
 )
 from app.services.ocr_extract import OCRExtractError, extract_from_attachment
+from app.services.reporting.cash_flow_service import CashFlowService
+from app.services.reporting.financial_statement_service import FinancialStatementService
+from app.services.reporting.inventory_report_service import InventoryReportService
+from app.services.reporting.ledger_service import LedgerService
+from app.services.reporting.operations_report_service import OperationsReportService
+from app.services.reporting.report_intent import ReportIntent, parse_report_intent
+from app.services.reporting.sales_report_service import SalesReportService
+from app.services.transaction_fee import (
+    build_fee_line_items,
+    canonical_method_name,
+    extract_payment_context,
+    get_active_fee_rule,
+    parse_fee_config_text,
+    parse_fee_question_context,
+    apply_fee_to_transaction_lines,
+    calculate_total_with_fee,
+    find_bank_entity_by_name,
+    find_payment_method,
+    get_or_create_bank_entity,
+    recalculate_current_month_pending_entries,
+    resolve_fee_rule,
+    upsert_fee_rule,
+)
 
 
 def _load_transaction_with_lines(db: Session, t: Transaction) -> None:
@@ -51,6 +84,7 @@ def _load_transaction_with_lines(db: Session, t: Transaction) -> None:
     _ = t.attachments
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
+chat_logger = logging.getLogger("app.chat")
 
 UPLOADS_DIR = Path(__file__).resolve().parents[1] / "uploads" / "transactions"
 MAX_ATTACHMENT_SIZE_BYTES = 8 * 1024 * 1024
@@ -172,6 +206,119 @@ def _upsert_role_link(db: Session, t: Transaction, role: str, entity: Entity) ->
         db.add(TransactionEntity(transaction_id=t.id, entity_id=entity.id, role=role_key))
 
 
+def _all_bank_names(db: Session) -> list[str]:
+    return [
+        n
+        for n in db.execute(
+            select(Entity.name).where(Entity.type == "bank").order_by(Entity.name)
+        ).scalars().all()
+        if n
+    ]
+
+
+def _transaction_fee_to_read(rule: TransactionFee) -> TransactionFeeRead:
+    method = getattr(rule, "method", None)
+    bank = getattr(rule, "bank", None)
+    return TransactionFeeRead(
+        id=rule.id,
+        method_id=rule.method_id,
+        method_name=(method.name if method else ""),
+        bank_id=rule.bank_id,
+        bank_name=(bank.name if bank else ""),
+        fee_type=rule.fee_type.value,
+        fee_value=rule.fee_value or 0,
+        flat_fee=rule.flat_fee or 0,
+        percent_bps=rule.percent_bps or 0,
+        max_fee=rule.max_fee,
+        effective_from=rule.effective_from,
+        is_active=bool(rule.is_active),
+    )
+
+
+def _looks_like_non_payment_query(text: str) -> bool:
+    lower = (text or "").strip().lower()
+    if not lower:
+        return False
+    subject = any(k in lower for k in ("transaction", "transactions", "voucher", "entry", "entries", "ledger"))
+    verb = any(k in lower for k in ("show", "list", "find", "get", "latest", "lates", "recent", "what was", "what is"))
+    report_hint = any(k in lower for k in ("dashboard", "history", "chart", "balance", "missing references"))
+    return (subject and verb) or report_hint
+
+
+def _resolve_bank_account_code(db: Session, bank_name: str | None) -> str:
+    if not bank_name:
+        return "1110"
+    bank = (
+        db.execute(
+            select(Entity).where(
+                Entity.type == "bank",
+                Entity.name.ilike(bank_name.strip()),
+            )
+        )
+        .scalars()
+        .first()
+    )
+    code = (bank.code if bank else None) or ""
+    code = code.strip()
+    if code and db.execute(select(Account).where(Account.code == code)).scalars().one_or_none():
+        return code
+    return "1110"
+
+
+def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, dict]:
+    fsvc = FinancialStatementService(db)
+    lsvc = LedgerService(db)
+    isvc = InventoryReportService(db)
+    osvc = OperationsReportService(db)
+    ssvc = SalesReportService(db)
+
+    if intent.key == "balance_sheet":
+        rep = fsvc.balance_sheet(to_date=intent.to_date)
+        return "Balance sheet generated.", rep.model_dump(by_alias=True)
+    if intent.key == "income_statement":
+        rep = fsvc.income_statement(from_date=intent.from_date, to_date=intent.to_date)
+        return "Income statement generated.", rep.model_dump(by_alias=True)
+    if intent.key == "cash_flow":
+        rep = CashFlowService(db).statement(from_date=intent.from_date, to_date=intent.to_date)
+        return "Cash flow statement generated.", rep.model_dump(by_alias=True)
+    if intent.key == "general_journal":
+        page_size = max(1, min(50, int(intent.limit or 20)))
+        rep = lsvc.general_journal(from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=page_size)
+        return "General journal generated.", rep.model_dump(by_alias=True)
+    if intent.key == "general_ledger":
+        rep = lsvc.general_ledger(from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=200)
+        return "General ledger generated.", rep.model_dump(by_alias=True)
+    if intent.key == "trial_balance":
+        rep = lsvc.trial_balance(from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=200)
+        return "Trial balance generated.", rep.model_dump(by_alias=True)
+    if intent.key == "account_ledger":
+        account_code = intent.account_code or _resolve_bank_account_code(db, intent.bank_name)
+        rep = lsvc.account_ledger(account_code=account_code, from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=120)
+        return f"Account ledger generated for {account_code}.", rep.model_dump(by_alias=True)
+    if intent.key == "debtor_creditor":
+        rep = osvc.debtor_creditor(from_date=intent.from_date, to_date=intent.to_date)
+        return "Debtor/Creditor report generated.", rep.model_dump(by_alias=True)
+    if intent.key == "inventory_balance":
+        rep = isvc.balance_report(to_date=intent.to_date)
+        return "Inventory balance generated.", rep.model_dump(by_alias=True)
+    if intent.key == "inventory_movement":
+        rep = isvc.movement_report(from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=150)
+        return "Inventory movement report generated.", rep.model_dump(by_alias=True)
+    if intent.key == "sales_by_product":
+        rep = ssvc.sales_by_product(from_date=intent.from_date, to_date=intent.to_date)
+        return "Sales by product report generated.", rep.model_dump(by_alias=True)
+    if intent.key == "sales_by_invoice":
+        rep = ssvc.sales_by_invoice(from_date=intent.from_date, to_date=intent.to_date)
+        return "Sales by invoice report generated.", rep.model_dump(by_alias=True)
+    if intent.key == "purchase_by_product":
+        rep = ssvc.purchase_by_product(from_date=intent.from_date, to_date=intent.to_date)
+        return "Purchase by product report generated.", rep.model_dump(by_alias=True)
+    if intent.key == "purchase_by_invoice":
+        rep = ssvc.purchase_by_invoice(from_date=intent.from_date, to_date=intent.to_date)
+        return "Purchase by invoice report generated.", rep.model_dump(by_alias=True)
+    raise HTTPException(status_code=400, detail="Unsupported report intent")
+
+
 def _find_transactions_for_ai_edit(db: Session, search: dict) -> list[Transaction]:
     txid = (search.get("transaction_id") or "").strip() if isinstance(search.get("transaction_id"), str) else ""
     if txid:
@@ -254,6 +401,69 @@ def _level_for_code(code: str) -> AccountLevel:
     if len(code) == 4:
         return AccountLevel.GENERAL
     return AccountLevel.SUB
+
+
+def _normalize_employee_payment_account(
+    db: Session,
+    transaction: dict,
+    *,
+    resolved_entities: list[ResolvedEntityLink],
+    entity_mentions: list[dict],
+    user_text: str = "",
+) -> dict:
+    """For employee payees, force primary expense line to wages account 6110."""
+    has_employee_payee = False
+    for r in resolved_entities or []:
+        if (r.role or "").strip().lower() != "payee":
+            continue
+        e = db.get(Entity, r.entity_id)
+        if e and (e.type or "").strip().lower() == "employee":
+            has_employee_payee = True
+            break
+    if not has_employee_payee:
+        for m in entity_mentions or []:
+            role = (m.get("role") or "").strip().lower() if isinstance(m, dict) else ""
+            name = (m.get("name") or "").strip() if isinstance(m, dict) else ""
+            if role != "payee" or not name:
+                continue
+            e = db.execute(select(Entity).where(Entity.type == "employee", Entity.name.ilike(name))).scalars().first()
+            if e:
+                has_employee_payee = True
+                break
+    if not has_employee_payee:
+        text_norm = (user_text or "").strip().lower()
+        if text_norm:
+            employee_names = db.execute(select(Entity.name).where(Entity.type == "employee")).scalars().all()
+            for nm in employee_names:
+                n = (nm or "").strip().lower()
+                if n and n in text_norm:
+                    has_employee_payee = True
+                    break
+    if not has_employee_payee:
+        return transaction
+    lines = transaction.get("lines")
+    if not isinstance(lines, list) or not lines:
+        return transaction
+    fee_keywords = ("fee", "transaction fee", "bank fee", "کارمزد")
+    candidate_indices = []
+    for i, ln in enumerate(lines):
+        code = str(ln.get("account_code") or "").strip()
+        debit = int(ln.get("debit") or 0)
+        desc = str(ln.get("line_description") or "").strip().lower()
+        if debit <= 0 or code in ("1110", "6210"):
+            continue
+        if any(k in desc for k in fee_keywords):
+            continue
+        candidate_indices.append(i)
+    if not candidate_indices:
+        return transaction
+    target_idx = max(candidate_indices, key=lambda ix: int(lines[ix].get("debit") or 0))
+    if str(lines[target_idx].get("account_code") or "").strip() != "6110":
+        lines[target_idx]["account_code"] = "6110"
+        if not (lines[target_idx].get("line_description") or "").strip():
+            lines[target_idx]["line_description"] = "Employee compensation expense"
+    transaction["lines"] = lines
+    return transaction
 
 
 @router.post("/attachments", response_model=AttachmentRead, status_code=201)
@@ -340,6 +550,29 @@ async def chat(
     if not account_list:
         raise HTTPException(status_code=400, detail="No accounts. Run the app so the seed runs.")
     messages = [{"role": m.role, "content": m.content} for m in payload.messages]
+    last_user_message = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "user"), "")
+    last_assistant_message = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "assistant"), "")
+    non_payment_query = _looks_like_non_payment_query(last_user_message)
+    report_intent = parse_report_intent(last_user_message)
+    if report_intent is not None:
+        try:
+            msg, report = _build_report_from_intent(db, report_intent)
+            chat_logger.info(
+                "chat_report_intent user=%r intent=%s from=%s to=%s",
+                (last_user_message[:120] if last_user_message else ""),
+                report_intent.key,
+                report_intent.from_date,
+                report_intent.to_date,
+            )
+            return ChatResponse(message=msg, report=report, transaction=None)
+        except HTTPException:
+            raise
+        except Exception:
+            chat_logger.exception("chat_report_intent_failed intent=%s", getattr(report_intent, "key", None))
+            return ChatResponse(
+                message="I couldn't generate that report right now. Please try with a date range, e.g. 'balance sheet this month'.",
+                transaction=None,
+            )
     attachments = _load_attachments(db, payload.attachment_ids)
     attachment_context: list[dict[str, str]] = []
     for a in attachments:
@@ -435,10 +668,110 @@ async def chat(
             transaction=None,
         )
 
-    try:
-        result = await ai_chat_turn(messages, account_list, attachment_context=attachment_context)
-    except AISuggestError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
+    # Conversational fee learning flow: if the assistant previously asked for fee mapping,
+    # parse the user's answer and store it for future transactions.
+    fee_context = parse_fee_question_context(last_assistant_message)
+    learned_fee_prefix = ""
+    if fee_context and not non_payment_query:
+        method_name_q, bank_name_q = fee_context
+        parsed_cfg = parse_fee_config_text(last_user_message)
+        if parsed_cfg is None:
+            return ChatResponse(
+                message=(
+                    f"I couldn't parse the fee format for {method_name_q} via {bank_name_q}. "
+                    "Please answer like: '5000 toman', '1%', or '1% + 5000 with max 30000'."
+                ),
+                transaction=None,
+            )
+        rule = upsert_fee_rule(
+            db,
+            method_name=method_name_q,
+            bank_name=bank_name_q,
+            fee_type=parsed_cfg["fee_type"],
+            fee_value=parsed_cfg["fee_value"],
+            flat_fee=parsed_cfg["flat_fee"],
+            percent_bps=parsed_cfg["percent_bps"],
+            max_fee=parsed_cfg["max_fee"],
+            effective_from=date.today(),
+        )
+        db.commit()
+        learned_fee_prefix = (
+            f"Saved fee rule for {canonical_method_name(method_name_q)} via {bank_name_q}. "
+        )
+
+    # Conversational "fill in the blanks" for dynamic fee logic:
+    # if payment method is missing for a payment, ask it before generating voucher.
+    bank_names = _all_bank_names(db)
+    payment_ctx = extract_payment_context(messages, bank_names)
+    if payment_ctx.is_payment and payment_ctx.amount > 0 and not payment_ctx.method_name and not non_payment_query:
+        return ChatResponse(
+            message="Which payment method did you use for this transaction?",
+            transaction=None,
+        )
+    if payment_ctx.is_payment and payment_ctx.amount > 0 and payment_ctx.method_name and not payment_ctx.bank_name and not non_payment_query:
+        return ChatResponse(
+            message="Which bank account did you use for this transaction?",
+            transaction=None,
+        )
+    if (
+        payment_ctx.is_payment
+        and payment_ctx.amount > 0
+        and payment_ctx.method_name
+        and payment_ctx.bank_name
+        and not non_payment_query
+    ):
+        _, _, mapped_rule = resolve_fee_rule(
+            db,
+            method_name=payment_ctx.method_name,
+            bank_name=payment_ctx.bank_name,
+            as_of=date.today(),
+        )
+        if mapped_rule is None and not fee_context:
+            return ChatResponse(
+                message=(
+                    f"What is the transaction fee for {canonical_method_name(payment_ctx.method_name)} "
+                    f"via {payment_ctx.bank_name}? "
+                    "You can answer like: '5000 toman', '1%', or '1% + 5000 with max 30000'."
+                ),
+                transaction=None,
+            )
+    chat_logger.info(
+        "chat_flow user=%r non_payment_query=%s payment_ctx={is_payment:%s,amount:%s,method:%r,bank:%r}",
+        (last_user_message[:120] if last_user_message else ""),
+        non_payment_query,
+        payment_ctx.is_payment,
+        payment_ctx.amount,
+        payment_ctx.method_name,
+        payment_ctx.bank_name,
+    )
+
+    result: dict | None = None
+    # After learning a new fee rule, prefer a direct single-shot suggestion from full user history
+    # to avoid another clarification loop.
+    if (
+        learned_fee_prefix
+        and payment_ctx.is_payment
+        and payment_ctx.amount > 0
+        and payment_ctx.method_name
+        and payment_ctx.bank_name
+    ):
+        try:
+            combined_user_text = " . ".join(
+                [(m.get("content") or "").strip() for m in messages if m.get("role") == "user" and (m.get("content") or "").strip()]
+            )
+            suggested = await ai_suggest_transaction(combined_user_text, account_list)
+            result = {
+                "message": "Here's the voucher based on what you said.",
+                "transaction": suggested,
+                "entity_mentions": [],
+            }
+        except AISuggestError:
+            result = None
+    if result is None:
+        try:
+            result = await ai_chat_turn(messages, account_list, attachment_context=attachment_context)
+        except AISuggestError as e:
+            raise HTTPException(status_code=503, detail=str(e)) from e
     transaction = result.get("transaction")
     if transaction:
         code_to_id = {a.code: a.id for a in accounts}
@@ -457,7 +790,18 @@ async def chat(
             existing_codes.add(code)
         db.commit()
         # Resolve mentions to entities (get-or-create) so they appear in Entities and we can return ids for dropdowns
-        entity_mentions = result.get("entity_mentions") or []
+        entity_mentions = list(result.get("entity_mentions") or [])
+        # Ensure detected payment bank is returned as an entity mention so UI can auto-link it on save.
+        if payment_ctx.bank_name:
+            has_bank_mention = any((m.get("role") or "").strip().lower() == "bank" for m in entity_mentions if isinstance(m, dict))
+            if not has_bank_mention:
+                bank_existing = find_bank_entity_by_name(db, payment_ctx.bank_name)
+                entity_mentions.append(
+                    {
+                        "role": "bank",
+                        "name": (bank_existing.name if bank_existing else payment_ctx.bank_name.strip()),
+                    }
+                )
         resolved_entities: list[ResolvedEntityLink] = []
         for m in entity_mentions:
             role = (m.get("role") or "").strip().lower()
@@ -467,6 +811,15 @@ async def chat(
                 resolved_entities.append(ResolvedEntityLink(role=role, entity_id=entity.id))
         if entity_mentions:
             db.commit()
+        transaction = _normalize_employee_payment_account(
+            db,
+            transaction,
+            resolved_entities=resolved_entities,
+            entity_mentions=entity_mentions,
+            user_text=" . ".join(
+                [(m.get("content") or "").strip() for m in messages if m.get("role") == "user" and (m.get("content") or "").strip()]
+            ),
+        )
         line_creates = [
             TransactionLineCreate(
                 account_code=ln["account_code"],
@@ -476,6 +829,54 @@ async def chat(
             )
             for ln in transaction["lines"]
         ]
+        # Apply dynamic transaction fee as separate traceable line items when method+bank mapping exists.
+        bank_mention = next((m.get("name") for m in (entity_mentions or []) if (m.get("role") or "").lower() == "bank"), None)
+        effective_bank_name = payment_ctx.bank_name or (bank_mention.strip() if isinstance(bank_mention, str) else None)
+        effective_method_name = payment_ctx.method_name
+        if payment_ctx.is_payment and effective_method_name and effective_bank_name:
+            method_obj, bank_obj, fee_rule = resolve_fee_rule(
+                db,
+                method_name=effective_method_name,
+                bank_name=effective_bank_name,
+                as_of=date.today(),
+            )
+            if fee_rule is not None and method_obj and bank_obj:
+                transaction, fee_calc = apply_fee_to_transaction_lines(
+                    transaction,
+                    method_name=method_obj.name,
+                    bank_name=bank_obj.name,
+                    rule=fee_rule,
+                    amount_mode=payment_ctx.amount_mode,
+                )
+                if fee_calc is not None and fee_calc.fee_amount > 0:
+                    line_creates = [
+                        TransactionLineCreate(
+                            account_code=ln["account_code"],
+                            debit=ln["debit"],
+                            credit=ln["credit"],
+                            line_description=ln.get("line_description"),
+                        )
+                        for ln in transaction["lines"]
+                    ]
+                    fee_msg = (
+                        f"Included transaction fee {fee_calc.fee_amount:,} IRR "
+                        f"({canonical_method_name(method_obj.name)} via {bank_obj.name})."
+                    )
+                    result["message"] = (learned_fee_prefix + result.get("message", "") + " " + fee_msg).strip()
+                elif learned_fee_prefix:
+                    result["message"] = (learned_fee_prefix + result.get("message", "")).strip()
+            elif payment_ctx.method_name and payment_ctx.bank_name:
+                return ChatResponse(
+                    message=(
+                        f"What is the transaction fee for {canonical_method_name(payment_ctx.method_name)} "
+                        f"via {payment_ctx.bank_name}? "
+                        "You can answer like: '5000 toman', '1%', or '1% + 5000 with max 30000'."
+                    ),
+                    transaction=None,
+                )
+        elif learned_fee_prefix:
+            result["message"] = (learned_fee_prefix + result.get("message", "")).strip()
+
         txn_response = SuggestTransactionResponse(
             date=transaction["date"],
             reference=transaction.get("reference"),
@@ -488,6 +889,72 @@ async def chat(
             entity_mentions=entity_mentions,
             resolved_entities=resolved_entities if resolved_entities else None,
         )
+    # Deterministic recovery: if chat model fails but payment context is complete,
+    # fall back to single-shot suggestion from full user history.
+    if (
+        payment_ctx.is_payment
+        and payment_ctx.amount > 0
+        and payment_ctx.method_name
+        and payment_ctx.bank_name
+    ):
+        try:
+            combined_user_text = " . ".join(
+                [(m.get("content") or "").strip() for m in messages if m.get("role") == "user" and (m.get("content") or "").strip()]
+            )
+            suggested = await ai_suggest_transaction(combined_user_text, account_list)
+            method_obj, bank_obj, fee_rule = resolve_fee_rule(
+                db,
+                method_name=payment_ctx.method_name,
+                bank_name=payment_ctx.bank_name,
+                as_of=date.today(),
+            )
+            if fee_rule is not None and method_obj and bank_obj:
+                suggested, fee_calc = apply_fee_to_transaction_lines(
+                    suggested,
+                    method_name=method_obj.name,
+                    bank_name=bank_obj.name,
+                    rule=fee_rule,
+                    amount_mode=payment_ctx.amount_mode,
+                )
+                extra_msg = (
+                    f" Included transaction fee {fee_calc.fee_amount:,} IRR "
+                    f"({canonical_method_name(method_obj.name)} via {bank_obj.name})."
+                    if fee_calc and fee_calc.fee_amount > 0
+                    else ""
+                )
+            else:
+                extra_msg = ""
+            txn_response = SuggestTransactionResponse(
+                date=suggested["date"],
+                reference=suggested.get("reference"),
+                description=suggested.get("description"),
+                lines=[
+                    TransactionLineCreate(
+                        account_code=ln["account_code"],
+                        debit=ln["debit"],
+                        credit=ln["credit"],
+                        line_description=ln.get("line_description"),
+                    )
+                    for ln in suggested["lines"]
+                ],
+            )
+            fallback_entity_mentions: list[dict[str, str]] = []
+            fallback_resolved: list[ResolvedEntityLink] = []
+            if payment_ctx.bank_name:
+                bank_existing = find_bank_entity_by_name(db, payment_ctx.bank_name)
+                bank_name_value = (bank_existing.name if bank_existing else payment_ctx.bank_name.strip())
+                fallback_entity_mentions.append({"role": "bank", "name": bank_name_value})
+                bank_entity = _get_or_create_entity(db, "bank", bank_name_value)
+                fallback_resolved.append(ResolvedEntityLink(role="bank", entity_id=bank_entity.id))
+                db.commit()
+            return ChatResponse(
+                message=(learned_fee_prefix + "Here's the voucher based on what you said." + extra_msg).strip(),
+                transaction=txn_response,
+                entity_mentions=fallback_entity_mentions or None,
+                resolved_entities=fallback_resolved or None,
+            )
+        except AISuggestError:
+            pass
     return ChatResponse(message=result["message"], transaction=None)
 
 
@@ -543,6 +1010,189 @@ async def suggest_transaction(
         reference=suggested.get("reference"),
         description=suggested.get("description"),
         lines=line_creates,
+    )
+
+
+@router.get("/fees/methods", response_model=list[PaymentMethodRead])
+def list_payment_methods(
+    db: Session = Depends(get_db),
+    active_only: bool = Query(True),
+) -> list[PaymentMethodRead]:
+    q = select(PaymentMethod).order_by(PaymentMethod.name)
+    if active_only:
+        q = q.where(PaymentMethod.is_active.is_(True))
+    rows = db.execute(q).scalars().all()
+    return [PaymentMethodRead.model_validate(r) for r in rows]
+
+
+@router.get("/fees", response_model=list[TransactionFeeRead])
+def list_transaction_fees(
+    db: Session = Depends(get_db),
+    method_name: str | None = Query(None),
+    bank_id: UUID | None = Query(None),
+    bank_name: str | None = Query(None),
+    active_only: bool = Query(True),
+) -> list[TransactionFeeRead]:
+    q = (
+        select(TransactionFee)
+        .options(selectinload(TransactionFee.method), selectinload(TransactionFee.bank))
+        .order_by(TransactionFee.effective_from.desc(), TransactionFee.created_at.desc())
+    )
+    if active_only:
+        q = q.where(TransactionFee.is_active.is_(True))
+    if bank_id:
+        q = q.where(TransactionFee.bank_id == bank_id)
+    if bank_name and bank_name.strip():
+        bank = find_bank_entity_by_name(db, bank_name.strip())
+        if not bank:
+            return []
+        q = q.where(TransactionFee.bank_id == bank.id)
+    if method_name and method_name.strip():
+        method = find_payment_method(db, method_name.strip())
+        if not method:
+            return []
+        q = q.where(TransactionFee.method_id == method.id)
+    rows = db.execute(q).scalars().all()
+    return [_transaction_fee_to_read(r) for r in rows]
+
+
+@router.put("/fees", response_model=TransactionFeeUpsertResponse)
+def upsert_transaction_fee(
+    payload: TransactionFeeUpsertRequest,
+    db: Session = Depends(get_db),
+) -> TransactionFeeUpsertResponse:
+    bank: Entity | None = None
+    if payload.bank_id:
+        bank = db.get(Entity, payload.bank_id)
+        if not bank or bank.type != "bank":
+            raise HTTPException(status_code=400, detail="bank_id must reference an existing bank entity.")
+    elif payload.bank_name and payload.bank_name.strip():
+        bank = get_or_create_bank_entity(db, payload.bank_name.strip())
+    if not bank:
+        raise HTTPException(status_code=400, detail="bank_name or bank_id is required.")
+
+    fee_type = payload.fee_type
+    fee_value = max(0, int(payload.fee_value or 0))
+    flat_fee = max(0, int(payload.flat_fee or 0))
+    percent_bps = max(0, int(payload.percent_bps or 0))
+    max_fee = payload.max_fee if payload.max_fee is None else max(0, int(payload.max_fee))
+    if fee_type == "free":
+        fee_value = 0
+        flat_fee = 0
+        percent_bps = 0
+        max_fee = None
+    elif fee_type == "flat":
+        if flat_fee <= 0:
+            flat_fee = fee_value
+        fee_value = flat_fee
+        percent_bps = 0
+    elif fee_type == "percent":
+        if percent_bps <= 0:
+            percent_bps = fee_value
+        fee_value = percent_bps
+        flat_fee = 0
+    elif fee_type == "hybrid":
+        # compatibility field is not meaningful for hybrid.
+        fee_value = 0
+
+    rule = upsert_fee_rule(
+        db,
+        method_name=payload.method_name,
+        bank_name=bank.name,
+        fee_type=fee_type,
+        fee_value=fee_value,
+        flat_fee=flat_fee,
+        percent_bps=percent_bps,
+        max_fee=max_fee,
+        effective_from=payload.effective_from,
+    )
+
+    recalculated = 0
+    if payload.update_scope == "recalculate_current_month_pending":
+        recalculated = recalculate_current_month_pending_entries(
+            db,
+            method_id=rule.method_id,
+            bank_id=rule.bank_id,
+            as_of=payload.effective_from or date.today(),
+        )
+    db.commit()
+
+    fresh = db.execute(
+        select(TransactionFee)
+        .options(selectinload(TransactionFee.method), selectinload(TransactionFee.bank))
+        .where(TransactionFee.id == rule.id)
+    ).scalars().one()
+    return TransactionFeeUpsertResponse(
+        rule=_transaction_fee_to_read(fresh),
+        recalculated_pending_entries=recalculated,
+    )
+
+
+@router.post("/fees/calculate", response_model=TransactionFeeCalculateResponse)
+def calculate_transaction_fee(
+    payload: TransactionFeeCalculateRequest,
+    db: Session = Depends(get_db),
+) -> TransactionFeeCalculateResponse:
+    method = find_payment_method(db, payload.method_name)
+    if not method:
+        raise HTTPException(status_code=404, detail=f"Payment method not found: {payload.method_name}")
+
+    bank: Entity | None = None
+    if payload.bank_id:
+        bank = db.get(Entity, payload.bank_id)
+        if not bank or bank.type != "bank":
+            raise HTTPException(status_code=400, detail="bank_id must reference an existing bank entity.")
+    elif payload.bank_name:
+        bank = find_bank_entity_by_name(db, payload.bank_name)
+    if not bank:
+        raise HTTPException(status_code=404, detail="Bank not found for fee calculation.")
+
+    rule = get_active_fee_rule(db, method.id, bank.id, as_of=payload.as_of_date)
+    if not rule:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No fee rule mapped for {canonical_method_name(method.name)} via {bank.name}.",
+        )
+    calc = calculate_total_with_fee(payload.amount, rule, amount_mode=payload.amount_mode)
+    line_items = build_fee_line_items(calc.fee_amount, method.name, bank.name)
+    if payload.track_pending:
+        tx_id = payload.transaction_id
+        if tx_id is not None:
+            tx = db.get(Transaction, tx_id)
+            if not tx:
+                raise HTTPException(status_code=404, detail=f"Transaction not found: {tx_id}")
+        existing = None
+        if tx_id is not None:
+            existing = db.execute(
+                select(TransactionFeeApplication).where(TransactionFeeApplication.transaction_id == tx_id)
+            ).scalars().first()
+        app_row = existing or TransactionFeeApplication(transaction_id=tx_id)
+        app_row.method_id = method.id
+        app_row.bank_id = bank.id
+        app_row.fee_rule_id = rule.id
+        app_row.status = FeeApplicationStatus.PENDING
+        app_row.direction = "payment"
+        app_row.amount_mode = payload.amount_mode
+        app_row.base_amount = calc.base_amount
+        app_row.fee_amount = calc.fee_amount
+        app_row.gross_amount = calc.gross_amount
+        app_row.net_amount = calc.net_amount
+        app_row.note = "Pending fee application snapshot"
+        if existing is None:
+            db.add(app_row)
+        db.commit()
+    return TransactionFeeCalculateResponse(
+        amount_mode=calc.amount_mode,
+        input_amount=calc.input_amount,
+        base_amount=calc.base_amount,
+        fee_amount=calc.fee_amount,
+        gross_amount=calc.gross_amount,
+        net_amount=calc.net_amount,
+        applied_cap=calc.applied_cap,
+        fee_type=rule.fee_type.value,
+        method_name=method.name,
+        bank_name=bank.name,
+        line_items=line_items,
     )
 
 

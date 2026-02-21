@@ -1090,7 +1090,12 @@ final class ChatViewModel: ObservableObject {
             text.contains("get") ||
             text.contains("find") ||
             text.contains("recent") ||
-            text.contains("last")
+            text.contains("last") ||
+            text.contains("latest") ||
+            text.contains("lates")
+        if hasSubject && text.contains("what was") {
+            return true
+        }
         let hasEntityHint =
             text.contains("bank") ||
             text.contains("client") ||

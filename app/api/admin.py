@@ -13,10 +13,13 @@ from app.models.account import Account
 from app.models.budget import BudgetLimit
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
+from app.models.invoice_item import InvoiceItem
+from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
+from app.models.transaction_fee import PaymentMethod, TransactionFee, TransactionFeeApplication
 from app.models.trial_balance import TrialBalance, TrialBalanceLine
-from app.db.seed import seed_chart_if_empty
+from app.db.seed import seed_chart_if_empty, seed_payment_methods_if_empty
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -57,6 +60,12 @@ def reset_db(db: Session = Depends(get_db)) -> dict:
         db.execute(delete(TransactionEntity))
         db.execute(delete(TransactionAttachment))
         db.execute(delete(TransactionLine))
+        db.execute(delete(TransactionFeeApplication))
+        db.execute(delete(TransactionFee))
+        db.execute(delete(PaymentMethod))
+        db.execute(delete(InventoryMovement))
+        db.execute(delete(InvoiceItem))
+        db.execute(delete(InventoryItem))
         db.execute(delete(Invoice))  # can reference Transaction via transaction_id
         db.execute(delete(Transaction))
         db.execute(delete(RecurringRule))
@@ -71,6 +80,7 @@ def reset_db(db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}") from e
 
     n = seed_chart_if_empty(db)
+    seed_payment_methods_if_empty(db)
     return {
         "ok": True,
         "message": "Database reset. Chart of accounts re-seeded.",

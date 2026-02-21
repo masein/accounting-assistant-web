@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -31,4 +31,7 @@ class Invoice(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    items: Mapped[list["InvoiceItem"]] = relationship(
+        "InvoiceItem", back_populates="invoice", cascade="all, delete-orphan"
     )

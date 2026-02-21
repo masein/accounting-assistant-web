@@ -87,10 +87,11 @@ def create_entity(
     payload: EntityCreate,
     db: Session = Depends(get_db),
 ) -> EntityRead:
+    code = payload.code.strip() if payload.code else None
     entity = Entity(
         type=payload.type.strip().lower(),
         name=payload.name.strip(),
-        code=payload.code.strip() or None,
+        code=code,
     )
     db.add(entity)
     db.commit()

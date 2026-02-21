@@ -148,6 +148,10 @@ class ResolvedEntityLink(BaseModel):
 class ChatResponse(BaseModel):
     message: str = Field(..., description="Assistant reply to show in chat")
     transaction: Optional[SuggestTransactionResponse] = None
+    report: Optional[dict] = Field(
+        default=None,
+        description="Structured report payload for manager insights queries (balance sheet, ledger, inventory, etc.)",
+    )
     entity_mentions: Optional[list[dict[str, str]]] = Field(
         default=None,
         description="When AI returns a transaction, parties to link: [{ role, name }] for get-or-create",

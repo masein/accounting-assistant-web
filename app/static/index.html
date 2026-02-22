@@ -344,43 +344,20 @@
 <body>
   <div class="container">
     <h1>Accounting Assistant</h1>
-    <p class="hero-subtitle">Chat with AI, attach receipts, and save balanced vouchers with linked entities.</p>
+    <p class="hero-subtitle">Use AI chat for accounting tasks, save balanced vouchers, and run manager-grade reports.</p>
 
     <div id="alert" class="alert" role="alert" style="display: none;"></div>
     <div class="top-nav" id="top-nav">
       <button type="button" class="nav-btn" data-page="dashboard">Dashboard</button>
-      <button type="button" class="nav-btn" data-page="transactions">Transactions</button>
+      <button type="button" class="nav-btn" data-page="chat">AI chat</button>
+      <button type="button" class="nav-btn" data-page="transactions">Vouchers</button>
       <button type="button" class="nav-btn" data-page="entities">Entities</button>
       <button type="button" class="nav-btn" data-page="invoices">Invoices</button>
       <button type="button" class="nav-btn" data-page="recurring">Recurring</button>
       <button type="button" class="nav-btn" data-page="ledger">Ledger</button>
       <button type="button" class="nav-btn" data-page="manager">Manager reports</button>
-    </div>
-    <div class="ai-runtime-bar">
-      <div>
-        <label for="ai-provider-select">AI provider</label>
-        <select id="ai-provider-select">
-          <option value="metis">MetisAI</option>
-          <option value="lmstudio">Local LM Studio</option>
-          <option value="custom">Custom</option>
-        </select>
-      </div>
-      <div>
-        <label for="ai-model-input">Model</label>
-        <input type="text" id="ai-model-input" placeholder="e.g. gpt-4o-mini">
-      </div>
-      <div>
-        <label for="ai-base-input">Base URL (custom)</label>
-        <input type="text" id="ai-base-input" placeholder="https://api.example.com/openai/v1">
-      </div>
-      <div>
-        <label for="ai-key-input">API key (optional)</label>
-        <input type="password" id="ai-key-input" placeholder="leave empty to keep current">
-      </div>
-      <div style="display:flex; align-items:flex-end;">
-        <button type="button" class="btn btn-secondary" id="ai-save-btn">Apply AI settings</button>
-      </div>
-      <div class="ai-runtime-hint">Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.</div>
+      <button type="button" class="nav-btn" data-page="inventory">Inventory</button>
+      <button type="button" class="nav-btn" data-page="settings">Settings</button>
     </div>
 
     <div class="card" data-page="entities">
@@ -454,25 +431,28 @@
     </div>
 
     <div class="card" data-page="transactions">
-      <h2>Register financial event (voucher)</h2>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Describe the event in the chat. The AI accountant will ask for details needed for proper books and reports: which client, which bank account, what it was for (e.g. invoice or service type), and optionally a reference (invoice/receipt number). Then it fills the voucher with reference and line descriptions so you can run useful reports later.</p>
-      <div class="attachment-topbar">
-        <input type="file" id="attachment-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="max-width: 360px; margin: 0;">
-        <button type="button" class="btn btn-secondary" id="attachment-upload-btn">Upload receipts</button>
-        <span class="attachment-help">Supported: JPG, PNG, WEBP, PDF (max 8MB each). Used in chat and saved with voucher.</span>
-      </div>
-      <div id="attachment-grid" class="attachment-grid"></div>
-      <div class="voucher-layout" style="margin-top: 1rem;">
-        <div class="chat-col">
-          <div class="chat-panel">
-            <div class="chat-messages" id="chat-messages"></div>
-            <div class="chat-input-wrap">
-              <input type="text" id="chat-input" placeholder="e.g. I received 1M from my client" autocomplete="off">
-              <button type="button" class="btn btn-primary" id="chat-send">Send</button>
-            </div>
+      <h2>Voucher entry</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
+        Save and edit journal vouchers here. Use <strong>AI chat</strong> tab for conversational bookkeeping, then review/finalize entries in this form.
+      </p>
+      <p style="margin: 0 0 0.9rem 0;">
+        <button type="button" class="btn btn-secondary btn-sm" id="open-ai-chat-inline">Open AI chat</button>
+      </p>
+      <div id="voucher-chat-inline" style="display:none; margin-bottom: 1rem;">
+        <div class="attachment-topbar">
+          <input type="file" id="attachment-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="max-width: 360px; margin: 0;">
+          <button type="button" class="btn btn-secondary" id="attachment-upload-btn">Upload receipts</button>
+          <span class="attachment-help">Supported: JPG, PNG, WEBP, PDF (max 8MB each). Files are used in chat and can be attached to vouchers.</span>
+        </div>
+        <div id="attachment-grid" class="attachment-grid"></div>
+        <div class="chat-panel" style="margin-top: 0.75rem;">
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-wrap">
+            <input type="text" id="chat-input" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off">
+            <button type="button" class="btn btn-primary" id="chat-send">Send</button>
           </div>
         </div>
-        <div class="form-col">
+      </div>
       <form id="transaction-form" style="margin: 0;">
         <div class="row">
           <div>
@@ -543,8 +523,6 @@
           <button type="submit" class="btn btn-primary" id="submit-btn">Save voucher</button>
         </div>
       </form>
-        </div>
-      </div>
     </div>
 
     <div class="card" data-page="dashboard">
@@ -695,7 +673,7 @@
     <div class="card" data-page="manager">
       <h2>Manager reporting & financial statements</h2>
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
-        Generate balance sheet, income statement, cash flow, books, AR/AP, inventory, and sales/purchase reports.
+        Generate balance sheet, income statement, cash flow, accounting books, AR/AP, and sales/purchase reports.
       </p>
       <div class="row" style="margin-bottom:0.75rem;">
         <div>
@@ -709,8 +687,6 @@
             <option value="trial_balance">Trial balance (مرور حساب)</option>
             <option value="account_ledger">Account ledger (گردش حساب)</option>
             <option value="debtor_creditor">Debtor/Creditor</option>
-            <option value="inventory_balance">Inventory balance</option>
-            <option value="inventory_movement">Inventory movement</option>
             <option value="sales_by_product">Sales by product</option>
             <option value="sales_by_invoice">Sales by invoice</option>
             <option value="purchase_by_product">Purchase by product</option>
@@ -738,6 +714,22 @@
         <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-csv-btn" disabled>Export CSV</button>
         <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-pdf-btn" disabled>Export PDF</button>
       </div>
+      <div class="panel">
+        <h3>Report output (JSON + table preview)</h3>
+        <div class="panel report-chart-panel" id="mgr-report-chart-panel" style="display:none;">
+          <h3 id="mgr-report-chart-title">Report chart</h3>
+          <canvas id="mgr-report-chart" height="220"></canvas>
+        </div>
+        <div id="mgr-report-preview" style="margin-bottom:0.6rem;"></div>
+        <pre id="mgr-report-json" style="white-space: pre-wrap; margin:0; font-size:0.8rem; color:var(--text); max-height:360px; overflow:auto;"></pre>
+      </div>
+    </div>
+
+    <div class="card" data-page="inventory">
+      <h2>Inventory operations</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
+        Manage inventory items and movements here, then run inventory balance/movement reports with chart preview and exports.
+      </p>
       <div class="row" style="margin-bottom:0.75rem;">
         <div>
           <label for="mgr-inv-item-name">Inventory item name</label>
@@ -776,14 +768,66 @@
           <button type="button" class="btn btn-secondary" id="mgr-add-mv-btn">Add movement</button>
         </div>
       </div>
-      <div class="panel">
-        <h3>Report output (JSON + table preview)</h3>
-        <div class="panel report-chart-panel" id="mgr-report-chart-panel" style="display:none;">
-          <h3 id="mgr-report-chart-title">Report chart</h3>
-          <canvas id="mgr-report-chart" height="220"></canvas>
+      <div class="row" style="margin-bottom:0.75rem;">
+        <div>
+          <label for="inv-from-date">From</label>
+          <input type="date" id="inv-from-date">
         </div>
-        <div id="mgr-report-preview" style="margin-bottom:0.6rem;"></div>
-        <pre id="mgr-report-json" style="white-space: pre-wrap; margin:0; font-size:0.8rem; color:var(--text); max-height:360px; overflow:auto;"></pre>
+        <div>
+          <label for="inv-to-date">To</label>
+          <input type="date" id="inv-to-date">
+        </div>
+        <div style="display:flex; align-items:flex-end; gap:0.5rem;">
+          <button type="button" class="btn btn-primary" id="inv-run-balance-btn">Inventory balance</button>
+          <button type="button" class="btn btn-secondary" id="inv-run-movement-btn">Inventory movements</button>
+        </div>
+      </div>
+      <div class="report-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-json-btn" disabled>Export JSON</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-csv-btn" disabled>Export CSV</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-pdf-btn" disabled>Export PDF</button>
+      </div>
+      <div class="panel">
+        <h3>Inventory report output</h3>
+        <div class="panel report-chart-panel" id="inv-report-chart-panel" style="display:none;">
+          <h3 id="inv-report-chart-title">Inventory chart</h3>
+          <canvas id="inv-report-chart" height="220"></canvas>
+        </div>
+        <div id="inv-report-preview" style="margin-bottom:0.6rem;"></div>
+        <pre id="inv-report-json" style="white-space: pre-wrap; margin:0; font-size:0.8rem; color:var(--text); max-height:360px; overflow:auto;"></pre>
+      </div>
+    </div>
+
+    <div class="card" data-page="settings">
+      <h2>AI settings</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
+        Configure model provider and credentials once, then use the assistant across all sections.
+      </p>
+      <div class="ai-runtime-bar" style="margin-bottom: 0;">
+        <div>
+          <label for="ai-provider-select">AI provider</label>
+          <select id="ai-provider-select">
+            <option value="metis">MetisAI</option>
+            <option value="lmstudio">Local LM Studio</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div>
+          <label for="ai-model-input">Model</label>
+          <input type="text" id="ai-model-input" placeholder="e.g. gpt-4o-mini">
+        </div>
+        <div>
+          <label for="ai-base-input">Base URL (custom)</label>
+          <input type="text" id="ai-base-input" placeholder="https://api.example.com/openai/v1">
+        </div>
+        <div>
+          <label for="ai-key-input">API key (optional)</label>
+          <input type="password" id="ai-key-input" placeholder="leave empty to keep current">
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+          <button type="button" class="btn btn-secondary" id="ai-save-btn">Apply AI settings</button>
+        </div>
+        <div class="ai-runtime-hint">Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.</div>
       </div>
     </div>
   </div>
@@ -817,6 +861,8 @@
     const attachmentInput = document.getElementById('attachment-input');
     const attachmentUploadBtn = document.getElementById('attachment-upload-btn');
     const attachmentGrid = document.getElementById('attachment-grid');
+    const openAiChatInlineBtn = document.getElementById('open-ai-chat-inline');
+    const voucherChatInlineEl = document.getElementById('voucher-chat-inline');
     const invoicesTbody = document.getElementById('invoices-tbody');
     const recurringTbody = document.getElementById('recurring-tbody');
     const budgetWrap = document.getElementById('budget-wrap');
@@ -854,6 +900,18 @@
     const mgrMvQtyEl = document.getElementById('mgr-mv-qty');
     const mgrMvCostEl = document.getElementById('mgr-mv-cost');
     const mgrAddMvBtn = document.getElementById('mgr-add-mv-btn');
+    const invFromDateEl = document.getElementById('inv-from-date');
+    const invToDateEl = document.getElementById('inv-to-date');
+    const invRunBalanceBtn = document.getElementById('inv-run-balance-btn');
+    const invRunMovementBtn = document.getElementById('inv-run-movement-btn');
+    const invExportJsonBtn = document.getElementById('inv-export-json-btn');
+    const invExportCsvBtn = document.getElementById('inv-export-csv-btn');
+    const invExportPdfBtn = document.getElementById('inv-export-pdf-btn');
+    const invReportPreviewEl = document.getElementById('inv-report-preview');
+    const invReportJsonEl = document.getElementById('inv-report-json');
+    const invReportChartPanelEl = document.getElementById('inv-report-chart-panel');
+    const invReportChartEl = document.getElementById('inv-report-chart');
+    const invReportChartTitleEl = document.getElementById('inv-report-chart-title');
 
     let chatHistory = [];
     let lastEntityMentions = null;
@@ -863,17 +921,25 @@
     let currentEntityContext = null;
     let managerReportChart = null;
     let lastManagerReport = null;
-    const validPages = new Set(['dashboard', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager']);
+    let inventoryReportChart = null;
+    let lastInventoryReport = null;
+    const validPages = new Set(['dashboard', 'chat', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'settings']);
 
     function showPage(page) {
-      const target = validPages.has(page) ? page : 'dashboard';
+      const requested = validPages.has(page) ? page : 'dashboard';
+      let target = requested;
+      // "AI chat" is a shortcut to voucher page with inline chat opened.
+      if (target === 'chat') {
+        target = 'transactions';
+        if (voucherChatInlineEl) voucherChatInlineEl.style.display = 'block';
+      }
       document.querySelectorAll('.card[data-page]').forEach(card => {
         card.classList.toggle('active-page', card.getAttribute('data-page') === target);
       });
       document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-page') === target);
+        btn.classList.toggle('active', btn.getAttribute('data-page') === requested);
       });
-      if (location.hash !== '#' + target) history.replaceState(null, '', '#' + target);
+      if (location.hash !== '#' + requested) history.replaceState(null, '', '#' + requested);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -1190,6 +1256,81 @@
       mgrReportChartPanelEl.style.display = chart ? 'block' : 'none';
     }
 
+    function renderInventoryReportChart(report) {
+      if (!invReportChartPanelEl || !invReportChartEl) return;
+      const chart = renderReportChart(invReportChartEl, report, inventoryReportChart);
+      inventoryReportChart = chart;
+      if (invReportChartTitleEl) {
+        const spec = makeReportChartSpec(report);
+        invReportChartTitleEl.textContent = spec ? (spec.title || 'Inventory chart') : 'Inventory chart';
+      }
+      invReportChartPanelEl.style.display = chart ? 'block' : 'none';
+    }
+
+    async function runInventoryReport(type) {
+      try {
+        const endpoint = type === 'movement'
+          ? '/manager-reports/inventory/movements'
+          : '/manager-reports/inventory/balance';
+        const q = new URLSearchParams();
+        if (type === 'movement') {
+          if (invFromDateEl && invFromDateEl.value) q.set('from_date', invFromDateEl.value);
+          if (invToDateEl && invToDateEl.value) q.set('to_date', invToDateEl.value);
+          q.set('page', '1');
+          q.set('page_size', '120');
+        } else {
+          if (invToDateEl && invToDateEl.value) q.set('to_date', invToDateEl.value);
+        }
+        const url = API + endpoint + (q.toString() ? ('?' + q.toString()) : '');
+        if (invRunBalanceBtn) invRunBalanceBtn.disabled = true;
+        if (invRunMovementBtn) invRunMovementBtn.disabled = true;
+        const res = await fetch(url);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || 'Failed to run inventory report.', true);
+          return;
+        }
+        lastInventoryReport = data;
+        const period = reportPeriodText(data);
+        if (invReportPreviewEl) {
+          invReportPreviewEl.innerHTML = `
+            ${period ? `<div class="report-meta">Period: ${escapeHtml(period)}</div>` : ''}
+            ${renderReportPreviewHtml(data)}
+          `;
+        }
+        if (invReportJsonEl) invReportJsonEl.textContent = JSON.stringify(data, null, 2);
+        renderInventoryReportChart(data);
+        if (invExportJsonBtn) invExportJsonBtn.disabled = false;
+        if (invExportCsvBtn) invExportCsvBtn.disabled = false;
+        if (invExportPdfBtn) invExportPdfBtn.disabled = false;
+      } catch (err) {
+        showAlert('Inventory report error: ' + err.message, true);
+      } finally {
+        if (invRunBalanceBtn) invRunBalanceBtn.disabled = false;
+        if (invRunMovementBtn) invRunMovementBtn.disabled = false;
+      }
+    }
+
+    function exportInventoryReportJson() {
+      if (!lastInventoryReport) { showAlert('Run an inventory report first.', true); return; }
+      const fileName = reportFileBaseName(lastInventoryReport) + '.json';
+      downloadTextFile(fileName, JSON.stringify(lastInventoryReport, null, 2), 'application/json');
+    }
+
+    function exportInventoryReportCsv() {
+      if (!lastInventoryReport) { showAlert('Run an inventory report first.', true); return; }
+      const csv = reportToCsv(lastInventoryReport);
+      if (!csv) { showAlert('This report has no tabular rows to export as CSV.', true); return; }
+      const fileName = reportFileBaseName(lastInventoryReport) + '.csv';
+      downloadTextFile(fileName, csv, 'text/csv');
+    }
+
+    function exportInventoryReportPdf() {
+      if (!lastInventoryReport) { showAlert('Run an inventory report first.', true); return; }
+      const chartImg = (inventoryReportChart && invReportChartEl) ? invReportChartEl.toDataURL('image/png') : '';
+      openReportPrintWindow(lastInventoryReport, chartImg);
+    }
+
     async function runManagerReport() {
       try {
         const type = (mgrReportTypeEl.value || '').trim();
@@ -1288,7 +1429,11 @@
         mgrAddMvBtn.disabled = true;
         const payload = {
           item_id: itemId,
-          movement_date: (mgrToDateEl.value || new Date().toISOString().slice(0, 10)),
+          movement_date: (
+            (invToDateEl && invToDateEl.value)
+            || (mgrToDateEl && mgrToDateEl.value)
+            || new Date().toISOString().slice(0, 10)
+          ),
           movement_type: (mgrMvTypeEl.value || 'IN'),
           quantity: parseFloat(mgrMvQtyEl.value || '0'),
           unit_cost: parseInt(mgrMvCostEl.value || '0', 10) || 0
@@ -3052,6 +3197,17 @@
     if (mgrExportPdfBtn) mgrExportPdfBtn.addEventListener('click', exportManagerReportPdf);
     if (mgrAddItemBtn) mgrAddItemBtn.addEventListener('click', addManagerInventoryItem);
     if (mgrAddMvBtn) mgrAddMvBtn.addEventListener('click', addManagerInventoryMovement);
+    if (invRunBalanceBtn) invRunBalanceBtn.addEventListener('click', () => runInventoryReport('balance'));
+    if (invRunMovementBtn) invRunMovementBtn.addEventListener('click', () => runInventoryReport('movement'));
+    if (invExportJsonBtn) invExportJsonBtn.addEventListener('click', exportInventoryReportJson);
+    if (invExportCsvBtn) invExportCsvBtn.addEventListener('click', exportInventoryReportCsv);
+    if (invExportPdfBtn) invExportPdfBtn.addEventListener('click', exportInventoryReportPdf);
+    if (openAiChatInlineBtn) {
+      openAiChatInlineBtn.addEventListener('click', () => {
+        if (voucherChatInlineEl) voucherChatInlineEl.style.display = 'block';
+        if (chatInput) chatInput.focus();
+      });
+    }
 
     document.getElementById('date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('inv-issue').value = new Date().toISOString().slice(0, 10);
@@ -3059,6 +3215,8 @@
     document.getElementById('budget-month').value = new Date().toISOString().slice(0, 7);
     if (mgrFromDateEl) mgrFromDateEl.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
     if (mgrToDateEl) mgrToDateEl.value = new Date().toISOString().slice(0, 10);
+    if (invFromDateEl) invFromDateEl.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+    if (invToDateEl) invToDateEl.value = new Date().toISOString().slice(0, 10);
     syncManagerFilterLabels();
     topNav.addEventListener('click', (e) => {
       const btn = e.target.closest('.nav-btn[data-page]');
@@ -3069,7 +3227,7 @@
     showPage((location.hash || '#dashboard').slice(1));
     loadAIConfig();
     renderAttachments();
-    appendChatMessage('assistant', "Hi. I'm your AI accountant. Describe financial events to create vouchers, or ask reports like: 'Show me balance sheet for last month', 'گزارش سود و زیان این ماه', 'گردش حساب بانک ملت از اول سال', or 'فروش به تفکیک کالا در سه ماه اخیر'.");
+    appendChatMessage('assistant', "Hi. I'm your AI accountant. You can create vouchers, ask for statements, compare periods, and request management reports. Try: 'show me balance sheet for last month', 'گردش حساب بانک ملت از اول سال', or 'last 10 transactions for Melli'.");
     loadLedger();
     loadEntities();
     loadInvoices();

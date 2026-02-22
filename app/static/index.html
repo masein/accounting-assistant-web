@@ -22,6 +22,7 @@
       --shadow: 0 10px 24px rgba(10, 34, 58, 0.08);
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       font-family: 'Avenir Next', 'Trebuchet MS', 'Segoe UI', sans-serif;
       margin: 0;
@@ -73,7 +74,11 @@
       font-size: 0.9rem;
       cursor: pointer;
       font-weight: 600;
+      transition: transform 140ms ease, box-shadow 180ms ease, background-color 180ms ease, opacity 180ms ease;
     }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(20,36,59,0.08); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.62; cursor: not-allowed; box-shadow: none; transform: none; }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover { background: var(--primary-hover); }
     .btn-secondary { background: #e2e8f0; color: var(--text); }
@@ -87,6 +92,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
+      animation: alert-in 180ms ease;
     }
     .alert-success { background: var(--success-bg); color: #065f46; border: 1px solid #6ee7b7; }
     .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
@@ -104,6 +110,7 @@
     .chat-panel { display: flex; flex-direction: column; height: 380px; border: 1px solid var(--border); border-radius: 12px; background: #f8fbfd; }
     .chat-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
     .chat-msg { max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; }
+    .chat-msg.message-in { animation: message-in 220ms ease; }
     .chat-msg.user { align-self: flex-end; background: var(--primary); color: #fff; }
     .chat-msg.assistant { align-self: flex-start; background: #fff; border: 1px solid var(--border); }
     .chat-input-wrap { display: flex; gap: 0.5rem; padding: 0.5rem; border-top: 1px solid var(--border); background: var(--card); border-radius: 0 0 8px 8px; }
@@ -294,14 +301,46 @@
       cursor: pointer;
       font-size: 0.85rem;
       font-weight: 600;
+      transition: transform 120ms ease, background-color 180ms ease, color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+    .nav-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(20,36,59,0.08);
     }
     .nav-btn.active {
       background: var(--primary);
       border-color: var(--primary);
       color: #fff;
+      box-shadow: 0 10px 18px rgba(0,109,119,0.22);
     }
     .card[data-page] { display: none; }
-    .card[data-page].active-page { display: block; }
+    .card[data-page].active-page { display: block; animation: page-in 220ms ease; }
+    #voucher-chat-inline {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transform: translateY(-8px);
+      transition: max-height 260ms ease, opacity 220ms ease, transform 220ms ease;
+      margin-bottom: 0;
+    }
+    #voucher-chat-inline.is-open {
+      max-height: 1100px;
+      opacity: 1;
+      transform: translateY(0);
+      margin-bottom: 1rem;
+    }
+    @keyframes page-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes message-in {
+      from { opacity: 0; transform: translateY(8px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes alert-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     @media (max-width: 760px) {
       body { padding: 0.5rem; }
       .container { max-width: 100%; }
@@ -438,7 +477,7 @@
       <p style="margin: 0 0 0.9rem 0;">
         <button type="button" class="btn btn-secondary btn-sm" id="open-ai-chat-inline">Open AI chat</button>
       </p>
-      <div id="voucher-chat-inline" style="display:none; margin-bottom: 1rem;">
+      <div id="voucher-chat-inline">
         <div class="attachment-topbar">
           <input type="file" id="attachment-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="max-width: 360px; margin: 0;">
           <button type="button" class="btn btn-secondary" id="attachment-upload-btn">Upload receipts</button>
@@ -931,7 +970,7 @@
       // "AI chat" is a shortcut to voucher page with inline chat opened.
       if (target === 'chat') {
         target = 'transactions';
-        if (voucherChatInlineEl) voucherChatInlineEl.style.display = 'block';
+        openInlineChat();
       }
       document.querySelectorAll('.card[data-page]').forEach(card => {
         card.classList.toggle('active-page', card.getAttribute('data-page') === target);
@@ -941,6 +980,11 @@
       });
       if (location.hash !== '#' + requested) history.replaceState(null, '', '#' + requested);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function openInlineChat() {
+      if (!voucherChatInlineEl) return;
+      voucherChatInlineEl.classList.add('is-open');
     }
 
     function showAlert(message, isError = false) {
@@ -1804,8 +1848,10 @@
       div.className = 'chat-msg ' + role + (options && options.loading ? ' loading' : '');
       div.textContent = content;
       if (options && options.id) div.id = options.id;
+      div.classList.add('message-in');
       chatMessagesEl.appendChild(div);
       chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+      setTimeout(() => div.classList.remove('message-in'), 260);
       return div;
     }
 
@@ -2096,6 +2142,7 @@
         </div>
       `;
       chatMessagesEl.appendChild(div);
+      div.classList.add('message-in');
       const chartCanvas = div.querySelector('#' + chartId);
       const chartPanel = div.querySelector('.report-chart-panel');
       const chart = renderReportChart(chartCanvas, report, null);
@@ -2126,6 +2173,7 @@
         });
       }
       chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+      setTimeout(() => div.classList.remove('message-in'), 260);
     }
 
     function extractMessageText(text) {
@@ -3204,7 +3252,7 @@
     if (invExportPdfBtn) invExportPdfBtn.addEventListener('click', exportInventoryReportPdf);
     if (openAiChatInlineBtn) {
       openAiChatInlineBtn.addEventListener('click', () => {
-        if (voucherChatInlineEl) voucherChatInlineEl.style.display = 'block';
+        openInlineChat();
         if (chatInput) chatInput.focus();
       });
     }

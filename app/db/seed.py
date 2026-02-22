@@ -111,6 +111,7 @@ def seed_admin_user_if_missing(session: "Session") -> int:
             username="admin",
             password_hash=password_hash,
             password_salt=password_salt,
+            preferred_language="en",
             is_admin=True,
             is_active=True,
         )

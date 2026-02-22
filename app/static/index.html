@@ -315,6 +315,17 @@
     }
     .card[data-page] { display: none; }
     .card[data-page].active-page { display: block; animation: page-in 220ms ease; }
+    html[dir="rtl"] body { text-align: right; }
+    html[dir="rtl"] .lines-table th,
+    html[dir="rtl"] .lines-table td,
+    html[dir="rtl"] .results-table th,
+    html[dir="rtl"] .results-table td,
+    html[dir="rtl"] .mini-table th,
+    html[dir="rtl"] .mini-table td,
+    html[dir="rtl"] #account-modal-body .detail-table th,
+    html[dir="rtl"] #account-modal-body .detail-table td { text-align: right; }
+    html[dir="rtl"] .chat-msg.user { align-self: flex-start; }
+    html[dir="rtl"] .chat-msg.assistant { align-self: flex-end; }
     #voucher-chat-inline {
       max-height: 0;
       opacity: 0;
@@ -382,8 +393,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>Accounting Assistant</h1>
-    <p class="hero-subtitle">Use AI chat for accounting tasks, save balanced vouchers, and run manager-grade reports.</p>
+    <h1 id="app-title">Accounting Assistant</h1>
+    <p class="hero-subtitle" id="hero-subtitle">Use AI chat for accounting tasks, save balanced vouchers, and run manager-grade reports.</p>
 
     <div id="alert" class="alert" role="alert" style="display: none;"></div>
     <div class="top-nav" id="top-nav">
@@ -844,10 +855,24 @@
       </p>
       <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom:0.85rem; flex-wrap:wrap;">
         <div style="font-size:0.9rem; color:var(--text-muted);">
-          Signed in as <strong id="settings-user-name">-</strong>
+          <span id="settings-signed-prefix">Signed in as</span> <strong id="settings-user-name">-</strong>
           <span id="settings-user-role" style="margin-left:0.35rem; font-size:0.78rem; color:var(--primary);"></span>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" id="logout-btn">Logout</button>
+      </div>
+      <div class="row" style="margin-bottom:0.8rem;">
+        <div>
+          <label for="ui-language-select" id="ui-language-label">Interface language</label>
+          <select id="ui-language-select">
+            <option value="en">English</option>
+            <option value="fa">Persian (فارسی)</option>
+            <option value="es">Spanish (Español)</option>
+            <option value="ar">Arabic (العربية)</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+          <button type="button" class="btn btn-secondary" id="save-language-btn">Save language</button>
+        </div>
       </div>
       <div class="ai-runtime-bar" style="margin-bottom: 0;">
         <div>
@@ -947,7 +972,11 @@
     const aiSaveBtn = document.getElementById('ai-save-btn');
     const settingsUserNameEl = document.getElementById('settings-user-name');
     const settingsUserRoleEl = document.getElementById('settings-user-role');
+    const settingsSignedPrefixEl = document.getElementById('settings-signed-prefix');
     const logoutBtn = document.getElementById('logout-btn');
+    const uiLanguageLabelEl = document.getElementById('ui-language-label');
+    const uiLanguageSelectEl = document.getElementById('ui-language-select');
+    const saveLanguageBtn = document.getElementById('save-language-btn');
     const newUserUsernameEl = document.getElementById('new-user-username');
     const newUserPasswordEl = document.getElementById('new-user-password');
     const newUserAdminEl = document.getElementById('new-user-admin');
@@ -1016,6 +1045,254 @@
       }
       return res;
     };
+    const SUPPORTED_UI_LANGUAGES = ['en', 'fa', 'es', 'ar'];
+    const RTL_LANGUAGES = new Set(['fa', 'ar']);
+    let currentLanguage = 'en';
+    const I18N = {
+      en: {
+        appTitle: 'Accounting Assistant',
+        heroSubtitle: 'Use AI chat for accounting tasks, save balanced vouchers, and run manager-grade reports.',
+        navDashboard: 'Dashboard',
+        navChat: 'AI chat',
+        navTransactions: 'Vouchers',
+        navEntities: 'Entities',
+        navInvoices: 'Invoices',
+        navRecurring: 'Recurring',
+        navLedger: 'Ledger',
+        navManager: 'Manager reports',
+        navInventory: 'Inventory',
+        navSettings: 'Settings',
+        signedInAs: 'Signed in as',
+        logout: 'Logout',
+        languageLabel: 'Interface language',
+        saveLanguage: 'Save language',
+        languageSaved: 'Language updated.',
+        send: 'Send',
+        saveVoucher: 'Save voucher',
+        openAiChat: 'Open AI chat',
+        uploadReceipts: 'Upload receipts',
+        usersUsername: 'Username',
+        usersRole: 'Role',
+        usersStatus: 'Status',
+        usersActions: 'Actions',
+        usersAdmin: 'Admin',
+        usersUser: 'User',
+        usersActive: 'Active',
+        usersDisabled: 'Disabled',
+        usersResetPassword: 'Reset password',
+        usersSetUser: 'Set user',
+        usersSetAdmin: 'Set admin',
+        usersDelete: 'Delete',
+        usersNoPermission: 'You do not have permission to view users.',
+        usersLoadError: 'Error loading users.',
+        usersNoUsers: 'No users found.',
+        usersCreated: 'User created.',
+        usersDeleted: 'User deleted.',
+        usersRoleUpdated: 'User role updated.',
+        usersPasswordReset: 'Password reset.',
+      },
+      fa: {
+        appTitle: 'دستیار حسابداری',
+        heroSubtitle: 'از چت هوش مصنوعی برای کارهای حسابداری، ثبت سند متوازن و گزارش‌های مدیریتی استفاده کنید.',
+        navDashboard: 'داشبورد',
+        navChat: 'چت هوش مصنوعی',
+        navTransactions: 'اسناد',
+        navEntities: 'اشخاص',
+        navInvoices: 'فاکتورها',
+        navRecurring: 'تکرارشونده',
+        navLedger: 'دفتر کل',
+        navManager: 'گزارش‌های مدیریتی',
+        navInventory: 'انبار',
+        navSettings: 'تنظیمات',
+        signedInAs: 'ورود به عنوان',
+        logout: 'خروج',
+        languageLabel: 'زبان رابط کاربری',
+        saveLanguage: 'ذخیره زبان',
+        languageSaved: 'زبان به‌روزرسانی شد.',
+        send: 'ارسال',
+        saveVoucher: 'ذخیره سند',
+        openAiChat: 'باز کردن چت AI',
+        uploadReceipts: 'آپلود رسیدها',
+        usersUsername: 'نام کاربری',
+        usersRole: 'نقش',
+        usersStatus: 'وضعیت',
+        usersActions: 'عملیات',
+        usersAdmin: 'ادمین',
+        usersUser: 'کاربر',
+        usersActive: 'فعال',
+        usersDisabled: 'غیرفعال',
+        usersResetPassword: 'تغییر رمز',
+        usersSetUser: 'کاربر عادی',
+        usersSetAdmin: 'ادمین شود',
+        usersDelete: 'حذف',
+        usersNoPermission: 'شما دسترسی نمایش کاربران را ندارید.',
+        usersLoadError: 'خطا در بارگذاری کاربران.',
+        usersNoUsers: 'کاربری یافت نشد.',
+        usersCreated: 'کاربر ایجاد شد.',
+        usersDeleted: 'کاربر حذف شد.',
+        usersRoleUpdated: 'نقش کاربر به‌روزرسانی شد.',
+        usersPasswordReset: 'رمز عبور تغییر کرد.',
+      },
+      es: {
+        appTitle: 'Asistente Contable',
+        heroSubtitle: 'Usa el chat de IA para tareas contables, guarda comprobantes balanceados y genera reportes gerenciales.',
+        navDashboard: 'Panel',
+        navChat: 'Chat IA',
+        navTransactions: 'Comprobantes',
+        navEntities: 'Entidades',
+        navInvoices: 'Facturas',
+        navRecurring: 'Recurrentes',
+        navLedger: 'Libro mayor',
+        navManager: 'Reportes gerenciales',
+        navInventory: 'Inventario',
+        navSettings: 'Configuración',
+        signedInAs: 'Conectado como',
+        logout: 'Cerrar sesión',
+        languageLabel: 'Idioma de la interfaz',
+        saveLanguage: 'Guardar idioma',
+        languageSaved: 'Idioma actualizado.',
+        send: 'Enviar',
+        saveVoucher: 'Guardar comprobante',
+        openAiChat: 'Abrir chat IA',
+        uploadReceipts: 'Subir recibos',
+        usersUsername: 'Usuario',
+        usersRole: 'Rol',
+        usersStatus: 'Estado',
+        usersActions: 'Acciones',
+        usersAdmin: 'Admin',
+        usersUser: 'Usuario',
+        usersActive: 'Activo',
+        usersDisabled: 'Deshabilitado',
+        usersResetPassword: 'Restablecer clave',
+        usersSetUser: 'Hacer usuario',
+        usersSetAdmin: 'Hacer admin',
+        usersDelete: 'Eliminar',
+        usersNoPermission: 'No tienes permiso para ver usuarios.',
+        usersLoadError: 'Error al cargar usuarios.',
+        usersNoUsers: 'No se encontraron usuarios.',
+        usersCreated: 'Usuario creado.',
+        usersDeleted: 'Usuario eliminado.',
+        usersRoleUpdated: 'Rol actualizado.',
+        usersPasswordReset: 'Contraseña actualizada.',
+      },
+      ar: {
+        appTitle: 'مساعد المحاسبة',
+        heroSubtitle: 'استخدم دردشة الذكاء الاصطناعي للمهام المحاسبية، واحفظ قيودًا متوازنة، وشغّل تقارير إدارية.',
+        navDashboard: 'لوحة التحكم',
+        navChat: 'دردشة الذكاء',
+        navTransactions: 'القيود',
+        navEntities: 'الكيانات',
+        navInvoices: 'الفواتير',
+        navRecurring: 'المتكرر',
+        navLedger: 'دفتر الأستاذ',
+        navManager: 'تقارير الإدارة',
+        navInventory: 'المخزون',
+        navSettings: 'الإعدادات',
+        signedInAs: 'تسجيل الدخول باسم',
+        logout: 'تسجيل الخروج',
+        languageLabel: 'لغة الواجهة',
+        saveLanguage: 'حفظ اللغة',
+        languageSaved: 'تم تحديث اللغة.',
+        send: 'إرسال',
+        saveVoucher: 'حفظ القيد',
+        openAiChat: 'فتح دردشة AI',
+        uploadReceipts: 'رفع الإيصالات',
+        usersUsername: 'اسم المستخدم',
+        usersRole: 'الدور',
+        usersStatus: 'الحالة',
+        usersActions: 'الإجراءات',
+        usersAdmin: 'مدير',
+        usersUser: 'مستخدم',
+        usersActive: 'نشط',
+        usersDisabled: 'معطل',
+        usersResetPassword: 'إعادة تعيين كلمة المرور',
+        usersSetUser: 'تعيين كمستخدم',
+        usersSetAdmin: 'تعيين كمدير',
+        usersDelete: 'حذف',
+        usersNoPermission: 'ليست لديك صلاحية عرض المستخدمين.',
+        usersLoadError: 'خطأ أثناء تحميل المستخدمين.',
+        usersNoUsers: 'لا يوجد مستخدمون.',
+        usersCreated: 'تم إنشاء المستخدم.',
+        usersDeleted: 'تم حذف المستخدم.',
+        usersRoleUpdated: 'تم تحديث الدور.',
+        usersPasswordReset: 'تم تحديث كلمة المرور.',
+      }
+    };
+
+    function t(key) {
+      const dict = I18N[currentLanguage] || I18N.en;
+      return dict[key] || I18N.en[key] || key;
+    }
+
+    function applyLanguage(lang, persist = true) {
+      const normalized = SUPPORTED_UI_LANGUAGES.includes(lang) ? lang : 'en';
+      currentLanguage = normalized;
+      if (persist) {
+        localStorage.setItem('aa_ui_language', normalized);
+      }
+      document.documentElement.lang = normalized;
+      document.documentElement.dir = RTL_LANGUAGES.has(normalized) ? 'rtl' : 'ltr';
+      if (uiLanguageSelectEl) uiLanguageSelectEl.value = normalized;
+
+      const navMap = {
+        dashboard: 'navDashboard',
+        chat: 'navChat',
+        transactions: 'navTransactions',
+        entities: 'navEntities',
+        invoices: 'navInvoices',
+        recurring: 'navRecurring',
+        ledger: 'navLedger',
+        manager: 'navManager',
+        inventory: 'navInventory',
+        settings: 'navSettings',
+      };
+      Object.entries(navMap).forEach(([page, key]) => {
+        const btn = document.querySelector('.nav-btn[data-page="' + page + '"]');
+        if (btn) btn.textContent = t(key);
+      });
+
+      const setText = (id, key) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = t(key);
+      };
+      setText('app-title', 'appTitle');
+      setText('hero-subtitle', 'heroSubtitle');
+      if (settingsSignedPrefixEl) settingsSignedPrefixEl.textContent = t('signedInAs');
+      if (logoutBtn) logoutBtn.textContent = t('logout');
+      if (uiLanguageLabelEl) uiLanguageLabelEl.textContent = t('languageLabel');
+      if (saveLanguageBtn) saveLanguageBtn.textContent = t('saveLanguage');
+      if (chatSendBtn) chatSendBtn.textContent = t('send');
+      if (submitBtn) submitBtn.textContent = t('saveVoucher');
+      if (openAiChatInlineBtn) openAiChatInlineBtn.textContent = t('openAiChat');
+      if (attachmentUploadBtn) attachmentUploadBtn.textContent = t('uploadReceipts');
+    }
+
+    async function saveLanguagePreference() {
+      const lang = (uiLanguageSelectEl && uiLanguageSelectEl.value) || 'en';
+      if (!SUPPORTED_UI_LANGUAGES.includes(lang)) {
+        showAlert('Unsupported language.', true);
+        return;
+      }
+      try {
+        if (saveLanguageBtn) saveLanguageBtn.disabled = true;
+        const res = await fetch(API + '/auth/preferences', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ language: lang }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || 'Failed to update language.', true);
+          return;
+        }
+        applyLanguage(lang, true);
+        showAlert(t('languageSaved'));
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      } finally {
+        if (saveLanguageBtn) saveLanguageBtn.disabled = false;
+      }
+    }
 
     function showPage(page) {
       const requested = validPages.has(page) ? page : 'dashboard';
@@ -1125,29 +1402,29 @@
     function renderUsersTable(users) {
       if (!usersWrapEl) return;
       if (!Array.isArray(users) || !users.length) {
-        usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">No users found.</p>';
+        usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('usersNoUsers')) + '</p>';
         return;
       }
       usersWrapEl.innerHTML = `
         <table class="results-table" style="font-size:0.85rem;">
           <thead>
             <tr>
-              <th>Username</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>${escapeHtml(t('usersUsername'))}</th>
+              <th>${escapeHtml(t('usersRole'))}</th>
+              <th>${escapeHtml(t('usersStatus'))}</th>
+              <th>${escapeHtml(t('usersActions'))}</th>
             </tr>
           </thead>
           <tbody>
             ${users.map((u) => `
               <tr>
                 <td>${escapeHtml(u.username)}</td>
-                <td>${u.is_admin ? 'Admin' : 'User'}</td>
-                <td>${u.is_active ? 'Active' : 'Disabled'}</td>
+                <td>${u.is_admin ? escapeHtml(t('usersAdmin')) : escapeHtml(t('usersUser'))}</td>
+                <td>${u.is_active ? escapeHtml(t('usersActive')) : escapeHtml(t('usersDisabled'))}</td>
                 <td>
-                  <button type="button" class="btn btn-secondary btn-sm user-pw-btn" data-id="${escapeHtml(u.id)}">Reset password</button>
-                  <button type="button" class="btn btn-secondary btn-sm user-role-btn" data-id="${escapeHtml(u.id)}" data-admin="${u.is_admin ? '1' : '0'}">${u.is_admin ? 'Set user' : 'Set admin'}</button>
-                  <button type="button" class="btn btn-danger btn-sm user-del-btn" data-id="${escapeHtml(u.id)}" data-username="${escapeHtml(u.username)}">Delete</button>
+                  <button type="button" class="btn btn-secondary btn-sm user-pw-btn" data-id="${escapeHtml(u.id)}">${escapeHtml(t('usersResetPassword'))}</button>
+                  <button type="button" class="btn btn-secondary btn-sm user-role-btn" data-id="${escapeHtml(u.id)}" data-admin="${u.is_admin ? '1' : '0'}">${u.is_admin ? escapeHtml(t('usersSetUser')) : escapeHtml(t('usersSetAdmin'))}</button>
+                  <button type="button" class="btn btn-danger btn-sm user-del-btn" data-id="${escapeHtml(u.id)}" data-username="${escapeHtml(u.username)}">${escapeHtml(t('usersDelete'))}</button>
                 </td>
               </tr>
             `).join('')}
@@ -1162,8 +1439,14 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.user) return;
         if (settingsUserNameEl) settingsUserNameEl.textContent = data.user.username || '-';
-        if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? 'admin' : 'user';
-      } catch (_) {}
+        if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? t('usersAdmin') : t('usersUser');
+        const lang = (data.user.preferred_language || localStorage.getItem('aa_ui_language') || 'en').toLowerCase();
+        applyLanguage(lang, true);
+        if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? t('usersAdmin') : t('usersUser');
+        loadUsers();
+      } catch (_) {
+        applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
+      }
     }
 
     async function loadUsers() {
@@ -1171,12 +1454,12 @@
         const res = await fetch(API + '/admin/users');
         const data = await res.json().catch(() => []);
         if (!res.ok) {
-          usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">You do not have permission to view users.</p>';
+          usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('usersNoPermission')) + '</p>';
           return;
         }
         renderUsersTable(data);
       } catch (err) {
-        usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">Error loading users.</p>';
+        usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('usersLoadError')) + '</p>';
       }
     }
 
@@ -1193,14 +1476,14 @@
         const res = await fetch(API + '/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password, is_admin: isAdmin, is_active: true }),
+          body: JSON.stringify({ username, password, preferred_language: ((uiLanguageSelectEl && uiLanguageSelectEl.value) || 'en'), is_admin: isAdmin, is_active: true }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           showAlert(data.detail || 'Failed to create user.', true);
           return;
         }
-        showAlert('User created.');
+        showAlert(t('usersCreated'));
         newUserUsernameEl.value = '';
         newUserPasswordEl.value = '';
         newUserAdminEl.value = 'false';
@@ -1225,7 +1508,7 @@
             showAlert(data.detail || 'Failed to delete user.', true);
             return;
           }
-          showAlert('User deleted.');
+          showAlert(t('usersDeleted'));
           loadUsers();
         } catch (err) {
           showAlert('Connection error: ' + err.message, true);
@@ -1248,7 +1531,7 @@
             showAlert(data.detail || 'Failed to update role.', true);
             return;
           }
-          showAlert('User role updated.');
+          showAlert(t('usersRoleUpdated'));
           loadUsers();
         } catch (err) {
           showAlert('Connection error: ' + err.message, true);
@@ -1276,7 +1559,7 @@
             showAlert(data.detail || 'Failed to reset password.', true);
             return;
           }
-          showAlert('Password reset.');
+          showAlert(t('usersPasswordReset'));
         } catch (err) {
           showAlert('Connection error: ' + err.message, true);
         }
@@ -3464,6 +3747,7 @@
     if (invExportJsonBtn) invExportJsonBtn.addEventListener('click', exportInventoryReportJson);
     if (invExportCsvBtn) invExportCsvBtn.addEventListener('click', exportInventoryReportCsv);
     if (invExportPdfBtn) invExportPdfBtn.addEventListener('click', exportInventoryReportPdf);
+    if (saveLanguageBtn) saveLanguageBtn.addEventListener('click', saveLanguagePreference);
     if (logoutBtn) {
       logoutBtn.addEventListener('click', async () => {
         try {
@@ -3496,6 +3780,7 @@
       showPage(btn.getAttribute('data-page'));
     });
     window.addEventListener('hashchange', () => showPage((location.hash || '#dashboard').slice(1)));
+    applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
     showPage((location.hash || '#dashboard').slice(1));
     loadCurrentUser();
     loadAIConfig();

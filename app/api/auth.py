@@ -17,6 +17,7 @@ from app.db.session import get_db
 from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+SUPPORTED_LANGUAGES = {"en", "fa", "es", "ar"}
 
 
 class LoginRequest(BaseModel):
@@ -26,6 +27,10 @@ class LoginRequest(BaseModel):
 
 class PasswordChangeRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
+
+
+class PreferencesPatchRequest(BaseModel):
+    language: str = Field(min_length=2, max_length=8)
 
 
 @router.post("/login")
@@ -45,7 +50,15 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         max_age=int(settings.auth_session_hours * 3600),
         path="/",
     )
-    return {"ok": True, "user": {"id": str(user.id), "username": user.username, "is_admin": user.is_admin}}
+    return {
+        "ok": True,
+        "user": {
+            "id": str(user.id),
+            "username": user.username,
+            "is_admin": user.is_admin,
+            "preferred_language": user.preferred_language or "en",
+        },
+    }
 
 
 @router.post("/logout")
@@ -55,13 +68,16 @@ def logout(response: Response) -> dict:
 
 
 @router.get("/me")
-def me(current=Depends(get_current_user)) -> dict:
+def me(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    user_row = db.get(User, current.user_id)
+    user_language = user_row.preferred_language if user_row and user_row.preferred_language else "en"
     return {
         "authenticated": True,
         "user": {
             "id": current.user_id,
             "username": current.username,
             "is_admin": current.is_admin,
+            "preferred_language": user_language,
         },
     }
 
@@ -76,6 +92,19 @@ def change_password(payload: PasswordChangeRequest, db: Session = Depends(get_db
     user.password_salt = s
     db.commit()
     return {"ok": True}
+
+
+@router.patch("/preferences")
+def update_preferences(payload: PreferencesPatchRequest, db: Session = Depends(get_db), current=Depends(get_current_user)) -> dict:
+    user = db.get(User, current.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    lang = (payload.language or "").strip().lower()
+    if lang not in SUPPORTED_LANGUAGES:
+        raise HTTPException(status_code=400, detail="Unsupported language")
+    user.preferred_language = lang
+    db.commit()
+    return {"ok": True, "language": user.preferred_language}
 
 
 @router.get("/admin-check")

@@ -101,6 +101,21 @@ def _apply_transaction_fee_migrations() -> None:
             conn.execute(text(s))
 
 
+def _apply_user_migrations() -> None:
+    """
+    Startup-safe user schema adjustments.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    stmts = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(8) DEFAULT 'en'",
+        "UPDATE users SET preferred_language = 'en' WHERE preferred_language IS NULL OR btrim(preferred_language) = ''",
+    ]
+    with engine.begin() as conn:
+        for s in stmts:
+            conn.execute(text(s))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: create DB tables
@@ -108,6 +123,7 @@ async def lifespan(app: FastAPI):
     _apply_numeric_migrations()
     _apply_entity_cleanup_migrations()
     _apply_transaction_fee_migrations()
+    _apply_user_migrations()
     # Seed minimal chart of accounts if empty
     db = SessionLocal()
     try:
@@ -155,6 +171,7 @@ PROTECTED_API_PREFIXES = (
     "/transactions",
     "/auth/me",
     "/auth/change-password",
+    "/auth/preferences",
     "/auth/admin-check",
 )
 

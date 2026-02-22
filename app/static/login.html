@@ -75,28 +75,123 @@
       display: none;
     }
     .hint { font-size: 0.84rem; color: var(--muted); margin-top: 0.85rem; }
+    .lang-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .lang-row label { margin: 0; min-width: 74px; }
+    .lang-row select {
+      width: 100%;
+      padding: 0.45rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: #fff;
+    }
   </style>
 </head>
 <body>
   <form class="card" id="login-form">
-    <h1>Accounting Assistant</h1>
-    <p>Sign in to access transactions, reports, and settings.</p>
+    <h1 id="login-title">Accounting Assistant</h1>
+    <p id="login-subtitle">Sign in to access transactions, reports, and settings.</p>
 
-    <label for="username">Username</label>
+    <div class="lang-row">
+      <label for="login-language" id="login-language-label">Language</label>
+      <select id="login-language">
+        <option value="en">English</option>
+        <option value="fa">Persian (فارسی)</option>
+        <option value="es">Spanish (Español)</option>
+        <option value="ar">Arabic (العربية)</option>
+      </select>
+    </div>
+
+    <label for="username" id="username-label">Username</label>
     <input id="username" name="username" autocomplete="username" required>
 
-    <label for="password">Password</label>
+    <label for="password" id="password-label">Password</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required>
 
     <button type="submit" id="submit-btn">Login</button>
     <div class="error" id="error-box"></div>
-    <div class="hint">Default admin credentials: <strong>admin / admin</strong></div>
+    <div class="hint"><span id="default-admin-label">Default admin credentials:</span> <strong>admin / admin</strong></div>
   </form>
 
   <script>
     const form = document.getElementById('login-form');
     const submitBtn = document.getElementById('submit-btn');
     const errorBox = document.getElementById('error-box');
+    const languageSelect = document.getElementById('login-language');
+    const SUPPORTED_UI_LANGUAGES = ['en', 'fa', 'es', 'ar'];
+    const RTL_LANGUAGES = new Set(['fa', 'ar']);
+    let currentLanguage = 'en';
+    const I18N = {
+      en: {
+        title: 'Accounting Assistant',
+        subtitle: 'Sign in to access transactions, reports, and settings.',
+        language: 'Language',
+        username: 'Username',
+        password: 'Password',
+        login: 'Login',
+        signingIn: 'Signing in...',
+        defaultAdmin: 'Default admin credentials:',
+        required: 'Username and password are required.',
+        failed: 'Login failed.',
+      },
+      fa: {
+        title: 'دستیار حسابداری',
+        subtitle: 'برای دسترسی به اسناد، گزارش‌ها و تنظیمات وارد شوید.',
+        language: 'زبان',
+        username: 'نام کاربری',
+        password: 'رمز عبور',
+        login: 'ورود',
+        signingIn: 'در حال ورود...',
+        defaultAdmin: 'کاربر پیش‌فرض ادمین:',
+        required: 'نام کاربری و رمز عبور الزامی است.',
+        failed: 'ورود ناموفق بود.',
+      },
+      es: {
+        title: 'Asistente Contable',
+        subtitle: 'Inicia sesión para acceder a transacciones, reportes y configuración.',
+        language: 'Idioma',
+        username: 'Usuario',
+        password: 'Contraseña',
+        login: 'Entrar',
+        signingIn: 'Ingresando...',
+        defaultAdmin: 'Credenciales de admin por defecto:',
+        required: 'Usuario y contraseña son obligatorios.',
+        failed: 'Error de inicio de sesión.',
+      },
+      ar: {
+        title: 'مساعد المحاسبة',
+        subtitle: 'سجل الدخول للوصول إلى القيود والتقارير والإعدادات.',
+        language: 'اللغة',
+        username: 'اسم المستخدم',
+        password: 'كلمة المرور',
+        login: 'تسجيل الدخول',
+        signingIn: 'جارٍ تسجيل الدخول...',
+        defaultAdmin: 'بيانات المدير الافتراضية:',
+        required: 'اسم المستخدم وكلمة المرور مطلوبان.',
+        failed: 'فشل تسجيل الدخول.',
+      },
+    };
+
+    function t(key) {
+      const dict = I18N[currentLanguage] || I18N.en;
+      return dict[key] || I18N.en[key] || key;
+    }
+
+    function applyLanguage(lang, persist = true) {
+      const nextLang = SUPPORTED_UI_LANGUAGES.includes(lang) ? lang : 'en';
+      currentLanguage = nextLang;
+      if (persist) localStorage.setItem('aa_ui_language', nextLang);
+      document.documentElement.lang = nextLang;
+      document.documentElement.dir = RTL_LANGUAGES.has(nextLang) ? 'rtl' : 'ltr';
+      if (languageSelect) languageSelect.value = nextLang;
+      document.getElementById('login-title').textContent = t('title');
+      document.getElementById('login-subtitle').textContent = t('subtitle');
+      document.getElementById('login-language-label').textContent = t('language');
+      document.getElementById('username-label').textContent = t('username');
+      document.getElementById('password-label').textContent = t('password');
+      document.getElementById('default-admin-label').textContent = t('defaultAdmin');
+      submitBtn.textContent = t('login');
+    }
 
     function setError(msg) {
       if (!msg) {
@@ -114,11 +209,11 @@
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
       if (!username || !password) {
-        setError('Username and password are required.');
+        setError(t('required'));
         return;
       }
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Signing in...';
+      submitBtn.textContent = t('signingIn');
       try {
         const res = await fetch('/auth/login', {
           method: 'POST',
@@ -127,17 +222,23 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setError(data.detail || 'Login failed.');
+          setError(data.detail || t('failed'));
           return;
+        }
+        if (data.user && data.user.preferred_language) {
+          localStorage.setItem('aa_ui_language', data.user.preferred_language);
         }
         window.location.href = '/';
       } catch (err) {
         setError('Connection error: ' + err.message);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Login';
+        submitBtn.textContent = t('login');
       }
     });
+
+    languageSelect.addEventListener('change', () => applyLanguage(languageSelect.value, true));
+    applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
   </script>
 </body>
 </html>

@@ -39,12 +39,14 @@ class AIConfigPatch(BaseModel):
 class UserCreatePayload(BaseModel):
     username: str
     password: str
+    preferred_language: str = "en"
     is_admin: bool = False
     is_active: bool = True
 
 
 class UserUpdatePayload(BaseModel):
     password: str | None = None
+    preferred_language: str | None = None
     is_admin: bool | None = None
     is_active: bool | None = None
 
@@ -112,6 +114,7 @@ def list_users(db: Session = Depends(get_db), _=Depends(require_admin)) -> list[
         {
             "id": str(u.id),
             "username": u.username,
+            "preferred_language": u.preferred_language or "en",
             "is_admin": bool(u.is_admin),
             "is_active": bool(u.is_active),
             "created_at": u.created_at.isoformat() if u.created_at else None,
@@ -128,11 +131,15 @@ def create_user(payload: UserCreatePayload, db: Session = Depends(get_db), _=Dep
     existing = db.query(User).filter(User.username == username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
+    lang = (payload.preferred_language or "en").strip().lower()
+    if lang not in {"en", "fa", "es", "ar"}:
+        raise HTTPException(status_code=400, detail="Unsupported language")
     password_hash, password_salt = hash_password(payload.password)
     user = User(
         username=username,
         password_hash=password_hash,
         password_salt=password_salt,
+        preferred_language=lang,
         is_admin=bool(payload.is_admin),
         is_active=bool(payload.is_active),
     )
@@ -142,6 +149,7 @@ def create_user(payload: UserCreatePayload, db: Session = Depends(get_db), _=Dep
     return {
         "id": str(user.id),
         "username": user.username,
+        "preferred_language": user.preferred_language or "en",
         "is_admin": bool(user.is_admin),
         "is_active": bool(user.is_active),
     }
@@ -156,6 +164,11 @@ def update_user(user_id: UUID, payload: UserUpdatePayload, db: Session = Depends
         password_hash, password_salt = hash_password(payload.password)
         user.password_hash = password_hash
         user.password_salt = password_salt
+    if payload.preferred_language is not None:
+        lang = payload.preferred_language.strip().lower()
+        if lang not in {"en", "fa", "es", "ar"}:
+            raise HTTPException(status_code=400, detail="Unsupported language")
+        user.preferred_language = lang
     if payload.is_admin is not None:
         user.is_admin = bool(payload.is_admin)
     if payload.is_active is not None:
@@ -165,6 +178,7 @@ def update_user(user_id: UUID, payload: UserUpdatePayload, db: Session = Depends
     return {
         "id": str(user.id),
         "username": user.username,
+        "preferred_language": user.preferred_language or "en",
         "is_admin": bool(user.is_admin),
         "is_active": bool(user.is_active),
     }

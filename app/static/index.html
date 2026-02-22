@@ -102,7 +102,7 @@
     .chat-col, .form-col { min-width: 0; }
     @media (max-width: 1020px) { .voucher-layout { grid-template-columns: 1fr; } }
     .chat-panel { display: flex; flex-direction: column; height: 380px; border: 1px solid var(--border); border-radius: 12px; background: #f8fbfd; }
-    .chat-messages { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .chat-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
     .chat-msg { max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; }
     .chat-msg.user { align-self: flex-end; background: var(--primary); color: #fff; }
     .chat-msg.assistant { align-self: flex-start; background: #fff; border: 1px solid var(--border); }
@@ -228,6 +228,26 @@
     .mini-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     .mini-table th, .mini-table td { border: 1px solid var(--border); padding: 0.35rem 0.45rem; text-align: left; }
     .mini-table th { background: #f8fafc; }
+    .report-preview-wrap { width: 100%; overflow-x: auto; }
+    .report-preview-wrap .mini-table { table-layout: fixed; min-width: 720px; }
+    .report-preview-wrap .mini-table th,
+    .report-preview-wrap .mini-table td {
+      white-space: normal;
+      word-break: break-word;
+      vertical-align: top;
+    }
+    .report-meta {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    .report-actions { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .report-chart-panel { margin-bottom: 0.75rem; }
+    .report-chart-panel canvas { max-height: 280px; }
+    .chat-msg.report-msg { max-width: 96%; overflow: hidden; }
+    .chat-msg.report-msg .report-preview-wrap { max-height: 360px; overflow: auto; }
+    .chat-msg.report-msg .report-preview-wrap .mini-table { min-width: 640px; }
+    .chat-msg.report-msg .panel { margin-top: 0.45rem; }
     #missing-refs-wrap { overflow-x: auto; padding-bottom: 0.25rem; }
     .missing-ref-table { min-width: 960px; }
     .missing-ref-table td { vertical-align: middle; }
@@ -698,11 +718,11 @@
           </select>
         </div>
         <div>
-          <label for="mgr-from-date">From</label>
+          <label for="mgr-from-date" id="mgr-from-label">From</label>
           <input type="date" id="mgr-from-date">
         </div>
         <div>
-          <label for="mgr-to-date">To</label>
+          <label for="mgr-to-date" id="mgr-to-label">To</label>
           <input type="date" id="mgr-to-date">
         </div>
         <div>
@@ -712,6 +732,11 @@
         <div style="display:flex; align-items:flex-end;">
           <button type="button" class="btn btn-primary" id="mgr-run-btn">Run report</button>
         </div>
+      </div>
+      <div class="report-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-json-btn" disabled>Export JSON</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-csv-btn" disabled>Export CSV</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-pdf-btn" disabled>Export PDF</button>
       </div>
       <div class="row" style="margin-bottom:0.75rem;">
         <div>
@@ -753,6 +778,10 @@
       </div>
       <div class="panel">
         <h3>Report output (JSON + table preview)</h3>
+        <div class="panel report-chart-panel" id="mgr-report-chart-panel" style="display:none;">
+          <h3 id="mgr-report-chart-title">Report chart</h3>
+          <canvas id="mgr-report-chart" height="220"></canvas>
+        </div>
         <div id="mgr-report-preview" style="margin-bottom:0.6rem;"></div>
         <pre id="mgr-report-json" style="white-space: pre-wrap; margin:0; font-size:0.8rem; color:var(--text); max-height:360px; overflow:auto;"></pre>
       </div>
@@ -808,6 +837,14 @@
     const mgrRunBtn = document.getElementById('mgr-run-btn');
     const mgrReportJsonEl = document.getElementById('mgr-report-json');
     const mgrReportPreviewEl = document.getElementById('mgr-report-preview');
+    const mgrReportChartPanelEl = document.getElementById('mgr-report-chart-panel');
+    const mgrReportChartEl = document.getElementById('mgr-report-chart');
+    const mgrReportChartTitleEl = document.getElementById('mgr-report-chart-title');
+    const mgrExportJsonBtn = document.getElementById('mgr-export-json-btn');
+    const mgrExportCsvBtn = document.getElementById('mgr-export-csv-btn');
+    const mgrExportPdfBtn = document.getElementById('mgr-export-pdf-btn');
+    const mgrFromLabelEl = document.getElementById('mgr-from-label');
+    const mgrToLabelEl = document.getElementById('mgr-to-label');
     const mgrAddItemBtn = document.getElementById('mgr-add-item-btn');
     const mgrInvItemNameEl = document.getElementById('mgr-inv-item-name');
     const mgrInvItemSkuEl = document.getElementById('mgr-inv-item-sku');
@@ -824,6 +861,8 @@
     let selectedAttachments = [];
     let entityTransactionsCache = [];
     let currentEntityContext = null;
+    let managerReportChart = null;
+    let lastManagerReport = null;
     const validPages = new Set(['dashboard', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager']);
 
     function showPage(page) {
@@ -1040,13 +1079,129 @@
       }
     }
 
+    function syncManagerFilterLabels() {
+      const type = (mgrReportTypeEl.value || '').trim();
+      if (type === 'balance_sheet') {
+        if (mgrFromLabelEl) mgrFromLabelEl.textContent = 'Comparative as-of (optional)';
+        if (mgrToLabelEl) mgrToLabelEl.textContent = 'As-of date';
+      } else {
+        if (mgrFromLabelEl) mgrFromLabelEl.textContent = 'From';
+        if (mgrToLabelEl) mgrToLabelEl.textContent = 'To';
+      }
+    }
+
+    function downloadTextFile(fileName, content, mime = 'text/plain') {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function reportToCsv(report) {
+      const data = reportToTableData(report);
+      if (!data.headers.length) return '';
+      const esc = (v) => {
+        const s = String(v ?? '');
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      };
+      const lines = [data.headers.map(esc).join(',')];
+      data.rows.forEach(r => lines.push(r.map(esc).join(',')));
+      return lines.join('\n');
+    }
+
+    function reportFileBaseName(report) {
+      const type = ((report && report.report_type) || 'report').replace(/[^a-z0-9_\-]+/ig, '-').toLowerCase();
+      const p = report && report.period ? report.period : {};
+      const to = (p.to || p.to_date || '').replace(/[^0-9\-]/g, '');
+      return to ? `${type}-${to}` : type;
+    }
+
+    function openReportPrintWindow(report, chartImg = '') {
+      const period = reportPeriodText(report);
+      const preview = renderReportPreviewHtml(report);
+      const w = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=900');
+      if (!w) {
+        showAlert('Please allow popups to export PDF.', true);
+        return;
+      }
+      w.document.write(`
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Report export</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 24px; color: #0f172a; }
+              h1 { margin: 0 0 8px 0; font-size: 22px; }
+              .meta { color: #475569; margin-bottom: 12px; font-size: 13px; }
+              .mini-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+              .mini-table th, .mini-table td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; vertical-align: top; word-break: break-word; }
+              .mini-table th { background: #f8fafc; }
+              .panel { border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+              .report-preview-wrap { overflow-x: auto; }
+              img { width: 100%; max-width: 880px; margin-top: 12px; border: 1px solid #cbd5e1; border-radius: 8px; }
+            </style>
+          </head>
+          <body>
+            <h1>${escapeHtml(report.report_type || 'report')}</h1>
+            <div class="meta">${period ? ('Period: ' + escapeHtml(period)) : ''}</div>
+            ${preview}
+            ${chartImg ? `<img src="${chartImg}" alt="report chart">` : ''}
+          </body>
+        </html>
+      `);
+      w.document.close();
+      w.focus();
+      setTimeout(() => { w.print(); }, 350);
+    }
+
+    function exportManagerReportJson() {
+      if (!lastManagerReport) { showAlert('Run a report first.', true); return; }
+      const type = (lastManagerReport.report_type || 'report');
+      downloadTextFile(`${type}.json`, JSON.stringify(lastManagerReport, null, 2), 'application/json');
+    }
+
+    function exportManagerReportCsv() {
+      if (!lastManagerReport) { showAlert('Run a report first.', true); return; }
+      const csv = reportToCsv(lastManagerReport);
+      if (!csv) { showAlert('This report has no tabular rows to export as CSV.', true); return; }
+      const type = (lastManagerReport.report_type || 'report');
+      downloadTextFile(`${type}.csv`, csv, 'text/csv');
+    }
+
+    function exportManagerReportPdf() {
+      if (!lastManagerReport) { showAlert('Run a report first.', true); return; }
+      const chartImg = (managerReportChart && mgrReportChartEl) ? mgrReportChartEl.toDataURL('image/png') : '';
+      openReportPrintWindow(lastManagerReport, chartImg);
+    }
+
+    function renderManagerReportChart(report) {
+      if (!mgrReportChartPanelEl || !mgrReportChartEl) return;
+      const chart = renderReportChart(mgrReportChartEl, report, managerReportChart);
+      managerReportChart = chart;
+      if (mgrReportChartTitleEl) {
+        const spec = makeReportChartSpec(report);
+        mgrReportChartTitleEl.textContent = spec ? (spec.title || 'Report chart') : 'Report chart';
+      }
+      mgrReportChartPanelEl.style.display = chart ? 'block' : 'none';
+    }
+
     async function runManagerReport() {
       try {
         const type = (mgrReportTypeEl.value || '').trim();
         const endpoint = managerEndpointFor(type);
         const q = new URLSearchParams();
-        if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
-        if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
+        if (type === 'balance_sheet') {
+          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
+          if (mgrFromDateEl.value) q.set('comparative_to_date', mgrFromDateEl.value);
+        } else {
+          if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
+          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
+        }
         q.set('page', '1');
         q.set('page_size', '120');
         const url = API + endpoint + (q.toString() ? ('?' + q.toString()) : '');
@@ -1057,8 +1212,17 @@
           showAlert(data.detail || 'Failed to run manager report.', true);
           return;
         }
-        mgrReportPreviewEl.innerHTML = renderReportPreviewHtml(data);
+        lastManagerReport = data;
+        const period = reportPeriodText(data);
+        mgrReportPreviewEl.innerHTML = `
+          ${period ? `<div class="report-meta">Period: ${escapeHtml(period)}</div>` : ''}
+          ${renderReportPreviewHtml(data)}
+        `;
         mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
+        renderManagerReportChart(data);
+        if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
+        if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
+        if (mgrExportPdfBtn) mgrExportPdfBtn.disabled = false;
       } catch (err) {
         showAlert('Manager report error: ' + err.message, true);
       } finally {
@@ -1504,51 +1668,318 @@
       if (!obj || typeof obj !== 'object') return '';
       const keys = Object.keys(obj);
       if (!keys.length) return '';
-      const rows = keys.map(k => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(obj[k])}</td></tr>`).join('');
-      return `<table class="mini-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table>`;
+      const rows = keys.map(k => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(formatNum(obj[k] ?? 0))}</td></tr>`).join('');
+      return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
+    function shortenUuid(v) {
+      const s = String(v || '');
+      if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(s)) return s.slice(0, 8) + '…' + s.slice(-4);
+      return s;
+    }
+
+    function formatReportCell(v, key) {
+      if (v == null) return '—';
+      if (typeof v === 'number') return formatNum(v);
+      if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+      if (typeof v === 'object') return escapeHtml(JSON.stringify(v));
+      const s = String(v);
+      if ((key || '').toLowerCase().includes('id')) return escapeHtml(shortenUuid(s));
+      return escapeHtml(s);
+    }
+
+    function reportPeriodText(report) {
+      const p = (report && report.period) || {};
+      const from = p.from || p.from_date;
+      const to = p.to || p.to_date;
+      if (from && to) return `${from} → ${to}`;
+      if (to) return `As of ${to}`;
+      if (from) return `From ${from}`;
+      return '';
+    }
+
+    function flattenStatementNodes(nodes, out, sectionName, level = 0) {
+      (nodes || []).forEach(n => {
+        out.push({
+          section: sectionName,
+          account_code: n.account_code || '',
+          account_name: ((n.account_name || '') + (level > 0 ? ` (${level})` : '')),
+          balance: n.balance || 0
+        });
+        if (Array.isArray(n.children) && n.children.length) flattenStatementNodes(n.children, out, sectionName, level + 1);
+      });
+    }
+
+    function reportToTableData(report) {
+      if (!report || typeof report !== 'object') return { headers: [], rows: [] };
+      if (Array.isArray(report.rows) && report.rows.length) {
+        const first = report.rows[0];
+        const headers = Object.keys(first);
+        const rows = report.rows.map(r => headers.map(k => r[k]));
+        return { headers, rows };
+      }
+      if (Array.isArray(report.items) && report.items.length) {
+        const first = report.items[0];
+        if (Array.isArray(first.lines)) {
+          const headers = ['date', 'reference', 'description', 'account_code', 'account_name', 'debit', 'credit', 'line_description'];
+          const rows = [];
+          report.items.forEach(item => {
+            (item.lines || []).forEach(ln => {
+              rows.push([
+                item.date,
+                item.reference || '',
+                item.description || '',
+                ln.account_code,
+                ln.account_name,
+                ln.debit || 0,
+                ln.credit || 0,
+                ln.line_description || ''
+              ]);
+            });
+          });
+          return { headers, rows };
+        }
+        const headers = Object.keys(first).filter(k => k !== 'lines');
+        const rows = report.items.map(r => headers.map(k => r[k]));
+        return { headers, rows };
+      }
+      if (report.sections && typeof report.sections === 'object') {
+        const flat = [];
+        Object.keys(report.sections).forEach(k => {
+          const sec = report.sections[k] || {};
+          flattenStatementNodes(sec.items || [], flat, sec.label || k);
+        });
+        if (flat.length) {
+          const headers = ['section', 'account_code', 'account_name', 'balance'];
+          const rows = flat.map(r => headers.map(k => r[k]));
+          return { headers, rows };
+        }
+      }
+      if (report.totals && typeof report.totals === 'object') {
+        const headers = ['metric', 'value'];
+        const rows = Object.entries(report.totals).map(([k, v]) => [k, v]);
+        return { headers, rows };
+      }
+      return { headers: [], rows: [] };
+    }
+
+    function makeReportChartSpec(report) {
+      if (!report || typeof report !== 'object') return null;
+      const rt = report.report_type || '';
+      const palette = ['#0f766e', '#0ea5e9', '#eab308', '#f97316', '#8b5cf6', '#ef4444', '#10b981', '#64748b'];
+      const safe = (n) => Number.isFinite(Number(n)) ? Number(n) : 0;
+
+      if (rt === 'balance_sheet') {
+        const t = report.totals || {};
+        return {
+          type: 'doughnut',
+          title: 'Balance Sheet Mix',
+          data: {
+            labels: ['Assets', 'Liabilities', 'Equity'],
+            datasets: [{ data: [safe(t.assets), safe(t.liabilities), safe(t.equity)], backgroundColor: palette.slice(0, 3) }]
+          }
+        };
+      }
+      if (rt === 'income_statement') {
+        const t = report.totals || {};
+        return {
+          type: 'bar',
+          title: 'Income Statement',
+          data: {
+            labels: ['Revenue', 'COGS', 'OpEx', 'Other Exp', 'Net Profit'],
+            datasets: [{
+              data: [safe(t.revenue), safe(t.cogs), safe(t.operating_expenses), safe(t.other_expenses), safe(t.net_profit)],
+              backgroundColor: [palette[1], palette[3], palette[5], palette[4], palette[0]]
+            }]
+          }
+        };
+      }
+      if (rt === 'cash_flow_statement') {
+        const s = report.sections || {};
+        return {
+          type: 'bar',
+          title: 'Cash Flow',
+          data: {
+            labels: ['Operating', 'Investing', 'Financing', 'Net Change'],
+            datasets: [{
+              data: [safe((s.operating || {}).net), safe((s.investing || {}).net), safe((s.financing || {}).net), safe((report.totals || {}).net_change)],
+              backgroundColor: [palette[0], palette[1], palette[4], palette[2]]
+            }]
+          }
+        };
+      }
+      if (rt === 'trial_balance' || rt === 'general_ledger') {
+        const rows = (report.rows || []).slice().sort((a, b) => ((b.debit_turnover + b.credit_turnover) - (a.debit_turnover + a.credit_turnover))).slice(0, 10);
+        if (!rows.length) return null;
+        return {
+          type: 'bar',
+          title: 'Top Accounts by Turnover',
+          data: {
+            labels: rows.map(r => r.account_code),
+            datasets: [
+              { label: 'Debit', data: rows.map(r => safe(r.debit_turnover)), backgroundColor: palette[0] },
+              { label: 'Credit', data: rows.map(r => safe(r.credit_turnover)), backgroundColor: palette[1] }
+            ]
+          }
+        };
+      }
+      if (rt === 'account_ledger' || rt === 'cash_bank_statement' || rt === 'person_running_balance') {
+        const rows = (report.items || report.rows || []).slice(0, 80);
+        if (!rows.length) return null;
+        return {
+          type: 'line',
+          title: 'Running Balance',
+          data: {
+            labels: rows.map(r => r.date),
+            datasets: [{ label: 'Balance', data: rows.map(r => safe(r.running_balance)), borderColor: palette[0], backgroundColor: 'rgba(15,118,110,0.18)', fill: true, tension: 0.25 }]
+          }
+        };
+      }
+      if (rt === 'inventory_balance') {
+        const rows = (report.rows || []).slice().sort((a, b) => (b.inventory_value - a.inventory_value)).slice(0, 10);
+        if (!rows.length) return null;
+        return {
+          type: 'bar',
+          title: 'Inventory Value by Item',
+          data: { labels: rows.map(r => r.item_name), datasets: [{ data: rows.map(r => safe(r.inventory_value)), backgroundColor: palette[0] }] }
+        };
+      }
+      if (rt === 'inventory_movement') {
+        const rows = (report.rows || []).slice(0, 80);
+        if (!rows.length) return null;
+        return {
+          type: 'line',
+          title: 'Inventory Movements',
+          data: { labels: rows.map(r => r.movement_date), datasets: [{ label: 'Qty', data: rows.map(r => safe(r.quantity)), borderColor: palette[1], fill: false, tension: 0.2 }] }
+        };
+      }
+      if (rt.includes('sales') || rt.includes('purchase')) {
+        const rows = (report.rows || []).slice(0, 12);
+        if (!rows.length) return null;
+        const first = rows[0] || {};
+        const hasSalesAmount = Object.prototype.hasOwnProperty.call(first, 'sales_amount');
+        const hasAmount = Object.prototype.hasOwnProperty.call(first, 'amount');
+        const labelKey = Object.prototype.hasOwnProperty.call(first, 'product_name') ? 'product_name' : 'invoice_number';
+        const valueKey = hasSalesAmount ? 'sales_amount' : (hasAmount ? 'amount' : null);
+        if (!valueKey) return null;
+        return {
+          type: 'bar',
+          title: 'Sales / Purchase',
+          data: { labels: rows.map(r => r[labelKey] || 'Item'), datasets: [{ data: rows.map(r => safe(r[valueKey])), backgroundColor: palette[2] }] }
+        };
+      }
+      return null;
+    }
+
+    function renderReportChart(canvas, report, existingChart) {
+      if (!canvas || typeof Chart === 'undefined') return null;
+      const spec = makeReportChartSpec(report);
+      if (existingChart) {
+        try { existingChart.destroy(); } catch (_) {}
+      }
+      if (!spec) return null;
+      const chart = new Chart(canvas, {
+        type: spec.type,
+        data: spec.data,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' },
+            title: { display: true, text: spec.title }
+          },
+          scales: spec.type === 'line' || spec.type === 'bar' ? {
+            y: { ticks: { callback: (v) => formatNum(v) } }
+          } : undefined
+        }
+      });
+      return chart;
     }
 
     function renderReportPreviewHtml(report) {
       if (!report || typeof report !== 'object') return '<p class="empty-state">No report data.</p>';
-      if (Array.isArray(report.rows) && report.rows.length) {
-        const first = report.rows[0];
-        const keys = Object.keys(first);
-        const head = keys.map(k => `<th>${escapeHtml(k)}</th>`).join('');
-        const body = report.rows.slice(0, 40).map(r => `<tr>${keys.map(k => `<td>${escapeHtml(r[k])}</td>`).join('')}</tr>`).join('');
-        return `<table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
-      }
-      if (Array.isArray(report.items) && report.items.length) {
-        const first = report.items[0];
-        const keys = Object.keys(first).filter(k => k !== 'lines');
-        const head = keys.map(k => `<th>${escapeHtml(k)}</th>`).join('');
-        const body = report.items.slice(0, 20).map(r => `<tr>${keys.map(k => `<td>${escapeHtml(r[k])}</td>`).join('')}</tr>`).join('');
-        return `<table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
-      }
       if (report.sections && typeof report.sections === 'object') {
         const cards = Object.keys(report.sections).map(k => {
           const sec = report.sections[k] || {};
+          const items = (sec.items || []).slice(0, 8);
+          const table = items.length
+            ? `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Code</th><th>Account</th><th>Balance</th></tr></thead><tbody>${items.map(it => `<tr><td>${formatReportCell(it.account_code, 'account_code')}</td><td>${formatReportCell(it.account_name, 'account_name')}</td><td>${formatReportCell(it.balance, 'balance')}</td></tr>`).join('')}</tbody></table></div>`
+            : '<div class="empty-state" style="padding:0.35rem;">No rows in this section.</div>';
           return `<div class="panel" style="margin-bottom:0.45rem;">
             <strong>${escapeHtml(sec.label || k)}</strong>
             <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(sec.label_fa || '')}</div>
             <div style="font-size:0.92rem; margin-top:0.2rem;">Total: ${formatNum(sec.total || sec.net || 0)}</div>
+            ${table}
           </div>`;
         }).join('');
         return cards || '<p class="empty-state">No section rows.</p>';
       }
+      const tableData = reportToTableData(report);
+      if (tableData.headers.length && tableData.rows.length) {
+        const headers = tableData.headers;
+        const body = tableData.rows.slice(0, 80).map(r => `<tr>${headers.map((h, i) => `<td>${formatReportCell(r[i], h)}</td>`).join('')}</tr>`).join('');
+        const head = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+        return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+      }
       if (report.totals && typeof report.totals === 'object') {
         return renderObjectAsMiniTable(report.totals);
       }
-      return `<pre style="white-space:pre-wrap; margin:0;">${escapeHtml(JSON.stringify(report, null, 2))}</pre>`;
+      return `<pre style="white-space:pre-wrap; margin:0; max-height:300px; overflow:auto;">${escapeHtml(JSON.stringify(report, null, 2))}</pre>`;
     }
 
     function appendChatReport(report) {
       const div = document.createElement('div');
-      div.className = 'chat-msg assistant';
+      div.className = 'chat-msg assistant report-msg';
+      const period = reportPeriodText(report);
+      const chartId = 'chat-report-chart-' + Math.random().toString(16).slice(2);
+      const hasCsvRows = (() => {
+        const data = reportToTableData(report);
+        return Array.isArray(data.rows) && data.rows.length > 0;
+      })();
       div.innerHTML = `
         <div style="font-weight:700; margin-bottom:0.35rem;">Report result</div>
+        ${period ? `<div class="report-meta">Period: ${escapeHtml(period)}</div>` : ''}
         <div>${renderReportPreviewHtml(report)}</div>
+        <div class="panel report-chart-panel" style="display:none;">
+          <h3>Chart</h3>
+          <canvas id="${chartId}" height="200"></canvas>
+        </div>
+        <div class="report-actions" style="margin-top:0.5rem;">
+          <button type="button" class="btn btn-secondary btn-sm chat-report-export-json">Export JSON</button>
+          <button type="button" class="btn btn-secondary btn-sm chat-report-export-csv" ${hasCsvRows ? '' : 'disabled'}>Export CSV</button>
+          <button type="button" class="btn btn-secondary btn-sm chat-report-export-pdf">Export PDF</button>
+        </div>
       `;
       chatMessagesEl.appendChild(div);
+      const chartCanvas = div.querySelector('#' + chartId);
+      const chartPanel = div.querySelector('.report-chart-panel');
+      const chart = renderReportChart(chartCanvas, report, null);
+      if (chartPanel && chart) chartPanel.style.display = 'block';
+      const base = reportFileBaseName(report);
+      const jsonBtn = div.querySelector('.chat-report-export-json');
+      const csvBtn = div.querySelector('.chat-report-export-csv');
+      const pdfBtn = div.querySelector('.chat-report-export-pdf');
+      if (jsonBtn) {
+        jsonBtn.addEventListener('click', () => {
+          downloadTextFile(`${base}.json`, JSON.stringify(report, null, 2), 'application/json');
+        });
+      }
+      if (csvBtn && hasCsvRows) {
+        csvBtn.addEventListener('click', () => {
+          const csv = reportToCsv(report);
+          if (!csv) {
+            showAlert('This report has no tabular rows to export as CSV.', true);
+            return;
+          }
+          downloadTextFile(`${base}.csv`, csv, 'text/csv');
+        });
+      }
+      if (pdfBtn) {
+        pdfBtn.addEventListener('click', () => {
+          const chartImg = chartCanvas ? chartCanvas.toDataURL('image/png') : '';
+          openReportPrintWindow(report, chartImg);
+        });
+      }
       chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
     }
 
@@ -2615,6 +3046,10 @@
     if (aiProviderSelect) aiProviderSelect.addEventListener('change', syncAIFieldsByProvider);
     if (aiSaveBtn) aiSaveBtn.addEventListener('click', saveAIConfig);
     if (mgrRunBtn) mgrRunBtn.addEventListener('click', runManagerReport);
+    if (mgrReportTypeEl) mgrReportTypeEl.addEventListener('change', syncManagerFilterLabels);
+    if (mgrExportJsonBtn) mgrExportJsonBtn.addEventListener('click', exportManagerReportJson);
+    if (mgrExportCsvBtn) mgrExportCsvBtn.addEventListener('click', exportManagerReportCsv);
+    if (mgrExportPdfBtn) mgrExportPdfBtn.addEventListener('click', exportManagerReportPdf);
     if (mgrAddItemBtn) mgrAddItemBtn.addEventListener('click', addManagerInventoryItem);
     if (mgrAddMvBtn) mgrAddMvBtn.addEventListener('click', addManagerInventoryMovement);
 
@@ -2624,6 +3059,7 @@
     document.getElementById('budget-month').value = new Date().toISOString().slice(0, 7);
     if (mgrFromDateEl) mgrFromDateEl.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
     if (mgrToDateEl) mgrToDateEl.value = new Date().toISOString().slice(0, 10);
+    syncManagerFilterLabels();
     topNav.addEventListener('click', (e) => {
       const btn = e.target.closest('.nav-btn[data-page]');
       if (!btn) return;

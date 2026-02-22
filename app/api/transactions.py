@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 import uuid
 from datetime import date, timedelta
 from pathlib import Path
@@ -239,25 +240,149 @@ def _looks_like_non_payment_query(text: str) -> bool:
     lower = (text or "").strip().lower()
     if not lower:
         return False
-    subject = any(k in lower for k in ("transaction", "transactions", "voucher", "entry", "entries", "ledger"))
-    verb = any(k in lower for k in ("show", "list", "find", "get", "latest", "lates", "recent", "what was", "what is"))
-    report_hint = any(k in lower for k in ("dashboard", "history", "chart", "balance", "missing references"))
+    subject = any(
+        k in lower
+        for k in (
+            "transaction",
+            "transactions",
+            "voucher",
+            "entry",
+            "entries",
+            "ledger",
+            "report",
+            "balance sheet",
+            "income statement",
+            "cash flow",
+            "trial balance",
+            "دفتر",
+            "گزارش",
+            "تراز",
+            "گردش",
+            "سود",
+            "زیان",
+            "انبار",
+            "فروش",
+            "خرید",
+        )
+    )
+    verb = any(
+        k in lower
+        for k in (
+            "show",
+            "list",
+            "find",
+            "get",
+            "latest",
+            "lates",
+            "recent",
+            "what was",
+            "what is",
+            "نشان",
+            "بده",
+            "میخوام",
+            "می خواهم",
+            "میخواهم",
+            "ببینم",
+        )
+    )
+    report_hint = any(
+        k in lower
+        for k in (
+            "dashboard",
+            "history",
+            "chart",
+            "balance",
+            "missing references",
+            "گردش حساب",
+            "گردش بانک",
+            "صورت حساب",
+            "ترازنامه",
+            "سود و زیان",
+            "جریان وجوه نقد",
+        )
+    )
     return (subject and verb) or report_hint
 
 
-def _resolve_bank_account_code(db: Session, bank_name: str | None) -> str:
-    if not bank_name:
-        return "1110"
-    bank = (
+def _normalize_for_match(text: str) -> str:
+    t = (text or "").strip().lower()
+    t = t.replace("ي", "ی").replace("ك", "ک")
+    t = t.replace("\u200c", " ").replace("‌", " ")
+    t = re.sub(r"\s+", " ", t)
+    return t
+
+
+def _canonical_bank_key(name: str) -> str:
+    n = _normalize_for_match(name)
+    if not n:
+        return ""
+    if any(k in n for k in ("melli", "meli", "ملی", "ملي")):
+        return "melli"
+    if any(k in n for k in ("mellat", "ملت")):
+        return "mellat"
+    return re.sub(r"[^a-z0-9\u0600-\u06ff]+", "", n)
+
+
+def _find_bank_entity_by_text(db: Session, text: str) -> Entity | None:
+    raw = (text or "").strip()
+    if not raw:
+        return None
+    exact = (
         db.execute(
             select(Entity).where(
                 Entity.type == "bank",
-                Entity.name.ilike(bank_name.strip()),
+                Entity.name.ilike(raw),
             )
         )
         .scalars()
         .first()
     )
+    if exact:
+        return exact
+    banks = db.execute(select(Entity).where(Entity.type == "bank").order_by(Entity.name)).scalars().all()
+    norm_raw = _normalize_for_match(raw)
+    key_raw = _canonical_bank_key(raw)
+    for b in banks:
+        name = (b.name or "").strip()
+        if not name:
+            continue
+        norm_name = _normalize_for_match(name)
+        if norm_name and (norm_name in norm_raw or norm_raw in norm_name):
+            return b
+        if key_raw and _canonical_bank_key(name) == key_raw:
+            return b
+    return None
+
+
+def _infer_followup_report_intent(messages: list[dict], db: Session) -> ReportIntent | None:
+    last_user = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "user"), "").strip()
+    if not last_user:
+        return None
+    bank = _find_bank_entity_by_text(db, last_user)
+    if not bank:
+        return None
+    user_messages = [(m.get("content") or "").strip() for m in messages if m.get("role") == "user" and (m.get("content") or "").strip()]
+    if len(user_messages) < 2:
+        return None
+    for prev in reversed(user_messages[:-1]):
+        prev_intent = parse_report_intent(prev)
+        prev_low = _normalize_for_match(prev)
+        if prev_intent and prev_intent.key == "account_ledger":
+            return ReportIntent(
+                key="account_ledger",
+                from_date=prev_intent.from_date,
+                to_date=prev_intent.to_date,
+                bank_name=bank.name,
+            )
+        if any(k in prev_low for k in ("گردش", "ledger", "statement", "bank balance", "دفتر")):
+            return ReportIntent(key="account_ledger", bank_name=bank.name)
+    return None
+
+
+def _resolve_bank_account_code(db: Session, bank_name: str | None) -> str:
+    if not bank_name:
+        return "1110"
+    bank = _find_bank_entity_by_text(db, bank_name)
     code = (bank.code if bank else None) or ""
     code = code.strip()
     if code and db.execute(select(Account).where(Account.code == code)).scalars().one_or_none():
@@ -273,7 +398,7 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
     ssvc = SalesReportService(db)
 
     if intent.key == "balance_sheet":
-        rep = fsvc.balance_sheet(to_date=intent.to_date)
+        rep = fsvc.balance_sheet(to_date=intent.to_date, comparative_to_date=intent.from_date)
         return "Balance sheet generated.", rep.model_dump(by_alias=True)
     if intent.key == "income_statement":
         rep = fsvc.income_statement(from_date=intent.from_date, to_date=intent.to_date)
@@ -292,6 +417,31 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
         rep = lsvc.trial_balance(from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=200)
         return "Trial balance generated.", rep.model_dump(by_alias=True)
     if intent.key == "account_ledger":
+        if intent.bank_name:
+            bank = _find_bank_entity_by_text(db, intent.bank_name)
+            if bank:
+                # If a specific bank entity is requested, prefer entity-linked running balance.
+                # This works even when multiple banks share the same cash account code (e.g. 1110).
+                rep = osvc.person_running_balance(
+                    entity_id=bank.id,
+                    role="bank",
+                    from_date=intent.from_date,
+                    to_date=intent.to_date,
+                )
+                if rep.rows:
+                    return f"Bank statement generated for {bank.name}.", rep.model_dump(by_alias=True)
+                account_code = _resolve_bank_account_code(db, bank.name)
+                ledger_rep = lsvc.account_ledger(
+                    account_code=account_code,
+                    from_date=intent.from_date,
+                    to_date=intent.to_date,
+                    page=1,
+                    page_size=120,
+                )
+                return (
+                    f"No entity-linked rows found for {bank.name}; showing account ledger {account_code}.",
+                    ledger_rep.model_dump(by_alias=True),
+                )
         account_code = intent.account_code or _resolve_bank_account_code(db, intent.bank_name)
         rep = lsvc.account_ledger(account_code=account_code, from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=120)
         return f"Account ledger generated for {account_code}.", rep.model_dump(by_alias=True)
@@ -554,6 +704,8 @@ async def chat(
     last_assistant_message = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "assistant"), "")
     non_payment_query = _looks_like_non_payment_query(last_user_message)
     report_intent = parse_report_intent(last_user_message)
+    if report_intent is None:
+        report_intent = _infer_followup_report_intent(messages, db)
     if report_intent is not None:
         try:
             msg, report = _build_report_from_intent(db, report_intent)

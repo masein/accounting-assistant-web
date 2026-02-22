@@ -112,8 +112,8 @@ class OperationsReportService:
         if not entity:
             raise HTTPException(status_code=404, detail="Entity not found")
         role_key = (role or "").strip().lower()
-        if role_key not in ("client", "supplier", "payee"):
-            raise HTTPException(status_code=400, detail="role must be client, supplier, or payee")
+        if role_key not in ("client", "supplier", "payee", "bank"):
+            raise HTTPException(status_code=400, detail="role must be client, supplier, payee, or bank")
 
         q = (
             select(Transaction, TransactionLine)
@@ -149,7 +149,7 @@ class OperationsReportService:
                         running_balance=running,
                     )
                 )
-            else:
+            elif role_key in ("supplier", "payee"):
                 if not code.startswith("21"):
                     continue
                 delta = int(line.credit or 0) - int(line.debit or 0)
@@ -162,6 +162,22 @@ class OperationsReportService:
                         description=txn.description,
                         debit_effect=max(0, -delta),
                         credit_effect=max(0, delta),
+                        running_balance=running,
+                    )
+                )
+            else:
+                if code != "1110":
+                    continue
+                delta = int(line.debit or 0) - int(line.credit or 0)
+                running += delta
+                out.append(
+                    PersonRunningBalanceRow(
+                        date=txn.date,
+                        transaction_id=txn.id,
+                        reference=txn.reference,
+                        description=txn.description,
+                        debit_effect=max(0, delta),
+                        credit_effect=max(0, -delta),
                         running_balance=running,
                     )
                 )

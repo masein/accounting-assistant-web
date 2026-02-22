@@ -211,7 +211,7 @@ def debtor_creditor(
 @router.get("/operational/person-running-balance", response_model=PersonRunningBalanceResponse)
 def person_running_balance(
     entity_id: UUID = Query(...),
-    role: str = Query(..., pattern="^(client|supplier|payee)$"),
+    role: str = Query(..., pattern="^(client|supplier|payee|bank)$"),
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     db: Session = Depends(get_db),

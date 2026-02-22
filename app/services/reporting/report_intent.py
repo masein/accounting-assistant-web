@@ -17,6 +17,54 @@ class ReportIntent:
     limit: int | None = None
 
 
+def _normalize_text(text: str) -> str:
+    t = (text or "").strip().lower()
+    t = t.replace("ي", "ی").replace("ك", "ک")
+    t = t.replace("\u200c", " ").replace("‌", " ")
+    t = re.sub(r"\s+", " ", t)
+    return t
+
+
+def _cleanup_bank_name(name: str) -> str:
+    raw = _normalize_text(name)
+    raw = re.sub(r"[^\w\u0600-\u06FF\s\-]", " ", raw)
+    raw = re.sub(r"\s+", " ", raw).strip()
+    stop_words = {
+        "هم",
+        "میخوام",
+        "می خواهم",
+        "میخواهم",
+        "می‌خوام",
+        "مخوام",
+        "رو",
+        "را",
+        "از",
+        "برای",
+        "در",
+        "این",
+        "ماه",
+        "سال",
+        "حساب",
+        "گردش",
+        "statement",
+        "report",
+        "for",
+        "bank",
+        "account",
+        "ledger",
+    }
+    parts = [p for p in raw.split(" ") if p]
+    while parts and parts[0] in stop_words:
+        parts.pop(0)
+    cleaned: list[str] = []
+    for p in parts:
+        if p in stop_words:
+            break
+        cleaned.append(p)
+    out = " ".join(cleaned).strip()
+    return out or (" ".join(parts).strip() if parts else raw)
+
+
 def _extract_dates(text: str, today: date | None = None) -> tuple[date | None, date | None]:
     now = today or date.today()
     t = (text or "").strip().lower()
@@ -81,15 +129,15 @@ def _extract_account_code(text: str) -> str | None:
 
 def _extract_bank_name(text: str) -> str | None:
     raw = text or ""
+    m_en2_all = list(re.finditer(r"\b([A-Za-z][A-Za-z0-9]{1,30})\s+bank\b", raw, re.IGNORECASE))
+    if m_en2_all:
+        return _cleanup_bank_name(m_en2_all[-1].group(1)).title()
     m_en = re.search(r"\b(?:bank)\s+([A-Za-z][A-Za-z0-9\s]{1,30})", raw, re.IGNORECASE)
     if m_en:
-        return m_en.group(1).strip().title()
-    m_en2 = re.search(r"\b([A-Za-z][A-Za-z0-9]{1,30})\s+bank\b", raw, re.IGNORECASE)
-    if m_en2:
-        return m_en2.group(1).strip().title()
+        return _cleanup_bank_name(m_en.group(1)).title()
     m_fa = re.search(r"بانک\s+([آ-یA-Za-z0-9\s]{1,30})", raw)
     if m_fa:
-        return m_fa.group(1).strip()
+        return _cleanup_bank_name(m_fa.group(1))
     return None
 
 
@@ -97,7 +145,7 @@ def parse_report_intent(text: str, today: date | None = None) -> ReportIntent | 
     t = (text or "").strip()
     if not t:
         return None
-    low = t.lower()
+    low = _normalize_text(t)
     from_date, to_date = _extract_dates(low, today=today)
     account_code = _extract_account_code(t)
     bank_name = _extract_bank_name(t)
@@ -117,7 +165,15 @@ def parse_report_intent(text: str, today: date | None = None) -> ReportIntent | 
         return ReportIntent(key="general_ledger", from_date=from_date, to_date=to_date)
     if ("trial balance" in low) or ("مرور حساب" in t):
         return ReportIntent(key="trial_balance", from_date=from_date, to_date=to_date)
-    if ("account ledger" in low) or ("گردش حساب" in t) or ("statement between dates" in low):
+    if (
+        ("account ledger" in low)
+        or ("گردش حساب" in t)
+        or ("گردش بانک" in t)
+        or ("صورت حساب بانک" in t)
+        or ("statement between dates" in low)
+        or (("bank statement" in low) or ("bank balance" in low))
+        or (("گردش" in t) and ("بانک" in t))
+    ):
         return ReportIntent(
             key="account_ledger",
             from_date=from_date,

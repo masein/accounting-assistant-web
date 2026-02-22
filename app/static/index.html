@@ -842,6 +842,13 @@
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
         Configure model provider and credentials once, then use the assistant across all sections.
       </p>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom:0.85rem; flex-wrap:wrap;">
+        <div style="font-size:0.9rem; color:var(--text-muted);">
+          Signed in as <strong id="settings-user-name">-</strong>
+          <span id="settings-user-role" style="margin-left:0.35rem; font-size:0.78rem; color:var(--primary);"></span>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="logout-btn">Logout</button>
+      </div>
       <div class="ai-runtime-bar" style="margin-bottom: 0;">
         <div>
           <label for="ai-provider-select">AI provider</label>
@@ -867,6 +874,34 @@
           <button type="button" class="btn btn-secondary" id="ai-save-btn">Apply AI settings</button>
         </div>
         <div class="ai-runtime-hint">Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.</div>
+      </div>
+
+      <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;">User management</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">Create and manage user access for this company.</p>
+        <div class="row" style="margin-bottom:0.5rem;">
+          <div>
+            <label for="new-user-username">Username</label>
+            <input type="text" id="new-user-username" placeholder="e.g. accountant1">
+          </div>
+          <div>
+            <label for="new-user-password">Password</label>
+            <input type="password" id="new-user-password" placeholder="temporary password">
+          </div>
+          <div>
+            <label for="new-user-admin">Role</label>
+            <select id="new-user-admin">
+              <option value="false">User</option>
+              <option value="true">Admin</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button type="button" class="btn btn-primary" id="create-user-btn">Create user</button>
+          </div>
+        </div>
+        <div id="users-wrap">
+          <p class="empty-state" style="padding:0.4rem;">No users loaded.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -910,6 +945,14 @@
     const aiBaseInput = document.getElementById('ai-base-input');
     const aiKeyInput = document.getElementById('ai-key-input');
     const aiSaveBtn = document.getElementById('ai-save-btn');
+    const settingsUserNameEl = document.getElementById('settings-user-name');
+    const settingsUserRoleEl = document.getElementById('settings-user-role');
+    const logoutBtn = document.getElementById('logout-btn');
+    const newUserUsernameEl = document.getElementById('new-user-username');
+    const newUserPasswordEl = document.getElementById('new-user-password');
+    const newUserAdminEl = document.getElementById('new-user-admin');
+    const createUserBtn = document.getElementById('create-user-btn');
+    const usersWrapEl = document.getElementById('users-wrap');
     const ledgerSearchEl = document.getElementById('ledger-search');
     const ledgerSortEl = document.getElementById('ledger-sort');
     const ledgerTopNEl = document.getElementById('ledger-topn');
@@ -963,6 +1006,16 @@
     let inventoryReportChart = null;
     let lastInventoryReport = null;
     const validPages = new Set(['dashboard', 'chat', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'settings']);
+    const rawFetch = window.fetch.bind(window);
+
+    window.fetch = async (...args) => {
+      const res = await rawFetch(...args);
+      if (res.status === 401) {
+        window.location.href = '/login';
+        throw new Error('Authentication required');
+      }
+      return res;
+    };
 
     function showPage(page) {
       const requested = validPages.has(page) ? page : 'dashboard';
@@ -1066,6 +1119,167 @@
         showAlert('Connection error: ' + err.message, true);
       } finally {
         aiSaveBtn.disabled = false;
+      }
+    }
+
+    function renderUsersTable(users) {
+      if (!usersWrapEl) return;
+      if (!Array.isArray(users) || !users.length) {
+        usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">No users found.</p>';
+        return;
+      }
+      usersWrapEl.innerHTML = `
+        <table class="results-table" style="font-size:0.85rem;">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map((u) => `
+              <tr>
+                <td>${escapeHtml(u.username)}</td>
+                <td>${u.is_admin ? 'Admin' : 'User'}</td>
+                <td>${u.is_active ? 'Active' : 'Disabled'}</td>
+                <td>
+                  <button type="button" class="btn btn-secondary btn-sm user-pw-btn" data-id="${escapeHtml(u.id)}">Reset password</button>
+                  <button type="button" class="btn btn-secondary btn-sm user-role-btn" data-id="${escapeHtml(u.id)}" data-admin="${u.is_admin ? '1' : '0'}">${u.is_admin ? 'Set user' : 'Set admin'}</button>
+                  <button type="button" class="btn btn-danger btn-sm user-del-btn" data-id="${escapeHtml(u.id)}" data-username="${escapeHtml(u.username)}">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function loadCurrentUser() {
+      try {
+        const res = await fetch(API + '/auth/me');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.user) return;
+        if (settingsUserNameEl) settingsUserNameEl.textContent = data.user.username || '-';
+        if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? 'admin' : 'user';
+      } catch (_) {}
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch(API + '/admin/users');
+        const data = await res.json().catch(() => []);
+        if (!res.ok) {
+          usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">You do not have permission to view users.</p>';
+          return;
+        }
+        renderUsersTable(data);
+      } catch (err) {
+        usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">Error loading users.</p>';
+      }
+    }
+
+    async function createUser() {
+      const username = (newUserUsernameEl && newUserUsernameEl.value || '').trim();
+      const password = (newUserPasswordEl && newUserPasswordEl.value || '').trim();
+      const isAdmin = (newUserAdminEl && newUserAdminEl.value) === 'true';
+      if (!username || !password) {
+        showAlert('Username and password are required.', true);
+        return;
+      }
+      try {
+        createUserBtn.disabled = true;
+        const res = await fetch(API + '/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, is_admin: isAdmin, is_active: true }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || 'Failed to create user.', true);
+          return;
+        }
+        showAlert('User created.');
+        newUserUsernameEl.value = '';
+        newUserPasswordEl.value = '';
+        newUserAdminEl.value = 'false';
+        loadUsers();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      } finally {
+        createUserBtn.disabled = false;
+      }
+    }
+
+    async function handleUserTableAction(e) {
+      const delBtn = e.target.closest('.user-del-btn');
+      if (delBtn) {
+        const id = delBtn.dataset.id;
+        const username = delBtn.dataset.username || 'this user';
+        if (!confirm('Delete user "' + username + '"?')) return;
+        try {
+          const res = await fetch(API + '/admin/users/' + encodeURIComponent(id), { method: 'DELETE' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok && res.status !== 204) {
+            showAlert(data.detail || 'Failed to delete user.', true);
+            return;
+          }
+          showAlert('User deleted.');
+          loadUsers();
+        } catch (err) {
+          showAlert('Connection error: ' + err.message, true);
+        }
+        return;
+      }
+
+      const roleBtn = e.target.closest('.user-role-btn');
+      if (roleBtn) {
+        const id = roleBtn.dataset.id;
+        const nextAdmin = roleBtn.dataset.admin === '1' ? false : true;
+        try {
+          const res = await fetch(API + '/admin/users/' + encodeURIComponent(id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_admin: nextAdmin }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            showAlert(data.detail || 'Failed to update role.', true);
+            return;
+          }
+          showAlert('User role updated.');
+          loadUsers();
+        } catch (err) {
+          showAlert('Connection error: ' + err.message, true);
+        }
+        return;
+      }
+
+      const pwBtn = e.target.closest('.user-pw-btn');
+      if (pwBtn) {
+        const id = pwBtn.dataset.id;
+        const nextPassword = prompt('Enter a new password for this user:');
+        if (nextPassword == null) return;
+        if (!nextPassword.trim()) {
+          showAlert('Password cannot be empty.', true);
+          return;
+        }
+        try {
+          const res = await fetch(API + '/admin/users/' + encodeURIComponent(id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: nextPassword }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            showAlert(data.detail || 'Failed to reset password.', true);
+            return;
+          }
+          showAlert('Password reset.');
+        } catch (err) {
+          showAlert('Connection error: ' + err.message, true);
+        }
       }
     }
 
@@ -3250,6 +3464,16 @@
     if (invExportJsonBtn) invExportJsonBtn.addEventListener('click', exportInventoryReportJson);
     if (invExportCsvBtn) invExportCsvBtn.addEventListener('click', exportInventoryReportCsv);
     if (invExportPdfBtn) invExportPdfBtn.addEventListener('click', exportInventoryReportPdf);
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        try {
+          await fetch(API + '/auth/logout', { method: 'POST' });
+        } catch (_) {}
+        window.location.href = '/login';
+      });
+    }
+    if (createUserBtn) createUserBtn.addEventListener('click', createUser);
+    if (usersWrapEl) usersWrapEl.addEventListener('click', handleUserTableAction);
     if (openAiChatInlineBtn) {
       openAiChatInlineBtn.addEventListener('click', () => {
         openInlineChat();
@@ -3273,7 +3497,9 @@
     });
     window.addEventListener('hashchange', () => showPage((location.hash || '#dashboard').slice(1)));
     showPage((location.hash || '#dashboard').slice(1));
+    loadCurrentUser();
     loadAIConfig();
+    loadUsers();
     renderAttachments();
     appendChatMessage('assistant', "Hi. I'm your AI accountant. You can create vouchers, ask for statements, compare periods, and request management reports. Try: 'show me balance sheet for last month', 'گردش حساب بانک ملت از اول سال', or 'last 10 transactions for Melli'.");
     loadLedger();

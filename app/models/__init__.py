@@ -8,6 +8,7 @@ from app.models.recurring import RecurringRule
 from app.models.trial_balance import TrialBalance, TrialBalanceLine
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
 from app.models.transaction_fee import PaymentMethod, TransactionFee, TransactionFeeApplication
+from app.models.user import User
 
 __all__ = [
     "Account",
@@ -29,4 +30,5 @@ __all__ = [
     "TransactionFeeApplication",
     "TransactionLine",
     "PaymentMethod",
+    "User",
 ]

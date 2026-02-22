@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     smtp_user: str | None = None
     smtp_password: str | None = None
     smtp_to: str | None = None
+    auth_secret: str = "change-this-in-production"
+    auth_cookie_name: str = "aa_session"
+    auth_session_hours: int = 24
 
 
 settings = Settings()

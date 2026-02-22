@@ -5,13 +5,15 @@ import time
 import uuid
 
 from fastapi import FastAPI
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.api.accounts import router as accounts_router
 from app.api.admin import router as admin_router
+from app.api.auth import router as auth_router
 from app.api.budgets import router as budgets_router
 from app.api.entities import router as entities_router
 from app.api.exports import router as exports_router
@@ -22,8 +24,9 @@ from app.api.recurring import router as recurring_router
 from app.api.reports import router as reports_router
 from app.api.transactions import router as transactions_router
 from app.core.config import settings
+from app.core.auth import parse_session_token
 from app.db.base import Base
-from app.db.seed import seed_chart_if_empty, seed_payment_methods_if_empty
+from app.db.seed import seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
 from app.db.session import engine, SessionLocal
 import app.models  # noqa: F401 - register models with Base.metadata
 
@@ -110,6 +113,7 @@ async def lifespan(app: FastAPI):
     try:
         seed_chart_if_empty(db)
         seed_payment_methods_if_empty(db)
+        seed_admin_user_if_missing(db)
     finally:
         db.close()
     yield
@@ -130,6 +134,28 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+PUBLIC_PATHS = {
+    "/auth/login",
+    "/auth/logout",
+}
+
+PROTECTED_API_PREFIXES = (
+    "/accounts",
+    "/admin",
+    "/budgets",
+    "/entities",
+    "/exports",
+    "/invoices",
+    "/manager-reports",
+    "/notifications",
+    "/recurring",
+    "/reports",
+    "/transactions",
+    "/auth/me",
+    "/auth/change-password",
+    "/auth/admin-check",
 )
 
 
@@ -162,8 +188,45 @@ async def request_logging_middleware(request, call_next):
     return response
 
 
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+    # allow app/static resources and framework internals
+    if (
+        path in PUBLIC_PATHS
+        or path.startswith("/uploads/")
+        or path.startswith("/docs")
+        or path.startswith("/redoc")
+        or path == "/openapi.json"
+        or path.startswith("/favicon")
+    ):
+        return await call_next(request)
+
+    token = request.cookies.get(settings.auth_cookie_name)
+    user = parse_session_token(token)
+    request.state.user = user
+
+    if path == "/":
+        if not user:
+            return RedirectResponse(url="/login", status_code=302)
+        return await call_next(request)
+
+    if path == "/login":
+        if user:
+            return RedirectResponse(url="/", status_code=302)
+        return await call_next(request)
+
+    if path.startswith(PROTECTED_API_PREFIXES):
+        if not user:
+            return JSONResponse(status_code=401, content={"detail": "Authentication required"})
+        return await call_next(request)
+
+    return await call_next(request)
+
+
 app.include_router(accounts_router)
 app.include_router(admin_router)
+app.include_router(auth_router)
 app.include_router(budgets_router)
 app.include_router(entities_router)
 app.include_router(exports_router)
@@ -184,3 +247,8 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 @app.get("/", include_in_schema=False)
 def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/login", include_in_schema=False)
+def login():
+    return FileResponse(STATIC_DIR / "login.html")

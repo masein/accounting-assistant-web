@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 from app.models.account import Account, AccountLevel
 from app.models.transaction_fee import PaymentMethod
+from app.models.user import User
+from app.core.auth import hash_password
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -88,3 +90,30 @@ def seed_payment_methods_if_empty(session: "Session") -> int:
         session.add(PaymentMethod(key=key, name=name, is_active=True))
     session.commit()
     return len(defaults)
+
+
+def seed_admin_user_if_missing(session: "Session") -> int:
+    """
+    Ensure the default admin user exists for first login.
+    """
+    from sqlalchemy import func, select
+
+    existing = (
+        session.execute(select(User).where(func.lower(User.username) == "admin"))
+        .scalars()
+        .first()
+    )
+    if existing:
+        return 0
+    password_hash, password_salt = hash_password("admin")
+    session.add(
+        User(
+            username="admin",
+            password_hash=password_hash,
+            password_salt=password_salt,
+            is_admin=True,
+            is_active=True,
+        )
+    )
+    session.commit()
+    return 1

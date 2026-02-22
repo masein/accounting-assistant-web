@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Accounting Assistant — Register events and ledger</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap');
     :root {
       --bg: radial-gradient(circle at 10% 10%, #e9f7f1 0%, #f3f7fb 38%, #edf2f7 100%);
       --card: #ffffffd9;
@@ -315,6 +316,20 @@
     }
     .card[data-page] { display: none; }
     .card[data-page].active-page { display: block; animation: page-in 220ms ease; }
+    html[lang="fa"] body,
+    html[lang="fa"] input,
+    html[lang="fa"] textarea,
+    html[lang="fa"] select,
+    html[lang="fa"] button {
+      font-family: 'Vazirmatn', 'Tahoma', 'Segoe UI', sans-serif;
+    }
+    html[lang="ar"] body,
+    html[lang="ar"] input,
+    html[lang="ar"] textarea,
+    html[lang="ar"] select,
+    html[lang="ar"] button {
+      font-family: 'Tajawal', 'Noto Naskh Arabic', 'Tahoma', sans-serif;
+    }
     html[dir="rtl"] body { text-align: right; }
     html[dir="rtl"] .lines-table th,
     html[dir="rtl"] .lines-table td,
@@ -411,273 +426,273 @@
     </div>
 
     <div class="card" data-page="entities">
-      <h2>Entities (clients, banks, employees)</h2>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Add parties you do business with. Link them to vouchers when saving to run reports like &quot;all transactions with client X&quot;.</p>
+      <h2 id="entities-title" data-i18n="entitiesTitle">Entities (clients, banks, employees)</h2>
+      <p id="entities-subtitle" data-i18n="entitiesSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Add parties you do business with. Link them to vouchers when saving to run reports like &quot;all transactions with client X&quot;.</p>
       <div class="row" style="margin-bottom: 1rem;">
-        <div><label for="entity-type">Type</label><select id="entity-type"><option value="client">Client</option><option value="bank">Bank</option><option value="employee">Employee</option><option value="supplier">Supplier</option></select></div>
-        <div><label for="entity-name">Name</label><input type="text" id="entity-name" placeholder="e.g. Innotech, Melli"></div>
-        <div><label for="entity-code">Code (optional)</label><input type="text" id="entity-code" placeholder="e.g. INV-001"></div>
-        <div style="display: flex; align-items: flex-end;"><button type="button" class="btn btn-primary" id="entity-add">Add entity</button></div>
+        <div><label for="entity-type" data-i18n="labelType">Type</label><select id="entity-type"><option value="client" data-i18n="labelClient">Client</option><option value="bank" data-i18n="labelBank">Bank</option><option value="employee" data-i18n="optionEmployee">Employee</option><option value="supplier" data-i18n="labelSupplier">Supplier</option></select></div>
+        <div><label for="entity-name" data-i18n="labelName">Name</label><input type="text" id="entity-name" data-i18n-placeholder="placeholderEntityName" placeholder="e.g. Innotech, Melli"></div>
+        <div><label for="entity-code" data-i18n="labelCodeOptional">Code (optional)</label><input type="text" id="entity-code" data-i18n-placeholder="placeholderEntityCode" placeholder="e.g. INV-001"></div>
+        <div style="display: flex; align-items: flex-end;"><button type="button" class="btn btn-primary" id="entity-add" data-i18n="btnAddEntity">Add entity</button></div>
       </div>
       <table class="results-table" id="entities-table">
-        <thead><tr><th>Type</th><th>Name</th><th>Code</th><th>Actions</th><th></th></tr></thead>
+        <thead><tr><th data-i18n="labelType">Type</th><th data-i18n="labelName">Name</th><th data-i18n="labelCodeOptional">Code</th><th data-i18n="usersActions">Actions</th><th></th></tr></thead>
         <tbody id="entities-tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
       </table>
       <p style="margin-top: 1rem; font-size: 0.875rem;">
-        <button type="button" class="btn btn-secondary btn-sm" id="reset-db-btn">Reset database</button>
-        <span style="color: var(--text-muted); margin-left: 0.5rem;">Clear all transactions and entities, keep chart of accounts.</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="reset-db-btn" data-i18n="btnResetDb">Reset database</button>
+        <span id="reset-db-hint" data-i18n="resetDbHint" style="color: var(--text-muted); margin-left: 0.5rem;">Clear all transactions and entities, keep chart of accounts.</span>
       </p>
     </div>
 
     <div class="card" data-page="invoices">
-      <h2>Invoices</h2>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Create sales/purchase invoices, then mark paid to automatically create a transaction.</p>
+      <h2 id="invoices-title" data-i18n="invoicesTitle">Invoices</h2>
+      <p id="invoices-subtitle" data-i18n="invoicesSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Create sales/purchase invoices, then mark paid to automatically create a transaction.</p>
       <div class="row" style="margin-bottom: 1rem;">
-        <div><label for="inv-number">Number</label><input type="text" id="inv-number" placeholder="e.g. INV-1001"></div>
-        <div><label for="inv-kind">Type</label><select id="inv-kind"><option value="sales">Sales</option><option value="purchase">Purchase</option></select></div>
-        <div><label for="inv-amount">Amount</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
-        <div><label for="inv-issue">Issue date</label><input type="date" id="inv-issue"></div>
-        <div><label for="inv-due">Due date</label><input type="date" id="inv-due"></div>
+        <div><label for="inv-number" data-i18n="labelNumber">Number</label><input type="text" id="inv-number" data-i18n-placeholder="placeholderInvoiceNo" placeholder="e.g. INV-1001"></div>
+        <div><label for="inv-kind" data-i18n="labelType">Type</label><select id="inv-kind"><option value="sales" data-i18n="optionSales">Sales</option><option value="purchase" data-i18n="optionPurchase">Purchase</option></select></div>
+        <div><label for="inv-amount" data-i18n="labelAmount">Amount</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
+        <div><label for="inv-issue" data-i18n="labelIssueDate">Issue date</label><input type="date" id="inv-issue"></div>
+        <div><label for="inv-due" data-i18n="labelDueDate">Due date</label><input type="date" id="inv-due"></div>
       </div>
       <div class="row" style="margin-bottom: 1rem;">
-        <div><label for="inv-entity">Entity (optional)</label><select id="inv-entity"><option value="">— None —</option></select></div>
-        <div><label for="inv-bank-code">Bank account for payment</label><select id="inv-bank-code"><option value="">— Select bank —</option></select></div>
-        <div><label for="inv-desc">Description</label><input type="text" id="inv-desc" placeholder="e.g. Software development"></div>
-        <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="inv-add">Create invoice</button></div>
+        <div><label for="inv-entity" data-i18n="labelEntityOptional">Entity (optional)</label><select id="inv-entity"><option value="" data-i18n="optionNone">— None —</option></select></div>
+        <div><label for="inv-bank-code" data-i18n="labelBankPayment">Bank account for payment</label><select id="inv-bank-code"><option value="" data-i18n="optionSelectBank">— Select bank —</option></select></div>
+        <div><label for="inv-desc" data-i18n="labelDescription">Description</label><input type="text" id="inv-desc" data-i18n-placeholder="placeholderInvoiceDesc" placeholder="e.g. Software development"></div>
+        <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="inv-add" data-i18n="btnCreateInvoice">Create invoice</button></div>
       </div>
       <div class="row" style="margin-bottom: 1rem;">
         <div style="flex:2 1 380px;">
-          <label for="inv-ocr-file">Import from scan (OCR)</label>
+          <label for="inv-ocr-file" data-i18n="importFromScan">Import from scan (OCR)</label>
           <input type="file" id="inv-ocr-file" accept="image/jpeg,image/png,image/webp,application/pdf">
         </div>
         <div style="display:flex; align-items:flex-end; gap:0.45rem;">
-          <button type="button" class="btn btn-secondary" id="inv-ocr-scan">Scan to form</button>
-          <button type="button" class="btn btn-secondary" id="inv-ocr-create">Scan + create</button>
+          <button type="button" class="btn btn-secondary" id="inv-ocr-scan" data-i18n="btnScanToForm">Scan to form</button>
+          <button type="button" class="btn btn-secondary" id="inv-ocr-create" data-i18n="btnScanCreate">Scan + create</button>
         </div>
         <div style="flex:2 1 280px; display:flex; align-items:flex-end;">
           <div id="inv-ocr-status" style="font-size:0.82rem; color:var(--text-muted);"></div>
         </div>
       </div>
       <table class="results-table" id="invoices-table">
-        <thead><tr><th>No.</th><th>Type</th><th>Status</th><th>Amount</th><th>Due</th><th>Actions</th></tr></thead>
+        <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="labelType">Type</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="labelDueDate">Due</th><th data-i18n="usersActions">Actions</th></tr></thead>
         <tbody id="invoices-tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
       </table>
     </div>
 
     <div class="card" data-page="recurring">
-      <h2>Recurring rules (AI text)</h2>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Example: <code>I have to pay 30M rent every month from Mellat bank</code> or <code>I receive 120M yearly from client X</code>.</p>
+      <h2 id="recurring-title" data-i18n="recurringTitle">Recurring rules (AI text)</h2>
+      <p id="recurring-example" data-i18n="recurringExample" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Example: <code>I have to pay 30M rent every month from Mellat bank</code> or <code>I receive 120M yearly from client X</code>.</p>
       <div class="row" style="margin-bottom: 0.75rem;">
         <div style="flex: 3 1 420px;">
-          <label for="recurring-text">Tell AI your recurring payment/receipt</label>
-          <input type="text" id="recurring-text" placeholder="e.g. I pay 25M office rent every month from Mellat bank">
+          <label for="recurring-text" data-i18n="recurringInputLabel">Tell AI your recurring payment/receipt</label>
+          <input type="text" id="recurring-text" data-i18n-placeholder="placeholderRecurring" placeholder="e.g. I pay 25M office rent every month from Mellat bank">
         </div>
-        <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="recurring-create">Save recurring rule</button></div>
+        <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="recurring-create" data-i18n="btnSaveRecurring">Save recurring rule</button></div>
       </div>
       <table class="results-table" id="recurring-table">
-        <thead><tr><th>Name</th><th>Direction</th><th>Frequency</th><th>Amount</th><th>Next run</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th data-i18n="labelName">Name</th><th data-i18n="tableDirection">Direction</th><th data-i18n="tableFrequency">Frequency</th><th data-i18n="labelAmount">Amount</th><th data-i18n="tableNextRun">Next run</th><th data-i18n="usersStatus">Status</th><th></th></tr></thead>
         <tbody id="recurring-tbody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
       </table>
     </div>
 
     <div class="card" data-page="transactions">
-      <h2>Voucher entry</h2>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
+      <h2 id="transactions-title" data-i18n="voucherTitle">Voucher entry</h2>
+      <p id="transactions-subtitle" data-i18n="voucherSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
         Save and edit journal vouchers here. Use <strong>AI chat</strong> tab for conversational bookkeeping, then review/finalize entries in this form.
       </p>
       <p style="margin: 0 0 0.9rem 0;">
-        <button type="button" class="btn btn-secondary btn-sm" id="open-ai-chat-inline">Open AI chat</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="open-ai-chat-inline" data-i18n="openAiChat">Open AI chat</button>
       </p>
       <div id="voucher-chat-inline">
         <div class="attachment-topbar">
           <input type="file" id="attachment-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="max-width: 360px; margin: 0;">
-          <button type="button" class="btn btn-secondary" id="attachment-upload-btn">Upload receipts</button>
-          <span class="attachment-help">Supported: JPG, PNG, WEBP, PDF (max 8MB each). Files are used in chat and can be attached to vouchers.</span>
+          <button type="button" class="btn btn-secondary" id="attachment-upload-btn" data-i18n="uploadReceipts">Upload receipts</button>
+          <span class="attachment-help" id="attachment-help-text" data-i18n="attachmentSupported">Supported: JPG, PNG, WEBP, PDF (max 8MB each). Files are used in chat and can be attached to vouchers.</span>
         </div>
         <div id="attachment-grid" class="attachment-grid"></div>
         <div class="chat-panel" style="margin-top: 0.75rem;">
           <div class="chat-messages" id="chat-messages"></div>
           <div class="chat-input-wrap">
-            <input type="text" id="chat-input" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off">
-            <button type="button" class="btn btn-primary" id="chat-send">Send</button>
+            <input type="text" id="chat-input" data-i18n-placeholder="placeholderChatInput" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off">
+            <button type="button" class="btn btn-primary" id="chat-send" data-i18n="send">Send</button>
           </div>
         </div>
       </div>
       <form id="transaction-form" style="margin: 0;">
         <div class="row">
           <div>
-            <label for="date">Date</label>
+            <label for="date" data-i18n="labelDate">Date</label>
             <input type="date" id="date" name="date" required>
           </div>
           <div>
-            <label for="reference">Reference</label>
-            <input type="text" id="reference" name="reference" placeholder="e.g. INV-001, receipt no." title="Invoice or receipt number that links this voucher to a document">
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Invoice or receipt number linking to a document</span>
+            <label for="reference" data-i18n="labelReference">Reference</label>
+            <input type="text" id="reference" name="reference" data-i18n-placeholder="placeholderReference" data-i18n-title="referenceHint" placeholder="e.g. INV-001, receipt no." title="Invoice or receipt number that links this voucher to a document">
+            <span id="reference-help-text" data-i18n="referenceHint" style="font-size: 0.75rem; color: var(--text-muted);">Invoice or receipt number linking to a document</span>
           </div>
         </div>
         <div>
-          <label for="description">Description</label>
-          <textarea id="description" name="description" rows="2" placeholder="Event description"></textarea>
+          <label for="description" data-i18n="labelDescription">Description</label>
+          <textarea id="description" name="description" rows="2" data-i18n-placeholder="placeholderDescription" placeholder="Event description"></textarea>
         </div>
         <div class="row" style="margin-bottom: 0.75rem;">
-          <label style="width: 100%; margin-bottom: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">Link to entities (optional — change AI suggestion if needed)</label>
+          <label id="link-entities-label" data-i18n="linkEntitiesHint" style="width: 100%; margin-bottom: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">Link to entities (optional — change AI suggestion if needed)</label>
           <div>
-            <label for="entity-client" style="font-size: 0.75rem;">Client</label>
-            <select id="entity-client" style="min-width: 140px;"><option value="">— None —</option></select>
+            <label for="entity-client" data-i18n="labelClient" style="font-size: 0.75rem;">Client</label>
+            <select id="entity-client" style="min-width: 140px;"><option value="" data-i18n="optionNone">— None —</option></select>
           </div>
           <div>
-            <label for="entity-bank" style="font-size: 0.75rem;">Bank</label>
-            <select id="entity-bank" style="min-width: 140px;"><option value="">— None —</option></select>
+            <label for="entity-bank" data-i18n="labelBank" style="font-size: 0.75rem;">Bank</label>
+            <select id="entity-bank" style="min-width: 140px;"><option value="" data-i18n="optionNone">— None —</option></select>
           </div>
           <div>
-            <label for="entity-payee" style="font-size: 0.75rem;">Payee</label>
-            <select id="entity-payee" style="min-width: 140px;"><option value="">— None —</option></select>
+            <label for="entity-payee" data-i18n="labelPayee" style="font-size: 0.75rem;">Payee</label>
+            <select id="entity-payee" style="min-width: 140px;"><option value="" data-i18n="optionNone">— None —</option></select>
           </div>
           <div>
-            <label for="entity-supplier" style="font-size: 0.75rem;">Supplier</label>
-            <select id="entity-supplier" style="min-width: 140px;"><option value="">— None —</option></select>
+            <label for="entity-supplier" data-i18n="labelSupplier" style="font-size: 0.75rem;">Supplier</label>
+            <select id="entity-supplier" style="min-width: 140px;"><option value="" data-i18n="optionNone">— None —</option></select>
           </div>
         </div>
         <div>
-          <label>Lines (debit / credit)</label>
+          <label id="lines-title" data-i18n="linesTitle">Lines (debit / credit)</label>
           <table class="lines-table">
             <thead>
               <tr>
-                <th class="col-code">Account code</th>
-                <th>Debit</th>
-                <th>Credit</th>
-                <th>Line description</th>
+                <th class="col-code" data-i18n="tableAccountCode">Account code</th>
+                <th data-i18n="tableDebit">Debit</th>
+                <th data-i18n="tableCredit">Credit</th>
+                <th data-i18n="tableLineDescription">Line description</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="lines-tbody">
               <tr class="line-row">
-                <td><input type="text" class="line-code" placeholder="e.g. 1110" required></td>
+                <td><input type="text" class="line-code" data-i18n-placeholder="placeholderAccountCode" placeholder="e.g. 1110" required></td>
                 <td><input type="number" class="line-debit" min="0" value="0" step="1"></td>
                 <td><input type="number" class="line-credit" min="0" value="0" step="1"></td>
-                <td><input type="text" class="line-desc" placeholder="Optional"></td>
-                <td><button type="button" class="btn btn-secondary remove-line">Remove</button></td>
+                <td><input type="text" class="line-desc" data-i18n-placeholder="placeholderOptional" placeholder="Optional"></td>
+                <td><button type="button" class="btn btn-secondary remove-line" data-i18n="btnRemove">Remove</button></td>
               </tr>
               <tr class="line-row">
-                <td><input type="text" class="line-code" placeholder="e.g. 4110"></td>
+                <td><input type="text" class="line-code" data-i18n-placeholder="placeholderAccountCode" placeholder="e.g. 4110"></td>
                 <td><input type="number" class="line-debit" min="0" value="0" step="1"></td>
                 <td><input type="number" class="line-credit" min="0" value="0" step="1"></td>
                 <td><input type="text" class="line-desc"></td>
-                <td><button type="button" class="btn btn-secondary remove-line">Remove</button></td>
+                <td><button type="button" class="btn btn-secondary remove-line" data-i18n="btnRemove">Remove</button></td>
               </tr>
             </tbody>
           </table>
-          <button type="button" class="btn btn-secondary" id="add-line">+ Add line</button>
+          <button type="button" class="btn btn-secondary" id="add-line" data-i18n="btnAddLine">+ Add line</button>
         </div>
         <div style="margin-top: 1rem;">
-          <button type="submit" class="btn btn-primary" id="submit-btn">Save voucher</button>
+          <button type="submit" class="btn btn-primary" id="submit-btn" data-i18n="saveVoucher">Save voucher</button>
         </div>
       </form>
     </div>
 
     <div class="card" data-page="dashboard">
-      <h2>Owner insights dashboard</h2>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Business-focused KPIs, forecasts, aging, profitability, data quality checks, and actionable alerts.</p>
+      <h2 id="dashboard-title" data-i18n="dashboardTitle">Owner insights dashboard</h2>
+      <p id="dashboard-subtitle" data-i18n="dashboardSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Business-focused KPIs, forecasts, aging, profitability, data quality checks, and actionable alerts.</p>
       <div id="kpi-grid" class="kpi-grid"></div>
       <div class="dashboard-grid">
         <div class="panel">
-          <h3>13-week cash forecast</h3>
+          <h3 data-i18n="panelCashForecast">13-week cash forecast</h3>
           <div id="forecast-wrap"></div>
         </div>
         <div class="panel">
-          <h3>Smart alerts</h3>
+          <h3 data-i18n="panelSmartAlerts">Smart alerts</h3>
           <div id="alerts-wrap"></div>
         </div>
         <div class="panel">
-          <h3>AR aging</h3>
+          <h3 data-i18n="panelARAging">AR aging</h3>
           <div id="ar-aging-wrap"></div>
         </div>
         <div class="panel">
-          <h3>AP aging</h3>
+          <h3 data-i18n="panelAPAging">AP aging</h3>
           <div id="ap-aging-wrap"></div>
         </div>
         <div class="panel">
-          <h3>Expense by category</h3>
+          <h3 data-i18n="panelExpenseByCategory">Expense by category</h3>
           <div id="expense-category-wrap"></div>
         </div>
         <div class="panel">
-          <h3>Spend by vendor</h3>
+          <h3 data-i18n="panelSpendByVendor">Spend by vendor</h3>
           <div id="vendor-spend-wrap"></div>
         </div>
         <div class="panel">
-          <h3>Profitability by client</h3>
+          <h3 data-i18n="panelProfitabilityByClient">Profitability by client</h3>
           <div id="profitability-wrap"></div>
         </div>
         <div class="panel">
-          <h3>Books health</h3>
+          <h3 data-i18n="panelBooksHealth">Books health</h3>
           <div id="health-wrap"></div>
-          <h3 style="margin-top:0.75rem;">Month-end checklist</h3>
+          <h3 data-i18n="panelMonthEndChecklist" style="margin-top:0.75rem;">Month-end checklist</h3>
           <div id="checklist-wrap"></div>
         </div>
       </div>
       <div class="panel" style="margin-top:1rem;">
-        <h3>Owner report pack (auto summary)</h3>
+        <h3 data-i18n="panelOwnerReportPack">Owner report pack (auto summary)</h3>
         <pre id="owner-pack" style="white-space: pre-wrap; margin:0; font-size:0.82rem; color:var(--text);"></pre>
       </div>
       <div class="panel" style="margin-top:1rem;">
-        <h3>Fix missing references</h3>
+        <h3 data-i18n="panelFixMissingReferences">Fix missing references</h3>
         <div id="missing-refs-wrap"></div>
       </div>
       <div class="panel" style="margin-top:1rem;">
-        <h3>Budget vs actual (monthly)</h3>
+        <h3 data-i18n="panelBudgetVsActual">Budget vs actual (monthly)</h3>
         <div class="row" style="margin-bottom:0.5rem;">
-          <div><label for="budget-month">Month</label><input type="month" id="budget-month"></div>
-          <div><label for="budget-category">Category</label><input type="text" id="budget-category" placeholder="Expense account name"></div>
-          <div><label for="budget-limit">Limit</label><input type="number" id="budget-limit" min="0" step="1" value="0"></div>
-          <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="budget-save">Save budget</button></div>
+          <div><label for="budget-month" data-i18n="labelMonth">Month</label><input type="month" id="budget-month"></div>
+          <div><label for="budget-category" data-i18n="labelCategory">Category</label><input type="text" id="budget-category" data-i18n-placeholder="placeholderExpenseCategory" placeholder="Expense account name"></div>
+          <div><label for="budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="budget-limit" min="0" step="1" value="0"></div>
+          <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="budget-save" data-i18n="btnSaveBudget">Save budget</button></div>
         </div>
         <div id="budget-wrap"></div>
       </div>
       <div class="panel" style="margin-top:1rem;">
-        <h3>Export & notifications</h3>
+        <h3 data-i18n="panelExportNotifications">Export & notifications</h3>
         <div class="row">
           <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
-            <a class="btn btn-secondary" href="/exports/transactions.csv" target="_blank">Export CSV</a>
-            <a class="btn btn-secondary" href="/exports/transactions.xlsx" target="_blank">Export Excel</a>
-            <button type="button" class="btn btn-secondary" id="snapshot-btn">Create monthly snapshot</button>
-            <button type="button" class="btn btn-secondary" id="notify-btn">Send alerts</button>
+            <a class="btn btn-secondary" href="/exports/transactions.csv" target="_blank" data-i18n="btnExportCsv">Export CSV</a>
+            <a class="btn btn-secondary" href="/exports/transactions.xlsx" target="_blank" data-i18n="btnExportExcel">Export Excel</a>
+            <button type="button" class="btn btn-secondary" id="snapshot-btn" data-i18n="btnCreateSnapshot">Create monthly snapshot</button>
+            <button type="button" class="btn btn-secondary" id="notify-btn" data-i18n="btnSendAlerts">Send alerts</button>
           </div>
         </div>
       </div>
     </div>
 
     <div class="card" data-page="ledger">
-      <h2>Ledger summary</h2>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Professional trial-balance view with filters, comparatives, and visual analysis. Click any account row for full transaction detail.</p>
+      <h2 id="ledger-title" data-i18n="ledgerTitle">Ledger summary</h2>
+      <p id="ledger-subtitle" data-i18n="ledgerSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Professional trial-balance view with filters, comparatives, and visual analysis. Click any account row for full transaction detail.</p>
       <div class="ledger-toolbar">
         <div>
-          <label for="ledger-search">Search account</label>
-          <input type="text" id="ledger-search" placeholder="Code or account name">
+          <label for="ledger-search" data-i18n="labelSearchAccount">Search account</label>
+          <input type="text" id="ledger-search" data-i18n-placeholder="placeholderCodeOrName" placeholder="Code or account name">
         </div>
         <div>
-          <label for="ledger-sort">Sort by</label>
+          <label for="ledger-sort" data-i18n="labelSortBy">Sort by</label>
           <select id="ledger-sort">
-            <option value="turnover_desc">Turnover (high to low)</option>
-            <option value="turnover_asc">Turnover (low to high)</option>
-            <option value="code_asc">Account code (A-Z)</option>
-            <option value="name_asc">Account name (A-Z)</option>
-            <option value="balance_desc">Net balance (high to low)</option>
-            <option value="balance_asc">Net balance (low to high)</option>
+            <option value="turnover_desc" data-i18n="sortTurnoverDesc">Turnover (high to low)</option>
+            <option value="turnover_asc" data-i18n="sortTurnoverAsc">Turnover (low to high)</option>
+            <option value="code_asc" data-i18n="sortCodeAsc">Account code (A-Z)</option>
+            <option value="name_asc" data-i18n="sortNameAsc">Account name (A-Z)</option>
+            <option value="balance_desc" data-i18n="sortBalanceDesc">Net balance (high to low)</option>
+            <option value="balance_asc" data-i18n="sortBalanceAsc">Net balance (low to high)</option>
           </select>
         </div>
         <div>
-          <label for="ledger-topn">Charts: top accounts</label>
+          <label for="ledger-topn" data-i18n="labelChartTopAccounts">Charts: top accounts</label>
           <select id="ledger-topn">
-            <option value="8">Top 8</option>
-            <option value="12" selected>Top 12</option>
-            <option value="20">Top 20</option>
-            <option value="10000">All</option>
+            <option value="8" data-i18n="top8">Top 8</option>
+            <option value="12" selected data-i18n="top12">Top 12</option>
+            <option value="20" data-i18n="top20">Top 20</option>
+            <option value="10000" data-i18n="all">All</option>
           </select>
         </div>
         <div class="ledger-check">
           <label for="ledger-nonzero">
             <input type="checkbox" id="ledger-nonzero" checked>
-            Hide zero-activity accounts
+            <span id="ledger-nonzero-text" data-i18n="hideZeroActivity">Hide zero-activity accounts</span>
           </label>
         </div>
       </div>
@@ -686,12 +701,12 @@
         <table class="results-table" id="results-table">
           <thead>
             <tr>
-              <th>Code</th>
-              <th>Name</th>
-              <th class="num">Debit turnover</th>
-              <th class="num">Credit turnover</th>
-              <th class="num">Debit balance</th>
-              <th class="num">Credit balance</th>
+              <th data-i18n="tableCode">Code</th>
+              <th data-i18n="labelName">Name</th>
+              <th class="num" data-i18n="tableDebitTurnover">Debit turnover</th>
+              <th class="num" data-i18n="tableCreditTurnover">Credit turnover</th>
+              <th class="num" data-i18n="tableDebitBalance">Debit balance</th>
+              <th class="num" data-i18n="tableCreditBalance">Credit balance</th>
             </tr>
           </thead>
           <tbody id="results-tbody">
@@ -699,7 +714,7 @@
           </tbody>
           <tfoot id="results-foot" style="display: none;">
             <tr style="font-weight: 700; background: #f1f5f9;">
-              <td colspan="2">Total</td>
+              <td colspan="2" data-i18n="tableTotal">Total</td>
               <td class="num" id="foot-debit-turnover">0</td>
               <td class="num" id="foot-credit-turnover">0</td>
               <td class="num" id="foot-debit-balance">0</td>
@@ -710,37 +725,37 @@
       </div>
       <div class="charts-row" id="charts-row" style="display: none;">
         <div class="chart-wrap">
-          <h3 class="chart-title">Turnover by account (top accounts)</h3>
+          <h3 class="chart-title" data-i18n="chartTurnoverByAccount">Turnover by account (top accounts)</h3>
           <canvas id="chart-turnover" width="400" height="220"></canvas>
         </div>
         <div class="chart-wrap">
-          <h3 class="chart-title">Net position by account</h3>
+          <h3 class="chart-title" data-i18n="chartNetPositionByAccount">Net position by account</h3>
           <canvas id="chart-balance" width="400" height="220"></canvas>
         </div>
       </div>
     </div>
 
     <div class="card" data-page="manager">
-      <h2>Manager reporting & financial statements</h2>
+      <h2 id="manager-title" data-i18n="managerTitle">Manager reporting & financial statements</h2>
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
-        Generate balance sheet, income statement, cash flow, accounting books, AR/AP, and sales/purchase reports.
+        <span id="manager-subtitle" data-i18n="managerSubtitle">Generate balance sheet, income statement, cash flow, accounting books, AR/AP, and sales/purchase reports.</span>
       </p>
       <div class="row" style="margin-bottom:0.75rem;">
         <div>
-          <label for="mgr-report-type">Report type</label>
+          <label for="mgr-report-type" data-i18n="labelReportType">Report type</label>
           <select id="mgr-report-type">
-            <option value="balance_sheet">Balance sheet (ترازنامه)</option>
-            <option value="income_statement">Income statement (سود و زیان)</option>
-            <option value="cash_flow">Cash flow statement (جریان وجوه نقد)</option>
-            <option value="general_journal">General journal (دفتر روزنامه)</option>
-            <option value="general_ledger">General ledger (دفتر کل)</option>
-            <option value="trial_balance">Trial balance (مرور حساب)</option>
-            <option value="account_ledger">Account ledger (گردش حساب)</option>
-            <option value="debtor_creditor">Debtor/Creditor</option>
-            <option value="sales_by_product">Sales by product</option>
-            <option value="sales_by_invoice">Sales by invoice</option>
-            <option value="purchase_by_product">Purchase by product</option>
-            <option value="purchase_by_invoice">Purchase by invoice</option>
+            <option value="balance_sheet" data-i18n="reportBalanceSheet">Balance sheet (ترازنامه)</option>
+            <option value="income_statement" data-i18n="reportIncomeStatement">Income statement (سود و زیان)</option>
+            <option value="cash_flow" data-i18n="reportCashFlow">Cash flow statement (جریان وجوه نقد)</option>
+            <option value="general_journal" data-i18n="reportGeneralJournal">General journal (دفتر روزنامه)</option>
+            <option value="general_ledger" data-i18n="reportGeneralLedger">General ledger (دفتر کل)</option>
+            <option value="trial_balance" data-i18n="reportTrialBalance">Trial balance (مرور حساب)</option>
+            <option value="account_ledger" data-i18n="reportAccountLedger">Account ledger (گردش حساب)</option>
+            <option value="debtor_creditor" data-i18n="reportDebtorCreditor">Debtor/Creditor</option>
+            <option value="sales_by_product" data-i18n="reportSalesByProduct">Sales by product</option>
+            <option value="sales_by_invoice" data-i18n="reportSalesByInvoice">Sales by invoice</option>
+            <option value="purchase_by_product" data-i18n="reportPurchaseByProduct">Purchase by product</option>
+            <option value="purchase_by_invoice" data-i18n="reportPurchaseByInvoice">Purchase by invoice</option>
           </select>
         </div>
         <div>
@@ -752,22 +767,22 @@
           <input type="date" id="mgr-to-date">
         </div>
         <div>
-          <label for="mgr-account-code">Account code (for account ledger)</label>
-          <input type="text" id="mgr-account-code" placeholder="e.g. 1110">
+          <label for="mgr-account-code" data-i18n="labelAccountCodeLedger">Account code (for account ledger)</label>
+          <input type="text" id="mgr-account-code" data-i18n-placeholder="placeholderAccountCode" placeholder="e.g. 1110">
         </div>
         <div style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-primary" id="mgr-run-btn">Run report</button>
+          <button type="button" class="btn btn-primary" id="mgr-run-btn" data-i18n="btnRunReport">Run report</button>
         </div>
       </div>
       <div class="report-actions">
-        <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-json-btn" disabled>Export JSON</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-csv-btn" disabled>Export CSV</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-pdf-btn" disabled>Export PDF</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-json-btn" data-i18n="btnExportJson" disabled>Export JSON</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-csv-btn" data-i18n="btnExportCsv" disabled>Export CSV</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-pdf-btn" data-i18n="btnExportPdf" disabled>Export PDF</button>
       </div>
       <div class="panel">
-        <h3>Report output (JSON + table preview)</h3>
+        <h3 id="mgr-report-output-title" data-i18n="reportOutputTitle">Report output (JSON + table preview)</h3>
         <div class="panel report-chart-panel" id="mgr-report-chart-panel" style="display:none;">
-          <h3 id="mgr-report-chart-title">Report chart</h3>
+          <h3 id="mgr-report-chart-title" data-i18n="reportChartTitle">Report chart</h3>
           <canvas id="mgr-report-chart" height="220"></canvas>
         </div>
         <div id="mgr-report-preview" style="margin-bottom:0.6rem;"></div>
@@ -776,46 +791,46 @@
     </div>
 
     <div class="card" data-page="inventory">
-      <h2>Inventory operations</h2>
+      <h2 id="inventory-title" data-i18n="inventoryTitle">Inventory operations</h2>
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
-        Manage inventory items and movements here, then run inventory balance/movement reports with chart preview and exports.
+        <span id="inventory-subtitle" data-i18n="inventorySubtitle">Manage inventory items and movements here, then run inventory balance/movement reports with chart preview and exports.</span>
       </p>
       <div class="row" style="margin-bottom:0.75rem;">
         <div>
-          <label for="mgr-inv-item-name">Inventory item name</label>
-          <input type="text" id="mgr-inv-item-name" placeholder="e.g. Product A">
+          <label for="mgr-inv-item-name" data-i18n="labelInventoryItemName">Inventory item name</label>
+          <input type="text" id="mgr-inv-item-name" data-i18n-placeholder="placeholderInvItem" placeholder="e.g. Product A">
         </div>
         <div>
-          <label for="mgr-inv-item-sku">SKU</label>
-          <input type="text" id="mgr-inv-item-sku" placeholder="optional">
+          <label for="mgr-inv-item-sku" data-i18n="labelSKU">SKU</label>
+          <input type="text" id="mgr-inv-item-sku" data-i18n-placeholder="placeholderOptional" placeholder="optional">
         </div>
         <div>
-          <label for="mgr-inv-item-unit">Unit</label>
+          <label for="mgr-inv-item-unit" data-i18n="labelUnit">Unit</label>
           <input type="text" id="mgr-inv-item-unit" value="unit">
         </div>
         <div style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-secondary" id="mgr-add-item-btn">Add inventory item</button>
+          <button type="button" class="btn btn-secondary" id="mgr-add-item-btn" data-i18n="btnAddInventoryItem">Add inventory item</button>
         </div>
       </div>
       <div class="row" style="margin-bottom:0.75rem;">
         <div>
-          <label for="mgr-mv-item">Movement item</label>
-          <select id="mgr-mv-item"><option value="">Select item</option></select>
+          <label for="mgr-mv-item" data-i18n="labelMovementItem">Movement item</label>
+          <select id="mgr-mv-item"><option value="" data-i18n="optionSelectItem">Select item</option></select>
         </div>
         <div>
-          <label for="mgr-mv-type">Movement type</label>
-          <select id="mgr-mv-type"><option value="IN">IN</option><option value="OUT">OUT</option><option value="ADJUSTMENT">ADJUSTMENT</option></select>
+          <label for="mgr-mv-type" data-i18n="labelMovementType">Movement type</label>
+          <select id="mgr-mv-type"><option value="IN" data-i18n="movementIn">IN</option><option value="OUT" data-i18n="movementOut">OUT</option><option value="ADJUSTMENT" data-i18n="movementAdjustment">ADJUSTMENT</option></select>
         </div>
         <div>
-          <label for="mgr-mv-qty">Quantity</label>
+          <label for="mgr-mv-qty" data-i18n="labelQuantity">Quantity</label>
           <input type="number" id="mgr-mv-qty" min="0" step="0.0001" value="1">
         </div>
         <div>
-          <label for="mgr-mv-cost">Unit cost (IRR)</label>
+          <label for="mgr-mv-cost" data-i18n="labelUnitCost">Unit cost (IRR)</label>
           <input type="number" id="mgr-mv-cost" min="0" step="1" value="0">
         </div>
         <div style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-secondary" id="mgr-add-mv-btn">Add movement</button>
+          <button type="button" class="btn btn-secondary" id="mgr-add-mv-btn" data-i18n="btnAddMovement">Add movement</button>
         </div>
       </div>
       <div class="row" style="margin-bottom:0.75rem;">
@@ -828,19 +843,19 @@
           <input type="date" id="inv-to-date">
         </div>
         <div style="display:flex; align-items:flex-end; gap:0.5rem;">
-          <button type="button" class="btn btn-primary" id="inv-run-balance-btn">Inventory balance</button>
-          <button type="button" class="btn btn-secondary" id="inv-run-movement-btn">Inventory movements</button>
+          <button type="button" class="btn btn-primary" id="inv-run-balance-btn" data-i18n="btnInventoryBalance">Inventory balance</button>
+          <button type="button" class="btn btn-secondary" id="inv-run-movement-btn" data-i18n="btnInventoryMovements">Inventory movements</button>
         </div>
       </div>
       <div class="report-actions">
-        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-json-btn" disabled>Export JSON</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-csv-btn" disabled>Export CSV</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-pdf-btn" disabled>Export PDF</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-json-btn" data-i18n="btnExportJson" disabled>Export JSON</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-csv-btn" data-i18n="btnExportCsv" disabled>Export CSV</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-pdf-btn" data-i18n="btnExportPdf" disabled>Export PDF</button>
       </div>
       <div class="panel">
-        <h3>Inventory report output</h3>
+        <h3 id="inventory-report-output-title" data-i18n="inventoryReportOutput">Inventory report output</h3>
         <div class="panel report-chart-panel" id="inv-report-chart-panel" style="display:none;">
-          <h3 id="inv-report-chart-title">Inventory chart</h3>
+          <h3 id="inv-report-chart-title" data-i18n="inventoryChartTitle">Inventory chart</h3>
           <canvas id="inv-report-chart" height="220"></canvas>
         </div>
         <div id="inv-report-preview" style="margin-bottom:0.6rem;"></div>
@@ -849,16 +864,16 @@
     </div>
 
     <div class="card" data-page="settings">
-      <h2>AI settings</h2>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
+      <h2 id="settings-title" data-i18n="settingsTitle">AI settings</h2>
+      <p id="settings-subtitle" data-i18n="settingsDesc" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
         Configure model provider and credentials once, then use the assistant across all sections.
       </p>
       <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom:0.85rem; flex-wrap:wrap;">
         <div style="font-size:0.9rem; color:var(--text-muted);">
-          <span id="settings-signed-prefix">Signed in as</span> <strong id="settings-user-name">-</strong>
+          <span id="settings-signed-prefix" data-i18n="signedInAs">Signed in as</span> <strong id="settings-user-name">-</strong>
           <span id="settings-user-role" style="margin-left:0.35rem; font-size:0.78rem; color:var(--primary);"></span>
         </div>
-        <button type="button" class="btn btn-secondary btn-sm" id="logout-btn">Logout</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="logout-btn" data-i18n="logout">Logout</button>
       </div>
       <div class="row" style="margin-bottom:0.8rem;">
         <div>
@@ -871,12 +886,12 @@
           </select>
         </div>
         <div style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-secondary" id="save-language-btn">Save language</button>
+          <button type="button" class="btn btn-secondary" id="save-language-btn" data-i18n="saveLanguage">Save language</button>
         </div>
       </div>
       <div class="ai-runtime-bar" style="margin-bottom: 0;">
         <div>
-          <label for="ai-provider-select">AI provider</label>
+          <label for="ai-provider-select" data-i18n="aiProvider">AI provider</label>
           <select id="ai-provider-select">
             <option value="metis">MetisAI</option>
             <option value="lmstudio">Local LM Studio</option>
@@ -884,48 +899,48 @@
           </select>
         </div>
         <div>
-          <label for="ai-model-input">Model</label>
+          <label for="ai-model-input" data-i18n="aiModel">Model</label>
           <input type="text" id="ai-model-input" placeholder="e.g. gpt-4o-mini">
         </div>
         <div>
-          <label for="ai-base-input">Base URL (custom)</label>
+          <label for="ai-base-input" data-i18n="aiBaseUrl">Base URL (custom)</label>
           <input type="text" id="ai-base-input" placeholder="https://api.example.com/openai/v1">
         </div>
         <div>
-          <label for="ai-key-input">API key (optional)</label>
+          <label for="ai-key-input" data-i18n="aiApiKeyOptional">API key (optional)</label>
           <input type="password" id="ai-key-input" placeholder="leave empty to keep current">
         </div>
         <div style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-secondary" id="ai-save-btn">Apply AI settings</button>
+          <button type="button" class="btn btn-secondary" id="ai-save-btn" data-i18n="aiApplySettings">Apply AI settings</button>
         </div>
-        <div class="ai-runtime-hint">Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.</div>
+        <div class="ai-runtime-hint" data-i18n="aiHint">Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.</div>
       </div>
 
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
-        <h2 style="margin-bottom:0.5rem;">User management</h2>
-        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">Create and manage user access for this company.</p>
+        <h2 id="user-management-title" data-i18n="sectionUserMgmt" style="margin-bottom:0.5rem;">User management</h2>
+        <p id="user-management-subtitle" data-i18n="sectionUserMgmtDesc" style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">Create and manage user access for this company.</p>
         <div class="row" style="margin-bottom:0.5rem;">
           <div>
-            <label for="new-user-username">Username</label>
-            <input type="text" id="new-user-username" placeholder="e.g. accountant1">
+            <label for="new-user-username" data-i18n="usersUsername">Username</label>
+            <input type="text" id="new-user-username" data-i18n-placeholder="placeholderUsername" placeholder="e.g. accountant1">
           </div>
           <div>
-            <label for="new-user-password">Password</label>
-            <input type="password" id="new-user-password" placeholder="temporary password">
+            <label for="new-user-password" data-i18n="labelPassword">Password</label>
+            <input type="password" id="new-user-password" data-i18n-placeholder="placeholderTempPassword" placeholder="temporary password">
           </div>
           <div>
-            <label for="new-user-admin">Role</label>
+            <label for="new-user-admin" data-i18n="usersRole">Role</label>
             <select id="new-user-admin">
-              <option value="false">User</option>
-              <option value="true">Admin</option>
+              <option value="false" data-i18n="usersUser">User</option>
+              <option value="true" data-i18n="usersAdmin">Admin</option>
             </select>
           </div>
           <div style="display:flex; align-items:flex-end;">
-            <button type="button" class="btn btn-primary" id="create-user-btn">Create user</button>
+            <button type="button" class="btn btn-primary" id="create-user-btn" data-i18n="btnCreateUser">Create user</button>
           </div>
         </div>
         <div id="users-wrap">
-          <p class="empty-state" style="padding:0.4rem;">No users loaded.</p>
+          <p class="empty-state" data-i18n="usersNoUsersLoaded" style="padding:0.4rem;">No users loaded.</p>
         </div>
       </div>
     </div>
@@ -934,11 +949,11 @@
   <div id="account-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" style="display: none;">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 id="account-modal-title">Account details</h2>
+        <h2 id="account-modal-title" data-i18n="accountDetails">Account details</h2>
         <button type="button" class="modal-close" aria-label="Close" id="account-modal-close">×</button>
       </div>
       <div id="account-modal-body">
-        <p class="empty-state">Loading…</p>
+        <p class="empty-state" data-i18n="loading">Loading…</p>
       </div>
     </div>
   </div>
@@ -1090,6 +1105,10 @@
         usersDeleted: 'User deleted.',
         usersRoleUpdated: 'User role updated.',
         usersPasswordReset: 'Password reset.',
+        unsupportedLanguage: 'Unsupported language.',
+        usernamePasswordRequired: 'Username and password are required.',
+        enterNewPassword: 'Enter a new password for this user:',
+        passwordCannotBeEmpty: 'Password cannot be empty.',
       },
       fa: {
         appTitle: 'دستیار حسابداری',
@@ -1132,6 +1151,10 @@
         usersDeleted: 'کاربر حذف شد.',
         usersRoleUpdated: 'نقش کاربر به‌روزرسانی شد.',
         usersPasswordReset: 'رمز عبور تغییر کرد.',
+        unsupportedLanguage: 'زبان پشتیبانی نمی‌شود.',
+        usernamePasswordRequired: 'نام کاربری و رمز عبور الزامی است.',
+        enterNewPassword: 'رمز جدید این کاربر را وارد کنید:',
+        passwordCannotBeEmpty: 'رمز عبور نمی‌تواند خالی باشد.',
       },
       es: {
         appTitle: 'Asistente Contable',
@@ -1174,6 +1197,10 @@
         usersDeleted: 'Usuario eliminado.',
         usersRoleUpdated: 'Rol actualizado.',
         usersPasswordReset: 'Contraseña actualizada.',
+        unsupportedLanguage: 'Idioma no soportado.',
+        usernamePasswordRequired: 'Usuario y contraseña son obligatorios.',
+        enterNewPassword: 'Ingresa una nueva contraseña para este usuario:',
+        passwordCannotBeEmpty: 'La contraseña no puede estar vacía.',
       },
       ar: {
         appTitle: 'مساعد المحاسبة',
@@ -1216,8 +1243,629 @@
         usersDeleted: 'تم حذف المستخدم.',
         usersRoleUpdated: 'تم تحديث الدور.',
         usersPasswordReset: 'تم تحديث كلمة المرور.',
+        unsupportedLanguage: 'اللغة غير مدعومة.',
+        usernamePasswordRequired: 'اسم المستخدم وكلمة المرور مطلوبان.',
+        enterNewPassword: 'أدخل كلمة مرور جديدة لهذا المستخدم:',
+        passwordCannotBeEmpty: 'لا يمكن أن تكون كلمة المرور فارغة.',
       }
     };
+    const I18N_EXTRA = {
+      en: {
+        entitiesTitle: 'Entities (clients, banks, employees)',
+        entitiesSubtitle: 'Add parties you do business with. Link them to vouchers when saving to run reports like "all transactions with client X".',
+        invoicesTitle: 'Invoices',
+        invoicesSubtitle: 'Create sales/purchase invoices, then mark paid to automatically create a transaction.',
+        recurringTitle: 'Recurring rules (AI text)',
+        recurringExample: 'Example: I have to pay 30M rent every month from Mellat bank or I receive 120M yearly from client X.',
+        recurringInputLabel: 'Tell AI your recurring payment/receipt',
+        voucherTitle: 'Voucher entry',
+        voucherSubtitle: 'Save and edit journal vouchers here. Use AI chat tab for conversational bookkeeping, then review/finalize entries in this form.',
+        settingsTitle: 'AI settings',
+        settingsDesc: 'Configure model provider and credentials once, then use the assistant across all sections.',
+        dashboardTitle: 'Owner insights dashboard',
+        dashboardSubtitle: 'Business-focused KPIs, forecasts, aging, profitability, data quality checks, and actionable alerts.',
+        ledgerTitle: 'Ledger summary',
+        ledgerSubtitle: 'Professional trial-balance view with filters, comparatives, and visual analysis. Click any account row for full transaction detail.',
+        managerTitle: 'Manager reporting & financial statements',
+        managerSubtitle: 'Generate balance sheet, income statement, cash flow, books, AR/AP, inventory, and sales/purchase reports.',
+        inventoryTitle: 'Inventory operations',
+        inventorySubtitle: 'Manage inventory items and movements here, then run inventory balance/movement reports with chart preview and exports.',
+        labelType: 'Type',
+        labelName: 'Name',
+        labelCodeOptional: 'Code (optional)',
+        labelDate: 'Date',
+        labelReference: 'Reference',
+        labelDescription: 'Description',
+        labelPassword: 'Password',
+        labelNumber: 'Number',
+        labelClient: 'Client',
+        labelBank: 'Bank',
+        labelPayee: 'Payee',
+        labelSupplier: 'Supplier',
+        labelAmount: 'Amount',
+        labelIssueDate: 'Issue date',
+        labelDueDate: 'Due date',
+        labelEntityOptional: 'Entity (optional)',
+        labelBankPayment: 'Bank account for payment',
+        labelReportType: 'Report type',
+        labelFrom: 'From',
+        labelTo: 'To',
+        labelAccountCodeLedger: 'Account code (for account ledger)',
+        labelInventoryItemName: 'Inventory item name',
+        labelSKU: 'SKU',
+        labelUnit: 'Unit',
+        labelMovementItem: 'Movement item',
+        labelMovementType: 'Movement type',
+        labelQuantity: 'Quantity',
+        labelUnitCost: 'Unit cost (IRR)',
+        labelSearchAccount: 'Search account',
+        labelSortBy: 'Sort by',
+        labelChartTopAccounts: 'Charts: top accounts',
+        btnAddEntity: 'Add entity',
+        btnCreateUser: 'Create user',
+        btnCreateInvoice: 'Create invoice',
+        btnScanToForm: 'Scan to form',
+        btnScanCreate: 'Scan + create',
+        btnSaveRecurring: 'Save recurring rule',
+        btnResetDb: 'Reset database',
+        btnAddLine: '+ Add line',
+        btnRunReport: 'Run report',
+        btnExportJson: 'Export JSON',
+        btnExportCsv: 'Export CSV',
+        btnExportPdf: 'Export PDF',
+        btnAddInventoryItem: 'Add inventory item',
+        btnAddMovement: 'Add movement',
+        btnInventoryBalance: 'Inventory balance',
+        btnInventoryMovements: 'Inventory movements',
+        btnSaveBudget: 'Save budget',
+        btnCreateSnapshot: 'Create monthly snapshot',
+        btnSendAlerts: 'Send alerts',
+        sectionUserMgmt: 'User management',
+        sectionUserMgmtDesc: 'Create and manage user access for this company.',
+        aiProvider: 'AI provider',
+        aiModel: 'Model',
+        aiBaseUrl: 'Base URL (custom)',
+        aiApiKeyOptional: 'API key (optional)',
+        aiApplySettings: 'Apply AI settings',
+        aiHint: 'Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.',
+        placeholderEntityName: 'e.g. Innotech, Melli',
+        placeholderEntityCode: 'e.g. INV-001',
+        placeholderInvoiceNo: 'e.g. INV-1001',
+        placeholderInvoiceDesc: 'e.g. Software development',
+        placeholderRecurring: 'e.g. I pay 25M office rent every month from Mellat bank',
+        placeholderChatInput: 'Ask anything (e.g. show me balance sheet for last month)',
+        placeholderReference: 'e.g. INV-001, receipt no.',
+        placeholderDescription: 'Event description',
+        placeholderAccountCode: 'e.g. 1110',
+        placeholderInvItem: 'e.g. Product A',
+        placeholderOptional: 'optional',
+        placeholderUnit: 'unit',
+        placeholderExpenseCategory: 'Expense account name',
+        optionNone: '— None —',
+        optionSelectBank: '— Select bank —',
+        optionSelectItem: 'Select item',
+        optionSales: 'Sales',
+        optionPurchase: 'Purchase',
+        optionEmployee: 'Employee',
+        tableNo: 'No.',
+        tableDirection: 'Direction',
+        tableFrequency: 'Frequency',
+        tableNextRun: 'Next run',
+        tableDebit: 'Debit',
+        tableCredit: 'Credit',
+        tableLineDescription: 'Line description',
+        tableAccountCode: 'Account code',
+        resetDbHint: 'Clear all transactions and entities, keep chart of accounts.',
+        importFromScan: 'Import from scan (OCR)',
+        attachmentSupported: 'Supported: JPG, PNG, WEBP, PDF (max 8MB each). Files are used in chat and can be attached to vouchers.',
+        referenceHint: 'Invoice or receipt number linking to a document',
+        linkEntitiesHint: 'Link to entities (optional — change AI suggestion if needed)',
+        linesTitle: 'Lines (debit / credit)',
+        btnRemove: 'Remove',
+        panelCashForecast: '13-week cash forecast',
+        panelSmartAlerts: 'Smart alerts',
+        panelARAging: 'AR aging',
+        panelAPAging: 'AP aging',
+        panelExpenseByCategory: 'Expense by category',
+        panelSpendByVendor: 'Spend by vendor',
+        panelProfitabilityByClient: 'Profitability by client',
+        panelBooksHealth: 'Books health',
+        panelMonthEndChecklist: 'Month-end checklist',
+        panelOwnerReportPack: 'Owner report pack (auto summary)',
+        panelFixMissingReferences: 'Fix missing references',
+        panelBudgetVsActual: 'Budget vs actual (monthly)',
+        panelExportNotifications: 'Export & notifications',
+        labelMonth: 'Month',
+        labelCategory: 'Category',
+        labelLimit: 'Limit',
+        btnExportExcel: 'Export Excel',
+        placeholderCodeOrName: 'Code or account name',
+        sortTurnoverDesc: 'Turnover (high to low)',
+        sortTurnoverAsc: 'Turnover (low to high)',
+        sortCodeAsc: 'Account code (A-Z)',
+        sortNameAsc: 'Account name (A-Z)',
+        sortBalanceDesc: 'Net balance (high to low)',
+        sortBalanceAsc: 'Net balance (low to high)',
+        top8: 'Top 8',
+        top12: 'Top 12',
+        top20: 'Top 20',
+        all: 'All',
+        hideZeroActivity: 'Hide zero-activity accounts',
+        tableCode: 'Code',
+        tableDebitTurnover: 'Debit turnover',
+        tableCreditTurnover: 'Credit turnover',
+        tableDebitBalance: 'Debit balance',
+        tableCreditBalance: 'Credit balance',
+        tableTotal: 'Total',
+        chartTurnoverByAccount: 'Turnover by account (top accounts)',
+        chartNetPositionByAccount: 'Net position by account',
+        reportBalanceSheet: 'Balance sheet (ترازنامه)',
+        reportIncomeStatement: 'Income statement (سود و زیان)',
+        reportCashFlow: 'Cash flow statement (جریان وجوه نقد)',
+        reportGeneralJournal: 'General journal (دفتر روزنامه)',
+        reportGeneralLedger: 'General ledger (دفتر کل)',
+        reportTrialBalance: 'Trial balance (مرور حساب)',
+        reportAccountLedger: 'Account ledger (گردش حساب)',
+        reportDebtorCreditor: 'Debtor/Creditor',
+        reportSalesByProduct: 'Sales by product',
+        reportSalesByInvoice: 'Sales by invoice',
+        reportPurchaseByProduct: 'Purchase by product',
+        reportPurchaseByInvoice: 'Purchase by invoice',
+        reportOutputTitle: 'Report output (JSON + table preview)',
+        reportChartTitle: 'Report chart',
+        inventoryReportOutput: 'Inventory report output',
+        inventoryChartTitle: 'Inventory chart',
+        movementIn: 'IN',
+        movementOut: 'OUT',
+        movementAdjustment: 'ADJUSTMENT',
+        usersNoUsersLoaded: 'No users loaded.',
+        placeholderUsername: 'e.g. accountant1',
+        placeholderTempPassword: 'temporary password',
+        accountDetails: 'Account details',
+        loading: 'Loading…',
+      },
+      fa: {
+        entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
+        entitiesSubtitle: 'طرف‌های تجاری را اضافه کنید. هنگام ذخیره سند آن‌ها را لینک کنید تا گزارش‌هایی مثل «تمام تراکنش‌های مشتری X» داشته باشید.',
+        invoicesTitle: 'فاکتورها',
+        invoicesSubtitle: 'فاکتور فروش/خرید بسازید و با علامت پرداخت، سند حسابداری خودکار ثبت کنید.',
+        recurringTitle: 'قوانین تکرارشونده (متن AI)',
+        recurringExample: 'نمونه: هر ماه 30M اجاره از بانک ملت پرداخت می‌کنم یا سالانه 120M از مشتری X دریافت می‌کنم.',
+        recurringInputLabel: 'پرداخت/دریافت تکرارشونده را برای AI بنویسید',
+        voucherTitle: 'ثبت سند',
+        voucherSubtitle: 'اینجا اسناد روزنامه را ثبت و ویرایش کنید. برای ثبت مکالمه‌ای از تب چت AI استفاده کنید.',
+        settingsTitle: 'تنظیمات AI',
+        settingsDesc: 'یک‌بار مدل و دسترسی را تنظیم کنید و در همه بخش‌ها از دستیار استفاده کنید.',
+        dashboardTitle: 'داشبورد بینش مالک',
+        dashboardSubtitle: 'شاخص‌های کلیدی، پیش‌بینی، سنی مطالبات/بدهی، سودآوری و هشدارهای عملیاتی.',
+        ledgerTitle: 'خلاصه دفتر کل',
+        ledgerSubtitle: 'نمای حرفه‌ای مرور حساب با فیلتر و نمودار. برای جزئیات هر حساب روی ردیف کلیک کنید.',
+        managerTitle: 'گزارش‌های مدیریتی و صورت‌های مالی',
+        managerSubtitle: 'ترازنامه، سود و زیان، جریان وجوه، دفاتر، AR/AP، انبار و گزارش‌های فروش/خرید را تولید کنید.',
+        inventoryTitle: 'عملیات انبار',
+        inventorySubtitle: 'اقلام و گردش انبار را مدیریت کنید و گزارش موجودی/گردش را با خروجی و نمودار ببینید.',
+        labelType: 'نوع',
+        labelName: 'نام',
+        labelCodeOptional: 'کد (اختیاری)',
+        labelDate: 'تاریخ',
+        labelReference: 'مرجع',
+        labelDescription: 'شرح',
+        labelPassword: 'رمز عبور',
+        labelNumber: 'شماره',
+        labelClient: 'مشتری',
+        labelBank: 'بانک',
+        labelPayee: 'پرداخت‌گیرنده',
+        labelSupplier: 'تأمین‌کننده',
+        labelAmount: 'مبلغ',
+        labelIssueDate: 'تاریخ صدور',
+        labelDueDate: 'تاریخ سررسید',
+        labelEntityOptional: 'شخص (اختیاری)',
+        labelBankPayment: 'حساب بانکی پرداخت',
+        labelReportType: 'نوع گزارش',
+        labelFrom: 'از',
+        labelTo: 'تا',
+        labelAccountCodeLedger: 'کد حساب (برای گردش حساب)',
+        labelInventoryItemName: 'نام قلم انبار',
+        labelSKU: 'SKU',
+        labelUnit: 'واحد',
+        labelMovementItem: 'قلم گردش',
+        labelMovementType: 'نوع گردش',
+        labelQuantity: 'تعداد',
+        labelUnitCost: 'بهای واحد (ریال)',
+        labelSearchAccount: 'جستجوی حساب',
+        labelSortBy: 'مرتب‌سازی',
+        labelChartTopAccounts: 'نمودار: حساب‌های برتر',
+        btnAddEntity: 'افزودن شخص',
+        btnCreateUser: 'ایجاد کاربر',
+        btnCreateInvoice: 'ایجاد فاکتور',
+        btnScanToForm: 'اسکن به فرم',
+        btnScanCreate: 'اسکن و ایجاد',
+        btnSaveRecurring: 'ذخیره قانون',
+        btnResetDb: 'بازنشانی دیتابیس',
+        btnAddLine: '+ افزودن ردیف',
+        btnRunReport: 'اجرای گزارش',
+        btnExportJson: 'خروجی JSON',
+        btnExportCsv: 'خروجی CSV',
+        btnExportPdf: 'خروجی PDF',
+        btnAddInventoryItem: 'افزودن قلم',
+        btnAddMovement: 'ثبت گردش',
+        btnInventoryBalance: 'موجودی انبار',
+        btnInventoryMovements: 'گردش انبار',
+        btnSaveBudget: 'ذخیره بودجه',
+        btnCreateSnapshot: 'ثبت اسنپ‌شات ماهانه',
+        btnSendAlerts: 'ارسال هشدارها',
+        sectionUserMgmt: 'مدیریت کاربران',
+        sectionUserMgmtDesc: 'دسترسی کاربران شرکت را ایجاد و مدیریت کنید.',
+        aiProvider: 'ارائه‌دهنده AI',
+        aiModel: 'مدل',
+        aiBaseUrl: 'Base URL (سفارشی)',
+        aiApiKeyOptional: 'کلید API (اختیاری)',
+        aiApplySettings: 'اعمال تنظیمات AI',
+        aiHint: 'پروفایل‌های Metis و LM Studio آماده‌اند. برای حالت سفارشی آدرس و کلید را تنظیم کنید.',
+        placeholderEntityName: 'مثال: Innotech، Melli',
+        placeholderEntityCode: 'مثال: INV-001',
+        placeholderInvoiceNo: 'مثال: INV-1001',
+        placeholderInvoiceDesc: 'مثال: توسعه نرم‌افزار',
+        placeholderRecurring: 'مثال: هر ماه 25M اجاره دفتر از ملت پرداخت می‌کنم',
+        placeholderChatInput: 'هر سوالی بپرسید (مثال: ترازنامه ماه قبل)',
+        placeholderReference: 'مثال: INV-001، شماره رسید',
+        placeholderDescription: 'شرح رویداد',
+        placeholderAccountCode: 'مثال: 1110',
+        placeholderInvItem: 'مثال: محصول A',
+        placeholderOptional: 'اختیاری',
+        placeholderUnit: 'واحد',
+        placeholderExpenseCategory: 'نام حساب هزینه',
+        optionNone: '— هیچکدام —',
+        optionSelectBank: '— انتخاب بانک —',
+        optionSelectItem: 'انتخاب قلم',
+        optionSales: 'فروش',
+        optionPurchase: 'خرید',
+        optionEmployee: 'کارمند',
+        tableNo: 'شماره',
+        tableDirection: 'جهت',
+        tableFrequency: 'تناوب',
+        tableNextRun: 'اجرای بعدی',
+        tableDebit: 'بدهکار',
+        tableCredit: 'بستانکار',
+        tableLineDescription: 'شرح ردیف',
+        tableAccountCode: 'کد حساب',
+        resetDbHint: 'همه تراکنش‌ها و اشخاص پاک می‌شوند، ولی سرفصل حساب‌ها باقی می‌ماند.',
+        importFromScan: 'ورود از اسکن (OCR)',
+        attachmentSupported: 'فرمت‌های پشتیبانی‌شده: JPG، PNG، WEBP، PDF (حداکثر ۸MB). فایل‌ها در چت و سند استفاده می‌شوند.',
+        referenceHint: 'شماره فاکتور یا رسید برای اتصال به سند',
+        linkEntitiesHint: 'اتصال به اشخاص (اختیاری — در صورت نیاز پیشنهاد AI را تغییر دهید)',
+        linesTitle: 'ردیف‌ها (بدهکار / بستانکار)',
+        btnRemove: 'حذف',
+        panelCashForecast: 'پیش‌بینی نقدینگی ۱۳ هفته‌ای',
+        panelSmartAlerts: 'هشدارهای هوشمند',
+        panelARAging: 'سنی مطالبات',
+        panelAPAging: 'سنی بدهی‌ها',
+        panelExpenseByCategory: 'هزینه به تفکیک دسته',
+        panelSpendByVendor: 'هزینه به تفکیک فروشنده',
+        panelProfitabilityByClient: 'سودآوری به تفکیک مشتری',
+        panelBooksHealth: 'سلامت دفاتر',
+        panelMonthEndChecklist: 'چک‌لیست پایان ماه',
+        panelOwnerReportPack: 'بسته گزارش مالک (خلاصه خودکار)',
+        panelFixMissingReferences: 'اصلاح مراجع ناقص',
+        panelBudgetVsActual: 'بودجه در برابر عملکرد (ماهانه)',
+        panelExportNotifications: 'خروجی و اعلان‌ها',
+        labelMonth: 'ماه',
+        labelCategory: 'دسته',
+        labelLimit: 'سقف',
+        btnExportExcel: 'خروجی Excel',
+        placeholderCodeOrName: 'کد یا نام حساب',
+        sortTurnoverDesc: 'گردش (بیشترین به کمترین)',
+        sortTurnoverAsc: 'گردش (کمترین به بیشترین)',
+        sortCodeAsc: 'کد حساب (الفبا)',
+        sortNameAsc: 'نام حساب (الفبا)',
+        sortBalanceDesc: 'مانده خالص (بیشترین به کمترین)',
+        sortBalanceAsc: 'مانده خالص (کمترین به بیشترین)',
+        top8: '۸ مورد برتر',
+        top12: '۱۲ مورد برتر',
+        top20: '۲۰ مورد برتر',
+        all: 'همه',
+        hideZeroActivity: 'پنهان کردن حساب‌های بدون گردش',
+        tableCode: 'کد',
+        tableDebitTurnover: 'گردش بدهکار',
+        tableCreditTurnover: 'گردش بستانکار',
+        tableDebitBalance: 'مانده بدهکار',
+        tableCreditBalance: 'مانده بستانکار',
+        tableTotal: 'جمع',
+        chartTurnoverByAccount: 'گردش به تفکیک حساب (حساب‌های برتر)',
+        chartNetPositionByAccount: 'وضعیت خالص به تفکیک حساب',
+        reportBalanceSheet: 'ترازنامه',
+        reportIncomeStatement: 'صورت سود و زیان',
+        reportCashFlow: 'صورت جریان وجوه نقد',
+        reportGeneralJournal: 'دفتر روزنامه',
+        reportGeneralLedger: 'دفتر کل',
+        reportTrialBalance: 'مرور حساب',
+        reportAccountLedger: 'گردش حساب',
+        reportDebtorCreditor: 'بدهکار/بستانکار',
+        reportSalesByProduct: 'فروش به تفکیک کالا',
+        reportSalesByInvoice: 'فروش به تفکیک فاکتور',
+        reportPurchaseByProduct: 'خرید به تفکیک کالا',
+        reportPurchaseByInvoice: 'خرید به تفکیک فاکتور',
+        reportOutputTitle: 'خروجی گزارش (JSON + پیش‌نمایش جدول)',
+        reportChartTitle: 'نمودار گزارش',
+        inventoryReportOutput: 'خروجی گزارش انبار',
+        inventoryChartTitle: 'نمودار انبار',
+        movementIn: 'ورود',
+        movementOut: 'خروج',
+        movementAdjustment: 'تعدیل',
+        usersNoUsersLoaded: 'هنوز کاربری بارگذاری نشده است.',
+        placeholderUsername: 'مثال: accountant1',
+        placeholderTempPassword: 'رمز موقت',
+        accountDetails: 'جزئیات حساب',
+        loading: 'در حال بارگذاری…',
+      },
+      es: {
+        entitiesTitle: 'Entidades (clientes, bancos, empleados)',
+        entitiesSubtitle: 'Agrega partes con las que operas. Vincúlalas al guardar comprobantes para reportes por cliente.',
+        invoicesTitle: 'Facturas',
+        invoicesSubtitle: 'Crea facturas de venta/compra y marca como pagadas para generar asientos automáticos.',
+        recurringTitle: 'Reglas recurrentes (texto IA)',
+        recurringInputLabel: 'Describe tu cobro/pago recurrente para IA',
+        voucherTitle: 'Asiento contable',
+        settingsTitle: 'Configuración de IA',
+        dashboardTitle: 'Panel de insights',
+        ledgerTitle: 'Resumen del libro mayor',
+        managerTitle: 'Reportes gerenciales y estados financieros',
+        inventoryTitle: 'Operaciones de inventario',
+        labelType: 'Tipo',
+        labelName: 'Nombre',
+        labelCodeOptional: 'Código (opcional)',
+        labelDate: 'Fecha',
+        labelReference: 'Referencia',
+        labelDescription: 'Descripción',
+        labelPassword: 'Contraseña',
+        labelNumber: 'Número',
+        labelClient: 'Cliente',
+        labelBank: 'Banco',
+        labelPayee: 'Beneficiario',
+        labelSupplier: 'Proveedor',
+        labelAmount: 'Monto',
+        labelIssueDate: 'Fecha emisión',
+        labelDueDate: 'Fecha vencimiento',
+        labelEntityOptional: 'Entidad (opcional)',
+        labelBankPayment: 'Cuenta bancaria de pago',
+        labelReportType: 'Tipo de reporte',
+        labelFrom: 'Desde',
+        labelTo: 'Hasta',
+        labelInventoryItemName: 'Ítem de inventario',
+        labelMovementItem: 'Ítem de movimiento',
+        labelMovementType: 'Tipo de movimiento',
+        labelQuantity: 'Cantidad',
+        btnAddEntity: 'Agregar entidad',
+        btnCreateUser: 'Crear usuario',
+        btnCreateInvoice: 'Crear factura',
+        btnSaveRecurring: 'Guardar regla',
+        btnResetDb: 'Reiniciar base',
+        btnRunReport: 'Ejecutar reporte',
+        btnAddInventoryItem: 'Agregar ítem',
+        btnAddMovement: 'Agregar movimiento',
+        sectionUserMgmt: 'Gestión de usuarios',
+        aiProvider: 'Proveedor IA',
+        aiModel: 'Modelo',
+        aiBaseUrl: 'URL base (custom)',
+        aiApiKeyOptional: 'API key (opcional)',
+        aiApplySettings: 'Aplicar configuración IA',
+        optionSales: 'Ventas',
+        optionPurchase: 'Compras',
+        optionEmployee: 'Empleado',
+        placeholderExpenseCategory: 'Nombre de cuenta de gasto',
+        tableNo: 'N.º',
+        tableDirection: 'Dirección',
+        tableFrequency: 'Frecuencia',
+        tableNextRun: 'Próxima ejecución',
+        tableDebit: 'Debe',
+        tableCredit: 'Haber',
+        tableLineDescription: 'Descripción de línea',
+        tableAccountCode: 'Código de cuenta',
+        resetDbHint: 'Borra transacciones y entidades, mantiene el plan de cuentas.',
+        importFromScan: 'Importar desde escaneo (OCR)',
+        attachmentSupported: 'Formatos soportados: JPG, PNG, WEBP, PDF (máx. 8MB). Se usan en el chat y se adjuntan a comprobantes.',
+        referenceHint: 'Número de factura o recibo vinculado al documento',
+        linkEntitiesHint: 'Vincular entidades (opcional — cambia la sugerencia de IA si hace falta)',
+        linesTitle: 'Líneas (debe / haber)',
+        btnRemove: 'Eliminar',
+        panelCashForecast: 'Pronóstico de caja (13 semanas)',
+        panelSmartAlerts: 'Alertas inteligentes',
+        panelARAging: 'Antigüedad de cuentas por cobrar',
+        panelAPAging: 'Antigüedad de cuentas por pagar',
+        panelExpenseByCategory: 'Gastos por categoría',
+        panelSpendByVendor: 'Gasto por proveedor',
+        panelProfitabilityByClient: 'Rentabilidad por cliente',
+        panelBooksHealth: 'Salud contable',
+        panelMonthEndChecklist: 'Checklist de cierre mensual',
+        panelOwnerReportPack: 'Paquete de reporte del dueño (resumen automático)',
+        panelFixMissingReferences: 'Corregir referencias faltantes',
+        panelBudgetVsActual: 'Presupuesto vs real (mensual)',
+        panelExportNotifications: 'Exportación y notificaciones',
+        labelMonth: 'Mes',
+        labelCategory: 'Categoría',
+        labelLimit: 'Límite',
+        btnExportExcel: 'Exportar Excel',
+        placeholderCodeOrName: 'Código o nombre de cuenta',
+        sortTurnoverDesc: 'Movimiento (alto a bajo)',
+        sortTurnoverAsc: 'Movimiento (bajo a alto)',
+        sortCodeAsc: 'Código de cuenta (A-Z)',
+        sortNameAsc: 'Nombre de cuenta (A-Z)',
+        sortBalanceDesc: 'Saldo neto (alto a bajo)',
+        sortBalanceAsc: 'Saldo neto (bajo a alto)',
+        top8: 'Top 8',
+        top12: 'Top 12',
+        top20: 'Top 20',
+        all: 'Todos',
+        hideZeroActivity: 'Ocultar cuentas sin movimiento',
+        tableCode: 'Código',
+        tableDebitTurnover: 'Movimiento deudor',
+        tableCreditTurnover: 'Movimiento acreedor',
+        tableDebitBalance: 'Saldo deudor',
+        tableCreditBalance: 'Saldo acreedor',
+        tableTotal: 'Total',
+        chartTurnoverByAccount: 'Movimiento por cuenta (top cuentas)',
+        chartNetPositionByAccount: 'Posición neta por cuenta',
+        reportBalanceSheet: 'Balance general',
+        reportIncomeStatement: 'Estado de resultados',
+        reportCashFlow: 'Flujo de caja',
+        reportGeneralJournal: 'Diario general',
+        reportGeneralLedger: 'Libro mayor general',
+        reportTrialBalance: 'Balance de comprobación',
+        reportAccountLedger: 'Libro por cuenta',
+        reportDebtorCreditor: 'Deudor/Acreedor',
+        reportSalesByProduct: 'Ventas por producto',
+        reportSalesByInvoice: 'Ventas por factura',
+        reportPurchaseByProduct: 'Compras por producto',
+        reportPurchaseByInvoice: 'Compras por factura',
+        reportOutputTitle: 'Salida del reporte (JSON + tabla)',
+        reportChartTitle: 'Gráfico del reporte',
+        inventoryReportOutput: 'Salida de reporte de inventario',
+        inventoryChartTitle: 'Gráfico de inventario',
+        movementIn: 'ENTRADA',
+        movementOut: 'SALIDA',
+        movementAdjustment: 'AJUSTE',
+        usersNoUsersLoaded: 'No se cargaron usuarios aún.',
+        placeholderUsername: 'ej. accountant1',
+        placeholderTempPassword: 'contraseña temporal',
+        accountDetails: 'Detalles de cuenta',
+        loading: 'Cargando…',
+      },
+      ar: {
+        entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
+        entitiesSubtitle: 'أضف الأطراف التي تتعامل معها واربطها بالقيود للحصول على تقارير دقيقة.',
+        invoicesTitle: 'الفواتير',
+        invoicesSubtitle: 'أنشئ فواتير بيع/شراء ثم علّمها مدفوعة لإنشاء قيد تلقائيًا.',
+        recurringTitle: 'القواعد المتكررة (نص AI)',
+        recurringInputLabel: 'اكتب الدفع/التحصيل المتكرر للذكاء الاصطناعي',
+        voucherTitle: 'قيد اليومية',
+        settingsTitle: 'إعدادات الذكاء',
+        dashboardTitle: 'لوحة مؤشرات المالك',
+        ledgerTitle: 'ملخص دفتر الأستاذ',
+        managerTitle: 'تقارير الإدارة والقوائم المالية',
+        inventoryTitle: 'عمليات المخزون',
+        labelType: 'النوع',
+        labelName: 'الاسم',
+        labelCodeOptional: 'الكود (اختياري)',
+        labelDate: 'التاريخ',
+        labelReference: 'المرجع',
+        labelDescription: 'الوصف',
+        labelPassword: 'كلمة المرور',
+        labelNumber: 'الرقم',
+        labelClient: 'العميل',
+        labelBank: 'البنك',
+        labelPayee: 'المستفيد',
+        labelSupplier: 'المورد',
+        labelAmount: 'المبلغ',
+        labelIssueDate: 'تاريخ الإصدار',
+        labelDueDate: 'تاريخ الاستحقاق',
+        labelEntityOptional: 'الكيان (اختياري)',
+        labelBankPayment: 'حساب البنك للدفع',
+        labelReportType: 'نوع التقرير',
+        labelFrom: 'من',
+        labelTo: 'إلى',
+        labelInventoryItemName: 'اسم عنصر المخزون',
+        labelMovementItem: 'عنصر الحركة',
+        labelMovementType: 'نوع الحركة',
+        labelQuantity: 'الكمية',
+        btnAddEntity: 'إضافة كيان',
+        btnCreateUser: 'إنشاء مستخدم',
+        btnCreateInvoice: 'إنشاء فاتورة',
+        btnSaveRecurring: 'حفظ القاعدة',
+        btnResetDb: 'إعادة ضبط القاعدة',
+        btnRunReport: 'تشغيل التقرير',
+        btnAddInventoryItem: 'إضافة عنصر',
+        btnAddMovement: 'إضافة حركة',
+        sectionUserMgmt: 'إدارة المستخدمين',
+        aiProvider: 'مزود الذكاء',
+        aiModel: 'النموذج',
+        aiBaseUrl: 'الرابط الأساسي (مخصص)',
+        aiApiKeyOptional: 'مفتاح API (اختياري)',
+        aiApplySettings: 'تطبيق الإعدادات',
+        optionSales: 'مبيعات',
+        optionPurchase: 'مشتريات',
+        optionEmployee: 'موظف',
+        placeholderExpenseCategory: 'اسم حساب المصروف',
+        tableNo: 'الرقم',
+        tableDirection: 'الاتجاه',
+        tableFrequency: 'التكرار',
+        tableNextRun: 'التنفيذ القادم',
+        tableDebit: 'مدين',
+        tableCredit: 'دائن',
+        tableLineDescription: 'وصف السطر',
+        tableAccountCode: 'رمز الحساب',
+        resetDbHint: 'يحذف كل القيود والكيانات مع الإبقاء على دليل الحسابات.',
+        importFromScan: 'استيراد من المسح (OCR)',
+        attachmentSupported: 'الصيغ المدعومة: JPG وPNG وWEBP وPDF (الحد الأقصى 8MB). تُستخدم الملفات في الدردشة وربط القيود.',
+        referenceHint: 'رقم الفاتورة أو الإيصال المرتبط بالمستند',
+        linkEntitiesHint: 'ربط الكيانات (اختياري — غيّر اقتراح الذكاء عند الحاجة)',
+        linesTitle: 'السطور (مدين / دائن)',
+        btnRemove: 'حذف',
+        panelCashForecast: 'توقع التدفق النقدي لـ 13 أسبوعًا',
+        panelSmartAlerts: 'تنبيهات ذكية',
+        panelARAging: 'أعمار الذمم المدينة',
+        panelAPAging: 'أعمار الذمم الدائنة',
+        panelExpenseByCategory: 'المصروفات حسب الفئة',
+        panelSpendByVendor: 'الإنفاق حسب المورد',
+        panelProfitabilityByClient: 'الربحية حسب العميل',
+        panelBooksHealth: 'صحة الدفاتر',
+        panelMonthEndChecklist: 'قائمة إقفال نهاية الشهر',
+        panelOwnerReportPack: 'حزمة تقرير المالك (ملخص تلقائي)',
+        panelFixMissingReferences: 'إصلاح المراجع الناقصة',
+        panelBudgetVsActual: 'الميزانية مقابل الفعلي (شهري)',
+        panelExportNotifications: 'التصدير والإشعارات',
+        labelMonth: 'الشهر',
+        labelCategory: 'الفئة',
+        labelLimit: 'الحد',
+        btnExportExcel: 'تصدير Excel',
+        placeholderCodeOrName: 'رمز الحساب أو اسمه',
+        sortTurnoverDesc: 'الدوران (من الأعلى للأقل)',
+        sortTurnoverAsc: 'الدوران (من الأقل للأعلى)',
+        sortCodeAsc: 'رمز الحساب (أ-ي)',
+        sortNameAsc: 'اسم الحساب (أ-ي)',
+        sortBalanceDesc: 'الرصيد الصافي (من الأعلى للأقل)',
+        sortBalanceAsc: 'الرصيد الصافي (من الأقل للأعلى)',
+        top8: 'أفضل 8',
+        top12: 'أفضل 12',
+        top20: 'أفضل 20',
+        all: 'الكل',
+        hideZeroActivity: 'إخفاء الحسابات بدون حركة',
+        tableCode: 'الرمز',
+        tableDebitTurnover: 'دوران مدين',
+        tableCreditTurnover: 'دوران دائن',
+        tableDebitBalance: 'رصيد مدين',
+        tableCreditBalance: 'رصيد دائن',
+        tableTotal: 'الإجمالي',
+        chartTurnoverByAccount: 'الدوران حسب الحساب (أعلى الحسابات)',
+        chartNetPositionByAccount: 'المركز الصافي حسب الحساب',
+        reportBalanceSheet: 'الميزانية العمومية',
+        reportIncomeStatement: 'قائمة الدخل',
+        reportCashFlow: 'قائمة التدفقات النقدية',
+        reportGeneralJournal: 'دفتر اليومية',
+        reportGeneralLedger: 'دفتر الأستاذ العام',
+        reportTrialBalance: 'ميزان المراجعة',
+        reportAccountLedger: 'دفتر حساب',
+        reportDebtorCreditor: 'المدين/الدائن',
+        reportSalesByProduct: 'المبيعات حسب المنتج',
+        reportSalesByInvoice: 'المبيعات حسب الفاتورة',
+        reportPurchaseByProduct: 'المشتريات حسب المنتج',
+        reportPurchaseByInvoice: 'المشتريات حسب الفاتورة',
+        reportOutputTitle: 'مخرجات التقرير (JSON + معاينة جدول)',
+        reportChartTitle: 'مخطط التقرير',
+        inventoryReportOutput: 'مخرجات تقرير المخزون',
+        inventoryChartTitle: 'مخطط المخزون',
+        movementIn: 'داخل',
+        movementOut: 'خارج',
+        movementAdjustment: 'تسوية',
+        usersNoUsersLoaded: 'لم يتم تحميل مستخدمين بعد.',
+        placeholderUsername: 'مثال: accountant1',
+        placeholderTempPassword: 'كلمة مرور مؤقتة',
+        accountDetails: 'تفاصيل الحساب',
+        loading: 'جارٍ التحميل…',
+      },
+    };
+    Object.keys(I18N_EXTRA).forEach((lang) => {
+      I18N[lang] = Object.assign({}, I18N[lang] || {}, I18N_EXTRA[lang]);
+    });
 
     function t(key) {
       const dict = I18N[currentLanguage] || I18N.en;
@@ -1255,6 +1903,25 @@
         const el = document.getElementById(id);
         if (el) el.textContent = t(key);
       };
+      const setTextSel = (selector, key) => {
+        const el = document.querySelector(selector);
+        if (el) el.textContent = t(key);
+      };
+      const setLabel = (forId, key) => {
+        const el = document.querySelector('label[for="' + forId + '"]');
+        if (el) el.textContent = t(key);
+      };
+      const setPlaceholder = (id, key) => {
+        const el = document.getElementById(id);
+        if (el) el.placeholder = t(key);
+      };
+      const setOption = (selectId, value, key) => {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        const opt = Array.from(sel.options || []).find((o) => o.value === value);
+        if (opt) opt.textContent = t(key);
+      };
+
       setText('app-title', 'appTitle');
       setText('hero-subtitle', 'heroSubtitle');
       if (settingsSignedPrefixEl) settingsSignedPrefixEl.textContent = t('signedInAs');
@@ -1265,12 +1932,180 @@
       if (submitBtn) submitBtn.textContent = t('saveVoucher');
       if (openAiChatInlineBtn) openAiChatInlineBtn.textContent = t('openAiChat');
       if (attachmentUploadBtn) attachmentUploadBtn.textContent = t('uploadReceipts');
+
+      setTextSel('.card[data-page="entities"] h2', 'entitiesTitle');
+      setTextSel('.card[data-page="entities"] p', 'entitiesSubtitle');
+      setLabel('entity-type', 'labelType');
+      setLabel('entity-name', 'labelName');
+      setLabel('entity-code', 'labelCodeOptional');
+      setText('entity-add', 'btnAddEntity');
+      setText('reset-db-btn', 'btnResetDb');
+      setPlaceholder('entity-name', 'placeholderEntityName');
+      setPlaceholder('entity-code', 'placeholderEntityCode');
+      setTextSel('#entities-table thead th:nth-child(1)', 'labelType');
+      setTextSel('#entities-table thead th:nth-child(2)', 'labelName');
+      setTextSel('#entities-table thead th:nth-child(3)', 'labelCodeOptional');
+      setTextSel('#entities-table thead th:nth-child(4)', 'usersActions');
+
+      setTextSel('.card[data-page="invoices"] h2', 'invoicesTitle');
+      setTextSel('.card[data-page="invoices"] p', 'invoicesSubtitle');
+      setLabel('inv-number', 'labelNumber');
+      setLabel('inv-kind', 'labelType');
+      setLabel('inv-amount', 'labelAmount');
+      setLabel('inv-issue', 'labelIssueDate');
+      setLabel('inv-due', 'labelDueDate');
+      setLabel('inv-entity', 'labelEntityOptional');
+      setLabel('inv-bank-code', 'labelBankPayment');
+      setLabel('inv-desc', 'labelDescription');
+      setText('inv-add', 'btnCreateInvoice');
+      setText('inv-ocr-scan', 'btnScanToForm');
+      setText('inv-ocr-create', 'btnScanCreate');
+      setPlaceholder('inv-number', 'placeholderInvoiceNo');
+      setPlaceholder('inv-desc', 'placeholderInvoiceDesc');
+      setTextSel('#invoices-table thead th:nth-child(1)', 'tableNo');
+      setTextSel('#invoices-table thead th:nth-child(2)', 'labelType');
+      setTextSel('#invoices-table thead th:nth-child(3)', 'usersStatus');
+      setTextSel('#invoices-table thead th:nth-child(4)', 'labelAmount');
+      setTextSel('#invoices-table thead th:nth-child(5)', 'labelDueDate');
+      setTextSel('#invoices-table thead th:nth-child(6)', 'usersActions');
+
+      setTextSel('.card[data-page="recurring"] h2', 'recurringTitle');
+      setTextSel('.card[data-page="recurring"] p', 'recurringExample');
+      setLabel('recurring-text', 'recurringInputLabel');
+      setText('recurring-create', 'btnSaveRecurring');
+      setPlaceholder('recurring-text', 'placeholderRecurring');
+      setTextSel('#recurring-table thead th:nth-child(1)', 'labelName');
+      setTextSel('#recurring-table thead th:nth-child(2)', 'tableDirection');
+      setTextSel('#recurring-table thead th:nth-child(3)', 'tableFrequency');
+      setTextSel('#recurring-table thead th:nth-child(4)', 'labelAmount');
+      setTextSel('#recurring-table thead th:nth-child(5)', 'tableNextRun');
+      setTextSel('#recurring-table thead th:nth-child(6)', 'usersStatus');
+
+      setTextSel('.card[data-page="transactions"] h2', 'voucherTitle');
+      setTextSel('.card[data-page="transactions"] p:nth-of-type(1)', 'voucherSubtitle');
+      setLabel('date', 'labelDate');
+      setLabel('reference', 'labelReference');
+      setLabel('description', 'labelDescription');
+      setLabel('entity-client', 'labelClient');
+      setLabel('entity-bank', 'labelBank');
+      setLabel('entity-payee', 'labelPayee');
+      setLabel('entity-supplier', 'labelSupplier');
+      setPlaceholder('chat-input', 'placeholderChatInput');
+      setPlaceholder('reference', 'placeholderReference');
+      setPlaceholder('description', 'placeholderDescription');
+      setText('add-line', 'btnAddLine');
+      setTextSel('.lines-table thead th:nth-child(1)', 'tableAccountCode');
+      setTextSel('.lines-table thead th:nth-child(2)', 'tableDebit');
+      setTextSel('.lines-table thead th:nth-child(3)', 'tableCredit');
+      setTextSel('.lines-table thead th:nth-child(4)', 'tableLineDescription');
+      setOption('entity-client', '', 'optionNone');
+      setOption('entity-bank', '', 'optionNone');
+      setOption('entity-payee', '', 'optionNone');
+      setOption('entity-supplier', '', 'optionNone');
+
+      setTextSel('.card[data-page="dashboard"] h2', 'dashboardTitle');
+      setTextSel('.card[data-page="dashboard"] p', 'dashboardSubtitle');
+      setLabel('budget-month', 'labelFrom');
+      setLabel('budget-category', 'labelDescription');
+      setLabel('budget-limit', 'labelAmount');
+      setText('budget-save', 'btnSaveBudget');
+      setText('snapshot-btn', 'btnCreateSnapshot');
+      setText('notify-btn', 'btnSendAlerts');
+      setPlaceholder('budget-category', 'placeholderExpenseCategory');
+
+      setTextSel('.card[data-page="ledger"] h2', 'ledgerTitle');
+      setTextSel('.card[data-page="ledger"] p', 'ledgerSubtitle');
+      setLabel('ledger-search', 'labelSearchAccount');
+      setLabel('ledger-sort', 'labelSortBy');
+      setLabel('ledger-topn', 'labelChartTopAccounts');
+      setPlaceholder('ledger-search', 'placeholderCodeOrName');
+
+      setTextSel('.card[data-page="manager"] h2', 'managerTitle');
+      setTextSel('.card[data-page="manager"] p', 'managerSubtitle');
+      setLabel('mgr-report-type', 'labelReportType');
+      setLabel('mgr-from-date', 'labelFrom');
+      setLabel('mgr-to-date', 'labelTo');
+      setLabel('mgr-account-code', 'labelAccountCodeLedger');
+      setText('mgr-run-btn', 'btnRunReport');
+      setText('mgr-export-json-btn', 'btnExportJson');
+      setText('mgr-export-csv-btn', 'btnExportCsv');
+      setText('mgr-export-pdf-btn', 'btnExportPdf');
+      setPlaceholder('mgr-account-code', 'placeholderAccountCode');
+      setTextSel('#mgr-report-chart-title', 'reportChartTitle');
+
+      setTextSel('.card[data-page="inventory"] h2', 'inventoryTitle');
+      setTextSel('.card[data-page="inventory"] p', 'inventorySubtitle');
+      setLabel('mgr-inv-item-name', 'labelInventoryItemName');
+      setLabel('mgr-inv-item-sku', 'labelSKU');
+      setLabel('mgr-inv-item-unit', 'labelUnit');
+      setLabel('mgr-mv-item', 'labelMovementItem');
+      setLabel('mgr-mv-type', 'labelMovementType');
+      setLabel('mgr-mv-qty', 'labelQuantity');
+      setLabel('mgr-mv-cost', 'labelUnitCost');
+      setLabel('inv-from-date', 'labelFrom');
+      setLabel('inv-to-date', 'labelTo');
+      setText('mgr-add-item-btn', 'btnAddInventoryItem');
+      setText('mgr-add-mv-btn', 'btnAddMovement');
+      setText('inv-run-balance-btn', 'btnInventoryBalance');
+      setText('inv-run-movement-btn', 'btnInventoryMovements');
+      setText('inv-export-json-btn', 'btnExportJson');
+      setText('inv-export-csv-btn', 'btnExportCsv');
+      setText('inv-export-pdf-btn', 'btnExportPdf');
+      setTextSel('#inv-report-chart-title', 'inventoryChartTitle');
+      setPlaceholder('mgr-inv-item-name', 'placeholderInvItem');
+      setPlaceholder('mgr-inv-item-sku', 'placeholderOptional');
+      if (document.getElementById('mgr-inv-item-unit') && (!document.getElementById('mgr-inv-item-unit').value || document.getElementById('mgr-inv-item-unit').value === 'unit')) {
+        document.getElementById('mgr-inv-item-unit').value = t('placeholderUnit');
+      }
+      setOption('mgr-mv-item', '', 'optionSelectItem');
+
+      setTextSel('.card[data-page="settings"] h2', 'settingsTitle');
+      setTextSel('.card[data-page="settings"] p', 'settingsDesc');
+      setLabel('ai-provider-select', 'aiProvider');
+      setLabel('ai-model-input', 'aiModel');
+      setLabel('ai-base-input', 'aiBaseUrl');
+      setLabel('ai-key-input', 'aiApiKeyOptional');
+      setText('ai-save-btn', 'aiApplySettings');
+      setTextSel('.ai-runtime-hint', 'aiHint');
+      setTextSel('.card[data-page="settings"] div[style*="border-top"] h2', 'sectionUserMgmt');
+      setTextSel('.card[data-page="settings"] div[style*="border-top"] p', 'sectionUserMgmtDesc');
+      setLabel('new-user-username', 'usersUsername');
+      setLabel('new-user-password', 'labelPassword');
+      setLabel('new-user-admin', 'usersRole');
+      setText('create-user-btn', 'btnCreateUser');
+      setPlaceholder('new-user-username', 'placeholderUsername');
+      setPlaceholder('new-user-password', 'placeholderTempPassword');
+      setOption('new-user-admin', 'false', 'usersUser');
+      setOption('new-user-admin', 'true', 'usersAdmin');
+      setOption('inv-entity', '', 'optionNone');
+      setOption('inv-bank-code', '', 'optionSelectBank');
+      setOption('inv-kind', 'sales', 'optionSales');
+      setOption('inv-kind', 'purchase', 'optionPurchase');
+      setOption('entity-type', 'client', 'labelClient');
+      setOption('entity-type', 'bank', 'labelBank');
+      setOption('entity-type', 'employee', 'optionEmployee');
+      setOption('entity-type', 'supplier', 'labelSupplier');
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = t(key);
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (key && 'placeholder' in el) el.placeholder = t(key);
+      });
+      document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-title');
+        if (key) el.title = t(key);
+      });
+      if (document.title) {
+        document.title = t('appTitle');
+      }
     }
 
     async function saveLanguagePreference() {
       const lang = (uiLanguageSelectEl && uiLanguageSelectEl.value) || 'en';
       if (!SUPPORTED_UI_LANGUAGES.includes(lang)) {
-        showAlert('Unsupported language.', true);
+        showAlert(t('unsupportedLanguage'), true);
         return;
       }
       try {
@@ -1338,16 +2173,113 @@
       return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
     function formatKpiValue(v, unit) {
-      if (v == null) return 'N/A';
+      if (v == null) return t('na');
       if (unit === 'IRR') return formatNum(v) + ' IRR';
-      if (unit === 'months' && Number(v) < 0) return 'N/A';
-      if (unit === 'months') return v + ' mo';
+      if (unit === 'months' && Number(v) < 0) return t('na');
+      if (unit === 'months') return v + ' ' + t('monthsShort');
       return String(v);
     }
     function escapeHtml(s) {
       if (s == null) return '';
       const t = String(s);
       return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function trf(key, vars = {}) {
+      let txt = t(key);
+      Object.keys(vars).forEach((k) => {
+        txt = txt.replace(new RegExp('\\{' + k + '\\}', 'g'), String(vars[k]));
+      });
+      return txt;
+    }
+    function localizeDynamicText(value) {
+      if (value == null) return '';
+      const s = String(value).trim();
+      const map = {
+        'No data yet.': 'noDataYet',
+        'No active alerts.': 'noActiveAlerts',
+        'Risk': 'risk',
+        'OK': 'ok',
+        'Book quality risk': 'alertBookQualityRisk',
+        'Cash runway is short': 'alertCashRunwayShort',
+        'Overdue receivables': 'alertOverdueReceivables',
+        'Overdue payables': 'alertOverduePayables',
+        'Expense spike': 'alertExpenseSpike',
+        'Missing reference': 'issueMissingReference',
+        'Transactions without entity': 'issueTransactionsWithoutEntity',
+        'Expense transactions without attachment': 'issueExpenseWithoutAttachment',
+        'Lines without description': 'issueLinesWithoutDescription',
+        'References captured': 'checkReferencesCaptured',
+        'Entities linked': 'checkEntitiesLinked',
+        'Expense attachments available': 'checkExpenseAttachmentsAvailable',
+        'Line descriptions complete': 'checkLineDescriptionsComplete',
+        'Unassigned client': 'unassignedClient',
+      };
+      if (map[s]) return t(map[s]);
+      let m = s.match(/^Estimated runway is\s+([0-9.]+)\s+months based on recent burn rate\.$/i);
+      if (m) return trf('alertRunwayMessage', { months: m[1] });
+      m = s.match(/^Overdue AR is\s+([0-9,]+)\.\s*Follow up collections\.$/i);
+      if (m) return trf('alertOverdueArMessage', { amount: m[1] });
+      m = s.match(/^Overdue AP is\s+([0-9,]+)\.\s*Plan vendor payments\.$/i);
+      if (m) return trf('alertOverdueApMessage', { amount: m[1] });
+      m = s.match(/^Data quality score is\s+([0-9]+\/100)\.\s*Resolve missing references\/entities\/attachments\.$/i);
+      if (m) return trf('alertDataQualityMessage', { score: m[1] });
+      m = s.match(/^This month expenses are significantly above recent average\.$/i);
+      if (m) return t('alertExpenseSpikeMessage');
+      m = s.match(/^([0-9]+)\/([0-9]+)\s+transactions have reference\.$/i);
+      if (m) return trf('checkRefsDetail', { done: m[1], total: m[2] });
+      m = s.match(/^([0-9]+)\/([0-9]+)\s+transactions have entity links\.$/i);
+      if (m) return trf('checkEntitiesDetail', { done: m[1], total: m[2] });
+      m = s.match(/^([0-9]+)\/([0-9]+)\s+expense transactions have attachments\.$/i);
+      if (m) return trf('checkAttachmentsDetail', { done: m[1], total: m[2] });
+      m = s.match(/^([0-9]+)\/([0-9]+)\s+lines have descriptions\.$/i);
+      if (m) return trf('checkLineDescriptionsDetail', { done: m[1], total: m[2] });
+      return s;
+    }
+    function localizeReportFieldName(name) {
+      const key = String(name || '').toLowerCase();
+      const map = {
+        transaction_id: 'fieldTransactionId',
+        date: 'labelDate',
+        reference: 'labelReference',
+        description: 'labelDescription',
+        total_debit: 'fieldTotalDebit',
+        total_credit: 'fieldTotalCredit',
+        account_code: 'tableAccountCode',
+        account_name: 'fieldAccount',
+        debit: 'tableDebit',
+        credit: 'tableCredit',
+        line_description: 'tableLineDescription',
+        section: 'fieldSection',
+        balance: 'fieldBalance',
+        metric: 'fieldMetric',
+        value: 'fieldValue',
+        item_name: 'fieldItemName',
+        sku: 'labelSKU',
+        quantity: 'labelQuantity',
+        unit_cost: 'fieldUnitCost',
+        inventory_value: 'fieldInventoryValue',
+        movement_date: 'fieldMovementDate',
+        movement_type: 'labelMovementType',
+        product_name: 'fieldProduct',
+        invoice_number: 'fieldInvoice',
+        sales_amount: 'fieldSalesAmount',
+        amount: 'labelAmount',
+        revenue: 'fieldRevenue',
+        cost: 'fieldCost',
+        profit: 'fieldProfit',
+        margin_pct: 'fieldMarginPct',
+        current: 'fieldCurrent',
+        days_31_60: 'fieldDays31_60',
+        days_60_plus: 'fieldDays60Plus',
+        total: 'tableTotal',
+        week_start: 'fieldWeek',
+        projected_inflow: 'fieldInflow',
+        projected_outflow: 'fieldOutflow',
+        projected_net: 'fieldNet',
+        projected_cash: 'fieldCash',
+        risk: 'fieldRisk',
+      };
+      return map[key] ? t(map[key]) : String(name || '');
     }
 
     function syncAIFieldsByProvider() {
@@ -1468,7 +2400,7 @@
       const password = (newUserPasswordEl && newUserPasswordEl.value || '').trim();
       const isAdmin = (newUserAdminEl && newUserAdminEl.value) === 'true';
       if (!username || !password) {
-        showAlert('Username and password are required.', true);
+        showAlert(t('usernamePasswordRequired'), true);
         return;
       }
       try {
@@ -1542,10 +2474,10 @@
       const pwBtn = e.target.closest('.user-pw-btn');
       if (pwBtn) {
         const id = pwBtn.dataset.id;
-        const nextPassword = prompt('Enter a new password for this user:');
+        const nextPassword = prompt(t('enterNewPassword'));
         if (nextPassword == null) return;
         if (!nextPassword.trim()) {
-          showAlert('Password cannot be empty.', true);
+          showAlert(t('passwordCannotBeEmpty'), true);
           return;
         }
         try {
@@ -1569,11 +2501,11 @@
     function renderMiniTable(elId, headers, rows) {
       const el = document.getElementById(elId);
       if (!rows || !rows.length) {
-        el.innerHTML = '<p class="empty-state" style="padding:0.5rem;">No data yet.</p>';
+        el.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('noDataYet')) + '</p>';
         return;
       }
-      const th = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
-      const tr = rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+      const th = headers.map(h => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
+      const tr = rows.map(r => `<tr>${r.map(c => `<td>${typeof c === 'string' ? escapeHtml(localizeDynamicText(c)) : c}</td>`).join('')}</tr>`).join('');
       el.innerHTML = `<table class="mini-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
     }
 
@@ -1584,85 +2516,110 @@
         if (!res.ok) throw new Error(data.detail || 'owner dashboard error');
 
         const kpiGrid = document.getElementById('kpi-grid');
+        const kpiLabelMap = {
+          cash_on_hand: 'kpiCashOnHand',
+          monthly_net_profit: 'kpiMonthlyNetProfit',
+          burn_rate: 'kpiMonthlyBurnRate',
+          runway_months: 'kpiRunway',
+          ar_due_week: 'kpiArDueWeek',
+          ap_due_week: 'kpiApDueWeek',
+          tax_and_liability_payable: 'kpiLiabilitiesPayable',
+        };
         kpiGrid.innerHTML = (data.kpis || []).map(k => `
           <div class="kpi-card">
-            <div class="label">${escapeHtml(k.label)}</div>
+            <div class="label">${escapeHtml(kpiLabelMap[k.key] ? t(kpiLabelMap[k.key]) : localizeDynamicText(k.label))}</div>
             <div class="value">${escapeHtml(formatKpiValue(k.value, k.unit))}</div>
           </div>
         `).join('');
 
         renderMiniTable(
           'forecast-wrap',
-          ['Week', 'Inflow', 'Outflow', 'Net', 'Cash', 'Risk'],
+          ['week_start', 'projected_inflow', 'projected_outflow', 'projected_net', 'projected_cash', 'risk'],
           (data.forecast_13_weeks || []).map(r => [
             escapeHtml(r.week_start),
             formatNum(r.projected_inflow),
             formatNum(r.projected_outflow),
             formatNum(r.projected_net),
             formatNum(r.projected_cash),
-            r.risk ? '<span class="alert-chip high">Risk</span>' : '<span class="alert-chip low">OK</span>'
+            r.risk ? '<span class="alert-chip high">' + escapeHtml(t('risk')) + '</span>' : '<span class="alert-chip low">' + escapeHtml(t('ok')) + '</span>'
           ])
         );
 
         const alertsWrap = document.getElementById('alerts-wrap');
         const alerts = data.alerts || [];
         if (!alerts.length) {
-          alertsWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">No active alerts.</p>';
+          alertsWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('noActiveAlerts')) + '</p>';
         } else {
           alertsWrap.innerHTML = alerts.map(a => `
             <div style="border:1px solid var(--border); border-radius:10px; padding:0.55rem; margin-bottom:0.45rem;">
               <span class="alert-chip ${escapeHtml(a.level)}">${escapeHtml((a.level || '').toUpperCase())}</span>
-              <strong style="display:block; margin-top:0.25rem;">${escapeHtml(a.title)}</strong>
-              <div style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(a.message)}</div>
+              <strong style="display:block; margin-top:0.25rem;">${escapeHtml(localizeDynamicText(a.title))}</strong>
+              <div style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(localizeDynamicText(a.message))}</div>
             </div>
           `).join('');
         }
 
         renderMiniTable(
           'ar-aging-wrap',
-          ['Client', 'Current', '31-60', '60+', 'Total'],
+          ['client', 'current', 'days_31_60', 'days_60_plus', 'total'],
           (data.ar_aging || []).map(r => [escapeHtml(r.name), formatNum(r.current), formatNum(r.days_31_60), formatNum(r.days_60_plus), formatNum(r.total)])
         );
         renderMiniTable(
           'ap-aging-wrap',
-          ['Vendor', 'Current', '31-60', '60+', 'Total'],
+          ['vendor', 'current', 'days_31_60', 'days_60_plus', 'total'],
           (data.ap_aging || []).map(r => [escapeHtml(r.name), formatNum(r.current), formatNum(r.days_31_60), formatNum(r.days_60_plus), formatNum(r.total)])
         );
         renderMiniTable(
           'expense-category-wrap',
-          ['Category', 'Amount'],
+          ['category', 'amount'],
           (data.expense_by_category || []).map(r => [escapeHtml(r.category), formatNum(r.amount)])
         );
         renderMiniTable(
           'vendor-spend-wrap',
-          ['Vendor', 'Amount'],
+          ['vendor', 'amount'],
           (data.spend_by_vendor || []).map(r => [escapeHtml(r.vendor), formatNum(r.amount)])
         );
         renderMiniTable(
           'profitability-wrap',
-          ['Client', 'Revenue', 'Cost', 'Profit', 'Margin %'],
-          (data.profitability_by_client || []).map(r => [escapeHtml(r.client), formatNum(r.revenue), formatNum(r.cost), formatNum(r.profit), (r.margin_pct == null ? '—' : String(r.margin_pct))])
+          ['client', 'revenue', 'cost', 'profit', 'margin_pct'],
+          (data.profitability_by_client || []).map(r => [escapeHtml(localizeDynamicText(r.client)), formatNum(r.revenue), formatNum(r.cost), formatNum(r.profit), (r.margin_pct == null ? '—' : String(r.margin_pct))])
         );
 
         const health = document.getElementById('health-wrap');
         health.innerHTML = `
-          <div style="font-size:1.15rem; font-weight:700; margin-bottom:0.45rem;">Score: ${escapeHtml(data.health_score)}/100</div>
-          ${(data.health_issues || []).map(i => `<div style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(i.label)}: ${escapeHtml(i.count)} (${Math.round((i.ratio || 0) * 100)}%)</div>`).join('')}
+          <div style="font-size:1.15rem; font-weight:700; margin-bottom:0.45rem;">${escapeHtml(t('scoreLabel'))}: ${escapeHtml(data.health_score)}/100</div>
+          ${(data.health_issues || []).map(i => `<div style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(localizeDynamicText(i.label))}: ${escapeHtml(i.count)} (${Math.round((i.ratio || 0) * 100)}%)</div>`).join('')}
         `;
 
         const checklist = document.getElementById('checklist-wrap');
         checklist.innerHTML = (data.close_checklist || []).map(c => `
           <div style="border:1px solid var(--border); border-radius:9px; padding:0.4rem; margin-bottom:0.35rem;">
-            <strong>${c.ok ? '✓' : '•'} ${escapeHtml(c.item)}</strong>
-            <div style="font-size:0.78rem; color:var(--text-muted);">${escapeHtml(c.detail)}</div>
+            <strong>${c.ok ? '✓' : '•'} ${escapeHtml(localizeDynamicText(c.item))}</strong>
+            <div style="font-size:0.78rem; color:var(--text-muted);">${escapeHtml(localizeDynamicText(c.detail))}</div>
           </div>
         `).join('');
-
-        document.getElementById('owner-pack').textContent = data.owner_pack_markdown || '';
+        const topProfit = (data.profitability_by_client || [])[0];
+        const topProfitText = topProfit
+          ? `${localizeDynamicText(topProfit.client)} (${formatNum(topProfit.profit || 0)} IRR)`
+          : t('na');
+        document.getElementById('owner-pack').textContent =
+          `${t('ownerPackTitle')} (${new Date().toISOString().slice(0, 10)})\n\n` +
+          `- ${t('kpiCashOnHand')}: ${formatNum((data.kpis || []).find((k) => k.key === 'cash_on_hand')?.value || 0)} IRR\n` +
+          `- ${t('ownerNetProfitMonth')}: ${formatNum((data.kpis || []).find((k) => k.key === 'monthly_net_profit')?.value || 0)} IRR\n` +
+          `- ${t('kpiMonthlyBurnRate')}: ${formatNum((data.kpis || []).find((k) => k.key === 'burn_rate')?.value || 0)} IRR/${t('monthWord')}\n` +
+          `- ${t('kpiRunway')}: ${formatKpiValue((data.kpis || []).find((k) => k.key === 'runway_months')?.value, 'months')}\n` +
+          `- ${t('ownerOverdueAR')}: ${formatNum((data.ar_aging || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0))} IRR\n` +
+          `- ${t('ownerOverdueAP')}: ${formatNum((data.ap_aging || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0))} IRR\n` +
+          `- ${t('ownerDataHealth')}: ${data.health_score || 0}/100\n` +
+          `- ${t('ownerMostProfitableClient')}: ${topProfitText}\n\n` +
+          `${t('ownerPriorityActions')}\n` +
+          `1. ${t('ownerAction1')}\n` +
+          `2. ${t('ownerAction2')}\n` +
+          `3. ${t('ownerAction3')}\n`;
         loadMissingReferences();
       } catch (err) {
-        document.getElementById('kpi-grid').innerHTML = '<p class="empty-state">Error loading owner dashboard.</p>';
-        document.getElementById('missing-refs-wrap').innerHTML = '<p class="empty-state" style="padding:0.5rem;">Error loading missing references.</p>';
+        document.getElementById('kpi-grid').innerHTML = '<p class="empty-state">' + escapeHtml(t('errorLoadingOwnerDashboard')) + '</p>';
+        document.getElementById('missing-refs-wrap').innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('errorLoadingMissingReferences')) + '</p>';
       }
     }
 
@@ -1689,11 +2646,11 @@
     function syncManagerFilterLabels() {
       const type = (mgrReportTypeEl.value || '').trim();
       if (type === 'balance_sheet') {
-        if (mgrFromLabelEl) mgrFromLabelEl.textContent = 'Comparative as-of (optional)';
-        if (mgrToLabelEl) mgrToLabelEl.textContent = 'As-of date';
+        if (mgrFromLabelEl) mgrFromLabelEl.textContent = t('comparativeAsOf');
+        if (mgrToLabelEl) mgrToLabelEl.textContent = t('asOfDate');
       } else {
-        if (mgrFromLabelEl) mgrFromLabelEl.textContent = 'From';
-        if (mgrToLabelEl) mgrToLabelEl.textContent = 'To';
+        if (mgrFromLabelEl) mgrFromLabelEl.textContent = t('labelFrom');
+        if (mgrToLabelEl) mgrToLabelEl.textContent = t('labelTo');
       }
     }
 
@@ -1732,7 +2689,7 @@
       const preview = renderReportPreviewHtml(report);
       const w = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=900');
       if (!w) {
-        showAlert('Please allow popups to export PDF.', true);
+        showAlert(t('allowPopupsPdf'), true);
         return;
       }
       w.document.write(`
@@ -1740,7 +2697,7 @@
         <html>
           <head>
             <meta charset="utf-8">
-            <title>Report export</title>
+            <title>${escapeHtml(t('reportExportTitle'))}</title>
             <style>
               body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 24px; color: #0f172a; }
               h1 { margin: 0 0 8px 0; font-size: 22px; }
@@ -1754,8 +2711,8 @@
             </style>
           </head>
           <body>
-            <h1>${escapeHtml(report.report_type || 'report')}</h1>
-            <div class="meta">${period ? ('Period: ' + escapeHtml(period)) : ''}</div>
+            <h1>${escapeHtml(localizeDynamicText(report.report_type || t('reportWord')))}</h1>
+            <div class="meta">${period ? (escapeHtml(t('periodLabel')) + ': ' + escapeHtml(period)) : ''}</div>
             ${preview}
             ${chartImg ? `<img src="${chartImg}" alt="report chart">` : ''}
           </body>
@@ -1767,21 +2724,21 @@
     }
 
     function exportManagerReportJson() {
-      if (!lastManagerReport) { showAlert('Run a report first.', true); return; }
+      if (!lastManagerReport) { showAlert(t('runReportFirst'), true); return; }
       const type = (lastManagerReport.report_type || 'report');
       downloadTextFile(`${type}.json`, JSON.stringify(lastManagerReport, null, 2), 'application/json');
     }
 
     function exportManagerReportCsv() {
-      if (!lastManagerReport) { showAlert('Run a report first.', true); return; }
+      if (!lastManagerReport) { showAlert(t('runReportFirst'), true); return; }
       const csv = reportToCsv(lastManagerReport);
-      if (!csv) { showAlert('This report has no tabular rows to export as CSV.', true); return; }
+      if (!csv) { showAlert(t('noTabularRowsCsv'), true); return; }
       const type = (lastManagerReport.report_type || 'report');
       downloadTextFile(`${type}.csv`, csv, 'text/csv');
     }
 
     function exportManagerReportPdf() {
-      if (!lastManagerReport) { showAlert('Run a report first.', true); return; }
+      if (!lastManagerReport) { showAlert(t('runReportFirst'), true); return; }
       const chartImg = (managerReportChart && mgrReportChartEl) ? mgrReportChartEl.toDataURL('image/png') : '';
       openReportPrintWindow(lastManagerReport, chartImg);
     }
@@ -1792,7 +2749,7 @@
       managerReportChart = chart;
       if (mgrReportChartTitleEl) {
         const spec = makeReportChartSpec(report);
-        mgrReportChartTitleEl.textContent = spec ? (spec.title || 'Report chart') : 'Report chart';
+        mgrReportChartTitleEl.textContent = spec ? (spec.title || t('reportChartTitle')) : t('reportChartTitle');
       }
       mgrReportChartPanelEl.style.display = chart ? 'block' : 'none';
     }
@@ -1803,7 +2760,7 @@
       inventoryReportChart = chart;
       if (invReportChartTitleEl) {
         const spec = makeReportChartSpec(report);
-        invReportChartTitleEl.textContent = spec ? (spec.title || 'Inventory chart') : 'Inventory chart';
+        invReportChartTitleEl.textContent = spec ? (spec.title || t('inventoryChartTitle')) : t('inventoryChartTitle');
       }
       invReportChartPanelEl.style.display = chart ? 'block' : 'none';
     }
@@ -1828,14 +2785,14 @@
         const res = await fetch(url);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showAlert(data.detail || 'Failed to run inventory report.', true);
+          showAlert(data.detail || t('failedRunInventoryReport'), true);
           return;
         }
         lastInventoryReport = data;
         const period = reportPeriodText(data);
         if (invReportPreviewEl) {
           invReportPreviewEl.innerHTML = `
-            ${period ? `<div class="report-meta">Period: ${escapeHtml(period)}</div>` : ''}
+            ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
             ${renderReportPreviewHtml(data)}
           `;
         }
@@ -1845,7 +2802,7 @@
         if (invExportCsvBtn) invExportCsvBtn.disabled = false;
         if (invExportPdfBtn) invExportPdfBtn.disabled = false;
       } catch (err) {
-        showAlert('Inventory report error: ' + err.message, true);
+        showAlert(t('inventoryReportError') + ': ' + err.message, true);
       } finally {
         if (invRunBalanceBtn) invRunBalanceBtn.disabled = false;
         if (invRunMovementBtn) invRunMovementBtn.disabled = false;
@@ -1853,21 +2810,21 @@
     }
 
     function exportInventoryReportJson() {
-      if (!lastInventoryReport) { showAlert('Run an inventory report first.', true); return; }
+      if (!lastInventoryReport) { showAlert(t('runInventoryReportFirst'), true); return; }
       const fileName = reportFileBaseName(lastInventoryReport) + '.json';
       downloadTextFile(fileName, JSON.stringify(lastInventoryReport, null, 2), 'application/json');
     }
 
     function exportInventoryReportCsv() {
-      if (!lastInventoryReport) { showAlert('Run an inventory report first.', true); return; }
+      if (!lastInventoryReport) { showAlert(t('runInventoryReportFirst'), true); return; }
       const csv = reportToCsv(lastInventoryReport);
-      if (!csv) { showAlert('This report has no tabular rows to export as CSV.', true); return; }
+      if (!csv) { showAlert(t('noTabularRowsCsv'), true); return; }
       const fileName = reportFileBaseName(lastInventoryReport) + '.csv';
       downloadTextFile(fileName, csv, 'text/csv');
     }
 
     function exportInventoryReportPdf() {
-      if (!lastInventoryReport) { showAlert('Run an inventory report first.', true); return; }
+      if (!lastInventoryReport) { showAlert(t('runInventoryReportFirst'), true); return; }
       const chartImg = (inventoryReportChart && invReportChartEl) ? invReportChartEl.toDataURL('image/png') : '';
       openReportPrintWindow(lastInventoryReport, chartImg);
     }
@@ -1891,13 +2848,13 @@
         const res = await fetch(url);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showAlert(data.detail || 'Failed to run manager report.', true);
+          showAlert(data.detail || t('failedRunManagerReport'), true);
           return;
         }
         lastManagerReport = data;
         const period = reportPeriodText(data);
         mgrReportPreviewEl.innerHTML = `
-          ${period ? `<div class="report-meta">Period: ${escapeHtml(period)}</div>` : ''}
+          ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
           ${renderReportPreviewHtml(data)}
         `;
         mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
@@ -1906,7 +2863,7 @@
         if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
         if (mgrExportPdfBtn) mgrExportPdfBtn.disabled = false;
       } catch (err) {
-        showAlert('Manager report error: ' + err.message, true);
+        showAlert(t('managerReportError') + ': ' + err.message, true);
       } finally {
         mgrRunBtn.disabled = false;
       }
@@ -2228,12 +3185,12 @@
         const data = await res.json();
         const items = data.items || [];
         if (!items.length) {
-          wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">No missing references.</p>';
+          wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('noMissingReferences')) + '</p>';
           return;
         }
         wrap.innerHTML = `
           <table class="mini-table missing-ref-table">
-            <thead><tr><th>Date</th><th>Description</th><th>Reference</th><th>Attach receipt</th><th></th></tr></thead>
+            <thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('attachReceipt'))}</th><th></th></tr></thead>
             <tbody>
               ${items.map(it => `
                 <tr>
@@ -2243,17 +3200,17 @@
                   <td>
                     <div class="missing-ref-actions">
                       <input type="file" class="missing-ref-file" data-id="${it.transaction_id}" accept="image/jpeg,image/png,image/webp,application/pdf" multiple>
-                      <button type="button" class="btn btn-secondary btn-sm missing-ref-upload" data-id="${it.transaction_id}">Upload</button>
+                      <button type="button" class="btn btn-secondary btn-sm missing-ref-upload" data-id="${it.transaction_id}">${escapeHtml(t('uploadReceipts'))}</button>
                     </div>
                   </td>
-                  <td><button type="button" class="btn btn-primary btn-sm missing-ref-save" data-id="${it.transaction_id}">Save ref</button></td>
+                  <td><button type="button" class="btn btn-primary btn-sm missing-ref-save" data-id="${it.transaction_id}">${escapeHtml(t('saveReference'))}</button></td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
         `;
       } catch (err) {
-        wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">Error loading missing references.</p>';
+        wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('errorLoadingMissingReferences')) + '</p>';
       }
     }
 
@@ -2356,8 +3313,8 @@
       if (!obj || typeof obj !== 'object') return '';
       const keys = Object.keys(obj);
       if (!keys.length) return '';
-      const rows = keys.map(k => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(formatNum(obj[k] ?? 0))}</td></tr>`).join('');
-      return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      const rows = keys.map(k => `<tr><td>${escapeHtml(localizeReportFieldName(k))}</td><td>${escapeHtml(formatNum(obj[k] ?? 0))}</td></tr>`).join('');
+      return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>${escapeHtml(t('fieldNameLabel'))}</th><th>${escapeHtml(t('fieldValue'))}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     function shortenUuid(v) {
@@ -2369,11 +3326,11 @@
     function formatReportCell(v, key) {
       if (v == null) return '—';
       if (typeof v === 'number') return formatNum(v);
-      if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+      if (typeof v === 'boolean') return v ? t('yes') : t('no');
       if (typeof v === 'object') return escapeHtml(JSON.stringify(v));
       const s = String(v);
       if ((key || '').toLowerCase().includes('id')) return escapeHtml(shortenUuid(s));
-      return escapeHtml(s);
+      return escapeHtml(localizeDynamicText(s));
     }
 
     function reportPeriodText(report) {
@@ -2381,8 +3338,8 @@
       const from = p.from || p.from_date;
       const to = p.to || p.to_date;
       if (from && to) return `${from} → ${to}`;
-      if (to) return `As of ${to}`;
-      if (from) return `From ${from}`;
+      if (to) return `${t('asOfDate')} ${to}`;
+      if (from) return `${t('labelFrom')} ${from}`;
       return '';
     }
 
@@ -2458,25 +3415,25 @@
       const safe = (n) => Number.isFinite(Number(n)) ? Number(n) : 0;
 
       if (rt === 'balance_sheet') {
-        const t = report.totals || {};
+        const totals = report.totals || {};
         return {
           type: 'doughnut',
-          title: 'Balance Sheet Mix',
+          title: t('chartBalanceSheetMix'),
           data: {
-            labels: ['Assets', 'Liabilities', 'Equity'],
-            datasets: [{ data: [safe(t.assets), safe(t.liabilities), safe(t.equity)], backgroundColor: palette.slice(0, 3) }]
+            labels: [t('sectionAssets'), t('sectionLiabilities'), t('sectionEquity')],
+            datasets: [{ data: [safe(totals.assets), safe(totals.liabilities), safe(totals.equity)], backgroundColor: palette.slice(0, 3) }]
           }
         };
       }
       if (rt === 'income_statement') {
-        const t = report.totals || {};
+        const totals = report.totals || {};
         return {
           type: 'bar',
-          title: 'Income Statement',
+          title: t('chartIncomeStatement'),
           data: {
-            labels: ['Revenue', 'COGS', 'OpEx', 'Other Exp', 'Net Profit'],
+            labels: [t('fieldRevenue'), t('fieldCOGS'), t('fieldOpEx'), t('fieldOtherExpenses'), t('fieldNetProfit')],
             datasets: [{
-              data: [safe(t.revenue), safe(t.cogs), safe(t.operating_expenses), safe(t.other_expenses), safe(t.net_profit)],
+              data: [safe(totals.revenue), safe(totals.cogs), safe(totals.operating_expenses), safe(totals.other_expenses), safe(totals.net_profit)],
               backgroundColor: [palette[1], palette[3], palette[5], palette[4], palette[0]]
             }]
           }
@@ -2486,9 +3443,9 @@
         const s = report.sections || {};
         return {
           type: 'bar',
-          title: 'Cash Flow',
+          title: t('chartCashFlow'),
           data: {
-            labels: ['Operating', 'Investing', 'Financing', 'Net Change'],
+            labels: [t('fieldOperating'), t('fieldInvesting'), t('fieldFinancing'), t('fieldNetChange')],
             datasets: [{
               data: [safe((s.operating || {}).net), safe((s.investing || {}).net), safe((s.financing || {}).net), safe((report.totals || {}).net_change)],
               backgroundColor: [palette[0], palette[1], palette[4], palette[2]]
@@ -2501,12 +3458,12 @@
         if (!rows.length) return null;
         return {
           type: 'bar',
-          title: 'Top Accounts by Turnover',
+          title: t('chartTopAccountsByTurnover'),
           data: {
             labels: rows.map(r => r.account_code),
             datasets: [
-              { label: 'Debit', data: rows.map(r => safe(r.debit_turnover)), backgroundColor: palette[0] },
-              { label: 'Credit', data: rows.map(r => safe(r.credit_turnover)), backgroundColor: palette[1] }
+              { label: t('tableDebit'), data: rows.map(r => safe(r.debit_turnover)), backgroundColor: palette[0] },
+              { label: t('tableCredit'), data: rows.map(r => safe(r.credit_turnover)), backgroundColor: palette[1] }
             ]
           }
         };
@@ -2516,10 +3473,10 @@
         if (!rows.length) return null;
         return {
           type: 'line',
-          title: 'Running Balance',
+          title: t('chartRunningBalance'),
           data: {
             labels: rows.map(r => r.date),
-            datasets: [{ label: 'Balance', data: rows.map(r => safe(r.running_balance)), borderColor: palette[0], backgroundColor: 'rgba(15,118,110,0.18)', fill: true, tension: 0.25 }]
+            datasets: [{ label: t('fieldBalance'), data: rows.map(r => safe(r.running_balance)), borderColor: palette[0], backgroundColor: 'rgba(15,118,110,0.18)', fill: true, tension: 0.25 }]
           }
         };
       }
@@ -2528,7 +3485,7 @@
         if (!rows.length) return null;
         return {
           type: 'bar',
-          title: 'Inventory Value by Item',
+          title: t('chartInventoryValueByItem'),
           data: { labels: rows.map(r => r.item_name), datasets: [{ data: rows.map(r => safe(r.inventory_value)), backgroundColor: palette[0] }] }
         };
       }
@@ -2537,8 +3494,8 @@
         if (!rows.length) return null;
         return {
           type: 'line',
-          title: 'Inventory Movements',
-          data: { labels: rows.map(r => r.movement_date), datasets: [{ label: 'Qty', data: rows.map(r => safe(r.quantity)), borderColor: palette[1], fill: false, tension: 0.2 }] }
+          title: t('chartInventoryMovements'),
+          data: { labels: rows.map(r => r.movement_date), datasets: [{ label: t('labelQuantity'), data: rows.map(r => safe(r.quantity)), borderColor: palette[1], fill: false, tension: 0.2 }] }
         };
       }
       if (rt.includes('sales') || rt.includes('purchase')) {
@@ -2552,8 +3509,8 @@
         if (!valueKey) return null;
         return {
           type: 'bar',
-          title: 'Sales / Purchase',
-          data: { labels: rows.map(r => r[labelKey] || 'Item'), datasets: [{ data: rows.map(r => safe(r[valueKey])), backgroundColor: palette[2] }] }
+          title: t('chartSalesPurchase'),
+          data: { labels: rows.map(r => r[labelKey] || t('itemWord')), datasets: [{ data: rows.map(r => safe(r[valueKey])), backgroundColor: palette[2] }] }
         };
       }
       return null;
@@ -2585,28 +3542,29 @@
     }
 
     function renderReportPreviewHtml(report) {
-      if (!report || typeof report !== 'object') return '<p class="empty-state">No report data.</p>';
+      if (!report || typeof report !== 'object') return '<p class="empty-state">' + escapeHtml(t('noReportData')) + '</p>';
       if (report.sections && typeof report.sections === 'object') {
         const cards = Object.keys(report.sections).map(k => {
           const sec = report.sections[k] || {};
           const items = (sec.items || []).slice(0, 8);
           const table = items.length
-            ? `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Code</th><th>Account</th><th>Balance</th></tr></thead><tbody>${items.map(it => `<tr><td>${formatReportCell(it.account_code, 'account_code')}</td><td>${formatReportCell(it.account_name, 'account_name')}</td><td>${formatReportCell(it.balance, 'balance')}</td></tr>`).join('')}</tbody></table></div>`
-            : '<div class="empty-state" style="padding:0.35rem;">No rows in this section.</div>';
+            ? `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>${escapeHtml(t('tableCode'))}</th><th>${escapeHtml(t('fieldAccount'))}</th><th>${escapeHtml(t('fieldBalance'))}</th></tr></thead><tbody>${items.map(it => `<tr><td>${formatReportCell(it.account_code, 'account_code')}</td><td>${formatReportCell(it.account_name, 'account_name')}</td><td>${formatReportCell(it.balance, 'balance')}</td></tr>`).join('')}</tbody></table></div>`
+            : '<div class="empty-state" style="padding:0.35rem;">' + escapeHtml(t('noRowsInSection')) + '</div>';
+          const sectionNameMap = { assets: 'sectionAssets', liabilities: 'sectionLiabilities', equity: 'sectionEquity', revenues: 'sectionRevenues', expenses: 'sectionExpenses' };
           return `<div class="panel" style="margin-bottom:0.45rem;">
-            <strong>${escapeHtml(sec.label || k)}</strong>
+            <strong>${escapeHtml(sectionNameMap[k] ? t(sectionNameMap[k]) : (sec.label || k))}</strong>
             <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(sec.label_fa || '')}</div>
-            <div style="font-size:0.92rem; margin-top:0.2rem;">Total: ${formatNum(sec.total || sec.net || 0)}</div>
+            <div style="font-size:0.92rem; margin-top:0.2rem;">${escapeHtml(t('tableTotal'))}: ${formatNum(sec.total || sec.net || 0)}</div>
             ${table}
           </div>`;
         }).join('');
-        return cards || '<p class="empty-state">No section rows.</p>';
+        return cards || '<p class="empty-state">' + escapeHtml(t('noSectionRows')) + '</p>';
       }
       const tableData = reportToTableData(report);
       if (tableData.headers.length && tableData.rows.length) {
         const headers = tableData.headers;
         const body = tableData.rows.slice(0, 80).map(r => `<tr>${headers.map((h, i) => `<td>${formatReportCell(r[i], h)}</td>`).join('')}</tr>`).join('');
-        const head = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+        const head = headers.map(h => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
         return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
       }
       if (report.totals && typeof report.totals === 'object') {
@@ -2625,17 +3583,17 @@
         return Array.isArray(data.rows) && data.rows.length > 0;
       })();
       div.innerHTML = `
-        <div style="font-weight:700; margin-bottom:0.35rem;">Report result</div>
-        ${period ? `<div class="report-meta">Period: ${escapeHtml(period)}</div>` : ''}
+        <div style="font-weight:700; margin-bottom:0.35rem;">${escapeHtml(t('reportResult'))}</div>
+        ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
         <div>${renderReportPreviewHtml(report)}</div>
         <div class="panel report-chart-panel" style="display:none;">
-          <h3>Chart</h3>
+          <h3>${escapeHtml(t('chartWord'))}</h3>
           <canvas id="${chartId}" height="200"></canvas>
         </div>
         <div class="report-actions" style="margin-top:0.5rem;">
-          <button type="button" class="btn btn-secondary btn-sm chat-report-export-json">Export JSON</button>
-          <button type="button" class="btn btn-secondary btn-sm chat-report-export-csv" ${hasCsvRows ? '' : 'disabled'}>Export CSV</button>
-          <button type="button" class="btn btn-secondary btn-sm chat-report-export-pdf">Export PDF</button>
+          <button type="button" class="btn btn-secondary btn-sm chat-report-export-json">${escapeHtml(t('btnExportJson'))}</button>
+          <button type="button" class="btn btn-secondary btn-sm chat-report-export-csv" ${hasCsvRows ? '' : 'disabled'}>${escapeHtml(t('btnExportCsv'))}</button>
+          <button type="button" class="btn btn-secondary btn-sm chat-report-export-pdf">${escapeHtml(t('btnExportPdf'))}</button>
         </div>
       `;
       chatMessagesEl.appendChild(div);
@@ -2657,7 +3615,7 @@
         csvBtn.addEventListener('click', () => {
           const csv = reportToCsv(report);
           if (!csv) {
-            showAlert('This report has no tabular rows to export as CSV.', true);
+            showAlert(t('noTabularRowsCsv'), true);
             return;
           }
           downloadTextFile(`${base}.csv`, csv, 'text/csv');

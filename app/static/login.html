@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Accounting Assistant - Login</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap');
     :root {
       --bg: radial-gradient(circle at 15% 10%, #e8f6f2 0%, #ecf4fb 40%, #e7eef7 100%);
       --card: rgba(255,255,255,0.92);
@@ -75,15 +76,43 @@
       display: none;
     }
     .hint { font-size: 0.84rem; color: var(--muted); margin-top: 0.85rem; }
-    .lang-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
-    .lang-row label { margin: 0; min-width: 74px; }
-    .lang-row select {
+    .lang-row { margin-bottom: 0.75rem; }
+    .lang-row label { margin: 0 0 0.35rem 0; min-width: 74px; }
+    .lang-pills {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.4rem;
+    }
+    .lang-pill {
       width: 100%;
-      padding: 0.45rem 0.6rem;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 0.95rem;
+      border-radius: 10px;
+      padding: 0.45rem 0.35rem;
       background: #fff;
+      color: var(--text);
+      font-size: 0.86rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      cursor: pointer;
+      transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+    }
+    .lang-pill:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(15,23,42,0.08); }
+    .lang-pill.active { border-color: var(--primary); background: #e6fffb; color: #0b5f58; }
+    .lang-pill .flag { font-size: 1rem; line-height: 1; }
+    html[lang="fa"] body,
+    html[lang="fa"] input,
+    html[lang="fa"] button,
+    html[lang="fa"] .lang-pill {
+      font-family: 'Vazirmatn', 'Tahoma', 'Segoe UI', sans-serif;
+    }
+    html[lang="ar"] body,
+    html[lang="ar"] input,
+    html[lang="ar"] button,
+    html[lang="ar"] .lang-pill {
+      font-family: 'Tajawal', 'Noto Naskh Arabic', 'Tahoma', sans-serif;
     }
   </style>
 </head>
@@ -93,13 +122,13 @@
     <p id="login-subtitle">Sign in to access transactions, reports, and settings.</p>
 
     <div class="lang-row">
-      <label for="login-language" id="login-language-label">Language</label>
-      <select id="login-language">
-        <option value="en">English</option>
-        <option value="fa">Persian (فارسی)</option>
-        <option value="es">Spanish (Español)</option>
-        <option value="ar">Arabic (العربية)</option>
-      </select>
+      <label id="login-language-label">Language</label>
+      <div class="lang-pills" id="lang-pills">
+        <button type="button" class="lang-pill" data-lang="en"><span class="flag">🇺🇸</span><span>EN</span></button>
+        <button type="button" class="lang-pill" data-lang="fa"><span class="flag">🇮🇷</span><span>FA</span></button>
+        <button type="button" class="lang-pill" data-lang="es"><span class="flag">🇪🇸</span><span>ES</span></button>
+        <button type="button" class="lang-pill" data-lang="ar"><span class="flag">🇸🇦</span><span>AR</span></button>
+      </div>
     </div>
 
     <label for="username" id="username-label">Username</label>
@@ -117,7 +146,7 @@
     const form = document.getElementById('login-form');
     const submitBtn = document.getElementById('submit-btn');
     const errorBox = document.getElementById('error-box');
-    const languageSelect = document.getElementById('login-language');
+    const langPills = document.getElementById('lang-pills');
     const SUPPORTED_UI_LANGUAGES = ['en', 'fa', 'es', 'ar'];
     const RTL_LANGUAGES = new Set(['fa', 'ar']);
     let currentLanguage = 'en';
@@ -133,6 +162,7 @@
         defaultAdmin: 'Default admin credentials:',
         required: 'Username and password are required.',
         failed: 'Login failed.',
+        connectionError: 'Connection error',
       },
       fa: {
         title: 'دستیار حسابداری',
@@ -145,6 +175,7 @@
         defaultAdmin: 'کاربر پیش‌فرض ادمین:',
         required: 'نام کاربری و رمز عبور الزامی است.',
         failed: 'ورود ناموفق بود.',
+        connectionError: 'خطای اتصال',
       },
       es: {
         title: 'Asistente Contable',
@@ -157,6 +188,7 @@
         defaultAdmin: 'Credenciales de admin por defecto:',
         required: 'Usuario y contraseña son obligatorios.',
         failed: 'Error de inicio de sesión.',
+        connectionError: 'Error de conexión',
       },
       ar: {
         title: 'مساعد المحاسبة',
@@ -169,6 +201,7 @@
         defaultAdmin: 'بيانات المدير الافتراضية:',
         required: 'اسم المستخدم وكلمة المرور مطلوبان.',
         failed: 'فشل تسجيل الدخول.',
+        connectionError: 'خطأ في الاتصال',
       },
     };
 
@@ -183,7 +216,9 @@
       if (persist) localStorage.setItem('aa_ui_language', nextLang);
       document.documentElement.lang = nextLang;
       document.documentElement.dir = RTL_LANGUAGES.has(nextLang) ? 'rtl' : 'ltr';
-      if (languageSelect) languageSelect.value = nextLang;
+      document.querySelectorAll('.lang-pill').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.lang === nextLang);
+      });
       document.getElementById('login-title').textContent = t('title');
       document.getElementById('login-subtitle').textContent = t('subtitle');
       document.getElementById('login-language-label').textContent = t('language');
@@ -230,14 +265,18 @@
         }
         window.location.href = '/';
       } catch (err) {
-        setError('Connection error: ' + err.message);
+        setError(t('connectionError') + ': ' + err.message);
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = t('login');
       }
     });
 
-    languageSelect.addEventListener('change', () => applyLanguage(languageSelect.value, true));
+    langPills.addEventListener('click', (e) => {
+      const btn = e.target.closest('.lang-pill[data-lang]');
+      if (!btn) return;
+      applyLanguage(btn.dataset.lang, true);
+    });
     applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
   </script>
 </body>

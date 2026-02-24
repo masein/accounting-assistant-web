@@ -51,6 +51,16 @@ PAYMENT_METHOD_ALIASES: dict[str, tuple[str, ...]] = {
         "انتقال بین حساب",
         "بدون کارمزد",
     ),
+    "Online Banking": (
+        "online banking",
+        "internet banking",
+        "mobile banking",
+        "online gateway",
+        "payment gateway",
+        "gateway",
+        "بانکداری اینترنتی",
+        "بانکداری آنلاین",
+    ),
 }
 
 _PAYMENT_KEYWORDS = (
@@ -441,6 +451,11 @@ def parse_amount_int(text: str) -> int:
     if not text:
         return 0
     t = text.lower()
+    t = re.sub(
+        r"(?:account|acc(?:ount)?|iban|card|شماره\s*حساب|شماره\s*کارت)\s*[:#-]?\s*\d[\d,]{5,}",
+        " ",
+        t,
+    )
     m = re.search(r"(\d[\d,]*(?:\.\d+)?)\s*([kmb])\b", t)
     if m:
         return _money_from_token(m.group(1), m.group(2), None)
@@ -451,7 +466,11 @@ def parse_amount_int(text: str) -> int:
     m = re.search(r"(\d[\d,]*(?:\.\d+)?)\s*(tomans?|rials?)\b", t)
     if m:
         return _money_from_token(m.group(1), None, m.group(2))
-    m = re.search(r"\b(\d[\d,]{2,})\b", t)
+    # Currency code/word may come immediately after amount (e.g. "79471400IRR")
+    m = re.search(r"(?<!\d)(\d[\d,]*(?:\.\d+)?)(?:\s*(?:irr|rial|rials|ریال|ريال|تومان|tomans?))(?!\d)", t, re.IGNORECASE)
+    if m:
+        return _money_from_token(m.group(1), None, None)
+    m = re.search(r"(?<!\d)(\d[\d,]{2,})(?!\d)", t)
     if m:
         return _money_from_token(m.group(1), None, None)
     return 0
@@ -459,6 +478,21 @@ def parse_amount_int(text: str) -> int:
 
 def is_payment_intent(messages: list[dict[str, str]]) -> bool:
     text = _normalize_text_for_match(" ".join([(m.get("content") or "") for m in messages if m.get("role") == "user"]))
+    # Treat explicit "paid us / to us" style phrases as receipt (money in), not payment-out.
+    receipt_phrase_hints = (
+        "paid us",
+        "pay us",
+        "to us",
+        "received from",
+        "got paid",
+        "be ma",
+        "به ما",
+        "به حساب ما",
+        "واریز کرد",
+        "دریافت کردیم",
+    )
+    if any(h in text for h in receipt_phrase_hints):
+        return False
     pay_hits = sum(1 for k in _PAYMENT_KEYWORDS if k in text)
     recv_hits = sum(1 for k in _RECEIPT_KEYWORDS if k in text)
     return pay_hits > 0 and pay_hits >= recv_hits
@@ -479,8 +513,15 @@ def extract_payment_method(text: str) -> str | None:
     m = re.search(r"\b(?:via|with|through|using|با)\s+([a-z\u0600-\u06ff][a-z0-9\u0600-\u06ff\-\s]{2,60})\b", lower)
     if m:
         frag = _normalize_whitespace(m.group(1))
-        if "bank" not in frag:
-            return canonical_method_name(frag)
+        if re.search(r"\d{4,}", frag):
+            return None
+        if any(k in frag for k in ("account", "iban", "شماره", "حساب", "card", "کارت")):
+            return None
+        if re.search(r"\b(?:mellat|melli|tejarat|saderat|saman|parsian|pasargad)\b", frag):
+            return None
+        if "bank" in frag and "online banking" not in frag and "internet banking" not in frag:
+            return None
+        return canonical_method_name(frag)
     return None
 
 
@@ -543,6 +584,15 @@ def parse_fee_config_text(text: str) -> dict[str, Any] | None:
     t = text.strip().lower()
     if not t:
         return None
+    has_fee_keyword = any(k in t for k in ("fee", "transaction fee", "کارمزد", "%", "toman", "rial", "max", "cap", "free"))
+    from_bare_number = False
+    if not has_fee_keyword and not re.fullmatch(r"\s*0+(?:\.0+)?\s*(?:tomans?|rials?)?\s*", t):
+        # Allow bare numeric replies like "5000" as fee answers, but reject long free-form sentences
+        # that likely describe a new transaction.
+        if re.fullmatch(r"\s*\d[\d,]*(?:\.\d+)?\s*(?:tomans?|rials?)?\s*", t):
+            from_bare_number = True
+        else:
+            return None
     if any(k in t for k in ("fee-free", "fee free", "no fee", "zero fee", "free")):
         return {
             "fee_type": "free",
@@ -550,6 +600,7 @@ def parse_fee_config_text(text: str) -> dict[str, Any] | None:
             "flat_fee": 0,
             "percent_bps": 0,
             "max_fee": None,
+            "from_bare_number": False,
         }
     # Accept explicit zero-fee statements such as:
     # "0", "fee is 0", "transaction fee was 0 for this payment", "0 toman".
@@ -560,6 +611,7 @@ def parse_fee_config_text(text: str) -> dict[str, Any] | None:
             "flat_fee": 0,
             "percent_bps": 0,
             "max_fee": None,
+            "from_bare_number": False,
         }
     if re.fullmatch(r"\s*0+(?:\.0+)?\s*(?:tomans?|rials?)?\s*", t):
         return {
@@ -568,6 +620,7 @@ def parse_fee_config_text(text: str) -> dict[str, Any] | None:
             "flat_fee": 0,
             "percent_bps": 0,
             "max_fee": None,
+            "from_bare_number": False,
         }
 
     percent_bps = 0
@@ -606,6 +659,7 @@ def parse_fee_config_text(text: str) -> dict[str, Any] | None:
         "flat_fee": flat_fee,
         "percent_bps": percent_bps,
         "max_fee": max_fee,
+        "from_bare_number": from_bare_number,
     }
 
 

@@ -141,6 +141,21 @@ def _extract_bank_name(text: str) -> str | None:
     return None
 
 
+def _extract_limit(text: str) -> int | None:
+    raw = text or ""
+    m = re.search(r"\b(?:last|latest)\s+(\d{1,3})\b", raw, re.IGNORECASE)
+    if not m:
+        m = re.search(r"\b(\d{1,3})\s+(?:latest|last)\b", raw, re.IGNORECASE)
+    if m:
+        try:
+            n = int(m.group(1))
+            if n > 0:
+                return n
+        except ValueError:
+            return None
+    return None
+
+
 def parse_report_intent(text: str, today: date | None = None) -> ReportIntent | None:
     t = (text or "").strip()
     if not t:
@@ -149,6 +164,7 @@ def parse_report_intent(text: str, today: date | None = None) -> ReportIntent | 
     from_date, to_date = _extract_dates(low, today=today)
     account_code = _extract_account_code(t)
     bank_name = _extract_bank_name(t)
+    limit = _extract_limit(t)
 
     # Financial statements
     if ("balance sheet" in low) or ("ترازنامه" in t):
@@ -182,6 +198,29 @@ def parse_report_intent(text: str, today: date | None = None) -> ReportIntent | 
             bank_name=bank_name,
         )
 
+    # Bank transaction listing aliases (e.g. "show me 10 latest transactions of Mellat bank")
+    if bank_name and (
+        ("transaction" in low)
+        or ("transactions" in low)
+        or ("txns" in low)
+        or ("trxn" in low)
+        or ("تراکنش" in t)
+        or ("آخرین" in t)
+    ):
+        effective_from = from_date
+        effective_to = to_date
+        if limit and (from_date is None and to_date is None):
+            # For "latest N" queries with no explicit period, search all-time.
+            effective_from = date(1900, 1, 1)
+        return ReportIntent(
+            key="account_ledger",
+            from_date=effective_from,
+            to_date=effective_to,
+            account_code=account_code,
+            bank_name=bank_name,
+            limit=limit or 10,
+        )
+
     # Inventory
     if (("inventory" in low) and ("movement" in low)) or ("گردش انبار" in t):
         return ReportIntent(key="inventory_movement", from_date=from_date, to_date=to_date)
@@ -210,6 +249,10 @@ def parse_report_intent(text: str, today: date | None = None) -> ReportIntent | 
         return ReportIntent(key="debtor_creditor", from_date=from_date, to_date=to_date)
 
     # Convenient query aliases used in chat
-    if ("last transaction" in low) or ("lates transaction" in low) or ("latest transaction" in low):
-        return ReportIntent(key="general_journal", from_date=from_date, to_date=to_date, limit=1)
+    if (("last transaction" in low) or ("lates transaction" in low) or ("latest transaction" in low)) and not bank_name:
+        effective_from = from_date
+        effective_to = to_date
+        if from_date is None and to_date is None:
+            effective_from = date(1900, 1, 1)
+        return ReportIntent(key="general_journal", from_date=effective_from, to_date=effective_to, limit=1)
     return None

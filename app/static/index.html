@@ -108,8 +108,27 @@
     .voucher-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 1rem; }
     .chat-col, .form-col { min-width: 0; }
     @media (max-width: 1020px) { .voucher-layout { grid-template-columns: 1fr; } }
-    .chat-panel { display: flex; flex-direction: column; height: 380px; border: 1px solid var(--border); border-radius: 12px; background: #f8fbfd; }
-    .chat-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      height: min(62vh, 760px);
+      min-height: 380px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #f8fbfd;
+    }
+    .chat-messages {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
     .chat-msg { max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; }
     .chat-msg.message-in { animation: message-in 220ms ease; }
     .chat-msg.user { align-self: flex-end; background: var(--primary); color: #fff; }
@@ -252,8 +271,8 @@
     .report-actions { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
     .report-chart-panel { margin-bottom: 0.75rem; }
     .report-chart-panel canvas { max-height: 280px; }
-    .chat-msg.report-msg { max-width: 96%; overflow: hidden; }
-    .chat-msg.report-msg .report-preview-wrap { max-height: 360px; overflow: auto; }
+    .chat-msg.report-msg { max-width: 100%; width: 100%; overflow: visible; }
+    .chat-msg.report-msg .report-preview-wrap { max-height: 420px; overflow: auto; }
     .chat-msg.report-msg .report-preview-wrap .mini-table { min-width: 640px; }
     .chat-msg.report-msg .panel { margin-top: 0.45rem; }
     #missing-refs-wrap { overflow-x: auto; padding-bottom: 0.25rem; }
@@ -350,8 +369,9 @@
       margin-bottom: 0;
     }
     #voucher-chat-inline.is-open {
-      max-height: 1100px;
+      max-height: none;
       opacity: 1;
+      overflow: visible;
       transform: translateY(0);
       margin-bottom: 1rem;
     }
@@ -385,7 +405,7 @@
       .ai-runtime-bar { grid-template-columns: 1fr; }
       .nav-btn { flex: 0 0 auto; min-height: 40px; }
       .btn { min-height: 40px; }
-      .chat-panel { height: 300px; }
+      .chat-panel { height: 56vh; min-height: 300px; }
       .chat-input-wrap { flex-wrap: wrap; }
       .chat-input-wrap input { min-width: 100%; }
       .ledger-toolbar { grid-template-columns: 1fr; }
@@ -3273,6 +3293,7 @@
 
     function setEntityDropdownsFromResponse(resolvedEntities, mentions) {
       const byRole = { client: 'entity-client', bank: 'entity-bank', payee: 'entity-payee', supplier: 'entity-supplier' };
+      const assigned = new Set();
       Object.keys(byRole).forEach(role => {
         const el = document.getElementById(byRole[role]);
         if (el) el.value = '';
@@ -3281,13 +3302,16 @@
         resolvedEntities.forEach(r => {
           const role = (r.role || '').toLowerCase();
           const selId = byRole[role];
-          if (r.entity_id && selId) document.getElementById(selId).value = r.entity_id;
+          if (r.entity_id && selId) {
+            document.getElementById(selId).value = r.entity_id;
+            assigned.add(role);
+          }
         });
-        return;
       }
       if (!mentions || !mentions.length) return;
       mentions.forEach(m => {
         const role = (m.role || '').toLowerCase();
+        if (assigned.has(role)) return;
         const name = (m.name || '').trim();
         if (!name || !byRole[role]) return;
         const arr = entityOptions[role] || [];

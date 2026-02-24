@@ -81,6 +81,18 @@ def _apply_entity_cleanup_migrations() -> None:
             "UPDATE transaction_lines tl SET line_description = regexp_replace(tl.line_description, E'\\s+[Ww]ith\\s+[Oo]f\\s+\\d+', '', 'g') "
             "WHERE tl.line_description ~* E'\\s+with\\s+of\\s+\\d+'"
         ),
+        # Remove malformed employee/payee entities created from chat phrase fragments
+        (
+            "DELETE FROM transaction_entities te USING entities e "
+            "WHERE te.entity_id = e.id "
+            "AND e.type = 'employee' "
+            "AND e.name ~* '^(us|our|me|we|you|your)[[:space:]]+via[[:space:]].*(bank|account|about)'"
+        ),
+        (
+            "DELETE FROM entities e "
+            "WHERE e.type = 'employee' "
+            "AND e.name ~* '^(us|our|me|we|you|your)[[:space:]]+via[[:space:]].*(bank|account|about)'"
+        ),
     ]
     with engine.begin() as conn:
         for s in stmts:

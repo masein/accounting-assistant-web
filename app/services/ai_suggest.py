@@ -504,17 +504,38 @@ def _infer_entity_mentions_from_text(transaction: dict[str, Any], last_user_mess
             name = _normalize_entity_name(m.group(1))
             if name:
                 out.append({"role": "bank", "name": name})
-    def _add_payee(name: str) -> None:
+    def _add_payee(name: str) -> bool:
         name = _normalize_entity_name(name)
-        if len(name) < 2 or name.lower() in ("the", "our", "your"):
-            return
+        if len(name) < 2 or name.lower() in ("the", "our", "your", "us", "me", "we"):
+            return False
         # Skip generic phrases that look like line descriptions, not person names
         lower = name.lower()
-        if any(w in lower for w in ("payment", "withdrawal", "salary", "wages", "employee salary")):
-            return
+        if any(w in lower for w in ("payment", "withdrawal", "salary", "wages", "employee salary", "via", "bank", "account", "about")):
+            return False
         if len(name) > 50:
-            return
+            return False
+        if len(name.split()) > 4:
+            return False
         out.append({"role": "payee", "name": name})
+        return True
+
+    def _add_supplier(name: str) -> bool:
+        name = _normalize_entity_name(name)
+        if len(name) < 2 or len(name) > 60:
+            return False
+        lower = name.lower()
+        if lower in ("the", "our", "your", "us", "me", "we"):
+            return False
+        if any(w in lower for w in ("bank", "account", "payment", "project", "invoice", "receipt", "via", "about")):
+            return False
+        if len(name.split()) > 5:
+            return False
+        if any((e.get("role") == "payee" and (e.get("name") or "").strip().lower() == lower) for e in out):
+            return False
+        if any((e.get("role") == "supplier" and e.get("name") == name) for e in out):
+            return False
+        out.append({"role": "supplier", "name": name})
+        return True
 
     # Payee/employee: "Payment to Ali Roshan (Employee)", "to employee X via", "Paid Ali roshan my employee"
     m = re.search(r"(?:payment to|to)\s+([A-Za-z][A-Za-z0-9\s]{1,40}?)\s*\(employee\)", desc, re.IGNORECASE)
@@ -525,13 +546,60 @@ def _infer_entity_mentions_from_text(transaction: dict[str, Any], last_user_mess
         if m:
             _add_payee(m.group(1))
     if not any(e.get("role") == "payee" for e in out):
-        m = re.search(r"(?:paid|payed)\s+(?:employee\s+)?([A-Za-z][A-Za-z0-9\s]{1,40}?)(?:\s+my employee|\s*\(employee\)|\s+from|\s+\d|\s*\-|,|\.|$)", desc, re.IGNORECASE)
+        m = re.search(
+            r"(?:paid|payed)\s+(?:employee\s+)?([A-Za-z][A-Za-z0-9\s]{1,40}?)(?:\s+my employee|\s*\(employee\)|\s+from|\s+via|\s+for|\s+about|\s+bank|\s+account|\s+\d|\s*\-|,|\.|$)",
+            desc,
+            re.IGNORECASE,
+        )
         if m:
             _add_payee(m.group(1))
     if not any(e.get("role") == "payee" for e in out):
         m = re.search(r"(?:wages? payment to|payment to)\s+([A-Za-z][A-Za-z0-9\s]{1,40}?)(?:\s*\-|\s*\(|\s+from|\s+via|\s+\d|,|\.|$)", desc, re.IGNORECASE)
         if m:
             _add_payee(m.group(1))
+
+    # Supplier/vendor: "paid ... to Parspack ..." / "payment to vendor X ..."
+    # Use supplier role when "to <name>" appears in payment context and it's not explicitly employee/payee.
+    if not any(e.get("role") == "supplier" for e in out):
+        pattern = r"(?:paid|payed|payment(?:\s+of)?|purchase(?:\s+from)?)[^.,\n]{0,60}?\bto\s+([A-Za-z][A-Za-z0-9\s]{1,50}?)(?:\s+from|\s+via|\s+for|\s+\d|\s*\-|,|\.|$)"
+        for m in re.finditer(pattern, desc, re.IGNORECASE):
+            candidate = _normalize_entity_name(m.group(1))
+            low = candidate.lower()
+            # If it clearly points to an employee, keep payee path.
+            if any(k in low for k in ("employee", "salary", "wage", "staff")):
+                continue
+            if _add_supplier(candidate):
+                break
+    # Supplier fallback for patterns like:
+    # "paid for Asiatech server", "payment for Parspack hosting", "purchase for VendorX domain"
+    if not any(e.get("role") == "supplier" for e in out):
+        for m in re.finditer(
+            r"(?:paid|payed|payment|purchase)[^.,\n]{0,25}?\bfor\s+([A-Za-z][A-Za-z0-9\s]{1,50}?)(?:\s+(?:server|host|hosting|domain|license|subscription|service|renewal)\b|\s+from|\s+via|,|\.|$)",
+            desc,
+            re.IGNORECASE,
+        ):
+            candidate = _normalize_entity_name(m.group(1))
+            low = candidate.lower()
+            if any(k in low for k in ("employee", "salary", "wage", "staff", "bank", "account", "project")):
+                continue
+            if _add_supplier(candidate):
+                break
+    # Extra fallback: explicit "to <name> from/via <bank>" in user text.
+    if not any(e.get("role") == "supplier" for e in out):
+        fallback_text = f"{last_user_message or ''} {desc}"
+        for m in re.finditer(
+            r"\bto\s+([A-Za-z][A-Za-z0-9\s]{1,50}?)(?:\s+from|\s+via|\s+\d|\s*\-|,|\.|$)",
+            fallback_text,
+            re.IGNORECASE,
+        ):
+            candidate = _normalize_entity_name(m.group(1))
+            low = candidate.lower()
+            if low in ("our", "us", "me", "you", "your"):
+                continue
+            if any(k in low for k in ("bank", "account", "employee", "salary", "wage", "staff")):
+                continue
+            if _add_supplier(candidate):
+                break
     # Client: "from X", "received from X", "client X" — only for receipts; exclude bank names and long runs
     bank_words = ("melli", "tejarat", "saderat", "saman", "parsian", "pasargad", "mellat", "melat", "sina", "bank")
     # Stop capture at " bank", " to", " for", digit, so we don't grab "Melli Bank I Payed ..."
@@ -548,6 +616,19 @@ def _infer_entity_mentions_from_text(transaction: dict[str, Any], last_user_mess
                 if " bank" not in lower_name and len(name.split()) <= 4:
                     if not any(e.get("name") == name for e in out):
                         out.append({"role": "client", "name": name})
+    # Receipt payer pattern: "<Name> paid us ..."
+    if not any(e.get("role") == "client" for e in out):
+        m = re.search(
+            r"\b([A-Za-z][A-Za-z0-9\s]{1,40}?)\s+(?:paid|payed)\s+(?:us|me|our company|to us)\b",
+            desc,
+            re.IGNORECASE,
+        )
+        if m:
+            name = _normalize_entity_name(m.group(1))
+            if 2 <= len(name) <= 50 and len(name.split()) <= 4:
+                lower_name = name.lower()
+                if not any(w in lower_name for w in ("bank", "account", "via", "about", "payment")):
+                    out.append({"role": "client", "name": name})
     return out
 
 
@@ -556,7 +637,13 @@ def _looks_like_complete_description(text: str) -> bool:
     if not text or len(text) < 20:
         return False
     lower = text.lower()
-    has_amount = bool(re.search(r"\d+\s*[MmKk]|\d+\s*million|received|paid|payment|واریز|دریافت", lower))
+    has_amount = bool(
+        re.search(
+            r"(?<!\d)\d[\d,]{2,}(?:\s*(?:irr|rial|rials|ریال|تومان))?(?!\d)|(?<!\d)\d+(?:\.\d+)?\s*[mkb](?!\w)|\d+\s*million|\d+\s*billion",
+            lower,
+            re.IGNORECASE,
+        )
+    )
     has_who_or_what = any(
         x in lower
         for x in (
@@ -925,12 +1012,26 @@ async def chat_turn(
                 pass
         return {"message": message_text, "transaction": None}
     entity_mentions = _parse_entity_mentions(out.get("entity_mentions"))
-    if not entity_mentions:
-        last_user = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "user"), "")
-        entity_mentions = _infer_entity_mentions_from_text(
-            {"description": normalized.get("description"), "lines": normalized.get("lines") or []},
-            last_user,
-        )
+    # Always run local inference and merge, because model output may be partial
+    # (e.g. only bank mention while supplier/payee is omitted).
+    last_user = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "user"), "")
+    inferred_mentions = _infer_entity_mentions_from_text(
+        {"description": normalized.get("description"), "lines": normalized.get("lines") or []},
+        last_user,
+    )
+    seen: set[tuple[str, str]] = set()
+    merged: list[dict[str, str]] = []
+    for m in [*(entity_mentions or []), *(inferred_mentions or [])]:
+        role = (m.get("role") or "").strip().lower()
+        name = _normalize_whitespace(m.get("name") or "")
+        if not role or not name:
+            continue
+        key = (role, name.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append({"role": role, "name": name})
+    entity_mentions = merged
     return {"message": message_text, "transaction": normalized, "entity_mentions": entity_mentions}
 
 

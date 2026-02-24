@@ -44,6 +44,7 @@ from app.schemas.transaction_fee import (
 )
 from app.services.ai_suggest import (
     AISuggestError,
+    _infer_entity_mentions_from_text,
     chat_turn as ai_chat_turn,
     parse_transaction_edit_intent,
     suggest_transaction as ai_suggest_transaction,
@@ -136,7 +137,17 @@ def _get_account_by_code(db: Session, code: str) -> Account:
 
 def _get_or_create_entity(db: Session, role: str, name: str) -> Entity:
     """Find entity by type and name (case-insensitive), or create it."""
-    name = name.strip()
+    name = re.sub(r"\s+", " ", (name or "").strip())
+    # Guardrail: reject malformed phrase-like names from chat extraction.
+    lower_name = name.lower()
+    if (
+        len(name) < 2
+        or len(name) > 80
+        or len(name.split()) > 5
+        or re.search(r"\b(via|bank|account|about|project|payment|transaction)\b", lower_name)
+        or lower_name in {"us", "our", "me", "we", "you", "your"}
+    ):
+        raise HTTPException(status_code=400, detail=f"Invalid entity name: {name}")
     if not name:
         raise HTTPException(status_code=400, detail="Entity name is empty")
     role = role.strip().lower()
@@ -215,6 +226,244 @@ def _all_bank_names(db: Session) -> list[str]:
         ).scalars().all()
         if n
     ]
+
+
+def _looks_like_edit_request(messages: list[dict[str, str]]) -> bool:
+    last_user = next((m.get("content") or "" for m in reversed(messages) if (m.get("role") or "") == "user"), "").strip()
+    if not last_user:
+        return False
+    low = last_user.lower()
+    explicit = any(
+        k in low
+        for k in (
+            "edit",
+            "update",
+            "change",
+            "fix",
+            "correct",
+            "set ",
+            "reverse",
+            "ویرایش",
+            "اصلاح",
+            "تغییر",
+            "update transaction",
+        )
+    )
+    if explicit:
+        return True
+    # Continue edit flow if assistant explicitly asked for edit search/change fields.
+    recent_assistant = [
+        (m.get("content") or "").lower()
+        for m in messages[-4:]
+        if (m.get("role") or "") == "assistant"
+    ]
+    assistant_in_edit_flow = any(
+        ("transaction to edit" in a)
+        or ("what to change" in a)
+        or ("matching transaction" in a)
+        or ("transaction id" in a)
+        for a in recent_assistant
+    )
+    if not assistant_in_edit_flow:
+        return False
+    return bool(
+        re.search(r"\b20\d{2}-\d{2}-\d{2}\b", low)
+        or re.search(r"\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b", low)
+        or any(k in low for k in ("reference", "ref", "client", "bank", "payee", "supplier", "transaction"))
+    )
+
+
+def _normalize_entity_mentions_for_context(
+    mentions: list[dict[str, str]],
+    *,
+    context_text: str,
+) -> list[dict[str, str]]:
+    """
+    Resolve ambiguous role collisions from model output (same name as both payee and supplier).
+    """
+    if not mentions:
+        return mentions
+    context = (context_text or "").lower()
+    employee_like = any(k in context for k in ("employee", "salary", "wage", "حقوق", "دستمزد"))
+    supplier_like = any(
+        k in context
+        for k in ("vendor", "supplier", "hosting", "domain", "server", "subscription", "renewal", "purchase", "invoice")
+    )
+    payee_names = {(m.get("name") or "").strip().lower() for m in mentions if (m.get("role") or "").strip().lower() == "payee"}
+    supplier_names = {(m.get("name") or "").strip().lower() for m in mentions if (m.get("role") or "").strip().lower() == "supplier"}
+    overlap = {n for n in payee_names if n and n in supplier_names}
+    if not overlap:
+        return mentions
+    out: list[dict[str, str]] = []
+    for m in mentions:
+        role = (m.get("role") or "").strip().lower()
+        name = (m.get("name") or "").strip()
+        low_name = name.lower()
+        if not low_name or low_name not in overlap:
+            out.append(m)
+            continue
+        if employee_like and role == "supplier":
+            continue
+        if supplier_like and role == "payee":
+            continue
+        # Default: keep payee for employee/person-like payments.
+        if role == "supplier":
+            continue
+        out.append(m)
+    return out
+
+
+def _looks_like_transaction_user_text(text: str) -> bool:
+    t = (text or "").strip().lower()
+    if not t:
+        return False
+    has_action = any(
+        k in t
+        for k in (
+            "paid",
+            "payed",
+            "received",
+            "payment",
+            "receipt",
+            "transfer",
+            "پرداخت",
+            "دریافت",
+            "واریز",
+            "برداشت",
+        )
+    )
+    has_counterparty = any(k in t for k in (" to ", " from ", " for ", "bank", "supplier", "client", "employee", "via", "with"))
+    has_amount = bool(
+        re.search(
+            r"(?<!\d)\d[\d,]{2,}(?:\s*(?:irr|rial|rials|ریال|تومان))?(?!\d)|(?<!\d)\d+(?:\.\d+)?\s*[kmb](?!\w)",
+            t,
+            re.IGNORECASE,
+        )
+    )
+    return has_action and (has_amount or has_counterparty)
+
+
+def _select_transaction_context_text(messages: list[dict[str, str]]) -> str:
+    """
+    Pick the most relevant user text for *current* voucher generation.
+    This avoids pulling stale counterparties from older chat turns.
+    """
+    if not messages:
+        return ""
+    # If we're in a fee follow-up turn, use the latest transaction-like user message
+    # before the last fee-question assistant message.
+    fee_q_idx = None
+    for idx in range(len(messages) - 1, -1, -1):
+        m = messages[idx]
+        if (m.get("role") or "") != "assistant":
+            continue
+        if parse_fee_question_context(m.get("content") or ""):
+            fee_q_idx = idx
+            break
+    if fee_q_idx is not None:
+        candidate_users = [
+            (idx, (m.get("content") or "").strip())
+            for idx, m in enumerate(messages[:fee_q_idx])
+            if (m.get("role") or "") == "user" and (m.get("content") or "").strip()
+        ]
+        anchor_pair = next((p for p in reversed(candidate_users) if _looks_like_transaction_user_text(p[1])), None)
+        if anchor_pair:
+            anchor_idx = anchor_pair[0]
+            merged = [
+                (m.get("content") or "").strip()
+                for m in messages[anchor_idx:fee_q_idx]
+                if (m.get("role") or "") == "user" and (m.get("content") or "").strip()
+            ]
+            if merged:
+                return " . ".join(merged)
+            return anchor_pair[1]
+        if candidate_users:
+            return candidate_users[-1][1]
+    # Otherwise, prefer latest transaction-like user message.
+    user_pairs = [
+        (idx, (m.get("content") or "").strip())
+        for idx, m in enumerate(messages)
+        if (m.get("role") or "") == "user" and (m.get("content") or "").strip()
+    ]
+    anchor_pair = next((p for p in reversed(user_pairs) if _looks_like_transaction_user_text(p[1])), None)
+    if anchor_pair:
+        anchor_idx = anchor_pair[0]
+        merged = [
+            (m.get("content") or "").strip()
+            for m in messages[anchor_idx:]
+            if (m.get("role") or "") == "user" and (m.get("content") or "").strip()
+        ]
+        if merged:
+            return " . ".join(merged)
+        return anchor_pair[1]
+    return user_pairs[-1][1] if user_pairs else ""
+
+
+def _transaction_window_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    """
+    Use only messages after the last confirmed voucher response to avoid carrying
+    stale counterparties/amounts into the next transaction.
+    """
+    marker = "here's the voucher based on what you said"
+    cut_idx = -1
+    for idx in range(len(messages) - 1, -1, -1):
+        m = messages[idx]
+        if (m.get("role") or "") != "assistant":
+            continue
+        content = (m.get("content") or "").strip().lower()
+        if marker in content:
+            cut_idx = idx
+            break
+    if cut_idx >= 0:
+        window = messages[cut_idx + 1 :]
+        if window:
+            return window
+    return messages
+
+
+def _fee_question_message(method_name: str, bank_name: str, prefix: str | None = None) -> str:
+    base = (
+        f"What is the transaction fee for {canonical_method_name(method_name)} via {bank_name}? "
+        "You can answer like: '5000 toman', '1%', or '1% + 5000 with max 30000'."
+    )
+    if prefix:
+        return f"{prefix} {base}".strip()
+    return base
+
+
+def _align_payment_amount_with_context(transaction: dict, amount: int) -> dict:
+    """
+    If AI produced a simple payment entry but ignored the clarified amount from chat,
+    align the single non-fee debit and bank credit to the requested amount.
+    """
+    if amount <= 0:
+        return transaction
+    lines = transaction.get("lines")
+    if not isinstance(lines, list) or not lines:
+        return transaction
+    bank_indices = [i for i, ln in enumerate(lines) if str(ln.get("account_code") or "").strip() == "1110"]
+    base_candidate_indices = [i for i, ln in enumerate(lines) if str(ln.get("account_code") or "").strip() not in ("1110", "6210")]
+    if len(bank_indices) != 1 or not base_candidate_indices:
+        return transaction
+    bank_idx = bank_indices[0]
+    base_idx = max(base_candidate_indices, key=lambda ix: int(lines[ix].get("debit") or 0))
+    current_base = int(lines[base_idx].get("debit") or 0)
+    lines[base_idx]["debit"] = amount
+    lines[base_idx]["credit"] = 0
+    fee_debit = sum(
+        max(0, int(ln.get("debit") or 0))
+        for ln in lines
+        if str(ln.get("account_code") or "").strip() == "6210"
+    )
+    lines[bank_idx]["debit"] = 0
+    lines[bank_idx]["credit"] = max(0, amount + fee_debit)
+    total_debit = sum(max(0, int(ln.get("debit") or 0)) for ln in lines)
+    total_credit = sum(max(0, int(ln.get("credit") or 0)) for ln in lines)
+    if total_debit != total_credit:
+        diff = total_debit - total_credit
+        lines[bank_idx]["credit"] = max(0, int(lines[bank_idx].get("credit") or 0) + diff)
+    transaction["lines"] = lines
+    return transaction
 
 
 def _transaction_fee_to_read(rule: TransactionFee) -> TransactionFeeRead:
@@ -302,6 +551,26 @@ def _looks_like_non_payment_query(text: str) -> bool:
         )
     )
     return (subject and verb) or report_hint
+
+
+def _user_says_unknown_method(text: str) -> bool:
+    low = (text or "").strip().lower()
+    if not low:
+        return False
+    hints = (
+        "don't know the method",
+        "dont know the method",
+        "do not know the method",
+        "i don't know method",
+        "i dont know method",
+        "unknown method",
+        "not sure method",
+        "نمیدونم روش",
+        "نمی دونم روش",
+        "روش رو نمی‌دونم",
+        "روش را نمی دانم",
+    )
+    return any(h in low for h in hints)
 
 
 def _normalize_for_match(text: str) -> str:
@@ -417,6 +686,7 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
         rep = lsvc.trial_balance(from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=200)
         return "Trial balance generated.", rep.model_dump(by_alias=True)
     if intent.key == "account_ledger":
+        limit = max(1, min(200, int(intent.limit or 120)))
         if intent.bank_name:
             bank = _find_bank_entity_by_text(db, intent.bank_name)
             if bank:
@@ -428,6 +698,8 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
                     from_date=intent.from_date,
                     to_date=intent.to_date,
                 )
+                if limit and rep.rows:
+                    rep.rows = rep.rows[-limit:]
                 if rep.rows:
                     return f"Bank statement generated for {bank.name}.", rep.model_dump(by_alias=True)
                 account_code = _resolve_bank_account_code(db, bank.name)
@@ -436,14 +708,14 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
                     from_date=intent.from_date,
                     to_date=intent.to_date,
                     page=1,
-                    page_size=120,
+                    page_size=limit,
                 )
                 return (
                     f"No entity-linked rows found for {bank.name}; showing account ledger {account_code}.",
                     ledger_rep.model_dump(by_alias=True),
                 )
         account_code = intent.account_code or _resolve_bank_account_code(db, intent.bank_name)
-        rep = lsvc.account_ledger(account_code=account_code, from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=120)
+        rep = lsvc.account_ledger(account_code=account_code, from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=limit)
         return f"Account ledger generated for {account_code}.", rep.model_dump(by_alias=True)
     if intent.key == "debtor_creditor":
         rep = osvc.debtor_creditor(from_date=intent.from_date, to_date=intent.to_date)
@@ -704,7 +976,9 @@ async def chat(
     last_assistant_message = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "assistant"), "")
     non_payment_query = _looks_like_non_payment_query(last_user_message)
     report_intent = parse_report_intent(last_user_message)
-    if report_intent is None:
+    # Only infer report follow-up context when current user text looks like a report query.
+    # This avoids hijacking normal voucher sentences that merely mention a bank name.
+    if report_intent is None and non_payment_query:
         report_intent = _infer_followup_report_intent(messages, db)
     if report_intent is not None:
         try:
@@ -736,7 +1010,9 @@ async def chat(
             except OSError:
                 pass
         attachment_context.append(item)
-    edit_intent = await parse_transaction_edit_intent(messages)
+    edit_intent = {"intent": "other", "search": {}, "changes": {}, "entity_updates": []}
+    if _looks_like_edit_request(messages):
+        edit_intent = await parse_transaction_edit_intent(messages)
     if edit_intent.get("intent") == "edit_transaction":
         search = edit_intent.get("search") or {}
         changes = edit_intent.get("changes") or {}
@@ -820,42 +1096,78 @@ async def chat(
             transaction=None,
         )
 
+    working_messages = _transaction_window_messages(messages)
+    working_last_user_message = next((m.get("content") or "" for m in reversed(working_messages) if m.get("role") == "user"), "")
+    if working_last_user_message:
+        last_user_message = working_last_user_message
+    bank_names = _all_bank_names(db)
+    payment_ctx = extract_payment_context(working_messages, bank_names)
+
     # Conversational fee learning flow: if the assistant previously asked for fee mapping,
     # parse the user's answer and store it for future transactions.
     fee_context = parse_fee_question_context(last_assistant_message)
     learned_fee_prefix = ""
     if fee_context and not non_payment_query:
-        method_name_q, bank_name_q = fee_context
-        parsed_cfg = parse_fee_config_text(last_user_message)
-        if parsed_cfg is None:
-            return ChatResponse(
-                message=(
-                    f"I couldn't parse the fee format for {method_name_q} via {bank_name_q}. "
-                    "Please answer like: '5000 toman', '1%', or '1% + 5000 with max 30000'."
-                ),
-                transaction=None,
+        # User started a new transaction instead of answering fee; ignore stale fee prompt context.
+        if _looks_like_transaction_user_text(last_user_message):
+            fee_context = None
+        else:
+            method_name_q, bank_name_q = fee_context
+            parsed_cfg = parse_fee_config_text(last_user_message)
+            if parsed_cfg is None:
+                return ChatResponse(
+                    message=(
+                        f"I couldn't parse the fee format for {method_name_q} via {bank_name_q}. "
+                        "Please answer like: '5000 toman', '1%', or '1% + 5000 with max 30000'."
+                    ),
+                    transaction=None,
+                )
+            if bool(parsed_cfg.get("from_bare_number")):
+                flat_candidate = int(parsed_cfg.get("flat_fee") or parsed_cfg.get("fee_value") or 0)
+                if (
+                    flat_candidate >= 1_000_000
+                    and payment_ctx.amount > 0
+                    and flat_candidate >= max(1_000_000, payment_ctx.amount // 2)
+                ):
+                    return ChatResponse(
+                        message=(
+                            f"I read {flat_candidate:,} IRR as the fee for {canonical_method_name(method_name_q)} via {bank_name_q}, "
+                            "which looks unusually high. If this is intentional, reply with explicit format like "
+                            f"'fee is {flat_candidate} rial'; otherwise send the correct fee (e.g. '5000 toman' or '1%')."
+                        ),
+                        transaction=None,
+                    )
+            rule = upsert_fee_rule(
+                db,
+                method_name=method_name_q,
+                bank_name=bank_name_q,
+                fee_type=parsed_cfg["fee_type"],
+                fee_value=parsed_cfg["fee_value"],
+                flat_fee=parsed_cfg["flat_fee"],
+                percent_bps=parsed_cfg["percent_bps"],
+                max_fee=parsed_cfg["max_fee"],
+                effective_from=date.today(),
             )
-        rule = upsert_fee_rule(
-            db,
-            method_name=method_name_q,
-            bank_name=bank_name_q,
-            fee_type=parsed_cfg["fee_type"],
-            fee_value=parsed_cfg["fee_value"],
-            flat_fee=parsed_cfg["flat_fee"],
-            percent_bps=parsed_cfg["percent_bps"],
-            max_fee=parsed_cfg["max_fee"],
-            effective_from=date.today(),
-        )
-        db.commit()
-        learned_fee_prefix = (
-            f"Saved fee rule for {canonical_method_name(method_name_q)} via {bank_name_q}. "
-        )
+            db.commit()
+            learned_fee_prefix = (
+                f"Saved fee rule for {canonical_method_name(method_name_q)} via {bank_name_q}. "
+            )
 
     # Conversational "fill in the blanks" for dynamic fee logic:
     # if payment method is missing for a payment, ask it before generating voucher.
-    bank_names = _all_bank_names(db)
-    payment_ctx = extract_payment_context(messages, bank_names)
-    if payment_ctx.is_payment and payment_ctx.amount > 0 and not payment_ctx.method_name and not non_payment_query:
+    user_unknown_method = _user_says_unknown_method(last_user_message)
+    if payment_ctx.is_payment and payment_ctx.amount <= 0 and not non_payment_query:
+        return ChatResponse(
+            message="What was the transaction amount (in IRR)?",
+            transaction=None,
+        )
+    if (
+        payment_ctx.is_payment
+        and payment_ctx.amount > 0
+        and not payment_ctx.method_name
+        and not non_payment_query
+        and not user_unknown_method
+    ):
         return ChatResponse(
             message="Which payment method did you use for this transaction?",
             transaction=None,
@@ -878,13 +1190,23 @@ async def chat(
             bank_name=payment_ctx.bank_name,
             as_of=date.today(),
         )
+        if mapped_rule is not None:
+            preview = calculate_total_with_fee(payment_ctx.amount, mapped_rule, amount_mode=payment_ctx.amount_mode)
+            if preview.fee_amount > 0 and payment_ctx.amount > 0 and preview.fee_amount >= payment_ctx.amount:
+                return ChatResponse(
+                    message=_fee_question_message(
+                        payment_ctx.method_name,
+                        payment_ctx.bank_name,
+                        prefix=(
+                            f"Current saved rule would charge {preview.fee_amount:,} IRR fee on {payment_ctx.amount:,} IRR, "
+                            "which looks unusually high."
+                        ),
+                    ),
+                    transaction=None,
+                )
         if mapped_rule is None and not fee_context:
             return ChatResponse(
-                message=(
-                    f"What is the transaction fee for {canonical_method_name(payment_ctx.method_name)} "
-                    f"via {payment_ctx.bank_name}? "
-                    "You can answer like: '5000 toman', '1%', or '1% + 5000 with max 30000'."
-                ),
+                message=_fee_question_message(payment_ctx.method_name, payment_ctx.bank_name),
                 transaction=None,
             )
     chat_logger.info(
@@ -896,6 +1218,10 @@ async def chat(
         payment_ctx.method_name,
         payment_ctx.bank_name,
     )
+    combined_user_text = " . ".join(
+        [(m.get("content") or "").strip() for m in working_messages if m.get("role") == "user" and (m.get("content") or "").strip()]
+    )
+    transaction_context_text = _select_transaction_context_text(working_messages) or combined_user_text
 
     result: dict | None = None
     # After learning a new fee rule, prefer a direct single-shot suggestion from full user history
@@ -908,20 +1234,18 @@ async def chat(
         and payment_ctx.bank_name
     ):
         try:
-            combined_user_text = " . ".join(
-                [(m.get("content") or "").strip() for m in messages if m.get("role") == "user" and (m.get("content") or "").strip()]
-            )
-            suggested = await ai_suggest_transaction(combined_user_text, account_list)
+            suggested = await ai_suggest_transaction(transaction_context_text, account_list)
+            inferred_mentions = _infer_entity_mentions_from_text(suggested, transaction_context_text)
             result = {
                 "message": "Here's the voucher based on what you said.",
                 "transaction": suggested,
-                "entity_mentions": [],
+                "entity_mentions": inferred_mentions or [],
             }
         except AISuggestError:
             result = None
     if result is None:
         try:
-            result = await ai_chat_turn(messages, account_list, attachment_context=attachment_context)
+            result = await ai_chat_turn(working_messages, account_list, attachment_context=attachment_context)
         except AISuggestError as e:
             raise HTTPException(status_code=503, detail=str(e)) from e
     transaction = result.get("transaction")
@@ -943,6 +1267,24 @@ async def chat(
         db.commit()
         # Resolve mentions to entities (get-or-create) so they appear in Entities and we can return ids for dropdowns
         entity_mentions = list(result.get("entity_mentions") or [])
+        inferred_mentions = _infer_entity_mentions_from_text(transaction, transaction_context_text)
+        for m in inferred_mentions or []:
+            if not isinstance(m, dict):
+                continue
+            role = (m.get("role") or "").strip().lower()
+            name = (m.get("name") or "").strip()
+            if role in ("client", "bank", "payee", "supplier") and name:
+                if not any(
+                    isinstance(existing, dict)
+                    and (existing.get("role") or "").strip().lower() == role
+                    and (existing.get("name") or "").strip().lower() == name.lower()
+                    for existing in entity_mentions
+                ):
+                    entity_mentions.append({"role": role, "name": name})
+        entity_mentions = _normalize_entity_mentions_for_context(
+            entity_mentions,
+            context_text=transaction_context_text,
+        )
         # Ensure detected payment bank is returned as an entity mention so UI can auto-link it on save.
         if payment_ctx.bank_name:
             has_bank_mention = any((m.get("role") or "").strip().lower() == "bank" for m in entity_mentions if isinstance(m, dict))
@@ -959,7 +1301,10 @@ async def chat(
             role = (m.get("role") or "").strip().lower()
             name = (m.get("name") or "").strip()
             if role and name and role in ("client", "bank", "payee", "supplier"):
-                entity = _get_or_create_entity(db, role, name)
+                try:
+                    entity = _get_or_create_entity(db, role, name)
+                except HTTPException:
+                    continue
                 resolved_entities.append(ResolvedEntityLink(role=role, entity_id=entity.id))
         if entity_mentions:
             db.commit()
@@ -968,10 +1313,10 @@ async def chat(
             transaction,
             resolved_entities=resolved_entities,
             entity_mentions=entity_mentions,
-            user_text=" . ".join(
-                [(m.get("content") or "").strip() for m in messages if m.get("role") == "user" and (m.get("content") or "").strip()]
-            ),
+            user_text=transaction_context_text,
         )
+        if payment_ctx.is_payment and payment_ctx.amount > 0:
+            transaction = _align_payment_amount_with_context(transaction, payment_ctx.amount)
         line_creates = [
             TransactionLineCreate(
                 account_code=ln["account_code"],
@@ -1019,11 +1364,7 @@ async def chat(
                     result["message"] = (learned_fee_prefix + result.get("message", "")).strip()
             elif payment_ctx.method_name and payment_ctx.bank_name:
                 return ChatResponse(
-                    message=(
-                        f"What is the transaction fee for {canonical_method_name(payment_ctx.method_name)} "
-                        f"via {payment_ctx.bank_name}? "
-                        "You can answer like: '5000 toman', '1%', or '1% + 5000 with max 30000'."
-                    ),
+                    message=_fee_question_message(payment_ctx.method_name, payment_ctx.bank_name),
                     transaction=None,
                 )
         elif learned_fee_prefix:
@@ -1034,6 +1375,11 @@ async def chat(
             reference=transaction.get("reference"),
             description=transaction.get("description"),
             lines=line_creates,
+        )
+        chat_logger.info(
+            "chat_entities mentions=%s resolved=%s",
+            entity_mentions,
+            [{"role": r.role, "entity_id": str(r.entity_id)} for r in (resolved_entities or [])],
         )
         return ChatResponse(
             message=result["message"],
@@ -1050,10 +1396,9 @@ async def chat(
         and payment_ctx.bank_name
     ):
         try:
-            combined_user_text = " . ".join(
-                [(m.get("content") or "").strip() for m in messages if m.get("role") == "user" and (m.get("content") or "").strip()]
-            )
-            suggested = await ai_suggest_transaction(combined_user_text, account_list)
+            suggested = await ai_suggest_transaction(transaction_context_text, account_list)
+            if payment_ctx.is_payment and payment_ctx.amount > 0:
+                suggested = _align_payment_amount_with_context(suggested, payment_ctx.amount)
             method_obj, bank_obj, fee_rule = resolve_fee_rule(
                 db,
                 method_name=payment_ctx.method_name,
@@ -1090,15 +1435,44 @@ async def chat(
                     for ln in suggested["lines"]
                 ],
             )
-            fallback_entity_mentions: list[dict[str, str]] = []
+            fallback_entity_mentions: list[dict[str, str]] = list(
+                _infer_entity_mentions_from_text(suggested, transaction_context_text) or []
+            )
+            fallback_entity_mentions = _normalize_entity_mentions_for_context(
+                fallback_entity_mentions,
+                context_text=transaction_context_text,
+            )
             fallback_resolved: list[ResolvedEntityLink] = []
             if payment_ctx.bank_name:
                 bank_existing = find_bank_entity_by_name(db, payment_ctx.bank_name)
                 bank_name_value = (bank_existing.name if bank_existing else payment_ctx.bank_name.strip())
-                fallback_entity_mentions.append({"role": "bank", "name": bank_name_value})
+                has_bank = any(
+                    isinstance(m, dict)
+                    and (m.get("role") or "").strip().lower() == "bank"
+                    and (m.get("name") or "").strip()
+                    for m in fallback_entity_mentions
+                )
+                if not has_bank:
+                    fallback_entity_mentions.append({"role": "bank", "name": bank_name_value})
                 bank_entity = _get_or_create_entity(db, "bank", bank_name_value)
                 fallback_resolved.append(ResolvedEntityLink(role="bank", entity_id=bank_entity.id))
+            for m in fallback_entity_mentions:
+                role = (m.get("role") or "").strip().lower() if isinstance(m, dict) else ""
+                name = (m.get("name") or "").strip() if isinstance(m, dict) else ""
+                if role in ("client", "bank", "payee", "supplier") and name:
+                    try:
+                        entity = _get_or_create_entity(db, role, name)
+                    except HTTPException:
+                        continue
+                    if not any((r.role == role and r.entity_id == entity.id) for r in fallback_resolved):
+                        fallback_resolved.append(ResolvedEntityLink(role=role, entity_id=entity.id))
+            if fallback_entity_mentions:
                 db.commit()
+            chat_logger.info(
+                "chat_entities_fallback mentions=%s resolved=%s",
+                fallback_entity_mentions,
+                [{"role": r.role, "entity_id": str(r.entity_id)} for r in (fallback_resolved or [])],
+            )
             return ChatResponse(
                 message=(learned_fee_prefix + "Here's the voucher based on what you said." + extra_msg).strip(),
                 transaction=txn_response,

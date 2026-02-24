@@ -292,6 +292,21 @@ def _normalize_entity_mentions_for_context(
     payee_names = {(m.get("name") or "").strip().lower() for m in mentions if (m.get("role") or "").strip().lower() == "payee"}
     supplier_names = {(m.get("name") or "").strip().lower() for m in mentions if (m.get("role") or "").strip().lower() == "supplier"}
     overlap = {n for n in payee_names if n and n in supplier_names}
+    if employee_like and not payee_names and supplier_names:
+        # If context clearly indicates employee compensation and model only returned supplier,
+        # convert supplier mentions into payee.
+        converted: list[dict[str, str]] = []
+        for m in mentions:
+            role = (m.get("role") or "").strip().lower()
+            name = (m.get("name") or "").strip()
+            if role == "supplier" and name:
+                converted.append({"role": "payee", "name": name})
+            else:
+                converted.append(m)
+        mentions = converted
+        payee_names = {(m.get("name") or "").strip().lower() for m in mentions if (m.get("role") or "").strip().lower() == "payee"}
+        supplier_names = {(m.get("name") or "").strip().lower() for m in mentions if (m.get("role") or "").strip().lower() == "supplier"}
+        overlap = {n for n in payee_names if n and n in supplier_names}
     if not overlap:
         return mentions
     out: list[dict[str, str]] = []
@@ -311,6 +326,41 @@ def _normalize_entity_mentions_for_context(
             continue
         out.append(m)
     return out
+
+
+def _looks_like_fee_correction(text: str) -> bool:
+    low = (text or "").strip().lower()
+    if not low:
+        return False
+    return (
+        any(k in low for k in ("fee", "transaction fee", "کارمزد"))
+        and any(k in low for k in ("wrong", "should be", "%", "rial", "toman", "0"))
+    )
+
+
+def _find_last_voucher_assistant_idx(messages: list[dict[str, str]]) -> int:
+    marker = "here's the voucher based on what you said"
+    for idx in range(len(messages) - 1, -1, -1):
+        m = messages[idx]
+        if (m.get("role") or "") != "assistant":
+            continue
+        content = (m.get("content") or "").strip().lower()
+        if marker in content:
+            return idx
+    return -1
+
+
+def _parse_included_fee_context(last_assistant_message: str) -> tuple[str, str] | None:
+    text = re.sub(r"\s+", " ", (last_assistant_message or "").strip())
+    # Example: "Included transaction fee 380,000 IRR (Paya via Mellat)."
+    m = re.search(r"included\s+transaction\s+fee[\s\S]*?\((.+?)\s+via\s+(.+?)\)", text, re.IGNORECASE)
+    if not m:
+        return None
+    method = canonical_method_name(m.group(1))
+    bank = re.sub(r"\s+", " ", (m.group(2) or "").strip())
+    if not method or not bank:
+        return None
+    return method, bank
 
 
 def _looks_like_transaction_user_text(text: str) -> bool:
@@ -1010,6 +1060,95 @@ async def chat(
             except OSError:
                 pass
         attachment_context.append(item)
+    # Fee correction after a generated voucher:
+    # user says e.g. "fee is wrong, it should be 0.01%" and expects current voucher to update.
+    if _looks_like_fee_correction(last_user_message):
+        parsed_cfg = parse_fee_config_text(last_user_message)
+        fee_ctx = parse_fee_question_context(last_assistant_message) or _parse_included_fee_context(last_assistant_message)
+        if fee_ctx is None:
+            hist_ctx = extract_payment_context(messages, _all_bank_names(db))
+            if hist_ctx.is_payment and hist_ctx.method_name and hist_ctx.bank_name:
+                fee_ctx = (hist_ctx.method_name, hist_ctx.bank_name)
+        if parsed_cfg is not None and fee_ctx is not None:
+            method_name_q, bank_name_q = fee_ctx
+            upsert_fee_rule(
+                db,
+                method_name=method_name_q,
+                bank_name=bank_name_q,
+                fee_type=parsed_cfg["fee_type"],
+                fee_value=parsed_cfg["fee_value"],
+                flat_fee=parsed_cfg["flat_fee"],
+                percent_bps=parsed_cfg["percent_bps"],
+                max_fee=parsed_cfg["max_fee"],
+                effective_from=date.today(),
+            )
+            db.commit()
+            # Rebuild the latest voucher using updated rule and the latest voucher context window.
+            voucher_idx = _find_last_voucher_assistant_idx(messages)
+            msg_scope = messages if voucher_idx < 0 else messages[: voucher_idx + 1]
+            base_ctx_text = _select_transaction_context_text(msg_scope)
+            if base_ctx_text:
+                try:
+                    suggested = await ai_suggest_transaction(base_ctx_text, account_list)
+                    inferred_mentions = _infer_entity_mentions_from_text(suggested, base_ctx_text)
+                    inferred_mentions = _normalize_entity_mentions_for_context(
+                        inferred_mentions or [],
+                        context_text=base_ctx_text,
+                    )
+                    payment_ctx_full = extract_payment_context(msg_scope, _all_bank_names(db))
+                    if payment_ctx_full.is_payment and payment_ctx_full.amount > 0:
+                        suggested = _align_payment_amount_with_context(suggested, payment_ctx_full.amount)
+                    _, _, fee_rule = resolve_fee_rule(
+                        db,
+                        method_name=method_name_q,
+                        bank_name=bank_name_q,
+                        as_of=date.today(),
+                    )
+                    if fee_rule is not None:
+                        suggested, fee_calc = apply_fee_to_transaction_lines(
+                            suggested,
+                            method_name=method_name_q,
+                            bank_name=bank_name_q,
+                            rule=fee_rule,
+                            amount_mode=payment_ctx_full.amount_mode if payment_ctx_full else "net",
+                        )
+                    else:
+                        fee_calc = None
+                    return ChatResponse(
+                        message=(
+                            f"Updated fee rule for {canonical_method_name(method_name_q)} via {bank_name_q}. "
+                            + (
+                                f"Recalculated fee: {(fee_calc.fee_amount if fee_calc else 0):,} IRR."
+                                if fee_calc is not None
+                                else "Fee rule saved."
+                            )
+                        ),
+                        transaction=SuggestTransactionResponse(
+                            date=suggested["date"],
+                            reference=suggested.get("reference"),
+                            description=suggested.get("description"),
+                            lines=[
+                                TransactionLineCreate(
+                                    account_code=ln["account_code"],
+                                    debit=ln["debit"],
+                                    credit=ln["credit"],
+                                    line_description=ln.get("line_description"),
+                                )
+                                for ln in suggested["lines"]
+                            ],
+                        ),
+                        entity_mentions=inferred_mentions or None,
+                        resolved_entities=None,
+                    )
+                except AISuggestError:
+                    # If regeneration fails, still persist fee rule change and return clear message.
+                    return ChatResponse(
+                        message=(
+                            f"Updated fee rule for {canonical_method_name(method_name_q)} via {bank_name_q}. "
+                            "Please resend the transaction message to regenerate the voucher."
+                        ),
+                        transaction=None,
+                    )
     edit_intent = {"intent": "other", "search": {}, "changes": {}, "entity_updates": []}
     if _looks_like_edit_request(messages):
         edit_intent = await parse_transaction_edit_intent(messages)

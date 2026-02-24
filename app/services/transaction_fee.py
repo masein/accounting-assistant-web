@@ -604,7 +604,10 @@ def parse_fee_config_text(text: str) -> dict[str, Any] | None:
         }
     # Accept explicit zero-fee statements such as:
     # "0", "fee is 0", "transaction fee was 0 for this payment", "0 toman".
-    if re.search(r"\b(?:fee|transaction fee|کارمزد)\b", t) and re.search(r"\b0+(?:\.0+)?\b", t):
+    # Guardrail: do not treat decimals like 0.01% as zero fee.
+    explicit_zero_token = bool(re.search(r"(?<![\d.])0+(?:\.0+)?(?![\d.])", t))
+    has_non_zero_decimal = bool(re.search(r"\d*\.\d*[1-9]\d*", t))
+    if re.search(r"\b(?:fee|transaction fee|کارمزد)\b", t) and explicit_zero_token and not has_non_zero_decimal:
         return {
             "fee_type": "free",
             "fee_value": 0,

@@ -203,10 +203,12 @@ def _transaction_to_read(t: Transaction) -> TransactionRead:
 
 
 def _transaction_brief(t: Transaction) -> str:
+    from app.utils.jalali import format_jalali
     desc = (t.description or "No description").strip()
     if len(desc) > 48:
         desc = desc[:48] + "…"
-    return f"{t.date.isoformat()} | ref: {(t.reference or '—')} | {desc}"
+    jalali = format_jalali(t.date) if t.date else ""
+    return f"{t.date.isoformat()} ({jalali}) | ref: {(t.reference or '—')} | {desc}"
 
 
 def _upsert_role_link(db: Session, t: Transaction, role: str, entity: Entity) -> None:
@@ -266,8 +268,11 @@ def _looks_like_edit_request(messages: list[dict[str, str]]) -> bool:
     )
     if not assistant_in_edit_flow:
         return False
+    from app.utils.jalali import _to_ascii
+    ascii_low = _to_ascii(low)
     return bool(
         re.search(r"\b20\d{2}-\d{2}-\d{2}\b", low)
+        or re.search(r"\b1[34]\d{2}[/\-]\d{1,2}[/\-]\d{1,2}\b", ascii_low)
         or re.search(r"\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b", low)
         or any(k in low for k in ("reference", "ref", "client", "bank", "payee", "supplier", "transaction"))
     )
@@ -281,6 +286,25 @@ def _normalize_entity_mentions_for_context(
     """
     Resolve ambiguous role collisions from model output (same name as both payee and supplier).
     """
+    if not mentions:
+        return mentions
+    cleaned: list[dict[str, str]] = []
+    for m in mentions:
+        role = (m.get("role") or "").strip().lower()
+        name = re.sub(r"\s+", " ", (m.get("name") or "").strip())
+        low_name = name.lower()
+        if role in ("client", "payee", "supplier"):
+            if (
+                not low_name
+                or low_name in {"us", "to us", "our", "our account", "to our account"}
+                or low_name.startswith("to ")
+                or low_name.startswith("for ")
+                or " bank" in low_name
+                or " حساب" in low_name
+            ):
+                continue
+        cleaned.append({"role": role, "name": name})
+    mentions = cleaned
     if not mentions:
         return mentions
     context = (context_text or "").lower()
@@ -592,6 +616,15 @@ def _looks_like_non_payment_query(text: str) -> bool:
             "chart",
             "balance",
             "missing references",
+            "how much",
+            "total money",
+            "total cash",
+            "who owes",
+            "i owe",
+            "expenses",
+            "spending",
+            "revenue",
+            "earnings",
             "گردش حساب",
             "گردش بانک",
             "صورت حساب",
@@ -693,7 +726,7 @@ def _infer_followup_report_intent(messages: list[dict], db: Session) -> ReportIn
                 to_date=prev_intent.to_date,
                 bank_name=bank.name,
             )
-        if any(k in prev_low for k in ("گردش", "ledger", "statement", "bank balance", "دفتر")):
+        if any(k in prev_low for k in ("گردش", "ledger", "statement", "bank balance", "balance", "دفتر")):
             return ReportIntent(key="account_ledger", bank_name=bank.name)
     return None
 
@@ -737,16 +770,19 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
         return "Trial balance generated.", rep.model_dump(by_alias=True)
     if intent.key == "account_ledger":
         limit = max(1, min(200, int(intent.limit or 120)))
+        # When user asks for "latest N" without explicit dates, search all-time
+        effective_from = intent.from_date
+        effective_to = intent.to_date
+        if intent.limit and effective_from is None and effective_to is None:
+            effective_from = date(1900, 1, 1)
         if intent.bank_name:
             bank = _find_bank_entity_by_text(db, intent.bank_name)
             if bank:
-                # If a specific bank entity is requested, prefer entity-linked running balance.
-                # This works even when multiple banks share the same cash account code (e.g. 1110).
                 rep = osvc.person_running_balance(
                     entity_id=bank.id,
                     role="bank",
-                    from_date=intent.from_date,
-                    to_date=intent.to_date,
+                    from_date=effective_from,
+                    to_date=effective_to,
                 )
                 if limit and rep.rows:
                     rep.rows = rep.rows[-limit:]
@@ -755,8 +791,8 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
                 account_code = _resolve_bank_account_code(db, bank.name)
                 ledger_rep = lsvc.account_ledger(
                     account_code=account_code,
-                    from_date=intent.from_date,
-                    to_date=intent.to_date,
+                    from_date=effective_from,
+                    to_date=effective_to,
                     page=1,
                     page_size=limit,
                 )
@@ -765,7 +801,7 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
                     ledger_rep.model_dump(by_alias=True),
                 )
         account_code = intent.account_code or _resolve_bank_account_code(db, intent.bank_name)
-        rep = lsvc.account_ledger(account_code=account_code, from_date=intent.from_date, to_date=intent.to_date, page=1, page_size=limit)
+        rep = lsvc.account_ledger(account_code=account_code, from_date=effective_from, to_date=effective_to, page=1, page_size=limit)
         return f"Account ledger generated for {account_code}.", rep.model_dump(by_alias=True)
     if intent.key == "debtor_creditor":
         rep = osvc.debtor_creditor(from_date=intent.from_date, to_date=intent.to_date)
@@ -819,10 +855,18 @@ def _find_transactions_for_ai_edit(db: Session, search: dict) -> list[Transactio
     has_filter = False
     if date_val:
         low = date_val.lower()
+        parsed_date: date | None = None
         try:
-            q = q.where(Transaction.date == date.fromisoformat(date_val))
-            has_filter = True
+            parsed_date = date.fromisoformat(date_val)
         except ValueError:
+            pass
+        if parsed_date is None:
+            from app.utils.jalali import try_parse_jalali
+            parsed_date = try_parse_jalali(date_val)
+        if parsed_date is not None:
+            q = q.where(Transaction.date == parsed_date)
+            has_filter = True
+        else:
             today = date.today()
             if low == "today":
                 q = q.where(Transaction.date == today)
@@ -1026,9 +1070,9 @@ async def chat(
     last_assistant_message = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "assistant"), "")
     non_payment_query = _looks_like_non_payment_query(last_user_message)
     report_intent = parse_report_intent(last_user_message)
-    # Only infer report follow-up context when current user text looks like a report query.
-    # This avoids hijacking normal voucher sentences that merely mention a bank name.
-    if report_intent is None and non_payment_query:
+    # Only infer report follow-up context when current user text looks like a report query
+    # OR when the message is short (likely just a bank/entity name answering a previous balance question).
+    if report_intent is None and (non_payment_query or len(last_user_message.split()) <= 4):
         report_intent = _infer_followup_report_intent(messages, db)
     if report_intent is not None:
         try:
@@ -1196,11 +1240,23 @@ async def chat(
         if "date" in changes:
             v = changes.get("date")
             if isinstance(v, str) and v.strip():
+                new_date: date | None = None
+                # Try ISO first
                 try:
-                    target.date = date.fromisoformat(v.strip())
-                    changed_fields.append("date")
+                    new_date = date.fromisoformat(v.strip())
                 except ValueError:
-                    return ChatResponse(message="Invalid date format. Use YYYY-MM-DD.", transaction=None)
+                    pass
+                # Try Jalali
+                if new_date is None:
+                    from app.utils.jalali import try_parse_jalali
+                    new_date = try_parse_jalali(v.strip())
+                if new_date is None:
+                    return ChatResponse(
+                        message="Invalid date format. Use YYYY-MM-DD or Jalali (e.g. 1404/11/27).",
+                        transaction=None,
+                    )
+                target.date = new_date
+                changed_fields.append("date")
             elif v is None:
                 return ChatResponse(message="Date cannot be empty.", transaction=None)
         if "reference" in changes:
@@ -1230,8 +1286,11 @@ async def chat(
         db.refresh(target)
         _load_transaction_with_lines(db, target)
         changed = ", ".join(sorted(set(changed_fields)))
+        from app.utils.jalali import format_jalali
+        jalali_str = format_jalali(target.date) if target.date else ""
+        date_info = f" New date: {target.date.isoformat()} ({jalali_str})" if "date" in changed_fields else ""
         return ChatResponse(
-            message=f"Updated transaction {target.id}. Changed: {changed}.",
+            message=f"Updated transaction {target.id}. Changed: {changed}.{date_info}",
             transaction=None,
         )
 

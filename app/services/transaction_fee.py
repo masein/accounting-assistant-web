@@ -493,6 +493,30 @@ def is_payment_intent(messages: list[dict[str, str]]) -> bool:
     )
     if any(h in text for h in receipt_phrase_hints):
         return False
+    # Treat third-party "X paid to [our bank/account]" as receipt.
+    # Example: "Nikzade payed to Mellat bank ..." should be money-in.
+    m_paid_to = re.search(
+        r"\b([a-z\u0600-\u06ff][a-z0-9\u0600-\u06ff]*)\s+(?:paid|payed)\s+to\s+(.+)$",
+        text,
+    )
+    if m_paid_to:
+        subject = (m_paid_to.group(1) or "").strip()
+        destination = (m_paid_to.group(2) or "").strip()
+        is_first_person_subject = subject in {"i", "we", "من", "ما"}
+        destination_looks_inbound = any(
+            k in destination
+            for k in (
+                " to us",
+                " us ",
+                "our account",
+                "my account",
+                "bank",
+                "بانک",
+                "حساب",
+            )
+        )
+        if (not is_first_person_subject) and destination_looks_inbound:
+            return False
     pay_hits = sum(1 for k in _PAYMENT_KEYWORDS if k in text)
     recv_hits = sum(1 for k in _RECEIPT_KEYWORDS if k in text)
     return pay_hits > 0 and pay_hits >= recv_hits

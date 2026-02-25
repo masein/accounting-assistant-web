@@ -387,13 +387,17 @@ Rules: Receipts = debit 1110 (bank), credit 4110 or 1112. Payments = debit expen
 
 
 def _normalize_relative_dates_in_message(text: str) -> str:
-    """Replace 'yesterday', 'last week', etc. with actual dates so the model doesn't burn tokens on reasoning."""
+    """Replace 'yesterday', 'last week', Jalali dates, etc. with actual ISO dates."""
     if not text or not text.strip():
         return text
     today = date.today()
     lower = text.strip().lower()
     out = text
-    # Replace whole-word "yesterday" with the actual date (YYYY-MM-DD)
+
+    # Convert Jalali dates (1404/11/27 etc.) to YYYY-MM-DD Gregorian
+    from app.utils.jalali import find_and_replace_jalali_dates
+    out, _replaced = find_and_replace_jalali_dates(out)
+
     if re.search(r"\byesterday\b", lower):
         yesterday = (today - timedelta(days=1)).isoformat()
         out = re.sub(r"\byesterday\b", yesterday, out, flags=re.IGNORECASE)
@@ -401,7 +405,6 @@ def _normalize_relative_dates_in_message(text: str) -> str:
         last_week = (today - timedelta(days=7)).isoformat()
         out = re.sub(r"\blast week\b", last_week, out, flags=re.IGNORECASE)
     if re.search(r"\blast month\b", lower):
-        # Approximate: 30 days back
         last_month = (today - timedelta(days=30)).isoformat()
         out = re.sub(r"\blast month\b", last_month, out, flags=re.IGNORECASE)
     if re.search(r"\b3 months ago\b", lower) or re.search(r"\bthree months ago\b", lower):
@@ -1044,13 +1047,13 @@ Schema:
   "intent": "edit_transaction" | "other",
   "search": {
     "transaction_id": "uuid or null",
-    "date": "YYYY-MM-DD or null",
+    "date": "YYYY-MM-DD or Jalali (e.g. 1404/11/27) or null",
     "reference": "string or null",
     "description_contains": "string or null",
     "entity_name": "string or null"
   },
   "changes": {
-    "date": "YYYY-MM-DD | null | omitted",
+    "date": "YYYY-MM-DD or Jalali (e.g. 1404/11/27) | null | omitted",
     "reference": "string | null | omitted",
     "description": "string | null | omitted",
     "amount": number | null | omitted
@@ -1069,6 +1072,21 @@ Rules:
 
 
 def _normalize_edit_intent(out: dict[str, Any]) -> dict[str, Any]:
+    from app.utils.jalali import try_parse_jalali
+
+    def _normalize_date_str(val: str) -> str:
+        """Convert Jalali date strings to ISO if possible, otherwise pass through."""
+        v = val.strip()
+        try:
+            date.fromisoformat(v)
+            return v
+        except ValueError:
+            pass
+        jd = try_parse_jalali(v)
+        if jd:
+            return jd.isoformat()
+        return v
+
     valid_roles = {"client", "bank", "payee", "supplier"}
     result: dict[str, Any] = {
         "intent": "other",
@@ -1086,7 +1104,7 @@ def _normalize_edit_intent(out: dict[str, Any]) -> dict[str, Any]:
             result["search"]["transaction_id"] = txid.strip()
         d = search.get("date")
         if isinstance(d, str) and d.strip():
-            result["search"]["date"] = d.strip()
+            result["search"]["date"] = _normalize_date_str(d)
         ref = search.get("reference")
         if isinstance(ref, str) and ref.strip():
             result["search"]["reference"] = ref.strip()
@@ -1104,7 +1122,10 @@ def _normalize_edit_intent(out: dict[str, Any]) -> dict[str, Any]:
                 if v is None:
                     result["changes"][k] = None
                 elif isinstance(v, (str, int, float)):
-                    result["changes"][k] = v
+                    if k == "date" and isinstance(v, str):
+                        result["changes"][k] = _normalize_date_str(v)
+                    else:
+                        result["changes"][k] = v
     raw_updates = out.get("entity_updates")
     if isinstance(raw_updates, list):
         for u in raw_updates:
@@ -1138,8 +1159,12 @@ def _fallback_edit_intent(messages: list[dict[str, str]]) -> dict[str, Any]:
         "transaction you want to edit" in (a or "").lower() or "provide the details" in (a or "").lower()
         for a in assistant_msgs[-2:]
     )
+    from app.utils.jalali import try_parse_jalali, _to_ascii
+    ascii_text = _to_ascii(text)
+    has_jalali = bool(re.search(r"\b1[34]\d{2}[/\-]\d{1,2}[/\-]\d{1,2}\b", ascii_text))
     has_identifier_cue = bool(
         re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
+        or has_jalali
         or re.search(r"\b(?:ref(?:erence)?|invoice)\b", lower)
         or any(k in lower for k in ("client", "bank", "payee", "supplier", "transaction", "entry"))
         or _is_relative_date_phrase(text)
@@ -1151,9 +1176,37 @@ def _fallback_edit_intent(messages: list[dict[str, str]]) -> dict[str, Any]:
     if not has_edit_verb:
         return {"intent": "other", "search": {}, "changes": {}, "entity_updates": []}
     out: dict[str, Any] = {"intent": "edit_transaction", "search": {}, "changes": {}, "entity_updates": []}
+
+    # Extract all dates (ISO and Jalali) from text
+    all_dates_found: list[tuple[str, str]] = []  # (original_text, iso_string)
     m_date = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
     if m_date:
-        out["search"]["date"] = m_date.group(1)
+        all_dates_found.append((m_date.group(1), m_date.group(1)))
+    jalali_m = re.search(r"\b(1[34]\d{2}[/\-]\d{1,2}[/\-]\d{1,2})\b", ascii_text)
+    if jalali_m:
+        jd = try_parse_jalali(jalali_m.group(1))
+        if jd:
+            all_dates_found.append((jalali_m.group(1), jd.isoformat()))
+
+    # "change date to X" / "change date of the transaction to X" → X is a change
+    m_date_change = re.search(
+        r"(?:set|change|update)\s+(?:the\s+)?date\s+(?:of\s+(?:the\s+)?(?:transaction|entry|voucher)\s+)?(?:to\s+)?(\S+)",
+        ascii_text, re.IGNORECASE,
+    )
+    if m_date_change:
+        raw_new = m_date_change.group(1).strip()
+        parsed_new = None
+        try:
+            parsed_new = date.fromisoformat(raw_new)
+        except ValueError:
+            parsed_new = try_parse_jalali(raw_new)
+        if parsed_new:
+            out["changes"]["date"] = parsed_new.isoformat()
+            all_dates_found = [(orig, iso) for orig, iso in all_dates_found if iso != parsed_new.isoformat()]
+
+    # Remaining dates go to search
+    if all_dates_found:
+        out["search"]["date"] = all_dates_found[0][1]
     elif _is_relative_date_phrase(text):
         if "last week" in lower:
             out["search"]["date"] = "last week"
@@ -1165,6 +1218,7 @@ def _fallback_edit_intent(messages: list[dict[str, str]]) -> dict[str, Any]:
             out["search"]["date"] = "today"
         elif "last month" in lower:
             out["search"]["date"] = "last month"
+
     m_ref = re.search(r"\b(?:ref(?:erence)?|invoice)\s*[:#]?\s*([A-Za-z0-9\-_\/]+)", text, re.IGNORECASE)
     if m_ref:
         out["search"]["reference"] = m_ref.group(1).strip()

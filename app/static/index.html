@@ -543,6 +543,7 @@
           <div>
             <label for="date" data-i18n="labelDate">Date</label>
             <input type="date" id="date" name="date" required>
+            <span id="date-jalali-hint" style="font-size: 0.75rem; color: var(--text-muted);"></span>
           </div>
           <div>
             <label for="reference" data-i18n="labelReference">Reference</label>
@@ -2192,6 +2193,41 @@
       if (n === 0) return '0';
       return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
+
+    function gregorianToJalali(gy, gm, gd) {
+      const g_d_m = [0,31,59,90,120,151,181,212,243,273,304,334];
+      let jy = (gy <= 1600) ? 0 : 979;
+      gy -= (gy <= 1600) ? 621 : 1600;
+      const gy2 = (gm > 2) ? (gy + 1) : gy;
+      let days = (365 * gy) + (Math.floor((gy2 + 3) / 4)) - (Math.floor((gy2 + 99) / 100))
+        + (Math.floor((gy2 + 399) / 400)) - 80 + gd + g_d_m[gm - 1];
+      jy += 33 * (Math.floor(days / 12053));
+      days %= 12053;
+      jy += 4 * (Math.floor(days / 1461));
+      days %= 1461;
+      if (days > 365) {
+        jy += Math.floor((days - 1) / 365);
+        days = (days - 1) % 365;
+      }
+      const jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+      const jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+      return [jy, jm, jd];
+    }
+
+    function toJalali(isoDate) {
+      if (!isoDate) return '';
+      const parts = String(isoDate).split('-');
+      if (parts.length !== 3) return isoDate;
+      const [jy, jm, jd] = gregorianToJalali(+parts[0], +parts[1], +parts[2]);
+      return jy + '/' + String(jm).padStart(2, '0') + '/' + String(jd).padStart(2, '0');
+    }
+
+    function formatDateDual(isoDate) {
+      if (!isoDate) return '';
+      const jalali = toJalali(isoDate);
+      return jalali ? `${isoDate} (${jalali})` : isoDate;
+    }
+
     function formatKpiValue(v, unit) {
       if (v == null) return t('na');
       if (unit === 'IRR') return formatNum(v) + ' IRR';
@@ -3214,7 +3250,7 @@
             <tbody>
               ${items.map(it => `
                 <tr>
-                  <td class="missing-ref-date">${escapeHtml(it.date)}</td>
+                  <td class="missing-ref-date">${escapeHtml(formatDateDual(it.date))}</td>
                   <td>${escapeHtml((it.description || '').slice(0, 60))}</td>
                   <td><input type="text" class="missing-ref-input" data-id="${it.transaction_id}" value="${escapeHtml(it.suggested_reference || '')}"></td>
                   <td>
@@ -3669,6 +3705,7 @@
 
     function fillFormFromSuggestion(data) {
       document.getElementById('date').value = data.date || new Date().toISOString().slice(0, 10);
+      if (typeof updateJalaliHint === 'function') updateJalaliHint();
       document.getElementById('reference').value = data.reference || '';
       document.getElementById('description').value = data.description || '';
       const lines = data.lines || [];
@@ -4311,7 +4348,7 @@
                     }).join('<br>')
                   : '—';
                 return `<tr>
-                  <td>${escapeHtml(t.date)}</td>
+                  <td>${escapeHtml(formatDateDual(t.date))}</td>
                   <td>${escapeHtml(t.reference || '—')}</td>
                   <td>${escapeHtml((t.description || '—').slice(0, 50))}${(t.description && t.description.length > 50) ? '…' : ''}</td>
                   <td>${attHtml}</td>
@@ -4368,6 +4405,7 @@
             <div>
               <label>Date</label>
               <input type="date" id="edit-tx-date" value="${escapeHtml(tx.date || '')}" required>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">${toJalali(tx.date)}</span>
             </div>
             <div>
               <label>Reference</label>
@@ -4750,6 +4788,16 @@
     document.getElementById('date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('inv-issue').value = new Date().toISOString().slice(0, 10);
     document.getElementById('inv-due').value = new Date().toISOString().slice(0, 10);
+
+    function updateJalaliHint() {
+      const dateEl = document.getElementById('date');
+      const hintEl = document.getElementById('date-jalali-hint');
+      if (dateEl && hintEl) {
+        hintEl.textContent = dateEl.value ? toJalali(dateEl.value) : '';
+      }
+    }
+    document.getElementById('date').addEventListener('change', updateJalaliHint);
+    updateJalaliHint();
     document.getElementById('budget-month').value = new Date().toISOString().slice(0, 7);
     if (mgrFromDateEl) mgrFromDateEl.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
     if (mgrToDateEl) mgrToDateEl.value = new Date().toISOString().slice(0, 10);

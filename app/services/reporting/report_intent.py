@@ -220,7 +220,7 @@ def parse_report_intent(text: str, today: date | None = None) -> ReportIntent | 
         return ReportIntent(key="general_journal", from_date=from_date, to_date=to_date)
     if ("general ledger" in low) or ("دفتر کل" in t):
         return ReportIntent(key="general_ledger", from_date=from_date, to_date=to_date)
-    if ("trial balance" in low) or ("مرور حساب" in t):
+    if ("trial balance" in low) or ("مرور حساب" in t) or ("تراز آزمایشی" in t):
         return ReportIntent(key="trial_balance", from_date=from_date, to_date=to_date)
     if (
         ("account ledger" in low)

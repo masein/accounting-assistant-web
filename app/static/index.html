@@ -67,7 +67,15 @@
     .lines-table th { background: #f1f5f9; font-weight: 600; }
     .lines-table input { margin: 0; }
     .lines-table .col-debit, .lines-table .col-credit { width: 120px; }
+    .lines-table .col-debit input { color: #1565c0; font-weight: 500; }
+    .lines-table .col-credit input { color: #2e7d32; font-weight: 500; }
     .lines-table .col-code { width: 100px; }
+    .voucher-balance-bar { display: flex; gap: 1rem; padding: 0.4rem 0.5rem; font-size: 0.85rem; font-weight: 500; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; }
+    .voucher-balance-bar .debit-total { color: #1565c0; }
+    .voucher-balance-bar .credit-total { color: #2e7d32; }
+    .voucher-balance-bar .balance-diff { margin-left: auto; }
+    .voucher-balance-bar .balance-diff.balanced { color: #2e7d32; }
+    .voucher-balance-bar .balance-diff.unbalanced { color: #c62828; }
     .btn {
       padding: 0.5rem 1rem;
       border: none;
@@ -129,10 +137,13 @@
       flex-direction: column;
       gap: 0.5rem;
     }
-    .chat-msg { max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; }
+    .chat-msg { max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; unicode-bidi: plaintext; }
     .chat-msg.message-in { animation: message-in 220ms ease; }
     .chat-msg.user { align-self: flex-end; background: var(--primary); color: #fff; }
     .chat-msg.assistant { align-self: flex-start; background: #fff; border: 1px solid var(--border); }
+    .chat-quick-actions { display: flex; gap: 0.35rem; padding: 0.35rem 0.5rem; flex-wrap: wrap; border-top: 1px solid var(--border); background: var(--card); }
+    .chat-quick-actions .chip { font-size: 0.78rem; padding: 0.2rem 0.6rem; border-radius: 16px; border: 1px solid var(--primary); color: var(--primary); background: transparent; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .chat-quick-actions .chip:hover { background: var(--primary); color: #fff; }
     .chat-input-wrap { display: flex; gap: 0.5rem; padding: 0.5rem; border-top: 1px solid var(--border); background: var(--card); border-radius: 0 0 8px 8px; }
     .chat-input-wrap input { flex: 1; margin-bottom: 0; }
     .chat-msg.loading { color: var(--text-muted); }
@@ -293,7 +304,11 @@
       flex-wrap: wrap;
       gap: 0.5rem;
       margin: 0 0 1rem 0;
+      align-items: center;
     }
+    .nav-group-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; padding: 0 0.15rem; user-select: none; }
+    .nav-sep { width: 1px; height: 1.4rem; background: var(--border); margin: 0 0.15rem; }
+    .nav-more-item { font-size: 0.8rem; padding: 0.3rem 0.6rem; }
     .ai-runtime-bar {
       display: grid;
       grid-template-columns: 180px 1fr 1.2fr 1fr auto;
@@ -433,16 +448,26 @@
 
     <div id="alert" class="alert" role="alert" style="display: none;"></div>
     <div class="top-nav" id="top-nav">
-      <button type="button" class="nav-btn" data-page="dashboard">Dashboard</button>
+      <span class="nav-group-label">Work</span>
       <button type="button" class="nav-btn" data-page="chat">AI chat</button>
       <button type="button" class="nav-btn" data-page="transactions">Vouchers</button>
-      <button type="button" class="nav-btn" data-page="entities">Entities</button>
-      <button type="button" class="nav-btn" data-page="invoices">Invoices</button>
-      <button type="button" class="nav-btn" data-page="recurring">Recurring</button>
+      <span class="nav-sep"></span>
+      <span class="nav-group-label">Reports</span>
+      <button type="button" class="nav-btn" data-page="dashboard">Dashboard</button>
       <button type="button" class="nav-btn" data-page="ledger">Ledger</button>
       <button type="button" class="nav-btn" data-page="manager">Manager reports</button>
-      <button type="button" class="nav-btn" data-page="inventory">Inventory</button>
-      <button type="button" class="nav-btn" data-page="settings">Settings</button>
+      <span class="nav-sep"></span>
+      <span class="nav-group-label">Brain</span>
+      <button type="button" class="nav-btn" data-page="bank-statements">Bank Statements</button>
+      <button type="button" class="nav-btn" data-page="audit">Audit</button>
+      <button type="button" class="nav-btn" data-page="cfo">CFO Mode</button>
+      <span class="nav-sep"></span>
+      <span class="nav-group-label">Setup</span>
+      <button type="button" class="nav-btn nav-more-item" data-page="entities">Entities</button>
+      <button type="button" class="nav-btn nav-more-item" data-page="invoices">Invoices</button>
+      <button type="button" class="nav-btn nav-more-item" data-page="recurring">Recurring</button>
+      <button type="button" class="nav-btn nav-more-item" data-page="inventory">Inventory</button>
+      <button type="button" class="nav-btn nav-more-item" data-page="settings">Settings</button>
     </div>
 
     <div class="card" data-page="entities">
@@ -532,6 +557,14 @@
         <div id="attachment-grid" class="attachment-grid"></div>
         <div class="chat-panel" style="margin-top: 0.75rem;">
           <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-quick-actions" id="chat-quick-actions">
+            <button type="button" class="chip" data-msg="Show balance sheet">Balance Sheet</button>
+            <button type="button" class="chip" data-msg="Show P&amp;L this month">P&amp;L</button>
+            <button type="button" class="chip" data-msg="Show cash flow">Cash Flow</button>
+            <button type="button" class="chip" data-msg="What is my bank balance?">Bank Balance</button>
+            <button type="button" class="chip" data-msg="Record a payment">Record Payment</button>
+            <button type="button" class="chip" data-msg="Record a receipt">Record Receipt</button>
+          </div>
           <div class="chat-input-wrap">
             <input type="text" id="chat-input" data-i18n-placeholder="placeholderChatInput" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off">
             <button type="button" class="btn btn-primary" id="chat-send" data-i18n="send">Send</button>
@@ -603,6 +636,11 @@
               </tr>
             </tbody>
           </table>
+          <div class="voucher-balance-bar" id="voucher-balance-bar">
+            <span class="debit-total" id="bal-debit">Debit: 0</span>
+            <span class="credit-total" id="bal-credit">Credit: 0</span>
+            <span class="balance-diff balanced" id="bal-diff">Balanced</span>
+          </div>
           <button type="button" class="btn btn-secondary" id="add-line" data-i18n="btnAddLine">+ Add line</button>
         </div>
         <div style="margin-top: 1rem;">
@@ -881,6 +919,116 @@
         </div>
         <div id="inv-report-preview" style="margin-bottom:0.6rem;"></div>
         <pre id="inv-report-json" style="white-space: pre-wrap; margin:0; font-size:0.8rem; color:var(--text); max-height:360px; overflow:auto;"></pre>
+      </div>
+    </div>
+
+    <!-- ═══════ Bank Statements Page ═══════ -->
+    <div class="card" data-page="bank-statements">
+      <h2>Bank Statement Import</h2>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Upload CSV, Excel, or scanned bank statements. The system will parse, classify, and reconcile transactions automatically.</p>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
+        <input type="file" id="bs-file-input" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;">
+        <input type="text" id="bs-bank-name" placeholder="Bank name (e.g. Melli)" style="width:180px;">
+        <button type="button" class="btn btn-primary" id="bs-upload-btn">Upload & Parse</button>
+      </div>
+      <div id="bs-upload-status" style="display:none;margin-bottom:1rem;" class="alert"></div>
+      <div id="bs-list-wrap">
+        <h3>Recent Statements</h3>
+        <table class="results-table" id="bs-list-table"><thead><tr>
+          <th>Bank</th><th>File</th><th>Type</th><th>Rows</th><th>Matched</th><th>Status</th><th>Actions</th>
+        </tr></thead><tbody id="bs-list-body"></tbody></table>
+      </div>
+      <div id="bs-detail-wrap" style="display:none;margin-top:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+          <h3 id="bs-detail-title">Statement Detail</h3>
+          <div style="display:flex;gap:0.5rem;">
+            <button type="button" class="btn btn-primary" id="bs-reconcile-btn">Reconcile</button>
+            <button type="button" class="btn btn-primary" id="bs-approve-all-btn">Approve All Matched</button>
+            <button type="button" class="btn btn-secondary" id="bs-back-btn">Back</button>
+          </div>
+        </div>
+        <div id="bs-recon-summary" style="display:none;padding:0.5rem;background:#e8f5e9;border-radius:6px;margin-bottom:0.75rem;font-size:0.85rem;"></div>
+        <div style="overflow-x:auto;">
+          <table class="results-table" id="bs-rows-table"><thead><tr>
+            <th>#</th><th>Date</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th>
+            <th>Category</th><th>Confidence</th><th>Status</th><th>Action</th>
+          </tr></thead><tbody id="bs-rows-body"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ Audit Page ═══════ -->
+    <div class="card" data-page="audit">
+      <h2>System Audit</h2>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Self-auditing accounting integrity checks, anomaly detection, and audit trail.</p>
+      <div style="display:flex;gap:0.75rem;margin-bottom:1rem;">
+        <button type="button" class="btn btn-primary" id="audit-run-btn">Run Full Audit</button>
+      </div>
+      <div id="audit-scores" style="display:none;display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <div class="panel" style="flex:1;min-width:200px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Integrity Score</div>
+          <div id="audit-integrity-score" style="font-size:2.5rem;font-weight:700;color:var(--primary);">—</div>
+        </div>
+        <div class="panel" style="flex:1;min-width:200px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Health Score</div>
+          <div id="audit-health-score" style="font-size:2.5rem;font-weight:700;color:#2e7d32;">—</div>
+        </div>
+        <div class="panel" style="flex:1;min-width:200px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Checks</div>
+          <div id="audit-checks-summary" style="font-size:1.2rem;font-weight:600;">—</div>
+        </div>
+      </div>
+      <div id="audit-findings-wrap" style="display:none;">
+        <h3>Findings</h3>
+        <div id="audit-findings-list"></div>
+      </div>
+      <div style="margin-top:1.5rem;">
+        <h3>Audit Trail</h3>
+        <table class="results-table"><thead><tr>
+          <th>Time</th><th>Action</th><th>Type</th><th>Entity</th><th>User</th><th>Detail</th>
+        </tr></thead><tbody id="audit-log-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ═══════ CFO Mode Page ═══════ -->
+    <div class="card" data-page="cfo">
+      <h2>CFO Intelligence</h2>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Executive-level financial reasoning, KPIs, risk assessment, and natural language Q&A.</p>
+      <div id="cfo-grade-bar" style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <div class="panel" style="flex:1;min-width:160px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Health Grade</div>
+          <div id="cfo-grade" style="font-size:3rem;font-weight:800;color:var(--primary);">—</div>
+        </div>
+        <div class="panel" style="flex:1;min-width:160px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Risk Score</div>
+          <div id="cfo-risk" style="font-size:2rem;font-weight:700;">—</div>
+        </div>
+        <div class="panel" style="flex:1;min-width:160px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Cash Runway</div>
+          <div id="cfo-runway" style="font-size:2rem;font-weight:700;">—</div>
+        </div>
+        <div class="panel" style="flex:1;min-width:160px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Burn Rate</div>
+          <div id="cfo-burn" style="font-size:1.2rem;font-weight:600;">—</div>
+        </div>
+      </div>
+      <div id="cfo-kpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.75rem;margin-bottom:1rem;"></div>
+      <div id="cfo-narrative" style="padding:0.75rem;background:#f8fafc;border-radius:8px;font-size:0.9rem;line-height:1.6;margin-bottom:1rem;display:none;"></div>
+      <div id="cfo-insights" style="margin-bottom:1rem;"></div>
+      <div style="margin-top:1rem;">
+        <h3>Ask the CFO AI</h3>
+        <div style="display:flex;gap:0.5rem;">
+          <input type="text" id="cfo-question-input" placeholder="e.g. Are we financially healthy? Can we survive 6 months?" style="flex:1;">
+          <button type="button" class="btn btn-primary" id="cfo-ask-btn">Ask</button>
+        </div>
+        <div id="cfo-answer" style="display:none;margin-top:0.75rem;padding:0.75rem;background:#e3f2fd;border-radius:8px;font-size:0.9rem;"></div>
+      </div>
+      <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button type="button" class="chip cfo-quick" data-q="Are we financially healthy?">Health check</button>
+        <button type="button" class="chip cfo-quick" data-q="Can we survive 6 months?">Survival check</button>
+        <button type="button" class="chip cfo-quick" data-q="What are our main cost drivers?">Cost drivers</button>
+        <button type="button" class="chip cfo-quick" data-q="Where is cash leaking?">Cash leaks</button>
+        <button type="button" class="chip cfo-quick" data-q="What is our burn rate?">Burn rate</button>
       </div>
     </div>
 
@@ -3360,6 +3508,7 @@
     function appendChatMessage(role, content, options) {
       const div = document.createElement('div');
       div.className = 'chat-msg ' + role + (options && options.loading ? ' loading' : '');
+      div.setAttribute('dir', 'auto');
       div.textContent = content;
       if (options && options.id) div.id = options.id;
       div.classList.add('message-in');
@@ -3633,23 +3782,69 @@
       return `<pre style="white-space:pre-wrap; margin:0; max-height:300px; overflow:auto;">${escapeHtml(JSON.stringify(report, null, 2))}</pre>`;
     }
 
+    function _reportQuickSummary(report) {
+      if (!report || !report.totals) return '';
+      const t = report.totals;
+      const parts = [];
+      if (report.report_type === 'balance_sheet') {
+        if (t.assets != null) parts.push('Assets: ' + (t.assets || 0).toLocaleString());
+        if (t.liabilities != null) parts.push('Liabilities: ' + (t.liabilities || 0).toLocaleString());
+        if (t.equity != null) parts.push('Equity: ' + (t.equity || 0).toLocaleString());
+      } else if (report.report_type === 'income_statement') {
+        if (t.revenue != null) parts.push('Revenue: ' + (t.revenue || 0).toLocaleString());
+        if (t.net_profit != null) parts.push('Net Profit: ' + (t.net_profit || 0).toLocaleString());
+      } else if (report.report_type === 'cash_flow_statement') {
+        if (t.operating != null) parts.push('Operating: ' + (t.operating || 0).toLocaleString());
+        if (t.net_cash_change != null) parts.push('Net Change: ' + (t.net_cash_change || 0).toLocaleString());
+      }
+      return parts.join(' · ');
+    }
+    function _reportAnalysisHtml(report) {
+      if (!report || !report.analysis) return '';
+      const a = report.analysis;
+      let html = '';
+      if (a.summary) html += `<div style="font-size:0.85rem;color:var(--text);margin:0.3rem 0;">${escapeHtml(a.summary)}</div>`;
+      if (a.warnings && a.warnings.length) {
+        html += '<div style="margin:0.3rem 0;">';
+        a.warnings.forEach(w => { html += `<div style="font-size:0.82rem;color:#c62828;">⚠ ${escapeHtml(w)}</div>`; });
+        html += '</div>';
+      }
+      if (a.ratios && Object.keys(a.ratios).length) {
+        const chips = Object.entries(a.ratios).filter(([,v]) => v != null).map(([k,v]) => {
+          const label = k.replace(/_/g, ' ').replace(/\bpct\b/, '%');
+          const val = typeof v === 'number' ? (Math.abs(v) > 100 ? v.toLocaleString() : v.toFixed(2)) : v;
+          return `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:12px;background:#e3f2fd;font-size:0.78rem;">${escapeHtml(label)}: ${val}</span>`;
+        });
+        html += `<div style="margin:0.3rem 0;">${chips.join('')}</div>`;
+      }
+      return html;
+    }
     function appendChatReport(report) {
       const div = document.createElement('div');
       div.className = 'chat-msg assistant report-msg';
+      div.setAttribute('dir', 'auto');
       const period = reportPeriodText(report);
       const chartId = 'chat-report-chart-' + Math.random().toString(16).slice(2);
       const hasCsvRows = (() => {
         const data = reportToTableData(report);
         return Array.isArray(data.rows) && data.rows.length > 0;
       })();
+      const quickSummary = _reportQuickSummary(report);
+      const analysisHtml = _reportAnalysisHtml(report);
+      const detailId = 'report-detail-' + Math.random().toString(16).slice(2);
       div.innerHTML = `
         <div style="font-weight:700; margin-bottom:0.35rem;">${escapeHtml(t('reportResult'))}</div>
         ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
-        <div>${renderReportPreviewHtml(report)}</div>
-        <div class="panel report-chart-panel" style="display:none;">
-          <h3>${escapeHtml(t('chartWord'))}</h3>
-          <canvas id="${chartId}" height="200"></canvas>
-        </div>
+        ${quickSummary ? `<div style="font-size:0.88rem;color:var(--text-muted);margin:0.25rem 0;">${escapeHtml(quickSummary)}</div>` : ''}
+        ${analysisHtml}
+        <details id="${detailId}">
+          <summary style="cursor:pointer;font-size:0.85rem;color:var(--primary);margin:0.3rem 0;">Show full report</summary>
+          <div>${renderReportPreviewHtml(report)}</div>
+          <div class="panel report-chart-panel" style="display:none;">
+            <h3>${escapeHtml(t('chartWord'))}</h3>
+            <canvas id="${chartId}" height="200"></canvas>
+          </div>
+        </details>
         <div class="report-actions" style="margin-top:0.5rem;">
           <button type="button" class="btn btn-secondary btn-sm chat-report-export-json">${escapeHtml(t('btnExportJson'))}</button>
           <button type="button" class="btn btn-secondary btn-sm chat-report-export-csv" ${hasCsvRows ? '' : 'disabled'}>${escapeHtml(t('btnExportCsv'))}</button>
@@ -3658,10 +3853,17 @@
       `;
       chatMessagesEl.appendChild(div);
       div.classList.add('message-in');
-      const chartCanvas = div.querySelector('#' + chartId);
-      const chartPanel = div.querySelector('.report-chart-panel');
-      const chart = renderReportChart(chartCanvas, report, null);
-      if (chartPanel && chart) chartPanel.style.display = 'block';
+      const detailsEl = div.querySelector('#' + detailId);
+      let chartRendered = false;
+      function renderChartOnOpen() {
+        if (chartRendered) return;
+        const chartCanvas = div.querySelector('#' + chartId);
+        const chartPanel = div.querySelector('.report-chart-panel');
+        const chart = renderReportChart(chartCanvas, report, null);
+        if (chartPanel && chart) chartPanel.style.display = 'block';
+        chartRendered = true;
+      }
+      if (detailsEl) detailsEl.addEventListener('toggle', () => { if (detailsEl.open) renderChartOnOpen(); });
       const base = reportFileBaseName(report);
       const jsonBtn = div.querySelector('.chat-report-export-json');
       const csvBtn = div.querySelector('.chat-report-export-csv');
@@ -3725,6 +3927,43 @@
       }
     }
 
+    // Quick-action chips
+    document.getElementById('chat-quick-actions').addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      const msg = chip.getAttribute('data-msg');
+      if (msg) {
+        chatInput.value = msg;
+        chatSendBtn.click();
+      }
+    });
+
+    // Voucher balance bar live updater
+    function updateVoucherBalanceBar() {
+      const rows = document.querySelectorAll('#lines-body tr');
+      let totalDebit = 0, totalCredit = 0;
+      rows.forEach(r => {
+        totalDebit += parseInt(r.querySelector('.line-debit')?.value) || 0;
+        totalCredit += parseInt(r.querySelector('.line-credit')?.value) || 0;
+      });
+      const dEl = document.getElementById('bal-debit');
+      const cEl = document.getElementById('bal-credit');
+      const diffEl = document.getElementById('bal-diff');
+      if (dEl) dEl.textContent = 'Debit: ' + totalDebit.toLocaleString();
+      if (cEl) cEl.textContent = 'Credit: ' + totalCredit.toLocaleString();
+      if (diffEl) {
+        const diff = totalDebit - totalCredit;
+        if (diff === 0) {
+          diffEl.textContent = 'Balanced ✓';
+          diffEl.className = 'balance-diff balanced';
+        } else {
+          diffEl.textContent = 'Diff: ' + diff.toLocaleString();
+          diffEl.className = 'balance-diff unbalanced';
+        }
+      }
+    }
+    document.getElementById('lines-body').addEventListener('input', updateVoucherBalanceBar);
+
     chatSendBtn.addEventListener('click', async () => {
       const text = (chatInput.value || '').trim();
       if (!text) return;
@@ -3756,12 +3995,33 @@
         if (data.report) {
           appendChatReport(data.report);
         }
+        if (data.form_updates) {
+          if (data.form_updates.date) {
+            document.getElementById('date').value = data.form_updates.date;
+            if (typeof updateJalaliHint === 'function') updateJalaliHint();
+          }
+          if (data.form_updates.reference) {
+            document.getElementById('reference').value = data.form_updates.reference;
+          }
+          if (data.form_updates.description) {
+            document.getElementById('description').value = data.form_updates.description;
+          }
+        }
         if (data.transaction) {
           fillFormFromSuggestion(data.transaction);
+          updateVoucherBalanceBar();
           lastEntityMentions = data.entity_mentions || null;
           await loadEntityOptions();
           setEntityDropdownsFromResponse(data.resolved_entities || null, lastEntityMentions || []);
-          showAlert('Voucher ready. Edit if needed, then click Save voucher.');
+          // Show confidence and reasoning if available
+          let alertMsg = 'Voucher ready. Edit if needed, then click Save voucher.';
+          if (data.confidence != null && data.confidence < 0.7) {
+            alertMsg = '⚠ Low confidence (' + Math.round(data.confidence * 100) + '%). Please review carefully. ' + alertMsg;
+          }
+          if (data.reasoning) {
+            appendChatMessage('assistant', '💡 ' + data.reasoning);
+          }
+          showAlert(alertMsg);
         } else {
           lastEntityMentions = null;
         }
@@ -3778,6 +4038,22 @@
       }
     });
     chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
+
+    let lastSavedTransactionId = null;
+
+    function buildConfirmationSummary(date, description, lines) {
+      const debitLines = lines.filter(l => l.debit > 0);
+      const creditLines = lines.filter(l => l.credit > 0);
+      let summary = `Date: ${date}\n`;
+      if (description) summary += `Description: ${description}\n`;
+      summary += '\nDebit entries:\n';
+      debitLines.forEach(l => { summary += `  ${l.account_code}: ${l.debit.toLocaleString()} ${l.line_description ? '(' + l.line_description + ')' : ''}\n`; });
+      summary += '\nCredit entries:\n';
+      creditLines.forEach(l => { summary += `  ${l.account_code}: ${l.credit.toLocaleString()} ${l.line_description ? '(' + l.line_description + ')' : ''}\n`; });
+      summary += `\nTotal: ${lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}\n`;
+      summary += '\nSave this voucher?';
+      return summary;
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -3801,6 +4077,10 @@
         showAlert('Total debits must equal total credits. (Debit: ' + formatNum(totalDebit) + ', Credit: ' + formatNum(totalCredit) + ')', true);
         return;
       }
+      // Pre-save confirmation
+      const confirmMsg = buildConfirmationSummary(date, description, lines);
+      if (!confirm(confirmMsg)) return;
+
       submitBtn.disabled = true;
       document.getElementById('results-wrap').classList.add('loading');
       const entity_links = [];
@@ -3830,6 +4110,7 @@
           showAlert(data.detail || 'Error saving voucher. ' + res.status, true);
           return;
         }
+        lastSavedTransactionId = data.id || null;
         showAlert('Voucher saved. Ledger updated.');
         loadLedger();
         loadEntities();
@@ -4825,6 +5106,283 @@
     loadBudgets();
     loadEntityOptions();
     loadManagerInventoryItems();
+
+    // ═══════ Bank Statement Module ═══════
+    const bsAPI = API + '/brain';
+
+    async function loadBankStatements() {
+      try {
+        const res = await fetch(bsAPI + '/bank-statements?limit=20');
+        if (!res.ok) return;
+        const stmts = await res.json();
+        const body = document.getElementById('bs-list-body');
+        body.innerHTML = '';
+        stmts.forEach(s => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${escapeHtml(s.bank_name)}</td><td>${escapeHtml(s.source_filename)}</td>
+            <td>${s.source_type}</td><td>${s.total_rows}</td><td>${s.matched_rows}</td>
+            <td><span class="badge ${s.status === 'approved' ? 'badge-ok' : ''}">${s.status}</span></td>
+            <td><button class="btn btn-secondary btn-sm bs-view-btn" data-id="${s.id}">View</button></td>`;
+          body.appendChild(tr);
+        });
+      } catch (e) { /* ignore */ }
+    }
+
+    document.getElementById('bs-upload-btn').addEventListener('click', async () => {
+      const fileInput = document.getElementById('bs-file-input');
+      const bankName = document.getElementById('bs-bank-name').value.trim() || 'Unknown';
+      if (!fileInput.files.length) { showAlert('Select a file first.', true); return; }
+      const form = new FormData();
+      form.append('file', fileInput.files[0]);
+      const statusEl = document.getElementById('bs-upload-status');
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'Uploading and parsing...';
+      statusEl.className = 'alert';
+      try {
+        const res = await fetch(bsAPI + '/bank-statements/upload?bank_name=' + encodeURIComponent(bankName), {
+          method: 'POST', body: form
+        });
+        const data = await res.json();
+        if (!res.ok) { statusEl.textContent = data.detail || 'Upload failed'; statusEl.className = 'alert alert-error'; return; }
+        statusEl.textContent = `Parsed ${data.total_rows} rows from ${data.bank_name} (${data.source_type}). ${data.errors.length ? data.errors.join('; ') : ''}`;
+        statusEl.className = 'alert';
+        loadBankStatements();
+      } catch (e) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'alert alert-error'; }
+    });
+
+    let currentStatementId = null;
+
+    document.getElementById('bs-list-body').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.bs-view-btn');
+      if (!btn) return;
+      currentStatementId = btn.dataset.id;
+      await loadStatementDetail(currentStatementId);
+    });
+
+    async function loadStatementDetail(id) {
+      try {
+        const res = await fetch(bsAPI + '/bank-statements/' + id);
+        if (!res.ok) return;
+        const stmt = await res.json();
+        document.getElementById('bs-detail-title').textContent = `${stmt.bank_name} — ${stmt.source_filename} (${stmt.total_rows} rows)`;
+        const body = document.getElementById('bs-rows-body');
+        body.innerHTML = '';
+        stmt.rows.forEach(r => {
+          const confColor = r.confidence >= 0.85 ? '#2e7d32' : r.confidence >= 0.6 ? '#f57f17' : '#c62828';
+          const statusBg = r.recon_status === 'matched' ? '#e8f5e9' : r.recon_status === 'duplicate' ? '#fff3e0' : '';
+          const tr = document.createElement('tr');
+          tr.style.background = statusBg;
+          tr.innerHTML = `<td>${r.row_index}</td><td>${r.tx_date}</td><td dir="auto">${escapeHtml(r.description || '')}</td>
+            <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString() : ''}</td>
+            <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString() : ''}</td>
+            <td>${r.balance != null ? r.balance.toLocaleString() : ''}</td>
+            <td>${escapeHtml(r.category || '—')}</td>
+            <td style="color:${confColor}">${(r.confidence * 100).toFixed(0)}%</td>
+            <td>${r.recon_status}</td>
+            <td>${r.recon_status === 'unmatched' ? `<button class="btn btn-secondary btn-sm bs-create-btn" data-row-id="${r.id}" data-code="${r.suggested_account_code || ''}">Create</button>` : r.user_approved ? '✓' : `<button class="btn btn-secondary btn-sm bs-approve-btn" data-row-id="${r.id}">Approve</button>`}</td>`;
+          body.appendChild(tr);
+        });
+        document.getElementById('bs-list-wrap').style.display = 'none';
+        document.getElementById('bs-detail-wrap').style.display = 'block';
+      } catch (e) { showAlert('Failed to load statement: ' + e.message, true); }
+    }
+
+    document.getElementById('bs-back-btn').addEventListener('click', () => {
+      document.getElementById('bs-detail-wrap').style.display = 'none';
+      document.getElementById('bs-list-wrap').style.display = 'block';
+    });
+
+    document.getElementById('bs-reconcile-btn').addEventListener('click', async () => {
+      if (!currentStatementId) return;
+      try {
+        const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/reconcile', { method: 'POST' });
+        const data = await res.json();
+        const el = document.getElementById('bs-recon-summary');
+        el.style.display = 'block';
+        el.textContent = `Reconciliation: ${data.matched} matched, ${data.partial} partial, ${data.unmatched} unmatched, ${data.duplicates} duplicates, ${data.auto_matched} auto-matched, ${data.missing_in_bank} missing in bank.`;
+        await loadStatementDetail(currentStatementId);
+      } catch (e) { showAlert('Reconciliation failed: ' + e.message, true); }
+    });
+
+    document.getElementById('bs-approve-all-btn').addEventListener('click', async () => {
+      if (!currentStatementId) return;
+      const btns = document.querySelectorAll('.bs-approve-btn');
+      const approvals = Array.from(btns).map(b => ({ row_id: b.dataset.rowId, action: 'approve' }));
+      if (!approvals.length) { showAlert('No rows to approve.'); return; }
+      try {
+        const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/approve', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ approvals })
+        });
+        const data = await res.json();
+        showAlert(`Approved: ${data.approved}, Created: ${data.created}. ${data.errors.join('; ')}`);
+        await loadStatementDetail(currentStatementId);
+      } catch (e) { showAlert('Approval failed: ' + e.message, true); }
+    });
+
+    document.getElementById('bs-rows-body').addEventListener('click', async (e) => {
+      const createBtn = e.target.closest('.bs-create-btn');
+      const approveBtn = e.target.closest('.bs-approve-btn');
+      if (createBtn) {
+        const rowId = createBtn.dataset.rowId;
+        const code = createBtn.dataset.code || prompt('Account code for this transaction:', '6190');
+        if (!code) return;
+        try {
+          const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/approve', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approvals: [{ row_id: rowId, action: 'create', account_code: code }] })
+          });
+          const data = await res.json();
+          showAlert(`Created: ${data.created}. ${data.errors.join('; ')}`);
+          await loadStatementDetail(currentStatementId);
+        } catch (e) { showAlert('Create failed: ' + e.message, true); }
+      }
+      if (approveBtn) {
+        try {
+          const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/approve', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approvals: [{ row_id: approveBtn.dataset.rowId, action: 'approve' }] })
+          });
+          await loadStatementDetail(currentStatementId);
+        } catch (e) { showAlert('Approve failed.', true); }
+      }
+    });
+
+    // ═══════ Audit Module ═══════
+    document.getElementById('audit-run-btn').addEventListener('click', async () => {
+      try {
+        document.getElementById('audit-run-btn').disabled = true;
+        const res = await fetch(bsAPI + '/audit/report');
+        const data = await res.json();
+        document.getElementById('audit-scores').style.display = 'flex';
+        document.getElementById('audit-integrity-score').textContent = data.integrity_score;
+        document.getElementById('audit-integrity-score').style.color = data.integrity_score >= 80 ? '#2e7d32' : data.integrity_score >= 50 ? '#f57f17' : '#c62828';
+        document.getElementById('audit-health-score').textContent = data.health_score;
+        document.getElementById('audit-health-score').style.color = data.health_score >= 80 ? '#2e7d32' : data.health_score >= 50 ? '#f57f17' : '#c62828';
+        document.getElementById('audit-checks-summary').textContent = `${data.checks_passed} passed / ${data.checks_failed} failed`;
+        const findingsWrap = document.getElementById('audit-findings-wrap');
+        const findingsList = document.getElementById('audit-findings-list');
+        findingsList.innerHTML = '';
+        if (data.findings.length) {
+          findingsWrap.style.display = 'block';
+          data.findings.forEach(f => {
+            const color = f.severity === 'critical' ? '#c62828' : f.severity === 'warning' ? '#f57f17' : '#1565c0';
+            const div = document.createElement('div');
+            div.style.cssText = `padding:0.5rem 0.75rem;margin-bottom:0.4rem;border-left:4px solid ${color};background:#fafafa;border-radius:4px;`;
+            div.innerHTML = `<strong style="color:${color}">${escapeHtml(f.severity.toUpperCase())}</strong> — <strong>${escapeHtml(f.title)}</strong><br><span style="font-size:0.85rem;color:var(--text-muted);">${escapeHtml(f.detail)}</span>`;
+            findingsList.appendChild(div);
+          });
+        } else {
+          findingsWrap.style.display = 'block';
+          findingsList.innerHTML = '<p style="color:#2e7d32;">All checks passed. No issues found.</p>';
+        }
+      } catch (e) { showAlert('Audit failed: ' + e.message, true); }
+      finally { document.getElementById('audit-run-btn').disabled = false; }
+    });
+
+    async function loadAuditLogs() {
+      try {
+        const res = await fetch(bsAPI + '/audit/logs?limit=30');
+        if (!res.ok) return;
+        const logs = await res.json();
+        const body = document.getElementById('audit-log-body');
+        body.innerHTML = '';
+        logs.forEach(l => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td style="font-size:0.8rem;">${l.timestamp ? new Date(l.timestamp).toLocaleString() : ''}</td>
+            <td>${escapeHtml(l.action)}</td><td>${escapeHtml(l.entity_type)}</td>
+            <td style="font-size:0.8rem;">${escapeHtml((l.entity_id || '').substring(0, 8))}</td>
+            <td>${escapeHtml(l.username || '—')}</td>
+            <td style="font-size:0.8rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml((l.detail || '').substring(0, 120))}</td>`;
+          body.appendChild(tr);
+        });
+      } catch (e) { /* ignore */ }
+    }
+
+    // ═══════ CFO Module ═══════
+    async function loadCFOReport() {
+      try {
+        const res = await fetch(bsAPI + '/cfo/report');
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('cfo-grade').textContent = data.health_grade;
+        document.getElementById('cfo-grade').style.color = data.health_grade <= 'B' ? '#2e7d32' : data.health_grade <= 'C' ? '#f57f17' : '#c62828';
+        document.getElementById('cfo-risk').textContent = data.risk_score + '/100';
+        document.getElementById('cfo-risk').style.color = data.risk_score <= 30 ? '#2e7d32' : data.risk_score <= 60 ? '#f57f17' : '#c62828';
+        document.getElementById('cfo-runway').textContent = data.runway_months + ' mo';
+        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString() + ' IRR/mo';
+
+        const kpiGrid = document.getElementById('cfo-kpis');
+        kpiGrid.innerHTML = '';
+        data.kpis.forEach(k => {
+          const riskColor = k.risk_level === 'danger' ? '#c62828' : k.risk_level === 'caution' ? '#f57f17' : 'var(--text)';
+          const trendIcon = k.trend === 'up' ? '↑' : k.trend === 'down' ? '↓' : '';
+          const div = document.createElement('div');
+          div.className = 'panel';
+          div.style.cssText = 'padding:0.6rem;';
+          const displayVal = k.unit === 'IRR' ? Number(k.value).toLocaleString() : k.value;
+          div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(k.label)}</div>
+            <div style="font-size:1.1rem;font-weight:700;color:${riskColor};">${displayVal} ${k.unit !== 'IRR' ? k.unit : ''}</div>
+            ${trendIcon ? `<div style="font-size:0.75rem;color:${k.trend === 'up' ? '#c62828' : '#2e7d32'};">${trendIcon} ${k.trend_pct}%</div>` : ''}`;
+          kpiGrid.appendChild(div);
+        });
+
+        const narrativeEl = document.getElementById('cfo-narrative');
+        if (data.narrative) {
+          narrativeEl.style.display = 'block';
+          narrativeEl.textContent = data.narrative;
+        }
+
+        const insightsEl = document.getElementById('cfo-insights');
+        insightsEl.innerHTML = '';
+        data.insights.forEach(i => {
+          const color = i.severity === 'critical' ? '#c62828' : i.severity === 'warning' ? '#f57f17' : '#1565c0';
+          const div = document.createElement('div');
+          div.style.cssText = `padding:0.5rem 0.75rem;margin-bottom:0.4rem;border-left:4px solid ${color};background:#fafafa;border-radius:4px;`;
+          div.innerHTML = `<strong style="color:${color}">${escapeHtml(i.title)}</strong><br><span style="font-size:0.85rem;">${escapeHtml(i.body)}</span>`;
+          insightsEl.appendChild(div);
+        });
+      } catch (e) { /* ignore */ }
+    }
+
+    document.getElementById('cfo-ask-btn').addEventListener('click', async () => {
+      const q = document.getElementById('cfo-question-input').value.trim();
+      if (!q) return;
+      const answerEl = document.getElementById('cfo-answer');
+      answerEl.style.display = 'block';
+      answerEl.textContent = 'Thinking...';
+      try {
+        const res = await fetch(bsAPI + '/cfo/ask', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q })
+        });
+        const data = await res.json();
+        answerEl.innerHTML = `<strong>Q:</strong> ${escapeHtml(data.question)}<br><br><strong>A:</strong> ${escapeHtml(data.answer)}<br><br><span style="font-size:0.8rem;color:var(--text-muted);">Health: ${data.health_grade} | Risk: ${data.risk_score}/100</span>`;
+      } catch (e) { answerEl.textContent = 'Error: ' + e.message; }
+    });
+    document.getElementById('cfo-question-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('cfo-ask-btn').click(); });
+
+    document.querySelectorAll('.cfo-quick').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('cfo-question-input').value = btn.dataset.q;
+        document.getElementById('cfo-ask-btn').click();
+      });
+    });
+
+    // Auto-load data when switching to new pages
+    const origShowPage = showPage;
+    if (typeof showPage === 'function') {
+      const _origShowPage = showPage;
+    }
+    document.getElementById('top-nav').addEventListener('click', (e) => {
+      const btn = e.target.closest('.nav-btn[data-page]');
+      if (!btn) return;
+      const page = btn.dataset.page;
+      if (page === 'bank-statements') { loadBankStatements(); }
+      if (page === 'audit') { loadAuditLogs(); }
+      if (page === 'cfo') { loadCFOReport(); }
+    });
+
   </script>
 </body>
 </html>

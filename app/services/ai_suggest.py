@@ -64,7 +64,7 @@ def _to_non_negative_int(value: Any) -> int:
 
 
 def _parse_amount_to_int(value: Any) -> int:
-    """Parse loose amount formats like 5000, '5k', '4M', '1 million' into integer rials."""
+    """Parse loose amount formats like 5000, '5k', '4M', '1 million', 'پنج میلیون', '5 تومان' into integer rials."""
     if isinstance(value, (int, float)):
         return max(0, int(value))
     if value is None:
@@ -73,6 +73,12 @@ def _parse_amount_to_int(value: Any) -> int:
     if not text:
         return 0
     text = text.replace(",", "").replace("_", "")
+
+    from app.utils.persian_numbers import parse_amount_with_currency
+    amount, _was_toman = parse_amount_with_currency(text)
+    if amount > 0:
+        return amount
+
     m = re.search(r"(\d+(?:\.\d+)?)\s*([mk])\b", text)
     if m:
         n = float(m.group(1))
@@ -319,6 +325,16 @@ def _build_account_list(accounts: list[dict[str, str]]) -> str:
     return "\n".join(f"- {a['code']}: {a['name']}" for a in accounts)
 
 
+def _detect_persian(text: str) -> bool:
+    """Return True if >30% of alphabetic chars in the text are Persian/Arabic script."""
+    if not text:
+        return False
+    persian = sum(1 for c in text if "\u0600" <= c <= "\u06FF" or "\uFB50" <= c <= "\uFDFF" or "\uFE70" <= c <= "\uFEFF")
+    latin = sum(1 for c in text if c.isascii() and c.isalpha())
+    total = persian + latin
+    return total > 0 and persian / total > 0.3
+
+
 def _build_system_prompt(accounts_text: str) -> str:
     return f"""You are an AI accountant. The user describes a financial event in plain language. Produce one voucher that is useful for books and reports (by client, bank, purpose).
 
@@ -331,7 +347,7 @@ JSON structure:
 {{
   "date": "YYYY-MM-DD",
   "reference": "invoice/receipt number if mentioned, else null",
-  "description": "clear one-line summary in English (who, amount, purpose, bank if relevant)",
+  "description": "clear one-line summary (who, amount, purpose, bank if relevant)",
   "new_accounts": [ {{ "code": "new code", "name": "account name" }} ],
   "lines": [
     {{ "account_code": "code", "debit": number, "credit": number, "line_description": "short note for this line when useful (e.g. Deposit from Client - Bank, or Purpose from Client)" }},
@@ -356,34 +372,37 @@ Reply with only the JSON object, starting with {{ and ending with }}."""
 def _build_chat_system_prompt(accounts_text: str) -> str:
     return f"""You are an AI accountant. Your job is to gather the information needed to register transactions so the books support useful reports later (by client, by bank, by type of revenue/expense).
 
-Always reply in English only. Your reply must be ONLY a single JSON object. No <think> tags. No explanation before or after.
+LANGUAGE: Reply in the same language the user writes in. If the user writes in Persian (Farsi), reply in Persian. If English, reply in English. Keep JSON keys in English always.
+
+Your reply must be ONLY a single JSON object. No <think> tags. No explanation before or after.
 
 Information you MUST gather before outputting a voucher:
-- Amount (e.g. 4M, 1 million).
+- Amount (e.g. 4M, 1 million, ۵ میلیون, پنج میلیون).
 - Who: client/customer name (for receipts) or payee (for payments).
-- Where the money went or came from: which bank account (e.g. Melli, Tejarat) for receipts; which account or payment method for payments.
+- Where the money went or came from: which bank account (e.g. Melli, Tejarat, بانک ملی) for receipts; which account or payment method for payments.
 - What it was for: purpose or service type (e.g. software development, sale, rent, invoice number). This is needed for reporting and audit.
 - Reference (optional but recommended): invoice number, receipt number, or similar so the entry can be traced later.
 
 Ask one or two short questions at a time. Do NOT output the transaction until you have at least: amount, who, which bank (or payment method), and what it was for. If the user gives all of this in one message, then output the transaction.
 
+When you output the transaction, include a "reasoning" field (1-2 sentences) explaining which accounts you chose and why. This helps the user verify correctness.
+
 When you output the transaction:
 - Set "reference" to the invoice/receipt number or similar if the user gave one; otherwise null.
 - Set "description" to a clear one-line summary (e.g. "Received 4M from Innotech for software development - Melli bank").
-- Set "line_description" on each line when useful for reports: e.g. for the bank line (1110): "Deposit from [Client] - [Bank name]"; for the revenue/receivable line (4110/1112): "[Purpose] from [Client]" or "Invoice XYZ".
+- Set "line_description" on each line when useful for reports.
 
 Available accounts:
 {accounts_text}
 
 JSON format:
-- To ask a follow-up: {{"message": "Your question in English", "transaction": null}}
-- To return the voucher: {{"message": "Short confirmation", "transaction": {{ ... }}, "entity_mentions": [ {{ "role": "client", "name": "Exact name" }}, {{ "role": "bank", "name": "Bank name" }} ] }}
-Always include "entity_mentions" when you output a transaction: list every client/customer, bank, payee, or supplier the user mentioned. Use role exactly: "client", "bank", "payee", "supplier". Use the exact name the user gave (e.g. "innotech" → name "Innotech", "Melli bank" → name "Melli"). Example: "received 325M from Innotech to our Melli bank" → entity_mentions: [ {{"role": "client", "name": "Innotech"}}, {{"role": "bank", "name": "Melli"}} ]. The app will create these in Entities if missing and link the voucher to them.
+- To ask a follow-up: {{"message": "Your question", "transaction": null}}
+- To return the voucher: {{"message": "Short confirmation", "reasoning": "Brief explanation of account choices", "transaction": {{ ... }}, "entity_mentions": [ {{ "role": "client", "name": "Exact name" }}, {{ "role": "bank", "name": "Bank name" }} ] }}
+Always include "entity_mentions" when you output a transaction: list every client/customer, bank, payee, or supplier the user mentioned. Use role exactly: "client", "bank", "payee", "supplier". Use the exact name the user gave (e.g. "innotech" -> name "Innotech", "Melli bank" -> name "Melli").
 
-Example questions: "Which bank account was it deposited to?", "What was this for? (e.g. invoice number or type of service)", "Do you have an invoice or receipt number for this?"
 Relative dates: If the user says "yesterday" use the date one day before today in YYYY-MM-DD; "last week" = 7 days before today. Put that date in the transaction "date" field.
 Important: Output the JSON voucher at the end. Do not use all tokens on reasoning; keep thinking short so the final JSON is always included and not cut off.
-Rules: Receipts = debit 1110 (bank), credit 4110 or 1112. Payments = debit expense, credit 1110. Opening balance = use 3110 as offset (asset opening usually debit asset / credit 3110). Amounts in Rials. 1M = 1000000. Always output valid JSON only."""
+Rules: Receipts = debit 1110 (bank), credit 4110 or 1112. Payments = debit expense, credit 1110. Opening balance = use 3110 as offset (asset opening usually debit asset / credit 3110). Amounts in Rials. 1M = 1000000. "تومان"/"toman" = multiply by 10 to get Rials. Always output valid JSON only."""
 
 
 def _normalize_relative_dates_in_message(text: str) -> str:
@@ -495,11 +514,20 @@ def _infer_entity_mentions_from_text(transaction: dict[str, Any], last_user_mess
     for line in transaction.get("lines") or []:
         desc += " " + (line.get("line_description") or "")
     desc = " " + desc
-    # Bank: "Melli Bank", "Melli", "Tejarat", "from Mellat", "to our X bank"
+    _PERSIAN_BANK_MAP = {
+        "ملی": "Melli", "تجارت": "Tejarat", "صادرات": "Saderat",
+        "سامان": "Saman", "پارسیان": "Parsian", "پاسارگاد": "Pasargad",
+        "ملت": "Mellat", "سینا": "Sina",
+    }
     for bank_name in ("Melli", "Tejarat", "Saderat", "Saman", "Parsian", "Pasargad", "Mellat", "Melat", "Sina"):
         if re.search(r"\b" + re.escape(bank_name) + r"\b", desc, re.IGNORECASE):
             out.append({"role": "bank", "name": bank_name})
             break
+    if not any(e.get("role") == "bank" for e in out):
+        for fa_name, en_name in _PERSIAN_BANK_MAP.items():
+            if fa_name in desc:
+                out.append({"role": "bank", "name": en_name})
+                break
     # Generic bank phrase fallback: "from X bank", "to X bank"
     if not any(e.get("role") == "bank" for e in out):
         m = re.search(r"(?:from|to)\s+([A-Za-z][A-Za-z0-9\s]{1,30})\s+bank\b", desc, re.IGNORECASE)

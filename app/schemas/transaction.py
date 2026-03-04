@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as _dt
 from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
@@ -46,7 +47,7 @@ class TransactionCreate(TransactionBase):
 
 
 class TransactionUpdate(BaseModel):
-    date: Optional[date] = None
+    date: Optional[_dt.date] = None
     reference: Optional[str] = None
     description: Optional[str] = None
     lines: Optional[list[TransactionLineCreate]] = None
@@ -94,8 +95,8 @@ class TransactionRead(TransactionBase):
 # ----- Import (bulk) -----
 class ImportTransactionLine(BaseModel):
     account_code: str
-    debit: int = 0
-    credit: int = 0
+    debit: int = Field(0, ge=0)
+    credit: int = Field(0, ge=0)
     line_description: Optional[str] = None
 
 
@@ -148,6 +149,16 @@ class ResolvedEntityLink(BaseModel):
 class ChatResponse(BaseModel):
     message: str = Field(..., description="Assistant reply to show in chat")
     transaction: Optional[SuggestTransactionResponse] = None
+    confidence: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="AI confidence in the suggested transaction (0.0-1.0). Shown to user when present.",
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Brief explanation of why these accounts were chosen (1-2 sentences).",
+    )
     report: Optional[dict] = Field(
         default=None,
         description="Structured report payload for manager insights queries (balance sheet, ledger, inventory, etc.)",
@@ -159,4 +170,8 @@ class ChatResponse(BaseModel):
     resolved_entities: Optional[list[ResolvedEntityLink]] = Field(
         default=None,
         description="Resolved entity ids (role + entity_id) from DB; prefer over entity_mentions for setting dropdowns",
+    )
+    form_updates: Optional[dict[str, str]] = Field(
+        default=None,
+        description="Partial form field updates (e.g. {date: '2026-02-23'}) to apply to the current voucher form",
     )

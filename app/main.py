@@ -14,6 +14,7 @@ from sqlalchemy import text
 from app.api.accounts import router as accounts_router
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
+from app.api.brain import router as brain_router
 from app.api.budgets import router as budgets_router
 from app.api.entities import router as entities_router
 from app.api.exports import router as exports_router
@@ -256,6 +257,7 @@ async def auth_middleware(request: Request, call_next):
 app.include_router(accounts_router)
 app.include_router(admin_router)
 app.include_router(auth_router)
+app.include_router(brain_router)
 app.include_router(budgets_router)
 app.include_router(entities_router)
 app.include_router(exports_router)

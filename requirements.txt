@@ -10,3 +10,5 @@ reportlab
 openpyxl
 pypdf
 jdatetime
+pytest
+pytest-asyncio

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Jira Assistant"
+  short_description: "Search, create, and update Jira issues"
+  default_prompt: "Use $jira to list my open Jira issues and summarize blockers."

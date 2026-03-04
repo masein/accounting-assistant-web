@@ -1,4 +1,6 @@
 from app.models.account import Account, AccountLevel
+from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
+from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
@@ -13,8 +15,12 @@ from app.models.user import User
 __all__ = [
     "Account",
     "AccountLevel",
+    "AuditLog",
+    "BankStatement",
+    "BankStatementRow",
     "BudgetLimit",
     "Entity",
+    "IntegrityCheck",
     "Invoice",
     "InvoiceItem",
     "InventoryItem",
@@ -29,6 +35,7 @@ __all__ = [
     "TransactionFee",
     "TransactionFeeApplication",
     "TransactionLine",
+    "TransactionVersion",
     "PaymentMethod",
     "User",
 ]

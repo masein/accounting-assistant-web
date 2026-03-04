@@ -13,6 +13,7 @@ from app.schemas.manager_report import (
     CashFlowLine,
     CashFlowResponse,
     CashFlowSection,
+    FinancialAnalysis,
     IncomeStatementResponse,
     ReportPeriod,
     StatementAccountNode,
@@ -110,6 +111,120 @@ def _sum_nodes(items: list[StatementAccountNode]) -> int:
     return int(sum(n.balance for n in items))
 
 
+def _safe_ratio(numerator: int | float, denominator: int | float) -> float | None:
+    if denominator == 0:
+        return None
+    return round(numerator / denominator, 4)
+
+
+def _analyze_balance_sheet(
+    totals: dict[str, int],
+    asset_nodes: list[StatementAccountNode],
+) -> FinancialAnalysis:
+    total_assets = totals.get("assets", 0)
+    total_liabilities = totals.get("liabilities", 0)
+    total_equity = totals.get("equity", 0)
+
+    current_ratio = _safe_ratio(total_assets, total_liabilities) if total_liabilities else None
+    debt_to_equity = _safe_ratio(total_liabilities, total_equity) if total_equity else None
+    working_capital = total_assets - total_liabilities
+
+    ratios: dict[str, float | None] = {
+        "current_ratio": current_ratio,
+        "debt_to_equity": debt_to_equity,
+        "working_capital": float(working_capital),
+    }
+
+    warnings: list[str] = []
+    if total_assets > 0:
+        for node in asset_nodes:
+            concentration = abs(node.balance) / total_assets if total_assets else 0
+            if concentration > 0.6:
+                warnings.append(
+                    f"Asset concentration: {node.account_name} ({node.account_code}) represents "
+                    f"{concentration:.0%} of total assets."
+                )
+    if current_ratio is not None and current_ratio < 1.0:
+        warnings.append(f"Low liquidity: current ratio is {current_ratio:.2f} (below 1.0).")
+    if debt_to_equity is not None and debt_to_equity > 2.0:
+        warnings.append(f"High leverage: debt-to-equity ratio is {debt_to_equity:.2f}.")
+
+    parts: list[str] = []
+    parts.append(f"Total assets: {total_assets:,}")
+    if working_capital >= 0:
+        parts.append(f"working capital is positive at {working_capital:,}")
+    else:
+        parts.append(f"working capital is negative at {working_capital:,}")
+    if current_ratio is not None:
+        parts.append(f"current ratio {current_ratio:.2f}")
+    summary = ". ".join(parts) + "."
+
+    return FinancialAnalysis(ratios=ratios, warnings=warnings, summary=summary)
+
+
+def _analyze_income_statement(totals: dict[str, int]) -> FinancialAnalysis:
+    revenue = totals.get("revenue", 0)
+    cogs = totals.get("cogs", 0)
+    gross_profit = totals.get("gross_profit", 0)
+    opex = totals.get("operating_expenses", 0)
+    net_profit = totals.get("net_profit", 0)
+
+    gross_margin = _safe_ratio(gross_profit * 100, revenue) if revenue else None
+    operating_margin = _safe_ratio((gross_profit - opex) * 100, revenue) if revenue else None
+    net_margin = _safe_ratio(net_profit * 100, revenue) if revenue else None
+
+    ratios: dict[str, float | None] = {
+        "gross_margin_pct": gross_margin,
+        "operating_margin_pct": operating_margin,
+        "net_margin_pct": net_margin,
+    }
+
+    warnings: list[str] = []
+    if net_margin is not None and net_margin < 0:
+        warnings.append(f"Net loss: margin is {net_margin:.1f}%.")
+    if gross_margin is not None and gross_margin < 20:
+        warnings.append(f"Low gross margin at {gross_margin:.1f}%.")
+
+    parts: list[str] = []
+    parts.append(f"Revenue: {revenue:,}")
+    if gross_margin is not None:
+        parts.append(f"gross margin {gross_margin:.1f}%")
+    if net_margin is not None:
+        parts.append(f"net margin {net_margin:.1f}%")
+    parts.append(f"net profit: {net_profit:,}")
+    summary = ". ".join(parts) + "."
+
+    return FinancialAnalysis(ratios=ratios, warnings=warnings, summary=summary)
+
+
+def _analyze_cash_flow(totals: dict[str, int]) -> FinancialAnalysis:
+    operating = totals.get("operating", 0)
+    investing = totals.get("investing", 0)
+    financing = totals.get("financing", 0)
+    net = totals.get("net_cash_change", 0)
+
+    ratios: dict[str, float | None] = {
+        "operating_cash_flow": float(operating),
+        "free_cash_flow": float(operating + investing),
+        "net_cash_change": float(net),
+    }
+
+    warnings: list[str] = []
+    if operating < 0:
+        warnings.append("Negative operating cash flow — the business is consuming cash from operations.")
+    if net < 0:
+        warnings.append(f"Net cash decreased by {abs(net):,}.")
+
+    parts: list[str] = []
+    parts.append(f"Operating cash flow: {operating:,}")
+    fcf = operating + investing
+    parts.append(f"free cash flow: {fcf:,}")
+    parts.append(f"net cash change: {net:,}")
+    summary = ". ".join(parts) + "."
+
+    return FinancialAnalysis(ratios=ratios, warnings=warnings, summary=summary)
+
+
 def build_balance_sheet(
     db: Session,
     to_date: date | None = None,
@@ -152,11 +267,14 @@ def build_balance_sheet(
         cp = default_period(None, comparative_to_date)
         comparative = ReportPeriod(from_date=cp.from_date, to_date=cp.to_date)
 
+    analysis = _analyze_balance_sheet(totals, assets)
+
     return BalanceSheetResponse(
         period=ReportPeriod(from_date=period.from_date, to_date=period.to_date),
         comparative_period=comparative,
         sections=sections,
         totals=totals,
+        analysis=analysis,
     )
 
 
@@ -245,17 +363,22 @@ def build_income_statement(
         ),
     }
 
+    totals_dict = {
+        "revenue": total_revenue,
+        "cogs": total_cogs,
+        "gross_profit": gross_profit,
+        "operating_expenses": total_opex,
+        "other_expenses": total_other_exp,
+        "net_profit": net_profit,
+    }
+
+    analysis = _analyze_income_statement(totals_dict)
+
     return IncomeStatementResponse(
         period=ReportPeriod(from_date=period.from_date, to_date=period.to_date),
         sections=sections,
-        totals={
-            "revenue": total_revenue,
-            "cogs": total_cogs,
-            "gross_profit": gross_profit,
-            "operating_expenses": total_opex,
-            "other_expenses": total_other_exp,
-            "net_profit": net_profit,
-        },
+        totals=totals_dict,
+        analysis=analysis,
     )
 
 
@@ -328,15 +451,20 @@ def build_cash_flow_statement(
             net=section_sums["financing"],
         ),
     }
+    totals_dict = {
+        "operating": section_sums["operating"],
+        "investing": section_sums["investing"],
+        "financing": section_sums["financing"],
+        "net_cash_change": section_sums["operating"] + section_sums["investing"] + section_sums["financing"],
+    }
+
+    analysis = _analyze_cash_flow(totals_dict)
+
     return CashFlowResponse(
         period=ReportPeriod(from_date=period.from_date, to_date=period.to_date),
         sections=sections,
-        totals={
-            "operating": section_sums["operating"],
-            "investing": section_sums["investing"],
-            "financing": section_sums["financing"],
-            "net_cash_change": section_sums["operating"] + section_sums["investing"] + section_sums["financing"],
-        },
+        totals=totals_dict,
+        analysis=analysis,
     )
 
 

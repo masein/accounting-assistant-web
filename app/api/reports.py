@@ -293,11 +293,27 @@ def get_entity_transactions(
     return out
 
 
+import time as _time
+
+_dashboard_cache: dict[str, tuple[float, OwnerDashboardResponse]] = {}
+_DASHBOARD_CACHE_TTL = 60  # seconds
+
+
 @router.get("/owner-dashboard", response_model=OwnerDashboardResponse)
-def get_owner_dashboard(db: Session = Depends(get_db)) -> OwnerDashboardResponse:
+def get_owner_dashboard(
+    db: Session = Depends(get_db),
+    months_back: int = 12,
+) -> OwnerDashboardResponse:
+    cache_key = f"dashboard:{months_back}"
+    now = _time.time()
+    cached = _dashboard_cache.get(cache_key)
+    if cached and (now - cached[0]) < _DASHBOARD_CACHE_TTL:
+        return cached[1]
+
     today = date.today()
+    cutoff = today - timedelta(days=months_back * 31)
     txns = db.execute(
-        select(Transaction).options(
+        select(Transaction).where(Transaction.date >= cutoff).options(
             selectinload(Transaction.lines).selectinload(TransactionLine.account),
             selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity),
             selectinload(Transaction.attachments),
@@ -578,7 +594,7 @@ def get_owner_dashboard(db: Session = Depends(get_db)) -> OwnerDashboardResponse
         f"3. Improve bookkeeping hygiene (references, entity links, attachments).\n"
     )
 
-    return OwnerDashboardResponse(
+    result = OwnerDashboardResponse(
         generated_on=today,
         kpis=kpis,
         forecast_13_weeks=forecast_rows,
@@ -594,6 +610,13 @@ def get_owner_dashboard(db: Session = Depends(get_db)) -> OwnerDashboardResponse
         alerts=alerts,
         owner_pack_markdown=owner_pack,
     )
+    _dashboard_cache[cache_key] = (_time.time(), result)
+    return result
+
+
+def invalidate_dashboard_cache() -> None:
+    """Call after transaction create/update/delete to clear cached dashboard."""
+    _dashboard_cache.clear()
 
 
 @router.get("/missing-references", response_model=MissingReferenceResponse)

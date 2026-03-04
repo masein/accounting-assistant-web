@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import base64
+import collections
 import logging
 import re
+import time as _time
 import uuid
 from datetime import date, timedelta
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
@@ -89,6 +91,31 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 chat_logger = logging.getLogger("app.chat")
 
 UPLOADS_DIR = Path(__file__).resolve().parents[1] / "uploads" / "transactions"
+
+
+class _RateLimiter:
+    """Simple in-memory sliding-window rate limiter."""
+
+    def __init__(self, max_requests: int = 10, window_seconds: int = 60):
+        self._max = max_requests
+        self._window = window_seconds
+        self._buckets: dict[str, collections.deque] = {}
+
+    def check(self, key: str) -> bool:
+        """Return True if request is allowed, False if rate-limited."""
+        now = _time.time()
+        if key not in self._buckets:
+            self._buckets[key] = collections.deque()
+        q = self._buckets[key]
+        while q and q[0] < now - self._window:
+            q.popleft()
+        if len(q) >= self._max:
+            return False
+        q.append(now)
+        return True
+
+
+_chat_limiter = _RateLimiter(max_requests=10, window_seconds=60)
 MAX_ATTACHMENT_SIZE_BYTES = 8 * 1024 * 1024
 ALLOWED_ATTACHMENT_TYPES = {
     "image/jpeg",
@@ -228,6 +255,59 @@ def _all_bank_names(db: Session) -> list[str]:
         ).scalars().all()
         if n
     ]
+
+
+def _log_transaction_audit(db: Session, action: str, txn: Transaction) -> None:
+    """Log a transaction audit event and save a version snapshot."""
+    try:
+        import json as _json
+        from app.services.audit_service import log_audit_event
+        from app.models.audit_log import TransactionVersion
+
+        snapshot = {
+            "id": str(txn.id),
+            "date": txn.date.isoformat() if txn.date else None,
+            "reference": txn.reference,
+            "description": txn.description,
+            "lines": [
+                {"account_code": getattr(ln.account, "code", ""), "debit": ln.debit, "credit": ln.credit, "desc": ln.line_description}
+                for ln in (txn.lines or [])
+            ] if hasattr(txn, "lines") and txn.lines else [],
+        }
+
+        log_audit_event(
+            db, action=action, entity_type="transaction",
+            entity_id=str(txn.id),
+            detail=_json.dumps(snapshot, default=str),
+        )
+
+        existing_count = db.execute(
+            select(func.count(TransactionVersion.id)).where(TransactionVersion.transaction_id == str(txn.id))
+        ).scalar() or 0
+
+        db.add(TransactionVersion(
+            transaction_id=str(txn.id),
+            version=existing_count + 1,
+            snapshot=_json.dumps(snapshot, default=str),
+            action=action,
+        ))
+        db.commit()
+    except Exception:
+        chat_logger.debug("audit_log_failed", exc_info=True)
+
+
+def _friendly_ai_error(raw_msg: str) -> str:
+    """Map technical AISuggestError messages to user-friendly copy."""
+    low = raw_msg.lower()
+    if "timeout" in low or "did not respond" in low or "time" in low:
+        return "The AI is taking longer than expected — please try again in a moment."
+    if "cannot reach" in low or "connect" in low:
+        return "Cannot reach the AI server right now. Please check your connection or try again shortly."
+    if "interrupted" in low or "transport" in low:
+        return "The connection to the AI was interrupted. Please try again."
+    if "parse" in low or "json" in low or "unclear" in low:
+        return "The AI response was unclear. Trying a simpler approach — please send your message again."
+    return "Something went wrong with the AI. Please try again in a moment."
 
 
 def _looks_like_edit_request(messages: list[dict[str, str]]) -> bool:
@@ -636,6 +716,108 @@ def _looks_like_non_payment_query(text: str) -> bool:
     return (subject and verb) or report_hint
 
 
+def _parse_entity_transaction_query(text: str) -> str | None:
+    """
+    Detect queries like "transactions with Nikzade", "have I had any transactions with Ali Roshan",
+    "show me dealings with supplier X". Returns the entity name or None.
+    """
+    low = (text or "").strip().lower()
+    if not low:
+        return None
+    patterns = [
+        r"(?:transactions?|dealings?|history|records?)\s+(?:with|for|of|involving)\s+(.+?)(?:\?|$)",
+        r"(?:have\s+(?:i|we)\s+(?:had\s+)?(?:any\s+)?)?(?:transactions?|dealings?)\s+with\s+(.+?)(?:\?|$)",
+        r"(?:show|find|get|list|search)\s+(?:me\s+)?(?:all\s+)?(?:transactions?|dealings?|records?)\s+(?:with|for|of|involving)\s+(.+?)(?:\?|$)",
+        r"(?:did\s+(?:i|we)\s+(?:have|do|make)\s+(?:any\s+)?)?(?:transactions?|business|dealings?)\s+with\s+(.+?)(?:\?|$)",
+        r"(?:any\s+)?(?:transactions?|payments?|receipts?)\s+(?:with|from|to)\s+(.+?)(?:\?|$)",
+        r"(?:what\s+(?:are|were)\s+(?:the\s+)?)?(?:transactions?|dealings?)\s+with\s+(.+?)(?:\?|$)",
+        # Persian patterns
+        r"تراکنش[‌ها]*\s*(?:ی|های)?\s*(?:با|برای)\s+(.+?)(?:\?|؟|$)",
+        r"معامل[هات]*\s*(?:ی|های)?\s*(?:با|برای)\s+(.+?)(?:\?|؟|$)",
+        r"(?:آیا\s+)?(?:با|از)\s+(.+?)\s+تراکنش(?:ی)?\s+(?:داشت[هم]|دارم|داریم)",
+        r"حساب\s*(?:ی|های)?\s*(?:با|برای)\s+(.+?)(?:\?|؟|$)",
+        r"گردش\s*(?:حساب)?\s*(?:با|برای)\s+(.+?)(?:\?|؟|$)",
+        r"(?:نمایش|نشان بده|لیست)\s+(?:تراکنش|معامل)[هات‌ها]*\s*(?:ی|های)?\s*(?:با|برای)\s+(.+?)(?:\?|؟|$)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, low, re.IGNORECASE)
+        if m:
+            name = m.group(1).strip().rstrip("?.!, ")
+            stop_words = {"the", "a", "an", "my", "our", "any", "all", "some"}
+            words = name.split()
+            words = [w for w in words if w.lower() not in stop_words]
+            name = " ".join(words).strip()
+            if len(name) >= 2:
+                _BANK_NAMES = {
+                    "melli", "tejarat", "saderat", "saman", "parsian",
+                    "pasargad", "mellat", "melat", "sina", "melli bank",
+                    "tejarat bank", "saderat bank", "saman bank",
+                    "parsian bank", "pasargad bank", "mellat bank", "sina bank",
+                    "ملی", "تجارت", "صادرات", "سامان", "پارسیان", "پاسارگاد", "ملت", "سینا",
+                }
+                if name.lower() in _BANK_NAMES or name.lower().replace(" bank", "") in _BANK_NAMES:
+                    return None
+                return name
+    return None
+
+
+def _search_transactions_by_entity(db: Session, entity_name: str) -> list[Transaction]:
+    """Search transactions linked to an entity by name (fuzzy substring match)."""
+    q = (
+        select(Transaction)
+        .join(TransactionEntity, TransactionEntity.transaction_id == Transaction.id)
+        .join(Entity, Entity.id == TransactionEntity.entity_id)
+        .where(Entity.name.ilike(f"%{entity_name.strip()}%"))
+        .options(
+            selectinload(Transaction.lines).selectinload(TransactionLine.account),
+            selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity),
+        )
+        .order_by(Transaction.date.desc(), Transaction.created_at.desc())
+        .limit(50)
+    )
+    return list(db.execute(q).scalars().unique().all())
+
+
+def _format_entity_transaction_results(entity_name: str, txns: list[Transaction]) -> tuple[str, dict | None]:
+    """Format entity transaction search results as a chat message + optional report."""
+    from app.utils.jalali import format_jalali
+
+    if not txns:
+        return f"No transactions found involving '{entity_name}'.", None
+
+    rows = []
+    total_paid = 0
+    total_received = 0
+    for t in txns:
+        total_d = sum(int(ln.debit or 0) for ln in (t.lines or []))
+        total_c = sum(int(ln.credit or 0) for ln in (t.lines or []))
+        jalali = format_jalali(t.date) if t.date else ""
+        roles = ", ".join(
+            f"{lnk.role}: {lnk.entity.name}" for lnk in (t.entity_links or []) if lnk.entity
+        )
+        rows.append({
+            "date": f"{t.date} ({jalali})" if jalali else str(t.date),
+            "reference": t.reference or "—",
+            "description": (t.description or "—")[:80],
+            "debit": total_d,
+            "credit": total_c,
+            "entities": roles,
+        })
+        total_paid += total_c
+        total_received += total_d
+
+    msg = (
+        f"Found **{len(txns)} transaction(s)** involving '{entity_name}'.\n"
+        f"Total debit: {total_received:,} IRR · Total credit: {total_paid:,} IRR"
+    )
+    report = {
+        "reportType": "entity_transactions",
+        "periodLabel": f"All time — {entity_name}",
+        "rows": rows,
+    }
+    return msg, report
+
+
 def _user_says_unknown_method(text: str) -> bool:
     low = (text or "").strip().lower()
     if not low:
@@ -770,10 +952,11 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
         return "Trial balance generated.", rep.model_dump(by_alias=True)
     if intent.key == "account_ledger":
         limit = max(1, min(200, int(intent.limit or 120)))
-        # When user asks for "latest N" without explicit dates, search all-time
         effective_from = intent.from_date
         effective_to = intent.to_date
-        if intent.limit and effective_from is None and effective_to is None:
+        # Running-balance reports need all-time data when no explicit dates given,
+        # otherwise the balance is wrong (missing older transactions).
+        if effective_from is None and effective_to is None and (intent.limit or intent.bank_name):
             effective_from = date(1900, 1, 1)
         if intent.bank_name:
             bank = _find_bank_entity_by_text(db, intent.bank_name)
@@ -787,7 +970,17 @@ def _build_report_from_intent(db: Session, intent: ReportIntent) -> tuple[str, d
                 if limit and rep.rows:
                     rep.rows = rep.rows[-limit:]
                 if rep.rows:
-                    return f"Bank statement generated for {bank.name}.", rep.model_dump(by_alias=True)
+                    from app.utils.jalali import format_jalali
+                    current_bal = rep.rows[-1].running_balance
+                    bal_formatted = f"{current_bal:,}"
+                    last_date = rep.rows[-1].date
+                    jalali_str = format_jalali(last_date) if last_date else ""
+                    date_label = f"{last_date} ({jalali_str})" if jalali_str else str(last_date)
+                    msg = (
+                        f"**{bank.name} Bank — Current balance: {bal_formatted} IRR**\n"
+                        f"As of {date_label} · {len(rep.rows)} transaction(s)"
+                    )
+                    return msg, rep.model_dump(by_alias=True)
                 account_code = _resolve_bank_account_code(db, bank.name)
                 ledger_rep = lsvc.account_ledger(
                     account_code=account_code,
@@ -1061,6 +1254,12 @@ async def chat(
     Conversational flow: send messages (user/assistant history). AI may ask which client,
     which bank account, what for. When it has enough info, returns message + transaction to fill the form.
     """
+    rate_key = "global"
+    if not _chat_limiter.check(rate_key):
+        return ChatResponse(
+            message="You're sending messages too quickly. Please wait a moment before trying again.",
+            transaction=None,
+        )
     accounts = db.execute(select(Account).order_by(Account.code)).scalars().all()
     account_list = [{"code": a.code, "name": a.name} for a in accounts]
     if not account_list:
@@ -1068,6 +1267,86 @@ async def chat(
     messages = [{"role": m.role, "content": m.content} for m in payload.messages]
     last_user_message = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "user"), "")
     last_assistant_message = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "assistant"), "")
+
+    # Undo last voucher: "undo", "delete last", "لغو آخری"
+    _undo_low = last_user_message.strip().lower()
+    if _undo_low in ("undo", "undo last", "delete last", "لغو", "لغو آخری", "حذف آخری", "برگرد"):
+        last_txn = db.execute(
+            select(Transaction).order_by(Transaction.created_at.desc()).limit(1)
+        ).scalar_one_or_none()
+        if last_txn:
+            txn_brief = f"{last_txn.date.isoformat()} - {last_txn.description or last_txn.reference or str(last_txn.id)[:8]}"
+            db.delete(last_txn)
+            db.commit()
+            return ChatResponse(
+                message=f"Deleted the last voucher: {txn_brief}",
+                transaction=None,
+            )
+        return ChatResponse(
+            message="No vouchers found to undo.",
+            transaction=None,
+        )
+
+    # CFO-mode questions: detect and route to CFO intelligence
+    _cfo_keywords = (
+        "financially healthy", "financial health", "survive", "runway", "burn rate",
+        "profit drop", "profit fell", "cost driver", "cash leak", "cash runway",
+        "can we survive", "can we last", "how long can we", "are we healthy",
+        "سلامت مالی", "وضعیت مالی", "نرخ سوخت", "بقا", "چقدر دوام",
+        "هزینه اصلی", "نشت نقدینگی", "سود کاهش",
+    )
+    if any(k in last_user_message.lower() for k in _cfo_keywords):
+        try:
+            from app.services.cfo_intelligence import answer_cfo_question
+            answer = answer_cfo_question(db, last_user_message)
+            return ChatResponse(message=answer, transaction=None)
+        except Exception:
+            chat_logger.debug("cfo_question_failed", exc_info=True)
+
+    # Post-voucher date/field corrections: user says "the date was 4th of Esfand" after voucher shown
+    _voucher_just_suggested = any(
+        k in (last_assistant_message or "").lower()
+        for k in ("voucher", "here's the", "here is the", "transaction ready", "voucher ready")
+    )
+    if _voucher_just_suggested:
+        from app.utils.jalali import try_parse_jalali, find_and_replace_jalali_dates, format_jalali
+        low_msg = last_user_message.lower().strip()
+        date_correction = None
+        # "the date was X", "date is X", "date: X", "on X"
+        m_date = re.search(
+            r"(?:the\s+)?date\s+(?:was|is|should be|=|:)\s*(.+?)$",
+            low_msg, re.IGNORECASE,
+        )
+        if m_date:
+            raw = m_date.group(1).strip()
+            date_correction = try_parse_jalali(raw)
+            if date_correction is None:
+                try:
+                    date_correction = date.fromisoformat(raw)
+                except ValueError:
+                    pass
+        if date_correction is None:
+            # Try whole message as a date
+            date_correction = try_parse_jalali(last_user_message)
+            if date_correction is not None:
+                # Only accept if message is short (just a date, not a new transaction)
+                if len(last_user_message.split()) > 6:
+                    date_correction = None
+        if date_correction is not None:
+            jalali_str = format_jalali(date_correction)
+            return ChatResponse(
+                message=f"Date updated to **{date_correction.isoformat()} ({jalali_str})**. Please update the date field in the form above.",
+                transaction=None,
+                form_updates={"date": date_correction.isoformat()},
+            )
+
+    # Entity transaction search: "transactions with Nikzade", "have I had dealings with Ali?"
+    entity_query_name = _parse_entity_transaction_query(last_user_message)
+    if entity_query_name:
+        txns = _search_transactions_by_entity(db, entity_query_name)
+        msg, report = _format_entity_transaction_results(entity_query_name, txns)
+        return ChatResponse(message=msg, report=report, transaction=None)
+
     non_payment_query = _looks_like_non_payment_query(last_user_message)
     report_intent = parse_report_intent(last_user_message)
     # Only infer report follow-up context when current user text looks like a report query
@@ -1445,7 +1724,9 @@ async def chat(
         try:
             result = await ai_chat_turn(working_messages, account_list, attachment_context=attachment_context)
         except AISuggestError as e:
-            raise HTTPException(status_code=503, detail=str(e)) from e
+            chat_logger.warning("chat_ai_error: %s", e)
+            friendly = _friendly_ai_error(str(e))
+            return ChatResponse(message=friendly, transaction=None)
     transaction = result.get("transaction")
     if transaction:
         code_to_id = {a.code: a.id for a in accounts}
@@ -1579,9 +1860,17 @@ async def chat(
             entity_mentions,
             [{"role": r.role, "entity_id": str(r.entity_id)} for r in (resolved_entities or [])],
         )
+        raw_confidence = result.get("confidence")
+        confidence_val = None
+        if isinstance(raw_confidence, (int, float)):
+            confidence_val = max(0.0, min(1.0, float(raw_confidence)))
+        reasoning_val = result.get("reasoning") if isinstance(result.get("reasoning"), str) else None
+
         return ChatResponse(
             message=result["message"],
             transaction=txn_response,
+            confidence=confidence_val,
+            reasoning=reasoning_val,
             entity_mentions=entity_mentions,
             resolved_entities=resolved_entities if resolved_entities else None,
         )
@@ -1962,6 +2251,11 @@ def _create_transaction_from_payload(db: Session, payload: TransactionCreate) ->
             status_code=400,
             detail=f"Debits ({total_debit}) must equal credits ({total_credit})",
         )
+    if total_debit == 0 and total_credit == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Transaction must have non-zero amounts",
+        )
     transaction = Transaction(
         date=payload.date,
         reference=payload.reference,
@@ -2012,6 +2306,9 @@ def create_transaction(
     db.commit()
     db.refresh(transaction)
     _load_transaction_with_lines(db, transaction)
+    from app.api.reports import invalidate_dashboard_cache
+    invalidate_dashboard_cache()
+    _log_transaction_audit(db, "create", transaction)
     return _transaction_to_read(transaction)
 
 
@@ -2097,8 +2394,11 @@ def delete_transaction(
     t = db.get(Transaction, transaction_id)
     if not t:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    _log_transaction_audit(db, "delete", t)
     db.delete(t)
     db.commit()
+    from app.api.reports import invalidate_dashboard_cache
+    invalidate_dashboard_cache()
 
 
 @router.post("/import", response_model=ImportTransactionsResponse)

@@ -33,12 +33,20 @@ class StatementSection(BaseModel):
     total: int = 0
 
 
+class FinancialAnalysis(BaseModel):
+    """Computed financial ratios and insights appended to statements."""
+    ratios: dict[str, float | None] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+    summary: str | None = None
+
+
 class BalanceSheetResponse(BaseModel):
     report_type: str = "balance_sheet"
     period: ReportPeriod
     comparative_period: ReportPeriod | None = None
     sections: dict[str, StatementSection]
     totals: dict[str, int]
+    analysis: FinancialAnalysis | None = None
 
 
 class IncomeStatementResponse(BaseModel):
@@ -46,6 +54,7 @@ class IncomeStatementResponse(BaseModel):
     period: ReportPeriod
     sections: dict[str, StatementSection]
     totals: dict[str, int]
+    analysis: FinancialAnalysis | None = None
 
 
 class CashFlowLine(BaseModel):
@@ -68,6 +77,7 @@ class CashFlowResponse(BaseModel):
     period: ReportPeriod
     sections: dict[str, CashFlowSection]
     totals: dict[str, int]
+    analysis: FinancialAnalysis | None = None
 
 
 class JournalLineRead(BaseModel):

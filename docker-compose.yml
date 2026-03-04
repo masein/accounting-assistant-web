@@ -31,6 +31,8 @@ services:
       LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-qwen/qwen3-4b-thinking-2507}
     ports:
       - "8000:8000"
+    volumes:
+      - .:/app
     depends_on:
       - db
 

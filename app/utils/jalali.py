@@ -84,7 +84,9 @@ def try_parse_jalali(text: str) -> date | None:
         except ValueError:
             pass
 
-    # "27 بهمن 1404" or "بهمن 27 1404" or "بهمن 1404" (day optional)
+    current_jalali_year = jdatetime.date.today().year
+
+    # "27 بهمن 1404" or "بهمن 27 1404" or "بهمن 1404" (with explicit year)
     for name, month_num in _MONTH_NAMES.items():
         pattern = re.compile(
             r"(?:(\d{1,2})\s+" + re.escape(name) + r"\s+(\d{4}))|"
@@ -108,6 +110,36 @@ def try_parse_jalali(text: str) -> date | None:
                     return jalali_to_gregorian(year_val, month_num, day_val)
                 except ValueError:
                     pass
+
+    # Month name WITHOUT year: "4th of Esfand", "4 Esfand", "Esfand 4", "بهمن ۲۷"
+    # Assumes current Jalali year.
+    ascii_text = _to_ascii(text)
+    for name, month_num in _MONTH_NAMES.items():
+        # "4th of Esfand", "4 of Esfand", "4 Esfand", "27 بهمن"
+        pat_day_month = re.compile(
+            r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?" + re.escape(name) + r"(?:\s|$|[.,;!?])",
+            re.IGNORECASE,
+        )
+        match = pat_day_month.search(ascii_text)
+        if match:
+            day_val = int(match.group(1))
+            try:
+                return jalali_to_gregorian(current_jalali_year, month_num, day_val)
+            except ValueError:
+                pass
+
+        # "Esfand 4", "Esfand 4th", "بهمن 27"
+        pat_month_day = re.compile(
+            re.escape(name) + r"\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s|$|[.,;!?])",
+            re.IGNORECASE,
+        )
+        match = pat_month_day.search(ascii_text)
+        if match:
+            day_val = int(match.group(1))
+            try:
+                return jalali_to_gregorian(current_jalali_year, month_num, day_val)
+            except ValueError:
+                pass
 
     return None
 
@@ -147,7 +179,7 @@ def find_and_replace_jalali_dates(text: str) -> tuple[str, list[tuple[str, date]
         except ValueError:
             pass
 
-    # Month name patterns
+    # Month name patterns (with year)
     for name, month_num in _MONTH_NAMES.items():
         pattern = re.compile(
             r"(\d{1,2})\s+" + re.escape(name) + r"\s+(\d{4})",
@@ -159,6 +191,24 @@ def find_and_replace_jalali_dates(text: str) -> tuple[str, list[tuple[str, date]
                 try:
                     gd = jalali_to_gregorian(y_val, month_num, d_val)
                     original = text[match.start():match.end()]
+                    if original not in [r[0] for r in replacements]:
+                        replacements.append((original, gd))
+                        result = result.replace(original, gd.isoformat(), 1)
+                except ValueError:
+                    pass
+
+    # Month name patterns WITHOUT year: "4th of Esfand", "4 Esfand", "بهمن 27"
+    current_jalali_year = jdatetime.date.today().year
+    for name, month_num in _MONTH_NAMES.items():
+        for pat in [
+            re.compile(r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?" + re.escape(name) + r"(?:\s|$|[.,;!?])", re.IGNORECASE),
+            re.compile(re.escape(name) + r"\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s|$|[.,;!?])", re.IGNORECASE),
+        ]:
+            for match in pat.finditer(ascii_text):
+                d_val = int(match.group(1))
+                try:
+                    gd = jalali_to_gregorian(current_jalali_year, month_num, d_val)
+                    original = text[match.start():match.end()].rstrip(" .,;!?")
                     if original not in [r[0] for r in replacements]:
                         replacements.append((original, gd))
                         result = result.replace(original, gd.isoformat(), 1)

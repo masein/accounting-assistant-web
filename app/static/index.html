@@ -1307,6 +1307,7 @@
         send: 'Send',
         saveVoucher: 'Save voucher',
         openAiChat: 'Open AI chat',
+        closeAiChat: 'Close AI chat',
         uploadReceipts: 'Upload receipts',
         usersUsername: 'Username',
         usersRole: 'Role',
@@ -1353,6 +1354,7 @@
         send: 'ارسال',
         saveVoucher: 'ذخیره سند',
         openAiChat: 'باز کردن چت AI',
+        closeAiChat: 'بستن چت AI',
         uploadReceipts: 'آپلود رسیدها',
         usersUsername: 'نام کاربری',
         usersRole: 'نقش',
@@ -1399,6 +1401,7 @@
         send: 'Enviar',
         saveVoucher: 'Guardar comprobante',
         openAiChat: 'Abrir chat IA',
+        closeAiChat: 'Cerrar chat IA',
         uploadReceipts: 'Subir recibos',
         usersUsername: 'Usuario',
         usersRole: 'Rol',
@@ -1445,6 +1448,7 @@
         send: 'إرسال',
         saveVoucher: 'حفظ القيد',
         openAiChat: 'فتح دردشة AI',
+        closeAiChat: 'إغلاق دردشة AI',
         uploadReceipts: 'رفع الإيصالات',
         usersUsername: 'اسم المستخدم',
         usersRole: 'الدور',
@@ -2160,7 +2164,10 @@
       if (saveLanguageBtn) saveLanguageBtn.textContent = t('saveLanguage');
       if (chatSendBtn) chatSendBtn.textContent = t('send');
       if (submitBtn) submitBtn.textContent = t('saveVoucher');
-      if (openAiChatInlineBtn) openAiChatInlineBtn.textContent = t('openAiChat');
+      if (openAiChatInlineBtn) {
+        const chatOpen = voucherChatInlineEl && voucherChatInlineEl.classList.contains('is-open');
+        openAiChatInlineBtn.textContent = t(chatOpen ? 'closeAiChat' : 'openAiChat');
+      }
       if (attachmentUploadBtn) attachmentUploadBtn.textContent = t('uploadReceipts');
 
       setTextSel('.card[data-page="entities"] h2', 'entitiesTitle');
@@ -2371,9 +2378,12 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function openInlineChat() {
+    function toggleInlineChat() {
       if (!voucherChatInlineEl) return;
-      voucherChatInlineEl.classList.add('is-open');
+      const isOpen = voucherChatInlineEl.classList.toggle('is-open');
+      if (openAiChatInlineBtn) {
+        openAiChatInlineBtn.textContent = t(isOpen ? 'closeAiChat' : 'openAiChat');
+      }
     }
 
     let _alertTimer = null;
@@ -5208,8 +5218,8 @@
     if (usersWrapEl) usersWrapEl.addEventListener('click', handleUserTableAction);
     if (openAiChatInlineBtn) {
       openAiChatInlineBtn.addEventListener('click', () => {
-        openInlineChat();
-        if (chatInput) chatInput.focus();
+        toggleInlineChat();
+        if (voucherChatInlineEl && voucherChatInlineEl.classList.contains('is-open') && chatInput) chatInput.focus();
       });
     }
 

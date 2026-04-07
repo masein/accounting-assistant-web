@@ -18,6 +18,12 @@ node_modules/
 .vscode/
 .idea/
 
+# cloudflare / wrangler (no longer used)
+wrangler.toml
+.wranglerignore
+container-worker.mjs
+package.json
+
 # runtime uploads/logs
 app/uploads/
 *.log

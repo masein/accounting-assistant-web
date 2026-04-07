@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+import sqlalchemy as sa
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -292,8 +293,8 @@ def _log_transaction_audit(db: Session, action: str, txn: Transaction) -> None:
             action=action,
         ))
         db.commit()
-    except Exception:
-        chat_logger.debug("audit_log_failed", exc_info=True)
+    except (OSError, sa.exc.SQLAlchemyError) as exc:
+        chat_logger.warning("audit_log_failed: %s", exc, exc_info=True)
 
 
 def _friendly_ai_error(raw_msg: str) -> str:
@@ -1180,12 +1181,15 @@ async def upload_attachment(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> AttachmentRead:
+    from app.core.file_validation import validate_file_magic
+
     content_type = (file.content_type or "").strip().lower()
     if content_type not in ALLOWED_ATTACHMENT_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported file type. Use JPG, PNG, WEBP, or PDF.")
     raw = await file.read()
     if not raw:
         raise HTTPException(status_code=400, detail="Attachment is empty.")
+    validate_file_magic(raw, content_type)
     if len(raw) > MAX_ATTACHMENT_SIZE_BYTES:
         raise HTTPException(status_code=400, detail="Attachment too large. Max size is 8 MB.")
     ext = Path(file.filename or "file").suffix or {
@@ -1300,8 +1304,8 @@ async def chat(
             from app.services.cfo_intelligence import answer_cfo_question
             answer = answer_cfo_question(db, last_user_message)
             return ChatResponse(message=answer, transaction=None)
-        except Exception:
-            chat_logger.debug("cfo_question_failed", exc_info=True)
+        except Exception as exc:
+            chat_logger.warning("cfo_question_failed: %s", exc, exc_info=True)
 
     # Post-voucher date/field corrections: user says "the date was 4th of Esfand" after voucher shown
     _voucher_just_suggested = any(
@@ -2217,6 +2221,7 @@ def list_transactions(
 ) -> list[TransactionRead]:
     q = (
         select(Transaction)
+        .where(Transaction.deleted_at.is_(None))
         .options(
             selectinload(Transaction.lines).selectinload(TransactionLine.account),
             selectinload(Transaction.attachments),
@@ -2236,7 +2241,7 @@ def get_transaction(
     db: Session = Depends(get_db),
 ) -> TransactionRead:
     t = db.get(Transaction, transaction_id)
-    if not t:
+    if not t or t.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Transaction not found")
     _load_transaction_with_lines(db, t)
     return _transaction_to_read(t)
@@ -2400,11 +2405,13 @@ def delete_transaction(
     transaction_id: UUID,
     db: Session = Depends(get_db),
 ) -> None:
+    from datetime import datetime, timezone
     t = db.get(Transaction, transaction_id)
     if not t:
         raise HTTPException(status_code=404, detail="Transaction not found")
     _log_transaction_audit(db, "delete", t)
-    db.delete(t)
+    # Soft delete: mark as deleted instead of removing from DB
+    t.deleted_at = datetime.now(timezone.utc)
     db.commit()
     from app.api.reports import invalidate_dashboard_cache
     invalidate_dashboard_cache()

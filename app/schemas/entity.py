@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class EntityBase(BaseModel):
-    type: str = Field(..., description="client, bank, employee, supplier")
-    name: str = Field(..., min_length=1)
-    code: str | None = None
+    type: str = Field(..., max_length=32, description="client, bank, employee, supplier")
+    name: str = Field(..., min_length=1, max_length=256)
+    code: str | None = Field(None, max_length=64)
 
 
 class EntityCreate(EntityBase):
@@ -16,9 +16,9 @@ class EntityCreate(EntityBase):
 
 
 class EntityUpdate(BaseModel):
-    type: str | None = Field(None, description="client, bank, employee, supplier")
-    name: str | None = Field(None, min_length=1)
-    code: str | None = None
+    type: str | None = Field(None, max_length=32, description="client, bank, employee, supplier")
+    name: str | None = Field(None, min_length=1, max_length=256)
+    code: str | None = Field(None, max_length=64)
 
 
 class EntityRead(EntityBase):

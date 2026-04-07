@@ -2,6 +2,13 @@
 Shared fixtures for the accounting-assistant test suite.
 
 Uses an in-process SQLite database so tests run without Postgres.
+
+NOTE (P2-7): SQLite lacks several PostgreSQL features used in production:
+  - BIGINT type promotions (INT → BIGINT for IRR values)
+  - regexp_replace / regex-based entity cleanup
+  - information_schema queries
+  - Full-text search, advisory locks, etc.
+Consider adding a CI job with a real PostgreSQL container for integration tests.
 """
 from __future__ import annotations
 

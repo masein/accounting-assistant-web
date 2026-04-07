@@ -1,27 +1,35 @@
 services:
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: accounting
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    # Uncomment below for local psql access during development:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
 
   api:
     build:
       context: .
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/accounting
-      APP_ENV: dev
-      APP_CORS_ORIGINS: "*"
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/accounting
+      APP_ENV: ${APP_ENV:-dev}
+      APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-http://localhost:8000}
       AUTH_SECRET: ${AUTH_SECRET:-}
       AI_PROVIDER: ${AI_PROVIDER:-lmstudio}
       AI_BASE_URL: ${AI_BASE_URL:-}
@@ -32,7 +40,6 @@ services:
       METIS_BASE_URL: ${METIS_BASE_URL:-https://api.metisai.ir/openai/v1}
       METIS_MODEL: ${METIS_MODEL:-gpt-4o-mini}
       METIS_API_KEY: ${METIS_API_KEY:-}
-      # For Dockerized API, host.docker.internal is the reliable default route to LM Studio on the host.
       LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234}
       LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-qwen/qwen3-4b-thinking-2507}
     ports:
@@ -48,6 +55,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
 
 volumes:
   pgdata:

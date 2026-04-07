@@ -32,6 +32,7 @@ from app.core.auth import (
     parse_session_token,
     validate_csrf,
 )
+from app.core.rate_limit import RateLimiter
 from app.db.base import Base
 from app.db.seed import seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
 from app.db.session import engine, SessionLocal
@@ -164,14 +165,30 @@ def _apply_user_migrations() -> None:
             conn.execute(text(s))
 
 
+def _run_alembic_migrations() -> None:
+    """Run Alembic migrations programmatically (equivalent to 'alembic upgrade head')."""
+    from alembic.config import Config
+    from alembic import command
+    alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+    try:
+        command.upgrade(alembic_cfg, "head")
+        _migration_logger.info("Alembic migrations applied successfully")
+    except Exception:
+        _migration_logger.warning(
+            "Alembic migration failed — falling back to idempotent startup SQL",
+            exc_info=True,
+        )
+        _apply_numeric_migrations()
+        _apply_entity_cleanup_migrations()
+        _apply_transaction_fee_migrations()
+        _apply_user_migrations()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create DB tables
+    # Startup: create DB tables + run migrations
     Base.metadata.create_all(bind=engine)
-    _apply_numeric_migrations()
-    _apply_entity_cleanup_migrations()
-    _apply_transaction_fee_migrations()
-    _apply_user_migrations()
+    _run_alembic_migrations()
     # Seed minimal chart of accounts if empty
     db = SessionLocal()
     try:
@@ -197,11 +214,27 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.app_cors_origins.split(",") if settings.app_cors_origins else ["*"],
+    allow_origins=[o.strip() for o in settings.app_cors_origins.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global API rate limiter: 120 requests per minute per user/IP
+_api_limiter = RateLimiter(max_requests=120, window_seconds=60)
+
+_CSP_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "img-src 'self' data: https:; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'"
+)
+
 
 PUBLIC_PATHS = {
     "/auth/login",
@@ -225,6 +258,28 @@ PROTECTED_API_PREFIXES = (
     "/auth/preferences",
     "/auth/admin-check",
 )
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """Add CSP and other security headers, enforce global API rate limit."""
+    path = request.url.path
+    # Rate limit protected API endpoints
+    if path.startswith(PROTECTED_API_PREFIXES):
+        identity = getattr(getattr(request.state, "user", None), "user_id", None) or (
+            request.client.host if request.client else "unknown"
+        )
+        if not _api_limiter.is_allowed(identity):
+            return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Try again shortly."})
+
+    response = await call_next(request)
+    # CSP header on HTML pages and API responses
+    if "text/html" in response.headers.get("content-type", "") or path.startswith(PROTECTED_API_PREFIXES):
+        response.headers["Content-Security-Policy"] = _CSP_POLICY
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 @app.middleware("http")
@@ -323,6 +378,34 @@ def health_check():
     except Exception:
         status = "degraded"
     return {"status": status, "database": "connected" if db_ok else "unavailable"}
+
+
+from fastapi.exceptions import RequestValidationError
+
+
+def _sanitize_errors(errors: list[dict]) -> list[dict]:
+    """Make Pydantic validation errors JSON-serializable (ctx may contain Exception objects)."""
+    safe = []
+    for err in errors:
+        e = {k: v for k, v in err.items() if k != "ctx"}
+        if "ctx" in err and isinstance(err["ctx"], dict):
+            e["ctx"] = {k: str(v) if isinstance(v, Exception) else v for k, v in err["ctx"].items()}
+        safe.append(e)
+    return safe
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return structured error responses for validation failures."""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "code": "VALIDATION_ERROR",
+            "detail": "Request validation failed",
+            "errors": _sanitize_errors(exc.errors()),
+            "request_id": request.headers.get("x-request-id"),
+        },
+    )
 
 
 app.include_router(accounts_router)

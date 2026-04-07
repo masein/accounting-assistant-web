@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,11 +12,16 @@ from app.core.auth import (
     require_admin,
     verify_password,
 )
+from app.core.audit import audit_log, get_client_ip
 from app.core.config import settings
+from app.core.rate_limit import RateLimiter
 from app.db.session import get_db
 from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# 5 login attempts per 15 minutes per username
+_login_limiter = RateLimiter(max_requests=5, window_seconds=900)
 SUPPORTED_LANGUAGES = {"en", "fa", "es", "ar"}
 
 
@@ -34,12 +39,17 @@ class PreferencesPatchRequest(BaseModel):
 
 
 @router.post("/login")
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)) -> dict:
+def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
     username = payload.username.strip()
+    if not _login_limiter.is_allowed(username):
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
     user = db.execute(select(User).where(User.username == username)).scalars().first()
     if not user or not user.is_active or not verify_password(payload.password, user.password_hash, user.password_salt):
+        audit_log(db, action="login_failed", entity_type="user", detail=f"Failed login for '{username}'", ip_address=get_client_ip(request))
+        db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
+    audit_log(db, action="login", entity_type="user", entity_id=str(user.id), user_id=str(user.id), username=user.username, ip_address=get_client_ip(request))
     token = create_session_token(user_id=str(user.id), username=user.username, is_admin=user.is_admin)
     response.set_cookie(
         key=settings.auth_cookie_name,

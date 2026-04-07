@@ -456,7 +456,7 @@
     <p class="hero-subtitle" id="hero-subtitle">Use AI chat for accounting tasks, save balanced vouchers, and run manager-grade reports.</p>
 
     <div id="alert" class="alert" role="alert" style="display: none;"></div>
-    <div class="top-nav" id="top-nav">
+    <nav class="top-nav" id="top-nav" aria-label="Main navigation">
       <span class="nav-group-label">Work</span>
       <button type="button" class="nav-btn" data-page="chat">AI chat</button>
       <button type="button" class="nav-btn" data-page="transactions">Vouchers</button>
@@ -477,8 +477,9 @@
       <button type="button" class="nav-btn nav-more-item" data-page="recurring">Recurring</button>
       <button type="button" class="nav-btn nav-more-item" data-page="inventory">Inventory</button>
       <button type="button" class="nav-btn nav-more-item" data-page="settings">Settings</button>
-    </div>
+    </nav>
 
+    <main id="main-content" role="main">
     <div class="card" data-page="entities">
       <h2 id="entities-title" data-i18n="entitiesTitle">Entities (clients, banks, employees)</h2>
       <p id="entities-subtitle" data-i18n="entitiesSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Add parties you do business with. Link them to vouchers when saving to run reports like &quot;all transactions with client X&quot;.</p>
@@ -566,7 +567,7 @@
           <button type="button" class="chip" data-msg="Record a receipt">Record Receipt</button>
         </div>
         <div class="chat-input-wrap">
-          <input type="text" id="chat-page-input" data-i18n-placeholder="placeholderChatInput" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off">
+          <input type="text" id="chat-page-input" data-i18n-placeholder="placeholderChatInput" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off" aria-label="Chat message input">
           <button type="button" class="btn btn-primary" id="chat-page-send" data-i18n="send">Send</button>
         </div>
       </div>
@@ -583,7 +584,7 @@
       </p>
       <div id="voucher-chat-inline">
         <div class="attachment-topbar">
-          <input type="file" id="attachment-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="max-width: 360px; margin: 0;">
+          <input type="file" id="attachment-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="max-width: 360px; margin: 0;" aria-label="Attach files">
           <button type="button" class="btn btn-secondary" id="attachment-upload-btn" data-i18n="uploadReceipts">Upload receipts</button>
           <span class="attachment-help" id="attachment-help-text" data-i18n="attachmentSupported">Supported: JPG, PNG, WEBP, PDF (max 8MB each). Files are used in chat and can be attached to vouchers.</span>
         </div>
@@ -599,7 +600,7 @@
             <button type="button" class="chip" data-msg="Record a receipt">Record Receipt</button>
           </div>
           <div class="chat-input-wrap">
-            <input type="text" id="chat-input" data-i18n-placeholder="placeholderChatInput" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off">
+            <input type="text" id="chat-input" data-i18n-placeholder="placeholderChatInput" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off" aria-label="Voucher chat input">
             <button type="button" class="btn btn-primary" id="chat-send" data-i18n="send">Send</button>
           </div>
         </div>
@@ -1147,6 +1148,7 @@
       </div>
     </div>
   </div>
+  </main>
 
   <div id="account-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" style="display: none;">
     <div class="modal-card">

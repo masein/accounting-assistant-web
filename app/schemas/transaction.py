@@ -15,10 +15,10 @@ MAX_LINE_AMOUNT = 100_000_000_000_000
 
 # ----- Single line (for create/update) -----
 class TransactionLineBase(BaseModel):
-    account_code: str = Field(..., description="Account code (e.g. 1110, 2110)")
+    account_code: str = Field(..., max_length=16, description="Account code (e.g. 1110, 2110)")
     debit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Debit amount (smallest unit, e.g. Rials)")
     credit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Credit amount (smallest unit)")
-    line_description: Optional[str] = None
+    line_description: Optional[str] = Field(None, max_length=512)
 
     @model_validator(mode="after")
     def debit_xor_credit(self):
@@ -46,8 +46,8 @@ class TransactionLineRead(BaseModel):
 # ----- Transaction (journal entry) -----
 class TransactionBase(BaseModel):
     date: date
-    reference: Optional[str] = None
-    description: Optional[str] = None
+    reference: Optional[str] = Field(None, max_length=128)
+    description: Optional[str] = Field(None, max_length=2000)
 
 
 class TransactionCreate(TransactionBase):
@@ -147,12 +147,12 @@ class SuggestTransactionResponse(BaseModel):
 
 # ----- Chat (conversational: AI asks which client, which bank, what for, then fills transaction) -----
 class ChatMessage(BaseModel):
-    role: str = Field(..., pattern="^(user|assistant)$")
-    content: str = Field(..., min_length=1)
+    role: str = Field(..., pattern="^(user|assistant)$", max_length=16)
+    content: str = Field(..., min_length=1, max_length=4000)
 
 
 class ChatRequest(BaseModel):
-    messages: list[ChatMessage] = Field(..., min_length=1)
+    messages: list[ChatMessage] = Field(..., min_length=1, max_length=100)
     attachment_ids: list[UUID] = Field(default_factory=list, description="Uploaded attachments to consider in chat")
 
 

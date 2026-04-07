@@ -23,6 +23,9 @@ class Transaction(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None, index=True
+    )
 
     lines: Mapped[list["TransactionLine"]] = relationship(
         "TransactionLine", back_populates="transaction", cascade="all, delete-orphan"

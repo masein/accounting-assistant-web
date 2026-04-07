@@ -1271,7 +1271,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'chat', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'settings']);
+    const validPages = new Set(['dashboard', 'chat', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'settings', 'bank-statements', 'audit', 'cfo']);
     const rawFetch = window.fetch.bind(window);
 
     window.fetch = async (...args) => {

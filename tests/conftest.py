@@ -87,16 +87,45 @@ def client(db: Session) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
 
 
+class _CSRFTestClient:
+    """Wraps TestClient to inject CSRF cookie + header on mutating requests."""
+
+    _SAFE = {"GET", "HEAD", "OPTIONS"}
+
+    def __init__(self, client: TestClient, csrf_token: str):
+        self._client = client
+        self._csrf = csrf_token
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+    def _inject(self, kwargs):
+        headers = dict(kwargs.get("headers") or {})
+        headers.setdefault("X-CSRF-Token", self._csrf)
+        kwargs["headers"] = headers
+        return kwargs
+
+    def get(self, *a, **kw):      return self._client.get(*a, **kw)
+    def head(self, *a, **kw):     return self._client.head(*a, **kw)
+    def options(self, *a, **kw):  return self._client.options(*a, **kw)
+    def post(self, *a, **kw):     return self._client.post(*a, **self._inject(kw))
+    def put(self, *a, **kw):      return self._client.put(*a, **self._inject(kw))
+    def patch(self, *a, **kw):    return self._client.patch(*a, **self._inject(kw))
+    def delete(self, *a, **kw):   return self._client.delete(*a, **self._inject(kw))
+
+
 @pytest.fixture()
-def auth_client(client: TestClient) -> TestClient:
-    """TestClient with an auth cookie so protected endpoints work."""
-    from app.core.auth import create_session_token
+def auth_client(client: TestClient) -> _CSRFTestClient:
+    """TestClient with auth cookie + CSRF token so protected endpoints work."""
+    from app.core.auth import CSRF_COOKIE, create_session_token, generate_csrf_token
 
     from app.core.config import settings
 
     token = create_session_token(user_id=str(uuid.uuid4()), username="testuser", is_admin=True)
+    csrf = generate_csrf_token()
     client.cookies.set(settings.auth_cookie_name, token)
-    return client
+    client.cookies.set(CSRF_COOKIE, csrf)
+    return _CSRFTestClient(client, csrf)
 
 
 # ---------------------------------------------------------------------------

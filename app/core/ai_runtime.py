@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import json
+import logging
 from threading import RLock
 from typing import Any
 
 from app.core.config import settings
 
-
 _lock = RLock()
+_logger = logging.getLogger(__name__)
+
+_DB_KEY = "ai_config"
 
 
 def _default_provider() -> str:
@@ -49,6 +53,59 @@ def _sanitize_provider(p: str | None) -> str:
     return v if v in ("lmstudio", "metis", "custom") else _state["provider"]
 
 
+# ---------------------------------------------------------------------------
+# DB persistence helpers
+# ---------------------------------------------------------------------------
+def load_ai_config_from_db() -> None:
+    """Load AI config from the app_settings table (called once at startup)."""
+    try:
+        from app.db.session import SessionLocal
+        from app.models.app_setting import AppSetting
+
+        db = SessionLocal()
+        try:
+            row = db.query(AppSetting).filter(AppSetting.key == _DB_KEY).first()
+            if row and row.value:
+                saved = json.loads(row.value)
+                with _lock:
+                    if "provider" in saved:
+                        _state["provider"] = _sanitize_provider(saved["provider"])
+                    for prov in ("lmstudio", "metis", "custom"):
+                        if prov in saved and isinstance(saved[prov], dict):
+                            _state[prov].update(saved[prov])
+                _logger.info("Loaded AI config from database (provider=%s)", _state["provider"])
+        finally:
+            db.close()
+    except Exception:
+        _logger.debug("Could not load AI config from DB (table may not exist yet)", exc_info=True)
+
+
+def _persist_to_db() -> None:
+    """Save current AI config state to the database (best-effort)."""
+    try:
+        from app.db.session import SessionLocal
+        from app.models.app_setting import AppSetting
+
+        with _lock:
+            snapshot = json.dumps(_state)
+
+        db = SessionLocal()
+        try:
+            row = db.query(AppSetting).filter(AppSetting.key == _DB_KEY).first()
+            if row:
+                row.value = snapshot
+            else:
+                db.add(AppSetting(key=_DB_KEY, value=snapshot))
+            db.commit()
+        finally:
+            db.close()
+    except Exception:
+        _logger.warning("Failed to persist AI config to database", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Public API (unchanged signatures)
+# ---------------------------------------------------------------------------
 def get_ai_config_public() -> dict[str, Any]:
     with _lock:
         provider = _state["provider"]
@@ -105,7 +162,9 @@ def update_ai_config(
             target["api_key_header"] = str(api_key_header).strip()
         if api_key_prefix is not None and str(api_key_prefix).strip():
             target["api_key_prefix"] = str(api_key_prefix).strip()
-        return get_ai_config_public()
+    # Persist to DB in background (outside the lock)
+    _persist_to_db()
+    return get_ai_config_public()
 
 
 def resolve_active_ai_backend() -> dict[str, str]:
@@ -120,4 +179,3 @@ def resolve_active_ai_backend() -> dict[str, str]:
             "api_key_header": str(cfg.get("api_key_header") or "Authorization").strip() or "Authorization",
             "api_key_prefix": str(cfg.get("api_key_prefix") or "").strip(),
         }
-

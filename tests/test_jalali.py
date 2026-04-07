@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 
+import jdatetime
 import pytest
 
 from app.utils.jalali import (
@@ -12,6 +13,20 @@ from app.utils.jalali import (
     jalali_to_gregorian,
     try_parse_jalali,
 )
+
+# When tests use month names without a year, the code infers the closest year.
+# Use a helper that mimics the same logic so tests stay correct across Jalali years.
+def _expected_year_for_month(month: int, day: int = 1) -> int:
+    """Return the Jalali year the parser would pick for a given month/day with no year."""
+    today = jdatetime.date.today()
+    for y in (today.year, today.year - 1):
+        try:
+            candidate = jdatetime.date(y, month, day)
+        except ValueError:
+            continue
+        if (candidate - today).days <= 180:
+            return y
+    return today.year
 
 
 # ---------------------------------------------------------------------------
@@ -109,13 +124,15 @@ class TestParseMonthNames:
     def test_ordinal_of_month_no_year(self):
         result = try_parse_jalali("4th of Esfand")
         assert result is not None
-        assert result == jalali_to_gregorian(1404, 12, 4)
+        expected_year = _expected_year_for_month(12, 4)
+        assert result == jalali_to_gregorian(expected_year, 12, 4)
 
     def test_ordinals(self):
         for ordinal in ["1st", "2nd", "3rd", "21st"]:
             day = int("".join(c for c in ordinal if c.isdigit()))
             result = try_parse_jalali(f"{ordinal} of Bahman")
-            expected = jalali_to_gregorian(1404, 11, day)
+            expected_year = _expected_year_for_month(11, day)
+            expected = jalali_to_gregorian(expected_year, 11, day)
             assert result == expected, f"Failed for {ordinal}"
 
     def test_month_day_no_year(self):
@@ -124,7 +141,8 @@ class TestParseMonthNames:
 
     def test_persian_month_day_no_year(self):
         result = try_parse_jalali("27 بهمن")
-        assert result == jalali_to_gregorian(1404, 11, 27)
+        expected_year = _expected_year_for_month(11, 27)
+        assert result == jalali_to_gregorian(expected_year, 11, 27)
 
     def test_in_sentence(self):
         result = try_parse_jalali("the date was 4th of Esfand")

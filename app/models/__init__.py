@@ -1,3 +1,4 @@
+from app.models.app_setting import AppSetting
 from app.models.account import Account, AccountLevel
 from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
 from app.models.bank_statement import BankStatement, BankStatementRow
@@ -37,5 +38,6 @@ __all__ = [
     "TransactionLine",
     "TransactionVersion",
     "PaymentMethod",
+    "AppSetting",
     "User",
 ]

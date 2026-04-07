@@ -84,7 +84,8 @@ def try_parse_jalali(text: str) -> date | None:
         except ValueError:
             pass
 
-    current_jalali_year = jdatetime.date.today().year
+    today_jalali = jdatetime.date.today()
+    current_jalali_year = today_jalali.year
 
     # "27 بهمن 1404" or "بهمن 27 1404" or "بهمن 1404" (with explicit year)
     for name, month_num in _MONTH_NAMES.items():
@@ -112,7 +113,8 @@ def try_parse_jalali(text: str) -> date | None:
                     pass
 
     # Month name WITHOUT year: "4th of Esfand", "4 Esfand", "Esfand 4", "بهمن ۲۷"
-    # Assumes current Jalali year.
+    # Infer the most likely Jalali year: if the resulting date would be more than
+    # 6 months in the future, assume the user meant the previous year.
     ascii_text = _to_ascii(text)
     for name, month_num in _MONTH_NAMES.items():
         # "4th of Esfand", "4 of Esfand", "4 Esfand", "27 بهمن"
@@ -123,10 +125,9 @@ def try_parse_jalali(text: str) -> date | None:
         match = pat_day_month.search(ascii_text)
         if match:
             day_val = int(match.group(1))
-            try:
-                return jalali_to_gregorian(current_jalali_year, month_num, day_val)
-            except ValueError:
-                pass
+            result = _resolve_jalali_no_year(current_jalali_year, today_jalali, month_num, day_val)
+            if result is not None:
+                return result
 
         # "Esfand 4", "Esfand 4th", "بهمن 27"
         pat_month_day = re.compile(
@@ -136,11 +137,31 @@ def try_parse_jalali(text: str) -> date | None:
         match = pat_month_day.search(ascii_text)
         if match:
             day_val = int(match.group(1))
-            try:
-                return jalali_to_gregorian(current_jalali_year, month_num, day_val)
-            except ValueError:
-                pass
+            result = _resolve_jalali_no_year(current_jalali_year, today_jalali, month_num, day_val)
+            if result is not None:
+                return result
 
+    return None
+
+
+def _resolve_jalali_no_year(
+    current_year: int,
+    today_jalali: jdatetime.date,
+    month: int,
+    day: int,
+) -> date | None:
+    """Pick the closest year (current or previous) for a Jalali month/day with no year."""
+    for year in (current_year, current_year - 1):
+        try:
+            candidate = jdatetime.date(year, month, day)
+        except ValueError:
+            continue
+        # If the candidate is more than ~6 months (180 days) in the future,
+        # it's almost certainly referring to the previous year.
+        delta_days = (candidate - today_jalali).days
+        if delta_days <= 180:
+            gd = candidate.togregorian()
+            return date(gd.year, gd.month, gd.day)
     return None
 
 
@@ -198,7 +219,8 @@ def find_and_replace_jalali_dates(text: str) -> tuple[str, list[tuple[str, date]
                     pass
 
     # Month name patterns WITHOUT year: "4th of Esfand", "4 Esfand", "بهمن 27"
-    current_jalali_year = jdatetime.date.today().year
+    today_jalali = jdatetime.date.today()
+    current_jalali_year = today_jalali.year
     for name, month_num in _MONTH_NAMES.items():
         for pat in [
             re.compile(r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?" + re.escape(name) + r"(?:\s|$|[.,;!?])", re.IGNORECASE),
@@ -206,13 +228,11 @@ def find_and_replace_jalali_dates(text: str) -> tuple[str, list[tuple[str, date]
         ]:
             for match in pat.finditer(ascii_text):
                 d_val = int(match.group(1))
-                try:
-                    gd = jalali_to_gregorian(current_jalali_year, month_num, d_val)
+                gd = _resolve_jalali_no_year(current_jalali_year, today_jalali, month_num, d_val)
+                if gd is not None:
                     original = text[match.start():match.end()].rstrip(" .,;!?")
                     if original not in [r[0] for r in replacements]:
                         replacements.append((original, gd))
                         result = result.replace(original, gd.isoformat(), 1)
-                except ValueError:
-                    pass
 
     return result, replacements

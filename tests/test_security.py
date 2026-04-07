@@ -77,15 +77,26 @@ class TestAuthEnforcement:
 class TestInputValidation:
     def test_very_large_amount(self, auth_client):
         """Amounts up to 10^18 should be handled (IRR can be large)."""
+        # 10^14 (100 trillion Rials) is the schema maximum
         resp = auth_client.post("/transactions", json={
             "date": "2026-01-15",
             "description": "Large amount",
+            "lines": [
+                {"account_code": "1110", "debit": 10**14, "credit": 0},
+                {"account_code": "3110", "debit": 0, "credit": 10**14},
+            ],
+        })
+        assert resp.status_code == 201, resp.text
+        # Above the limit should be rejected
+        resp2 = auth_client.post("/transactions", json={
+            "date": "2026-01-15",
+            "description": "Too large",
             "lines": [
                 {"account_code": "1110", "debit": 10**15, "credit": 0},
                 {"account_code": "3110", "debit": 0, "credit": 10**15},
             ],
         })
-        assert resp.status_code == 201, resp.text
+        assert resp2.status_code == 422
 
     def test_extremely_long_description(self, auth_client):
         """Very long descriptions should be handled gracefully."""

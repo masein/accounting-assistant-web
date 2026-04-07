@@ -9,6 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   api:
     build:
@@ -17,6 +22,7 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/accounting
       APP_ENV: dev
       APP_CORS_ORIGINS: "*"
+      AUTH_SECRET: ${AUTH_SECRET:-}
       AI_PROVIDER: ${AI_PROVIDER:-lmstudio}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_MODEL: ${AI_MODEL:-}
@@ -34,7 +40,14 @@ services:
     volumes:
       - .:/app
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8000/health'); r.raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 volumes:
   pgdata:

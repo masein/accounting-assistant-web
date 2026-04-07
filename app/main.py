@@ -25,7 +25,13 @@ from app.api.recurring import router as recurring_router
 from app.api.reports import router as reports_router
 from app.api.transactions import router as transactions_router
 from app.core.config import settings
-from app.core.auth import parse_session_token
+from app.core.auth import (
+    CSRF_COOKIE,
+    CSRF_HEADER,
+    generate_csrf_token,
+    parse_session_token,
+    validate_csrf,
+)
 from app.db.base import Base
 from app.db.seed import seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
 from app.db.session import engine, SessionLocal
@@ -38,42 +44,71 @@ logging.basicConfig(
 request_logger = logging.getLogger("app.request")
 
 
+_migration_logger = logging.getLogger("app.migrations")
+
+
+def _col_type(conn, table: str, column: str) -> str | None:
+    """Return the data_type of a column, or None if it doesn't exist (PostgreSQL only)."""
+    row = conn.execute(
+        text(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name = :t AND column_name = :c"
+        ),
+        {"t": table, "c": column},
+    ).first()
+    return row[0] if row else None
+
+
+def _col_is_nullable(conn, table: str, column: str) -> bool | None:
+    """Return whether a column is nullable, or None if not found."""
+    row = conn.execute(
+        text(
+            "SELECT is_nullable FROM information_schema.columns "
+            "WHERE table_name = :t AND column_name = :c"
+        ),
+        {"t": table, "c": column},
+    ).first()
+    return row[0] == "YES" if row else None
+
+
 def _apply_numeric_migrations() -> None:
     """
-    Lightweight startup migrations for existing DBs without Alembic.
-    Keeps high-amount IRR values from overflowing INT columns.
+    Idempotent startup migrations: promote INT columns to BIGINT for IRR values.
+    Only alters columns that are not already BIGINT.
     """
     if engine.dialect.name != "postgresql":
         return
-    stmts = [
-        "ALTER TABLE invoices ALTER COLUMN amount TYPE BIGINT USING amount::BIGINT",
-        "ALTER TABLE recurring_rules ALTER COLUMN amount TYPE BIGINT USING amount::BIGINT",
-        "ALTER TABLE budget_limits ALTER COLUMN limit_amount TYPE BIGINT USING limit_amount::BIGINT",
-        "ALTER TABLE transaction_lines ALTER COLUMN debit TYPE BIGINT USING debit::BIGINT",
-        "ALTER TABLE transaction_lines ALTER COLUMN credit TYPE BIGINT USING credit::BIGINT",
+    targets = [
+        ("invoices", "amount"),
+        ("recurring_rules", "amount"),
+        ("budget_limits", "limit_amount"),
+        ("transaction_lines", "debit"),
+        ("transaction_lines", "credit"),
     ]
     with engine.begin() as conn:
-        for s in stmts:
-            conn.execute(text(s))
+        for table, col in targets:
+            current = _col_type(conn, table, col)
+            if current and current != "bigint":
+                _migration_logger.info("Upgrading %s.%s from %s to BIGINT", table, col, current)
+                conn.execute(text(
+                    f"ALTER TABLE {table} ALTER COLUMN {col} TYPE BIGINT USING {col}::BIGINT"
+                ))
 
 
 def _apply_entity_cleanup_migrations() -> None:
     """
     Cleanup malformed entity names produced by old chat parsing paths.
-    Idempotent and safe to run at startup.
+    These UPDATEs/DELETEs use WHERE clauses so they are naturally idempotent.
     """
     if engine.dialect.name != "postgresql":
         return
     stmts = [
-        # Normalize extra whitespace globally.
-        "UPDATE entities SET name = btrim(regexp_replace(name, '\\s+', ' ', 'g'))",
-        # Fix malformed bank names like: 'Mellat With Of 1161743370' -> 'Mellat'
+        "UPDATE entities SET name = btrim(regexp_replace(name, '\\s+', ' ', 'g')) WHERE name ~ '\\s{2,}'",
         (
             "UPDATE entities "
             "SET name = initcap(btrim(regexp_replace(name, E'\\s+with\\s+of\\s+\\d+\\s*$', '', 'i'))) "
             "WHERE type = 'bank' AND name ~* E'\\s+with\\s+of\\s+\\d+\\s*$'"
         ),
-        # Keep linked transaction descriptions clean as well.
         (
             "UPDATE transactions t SET description = regexp_replace(t.description, E'\\s+[Ww]ith\\s+[Oo]f\\s+\\d+\\s+bank\\s+account', ' bank account', 'g') "
             "WHERE t.description ~* E'\\s+with\\s+of\\s+\\d+\\s+bank\\s+account'"
@@ -82,7 +117,6 @@ def _apply_entity_cleanup_migrations() -> None:
             "UPDATE transaction_lines tl SET line_description = regexp_replace(tl.line_description, E'\\s+[Ww]ith\\s+[Oo]f\\s+\\d+', '', 'g') "
             "WHERE tl.line_description ~* E'\\s+with\\s+of\\s+\\d+'"
         ),
-        # Remove malformed employee/payee entities created from chat phrase fragments
         (
             "DELETE FROM transaction_entities te USING entities e "
             "WHERE te.entity_id = e.id "
@@ -102,16 +136,17 @@ def _apply_entity_cleanup_migrations() -> None:
 
 def _apply_transaction_fee_migrations() -> None:
     """
-    Startup-safe adjustments for transaction fee feature tables.
+    Idempotent: only drop NOT NULL if the column is currently NOT NULL.
     """
     if engine.dialect.name != "postgresql":
         return
-    stmts = [
-        "ALTER TABLE transaction_fee_applications ALTER COLUMN transaction_id DROP NOT NULL",
-    ]
     with engine.begin() as conn:
-        for s in stmts:
-            conn.execute(text(s))
+        nullable = _col_is_nullable(conn, "transaction_fee_applications", "transaction_id")
+        if nullable is False:
+            _migration_logger.info("Dropping NOT NULL on transaction_fee_applications.transaction_id")
+            conn.execute(text(
+                "ALTER TABLE transaction_fee_applications ALTER COLUMN transaction_id DROP NOT NULL"
+            ))
 
 
 def _apply_user_migrations() -> None:
@@ -145,6 +180,9 @@ async def lifespan(app: FastAPI):
         seed_admin_user_if_missing(db)
     finally:
         db.close()
+    # Restore AI config from database (survives restarts)
+    from app.core.ai_runtime import load_ai_config_from_db
+    load_ai_config_from_db()
     yield
     # Shutdown: nothing to do
     pass
@@ -218,6 +256,9 @@ async def request_logging_middleware(request, call_next):
     return response
 
 
+_CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
@@ -225,10 +266,12 @@ async def auth_middleware(request: Request, call_next):
     if (
         path in PUBLIC_PATHS
         or path.startswith("/uploads/")
+        or path.startswith("/static/")
         or path.startswith("/docs")
         or path.startswith("/redoc")
         or path == "/openapi.json"
         or path.startswith("/favicon")
+        or path == "/health"
     ):
         return await call_next(request)
 
@@ -239,7 +282,14 @@ async def auth_middleware(request: Request, call_next):
     if path == "/":
         if not user:
             return RedirectResponse(url="/login", status_code=302)
-        return await call_next(request)
+        response = await call_next(request)
+        # Set CSRF cookie on every HTML page load so the frontend can read it
+        if not request.cookies.get(CSRF_COOKIE):
+            response.set_cookie(
+                CSRF_COOKIE, generate_csrf_token(),
+                httponly=False, samesite="strict", secure=request.url.scheme == "https",
+            )
+        return response
 
     if path == "/login":
         if user:
@@ -249,9 +299,30 @@ async def auth_middleware(request: Request, call_next):
     if path.startswith(PROTECTED_API_PREFIXES):
         if not user:
             return JSONResponse(status_code=401, content={"detail": "Authentication required"})
+        # CSRF check: state-changing methods must include a matching token
+        if request.method not in _CSRF_SAFE_METHODS:
+            if not validate_csrf(request):
+                return JSONResponse(status_code=403, content={"detail": "CSRF token missing or invalid"})
         return await call_next(request)
 
     return await call_next(request)
+
+
+@app.get("/health", include_in_schema=True, tags=["system"])
+def health_check():
+    """Health check endpoint for monitoring and container orchestration."""
+    status = "ok"
+    db_ok = False
+    try:
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+            db_ok = True
+        finally:
+            db.close()
+    except Exception:
+        status = "degraded"
+    return {"status": status, "database": "connected" if db_ok else "unavailable"}
 
 
 app.include_router(accounts_router)
@@ -273,6 +344,7 @@ UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/", include_in_schema=False)

@@ -9,8 +9,12 @@ import time
 from dataclasses import dataclass
 
 from fastapi import HTTPException, Request, status
+from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+
+CSRF_HEADER = "X-CSRF-Token"
+CSRF_COOKIE = "aa_csrf"
 
 
 @dataclass
@@ -27,6 +31,22 @@ def _b64url_encode(raw: bytes) -> str:
 def _b64url_decode(token: str) -> bytes:
     padding = "=" * (-len(token) % 4)
     return base64.urlsafe_b64decode((token + padding).encode("ascii"))
+
+
+MIN_PASSWORD_LENGTH = 8
+
+
+def validate_password_strength(password: str) -> None:
+    """Enforce minimum password complexity for new passwords."""
+    password = (password or "").strip()
+    if not password:
+        raise ValueError("Password cannot be empty")
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
+    if password.isdigit():
+        raise ValueError("Password cannot be all digits")
+    if password.isalpha():
+        raise ValueError("Password must contain at least one digit or special character")
 
 
 def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
@@ -100,3 +120,23 @@ def require_admin(request: Request) -> SessionUser:
     if not user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user
+
+
+# ---------------------------------------------------------------------------
+# CSRF helpers (Double Submit Cookie pattern)
+# ---------------------------------------------------------------------------
+def generate_csrf_token() -> str:
+    """Generate a cryptographically random CSRF token."""
+    return secrets.token_urlsafe(32)
+
+
+def validate_csrf(request: Request) -> bool:
+    """
+    Validate CSRF by comparing the cookie value with the header value.
+    Returns True if valid, False otherwise.
+    """
+    cookie_token = request.cookies.get(CSRF_COOKIE)
+    header_token = request.headers.get(CSRF_HEADER)
+    if not cookie_token or not header_token:
+        return False
+    return hmac.compare_digest(cookie_token, header_token)

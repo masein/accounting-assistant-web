@@ -87,10 +87,13 @@ def create_entity(
     payload: EntityCreate,
     db: Session = Depends(get_db),
 ) -> EntityRead:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Entity name is empty")
     code = payload.code.strip() if payload.code else None
     entity = Entity(
         type=payload.type.strip().lower(),
-        name=payload.name.strip(),
+        name=name,
         code=code,
     )
     db.add(entity)

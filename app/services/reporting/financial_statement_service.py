@@ -54,10 +54,15 @@ def _rollup_account_tree(accounts: list[Account], amounts: dict[UUID, int]) -> d
 
     totals: dict[UUID, int] = {}
 
-    def walk(node: Account) -> int:
+    def walk(node: Account, visited: set[UUID] | None = None) -> int:
+        if visited is None:
+            visited = set()
+        if node.id in visited:
+            return 0  # cycle detected — break infinite recursion
+        visited.add(node.id)
         total = int(amounts.get(node.id, 0))
         for ch in children.get(node.id, []):
-            total += walk(ch)
+            total += walk(ch, visited)
         totals[node.id] = total
         return total
 

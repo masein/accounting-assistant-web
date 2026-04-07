@@ -8,7 +8,7 @@ from sqlalchemy import delete
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.auth import hash_password, require_admin
+from app.core.auth import hash_password, require_admin, validate_password_strength
 from app.core.ai_runtime import get_ai_config_public, update_ai_config
 from app.db.session import get_db
 from app.models.account import Account
@@ -134,6 +134,10 @@ def create_user(payload: UserCreatePayload, db: Session = Depends(get_db), _=Dep
     lang = (payload.preferred_language or "en").strip().lower()
     if lang not in {"en", "fa", "es", "ar"}:
         raise HTTPException(status_code=400, detail="Unsupported language")
+    try:
+        validate_password_strength(payload.password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     password_hash, password_salt = hash_password(payload.password)
     user = User(
         username=username,
@@ -161,6 +165,10 @@ def update_user(user_id: UUID, payload: UserUpdatePayload, db: Session = Depends
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if payload.password is not None:
+        try:
+            validate_password_strength(payload.password)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         password_hash, password_salt = hash_password(payload.password)
         user.password_hash = password_hash
         user.password_salt = password_salt

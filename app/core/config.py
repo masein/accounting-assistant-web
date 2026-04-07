@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import logging
+import secrets
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_logger = logging.getLogger(__name__)
+
+_INSECURE_DEFAULTS = {"change-this-in-production", ""}
 
 
 class Settings(BaseSettings):
@@ -38,3 +45,18 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# --- Enforce auth_secret safety -------------------------------------------------
+if settings.auth_secret in _INSECURE_DEFAULTS:
+    if settings.app_env in ("dev", "test"):
+        _generated = secrets.token_urlsafe(32)
+        _logger.warning(
+            "AUTH_SECRET is not set — generated a random ephemeral secret. "
+            "Sessions will NOT survive restarts. Set AUTH_SECRET in .env for persistence."
+        )
+        settings.auth_secret = _generated
+    else:
+        raise RuntimeError(
+            "AUTH_SECRET must be set to a strong random value in production. "
+            "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+        )

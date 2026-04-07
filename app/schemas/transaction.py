@@ -5,17 +5,27 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.entity import EntityLink
+
+# Maximum amount per line: 100 trillion Rials (10^14) — well above any realistic transaction
+MAX_LINE_AMOUNT = 100_000_000_000_000
 
 
 # ----- Single line (for create/update) -----
 class TransactionLineBase(BaseModel):
     account_code: str = Field(..., description="Account code (e.g. 1110, 2110)")
-    debit: int = Field(0, ge=0, description="Debit amount (smallest unit, e.g. Rials)")
-    credit: int = Field(0, ge=0, description="Credit amount (smallest unit)")
+    debit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Debit amount (smallest unit, e.g. Rials)")
+    credit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Credit amount (smallest unit)")
     line_description: Optional[str] = None
+
+    @model_validator(mode="after")
+    def debit_xor_credit(self):
+        """A journal line must have either debit or credit, not both."""
+        if self.debit > 0 and self.credit > 0:
+            raise ValueError("A line cannot have both debit and credit; use separate lines")
+        return self
 
 
 class TransactionLineCreate(TransactionLineBase):
@@ -41,7 +51,7 @@ class TransactionBase(BaseModel):
 
 
 class TransactionCreate(TransactionBase):
-    lines: list[TransactionLineCreate] = Field(..., min_length=1)
+    lines: list[TransactionLineCreate] = Field(..., min_length=2)
     entity_links: list[EntityLink] = Field(default_factory=list, description="Link to clients, banks, etc. for reports")
     attachment_ids: list[UUID] = Field(default_factory=list, description="Uploaded receipt/invoice attachment ids")
 
@@ -95,9 +105,15 @@ class TransactionRead(TransactionBase):
 # ----- Import (bulk) -----
 class ImportTransactionLine(BaseModel):
     account_code: str
-    debit: int = Field(0, ge=0)
-    credit: int = Field(0, ge=0)
+    debit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT)
+    credit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT)
     line_description: Optional[str] = None
+
+    @model_validator(mode="after")
+    def debit_xor_credit(self):
+        if self.debit > 0 and self.credit > 0:
+            raise ValueError("A line cannot have both debit and credit; use separate lines")
+        return self
 
 
 class ImportTransaction(BaseModel):

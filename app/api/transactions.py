@@ -2256,6 +2256,13 @@ def _create_transaction_from_payload(db: Session, payload: TransactionCreate) ->
             status_code=400,
             detail="Transaction must have non-zero amounts",
         )
+    # Warn on future-dated transactions (more than 1 day ahead)
+    from datetime import date as _date_type, timedelta
+    if payload.date > _date_type.today() + timedelta(days=1):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Transaction date {payload.date} is in the future. Use today's date or a past date.",
+        )
     transaction = Transaction(
         date=payload.date,
         reference=payload.reference,
@@ -2383,6 +2390,8 @@ def update_transaction(
     db.commit()
     db.refresh(t)
     _load_transaction_with_lines(db, t)
+    from app.api.reports import invalidate_dashboard_cache
+    invalidate_dashboard_cache()
     return _transaction_to_read(t)
 
 

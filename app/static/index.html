@@ -549,6 +549,30 @@
       </table>
     </div>
 
+    <!-- ==================== DEDICATED AI CHAT PAGE ==================== -->
+    <div class="card" data-page="chat">
+      <h2 id="chat-page-title" data-i18n="aiChatTitle">AI Accounting Assistant</h2>
+      <p id="chat-page-subtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;" data-i18n="aiChatSubtitle">
+        Ask questions, record transactions via conversation, and get instant financial reports.
+      </p>
+      <div class="chat-panel" style="min-height: 420px;">
+        <div class="chat-messages" id="chat-page-messages"></div>
+        <div class="chat-quick-actions" id="chat-page-quick-actions">
+          <button type="button" class="chip" data-msg="Show balance sheet">Balance Sheet</button>
+          <button type="button" class="chip" data-msg="Show P&amp;L this month">P&amp;L</button>
+          <button type="button" class="chip" data-msg="Show cash flow">Cash Flow</button>
+          <button type="button" class="chip" data-msg="What is my bank balance?">Bank Balance</button>
+          <button type="button" class="chip" data-msg="Record a payment">Record Payment</button>
+          <button type="button" class="chip" data-msg="Record a receipt">Record Receipt</button>
+        </div>
+        <div class="chat-input-wrap">
+          <input type="text" id="chat-page-input" data-i18n-placeholder="placeholderChatInput" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off">
+          <button type="button" class="btn btn-primary" id="chat-page-send" data-i18n="send">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== VOUCHER PAGE ==================== -->
     <div class="card" data-page="transactions">
       <h2 id="transactions-title" data-i18n="voucherTitle">Voucher entry</h2>
       <p id="transactions-subtitle" data-i18n="voucherSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
@@ -1139,6 +1163,26 @@
   <script src="/static/chart.umd.min.js"></script>
   <script>
     const API = ''; // same origin
+
+    // --- CSRF helper: read the aa_csrf cookie and inject it on every mutating request ---
+    function getCsrfToken() {
+      const m = document.cookie.match(/(?:^|;\s*)aa_csrf=([^;]+)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    }
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts) {
+      opts = opts || {};
+      const method = (opts.method || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+        opts.headers = opts.headers || {};
+        if (opts.headers instanceof Headers) {
+          if (!opts.headers.has('X-CSRF-Token')) opts.headers.set('X-CSRF-Token', getCsrfToken());
+        } else {
+          if (!opts.headers['X-CSRF-Token']) opts.headers['X-CSRF-Token'] = getCsrfToken();
+        }
+      }
+      return _origFetch.call(this, url, opts);
+    };
     const alertEl = document.getElementById('alert');
     const topNav = document.getElementById('top-nav');
     const form = document.getElementById('transaction-form');
@@ -1436,6 +1480,8 @@
         recurringTitle: 'Recurring rules (AI text)',
         recurringExample: 'Example: I have to pay 30M rent every month from Mellat bank or I receive 120M yearly from client X.',
         recurringInputLabel: 'Tell AI your recurring payment/receipt',
+        aiChatTitle: 'AI Accounting Assistant',
+        aiChatSubtitle: 'Ask questions, record transactions via conversation, and get instant financial reports.',
         voucherTitle: 'Voucher entry',
         voucherSubtitle: 'Save and edit journal vouchers here. Use AI chat tab for conversational bookkeeping, then review/finalize entries in this form.',
         settingsTitle: 'AI settings',
@@ -1610,6 +1656,8 @@
         recurringTitle: 'قوانین تکرارشونده (متن AI)',
         recurringExample: 'نمونه: هر ماه 30M اجاره از بانک ملت پرداخت می‌کنم یا سالانه 120M از مشتری X دریافت می‌کنم.',
         recurringInputLabel: 'پرداخت/دریافت تکرارشونده را برای AI بنویسید',
+        aiChatTitle: 'دستیار حسابداری هوشمند',
+        aiChatSubtitle: 'سوال بپرسید، تراکنش ثبت کنید و گزارش‌های مالی فوری دریافت کنید.',
         voucherTitle: 'ثبت سند',
         voucherSubtitle: 'اینجا اسناد روزنامه را ثبت و ویرایش کنید. برای ثبت مکالمه‌ای از تب چت AI استفاده کنید.',
         settingsTitle: 'تنظیمات AI',
@@ -1783,6 +1831,8 @@
         invoicesSubtitle: 'Crea facturas de venta/compra y marca como pagadas para generar asientos automáticos.',
         recurringTitle: 'Reglas recurrentes (texto IA)',
         recurringInputLabel: 'Describe tu cobro/pago recurrente para IA',
+        aiChatTitle: 'Asistente Contable IA',
+        aiChatSubtitle: 'Haga preguntas, registre transacciones por conversación y obtenga informes financieros al instante.',
         voucherTitle: 'Asiento contable',
         settingsTitle: 'Configuración de IA',
         dashboardTitle: 'Panel de insights',
@@ -1915,6 +1965,8 @@
         invoicesSubtitle: 'أنشئ فواتير بيع/شراء ثم علّمها مدفوعة لإنشاء قيد تلقائيًا.',
         recurringTitle: 'القواعد المتكررة (نص AI)',
         recurringInputLabel: 'اكتب الدفع/التحصيل المتكرر للذكاء الاصطناعي',
+        aiChatTitle: 'مساعد المحاسبة الذكي',
+        aiChatSubtitle: 'اطرح أسئلة، سجّل المعاملات عبر المحادثة، واحصل على تقارير مالية فورية.',
         voucherTitle: 'قيد اليومية',
         settingsTitle: 'إعدادات الذكاء',
         dashboardTitle: 'لوحة مؤشرات المالك',
@@ -2309,14 +2361,8 @@
 
     function showPage(page) {
       const requested = validPages.has(page) ? page : 'dashboard';
-      let target = requested;
-      // "AI chat" is a shortcut to voucher page with inline chat opened.
-      if (target === 'chat') {
-        target = 'transactions';
-        openInlineChat();
-      }
       document.querySelectorAll('.card[data-page]').forEach(card => {
-        card.classList.toggle('active-page', card.getAttribute('data-page') === target);
+        card.classList.toggle('active-page', card.getAttribute('data-page') === requested);
       });
       document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-page') === requested);
@@ -4056,6 +4102,89 @@
       }
     });
     chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
+
+    // ==================== DEDICATED CHAT PAGE WIRING ====================
+    const chatPageMessages = document.getElementById('chat-page-messages');
+    const chatPageInput = document.getElementById('chat-page-input');
+    const chatPageSendBtn = document.getElementById('chat-page-send');
+    const chatPageHistory = [];
+
+    function appendChatPageMessage(role, text, opts = {}) {
+      if (!chatPageMessages) return;
+      const div = document.createElement('div');
+      div.className = 'chat-msg ' + role + '-msg' + (opts.loading ? ' loading' : '');
+      if (opts.id) div.id = opts.id;
+      div.textContent = text;
+      chatPageMessages.appendChild(div);
+      chatPageMessages.scrollTop = chatPageMessages.scrollHeight;
+      return div;
+    }
+
+    if (chatPageSendBtn) {
+      chatPageSendBtn.addEventListener('click', async () => {
+        const text = (chatPageInput.value || '').trim();
+        if (!text) return;
+        chatPageInput.value = '';
+        chatPageHistory.push({ role: 'user', content: text });
+        appendChatPageMessage('user', text);
+        chatPageSendBtn.disabled = true;
+        chatPageInput.disabled = true;
+        const loadingEl = appendChatPageMessage('assistant', 'Processing\u2026', { loading: true, id: 'chat-page-loading' });
+        try {
+          const res = await fetch(API + '/transactions/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: chatPageHistory, attachment_ids: [] })
+          });
+          const data = await res.json().catch(() => ({}));
+          const loadingNode = document.getElementById('chat-page-loading');
+          if (loadingNode) loadingNode.remove();
+          if (!res.ok) {
+            const errMsg = (data.detail || res.status) + '';
+            chatPageHistory.push({ role: 'assistant', content: errMsg });
+            appendChatPageMessage('assistant', 'Error: ' + errMsg);
+            return;
+          }
+          const messageText = typeof extractMessageText === 'function' ? extractMessageText(data.message) : (data.message || '');
+          chatPageHistory.push({ role: 'assistant', content: messageText });
+          appendChatPageMessage('assistant', messageText);
+          if (data.report && typeof appendChatReport === 'function') {
+            // Append report into the dedicated chat page messages container
+            const reportDiv = document.createElement('div');
+            reportDiv.className = 'chat-msg report-msg';
+            reportDiv.innerHTML = '<div class="report-preview-wrap"><pre style="white-space: pre-wrap;">' +
+              (typeof data.report === 'string' ? data.report : JSON.stringify(data.report, null, 2)) + '</pre></div>';
+            chatPageMessages.appendChild(reportDiv);
+            chatPageMessages.scrollTop = chatPageMessages.scrollHeight;
+          }
+          if (data.transaction) {
+            appendChatPageMessage('assistant', '\u2705 Transaction recorded! Switch to the Vouchers tab to review and finalize.');
+          }
+        } catch (err) {
+          const loadingNode = document.getElementById('chat-page-loading');
+          if (loadingNode) loadingNode.remove();
+          appendChatPageMessage('assistant', 'Connection error: ' + err.message);
+        } finally {
+          chatPageSendBtn.disabled = false;
+          chatPageInput.disabled = false;
+        }
+      });
+      chatPageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') chatPageSendBtn.click(); });
+    }
+
+    // Wire quick-action chips for dedicated chat page
+    const chatPageQuickActions = document.getElementById('chat-page-quick-actions');
+    if (chatPageQuickActions) {
+      chatPageQuickActions.addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        const msg = chip.getAttribute('data-msg');
+        if (msg && chatPageInput && chatPageSendBtn) {
+          chatPageInput.value = msg;
+          chatPageSendBtn.click();
+        }
+      });
+    }
 
     let lastSavedTransactionId = null;
 

@@ -975,7 +975,7 @@
     <!-- ═══════ Bank Statements Page ═══════ -->
     <div class="card" data-page="bank-statements">
       <h2>Bank Statement Import</h2>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Upload CSV, Excel, or scanned bank statements. The system will parse, classify, and reconcile transactions automatically.</p>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically. <span style="color:#f57f17;font-size:0.8rem;">(PDF/image OCR requires an AI model to be configured in Settings.)</span></p>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
         <input type="file" id="bs-file-input" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;">
         <input type="text" id="bs-bank-name" placeholder="Bank name (e.g. Melli)" style="width:180px;">
@@ -1014,7 +1014,7 @@
       <div style="display:flex;gap:0.75rem;margin-bottom:1rem;">
         <button type="button" class="btn btn-primary" id="audit-run-btn">Run Full Audit</button>
       </div>
-      <div id="audit-scores" style="display:none;display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <div id="audit-scores" style="display:none;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
         <div class="panel" style="flex:1;min-width:200px;text-align:center;">
           <div style="font-size:0.75rem;color:var(--text-muted);">Integrity Score</div>
           <div id="audit-integrity-score" style="font-size:2.5rem;font-weight:700;color:var(--primary);">—</div>
@@ -1079,10 +1079,6 @@
         <button type="button" class="chip cfo-quick" data-q="What are our main cost drivers?">Cost drivers</button>
         <button type="button" class="chip cfo-quick" data-q="Where is cash leaking?">Cash leaks</button>
         <button type="button" class="chip cfo-quick" data-q="What is our burn rate?">Burn rate</button>
-      </div>
-      <div style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1rem;">
-        <button type="button" class="btn btn-secondary btn-sm" id="cfo-seed-data-btn">Seed sample financial data</button>
-        <span id="cfo-seed-status" style="font-size:0.85rem;color:var(--text-muted);margin-left:0.5rem;">Populate 6 months of transactions, invoices, and entities for CFO testing.</span>
       </div>
     </div>
 
@@ -1164,6 +1160,17 @@
         </div>
         <div id="users-wrap">
           <p class="empty-state" data-i18n="usersNoUsersLoaded" style="padding:0.4rem;">No users loaded.</p>
+        </div>
+      </div>
+
+      <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;">Demo data</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">
+          Populate the system with sample data for all sections — entities, transactions, invoices, recurring rules, budgets, inventory, and bank statements. Useful for demos and testing.
+        </p>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+          <button type="button" class="btn btn-primary" id="seed-demo-data-btn">Load demo data</button>
+          <span id="seed-demo-status" style="font-size:0.85rem;color:var(--text-muted);"></span>
         </div>
       </div>
     </div>
@@ -3992,10 +3999,23 @@
     function extractMessageText(text) {
       if (typeof text !== 'string') return text || "I didn't understand.";
       const t = text.trim();
-      if (t.startsWith('{')) {
+      if (t.startsWith('{') || t.startsWith('[')) {
         try {
           const o = JSON.parse(t);
-          if (o && typeof o.message === 'string') return o.message.trim();
+          if (o && typeof o === 'object' && !Array.isArray(o)) {
+            // Try common response shapes: {message, content, text, response, answer}
+            for (const key of ['message', 'content', 'text', 'response', 'answer', 'reply']) {
+              if (typeof o[key] === 'string' && o[key].trim()) return o[key].trim();
+            }
+            // OpenAI choices format
+            if (o.choices && o.choices[0] && o.choices[0].message && typeof o.choices[0].message.content === 'string') {
+              return o.choices[0].message.content.trim();
+            }
+            // Fallback: find any long string value
+            for (const k of Object.keys(o)) {
+              if (typeof o[k] === 'string' && o[k].length > 10) return o[k];
+            }
+          }
         } catch (_) {}
       }
       return t;
@@ -5310,15 +5330,21 @@
         const stmts = await res.json();
         const body = document.getElementById('bs-list-body');
         body.innerHTML = '';
+        if (!stmts.length) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No bank statements uploaded yet. Upload a CSV, Excel, or scanned PDF above.</td>';
+          body.appendChild(tr);
+          return;
+        }
         stmts.forEach(s => {
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(s.bank_name)}</td><td>${escapeHtml(s.source_filename)}</td>
-            <td>${s.source_type}</td><td>${s.total_rows}</td><td>${s.matched_rows}</td>
+            <td>${s.source_type}</td><td>${s.total_rows}</td><td>${s.matched_rows || 0}</td>
             <td><span class="badge ${s.status === 'approved' ? 'badge-ok' : ''}">${s.status}</span></td>
             <td><button class="btn btn-secondary btn-sm bs-view-btn" data-id="${s.id}">View</button></td>`;
           body.appendChild(tr);
         });
-      } catch (e) { /* ignore */ }
+      } catch (e) { console.warn('Failed to load bank statements:', e); }
     }
 
     document.getElementById('bs-upload-btn').addEventListener('click', async () => {
@@ -5559,16 +5585,26 @@
     });
     document.getElementById('cfo-question-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('cfo-ask-btn').click(); });
 
-    document.getElementById('cfo-seed-data-btn').addEventListener('click', async () => {
-      const statusEl = document.getElementById('cfo-seed-status');
-      statusEl.textContent = 'Seeding data...';
+    document.getElementById('seed-demo-data-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('seed-demo-data-btn');
+      const statusEl = document.getElementById('seed-demo-status');
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+      statusEl.textContent = 'Seeding data across all sections...';
+      statusEl.style.color = 'var(--text-muted)';
       try {
         const res = await fetch(bsAPI + '/cfo/seed-sample-data', { method: 'POST' });
         const data = await res.json();
         if (res.ok) {
           statusEl.style.color = '#2e7d32';
           statusEl.textContent = data.message;
+          // Reload data in all sections
+          loadEntities();
+          loadInvoices();
+          loadRecurringRules();
+          loadBankStatements();
           loadCFOReport();
+          loadAuditLogs();
         } else {
           statusEl.style.color = '#c62828';
           statusEl.textContent = data.detail || 'Seeding failed.';
@@ -5576,6 +5612,9 @@
       } catch (e) {
         statusEl.style.color = '#c62828';
         statusEl.textContent = 'Error: ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Load demo data';
       }
     });
 
@@ -5595,6 +5634,9 @@
       const btn = e.target.closest('.nav-btn[data-page]');
       if (!btn) return;
       const page = btn.dataset.page;
+      if (page === 'entities') { loadEntities(); }
+      if (page === 'invoices') { loadInvoices(); }
+      if (page === 'recurring') { loadRecurringRules(); }
       if (page === 'bank-statements') { loadBankStatements(); }
       if (page === 'audit') { loadAuditLogs(); }
       if (page === 'cfo') { loadCFOReport(); }

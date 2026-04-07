@@ -80,7 +80,19 @@ def db() -> Generator[Session, None, None]:
 
 @pytest.fixture()
 def client(db: Session) -> Generator[TestClient, None, None]:
-    """FastAPI TestClient that uses the test DB session."""
+    """FastAPI TestClient that uses the test DB session.
+
+    We replace the app lifespan with a no-op so that the production
+    PostgreSQL engine is never contacted during tests.
+    """
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _noop_lifespan(_app):
+        yield
+
+    original_router_lifespan = app.router.lifespan_context
+    app.router.lifespan_context = _noop_lifespan
 
     def _override_get_db():
         try:
@@ -92,6 +104,7 @@ def client(db: Session) -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+    app.router.lifespan_context = original_router_lifespan
 
 
 class _CSRFTestClient:

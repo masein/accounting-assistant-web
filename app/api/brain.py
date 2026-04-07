@@ -560,23 +560,32 @@ class SeedDataResponse(BaseModel):
     transactions_created: int
     invoices_created: int
     entities_created: int
+    inventory_items_created: int
+    recurring_rules_created: int
+    budget_limits_created: int
+    bank_statement_rows: int
     message: str
 
 
 @router.post("/cfo/seed-sample-data", response_model=SeedDataResponse)
 def seed_sample_financial_data(db: Session = Depends(get_db)) -> SeedDataResponse:
     """
-    Seed the database with 6 months of realistic financial data
-    for testing CFO mode: revenue, expenses, receivables, payables, and invoices.
+    Seed the database with 6 months of comprehensive financial data
+    covering ALL app sections: transactions, invoices, entities, inventory,
+    recurring rules, budgets, and a sample bank statement.
     """
     from datetime import timedelta
-    from app.models.entity import Entity
+    from app.models.entity import Entity, TransactionEntity
     from app.models.invoice import Invoice
     from app.models.invoice_item import InvoiceItem
+    from app.models.recurring import RecurringRule
+    from app.models.budget import BudgetLimit
+    from app.models.inventory import InventoryItem, InventoryMovement
 
     today = date.today()
+    counters = {"txn": 0, "inv": 0, "ent": 0, "item": 0, "rec": 0, "bud": 0, "bs_rows": 0}
 
-    # Fetch account map
+    # --- Accounts ---
     accounts = {a.code: a for a in db.execute(select(Account).where(Account.level != "GROUP")).scalars().all()}
     cash = accounts.get("1110")
     receivable = accounts.get("1112")
@@ -584,20 +593,27 @@ def seed_sample_financial_data(db: Session = Depends(get_db)) -> SeedDataRespons
     sales = accounts.get("4110")
     payroll = accounts.get("6110")
     operating = accounts.get("6112")
+    financial_exp = accounts.get("6210")
+    fixed_assets = accounts.get("1210")
+    capital = accounts.get("3110")
 
     if not all([cash, receivable, payable, sales, payroll]):
-        raise HTTPException(status_code=400, detail="Required accounts (1110, 1112, 2110, 4110, 6110) not found. Seed chart of accounts first.")
+        raise HTTPException(status_code=400, detail="Required accounts not found. Seed chart of accounts first.")
 
-    # Create entities if they don't exist
+    # ===== ENTITIES =====
     entity_specs = [
         ("client", "Innotech Solutions", "CLI-001"),
         ("client", "DataFlow Corp", "CLI-002"),
+        ("client", "Parsian Trading", "CLI-003"),
         ("supplier", "Office Supplies Co", "SUP-001"),
         ("supplier", "Cloud Hosting Inc", "SUP-002"),
+        ("supplier", "Pars Stationery", "SUP-003"),
         ("employee", "Ali Rezaei", "EMP-001"),
+        ("employee", "Sara Mohammadi", "EMP-002"),
+        ("employee", "Reza Karimi", "EMP-003"),
         ("bank", "Mellat Bank", "BNK-001"),
+        ("bank", "Saderat Bank", "BNK-002"),
     ]
-    entities_created = 0
     entity_map = {}
     for etype, name, code in entity_specs:
         existing = db.execute(select(Entity).where(Entity.name == name, Entity.type == etype)).scalars().first()
@@ -608,90 +624,298 @@ def seed_sample_financial_data(db: Session = Depends(get_db)) -> SeedDataRespons
             db.add(e)
             db.flush()
             entity_map[name] = e
-            entities_created += 1
+            counters["ent"] += 1
 
-    txn_count = 0
+    # Helper to link entity to transaction
+    def link_entity(txn_id, entity_name, role):
+        ent = entity_map.get(entity_name)
+        if ent:
+            db.add(TransactionEntity(transaction_id=txn_id, entity_id=ent.id, role=role))
+
+    # ===== TRANSACTIONS (6 months) =====
     for months_ago in range(6, 0, -1):
         month_date = today - timedelta(days=months_ago * 30)
-        base_rev = 50_000_000 + (6 - months_ago) * 5_000_000  # Growing revenue
+        month_label = 7 - months_ago
+        base_rev = 50_000_000 + (6 - months_ago) * 5_000_000
 
         # Cash sale
-        t1 = Transaction(date=month_date, description=f"Cash sale - month {7-months_ago}", reference=f"REV-{7-months_ago:03d}")
-        db.add(t1); db.flush()
-        db.add(TransactionLine(transaction_id=t1.id, account_id=cash.id, debit=base_rev, credit=0, line_description="Cash received"))
-        db.add(TransactionLine(transaction_id=t1.id, account_id=sales.id, debit=0, credit=base_rev, line_description="Sales revenue"))
-        txn_count += 1
+        t = Transaction(date=month_date, description=f"Cash sale to Parsian Trading - month {month_label}", reference=f"REV-{month_label:03d}")
+        db.add(t); db.flush()
+        db.add(TransactionLine(transaction_id=t.id, account_id=cash.id, debit=base_rev, credit=0, line_description="Cash received from client"))
+        db.add(TransactionLine(transaction_id=t.id, account_id=sales.id, debit=0, credit=base_rev, line_description="Sales revenue"))
+        link_entity(t.id, "Parsian Trading", "client")
+        counters["txn"] += 1
 
-        # Credit sale (creates receivable)
+        # Credit sale → receivable
         credit_rev = base_rev // 2
-        t2 = Transaction(date=month_date + timedelta(days=5), description=f"Credit sale to Innotech - month {7-months_ago}", reference=f"INV-{7-months_ago:03d}")
-        db.add(t2); db.flush()
-        db.add(TransactionLine(transaction_id=t2.id, account_id=receivable.id, debit=credit_rev, credit=0, line_description="Accounts receivable"))
-        db.add(TransactionLine(transaction_id=t2.id, account_id=sales.id, debit=0, credit=credit_rev, line_description="Credit sales"))
-        txn_count += 1
+        t = Transaction(date=month_date + timedelta(days=5), description=f"Credit sale to Innotech Solutions - month {month_label}", reference=f"INV-{month_label:03d}")
+        db.add(t); db.flush()
+        db.add(TransactionLine(transaction_id=t.id, account_id=receivable.id, debit=credit_rev, credit=0, line_description="Accounts receivable"))
+        db.add(TransactionLine(transaction_id=t.id, account_id=sales.id, debit=0, credit=credit_rev, line_description="Credit sales"))
+        link_entity(t.id, "Innotech Solutions", "client")
+        counters["txn"] += 1
 
-        # Collect receivable (except last 2 months to leave AR balance)
+        # Collect receivable (except last 2 months)
         if months_ago > 2:
-            t3 = Transaction(date=month_date + timedelta(days=20), description=f"Collection from Innotech - month {7-months_ago}", reference=f"COL-{7-months_ago:03d}")
-            db.add(t3); db.flush()
-            db.add(TransactionLine(transaction_id=t3.id, account_id=cash.id, debit=credit_rev, credit=0, line_description="Cash received"))
-            db.add(TransactionLine(transaction_id=t3.id, account_id=receivable.id, debit=0, credit=credit_rev, line_description="Receivable cleared"))
-            txn_count += 1
+            t = Transaction(date=month_date + timedelta(days=20), description=f"Collection from Innotech Solutions - month {month_label}", reference=f"COL-{month_label:03d}")
+            db.add(t); db.flush()
+            db.add(TransactionLine(transaction_id=t.id, account_id=cash.id, debit=credit_rev, credit=0, line_description="Cash received"))
+            db.add(TransactionLine(transaction_id=t.id, account_id=receivable.id, debit=0, credit=credit_rev, line_description="Receivable cleared"))
+            link_entity(t.id, "Innotech Solutions", "client")
+            counters["txn"] += 1
+
+        # DataFlow sale (smaller)
+        df_rev = 15_000_000 + months_ago * 2_000_000
+        t = Transaction(date=month_date + timedelta(days=8), description=f"Service fee from DataFlow Corp - month {month_label}", reference=f"DF-{month_label:03d}")
+        db.add(t); db.flush()
+        db.add(TransactionLine(transaction_id=t.id, account_id=cash.id, debit=df_rev, credit=0, line_description="Cash from DataFlow"))
+        db.add(TransactionLine(transaction_id=t.id, account_id=sales.id, debit=0, credit=df_rev, line_description="Service revenue"))
+        link_entity(t.id, "DataFlow Corp", "client")
+        counters["txn"] += 1
 
         # Payroll
-        payroll_amt = 30_000_000
-        t4 = Transaction(date=month_date + timedelta(days=25), description=f"Payroll - month {7-months_ago}", reference=f"PAY-{7-months_ago:03d}")
-        db.add(t4); db.flush()
-        db.add(TransactionLine(transaction_id=t4.id, account_id=payroll.id, debit=payroll_amt, credit=0, line_description="Payroll expense"))
-        db.add(TransactionLine(transaction_id=t4.id, account_id=cash.id, debit=0, credit=payroll_amt, line_description="Payroll payment"))
-        txn_count += 1
+        payroll_amt = 30_000_000 + (month_label - 1) * 500_000
+        t = Transaction(date=month_date + timedelta(days=25), description=f"Payroll payment - month {month_label}", reference=f"PAY-{month_label:03d}")
+        db.add(t); db.flush()
+        db.add(TransactionLine(transaction_id=t.id, account_id=payroll.id, debit=payroll_amt, credit=0, line_description="Salary expense"))
+        db.add(TransactionLine(transaction_id=t.id, account_id=cash.id, debit=0, credit=payroll_amt, line_description="Salary payment"))
+        link_entity(t.id, "Ali Rezaei", "payee")
+        counters["txn"] += 1
 
         # Operating expenses
         op_amt = 10_000_000 + months_ago * 1_000_000
-        t5 = Transaction(date=month_date + timedelta(days=10), description=f"Operating expenses - month {7-months_ago}", reference=f"OPX-{7-months_ago:03d}")
-        db.add(t5); db.flush()
+        t = Transaction(date=month_date + timedelta(days=10), description=f"Office supplies from Pars Stationery - month {month_label}", reference=f"OPX-{month_label:03d}")
+        db.add(t); db.flush()
         if operating:
-            db.add(TransactionLine(transaction_id=t5.id, account_id=operating.id, debit=op_amt, credit=0, line_description="Operating costs"))
-            db.add(TransactionLine(transaction_id=t5.id, account_id=cash.id, debit=0, credit=op_amt, line_description="Operating payment"))
-        txn_count += 1
+            db.add(TransactionLine(transaction_id=t.id, account_id=operating.id, debit=op_amt, credit=0, line_description="Operating costs"))
+            db.add(TransactionLine(transaction_id=t.id, account_id=cash.id, debit=0, credit=op_amt, line_description="Cash payment"))
+        link_entity(t.id, "Pars Stationery", "supplier")
+        counters["txn"] += 1
 
-        # Purchase on credit (last 3 months)
-        if months_ago <= 3:
-            payable_amt = 8_000_000
-            t6 = Transaction(date=month_date + timedelta(days=15), description=f"Purchase on credit - month {7-months_ago}", reference=f"PUR-{7-months_ago:03d}")
-            db.add(t6); db.flush()
-            if operating:
-                db.add(TransactionLine(transaction_id=t6.id, account_id=operating.id, debit=payable_amt, credit=0, line_description="Supplies purchased"))
-            db.add(TransactionLine(transaction_id=t6.id, account_id=payable.id, debit=0, credit=payable_amt, line_description="Accounts payable"))
-            txn_count += 1
+        # Cloud hosting (via payable)
+        cloud_amt = 8_000_000
+        t = Transaction(date=month_date + timedelta(days=15), description=f"Cloud hosting subscription - month {month_label}", reference=f"CLD-{month_label:03d}")
+        db.add(t); db.flush()
+        if operating:
+            db.add(TransactionLine(transaction_id=t.id, account_id=operating.id, debit=cloud_amt, credit=0, line_description="Cloud hosting"))
+        db.add(TransactionLine(transaction_id=t.id, account_id=payable.id, debit=0, credit=cloud_amt, line_description="Payable to Cloud Hosting Inc"))
+        link_entity(t.id, "Cloud Hosting Inc", "supplier")
+        counters["txn"] += 1
 
-    # Create invoices
-    inv_count = 0
-    for inv_data in [
-        ("INV-2026-001", "sales", "issued", today - timedelta(days=15), today + timedelta(days=15), 75_000_000, "Consulting services Q1", "Innotech Solutions"),
-        ("INV-2026-002", "purchase", "issued", today - timedelta(days=10), today + timedelta(days=20), 8_000_000, "Cloud hosting services", "Cloud Hosting Inc"),
-        ("INV-2026-003", "sales", "paid", today - timedelta(days=45), today - timedelta(days=15), 50_000_000, "Software development", "DataFlow Corp"),
-    ]:
-        number, kind, status, issue_date, due_date, amount, desc, entity_name = inv_data
+        # Pay off cloud hosting (except last 2 months)
+        if months_ago > 2:
+            t = Transaction(date=month_date + timedelta(days=28), description=f"Pay Cloud Hosting Inc - month {month_label}", reference=f"PMT-{month_label:03d}")
+            db.add(t); db.flush()
+            db.add(TransactionLine(transaction_id=t.id, account_id=payable.id, debit=cloud_amt, credit=0, line_description="Clear payable"))
+            db.add(TransactionLine(transaction_id=t.id, account_id=cash.id, debit=0, credit=cloud_amt, line_description="Cash payment"))
+            link_entity(t.id, "Cloud Hosting Inc", "supplier")
+            counters["txn"] += 1
+
+        # Bank fee
+        if financial_exp:
+            fee = 500_000
+            t = Transaction(date=month_date + timedelta(days=29), description=f"Bank fees - month {month_label}", reference=f"FEE-{month_label:03d}")
+            db.add(t); db.flush()
+            db.add(TransactionLine(transaction_id=t.id, account_id=financial_exp.id, debit=fee, credit=0, line_description="Bank service charge"))
+            db.add(TransactionLine(transaction_id=t.id, account_id=cash.id, debit=0, credit=fee, line_description="Fee deducted from account"))
+            link_entity(t.id, "Mellat Bank", "bank")
+            counters["txn"] += 1
+
+    # Capital injection (one-time)
+    if capital:
+        t = Transaction(date=today - timedelta(days=200), description="Initial capital investment", reference="CAP-001")
+        db.add(t); db.flush()
+        db.add(TransactionLine(transaction_id=t.id, account_id=cash.id, debit=500_000_000, credit=0, line_description="Cash injected"))
+        db.add(TransactionLine(transaction_id=t.id, account_id=capital.id, debit=0, credit=500_000_000, line_description="Owner's capital"))
+        counters["txn"] += 1
+
+    # Fixed asset purchase
+    if fixed_assets:
+        t = Transaction(date=today - timedelta(days=150), description="Purchased office equipment", reference="AST-001")
+        db.add(t); db.flush()
+        db.add(TransactionLine(transaction_id=t.id, account_id=fixed_assets.id, debit=25_000_000, credit=0, line_description="Office equipment"))
+        db.add(TransactionLine(transaction_id=t.id, account_id=cash.id, debit=0, credit=25_000_000, line_description="Equipment payment"))
+        link_entity(t.id, "Office Supplies Co", "supplier")
+        counters["txn"] += 1
+
+    # ===== INVOICES =====
+    invoice_specs = [
+        ("INV-2026-001", "sales", "issued", -15, 15, 75_000_000, "Consulting services Q1", "Innotech Solutions", [("Consulting – 40 hours", 40, 1_875_000, 75_000_000)]),
+        ("INV-2026-002", "purchase", "issued", -10, 20, 8_000_000, "Cloud hosting Q1", "Cloud Hosting Inc", [("Cloud Server (3 mo)", 3, 2_666_667, 8_000_000)]),
+        ("INV-2026-003", "sales", "paid", -45, -15, 50_000_000, "Software development", "DataFlow Corp", [("Frontend dev", 1, 30_000_000, 30_000_000), ("Backend dev", 1, 20_000_000, 20_000_000)]),
+        ("INV-2026-004", "sales", "draft", -5, 25, 120_000_000, "Platform integration project", "Parsian Trading", [("Integration", 1, 80_000_000, 80_000_000), ("Testing & QA", 1, 40_000_000, 40_000_000)]),
+        ("INV-2026-005", "purchase", "paid", -60, -30, 25_000_000, "Office equipment", "Office Supplies Co", [("Desk (x5)", 5, 3_000_000, 15_000_000), ("Chair (x5)", 5, 2_000_000, 10_000_000)]),
+        ("INV-2026-006", "sales", "issued", -3, 27, 35_000_000, "Monthly support retainer", "Innotech Solutions", [("Support retainer – April", 1, 35_000_000, 35_000_000)]),
+    ]
+    for inv_spec in invoice_specs:
+        number, kind, status, issue_offset, due_offset, amount, desc, entity_name, items = inv_spec
         existing = db.execute(select(Invoice).where(Invoice.number == number)).scalars().first()
         if existing:
             continue
         inv = Invoice(
             number=number, kind=kind, status=status,
-            issue_date=issue_date, due_date=due_date,
+            issue_date=today + timedelta(days=issue_offset),
+            due_date=today + timedelta(days=due_offset),
             amount=amount, description=desc,
-            entity_id=entity_map.get(entity_name, entity_map.get("Innotech Solutions")).id,
+            entity_id=entity_map.get(entity_name, entity_map["Innotech Solutions"]).id,
         )
         db.add(inv); db.flush()
-        db.add(InvoiceItem(invoice_id=inv.id, product_name=desc, quantity=1, unit_price=amount, line_total=amount))
-        inv_count += 1
+        for product, qty, price, total in items:
+            db.add(InvoiceItem(invoice_id=inv.id, product_name=product, quantity=qty, unit_price=price, line_total=total))
+        counters["inv"] += 1
+
+    # ===== RECURRING RULES =====
+    recurring_specs = [
+        ("Monthly payroll", "payment", "monthly", 30_000_000, "Ali Rezaei", "PAY"),
+        ("Cloud hosting", "payment", "monthly", 8_000_000, "Cloud Hosting Inc", "CLD"),
+        ("Innotech retainer", "receipt", "monthly", 35_000_000, "Innotech Solutions", "RET"),
+    ]
+    for rname, direction, freq, amount, entity_name, prefix in recurring_specs:
+        existing = db.execute(select(RecurringRule).where(RecurringRule.name == rname)).scalars().first()
+        if existing:
+            continue
+        r = RecurringRule(
+            name=rname, direction=direction, frequency=freq, amount=amount,
+            start_date=today - timedelta(days=180),
+            next_run_date=today + timedelta(days=1),
+            entity_id=entity_map.get(entity_name, entity_map["Innotech Solutions"]).id,
+            reference_prefix=prefix,
+            note=f"Auto-generated recurring rule for {rname.lower()}",
+        )
+        db.add(r)
+        counters["rec"] += 1
+
+    # ===== BUDGET LIMITS =====
+    current_month = today.strftime("%Y-%m")
+    prev_month = (today.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    next_month = (today.replace(day=28) + timedelta(days=4)).strftime("%Y-%m")
+    budget_specs = [
+        (current_month, "هزینه\u200cهای حقوق", 35_000_000),
+        (current_month, "سایر هزینه\u200cهای عملیاتی", 15_000_000),
+        (current_month, "هزینه\u200cهای مالی", 2_000_000),
+        (next_month, "هزینه\u200cهای حقوق", 36_000_000),
+        (next_month, "سایر هزینه\u200cهای عملیاتی", 14_000_000),
+    ]
+    for month, cat, limit_amt in budget_specs:
+        existing = db.execute(select(BudgetLimit).where(BudgetLimit.month == month, BudgetLimit.category == cat)).scalars().first()
+        if existing:
+            continue
+        db.add(BudgetLimit(month=month, category=cat, limit_amount=limit_amt))
+        counters["bud"] += 1
+
+    # ===== INVENTORY =====
+    inv_items_specs = [
+        ("A4 Paper (ream)", "SKU-001", "ream"),
+        ("Printer Toner", "SKU-002", "unit"),
+        ("USB Flash Drive 64GB", "SKU-003", "unit"),
+        ("Desk Lamp", "SKU-004", "unit"),
+        ("Whiteboard Marker Set", "SKU-005", "pack"),
+    ]
+    inv_item_map = {}
+    for iname, sku, unit in inv_items_specs:
+        existing = db.execute(select(InventoryItem).where(InventoryItem.sku == sku)).scalars().first()
+        if existing:
+            inv_item_map[sku] = existing
+            continue
+        item = InventoryItem(sku=sku, name=iname, unit=unit)
+        db.add(item); db.flush()
+        inv_item_map[sku] = item
+        counters["item"] += 1
+
+    # Inventory movements
+    movements = [
+        ("SKU-001", -120, "IN", 50, 150_000, "Initial stock"),
+        ("SKU-001", -90, "OUT", 10, 0, "Used by office"),
+        ("SKU-001", -60, "IN", 30, 160_000, "Restock from Pars Stationery"),
+        ("SKU-001", -30, "OUT", 15, 0, "Used by office"),
+        ("SKU-002", -120, "IN", 5, 2_500_000, "Initial toner stock"),
+        ("SKU-002", -60, "OUT", 2, 0, "Replaced printer toners"),
+        ("SKU-002", -10, "IN", 3, 2_700_000, "Reorder toner"),
+        ("SKU-003", -100, "IN", 20, 350_000, "Bulk USB purchase"),
+        ("SKU-003", -50, "OUT", 8, 0, "Distributed to employees"),
+        ("SKU-004", -90, "IN", 10, 800_000, "Desk lamps for new office"),
+        ("SKU-004", -80, "OUT", 5, 0, "Installed in workstations"),
+        ("SKU-005", -110, "IN", 30, 120_000, "Marker sets"),
+        ("SKU-005", -40, "OUT", 12, 0, "Meeting room supplies"),
+    ]
+    for sku, day_offset, mtype, qty, cost, desc in movements:
+        item = inv_item_map.get(sku)
+        if not item:
+            continue
+        db.add(InventoryMovement(
+            item_id=item.id,
+            movement_date=today + timedelta(days=day_offset),
+            movement_type=mtype,
+            quantity=qty,
+            unit_cost=cost,
+            reference=f"MOV-{sku}-{abs(day_offset)}",
+            description=desc,
+        ))
+
+    # ===== BANK STATEMENT (CSV-like) =====
+    bs = BankStatement(
+        bank_name="Mellat Bank",
+        source_type="csv",
+        source_filename="mellat_demo_statement.csv",
+        currency="IRR",
+        from_date=today - timedelta(days=90),
+        to_date=today,
+        status="parsed",
+        total_rows=0,
+    )
+    db.add(bs); db.flush()
+
+    balance = 200_000_000
+    bs_row_idx = 0
+    for days_ago in range(90, 0, -3):
+        d = today - timedelta(days=days_ago)
+        # Alternate between deposits and withdrawals
+        if days_ago % 6 == 0:
+            amt = 15_000_000 + (days_ago % 10) * 1_000_000
+            balance += amt
+            db.add(BankStatementRow(
+                statement_id=bs.id, row_index=bs_row_idx, tx_date=d,
+                description=f"Transfer in from client", reference=f"TRF-{bs_row_idx:04d}",
+                debit=0, credit=amt, balance=balance, counterparty="Innotech Solutions",
+                confidence=0.9, category="revenue", suggested_account_code="4110",
+            ))
+        else:
+            amt = 5_000_000 + (days_ago % 7) * 500_000
+            balance -= amt
+            db.add(BankStatementRow(
+                statement_id=bs.id, row_index=bs_row_idx, tx_date=d,
+                description=f"Payment - {'salary' if days_ago % 9 == 0 else 'operating expense'}",
+                reference=f"PMT-{bs_row_idx:04d}",
+                debit=amt, credit=0, balance=balance,
+                counterparty="Various" if days_ago % 9 != 0 else "Ali Rezaei",
+                confidence=0.85, category="expense",
+                suggested_account_code="6110" if days_ago % 9 == 0 else "6112",
+            ))
+        bs_row_idx += 1
+
+    bs.total_rows = bs_row_idx
+    counters["bs_rows"] = bs_row_idx
 
     db.commit()
+
+    msg_parts = []
+    if counters["txn"]: msg_parts.append(f"{counters['txn']} transactions")
+    if counters["inv"]: msg_parts.append(f"{counters['inv']} invoices")
+    if counters["ent"]: msg_parts.append(f"{counters['ent']} entities")
+    if counters["item"]: msg_parts.append(f"{counters['item']} inventory items")
+    if counters["rec"]: msg_parts.append(f"{counters['rec']} recurring rules")
+    if counters["bud"]: msg_parts.append(f"{counters['bud']} budget limits")
+    if counters["bs_rows"]: msg_parts.append(f"{counters['bs_rows']} bank statement rows")
+
     return SeedDataResponse(
-        transactions_created=txn_count,
-        invoices_created=inv_count,
-        entities_created=entities_created,
-        message=f"Seeded {txn_count} transactions, {inv_count} invoices, {entities_created} entities for CFO testing.",
+        transactions_created=counters["txn"],
+        invoices_created=counters["inv"],
+        entities_created=counters["ent"],
+        inventory_items_created=counters["item"],
+        recurring_rules_created=counters["rec"],
+        budget_limits_created=counters["bud"],
+        bank_statement_rows=counters["bs_rows"],
+        message=f"Demo data seeded: {', '.join(msg_parts)}." if msg_parts else "No new data needed — demo data already present.",
     )
 
 

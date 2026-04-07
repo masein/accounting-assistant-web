@@ -225,7 +225,7 @@ _api_limiter = RateLimiter(max_requests=120, window_seconds=60)
 
 _CSP_POLICY = (
     "default-src 'self'; "
-    "script-src 'self'; "
+    "script-src 'self' 'unsafe-inline'; "
     "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; "
     "font-src 'self' https://fonts.gstatic.com; "
     "img-src 'self' data: https:; "

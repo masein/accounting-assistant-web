@@ -6,8 +6,9 @@
   <meta name="theme-color" content="#006d77">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Accounting Assistant — Register events and ledger</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap');
     :root {
       --bg: radial-gradient(circle at 10% 10%, #e9f7f1 0%, #f3f7fb 38%, #edf2f7 100%);
       --card: #ffffffd9;
@@ -102,6 +103,14 @@
       justify-content: space-between;
       gap: 1rem;
       animation: alert-in 180ms ease;
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      width: calc(100% - 2rem);
+      max-width: 900px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
     }
     .alert-success { background: var(--success-bg); color: #065f46; border: 1px solid #6ee7b7; }
     .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
@@ -1127,7 +1136,7 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="/static/chart.umd.min.js"></script>
   <script>
     const API = ''; // same origin
     const alertEl = document.getElementById('alert');
@@ -2321,10 +2330,13 @@
       voucherChatInlineEl.classList.add('is-open');
     }
 
+    let _alertTimer = null;
     function showAlert(message, isError = false) {
+      if (_alertTimer) { clearTimeout(_alertTimer); _alertTimer = null; }
       alertEl.textContent = '';
       alertEl.className = 'alert alert-' + (isError ? 'error' : 'success');
       alertEl.style.display = 'flex';
+      alertEl.style.opacity = '1';
       const span = document.createElement('span');
       span.textContent = message;
       alertEl.appendChild(span);
@@ -2333,8 +2345,14 @@
       close.setAttribute('type', 'button');
       close.setAttribute('aria-label', 'Close');
       close.textContent = '×';
-      close.onclick = () => { alertEl.style.display = 'none'; };
+      const dismiss = () => { alertEl.style.display = 'none'; if (_alertTimer) { clearTimeout(_alertTimer); _alertTimer = null; } };
+      close.onclick = dismiss;
       alertEl.appendChild(close);
+      _alertTimer = setTimeout(() => {
+        alertEl.style.transition = 'opacity 0.4s ease';
+        alertEl.style.opacity = '0';
+        setTimeout(() => { alertEl.style.display = 'none'; alertEl.style.transition = ''; }, 400);
+      }, 5000);
     }
 
     function formatNum(n) {
@@ -2709,7 +2727,7 @@
         return;
       }
       const th = headers.map(h => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
-      const tr = rows.map(r => `<tr>${r.map(c => `<td>${typeof c === 'string' ? escapeHtml(localizeDynamicText(c)) : c}</td>`).join('')}</tr>`).join('');
+      const tr = rows.map(r => `<tr>${r.map(c => `<td>${c && c.__html ? c.__html : (typeof c === 'string' ? escapeHtml(localizeDynamicText(c)) : c)}</td>`).join('')}</tr>`).join('');
       el.innerHTML = `<table class="mini-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
     }
 
@@ -2745,7 +2763,7 @@
             formatNum(r.projected_outflow),
             formatNum(r.projected_net),
             formatNum(r.projected_cash),
-            r.risk ? '<span class="alert-chip high">' + escapeHtml(t('risk')) + '</span>' : '<span class="alert-chip low">' + escapeHtml(t('ok')) + '</span>'
+            {__html: r.risk ? '<span class="alert-chip high">' + escapeHtml(t('risk')) + '</span>' : '<span class="alert-chip low">' + escapeHtml(t('ok')) + '</span>'}
           ])
         );
 
@@ -3962,7 +3980,7 @@
         }
       }
     }
-    document.getElementById('lines-body').addEventListener('input', updateVoucherBalanceBar);
+    document.getElementById('lines-tbody').addEventListener('input', updateVoucherBalanceBar);
 
     chatSendBtn.addEventListener('click', async () => {
       const text = (chatInput.value || '').trim();

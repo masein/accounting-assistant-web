@@ -62,6 +62,7 @@ def _load_monthly_data(db: Session, months_back: int = 12) -> dict:
     txns = db.execute(
         select(Transaction)
         .where(Transaction.date >= cutoff)
+        .where(Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
     ).scalars().unique().all()
 

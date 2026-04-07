@@ -125,7 +125,7 @@ def detect_duplicate_payments(db: Session, lookback_days: int = 90) -> list[Audi
 
     txns = db.execute(
         select(Transaction)
-        .where(Transaction.date >= cutoff)
+        .where(Transaction.date >= cutoff, Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
     ).scalars().unique().all()
 
@@ -166,7 +166,7 @@ def detect_anomalies(db: Session, lookback_days: int = 180) -> list[AuditFinding
 
     txns = db.execute(
         select(Transaction)
-        .where(Transaction.date >= cutoff)
+        .where(Transaction.date >= cutoff, Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
     ).scalars().unique().all()
 
@@ -240,7 +240,7 @@ def detect_backdated_entries(db: Session, days_threshold: int = 30) -> list[Audi
 
     txns = db.execute(
         select(Transaction)
-        .where(Transaction.created_at.isnot(None))
+        .where(Transaction.created_at.isnot(None), Transaction.deleted_at.is_(None))
     ).scalars().all()
 
     for txn in txns:

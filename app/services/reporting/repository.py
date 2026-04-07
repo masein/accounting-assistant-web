@@ -27,6 +27,7 @@ def account_turnovers_between(db: Session, from_date: date, to_date: date) -> li
         )
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(Transaction.date >= from_date, Transaction.date <= to_date)
+        .where(Transaction.deleted_at.is_(None))
         .group_by(TransactionLine.account_id)
     )
     return [(a, int(d or 0), int(c or 0)) for a, d, c in db.execute(q).all()]
@@ -41,18 +42,19 @@ def account_turnovers_upto(db: Session, to_date: date) -> list[tuple[UUID, int, 
         )
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(Transaction.date <= to_date)
+        .where(Transaction.deleted_at.is_(None))
         .group_by(TransactionLine.account_id)
     )
     return [(a, int(d or 0), int(c or 0)) for a, d, c in db.execute(q).all()]
 
 
 def paged_journal_entries(db: Session, from_date: date, to_date: date, page: int, page_size: int) -> tuple[int, list[Transaction]]:
-    count_q = select(func.count(Transaction.id)).where(Transaction.date >= from_date, Transaction.date <= to_date)
+    count_q = select(func.count(Transaction.id)).where(Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None))
     total = int(db.execute(count_q).scalar() or 0)
     offset = max(0, (page - 1) * page_size)
     q = (
         select(Transaction)
-        .where(Transaction.date >= from_date, Transaction.date <= to_date)
+        .where(Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None))
         .order_by(Transaction.date.desc(), Transaction.created_at.desc())
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
         .offset(offset)
@@ -80,6 +82,7 @@ def paged_account_lines(
             TransactionLine.account_id == acc.id,
             Transaction.date >= from_date,
             Transaction.date <= to_date,
+            Transaction.deleted_at.is_(None),
         )
     )
     total = int(db.execute(count_q).scalar() or 0)
@@ -91,6 +94,7 @@ def paged_account_lines(
             TransactionLine.account_id == acc.id,
             Transaction.date >= from_date,
             Transaction.date <= to_date,
+            Transaction.deleted_at.is_(None),
         )
         .order_by(Transaction.date, Transaction.created_at, TransactionLine.id)
         .offset(offset)
@@ -111,7 +115,7 @@ def opening_balance_before(
             func.coalesce(func.sum(TransactionLine.credit), 0),
         )
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-        .where(TransactionLine.account_id == account_id, Transaction.date < before_date)
+        .where(TransactionLine.account_id == account_id, Transaction.date < before_date, Transaction.deleted_at.is_(None))
     )
     d, c = db.execute(q).one()
     return int(d or 0), int(c or 0)
@@ -127,7 +131,7 @@ def trial_balance_rows(db: Session, from_date: date, to_date: date) -> list[tupl
         )
         .join(TransactionLine, TransactionLine.account_id == Account.id)
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-        .where(Transaction.date >= from_date, Transaction.date <= to_date)
+        .where(Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None))
         .group_by(Account.code, Account.name)
         .order_by(Account.code)
     )
@@ -155,6 +159,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date) -> li
         .where(
             Transaction.date >= from_date,
             Transaction.date <= to_date,
+            Transaction.deleted_at.is_(None),
             TransactionLine.account_id == select(Account.id).where(Account.code == "1112").scalar_subquery(),
             TransactionEntity.role.in_(("client",)),
         )
@@ -175,6 +180,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date) -> li
         .where(
             Transaction.date >= from_date,
             Transaction.date <= to_date,
+            Transaction.deleted_at.is_(None),
             Account.code.like("21%"),
             TransactionEntity.role.in_(("supplier", "payee")),
         )
@@ -267,6 +273,7 @@ def invoices_between(db: Session, from_date: date, to_date: date, *, kind: str |
 def latest_transaction(db: Session) -> Transaction | None:
     return db.execute(
         select(Transaction)
+        .where(Transaction.deleted_at.is_(None))
         .order_by(Transaction.date.desc(), Transaction.created_at.desc())
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
         .limit(1)
@@ -276,7 +283,7 @@ def latest_transaction(db: Session) -> Transaction | None:
 def transactions_with_lines_between(db: Session, from_date: date, to_date: date) -> list[Transaction]:
     q = (
         select(Transaction)
-        .where(Transaction.date >= from_date, Transaction.date <= to_date)
+        .where(Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None))
         .order_by(Transaction.date, Transaction.created_at, Transaction.id)
         .options(
             selectinload(Transaction.lines).selectinload(TransactionLine.account),

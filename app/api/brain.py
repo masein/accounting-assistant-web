@@ -556,6 +556,145 @@ def get_cfo_report(db: Session = Depends(get_db)) -> CFOReportResponse:
     )
 
 
+class SeedDataResponse(BaseModel):
+    transactions_created: int
+    invoices_created: int
+    entities_created: int
+    message: str
+
+
+@router.post("/cfo/seed-sample-data", response_model=SeedDataResponse)
+def seed_sample_financial_data(db: Session = Depends(get_db)) -> SeedDataResponse:
+    """
+    Seed the database with 6 months of realistic financial data
+    for testing CFO mode: revenue, expenses, receivables, payables, and invoices.
+    """
+    from datetime import timedelta
+    from app.models.entity import Entity
+    from app.models.invoice import Invoice
+    from app.models.invoice_item import InvoiceItem
+
+    today = date.today()
+
+    # Fetch account map
+    accounts = {a.code: a for a in db.execute(select(Account).where(Account.level != "GROUP")).scalars().all()}
+    cash = accounts.get("1110")
+    receivable = accounts.get("1112")
+    payable = accounts.get("2110")
+    sales = accounts.get("4110")
+    payroll = accounts.get("6110")
+    operating = accounts.get("6112")
+
+    if not all([cash, receivable, payable, sales, payroll]):
+        raise HTTPException(status_code=400, detail="Required accounts (1110, 1112, 2110, 4110, 6110) not found. Seed chart of accounts first.")
+
+    # Create entities if they don't exist
+    entity_specs = [
+        ("client", "Innotech Solutions", "CLI-001"),
+        ("client", "DataFlow Corp", "CLI-002"),
+        ("supplier", "Office Supplies Co", "SUP-001"),
+        ("supplier", "Cloud Hosting Inc", "SUP-002"),
+        ("employee", "Ali Rezaei", "EMP-001"),
+        ("bank", "Mellat Bank", "BNK-001"),
+    ]
+    entities_created = 0
+    entity_map = {}
+    for etype, name, code in entity_specs:
+        existing = db.execute(select(Entity).where(Entity.name == name, Entity.type == etype)).scalars().first()
+        if existing:
+            entity_map[name] = existing
+        else:
+            e = Entity(type=etype, name=name, code=code)
+            db.add(e)
+            db.flush()
+            entity_map[name] = e
+            entities_created += 1
+
+    txn_count = 0
+    for months_ago in range(6, 0, -1):
+        month_date = today - timedelta(days=months_ago * 30)
+        base_rev = 50_000_000 + (6 - months_ago) * 5_000_000  # Growing revenue
+
+        # Cash sale
+        t1 = Transaction(date=month_date, description=f"Cash sale - month {7-months_ago}", reference=f"REV-{7-months_ago:03d}")
+        db.add(t1); db.flush()
+        db.add(TransactionLine(transaction_id=t1.id, account_id=cash.id, debit=base_rev, credit=0, line_description="Cash received"))
+        db.add(TransactionLine(transaction_id=t1.id, account_id=sales.id, debit=0, credit=base_rev, line_description="Sales revenue"))
+        txn_count += 1
+
+        # Credit sale (creates receivable)
+        credit_rev = base_rev // 2
+        t2 = Transaction(date=month_date + timedelta(days=5), description=f"Credit sale to Innotech - month {7-months_ago}", reference=f"INV-{7-months_ago:03d}")
+        db.add(t2); db.flush()
+        db.add(TransactionLine(transaction_id=t2.id, account_id=receivable.id, debit=credit_rev, credit=0, line_description="Accounts receivable"))
+        db.add(TransactionLine(transaction_id=t2.id, account_id=sales.id, debit=0, credit=credit_rev, line_description="Credit sales"))
+        txn_count += 1
+
+        # Collect receivable (except last 2 months to leave AR balance)
+        if months_ago > 2:
+            t3 = Transaction(date=month_date + timedelta(days=20), description=f"Collection from Innotech - month {7-months_ago}", reference=f"COL-{7-months_ago:03d}")
+            db.add(t3); db.flush()
+            db.add(TransactionLine(transaction_id=t3.id, account_id=cash.id, debit=credit_rev, credit=0, line_description="Cash received"))
+            db.add(TransactionLine(transaction_id=t3.id, account_id=receivable.id, debit=0, credit=credit_rev, line_description="Receivable cleared"))
+            txn_count += 1
+
+        # Payroll
+        payroll_amt = 30_000_000
+        t4 = Transaction(date=month_date + timedelta(days=25), description=f"Payroll - month {7-months_ago}", reference=f"PAY-{7-months_ago:03d}")
+        db.add(t4); db.flush()
+        db.add(TransactionLine(transaction_id=t4.id, account_id=payroll.id, debit=payroll_amt, credit=0, line_description="Payroll expense"))
+        db.add(TransactionLine(transaction_id=t4.id, account_id=cash.id, debit=0, credit=payroll_amt, line_description="Payroll payment"))
+        txn_count += 1
+
+        # Operating expenses
+        op_amt = 10_000_000 + months_ago * 1_000_000
+        t5 = Transaction(date=month_date + timedelta(days=10), description=f"Operating expenses - month {7-months_ago}", reference=f"OPX-{7-months_ago:03d}")
+        db.add(t5); db.flush()
+        if operating:
+            db.add(TransactionLine(transaction_id=t5.id, account_id=operating.id, debit=op_amt, credit=0, line_description="Operating costs"))
+            db.add(TransactionLine(transaction_id=t5.id, account_id=cash.id, debit=0, credit=op_amt, line_description="Operating payment"))
+        txn_count += 1
+
+        # Purchase on credit (last 3 months)
+        if months_ago <= 3:
+            payable_amt = 8_000_000
+            t6 = Transaction(date=month_date + timedelta(days=15), description=f"Purchase on credit - month {7-months_ago}", reference=f"PUR-{7-months_ago:03d}")
+            db.add(t6); db.flush()
+            if operating:
+                db.add(TransactionLine(transaction_id=t6.id, account_id=operating.id, debit=payable_amt, credit=0, line_description="Supplies purchased"))
+            db.add(TransactionLine(transaction_id=t6.id, account_id=payable.id, debit=0, credit=payable_amt, line_description="Accounts payable"))
+            txn_count += 1
+
+    # Create invoices
+    inv_count = 0
+    for inv_data in [
+        ("INV-2026-001", "sales", "issued", today - timedelta(days=15), today + timedelta(days=15), 75_000_000, "Consulting services Q1", "Innotech Solutions"),
+        ("INV-2026-002", "purchase", "issued", today - timedelta(days=10), today + timedelta(days=20), 8_000_000, "Cloud hosting services", "Cloud Hosting Inc"),
+        ("INV-2026-003", "sales", "paid", today - timedelta(days=45), today - timedelta(days=15), 50_000_000, "Software development", "DataFlow Corp"),
+    ]:
+        number, kind, status, issue_date, due_date, amount, desc, entity_name = inv_data
+        existing = db.execute(select(Invoice).where(Invoice.number == number)).scalars().first()
+        if existing:
+            continue
+        inv = Invoice(
+            number=number, kind=kind, status=status,
+            issue_date=issue_date, due_date=due_date,
+            amount=amount, description=desc,
+            entity_id=entity_map.get(entity_name, entity_map.get("Innotech Solutions")).id,
+        )
+        db.add(inv); db.flush()
+        db.add(InvoiceItem(invoice_id=inv.id, product_name=desc, quantity=1, unit_price=amount, line_total=amount))
+        inv_count += 1
+
+    db.commit()
+    return SeedDataResponse(
+        transactions_created=txn_count,
+        invoices_created=inv_count,
+        entities_created=entities_created,
+        message=f"Seeded {txn_count} transactions, {inv_count} invoices, {entities_created} entities for CFO testing.",
+    )
+
+
 @router.post("/cfo/ask", response_model=CFOQuestionResponse)
 def ask_cfo_question(
     payload: CFOQuestionRequest,

@@ -489,6 +489,22 @@
         <div><label for="entity-code" data-i18n="labelCodeOptional">Code (optional)</label><input type="text" id="entity-code" data-i18n-placeholder="placeholderEntityCode" placeholder="e.g. INV-001"></div>
         <div style="display: flex; align-items: flex-end;"><button type="button" class="btn btn-primary" id="entity-add" data-i18n="btnAddEntity">Add entity</button></div>
       </div>
+      <div class="row" style="margin-bottom: 0.75rem; gap: 0.5rem; align-items: flex-end;">
+        <div>
+          <label for="entity-filter-type" style="font-size:0.8rem;color:var(--text-muted);">Filter by type</label>
+          <select id="entity-filter-type" style="min-width:120px;">
+            <option value="">All types</option>
+            <option value="client">Client</option>
+            <option value="bank">Bank</option>
+            <option value="employee">Employee</option>
+            <option value="supplier">Supplier</option>
+          </select>
+        </div>
+        <div style="flex:1;">
+          <label for="entity-search" style="font-size:0.8rem;color:var(--text-muted);">Search by name</label>
+          <input type="text" id="entity-search" placeholder="Search entities..." style="width:100%;" aria-label="Search entities by name">
+        </div>
+      </div>
       <table class="results-table" id="entities-table">
         <thead><tr><th data-i18n="labelType">Type</th><th data-i18n="labelName">Name</th><th data-i18n="labelCodeOptional">Code</th><th data-i18n="usersActions">Actions</th><th></th></tr></thead>
         <tbody id="entities-tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
@@ -1063,6 +1079,10 @@
         <button type="button" class="chip cfo-quick" data-q="What are our main cost drivers?">Cost drivers</button>
         <button type="button" class="chip cfo-quick" data-q="Where is cash leaking?">Cash leaks</button>
         <button type="button" class="chip cfo-quick" data-q="What is our burn rate?">Burn rate</button>
+      </div>
+      <div style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1rem;">
+        <button type="button" class="btn btn-secondary btn-sm" id="cfo-seed-data-btn">Seed sample financial data</button>
+        <span id="cfo-seed-status" style="font-size:0.85rem;color:var(--text-muted);margin-left:0.5rem;">Populate 6 months of transactions, invoices, and entities for CFO testing.</span>
       </div>
     </div>
 
@@ -4342,7 +4362,13 @@
     async function loadEntities() {
       const tbody = document.getElementById('entities-tbody');
       try {
-        const res = await fetch(API + '/entities');
+        const filterType = document.getElementById('entity-filter-type').value;
+        const searchTerm = document.getElementById('entity-search').value.trim();
+        const params = new URLSearchParams();
+        if (filterType) params.set('type', filterType);
+        if (searchTerm) params.set('search', searchTerm);
+        const qs = params.toString();
+        const res = await fetch(API + '/entities' + (qs ? '?' + qs : ''));
         const list = await res.json();
         tbody.innerHTML = '';
         if (!list.length) {
@@ -4367,6 +4393,14 @@
         tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Error loading entities.</td></tr>';
       }
     }
+    // Entity filter and search
+    document.getElementById('entity-filter-type').addEventListener('change', loadEntities);
+    let _entitySearchTimer;
+    document.getElementById('entity-search').addEventListener('input', () => {
+      clearTimeout(_entitySearchTimer);
+      _entitySearchTimer = setTimeout(loadEntities, 300);
+    });
+
     document.getElementById('entities-tbody').addEventListener('click', (e) => {
       const btn = e.target.closest('.view-entity-txns');
       if (btn) openEntityTransactions(btn.dataset.entityId, btn.dataset.entityName || '');
@@ -5482,7 +5516,11 @@
           const displayVal = k.unit === 'IRR' ? Number(k.value).toLocaleString() : k.value;
           div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(k.label)}</div>
             <div style="font-size:1.1rem;font-weight:700;color:${riskColor};">${displayVal} ${k.unit !== 'IRR' ? k.unit : ''}</div>
-            ${trendIcon ? `<div style="font-size:0.75rem;color:${k.trend === 'up' ? '#c62828' : '#2e7d32'};">${trendIcon} ${k.trend_pct}%</div>` : ''}`;
+            ${trendIcon ? `<div style="font-size:0.75rem;color:${
+              (k.key === 'expense_trend' || k.key === 'burn_rate')
+                ? (k.trend === 'up' ? '#c62828' : '#2e7d32')
+                : (k.trend === 'up' ? '#2e7d32' : '#c62828')
+            };">${trendIcon} ${k.trend_pct}%</div>` : ''}`;
           kpiGrid.appendChild(div);
         });
 
@@ -5501,7 +5539,7 @@
           div.innerHTML = `<strong style="color:${color}">${escapeHtml(i.title)}</strong><br><span style="font-size:0.85rem;">${escapeHtml(i.body)}</span>`;
           insightsEl.appendChild(div);
         });
-      } catch (e) { /* ignore */ }
+      } catch (e) { console.warn('CFO report load failed:', e); }
     }
 
     document.getElementById('cfo-ask-btn').addEventListener('click', async () => {
@@ -5520,6 +5558,26 @@
       } catch (e) { answerEl.textContent = 'Error: ' + e.message; }
     });
     document.getElementById('cfo-question-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('cfo-ask-btn').click(); });
+
+    document.getElementById('cfo-seed-data-btn').addEventListener('click', async () => {
+      const statusEl = document.getElementById('cfo-seed-status');
+      statusEl.textContent = 'Seeding data...';
+      try {
+        const res = await fetch(bsAPI + '/cfo/seed-sample-data', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          statusEl.style.color = '#2e7d32';
+          statusEl.textContent = data.message;
+          loadCFOReport();
+        } else {
+          statusEl.style.color = '#c62828';
+          statusEl.textContent = data.detail || 'Seeding failed.';
+        }
+      } catch (e) {
+        statusEl.style.color = '#c62828';
+        statusEl.textContent = 'Error: ' + e.message;
+      }
+    });
 
     document.querySelectorAll('.cfo-quick').forEach(btn => {
       btn.addEventListener('click', () => {

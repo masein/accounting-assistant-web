@@ -250,6 +250,7 @@ class ExcelImportConfirmRequest(BaseModel):
     account_mappings: list[ExcelAccountMapping] = Field(..., min_length=1)
     column_mapping: Optional[dict[str, Optional[int]]] = None
     amount_multiplier: float = Field(1.0, description="Multiply amounts by this (e.g. 10000 for toman→rial)")
+    currency: str = Field("IRR", description="Source currency of amounts (IRR, USD, EUR, etc.)")
 
 class ExcelImportConfirmResponse(BaseModel):
     imported: int

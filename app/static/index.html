@@ -63,8 +63,10 @@
     }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; }
     .row > * { flex: 1 1 180px; min-width: 0; }
-    .row.mgr-form-row > * { flex: 1 1 200px; }
-    .row.mgr-form-row > .mgr-btn-wrap { flex: 0 0 auto; }
+    .row.mgr-form-row { gap: 0.75rem; }
+    .row.mgr-form-row > * { flex: 1 1 180px; max-width: 280px; }
+    .row.mgr-form-row > .mgr-field-wide { flex: 1 1 220px; max-width: 320px; }
+    .row.mgr-form-row > .mgr-btn-wrap { flex: 0 0 auto; max-width: none; }
     .lines-table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
     .lines-table th, .lines-table td { padding: 0.5rem; border: 1px solid var(--border); text-align: left; }
     .lines-table th { background: #f1f5f9; font-weight: 600; }
@@ -880,16 +882,17 @@
           <label for="mgr-to-date" id="mgr-to-label">To</label>
           <input type="date" id="mgr-to-date">
         </div>
-        <div>
-          <label for="mgr-account-code" data-i18n="labelAccountCodeLedger">Account code (for account ledger)</label>
-          <input type="text" id="mgr-account-code" data-i18n-placeholder="placeholderAccountCode" placeholder="e.g. 1110">
+        <div class="mgr-field-wide">
+          <label for="mgr-account-code">Account (code or name)</label>
+          <input type="text" id="mgr-account-code" placeholder="Search by code or name..." list="mgr-account-datalist" autocomplete="off">
+          <datalist id="mgr-account-datalist"></datalist>
         </div>
         <div>
           <label for="mgr-product-filter">Product/Entity filter</label>
-          <input type="text" id="mgr-product-filter" placeholder="Filter by product or entity name">
+          <input type="text" id="mgr-product-filter" placeholder="Filter by name">
         </div>
         <div>
-          <label for="mgr-period-granularity">Period (cash flow)</label>
+          <label for="mgr-period-granularity">Period</label>
           <select id="mgr-period-granularity">
             <option value="monthly">Monthly</option>
             <option value="weekly">Weekly</option>
@@ -5760,7 +5763,29 @@
       if (page === 'cfo') { loadCFOReport(); }
       if (page === 'ceo') { loadCEOReport(); }
       if (page === 'inventory') { loadPriceMgmtItems(); }
+      if (page === 'manager') { loadAccountDatalist(); }
     });
+
+    // ═══════ Account Datalist for Manager Form ═══════
+    let accountDatalistLoaded = false;
+    async function loadAccountDatalist() {
+      if (accountDatalistLoaded) return;
+      try {
+        const res = await fetch(API + '/manager-reports/accounts/list');
+        if (!res.ok) return;
+        const accs = await res.json();
+        const dl = document.getElementById('mgr-account-datalist');
+        if (!dl) return;
+        dl.innerHTML = '';
+        accs.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.code;
+          opt.textContent = `${a.code} — ${a.name}`;
+          dl.appendChild(opt);
+        });
+        accountDatalistLoaded = true;
+      } catch (_) {}
+    }
 
     // ═══════ CEO Mode Module ═══════
     let ceoTrendChart = null, ceoProfitChart = null, ceoExpenseChart = null, ceoBalanceChart = null;
@@ -5834,7 +5859,7 @@
                 { label: 'Expenses', data: (d.monthly_expenses || []).map(m => m.amount), backgroundColor: '#c62828' }
               ]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } },
-              onClick: (e, els) => { if (els.length) showChartDrilldown('Revenue vs Expenses', months[els[0].index], d.monthly_revenue[els[0].index], d.monthly_expenses[els[0].index]); }
+              onClick: (e, els) => { if (els.length) { const i = els[0].index; showChartDrilldown('Revenue vs Expenses', months[i], [{metric: 'Revenue', amount: d.monthly_revenue[i].amount}, {metric: 'Expenses', amount: d.monthly_expenses[i].amount}, {metric: 'Net Profit', amount: d.monthly_profit[i].amount}]); } }
             }
           });
 
@@ -5857,18 +5882,19 @@
               labels: topExp.map(e => e.category),
               datasets: [{ data: topExp.map(e => e.amount), backgroundColor: palette }]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } },
-              onClick: (e, els) => { if (els.length) showChartDrilldown('Expense: ' + topExp[els[0].index].category, null, topExp[els[0].index]); }
+              onClick: (e, els) => { if (els.length) showChartDrilldown('Top Expenses', topExp[els[0].index].category, topExp); }
             }
           });
 
           // Balance sheet donut
           if (ceoBalanceChart) try { ceoBalanceChart.destroy(); } catch(_){}
+          const bsBreakdowns = [d.assets_breakdown || [], d.liabilities_breakdown || [], d.equity_breakdown || []];
           ceoBalanceChart = new Chart(document.getElementById('ceo-balance-chart'), {
             type: 'doughnut', data: {
               labels: ['Assets', 'Liabilities', 'Equity'],
               datasets: [{ data: [Math.abs(d.total_assets || 0), Math.abs(d.total_liabilities || 0), Math.abs(d.total_equity || 0)], backgroundColor: ['#0f766e', '#c62828', '#0ea5e9'] }]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } },
-              onClick: (e, els) => { if (els.length) showChartDrilldown('Balance Sheet', ['Assets', 'Liabilities', 'Equity'][els[0].index], { value: [d.total_assets, d.total_liabilities, d.total_equity][els[0].index] }); }
+              onClick: (e, els) => { if (els.length) { const idx = els[0].index; showChartDrilldown('Balance Sheet', ['Assets', 'Liabilities', 'Equity'][idx], bsBreakdowns[idx]); } }
             }
           });
         }
@@ -5879,17 +5905,45 @@
     let chartModalChart = null;
     function showChartDrilldown(title, label, ...data) {
       const modal = document.getElementById('chart-drilldown-modal');
-      document.getElementById('chart-modal-title').textContent = title + (label ? ' - ' + label : '');
+      document.getElementById('chart-modal-title').textContent = title + (label ? ' — ' + label : '');
       const body = document.getElementById('chart-modal-body');
       body.innerHTML = '';
       data.forEach(item => {
-        if (item && typeof item === 'object') {
+        if (!item) return;
+        // Array of objects → detailed table (e.g. account breakdowns)
+        if (Array.isArray(item) && item.length > 0) {
+          const keys = Object.keys(item[0]);
+          const tbl = document.createElement('table');
+          tbl.className = 'mini-table';
+          tbl.innerHTML = '<thead><tr>' + keys.map(k => `<th>${escapeHtml(String(k))}</th>`).join('') + '</tr></thead><tbody>'
+            + item.map(row => '<tr>' + keys.map(k => {
+              const v = row[k];
+              return `<td>${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? '—'))}</td>`;
+            }).join('') + '</tr>').join('')
+            + '</tbody></table>';
+          // Add total row if there's a 'balance' or 'amount' column
+          const numKey = keys.find(k => k === 'balance' || k === 'amount');
+          if (numKey) {
+            const total = item.reduce((s, r) => s + (r[numKey] || 0), 0);
+            const totalDiv = document.createElement('div');
+            totalDiv.style.cssText = 'margin-top:0.4rem;font-size:0.9rem;font-weight:600;';
+            totalDiv.textContent = `Total: ${total.toLocaleString()} IRR`;
+            body.appendChild(tbl);
+            body.appendChild(totalDiv);
+          } else {
+            body.appendChild(tbl);
+          }
+        } else if (typeof item === 'object' && !Array.isArray(item)) {
+          // Single object → key/value table
           const tbl = document.createElement('table');
           tbl.className = 'mini-table';
           tbl.innerHTML = '<thead><tr>' + Object.keys(item).map(k => `<th>${escapeHtml(String(k))}</th>`).join('') + '</tr></thead><tbody><tr>' + Object.values(item).map(v => `<td>${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? ''))}</td>`).join('') + '</tr></tbody>';
           body.appendChild(tbl);
         }
       });
+      if (!body.children.length) {
+        body.innerHTML = '<p style="color:var(--text-muted);">No detailed data available.</p>';
+      }
       modal.style.display = 'block';
     }
 

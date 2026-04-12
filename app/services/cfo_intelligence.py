@@ -361,6 +361,9 @@ class CEOReport:
     total_assets: int = 0
     total_liabilities: int = 0
     total_equity: int = 0
+    assets_breakdown: list = field(default_factory=list)
+    liabilities_breakdown: list = field(default_factory=list)
+    equity_breakdown: list = field(default_factory=list)
     monthly_revenue: list = field(default_factory=list)
     monthly_expenses: list = field(default_factory=list)
     monthly_profit: list = field(default_factory=list)
@@ -421,18 +424,33 @@ def build_ceo_report(db: Session) -> CEOReport:
         func.coalesce(func.sum(TransactionLine.credit), 0),
     ).group_by(TransactionLine.account_id)
     acc_by_id = {a.id: a for a in accounts}
+    assets_map: dict[str, dict] = {}
+    liabilities_map: dict[str, dict] = {}
+    equity_map: dict[str, dict] = {}
     for account_id, td, tc in db.execute(lines_q).all():
         acc = acc_by_id.get(account_id)
         if not acc:
             continue
         acc_type = classify_account_code(acc.code)
         if acc_type == ASSET:
-            report.total_assets += (td or 0) - (tc or 0)
+            bal = (td or 0) - (tc or 0)
+            report.total_assets += bal
+            if bal != 0:
+                assets_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type == LIABILITY:
-            report.total_liabilities += (tc or 0) - (td or 0)
+            bal = (tc or 0) - (td or 0)
+            report.total_liabilities += bal
+            if bal != 0:
+                liabilities_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type == EQUITY:
-            report.total_equity += (tc or 0) - (td or 0)
+            bal = (tc or 0) - (td or 0)
+            report.total_equity += bal
+            if bal != 0:
+                equity_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
 
+    report.assets_breakdown = sorted(assets_map.values(), key=lambda x: abs(x["balance"]), reverse=True)
+    report.liabilities_breakdown = sorted(liabilities_map.values(), key=lambda x: abs(x["balance"]), reverse=True)
+    report.equity_breakdown = sorted(equity_map.values(), key=lambda x: abs(x["balance"]), reverse=True)
     report.liability_ratio = round(report.total_liabilities / report.total_assets, 4) if report.total_assets > 0 else 0.0
 
     # Alerts

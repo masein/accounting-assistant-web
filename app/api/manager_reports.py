@@ -104,6 +104,14 @@ def cash_flow_periods(
     return svc.cash_flow_periods(from_date=from_date, to_date=to_date, granularity=granularity)
 
 
+@router.get("/accounts/list")
+def accounts_list(db: Session = Depends(get_db)):
+    """Return all non-group accounts (code + name) for search/autocomplete."""
+    from app.models.account import Account
+    accs = db.execute(select(Account).where(Account.level != "GROUP").order_by(Account.code)).scalars().all()
+    return [{"code": a.code, "name": a.name} for a in accs]
+
+
 @router.get("/books/general-journal", response_model=PaginatedJournalResponse)
 def general_journal(
     from_date: date | None = Query(None),

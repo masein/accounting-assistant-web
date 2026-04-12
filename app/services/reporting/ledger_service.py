@@ -59,9 +59,9 @@ class LedgerService:
     def __init__(self, db: Session):
         self.db = db
 
-    def general_journal(self, from_date: date | None, to_date: date | None, page: int = 1, page_size: int = 50) -> PaginatedJournalResponse:
+    def general_journal(self, from_date: date | None, to_date: date | None, page: int = 1, page_size: int = 50, currency: str | None = None) -> PaginatedJournalResponse:
         period = default_period(from_date, to_date)
-        total, items = paged_journal_entries(self.db, period.from_date, period.to_date, page, page_size)
+        total, items = paged_journal_entries(self.db, period.from_date, period.to_date, page, page_size, currency=currency)
         return PaginatedJournalResponse(
             report_type="general_journal",
             page=page,
@@ -70,13 +70,13 @@ class LedgerService:
             items=[_to_journal_item(t) for t in items],
         )
 
-    def account_ledger(self, account_code: str, from_date: date | None, to_date: date | None, page: int = 1, page_size: int = 100) -> AccountLedgerResponse:
+    def account_ledger(self, account_code: str, from_date: date | None, to_date: date | None, page: int = 1, page_size: int = 100, currency: str | None = None) -> AccountLedgerResponse:
         period = default_period(from_date, to_date)
-        acc, total, rows = paged_account_lines(self.db, account_code, period.from_date, period.to_date, page, page_size)
+        acc, total, rows = paged_account_lines(self.db, account_code, period.from_date, period.to_date, page, page_size, currency=currency)
         if not acc:
             raise HTTPException(status_code=404, detail=f"Account not found: {account_code}")
 
-        opening_debit, opening_credit = opening_balance_before(self.db, acc.id, period.from_date)
+        opening_debit, opening_credit = opening_balance_before(self.db, acc.id, period.from_date, currency=currency)
         acc_type = classify_account_code(acc.code)
         running = balance_from_turnovers(acc_type, opening_debit, opening_credit)
         out_rows: list[LedgerDetailRow] = []
@@ -120,8 +120,8 @@ class LedgerService:
             items=out_rows,
         )
 
-    def general_ledger(self, from_date: date | None, to_date: date | None, page: int = 1, page_size: int = 200) -> TrialBalanceResponse:
-        return self.trial_balance(from_date=from_date, to_date=to_date, page=page, page_size=page_size, report_type="general_ledger")
+    def general_ledger(self, from_date: date | None, to_date: date | None, page: int = 1, page_size: int = 200, currency: str | None = None) -> TrialBalanceResponse:
+        return self.trial_balance(from_date=from_date, to_date=to_date, page=page, page_size=page_size, report_type="general_ledger", currency=currency)
 
     def trial_balance(
         self,
@@ -130,9 +130,10 @@ class LedgerService:
         page: int = 1,
         page_size: int = 200,
         report_type: str = "trial_balance",
+        currency: str | None = None,
     ) -> TrialBalanceResponse:
         period = default_period(from_date, to_date)
-        rows = trial_balance_rows(self.db, period.from_date, period.to_date)
+        rows = trial_balance_rows(self.db, period.from_date, period.to_date, currency=currency)
         total = len(rows)
         offset = max(0, (page - 1) * page_size)
         window = rows[offset : offset + page_size]
@@ -178,8 +179,9 @@ class LedgerService:
         to_date: date | None = None,
         page: int = 1,
         page_size: int = 100,
+        currency: str | None = None,
     ) -> CashBankStatementResponse:
-        report = self.account_ledger(account_code=account_code, from_date=from_date, to_date=to_date, page=page, page_size=page_size)
+        report = self.account_ledger(account_code=account_code, from_date=from_date, to_date=to_date, page=page, page_size=page_size, currency=currency)
         rows = [
             CashBankStatementRow(
                 date=r.date,
@@ -220,6 +222,7 @@ class LedgerService:
             date=reverse_date or date.today(),
             reference=(reference or (f"REV-{src.reference}" if src.reference else f"REV-{src.id.hex[:8]}"))[:128],
             description=(description or f"Reversal of {src.id}"),
+            currency=src.currency,
         )
         self.db.add(rev)
         self.db.flush()

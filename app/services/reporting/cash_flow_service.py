@@ -14,15 +14,15 @@ class CashFlowService:
     def __init__(self, db: Session):
         self.db = db
 
-    def statement(self, from_date: date | None = None, to_date: date | None = None) -> CashFlowResponse:
-        return build_cash_flow_statement(self.db, from_date=from_date, to_date=to_date)
+    def statement(self, from_date: date | None = None, to_date: date | None = None, currency: str | None = None) -> CashFlowResponse:
+        return build_cash_flow_statement(self.db, from_date=from_date, to_date=to_date, currency=currency)
 
-    def cash_flow_periods(self, from_date: date | None = None, to_date: date | None = None, granularity: str = "monthly") -> dict:
+    def cash_flow_periods(self, from_date: date | None = None, to_date: date | None = None, granularity: str = "monthly", currency: str | None = None) -> dict:
         """Return cash inflows and outflows grouped by period."""
         from app.services.reporting.repository import transactions_with_lines_between
 
         period = default_period(from_date, to_date)
-        txns = transactions_with_lines_between(self.db, period.from_date, period.to_date)
+        txns = transactions_with_lines_between(self.db, period.from_date, period.to_date, currency=currency)
 
         inflows: dict[str, int] = defaultdict(int)
         outflows: dict[str, int] = defaultdict(int)

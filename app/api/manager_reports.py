@@ -67,30 +67,33 @@ def _format_or_json(fmt: str) -> str:
 def balance_sheet(
     to_date: date | None = Query(None),
     comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
     db: Session = Depends(get_db),
 ) -> BalanceSheetResponse:
     svc = FinancialStatementService(db)
-    return svc.balance_sheet(to_date=to_date, comparative_to_date=comparative_to_date)
+    return svc.balance_sheet(to_date=to_date, comparative_to_date=comparative_to_date, currency=currency)
 
 
 @router.get("/financial/income-statement", response_model=IncomeStatementResponse)
 def income_statement(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> IncomeStatementResponse:
     svc = FinancialStatementService(db)
-    return svc.income_statement(from_date=from_date, to_date=to_date)
+    return svc.income_statement(from_date=from_date, to_date=to_date, currency=currency)
 
 
 @router.get("/financial/cash-flow", response_model=CashFlowResponse)
 def cash_flow_statement(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> CashFlowResponse:
     svc = CashFlowService(db)
-    return svc.statement(from_date=from_date, to_date=to_date)
+    return svc.statement(from_date=from_date, to_date=to_date, currency=currency)
 
 
 @router.get("/financial/cash-flow-periods")
@@ -98,10 +101,11 @@ def cash_flow_periods(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     granularity: str = Query("monthly", regex="^(weekly|monthly|quarterly|seasonal)$"),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> dict:
     svc = CashFlowService(db)
-    return svc.cash_flow_periods(from_date=from_date, to_date=to_date, granularity=granularity)
+    return svc.cash_flow_periods(from_date=from_date, to_date=to_date, granularity=granularity, currency=currency)
 
 
 @router.get("/accounts/list")
@@ -119,10 +123,11 @@ def general_journal(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     format: str = Query("json"),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> PaginatedJournalResponse | Response:
     svc = LedgerService(db)
-    rep = svc.general_journal(from_date=from_date, to_date=to_date, page=page, page_size=page_size)
+    rep = svc.general_journal(from_date=from_date, to_date=to_date, page=page, page_size=page_size, currency=currency)
     if _format_or_json(format) == "json":
         return rep
     rows: list[list[str | int | float]] = []
@@ -155,10 +160,11 @@ def general_ledger(
     page: int = Query(1, ge=1),
     page_size: int = Query(200, ge=1, le=1000),
     format: str = Query("json"),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> TrialBalanceResponse | Response:
     svc = LedgerService(db)
-    rep = svc.general_ledger(from_date=from_date, to_date=to_date, page=page, page_size=page_size)
+    rep = svc.general_ledger(from_date=from_date, to_date=to_date, page=page, page_size=page_size, currency=currency)
     if _format_or_json(format) == "json":
         return rep
     return _csv_response(
@@ -179,10 +185,11 @@ def account_ledger(
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000),
     format: str = Query("json"),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> AccountLedgerResponse | Response:
     svc = LedgerService(db)
-    rep = svc.account_ledger(account_code=account_code, from_date=from_date, to_date=to_date, page=page, page_size=page_size)
+    rep = svc.account_ledger(account_code=account_code, from_date=from_date, to_date=to_date, page=page, page_size=page_size, currency=currency)
     if _format_or_json(format) == "json":
         return rep
     return _csv_response(
@@ -202,10 +209,11 @@ def trial_balance(
     page: int = Query(1, ge=1),
     page_size: int = Query(200, ge=1, le=1000),
     format: str = Query("json"),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> TrialBalanceResponse | Response:
     svc = LedgerService(db)
-    rep = svc.trial_balance(from_date=from_date, to_date=to_date, page=page, page_size=page_size)
+    rep = svc.trial_balance(from_date=from_date, to_date=to_date, page=page, page_size=page_size, currency=currency)
     if _format_or_json(format) == "json":
         return rep
     return _csv_response(
@@ -222,10 +230,11 @@ def trial_balance(
 def debtor_creditor(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> DebtorCreditorResponse:
     svc = OperationsReportService(db)
-    return svc.debtor_creditor(from_date=from_date, to_date=to_date)
+    return svc.debtor_creditor(from_date=from_date, to_date=to_date, currency=currency)
 
 
 @router.get("/operational/accounts-payable")

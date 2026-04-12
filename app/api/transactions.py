@@ -2650,6 +2650,7 @@ def excel_import_confirm(
             date=v.gregorian_date,
             reference=f"V{v.voucher_number}",
             description=desc[:2000],
+            currency=currency,
         )
         db.add(t)
         db.flush()

@@ -35,9 +35,9 @@ class OperationsReportService:
     def __init__(self, db: Session):
         self.db = db
 
-    def debtor_creditor(self, from_date: date | None, to_date: date | None) -> DebtorCreditorResponse:
+    def debtor_creditor(self, from_date: date | None, to_date: date | None, currency: str | None = None) -> DebtorCreditorResponse:
         period = default_period(from_date, to_date)
-        rows = debtor_creditor_movements(self.db, period.from_date, period.to_date)
+        rows = debtor_creditor_movements(self.db, period.from_date, period.to_date, currency=currency)
         today = period.to_date
 
         deb: dict[UUID | None, dict] = defaultdict(

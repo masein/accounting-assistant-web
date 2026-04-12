@@ -19,6 +19,7 @@ class Transaction(Base):
     date: Mapped[date] = mapped_column(Date, index=True)
     reference: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    currency: Mapped[str] = mapped_column(String(8), default="IRR", server_default="IRR", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

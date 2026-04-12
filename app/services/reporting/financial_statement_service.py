@@ -234,10 +234,11 @@ def build_balance_sheet(
     db: Session,
     to_date: date | None = None,
     comparative_to_date: date | None = None,
+    currency: str | None = None,
 ) -> BalanceSheetResponse:
     period = default_period(None, to_date)
     accounts = list_accounts(db)
-    turnover = _build_balance_map(account_turnovers_upto(db, period.to_date))
+    turnover = _build_balance_map(account_turnovers_upto(db, period.to_date, currency=currency))
 
     own_balances: dict[UUID, int] = {}
     for acc in accounts:
@@ -287,10 +288,11 @@ def build_income_statement(
     db: Session,
     from_date: date | None = None,
     to_date: date | None = None,
+    currency: str | None = None,
 ) -> IncomeStatementResponse:
     period = default_period(from_date, to_date)
     accounts = list_accounts(db)
-    turnover = _build_balance_map(account_turnovers_between(db, period.from_date, period.to_date))
+    turnover = _build_balance_map(account_turnovers_between(db, period.from_date, period.to_date, currency=currency))
 
     revenues: list[StatementAccountNode] = []
     cogs: list[StatementAccountNode] = []
@@ -403,11 +405,12 @@ def build_cash_flow_statement(
     db: Session,
     from_date: date | None = None,
     to_date: date | None = None,
+    currency: str | None = None,
 ) -> CashFlowResponse:
     from app.services.reporting.repository import transactions_with_lines_between
 
     period = default_period(from_date, to_date)
-    txns = transactions_with_lines_between(db, period.from_date, period.to_date)
+    txns = transactions_with_lines_between(db, period.from_date, period.to_date, currency=currency)
     section_sums = {"operating": 0, "investing": 0, "financing": 0}
     line_buckets: dict[str, list[CashFlowLine]] = {"operating": [], "investing": [], "financing": []}
 
@@ -477,11 +480,11 @@ class FinancialStatementService:
     def __init__(self, db: Session):
         self.db = db
 
-    def balance_sheet(self, to_date: date | None = None, comparative_to_date: date | None = None) -> BalanceSheetResponse:
-        return build_balance_sheet(self.db, to_date=to_date, comparative_to_date=comparative_to_date)
+    def balance_sheet(self, to_date: date | None = None, comparative_to_date: date | None = None, currency: str | None = None) -> BalanceSheetResponse:
+        return build_balance_sheet(self.db, to_date=to_date, comparative_to_date=comparative_to_date, currency=currency)
 
-    def income_statement(self, from_date: date | None = None, to_date: date | None = None) -> IncomeStatementResponse:
-        return build_income_statement(self.db, from_date=from_date, to_date=to_date)
+    def income_statement(self, from_date: date | None = None, to_date: date | None = None, currency: str | None = None) -> IncomeStatementResponse:
+        return build_income_statement(self.db, from_date=from_date, to_date=to_date, currency=currency)
 
-    def cash_flow_statement(self, from_date: date | None = None, to_date: date | None = None) -> CashFlowResponse:
-        return build_cash_flow_statement(self.db, from_date=from_date, to_date=to_date)
+    def cash_flow_statement(self, from_date: date | None = None, to_date: date | None = None, currency: str | None = None) -> CashFlowResponse:
+        return build_cash_flow_statement(self.db, from_date=from_date, to_date=to_date, currency=currency)

@@ -209,12 +209,12 @@
     .results-table tbody tr.ledger-row { cursor: pointer; transition: background 0.15s; }
     .results-table tbody tr.ledger-row:hover { background: #e0f2f1; }
     .modal-overlay {
-      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); display: flex; align-items: center; justify-content: center;
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
       z-index: 1000; padding: 1rem; overflow-y: auto;
     }
     .modal-card {
-      background: var(--card); border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-      max-width: 720px; width: 100%; max-height: 90vh; display: flex; flex-direction: column;
+      background: var(--card); border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
+      max-width: 860px; width: 100%; max-height: 90vh; display: flex; flex-direction: column;
     }
     .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
     .modal-header h2 { margin: 0; font-size: 1.15rem; color: var(--primary); }
@@ -337,8 +337,14 @@
       margin-bottom: 0.5rem;
     }
     .report-chart-panel { margin-bottom: 0.75rem; }
-    .prod-tab { background: #e2e8f0; color: var(--text); border: none; padding: 0.4rem 1rem; font-weight: 500; }
+    .prod-tab { background: #e2e8f0; color: var(--text); border: none; padding: 0.55rem 1.25rem; font-weight: 500; font-size: 0.88rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
+    .prod-tab:hover { background: #cbd5e1; }
     .prod-tab.active { background: var(--primary); color: white; }
+    .prod-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; align-items: end; }
+    .prod-form-grid label { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.25rem; }
+    .prod-form-grid input, .prod-form-grid select { width: 100%; padding: 0.45rem 0.6rem; font-size: 0.88rem; border: 1px solid var(--border); border-radius: 6px; }
+    .prod-form-grid .prod-btn-cell { display: flex; align-items: end; }
+    .prod-form-grid .prod-btn-cell button { width: 100%; padding: 0.5rem 1.25rem; }
     .report-chart-panel canvas { max-height: 280px; }
     .chat-msg.report-msg { max-width: 100%; width: 100%; overflow: visible; }
     .chat-msg.report-msg .report-preview-wrap { max-height: 420px; overflow: auto; }
@@ -1156,10 +1162,12 @@
         <h3 id="chart-modal-title">Chart Detail</h3>
         <div id="chart-modal-body"></div>
         <div id="chart-modal-txn-area" style="display:none;">
-          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center;">
             <input type="text" id="drilldown-search" placeholder="Search description, reference, entity..." style="flex:1;min-width:180px;">
             <input type="date" id="drilldown-from">
             <input type="date" id="drilldown-to">
+            <button class="btn btn-secondary btn-sm" onclick="_exportDrilldown('csv')">CSV</button>
+            <button class="btn btn-secondary btn-sm" onclick="_exportDrilldown('pdf')">PDF</button>
           </div>
           <div id="drilldown-summary" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;"></div>
           <div id="drilldown-table-wrap" style="max-height:400px;overflow:auto;"></div>
@@ -1265,9 +1273,9 @@
       <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">
         Product catalog, client-product profitability, entity relationships, and revenue/cost analysis.
       </p>
-      <div class="mgr-form-grid" style="margin-bottom:1rem;">
+      <div class="prod-form-grid" style="margin-bottom:1rem;">
         <div>
-          <label for="prod-entity-type">Entity type</label>
+          <label for="prod-entity-type" data-i18n="labelEntityType">Entity type</label>
           <select id="prod-entity-type">
             <option value="">All</option>
             <option value="client">Clients</option>
@@ -1275,19 +1283,19 @@
           </select>
         </div>
         <div>
-          <label for="prod-from-date">From</label>
+          <label for="prod-from-date" data-i18n="labelFrom">From</label>
           <input type="date" id="prod-from-date">
         </div>
         <div>
-          <label for="prod-to-date">To</label>
+          <label for="prod-to-date" data-i18n="labelTo">To</label>
           <input type="date" id="prod-to-date">
         </div>
         <div>
-          <label for="prod-search">Search</label>
+          <label for="prod-search" data-i18n="labelSearch">Search</label>
           <input type="text" id="prod-search" placeholder="Product or entity name">
         </div>
-        <div class="mgr-btn-cell">
-          <button type="button" class="btn btn-primary" id="prod-load-btn">Load</button>
+        <div class="prod-btn-cell">
+          <button type="button" class="btn btn-primary" id="prod-load-btn" data-i18n="btnLoad">Load</button>
         </div>
       </div>
       <div style="display:flex;gap:0.25rem;border-bottom:2px solid var(--border);margin-bottom:1rem;">
@@ -1938,6 +1946,21 @@
         fieldNet: 'Net',
         fieldCash: 'Projected cash',
         fieldRisk: 'Risk',
+        fieldEstimatedCost: 'Estimated cost',
+        fieldEntities: 'Entities',
+        fieldEntityName: 'Entity name',
+        fieldInvoiceCount: 'Invoices',
+        fieldClientCount: 'Clients',
+        fieldSupplierCount: 'Suppliers',
+        fieldTopClient: 'Top client',
+        fieldDebitBalance: 'Debit balance',
+        fieldCreditBalance: 'Credit balance',
+        fieldSalesAmount: 'Sales amount',
+        labelAmount: 'Amount',
+        labelSearch: 'Search',
+        labelEntityType: 'Entity type',
+        btnLoad: 'Load',
+        tableLineDescription: 'Line description',
         fieldTransactionId: 'Transaction ID',
         fieldNameLabel: 'Name',
         fieldCOGS: 'COGS',
@@ -2261,6 +2284,21 @@
         fieldNet: 'خالص',
         fieldCash: 'نقدینگی پیش‌بینی',
         fieldRisk: 'ریسک',
+        fieldEstimatedCost: 'هزینه تخمینی',
+        fieldEntities: 'طرف‌های حساب',
+        fieldEntityName: 'نام طرف حساب',
+        fieldInvoiceCount: 'فاکتورها',
+        fieldClientCount: 'مشتریان',
+        fieldSupplierCount: 'تأمین‌کنندگان',
+        fieldTopClient: 'مشتری برتر',
+        fieldDebitBalance: 'مانده بدهکار',
+        fieldCreditBalance: 'مانده بستانکار',
+        fieldSalesAmount: 'مبلغ فروش',
+        labelAmount: 'مبلغ',
+        labelSearch: 'جستجو',
+        labelEntityType: 'نوع طرف حساب',
+        btnLoad: 'بارگذاری',
+        tableLineDescription: 'شرح سطر',
         fieldTransactionId: 'شناسه تراکنش',
         fieldNameLabel: 'نام',
         fieldCOGS: 'بهای تمام‌شده',
@@ -3109,8 +3147,17 @@
         projected_net: 'fieldNet',
         projected_cash: 'fieldCash',
         risk: 'fieldRisk',
+        estimated_cost: 'fieldEstimatedCost',
+        entity_names: 'fieldEntities',
+        entity_name: 'fieldEntityName',
+        invoice_count: 'fieldInvoiceCount',
+        client_count: 'fieldClientCount',
+        supplier_count: 'fieldSupplierCount',
+        top_client: 'fieldTopClient',
+        name: 'labelName',
+        code: 'tableCode',
       };
-      return map[key] ? t(map[key]) : String(name || '');
+      return map[key] ? t(map[key]) : String(name || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     }
 
     function syncAIFieldsByProvider() {
@@ -4346,7 +4393,7 @@
         return {
           type: 'bar',
           title: t('chartSalesPurchase'),
-          data: { labels: rows.map(r => r[labelKey] || t('itemWord')), datasets: [{ data: rows.map(r => safe(r[valueKey])), backgroundColor: palette[2] }] }
+          data: { labels: rows.map(r => r[labelKey] || t('itemWord')), datasets: [{ label: t(hasSalesAmount ? 'fieldSalesAmount' : 'labelAmount'), data: rows.map(r => safe(r[valueKey])), backgroundColor: palette[2] }] }
         };
       }
       return null;
@@ -4856,43 +4903,89 @@
       if (tr && tr.dataset.accountCode) openAccountDetail(tr.dataset.accountCode);
     });
 
+    let _acctDetailLines = [];
+    let _acctDetailMeta = {};
     async function openAccountDetail(accountCode) {
       const modal = document.getElementById('account-modal');
       const body = document.getElementById('account-modal-body');
       const title = document.getElementById('account-modal-title');
-      title.textContent = 'Account ' + accountCode + ' — Loading…';
-      body.innerHTML = '<p class="empty-state">Loading…</p>';
+      title.textContent = accountCode + ' — ' + t('loading');
+      body.innerHTML = '<p class="empty-state">' + t('loading') + '</p>';
       modal.style.display = 'flex';
       try {
         const res = await fetch(API + '/reports/accounts/' + encodeURIComponent(accountCode) + '/detail');
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
+        _acctDetailLines = data.lines || [];
+        _acctDetailMeta = { code: data.account_code, name: data.account_name, debit_turnover: data.debit_turnover, credit_turnover: data.credit_turnover, debit_balance: data.debit_balance, credit_balance: data.credit_balance };
         title.textContent = data.account_code + ' — ' + data.account_name;
         body.innerHTML = `
           <div class="detail-summary">
-            <div><span>Debit turnover</span><strong>${formatNum(data.debit_turnover)}</strong></div>
-            <div><span>Credit turnover</span><strong>${formatNum(data.credit_turnover)}</strong></div>
-            <div><span>Debit balance</span><strong>${formatNum(data.debit_balance)}</strong></div>
-            <div><span>Credit balance</span><strong>${formatNum(data.credit_balance)}</strong></div>
+            <div><span>${t('fieldTotalDebit')}</span><strong>${formatNum(data.debit_turnover)}</strong></div>
+            <div><span>${t('fieldTotalCredit')}</span><strong>${formatNum(data.credit_turnover)}</strong></div>
+            <div><span>${t('fieldDebitBalance')}</span><strong>${formatNum(data.debit_balance)}</strong></div>
+            <div><span>${t('fieldCreditBalance')}</span><strong>${formatNum(data.credit_balance)}</strong></div>
           </div>
-          <table class="detail-table">
-            <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th>Line description</th></tr></thead>
-            <tbody>
-              ${(data.lines || []).map(l => `
-                <tr>
-                  <td>${escapeHtml(l.transaction_date)}</td>
-                  <td>${escapeHtml(l.reference || '—')}</td>
-                  <td>${escapeHtml((l.description || '—').slice(0, 40))}${(l.description && l.description.length > 40) ? '…' : ''}</td>
-                  <td class="num">${formatNum(l.debit)}</td>
-                  <td class="num">${formatNum(l.credit)}</td>
-                  <td>${escapeHtml((l.line_description || '—').slice(0, 30))}${(l.line_description && l.line_description.length > 30) ? '…' : ''}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center;">
+            <input type="text" id="acct-detail-search" placeholder="${t('placeholderSearchCodeName')}" style="flex:1;min-width:180px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+            <button class="btn btn-secondary btn-sm" onclick="_exportAcctDetail('csv')">CSV</button>
+            <button class="btn btn-secondary btn-sm" onclick="_exportAcctDetail('pdf')">PDF</button>
+          </div>
+          <div id="acct-detail-table-wrap" style="max-height:400px;overflow:auto;"></div>
         `;
+        _renderAcctDetailTable(_acctDetailLines);
+        document.getElementById('acct-detail-search').oninput = (e) => {
+          const q = e.target.value.trim().toLowerCase();
+          if (!q) { _renderAcctDetailTable(_acctDetailLines); return; }
+          _renderAcctDetailTable(_acctDetailLines.filter(l =>
+            (l.transaction_date || '').toLowerCase().includes(q) ||
+            (l.reference || '').toLowerCase().includes(q) ||
+            (l.description || '').toLowerCase().includes(q) ||
+            (l.line_description || '').toLowerCase().includes(q)
+          ));
+        };
       } catch (err) {
         body.innerHTML = '<p class="empty-state">Error loading account details.</p>';
+      }
+    }
+
+    function _renderAcctDetailTable(lines) {
+      const wrap = document.getElementById('acct-detail-table-wrap');
+      if (!lines.length) { wrap.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">' + t('noDataYet') + '</p>'; return; }
+      wrap.innerHTML = `<table class="detail-table"><thead><tr>
+        <th>${t('labelDate')}</th><th>${t('labelReference')}</th><th>${t('labelDescription')}</th>
+        <th class="num">${t('tableDebit')}</th><th class="num">${t('tableCredit')}</th><th>${t('tableLineDescription')}</th>
+      </tr></thead><tbody>${lines.map(l => `<tr>
+        <td>${escapeHtml(l.transaction_date)}</td>
+        <td>${escapeHtml(l.reference || '—')}</td>
+        <td>${escapeHtml(l.description || '—')}</td>
+        <td class="num">${formatNum(l.debit)}</td>
+        <td class="num">${formatNum(l.credit)}</td>
+        <td>${escapeHtml(l.line_description || '—')}</td>
+      </tr>`).join('')}</tbody></table>`;
+    }
+
+    function _exportAcctDetail(format) {
+      const search = (document.getElementById('acct-detail-search')?.value || '').trim().toLowerCase();
+      let lines = _acctDetailLines;
+      if (search) lines = lines.filter(l => (l.transaction_date||'').toLowerCase().includes(search)||(l.reference||'').toLowerCase().includes(search)||(l.description||'').toLowerCase().includes(search)||(l.line_description||'').toLowerCase().includes(search));
+      const m = _acctDetailMeta;
+      if (format === 'csv') {
+        let csv = `Account,${m.code} - ${m.name}\nDebit Turnover,${m.debit_turnover}\nCredit Turnover,${m.credit_turnover}\n\nDate,Reference,Description,Debit,Credit,Line Description\n`;
+        lines.forEach(l => { csv += `${l.transaction_date},"${(l.reference||'').replace(/"/g,'""')}","${(l.description||'').replace(/"/g,'""')}",${l.debit},${l.credit},"${(l.line_description||'').replace(/"/g,'""')}"\n`; });
+        downloadTextFile(csv, `account_${m.code}.csv`, 'text/csv');
+      } else {
+        const w = window.open('', '_blank');
+        if (!w) { alert(t('allowPopupsPdf')); return; }
+        w.document.write(`<html><head><title>Account ${escapeHtml(m.code)}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}.num{text-align:right}h2{margin:0 0 4px}p{margin:2px 0;font-size:13px}</style></head><body>
+          <h2>${escapeHtml(m.code)} — ${escapeHtml(m.name)}</h2>
+          <p>Debit Turnover: ${formatNum(m.debit_turnover)} | Credit Turnover: ${formatNum(m.credit_turnover)}</p>
+          <p>Debit Balance: ${formatNum(m.debit_balance)} | Credit Balance: ${formatNum(m.credit_balance)}</p>
+          <table><thead><tr><th>Date</th><th>Reference</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th>Line Description</th></tr></thead><tbody>
+          ${lines.map(l=>`<tr><td>${escapeHtml(l.transaction_date)}</td><td>${escapeHtml(l.reference||'')}</td><td>${escapeHtml(l.description||'')}</td><td class="num">${formatNum(l.debit)}</td><td class="num">${formatNum(l.credit)}</td><td>${escapeHtml(l.line_description||'')}</td></tr>`).join('')}
+          </tbody></table></body></html>`);
+        w.document.close();
+        setTimeout(() => w.print(), 300);
       }
     }
 
@@ -6355,7 +6448,19 @@
               labels: ['Assets', 'Liabilities', 'Equity'],
               datasets: [{ data: [Math.abs(d.total_assets || 0), Math.abs(d.total_liabilities || 0), Math.abs(d.total_equity || 0)], backgroundColor: ['#0f766e', '#c62828', '#0ea5e9'] }]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } },
-              onClick: (e, els) => { if (els.length) { const idx = els[0].index; showChartDrilldown('Balance Sheet', ['Assets', 'Liabilities', 'Equity'][idx], bsBreakdowns[idx]); } }
+              onClick: (e, els) => {
+                if (els.length) {
+                  const idx = els[0].index;
+                  const label = ['Assets', 'Liabilities', 'Equity'][idx];
+                  const prefixes = [['11','12','13','14','15'], ['21','22','23','24'], ['31','32','33']][idx];
+                  const breakdown = bsBreakdowns[idx];
+                  if (breakdown && breakdown.length) {
+                    showChartDrilldown('Balance Sheet', label, breakdown);
+                  } else {
+                    showTransactionDrilldown(t('chartBalanceSheetMix') + ' — ' + label, { account_code_prefix: prefixes.join(',') });
+                  }
+                }
+              }
             }
           });
         }
@@ -6540,6 +6645,67 @@
       }
     }
 
+    let _lastDrilldownRows = [];
+    async function _exportDrilldown(format) {
+      // Fetch ALL rows (no pagination) for export
+      const q = new URLSearchParams();
+      if (_drilldownParams.account_code) q.set('account_code', _drilldownParams.account_code);
+      if (_drilldownParams.account_code_prefix) q.set('account_code_prefix', _drilldownParams.account_code_prefix);
+      if (_drilldownParams.month) q.set('month', _drilldownParams.month);
+      const fromVal = document.getElementById('drilldown-from').value;
+      const toVal = document.getElementById('drilldown-to').value;
+      if (fromVal) q.set('from_date', fromVal);
+      if (toVal) q.set('to_date', toVal);
+      const searchVal = document.getElementById('drilldown-search').value.trim();
+      if (searchVal) q.set('search', searchVal);
+      q.set('page', '1'); q.set('page_size', '10000');
+      try {
+        const res = await fetch(API + '/reports/transactions/search?' + q.toString());
+        const data = await res.json();
+        const rows = data.rows || [];
+        const title = document.getElementById('chart-modal-title').textContent;
+        if (format === 'csv') {
+          let csv = 'Date,Reference,Description,Account Code,Account Name,Debit,Credit,Entities\n';
+          rows.forEach(r => { csv += `${r.date},"${(r.reference||'').replace(/"/g,'""')}","${(r.description||'').replace(/"/g,'""')}",${r.account_code},"${(r.account_name||'').replace(/"/g,'""')}",${r.debit||0},${r.credit||0},"${(r.entity_names||[]).join('; ')}"\n`; });
+          downloadTextFile(csv, 'transactions.csv', 'text/csv');
+        } else {
+          const w = window.open('', '_blank');
+          if (!w) { alert(t('allowPopupsPdf')); return; }
+          w.document.write(`<html><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}.num{text-align:right}h2{margin:0 0 8px}</style></head><body>
+            <h2>${escapeHtml(title)}</h2>
+            <p>${data.total_count} transactions | Debit: ${formatNum(data.total_debit)} | Credit: ${formatNum(data.total_credit)}</p>
+            <table><thead><tr><th>Date</th><th>Ref</th><th>Description</th><th>Code</th><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th>Entities</th></tr></thead><tbody>
+            ${rows.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.reference||'')}</td><td>${escapeHtml(r.description||'')}</td><td>${escapeHtml(r.account_code)}</td><td>${escapeHtml(r.account_name||'')}</td><td class="num">${formatNum(r.debit||0)}</td><td class="num">${formatNum(r.credit||0)}</td><td>${(r.entity_names||[]).join(', ')}</td></tr>`).join('')}
+            </tbody></table></body></html>`);
+          w.document.close();
+          setTimeout(() => w.print(), 300);
+        }
+      } catch(e) { console.error('Export error:', e); }
+    }
+
+    // Generic table export helper for Products section
+    function _exportTableFromEl(containerEl, title, format) {
+      const table = containerEl.querySelector('table');
+      if (!table) return;
+      const headers = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+      const rows = [...table.querySelectorAll('tbody tr')].map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.trim()));
+      if (format === 'csv') {
+        let csv = headers.join(',') + '\n';
+        rows.forEach(r => { csv += r.map(c => `"${c.replace(/"/g,'""')}"`).join(',') + '\n'; });
+        downloadTextFile(csv, (title||'export').replace(/\s+/g, '_') + '.csv', 'text/csv');
+      } else {
+        const w = window.open('', '_blank');
+        if (!w) { alert(t('allowPopupsPdf')); return; }
+        w.document.write(`<html><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}h2{margin:0 0 8px}</style></head><body>
+          <h2>${escapeHtml(title)}</h2>
+          <table><thead><tr>${headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>
+          ${rows.map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}
+          </tbody></table></body></html>`);
+        w.document.close();
+        setTimeout(() => w.print(), 300);
+      }
+    }
+
     // ═══════ Products & Relationships Hub ═══════
     let _prodTab = 'catalog';
     let _prodChart = null;
@@ -6607,13 +6773,19 @@
       }
 
       content.innerHTML = `
-        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;">
-          ${data.items.length} products | Revenue: ${formatNum(data.total_revenue)} | Cost: ${formatNum(data.total_cost)} | Profit: ${formatNum(data.total_profit)} IRR
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">
+          <span style="font-size:0.85rem;color:var(--text-muted);">
+            ${data.items.length} products | ${t('fieldRevenue')}: ${formatNum(data.total_revenue)} | ${t('fieldCost')}: ${formatNum(data.total_cost)} | ${t('fieldProfit')}: ${formatNum(data.total_profit)} IRR
+          </span>
+          <span>
+            <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'Products_Catalog','csv')">CSV</button>
+            <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'Products_Catalog','pdf')">PDF</button>
+          </span>
         </div>
         <div style="max-height:400px;overflow:auto;">
         <table class="mini-table">
           <thead><tr>
-            <th>Product</th><th>SKU</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin</th><th>Clients</th><th>Suppliers</th>
+            <th>${t('fieldProduct')}</th><th>SKU</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th><th>${t('fieldMarginPct')}</th><th>${t('fieldClientCount')}</th><th>${t('fieldSupplierCount')}</th>
           </tr></thead>
           <tbody>${data.items.map(p => `
             <tr style="cursor:pointer;" data-product="${escapeHtml(p.product_name)}">
@@ -6731,10 +6903,14 @@
       const valKey = isClient ? 'total_revenue' : 'total_cost';
 
       content.innerHTML = `
+        <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
+          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'${isClient?'Client':'Supplier'}_Matrix','csv')">CSV</button>
+          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'${isClient?'Client':'Supplier'}_Matrix','pdf')">PDF</button>
+        </div>
         <div style="max-height:450px;overflow:auto;">
         <table class="mini-table">
           <thead><tr>
-            <th>Entity</th><th>Type</th><th>Products</th><th>${valLabel}</th>${isClient ? `<th>${t('fieldProfit')}</th>` : ''}
+            <th>${t('fieldEntityName')}</th><th>${t('labelEntityType')}</th><th>Products</th><th>${valLabel}</th>${isClient ? `<th>${t('fieldProfit')}</th>` : ''}
           </tr></thead>
           <tbody>${data.relationships.map(r => `
             <tr>
@@ -6773,8 +6949,14 @@
       }
 
       content.innerHTML = `
-        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;">
-          Total Revenue: ${formatNum(data.total_revenue)} | Cost: ${formatNum(data.total_cost)} | Profit: ${formatNum(data.total_profit)} | Avg Margin: ${data.avg_margin != null ? data.avg_margin + '%' : '—'}
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">
+          <span style="font-size:0.85rem;color:var(--text-muted);">
+            ${t('fieldRevenue')}: ${formatNum(data.total_revenue)} | ${t('fieldCost')}: ${formatNum(data.total_cost)} | ${t('fieldProfit')}: ${formatNum(data.total_profit)} | Avg Margin: ${data.avg_margin != null ? data.avg_margin + '%' : '—'}
+          </span>
+          <span>
+            <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'Profitability','csv')">CSV</button>
+            <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'Profitability','pdf')">PDF</button>
+          </span>
         </div>
         <h4 style="margin:0.5rem 0 0.3rem;">By Product</h4>
         <div style="max-height:300px;overflow:auto;">
@@ -7062,9 +7244,26 @@
           const idx = els[0].index;
           const dsIdx = els[0].datasetIndex;
           const label = chart.data.labels ? chart.data.labels[idx] : '';
-          const value = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].data[idx] : 0;
-          const dsLabel = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].label : '';
-          showChartDrilldown(report.report_type || 'Report', label, { label: label, dataset: dsLabel, value: value });
+          const rt = (report.report_type || '').toLowerCase();
+          // Try to find account code from report rows
+          const rows = report.rows || [];
+          const matchRow = rows[idx];
+          if (matchRow && matchRow.account_code) {
+            showTransactionDrilldown(label || matchRow.account_name || rt, { account_code: matchRow.account_code });
+          } else if (rt.includes('balance_sheet')) {
+            const section = matchRow && matchRow.section;
+            const prefix = section === 'assets' ? '11,12,13,14,15' : section === 'liabilities' ? '21,22,23,24' : section === 'equity' ? '31,32,33' : '';
+            if (prefix) showTransactionDrilldown(label || section, { account_code_prefix: prefix });
+            else showChartDrilldown(rt, label, matchRow || {});
+          } else if (rt.includes('income')) {
+            showTransactionDrilldown(label || rt, { account_code_prefix: '41,42,43,51,52,53,61,62', from_date: report.from_date, to_date: report.to_date });
+          } else if (rt.includes('cash_flow')) {
+            showTransactionDrilldown(label || rt, { account_code_prefix: '11', from_date: report.from_date, to_date: report.to_date });
+          } else {
+            const value = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].data[idx] : 0;
+            const dsLabel = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].label : '';
+            showChartDrilldown(rt, label, { label, dataset: dsLabel, value });
+          }
         };
         chart.update();
       }

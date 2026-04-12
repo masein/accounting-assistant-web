@@ -55,14 +55,33 @@
       font-size: 1rem;
       margin-bottom: 0.75rem;
       background: #fff;
+      box-sizing: border-box;
     }
     input:focus, textarea:focus, select:focus {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
     }
-    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    /* Remove number input spinners/chevrons */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
     .row > * { flex: 1 1 180px; min-width: 0; }
+    /* Unified form grid for all sections */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.75rem 1rem;
+      align-items: end;
+    }
+    .form-grid label {
+      display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 0.25rem;
+    }
+    .form-grid input, .form-grid select { width: 100%; margin-bottom: 0; }
+    .form-grid .btn-cell { display: flex; align-items: end; }
+    .form-grid .btn-cell button { width: 100%; }
     .mgr-form-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -84,9 +103,11 @@
     }
     .mgr-form-grid select,
     .mgr-form-grid input[type="date"],
-    .mgr-form-grid input[type="text"] {
+    .mgr-form-grid input[type="text"],
+    .mgr-form-grid input[type="number"] {
       width: 100%;
       box-sizing: border-box;
+      margin-bottom: 0;
     }
     .mgr-form-grid .mgr-field-wide { grid-column: span 1; }
     .mgr-form-grid .mgr-btn-cell {
@@ -342,7 +363,7 @@
     .prod-tab.active { background: var(--primary); color: white; }
     .prod-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; align-items: end; }
     .prod-form-grid label { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.25rem; }
-    .prod-form-grid input, .prod-form-grid select { width: 100%; padding: 0.45rem 0.6rem; font-size: 0.88rem; border: 1px solid var(--border); border-radius: 6px; }
+    .prod-form-grid input, .prod-form-grid select { width: 100%; padding: 0.45rem 0.6rem; font-size: 0.88rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0; }
     .prod-form-grid .prod-btn-cell { display: flex; align-items: end; }
     .prod-form-grid .prod-btn-cell button { width: 100%; padding: 0.5rem 1.25rem; }
     .report-chart-panel canvas { max-height: 280px; }
@@ -974,51 +995,65 @@
 
     <div class="card" data-page="inventory">
       <h2 id="inventory-title" data-i18n="inventoryTitle">Inventory operations</h2>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 1rem 0;">
         <span id="inventory-subtitle" data-i18n="inventorySubtitle">Manage inventory items and movements here, then run inventory balance/movement reports with chart preview and exports.</span>
       </p>
-      <div class="row" style="margin-bottom:0.75rem;">
-        <div>
-          <label for="mgr-inv-item-name" data-i18n="labelInventoryItemName">Inventory item name</label>
-          <input type="text" id="mgr-inv-item-name" data-i18n-placeholder="placeholderInvItem" placeholder="e.g. Product A">
+
+      <!-- Inventory Items Section -->
+      <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
+        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);">Add Inventory Item</h3>
+        <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+          <div>
+            <label for="mgr-inv-item-name" data-i18n="labelInventoryItemName">Item name</label>
+            <input type="text" id="mgr-inv-item-name" data-i18n-placeholder="placeholderInvItem" placeholder="e.g. Product A">
+          </div>
+          <div>
+            <label for="mgr-inv-item-sku" data-i18n="labelSKU">SKU</label>
+            <input type="text" id="mgr-inv-item-sku" data-i18n-placeholder="placeholderOptional" placeholder="optional">
+          </div>
+          <div>
+            <label for="mgr-inv-item-unit" data-i18n="labelUnit">Unit</label>
+            <input type="text" id="mgr-inv-item-unit" value="unit">
+          </div>
+          <div class="btn-cell">
+            <button type="button" class="btn btn-primary" id="mgr-add-item-btn" data-i18n="btnAddInventoryItem">Add item</button>
+          </div>
         </div>
-        <div>
-          <label for="mgr-inv-item-sku" data-i18n="labelSKU">SKU</label>
-          <input type="text" id="mgr-inv-item-sku" data-i18n-placeholder="placeholderOptional" placeholder="optional">
-        </div>
-        <div>
-          <label for="mgr-inv-item-unit" data-i18n="labelUnit">Unit</label>
-          <input type="text" id="mgr-inv-item-unit" value="unit">
-        </div>
-        <div style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-secondary" id="mgr-add-item-btn" data-i18n="btnAddInventoryItem">Add inventory item</button>
+        <!-- Existing items list -->
+        <div id="inv-items-list" style="margin-top:0.75rem;"></div>
+      </div>
+
+      <!-- Record Movement Section -->
+      <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
+        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);">Record Movement</h3>
+        <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr;">
+          <div>
+            <label for="mgr-mv-item" data-i18n="labelMovementItem">Item</label>
+            <select id="mgr-mv-item"><option value="" data-i18n="optionSelectItem">Select item</option></select>
+          </div>
+          <div>
+            <label for="mgr-mv-type" data-i18n="labelMovementType">Type</label>
+            <select id="mgr-mv-type"><option value="IN" data-i18n="movementIn">IN</option><option value="OUT" data-i18n="movementOut">OUT</option><option value="ADJUSTMENT" data-i18n="movementAdjustment">ADJUSTMENT</option></select>
+          </div>
+          <div>
+            <label for="mgr-mv-qty" data-i18n="labelQuantity">Quantity</label>
+            <input type="number" id="mgr-mv-qty" min="0" step="0.0001" value="1">
+          </div>
+          <div>
+            <label for="mgr-mv-cost" data-i18n="labelUnitCost">Unit cost (IRR)</label>
+            <input type="number" id="mgr-mv-cost" min="0" step="1" value="0">
+          </div>
+          <div class="btn-cell">
+            <button type="button" class="btn btn-primary" id="mgr-add-mv-btn" data-i18n="btnAddMovement">Add movement</button>
+          </div>
         </div>
       </div>
-      <div class="row" style="margin-bottom:0.75rem;">
-        <div>
-          <label for="mgr-mv-item" data-i18n="labelMovementItem">Movement item</label>
-          <select id="mgr-mv-item"><option value="" data-i18n="optionSelectItem">Select item</option></select>
-        </div>
-        <div>
-          <label for="mgr-mv-type" data-i18n="labelMovementType">Movement type</label>
-          <select id="mgr-mv-type"><option value="IN" data-i18n="movementIn">IN</option><option value="OUT" data-i18n="movementOut">OUT</option><option value="ADJUSTMENT" data-i18n="movementAdjustment">ADJUSTMENT</option></select>
-        </div>
-        <div>
-          <label for="mgr-mv-qty" data-i18n="labelQuantity">Quantity</label>
-          <input type="number" id="mgr-mv-qty" min="0" step="0.0001" value="1">
-        </div>
-        <div>
-          <label for="mgr-mv-cost" data-i18n="labelUnitCost">Unit cost (IRR)</label>
-          <input type="number" id="mgr-mv-cost" min="0" step="1" value="0">
-        </div>
-        <div style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-secondary" id="mgr-add-mv-btn" data-i18n="btnAddMovement">Add movement</button>
-        </div>
-      </div>
-      <div class="panel" style="margin-bottom:0.75rem;">
-        <h3>Price Management</h3>
+
+      <!-- Price Management Section -->
+      <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
+        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);">Price Management</h3>
         <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.5rem;">Edit list/selling prices for inventory items.</p>
-        <div class="row" style="margin-bottom:0.5rem;align-items:flex-end;">
+        <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr;">
           <div>
             <label for="price-mgmt-item">Item</label>
             <select id="price-mgmt-item"><option value="">Select item</option></select>
@@ -1027,33 +1062,37 @@
             <label for="price-mgmt-value">List price (IRR)</label>
             <input type="number" id="price-mgmt-value" min="0" step="1000" value="0">
           </div>
-          <div style="display:flex;align-items:flex-end;">
-            <button type="button" class="btn btn-primary btn-sm" id="price-mgmt-save-btn">Update Price</button>
+          <div class="btn-cell">
+            <button type="button" class="btn btn-primary" id="price-mgmt-save-btn">Update Price</button>
           </div>
         </div>
-        <div id="price-mgmt-status" style="font-size:0.85rem;margin-top:0.25rem;"></div>
+        <div id="price-mgmt-status" style="font-size:0.85rem;margin-top:0.5rem;"></div>
       </div>
-      <div class="row" style="margin-bottom:0.75rem;">
-        <div>
-          <label for="inv-from-date">From</label>
-          <input type="date" id="inv-from-date">
+
+      <!-- Reports Section -->
+      <div class="panel" style="padding:1rem 1.25rem;">
+        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);">Inventory Reports</h3>
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom:0.75rem;">
+          <div>
+            <label for="inv-from-date" data-i18n="labelFrom">From</label>
+            <input type="date" id="inv-from-date">
+          </div>
+          <div>
+            <label for="inv-to-date" data-i18n="labelTo">To</label>
+            <input type="date" id="inv-to-date">
+          </div>
+          <div class="btn-cell">
+            <button type="button" class="btn btn-primary" id="inv-run-balance-btn" data-i18n="btnInventoryBalance">Inventory balance</button>
+          </div>
+          <div class="btn-cell">
+            <button type="button" class="btn btn-secondary" id="inv-run-movement-btn" data-i18n="btnInventoryMovements">Inventory movements</button>
+          </div>
         </div>
-        <div>
-          <label for="inv-to-date">To</label>
-          <input type="date" id="inv-to-date">
+        <div class="report-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="inv-export-json-btn" data-i18n="btnExportJson" disabled>Export JSON</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="inv-export-csv-btn" data-i18n="btnExportCsv" disabled>Export CSV</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="inv-export-pdf-btn" data-i18n="btnExportPdf" disabled>Export PDF</button>
         </div>
-        <div style="display:flex; align-items:flex-end; gap:0.5rem;">
-          <button type="button" class="btn btn-primary" id="inv-run-balance-btn" data-i18n="btnInventoryBalance">Inventory balance</button>
-          <button type="button" class="btn btn-secondary" id="inv-run-movement-btn" data-i18n="btnInventoryMovements">Inventory movements</button>
-        </div>
-      </div>
-      <div class="report-actions">
-        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-json-btn" data-i18n="btnExportJson" disabled>Export JSON</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-csv-btn" data-i18n="btnExportCsv" disabled>Export CSV</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="inv-export-pdf-btn" data-i18n="btnExportPdf" disabled>Export PDF</button>
-      </div>
-      <div class="panel">
-        <h3 id="inventory-report-output-title" data-i18n="inventoryReportOutput">Inventory report output</h3>
         <div class="panel report-chart-panel" id="inv-report-chart-panel" style="display:none;">
           <h3 id="inv-report-chart-title" data-i18n="inventoryChartTitle">Inventory chart</h3>
           <canvas id="inv-report-chart" height="220"></canvas>
@@ -1105,9 +1144,9 @@
       <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
         <button type="button" class="btn btn-primary" id="audit-run-btn">Run Full Audit</button>
         <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
-          <label for="audit-liability-threshold" style="font-size:0.8rem;color:var(--text-muted);">Liability threshold (IRR):</label>
-          <input type="number" id="audit-liability-threshold" style="width:150px;" placeholder="e.g. 500000000" min="0" step="1000000">
-          <button type="button" class="btn btn-secondary btn-sm" id="audit-save-threshold-btn">Save</button>
+          <label for="audit-liability-threshold" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;margin:0;">Liability threshold (IRR):</label>
+          <input type="number" id="audit-liability-threshold" style="width:180px;margin:0;padding:0.4rem 0.6rem;font-size:0.88rem;" placeholder="e.g. 500,000,000" min="0" step="1000000">
+          <button type="button" class="btn btn-primary btn-sm" id="audit-save-threshold-btn" style="white-space:nowrap;">Save</button>
         </div>
       </div>
       <div id="audit-scores" style="display:none;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
@@ -1309,7 +1348,7 @@
       </div>
       <div class="panel" id="prod-chart-panel" style="display:none;margin-top:1rem;">
         <h3>Product Chart</h3>
-        <canvas id="prod-chart" height="280"></canvas>
+        <div style="position:relative;height:300px;"><canvas id="prod-chart"></canvas></div>
       </div>
       <div id="prod-detail-panel" style="display:none;margin-top:1rem;border:1px solid var(--border);border-radius:10px;padding:1rem;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
@@ -3653,7 +3692,7 @@
           if (invFromDateEl && invFromDateEl.value) q.set('from_date', invFromDateEl.value);
           if (invToDateEl && invToDateEl.value) q.set('to_date', invToDateEl.value);
           q.set('page', '1');
-          q.set('page_size', '120');
+          q.set('page_size', '500');
         } else {
           if (invToDateEl && invToDateEl.value) q.set('to_date', invToDateEl.value);
         }
@@ -3667,12 +3706,12 @@
           return;
         }
         lastInventoryReport = data;
-        const period = reportPeriodText(data);
         if (invReportPreviewEl) {
-          invReportPreviewEl.innerHTML = `
-            ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
-            ${renderReportPreviewHtml(data)}
-          `;
+          if (type === 'balance') {
+            _renderInventoryBalanceReport(data);
+          } else {
+            _renderInventoryMovementReport(data);
+          }
         }
         if (invReportJsonEl) invReportJsonEl.textContent = JSON.stringify(data, null, 2);
         renderInventoryReportChart(data);
@@ -3684,6 +3723,152 @@
       } finally {
         if (invRunBalanceBtn) invRunBalanceBtn.disabled = false;
         if (invRunMovementBtn) invRunMovementBtn.disabled = false;
+      }
+    }
+
+    function _renderInventoryBalanceReport(data) {
+      const rows = data.rows || [];
+      const totals = data.totals || {};
+      const period = reportPeriodText(data);
+      if (!rows.length) { invReportPreviewEl.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">' + t('noDataYet') + '</p>'; return; }
+
+      const totalValue = rows.reduce((s, r) => s + (r.inventory_value || 0), 0);
+      const totalCOGS = rows.reduce((s, r) => s + (r.cogs || 0), 0);
+      const totalQty = rows.reduce((s, r) => s + (r.on_hand_qty || 0), 0);
+
+      invReportPreviewEl.innerHTML = `
+        ${period ? `<div class="report-meta" style="margin-bottom:0.75rem;">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
+        <div class="detail-summary" style="margin-bottom:1rem;">
+          <div><span>Total Items</span><strong>${rows.length}</strong></div>
+          <div><span>Total On-Hand</span><strong>${totalQty.toLocaleString()}</strong></div>
+          <div><span>Inventory Value</span><strong>${formatNum(totalValue)} IRR</strong></div>
+          <div><span>Total COGS</span><strong>${formatNum(totalCOGS)} IRR</strong></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
+          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('inv-report-preview'),'Inventory_Balance','csv')">CSV</button>
+          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('inv-report-preview'),'Inventory_Balance','pdf')">PDF</button>
+        </div>
+        <div style="max-height:400px;overflow:auto;">
+        <table class="detail-table">
+          <thead><tr>
+            <th>Item</th><th>SKU</th><th>Unit</th><th class="num">In</th><th class="num">Out</th>
+            <th class="num">On Hand</th><th class="num">Avg Cost</th><th class="num">Value</th><th class="num">COGS</th>
+          </tr></thead>
+          <tbody>${rows.map(r => {
+            const valPct = totalValue > 0 ? Math.round(r.inventory_value / totalValue * 100) : 0;
+            return `<tr>
+              <td><strong>${escapeHtml(r.item_name)}</strong></td>
+              <td>${escapeHtml(r.sku || '—')}</td>
+              <td>${escapeHtml(r.unit || 'unit')}</td>
+              <td class="num">${r.qty_in.toLocaleString()}</td>
+              <td class="num">${r.qty_out.toLocaleString()}</td>
+              <td class="num" style="font-weight:600;">${r.on_hand_qty.toLocaleString()}</td>
+              <td class="num">${formatNum(r.average_cost)}</td>
+              <td class="num">
+                <div style="display:flex;align-items:center;gap:0.4rem;justify-content:flex-end;">
+                  ${formatNum(r.inventory_value)}
+                  <span style="display:inline-block;width:40px;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+                    <span style="display:block;height:100%;width:${valPct}%;background:var(--primary);border-radius:3px;"></span>
+                  </span>
+                </div>
+              </td>
+              <td class="num" style="color:${r.cogs > 0 ? '#c62828' : 'var(--text)'};">${formatNum(r.cogs)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+          <tfoot><tr style="font-weight:700;background:#f1f5f9;">
+            <td colspan="3">Total</td>
+            <td class="num">${rows.reduce((s,r)=>s+r.qty_in,0).toLocaleString()}</td>
+            <td class="num">${rows.reduce((s,r)=>s+r.qty_out,0).toLocaleString()}</td>
+            <td class="num">${totalQty.toLocaleString()}</td>
+            <td class="num">—</td>
+            <td class="num">${formatNum(totalValue)}</td>
+            <td class="num" style="color:#c62828;">${formatNum(totalCOGS)}</td>
+          </tr></tfoot>
+        </table>
+        </div>
+      `;
+    }
+
+    function _renderInventoryMovementReport(data) {
+      const rows = data.rows || [];
+      const period = reportPeriodText(data);
+      if (!rows.length) { invReportPreviewEl.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">' + t('noDataYet') + '</p>'; return; }
+
+      const totalIn = rows.filter(r => r.movement_type === 'IN').reduce((s, r) => s + r.movement_value, 0);
+      const totalOut = rows.filter(r => r.movement_type === 'OUT').reduce((s, r) => s + r.movement_value, 0);
+      const qtyIn = rows.filter(r => r.movement_type === 'IN').reduce((s, r) => s + r.quantity, 0);
+      const qtyOut = rows.filter(r => r.movement_type === 'OUT').reduce((s, r) => s + r.quantity, 0);
+
+      // Group by item for summary
+      const byItem = {};
+      rows.forEach(r => {
+        if (!byItem[r.item_name]) byItem[r.item_name] = { in: 0, out: 0, adj: 0, value: 0 };
+        if (r.movement_type === 'IN') { byItem[r.item_name].in += r.quantity; byItem[r.item_name].value += r.movement_value; }
+        else if (r.movement_type === 'OUT') { byItem[r.item_name].out += r.quantity; byItem[r.item_name].value -= r.movement_value; }
+        else byItem[r.item_name].adj += r.quantity;
+      });
+
+      const typeColor = t => t === 'IN' ? '#2e7d32' : t === 'OUT' ? '#c62828' : '#e65100';
+      const typeBg = t => t === 'IN' ? '#dcfce7' : t === 'OUT' ? '#fee2e2' : '#fff3e0';
+
+      invReportPreviewEl.innerHTML = `
+        ${period ? `<div class="report-meta" style="margin-bottom:0.75rem;">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
+        <div class="detail-summary" style="margin-bottom:1rem;">
+          <div><span>Total Movements</span><strong>${rows.length}</strong></div>
+          <div><span>Qty In</span><strong style="color:#2e7d32;">+${qtyIn.toLocaleString()}</strong></div>
+          <div><span>Qty Out</span><strong style="color:#c62828;">-${qtyOut.toLocaleString()}</strong></div>
+          <div><span>Value In</span><strong style="color:#2e7d32;">${formatNum(totalIn)}</strong></div>
+          <div><span>Value Out</span><strong style="color:#c62828;">${formatNum(totalOut)}</strong></div>
+        </div>
+
+        <h4 style="margin:0.75rem 0 0.3rem;font-size:0.9rem;">Summary by Item</h4>
+        <div style="max-height:180px;overflow:auto;margin-bottom:1rem;">
+        <table class="mini-table"><thead><tr><th>Item</th><th class="num">In</th><th class="num">Out</th><th class="num">Adj</th><th class="num">Net Value</th></tr></thead>
+          <tbody>${Object.entries(byItem).map(([name, v]) => `<tr>
+            <td><strong>${escapeHtml(name)}</strong></td>
+            <td class="num" style="color:#2e7d32;">+${v.in.toLocaleString()}</td>
+            <td class="num" style="color:#c62828;">-${v.out.toLocaleString()}</td>
+            <td class="num">${v.adj.toLocaleString()}</td>
+            <td class="num" style="font-weight:600;">${formatNum(v.value)}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        </div>
+
+        <h4 style="margin:0.75rem 0 0.3rem;font-size:0.9rem;">Movement Log</h4>
+        <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
+          <input type="text" id="inv-mv-search" placeholder="Search movements..." style="width:200px;padding:0.35rem 0.6rem;font-size:0.85rem;margin:0;">
+          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('inv-report-preview'),'Inventory_Movements','csv')">CSV</button>
+          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('inv-report-preview'),'Inventory_Movements','pdf')">PDF</button>
+        </div>
+        <div id="inv-mv-table-wrap" style="max-height:350px;overflow:auto;">
+        <table class="detail-table"><thead><tr>
+          <th>${t('labelDate')}</th><th>Item</th><th>Type</th><th class="num">${t('labelQuantity')}</th>
+          <th class="num">Unit Cost</th><th class="num">Value</th><th>${t('labelReference')}</th><th>${t('labelDescription')}</th>
+        </tr></thead>
+          <tbody>${rows.map(r => `<tr>
+            <td>${escapeHtml(r.movement_date)}</td>
+            <td><strong>${escapeHtml(r.item_name)}</strong></td>
+            <td><span style="display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.78rem;font-weight:600;color:${typeColor(r.movement_type)};background:${typeBg(r.movement_type)};">${escapeHtml(r.movement_type)}</span></td>
+            <td class="num">${r.quantity.toLocaleString()}</td>
+            <td class="num">${formatNum(r.unit_cost)}</td>
+            <td class="num" style="font-weight:600;">${formatNum(r.movement_value)}</td>
+            <td>${escapeHtml(r.reference || '—')}</td>
+            <td>${escapeHtml(r.description || '—')}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        </div>
+      `;
+
+      // Wire up movement search
+      const searchEl = document.getElementById('inv-mv-search');
+      if (searchEl) {
+        searchEl.oninput = () => {
+          const q = searchEl.value.trim().toLowerCase();
+          const tableRows = document.querySelectorAll('#inv-mv-table-wrap tbody tr');
+          tableRows.forEach(tr => {
+            tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+          });
+        };
       }
     }
 
@@ -3759,6 +3944,19 @@
           opt.textContent = (i.sku ? (i.sku + ' - ') : '') + i.name;
           mgrMvItemEl.appendChild(opt);
         });
+        // Render items list
+        const listEl = document.getElementById('inv-items-list');
+        if (listEl && rows.length) {
+          listEl.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.3rem;">${rows.length} items registered</div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">${rows.map(i =>
+            `<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;background:#f1f5f9;border-radius:6px;font-size:0.8rem;border:1px solid var(--border);">
+              <strong>${escapeHtml(i.name)}</strong>${i.sku ? ` <span style="color:var(--text-muted);">(${escapeHtml(i.sku)})</span>` : ''}
+              ${i.list_price ? ` — ${formatNum(i.list_price)} IRR` : ''}
+            </span>`
+          ).join('')}</div>`;
+        } else if (listEl) {
+          listEl.innerHTML = '<div style="font-size:0.82rem;color:var(--text-muted);">No items yet. Add one above.</div>';
+        }
       } catch (_) {}
     }
 
@@ -4369,7 +4567,7 @@
         return {
           type: 'bar',
           title: t('chartInventoryValueByItem'),
-          data: { labels: rows.map(r => r.item_name), datasets: [{ data: rows.map(r => safe(r.inventory_value)), backgroundColor: palette[0] }] }
+          data: { labels: rows.map(r => r.item_name), datasets: [{ label: t('fieldInventoryValue'), data: rows.map(r => safe(r.inventory_value)), backgroundColor: palette[0] }] }
         };
       }
       if (rt === 'inventory_movement') {
@@ -4973,7 +5171,7 @@
       if (format === 'csv') {
         let csv = `Account,${m.code} - ${m.name}\nDebit Turnover,${m.debit_turnover}\nCredit Turnover,${m.credit_turnover}\n\nDate,Reference,Description,Debit,Credit,Line Description\n`;
         lines.forEach(l => { csv += `${l.transaction_date},"${(l.reference||'').replace(/"/g,'""')}","${(l.description||'').replace(/"/g,'""')}",${l.debit},${l.credit},"${(l.line_description||'').replace(/"/g,'""')}"\n`; });
-        downloadTextFile(csv, `account_${m.code}.csv`, 'text/csv');
+        downloadTextFile(`account_${m.code}.csv`, csv, 'text/csv');
       } else {
         const w = window.open('', '_blank');
         if (!w) { alert(t('allowPopupsPdf')); return; }
@@ -6475,6 +6673,7 @@
       const body = document.getElementById('chart-modal-body');
       body.innerHTML = '';
       document.getElementById('chart-modal-txn-area').style.display = 'none';
+      document.getElementById('chart-modal-canvas').style.display = 'block';
       data.forEach(item => {
         if (!item) return;
         if (Array.isArray(item) && item.length > 0) {
@@ -6541,6 +6740,16 @@
       });
       if (!body.children.length) {
         body.innerHTML = '<p style="color:var(--text-muted);">No detailed data available.</p>';
+      }
+      // Always add a "View all transactions" link if we can infer account codes
+      const _bsSectionPrefixes = { 'Assets': '11,12,13,14,15', 'Liabilities': '21,22,23,24', 'Equity': '31,32,33' };
+      if (_bsSectionPrefixes[label]) {
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'btn btn-primary btn-sm';
+        viewBtn.style.cssText = 'margin-top:0.75rem;';
+        viewBtn.textContent = 'View all ' + label + ' transactions';
+        viewBtn.onclick = () => showTransactionDrilldown(title + ' — ' + label, { account_code_prefix: _bsSectionPrefixes[label] });
+        body.appendChild(viewBtn);
       }
       modal.style.display = 'block';
     }
@@ -6667,7 +6876,7 @@
         if (format === 'csv') {
           let csv = 'Date,Reference,Description,Account Code,Account Name,Debit,Credit,Entities\n';
           rows.forEach(r => { csv += `${r.date},"${(r.reference||'').replace(/"/g,'""')}","${(r.description||'').replace(/"/g,'""')}",${r.account_code},"${(r.account_name||'').replace(/"/g,'""')}",${r.debit||0},${r.credit||0},"${(r.entity_names||[]).join('; ')}"\n`; });
-          downloadTextFile(csv, 'transactions.csv', 'text/csv');
+          downloadTextFile('transactions.csv', csv, 'text/csv');
         } else {
           const w = window.open('', '_blank');
           if (!w) { alert(t('allowPopupsPdf')); return; }
@@ -6692,7 +6901,7 @@
       if (format === 'csv') {
         let csv = headers.join(',') + '\n';
         rows.forEach(r => { csv += r.map(c => `"${c.replace(/"/g,'""')}"`).join(',') + '\n'; });
-        downloadTextFile(csv, (title||'export').replace(/\s+/g, '_') + '.csv', 'text/csv');
+        downloadTextFile((title||'export').replace(/\s+/g, '_') + '.csv', csv, 'text/csv');
       } else {
         const w = window.open('', '_blank');
         if (!w) { alert(t('allowPopupsPdf')); return; }

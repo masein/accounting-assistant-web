@@ -59,7 +59,8 @@
       "Bash(curl -s -b /tmp/acc_cookies.txt 'http://localhost:8000/manager-reports/books/trial-balance?from_date=2024-01-01&to_date=2025-12-31')",
       "Bash(curl -s -b /tmp/acc_cookies.txt 'http://localhost:8000/manager-reports/books/general-journal?from_date=2024-07-01&to_date=2024-07-31')",
       "Bash(curl -s -b /tmp/acc_cookies.txt http://localhost:8000/transactions/afa7dd0e-123e-4d18-96b9-375870a1620b)",
-      "Bash(grep -n \"select\\(Transaction\\\\|select\\(TransactionLine\" /Users/masein/Developer/accounting-assistant/.claude/worktrees/competent-bhabha/app/services/reporting/*.py)"
+      "Bash(grep -n \"select\\(Transaction\\\\|select\\(TransactionLine\" /Users/masein/Developer/accounting-assistant/.claude/worktrees/competent-bhabha/app/services/reporting/*.py)",
+      "Bash(curl -s -b /tmp/acc_cookies.txt 'http://localhost:8000/transactions?page_size=5')"
     ]
   }
 }

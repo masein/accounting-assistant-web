@@ -93,6 +93,7 @@ class AttachmentOCRResponse(BaseModel):
 
 class TransactionRead(TransactionBase):
     id: UUID
+    currency: str = "IRR"
     lines: list[TransactionLineRead]
     entity_links: list[TransactionEntityLinkRead] = Field(default_factory=list)
     attachments: list[AttachmentRead] = Field(default_factory=list)

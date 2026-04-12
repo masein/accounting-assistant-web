@@ -2613,6 +2613,7 @@ def excel_import_confirm(
         )
 
     multiplier = payload.amount_multiplier
+    currency = payload.currency or "IRR"
     transaction_ids: list[UUID] = []
     errors: list[str] = []
 
@@ -2671,12 +2672,32 @@ def excel_import_confirm(
                 errors.append(f"Account code {code} not found")
                 continue
 
+            # Build rich line description with all metadata for searchability
+            line_desc_parts = []
+            # Original notes/description
+            if line.description:
+                line_desc_parts.append(line.description)
+            # Account hierarchy (Title 1 > 2 > 3)
+            titles = [t for t in [line.title1, line.title2, line.title3] if t]
+            if titles:
+                line_desc_parts.append("(" + " > ".join(titles) + ")")
+            # Project info
+            proj_parts = [p for p in [line.project_group, line.project, line.project_name] if p]
+            if proj_parts:
+                line_desc_parts.append("[" + " / ".join(proj_parts) + "]")
+            # Original amount if foreign currency
+            if currency != "IRR" and (line.debit or line.credit):
+                orig_amt = line.debit if line.debit else line.credit
+                line_desc_parts.append(f"{{{currency} {orig_amt:,.2f}}}")
+
+            full_line_desc = " ".join(line_desc_parts)
+
             db.add(TransactionLine(
                 transaction_id=t.id,
                 account_id=acc.id,
                 debit=debit_amt,
                 credit=credit_amt,
-                line_description=line.description[:512] if line.description else None,
+                line_description=full_line_desc[:512] if full_line_desc else None,
             ))
 
         transaction_ids.append(t.id)

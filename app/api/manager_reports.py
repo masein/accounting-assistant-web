@@ -367,6 +367,201 @@ def update_inventory_price(
     return {"item_id": str(item.id), "name": item.name, "old_price": old_price, "new_price": list_price}
 
 
+@router.get("/financial/balance-sheet-periods")
+def balance_sheet_periods(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    granularity: str = Query("monthly", regex="^(weekly|monthly|quarterly|seasonal)$"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Balance sheet totals (assets, liabilities, equity) at each period end."""
+    import calendar
+    from datetime import timedelta
+    from app.services.reporting.common import default_period
+    from app.services.reporting.repository import account_turnovers_upto, list_accounts
+    from app.services.reporting.common import classify_account_code, balance_from_turnovers, statement_sign_value, ASSET, LIABILITY, EQUITY
+
+    def _add_months(d: date, n: int) -> date:
+        m = d.month - 1 + n
+        y = d.year + m // 12
+        m = m % 12 + 1
+        return date(y, m, 1)
+
+    period = default_period(from_date, to_date)
+    accounts = list_accounts(db)
+
+    # Build list of period-end dates
+    ends: list[date] = []
+    if granularity == "monthly":
+        cursor = period.from_date.replace(day=1)
+        while cursor <= period.to_date:
+            month_end = date(cursor.year, cursor.month, calendar.monthrange(cursor.year, cursor.month)[1])
+            ends.append(min(month_end, period.to_date))
+            cursor = _add_months(cursor, 1)
+    elif granularity == "quarterly":
+        cursor = period.from_date.replace(day=1)
+        while cursor <= period.to_date:
+            q_end_month = _add_months(cursor, 3)
+            q_end = q_end_month - timedelta(days=1)
+            ends.append(min(q_end, period.to_date))
+            cursor = q_end_month
+    elif granularity == "weekly":
+        cursor = period.from_date
+        while cursor <= period.to_date:
+            week_end = cursor + timedelta(days=(6 - cursor.weekday()))
+            ends.append(min(week_end, period.to_date))
+            cursor = week_end + timedelta(days=1)
+    else:  # seasonal
+        cursor = period.from_date.replace(day=1)
+        while cursor <= period.to_date:
+            q_end_month = _add_months(cursor, 3)
+            q_end = q_end_month - timedelta(days=1)
+            ends.append(min(q_end, period.to_date))
+            cursor = q_end_month
+
+    # Deduplicate and sort
+    ends = sorted(set(ends))
+
+    periods = []
+    for end_date in ends:
+        turnovers = account_turnovers_upto(db, end_date)
+        turnover_map = {aid: (d, c) for aid, d, c in turnovers}
+        totals = {ASSET: 0, LIABILITY: 0, EQUITY: 0}
+        for acc in accounts:
+            acc_type = classify_account_code(acc.code)
+            if acc_type not in totals:
+                continue
+            tc = turnover_map.get(acc.id)
+            if tc:
+                raw = balance_from_turnovers(acc_type, tc[0], tc[1])
+                totals[acc_type] += statement_sign_value(acc_type, raw)
+
+        if granularity == "monthly":
+            label = end_date.strftime("%Y-%m")
+        elif granularity == "quarterly":
+            q = (end_date.month - 1) // 3 + 1
+            label = f"{end_date.year}-Q{q}"
+        elif granularity == "weekly":
+            label = end_date.strftime("%Y-W%W")
+        else:
+            month = end_date.month
+            season = "Spring" if month in (3, 4, 5) else "Summer" if month in (6, 7, 8) else "Autumn" if month in (9, 10, 11) else "Winter"
+            label = f"{end_date.year}-{season}"
+
+        periods.append({
+            "period": label,
+            "date": end_date.isoformat(),
+            "assets": totals[ASSET],
+            "liabilities": totals[LIABILITY],
+            "equity": totals[EQUITY],
+            "net_worth": totals[ASSET] - totals[LIABILITY],
+        })
+
+    return {
+        "report_type": "balance_sheet_periods",
+        "granularity": granularity,
+        "period": {"from_date": period.from_date.isoformat(), "to_date": period.to_date.isoformat()},
+        "periods": periods,
+        "totals": {
+            "latest_assets": periods[-1]["assets"] if periods else 0,
+            "latest_liabilities": periods[-1]["liabilities"] if periods else 0,
+            "latest_equity": periods[-1]["equity"] if periods else 0,
+        },
+    }
+
+
+@router.get("/sales/trend")
+def sales_trend(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    product_name: str | None = Query(None),
+    granularity: str = Query("monthly", regex="^(weekly|monthly|quarterly|seasonal)$"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Sales of a specific product (or all products) grouped by period."""
+    from collections import defaultdict
+    from app.services.reporting.common import default_period
+    from app.services.reporting.repository import sales_items_between
+
+    period = default_period(from_date, to_date)
+    rows = sales_items_between(db, period.from_date, period.to_date)
+
+    by_period: dict[str, dict[str, float | int]] = defaultdict(
+        lambda: {"quantity": 0.0, "sales_amount": 0, "invoice_count": 0}
+    )
+    seen_invoices: dict[str, set] = defaultdict(set)
+
+    for item, inv in rows:
+        name = (item.product_name or "").strip()
+        if product_name and product_name.lower() not in name.lower():
+            continue
+
+        d = inv.issue_date
+        if granularity == "weekly":
+            key = d.strftime("%Y-W%W")
+        elif granularity == "quarterly":
+            q = (d.month - 1) // 3 + 1
+            key = f"{d.year}-Q{q}"
+        elif granularity == "seasonal":
+            month = d.month
+            season = "Spring" if month in (3, 4, 5) else "Summer" if month in (6, 7, 8) else "Autumn" if month in (9, 10, 11) else "Winter"
+            key = f"{d.year}-{season}"
+        else:
+            key = d.strftime("%Y-%m")
+
+        by_period[key]["quantity"] += float(item.quantity or 0)
+        by_period[key]["sales_amount"] += int(item.line_total or 0)
+        if inv.id not in seen_invoices[key]:
+            seen_invoices[key].add(inv.id)
+            by_period[key]["invoice_count"] += 1
+
+    periods = []
+    for k in sorted(by_period.keys()):
+        periods.append({"period": k, **by_period[k]})
+
+    return {
+        "report_type": "sales_trend",
+        "granularity": granularity,
+        "product_filter": product_name,
+        "period": {"from_date": period.from_date.isoformat(), "to_date": period.to_date.isoformat()},
+        "periods": periods,
+        "totals": {
+            "total_quantity": sum(p["quantity"] for p in periods),
+            "total_sales": sum(p["sales_amount"] for p in periods),
+            "total_invoices": sum(p["invoice_count"] for p in periods),
+        },
+    }
+
+
+@router.get("/entities/search")
+def entities_search(
+    search: str = Query(""),
+    type: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Return entities for autocomplete (name + type)."""
+    from app.models.entity import Entity
+    q = select(Entity).order_by(Entity.name)
+    if type:
+        q = q.where(Entity.type == type)
+    entities = db.execute(q).scalars().all()
+    results = [{"name": e.name, "type": e.type} for e in entities]
+    if search:
+        s = search.lower()
+        results = [r for r in results if s in r["name"].lower()]
+    return results
+
+
+@router.get("/products/names")
+def product_names(db: Session = Depends(get_db)):
+    """Return unique product names from invoices for autocomplete."""
+    from app.models.invoice_item import InvoiceItem
+    names = db.execute(
+        select(InvoiceItem.product_name).where(InvoiceItem.product_name.isnot(None)).distinct().order_by(InvoiceItem.product_name)
+    ).scalars().all()
+    return [n for n in names if n and n.strip()]
+
+
 @router.get("/sales/by-product", response_model=SalesPurchaseReportResponse)
 def sales_by_product(
     from_date: date | None = Query(None),

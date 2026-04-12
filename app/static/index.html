@@ -947,6 +947,8 @@
             <option value="purchase_by_invoice" data-i18n="reportPurchaseByInvoice">Purchase by invoice</option>
             <option value="accounts_payable">Accounts payable (حساب‌های پرداختنی)</option>
             <option value="cash_flow_periods">Cash flow periods (جریان نقدی دوره‌ای)</option>
+            <option value="balance_sheet_periods">Balance sheet trend (روند ترازنامه)</option>
+            <option value="sales_trend">Sales trend (روند فروش)</option>
           </select>
         </div>
         <div>
@@ -964,7 +966,8 @@
         </div>
         <div>
           <label for="mgr-product-filter" data-i18n="labelProductEntityFilter">Product / Entity filter</label>
-          <input type="text" id="mgr-product-filter" data-i18n-placeholder="placeholderFilterByName" placeholder="Filter by name">
+          <input type="text" id="mgr-product-filter" data-i18n-placeholder="placeholderFilterByName" placeholder="Filter by name" list="mgr-product-entity-datalist" autocomplete="off">
+          <datalist id="mgr-product-entity-datalist"></datalist>
         </div>
         <div>
           <label for="mgr-period-granularity">Period</label>
@@ -6556,7 +6559,7 @@
       if (page === 'cfo') { loadCFOReport(); }
       if (page === 'ceo') { loadCEOReport(); }
       if (page === 'inventory') { loadPriceMgmtItems(); }
-      if (page === 'manager') { loadAccountDatalist(); }
+      if (page === 'manager') { loadAccountDatalist(); loadProductEntityDatalist(); }
       if (page === 'products') { loadProductsCatalog(); }
     });
 
@@ -6578,6 +6581,37 @@
           dl.appendChild(opt);
         });
         accountDatalistLoaded = true;
+      } catch (_) {}
+    }
+
+    // ═══════ Product/Entity Datalist for Manager Form ═══════
+    let productEntityDatalistLoaded = false;
+    async function loadProductEntityDatalist() {
+      if (productEntityDatalistLoaded) return;
+      try {
+        const dl = document.getElementById('mgr-product-entity-datalist');
+        if (!dl) return;
+        dl.innerHTML = '';
+        // Load products and entities in parallel
+        const [prodRes, entRes] = await Promise.all([
+          fetch(API + '/manager-reports/products/names').catch(() => null),
+          fetch(API + '/manager-reports/entities/search').catch(() => null),
+        ]);
+        const products = prodRes && prodRes.ok ? await prodRes.json() : [];
+        const entities = entRes && entRes.ok ? await entRes.json() : [];
+        products.forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name + ' (product)';
+          dl.appendChild(opt);
+        });
+        entities.forEach(e => {
+          const opt = document.createElement('option');
+          opt.value = e.name;
+          opt.textContent = e.name + ' (' + e.type + ')';
+          dl.appendChild(opt);
+        });
+        productEntityDatalistLoaded = true;
       } catch (_) {}
     }
 
@@ -7433,6 +7467,137 @@
           }
           if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
           if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
+        } catch (err) { showAlert('Error: ' + err.message, true); }
+        finally { mgrRunBtn.disabled = false; }
+        return;
+      }
+
+      // Balance sheet periods (trend) handler
+      if (type === 'balance_sheet_periods') {
+        try {
+          const q = new URLSearchParams();
+          if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
+          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
+          q.set('granularity', mgrPeriodGranularityEl.value || 'monthly');
+          mgrRunBtn.disabled = true;
+          const res = await fetch(API + '/manager-reports/financial/balance-sheet-periods?' + q.toString());
+          const data = await res.json();
+          if (!res.ok) { showAlert(data.detail || 'Failed', true); return; }
+          lastManagerReport = data;
+          const periods = data.periods || [];
+          let html = '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Period</th><th>Assets</th><th>Liabilities</th><th>Equity</th><th>Net Worth</th></tr></thead><tbody>';
+          periods.forEach(p => {
+            const nwColor = p.net_worth >= 0 ? '#2e7d32' : '#c62828';
+            html += `<tr>
+              <td><strong>${escapeHtml(p.period)}</strong></td>
+              <td>${formatNum(p.assets)}</td>
+              <td>${formatNum(p.liabilities)}</td>
+              <td>${formatNum(p.equity)}</td>
+              <td style="color:${nwColor};font-weight:600;">${formatNum(p.net_worth)}</td>
+            </tr>`;
+          });
+          html += '</tbody></table></div>';
+          if (data.totals) {
+            html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>Latest:</strong> Assets: ${formatNum(data.totals.latest_assets)} | Liabilities: ${formatNum(data.totals.latest_liabilities)} | Equity: ${formatNum(data.totals.latest_equity)}</div>`;
+          }
+          mgrReportPreviewEl.innerHTML = html;
+          mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
+          // Chart — stacked area
+          if (typeof Chart !== 'undefined' && periods.length) {
+            const chartPanel = document.getElementById('mgr-report-chart-panel');
+            chartPanel.style.display = 'block';
+            if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
+            managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
+              type: 'line', data: {
+                labels: periods.map(p => p.period),
+                datasets: [
+                  { label: 'Assets', data: periods.map(p => p.assets), borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.15)', fill: true, tension: 0.3 },
+                  { label: 'Liabilities', data: periods.map(p => p.liabilities), borderColor: '#c62828', backgroundColor: 'rgba(198,40,40,0.1)', fill: true, tension: 0.3 },
+                  { label: 'Equity', data: periods.map(p => p.equity), borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.1)', fill: true, tension: 0.3 },
+                  { label: 'Net Worth', data: periods.map(p => p.net_worth), borderColor: '#eab308', backgroundColor: 'transparent', borderDash: [5, 3], fill: false, tension: 0.3 }
+                ]
+              }, options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Balance Sheet Trend (' + (mgrPeriodGranularityEl.value || 'Monthly') + ')' } },
+                scales: { y: { ticks: { callback: v => formatNum(v) } } },
+                onClick: (e, els) => {
+                  if (els.length) {
+                    const idx = els[0].index;
+                    const dsLabel = ['Assets', 'Liabilities', 'Equity', 'Net Worth'][els[0].datasetIndex];
+                    const prefixMap = { 'Assets': '11,12,13,14,15', 'Liabilities': '21,22,23,24', 'Equity': '31,32,33' };
+                    if (prefixMap[dsLabel]) {
+                      showTransactionDrilldown(dsLabel + ' — ' + periods[idx].period, { account_code_prefix: prefixMap[dsLabel], to_date: periods[idx].date });
+                    }
+                  }
+                }
+              }
+            });
+          }
+          if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
+          if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
+          if (mgrExportPdfBtn) mgrExportPdfBtn.disabled = false;
+        } catch (err) { showAlert('Error: ' + err.message, true); }
+        finally { mgrRunBtn.disabled = false; }
+        return;
+      }
+
+      // Sales trend handler
+      if (type === 'sales_trend') {
+        try {
+          const q = new URLSearchParams();
+          if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
+          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
+          q.set('granularity', mgrPeriodGranularityEl.value || 'monthly');
+          const filterVal = (mgrProductFilterEl.value || '').trim();
+          if (filterVal) q.set('product_name', filterVal);
+          mgrRunBtn.disabled = true;
+          const res = await fetch(API + '/manager-reports/sales/trend?' + q.toString());
+          const data = await res.json();
+          if (!res.ok) { showAlert(data.detail || 'Failed', true); return; }
+          lastManagerReport = data;
+          const periods = data.periods || [];
+          const filterLabel = data.product_filter ? ` — ${escapeHtml(data.product_filter)}` : ' — All Products';
+          let html = `<div style="margin-bottom:0.5rem;font-size:0.88rem;color:var(--text-muted);">Sales trend${filterLabel}</div>`;
+          html += '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Period</th><th>Sales Amount</th><th>Quantity</th><th>Invoices</th></tr></thead><tbody>';
+          periods.forEach(p => {
+            html += `<tr>
+              <td><strong>${escapeHtml(p.period)}</strong></td>
+              <td style="font-weight:600;">${formatNum(p.sales_amount)}</td>
+              <td>${p.quantity.toLocaleString()}</td>
+              <td>${p.invoice_count}</td>
+            </tr>`;
+          });
+          html += '</tbody></table></div>';
+          if (data.totals) {
+            html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>Totals:</strong> Sales: ${formatNum(data.totals.total_sales)} | Qty: ${data.totals.total_quantity.toLocaleString()} | Invoices: ${data.totals.total_invoices}</div>`;
+          }
+          mgrReportPreviewEl.innerHTML = html;
+          mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
+          // Chart — bar + line combo
+          if (typeof Chart !== 'undefined' && periods.length) {
+            const chartPanel = document.getElementById('mgr-report-chart-panel');
+            chartPanel.style.display = 'block';
+            if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
+            managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
+              type: 'bar', data: {
+                labels: periods.map(p => p.period),
+                datasets: [
+                  { label: 'Sales Amount', data: periods.map(p => p.sales_amount), backgroundColor: '#0f766e', yAxisID: 'y' },
+                  { label: 'Quantity', data: periods.map(p => p.quantity), type: 'line', borderColor: '#f97316', backgroundColor: 'transparent', yAxisID: 'y1', tension: 0.3 }
+                ]
+              }, options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Sales Trend' + (data.product_filter ? ' — ' + data.product_filter : '') } },
+                scales: {
+                  y: { position: 'left', ticks: { callback: v => formatNum(v) } },
+                  y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Quantity' } }
+                }
+              }
+            });
+          }
+          if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
+          if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
+          if (mgrExportPdfBtn) mgrExportPdfBtn.disabled = false;
         } catch (err) { showAlert('Error: ' + err.message, true); }
         finally { mgrRunBtn.disabled = false; }
         return;

@@ -83,7 +83,7 @@
     }
     .form-grid input, .form-grid select { width: 100%; margin-bottom: 0; }
     .form-grid .btn-cell { display: flex; align-items: end; }
-    .form-grid .btn-cell button { width: 100%; white-space: nowrap; }
+    .form-grid .btn-cell button { width: 100%; white-space: nowrap; height: 38px; box-sizing: border-box; }
     .mgr-form-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -365,9 +365,9 @@
     .prod-tab.active { background: var(--primary); color: white; }
     .prod-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; align-items: end; }
     .prod-form-grid label { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.25rem; }
-    .prod-form-grid input, .prod-form-grid select { width: 100%; padding: 0.45rem 0.6rem; font-size: 0.88rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0; }
+    .prod-form-grid input, .prod-form-grid select { width: 100%; height: 38px; padding: 0.5rem 0.75rem; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0; box-sizing: border-box; }
     .prod-form-grid .prod-btn-cell { display: flex; align-items: end; }
-    .prod-form-grid .prod-btn-cell button { width: 100%; padding: 0.5rem 1.25rem; }
+    .prod-form-grid .prod-btn-cell button { width: 100%; height: 38px; box-sizing: border-box; }
     .report-chart-panel canvas { max-height: 280px; }
     .chat-msg.report-msg { max-width: 100%; width: 100%; overflow: visible; }
     .chat-msg.report-msg .report-preview-wrap { max-height: 420px; overflow: auto; }
@@ -1108,9 +1108,9 @@
     <div class="card" data-page="bank-statements">
       <h2>Bank Statement Import</h2>
       <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically. <span style="color:#f57f17;font-size:0.8rem;">(PDF/image OCR requires an AI model to be configured in Settings.)</span></p>
-      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
-        <input type="file" id="bs-file-input" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;">
-        <input type="text" id="bs-bank-name" placeholder="Bank name (e.g. Melli)" style="width:180px;">
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
+        <input type="file" id="bs-file-input" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;margin-bottom:0;">
+        <input type="text" id="bs-bank-name" placeholder="Bank name (e.g. Melli)" style="width:180px;margin-bottom:0;">
         <button type="button" class="btn btn-primary" id="bs-upload-btn">Upload & Parse</button>
       </div>
       <div id="bs-upload-status" style="display:none;margin-bottom:1rem;" class="alert"></div>
@@ -1147,7 +1147,7 @@
         <button type="button" class="btn btn-primary" id="audit-run-btn">Run Full Audit</button>
         <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
           <label for="audit-liability-threshold" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;margin:0;">Liability threshold (IRR):</label>
-          <input type="number" id="audit-liability-threshold" style="width:180px;margin:0;padding:0.4rem 0.6rem;font-size:0.88rem;" placeholder="e.g. 500,000,000" min="0" step="1000000">
+          <input type="number" id="audit-liability-threshold" style="width:180px;margin:0;" placeholder="e.g. 500,000,000" min="0" step="1000000">
           <button type="button" class="btn btn-primary btn-sm" id="audit-save-threshold-btn" style="white-space:nowrap;">Save</button>
         </div>
       </div>
@@ -1204,9 +1204,9 @@
         <div id="chart-modal-body"></div>
         <div id="chart-modal-txn-area" style="display:none;">
           <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center;">
-            <input type="text" id="drilldown-search" placeholder="Search description, reference, entity..." style="flex:1;min-width:180px;">
-            <input type="date" id="drilldown-from">
-            <input type="date" id="drilldown-to">
+            <input type="text" id="drilldown-search" placeholder="Search description, reference, entity..." style="flex:1;min-width:180px;margin-bottom:0;">
+            <input type="date" id="drilldown-from" style="margin-bottom:0;">
+            <input type="date" id="drilldown-to" style="margin-bottom:0;">
             <button class="btn btn-secondary btn-sm" onclick="_exportDrilldown('csv')">CSV</button>
             <button class="btn btn-secondary btn-sm" onclick="_exportDrilldown('pdf')">PDF</button>
           </div>
@@ -4410,7 +4410,8 @@
       if (v == null) return '—';
       if (typeof v === 'number') return formatNum(v);
       if (typeof v === 'boolean') return v ? t('yes') : t('no');
-      if (typeof v === 'object') return escapeHtml(JSON.stringify(v));
+      if (Array.isArray(v)) return escapeHtml(v.map(String).join(', '));
+      if (typeof v === 'object') return escapeHtml(Object.entries(v).map(([k2, v2]) => `${k2}: ${v2}`).join(', '));
       const s = String(v);
       if ((key || '').toLowerCase().includes('id')) return escapeHtml(shortenUuid(s));
       return escapeHtml(localizeDynamicText(s));
@@ -4653,7 +4654,33 @@
       if (report.totals && typeof report.totals === 'object') {
         return renderObjectAsMiniTable(report.totals);
       }
-      return `<pre style="white-space:pre-wrap; margin:0; max-height:300px; overflow:auto;">${escapeHtml(JSON.stringify(report, null, 2))}</pre>`;
+      // Render any remaining object as a friendly key-value card instead of raw JSON
+      const entries = Object.entries(report).filter(([k, v]) => v != null && k !== 'report_type' && k !== 'period');
+      if (entries.length) {
+        const rows = entries.map(([k, v]) => {
+          let display;
+          if (typeof v === 'object' && !Array.isArray(v)) {
+            display = Object.entries(v).filter(([, sv]) => sv != null).map(([sk, sv]) => `<div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="color:var(--text-muted);font-size:0.82rem;">${escapeHtml(localizeReportFieldName(sk))}</span><span>${escapeHtml(typeof sv === 'number' ? formatNum(sv) : String(sv))}</span></div>`).join('');
+            return `<tr><td style="vertical-align:top;font-weight:600;">${escapeHtml(localizeReportFieldName(k))}</td><td>${display || '—'}</td></tr>`;
+          }
+          if (Array.isArray(v)) {
+            if (v.length === 0) return '';
+            if (typeof v[0] === 'object') {
+              const keys = Object.keys(v[0]);
+              const head = keys.map(h => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
+              const body = v.slice(0, 50).map(row => `<tr>${keys.map(h => `<td>${formatReportCell(row[h], h)}</td>`).join('')}</tr>`).join('');
+              display = `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+            } else {
+              display = v.map(item => escapeHtml(String(item))).join(', ');
+            }
+            return `<tr><td style="vertical-align:top;font-weight:600;">${escapeHtml(localizeReportFieldName(k))}</td><td>${display}</td></tr>`;
+          }
+          display = typeof v === 'number' ? formatNum(v) : escapeHtml(String(v));
+          return `<tr><td style="font-weight:600;">${escapeHtml(localizeReportFieldName(k))}</td><td>${display}</td></tr>`;
+        }).filter(Boolean).join('');
+        return `<div class="report-preview-wrap"><table class="mini-table"><tbody>${rows}</tbody></table></div>`;
+      }
+      return '<p class="empty-state">' + escapeHtml(t('noReportData')) + '</p>';
     }
 
     function _reportQuickSummary(report) {
@@ -4971,14 +4998,46 @@
           const messageText = typeof extractMessageText === 'function' ? extractMessageText(data.message) : (data.message || '');
           chatPageHistory.push({ role: 'assistant', content: messageText });
           appendChatPageMessage('assistant', messageText);
-          if (data.report && typeof appendChatReport === 'function') {
-            // Append report into the dedicated chat page messages container
+          if (data.report && typeof renderReportPreviewHtml === 'function') {
+            // Append formatted report into the dedicated chat page messages container
             const reportDiv = document.createElement('div');
-            reportDiv.className = 'chat-msg report-msg';
-            reportDiv.innerHTML = '<div class="report-preview-wrap"><pre style="white-space: pre-wrap;">' +
-              (typeof data.report === 'string' ? data.report : JSON.stringify(data.report, null, 2)) + '</pre></div>';
+            reportDiv.className = 'chat-msg assistant report-msg';
+            reportDiv.setAttribute('dir', 'auto');
+            const report = data.report;
+            const period = typeof reportPeriodText === 'function' ? reportPeriodText(report) : '';
+            const quickSummary = typeof _reportQuickSummary === 'function' ? _reportQuickSummary(report) : '';
+            const analysisHtml = typeof _reportAnalysisHtml === 'function' ? _reportAnalysisHtml(report) : '';
+            const chartId = 'chat-page-chart-' + Math.random().toString(16).slice(2);
+            const detailId = 'chat-page-detail-' + Math.random().toString(16).slice(2);
+            reportDiv.innerHTML = `
+              <div style="font-weight:700; margin-bottom:0.35rem;">${escapeHtml(t('reportResult'))}</div>
+              ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
+              ${quickSummary ? `<div style="font-size:0.88rem;color:var(--text-muted);margin:0.25rem 0;">${escapeHtml(quickSummary)}</div>` : ''}
+              ${analysisHtml}
+              <details id="${detailId}">
+                <summary style="cursor:pointer;font-size:0.85rem;color:var(--primary);margin:0.3rem 0;">Show full report</summary>
+                <div>${renderReportPreviewHtml(report)}</div>
+                <div class="panel report-chart-panel" style="display:none;">
+                  <h3>${escapeHtml(t('chartWord'))}</h3>
+                  <canvas id="${chartId}" height="200"></canvas>
+                </div>
+              </details>
+            `;
             chatPageMessages.appendChild(reportDiv);
             chatPageMessages.scrollTop = chatPageMessages.scrollHeight;
+            const detailsEl = reportDiv.querySelector('#' + detailId);
+            if (detailsEl) {
+              let chartDone = false;
+              detailsEl.addEventListener('toggle', () => {
+                if (detailsEl.open && !chartDone) {
+                  const canvas = reportDiv.querySelector('#' + chartId);
+                  const panel = reportDiv.querySelector('.report-chart-panel');
+                  const ch = typeof renderReportChart === 'function' ? renderReportChart(canvas, report, null) : null;
+                  if (panel && ch) panel.style.display = 'block';
+                  chartDone = true;
+                }
+              });
+            }
           }
           if (data.transaction) {
             appendChatPageMessage('assistant', '\u2705 Transaction recorded! Switch to the Vouchers tab to review and finalize.');

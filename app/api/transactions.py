@@ -214,6 +214,7 @@ def _transaction_to_read(t: Transaction) -> TransactionRead:
         date=t.date,
         reference=t.reference,
         description=t.description,
+        currency=t.currency or "IRR",
         lines=lines,
         entity_links=[
             TransactionEntityLinkRead(

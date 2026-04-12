@@ -26,6 +26,7 @@ class CashFlowService:
 
         inflows: dict[str, int] = defaultdict(int)
         outflows: dict[str, int] = defaultdict(int)
+        details: dict[str, list[dict]] = defaultdict(list)
 
         for txn in txns:
             cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("1110")]
@@ -56,6 +57,18 @@ class CashFlowService:
             else:
                 outflows[key] += int(abs(cash_delta))
 
+            # Collect counterpart account names for description
+            counterpart = ", ".join(
+                sorted({ln.account.name for ln in txn.lines if not (ln.account.code or "").startswith("1110") and ln.account.name})
+            ) or "—"
+            details[key].append({
+                "date": txn.date.isoformat(),
+                "description": txn.description or counterpart,
+                "counterpart_accounts": counterpart,
+                "amount": int(cash_delta),
+                "type": "inflow" if cash_delta > 0 else "outflow",
+            })
+
         all_keys = sorted(set(list(inflows.keys()) + list(outflows.keys())))
         periods = []
         for k in all_keys:
@@ -64,6 +77,7 @@ class CashFlowService:
                 "inflow": inflows.get(k, 0),
                 "outflow": outflows.get(k, 0),
                 "net": inflows.get(k, 0) - outflows.get(k, 0),
+                "transactions": details.get(k, []),
             })
 
         return {

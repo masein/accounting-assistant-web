@@ -62,7 +62,9 @@
       box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
     }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; }
-    .row > * { flex: 1 1 140px; }
+    .row > * { flex: 1 1 180px; min-width: 0; }
+    .row.mgr-form-row > * { flex: 1 1 200px; }
+    .row.mgr-form-row > .mgr-btn-wrap { flex: 0 0 auto; }
     .lines-table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
     .lines-table th, .lines-table td { padding: 0.5rem; border: 1px solid var(--border); text-align: left; }
     .lines-table th { background: #f1f5f9; font-weight: 600; }
@@ -850,7 +852,7 @@
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
         <span id="manager-subtitle" data-i18n="managerSubtitle">Generate balance sheet, income statement, cash flow, accounting books, AR/AP, and sales/purchase reports.</span>
       </p>
-      <div class="row" style="margin-bottom:0.75rem;">
+      <div class="row mgr-form-row" style="margin-bottom:0.75rem;">
         <div>
           <label for="mgr-report-type" data-i18n="labelReportType">Report type</label>
           <select id="mgr-report-type">
@@ -895,8 +897,8 @@
             <option value="seasonal">Seasonal</option>
           </select>
         </div>
-        <div style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-primary" id="mgr-run-btn" data-i18n="btnRunReport">Run report</button>
+        <div class="mgr-btn-wrap" style="display:flex; align-items:flex-end;">
+          <button type="button" class="btn btn-primary" id="mgr-run-btn" data-i18n="btnRunReport" style="white-space:nowrap;">Run report</button>
         </div>
       </div>
       <div class="report-actions">
@@ -1175,18 +1177,18 @@
       <div id="ceo-kpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem;margin-bottom:1rem;"></div>
       <div id="ceo-alerts" style="margin-bottom:1rem;"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-        <div class="panel"><h3>Revenue vs Expenses Trend</h3><canvas id="ceo-trend-chart" height="220"></canvas></div>
-        <div class="panel"><h3>Profit Trend</h3><canvas id="ceo-profit-chart" height="220"></canvas></div>
+        <div class="panel"><h3>Revenue vs Expenses Trend</h3><div style="position:relative;height:280px;"><canvas id="ceo-trend-chart"></canvas></div></div>
+        <div class="panel"><h3>Profit Trend</h3><div style="position:relative;height:280px;"><canvas id="ceo-profit-chart"></canvas></div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-        <div class="panel"><h3>Top Expenses</h3><canvas id="ceo-expense-chart" height="220"></canvas></div>
+        <div class="panel"><h3>Top Expenses</h3><div style="position:relative;height:280px;"><canvas id="ceo-expense-chart"></canvas></div></div>
         <div class="panel"><h3>Balance Sheet Summary</h3>
           <div id="ceo-balance-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-top:0.5rem;">
             <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Assets</div><div id="ceo-assets" style="font-size:1.3rem;font-weight:700;">—</div></div>
             <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Liabilities</div><div id="ceo-liabilities" style="font-size:1.3rem;font-weight:700;">—</div></div>
             <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Equity</div><div id="ceo-equity" style="font-size:1.3rem;font-weight:700;">—</div></div>
           </div>
-          <div style="margin-top:0.75rem;"><canvas id="ceo-balance-chart" height="180"></canvas></div>
+          <div style="position:relative;height:200px;margin-top:0.75rem;"><canvas id="ceo-balance-chart"></canvas></div>
         </div>
       </div>
       <div class="panel" style="margin-bottom:1rem;">
@@ -5986,10 +5988,26 @@
           lastManagerReport = data;
           // Render table
           const periods = data.periods || [];
-          let html = '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Period</th><th>Inflow</th><th>Outflow</th><th>Net</th></tr></thead><tbody>';
-          periods.forEach(p => {
+          let html = '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Period</th><th>Inflow</th><th>Outflow</th><th>Net</th><th>Txns</th><th></th></tr></thead><tbody>';
+          periods.forEach((p, idx) => {
             const netColor = p.net >= 0 ? '#2e7d32' : '#c62828';
-            html += `<tr><td>${escapeHtml(p.period)}</td><td style="color:#2e7d32">${formatNum(p.inflow)}</td><td style="color:#c62828">${formatNum(p.outflow)}</td><td style="color:${netColor};font-weight:600;">${formatNum(p.net)}</td></tr>`;
+            const txnCount = (p.transactions || []).length;
+            html += `<tr style="cursor:pointer;" onclick="document.getElementById('cf-detail-${idx}').style.display = document.getElementById('cf-detail-${idx}').style.display === 'none' ? '' : 'none';">
+              <td><strong>${escapeHtml(p.period)}</strong></td><td style="color:#2e7d32">${formatNum(p.inflow)}</td><td style="color:#c62828">${formatNum(p.outflow)}</td><td style="color:${netColor};font-weight:600;">${formatNum(p.net)}</td><td>${txnCount}</td><td style="font-size:0.75rem;color:var(--primary);">▼ details</td></tr>`;
+            // Expandable transaction detail rows
+            html += `<tr id="cf-detail-${idx}" style="display:none;"><td colspan="6" style="padding:0;">`;
+            if (txnCount > 0) {
+              html += '<table class="mini-table" style="margin:0;background:#f8fafc;"><thead><tr><th>Date</th><th>Description</th><th>Counterpart</th><th>Type</th><th>Amount</th></tr></thead><tbody>';
+              (p.transactions || []).forEach(t => {
+                const amtColor = t.type === 'inflow' ? '#2e7d32' : '#c62828';
+                const amtSign = t.type === 'inflow' ? '+' : '−';
+                html += `<tr><td>${escapeHtml(t.date)}</td><td>${escapeHtml(t.description || '—')}</td><td style="font-size:0.78rem;">${escapeHtml(t.counterpart_accounts || '—')}</td><td><span style="color:${amtColor};font-weight:600;">${t.type}</span></td><td style="color:${amtColor};font-weight:600;">${amtSign}${formatNum(Math.abs(t.amount))}</td></tr>`;
+              });
+              html += '</tbody></table>';
+            } else {
+              html += '<div style="padding:0.5rem;color:var(--text-muted);font-size:0.82rem;">No transactions in this period.</div>';
+            }
+            html += '</td></tr>';
           });
           html += '</tbody></table></div>';
           if (data.totals) {

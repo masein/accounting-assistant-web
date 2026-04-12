@@ -2453,3 +2453,247 @@ def import_transactions(
         ids.append(t.id)
     db.commit()
     return ImportTransactionsResponse(imported=len(ids), ids=ids)
+
+
+# ---------------------------------------------------------------------------
+# Excel journal import
+# ---------------------------------------------------------------------------
+
+import hashlib
+import json
+import tempfile
+from pathlib import Path as _Path
+
+from app.schemas.transaction import (
+    ExcelAccountMapping,
+    ExcelImportConfirmRequest,
+    ExcelImportConfirmResponse,
+    ExcelImportPreviewAccount,
+    ExcelImportPreviewLine,
+    ExcelImportPreviewResponse,
+    ExcelImportPreviewVoucher,
+)
+
+# Temp storage for uploaded Excel files (token → file path)
+_EXCEL_UPLOAD_STORE: dict[str, str] = {}
+
+
+@router.post("/excel-import/preview", response_model=ExcelImportPreviewResponse)
+async def excel_import_preview(
+    file: UploadFile = File(...),
+    jalali_year: int | None = Query(None, description="Jalali year for date conversion (e.g. 1403)"),
+    db: Session = Depends(get_db),
+):
+    """Upload an Excel file and preview the parsed journal entries."""
+    from app.services.excel_journal_parser import parse_excel_journal
+
+    if not file.filename or not file.filename.lower().endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Only .xlsx/.xls files are supported")
+
+    # Save to temp file
+    content = await file.read()
+    if len(content) > 20 * 1024 * 1024:  # 20MB limit
+        raise HTTPException(status_code=400, detail="File too large (max 20MB)")
+
+    token = hashlib.sha256(content).hexdigest()[:16] + "_" + (file.filename or "import")
+    tmp_dir = _Path(tempfile.gettempdir()) / "excel_imports"
+    tmp_dir.mkdir(exist_ok=True)
+    tmp_path = tmp_dir / f"{token}.xlsx"
+    tmp_path.write_bytes(content)
+    _EXCEL_UPLOAD_STORE[token] = str(tmp_path)
+
+    # Parse
+    result = parse_excel_journal(str(tmp_path), jalali_year=jalali_year)
+
+    # Check which accounts exist in our chart
+    existing_codes = {
+        a.code
+        for a in db.execute(select(Account)).scalars().all()
+    }
+
+    preview_accounts = []
+    for acct in result.unique_accounts:
+        preview_accounts.append(ExcelImportPreviewAccount(
+            title1=acct.title1,
+            title2=acct.title2,
+            title3=acct.title3,
+            suggested_code=acct.suggested_code,
+            suggested_name=acct.suggested_name,
+            exists_in_chart=acct.suggested_code in existing_codes if acct.suggested_code else False,
+        ))
+
+    preview_vouchers = []
+    for v in result.vouchers:
+        lines = []
+        for l in v.lines:
+            from app.services.excel_journal_parser import _suggest_account_code
+            suggested = _suggest_account_code(l.title1, l.title2, l.title3)
+            lines.append(ExcelImportPreviewLine(
+                title1=l.title1, title2=l.title2, title3=l.title3,
+                description=l.description,
+                debit=l.debit, credit=l.credit,
+                suggested_code=suggested,
+                project_group=l.project_group,
+                project=l.project,
+                project_name=l.project_name,
+            ))
+        preview_vouchers.append(ExcelImportPreviewVoucher(
+            voucher_number=str(v.voucher_number),
+            date_code=str(v.date_code) if v.date_code else None,
+            gregorian_date=v.gregorian_date,
+            lines=lines,
+            total_debit=v.total_debit,
+            total_credit=v.total_credit,
+            is_balanced=v.is_balanced,
+        ))
+
+    # Serialize raw_preview: convert all cells to strings
+    raw_preview = []
+    for row in result.raw_preview:
+        raw_preview.append([str(c) if c is not None else None for c in row])
+
+    col_map = {}
+    m = result.column_mapping
+    for f in ['row_num', 'voucher_num', 'day', 'title1', 'title2', 'title3',
+              'notes', 'debit', 'credit', 'balance', 'project_group', 'project', 'project_name']:
+        col_map[f] = getattr(m, f)
+
+    return ExcelImportPreviewResponse(
+        file_token=token,
+        headers=result.headers,
+        column_mapping=col_map,
+        vouchers=preview_vouchers,
+        unique_accounts=preview_accounts,
+        jalali_year=result.jalali_year or 1403,
+        total_rows=result.total_rows,
+        total_vouchers=result.total_vouchers,
+        errors=result.errors,
+        raw_preview=raw_preview,
+    )
+
+
+@router.post("/excel-import/confirm", response_model=ExcelImportConfirmResponse)
+def excel_import_confirm(
+    payload: ExcelImportConfirmRequest,
+    db: Session = Depends(get_db),
+):
+    """Confirm and import the previewed Excel journal entries."""
+    from app.services.excel_journal_parser import parse_excel_journal
+
+    # Retrieve file
+    file_path = _EXCEL_UPLOAD_STORE.get(payload.file_token)
+    if not file_path or not _Path(file_path).exists():
+        raise HTTPException(status_code=400, detail="Upload expired or not found. Please re-upload the file.")
+
+    # Re-parse with possibly updated column mapping
+    col_map = None
+    if payload.column_mapping:
+        col_map = payload.column_mapping
+
+    result = parse_excel_journal(file_path, jalali_year=payload.jalali_year, column_mapping=col_map)
+
+    # Build account mapping lookup: "title1||title2||title3" → account_code
+    acct_map: dict[str, str] = {}
+    for am in payload.account_mappings:
+        key = f"{am.title1.strip()}||{am.title2.strip()}||{am.title3.strip()}"
+        acct_map[key] = am.account_code.strip()
+
+    # Verify all mapped codes exist (or create sub-accounts if needed)
+    existing_accounts = {a.code: a for a in db.execute(select(Account)).scalars().all()}
+    accounts_created = 0
+
+    # Validate all account codes in mappings exist
+    needed_codes = set(acct_map.values())
+    missing_codes = needed_codes - set(existing_accounts.keys())
+    if missing_codes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Account codes not found in chart: {', '.join(sorted(missing_codes))}. "
+                   f"Please create them first or adjust the mapping.",
+        )
+
+    multiplier = payload.amount_multiplier
+    transaction_ids: list[UUID] = []
+    errors: list[str] = []
+
+    for v in result.vouchers:
+        if not v.gregorian_date:
+            errors.append(f"Voucher {v.voucher_number}: could not determine date (day code: {v.date_code})")
+            continue
+
+        if not v.is_balanced:
+            errors.append(f"Voucher {v.voucher_number}: unbalanced (debit={v.total_debit}, credit={v.total_credit})")
+            continue
+
+        # Build description from first line
+        descriptions = [l.description for l in v.lines if l.description]
+        desc = descriptions[0] if descriptions else f"Excel import voucher {v.voucher_number}"
+
+        # Project info
+        projects = set()
+        for l in v.lines:
+            if l.project_group or l.project_name:
+                parts = [p for p in [l.project_group, l.project, l.project_name] if p]
+                if parts:
+                    projects.add(" / ".join(parts))
+        if projects:
+            desc += " [" + "; ".join(projects) + "]"
+
+        t = Transaction(
+            date=v.gregorian_date,
+            reference=f"V{v.voucher_number}",
+            description=desc[:2000],
+        )
+        db.add(t)
+        db.flush()
+
+        for line in v.lines:
+            acct_key = f"{line.title1}||{line.title2}||{line.title3}"
+            code = acct_map.get(acct_key)
+            if not code:
+                errors.append(
+                    f"Voucher {v.voucher_number}, row {line.row_index}: "
+                    f"no account mapping for [{line.title1} > {line.title2} > {line.title3}]"
+                )
+                continue
+
+            debit_amt = int(round(line.debit * multiplier))
+            credit_amt = int(round(line.credit * multiplier))
+
+            acc = existing_accounts.get(code)
+            if not acc:
+                errors.append(f"Account code {code} not found")
+                continue
+
+            db.add(TransactionLine(
+                transaction_id=t.id,
+                account_id=acc.id,
+                debit=debit_amt,
+                credit=credit_amt,
+                line_description=line.description[:512] if line.description else None,
+            ))
+
+        transaction_ids.append(t.id)
+
+    if transaction_ids:
+        db.commit()
+        # Invalidate dashboard cache
+        try:
+            from app.api.reports import invalidate_dashboard_cache
+            invalidate_dashboard_cache()
+        except Exception:
+            pass
+
+    # Clean up temp file
+    try:
+        _Path(file_path).unlink(missing_ok=True)
+        _EXCEL_UPLOAD_STORE.pop(payload.file_token, None)
+    except Exception:
+        pass
+
+    return ExcelImportConfirmResponse(
+        imported=len(transaction_ids),
+        transaction_ids=transaction_ids,
+        accounts_created=accounts_created,
+        errors=errors,
+    )

@@ -191,3 +191,68 @@ class ChatResponse(BaseModel):
         default=None,
         description="Partial form field updates (e.g. {date: '2026-02-23'}) to apply to the current voucher form",
     )
+
+
+# ----- Excel journal import -----
+
+class ExcelAccountMapping(BaseModel):
+    """One row of the account mapping table: maps Title hierarchy to an account code."""
+    title1: str = ""
+    title2: str = ""
+    title3: str = ""
+    account_code: str = Field(..., description="Target account code in our chart")
+
+class ExcelImportPreviewLine(BaseModel):
+    title1: str = ""
+    title2: str = ""
+    title3: str = ""
+    description: str = ""
+    debit: float = 0
+    credit: float = 0
+    suggested_code: Optional[str] = None
+    project_group: Optional[str] = None
+    project: Optional[str] = None
+    project_name: Optional[str] = None
+
+class ExcelImportPreviewVoucher(BaseModel):
+    voucher_number: str
+    date_code: Optional[str] = None
+    gregorian_date: Optional[date] = None
+    lines: list[ExcelImportPreviewLine]
+    total_debit: float = 0
+    total_credit: float = 0
+    is_balanced: bool = True
+
+class ExcelImportPreviewAccount(BaseModel):
+    title1: str = ""
+    title2: str = ""
+    title3: str = ""
+    suggested_code: Optional[str] = None
+    suggested_name: Optional[str] = None
+    exists_in_chart: bool = False
+
+class ExcelImportPreviewResponse(BaseModel):
+    file_token: str = Field(..., description="Token to reference the uploaded file in confirm step")
+    headers: list[str]
+    column_mapping: dict[str, Optional[int]]
+    vouchers: list[ExcelImportPreviewVoucher]
+    unique_accounts: list[ExcelImportPreviewAccount]
+    jalali_year: int
+    total_rows: int = 0
+    total_vouchers: int = 0
+    errors: list[str] = Field(default_factory=list)
+    raw_preview: list[list[Optional[str]]] = Field(default_factory=list)
+
+class ExcelImportConfirmRequest(BaseModel):
+    """Confirm import with account mappings and optional overrides."""
+    file_token: str = Field(..., description="Token from preview step identifying the uploaded file")
+    jalali_year: int = Field(..., description="Jalali year for date conversion")
+    account_mappings: list[ExcelAccountMapping] = Field(..., min_length=1)
+    column_mapping: Optional[dict[str, Optional[int]]] = None
+    amount_multiplier: float = Field(1.0, description="Multiply amounts by this (e.g. 10000 for toman→rial)")
+
+class ExcelImportConfirmResponse(BaseModel):
+    imported: int
+    transaction_ids: list[UUID]
+    accounts_created: int = 0
+    errors: list[str] = Field(default_factory=list)

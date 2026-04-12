@@ -202,6 +202,7 @@ def entity_matrix(
     entity_type: str | None = Query(None, description="client or supplier"),
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    search: str | None = Query(None, description="Filter by entity or product name"),
     db: Session = Depends(get_db),
 ) -> EntityMatrixResponse:
     """Pivot: entity x product with revenue/cost."""
@@ -210,11 +211,19 @@ def entity_matrix(
     entities: dict[str, dict] = {}
     product_agg: dict[str, dict] = defaultdict(lambda: {"revenue": 0, "cost": 0, "entities": set()})
 
+    search_lower = search.lower().strip() if search else None
+
     for item, invoice, entity in rows:
         if not entity:
             continue
         if entity_type and entity.type != entity_type:
             continue
+        # Filter by entity name or product name
+        if search_lower:
+            entity_match = search_lower in (entity.name or "").lower()
+            product_match = search_lower in (item.product_name or "").lower()
+            if not entity_match and not product_match:
+                continue
 
         eid = str(entity.id)
         pname = item.product_name.strip()

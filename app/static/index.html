@@ -7461,6 +7461,8 @@
       if (from) q.set('from_date', from);
       if (to) q.set('to_date', to);
       q.set('entity_type', entityType);
+      const search = document.getElementById('prod-search').value.trim();
+      if (search) q.set('search', search);
 
       const res = await fetch(API + '/products/entity-matrix?' + q.toString());
       const data = await res.json();

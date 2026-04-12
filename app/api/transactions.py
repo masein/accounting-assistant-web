@@ -2629,6 +2629,12 @@ def excel_import_confirm(
         descriptions = [l.description for l in v.lines if l.description]
         desc = descriptions[0] if descriptions else f"Excel import voucher {v.voucher_number}"
 
+        # Currency tag
+        currency = payload.currency or "IRR"
+        if currency != "IRR":
+            orig_total = v.total_debit  # original amount before multiplier
+            desc += f" [{currency} {orig_total:,.2f}]"
+
         # Project info
         projects = set()
         for l in v.lines:

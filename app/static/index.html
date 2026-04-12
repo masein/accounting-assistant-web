@@ -68,6 +68,7 @@
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input[type="number"] { -moz-appearance: textfield; }
+    input[type="file"] { padding: 0.35rem 0.5rem; font-size: 0.8rem; line-height: 1.4; }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
     .row > * { flex: 1 1 180px; min-width: 0; }
     /* Unified form grid for all sections */
@@ -691,28 +692,43 @@
 
         <!-- Step 1: Upload -->
         <div id="excel-import-step1">
-          <div style="display: flex; gap: 0.75rem; align-items: end; flex-wrap: wrap;">
+          <div class="form-grid" style="grid-template-columns: 1fr auto auto auto auto; align-items: end;">
             <div>
               <label for="excel-import-file" style="font-size: 0.85rem;">Excel File</label>
-              <input type="file" id="excel-import-file" accept=".xlsx,.xls" style="height: 38px;">
+              <input type="file" id="excel-import-file" accept=".xlsx,.xls">
             </div>
             <div>
               <label for="excel-import-year" style="font-size: 0.85rem;">Jalali Year</label>
-              <input type="number" id="excel-import-year" placeholder="e.g. 1403" style="width: 100px; height: 38px;">
+              <input type="number" id="excel-import-year" placeholder="1404" style="width: 90px;">
             </div>
             <div>
-              <label for="excel-import-multiplier" style="font-size: 0.85rem;">Amount Multiplier</label>
-              <select id="excel-import-multiplier" style="height: 38px;">
-                <option value="1">1x (as-is)</option>
+              <label for="excel-import-currency" style="font-size: 0.85rem;">Currency</label>
+              <select id="excel-import-currency" onchange="excelImportCurrencyChanged()">
+                <option value="IRR">IRR (Rial)</option>
+                <option value="IRT">IRT (Toman)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="AED">AED (درهم)</option>
+                <option value="TRY">TRY (لیرا)</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div>
+              <label for="excel-import-multiplier" style="font-size: 0.85rem;">Multiplier</label>
+              <select id="excel-import-multiplier">
+                <option value="1" selected>1x (as-is)</option>
                 <option value="10">10x</option>
                 <option value="1000">1,000x</option>
-                <option value="10000" selected>10,000x (Toman to Rial)</option>
+                <option value="10000">10,000x</option>
                 <option value="1000000">1,000,000x</option>
               </select>
             </div>
-            <button type="button" class="btn btn-primary" id="excel-import-upload-btn" onclick="excelImportUpload()" style="height: 38px;">
-              Upload & Preview
-            </button>
+            <div class="btn-cell">
+              <button type="button" class="btn btn-primary" id="excel-import-upload-btn" onclick="excelImportUpload()">
+                Upload &amp; Preview
+              </button>
+            </div>
           </div>
           <div id="excel-import-status" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
         </div>
@@ -7960,6 +7976,19 @@
     let _excelImportAccounts = [];
     let _excelImportVouchers = [];
 
+    function excelImportCurrencyChanged() {
+      const currency = document.getElementById('excel-import-currency').value;
+      const multiplierSel = document.getElementById('excel-import-multiplier');
+      // Auto-set sensible defaults based on currency
+      if (currency === 'IRT') {
+        multiplierSel.value = '10';  // Toman to Rial: x10
+      } else if (currency === 'IRR') {
+        multiplierSel.value = '1';   // Already Rial
+      } else {
+        multiplierSel.value = '1';   // Foreign currency: keep as-is
+      }
+    }
+
     async function excelImportUpload() {
       const fileInput = document.getElementById('excel-import-file');
       const yearInput = document.getElementById('excel-import-year');
@@ -8167,9 +8196,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             file_token: _excelImportToken,
-            jalali_year: parseInt(year) || 1403,
+            jalali_year: parseInt(year) || 1404,
             account_mappings: accountMappings,
             amount_multiplier: multiplier,
+            currency: document.getElementById('excel-import-currency').value || 'IRR',
           }),
         });
 

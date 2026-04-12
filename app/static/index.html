@@ -52,11 +52,13 @@
       padding: 0.5rem 0.75rem;
       border: 1px solid var(--border);
       border-radius: 6px;
-      font-size: 1rem;
+      font-size: 0.9rem;
       margin-bottom: 0.75rem;
       background: #fff;
       box-sizing: border-box;
+      height: 38px;
     }
+    textarea { height: auto; }
     input:focus, textarea:focus, select:focus {
       outline: none;
       border-color: var(--primary);
@@ -81,7 +83,7 @@
     }
     .form-grid input, .form-grid select { width: 100%; margin-bottom: 0; }
     .form-grid .btn-cell { display: flex; align-items: end; }
-    .form-grid .btn-cell button { width: 100%; }
+    .form-grid .btn-cell button { width: 100%; white-space: nowrap; }
     .mgr-form-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -116,9 +118,7 @@
     }
     .mgr-form-grid .mgr-btn-cell .btn {
       width: 100%;
-      padding: 0.55rem 1.2rem;
       font-weight: 600;
-      font-size: 0.92rem;
     }
     .report-actions {
       display: flex;
@@ -152,6 +152,8 @@
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
+      height: 38px;
+      box-sizing: border-box;
       font-weight: 600;
       transition: transform 140ms ease, box-shadow 180ms ease, background-color 180ms ease, opacity 180ms ease;
     }
@@ -162,7 +164,7 @@
     .btn-primary:hover { background: var(--primary-hover); }
     .btn-secondary { background: #e2e8f0; color: var(--text); }
     .btn-secondary:hover { background: #cbd5e1; }
-    .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+    .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; height: auto; }
     .alert {
       padding: 1rem 1.25rem;
       border-radius: 8px;
@@ -928,7 +930,7 @@
         <span id="manager-subtitle" data-i18n="managerSubtitle">Generate balance sheet, income statement, cash flow, accounting books, AR/AP, and sales/purchase reports.</span>
       </p>
       <div class="mgr-form-grid">
-        <div style="grid-column: span 2;">
+        <div>
           <label for="mgr-report-type" data-i18n="labelReportType">Report type</label>
           <select id="mgr-report-type">
             <option value="balance_sheet" data-i18n="reportBalanceSheet">Balance sheet (ترازنامه)</option>

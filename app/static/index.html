@@ -1077,6 +1077,19 @@
             <option value="seasonal">Seasonal</option>
           </select>
         </div>
+        <div>
+          <label for="mgr-currency">Currency</label>
+          <select id="mgr-currency">
+            <option value="">All</option>
+            <option value="IRR" selected>IRR (Rial)</option>
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+            <option value="AED">AED</option>
+            <option value="TRY">TRY</option>
+            <option value="IRT">IRT (Toman)</option>
+          </select>
+        </div>
         <div class="mgr-btn-cell">
           <button type="button" class="btn btn-primary" id="mgr-run-btn" data-i18n="btnRunReport">Run report</button>
         </div>
@@ -4277,6 +4290,9 @@
           if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
           if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
         }
+        const currencyEl = document.getElementById('mgr-currency');
+        const currency = currencyEl ? currencyEl.value : '';
+        if (currency) q.set('currency', currency);
         q.set('page', '1');
         q.set('page_size', '120');
         const url = API + endpoint + (q.toString() ? ('?' + q.toString()) : '');

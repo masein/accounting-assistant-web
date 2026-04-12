@@ -14,11 +14,18 @@ from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.transaction import Transaction, TransactionLine
 
 
+def _currency_filter(q, currency: str | None):
+    """Apply currency filter to a query that already joins Transaction."""
+    if currency:
+        return q.where(Transaction.currency == currency)
+    return q
+
+
 def list_accounts(db: Session) -> list[Account]:
     return db.execute(select(Account).order_by(Account.code)).scalars().all()
 
 
-def account_turnovers_between(db: Session, from_date: date, to_date: date) -> list[tuple[UUID, int, int]]:
+def account_turnovers_between(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[UUID, int, int]]:
     q = (
         select(
             TransactionLine.account_id,
@@ -30,10 +37,11 @@ def account_turnovers_between(db: Session, from_date: date, to_date: date) -> li
         .where(Transaction.deleted_at.is_(None))
         .group_by(TransactionLine.account_id)
     )
+    q = _currency_filter(q, currency)
     return [(a, int(d or 0), int(c or 0)) for a, d, c in db.execute(q).all()]
 
 
-def account_turnovers_upto(db: Session, to_date: date) -> list[tuple[UUID, int, int]]:
+def account_turnovers_upto(db: Session, to_date: date, currency: str | None = None) -> list[tuple[UUID, int, int]]:
     q = (
         select(
             TransactionLine.account_id,
@@ -45,16 +53,20 @@ def account_turnovers_upto(db: Session, to_date: date) -> list[tuple[UUID, int, 
         .where(Transaction.deleted_at.is_(None))
         .group_by(TransactionLine.account_id)
     )
+    q = _currency_filter(q, currency)
     return [(a, int(d or 0), int(c or 0)) for a, d, c in db.execute(q).all()]
 
 
-def paged_journal_entries(db: Session, from_date: date, to_date: date, page: int, page_size: int) -> tuple[int, list[Transaction]]:
-    count_q = select(func.count(Transaction.id)).where(Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None))
+def paged_journal_entries(db: Session, from_date: date, to_date: date, page: int, page_size: int, currency: str | None = None) -> tuple[int, list[Transaction]]:
+    base_where = [Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None)]
+    if currency:
+        base_where.append(Transaction.currency == currency)
+    count_q = select(func.count(Transaction.id)).where(*base_where)
     total = int(db.execute(count_q).scalar() or 0)
     offset = max(0, (page - 1) * page_size)
     q = (
         select(Transaction)
-        .where(Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None))
+        .where(*base_where)
         .order_by(Transaction.date.desc(), Transaction.created_at.desc())
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
         .offset(offset)
@@ -71,31 +83,30 @@ def paged_account_lines(
     to_date: date,
     page: int,
     page_size: int,
+    currency: str | None = None,
 ) -> tuple[Account | None, int, list[tuple[TransactionLine, Transaction]]]:
     acc = db.execute(select(Account).where(Account.code == account_code.strip())).scalars().one_or_none()
     if not acc:
         return None, 0, []
+    where_clauses = [
+        TransactionLine.account_id == acc.id,
+        Transaction.date >= from_date,
+        Transaction.date <= to_date,
+        Transaction.deleted_at.is_(None),
+    ]
+    if currency:
+        where_clauses.append(Transaction.currency == currency)
     count_q = (
         select(func.count(TransactionLine.id))
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-        .where(
-            TransactionLine.account_id == acc.id,
-            Transaction.date >= from_date,
-            Transaction.date <= to_date,
-            Transaction.deleted_at.is_(None),
-        )
+        .where(*where_clauses)
     )
     total = int(db.execute(count_q).scalar() or 0)
     offset = max(0, (page - 1) * page_size)
     q = (
         select(TransactionLine, Transaction)
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-        .where(
-            TransactionLine.account_id == acc.id,
-            Transaction.date >= from_date,
-            Transaction.date <= to_date,
-            Transaction.deleted_at.is_(None),
-        )
+        .where(*where_clauses)
         .order_by(Transaction.date, Transaction.created_at, TransactionLine.id)
         .offset(offset)
         .limit(page_size)
@@ -108,6 +119,7 @@ def opening_balance_before(
     db: Session,
     account_id: UUID,
     before_date: date,
+    currency: str | None = None,
 ) -> tuple[int, int]:
     q = (
         select(
@@ -117,11 +129,12 @@ def opening_balance_before(
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(TransactionLine.account_id == account_id, Transaction.date < before_date, Transaction.deleted_at.is_(None))
     )
+    q = _currency_filter(q, currency)
     d, c = db.execute(q).one()
     return int(d or 0), int(c or 0)
 
 
-def trial_balance_rows(db: Session, from_date: date, to_date: date) -> list[tuple[str, str, int, int]]:
+def trial_balance_rows(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[str, str, int, int]]:
     q = (
         select(
             Account.code,
@@ -135,10 +148,11 @@ def trial_balance_rows(db: Session, from_date: date, to_date: date) -> list[tupl
         .group_by(Account.code, Account.name)
         .order_by(Account.code)
     )
+    q = _currency_filter(q, currency)
     return [(code, name, int(d or 0), int(c or 0)) for code, name, d, c in db.execute(q).all()]
 
 
-def debtor_creditor_movements(db: Session, from_date: date, to_date: date) -> list[tuple[date, str, UUID | None, str, int]]:
+def debtor_creditor_movements(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[date, str, UUID | None, str, int]]:
     """
     Return tuple:
     (txn_date, role, entity_id, entity_name, delta)
@@ -165,6 +179,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date) -> li
         )
         .group_by(Transaction.date, TransactionEntity.entity_id, Entity.name)
     )
+    ar_q = _currency_filter(ar_q, currency)
     # Payable (21xx): credit increases creditors, debit decreases.
     ap_q = (
         select(
@@ -186,6 +201,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date) -> li
         )
         .group_by(Transaction.date, TransactionEntity.entity_id, Entity.name)
     )
+    ap_q = _currency_filter(ap_q, currency)
     out: list[tuple[date, str, UUID | None, str, int]] = []
     for d, eid, name, delta in db.execute(ar_q).all():
         out.append((d, "debtor", eid, name or "Unassigned", int(delta or 0)))
@@ -280,7 +296,7 @@ def latest_transaction(db: Session) -> Transaction | None:
     ).scalars().first()
 
 
-def transactions_with_lines_between(db: Session, from_date: date, to_date: date) -> list[Transaction]:
+def transactions_with_lines_between(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[Transaction]:
     q = (
         select(Transaction)
         .where(Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None))
@@ -290,4 +306,6 @@ def transactions_with_lines_between(db: Session, from_date: date, to_date: date)
             selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity),
         )
     )
+    if currency:
+        q = q.where(Transaction.currency == currency)
     return db.execute(q).scalars().unique().all()

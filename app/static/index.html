@@ -946,9 +946,6 @@
             <option value="purchase_by_product" data-i18n="reportPurchaseByProduct">Purchase by product</option>
             <option value="purchase_by_invoice" data-i18n="reportPurchaseByInvoice">Purchase by invoice</option>
             <option value="accounts_payable">Accounts payable (حساب‌های پرداختنی)</option>
-            <option value="cash_flow_periods">Cash flow periods (جریان نقدی دوره‌ای)</option>
-            <option value="balance_sheet_periods">Balance sheet trend (روند ترازنامه)</option>
-            <option value="sales_trend">Sales trend (روند فروش)</option>
           </select>
         </div>
         <div>
@@ -995,6 +992,10 @@
         </div>
         <div id="mgr-report-preview" style="margin-bottom:0.6rem;"></div>
         <pre id="mgr-report-json" style="display:none;"></pre>
+      </div>
+      <!-- Secondary / supplementary charts -->
+      <div id="mgr-extra-charts" style="display:none;">
+        <div id="mgr-extra-charts-inner" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;"></div>
       </div>
     </div>
 
@@ -3665,8 +3666,43 @@
       openReportPrintWindow(lastManagerReport, chartImg);
     }
 
+    let _extraChartInstances = [];
+    function _destroyExtraCharts() {
+      _extraChartInstances.forEach(c => { try { c.destroy(); } catch(_){} });
+      _extraChartInstances = [];
+      const wrap = document.getElementById('mgr-extra-charts');
+      const inner = document.getElementById('mgr-extra-charts-inner');
+      if (wrap) wrap.style.display = 'none';
+      if (inner) inner.innerHTML = '';
+    }
+
+    function _addExtraChart(title, chartCfg, onClick) {
+      const wrap = document.getElementById('mgr-extra-charts');
+      const inner = document.getElementById('mgr-extra-charts-inner');
+      if (!wrap || !inner) return;
+      wrap.style.display = 'block';
+      const panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.style.cssText = 'padding:1rem;';
+      const h = document.createElement('h3');
+      h.style.cssText = 'margin:0 0 0.5rem;font-size:0.95rem;';
+      h.textContent = title;
+      const canvasWrap = document.createElement('div');
+      canvasWrap.style.cssText = 'position:relative;height:260px;';
+      const canvas = document.createElement('canvas');
+      canvasWrap.appendChild(canvas);
+      panel.appendChild(h);
+      panel.appendChild(canvasWrap);
+      inner.appendChild(panel);
+      if (onClick) chartCfg.options = { ...(chartCfg.options || {}), onClick };
+      const chart = new Chart(canvas, chartCfg);
+      _extraChartInstances.push(chart);
+      return chart;
+    }
+
     function renderManagerReportChart(report) {
       if (!mgrReportChartPanelEl || !mgrReportChartEl) return;
+      _destroyExtraCharts();
       const chart = renderReportChart(mgrReportChartEl, report, managerReportChart);
       managerReportChart = chart;
       if (mgrReportChartTitleEl) {
@@ -3674,6 +3710,236 @@
         mgrReportChartTitleEl.textContent = spec ? (spec.title || t('reportChartTitle')) : t('reportChartTitle');
       }
       mgrReportChartPanelEl.style.display = chart ? 'block' : 'none';
+
+      // Supplementary charts per report type
+      const rt = (report.report_type || '').toLowerCase();
+      const fromDate = mgrFromDateEl.value || '';
+      const toDate = mgrToDateEl.value || '';
+      const granularity = mgrPeriodGranularityEl ? mgrPeriodGranularityEl.value : 'monthly';
+      const palette = ['#0f766e', '#0ea5e9', '#eab308', '#f97316', '#8b5cf6', '#ef4444', '#10b981', '#64748b'];
+
+      if (rt === 'balance_sheet') {
+        // Trend chart: assets/liabilities/equity over time
+        const q = new URLSearchParams();
+        if (fromDate) q.set('from_date', fromDate);
+        if (toDate) q.set('to_date', toDate);
+        q.set('granularity', granularity);
+        fetch(API + '/manager-reports/financial/balance-sheet-periods?' + q.toString())
+          .then(r => r.json()).then(data => {
+            const periods = data.periods || [];
+            if (periods.length < 2) return;
+            _addExtraChart('Balance Sheet Trend', {
+              type: 'line',
+              data: {
+                labels: periods.map(p => p.period),
+                datasets: [
+                  { label: 'Assets', data: periods.map(p => p.assets), borderColor: palette[0], backgroundColor: 'rgba(15,118,110,0.12)', fill: true, tension: 0.3 },
+                  { label: 'Liabilities', data: periods.map(p => p.liabilities), borderColor: '#c62828', backgroundColor: 'rgba(198,40,40,0.08)', fill: true, tension: 0.3 },
+                  { label: 'Equity', data: periods.map(p => p.equity), borderColor: palette[1], backgroundColor: 'rgba(14,165,233,0.08)', fill: true, tension: 0.3 },
+                ]
+              },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
+            }, (e, els) => {
+              if (!els.length) return;
+              const idx = els[0].index;
+              const dsIdx = els[0].datasetIndex;
+              const prefixes = ['11,12,13,14,15', '21,22,23,24', '31,32,33'][dsIdx];
+              if (prefixes) showTransactionDrilldown(['Assets', 'Liabilities', 'Equity'][dsIdx] + ' — ' + periods[idx].period, { account_code_prefix: prefixes, to_date: periods[idx].date });
+            });
+            // Net worth trend
+            _addExtraChart('Net Worth Over Time', {
+              type: 'bar',
+              data: {
+                labels: periods.map(p => p.period),
+                datasets: [{
+                  label: 'Net Worth (Assets − Liabilities)',
+                  data: periods.map(p => p.net_worth),
+                  backgroundColor: periods.map(p => p.net_worth >= 0 ? 'rgba(15,118,110,0.7)' : 'rgba(198,40,40,0.7)')
+                }]
+              },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
+            });
+          }).catch(() => {});
+      }
+
+      if (rt === 'income_statement') {
+        // Margin analysis donut
+        const totals = report.totals || {};
+        const grossProfit = totals.gross_profit || 0;
+        const opex = totals.operating_expenses || 0;
+        const otherExp = totals.other_expenses || 0;
+        const netProfit = totals.net_profit || 0;
+        if (grossProfit || opex || otherExp) {
+          _addExtraChart('Cost & Profit Breakdown', {
+            type: 'doughnut',
+            data: {
+              labels: ['Net Profit', 'COGS', 'Operating Expenses', 'Other Expenses'],
+              datasets: [{ label: 'Breakdown', data: [Math.max(0, netProfit), totals.cogs || 0, opex, otherExp], backgroundColor: [palette[0], palette[3], palette[5], palette[4]] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+          });
+        }
+        // Revenue vs Expenses trend from sales data
+        const q = new URLSearchParams();
+        if (fromDate) q.set('from_date', fromDate);
+        if (toDate) q.set('to_date', toDate);
+        q.set('granularity', granularity);
+        fetch(API + '/manager-reports/sales/trend?' + q.toString())
+          .then(r => r.json()).then(data => {
+            const periods = data.periods || [];
+            if (periods.length < 2) return;
+            _addExtraChart('Sales Revenue Trend', {
+              type: 'bar',
+              data: {
+                labels: periods.map(p => p.period),
+                datasets: [{ label: 'Sales Revenue', data: periods.map(p => p.sales_amount), backgroundColor: palette[0] }]
+              },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
+            });
+          }).catch(() => {});
+      }
+
+      if (rt === 'cash_flow_statement') {
+        // Cash flow periods trend
+        const q = new URLSearchParams();
+        if (fromDate) q.set('from_date', fromDate);
+        if (toDate) q.set('to_date', toDate);
+        q.set('granularity', granularity);
+        fetch(API + '/manager-reports/financial/cash-flow-periods?' + q.toString())
+          .then(r => r.json()).then(data => {
+            const periods = data.periods || [];
+            if (periods.length < 2) return;
+            _addExtraChart('Cash Inflow vs Outflow Over Time', {
+              type: 'bar',
+              data: {
+                labels: periods.map(p => p.period),
+                datasets: [
+                  { label: 'Inflow', data: periods.map(p => p.inflow), backgroundColor: 'rgba(15,118,110,0.75)' },
+                  { label: 'Outflow', data: periods.map(p => p.outflow), backgroundColor: 'rgba(198,40,40,0.65)' }
+                ]
+              },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
+            });
+            _addExtraChart('Net Cash Flow Trend', {
+              type: 'line',
+              data: {
+                labels: periods.map(p => p.period),
+                datasets: [{
+                  label: 'Net Cash Flow',
+                  data: periods.map(p => p.net),
+                  borderColor: palette[0], backgroundColor: 'rgba(15,118,110,0.12)', fill: true, tension: 0.3,
+                  pointBackgroundColor: periods.map(p => p.net >= 0 ? palette[0] : '#c62828')
+                }]
+              },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
+            });
+          }).catch(() => {});
+      }
+
+      if (rt === 'trial_balance' || rt === 'general_ledger') {
+        // Top debit vs credit accounts horizontal bar
+        const rows = (report.rows || []).slice().sort((a, b) => (b.debit_turnover + b.credit_turnover) - (a.debit_turnover + a.credit_turnover)).slice(0, 15);
+        if (rows.length > 3) {
+          _addExtraChart('Top Accounts: Debit vs Credit', {
+            type: 'bar',
+            data: {
+              labels: rows.map(r => r.account_code + ' ' + (r.account_name || '').slice(0, 20)),
+              datasets: [
+                { label: t('tableDebit'), data: rows.map(r => r.debit_turnover || 0), backgroundColor: palette[0] },
+                { label: t('tableCredit'), data: rows.map(r => r.credit_turnover || 0), backgroundColor: palette[1] }
+              ]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { x: { ticks: { callback: v => formatNum(v) } } } }
+          }, (e, els) => {
+            if (!els.length) return;
+            const row = rows[els[0].index];
+            if (row && row.account_code) showTransactionDrilldown(row.account_name || row.account_code, { account_code: row.account_code, from_date: fromDate, to_date: toDate });
+          });
+          // Net balance bar
+          _addExtraChart('Net Balance by Account', {
+            type: 'bar',
+            data: {
+              labels: rows.map(r => r.account_code),
+              datasets: [{
+                label: 'Net Balance',
+                data: rows.map(r => (r.debit_balance || 0) - (r.credit_balance || 0)),
+                backgroundColor: rows.map(r => ((r.debit_balance || 0) - (r.credit_balance || 0)) >= 0 ? palette[0] : '#c62828')
+              }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
+          }, (e, els) => {
+            if (!els.length) return;
+            const row = rows[els[0].index];
+            if (row && row.account_code) showTransactionDrilldown(row.account_name || row.account_code, { account_code: row.account_code, from_date: fromDate, to_date: toDate });
+          });
+        }
+      }
+
+      if (rt.includes('sales') || rt.includes('purchase')) {
+        // Sales/Purchase trend over time
+        const q = new URLSearchParams();
+        if (fromDate) q.set('from_date', fromDate);
+        if (toDate) q.set('to_date', toDate);
+        q.set('granularity', granularity);
+        const filterVal = mgrProductFilterEl ? (mgrProductFilterEl.value || '').trim() : '';
+        if (filterVal) q.set('product_name', filterVal);
+        fetch(API + '/manager-reports/sales/trend?' + q.toString())
+          .then(r => r.json()).then(data => {
+            const periods = data.periods || [];
+            if (periods.length < 2) return;
+            const label = rt.includes('purchase') ? 'Purchase' : 'Sales';
+            _addExtraChart(label + ' Trend Over Time' + (filterVal ? ' — ' + filterVal : ''), {
+              type: 'bar',
+              data: {
+                labels: periods.map(p => p.period),
+                datasets: [
+                  { label: label + ' Amount', data: periods.map(p => p.sales_amount), backgroundColor: palette[0], yAxisID: 'y' },
+                  { label: 'Quantity', data: periods.map(p => p.quantity), type: 'line', borderColor: palette[3], backgroundColor: 'transparent', yAxisID: 'y1', tension: 0.3 }
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { position: 'left', ticks: { callback: v => formatNum(v) } }, y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Qty' } } }
+              }
+            });
+          }).catch(() => {});
+      }
+
+      if (rt === 'debtor_creditor') {
+        // Debtors vs Creditors donut
+        const rows = report.rows || [];
+        const debtors = rows.filter(r => r.role === 'debtor');
+        const creditors = rows.filter(r => r.role === 'creditor');
+        const totalDebt = debtors.reduce((s, r) => s + Math.abs(r.net_delta || 0), 0);
+        const totalCred = creditors.reduce((s, r) => s + Math.abs(r.net_delta || 0), 0);
+        if (totalDebt || totalCred) {
+          _addExtraChart('Receivables vs Payables', {
+            type: 'doughnut',
+            data: {
+              labels: ['Receivables (Debtors)', 'Payables (Creditors)'],
+              datasets: [{ label: 'AR vs AP', data: [totalDebt, totalCred], backgroundColor: [palette[0], palette[5]] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+          });
+        }
+        // Top entities
+        const topEntities = rows.slice().sort((a, b) => Math.abs(b.net_delta || 0) - Math.abs(a.net_delta || 0)).slice(0, 10);
+        if (topEntities.length > 2) {
+          _addExtraChart('Top Entities by Amount', {
+            type: 'bar',
+            data: {
+              labels: topEntities.map(r => (r.entity_name || 'Unknown').slice(0, 20)),
+              datasets: [{
+                label: 'Net Amount',
+                data: topEntities.map(r => r.net_delta || 0),
+                backgroundColor: topEntities.map(r => r.role === 'debtor' ? palette[0] : palette[5])
+              }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { callback: v => formatNum(v) } } } }
+          });
+        }
+      }
     }
 
     function renderInventoryReportChart(report) {
@@ -4508,7 +4774,7 @@
           title: t('chartBalanceSheetMix'),
           data: {
             labels: [t('sectionAssets'), t('sectionLiabilities'), t('sectionEquity')],
-            datasets: [{ data: [safe(totals.assets), safe(totals.liabilities), safe(totals.equity)], backgroundColor: palette.slice(0, 3) }]
+            datasets: [{ label: t('chartBalanceSheetMix'), data: [safe(totals.assets), safe(totals.liabilities), safe(totals.equity)], backgroundColor: palette.slice(0, 3) }]
           }
         };
       }
@@ -4520,6 +4786,7 @@
           data: {
             labels: [t('fieldRevenue'), t('fieldCOGS'), t('fieldOpEx'), t('fieldOtherExpenses'), t('fieldNetProfit')],
             datasets: [{
+              label: t('chartIncomeStatement'),
               data: [safe(totals.revenue), safe(totals.cogs), safe(totals.operating_expenses), safe(totals.other_expenses), safe(totals.net_profit)],
               backgroundColor: [palette[1], palette[3], palette[5], palette[4], palette[0]]
             }]
@@ -4534,6 +4801,7 @@
           data: {
             labels: [t('fieldOperating'), t('fieldInvesting'), t('fieldFinancing'), t('fieldNetChange')],
             datasets: [{
+              label: t('chartCashFlow'),
               data: [safe((s.operating || {}).net), safe((s.investing || {}).net), safe((s.financing || {}).net), safe((report.totals || {}).net_change)],
               backgroundColor: [palette[0], palette[1], palette[4], palette[2]]
             }]
@@ -7407,202 +7675,6 @@
     runManagerReport = async function() {
       const type = (mgrReportTypeEl.value || '').trim();
 
-      // Cash flow periods handler
-      if (type === 'cash_flow_periods') {
-        try {
-          const q = new URLSearchParams();
-          if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
-          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
-          q.set('granularity', mgrPeriodGranularityEl.value || 'monthly');
-          mgrRunBtn.disabled = true;
-          const res = await fetch(API + '/manager-reports/financial/cash-flow-periods?' + q.toString());
-          const data = await res.json();
-          if (!res.ok) { showAlert(data.detail || 'Failed', true); return; }
-          lastManagerReport = data;
-          // Render table
-          const periods = data.periods || [];
-          let html = '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Period</th><th>Inflow</th><th>Outflow</th><th>Net</th><th>Txns</th><th></th></tr></thead><tbody>';
-          periods.forEach((p, idx) => {
-            const netColor = p.net >= 0 ? '#2e7d32' : '#c62828';
-            const txnCount = (p.transactions || []).length;
-            html += `<tr style="cursor:pointer;" onclick="document.getElementById('cf-detail-${idx}').style.display = document.getElementById('cf-detail-${idx}').style.display === 'none' ? '' : 'none';">
-              <td><strong>${escapeHtml(p.period)}</strong></td><td style="color:#2e7d32">${formatNum(p.inflow)}</td><td style="color:#c62828">${formatNum(p.outflow)}</td><td style="color:${netColor};font-weight:600;">${formatNum(p.net)}</td><td>${txnCount}</td><td style="font-size:0.75rem;color:var(--primary);">▼ details</td></tr>`;
-            // Expandable transaction detail rows
-            html += `<tr id="cf-detail-${idx}" style="display:none;"><td colspan="6" style="padding:0;">`;
-            if (txnCount > 0) {
-              html += '<table class="mini-table" style="margin:0;background:#f8fafc;"><thead><tr><th>Date</th><th>Description</th><th>Counterpart</th><th>Type</th><th>Amount</th></tr></thead><tbody>';
-              (p.transactions || []).forEach(t => {
-                const amtColor = t.type === 'inflow' ? '#2e7d32' : '#c62828';
-                const amtSign = t.type === 'inflow' ? '+' : '−';
-                html += `<tr><td>${escapeHtml(t.date)}</td><td>${escapeHtml(t.description || '—')}</td><td style="font-size:0.78rem;">${escapeHtml(t.counterpart_accounts || '—')}</td><td><span style="color:${amtColor};font-weight:600;">${t.type}</span></td><td style="color:${amtColor};font-weight:600;">${amtSign}${formatNum(Math.abs(t.amount))}</td></tr>`;
-              });
-              html += '</tbody></table>';
-            } else {
-              html += '<div style="padding:0.5rem;color:var(--text-muted);font-size:0.82rem;">No transactions in this period.</div>';
-            }
-            html += '</td></tr>';
-          });
-          html += '</tbody></table></div>';
-          if (data.totals) {
-            html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>Totals:</strong> Inflow: ${formatNum(data.totals.total_inflow)} | Outflow: ${formatNum(data.totals.total_outflow)} | Net: ${formatNum(data.totals.net)}</div>`;
-          }
-          mgrReportPreviewEl.innerHTML = html;
-          mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
-          // Chart
-          if (typeof Chart !== 'undefined' && periods.length) {
-            const chartPanel = document.getElementById('mgr-report-chart-panel');
-            chartPanel.style.display = 'block';
-            if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
-            managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
-              type: 'bar', data: {
-                labels: periods.map(p => p.period),
-                datasets: [
-                  { label: 'Inflow', data: periods.map(p => p.inflow), backgroundColor: '#0f766e' },
-                  { label: 'Outflow', data: periods.map(p => p.outflow), backgroundColor: '#c62828' }
-                ]
-              }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Cash ' + (mgrPeriodGranularityEl.value || 'Monthly') + ' Inflows vs Outflows' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } },
-                onClick: (e, els) => { if (els.length) showChartDrilldown('Cash Flow', periods[els[0].index].period, periods[els[0].index]); }
-              }
-            });
-          }
-          if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
-          if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
-        } catch (err) { showAlert('Error: ' + err.message, true); }
-        finally { mgrRunBtn.disabled = false; }
-        return;
-      }
-
-      // Balance sheet periods (trend) handler
-      if (type === 'balance_sheet_periods') {
-        try {
-          const q = new URLSearchParams();
-          if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
-          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
-          q.set('granularity', mgrPeriodGranularityEl.value || 'monthly');
-          mgrRunBtn.disabled = true;
-          const res = await fetch(API + '/manager-reports/financial/balance-sheet-periods?' + q.toString());
-          const data = await res.json();
-          if (!res.ok) { showAlert(data.detail || 'Failed', true); return; }
-          lastManagerReport = data;
-          const periods = data.periods || [];
-          let html = '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Period</th><th>Assets</th><th>Liabilities</th><th>Equity</th><th>Net Worth</th></tr></thead><tbody>';
-          periods.forEach(p => {
-            const nwColor = p.net_worth >= 0 ? '#2e7d32' : '#c62828';
-            html += `<tr>
-              <td><strong>${escapeHtml(p.period)}</strong></td>
-              <td>${formatNum(p.assets)}</td>
-              <td>${formatNum(p.liabilities)}</td>
-              <td>${formatNum(p.equity)}</td>
-              <td style="color:${nwColor};font-weight:600;">${formatNum(p.net_worth)}</td>
-            </tr>`;
-          });
-          html += '</tbody></table></div>';
-          if (data.totals) {
-            html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>Latest:</strong> Assets: ${formatNum(data.totals.latest_assets)} | Liabilities: ${formatNum(data.totals.latest_liabilities)} | Equity: ${formatNum(data.totals.latest_equity)}</div>`;
-          }
-          mgrReportPreviewEl.innerHTML = html;
-          mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
-          // Chart — stacked area
-          if (typeof Chart !== 'undefined' && periods.length) {
-            const chartPanel = document.getElementById('mgr-report-chart-panel');
-            chartPanel.style.display = 'block';
-            if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
-            managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
-              type: 'line', data: {
-                labels: periods.map(p => p.period),
-                datasets: [
-                  { label: 'Assets', data: periods.map(p => p.assets), borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.15)', fill: true, tension: 0.3 },
-                  { label: 'Liabilities', data: periods.map(p => p.liabilities), borderColor: '#c62828', backgroundColor: 'rgba(198,40,40,0.1)', fill: true, tension: 0.3 },
-                  { label: 'Equity', data: periods.map(p => p.equity), borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.1)', fill: true, tension: 0.3 },
-                  { label: 'Net Worth', data: periods.map(p => p.net_worth), borderColor: '#eab308', backgroundColor: 'transparent', borderDash: [5, 3], fill: false, tension: 0.3 }
-                ]
-              }, options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Balance Sheet Trend (' + (mgrPeriodGranularityEl.value || 'Monthly') + ')' } },
-                scales: { y: { ticks: { callback: v => formatNum(v) } } },
-                onClick: (e, els) => {
-                  if (els.length) {
-                    const idx = els[0].index;
-                    const dsLabel = ['Assets', 'Liabilities', 'Equity', 'Net Worth'][els[0].datasetIndex];
-                    const prefixMap = { 'Assets': '11,12,13,14,15', 'Liabilities': '21,22,23,24', 'Equity': '31,32,33' };
-                    if (prefixMap[dsLabel]) {
-                      showTransactionDrilldown(dsLabel + ' — ' + periods[idx].period, { account_code_prefix: prefixMap[dsLabel], to_date: periods[idx].date });
-                    }
-                  }
-                }
-              }
-            });
-          }
-          if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
-          if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
-          if (mgrExportPdfBtn) mgrExportPdfBtn.disabled = false;
-        } catch (err) { showAlert('Error: ' + err.message, true); }
-        finally { mgrRunBtn.disabled = false; }
-        return;
-      }
-
-      // Sales trend handler
-      if (type === 'sales_trend') {
-        try {
-          const q = new URLSearchParams();
-          if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
-          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
-          q.set('granularity', mgrPeriodGranularityEl.value || 'monthly');
-          const filterVal = (mgrProductFilterEl.value || '').trim();
-          if (filterVal) q.set('product_name', filterVal);
-          mgrRunBtn.disabled = true;
-          const res = await fetch(API + '/manager-reports/sales/trend?' + q.toString());
-          const data = await res.json();
-          if (!res.ok) { showAlert(data.detail || 'Failed', true); return; }
-          lastManagerReport = data;
-          const periods = data.periods || [];
-          const filterLabel = data.product_filter ? ` — ${escapeHtml(data.product_filter)}` : ' — All Products';
-          let html = `<div style="margin-bottom:0.5rem;font-size:0.88rem;color:var(--text-muted);">Sales trend${filterLabel}</div>`;
-          html += '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Period</th><th>Sales Amount</th><th>Quantity</th><th>Invoices</th></tr></thead><tbody>';
-          periods.forEach(p => {
-            html += `<tr>
-              <td><strong>${escapeHtml(p.period)}</strong></td>
-              <td style="font-weight:600;">${formatNum(p.sales_amount)}</td>
-              <td>${p.quantity.toLocaleString()}</td>
-              <td>${p.invoice_count}</td>
-            </tr>`;
-          });
-          html += '</tbody></table></div>';
-          if (data.totals) {
-            html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>Totals:</strong> Sales: ${formatNum(data.totals.total_sales)} | Qty: ${data.totals.total_quantity.toLocaleString()} | Invoices: ${data.totals.total_invoices}</div>`;
-          }
-          mgrReportPreviewEl.innerHTML = html;
-          mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
-          // Chart — bar + line combo
-          if (typeof Chart !== 'undefined' && periods.length) {
-            const chartPanel = document.getElementById('mgr-report-chart-panel');
-            chartPanel.style.display = 'block';
-            if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
-            managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
-              type: 'bar', data: {
-                labels: periods.map(p => p.period),
-                datasets: [
-                  { label: 'Sales Amount', data: periods.map(p => p.sales_amount), backgroundColor: '#0f766e', yAxisID: 'y' },
-                  { label: 'Quantity', data: periods.map(p => p.quantity), type: 'line', borderColor: '#f97316', backgroundColor: 'transparent', yAxisID: 'y1', tension: 0.3 }
-                ]
-              }, options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Sales Trend' + (data.product_filter ? ' — ' + data.product_filter : '') } },
-                scales: {
-                  y: { position: 'left', ticks: { callback: v => formatNum(v) } },
-                  y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Quantity' } }
-                }
-              }
-            });
-          }
-          if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
-          if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
-          if (mgrExportPdfBtn) mgrExportPdfBtn.disabled = false;
-        } catch (err) { showAlert('Error: ' + err.message, true); }
-        finally { mgrRunBtn.disabled = false; }
-        return;
-      }
-
       // Accounts payable handler
       if (type === 'accounts_payable') {
         try {
@@ -7634,7 +7706,7 @@
             managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
               type: 'doughnut', data: {
                 labels: Object.keys(buckets),
-                datasets: [{ data: Object.values(buckets), backgroundColor: ['#0f766e', '#f57f17', '#c62828', '#8b5cf6'] }]
+                datasets: [{ label: 'AP Aging', data: Object.values(buckets), backgroundColor: ['#0f766e', '#f57f17', '#c62828', '#8b5cf6'] }]
               }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'AP by Aging Bucket' } },
                 onClick: (e, els) => { if (els.length) { const key = Object.keys(buckets)[els[0].index]; showChartDrilldown('AP Aging', key, { bucket: key, amount: buckets[key] }); } }
               }
@@ -7674,32 +7746,36 @@
     renderReportChart = function(canvas, report, existingChart) {
       const chart = _origRenderReportChart(canvas, report, existingChart);
       if (chart && report) {
+        // Extract date filters from the report period OR from the form fields
+        const rp = report.period || {};
+        const _fromDate = rp.from_date || mgrFromDateEl.value || '';
+        const _toDate = rp.to_date || mgrToDateEl.value || '';
         chart.options.onClick = (e, els) => {
           if (!els.length) return;
           const idx = els[0].index;
           const dsIdx = els[0].datasetIndex;
           const label = chart.data.labels ? chart.data.labels[idx] : '';
           const rt = (report.report_type || '').toLowerCase();
-          // Try to find account code from report rows
           const rows = report.rows || [];
           const matchRow = rows[idx];
           if (matchRow && matchRow.account_code) {
-            showTransactionDrilldown(label || matchRow.account_name || rt, { account_code: matchRow.account_code });
+            showTransactionDrilldown(label || matchRow.account_name || rt, { account_code: matchRow.account_code, from_date: _fromDate, to_date: _toDate });
           } else if (rt.includes('balance_sheet')) {
-            // Map label or index to section prefix for balance sheet donut segments
             const bsPrefixMap = { 'Assets': '11,12,13,14,15', 'Liabilities': '21,22,23,24', 'Equity': '31,32,33' };
             const sectionLabel = label || (matchRow && matchRow.section) || '';
-            // Try matching by label first, then by translated label lookup
             const prefix = bsPrefixMap[sectionLabel]
               || bsPrefixMap[Object.keys(bsPrefixMap).find(k => t('section' + k).toLowerCase() === sectionLabel.toLowerCase())]
               || ['11,12,13,14,15', '21,22,23,24', '31,32,33'][idx]
               || '';
-            if (prefix) showTransactionDrilldown(sectionLabel || 'Balance Sheet', { account_code_prefix: prefix });
+            if (prefix) showTransactionDrilldown(sectionLabel || 'Balance Sheet', { account_code_prefix: prefix, to_date: _toDate });
             else showChartDrilldown(rt, label, matchRow || {});
           } else if (rt.includes('income')) {
-            showTransactionDrilldown(label || rt, { account_code_prefix: '41,42,43,51,52,53,61,62', from_date: report.from_date, to_date: report.to_date });
+            // Map each bar to its specific account prefix
+            const incPrefixes = ['41,42,43', '51', '61', '62', '41,42,43,51,61,62'];
+            const prefix = incPrefixes[idx] || '41,42,43,51,52,53,61,62';
+            showTransactionDrilldown(label || rt, { account_code_prefix: prefix, from_date: _fromDate, to_date: _toDate });
           } else if (rt.includes('cash_flow')) {
-            showTransactionDrilldown(label || rt, { account_code_prefix: '11', from_date: report.from_date, to_date: report.to_date });
+            showTransactionDrilldown(label || rt, { account_code_prefix: '1110', from_date: _fromDate, to_date: _toDate });
           } else {
             const value = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].data[idx] : 0;
             const dsLabel = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].label : '';

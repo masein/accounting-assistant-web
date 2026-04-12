@@ -31,6 +31,7 @@ class AuditFinding:
     detail: str
     entity_id: str | None = None
     amount: int | None = None
+    domain: str = "financial"  # treasury, managerial, financial
 
 
 @dataclass
@@ -260,6 +261,47 @@ def detect_backdated_entries(db: Session, days_threshold: int = 30) -> list[Audi
     return findings
 
 
+def check_liability_threshold(db: Session, threshold: int = 0) -> list[AuditFinding]:
+    """Check if total liabilities exceed a defined threshold."""
+    findings: list[AuditFinding] = []
+    if threshold <= 0:
+        # Try to get threshold from app settings
+        from app.models.app_setting import AppSetting
+        setting = db.execute(
+            select(AppSetting).where(AppSetting.key == "liability_threshold")
+        ).scalar_one_or_none()
+        if setting:
+            try:
+                threshold = int(setting.value)
+            except (ValueError, TypeError):
+                threshold = 0
+
+    if threshold <= 0:
+        return findings
+
+    balances = db.execute(
+        select(
+            func.coalesce(func.sum(TransactionLine.credit), 0).label("tc"),
+            func.coalesce(func.sum(TransactionLine.debit), 0).label("td"),
+        )
+        .join(Account, Account.id == TransactionLine.account_id)
+        .where(Account.code.like("2%"))
+    ).one()
+    total_liabilities = int((balances[0] or 0) - (balances[1] or 0))
+
+    if total_liabilities > threshold:
+        findings.append(AuditFinding(
+            severity="critical",
+            category="liability_threshold",
+            title="Liabilities exceed threshold",
+            detail=f"Total liabilities ({total_liabilities:,}) exceed the defined threshold ({threshold:,}). Excess: {total_liabilities - threshold:,}",
+            amount=total_liabilities,
+            domain="treasury",
+        ))
+
+    return findings
+
+
 def run_full_audit(db: Session) -> AuditReport:
     """Run all audit checks and produce a comprehensive report."""
     report = AuditReport()
@@ -280,6 +322,7 @@ def run_full_audit(db: Session) -> AuditReport:
         ("Expense anomalies", detect_anomalies),
         ("Negative balances", detect_negative_balances),
         ("Backdated entries", detect_backdated_entries),
+        ("Liability threshold", check_liability_threshold),
     ]
 
     for name, check_fn in checks:
@@ -299,6 +342,16 @@ def run_full_audit(db: Session) -> AuditReport:
                 title=f"Check failed: {name}",
                 detail=f"The {name} check encountered an error",
             ))
+
+    # Assign domains to findings
+    for f in report.findings:
+        if f.category in ("equation", "negative_balance"):
+            f.domain = "financial"
+        elif f.category in ("duplicate", "anomaly", "liability_threshold"):
+            f.domain = "treasury"
+        elif f.category in ("backdated", "fraud_signal"):
+            f.domain = "managerial"
+        # default is "financial"
 
     # Calculate integrity score
     critical_count = sum(1 for f in report.findings if f.severity == "critical")

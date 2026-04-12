@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.transactions import _create_transaction_from_payload
@@ -90,6 +91,17 @@ def cash_flow_statement(
 ) -> CashFlowResponse:
     svc = CashFlowService(db)
     return svc.statement(from_date=from_date, to_date=to_date)
+
+
+@router.get("/financial/cash-flow-periods")
+def cash_flow_periods(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    granularity: str = Query("monthly", regex="^(weekly|monthly|quarterly|seasonal)$"),
+    db: Session = Depends(get_db),
+) -> dict:
+    svc = CashFlowService(db)
+    return svc.cash_flow_periods(from_date=from_date, to_date=to_date, granularity=granularity)
 
 
 @router.get("/books/general-journal", response_model=PaginatedJournalResponse)
@@ -208,6 +220,63 @@ def debtor_creditor(
     return svc.debtor_creditor(from_date=from_date, to_date=to_date)
 
 
+@router.get("/operational/accounts-payable")
+def accounts_payable(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get detailed accounts payable with verification status."""
+    from app.services.reporting.common import default_period
+    from app.models.invoice import Invoice
+    from app.models.entity import Entity
+    period = default_period(from_date, to_date)
+
+    invoices = db.execute(
+        select(Invoice)
+        .where(
+            Invoice.kind == "purchase",
+            Invoice.issue_date >= period.from_date,
+            Invoice.issue_date <= period.to_date,
+            Invoice.status.in_(["issued", "draft"]),
+        )
+        .order_by(Invoice.due_date.asc())
+    ).scalars().all()
+
+    entity_ids = [inv.entity_id for inv in invoices if inv.entity_id]
+    entities = {}
+    if entity_ids:
+        from sqlalchemy import select as sel
+        ents = db.execute(sel(Entity).where(Entity.id.in_(entity_ids))).scalars().all()
+        entities = {e.id: e for e in ents}
+
+    items = []
+    total = 0
+    for inv in invoices:
+        amt = int(inv.amount or 0)
+        total += amt
+        days_overdue = (date.today() - inv.due_date).days if inv.due_date and inv.due_date < date.today() else 0
+        items.append({
+            "invoice_id": str(inv.id),
+            "invoice_number": inv.number,
+            "vendor": entities.get(inv.entity_id).name if inv.entity_id and entities.get(inv.entity_id) else "Unknown",
+            "amount": amt,
+            "issue_date": inv.issue_date.isoformat() if inv.issue_date else None,
+            "due_date": inv.due_date.isoformat() if inv.due_date else None,
+            "status": inv.status,
+            "days_overdue": days_overdue,
+            "aging_bucket": "current" if days_overdue <= 0 else "31-60" if days_overdue <= 60 else "60+" if days_overdue <= 90 else "90+",
+        })
+
+    return {
+        "report_type": "accounts_payable",
+        "period": {"from_date": period.from_date.isoformat(), "to_date": period.to_date.isoformat()},
+        "items": items,
+        "total": total,
+        "count": len(items),
+    }
+
+
 @router.get("/operational/person-running-balance", response_model=PersonRunningBalanceResponse)
 def person_running_balance(
     entity_id: UUID = Query(...),
@@ -273,40 +342,61 @@ def inventory_balance_report(
     return svc.balance_report(to_date=to_date)
 
 
+@router.patch("/inventory/items/{item_id}/price")
+def update_inventory_price(
+    item_id: UUID,
+    list_price: int = Query(..., ge=0),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Update the list price for an inventory item."""
+    from app.models.inventory import InventoryItem
+    item = db.get(InventoryItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    old_price = getattr(item, 'list_price', 0) or 0
+    item.list_price = list_price
+    db.commit()
+    return {"item_id": str(item.id), "name": item.name, "old_price": old_price, "new_price": list_price}
+
+
 @router.get("/sales/by-product", response_model=SalesPurchaseReportResponse)
 def sales_by_product(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    product_name: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> SalesPurchaseReportResponse:
-    return SalesReportService(db).sales_by_product(from_date=from_date, to_date=to_date)
+    return SalesReportService(db).sales_by_product(from_date=from_date, to_date=to_date, product_name=product_name)
 
 
 @router.get("/sales/by-invoice", response_model=SalesPurchaseReportResponse)
 def sales_by_invoice(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    product_name: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> SalesPurchaseReportResponse:
-    return SalesReportService(db).sales_by_invoice(from_date=from_date, to_date=to_date)
+    return SalesReportService(db).sales_by_invoice(from_date=from_date, to_date=to_date, product_name=product_name)
 
 
 @router.get("/purchases/by-product", response_model=SalesPurchaseReportResponse)
 def purchase_by_product(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    product_name: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> SalesPurchaseReportResponse:
-    return SalesReportService(db).purchase_by_product(from_date=from_date, to_date=to_date)
+    return SalesReportService(db).purchase_by_product(from_date=from_date, to_date=to_date, product_name=product_name)
 
 
 @router.get("/purchases/by-invoice", response_model=SalesPurchaseReportResponse)
 def purchase_by_invoice(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    product_name: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> SalesPurchaseReportResponse:
-    return SalesReportService(db).purchase_by_invoice(from_date=from_date, to_date=to_date)
+    return SalesReportService(db).purchase_by_invoice(from_date=from_date, to_date=to_date, product_name=product_name)
 
 
 @router.post("/journal/register", response_model=TransactionRead, status_code=201)

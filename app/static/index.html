@@ -470,6 +470,7 @@
       <button type="button" class="nav-btn" data-page="bank-statements">Bank Statements</button>
       <button type="button" class="nav-btn" data-page="audit">Audit</button>
       <button type="button" class="nav-btn" data-page="cfo">CFO Mode</button>
+      <button type="button" class="nav-btn" data-page="ceo">CEO Mode</button>
       <span class="nav-sep"></span>
       <span class="nav-group-label">Setup</span>
       <button type="button" class="nav-btn nav-more-item" data-page="entities">Entities</button>
@@ -865,6 +866,8 @@
             <option value="sales_by_invoice" data-i18n="reportSalesByInvoice">Sales by invoice</option>
             <option value="purchase_by_product" data-i18n="reportPurchaseByProduct">Purchase by product</option>
             <option value="purchase_by_invoice" data-i18n="reportPurchaseByInvoice">Purchase by invoice</option>
+            <option value="accounts_payable">Accounts payable (حساب‌های پرداختنی)</option>
+            <option value="cash_flow_periods">Cash flow periods (جریان نقدی دوره‌ای)</option>
           </select>
         </div>
         <div>
@@ -878,6 +881,19 @@
         <div>
           <label for="mgr-account-code" data-i18n="labelAccountCodeLedger">Account code (for account ledger)</label>
           <input type="text" id="mgr-account-code" data-i18n-placeholder="placeholderAccountCode" placeholder="e.g. 1110">
+        </div>
+        <div>
+          <label for="mgr-product-filter">Product/Entity filter</label>
+          <input type="text" id="mgr-product-filter" placeholder="Filter by product or entity name">
+        </div>
+        <div>
+          <label for="mgr-period-granularity">Period (cash flow)</label>
+          <select id="mgr-period-granularity">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="seasonal">Seasonal</option>
+          </select>
         </div>
         <div style="display:flex; align-items:flex-end;">
           <button type="button" class="btn btn-primary" id="mgr-run-btn" data-i18n="btnRunReport">Run report</button>
@@ -941,6 +957,24 @@
         <div style="display:flex; align-items:flex-end;">
           <button type="button" class="btn btn-secondary" id="mgr-add-mv-btn" data-i18n="btnAddMovement">Add movement</button>
         </div>
+      </div>
+      <div class="panel" style="margin-bottom:0.75rem;">
+        <h3>Price Management</h3>
+        <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.5rem;">Edit list/selling prices for inventory items.</p>
+        <div class="row" style="margin-bottom:0.5rem;align-items:flex-end;">
+          <div>
+            <label for="price-mgmt-item">Item</label>
+            <select id="price-mgmt-item"><option value="">Select item</option></select>
+          </div>
+          <div>
+            <label for="price-mgmt-value">List price (IRR)</label>
+            <input type="number" id="price-mgmt-value" min="0" step="1000" value="0">
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <button type="button" class="btn btn-primary btn-sm" id="price-mgmt-save-btn">Update Price</button>
+          </div>
+        </div>
+        <div id="price-mgmt-status" style="font-size:0.85rem;margin-top:0.25rem;"></div>
       </div>
       <div class="row" style="margin-bottom:0.75rem;">
         <div>
@@ -1010,9 +1044,14 @@
     <!-- ═══════ Audit Page ═══════ -->
     <div class="card" data-page="audit">
       <h2>System Audit</h2>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Self-auditing accounting integrity checks, anomaly detection, and audit trail.</p>
-      <div style="display:flex;gap:0.75rem;margin-bottom:1rem;">
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Self-auditing accounting integrity checks, anomaly detection, and audit trail across Treasury, Managerial, and Financial domains.</p>
+      <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
         <button type="button" class="btn btn-primary" id="audit-run-btn">Run Full Audit</button>
+        <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
+          <label for="audit-liability-threshold" style="font-size:0.8rem;color:var(--text-muted);">Liability threshold (IRR):</label>
+          <input type="number" id="audit-liability-threshold" style="width:150px;" placeholder="e.g. 500000000" min="0" step="1000000">
+          <button type="button" class="btn btn-secondary btn-sm" id="audit-save-threshold-btn">Save</button>
+        </div>
       </div>
       <div id="audit-scores" style="display:none;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
         <div class="panel" style="flex:1;min-width:200px;text-align:center;">
@@ -1030,6 +1069,12 @@
       </div>
       <div id="audit-findings-wrap" style="display:none;">
         <h3>Findings</h3>
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap;">
+          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab active" data-domain="all">All</button>
+          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab" data-domain="treasury">Treasury (خزانه‌داری)</button>
+          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab" data-domain="managerial">Managerial (مدیریتی)</button>
+          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab" data-domain="financial">Financial (مالی)</button>
+        </div>
         <div id="audit-findings-list"></div>
       </div>
       <div style="margin-top:1.5rem;">
@@ -1037,6 +1082,29 @@
         <table class="results-table"><thead><tr>
           <th>Time</th><th>Action</th><th>Type</th><th>Entity</th><th>User</th><th>Detail</th>
         </tr></thead><tbody id="audit-log-body"></tbody></table>
+      </div>
+    </div>
+    <!-- Audit drill-down modal -->
+    <div id="audit-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" onclick="if(event.target===this)this.style.display='none'">
+      <div style="background:white;max-width:600px;margin:5vh auto;border-radius:12px;padding:1.5rem;position:relative;">
+        <button type="button" onclick="this.closest('#audit-drilldown-modal').style.display='none'" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
+        <h3 id="audit-modal-title">Finding Details</h3>
+        <div id="audit-modal-body"></div>
+        <div style="margin-top:1rem;display:flex;gap:0.5rem;">
+          <button type="button" class="btn btn-primary btn-sm" id="audit-modal-verify-btn">Mark Verified</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="audit-modal-flag-btn">Flag for Review</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="audit-modal-dismiss-btn">Dismiss</button>
+        </div>
+        <div id="audit-modal-status" style="margin-top:0.5rem;font-size:0.85rem;"></div>
+      </div>
+    </div>
+    <!-- Chart drill-down modal -->
+    <div id="chart-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" onclick="if(event.target===this)this.style.display='none'">
+      <div style="background:white;max-width:700px;margin:5vh auto;border-radius:12px;padding:1.5rem;position:relative;">
+        <button type="button" onclick="this.closest('#chart-drilldown-modal').style.display='none'" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
+        <h3 id="chart-modal-title">Chart Detail</h3>
+        <div id="chart-modal-body"></div>
+        <canvas id="chart-modal-canvas" height="250"></canvas>
       </div>
     </div>
 
@@ -1079,6 +1147,54 @@
         <button type="button" class="chip cfo-quick" data-q="What are our main cost drivers?">Cost drivers</button>
         <button type="button" class="chip cfo-quick" data-q="Where is cash leaking?">Cash leaks</button>
         <button type="button" class="chip cfo-quick" data-q="What is our burn rate?">Burn rate</button>
+      </div>
+    </div>
+
+    <!-- ═══════ CEO Mode Page ═══════ -->
+    <div class="card" data-page="ceo">
+      <h2>CEO Executive Dashboard</h2>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">High-level financial summaries, KPIs, and strategic alerts for executive decision-making.</p>
+      <div id="ceo-grade-bar" style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <div class="panel" style="flex:1;min-width:160px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Health Grade</div>
+          <div id="ceo-grade" style="font-size:3rem;font-weight:800;color:var(--primary);">—</div>
+        </div>
+        <div class="panel" style="flex:1;min-width:160px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Risk Score</div>
+          <div id="ceo-risk" style="font-size:2rem;font-weight:700;">—</div>
+        </div>
+        <div class="panel" style="flex:1;min-width:160px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Cash Runway</div>
+          <div id="ceo-runway" style="font-size:2rem;font-weight:700;">—</div>
+        </div>
+        <div class="panel" style="flex:1;min-width:160px;text-align:center;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Profit Margin</div>
+          <div id="ceo-margin" style="font-size:2rem;font-weight:700;">—</div>
+        </div>
+      </div>
+      <div id="ceo-kpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem;margin-bottom:1rem;"></div>
+      <div id="ceo-alerts" style="margin-bottom:1rem;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div class="panel"><h3>Revenue vs Expenses Trend</h3><canvas id="ceo-trend-chart" height="220"></canvas></div>
+        <div class="panel"><h3>Profit Trend</h3><canvas id="ceo-profit-chart" height="220"></canvas></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div class="panel"><h3>Top Expenses</h3><canvas id="ceo-expense-chart" height="220"></canvas></div>
+        <div class="panel"><h3>Balance Sheet Summary</h3>
+          <div id="ceo-balance-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-top:0.5rem;">
+            <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Assets</div><div id="ceo-assets" style="font-size:1.3rem;font-weight:700;">—</div></div>
+            <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Liabilities</div><div id="ceo-liabilities" style="font-size:1.3rem;font-weight:700;">—</div></div>
+            <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Equity</div><div id="ceo-equity" style="font-size:1.3rem;font-weight:700;">—</div></div>
+          </div>
+          <div style="margin-top:0.75rem;"><canvas id="ceo-balance-chart" height="180"></canvas></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:1rem;">
+        <h3>Accounts Receivable & Payable</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Accounts Receivable</div><div id="ceo-ar" style="font-size:1.3rem;font-weight:700;color:#2e7d32;">—</div></div>
+          <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Accounts Payable</div><div id="ceo-ap" style="font-size:1.3rem;font-weight:700;color:#c62828;">—</div></div>
+        </div>
       </div>
     </div>
 
@@ -1300,7 +1416,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'chat', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'settings', 'bank-statements', 'audit', 'cfo']);
+    const validPages = new Set(['dashboard', 'chat', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
     const rawFetch = window.fetch.bind(window);
 
     window.fetch = async (...args) => {
@@ -5640,6 +5756,433 @@
       if (page === 'bank-statements') { loadBankStatements(); }
       if (page === 'audit') { loadAuditLogs(); }
       if (page === 'cfo') { loadCFOReport(); }
+      if (page === 'ceo') { loadCEOReport(); }
+      if (page === 'inventory') { loadPriceMgmtItems(); }
+    });
+
+    // ═══════ CEO Mode Module ═══════
+    let ceoTrendChart = null, ceoProfitChart = null, ceoExpenseChart = null, ceoBalanceChart = null;
+
+    async function loadCEOReport() {
+      try {
+        const res = await fetch(bsAPI + '/ceo/report');
+        if (!res.ok) return;
+        const d = await res.json();
+
+        document.getElementById('ceo-grade').textContent = d.health_grade;
+        document.getElementById('ceo-grade').style.color = d.health_grade <= 'B' ? '#2e7d32' : d.health_grade <= 'C' ? '#f57f17' : '#c62828';
+        document.getElementById('ceo-risk').textContent = d.risk_score + '/100';
+        document.getElementById('ceo-risk').style.color = d.risk_score <= 30 ? '#2e7d32' : d.risk_score <= 60 ? '#f57f17' : '#c62828';
+        document.getElementById('ceo-runway').textContent = d.cash_runway_months + ' mo';
+        document.getElementById('ceo-margin').textContent = d.profit_margin + '%';
+        document.getElementById('ceo-margin').style.color = d.profit_margin >= 0 ? '#2e7d32' : '#c62828';
+
+        // KPI cards
+        const kpiGrid = document.getElementById('ceo-kpis');
+        kpiGrid.innerHTML = '';
+        const kpiItems = [
+          { label: 'Total Revenue (12m)', value: d.revenue_total, unit: 'IRR', color: '#2e7d32' },
+          { label: 'Net Profit (12m)', value: d.profit_total, unit: 'IRR', color: d.profit_total >= 0 ? '#2e7d32' : '#c62828' },
+          { label: 'Cash Position', value: d.cash_position, unit: 'IRR', color: d.cash_position >= 0 ? '#0f766e' : '#c62828' },
+          { label: 'Burn Rate', value: d.burn_rate, unit: 'IRR/mo', color: 'var(--text)' },
+          { label: 'Liability Ratio', value: (d.liability_ratio * 100).toFixed(1) + '%', unit: '', color: d.liability_ratio > 0.6 ? '#c62828' : 'var(--text)' },
+        ];
+        kpiItems.forEach(k => {
+          const div = document.createElement('div');
+          div.className = 'panel';
+          div.style.cssText = 'padding:0.6rem;text-align:center;';
+          const displayVal = typeof k.value === 'number' ? k.value.toLocaleString() : k.value;
+          div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${k.label}</div>
+            <div style="font-size:1.1rem;font-weight:700;color:${k.color};">${displayVal} ${k.unit}</div>`;
+          kpiGrid.appendChild(div);
+        });
+
+        // Alerts
+        const alertsEl = document.getElementById('ceo-alerts');
+        alertsEl.innerHTML = '';
+        (d.alerts || []).forEach(a => {
+          const color = a.severity === 'critical' ? '#c62828' : '#f57f17';
+          const div = document.createElement('div');
+          div.style.cssText = `padding:0.5rem 0.75rem;margin-bottom:0.4rem;border-left:4px solid ${color};background:#fafafa;border-radius:4px;`;
+          div.innerHTML = `<strong style="color:${color}">${escapeHtml(a.title)}</strong><br><span style="font-size:0.85rem;">${escapeHtml(a.body)}</span>`;
+          alertsEl.appendChild(div);
+        });
+
+        // AR/AP
+        document.getElementById('ceo-ar').textContent = (d.accounts_receivable || 0).toLocaleString() + ' IRR';
+        document.getElementById('ceo-ap').textContent = (d.accounts_payable || 0).toLocaleString() + ' IRR';
+
+        // Balance sheet summary
+        document.getElementById('ceo-assets').textContent = (d.total_assets || 0).toLocaleString();
+        document.getElementById('ceo-liabilities').textContent = (d.total_liabilities || 0).toLocaleString();
+        document.getElementById('ceo-equity').textContent = (d.total_equity || 0).toLocaleString();
+
+        // Charts
+        if (typeof Chart !== 'undefined') {
+          const palette = ['#0f766e', '#c62828', '#0ea5e9', '#eab308', '#8b5cf6', '#f97316', '#10b981', '#64748b'];
+
+          // Revenue vs Expenses trend
+          if (ceoTrendChart) try { ceoTrendChart.destroy(); } catch(_){}
+          const months = (d.monthly_revenue || []).map(m => m.month);
+          ceoTrendChart = new Chart(document.getElementById('ceo-trend-chart'), {
+            type: 'bar', data: {
+              labels: months,
+              datasets: [
+                { label: 'Revenue', data: (d.monthly_revenue || []).map(m => m.amount), backgroundColor: '#0f766e' },
+                { label: 'Expenses', data: (d.monthly_expenses || []).map(m => m.amount), backgroundColor: '#c62828' }
+              ]
+            }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } },
+              onClick: (e, els) => { if (els.length) showChartDrilldown('Revenue vs Expenses', months[els[0].index], d.monthly_revenue[els[0].index], d.monthly_expenses[els[0].index]); }
+            }
+          });
+
+          // Profit trend
+          if (ceoProfitChart) try { ceoProfitChart.destroy(); } catch(_){}
+          ceoProfitChart = new Chart(document.getElementById('ceo-profit-chart'), {
+            type: 'line', data: {
+              labels: months,
+              datasets: [{ label: 'Net Profit', data: (d.monthly_profit || []).map(m => m.amount), borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.15)', fill: true, tension: 0.3 }]
+            }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } },
+              onClick: (e, els) => { if (els.length) showChartDrilldown('Profit', months[els[0].index], d.monthly_profit[els[0].index]); }
+            }
+          });
+
+          // Top expenses donut
+          if (ceoExpenseChart) try { ceoExpenseChart.destroy(); } catch(_){}
+          const topExp = d.top_expenses || [];
+          ceoExpenseChart = new Chart(document.getElementById('ceo-expense-chart'), {
+            type: 'doughnut', data: {
+              labels: topExp.map(e => e.category),
+              datasets: [{ data: topExp.map(e => e.amount), backgroundColor: palette }]
+            }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } },
+              onClick: (e, els) => { if (els.length) showChartDrilldown('Expense: ' + topExp[els[0].index].category, null, topExp[els[0].index]); }
+            }
+          });
+
+          // Balance sheet donut
+          if (ceoBalanceChart) try { ceoBalanceChart.destroy(); } catch(_){}
+          ceoBalanceChart = new Chart(document.getElementById('ceo-balance-chart'), {
+            type: 'doughnut', data: {
+              labels: ['Assets', 'Liabilities', 'Equity'],
+              datasets: [{ data: [Math.abs(d.total_assets || 0), Math.abs(d.total_liabilities || 0), Math.abs(d.total_equity || 0)], backgroundColor: ['#0f766e', '#c62828', '#0ea5e9'] }]
+            }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } },
+              onClick: (e, els) => { if (els.length) showChartDrilldown('Balance Sheet', ['Assets', 'Liabilities', 'Equity'][els[0].index], { value: [d.total_assets, d.total_liabilities, d.total_equity][els[0].index] }); }
+            }
+          });
+        }
+      } catch (e) { console.warn('CEO report load failed:', e); }
+    }
+
+    // ═══════ Chart Drill-Down ═══════
+    let chartModalChart = null;
+    function showChartDrilldown(title, label, ...data) {
+      const modal = document.getElementById('chart-drilldown-modal');
+      document.getElementById('chart-modal-title').textContent = title + (label ? ' - ' + label : '');
+      const body = document.getElementById('chart-modal-body');
+      body.innerHTML = '';
+      data.forEach(item => {
+        if (item && typeof item === 'object') {
+          const tbl = document.createElement('table');
+          tbl.className = 'mini-table';
+          tbl.innerHTML = '<thead><tr>' + Object.keys(item).map(k => `<th>${escapeHtml(String(k))}</th>`).join('') + '</tr></thead><tbody><tr>' + Object.values(item).map(v => `<td>${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? ''))}</td>`).join('') + '</tr></tbody>';
+          body.appendChild(tbl);
+        }
+      });
+      modal.style.display = 'block';
+    }
+
+    // ═══════ Enhanced Audit Module ═══════
+    let auditFindings = [];
+
+    // Domain tab switching
+    document.querySelectorAll('.audit-domain-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.audit-domain-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        renderAuditFindings(tab.dataset.domain);
+      });
+    });
+
+    function renderAuditFindings(domain) {
+      const filtered = domain === 'all' ? auditFindings : auditFindings.filter(f => f.domain === domain);
+      const findingsList = document.getElementById('audit-findings-list');
+      findingsList.innerHTML = '';
+      if (!filtered.length) {
+        findingsList.innerHTML = '<p style="color:#2e7d32;">No findings in this domain.</p>';
+        return;
+      }
+      filtered.forEach((f, idx) => {
+        const color = f.severity === 'critical' ? '#c62828' : f.severity === 'warning' ? '#f57f17' : '#1565c0';
+        const domainLabel = f.domain === 'treasury' ? 'Treasury' : f.domain === 'managerial' ? 'Managerial' : 'Financial';
+        const div = document.createElement('div');
+        div.style.cssText = `padding:0.5rem 0.75rem;margin-bottom:0.4rem;border-left:4px solid ${color};background:#fafafa;border-radius:4px;cursor:pointer;transition:background 0.15s;`;
+        div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
+          <div><strong style="color:${color}">${escapeHtml(f.severity.toUpperCase())}</strong> <span style="font-size:0.75rem;background:#e3f2fd;padding:0.1rem 0.4rem;border-radius:4px;">${domainLabel}</span> — <strong>${escapeHtml(f.title)}</strong></div>
+          <span style="font-size:0.75rem;color:var(--text-muted);">Click to inspect</span>
+        </div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${escapeHtml(f.detail)}</div>
+        ${f.amount ? `<div style="font-size:0.8rem;margin-top:0.15rem;">Amount: <strong>${Number(f.amount).toLocaleString()} IRR</strong></div>` : ''}`;
+        div.addEventListener('mouseenter', () => div.style.background = '#f0f4f8');
+        div.addEventListener('mouseleave', () => div.style.background = '#fafafa');
+        div.addEventListener('click', () => openAuditDrilldown(f, idx));
+        findingsList.appendChild(div);
+      });
+    }
+
+    function openAuditDrilldown(finding, idx) {
+      const modal = document.getElementById('audit-drilldown-modal');
+      document.getElementById('audit-modal-title').textContent = finding.title;
+      const body = document.getElementById('audit-modal-body');
+      const domainLabel = finding.domain === 'treasury' ? 'Treasury (خزانه‌داری)' : finding.domain === 'managerial' ? 'Managerial (حسابداری مدیریتی)' : 'Financial (حسابداری مالی)';
+      body.innerHTML = `
+        <div style="margin-bottom:0.5rem;"><span style="font-size:0.8rem;background:#e3f2fd;padding:0.15rem 0.5rem;border-radius:4px;">${domainLabel}</span></div>
+        <p><strong>Severity:</strong> <span style="color:${finding.severity === 'critical' ? '#c62828' : '#f57f17'}">${finding.severity.toUpperCase()}</span></p>
+        <p><strong>Category:</strong> ${escapeHtml(finding.category)}</p>
+        <p><strong>Detail:</strong> ${escapeHtml(finding.detail)}</p>
+        ${finding.amount ? `<p><strong>Amount:</strong> ${Number(finding.amount).toLocaleString()} IRR</p>` : ''}
+        ${finding.entity_id ? `<p><strong>Entity ID:</strong> ${escapeHtml(finding.entity_id)}</p>` : ''}
+      `;
+      const statusEl = document.getElementById('audit-modal-status');
+      statusEl.textContent = finding._status ? `Status: ${finding._status}` : '';
+      document.getElementById('audit-modal-verify-btn').onclick = () => { finding._status = 'verified'; statusEl.textContent = 'Marked as Verified'; statusEl.style.color = '#2e7d32'; };
+      document.getElementById('audit-modal-flag-btn').onclick = () => { finding._status = 'flagged'; statusEl.textContent = 'Flagged for Review'; statusEl.style.color = '#f57f17'; };
+      document.getElementById('audit-modal-dismiss-btn').onclick = () => { finding._status = 'dismissed'; statusEl.textContent = 'Dismissed'; statusEl.style.color = 'var(--text-muted)'; };
+      modal.style.display = 'block';
+    }
+
+    // Save liability threshold
+    document.getElementById('audit-save-threshold-btn').addEventListener('click', async () => {
+      const val = document.getElementById('audit-liability-threshold').value;
+      if (!val) return;
+      try {
+        await fetch(bsAPI + '/settings', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'liability_threshold', value: val })
+        });
+        showAlert('Liability threshold saved.');
+      } catch (e) { showAlert('Failed to save threshold.', true); }
+    });
+
+    // ═══════ Enhanced Manager Report (product filter + cash flow periods + AP) ═══════
+    const mgrProductFilterEl = document.getElementById('mgr-product-filter');
+    const mgrPeriodGranularityEl = document.getElementById('mgr-period-granularity');
+
+    // Override runManagerReport to support new report types and filters
+    const _origRunManagerReport = runManagerReport;
+    runManagerReport = async function() {
+      const type = (mgrReportTypeEl.value || '').trim();
+
+      // Cash flow periods handler
+      if (type === 'cash_flow_periods') {
+        try {
+          const q = new URLSearchParams();
+          if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
+          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
+          q.set('granularity', mgrPeriodGranularityEl.value || 'monthly');
+          mgrRunBtn.disabled = true;
+          const res = await fetch(API + '/manager-reports/financial/cash-flow-periods?' + q.toString());
+          const data = await res.json();
+          if (!res.ok) { showAlert(data.detail || 'Failed', true); return; }
+          lastManagerReport = data;
+          // Render table
+          const periods = data.periods || [];
+          let html = '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Period</th><th>Inflow</th><th>Outflow</th><th>Net</th></tr></thead><tbody>';
+          periods.forEach(p => {
+            const netColor = p.net >= 0 ? '#2e7d32' : '#c62828';
+            html += `<tr><td>${escapeHtml(p.period)}</td><td style="color:#2e7d32">${formatNum(p.inflow)}</td><td style="color:#c62828">${formatNum(p.outflow)}</td><td style="color:${netColor};font-weight:600;">${formatNum(p.net)}</td></tr>`;
+          });
+          html += '</tbody></table></div>';
+          if (data.totals) {
+            html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>Totals:</strong> Inflow: ${formatNum(data.totals.total_inflow)} | Outflow: ${formatNum(data.totals.total_outflow)} | Net: ${formatNum(data.totals.net)}</div>`;
+          }
+          mgrReportPreviewEl.innerHTML = html;
+          mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
+          // Chart
+          if (typeof Chart !== 'undefined' && periods.length) {
+            const chartPanel = document.getElementById('mgr-report-chart-panel');
+            chartPanel.style.display = 'block';
+            if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
+            managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
+              type: 'bar', data: {
+                labels: periods.map(p => p.period),
+                datasets: [
+                  { label: 'Inflow', data: periods.map(p => p.inflow), backgroundColor: '#0f766e' },
+                  { label: 'Outflow', data: periods.map(p => p.outflow), backgroundColor: '#c62828' }
+                ]
+              }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Cash ' + (mgrPeriodGranularityEl.value || 'Monthly') + ' Inflows vs Outflows' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } },
+                onClick: (e, els) => { if (els.length) showChartDrilldown('Cash Flow', periods[els[0].index].period, periods[els[0].index]); }
+              }
+            });
+          }
+          if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
+          if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
+        } catch (err) { showAlert('Error: ' + err.message, true); }
+        finally { mgrRunBtn.disabled = false; }
+        return;
+      }
+
+      // Accounts payable handler
+      if (type === 'accounts_payable') {
+        try {
+          const q = new URLSearchParams();
+          if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
+          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
+          mgrRunBtn.disabled = true;
+          const res = await fetch(API + '/manager-reports/operational/accounts-payable?' + q.toString());
+          const data = await res.json();
+          if (!res.ok) { showAlert(data.detail || 'Failed', true); return; }
+          lastManagerReport = data;
+          const items = data.items || [];
+          let html = '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Invoice</th><th>Vendor</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Aging</th><th>Days Overdue</th></tr></thead><tbody>';
+          items.forEach(it => {
+            const overColor = it.days_overdue > 60 ? '#c62828' : it.days_overdue > 30 ? '#f57f17' : 'var(--text)';
+            html += `<tr><td>${escapeHtml(it.invoice_number || '')}</td><td>${escapeHtml(it.vendor)}</td><td>${formatNum(it.amount)}</td><td>${it.due_date || '—'}</td><td><span class="badge">${it.status}</span></td><td>${it.aging_bucket}</td><td style="color:${overColor};font-weight:600;">${it.days_overdue}</td></tr>`;
+          });
+          html += '</tbody></table></div>';
+          html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>Total Payable:</strong> ${formatNum(data.total)} (${data.count} items)</div>`;
+          mgrReportPreviewEl.innerHTML = html;
+          mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
+          // AP chart by aging
+          if (typeof Chart !== 'undefined' && items.length) {
+            const buckets = {};
+            items.forEach(it => { buckets[it.aging_bucket] = (buckets[it.aging_bucket] || 0) + it.amount; });
+            const chartPanel = document.getElementById('mgr-report-chart-panel');
+            chartPanel.style.display = 'block';
+            if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
+            managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
+              type: 'doughnut', data: {
+                labels: Object.keys(buckets),
+                datasets: [{ data: Object.values(buckets), backgroundColor: ['#0f766e', '#f57f17', '#c62828', '#8b5cf6'] }]
+              }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'AP by Aging Bucket' } },
+                onClick: (e, els) => { if (els.length) { const key = Object.keys(buckets)[els[0].index]; showChartDrilldown('AP Aging', key, { bucket: key, amount: buckets[key] }); } }
+              }
+            });
+          }
+          if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
+          if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
+        } catch (err) { showAlert('Error: ' + err.message, true); }
+        finally { mgrRunBtn.disabled = false; }
+        return;
+      }
+
+      // For sales/purchase reports, append product_name filter
+      if (type.includes('sales') || type.includes('purchase')) {
+        const filterVal = (mgrProductFilterEl.value || '').trim();
+        if (filterVal) {
+          const origFetch = window.fetch;
+          const patchedFetch = (url, opts) => {
+            if (typeof url === 'string' && url.includes('/manager-reports/')) {
+              const sep = url.includes('?') ? '&' : '?';
+              url += sep + 'product_name=' + encodeURIComponent(filterVal);
+            }
+            return origFetch(url, opts);
+          };
+          window.fetch = patchedFetch;
+          try { await _origRunManagerReport(); } finally { window.fetch = origFetch; }
+          return;
+        }
+      }
+
+      await _origRunManagerReport();
+    };
+
+    // ═══════ Clickable Charts Enhancement ═══════
+    // Override renderReportChart to add click handlers
+    const _origRenderReportChart = renderReportChart;
+    renderReportChart = function(canvas, report, existingChart) {
+      const chart = _origRenderReportChart(canvas, report, existingChart);
+      if (chart && report) {
+        chart.options.onClick = (e, els) => {
+          if (!els.length) return;
+          const idx = els[0].index;
+          const dsIdx = els[0].datasetIndex;
+          const label = chart.data.labels ? chart.data.labels[idx] : '';
+          const value = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].data[idx] : 0;
+          const dsLabel = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].label : '';
+          showChartDrilldown(report.report_type || 'Report', label, { label: label, dataset: dsLabel, value: value });
+        };
+        chart.update();
+      }
+      return chart;
+    };
+
+    // ═══════ Price Management ═══════
+    async function loadPriceMgmtItems() {
+      try {
+        const res = await fetch(API + '/manager-reports/inventory/items');
+        const items = await res.json();
+        const sel = document.getElementById('price-mgmt-item');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Select item</option>';
+        (items || []).forEach(i => {
+          const opt = document.createElement('option');
+          opt.value = i.id;
+          opt.textContent = (i.sku ? i.sku + ' - ' : '') + i.name + (i.list_price ? ' (current: ' + i.list_price.toLocaleString() + ' IRR)' : '');
+          opt.dataset.price = i.list_price || 0;
+          sel.appendChild(opt);
+        });
+      } catch(_){}
+    }
+
+    document.getElementById('price-mgmt-item').addEventListener('change', function() {
+      const opt = this.selectedOptions[0];
+      if (opt && opt.dataset.price) {
+        document.getElementById('price-mgmt-value').value = opt.dataset.price;
+      }
+    });
+
+    document.getElementById('price-mgmt-save-btn').addEventListener('click', async () => {
+      const itemId = document.getElementById('price-mgmt-item').value;
+      const price = document.getElementById('price-mgmt-value').value;
+      const statusEl = document.getElementById('price-mgmt-status');
+      if (!itemId) { statusEl.textContent = 'Select an item first.'; statusEl.style.color = '#c62828'; return; }
+      try {
+        const res = await fetch(API + '/manager-reports/inventory/items/' + itemId + '/price?list_price=' + price, { method: 'PATCH' });
+        const data = await res.json();
+        if (res.ok) {
+          statusEl.textContent = `Price updated: ${data.name} — ${data.old_price.toLocaleString()} -> ${data.new_price.toLocaleString()} IRR`;
+          statusEl.style.color = '#2e7d32';
+          loadPriceMgmtItems();
+        } else {
+          statusEl.textContent = data.detail || 'Failed to update price.';
+          statusEl.style.color = '#c62828';
+        }
+      } catch (e) { statusEl.textContent = 'Error: ' + e.message; statusEl.style.color = '#c62828'; }
+    });
+
+    // ═══════ Enhanced Audit (overwrite handler) ═══════
+    // Remove old handler and re-add with domain support
+    const auditRunBtn2 = document.getElementById('audit-run-btn');
+    const newAuditBtn = auditRunBtn2.cloneNode(true);
+    auditRunBtn2.parentNode.replaceChild(newAuditBtn, auditRunBtn2);
+    newAuditBtn.addEventListener('click', async () => {
+      try {
+        newAuditBtn.disabled = true;
+        const res = await fetch(bsAPI + '/audit/report');
+        const data = await res.json();
+        document.getElementById('audit-scores').style.display = 'flex';
+        document.getElementById('audit-integrity-score').textContent = data.integrity_score;
+        document.getElementById('audit-integrity-score').style.color = data.integrity_score >= 80 ? '#2e7d32' : data.integrity_score >= 50 ? '#f57f17' : '#c62828';
+        document.getElementById('audit-health-score').textContent = data.health_score;
+        document.getElementById('audit-health-score').style.color = data.health_score >= 80 ? '#2e7d32' : data.health_score >= 50 ? '#f57f17' : '#c62828';
+        document.getElementById('audit-checks-summary').textContent = `${data.checks_passed} passed / ${data.checks_failed} failed`;
+
+        auditFindings = (data.findings || []).map(f => ({
+          ...f,
+          domain: f.domain || 'financial',
+          _status: null
+        }));
+
+        const findingsWrap = document.getElementById('audit-findings-wrap');
+        findingsWrap.style.display = 'block';
+
+        // Reset domain tabs
+        document.querySelectorAll('.audit-domain-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.audit-domain-tab[data-domain="all"]').classList.add('active');
+
+        renderAuditFindings('all');
+      } catch (e) { showAlert('Audit failed: ' + e.message, true); }
+      finally { newAuditBtn.disabled = false; }
     });
 
   </script>

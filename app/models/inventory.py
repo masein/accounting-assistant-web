@@ -25,6 +25,7 @@ class InventoryItem(Base):
     name: Mapped[str] = mapped_column(String(256), index=True)
     unit: Mapped[str] = mapped_column(String(32), default="unit")
     is_active: Mapped[bool] = mapped_column(default=True)
+    list_price: Mapped[int] = mapped_column(BigInteger, default=0, doc="Current list/selling price")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

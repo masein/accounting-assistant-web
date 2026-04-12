@@ -345,3 +345,99 @@ def answer_cfo_question(db: Session, question: str) -> str:
 
     # Default: return full narrative
     return report.narrative
+
+
+@dataclass
+class CEOReport:
+    revenue_total: int = 0
+    revenue_trend: float = 0.0
+    profit_total: int = 0
+    profit_margin: float = 0.0
+    cash_position: int = 0
+    cash_runway_months: float = 0.0
+    burn_rate: int = 0
+    health_grade: str = "A"
+    risk_score: int = 0
+    total_assets: int = 0
+    total_liabilities: int = 0
+    total_equity: int = 0
+    monthly_revenue: list = field(default_factory=list)
+    monthly_expenses: list = field(default_factory=list)
+    monthly_profit: list = field(default_factory=list)
+    top_expenses: list = field(default_factory=list)
+    alerts: list = field(default_factory=list)
+    accounts_receivable: int = 0
+    accounts_payable: int = 0
+    liability_ratio: float = 0.0
+
+
+def build_ceo_report(db: Session) -> CEOReport:
+    """Build a high-level CEO executive summary report."""
+    cfo = build_cfo_report(db)
+    data = _load_monthly_data(db, months_back=12)
+
+    report = CEOReport()
+
+    kpi_map = {k.key: k for k in cfo.kpis}
+
+    # Revenue & Profit
+    report.revenue_total = int(kpi_map.get("total_revenue", KPI(key="", label="", value=0)).value)
+    report.profit_total = int(kpi_map.get("net_profit", KPI(key="", label="", value=0)).value)
+    report.profit_margin = float(kpi_map.get("net_margin", KPI(key="", label="", value=0)).value)
+    report.cash_position = int(kpi_map.get("cash_on_hand", KPI(key="", label="", value=0)).value)
+    report.cash_runway_months = cfo.runway_months
+    report.burn_rate = cfo.burn_rate
+    report.health_grade = cfo.health_grade
+    report.risk_score = cfo.risk_score
+    report.accounts_receivable = int(kpi_map.get("accounts_receivable", KPI(key="", label="", value=0)).value)
+    report.accounts_payable = int(kpi_map.get("accounts_payable", KPI(key="", label="", value=0)).value)
+
+    # Revenue trend
+    rev_trend_kpi = kpi_map.get("total_revenue")
+    report.revenue_trend = float(rev_trend_kpi.trend_pct) if rev_trend_kpi else 0.0
+
+    # Monthly series
+    months_sorted = sorted(data["monthly_revenue"].keys())
+    for m in months_sorted:
+        rev = data["monthly_revenue"].get(m, 0)
+        exp = data["monthly_expense"].get(m, 0)
+        report.monthly_revenue.append({"month": m, "amount": rev})
+        report.monthly_expenses.append({"month": m, "amount": exp})
+        report.monthly_profit.append({"month": m, "amount": rev - exp})
+
+    # Top expenses
+    sorted_expenses = sorted(data["expense_by_cat"].items(), key=lambda x: x[1], reverse=True)[:8]
+    total_exp = sum(data["expense_by_cat"].values()) or 1
+    for cat, amt in sorted_expenses:
+        report.top_expenses.append({"category": cat, "amount": amt, "pct": round(amt / total_exp * 100, 1)})
+
+    # Balance sheet totals (from accounts)
+    from app.models.account import Account as AccountModel
+    from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY
+    accounts = db.execute(select(AccountModel)).scalars().all()
+    lines_q = select(
+        TransactionLine.account_id,
+        func.coalesce(func.sum(TransactionLine.debit), 0),
+        func.coalesce(func.sum(TransactionLine.credit), 0),
+    ).group_by(TransactionLine.account_id)
+    acc_by_id = {a.id: a for a in accounts}
+    for account_id, td, tc in db.execute(lines_q).all():
+        acc = acc_by_id.get(account_id)
+        if not acc:
+            continue
+        acc_type = classify_account_code(acc.code)
+        if acc_type == ASSET:
+            report.total_assets += (td or 0) - (tc or 0)
+        elif acc_type == LIABILITY:
+            report.total_liabilities += (tc or 0) - (td or 0)
+        elif acc_type == EQUITY:
+            report.total_equity += (tc or 0) - (td or 0)
+
+    report.liability_ratio = round(report.total_liabilities / report.total_assets, 4) if report.total_assets > 0 else 0.0
+
+    # Alerts
+    for insight in cfo.insights:
+        if insight.severity in ("critical", "warning"):
+            report.alerts.append({"severity": insight.severity, "title": insight.title, "body": insight.body})
+
+    return report

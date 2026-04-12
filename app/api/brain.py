@@ -109,6 +109,8 @@ class AuditFindingRead(BaseModel):
     detail: str
     entity_id: str | None = None
     amount: int | None = None
+    domain: str = "financial"
+    verification_status: str = "pending"
 
 
 class AuditReportResponse(BaseModel):
@@ -118,6 +120,8 @@ class AuditReportResponse(BaseModel):
     checks_passed: int
     checks_failed: int
     total_transactions: int
+    liability_total: int = 0
+    liability_threshold: int = 0
 
 
 class AuditLogRead(BaseModel):
@@ -156,6 +160,29 @@ class CFOReportResponse(BaseModel):
     runway_months: float
     burn_rate: int
     health_grade: str
+
+
+class CEOReportResponse(BaseModel):
+    revenue_total: int
+    revenue_trend: float
+    profit_total: int
+    profit_margin: float
+    cash_position: int
+    cash_runway_months: float
+    burn_rate: int
+    health_grade: str
+    risk_score: int
+    total_assets: int
+    total_liabilities: int
+    total_equity: int
+    monthly_revenue: list[dict]
+    monthly_expenses: list[dict]
+    monthly_profit: list[dict]
+    top_expenses: list[dict]
+    alerts: list[dict]
+    accounts_receivable: int
+    accounts_payable: int
+    liability_ratio: float
 
 
 class CFOQuestionRequest(BaseModel):
@@ -463,6 +490,7 @@ def get_audit_report(db: Session = Depends(get_db)) -> AuditReportResponse:
             severity=f.severity, category=f.category,
             title=f.title, detail=f.detail,
             entity_id=f.entity_id, amount=f.amount,
+            domain=f.domain,
         ) for f in report.findings],
         checks_passed=report.checks_passed,
         checks_failed=report.checks_failed,
@@ -532,6 +560,34 @@ def get_transaction_versions(
     ) for v in versions]
 
 
+# ─── Settings Endpoint ────────────────────────────────────────────
+
+class SettingPayload(BaseModel):
+    key: str
+    value: str
+
+
+@router.post("/settings")
+def save_setting(payload: SettingPayload, db: Session = Depends(get_db)) -> dict:
+    """Save an application setting (key-value pair)."""
+    from app.models.app_setting import AppSetting
+    existing = db.execute(select(AppSetting).where(AppSetting.key == payload.key)).scalar_one_or_none()
+    if existing:
+        existing.value = payload.value
+    else:
+        db.add(AppSetting(key=payload.key, value=payload.value))
+    db.commit()
+    return {"key": payload.key, "value": payload.value, "status": "saved"}
+
+
+@router.get("/settings/{key}")
+def get_setting(key: str, db: Session = Depends(get_db)) -> dict:
+    """Get an application setting by key."""
+    from app.models.app_setting import AppSetting
+    setting = db.execute(select(AppSetting).where(AppSetting.key == key)).scalar_one_or_none()
+    return {"key": key, "value": setting.value if setting else None}
+
+
 # ─── CFO Intelligence Endpoints ────────────────────────────────────
 
 @router.get("/cfo/report", response_model=CFOReportResponse)
@@ -553,6 +609,35 @@ def get_cfo_report(db: Session = Depends(get_db)) -> CFOReportResponse:
         runway_months=report.runway_months,
         burn_rate=report.burn_rate,
         health_grade=report.health_grade,
+    )
+
+
+@router.get("/ceo/report", response_model=CEOReportResponse)
+def get_ceo_report(db: Session = Depends(get_db)) -> CEOReportResponse:
+    """Get the CEO-level executive summary report."""
+    from app.services.cfo_intelligence import build_ceo_report
+    report = build_ceo_report(db)
+    return CEOReportResponse(
+        revenue_total=report.revenue_total,
+        revenue_trend=report.revenue_trend,
+        profit_total=report.profit_total,
+        profit_margin=report.profit_margin,
+        cash_position=report.cash_position,
+        cash_runway_months=report.cash_runway_months,
+        burn_rate=report.burn_rate,
+        health_grade=report.health_grade,
+        risk_score=report.risk_score,
+        total_assets=report.total_assets,
+        total_liabilities=report.total_liabilities,
+        total_equity=report.total_equity,
+        monthly_revenue=report.monthly_revenue,
+        monthly_expenses=report.monthly_expenses,
+        monthly_profit=report.monthly_profit,
+        top_expenses=report.top_expenses,
+        alerts=report.alerts,
+        accounts_receivable=report.accounts_receivable,
+        accounts_payable=report.accounts_payable,
+        liability_ratio=report.liability_ratio,
     )
 
 

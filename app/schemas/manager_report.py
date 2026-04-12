@@ -217,6 +217,7 @@ class InventoryItemCreate(BaseModel):
     sku: str | None = None
     name: str
     unit: str = "unit"
+    list_price: int = 0
 
 
 class InventoryItemRead(BaseModel):
@@ -225,6 +226,7 @@ class InventoryItemRead(BaseModel):
     name: str
     unit: str
     is_active: bool
+    list_price: int = 0
 
     model_config = {"from_attributes": True}
 

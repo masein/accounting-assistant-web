@@ -21,7 +21,7 @@ class SalesReportService:
     def __init__(self, db: Session):
         self.db = db
 
-    def sales_by_product(self, from_date: date | None, to_date: date | None) -> SalesPurchaseReportResponse:
+    def sales_by_product(self, from_date: date | None, to_date: date | None, product_name: str | None = None) -> SalesPurchaseReportResponse:
         period = default_period(from_date, to_date)
         rows = sales_items_between(self.db, period.from_date, period.to_date)
         by_product: dict[str, dict[str, float | int]] = defaultdict(
@@ -35,6 +35,10 @@ class SalesReportService:
             by_product[key]["quantity"] += qty
             by_product[key]["sales_amount"] += sales
             by_product[key]["estimated_cost"] += int(round(qty * unit_cost))
+
+        if product_name:
+            filter_lower = product_name.lower()
+            by_product = {k: v for k, v in by_product.items() if filter_lower in k.lower()}
 
         out: list[SalesByProductRow] = []
         total_sales = total_cost = 0
@@ -69,7 +73,7 @@ class SalesReportService:
             },
         )
 
-    def purchase_by_product(self, from_date: date | None, to_date: date | None) -> SalesPurchaseReportResponse:
+    def purchase_by_product(self, from_date: date | None, to_date: date | None, product_name: str | None = None) -> SalesPurchaseReportResponse:
         period = default_period(from_date, to_date)
         rows = purchase_items_between(self.db, period.from_date, period.to_date)
         by_product: dict[str, dict[str, float | int]] = defaultdict(
@@ -81,6 +85,11 @@ class SalesReportService:
             amt = int(item.line_total or 0)
             by_product[key]["quantity"] += qty
             by_product[key]["amount"] += amt
+
+        if product_name:
+            filter_lower = product_name.lower()
+            by_product = {k: v for k, v in by_product.items() if filter_lower in k.lower()}
+
         out: list[SalesByProductRow] = []
         total_amount = 0
         for name, vals in by_product.items():
@@ -104,13 +113,13 @@ class SalesReportService:
             totals={"purchase_amount": total_amount},
         )
 
-    def sales_by_invoice(self, from_date: date | None, to_date: date | None) -> SalesPurchaseReportResponse:
-        return self._invoice_rows(kind="sales", from_date=from_date, to_date=to_date)
+    def sales_by_invoice(self, from_date: date | None, to_date: date | None, product_name: str | None = None) -> SalesPurchaseReportResponse:
+        return self._invoice_rows(kind="sales", from_date=from_date, to_date=to_date, product_name=product_name)
 
-    def purchase_by_invoice(self, from_date: date | None, to_date: date | None) -> SalesPurchaseReportResponse:
-        return self._invoice_rows(kind="purchase", from_date=from_date, to_date=to_date)
+    def purchase_by_invoice(self, from_date: date | None, to_date: date | None, product_name: str | None = None) -> SalesPurchaseReportResponse:
+        return self._invoice_rows(kind="purchase", from_date=from_date, to_date=to_date, product_name=product_name)
 
-    def _invoice_rows(self, kind: str, from_date: date | None, to_date: date | None) -> SalesPurchaseReportResponse:
+    def _invoice_rows(self, kind: str, from_date: date | None, to_date: date | None, product_name: str | None = None) -> SalesPurchaseReportResponse:
         period = default_period(from_date, to_date)
         invoices = invoices_between(self.db, period.from_date, period.to_date, kind=kind)
         entity_ids = [inv.entity_id for inv in invoices if inv.entity_id]
@@ -133,6 +142,12 @@ class SalesReportService:
                     amount=int(inv.amount or 0),
                 )
             )
+
+        if product_name:
+            filter_lower = product_name.lower()
+            rows = [r for r in rows if (r.entity_name and filter_lower in r.entity_name.lower()) or filter_lower in (r.invoice_number or "").lower()]
+            total = sum(r.amount for r in rows)
+
         return SalesPurchaseReportResponse(
             report_type=f"{kind}_by_invoice",
             period=ReportPeriod(from_date=period.from_date, to_date=period.to_date),

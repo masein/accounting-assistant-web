@@ -7521,9 +7521,15 @@
           if (matchRow && matchRow.account_code) {
             showTransactionDrilldown(label || matchRow.account_name || rt, { account_code: matchRow.account_code });
           } else if (rt.includes('balance_sheet')) {
-            const section = matchRow && matchRow.section;
-            const prefix = section === 'assets' ? '11,12,13,14,15' : section === 'liabilities' ? '21,22,23,24' : section === 'equity' ? '31,32,33' : '';
-            if (prefix) showTransactionDrilldown(label || section, { account_code_prefix: prefix });
+            // Map label or index to section prefix for balance sheet donut segments
+            const bsPrefixMap = { 'Assets': '11,12,13,14,15', 'Liabilities': '21,22,23,24', 'Equity': '31,32,33' };
+            const sectionLabel = label || (matchRow && matchRow.section) || '';
+            // Try matching by label first, then by translated label lookup
+            const prefix = bsPrefixMap[sectionLabel]
+              || bsPrefixMap[Object.keys(bsPrefixMap).find(k => t('section' + k).toLowerCase() === sectionLabel.toLowerCase())]
+              || ['11,12,13,14,15', '21,22,23,24', '31,32,33'][idx]
+              || '';
+            if (prefix) showTransactionDrilldown(sectionLabel || 'Balance Sheet', { account_code_prefix: prefix });
             else showChartDrilldown(rt, label, matchRow || {});
           } else if (rt.includes('income')) {
             showTransactionDrilldown(label || rt, { account_code_prefix: '41,42,43,51,52,53,61,62', from_date: report.from_date, to_date: report.to_date });

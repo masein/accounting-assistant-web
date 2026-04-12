@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -123,6 +124,28 @@ class OwnerDashboardResponse(BaseModel):
     close_checklist: list[HealthChecklistItem]
     alerts: list[AlertItem]
     owner_pack_markdown: str
+
+
+class TransactionSearchRow(BaseModel):
+    transaction_id: UUID
+    date: date
+    reference: str | None = None
+    description: str | None = None
+    account_code: str
+    account_name: str
+    debit: int = 0
+    credit: int = 0
+    line_description: str | None = None
+    entity_names: list[str] = []
+
+
+class TransactionSearchResponse(BaseModel):
+    rows: list[TransactionSearchRow]
+    total_count: int
+    page: int
+    page_size: int
+    total_debit: int = 0
+    total_credit: int = 0
 
 
 class MissingReferenceRow(BaseModel):

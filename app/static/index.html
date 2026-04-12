@@ -63,10 +63,54 @@
     }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; }
     .row > * { flex: 1 1 180px; min-width: 0; }
-    .row.mgr-form-row { gap: 0.75rem; }
-    .row.mgr-form-row > * { flex: 1 1 180px; max-width: 280px; }
-    .row.mgr-form-row > .mgr-field-wide { flex: 1 1 220px; max-width: 320px; }
-    .row.mgr-form-row > .mgr-btn-wrap { flex: 0 0 auto; max-width: none; }
+    .mgr-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.75rem 1rem;
+      background: var(--bg, #f8fafc);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .mgr-form-grid label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.3rem;
+    }
+    .mgr-form-grid select,
+    .mgr-form-grid input[type="date"],
+    .mgr-form-grid input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .mgr-form-grid .mgr-field-wide { grid-column: span 1; }
+    .mgr-form-grid .mgr-btn-cell {
+      display: flex;
+      align-items: flex-end;
+    }
+    .mgr-form-grid .mgr-btn-cell .btn {
+      width: 100%;
+      padding: 0.55rem 1.2rem;
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+    .report-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .report-actions .btn {
+      border-radius: 20px;
+      padding: 0.35rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
     .lines-table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
     .lines-table th, .lines-table td { padding: 0.5rem; border: 1px solid var(--border); text-align: left; }
     .lines-table th { background: #f1f5f9; font-weight: 600; }
@@ -292,8 +336,9 @@
       color: var(--text-muted);
       margin-bottom: 0.5rem;
     }
-    .report-actions { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
     .report-chart-panel { margin-bottom: 0.75rem; }
+    .prod-tab { background: #e2e8f0; color: var(--text); border: none; padding: 0.4rem 1rem; font-weight: 500; }
+    .prod-tab.active { background: var(--primary); color: white; }
     .report-chart-panel canvas { max-height: 280px; }
     .chat-msg.report-msg { max-width: 100%; width: 100%; overflow: visible; }
     .chat-msg.report-msg .report-preview-wrap { max-height: 420px; overflow: auto; }
@@ -481,6 +526,7 @@
       <button type="button" class="nav-btn nav-more-item" data-page="invoices">Invoices</button>
       <button type="button" class="nav-btn nav-more-item" data-page="recurring">Recurring</button>
       <button type="button" class="nav-btn nav-more-item" data-page="inventory">Inventory</button>
+      <button type="button" class="nav-btn nav-more-item" data-page="products">Products</button>
       <button type="button" class="nav-btn nav-more-item" data-page="settings">Settings</button>
     </nav>
 
@@ -854,8 +900,8 @@
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
         <span id="manager-subtitle" data-i18n="managerSubtitle">Generate balance sheet, income statement, cash flow, accounting books, AR/AP, and sales/purchase reports.</span>
       </p>
-      <div class="row mgr-form-row" style="margin-bottom:0.75rem;">
-        <div>
+      <div class="mgr-form-grid">
+        <div style="grid-column: span 2;">
           <label for="mgr-report-type" data-i18n="labelReportType">Report type</label>
           <select id="mgr-report-type">
             <option value="balance_sheet" data-i18n="reportBalanceSheet">Balance sheet (ترازنامه)</option>
@@ -875,21 +921,21 @@
           </select>
         </div>
         <div>
-          <label for="mgr-from-date" id="mgr-from-label">From</label>
+          <label for="mgr-from-date" id="mgr-from-label" data-i18n="labelFrom">From</label>
           <input type="date" id="mgr-from-date">
         </div>
         <div>
-          <label for="mgr-to-date" id="mgr-to-label">To</label>
+          <label for="mgr-to-date" id="mgr-to-label" data-i18n="labelTo">To</label>
           <input type="date" id="mgr-to-date">
         </div>
         <div class="mgr-field-wide">
-          <label for="mgr-account-code">Account (code or name)</label>
-          <input type="text" id="mgr-account-code" placeholder="Search by code or name..." list="mgr-account-datalist" autocomplete="off">
+          <label for="mgr-account-code" data-i18n="labelAccountCodeOrName">Account (code or name)</label>
+          <input type="text" id="mgr-account-code" data-i18n-placeholder="placeholderSearchCodeName" placeholder="Search by code or name..." list="mgr-account-datalist" autocomplete="off">
           <datalist id="mgr-account-datalist"></datalist>
         </div>
         <div>
-          <label for="mgr-product-filter">Product/Entity filter</label>
-          <input type="text" id="mgr-product-filter" placeholder="Filter by name">
+          <label for="mgr-product-filter" data-i18n="labelProductEntityFilter">Product / Entity filter</label>
+          <input type="text" id="mgr-product-filter" data-i18n-placeholder="placeholderFilterByName" placeholder="Filter by name">
         </div>
         <div>
           <label for="mgr-period-granularity">Period</label>
@@ -900,8 +946,8 @@
             <option value="seasonal">Seasonal</option>
           </select>
         </div>
-        <div class="mgr-btn-wrap" style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-primary" id="mgr-run-btn" data-i18n="btnRunReport" style="white-space:nowrap;">Run report</button>
+        <div class="mgr-btn-cell">
+          <button type="button" class="btn btn-primary" id="mgr-run-btn" data-i18n="btnRunReport">Run report</button>
         </div>
       </div>
       <div class="report-actions">
@@ -910,13 +956,13 @@
         <button type="button" class="btn btn-secondary btn-sm" id="mgr-export-pdf-btn" data-i18n="btnExportPdf" disabled>Export PDF</button>
       </div>
       <div class="panel">
-        <h3 id="mgr-report-output-title" data-i18n="reportOutputTitle">Report output (JSON + table preview)</h3>
+        <h3 id="mgr-report-output-title" data-i18n="reportOutputTitle">Report output</h3>
         <div class="panel report-chart-panel" id="mgr-report-chart-panel" style="display:none;">
           <h3 id="mgr-report-chart-title" data-i18n="reportChartTitle">Report chart</h3>
           <canvas id="mgr-report-chart" height="220"></canvas>
         </div>
         <div id="mgr-report-preview" style="margin-bottom:0.6rem;"></div>
-        <pre id="mgr-report-json" style="white-space: pre-wrap; margin:0; font-size:0.8rem; color:var(--text); max-height:360px; overflow:auto;"></pre>
+        <pre id="mgr-report-json" style="display:none;"></pre>
       </div>
     </div>
 
@@ -1007,7 +1053,7 @@
           <canvas id="inv-report-chart" height="220"></canvas>
         </div>
         <div id="inv-report-preview" style="margin-bottom:0.6rem;"></div>
-        <pre id="inv-report-json" style="white-space: pre-wrap; margin:0; font-size:0.8rem; color:var(--text); max-height:360px; overflow:auto;"></pre>
+        <pre id="inv-report-json" style="display:none;"></pre>
       </div>
     </div>
 
@@ -1105,10 +1151,20 @@
     </div>
     <!-- Chart drill-down modal -->
     <div id="chart-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" onclick="if(event.target===this)this.style.display='none'">
-      <div style="background:white;max-width:700px;margin:5vh auto;border-radius:12px;padding:1.5rem;position:relative;">
+      <div style="background:white;max-width:900px;margin:4vh auto;border-radius:12px;padding:1.5rem;position:relative;">
         <button type="button" onclick="this.closest('#chart-drilldown-modal').style.display='none'" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
         <h3 id="chart-modal-title">Chart Detail</h3>
         <div id="chart-modal-body"></div>
+        <div id="chart-modal-txn-area" style="display:none;">
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+            <input type="text" id="drilldown-search" placeholder="Search description, reference, entity..." style="flex:1;min-width:180px;">
+            <input type="date" id="drilldown-from">
+            <input type="date" id="drilldown-to">
+          </div>
+          <div id="drilldown-summary" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;"></div>
+          <div id="drilldown-table-wrap" style="max-height:400px;overflow:auto;"></div>
+          <div id="drilldown-pagination" style="display:flex;justify-content:center;align-items:center;gap:0.75rem;margin-top:0.75rem;"></div>
+        </div>
         <canvas id="chart-modal-canvas" height="250"></canvas>
       </div>
     </div>
@@ -1203,6 +1259,59 @@
       </div>
     </div>
 
+    <!-- ═══════ Products & Relationships Hub ═══════ -->
+    <div class="card" data-page="products">
+      <h2>Products & Relationships</h2>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">
+        Product catalog, client-product profitability, entity relationships, and revenue/cost analysis.
+      </p>
+      <div class="mgr-form-grid" style="margin-bottom:1rem;">
+        <div>
+          <label for="prod-entity-type">Entity type</label>
+          <select id="prod-entity-type">
+            <option value="">All</option>
+            <option value="client">Clients</option>
+            <option value="supplier">Suppliers</option>
+          </select>
+        </div>
+        <div>
+          <label for="prod-from-date">From</label>
+          <input type="date" id="prod-from-date">
+        </div>
+        <div>
+          <label for="prod-to-date">To</label>
+          <input type="date" id="prod-to-date">
+        </div>
+        <div>
+          <label for="prod-search">Search</label>
+          <input type="text" id="prod-search" placeholder="Product or entity name">
+        </div>
+        <div class="mgr-btn-cell">
+          <button type="button" class="btn btn-primary" id="prod-load-btn">Load</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.25rem;border-bottom:2px solid var(--border);margin-bottom:1rem;">
+        <button type="button" class="btn btn-sm prod-tab active" data-tab="catalog" style="border-radius:8px 8px 0 0;">Catalog</button>
+        <button type="button" class="btn btn-sm prod-tab" data-tab="clients" style="border-radius:8px 8px 0 0;">Client Matrix</button>
+        <button type="button" class="btn btn-sm prod-tab" data-tab="suppliers" style="border-radius:8px 8px 0 0;">Supplier Matrix</button>
+        <button type="button" class="btn btn-sm prod-tab" data-tab="profitability" style="border-radius:8px 8px 0 0;">Profitability</button>
+      </div>
+      <div id="prod-content" style="min-height:120px;">
+        <p class="empty-state" style="padding:0.5rem;">Click "Load" to view product data.</p>
+      </div>
+      <div class="panel" id="prod-chart-panel" style="display:none;margin-top:1rem;">
+        <h3>Product Chart</h3>
+        <canvas id="prod-chart" height="280"></canvas>
+      </div>
+      <div id="prod-detail-panel" style="display:none;margin-top:1rem;border:1px solid var(--border);border-radius:10px;padding:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+          <h3 id="prod-detail-title" style="margin:0;">Product Detail</h3>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('prod-detail-panel').style.display='none';">Close</button>
+        </div>
+        <div id="prod-detail-body"></div>
+      </div>
+    </div>
+
     <div class="card" data-page="settings">
       <h2 id="settings-title" data-i18n="settingsTitle">AI settings</h2>
       <p id="settings-subtitle" data-i18n="settingsDesc" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">
@@ -1290,7 +1399,7 @@
           Populate the system with sample data for all sections — entities, transactions, invoices, recurring rules, budgets, inventory, and bank statements. Useful for demos and testing.
         </p>
         <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-          <button type="button" class="btn btn-primary" id="seed-demo-data-btn">Load demo data</button>
+          <button type="button" class="btn btn-primary" id="seed-demo-data-btn" data-i18n="btnLoadDemoData">Load demo data</button>
           <span id="seed-demo-status" style="font-size:0.85rem;color:var(--text-muted);"></span>
         </div>
       </div>
@@ -1421,7 +1530,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'chat', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
+    const validPages = new Set(['dashboard', 'chat', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
     const rawFetch = window.fetch.bind(window);
 
     window.fetch = async (...args) => {
@@ -1789,7 +1898,7 @@
         reportSalesByInvoice: 'Sales by invoice',
         reportPurchaseByProduct: 'Purchase by product',
         reportPurchaseByInvoice: 'Purchase by invoice',
-        reportOutputTitle: 'Report output (JSON + table preview)',
+        reportOutputTitle: 'Report output',
         reportChartTitle: 'Report chart',
         inventoryReportOutput: 'Inventory report output',
         inventoryChartTitle: 'Inventory chart',
@@ -1801,6 +1910,153 @@
         placeholderTempPassword: 'temporary password',
         accountDetails: 'Account details',
         loading: 'Loading…',
+        // Report field labels
+        fieldBalance: 'Balance',
+        fieldMetric: 'Metric',
+        fieldValue: 'Value',
+        fieldSection: 'Section',
+        fieldAccount: 'Account',
+        fieldTotalDebit: 'Total debit',
+        fieldTotalCredit: 'Total credit',
+        fieldItemName: 'Item name',
+        fieldUnitCost: 'Unit cost',
+        fieldInventoryValue: 'Inventory value',
+        fieldMovementDate: 'Movement date',
+        fieldProduct: 'Product',
+        fieldInvoice: 'Invoice no.',
+        fieldSalesAmount: 'Sales amount',
+        fieldRevenue: 'Revenue',
+        fieldCost: 'Cost',
+        fieldProfit: 'Profit',
+        fieldMarginPct: 'Margin %',
+        fieldCurrent: 'Current',
+        fieldDays31_60: '31–60 days',
+        fieldDays60Plus: '60+ days',
+        fieldWeek: 'Week',
+        fieldInflow: 'Projected inflow',
+        fieldOutflow: 'Projected outflow',
+        fieldNet: 'Net',
+        fieldCash: 'Projected cash',
+        fieldRisk: 'Risk',
+        fieldTransactionId: 'Transaction ID',
+        fieldNameLabel: 'Name',
+        fieldCOGS: 'COGS',
+        fieldOpEx: 'Operating expenses',
+        fieldOtherExpenses: 'Other expenses',
+        fieldNetProfit: 'Net profit',
+        fieldOperating: 'Operating',
+        fieldInvesting: 'Investing',
+        fieldFinancing: 'Financing',
+        fieldNetChange: 'Net change',
+        // KPI labels
+        kpiCashOnHand: 'Cash on hand',
+        kpiMonthlyNetProfit: 'Monthly net profit',
+        kpiMonthlyBurnRate: 'Monthly burn rate',
+        kpiRunway: 'Runway (months)',
+        kpiArDueWeek: 'AR due this week',
+        kpiApDueWeek: 'AP due this week',
+        kpiLiabilitiesPayable: 'Liabilities payable',
+        // Owner pack
+        ownerPackTitle: 'Owner report pack',
+        ownerNetProfitMonth: 'Net profit (month)',
+        ownerOverdueAR: 'Overdue AR',
+        ownerOverdueAP: 'Overdue AP',
+        ownerDataHealth: 'Data health',
+        ownerMostProfitableClient: 'Most profitable client',
+        ownerPriorityActions: 'Priority actions',
+        ownerAction1: 'Review overdue receivables',
+        ownerAction2: 'Reconcile bank statements',
+        ownerAction3: 'Complete month-end checklist',
+        monthWord: 'month',
+        monthsShort: 'mo',
+        // Chart titles
+        chartBalanceSheetMix: 'Balance sheet mix',
+        chartIncomeStatement: 'Income statement',
+        chartCashFlow: 'Cash flow',
+        chartTopAccountsByTurnover: 'Top accounts by turnover',
+        chartRunningBalance: 'Running balance',
+        chartInventoryValueByItem: 'Inventory value by item',
+        chartInventoryMovements: 'Inventory movements',
+        chartSalesPurchase: 'Sales & purchase',
+        // Balance sheet sections
+        sectionAssets: 'Assets',
+        sectionLiabilities: 'Liabilities',
+        sectionEquity: 'Equity',
+        // Report status messages
+        periodLabel: 'Period',
+        reportWord: 'Report',
+        reportExportTitle: 'Report export',
+        reportResult: 'Report result',
+        noDataYet: 'No data yet.',
+        noActiveAlerts: 'No active alerts.',
+        noRowsInSection: 'No rows in this section.',
+        noSectionRows: 'No data available.',
+        na: 'N/A',
+        risk: 'Risk',
+        ok: 'OK',
+        yes: 'Yes',
+        no: 'No',
+        itemWord: 'Item',
+        chartWord: 'Chart',
+        scoreLabel: 'Score',
+        comparativeAsOf: 'Comparative as of',
+        asOfDate: 'As of',
+        compareAsOf: 'Compare as of',
+        // Report errors
+        failedRunManagerReport: 'Failed to run report.',
+        managerReportError: 'Report error',
+        failedRunInventoryReport: 'Failed to run inventory report.',
+        inventoryReportError: 'Inventory report error',
+        runReportFirst: 'Run a report first.',
+        runInventoryReportFirst: 'Run an inventory report first.',
+        noTabularRowsCsv: 'No tabular data to export.',
+        noReportData: 'No report data.',
+        // Missing references
+        errorLoadingOwnerDashboard: 'Error loading owner dashboard.',
+        errorLoadingMissingReferences: 'Error loading missing references.',
+        noMissingReferences: 'No missing references.',
+        attachReceipt: 'Attach receipt',
+        saveReference: 'Save reference',
+        // Alerts
+        alertExpenseSpikeMessage: 'Expense spike detected.',
+        // Export
+        allowPopupsPdf: 'Please allow popups to export PDF.',
+        // Demo data
+        btnLoadDemoData: 'Load demo data',
+        btnRemoveDemoData: 'Remove demo data',
+        // Alert & checklist labels
+        alertBookQualityRisk: 'Book quality risk',
+        alertCashRunwayShort: 'Cash runway is short',
+        alertOverdueReceivables: 'Overdue receivables',
+        alertOverduePayables: 'Overdue payables',
+        alertExpenseSpike: 'Expense spike',
+        alertRunwayMessage: 'Estimated runway is {months} months based on recent burn rate.',
+        alertOverdueArMessage: 'Overdue AR is {amount}. Follow up collections.',
+        alertOverdueApMessage: 'Overdue AP is {amount}. Plan vendor payments.',
+        alertDataQualityMessage: 'Data quality score is {score}. Resolve missing references/entities/attachments.',
+        // Health issues
+        issueMissingReference: 'Missing reference',
+        issueTransactionsWithoutEntity: 'Transactions without entity',
+        issueExpenseWithoutAttachment: 'Expense transactions without attachment',
+        issueLinesWithoutDescription: 'Lines without description',
+        // Month-end checklist
+        checkReferencesCaptured: 'References captured',
+        checkEntitiesLinked: 'Entities linked',
+        checkExpenseAttachmentsAvailable: 'Expense attachments available',
+        checkLineDescriptionsComplete: 'Line descriptions complete',
+        checkRefsDetail: '{done}/{total} transactions have reference.',
+        checkEntitiesDetail: '{done}/{total} transactions have entity links.',
+        checkAttachmentsDetail: '{done}/{total} expense transactions have attachments.',
+        checkLineDescriptionsDetail: '{done}/{total} lines have descriptions.',
+        // Report sections
+        sectionRevenues: 'Revenues',
+        sectionExpenses: 'Expenses',
+        unassignedClient: 'Unassigned client',
+        // Form labels
+        labelAccountCodeOrName: 'Account (code or name)',
+        placeholderSearchCodeName: 'Search by code or name...',
+        labelProductEntityFilter: 'Product / Entity filter',
+        placeholderFilterByName: 'Filter by name',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -1965,7 +2221,7 @@
         reportSalesByInvoice: 'فروش به تفکیک فاکتور',
         reportPurchaseByProduct: 'خرید به تفکیک کالا',
         reportPurchaseByInvoice: 'خرید به تفکیک فاکتور',
-        reportOutputTitle: 'خروجی گزارش (JSON + پیش‌نمایش جدول)',
+        reportOutputTitle: 'خروجی گزارش',
         reportChartTitle: 'نمودار گزارش',
         inventoryReportOutput: 'خروجی گزارش انبار',
         inventoryChartTitle: 'نمودار انبار',
@@ -1977,6 +2233,153 @@
         placeholderTempPassword: 'رمز موقت',
         accountDetails: 'جزئیات حساب',
         loading: 'در حال بارگذاری…',
+        // برچسب فیلدهای گزارش
+        fieldBalance: 'مانده',
+        fieldMetric: 'شاخص',
+        fieldValue: 'مقدار',
+        fieldSection: 'بخش',
+        fieldAccount: 'حساب',
+        fieldTotalDebit: 'جمع بدهکار',
+        fieldTotalCredit: 'جمع بستانکار',
+        fieldItemName: 'نام قلم',
+        fieldUnitCost: 'بهای واحد',
+        fieldInventoryValue: 'ارزش موجودی',
+        fieldMovementDate: 'تاریخ گردش',
+        fieldProduct: 'محصول',
+        fieldInvoice: 'شماره فاکتور',
+        fieldSalesAmount: 'مبلغ فروش',
+        fieldRevenue: 'درآمد',
+        fieldCost: 'هزینه',
+        fieldProfit: 'سود',
+        fieldMarginPct: 'حاشیه سود %',
+        fieldCurrent: 'جاری',
+        fieldDays31_60: '۳۱–۶۰ روز',
+        fieldDays60Plus: 'بیش از ۶۰ روز',
+        fieldWeek: 'هفته',
+        fieldInflow: 'ورودی پیش‌بینی',
+        fieldOutflow: 'خروجی پیش‌بینی',
+        fieldNet: 'خالص',
+        fieldCash: 'نقدینگی پیش‌بینی',
+        fieldRisk: 'ریسک',
+        fieldTransactionId: 'شناسه تراکنش',
+        fieldNameLabel: 'نام',
+        fieldCOGS: 'بهای تمام‌شده',
+        fieldOpEx: 'هزینه‌های عملیاتی',
+        fieldOtherExpenses: 'سایر هزینه‌ها',
+        fieldNetProfit: 'سود خالص',
+        fieldOperating: 'عملیاتی',
+        fieldInvesting: 'سرمایه‌گذاری',
+        fieldFinancing: 'تأمین مالی',
+        fieldNetChange: 'تغییر خالص',
+        // برچسب KPI
+        kpiCashOnHand: 'وجه نقد موجود',
+        kpiMonthlyNetProfit: 'سود خالص ماهانه',
+        kpiMonthlyBurnRate: 'نرخ مصرف ماهانه',
+        kpiRunway: 'بقای مالی (ماه)',
+        kpiArDueWeek: 'مطالبات سررسید این هفته',
+        kpiApDueWeek: 'بدهی سررسید این هفته',
+        kpiLiabilitiesPayable: 'بدهی‌های پرداختنی',
+        // بسته مالک
+        ownerPackTitle: 'بسته گزارش مالک',
+        ownerNetProfitMonth: 'سود خالص (ماه)',
+        ownerOverdueAR: 'مطالبات معوق',
+        ownerOverdueAP: 'بدهی‌های معوق',
+        ownerDataHealth: 'سلامت داده',
+        ownerMostProfitableClient: 'پرسودترین مشتری',
+        ownerPriorityActions: 'اقدامات اولویت‌دار',
+        ownerAction1: 'بررسی مطالبات معوق',
+        ownerAction2: 'تطبیق صورت‌حساب بانکی',
+        ownerAction3: 'تکمیل چک‌لیست پایان ماه',
+        monthWord: 'ماه',
+        monthsShort: 'ماه',
+        // عناوین نمودار
+        chartBalanceSheetMix: 'ترکیب ترازنامه',
+        chartIncomeStatement: 'صورت سود و زیان',
+        chartCashFlow: 'جریان وجوه نقد',
+        chartTopAccountsByTurnover: 'حساب‌های برتر بر اساس گردش',
+        chartRunningBalance: 'مانده جاری',
+        chartInventoryValueByItem: 'ارزش موجودی به تفکیک قلم',
+        chartInventoryMovements: 'گردش انبار',
+        chartSalesPurchase: 'فروش و خرید',
+        // بخش‌های ترازنامه
+        sectionAssets: 'دارایی‌ها',
+        sectionLiabilities: 'بدهی‌ها',
+        sectionEquity: 'حقوق صاحبان سهام',
+        // پیام‌های وضعیت
+        periodLabel: 'دوره',
+        reportWord: 'گزارش',
+        reportExportTitle: 'خروجی گزارش',
+        reportResult: 'نتیجه گزارش',
+        noDataYet: 'هنوز داده‌ای وجود ندارد.',
+        noActiveAlerts: 'هشدار فعالی وجود ندارد.',
+        noRowsInSection: 'ردیفی در این بخش نیست.',
+        noSectionRows: 'داده‌ای موجود نیست.',
+        na: 'ندارد',
+        risk: 'ریسک',
+        ok: 'خوب',
+        yes: 'بله',
+        no: 'خیر',
+        itemWord: 'قلم',
+        chartWord: 'نمودار',
+        scoreLabel: 'امتیاز',
+        comparativeAsOf: 'مقایسه با تاریخ',
+        asOfDate: 'تا تاریخ',
+        compareAsOf: 'مقایسه از',
+        // خطاهای گزارش
+        failedRunManagerReport: 'خطا در اجرای گزارش.',
+        managerReportError: 'خطای گزارش',
+        failedRunInventoryReport: 'خطا در اجرای گزارش انبار.',
+        inventoryReportError: 'خطای گزارش انبار',
+        runReportFirst: 'ابتدا گزارش را اجرا کنید.',
+        runInventoryReportFirst: 'ابتدا گزارش انبار را اجرا کنید.',
+        noTabularRowsCsv: 'داده جدولی برای خروجی وجود ندارد.',
+        noReportData: 'داده گزارش موجود نیست.',
+        // مراجع ناقص
+        errorLoadingOwnerDashboard: 'خطا در بارگذاری داشبورد مالک.',
+        errorLoadingMissingReferences: 'خطا در بارگذاری مراجع ناقص.',
+        noMissingReferences: 'مرجع ناقصی وجود ندارد.',
+        attachReceipt: 'پیوست رسید',
+        saveReference: 'ذخیره مرجع',
+        // هشدارها
+        alertExpenseSpikeMessage: 'جهش هزینه شناسایی شد.',
+        // خروجی
+        allowPopupsPdf: 'لطفاً پاپ‌آپ را برای خروجی PDF فعال کنید.',
+        // داده آزمایشی
+        btnLoadDemoData: 'بارگذاری داده آزمایشی',
+        btnRemoveDemoData: 'حذف داده آزمایشی',
+        // هشدارهای CEO
+        alertBookQualityRisk: 'ریسک کیفیت دفاتر',
+        alertCashRunwayShort: 'ذخیره نقدی کم است',
+        alertOverdueReceivables: 'مطالبات معوقه',
+        alertOverduePayables: 'بدهی‌های معوقه',
+        alertExpenseSpike: 'جهش هزینه',
+        alertRunwayMessage: 'بر اساس نرخ سوخت فعلی، ذخیره نقدی تنها {months} ماه دوام دارد.',
+        alertOverdueArMessage: '{count} فاکتور فروش معوقه به مبلغ {amount}',
+        alertOverdueApMessage: '{count} فاکتور خرید معوقه به مبلغ {amount}',
+        alertDataQualityMessage: 'امتیاز کیفیت داده {score}٪ — مراجع یا پیوندهای ناقص بررسی شود.',
+        // مسائل کیفیت داده
+        issueMissingReference: 'مرجع ناقص',
+        issueTransactionsWithoutEntity: 'تراکنش بدون طرف حساب',
+        issueExpenseWithoutAttachment: 'هزینه بدون پیوست',
+        issueLinesWithoutDescription: 'سطرها بدون شرح',
+        // چک‌لیست
+        checkReferencesCaptured: 'مراجع ثبت شده',
+        checkEntitiesLinked: 'طرف‌های حساب متصل شده',
+        checkExpenseAttachmentsAvailable: 'پیوست هزینه‌ها موجود',
+        checkLineDescriptionsComplete: 'شرح سطرها کامل',
+        checkRefsDetail: '{count} تراکنش بدون مرجع',
+        checkEntitiesDetail: '{count} تراکنش بدون طرف حساب',
+        checkAttachmentsDetail: '{count} هزینه بدون پیوست',
+        checkLineDescriptionsDetail: '{count} سطر بدون شرح',
+        // بخش‌ها
+        sectionRevenues: 'درآمدها',
+        sectionExpenses: 'هزینه‌ها',
+        unassignedClient: 'مشتری تخصیص‌نیافته',
+        // برچسب‌های فرم
+        labelAccountCodeOrName: 'حساب (کد یا نام)',
+        placeholderSearchCodeName: 'جستجو بر اساس کد یا نام...',
+        labelProductEntityFilter: 'فیلتر محصول / طرف حساب',
+        placeholderFilterByName: 'فیلتر بر اساس نام',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -2099,7 +2502,7 @@
         reportSalesByInvoice: 'Ventas por factura',
         reportPurchaseByProduct: 'Compras por producto',
         reportPurchaseByInvoice: 'Compras por factura',
-        reportOutputTitle: 'Salida del reporte (JSON + tabla)',
+        reportOutputTitle: 'Salida del reporte',
         reportChartTitle: 'Gráfico del reporte',
         inventoryReportOutput: 'Salida de reporte de inventario',
         inventoryChartTitle: 'Gráfico de inventario',
@@ -2233,7 +2636,7 @@
         reportSalesByInvoice: 'المبيعات حسب الفاتورة',
         reportPurchaseByProduct: 'المشتريات حسب المنتج',
         reportPurchaseByInvoice: 'المشتريات حسب الفاتورة',
-        reportOutputTitle: 'مخرجات التقرير (JSON + معاينة جدول)',
+        reportOutputTitle: 'مخرجات التقرير',
         reportChartTitle: 'مخطط التقرير',
         inventoryReportOutput: 'مخرجات تقرير المخزون',
         inventoryChartTitle: 'مخطط المخزون',
@@ -5709,33 +6112,71 @@
     document.getElementById('seed-demo-data-btn').addEventListener('click', async () => {
       const btn = document.getElementById('seed-demo-data-btn');
       const statusEl = document.getElementById('seed-demo-status');
+      const isLoaded = btn.dataset.loaded === '1';
       btn.disabled = true;
-      btn.textContent = 'Loading...';
-      statusEl.textContent = 'Seeding data across all sections...';
-      statusEl.style.color = 'var(--text-muted)';
-      try {
-        const res = await fetch(bsAPI + '/cfo/seed-sample-data', { method: 'POST' });
-        const data = await res.json();
-        if (res.ok) {
-          statusEl.style.color = '#2e7d32';
-          statusEl.textContent = data.message;
-          // Reload data in all sections
-          loadEntities();
-          loadInvoices();
-          loadRecurringRules();
-          loadBankStatements();
-          loadCFOReport();
-          loadAuditLogs();
-        } else {
+
+      if (isLoaded) {
+        // Remove demo data
+        btn.textContent = 'Removing...';
+        statusEl.textContent = '';
+        statusEl.style.color = 'var(--text-muted)';
+        try {
+          const res = await fetch(API + '/admin/reset-db', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            statusEl.style.color = '#2e7d32';
+            statusEl.textContent = data.message || 'Demo data removed.';
+            btn.dataset.loaded = '';
+            btn.textContent = t('btnLoadDemoData');
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-primary');
+            loadEntities();
+            loadInvoices();
+            loadRecurringRules();
+            loadBankStatements();
+            loadCFOReport();
+            loadAuditLogs();
+          } else {
+            statusEl.style.color = '#c62828';
+            statusEl.textContent = data.detail || 'Removal failed.';
+          }
+        } catch (e) {
           statusEl.style.color = '#c62828';
-          statusEl.textContent = data.detail || 'Seeding failed.';
+          statusEl.textContent = 'Error: ' + e.message;
+        } finally {
+          btn.disabled = false;
         }
-      } catch (e) {
-        statusEl.style.color = '#c62828';
-        statusEl.textContent = 'Error: ' + e.message;
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Load demo data';
+      } else {
+        // Load demo data
+        btn.textContent = 'Loading...';
+        statusEl.textContent = 'Seeding data across all sections...';
+        statusEl.style.color = 'var(--text-muted)';
+        try {
+          const res = await fetch(bsAPI + '/cfo/seed-sample-data', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            statusEl.style.color = '#2e7d32';
+            statusEl.textContent = data.message;
+            btn.dataset.loaded = '1';
+            btn.textContent = t('btnRemoveDemoData');
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-danger');
+            loadEntities();
+            loadInvoices();
+            loadRecurringRules();
+            loadBankStatements();
+            loadCFOReport();
+            loadAuditLogs();
+          } else {
+            statusEl.style.color = '#c62828';
+            statusEl.textContent = data.detail || 'Seeding failed.';
+          }
+        } catch (e) {
+          statusEl.style.color = '#c62828';
+          statusEl.textContent = 'Error: ' + e.message;
+        } finally {
+          btn.disabled = false;
+        }
       }
     });
 
@@ -5764,6 +6205,7 @@
       if (page === 'ceo') { loadCEOReport(); }
       if (page === 'inventory') { loadPriceMgmtItems(); }
       if (page === 'manager') { loadAccountDatalist(); }
+      if (page === 'products') { loadProductsCatalog(); }
     });
 
     // ═══════ Account Datalist for Manager Form ═══════
@@ -5859,7 +6301,17 @@
                 { label: 'Expenses', data: (d.monthly_expenses || []).map(m => m.amount), backgroundColor: '#c62828' }
               ]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } },
-              onClick: (e, els) => { if (els.length) { const i = els[0].index; showChartDrilldown('Revenue vs Expenses', months[i], [{metric: 'Revenue', amount: d.monthly_revenue[i].amount}, {metric: 'Expenses', amount: d.monthly_expenses[i].amount}, {metric: 'Net Profit', amount: d.monthly_profit[i].amount}]); } }
+              onClick: (e, els) => {
+                if (!els.length) return;
+                const i = els[0].index;
+                const di = els[0].datasetIndex;
+                const mo = months[i];
+                if (di === 0) {
+                  showTransactionDrilldown(t('fieldRevenue') + ' — ' + mo, { account_code_prefix: '41,42,43', month: mo });
+                } else {
+                  showTransactionDrilldown(t('fieldCost') + ' — ' + mo, { account_code_prefix: '51,52,53,61,62', month: mo });
+                }
+              }
             }
           });
 
@@ -5870,7 +6322,7 @@
               labels: months,
               datasets: [{ label: 'Net Profit', data: (d.monthly_profit || []).map(m => m.amount), borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.15)', fill: true, tension: 0.3 }]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } },
-              onClick: (e, els) => { if (els.length) showChartDrilldown('Profit', months[els[0].index], d.monthly_profit[els[0].index]); }
+              onClick: (e, els) => { if (els.length) showTransactionDrilldown(t('fieldNetProfit') + ' — ' + months[els[0].index], { account_code_prefix: '41,42,43,51,52,53,61,62', month: months[els[0].index] }); }
             }
           });
 
@@ -5882,7 +6334,16 @@
               labels: topExp.map(e => e.category),
               datasets: [{ data: topExp.map(e => e.amount), backgroundColor: palette }]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } },
-              onClick: (e, els) => { if (els.length) showChartDrilldown('Top Expenses', topExp[els[0].index].category, topExp); }
+              onClick: (e, els) => {
+                if (!els.length) return;
+                const idx = els[0].index;
+                const exp = topExp[idx];
+                if (exp.account_code) {
+                  showTransactionDrilldown(exp.category, { account_code: exp.account_code });
+                } else {
+                  showChartDrilldown('Top Expenses', exp.category, topExp);
+                }
+              }
             }
           });
 
@@ -5908,20 +6369,34 @@
       document.getElementById('chart-modal-title').textContent = title + (label ? ' — ' + label : '');
       const body = document.getElementById('chart-modal-body');
       body.innerHTML = '';
+      document.getElementById('chart-modal-txn-area').style.display = 'none';
       data.forEach(item => {
         if (!item) return;
-        // Array of objects → detailed table (e.g. account breakdowns)
         if (Array.isArray(item) && item.length > 0) {
           const keys = Object.keys(item[0]);
           const tbl = document.createElement('table');
           tbl.className = 'mini-table';
-          tbl.innerHTML = '<thead><tr>' + keys.map(k => `<th>${escapeHtml(String(k))}</th>`).join('') + '</tr></thead><tbody>'
-            + item.map(row => '<tr>' + keys.map(k => {
-              const v = row[k];
-              return `<td>${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? '—'))}</td>`;
-            }).join('') + '</tr>').join('')
+          const hasCode = keys.includes('code') || keys.includes('account_code');
+          tbl.innerHTML = '<thead><tr>' + keys.map(k => `<th>${escapeHtml(localizeReportFieldName(k))}</th>`).join('') + '</tr></thead><tbody>'
+            + item.map((row, ri) => {
+              const code = row.code || row.account_code || '';
+              return `<tr style="${hasCode ? 'cursor:pointer;' : ''}" ${hasCode ? `data-account-code="${escapeHtml(code)}" data-account-name="${escapeHtml(row.name || row.account_name || '')}"` : ''}>` + keys.map(k => {
+                const v = row[k];
+                return `<td>${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? '—'))}</td>`;
+              }).join('') + '</tr>';
+            }).join('')
             + '</tbody></table>';
-          // Add total row if there's a 'balance' or 'amount' column
+          // Click handler for rows with account codes → drill into transactions
+          if (hasCode) {
+            tbl.addEventListener('click', (e) => {
+              const tr = e.target.closest('tr[data-account-code]');
+              if (tr) {
+                const code = tr.dataset.accountCode;
+                const name = tr.dataset.accountName;
+                showTransactionDrilldown(name || code, { account_code: code });
+              }
+            });
+          }
           const numKey = keys.find(k => k === 'balance' || k === 'amount');
           if (numKey) {
             const total = item.reduce((s, r) => s + (r[numKey] || 0), 0);
@@ -5934,10 +6409,28 @@
             body.appendChild(tbl);
           }
         } else if (typeof item === 'object' && !Array.isArray(item)) {
-          // Single object → key/value table
           const tbl = document.createElement('table');
           tbl.className = 'mini-table';
-          tbl.innerHTML = '<thead><tr>' + Object.keys(item).map(k => `<th>${escapeHtml(String(k))}</th>`).join('') + '</tr></thead><tbody><tr>' + Object.values(item).map(v => `<td>${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? ''))}</td>`).join('') + '</tr></tbody>';
+          const keys = Object.keys(item);
+          const vals = Object.values(item);
+          tbl.innerHTML = '<thead><tr>' + keys.map(k => `<th>${escapeHtml(localizeReportFieldName(k))}</th>`).join('') + '</tr></thead><tbody><tr>' + vals.map((v, i) => {
+            const k = keys[i];
+            const isClickable = (k === 'metric' || k === 'category') && item._drillParams;
+            const drillKey = v === 'Revenue' ? 'revenue' : v === 'Expenses' ? 'expense' : null;
+            if (isClickable && drillKey && item._drillParams[drillKey]) {
+              return `<td style="cursor:pointer;color:var(--primary);text-decoration:underline;" data-drill-key="${drillKey}">${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? ''))}</td>`;
+            }
+            return `<td>${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? ''))}</td>`;
+          }).join('') + '</tr></tbody>';
+          if (item._drillParams) {
+            tbl.addEventListener('click', (e) => {
+              const td = e.target.closest('td[data-drill-key]');
+              if (td) {
+                const params = item._drillParams[td.dataset.drillKey];
+                if (params) showTransactionDrilldown(td.textContent, params);
+              }
+            });
+          }
           body.appendChild(tbl);
         }
       });
@@ -5945,6 +6438,406 @@
         body.innerHTML = '<p style="color:var(--text-muted);">No detailed data available.</p>';
       }
       modal.style.display = 'block';
+    }
+
+    // ═══════ Transaction Drill-Down (with search/filter/pagination) ═══════
+    let _drilldownParams = {};
+    let _drilldownPage = 1;
+    let _drilldownDebounce = null;
+
+    function showTransactionDrilldown(title, params) {
+      const modal = document.getElementById('chart-drilldown-modal');
+      document.getElementById('chart-modal-title').textContent = title;
+      document.getElementById('chart-modal-body').innerHTML = '';
+      document.getElementById('chart-modal-canvas').style.display = 'none';
+      const txnArea = document.getElementById('chart-modal-txn-area');
+      txnArea.style.display = 'block';
+
+      const searchEl = document.getElementById('drilldown-search');
+      const fromEl = document.getElementById('drilldown-from');
+      const toEl = document.getElementById('drilldown-to');
+      searchEl.value = '';
+      fromEl.value = params.from_date || '';
+      toEl.value = params.to_date || '';
+
+      _drilldownParams = { ...params };
+      _drilldownPage = 1;
+
+      // Wire up search with debounce
+      searchEl.oninput = () => {
+        clearTimeout(_drilldownDebounce);
+        _drilldownDebounce = setTimeout(() => { _drilldownPage = 1; _fetchDrilldown(); }, 300);
+      };
+      fromEl.onchange = () => { _drilldownPage = 1; _fetchDrilldown(); };
+      toEl.onchange = () => { _drilldownPage = 1; _fetchDrilldown(); };
+
+      modal.style.display = 'block';
+      _fetchDrilldown();
+    }
+
+    async function _fetchDrilldown() {
+      const wrap = document.getElementById('drilldown-table-wrap');
+      const summaryEl = document.getElementById('drilldown-summary');
+      const pagEl = document.getElementById('drilldown-pagination');
+      wrap.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">Loading...</p>';
+
+      const q = new URLSearchParams();
+      if (_drilldownParams.account_code) q.set('account_code', _drilldownParams.account_code);
+      if (_drilldownParams.account_code_prefix) q.set('account_code_prefix', _drilldownParams.account_code_prefix);
+      if (_drilldownParams.month) q.set('month', _drilldownParams.month);
+
+      const fromVal = document.getElementById('drilldown-from').value;
+      const toVal = document.getElementById('drilldown-to').value;
+      if (fromVal) q.set('from_date', fromVal);
+      if (toVal) q.set('to_date', toVal);
+
+      const searchVal = document.getElementById('drilldown-search').value.trim();
+      if (searchVal) q.set('search', searchVal);
+
+      q.set('page', String(_drilldownPage));
+      q.set('page_size', '50');
+
+      try {
+        const res = await fetch(API + '/reports/transactions/search?' + q.toString());
+        const data = await res.json();
+        if (!res.ok) { wrap.innerHTML = '<p style="color:#c62828;">Error loading transactions.</p>'; return; }
+
+        summaryEl.textContent = `${data.total_count} transaction${data.total_count !== 1 ? 's' : ''} | ${t('fieldTotalDebit')}: ${formatNum(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatNum(data.total_credit)}`;
+
+        if (!data.rows.length) {
+          wrap.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">' + escapeHtml(t('noDataYet')) + '</p>';
+          pagEl.innerHTML = '';
+          return;
+        }
+
+        const headers = [t('labelDate'), t('labelReference'), t('labelDescription'), t('tableAccountCode'), t('fieldAccount'), t('tableDebit'), t('tableCredit'), 'Entities'];
+        wrap.innerHTML = `<table class="mini-table"><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${
+          data.rows.map(r => `<tr>
+            <td>${escapeHtml(r.date)}</td>
+            <td>${escapeHtml(r.reference || '—')}</td>
+            <td>${escapeHtml(r.description || r.line_description || '—')}</td>
+            <td>${escapeHtml(r.account_code)}</td>
+            <td>${escapeHtml(r.account_name)}</td>
+            <td>${r.debit ? formatNum(r.debit) : '—'}</td>
+            <td>${r.credit ? formatNum(r.credit) : '—'}</td>
+            <td>${(r.entity_names || []).map(n => escapeHtml(n)).join(', ') || '—'}</td>
+          </tr>`).join('')
+        }</tbody></table>`;
+
+        // Pagination
+        const totalPages = Math.ceil(data.total_count / data.page_size);
+        if (totalPages > 1) {
+          pagEl.innerHTML = `
+            <button class="btn btn-secondary btn-sm" ${_drilldownPage <= 1 ? 'disabled' : ''} onclick="_drilldownPage--;_fetchDrilldown();">&#8592; Prev</button>
+            <span style="font-size:0.85rem;">${data.page} / ${totalPages}</span>
+            <button class="btn btn-secondary btn-sm" ${_drilldownPage >= totalPages ? 'disabled' : ''} onclick="_drilldownPage++;_fetchDrilldown();">Next &#8594;</button>
+          `;
+        } else {
+          pagEl.innerHTML = '';
+        }
+      } catch (e) {
+        wrap.innerHTML = '<p style="color:#c62828;">Error: ' + escapeHtml(e.message) + '</p>';
+      }
+    }
+
+    // ═══════ Products & Relationships Hub ═══════
+    let _prodTab = 'catalog';
+    let _prodChart = null;
+    let _prodCatalogData = null;
+
+    // Tab switching
+    document.querySelectorAll('.prod-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.prod-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        _prodTab = tab.dataset.tab;
+        _renderProductsTab();
+      });
+    });
+
+    document.getElementById('prod-load-btn').addEventListener('click', () => _renderProductsTab());
+
+    function _prodQueryParams() {
+      const q = new URLSearchParams();
+      const from = document.getElementById('prod-from-date').value;
+      const to = document.getElementById('prod-to-date').value;
+      const search = document.getElementById('prod-search').value.trim();
+      const entityType = document.getElementById('prod-entity-type').value;
+      if (from) q.set('from_date', from);
+      if (to) q.set('to_date', to);
+      if (search) q.set('search', search);
+      if (entityType) q.set('entity_type', entityType);
+      return q.toString();
+    }
+
+    async function loadProductsCatalog() {
+      _prodTab = 'catalog';
+      document.querySelectorAll('.prod-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('.prod-tab[data-tab="catalog"]').classList.add('active');
+      _renderProductsTab();
+    }
+
+    async function _renderProductsTab() {
+      const content = document.getElementById('prod-content');
+      const chartPanel = document.getElementById('prod-chart-panel');
+      const detailPanel = document.getElementById('prod-detail-panel');
+      detailPanel.style.display = 'none';
+      chartPanel.style.display = 'none';
+      content.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">Loading...</p>';
+
+      try {
+        if (_prodTab === 'catalog') await _renderCatalog(content, chartPanel);
+        else if (_prodTab === 'clients') await _renderEntityMatrix(content, chartPanel, 'client');
+        else if (_prodTab === 'suppliers') await _renderEntityMatrix(content, chartPanel, 'supplier');
+        else if (_prodTab === 'profitability') await _renderProfitability(content, chartPanel);
+      } catch (e) {
+        content.innerHTML = '<p style="color:#c62828;padding:0.5rem;">Error: ' + escapeHtml(e.message) + '</p>';
+      }
+    }
+
+    async function _renderCatalog(content, chartPanel) {
+      const q = _prodQueryParams();
+      const res = await fetch(API + '/products/catalog' + (q ? '?' + q : ''));
+      const data = await res.json();
+      _prodCatalogData = data;
+
+      if (!data.items || !data.items.length) {
+        content.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('noDataYet')) + '</p>';
+        return;
+      }
+
+      content.innerHTML = `
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;">
+          ${data.items.length} products | Revenue: ${formatNum(data.total_revenue)} | Cost: ${formatNum(data.total_cost)} | Profit: ${formatNum(data.total_profit)} IRR
+        </div>
+        <div style="max-height:400px;overflow:auto;">
+        <table class="mini-table">
+          <thead><tr>
+            <th>Product</th><th>SKU</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin</th><th>Clients</th><th>Suppliers</th>
+          </tr></thead>
+          <tbody>${data.items.map(p => `
+            <tr style="cursor:pointer;" data-product="${escapeHtml(p.product_name)}">
+              <td><strong>${escapeHtml(p.product_name)}</strong></td>
+              <td>${escapeHtml(p.sku || '—')}</td>
+              <td>${formatNum(p.total_sales_revenue)}</td>
+              <td>${formatNum(p.total_purchase_cost)}</td>
+              <td style="color:${p.gross_profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(p.gross_profit)}</td>
+              <td>${p.margin_pct != null ? p.margin_pct + '%' : '—'}</td>
+              <td>${p.client_count}</td>
+              <td>${p.supplier_count}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>
+        </div>
+      `;
+
+      // Click handler for product rows
+      content.querySelector('table').addEventListener('click', (e) => {
+        const tr = e.target.closest('tr[data-product]');
+        if (tr) _showProductDetail(tr.dataset.product);
+      });
+
+      // Chart: top 10 by revenue
+      _renderProdChart(chartPanel, 'bar',
+        data.items.slice(0, 10).map(p => p.product_name),
+        [
+          { label: t('fieldRevenue'), data: data.items.slice(0, 10).map(p => p.total_sales_revenue), backgroundColor: '#0f766e' },
+          { label: t('fieldCost'), data: data.items.slice(0, 10).map(p => p.total_purchase_cost), backgroundColor: '#c62828' },
+        ]
+      );
+    }
+
+    async function _showProductDetail(productName) {
+      const panel = document.getElementById('prod-detail-panel');
+      const body = document.getElementById('prod-detail-body');
+      document.getElementById('prod-detail-title').textContent = productName;
+      body.innerHTML = '<p style="color:var(--text-muted);">Loading...</p>';
+      panel.style.display = 'block';
+
+      try {
+        const q = _prodQueryParams();
+        const res = await fetch(API + '/products/detail/' + encodeURIComponent(productName) + (q ? '?' + q : ''));
+        const d = await res.json();
+
+        body.innerHTML = `
+          <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+            <div class="kpi-card"><div class="label">${t('fieldRevenue')}</div><div class="value">${formatNum(d.total_revenue)}</div></div>
+            <div class="kpi-card"><div class="label">${t('fieldCost')}</div><div class="value">${formatNum(d.total_cost)}</div></div>
+            <div class="kpi-card"><div class="label">${t('fieldProfit')}</div><div class="value" style="color:${d.gross_profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(d.gross_profit)}</div></div>
+            <div class="kpi-card"><div class="label">${t('fieldMarginPct')}</div><div class="value">${d.margin_pct != null ? d.margin_pct + '%' : '—'}</div></div>
+          </div>
+
+          ${d.clients.length ? `
+            <h4 style="margin:0.75rem 0 0.3rem;">Clients (${d.clients.length})</h4>
+            <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldRevenue')}</th><th>Invoices</th></tr></thead><tbody>
+              ${d.clients.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${formatNum(c.revenue)}</td><td>${c.invoice_count}</td></tr>`).join('')}
+            </tbody></table>
+          ` : ''}
+
+          ${d.suppliers.length ? `
+            <h4 style="margin:0.75rem 0 0.3rem;">Suppliers (${d.suppliers.length})</h4>
+            <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldCost')}</th><th>Invoices</th></tr></thead><tbody>
+              ${d.suppliers.map(s => `<tr><td>${escapeHtml(s.name)}</td><td>${formatNum(s.cost)}</td><td>${s.invoice_count}</td></tr>`).join('')}
+            </tbody></table>
+          ` : ''}
+
+          ${d.monthly_series.length ? `
+            <h4 style="margin:0.75rem 0 0.3rem;">Monthly Trend</h4>
+            <table class="mini-table"><thead><tr><th>${t('fieldWeek')}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th></tr></thead><tbody>
+              ${d.monthly_series.map(m => `<tr><td>${escapeHtml(m.month)}</td><td>${formatNum(m.revenue)}</td><td>${formatNum(m.cost)}</td></tr>`).join('')}
+            </tbody></table>
+          ` : ''}
+
+          ${d.invoices.length ? `
+            <h4 style="margin:0.75rem 0 0.3rem;">Invoices (${d.invoices.length})</h4>
+            <div style="max-height:250px;overflow:auto;">
+            <table class="mini-table"><thead><tr><th>#</th><th>Type</th><th>${t('labelDate')}</th><th>Entity</th><th>Qty</th><th>Price</th><th>${t('tableTotal')}</th></tr></thead><tbody>
+              ${d.invoices.map(inv => `<tr>
+                <td>${escapeHtml(inv.number)}</td>
+                <td><span class="alert-chip ${inv.kind === 'sales' ? 'low' : 'medium'}">${escapeHtml(inv.kind)}</span></td>
+                <td>${escapeHtml(inv.issue_date)}</td>
+                <td>${escapeHtml(inv.entity_name || '—')}</td>
+                <td>${inv.quantity}</td>
+                <td>${formatNum(inv.unit_price)}</td>
+                <td>${formatNum(inv.line_total)}</td>
+              </tr>`).join('')}
+            </tbody></table>
+            </div>
+          ` : ''}
+        `;
+      } catch (e) {
+        body.innerHTML = '<p style="color:#c62828;">Error: ' + escapeHtml(e.message) + '</p>';
+      }
+    }
+
+    async function _renderEntityMatrix(content, chartPanel, entityType) {
+      const q = new URLSearchParams();
+      const from = document.getElementById('prod-from-date').value;
+      const to = document.getElementById('prod-to-date').value;
+      if (from) q.set('from_date', from);
+      if (to) q.set('to_date', to);
+      q.set('entity_type', entityType);
+
+      const res = await fetch(API + '/products/entity-matrix?' + q.toString());
+      const data = await res.json();
+
+      if (!data.relationships.length) {
+        content.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('noDataYet')) + '</p>';
+        return;
+      }
+
+      const isClient = entityType === 'client';
+      const valLabel = isClient ? t('fieldRevenue') : t('fieldCost');
+      const valKey = isClient ? 'total_revenue' : 'total_cost';
+
+      content.innerHTML = `
+        <div style="max-height:450px;overflow:auto;">
+        <table class="mini-table">
+          <thead><tr>
+            <th>Entity</th><th>Type</th><th>Products</th><th>${valLabel}</th>${isClient ? `<th>${t('fieldProfit')}</th>` : ''}
+          </tr></thead>
+          <tbody>${data.relationships.map(r => `
+            <tr>
+              <td><strong>${escapeHtml(r.entity_name)}</strong></td>
+              <td>${escapeHtml(r.entity_type)}</td>
+              <td>${r.products.map(p => `<span style="display:inline-block;background:#e2e8f0;border-radius:4px;padding:0.1rem 0.4rem;margin:0.1rem;font-size:0.78rem;">${escapeHtml(p.product_name)} (${formatNum(isClient ? p.revenue : p.cost)})</span>`).join(' ')}</td>
+              <td>${formatNum(r[valKey])}</td>
+              ${isClient ? `<td style="color:${r.profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(r.profit)}</td>` : ''}
+            </tr>
+          `).join('')}</tbody>
+        </table>
+        </div>
+      `;
+
+      // Chart: top entities
+      const top = data.relationships.slice(0, 10);
+      _renderProdChart(chartPanel, 'bar',
+        top.map(r => r.entity_name),
+        isClient ? [
+          { label: t('fieldRevenue'), data: top.map(r => r.total_revenue), backgroundColor: '#0f766e' },
+          { label: t('fieldCost'), data: top.map(r => r.total_cost), backgroundColor: '#c62828' },
+        ] : [
+          { label: t('fieldCost'), data: top.map(r => r.total_cost), backgroundColor: '#c62828' },
+        ]
+      );
+    }
+
+    async function _renderProfitability(content, chartPanel) {
+      const q = _prodQueryParams();
+      const res = await fetch(API + '/products/profitability' + (q ? '?' + q : ''));
+      const data = await res.json();
+
+      if (!data.by_product.length) {
+        content.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('noDataYet')) + '</p>';
+        return;
+      }
+
+      content.innerHTML = `
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;">
+          Total Revenue: ${formatNum(data.total_revenue)} | Cost: ${formatNum(data.total_cost)} | Profit: ${formatNum(data.total_profit)} | Avg Margin: ${data.avg_margin != null ? data.avg_margin + '%' : '—'}
+        </div>
+        <h4 style="margin:0.5rem 0 0.3rem;">By Product</h4>
+        <div style="max-height:300px;overflow:auto;">
+        <table class="mini-table">
+          <thead><tr><th>Product</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th><th>${t('fieldMarginPct')}</th><th>Top Client</th></tr></thead>
+          <tbody>${data.by_product.map(p => `
+            <tr>
+              <td><strong>${escapeHtml(p.product_name)}</strong></td>
+              <td>${formatNum(p.revenue)}</td>
+              <td>${formatNum(p.cost)}</td>
+              <td style="color:${p.profit >= 0 ? '#2e7d32' : '#c62828'};font-weight:600;">${formatNum(p.profit)}</td>
+              <td><span style="background:${p.margin_pct != null && p.margin_pct >= 20 ? '#dcfce7' : p.margin_pct != null && p.margin_pct < 0 ? '#fee2e2' : '#f1f5f9'};padding:0.15rem 0.5rem;border-radius:4px;font-size:0.82rem;">${p.margin_pct != null ? p.margin_pct + '%' : '—'}</span></td>
+              <td>${escapeHtml(p.top_client || '—')}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>
+        </div>
+
+        ${data.by_client_product.length ? `
+          <h4 style="margin:0.75rem 0 0.3rem;">By Client × Product</h4>
+          <div style="max-height:250px;overflow:auto;">
+          <table class="mini-table">
+            <thead><tr><th>Client</th><th>Product</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th></tr></thead>
+            <tbody>${data.by_client_product.slice(0, 50).map(cp => `
+              <tr>
+                <td>${escapeHtml(cp.client_name)}</td>
+                <td>${escapeHtml(cp.product_name)}</td>
+                <td>${formatNum(cp.revenue)}</td>
+                <td>${formatNum(cp.cost)}</td>
+                <td style="color:${cp.profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(cp.profit)}</td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+          </div>
+        ` : ''}
+      `;
+
+      // Chart: profit by product
+      const top = data.by_product.slice(0, 10);
+      _renderProdChart(chartPanel, 'bar',
+        top.map(p => p.product_name),
+        [
+          { label: t('fieldRevenue'), data: top.map(p => p.revenue), backgroundColor: '#0f766e' },
+          { label: t('fieldCost'), data: top.map(p => p.cost), backgroundColor: '#c62828' },
+          { label: t('fieldProfit'), data: top.map(p => p.profit), backgroundColor: '#0ea5e9' },
+        ]
+      );
+    }
+
+    function _renderProdChart(chartPanel, type, labels, datasets) {
+      if (typeof Chart === 'undefined') return;
+      chartPanel.style.display = 'block';
+      if (_prodChart) try { _prodChart.destroy(); } catch(_){}
+      _prodChart = new Chart(document.getElementById('prod-chart'), {
+        type,
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { ticks: { callback: v => formatNum(v) } } }
+        }
+      });
     }
 
     // ═══════ Enhanced Audit Module ═══════

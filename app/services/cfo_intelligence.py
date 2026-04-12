@@ -71,6 +71,7 @@ def _load_monthly_data(db: Session, months_back: int = 12) -> dict:
     monthly_cash_in: dict[str, int] = defaultdict(int)
     monthly_cash_out: dict[str, int] = defaultdict(int)
     expense_by_cat: dict[str, int] = defaultdict(int)
+    expense_code_by_cat: dict[str, str] = {}
     revenue_by_client: dict[str, int] = defaultdict(int)
     total_cash = 0
     total_receivable = 0
@@ -85,6 +86,7 @@ def _load_monthly_data(db: Session, months_back: int = 12) -> dict:
             elif acc_type == EXPENSE:
                 monthly_expense[month] += ln.debit - ln.credit
                 expense_by_cat[ln.account.name] += ln.debit - ln.credit
+                expense_code_by_cat[ln.account.name] = ln.account.code
 
             if (ln.account.code or "").startswith("1110"):
                 delta = ln.debit - ln.credit
@@ -105,6 +107,7 @@ def _load_monthly_data(db: Session, months_back: int = 12) -> dict:
         "monthly_cash_in": monthly_cash_in,
         "monthly_cash_out": monthly_cash_out,
         "expense_by_cat": expense_by_cat,
+        "expense_code_by_cat": expense_code_by_cat,
         "total_cash": total_cash,
         "total_receivable": total_receivable,
         "total_payable": total_payable,
@@ -412,7 +415,7 @@ def build_ceo_report(db: Session) -> CEOReport:
     sorted_expenses = sorted(data["expense_by_cat"].items(), key=lambda x: x[1], reverse=True)[:8]
     total_exp = sum(data["expense_by_cat"].values()) or 1
     for cat, amt in sorted_expenses:
-        report.top_expenses.append({"category": cat, "amount": amt, "pct": round(amt / total_exp * 100, 1)})
+        report.top_expenses.append({"category": cat, "amount": amt, "pct": round(amt / total_exp * 100, 1), "account_code": data["expense_code_by_cat"].get(cat, "")})
 
     # Balance sheet totals (from accounts)
     from app.models.account import Account as AccountModel

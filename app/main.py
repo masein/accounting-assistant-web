@@ -21,6 +21,7 @@ from app.api.exports import router as exports_router
 from app.api.invoices import router as invoices_router
 from app.api.manager_reports import router as manager_reports_router
 from app.api.notifications import router as notifications_router
+from app.api.products import router as products_router
 from app.api.recurring import router as recurring_router
 from app.api.reports import router as reports_router
 from app.api.transactions import router as transactions_router
@@ -418,6 +419,7 @@ app.include_router(exports_router)
 app.include_router(invoices_router)
 app.include_router(manager_reports_router)
 app.include_router(notifications_router)
+app.include_router(products_router)
 app.include_router(recurring_router)
 app.include_router(reports_router)
 app.include_router(transactions_router)

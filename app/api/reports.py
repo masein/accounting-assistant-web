@@ -6,8 +6,8 @@ from pathlib import Path
 from statistics import mean
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
@@ -32,6 +32,8 @@ from app.schemas.report import (
     MissingReferenceResponse,
     MissingReferenceRow,
     OwnerDashboardResponse,
+    TransactionSearchResponse,
+    TransactionSearchRow,
     ProfitabilityRow,
     VendorSpendRow,
 )
@@ -644,3 +646,139 @@ def get_missing_references(db: Session = Depends(get_db)) -> MissingReferenceRes
             )
         )
     return MissingReferenceResponse(items=items)
+
+
+@router.get("/transactions/search", response_model=TransactionSearchResponse)
+def search_transactions(
+    account_code: str | None = Query(None, description="Exact account code"),
+    account_code_prefix: str | None = Query(None, description="Comma-separated account code prefixes (e.g. 41,42,43)"),
+    month: str | None = Query(None, description="YYYY-MM to filter by month"),
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    search: str | None = Query(None, description="Text search in description/reference"),
+    entity_name: str | None = Query(None, description="Filter by linked entity name"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    sort_by: str = Query("date", regex="^(date|account_code|debit|credit|reference)$"),
+    sort_dir: str = Query("desc", regex="^(asc|desc)$"),
+    db: Session = Depends(get_db),
+) -> TransactionSearchResponse:
+    """Flexible transaction search for drill-down views."""
+    q = (
+        select(TransactionLine, Transaction, Account)
+        .join(Transaction, TransactionLine.transaction_id == Transaction.id)
+        .join(Account, TransactionLine.account_id == Account.id)
+        .where(Transaction.deleted_at.is_(None))
+    )
+
+    if account_code:
+        q = q.where(Account.code == account_code)
+
+    if account_code_prefix:
+        prefixes = [p.strip() for p in account_code_prefix.split(",") if p.strip()]
+        if prefixes:
+            q = q.where(or_(*[Account.code.startswith(p) for p in prefixes]))
+
+    if month:
+        try:
+            y, m = month.split("-")
+            month_start = date(int(y), int(m), 1)
+            if int(m) == 12:
+                month_end = date(int(y) + 1, 1, 1)
+            else:
+                month_end = date(int(y), int(m) + 1, 1)
+            q = q.where(Transaction.date >= month_start, Transaction.date < month_end)
+        except (ValueError, IndexError):
+            pass
+
+    if from_date:
+        q = q.where(Transaction.date >= from_date)
+    if to_date:
+        q = q.where(Transaction.date <= to_date)
+
+    if search:
+        term = f"%{search}%"
+        q = q.where(
+            or_(
+                Transaction.description.ilike(term),
+                Transaction.reference.ilike(term),
+                TransactionLine.line_description.ilike(term),
+            )
+        )
+
+    # Entity name filter via subquery
+    if entity_name:
+        entity_sub = (
+            select(TransactionEntity.transaction_id)
+            .join(Entity, TransactionEntity.entity_id == Entity.id)
+            .where(Entity.name.ilike(f"%{entity_name}%"))
+        ).scalar_subquery()
+        q = q.where(Transaction.id.in_(
+            select(TransactionEntity.transaction_id)
+            .join(Entity, TransactionEntity.entity_id == Entity.id)
+            .where(Entity.name.ilike(f"%{entity_name}%"))
+        ))
+
+    # Count total before pagination
+    count_q = select(func.count()).select_from(q.subquery())
+    total_count = db.execute(count_q).scalar() or 0
+
+    # Sorting
+    sort_col_map = {
+        "date": Transaction.date,
+        "account_code": Account.code,
+        "debit": TransactionLine.debit,
+        "credit": TransactionLine.credit,
+        "reference": Transaction.reference,
+    }
+    sort_col = sort_col_map.get(sort_by, Transaction.date)
+    if sort_dir == "desc":
+        q = q.order_by(sort_col.desc(), Transaction.id)
+    else:
+        q = q.order_by(sort_col.asc(), Transaction.id)
+
+    # Pagination
+    offset = (page - 1) * page_size
+    q = q.offset(offset).limit(page_size)
+
+    results = db.execute(q).all()
+
+    # Collect transaction IDs to batch-load entity names
+    txn_ids = list({r[1].id for r in results})
+    entity_map: dict[UUID, list[str]] = defaultdict(list)
+    if txn_ids:
+        te_rows = db.execute(
+            select(TransactionEntity.transaction_id, Entity.name)
+            .join(Entity, TransactionEntity.entity_id == Entity.id)
+            .where(TransactionEntity.transaction_id.in_(txn_ids))
+        ).all()
+        for tid, ename in te_rows:
+            entity_map[tid].append(ename)
+
+    rows: list[TransactionSearchRow] = []
+    total_debit = 0
+    total_credit = 0
+    for line, txn, acc in results:
+        total_debit += line.debit
+        total_credit += line.credit
+        rows.append(TransactionSearchRow(
+            transaction_id=txn.id,
+            date=txn.date,
+            reference=txn.reference,
+            description=txn.description,
+            account_code=acc.code,
+            account_name=acc.name,
+            debit=line.debit,
+            credit=line.credit,
+            line_description=line.line_description,
+            entity_names=entity_map.get(txn.id, []),
+        ))
+
+    return TransactionSearchResponse(
+        rows=rows,
+        total_count=total_count,
+        page=page,
+        page_size=page_size,
+        total_debit=total_debit,
+        total_credit=total_credit,
+    )

@@ -41,8 +41,13 @@ def _norm(name: str) -> str:
     return (name or "").strip().lower()
 
 
-def _load_invoice_items(db: Session, from_date: date | None = None, to_date: date | None = None):
-    """Load all invoice items with their invoice and entity, optionally filtered by date."""
+def _load_invoice_items(
+    db: Session,
+    from_date: date | None = None,
+    to_date: date | None = None,
+    currency: str | None = None,
+):
+    """Load all invoice items with their invoice and entity, optionally filtered by date + currency."""
     q = (
         select(InvoiceItem, Invoice, Entity)
         .join(Invoice, InvoiceItem.invoice_id == Invoice.id)
@@ -52,6 +57,8 @@ def _load_invoice_items(db: Session, from_date: date | None = None, to_date: dat
         q = q.where(Invoice.issue_date >= from_date)
     if to_date:
         q = q.where(Invoice.issue_date <= to_date)
+    if currency:
+        q = q.where(Invoice.currency == currency)
     return db.execute(q).all()
 
 
@@ -60,10 +67,11 @@ def product_catalog(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     search: str | None = Query(None),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> ProductCatalogResponse:
     """Unified product list with revenue/cost/profit aggregates."""
-    rows = _load_invoice_items(db, from_date, to_date)
+    rows = _load_invoice_items(db, from_date, to_date, currency=currency)
 
     # Build inventory lookup
     inv_items = {i.name.strip().lower(): i for i in db.execute(select(InventoryItem)).scalars().all()}
@@ -127,10 +135,11 @@ def product_detail(
     product_name: str,
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> ProductDetailResponse:
     """Full detail for a single product."""
-    rows = _load_invoice_items(db, from_date, to_date)
+    rows = _load_invoice_items(db, from_date, to_date, currency=currency)
     key = _norm(product_name)
 
     inv_item = db.execute(
@@ -203,10 +212,11 @@ def entity_matrix(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     search: str | None = Query(None, description="Filter by entity or product name"),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> EntityMatrixResponse:
     """Pivot: entity x product with revenue/cost."""
-    rows = _load_invoice_items(db, from_date, to_date)
+    rows = _load_invoice_items(db, from_date, to_date, currency=currency)
 
     entities: dict[str, dict] = {}
     product_agg: dict[str, dict] = defaultdict(lambda: {"revenue": 0, "cost": 0, "entities": set()})
@@ -280,10 +290,11 @@ def entity_matrix(
 def profitability(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> ProfitabilityResponse:
     """Per-product and per-client-product profitability analysis."""
-    rows = _load_invoice_items(db, from_date, to_date)
+    rows = _load_invoice_items(db, from_date, to_date, currency=currency)
 
     # Per-product aggregation
     by_product: dict[str, dict] = {}

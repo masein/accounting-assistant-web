@@ -71,6 +71,20 @@
     input[type="file"] { padding: 0.35rem 0.5rem; font-size: 0.8rem; line-height: 1.4; }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
     .row > * { flex: 1 1 180px; min-width: 0; }
+    /* Kill the global 0.75rem margin-bottom on inputs/selects inside any flex/grid
+       form row with flex-end alignment — otherwise the bottom margin is included
+       in the flex item box and the adjacent button ends up visibly higher. */
+    .row input,
+    .row select,
+    .row textarea,
+    .fx-form-grid input,
+    .fx-form-grid select,
+    .fx-form-grid textarea,
+    .fx-rate-grid input,
+    .fx-rate-grid select,
+    .fx-rate-grid textarea {
+      margin-bottom: 0;
+    }
     /* Unified form grid for all sections */
     .form-grid {
       display: grid;

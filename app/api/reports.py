@@ -122,12 +122,17 @@ def _next_year_same_day(d: date) -> date:
 
 
 @router.get("/ledger-summary", response_model=LedgerSummaryResponse)
-def get_ledger_summary(db: Session = Depends(get_db)) -> LedgerSummaryResponse:
+def get_ledger_summary(
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
+    db: Session = Depends(get_db),
+) -> LedgerSummaryResponse:
     """
     Aggregate all transaction lines by account: turnover (sum of debits/credits) and
     ending balance (debit_balance / credit_balance), in trial-balance style like the Excel files.
     """
-    q = select(TransactionLine).options(selectinload(TransactionLine.account))
+    q = select(TransactionLine).join(Transaction, TransactionLine.transaction_id == Transaction.id).options(selectinload(TransactionLine.account))
+    if currency:
+        q = q.where(Transaction.currency == currency)
     lines = db.execute(q).scalars().all()
     # Aggregate by account_id
     by_account: dict[str, dict] = defaultdict(
@@ -181,7 +186,11 @@ def get_ledger_summary(db: Session = Depends(get_db)) -> LedgerSummaryResponse:
 
 
 @router.get("/accounts/{account_code}/detail", response_model=AccountDetailResponse)
-def get_account_detail(account_code: str, db: Session = Depends(get_db)) -> AccountDetailResponse:
+def get_account_detail(
+    account_code: str,
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
+    db: Session = Depends(get_db),
+) -> AccountDetailResponse:
     """
     Transaction list and summary for a single account. Used when user clicks a ledger row.
     """
@@ -192,8 +201,10 @@ def get_account_detail(account_code: str, db: Session = Depends(get_db)) -> Acco
         select(TransactionLine, Transaction)
         .join(Transaction, TransactionLine.transaction_id == Transaction.id)
         .where(TransactionLine.account_id == acc.id)
-        .order_by(Transaction.date, Transaction.id)
     )
+    if currency:
+        q = q.where(Transaction.currency == currency)
+    q = q.order_by(Transaction.date, Transaction.id)
     rows = db.execute(q).all()
     lines: list[AccountLineDetail] = []
     debit_turnover = credit_turnover = 0
@@ -227,6 +238,7 @@ def get_account_detail(account_code: str, db: Session = Depends(get_db)) -> Acco
 @router.get("/entities/{entity_id}/transactions", response_model=list[TransactionRead])
 def get_entity_transactions(
     entity_id: UUID,
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
     db: Session = Depends(get_db),
 ) -> list[TransactionRead]:
     """
@@ -239,7 +251,11 @@ def get_entity_transactions(
         select(Transaction)
         .join(TransactionEntity, Transaction.id == TransactionEntity.transaction_id)
         .where(TransactionEntity.entity_id == entity_id)
-        .distinct()
+    )
+    if currency:
+        q = q.where(Transaction.currency == currency)
+    q = (
+        q.distinct()
         .order_by(Transaction.date, Transaction.id)
         .options(
             selectinload(Transaction.lines).selectinload(TransactionLine.account),
@@ -303,10 +319,11 @@ _DASHBOARD_CACHE_TTL = 60  # seconds
 
 @router.get("/owner-dashboard", response_model=OwnerDashboardResponse)
 def get_owner_dashboard(
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
     db: Session = Depends(get_db),
     months_back: int = 12,
 ) -> OwnerDashboardResponse:
-    cache_key = f"dashboard:{months_back}"
+    cache_key = f"dashboard:{months_back}:{currency or 'all'}"
     now = _time.time()
     cached = _dashboard_cache.get(cache_key)
     if cached and (now - cached[0]) < _DASHBOARD_CACHE_TTL:
@@ -314,8 +331,11 @@ def get_owner_dashboard(
 
     today = date.today()
     cutoff = today - timedelta(days=months_back * 31)
+    txn_q = select(Transaction).where(Transaction.date >= cutoff)
+    if currency:
+        txn_q = txn_q.where(Transaction.currency == currency)
     txns = db.execute(
-        select(Transaction).where(Transaction.date >= cutoff).options(
+        txn_q.options(
             selectinload(Transaction.lines).selectinload(TransactionLine.account),
             selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity),
             selectinload(Transaction.attachments),
@@ -622,10 +642,14 @@ def invalidate_dashboard_cache() -> None:
 
 
 @router.get("/missing-references", response_model=MissingReferenceResponse)
-def get_missing_references(db: Session = Depends(get_db)) -> MissingReferenceResponse:
-    rows = db.execute(
-        select(Transaction).where((Transaction.reference.is_(None)) | (Transaction.reference == "")).order_by(Transaction.date.desc())
-    ).scalars().all()
+def get_missing_references(
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
+    db: Session = Depends(get_db),
+) -> MissingReferenceResponse:
+    q = select(Transaction).where((Transaction.reference.is_(None)) | (Transaction.reference == ""))
+    if currency:
+        q = q.where(Transaction.currency == currency)
+    rows = db.execute(q.order_by(Transaction.date.desc())).scalars().all()
     items: list[MissingReferenceRow] = []
     for t in rows[:200]:
         suggested = None
@@ -657,6 +681,7 @@ def search_transactions(
     to_date: date | None = Query(None),
     search: str | None = Query(None, description="Text search in description/reference"),
     entity_name: str | None = Query(None, description="Filter by linked entity name"),
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     sort_by: str = Query("date", regex="^(date|account_code|debit|credit|reference)$"),
@@ -670,6 +695,9 @@ def search_transactions(
         .join(Account, TransactionLine.account_id == Account.id)
         .where(Transaction.deleted_at.is_(None))
     )
+
+    if currency:
+        q = q.where(Transaction.currency == currency)
 
     if account_code:
         q = q.where(Account.code == account_code)

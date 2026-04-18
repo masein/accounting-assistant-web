@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from openpyxl import Workbook
 from sqlalchemy import select
@@ -24,10 +24,11 @@ SNAPSHOT_DIR = Path(__file__).resolve().parents[1] / "uploads" / "snapshots"
 SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _rows(db: Session) -> list[list[str]]:
-    txns = db.execute(
-        select(Transaction).options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
-    ).scalars().all()
+def _rows(db: Session, currency: str | None = None) -> list[list[str]]:
+    q = select(Transaction).options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
+    if currency:
+        q = q.where(Transaction.currency == currency)
+    txns = db.execute(q).scalars().all()
     rows: list[list[str]] = []
     for t in txns:
         for ln in t.lines:
@@ -41,16 +42,20 @@ def _rows(db: Session) -> list[list[str]]:
                 str(ln.debit),
                 str(ln.credit),
                 ln.line_description or "",
+                getattr(t, "currency", "IRR"),
             ])
     return rows
 
 
 @router.get("/transactions.csv")
-def export_transactions_csv(db: Session = Depends(get_db)) -> Response:
+def export_transactions_csv(
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
+    db: Session = Depends(get_db),
+) -> Response:
     out = io.StringIO()
     w = csv.writer(out)
-    w.writerow(["transaction_id", "date", "reference", "description", "account_code", "account_name", "debit", "credit", "line_description"])
-    for r in _rows(db):
+    w.writerow(["transaction_id", "date", "reference", "description", "account_code", "account_name", "debit", "credit", "line_description", "currency"])
+    for r in _rows(db, currency):
         w.writerow(r)
     csv_bytes = out.getvalue().encode("utf-8")
     headers = {"Content-Disposition": f'attachment; filename="transactions-{date.today().isoformat()}.csv"'}
@@ -58,12 +63,15 @@ def export_transactions_csv(db: Session = Depends(get_db)) -> Response:
 
 
 @router.get("/transactions.xlsx")
-def export_transactions_xlsx(db: Session = Depends(get_db)) -> Response:
+def export_transactions_xlsx(
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
+    db: Session = Depends(get_db),
+) -> Response:
     wb = Workbook()
     ws = wb.active
     ws.title = "Transactions"
-    ws.append(["transaction_id", "date", "reference", "description", "account_code", "account_name", "debit", "credit", "line_description"])
-    for r in _rows(db):
+    ws.append(["transaction_id", "date", "reference", "description", "account_code", "account_name", "debit", "credit", "line_description", "currency"])
+    for r in _rows(db, currency):
         ws.append(r)
     bio = io.BytesIO()
     wb.save(bio)

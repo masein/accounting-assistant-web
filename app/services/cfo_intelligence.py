@@ -57,14 +57,17 @@ def _month_key(d: date) -> str:
     return d.strftime("%Y-%m")
 
 
-def _load_monthly_data(db: Session, months_back: int = 12) -> dict:
+def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None = None) -> dict:
     cutoff = date.today() - timedelta(days=months_back * 31)
-    txns = db.execute(
+    q = (
         select(Transaction)
         .where(Transaction.date >= cutoff)
         .where(Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
-    ).scalars().unique().all()
+    )
+    if currency:
+        q = q.where(Transaction.currency == currency)
+    txns = db.execute(q).scalars().unique().all()
 
     monthly_revenue: dict[str, int] = defaultdict(int)
     monthly_expense: dict[str, int] = defaultdict(int)
@@ -115,9 +118,9 @@ def _load_monthly_data(db: Session, months_back: int = 12) -> dict:
     }
 
 
-def build_cfo_report(db: Session) -> CFOReport:
+def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
     report = CFOReport()
-    data = _load_monthly_data(db, months_back=12)
+    data = _load_monthly_data(db, months_back=12, currency=currency)
 
     rev_vals = list(data["monthly_revenue"].values())
     exp_vals = list(data["monthly_expense"].values())
@@ -294,12 +297,12 @@ def build_cfo_report(db: Session) -> CFOReport:
     return report
 
 
-def answer_cfo_question(db: Session, question: str) -> str:
+def answer_cfo_question(db: Session, question: str, currency: str | None = None) -> str:
     """
     Answer a natural language CFO question using computed KPIs.
     Returns a plain-text narrative answer.
     """
-    report = build_cfo_report(db)
+    report = build_cfo_report(db, currency=currency)
     low = question.lower()
 
     kpi_map = {k.key: k for k in report.kpis}
@@ -377,10 +380,10 @@ class CEOReport:
     liability_ratio: float = 0.0
 
 
-def build_ceo_report(db: Session) -> CEOReport:
+def build_ceo_report(db: Session, currency: str | None = None) -> CEOReport:
     """Build a high-level CEO executive summary report."""
-    cfo = build_cfo_report(db)
-    data = _load_monthly_data(db, months_back=12)
+    cfo = build_cfo_report(db, currency=currency)
+    data = _load_monthly_data(db, months_back=12, currency=currency)
 
     report = CEOReport()
 
@@ -425,7 +428,10 @@ def build_ceo_report(db: Session) -> CEOReport:
         TransactionLine.account_id,
         func.coalesce(func.sum(TransactionLine.debit), 0),
         func.coalesce(func.sum(TransactionLine.credit), 0),
-    ).group_by(TransactionLine.account_id)
+    ).join(Transaction, TransactionLine.transaction_id == Transaction.id)
+    if currency:
+        lines_q = lines_q.where(Transaction.currency == currency)
+    lines_q = lines_q.group_by(TransactionLine.account_id)
     acc_by_id = {a.id: a for a in accounts}
     assets_map: dict[str, dict] = {}
     liabilities_map: dict[str, dict] = {}

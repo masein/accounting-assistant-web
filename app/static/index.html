@@ -367,11 +367,13 @@
 
     /* Currency & FX settings panel layout */
     .fx-form-grid {
-      display: grid;
-      grid-template-columns: minmax(180px, 240px) auto 1fr;
+      display: flex;
+      flex-wrap: wrap;
       gap: 0.75rem;
-      align-items: end;
+      align-items: flex-end;
     }
+    .fx-form-grid > div { min-width: 0; }
+    .fx-form-grid > div:first-child { flex: 0 0 240px; }
     .fx-form-grid label,
     .fx-rate-grid label {
       display: block;
@@ -395,21 +397,24 @@
       white-space: nowrap;
     }
     .fx-form-grid .fx-status {
-      align-self: center;
       font-size: 0.82rem;
       color: var(--text-muted);
-      justify-self: end;
+      align-self: center;
+      margin-left: auto;
+      padding-bottom: 0.45rem;
     }
     .fx-rate-grid {
       display: grid;
-      grid-template-columns: 70px 70px minmax(140px, 1fr) minmax(150px, 180px) minmax(160px, 1fr) auto;
+      grid-template-columns: 80px 80px minmax(140px, 1.3fr) minmax(150px, 180px) minmax(160px, 1.3fr) auto;
       gap: 0.6rem;
       align-items: end;
     }
+    .fx-rate-grid .fx-field input,
+    .fx-rate-grid .fx-field-sm input { box-sizing: border-box; }
     .fx-rate-grid .fx-field-sm input { text-align: center; text-transform: uppercase; }
-    @media (max-width: 880px) {
-      .fx-form-grid { grid-template-columns: 1fr; }
-      .fx-form-grid .fx-status { justify-self: start; }
+    @media (max-width: 900px) {
+      .fx-form-grid > div:first-child { flex: 1 1 100%; }
+      .fx-form-grid .fx-status { margin-left: 0; }
       .fx-rate-grid {
         grid-template-columns: 1fr 1fr;
       }
@@ -671,6 +676,15 @@
         <div><label for="inv-number" data-i18n="labelNumber">Number</label><input type="text" id="inv-number" data-i18n-placeholder="placeholderInvoiceNo" placeholder="e.g. INV-1001"></div>
         <div><label for="inv-kind" data-i18n="labelType">Type</label><select id="inv-kind"><option value="sales" data-i18n="optionSales">Sales</option><option value="purchase" data-i18n="optionPurchase">Purchase</option></select></div>
         <div><label for="inv-amount" data-i18n="labelAmount">Amount</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
+        <div><label for="inv-currency">Currency</label><select id="inv-currency">
+          <option value="IRR">IRR</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="AED">AED</option>
+          <option value="TRY">TRY</option>
+          <option value="IRT">IRT</option>
+        </select></div>
         <div><label for="inv-issue" data-i18n="labelIssueDate">Issue date</label><input type="date" id="inv-issue"></div>
         <div><label for="inv-due" data-i18n="labelDueDate">Due date</label><input type="date" id="inv-due"></div>
       </div>
@@ -1161,13 +1175,13 @@
         <div>
           <label for="mgr-currency">Currency</label>
           <select id="mgr-currency">
-            <option value="">All</option>
-            <option value="IRR" selected>IRR (Rial)</option>
+            <option value="" selected>All (no filter)</option>
+            <option value="IRR">IRR (Rial)</option>
             <option value="USD">USD ($)</option>
-            <option value="EUR">EUR</option>
-            <option value="GBP">GBP</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="GBP">GBP (£)</option>
             <option value="AED">AED</option>
-            <option value="TRY">TRY</option>
+            <option value="TRY">TRY (₺)</option>
             <option value="IRT">IRT (Toman)</option>
           </select>
         </div>
@@ -6072,6 +6086,7 @@
       const number = document.getElementById('inv-number').value.trim();
       const kind = document.getElementById('inv-kind').value;
       const amount = parseInt(document.getElementById('inv-amount').value, 10) || 0;
+      const currency = document.getElementById('inv-currency')?.value || 'IRR';
       const issue_date = document.getElementById('inv-issue').value;
       const due_date = document.getElementById('inv-due').value;
       const entity_id = document.getElementById('inv-entity').value || null;
@@ -6081,7 +6096,7 @@
         const res = await fetch(API + '/invoices', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ number, kind, amount, issue_date, due_date, entity_id, description, status: 'issued' })
+          body: JSON.stringify({ number, kind, amount, currency, issue_date, due_date, entity_id, description, status: 'issued' })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || 'Error creating invoice.', true); return; }

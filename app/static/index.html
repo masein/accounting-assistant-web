@@ -400,7 +400,6 @@
       font-size: 0.82rem;
       color: var(--text-muted);
       align-self: center;
-      margin-left: auto;
       padding-bottom: 0.45rem;
     }
     .fx-rate-grid {
@@ -4496,10 +4495,37 @@
         }
         lastManagerReport = data;
         const period = reportPeriodText(data);
+        // When no currency filter is selected and data spans multiple currencies,
+        // show a banner warning that numbers are summed across currencies and
+        // offer a one-click switch to a single-currency view.
+        let mixWarning = '';
+        if (!currency) {
+          const meta = window.__FX_META;
+          const used = (meta && Array.isArray(meta.used_currencies)) ? meta.used_currencies : [];
+          if (used.length > 1) {
+            const buttons = used.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}"><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span> only</button>`).join(' ');
+            mixWarning = `<div style="background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:0.55rem 0.75rem;border-radius:8px;margin-bottom:0.6rem;font-size:0.85rem;">
+              ⚠️ No currency filter selected. Numbers below sum ${used.join(', ')} as raw integers, which is not meaningful. Pick a currency:
+              <div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>
+            </div>`;
+          }
+        }
         mgrReportPreviewEl.innerHTML = `
-          ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
+          ${mixWarning}
+          ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}${currency ? ' · <span class="ccy-badge ccy-' + escapeHtml(currency) + '">' + escapeHtml(currency) + '</span>' : ''}</div>` : ''}
           ${renderReportPreviewHtml(data)}
         `;
+        // Wire up the "switch currency" buttons in the warning banner
+        mgrReportPreviewEl.querySelectorAll('.mgr-ccy-switch').forEach(b => {
+          b.addEventListener('click', () => {
+            const ccy = b.dataset.ccy;
+            const sel = document.getElementById('mgr-currency');
+            if (sel && ccy) {
+              sel.value = ccy;
+              runManagerReport();
+            }
+          });
+        });
         mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
         renderManagerReportChart(data);
         if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;

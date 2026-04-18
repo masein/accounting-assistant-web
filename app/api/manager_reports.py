@@ -711,29 +711,43 @@ def trial_balance_by_currency(
     """
     from app.services.reporting.repository import distinct_currencies
     from app.services.fx_service import get_rate
+    import traceback, sys
     svc = LedgerService(db)
-    used = distinct_currencies(db, from_date, to_date) or ["IRR"]
+    try:
+        used = distinct_currencies(db, from_date, to_date) or ["IRR"]
+    except Exception:
+        traceback.print_exc(file=sys.stderr); sys.stderr.flush()
+        raise
     blocks = []
     converted_grand_total_debit = 0
     converted_grand_total_credit = 0
     missing_rates: list[str] = []
     on = to_date or date.today()
     for ccy in used:
-        rep = svc.trial_balance(from_date=from_date, to_date=to_date, page=page, page_size=page_size, currency=ccy)
+        try:
+            rep = svc.trial_balance(from_date=from_date, to_date=to_date, page=page, page_size=page_size, currency=ccy)
+        except Exception:
+            traceback.print_exc(file=sys.stderr); sys.stderr.flush()
+            raise
+        totals = rep.totals or {}
+        total_debit_turnover = int(totals.get("debit_turnover", 0) or 0)
+        total_credit_turnover = int(totals.get("credit_turnover", 0) or 0)
+        total_debit_balance = int(totals.get("debit_balance", 0) or 0)
+        total_credit_balance = int(totals.get("credit_balance", 0) or 0)
         block = {
             "currency": ccy,
             "rows": [r.model_dump() if hasattr(r, "model_dump") else r for r in rep.rows],
-            "total_debit_turnover": rep.total_debit_turnover,
-            "total_credit_turnover": rep.total_credit_turnover,
-            "total_debit_balance": rep.total_debit_balance,
-            "total_credit_balance": rep.total_credit_balance,
+            "total_debit_turnover": total_debit_turnover,
+            "total_credit_turnover": total_credit_turnover,
+            "total_debit_balance": total_debit_balance,
+            "total_credit_balance": total_credit_balance,
         }
         if convert_to:
             tc = convert_to.strip().upper()
             if ccy.upper() == tc:
                 block["converted_rate"] = 1.0
-                block["converted_debit_balance"] = rep.total_debit_balance
-                block["converted_credit_balance"] = rep.total_credit_balance
+                block["converted_debit_balance"] = total_debit_balance
+                block["converted_credit_balance"] = total_credit_balance
             else:
                 rate = get_rate(db, ccy, tc, on)
                 if rate is None:
@@ -743,8 +757,8 @@ def trial_balance_by_currency(
                     block["converted_credit_balance"] = None
                 else:
                     block["converted_rate"] = rate
-                    block["converted_debit_balance"] = int(round(rep.total_debit_balance * rate))
-                    block["converted_credit_balance"] = int(round(rep.total_credit_balance * rate))
+                    block["converted_debit_balance"] = int(round(total_debit_balance * rate))
+                    block["converted_credit_balance"] = int(round(total_credit_balance * rate))
             if block.get("converted_debit_balance") is not None:
                 converted_grand_total_debit += block["converted_debit_balance"]
             if block.get("converted_credit_balance") is not None:

@@ -66,7 +66,12 @@
       "Bash(curl -s -b /tmp/acc_cookies.txt 'http://localhost:8000/transactions?page_size=100')",
       "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/api/reports.py'\\).read\\(\\)\\); ast.parse\\(open\\('app/api/exports.py'\\).read\\(\\)\\); ast.parse\\(open\\('app/api/brain.py'\\).read\\(\\)\\); ast.parse\\(open\\('app/services/cfo_intelligence.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
       "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/main.py'\\).read\\(\\)\\); ast.parse\\(open\\('app/services/fx_service.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
-      "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/static/index.html'\\).read\\(\\).split\\('<script',1\\)[-1].split\\('</script>'\\)[0] if False else open\\('app/main.py'\\).read\\(\\)\\); print\\('py OK'\\)\")"
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/static/index.html'\\).read\\(\\).split\\('<script',1\\)[-1].split\\('</script>'\\)[0] if False else open\\('app/main.py'\\).read\\(\\)\\); print\\('py OK'\\)\")",
+      "Bash(curl -s http://localhost:8000/auth/csrf)",
+      "Bash(curl -s -b /tmp/cookies.txt http://localhost:8000/auth/status)",
+      "Bash(curl -sf http://localhost:8000/auth/login -X POST -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin\"}' -o /dev/null)",
+      "Bash(break)",
+      "Bash(git commit:*)"
     ]
   }
 }

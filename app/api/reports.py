@@ -794,6 +794,7 @@ def search_transactions(
             date=txn.date,
             reference=txn.reference,
             description=txn.description,
+            currency=getattr(txn, "currency", None) or "IRR",
             account_code=acc.code,
             account_name=acc.name,
             debit=line.debit,

@@ -2273,6 +2273,7 @@ def _create_transaction_from_payload(db: Session, payload: TransactionCreate) ->
         date=payload.date,
         reference=payload.reference,
         description=payload.description,
+        currency=(getattr(payload, "currency", None) or "IRR"),
     )
     db.add(transaction)
     db.flush()
@@ -2340,6 +2341,8 @@ def update_transaction(
         t.reference = payload.reference
     if payload.description is not None:
         t.description = payload.description
+    if payload.currency is not None:
+        t.currency = payload.currency.strip() or "IRR"
     if payload.lines is not None:
         total_debit = sum(l.debit for l in payload.lines)
         total_credit = sum(l.credit for l in payload.lines)

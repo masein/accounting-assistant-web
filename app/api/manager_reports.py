@@ -692,3 +692,68 @@ def reverse_journal_entry(
         reference=reference,
         description=description,
     )
+
+
+@router.get("/books/trial-balance-by-currency")
+def trial_balance_by_currency(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(200, ge=1, le=1000),
+    convert_to: str | None = Query(None, description="If set, also return converted totals in this currency using latest FX rates"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Trial balance split into one block per currency.
+
+    Returns `{ blocks: [{currency, rows[], totals}], converted_to, converted_total }`.
+    When `convert_to` is provided, each block is also converted to that currency
+    using the most recent FX rate on or before `to_date` (or today).
+    """
+    from app.services.reporting.repository import distinct_currencies
+    from app.services.fx_service import get_rate
+    svc = LedgerService(db)
+    used = distinct_currencies(db, from_date, to_date) or ["IRR"]
+    blocks = []
+    converted_grand_total_debit = 0
+    converted_grand_total_credit = 0
+    missing_rates: list[str] = []
+    on = to_date or date.today()
+    for ccy in used:
+        rep = svc.trial_balance(from_date=from_date, to_date=to_date, page=page, page_size=page_size, currency=ccy)
+        block = {
+            "currency": ccy,
+            "rows": [r.model_dump() if hasattr(r, "model_dump") else r for r in rep.rows],
+            "total_debit_turnover": rep.total_debit_turnover,
+            "total_credit_turnover": rep.total_credit_turnover,
+            "total_debit_balance": rep.total_debit_balance,
+            "total_credit_balance": rep.total_credit_balance,
+        }
+        if convert_to:
+            tc = convert_to.strip().upper()
+            if ccy.upper() == tc:
+                block["converted_rate"] = 1.0
+                block["converted_debit_balance"] = rep.total_debit_balance
+                block["converted_credit_balance"] = rep.total_credit_balance
+            else:
+                rate = get_rate(db, ccy, tc, on)
+                if rate is None:
+                    missing_rates.append(f"{ccy}->{tc}")
+                    block["converted_rate"] = None
+                    block["converted_debit_balance"] = None
+                    block["converted_credit_balance"] = None
+                else:
+                    block["converted_rate"] = rate
+                    block["converted_debit_balance"] = int(round(rep.total_debit_balance * rate))
+                    block["converted_credit_balance"] = int(round(rep.total_credit_balance * rate))
+            if block.get("converted_debit_balance") is not None:
+                converted_grand_total_debit += block["converted_debit_balance"]
+            if block.get("converted_credit_balance") is not None:
+                converted_grand_total_credit += block["converted_credit_balance"]
+        blocks.append(block)
+    return {
+        "blocks": blocks,
+        "converted_to": convert_to,
+        "converted_total_debit_balance": converted_grand_total_debit if convert_to else None,
+        "converted_total_credit_balance": converted_grand_total_credit if convert_to else None,
+        "missing_rates": missing_rates,
+    }

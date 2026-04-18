@@ -48,6 +48,11 @@ class TransactionBase(BaseModel):
     date: date
     reference: Optional[str] = Field(None, max_length=128)
     description: Optional[str] = Field(None, max_length=2000)
+    currency: Optional[str] = Field(
+        default=None,
+        max_length=8,
+        description="ISO-like currency code (IRR, USD, EUR, GBP, AED, TRY, IRT). Defaults to IRR if omitted.",
+    )
 
 
 class TransactionCreate(TransactionBase):
@@ -60,6 +65,7 @@ class TransactionUpdate(BaseModel):
     date: Optional[_dt.date] = None
     reference: Optional[str] = None
     description: Optional[str] = None
+    currency: Optional[str] = Field(default=None, max_length=8)
     lines: Optional[list[TransactionLineCreate]] = None
     entity_links: Optional[list[EntityLink]] = None
     attachment_ids: Optional[list[UUID]] = None

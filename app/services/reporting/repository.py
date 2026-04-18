@@ -25,6 +25,32 @@ def list_accounts(db: Session) -> list[Account]:
     return db.execute(select(Account).order_by(Account.code)).scalars().all()
 
 
+def distinct_currencies(db: Session, from_date: date | None = None, to_date: date | None = None) -> list[str]:
+    """Distinct non-deleted transaction currencies, optionally within a date window."""
+    q = select(Transaction.currency).where(Transaction.deleted_at.is_(None))
+    if from_date is not None:
+        q = q.where(Transaction.date >= from_date)
+    if to_date is not None:
+        q = q.where(Transaction.date <= to_date)
+    q = q.distinct()
+    return sorted([c or "IRR" for c in db.execute(q).scalars().all()])
+
+
+def most_common_currency(db: Session) -> str:
+    """Return the currency with the most transactions, or IRR if empty."""
+    q = (
+        select(Transaction.currency, func.count(Transaction.id))
+        .where(Transaction.deleted_at.is_(None))
+        .group_by(Transaction.currency)
+        .order_by(func.count(Transaction.id).desc())
+        .limit(1)
+    )
+    row = db.execute(q).first()
+    if not row:
+        return "IRR"
+    return row[0] or "IRR"
+
+
 def account_turnovers_between(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[UUID, int, int]]:
     q = (
         select(

@@ -273,7 +273,7 @@ def inventory_movements_for_balance(db: Session, to_date: date) -> list[tuple[In
     return db.execute(q).all()
 
 
-def sales_items_between(db: Session, from_date: date, to_date: date) -> list[tuple[InvoiceItem, Invoice]]:
+def sales_items_between(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[InvoiceItem, Invoice]]:
     q = (
         select(InvoiceItem, Invoice)
         .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
@@ -284,10 +284,12 @@ def sales_items_between(db: Session, from_date: date, to_date: date) -> list[tup
         )
         .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
     )
+    if currency:
+        q = q.where(Invoice.currency == currency)
     return db.execute(q).all()
 
 
-def purchase_items_between(db: Session, from_date: date, to_date: date) -> list[tuple[InvoiceItem, Invoice]]:
+def purchase_items_between(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[InvoiceItem, Invoice]]:
     q = (
         select(InvoiceItem, Invoice)
         .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
@@ -298,10 +300,12 @@ def purchase_items_between(db: Session, from_date: date, to_date: date) -> list[
         )
         .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
     )
+    if currency:
+        q = q.where(Invoice.currency == currency)
     return db.execute(q).all()
 
 
-def invoices_between(db: Session, from_date: date, to_date: date, *, kind: str | None = None) -> list[Invoice]:
+def invoices_between(db: Session, from_date: date, to_date: date, *, kind: str | None = None, currency: str | None = None) -> list[Invoice]:
     q = (
         select(Invoice)
         .where(Invoice.issue_date >= from_date, Invoice.issue_date <= to_date)
@@ -309,6 +313,8 @@ def invoices_between(db: Session, from_date: date, to_date: date, *, kind: str |
     )
     if kind:
         q = q.where(Invoice.kind == kind)
+    if currency:
+        q = q.where(Invoice.currency == currency)
     return db.execute(q).scalars().all()
 
 

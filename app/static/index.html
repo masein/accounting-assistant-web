@@ -3739,7 +3739,12 @@
 
     async function loadOwnerDashboard() {
       try {
-        const res = await fetch(API + '/reports/owner-dashboard');
+        // Honour a global currency selector if one is present; falls back to no filter.
+        const dashCcy = document.getElementById('mgr-currency')?.value
+          || window.__FX_META?.reporting_currency
+          || '';
+        const url = API + '/reports/owner-dashboard' + (dashCcy ? ('?currency=' + encodeURIComponent(dashCcy)) : '');
+        const res = await fetch(url);
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'owner dashboard error');
 
@@ -4021,6 +4026,7 @@
       const fromDate = mgrFromDateEl.value || '';
       const toDate = mgrToDateEl.value || '';
       const granularity = mgrPeriodGranularityEl ? mgrPeriodGranularityEl.value : 'monthly';
+      const chartCurrency = document.getElementById('mgr-currency')?.value || '';
       const palette = ['#0f766e', '#0ea5e9', '#eab308', '#f97316', '#8b5cf6', '#ef4444', '#10b981', '#64748b'];
 
       if (rt === 'balance_sheet') {
@@ -4029,6 +4035,7 @@
         if (fromDate) q.set('from_date', fromDate);
         if (toDate) q.set('to_date', toDate);
         q.set('granularity', granularity);
+        if (chartCurrency) q.set('currency', chartCurrency);
         fetch(API + '/manager-reports/financial/balance-sheet-periods?' + q.toString())
           .then(r => r.json()).then(data => {
             const periods = data.periods || [];
@@ -4089,6 +4096,7 @@
         if (fromDate) q.set('from_date', fromDate);
         if (toDate) q.set('to_date', toDate);
         q.set('granularity', granularity);
+        if (chartCurrency) q.set('currency', chartCurrency);
         fetch(API + '/manager-reports/sales/trend?' + q.toString())
           .then(r => r.json()).then(data => {
             const periods = data.periods || [];
@@ -4110,6 +4118,7 @@
         if (fromDate) q.set('from_date', fromDate);
         if (toDate) q.set('to_date', toDate);
         q.set('granularity', granularity);
+        if (chartCurrency) q.set('currency', chartCurrency);
         fetch(API + '/manager-reports/financial/cash-flow-periods?' + q.toString())
           .then(r => r.json()).then(data => {
             const periods = data.periods || [];

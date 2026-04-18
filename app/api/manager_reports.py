@@ -381,6 +381,7 @@ def balance_sheet_periods(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     granularity: str = Query("monthly", regex="^(weekly|monthly|quarterly|seasonal)$"),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> dict:
     """Balance sheet totals (assets, liabilities, equity) at each period end."""
@@ -433,7 +434,7 @@ def balance_sheet_periods(
 
     periods = []
     for end_date in ends:
-        turnovers = account_turnovers_upto(db, end_date)
+        turnovers = account_turnovers_upto(db, end_date, currency=currency)
         turnover_map = {aid: (d, c) for aid, d, c in turnovers}
         totals = {ASSET: 0, LIABILITY: 0, EQUITY: 0}
         for acc in accounts:
@@ -485,6 +486,7 @@ def sales_trend(
     to_date: date | None = Query(None),
     product_name: str | None = Query(None),
     granularity: str = Query("monthly", regex="^(weekly|monthly|quarterly|seasonal)$"),
+    currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> dict:
     """Sales of a specific product (or all products) grouped by period."""
@@ -493,7 +495,7 @@ def sales_trend(
     from app.services.reporting.repository import sales_items_between
 
     period = default_period(from_date, to_date)
-    rows = sales_items_between(db, period.from_date, period.to_date)
+    rows = sales_items_between(db, period.from_date, period.to_date, currency=currency)
 
     by_period: dict[str, dict[str, float | int]] = defaultdict(
         lambda: {"quantity": 0.0, "sales_amount": 0, "invoice_count": 0}

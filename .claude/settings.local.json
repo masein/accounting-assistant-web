@@ -72,7 +72,10 @@
       "Bash(curl -sf http://localhost:8000/auth/login -X POST -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin\"}' -o /dev/null)",
       "Bash(break)",
       "Bash(git commit:*)",
-      "Bash(curl -sf -X POST http://localhost:8000/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin\"}' -o /dev/null)"
+      "Bash(curl -sf -X POST http://localhost:8000/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin\"}' -o /dev/null)",
+      "Bash(python3)",
+      "Bash(curl -v http://localhost:8000/)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/api/manager_reports.py'\\).read\\(\\)\\); ast.parse\\(open\\('app/services/reporting/repository.py'\\).read\\(\\)\\); print\\('ok'\\)\")"
     ]
   }
 }

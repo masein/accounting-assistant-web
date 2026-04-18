@@ -594,10 +594,13 @@ def get_setting(key: str, db: Session = Depends(get_db)) -> dict:
 # ─── CFO Intelligence Endpoints ────────────────────────────────────
 
 @router.get("/cfo/report", response_model=CFOReportResponse)
-def get_cfo_report(db: Session = Depends(get_db)) -> CFOReportResponse:
+def get_cfo_report(
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
+    db: Session = Depends(get_db),
+) -> CFOReportResponse:
     """Get the CFO-level financial intelligence report."""
     from app.services.cfo_intelligence import build_cfo_report
-    report = build_cfo_report(db)
+    report = build_cfo_report(db, currency=currency)
     return CFOReportResponse(
         kpis=[CFOKpiRead(
             key=k.key, label=k.label, value=k.value, unit=k.unit,
@@ -616,10 +619,13 @@ def get_cfo_report(db: Session = Depends(get_db)) -> CFOReportResponse:
 
 
 @router.get("/ceo/report", response_model=CEOReportResponse)
-def get_ceo_report(db: Session = Depends(get_db)) -> CEOReportResponse:
+def get_ceo_report(
+    currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
+    db: Session = Depends(get_db),
+) -> CEOReportResponse:
     """Get the CEO-level executive summary report."""
     from app.services.cfo_intelligence import build_ceo_report
-    report = build_ceo_report(db)
+    report = build_ceo_report(db, currency=currency)
     return CEOReportResponse(
         revenue_total=report.revenue_total,
         revenue_trend=report.revenue_trend,

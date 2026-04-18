@@ -4828,12 +4828,13 @@
         }
         list.forEach(i => {
           const isPaid = String(i.status || '').toLowerCase() === 'paid';
+          const ccy = (i.currency || 'IRR').toUpperCase();
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${escapeHtml(i.number)}</td>
             <td>${escapeHtml(i.kind)}</td>
             <td>${escapeHtml(i.status)}</td>
-            <td>${formatNum(i.amount)}</td>
+            <td>${formatMoney(i.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
             <td>${escapeHtml(i.due_date)}</td>
             <td>
               <button type="button" class="btn btn-secondary btn-sm inv-edit" data-id="${i.id}" data-status="${escapeHtml(i.status)}">Edit</button>
@@ -6340,11 +6341,12 @@
         }
         body.innerHTML = `
           <table class="detail-table">
-            <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Attachments</th><th class="num">Total debit</th><th class="num">Total credit</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Date</th><th>Reference</th><th>Ccy</th><th>Description</th><th>Attachments</th><th class="num">Total debit</th><th class="num">Total credit</th><th>Actions</th></tr></thead>
             <tbody>
               ${transactions.map(t => {
                 const totalD = (t.lines || []).reduce((s, l) => s + (l.debit || 0), 0);
                 const totalC = (t.lines || []).reduce((s, l) => s + (l.credit || 0), 0);
+                const ccy = (t.currency || 'IRR').toUpperCase();
                 const att = (t.attachments || []);
                 const attHtml = att.length
                   ? att.map(a => {
@@ -6355,10 +6357,11 @@
                 return `<tr>
                   <td>${escapeHtml(formatDateDual(t.date))}</td>
                   <td>${escapeHtml(t.reference || '—')}</td>
+                  <td><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
                   <td>${escapeHtml((t.description || '—').slice(0, 50))}${(t.description && t.description.length > 50) ? '…' : ''}</td>
                   <td>${attHtml}</td>
-                  <td class="num">${formatNum(totalD)}</td>
-                  <td class="num">${formatNum(totalC)}</td>
+                  <td class="num">${formatMoney(totalD, ccy)}</td>
+                  <td class="num">${formatMoney(totalC, ccy)}</td>
                   <td>
                     <button type="button" class="btn btn-secondary btn-sm entity-tx-edit" data-tx-id="${t.id}">Edit</button>
                     <button type="button" class="btn btn-danger btn-sm entity-tx-del" data-tx-id="${t.id}" style="margin-left:0.35rem;">Delete</button>

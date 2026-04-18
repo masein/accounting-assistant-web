@@ -124,6 +124,43 @@ def convert_or_none(
     return int(round(result))
 
 
+DEFAULT_RATES: list[tuple[str, str, float, str]] = [
+    # (from_currency, to_currency, rate, note)
+    ("USD", "IRR", 150_000.0, "Default seed rate — update in Settings → Currency & FX"),
+]
+
+
+def seed_default_rates_if_empty(db: Session) -> int:
+    """Seed `DEFAULT_RATES` for any (from, to) pair that has no rows yet.
+
+    Returns the number of rows inserted. Idempotent — skips pairs that already
+    have at least one rate, so admin-customised values are preserved across
+    restarts.
+    """
+    inserted = 0
+    today = date.today()
+    for from_ccy, to_ccy, rate, note in DEFAULT_RATES:
+        existing = db.execute(
+            select(ExchangeRate)
+            .where(ExchangeRate.from_currency == from_ccy)
+            .where(ExchangeRate.to_currency == to_ccy)
+            .limit(1)
+        ).scalar_one_or_none()
+        if existing:
+            continue
+        db.add(ExchangeRate(
+            from_currency=from_ccy,
+            to_currency=to_ccy,
+            rate=rate,
+            effective_date=today,
+            note=note,
+        ))
+        inserted += 1
+    if inserted:
+        db.commit()
+    return inserted
+
+
 def available_currencies(db: Session) -> list[str]:
     """Distinct set of currencies seen in rates + default codes."""
     rows = db.execute(

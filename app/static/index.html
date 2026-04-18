@@ -364,6 +364,57 @@
     .ccy-badge.ccy-GBP { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
     .ccy-badge.ccy-TRY { background: #fff1f2; color: #9f1239; border-color: #fda4af; }
     .ccy-badge.ccy-IRT { background: #f0f9ff; color: #075985; border-color: #7dd3fc; }
+
+    /* Currency & FX settings panel layout */
+    .fx-form-grid {
+      display: grid;
+      grid-template-columns: minmax(180px, 240px) auto 1fr;
+      gap: 0.75rem;
+      align-items: end;
+    }
+    .fx-form-grid label,
+    .fx-rate-grid label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 0.2rem;
+    }
+    .fx-form-grid select,
+    .fx-form-grid input,
+    .fx-rate-grid input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .fx-form-grid .fx-action,
+    .fx-rate-grid .fx-action {
+      display: flex;
+      align-items: flex-end;
+    }
+    .fx-form-grid .fx-action .btn,
+    .fx-rate-grid .fx-action .btn {
+      white-space: nowrap;
+    }
+    .fx-form-grid .fx-status {
+      align-self: center;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      justify-self: end;
+    }
+    .fx-rate-grid {
+      display: grid;
+      grid-template-columns: 70px 70px minmax(140px, 1fr) minmax(150px, 180px) minmax(160px, 1fr) auto;
+      gap: 0.6rem;
+      align-items: end;
+    }
+    .fx-rate-grid .fx-field-sm input { text-align: center; text-transform: uppercase; }
+    @media (max-width: 880px) {
+      .fx-form-grid { grid-template-columns: 1fr; }
+      .fx-form-grid .fx-status { justify-self: start; }
+      .fx-rate-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .fx-rate-grid .fx-action { grid-column: 1 / -1; }
+    }
     .report-preview-wrap { width: 100%; overflow-x: auto; }
     .report-preview-wrap .mini-table { table-layout: fixed; min-width: 720px; }
     .report-preview-wrap .mini-table th,
@@ -1596,7 +1647,7 @@
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">
           Set the reporting currency used across reports, and manage exchange rates to convert between currencies at a specific date.
         </p>
-        <div class="row" style="margin-bottom:0.5rem; align-items:flex-end;">
+        <div class="fx-form-grid" style="margin-bottom:0.75rem;">
           <div>
             <label for="fx-reporting-currency">Reporting currency</label>
             <select id="fx-reporting-currency">
@@ -1609,35 +1660,35 @@
               <option value="IRT">IRT</option>
             </select>
           </div>
-          <div>
+          <div class="fx-action">
             <button type="button" class="btn btn-secondary" id="fx-save-reporting-btn">Save reporting currency</button>
           </div>
-          <div style="margin-left:auto; font-size:0.82rem; color:var(--text-muted);" id="fx-reporting-status"></div>
+          <div class="fx-status" id="fx-reporting-status"></div>
         </div>
 
         <h3 style="margin-top:0.8rem; margin-bottom:0.4rem; font-size:0.95rem;">Exchange rates</h3>
-        <div class="row" style="margin-bottom:0.5rem; align-items:flex-end; gap:0.4rem;">
-          <div>
+        <div class="fx-rate-grid" style="margin-bottom:0.5rem;">
+          <div class="fx-field fx-field-sm">
             <label for="fx-from">From</label>
-            <input type="text" id="fx-from" placeholder="USD" maxlength="8" style="width:70px;">
+            <input type="text" id="fx-from" placeholder="USD" maxlength="8">
           </div>
-          <div>
+          <div class="fx-field fx-field-sm">
             <label for="fx-to">To</label>
-            <input type="text" id="fx-to" placeholder="IRR" maxlength="8" style="width:70px;">
+            <input type="text" id="fx-to" placeholder="IRR" maxlength="8">
           </div>
-          <div>
+          <div class="fx-field">
             <label for="fx-rate">Rate (1 From = N To)</label>
-            <input type="number" id="fx-rate" step="0.0001" min="0" placeholder="600000">
+            <input type="number" id="fx-rate" step="0.0001" min="0" placeholder="150000">
           </div>
-          <div>
+          <div class="fx-field">
             <label for="fx-effective">Effective date</label>
             <input type="date" id="fx-effective">
           </div>
-          <div>
+          <div class="fx-field">
             <label for="fx-note">Note</label>
             <input type="text" id="fx-note" placeholder="optional" maxlength="256">
           </div>
-          <div>
+          <div class="fx-action">
             <button type="button" class="btn btn-primary" id="fx-add-rate-btn">Add / update rate</button>
           </div>
         </div>

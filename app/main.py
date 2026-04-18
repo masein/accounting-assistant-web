@@ -197,6 +197,8 @@ async def lifespan(app: FastAPI):
         seed_chart_if_empty(db)
         seed_payment_methods_if_empty(db)
         seed_admin_user_if_missing(db)
+        from app.services.fx_service import seed_default_rates_if_empty
+        seed_default_rates_if_empty(db)
     finally:
         db.close()
     # Restore AI config from database (survives restarts)

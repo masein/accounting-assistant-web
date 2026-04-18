@@ -4,6 +4,7 @@ from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
 from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit
 from app.models.entity import Entity, TransactionEntity
+from app.models.exchange_rate import ExchangeRate
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType
@@ -21,6 +22,7 @@ __all__ = [
     "BankStatementRow",
     "BudgetLimit",
     "Entity",
+    "ExchangeRate",
     "IntegrityCheck",
     "Invoice",
     "InvoiceItem",

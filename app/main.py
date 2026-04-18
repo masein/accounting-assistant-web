@@ -18,6 +18,7 @@ from app.api.brain import router as brain_router
 from app.api.budgets import router as budgets_router
 from app.api.entities import router as entities_router
 from app.api.exports import router as exports_router
+from app.api.fx import router as fx_router
 from app.api.invoices import router as invoices_router
 from app.api.manager_reports import router as manager_reports_router
 from app.api.notifications import router as notifications_router
@@ -416,6 +417,7 @@ app.include_router(brain_router)
 app.include_router(budgets_router)
 app.include_router(entities_router)
 app.include_router(exports_router)
+app.include_router(fx_router)
 app.include_router(invoices_router)
 app.include_router(manager_reports_router)
 app.include_router(notifications_router)

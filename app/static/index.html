@@ -347,6 +347,23 @@
     .mini-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     .mini-table th, .mini-table td { border: 1px solid var(--border); padding: 0.35rem 0.45rem; text-align: left; }
     .mini-table th { background: #f8fafc; }
+    .ccy-badge {
+      display: inline-block;
+      padding: 0.05rem 0.4rem;
+      border-radius: 6px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border: 1px solid #c7d2fe;
+    }
+    .ccy-badge.ccy-IRR { background: #ecfeff; color: #0e7490; border-color: #a5f3fc; }
+    .ccy-badge.ccy-USD { background: #ecfdf5; color: #047857; border-color: #6ee7b7; }
+    .ccy-badge.ccy-EUR { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .ccy-badge.ccy-GBP { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
+    .ccy-badge.ccy-TRY { background: #fff1f2; color: #9f1239; border-color: #fda4af; }
+    .ccy-badge.ccy-IRT { background: #f0f9ff; color: #075985; border-color: #7dd3fc; }
     .report-preview-wrap { width: 100%; overflow-x: auto; }
     .report-preview-wrap .mini-table { table-layout: fixed; min-width: 720px; }
     .report-preview-wrap .mini-table th,
@@ -814,6 +831,19 @@
             <label for="reference" data-i18n="labelReference">Reference</label>
             <input type="text" id="reference" name="reference" data-i18n-placeholder="placeholderReference" data-i18n-title="referenceHint" placeholder="e.g. INV-001, receipt no." title="Invoice or receipt number that links this voucher to a document">
             <span id="reference-help-text" data-i18n="referenceHint" style="font-size: 0.75rem; color: var(--text-muted);">Invoice or receipt number linking to a document</span>
+          </div>
+          <div>
+            <label for="txn-currency">Currency</label>
+            <select id="txn-currency" name="currency" title="Currency for this voucher. Defaults to your reporting currency.">
+              <option value="IRR">IRR (Rial)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="AED">AED</option>
+              <option value="TRY">TRY (₺)</option>
+              <option value="IRT">IRT (Toman)</option>
+            </select>
+            <span id="txn-currency-hint" style="font-size: 0.75rem; color: var(--text-muted);">All lines share this currency.</span>
           </div>
         </div>
         <div>
@@ -1558,6 +1588,61 @@
         </div>
         <div id="users-wrap">
           <p class="empty-state" data-i18n="usersNoUsersLoaded" style="padding:0.4rem;">No users loaded.</p>
+        </div>
+      </div>
+
+      <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;">Currency &amp; FX</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">
+          Set the reporting currency used across reports, and manage exchange rates to convert between currencies at a specific date.
+        </p>
+        <div class="row" style="margin-bottom:0.5rem; align-items:flex-end;">
+          <div>
+            <label for="fx-reporting-currency">Reporting currency</label>
+            <select id="fx-reporting-currency">
+              <option value="IRR">IRR</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="AED">AED</option>
+              <option value="TRY">TRY</option>
+              <option value="IRT">IRT</option>
+            </select>
+          </div>
+          <div>
+            <button type="button" class="btn btn-secondary" id="fx-save-reporting-btn">Save reporting currency</button>
+          </div>
+          <div style="margin-left:auto; font-size:0.82rem; color:var(--text-muted);" id="fx-reporting-status"></div>
+        </div>
+
+        <h3 style="margin-top:0.8rem; margin-bottom:0.4rem; font-size:0.95rem;">Exchange rates</h3>
+        <div class="row" style="margin-bottom:0.5rem; align-items:flex-end; gap:0.4rem;">
+          <div>
+            <label for="fx-from">From</label>
+            <input type="text" id="fx-from" placeholder="USD" maxlength="8" style="width:70px;">
+          </div>
+          <div>
+            <label for="fx-to">To</label>
+            <input type="text" id="fx-to" placeholder="IRR" maxlength="8" style="width:70px;">
+          </div>
+          <div>
+            <label for="fx-rate">Rate (1 From = N To)</label>
+            <input type="number" id="fx-rate" step="0.0001" min="0" placeholder="600000">
+          </div>
+          <div>
+            <label for="fx-effective">Effective date</label>
+            <input type="date" id="fx-effective">
+          </div>
+          <div>
+            <label for="fx-note">Note</label>
+            <input type="text" id="fx-note" placeholder="optional" maxlength="256">
+          </div>
+          <div>
+            <button type="button" class="btn btn-primary" id="fx-add-rate-btn">Add / update rate</button>
+          </div>
+        </div>
+        <div id="fx-rates-wrap" style="margin-top:0.5rem;">
+          <p class="empty-state" style="padding:0.4rem;">No exchange rates set.</p>
         </div>
       </div>
 
@@ -3167,6 +3252,47 @@
       return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
+    // Map ISO code → short symbol for inline display.
+    const CURRENCY_SYMBOLS = {
+      IRR: '\u0631\u06cc\u0627\u0644', // ریال
+      IRT: '\u062a\u0648\u0645\u0627\u0646', // تومان
+      USD: '$',
+      EUR: '\u20ac',
+      GBP: '\u00a3',
+      AED: 'AED',
+      TRY: '\u20ba',
+    };
+
+    function currencySymbol(ccy) {
+      if (!ccy) return '';
+      const s = CURRENCY_SYMBOLS[String(ccy).toUpperCase()];
+      return s || String(ccy).toUpperCase();
+    }
+
+    function formatMoney(n, ccy) {
+      const num = formatNum(n || 0);
+      if (!ccy) return num;
+      const sym = currencySymbol(ccy);
+      // Symbols that look like prefixes (e.g. $, €, £) go before; words/codes after.
+      const prefixes = new Set(['$', '\u20ac', '\u00a3', '\u00a5']);
+      if (prefixes.has(sym)) return sym + num;
+      return num + ' ' + sym;
+    }
+
+    // Per-session cache of FX metadata from /fx/metadata
+    window.__FX_META = window.__FX_META || null;
+    async function loadFxMetadata(force) {
+      if (window.__FX_META && !force) return window.__FX_META;
+      try {
+        const r = await fetch(API + '/fx/metadata');
+        if (!r.ok) return null;
+        window.__FX_META = await r.json();
+        return window.__FX_META;
+      } catch (_) {
+        return null;
+      }
+    }
+
     function gregorianToJalali(gy, gm, gd) {
       const g_d_m = [0,31,59,90,120,151,181,212,243,273,304,334];
       let jy = (gy <= 1600) ? 0 : 979;
@@ -4519,6 +4645,14 @@
       document.getElementById('entity-bank').value = '';
       document.getElementById('entity-payee').value = '';
       document.getElementById('entity-supplier').value = '';
+      // Smart-default the voucher currency from FX metadata (reporting currency,
+      // falling back to most-common currency, then IRR).
+      const curSel = document.getElementById('txn-currency');
+      if (curSel) {
+        const meta = window.__FX_META;
+        const pref = (meta && (meta.reporting_currency || meta.most_common_currency)) || 'IRR';
+        if ([...curSel.options].some(o => o.value === pref)) curSel.value = pref;
+      }
       linesTbody.innerHTML = '';
       addLineRow();
       addLineRow();
@@ -5459,16 +5593,18 @@
 
     let lastSavedTransactionId = null;
 
-    function buildConfirmationSummary(date, description, lines) {
+    function buildConfirmationSummary(date, description, lines, currency) {
       const debitLines = lines.filter(l => l.debit > 0);
       const creditLines = lines.filter(l => l.credit > 0);
+      const ccyLabel = currency ? ` ${currency}` : '';
       let summary = `Date: ${date}\n`;
+      if (currency) summary += `Currency: ${currency}\n`;
       if (description) summary += `Description: ${description}\n`;
       summary += '\nDebit entries:\n';
-      debitLines.forEach(l => { summary += `  ${l.account_code}: ${l.debit.toLocaleString()} ${l.line_description ? '(' + l.line_description + ')' : ''}\n`; });
+      debitLines.forEach(l => { summary += `  ${l.account_code}: ${l.debit.toLocaleString()}${ccyLabel} ${l.line_description ? '(' + l.line_description + ')' : ''}\n`; });
       summary += '\nCredit entries:\n';
-      creditLines.forEach(l => { summary += `  ${l.account_code}: ${l.credit.toLocaleString()} ${l.line_description ? '(' + l.line_description + ')' : ''}\n`; });
-      summary += `\nTotal: ${lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}\n`;
+      creditLines.forEach(l => { summary += `  ${l.account_code}: ${l.credit.toLocaleString()}${ccyLabel} ${l.line_description ? '(' + l.line_description + ')' : ''}\n`; });
+      summary += `\nTotal: ${lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}${ccyLabel}\n`;
       summary += '\nSave this voucher?';
       return summary;
     }
@@ -5478,6 +5614,7 @@
       const date = document.getElementById('date').value;
       const reference = document.getElementById('reference').value.trim() || null;
       const description = document.getElementById('description').value.trim() || null;
+      const currency = (document.getElementById('txn-currency')?.value || 'IRR');
       const rows = Array.from(linesTbody.querySelectorAll('.line-row'));
       const lines = rows.map(tr => ({
         account_code: tr.querySelector('.line-code').value.trim(),
@@ -5495,8 +5632,15 @@
         showAlert('Total debits must equal total credits. (Debit: ' + formatNum(totalDebit) + ', Credit: ' + formatNum(totalCredit) + ')', true);
         return;
       }
+      // Warn if posting into a currency different from the reporting currency
+      const meta = window.__FX_META;
+      if (meta && meta.reporting_currency && currency && currency.toUpperCase() !== String(meta.reporting_currency).toUpperCase()) {
+        if (!confirm(`This voucher is in ${currency} but your reporting currency is ${meta.reporting_currency}. Reports in ${meta.reporting_currency} will not include this voucher unless you set an exchange rate. Continue?`)) {
+          return;
+        }
+      }
       // Pre-save confirmation
-      const confirmMsg = buildConfirmationSummary(date, description, lines);
+      const confirmMsg = buildConfirmationSummary(date, description, lines, currency);
       if (!confirm(confirmMsg)) return;
 
       submitBtn.disabled = true;
@@ -5518,6 +5662,7 @@
             date,
             reference,
             description,
+            currency,
             lines,
             entity_links,
             attachment_ids: selectedAttachments.map(a => a.id),
@@ -6585,6 +6730,131 @@
     loadEntityOptions();
     loadManagerInventoryItems();
 
+    // ─── FX settings panel ───────────────────────────────────────────────
+    async function loadFxSettings() {
+      const statusEl = document.getElementById('fx-reporting-status');
+      const selEl = document.getElementById('fx-reporting-currency');
+      try {
+        const r = await fetch(API + '/fx/reporting-currency');
+        if (r.ok) {
+          const data = await r.json();
+          if (selEl && data.currency && [...selEl.options].some(o => o.value === data.currency)) {
+            selEl.value = data.currency;
+          }
+          if (statusEl) statusEl.textContent = 'Currently: ' + (data.currency || 'IRR');
+        }
+      } catch (_) {}
+      loadFxRates();
+    }
+
+    async function loadFxRates() {
+      const wrap = document.getElementById('fx-rates-wrap');
+      if (!wrap) return;
+      try {
+        const r = await fetch(API + '/fx/rates');
+        if (!r.ok) { wrap.innerHTML = '<p class="empty-state">Failed to load rates.</p>'; return; }
+        const rows = await r.json();
+        if (!rows.length) { wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">No exchange rates set.</p>'; return; }
+        wrap.innerHTML = '<table class="mini-table"><thead><tr><th>From</th><th>To</th><th>Rate</th><th>Effective</th><th>Note</th><th></th></tr></thead><tbody>' +
+          rows.map(row => `<tr>
+            <td><span class="ccy-badge ccy-${escapeHtml((row.from_currency||'').toUpperCase())}">${escapeHtml(row.from_currency)}</span></td>
+            <td><span class="ccy-badge ccy-${escapeHtml((row.to_currency||'').toUpperCase())}">${escapeHtml(row.to_currency)}</span></td>
+            <td class="num">${formatNum(row.rate)}</td>
+            <td>${escapeHtml(row.effective_date)}</td>
+            <td>${escapeHtml(row.note || '')}</td>
+            <td><button class="btn btn-secondary btn-sm fx-del-rate" data-id="${escapeHtml(row.id)}">Delete</button></td>
+          </tr>`).join('') +
+          '</tbody></table>';
+        wrap.querySelectorAll('.fx-del-rate').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('Delete this exchange rate?')) return;
+            const id = btn.dataset.id;
+            const r2 = await fetch(API + '/fx/rates/' + encodeURIComponent(id), { method: 'DELETE' });
+            if (r2.ok) loadFxRates();
+          });
+        });
+      } catch (_) {
+        wrap.innerHTML = '<p class="empty-state">Error loading rates.</p>';
+      }
+    }
+
+    const fxSaveReportingBtn = document.getElementById('fx-save-reporting-btn');
+    if (fxSaveReportingBtn) {
+      fxSaveReportingBtn.addEventListener('click', async () => {
+        const sel = document.getElementById('fx-reporting-currency');
+        const status = document.getElementById('fx-reporting-status');
+        const value = sel ? sel.value : 'IRR';
+        const r = await fetch(API + '/fx/reporting-currency', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currency: value }),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          if (status) status.textContent = 'Saved: ' + data.currency;
+          // Refresh cached metadata so dropdowns reflect the new default
+          await loadFxMetadata(true);
+        } else {
+          if (status) status.textContent = 'Failed to save.';
+        }
+      });
+    }
+    const fxAddRateBtn = document.getElementById('fx-add-rate-btn');
+    if (fxAddRateBtn) {
+      fxAddRateBtn.addEventListener('click', async () => {
+        const from = document.getElementById('fx-from').value.trim();
+        const to = document.getElementById('fx-to').value.trim();
+        const rate = parseFloat(document.getElementById('fx-rate').value);
+        const eff = document.getElementById('fx-effective').value;
+        const note = document.getElementById('fx-note').value.trim() || null;
+        if (!from || !to || !(rate > 0) || !eff) {
+          showAlert('Fill in from, to, a positive rate and an effective date.', true);
+          return;
+        }
+        const r = await fetch(API + '/fx/rates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from_currency: from, to_currency: to, rate, effective_date: eff, note }),
+        });
+        if (r.ok) {
+          document.getElementById('fx-from').value = '';
+          document.getElementById('fx-to').value = '';
+          document.getElementById('fx-rate').value = '';
+          document.getElementById('fx-effective').value = '';
+          document.getElementById('fx-note').value = '';
+          loadFxRates();
+        } else {
+          const data = await r.json().catch(() => ({}));
+          showAlert(data.detail || 'Failed to save rate.', true);
+        }
+      });
+    }
+    loadFxSettings();
+
+    // Kick off FX metadata fetch so currency defaults land before the user interacts.
+    loadFxMetadata().then(meta => {
+      if (!meta) return;
+      const pref = meta.reporting_currency || meta.most_common_currency || 'IRR';
+      // Voucher form: pick the reporting currency as default
+      const txnSel = document.getElementById('txn-currency');
+      if (txnSel && [...txnSel.options].some(o => o.value === pref)) {
+        txnSel.value = pref;
+      }
+      // Manager reports: default to the most common currency in data
+      const mgrSel = document.getElementById('mgr-currency');
+      if (mgrSel) {
+        const mgrPref = meta.most_common_currency || pref;
+        if ([...mgrSel.options].some(o => o.value === mgrPref)) {
+          mgrSel.value = mgrPref;
+        }
+      }
+      // Excel import form: default to most common currency too
+      const impSel = document.getElementById('excel-import-currency');
+      if (impSel && [...impSel.options].some(o => o.value === (meta.most_common_currency || pref))) {
+        impSel.value = meta.most_common_currency || pref;
+      }
+    });
+
     // ═══════ Bank Statement Module ═══════
     const bsAPI = API + '/brain';
 
@@ -7280,6 +7550,10 @@
       if (_drilldownParams.account_code) q.set('account_code', _drilldownParams.account_code);
       if (_drilldownParams.account_code_prefix) q.set('account_code_prefix', _drilldownParams.account_code_prefix);
       if (_drilldownParams.month) q.set('month', _drilldownParams.month);
+      // Inherit the manager reports currency filter so drill-downs match the
+      // currency the user was looking at when they clicked.
+      const _mgrCcy = document.getElementById('mgr-currency')?.value;
+      if (_mgrCcy) q.set('currency', _mgrCcy);
 
       const fromVal = document.getElementById('drilldown-from').value;
       const toVal = document.getElementById('drilldown-to').value;
@@ -7305,19 +7579,37 @@
           return;
         }
 
-        const headers = [t('labelDate'), t('labelReference'), t('labelDescription'), t('tableAccountCode'), t('fieldAccount'), t('tableDebit'), t('tableCredit'), 'Entities'];
+        // Detect if the rows span multiple currencies — if so, show a currency column
+        const ccySet = new Set((data.rows || []).map(r => (r.currency || 'IRR').toUpperCase()));
+        const showCcyCol = ccySet.size > 1;
+        const baseHeaders = [t('labelDate'), t('labelReference'), t('labelDescription'), t('tableAccountCode'), t('fieldAccount')];
+        const amtHeaders = showCcyCol
+          ? ['Curr', t('tableDebit'), t('tableCredit')]
+          : [t('tableDebit'), t('tableCredit')];
+        const headers = [...baseHeaders, ...amtHeaders, 'Entities'];
         wrap.innerHTML = `<table class="mini-table"><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${
-          data.rows.map(r => `<tr>
-            <td>${escapeHtml(r.date)}</td>
-            <td>${escapeHtml(r.reference || '—')}</td>
-            <td>${escapeHtml(r.description || r.line_description || '—')}</td>
-            <td>${escapeHtml(r.account_code)}</td>
-            <td>${escapeHtml(r.account_name)}</td>
-            <td>${r.debit ? formatNum(r.debit) : '—'}</td>
-            <td>${r.credit ? formatNum(r.credit) : '—'}</td>
-            <td>${(r.entity_names || []).map(n => escapeHtml(n)).join(', ') || '—'}</td>
-          </tr>`).join('')
+          data.rows.map(r => {
+            const ccy = (r.currency || 'IRR').toUpperCase();
+            const debitCell = r.debit ? formatMoney(r.debit, ccy) : '—';
+            const creditCell = r.credit ? formatMoney(r.credit, ccy) : '—';
+            const ccyCell = showCcyCol ? `<td><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>` : '';
+            return `<tr>
+              <td>${escapeHtml(r.date)}</td>
+              <td>${escapeHtml(r.reference || '—')}</td>
+              <td>${escapeHtml(r.description || r.line_description || '—')}</td>
+              <td>${escapeHtml(r.account_code)}</td>
+              <td>${escapeHtml(r.account_name)}</td>
+              ${ccyCell}
+              <td>${debitCell}</td>
+              <td>${creditCell}</td>
+              <td>${(r.entity_names || []).map(n => escapeHtml(n)).join(', ') || '—'}</td>
+            </tr>`;
+          }).join('')
         }</tbody></table>`;
+        // Also show a single currency label above the table when all rows share one
+        if (!showCcyCol && data.rows.length && data.rows[0].currency) {
+          summaryEl.textContent = `${data.total_count} transaction${data.total_count !== 1 ? 's' : ''} (${data.rows[0].currency}) | ${t('fieldTotalDebit')}: ${formatNum(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatNum(data.total_credit)}`;
+        }
 
         // Pagination
         const totalPages = Math.ceil(data.total_count / data.page_size);
@@ -7342,6 +7634,10 @@
       if (_drilldownParams.account_code) q.set('account_code', _drilldownParams.account_code);
       if (_drilldownParams.account_code_prefix) q.set('account_code_prefix', _drilldownParams.account_code_prefix);
       if (_drilldownParams.month) q.set('month', _drilldownParams.month);
+      // Inherit the manager reports currency filter so drill-downs match the
+      // currency the user was looking at when they clicked.
+      const _mgrCcy = document.getElementById('mgr-currency')?.value;
+      if (_mgrCcy) q.set('currency', _mgrCcy);
       const fromVal = document.getElementById('drilldown-from').value;
       const toVal = document.getElementById('drilldown-to').value;
       if (fromVal) q.set('from_date', fromVal);
@@ -8206,6 +8502,22 @@
 
         const year = yearInput.value.trim();
         const multiplier = parseFloat(multiplierSel.value) || 1;
+        const importCurrency = document.getElementById('excel-import-currency').value || 'IRR';
+        // Warn on suspicious combinations before firing the request
+        if (multiplier >= 100000) {
+          if (!confirm(`Multiplier is ${multiplier}x — amounts will be scaled by this factor. Continue?`)) {
+            btn.disabled = false;
+            statusEl.innerHTML = '';
+            return;
+          }
+        }
+        if (importCurrency !== 'IRR' && multiplier >= 1000) {
+          if (!confirm(`You are importing ${importCurrency} with a ${multiplier}x multiplier. This is uncommon for ${importCurrency}. Continue?`)) {
+            btn.disabled = false;
+            statusEl.innerHTML = '';
+            return;
+          }
+        }
 
         const confirmRes = await fetch(API + '/transactions/excel-import/confirm', {
           method: 'POST',
@@ -8215,7 +8527,7 @@
             jalali_year: parseInt(year) || 1404,
             account_mappings: accountMappings,
             amount_multiplier: multiplier,
-            currency: document.getElementById('excel-import-currency').value || 'IRR',
+            currency: importCurrency,
           }),
         });
 

@@ -131,6 +131,7 @@ class TransactionSearchRow(BaseModel):
     date: date
     reference: str | None = None
     description: str | None = None
+    currency: str = "IRR"
     account_code: str
     account_name: str
     debit: int = 0

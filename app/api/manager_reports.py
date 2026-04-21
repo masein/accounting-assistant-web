@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.transactions import _create_transaction_from_payload
 from app.db.session import get_db
 from app.models.transaction import Transaction, TransactionLine
+from app.schemas.iran_statement import IranIncomeStatementResponse
 from app.schemas.manager_report import (
     AccountLedgerResponse,
     BalanceSheetResponse,
@@ -35,6 +36,7 @@ from app.schemas.manager_report import (
 from app.schemas.transaction import TransactionCreate, TransactionRead, TransactionUpdate
 from app.services.reporting.cash_flow_service import CashFlowService
 from app.services.reporting.financial_statement_service import FinancialStatementService
+from app.services.reporting.iran_statement_service import IranStatementService
 from app.services.reporting.inventory_report_service import InventoryReportService
 from app.services.reporting.ledger_service import LedgerService
 from app.services.reporting.operations_report_service import OperationsReportService
@@ -83,6 +85,30 @@ def income_statement(
 ) -> IncomeStatementResponse:
     svc = FinancialStatementService(db)
     return svc.income_statement(from_date=from_date, to_date=to_date, currency=currency)
+
+
+@router.get("/financial/iran/income-statement", response_model=IranIncomeStatementResponse)
+def iran_income_statement(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranIncomeStatementResponse:
+    """Income Statement in the Iranian standard format (صورت سود و زیان).
+
+    The prior period defaults to the same window shifted one year earlier
+    if `comparative_from_date` and `comparative_to_date` are not provided.
+    """
+    svc = IranStatementService(db)
+    return svc.income_statement(
+        from_date=from_date,
+        to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
 
 
 @router.get("/financial/cash-flow", response_model=CashFlowResponse)

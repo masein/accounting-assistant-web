@@ -13,6 +13,13 @@ from sqlalchemy.orm import Session
 from app.api.transactions import _create_transaction_from_payload
 from app.db.session import get_db
 from app.models.transaction import Transaction, TransactionLine
+from app.schemas.iran_statement import (
+    IranBalanceSheetResponse,
+    IranCashFlowResponse,
+    IranChangesInEquityResponse,
+    IranComprehensiveIncomeResponse,
+    IranIncomeStatementResponse,
+)
 from app.schemas.manager_report import (
     AccountLedgerResponse,
     BalanceSheetResponse,
@@ -35,6 +42,7 @@ from app.schemas.manager_report import (
 from app.schemas.transaction import TransactionCreate, TransactionRead, TransactionUpdate
 from app.services.reporting.cash_flow_service import CashFlowService
 from app.services.reporting.financial_statement_service import FinancialStatementService
+from app.services.reporting.iran_statement_service import IranStatementService
 from app.services.reporting.inventory_report_service import InventoryReportService
 from app.services.reporting.ledger_service import LedgerService
 from app.services.reporting.operations_report_service import OperationsReportService
@@ -83,6 +91,112 @@ def income_statement(
 ) -> IncomeStatementResponse:
     svc = FinancialStatementService(db)
     return svc.income_statement(from_date=from_date, to_date=to_date, currency=currency)
+
+
+@router.get("/financial/iran/income-statement", response_model=IranIncomeStatementResponse)
+def iran_income_statement(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranIncomeStatementResponse:
+    """Income Statement in the Iranian standard format (صورت سود و زیان).
+
+    The prior period defaults to the same window shifted one year earlier
+    if `comparative_from_date` and `comparative_to_date` are not provided.
+    """
+    svc = IranStatementService(db)
+    return svc.income_statement(
+        from_date=from_date,
+        to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
+
+
+@router.get("/financial/iran/balance-sheet", response_model=IranBalanceSheetResponse)
+def iran_balance_sheet(
+    as_of: date | None = Query(None),
+    comparative_as_of: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranBalanceSheetResponse:
+    """Balance Sheet in the Iranian standard format (صورت وضعیت مالی).
+
+    Comparative date defaults to one year before `as_of` if not provided.
+    """
+    svc = IranStatementService(db)
+    return svc.balance_sheet(as_of=as_of, comparative_as_of=comparative_as_of, currency=currency)
+
+
+@router.get("/financial/iran/changes-in-equity", response_model=IranChangesInEquityResponse)
+def iran_changes_in_equity(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranChangesInEquityResponse:
+    """Statement of Changes in Equity (صورت تغییرات در حقوق مالکانه).
+
+    Returns the movement matrix: rows are equity-change events, columns are
+    equity components (سرمایه, اندوخته قانونی, سود انباشته, ...). Auto-populated
+    opening/closing balances and period net profit; movement rows such as
+    dividends, capital increases, and buybacks remain zero until those events
+    are explicitly tagged on transactions.
+    """
+    svc = IranStatementService(db)
+    return svc.changes_in_equity(from_date=from_date, to_date=to_date, currency=currency)
+
+
+@router.get("/financial/iran/comprehensive-income", response_model=IranComprehensiveIncomeResponse)
+def iran_comprehensive_income(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranComprehensiveIncomeResponse:
+    """صورت سود و زیان جامع — starts from net profit and lists the
+    non-reclassifiable and reclassifiable OCI items prescribed by the
+    Iranian standard. OCI items stay zero until their underlying
+    movements (revaluation, FX, …) are tagged explicitly on transactions.
+    """
+    svc = IranStatementService(db)
+    return svc.comprehensive_income(
+        from_date=from_date,
+        to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
+
+
+@router.get("/financial/iran/cash-flow", response_model=IranCashFlowResponse)
+def iran_cash_flow(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranCashFlowResponse:
+    """صورت جریان‌های نقدی — Iranian-template cash flow. Rows are the
+    prescribed operating/investing/financing line items; movements are
+    classified by the primary counterparty account prefix on each
+    cash-touching transaction.
+    """
+    svc = IranStatementService(db)
+    return svc.cash_flow(
+        from_date=from_date,
+        to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
 
 
 @router.get("/financial/cash-flow", response_model=CashFlowResponse)

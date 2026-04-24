@@ -1145,6 +1145,8 @@
           <select id="mgr-report-type">
             <option value="balance_sheet" data-i18n="reportBalanceSheet">Balance sheet (ترازنامه)</option>
             <option value="income_statement" data-i18n="reportIncomeStatement">Income statement (سود و زیان)</option>
+            <option value="comprehensive_income">Comprehensive Income (سود و زیان جامع)</option>
+            <option value="changes_in_equity">Statement of Changes in Equity (تغییرات در حقوق مالکانه)</option>
             <option value="cash_flow" data-i18n="reportCashFlow">Cash flow statement (جریان وجوه نقد)</option>
             <option value="general_journal" data-i18n="reportGeneralJournal">General journal (دفتر روزنامه)</option>
             <option value="general_ledger" data-i18n="reportGeneralLedger">General ledger (دفتر کل)</option>
@@ -1721,6 +1723,26 @@
         </div>
         <div id="fx-rates-wrap" style="margin-top:0.5rem;">
           <p class="empty-state" style="padding:0.4rem;">No exchange rates set.</p>
+        </div>
+      </div>
+
+      <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;">Reporting locale</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">
+          Choose the financial statement template. Iranian standard formats reports (Income Statement, Balance Sheet, etc.) to match رهنمودهای استاندارد حسابداری ایران.
+        </p>
+        <div class="row" style="margin-bottom:0.5rem;">
+          <div>
+            <label for="reporting-locale-select">Template</label>
+            <select id="reporting-locale-select">
+              <option value="default">Default (IFRS-style)</option>
+              <option value="ir">Iranian standard (ایران)</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button type="button" class="btn btn-secondary" id="reporting-locale-save-btn">Save locale</button>
+          </div>
+          <div style="display:flex; align-items:center; font-size:0.85rem; color:var(--text-muted);" id="reporting-locale-status"></div>
         </div>
       </div>
 
@@ -3871,10 +3893,24 @@
     }
 
     function managerEndpointFor(type) {
+      const ir = (window.__REPORTING_LOCALE === 'ir');
       switch (type) {
-        case 'balance_sheet': return '/manager-reports/financial/balance-sheet';
-        case 'income_statement': return '/manager-reports/financial/income-statement';
-        case 'cash_flow': return '/manager-reports/financial/cash-flow';
+        case 'balance_sheet':
+          return ir
+            ? '/manager-reports/financial/iran/balance-sheet'
+            : '/manager-reports/financial/balance-sheet';
+        case 'income_statement':
+          return ir
+            ? '/manager-reports/financial/iran/income-statement'
+            : '/manager-reports/financial/income-statement';
+        case 'changes_in_equity':
+          return '/manager-reports/financial/iran/changes-in-equity';
+        case 'comprehensive_income':
+          return '/manager-reports/financial/iran/comprehensive-income';
+        case 'cash_flow':
+          return ir
+            ? '/manager-reports/financial/iran/cash-flow'
+            : '/manager-reports/financial/cash-flow';
         case 'general_journal': return '/manager-reports/books/general-journal';
         case 'general_ledger': return '/manager-reports/books/general-ledger';
         case 'trial_balance': return '/manager-reports/books/trial-balance';
@@ -4495,8 +4531,13 @@
       try {
         const type = (mgrReportTypeEl.value || '').trim();
         const endpoint = managerEndpointFor(type);
+        const ir = (window.__REPORTING_LOCALE === 'ir');
         const q = new URLSearchParams();
-        if (type === 'balance_sheet') {
+        if (type === 'balance_sheet' && ir) {
+          // Iranian balance-sheet endpoint uses `as_of` / `comparative_as_of`.
+          if (mgrToDateEl.value) q.set('as_of', mgrToDateEl.value);
+          if (mgrFromDateEl.value) q.set('comparative_as_of', mgrFromDateEl.value);
+        } else if (type === 'balance_sheet') {
           if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
           if (mgrFromDateEl.value) q.set('comparative_to_date', mgrFromDateEl.value);
         } else {
@@ -5263,8 +5304,147 @@
       return chart;
     }
 
+    // Render Iranian-standard statements (ordered `rows` with subtotal/total/header
+    // row_type markers, indent_level, and negative-presentation flag). Produces a
+    // compact RTL table with Persian headers مطابق PDF استاندارد ایران.
+    function renderIranStatementTable(report) {
+      const rows = Array.isArray(report.rows) ? report.rows : [];
+      // Income Statement uses `period`/`comparative_period` (from-to windows);
+      // Balance Sheet uses `as_of`/`comparative_as_of` (snapshot dates).
+      const periodDate = (report.period && (report.period.to || report.period.to_date)) || report.as_of || '';
+      const priorDate = (report.comparative_period && (report.comparative_period.to || report.comparative_period.to_date)) || report.comparative_as_of || '';
+      const fmtParens = (amount, forceParens) => {
+        if (amount == null) return '-';
+        if (amount === 0) return '·';
+        const n = Math.abs(amount).toLocaleString();
+        return (amount < 0 || forceParens) ? '(' + n + ')' : n;
+      };
+      const fmtPct = (v) => {
+        if (v == null) return '-';
+        if (v === 0) return '·';
+        const n = Math.abs(Math.round(v)).toLocaleString();
+        return v < 0 ? '(' + n + ')' : n;
+      };
+      const bodyRows = rows.map(r => {
+        const isHeader = r.row_type === 'header';
+        const isSubtotal = r.row_type === 'subtotal';
+        const isTotal = r.row_type === 'total';
+        const indent = Math.max(0, (r.indent_level || 0)) * 14;
+        const baseStyle = 'padding:6px 8px; border-bottom:1px solid #eee;';
+        const weight = (isSubtotal || isTotal) ? 'font-weight:700;' : '';
+        const bg = isHeader ? 'background:#f3f4f6;' : (isTotal ? 'background:#eef4ff;' : (isSubtotal ? 'background:#fafafa;' : ''));
+        const color = isHeader ? 'color:#334155;' : '';
+        const labelCell = `<td style="${baseStyle} ${weight} ${bg} ${color} text-align:right; padding-right:${8 + indent}px;" dir="rtl">${escapeHtml(r.label_fa || '')}</td>`;
+        if (isHeader) {
+          return `<tr>${labelCell}<td style="${baseStyle} ${bg}"></td><td style="${baseStyle} ${bg}"></td><td style="${baseStyle} ${bg}"></td></tr>`;
+        }
+        const curCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_current, r.is_negative_presentation))}</td>`;
+        const priorCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior, r.is_negative_presentation))}</td>`;
+        const pctCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums; color:${(r.change_pct != null && r.change_pct < 0) ? '#b91c1c' : '#334155'};">${escapeHtml(fmtPct(r.change_pct))}</td>`;
+        return `<tr>${labelCell}${curCell}${priorCell}${pctCell}</tr>`;
+      }).join('');
+
+      const titleMap = {
+        iran_income_statement: 'صورت سود و زیان',
+        iran_balance_sheet: 'صورت وضعیت مالی',
+        iran_changes_in_equity: 'صورت تغییرات در حقوق مالکانه',
+        iran_comprehensive_income: 'صورت سود و زیان جامع',
+        iran_cash_flow: 'صورت جریان‌های نقدی',
+      };
+      const title = titleMap[report.report_type] || 'گزارش';
+      const curHeader = priorDate ? `دوره منتهی به ${escapeHtml(periodDate || '')}` : escapeHtml(periodDate || '');
+      const priorHeader = priorDate ? `دوره منتهی به ${escapeHtml(priorDate)}` : '';
+
+      return `
+        <div dir="rtl" style="font-family: Tahoma, 'IRANSans', Arial, sans-serif;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.4rem;">
+            <h3 style="margin:0;">${escapeHtml(title)}</h3>
+            <span style="font-size:0.82rem; color:var(--text-muted);">کلیه مبالغ به ریال است</span>
+          </div>
+          <div class="report-preview-wrap">
+            <table class="mini-table" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f1f5f9;">
+                  <th style="padding:8px; text-align:right;" dir="rtl">شرح</th>
+                  <th style="padding:8px; text-align:center; min-width:140px;">${curHeader || '-'}</th>
+                  <th style="padding:8px; text-align:center; min-width:140px;">${priorHeader || '-'}</th>
+                  <th style="padding:8px; text-align:center; min-width:90px;">درصد تغییر</th>
+                </tr>
+              </thead>
+              <tbody>${bodyRows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // Changes in Equity is a matrix: rows = movement events, columns = equity components
+    // (سرمایه, اندوخته قانونی, سود انباشته, …) + total. Uses a different schema
+    // (cells[]) than the other Iranian statements, so it gets its own renderer.
+    function renderIranEquityMatrix(report) {
+      const components = Array.isArray(report.components) ? report.components : [];
+      const rows = Array.isArray(report.rows) ? report.rows : [];
+      const periodFrom = report.period && (report.period.from || report.period.from_date) || '';
+      const periodTo = report.period && (report.period.to || report.period.to_date) || '';
+      const fmtParens = (n) => {
+        if (n == null) return '-';
+        if (n === 0) return '·';
+        const s = Math.abs(n).toLocaleString();
+        return n < 0 ? '(' + s + ')' : s;
+      };
+
+      const header = `
+        <tr style="background:#f1f5f9;">
+          <th style="padding:8px; text-align:right; min-width:240px;" dir="rtl">شرح</th>
+          ${components.map(c => `<th style="padding:8px; text-align:center; font-size:0.82rem; min-width:90px;" dir="rtl">${escapeHtml(c.label_fa || c.key)}</th>`).join('')}
+          <th style="padding:8px; text-align:center; min-width:100px; background:#e8f0fe;" dir="rtl">جمع کل</th>
+        </tr>
+      `;
+      const body = rows.map(r => {
+        const isHeader = r.row_type === 'header';
+        const isSubtotal = r.row_type === 'subtotal';
+        const isTotal = r.row_type === 'total';
+        const baseStyle = 'padding:6px 8px; border-bottom:1px solid #eee; font-variant-numeric:tabular-nums;';
+        const weight = (isSubtotal || isTotal) ? 'font-weight:700;' : '';
+        const bg = isHeader ? 'background:#f3f4f6;' : (isTotal ? 'background:#eef4ff;' : (isSubtotal ? 'background:#fafafa;' : ''));
+        const cellsByComponent = Object.fromEntries((r.cells || []).map(c => [c.component, c.amount]));
+        const labelCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right;" dir="rtl">${escapeHtml(r.label_fa || '')}</td>`;
+        const valueCells = components.map(c => {
+          const v = cellsByComponent[c.key];
+          return `<td style="${baseStyle} ${weight} ${bg} text-align:center;">${escapeHtml(fmtParens(v))}</td>`;
+        }).join('');
+        const totalCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; background:${isTotal ? '#d8e7ff' : (isSubtotal ? '#f0f4fa' : '#eef4ff')};">${escapeHtml(fmtParens(r.total))}</td>`;
+        return `<tr>${labelCell}${valueCells}${totalCell}</tr>`;
+      }).join('');
+
+      return `
+        <div dir="rtl" style="font-family: Tahoma, 'IRANSans', Arial, sans-serif;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.4rem;">
+            <h3 style="margin:0;">صورت تغییرات در حقوق مالکانه</h3>
+            <span style="font-size:0.82rem; color:var(--text-muted);">
+              ${periodFrom ? `از ${escapeHtml(periodFrom)} تا ${escapeHtml(periodTo)} · ` : ''}کلیه مبالغ به ریال است
+            </span>
+          </div>
+          <div class="report-preview-wrap" style="overflow-x:auto;">
+            <table class="mini-table" style="width:100%; border-collapse:collapse;">
+              <thead>${header}</thead>
+              <tbody>${body}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
     function renderReportPreviewHtml(report) {
       if (!report || typeof report !== 'object') return '<p class="empty-state">' + escapeHtml(t('noReportData')) + '</p>';
+      const rt = report.report_type || '';
+      if (rt === 'iran_changes_in_equity') {
+        return renderIranEquityMatrix(report);
+      }
+      if (rt === 'iran_income_statement' || rt === 'iran_balance_sheet'
+          || rt === 'iran_comprehensive_income' || rt === 'iran_cash_flow') {
+        return renderIranStatementTable(report);
+      }
       if (report.sections && typeof report.sections === 'object') {
         const cards = Object.keys(report.sections).map(k => {
           const sec = report.sections[k] || {};
@@ -6948,6 +7128,49 @@
       });
     }
     loadFxSettings();
+
+    // ─── Reporting locale panel ──────────────────────────────────────────
+    // Cached so managerEndpointFor() can route reports to Iran endpoints
+    // without an extra fetch on every report run.
+    window.__REPORTING_LOCALE = 'default';
+
+    async function loadReportingLocale() {
+      const selEl = document.getElementById('reporting-locale-select');
+      const statusEl = document.getElementById('reporting-locale-status');
+      try {
+        const r = await fetch(API + '/admin/reporting-locale');
+        if (!r.ok) return;
+        const data = await r.json();
+        const loc = (data && data.locale) || 'default';
+        window.__REPORTING_LOCALE = loc;
+        if (selEl && [...selEl.options].some(o => o.value === loc)) selEl.value = loc;
+        if (statusEl) statusEl.textContent = 'Current: ' + loc;
+      } catch (_) {}
+    }
+
+    const reportingLocaleSaveBtn = document.getElementById('reporting-locale-save-btn');
+    if (reportingLocaleSaveBtn) {
+      reportingLocaleSaveBtn.addEventListener('click', async () => {
+        const sel = document.getElementById('reporting-locale-select');
+        const status = document.getElementById('reporting-locale-status');
+        const value = sel ? sel.value : 'default';
+        const r = await fetch(API + '/admin/reporting-locale', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ locale: value }),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          window.__REPORTING_LOCALE = data.locale;
+          if (status) status.textContent = 'Saved: ' + data.locale;
+        } else {
+          const data = await r.json().catch(() => ({}));
+          if (status) status.textContent = (data.detail || 'Failed to save.');
+        }
+      });
+    }
+
+    loadReportingLocale();
 
     // Kick off FX metadata fetch so currency defaults land before the user interacts.
     loadFxMetadata().then(meta => {

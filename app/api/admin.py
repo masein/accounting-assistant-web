@@ -11,6 +11,11 @@ from sqlalchemy.orm import Session
 from app.core.auth import hash_password, require_admin, validate_password_strength
 from app.core.ai_runtime import get_ai_config_public, update_ai_config
 from app.db.session import get_db
+from app.services.locale_service import (
+    SUPPORTED_LOCALES,
+    get_reporting_locale,
+    set_reporting_locale,
+)
 from app.models.account import Account
 from app.models.budget import BudgetLimit
 from app.models.entity import Entity, TransactionEntity
@@ -49,6 +54,15 @@ class UserUpdatePayload(BaseModel):
     preferred_language: str | None = None
     is_admin: bool | None = None
     is_active: bool | None = None
+
+
+class ReportingLocaleRead(BaseModel):
+    locale: str
+    supported: list[str]
+
+
+class ReportingLocaleUpdate(BaseModel):
+    locale: str
 
 
 @router.get("/ai-config")
@@ -201,3 +215,22 @@ def delete_user(user_id: UUID, db: Session = Depends(get_db), _=Depends(require_
         raise HTTPException(status_code=400, detail="Default admin user cannot be deleted")
     db.delete(user)
     db.commit()
+
+
+@router.get("/reporting-locale", response_model=ReportingLocaleRead)
+def read_reporting_locale(db: Session = Depends(get_db)) -> ReportingLocaleRead:
+    return ReportingLocaleRead(locale=get_reporting_locale(db), supported=sorted(SUPPORTED_LOCALES))
+
+
+@router.put("/reporting-locale", response_model=ReportingLocaleRead)
+def update_reporting_locale(
+    payload: ReportingLocaleUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+) -> ReportingLocaleRead:
+    try:
+        locale = set_reporting_locale(db, payload.locale)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    db.commit()
+    return ReportingLocaleRead(locale=locale, supported=sorted(SUPPORTED_LOCALES))

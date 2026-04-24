@@ -13,7 +13,11 @@ from sqlalchemy.orm import Session
 from app.api.transactions import _create_transaction_from_payload
 from app.db.session import get_db
 from app.models.transaction import Transaction, TransactionLine
-from app.schemas.iran_statement import IranIncomeStatementResponse
+from app.schemas.iran_statement import (
+    IranBalanceSheetResponse,
+    IranChangesInEquityResponse,
+    IranIncomeStatementResponse,
+)
 from app.schemas.manager_report import (
     AccountLedgerResponse,
     BalanceSheetResponse,
@@ -109,6 +113,40 @@ def iran_income_statement(
         comparative_to_date=comparative_to_date,
         currency=currency,
     )
+
+
+@router.get("/financial/iran/balance-sheet", response_model=IranBalanceSheetResponse)
+def iran_balance_sheet(
+    as_of: date | None = Query(None),
+    comparative_as_of: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranBalanceSheetResponse:
+    """Balance Sheet in the Iranian standard format (صورت وضعیت مالی).
+
+    Comparative date defaults to one year before `as_of` if not provided.
+    """
+    svc = IranStatementService(db)
+    return svc.balance_sheet(as_of=as_of, comparative_as_of=comparative_as_of, currency=currency)
+
+
+@router.get("/financial/iran/changes-in-equity", response_model=IranChangesInEquityResponse)
+def iran_changes_in_equity(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranChangesInEquityResponse:
+    """Statement of Changes in Equity (صورت تغییرات در حقوق مالکانه).
+
+    Returns the movement matrix: rows are equity-change events, columns are
+    equity components (سرمایه, اندوخته قانونی, سود انباشته, ...). Auto-populated
+    opening/closing balances and period net profit; movement rows such as
+    dividends, capital increases, and buybacks remain zero until those events
+    are explicitly tagged on transactions.
+    """
+    svc = IranStatementService(db)
+    return svc.changes_in_equity(from_date=from_date, to_date=to_date, currency=currency)
 
 
 @router.get("/financial/cash-flow", response_model=CashFlowResponse)

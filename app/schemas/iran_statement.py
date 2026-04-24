@@ -51,3 +51,44 @@ class IranIncomeStatementResponse(BaseModel):
         default_factory=dict,
         description="Extra info such as shares_outstanding for EPS (null if unknown).",
     )
+
+
+class IranBalanceSheetResponse(BaseModel):
+    report_type: str = "iran_balance_sheet"
+    locale: str = "ir"
+    as_of: str  # ISO date string of the current snapshot
+    comparative_as_of: str | None = None
+    scale: str = "rial"
+    rows: list[IranStatementRow]
+    metadata: dict = Field(default_factory=dict)
+
+
+class IranEquityMovementCell(BaseModel):
+    """One cell in the Statement of Changes in Equity matrix."""
+    component: str = Field(description="Equity component column key (e.g. 'capital', 'retained_earnings').")
+    amount: int | None = 0
+
+
+class IranEquityMovementRow(BaseModel):
+    key: str
+    label_fa: str
+    label_en: str | None = None
+    row_type: str = "line"  # line | subtotal | total | header
+    cells: list[IranEquityMovementCell]
+    total: int | None = 0
+
+
+class IranEquityComponent(BaseModel):
+    key: str
+    label_fa: str
+    label_en: str | None = None
+
+
+class IranChangesInEquityResponse(BaseModel):
+    report_type: str = "iran_changes_in_equity"
+    locale: str = "ir"
+    period: ReportPeriod
+    scale: str = "rial"
+    components: list[IranEquityComponent]
+    rows: list[IranEquityMovementRow]
+    metadata: dict = Field(default_factory=dict)

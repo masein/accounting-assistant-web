@@ -15,7 +15,9 @@ from app.db.session import get_db
 from app.models.transaction import Transaction, TransactionLine
 from app.schemas.iran_statement import (
     IranBalanceSheetResponse,
+    IranCashFlowResponse,
     IranChangesInEquityResponse,
+    IranComprehensiveIncomeResponse,
     IranIncomeStatementResponse,
 )
 from app.schemas.manager_report import (
@@ -147,6 +149,54 @@ def iran_changes_in_equity(
     """
     svc = IranStatementService(db)
     return svc.changes_in_equity(from_date=from_date, to_date=to_date, currency=currency)
+
+
+@router.get("/financial/iran/comprehensive-income", response_model=IranComprehensiveIncomeResponse)
+def iran_comprehensive_income(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranComprehensiveIncomeResponse:
+    """صورت سود و زیان جامع — starts from net profit and lists the
+    non-reclassifiable and reclassifiable OCI items prescribed by the
+    Iranian standard. OCI items stay zero until their underlying
+    movements (revaluation, FX, …) are tagged explicitly on transactions.
+    """
+    svc = IranStatementService(db)
+    return svc.comprehensive_income(
+        from_date=from_date,
+        to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
+
+
+@router.get("/financial/iran/cash-flow", response_model=IranCashFlowResponse)
+def iran_cash_flow(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> IranCashFlowResponse:
+    """صورت جریان‌های نقدی — Iranian-template cash flow. Rows are the
+    prescribed operating/investing/financing line items; movements are
+    classified by the primary counterparty account prefix on each
+    cash-touching transaction.
+    """
+    svc = IranStatementService(db)
+    return svc.cash_flow(
+        from_date=from_date,
+        to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
 
 
 @router.get("/financial/cash-flow", response_model=CashFlowResponse)

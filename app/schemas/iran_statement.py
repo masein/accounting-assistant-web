@@ -92,3 +92,32 @@ class IranChangesInEquityResponse(BaseModel):
     components: list[IranEquityComponent]
     rows: list[IranEquityMovementRow]
     metadata: dict = Field(default_factory=dict)
+
+
+class IranComprehensiveIncomeResponse(BaseModel):
+    """صورت سود و زیان جامع — flows net profit into
+    'other comprehensive income' buckets (revaluation surplus, FX translation, …)
+    which are placeholders until those movements are tagged explicitly.
+    """
+    report_type: str = "iran_comprehensive_income"
+    locale: str = "ir"
+    period: ReportPeriod
+    comparative_period: ReportPeriod | None = None
+    scale: str = "rial"
+    rows: list[IranStatementRow]
+    metadata: dict = Field(default_factory=dict)
+
+
+class IranCashFlowResponse(BaseModel):
+    """صورت جریان‌های نقدی — ordered rows following the Iranian template with
+    fixed section headers (عملیاتی / سرمایه‌گذاری / تامین مالی / …) and
+    prescribed line items. Amounts follow the same signed convention as
+    the Income Statement: inflows positive, outflows negative.
+    """
+    report_type: str = "iran_cash_flow"
+    locale: str = "ir"
+    period: ReportPeriod
+    comparative_period: ReportPeriod | None = None
+    scale: str = "rial"
+    rows: list[IranStatementRow]
+    metadata: dict = Field(default_factory=dict)

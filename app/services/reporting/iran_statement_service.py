@@ -40,7 +40,9 @@ from sqlalchemy.orm import Session
 from app.models.account import Account
 from app.schemas.iran_statement import (
     IranBalanceSheetResponse,
+    IranCashFlowResponse,
     IranChangesInEquityResponse,
+    IranComprehensiveIncomeResponse,
     IranEquityComponent,
     IranEquityMovementCell,
     IranEquityMovementRow,
@@ -770,6 +772,267 @@ def build_iran_changes_in_equity(
     )
 
 
+# ---------------------------------------------------------------------------
+# Comprehensive Income Statement (صورت سود و زیان جامع)
+# ---------------------------------------------------------------------------
+# The Iranian template splits OCI into two groups (reclassifiable and
+# non-reclassifiable) with fixed line items underneath each. We reuse the
+# IS net-profit computation and emit the prescribed skeleton; OCI lines stay
+# zero until revaluation / FX-translation events are tagged on transactions.
+
+
+def _oci_row(key: str, label_fa: str, cur: int, prior: int, *, label_en: str | None = None, indent: int = 2) -> IranStatementRow:
+    return IranStatementRow(
+        key=key,
+        label_fa=label_fa,
+        label_en=label_en,
+        row_type="line",
+        indent_level=indent,
+        amount_current=cur,
+        amount_prior=prior,
+        change_pct=_pct_change(cur, prior),
+        is_negative_presentation=False,
+    )
+
+
+def build_iran_comprehensive_income(
+    db: Session,
+    from_date: date | None = None,
+    to_date: date | None = None,
+    comparative_from_date: date | None = None,
+    comparative_to_date: date | None = None,
+    currency: str | None = None,
+) -> IranComprehensiveIncomeResponse:
+    period = default_period(from_date, to_date)
+    if comparative_to_date is None:
+        comparative_to_date = _shift_one_year(period.to_date)
+    if comparative_from_date is None:
+        comparative_from_date = _shift_one_year(period.from_date)
+
+    np_cur = _period_net_profit(db, period.from_date, period.to_date, currency)
+    np_pri = _period_net_profit(db, comparative_from_date, comparative_to_date, currency)
+
+    # OCI lines are placeholders (revaluation, FX, …) and their income-tax
+    # impact — all zero until the underlying movements are tagged explicitly.
+    zero_cur, zero_pri = 0, 0
+    non_reclass_sum_cur = 0  # sum of non-reclassifiable OCI items after tax
+    non_reclass_sum_pri = 0
+    reclass_sum_cur = 0
+    reclass_sum_pri = 0
+    oci_total_cur = non_reclass_sum_cur + reclass_sum_cur
+    oci_total_pri = non_reclass_sum_pri + reclass_sum_pri
+    comprehensive_cur = np_cur + oci_total_cur
+    comprehensive_pri = np_pri + oci_total_pri
+
+    rows: list[IranStatementRow] = [
+        _subtotal("net_profit", "سود (زیان) خالص", np_cur, np_pri, label_en="Net profit (loss)", indent_level=0),
+        _header(
+            "non_reclass_section",
+            "سایر اقلام سود و زیان جامع که در دوره‌های آتی به صورت سود و زیان تجدید طبقه‌بندی نخواهد شد:",
+            label_en="Items not to be reclassified to P&L in subsequent periods:",
+        ),
+        _oci_row("oci_revaluation_surplus", "مازاد تجدید ارزیابی دارایی‌های ثابت مشهود", zero_cur, zero_pri, label_en="Revaluation surplus on PP&E"),
+        _oci_row("oci_fx_foreign_operations", "تفاوت تسعیر ارز عملیات خارجی", zero_cur, zero_pri, label_en="FX on foreign operations"),
+        _oci_row("oci_non_reclass_other", "سایر", zero_cur, zero_pri, label_en="Other"),
+        _oci_row("oci_non_reclass_tax", "مالیات بر درآمد اقلام فوق", zero_cur, zero_pri, label_en="Income tax on the above"),
+        _subtotal("oci_non_reclass_total", "جمع", non_reclass_sum_cur, non_reclass_sum_pri, label_en="Total non-reclassifiable"),
+        _header(
+            "reclass_section",
+            "سایر اقلام سود و زیان جامع که در دوره‌های آتی به صورت سود و زیان تجدید طبقه‌بندی خواهد شد:",
+            label_en="Items to be reclassified to P&L in subsequent periods:",
+        ),
+        _oci_row("oci_reclass_other", "سایر", zero_cur, zero_pri, label_en="Other"),
+        _oci_row("oci_reclass_tax", "مالیات بر درآمد اقلام فوق", zero_cur, zero_pri, label_en="Income tax on the above"),
+        _subtotal("oci_reclass_total", "جمع", reclass_sum_cur, reclass_sum_pri, label_en="Total reclassifiable"),
+        _subtotal("oci_total", "سایر اقلام سود و زیان جامع سال پس از کسر مالیات", oci_total_cur, oci_total_pri, label_en="Total OCI, net of tax"),
+        _subtotal("comprehensive_income", "سود (زیان) جامع سال", comprehensive_cur, comprehensive_pri, label_en="Total comprehensive income", row_type="total"),
+    ]
+
+    return IranComprehensiveIncomeResponse(
+        period=ReportPeriod(from_date=period.from_date, to_date=period.to_date),
+        comparative_period=ReportPeriod(from_date=comparative_from_date, to_date=comparative_to_date),
+        rows=rows,
+        metadata={
+            "currency": currency,
+            "note": "OCI line items remain zero until revaluation/FX/other OCI movements are tagged explicitly on transactions.",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cash Flow Statement (صورت جریان‌های نقدی) — Iranian template
+# ---------------------------------------------------------------------------
+# We scan transactions in the period, split those that touch a cash account
+# (1110) by counterparty account prefix into the prescribed Iranian buckets.
+# The row order and labels follow the standard template so every statement
+# looks identical regardless of which buckets are populated.
+
+
+# Counterparty prefix → cash-flow bucket key. First match wins; longer prefixes
+# must come first. Buckets with no counter-entry default to the residual bucket
+# for their section.
+_CF_COUNTER_MAP: list[tuple[str, str]] = [
+    # Investing
+    ("121", "inv_ppe"),
+    ("122", "inv_investment_property"),
+    ("123", "inv_intangibles"),
+    ("124", "inv_lt_investments"),
+    ("125", "inv_lt_receivables"),
+    ("113", "inv_st_investments"),
+    # Financing
+    ("311", "fin_capital"),
+    ("312", "fin_capital_increase"),
+    ("313", "fin_share_premium"),
+    ("314", "fin_treasury_premium"),
+    ("34", "fin_treasury_stock"),
+    ("214", "fin_dividends"),
+    ("215", "fin_st_loans"),
+    ("222", "fin_lt_loans"),
+    # Operating tax marker
+    ("213", "op_tax_paid"),
+]
+
+
+def _cf_bucket(code: str) -> tuple[str, str]:
+    """Return (section, bucket) for a counterparty account code.
+
+    Sections: "operating" | "investing" | "financing".
+    The default falls back to operating for anything not explicitly mapped.
+    """
+    for prefix, bucket in _CF_COUNTER_MAP:
+        if code.startswith(prefix):
+            if bucket.startswith("inv_"):
+                return ("investing", bucket)
+            if bucket.startswith("fin_"):
+                return ("financing", bucket)
+            return ("operating", bucket)
+    return ("operating", "op_other")
+
+
+def _cash_flow_buckets(
+    db: Session, from_d: date, to_d: date, currency: str | None
+) -> dict[tuple[str, str], int]:
+    from app.services.reporting.repository import transactions_with_lines_between
+
+    txns = transactions_with_lines_between(db, from_d, to_d, currency=currency)
+    buckets: dict[tuple[str, str], int] = {}
+    for txn in txns:
+        cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("1110")]
+        if not cash_lines:
+            continue
+        cash_delta = int(sum((ln.debit or 0) - (ln.credit or 0) for ln in cash_lines))
+        if cash_delta == 0:
+            continue
+        counters = [ln for ln in txn.lines if not (ln.account.code or "").startswith("1110")]
+        if not counters:
+            key = ("operating", "op_other")
+        else:
+            # Pick the largest-absolute counter line as the primary counterparty.
+            counters.sort(key=lambda ln: abs((ln.debit or 0) - (ln.credit or 0)), reverse=True)
+            key = _cf_bucket(counters[0].account.code or "")
+        buckets[key] = buckets.get(key, 0) + cash_delta
+    return buckets
+
+
+def _cf_line(section: str, bucket: str, label_fa: str, label_en: str,
+             current: dict, prior: dict, *, indent: int = 2) -> IranStatementRow:
+    cur = current.get((section, bucket), 0)
+    pri = prior.get((section, bucket), 0)
+    return IranStatementRow(
+        key=bucket,
+        label_fa=label_fa,
+        label_en=label_en,
+        row_type="line",
+        indent_level=indent,
+        amount_current=cur,
+        amount_prior=pri,
+        change_pct=_pct_change(cur, pri),
+        is_negative_presentation=(cur < 0 or pri < 0),
+    )
+
+
+def _cf_section_sum(section: str, buckets: dict) -> int:
+    return sum(v for (sec, _), v in buckets.items() if sec == section)
+
+
+# Ordered row template. Lines whose bucket has no activity still render (amount 0).
+_CF_ROW_TEMPLATE: list[tuple[str, str, str, str]] = [
+    ("operating", "op_other", "نقد حاصل از (مصرف شده در) عملیات", "Net cash from (used in) operations"),
+    ("operating", "op_tax_paid", "پرداخت‌های نقدی بابت مالیات بر درآمد", "Income tax paid"),
+    ("investing", "inv_ppe", "دریافت/پرداخت نقدی دارایی‌های ثابت مشهود", "Cash flows from PP&E"),
+    ("investing", "inv_investment_property", "سرمایه‌گذاری در املاک", "Investment property"),
+    ("investing", "inv_intangibles", "دارایی‌های نامشهود", "Intangible assets"),
+    ("investing", "inv_lt_investments", "سرمایه‌گذاری‌های بلندمدت", "Long-term investments"),
+    ("investing", "inv_st_investments", "سرمایه‌گذاری‌های کوتاه‌مدت", "Short-term investments"),
+    ("investing", "inv_lt_receivables", "تسهیلات اعطایی به دیگران / دریافتنی‌های بلندمدت", "Loans granted / long-term receivables"),
+    ("financing", "fin_capital", "دریافت نقدی افزایش سرمایه (صاحبان سهام)", "Cash from capital increases"),
+    ("financing", "fin_capital_increase", "افزایش سرمایه در جریان", "Capital increase in progress"),
+    ("financing", "fin_share_premium", "صرف سهام", "Share premium"),
+    ("financing", "fin_treasury_premium", "صرف سهام خزانه", "Treasury share premium"),
+    ("financing", "fin_treasury_stock", "خرید/فروش سهام خزانه", "Treasury stock activity"),
+    ("financing", "fin_st_loans", "دریافت/پرداخت تسهیلات کوتاه‌مدت", "Short-term borrowings, net"),
+    ("financing", "fin_lt_loans", "دریافت/پرداخت تسهیلات بلندمدت", "Long-term borrowings, net"),
+    ("financing", "fin_dividends", "پرداخت سود سهام", "Dividends paid"),
+]
+
+
+def build_iran_cash_flow(
+    db: Session,
+    from_date: date | None = None,
+    to_date: date | None = None,
+    comparative_from_date: date | None = None,
+    comparative_to_date: date | None = None,
+    currency: str | None = None,
+) -> IranCashFlowResponse:
+    period = default_period(from_date, to_date)
+    if comparative_to_date is None:
+        comparative_to_date = _shift_one_year(period.to_date)
+    if comparative_from_date is None:
+        comparative_from_date = _shift_one_year(period.from_date)
+
+    current = _cash_flow_buckets(db, period.from_date, period.to_date, currency)
+    prior = _cash_flow_buckets(db, comparative_from_date, comparative_to_date, currency)
+
+    op_cur = _cf_section_sum("operating", current)
+    op_pri = _cf_section_sum("operating", prior)
+    inv_cur = _cf_section_sum("investing", current)
+    inv_pri = _cf_section_sum("investing", prior)
+    fin_cur = _cf_section_sum("financing", current)
+    fin_pri = _cf_section_sum("financing", prior)
+    net_cur = op_cur + inv_cur + fin_cur
+    net_pri = op_pri + inv_pri + fin_pri
+
+    def _lines(section: str) -> list[IranStatementRow]:
+        return [
+            _cf_line(sec, bkt, label_fa, label_en, current, prior)
+            for (sec, bkt, label_fa, label_en) in _CF_ROW_TEMPLATE
+            if sec == section
+        ]
+
+    rows: list[IranStatementRow] = [
+        _header("operating_section", "جریان‌های نقدی حاصل از فعالیت‌های عملیاتی", label_en="Cash flows from operating activities"),
+        *_lines("operating"),
+        _subtotal("operating_net", "جریان خالص نقد (ورود/خروج) از فعالیت‌های عملیاتی", op_cur, op_pri, label_en="Net cash from operating activities"),
+        _header("investing_section", "جریان‌های نقدی حاصل از فعالیت‌های سرمایه‌گذاری", label_en="Cash flows from investing activities"),
+        *_lines("investing"),
+        _subtotal("investing_net", "جریان خالص نقد (ورود/خروج) از فعالیت‌های سرمایه‌گذاری", inv_cur, inv_pri, label_en="Net cash from investing activities"),
+        _header("financing_section", "جریان‌های نقدی حاصل از فعالیت‌های تامین مالی", label_en="Cash flows from financing activities"),
+        *_lines("financing"),
+        _subtotal("financing_net", "جریان خالص نقد (ورود/خروج) از فعالیت‌های تامین مالی", fin_cur, fin_pri, label_en="Net cash from financing activities"),
+        _subtotal("net_cash_change", "خالص افزایش (کاهش) در موجودی نقد", net_cur, net_pri, label_en="Net change in cash", row_type="total"),
+    ]
+
+    return IranCashFlowResponse(
+        period=ReportPeriod(from_date=period.from_date, to_date=period.to_date),
+        comparative_period=ReportPeriod(from_date=comparative_from_date, to_date=comparative_to_date),
+        rows=rows,
+        metadata={
+            "currency": currency,
+            "note": "Classification uses the primary counterparty account prefix; tag transactions with richer metadata to refine further.",
+        },
+    )
+
+
 class IranStatementService:
     def __init__(self, db: Session):
         self.db = db
@@ -814,5 +1077,39 @@ class IranStatementService:
             self.db,
             from_date=from_date,
             to_date=to_date,
+            currency=currency,
+        )
+
+    def comprehensive_income(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        comparative_from_date: date | None = None,
+        comparative_to_date: date | None = None,
+        currency: str | None = None,
+    ) -> IranComprehensiveIncomeResponse:
+        return build_iran_comprehensive_income(
+            self.db,
+            from_date=from_date,
+            to_date=to_date,
+            comparative_from_date=comparative_from_date,
+            comparative_to_date=comparative_to_date,
+            currency=currency,
+        )
+
+    def cash_flow(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        comparative_from_date: date | None = None,
+        comparative_to_date: date | None = None,
+        currency: str | None = None,
+    ) -> IranCashFlowResponse:
+        return build_iran_cash_flow(
+            self.db,
+            from_date=from_date,
+            to_date=to_date,
+            comparative_from_date=comparative_from_date,
+            comparative_to_date=comparative_to_date,
             currency=currency,
         )

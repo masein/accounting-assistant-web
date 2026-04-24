@@ -456,3 +456,136 @@ class TestIranChangesInEquity:
         closing_cells = {c["component"]: c["amount"] for c in rows["closing_balance"]["cells"]}
         assert opening_cells["eq_capital"] == 7_000_000
         assert closing_cells["eq_capital"] == 7_000_000
+
+
+# ---------------------------------------------------------------------------
+# Iran Comprehensive Income Statement
+# ---------------------------------------------------------------------------
+class TestIranComprehensiveIncome:
+    def test_empty_period_has_standard_rows(self, auth_client):
+        resp = auth_client.get(
+            "/manager-reports/financial/iran/comprehensive-income",
+            params={"from_date": "2024-01-01", "to_date": "2024-01-31"},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["report_type"] == "iran_comprehensive_income"
+        assert body["locale"] == "ir"
+        rows = _rows_by_key(body)
+        # Mandatory rows in prescribed order.
+        for key in (
+            "net_profit",
+            "non_reclass_section",
+            "oci_revaluation_surplus",
+            "oci_fx_foreign_operations",
+            "oci_non_reclass_total",
+            "reclass_section",
+            "oci_reclass_total",
+            "oci_total",
+            "comprehensive_income",
+        ):
+            assert key in rows, f"missing row: {key}"
+        assert rows["comprehensive_income"]["row_type"] == "total"
+
+    def test_net_profit_flows_to_comprehensive(self, auth_client, db):
+        _purge_transactions(db)
+        _create_txn(auth_client, "2024-04-01", [
+            {"account_code": "1110", "debit": 10_000_000, "credit": 0},
+            {"account_code": "4110", "debit": 0, "credit": 10_000_000},
+        ], "Iran CI: sale")
+        _create_txn(auth_client, "2024-04-05", [
+            {"account_code": "6110", "debit": 3_000_000, "credit": 0},
+            {"account_code": "1110", "debit": 0, "credit": 3_000_000},
+        ], "Iran CI: wages")
+
+        resp = auth_client.get(
+            "/manager-reports/financial/iran/comprehensive-income",
+            params={"from_date": "2024-04-01", "to_date": "2024-04-30"},
+        )
+        rows = _rows_by_key(resp.json())
+        assert rows["net_profit"]["amount_current"] == 7_000_000
+        # OCI line items remain zero — no revaluation/FX events tagged.
+        assert rows["oci_total"]["amount_current"] == 0
+        # Comprehensive income equals net profit when OCI is empty.
+        assert rows["comprehensive_income"]["amount_current"] == 7_000_000
+
+
+# ---------------------------------------------------------------------------
+# Iran Cash Flow Statement
+# ---------------------------------------------------------------------------
+class TestIranCashFlow:
+    def test_empty_period_has_all_sections(self, auth_client):
+        resp = auth_client.get(
+            "/manager-reports/financial/iran/cash-flow",
+            params={"from_date": "2024-01-01", "to_date": "2024-01-31"},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["report_type"] == "iran_cash_flow"
+        assert body["locale"] == "ir"
+        rows = _rows_by_key(body)
+        for key in (
+            "operating_section",
+            "operating_net",
+            "investing_section",
+            "investing_net",
+            "financing_section",
+            "financing_net",
+            "net_cash_change",
+        ):
+            assert key in rows, f"missing key: {key}"
+        assert rows["net_cash_change"]["row_type"] == "total"
+
+    def test_classification_by_counterparty_prefix(self, auth_client, db):
+        _purge_transactions(db)
+        # Capital inflow (financing): 3110 capital → cash 5M
+        _create_txn(auth_client, "2024-06-01", [
+            {"account_code": "1110", "debit": 5_000_000, "credit": 0},
+            {"account_code": "3110", "debit": 0, "credit": 5_000_000},
+        ], "Iran CF: capital")
+        # Buy PP&E (investing): 1210 PP&E dr 2M / cash cr 2M
+        _create_txn(auth_client, "2024-06-02", [
+            {"account_code": "1210", "debit": 2_000_000, "credit": 0},
+            {"account_code": "1110", "debit": 0, "credit": 2_000_000},
+        ], "Iran CF: buy PPE")
+        # Operating outflow: wages 500K / cash
+        _create_txn(auth_client, "2024-06-03", [
+            {"account_code": "6110", "debit": 500_000, "credit": 0},
+            {"account_code": "1110", "debit": 0, "credit": 500_000},
+        ], "Iran CF: wages")
+
+        resp = auth_client.get(
+            "/manager-reports/financial/iran/cash-flow",
+            params={"from_date": "2024-06-01", "to_date": "2024-06-30"},
+        )
+        assert resp.status_code == 200, resp.text
+        rows = _rows_by_key(resp.json())
+        # 3110 → fin_capital (+5M inflow, positive)
+        assert rows["fin_capital"]["amount_current"] == 5_000_000
+        # 1210 → inv_ppe (outflow -2M)
+        assert rows["inv_ppe"]["amount_current"] == -2_000_000
+        # 6110 didn't match any specific bucket → op_other (-500K)
+        assert rows["op_other"]["amount_current"] == -500_000
+        # Section totals.
+        assert rows["financing_net"]["amount_current"] == 5_000_000
+        assert rows["investing_net"]["amount_current"] == -2_000_000
+        assert rows["operating_net"]["amount_current"] == -500_000
+        # Net change = 5M - 2M - 500K = 2.5M.
+        assert rows["net_cash_change"]["amount_current"] == 2_500_000
+
+    def test_cf_bucket_routing_unit(self):
+        from app.services.reporting.iran_statement_service import _cf_bucket
+        cases = {
+            "1210": ("investing", "inv_ppe"),
+            "1230": ("investing", "inv_intangibles"),
+            "1130": ("investing", "inv_st_investments"),
+            "3110": ("financing", "fin_capital"),
+            "2140": ("financing", "fin_dividends"),
+            "2150": ("financing", "fin_st_loans"),
+            "2220": ("financing", "fin_lt_loans"),
+            "2130": ("operating", "op_tax_paid"),
+            "6110": ("operating", "op_other"),  # unmatched falls through
+            "4110": ("operating", "op_other"),
+        }
+        for code, expected in cases.items():
+            assert _cf_bucket(code) == expected, f"{code} → expected {expected}"

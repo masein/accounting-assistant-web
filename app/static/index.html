@@ -1145,6 +1145,7 @@
           <select id="mgr-report-type">
             <option value="balance_sheet" data-i18n="reportBalanceSheet">Balance sheet (ترازنامه)</option>
             <option value="income_statement" data-i18n="reportIncomeStatement">Income statement (سود و زیان)</option>
+            <option value="comprehensive_income">Comprehensive Income (سود و زیان جامع)</option>
             <option value="changes_in_equity">Statement of Changes in Equity (تغییرات در حقوق مالکانه)</option>
             <option value="cash_flow" data-i18n="reportCashFlow">Cash flow statement (جریان وجوه نقد)</option>
             <option value="general_journal" data-i18n="reportGeneralJournal">General journal (دفتر روزنامه)</option>
@@ -3904,7 +3905,12 @@
             : '/manager-reports/financial/income-statement';
         case 'changes_in_equity':
           return '/manager-reports/financial/iran/changes-in-equity';
-        case 'cash_flow': return '/manager-reports/financial/cash-flow';
+        case 'comprehensive_income':
+          return '/manager-reports/financial/iran/comprehensive-income';
+        case 'cash_flow':
+          return ir
+            ? '/manager-reports/financial/iran/cash-flow'
+            : '/manager-reports/financial/cash-flow';
         case 'general_journal': return '/manager-reports/books/general-journal';
         case 'general_ledger': return '/manager-reports/books/general-ledger';
         case 'trial_balance': return '/manager-reports/books/trial-balance';
@@ -5342,6 +5348,8 @@
         iran_income_statement: 'صورت سود و زیان',
         iran_balance_sheet: 'صورت وضعیت مالی',
         iran_changes_in_equity: 'صورت تغییرات در حقوق مالکانه',
+        iran_comprehensive_income: 'صورت سود و زیان جامع',
+        iran_cash_flow: 'صورت جریان‌های نقدی',
       };
       const title = titleMap[report.report_type] || 'گزارش';
       const curHeader = priorDate ? `دوره منتهی به ${escapeHtml(periodDate || '')}` : escapeHtml(periodDate || '');
@@ -5433,7 +5441,8 @@
       if (rt === 'iran_changes_in_equity') {
         return renderIranEquityMatrix(report);
       }
-      if (rt === 'iran_income_statement' || rt === 'iran_balance_sheet') {
+      if (rt === 'iran_income_statement' || rt === 'iran_balance_sheet'
+          || rt === 'iran_comprehensive_income' || rt === 'iran_cash_flow') {
         return renderIranStatementTable(report);
       }
       if (report.sections && typeof report.sections === 'object') {

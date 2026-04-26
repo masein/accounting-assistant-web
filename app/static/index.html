@@ -3970,7 +3970,7 @@
     function openReportPrintWindow(report, chartImg = '') {
       const period = reportPeriodText(report);
       const preview = renderReportPreviewHtml(report);
-      const w = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=900');
+      const w = window.open('', '_blank', 'width=1100,height=900');
       if (!w) {
         showAlert(t('allowPopupsPdf'), true);
         return;

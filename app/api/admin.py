@@ -234,3 +234,40 @@ def update_reporting_locale(
         raise HTTPException(status_code=400, detail=str(e)) from e
     db.commit()
     return ReportingLocaleRead(locale=locale, supported=sorted(SUPPORTED_LOCALES))
+
+
+class SharesOutstandingPayload(BaseModel):
+    shares: int
+
+
+@router.get("/iran-shares-outstanding")
+def read_iran_shares_outstanding(db: Session = Depends(get_db)) -> dict:
+    from app.services.reporting.iran_statement_service import _get_shares_outstanding
+
+    return {"shares": _get_shares_outstanding(db)}
+
+
+@router.put("/iran-shares-outstanding")
+def update_iran_shares_outstanding(
+    payload: SharesOutstandingPayload,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+) -> dict:
+    """Set the issued-share count used to compute basic EPS on the Iranian
+    Income Statement. Set to 0 to clear (EPS rows will return null)."""
+    from sqlalchemy import select
+    from app.models.app_setting import AppSetting
+    from app.services.reporting.iran_statement_service import SHARES_OUTSTANDING_KEY
+
+    if payload.shares < 0:
+        raise HTTPException(status_code=400, detail="shares must be >= 0")
+    row = db.execute(
+        select(AppSetting).where(AppSetting.key == SHARES_OUTSTANDING_KEY)
+    ).scalar_one_or_none()
+    value = str(int(payload.shares))
+    if row:
+        row.value = value
+    else:
+        db.add(AppSetting(key=SHARES_OUTSTANDING_KEY, value=value))
+    db.commit()
+    return {"shares": payload.shares if payload.shares > 0 else None}

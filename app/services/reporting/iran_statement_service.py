@@ -61,6 +61,37 @@ from app.services.reporting.repository import (
     list_accounts,
 )
 
+# AppSetting key for the issued-share count used to compute basic EPS.
+# When unset (or 0), EPS rows are returned as null and the front-end shows '-'.
+SHARES_OUTSTANDING_KEY = "iran_shares_outstanding"
+
+
+def _get_shares_outstanding(db: Session) -> int | None:
+    from sqlalchemy import select
+    from app.models.app_setting import AppSetting
+
+    row = db.execute(
+        select(AppSetting).where(AppSetting.key == SHARES_OUTSTANDING_KEY)
+    ).scalar_one_or_none()
+    if row is None or not (row.value or "").strip():
+        return None
+    try:
+        n = int(row.value.strip())
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+def _capital_at(db: Session, accounts: list[Account], as_of: date, currency: str | None) -> int:
+    """Issued-share-capital balance (eq_capital bucket) at a snapshot date."""
+    return _balance_sheet_buckets(db, accounts, as_of, currency).get(("equity", "eq_capital"), 0)
+
+
+def _eps(amount: int | None, shares: int | None) -> int | None:
+    if amount is None or shares is None or shares == 0:
+        return None
+    return int(round(amount / shares))
+
 
 def _shift_one_year(d: date) -> date:
     try:
@@ -294,6 +325,49 @@ def build_iran_income_statement(
     prior_disc = s("discontinued_ops", prior)
     net_prior = cont_net_prior + prior_disc
 
+    # EPS computation. The published Iranian template breaks EPS into operating
+    # vs non-operating per share, then continuing/discontinued, then basic and
+    # net. We allocate tax pro-rata between (operating profit) and (finance +
+    # non-op) so the components sum back to the continuing-ops EPS.
+    shares = _get_shares_outstanding(db)
+
+    def _eps_split(operating: int, fin_plus_nonop: int, total_tax: int) -> tuple[int | None, int | None]:
+        denom = operating + fin_plus_nonop
+        if denom == 0 or shares is None or shares == 0:
+            return None, None
+        op_share = operating / denom
+        op_after_tax = int(round(operating + total_tax * op_share))
+        nonop_after_tax = int(round(fin_plus_nonop + total_tax * (1 - op_share)))
+        return _eps(op_after_tax, shares), _eps(nonop_after_tax, shares)
+
+    cur_total_tax = cur_tax_cy + cur_tax_py
+    pri_total_tax = prior_tax_cy + prior_tax_py
+    eps_op_cur, eps_nonop_cur = _eps_split(operating_cur, cur_fin + cur_nonop, cur_total_tax)
+    eps_op_pri, eps_nonop_pri = _eps_split(operating_prior, prior_fin + prior_nonop, pri_total_tax)
+    eps_continuing_cur = _eps(cont_net_cur, shares)
+    eps_continuing_pri = _eps(cont_net_prior, shares)
+    eps_disc_cur = _eps(cur_disc, shares)
+    eps_disc_pri = _eps(prior_disc, shares)
+    eps_basic_cur = _eps(net_cur, shares)
+    eps_basic_pri = _eps(net_prior, shares)
+
+    # Capital reference row at the bottom of the statement.
+    accounts_for_capital = accounts
+    capital_cur = _capital_at(db, accounts_for_capital, period.to_date, currency)
+    capital_prior = _capital_at(db, accounts_for_capital, comparative_to_date, currency)
+
+    def _eps_row(key: str, label_fa: str, cur: int | None, pri: int | None, *, label_en: str | None = None, indent_level: int = 2) -> IranStatementRow:
+        return IranStatementRow(
+            key=key,
+            label_fa=label_fa,
+            label_en=label_en,
+            row_type="line",
+            indent_level=indent_level,
+            amount_current=cur,
+            amount_prior=pri,
+            change_pct=_pct_change(cur, pri),
+        )
+
     rows: list[IranStatementRow] = [
         _header("continuing_ops", "عملیات در حال تداوم:", label_en="Continuing operations:"),
         _row("revenue_operating", "درآمدهای عملیاتی", current, prior, label_en="Operating revenue"),
@@ -315,12 +389,13 @@ def build_iran_income_statement(
         _row("discontinued_ops", "سود (زیان) خالص عملیات متوقف شده", current, prior, label_en="Net profit (loss) from discontinued operations"),
         _subtotal("net_profit", "سود (زیان) خالص", net_cur, net_prior, label_en="Net profit (loss)", row_type="total"),
         _header("eps_section", "سود (زیان) پایه هر سهم:", label_en="Basic earnings per share:"),
-        _null_row("eps_operating", "عملیاتی (ریال)", label_en="Operating (rial)", indent_level=2),
-        _null_row("eps_non_operating", "غیرعملیاتی (ریال)", label_en="Non-operating (rial)", indent_level=2),
-        _null_row("eps_continuing", "ناشی از عملیات در حال تداوم", label_en="From continuing operations", indent_level=2),
-        _null_row("eps_discontinued", "ناشی از عملیات متوقف شده", label_en="From discontinued operations", indent_level=2),
-        _null_row("eps_basic", "سود (زیان) پایه هر سهم", label_en="Basic EPS"),
-        _null_row("eps_net_per_share", "سود (زیان) خالص هر سهم - ریال", label_en="Net EPS (rial)"),
+        _eps_row("eps_operating", "عملیاتی (ریال)", eps_op_cur, eps_op_pri, label_en="Operating (rial)"),
+        _eps_row("eps_non_operating", "غیرعملیاتی (ریال)", eps_nonop_cur, eps_nonop_pri, label_en="Non-operating (rial)"),
+        _eps_row("eps_continuing", "ناشی از عملیات در حال تداوم", eps_continuing_cur, eps_continuing_pri, label_en="From continuing operations"),
+        _eps_row("eps_discontinued", "ناشی از عملیات متوقف شده", eps_disc_cur, eps_disc_pri, label_en="From discontinued operations"),
+        _eps_row("eps_basic", "سود (زیان) پایه هر سهم", eps_basic_cur, eps_basic_pri, label_en="Basic EPS", indent_level=1),
+        _eps_row("eps_net_per_share", "سود (زیان) خالص هر سهم - ریال", eps_basic_cur, eps_basic_pri, label_en="Net EPS (rial)", indent_level=1),
+        _eps_row("share_capital", "سرمایه", capital_cur, capital_prior, label_en="Share capital", indent_level=1),
     ]
 
     return IranIncomeStatementResponse(
@@ -328,8 +403,13 @@ def build_iran_income_statement(
         comparative_period=ReportPeriod(from_date=comparative_from_date, to_date=comparative_to_date),
         rows=rows,
         metadata={
-            "shares_outstanding": None,  # not tracked yet — future AppSetting
+            "shares_outstanding": shares,
             "currency": currency,
+            "eps_method_note": (
+                "Operating/non-operating EPS allocate income tax pro-rata between "
+                "operating profit and (finance + non-operating) so they sum back to "
+                "continuing-operations EPS."
+            ),
         },
     )
 

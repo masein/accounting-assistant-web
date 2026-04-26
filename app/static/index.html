@@ -5310,9 +5310,12 @@
     function renderIranStatementTable(report) {
       const rows = Array.isArray(report.rows) ? report.rows : [];
       // Income Statement uses `period`/`comparative_period` (from-to windows);
-      // Balance Sheet uses `as_of`/`comparative_as_of` (snapshot dates).
+      // Balance Sheet uses `as_of`/`comparative_as_of`/`comparative_beginning_as_of` (snapshot dates).
       const periodDate = (report.period && (report.period.to || report.period.to_date)) || report.as_of || '';
       const priorDate = (report.comparative_period && (report.comparative_period.to || report.comparative_period.to_date)) || report.comparative_as_of || '';
+      const beginningDate = report.comparative_beginning_as_of || '';
+      // Show beginning-of-prior column only when at least one row carries it (Balance Sheet only).
+      const hasBeginning = !!beginningDate && rows.some(r => r && r.amount_prior_beginning != null);
       const fmtParens = (amount, forceParens) => {
         if (amount == null) return '-';
         if (amount === 0) return '·';
@@ -5336,12 +5339,16 @@
         const color = isHeader ? 'color:#334155;' : '';
         const labelCell = `<td style="${baseStyle} ${weight} ${bg} ${color} text-align:right; padding-right:${8 + indent}px;" dir="rtl">${escapeHtml(r.label_fa || '')}</td>`;
         if (isHeader) {
-          return `<tr>${labelCell}<td style="${baseStyle} ${bg}"></td><td style="${baseStyle} ${bg}"></td><td style="${baseStyle} ${bg}"></td></tr>`;
+          const blanks = hasBeginning ? 4 : 3;
+          return `<tr>${labelCell}${`<td style="${baseStyle} ${bg}"></td>`.repeat(blanks)}</tr>`;
         }
         const curCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_current, r.is_negative_presentation))}</td>`;
         const priorCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior, r.is_negative_presentation))}</td>`;
+        const beginningCell = hasBeginning
+          ? `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior_beginning, r.is_negative_presentation))}</td>`
+          : '';
         const pctCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums; color:${(r.change_pct != null && r.change_pct < 0) ? '#b91c1c' : '#334155'};">${escapeHtml(fmtPct(r.change_pct))}</td>`;
-        return `<tr>${labelCell}${curCell}${priorCell}${pctCell}</tr>`;
+        return `<tr>${labelCell}${curCell}${priorCell}${beginningCell}${pctCell}</tr>`;
       }).join('');
 
       const titleMap = {
@@ -5352,8 +5359,11 @@
         iran_cash_flow: 'صورت جریان‌های نقدی',
       };
       const title = titleMap[report.report_type] || 'گزارش';
-      const curHeader = priorDate ? `دوره منتهی به ${escapeHtml(periodDate || '')}` : escapeHtml(periodDate || '');
-      const priorHeader = priorDate ? `دوره منتهی به ${escapeHtml(priorDate)}` : '';
+      const isBalanceSheet = report.report_type === 'iran_balance_sheet';
+      const datePrefix = isBalanceSheet ? 'به تاریخ' : 'دوره منتهی به';
+      const curHeader = periodDate ? `${datePrefix} ${escapeHtml(periodDate)}` : '';
+      const priorHeader = priorDate ? `${isBalanceSheet ? 'تجدید ارائه شده به تاریخ' : 'دوره منتهی به'} ${escapeHtml(priorDate)}` : '';
+      const beginningHeader = hasBeginning ? `تجدید ارائه شده به تاریخ ${escapeHtml(beginningDate)}` : '';
 
       return `
         <div dir="rtl" style="font-family: Tahoma, 'IRANSans', Arial, sans-serif;">
@@ -5368,6 +5378,7 @@
                   <th style="padding:8px; text-align:right;" dir="rtl">شرح</th>
                   <th style="padding:8px; text-align:center; min-width:140px;">${curHeader || '-'}</th>
                   <th style="padding:8px; text-align:center; min-width:140px;">${priorHeader || '-'}</th>
+                  ${hasBeginning ? `<th style="padding:8px; text-align:center; min-width:140px;">${beginningHeader}</th>` : ''}
                   <th style="padding:8px; text-align:center; min-width:90px;">درصد تغییر</th>
                 </tr>
               </thead>

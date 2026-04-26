@@ -27,6 +27,10 @@ class IranStatementRow(BaseModel):
     indent_level: int = 0
     amount_current: int | None = 0
     amount_prior: int | None = 0
+    amount_prior_beginning: int | None = Field(
+        default=None,
+        description="Restated opening balance of the prior period (third column on the Iranian Balance Sheet). Null when not applicable (e.g. flow statements).",
+    )
     change_pct: float | None = Field(
         default=None,
         description="(current - prior) / |prior| * 100, or null when prior is 0/null.",
@@ -58,6 +62,10 @@ class IranBalanceSheetResponse(BaseModel):
     locale: str = "ir"
     as_of: str  # ISO date string of the current snapshot
     comparative_as_of: str | None = None
+    comparative_beginning_as_of: str | None = Field(
+        default=None,
+        description="Restated opening balance date for the prior period (third column). Defaults to one year before comparative_as_of.",
+    )
     scale: str = "rial"
     rows: list[IranStatementRow]
     metadata: dict = Field(default_factory=dict)

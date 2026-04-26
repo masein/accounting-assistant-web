@@ -515,10 +515,12 @@ def _bs_pct_change(current: int, prior: int) -> float | None:
 def _bs_line(
     section: str, bucket: str, label_fa: str, label_en: str,
     current: dict[tuple[str, str], int], prior: dict[tuple[str, str], int],
+    prior_beginning: dict[tuple[str, str], int],
     *, indent: int = 1,
 ) -> IranStatementRow:
     cur = current.get((section, bucket), 0)
     pri = prior.get((section, bucket), 0)
+    pri_begin = prior_beginning.get((section, bucket), 0)
     return IranStatementRow(
         key=bucket,
         label_fa=label_fa,
@@ -527,6 +529,7 @@ def _bs_line(
         indent_level=indent,
         amount_current=cur,
         amount_prior=pri,
+        amount_prior_beginning=pri_begin,
         change_pct=_bs_pct_change(cur, pri),
         is_negative_presentation=False,
     )
@@ -536,7 +539,11 @@ def _section_total(section: str, buckets: dict[tuple[str, str], int]) -> int:
     return sum(v for (sec, _), v in buckets.items() if sec == section)
 
 
-def _bs_subtotal(key: str, label_fa: str, label_en: str, cur: int, pri: int, *, row_type: str = "subtotal", indent: int = 0) -> IranStatementRow:
+def _bs_subtotal(
+    key: str, label_fa: str, label_en: str,
+    cur: int, pri: int, pri_begin: int,
+    *, row_type: str = "subtotal", indent: int = 0,
+) -> IranStatementRow:
     return IranStatementRow(
         key=key,
         label_fa=label_fa,
@@ -545,6 +552,7 @@ def _bs_subtotal(key: str, label_fa: str, label_en: str, cur: int, pri: int, *, 
         indent_level=indent,
         amount_current=cur,
         amount_prior=pri,
+        amount_prior_beginning=pri_begin,
         change_pct=_bs_pct_change(cur, pri),
         is_negative_presentation=False,
     )
@@ -567,6 +575,7 @@ def build_iran_balance_sheet(
     db: Session,
     as_of: date | None = None,
     comparative_as_of: date | None = None,
+    comparative_beginning_as_of: date | None = None,
     currency: str | None = None,
 ) -> IranBalanceSheetResponse:
     today = date.today()
@@ -574,62 +583,74 @@ def build_iran_balance_sheet(
         as_of = today
     if comparative_as_of is None:
         comparative_as_of = _shift_one_year(as_of)
+    if comparative_beginning_as_of is None:
+        comparative_beginning_as_of = _shift_one_year(comparative_as_of)
 
     accounts = list_accounts(db)
     current = _balance_sheet_buckets(db, accounts, as_of, currency)
     prior = _balance_sheet_buckets(db, accounts, comparative_as_of, currency)
+    prior_beginning = _balance_sheet_buckets(db, accounts, comparative_beginning_as_of, currency)
 
     def _lines(section: str) -> list[IranStatementRow]:
         return [
-            _bs_line(sec, bkt, label_fa, label_en, current, prior)
+            _bs_line(sec, bkt, label_fa, label_en, current, prior, prior_beginning)
             for (sec, bkt, label_fa, label_en) in _BS_ROW_ORDER
             if sec == section
         ]
 
     total_nca_cur = _section_total("non_current_assets", current)
     total_nca_pri = _section_total("non_current_assets", prior)
+    total_nca_beg = _section_total("non_current_assets", prior_beginning)
     total_ca_cur = _section_total("current_assets", current)
     total_ca_pri = _section_total("current_assets", prior)
+    total_ca_beg = _section_total("current_assets", prior_beginning)
     total_eq_cur = _section_total("equity", current)
     total_eq_pri = _section_total("equity", prior)
+    total_eq_beg = _section_total("equity", prior_beginning)
     total_ncl_cur = _section_total("non_current_liabilities", current)
     total_ncl_pri = _section_total("non_current_liabilities", prior)
+    total_ncl_beg = _section_total("non_current_liabilities", prior_beginning)
     total_cl_cur = _section_total("current_liabilities", current)
     total_cl_pri = _section_total("current_liabilities", prior)
+    total_cl_beg = _section_total("current_liabilities", prior_beginning)
 
     total_assets_cur = total_nca_cur + total_ca_cur
     total_assets_pri = total_nca_pri + total_ca_pri
+    total_assets_beg = total_nca_beg + total_ca_beg
     total_liab_cur = total_ncl_cur + total_cl_cur
     total_liab_pri = total_ncl_pri + total_cl_pri
+    total_liab_beg = total_ncl_beg + total_cl_beg
     total_eq_liab_cur = total_eq_cur + total_liab_cur
     total_eq_liab_pri = total_eq_pri + total_liab_pri
+    total_eq_liab_beg = total_eq_beg + total_liab_beg
 
     rows: list[IranStatementRow] = []
     rows.append(_bs_header("assets_section", "دارایی‌ها", "Assets"))
     rows.append(_bs_header("nca_section", "دارایی‌های غیرجاری", "Non-current assets"))
     rows.extend(_lines("non_current_assets"))
-    rows.append(_bs_subtotal("total_nca", "جمع دارایی‌های غیرجاری", "Total non-current assets", total_nca_cur, total_nca_pri))
+    rows.append(_bs_subtotal("total_nca", "جمع دارایی‌های غیرجاری", "Total non-current assets", total_nca_cur, total_nca_pri, total_nca_beg))
     rows.append(_bs_header("ca_section", "دارایی‌های جاری", "Current assets"))
     rows.extend(_lines("current_assets"))
-    rows.append(_bs_subtotal("total_ca", "جمع دارایی‌های جاری", "Total current assets", total_ca_cur, total_ca_pri))
-    rows.append(_bs_subtotal("total_assets", "جمع دارایی‌ها", "Total assets", total_assets_cur, total_assets_pri, row_type="total"))
+    rows.append(_bs_subtotal("total_ca", "جمع دارایی‌های جاری", "Total current assets", total_ca_cur, total_ca_pri, total_ca_beg))
+    rows.append(_bs_subtotal("total_assets", "جمع دارایی‌ها", "Total assets", total_assets_cur, total_assets_pri, total_assets_beg, row_type="total"))
 
     rows.append(_bs_header("eq_liab_section", "حقوق مالکانه و بدهی‌ها", "Equity and liabilities"))
     rows.append(_bs_header("equity_section", "حقوق مالکانه", "Equity"))
     rows.extend(_lines("equity"))
-    rows.append(_bs_subtotal("total_equity", "جمع حقوق مالکانه", "Total equity", total_eq_cur, total_eq_pri))
+    rows.append(_bs_subtotal("total_equity", "جمع حقوق مالکانه", "Total equity", total_eq_cur, total_eq_pri, total_eq_beg))
     rows.append(_bs_header("ncl_section", "بدهی‌های غیرجاری", "Non-current liabilities"))
     rows.extend(_lines("non_current_liabilities"))
-    rows.append(_bs_subtotal("total_ncl", "جمع بدهی‌های غیرجاری", "Total non-current liabilities", total_ncl_cur, total_ncl_pri))
+    rows.append(_bs_subtotal("total_ncl", "جمع بدهی‌های غیرجاری", "Total non-current liabilities", total_ncl_cur, total_ncl_pri, total_ncl_beg))
     rows.append(_bs_header("cl_section", "بدهی‌های جاری", "Current liabilities"))
     rows.extend(_lines("current_liabilities"))
-    rows.append(_bs_subtotal("total_cl", "جمع بدهی‌های جاری", "Total current liabilities", total_cl_cur, total_cl_pri))
-    rows.append(_bs_subtotal("total_liabilities", "جمع بدهی‌ها", "Total liabilities", total_liab_cur, total_liab_pri))
-    rows.append(_bs_subtotal("total_equity_and_liabilities", "جمع حقوق مالکانه و بدهی‌ها", "Total equity and liabilities", total_eq_liab_cur, total_eq_liab_pri, row_type="total"))
+    rows.append(_bs_subtotal("total_cl", "جمع بدهی‌های جاری", "Total current liabilities", total_cl_cur, total_cl_pri, total_cl_beg))
+    rows.append(_bs_subtotal("total_liabilities", "جمع بدهی‌ها", "Total liabilities", total_liab_cur, total_liab_pri, total_liab_beg))
+    rows.append(_bs_subtotal("total_equity_and_liabilities", "جمع حقوق مالکانه و بدهی‌ها", "Total equity and liabilities", total_eq_liab_cur, total_eq_liab_pri, total_eq_liab_beg, row_type="total"))
 
     return IranBalanceSheetResponse(
         as_of=as_of.isoformat(),
         comparative_as_of=comparative_as_of.isoformat(),
+        comparative_beginning_as_of=comparative_beginning_as_of.isoformat(),
         rows=rows,
         metadata={
             "currency": currency,
@@ -1058,12 +1079,14 @@ class IranStatementService:
         self,
         as_of: date | None = None,
         comparative_as_of: date | None = None,
+        comparative_beginning_as_of: date | None = None,
         currency: str | None = None,
     ) -> IranBalanceSheetResponse:
         return build_iran_balance_sheet(
             self.db,
             as_of=as_of,
             comparative_as_of=comparative_as_of,
+            comparative_beginning_as_of=comparative_beginning_as_of,
             currency=currency,
         )
 

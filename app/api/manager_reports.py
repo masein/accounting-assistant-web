@@ -121,15 +121,26 @@ def iran_income_statement(
 def iran_balance_sheet(
     as_of: date | None = Query(None),
     comparative_as_of: date | None = Query(None),
+    comparative_beginning_as_of: date | None = Query(
+        None,
+        description="Restated opening balance date for the prior period (third date column). Defaults to one year before comparative_as_of.",
+    ),
     currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> IranBalanceSheetResponse:
     """Balance Sheet in the Iranian standard format (صورت وضعیت مالی).
 
-    Comparative date defaults to one year before `as_of` if not provided.
+    Three date columns per the audited Iranian template: current period,
+    prior period, and the restated opening balance of the prior period.
+    Comparative defaults: one year back; opening defaults: two years back.
     """
     svc = IranStatementService(db)
-    return svc.balance_sheet(as_of=as_of, comparative_as_of=comparative_as_of, currency=currency)
+    return svc.balance_sheet(
+        as_of=as_of,
+        comparative_as_of=comparative_as_of,
+        comparative_beginning_as_of=comparative_beginning_as_of,
+        currency=currency,
+    )
 
 
 @router.get("/financial/iran/changes-in-equity", response_model=IranChangesInEquityResponse)

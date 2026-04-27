@@ -1211,11 +1211,13 @@
       </div>
       <div class="panel">
         <h3 id="mgr-report-output-title" data-i18n="reportOutputTitle">Report output</h3>
-        <div class="panel report-chart-panel" id="mgr-report-chart-panel" style="display:none;">
-          <h3 id="mgr-report-chart-title" data-i18n="reportChartTitle">Report chart</h3>
-          <canvas id="mgr-report-chart" height="220"></canvas>
+        <div id="mgr-report-output-grid" style="display:grid; gap:1rem; grid-template-columns:minmax(0,1fr); align-items:start;">
+          <div id="mgr-report-preview" style="margin-bottom:0.6rem; min-width:0;"></div>
+          <div class="panel report-chart-panel" id="mgr-report-chart-panel" style="display:none; margin:0;">
+            <h3 id="mgr-report-chart-title" data-i18n="reportChartTitle" style="margin-top:0;">Report chart</h3>
+            <canvas id="mgr-report-chart" height="220"></canvas>
+          </div>
         </div>
-        <div id="mgr-report-preview" style="margin-bottom:0.6rem;"></div>
         <pre id="mgr-report-json" style="display:none;"></pre>
       </div>
       <!-- Secondary / supplementary charts -->
@@ -4077,11 +4079,22 @@
       return chart;
     }
 
+    function _setReportOutputLayout(hasChart) {
+      const grid = document.getElementById('mgr-report-output-grid');
+      if (!grid) return;
+      // Side-by-side when a chart is present (table 2fr / chart 1fr,
+      // collapsing to a single column under 980px). Single column otherwise.
+      grid.style.gridTemplateColumns = hasChart
+        ? 'minmax(0, 2fr) minmax(280px, 1fr)'
+        : 'minmax(0, 1fr)';
+    }
+
     function renderManagerReportChart(report) {
       if (!mgrReportChartPanelEl || !mgrReportChartEl) return;
       _destroyExtraCharts();
       const chart = renderReportChart(mgrReportChartEl, report, managerReportChart);
       managerReportChart = chart;
+      _setReportOutputLayout(!!chart);
       if (mgrReportChartTitleEl) {
         const spec = makeReportChartSpec(report);
         mgrReportChartTitleEl.textContent = spec ? (spec.title || t('reportChartTitle')) : t('reportChartTitle');
@@ -5291,6 +5304,109 @@
           type: 'bar',
           title: t('chartSalesPurchase'),
           data: { labels: rows.map(r => r[labelKey] || t('itemWord')), datasets: [{ label: t(hasSalesAmount ? 'fieldSalesAmount' : 'labelAmount'), data: rows.map(r => safe(r[valueKey])), backgroundColor: palette[2] }] }
+        };
+      }
+      // ──── Locale-specific (Iran, UK) ────
+      // The Iran/UK statements expose ordered `rows[]` with `key`, so we pick
+      // out the relevant subtotal/total lines and build a chart from them.
+      const _findRow = (key) => (report.rows || []).find(r => r && r.key === key) || null;
+      const _amt = (row, field) => row ? safe(row[field]) : 0;
+
+      if (rt === 'iran_balance_sheet' || rt === 'uk_balance_sheet') {
+        const isUK = rt === 'uk_balance_sheet';
+        const totalAssets = _findRow(isUK ? 'total_assets_less_cl' : 'total_assets')
+                          || (isUK ? _findRow('total_fixed_assets') : null);
+        const totalLiab = _findRow(isUK ? 'creditors_after_one_year' : 'total_liabilities');
+        const totalEquity = _findRow(isUK ? 'total_capital_reserves' : 'total_equity');
+        // For UK we need a meaningful "assets" magnitude — use fixed + current.
+        let assetsCur = 0, assetsPri = 0;
+        if (isUK) {
+          const fa = _findRow('total_fixed_assets');
+          const ca = _findRow('total_current_assets');
+          assetsCur = _amt(fa, 'amount_current') + _amt(ca, 'amount_current');
+          assetsPri = _amt(fa, 'amount_prior') + _amt(ca, 'amount_prior');
+        } else {
+          assetsCur = _amt(totalAssets, 'amount_current');
+          assetsPri = _amt(totalAssets, 'amount_prior');
+        }
+        const liabCur = Math.abs(_amt(totalLiab, 'amount_current'));
+        const liabPri = Math.abs(_amt(totalLiab, 'amount_prior'));
+        const eqCur = _amt(totalEquity, 'amount_current');
+        const eqPri = _amt(totalEquity, 'amount_prior');
+        if ((assetsCur + liabCur + eqCur) === 0) return null;
+        return {
+          type: 'bar',
+          title: isUK ? 'Balance Sheet — period comparison' : t('chartBalanceSheetMix'),
+          data: {
+            labels: [t('sectionAssets') || 'Assets', t('sectionLiabilities') || 'Liabilities', t('sectionEquity') || 'Equity'],
+            datasets: [
+              { label: 'Current', data: [assetsCur, liabCur, eqCur], backgroundColor: palette[0] },
+              { label: 'Prior', data: [assetsPri, liabPri, eqPri], backgroundColor: palette[1] },
+            ]
+          }
+        };
+      }
+
+      if (rt === 'iran_income_statement' || rt === 'uk_profit_and_loss') {
+        const isUK = rt === 'uk_profit_and_loss';
+        const gross = _findRow('gross_profit');
+        const operating = _findRow('operating_profit');
+        const beforeTax = _findRow('profit_before_tax');
+        const net = _findRow(isUK ? 'profit_for_year' : 'net_profit');
+        const cur = [_amt(gross, 'amount_current'), _amt(operating, 'amount_current'), _amt(beforeTax, 'amount_current'), _amt(net, 'amount_current')];
+        const pri = [_amt(gross, 'amount_prior'), _amt(operating, 'amount_prior'), _amt(beforeTax, 'amount_prior'), _amt(net, 'amount_prior')];
+        if (cur.every(v => v === 0) && pri.every(v => v === 0)) return null;
+        return {
+          type: 'bar',
+          title: isUK ? 'Profit waterfall' : t('chartIncomeStatement'),
+          data: {
+            labels: ['Gross', 'Operating', 'Before tax', 'Net'],
+            datasets: [
+              { label: 'Current', data: cur, backgroundColor: palette[0] },
+              { label: 'Prior', data: pri, backgroundColor: palette[1] },
+            ]
+          }
+        };
+      }
+
+      if (rt === 'iran_cash_flow' || rt === 'uk_cash_flow') {
+        const op = _findRow('operating_net');
+        const inv = _findRow('investing_net');
+        const fin = _findRow('financing_net');
+        const net = _findRow('net_cash_change');
+        const cur = [_amt(op, 'amount_current'), _amt(inv, 'amount_current'), _amt(fin, 'amount_current'), _amt(net, 'amount_current')];
+        const pri = [_amt(op, 'amount_prior'), _amt(inv, 'amount_prior'), _amt(fin, 'amount_prior'), _amt(net, 'amount_prior')];
+        if (cur.every(v => v === 0) && pri.every(v => v === 0)) return null;
+        return {
+          type: 'bar',
+          title: t('chartCashFlow'),
+          data: {
+            labels: [t('fieldOperating') || 'Operating', t('fieldInvesting') || 'Investing', t('fieldFinancing') || 'Financing', t('fieldNetChange') || 'Net change'],
+            datasets: [
+              { label: 'Current', data: cur, backgroundColor: palette[0] },
+              { label: 'Prior', data: pri, backgroundColor: palette[1] },
+            ]
+          }
+        };
+      }
+
+      if (rt === 'iran_comprehensive_income' || rt === 'uk_comprehensive_income') {
+        const np = _findRow(rt === 'uk_comprehensive_income' ? 'profit_for_year' : 'net_profit');
+        const oci = _findRow(rt === 'uk_comprehensive_income' ? 'oci_total' : 'oci_total');
+        const total = _findRow(rt === 'uk_comprehensive_income' ? 'total_comprehensive_income' : 'comprehensive_income');
+        const cur = [_amt(np, 'amount_current'), _amt(oci, 'amount_current'), _amt(total, 'amount_current')];
+        const pri = [_amt(np, 'amount_prior'), _amt(oci, 'amount_prior'), _amt(total, 'amount_prior')];
+        if (cur.every(v => v === 0) && pri.every(v => v === 0)) return null;
+        return {
+          type: 'bar',
+          title: 'Comprehensive income',
+          data: {
+            labels: ['Net profit', 'OCI (net of tax)', 'Total comprehensive'],
+            datasets: [
+              { label: 'Current', data: cur, backgroundColor: palette[0] },
+              { label: 'Prior', data: pri, backgroundColor: palette[1] },
+            ]
+          }
         };
       }
       return null;

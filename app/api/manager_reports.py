@@ -147,19 +147,32 @@ def iran_balance_sheet(
 def iran_changes_in_equity(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
     currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> IranChangesInEquityResponse:
     """Statement of Changes in Equity (صورت تغییرات در حقوق مالکانه).
 
-    Returns the movement matrix: rows are equity-change events, columns are
-    equity components (سرمایه, اندوخته قانونی, سود انباشته, ...). Auto-populated
-    opening/closing balances and period net profit; movement rows such as
-    dividends, capital increases, and buybacks remain zero until those events
-    are explicitly tagged on transactions.
+    Two-period matrix per the audited Iranian template: comparative-period
+    movements are emitted first (opening, restatement rows, sub-period
+    header, year's events), then the bridging opening of the current
+    period and the same set of rows for the current year.
+
+    Auto-populated rows: opening / restated-opening / period net profit /
+    closing. Movement rows such as dividends, capital increases, capital
+    increase in progress, treasury buy/sell, transfers, reserve
+    allocations, and error/policy restatements remain zero until those
+    events are tagged explicitly on transactions.
     """
     svc = IranStatementService(db)
-    return svc.changes_in_equity(from_date=from_date, to_date=to_date, currency=currency)
+    return svc.changes_in_equity(
+        from_date=from_date,
+        to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
 
 
 @router.get("/financial/iran/comprehensive-income", response_model=IranComprehensiveIncomeResponse)

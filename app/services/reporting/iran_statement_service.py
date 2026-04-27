@@ -779,6 +779,12 @@ def _equity_empty_row(key: str, label_fa: str, *, label_en: str | None = None) -
     return _equity_matrix_row(key, label_fa, {}, label_en=label_en)
 
 
+def _equity_period_header_row(key: str, label_fa: str, *, label_en: str | None = None) -> IranEquityMovementRow:
+    """Sub-period banner row inside the equity-changes matrix (e.g.
+    'تغییرات حقوق مالکانه در سال ۱۴۰۲/۱۲/۲۹')."""
+    return _equity_matrix_row(key, label_fa, {}, label_en=label_en, row_type="header")
+
+
 def _opening_equity_balances(
     db: Session, accounts: list[Account], as_of: date, currency: str | None
 ) -> dict[str, int]:
@@ -808,31 +814,112 @@ def build_iran_changes_in_equity(
     db: Session,
     from_date: date | None = None,
     to_date: date | None = None,
+    comparative_from_date: date | None = None,
+    comparative_to_date: date | None = None,
     currency: str | None = None,
 ) -> IranChangesInEquityResponse:
     period = default_period(from_date, to_date)
+    if comparative_to_date is None:
+        comparative_to_date = _shift_one_year(period.to_date)
+    if comparative_from_date is None:
+        comparative_from_date = _shift_one_year(period.from_date)
+
     accounts = list_accounts(db)
 
-    # Opening balance = end-of-day equity-account balances the day before period start.
+    # Comparative period: opening at end-of-day before comparative_from_date,
+    # plus that year's net-profit movement. Other movements are placeholders
+    # until tagged on transactions.
+    comparative_opening_as_of = comparative_from_date - timedelta(days=1)
+    comparative_opening = _opening_equity_balances(db, accounts, comparative_opening_as_of, currency)
+    comparative_net_profit = _period_net_profit(db, comparative_from_date, comparative_to_date, currency)
+
+    # Current period: opening at end-of-day before period.from_date. Computing
+    # this from the ledger (rather than chaining off comparative_closing) keeps
+    # the matrix correct when the two windows are non-contiguous.
     opening_as_of = period.from_date - timedelta(days=1)
     opening = _opening_equity_balances(db, accounts, opening_as_of, currency)
-
     net_profit = _period_net_profit(db, period.from_date, period.to_date, currency)
 
-    # Closing balance = opening + sum of explicit movement rows. Computing it
-    # arithmetically (rather than re-querying equity accounts at period.to_date)
-    # guarantees the matrix reconciles even when P&L hasn't been closed into
-    # retained earnings yet. The only non-zero movement today is net_profit
-    # flowing into retained_earnings; other movement rows stay zero until
-    # capital-increase / dividend / buyback events are tagged explicitly.
+    # Closing for current period = opening + the only currently-tagged movement
+    # (net profit into retained earnings). This guarantees the matrix
+    # reconciles even when P&L hasn't been closed into retained earnings yet.
     closing = dict(opening)
     closing["eq_retained_earnings"] = closing.get("eq_retained_earnings", 0) + net_profit
 
+    period_header_label_comparative = (
+        f"تغییرات حقوق مالکانه در سال منتهی به {comparative_to_date.isoformat()}"
+    )
+    period_header_label_current = (
+        f"تغییرات حقوق مالکانه در سال منتهی به {period.to_date.isoformat()}"
+    )
+
     rows: list[IranEquityMovementRow] = [
-        _equity_matrix_row("opening_balance", "مانده در ابتدای دوره", opening, label_en="Opening balance"),
+        # ----------------- comparative period -----------------
+        _equity_matrix_row(
+            "comparative_opening_balance",
+            f"مانده در {comparative_from_date.isoformat()}",
+            comparative_opening,
+            label_en="Comparative opening balance",
+        ),
+        _equity_empty_row("comparative_error_corrections", "اصلاح اشتباهات", label_en="Error corrections"),
+        _equity_empty_row("comparative_policy_changes", "تغییر در رویه‌های حسابداری", label_en="Accounting policy changes"),
+        _equity_matrix_row(
+            "comparative_restated_opening",
+            f"مانده تجدید ارائه شده در {comparative_from_date.isoformat()}",
+            comparative_opening,
+            label_en="Comparative restated opening balance",
+            row_type="subtotal",
+        ),
+        _equity_period_header_row("comparative_period_header", period_header_label_comparative, label_en="Comparative period changes"),
+        _equity_matrix_row(
+            "comparative_net_profit_reported",
+            "سود (زیان) خالص گزارش شده در صورت‌های مالی",
+            {"eq_retained_earnings": comparative_net_profit},
+            label_en="Comparative net profit (loss) reported",
+        ),
+        _equity_empty_row("comparative_error_corrections_np", "اصلاح اشتباهات", label_en="Error corrections to net profit"),
+        _equity_empty_row("comparative_policy_changes_np", "تغییر در رویه‌های حسابداری", label_en="Accounting policy changes to net profit"),
+        _equity_matrix_row(
+            "comparative_net_profit_restated",
+            "سود (زیان) خالص تجدید ارائه شده",
+            {"eq_retained_earnings": comparative_net_profit},
+            label_en="Comparative restated net profit (loss)",
+            row_type="subtotal",
+        ),
+        _equity_empty_row("comparative_oci_after_tax", "سایر اقلام سود و زیان جامع پس از کسر مالیات", label_en="Comparative OCI (net of tax)"),
+        _equity_matrix_row(
+            "comparative_total_comprehensive_income",
+            "سود (زیان) جامع سال",
+            {"eq_retained_earnings": comparative_net_profit},
+            label_en="Comparative total comprehensive income",
+            row_type="subtotal",
+        ),
+        _equity_empty_row("comparative_approved_dividends", "سود سهام مصوب", label_en="Approved dividends"),
+        _equity_empty_row("comparative_capital_increase", "افزایش سرمایه", label_en="Capital increase"),
+        _equity_empty_row("comparative_capital_increase_in_progress", "افزایش سرمایه در جریان", label_en="Capital increase in progress"),
+        _equity_empty_row("comparative_treasury_buyback", "خرید سهام خزانه", label_en="Treasury stock buyback"),
+        _equity_empty_row("comparative_treasury_sale", "فروش سهام خزانه", label_en="Treasury stock sale"),
+        _equity_empty_row("comparative_transfer_to_retained", "انتقال از سایر اقلام حقوق مالکانه به سود و زیان انباشته", label_en="Transfers to retained earnings"),
+        _equity_empty_row("comparative_allocate_legal_reserve", "تخصیص به اندوخته قانونی", label_en="Allocation to legal reserve"),
+        _equity_empty_row("comparative_allocate_other_reserves", "تخصیص به سایر اندوخته‌ها", label_en="Allocation to other reserves"),
+        # Bridging: end-of-comparative = start-of-current. Computed from the
+        # ledger, so it stays correct when the two windows are non-contiguous.
+        _equity_matrix_row(
+            "opening_balance",
+            f"مانده در {opening_as_of.isoformat()}",
+            opening,
+            label_en="Opening balance",
+        ),
         _equity_empty_row("error_corrections", "اصلاح اشتباهات", label_en="Error corrections"),
         _equity_empty_row("policy_changes", "تغییر در رویه‌های حسابداری", label_en="Accounting policy changes"),
-        _equity_matrix_row("restated_opening", "مانده تجدید ارائه شده در ابتدای دوره", opening, label_en="Restated opening balance", row_type="subtotal"),
+        _equity_matrix_row(
+            "restated_opening",
+            f"مانده تجدید ارائه شده در {opening_as_of.isoformat()}",
+            opening,
+            label_en="Restated opening balance",
+            row_type="subtotal",
+        ),
+        _equity_period_header_row("current_period_header", period_header_label_current, label_en="Current period changes"),
         _equity_matrix_row(
             "net_profit_reported",
             "سود (زیان) خالص گزارش شده در صورت‌های مالی",
@@ -849,12 +936,13 @@ def build_iran_changes_in_equity(
         ),
         _equity_empty_row("approved_dividends", "سود سهام مصوب", label_en="Approved dividends"),
         _equity_empty_row("capital_increase", "افزایش سرمایه", label_en="Capital increase"),
+        _equity_empty_row("capital_increase_in_progress", "افزایش سرمایه در جریان", label_en="Capital increase in progress"),
         _equity_empty_row("treasury_buyback", "خرید سهام خزانه", label_en="Treasury stock buyback"),
         _equity_empty_row("treasury_sale", "فروش سهام خزانه", label_en="Treasury stock sale"),
         _equity_empty_row("transfer_to_retained", "انتقال از سایر اقلام حقوق مالکانه به سود و زیان انباشته", label_en="Transfers to retained earnings"),
         _equity_empty_row("allocate_legal_reserve", "تخصیص به اندوخته قانونی", label_en="Allocation to legal reserve"),
         _equity_empty_row("allocate_other_reserves", "تخصیص به سایر اندوخته‌ها", label_en="Allocation to other reserves"),
-        _equity_matrix_row("closing_balance", "مانده در پایان دوره", closing, label_en="Closing balance", row_type="total"),
+        _equity_matrix_row("closing_balance", f"مانده در {period.to_date.isoformat()}", closing, label_en="Closing balance", row_type="total"),
     ]
 
     components = [
@@ -868,7 +956,11 @@ def build_iran_changes_in_equity(
         rows=rows,
         metadata={
             "currency": currency,
-            "note": "Specific movements (dividends, capital raises, buybacks, reserve allocations) are placeholders until those events are tagged explicitly on transactions.",
+            "comparative_period": {
+                "from_date": comparative_from_date.isoformat(),
+                "to_date": comparative_to_date.isoformat(),
+            },
+            "note": "Specific movements (dividends, capital raises, buybacks, reserve allocations, error corrections, policy changes) are placeholders until those events are tagged explicitly on transactions.",
         },
     )
 
@@ -1174,12 +1266,16 @@ class IranStatementService:
         self,
         from_date: date | None = None,
         to_date: date | None = None,
+        comparative_from_date: date | None = None,
+        comparative_to_date: date | None = None,
         currency: str | None = None,
     ) -> IranChangesInEquityResponse:
         return build_iran_changes_in_equity(
             self.db,
             from_date=from_date,
             to_date=to_date,
+            comparative_from_date=comparative_from_date,
+            comparative_to_date=comparative_to_date,
             currency=currency,
         )
 

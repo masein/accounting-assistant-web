@@ -2,6 +2,7 @@
 
 - "default" — the generic IFRS-style layout (existing behavior).
 - "ir" — the Iranian standard template (صورت سود و زیان, صورت وضعیت مالی, ...).
+- "uk" — UK FRS 102 Section 1A (Companies Act 2006 formats).
 
 Stored in AppSetting under the `reporting_locale` key.
 """
@@ -14,7 +15,7 @@ from app.models.app_setting import AppSetting
 
 REPORTING_LOCALE_KEY = "reporting_locale"
 DEFAULT_LOCALE = "default"
-SUPPORTED_LOCALES = frozenset({"default", "ir"})
+SUPPORTED_LOCALES = frozenset({"default", "ir", "uk"})
 
 
 def get_reporting_locale(db: Session) -> str:

@@ -22,16 +22,27 @@ ACCOUNT_TYPE_FA = {
 
 
 def classify_account_code(code: str) -> str:
+    """Classify an account code to its statement nature. Handles both the
+    Iranian chart (11-15 assets, 21-24 liab, 31-33 equity, 41-43 revenue,
+    5x/6x expense, 91 memo) and the Sage-style UK chart (0xxx fixed assets,
+    1xxx current assets, 2xxx creditors, 3xxx capital, 4xxx turnover,
+    5xxx COGS, 7-8xxx overheads/finance, 9xxx tax)."""
     c = (code or "").strip()
-    if c.startswith("11") or c.startswith("12") or c.startswith("13") or c.startswith("14") or c.startswith("15"):
+    if not c:
+        return OTHER
+    # Iranian memo / off-balance-sheet accounts — kept for back-compat.
+    if c.startswith("91"):
+        return OTHER
+    head = c[0]
+    if head in ("0", "1"):
         return ASSET
-    if c.startswith("21") or c.startswith("22") or c.startswith("23") or c.startswith("24"):
+    if head == "2":
         return LIABILITY
-    if c.startswith("31") or c.startswith("32") or c.startswith("33"):
+    if head == "3":
         return EQUITY
-    if c.startswith("41") or c.startswith("42") or c.startswith("43"):
+    if head == "4":
         return REVENUE
-    if c.startswith("51") or c.startswith("52") or c.startswith("53") or c.startswith("61") or c.startswith("62"):
+    if head in ("5", "6", "7", "8", "9"):
         return EXPENSE
     return OTHER
 

@@ -20,6 +20,14 @@ from app.schemas.iran_statement import (
     IranComprehensiveIncomeResponse,
     IranIncomeStatementResponse,
 )
+from app.schemas.uk_statement import (
+    UKBalanceSheetResponse,
+    UKCashFlowResponse,
+    UKChangesInEquityResponse,
+    UKComprehensiveIncomeResponse,
+    UKIncomeStatementResponse,
+)
+from app.services.reporting.uk_statement_service import UKStatementService
 from app.schemas.manager_report import (
     AccountLedgerResponse,
     BalanceSheetResponse,
@@ -217,6 +225,100 @@ def iran_cash_flow(
     return svc.cash_flow(
         from_date=from_date,
         to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
+
+
+# ---------------------------------------------------------------------------
+# UK FRS 102 Section 1A statements
+# ---------------------------------------------------------------------------
+
+
+@router.get("/financial/uk/balance-sheet", response_model=UKBalanceSheetResponse)
+def uk_balance_sheet(
+    as_of: date | None = Query(None),
+    comparative_as_of: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> UKBalanceSheetResponse:
+    """Statement of Financial Position in the FRS 102 Section 1A
+    (Companies Act 2006 format 1) layout.
+
+    Comparative date defaults to one year before `as_of` if not provided.
+    """
+    return UKStatementService(db).balance_sheet(
+        as_of=as_of, comparative_as_of=comparative_as_of, currency=currency,
+    )
+
+
+@router.get("/financial/uk/profit-and-loss", response_model=UKIncomeStatementResponse)
+def uk_profit_and_loss(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> UKIncomeStatementResponse:
+    """Profit and Loss Account (FRS 102 1A, format 1, by function)."""
+    return UKStatementService(db).income_statement(
+        from_date=from_date, to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
+
+
+@router.get("/financial/uk/comprehensive-income", response_model=UKComprehensiveIncomeResponse)
+def uk_comprehensive_income(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> UKComprehensiveIncomeResponse:
+    """Statement of Comprehensive Income — net profit plus the OCI section."""
+    return UKStatementService(db).comprehensive_income(
+        from_date=from_date, to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
+
+
+@router.get("/financial/uk/changes-in-equity", response_model=UKChangesInEquityResponse)
+def uk_changes_in_equity(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> UKChangesInEquityResponse:
+    """Statement of Changes in Equity — two-period matrix per FRS 102."""
+    return UKStatementService(db).changes_in_equity(
+        from_date=from_date, to_date=to_date,
+        comparative_from_date=comparative_from_date,
+        comparative_to_date=comparative_to_date,
+        currency=currency,
+    )
+
+
+@router.get("/financial/uk/cash-flow", response_model=UKCashFlowResponse)
+def uk_cash_flow(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    comparative_from_date: date | None = Query(None),
+    comparative_to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> UKCashFlowResponse:
+    """Statement of Cash Flows (FRS 102 Section 7)."""
+    return UKStatementService(db).cash_flow(
+        from_date=from_date, to_date=to_date,
         comparative_from_date=comparative_from_date,
         comparative_to_date=comparative_to_date,
         currency=currency,

@@ -517,13 +517,44 @@ def _bs_bucket_for_code(code: str) -> tuple[str, str] | None:
     return None
 
 
+def _ir_pl_to_date(
+    db: Session, accounts: list[Account], as_of: date, currency: str | None,
+) -> int:
+    """Net profit/(loss) since inception, computed from the P&L accounts.
+    Folded into retained earnings on the BS so the statement balances even
+    when closing entries haven't been posted."""
+    from app.services.reporting.common import REVENUE, EXPENSE
+
+    turnovers = {
+        account_id: (debit, credit)
+        for account_id, debit, credit in account_turnovers_upto(db, as_of, currency=currency)
+    }
+    total = 0
+    for acc in accounts:
+        acc_type = classify_account_code(acc.code)
+        if acc_type not in (REVENUE, EXPENSE):
+            continue
+        d, c = turnovers.get(acc.id, (0, 0))
+        balance = balance_from_turnovers(acc_type, d, c)
+        if acc_type == REVENUE:
+            total += int(balance)
+        else:
+            total -= int(balance)
+    return total
+
+
 def _balance_sheet_buckets(
     db: Session,
     accounts: list[Account],
     as_of: date,
     currency: str | None,
 ) -> dict[tuple[str, str], int]:
-    """Sum sign-corrected balances as-of a date, grouped by (section, bucket)."""
+    """Sum sign-corrected balances as-of a date, grouped by (section, bucket).
+
+    The retained-earnings bucket also receives any net P&L that has not yet
+    been closed into account 33xx; this lets the Balance Sheet balance even
+    when no formal closing entries have been posted.
+    """
     turnovers = {
         account_id: (debit, credit)
         for account_id, debit, credit in account_turnovers_upto(db, as_of, currency=currency)
@@ -536,8 +567,20 @@ def _balance_sheet_buckets(
         debit, credit = turnovers.get(acc.id, (0, 0))
         acc_type = classify_account_code(acc.code)
         balance = balance_from_turnovers(acc_type, debit, credit)
-        # Present as positive magnitude — section context determines interpretation.
-        buckets[key] = buckets.get(key, 0) + max(0, balance)
+        _section, bucket = key
+        if bucket == "eq_retained_earnings":
+            # Retained earnings can legitimately go negative (dividend debits,
+            # accumulated losses); preserve the sign so the BS equation closes.
+            buckets[key] = buckets.get(key, 0) + int(balance)
+        else:
+            # Other buckets render as positive magnitude — section context
+            # determines interpretation (asset vs liability vs equity).
+            buckets[key] = buckets.get(key, 0) + max(0, balance)
+    pl_to_date = _ir_pl_to_date(db, accounts, as_of, currency)
+    if pl_to_date:
+        buckets[("equity", "eq_retained_earnings")] = (
+            buckets.get(("equity", "eq_retained_earnings"), 0) + pl_to_date
+        )
     return buckets
 
 

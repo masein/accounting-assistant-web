@@ -151,6 +151,31 @@ def _bs_bucket_for_code(code: str) -> tuple[str, str] | None:
     return None
 
 
+def _uk_pl_to_date(
+    db: Session, accounts: list[Account], as_of: date, currency: str | None,
+) -> int:
+    """Net profit/(loss) since inception, computed directly from the P&L
+    accounts. Used to fold un-closed P&L into retained earnings on the BS."""
+    from app.services.reporting.common import REVENUE, EXPENSE
+
+    turnovers = {
+        account_id: (debit, credit)
+        for account_id, debit, credit in account_turnovers_upto(db, as_of, currency=currency)
+    }
+    total = 0
+    for acc in accounts:
+        acc_type = classify_account_code(acc.code)
+        if acc_type not in (REVENUE, EXPENSE):
+            continue
+        d, c = turnovers.get(acc.id, (0, 0))
+        balance = balance_from_turnovers(acc_type, d, c)
+        if acc_type == REVENUE:
+            total += int(balance)
+        else:
+            total -= int(balance)
+    return total
+
+
 def _uk_balance_sheet_buckets(
     db: Session, accounts: list[Account], as_of: date, currency: str | None,
 ) -> dict[tuple[str, str], int]:
@@ -160,6 +185,10 @@ def _uk_balance_sheet_buckets(
     (accumulated depreciation, accumulated amortisation) under the same
     bucket as the cost account, so we keep the sign — credits on a contra
     asset naturally reduce the bucket total to NBV.
+
+    Also folds the net P&L since inception into ``eq_pl_account`` so the
+    Balance Sheet always balances, even when no closing entries have been
+    posted (typical for small-company demos).
     """
     turnovers = {
         account_id: (debit, credit)
@@ -173,6 +202,10 @@ def _uk_balance_sheet_buckets(
         debit, credit = turnovers.get(acc.id, (0, 0))
         balance = balance_from_turnovers(classify_account_code(acc.code), debit, credit)
         buckets[key] = buckets.get(key, 0) + int(balance)
+    # Implicit closing: add un-closed P&L to retained earnings.
+    pl_to_date = _uk_pl_to_date(db, accounts, as_of, currency)
+    if pl_to_date:
+        buckets[("equity", "eq_pl_account")] = buckets.get(("equity", "eq_pl_account"), 0) + pl_to_date
     return buckets
 
 

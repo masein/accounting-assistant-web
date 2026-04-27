@@ -1729,7 +1729,7 @@
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
         <h2 style="margin-bottom:0.5rem;">Reporting locale</h2>
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">
-          Choose the financial statement template. Iranian standard formats reports (Income Statement, Balance Sheet, etc.) to match رهنمودهای استاندارد حسابداری ایران.
+          Choose the financial statement template. Iranian standard matches رهنمودهای استاندارد حسابداری ایران (TSE-listed format). UK uses the FRS 102 Section 1A format from Companies Act 2006.
         </p>
         <div class="row" style="margin-bottom:0.5rem;">
           <div>
@@ -1737,12 +1737,25 @@
             <select id="reporting-locale-select">
               <option value="default">Default (IFRS-style)</option>
               <option value="ir">Iranian standard (ایران)</option>
+              <option value="uk">UK FRS 102 Section 1A</option>
             </select>
           </div>
           <div style="display:flex; align-items:flex-end;">
             <button type="button" class="btn btn-secondary" id="reporting-locale-save-btn">Save locale</button>
           </div>
           <div style="display:flex; align-items:center; font-size:0.85rem; color:var(--text-muted);" id="reporting-locale-status"></div>
+        </div>
+
+        <div style="margin-top:0.9rem; padding:0.75rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
+          <div style="font-weight:600; margin-bottom:0.35rem;">Reset and load locale demo data</div>
+          <p style="color: var(--text-muted); font-size: 0.82rem; margin:0 0 0.6rem 0;">
+            Wipes the database, seeds the locale's chart of accounts, and posts ~25 journal entries spanning two fiscal years (2024 and 2025) so the financial statements have realistic numbers. <strong>This deletes existing transactions.</strong>
+          </p>
+          <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="btn btn-secondary btn-sm" id="reset-demo-ir-btn">Reset &amp; load Iran demo</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="reset-demo-uk-btn">Reset &amp; load UK demo</button>
+            <span id="reset-demo-status" style="font-size:0.83rem;color:var(--text-muted);"></span>
+          </div>
         </div>
       </div>
 
@@ -3893,24 +3906,28 @@
     }
 
     function managerEndpointFor(type) {
-      const ir = (window.__REPORTING_LOCALE === 'ir');
+      const locale = window.__REPORTING_LOCALE || 'default';
+      const ir = locale === 'ir';
+      const uk = locale === 'uk';
       switch (type) {
         case 'balance_sheet':
-          return ir
-            ? '/manager-reports/financial/iran/balance-sheet'
-            : '/manager-reports/financial/balance-sheet';
+          if (uk) return '/manager-reports/financial/uk/balance-sheet';
+          if (ir) return '/manager-reports/financial/iran/balance-sheet';
+          return '/manager-reports/financial/balance-sheet';
         case 'income_statement':
-          return ir
-            ? '/manager-reports/financial/iran/income-statement'
-            : '/manager-reports/financial/income-statement';
+          if (uk) return '/manager-reports/financial/uk/profit-and-loss';
+          if (ir) return '/manager-reports/financial/iran/income-statement';
+          return '/manager-reports/financial/income-statement';
         case 'changes_in_equity':
+          if (uk) return '/manager-reports/financial/uk/changes-in-equity';
           return '/manager-reports/financial/iran/changes-in-equity';
         case 'comprehensive_income':
+          if (uk) return '/manager-reports/financial/uk/comprehensive-income';
           return '/manager-reports/financial/iran/comprehensive-income';
         case 'cash_flow':
-          return ir
-            ? '/manager-reports/financial/iran/cash-flow'
-            : '/manager-reports/financial/cash-flow';
+          if (uk) return '/manager-reports/financial/uk/cash-flow';
+          if (ir) return '/manager-reports/financial/iran/cash-flow';
+          return '/manager-reports/financial/cash-flow';
         case 'general_journal': return '/manager-reports/books/general-journal';
         case 'general_ledger': return '/manager-reports/books/general-ledger';
         case 'trial_balance': return '/manager-reports/books/trial-balance';
@@ -5446,6 +5463,115 @@
       `;
     }
 
+    function renderUKStatementTable(report) {
+      const rows = Array.isArray(report.rows) ? report.rows : [];
+      const periodDate = (report.period && (report.period.to || report.period.to_date)) || report.as_of || '';
+      const priorDate = (report.comparative_period && (report.comparative_period.to || report.comparative_period.to_date)) || report.comparative_as_of || '';
+      const fmtParens = (amount, forceParens) => {
+        if (amount == null) return '-';
+        if (amount === 0) return '·';
+        const n = Math.abs(amount).toLocaleString();
+        return (amount < 0 || forceParens) ? '(' + n + ')' : n;
+      };
+      const bodyRows = rows.map(r => {
+        const isHeader = r.row_type === 'header';
+        const isSubtotal = r.row_type === 'subtotal';
+        const isTotal = r.row_type === 'total';
+        const indent = Math.max(0, (r.indent_level || 0)) * 14;
+        const baseStyle = 'padding:6px 8px; border-bottom:1px solid #eee;';
+        const weight = (isSubtotal || isTotal) ? 'font-weight:700;' : '';
+        const bg = isHeader ? 'background:#f3f4f6;' : (isTotal ? 'background:#eef4ff;' : (isSubtotal ? 'background:#fafafa;' : ''));
+        const color = isHeader ? 'color:#334155;' : '';
+        const labelCell = `<td style="${baseStyle} ${weight} ${bg} ${color} text-align:left; padding-left:${8 + indent}px;">${escapeHtml(r.label || '')}</td>`;
+        if (isHeader) {
+          return `<tr>${labelCell}<td style="${baseStyle} ${bg}"></td><td style="${baseStyle} ${bg}"></td></tr>`;
+        }
+        const curCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_current, r.is_negative_presentation))}</td>`;
+        const priorCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior, r.is_negative_presentation))}</td>`;
+        return `<tr>${labelCell}${curCell}${priorCell}</tr>`;
+      }).join('');
+
+      const titleMap = {
+        uk_balance_sheet: 'Statement of Financial Position (FRS 102 1A)',
+        uk_profit_and_loss: 'Profit and Loss Account (FRS 102 1A)',
+        uk_comprehensive_income: 'Statement of Comprehensive Income',
+        uk_changes_in_equity: 'Statement of Changes in Equity',
+        uk_cash_flow: 'Statement of Cash Flows',
+      };
+      const title = titleMap[report.report_type] || 'Report';
+      const isBalanceSheet = report.report_type === 'uk_balance_sheet';
+      const datePrefix = isBalanceSheet ? 'As at' : 'Year ended';
+      const curHeader = periodDate ? `${datePrefix} ${escapeHtml(periodDate)}` : '';
+      const priorHeader = priorDate ? `${datePrefix} ${escapeHtml(priorDate)}` : '';
+
+      return `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.4rem;">
+            <h3 style="margin:0;">${escapeHtml(title)}</h3>
+            <span style="font-size:0.82rem; color:var(--text-muted);">All amounts in £</span>
+          </div>
+          <div class="report-preview-wrap">
+            <table class="mini-table" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f1f5f9;">
+                  <th style="padding:8px; text-align:left;">Description</th>
+                  <th style="padding:8px; text-align:right; min-width:140px;">${curHeader || '-'}</th>
+                  <th style="padding:8px; text-align:right; min-width:140px;">${priorHeader || '-'}</th>
+                </tr>
+              </thead>
+              <tbody>${bodyRows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderUKEquityMatrix(report) {
+      const components = Array.isArray(report.components) ? report.components : [];
+      const rows = Array.isArray(report.rows) ? report.rows : [];
+      const fmtParens = (n) => {
+        if (n == null) return '-';
+        if (n === 0) return '·';
+        const s = Math.abs(n).toLocaleString();
+        return n < 0 ? '(' + s + ')' : s;
+      };
+      const header = `
+        <tr style="background:#f1f5f9;">
+          <th style="padding:8px; text-align:left; min-width:240px;">Description</th>
+          ${components.map(c => `<th style="padding:8px; text-align:right; font-size:0.82rem; min-width:90px;">${escapeHtml(c.label || c.key)}</th>`).join('')}
+          <th style="padding:8px; text-align:right; min-width:100px; background:#e8f0fe;">Total</th>
+        </tr>
+      `;
+      const body = rows.map(r => {
+        const isHeader = r.row_type === 'header';
+        const isSubtotal = r.row_type === 'subtotal';
+        const isTotal = r.row_type === 'total';
+        const baseStyle = 'padding:6px 8px; border-bottom:1px solid #eee; font-variant-numeric:tabular-nums;';
+        const weight = (isSubtotal || isTotal) ? 'font-weight:700;' : '';
+        const bg = isHeader ? 'background:#f3f4f6;' : (isTotal ? 'background:#eef4ff;' : (isSubtotal ? 'background:#fafafa;' : ''));
+        const cellsByComponent = Object.fromEntries((r.cells || []).map(c => [c.component, c.amount]));
+        const labelCell = `<td style="${baseStyle} ${weight} ${bg} text-align:left;">${escapeHtml(r.label || '')}</td>`;
+        const valueCells = components.map(c => {
+          const v = cellsByComponent[c.key];
+          return `<td style="${baseStyle} ${weight} ${bg} text-align:right;">${escapeHtml(fmtParens(v))}</td>`;
+        }).join('');
+        const totalCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right; background:${isTotal ? '#d8e7ff' : (isSubtotal ? '#f0f4fa' : '#eef4ff')};">${escapeHtml(fmtParens(r.total))}</td>`;
+        return `<tr>${labelCell}${valueCells}${totalCell}</tr>`;
+      }).join('');
+
+      return `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+          <h3 style="margin:0 0 0.4rem;">Statement of Changes in Equity</h3>
+          <div class="report-preview-wrap" style="overflow-x:auto;">
+            <table class="mini-table" style="width:100%; border-collapse:collapse;">
+              <thead>${header}</thead>
+              <tbody>${body}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
     function renderReportPreviewHtml(report) {
       if (!report || typeof report !== 'object') return '<p class="empty-state">' + escapeHtml(t('noReportData')) + '</p>';
       const rt = report.report_type || '';
@@ -5455,6 +5581,13 @@
       if (rt === 'iran_income_statement' || rt === 'iran_balance_sheet'
           || rt === 'iran_comprehensive_income' || rt === 'iran_cash_flow') {
         return renderIranStatementTable(report);
+      }
+      if (rt === 'uk_changes_in_equity') {
+        return renderUKEquityMatrix(report);
+      }
+      if (rt === 'uk_balance_sheet' || rt === 'uk_profit_and_loss'
+          || rt === 'uk_comprehensive_income' || rt === 'uk_cash_flow') {
+        return renderUKStatementTable(report);
       }
       if (report.sections && typeof report.sections === 'object') {
         const cards = Object.keys(report.sections).map(k => {
@@ -7182,6 +7315,51 @@
     }
 
     loadReportingLocale();
+
+    // ─── Locale demo data: reset DB and post the curated 2-year journal ──
+    async function _resetAndLoadLocaleDemo(locale, button) {
+      const statusEl = document.getElementById('reset-demo-status');
+      const otherId = locale === 'ir' ? 'reset-demo-uk-btn' : 'reset-demo-ir-btn';
+      const otherBtn = document.getElementById(otherId);
+      const confirmMsg = locale === 'ir'
+        ? 'Reset the database and load the Iranian demo? All current transactions will be deleted.'
+        : 'Reset the database and load the UK demo? All current transactions will be deleted.';
+      if (!confirm(confirmMsg)) return;
+      button.disabled = true;
+      if (otherBtn) otherBtn.disabled = true;
+      statusEl.style.color = 'var(--text-muted)';
+      statusEl.textContent = 'Resetting database and posting demo entries...';
+      try {
+        const url = API + '/admin/reset-db?locale=' + encodeURIComponent(locale) + '&with_demo_data=true';
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          statusEl.style.color = '#2e7d32';
+          statusEl.textContent = `Loaded ${data.demo_entries || 0} entries (${data.accounts_created || 0} accounts) for locale "${data.locale}". Refreshing…`;
+          window.__REPORTING_LOCALE = data.locale;
+          const sel = document.getElementById('reporting-locale-select');
+          if (sel && [...sel.options].some(o => o.value === data.locale)) sel.value = data.locale;
+          const localeStatus = document.getElementById('reporting-locale-status');
+          if (localeStatus) localeStatus.textContent = 'Current: ' + data.locale;
+          // Give the user a moment to read, then reload so every panel re-fetches.
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          statusEl.style.color = '#c62828';
+          statusEl.textContent = data.detail || 'Reset failed.';
+        }
+      } catch (e) {
+        statusEl.style.color = '#c62828';
+        statusEl.textContent = 'Error: ' + e.message;
+      } finally {
+        button.disabled = false;
+        if (otherBtn) otherBtn.disabled = false;
+      }
+    }
+
+    const resetIrBtn = document.getElementById('reset-demo-ir-btn');
+    const resetUkBtn = document.getElementById('reset-demo-uk-btn');
+    if (resetIrBtn) resetIrBtn.addEventListener('click', () => _resetAndLoadLocaleDemo('ir', resetIrBtn));
+    if (resetUkBtn) resetUkBtn.addEventListener('click', () => _resetAndLoadLocaleDemo('uk', resetUkBtn));
 
     // Kick off FX metadata fetch so currency defaults land before the user interacts.
     loadFxMetadata().then(meta => {

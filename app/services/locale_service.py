@@ -17,6 +17,39 @@ REPORTING_LOCALE_KEY = "reporting_locale"
 DEFAULT_LOCALE = "default"
 SUPPORTED_LOCALES = frozenset({"default", "ir", "uk"})
 
+DISPLAY_CALENDAR_KEY = "display_calendar"
+SUPPORTED_CALENDARS = frozenset({"gregorian", "jalali"})
+
+
+def _default_calendar_for_locale(locale: str) -> str:
+    return "jalali" if (locale or "").strip().lower() == "ir" else "gregorian"
+
+
+def get_display_calendar(db: Session) -> str:
+    """Read the display-calendar setting. Defaults to Jalali when the
+    reporting locale is 'ir', Gregorian otherwise."""
+    row = db.execute(
+        select(AppSetting).where(AppSetting.key == DISPLAY_CALENDAR_KEY)
+    ).scalar_one_or_none()
+    if row and (row.value or "").strip() in SUPPORTED_CALENDARS:
+        return row.value.strip()
+    return _default_calendar_for_locale(get_reporting_locale(db))
+
+
+def set_display_calendar(db: Session, calendar: str) -> str:
+    value = (calendar or "").strip().lower()
+    if value not in SUPPORTED_CALENDARS:
+        raise ValueError(f"Unsupported calendar '{calendar}'. Supported: {sorted(SUPPORTED_CALENDARS)}")
+    row = db.execute(
+        select(AppSetting).where(AppSetting.key == DISPLAY_CALENDAR_KEY)
+    ).scalar_one_or_none()
+    if row:
+        row.value = value
+    else:
+        db.add(AppSetting(key=DISPLAY_CALENDAR_KEY, value=value))
+    db.flush()
+    return value
+
 
 def get_reporting_locale(db: Session) -> str:
     row = db.execute(

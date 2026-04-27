@@ -12,8 +12,11 @@ from app.core.auth import hash_password, require_admin, validate_password_streng
 from app.core.ai_runtime import get_ai_config_public, update_ai_config
 from app.db.session import get_db
 from app.services.locale_service import (
+    SUPPORTED_CALENDARS,
     SUPPORTED_LOCALES,
+    get_display_calendar,
     get_reporting_locale,
+    set_display_calendar,
     set_reporting_locale,
 )
 from app.models.account import Account
@@ -267,6 +270,34 @@ def update_reporting_locale(
         raise HTTPException(status_code=400, detail=str(e)) from e
     db.commit()
     return ReportingLocaleRead(locale=locale, supported=sorted(SUPPORTED_LOCALES))
+
+
+class DisplayCalendarRead(BaseModel):
+    calendar: str
+    supported: list[str]
+
+
+class DisplayCalendarUpdate(BaseModel):
+    calendar: str
+
+
+@router.get("/display-calendar", response_model=DisplayCalendarRead)
+def read_display_calendar(db: Session = Depends(get_db)) -> DisplayCalendarRead:
+    return DisplayCalendarRead(calendar=get_display_calendar(db), supported=sorted(SUPPORTED_CALENDARS))
+
+
+@router.put("/display-calendar", response_model=DisplayCalendarRead)
+def update_display_calendar(
+    payload: DisplayCalendarUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+) -> DisplayCalendarRead:
+    try:
+        cal = set_display_calendar(db, payload.calendar)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    db.commit()
+    return DisplayCalendarRead(calendar=cal, supported=sorted(SUPPORTED_CALENDARS))
 
 
 class SharesOutstandingPayload(BaseModel):

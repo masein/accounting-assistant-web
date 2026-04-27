@@ -1746,6 +1746,25 @@
           <div style="display:flex; align-items:center; font-size:0.85rem; color:var(--text-muted);" id="reporting-locale-status"></div>
         </div>
 
+        <div class="row" style="margin-bottom:0.5rem;">
+          <div>
+            <label for="display-calendar-select">Display calendar</label>
+            <select id="display-calendar-select">
+              <option value="gregorian">Gregorian (YYYY-MM-DD)</option>
+              <option value="jalali">Jalali / Shamsi (تقویم شمسی)</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button type="button" class="btn btn-secondary" id="display-calendar-save-btn">Save calendar</button>
+          </div>
+          <div style="display:flex; align-items:center; font-size:0.85rem; color:var(--text-muted);" id="display-calendar-status"></div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.78rem; margin: 0 0 0.7rem 0;">
+          Dates are always stored as Gregorian internally. The calendar
+          setting affects how report headers and transaction-list dates are
+          displayed. HTML date inputs remain Gregorian.
+        </p>
+
         <div style="margin-top:0.9rem; padding:0.75rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
           <div style="font-weight:600; margin-bottom:0.35rem;">Reset and load locale demo data</div>
           <p style="color: var(--text-muted); font-size: 0.82rem; margin:0 0 0.6rem 0;">
@@ -1800,6 +1819,68 @@
         Chart.register(ChartZoom);
       }
     } catch (_) { /* fall through — charts still render without zoom */ }
+
+    // ─── Display calendar (Gregorian / Jalali) ────────────────────────
+    // Stored in AppSetting; loaded once on session start. All dates are
+    // persisted as Gregorian (per ISO-8601). Conversion happens only at
+    // render time via formatDisplayDate().
+    window.__DISPLAY_CALENDAR = 'gregorian';
+
+    // Khayyam algorithm — Gregorian → Jalali. Returns {jy, jm, jd}.
+    function gregorianToJalali(gy, gm, gd) {
+      const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+      let jy = gy <= 1600 ? 0 : 979;
+      gy -= gy <= 1600 ? 621 : 1600;
+      const gy2 = gm > 2 ? gy + 1 : gy;
+      let days = (365 * gy) + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100)
+                + Math.floor((gy2 + 399) / 400) - 80 + gd + g_d_m[gm - 1];
+      jy += 33 * Math.floor(days / 12053);
+      days %= 12053;
+      jy += 4 * Math.floor(days / 1461);
+      days %= 1461;
+      if (days > 365) {
+        jy += Math.floor((days - 1) / 365);
+        days = (days - 1) % 365;
+      }
+      const jm = days < 186 ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+      const jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
+      return { jy, jm, jd };
+    }
+
+    // Format a date string (ISO YYYY-MM-DD or any Date-parseable form) for
+    // display, using the active calendar setting. Returns the original
+    // string when it can't be parsed.
+    function formatDisplayDate(dateStr) {
+      if (dateStr == null || dateStr === '') return '';
+      const s = String(dateStr).trim();
+      // Already in Persian-digit form? Just return as-is.
+      if (/[۰-۹]/.test(s)) return s;
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+      let y, mo, d;
+      if (m) {
+        y = parseInt(m[1], 10); mo = parseInt(m[2], 10); d = parseInt(m[3], 10);
+      } else {
+        const dt = new Date(s);
+        if (isNaN(dt.getTime())) return s;
+        y = dt.getFullYear(); mo = dt.getMonth() + 1; d = dt.getDate();
+      }
+      if ((window.__DISPLAY_CALENDAR || 'gregorian') === 'jalali') {
+        const { jy, jm, jd } = gregorianToJalali(y, mo, d);
+        return `${jy}/${String(jm).padStart(2,'0')}/${String(jd).padStart(2,'0')}`;
+      }
+      return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+
+    async function loadDisplayCalendar() {
+      try {
+        const r = await fetch(API + '/admin/display-calendar');
+        if (!r.ok) return;
+        const data = await r.json();
+        window.__DISPLAY_CALENDAR = data.calendar || 'gregorian';
+        const sel = document.getElementById('display-calendar-select');
+        if (sel) sel.value = window.__DISPLAY_CALENDAR;
+      } catch (_) {}
+    }
 
     // Standard zoom-plugin options applied to line / time-series charts.
     function zoomPluginOptions() {
@@ -5735,9 +5816,9 @@
       const title = titleMap[report.report_type] || 'گزارش';
       const isBalanceSheet = report.report_type === 'iran_balance_sheet';
       const datePrefix = isBalanceSheet ? 'به تاریخ' : 'دوره منتهی به';
-      const curHeader = periodDate ? `${datePrefix} ${escapeHtml(periodDate)}` : '';
-      const priorHeader = priorDate ? `${isBalanceSheet ? 'تجدید ارائه شده به تاریخ' : 'دوره منتهی به'} ${escapeHtml(priorDate)}` : '';
-      const beginningHeader = hasBeginning ? `تجدید ارائه شده به تاریخ ${escapeHtml(beginningDate)}` : '';
+      const curHeader = periodDate ? `${datePrefix} ${escapeHtml(formatDisplayDate(periodDate))}` : '';
+      const priorHeader = priorDate ? `${isBalanceSheet ? 'تجدید ارائه شده به تاریخ' : 'دوره منتهی به'} ${escapeHtml(formatDisplayDate(priorDate))}` : '';
+      const beginningHeader = hasBeginning ? `تجدید ارائه شده به تاریخ ${escapeHtml(formatDisplayDate(beginningDate))}` : '';
 
       return `
         <div dir="rtl" style="font-family: Tahoma, 'IRANSans', Arial, sans-serif;">
@@ -5766,6 +5847,14 @@
     // Changes in Equity is a matrix: rows = movement events, columns = equity components
     // (سرمایه, اندوخته قانونی, سود انباشته, …) + total. Uses a different schema
     // (cells[]) than the other Iranian statements, so it gets its own renderer.
+    // Replace any ISO-date substrings inside an arbitrary label with their
+    // calendar-aware display form. Used for matrix labels like
+    // "مانده در 2024-12-31" that embed dates the backend serialises as ISO.
+    function _localizeDatesInLabel(s) {
+      if (!s) return '';
+      return String(s).replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (m) => formatDisplayDate(m));
+    }
+
     function renderIranEquityMatrix(report) {
       const components = Array.isArray(report.components) ? report.components : [];
       const rows = Array.isArray(report.rows) ? report.rows : [];
@@ -5793,7 +5882,7 @@
         const weight = (isSubtotal || isTotal) ? 'font-weight:700;' : '';
         const bg = isHeader ? 'background:#f3f4f6;' : (isTotal ? 'background:#eef4ff;' : (isSubtotal ? 'background:#fafafa;' : ''));
         const cellsByComponent = Object.fromEntries((r.cells || []).map(c => [c.component, c.amount]));
-        const labelCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right;" dir="rtl">${escapeHtml(r.label_fa || '')}</td>`;
+        const labelCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right;" dir="rtl">${escapeHtml(_localizeDatesInLabel(r.label_fa || ''))}</td>`;
         const valueCells = components.map(c => {
           const v = cellsByComponent[c.key];
           return `<td style="${baseStyle} ${weight} ${bg} text-align:center;">${escapeHtml(fmtParens(v))}</td>`;
@@ -5858,8 +5947,8 @@
       const title = titleMap[report.report_type] || 'Report';
       const isBalanceSheet = report.report_type === 'uk_balance_sheet';
       const datePrefix = isBalanceSheet ? 'As at' : 'Year ended';
-      const curHeader = periodDate ? `${datePrefix} ${escapeHtml(periodDate)}` : '';
-      const priorHeader = priorDate ? `${datePrefix} ${escapeHtml(priorDate)}` : '';
+      const curHeader = periodDate ? `${datePrefix} ${escapeHtml(formatDisplayDate(periodDate))}` : '';
+      const priorHeader = priorDate ? `${datePrefix} ${escapeHtml(formatDisplayDate(priorDate))}` : '';
 
       return `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
@@ -5907,7 +5996,7 @@
         const weight = (isSubtotal || isTotal) ? 'font-weight:700;' : '';
         const bg = isHeader ? 'background:#f3f4f6;' : (isTotal ? 'background:#eef4ff;' : (isSubtotal ? 'background:#fafafa;' : ''));
         const cellsByComponent = Object.fromEntries((r.cells || []).map(c => [c.component, c.amount]));
-        const labelCell = `<td style="${baseStyle} ${weight} ${bg} text-align:left;">${escapeHtml(r.label || '')}</td>`;
+        const labelCell = `<td style="${baseStyle} ${weight} ${bg} text-align:left;">${escapeHtml(_localizeDatesInLabel(r.label || ''))}</td>`;
         const valueCells = components.map(c => {
           const v = cellsByComponent[c.key];
           return `<td style="${baseStyle} ${weight} ${bg} text-align:right;">${escapeHtml(fmtParens(v))}</td>`;
@@ -7672,6 +7761,33 @@
     }
 
     loadReportingLocale();
+    loadDisplayCalendar();
+
+    const displayCalendarSaveBtn = document.getElementById('display-calendar-save-btn');
+    if (displayCalendarSaveBtn) {
+      displayCalendarSaveBtn.addEventListener('click', async () => {
+        const sel = document.getElementById('display-calendar-select');
+        const status = document.getElementById('display-calendar-status');
+        const value = sel ? sel.value : 'gregorian';
+        try {
+          const r = await fetch(API + '/admin/display-calendar', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ calendar: value }),
+          });
+          if (r.ok) {
+            const data = await r.json();
+            window.__DISPLAY_CALENDAR = data.calendar;
+            if (status) status.textContent = 'Saved: ' + data.calendar;
+          } else {
+            const data = await r.json().catch(() => ({}));
+            if (status) status.textContent = (data.detail || 'Failed to save.');
+          }
+        } catch (e) {
+          if (status) status.textContent = 'Error: ' + e.message;
+        }
+      });
+    }
 
     // ─── Locale demo data: reset DB and post the curated 2-year journal ──
     async function _resetAndLoadLocaleDemo(locale, button) {

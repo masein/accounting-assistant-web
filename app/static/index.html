@@ -1211,13 +1211,11 @@
       </div>
       <div class="panel">
         <h3 id="mgr-report-output-title" data-i18n="reportOutputTitle">Report output</h3>
-        <div id="mgr-report-output-grid" style="display:grid; gap:1rem; grid-template-columns:minmax(0,1fr); align-items:start;">
-          <div id="mgr-report-preview" style="margin-bottom:0.6rem; min-width:0;"></div>
-          <div class="panel report-chart-panel" id="mgr-report-chart-panel" style="display:none; margin:0;">
-            <h3 id="mgr-report-chart-title" data-i18n="reportChartTitle" style="margin-top:0;">Report chart</h3>
-            <canvas id="mgr-report-chart" height="220"></canvas>
-          </div>
+        <div class="panel report-chart-panel" id="mgr-report-chart-panel" style="display:none;">
+          <h3 id="mgr-report-chart-title" data-i18n="reportChartTitle">Report chart</h3>
+          <canvas id="mgr-report-chart" height="220"></canvas>
         </div>
+        <div id="mgr-report-preview" style="margin-bottom:0.6rem;"></div>
         <pre id="mgr-report-json" style="display:none;"></pre>
       </div>
       <!-- Secondary / supplementary charts -->
@@ -1788,8 +1786,34 @@
   </div>
 
   <script src="/static/chart.umd.min.js"></script>
+  <!-- Drag-to-zoom on time-series / numeric charts. Loaded from CDN; if it
+       fails to load the charts still work, just without the zoom feature. -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   <script>
     const API = ''; // same origin
+
+    // Register the zoom plugin with Chart.js once both have loaded.
+    try {
+      if (typeof Chart !== 'undefined' && typeof window !== 'undefined' && window['chartjs-plugin-zoom']) {
+        Chart.register(window['chartjs-plugin-zoom']);
+      } else if (typeof Chart !== 'undefined' && typeof ChartZoom !== 'undefined') {
+        Chart.register(ChartZoom);
+      }
+    } catch (_) { /* fall through — charts still render without zoom */ }
+
+    // Standard zoom-plugin options applied to line / time-series charts.
+    function zoomPluginOptions() {
+      return {
+        zoom: {
+          drag: { enabled: true, backgroundColor: 'rgba(15,118,110,0.12)' },
+          wheel: { enabled: true, modifierKey: 'shift' },
+          pinch: { enabled: true },
+          mode: 'x',
+        },
+        pan: { enabled: true, mode: 'x', modifierKey: 'alt' },
+        limits: { x: { min: 'original', max: 'original' } },
+      };
+    }
 
     // --- CSRF helper: read the aa_csrf cookie and inject it on every mutating request ---
     function getCsrfToken() {
@@ -4062,10 +4086,28 @@
       wrap.style.display = 'block';
       const panel = document.createElement('div');
       panel.className = 'panel';
-      panel.style.cssText = 'padding:1rem;';
+      panel.style.cssText = 'padding:1rem; position:relative;';
       const h = document.createElement('h3');
-      h.style.cssText = 'margin:0 0 0.5rem;font-size:0.95rem;';
-      h.textContent = title;
+      h.style.cssText = 'margin:0 0 0.5rem;font-size:0.95rem;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;';
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = title;
+      h.appendChild(titleSpan);
+      // If zoom plugin options are present in chartCfg, expose a small reset button
+      // and a hint so the user discovers the drag-to-zoom interaction.
+      const hasZoom = !!(chartCfg && chartCfg.options && chartCfg.options.plugins && chartCfg.options.plugins.zoom);
+      if (hasZoom) {
+        const hint = document.createElement('span');
+        hint.style.cssText = 'font-size:0.72rem;color:var(--text-muted);font-weight:400;';
+        hint.textContent = 'drag to zoom · shift+wheel · alt+drag to pan';
+        h.appendChild(hint);
+        const resetBtn = document.createElement('button');
+        resetBtn.type = 'button';
+        resetBtn.className = 'btn btn-secondary btn-sm';
+        resetBtn.style.cssText = 'padding:2px 8px;font-size:0.72rem;';
+        resetBtn.textContent = 'Reset zoom';
+        resetBtn.dataset.role = 'reset-zoom';
+        h.appendChild(resetBtn);
+      }
       const canvasWrap = document.createElement('div');
       canvasWrap.style.cssText = 'position:relative;height:260px;';
       const canvas = document.createElement('canvas');
@@ -4076,17 +4118,14 @@
       if (onClick) chartCfg.options = { ...(chartCfg.options || {}), onClick };
       const chart = new Chart(canvas, chartCfg);
       _extraChartInstances.push(chart);
+      // Wire the reset-zoom button (only present when zoom is enabled).
+      const resetBtn = panel.querySelector('button[data-role="reset-zoom"]');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          try { chart.resetZoom && chart.resetZoom(); } catch (_) {}
+        });
+      }
       return chart;
-    }
-
-    function _setReportOutputLayout(hasChart) {
-      const grid = document.getElementById('mgr-report-output-grid');
-      if (!grid) return;
-      // Side-by-side when a chart is present (table 2fr / chart 1fr,
-      // collapsing to a single column under 980px). Single column otherwise.
-      grid.style.gridTemplateColumns = hasChart
-        ? 'minmax(0, 2fr) minmax(280px, 1fr)'
-        : 'minmax(0, 1fr)';
     }
 
     function renderManagerReportChart(report) {
@@ -4094,7 +4133,6 @@
       _destroyExtraCharts();
       const chart = renderReportChart(mgrReportChartEl, report, managerReportChart);
       managerReportChart = chart;
-      _setReportOutputLayout(!!chart);
       if (mgrReportChartTitleEl) {
         const spec = makeReportChartSpec(report);
         mgrReportChartTitleEl.textContent = spec ? (spec.title || t('reportChartTitle')) : t('reportChartTitle');
@@ -4130,7 +4168,7 @@
                   { label: 'Equity', data: periods.map(p => p.equity), borderColor: palette[1], backgroundColor: 'rgba(14,165,233,0.08)', fill: true, tension: 0.3 },
                 ]
               },
-              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, zoom: zoomPluginOptions() }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
             }, (e, els) => {
               if (!els.length) return;
               const idx = els[0].index;
@@ -4225,9 +4263,212 @@
                   pointBackgroundColor: periods.map(p => p.net >= 0 ? palette[0] : '#c62828')
                 }]
               },
-              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, zoom: zoomPluginOptions() }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
             });
           }).catch(() => {});
+      }
+
+      // ──────────── Iran / UK locale-specific extra charts ─────────────
+      // Each set: composition donut(s), waterfall / cascading bar, and a
+      // time-series trend line where there's a periods endpoint we can
+      // re-use. Time-series charts opt into the zoom plugin so the user
+      // can drag-select a range to zoom in.
+      const _findRow = (key) => (report.rows || []).find(r => r && r.key === key) || null;
+      const _amt = (row, field) => (row && row[field] != null) ? Number(row[field]) : 0;
+
+      const ROW_LABEL = (r) => (r && (r.label_fa || r.label_en || r.label || r.key)) || '';
+
+      const _compositionPie = (title, rowKeys, signFn) => {
+        const items = rowKeys
+          .map(k => _findRow(k))
+          .filter(r => r && (r.row_type === 'line'))
+          .map(r => ({ label: ROW_LABEL(r), value: signFn ? signFn(_amt(r, 'amount_current')) : Math.abs(_amt(r, 'amount_current')) }))
+          .filter(it => it.value > 0);
+        if (items.length < 2) return;
+        _addExtraChart(title, {
+          type: 'doughnut',
+          data: {
+            labels: items.map(it => it.label),
+            datasets: [{ data: items.map(it => it.value), backgroundColor: palette }],
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+        });
+      };
+
+      const _comparisonBar = (title, keys, drilldownPrefix) => {
+        const rows = keys.map(k => _findRow(k)).filter(r => r);
+        if (!rows.length) return;
+        _addExtraChart(title, {
+          type: 'bar',
+          data: {
+            labels: rows.map(ROW_LABEL),
+            datasets: [
+              { label: 'Current', data: rows.map(r => _amt(r, 'amount_current')), backgroundColor: palette[0] },
+              { label: 'Prior', data: rows.map(r => _amt(r, 'amount_prior')), backgroundColor: palette[1] },
+            ],
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } },
+        }, drilldownPrefix ? (e, els) => {
+          if (!els.length) return;
+          const row = rows[els[0].index];
+          if (row) showTransactionDrilldown(ROW_LABEL(row), { account_code_prefix: drilldownPrefix, from_date: fromDate, to_date: toDate });
+        } : undefined);
+      };
+
+      // Trend chart factory — used by both Iran and UK BS/IS/CF.
+      const _addPeriodsTrend = (endpoint, title, datasetSpecs, yLabel) => {
+        const q = new URLSearchParams();
+        if (fromDate) q.set('from_date', fromDate);
+        if (toDate) q.set('to_date', toDate);
+        q.set('granularity', granularity);
+        if (chartCurrency) q.set('currency', chartCurrency);
+        fetch(API + endpoint + '?' + q.toString())
+          .then(r => r.json()).then(data => {
+            const periods = data.periods || [];
+            if (periods.length < 2) return;
+            _addExtraChart(title, {
+              type: 'line',
+              data: {
+                labels: periods.map(p => p.period),
+                datasets: datasetSpecs.map((ds, i) => ({
+                  label: ds.label,
+                  data: periods.map(p => Number(p[ds.field] || 0)),
+                  borderColor: ds.color || palette[i],
+                  backgroundColor: ds.bg || `${ds.color || palette[i]}1f`,
+                  fill: ds.fill !== false, tension: 0.3,
+                })),
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' }, zoom: zoomPluginOptions() },
+                scales: { y: { ticks: { callback: v => formatNum(v) } } },
+              },
+            });
+          }).catch(() => {});
+      };
+
+      // ── Iran / UK Balance Sheet ─────────────────────────────────────
+      if (rt === 'iran_balance_sheet' || rt === 'uk_balance_sheet') {
+        const isUK = rt === 'uk_balance_sheet';
+        // Composition donuts: assets / liabilities / equity
+        const assetKeys = isUK
+          ? ['fa_intangibles', 'fa_tangibles', 'fa_investments', 'ca_stocks', 'ca_debtors', 'ca_cash']
+          : ['ca_cash', 'ca_st_investments', 'ca_trade_receivables', 'ca_inventory', 'ca_prepayments', 'ca_held_for_sale',
+             'nca_ppe', 'nca_investment_property', 'nca_intangibles', 'nca_lt_investments', 'nca_lt_receivables'];
+        const liabKeys = isUK
+          ? ['cl_creditors', 'ncl_creditors', 'ncl_provisions']
+          : ['cl_trade_payables', 'cl_tax_payable', 'cl_dividends_payable', 'cl_st_loans', 'cl_provisions', 'cl_advances',
+             'ncl_lt_payables', 'ncl_lt_loans', 'ncl_deferred_tax', 'ncl_employee_benefits'];
+        const equityKeys = isUK
+          ? ['eq_share_capital', 'eq_share_premium', 'eq_revaluation_reserve', 'eq_other_reserves', 'eq_pl_account']
+          : ['eq_capital', 'eq_share_premium', 'eq_legal_reserve', 'eq_other_reserves', 'eq_revaluation_surplus', 'eq_retained_earnings', 'eq_treasury_stock'];
+        _compositionPie('Asset composition', assetKeys);
+        _compositionPie('Liabilities composition', liabKeys);
+        _compositionPie('Equity composition', equityKeys);
+        // Trend across periods (uses default-locale endpoint; both locales share the chart of accounts ranges via classify_account_code).
+        _addPeriodsTrend('/manager-reports/financial/balance-sheet-periods', 'Assets / Liabilities / Equity over time',
+          [
+            { field: 'assets', label: 'Assets', color: palette[0] },
+            { field: 'liabilities', label: 'Liabilities', color: '#c62828' },
+            { field: 'equity', label: 'Equity', color: palette[1] },
+          ]);
+      }
+
+      // ── Iran / UK Income Statement / Profit and Loss ────────────────
+      if (rt === 'iran_income_statement' || rt === 'uk_profit_and_loss') {
+        const isUK = rt === 'uk_profit_and_loss';
+        // Profit waterfall: gross → operating → before-tax → net (already done as the primary chart)
+        // Additional: expense breakdown donut
+        const expenseKeys = isUK
+          ? ['cost_of_sales', 'distribution_costs', 'admin_expenses', 'interest_payable', 'tax_on_profit']
+          : ['cogs', 'opex_sga', 'impairment_receivables', 'other_operating_expenses', 'financial_expenses', 'tax_current_year', 'tax_prior_years'];
+        _compositionPie('Expense composition', expenseKeys, v => Math.abs(v));
+        // Revenue / income comparison
+        const revKeys = isUK ? ['turnover', 'other_operating_income', 'investment_income', 'interest_receivable']
+                              : ['revenue_operating', 'other_operating_income', 'non_operating_net'];
+        _comparisonBar('Revenue / income lines', revKeys, isUK ? '4' : '41,42,43');
+        // Sales trend (period-aware): only if we have a sales endpoint — works for any locale
+        _addPeriodsTrend('/manager-reports/sales/trend', 'Sales revenue trend',
+          [{ field: 'sales_amount', label: 'Sales', color: palette[0] }]);
+      }
+
+      // ── Iran / UK Cash Flow ─────────────────────────────────────────
+      if (rt === 'iran_cash_flow' || rt === 'uk_cash_flow') {
+        const isUK = rt === 'uk_cash_flow';
+        // Cash reconciliation waterfall
+        const recRows = ['opening_cash',
+                         isUK ? 'operating_net' : 'operating_net',
+                         isUK ? 'investing_net' : 'investing_net',
+                         isUK ? 'financing_net' : 'financing_net',
+                         isUK ? 'fx_effect' : 'fx_rate_effect',
+                         isUK ? 'closing_cash' : 'closing_cash'].map(k => _findRow(k)).filter(r => r);
+        if (recRows.length >= 4) {
+          _addExtraChart('Cash reconciliation', {
+            type: 'bar',
+            data: {
+              labels: recRows.map(ROW_LABEL),
+              datasets: [{
+                label: 'Movement',
+                data: recRows.map(r => _amt(r, 'amount_current')),
+                backgroundColor: recRows.map(r => _amt(r, 'amount_current') >= 0 ? palette[0] : '#c62828'),
+              }],
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } },
+          });
+        }
+        // Investing breakdown
+        const invKeys = isUK
+          ? ['inv_ppe_inflow', 'inv_ppe_outflow', 'inv_intangibles_inflow', 'inv_intangibles_outflow', 'inv_investments_inflow', 'inv_investments_outflow']
+          : ['inv_ppe_inflow', 'inv_ppe_outflow', 'inv_intangibles_inflow', 'inv_intangibles_outflow',
+             'inv_lt_investments_inflow', 'inv_lt_investments_outflow', 'inv_st_investments_inflow', 'inv_st_investments_outflow',
+             'inv_loans_to_others_outflow', 'inv_loans_to_others_inflow'];
+        _compositionPie('Investing activity (cash magnitude)', invKeys, v => Math.abs(v));
+        // Financing breakdown
+        const finKeys = isUK
+          ? ['fin_share_capital_inflow', 'fin_share_premium_inflow', 'fin_borrowings_inflow', 'fin_borrowings_outflow', 'fin_lease_outflow', 'fin_dividends_outflow']
+          : ['fin_capital_inflow', 'fin_share_premium_inflow', 'fin_st_loans_inflow', 'fin_st_loans_outflow',
+             'fin_loans_interest_outflow_placeholder', 'fin_dividends_outflow'];
+        _compositionPie('Financing activity (cash magnitude)', finKeys, v => Math.abs(v));
+        // Period trend: inflow / outflow / net using the default cash-flow-periods endpoint
+        _addPeriodsTrend('/manager-reports/financial/cash-flow-periods', 'Cash flow over time',
+          [
+            { field: 'inflow', label: 'Inflow', color: palette[0] },
+            { field: 'outflow', label: 'Outflow', color: '#c62828' },
+            { field: 'net', label: 'Net', color: palette[1] },
+          ]);
+      }
+
+      // ── Iran / UK Comprehensive Income ──────────────────────────────
+      if (rt === 'iran_comprehensive_income' || rt === 'uk_comprehensive_income') {
+        const npKey = rt === 'uk_comprehensive_income' ? 'profit_for_year' : 'net_profit';
+        const ociKey = 'oci_total';
+        const totalKey = rt === 'uk_comprehensive_income' ? 'total_comprehensive_income' : 'comprehensive_income';
+        _comparisonBar('Net profit / OCI / Comprehensive', [npKey, ociKey, totalKey]);
+      }
+
+      // ── Iran / UK Changes in Equity ─────────────────────────────────
+      if (rt === 'iran_changes_in_equity' || rt === 'uk_changes_in_equity') {
+        // Stacked bar showing equity-component balances at opening vs closing.
+        const findEqRow = (key) => (report.rows || []).find(r => r && r.key === key);
+        const openingRow = findEqRow(rt.startsWith('uk') ? 'opening' : 'opening_balance');
+        const closingRow = findEqRow(rt.startsWith('uk') ? 'closing' : 'closing_balance');
+        const components = report.components || [];
+        if (openingRow && closingRow && components.length) {
+          const cellsOf = (row) => Object.fromEntries((row.cells || []).map(c => [c.component, c.amount]));
+          const openCells = cellsOf(openingRow);
+          const closeCells = cellsOf(closingRow);
+          _addExtraChart('Equity components: opening vs closing', {
+            type: 'bar',
+            data: {
+              labels: components.map(c => c.label_fa || c.label || c.key),
+              datasets: [
+                { label: 'Opening', data: components.map(c => Number(openCells[c.key] || 0)), backgroundColor: palette[1] },
+                { label: 'Closing', data: components.map(c => Number(closeCells[c.key] || 0)), backgroundColor: palette[0] },
+              ],
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } },
+          });
+        }
       }
 
       if (rt === 'trial_balance' || rt === 'general_ledger') {

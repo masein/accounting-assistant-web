@@ -1056,50 +1056,74 @@ def build_iran_comprehensive_income(
 # Cash Flow Statement (صورت جریان‌های نقدی) — Iranian template
 # ---------------------------------------------------------------------------
 # We scan transactions in the period, split those that touch a cash account
-# (1110) by counterparty account prefix into the prescribed Iranian buckets.
-# The row order and labels follow the standard template so every statement
-# looks identical regardless of which buckets are populated.
+# (1110) by:
+#   1. the largest counterparty account prefix → category (PPE, intangibles, …)
+#   2. the sign of the cash delta → inflow vs outflow line
+# The row order matches the audited Iranian template (5 sections: operating,
+# investing, before-financing subtotal, financing, reconciliation) so every
+# statement looks identical regardless of which buckets are populated.
 
 
-# Counterparty prefix → cash-flow bucket key. First match wins; longer prefixes
-# must come first. Buckets with no counter-entry default to the residual bucket
-# for their section.
-_CF_COUNTER_MAP: list[tuple[str, str]] = [
-    # Investing
-    ("121", "inv_ppe"),
-    ("122", "inv_investment_property"),
-    ("123", "inv_intangibles"),
-    ("124", "inv_lt_investments"),
-    ("125", "inv_lt_receivables"),
-    ("113", "inv_st_investments"),
-    # Financing
-    ("311", "fin_capital"),
-    ("312", "fin_capital_increase"),
-    ("313", "fin_share_premium"),
-    ("314", "fin_treasury_premium"),
-    ("34", "fin_treasury_stock"),
-    ("214", "fin_dividends"),
-    ("215", "fin_st_loans"),
-    ("222", "fin_lt_loans"),
-    # Operating tax marker
-    ("213", "op_tax_paid"),
+# Counterparty-prefix → category mapping. First match wins; longer prefixes
+# come first. Each category is split into _inflow / _outflow when emitted, so
+# each row matches exactly one of the prescribed line items.
+_CF_CATEGORY_MAP: list[tuple[str, str]] = [
+    # ----- Investing categories -----
+    ("121", "inv_ppe"),                  # دارایی‌های ثابت مشهود
+    ("122", "inv_investment_property"),  # سرمایه‌گذاری در املاک
+    ("123", "inv_intangibles"),          # دارایی‌های نامشهود
+    ("124", "inv_lt_investments"),       # سرمایه‌گذاری‌های بلندمدت
+    ("125", "inv_loans_to_others"),      # تسهیلات اعطایی به دیگران
+    ("115", "inv_held_for_sale"),        # دارایی‌های نگهداری‌شده برای فروش
+    ("113", "inv_st_investments"),       # سرمایه‌گذاری‌های کوتاه‌مدت
+    # ----- Financing categories -----
+    ("311", "fin_capital"),              # افزایش سرمایه
+    ("312", "fin_capital_in_progress"),  # افزایش سرمایه در جریان
+    ("313", "fin_share_premium"),        # صرف سهام
+    ("314", "fin_treasury_premium"),     # صرف سهام خزانه
+    ("34", "fin_treasury_stock"),        # سهام خزانه
+    ("214", "fin_dividends"),            # سود سهام پرداختنی
+    ("215", "fin_st_loans"),             # تسهیلات کوتاه‌مدت
+    ("222", "fin_lt_loans"),             # تسهیلات بلندمدت
+    # ----- Operating tax marker -----
+    ("213", "op_tax_paid"),              # مالیات پرداختنی
 ]
 
 
-def _cf_bucket(code: str) -> tuple[str, str]:
-    """Return (section, bucket) for a counterparty account code.
+def _cf_section_for_category(category: str) -> str:
+    if category.startswith("inv_"):
+        return "investing"
+    if category.startswith("fin_"):
+        return "financing"
+    return "operating"
 
-    Sections: "operating" | "investing" | "financing".
-    The default falls back to operating for anything not explicitly mapped.
+
+def _cf_bucket(code: str) -> tuple[str, str]:
+    """Return the (section, category) for a counterparty account code.
+
+    Kept for the unit test that pins counterparty-prefix routing.
+    Returned categories are the *combined* (non-directional) names —
+    callers that need an inflow/outflow split should use
+    :func:`_cf_bucket_directional`.
     """
-    for prefix, bucket in _CF_COUNTER_MAP:
+    for prefix, category in _CF_CATEGORY_MAP:
         if code.startswith(prefix):
-            if bucket.startswith("inv_"):
-                return ("investing", bucket)
-            if bucket.startswith("fin_"):
-                return ("financing", bucket)
-            return ("operating", bucket)
+            return (_cf_section_for_category(category), category)
     return ("operating", "op_other")
+
+
+def _cf_bucket_directional(code: str, cash_delta: int) -> tuple[str, str]:
+    """Return (section, bucket_with_inflow_or_outflow_suffix).
+
+    The operating residual `op_other` and the operating tax marker
+    `op_tax_paid` keep their non-suffixed names (single-line items in the
+    audited template).
+    """
+    section, category = _cf_bucket(code)
+    if category in {"op_other", "op_tax_paid"}:
+        return (section, category)
+    suffix = "_inflow" if cash_delta > 0 else "_outflow"
+    return (section, category + suffix)
 
 
 def _cash_flow_buckets(
@@ -1120,9 +1144,8 @@ def _cash_flow_buckets(
         if not counters:
             key = ("operating", "op_other")
         else:
-            # Pick the largest-absolute counter line as the primary counterparty.
             counters.sort(key=lambda ln: abs((ln.debit or 0) - (ln.credit or 0)), reverse=True)
-            key = _cf_bucket(counters[0].account.code or "")
+            key = _cf_bucket_directional(counters[0].account.code or "", cash_delta)
         buckets[key] = buckets.get(key, 0) + cash_delta
     return buckets
 
@@ -1148,25 +1171,56 @@ def _cf_section_sum(section: str, buckets: dict) -> int:
     return sum(v for (sec, _), v in buckets.items() if sec == section)
 
 
-# Ordered row template. Lines whose bucket has no activity still render (amount 0).
+# Ordered row template — matches the audited Iranian template page-for-page.
+# Buckets suffixed with `_placeholder` carry no derived data yet (require
+# explicit transaction tagging — interest/principal split, sukuk, lease, …)
+# and always render as 0; the lines exist so the statement structure is
+# always complete.
 _CF_ROW_TEMPLATE: list[tuple[str, str, str, str]] = [
-    ("operating", "op_other", "نقد حاصل از (مصرف شده در) عملیات", "Net cash from (used in) operations"),
+    # ---------------- Operating ----------------
+    ("operating", "op_other", "نقد حاصل از عملیات", "Cash from operations"),
     ("operating", "op_tax_paid", "پرداخت‌های نقدی بابت مالیات بر درآمد", "Income tax paid"),
-    ("investing", "inv_ppe", "دریافت/پرداخت نقدی دارایی‌های ثابت مشهود", "Cash flows from PP&E"),
-    ("investing", "inv_investment_property", "سرمایه‌گذاری در املاک", "Investment property"),
-    ("investing", "inv_intangibles", "دارایی‌های نامشهود", "Intangible assets"),
-    ("investing", "inv_lt_investments", "سرمایه‌گذاری‌های بلندمدت", "Long-term investments"),
-    ("investing", "inv_st_investments", "سرمایه‌گذاری‌های کوتاه‌مدت", "Short-term investments"),
-    ("investing", "inv_lt_receivables", "تسهیلات اعطایی به دیگران / دریافتنی‌های بلندمدت", "Loans granted / long-term receivables"),
-    ("financing", "fin_capital", "دریافت نقدی افزایش سرمایه (صاحبان سهام)", "Cash from capital increases"),
-    ("financing", "fin_capital_increase", "افزایش سرمایه در جریان", "Capital increase in progress"),
-    ("financing", "fin_share_premium", "صرف سهام", "Share premium"),
-    ("financing", "fin_treasury_premium", "صرف سهام خزانه", "Treasury share premium"),
-    ("financing", "fin_treasury_stock", "خرید/فروش سهام خزانه", "Treasury stock activity"),
-    ("financing", "fin_st_loans", "دریافت/پرداخت تسهیلات کوتاه‌مدت", "Short-term borrowings, net"),
-    ("financing", "fin_lt_loans", "دریافت/پرداخت تسهیلات بلندمدت", "Long-term borrowings, net"),
-    ("financing", "fin_dividends", "پرداخت سود سهام", "Dividends paid"),
+    # ---------------- Investing ----------------
+    ("investing", "inv_ppe_inflow", "دریافت‌های نقدی حاصل از فروش دارایی‌های ثابت مشهود", "Cash from sale of property, plant and equipment"),
+    ("investing", "inv_ppe_outflow", "پرداخت‌های نقدی برای خرید دارایی‌های ثابت مشهود", "Cash payments for purchase of property, plant and equipment"),
+    ("investing", "inv_held_for_sale_inflow", "دریافت‌های نقدی حاصل از فروش دارایی‌های غیرجاری نگهداری‌شده برای فروش", "Cash from sale of non-current assets held for sale"),
+    ("investing", "inv_intangibles_inflow", "دریافت‌های نقدی حاصل از فروش دارایی‌های نامشهود", "Cash from sale of intangible assets"),
+    ("investing", "inv_intangibles_outflow", "پرداخت‌های نقدی برای خرید دارایی‌های نامشهود", "Cash payments for purchase of intangible assets"),
+    ("investing", "inv_lt_investments_inflow", "دریافت‌های نقدی حاصل از فروش سرمایه‌گذاری‌های بلندمدت", "Cash from sale of long-term investments"),
+    ("investing", "inv_lt_investments_outflow", "پرداخت‌های نقدی برای تحصیل سرمایه‌گذاری‌های بلندمدت", "Cash payments for acquisition of long-term investments"),
+    ("investing", "inv_investment_property_inflow", "دریافت‌های نقدی حاصل از فروش سرمایه‌گذاری در املاک", "Cash from sale of investment property"),
+    ("investing", "inv_investment_property_outflow", "پرداخت‌های نقدی برای تحصیل سرمایه‌گذاری در املاک", "Cash payments for acquisition of investment property"),
+    ("investing", "inv_st_investments_inflow", "دریافت‌های نقدی حاصل از فروش سرمایه‌گذاری‌های کوتاه‌مدت", "Cash from sale of short-term investments"),
+    ("investing", "inv_st_investments_outflow", "پرداخت‌های نقدی برای تحصیل سرمایه‌گذاری‌های کوتاه‌مدت", "Cash payments for acquisition of short-term investments"),
+    ("investing", "inv_loans_to_others_outflow", "پرداخت‌های نقدی بابت تسهیلات اعطایی به دیگران", "Loans granted to others"),
+    ("investing", "inv_loans_to_others_inflow", "دریافت‌های نقدی حاصل از استرداد تسهیلات اعطایی به دیگران", "Repayments of loans granted to others"),
+    ("investing", "inv_loans_interest_inflow_placeholder", "دریافت‌های نقدی حاصل از سود تسهیلات اعطایی به دیگران", "Interest received on loans granted"),
+    ("investing", "inv_other_invest_interest_inflow_placeholder", "دریافت‌های نقدی حاصل از سود سایر سرمایه‌گذاری‌ها", "Interest/dividends from other investments"),
+    # ---------------- Financing ----------------
+    ("financing", "fin_capital_inflow", "دریافت‌های نقدی حاصل از افزایش سرمایه", "Cash from capital increase"),
+    ("financing", "fin_share_premium_inflow", "دریافت‌های نقدی حاصل از صرف سهام", "Cash from share premium"),
+    ("financing", "fin_treasury_stock_inflow", "دریافت‌های نقدی حاصل از فروش سهام خزانه", "Cash from sale of treasury stock"),
+    ("financing", "fin_treasury_stock_outflow", "پرداخت‌های نقدی برای خرید سهام خزانه", "Cash payments for treasury stock"),
+    ("financing", "fin_st_loans_inflow", "دریافت‌های نقدی حاصل از تسهیلات", "Cash from borrowings"),
+    ("financing", "fin_st_loans_outflow", "پرداخت‌های نقدی بابت اصل تسهیلات", "Repayment of borrowings principal"),
+    ("financing", "fin_loans_interest_outflow_placeholder", "پرداخت‌های نقدی بابت سود تسهیلات", "Interest paid on borrowings"),
+    ("financing", "fin_sukuk_inflow_placeholder", "دریافت‌های نقدی حاصل از انتشار اوراق مشارکت", "Cash from issuance of sukuk / participation papers"),
+    ("financing", "fin_sukuk_principal_outflow_placeholder", "پرداخت‌های نقدی بابت اصل اوراق مشارکت", "Repayment of sukuk principal"),
+    ("financing", "fin_sukuk_interest_outflow_placeholder", "پرداخت‌های نقدی بابت سود اوراق مشارکت", "Interest paid on sukuk"),
+    ("financing", "fin_debt_paper_inflow_placeholder", "دریافت‌های نقدی حاصل از انتشار اوراق خرید دین", "Cash from issuance of debt paper"),
+    ("financing", "fin_debt_paper_principal_outflow_placeholder", "پرداخت‌های نقدی بابت اصل اوراق خرید دین", "Repayment of debt-paper principal"),
+    ("financing", "fin_debt_paper_interest_outflow_placeholder", "پرداخت‌های نقدی بابت سود اوراق خرید دین", "Interest paid on debt paper"),
+    ("financing", "fin_lease_principal_outflow_placeholder", "پرداخت‌های نقدی بابت اصل اقساط اجاره سرمایه‌ای", "Capital-lease principal payments"),
+    ("financing", "fin_lease_interest_outflow_placeholder", "پرداخت‌های نقدی بابت سود اجاره سرمایه‌ای", "Capital-lease interest payments"),
+    ("financing", "fin_dividends_outflow", "پرداخت‌های نقدی بابت سود سهام", "Dividends paid"),
 ]
+
+
+def _opening_cash_balance(
+    db: Session, accounts: list[Account], as_of: date, currency: str | None
+) -> int:
+    """Return the cash balance (`current_assets/ca_cash`) at end-of-day `as_of`."""
+    return _balance_sheet_buckets(db, accounts, as_of, currency).get(("current_assets", "ca_cash"), 0)
 
 
 def build_iran_cash_flow(
@@ -1192,8 +1246,18 @@ def build_iran_cash_flow(
     inv_pri = _cf_section_sum("investing", prior)
     fin_cur = _cf_section_sum("financing", current)
     fin_pri = _cf_section_sum("financing", prior)
-    net_cur = op_cur + inv_cur + fin_cur
-    net_pri = op_pri + inv_pri + fin_pri
+    before_fin_cur = op_cur + inv_cur
+    before_fin_pri = op_pri + inv_pri
+    net_cur = before_fin_cur + fin_cur
+    net_pri = before_fin_pri + fin_pri
+
+    accounts = list_accounts(db)
+    opening_cash_cur = _opening_cash_balance(db, accounts, period.from_date - timedelta(days=1), currency)
+    opening_cash_pri = _opening_cash_balance(db, accounts, comparative_from_date - timedelta(days=1), currency)
+    closing_cash_cur = _opening_cash_balance(db, accounts, period.to_date, currency)
+    closing_cash_pri = _opening_cash_balance(db, accounts, comparative_to_date, currency)
+    fx_effect_cur = closing_cash_cur - (opening_cash_cur + net_cur)
+    fx_effect_pri = closing_cash_pri - (opening_cash_pri + net_pri)
 
     def _lines(section: str) -> list[IranStatementRow]:
         return [
@@ -1203,16 +1267,21 @@ def build_iran_cash_flow(
         ]
 
     rows: list[IranStatementRow] = [
-        _header("operating_section", "جریان‌های نقدی حاصل از فعالیت‌های عملیاتی", label_en="Cash flows from operating activities"),
+        _header("operating_section", "جریان‌های نقدی حاصل از فعالیت‌های عملیاتی:", label_en="Cash flows from operating activities:"),
         *_lines("operating"),
-        _subtotal("operating_net", "جریان خالص نقد (ورود/خروج) از فعالیت‌های عملیاتی", op_cur, op_pri, label_en="Net cash from operating activities"),
-        _header("investing_section", "جریان‌های نقدی حاصل از فعالیت‌های سرمایه‌گذاری", label_en="Cash flows from investing activities"),
+        _subtotal("operating_net", "جریان خالص ورود (خروج) نقد حاصل از فعالیت‌های عملیاتی", op_cur, op_pri, label_en="Net cash from operating activities"),
+        _header("investing_section", "جریان‌های نقدی حاصل از فعالیت‌های سرمایه‌گذاری:", label_en="Cash flows from investing activities:"),
         *_lines("investing"),
-        _subtotal("investing_net", "جریان خالص نقد (ورود/خروج) از فعالیت‌های سرمایه‌گذاری", inv_cur, inv_pri, label_en="Net cash from investing activities"),
-        _header("financing_section", "جریان‌های نقدی حاصل از فعالیت‌های تامین مالی", label_en="Cash flows from financing activities"),
+        _subtotal("investing_net", "جریان خالص ورود (خروج) نقد حاصل از فعالیت‌های سرمایه‌گذاری", inv_cur, inv_pri, label_en="Net cash from investing activities"),
+        _subtotal("net_before_financing", "جریان خالص ورود (خروج) نقد قبل از فعالیت‌های تامین مالی", before_fin_cur, before_fin_pri, label_en="Net cash before financing activities"),
+        _header("financing_section", "جریان‌های نقدی حاصل از فعالیت‌های تامین مالی:", label_en="Cash flows from financing activities:"),
         *_lines("financing"),
-        _subtotal("financing_net", "جریان خالص نقد (ورود/خروج) از فعالیت‌های تامین مالی", fin_cur, fin_pri, label_en="Net cash from financing activities"),
-        _subtotal("net_cash_change", "خالص افزایش (کاهش) در موجودی نقد", net_cur, net_pri, label_en="Net change in cash", row_type="total"),
+        _subtotal("financing_net", "جریان خالص ورود (خروج) نقد حاصل از فعالیت‌های تامین مالی", fin_cur, fin_pri, label_en="Net cash from financing activities"),
+        _subtotal("net_cash_change", "خالص افزایش (کاهش) در موجودی نقد", net_cur, net_pri, label_en="Net change in cash"),
+        _subtotal("opening_cash", "مانده موجودی نقد در ابتدای سال", opening_cash_cur, opening_cash_pri, label_en="Opening cash balance"),
+        _subtotal("fx_rate_effect", "تاثیر تغییرات نرخ ارز", fx_effect_cur, fx_effect_pri, label_en="Effect of foreign-exchange rate changes"),
+        _subtotal("closing_cash", "مانده موجودی نقد در پایان سال", closing_cash_cur, closing_cash_pri, label_en="Closing cash balance", row_type="total"),
+        _subtotal("non_cash_transactions", "معاملات غیرنقدی", 0, 0, label_en="Non-cash transactions (disclosure only)"),
     ]
 
     return IranCashFlowResponse(
@@ -1221,7 +1290,17 @@ def build_iran_cash_flow(
         rows=rows,
         metadata={
             "currency": currency,
-            "note": "Classification uses the primary counterparty account prefix; tag transactions with richer metadata to refine further.",
+            "fx_effect_method": (
+                "FX rate effect = closing cash − (opening cash + net change). "
+                "It captures any unexplained-by-flows residual (typically FX revaluation)."
+            ),
+            "note": (
+                "Lines suffixed with `_placeholder` (sukuk, debt paper, lease, "
+                "interest split for borrowings/loans, etc.) require explicit "
+                "transaction tagging and remain zero until that metadata is "
+                "captured. Other lines are derived from counterparty-prefix + "
+                "cash-delta sign."
+            ),
         },
     )
 

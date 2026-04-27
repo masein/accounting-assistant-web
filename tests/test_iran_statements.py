@@ -529,12 +529,18 @@ class TestIranCashFlow:
             "operating_net",
             "investing_section",
             "investing_net",
+            "net_before_financing",
             "financing_section",
             "financing_net",
             "net_cash_change",
+            "opening_cash",
+            "fx_rate_effect",
+            "closing_cash",
+            "non_cash_transactions",
         ):
             assert key in rows, f"missing key: {key}"
-        assert rows["net_cash_change"]["row_type"] == "total"
+        # Closing cash is the bottom-line total in the reconciliation block.
+        assert rows["closing_cash"]["row_type"] == "total"
 
     def test_classification_by_counterparty_prefix(self, auth_client, db):
         _purge_transactions(db)
@@ -560,18 +566,26 @@ class TestIranCashFlow:
         )
         assert resp.status_code == 200, resp.text
         rows = _rows_by_key(resp.json())
-        # 3110 → fin_capital (+5M inflow, positive)
-        assert rows["fin_capital"]["amount_current"] == 5_000_000
-        # 1210 → inv_ppe (outflow -2M)
-        assert rows["inv_ppe"]["amount_current"] == -2_000_000
+        # 3110 + positive cash delta → fin_capital_inflow (+5M)
+        assert rows["fin_capital_inflow"]["amount_current"] == 5_000_000
+        # 1210 + negative cash delta → inv_ppe_outflow (-2M)
+        assert rows["inv_ppe_outflow"]["amount_current"] == -2_000_000
         # 6110 didn't match any specific bucket → op_other (-500K)
         assert rows["op_other"]["amount_current"] == -500_000
         # Section totals.
         assert rows["financing_net"]["amount_current"] == 5_000_000
         assert rows["investing_net"]["amount_current"] == -2_000_000
         assert rows["operating_net"]["amount_current"] == -500_000
+        # Before-financing subtotal = operating + investing.
+        assert rows["net_before_financing"]["amount_current"] == -2_500_000
         # Net change = 5M - 2M - 500K = 2.5M.
         assert rows["net_cash_change"]["amount_current"] == 2_500_000
+        # Reconciliation: closing cash should equal opening + net_change + fx_effect.
+        assert rows["closing_cash"]["amount_current"] == (
+            rows["opening_cash"]["amount_current"]
+            + rows["net_cash_change"]["amount_current"]
+            + rows["fx_rate_effect"]["amount_current"]
+        )
 
     def test_cf_bucket_routing_unit(self):
         from app.services.reporting.iran_statement_service import _cf_bucket

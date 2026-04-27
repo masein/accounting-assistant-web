@@ -83,10 +83,28 @@ def patch_ai_config(payload: AIConfigPatch, _=Depends(require_admin)) -> dict:
 
 
 @router.post("/reset-db")
-def reset_db(db: Session = Depends(get_db), _=Depends(require_admin)) -> dict:
+def reset_db(
+    db: Session = Depends(get_db),
+    locale: str = "ir",
+    with_demo_data: bool = False,
+    _=Depends(require_admin),
+) -> dict:
     """
-    Delete all data and re-seed the chart of accounts. Entities, transactions, and trial balances are cleared.
+    Delete all data and re-seed the chart of accounts. Entities, transactions,
+    and trial balances are cleared.
+
+    Optional query parameters:
+    - ``locale`` — ``"ir"`` (default, Iranian standard chart) or ``"uk"``
+      (Sage-style FRS 102 1A chart). Also updates the reporting-locale
+      AppSetting so reports default to the matching template.
+    - ``with_demo_data`` — when ``true``, posts a curated set of journal
+      entries spanning two fiscal years so the user can demo populated
+      statements immediately.
     """
+    locale_norm = (locale or "ir").strip().lower()
+    if locale_norm not in SUPPORTED_LOCALES:
+        raise HTTPException(status_code=400, detail=f"Unsupported locale '{locale}'. Supported: {sorted(SUPPORTED_LOCALES)}")
+
     # Delete in strict dependency order (children before parents).
     try:
         db.execute(delete(TransactionEntity))
@@ -111,13 +129,28 @@ def reset_db(db: Session = Depends(get_db), _=Depends(require_admin)) -> dict:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}") from e
 
-    n = seed_chart_if_empty(db)
+    n = seed_chart_if_empty(db, locale=locale_norm)
     seed_payment_methods_if_empty(db)
     seed_admin_user_if_missing(db)
+
+    # Align the reporting-locale AppSetting with the chart we just seeded.
+    set_reporting_locale(db, "uk" if locale_norm == "uk" else "ir")
+    db.commit()
+
+    demo_entries = 0
+    if with_demo_data:
+        from app.db.demo_data import seed_iran_demo, seed_uk_demo
+        if locale_norm == "uk":
+            demo_entries = seed_uk_demo(db)
+        else:
+            demo_entries = seed_iran_demo(db)
+
     return {
         "ok": True,
         "message": "Database reset. Chart of accounts re-seeded.",
+        "locale": locale_norm,
         "accounts_created": n,
+        "demo_entries": demo_entries,
     }
 
 

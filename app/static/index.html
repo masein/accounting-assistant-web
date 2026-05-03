@@ -2545,6 +2545,58 @@
         placeholderSearchCodeName: 'Search by code or name...',
         labelProductEntityFilter: 'Product / Entity filter',
         placeholderFilterByName: 'Filter by name',
+        // Locale / calendar settings
+        localeUkOption: 'UK FRS 102 Section 1A',
+        demoSectionTitle: 'Reset and load locale demo data',
+        demoSectionDesc: "Wipes the database, seeds the locale's chart of accounts, and posts ~25 journal entries spanning two fiscal years (2024 and 2025) so the financial statements have realistic numbers. This deletes existing transactions.",
+        btnResetDemoIr: 'Reset & load Iran demo',
+        btnResetDemoUk: 'Reset & load UK demo',
+        confirmResetIr: 'Reset the database and load the Iranian demo? All current transactions will be deleted.',
+        confirmResetUk: 'Reset the database and load the UK demo? All current transactions will be deleted.',
+        displayCalendarLabel: 'Display calendar',
+        calendarGregorian: 'Gregorian (YYYY-MM-DD)',
+        calendarJalali: 'Jalali / Shamsi (تقویم شمسی)',
+        btnSaveCalendar: 'Save calendar',
+        calendarNote: 'Dates are always stored as Gregorian internally. The calendar setting affects how report headers and transaction-list dates are displayed. HTML date inputs remain Gregorian.',
+        // Chart titles for locale-specific reports
+        chartAssetComposition: 'Asset composition',
+        chartLiabilityComposition: 'Liabilities composition',
+        chartEquityComposition: 'Equity composition',
+        chartBSTrend: 'Assets / Liabilities / Equity over time',
+        chartExpenseComposition: 'Expense composition',
+        chartRevenueLines: 'Revenue / income lines',
+        chartSalesTrend: 'Sales revenue trend',
+        chartCashReconciliation: 'Cash reconciliation',
+        chartInvestingActivity: 'Investing activity (cash magnitude)',
+        chartFinancingActivity: 'Financing activity (cash magnitude)',
+        chartCashFlowOverTime: 'Cash flow over time',
+        chartNpOciTotal: 'Net profit / OCI / Comprehensive',
+        chartEquityComponents: 'Equity components: opening vs closing',
+        chartProfitWaterfall: 'Profit waterfall',
+        chartBalanceSheetCompare: 'Balance Sheet — period comparison',
+        chartComprehensiveIncome: 'Comprehensive income',
+        // Zoom controls
+        zoomHint: 'drag to zoom · shift+wheel · alt+drag to pan',
+        btnResetZoom: 'Reset zoom',
+        // Generic chart dataset labels
+        labelCurrent: 'Current',
+        labelPrior: 'Prior',
+        labelNetProfit: 'Net profit',
+        labelOciNetTax: 'OCI (net of tax)',
+        labelTotalComprehensive: 'Total comprehensive',
+        labelOpening: 'Opening',
+        labelClosing: 'Closing',
+        // Chart legend strings + assets/liab/equity short labels added for the
+        // multi-chart locale reports. (The chart-title keys themselves are
+        // already defined above — see chartAssetComposition / chartBSTrend / …)
+        legendInflow: 'Inflow',
+        legendOutflow: 'Outflow',
+        legendNet: 'Net',
+        legendMovement: 'Movement',
+        legendSales: 'Sales',
+        legendAssets: 'Assets',
+        legendLiabilities: 'Liabilities',
+        legendEquity: 'Equity',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -2883,6 +2935,55 @@
         placeholderSearchCodeName: 'جستجو بر اساس کد یا نام...',
         labelProductEntityFilter: 'فیلتر محصول / طرف حساب',
         placeholderFilterByName: 'فیلتر بر اساس نام',
+        // تنظیمات منطقه و تقویم
+        localeUkOption: 'بریتانیا — استاندارد FRS 102 بخش ۱A',
+        demoSectionTitle: 'بازنشانی و بارگذاری دادهٔ نمایشی منطقه‌ای',
+        demoSectionDesc: 'پایگاه داده پاک می‌شود، نمودار حساب‌های منطقه‌ای راه‌اندازی شده و حدود ۲۵ سند طی دو سال مالی (۱۴۰۳ و ۱۴۰۴) ثبت می‌شود تا صورت‌های مالی اعداد واقعی نمایش دهند. این عمل تراکنش‌های موجود را حذف می‌کند.',
+        btnResetDemoIr: 'بازنشانی و بارگذاری دادهٔ نمایشی ایران',
+        btnResetDemoUk: 'بازنشانی و بارگذاری دادهٔ نمایشی بریتانیا',
+        confirmResetIr: 'پایگاه داده بازنشانی و دادهٔ نمایشی ایران بارگذاری شود؟ تمام تراکنش‌های فعلی حذف خواهد شد.',
+        confirmResetUk: 'پایگاه داده بازنشانی و دادهٔ نمایشی بریتانیا بارگذاری شود؟ تمام تراکنش‌های فعلی حذف خواهد شد.',
+        displayCalendarLabel: 'تقویم نمایشی',
+        calendarGregorian: 'میلادی (YYYY-MM-DD)',
+        calendarJalali: 'شمسی (تقویم خورشیدی)',
+        btnSaveCalendar: 'ذخیرهٔ تقویم',
+        calendarNote: 'تاریخ‌ها همیشه به‌صورت میلادی ذخیره می‌شوند. این تنظیم فقط روی نحوهٔ نمایش تاریخ در سرفصل گزارش‌ها و فهرست تراکنش‌ها اثر می‌گذارد. ورودی‌های تاریخ HTML همچنان میلادی هستند.',
+        // عناوین نمودارها
+        chartAssetComposition: 'ترکیب دارایی‌ها',
+        chartLiabilityComposition: 'ترکیب بدهی‌ها',
+        chartEquityComposition: 'ترکیب حقوق مالکانه',
+        chartBSTrend: 'روند دارایی‌ها، بدهی‌ها و حقوق مالکانه',
+        chartExpenseComposition: 'ترکیب هزینه‌ها',
+        chartRevenueLines: 'اقلام درآمد',
+        chartSalesTrend: 'روند درآمد فروش',
+        chartCashReconciliation: 'مغایرت‌گیری نقد',
+        chartInvestingActivity: 'فعالیت‌های سرمایه‌گذاری (مقدار نقدی)',
+        chartFinancingActivity: 'فعالیت‌های تأمین مالی (مقدار نقدی)',
+        chartCashFlowOverTime: 'روند جریان نقد',
+        chartNpOciTotal: 'سود خالص / سایر اقلام جامع / جمع',
+        chartEquityComponents: 'اجزای حقوق مالکانه: ابتدای دوره در برابر پایان دوره',
+        chartProfitWaterfall: 'آبشار سودآوری',
+        chartBalanceSheetCompare: 'صورت وضعیت مالی — مقایسهٔ دوره‌ها',
+        chartComprehensiveIncome: 'سود و زیان جامع',
+        // کنترل‌های بزرگ‌نمایی
+        zoomHint: 'برای بزرگ‌نمایی بکشید · Shift+چرخ ماوس · Alt+کشیدن برای جابه‌جایی',
+        btnResetZoom: 'بازنشانی بزرگ‌نمایی',
+        // برچسب‌های مجموعه‌داده
+        labelCurrent: 'دوره جاری',
+        labelPrior: 'دوره قبل',
+        labelNetProfit: 'سود خالص',
+        labelOciNetTax: 'سایر اقلام سود و زیان جامع (پس از مالیات)',
+        labelTotalComprehensive: 'جمع سود و زیان جامع',
+        labelOpening: 'ابتدای دوره',
+        labelClosing: 'پایان دوره',
+        legendInflow: 'ورودی',
+        legendOutflow: 'خروجی',
+        legendNet: 'خالص',
+        legendMovement: 'تغییرات',
+        legendSales: 'فروش',
+        legendAssets: 'دارایی‌ها',
+        legendLiabilities: 'بدهی‌ها',
+        legendEquity: 'حقوق مالکانه',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -3017,6 +3118,55 @@
         placeholderTempPassword: 'contraseña temporal',
         accountDetails: 'Detalles de cuenta',
         loading: 'Cargando…',
+        // Configuración de configuración regional / calendario
+        localeUkOption: 'Reino Unido — FRS 102 Sección 1A',
+        demoSectionTitle: 'Restablecer y cargar datos de demostración por configuración regional',
+        demoSectionDesc: 'Borra la base de datos, siembra el plan de cuentas correspondiente a la configuración regional y publica ~25 asientos cubriendo dos años fiscales (2024 y 2025) para que los estados financieros tengan cifras realistas. Esto elimina las transacciones actuales.',
+        btnResetDemoIr: 'Restablecer y cargar demo de Irán',
+        btnResetDemoUk: 'Restablecer y cargar demo del Reino Unido',
+        confirmResetIr: '¿Restablecer la base de datos y cargar la demo iraní? Se eliminarán todas las transacciones actuales.',
+        confirmResetUk: '¿Restablecer la base de datos y cargar la demo del Reino Unido? Se eliminarán todas las transacciones actuales.',
+        displayCalendarLabel: 'Calendario de visualización',
+        calendarGregorian: 'Gregoriano (YYYY-MM-DD)',
+        calendarJalali: 'Jalali / Shamsi (calendario solar)',
+        btnSaveCalendar: 'Guardar calendario',
+        calendarNote: 'Las fechas se almacenan internamente siempre como gregorianas. Esta configuración solo afecta cómo se muestran las fechas en los encabezados de informes y listas de transacciones. Los inputs HTML de fecha siguen siendo gregorianos.',
+        // Títulos de gráficos
+        chartAssetComposition: 'Composición del activo',
+        chartLiabilityComposition: 'Composición del pasivo',
+        chartEquityComposition: 'Composición del patrimonio',
+        chartBSTrend: 'Activos / Pasivos / Patrimonio en el tiempo',
+        chartExpenseComposition: 'Composición de gastos',
+        chartRevenueLines: 'Líneas de ingresos',
+        chartSalesTrend: 'Tendencia de ventas',
+        chartCashReconciliation: 'Conciliación de efectivo',
+        chartInvestingActivity: 'Actividades de inversión (magnitud)',
+        chartFinancingActivity: 'Actividades de financiación (magnitud)',
+        chartCashFlowOverTime: 'Flujo de efectivo en el tiempo',
+        chartNpOciTotal: 'Utilidad neta / OCI / Integral',
+        chartEquityComponents: 'Componentes del patrimonio: apertura vs cierre',
+        chartProfitWaterfall: 'Cascada de utilidad',
+        chartBalanceSheetCompare: 'Balance — comparación de períodos',
+        chartComprehensiveIncome: 'Resultado integral',
+        // Controles de zoom
+        zoomHint: 'arrastrar para acercar · Shift+rueda · Alt+arrastrar para desplazar',
+        btnResetZoom: 'Restablecer zoom',
+        // Etiquetas de conjuntos de datos
+        labelCurrent: 'Actual',
+        labelPrior: 'Anterior',
+        labelNetProfit: 'Utilidad neta',
+        labelOciNetTax: 'OCI (neto de impuestos)',
+        labelTotalComprehensive: 'Total integral',
+        labelOpening: 'Apertura',
+        labelClosing: 'Cierre',
+        legendInflow: 'Entrada',
+        legendOutflow: 'Salida',
+        legendNet: 'Neto',
+        legendMovement: 'Movimiento',
+        legendSales: 'Ventas',
+        legendAssets: 'Activos',
+        legendLiabilities: 'Pasivos',
+        legendEquity: 'Patrimonio',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -3151,6 +3301,55 @@
         placeholderTempPassword: 'كلمة مرور مؤقتة',
         accountDetails: 'تفاصيل الحساب',
         loading: 'جارٍ التحميل…',
+        // إعدادات اللغة والتقويم
+        localeUkOption: 'المملكة المتحدة — FRS 102 القسم 1A',
+        demoSectionTitle: 'إعادة الضبط وتحميل بيانات العرض حسب اللغة',
+        demoSectionDesc: 'تُمحى قاعدة البيانات، ويُنشَأ دليل الحسابات الإقليمي، وتُسجَّل ~25 قيدًا تمتد على سنتين ماليتين (2024 و2025) لتحتوي القوائم المالية على أرقام واقعية. يحذف ذلك المعاملات الحالية.',
+        btnResetDemoIr: 'إعادة الضبط وتحميل عرض إيران',
+        btnResetDemoUk: 'إعادة الضبط وتحميل عرض المملكة المتحدة',
+        confirmResetIr: 'هل تريد إعادة ضبط قاعدة البيانات وتحميل العرض الإيراني؟ ستُحذف جميع المعاملات الحالية.',
+        confirmResetUk: 'هل تريد إعادة ضبط قاعدة البيانات وتحميل عرض المملكة المتحدة؟ ستُحذف جميع المعاملات الحالية.',
+        displayCalendarLabel: 'تقويم العرض',
+        calendarGregorian: 'ميلادي (YYYY-MM-DD)',
+        calendarJalali: 'هجري شمسي',
+        btnSaveCalendar: 'حفظ التقويم',
+        calendarNote: 'تُخزَّن التواريخ دائمًا بالتقويم الميلادي داخليًا. يؤثر هذا الإعداد فقط على كيفية عرض التواريخ في رؤوس التقارير وقوائم المعاملات. تبقى مدخلات التواريخ في HTML ميلادية.',
+        // عناوين الرسوم البيانية
+        chartAssetComposition: 'تركيبة الأصول',
+        chartLiabilityComposition: 'تركيبة الخصوم',
+        chartEquityComposition: 'تركيبة حقوق الملكية',
+        chartBSTrend: 'الأصول / الخصوم / حقوق الملكية عبر الزمن',
+        chartExpenseComposition: 'تركيبة المصروفات',
+        chartRevenueLines: 'بنود الإيرادات',
+        chartSalesTrend: 'اتجاه إيرادات المبيعات',
+        chartCashReconciliation: 'تسوية النقد',
+        chartInvestingActivity: 'النشاط الاستثماري (حجم النقد)',
+        chartFinancingActivity: 'النشاط التمويلي (حجم النقد)',
+        chartCashFlowOverTime: 'التدفق النقدي عبر الزمن',
+        chartNpOciTotal: 'صافي الربح / الدخل الشامل الآخر / الإجمالي',
+        chartEquityComponents: 'مكونات حقوق الملكية: الافتتاح مقابل الإقفال',
+        chartProfitWaterfall: 'شلال الأرباح',
+        chartBalanceSheetCompare: 'بيان المركز المالي — مقارنة الفترات',
+        chartComprehensiveIncome: 'الدخل الشامل',
+        // عناصر التحكم بالتكبير
+        zoomHint: 'اسحب للتكبير · Shift+العجلة · Alt+سحب للتحريك',
+        btnResetZoom: 'إعادة ضبط التكبير',
+        // تسميات مجموعات البيانات
+        labelCurrent: 'الحالي',
+        labelPrior: 'السابق',
+        labelNetProfit: 'صافي الربح',
+        labelOciNetTax: 'الدخل الشامل الآخر (صافي بعد الضريبة)',
+        labelTotalComprehensive: 'إجمالي الدخل الشامل',
+        labelOpening: 'الافتتاح',
+        labelClosing: 'الإقفال',
+        legendInflow: 'وارد',
+        legendOutflow: 'صادر',
+        legendNet: 'الصافي',
+        legendMovement: 'الحركة',
+        legendSales: 'المبيعات',
+        legendAssets: 'الأصول',
+        legendLiabilities: 'الالتزامات',
+        legendEquity: 'حقوق الملكية',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -4179,13 +4378,13 @@
       if (hasZoom) {
         const hint = document.createElement('span');
         hint.style.cssText = 'font-size:0.72rem;color:var(--text-muted);font-weight:400;';
-        hint.textContent = 'drag to zoom · shift+wheel · alt+drag to pan';
+        hint.textContent = t('zoomHint') || 'drag to zoom · shift+wheel · alt+drag to pan';
         h.appendChild(hint);
         const resetBtn = document.createElement('button');
         resetBtn.type = 'button';
         resetBtn.className = 'btn btn-secondary btn-sm';
         resetBtn.style.cssText = 'padding:2px 8px;font-size:0.72rem;';
-        resetBtn.textContent = 'Reset zoom';
+        resetBtn.textContent = t('btnResetZoom') || 'Reset zoom';
         resetBtn.dataset.role = 'reset-zoom';
         h.appendChild(resetBtn);
       }
@@ -4384,8 +4583,8 @@
           data: {
             labels: rows.map(ROW_LABEL),
             datasets: [
-              { label: 'Current', data: rows.map(r => _amt(r, 'amount_current')), backgroundColor: palette[0] },
-              { label: 'Prior', data: rows.map(r => _amt(r, 'amount_prior')), backgroundColor: palette[1] },
+              { label: t('labelCurrent') || 'Current', data: rows.map(r => _amt(r, 'amount_current')), backgroundColor: palette[0] },
+              { label: t('labelPrior') || 'Prior', data: rows.map(r => _amt(r, 'amount_prior')), backgroundColor: palette[1] },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } },
@@ -4443,15 +4642,15 @@
         const equityKeys = isUK
           ? ['eq_share_capital', 'eq_share_premium', 'eq_revaluation_reserve', 'eq_other_reserves', 'eq_pl_account']
           : ['eq_capital', 'eq_share_premium', 'eq_legal_reserve', 'eq_other_reserves', 'eq_revaluation_surplus', 'eq_retained_earnings', 'eq_treasury_stock'];
-        _compositionPie('Asset composition', assetKeys);
-        _compositionPie('Liabilities composition', liabKeys);
-        _compositionPie('Equity composition', equityKeys);
+        _compositionPie(t('chartAssetComposition') || 'Asset composition', assetKeys);
+        _compositionPie(t('chartLiabilityComposition') || 'Liabilities composition', liabKeys);
+        _compositionPie(t('chartEquityComposition') || 'Equity composition', equityKeys);
         // Trend across periods (uses default-locale endpoint; both locales share the chart of accounts ranges via classify_account_code).
-        _addPeriodsTrend('/manager-reports/financial/balance-sheet-periods', 'Assets / Liabilities / Equity over time',
+        _addPeriodsTrend('/manager-reports/financial/balance-sheet-periods', t('chartBSTrend') || 'Assets / Liabilities / Equity over time',
           [
-            { field: 'assets', label: 'Assets', color: palette[0] },
-            { field: 'liabilities', label: 'Liabilities', color: '#c62828' },
-            { field: 'equity', label: 'Equity', color: palette[1] },
+            { field: 'assets', label: t('legendAssets') || 'Assets', color: palette[0] },
+            { field: 'liabilities', label: t('legendLiabilities') || 'Liabilities', color: '#c62828' },
+            { field: 'equity', label: t('legendEquity') || 'Equity', color: palette[1] },
           ]);
       }
 
@@ -4463,14 +4662,14 @@
         const expenseKeys = isUK
           ? ['cost_of_sales', 'distribution_costs', 'admin_expenses', 'interest_payable', 'tax_on_profit']
           : ['cogs', 'opex_sga', 'impairment_receivables', 'other_operating_expenses', 'financial_expenses', 'tax_current_year', 'tax_prior_years'];
-        _compositionPie('Expense composition', expenseKeys, v => Math.abs(v));
+        _compositionPie(t('chartExpenseComposition') || 'Expense composition', expenseKeys, v => Math.abs(v));
         // Revenue / income comparison
         const revKeys = isUK ? ['turnover', 'other_operating_income', 'investment_income', 'interest_receivable']
                               : ['revenue_operating', 'other_operating_income', 'non_operating_net'];
-        _comparisonBar('Revenue / income lines', revKeys, isUK ? '4' : '41,42,43');
+        _comparisonBar(t('chartRevenueLines') || 'Revenue / income lines', revKeys, isUK ? '4' : '41,42,43');
         // Sales trend (period-aware): only if we have a sales endpoint — works for any locale
-        _addPeriodsTrend('/manager-reports/sales/trend', 'Sales revenue trend',
-          [{ field: 'sales_amount', label: 'Sales', color: palette[0] }]);
+        _addPeriodsTrend('/manager-reports/sales/trend', t('chartSalesTrend') || 'Sales revenue trend',
+          [{ field: 'sales_amount', label: t('legendSales') || 'Sales', color: palette[0] }]);
       }
 
       // ── Iran / UK Cash Flow ─────────────────────────────────────────
@@ -4484,12 +4683,12 @@
                          isUK ? 'fx_effect' : 'fx_rate_effect',
                          isUK ? 'closing_cash' : 'closing_cash'].map(k => _findRow(k)).filter(r => r);
         if (recRows.length >= 4) {
-          _addExtraChart('Cash reconciliation', {
+          _addExtraChart(t('chartCashReconciliation') || 'Cash reconciliation', {
             type: 'bar',
             data: {
-              labels: recRows.map(ROW_LABEL),
+              labels: recRows.map(r => _localizeDatesInLabel(ROW_LABEL(r))),
               datasets: [{
-                label: 'Movement',
+                label: t('legendMovement') || 'Movement',
                 data: recRows.map(r => _amt(r, 'amount_current')),
                 backgroundColor: recRows.map(r => _amt(r, 'amount_current') >= 0 ? palette[0] : '#c62828'),
               }],
@@ -4503,19 +4702,19 @@
           : ['inv_ppe_inflow', 'inv_ppe_outflow', 'inv_intangibles_inflow', 'inv_intangibles_outflow',
              'inv_lt_investments_inflow', 'inv_lt_investments_outflow', 'inv_st_investments_inflow', 'inv_st_investments_outflow',
              'inv_loans_to_others_outflow', 'inv_loans_to_others_inflow'];
-        _compositionPie('Investing activity (cash magnitude)', invKeys, v => Math.abs(v));
+        _compositionPie(t('chartInvestingActivity') || 'Investing activity (cash magnitude)', invKeys, v => Math.abs(v));
         // Financing breakdown
         const finKeys = isUK
           ? ['fin_share_capital_inflow', 'fin_share_premium_inflow', 'fin_borrowings_inflow', 'fin_borrowings_outflow', 'fin_lease_outflow', 'fin_dividends_outflow']
           : ['fin_capital_inflow', 'fin_share_premium_inflow', 'fin_st_loans_inflow', 'fin_st_loans_outflow',
              'fin_loans_interest_outflow_placeholder', 'fin_dividends_outflow'];
-        _compositionPie('Financing activity (cash magnitude)', finKeys, v => Math.abs(v));
+        _compositionPie(t('chartFinancingActivity') || 'Financing activity (cash magnitude)', finKeys, v => Math.abs(v));
         // Period trend: inflow / outflow / net using the default cash-flow-periods endpoint
-        _addPeriodsTrend('/manager-reports/financial/cash-flow-periods', 'Cash flow over time',
+        _addPeriodsTrend('/manager-reports/financial/cash-flow-periods', t('chartCashFlowOverTime') || 'Cash flow over time',
           [
-            { field: 'inflow', label: 'Inflow', color: palette[0] },
-            { field: 'outflow', label: 'Outflow', color: '#c62828' },
-            { field: 'net', label: 'Net', color: palette[1] },
+            { field: 'inflow', label: t('legendInflow') || 'Inflow', color: palette[0] },
+            { field: 'outflow', label: t('legendOutflow') || 'Outflow', color: '#c62828' },
+            { field: 'net', label: t('legendNet') || 'Net', color: palette[1] },
           ]);
       }
 
@@ -4524,7 +4723,7 @@
         const npKey = rt === 'uk_comprehensive_income' ? 'profit_for_year' : 'net_profit';
         const ociKey = 'oci_total';
         const totalKey = rt === 'uk_comprehensive_income' ? 'total_comprehensive_income' : 'comprehensive_income';
-        _comparisonBar('Net profit / OCI / Comprehensive', [npKey, ociKey, totalKey]);
+        _comparisonBar(t('chartNpOciTotal') || 'Net profit / OCI / Comprehensive', [npKey, ociKey, totalKey]);
       }
 
       // ── Iran / UK Changes in Equity ─────────────────────────────────
@@ -4538,13 +4737,13 @@
           const cellsOf = (row) => Object.fromEntries((row.cells || []).map(c => [c.component, c.amount]));
           const openCells = cellsOf(openingRow);
           const closeCells = cellsOf(closingRow);
-          _addExtraChart('Equity components: opening vs closing', {
+          _addExtraChart(t('chartEquityComponents') || 'Equity components: opening vs closing', {
             type: 'bar',
             data: {
               labels: components.map(c => c.label_fa || c.label || c.key),
               datasets: [
-                { label: 'Opening', data: components.map(c => Number(openCells[c.key] || 0)), backgroundColor: palette[1] },
-                { label: 'Closing', data: components.map(c => Number(closeCells[c.key] || 0)), backgroundColor: palette[0] },
+                { label: t('labelOpening') || 'Opening', data: components.map(c => Number(openCells[c.key] || 0)), backgroundColor: palette[1] },
+                { label: t('labelClosing') || 'Closing', data: components.map(c => Number(closeCells[c.key] || 0)), backgroundColor: palette[0] },
               ],
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } },
@@ -5658,12 +5857,12 @@
         if ((assetsCur + liabCur + eqCur) === 0) return null;
         return {
           type: 'bar',
-          title: isUK ? 'Balance Sheet — period comparison' : t('chartBalanceSheetMix'),
+          title: isUK ? (t('chartBalanceSheetCompare') || 'Balance Sheet — period comparison') : t('chartBalanceSheetMix'),
           data: {
             labels: [t('sectionAssets') || 'Assets', t('sectionLiabilities') || 'Liabilities', t('sectionEquity') || 'Equity'],
             datasets: [
-              { label: 'Current', data: [assetsCur, liabCur, eqCur], backgroundColor: palette[0] },
-              { label: 'Prior', data: [assetsPri, liabPri, eqPri], backgroundColor: palette[1] },
+              { label: t('labelCurrent') || 'Current', data: [assetsCur, liabCur, eqCur], backgroundColor: palette[0] },
+              { label: t('labelPrior') || 'Prior', data: [assetsPri, liabPri, eqPri], backgroundColor: palette[1] },
             ]
           }
         };
@@ -5680,12 +5879,12 @@
         if (cur.every(v => v === 0) && pri.every(v => v === 0)) return null;
         return {
           type: 'bar',
-          title: isUK ? 'Profit waterfall' : t('chartIncomeStatement'),
+          title: isUK ? (t('chartProfitWaterfall') || 'Profit waterfall') : t('chartIncomeStatement'),
           data: {
-            labels: ['Gross', 'Operating', 'Before tax', 'Net'],
+            labels: [t('labelGrossShort') || 'Gross', t('labelOperatingShort') || 'Operating', t('labelBeforeTaxShort') || 'Before tax', t('labelNetShort') || 'Net'],
             datasets: [
-              { label: 'Current', data: cur, backgroundColor: palette[0] },
-              { label: 'Prior', data: pri, backgroundColor: palette[1] },
+              { label: t('labelCurrent') || 'Current', data: cur, backgroundColor: palette[0] },
+              { label: t('labelPrior') || 'Prior', data: pri, backgroundColor: palette[1] },
             ]
           }
         };
@@ -5705,8 +5904,8 @@
           data: {
             labels: [t('fieldOperating') || 'Operating', t('fieldInvesting') || 'Investing', t('fieldFinancing') || 'Financing', t('fieldNetChange') || 'Net change'],
             datasets: [
-              { label: 'Current', data: cur, backgroundColor: palette[0] },
-              { label: 'Prior', data: pri, backgroundColor: palette[1] },
+              { label: t('labelCurrent') || 'Current', data: cur, backgroundColor: palette[0] },
+              { label: t('labelPrior') || 'Prior', data: pri, backgroundColor: palette[1] },
             ]
           }
         };
@@ -5721,12 +5920,12 @@
         if (cur.every(v => v === 0) && pri.every(v => v === 0)) return null;
         return {
           type: 'bar',
-          title: 'Comprehensive income',
+          title: t('chartNpOciTotal') || 'Comprehensive income',
           data: {
-            labels: ['Net profit', 'OCI (net of tax)', 'Total comprehensive'],
+            labels: [t('labelNetProfitShort') || 'Net profit', t('labelOciNetTax') || 'OCI (net of tax)', t('labelTotalComprehensive') || 'Total comprehensive'],
             datasets: [
-              { label: 'Current', data: cur, backgroundColor: palette[0] },
-              { label: 'Prior', data: pri, backgroundColor: palette[1] },
+              { label: t('labelCurrent') || 'Current', data: cur, backgroundColor: palette[0] },
+              { label: t('labelPrior') || 'Prior', data: pri, backgroundColor: palette[1] },
             ]
           }
         };
@@ -7795,8 +7994,8 @@
       const otherId = locale === 'ir' ? 'reset-demo-uk-btn' : 'reset-demo-ir-btn';
       const otherBtn = document.getElementById(otherId);
       const confirmMsg = locale === 'ir'
-        ? 'Reset the database and load the Iranian demo? All current transactions will be deleted.'
-        : 'Reset the database and load the UK demo? All current transactions will be deleted.';
+        ? (t('confirmResetIranian') || 'Reset the database and load the Iranian demo? All current transactions will be deleted.')
+        : (t('confirmResetUk') || 'Reset the database and load the UK demo? All current transactions will be deleted.');
       if (!confirm(confirmMsg)) return;
       button.disabled = true;
       if (otherBtn) otherBtn.disabled = true;

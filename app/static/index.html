@@ -1727,52 +1727,52 @@
       </div>
 
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
-        <h2 style="margin-bottom:0.5rem;">Reporting locale</h2>
-        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">
+        <h2 id="reporting-locale-heading" data-i18n="settingsReportingLocale" style="margin-bottom:0.5rem;">Reporting locale</h2>
+        <p id="reporting-locale-desc" data-i18n="settingsReportingLocaleDesc" style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">
           Choose the financial statement template. Iranian standard matches رهنمودهای استاندارد حسابداری ایران (TSE-listed format). UK uses the FRS 102 Section 1A format from Companies Act 2006.
         </p>
         <div class="row" style="margin-bottom:0.5rem;">
           <div>
-            <label for="reporting-locale-select">Template</label>
+            <label for="reporting-locale-select" data-i18n="settingsTemplateLabel">Template</label>
             <select id="reporting-locale-select">
-              <option value="default">Default (IFRS-style)</option>
-              <option value="ir">Iranian standard (ایران)</option>
-              <option value="uk">UK FRS 102 Section 1A</option>
+              <option value="default" data-i18n="localeDefaultOption">Default (IFRS-style)</option>
+              <option value="ir" data-i18n="localeIrOption">Iranian standard (ایران)</option>
+              <option value="uk" data-i18n="localeUkOption">UK FRS 102 Section 1A</option>
             </select>
           </div>
           <div style="display:flex; align-items:flex-end;">
-            <button type="button" class="btn btn-secondary" id="reporting-locale-save-btn">Save locale</button>
+            <button type="button" class="btn btn-secondary" id="reporting-locale-save-btn" data-i18n="btnSaveLocale">Save locale</button>
           </div>
           <div style="display:flex; align-items:center; font-size:0.85rem; color:var(--text-muted);" id="reporting-locale-status"></div>
         </div>
 
         <div class="row" style="margin-bottom:0.5rem;">
           <div>
-            <label for="display-calendar-select">Display calendar</label>
+            <label for="display-calendar-select" data-i18n="displayCalendarLabel">Display calendar</label>
             <select id="display-calendar-select">
-              <option value="gregorian">Gregorian (YYYY-MM-DD)</option>
-              <option value="jalali">Jalali / Shamsi (تقویم شمسی)</option>
+              <option value="gregorian" data-i18n="calendarGregorian">Gregorian (YYYY-MM-DD)</option>
+              <option value="jalali" data-i18n="calendarJalali">Jalali / Shamsi (تقویم شمسی)</option>
             </select>
           </div>
           <div style="display:flex; align-items:flex-end;">
-            <button type="button" class="btn btn-secondary" id="display-calendar-save-btn">Save calendar</button>
+            <button type="button" class="btn btn-secondary" id="display-calendar-save-btn" data-i18n="btnSaveCalendar">Save calendar</button>
           </div>
           <div style="display:flex; align-items:center; font-size:0.85rem; color:var(--text-muted);" id="display-calendar-status"></div>
         </div>
-        <p style="color: var(--text-muted); font-size: 0.78rem; margin: 0 0 0.7rem 0;">
+        <p id="display-calendar-note" data-i18n="calendarNote" style="color: var(--text-muted); font-size: 0.78rem; margin: 0 0 0.7rem 0;">
           Dates are always stored as Gregorian internally. The calendar
           setting affects how report headers and transaction-list dates are
           displayed. HTML date inputs remain Gregorian.
         </p>
 
         <div style="margin-top:0.9rem; padding:0.75rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
-          <div style="font-weight:600; margin-bottom:0.35rem;">Reset and load locale demo data</div>
-          <p style="color: var(--text-muted); font-size: 0.82rem; margin:0 0 0.6rem 0;">
+          <div id="demo-section-title" data-i18n="demoSectionTitle" style="font-weight:600; margin-bottom:0.35rem;">Reset and load locale demo data</div>
+          <p id="demo-section-desc" data-i18n="demoSectionDesc" style="color: var(--text-muted); font-size: 0.82rem; margin:0 0 0.6rem 0;">
             Wipes the database, seeds the locale's chart of accounts, and posts ~25 journal entries spanning two fiscal years (2024 and 2025) so the financial statements have realistic numbers. <strong>This deletes existing transactions.</strong>
           </p>
           <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center;">
-            <button type="button" class="btn btn-secondary btn-sm" id="reset-demo-ir-btn">Reset &amp; load Iran demo</button>
-            <button type="button" class="btn btn-secondary btn-sm" id="reset-demo-uk-btn">Reset &amp; load UK demo</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="reset-demo-ir-btn" data-i18n="btnResetDemoIr">Reset &amp; load Iran demo</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="reset-demo-uk-btn" data-i18n="btnResetDemoUk">Reset &amp; load UK demo</button>
             <span id="reset-demo-status" style="font-size:0.83rem;color:var(--text-muted);"></span>
           </div>
         </div>
@@ -2597,6 +2597,14 @@
         legendAssets: 'Assets',
         legendLiabilities: 'Liabilities',
         legendEquity: 'Equity',
+      
+        // ── Settings panel (locale + calendar + demo) ──
+        settingsReportingLocale: 'Reporting locale',
+        settingsReportingLocaleDesc: 'Choose the financial statement template. Iranian matches the standards of the Audit Organisation of Iran (TSE-listed company format). UK uses the FRS 102 Section 1A format from the Companies Act 2006.',
+        settingsTemplateLabel: 'Template',
+        localeDefaultOption: 'Default (IFRS-style)',
+        localeIrOption: 'Iranian standard (ایران)',
+        btnSaveLocale: 'Save locale',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -2984,6 +2992,14 @@
         legendAssets: 'دارایی‌ها',
         legendLiabilities: 'بدهی‌ها',
         legendEquity: 'حقوق مالکانه',
+      
+        // ── Settings panel (locale + calendar + demo) ──
+        settingsReportingLocale: 'محل گزارش‌گیری مالی',
+        settingsReportingLocaleDesc: 'قالب صورت‌های مالی را انتخاب کنید. حالت ایرانی مطابق رهنمودهای استاندارد حسابداری ایران (قالب شرکت‌های بورسی) است. حالت UK از قالب FRS 102 Section 1A قانون شرکت‌های ۲۰۰۶ استفاده می‌کند.',
+        settingsTemplateLabel: 'قالب',
+        localeDefaultOption: 'پیش‌فرض (IFRS)',
+        localeIrOption: 'استاندارد ایران',
+        btnSaveLocale: 'ذخیرهٔ تنظیم',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -3167,6 +3183,201 @@
         legendAssets: 'Activos',
         legendLiabilities: 'Pasivos',
         legendEquity: 'Patrimonio',
+      
+        // ── auto-added by audit (es/ar parity with en) ──
+        aiHint: 'Los perfiles Metis y LM Studio están preconfigurados. Para un proveedor personalizado puedes establecer la URL base y la clave aquí.',
+        alertBookQualityRisk: 'Riesgo de calidad contable',
+        alertCashRunwayShort: 'El runway de caja es corto',
+        alertDataQualityMessage: 'La puntuación de calidad de datos es {score}. Resuelve las referencias/entidades/adjuntos faltantes.',
+        alertExpenseSpike: 'Pico de gasto',
+        alertExpenseSpikeMessage: 'Se detectó un pico de gastos.',
+        alertOverdueApMessage: 'Cuentas por pagar vencidas: {amount}. Planifica los pagos a proveedores.',
+        alertOverdueArMessage: 'Cuentas por cobrar vencidas: {amount}. Realiza el seguimiento de cobranza.',
+        alertOverduePayables: 'Cuentas por pagar vencidas',
+        alertOverdueReceivables: 'Cuentas por cobrar vencidas',
+        alertRunwayMessage: 'Runway estimado de {months} meses según la tasa de consumo reciente.',
+        allowPopupsPdf: 'Habilita las ventanas emergentes para exportar PDF.',
+        asOfDate: 'Al',
+        attachReceipt: 'Adjuntar recibo',
+        btnAddLine: '+ Añadir línea',
+        btnCreateSnapshot: 'Crear snapshot mensual',
+        btnExportCsv: 'Exportar CSV',
+        btnExportJson: 'Exportar JSON',
+        btnExportPdf: 'Exportar PDF',
+        btnInventoryBalance: 'Balance de inventario',
+        btnInventoryMovements: 'Movimientos de inventario',
+        btnLoad: 'Cargar',
+        btnLoadDemoData: 'Cargar datos de demostración',
+        btnRemoveDemoData: 'Eliminar datos de demostración',
+        btnSaveBudget: 'Guardar presupuesto',
+        btnScanCreate: 'Escanear + crear',
+        btnScanToForm: 'Escanear al formulario',
+        btnSendAlerts: 'Enviar alertas',
+        chartBalanceSheetMix: 'Composición del balance',
+        chartCashFlow: 'Flujo de efectivo',
+        chartIncomeStatement: 'Estado de resultados',
+        chartInventoryMovements: 'Movimientos de inventario',
+        chartInventoryValueByItem: 'Valor de inventario por artículo',
+        chartRunningBalance: 'Saldo acumulado',
+        chartSalesPurchase: 'Ventas y compras',
+        chartTopAccountsByTurnover: 'Principales cuentas por rotación',
+        chartWord: 'Gráfico',
+        checkAttachmentsDetail: '{done}/{total} transacciones de gasto tienen adjuntos.',
+        checkEntitiesDetail: '{done}/{total} transacciones tienen entidad vinculada.',
+        checkEntitiesLinked: 'Entidades vinculadas',
+        checkExpenseAttachmentsAvailable: 'Adjuntos de gasto disponibles',
+        checkLineDescriptionsComplete: 'Descripciones de línea completas',
+        checkLineDescriptionsDetail: '{done}/{total} líneas tienen descripción.',
+        checkReferencesCaptured: 'Referencias registradas',
+        checkRefsDetail: '{done}/{total} transacciones tienen referencia.',
+        comparativeAsOf: 'Comparativo al',
+        compareAsOf: 'Comparar al',
+        dashboardSubtitle: 'KPIs orientados al negocio, pronósticos, antigüedad, rentabilidad, controles de calidad y alertas accionables.',
+        errorLoadingMissingReferences: 'Error al cargar referencias faltantes.',
+        errorLoadingOwnerDashboard: 'Error al cargar el panel del propietario.',
+        failedRunInventoryReport: 'Error al ejecutar el reporte de inventario.',
+        failedRunManagerReport: 'Error al ejecutar el reporte.',
+        fieldAccount: 'Cuenta',
+        fieldBalance: 'Saldo',
+        fieldCOGS: 'Costo de ventas',
+        fieldCash: 'Efectivo proyectado',
+        fieldClientCount: 'Clientes',
+        fieldCost: 'Costo',
+        fieldCreditBalance: 'Saldo acreedor',
+        fieldCurrent: 'Actual',
+        fieldDays31_60: '31–60 días',
+        fieldDays60Plus: '60+ días',
+        fieldDebitBalance: 'Saldo deudor',
+        fieldEntities: 'Entidades',
+        fieldEntityName: 'Nombre de la entidad',
+        fieldEstimatedCost: 'Costo estimado',
+        fieldFinancing: 'Financiación',
+        fieldInflow: 'Entrada proyectada',
+        fieldInventoryValue: 'Valor del inventario',
+        fieldInvesting: 'Inversión',
+        fieldInvoice: 'N.º de factura',
+        fieldInvoiceCount: 'Facturas',
+        fieldItemName: 'Nombre del artículo',
+        fieldMarginPct: 'Margen %',
+        fieldMetric: 'Métrica',
+        fieldMovementDate: 'Fecha del movimiento',
+        fieldNameLabel: 'Nombre',
+        fieldNet: 'Neto',
+        fieldNetChange: 'Variación neta',
+        fieldNetProfit: 'Beneficio neto',
+        fieldOpEx: 'Gastos operativos',
+        fieldOperating: 'Operativo',
+        fieldOtherExpenses: 'Otros gastos',
+        fieldOutflow: 'Salida proyectada',
+        fieldProduct: 'Producto',
+        fieldProfit: 'Beneficio',
+        fieldRevenue: 'Ingresos',
+        fieldRisk: 'Riesgo',
+        fieldSalesAmount: 'Importe de ventas',
+        fieldSection: 'Sección',
+        fieldSupplierCount: 'Proveedores',
+        fieldTopClient: 'Mejor cliente',
+        fieldTotalCredit: 'Crédito total',
+        fieldTotalDebit: 'Débito total',
+        fieldTransactionId: 'ID de transacción',
+        fieldUnitCost: 'Costo unitario',
+        fieldValue: 'Valor',
+        fieldWeek: 'Semana',
+        inventoryReportError: 'Error en el reporte de inventario',
+        inventorySubtitle: 'Gestiona los artículos y movimientos de inventario, luego ejecuta reportes de balance/movimiento con vista previa y exportación.',
+        issueExpenseWithoutAttachment: 'Transacciones de gasto sin adjunto',
+        issueLinesWithoutDescription: 'Líneas sin descripción',
+        issueMissingReference: 'Referencia faltante',
+        issueTransactionsWithoutEntity: 'Transacciones sin entidad',
+        itemWord: 'Artículo',
+        kpiApDueWeek: 'AP que vence esta semana',
+        kpiArDueWeek: 'AR que vence esta semana',
+        kpiCashOnHand: 'Efectivo disponible',
+        kpiLiabilitiesPayable: 'Pasivos por pagar',
+        kpiMonthlyBurnRate: 'Tasa de consumo mensual',
+        kpiMonthlyNetProfit: 'Beneficio neto mensual',
+        kpiRunway: 'Runway (meses)',
+        labelAccountCodeLedger: 'Código de cuenta (para libro mayor)',
+        labelAccountCodeOrName: 'Cuenta (código o nombre)',
+        labelChartTopAccounts: 'Gráficos: principales cuentas',
+        labelEntityType: 'Tipo de entidad',
+        labelProductEntityFilter: 'Filtro de producto / entidad',
+        labelSKU: 'SKU',
+        labelSearch: 'Buscar',
+        labelSearchAccount: 'Buscar cuenta',
+        labelSortBy: 'Ordenar por',
+        labelUnit: 'Unidad',
+        labelUnitCost: 'Costo unitario (IRR)',
+        ledgerSubtitle: 'Vista profesional del balance de comprobación con filtros, comparativos y análisis visual. Haz clic en cualquier cuenta para ver el detalle de transacciones.',
+        managerReportError: 'Error del reporte',
+        managerSubtitle: 'Genera balance, estado de resultados, flujo de efectivo, libros, AR/AP, inventario y reportes de ventas/compras.',
+        monthWord: 'mes',
+        monthsShort: 'mes',
+        na: 'N/D',
+        no: 'No',
+        noActiveAlerts: 'Sin alertas activas.',
+        noDataYet: 'Aún no hay datos.',
+        noMissingReferences: 'Sin referencias faltantes.',
+        noReportData: 'Sin datos de reporte.',
+        noRowsInSection: 'Sin filas en esta sección.',
+        noSectionRows: 'No hay datos disponibles.',
+        noTabularRowsCsv: 'Sin datos tabulares para exportar.',
+        ok: 'OK',
+        optionNone: '— Ninguno —',
+        optionSelectBank: '— Selecciona banco —',
+        optionSelectItem: 'Selecciona artículo',
+        ownerAction1: 'Revisar cuentas por cobrar vencidas',
+        ownerAction2: 'Conciliar extractos bancarios',
+        ownerAction3: 'Completar checklist de cierre mensual',
+        ownerDataHealth: 'Salud de los datos',
+        ownerMostProfitableClient: 'Cliente más rentable',
+        ownerNetProfitMonth: 'Beneficio neto (mes)',
+        ownerOverdueAP: 'AP vencida',
+        ownerOverdueAR: 'AR vencida',
+        ownerPackTitle: 'Paquete del propietario',
+        ownerPriorityActions: 'Acciones prioritarias',
+        periodLabel: 'Período',
+        placeholderAccountCode: 'p. ej. 1110',
+        placeholderChatInput: 'Pregunta lo que quieras (p. ej. muéstrame el balance del mes pasado)',
+        placeholderDescription: 'Descripción del evento',
+        placeholderEntityCode: 'p. ej. INV-001',
+        placeholderEntityName: 'p. ej. Innotech, Melli',
+        placeholderFilterByName: 'Filtrar por nombre',
+        placeholderInvItem: 'p. ej. Producto A',
+        placeholderInvoiceDesc: 'p. ej. Desarrollo de software',
+        placeholderInvoiceNo: 'p. ej. INV-1001',
+        placeholderOptional: 'opcional',
+        placeholderRecurring: 'p. ej. pago 25M de alquiler cada mes desde el banco Mellat',
+        placeholderReference: 'p. ej. INV-001, N.º de recibo',
+        placeholderSearchCodeName: 'Buscar por código o nombre...',
+        placeholderUnit: 'unidad',
+        recurringExample: 'Ejemplo: pago 30M de alquiler cada mes desde el banco Mellat o recibo 120M anuales del cliente X.',
+        reportExportTitle: 'Exportación de reporte',
+        reportResult: 'Resultado del reporte',
+        reportWord: 'Reporte',
+        risk: 'Riesgo',
+        runInventoryReportFirst: 'Ejecuta primero un reporte de inventario.',
+        runReportFirst: 'Ejecuta primero un reporte.',
+        saveReference: 'Guardar referencia',
+        scoreLabel: 'Puntuación',
+        sectionAssets: 'Activos',
+        sectionEquity: 'Patrimonio',
+        sectionExpenses: 'Gastos',
+        sectionLiabilities: 'Pasivos',
+        sectionRevenues: 'Ingresos',
+        sectionUserMgmtDesc: 'Crea y administra el acceso de usuarios para esta empresa.',
+        settingsDesc: 'Configura el proveedor de modelo y credenciales una vez, y úsalo en todas las secciones.',
+        unassignedClient: 'Cliente sin asignar',
+        voucherSubtitle: 'Guarda y edita comprobantes contables aquí. Usa la pestaña de chat de IA para la contabilidad conversacional y luego revisa/finaliza los asientos en este formulario.',
+        yes: 'Sí',
+      
+        // ── Settings panel (locale + calendar + demo) ──
+        settingsReportingLocale: 'Configuración regional de reportes',
+        settingsReportingLocaleDesc: 'Elige la plantilla de estados financieros. La iraní sigue los estándares de la Organización de Auditoría de Irán (formato de empresas cotizadas en TSE). La del Reino Unido usa el formato FRS 102 Sección 1A de la Companies Act 2006.',
+        settingsTemplateLabel: 'Plantilla',
+        localeDefaultOption: 'Predeterminada (estilo IFRS)',
+        localeIrOption: 'Estándar iraní',
+        btnSaveLocale: 'Guardar configuración',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -3350,6 +3561,201 @@
         legendAssets: 'الأصول',
         legendLiabilities: 'الالتزامات',
         legendEquity: 'حقوق الملكية',
+      
+        // ── auto-added by audit (es/ar parity with en) ──
+        aiHint: 'ملفات Metis وLM Studio معدّة مسبقًا. للموفّر المخصص يمكنك ضبط الرابط والمفتاح هنا.',
+        alertBookQualityRisk: 'خطر جودة الدفاتر',
+        alertCashRunwayShort: 'السيولة المتبقية قصيرة',
+        alertDataQualityMessage: 'درجة جودة البيانات {score}. عالج المراجع/الجهات/المرفقات الناقصة.',
+        alertExpenseSpike: 'ارتفاع مفاجئ في المصروفات',
+        alertExpenseSpikeMessage: 'تم رصد ارتفاع مفاجئ في المصروفات.',
+        alertOverdueApMessage: 'ذمم دائنة متأخرة: {amount}. خطط مدفوعات الموردين.',
+        alertOverdueArMessage: 'ذمم مدينة متأخرة: {amount}. تابع التحصيل.',
+        alertOverduePayables: 'ذمم دائنة متأخرة',
+        alertOverdueReceivables: 'ذمم مدينة متأخرة',
+        alertRunwayMessage: 'السيولة المقدّرة تكفي {months} شهر/أشهر بناءً على معدّل الإنفاق الحالي.',
+        allowPopupsPdf: 'يرجى السماح بالنوافذ المنبثقة لتصدير PDF.',
+        asOfDate: 'حتى تاريخ',
+        attachReceipt: 'إرفاق إيصال',
+        btnAddLine: '+ إضافة سطر',
+        btnCreateSnapshot: 'إنشاء لقطة شهرية',
+        btnExportCsv: 'تصدير CSV',
+        btnExportJson: 'تصدير JSON',
+        btnExportPdf: 'تصدير PDF',
+        btnInventoryBalance: 'رصيد المخزون',
+        btnInventoryMovements: 'حركات المخزون',
+        btnLoad: 'تحميل',
+        btnLoadDemoData: 'تحميل بيانات تجريبية',
+        btnRemoveDemoData: 'حذف البيانات التجريبية',
+        btnSaveBudget: 'حفظ الموازنة',
+        btnScanCreate: 'مسح + إنشاء',
+        btnScanToForm: 'مسح إلى النموذج',
+        btnSendAlerts: 'إرسال التنبيهات',
+        chartBalanceSheetMix: 'تركيبة الميزانية',
+        chartCashFlow: 'التدفق النقدي',
+        chartIncomeStatement: 'قائمة الدخل',
+        chartInventoryMovements: 'حركات المخزون',
+        chartInventoryValueByItem: 'قيمة المخزون حسب الصنف',
+        chartRunningBalance: 'الرصيد التراكمي',
+        chartSalesPurchase: 'المبيعات والمشتريات',
+        chartTopAccountsByTurnover: 'أهم الحسابات حسب الحركة',
+        chartWord: 'رسم بياني',
+        checkAttachmentsDetail: '{done}/{total} قيود مصروفات لديها مرفقات.',
+        checkEntitiesDetail: '{done}/{total} قيود مرتبطة بجهة.',
+        checkEntitiesLinked: 'الجهات مرتبطة',
+        checkExpenseAttachmentsAvailable: 'مرفقات المصروفات متوفرة',
+        checkLineDescriptionsComplete: 'أوصاف الأسطر مكتملة',
+        checkLineDescriptionsDetail: '{done}/{total} أسطر لديها وصف.',
+        checkReferencesCaptured: 'المراجع مسجّلة',
+        checkRefsDetail: '{done}/{total} قيود لديها مرجع.',
+        comparativeAsOf: 'المقارن حتى',
+        compareAsOf: 'قارن حتى',
+        dashboardSubtitle: 'مؤشرات أداء موجهة للأعمال، توقعات، أعمار الذمم، الربحية، فحوصات جودة البيانات، وتنبيهات قابلة للتنفيذ.',
+        errorLoadingMissingReferences: 'تعذّر تحميل المراجع الناقصة.',
+        errorLoadingOwnerDashboard: 'تعذّر تحميل لوحة المالك.',
+        failedRunInventoryReport: 'تعذّر تنفيذ تقرير المخزون.',
+        failedRunManagerReport: 'تعذّر تنفيذ التقرير.',
+        fieldAccount: 'الحساب',
+        fieldBalance: 'الرصيد',
+        fieldCOGS: 'تكلفة المبيعات',
+        fieldCash: 'النقد المتوقع',
+        fieldClientCount: 'العملاء',
+        fieldCost: 'التكلفة',
+        fieldCreditBalance: 'رصيد دائن',
+        fieldCurrent: 'الحالي',
+        fieldDays31_60: '31–60 يومًا',
+        fieldDays60Plus: '+60 يومًا',
+        fieldDebitBalance: 'رصيد مدين',
+        fieldEntities: 'الجهات',
+        fieldEntityName: 'اسم الجهة',
+        fieldEstimatedCost: 'التكلفة المقدّرة',
+        fieldFinancing: 'التمويل',
+        fieldInflow: 'الوارد المتوقع',
+        fieldInventoryValue: 'قيمة المخزون',
+        fieldInvesting: 'الاستثمار',
+        fieldInvoice: 'رقم الفاتورة',
+        fieldInvoiceCount: 'الفواتير',
+        fieldItemName: 'اسم الصنف',
+        fieldMarginPct: 'هامش الربح %',
+        fieldMetric: 'المؤشّر',
+        fieldMovementDate: 'تاريخ الحركة',
+        fieldNameLabel: 'الاسم',
+        fieldNet: 'الصافي',
+        fieldNetChange: 'صافي التغيّر',
+        fieldNetProfit: 'صافي الربح',
+        fieldOpEx: 'المصروفات التشغيلية',
+        fieldOperating: 'التشغيلي',
+        fieldOtherExpenses: 'مصروفات أخرى',
+        fieldOutflow: 'الصادر المتوقع',
+        fieldProduct: 'المنتج',
+        fieldProfit: 'الربح',
+        fieldRevenue: 'الإيرادات',
+        fieldRisk: 'المخاطرة',
+        fieldSalesAmount: 'مبلغ المبيعات',
+        fieldSection: 'القسم',
+        fieldSupplierCount: 'الموردون',
+        fieldTopClient: 'أعلى عميل',
+        fieldTotalCredit: 'إجمالي الدائن',
+        fieldTotalDebit: 'إجمالي المدين',
+        fieldTransactionId: 'معرّف القيد',
+        fieldUnitCost: 'تكلفة الوحدة',
+        fieldValue: 'القيمة',
+        fieldWeek: 'الأسبوع',
+        inventoryReportError: 'خطأ في تقرير المخزون',
+        inventorySubtitle: 'أدر أصناف وحركات المخزون من هنا، ثم نفّذ تقارير الأرصدة والحركات مع المعاينة والتصدير.',
+        issueExpenseWithoutAttachment: 'قيود مصروفات بدون مرفق',
+        issueLinesWithoutDescription: 'أسطر بدون وصف',
+        issueMissingReference: 'مرجع مفقود',
+        issueTransactionsWithoutEntity: 'قيود بدون جهة',
+        itemWord: 'صنف',
+        kpiApDueWeek: 'الذمم الدائنة المستحقة هذا الأسبوع',
+        kpiArDueWeek: 'الذمم المدينة المستحقة هذا الأسبوع',
+        kpiCashOnHand: 'النقد المتوفر',
+        kpiLiabilitiesPayable: 'الالتزامات المستحقة',
+        kpiMonthlyBurnRate: 'معدّل الاستهلاك الشهري',
+        kpiMonthlyNetProfit: 'صافي الربح الشهري',
+        kpiRunway: 'السيولة المتبقية (أشهر)',
+        labelAccountCodeLedger: 'رمز الحساب (لدفتر الحساب)',
+        labelAccountCodeOrName: 'الحساب (رمز أو اسم)',
+        labelChartTopAccounts: 'الرسوم: أهم الحسابات',
+        labelEntityType: 'نوع الجهة',
+        labelProductEntityFilter: 'تصفية المنتج / الجهة',
+        labelSKU: 'SKU',
+        labelSearch: 'بحث',
+        labelSearchAccount: 'بحث في الحسابات',
+        labelSortBy: 'ترتيب حسب',
+        labelUnit: 'الوحدة',
+        labelUnitCost: 'تكلفة الوحدة (IRR)',
+        ledgerSubtitle: 'عرض احترافي لميزان المراجعة مع فلاتر ومقارنات وتحليل مرئي. انقر على أي حساب لعرض تفاصيل القيود.',
+        managerReportError: 'خطأ في التقرير',
+        managerSubtitle: 'أنشئ الميزانية وقائمة الدخل والتدفق النقدي والدفاتر والمدينون/الدائنون والمخزون وتقارير المبيعات/المشتريات.',
+        monthWord: 'شهر',
+        monthsShort: 'شهر',
+        na: 'غير متاح',
+        no: 'لا',
+        noActiveAlerts: 'لا توجد تنبيهات نشطة.',
+        noDataYet: 'لا توجد بيانات بعد.',
+        noMissingReferences: 'لا توجد مراجع مفقودة.',
+        noReportData: 'لا توجد بيانات للتقرير.',
+        noRowsInSection: 'لا توجد أسطر في هذا القسم.',
+        noSectionRows: 'لا توجد بيانات متاحة.',
+        noTabularRowsCsv: 'لا توجد بيانات جدولية للتصدير.',
+        ok: 'حسناً',
+        optionNone: '— لا شيء —',
+        optionSelectBank: '— اختر بنك —',
+        optionSelectItem: 'اختر صنف',
+        ownerAction1: 'مراجعة الذمم المدينة المتأخرة',
+        ownerAction2: 'تسوية كشوف الحساب البنكي',
+        ownerAction3: 'إكمال قائمة فحص نهاية الشهر',
+        ownerDataHealth: 'صحة البيانات',
+        ownerMostProfitableClient: 'أكثر العملاء ربحاً',
+        ownerNetProfitMonth: 'صافي الربح (شهر)',
+        ownerOverdueAP: 'ذمم دائنة متأخرة',
+        ownerOverdueAR: 'ذمم مدينة متأخرة',
+        ownerPackTitle: 'حزمة تقارير المالك',
+        ownerPriorityActions: 'إجراءات ذات أولوية',
+        periodLabel: 'الفترة',
+        placeholderAccountCode: 'مثال: 1110',
+        placeholderChatInput: 'اسأل أي شيء (مثلاً: اعرض الميزانية للشهر الماضي)',
+        placeholderDescription: 'وصف الحدث',
+        placeholderEntityCode: 'مثال: INV-001',
+        placeholderEntityName: 'مثال: Innotech، Melli',
+        placeholderFilterByName: 'تصفية حسب الاسم',
+        placeholderInvItem: 'مثال: المنتج A',
+        placeholderInvoiceDesc: 'مثال: تطوير برامج',
+        placeholderInvoiceNo: 'مثال: INV-1001',
+        placeholderOptional: 'اختياري',
+        placeholderRecurring: 'مثال: أدفع 25 مليون إيجار مكتب شهرياً من بنك ملت',
+        placeholderReference: 'مثال: INV-001، رقم الإيصال',
+        placeholderSearchCodeName: 'ابحث بالرمز أو الاسم...',
+        placeholderUnit: 'وحدة',
+        recurringExample: 'مثال: أدفع 30 مليون إيجار شهرياً من بنك ملت أو أستلم 120 مليون سنوياً من العميل X.',
+        reportExportTitle: 'تصدير التقرير',
+        reportResult: 'نتيجة التقرير',
+        reportWord: 'تقرير',
+        risk: 'المخاطرة',
+        runInventoryReportFirst: 'نفّذ تقرير مخزون أولاً.',
+        runReportFirst: 'نفّذ تقريراً أولاً.',
+        saveReference: 'حفظ المرجع',
+        scoreLabel: 'النتيجة',
+        sectionAssets: 'الأصول',
+        sectionEquity: 'حقوق الملكية',
+        sectionExpenses: 'المصروفات',
+        sectionLiabilities: 'الالتزامات',
+        sectionRevenues: 'الإيرادات',
+        sectionUserMgmtDesc: 'أنشئ وأدر صلاحيات المستخدمين لهذه الشركة.',
+        settingsDesc: 'اضبط مزوّد النموذج وبيانات الاعتماد مرة واحدة ثم استخدم المساعد في جميع الأقسام.',
+        unassignedClient: 'عميل غير محدد',
+        voucherSubtitle: 'احفظ وعدّل قيود اليومية هنا. استخدم تبويب المساعد الذكي للتسجيل المحادثي ثم راجع/أعتمد القيود من هذا النموذج.',
+        yes: 'نعم',
+      
+        // ── Settings panel (locale + calendar + demo) ──
+        settingsReportingLocale: 'إعداد إقليمي للتقارير',
+        settingsReportingLocaleDesc: 'اختر قالب القوائم المالية. القالب الإيراني يطابق معايير منظمة التدقيق الإيرانية (تنسيق الشركات المدرجة في TSE). القالب البريطاني يستخدم FRS 102 القسم 1A من قانون الشركات 2006.',
+        settingsTemplateLabel: 'القالب',
+        localeDefaultOption: 'افتراضي (نمط IFRS)',
+        localeIrOption: 'المعيار الإيراني',
+        btnSaveLocale: 'حفظ الإعداد',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -3432,6 +3838,23 @@
       setLabel('entity-code', 'labelCodeOptional');
       setText('entity-add', 'btnAddEntity');
       setText('reset-db-btn', 'btnResetDb');
+      // ── Settings panel: reporting locale + display calendar + demo data ──
+      setText('reporting-locale-heading', 'settingsReportingLocale');
+      setText('reporting-locale-desc', 'settingsReportingLocaleDesc');
+      setLabel('reporting-locale-select', 'settingsTemplateLabel');
+      setOption('reporting-locale-select', 'default', 'localeDefaultOption');
+      setOption('reporting-locale-select', 'ir', 'localeIrOption');
+      setOption('reporting-locale-select', 'uk', 'localeUkOption');
+      setText('reporting-locale-save-btn', 'btnSaveLocale');
+      setLabel('display-calendar-select', 'displayCalendarLabel');
+      setOption('display-calendar-select', 'gregorian', 'calendarGregorian');
+      setOption('display-calendar-select', 'jalali', 'calendarJalali');
+      setText('display-calendar-save-btn', 'btnSaveCalendar');
+      setText('display-calendar-note', 'calendarNote');
+      setText('demo-section-title', 'demoSectionTitle');
+      setText('demo-section-desc', 'demoSectionDesc');
+      setText('reset-demo-ir-btn', 'btnResetDemoIr');
+      setText('reset-demo-uk-btn', 'btnResetDemoUk');
       setPlaceholder('entity-name', 'placeholderEntityName');
       setPlaceholder('entity-code', 'placeholderEntityCode');
       setTextSel('#entities-table thead th:nth-child(1)', 'labelType');

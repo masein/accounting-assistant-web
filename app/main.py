@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 from app.api.accounts import router as accounts_router
 from app.api.admin import router as admin_router
+from app.api.ai_accountant import router as ai_accountant_router
 from app.api.auth import router as auth_router
 from app.api.brain import router as brain_router
 from app.api.budgets import router as budgets_router
@@ -414,6 +415,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 app.include_router(accounts_router)
 app.include_router(admin_router)
+app.include_router(ai_accountant_router)
 app.include_router(auth_router)
 app.include_router(brain_router)
 app.include_router(budgets_router)

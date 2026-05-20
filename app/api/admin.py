@@ -9,7 +9,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.auth import hash_password, require_admin, validate_password_strength
-from app.core.ai_runtime import get_ai_config_public, update_ai_config
+from app.core.ai_runtime import (
+    get_ai_config_public,
+    resolve_anthropic_config,
+    update_ai_config,
+    update_anthropic_config,
+)
 from app.db.session import get_db
 from app.services.locale_service import (
     SUPPORTED_CALENDARS,
@@ -83,6 +88,51 @@ def patch_ai_config(payload: AIConfigPatch, _=Depends(require_admin)) -> dict:
         api_key_header=payload.api_key_header,
         api_key_prefix=payload.api_key_prefix,
     )
+
+
+class AnthropicConfigPatch(BaseModel):
+    """Settings specific to the Anthropic provider used by the AI accountant.
+    Editing these does NOT change the active OpenAI-compatible provider."""
+    base_url: str | None = None
+    model: str | None = None
+    api_key: str | None = None
+
+
+@router.get("/anthropic-config")
+def get_anthropic_config(_=Depends(require_admin)) -> dict:
+    """Return the AI-accountant (Claude) provider settings only — separate
+    from the OpenAI-compatible default provider config. The default
+    ``base_url`` (``https://api.anthropic.com``) is returned when no
+    override is set, so the UI always has a non-empty value to show."""
+    cfg = resolve_anthropic_config()
+    return {
+        "base_url": cfg["base_url"],
+        "model": cfg["model"],
+        "has_api_key": bool(cfg.get("api_key")),
+        "default_base_url": "https://api.anthropic.com",
+        "default_model": "claude-opus-4-7",
+    }
+
+
+@router.patch("/anthropic-config")
+def patch_anthropic_config(payload: AnthropicConfigPatch, _=Depends(require_admin)) -> dict:
+    """Update the Anthropic provider settings used by the AI accountant.
+    Any field left blank is left unchanged. Use ``api_key = "-"`` to clear
+    the stored key. Setting ``base_url`` to an empty string falls back to
+    the Anthropic default on the next request."""
+    update_anthropic_config(
+        base_url=payload.base_url,
+        model=payload.model,
+        api_key=payload.api_key,
+    )
+    cfg = resolve_anthropic_config()
+    return {
+        "base_url": cfg["base_url"],
+        "model": cfg["model"],
+        "has_api_key": bool(cfg.get("api_key")),
+        "default_base_url": "https://api.anthropic.com",
+        "default_model": "claude-opus-4-7",
+    }
 
 
 @router.post("/reset-db")

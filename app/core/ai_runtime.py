@@ -199,6 +199,32 @@ def resolve_active_ai_backend() -> dict[str, str]:
         }
 
 
+def update_anthropic_config(
+    *,
+    base_url: str | None = None,
+    model: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """Update the Anthropic-specific config without touching the active
+    provider (which is still one of lmstudio / metis / custom for the
+    OpenAI-compatible flows). Empty / unset fields fall back to defaults
+    on read via ``resolve_anthropic_config``."""
+    with _lock:
+        target = _state["anthropic"]
+        if model is not None and str(model).strip():
+            target["model"] = str(model).strip()
+        if base_url is not None:
+            # Empty string clears → falls back to the default on read.
+            target["base_url"] = str(base_url).strip()
+        if api_key is not None:
+            if str(api_key).strip() == "-":
+                target["api_key"] = ""
+            elif str(api_key).strip():
+                target["api_key"] = str(api_key).strip()
+    _persist_to_db()
+    return get_ai_config_public()
+
+
 def resolve_anthropic_config() -> dict[str, str]:
     """Always returns the Anthropic backend config, regardless of the
     currently-selected default provider. Used by the AI accountant feature,

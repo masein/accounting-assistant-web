@@ -140,17 +140,38 @@ SELECT entity_id AS reversed_txn, detail
 
 The `detail` column carries the linked reversal transaction id in JSON.
 
-## Required environment variables
+## Configuration
+
+Two ways to set the Anthropic credentials — environment variables (boot-time
+defaults) or the Settings page (live, persisted to `app_settings` in the DB,
+overrides the env var on restart).
+
+### Environment variables (initial defaults)
 
 | Env var | Purpose | Default |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Required at runtime. The orchestrator raises `AIAccountantError` until set. | — |
-| `ANTHROPIC_MODEL` | Override the model used. Defaults to `claude-opus-4-7`. | `claude-opus-4-7` |
-| `ANTHROPIC_BASE_URL` | Optional override for proxying or self-hosted gateways. | `https://api.anthropic.com` |
+| `ANTHROPIC_MODEL` | Override the model used. | `claude-opus-4-7` |
+| `ANTHROPIC_BASE_URL` | Override for proxying or third-party gateways. | `https://api.anthropic.com` |
 | `ANTHROPIC_MAX_TOKENS` | Per-turn output cap. | `8192` |
 
-To swap to a cheaper model for testing, set `ANTHROPIC_MODEL=claude-haiku-4-5`
-in `.env` and restart the API container.
+### Settings page (live overrides)
+
+The **Settings → AI Accountant — Anthropic settings** card lets admins set:
+
+- **Model** — any Claude model ID. Blank → falls back to `claude-opus-4-7`.
+- **Base URL** — for proxies, regional gateways, or third-party LLM routers
+  that speak the Anthropic Messages API. Blank → falls back to
+  `https://api.anthropic.com`.
+- **API key** — write-only. Empty input keeps the existing key; `-` clears it.
+
+Writes go to `PATCH /admin/anthropic-config` and persist to `app_settings`
+in the DB. Editing these **does not** change the active OpenAI-compatible
+provider (lmstudio / metis / custom) used by other AI features — the two
+configs are independent.
+
+The endpoint is admin-only. The GET handler always returns the resolved
+values (defaults filled in) so the UI has a non-empty placeholder to render.
 
 ## Cost notes
 

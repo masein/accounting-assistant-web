@@ -1667,6 +1667,31 @@
       </div>
 
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.4rem;" data-i18n="anthropicSettingsTitle">AI Accountant — Anthropic settings</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="anthropicSettingsDesc">
+          The AI accountant uses Claude through the Anthropic API. Set a base URL if you're routing through a proxy or third-party gateway; leave it blank to use the default <code>https://api.anthropic.com</code>.
+        </p>
+        <div class="ai-runtime-bar" style="margin-bottom:0;">
+          <div>
+            <label for="anthropic-model-input" data-i18n="aiModel">Model</label>
+            <input type="text" id="anthropic-model-input" placeholder="claude-opus-4-7">
+          </div>
+          <div>
+            <label for="anthropic-base-input" data-i18n="aiBaseUrl">Base URL</label>
+            <input type="text" id="anthropic-base-input" placeholder="https://api.anthropic.com">
+          </div>
+          <div>
+            <label for="anthropic-key-input" data-i18n="aiApiKeyOptional">API key</label>
+            <input type="password" id="anthropic-key-input" placeholder="leave empty to keep current; '-' clears">
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button type="button" class="btn btn-secondary" id="anthropic-save-btn" data-i18n="aiApplySettings">Apply settings</button>
+          </div>
+          <div class="ai-runtime-hint" id="anthropic-status" style="font-size:0.82rem;color:var(--text-muted);"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
         <h2 id="user-management-title" data-i18n="sectionUserMgmt" style="margin-bottom:0.5rem;">User management</h2>
         <p id="user-management-subtitle" data-i18n="sectionUserMgmtDesc" style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">Create and manage user access for this company.</p>
         <div class="row" style="margin-bottom:0.5rem;">
@@ -4329,6 +4354,67 @@
         if (aiKeyInput) aiKeyInput.value = '';
         syncAIFieldsByProvider();
       } catch (_) {}
+    }
+
+    async function loadAnthropicConfig() {
+      const modelEl = document.getElementById('anthropic-model-input');
+      const baseEl = document.getElementById('anthropic-base-input');
+      const keyEl = document.getElementById('anthropic-key-input');
+      const statusEl = document.getElementById('anthropic-status');
+      if (!modelEl || !baseEl || !keyEl) return;
+      try {
+        const res = await fetch(API + '/admin/anthropic-config');
+        const cfg = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+        modelEl.value = cfg.model || cfg.default_model || '';
+        baseEl.value = (cfg.base_url && cfg.base_url !== cfg.default_base_url) ? cfg.base_url : '';
+        baseEl.placeholder = cfg.default_base_url || 'https://api.anthropic.com';
+        modelEl.placeholder = cfg.default_model || 'claude-opus-4-7';
+        keyEl.value = '';
+        if (statusEl) {
+          statusEl.textContent = cfg.has_api_key
+            ? 'API key is configured. Leave the field empty to keep it.'
+            : 'No API key set — the AI accountant will return an error until you add one.';
+        }
+      } catch (_) {}
+    }
+
+    async function saveAnthropicConfig() {
+      const modelEl = document.getElementById('anthropic-model-input');
+      const baseEl = document.getElementById('anthropic-base-input');
+      const keyEl = document.getElementById('anthropic-key-input');
+      const btn = document.getElementById('anthropic-save-btn');
+      const statusEl = document.getElementById('anthropic-status');
+      if (!modelEl || !btn) return;
+      const payload = {};
+      // Send all three fields. Backend treats empty strings on base_url
+      // as "fall back to default"; on api_key, empty is "keep current",
+      // and "-" clears.
+      const modelVal = (modelEl.value || '').trim();
+      if (modelVal) payload.model = modelVal;
+      payload.base_url = (baseEl.value || '').trim();
+      const keyVal = (keyEl.value || '').trim();
+      if (keyVal) payload.api_key = keyVal;
+      try {
+        btn.disabled = true;
+        const res = await fetch(API + '/admin/anthropic-config', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(data.detail || 'Failed to save.') + '</span>';
+          return;
+        }
+        if (statusEl) statusEl.innerHTML = '<span style="color:#059669;">Saved.</span>';
+        keyEl.value = '';
+        loadAnthropicConfig();
+      } catch (err) {
+        if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml('Connection error: ' + err.message) + '</span>';
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     async function saveAIConfig() {
@@ -8192,6 +8278,8 @@
     });
     if (aiProviderSelect) aiProviderSelect.addEventListener('change', syncAIFieldsByProvider);
     if (aiSaveBtn) aiSaveBtn.addEventListener('click', saveAIConfig);
+    const anthropicSaveBtn = document.getElementById('anthropic-save-btn');
+    if (anthropicSaveBtn) anthropicSaveBtn.addEventListener('click', saveAnthropicConfig);
     if (mgrRunBtn) mgrRunBtn.addEventListener('click', runManagerReport);
     if (mgrReportTypeEl) mgrReportTypeEl.addEventListener('change', syncManagerFilterLabels);
     if (mgrExportJsonBtn) mgrExportJsonBtn.addEventListener('click', exportManagerReportJson);
@@ -8251,6 +8339,7 @@
     showPage((location.hash || '#dashboard').slice(1));
     loadCurrentUser();
     loadAIConfig();
+    loadAnthropicConfig();
     loadUsers();
     renderAttachments();
     appendChatMessage('assistant', "Hi. I'm your AI accountant. You can create vouchers, ask for statements, compare periods, and request management reports. Try: 'show me balance sheet for last month', 'گردش حساب بانک ملت از اول سال', or 'last 10 transactions for Melli'.");

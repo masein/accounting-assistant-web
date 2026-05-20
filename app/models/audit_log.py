@@ -32,6 +32,24 @@ class AuditLog(Base):
     # JSON string of changed fields or context
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # ── AI-accountant additions (migration 005) ──
+    # 'manual' for human writes via the regular UI, 'ai-assistant' for writes
+    # initiated by the AI accountant chat. Filterable to spot AI activity.
+    actor_source: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="manual", server_default="manual", index=True
+    )
+    # Chat session that produced this write (FK is logical only; the audit log is
+    # append-only and must outlive its session row).
+    session_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    # Which AI tool produced this write (proposeCreateTransaction, etc.).
+    tool_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # The idempotency token of the proposal that confirmed this write.
+    confirmation_token: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+    # The original user message that produced the proposal (free-text).
+    user_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
 
 class TransactionVersion(Base):
     """Snapshot of a transaction at a point in time for rollback/comparison."""

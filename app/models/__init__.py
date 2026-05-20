@@ -1,3 +1,4 @@
+from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
 from app.models.app_setting import AppSetting
 from app.models.account import Account, AccountLevel
 from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
@@ -17,6 +18,9 @@ from app.models.user import User
 __all__ = [
     "Account",
     "AccountLevel",
+    "AIChatMessage",
+    "AIChatSession",
+    "AIProposal",
     "AuditLog",
     "BankStatement",
     "BankStatementRow",

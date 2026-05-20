@@ -25,7 +25,8 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import SessionUser, get_current_user
 from app.db.session import get_db
-from app.models.ai_accountant import AIProposal
+from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
+from app.services.ai_accountant.anthropic_client import AIAccountantError
 from app.services.ai_accountant.execute_service import (
     PROPOSAL_TTL,
     PermissionDenied,
@@ -37,6 +38,7 @@ from app.services.ai_accountant.execute_service import (
     execute_proposal,
     undo_action,
 )
+from app.services.ai_accountant.orchestrator import run_chat_turn
 
 router = APIRouter(prefix="/ai-accountant", tags=["ai-accountant"])
 
@@ -81,6 +83,158 @@ class ProposalRead(BaseModel):
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
+
+class ChatPayload(BaseModel):
+    message: str
+    session_id: str | None = None
+
+
+class ChatProposal(BaseModel):
+    confirmation_token: str
+    tool_name: str
+    summary: str
+    preview: dict
+    expires_at: str | None = None
+
+
+class ChatResponse(BaseModel):
+    session_id: str
+    text: str
+    proposals: list[ChatProposal] = []
+    tool_calls: list[dict] = []
+    stop_reason: str | None = None
+    turns: int
+
+
+class ChatSessionRead(BaseModel):
+    id: str
+    title: str | None = None
+    created_at: str
+    updated_at: str
+    message_count: int
+
+
+class ChatMessageRead(BaseModel):
+    id: str
+    role: str
+    content: dict
+    created_at: str
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(
+    payload: ChatPayload,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> ChatResponse:
+    """Send a single user message through the AI accountant.
+
+    Runs the entire tool-use loop server-side and returns the final
+    text + any proposals registered along the way. The frontend
+    renders each proposal as an inline action card; clicking Confirm
+    hits ``POST /ai-accountant/execute``.
+    """
+    try:
+        result = await run_chat_turn(
+            db,
+            user_id=user.user_id,
+            username=user.username,
+            user_message=payload.message,
+            session_id=payload.session_id,
+        )
+    except AIAccountantError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return ChatResponse(
+        session_id=result.session_id,
+        text=result.text,
+        proposals=[
+            ChatProposal(
+                confirmation_token=p["confirmation_token"],
+                tool_name=p.get("tool_name", ""),
+                summary=p.get("summary", ""),
+                preview=p.get("preview", {}),
+                expires_at=p.get("expires_at"),
+            )
+            for p in result.proposals
+        ],
+        tool_calls=result.tool_calls,
+        stop_reason=result.stop_reason,
+        turns=result.turns,
+    )
+
+
+@router.get("/sessions", response_model=list[ChatSessionRead])
+def list_sessions(
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> list[ChatSessionRead]:
+    """List the calling user's chat sessions, newest first."""
+    from sqlalchemy import func
+    rows = (
+        db.execute(
+            select(
+                AIChatSession,
+                func.count(AIChatMessage.id),
+            )
+            .outerjoin(AIChatMessage, AIChatMessage.session_id == AIChatSession.id)
+            .where(AIChatSession.user_id == user.user_id)
+            .group_by(AIChatSession.id)
+            .order_by(AIChatSession.updated_at.desc())
+            .limit(50)
+        )
+        .all()
+    )
+    return [
+        ChatSessionRead(
+            id=str(row[0].id),
+            title=row[0].title,
+            created_at=row[0].created_at.isoformat() if row[0].created_at else "",
+            updated_at=row[0].updated_at.isoformat() if row[0].updated_at else "",
+            message_count=int(row[1] or 0),
+        )
+        for row in rows
+    ]
+
+
+@router.get("/sessions/{session_id}/messages", response_model=list[ChatMessageRead])
+def list_messages(
+    session_id: str,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> list[ChatMessageRead]:
+    """Return every message in a chat session in chronological order."""
+    try:
+        sid = uuid.UUID(session_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid session_id")
+    session = db.execute(
+        select(AIChatSession).where(AIChatSession.id == sid)
+    ).scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Session belongs to a different user")
+    rows = (
+        db.execute(
+            select(AIChatMessage)
+            .where(AIChatMessage.session_id == sid)
+            .order_by(AIChatMessage.created_at, AIChatMessage.id)
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        ChatMessageRead(
+            id=str(m.id),
+            role=m.role,
+            content=m.content,
+            created_at=m.created_at.isoformat() if m.created_at else "",
+        )
+        for m in rows
+    ]
 
 
 @router.post("/execute", response_model=ExecuteResponse)

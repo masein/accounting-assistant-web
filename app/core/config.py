@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     lm_studio_base_url: str = "http://host.docker.internal:1234"
     # Model name as shown in LM Studio (e.g. qwen/qwen3-4b, lmstudio-community/granite-4-7b). Use non-"thinking" for speed on 16GB Mac.
     lm_studio_model: str = "qwen/qwen3-4b-thinking-2507"
+    # Anthropic (Claude) — separate code path because the API is not OpenAI-compatible.
+    # Default to Opus 4.7 for the AI accountant: correctness matters more than
+    # token cost on bookkeeping writes. Override per-deployment via env var.
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-opus-4-7"
+    anthropic_base_url: str = "https://api.anthropic.com"
+    anthropic_max_tokens: int = 8192
     slack_webhook_url: str | None = None
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None

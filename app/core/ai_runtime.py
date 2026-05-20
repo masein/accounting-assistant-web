@@ -13,9 +13,12 @@ _logger = logging.getLogger(__name__)
 _DB_KEY = "ai_config"
 
 
+_SUPPORTED_PROVIDERS = ("lmstudio", "metis", "custom", "anthropic")
+
+
 def _default_provider() -> str:
     p = (settings.ai_provider or "").strip().lower()
-    if p in ("lmstudio", "metis", "custom"):
+    if p in _SUPPORTED_PROVIDERS:
         return p
     if settings.ai_base_url:
         return "custom"
@@ -45,12 +48,22 @@ _state: dict[str, Any] = {
         "api_key_header": (settings.ai_api_key_header or "Authorization").strip(),
         "api_key_prefix": (settings.ai_api_key_prefix or "Bearer").strip(),
     },
+    # Anthropic: separate code path (not OpenAI-compatible). Used by the AI
+    # accountant chat feature. Other AI calls (suggest transaction etc.)
+    # continue to use the OpenAI-compatible providers above.
+    "anthropic": {
+        "base_url": (settings.anthropic_base_url or "https://api.anthropic.com").strip(),
+        "model": (settings.anthropic_model or "claude-opus-4-7").strip(),
+        "api_key": (settings.anthropic_api_key or "").strip(),
+        "api_key_header": "x-api-key",
+        "api_key_prefix": "",
+    },
 }
 
 
 def _sanitize_provider(p: str | None) -> str:
     v = (p or "").strip().lower()
-    return v if v in ("lmstudio", "metis", "custom") else _state["provider"]
+    return v if v in _SUPPORTED_PROVIDERS else _state["provider"]
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +126,7 @@ def get_ai_config_public() -> dict[str, Any]:
         active["api_key"] = ""
         return {
             "provider": provider,
-            "providers": ["metis", "lmstudio", "custom"],
+            "providers": list(_SUPPORTED_PROVIDERS),
             "active": active,
             "lmstudio": {
                 "base_url": _state["lmstudio"]["base_url"],
@@ -131,6 +144,11 @@ def get_ai_config_public() -> dict[str, Any]:
                 "api_key_header": _state["custom"]["api_key_header"],
                 "api_key_prefix": _state["custom"]["api_key_prefix"],
                 "has_api_key": bool(_state["custom"]["api_key"]),
+            },
+            "anthropic": {
+                "base_url": _state["anthropic"]["base_url"],
+                "model": _state["anthropic"]["model"],
+                "has_api_key": bool(_state["anthropic"]["api_key"]),
             },
         }
 
@@ -178,4 +196,17 @@ def resolve_active_ai_backend() -> dict[str, str]:
             "api_key": str(cfg.get("api_key") or "").strip(),
             "api_key_header": str(cfg.get("api_key_header") or "Authorization").strip() or "Authorization",
             "api_key_prefix": str(cfg.get("api_key_prefix") or "").strip(),
+        }
+
+
+def resolve_anthropic_config() -> dict[str, str]:
+    """Always returns the Anthropic backend config, regardless of the
+    currently-selected default provider. Used by the AI accountant feature,
+    which uses Claude irrespective of the OpenAI-compatible default."""
+    with _lock:
+        cfg = _state["anthropic"]
+        return {
+            "base_url": str(cfg.get("base_url") or "https://api.anthropic.com").strip(),
+            "model": str(cfg.get("model") or "claude-opus-4-7").strip(),
+            "api_key": str(cfg.get("api_key") or "").strip(),
         }

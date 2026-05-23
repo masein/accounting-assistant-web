@@ -90,12 +90,94 @@ def patch_ai_config(payload: AIConfigPatch, _=Depends(require_admin)) -> dict:
     )
 
 
+SUPPORTED_CHAT_SHAPES = ("anthropic", "openai")
+
+
 class AnthropicConfigPatch(BaseModel):
     """Settings specific to the Anthropic provider used by the AI accountant.
     Editing these does NOT change the active OpenAI-compatible provider."""
     base_url: str | None = None
     model: str | None = None
     api_key: str | None = None
+
+
+class ChatShapeRead(BaseModel):
+    """The current AI Chat provider-shape setting + the active default.
+
+    ``shape`` is the persisted user choice (or empty string when not yet
+    set). ``effective`` is what the chat will actually use right now —
+    auto-detected when ``shape`` is empty (Anthropic when the Anthropic
+    key is configured, OpenAI otherwise)."""
+    shape: str
+    effective: str
+    supported: list[str]
+
+
+class ChatShapeUpdate(BaseModel):
+    """``shape`` ∈ ``{"anthropic", "openai", ""}``. Empty string clears
+    the explicit override and re-enables auto-detection."""
+    shape: str
+
+
+def _resolve_effective_shape(db: Session) -> str:
+    """Mirror of ``orchestrator._resolve_chat_shape`` for the admin GET."""
+    from sqlalchemy import select as _sel
+    from app.core.ai_runtime import resolve_anthropic_config
+    from app.models.app_setting import AppSetting
+
+    row = db.execute(
+        _sel(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
+    ).scalar_one_or_none()
+    if row and (row.value or "").strip().lower() in SUPPORTED_CHAT_SHAPES:
+        return row.value.strip().lower()
+    return "anthropic" if resolve_anthropic_config().get("api_key") else "openai"
+
+
+@router.get("/chat-provider-shape", response_model=ChatShapeRead)
+def read_chat_provider_shape(db: Session = Depends(get_db)) -> ChatShapeRead:
+    """Return the AI Chat provider-shape selector for the Settings UI."""
+    from sqlalchemy import select as _sel
+    from app.models.app_setting import AppSetting
+
+    row = db.execute(
+        _sel(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
+    ).scalar_one_or_none()
+    stored = (row.value or "").strip().lower() if row else ""
+    if stored not in SUPPORTED_CHAT_SHAPES:
+        stored = ""
+    return ChatShapeRead(
+        shape=stored,
+        effective=_resolve_effective_shape(db),
+        supported=list(SUPPORTED_CHAT_SHAPES),
+    )
+
+
+@router.put("/chat-provider-shape", response_model=ChatShapeRead)
+def update_chat_provider_shape(
+    payload: ChatShapeUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+) -> ChatShapeRead:
+    """Persist the user's explicit chat-shape choice (or clear it to
+    re-enable auto-detection by sending an empty string)."""
+    from sqlalchemy import select as _sel
+    from app.models.app_setting import AppSetting
+
+    value = (payload.shape or "").strip().lower()
+    if value and value not in SUPPORTED_CHAT_SHAPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported shape {value!r}. Supported: {list(SUPPORTED_CHAT_SHAPES)} or '' (auto).",
+        )
+    row = db.execute(
+        _sel(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
+    ).scalar_one_or_none()
+    if row:
+        row.value = value
+    else:
+        db.add(AppSetting(key="ai_chat_provider_shape", value=value))
+    db.commit()
+    return read_chat_provider_shape(db)
 
 
 @router.get("/anthropic-config")

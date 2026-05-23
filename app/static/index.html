@@ -623,8 +623,7 @@
     <div id="alert" class="alert" role="alert" style="display: none;"></div>
     <nav class="top-nav" id="top-nav" aria-label="Main navigation">
       <span class="nav-group-label">Work</span>
-      <button type="button" class="nav-btn" data-page="chat">AI chat</button>
-      <button type="button" class="nav-btn" data-page="ai-accountant" data-i18n="aiAccountantNav">AI Accountant</button>
+      <button type="button" class="nav-btn" data-page="ai-accountant" data-i18n="aiAccountantNav">AI Chat</button>
       <button type="button" class="nav-btn" data-page="transactions">Vouchers</button>
       <span class="nav-sep"></span>
       <span class="nav-group-label">Reports</span>
@@ -743,32 +742,9 @@
       </table>
     </div>
 
-    <!-- ==================== DEDICATED AI CHAT PAGE ==================== -->
-    <div class="card" data-page="chat">
-      <h2 id="chat-page-title" data-i18n="aiChatTitle">AI Accounting Assistant</h2>
-      <p id="chat-page-subtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;" data-i18n="aiChatSubtitle">
-        Ask questions, record transactions via conversation, and get instant financial reports.
-      </p>
-      <div class="chat-panel" style="min-height: 420px;">
-        <div class="chat-messages" id="chat-page-messages"></div>
-        <div class="chat-quick-actions" id="chat-page-quick-actions">
-          <button type="button" class="chip" data-msg="Show balance sheet">Balance Sheet</button>
-          <button type="button" class="chip" data-msg="Show P&amp;L this month">P&amp;L</button>
-          <button type="button" class="chip" data-msg="Show cash flow">Cash Flow</button>
-          <button type="button" class="chip" data-msg="What is my bank balance?">Bank Balance</button>
-          <button type="button" class="chip" data-msg="Record a payment">Record Payment</button>
-          <button type="button" class="chip" data-msg="Record a receipt">Record Receipt</button>
-        </div>
-        <div class="chat-input-wrap">
-          <input type="text" id="chat-page-input" data-i18n-placeholder="placeholderChatInput" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off" aria-label="Chat message input">
-          <button type="button" class="btn btn-primary" id="chat-page-send" data-i18n="send">Send</button>
-        </div>
-      </div>
-    </div>
-
     <!-- ==================== AI ACCOUNTANT PAGE ==================== -->
     <div class="card" data-page="ai-accountant">
-      <h2 data-i18n="aiAccountantTitle">AI Accountant</h2>
+      <h2 data-i18n="aiAccountantTitle">AI Chat</h2>
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;" data-i18n="aiAccountantSubtitle">
         Tell the assistant in plain English what you want to record, look up, or review. The assistant proposes structured actions — you confirm them with one click. Every write is audited and can be undone for 30 seconds.
       </p>
@@ -776,6 +752,10 @@
         <div id="ai-acct-messages" style="flex:1; overflow-y:auto; padding:0.6rem; background:#fafafa; border:1px solid var(--border); border-radius:8px; min-height:300px; max-height:60vh;"></div>
         <div style="display:flex; gap:0.4rem; flex-wrap:wrap;" id="ai-acct-quick-actions">
           <button type="button" class="chip" data-msg="What's my cash balance?">Cash balance</button>
+          <button type="button" class="chip" data-msg="Show balance sheet">Balance Sheet</button>
+          <button type="button" class="chip" data-msg="Show P&amp;L this month">P&amp;L</button>
+          <button type="button" class="chip" data-msg="Show cash flow">Cash Flow</button>
+          <button type="button" class="chip" data-msg="What is my bank balance?">Bank Balance</button>
           <button type="button" class="chip" data-msg="How much did I spend last month?">Last month spend</button>
           <button type="button" class="chip" data-msg="Show last 5 transactions">Last 5 txns</button>
         </div>
@@ -898,28 +878,14 @@
         <!-- Step 3: Result -->
         <div id="excel-import-step3" style="display: none; margin-top: 1rem;"></div>
       </div>
-      <div id="voucher-chat-inline">
+      <!-- Receipt uploads (used by vouchers; chat moved to /#ai-accountant page) -->
+      <div id="voucher-attachments" style="margin: 0.75rem 0;">
         <div class="attachment-topbar">
           <input type="file" id="attachment-input" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="max-width: 360px; margin: 0;" aria-label="Attach files">
           <button type="button" class="btn btn-secondary" id="attachment-upload-btn" data-i18n="uploadReceipts">Upload receipts</button>
-          <span class="attachment-help" id="attachment-help-text" data-i18n="attachmentSupported">Supported: JPG, PNG, WEBP, PDF (max 8MB each). Files are used in chat and can be attached to vouchers.</span>
+          <span class="attachment-help" id="attachment-help-text" data-i18n="attachmentSupported">Supported: JPG, PNG, WEBP, PDF (max 8MB each). Files attach to the voucher you're saving.</span>
         </div>
         <div id="attachment-grid" class="attachment-grid"></div>
-        <div class="chat-panel" style="margin-top: 0.75rem;">
-          <div class="chat-messages" id="chat-messages"></div>
-          <div class="chat-quick-actions" id="chat-quick-actions">
-            <button type="button" class="chip" data-msg="Show balance sheet">Balance Sheet</button>
-            <button type="button" class="chip" data-msg="Show P&amp;L this month">P&amp;L</button>
-            <button type="button" class="chip" data-msg="Show cash flow">Cash Flow</button>
-            <button type="button" class="chip" data-msg="What is my bank balance?">Bank Balance</button>
-            <button type="button" class="chip" data-msg="Record a payment">Record Payment</button>
-            <button type="button" class="chip" data-msg="Record a receipt">Record Receipt</button>
-          </div>
-          <div class="chat-input-wrap">
-            <input type="text" id="chat-input" data-i18n-placeholder="placeholderChatInput" placeholder="Ask anything (e.g. show me balance sheet for last month)" autocomplete="off" aria-label="Voucher chat input">
-            <button type="button" class="btn btn-primary" id="chat-send" data-i18n="send">Send</button>
-          </div>
-        </div>
       </div>
       <form id="transaction-form" style="margin: 0;">
         <div class="row">
@@ -1639,38 +1605,41 @@
           <button type="button" class="btn btn-secondary" id="save-language-btn" data-i18n="saveLanguage">Save language</button>
         </div>
       </div>
-      <div class="ai-runtime-bar" style="margin-bottom: 0;">
-        <div>
-          <label for="ai-provider-select" data-i18n="aiProvider">AI provider</label>
-          <select id="ai-provider-select">
-            <option value="metis">MetisAI</option>
-            <option value="lmstudio">Local LM Studio</option>
-            <option value="custom">Custom</option>
-          </select>
-        </div>
-        <div>
-          <label for="ai-model-input" data-i18n="aiModel">Model</label>
-          <input type="text" id="ai-model-input" placeholder="e.g. gpt-4o-mini">
-        </div>
-        <div>
-          <label for="ai-base-input" data-i18n="aiBaseUrl">Base URL (custom)</label>
-          <input type="text" id="ai-base-input" placeholder="https://api.example.com/openai/v1">
-        </div>
-        <div>
-          <label for="ai-key-input" data-i18n="aiApiKeyOptional">API key (optional)</label>
-          <input type="password" id="ai-key-input" placeholder="leave empty to keep current">
-        </div>
-        <div style="display:flex; align-items:flex-end;">
-          <button type="button" class="btn btn-secondary" id="ai-save-btn" data-i18n="aiApplySettings">Apply AI settings</button>
-        </div>
-        <div class="ai-runtime-hint" data-i18n="aiHint">Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.</div>
-      </div>
-
-      <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
-        <h2 style="margin-bottom:0.4rem;" data-i18n="anthropicSettingsTitle">AI Accountant — Anthropic settings</h2>
-        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="anthropicSettingsDesc">
-          The AI accountant uses Claude through the Anthropic API. Set a base URL if you're routing through a proxy or third-party gateway; leave it blank to use the default <code>https://api.anthropic.com</code>.
+      <div style="margin-top:1rem; padding:0.9rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
+        <h2 style="margin:0 0 0.4rem 0;" data-i18n="aiProvidersTitle">AI providers</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.9rem 0;" data-i18n="aiProvidersDesc">
+          Two slots: the OpenAI-shape slot powers transaction-suggest, bank-statement parsing, and other classic AI features. The Anthropic-shape slot powers the conversational AI Chat (tool use, action cards, undo). You can use one Metis account for both by pointing each slot at the matching Metis URL (<code>/openai/v1</code> and <code>/anthropic/v1</code>).
         </p>
+
+        <h3 style="margin:0.4rem 0 0.4rem 0; font-size:0.95rem;" data-i18n="openaiShapeTitle">OpenAI-shape provider</h3>
+        <div class="ai-runtime-bar" style="margin-bottom:0.8rem;">
+          <div>
+            <label for="ai-provider-select" data-i18n="aiProvider">AI provider</label>
+            <select id="ai-provider-select">
+              <option value="metis">MetisAI</option>
+              <option value="lmstudio">Local LM Studio</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div>
+            <label for="ai-model-input" data-i18n="aiModel">Model</label>
+            <input type="text" id="ai-model-input" placeholder="gpt-4o-mini">
+          </div>
+          <div>
+            <label for="ai-base-input" data-i18n="aiBaseUrl">Base URL (custom)</label>
+            <input type="text" id="ai-base-input" placeholder="https://api.example.com/openai/v1">
+          </div>
+          <div>
+            <label for="ai-key-input" data-i18n="aiApiKeyOptional">API key (optional)</label>
+            <input type="password" id="ai-key-input" placeholder="leave empty to keep current">
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button type="button" class="btn btn-secondary" id="ai-save-btn" data-i18n="aiApplySettings">Apply</button>
+          </div>
+          <div class="ai-runtime-hint" data-i18n="aiHint">Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.</div>
+        </div>
+
+        <h3 style="margin:0.8rem 0 0.4rem 0; font-size:0.95rem;" data-i18n="anthropicShapeTitle">Anthropic-shape provider (powers AI Chat)</h3>
         <div class="ai-runtime-bar" style="margin-bottom:0;">
           <div>
             <label for="anthropic-model-input" data-i18n="aiModel">Model</label>
@@ -1685,7 +1654,7 @@
             <input type="password" id="anthropic-key-input" placeholder="leave empty to keep current; '-' clears">
           </div>
           <div style="display:flex; align-items:flex-end;">
-            <button type="button" class="btn btn-secondary" id="anthropic-save-btn" data-i18n="aiApplySettings">Apply settings</button>
+            <button type="button" class="btn btn-secondary" id="anthropic-save-btn" data-i18n="aiApplySettings">Apply</button>
           </div>
           <div class="ai-runtime-hint" id="anthropic-status" style="font-size:0.82rem;color:var(--text-muted);"></div>
         </div>
@@ -2051,7 +2020,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'chat', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
+    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
     const rawFetch = window.fetch.bind(window);
 
     window.fetch = async (...args) => {
@@ -2655,7 +2624,7 @@
         btnSaveLocale: 'Save locale',
       
         // ── AI Accountant (page + nav) ──
-        aiAccountantNav: 'AI Accountant',
+        aiAccountantNav: 'AI Chat',
         aiAccountantTitle: 'AI Accountant',
         aiAccountantSubtitle: 'Tell the assistant in plain English what you want to record, look up, or review. The assistant proposes structured actions — you confirm them with one click. Every write is audited and can be undone for 30 seconds.',
       },
@@ -3055,7 +3024,7 @@
         btnSaveLocale: 'ذخیرهٔ تنظیم',
       
         // ── AI Accountant (page + nav) ──
-        aiAccountantNav: 'حسابدار هوشمند',
+        aiAccountantNav: 'گفتگوی هوشمند',
         aiAccountantTitle: 'حسابدار هوشمند',
         aiAccountantSubtitle: 'به زبان طبیعی بگویید چه چیزی را می‌خواهید ثبت، بررسی یا مرور کنید. دستیار اقدامات ساختاریافته پیشنهاد می‌دهد — شما با یک کلیک تأیید می‌کنید. هر ثبت در پروندهٔ ممیزی ضبط می‌شود و تا ۳۰ ثانیه قابل بازگشت است.',
       },
@@ -3438,7 +3407,7 @@
         btnSaveLocale: 'Guardar configuración',
       
         // ── AI Accountant (page + nav) ──
-        aiAccountantNav: 'Contador IA',
+        aiAccountantNav: 'Chat IA',
         aiAccountantTitle: 'Contador IA',
         aiAccountantSubtitle: 'Dile al asistente en lenguaje natural qué quieres registrar, consultar o revisar. Propone acciones estructuradas — tú las confirmas con un clic. Cada escritura se audita y puede deshacerse durante 30 segundos.',
       },
@@ -3821,7 +3790,7 @@
         btnSaveLocale: 'حفظ الإعداد',
       
         // ── AI Accountant (page + nav) ──
-        aiAccountantNav: 'المحاسب الذكي',
+        aiAccountantNav: 'الدردشة الذكية',
         aiAccountantTitle: 'المحاسب الذكي',
         aiAccountantSubtitle: 'أخبر المساعد بلغة عادية بما تريد تسجيله أو البحث عنه أو مراجعته. يقترح إجراءات منظَّمة، وأنت تؤكدها بنقرة واحدة. تُسجَّل كل عملية كتابة في سجل التدقيق ويمكن التراجع عنها خلال 30 ثانية.',
       },
@@ -3847,7 +3816,6 @@
 
       const navMap = {
         dashboard: 'navDashboard',
-        chat: 'navChat',
         'ai-accountant': 'aiAccountantNav',
         transactions: 'navTransactions',
         entities: 'navEntities',
@@ -4126,11 +4094,11 @@
     }
 
     function toggleInlineChat() {
-      if (!voucherChatInlineEl) return;
-      const isOpen = voucherChatInlineEl.classList.toggle('is-open');
-      if (openAiChatInlineBtn) {
-        openAiChatInlineBtn.textContent = t(isOpen ? 'closeAiChat' : 'openAiChat');
-      }
+      // The inline voucher chat was merged into the dedicated AI Chat page.
+      // The "Open AI chat" button now navigates there instead of toggling
+      // a sidebar panel.
+      location.hash = '#ai-accountant';
+      if (typeof showPage === 'function') showPage('ai-accountant');
     }
 
     let _alertTimer = null;
@@ -7038,195 +7006,11 @@
     }
     document.getElementById('lines-tbody').addEventListener('input', updateVoucherBalanceBar);
 
-    chatSendBtn.addEventListener('click', async () => {
-      const text = (chatInput.value || '').trim();
-      if (!text) return;
-      chatInput.value = '';
-      chatHistory.push({ role: 'user', content: text });
-      appendChatMessage('user', text);
-      chatSendBtn.disabled = true;
-      chatInput.disabled = true;
-      const loadingEl = appendChatMessage('assistant', 'Processing…', { loading: true, id: 'chat-loading' });
-      try {
-        const res = await fetch(API + '/transactions/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: chatHistory, attachment_ids: selectedAttachments.map(a => a.id) })
-        });
-        const data = await res.json().catch(() => ({}));
-        const loadingNode = document.getElementById('chat-loading');
-        if (loadingNode) loadingNode.remove();
-        if (!res.ok) {
-          const errMsg = (data.detail || res.status) + '';
-          chatHistory.push({ role: 'assistant', content: errMsg });
-          appendChatMessage('assistant', 'Error: ' + errMsg);
-          showAlert(data.detail || 'Error talking to the assistant.', true);
-          return;
-        }
-        const messageText = extractMessageText(data.message);
-        chatHistory.push({ role: 'assistant', content: messageText });
-        appendChatMessage('assistant', messageText);
-        if (data.report) {
-          appendChatReport(data.report);
-        }
-        if (data.form_updates) {
-          if (data.form_updates.date) {
-            document.getElementById('date').value = data.form_updates.date;
-            if (typeof updateJalaliHint === 'function') updateJalaliHint();
-          }
-          if (data.form_updates.reference) {
-            document.getElementById('reference').value = data.form_updates.reference;
-          }
-          if (data.form_updates.description) {
-            document.getElementById('description').value = data.form_updates.description;
-          }
-        }
-        if (data.transaction) {
-          fillFormFromSuggestion(data.transaction);
-          updateVoucherBalanceBar();
-          lastEntityMentions = data.entity_mentions || null;
-          await loadEntityOptions();
-          setEntityDropdownsFromResponse(data.resolved_entities || null, lastEntityMentions || []);
-          // Show confidence and reasoning if available
-          let alertMsg = 'Voucher ready. Edit if needed, then click Save voucher.';
-          if (data.confidence != null && data.confidence < 0.7) {
-            alertMsg = '⚠ Low confidence (' + Math.round(data.confidence * 100) + '%). Please review carefully. ' + alertMsg;
-          }
-          if (data.reasoning) {
-            appendChatMessage('assistant', '💡 ' + data.reasoning);
-          }
-          showAlert(alertMsg);
-        } else {
-          lastEntityMentions = null;
-        }
-      } catch (err) {
-        const loadingNode = document.getElementById('chat-loading');
-        if (loadingNode) loadingNode.remove();
-        const errMsg = err.message + '';
-        chatHistory.push({ role: 'assistant', content: errMsg });
-        appendChatMessage('assistant', 'Connection error: ' + errMsg);
-        showAlert('Connection error: ' + err.message, true);
-      } finally {
-        chatSendBtn.disabled = false;
-        chatInput.disabled = false;
-      }
-    });
-    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
-
-    // ==================== DEDICATED CHAT PAGE WIRING ====================
-    const chatPageMessages = document.getElementById('chat-page-messages');
-    const chatPageInput = document.getElementById('chat-page-input');
-    const chatPageSendBtn = document.getElementById('chat-page-send');
-    const chatPageHistory = [];
-
-    function appendChatPageMessage(role, text, opts = {}) {
-      if (!chatPageMessages) return;
-      const div = document.createElement('div');
-      div.className = 'chat-msg ' + role + '-msg' + (opts.loading ? ' loading' : '');
-      if (opts.id) div.id = opts.id;
-      div.textContent = text;
-      chatPageMessages.appendChild(div);
-      chatPageMessages.scrollTop = chatPageMessages.scrollHeight;
-      return div;
-    }
-
-    if (chatPageSendBtn) {
-      chatPageSendBtn.addEventListener('click', async () => {
-        const text = (chatPageInput.value || '').trim();
-        if (!text) return;
-        chatPageInput.value = '';
-        chatPageHistory.push({ role: 'user', content: text });
-        appendChatPageMessage('user', text);
-        chatPageSendBtn.disabled = true;
-        chatPageInput.disabled = true;
-        const loadingEl = appendChatPageMessage('assistant', 'Processing\u2026', { loading: true, id: 'chat-page-loading' });
-        try {
-          const res = await fetch(API + '/transactions/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: chatPageHistory, attachment_ids: [] })
-          });
-          const data = await res.json().catch(() => ({}));
-          const loadingNode = document.getElementById('chat-page-loading');
-          if (loadingNode) loadingNode.remove();
-          if (!res.ok) {
-            const errMsg = (data.detail || res.status) + '';
-            chatPageHistory.push({ role: 'assistant', content: errMsg });
-            appendChatPageMessage('assistant', 'Error: ' + errMsg);
-            return;
-          }
-          const messageText = typeof extractMessageText === 'function' ? extractMessageText(data.message) : (data.message || '');
-          chatPageHistory.push({ role: 'assistant', content: messageText });
-          appendChatPageMessage('assistant', messageText);
-          if (data.report && typeof renderReportPreviewHtml === 'function') {
-            // Append formatted report into the dedicated chat page messages container
-            const reportDiv = document.createElement('div');
-            reportDiv.className = 'chat-msg assistant report-msg';
-            reportDiv.setAttribute('dir', 'auto');
-            const report = data.report;
-            const period = typeof reportPeriodText === 'function' ? reportPeriodText(report) : '';
-            const quickSummary = typeof _reportQuickSummary === 'function' ? _reportQuickSummary(report) : '';
-            const analysisHtml = typeof _reportAnalysisHtml === 'function' ? _reportAnalysisHtml(report) : '';
-            const chartId = 'chat-page-chart-' + Math.random().toString(16).slice(2);
-            const detailId = 'chat-page-detail-' + Math.random().toString(16).slice(2);
-            reportDiv.innerHTML = `
-              <div style="font-weight:700; margin-bottom:0.35rem;">${escapeHtml(t('reportResult'))}</div>
-              ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
-              ${quickSummary ? `<div style="font-size:0.88rem;color:var(--text-muted);margin:0.25rem 0;">${escapeHtml(quickSummary)}</div>` : ''}
-              ${analysisHtml}
-              <details id="${detailId}">
-                <summary style="cursor:pointer;font-size:0.85rem;color:var(--primary);margin:0.3rem 0;">Show full report</summary>
-                <div>${renderReportPreviewHtml(report)}</div>
-                <div class="panel report-chart-panel" style="display:none;">
-                  <h3>${escapeHtml(t('chartWord'))}</h3>
-                  <canvas id="${chartId}" height="200"></canvas>
-                </div>
-              </details>
-            `;
-            chatPageMessages.appendChild(reportDiv);
-            chatPageMessages.scrollTop = chatPageMessages.scrollHeight;
-            const detailsEl = reportDiv.querySelector('#' + detailId);
-            if (detailsEl) {
-              let chartDone = false;
-              detailsEl.addEventListener('toggle', () => {
-                if (detailsEl.open && !chartDone) {
-                  const canvas = reportDiv.querySelector('#' + chartId);
-                  const panel = reportDiv.querySelector('.report-chart-panel');
-                  const ch = typeof renderReportChart === 'function' ? renderReportChart(canvas, report, null) : null;
-                  if (panel && ch) panel.style.display = 'block';
-                  chartDone = true;
-                }
-              });
-            }
-          }
-          if (data.transaction) {
-            appendChatPageMessage('assistant', '\u2705 Transaction recorded! Switch to the Vouchers tab to review and finalize.');
-          }
-        } catch (err) {
-          const loadingNode = document.getElementById('chat-page-loading');
-          if (loadingNode) loadingNode.remove();
-          appendChatPageMessage('assistant', 'Connection error: ' + err.message);
-        } finally {
-          chatPageSendBtn.disabled = false;
-          chatPageInput.disabled = false;
-        }
-      });
-      chatPageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') chatPageSendBtn.click(); });
-    }
-
-    // Wire quick-action chips for dedicated chat page
-    const chatPageQuickActions = document.getElementById('chat-page-quick-actions');
-    if (chatPageQuickActions) {
-      chatPageQuickActions.addEventListener('click', (e) => {
-        const chip = e.target.closest('.chip');
-        if (!chip) return;
-        const msg = chip.getAttribute('data-msg');
-        if (msg && chatPageInput && chatPageSendBtn) {
-          chatPageInput.value = msg;
-          chatPageSendBtn.click();
-        }
-      });
-    }
+    // Old voucher-inline chat handler (POST /transactions/chat with form-fill)
+    // was removed. The "Open AI chat" button on the Vouchers page now
+    // navigates to the AI Chat page instead — see openAiChatInlineBtn wiring.
+    // appendChatMessage / extractMessageText / appendChatReport helpers are
+    // intentionally kept so nothing else that called them breaks at boot.
 
     let lastSavedTransactionId = null;
 
@@ -8363,7 +8147,6 @@
     loadAnthropicConfig();
     loadUsers();
     renderAttachments();
-    appendChatMessage('assistant', "Hi. I'm your AI accountant. You can create vouchers, ask for statements, compare periods, and request management reports. Try: 'show me balance sheet for last month', 'گردش حساب بانک ملت از اول سال', or 'last 10 transactions for Melli'.");
     loadLedger();
     loadEntities();
     loadInvoices();

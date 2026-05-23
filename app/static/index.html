@@ -6969,16 +6969,9 @@
       }
     }
 
-    // Quick-action chips
-    document.getElementById('chat-quick-actions').addEventListener('click', (e) => {
-      const chip = e.target.closest('.chip');
-      if (!chip) return;
-      const msg = chip.getAttribute('data-msg');
-      if (msg) {
-        chatInput.value = msg;
-        chatSendBtn.click();
-      }
-    });
+    // Old inline-voucher quick-action chips wiring — element removed when
+    // the inline chat was merged into the dedicated AI Chat page. The new
+    // chips on /#ai-accountant get wired by the aiAccountant IIFE later.
 
     // Voucher balance bar live updater
     function updateVoucherBalanceBar() {

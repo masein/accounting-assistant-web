@@ -2051,7 +2051,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'chat', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
+    const validPages = new Set(['dashboard', 'chat', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
     const rawFetch = window.fetch.bind(window);
 
     window.fetch = async (...args) => {
@@ -2653,6 +2653,11 @@
         localeDefaultOption: 'Default (IFRS-style)',
         localeIrOption: 'Iranian standard (ایران)',
         btnSaveLocale: 'Save locale',
+      
+        // ── AI Accountant (page + nav) ──
+        aiAccountantNav: 'AI Accountant',
+        aiAccountantTitle: 'AI Accountant',
+        aiAccountantSubtitle: 'Tell the assistant in plain English what you want to record, look up, or review. The assistant proposes structured actions — you confirm them with one click. Every write is audited and can be undone for 30 seconds.',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -3048,6 +3053,11 @@
         localeDefaultOption: 'پیش‌فرض (IFRS)',
         localeIrOption: 'استاندارد ایران',
         btnSaveLocale: 'ذخیرهٔ تنظیم',
+      
+        // ── AI Accountant (page + nav) ──
+        aiAccountantNav: 'حسابدار هوشمند',
+        aiAccountantTitle: 'حسابدار هوشمند',
+        aiAccountantSubtitle: 'به زبان طبیعی بگویید چه چیزی را می‌خواهید ثبت، بررسی یا مرور کنید. دستیار اقدامات ساختاریافته پیشنهاد می‌دهد — شما با یک کلیک تأیید می‌کنید. هر ثبت در پروندهٔ ممیزی ضبط می‌شود و تا ۳۰ ثانیه قابل بازگشت است.',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -3426,6 +3436,11 @@
         localeDefaultOption: 'Predeterminada (estilo IFRS)',
         localeIrOption: 'Estándar iraní',
         btnSaveLocale: 'Guardar configuración',
+      
+        // ── AI Accountant (page + nav) ──
+        aiAccountantNav: 'Contador IA',
+        aiAccountantTitle: 'Contador IA',
+        aiAccountantSubtitle: 'Dile al asistente en lenguaje natural qué quieres registrar, consultar o revisar. Propone acciones estructuradas — tú las confirmas con un clic. Cada escritura se audita y puede deshacerse durante 30 segundos.',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -3804,6 +3819,11 @@
         localeDefaultOption: 'افتراضي (نمط IFRS)',
         localeIrOption: 'المعيار الإيراني',
         btnSaveLocale: 'حفظ الإعداد',
+      
+        // ── AI Accountant (page + nav) ──
+        aiAccountantNav: 'المحاسب الذكي',
+        aiAccountantTitle: 'المحاسب الذكي',
+        aiAccountantSubtitle: 'أخبر المساعد بلغة عادية بما تريد تسجيله أو البحث عنه أو مراجعته. يقترح إجراءات منظَّمة، وأنت تؤكدها بنقرة واحدة. تُسجَّل كل عملية كتابة في سجل التدقيق ويمكن التراجع عنها خلال 30 ثانية.',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -3828,6 +3848,7 @@
       const navMap = {
         dashboard: 'navDashboard',
         chat: 'navChat',
+        'ai-accountant': 'aiAccountantNav',
         transactions: 'navTransactions',
         entities: 'navEntities',
         invoices: 'navInvoices',

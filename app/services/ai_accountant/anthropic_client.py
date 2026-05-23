@@ -31,6 +31,16 @@ from anthropic.types import Message
 
 from app.core.ai_runtime import resolve_anthropic_config
 
+from .llm_protocol import (
+    ChatMessage,
+    LLMClient,
+    LLMClientError,
+    LLMResponse,
+    LLMUsage,
+    ToolCall,
+    tool_to_anthropic,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -205,3 +215,118 @@ def assistant_message_for_history(response: Message) -> dict[str, Any]:
     # Pydantic models support .model_dump() / dict-like access; pass content
     # back through unchanged.
     return {"role": "assistant", "content": [b.model_dump() for b in response.content]}
+
+
+# ---------------------------------------------------------------------------
+# LLMClient implementation (normalized protocol)
+# ---------------------------------------------------------------------------
+
+
+def _chat_messages_to_anthropic_wire(messages: list[ChatMessage]) -> list[dict[str, Any]]:
+    """Translate normalized ``ChatMessage`` list to Anthropic's ``messages``
+    array. Adjacent same-role turns are kept verbatim — Anthropic enforces
+    alternation, but our orchestrator already produces alternating turns."""
+    out: list[dict[str, Any]] = []
+    # Assistant turns with tool_calls and the following 'tool' turns need to
+    # be batched per Anthropic's shape:
+    #   {role: assistant, content: [{type: text, text: ...}, {type: tool_use, id, name, input}, ...]}
+    #   {role: user, content: [{type: tool_result, tool_use_id, content, is_error}, ...]}
+    pending_tool_results: list[dict[str, Any]] = []
+    for m in messages:
+        if m.role == "user" and not m.tool_call_id:
+            # Flush any pending tool results as their own user turn first.
+            if pending_tool_results:
+                out.append({"role": "user", "content": pending_tool_results})
+                pending_tool_results = []
+            out.append({"role": "user", "content": m.text or ""})
+        elif m.role == "tool":
+            block: dict[str, Any] = {
+                "type": "tool_result",
+                "tool_use_id": m.tool_call_id,
+                "content": m.text or "",
+            }
+            if m.is_error:
+                block["is_error"] = True
+            pending_tool_results.append(block)
+        elif m.role == "assistant":
+            if pending_tool_results:
+                out.append({"role": "user", "content": pending_tool_results})
+                pending_tool_results = []
+            content_blocks: list[dict[str, Any]] = []
+            if m.text:
+                content_blocks.append({"type": "text", "text": m.text})
+            for tc in m.tool_calls:
+                content_blocks.append({
+                    "type": "tool_use",
+                    "id": tc.id,
+                    "name": tc.name,
+                    "input": tc.input,
+                })
+            out.append({"role": "assistant", "content": content_blocks or m.text or ""})
+    # Trailing tool results (very unlikely — the last turn before a chat
+    # call is always a user message), but flush for safety.
+    if pending_tool_results:
+        out.append({"role": "user", "content": pending_tool_results})
+    return out
+
+
+def _response_to_llm_response(response: Message) -> LLMResponse:
+    """Convert an Anthropic ``Message`` response into the normalized
+    ``LLMResponse`` shape the orchestrator works in."""
+    text_parts: list[str] = []
+    tool_calls: list[ToolCall] = []
+    for block in response.content:
+        if block.type == "text":
+            text_parts.append(block.text)
+        elif block.type == "tool_use":
+            tool_calls.append(ToolCall(
+                id=block.id,
+                name=block.name,
+                input=dict(block.input) if block.input else {},
+            ))
+    msg = ChatMessage(
+        role="assistant",
+        text="".join(text_parts) or None,
+        tool_calls=tool_calls,
+    )
+    usage = response.usage
+    return LLMResponse(
+        message=msg,
+        stop_reason=response.stop_reason or "end_turn",
+        usage=LLMUsage(
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            cache_read_input_tokens=getattr(usage, "cache_read_input_tokens", 0) or 0,
+            cache_creation_input_tokens=getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        ),
+    )
+
+
+class AnthropicLLMClient(LLMClient):
+    """Anthropic-shape implementation of the LLM protocol. Wraps the
+    existing ``chat_once`` function with normalized translation."""
+
+    shape = "anthropic"
+
+    async def chat(
+        self,
+        *,
+        system_prompt: str,
+        tools: list[dict[str, Any]],
+        messages: list[ChatMessage],
+        model: str | None = None,
+        max_tokens: int = 8192,
+    ) -> LLMResponse:
+        wire_messages = _chat_messages_to_anthropic_wire(messages)
+        anthropic_tools = [tool_to_anthropic(t) for t in tools]
+        try:
+            raw = await chat_once(
+                system_prompt=system_prompt,
+                tools=anthropic_tools,
+                messages=wire_messages,
+                model=model,
+                max_tokens=max_tokens,
+            )
+        except AIAccountantError as e:
+            raise LLMClientError(str(e)) from e
+        return _response_to_llm_response(raw)

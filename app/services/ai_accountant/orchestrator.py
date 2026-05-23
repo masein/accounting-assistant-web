@@ -1,28 +1,32 @@
 """Agent orchestrator — drives the AI accountant tool-use loop.
 
-The loop:
+The loop, in shape-agnostic terms (the LLM client abstracts away wire format):
 
 1. Append the user's message to the chat history.
-2. Send history + system prompt + tool catalogue to Claude via
-   ``anthropic_client.chat_once``.
-3. If the response has any ``tool_use`` blocks, execute each tool
-   (read-tools answer immediately; proposal-tools persist a pending
-   row and return a ``confirmation_token``), append the results as a
-   user message, and loop back to step 2.
-4. When the response is ``stop_reason == "end_turn"``, persist the
-   assistant message to ``ai_chat_messages`` and return.
+2. Send (system prompt + tools + ChatMessage history) via ``LLMClient.chat``
+   to whichever provider is active (Anthropic or OpenAI-compatible).
+3. If the response has any tool calls, execute each tool (read-tools answer
+   immediately; proposal-tools persist a pending row and return a
+   ``confirmation_token``), append the results as ``role: "tool"`` messages,
+   and loop back to step 2.
+4. When ``stop_reason == "end_turn"`` (or there are no tool calls), persist
+   the assistant message to ``ai_chat_messages`` and return.
 
 Hard safeguards:
 
-* ``MAX_TURNS`` — caps tool-use iterations per user message. Above
-  this we return the partial response and raise a warning rather than
-  rolling forever.
-* ``PAUSE_TURN_RETRIES`` — handles Claude's `pause_turn` stop reason
-  (when an internal server-side loop hits its limit) by re-sending,
-  per the SDK docs.
-* All tool exceptions are caught and surfaced to Claude as
-  ``tool_result(is_error=True)`` so the model can recover or ask
-  for clarification.
+* ``MAX_TURNS`` — caps tool-use iterations per user message. Above this we
+  return the partial response and log a warning rather than rolling forever.
+* ``PAUSE_TURN_RETRIES`` — handles Anthropic's `pause_turn` (server-side
+  iteration cap) by re-sending; OpenAI doesn't surface this.
+* All tool exceptions are caught and surfaced to the model as
+  ``tool_result(is_error=True)`` so it can recover instead of crashing
+  the chat turn.
+
+Storage is in the normalized ``ChatMessage.to_dict()`` JSON shape — same
+format regardless of which LLM produced or will consume the row. Sessions
+can switch providers between turns without losing history (subject to the
+caveat that some providers expect specific assistant↔tool↔user ordering;
+both adapters in this codebase handle the canonical loop fine).
 """
 from __future__ import annotations
 
@@ -37,14 +41,10 @@ from sqlalchemy.orm import Session
 
 from app.models.ai_accountant import AIChatMessage, AIChatSession
 
-from .anthropic_client import (
-    AIAccountantError,
-    assistant_message_for_history,
-    chat_once,
-    extract_text,
-    extract_tool_uses,
-)
+from .anthropic_client import AIAccountantError, AnthropicLLMClient
 from .base import BaseTool, ToolContext, ToolError, ToolRegistry
+from .llm_protocol import ChatMessage, LLMClient, LLMClientError, ToolCall
+from .openai_client import OpenAILLMClient
 from .proposal_tools import register_proposal_tools
 from .read_tools import register_read_tools
 
@@ -105,6 +105,37 @@ def build_default_registry() -> ToolRegistry:
 
 
 # ---------------------------------------------------------------------------
+# LLM client selection
+# ---------------------------------------------------------------------------
+
+
+def _resolve_chat_shape(db: Session) -> str:
+    """Read the active chat-provider shape. Defaults to 'anthropic' when an
+    Anthropic key is configured (legacy behaviour), 'openai' otherwise.
+
+    Persisted in ``app_settings`` under ``ai_chat_provider_shape`` once the
+    user explicitly picks one via the Settings UI — until then this
+    auto-detect rule applies.
+    """
+    from sqlalchemy import select as _sel
+    from app.core.ai_runtime import resolve_anthropic_config
+    from app.models.app_setting import AppSetting
+
+    row = db.execute(
+        _sel(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
+    ).scalar_one_or_none()
+    if row and (row.value or "").strip().lower() in ("anthropic", "openai"):
+        return row.value.strip().lower()
+    return "anthropic" if resolve_anthropic_config().get("api_key") else "openai"
+
+
+def _get_chat_client(shape: str) -> LLMClient:
+    if shape == "openai":
+        return OpenAILLMClient()
+    return AnthropicLLMClient()
+
+
+# ---------------------------------------------------------------------------
 # Session helpers
 # ---------------------------------------------------------------------------
 
@@ -133,17 +164,13 @@ def _get_or_create_session(
     return row
 
 
-def _persist_message(
-    db: Session, *, session_id: uuid.UUID, role: str, content: dict[str, Any]
-) -> None:
-    db.add(
-        AIChatMessage(session_id=session_id, role=role, content=content)
-    )
+def _persist_message(db: Session, *, session_id: uuid.UUID, role: str, content: dict[str, Any]) -> None:
+    db.add(AIChatMessage(session_id=session_id, role=role, content=content))
     db.commit()
 
 
-def _replay_history(db: Session, session_id: uuid.UUID) -> list[dict[str, Any]]:
-    """Rebuild the Anthropic ``messages`` array from saved chat history."""
+def _replay_history(db: Session, session_id: uuid.UUID) -> list[ChatMessage]:
+    """Rebuild the normalized ``ChatMessage`` history from saved rows."""
     rows = (
         db.execute(
             select(AIChatMessage)
@@ -153,15 +180,20 @@ def _replay_history(db: Session, session_id: uuid.UUID) -> list[dict[str, Any]]:
         .scalars()
         .all()
     )
-    history: list[dict[str, Any]] = []
+    history: list[ChatMessage] = []
     for row in rows:
-        if row.role == "user":
-            history.append({"role": "user", "content": row.content.get("content")})
-        elif row.role == "assistant":
-            # Persisted as the full content-block list (see _persist_message).
-            history.append({"role": "assistant", "content": row.content.get("content")})
-        elif row.role == "tool":
-            history.append({"role": "user", "content": row.content.get("content")})
+        content = row.content or {}
+        # Old (pre-protocol) format used to stash Anthropic-shape blocks
+        # under a "content" key; if we encounter one of those, do a
+        # best-effort conversion so old sessions don't break entirely.
+        if "role" in content:
+            history.append(ChatMessage.from_dict(content))
+        elif row.role == "user" and "content" in content and isinstance(content["content"], str):
+            # Legacy: {"content": "user text"}
+            history.append(ChatMessage(role="user", text=content["content"]))
+        # Older assistant + tool entries from before this refactor are
+        # dropped on replay — they're in Anthropic-block shape and would
+        # confuse an OpenAI adapter. The user can /reset the session.
     return history
 
 
@@ -178,6 +210,7 @@ class ChatResult:
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     stop_reason: str | None = None
     turns: int = 1
+    provider_shape: str = "anthropic"
 
 
 # ---------------------------------------------------------------------------
@@ -194,27 +227,35 @@ async def run_chat_turn(
     session_id: str | None = None,
     ip_address: str | None = None,
     registry: ToolRegistry | None = None,
+    client: LLMClient | None = None,
 ) -> ChatResult:
     """Drive one user-message turn through the AI accountant agent loop.
 
-    Returns when Claude says ``end_turn`` (or we hit ``MAX_TURNS``). The
-    return value lists every proposal Claude registered during the turn
-    so the frontend can render the action cards.
+    Returns when the model says ``end_turn`` (or we hit ``MAX_TURNS``). The
+    return value lists every proposal registered during the turn so the
+    frontend can render the action cards.
+
+    ``client`` lets tests inject a mock; in production we look up the
+    active shape via ``_resolve_chat_shape`` and instantiate the
+    corresponding adapter.
     """
     reg = registry or build_default_registry()
-    tools = reg.to_anthropic()
+    tool_defs = reg.to_anthropic()  # provider-neutral: {name, description, input_schema}
+
+    shape = "anthropic"
+    if client is None:
+        shape = _resolve_chat_shape(db)
+        client = _get_chat_client(shape)
+    else:
+        shape = getattr(client, "shape", "unknown")
 
     chat_session = _get_or_create_session(db, user_id=user_id, session_id=session_id)
     session_uuid_str = str(chat_session.id)
 
     history = _replay_history(db, chat_session.id)
-    history.append({"role": "user", "content": user_message})
-    _persist_message(
-        db,
-        session_id=chat_session.id,
-        role="user",
-        content={"content": user_message},
-    )
+    user_turn = ChatMessage(role="user", text=user_message)
+    history.append(user_turn)
+    _persist_message(db, session_id=chat_session.id, role="user", content=user_turn.to_dict())
 
     tool_ctx = ToolContext(
         db=db,
@@ -226,110 +267,115 @@ async def run_chat_turn(
     )
 
     proposals: list[dict[str, Any]] = []
-    tool_calls: list[dict[str, Any]] = []
+    tool_call_log: list[dict[str, Any]] = []
     final_text = ""
     stop_reason: str | None = None
     pause_attempts = 0
 
     for turn in range(1, MAX_TURNS + 1):
-        response = await chat_once(
-            system_prompt=SYSTEM_PROMPT,
-            tools=tools,
-            messages=history,
-        )
-        stop_reason = response.stop_reason
+        try:
+            response = await client.chat(
+                system_prompt=SYSTEM_PROMPT,
+                tools=tool_defs,
+                messages=history,
+            )
+        except LLMClientError as e:
+            raise AIAccountantError(str(e)) from e
 
-        # Always append the assistant turn to history (including any
-        # tool_use blocks — Claude needs them for the next round).
-        assistant_entry = assistant_message_for_history(response)
-        history.append(assistant_entry)
+        stop_reason = response.stop_reason
+        assistant_msg = response.message
+        history.append(assistant_msg)
         _persist_message(
-            db,
-            session_id=chat_session.id,
-            role="assistant",
-            content=assistant_entry,
+            db, session_id=chat_session.id, role="assistant",
+            content=assistant_msg.to_dict(),
         )
 
         if stop_reason == "pause_turn":
-            # Server-side iteration cap — resume per the SDK docs.
             pause_attempts += 1
             if pause_attempts > PAUSE_TURN_RETRIES:
-                logger.warning(
-                    "ai-accountant: pause_turn retries exhausted (%d) — bailing",
-                    pause_attempts,
-                )
+                logger.warning("ai-accountant: pause_turn retries exhausted — bailing")
                 break
             continue
 
-        tool_uses = extract_tool_uses(response)
-        if stop_reason == "end_turn" or not tool_uses:
-            final_text = extract_text(response)
+        if stop_reason == "end_turn" or not assistant_msg.tool_calls:
+            final_text = assistant_msg.text or ""
             return ChatResult(
                 session_id=session_uuid_str,
                 text=final_text,
                 proposals=proposals,
-                tool_calls=tool_calls,
+                tool_calls=tool_call_log,
                 stop_reason=stop_reason,
                 turns=turn,
+                provider_shape=shape,
             )
 
         # Execute every tool the model asked for and feed results back.
-        tool_results: list[dict[str, Any]] = []
-        for call in tool_uses:
-            tool_call_record = {
-                "tool_use_id": call["id"],
-                "name": call["name"],
-                "input": call["input"],
-            }
-            tool_calls.append(tool_call_record)
-            tool = reg.get(call["name"])
+        tool_result_messages: list[ChatMessage] = []
+        for call in assistant_msg.tool_calls:
+            log_entry = {"tool_use_id": call.id, "name": call.name, "input": call.input}
+            tool_call_log.append(log_entry)
+            tool = reg.get(call.name)
             if tool is None:
-                tool_results.append(
-                    _tool_result(call["id"], f"Unknown tool: {call['name']!r}", is_error=True)
-                )
+                tool_result_messages.append(ChatMessage(
+                    role="tool", tool_call_id=call.id,
+                    text=f"Unknown tool: {call.name!r}", is_error=True,
+                ))
+                continue
+
+            # Detect malformed arguments from weak local models.
+            if call.input.get("_parse_error"):
+                tool_result_messages.append(ChatMessage(
+                    role="tool", tool_call_id=call.id,
+                    text=f"Tool call had malformed JSON arguments: "
+                         f"{call.input.get('_raw_arguments', '')!r}. Retry with valid JSON.",
+                    is_error=True,
+                ))
                 continue
 
             try:
-                args = tool.InputSchema.model_validate(call["input"])
+                args = tool.InputSchema.model_validate(call.input)
             except ValidationError as e:
-                tool_results.append(
-                    _tool_result(call["id"], f"Invalid input: {e}", is_error=True)
-                )
+                tool_result_messages.append(ChatMessage(
+                    role="tool", tool_call_id=call.id,
+                    text=f"Invalid input: {e}", is_error=True,
+                ))
                 continue
 
             try:
                 result = await tool.run(tool_ctx, args)
             except ToolError as e:
-                tool_results.append(
-                    _tool_result(call["id"], f"Tool error ({e.code}): {e.message}", is_error=True)
-                )
+                tool_result_messages.append(ChatMessage(
+                    role="tool", tool_call_id=call.id,
+                    text=f"Tool error ({e.code}): {e.message}", is_error=True,
+                ))
                 continue
             except Exception as e:
-                logger.exception("ai-accountant: tool %s crashed", call["name"])
-                tool_results.append(
-                    _tool_result(
-                        call["id"],
-                        f"Internal tool error: {type(e).__name__}: {e}",
-                        is_error=True,
-                    )
-                )
+                logger.exception("ai-accountant: tool %s crashed", call.name)
+                tool_result_messages.append(ChatMessage(
+                    role="tool", tool_call_id=call.id,
+                    text=f"Internal tool error: {type(e).__name__}: {e}", is_error=True,
+                ))
                 continue
 
-            tool_results.append(_tool_result(call["id"], result))
-            tool_call_record["result"] = result
+            import json as _json
+            tool_result_messages.append(ChatMessage(
+                role="tool", tool_call_id=call.id,
+                text=_json.dumps(result, default=str),
+            ))
+            log_entry["result"] = result
             if tool.category == "proposal" and isinstance(result, dict) and "confirmation_token" in result:
                 proposals.append(result)
 
-        user_tool_entry = {"role": "user", "content": tool_results}
-        history.append(user_tool_entry)
-        _persist_message(
-            db,
-            session_id=chat_session.id,
-            role="tool",
-            content=user_tool_entry,
-        )
+        # Append each tool result as its own ChatMessage (the wire-format
+        # adapter batches them appropriately for Anthropic / spreads them
+        # for OpenAI).
+        for trm in tool_result_messages:
+            history.append(trm)
+            _persist_message(
+                db, session_id=chat_session.id, role="tool",
+                content=trm.to_dict(),
+            )
 
-    # Hit MAX_TURNS without an end_turn — return what we have.
     logger.warning(
         "ai-accountant: hit MAX_TURNS=%d for session %s — returning partial result",
         MAX_TURNS, session_uuid_str,
@@ -338,26 +384,8 @@ async def run_chat_turn(
         session_id=session_uuid_str,
         text=final_text or "(agent reached max turns — please simplify your request)",
         proposals=proposals,
-        tool_calls=tool_calls,
+        tool_calls=tool_call_log,
         stop_reason=stop_reason,
         turns=MAX_TURNS,
+        provider_shape=shape,
     )
-
-
-def _tool_result(tool_use_id: str, content: Any, *, is_error: bool = False) -> dict[str, Any]:
-    """Wrap a tool's return value in the ``tool_result`` shape Claude expects.
-
-    ``content`` may be a dict (JSON-stringified) or a plain string."""
-    if isinstance(content, str):
-        text = content
-    else:
-        import json
-        text = json.dumps(content, default=str)
-    block: dict[str, Any] = {
-        "type": "tool_result",
-        "tool_use_id": tool_use_id,
-        "content": text,
-    }
-    if is_error:
-        block["is_error"] = True
-    return block

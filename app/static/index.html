@@ -1639,24 +1639,46 @@
           <div class="ai-runtime-hint" data-i18n="aiHint">Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.</div>
         </div>
 
-        <h3 style="margin:0.8rem 0 0.4rem 0; font-size:0.95rem;" data-i18n="anthropicShapeTitle">Anthropic-shape provider (powers AI Chat)</h3>
-        <div class="ai-runtime-bar" style="margin-bottom:0;">
+        <h3 style="margin:0.8rem 0 0.4rem 0; font-size:0.95rem;" data-i18n="chatProviderTitle">AI Chat provider</h3>
+        <div class="ai-runtime-bar" style="margin-bottom:0.4rem;">
           <div>
-            <label for="anthropic-model-input" data-i18n="aiModel">Model</label>
-            <input type="text" id="anthropic-model-input" placeholder="claude-opus-4-7">
-          </div>
-          <div>
-            <label for="anthropic-base-input" data-i18n="aiBaseUrl">Base URL</label>
-            <input type="text" id="anthropic-base-input" placeholder="https://api.anthropic.com">
-          </div>
-          <div>
-            <label for="anthropic-key-input" data-i18n="aiApiKeyOptional">API key</label>
-            <input type="password" id="anthropic-key-input" placeholder="leave empty to keep current; '-' clears">
+            <label for="chat-shape-select" data-i18n="chatShapeLabel">Wire protocol</label>
+            <select id="chat-shape-select">
+              <option value="" data-i18n="chatShapeAuto">Auto-detect</option>
+              <option value="anthropic" data-i18n="chatShapeAnthropic">Anthropic Messages API</option>
+              <option value="openai" data-i18n="chatShapeOpenai">OpenAI Chat Completions</option>
+            </select>
           </div>
           <div style="display:flex; align-items:flex-end;">
-            <button type="button" class="btn btn-secondary" id="anthropic-save-btn" data-i18n="aiApplySettings">Apply</button>
+            <button type="button" class="btn btn-secondary" id="chat-shape-save-btn" data-i18n="aiApplySettings">Apply</button>
           </div>
-          <div class="ai-runtime-hint" id="anthropic-status" style="font-size:0.82rem;color:var(--text-muted);"></div>
+          <div class="ai-runtime-hint" id="chat-shape-hint" style="font-size:0.82rem;color:var(--text-muted);" data-i18n="chatShapeHint">
+            "Auto-detect" uses Anthropic when an Anthropic key is set, otherwise the OpenAI-shape provider above. Force a specific shape with the dropdown.
+          </div>
+        </div>
+
+        <div id="anthropic-fields-wrap">
+          <div class="ai-runtime-bar" style="margin-bottom:0;">
+            <div>
+              <label for="anthropic-model-input" data-i18n="aiModel">Model</label>
+              <input type="text" id="anthropic-model-input" placeholder="claude-opus-4-7">
+            </div>
+            <div>
+              <label for="anthropic-base-input" data-i18n="aiBaseUrl">Base URL</label>
+              <input type="text" id="anthropic-base-input" placeholder="https://api.anthropic.com">
+            </div>
+            <div>
+              <label for="anthropic-key-input" data-i18n="aiApiKeyOptional">API key</label>
+              <input type="password" id="anthropic-key-input" placeholder="leave empty to keep current; '-' clears">
+            </div>
+            <div style="display:flex; align-items:flex-end;">
+              <button type="button" class="btn btn-secondary" id="anthropic-save-btn" data-i18n="aiApplySettings">Apply</button>
+            </div>
+            <div class="ai-runtime-hint" id="anthropic-status" style="font-size:0.82rem;color:var(--text-muted);"></div>
+          </div>
+        </div>
+        <div id="openai-shape-chat-hint" style="display:none; font-size:0.82rem;color:var(--text-muted); margin:0.5rem 0 0 0;" data-i18n="chatUsesOpenaiHint">
+          The AI Chat will use the OpenAI-shape provider configured above (model + base URL + key). Anthropic fields are not needed.
         </div>
       </div>
 
@@ -2627,6 +2649,15 @@
         aiAccountantNav: 'AI Chat',
         aiAccountantTitle: 'AI Accountant',
         aiAccountantSubtitle: 'Tell the assistant in plain English what you want to record, look up, or review. The assistant proposes structured actions — you confirm them with one click. Every write is audited and can be undone for 30 seconds.',
+      
+        // ── PR C: AI Chat provider shape selector ──
+        chatProviderTitle: 'AI Chat provider',
+        chatShapeLabel: 'Wire protocol',
+        chatShapeAuto: 'Auto-detect',
+        chatShapeAnthropic: 'Anthropic Messages API',
+        chatShapeOpenai: 'OpenAI Chat Completions',
+        chatShapeHint: '"Auto-detect" uses Anthropic when an Anthropic key is set, otherwise the OpenAI-shape provider above. Force a specific shape with the dropdown.',
+        chatUsesOpenaiHint: 'The AI Chat will use the OpenAI-shape provider configured above (model + base URL + key). Anthropic fields are not needed.',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -3027,6 +3058,15 @@
         aiAccountantNav: 'گفتگوی هوشمند',
         aiAccountantTitle: 'حسابدار هوشمند',
         aiAccountantSubtitle: 'به زبان طبیعی بگویید چه چیزی را می‌خواهید ثبت، بررسی یا مرور کنید. دستیار اقدامات ساختاریافته پیشنهاد می‌دهد — شما با یک کلیک تأیید می‌کنید. هر ثبت در پروندهٔ ممیزی ضبط می‌شود و تا ۳۰ ثانیه قابل بازگشت است.',
+      
+        // ── PR C: AI Chat provider shape selector ──
+        chatProviderTitle: 'ارائه‌دهنده گفت‌وگوی هوشمند',
+        chatShapeLabel: 'پروتکل ارتباطی',
+        chatShapeAuto: 'تشخیص خودکار',
+        chatShapeAnthropic: 'API پیام‌های Anthropic',
+        chatShapeOpenai: 'Chat Completions از OpenAI',
+        chatShapeHint: 'حالت «تشخیص خودکار» در صورت تنظیم کلید Anthropic از آن استفاده می‌کند، در غیر این صورت از ارائه‌دهنده OpenAI بالا استفاده می‌شود. برای انتخاب یک پروتکل خاص از منوی کشویی استفاده کنید.',
+        chatUsesOpenaiHint: 'گفت‌وگوی هوشمند از ارائه‌دهنده OpenAI پیکربندی‌شده در بالا استفاده خواهد کرد (مدل + آدرس + کلید). فیلدهای Anthropic مورد نیاز نیستند.',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -3410,6 +3450,15 @@
         aiAccountantNav: 'Chat IA',
         aiAccountantTitle: 'Contador IA',
         aiAccountantSubtitle: 'Dile al asistente en lenguaje natural qué quieres registrar, consultar o revisar. Propone acciones estructuradas — tú las confirmas con un clic. Cada escritura se audita y puede deshacerse durante 30 segundos.',
+      
+        // ── PR C: AI Chat provider shape selector ──
+        chatProviderTitle: 'Proveedor del AI Chat',
+        chatShapeLabel: 'Protocolo de cable',
+        chatShapeAuto: 'Detección automática',
+        chatShapeAnthropic: 'API de mensajes de Anthropic',
+        chatShapeOpenai: 'OpenAI Chat Completions',
+        chatShapeHint: '"Detección automática" usa Anthropic cuando hay una clave Anthropic configurada; de lo contrario, el proveedor OpenAI de arriba. Fuerza un protocolo específico con el desplegable.',
+        chatUsesOpenaiHint: 'El AI Chat usará el proveedor OpenAI configurado arriba (modelo + URL base + clave). Los campos de Anthropic no son necesarios.',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -3793,6 +3842,15 @@
         aiAccountantNav: 'الدردشة الذكية',
         aiAccountantTitle: 'المحاسب الذكي',
         aiAccountantSubtitle: 'أخبر المساعد بلغة عادية بما تريد تسجيله أو البحث عنه أو مراجعته. يقترح إجراءات منظَّمة، وأنت تؤكدها بنقرة واحدة. تُسجَّل كل عملية كتابة في سجل التدقيق ويمكن التراجع عنها خلال 30 ثانية.',
+      
+        // ── PR C: AI Chat provider shape selector ──
+        chatProviderTitle: 'مزود المحادثة الذكية',
+        chatShapeLabel: 'بروتوكول الاتصال',
+        chatShapeAuto: 'كشف تلقائي',
+        chatShapeAnthropic: 'واجهة رسائل Anthropic',
+        chatShapeOpenai: 'OpenAI Chat Completions',
+        chatShapeHint: 'خيار «الكشف التلقائي» يستخدم Anthropic عند تكوين مفتاحه، وإلا يستخدم مزود OpenAI أعلاه. اختر بروتوكولاً معيناً من القائمة المنسدلة.',
+        chatUsesOpenaiHint: 'ستستخدم المحادثة الذكية مزود OpenAI المُهيّأ أعلاه (النموذج + الرابط + المفتاح). لا حاجة لحقول Anthropic.',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -4401,6 +4459,65 @@
         loadAnthropicConfig();
       } catch (err) {
         if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml('Connection error: ' + err.message) + '</span>';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ── Chat-provider-shape (auto / anthropic / openai) ──
+    // Toggles visibility of the Anthropic fields below; "openai" hides
+    // them and shows a one-line hint pointing at the OpenAI-shape
+    // section above.
+    function _applyChatShapeVisibility(effective) {
+      const anthropicWrap = document.getElementById('anthropic-fields-wrap');
+      const openaiHint = document.getElementById('openai-shape-chat-hint');
+      if (!anthropicWrap || !openaiHint) return;
+      const usingOpenai = effective === 'openai';
+      anthropicWrap.style.display = usingOpenai ? 'none' : '';
+      openaiHint.style.display = usingOpenai ? 'block' : 'none';
+    }
+
+    async function loadChatProviderShape() {
+      const sel = document.getElementById('chat-shape-select');
+      const hint = document.getElementById('chat-shape-hint');
+      if (!sel) return;
+      try {
+        const r = await fetch(API + '/admin/chat-provider-shape');
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) return;
+        sel.value = data.shape || '';
+        _applyChatShapeVisibility(data.effective || 'anthropic');
+        if (hint) {
+          const baseHint = t('chatShapeHint') || hint.textContent;
+          const note = data.shape === ''
+            ? ` Currently: ${data.effective} (auto).`
+            : '';
+          hint.textContent = baseHint + note;
+        }
+      } catch (_) {}
+    }
+
+    async function saveChatProviderShape() {
+      const sel = document.getElementById('chat-shape-select');
+      const btn = document.getElementById('chat-shape-save-btn');
+      const hint = document.getElementById('chat-shape-hint');
+      if (!sel || !btn) return;
+      btn.disabled = true;
+      try {
+        const r = await fetch(API + '/admin/chat-provider-shape', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shape: sel.value }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          if (hint) hint.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(data.detail || 'Failed to save.') + '</span>';
+          return;
+        }
+        _applyChatShapeVisibility(data.effective || 'anthropic');
+        if (hint) hint.innerHTML = '<span style="color:#059669;">Saved.</span> Currently using <strong>' + escapeHtml(data.effective) + '</strong>.';
+      } catch (err) {
+        if (hint) hint.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml('Connection error: ' + err.message) + '</span>';
       } finally {
         btn.disabled = false;
       }
@@ -8078,6 +8195,19 @@
     if (aiSaveBtn) aiSaveBtn.addEventListener('click', saveAIConfig);
     const anthropicSaveBtn = document.getElementById('anthropic-save-btn');
     if (anthropicSaveBtn) anthropicSaveBtn.addEventListener('click', saveAnthropicConfig);
+    const chatShapeSaveBtn = document.getElementById('chat-shape-save-btn');
+    if (chatShapeSaveBtn) chatShapeSaveBtn.addEventListener('click', saveChatProviderShape);
+    const chatShapeSelect = document.getElementById('chat-shape-select');
+    if (chatShapeSelect) {
+      // Live-preview the visibility toggle without requiring Save (the
+      // Apply button still persists the choice).
+      chatShapeSelect.addEventListener('change', () => {
+        const v = chatShapeSelect.value;
+        if (v === 'openai' || v === 'anthropic') _applyChatShapeVisibility(v);
+        // For "" (auto) we leave the current visibility alone — re-evaluating
+        // would require a server call.
+      });
+    }
     if (mgrRunBtn) mgrRunBtn.addEventListener('click', runManagerReport);
     if (mgrReportTypeEl) mgrReportTypeEl.addEventListener('change', syncManagerFilterLabels);
     if (mgrExportJsonBtn) mgrExportJsonBtn.addEventListener('click', exportManagerReportJson);
@@ -8138,6 +8268,7 @@
     loadCurrentUser();
     loadAIConfig();
     loadAnthropicConfig();
+    loadChatProviderShape();
     loadUsers();
     renderAttachments();
     loadLedger();

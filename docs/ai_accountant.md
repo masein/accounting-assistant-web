@@ -1,9 +1,15 @@
 # AI Accountant — developer notes
 
 The AI accountant is a conversational bookkeeper that exposes a small,
-typed tool catalogue to Claude. Claude never writes to the books
+typed tool catalogue to an LLM. The LLM never writes to the books
 directly — every write goes through a proposal → confirmation →
 execute loop with idempotency tokens and a 30-second undo window.
+
+The agent is **provider-neutral**: it works in a normalized
+`ChatMessage` / `LLMResponse` vocabulary and dispatches to an
+`LLMClient` adapter that speaks the wire format of whichever provider
+is active (Anthropic Messages API or OpenAI Chat Completions). Adding
+a new provider is ~150 LOC.
 
 ## Architecture (one screen)
 
@@ -11,10 +17,23 @@ execute loop with idempotency tokens and a 30-second undo window.
               ┌─────────────────── orchestrator ───────────────────┐
  user msg → │  run_chat_turn(db, user_id, user_message, …)         │
               │  loop until stop_reason == "end_turn":             │
-              │    1. send (system + tools + history) to Anthropic │
-              │    2. for each tool_use block, run the tool        │
+              │    1. send (system + tools + history) via          │
+              │       LLMClient.chat(…)   ◀── dispatches by shape  │
+              │    2. for each tool_call, run the tool             │
               │    3. append tool_result(s), repeat                │
               └─────────────────────┬──────────────────────────────┘
+                                    │
+              ┌───── LLMClient ─────┴──────────────────────┐
+              │ AnthropicLLMClient (shape='anthropic')     │
+              │   wraps anthropic_client.chat_once         │
+              │   translates ChatMessage ⇄ content blocks  │
+              │   keeps cache_control markers              │
+              │                                            │
+              │ OpenAILLMClient    (shape='openai')        │
+              │   httpx → /v1/chat/completions             │
+              │   translates ChatMessage ⇄ messages array  │
+              │   handles tool_calls / role:'tool' shape   │
+              └────────────────────────────────────────────┘
                                     │
               ┌─── tool catalogue ──┴────────────────┐
    read       │ find_entity   list_entities         │
@@ -41,8 +60,10 @@ execute loop with idempotency tokens and a 30-second undo window.
 
 Key invariants:
 
-* **Claude can't write.** Proposal tools only persist a row to
+* **The LLM can't write.** Proposal tools only persist a row to
   `ai_proposals` — they never touch transactions / invoices / entities.
+  Holds for both providers; the orchestrator validates `category=="proposal"`
+  before treating a result as a confirmable action.
 * **The user authorises.** The frontend calls `/ai-accountant/execute`
   on Confirm. Server-side it checks the proposal belongs to the
   requesting user, isn't expired (>10 minutes), and isn't already
@@ -51,28 +72,39 @@ Key invariants:
   writes exactly one `audit_logs` row with
   `actor_source='ai-assistant'`, `tool_name`, `confirmation_token`,
   `session_id`, and `user_message`.
+* **Storage is provider-agnostic.** `ai_chat_messages.content` holds
+  `ChatMessage.to_dict()` JSON, not the wire-format of any specific
+  vendor — so a session keeps replaying correctly even if the active
+  provider changes between turns. (Legacy Anthropic-block rows from
+  before this refactor are skipped on replay; users on old sessions
+  can /reset.)
 
 ## File map
 
 ```
 app/
 ├─ api/
-│   └─ ai_accountant.py            # POST /chat, /execute, /undo; GET /sessions, /proposals/{token}
+│   ├─ ai_accountant.py            # POST /chat, /execute, /undo; GET /sessions, /proposals/{token}
+│   └─ admin.py                    # /admin/anthropic-config, /admin/chat-provider-shape
 ├─ services/ai_accountant/
-│   ├─ anthropic_client.py         # AsyncAnthropic wrapper with prompt caching
+│   ├─ llm_protocol.py             # ChatMessage, ToolCall, LLMResponse, LLMClient (abstract)
+│   ├─ anthropic_client.py         # AsyncAnthropic + AnthropicLLMClient (with prompt caching)
+│   ├─ openai_client.py            # OpenAILLMClient (httpx, /v1/chat/completions)
 │   ├─ base.py                     # BaseTool, ToolContext, ToolRegistry, ToolError
 │   ├─ read_tools.py               # find_entity, list_entities, query_ledger, …
 │   ├─ proposal_tools.py           # propose_create_transaction
 │   ├─ execute_service.py          # execute_proposal(), undo_action()
-│   └─ orchestrator.py             # run_chat_turn(), SYSTEM_PROMPT, build_default_registry()
+│   └─ orchestrator.py             # run_chat_turn(), SYSTEM_PROMPT, _resolve_chat_shape()
 └─ models/
     ├─ ai_accountant.py             # AIProposal, AIChatSession, AIChatMessage
     └─ audit_log.py                 # AuditLog (with new columns from migration 005)
 
 tests/
-├─ test_ai_accountant_read_tools.py     # 15 read-tool unit tests
-├─ test_ai_accountant_flow.py           # 12 proposal → execute → undo tests
-└─ test_ai_accountant_orchestrator.py   # 8 mocked-Anthropic loop tests
+├─ test_ai_accountant_read_tools.py        # 15 read-tool unit tests
+├─ test_ai_accountant_flow.py              # 12 proposal → execute → undo tests
+├─ test_ai_accountant_orchestrator.py      # 9 mocked-LLMClient loop tests
+├─ test_ai_accountant_openai_client.py     # 16 wire-translation + httpx tests
+└─ test_chat_provider_shape_endpoint.py    # 10 shape-selector + auto-detect tests
 ```
 
 ## Adding a new tool
@@ -142,36 +174,101 @@ The `detail` column carries the linked reversal transaction id in JSON.
 
 ## Configuration
 
-Two ways to set the Anthropic credentials — environment variables (boot-time
-defaults) or the Settings page (live, persisted to `app_settings` in the DB,
-overrides the env var on restart).
+The AI Chat can run against either the **Anthropic Messages API** or any
+**OpenAI Chat Completions**-compatible endpoint (OpenAI direct, Metis's
+`/openai/v1`, LM Studio, OpenRouter, Together, Custom). Pick the shape
+in **Settings → AI providers → AI Chat provider → Wire protocol**, or
+let it auto-detect.
 
-### Environment variables (initial defaults)
+### Auto-detect rule
+
+When the shape selector is set to *Auto-detect* (or the
+`ai_chat_provider_shape` AppSetting is empty):
+
+| Anthropic API key present? | Effective shape |
+|---|---|
+| Yes | `anthropic` |
+| No  | `openai` (uses the OpenAI-shape provider configured in the same card) |
+
+The orchestrator (`_resolve_chat_shape`) and the admin endpoint
+(`/admin/chat-provider-shape`) read this identically — covered by the
+no-drift tests in `test_chat_provider_shape_endpoint.py`.
+
+### Anthropic-shape configuration
+
+For Claude Opus / Sonnet / Haiku directly, or any third-party gateway
+that speaks the Anthropic Messages API (Metis's `/anthropic/v1`,
+LiteLLM, etc.).
+
+**Env vars** (boot-time defaults):
 
 | Env var | Purpose | Default |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Required at runtime. The orchestrator raises `AIAccountantError` until set. | — |
-| `ANTHROPIC_MODEL` | Override the model used. | `claude-opus-4-7` |
-| `ANTHROPIC_BASE_URL` | Override for proxying or third-party gateways. | `https://api.anthropic.com` |
+| `ANTHROPIC_API_KEY` | Required when shape=anthropic. Without it the chat returns `ANTHROPIC_API_KEY is not configured`. | — |
+| `ANTHROPIC_MODEL` | Model ID. | `claude-opus-4-7` |
+| `ANTHROPIC_BASE_URL` | Endpoint URL. | `https://api.anthropic.com` |
 | `ANTHROPIC_MAX_TOKENS` | Per-turn output cap. | `8192` |
 
-### Settings page (live overrides)
+**Settings page**: `Settings → AI providers → AI Chat provider →` model /
+base URL / API key. Writes to `PATCH /admin/anthropic-config`, persists
+in `app_settings`, overrides the env vars on restart. API key is
+write-only — empty input keeps the existing value; `-` clears it.
 
-The **Settings → AI Accountant — Anthropic settings** card lets admins set:
+### OpenAI-shape configuration
 
-- **Model** — any Claude model ID. Blank → falls back to `claude-opus-4-7`.
-- **Base URL** — for proxies, regional gateways, or third-party LLM routers
-  that speak the Anthropic Messages API. Blank → falls back to
-  `https://api.anthropic.com`.
-- **API key** — write-only. Empty input keeps the existing key; `-` clears it.
+For OpenAI direct, Metis's `/openai/v1`, LM Studio, OpenRouter, Together,
+or any custom endpoint that conforms to the OpenAI Chat Completions
+spec with `tools` / `tool_calls`.
 
-Writes go to `PATCH /admin/anthropic-config` and persist to `app_settings`
-in the DB. Editing these **does not** change the active OpenAI-compatible
-provider (lmstudio / metis / custom) used by other AI features — the two
-configs are independent.
+The OpenAI-shape adapter reads from the *existing* default-provider
+config (`AI_PROVIDER` + `<PROVIDER>_BASE_URL` / `_MODEL` / `_API_KEY`)
+— no new env vars to learn:
 
-The endpoint is admin-only. The GET handler always returns the resolved
-values (defaults filled in) so the UI has a non-empty placeholder to render.
+| Active provider | Env vars used |
+|---|---|
+| `metis` | `METIS_BASE_URL`, `METIS_MODEL`, `METIS_API_KEY` |
+| `lmstudio` | `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL`; no API key needed |
+| `custom` | `AI_BASE_URL`, `AI_MODEL`, `AI_API_KEY`, `AI_API_KEY_HEADER`, `AI_API_KEY_PREFIX` |
+
+So pointing AI Chat at Metis's OpenAI endpoint just requires:
+
+```bash
+AI_PROVIDER=metis
+METIS_BASE_URL=https://api.metisai.ir/openai/v1
+METIS_MODEL=gpt-4o-mini
+METIS_API_KEY=tpsg-…
+```
+
+…plus picking *OpenAI Chat Completions* in the Settings dropdown (or
+leaving on *Auto-detect* if no Anthropic key is configured).
+
+**Local LM Studio caveat:** tool calling on local models is hit-and-miss.
+Pick a tool-call-capable model — Qwen2.5-Coder, Llama 3.1+ Instruct,
+Mistral Small 3, Hermes 3. Models without trained tool-calling support
+will silently never call a tool, or hallucinate calls with malformed
+JSON arguments. The adapter flags malformed arguments with
+`_parse_error` so the orchestrator surfaces a clean error message
+instead of crashing on Pydantic validation.
+
+**URL normalization** (`openai_client._chat_completions_url`): the
+adapter tolerates several base-URL flavours so the user doesn't have
+to think about path suffixes — bare hostname → adds `/v1/chat/completions`;
+URL ending in `/v1` → adds `/chat/completions`; already-suffixed URL is
+returned as-is.
+
+### Shape-selector endpoint
+
+```
+GET  /admin/chat-provider-shape
+  → {shape: "" | "anthropic" | "openai",
+     effective: "anthropic" | "openai",
+     supported: ["anthropic", "openai"]}
+
+PUT  /admin/chat-provider-shape  body: {shape: "" | "anthropic" | "openai"}
+```
+
+Empty string clears the explicit choice and re-enables auto-detection.
+Unknown values 400.
 
 ## Cost notes
 

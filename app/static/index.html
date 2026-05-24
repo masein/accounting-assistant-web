@@ -634,8 +634,8 @@
       <span class="nav-group-label">Brain</span>
       <button type="button" class="nav-btn" data-page="bank-statements">Bank Statements</button>
       <button type="button" class="nav-btn" data-page="audit">Audit</button>
-      <button type="button" class="nav-btn" data-page="cfo">CFO Mode</button>
-      <button type="button" class="nav-btn" data-page="ceo">CEO Mode</button>
+      <button type="button" class="nav-btn" data-page="cfo" data-i18n="cfoModeNav">CFO Mode</button>
+      <button type="button" class="nav-btn" data-page="ceo" data-i18n="ceoModeNav">CEO Mode</button>
       <span class="nav-sep"></span>
       <span class="nav-group-label">Setup</span>
       <button type="button" class="nav-btn nav-more-item" data-page="entities">Entities</button>
@@ -1812,21 +1812,12 @@
           <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center;">
             <button type="button" class="btn btn-secondary btn-sm" id="reset-demo-ir-btn" data-i18n="btnResetDemoIr">Reset &amp; load Iran demo</button>
             <button type="button" class="btn btn-secondary btn-sm" id="reset-demo-uk-btn" data-i18n="btnResetDemoUk">Reset &amp; load UK demo</button>
+            <button type="button" class="btn btn-danger btn-sm" id="reset-empty-btn" data-i18n="btnResetEmpty">Reset to empty</button>
             <span id="reset-demo-status" style="font-size:0.83rem;color:var(--text-muted);"></span>
           </div>
         </div>
       </div>
 
-      <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
-        <h2 style="margin-bottom:0.5rem;">Demo data</h2>
-        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">
-          Populate the system with sample data for all sections — entities, transactions, invoices, recurring rules, budgets, inventory, and bank statements. Useful for demos and testing.
-        </p>
-        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-          <button type="button" class="btn btn-primary" id="seed-demo-data-btn" data-i18n="btnLoadDemoData">Load demo data</button>
-          <span id="seed-demo-status" style="font-size:0.85rem;color:var(--text-muted);"></span>
-        </div>
-      </div>
     </div>
   </div>
   </main>
@@ -2658,6 +2649,19 @@
         chatShapeOpenai: 'OpenAI Chat Completions',
         chatShapeHint: '"Auto-detect" uses Anthropic when an Anthropic key is set, otherwise the OpenAI-shape provider above. Force a specific shape with the dropdown.',
         chatUsesOpenaiHint: 'The AI Chat will use the OpenAI-shape provider configured above (model + base URL + key). Anthropic fields are not needed.',
+      
+        // ── Fix: missing Settings + nav i18n keys ──
+        aiProvidersTitle: 'AI providers',
+        aiProvidersDesc: 'Configure the LLM provider used for AI features. The OpenAI-shape slot powers transaction suggestions and bank parsing; the AI Chat provider below powers the conversational accountant.',
+        openaiShapeTitle: 'OpenAI-shape provider',
+        cfoModeNav: 'CFO Mode',
+        ceoModeNav: 'CEO Mode',
+      
+        // ── Reset-to-empty button ──
+        btnResetEmpty: 'Reset to empty',
+        confirmResetEmpty: 'Wipe ALL business data — every transaction, invoice, entity, inventory item, AI proposal, audit log. Chart of accounts and the admin user will be preserved. This is irreversible. Continue?',
+        statusResetting: 'Resetting database…',
+        statusResetDone: 'Database reset.',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -3067,6 +3071,19 @@
         chatShapeOpenai: 'Chat Completions از OpenAI',
         chatShapeHint: 'حالت «تشخیص خودکار» در صورت تنظیم کلید Anthropic از آن استفاده می‌کند، در غیر این صورت از ارائه‌دهنده OpenAI بالا استفاده می‌شود. برای انتخاب یک پروتکل خاص از منوی کشویی استفاده کنید.',
         chatUsesOpenaiHint: 'گفت‌وگوی هوشمند از ارائه‌دهنده OpenAI پیکربندی‌شده در بالا استفاده خواهد کرد (مدل + آدرس + کلید). فیلدهای Anthropic مورد نیاز نیستند.',
+      
+        // ── Fix: missing Settings + nav i18n keys ──
+        aiProvidersTitle: 'ارائه‌دهندگان هوش مصنوعی',
+        aiProvidersDesc: 'ارائه‌دهنده مدل زبانی برای ویژگی‌های هوش مصنوعی را پیکربندی کنید. اسلات سازگار با OpenAI، پیشنهاد سند و تحلیل صورت‌حساب بانک را اجرا می‌کند؛ ارائه‌دهنده گفت‌وگوی هوشمند پایین، حسابدار محاوره‌ای را اجرا می‌کند.',
+        openaiShapeTitle: 'ارائه‌دهنده سازگار با OpenAI',
+        cfoModeNav: 'حالت مدیر مالی',
+        ceoModeNav: 'حالت مدیرعامل',
+      
+        // ── Reset-to-empty button ──
+        btnResetEmpty: 'بازنشانی و خالی کردن',
+        confirmResetEmpty: 'همهٔ داده‌های تجاری پاک می‌شوند — هر تراکنش، فاکتور، شخص، کالا، پیشنهاد هوشمند و لاگ ممیزی. سرفصل حساب‌ها و کاربر admin حفظ می‌شوند. این عمل برگشت‌ناپذیر است. ادامه می‌دهید؟',
+        statusResetting: 'در حال بازنشانی پایگاه داده…',
+        statusResetDone: 'پایگاه داده بازنشانی شد.',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -3459,6 +3476,19 @@
         chatShapeOpenai: 'OpenAI Chat Completions',
         chatShapeHint: '"Detección automática" usa Anthropic cuando hay una clave Anthropic configurada; de lo contrario, el proveedor OpenAI de arriba. Fuerza un protocolo específico con el desplegable.',
         chatUsesOpenaiHint: 'El AI Chat usará el proveedor OpenAI configurado arriba (modelo + URL base + clave). Los campos de Anthropic no son necesarios.',
+      
+        // ── Fix: missing Settings + nav i18n keys ──
+        aiProvidersTitle: 'Proveedores de IA',
+        aiProvidersDesc: 'Configura el proveedor de LLM para las funciones de IA. El slot de tipo OpenAI alimenta las sugerencias de transacciones y el análisis bancario; el proveedor del AI Chat de abajo alimenta el contador conversacional.',
+        openaiShapeTitle: 'Proveedor estilo OpenAI',
+        cfoModeNav: 'Modo CFO',
+        ceoModeNav: 'Modo CEO',
+      
+        // ── Reset-to-empty button ──
+        btnResetEmpty: 'Restablecer a vacío',
+        confirmResetEmpty: 'Borra TODOS los datos de negocio — cada transacción, factura, entidad, ítem de inventario, propuesta de IA, registro de auditoría. El plan de cuentas y el usuario admin se conservan. Esta acción es irreversible. ¿Continuar?',
+        statusResetting: 'Restableciendo la base de datos…',
+        statusResetDone: 'Base de datos restablecida.',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -3851,6 +3881,19 @@
         chatShapeOpenai: 'OpenAI Chat Completions',
         chatShapeHint: 'خيار «الكشف التلقائي» يستخدم Anthropic عند تكوين مفتاحه، وإلا يستخدم مزود OpenAI أعلاه. اختر بروتوكولاً معيناً من القائمة المنسدلة.',
         chatUsesOpenaiHint: 'ستستخدم المحادثة الذكية مزود OpenAI المُهيّأ أعلاه (النموذج + الرابط + المفتاح). لا حاجة لحقول Anthropic.',
+      
+        // ── Fix: missing Settings + nav i18n keys ──
+        aiProvidersTitle: 'مزودو الذكاء الاصطناعي',
+        aiProvidersDesc: 'تكوين مزود نماذج اللغة المستخدم في ميزات الذكاء الاصطناعي. الفتحة المتوافقة مع OpenAI تشغّل اقتراحات القيود وتحليل كشوف البنك؛ ومزود المحادثة الذكية أدناه يشغّل المحاسب المحاوري.',
+        openaiShapeTitle: 'مزود متوافق مع OpenAI',
+        cfoModeNav: 'وضع المدير المالي',
+        ceoModeNav: 'وضع الرئيس التنفيذي',
+      
+        // ── Reset-to-empty button ──
+        btnResetEmpty: 'إعادة التعيين إلى فارغ',
+        confirmResetEmpty: 'سيُمسح كل بيانات الأعمال — جميع القيود والفواتير والجهات وأصناف المخزون ومقترحات الذكاء الاصطناعي وسجلات التدقيق. دليل الحسابات والمستخدم الإداري يُحتفظ بهما. هذا الإجراء لا يمكن التراجع عنه. هل تريد المتابعة؟',
+        statusResetting: 'جارٍ إعادة تعيين قاعدة البيانات…',
+        statusResetDone: 'تمت إعادة تعيين قاعدة البيانات.',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -8493,8 +8536,52 @@
 
     const resetIrBtn = document.getElementById('reset-demo-ir-btn');
     const resetUkBtn = document.getElementById('reset-demo-uk-btn');
+    const resetEmptyBtn = document.getElementById('reset-empty-btn');
     if (resetIrBtn) resetIrBtn.addEventListener('click', () => _resetAndLoadLocaleDemo('ir', resetIrBtn));
     if (resetUkBtn) resetUkBtn.addEventListener('click', () => _resetAndLoadLocaleDemo('uk', resetUkBtn));
+    if (resetEmptyBtn) {
+      resetEmptyBtn.addEventListener('click', async () => {
+        const statusEl = document.getElementById('reset-demo-status');
+        const localeSel = document.getElementById('reporting-locale-select');
+        // Use the currently-selected locale's chart of accounts (fall back to ir).
+        const locale = localeSel && (localeSel.value === 'uk' || localeSel.value === 'ir')
+          ? localeSel.value
+          : 'ir';
+        const msg = t('confirmResetEmpty') ||
+          'Wipe ALL business data — every transaction, invoice, entity, ' +
+          'inventory item, AI proposal, audit log. Chart of accounts and ' +
+          'the admin user will be preserved. This is irreversible. Continue?';
+        if (!confirm(msg)) return;
+        resetEmptyBtn.disabled = true;
+        if (resetIrBtn) resetIrBtn.disabled = true;
+        if (resetUkBtn) resetUkBtn.disabled = true;
+        statusEl.style.color = 'var(--text-muted)';
+        statusEl.textContent = (t('statusResetting') || 'Resetting database…');
+        try {
+          // with_demo_data defaults to false → empty start, chart only.
+          const url = API + '/admin/reset-db?locale=' + encodeURIComponent(locale) +
+                      '&with_demo_data=false';
+          const r = await fetch(url, { method: 'POST' });
+          const data = await r.json().catch(() => ({}));
+          if (r.ok) {
+            statusEl.style.color = '#059669';
+            statusEl.textContent = (t('statusResetDone') || 'Database reset.') +
+              ` Chart: ${data.accounts_created || 0} accounts. Reloading…`;
+            setTimeout(() => window.location.reload(), 1200);
+          } else {
+            statusEl.style.color = '#b91c1c';
+            statusEl.textContent = data.detail || 'Reset failed.';
+          }
+        } catch (e) {
+          statusEl.style.color = '#b91c1c';
+          statusEl.textContent = 'Connection error: ' + e.message;
+        } finally {
+          resetEmptyBtn.disabled = false;
+          if (resetIrBtn) resetIrBtn.disabled = false;
+          if (resetUkBtn) resetUkBtn.disabled = false;
+        }
+      });
+    }
 
     // Kick off FX metadata fetch so currency defaults land before the user interacts.
     loadFxMetadata().then(meta => {
@@ -8785,76 +8872,10 @@
     });
     document.getElementById('cfo-question-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('cfo-ask-btn').click(); });
 
-    document.getElementById('seed-demo-data-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('seed-demo-data-btn');
-      const statusEl = document.getElementById('seed-demo-status');
-      const isLoaded = btn.dataset.loaded === '1';
-      btn.disabled = true;
-
-      if (isLoaded) {
-        // Remove demo data
-        btn.textContent = 'Removing...';
-        statusEl.textContent = '';
-        statusEl.style.color = 'var(--text-muted)';
-        try {
-          const res = await fetch(API + '/admin/reset-db', { method: 'POST' });
-          const data = await res.json();
-          if (res.ok) {
-            statusEl.style.color = '#2e7d32';
-            statusEl.textContent = data.message || 'Demo data removed.';
-            btn.dataset.loaded = '';
-            btn.textContent = t('btnLoadDemoData');
-            btn.classList.remove('btn-danger');
-            btn.classList.add('btn-primary');
-            loadEntities();
-            loadInvoices();
-            loadRecurringRules();
-            loadBankStatements();
-            loadCFOReport();
-            loadAuditLogs();
-          } else {
-            statusEl.style.color = '#c62828';
-            statusEl.textContent = data.detail || 'Removal failed.';
-          }
-        } catch (e) {
-          statusEl.style.color = '#c62828';
-          statusEl.textContent = 'Error: ' + e.message;
-        } finally {
-          btn.disabled = false;
-        }
-      } else {
-        // Load demo data
-        btn.textContent = 'Loading...';
-        statusEl.textContent = 'Seeding data across all sections...';
-        statusEl.style.color = 'var(--text-muted)';
-        try {
-          const res = await fetch(bsAPI + '/cfo/seed-sample-data', { method: 'POST' });
-          const data = await res.json();
-          if (res.ok) {
-            statusEl.style.color = '#2e7d32';
-            statusEl.textContent = data.message;
-            btn.dataset.loaded = '1';
-            btn.textContent = t('btnRemoveDemoData');
-            btn.classList.remove('btn-primary');
-            btn.classList.add('btn-danger');
-            loadEntities();
-            loadInvoices();
-            loadRecurringRules();
-            loadBankStatements();
-            loadCFOReport();
-            loadAuditLogs();
-          } else {
-            statusEl.style.color = '#c62828';
-            statusEl.textContent = data.detail || 'Seeding failed.';
-          }
-        } catch (e) {
-          statusEl.style.color = '#c62828';
-          statusEl.textContent = 'Error: ' + e.message;
-        } finally {
-          btn.disabled = false;
-        }
-      }
-    });
+    // Old generic "Load demo data" button replaced by the per-locale
+    // "Reset & load Iran/UK demo" buttons in the Settings page. The
+    // legacy /cfo/seed-sample-data endpoint stays available for callers
+    // that want the broad multi-section seed.
 
     document.querySelectorAll('.cfo-quick').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -10251,16 +10272,73 @@
       let sessionId = null;
       const undoTimers = {};  // audit_log_id → timeout handle
 
+      // Minimal markdown → HTML. Escapes first (XSS-safe), then handles
+      // the subset LLMs emit in chat: # / ## / ### headings, **bold**,
+      // *italic*, `inline code`, bulleted (- / * / •) and numbered
+      // (1. 2. 3.) lists, plus blank-line paragraphs.
+      function _renderChatMarkdown(text) {
+        const esc = String(text || '').replace(/[&<>"']/g, c => ({
+          '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
+        }[c]));
+        const lines = esc.split(/\r?\n/);
+        const out = [];
+        let listType = null;  // 'ul' | 'ol' | null
+        const closeList = () => { if (listType) { out.push(`</${listType}>`); listType = null; } };
+        const inline = (s) =>
+          s
+            // `code` first so other patterns don't eat it
+            .replace(/`([^`]+?)`/g, '<code style="background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:0.92em;">$1</code>')
+            // bold (process before italic so ** doesn't read as nested *)
+            .replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/__([^_]+?)__/g, '<strong>$1</strong>')
+            // italic
+            .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
+            .replace(/(^|[^_])_([^_\n]+?)_(?!_)/g, '$1<em>$2</em>');
+        for (let i = 0; i < lines.length; i++) {
+          const raw = lines[i];
+          const line = raw.trimEnd();
+          if (!line.trim()) { closeList(); out.push(''); continue; }
+          let m;
+          if ((m = /^(#{1,3})\s+(.*)$/.exec(line))) {
+            closeList();
+            const level = m[1].length + 2;  // # → h3, ## → h4, ### → h5
+            out.push(`<h${level} style="margin:0.4rem 0 0.2rem;font-size:${1.1 - 0.05*(level-3)}em;">${inline(m[2])}</h${level}>`);
+            continue;
+          }
+          if ((m = /^\s*[-*•]\s+(.*)$/.exec(line))) {
+            if (listType !== 'ul') { closeList(); out.push('<ul style="margin:0.2rem 0;padding-inline-start:1.4em;">'); listType = 'ul'; }
+            out.push(`<li>${inline(m[1])}</li>`);
+            continue;
+          }
+          if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(line))) {
+            if (listType !== 'ol') { closeList(); out.push('<ol style="margin:0.2rem 0;padding-inline-start:1.6em;">'); listType = 'ol'; }
+            out.push(`<li>${inline(m[1])}</li>`);
+            continue;
+          }
+          closeList();
+          out.push(inline(line));
+        }
+        closeList();
+        return out.join('\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
+      }
+
       function appendBubble(role, text) {
         const wrap = document.createElement('div');
         wrap.style.cssText = (role === 'user'
           ? 'text-align:right; margin:0.4rem 0;'
           : 'text-align:left; margin:0.4rem 0;');
         const bubble = document.createElement('div');
+        const isAssistant = role !== 'user';
         bubble.style.cssText = (role === 'user'
           ? 'display:inline-block; max-width:78%; background:#0f766e; color:#fff; padding:0.5rem 0.75rem; border-radius:14px 14px 4px 14px; text-align:left; white-space:pre-wrap;'
-          : 'display:inline-block; max-width:78%; background:#fff; color:#0f172a; padding:0.5rem 0.75rem; border-radius:14px 14px 14px 4px; border:1px solid var(--border); white-space:pre-wrap;');
-        bubble.textContent = text;
+          // Assistant: drop white-space:pre-wrap so the markdown renderer's
+          // explicit <br> and block elements lay out correctly.
+          : 'display:inline-block; max-width:78%; background:#fff; color:#0f172a; padding:0.5rem 0.75rem; border-radius:14px 14px 14px 4px; border:1px solid var(--border); line-height:1.45;');
+        if (isAssistant) {
+          bubble.innerHTML = _renderChatMarkdown(text);
+        } else {
+          bubble.textContent = text;
+        }
         wrap.appendChild(bubble);
         messagesEl.appendChild(wrap);
         messagesEl.scrollTop = messagesEl.scrollHeight;

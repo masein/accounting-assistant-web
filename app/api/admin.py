@@ -270,6 +270,13 @@ def reset_db(
 
     # Align the reporting-locale AppSetting with the chart we just seeded.
     set_reporting_locale(db, "uk" if locale_norm == "uk" else "ir")
+    # Also align the reporting CURRENCY — otherwise the user loads the UK
+    # demo (which posts GBP transactions) but every report keeps filtering
+    # by the previous reporting currency (typically IRR) and shows £0
+    # everywhere. The reporting_currency AppSetting isn't cleared by the
+    # business-table wipe above, so we must overwrite it explicitly.
+    from app.services.fx_service import set_reporting_currency
+    set_reporting_currency(db, "GBP" if locale_norm == "uk" else "IRR")
     db.commit()
 
     demo_entries = 0

@@ -1132,21 +1132,21 @@
         <div>
           <label for="mgr-report-type" data-i18n="labelReportType">Report type</label>
           <select id="mgr-report-type">
-            <option value="balance_sheet" data-i18n="reportBalanceSheet">Balance sheet (ترازنامه)</option>
-            <option value="income_statement" data-i18n="reportIncomeStatement">Income statement (سود و زیان)</option>
-            <option value="comprehensive_income">Comprehensive Income (سود و زیان جامع)</option>
-            <option value="changes_in_equity">Statement of Changes in Equity (تغییرات در حقوق مالکانه)</option>
-            <option value="cash_flow" data-i18n="reportCashFlow">Cash flow statement (جریان وجوه نقد)</option>
-            <option value="general_journal" data-i18n="reportGeneralJournal">General journal (دفتر روزنامه)</option>
-            <option value="general_ledger" data-i18n="reportGeneralLedger">General ledger (دفتر کل)</option>
-            <option value="trial_balance" data-i18n="reportTrialBalance">Trial balance (مرور حساب)</option>
-            <option value="account_ledger" data-i18n="reportAccountLedger">Account ledger (گردش حساب)</option>
+            <option value="balance_sheet" data-i18n="reportBalanceSheet">Balance sheet</option>
+            <option value="income_statement" data-i18n="reportIncomeStatement">Income statement</option>
+            <option value="comprehensive_income" data-i18n="reportComprehensiveIncome">Statement of Comprehensive Income</option>
+            <option value="changes_in_equity" data-i18n="reportChangesInEquity">Statement of Changes in Equity</option>
+            <option value="cash_flow" data-i18n="reportCashFlow">Cash flow statement</option>
+            <option value="general_journal" data-i18n="reportGeneralJournal">General journal</option>
+            <option value="general_ledger" data-i18n="reportGeneralLedger">General ledger</option>
+            <option value="trial_balance" data-i18n="reportTrialBalance">Trial balance</option>
+            <option value="account_ledger" data-i18n="reportAccountLedger">Account ledger</option>
             <option value="debtor_creditor" data-i18n="reportDebtorCreditor">Debtor/Creditor</option>
             <option value="sales_by_product" data-i18n="reportSalesByProduct">Sales by product</option>
             <option value="sales_by_invoice" data-i18n="reportSalesByInvoice">Sales by invoice</option>
             <option value="purchase_by_product" data-i18n="reportPurchaseByProduct">Purchase by product</option>
             <option value="purchase_by_invoice" data-i18n="reportPurchaseByInvoice">Purchase by invoice</option>
-            <option value="accounts_payable">Accounts payable (حساب‌های پرداختنی)</option>
+            <option value="accounts_payable" data-i18n="reportAccountsPayable">Accounts payable</option>
           </select>
         </div>
         <div>
@@ -2389,13 +2389,13 @@
         tableTotal: 'Total',
         chartTurnoverByAccount: 'Turnover by account (top accounts)',
         chartNetPositionByAccount: 'Net position by account',
-        reportBalanceSheet: 'Balance sheet (ترازنامه)',
-        reportIncomeStatement: 'Income statement (سود و زیان)',
-        reportCashFlow: 'Cash flow statement (جریان وجوه نقد)',
-        reportGeneralJournal: 'General journal (دفتر روزنامه)',
-        reportGeneralLedger: 'General ledger (دفتر کل)',
-        reportTrialBalance: 'Trial balance (مرور حساب)',
-        reportAccountLedger: 'Account ledger (گردش حساب)',
+        reportBalanceSheet: 'Balance sheet',
+        reportIncomeStatement: 'Income statement',
+        reportCashFlow: 'Cash flow statement',
+        reportGeneralJournal: 'General journal',
+        reportGeneralLedger: 'General ledger',
+        reportTrialBalance: 'Trial balance',
+        reportAccountLedger: 'Account ledger',
         reportDebtorCreditor: 'Debtor/Creditor',
         reportSalesByProduct: 'Sales by product',
         reportSalesByInvoice: 'Sales by invoice',
@@ -2662,6 +2662,11 @@
         confirmResetEmpty: 'Wipe ALL business data — every transaction, invoice, entity, inventory item, AI proposal, audit log. Chart of accounts and the admin user will be preserved. This is irreversible. Continue?',
         statusResetting: 'Resetting database…',
         statusResetDone: 'Database reset.',
+      
+        // ── Report type i18n (missing keys) ──
+        reportComprehensiveIncome: 'Statement of Comprehensive Income',
+        reportChangesInEquity: 'Statement of Changes in Equity',
+        reportAccountsPayable: 'Accounts payable',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -3084,6 +3089,11 @@
         confirmResetEmpty: 'همهٔ داده‌های تجاری پاک می‌شوند — هر تراکنش، فاکتور، شخص، کالا، پیشنهاد هوشمند و لاگ ممیزی. سرفصل حساب‌ها و کاربر admin حفظ می‌شوند. این عمل برگشت‌ناپذیر است. ادامه می‌دهید؟',
         statusResetting: 'در حال بازنشانی پایگاه داده…',
         statusResetDone: 'پایگاه داده بازنشانی شد.',
+      
+        // ── Report type i18n (missing keys) ──
+        reportComprehensiveIncome: 'صورت سود و زیان جامع',
+        reportChangesInEquity: 'صورت تغییرات در حقوق مالکانه',
+        reportAccountsPayable: 'حساب‌های پرداختنی',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -3489,6 +3499,11 @@
         confirmResetEmpty: 'Borra TODOS los datos de negocio — cada transacción, factura, entidad, ítem de inventario, propuesta de IA, registro de auditoría. El plan de cuentas y el usuario admin se conservan. Esta acción es irreversible. ¿Continuar?',
         statusResetting: 'Restableciendo la base de datos…',
         statusResetDone: 'Base de datos restablecida.',
+      
+        // ── Report type i18n (missing keys) ──
+        reportComprehensiveIncome: 'Estado de resultado integral',
+        reportChangesInEquity: 'Estado de cambios en el patrimonio',
+        reportAccountsPayable: 'Cuentas por pagar',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -3894,6 +3909,11 @@
         confirmResetEmpty: 'سيُمسح كل بيانات الأعمال — جميع القيود والفواتير والجهات وأصناف المخزون ومقترحات الذكاء الاصطناعي وسجلات التدقيق. دليل الحسابات والمستخدم الإداري يُحتفظ بهما. هذا الإجراء لا يمكن التراجع عنه. هل تريد المتابعة؟',
         statusResetting: 'جارٍ إعادة تعيين قاعدة البيانات…',
         statusResetDone: 'تمت إعادة تعيين قاعدة البيانات.',
+      
+        // ── Report type i18n (missing keys) ──
+        reportComprehensiveIncome: 'قائمة الدخل الشامل',
+        reportChangesInEquity: 'قائمة التغيرات في حقوق الملكية',
+        reportAccountsPayable: 'الذمم الدائنة',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {

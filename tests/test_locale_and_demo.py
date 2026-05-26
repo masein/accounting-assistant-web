@@ -124,11 +124,16 @@ class TestUKDemo:
         svc = UKStatementService(uk_demo_db)
         pl = svc.income_statement(from_date=date(2025, 1, 1), to_date=date(2025, 12, 31))
         rows = {r.key: r for r in pl.rows}
-        # 2025 turnover should exceed 2024 turnover in the demo.
+        # 2025 turnover should exceed 2024 turnover in the demo (~60% growth
+        # with the year-2 scale=1.6 in seed_uk_demo).
         assert rows["turnover"].amount_current > rows["turnover"].amount_prior > 0
-        # Year 2 should turn a profit even though Year 1 was a loss.
-        assert rows["profit_for_year"].amount_current > 0
-        assert rows["profit_for_year"].amount_prior < 0
+        # Both years should be profitable — the demo tells a growth +
+        # profitable story for the video walkthrough. (Year 1: founder
+        # capital + first sales; year 2: scaling.)
+        assert rows["profit_for_year"].amount_prior > 0, \
+            f"Year 1 should be profitable; got {rows['profit_for_year'].amount_prior}"
+        assert rows["profit_for_year"].amount_current > 0, \
+            f"Year 2 should be profitable; got {rows['profit_for_year'].amount_current}"
 
     def test_comprehensive_income_equals_net_when_no_oci(self, uk_demo_db: Session) -> None:
         svc = UKStatementService(uk_demo_db)

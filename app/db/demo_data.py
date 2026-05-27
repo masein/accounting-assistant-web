@@ -258,52 +258,113 @@ def _seed_uk_invoices(
     session: Session, entities_by_name: dict[str, "object"],
 ) -> int:
     """Post a mix of paid / open / overdue sales+purchase invoices so
-    the AR / AP aging panels have realistic content for the demo."""
+    the AR / AP aging panels have realistic content for the demo.
+    Each invoice gets 1-3 line items so the Products catalogue and the
+    Clients/Suppliers matrices have something to render."""
+    from sqlalchemy import select
     from app.models.invoice import Invoice
+    from app.models.invoice_item import InvoiceItem
+    from app.models.inventory import InventoryItem
+
+    # Look up inventory items so the line items link back via inventory_item_id
+    # (lets the Products catalogue match invoice lines to inventory entries).
+    inv_items = {
+        i.name: i for i in session.execute(select(InventoryItem)).scalars().all()
+    }
+    cons_prem = inv_items.get("Premium consulting hour")
+    cons_std = inv_items.get("Standard consulting hour")
+    sw_lic = inv_items.get("Quarterly software licence — Enterprise")
 
     today = date.today()
-    invoices = [
-        # ── Sales (kind=sales) ──
+    # ``invoices`` carries the header info; ``line_items`` is per-invoice and
+    # lists (product_name, quantity, unit_price, inventory_item_or_none).
+    invoices_with_lines = [
+        # ── Sales ──
         # Recent paid
-        ("INV-S-001", "sales", "paid", date(2025, 11, 5), date(2025, 12, 5),
-         18_000, "Acme Group plc", "Q4 software consulting"),
-        ("INV-S-002", "sales", "paid", date(2025, 9, 12), date(2025, 10, 12),
-         12_500, "Beta Ventures Ltd", "Q3 consulting + retainer"),
-        # Open (issued, not yet paid, in due window)
-        ("INV-S-003", "sales", "issued",
-         today, today.replace(day=min(28, today.day)) if today.day < 15 else date(today.year, today.month, 28),
-         9_500, "Charlie Industries", "December consulting"),
-        # Overdue
-        ("INV-S-004", "sales", "issued",
-         date(today.year, max(1, today.month - 2), 15),
-         date(today.year, max(1, today.month - 1), 15),
-         6_800, "Delta Holdings", "October consulting (overdue)"),
-        # ── Purchases (kind=purchase) ──
-        ("INV-P-001", "purchase", "paid", date(2025, 11, 10), date(2025, 12, 10),
-         1_650, "OfficeMax UK", "Q4 office supplies"),
-        ("INV-P-002", "purchase", "paid", date(2025, 10, 20), date(2025, 11, 20),
-         2_400, "TechHub Hosting Ltd", "Q4 hosting + dev tools"),
+        (
+            ("INV-S-001", "sales", "paid", date(2025, 11, 5), date(2025, 12, 5),
+             18_000, "Acme Group plc", "Q4 software consulting"),
+            [
+                ("Premium consulting hour", 60, 180, cons_prem),
+                ("Quarterly software licence — Enterprise", 2.88, 2_500, sw_lic),
+            ],
+        ),
+        (
+            ("INV-S-002", "sales", "paid", date(2025, 9, 12), date(2025, 10, 12),
+             12_500, "Beta Ventures Ltd", "Q3 consulting + retainer"),
+            [
+                ("Premium consulting hour", 40, 180, cons_prem),
+                ("Standard consulting hour", 43.33, 120, cons_std),
+            ],
+        ),
         # Open
-        ("INV-P-003", "purchase", "issued",
-         today, today.replace(day=min(28, today.day)) if today.day < 15 else date(today.year, today.month, 28),
-         2_100, "Sherlock Insurance", "Annual cyber-liability renewal"),
+        (
+            ("INV-S-003", "sales", "issued",
+             today, today.replace(day=min(28, today.day)) if today.day < 15 else date(today.year, today.month, 28),
+             9_500, "Charlie Industries", "December consulting"),
+            [
+                ("Standard consulting hour", 79.17, 120, cons_std),
+            ],
+        ),
         # Overdue
-        ("INV-P-004", "purchase", "issued",
-         date(today.year, max(1, today.month - 2), 8),
-         date(today.year, max(1, today.month - 1), 8),
-         900, "BT Telecom", "Telecom — autumn quarter (overdue)"),
+        (
+            ("INV-S-004", "sales", "issued",
+             date(today.year, max(1, today.month - 2), 15),
+             date(today.year, max(1, today.month - 1), 15),
+             6_800, "Delta Holdings", "October consulting (overdue)"),
+            [
+                ("Standard consulting hour", 56.67, 120, cons_std),
+            ],
+        ),
+        # ── Purchases ──
+        (
+            ("INV-P-001", "purchase", "paid", date(2025, 11, 10), date(2025, 12, 10),
+             1_650, "OfficeMax UK", "Q4 office supplies"),
+            [("Office supplies — Q4 bundle", 1, 1_650, None)],
+        ),
+        (
+            ("INV-P-002", "purchase", "paid", date(2025, 10, 20), date(2025, 11, 20),
+             2_400, "TechHub Hosting Ltd", "Q4 hosting + dev tools"),
+            [("Cloud hosting + tooling — Q4", 1, 2_400, None)],
+        ),
+        (
+            ("INV-P-003", "purchase", "issued",
+             today, today.replace(day=min(28, today.day)) if today.day < 15 else date(today.year, today.month, 28),
+             2_100, "Sherlock Insurance", "Annual cyber-liability renewal"),
+            [("Cyber-liability premium (annual)", 1, 2_100, None)],
+        ),
+        (
+            ("INV-P-004", "purchase", "issued",
+             date(today.year, max(1, today.month - 2), 8),
+             date(today.year, max(1, today.month - 1), 8),
+             900, "BT Telecom", "Telecom — autumn quarter (overdue)"),
+            [("Telecom — quarterly bill", 1, 900, None)],
+        ),
     ]
-    for number, kind, status, issued, due, amount, ent_name, description in invoices:
+
+    for header, lines in invoices_with_lines:
+        number, kind, status, issued, due, amount, ent_name, description = header
         ent = entities_by_name.get(ent_name)
-        session.add(Invoice(
+        inv = Invoice(
             number=number, kind=kind, status=status,
             issue_date=issued, due_date=due,
             amount=amount, currency="GBP",
             description=description,
             entity_id=ent.id if ent else None,
-        ))
+        )
+        session.add(inv)
+        session.flush()
+        for product_name, qty, unit_price, inv_item in lines:
+            session.add(InvoiceItem(
+                invoice_id=inv.id,
+                product_name=product_name,
+                quantity=qty,
+                unit_price=unit_price,
+                line_total=int(round(qty * unit_price)),
+                inventory_item_id=inv_item.id if inv_item else None,
+            ))
     session.flush()
-    return len(invoices)
+    return len(invoices_with_lines)
 
 
 def _monthly_entries(year: int, scale: float = 1.0) -> list[

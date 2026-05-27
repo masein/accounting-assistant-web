@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.account import Account
 from app.models.transaction import Transaction, TransactionLine
 from app.models.entity import Entity, TransactionEntity
+from app.models.invoice import Invoice
 from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,53 @@ def _month_key(d: date) -> str:
     return d.strftime("%Y-%m")
 
 
+# Locale-specific account-code prefixes for the three "live" buckets the
+# CFO intelligence engine measures (cash on hand, AR for receivables risk,
+# AP for payables risk). Without this map every UK-locale install would
+# read £0 across the board because the Iranian default codes (1110,
+# 1112, 21xx) don't exist in the UK chart.
+_CODE_MAP_BY_LOCALE: dict[str, dict[str, tuple[str, ...]]] = {
+    "ir": {
+        "cash": ("1110",),                  # موجودی نقد و بانک
+        "ar":   ("1112",),                  # دریافتنی‌های تجاری
+        "ap":   ("21",),                    # all 21xx current liabilities
+    },
+    "uk": {
+        "cash": ("1200", "1210", "1220"),   # bank current / deposit / petty cash
+        "ar":   ("1100", "1300", "1400"),   # trade debtors + prepayments + VAT receivable
+        "ap":   ("21",),                    # all 21xx creditors
+    },
+    "default": {
+        "cash": ("1110", "1200"),           # accept both common cash codes
+        "ar":   ("1100", "1112"),
+        "ap":   ("21",),
+    },
+}
+
+
+def _resolve_code_map(db: Session) -> dict[str, tuple[str, ...]]:
+    """Pick the cash/AR/AP code-prefix tuples that match the active
+    reporting locale. Defaults to the broadest mapping if the locale is
+    unset or unrecognised."""
+    from app.services.locale_service import get_reporting_locale
+
+    locale = (get_reporting_locale(db) or "default").lower()
+    return _CODE_MAP_BY_LOCALE.get(locale, _CODE_MAP_BY_LOCALE["default"])
+
+
+def _resolve_currency_unit(db: Session, requested: str | None) -> str:
+    """The label shown on monetary KPIs. Prefer the explicitly-requested
+    currency (e.g. for cross-currency comparison reports), otherwise the
+    active reporting_currency AppSetting."""
+    if requested:
+        return requested.upper()
+    try:
+        from app.services.fx_service import get_reporting_currency
+        return (get_reporting_currency(db) or "IRR").upper()
+    except Exception:
+        return "IRR"
+
+
 def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None = None) -> dict:
     cutoff = date.today() - timedelta(days=months_back * 31)
     q = (
@@ -69,6 +117,11 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
         q = q.where(Transaction.currency == currency)
     txns = db.execute(q).scalars().unique().all()
 
+    code_map = _resolve_code_map(db)
+    cash_prefixes = code_map["cash"]
+    ar_prefixes = code_map["ar"]
+    ap_prefixes = code_map["ap"]
+
     monthly_revenue: dict[str, int] = defaultdict(int)
     monthly_expense: dict[str, int] = defaultdict(int)
     monthly_cash_in: dict[str, int] = defaultdict(int)
@@ -77,21 +130,22 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
     expense_code_by_cat: dict[str, str] = {}
     revenue_by_client: dict[str, int] = defaultdict(int)
     total_cash = 0
-    total_receivable = 0
-    total_payable = 0
+    total_receivable_ledger = 0
+    total_payable_ledger = 0
 
     for txn in txns:
         month = _month_key(txn.date)
         for ln in txn.lines:
-            acc_type = classify_account_code(ln.account.code)
+            code = ln.account.code or ""
+            acc_type = classify_account_code(code)
             if acc_type == REVENUE:
                 monthly_revenue[month] += ln.credit - ln.debit
             elif acc_type == EXPENSE:
                 monthly_expense[month] += ln.debit - ln.credit
                 expense_by_cat[ln.account.name] += ln.debit - ln.credit
-                expense_code_by_cat[ln.account.name] = ln.account.code
+                expense_code_by_cat[ln.account.name] = code
 
-            if (ln.account.code or "").startswith("1110"):
+            if any(code.startswith(p) for p in cash_prefixes):
                 delta = ln.debit - ln.credit
                 total_cash += delta
                 if delta > 0:
@@ -99,10 +153,27 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
                 else:
                     monthly_cash_out[month] += abs(delta)
 
-            if ln.account.code == "1112":
-                total_receivable += ln.debit - ln.credit
-            if (ln.account.code or "").startswith("21"):
-                total_payable += ln.credit - ln.debit
+            if any(code.startswith(p) for p in ar_prefixes):
+                total_receivable_ledger += ln.debit - ln.credit
+            if any(code.startswith(p) for p in ap_prefixes):
+                total_payable_ledger += ln.credit - ln.debit
+
+    # Fold outstanding invoices into AR/AP. Without this an SME running
+    # cash-basis bookkeeping (sales recorded as cash receipts, not via
+    # AR) shows zero receivables even when they have a stack of unpaid
+    # invoices sitting in the invoices table. Cancelled and paid
+    # invoices are excluded.
+    outstanding_ar = db.execute(
+        select(func.coalesce(func.sum(Invoice.amount), 0))
+        .where(Invoice.kind == "sales", Invoice.status.in_(["issued", "draft"]))
+    ).scalar() or 0
+    outstanding_ap = db.execute(
+        select(func.coalesce(func.sum(Invoice.amount), 0))
+        .where(Invoice.kind == "purchase", Invoice.status.in_(["issued", "draft"]))
+    ).scalar() or 0
+
+    total_receivable = total_receivable_ledger + int(outstanding_ar)
+    total_payable = total_payable_ledger + int(outstanding_ap)
 
     return {
         "monthly_revenue": monthly_revenue,
@@ -121,6 +192,9 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
 def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
     report = CFOReport()
     data = _load_monthly_data(db, months_back=12, currency=currency)
+    # Currency-unit label that lands on every monetary KPI. Resolved
+    # once so the entire report is internally consistent.
+    money = _resolve_currency_unit(db, currency)
 
     rev_vals = list(data["monthly_revenue"].values())
     exp_vals = list(data["monthly_expense"].values())
@@ -140,13 +214,13 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
     rev_trend = ((cur_rev - prev_rev) / prev_rev * 100) if prev_rev else 0
     report.kpis.append(KPI(
         key="total_revenue", label="Total Revenue (12m)", value=total_rev,
-        unit="IRR", trend="up" if rev_trend > 0 else "down" if rev_trend < 0 else "flat",
+        unit=money, trend="up" if rev_trend > 0 else "down" if rev_trend < 0 else "flat",
         trend_pct=round(rev_trend, 1),
     ))
 
     # KPI: Monthly Avg Revenue
     avg_rev = int(mean(rev_vals)) if rev_vals else 0
-    report.kpis.append(KPI(key="avg_monthly_revenue", label="Avg Monthly Revenue", value=avg_rev, unit="IRR"))
+    report.kpis.append(KPI(key="avg_monthly_revenue", label="Avg Monthly Revenue", value=avg_rev, unit=money))
 
     # KPI: Net Profit
     total_exp = sum(exp_vals) if exp_vals else 0
@@ -154,21 +228,21 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
     margin = (net_profit / total_rev * 100) if total_rev > 0 else 0
     report.kpis.append(KPI(
         key="net_profit", label="Net Profit (12m)", value=net_profit,
-        unit="IRR", risk_level="danger" if net_profit < 0 else "normal",
+        unit=money, risk_level="danger" if net_profit < 0 else "normal",
     ))
     report.kpis.append(KPI(key="net_margin", label="Net Margin", value=round(margin, 1), unit="%"))
 
     # KPI: Cash on Hand
     report.kpis.append(KPI(
         key="cash_on_hand", label="Cash on Hand", value=data["total_cash"],
-        unit="IRR", risk_level="danger" if data["total_cash"] < 0 else "caution" if data["total_cash"] < avg_rev else "normal",
+        unit=money, risk_level="danger" if data["total_cash"] < 0 else "caution" if data["total_cash"] < avg_rev else "normal",
     ))
 
     # KPI: Burn Rate
     recent_exp = exp_vals[-3:] if len(exp_vals) >= 3 else exp_vals
     burn_rate = int(mean(recent_exp)) if recent_exp else 0
     report.burn_rate = burn_rate
-    report.kpis.append(KPI(key="burn_rate", label="Monthly Burn Rate", value=burn_rate, unit="IRR"))
+    report.kpis.append(KPI(key="burn_rate", label="Monthly Burn Rate", value=burn_rate, unit=money))
 
     # KPI: Runway
     runway = data["total_cash"] / burn_rate if burn_rate > 0 else 999
@@ -179,8 +253,8 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
     ))
 
     # KPI: Receivables & Payables
-    report.kpis.append(KPI(key="accounts_receivable", label="Accounts Receivable", value=data["total_receivable"], unit="IRR"))
-    report.kpis.append(KPI(key="accounts_payable", label="Accounts Payable", value=data["total_payable"], unit="IRR"))
+    report.kpis.append(KPI(key="accounts_receivable", label="Accounts Receivable", value=data["total_receivable"], unit=money))
+    report.kpis.append(KPI(key="accounts_payable", label="Accounts Payable", value=data["total_payable"], unit=money))
 
     # Expense trend
     exp_trend = ((cur_exp - prev_exp) / prev_exp * 100) if prev_exp else 0
@@ -197,7 +271,7 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
         report.insights.append(Insight(
             priority=priority, category="revenue", severity="critical",
             title="Business is unprofitable",
-            body=f"Net loss of {abs(net_profit):,} IRR over the past 12 months. Revenue: {total_rev:,}, Expenses: {total_exp:,}.",
+            body=f"Net loss of {abs(net_profit):,} {money} over the past 12 months. Revenue: {total_rev:,}, Expenses: {total_exp:,}.",
         ))
         priority += 1
 
@@ -239,7 +313,7 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
         report.insights.append(Insight(
             priority=priority, category="expense", severity="info",
             title=f"Top cost driver: {top_cat[0]}",
-            body=f"{top_cat[0]} accounts for {top_pct:.0f}% of total expenses ({top_cat[1]:,} IRR).",
+            body=f"{top_cat[0]} accounts for {top_pct:.0f}% of total expenses ({top_cat[1]:,} {money}).",
         ))
         priority += 1
 
@@ -282,12 +356,12 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
 
     # --- NARRATIVE ---
     parts = []
-    parts.append(f"Over the past 12 months, total revenue was {total_rev:,} IRR with total expenses of {total_exp:,} IRR.")
+    parts.append(f"Over the past 12 months, total revenue was {total_rev:,} {money} with total expenses of {total_exp:,} {money}.")
     if net_profit >= 0:
         parts.append(f"The business is profitable with a net margin of {margin:.1f}%.")
     else:
-        parts.append(f"The business is running at a loss of {abs(net_profit):,} IRR.")
-    parts.append(f"Cash on hand is {data['total_cash']:,} IRR, providing approximately {runway:.1f} months of runway at the current burn rate of {burn_rate:,}/month.")
+        parts.append(f"The business is running at a loss of {abs(net_profit):,} {money}.")
+    parts.append(f"Cash on hand is {data['total_cash']:,} {money}, providing approximately {runway:.1f} months of runway at the current burn rate of {burn_rate:,}/month.")
     if report.insights:
         top = report.insights[0]
         parts.append(f"Key concern: {top.title}.")
@@ -304,6 +378,7 @@ def answer_cfo_question(db: Session, question: str, currency: str | None = None)
     """
     report = build_cfo_report(db, currency=currency)
     low = question.lower()
+    money = _resolve_currency_unit(db, currency)
 
     kpi_map = {k.key: k for k in report.kpis}
 
@@ -316,8 +391,8 @@ def answer_cfo_question(db: Session, question: str, currency: str | None = None)
     if any(w in low for w in ("survive", "runway", "last", "بقا", "دوام")):
         r = kpi_map.get("runway_months")
         return (
-            f"At the current burn rate of {report.burn_rate:,} IRR/month, "
-            f"with {kpi_map.get('cash_on_hand', KPI(key='', label='', value=0)).value:,} IRR cash on hand, "
+            f"At the current burn rate of {report.burn_rate:,} {money}/month, "
+            f"with {kpi_map.get('cash_on_hand', KPI(key='', label='', value=0)).value:,} {money} cash on hand, "
             f"the business can sustain operations for approximately {report.runway_months:.1f} months."
         )
 
@@ -339,15 +414,15 @@ def answer_cfo_question(db: Session, question: str, currency: str | None = None)
         return "No significant cost concentration detected."
 
     if any(w in low for w in ("cash leak", "where.*cash", "نشت نقدینگی", "کجا.*پول")):
-        parts = [f"Cash on hand: {kpi_map.get('cash_on_hand', KPI(key='', label='', value=0)).value:,} IRR."]
+        parts = [f"Cash on hand: {kpi_map.get('cash_on_hand', KPI(key='', label='', value=0)).value:,} {money}."]
         parts.append(f"Burn rate: {report.burn_rate:,}/month.")
         ar = kpi_map.get("accounts_receivable")
         if ar and ar.value > 0:
-            parts.append(f"Outstanding receivables: {ar.value:,} IRR — consider accelerating collections.")
+            parts.append(f"Outstanding receivables: {ar.value:,} {money} — consider accelerating collections.")
         return " ".join(parts)
 
     if any(w in low for w in ("burn rate", "نرخ سوخت", "هزینه ماهانه")):
-        return f"Monthly burn rate: {report.burn_rate:,} IRR (3-month average of expenses)."
+        return f"Monthly burn rate: {report.burn_rate:,} {money} (3-month average of expenses)."
 
     # Default: return full narrative
     return report.narrative

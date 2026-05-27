@@ -1260,7 +1260,7 @@
             <input type="number" id="mgr-mv-qty" min="0" step="0.0001" value="1">
           </div>
           <div>
-            <label for="mgr-mv-cost" data-i18n="labelUnitCost">Unit cost (IRR)</label>
+            <label for="mgr-mv-cost" data-i18n="labelUnitCost">Unit cost</label>
             <input type="number" id="mgr-mv-cost" min="0" step="1" value="0">
           </div>
           <div class="btn-cell">
@@ -1279,7 +1279,7 @@
             <select id="price-mgmt-item"><option value="">Select item</option></select>
           </div>
           <div>
-            <label for="price-mgmt-value">List price (IRR)</label>
+            <label for="price-mgmt-value">List price</label>
             <input type="number" id="price-mgmt-value" min="0" step="1000" value="0">
           </div>
           <div class="btn-cell">
@@ -1364,7 +1364,7 @@
       <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
         <button type="button" class="btn btn-primary" id="audit-run-btn">Run Full Audit</button>
         <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
-          <label for="audit-liability-threshold" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;margin:0;">Liability threshold (IRR):</label>
+          <label for="audit-liability-threshold" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;margin:0;">Liability threshold:</label>
           <input type="number" id="audit-liability-threshold" style="width:180px;margin:0;" placeholder="e.g. 500,000,000" min="0" step="1000000">
           <button type="button" class="btn btn-primary btn-sm" id="audit-save-threshold-btn" style="white-space:nowrap;">Save</button>
         </div>
@@ -2287,7 +2287,7 @@
         labelMovementItem: 'Movement item',
         labelMovementType: 'Movement type',
         labelQuantity: 'Quantity',
-        labelUnitCost: 'Unit cost (IRR)',
+        labelUnitCost: 'Unit cost',
         labelSearchAccount: 'Search account',
         labelSortBy: 'Sort by',
         labelChartTopAccounts: 'Charts: top accounts',
@@ -2717,7 +2717,7 @@
         labelMovementItem: 'قلم گردش',
         labelMovementType: 'نوع گردش',
         labelQuantity: 'تعداد',
-        labelUnitCost: 'بهای واحد (ریال)',
+        labelUnitCost: 'بهای واحد',
         labelSearchAccount: 'جستجوی حساب',
         labelSortBy: 'مرتب‌سازی',
         labelChartTopAccounts: 'نمودار: حساب‌های برتر',
@@ -3401,7 +3401,7 @@
         labelSearchAccount: 'Buscar cuenta',
         labelSortBy: 'Ordenar por',
         labelUnit: 'Unidad',
-        labelUnitCost: 'Costo unitario (IRR)',
+        labelUnitCost: 'Costo unitario',
         ledgerSubtitle: 'Vista profesional del balance de comprobación con filtros, comparativos y análisis visual. Haz clic en cualquier cuenta para ver el detalle de transacciones.',
         managerReportError: 'Error del reporte',
         managerSubtitle: 'Genera balance, estado de resultados, flujo de efectivo, libros, AR/AP, inventario y reportes de ventas/compras.',
@@ -3811,7 +3811,7 @@
         labelSearchAccount: 'بحث في الحسابات',
         labelSortBy: 'ترتيب حسب',
         labelUnit: 'الوحدة',
-        labelUnitCost: 'تكلفة الوحدة (IRR)',
+        labelUnitCost: 'تكلفة الوحدة',
         ledgerSubtitle: 'عرض احترافي لميزان المراجعة مع فلاتر ومقارنات وتحليل مرئي. انقر على أي حساب لعرض تفاصيل القيود.',
         managerReportError: 'خطأ في التقرير',
         managerSubtitle: 'أنشئ الميزانية وقائمة الدخل والتدفق النقدي والدفاتر والمدينون/الدائنون والمخزون وتقارير المبيعات/المشتريات.',
@@ -4252,6 +4252,22 @@
       return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
+    // Active reporting-currency label. Loaded once on page boot from
+    // /fx/reporting-currency, refreshed after every locale-reset. Every
+    // widget that appends a currency unit reads from this global instead
+    // of hardcoding 'IRR' — keeps Iran/UK/etc. switching consistent.
+    window.__REPORTING_CURRENCY = window.__REPORTING_CURRENCY || 'IRR';
+    function currencyUnit() { return window.__REPORTING_CURRENCY || 'IRR'; }
+    function fmtCurrency(v) { return formatNum(v) + ' ' + currencyUnit(); }
+    async function loadReportingCurrency() {
+      try {
+        const r = await fetch(API + '/fx/reporting-currency');
+        if (!r.ok) return;
+        const data = await r.json().catch(() => ({}));
+        if (data && data.currency) window.__REPORTING_CURRENCY = data.currency;
+      } catch (_) { /* offline / no auth — keep cached value */ }
+    }
+
     // Map ISO code → short symbol for inline display.
     const CURRENCY_SYMBOLS = {
       IRR: '\u0631\u06cc\u0627\u0644', // ریال
@@ -4329,9 +4345,14 @@
 
     function formatKpiValue(v, unit) {
       if (v == null) return t('na');
-      if (unit === 'IRR') return formatNum(v) + ' IRR';
       if (unit === 'months' && Number(v) < 0) return t('na');
       if (unit === 'months') return v + ' ' + t('monthsShort');
+      if (unit === '%') return String(v) + '%';
+      // Everything else with a unit is a currency code (IRR, GBP, USD,
+      // EUR, …). Display the formatted amount followed by the code.
+      if (unit && String(unit).length > 0 && unit !== '%') {
+        return formatNum(v) + ' ' + unit;
+      }
       return String(v);
     }
     function escapeHtml(s) {
@@ -4889,16 +4910,16 @@
         `).join('');
         const topProfit = (data.profitability_by_client || [])[0];
         const topProfitText = topProfit
-          ? `${localizeDynamicText(topProfit.client)} (${formatNum(topProfit.profit || 0)} IRR)`
+          ? `${localizeDynamicText(topProfit.client)} (${formatNum(topProfit.profit || 0)} ${currencyUnit()})`
           : t('na');
         document.getElementById('owner-pack').textContent =
           `${t('ownerPackTitle')} (${new Date().toISOString().slice(0, 10)})\n\n` +
-          `- ${t('kpiCashOnHand')}: ${formatNum((data.kpis || []).find((k) => k.key === 'cash_on_hand')?.value || 0)} IRR\n` +
-          `- ${t('ownerNetProfitMonth')}: ${formatNum((data.kpis || []).find((k) => k.key === 'monthly_net_profit')?.value || 0)} IRR\n` +
-          `- ${t('kpiMonthlyBurnRate')}: ${formatNum((data.kpis || []).find((k) => k.key === 'burn_rate')?.value || 0)} IRR/${t('monthWord')}\n` +
+          `- ${t('kpiCashOnHand')}: ${formatNum((data.kpis || []).find((k) => k.key === 'cash_on_hand')?.value || 0)} ${currencyUnit()}\n` +
+          `- ${t('ownerNetProfitMonth')}: ${formatNum((data.kpis || []).find((k) => k.key === 'monthly_net_profit')?.value || 0)} ${currencyUnit()}\n` +
+          `- ${t('kpiMonthlyBurnRate')}: ${formatNum((data.kpis || []).find((k) => k.key === 'burn_rate')?.value || 0)} ${currencyUnit()}/${t('monthWord')}\n` +
           `- ${t('kpiRunway')}: ${formatKpiValue((data.kpis || []).find((k) => k.key === 'runway_months')?.value, 'months')}\n` +
-          `- ${t('ownerOverdueAR')}: ${formatNum((data.ar_aging || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0))} IRR\n` +
-          `- ${t('ownerOverdueAP')}: ${formatNum((data.ap_aging || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0))} IRR\n` +
+          `- ${t('ownerOverdueAR')}: ${formatNum((data.ar_aging || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0))} ${currencyUnit()}\n` +
+          `- ${t('ownerOverdueAP')}: ${formatNum((data.ap_aging || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0))} ${currencyUnit()}\n` +
           `- ${t('ownerDataHealth')}: ${data.health_score || 0}/100\n` +
           `- ${t('ownerMostProfitableClient')}: ${topProfitText}\n\n` +
           `${t('ownerPriorityActions')}\n` +
@@ -5628,8 +5649,8 @@
         <div class="detail-summary" style="margin-bottom:1rem;">
           <div><span>Total Items</span><strong>${rows.length}</strong></div>
           <div><span>Total On-Hand</span><strong>${totalQty.toLocaleString()}</strong></div>
-          <div><span>Inventory Value</span><strong>${formatNum(totalValue)} IRR</strong></div>
-          <div><span>Total COGS</span><strong>${formatNum(totalCOGS)} IRR</strong></div>
+          <div><span>Inventory Value</span><strong>${formatNum(totalValue)} ${currencyUnit()}</strong></div>
+          <div><span>Total COGS</span><strong>${formatNum(totalCOGS)} ${currencyUnit()}</strong></div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
           <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('inv-report-preview'),'Inventory_Balance','csv')">CSV</button>
@@ -5873,7 +5894,7 @@
           <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">${rows.map(i =>
             `<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;background:#f1f5f9;border-radius:6px;font-size:0.8rem;border:1px solid var(--border);">
               <strong>${escapeHtml(i.name)}</strong>${i.sku ? ` <span style="color:var(--text-muted);">(${escapeHtml(i.sku)})</span>` : ''}
-              ${i.list_price ? ` — ${formatNum(i.list_price)} IRR` : ''}
+              ${i.list_price ? ` — ${formatNum(i.list_price)} ${currencyUnit()}` : ''}
             </span>`
           ).join('')}</div>`;
         } else if (listEl) {
@@ -8332,6 +8353,7 @@
     loadAIConfig();
     loadAnthropicConfig();
     loadChatProviderShape();
+    loadReportingCurrency();
     loadUsers();
     renderAttachments();
     loadLedger();
@@ -8836,7 +8858,10 @@
         document.getElementById('cfo-risk').textContent = data.risk_score + '/100';
         document.getElementById('cfo-risk').style.color = data.risk_score <= 30 ? '#2e7d32' : data.risk_score <= 60 ? '#f57f17' : '#c62828';
         document.getElementById('cfo-runway').textContent = data.runway_months + ' mo';
-        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString() + ' IRR/mo';
+        // Sync the global from the server's response so every other
+        // widget on the page picks up the right currency too.
+        if (data.currency) window.__REPORTING_CURRENCY = data.currency;
+        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString() + ' ' + currencyUnit() + '/mo';
 
         const kpiGrid = document.getElementById('cfo-kpis');
         kpiGrid.innerHTML = '';
@@ -8846,9 +8871,11 @@
           const div = document.createElement('div');
           div.className = 'panel';
           div.style.cssText = 'padding:0.6rem;';
-          const displayVal = k.unit === 'IRR' ? Number(k.value).toLocaleString() : k.value;
+          // Any non-% non-months unit is a currency code → format with thousands.
+          const isCurrencyUnit = k.unit && k.unit !== '%' && k.unit !== 'months';
+          const displayVal = isCurrencyUnit ? Number(k.value).toLocaleString() : k.value;
           div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(k.label)}</div>
-            <div style="font-size:1.1rem;font-weight:700;color:${riskColor};">${displayVal} ${k.unit !== 'IRR' ? k.unit : ''}</div>
+            <div style="font-size:1.1rem;font-weight:700;color:${riskColor};">${displayVal} ${k.unit || ''}</div>
             ${trendIcon ? `<div style="font-size:0.75rem;color:${
               (k.key === 'expense_trend' || k.key === 'burn_rate')
                 ? (k.trend === 'up' ? '#c62828' : '#2e7d32')
@@ -8985,6 +9012,11 @@
         const res = await fetch(bsAPI + '/ceo/report');
         if (!res.ok) return;
         const d = await res.json();
+        // Sync the global currency from the server's response (auto-detects
+        // GBP for UK locale, IRR for Iran, etc.) before formatting any
+        // of the KPI cards below.
+        if (d.currency) window.__REPORTING_CURRENCY = d.currency;
+        const ccy = currencyUnit();
 
         document.getElementById('ceo-grade').textContent = d.health_grade;
         document.getElementById('ceo-grade').style.color = d.health_grade <= 'B' ? '#2e7d32' : d.health_grade <= 'C' ? '#f57f17' : '#c62828';
@@ -8998,10 +9030,10 @@
         const kpiGrid = document.getElementById('ceo-kpis');
         kpiGrid.innerHTML = '';
         const kpiItems = [
-          { label: 'Total Revenue (12m)', value: d.revenue_total, unit: 'IRR', color: '#2e7d32' },
-          { label: 'Net Profit (12m)', value: d.profit_total, unit: 'IRR', color: d.profit_total >= 0 ? '#2e7d32' : '#c62828' },
-          { label: 'Cash Position', value: d.cash_position, unit: 'IRR', color: d.cash_position >= 0 ? '#0f766e' : '#c62828' },
-          { label: 'Burn Rate', value: d.burn_rate, unit: 'IRR/mo', color: 'var(--text)' },
+          { label: 'Total Revenue (12m)', value: d.revenue_total, unit: ccy, color: '#2e7d32' },
+          { label: 'Net Profit (12m)', value: d.profit_total, unit: ccy, color: d.profit_total >= 0 ? '#2e7d32' : '#c62828' },
+          { label: 'Cash Position', value: d.cash_position, unit: ccy, color: d.cash_position >= 0 ? '#0f766e' : '#c62828' },
+          { label: 'Burn Rate', value: d.burn_rate, unit: ccy + '/mo', color: 'var(--text)' },
           { label: 'Liability Ratio', value: (d.liability_ratio * 100).toFixed(1) + '%', unit: '', color: d.liability_ratio > 0.6 ? '#c62828' : 'var(--text)' },
         ];
         kpiItems.forEach(k => {
@@ -9026,8 +9058,8 @@
         });
 
         // AR/AP
-        document.getElementById('ceo-ar').textContent = (d.accounts_receivable || 0).toLocaleString() + ' IRR';
-        document.getElementById('ceo-ap').textContent = (d.accounts_payable || 0).toLocaleString() + ' IRR';
+        document.getElementById('ceo-ar').textContent = (d.accounts_receivable || 0).toLocaleString() + ' ' + ccy;
+        document.getElementById('ceo-ap').textContent = (d.accounts_payable || 0).toLocaleString() + ' ' + ccy;
 
         // Balance sheet summary
         document.getElementById('ceo-assets').textContent = (d.total_assets || 0).toLocaleString();
@@ -9163,7 +9195,7 @@
             const total = item.reduce((s, r) => s + (r[numKey] || 0), 0);
             const totalDiv = document.createElement('div');
             totalDiv.style.cssText = 'margin-top:0.4rem;font-size:0.9rem;font-weight:600;';
-            totalDiv.textContent = `Total: ${total.toLocaleString()} IRR`;
+            totalDiv.textContent = `Total: ${total.toLocaleString()} ${currencyUnit()}`;
             body.appendChild(tbl);
             body.appendChild(totalDiv);
           } else {
@@ -9467,7 +9499,7 @@
       content.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">
           <span style="font-size:0.85rem;color:var(--text-muted);">
-            ${data.items.length} products | ${t('fieldRevenue')}: ${formatNum(data.total_revenue)} | ${t('fieldCost')}: ${formatNum(data.total_cost)} | ${t('fieldProfit')}: ${formatNum(data.total_profit)} IRR
+            ${data.items.length} products | ${t('fieldRevenue')}: ${formatNum(data.total_revenue)} | ${t('fieldCost')}: ${formatNum(data.total_cost)} | ${t('fieldProfit')}: ${formatNum(data.total_profit)} ${currencyUnit()}
           </span>
           <span>
             <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'Products_Catalog','csv')">CSV</button>
@@ -9746,7 +9778,7 @@
           <span style="font-size:0.75rem;color:var(--text-muted);">Click to inspect</span>
         </div>
         <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${escapeHtml(f.detail)}</div>
-        ${f.amount ? `<div style="font-size:0.8rem;margin-top:0.15rem;">Amount: <strong>${Number(f.amount).toLocaleString()} IRR</strong></div>` : ''}`;
+        ${f.amount ? `<div style="font-size:0.8rem;margin-top:0.15rem;">Amount: <strong>${Number(f.amount).toLocaleString()} ${currencyUnit()}</strong></div>` : ''}`;
         div.addEventListener('mouseenter', () => div.style.background = '#f0f4f8');
         div.addEventListener('mouseleave', () => div.style.background = '#fafafa');
         div.addEventListener('click', () => openAuditDrilldown(f, idx));
@@ -9764,7 +9796,7 @@
         <p><strong>Severity:</strong> <span style="color:${finding.severity === 'critical' ? '#c62828' : '#f57f17'}">${finding.severity.toUpperCase()}</span></p>
         <p><strong>Category:</strong> ${escapeHtml(finding.category)}</p>
         <p><strong>Detail:</strong> ${escapeHtml(finding.detail)}</p>
-        ${finding.amount ? `<p><strong>Amount:</strong> ${Number(finding.amount).toLocaleString()} IRR</p>` : ''}
+        ${finding.amount ? `<p><strong>Amount:</strong> ${Number(finding.amount).toLocaleString()} ${currencyUnit()}</p>` : ''}
         ${finding.entity_id ? `<p><strong>Entity ID:</strong> ${escapeHtml(finding.entity_id)}</p>` : ''}
       `;
       const statusEl = document.getElementById('audit-modal-status');
@@ -9920,7 +9952,7 @@
         (items || []).forEach(i => {
           const opt = document.createElement('option');
           opt.value = i.id;
-          opt.textContent = (i.sku ? i.sku + ' - ' : '') + i.name + (i.list_price ? ' (current: ' + i.list_price.toLocaleString() + ' IRR)' : '');
+          opt.textContent = (i.sku ? i.sku + ' - ' : '') + i.name + (i.list_price ? ' (current: ' + i.list_price.toLocaleString() + ' ' + currencyUnit() + ')' : '');
           opt.dataset.price = i.list_price || 0;
           sel.appendChild(opt);
         });
@@ -9943,7 +9975,7 @@
         const res = await fetch(API + '/manager-reports/inventory/items/' + itemId + '/price?list_price=' + price, { method: 'PATCH' });
         const data = await res.json();
         if (res.ok) {
-          statusEl.textContent = `Price updated: ${data.name} — ${data.old_price.toLocaleString()} -> ${data.new_price.toLocaleString()} IRR`;
+          statusEl.textContent = `Price updated: ${data.name} — ${data.old_price.toLocaleString()} -> ${data.new_price.toLocaleString()} ${currencyUnit()}`;
           statusEl.style.color = '#2e7d32';
           loadPriceMgmtItems();
         } else {

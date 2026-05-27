@@ -160,6 +160,11 @@ class CFOReportResponse(BaseModel):
     runway_months: float
     burn_rate: int
     health_grade: str
+    # The currency unit applied to every monetary KPI on this report.
+    # Resolved server-side from the active reporting-currency AppSetting
+    # so the frontend renders the right unit (e.g. £ vs IRR) without
+    # second-guessing.
+    currency: str = "IRR"
 
 
 class CEOReportResponse(BaseModel):
@@ -186,6 +191,8 @@ class CEOReportResponse(BaseModel):
     accounts_receivable: int
     accounts_payable: int
     liability_ratio: float
+    # Active reporting currency (same resolver as CFOReportResponse.currency).
+    currency: str = "IRR"
 
 
 class CFOQuestionRequest(BaseModel):
@@ -599,7 +606,7 @@ def get_cfo_report(
     db: Session = Depends(get_db),
 ) -> CFOReportResponse:
     """Get the CFO-level financial intelligence report."""
-    from app.services.cfo_intelligence import build_cfo_report
+    from app.services.cfo_intelligence import build_cfo_report, _resolve_currency_unit
     report = build_cfo_report(db, currency=currency)
     return CFOReportResponse(
         kpis=[CFOKpiRead(
@@ -615,6 +622,7 @@ def get_cfo_report(
         runway_months=report.runway_months,
         burn_rate=report.burn_rate,
         health_grade=report.health_grade,
+        currency=_resolve_currency_unit(db, currency),
     )
 
 
@@ -624,7 +632,7 @@ def get_ceo_report(
     db: Session = Depends(get_db),
 ) -> CEOReportResponse:
     """Get the CEO-level executive summary report."""
-    from app.services.cfo_intelligence import build_ceo_report
+    from app.services.cfo_intelligence import build_ceo_report, _resolve_currency_unit
     report = build_ceo_report(db, currency=currency)
     return CEOReportResponse(
         revenue_total=report.revenue_total,
@@ -647,6 +655,7 @@ def get_ceo_report(
         accounts_receivable=report.accounts_receivable,
         accounts_payable=report.accounts_payable,
         liability_ratio=report.liability_ratio,
+        currency=_resolve_currency_unit(db, currency),
     )
 
 

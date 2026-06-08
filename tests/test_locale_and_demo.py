@@ -15,7 +15,11 @@ import pytest
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.db.demo_data import seed_iran_demo, seed_uk_demo
+from app.db.demo_data import _demo_years, seed_iran_demo, seed_uk_demo
+
+# The demo anchors to today: prior year + current year. Tests derive the
+# expected period the same way so they don't age out with the calendar.
+_PRIOR, _CUR = _demo_years()
 from app.db.seed import seed_chart_if_empty
 from app.models.account import Account
 from app.models.transaction import Transaction, TransactionLine
@@ -66,7 +70,7 @@ def uk_demo_db(db: Session):
 class TestIranDemo:
     def test_balance_sheet_balances(self, ir_demo_db: Session) -> None:
         svc = IranStatementService(ir_demo_db)
-        bs = svc.balance_sheet(as_of=date(2025, 12, 31))
+        bs = svc.balance_sheet(as_of=date(_CUR, 12, 31))
         rows = {r.key: r for r in bs.rows}
         assert "total_assets" in rows and "total_equity_and_liabilities" in rows
         assert rows["total_assets"].amount_current == rows["total_equity_and_liabilities"].amount_current
@@ -75,16 +79,16 @@ class TestIranDemo:
 
     def test_income_statement_has_growth(self, ir_demo_db: Session) -> None:
         svc = IranStatementService(ir_demo_db)
-        pl = svc.income_statement(from_date=date(2025, 1, 1), to_date=date(2025, 12, 31))
+        pl = svc.income_statement(from_date=date(_CUR, 1, 1), to_date=date(_CUR, 12, 31))
         rows = {r.key: r for r in pl.rows}
         net_cur = rows["net_profit"].amount_current
         net_pri = rows["net_profit"].amount_prior
-        # 2025 should be more profitable than 2024 in the demo.
+        # The current year should be more profitable than the prior year.
         assert net_cur > net_pri > 0, f"expected growth: cur={net_cur} pri={net_pri}"
 
     def test_cash_flow_reconciles(self, ir_demo_db: Session) -> None:
         svc = IranStatementService(ir_demo_db)
-        cf = svc.cash_flow(from_date=date(2025, 1, 1), to_date=date(2025, 12, 31))
+        cf = svc.cash_flow(from_date=date(_CUR, 1, 1), to_date=date(_CUR, 12, 31))
         rows = {r.key: r for r in cf.rows}
         # closing_cash = opening_cash + net_cash_change + fx_rate_effect
         derived = (
@@ -96,13 +100,13 @@ class TestIranDemo:
 
     def test_changes_in_equity_has_36_rows(self, ir_demo_db: Session) -> None:
         svc = IranStatementService(ir_demo_db)
-        ce = svc.changes_in_equity(from_date=date(2025, 1, 1), to_date=date(2025, 12, 31))
+        ce = svc.changes_in_equity(from_date=date(_CUR, 1, 1), to_date=date(_CUR, 12, 31))
         assert len(ce.components) == 10
         assert len(ce.rows) >= 30  # opening + comparative-period + current-period blocks
 
     def test_balance_sheet_has_three_date_columns(self, ir_demo_db: Session) -> None:
         svc = IranStatementService(ir_demo_db)
-        bs = svc.balance_sheet(as_of=date(2025, 12, 31))
+        bs = svc.balance_sheet(as_of=date(_CUR, 12, 31))
         assert bs.comparative_as_of is not None
         assert bs.comparative_beginning_as_of is not None
 
@@ -113,7 +117,7 @@ class TestIranDemo:
 class TestUKDemo:
     def test_balance_sheet_balances(self, uk_demo_db: Session) -> None:
         svc = UKStatementService(uk_demo_db)
-        bs = svc.balance_sheet(as_of=date(2025, 12, 31))
+        bs = svc.balance_sheet(as_of=date(_CUR, 12, 31))
         rows = {r.key: r for r in bs.rows}
         # net_assets ≡ total_capital_reserves under Companies Act format 1
         assert rows["net_assets"].amount_current == rows["total_capital_reserves"].amount_current
@@ -122,10 +126,10 @@ class TestUKDemo:
 
     def test_profit_and_loss_shows_turnover_growth(self, uk_demo_db: Session) -> None:
         svc = UKStatementService(uk_demo_db)
-        pl = svc.income_statement(from_date=date(2025, 1, 1), to_date=date(2025, 12, 31))
+        pl = svc.income_statement(from_date=date(_CUR, 1, 1), to_date=date(_CUR, 12, 31))
         rows = {r.key: r for r in pl.rows}
-        # 2025 turnover should exceed 2024 turnover in the demo (~60% growth
-        # with the year-2 scale=1.6 in seed_uk_demo).
+        # Current-year turnover should exceed prior-year turnover in the demo
+        # (~60% growth with the year-2 scale=1.6 in seed_uk_demo).
         assert rows["turnover"].amount_current > rows["turnover"].amount_prior > 0
         # Both years should be profitable — the demo tells a growth +
         # profitable story for the video walkthrough. (Year 1: founder
@@ -137,14 +141,14 @@ class TestUKDemo:
 
     def test_comprehensive_income_equals_net_when_no_oci(self, uk_demo_db: Session) -> None:
         svc = UKStatementService(uk_demo_db)
-        ci = svc.comprehensive_income(from_date=date(2025, 1, 1), to_date=date(2025, 12, 31))
+        ci = svc.comprehensive_income(from_date=date(_CUR, 1, 1), to_date=date(_CUR, 12, 31))
         rows = {r.key: r for r in ci.rows}
         # Demo doesn't post any OCI items → total comprehensive = profit for year.
         assert rows["total_comprehensive_income"].amount_current == rows["profit_for_year"].amount_current
 
     def test_cash_flow_reconciles(self, uk_demo_db: Session) -> None:
         svc = UKStatementService(uk_demo_db)
-        cf = svc.cash_flow(from_date=date(2025, 1, 1), to_date=date(2025, 12, 31))
+        cf = svc.cash_flow(from_date=date(_CUR, 1, 1), to_date=date(_CUR, 12, 31))
         rows = {r.key: r for r in cf.rows}
         derived = (
             rows["opening_cash"].amount_current
@@ -155,7 +159,7 @@ class TestUKDemo:
 
     def test_changes_in_equity_has_5_components(self, uk_demo_db: Session) -> None:
         svc = UKStatementService(uk_demo_db)
-        ce = svc.changes_in_equity(from_date=date(2025, 1, 1), to_date=date(2025, 12, 31))
+        ce = svc.changes_in_equity(from_date=date(_CUR, 1, 1), to_date=date(_CUR, 12, 31))
         assert len(ce.components) == 5
         assert {c.key for c in ce.components} == {
             "eq_share_capital", "eq_share_premium", "eq_revaluation_reserve",
@@ -180,7 +184,7 @@ class TestUKEndpoints:
     def test_balance_sheet_endpoint(self, auth_client) -> None:
         r = auth_client.get(
             "/manager-reports/financial/uk/balance-sheet",
-            params={"as_of": "2025-12-31"},
+            params={"as_of": f"{_CUR}-12-31"},
         )
         assert r.status_code == 200, r.text
         body = r.json()
@@ -191,7 +195,7 @@ class TestUKEndpoints:
     def test_profit_and_loss_endpoint(self, auth_client) -> None:
         r = auth_client.get(
             "/manager-reports/financial/uk/profit-and-loss",
-            params={"from_date": "2025-01-01", "to_date": "2025-12-31"},
+            params={"from_date": f"{_CUR}-01-01", "to_date": f"{_CUR}-12-31"},
         )
         assert r.status_code == 200, r.text
         body = r.json()
@@ -200,7 +204,7 @@ class TestUKEndpoints:
     def test_comprehensive_income_endpoint(self, auth_client) -> None:
         r = auth_client.get(
             "/manager-reports/financial/uk/comprehensive-income",
-            params={"from_date": "2025-01-01", "to_date": "2025-12-31"},
+            params={"from_date": f"{_CUR}-01-01", "to_date": f"{_CUR}-12-31"},
         )
         assert r.status_code == 200, r.text
         assert r.json()["report_type"] == "uk_comprehensive_income"
@@ -208,7 +212,7 @@ class TestUKEndpoints:
     def test_changes_in_equity_endpoint(self, auth_client) -> None:
         r = auth_client.get(
             "/manager-reports/financial/uk/changes-in-equity",
-            params={"from_date": "2025-01-01", "to_date": "2025-12-31"},
+            params={"from_date": f"{_CUR}-01-01", "to_date": f"{_CUR}-12-31"},
         )
         assert r.status_code == 200, r.text
         body = r.json()
@@ -218,7 +222,7 @@ class TestUKEndpoints:
     def test_cash_flow_endpoint(self, auth_client) -> None:
         r = auth_client.get(
             "/manager-reports/financial/uk/cash-flow",
-            params={"from_date": "2025-01-01", "to_date": "2025-12-31"},
+            params={"from_date": f"{_CUR}-01-01", "to_date": f"{_CUR}-12-31"},
         )
         assert r.status_code == 200, r.text
         assert r.json()["report_type"] == "uk_cash_flow"

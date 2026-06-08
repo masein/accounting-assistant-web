@@ -20,6 +20,32 @@ from app.models.account import Account, AccountLevel
 from app.models.transaction import Transaction, TransactionLine
 
 
+def _demo_years() -> tuple[int, int]:
+    """Return the (prior, current) calendar years the demo should span.
+
+    The demo always anchors to *today* so the most recent fiscal year is the
+    current one. This keeps "current year" dashboards, manager reports and the
+    AI accountant's default (year-to-date) ledger queries populated — otherwise
+    the demo silently ages out and every current-year view reads zero.
+    """
+    current = date.today().year
+    return current - 1, current
+
+
+def _add_months(d: date, months: int) -> date:
+    """Shift a date by ``months`` (positive or negative), clamping the day to
+    the target month's length so we never raise on e.g. 31 → February."""
+    total = (d.year * 12 + (d.month - 1)) + months
+    year, month = divmod(total, 12)
+    month += 1
+    # Last day of the target month.
+    if month == 12:
+        last = 31
+    else:
+        last = (date(year, month + 1, 1) - date(year, month, 1)).days
+    return date(year, month, min(d.day, last))
+
+
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
@@ -70,9 +96,9 @@ def _post(
 # Iran demo — IRR amounts
 # ---------------------------------------------------------------------------
 #
-# Story: a small Iranian trading company. Year 1 (2024) is the start-up
+# Story: a small Iranian trading company. Year 1 (prior year) is the start-up
 # year — capital, PP&E purchase, long-term bank loan, two sales cycles,
-# wages, opex, interest, tax accrual. Year 2 (2025) doubles activity —
+# wages, opex, interest, tax accrual. Year 2 (current year) doubles activity —
 # more PP&E, partial loan repayment, tax paid, dividend declared.
 
 _IR_EXTRA_ACCOUNTS = [
@@ -95,6 +121,11 @@ _IR_EXTRA_ACCOUNTS = [
     ("3300", "سود (زیان) انباشته", AccountLevel.GENERAL),
     ("51", "بهای تمام شده درآمدهای عملیاتی", AccountLevel.GROUP),
     ("5110", "بهای تمام شده فروش", AccountLevel.GENERAL),
+    # Tax expense. `_ensure_account` links a 4-digit code to its 2-digit
+    # prefix, so 6410 needs a "64" group to avoid being orphaned in the
+    # chart-of-accounts tree. The "641" sub-group is kept for the Iranian
+    # standard breakdown (current-year vs prior-year tax).
+    ("64", "هزینه مالیات بر درآمد", AccountLevel.GROUP),
     ("641", "هزینه مالیات سال جاری", AccountLevel.GROUP),
     ("6410", "هزینه مالیات سال جاری", AccountLevel.GENERAL),
 ]
@@ -106,59 +137,60 @@ def seed_iran_demo(session: Session) -> int:
         _ensure_account(session, code, name, level)
 
     M = 1_000_000  # million-rial multiplier
+    y1, y2 = _demo_years()  # (prior year, current year) — anchored to today
 
     entries: list[tuple[date, str, list[tuple[str, int, int]]]] = [
-        # ----- سال ۱ (۱۴۰۳): راه‌اندازی و فعالیت اولیه -----
-        (date(2024, 1, 15), "آورده اولیه سرمایه",
+        # ----- سال اول: راه‌اندازی و فعالیت اولیه -----
+        (date(y1, 1, 15), "آورده اولیه سرمایه",
          [("1110", 5_000 * M, 0), ("3110", 0, 5_000 * M)]),
-        (date(2024, 2, 1), "خرید ماشین‌آلات و تجهیزات",
+        (date(y1, 2, 1), "خرید ماشین‌آلات و تجهیزات",
          [("1210", 800 * M, 0), ("1110", 0, 800 * M)]),
-        (date(2024, 3, 1), "دریافت تسهیلات مالی بلندمدت بانکی",
+        (date(y1, 3, 1), "دریافت تسهیلات مالی بلندمدت بانکی",
          [("1110", 2_000 * M, 0), ("2220", 0, 2_000 * M)]),
-        (date(2024, 4, 30), "فروش سه‌ماهه دوم — دریافت نقدی",
+        (date(y1, 4, 30), "فروش سه‌ماهه دوم — دریافت نقدی",
          [("1110", 1_500 * M, 0), ("4110", 0, 1_500 * M)]),
-        (date(2024, 4, 30), "بهای تمام‌شدهٔ کالای فروش‌رفته — سه‌ماهه دوم",
+        (date(y1, 4, 30), "بهای تمام‌شدهٔ کالای فروش‌رفته — سه‌ماهه دوم",
          [("5110", 800 * M, 0), ("1110", 0, 800 * M)]),
-        (date(2024, 6, 30), "حقوق و دستمزد نیمهٔ اول سال",
+        (date(y1, 6, 30), "حقوق و دستمزد نیمهٔ اول سال",
          [("6110", 400 * M, 0), ("1110", 0, 400 * M)]),
-        (date(2024, 8, 31), "سایر هزینه‌های عملیاتی",
+        (date(y1, 8, 31), "سایر هزینه‌های عملیاتی",
          [("6112", 200 * M, 0), ("1110", 0, 200 * M)]),
-        (date(2024, 10, 15), "فروش سه‌ماهه چهارم — دریافت نقدی",
+        (date(y1, 10, 15), "فروش سه‌ماهه چهارم — دریافت نقدی",
          [("1110", 2_000 * M, 0), ("4110", 0, 2_000 * M)]),
-        (date(2024, 10, 15), "بهای تمام‌شدهٔ کالای فروش‌رفته — سه‌ماهه چهارم",
+        (date(y1, 10, 15), "بهای تمام‌شدهٔ کالای فروش‌رفته — سه‌ماهه چهارم",
          [("5110", 1_000 * M, 0), ("1110", 0, 1_000 * M)]),
-        (date(2024, 12, 15), "حقوق و دستمزد نیمهٔ دوم سال",
+        (date(y1, 12, 15), "حقوق و دستمزد نیمهٔ دوم سال",
          [("6110", 400 * M, 0), ("1110", 0, 400 * M)]),
-        (date(2024, 12, 15), "هزینهٔ مالی — پرداخت سود تسهیلات",
+        (date(y1, 12, 15), "هزینهٔ مالی — پرداخت سود تسهیلات",
          [("6210", 150 * M, 0), ("1110", 0, 150 * M)]),
-        (date(2024, 12, 25), "ذخیرهٔ مالیات بر درآمد سال جاری",
+        (date(y1, 12, 25), "ذخیرهٔ مالیات بر درآمد سال جاری",
          [("6410", 200 * M, 0), ("2130", 0, 200 * M)]),
-        # ----- سال ۲ (۱۴۰۴): توسعه و تقسیم سود -----
-        (date(2025, 2, 1), "خرید مازاد ماشین‌آلات و تجهیزات",
+        # ----- سال دوم: توسعه و تقسیم سود -----
+        (date(y2, 2, 1), "خرید مازاد ماشین‌آلات و تجهیزات",
          [("1210", 500 * M, 0), ("1110", 0, 500 * M)]),
-        (date(2025, 4, 15), "بازپرداخت اصل تسهیلات بلندمدت",
+        (date(y2, 4, 15), "بازپرداخت اصل تسهیلات بلندمدت",
          [("2220", 500 * M, 0), ("1110", 0, 500 * M)]),
-        (date(2025, 4, 30), "فروش سه‌ماهه دوم — دریافت نقدی",
+        (date(y2, 4, 30), "فروش سه‌ماهه دوم — دریافت نقدی",
          [("1110", 3_000 * M, 0), ("4110", 0, 3_000 * M)]),
-        (date(2025, 4, 30), "بهای تمام‌شدهٔ کالای فروش‌رفته — سه‌ماهه دوم",
+        (date(y2, 4, 30), "بهای تمام‌شدهٔ کالای فروش‌رفته — سه‌ماهه دوم",
          [("5110", 1_500 * M, 0), ("1110", 0, 1_500 * M)]),
-        (date(2025, 6, 30), "حقوق و دستمزد نیمهٔ اول سال",
+        (date(y2, 6, 30), "حقوق و دستمزد نیمهٔ اول سال",
          [("6110", 500 * M, 0), ("1110", 0, 500 * M)]),
-        (date(2025, 8, 31), "سایر هزینه‌های عملیاتی",
+        (date(y2, 8, 31), "سایر هزینه‌های عملیاتی",
          [("6112", 250 * M, 0), ("1110", 0, 250 * M)]),
-        (date(2025, 10, 15), "فروش سه‌ماهه چهارم — دریافت نقدی",
+        (date(y2, 10, 15), "فروش سه‌ماهه چهارم — دریافت نقدی",
          [("1110", 4_000 * M, 0), ("4110", 0, 4_000 * M)]),
-        (date(2025, 10, 15), "بهای تمام‌شدهٔ کالای فروش‌رفته — سه‌ماهه چهارم",
+        (date(y2, 10, 15), "بهای تمام‌شدهٔ کالای فروش‌رفته — سه‌ماهه چهارم",
          [("5110", 2_000 * M, 0), ("1110", 0, 2_000 * M)]),
-        (date(2025, 11, 30), "پرداخت مالیات سال قبل",
+        (date(y2, 11, 30), "پرداخت مالیات سال قبل",
          [("2130", 200 * M, 0), ("1110", 0, 200 * M)]),
-        (date(2025, 12, 15), "حقوق و دستمزد نیمهٔ دوم سال",
+        (date(y2, 12, 15), "حقوق و دستمزد نیمهٔ دوم سال",
          [("6110", 500 * M, 0), ("1110", 0, 500 * M)]),
-        (date(2025, 12, 15), "هزینهٔ مالی — پرداخت سود تسهیلات",
+        (date(y2, 12, 15), "هزینهٔ مالی — پرداخت سود تسهیلات",
          [("6210", 130 * M, 0), ("1110", 0, 130 * M)]),
-        (date(2025, 12, 20), "مصوبهٔ تقسیم سود سهام",
+        (date(y2, 12, 20), "مصوبهٔ تقسیم سود سهام",
          [("3300", 100 * M, 0), ("2140", 0, 100 * M)]),
-        (date(2025, 12, 25), "ذخیرهٔ مالیات بر درآمد سال جاری",
+        (date(y2, 12, 25), "ذخیرهٔ مالیات بر درآمد سال جاری",
          [("6410", 350 * M, 0), ("2130", 0, 350 * M)]),
     ]
 
@@ -174,9 +206,9 @@ def seed_iran_demo(session: Session) -> int:
 # ---------------------------------------------------------------------------
 #
 # Story: a small UK limited company (Acme Consulting Ltd) — boutique
-# software consultancy in its second year. Year 1 (2024) is the
+# software consultancy in its second year. Year 1 (prior year) is the
 # startup: founder capital, plant purchase, bank loan, monthly
-# operations, two main clients, ramp-up. Year 2 (2025) is expansion:
+# operations, two main clients, ramp-up. Year 2 (current year) is expansion:
 # more equipment, second engineer hired, third client onboarded,
 # steady monthly cadence, year-end dividend.
 #
@@ -276,74 +308,76 @@ def _seed_uk_invoices(
     sw_lic = inv_items.get("Quarterly software licence — Enterprise")
 
     today = date.today()
-    # ``invoices`` carries the header info; ``line_items`` is per-invoice and
-    # lists (product_name, quantity, unit_price, inventory_item_or_none).
+    # Relative anchors so the AR/AP aging always has a recent-paid, a current
+    # open, and a genuinely-overdue invoice regardless of when the demo runs.
+    # ``line_items`` is per-invoice: (product_name, quantity, unit_price,
+    # inventory_item_or_none). Header amounts are derived from the line totals
+    # below, so they always reconcile.
     invoices_with_lines = [
         # ── Sales ──
-        # Recent paid
+        # Recent, paid (issued ~2 months ago, settled).
         (
-            ("INV-S-001", "sales", "paid", date(2025, 11, 5), date(2025, 12, 5),
-             18_000, "Acme Group plc", "Q4 software consulting"),
+            ("INV-S-001", "sales", "paid", _add_months(today, -2), _add_months(today, -1),
+             None, "Acme Group plc", "Software consulting + enterprise licence"),
             [
-                ("Premium consulting hour", 60, 180, cons_prem),
-                ("Quarterly software licence — Enterprise", 2.88, 2_500, sw_lic),
+                ("Premium consulting hour", 60, 180, cons_prem),       # 10,800
+                ("Quarterly software licence — Enterprise", 1, 2_500, sw_lic),  # 2,500
             ],
         ),
+        # Earlier, paid.
         (
-            ("INV-S-002", "sales", "paid", date(2025, 9, 12), date(2025, 10, 12),
-             12_500, "Beta Ventures Ltd", "Q3 consulting + retainer"),
+            ("INV-S-002", "sales", "paid", _add_months(today, -3), _add_months(today, -2),
+             None, "Beta Ventures Ltd", "Consulting retainer"),
             [
-                ("Premium consulting hour", 40, 180, cons_prem),
-                ("Standard consulting hour", 43.33, 120, cons_std),
+                ("Premium consulting hour", 40, 180, cons_prem),       # 7,200
+                ("Standard consulting hour", 40, 120, cons_std),       # 4,800
             ],
         ),
-        # Open
+        # Open — issued today, not yet due.
         (
-            ("INV-S-003", "sales", "issued",
-             today, today.replace(day=min(28, today.day)) if today.day < 15 else date(today.year, today.month, 28),
-             9_500, "Charlie Industries", "December consulting"),
+            ("INV-S-003", "sales", "issued", today, _add_months(today, 1),
+             None, "Charlie Industries", "Current-month consulting"),
             [
-                ("Standard consulting hour", 79.17, 120, cons_std),
+                ("Standard consulting hour", 80, 120, cons_std),       # 9,600
             ],
         ),
-        # Overdue
+        # Overdue — issued ~2 months ago, due ~1 month ago, still unpaid.
         (
-            ("INV-S-004", "sales", "issued",
-             date(today.year, max(1, today.month - 2), 15),
-             date(today.year, max(1, today.month - 1), 15),
-             6_800, "Delta Holdings", "October consulting (overdue)"),
+            ("INV-S-004", "sales", "issued", _add_months(today, -2), _add_months(today, -1),
+             None, "Delta Holdings", "Consulting services (overdue)"),
             [
-                ("Standard consulting hour", 56.67, 120, cons_std),
+                ("Standard consulting hour", 55, 120, cons_std),       # 6,600
             ],
         ),
         # ── Purchases ──
         (
-            ("INV-P-001", "purchase", "paid", date(2025, 11, 10), date(2025, 12, 10),
-             1_650, "OfficeMax UK", "Q4 office supplies"),
-            [("Office supplies — Q4 bundle", 1, 1_650, None)],
+            ("INV-P-001", "purchase", "paid", _add_months(today, -2), _add_months(today, -1),
+             None, "OfficeMax UK", "Office supplies"),
+            [("Office supplies — quarterly bundle", 1, 1_650, None)],
         ),
         (
-            ("INV-P-002", "purchase", "paid", date(2025, 10, 20), date(2025, 11, 20),
-             2_400, "TechHub Hosting Ltd", "Q4 hosting + dev tools"),
-            [("Cloud hosting + tooling — Q4", 1, 2_400, None)],
+            ("INV-P-002", "purchase", "paid", _add_months(today, -2), _add_months(today, -1),
+             None, "TechHub Hosting Ltd", "Cloud hosting + dev tools"),
+            [("Cloud hosting + tooling", 1, 2_400, None)],
         ),
+        # Open — issued today.
         (
-            ("INV-P-003", "purchase", "issued",
-             today, today.replace(day=min(28, today.day)) if today.day < 15 else date(today.year, today.month, 28),
-             2_100, "Sherlock Insurance", "Annual cyber-liability renewal"),
+            ("INV-P-003", "purchase", "issued", today, _add_months(today, 1),
+             None, "Sherlock Insurance", "Annual cyber-liability renewal"),
             [("Cyber-liability premium (annual)", 1, 2_100, None)],
         ),
+        # Overdue.
         (
-            ("INV-P-004", "purchase", "issued",
-             date(today.year, max(1, today.month - 2), 8),
-             date(today.year, max(1, today.month - 1), 8),
-             900, "BT Telecom", "Telecom — autumn quarter (overdue)"),
+            ("INV-P-004", "purchase", "issued", _add_months(today, -2), _add_months(today, -1),
+             None, "BT Telecom", "Telecom — quarterly bill (overdue)"),
             [("Telecom — quarterly bill", 1, 900, None)],
         ),
     ]
 
     for header, lines in invoices_with_lines:
-        number, kind, status, issued, due, amount, ent_name, description = header
+        number, kind, status, issued, due, _amount, ent_name, description = header
+        # Derive the header amount from the line items so they always reconcile.
+        amount = int(round(sum(qty * unit_price for _n, qty, unit_price, _i in lines)))
         ent = entities_by_name.get(ent_name)
         inv = Invoice(
             number=number, kind=kind, status=status,
@@ -367,11 +401,13 @@ def _seed_uk_invoices(
     return len(invoices_with_lines)
 
 
-def _monthly_entries(year: int, scale: float = 1.0) -> list[
+def _monthly_entries(year: int, scale: float = 1.0, *, first_year: int | None = None) -> list[
     tuple[date, str, list[tuple[str, int, int]], list[tuple[str, str]] | None]
 ]:
     """Generate monthly recurring entries for a year. ``scale`` lets
-    year 2 (1.25) be ~25% richer than year 1 (1.0)."""
+    year 2 (1.25) be ~25% richer than year 1 (1.0). ``first_year`` is the
+    earliest demo year; the second engineer (Bob) is only hired from July of
+    that first year onward."""
     out: list[tuple[date, str, list[tuple[str, int, int]], list[tuple[str, str]] | None]] = []
 
     # Per-month standing items
@@ -399,8 +435,8 @@ def _monthly_entries(year: int, scale: float = 1.0) -> list[
         out.append((date(year, m, 25), f"Salary — Alice Patel — month {m:02d}",
                     [("7100", alice_amt, 0), ("1200", 0, alice_amt)],
                     [("Alice Patel", "employee")]))
-        # Bob is hired starting July 2024
-        if year > 2024 or m >= 7:
+        # Bob is hired starting July of the first demo year.
+        if first_year is None or year > first_year or m >= 7:
             bob_amt = int(2_100 * scale)
             out.append((date(year, m, 25), f"Salary — Bob Chen — month {m:02d}",
                         [("7000", bob_amt, 0), ("1200", 0, bob_amt)],
@@ -441,13 +477,15 @@ def seed_uk_demo(session: Session) -> int:
     n_invoices = _seed_uk_invoices(session, entities)
 
     # ── Step 2: post the journal entries ───────────────────────────────
+    y1, y2 = _demo_years()  # (prior year, current year) — anchored to today
+
     # Foundational year-1 setup entries (capital, PP&E, loan).
     setup: list[tuple[date, str, list[tuple[str, int, int]], list[tuple[str, str]] | None]] = [
-        (date(2024, 1, 5), "Issue of share capital",
+        (date(y1, 1, 5), "Issue of share capital",
          [("1200", 100_000, 0), ("3000", 0, 100_000)], None),
-        (date(2024, 1, 18), "Purchase plant and machinery",
+        (date(y1, 1, 18), "Purchase plant and machinery",
          [("0010", 30_000, 0), ("1200", 0, 30_000)], None),
-        (date(2024, 2, 10), "Bank loan drawdown",
+        (date(y1, 2, 10), "Bank loan drawdown",
          [("1200", 40_000, 0), ("2800", 0, 40_000)],
          [("HSBC UK", "bank")]),
     ]
@@ -456,32 +494,32 @@ def seed_uk_demo(session: Session) -> int:
     # year: more clients, bigger deals, higher rent & salaries).
     cadence = (
         setup
-        + _monthly_entries(2024, scale=1.0)
-        + _monthly_entries(2025, scale=1.6)
+        + _monthly_entries(y1, scale=1.0, first_year=y1)
+        + _monthly_entries(y2, scale=1.6, first_year=y1)
     )
 
     # Year-end finance + tax for both years.
     year_end: list[tuple[date, str, list[tuple[str, int, int]], list[tuple[str, str]] | None]] = [
-        (date(2024, 12, 27), "Loan interest paid (FY 2024)",
+        (date(y1, 12, 27), f"Loan interest paid (FY {y1})",
          [("8200", 2_500, 0), ("1200", 0, 2_500)], None),
-        (date(2024, 12, 28), "Bank charges (FY 2024)",
+        (date(y1, 12, 28), f"Bank charges (FY {y1})",
          [("8000", 480, 0), ("1200", 0, 480)], None),
-        (date(2024, 12, 30), "FY 2024 corporation-tax accrual (19%)",
+        (date(y1, 12, 30), f"FY {y1} corporation-tax accrual (19%)",
          [("9000", 9_500, 0), ("2300", 0, 9_500)], None),
-        (date(2025, 2, 5), "Additional plant and machinery",
+        (date(y2, 2, 5), "Additional plant and machinery",
          [("0010", 15_000, 0), ("1200", 0, 15_000)], None),
-        (date(2025, 4, 18), "Loan principal repayment",
+        (date(y2, 4, 18), "Loan principal repayment",
          [("2800", 8_000, 0), ("1200", 0, 8_000)],
          [("HSBC UK", "bank")]),
-        (date(2025, 11, 18), "Pay FY 2024 corporation tax",
+        (date(y2, 11, 18), f"Pay FY {y1} corporation tax",
          [("2300", 9_500, 0), ("1200", 0, 9_500)], None),
-        (date(2025, 12, 22), "Loan interest paid (FY 2025)",
+        (date(y2, 12, 22), f"Loan interest paid (FY {y2})",
          [("8200", 2_300, 0), ("1200", 0, 2_300)], None),
-        (date(2025, 12, 22), "Bank charges (FY 2025)",
+        (date(y2, 12, 22), f"Bank charges (FY {y2})",
          [("8000", 600, 0), ("1200", 0, 600)], None),
-        (date(2025, 12, 23), "Dividend declared — interim",
+        (date(y2, 12, 23), "Dividend declared — interim",
          [("3100", 15_000, 0), ("2700", 0, 15_000)], None),
-        (date(2025, 12, 28), "FY 2025 corporation-tax accrual (19%)",
+        (date(y2, 12, 28), f"FY {y2} corporation-tax accrual (19%)",
          [("9000", 17_000, 0), ("2300", 0, 17_000)], None),
     ]
 

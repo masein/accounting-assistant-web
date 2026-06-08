@@ -1,0 +1,59 @@
+name: CI
+
+# Runs the test suite on every pull request into main and on pushes to main,
+# so a PR can't be merged green unless the tests pass. Tests use an in-process
+# SQLite database (see tests/conftest.py), so no external services are needed.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -q
+
+  lint:
+    name: Lint (ruff) — informational
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ruff
+        run: python -m pip install ruff
+
+      # --exit-zero: surface lint issues as GitHub annotations without ever
+      # failing the check, so pre-existing lint debt never blocks a merge or
+      # shows a red X. The pytest job above is the real gate.
+      - name: Ruff check (non-gating)
+        run: ruff check --output-format=github --exit-zero .

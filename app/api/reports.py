@@ -16,6 +16,7 @@ from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
 from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction, TransactionLine
+from app.services.fx_service import get_reporting_currency
 from app.schemas.report import (
     AccountDetailResponse,
     AccountLineDetail,
@@ -589,27 +590,33 @@ def get_owner_dashboard(
         HealthChecklistItem(item="Line descriptions complete", ok=(missing_line_desc / line_count) < 0.25, detail=f"{line_count - missing_line_desc}/{line_count} lines have descriptions."),
     ]
 
+    # Label monetary KPIs with the actual reporting currency (GBP for the UK
+    # locale, IRR for Iran, etc.) instead of hardcoding IRR. When the caller
+    # filters by an explicit currency, honour that; otherwise fall back to the
+    # company's reporting-currency setting.
+    display_currency = (currency or get_reporting_currency(db) or "IRR").upper()
+
     kpis = [
-        KpiCard(key="cash_on_hand", label="Cash on hand", value=cash_on_hand, unit="IRR"),
-        KpiCard(key="monthly_net_profit", label="Monthly net profit", value=monthly_net, unit="IRR"),
-        KpiCard(key="burn_rate", label="Monthly burn rate", value=burn_rate, unit="IRR"),
+        KpiCard(key="cash_on_hand", label="Cash on hand", value=cash_on_hand, unit=display_currency),
+        KpiCard(key="monthly_net_profit", label="Monthly net profit", value=monthly_net, unit=display_currency),
+        KpiCard(key="burn_rate", label="Monthly burn rate", value=burn_rate, unit=display_currency),
         KpiCard(key="runway_months", label="Runway", value=(runway_months if runway_months is not None else -1), unit="months"),
-        KpiCard(key="ar_due_week", label="AR due in ~7 days", value=receivable_due_this_week, unit="IRR"),
-        KpiCard(key="ap_due_week", label="AP due in ~7 days", value=payable_due_this_week, unit="IRR"),
-        KpiCard(key="tax_and_liability_payable", label="Liabilities payable (21xx)", value=max(0, tax_and_liability_payable), unit="IRR"),
+        KpiCard(key="ar_due_week", label="AR due in ~7 days", value=receivable_due_this_week, unit=display_currency),
+        KpiCard(key="ap_due_week", label="AP due in ~7 days", value=payable_due_this_week, unit=display_currency),
+        KpiCard(key="tax_and_liability_payable", label="Liabilities payable (21xx)", value=max(0, tax_and_liability_payable), unit=display_currency),
     ]
 
     top_profit = profitability_rows[0] if profitability_rows else None
     owner_pack = (
         f"# Owner Weekly Pack ({today.isoformat()})\n\n"
-        f"- Cash on hand: {cash_on_hand:,} IRR\n"
-        f"- Net profit this month: {monthly_net:,} IRR\n"
-        f"- Burn rate: {burn_rate:,} IRR/month\n"
+        f"- Cash on hand: {cash_on_hand:,} {display_currency}\n"
+        f"- Net profit this month: {monthly_net:,} {display_currency}\n"
+        f"- Burn rate: {burn_rate:,} {display_currency}/month\n"
         f"- Runway: {runway_months if runway_months is not None else 'N/A'} months\n"
-        f"- Overdue AR: {overdue_ar:,} IRR\n"
-        f"- Overdue AP: {overdue_ap:,} IRR\n"
+        f"- Overdue AR: {overdue_ar:,} {display_currency}\n"
+        f"- Overdue AP: {overdue_ap:,} {display_currency}\n"
         f"- Data health score: {health_score}/100\n"
-        f"- Most profitable client: {(top_profit.client + ' (' + format(top_profit.profit, ',') + ' IRR)') if top_profit else 'N/A'}\n\n"
+        f"- Most profitable client: {(top_profit.client + ' (' + format(top_profit.profit, ',') + ' ' + display_currency + ')') if top_profit else 'N/A'}\n\n"
         f"## Priority Actions\n"
         f"1. Collect overdue receivables and monitor top debtor clients.\n"
         f"2. Review expense spikes and highest vendor/category spend.\n"

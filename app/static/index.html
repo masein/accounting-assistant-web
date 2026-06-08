@@ -4285,6 +4285,16 @@
       return s || String(ccy).toUpperCase();
     }
 
+    // Persian "all amounts are in X" note for the Iranian statements. Reflects
+    // the active reporting currency (ریال vs تومان) instead of always saying
+    // ریال — otherwise a Toman-reporting company sees the wrong unit.
+    const IRAN_UNIT_FA = { IRR: 'ریال' /* ریال */, IRT: 'تومان' /* تومان */ };
+    function iranAmountsNote() {
+      const ccy = String(window.__REPORTING_CURRENCY || 'IRR').toUpperCase();
+      const unit = IRAN_UNIT_FA[ccy] || currencySymbol(ccy);
+      return 'کلیه مبالغ به ' + unit + ' است'; // کلیه مبالغ به {unit} است
+    }
+
     function formatMoney(n, ccy) {
       const num = formatNum(n || 0);
       if (!ccy) return num;
@@ -6745,7 +6755,7 @@
         <div dir="rtl" style="font-family: Tahoma, 'IRANSans', Arial, sans-serif;">
           <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.4rem;">
             <h3 style="margin:0;">${escapeHtml(title)}</h3>
-            <span style="font-size:0.82rem; color:var(--text-muted);">کلیه مبالغ به ریال است</span>
+            <span style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(iranAmountsNote())}</span>
           </div>
           <div class="report-preview-wrap">
             <table class="mini-table" style="width:100%; border-collapse:collapse;">
@@ -6817,7 +6827,7 @@
           <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.4rem;">
             <h3 style="margin:0;">صورت تغییرات در حقوق مالکانه</h3>
             <span style="font-size:0.82rem; color:var(--text-muted);">
-              ${periodFrom ? `از ${escapeHtml(periodFrom)} تا ${escapeHtml(periodTo)} · ` : ''}کلیه مبالغ به ریال است
+              ${periodFrom ? `از ${escapeHtml(periodFrom)} تا ${escapeHtml(periodTo)} · ` : ''}${escapeHtml(iranAmountsNote())}
             </span>
           </div>
           <div class="report-preview-wrap" style="overflow-x:auto;">

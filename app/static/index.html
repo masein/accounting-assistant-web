@@ -244,6 +244,13 @@
     .chat-msg.loading { color: var(--text-muted); }
     .chat-msg.loading::after { content: ''; display: inline-block; width: 0.3em; animation: chat-dots 1s steps(4) infinite; }
     @keyframes chat-dots { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+    /* Assistant "typing…" indicator: a chat bubble with three bouncing dots. */
+    .typing-bubble { display: inline-flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border); padding: 0.6rem 0.8rem; border-radius: 14px 14px 14px 4px; }
+    .typing-bubble .dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; opacity: 0.4; animation: typing-bounce 1.2s infinite ease-in-out; }
+    .typing-bubble .dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing-bubble .dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes typing-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .typing-bubble .dot { animation: none; } }
     .results-table tbody tr.ledger-row { cursor: pointer; transition: background 0.15s; }
     .results-table tbody tr.ledger-row:hover { background: #e0f2f1; }
     .modal-overlay {
@@ -10334,6 +10341,51 @@
       let sessionId = null;
       const undoTimers = {};  // audit_log_id → timeout handle
 
+      // Friendly, professional "thinking" captions shown while the assistant
+      // works. Rotated every couple of seconds under the typing indicator.
+      // Localised so the caption matches the active interface language.
+      const CHAT_THINKING_PHRASES = {
+        en: ['Working on it…', 'Looking that up…', 'Reviewing the ledger…', 'Checking the figures…', 'Almost there…'],
+        fa: ['در حال انجام…', 'در حال جست‌وجو…', 'بررسی دفتر کل…', 'بررسی ارقام…', 'تقریباً آماده است…'],
+        es: ['Trabajando en ello…', 'Consultando los datos…', 'Revisando el libro mayor…', 'Comprobando las cifras…', 'Casi listo…'],
+        ar: ['جارٍ العمل على ذلك…', 'جارٍ البحث…', 'مراجعة دفتر الأستاذ…', 'التحقّق من الأرقام…', 'اقتربنا من الانتهاء…'],
+      };
+      let _thinkingTimer = null;
+
+      // Show an assistant-side typing bubble (three bouncing dots) and start
+      // rotating a professional caption in the status line. Returns the bubble
+      // wrapper so the caller can remove it once the reply arrives.
+      function showTypingIndicator() {
+        const lang = (typeof currentLanguage !== 'undefined' && currentLanguage) || 'en';
+        const phrases = CHAT_THINKING_PHRASES[lang] || CHAT_THINKING_PHRASES.en;
+
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'text-align:left; margin:0.4rem 0;';
+        wrap.dataset.typing = '1';
+        const bubble = document.createElement('div');
+        bubble.className = 'typing-bubble';
+        bubble.setAttribute('role', 'status');
+        bubble.setAttribute('aria-label', phrases[0]);
+        bubble.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+        wrap.appendChild(bubble);
+        messagesEl.appendChild(wrap);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        let i = 0;
+        if (statusEl) statusEl.textContent = phrases[0];
+        _thinkingTimer = setInterval(() => {
+          i = (i + 1) % phrases.length;
+          if (statusEl) statusEl.textContent = phrases[i];
+          bubble.setAttribute('aria-label', phrases[i]);
+        }, 2200);
+        return wrap;
+      }
+
+      function hideTypingIndicator(wrap) {
+        if (_thinkingTimer) { clearInterval(_thinkingTimer); _thinkingTimer = null; }
+        if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      }
+
       // Minimal markdown → HTML. Escapes first (XSS-safe), then handles
       // the subset LLMs emit in chat: # / ## / ### headings, **bold**,
       // *italic*, `inline code`, bulleted (- / * / •) and numbered
@@ -10532,7 +10584,7 @@
         appendBubble('user', msg);
         inputEl.value = '';
         sendBtn.disabled = true;
-        statusEl.textContent = 'Thinking…';
+        const typingEl = showTypingIndicator();
         try {
           const r = await fetch(API + '/ai-accountant/chat', {
             method: 'POST',
@@ -10540,6 +10592,7 @@
             body: JSON.stringify({ message: msg, session_id: sessionId }),
           });
           const data = await r.json();
+          hideTypingIndicator(typingEl);
           if (!r.ok) throw new Error(data.detail || 'Chat failed');
           sessionId = data.session_id;
           if (data.text) appendBubble('assistant', data.text);
@@ -10548,6 +10601,7 @@
           }
           statusEl.textContent = `${data.turns} turn(s) · ${data.tool_calls.length} tool call(s)`;
         } catch (e) {
+          hideTypingIndicator(typingEl);
           appendBubble('assistant', '[error] ' + e.message);
           statusEl.textContent = '';
         } finally {

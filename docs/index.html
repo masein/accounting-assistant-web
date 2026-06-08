@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accounting Assistant — AI bookkeeping in plain language</title>
+<meta name="description" content="An open-source accounting platform with a safety-gated AI bookkeeper, double-entry ledger, multi-currency and multi-locale financial statements, invoicing, reconciliation and a CFO dashboard.">
+<style>
+  :root{
+    --teal:#0f766e; --teal-d:#0b5a54; --teal-l:#ccfbf1; --ink:#0f172a;
+    --muted:#475569; --line:#e2e8f0; --bg:#ffffff; --bg-soft:#f8fafc; --amber:#b45309;
+    --radius:14px; --maxw:1080px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; color:var(--ink); background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit; text-decoration:none;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px;}
+  .btn{display:inline-flex; align-items:center; gap:8px; padding:12px 20px; border-radius:10px; font-weight:600; font-size:15px; border:1.5px solid transparent; transition:.15s; cursor:pointer;}
+  .btn-primary{background:var(--teal); color:#fff;}
+  .btn-primary:hover{background:var(--teal-d);}
+  .btn-ghost{border-color:var(--line); color:var(--ink); background:#fff;}
+  .btn-ghost:hover{border-color:var(--teal); color:var(--teal);}
+
+  /* Nav */
+  header.nav{position:sticky; top:0; z-index:20; background:rgba(255,255,255,.85); backdrop-filter:blur(8px); border-bottom:1px solid var(--line);}
+  .nav-inner{display:flex; align-items:center; justify-content:space-between; height:64px;}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:17px;}
+  .logo{width:30px; height:30px; border-radius:8px; background:var(--teal); color:#fff; display:grid; place-items:center; font-size:16px; font-weight:800;}
+  .nav-links{display:flex; align-items:center; gap:28px; font-size:15px; color:var(--muted);}
+  .nav-links a:hover{color:var(--teal);}
+  .nav-links .btn{padding:9px 16px;}
+  @media(max-width:760px){ .nav-links a:not(.btn){display:none;} }
+
+  /* Hero */
+  .hero{padding:84px 0 64px; background:linear-gradient(180deg,#f0fdfa 0%, #ffffff 70%);}
+  .hero-grid{display:grid; grid-template-columns:1.05fr .95fr; gap:48px; align-items:center;}
+  @media(max-width:900px){ .hero-grid{grid-template-columns:1fr; gap:36px;} }
+  .pill{display:inline-flex; align-items:center; gap:8px; background:var(--teal-l); color:var(--teal-d); font-weight:600; font-size:13px; padding:6px 12px; border-radius:999px; margin-bottom:20px;}
+  h1{font-size:48px; line-height:1.1; letter-spacing:-.02em; margin:0 0 18px;}
+  @media(max-width:760px){ h1{font-size:36px;} }
+  .lead{font-size:19px; color:var(--muted); margin:0 0 28px; max-width:48ch;}
+  .cta-row{display:flex; gap:14px; flex-wrap:wrap;}
+  .hero-note{margin-top:18px; font-size:13px; color:var(--muted);}
+
+  /* Chat mockup */
+  .mock{background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:0 20px 50px -24px rgba(15,118,110,.35); overflow:hidden;}
+  .mock-bar{display:flex; align-items:center; gap:7px; padding:12px 14px; border-bottom:1px solid var(--line); background:var(--bg-soft);}
+  .mock-bar i{width:11px; height:11px; border-radius:50%; background:#e2e8f0; display:inline-block;}
+  .mock-bar span{margin-left:8px; font-size:13px; color:var(--muted); font-weight:600;}
+  .mock-body{padding:18px; display:flex; flex-direction:column; gap:12px; background:var(--bg-soft);}
+  .b{max-width:82%; padding:10px 13px; font-size:14px; border-radius:14px; line-height:1.45;}
+  .b.user{align-self:flex-end; background:var(--teal); color:#fff; border-bottom-right-radius:5px;}
+  .b.ai{align-self:flex-start; background:#fff; border:1px solid var(--line); border-bottom-left-radius:5px;}
+  .propose{align-self:flex-start; width:90%; background:#fff; border:1px solid var(--line); border-left:4px solid var(--teal); border-radius:8px; padding:11px 13px;}
+  .propose .ttl{font-weight:700; font-size:13px; margin-bottom:6px;}
+  .propose .ln{font-size:12.5px; color:var(--muted); font-family:ui-monospace,Menlo,monospace;}
+  .propose .acts{display:flex; gap:8px; margin-top:10px;}
+  .chip{font-size:12px; font-weight:600; padding:6px 12px; border-radius:7px;}
+  .chip.go{background:var(--teal); color:#fff;}
+  .chip.no{background:#fff; border:1px solid var(--line); color:var(--muted);}
+
+  /* Sections */
+  section{padding:72px 0;}
+  .eyebrow{color:var(--teal); font-weight:700; font-size:13px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:10px;}
+  h2{font-size:32px; line-height:1.15; letter-spacing:-.015em; margin:0 0 14px;}
+  .section-lead{color:var(--muted); font-size:17px; max-width:62ch; margin:0 0 40px;}
+
+  .features{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+  @media(max-width:900px){ .features{grid-template-columns:repeat(2,1fr);} }
+  @media(max-width:600px){ .features{grid-template-columns:1fr;} }
+  .card{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:24px; transition:.15s;}
+  .card:hover{border-color:var(--teal); transform:translateY(-2px); box-shadow:0 14px 30px -20px rgba(15,118,110,.4);}
+  .ic{width:42px; height:42px; border-radius:10px; background:var(--teal-l); color:var(--teal-d); display:grid; place-items:center; margin-bottom:14px;}
+  .ic svg{width:22px; height:22px;}
+  .card h3{font-size:17px; margin:0 0 8px;}
+  .card p{margin:0; font-size:14.5px; color:var(--muted);}
+
+  /* How it works */
+  .how{background:var(--ink); color:#fff;}
+  .how h2{color:#fff;}
+  .how .section-lead{color:#94a3b8;}
+  .steps{display:grid; grid-template-columns:repeat(4,1fr); gap:18px;}
+  @media(max-width:840px){ .steps{grid-template-columns:repeat(2,1fr);} }
+  @media(max-width:480px){ .steps{grid-template-columns:1fr;} }
+  .step{background:#1e293b; border:1px solid #334155; border-radius:var(--radius); padding:22px;}
+  .step .n{width:30px; height:30px; border-radius:8px; background:var(--teal); display:grid; place-items:center; font-weight:800; font-size:15px; margin-bottom:12px;}
+  .step h3{font-size:16px; margin:0 0 6px; color:#fff;}
+  .step p{margin:0; font-size:14px; color:#94a3b8;}
+
+  /* Tech strip */
+  .tech{background:var(--bg-soft); border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:44px 0;}
+  .tech-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px;}
+  .tag{background:#fff; border:1px solid var(--line); border-radius:999px; padding:9px 18px; font-size:14px; font-weight:600; color:var(--muted);}
+
+  /* CTA band */
+  .band{background:linear-gradient(135deg,var(--teal) 0%, var(--teal-d) 100%); color:#fff; border-radius:20px; padding:52px 40px; text-align:center;}
+  .band h2{color:#fff; margin-bottom:10px;}
+  .band p{color:#d1fae5; font-size:17px; margin:0 auto 26px; max-width:52ch;}
+  .band .btn-primary{background:#fff; color:var(--teal-d);}
+  .band .btn-primary:hover{background:#ecfdf5;}
+  .band .btn-ghost{background:transparent; border-color:rgba(255,255,255,.5); color:#fff;}
+  .band .btn-ghost:hover{border-color:#fff;}
+
+  footer{padding:40px 0; border-top:1px solid var(--line); color:var(--muted); font-size:14px;}
+  .foot-row{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;}
+  .foot-links{display:flex; gap:22px;}
+  .foot-links a:hover{color:var(--teal);}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <div class="brand"><span class="logo">₳</span> Accounting Assistant</div>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#tech">Tech</a>
+      <a class="btn btn-primary" href="https://github.com/masein/accounting-assistant-web">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="pill">● Open source · MIT licensed</span>
+      <h1>Your books, in plain&nbsp;language.</h1>
+      <p class="lead">A complete double-entry accounting platform with an AI bookkeeper you can actually talk to — record transactions by chatting, then approve every change before it touches the ledger.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/masein/accounting-assistant-web">View on GitHub →</a>
+        <a class="btn btn-ghost" href="#features">Explore features</a>
+      </div>
+      <p class="hero-note">FastAPI · PostgreSQL · works with Anthropic, OpenAI-compatible, or local models</p>
+    </div>
+
+    <div class="mock" aria-hidden="true">
+      <div class="mock-bar"><i></i><i></i><i></i><span>AI Accountant</span></div>
+      <div class="mock-body">
+        <div class="b user">Paid Kim £1,200 yesterday for office rent</div>
+        <div class="b ai">Got it — I found Kim (supplier, 98% match) and the Rent account. Here's the entry to confirm:</div>
+        <div class="propose">
+          <div class="ttl">Proposed entry — please confirm</div>
+          <div class="ln">Dr  7200 Rent &nbsp;&nbsp;&nbsp;&nbsp;£1,200</div>
+          <div class="ln">Cr  1200 Bank &nbsp;&nbsp;&nbsp;£1,200</div>
+          <div class="acts"><span class="chip go">Confirm</span><span class="chip no">Cancel</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="eyebrow">What's inside</div>
+    <h2>Everything a small business needs to keep clean books</h2>
+    <p class="section-lead">A full accounting back office — not just a chatbot. The AI is one way in; everything is also available through the dashboard, reports, and APIs.</p>
+    <div class="features">
+
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <h3>Conversational bookkeeping</h3>
+        <p>Record transactions, look up balances and answer questions in natural language — in English, Persian, Spanish or Arabic.</p>
+      </div>
+
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <h3>The AI can't touch the ledger</h3>
+        <p>Every write goes through propose → confirm → execute, with idempotency tokens, a 30-second undo window and a full audit trail.</p>
+      </div>
+
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg></div>
+        <h3>Double-entry, done right</h3>
+        <p>Balanced vouchers, a hierarchical chart of accounts, trial balance, and a self-audit that flags duplicate payments and anomalies.</p>
+      </div>
+
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20"/><path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg></div>
+        <h3>Multi-locale statements</h3>
+        <p>Iranian standard statements (صورت سود و زیان) and UK FRS 102 Section 1A — with prior-year comparatives that reconcile.</p>
+      </div>
+
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+        <h3>Jalali calendar &amp; multi-currency</h3>
+        <p>Native Shamsi (Jalali) dates, Toman/Rial/GBP and FX handling — figures are always labelled in your reporting currency.</p>
+      </div>
+
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg></div>
+        <h3>Invoicing, OCR &amp; reconciliation</h3>
+        <p>Sales/purchase invoices, receipt scanning, bank-statement import and reconciliation, recurring rules, budgets and inventory.</p>
+      </div>
+
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="13" width="3" height="4"/></svg></div>
+        <h3>CFO &amp; owner dashboard</h3>
+        <p>KPIs, a 13-week cash-flow forecast, AR/AP aging, profitability by client and a data-health score at a glance.</p>
+      </div>
+
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
+        <h3>Native Apple apps</h3>
+        <p>Companion iOS, macOS and watchOS clients with voice input talk to the same API — log expenses from your wrist.</p>
+      </div>
+
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"/></svg></div>
+        <h3>Provider-neutral AI</h3>
+        <p>Bring your own model: Anthropic, any OpenAI-compatible endpoint, or a fully local LM Studio model. No lock-in.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="how" class="how">
+  <div class="wrap">
+    <div class="eyebrow" style="color:#5eead4;">Safe by design</div>
+    <h2>How a chat becomes a journal entry</h2>
+    <p class="section-lead">The model proposes; you decide. Nothing hits the books without an explicit, auditable confirmation.</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>You ask</h3><p>"Pay the £900 telecom bill from the BT invoice." The assistant parses amount, date, entity and accounts.</p></div>
+      <div class="step"><div class="n">2</div><h3>It proposes</h3><p>A balanced draft entry is written to a pending table — never to the ledger — and returned with a confirmation token.</p></div>
+      <div class="step"><div class="n">3</div><h3>You confirm</h3><p>One click executes it idempotently, posts the journal entry and writes a single audit-log row tagged to the AI.</p></div>
+      <div class="step"><div class="n">4</div><h3>Undo anytime</h3><p>A 30-second window reverses the entry with a paired audit record — so mistakes never become permanent.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="tech" class="tech">
+  <div class="wrap">
+    <p style="text-align:center; color:var(--muted); font-weight:600; margin:0 0 22px; font-size:14px;">Built on a modern, boring-in-the-good-way stack</p>
+    <div class="tech-row">
+      <span class="tag">FastAPI</span>
+      <span class="tag">SQLAlchemy 2</span>
+      <span class="tag">PostgreSQL</span>
+      <span class="tag">Alembic</span>
+      <span class="tag">Pydantic</span>
+      <span class="tag">Anthropic API</span>
+      <span class="tag">OpenAI-compatible</span>
+      <span class="tag">LM Studio</span>
+      <span class="tag">Swift / SwiftUI</span>
+      <span class="tag">Docker</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="band">
+      <h2>Run it yourself in minutes</h2>
+      <p>Clone the repo, bring up the stack with Docker, load the Iran or UK demo, and start chatting with your books.</p>
+      <div class="cta-row" style="justify-content:center;">
+        <a class="btn btn-primary" href="https://github.com/masein/accounting-assistant-web">Get the code on GitHub →</a>
+        <a class="btn btn-ghost" href="https://github.com/masein/accounting-assistant-web#readme">Read the docs</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-row">
+    <div>© <span id="yr"></span> Accounting Assistant · Released under the MIT License.</div>
+    <div class="foot-links">
+      <a href="https://github.com/masein/accounting-assistant-web">GitHub</a>
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+    </div>
+  </div>
+</footer>
+
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

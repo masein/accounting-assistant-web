@@ -4833,6 +4833,11 @@
 
     async function loadOwnerDashboard() {
       try {
+        // Make sure the reporting currency is resolved before the first paint,
+        // so figures are labelled in the company's currency (GBP for UK, etc.)
+        // rather than the default IRR.
+        if (!window.__FX_META) { try { await loadFxMetadata(); } catch (_) { /* offline */ } }
+        await loadReportingCurrency();
         // Honour a global currency selector if one is present; falls back to no filter.
         const dashCcy = document.getElementById('mgr-currency')?.value
           || window.__FX_META?.reporting_currency
@@ -10352,30 +10357,46 @@
       };
       let _thinkingTimer = null;
 
-      // Show an assistant-side typing bubble (three bouncing dots) and start
-      // rotating a professional caption in the status line. Returns the bubble
-      // wrapper so the caller can remove it once the reply arrives.
+      // Show an assistant-side typing bubble: three bouncing dots plus a
+      // professional caption that rotates next to them, right in the message
+      // stream (not in the bottom status line). Returns the wrapper so the
+      // caller can remove it once the reply arrives.
       function showTypingIndicator() {
         const lang = (typeof currentLanguage !== 'undefined' && currentLanguage) || 'en';
         const phrases = CHAT_THINKING_PHRASES[lang] || CHAT_THINKING_PHRASES.en;
+        const rtl = (typeof RTL_LANGUAGES !== 'undefined' && RTL_LANGUAGES.has && RTL_LANGUAGES.has(lang));
 
         const wrap = document.createElement('div');
-        wrap.style.cssText = 'text-align:left; margin:0.4rem 0;';
+        wrap.style.cssText = (rtl ? 'text-align:right;' : 'text-align:left;') + ' margin:0.4rem 0;';
         wrap.dataset.typing = '1';
+
         const bubble = document.createElement('div');
         bubble.className = 'typing-bubble';
         bubble.setAttribute('role', 'status');
+        bubble.setAttribute('dir', rtl ? 'rtl' : 'ltr');
         bubble.setAttribute('aria-label', phrases[0]);
-        bubble.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+
+        const dots = document.createElement('span');
+        dots.style.cssText = 'display:inline-flex; gap:4px; align-items:center;';
+        dots.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+
+        const caption = document.createElement('span');
+        caption.style.cssText = 'font-size:0.85rem; color:var(--text-muted); white-space:nowrap;';
+        caption.textContent = phrases[0];
+
+        bubble.appendChild(dots);
+        bubble.appendChild(caption);
         wrap.appendChild(bubble);
         messagesEl.appendChild(wrap);
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
+        // Clear any stale "N turn(s)" summary from the previous reply.
+        if (statusEl) statusEl.textContent = '';
+
         let i = 0;
-        if (statusEl) statusEl.textContent = phrases[0];
         _thinkingTimer = setInterval(() => {
           i = (i + 1) % phrases.length;
-          if (statusEl) statusEl.textContent = phrases[i];
+          caption.textContent = phrases[i];
           bubble.setAttribute('aria-label', phrases[i]);
         }, 2200);
         return wrap;

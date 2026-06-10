@@ -17,6 +17,8 @@ from app.models.invoice import Invoice
 from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction, TransactionLine
 from app.services.fx_service import get_reporting_currency
+from app.services.locale_service import get_reporting_locale
+from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
 from app.schemas.report import (
     AccountDetailResponse,
     AccountLineDetail,
@@ -58,21 +60,42 @@ def _month_key(d: date) -> str:
 
 
 def _line_revenue(line: TransactionLine) -> int:
-    if line.account.code.startswith("41"):
+    # Locale-agnostic: any revenue-nature account (Iran 41xx, UK 4xxx, …).
+    if classify_account_code(line.account.code) == REVENUE:
         return line.credit - line.debit
     return 0
 
 
 def _line_expense(line: TransactionLine) -> int:
-    if line.account.code.startswith("61") or line.account.code.startswith("62"):
+    # Locale-agnostic: any expense-nature account (Iran 5x/6x, UK 5/7/8/9xxx).
+    if classify_account_code(line.account.code) == EXPENSE:
         return line.debit - line.credit
     return 0
 
 
-def _line_cash_delta(line: TransactionLine) -> int:
-    if line.account.code == "1110":
-        return line.debit - line.credit
-    return 0
+# Cash / receivable / current-liability detection IS chart-specific: the same
+# code means different things across locales (e.g. UK 1210 = bank deposit,
+# Iran 1210 = property/plant). These predicates are selected by reporting
+# locale inside get_owner_dashboard.
+def _cash_predicate(locale: str):
+    if (locale or "").strip().lower() == "uk":
+        # Sage bank + petty-cash accounts: 1200 current, 1210 deposit, 1220 petty.
+        return lambda c: c.startswith(("120", "121", "122"))
+    # Iranian standard: 1110 موجودی نقد و بانک.
+    return lambda c: c == "1110"
+
+
+def _receivable_predicate(locale: str):
+    if (locale or "").strip().lower() == "uk":
+        return lambda c: c.startswith("1100")  # Trade debtors
+    return lambda c: c == "1112"  # حساب‌ها و اسناد دریافتنی تجاری
+
+
+def _current_liability_predicate(locale: str):
+    if (locale or "").strip().lower() == "uk":
+        # Creditors due within one year: 2100–2799 (2800+ is long-term).
+        return lambda c: len(c) >= 2 and c[0] == "2" and c[1] in "1234567"
+    return lambda c: c.startswith("21")  # Iranian current liabilities
 
 
 def _bucket_by_age(days_old: int) -> str:
@@ -331,6 +354,14 @@ def get_owner_dashboard(
         return cached[1]
 
     today = date.today()
+    # Chart-of-accounts conventions differ by locale; resolve the cash /
+    # receivable / current-liability predicates once up front so the KPI
+    # aggregation works for the UK (and any non-Iranian) chart, not just Iran.
+    locale = get_reporting_locale(db)
+    _is_cash = _cash_predicate(locale)
+    _is_receivable = _receivable_predicate(locale)
+    _is_current_liab = _current_liability_predicate(locale)
+
     cutoff = today - timedelta(days=months_back * 31)
     txn_q = select(Transaction).where(Transaction.date >= cutoff)
     if currency:
@@ -372,13 +403,13 @@ def get_owner_dashboard(
         for ln in t.lines:
             rev = _line_revenue(ln)
             exp = _line_expense(ln)
-            cash_delta = _line_cash_delta(ln)
+            cash_delta = (ln.debit - ln.credit) if _is_cash(ln.account.code) else 0
             txn_revenue += rev
             txn_expense += exp
             txn_cash_delta += cash_delta
-            if ln.account.code == "1112":
+            if _is_receivable(ln.account.code):
                 receivable_delta += ln.debit - ln.credit
-            if ln.account.code.startswith("21"):
+            if _is_current_liab(ln.account.code):
                 payable_delta += ln.credit - ln.debit
                 tax_and_liability_payable += ln.credit - ln.debit
             if exp > 0:

@@ -639,8 +639,8 @@
       <button type="button" class="nav-btn" data-page="manager">Manager reports</button>
       <span class="nav-sep"></span>
       <span class="nav-group-label">Brain</span>
-      <button type="button" class="nav-btn" data-page="bank-statements">Bank Statements</button>
-      <button type="button" class="nav-btn" data-page="audit">Audit</button>
+      <button type="button" class="nav-btn" data-page="bank-statements" data-i18n="bankStatementsNav">Bank Statements</button>
+      <button type="button" class="nav-btn" data-page="audit" data-i18n="auditNav">Audit</button>
       <button type="button" class="nav-btn" data-page="cfo" data-i18n="cfoModeNav">CFO Mode</button>
       <button type="button" class="nav-btn" data-page="ceo" data-i18n="ceoModeNav">CEO Mode</button>
       <span class="nav-sep"></span>
@@ -649,7 +649,7 @@
       <button type="button" class="nav-btn nav-more-item" data-page="invoices">Invoices</button>
       <button type="button" class="nav-btn nav-more-item" data-page="recurring">Recurring</button>
       <button type="button" class="nav-btn nav-more-item" data-page="inventory">Inventory</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="products">Products</button>
+      <button type="button" class="nav-btn nav-more-item" data-page="products" data-i18n="productsNav">Products</button>
       <button type="button" class="nav-btn nav-more-item" data-page="settings">Settings</button>
     </nav>
 
@@ -1814,7 +1814,7 @@
         <div style="margin-top:0.9rem; padding:0.75rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
           <div id="demo-section-title" data-i18n="demoSectionTitle" style="font-weight:600; margin-bottom:0.35rem;">Reset and load locale demo data</div>
           <p id="demo-section-desc" data-i18n="demoSectionDesc" style="color: var(--text-muted); font-size: 0.82rem; margin:0 0 0.6rem 0;">
-            Wipes the database, seeds the locale's chart of accounts, and posts ~25 journal entries spanning two fiscal years (2024 and 2025) so the financial statements have realistic numbers. <strong>This deletes existing transactions.</strong>
+            Wipes the database, seeds the locale's chart of accounts, and posts ~25 journal entries spanning the prior and current fiscal year so the financial statements have realistic numbers. <strong>This deletes existing transactions.</strong>
           </p>
           <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center;">
             <button type="button" class="btn btn-secondary btn-sm" id="reset-demo-ir-btn" data-i18n="btnResetDemoIr">Reset &amp; load Iran demo</button>
@@ -2585,7 +2585,7 @@
         // Locale / calendar settings
         localeUkOption: 'UK FRS 102 Section 1A',
         demoSectionTitle: 'Reset and load locale demo data',
-        demoSectionDesc: "Wipes the database, seeds the locale's chart of accounts, and posts ~25 journal entries spanning two fiscal years (2024 and 2025) so the financial statements have realistic numbers. This deletes existing transactions.",
+        demoSectionDesc: "Wipes the database, seeds the locale's chart of accounts, and posts ~25 journal entries spanning the prior and current fiscal year so the financial statements have realistic numbers. This deletes existing transactions.",
         btnResetDemoIr: 'Reset & load Iran demo',
         btnResetDemoUk: 'Reset & load UK demo',
         confirmResetIr: 'Reset the database and load the Iranian demo? All current transactions will be deleted.',
@@ -2662,6 +2662,9 @@
         aiProvidersDesc: 'Configure the LLM provider used for AI features. The OpenAI-shape slot powers transaction suggestions and bank parsing; the AI Chat provider below powers the conversational accountant.',
         openaiShapeTitle: 'OpenAI-shape provider',
         cfoModeNav: 'CFO Mode',
+        bankStatementsNav: 'Bank Statements',
+        auditNav: 'Audit',
+        productsNav: 'Products',
         ceoModeNav: 'CEO Mode',
       
         // ── Reset-to-empty button ──
@@ -3015,7 +3018,7 @@
         // تنظیمات منطقه و تقویم
         localeUkOption: 'بریتانیا — استاندارد FRS 102 بخش ۱A',
         demoSectionTitle: 'بازنشانی و بارگذاری دادهٔ نمایشی منطقه‌ای',
-        demoSectionDesc: 'پایگاه داده پاک می‌شود، نمودار حساب‌های منطقه‌ای راه‌اندازی شده و حدود ۲۵ سند طی دو سال مالی (۱۴۰۳ و ۱۴۰۴) ثبت می‌شود تا صورت‌های مالی اعداد واقعی نمایش دهند. این عمل تراکنش‌های موجود را حذف می‌کند.',
+        demoSectionDesc: 'پایگاه داده پاک می‌شود، نمودار حساب‌های منطقه‌ای راه‌اندازی شده و حدود ۲۵ سند طی دو سال مالی (سال گذشته و سال جاری) ثبت می‌شود تا صورت‌های مالی اعداد واقعی نمایش دهند. این عمل تراکنش‌های موجود را حذف می‌کند.',
         btnResetDemoIr: 'بازنشانی و بارگذاری دادهٔ نمایشی ایران',
         btnResetDemoUk: 'بازنشانی و بارگذاری دادهٔ نمایشی بریتانیا',
         confirmResetIr: 'پایگاه داده بازنشانی و دادهٔ نمایشی ایران بارگذاری شود؟ تمام تراکنش‌های فعلی حذف خواهد شد.',
@@ -3089,6 +3092,9 @@
         aiProvidersDesc: 'ارائه‌دهنده مدل زبانی برای ویژگی‌های هوش مصنوعی را پیکربندی کنید. اسلات سازگار با OpenAI، پیشنهاد سند و تحلیل صورت‌حساب بانک را اجرا می‌کند؛ ارائه‌دهنده گفت‌وگوی هوشمند پایین، حسابدار محاوره‌ای را اجرا می‌کند.',
         openaiShapeTitle: 'ارائه‌دهنده سازگار با OpenAI',
         cfoModeNav: 'حالت مدیر مالی',
+        bankStatementsNav: 'صورت‌حساب‌های بانکی',
+        auditNav: 'حسابرسی',
+        productsNav: 'کالاها',
         ceoModeNav: 'حالت مدیرعامل',
       
         // ── Reset-to-empty button ──
@@ -3238,7 +3244,7 @@
         // Configuración de configuración regional / calendario
         localeUkOption: 'Reino Unido — FRS 102 Sección 1A',
         demoSectionTitle: 'Restablecer y cargar datos de demostración por configuración regional',
-        demoSectionDesc: 'Borra la base de datos, siembra el plan de cuentas correspondiente a la configuración regional y publica ~25 asientos cubriendo dos años fiscales (2024 y 2025) para que los estados financieros tengan cifras realistas. Esto elimina las transacciones actuales.',
+        demoSectionDesc: 'Borra la base de datos, siembra el plan de cuentas correspondiente a la configuración regional y publica ~25 asientos cubriendo dos años fiscales (el anterior y el actual) para que los estados financieros tengan cifras realistas. Esto elimina las transacciones actuales.',
         btnResetDemoIr: 'Restablecer y cargar demo de Irán',
         btnResetDemoUk: 'Restablecer y cargar demo del Reino Unido',
         confirmResetIr: '¿Restablecer la base de datos y cargar la demo iraní? Se eliminarán todas las transacciones actuales.',
@@ -3499,6 +3505,9 @@
         aiProvidersDesc: 'Configura el proveedor de LLM para las funciones de IA. El slot de tipo OpenAI alimenta las sugerencias de transacciones y el análisis bancario; el proveedor del AI Chat de abajo alimenta el contador conversacional.',
         openaiShapeTitle: 'Proveedor estilo OpenAI',
         cfoModeNav: 'Modo CFO',
+        bankStatementsNav: 'Extractos bancarios',
+        auditNav: 'Auditoría',
+        productsNav: 'Productos',
         ceoModeNav: 'Modo CEO',
       
         // ── Reset-to-empty button ──
@@ -3648,7 +3657,7 @@
         // إعدادات اللغة والتقويم
         localeUkOption: 'المملكة المتحدة — FRS 102 القسم 1A',
         demoSectionTitle: 'إعادة الضبط وتحميل بيانات العرض حسب اللغة',
-        demoSectionDesc: 'تُمحى قاعدة البيانات، ويُنشَأ دليل الحسابات الإقليمي، وتُسجَّل ~25 قيدًا تمتد على سنتين ماليتين (2024 و2025) لتحتوي القوائم المالية على أرقام واقعية. يحذف ذلك المعاملات الحالية.',
+        demoSectionDesc: 'تُمحى قاعدة البيانات، ويُنشَأ دليل الحسابات الإقليمي، وتُسجَّل ~25 قيدًا تمتد على سنتين ماليتين (السابقة والحالية) لتحتوي القوائم المالية على أرقام واقعية. يحذف ذلك المعاملات الحالية.',
         btnResetDemoIr: 'إعادة الضبط وتحميل عرض إيران',
         btnResetDemoUk: 'إعادة الضبط وتحميل عرض المملكة المتحدة',
         confirmResetIr: 'هل تريد إعادة ضبط قاعدة البيانات وتحميل العرض الإيراني؟ ستُحذف جميع المعاملات الحالية.',
@@ -3909,6 +3918,9 @@
         aiProvidersDesc: 'تكوين مزود نماذج اللغة المستخدم في ميزات الذكاء الاصطناعي. الفتحة المتوافقة مع OpenAI تشغّل اقتراحات القيود وتحليل كشوف البنك؛ ومزود المحادثة الذكية أدناه يشغّل المحاسب المحاوري.',
         openaiShapeTitle: 'مزود متوافق مع OpenAI',
         cfoModeNav: 'وضع المدير المالي',
+        bankStatementsNav: 'كشوف الحساب البنكية',
+        auditNav: 'تدقيق',
+        productsNav: 'المنتجات',
         ceoModeNav: 'وضع الرئيس التنفيذي',
       
         // ── Reset-to-empty button ──
@@ -4326,31 +4338,16 @@
       }
     }
 
-    function gregorianToJalali(gy, gm, gd) {
-      const g_d_m = [0,31,59,90,120,151,181,212,243,273,304,334];
-      let jy = (gy <= 1600) ? 0 : 979;
-      gy -= (gy <= 1600) ? 621 : 1600;
-      const gy2 = (gm > 2) ? (gy + 1) : gy;
-      let days = (365 * gy) + (Math.floor((gy2 + 3) / 4)) - (Math.floor((gy2 + 99) / 100))
-        + (Math.floor((gy2 + 399) / 400)) - 80 + gd + g_d_m[gm - 1];
-      jy += 33 * (Math.floor(days / 12053));
-      days %= 12053;
-      jy += 4 * (Math.floor(days / 1461));
-      days %= 1461;
-      if (days > 365) {
-        jy += Math.floor((days - 1) / 365);
-        days = (days - 1) % 365;
-      }
-      const jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
-      const jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
-      return [jy, jm, jd];
-    }
-
     function toJalali(isoDate) {
       if (!isoDate) return '';
       const parts = String(isoDate).split('-');
       if (parts.length !== 3) return isoDate;
-      const [jy, jm, jd] = gregorianToJalali(+parts[0], +parts[1], +parts[2]);
+      // Uses the single gregorianToJalali defined earlier, which returns an
+      // object { jy, jm, jd }. (A second, array-returning duplicate of this
+      // function used to live here and silently shadowed the object version,
+      // breaking every consumer that destructured { jy, jm, jd } — including
+      // formatDisplayDate, which then rendered "undefined/undefined/undefined".)
+      const { jy, jm, jd } = gregorianToJalali(+parts[0], +parts[1], +parts[2]);
       return jy + '/' + String(jm).padStart(2, '0') + '/' + String(jd).padStart(2, '0');
     }
 

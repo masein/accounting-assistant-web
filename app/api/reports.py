@@ -384,7 +384,6 @@ def get_owner_dashboard(
     ar_buckets: dict[str, dict[str, int]] = defaultdict(lambda: {"current": 0, "days_31_60": 0, "days_60_plus": 0})
     ap_buckets: dict[str, dict[str, int]] = defaultdict(lambda: {"current": 0, "days_31_60": 0, "days_60_plus": 0})
 
-    cash_on_hand = 0
     receivable_due_this_week = 0
     payable_due_this_week = 0
     tax_and_liability_payable = 0
@@ -421,7 +420,6 @@ def get_owner_dashboard(
             weekly_cash_in[week_start] += txn_cash_delta
         else:
             weekly_cash_out[week_start] += -txn_cash_delta
-        cash_on_hand += txn_cash_delta
 
         roles = defaultdict(list)
         for link in t.entity_links:
@@ -462,6 +460,21 @@ def get_owner_dashboard(
             expense_txn_count += 1
             if t.attachments:
                 expense_txn_with_attachment += 1
+
+    # True cash-on-hand: the net balance of every cash/bank account up to
+    # today, not just the trailing window scanned above (which is sized for
+    # the burn-rate / forecast and would otherwise understate the balance).
+    cash_account_ids = [a.id for a in db.execute(select(Account)).scalars().all() if _is_cash(a.code)]
+    cash_on_hand = 0
+    if cash_account_ids:
+        cash_q = (
+            select(func.coalesce(func.sum(TransactionLine.debit - TransactionLine.credit), 0))
+            .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+            .where(TransactionLine.account_id.in_(cash_account_ids), Transaction.date <= today)
+        )
+        if currency:
+            cash_q = cash_q.where(Transaction.currency == currency)
+        cash_on_hand = int(db.execute(cash_q).scalar() or 0)
 
     current_month = _month_key(today)
     monthly_net = monthly_revenue.get(current_month, 0) - monthly_expense.get(current_month, 0)

@@ -505,14 +505,14 @@ def seed_uk_demo(session: Session) -> int:
         (date(y1, 12, 28), f"Bank charges (FY {y1})",
          [("8000", 480, 0), ("1200", 0, 480)], None),
         (date(y1, 12, 30), f"FY {y1} corporation-tax accrual (19%)",
-         [("9000", 9_500, 0), ("2300", 0, 9_500)], None),
+         [("9000", 6_700, 0), ("2300", 0, 6_700)], None),
         (date(y2, 2, 5), "Additional plant and machinery",
          [("0010", 15_000, 0), ("1200", 0, 15_000)], None),
         (date(y2, 4, 18), "Loan principal repayment",
          [("2800", 8_000, 0), ("1200", 0, 8_000)],
          [("HSBC UK", "bank")]),
         (date(y2, 11, 18), f"Pay FY {y1} corporation tax",
-         [("2300", 9_500, 0), ("1200", 0, 9_500)], None),
+         [("2300", 6_700, 0), ("1200", 0, 6_700)], None),
         (date(y2, 12, 22), f"Loan interest paid (FY {y2})",
          [("8200", 2_300, 0), ("1200", 0, 2_300)], None),
         (date(y2, 12, 22), f"Bank charges (FY {y2})",
@@ -520,7 +520,7 @@ def seed_uk_demo(session: Session) -> int:
         (date(y2, 12, 23), "Dividend declared — interim",
          [("3100", 15_000, 0), ("2700", 0, 15_000)], None),
         (date(y2, 12, 28), f"FY {y2} corporation-tax accrual (19%)",
-         [("9000", 17_000, 0), ("2300", 0, 17_000)], None),
+         [("9000", 7_300, 0), ("2300", 0, 7_300)], None),
     ]
 
     all_entries = cadence + year_end

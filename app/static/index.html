@@ -4212,8 +4212,12 @@
           showAlert(data.detail || 'Failed to update language.', true);
           return;
         }
-        applyLanguage(lang, true);
-        showAlert(t('languageSaved'));
+        // Persist, then reload so every dynamically-rendered surface
+        // (dashboard KPIs, alerts, report tables) re-fetches and re-renders
+        // in the new language — applyLanguage alone only re-translates the
+        // static [data-i18n] elements, leaving JS-built content stale.
+        localStorage.setItem('aa_ui_language', lang);
+        location.reload();
       } catch (err) {
         showAlert('Connection error: ' + err.message, true);
       } finally {

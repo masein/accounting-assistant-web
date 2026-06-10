@@ -1331,27 +1331,27 @@
 
     <!-- ═══════ Bank Statements Page ═══════ -->
     <div class="card" data-page="bank-statements">
-      <h2>Bank Statement Import</h2>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically. <span style="color:#f57f17;font-size:0.8rem;">(PDF/image OCR requires an AI model to be configured in Settings.)</span></p>
+      <h2 data-i18n="bsTitle">Bank Statement Import</h2>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;"><span data-i18n="bsSubtitle">Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.</span> <span data-i18n="bsOcrNote" style="color:#f57f17;font-size:0.8rem;">(PDF/image OCR requires an AI model to be configured in Settings.)</span></p>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
         <input type="file" id="bs-file-input" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;margin-bottom:0;">
-        <input type="text" id="bs-bank-name" placeholder="Bank name (e.g. Melli)" style="width:180px;margin-bottom:0;">
-        <button type="button" class="btn btn-primary" id="bs-upload-btn">Upload & Parse</button>
+        <input type="text" id="bs-bank-name" data-i18n-placeholder="bsBankNamePlaceholder" placeholder="Bank name (e.g. Melli)" style="width:180px;margin-bottom:0;">
+        <button type="button" class="btn btn-primary" id="bs-upload-btn" data-i18n="bsUploadBtn">Upload & Parse</button>
       </div>
       <div id="bs-upload-status" style="display:none;margin-bottom:1rem;" class="alert"></div>
       <div id="bs-list-wrap">
-        <h3>Recent Statements</h3>
+        <h3 data-i18n="bsRecentStatements">Recent Statements</h3>
         <table class="results-table" id="bs-list-table"><thead><tr>
-          <th>Bank</th><th>File</th><th>Type</th><th>Rows</th><th>Matched</th><th>Status</th><th>Actions</th>
+          <th data-i18n="thBank">Bank</th><th data-i18n="thFile">File</th><th data-i18n="labelType">Type</th><th data-i18n="thRows">Rows</th><th data-i18n="thMatched">Matched</th><th data-i18n="usersStatus">Status</th><th data-i18n="usersActions">Actions</th>
         </tr></thead><tbody id="bs-list-body"></tbody></table>
       </div>
       <div id="bs-detail-wrap" style="display:none;margin-top:1rem;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-          <h3 id="bs-detail-title">Statement Detail</h3>
+          <h3 id="bs-detail-title" data-i18n="bsStatementDetail">Statement Detail</h3>
           <div style="display:flex;gap:0.5rem;">
-            <button type="button" class="btn btn-primary" id="bs-reconcile-btn">Reconcile</button>
-            <button type="button" class="btn btn-primary" id="bs-approve-all-btn">Approve All Matched</button>
-            <button type="button" class="btn btn-secondary" id="bs-back-btn">Back</button>
+            <button type="button" class="btn btn-primary" id="bs-reconcile-btn" data-i18n="bsReconcileBtn">Reconcile</button>
+            <button type="button" class="btn btn-primary" id="bs-approve-all-btn" data-i18n="bsApproveAllBtn">Approve All Matched</button>
+            <button type="button" class="btn btn-secondary" id="bs-back-btn" data-i18n="bsBackBtn">Back</button>
           </div>
         </div>
         <div id="bs-recon-summary" style="display:none;padding:0.5rem;background:#e8f5e9;border-radius:6px;margin-bottom:0.75rem;font-size:0.85rem;"></div>
@@ -1366,44 +1366,44 @@
 
     <!-- ═══════ Audit Page ═══════ -->
     <div class="card" data-page="audit">
-      <h2>System Audit</h2>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Self-auditing accounting integrity checks, anomaly detection, and audit trail across Treasury, Managerial, and Financial domains.</p>
+      <h2 data-i18n="auditTitle">System Audit</h2>
+      <p data-i18n="auditSubtitle" style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Self-auditing accounting integrity checks, anomaly detection, and audit trail across Treasury, Managerial, and Financial domains.</p>
       <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
-        <button type="button" class="btn btn-primary" id="audit-run-btn">Run Full Audit</button>
+        <button type="button" class="btn btn-primary" id="audit-run-btn" data-i18n="auditRunBtn">Run Full Audit</button>
         <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
-          <label for="audit-liability-threshold" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;margin:0;">Liability threshold:</label>
+          <label for="audit-liability-threshold" data-i18n="auditLiabilityThreshold" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;margin:0;">Liability threshold:</label>
           <input type="number" id="audit-liability-threshold" style="width:180px;margin:0;" placeholder="e.g. 500,000,000" min="0" step="1000000">
-          <button type="button" class="btn btn-primary btn-sm" id="audit-save-threshold-btn" style="white-space:nowrap;">Save</button>
+          <button type="button" class="btn btn-primary btn-sm" id="audit-save-threshold-btn" data-i18n="auditSaveBtn" style="white-space:nowrap;">Save</button>
         </div>
       </div>
       <div id="audit-scores" style="display:none;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
         <div class="panel" style="flex:1;min-width:200px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Integrity Score</div>
+          <div data-i18n="auditIntegrityScore" style="font-size:0.75rem;color:var(--text-muted);">Integrity Score</div>
           <div id="audit-integrity-score" style="font-size:2.5rem;font-weight:700;color:var(--primary);">—</div>
         </div>
         <div class="panel" style="flex:1;min-width:200px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Health Score</div>
+          <div data-i18n="auditHealthScore" style="font-size:0.75rem;color:var(--text-muted);">Health Score</div>
           <div id="audit-health-score" style="font-size:2.5rem;font-weight:700;color:#2e7d32;">—</div>
         </div>
         <div class="panel" style="flex:1;min-width:200px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Checks</div>
+          <div data-i18n="auditChecks" style="font-size:0.75rem;color:var(--text-muted);">Checks</div>
           <div id="audit-checks-summary" style="font-size:1.2rem;font-weight:600;">—</div>
         </div>
       </div>
       <div id="audit-findings-wrap" style="display:none;">
-        <h3>Findings</h3>
+        <h3 data-i18n="auditFindings">Findings</h3>
         <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap;">
-          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab active" data-domain="all">All</button>
-          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab" data-domain="treasury">Treasury (خزانه‌داری)</button>
-          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab" data-domain="managerial">Managerial (مدیریتی)</button>
-          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab" data-domain="financial">Financial (مالی)</button>
+          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab active" data-domain="all" data-i18n="auditDomainAll">All</button>
+          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab" data-domain="treasury" data-i18n="auditDomainTreasury">Treasury</button>
+          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab" data-domain="managerial" data-i18n="auditDomainManagerial">Managerial</button>
+          <button type="button" class="btn btn-secondary btn-sm audit-domain-tab" data-domain="financial" data-i18n="auditDomainFinancial">Financial</button>
         </div>
         <div id="audit-findings-list"></div>
       </div>
       <div style="margin-top:1.5rem;">
-        <h3>Audit Trail</h3>
+        <h3 data-i18n="auditTrail">Audit Trail</h3>
         <table class="results-table"><thead><tr>
-          <th>Time</th><th>Action</th><th>Type</th><th>Entity</th><th>User</th><th>Detail</th>
+          <th data-i18n="thTime">Time</th><th data-i18n="thAction">Action</th><th data-i18n="labelType">Type</th><th data-i18n="thEntity">Entity</th><th data-i18n="thUser">User</th><th data-i18n="thDetail">Detail</th>
         </tr></thead><tbody id="audit-log-body"></tbody></table>
       </div>
     </div>
@@ -2694,6 +2694,48 @@
         ceoAP: 'Accounts Payable',
         invoiceCurrencyLabel: 'Currency',
         noInvoicesYet: 'No invoices yet.',
+        cfoKpiTotalRevenue: 'Total Revenue (12m)',
+        cfoKpiAvgMonthlyRevenue: 'Avg Monthly Revenue',
+        cfoKpiNetProfit: 'Net Profit (12m)',
+        cfoKpiNetMargin: 'Net Margin',
+        cfoKpiCashOnHand: 'Cash on Hand',
+        cfoKpiMonthlyBurnRate: 'Monthly Burn Rate',
+        cfoKpiExpenseMoM: 'Expense MoM Change',
+        ceoKpiCashPosition: 'Cash Position',
+        ceoKpiLiabilityRatio: 'Liability Ratio',
+        bsTitle: 'Bank Statement Import',
+        bsSubtitle: 'Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.',
+        bsOcrNote: '(PDF/image OCR requires an AI model to be configured in Settings.)',
+        bsBankNamePlaceholder: 'Bank name (e.g. Melli)',
+        bsUploadBtn: 'Upload & Parse',
+        bsRecentStatements: 'Recent Statements',
+        thBank: 'Bank',
+        thFile: 'File',
+        thRows: 'Rows',
+        thMatched: 'Matched',
+        bsStatementDetail: 'Statement Detail',
+        bsReconcileBtn: 'Reconcile',
+        bsApproveAllBtn: 'Approve All Matched',
+        bsBackBtn: 'Back',
+        auditTitle: 'System Audit',
+        auditSubtitle: 'Self-auditing accounting integrity checks, anomaly detection, and audit trail across Treasury, Managerial, and Financial domains.',
+        auditRunBtn: 'Run Full Audit',
+        auditLiabilityThreshold: 'Liability threshold:',
+        auditSaveBtn: 'Save',
+        auditIntegrityScore: 'Integrity Score',
+        auditHealthScore: 'Health Score',
+        auditChecks: 'Checks',
+        auditFindings: 'Findings',
+        auditDomainAll: 'All',
+        auditDomainTreasury: 'Treasury',
+        auditDomainManagerial: 'Managerial',
+        auditDomainFinancial: 'Financial',
+        auditTrail: 'Audit Trail',
+        thTime: 'Time',
+        thAction: 'Action',
+        thEntity: 'Entity',
+        thUser: 'User',
+        thDetail: 'Detail',
         ceoModeNav: 'CEO Mode',
       
         // ── Reset-to-empty button ──
@@ -3153,6 +3195,48 @@
         ceoAP: 'حساب‌های پرداختنی',
         invoiceCurrencyLabel: 'واحد پول',
         noInvoicesYet: 'هنوز فاکتوری ثبت نشده است.',
+        cfoKpiTotalRevenue: 'درآمد کل (۱۲ ماه)',
+        cfoKpiAvgMonthlyRevenue: 'میانگین درآمد ماهانه',
+        cfoKpiNetProfit: 'سود خالص (۱۲ ماه)',
+        cfoKpiNetMargin: 'حاشیه سود خالص',
+        cfoKpiCashOnHand: 'وجه نقد موجود',
+        cfoKpiMonthlyBurnRate: 'نرخ مصرف ماهانه',
+        cfoKpiExpenseMoM: 'تغییر هزینه ماه‌به‌ماه',
+        ceoKpiCashPosition: 'وضعیت نقدینگی',
+        ceoKpiLiabilityRatio: 'نسبت بدهی',
+        bsTitle: 'ورود صورت‌حساب بانکی',
+        bsSubtitle: 'صورت‌حساب‌های بانکی CSV یا Excel را بارگذاری کنید. سیستم تراکنش‌ها را به‌صورت خودکار تجزیه، طبقه‌بندی و مغایرت‌گیری می‌کند.',
+        bsOcrNote: '(OCR برای PDF/تصویر نیازمند پیکربندی یک مدل هوش مصنوعی در تنظیمات است.)',
+        bsBankNamePlaceholder: 'نام بانک (مثال: ملی)',
+        bsUploadBtn: 'بارگذاری و تجزیه',
+        bsRecentStatements: 'صورت‌حساب‌های اخیر',
+        thBank: 'بانک',
+        thFile: 'فایل',
+        thRows: 'ردیف‌ها',
+        thMatched: 'تطبیق‌یافته',
+        bsStatementDetail: 'جزئیات صورت‌حساب',
+        bsReconcileBtn: 'مغایرت‌گیری',
+        bsApproveAllBtn: 'تأیید همه موارد تطبیق‌یافته',
+        bsBackBtn: 'بازگشت',
+        auditTitle: 'حسابرسی سیستم',
+        auditSubtitle: 'بررسی‌های یکپارچگی حسابداری خودکار، تشخیص ناهنجاری و ردگیری حسابرسی در حوزه‌های خزانه‌داری، مدیریتی و مالی.',
+        auditRunBtn: 'اجرای حسابرسی کامل',
+        auditLiabilityThreshold: 'آستانه بدهی:',
+        auditSaveBtn: 'ذخیره',
+        auditIntegrityScore: 'امتیاز یکپارچگی',
+        auditHealthScore: 'امتیاز سلامت',
+        auditChecks: 'بررسی‌ها',
+        auditFindings: 'یافته‌ها',
+        auditDomainAll: 'همه',
+        auditDomainTreasury: 'خزانه‌داری',
+        auditDomainManagerial: 'مدیریتی',
+        auditDomainFinancial: 'مالی',
+        auditTrail: 'ردگیری حسابرسی',
+        thTime: 'زمان',
+        thAction: 'عملیات',
+        thEntity: 'موجودیت',
+        thUser: 'کاربر',
+        thDetail: 'جزئیات',
         ceoModeNav: 'حالت مدیرعامل',
       
         // ── Reset-to-empty button ──
@@ -3595,6 +3679,48 @@
         ceoAP: 'Cuentas por pagar',
         invoiceCurrencyLabel: 'Moneda',
         noInvoicesYet: 'Aún no hay facturas.',
+        cfoKpiTotalRevenue: 'Ingresos totales (12m)',
+        cfoKpiAvgMonthlyRevenue: 'Ingreso mensual promedio',
+        cfoKpiNetProfit: 'Beneficio neto (12m)',
+        cfoKpiNetMargin: 'Margen neto',
+        cfoKpiCashOnHand: 'Efectivo disponible',
+        cfoKpiMonthlyBurnRate: 'Tasa de consumo mensual',
+        cfoKpiExpenseMoM: 'Cambio de gastos intermensual',
+        ceoKpiCashPosition: 'Posición de caja',
+        ceoKpiLiabilityRatio: 'Ratio de pasivo',
+        bsTitle: 'Importar extracto bancario',
+        bsSubtitle: 'Suba extractos bancarios en CSV o Excel. El sistema analizará, clasificará y conciliará las transacciones automáticamente.',
+        bsOcrNote: '(El OCR de PDF/imagen requiere configurar un modelo de IA en Ajustes.)',
+        bsBankNamePlaceholder: 'Nombre del banco (p. ej. Melli)',
+        bsUploadBtn: 'Subir y analizar',
+        bsRecentStatements: 'Extractos recientes',
+        thBank: 'Banco',
+        thFile: 'Archivo',
+        thRows: 'Filas',
+        thMatched: 'Conciliadas',
+        bsStatementDetail: 'Detalle del extracto',
+        bsReconcileBtn: 'Conciliar',
+        bsApproveAllBtn: 'Aprobar todas las conciliadas',
+        bsBackBtn: 'Volver',
+        auditTitle: 'Auditoría del sistema',
+        auditSubtitle: 'Comprobaciones automáticas de integridad contable, detección de anomalías y registro de auditoría en los dominios de Tesorería, Gestión y Finanzas.',
+        auditRunBtn: 'Ejecutar auditoría completa',
+        auditLiabilityThreshold: 'Umbral de pasivo:',
+        auditSaveBtn: 'Guardar',
+        auditIntegrityScore: 'Puntuación de integridad',
+        auditHealthScore: 'Puntuación de salud',
+        auditChecks: 'Comprobaciones',
+        auditFindings: 'Hallazgos',
+        auditDomainAll: 'Todos',
+        auditDomainTreasury: 'Tesorería',
+        auditDomainManagerial: 'Gestión',
+        auditDomainFinancial: 'Finanzas',
+        auditTrail: 'Registro de auditoría',
+        thTime: 'Hora',
+        thAction: 'Acción',
+        thEntity: 'Entidad',
+        thUser: 'Usuario',
+        thDetail: 'Detalle',
         ceoModeNav: 'Modo CEO',
       
         // ── Reset-to-empty button ──
@@ -4037,6 +4163,48 @@
         ceoAP: 'الذمم الدائنة',
         invoiceCurrencyLabel: 'العملة',
         noInvoicesYet: 'لا توجد فواتير بعد.',
+        cfoKpiTotalRevenue: 'إجمالي الإيرادات (12 شهرًا)',
+        cfoKpiAvgMonthlyRevenue: 'متوسط الإيراد الشهري',
+        cfoKpiNetProfit: 'صافي الربح (12 شهرًا)',
+        cfoKpiNetMargin: 'هامش الربح الصافي',
+        cfoKpiCashOnHand: 'النقد المتوفر',
+        cfoKpiMonthlyBurnRate: 'معدل الإنفاق الشهري',
+        cfoKpiExpenseMoM: 'تغيّر المصروفات شهريًا',
+        ceoKpiCashPosition: 'الوضع النقدي',
+        ceoKpiLiabilityRatio: 'نسبة الالتزامات',
+        bsTitle: 'استيراد كشف الحساب البنكي',
+        bsSubtitle: 'حمّل كشوف الحساب البنكية بصيغة CSV أو Excel. سيقوم النظام بتحليل المعاملات وتصنيفها وتسويتها تلقائيًا.',
+        bsOcrNote: '(يتطلب التعرف الضوئي على ملفات PDF/الصور تهيئة نموذج ذكاء اصطناعي في الإعدادات.)',
+        bsBankNamePlaceholder: 'اسم البنك (مثال: ملي)',
+        bsUploadBtn: 'تحميل وتحليل',
+        bsRecentStatements: 'الكشوف الأخيرة',
+        thBank: 'البنك',
+        thFile: 'الملف',
+        thRows: 'الصفوف',
+        thMatched: 'المطابقة',
+        bsStatementDetail: 'تفاصيل الكشف',
+        bsReconcileBtn: 'تسوية',
+        bsApproveAllBtn: 'اعتماد كل المطابق',
+        bsBackBtn: 'رجوع',
+        auditTitle: 'تدقيق النظام',
+        auditSubtitle: 'فحوصات تلقائية لسلامة المحاسبة، واكتشاف الحالات الشاذة، وسجل تدقيق عبر مجالات الخزينة والإدارة والمالية.',
+        auditRunBtn: 'تشغيل تدقيق كامل',
+        auditLiabilityThreshold: 'حد الالتزامات:',
+        auditSaveBtn: 'حفظ',
+        auditIntegrityScore: 'درجة السلامة',
+        auditHealthScore: 'درجة الصحة',
+        auditChecks: 'الفحوصات',
+        auditFindings: 'النتائج',
+        auditDomainAll: 'الكل',
+        auditDomainTreasury: 'الخزينة',
+        auditDomainManagerial: 'الإدارية',
+        auditDomainFinancial: 'المالية',
+        auditTrail: 'سجل التدقيق',
+        thTime: 'الوقت',
+        thAction: 'الإجراء',
+        thEntity: 'الكيان',
+        thUser: 'المستخدم',
+        thDetail: 'التفاصيل',
         ceoModeNav: 'وضع الرئيس التنفيذي',
       
         // ── Reset-to-empty button ──
@@ -4523,6 +4691,21 @@
         'Expense attachments available': 'checkExpenseAttachmentsAvailable',
         'Line descriptions complete': 'checkLineDescriptionsComplete',
         'Unassigned client': 'unassignedClient',
+        // CFO / CEO KPI-card labels (returned by the backend or built in the
+        // CEO renderer). Mapped here so both executive dashboards localise.
+        'Total Revenue (12m)': 'cfoKpiTotalRevenue',
+        'Avg Monthly Revenue': 'cfoKpiAvgMonthlyRevenue',
+        'Net Profit (12m)': 'cfoKpiNetProfit',
+        'Net Margin': 'cfoKpiNetMargin',
+        'Cash on Hand': 'cfoKpiCashOnHand',
+        'Monthly Burn Rate': 'cfoKpiMonthlyBurnRate',
+        'Cash Runway': 'cashRunway',
+        'Accounts Receivable': 'ceoAR',
+        'Accounts Payable': 'ceoAP',
+        'Expense MoM Change': 'cfoKpiExpenseMoM',
+        'Cash Position': 'ceoKpiCashPosition',
+        'Burn Rate': 'burnRate',
+        'Liability Ratio': 'ceoKpiLiabilityRatio',
       };
       if (map[s]) return t(map[s]);
       let m = s.match(/^Estimated runway is\s+([0-9.]+)\s+months based on recent burn rate\.$/i);
@@ -9025,7 +9208,7 @@
           // Any non-% non-months unit is a currency code → format with thousands.
           const isCurrencyUnit = k.unit && k.unit !== '%' && k.unit !== 'months';
           const displayVal = isCurrencyUnit ? Number(k.value).toLocaleString() : k.value;
-          div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(k.label)}</div>
+          div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(localizeDynamicText(k.label))}</div>
             <div style="font-size:1.1rem;font-weight:700;color:${riskColor};">${displayVal} ${k.unit || ''}</div>
             ${trendIcon ? `<div style="font-size:0.75rem;color:${
               (k.key === 'expense_trend' || k.key === 'burn_rate')
@@ -9199,7 +9382,7 @@
           div.className = 'panel';
           div.style.cssText = 'padding:0.6rem;text-align:center;';
           const displayVal = typeof k.value === 'number' ? k.value.toLocaleString() : k.value;
-          div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${k.label}</div>
+          div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(localizeDynamicText(k.label))}</div>
             <div style="font-size:1.1rem;font-weight:700;color:${k.color};">${displayVal} ${k.unit}</div>`;
           kpiGrid.appendChild(div);
         });

@@ -696,7 +696,7 @@
         <div><label for="inv-number" data-i18n="labelNumber">Number</label><input type="text" id="inv-number" data-i18n-placeholder="placeholderInvoiceNo" placeholder="e.g. INV-1001"></div>
         <div><label for="inv-kind" data-i18n="labelType">Type</label><select id="inv-kind"><option value="sales" data-i18n="optionSales">Sales</option><option value="purchase" data-i18n="optionPurchase">Purchase</option></select></div>
         <div><label for="inv-amount" data-i18n="labelAmount">Amount</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
-        <div><label for="inv-currency">Currency</label><select id="inv-currency">
+        <div><label for="inv-currency" data-i18n="invoiceCurrencyLabel">Currency</label><select id="inv-currency">
           <option value="IRR">IRR</option>
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
@@ -907,7 +907,7 @@
             <span id="reference-help-text" data-i18n="referenceHint" style="font-size: 0.75rem; color: var(--text-muted);">Invoice or receipt number linking to a document</span>
           </div>
           <div>
-            <label for="txn-currency">Currency</label>
+            <label for="txn-currency" data-i18n="invoiceCurrencyLabel">Currency</label>
             <select id="txn-currency" name="currency" title="Currency for this voucher. Defaults to your reporting currency.">
               <option value="IRR">IRR (Rial)</option>
               <option value="USD">USD ($)</option>
@@ -1184,7 +1184,7 @@
           </select>
         </div>
         <div>
-          <label for="mgr-currency">Currency</label>
+          <label for="mgr-currency" data-i18n="invoiceCurrencyLabel">Currency</label>
           <select id="mgr-currency">
             <option value="" selected>All (no filter)</option>
             <option value="IRR">IRR (Rial)</option>
@@ -1445,23 +1445,23 @@
 
     <!-- ═══════ CFO Mode Page ═══════ -->
     <div class="card" data-page="cfo">
-      <h2>CFO Intelligence</h2>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Executive-level financial reasoning, KPIs, risk assessment, and natural language Q&A.</p>
+      <h2 data-i18n="cfoTitle">CFO Intelligence</h2>
+      <p data-i18n="cfoSubtitle" style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Executive-level financial reasoning, KPIs, risk assessment, and natural language Q&A.</p>
       <div id="cfo-grade-bar" style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
         <div class="panel" style="flex:1;min-width:160px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Health Grade</div>
+          <div data-i18n="healthGrade" style="font-size:0.75rem;color:var(--text-muted);">Health Grade</div>
           <div id="cfo-grade" style="font-size:3rem;font-weight:800;color:var(--primary);">—</div>
         </div>
         <div class="panel" style="flex:1;min-width:160px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Risk Score</div>
+          <div data-i18n="riskScore" style="font-size:0.75rem;color:var(--text-muted);">Risk Score</div>
           <div id="cfo-risk" style="font-size:2rem;font-weight:700;">—</div>
         </div>
         <div class="panel" style="flex:1;min-width:160px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Cash Runway</div>
+          <div data-i18n="cashRunway" style="font-size:0.75rem;color:var(--text-muted);">Cash Runway</div>
           <div id="cfo-runway" style="font-size:2rem;font-weight:700;">—</div>
         </div>
         <div class="panel" style="flex:1;min-width:160px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Burn Rate</div>
+          <div data-i18n="burnRate" style="font-size:0.75rem;color:var(--text-muted);">Burn Rate</div>
           <div id="cfo-burn" style="font-size:1.2rem;font-weight:600;">—</div>
         </div>
       </div>
@@ -1469,66 +1469,66 @@
       <div id="cfo-narrative" style="padding:0.75rem;background:#f8fafc;border-radius:8px;font-size:0.9rem;line-height:1.6;margin-bottom:1rem;display:none;"></div>
       <div id="cfo-insights" style="margin-bottom:1rem;"></div>
       <div style="margin-top:1rem;">
-        <h3>Ask the CFO AI</h3>
+        <h3 data-i18n="cfoAskTitle">Ask the CFO AI</h3>
         <div style="display:flex;gap:0.5rem;">
-          <input type="text" id="cfo-question-input" placeholder="e.g. Are we financially healthy? Can we survive 6 months?" style="flex:1;">
-          <button type="button" class="btn btn-primary" id="cfo-ask-btn">Ask</button>
+          <input type="text" id="cfo-question-input" data-i18n-placeholder="cfoAskPlaceholder" placeholder="e.g. Are we financially healthy? Can we survive 6 months?" style="flex:1;">
+          <button type="button" class="btn btn-primary" id="cfo-ask-btn" data-i18n="cfoAskBtn">Ask</button>
         </div>
         <div id="cfo-answer" style="display:none;margin-top:0.75rem;padding:0.75rem;background:#e3f2fd;border-radius:8px;font-size:0.9rem;"></div>
       </div>
       <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <button type="button" class="chip cfo-quick" data-q="Are we financially healthy?">Health check</button>
-        <button type="button" class="chip cfo-quick" data-q="Can we survive 6 months?">Survival check</button>
-        <button type="button" class="chip cfo-quick" data-q="What are our main cost drivers?">Cost drivers</button>
-        <button type="button" class="chip cfo-quick" data-q="Where is cash leaking?">Cash leaks</button>
-        <button type="button" class="chip cfo-quick" data-q="What is our burn rate?">Burn rate</button>
+        <button type="button" class="chip cfo-quick" data-q="Are we financially healthy?" data-i18n="cfoChipHealth">Health check</button>
+        <button type="button" class="chip cfo-quick" data-q="Can we survive 6 months?" data-i18n="cfoChipSurvival">Survival check</button>
+        <button type="button" class="chip cfo-quick" data-q="What are our main cost drivers?" data-i18n="cfoChipCost">Cost drivers</button>
+        <button type="button" class="chip cfo-quick" data-q="Where is cash leaking?" data-i18n="cfoChipLeaks">Cash leaks</button>
+        <button type="button" class="chip cfo-quick" data-q="What is our burn rate?" data-i18n="cfoChipBurn">Burn rate</button>
       </div>
     </div>
 
     <!-- ═══════ CEO Mode Page ═══════ -->
     <div class="card" data-page="ceo">
-      <h2>CEO Executive Dashboard</h2>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">High-level financial summaries, KPIs, and strategic alerts for executive decision-making.</p>
+      <h2 data-i18n="ceoTitle">CEO Executive Dashboard</h2>
+      <p data-i18n="ceoSubtitle" style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">High-level financial summaries, KPIs, and strategic alerts for executive decision-making.</p>
       <div id="ceo-grade-bar" style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
         <div class="panel" style="flex:1;min-width:160px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Health Grade</div>
+          <div data-i18n="healthGrade" style="font-size:0.75rem;color:var(--text-muted);">Health Grade</div>
           <div id="ceo-grade" style="font-size:3rem;font-weight:800;color:var(--primary);">—</div>
         </div>
         <div class="panel" style="flex:1;min-width:160px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Risk Score</div>
+          <div data-i18n="riskScore" style="font-size:0.75rem;color:var(--text-muted);">Risk Score</div>
           <div id="ceo-risk" style="font-size:2rem;font-weight:700;">—</div>
         </div>
         <div class="panel" style="flex:1;min-width:160px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Cash Runway</div>
+          <div data-i18n="cashRunway" style="font-size:0.75rem;color:var(--text-muted);">Cash Runway</div>
           <div id="ceo-runway" style="font-size:2rem;font-weight:700;">—</div>
         </div>
         <div class="panel" style="flex:1;min-width:160px;text-align:center;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Profit Margin</div>
+          <div data-i18n="profitMargin" style="font-size:0.75rem;color:var(--text-muted);">Profit Margin</div>
           <div id="ceo-margin" style="font-size:2rem;font-weight:700;">—</div>
         </div>
       </div>
       <div id="ceo-kpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem;margin-bottom:1rem;"></div>
       <div id="ceo-alerts" style="margin-bottom:1rem;"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-        <div class="panel"><h3>Revenue vs Expenses Trend</h3><div style="position:relative;height:280px;"><canvas id="ceo-trend-chart"></canvas></div></div>
-        <div class="panel"><h3>Profit Trend</h3><div style="position:relative;height:280px;"><canvas id="ceo-profit-chart"></canvas></div></div>
+        <div class="panel"><h3 data-i18n="ceoRevExpTrend">Revenue vs Expenses Trend</h3><div style="position:relative;height:280px;"><canvas id="ceo-trend-chart"></canvas></div></div>
+        <div class="panel"><h3 data-i18n="ceoProfitTrend">Profit Trend</h3><div style="position:relative;height:280px;"><canvas id="ceo-profit-chart"></canvas></div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-        <div class="panel"><h3>Top Expenses</h3><div style="position:relative;height:280px;"><canvas id="ceo-expense-chart"></canvas></div></div>
-        <div class="panel"><h3>Balance Sheet Summary</h3>
+        <div class="panel"><h3 data-i18n="ceoTopExpenses">Top Expenses</h3><div style="position:relative;height:280px;"><canvas id="ceo-expense-chart"></canvas></div></div>
+        <div class="panel"><h3 data-i18n="ceoBalanceSummary">Balance Sheet Summary</h3>
           <div id="ceo-balance-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-top:0.5rem;">
-            <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Assets</div><div id="ceo-assets" style="font-size:1.3rem;font-weight:700;">—</div></div>
-            <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Liabilities</div><div id="ceo-liabilities" style="font-size:1.3rem;font-weight:700;">—</div></div>
-            <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Equity</div><div id="ceo-equity" style="font-size:1.3rem;font-weight:700;">—</div></div>
+            <div style="text-align:center;"><div data-i18n="ceoAssets" style="font-size:0.75rem;color:var(--text-muted);">Assets</div><div id="ceo-assets" style="font-size:1.3rem;font-weight:700;">—</div></div>
+            <div style="text-align:center;"><div data-i18n="ceoLiabilities" style="font-size:0.75rem;color:var(--text-muted);">Liabilities</div><div id="ceo-liabilities" style="font-size:1.3rem;font-weight:700;">—</div></div>
+            <div style="text-align:center;"><div data-i18n="ceoEquity" style="font-size:0.75rem;color:var(--text-muted);">Equity</div><div id="ceo-equity" style="font-size:1.3rem;font-weight:700;">—</div></div>
           </div>
           <div style="position:relative;height:200px;margin-top:0.75rem;"><canvas id="ceo-balance-chart"></canvas></div>
         </div>
       </div>
       <div class="panel" style="margin-bottom:1rem;">
-        <h3>Accounts Receivable & Payable</h3>
+        <h3 data-i18n="ceoArApTitle">Accounts Receivable &amp; Payable</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-          <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Accounts Receivable</div><div id="ceo-ar" style="font-size:1.3rem;font-weight:700;color:#2e7d32;">—</div></div>
-          <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--text-muted);">Accounts Payable</div><div id="ceo-ap" style="font-size:1.3rem;font-weight:700;color:#c62828;">—</div></div>
+          <div style="text-align:center;"><div data-i18n="ceoAR" style="font-size:0.75rem;color:var(--text-muted);">Accounts Receivable</div><div id="ceo-ar" style="font-size:1.3rem;font-weight:700;color:#2e7d32;">—</div></div>
+          <div style="text-align:center;"><div data-i18n="ceoAP" style="font-size:0.75rem;color:var(--text-muted);">Accounts Payable</div><div id="ceo-ap" style="font-size:1.3rem;font-weight:700;color:#c62828;">—</div></div>
         </div>
       </div>
     </div>
@@ -2665,6 +2665,35 @@
         bankStatementsNav: 'Bank Statements',
         auditNav: 'Audit',
         productsNav: 'Products',
+        cfoTitle: 'CFO Intelligence',
+        cfoSubtitle: 'Executive-level financial reasoning, KPIs, risk assessment, and natural language Q&A.',
+        healthGrade: 'Health Grade',
+        riskScore: 'Risk Score',
+        cashRunway: 'Cash Runway',
+        burnRate: 'Burn Rate',
+        cfoAskTitle: 'Ask the CFO AI',
+        cfoAskPlaceholder: 'e.g. Are we financially healthy? Can we survive 6 months?',
+        cfoAskBtn: 'Ask',
+        cfoChipHealth: 'Health check',
+        cfoChipSurvival: 'Survival check',
+        cfoChipCost: 'Cost drivers',
+        cfoChipLeaks: 'Cash leaks',
+        cfoChipBurn: 'Burn rate',
+        ceoTitle: 'CEO Executive Dashboard',
+        ceoSubtitle: 'High-level financial summaries, KPIs, and strategic alerts for executive decision-making.',
+        profitMargin: 'Profit Margin',
+        ceoRevExpTrend: 'Revenue vs Expenses Trend',
+        ceoProfitTrend: 'Profit Trend',
+        ceoTopExpenses: 'Top Expenses',
+        ceoBalanceSummary: 'Balance Sheet Summary',
+        ceoAssets: 'Assets',
+        ceoLiabilities: 'Liabilities',
+        ceoEquity: 'Equity',
+        ceoArApTitle: 'Accounts Receivable & Payable',
+        ceoAR: 'Accounts Receivable',
+        ceoAP: 'Accounts Payable',
+        invoiceCurrencyLabel: 'Currency',
+        noInvoicesYet: 'No invoices yet.',
         ceoModeNav: 'CEO Mode',
       
         // ── Reset-to-empty button ──
@@ -3095,6 +3124,35 @@
         bankStatementsNav: 'صورت‌حساب‌های بانکی',
         auditNav: 'حسابرسی',
         productsNav: 'کالاها',
+        cfoTitle: 'هوش مدیر مالی',
+        cfoSubtitle: 'تحلیل مالی در سطح مدیریتی، شاخص‌های کلیدی، ارزیابی ریسک و پرسش و پاسخ به زبان طبیعی.',
+        healthGrade: 'درجه سلامت',
+        riskScore: 'امتیاز ریسک',
+        cashRunway: 'دوام نقدینگی',
+        burnRate: 'نرخ مصرف',
+        cfoAskTitle: 'از هوش مصنوعی مدیر مالی بپرسید',
+        cfoAskPlaceholder: 'مثال: آیا از نظر مالی سالم هستیم؟ آیا می‌توانیم ۶ ماه دوام بیاوریم؟',
+        cfoAskBtn: 'بپرس',
+        cfoChipHealth: 'بررسی سلامت',
+        cfoChipSurvival: 'بررسی بقا',
+        cfoChipCost: 'محرک‌های هزینه',
+        cfoChipLeaks: 'نشت نقدینگی',
+        cfoChipBurn: 'نرخ مصرف',
+        ceoTitle: 'داشبورد اجرایی مدیرعامل',
+        ceoSubtitle: 'خلاصه‌های مالی سطح بالا، شاخص‌های کلیدی و هشدارهای راهبردی برای تصمیم‌گیری اجرایی.',
+        profitMargin: 'حاشیه سود',
+        ceoRevExpTrend: 'روند درآمد در برابر هزینه‌ها',
+        ceoProfitTrend: 'روند سود',
+        ceoTopExpenses: 'بیشترین هزینه‌ها',
+        ceoBalanceSummary: 'خلاصه ترازنامه',
+        ceoAssets: 'دارایی‌ها',
+        ceoLiabilities: 'بدهی‌ها',
+        ceoEquity: 'حقوق مالکانه',
+        ceoArApTitle: 'حساب‌های دریافتنی و پرداختنی',
+        ceoAR: 'حساب‌های دریافتنی',
+        ceoAP: 'حساب‌های پرداختنی',
+        invoiceCurrencyLabel: 'واحد پول',
+        noInvoicesYet: 'هنوز فاکتوری ثبت نشده است.',
         ceoModeNav: 'حالت مدیرعامل',
       
         // ── Reset-to-empty button ──
@@ -3508,6 +3566,35 @@
         bankStatementsNav: 'Extractos bancarios',
         auditNav: 'Auditoría',
         productsNav: 'Productos',
+        cfoTitle: 'Inteligencia del CFO',
+        cfoSubtitle: 'Razonamiento financiero de nivel ejecutivo, KPIs, evaluación de riesgos y preguntas en lenguaje natural.',
+        healthGrade: 'Calificación de salud',
+        riskScore: 'Puntuación de riesgo',
+        cashRunway: 'Autonomía de caja',
+        burnRate: 'Tasa de consumo',
+        cfoAskTitle: 'Pregunta a la IA del CFO',
+        cfoAskPlaceholder: 'p. ej. ¿Estamos financieramente sanos? ¿Podemos sobrevivir 6 meses?',
+        cfoAskBtn: 'Preguntar',
+        cfoChipHealth: 'Chequeo de salud',
+        cfoChipSurvival: 'Chequeo de supervivencia',
+        cfoChipCost: 'Generadores de costos',
+        cfoChipLeaks: 'Fugas de caja',
+        cfoChipBurn: 'Tasa de consumo',
+        ceoTitle: 'Panel ejecutivo del CEO',
+        ceoSubtitle: 'Resúmenes financieros de alto nivel, KPIs y alertas estratégicas para la toma de decisiones ejecutivas.',
+        profitMargin: 'Margen de beneficio',
+        ceoRevExpTrend: 'Tendencia de ingresos vs gastos',
+        ceoProfitTrend: 'Tendencia de beneficios',
+        ceoTopExpenses: 'Mayores gastos',
+        ceoBalanceSummary: 'Resumen del balance',
+        ceoAssets: 'Activos',
+        ceoLiabilities: 'Pasivos',
+        ceoEquity: 'Patrimonio',
+        ceoArApTitle: 'Cuentas por cobrar y pagar',
+        ceoAR: 'Cuentas por cobrar',
+        ceoAP: 'Cuentas por pagar',
+        invoiceCurrencyLabel: 'Moneda',
+        noInvoicesYet: 'Aún no hay facturas.',
         ceoModeNav: 'Modo CEO',
       
         // ── Reset-to-empty button ──
@@ -3921,6 +4008,35 @@
         bankStatementsNav: 'كشوف الحساب البنكية',
         auditNav: 'تدقيق',
         productsNav: 'المنتجات',
+        cfoTitle: 'ذكاء المدير المالي',
+        cfoSubtitle: 'تحليل مالي على مستوى تنفيذي، ومؤشرات أداء رئيسية، وتقييم المخاطر، وأسئلة وأجوبة بلغة طبيعية.',
+        healthGrade: 'درجة الصحة',
+        riskScore: 'درجة المخاطر',
+        cashRunway: 'مدى السيولة',
+        burnRate: 'معدل الإنفاق',
+        cfoAskTitle: 'اسأل الذكاء الاصطناعي للمدير المالي',
+        cfoAskPlaceholder: 'مثال: هل نحن بصحة مالية جيدة؟ هل يمكننا الصمود 6 أشهر؟',
+        cfoAskBtn: 'اسأل',
+        cfoChipHealth: 'فحص الصحة',
+        cfoChipSurvival: 'فحص البقاء',
+        cfoChipCost: 'محركات التكلفة',
+        cfoChipLeaks: 'تسرب النقد',
+        cfoChipBurn: 'معدل الإنفاق',
+        ceoTitle: 'لوحة المدير التنفيذي',
+        ceoSubtitle: 'ملخصات مالية رفيعة المستوى ومؤشرات أداء وتنبيهات استراتيجية لاتخاذ القرارات التنفيذية.',
+        profitMargin: 'هامش الربح',
+        ceoRevExpTrend: 'اتجاه الإيرادات مقابل المصروفات',
+        ceoProfitTrend: 'اتجاه الربح',
+        ceoTopExpenses: 'أعلى المصروفات',
+        ceoBalanceSummary: 'ملخص الميزانية العمومية',
+        ceoAssets: 'الأصول',
+        ceoLiabilities: 'الالتزامات',
+        ceoEquity: 'حقوق الملكية',
+        ceoArApTitle: 'الذمم المدينة والدائنة',
+        ceoAR: 'الذمم المدينة',
+        ceoAP: 'الذمم الدائنة',
+        invoiceCurrencyLabel: 'العملة',
+        noInvoicesYet: 'لا توجد فواتير بعد.',
         ceoModeNav: 'وضع الرئيس التنفيذي',
       
         // ── Reset-to-empty button ──
@@ -6174,7 +6290,7 @@
         const list = await res.json();
         invoicesTbody.innerHTML = '';
         if (!list.length) {
-          invoicesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">No invoices yet.</td></tr>';
+          invoicesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">' + t('noInvoicesYet') + '</td></tr>';
           return;
         }
         list.forEach(i => {
@@ -8369,9 +8485,21 @@
       if (!btn) return;
       showPage(btn.getAttribute('data-page'));
     });
-    window.addEventListener('hashchange', () => showPage((location.hash || '#dashboard').slice(1)));
+    window.addEventListener('hashchange', () => {
+      const p = (location.hash || '#dashboard').slice(1);
+      showPage(p);
+      loadPageData(p);
+    });
     applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
-    showPage((location.hash || '#dashboard').slice(1));
+    {
+      const initialPage = (location.hash || '#dashboard').slice(1);
+      showPage(initialPage);
+      // Defer the data load to a microtask: some loaders reference module
+      // consts (e.g. bsAPI for CFO/CEO/bank-statements) that are declared
+      // below this bootstrap block and are in the temporal dead zone right
+      // now. Running after the synchronous bootstrap guarantees they exist.
+      setTimeout(() => loadPageData(initialPage), 0);
+    }
     loadCurrentUser();
     loadAIConfig();
     loadAnthropicConfig();
@@ -8959,10 +9087,12 @@
     if (typeof showPage === 'function') {
       const _origShowPage = showPage;
     }
-    document.getElementById('top-nav').addEventListener('click', (e) => {
-      const btn = e.target.closest('.nav-btn[data-page]');
-      if (!btn) return;
-      const page = btn.dataset.page;
+    // Load the data a page needs. Called from BOTH the nav-button click
+    // handler and hash navigation (hashchange / deep-link / back-forward), so
+    // a page reached via the URL hash — not just a click — still fetches its
+    // data (otherwise e.g. CFO/CEO cards render their empty "—" placeholders).
+    function loadPageData(page) {
+      if (page === 'dashboard') { loadOwnerDashboard(); }
       if (page === 'entities') { loadEntities(); }
       if (page === 'invoices') { loadInvoices(); }
       if (page === 'recurring') { loadRecurringRules(); }
@@ -8973,6 +9103,11 @@
       if (page === 'inventory') { loadPriceMgmtItems(); }
       if (page === 'manager') { loadAccountDatalist(); loadProductEntityDatalist(); }
       if (page === 'products') { loadProductsCatalog(); }
+    }
+    document.getElementById('top-nav').addEventListener('click', (e) => {
+      const btn = e.target.closest('.nav-btn[data-page]');
+      if (!btn) return;
+      loadPageData(btn.dataset.page);
     });
 
     // ═══════ Account Datalist for Manager Form ═══════

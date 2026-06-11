@@ -4925,6 +4925,24 @@
         const data = await r.json().catch(() => ({}));
         if (data && data.currency) window.__REPORTING_CURRENCY = data.currency;
       } catch (_) { /* offline / no auth — keep cached value */ }
+      applyDefaultFormCurrency();
+    }
+
+    // Pre-select the company (reporting) currency on the create forms instead
+    // of the hardcoded IRR first option. Fallback chain: reporting currency →
+    // most common transaction currency → IRR.
+    function preferredFormCurrency() {
+      const meta = window.__FX_META;
+      return window.__REPORTING_CURRENCY ||
+        (meta && (meta.reporting_currency || meta.most_common_currency)) || 'IRR';
+    }
+
+    function applyDefaultFormCurrency() {
+      const pref = String(preferredFormCurrency()).toUpperCase();
+      ['inv-currency', 'txn-currency'].forEach((id) => {
+        const sel = document.getElementById(id);
+        if (sel && [...sel.options].some((o) => o.value === pref)) sel.value = pref;
+      });
     }
 
     // Map ISO code → short symbol for inline display.
@@ -6751,8 +6769,7 @@
       // falling back to most-common currency, then IRR).
       const curSel = document.getElementById('txn-currency');
       if (curSel) {
-        const meta = window.__FX_META;
-        const pref = (meta && (meta.reporting_currency || meta.most_common_currency)) || 'IRR';
+        const pref = preferredFormCurrency();
         if ([...curSel.options].some(o => o.value === pref)) curSel.value = pref;
       }
       linesTbody.innerHTML = '';
@@ -6761,6 +6778,38 @@
       selectedAttachments = [];
       attachmentInput.value = '';
       renderAttachments();
+    }
+
+    // Primary cash/bank account of the seeded chart, used as the default
+    // posting account for invoice payments. Derived from the chart itself
+    // (UK chart → 1200 "Bank current account", Iranian chart → 1110) instead
+    // of hardcoding the Iranian cash code.
+    window.__DEFAULT_CASH_CODE = null;
+    let _defaultCashCodePromise = null;
+    function getDefaultCashCode(force) {
+      if (!_defaultCashCodePromise || force) {
+        _defaultCashCodePromise = (async () => {
+          try {
+            const r = await fetch(API + '/accounts?limit=500');
+            if (r.ok) {
+              const list = await r.json();
+              const codes = new Set((list || []).map((a) => String(a.code)));
+              // Whichever primary cash/bank code the seeded chart contains
+              // wins; the reporting locale only breaks the tie if both exist.
+              const candidates = window.__REPORTING_LOCALE === 'uk' ? ['1200', '1110'] : ['1110', '1200'];
+              let code = candidates.find((c) => codes.has(c));
+              if (!code) {
+                const guess = (list || []).find((a) =>
+                  /^1\d{2,3}$/.test(String(a.code)) && /(bank|cash|بانک|صندوق|نقد)/i.test(String(a.name || '')));
+                code = guess ? String(guess.code) : null;
+              }
+              if (code) window.__DEFAULT_CASH_CODE = code;
+            }
+          } catch (_) { /* keep fallback below */ }
+          return window.__DEFAULT_CASH_CODE || '1110';
+        })();
+      }
+      return _defaultCashCodePromise;
     }
 
     async function loadEntityOptions() {
@@ -6801,16 +6850,17 @@
         }
         const bankSel = document.getElementById('inv-bank-code');
         if (bankSel) {
+          const defaultCash = await getDefaultCashCode();
           bankSel.innerHTML = '';
           const none = document.createElement('option');
           none.value = '';
-          none.dataset.accountCode = '1110';
-          none.textContent = '— Default bank/cash (1110) —';
+          none.dataset.accountCode = defaultCash;
+          none.textContent = '— ' + tf('optionDefaultBank', { code: defaultCash }) + ' —';
           bankSel.appendChild(none);
           (entityOptions.bank || []).forEach(e => {
             const opt = document.createElement('option');
             opt.value = e.id;
-            opt.dataset.accountCode = (e.code || '').trim() || '1110';
+            opt.dataset.accountCode = (e.code || '').trim() || defaultCash;
             opt.textContent = e.name + (e.code ? (' (' + e.code + ')') : '');
             bankSel.appendChild(opt);
           });
@@ -7904,7 +7954,7 @@
       const date = document.getElementById('date').value;
       const reference = document.getElementById('reference').value.trim() || null;
       const description = document.getElementById('description').value.trim() || null;
-      const currency = (document.getElementById('txn-currency')?.value || 'IRR');
+      const currency = (document.getElementById('txn-currency')?.value || preferredFormCurrency());
       const rows = Array.from(linesTbody.querySelectorAll('.line-row'));
       const lines = rows.map(tr => ({
         account_code: tr.querySelector('.line-code').value.trim(),
@@ -8165,7 +8215,7 @@
           bankSel.selectedOptions &&
           bankSel.selectedOptions[0] &&
           bankSel.selectedOptions[0].dataset.accountCode
-        ) || '1110';
+        ) || (await getDefaultCashCode());
         try {
           const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/mark-paid', {
             method: 'POST',
@@ -8393,7 +8443,7 @@
       const number = document.getElementById('inv-number').value.trim();
       const kind = document.getElementById('inv-kind').value;
       const amount = parseInt(document.getElementById('inv-amount').value, 10) || 0;
-      const currency = document.getElementById('inv-currency')?.value || 'IRR';
+      const currency = document.getElementById('inv-currency')?.value || preferredFormCurrency();
       const issue_date = document.getElementById('inv-issue').value;
       const due_date = document.getElementById('inv-due').value;
       const entity_id = document.getElementById('inv-entity').value || null;
@@ -8408,10 +8458,17 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || 'Error creating invoice.', true); return; }
         showAlert('Invoice created.');
+        // Reset the whole form so the next invoice starts clean: entity back
+        // to "— None —" (avoids billing the next invoice to the same client),
+        // dates back to today/net-30. Currency keeps the company default.
         document.getElementById('inv-number').value = '';
         document.getElementById('inv-amount').value = '0';
         document.getElementById('inv-desc').value = '';
-        loadInvoices();
+        document.getElementById('inv-entity').value = '';
+        document.getElementById('inv-bank-code').value = '';
+        setInvoiceDateDefaults();
+        applyDefaultFormCurrency();
+        loadInvoices(data.id);
         loadOwnerDashboard();
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
@@ -8447,7 +8504,11 @@
         if (s.kind) document.getElementById('inv-kind').value = s.kind;
         if (s.amount != null) document.getElementById('inv-amount').value = String(s.amount);
         if (s.issue_date) document.getElementById('inv-issue').value = s.issue_date;
-        if (s.due_date) document.getElementById('inv-due').value = s.due_date;
+        if (s.due_date) {
+          document.getElementById('inv-due').value = s.due_date;
+          // Scanned due date counts as user-provided — don't recompute net-30.
+          _invDueManuallySet = true;
+        }
         if (s.description) document.getElementById('inv-desc').value = s.description;
         if (s.entity_id && document.getElementById('inv-entity')) {
           document.getElementById('inv-entity').value = s.entity_id;
@@ -9080,8 +9141,33 @@
     }
 
     document.getElementById('date').value = new Date().toISOString().slice(0, 10);
-    document.getElementById('inv-issue').value = new Date().toISOString().slice(0, 10);
-    document.getElementById('inv-due').value = new Date().toISOString().slice(0, 10);
+
+    // Invoice dates: due date defaults to issue date + 30 days (net-30) and
+    // follows the issue date until the user edits the due date themselves.
+    const INVOICE_NET_DAYS = 30;
+    let _invDueManuallySet = false;
+    function datePlusDays(iso, days) {
+      const d = new Date((iso || '') + 'T00:00:00Z');
+      if (isNaN(d.getTime())) return iso;
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+    function setInvoiceDateDefaults() {
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('inv-issue').value = today;
+      document.getElementById('inv-due').value = datePlusDays(today, INVOICE_NET_DAYS);
+      _invDueManuallySet = false;
+    }
+    setInvoiceDateDefaults();
+    document.getElementById('inv-issue').addEventListener('change', () => {
+      const issue = document.getElementById('inv-issue').value;
+      if (issue && !_invDueManuallySet) {
+        document.getElementById('inv-due').value = datePlusDays(issue, INVOICE_NET_DAYS);
+      }
+    });
+    document.getElementById('inv-due').addEventListener('change', () => {
+      _invDueManuallySet = true;
+    });
 
     function updateJalaliHint() {
       const dateEl = document.getElementById('date');

@@ -251,6 +251,13 @@
     .typing-bubble .dot:nth-child(3) { animation-delay: 0.3s; }
     @keyframes typing-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
     @media (prefers-reduced-motion: reduce) { .typing-bubble .dot { animation: none; } }
+    /* Brief highlight for a freshly inserted row so a save is easy to spot. */
+    .row-flash { animation: row-flash 2.4s ease; }
+    @keyframes row-flash {
+      0% { background-color: #fef08a; }
+      60% { background-color: #fef9c3; }
+      100% { background-color: transparent; }
+    }
     .results-table tbody tr.ledger-row { cursor: pointer; transition: background 0.15s; }
     .results-table tbody tr.ledger-row:hover { background: #e0f2f1; }
     .modal-overlay {
@@ -659,7 +666,7 @@
       <p id="entities-subtitle" data-i18n="entitiesSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Add parties you do business with. Link them to vouchers when saving to run reports like &quot;all transactions with client X&quot;.</p>
       <div class="row" style="margin-bottom: 1rem;">
         <div><label for="entity-type" data-i18n="labelType">Type</label><select id="entity-type"><option value="client" data-i18n="labelClient">Client</option><option value="bank" data-i18n="labelBank">Bank</option><option value="employee" data-i18n="optionEmployee">Employee</option><option value="supplier" data-i18n="labelSupplier">Supplier</option></select></div>
-        <div><label for="entity-name" data-i18n="labelName">Name</label><input type="text" id="entity-name" data-i18n-placeholder="placeholderEntityName" placeholder="e.g. Innotech, Melli"></div>
+        <div><label for="entity-name" data-i18n="labelName">Name</label><input type="text" id="entity-name" data-i18n-placeholder="placeholderEntityName" placeholder="e.g. Acme Ltd, HSBC"></div>
         <div><label for="entity-code" data-i18n="labelCodeOptional">Code (optional)</label><input type="text" id="entity-code" data-i18n-placeholder="placeholderEntityCode" placeholder="e.g. INV-001"></div>
         <div style="display: flex; align-items: flex-end;"><button type="button" class="btn btn-primary" id="entity-add" data-i18n="btnAddEntity">Add entity</button></div>
       </div>
@@ -735,11 +742,11 @@
 
     <div class="card" data-page="recurring">
       <h2 id="recurring-title" data-i18n="recurringTitle">Recurring rules (AI text)</h2>
-      <p id="recurring-example" data-i18n="recurringExample" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Example: <code>I have to pay 30M rent every month from Mellat bank</code> or <code>I receive 120M yearly from client X</code>.</p>
+      <p id="recurring-example" data-i18n="recurringExample" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Example: <code>I have to pay 2,500 rent every month from HSBC bank</code> or <code>I receive 120,000 yearly from client X</code>.</p>
       <div class="row" style="margin-bottom: 0.75rem;">
         <div style="flex: 3 1 420px;">
           <label for="recurring-text" data-i18n="recurringInputLabel">Tell AI your recurring payment/receipt</label>
-          <input type="text" id="recurring-text" data-i18n-placeholder="placeholderRecurring" placeholder="e.g. I pay 25M office rent every month from Mellat bank">
+          <input type="text" id="recurring-text" data-i18n-placeholder="placeholderRecurring" placeholder="e.g. I pay 2,500 office rent every month from HSBC bank">
         </div>
         <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="recurring-create" data-i18n="btnSaveRecurring">Save recurring rule</button></div>
       </div>
@@ -1335,7 +1342,7 @@
       <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;"><span data-i18n="bsSubtitle">Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.</span> <span data-i18n="bsOcrNote" style="color:#f57f17;font-size:0.8rem;">(PDF/image OCR requires an AI model to be configured in Settings.)</span></p>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
         <input type="file" id="bs-file-input" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;margin-bottom:0;">
-        <input type="text" id="bs-bank-name" data-i18n-placeholder="bsBankNamePlaceholder" placeholder="Bank name (e.g. Melli)" style="width:180px;margin-bottom:0;">
+        <input type="text" id="bs-bank-name" data-i18n-placeholder="bsBankNamePlaceholder" placeholder="Bank name (e.g. HSBC)" style="width:180px;margin-bottom:0;">
         <button type="button" class="btn btn-primary" id="bs-upload-btn" data-i18n="bsUploadBtn">Upload & Parse</button>
       </div>
       <div id="bs-upload-status" style="display:none;margin-bottom:1rem;" class="alert"></div>
@@ -2371,7 +2378,7 @@
         invoicesTitle: 'Invoices',
         invoicesSubtitle: 'Create sales/purchase invoices, then mark paid to automatically create a transaction.',
         recurringTitle: 'Recurring rules (AI text)',
-        recurringExample: 'Example: I have to pay 30M rent every month from Mellat bank or I receive 120M yearly from client X.',
+        recurringExample: 'Example: I have to pay 2,500 rent every month from HSBC bank or I receive 120,000 yearly from client X.',
         recurringInputLabel: 'Tell AI your recurring payment/receipt',
         aiChatTitle: 'AI Accounting Assistant',
         aiChatSubtitle: 'Ask questions, record transactions via conversation, and get instant financial reports.',
@@ -2445,11 +2452,11 @@
         aiApiKeyOptional: 'API key (optional)',
         aiApplySettings: 'Apply AI settings',
         aiHint: 'Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.',
-        placeholderEntityName: 'e.g. Innotech, Melli',
+        placeholderEntityName: 'e.g. Acme Ltd, HSBC',
         placeholderEntityCode: 'e.g. INV-001',
         placeholderInvoiceNo: 'e.g. INV-1001',
         placeholderInvoiceDesc: 'e.g. Software development',
-        placeholderRecurring: 'e.g. I pay 25M office rent every month from Mellat bank',
+        placeholderRecurring: 'e.g. I pay 2,500 office rent every month from HSBC bank',
         placeholderChatInput: 'Ask anything (e.g. show me balance sheet for last month)',
         placeholderReference: 'e.g. INV-001, receipt no.',
         placeholderDescription: 'Event description',
@@ -2826,7 +2833,7 @@
         bsTitle: 'Bank Statement Import',
         bsSubtitle: 'Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.',
         bsOcrNote: '(PDF/image OCR requires an AI model to be configured in Settings.)',
-        bsBankNamePlaceholder: 'Bank name (e.g. Melli)',
+        bsBankNamePlaceholder: 'Bank name (e.g. HSBC)',
         bsUploadBtn: 'Upload & Parse',
         bsRecentStatements: 'Recent Statements',
         thBank: 'Bank',
@@ -2903,7 +2910,6 @@
         confirmLargeMultiplier: 'Multiplier is {multiplier}x — amounts will be scaled by this factor. Continue?',
         confirmCurrencyMultiplier: 'You are importing {currency} with a {multiplier}x multiplier. This is uncommon for {currency}. Continue?',
         optionDefaultBank: 'Default bank/cash ({code})',
-        placeholderBankName: 'Bank name (e.g. HSBC)',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -3440,7 +3446,6 @@
         confirmLargeMultiplier: 'ضریب {multiplier} برابر است — مبالغ با این ضریب مقیاس می‌شوند. ادامه می‌دهید؟',
         confirmCurrencyMultiplier: 'در حال واردکردن {currency} با ضریب {multiplier} هستید. این برای {currency} غیرمعمول است. ادامه می‌دهید؟',
         optionDefaultBank: 'بانک/صندوق پیش‌فرض ({code})',
-        placeholderBankName: 'نام بانک (مثلاً ملی)',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -3782,17 +3787,17 @@
         placeholderChatInput: 'Pregunta lo que quieras (p. ej. muéstrame el balance del mes pasado)',
         placeholderDescription: 'Descripción del evento',
         placeholderEntityCode: 'p. ej. INV-001',
-        placeholderEntityName: 'p. ej. Innotech, Melli',
+        placeholderEntityName: 'p. ej. Acme S.L., BBVA',
         placeholderFilterByName: 'Filtrar por nombre',
         placeholderInvItem: 'p. ej. Producto A',
         placeholderInvoiceDesc: 'p. ej. Desarrollo de software',
         placeholderInvoiceNo: 'p. ej. INV-1001',
         placeholderOptional: 'opcional',
-        placeholderRecurring: 'p. ej. pago 25M de alquiler cada mes desde el banco Mellat',
+        placeholderRecurring: 'p. ej. pago 2.500 de alquiler cada mes desde el banco BBVA',
         placeholderReference: 'p. ej. INV-001, N.º de recibo',
         placeholderSearchCodeName: 'Buscar por código o nombre...',
         placeholderUnit: 'unidad',
-        recurringExample: 'Ejemplo: pago 30M de alquiler cada mes desde el banco Mellat o recibo 120M anuales del cliente X.',
+        recurringExample: 'Ejemplo: pago 2.500 de alquiler cada mes desde el banco BBVA o recibo 120.000 anuales del cliente X.',
         reportExportTitle: 'Exportación de reporte',
         reportResult: 'Resultado del reporte',
         reportWord: 'Reporte',
@@ -3883,7 +3888,7 @@
         bsTitle: 'Importar extracto bancario',
         bsSubtitle: 'Suba extractos bancarios en CSV o Excel. El sistema analizará, clasificará y conciliará las transacciones automáticamente.',
         bsOcrNote: '(El OCR de PDF/imagen requiere configurar un modelo de IA en Ajustes.)',
-        bsBankNamePlaceholder: 'Nombre del banco (p. ej. Melli)',
+        bsBankNamePlaceholder: 'Nombre del banco (p. ej. BBVA)',
         bsUploadBtn: 'Subir y analizar',
         bsRecentStatements: 'Extractos recientes',
         thBank: 'Banco',
@@ -3960,7 +3965,6 @@
         confirmLargeMultiplier: 'El multiplicador es {multiplier}x — los importes se escalarán por este factor. ¿Continuar?',
         confirmCurrencyMultiplier: 'Estás importando {currency} con un multiplicador de {multiplier}x. Esto es poco común para {currency}. ¿Continuar?',
         optionDefaultBank: 'Banco/caja por defecto ({code})',
-        placeholderBankName: 'Nombre del banco (p. ej. BBVA)',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -4302,17 +4306,17 @@
         placeholderChatInput: 'اسأل أي شيء (مثلاً: اعرض الميزانية للشهر الماضي)',
         placeholderDescription: 'وصف الحدث',
         placeholderEntityCode: 'مثال: INV-001',
-        placeholderEntityName: 'مثال: Innotech، Melli',
+        placeholderEntityName: 'مثال: شركة أكمي، بنك HSBC',
         placeholderFilterByName: 'تصفية حسب الاسم',
         placeholderInvItem: 'مثال: المنتج A',
         placeholderInvoiceDesc: 'مثال: تطوير برامج',
         placeholderInvoiceNo: 'مثال: INV-1001',
         placeholderOptional: 'اختياري',
-        placeholderRecurring: 'مثال: أدفع 25 مليون إيجار مكتب شهرياً من بنك ملت',
+        placeholderRecurring: 'مثال: أدفع 2500 إيجار مكتب شهرياً من بنك HSBC',
         placeholderReference: 'مثال: INV-001، رقم الإيصال',
         placeholderSearchCodeName: 'ابحث بالرمز أو الاسم...',
         placeholderUnit: 'وحدة',
-        recurringExample: 'مثال: أدفع 30 مليون إيجار شهرياً من بنك ملت أو أستلم 120 مليون سنوياً من العميل X.',
+        recurringExample: 'مثال: أدفع 2500 إيجار شهرياً من بنك HSBC أو أستلم 120,000 سنوياً من العميل X.',
         reportExportTitle: 'تصدير التقرير',
         reportResult: 'نتيجة التقرير',
         reportWord: 'تقرير',
@@ -4403,7 +4407,7 @@
         bsTitle: 'استيراد كشف الحساب البنكي',
         bsSubtitle: 'حمّل كشوف الحساب البنكية بصيغة CSV أو Excel. سيقوم النظام بتحليل المعاملات وتصنيفها وتسويتها تلقائيًا.',
         bsOcrNote: '(يتطلب التعرف الضوئي على ملفات PDF/الصور تهيئة نموذج ذكاء اصطناعي في الإعدادات.)',
-        bsBankNamePlaceholder: 'اسم البنك (مثال: ملي)',
+        bsBankNamePlaceholder: 'اسم البنك (مثال: HSBC)',
         bsUploadBtn: 'تحميل وتحليل',
         bsRecentStatements: 'الكشوف الأخيرة',
         thBank: 'البنك',
@@ -4480,7 +4484,6 @@
         confirmLargeMultiplier: 'المضاعف هو {multiplier}x — ستُضرب المبالغ بهذا العامل. هل تريد المتابعة؟',
         confirmCurrencyMultiplier: 'أنت تستورد {currency} بمضاعف {multiplier}x. هذا غير معتاد لعملة {currency}. هل تريد المتابعة؟',
         optionDefaultBank: 'البنك/الصندوق الافتراضي ({code})',
-        placeholderBankName: 'اسم البنك (مثل HSBC)',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -4828,6 +4831,19 @@
         alertEl.style.opacity = '0';
         setTimeout(() => { alertEl.style.display = 'none'; alertEl.style.transition = ''; }, 400);
       }, 5000);
+    }
+
+    // Briefly highlight a freshly inserted row/element and scroll it into
+    // view so the user can confirm the save landed.
+    function flashRow(el) {
+      if (!el) return;
+      el.classList.remove('row-flash');
+      void el.offsetWidth; // restart the animation if the class was present
+      el.classList.add('row-flash');
+      if (typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+      setTimeout(() => el.classList.remove('row-flash'), 2600);
     }
 
     // t() with {token} substitution: tf('confirmDeleteUser', {name: 'bob'}).
@@ -6567,7 +6583,8 @@
       }
     }
 
-    async function loadManagerInventoryItems() {
+    async function loadManagerInventoryItems(highlightId) {
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       if (!mgrMvItemEl) return;
       try {
         const res = await fetch(API + '/manager-reports/inventory/items');
@@ -6584,11 +6601,12 @@
         if (listEl && rows.length) {
           listEl.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.3rem;">${rows.length} items registered</div>
           <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">${rows.map(i =>
-            `<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;background:#f1f5f9;border-radius:6px;font-size:0.8rem;border:1px solid var(--border);">
+            `<span data-item-id="${escapeHtml(String(i.id))}" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;background:#f1f5f9;border-radius:6px;font-size:0.8rem;border:1px solid var(--border);">
               <strong>${escapeHtml(i.name)}</strong>${i.sku ? ` <span style="color:var(--text-muted);">(${escapeHtml(i.sku)})</span>` : ''}
               ${i.list_price ? ` — ${formatNum(i.list_price)} ${currencyUnit()}` : ''}
             </span>`
           ).join('')}</div>`;
+          if (highlightId) flashRow(listEl.querySelector('[data-item-id="' + CSS.escape(String(highlightId)) + '"]'));
         } else if (listEl) {
           listEl.innerHTML = '<div style="font-size:0.82rem;color:var(--text-muted);">No items yet. Add one above.</div>';
         }
@@ -6620,7 +6638,7 @@
         mgrInvItemNameEl.value = '';
         mgrInvItemSkuEl.value = '';
         showAlert('Inventory item added.');
-        await loadManagerInventoryItems();
+        await loadManagerInventoryItems(data.id);
       } catch (err) {
         showAlert('Error adding inventory item: ' + err.message, true);
       } finally {
@@ -6870,7 +6888,8 @@
     }
 
     let _invoicesCache = [];
-    async function loadInvoices() {
+    async function loadInvoices(highlightId) {
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       try {
         const res = await fetch(API + '/invoices');
         const list = await res.json();
@@ -6884,6 +6903,7 @@
           const isPaid = String(i.status || '').toLowerCase() === 'paid';
           const ccy = (i.currency || 'IRR').toUpperCase();
           const tr = document.createElement('tr');
+          tr.dataset.invoiceId = i.id;
           tr.innerHTML = `
             <td>${escapeHtml(i.number)}</td>
             <td>${escapeHtml(i.kind)}</td>
@@ -6900,12 +6920,14 @@
           `;
           invoicesTbody.appendChild(tr);
         });
+        if (highlightId) flashRow(invoicesTbody.querySelector('tr[data-invoice-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
         invoicesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading invoices.</td></tr>';
       }
     }
 
-    async function loadRecurringRules() {
+    async function loadRecurringRules(highlightId) {
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       try {
         const res = await fetch(API + '/recurring');
         const list = await res.json();
@@ -6916,6 +6938,7 @@
         }
         list.forEach(r => {
           const tr = document.createElement('tr');
+          tr.dataset.ruleId = r.id;
           tr.innerHTML = `
             <td>${escapeHtml(r.name)}</td>
             <td>${escapeHtml(r.direction)}</td>
@@ -6927,6 +6950,7 @@
           `;
           recurringTbody.appendChild(tr);
         });
+        if (highlightId) flashRow(recurringTbody.querySelector('tr[data-rule-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
         recurringTbody.innerHTML = '<tr><td colspan="7" class="empty-state">Error loading recurring rules.</td></tr>';
       }
@@ -8132,7 +8156,9 @@
       if (e.target.id === 'account-modal') e.target.style.display = 'none';
     };
 
-    async function loadEntities() {
+    async function loadEntities(highlightId) {
+      // Also bound directly as an event listener — ignore Event arguments.
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       const tbody = document.getElementById('entities-tbody');
       try {
         const filterType = document.getElementById('entity-filter-type').value;
@@ -8150,6 +8176,7 @@
         }
         list.forEach(e => {
           const tr = document.createElement('tr');
+          tr.dataset.entityId = e.id;
           tr.innerHTML = `
             <td>${escapeHtml(e.type)}</td>
             <td>${escapeHtml(e.name)}</td>
@@ -8162,6 +8189,7 @@
           `;
           tbody.appendChild(tr);
         });
+        if (highlightId) flashRow(tbody.querySelector('tr[data-entity-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
         tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Error loading entities.</td></tr>';
       }
@@ -8433,7 +8461,7 @@
         showAlert('Entity added.');
         document.getElementById('entity-name').value = '';
         document.getElementById('entity-code').value = '';
-        loadEntities();
+        loadEntities(data.id);
         loadEntityOptions();
       } catch (err) {
         showAlert('Connection error: ' + err.message, true);
@@ -8547,7 +8575,7 @@
         if (!res.ok) { showAlert(data.detail || 'Error creating recurring rule.', true); return; }
         showAlert('Recurring rule saved.');
         document.getElementById('recurring-text').value = '';
-        loadRecurringRules();
+        loadRecurringRules(data.id);
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
     document.getElementById('budget-save').addEventListener('click', async () => {
@@ -8921,13 +8949,15 @@
       const active = rows.filter(r => accountTurnover(r) !== 0).length;
       const topDebit = [...rows].sort((a, b) => (b.debit_turnover || 0) - (a.debit_turnover || 0))[0];
       const topCredit = [...rows].sort((a, b) => (b.credit_turnover || 0) - (a.credit_turnover || 0))[0];
+      // "1200 — Bank current account" instead of a bare account code.
+      const acctLabel = (r) => r ? escapeHtml(r.account_code + (r.account_name ? ' — ' + r.account_name : '')) : '—';
       ledgerKpisEl.innerHTML = `
         <div class="ledger-kpi"><div class="k">Accounts shown</div><div class="v">${formatNum(rows.length)}</div></div>
         <div class="ledger-kpi"><div class="k">Active accounts</div><div class="v">${formatNum(active)}</div></div>
-        <div class="ledger-kpi"><div class="k">Total movement</div><div class="v">${formatNum(totalMovement)}</div></div>
-        <div class="ledger-kpi"><div class="k">Net position</div><div class="v ${net >= 0 ? 'ledger-positive' : 'ledger-negative'}">${formatNum(Math.abs(net))} ${net >= 0 ? 'DR' : 'CR'}</div></div>
-        <div class="ledger-kpi"><div class="k">Top debit</div><div class="v">${topDebit ? escapeHtml(topDebit.account_code) : '—'}</div></div>
-        <div class="ledger-kpi"><div class="k">Top credit</div><div class="v">${topCredit ? escapeHtml(topCredit.account_code) : '—'}</div></div>
+        <div class="ledger-kpi"><div class="k">Total movement</div><div class="v">${formatNum(totalMovement)} ${escapeHtml(currencyUnit())}</div></div>
+        <div class="ledger-kpi"><div class="k">Net position</div><div class="v ${net >= 0 ? 'ledger-positive' : 'ledger-negative'}">${formatNum(Math.abs(net))} ${escapeHtml(currencyUnit())} ${net >= 0 ? 'DR' : 'CR'}</div></div>
+        <div class="ledger-kpi"><div class="k">Top debit</div><div class="v" style="font-size:0.95rem;">${acctLabel(topDebit)}</div></div>
+        <div class="ledger-kpi"><div class="k">Top credit</div><div class="v" style="font-size:0.95rem;">${acctLabel(topCredit)}</div></div>
       `;
     }
 

@@ -189,13 +189,13 @@
       justify-content: space-between;
       gap: 1rem;
       animation: alert-in 180ms ease;
+      /* Pinned top-right (top-left in RTL) so it never covers the page title. */
       position: fixed;
-      top: 1rem;
-      left: 50%;
-      transform: translateX(-50%);
+      top: 4.5rem;
+      inset-inline-end: 1rem;
       z-index: 9999;
-      width: calc(100% - 2rem);
-      max-width: 900px;
+      width: auto;
+      max-width: min(420px, calc(100% - 2rem));
       box-shadow: 0 4px 16px rgba(0,0,0,0.12);
     }
     .alert-success { background: var(--success-bg); color: #065f46; border: 1px solid #6ee7b7; }
@@ -4509,7 +4509,17 @@
       }
     }
 
+    // Hide every open overlay/modal (account drill-down, audit/chart
+    // drilldowns, confirm dialogs…). Called on every page change so a modal
+    // opened on one page never stays pinned over the next one.
+    function closeAllModals() {
+      document.querySelectorAll('.modal-overlay, [id$="-modal"]').forEach((el) => {
+        if (el && el.style && el.style.display !== 'none') el.style.display = 'none';
+      });
+    }
+
     function showPage(page) {
+      closeAllModals();
       const requested = validPages.has(page) ? page : 'dashboard';
       document.querySelectorAll('.card[data-page]').forEach(card => {
         card.classList.toggle('active-page', card.getAttribute('data-page') === requested);

@@ -33,6 +33,7 @@ from app.services.ai_accountant.execute_service import (
     UndoNotApplicable,
     UndoWindowClosed,
     execute_proposal,
+    reverse_action,
     undo_action,
 )
 from app.services.ai_accountant.proposal_tools import (
@@ -271,3 +272,54 @@ class TestUndo:
         ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
         with pytest.raises(PermissionDenied):
             undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER_ALT)
+
+
+# ---------------------------------------------------------------------------
+# Persistent reverse (AI-7) — no time limit, guarded against double-reversal
+# ---------------------------------------------------------------------------
+
+
+class TestReverse:
+    def test_reverse_works_after_window_closes(self, db: Session) -> None:
+        token = _make_proposal(db)
+        ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
+        # Window long closed — the quick undo would reject, reverse still works.
+        audit = db.get(AuditLog, uuid.UUID(ex.audit_log_id))
+        audit.timestamp = datetime.now(timezone.utc) - timedelta(days=3)
+        db.commit()
+        with pytest.raises(UndoWindowClosed):
+            undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+
+        result = reverse_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+        assert result.reversal_transaction_id
+
+        # A reversing transaction exists and the books net to zero.
+        rev = db.get(Transaction, uuid.UUID(result.reversal_transaction_id))
+        assert rev is not None
+        all_lines = db.execute(select(TransactionLine)).scalars().all()
+        assert sum(int(l.debit or 0) for l in all_lines) == sum(int(l.credit or 0) for l in all_lines)
+        actions = {
+            a.action for a in db.execute(select(AuditLog)).scalars().all()
+        }
+        assert "undo" in actions  # paired reversal audit row written
+
+    def test_cannot_reverse_twice(self, db: Session) -> None:
+        token = _make_proposal(db)
+        ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
+        reverse_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+        with pytest.raises(UndoNotApplicable):
+            reverse_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+
+    def test_reverse_blocked_after_quick_undo(self, db: Session) -> None:
+        token = _make_proposal(db)
+        ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
+        undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+        # Already compensated by the quick undo → persistent reverse is a no-op.
+        with pytest.raises(UndoNotApplicable):
+            reverse_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+
+    def test_other_user_cannot_reverse(self, db: Session) -> None:
+        token = _make_proposal(db, user_id=USER)
+        ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
+        with pytest.raises(PermissionDenied):
+            reverse_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER_ALT)

@@ -36,6 +36,7 @@ from app.services.ai_accountant.execute_service import (
     UndoNotApplicable,
     UndoWindowClosed,
     execute_proposal,
+    reverse_action,
     undo_action,
 )
 from app.services.ai_accountant.orchestrator import run_chat_turn
@@ -378,6 +379,37 @@ def undo(
         raise HTTPException(status_code=400, detail=str(e))
     except UndoWindowClosed as e:
         raise HTTPException(status_code=410, detail=str(e))
+    except PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return UndoResponse(
+        original_transaction_id=result.original_transaction_id,
+        reversal_transaction_id=result.reversal_transaction_id,
+        audit_log_id=result.audit_log_id,
+    )
+
+
+@router.post("/reverse", response_model=UndoResponse)
+def reverse(
+    payload: UndoPayload,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> UndoResponse:
+    """Persistent reversal of an AI-initiated transaction (AI-7).
+
+    Same compensating-entry mechanism as ``/undo`` but with **no time
+    limit** — the recourse after the quick undo window closes, so the user
+    never has to fall back to manual deletion. Allowed only for the user
+    who created the AI write, and only once per entry.
+    """
+    try:
+        result = reverse_action(
+            db,
+            audit_log_id=payload.audit_log_id,
+            actor_user_id=user.user_id,
+            actor_username=user.username,
+        )
+    except UndoNotApplicable as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except PermissionDenied as e:
         raise HTTPException(status_code=403, detail=str(e))
     return UndoResponse(

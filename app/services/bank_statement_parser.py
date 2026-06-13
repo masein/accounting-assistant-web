@@ -226,6 +226,53 @@ def parse_excel(file_path: str, bank_name: str = "") -> ParseResult:
     return parse_csv(csv_text, bank_name=bank_name)
 
 
+def parse_vision_rows(vision_rows: list[dict], bank_name: str = "") -> ParseResult:
+    """Build a ParseResult from the structured rows the vision model returns
+    (``extract_statement_rows``): ``{date(ISO|None), description, amount,
+    balance, direction}``. This is the accurate path for dense Persian RTL
+    tables that the free-text ``parse_ocr_rows`` regex can't read."""
+    result = ParseResult(source_type="ocr_vision", bank_name=bank_name)
+    idx = 0
+    for r in vision_rows or []:
+        raw_date = r.get("date")
+        tx_date = None
+        if raw_date:
+            try:
+                from datetime import date as _date
+                tx_date = _date.fromisoformat(str(raw_date))
+            except ValueError:
+                tx_date = _parse_date(str(raw_date))
+        if not tx_date:
+            continue
+        try:
+            amount = abs(int(r.get("amount") or 0))
+        except (TypeError, ValueError):
+            continue
+        if amount <= 0:
+            continue
+        direction = str(r.get("direction") or "credit").strip().lower()
+        debit = amount if direction == "debit" else 0
+        credit = amount if direction != "debit" else 0
+        desc = str(r.get("description") or "").strip()
+        balance = r.get("balance")
+        idx += 1
+        result.rows.append(ParsedRow(
+            row_index=idx,
+            tx_date=tx_date,
+            description=desc,
+            debit=debit,
+            credit=credit,
+            balance=int(balance) if isinstance(balance, (int, float)) else None,
+            counterparty=_extract_counterparty(desc),
+            raw_text=desc,
+            confidence=0.85,
+        ))
+    if result.rows:
+        result.from_date = min(r.tx_date for r in result.rows)
+        result.to_date = max(r.tx_date for r in result.rows)
+    return result
+
+
 def parse_ocr_rows(ocr_text: str, bank_name: str = "") -> ParseResult:
     """
     Parse OCR-extracted text from a bank statement image/PDF.

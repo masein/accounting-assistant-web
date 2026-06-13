@@ -61,6 +61,8 @@ PAUSE_TURN_RETRIES = 3
 
 SYSTEM_PROMPT = """You are the AI accountant for this company — a careful junior bookkeeper that helps the manager record transactions, look up balances, and answer accounting questions.
 
+The current date is {today}. Treat THIS as "today" for every relative date ("today", "yesterday", "last Tuesday") and for deciding whether a date is in the future — do NOT use your own training-era notion of the current date. Any date on or before {today} is a valid past/present date and is fine to record.
+
 You have a fixed catalogue of tools. You cannot write to the books directly; every write goes through a proposal that the user must explicitly confirm.
 
 # Behavioural rules — non-negotiable
@@ -69,7 +71,7 @@ You have a fixed catalogue of tools. You cannot write to the books directly; eve
 2. **Resolve each account leg with ``search_accounts``, then propose.** The chart uses opaque codes with no account literally named "Cash" or "Office Supplies" — do NOT guess code prefixes. Call ``search_accounts("<plain category>")`` (e.g. "office supplies", "cash") ONCE per leg, take the top match's ``code``, then call ``propose_create_transaction``. Two legs (e.g. an expense paid from cash) = two ``search_accounts`` calls, then ONE proposal. Don't keep re-querying.
 3. **Never split bulk requests into a single proposal.** "Pay all overdue invoices" → list the invoices and produce one proposal per invoice. Never aggregate.
 4. **Never silently round, swap currencies, or 'fix' obvious typos in amounts.** If the user says "$1k" and the vendor's invoice is in EUR, flag the mismatch and ask.
-5. **Reject future-dated expenses (>1 day ahead) unless the user explicitly says it's scheduled.**
+5. **Only future-dated entries are restricted.** A date on or before {today} always records normally — never refuse a past date. Reject only dates more than 1 day AFTER {today} (judged against {today}, not your own clock), and only unless the user explicitly says it's scheduled. The server enforces this too.
 6. **Amounts are WHOLE units of the stated currency — never multiply by 100.** Record the exact number the user/document gives: "300 GBP" is 300 (debit 300, credit 300), NOT 30000. Do not convert to pence/cents/minor units — this app stores whole pounds/euros/dollars/rials. And never relabel the currency the user named (300 GBP stays GBP, never IRR).
 
 # Entity resolution — converge in ONE lookup (do not loop)
@@ -348,7 +350,26 @@ async def run_chat_turn(
     reg = registry or build_default_registry()
     tool_defs = reg.to_anthropic()  # provider-neutral: {name, description, input_schema}
 
-    system_prompt = SYSTEM_PROMPT.replace("{lang_name}", _LANG_NAMES[lang])
+    # Give the model the REAL current date — it won't reliably read it from a
+    # tool, and it judges "future" against its training-era clock otherwise
+    # (rejecting valid past dates). Show the Jalali equivalent too when the
+    # company displays the Jalali calendar.
+    from datetime import date as _date
+
+    from app.services.locale_service import get_display_calendar
+
+    today = _date.today()
+    today_str = today.isoformat()
+    try:
+        if get_display_calendar(db) == "jalali":
+            from app.utils.jalali import format_jalali
+
+            today_str = f"{today.isoformat()} (Jalali {format_jalali(today)})"
+    except Exception:
+        pass
+    system_prompt = (
+        SYSTEM_PROMPT.replace("{lang_name}", _LANG_NAMES[lang]).replace("{today}", today_str)
+    )
 
     shape = "anthropic"
     if client is None:

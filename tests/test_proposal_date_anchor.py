@@ -121,3 +121,57 @@ class TestProposalDateAnchored:
         # A document attached this turn → keep the model's (document) date.
         assert self._propose(db, "here is the receipt", "2026-01-05",
                              attachment_ids=["any"]) == "2026-01-05"
+
+
+class TestFutureDateGuard:
+    """Past/today dates always record; only genuinely-future, non-scheduled
+    dates are refused — enforced server-side against the REAL today."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate(self, db: Session):
+        yield
+        db.execute(delete(AIProposal))
+        db.execute(delete(TransactionLine))
+        db.execute(delete(Transaction))
+        db.commit()
+
+    def _run(self, db: Session, message: str, model_date: str):
+        ctx = ToolContext(db=db, user_id="u", username="t", user_message=message)
+        out = asyncio.run(ProposeCreateTransaction().run(ctx, ProposeCreateTransactionInput(
+            date=model_date, description="x", currency="IRR",
+            lines=[
+                {"account_code": "6110", "debit": 1000, "credit": 0},
+                {"account_code": "1110", "debit": 0, "credit": 1000},
+            ],
+        )))
+        row = db.execute(select(AIProposal).where(
+            AIProposal.confirmation_token == uuid.UUID(out["confirmation_token"]))).scalar_one()
+        return row.tool_input["date"]
+
+    def test_explicit_past_date_records(self, db: Session):
+        # The live bug: an explicit past date wrongly refused as "future".
+        # 2026-02-10 is past relative to a 2026-06-13 today.
+        past = (date.today() - timedelta(days=120)).isoformat()
+        assert self._run(db, f"record rent on {past}", past) == past
+
+    def test_genuinely_future_date_rejected(self, db: Session):
+        from app.services.ai_accountant.base import ToolError
+        future = (date.today() + timedelta(days=200)).isoformat()
+        ctx = ToolContext(db=db, user_id="u", username="t", user_message=f"record it on {future}")
+        with pytest.raises(ToolError) as ei:
+            asyncio.run(ProposeCreateTransaction().run(ctx, ProposeCreateTransactionInput(
+                date=future, description="x", currency="IRR",
+                lines=[
+                    {"account_code": "6110", "debit": 1000, "credit": 0},
+                    {"account_code": "1110", "debit": 0, "credit": 1000},
+                ],
+            )))
+        assert ei.value.code == "future_date"
+
+    def test_scheduled_future_date_allowed(self, db: Session):
+        # Explicitly scheduled → the future date is kept and allowed.
+        future = (date.today() + timedelta(days=30)).isoformat()
+        assert self._run(db, f"schedule this rent for {future}", future) == future
+
+    def test_today_message_not_future(self, db: Session):
+        assert self._run(db, "pay it today", "2099-01-01") == date.today().isoformat()

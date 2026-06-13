@@ -120,12 +120,16 @@ def resolve_entry_date(
     *,
     today: date | None = None,
     has_attachment: bool = False,
+    scheduled: bool = False,
 ) -> date:
     """Anchor a chat proposal's entry date to reality (see module docstring).
 
     ``model_date`` is the date the model put on the proposal; ``message`` is
     the user's original text. Document/OCR turns (``has_attachment``) keep the
-    model's (document-derived) date unchanged.
+    model's (document-derived) date unchanged. ``scheduled`` keeps the model's
+    future date when the user explicitly intends a scheduled entry (e.g.
+    "schedule it for next month"), which our relative parser doesn't pin to a
+    specific day.
     """
     today = today or date.today()
     if has_attachment:
@@ -138,6 +142,11 @@ def resolve_entry_date(
     # An explicit absolute date in the message → trust the model's parse of it
     # (even if far in the past, e.g. backdating an old entry).
     if has_explicit_absolute_date(message):
+        return model_date
+
+    # Explicitly-scheduled future entry with only a vague term ("next month")
+    # → keep the model's future date rather than collapsing it to today.
+    if scheduled and model_date > today:
         return model_date
 
     # No date stated at all → today (don't trust the model's guess). The same

@@ -348,13 +348,14 @@ def _gemini_enabled(model: str) -> bool:
     return bool(key and (settings.gemini_base_url or "").strip())
 
 
-async def _gemini_extract(pages: list[tuple[str, str]], model: str) -> dict[str, Any]:
-    """Vision extraction via Metis's Google-format Gemini wrapper. gemini-2.5
-    reads Persian-script invoice digits exactly where gpt-4o misreads them."""
+async def _gemini_raw(pages: list[tuple[str, str]], model: str, prompt: str) -> str:
+    """Raw vision call via Metis's Google-format Gemini wrapper — returns the
+    model's text. gemini-2.5 reads Persian-script digits exactly where gpt-4o
+    misreads them."""
     key = (resolve_active_ai_backend().get("api_key") or "").strip()
     base = (settings.gemini_base_url or "").strip().rstrip("/")
     url = f"{base}/models/{model}:generateContent"
-    parts: list[dict[str, Any]] = [{"text": _VISION_PROMPT}]
+    parts: list[dict[str, Any]] = [{"text": prompt}]
     for mime, b64 in pages:
         parts.append({"inline_data": {"mime_type": mime, "data": b64}})
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0}}
@@ -369,57 +370,133 @@ async def _gemini_extract(pages: list[tuple[str, str]], model: str) -> dict[str,
     if not candidates:
         raise OCRExtractError("No OCR output from Gemini")
     text_parts = (candidates[0].get("content") or {}).get("parts") or []
-    content = "".join(p.get("text", "") for p in text_parts)
-    return _normalize_extracted(_parse_json_blob(content))
+    return "".join(p.get("text", "") for p in text_parts)
 
 
-async def _openai_vision_extract(pages: list[tuple[str, str]], model: str) -> dict[str, Any]:
+async def _openai_vision_raw(pages: list[tuple[str, str]], model: str, prompt: str) -> str:
+    """Raw vision call via the OpenAI-compatible endpoint — returns the
+    model's text."""
     base, _ = _resolve_ocr_base_model()
     if not base:
         raise OCRExtractError("AI backend URL not configured")
     url = _chat_completions_url(base)
     headers = _resolve_ai_headers()
-    user_content: list[dict[str, Any]] = [{"type": "text", "text": _VISION_PROMPT}]
+    user_content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
     for mime, b64 in pages:
         user_content.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
     payload = {
         "model": model,
         "messages": [
-            {"role": "system", "content": "You extract structured fields from financial documents. Output JSON only."},
+            {"role": "system", "content": "You extract structured data from financial documents. Output JSON only."},
             {"role": "user", "content": user_content},
         ],
         "temperature": 0.0,
-        "max_tokens": 1200,
+        "max_tokens": 4000,
     }
-    async with httpx.AsyncClient(timeout=90) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         r = await client.post(url, json=payload, headers=headers or None)
         r.raise_for_status()
         body = r.json()
     choices = body.get("choices") or []
     if not choices:
         raise OCRExtractError("No OCR output from model")
-    content = ((choices[0].get("message") or {}).get("content") or "").strip()
-    return _normalize_extracted(_parse_json_blob(content))
+    return ((choices[0].get("message") or {}).get("content") or "").strip()
 
 
-async def _vision_extract(pages: list[tuple[str, str]]) -> dict[str, Any]:
-    """Vision extraction with provider escalation: Gemini (accurate on
-    Persian numerals) first, then the OpenAI-compatible gpt-4o path."""
+async def _vision_raw(pages: list[tuple[str, str]], prompt: str) -> str:
+    """Vision call with provider escalation: Gemini (accurate on Persian
+    numerals) first, then the OpenAI-compatible gpt-4o path. Returns raw text;
+    the caller parses it for the shape it asked for."""
     if not pages:
         raise OCRExtractError("No image to send to the vision model")
     _, model = _resolve_ocr_base_model()
     last_err: Exception | None = None
     if _gemini_enabled(model):
         try:
-            return await _gemini_extract(pages, model)
+            return await _gemini_raw(pages, model, prompt)
         except Exception as e:  # fall through to the OpenAI-compatible model
             last_err = e
             logger.warning("Gemini OCR failed — falling back to %s", settings.ocr_fallback_model, exc_info=True)
     fallback = settings.ocr_fallback_model or "gpt-4o"
     try:
-        return await _openai_vision_extract(pages, fallback)
+        return await _openai_vision_raw(pages, fallback, prompt)
     except Exception as e:
         raise OCRExtractError(f"Vision OCR failed: {e}") from (last_err or e)
+
+
+async def _vision_extract(pages: list[tuple[str, str]]) -> dict[str, Any]:
+    """Invoice/receipt extraction: ask for the labelled total, parse the
+    object, normalize."""
+    content = await _vision_raw(pages, _VISION_PROMPT)
+    return _normalize_extracted(_parse_json_blob(content))
+
+
+_STATEMENT_PROMPT = (
+    "This is a bank statement (account transaction list), possibly in "
+    "Persian/Farsi and right-to-left. Read EVERY transaction row in the table "
+    "and return ONLY a JSON array. Each element is one row:\n"
+    '  {"date": string (the row date EXACTLY as printed, keep Jalali like '
+    "1405/02/06 if shown), \"description\": string (the row narrative / "
+    'counterparty), "amount": integer (the transaction amount, positive, no '
+    'separators), "balance": integer or null (the running balance after the '
+    'row), "direction": "debit" or "credit"}.\n'
+    "direction is 'credit' for money IN (deposit / واریز / بستانکار) and "
+    "'debit' for money OUT (withdrawal / برداشت / بدهکار). Convert Persian "
+    "digits (۰۱۲۳۴۵۶۷۸۹) to normal digits; amounts are WHOLE units, plain "
+    "integers (e.g. 133425600, not 133,425,600 or ۱۳۳٬۴۲۵٬۶۰۰). Include every "
+    "row in order. If the document is not a statement or has no rows, return []."
+)
+
+
+def _parse_json_array(content: str) -> list[dict[str, Any]]:
+    content = (content or "").strip()
+    m = re.search(r"\[[\s\S]*\]", content)
+    if m:
+        content = m.group(0)
+    try:
+        out = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise OCRExtractError(f"Invalid statement OCR JSON: {e!s}") from e
+    if not isinstance(out, list):
+        raise OCRExtractError("Statement OCR output must be a JSON array")
+    return [r for r in out if isinstance(r, dict)]
+
+
+async def extract_statement_rows(path: str, content_type: str) -> list[dict[str, Any]]:
+    """Vision-extract a bank statement (image/PDF) into normalized rows:
+    ``{date(ISO|None), description, amount, balance, direction}``. Uses the
+    same rasterize + Gemini/gpt-4o vision path as the invoice extractor (which
+    reads dense Persian tables that the free-text row parser can't). Raises
+    OCRExtractError on any failure so the caller can fall back / return a
+    clean 422 — never a 500."""
+    p = Path(path)
+    if not p.exists():
+        raise OCRExtractError("Attachment file not found")
+    ctype = (content_type or "").lower()
+    if ctype.startswith("image/jpeg") or ctype.startswith("image/jpg"):
+        ctype = "image/jpeg"
+
+    pages = _rasterize_pages(p, ctype)  # raises OCREngineMissing if no PyMuPDF
+    content = await _vision_raw(pages, _STATEMENT_PROMPT)
+    raw_rows = _parse_json_array(content)
+
+    rows: list[dict[str, Any]] = []
+    for r in raw_rows:
+        amount = coerce_amount(r.get("amount"))
+        if amount is None or amount <= 0:
+            continue
+        direction = str(r.get("direction") or "").strip().lower()
+        if direction not in ("debit", "credit"):
+            # Infer from a signed amount if the model didn't label it.
+            direction = "debit" if str(r.get("amount") or "").strip().startswith("-") else "credit"
+        rows.append({
+            "date": _normalize_date(r.get("date")),
+            "description": str(r.get("description") or "").strip(),
+            "amount": amount,
+            "balance": coerce_amount(r.get("balance")),
+            "direction": direction,
+        })
+    return rows
 
 
 def _normalize_extracted(out: dict[str, Any]) -> dict[str, Any]:

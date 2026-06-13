@@ -311,6 +311,67 @@ class TestCFOQuestionAnswer:
 
 
 # ---------------------------------------------------------------------------
+# Tests: localized CFO/CEO prose (narrative, insights, Q&A, alerts)
+# ---------------------------------------------------------------------------
+class TestCFOReportLocalization:
+    """The advisory prose must render in the requested language while the
+    structured KPI keys stay stable."""
+
+    @pytest.fixture(autouse=True)
+    def _seed_data(self, db):
+        _create_financial_data(db)
+        yield
+
+    def test_persian_narrative_uses_persian(self, db):
+        from app.services.cfo_intelligence import build_cfo_report
+
+        report = build_cfo_report(db, lang="fa")
+        # ماه = "month"; a Persian narrative must contain Persian script.
+        assert "ماه" in report.narrative
+        # And not the English template fragments.
+        assert "Over the past 12 months" not in report.narrative
+
+    def test_spanish_and_arabic_differ_from_english(self, db):
+        from app.services.cfo_intelligence import build_cfo_report
+
+        en = build_cfo_report(db, lang="en").narrative
+        es = build_cfo_report(db, lang="es").narrative
+        ar = build_cfo_report(db, lang="ar").narrative
+        assert es != en and ar != en and es != ar
+        assert "meses" in es  # Spanish "months"
+        assert "شهر" in ar     # Arabic "month"
+
+    def test_insights_are_localized(self, db):
+        from app.services.cfo_intelligence import build_cfo_report
+
+        fa = build_cfo_report(db, lang="fa")
+        # Every insight title/body should carry Persian script, not English.
+        joined = " ".join(i.title + " " + i.body for i in fa.insights)
+        if fa.insights:
+            assert any("؀" <= ch <= "ۿ" for ch in joined)
+
+    def test_qa_answer_localized(self, db):
+        from app.services.cfo_intelligence import answer_cfo_question
+
+        ans = answer_cfo_question(db, "How long can we survive?", lang="fa")
+        assert any("؀" <= ch <= "ۿ" for ch in ans)
+
+    def test_ceo_alerts_localized(self, db):
+        from app.services.cfo_intelligence import build_ceo_report
+
+        ceo = build_ceo_report(db, lang="es")
+        # Alerts mirror CFO insight prose; if any fired they should be Spanish.
+        for alert in ceo.alerts:
+            assert "Over the past" not in alert["body"]
+
+    def test_unknown_language_falls_back_to_english(self, db):
+        from app.services.cfo_intelligence import build_cfo_report
+
+        report = build_cfo_report(db, lang="zz")
+        assert "Over the past 12 months" in report.narrative
+
+
+# ---------------------------------------------------------------------------
 # Tests: Entity Filtering and Search
 # ---------------------------------------------------------------------------
 class TestEntityFilterAndSearch:

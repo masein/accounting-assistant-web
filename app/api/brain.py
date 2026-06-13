@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.auth import SessionUser, get_current_user
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
@@ -27,6 +28,21 @@ from app.models.transaction import Transaction, TransactionLine
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/brain", tags=["financial-brain"])
+
+
+def _preferred_report_language(db: Session, current: SessionUser) -> str:
+    """The user's UI language, used to localize the prose (narrative,
+    insights, Q&A answers, CEO alerts) of the CFO/CEO reports."""
+    from app.models.user import User
+    from app.services.cfo_intelligence import SUPPORTED_REPORT_LANGUAGES
+
+    try:
+        row = db.get(User, current.user_id)
+        lang = (row.preferred_language or "en") if row else "en"
+    except Exception:
+        lang = "en"
+    lang = lang.strip().lower()
+    return lang if lang in SUPPORTED_REPORT_LANGUAGES else "en"
 
 
 # ─── Schemas ────────────────────────────────────────────────────────
@@ -604,10 +620,11 @@ def get_setting(key: str, db: Session = Depends(get_db)) -> dict:
 def get_cfo_report(
     currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
     db: Session = Depends(get_db),
+    current: SessionUser = Depends(get_current_user),
 ) -> CFOReportResponse:
     """Get the CFO-level financial intelligence report."""
     from app.services.cfo_intelligence import build_cfo_report, _resolve_currency_unit
-    report = build_cfo_report(db, currency=currency)
+    report = build_cfo_report(db, currency=currency, lang=_preferred_report_language(db, current))
     return CFOReportResponse(
         kpis=[CFOKpiRead(
             key=k.key, label=k.label, value=k.value, unit=k.unit,
@@ -630,10 +647,11 @@ def get_cfo_report(
 def get_ceo_report(
     currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
     db: Session = Depends(get_db),
+    current: SessionUser = Depends(get_current_user),
 ) -> CEOReportResponse:
     """Get the CEO-level executive summary report."""
     from app.services.cfo_intelligence import build_ceo_report, _resolve_currency_unit
-    report = build_ceo_report(db, currency=currency)
+    report = build_ceo_report(db, currency=currency, lang=_preferred_report_language(db, current))
     return CEOReportResponse(
         revenue_total=report.revenue_total,
         revenue_trend=report.revenue_trend,
@@ -1278,11 +1296,13 @@ def seed_sample_financial_data(db: Session = Depends(get_db)) -> SeedDataRespons
 def ask_cfo_question(
     payload: CFOQuestionRequest,
     db: Session = Depends(get_db),
+    current: SessionUser = Depends(get_current_user),
 ) -> CFOQuestionResponse:
     """Ask a natural language financial question to the CFO AI."""
     from app.services.cfo_intelligence import answer_cfo_question, build_cfo_report
-    answer = answer_cfo_question(db, payload.question)
-    report = build_cfo_report(db)
+    lang = _preferred_report_language(db, current)
+    answer = answer_cfo_question(db, payload.question, lang=lang)
+    report = build_cfo_report(db, lang=lang)
     return CFOQuestionResponse(
         question=payload.question,
         answer=answer,

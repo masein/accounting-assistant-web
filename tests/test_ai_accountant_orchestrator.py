@@ -256,11 +256,11 @@ class TestOrchestrator:
 
 
 class TestRegistry:
-    def test_default_registry_has_six_tools(self) -> None:
+    def test_default_registry_has_all_tools(self) -> None:
         reg = build_default_registry()
         names = {t.name for t in reg}
         assert names == {
             "find_entity", "list_entities", "query_ledger",
-            "get_account_balance", "get_company_defaults",
-            "propose_create_transaction",
+            "get_account_balance", "search_accounts", "get_financial_statement",
+            "get_company_defaults", "propose_create_transaction",
         }

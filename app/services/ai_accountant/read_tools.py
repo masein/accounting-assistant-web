@@ -379,6 +379,272 @@ class GetAccountBalance(BaseTool):
 
 
 # ---------------------------------------------------------------------------
+# search_accounts
+# ---------------------------------------------------------------------------
+
+
+# Locale-aware category → (synonyms, candidate account codes). The synonyms
+# let a plain-English request ("office supplies", "cash") match a chart whose
+# accounts are worded differently or use opaque nominal codes; the candidate
+# codes pin the resolution to the right account when it exists. Only codes
+# present in the seeded chart are ever returned (verified at query time).
+_ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
+    "uk": {
+        "cash / bank": (["cash", "petty cash", "bank", "current account", "in hand"], ["1200", "1220", "1210"]),
+        "office supplies": (["office supplies", "stationery", "printing", "office expenses", "telephone", "phone"], ["7600"]),
+        "rent": (["rent", "rates"], ["7200"]),
+        "utilities": (["utilities", "light", "heat", "power", "electricity", "gas", "water"], ["7300"]),
+        "motor / travel": (["motor", "vehicle", "fuel", "travel", "entertainment", "mileage"], ["7400", "7500"]),
+        "wages / salary": (["wages", "salary", "salaries", "payroll", "staff"], ["7100", "7000"]),
+        "sales / revenue": (["sales", "revenue", "turnover", "income"], ["4000", "4200"]),
+        "purchases / cogs": (["purchases", "cogs", "cost of sales", "cost of goods", "stock", "materials"], ["5000"]),
+        "trade debtors": (["debtors", "receivable", "accounts receivable", "ar", "owed to us"], ["1100"]),
+        "trade creditors": (["creditors", "payable", "accounts payable", "ap", "we owe", "suppliers"], ["2100"]),
+        "vat": (["vat", "sales tax", "tax payable"], ["2200", "1400"]),
+        "bank charges / fees": (["bank charges", "bank fees", "commission", "fee"], ["8000"]),
+        "professional fees": (["professional fees", "accountant", "legal", "consultant", "audit"], ["7800"]),
+        "repairs": (["repairs", "maintenance"], ["7700"]),
+    },
+    "ir": {
+        "cash / bank": (["cash", "bank", "petty cash", "موجودی", "نقد", "بانک", "صندوق"], ["1110"]),
+        "operating expense": (["office supplies", "stationery", "rent", "utilities", "expense", "هزینه", "اجاره", "ملزومات", "قبض"], ["6112"]),
+        "wages / salary": (["wages", "salary", "payroll", "حقوق", "دستمزد"], ["6110"]),
+        "sales / revenue": (["sales", "revenue", "income", "فروش", "درآمد"], ["4110"]),
+        "receivable": (["receivable", "debtors", "ar", "دریافتنی"], ["1112"]),
+        "payable": (["payable", "creditors", "ap", "پرداختنی"], ["2110"]),
+        "financial expense": (["interest", "finance", "bank charge", "مالی", "بهره", "کارمزد"], ["6210"]),
+        "capital / equity": (["capital", "equity", "owner", "سرمایه"], ["3110"]),
+    },
+    "default": {
+        "cash / bank": (["cash", "bank", "petty cash"], ["1110", "1200"]),
+        "expense": (["expense", "supplies", "rent", "utilities"], ["6112", "7600"]),
+        "wages / salary": (["wages", "salary", "payroll"], ["6110", "7100"]),
+        "sales / revenue": (["sales", "revenue", "income"], ["4110", "4000"]),
+    },
+}
+
+
+def _normal_balance(acc_type: str) -> str:
+    return "debit" if acc_type in (ASSET, EXPENSE) else "credit"
+
+
+class SearchAccountsInput(BaseModel):
+    query: str = Field(
+        ...,
+        description=(
+            "Plain-language category or account name to resolve to a code, e.g. "
+            "'office supplies', 'cash', 'rent', 'sales', 'bank charges'. "
+            "Matches the chart by name AND code, with a synonym map so common "
+            "categories resolve even when the chart wording differs."
+        ),
+        min_length=1,
+    )
+    account_type: Literal["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"] | None = Field(
+        None, description="Optional filter by statement nature."
+    )
+    limit: int = Field(8, ge=1, le=25, description="Max accounts to return.")
+
+
+class SearchAccounts(BaseTool):
+    name = "search_accounts"
+    category = "read"
+    description = (
+        "Resolve a plain-language category (e.g. 'office supplies', 'cash', "
+        "'rent', 'sales') to actual chart-of-accounts codes. Returns the best "
+        "matching accounts as {code, name, type, normal_balance}. ALWAYS use "
+        "this to find the account_code for each leg before "
+        "propose_create_transaction — do NOT guess code prefixes. One search "
+        "per category is enough."
+    )
+    InputSchema = SearchAccountsInput
+
+    async def run(self, ctx: ToolContext, args: SearchAccountsInput) -> dict[str, Any]:
+        q = args.query.strip().lower()
+        if not q:
+            raise ToolError("query must be non-empty")
+
+        locale = get_reporting_locale(ctx.db)
+        aliases = _ACCOUNT_ALIASES.get(locale, _ACCOUNT_ALIASES["default"])
+
+        # An alias whose synonym appears IN the query (e.g. query "office
+        # supplies" contains synonym "office supplies") contributes its
+        # preferred codes — the category→code mapping. We only use aliases for
+        # this boost, NOT to expand the fuzzy terms: dumping every synonym into
+        # the name match cross-contaminates (e.g. "bank charges" would pull in
+        # "petty cash"). Match is one-directional (synonym ⊂ query) so "sales"
+        # doesn't fire the "cost of sales" synonym.
+        preferred_codes: set[str] = set()
+        for _label, (synonyms, codes) in aliases.items():
+            if any(s in q for s in synonyms):
+                preferred_codes.update(codes)
+
+        from app.models.account import AccountLevel
+
+        rows = ctx.db.execute(select(Account)).scalars().all()
+        scored: list[tuple[float, Account, str]] = []
+        for acc in rows:
+            # Only postable (leaf) accounts — group/header accounts can't take
+            # a journal line, so they'd be useless to propose against.
+            if getattr(acc, "level", None) == AccountLevel.GROUP:
+                continue
+            name_l = (acc.name or "").lower()
+            code_l = (acc.code or "").lower()
+            acc_type = classify_account_code(acc.code or "")
+            if args.account_type and acc_type != args.account_type:
+                continue
+            # Direct fuzzy/substring score of the raw query against the name.
+            score = difflib.SequenceMatcher(None, q, name_l).ratio()
+            if q in name_l:
+                score = max(score, 0.85)
+            if q == code_l or q in code_l:
+                score = max(score, 0.9)
+            # Strong boost when the chart actually has an alias's preferred code.
+            if (acc.code or "") in preferred_codes:
+                score = max(score, 0.97)
+            if score >= 0.45:
+                scored.append((score, acc, acc_type))
+
+        scored.sort(key=lambda t: t[0], reverse=True)
+        top = scored[: args.limit]
+        return {
+            "query": args.query,
+            "reporting_locale": locale,
+            "matches": [
+                {
+                    "code": acc.code,
+                    "name": acc.name,
+                    "type": acc_type,
+                    "normal_balance": _normal_balance(acc_type),
+                    "confidence": round(score, 3),
+                }
+                for (score, acc, acc_type) in top
+            ],
+        }
+
+
+# ---------------------------------------------------------------------------
+# get_financial_statement
+# ---------------------------------------------------------------------------
+
+
+_INCEPTION = date(1900, 1, 1)
+
+
+class GetFinancialStatementInput(BaseModel):
+    statement: Literal["balance_sheet", "income_statement", "trial_balance", "cash_flow"] = Field(
+        ..., description="Which statement to build."
+    )
+    from_date: date | None = Field(
+        None, description="Period start (income_statement / cash_flow). Defaults to the start of the current year."
+    )
+    to_date: date | None = Field(None, description="As-of / period end. Defaults to today.")
+    currency: str | None = Field(None, description="Filter by currency; defaults to the reporting currency.")
+
+
+class GetFinancialStatement(BaseTool):
+    name = "get_financial_statement"
+    category = "read"
+    description = (
+        "Build a complete financial statement deterministically from the "
+        "ledger: balance_sheet (Assets = Liabilities + Equity), "
+        "income_statement (P&L), trial_balance (total debits == total "
+        "credits), or cash_flow. ALWAYS use this for 'balance sheet', 'P&L', "
+        "'trial balance' or 'cash flow' questions — never hand-sum individual "
+        "account balances. Relay the returned totals; the figures already "
+        "balance."
+    )
+    InputSchema = GetFinancialStatementInput
+
+    async def run(self, ctx: ToolContext, args: GetFinancialStatementInput) -> dict[str, Any]:
+        from app.services.reporting.repository import trial_balance_rows
+
+        to_date = args.to_date or date.today()
+        currency = args.currency  # None → all currencies (repository handles)
+
+        def _balances(from_date: date) -> list[tuple[str, str, str, int]]:
+            """(code, name, type, signed_balance) over [from_date, to_date]."""
+            out = []
+            for code, name, d, c in trial_balance_rows(ctx.db, from_date, to_date, currency=currency):
+                t = classify_account_code(code)
+                out.append((code, name, t, balance_from_turnovers(t, d, c)))
+            return out
+
+        if args.statement == "trial_balance":
+            rows = _balances(_INCEPTION)
+            lines, tot_dr, tot_cr = [], 0, 0
+            for code, name, t, bal in rows:
+                if bal == 0:
+                    continue
+                dr = bal if t in (ASSET, EXPENSE) else 0
+                cr = bal if t not in (ASSET, EXPENSE) else 0
+                # A negative natural balance flips the column.
+                if bal < 0:
+                    dr, cr = (0, -bal) if t in (ASSET, EXPENSE) else (-bal, 0)
+                tot_dr += dr
+                tot_cr += cr
+                lines.append({"code": code, "name": name, "debit": dr, "credit": cr})
+            return {
+                "statement": "trial_balance", "as_of": to_date.isoformat(),
+                "lines": lines, "total_debit": tot_dr, "total_credit": tot_cr,
+                "balanced": tot_dr == tot_cr,
+            }
+
+        if args.statement in ("income_statement", "cash_flow"):
+            from_date = args.from_date or date(to_date.year, 1, 1)
+
+        if args.statement == "income_statement":
+            rows = _balances(from_date)
+            revenue = [(c, n, b) for c, n, t, b in rows if t == REVENUE and b]
+            expense = [(c, n, b) for c, n, t, b in rows if t == EXPENSE and b]
+            rev_total = sum(b for _, _, b in revenue)
+            exp_total = sum(b for _, _, b in expense)
+            return {
+                "statement": "income_statement",
+                "period": {"from": from_date.isoformat(), "to": to_date.isoformat()},
+                "revenue": [{"code": c, "name": n, "amount": b} for c, n, b in revenue],
+                "expenses": [{"code": c, "name": n, "amount": b} for c, n, b in expense],
+                "revenue_total": rev_total, "expense_total": exp_total,
+                "net_income": rev_total - exp_total,
+            }
+
+        if args.statement == "cash_flow":
+            from app.services.cash_service import cash_on_hand
+            opening = cash_on_hand(ctx.db, locale=get_reporting_locale(ctx.db),
+                                   currency=currency, as_of=from_date - timedelta(days=1))
+            closing = cash_on_hand(ctx.db, locale=get_reporting_locale(ctx.db),
+                                   currency=currency, as_of=to_date)
+            return {
+                "statement": "cash_flow",
+                "period": {"from": from_date.isoformat(), "to": to_date.isoformat()},
+                "opening_cash": opening, "closing_cash": closing,
+                "net_change_in_cash": closing - opening,
+            }
+
+        # balance_sheet — cumulative balances from inception.
+        rows = _balances(_INCEPTION)
+        assets = [(c, n, b) for c, n, t, b in rows if t == ASSET and b]
+        liabilities = [(c, n, b) for c, n, t, b in rows if t == LIABILITY and b]
+        equity_posted = [(c, n, b) for c, n, t, b in rows if t == EQUITY and b]
+        rev_total = sum(b for _, _, t, b in rows if t == REVENUE)
+        exp_total = sum(b for _, _, t, b in rows if t == EXPENSE)
+        net_income = rev_total - exp_total  # retained earnings, folded into equity
+        assets_total = sum(b for _, _, b in assets)
+        liab_total = sum(b for _, _, b in liabilities)
+        equity_total = sum(b for _, _, b in equity_posted) + net_income
+        return {
+            "statement": "balance_sheet", "as_of": to_date.isoformat(),
+            "assets": [{"code": c, "name": n, "amount": b} for c, n, b in assets],
+            "liabilities": [{"code": c, "name": n, "amount": b} for c, n, b in liabilities],
+            "equity": [{"code": c, "name": n, "amount": b} for c, n, b in equity_posted],
+            "retained_earnings": net_income,
+            "assets_total": assets_total,
+            "liabilities_total": liab_total,
+            "equity_total": equity_total,
+            "balanced": assets_total == liab_total + equity_total,
+        }
+
+
+# ---------------------------------------------------------------------------
 # get_company_defaults
 # ---------------------------------------------------------------------------
 
@@ -429,4 +695,6 @@ def register_read_tools(registry) -> None:
     registry.register(ListEntities())
     registry.register(QueryLedger())
     registry.register(GetAccountBalance())
+    registry.register(SearchAccounts())
+    registry.register(GetFinancialStatement())
     registry.register(GetCompanyDefaults())

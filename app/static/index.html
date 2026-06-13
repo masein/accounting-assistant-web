@@ -2933,6 +2933,14 @@
         aiChatProposedAction: 'Proposed action — please confirm',
         aiChatCancelled: '— cancelled —',
         aiChatNewStarted: 'New conversation.',
+        aiUndoRecorded: 'Recorded.',
+        aiUndoAlreadyCommitted: '(already committed)',
+        aiUndoBtn: 'Undo ({s}s)',
+        aiReverseBtn: 'Reverse entry',
+        aiReverseReverting: 'Reversing…',
+        aiUndoReversed: 'Reversed ✓',
+        aiUndoReversalNote: 'Reversal transaction {id}… recorded.',
+        aiReverseFailed: 'Reversal failed',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -3488,6 +3496,14 @@
         aiChatProposedAction: 'اقدام پیشنهادی — لطفاً تأیید کنید',
         aiChatCancelled: '— لغو شد —',
         aiChatNewStarted: 'گفتگوی جدید.',
+        aiUndoRecorded: 'ثبت شد.',
+        aiUndoAlreadyCommitted: '(قبلاً ثبت شده)',
+        aiUndoBtn: 'واگرد ({s} ثانیه)',
+        aiReverseBtn: 'برگرداندن سند',
+        aiReverseReverting: 'در حال برگرداندن…',
+        aiUndoReversed: 'برگردانده شد ✓',
+        aiUndoReversalNote: 'تراکنش برگشتی {id}… ثبت شد.',
+        aiReverseFailed: 'برگرداندن ناموفق بود',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -4026,6 +4042,14 @@
         aiChatProposedAction: 'Acción propuesta — por favor confirma',
         aiChatCancelled: '— cancelado —',
         aiChatNewStarted: 'Nueva conversación.',
+        aiUndoRecorded: 'Registrado.',
+        aiUndoAlreadyCommitted: '(ya confirmado)',
+        aiUndoBtn: 'Deshacer ({s}s)',
+        aiReverseBtn: 'Revertir asiento',
+        aiReverseReverting: 'Revirtiendo…',
+        aiUndoReversed: 'Revertido ✓',
+        aiUndoReversalNote: 'Transacción de reversión {id}… registrada.',
+        aiReverseFailed: 'La reversión falló',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -4564,6 +4588,14 @@
         aiChatProposedAction: 'إجراء مقترح — يرجى التأكيد',
         aiChatCancelled: '— أُلغي —',
         aiChatNewStarted: 'محادثة جديدة.',
+        aiUndoRecorded: 'تم التسجيل.',
+        aiUndoAlreadyCommitted: '(مُسجّل مسبقاً)',
+        aiUndoBtn: 'تراجع ({s} ث)',
+        aiReverseBtn: 'عكس القيد',
+        aiReverseReverting: 'جارٍ العكس…',
+        aiUndoReversed: 'تم العكس ✓',
+        aiUndoReversalNote: 'تم تسجيل معاملة العكس {id}…',
+        aiReverseFailed: 'فشل العكس',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -11299,6 +11331,9 @@
 
       let sessionId = null;
       const undoTimers = {};  // audit_log_id → timeout handle
+      // Quick one-click undo countdown; matches UNDO_WINDOW in execute_service
+      // (AI-7). After it elapses the button becomes a persistent reverse.
+      const UNDO_WINDOW_SECONDS = 120;
       // Invoice/receipt files uploaded for the NEXT chat turn. Each entry is
       // the AttachmentRead returned by POST /transactions/attachments.
       let pendingAttachments = [];
@@ -11553,31 +11588,42 @@
           if (!r.ok) throw new Error(data.detail || 'Execute failed');
           const receipt = document.createElement('div');
           receipt.style.cssText = 'margin-top:0.5rem; padding:0.4rem 0.6rem; background:#f0fdf4; border:1px solid #86efac; border-radius:6px; font-size:0.82rem;';
-          receipt.innerHTML = '<strong>Recorded.</strong> ' +
+          receipt.innerHTML = '<strong>' + escapeHtml(t('aiUndoRecorded')) + '</strong> ' +
             (data.transaction_id ? `Transaction <code>${escapeHtml(data.transaction_id.slice(0,8))}…</code>` : '') +
-            (data.idempotent ? ' <em>(already committed)</em>' : '');
+            (data.idempotent ? ' <em>' + escapeHtml(t('aiUndoAlreadyCommitted')) + '</em>' : '');
           cardEl.appendChild(receipt);
 
           if (!data.idempotent) {
+            // Quick one-click undo with a countdown. When it elapses the
+            // button becomes a persistent "Reverse entry" action (AI-7) so
+            // the user always has recourse, never just manual deletion.
             const undoBtn = document.createElement('button');
             undoBtn.type = 'button';
             undoBtn.className = 'btn btn-secondary btn-sm';
             undoBtn.style.marginTop = '0.4rem';
-            undoBtn.textContent = 'Undo (30s)';
+            undoBtn.textContent = tf('aiUndoBtn', { s: UNDO_WINDOW_SECONDS });
             cardEl.appendChild(undoBtn);
-            let remaining = 30;
+            let remaining = UNDO_WINDOW_SECONDS;
+            let reverting = false;
             const tick = setInterval(() => {
               remaining -= 1;
               if (remaining <= 0) {
                 clearInterval(tick);
-                undoBtn.disabled = true;
-                undoBtn.textContent = 'Undo window closed';
+                // Switch to the persistent reverse action.
+                undoBtn.textContent = t('aiReverseBtn');
               } else {
-                undoBtn.textContent = `Undo (${remaining}s)`;
+                undoBtn.textContent = tf('aiUndoBtn', { s: remaining });
               }
             }, 1000);
             undoTimers[data.audit_log_id] = tick;
-            undoBtn.addEventListener('click', () => undoAction(cardEl, data.audit_log_id, undoBtn, tick));
+            undoBtn.addEventListener('click', () => {
+              if (reverting) return;
+              reverting = true;
+              // Within the window → quick undo; after → persistent reverse.
+              const persistent = remaining <= 0;
+              reverseEntry(cardEl, data.audit_log_id, undoBtn, tick, persistent)
+                .finally(() => { reverting = false; });
+            });
           }
         } catch (e) {
           const err = document.createElement('div');
@@ -11588,27 +11634,30 @@
         }
       }
 
-      async function undoAction(cardEl, auditLogId, undoBtn, tick) {
-        undoBtn.disabled = true;
-        clearInterval(tick);
+      async function reverseEntry(cardEl, auditLogId, btn, tick, persistent) {
+        btn.disabled = true;
+        if (tick) clearInterval(tick);
+        btn.textContent = t('aiReverseReverting');
+        const endpoint = persistent ? '/ai-accountant/reverse' : '/ai-accountant/undo';
         try {
-          const r = await fetch(API + '/ai-accountant/undo', {
+          const r = await fetch(API + endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ audit_log_id: auditLogId }),
           });
           const data = await r.json();
-          if (!r.ok) throw new Error(data.detail || 'Undo failed');
-          undoBtn.textContent = 'Reversed ✓';
+          if (!r.ok) throw new Error(data.detail || t('aiReverseFailed'));
+          btn.textContent = t('aiUndoReversed');
           const note = document.createElement('div');
           note.style.cssText = 'margin-top:0.3rem; color:var(--text-muted); font-size:0.78rem;';
-          note.textContent = `Reversal transaction ${data.reversal_transaction_id.slice(0,8)}… recorded.`;
+          note.textContent = tf('aiUndoReversalNote', { id: (data.reversal_transaction_id || '').slice(0, 8) });
           cardEl.appendChild(note);
         } catch (e) {
-          undoBtn.textContent = 'Undo failed';
+          btn.disabled = false;
+          btn.textContent = persistent ? t('aiReverseBtn') : tf('aiUndoBtn', { s: 0 });
           const note = document.createElement('div');
           note.style.cssText = 'margin-top:0.3rem; color:#b91c1c; font-size:0.78rem;';
-          note.textContent = e.message;
+          note.textContent = t('aiReverseFailed') + ': ' + e.message;
           cardEl.appendChild(note);
         }
       }

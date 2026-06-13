@@ -81,6 +81,56 @@ class TestTotalLineExtraction:
 # ---------------------------------------------------------------------------
 
 
+class TestVisionRouting:
+    def test_parse_json_blob_strips_fences(self):
+        from app.services.ocr_extract import _parse_json_blob
+
+        out = _parse_json_blob('```json\n{"total": 3690720}\n```')
+        assert out["total"] == 3690720
+
+    def test_parse_json_blob_rejects_non_object(self):
+        from app.services.ocr_extract import OCRExtractError, _parse_json_blob
+
+        with pytest.raises(OCRExtractError):
+            _parse_json_blob("not json at all")
+
+    def test_gemini_enabled_only_for_gemini_models(self, monkeypatch):
+        from app.services import ocr_extract
+
+        monkeypatch.setattr(
+            ocr_extract, "resolve_active_ai_backend", lambda: {"api_key": "k"}
+        )
+        assert ocr_extract._gemini_enabled("gemini-2.5-pro") is True
+        assert ocr_extract._gemini_enabled("gpt-4o") is False
+
+    def test_gemini_disabled_without_key(self, monkeypatch):
+        from app.services import ocr_extract
+
+        monkeypatch.setattr(
+            ocr_extract, "resolve_active_ai_backend", lambda: {"api_key": ""}
+        )
+        assert ocr_extract._gemini_enabled("gemini-2.5-pro") is False
+
+    def test_normalize_extracted_prefers_grand_total(self):
+        from app.services.ocr_extract import _normalize_extracted
+
+        out = _normalize_extracted({
+            "subtotal": 3355200, "tax": 335520, "total": 3690720,
+            "date": "1404/10/15", "currency": "irr",
+        })
+        assert out["amount"] == 3690720
+        assert out["total"] == 3690720
+        assert out["currency"] == "IRR"
+        assert out["date"].startswith("2026-01")
+
+    def test_normalize_extracted_computes_total_from_parts(self):
+        from app.services.ocr_extract import _normalize_extracted
+
+        # No explicit total → subtotal + tax.
+        out = _normalize_extracted({"subtotal": 3355200, "tax": 335520})
+        assert out["amount"] == 3690720
+
+
 class TestDateNormalize:
     def test_jalali_to_gregorian(self):
         # 1404/10/15 (Jalali) → 2026-01-05 (Gregorian).

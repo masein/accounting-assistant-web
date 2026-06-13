@@ -240,32 +240,37 @@ def _extract_fields_from_text(text: str) -> dict[str, Any]:
     }
 
 
-def _rasterize_to_png_data_urls(path: Path, ctype: str, max_pages: int = 4) -> list[str]:
-    """Return base64 PNG ``data:`` URLs for the document. Images pass through
-    as-is; PDFs are rendered page-by-page via PyMuPDF. Empty list if a PDF
-    can't be rasterized (caller falls back to text)."""
+def _rasterize_pages(path: Path, ctype: str, max_pages: int = 4) -> list[tuple[str, str]]:
+    """Return ``(mime_type, base64)`` page images for the document. Images
+    pass through as-is; PDFs are rendered page-by-page via PyMuPDF. Empty
+    list if a PDF can't be rasterized (caller falls back to text)."""
     if ctype != "application/pdf":
         raw = path.read_bytes()
-        return [f"data:{ctype};base64,{base64.b64encode(raw).decode('ascii')}"]
+        return [(ctype or "image/png", base64.b64encode(raw).decode("ascii"))]
     try:
         import fitz  # PyMuPDF
     except Exception:
         logger.info("PyMuPDF unavailable — OCR will fall back to PDF text")
         return []
-    urls: list[str] = []
+    pages: list[tuple[str, str]] = []
     try:
         doc = fitz.open(str(path))
-        # 200 DPI is enough for the model to read dense Persian invoice text.
-        zoom = fitz.Matrix(200 / 72, 200 / 72)
+        # 220 DPI keeps dense Persian invoice digits legible to the model.
+        zoom = fitz.Matrix(220 / 72, 220 / 72)
         for page in doc[:max_pages]:
             pix = page.get_pixmap(matrix=zoom)
             png = pix.tobytes("png")
-            urls.append(f"data:image/png;base64,{base64.b64encode(png).decode('ascii')}")
+            pages.append(("image/png", base64.b64encode(png).decode("ascii")))
         doc.close()
     except Exception:
         logger.warning("PDF rasterization failed", exc_info=True)
         return []
-    return urls
+    return pages
+
+
+def _rasterize_to_png_data_urls(path: Path, ctype: str, max_pages: int = 4) -> list[str]:
+    """Back-compat wrapper: page images as ``data:`` URLs."""
+    return [f"data:{mime};base64,{b64}" for mime, b64 in _rasterize_pages(path, ctype, max_pages)]
 
 
 _VISION_PROMPT = (
@@ -292,17 +297,63 @@ _VISION_PROMPT = (
 )
 
 
-async def _vision_extract(data_urls: list[str]) -> dict[str, Any]:
-    base, model = _resolve_ocr_base_model()
+def _parse_json_blob(content: str) -> dict[str, Any]:
+    content = (content or "").strip()
+    m = re.search(r"\{[\s\S]*\}", content)
+    if m:
+        content = m.group(0)
+    try:
+        out = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise OCRExtractError(f"Invalid OCR JSON: {e!s}") from e
+    if not isinstance(out, dict):
+        raise OCRExtractError("OCR output must be an object")
+    return out
+
+
+def _gemini_enabled(model: str) -> bool:
+    """Use the Gemini wrapper when the OCR model is a Gemini model and we
+    have an API key (the Metis key works for both wrappers)."""
+    if not model.lower().startswith("gemini"):
+        return False
+    key = (resolve_active_ai_backend().get("api_key") or "").strip()
+    return bool(key and (settings.gemini_base_url or "").strip())
+
+
+async def _gemini_extract(pages: list[tuple[str, str]], model: str) -> dict[str, Any]:
+    """Vision extraction via Metis's Google-format Gemini wrapper. gemini-2.5
+    reads Persian-script invoice digits exactly where gpt-4o misreads them."""
+    key = (resolve_active_ai_backend().get("api_key") or "").strip()
+    base = (settings.gemini_base_url or "").strip().rstrip("/")
+    url = f"{base}/models/{model}:generateContent"
+    parts: list[dict[str, Any]] = [{"text": _VISION_PROMPT}]
+    for mime, b64 in pages:
+        parts.append({"inline_data": {"mime_type": mime, "data": b64}})
+    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0}}
+    async with httpx.AsyncClient(timeout=120) as client:
+        r = await client.post(
+            url, json=payload,
+            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+        )
+        r.raise_for_status()
+        body = r.json()
+    candidates = body.get("candidates") or []
+    if not candidates:
+        raise OCRExtractError("No OCR output from Gemini")
+    text_parts = (candidates[0].get("content") or {}).get("parts") or []
+    content = "".join(p.get("text", "") for p in text_parts)
+    return _normalize_extracted(_parse_json_blob(content))
+
+
+async def _openai_vision_extract(pages: list[tuple[str, str]], model: str) -> dict[str, Any]:
+    base, _ = _resolve_ocr_base_model()
     if not base:
         raise OCRExtractError("AI backend URL not configured")
-    if not data_urls:
-        raise OCRExtractError("No image to send to the vision model")
     url = _chat_completions_url(base)
     headers = _resolve_ai_headers()
     user_content: list[dict[str, Any]] = [{"type": "text", "text": _VISION_PROMPT}]
-    for du in data_urls:
-        user_content.append({"type": "image_url", "image_url": {"url": du}})
+    for mime, b64 in pages:
+        user_content.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
     payload = {
         "model": model,
         "messages": [
@@ -320,16 +371,27 @@ async def _vision_extract(data_urls: list[str]) -> dict[str, Any]:
     if not choices:
         raise OCRExtractError("No OCR output from model")
     content = ((choices[0].get("message") or {}).get("content") or "").strip()
-    m = re.search(r"\{[\s\S]*\}", content)
-    if m:
-        content = m.group(0)
+    return _normalize_extracted(_parse_json_blob(content))
+
+
+async def _vision_extract(pages: list[tuple[str, str]]) -> dict[str, Any]:
+    """Vision extraction with provider escalation: Gemini (accurate on
+    Persian numerals) first, then the OpenAI-compatible gpt-4o path."""
+    if not pages:
+        raise OCRExtractError("No image to send to the vision model")
+    _, model = _resolve_ocr_base_model()
+    last_err: Exception | None = None
+    if _gemini_enabled(model):
+        try:
+            return await _gemini_extract(pages, model)
+        except Exception as e:  # fall through to the OpenAI-compatible model
+            last_err = e
+            logger.warning("Gemini OCR failed — falling back to %s", settings.ocr_fallback_model, exc_info=True)
+    fallback = settings.ocr_fallback_model or "gpt-4o"
     try:
-        out = json.loads(content)
-    except json.JSONDecodeError as e:
-        raise OCRExtractError(f"Invalid OCR JSON: {e!s}") from e
-    if not isinstance(out, dict):
-        raise OCRExtractError("OCR output must be an object")
-    return _normalize_extracted(out)
+        return await _openai_vision_extract(pages, fallback)
+    except Exception as e:
+        raise OCRExtractError(f"Vision OCR failed: {e}") from (last_err or e)
 
 
 def _normalize_extracted(out: dict[str, Any]) -> dict[str, Any]:
@@ -373,10 +435,10 @@ async def extract_from_attachment(path: str, content_type: str) -> dict[str, Any
     if ctype.startswith("image/jpeg") or ctype.startswith("image/jpg"):
         ctype = "image/jpeg"
 
-    data_urls = _rasterize_to_png_data_urls(p, ctype)
-    if data_urls:
+    pages = _rasterize_pages(p, ctype)
+    if pages:
         try:
-            result = await _vision_extract(data_urls)
+            result = await _vision_extract(pages)
             # Backfill raw text from the PDF so downstream parsers (bank
             # statement row extraction) still have text to work with.
             if not result.get("raw_text") and ctype == "application/pdf":

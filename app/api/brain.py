@@ -233,6 +233,21 @@ class TransactionVersionRead(BaseModel):
 
 # ─── Bank Statement Endpoints ──────────────────────────────────────
 
+@router.get("/ocr-health")
+def ocr_health() -> dict:
+    """Report whether the vision-OCR engine (PyMuPDF) is installed so the UI
+    can warn that PDF/image scanning is unavailable until the image is
+    rebuilt. ``model`` is the configured OCR model for reference."""
+    from app.core.config import settings
+    from app.services.ocr_extract import ocr_engine_available
+
+    return {
+        "ocr_available": ocr_engine_available(),
+        "model": settings.ocr_model,
+        "fallback_model": settings.ocr_fallback_model,
+    }
+
+
 @router.post("/bank-statements/upload", response_model=BankStatementUploadResponse)
 async def upload_bank_statement(
     file: UploadFile = File(...),

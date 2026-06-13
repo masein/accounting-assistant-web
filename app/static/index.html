@@ -1343,7 +1343,7 @@
     <!-- ═══════ Bank Statements Page ═══════ -->
     <div class="card" data-page="bank-statements">
       <h2 data-i18n="bsTitle">Bank Statement Import</h2>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;"><span data-i18n="bsSubtitle">Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.</span> <span data-i18n="bsOcrNote" style="color:#f57f17;font-size:0.8rem;">(PDF/image OCR requires an AI model to be configured in Settings.)</span></p>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;"><span data-i18n="bsSubtitle">Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.</span> <span id="bs-ocr-note" data-i18n="bsOcrNote" style="color:#f57f17;font-size:0.8rem;">(PDF/image OCR requires an AI model to be configured in Settings.)</span></p>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
         <input type="file" id="bs-file-input" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;margin-bottom:0;">
         <input type="text" id="bs-bank-name" data-i18n-placeholder="bsBankNamePlaceholder" placeholder="Bank name (e.g. HSBC)" style="width:180px;margin-bottom:0;">
@@ -2837,6 +2837,7 @@
         bsTitle: 'Bank Statement Import',
         bsSubtitle: 'Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.',
         bsOcrNote: '(PDF/image OCR requires an AI model to be configured in Settings.)',
+        bsOcrUnavailable: '(PDF/image OCR is unavailable — the app image needs rebuilding (docker compose up -d --build app).)',
         bsBankNamePlaceholder: 'Bank name (e.g. HSBC)',
         bsUploadBtn: 'Upload & Parse',
         bsRecentStatements: 'Recent Statements',
@@ -3402,6 +3403,7 @@
         bsTitle: 'ورود صورت‌حساب بانکی',
         bsSubtitle: 'صورت‌حساب‌های بانکی CSV یا Excel را بارگذاری کنید. سیستم تراکنش‌ها را به‌صورت خودکار تجزیه، طبقه‌بندی و مغایرت‌گیری می‌کند.',
         bsOcrNote: '(OCR برای PDF/تصویر نیازمند پیکربندی یک مدل هوش مصنوعی در تنظیمات است.)',
+        bsOcrUnavailable: '(OCR برای PDF/تصویر در دسترس نیست — ایمیج برنامه باید بازسازی شود (docker compose up -d --build app).)',
         bsBankNamePlaceholder: 'نام بانک (مثال: ملی)',
         bsUploadBtn: 'بارگذاری و تجزیه',
         bsRecentStatements: 'صورت‌حساب‌های اخیر',
@@ -3950,6 +3952,7 @@
         bsTitle: 'Importar extracto bancario',
         bsSubtitle: 'Suba extractos bancarios en CSV o Excel. El sistema analizará, clasificará y conciliará las transacciones automáticamente.',
         bsOcrNote: '(El OCR de PDF/imagen requiere configurar un modelo de IA en Ajustes.)',
+        bsOcrUnavailable: '(El OCR de PDF/imagen no está disponible — hay que reconstruir la imagen de la app (docker compose up -d --build app).)',
         bsBankNamePlaceholder: 'Nombre del banco (p. ej. BBVA)',
         bsUploadBtn: 'Subir y analizar',
         bsRecentStatements: 'Extractos recientes',
@@ -4498,6 +4501,7 @@
         bsTitle: 'استيراد كشف الحساب البنكي',
         bsSubtitle: 'حمّل كشوف الحساب البنكية بصيغة CSV أو Excel. سيقوم النظام بتحليل المعاملات وتصنيفها وتسويتها تلقائيًا.',
         bsOcrNote: '(يتطلب التعرف الضوئي على ملفات PDF/الصور تهيئة نموذج ذكاء اصطناعي في الإعدادات.)',
+        bsOcrUnavailable: '(التعرف الضوئي على PDF/الصور غير متاح — يجب إعادة بناء صورة التطبيق (docker compose up -d --build app).)',
         bsBankNamePlaceholder: 'اسم البنك (مثال: HSBC)',
         bsUploadBtn: 'تحميل وتحليل',
         bsRecentStatements: 'الكشوف الأخيرة',
@@ -9669,7 +9673,28 @@
     // ═══════ Bank Statement Module ═══════
     const bsAPI = API + '/brain';
 
+    // Reflect real OCR-engine availability in the note: if PyMuPDF isn't
+    // installed in the running image, PDF/image scanning can't work until a
+    // rebuild — say so instead of implying a Settings tweak would fix it.
+    async function refreshOcrNote() {
+      const note = document.getElementById('bs-ocr-note');
+      if (!note) return;
+      try {
+        const res = await fetch(bsAPI + '/ocr-health');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.ocr_available === false) {
+          note.textContent = t('bsOcrUnavailable');
+          note.style.color = '#c62828';
+        } else {
+          note.textContent = t('bsOcrNote');
+          note.style.color = '#f57f17';
+        }
+      } catch (_) { /* leave the default note */ }
+    }
+
     async function loadBankStatements() {
+      refreshOcrNote();
       try {
         const res = await fetch(bsAPI + '/bank-statements?limit=20');
         if (!res.ok) return;

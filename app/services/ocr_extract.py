@@ -240,18 +240,44 @@ def _extract_fields_from_text(text: str) -> dict[str, Any]:
     }
 
 
+class OCREngineMissing(OCRExtractError):
+    """Raised when the PDF rasterizer (PyMuPDF / ``fitz``) isn't installed.
+
+    Distinct from "document unreadable": this means the *image* was built
+    without the OCR engine, so no PDF can be rasterized for the vision model.
+    The cure is rebuilding the app image, not retrying the document."""
+
+
+def ocr_engine_available() -> bool:
+    """True iff PyMuPDF (``fitz``) imports — i.e. PDFs can be rasterized for
+    the vision OCR path. Surfaced via /health and /brain/ocr-health so a
+    missing engine is observable instead of silently degrading every scan."""
+    try:
+        import fitz  # noqa: F401  (PyMuPDF)
+
+        return True
+    except Exception:
+        return False
+
+
 def _rasterize_pages(path: Path, ctype: str, max_pages: int = 4) -> list[tuple[str, str]]:
     """Return ``(mime_type, base64)`` page images for the document. Images
-    pass through as-is; PDFs are rendered page-by-page via PyMuPDF. Empty
-    list if a PDF can't be rasterized (caller falls back to text)."""
+    pass through as-is; PDFs are rendered page-by-page via PyMuPDF.
+
+    Raises ``OCREngineMissing`` if a PDF needs rasterizing but PyMuPDF isn't
+    installed (a build problem, not a document problem). Returns an empty
+    list only when rasterization itself fails on a specific PDF (corrupt
+    file), so the caller falls back to embedded text."""
     if ctype != "application/pdf":
         raw = path.read_bytes()
         return [(ctype or "image/png", base64.b64encode(raw).decode("ascii"))]
     try:
         import fitz  # PyMuPDF
-    except Exception:
-        logger.info("PyMuPDF unavailable — OCR will fall back to PDF text")
-        return []
+    except Exception as e:
+        raise OCREngineMissing(
+            "OCR engine not installed (PyMuPDF missing) — rebuild the app "
+            "image with: docker compose up -d --build app"
+        ) from e
     pages: list[tuple[str, str]] = []
     try:
         doc = fitz.open(str(path))
@@ -289,7 +315,9 @@ _VISION_PROMPT = (
     "  amount (integer or null) — same as total\n"
     "  line_items (array of {description, amount} or empty)\n"
     "  confidence (0..1)\n"
-    "Rules: Convert any Persian digits (۰۱۲۳۴۵۶۷۸۹) to normal digits. Return "
+    "Rules: Convert any Persian digits (۰۱۲۳۴۵۶۷۸۹) to normal digits. Report "
+    "amounts in WHOLE currency units exactly as printed — do NOT scale to "
+    "minor units (no x100 to pence/cents). Return "
     "amounts as plain integers with NO separators (e.g. 3690720, not "
     "3,690,720 or ۳٬۶۹۰٬۷۲۰). NEVER concatenate unrelated numbers such as "
     "economic/tax codes, serial numbers, phone or postal codes — only report "
@@ -435,7 +463,14 @@ async def extract_from_attachment(path: str, content_type: str) -> dict[str, Any
     if ctype.startswith("image/jpeg") or ctype.startswith("image/jpg"):
         ctype = "image/jpeg"
 
-    pages = _rasterize_pages(p, ctype)
+    try:
+        pages = _rasterize_pages(p, ctype)
+    except OCREngineMissing as e:
+        # A build problem, not a document problem — log it distinctly so it
+        # never again masquerades as "couldn't read the document". PDFs with
+        # an embedded text layer still degrade to text below.
+        logger.error("OCR unavailable: %s", e)
+        pages = []
     if pages:
         try:
             result = await _vision_extract(pages)

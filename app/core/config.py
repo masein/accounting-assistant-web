@@ -27,12 +27,17 @@ class Settings(BaseSettings):
     metis_base_url: str = "https://api.metisai.ir/openai/v1"
     metis_model: str = "gpt-4o-mini"
     metis_api_key: str | None = None
-    # OCR/document extraction uses a stronger vision-capable model than the
-    # conversational chat (which can stay on a cheaper model). Same
-    # OpenAI-compatible endpoint as the active backend — only the model
-    # string differs. gpt-4o accepts image inputs; gpt-4o-mini garbles
-    # dense Persian invoices. Override per-deployment via OCR_MODEL.
-    ocr_model: str = "gpt-4o"
+    # OCR/document extraction uses a stronger vision model than the
+    # conversational chat. Tested on real Persian invoices: gpt-4o-mini
+    # concatenates digits into garbage, gpt-4o misreads Persian numerals
+    # (3→2, 1404→1401), but gemini-2.5-pro reads them exactly. So OCR
+    # defaults to Gemini (via Metis's Google-format wrapper) and falls back
+    # to the OpenAI-compatible gpt-4o path if Gemini is unavailable.
+    ocr_model: str = "gemini-2.5-pro"
+    ocr_fallback_model: str = "gpt-4o"
+    # Metis exposes Gemini at Google's native generateContent endpoint
+    # (x-goog-api-key header), separate from the OpenAI-compatible path.
+    gemini_base_url: str = "https://api.metisai.ir/v1beta"
     # Backward-compatible LM Studio defaults
     lm_studio_base_url: str = "http://host.docker.internal:1234"
     # Model name as shown in LM Studio (e.g. qwen/qwen3-4b, lmstudio-community/granite-4-7b). Use non-"thinking" for speed on 16GB Mac.

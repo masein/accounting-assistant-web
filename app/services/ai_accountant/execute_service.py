@@ -42,7 +42,11 @@ from app.schemas.transaction import TransactionCreate, TransactionLineCreate
 from app.services.reporting.ledger_service import LedgerService
 
 PROPOSAL_TTL = timedelta(minutes=10)
-UNDO_WINDOW = timedelta(seconds=30)
+# The quick one-click undo window in the chat. Lengthened from 30s to 120s so
+# the countdown doesn't expire while the user is still reading the receipt
+# (AI-7). After it closes the user still has a persistent ``reverse_action``
+# (no time limit) for recourse, so this is just the "instant" path.
+UNDO_WINDOW = timedelta(seconds=120)
 
 
 # ---------------------------------------------------------------------------
@@ -268,29 +272,9 @@ def _execute_create_transaction(
 # ---------------------------------------------------------------------------
 
 
-def undo_action(
-    db: Session,
-    *,
-    audit_log_id: str,
-    actor_user_id: str,
-    actor_username: str | None = None,
-    ip_address: str | None = None,
-    undo_window: timedelta | None = None,
-) -> UndoResult:
-    """Reverse an AI-initiated write via a compensating entry.
-
-    The original transaction is **never edited or deleted** — the
-    reversal is a new transaction with opposite-sign lines and a
-    descriptive reference. Both transactions remain visible in the
-    audit log forever.
-
-    Constraints:
-      * The audit row must be ``actor_source='ai-assistant'`` and
-        ``entity_type='transaction'``.
-      * Must be within the undo window (30s default).
-      * The original row's transaction must still exist (not already
-        soft-deleted).
-    """
+def _resolve_undoable_audit(db: Session, audit_log_id: str, actor_user_id: str) -> AuditLog:
+    """Load + authorise an audit row for reversal. Shared by the windowed
+    undo and the persistent reverse paths."""
     try:
         audit_uuid = uuid.UUID(audit_log_id)
     except (ValueError, TypeError):
@@ -301,29 +285,42 @@ def undo_action(
     if audit is None:
         raise UndoNotApplicable(f"No audit row {audit_log_id}")
     if audit.user_id != actor_user_id:
-        raise PermissionDenied("Only the user who initiated the write can undo it.")
+        raise PermissionDenied("Only the user who initiated the write can reverse it.")
     if audit.actor_source != "ai-assistant":
         raise UndoNotApplicable(
-            "Undo is only supported for AI-initiated writes (actor_source='ai-assistant')."
+            "Reverse is only supported for AI-initiated writes (actor_source='ai-assistant')."
         )
     if audit.entity_type != "transaction" or audit.action != "create":
         raise UndoNotApplicable(
-            f"Undo is only implemented for transaction creates (got "
+            f"Reverse is only implemented for transaction creates (got "
             f"action={audit.action!r}, entity_type={audit.entity_type!r})."
         )
+    return audit
 
-    # Window check.
-    window = undo_window or UNDO_WINDOW
-    ts = audit.timestamp
-    if ts and ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    if ts and datetime.now(timezone.utc) - ts > window:
-        raise UndoWindowClosed(
-            f"Undo window of {int(window.total_seconds())}s has closed. "
-            f"Reverse the entry manually via the journal Reverse action."
+
+def _already_reversed(db: Session, transaction_id: str) -> bool:
+    """True if a prior undo/reverse already compensated this transaction —
+    guards against stacking multiple reversals on one entry."""
+    return db.execute(
+        select(AuditLog.id).where(
+            AuditLog.action == "undo",
+            AuditLog.entity_type == "transaction",
+            AuditLog.entity_id == transaction_id,
         )
+    ).first() is not None
 
-    # Reverse via the existing helper.
+
+def _perform_reversal(
+    db: Session,
+    audit: AuditLog,
+    *,
+    actor_user_id: str,
+    actor_username: str | None,
+    ip_address: str | None,
+    tool_name: str,
+) -> UndoResult:
+    """Build the compensating journal entry for ``audit``'s transaction and
+    write a paired audit row. The original is never edited or deleted."""
     if not audit.entity_id:
         raise UndoNotApplicable("Audit row is missing entity_id.")
     try:
@@ -331,7 +328,9 @@ def undo_action(
     except (ValueError, TypeError) as e:
         raise UndoNotApplicable(f"Invalid transaction ID on audit row: {e}") from e
 
-    # Validate the original is still around.
+    if _already_reversed(db, str(original_txn_uuid)):
+        raise UndoNotApplicable("This entry has already been reversed.")
+
     original = db.execute(
         select(Transaction).where(Transaction.id == original_txn_uuid)
     ).scalar_one_or_none()
@@ -342,11 +341,10 @@ def undo_action(
     reversal = svc.reverse_journal_entry(
         transaction_id=original_txn_uuid,
         reverse_date=None,
-        reference=f"UNDO of {original.reference or original.id}",
-        description=f"AI undo — reverses {original.description or original.id}",
+        reference=f"REVERSAL of {original.reference or original.id}",
+        description=f"AI reversal — reverses {original.description or original.id}",
     )
 
-    # Paired audit entry.
     undo_audit = AuditLog(
         action="undo",
         entity_type="transaction",
@@ -356,7 +354,7 @@ def undo_action(
         ip_address=ip_address,
         actor_source="ai-assistant",
         session_id=audit.session_id,
-        tool_name="undo_action",
+        tool_name=tool_name,
         confirmation_token=audit.confirmation_token,
         user_message=audit.user_message,
         detail=json.dumps(
@@ -375,4 +373,76 @@ def undo_action(
         original_transaction_id=str(original_txn_uuid),
         reversal_transaction_id=str(reversal.transaction_id),
         audit_log_id=str(undo_audit.id),
+    )
+
+
+def undo_action(
+    db: Session,
+    *,
+    audit_log_id: str,
+    actor_user_id: str,
+    actor_username: str | None = None,
+    ip_address: str | None = None,
+    undo_window: timedelta | None = None,
+) -> UndoResult:
+    """Reverse an AI-initiated write via a compensating entry, within the
+    quick one-click undo window.
+
+    The original transaction is **never edited or deleted** — the
+    reversal is a new transaction with opposite-sign lines and a
+    descriptive reference. Both transactions remain visible in the
+    audit log forever.
+
+    Constraints:
+      * The audit row must be ``actor_source='ai-assistant'`` and
+        ``entity_type='transaction'``.
+      * Must be within the undo window (``UNDO_WINDOW`` default).
+      * The original row's transaction must still exist and not already
+        be reversed.
+
+    Once the window closes use ``reverse_action`` instead — same
+    mechanism, no time limit (AI-7).
+    """
+    audit = _resolve_undoable_audit(db, audit_log_id, actor_user_id)
+
+    window = undo_window or UNDO_WINDOW
+    ts = audit.timestamp
+    if ts and ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    if ts and datetime.now(timezone.utc) - ts > window:
+        raise UndoWindowClosed(
+            f"Undo window of {int(window.total_seconds())}s has closed. "
+            f"Reverse the entry via the Reverse action instead."
+        )
+
+    return _perform_reversal(
+        db, audit,
+        actor_user_id=actor_user_id,
+        actor_username=actor_username,
+        ip_address=ip_address,
+        tool_name="undo_action",
+    )
+
+
+def reverse_action(
+    db: Session,
+    *,
+    audit_log_id: str,
+    actor_user_id: str,
+    actor_username: str | None = None,
+    ip_address: str | None = None,
+) -> UndoResult:
+    """Persistent reversal of an AI-initiated write — the same compensating
+    entry as ``undo_action`` but with **no time limit** (AI-7). This is the
+    recourse after the quick undo window closes, so the user never has to
+    fall back to manual deletion. Guarded so an entry can't be reversed
+    twice.
+    """
+    audit = _resolve_undoable_audit(db, audit_log_id, actor_user_id)
+    return _perform_reversal(
+        db, audit,
+        actor_user_id=actor_user_id,
+        actor_username=actor_username,
+        ip_address=ip_address,
+        tool_name="reverse_action",
     )

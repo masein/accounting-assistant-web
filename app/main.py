@@ -382,7 +382,17 @@ def health_check():
             db.close()
     except Exception:
         status = "degraded"
-    return {"status": status, "database": "connected" if db_ok else "unavailable"}
+    try:
+        from app.services.ocr_extract import ocr_engine_available
+
+        ocr_ok = ocr_engine_available()
+    except Exception:
+        ocr_ok = False
+    return {
+        "status": status,
+        "database": "connected" if db_ok else "unavailable",
+        "ocr_available": ocr_ok,
+    }
 
 
 from fastapi.exceptions import RequestValidationError

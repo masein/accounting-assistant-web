@@ -96,8 +96,22 @@ class ProposedLine(BaseModel):
         description="Exact account code from the chart of accounts (e.g. '1110', '6110').",
         min_length=1,
     )
-    debit: int = Field(0, ge=0, description="Debit amount in the smallest currency unit (whole rials / pence / cents).")
-    credit: int = Field(0, ge=0)
+    debit: int = Field(
+        0, ge=0,
+        description=(
+            "Debit amount in WHOLE units of the transaction's currency (whole "
+            "pounds, whole euros, whole dollars, whole rials) — exactly the "
+            "number the user/document states. Do NOT convert to pence/cents/"
+            "minor units; do NOT multiply by 100. £300 is 300, not 30000."
+        ),
+    )
+    credit: int = Field(
+        0, ge=0,
+        description=(
+            "Credit amount in WHOLE units of the transaction's currency — "
+            "same scale as debit. Never multiply by 100 / convert to minor units."
+        ),
+    )
     line_description: str | None = Field(None, max_length=512)
 
     @model_validator(mode="after")
@@ -128,7 +142,16 @@ class ProposeCreateTransactionInput(BaseModel):
         description="Optional reference number (invoice #, receipt #, voucher #).",
         max_length=128,
     )
-    currency: str = Field("IRR", description="ISO currency code (IRR, GBP, USD).", min_length=3, max_length=8)
+    currency: str = Field(
+        "IRR",
+        description=(
+            "ISO currency code (IRR, GBP, USD, EUR…). Use the currency the "
+            "user or document stated; otherwise default to the company "
+            "reporting currency from get_company_defaults. NEVER relabel a "
+            "stated currency (e.g. don't turn GBP into IRR)."
+        ),
+        min_length=3, max_length=8,
+    )
     lines: list[ProposedLine] = Field(
         ...,
         description=(

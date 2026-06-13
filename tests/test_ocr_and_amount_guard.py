@@ -4,6 +4,7 @@ and the proposal amount-sanity guard. All offline — no network/vision calls.
 from __future__ import annotations
 
 import asyncio
+import uuid
 from datetime import date
 
 import pytest
@@ -224,3 +225,96 @@ class TestGuardInProposeTool:
         )
         out = asyncio.run(tool.run(ctx, payload))
         assert out["confirmation_token"]
+
+    def test_gbp_300_stored_as_whole_units(self, db: Session):
+        """'300 GBP' must persist as 300 (whole pounds), not 30000 minor
+        units, and keep the GBP label — the P1 ×100 regression guard."""
+        from app.models.ai_accountant import AIProposal
+        from sqlalchemy import select as _select
+
+        ctx = ToolContext(db=db, user_id="u", username="t", user_message="300 GBP supplies")
+        tool = ProposeCreateTransaction()
+        payload = ProposeCreateTransactionInput(
+            date="2026-05-20", description="office supplies", currency="GBP",
+            lines=[
+                {"account_code": "6110", "debit": 300, "credit": 0},
+                {"account_code": "1110", "debit": 0, "credit": 300},
+            ],
+        )
+        out = asyncio.run(tool.run(ctx, payload))
+        row = db.execute(
+            _select(AIProposal).where(
+                AIProposal.confirmation_token == uuid.UUID(out["confirmation_token"])
+            )
+        ).scalar_one()
+        debit_total = sum(ln["debit"] for ln in row.tool_input["lines"])
+        assert debit_total == 300  # NOT 30000
+        assert row.tool_input["currency"] == "GBP"  # not relabelled to IRR
+
+    def test_absurd_magnitude_rejected(self, db: Session):
+        """> 10^15 is blocked outright even with no source to compare to."""
+        ctx = ToolContext(db=db, user_id="u", username="t", user_message="x")
+        tool = ProposeCreateTransaction()
+        payload = ProposeCreateTransactionInput(
+            date="2026-05-20", description="x", currency="IRR",
+            lines=[
+                {"account_code": "6110", "debit": 10**15 + 1, "credit": 0},
+                {"account_code": "1110", "debit": 0, "credit": 10**15 + 1},
+            ],
+        )
+        with pytest.raises(ToolError) as ei:
+            asyncio.run(tool.run(ctx, payload))
+        assert ei.value.code == "amount_out_of_range"
+
+
+class TestOcrEngineHealth:
+    def test_ocr_engine_available_returns_bool(self):
+        from app.services.ocr_extract import ocr_engine_available
+
+        assert isinstance(ocr_engine_available(), bool)
+
+    def test_missing_engine_error_is_distinct(self):
+        # OCREngineMissing must be catchable as OCRExtractError (so existing
+        # fallback paths still work) yet distinguishable for clear logging.
+        from app.services.ocr_extract import OCREngineMissing, OCRExtractError
+
+        assert issubclass(OCREngineMissing, OCRExtractError)
+
+    def test_rasterize_raises_engine_missing_for_pdf(self, monkeypatch, tmp_path):
+        import builtins
+
+        from app.services import ocr_extract
+
+        real_import = builtins.__import__
+
+        def _no_fitz(name, *a, **k):
+            if name == "fitz":
+                raise ImportError("no fitz")
+            return real_import(name, *a, **k)
+
+        monkeypatch.setattr(builtins, "__import__", _no_fitz)
+        pdf = tmp_path / "x.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        with pytest.raises(ocr_extract.OCREngineMissing):
+            ocr_extract._rasterize_pages(pdf, "application/pdf")
+
+    def test_extract_falls_back_when_engine_missing(self, monkeypatch, tmp_path):
+        # When the engine is missing, extract_from_attachment must not crash —
+        # it logs distinctly and degrades (here: empty fields, no exception).
+        import builtins
+
+        from app.services import ocr_extract
+
+        real_import = builtins.__import__
+
+        def _no_fitz(name, *a, **k):
+            if name == "fitz":
+                raise ImportError("no fitz")
+            return real_import(name, *a, **k)
+
+        monkeypatch.setattr(builtins, "__import__", _no_fitz)
+        pdf = tmp_path / "x.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
+        result = asyncio.run(ocr_extract.extract_from_attachment(str(pdf), "application/pdf"))
+        assert isinstance(result, dict)
+        assert result.get("amount") is None

@@ -70,10 +70,12 @@ class FindEntity(BaseTool):
     category = "read"
     description = (
         "Find clients, employees, suppliers or banks by name. Returns a ranked list "
-        "of candidates with a confidence score in [0, 1]. Use this every time the "
-        "user mentions a person or organisation by name — never assume an exact match. "
-        "If the top result has confidence ≥ 0.95, treat it as the entity. Otherwise "
-        "ask the user to pick from the list."
+        "of candidates with a confidence score in [0, 1]. Call this ONCE per name, "
+        "then converge: if the top result has confidence ≥ 0.80 (or is the only "
+        "match) use it; if several are plausible, list 2–3 and ask the user to pick; "
+        "if the best is < 0.50, propose with NO entity link (entity links are "
+        "optional). Do NOT call this tool again for the same name — re-searching "
+        "wastes the turn budget and dead-ends the request."
     )
     InputSchema = FindEntityInput
 

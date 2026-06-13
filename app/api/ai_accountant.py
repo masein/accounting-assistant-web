@@ -88,6 +88,7 @@ class ProposalRead(BaseModel):
 class ChatPayload(BaseModel):
     message: str
     session_id: str | None = None
+    attachment_ids: list[str] = []
 
 
 class ChatProposal(BaseModel):
@@ -122,6 +123,73 @@ class ChatMessageRead(BaseModel):
     created_at: str
 
 
+_SUPPORTED_CHAT_LANGUAGES = ("en", "fa", "es", "ar")
+
+
+def _user_language(db: Session, user: SessionUser) -> str:
+    """The user's preferred UI language, used to localize the assistant's
+    replies and status text (AI-2). Falls back to English."""
+    from app.models.user import User
+
+    try:
+        row = db.get(User, user.user_id)
+        lang = (row.preferred_language or "en") if row else "en"
+    except Exception:
+        lang = "en"
+    lang = (lang or "en").strip().lower()
+    return lang if lang in _SUPPORTED_CHAT_LANGUAGES else "en"
+
+
+async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> str:
+    """OCR each attached document and render a compact text block the model
+    can reason over. Failures degrade gracefully — an unreadable document
+    is reported as such rather than raising, so the assistant can ask the
+    user to type the details instead of erroring (feature acceptance)."""
+    from app.models.transaction import TransactionAttachment
+    from app.services.ocr_extract import extract_from_attachment
+
+    blocks: list[str] = []
+    for raw_id in attachment_ids:
+        try:
+            att_uuid = uuid.UUID(str(raw_id))
+        except (ValueError, TypeError):
+            continue
+        row = db.get(TransactionAttachment, att_uuid)
+        if row is None:
+            continue
+        name = row.file_name or "document"
+        try:
+            fields = await extract_from_attachment(row.file_path, row.content_type)
+        except Exception:
+            fields = {}
+        raw_text = (fields.get("raw_text") or "").strip()
+        has_fields = any(
+            fields.get(k) for k in ("vendor_name", "date", "amount", "invoice_or_receipt_no")
+        )
+        if not has_fields and not raw_text:
+            blocks.append(
+                f"Attached document OCR (attachment_id={row.id}, file={name}): "
+                f"the document could not be read automatically. Ask the user for the "
+                f"key details (amount, date, vendor) instead of guessing."
+            )
+            continue
+        lines = [f"Attached document OCR (attachment_id={row.id}, file={name}):"]
+        if fields.get("vendor_name"):
+            lines.append(f"  vendor: {fields['vendor_name']}")
+        if fields.get("date"):
+            lines.append(f"  date: {fields['date']}")
+        if fields.get("amount") is not None:
+            lines.append(f"  total amount: {fields['amount']} {fields.get('currency') or ''}".rstrip())
+        if fields.get("invoice_or_receipt_no"):
+            lines.append(f"  reference: {fields['invoice_or_receipt_no']}")
+        if fields.get("confidence") is not None:
+            lines.append(f"  confidence: {fields['confidence']}")
+        if raw_text:
+            lines.append("  raw text:\n" + raw_text[:2000])
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     payload: ChatPayload,
@@ -134,7 +202,15 @@ async def chat(
     text + any proposals registered along the way. The frontend
     renders each proposal as an inline action card; clicking Confirm
     hits ``POST /ai-accountant/execute``.
+
+    When ``attachment_ids`` are present (an invoice/receipt uploaded in
+    the chat), each file is OCR'd and its extracted fields are fed to the
+    model as context for the turn; the files are linked onto whatever
+    transaction the model proposes.
     """
+    ocr_context = ""
+    if payload.attachment_ids:
+        ocr_context = await _build_ocr_context(db, payload.attachment_ids)
     try:
         result = await run_chat_turn(
             db,
@@ -142,6 +218,9 @@ async def chat(
             username=user.username,
             user_message=payload.message,
             session_id=payload.session_id,
+            lang=_user_language(db, user),
+            ocr_context=ocr_context or None,
+            attachment_ids=payload.attachment_ids or None,
         )
     except AIAccountantError as e:
         raise HTTPException(status_code=502, detail=str(e))

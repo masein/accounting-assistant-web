@@ -217,6 +217,7 @@ def _execute_create_transaction(
                 EntityLink(entity_id=link["entity_id"], role=link["role"])
                 for link in payload_dict.get("entity_links", [])
             ],
+            attachment_ids=payload_dict.get("attachment_ids", []) or [],
         )
     except Exception as e:
         # Catch any pydantic / KeyError; treat as a bad payload.

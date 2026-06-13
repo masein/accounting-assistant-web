@@ -765,18 +765,22 @@
       <div class="chat-panel" style="min-height: 480px; display:flex; flex-direction:column; gap:0.6rem;">
         <div id="ai-acct-messages" style="flex:1; overflow-y:auto; padding:0.6rem; background:#fafafa; border:1px solid var(--border); border-radius:8px; min-height:300px; max-height:60vh;"></div>
         <div style="display:flex; gap:0.4rem; flex-wrap:wrap;" id="ai-acct-quick-actions">
-          <button type="button" class="chip" data-msg="What's my cash balance?">Cash balance</button>
-          <button type="button" class="chip" data-msg="Show balance sheet">Balance Sheet</button>
-          <button type="button" class="chip" data-msg="Show P&amp;L this month">P&amp;L</button>
-          <button type="button" class="chip" data-msg="Show cash flow">Cash Flow</button>
-          <button type="button" class="chip" data-msg="What is my bank balance?">Bank Balance</button>
-          <button type="button" class="chip" data-msg="How much did I spend last month?">Last month spend</button>
-          <button type="button" class="chip" data-msg="Show last 5 transactions">Last 5 txns</button>
+          <button type="button" class="chip" data-msg="What's my cash balance?" data-i18n="aiChipCashBalance">Cash balance</button>
+          <button type="button" class="chip" data-msg="Show balance sheet" data-i18n="aiChipBalanceSheet">Balance Sheet</button>
+          <button type="button" class="chip" data-msg="Show P&amp;L this month" data-i18n="aiChipPL">P&amp;L</button>
+          <button type="button" class="chip" data-msg="Show cash flow" data-i18n="aiChipCashFlow">Cash Flow</button>
+          <button type="button" class="chip" data-msg="What is my bank balance?" data-i18n="aiChipBankBalance">Bank Balance</button>
+          <button type="button" class="chip" data-msg="How much did I spend last month?" data-i18n="aiChipLastMonthSpend">Last month spend</button>
+          <button type="button" class="chip" data-msg="Show last 5 transactions" data-i18n="aiChipLast5Txns">Last 5 txns</button>
         </div>
-        <div class="chat-input-wrap" style="display:flex; gap:0.4rem;">
-          <input type="text" id="ai-acct-input" placeholder="e.g. paid Kim 1k yesterday for office supplies" autocomplete="off" style="flex:1;" aria-label="Message">
+        <!-- Uploaded invoice/receipt chips for the next chat turn -->
+        <div id="ai-acct-attachments" style="display:none; flex-wrap:wrap; gap:0.4rem;"></div>
+        <div class="chat-input-wrap" style="display:flex; gap:0.4rem; align-items:center;">
+          <input type="file" id="ai-acct-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;" aria-hidden="true">
+          <button type="button" class="btn btn-secondary" id="ai-acct-attach" data-i18n-title="aiChatAttachTitle" title="Attach an invoice or receipt" aria-label="Attach an invoice or receipt">📎</button>
+          <input type="text" id="ai-acct-input" data-i18n-placeholder="aiChatInputPlaceholder" placeholder="e.g. paid HSBC 1,000 yesterday for office supplies" autocomplete="off" style="flex:1;" aria-label="Message">
           <button type="button" class="btn btn-primary" id="ai-acct-send" data-i18n="send">Send</button>
-          <button type="button" class="btn btn-secondary" id="ai-acct-new-session" title="Start new conversation">＋</button>
+          <button type="button" class="btn btn-secondary" id="ai-acct-new-session" data-i18n-title="aiChatNewTitle" title="Start a new conversation" aria-label="Start a new conversation">💬</button>
         </div>
         <div id="ai-acct-status" style="font-size:0.8rem;color:var(--text-muted);min-height:1em;"></div>
       </div>
@@ -2910,6 +2914,25 @@
         confirmLargeMultiplier: 'Multiplier is {multiplier}x — amounts will be scaled by this factor. Continue?',
         confirmCurrencyMultiplier: 'You are importing {currency} with a {multiplier}x multiplier. This is uncommon for {currency}. Continue?',
         optionDefaultBank: 'Default bank/cash ({code})',
+
+        // ── AI chat: quick-action chips, attach, proposal card ──
+        aiChipCashBalance: 'Cash balance',
+        aiChipBalanceSheet: 'Balance Sheet',
+        aiChipPL: 'P&L',
+        aiChipCashFlow: 'Cash Flow',
+        aiChipBankBalance: 'Bank Balance',
+        aiChipLastMonthSpend: 'Last month spend',
+        aiChipLast5Txns: 'Last 5 txns',
+        aiChatInputPlaceholder: 'e.g. paid HSBC 1,000 yesterday for office supplies',
+        aiChatAttachTitle: 'Attach an invoice or receipt (JPG, PNG, WEBP, PDF)',
+        aiChatNewTitle: 'Start a new conversation',
+        aiChatRemoveAttachment: 'Remove attachment',
+        aiChatAttachTooLarge: 'File too large — maximum 8 MB.',
+        aiChatAttachBadType: 'Unsupported file type. Use JPG, PNG, WEBP, or PDF.',
+        aiChatAttachFailed: 'Could not upload the file.',
+        aiChatProposedAction: 'Proposed action — please confirm',
+        aiChatCancelled: '— cancelled —',
+        aiChatNewStarted: 'New conversation.',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -3446,6 +3469,25 @@
         confirmLargeMultiplier: 'ضریب {multiplier} برابر است — مبالغ با این ضریب مقیاس می‌شوند. ادامه می‌دهید؟',
         confirmCurrencyMultiplier: 'در حال واردکردن {currency} با ضریب {multiplier} هستید. این برای {currency} غیرمعمول است. ادامه می‌دهید؟',
         optionDefaultBank: 'بانک/صندوق پیش‌فرض ({code})',
+
+        // ── AI chat: quick-action chips, attach, proposal card ──
+        aiChipCashBalance: 'موجودی نقد',
+        aiChipBalanceSheet: 'ترازنامه',
+        aiChipPL: 'سود و زیان',
+        aiChipCashFlow: 'جریان نقدی',
+        aiChipBankBalance: 'موجودی بانک',
+        aiChipLastMonthSpend: 'هزینه ماه گذشته',
+        aiChipLast5Txns: 'آخرین ۵ تراکنش',
+        aiChatInputPlaceholder: 'مثال: دیروز ۵۰۰ بابت ملزومات اداری به ملت پرداختم',
+        aiChatAttachTitle: 'پیوست فاکتور یا رسید (JPG، PNG، WEBP، PDF)',
+        aiChatNewTitle: 'شروع گفتگوی جدید',
+        aiChatRemoveAttachment: 'حذف پیوست',
+        aiChatAttachTooLarge: 'حجم فایل زیاد است — حداکثر ۸ مگابایت.',
+        aiChatAttachBadType: 'نوع فایل پشتیبانی نمی‌شود. از JPG، PNG، WEBP یا PDF استفاده کنید.',
+        aiChatAttachFailed: 'بارگذاری فایل ممکن نشد.',
+        aiChatProposedAction: 'اقدام پیشنهادی — لطفاً تأیید کنید',
+        aiChatCancelled: '— لغو شد —',
+        aiChatNewStarted: 'گفتگوی جدید.',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -3965,6 +4007,25 @@
         confirmLargeMultiplier: 'El multiplicador es {multiplier}x — los importes se escalarán por este factor. ¿Continuar?',
         confirmCurrencyMultiplier: 'Estás importando {currency} con un multiplicador de {multiplier}x. Esto es poco común para {currency}. ¿Continuar?',
         optionDefaultBank: 'Banco/caja por defecto ({code})',
+
+        // ── AI chat: quick-action chips, attach, proposal card ──
+        aiChipCashBalance: 'Saldo de caja',
+        aiChipBalanceSheet: 'Balance general',
+        aiChipPL: 'Pérdidas y ganancias',
+        aiChipCashFlow: 'Flujo de caja',
+        aiChipBankBalance: 'Saldo bancario',
+        aiChipLastMonthSpend: 'Gasto del mes pasado',
+        aiChipLast5Txns: 'Últimas 5 transacc.',
+        aiChatInputPlaceholder: 'p. ej. pagué 1.000 a BBVA ayer por material de oficina',
+        aiChatAttachTitle: 'Adjuntar una factura o recibo (JPG, PNG, WEBP, PDF)',
+        aiChatNewTitle: 'Iniciar una nueva conversación',
+        aiChatRemoveAttachment: 'Quitar adjunto',
+        aiChatAttachTooLarge: 'Archivo demasiado grande — máximo 8 MB.',
+        aiChatAttachBadType: 'Tipo de archivo no admitido. Usa JPG, PNG, WEBP o PDF.',
+        aiChatAttachFailed: 'No se pudo subir el archivo.',
+        aiChatProposedAction: 'Acción propuesta — por favor confirma',
+        aiChatCancelled: '— cancelado —',
+        aiChatNewStarted: 'Nueva conversación.',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -4484,6 +4545,25 @@
         confirmLargeMultiplier: 'المضاعف هو {multiplier}x — ستُضرب المبالغ بهذا العامل. هل تريد المتابعة؟',
         confirmCurrencyMultiplier: 'أنت تستورد {currency} بمضاعف {multiplier}x. هذا غير معتاد لعملة {currency}. هل تريد المتابعة؟',
         optionDefaultBank: 'البنك/الصندوق الافتراضي ({code})',
+
+        // ── AI chat: quick-action chips, attach, proposal card ──
+        aiChipCashBalance: 'رصيد النقد',
+        aiChipBalanceSheet: 'الميزانية العمومية',
+        aiChipPL: 'الأرباح والخسائر',
+        aiChipCashFlow: 'التدفق النقدي',
+        aiChipBankBalance: 'رصيد البنك',
+        aiChipLastMonthSpend: 'إنفاق الشهر الماضي',
+        aiChipLast5Txns: 'آخر ٥ معاملات',
+        aiChatInputPlaceholder: 'مثال: دفعت أمس 1,000 لبنك HSBC مقابل لوازم مكتبية',
+        aiChatAttachTitle: 'إرفاق فاتورة أو إيصال (JPG، PNG، WEBP، PDF)',
+        aiChatNewTitle: 'بدء محادثة جديدة',
+        aiChatRemoveAttachment: 'إزالة المرفق',
+        aiChatAttachTooLarge: 'الملف كبير جداً — الحد الأقصى 8 ميغابايت.',
+        aiChatAttachBadType: 'نوع الملف غير مدعوم. استخدم JPG أو PNG أو WEBP أو PDF.',
+        aiChatAttachFailed: 'تعذّر رفع الملف.',
+        aiChatProposedAction: 'إجراء مقترح — يرجى التأكيد',
+        aiChatCancelled: '— أُلغي —',
+        aiChatNewStarted: 'محادثة جديدة.',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -11212,10 +11292,72 @@
       const newSessionBtn = document.getElementById('ai-acct-new-session');
       const statusEl = document.getElementById('ai-acct-status');
       const quickActions = document.getElementById('ai-acct-quick-actions');
+      const attachBtn = document.getElementById('ai-acct-attach');
+      const fileInput = document.getElementById('ai-acct-file');
+      const attachmentsEl = document.getElementById('ai-acct-attachments');
       if (!messagesEl || !sendBtn) return;
 
       let sessionId = null;
       const undoTimers = {};  // audit_log_id → timeout handle
+      // Invoice/receipt files uploaded for the NEXT chat turn. Each entry is
+      // the AttachmentRead returned by POST /transactions/attachments.
+      let pendingAttachments = [];
+      const MAX_ATTACH_BYTES = 8 * 1024 * 1024;
+      const ALLOWED_ATTACH_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+      function renderPendingAttachments() {
+        if (!attachmentsEl) return;
+        attachmentsEl.innerHTML = '';
+        if (!pendingAttachments.length) { attachmentsEl.style.display = 'none'; return; }
+        attachmentsEl.style.display = 'flex';
+        pendingAttachments.forEach((att) => {
+          const chip = document.createElement('span');
+          chip.style.cssText = 'display:inline-flex; align-items:center; gap:0.35rem; padding:0.2rem 0.55rem; background:#eef2ff; border:1px solid #c7d2fe; border-radius:14px; font-size:0.8rem; max-width:240px;';
+          const isImg = (att.content_type || '').startsWith('image/');
+          const name = document.createElement('span');
+          name.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+          name.textContent = (isImg ? '🖼 ' : '📄 ') + (att.file_name || 'document');
+          chip.appendChild(name);
+          const rm = document.createElement('button');
+          rm.type = 'button';
+          rm.textContent = '✕';
+          rm.title = t('aiChatRemoveAttachment');
+          rm.setAttribute('aria-label', t('aiChatRemoveAttachment'));
+          rm.style.cssText = 'border:none; background:none; cursor:pointer; color:var(--text-muted); font-size:0.9rem; line-height:1; padding:0;';
+          rm.addEventListener('click', () => {
+            pendingAttachments = pendingAttachments.filter((a) => a.id !== att.id);
+            renderPendingAttachments();
+          });
+          chip.appendChild(rm);
+          attachmentsEl.appendChild(chip);
+        });
+      }
+
+      async function handleAttachFile(file) {
+        if (!file) return;
+        if (!ALLOWED_ATTACH_TYPES.includes(file.type)) {
+          showAlert(t('aiChatAttachBadType'), true);
+          return;
+        }
+        if (file.size > MAX_ATTACH_BYTES) {
+          showAlert(t('aiChatAttachTooLarge'), true);
+          return;
+        }
+        if (attachBtn) attachBtn.disabled = true;
+        try {
+          const fd = new FormData();
+          fd.append('file', file);
+          const res = await fetch(API + '/transactions/attachments', { method: 'POST', body: fd });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(data.detail || t('aiChatAttachFailed'), true); return; }
+          pendingAttachments.push(data);
+          renderPendingAttachments();
+        } catch (err) {
+          showAlert(t('aiChatAttachFailed') + ' ' + err.message, true);
+        } finally {
+          if (attachBtn) attachBtn.disabled = false;
+        }
+      }
 
       // Friendly, professional "thinking" captions shown while the assistant
       // works. Rotated every couple of seconds under the typing indicator.
@@ -11358,7 +11500,7 @@
 
         const title = document.createElement('div');
         title.style.cssText = 'font-weight:600; margin-bottom:0.3rem;';
-        title.textContent = 'Proposed action — please confirm';
+        title.textContent = t('aiChatProposedAction');
         card.appendChild(title);
 
         const summary = document.createElement('pre');
@@ -11372,20 +11514,20 @@
         const confirmBtn = document.createElement('button');
         confirmBtn.type = 'button';
         confirmBtn.className = 'btn btn-primary btn-sm';
-        confirmBtn.textContent = 'Confirm';
+        confirmBtn.textContent = t('btnConfirm');
         confirmBtn.addEventListener('click', () => executeProposal(card, proposal.confirmation_token));
 
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'btn btn-secondary btn-sm';
-        cancelBtn.textContent = 'Cancel';
+        cancelBtn.textContent = t('btnCancel');
         cancelBtn.addEventListener('click', () => {
           card.style.opacity = '0.5';
           confirmBtn.disabled = true;
           cancelBtn.disabled = true;
           const cancelled = document.createElement('div');
           cancelled.style.cssText = 'font-size:0.8rem;color:var(--text-muted);margin-top:0.4rem;';
-          cancelled.textContent = '— cancelled —';
+          cancelled.textContent = t('aiChatCancelled');
           card.appendChild(cancelled);
         });
 
@@ -11471,17 +11613,47 @@
         }
       }
 
+      // Render the user's turn, showing any attached document names as
+      // chips beneath the text so the upload is visible in the transcript.
+      function appendUserTurn(text, attachments) {
+        const wrap = appendBubble('user', text || '');
+        if (attachments && attachments.length) {
+          const bubble = wrap.querySelector('div');
+          if (bubble) {
+            const strip = document.createElement('div');
+            strip.style.cssText = 'margin-top:0.35rem; display:flex; flex-wrap:wrap; gap:0.3rem;';
+            attachments.forEach((att) => {
+              const tag = document.createElement('span');
+              tag.style.cssText = 'display:inline-flex; align-items:center; gap:0.25rem; padding:0.1rem 0.45rem; background:rgba(255,255,255,0.2); border-radius:10px; font-size:0.75rem;';
+              const isImg = (att.content_type || '').startsWith('image/');
+              tag.textContent = (isImg ? '🖼 ' : '📄 ') + (att.file_name || 'document');
+              strip.appendChild(tag);
+            });
+            bubble.appendChild(strip);
+          }
+        }
+      }
+
       async function sendMessage(msg) {
-        if (!msg || !msg.trim()) return;
-        appendBubble('user', msg);
+        const text = (msg || '').trim();
+        const attachments = pendingAttachments.slice();
+        // A turn needs either text or at least one attached document.
+        if (!text && !attachments.length) return;
+        appendUserTurn(text, attachments);
         inputEl.value = '';
+        pendingAttachments = [];
+        renderPendingAttachments();
         sendBtn.disabled = true;
         const typingEl = showTypingIndicator();
         try {
           const r = await fetch(API + '/ai-accountant/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: msg, session_id: sessionId }),
+            body: JSON.stringify({
+              message: text,
+              session_id: sessionId,
+              attachment_ids: attachments.map((a) => a.id),
+            }),
           });
           const data = await r.json();
           hideTypingIndicator(typingEl);
@@ -11509,11 +11681,21 @@
           sendMessage(inputEl.value);
         }
       });
+      if (attachBtn && fileInput) {
+        attachBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+          const file = fileInput.files && fileInput.files[0];
+          if (file) handleAttachFile(file);
+          fileInput.value = '';  // allow re-selecting the same file
+        });
+      }
       if (newSessionBtn) {
         newSessionBtn.addEventListener('click', () => {
           sessionId = null;
           messagesEl.innerHTML = '';
-          statusEl.textContent = 'New conversation.';
+          pendingAttachments = [];
+          renderPendingAttachments();
+          statusEl.textContent = t('aiChatNewStarted');
         });
       }
       if (quickActions) {

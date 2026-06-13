@@ -29,7 +29,7 @@ and audit-log writing in one place.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 from pydantic import BaseModel
@@ -51,6 +51,10 @@ class ToolContext:
     chat_session_id: str | None = None  # UUID of the AIChatSession, if any
     user_message: str | None = None     # The original user message, for audit
     ip_address: str | None = None
+    # Attachment IDs uploaded with this chat turn (invoice/receipt files).
+    # propose_create_transaction links these onto the transaction it
+    # registers so the file follows the entry through to execute.
+    attachment_ids: list[str] = field(default_factory=list)
 
 
 class BaseTool(ABC):

@@ -278,14 +278,31 @@ async def upload_bank_statement(
                 result = parse_excel(str(tmp_path), bank_name=bank_name)
             finally:
                 tmp_path.unlink(missing_ok=True)
-        else:  # image / PDF → OCR then row-parse
-            from app.services.ocr_extract import extract_from_attachment
+        else:  # image / PDF → vision row-extraction, fall back to text scraping
+            from app.services.bank_statement_parser import parse_vision_rows
+            from app.services.ocr_extract import (
+                extract_from_attachment,
+                extract_statement_rows,
+            )
+            ctype = file.content_type or ("application/pdf" if ext == ".pdf" else "image/jpeg")
             tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
             tmp_path.write_bytes(content)
             try:
-                ocr_result = await extract_from_attachment(str(tmp_path), file.content_type or "image/jpeg")
-                raw_text = ocr_result.get("raw_text", "") or ""
-                result = parse_ocr_rows(raw_text, bank_name=bank_name)
+                result = None
+                # Primary: same vision pipeline the invoice path uses, asking
+                # for row-structured JSON — reads dense Persian RTL tables the
+                # free-text regex parser can't.
+                try:
+                    vrows = await extract_statement_rows(str(tmp_path), ctype)
+                    if vrows:
+                        result = parse_vision_rows(vrows, bank_name=bank_name)
+                except Exception:
+                    logger.warning("vision statement OCR failed for %s — falling back to text", filename, exc_info=True)
+                # Fallback: embedded-text row scraping.
+                if result is None or not result.rows:
+                    ocr_result = await extract_from_attachment(str(tmp_path), ctype)
+                    raw_text = ocr_result.get("raw_text", "") or ""
+                    result = parse_ocr_rows(raw_text, bank_name=bank_name)
                 result.source_type = "ocr_pdf" if ext == ".pdf" else "ocr_image"
             finally:
                 tmp_path.unlink(missing_ok=True)

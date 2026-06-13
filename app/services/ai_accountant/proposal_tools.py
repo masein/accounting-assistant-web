@@ -54,6 +54,19 @@ from app.services.ocr_extract import MAX_SANE_AMOUNT
 # mis-scale and OCR digit-concatenation while tolerating aggregation.
 _AMOUNT_DIVERGENCE_FACTOR = 10
 
+# Phrases that opt a future-dated entry in as an intentional schedule (en +
+# the fa/es/ar equivalents). Substring match on the user's message.
+_SCHEDULED_TERMS = (
+    "schedul", "future", "upcoming", "in advance", "post-dat", "postdat",
+    "زمان‌بندی", "زمانبندی", "برنامه‌ریزی", "آینده", "programad", "agendad",
+    "futur", "مجدول", "مستقبل",
+)
+
+
+def _mentions_scheduled(message: str | None) -> bool:
+    t = (message or "").lower()
+    return any(term in t for term in _SCHEDULED_TERMS)
+
 
 def _guard_amount(ctx: ToolContext, proposed_total: int) -> None:
     """Block impossible or wildly-mismatched amounts before a proposal is
@@ -217,10 +230,23 @@ class ProposeCreateTransaction(BaseTool):
         # (it dated a "…today" expense 2023-10-18 and mid-session copied an
         # earlier invoice's date), so resolve relative/missing dates from the
         # server's clock. OCR/document turns keep the document's own date.
+        scheduled = _mentions_scheduled(ctx.user_message)
         args.date = resolve_entry_date(
             ctx.user_message, args.date,
             has_attachment=bool(getattr(ctx, "attachment_ids", None)),
+            scheduled=scheduled,
         )
+
+        # Future-date guard, enforced server-side against the REAL today (the
+        # model judged "future" against its training-era clock and wrongly
+        # refused valid past dates). A past/today date always records; reject
+        # only a date >1 day ahead that the user didn't say is scheduled.
+        if args.date > _date.today() + timedelta(days=1) and not scheduled:
+            raise ToolError(
+                f"{args.date.isoformat()} is in the future. I can only record past or "
+                f"present dates unless you say it's scheduled (e.g. 'schedule it for …').",
+                code="future_date",
+            )
 
         # Resolve and validate every account code referenced in the lines.
         codes = [ln.account_code for ln in args.lines]

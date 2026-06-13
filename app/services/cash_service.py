@@ -18,8 +18,8 @@ the predicate is locale-aware (mirrors the dashboard's ``_cash_predicate``).
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
-from typing import Callable
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session

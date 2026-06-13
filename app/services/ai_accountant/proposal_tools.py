@@ -40,6 +40,7 @@ from app.models.ai_accountant import AIProposal
 from app.models.entity import Entity
 
 from .base import BaseTool, ToolContext, ToolError
+from .date_resolver import resolve_entry_date
 
 
 PROPOSAL_TTL = timedelta(minutes=10)
@@ -211,6 +212,15 @@ class ProposeCreateTransaction(BaseTool):
         # outright, and cross-check the proposed total against the amounts in
         # the source (OCR'd document total / numbers in the user's message).
         _guard_amount(ctx, sum(ln.debit for ln in args.lines))
+
+        # Anchor the entry date to reality. The model is unreliable at "today"
+        # (it dated a "…today" expense 2023-10-18 and mid-session copied an
+        # earlier invoice's date), so resolve relative/missing dates from the
+        # server's clock. OCR/document turns keep the document's own date.
+        args.date = resolve_entry_date(
+            ctx.user_message, args.date,
+            has_attachment=bool(getattr(ctx, "attachment_ids", None)),
+        )
 
         # Resolve and validate every account code referenced in the lines.
         codes = [ln.account_code for ln in args.lines]

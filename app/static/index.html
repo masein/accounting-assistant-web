@@ -189,13 +189,13 @@
       justify-content: space-between;
       gap: 1rem;
       animation: alert-in 180ms ease;
+      /* Pinned top-right (top-left in RTL) so it never covers the page title. */
       position: fixed;
-      top: 1rem;
-      left: 50%;
-      transform: translateX(-50%);
+      top: 4.5rem;
+      inset-inline-end: 1rem;
       z-index: 9999;
-      width: calc(100% - 2rem);
-      max-width: 900px;
+      width: auto;
+      max-width: min(420px, calc(100% - 2rem));
       box-shadow: 0 4px 16px rgba(0,0,0,0.12);
     }
     .alert-success { background: var(--success-bg); color: #065f46; border: 1px solid #6ee7b7; }
@@ -251,6 +251,13 @@
     .typing-bubble .dot:nth-child(3) { animation-delay: 0.3s; }
     @keyframes typing-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
     @media (prefers-reduced-motion: reduce) { .typing-bubble .dot { animation: none; } }
+    /* Brief highlight for a freshly inserted row so a save is easy to spot. */
+    .row-flash { animation: row-flash 2.4s ease; }
+    @keyframes row-flash {
+      0% { background-color: #fef08a; }
+      60% { background-color: #fef9c3; }
+      100% { background-color: transparent; }
+    }
     .results-table tbody tr.ledger-row { cursor: pointer; transition: background 0.15s; }
     .results-table tbody tr.ledger-row:hover { background: #e0f2f1; }
     .modal-overlay {
@@ -659,7 +666,7 @@
       <p id="entities-subtitle" data-i18n="entitiesSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Add parties you do business with. Link them to vouchers when saving to run reports like &quot;all transactions with client X&quot;.</p>
       <div class="row" style="margin-bottom: 1rem;">
         <div><label for="entity-type" data-i18n="labelType">Type</label><select id="entity-type"><option value="client" data-i18n="labelClient">Client</option><option value="bank" data-i18n="labelBank">Bank</option><option value="employee" data-i18n="optionEmployee">Employee</option><option value="supplier" data-i18n="labelSupplier">Supplier</option></select></div>
-        <div><label for="entity-name" data-i18n="labelName">Name</label><input type="text" id="entity-name" data-i18n-placeholder="placeholderEntityName" placeholder="e.g. Innotech, Melli"></div>
+        <div><label for="entity-name" data-i18n="labelName">Name</label><input type="text" id="entity-name" data-i18n-placeholder="placeholderEntityName" placeholder="e.g. Acme Ltd, HSBC"></div>
         <div><label for="entity-code" data-i18n="labelCodeOptional">Code (optional)</label><input type="text" id="entity-code" data-i18n-placeholder="placeholderEntityCode" placeholder="e.g. INV-001"></div>
         <div style="display: flex; align-items: flex-end;"><button type="button" class="btn btn-primary" id="entity-add" data-i18n="btnAddEntity">Add entity</button></div>
       </div>
@@ -735,11 +742,11 @@
 
     <div class="card" data-page="recurring">
       <h2 id="recurring-title" data-i18n="recurringTitle">Recurring rules (AI text)</h2>
-      <p id="recurring-example" data-i18n="recurringExample" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Example: <code>I have to pay 30M rent every month from Mellat bank</code> or <code>I receive 120M yearly from client X</code>.</p>
+      <p id="recurring-example" data-i18n="recurringExample" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Example: <code>I have to pay 2,500 rent every month from HSBC bank</code> or <code>I receive 120,000 yearly from client X</code>.</p>
       <div class="row" style="margin-bottom: 0.75rem;">
         <div style="flex: 3 1 420px;">
           <label for="recurring-text" data-i18n="recurringInputLabel">Tell AI your recurring payment/receipt</label>
-          <input type="text" id="recurring-text" data-i18n-placeholder="placeholderRecurring" placeholder="e.g. I pay 25M office rent every month from Mellat bank">
+          <input type="text" id="recurring-text" data-i18n-placeholder="placeholderRecurring" placeholder="e.g. I pay 2,500 office rent every month from HSBC bank">
         </div>
         <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="recurring-create" data-i18n="btnSaveRecurring">Save recurring rule</button></div>
       </div>
@@ -1335,7 +1342,7 @@
       <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;"><span data-i18n="bsSubtitle">Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.</span> <span data-i18n="bsOcrNote" style="color:#f57f17;font-size:0.8rem;">(PDF/image OCR requires an AI model to be configured in Settings.)</span></p>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
         <input type="file" id="bs-file-input" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;margin-bottom:0;">
-        <input type="text" id="bs-bank-name" data-i18n-placeholder="bsBankNamePlaceholder" placeholder="Bank name (e.g. Melli)" style="width:180px;margin-bottom:0;">
+        <input type="text" id="bs-bank-name" data-i18n-placeholder="bsBankNamePlaceholder" placeholder="Bank name (e.g. HSBC)" style="width:180px;margin-bottom:0;">
         <button type="button" class="btn btn-primary" id="bs-upload-btn" data-i18n="bsUploadBtn">Upload & Parse</button>
       </div>
       <div id="bs-upload-status" style="display:none;margin-bottom:1rem;" class="alert"></div>
@@ -1841,6 +1848,126 @@
     </div>
   </div>
 
+  <!-- Generic in-app dialogs replacing native confirm()/prompt(). Text is set
+       per call by uiConfirm()/uiPrompt(); buttons get i18n labels there too. -->
+  <div id="ui-confirm-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ui-confirm-title" style="display: none;">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 id="ui-confirm-title"></h2>
+        <button type="button" class="modal-close" aria-label="Close" id="ui-confirm-close">×</button>
+      </div>
+      <div id="ui-confirm-message" style="padding: 1rem 1.25rem; white-space: pre-line; overflow-y: auto;"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
+        <button type="button" class="btn btn-secondary" id="ui-confirm-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="ui-confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+  <div id="ui-prompt-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ui-prompt-title" style="display: none;">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 id="ui-prompt-title"></h2>
+        <button type="button" class="modal-close" aria-label="Close" id="ui-prompt-close">×</button>
+      </div>
+      <div style="padding: 1rem 1.25rem;">
+        <label id="ui-prompt-label" for="ui-prompt-input" style="display: block; margin-bottom: 0.5rem;"></label>
+        <input id="ui-prompt-input" type="text" style="width: 100%;">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
+        <button type="button" class="btn btn-secondary" id="ui-prompt-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="ui-prompt-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+  <!-- Entity edit modal: replaces the old chained prompt() editing. -->
+  <div id="entity-edit-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="entity-edit-title" style="display: none;">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 id="entity-edit-title" data-i18n="editEntityTitle">Edit entity</h2>
+        <button type="button" class="modal-close" aria-label="Close" id="entity-edit-close">×</button>
+      </div>
+      <div style="padding: 1rem 1.25rem; display: grid; gap: 0.75rem;">
+        <div>
+          <label for="entity-edit-type" data-i18n="labelType">Type</label>
+          <select id="entity-edit-type" style="width: 100%;">
+            <option value="client" data-i18n="labelClient">Client</option>
+            <option value="bank" data-i18n="labelBank">Bank</option>
+            <option value="employee" data-i18n="optionEmployee">Employee</option>
+            <option value="supplier" data-i18n="labelSupplier">Supplier</option>
+          </select>
+        </div>
+        <div>
+          <label for="entity-edit-name" data-i18n="labelName">Name</label>
+          <input type="text" id="entity-edit-name" style="width: 100%;">
+        </div>
+        <div>
+          <label for="entity-edit-code" data-i18n="labelCodeOptional">Code (optional)</label>
+          <input type="text" id="entity-edit-code" style="width: 100%;">
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
+        <button type="button" class="btn btn-secondary" id="entity-edit-cancel" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="entity-edit-save" data-i18n="btnSaveChanges">Save changes</button>
+      </div>
+    </div>
+  </div>
+  <!-- Invoice edit modal: replaces the old prompt()-driven status edit. -->
+  <div id="invoice-edit-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="invoice-edit-title" style="display: none;">
+    <div class="modal-card" style="max-width: 560px;">
+      <div class="modal-header">
+        <h2 id="invoice-edit-title" data-i18n="editInvoiceTitle">Edit invoice</h2>
+        <button type="button" class="modal-close" aria-label="Close" id="invoice-edit-close">×</button>
+      </div>
+      <div style="padding: 1rem 1.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label for="invoice-edit-number" data-i18n="labelNumber">Number</label>
+          <input type="text" id="invoice-edit-number" style="width: 100%;">
+        </div>
+        <div>
+          <label for="invoice-edit-status" data-i18n="usersStatus">Status</label>
+          <select id="invoice-edit-status" style="width: 100%;">
+            <option value="draft" data-i18n="optionStatusDraft">Draft</option>
+            <option value="issued" data-i18n="optionStatusIssued">Issued</option>
+            <option value="paid" data-i18n="optionStatusPaid">Paid</option>
+            <option value="canceled" data-i18n="optionStatusCanceled">Canceled</option>
+          </select>
+        </div>
+        <div>
+          <label for="invoice-edit-amount" data-i18n="labelAmount">Amount</label>
+          <input type="number" id="invoice-edit-amount" min="0" step="1" style="width: 100%;">
+        </div>
+        <div>
+          <label for="invoice-edit-currency" data-i18n="invoiceCurrencyLabel">Currency</label>
+          <select id="invoice-edit-currency" style="width: 100%;">
+            <option value="IRR">IRR</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+            <option value="AED">AED</option>
+            <option value="TRY">TRY</option>
+            <option value="IRT">IRT</option>
+          </select>
+        </div>
+        <div>
+          <label for="invoice-edit-issue" data-i18n="labelIssueDate">Issue date</label>
+          <input type="date" id="invoice-edit-issue" style="width: 100%;">
+        </div>
+        <div>
+          <label for="invoice-edit-due" data-i18n="labelDueDate">Due date</label>
+          <input type="date" id="invoice-edit-due" style="width: 100%;">
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="invoice-edit-desc" data-i18n="labelDescription">Description</label>
+          <input type="text" id="invoice-edit-desc" style="width: 100%;">
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
+        <button type="button" class="btn btn-secondary" id="invoice-edit-cancel" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="invoice-edit-save" data-i18n="btnSaveChanges">Save changes</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/static/chart.umd.min.js"></script>
   <!-- Drag-to-zoom on time-series / numeric charts. Loaded from CDN; if it
        fails to load the charts still work, just without the zoom feature. -->
@@ -2251,7 +2378,7 @@
         invoicesTitle: 'Invoices',
         invoicesSubtitle: 'Create sales/purchase invoices, then mark paid to automatically create a transaction.',
         recurringTitle: 'Recurring rules (AI text)',
-        recurringExample: 'Example: I have to pay 30M rent every month from Mellat bank or I receive 120M yearly from client X.',
+        recurringExample: 'Example: I have to pay 2,500 rent every month from HSBC bank or I receive 120,000 yearly from client X.',
         recurringInputLabel: 'Tell AI your recurring payment/receipt',
         aiChatTitle: 'AI Accounting Assistant',
         aiChatSubtitle: 'Ask questions, record transactions via conversation, and get instant financial reports.',
@@ -2325,11 +2452,11 @@
         aiApiKeyOptional: 'API key (optional)',
         aiApplySettings: 'Apply AI settings',
         aiHint: 'Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.',
-        placeholderEntityName: 'e.g. Innotech, Melli',
+        placeholderEntityName: 'e.g. Acme Ltd, HSBC',
         placeholderEntityCode: 'e.g. INV-001',
         placeholderInvoiceNo: 'e.g. INV-1001',
         placeholderInvoiceDesc: 'e.g. Software development',
-        placeholderRecurring: 'e.g. I pay 25M office rent every month from Mellat bank',
+        placeholderRecurring: 'e.g. I pay 2,500 office rent every month from HSBC bank',
         placeholderChatInput: 'Ask anything (e.g. show me balance sheet for last month)',
         placeholderReference: 'e.g. INV-001, receipt no.',
         placeholderDescription: 'Event description',
@@ -2706,7 +2833,7 @@
         bsTitle: 'Bank Statement Import',
         bsSubtitle: 'Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.',
         bsOcrNote: '(PDF/image OCR requires an AI model to be configured in Settings.)',
-        bsBankNamePlaceholder: 'Bank name (e.g. Melli)',
+        bsBankNamePlaceholder: 'Bank name (e.g. HSBC)',
         bsUploadBtn: 'Upload & Parse',
         bsRecentStatements: 'Recent Statements',
         thBank: 'Bank',
@@ -2748,6 +2875,41 @@
         reportComprehensiveIncome: 'Statement of Comprehensive Income',
         reportChangesInEquity: 'Statement of Changes in Equity',
         reportAccountsPayable: 'Accounts payable',
+
+        // ── In-app dialogs (replacing native confirm/prompt/alert) ──
+        confirmTitle: 'Please confirm',
+        btnConfirm: 'Confirm',
+        btnCancel: 'Cancel',
+        btnClose: 'Close',
+        btnDelete: 'Delete',
+        btnContinue: 'Continue',
+        btnSaveChanges: 'Save changes',
+        voucherCurrencyMismatchTitle: 'Currency mismatch',
+        voucherCurrencyMismatchMsg: 'This voucher is in {currency} but your reporting currency is {reporting}. Reports in {reporting} will not include this voucher unless you set an exchange rate. Continue?',
+        confirmSaveVoucherTitle: 'Save this voucher?',
+        invoiceTimelineTitle: 'Invoice timeline',
+        noTimelineEvents: 'No timeline events.',
+        editInvoiceTitle: 'Edit invoice',
+        optionStatusDraft: 'Draft',
+        optionStatusIssued: 'Issued',
+        optionStatusPaid: 'Paid',
+        optionStatusCanceled: 'Canceled',
+        markPaidTitle: 'Mark invoice paid',
+        labelPaymentDate: 'Payment date',
+        confirmDeleteInvoice: 'Delete this invoice?',
+        confirmDeleteRecurring: 'Delete this recurring rule?',
+        confirmDeleteEntity: 'Delete entity "{name}"?',
+        confirmDeleteTransaction: 'Delete this transaction?',
+        confirmDeleteFxRate: 'Delete this exchange rate?',
+        confirmDeleteUser: 'Delete user "{name}"?',
+        confirmResetDb: 'Clear all transactions and entities? The chart of accounts will be kept.',
+        resetPasswordTitle: 'Reset password',
+        editEntityTitle: 'Edit entity',
+        promptAccountCodeTitle: 'Account code',
+        promptAccountCodeMsg: 'Account code for this transaction:',
+        confirmLargeMultiplier: 'Multiplier is {multiplier}x — amounts will be scaled by this factor. Continue?',
+        confirmCurrencyMultiplier: 'You are importing {currency} with a {multiplier}x multiplier. This is uncommon for {currency}. Continue?',
+        optionDefaultBank: 'Default bank/cash ({code})',
       },
       fa: {
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
@@ -3249,6 +3411,41 @@
         reportComprehensiveIncome: 'صورت سود و زیان جامع',
         reportChangesInEquity: 'صورت تغییرات در حقوق مالکانه',
         reportAccountsPayable: 'حساب‌های پرداختنی',
+
+        // ── In-app dialogs (replacing native confirm/prompt/alert) ──
+        confirmTitle: 'لطفاً تأیید کنید',
+        btnConfirm: 'تأیید',
+        btnCancel: 'انصراف',
+        btnClose: 'بستن',
+        btnDelete: 'حذف',
+        btnContinue: 'ادامه',
+        btnSaveChanges: 'ذخیره تغییرات',
+        voucherCurrencyMismatchTitle: 'عدم تطابق ارز',
+        voucherCurrencyMismatchMsg: 'این سند به {currency} است اما ارز گزارشگری شما {reporting} است. گزارش‌های {reporting} این سند را شامل نمی‌شوند مگر اینکه نرخ تبدیل تعیین کنید. ادامه می‌دهید؟',
+        confirmSaveVoucherTitle: 'این سند ذخیره شود؟',
+        invoiceTimelineTitle: 'تاریخچه فاکتور',
+        noTimelineEvents: 'رویدادی ثبت نشده است.',
+        editInvoiceTitle: 'ویرایش فاکتور',
+        optionStatusDraft: 'پیش‌نویس',
+        optionStatusIssued: 'صادرشده',
+        optionStatusPaid: 'پرداخت‌شده',
+        optionStatusCanceled: 'لغوشده',
+        markPaidTitle: 'ثبت پرداخت فاکتور',
+        labelPaymentDate: 'تاریخ پرداخت',
+        confirmDeleteInvoice: 'این فاکتور حذف شود؟',
+        confirmDeleteRecurring: 'این قانون تکرارشونده حذف شود؟',
+        confirmDeleteEntity: 'شخص «{name}» حذف شود؟',
+        confirmDeleteTransaction: 'این تراکنش حذف شود؟',
+        confirmDeleteFxRate: 'این نرخ ارز حذف شود؟',
+        confirmDeleteUser: 'کاربر «{name}» حذف شود؟',
+        confirmResetDb: 'همه تراکنش‌ها و اشخاص پاک شوند؟ سرفصل حساب‌ها حفظ می‌شود.',
+        resetPasswordTitle: 'بازنشانی رمز عبور',
+        editEntityTitle: 'ویرایش شخص',
+        promptAccountCodeTitle: 'کد حساب',
+        promptAccountCodeMsg: 'کد حساب برای این تراکنش:',
+        confirmLargeMultiplier: 'ضریب {multiplier} برابر است — مبالغ با این ضریب مقیاس می‌شوند. ادامه می‌دهید؟',
+        confirmCurrencyMultiplier: 'در حال واردکردن {currency} با ضریب {multiplier} هستید. این برای {currency} غیرمعمول است. ادامه می‌دهید؟',
+        optionDefaultBank: 'بانک/صندوق پیش‌فرض ({code})',
       },
       es: {
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
@@ -3590,17 +3787,17 @@
         placeholderChatInput: 'Pregunta lo que quieras (p. ej. muéstrame el balance del mes pasado)',
         placeholderDescription: 'Descripción del evento',
         placeholderEntityCode: 'p. ej. INV-001',
-        placeholderEntityName: 'p. ej. Innotech, Melli',
+        placeholderEntityName: 'p. ej. Acme S.L., BBVA',
         placeholderFilterByName: 'Filtrar por nombre',
         placeholderInvItem: 'p. ej. Producto A',
         placeholderInvoiceDesc: 'p. ej. Desarrollo de software',
         placeholderInvoiceNo: 'p. ej. INV-1001',
         placeholderOptional: 'opcional',
-        placeholderRecurring: 'p. ej. pago 25M de alquiler cada mes desde el banco Mellat',
+        placeholderRecurring: 'p. ej. pago 2.500 de alquiler cada mes desde el banco BBVA',
         placeholderReference: 'p. ej. INV-001, N.º de recibo',
         placeholderSearchCodeName: 'Buscar por código o nombre...',
         placeholderUnit: 'unidad',
-        recurringExample: 'Ejemplo: pago 30M de alquiler cada mes desde el banco Mellat o recibo 120M anuales del cliente X.',
+        recurringExample: 'Ejemplo: pago 2.500 de alquiler cada mes desde el banco BBVA o recibo 120.000 anuales del cliente X.',
         reportExportTitle: 'Exportación de reporte',
         reportResult: 'Resultado del reporte',
         reportWord: 'Reporte',
@@ -3691,7 +3888,7 @@
         bsTitle: 'Importar extracto bancario',
         bsSubtitle: 'Suba extractos bancarios en CSV o Excel. El sistema analizará, clasificará y conciliará las transacciones automáticamente.',
         bsOcrNote: '(El OCR de PDF/imagen requiere configurar un modelo de IA en Ajustes.)',
-        bsBankNamePlaceholder: 'Nombre del banco (p. ej. Melli)',
+        bsBankNamePlaceholder: 'Nombre del banco (p. ej. BBVA)',
         bsUploadBtn: 'Subir y analizar',
         bsRecentStatements: 'Extractos recientes',
         thBank: 'Banco',
@@ -3733,6 +3930,41 @@
         reportComprehensiveIncome: 'Estado de resultado integral',
         reportChangesInEquity: 'Estado de cambios en el patrimonio',
         reportAccountsPayable: 'Cuentas por pagar',
+
+        // ── In-app dialogs (replacing native confirm/prompt/alert) ──
+        confirmTitle: 'Confirma la acción',
+        btnConfirm: 'Confirmar',
+        btnCancel: 'Cancelar',
+        btnClose: 'Cerrar',
+        btnDelete: 'Eliminar',
+        btnContinue: 'Continuar',
+        btnSaveChanges: 'Guardar cambios',
+        voucherCurrencyMismatchTitle: 'Moneda distinta',
+        voucherCurrencyMismatchMsg: 'Este asiento está en {currency} pero tu moneda de reporte es {reporting}. Los informes en {reporting} no incluirán este asiento salvo que definas un tipo de cambio. ¿Continuar?',
+        confirmSaveVoucherTitle: '¿Guardar este asiento?',
+        invoiceTimelineTitle: 'Cronología de la factura',
+        noTimelineEvents: 'Sin eventos registrados.',
+        editInvoiceTitle: 'Editar factura',
+        optionStatusDraft: 'Borrador',
+        optionStatusIssued: 'Emitida',
+        optionStatusPaid: 'Pagada',
+        optionStatusCanceled: 'Cancelada',
+        markPaidTitle: 'Marcar factura como pagada',
+        labelPaymentDate: 'Fecha de pago',
+        confirmDeleteInvoice: '¿Eliminar esta factura?',
+        confirmDeleteRecurring: '¿Eliminar esta regla recurrente?',
+        confirmDeleteEntity: '¿Eliminar la entidad «{name}»?',
+        confirmDeleteTransaction: '¿Eliminar esta transacción?',
+        confirmDeleteFxRate: '¿Eliminar este tipo de cambio?',
+        confirmDeleteUser: '¿Eliminar el usuario «{name}»?',
+        confirmResetDb: '¿Borrar todas las transacciones y entidades? El plan de cuentas se conserva.',
+        resetPasswordTitle: 'Restablecer contraseña',
+        editEntityTitle: 'Editar entidad',
+        promptAccountCodeTitle: 'Código de cuenta',
+        promptAccountCodeMsg: 'Código de cuenta para esta transacción:',
+        confirmLargeMultiplier: 'El multiplicador es {multiplier}x — los importes se escalarán por este factor. ¿Continuar?',
+        confirmCurrencyMultiplier: 'Estás importando {currency} con un multiplicador de {multiplier}x. Esto es poco común para {currency}. ¿Continuar?',
+        optionDefaultBank: 'Banco/caja por defecto ({code})',
       },
       ar: {
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
@@ -4074,17 +4306,17 @@
         placeholderChatInput: 'اسأل أي شيء (مثلاً: اعرض الميزانية للشهر الماضي)',
         placeholderDescription: 'وصف الحدث',
         placeholderEntityCode: 'مثال: INV-001',
-        placeholderEntityName: 'مثال: Innotech، Melli',
+        placeholderEntityName: 'مثال: شركة أكمي، بنك HSBC',
         placeholderFilterByName: 'تصفية حسب الاسم',
         placeholderInvItem: 'مثال: المنتج A',
         placeholderInvoiceDesc: 'مثال: تطوير برامج',
         placeholderInvoiceNo: 'مثال: INV-1001',
         placeholderOptional: 'اختياري',
-        placeholderRecurring: 'مثال: أدفع 25 مليون إيجار مكتب شهرياً من بنك ملت',
+        placeholderRecurring: 'مثال: أدفع 2500 إيجار مكتب شهرياً من بنك HSBC',
         placeholderReference: 'مثال: INV-001، رقم الإيصال',
         placeholderSearchCodeName: 'ابحث بالرمز أو الاسم...',
         placeholderUnit: 'وحدة',
-        recurringExample: 'مثال: أدفع 30 مليون إيجار شهرياً من بنك ملت أو أستلم 120 مليون سنوياً من العميل X.',
+        recurringExample: 'مثال: أدفع 2500 إيجار شهرياً من بنك HSBC أو أستلم 120,000 سنوياً من العميل X.',
         reportExportTitle: 'تصدير التقرير',
         reportResult: 'نتيجة التقرير',
         reportWord: 'تقرير',
@@ -4175,7 +4407,7 @@
         bsTitle: 'استيراد كشف الحساب البنكي',
         bsSubtitle: 'حمّل كشوف الحساب البنكية بصيغة CSV أو Excel. سيقوم النظام بتحليل المعاملات وتصنيفها وتسويتها تلقائيًا.',
         bsOcrNote: '(يتطلب التعرف الضوئي على ملفات PDF/الصور تهيئة نموذج ذكاء اصطناعي في الإعدادات.)',
-        bsBankNamePlaceholder: 'اسم البنك (مثال: ملي)',
+        bsBankNamePlaceholder: 'اسم البنك (مثال: HSBC)',
         bsUploadBtn: 'تحميل وتحليل',
         bsRecentStatements: 'الكشوف الأخيرة',
         thBank: 'البنك',
@@ -4217,6 +4449,41 @@
         reportComprehensiveIncome: 'قائمة الدخل الشامل',
         reportChangesInEquity: 'قائمة التغيرات في حقوق الملكية',
         reportAccountsPayable: 'الذمم الدائنة',
+
+        // ── In-app dialogs (replacing native confirm/prompt/alert) ──
+        confirmTitle: 'يرجى التأكيد',
+        btnConfirm: 'تأكيد',
+        btnCancel: 'إلغاء',
+        btnClose: 'إغلاق',
+        btnDelete: 'حذف',
+        btnContinue: 'متابعة',
+        btnSaveChanges: 'حفظ التغييرات',
+        voucherCurrencyMismatchTitle: 'عدم تطابق العملة',
+        voucherCurrencyMismatchMsg: 'هذا القيد بعملة {currency} بينما عملة التقارير لديك {reporting}. لن تتضمن تقارير {reporting} هذا القيد ما لم تحدد سعر صرف. هل تريد المتابعة؟',
+        confirmSaveVoucherTitle: 'هل تريد حفظ هذا القيد؟',
+        invoiceTimelineTitle: 'سجل الفاتورة',
+        noTimelineEvents: 'لا توجد أحداث مسجلة.',
+        editInvoiceTitle: 'تعديل الفاتورة',
+        optionStatusDraft: 'مسودة',
+        optionStatusIssued: 'صادرة',
+        optionStatusPaid: 'مدفوعة',
+        optionStatusCanceled: 'ملغاة',
+        markPaidTitle: 'تحديد الفاتورة كمدفوعة',
+        labelPaymentDate: 'تاريخ الدفع',
+        confirmDeleteInvoice: 'هل تريد حذف هذه الفاتورة؟',
+        confirmDeleteRecurring: 'هل تريد حذف هذه القاعدة المتكررة؟',
+        confirmDeleteEntity: 'هل تريد حذف الجهة «{name}»؟',
+        confirmDeleteTransaction: 'هل تريد حذف هذه المعاملة؟',
+        confirmDeleteFxRate: 'هل تريد حذف سعر الصرف هذا؟',
+        confirmDeleteUser: 'هل تريد حذف المستخدم «{name}»؟',
+        confirmResetDb: 'هل تريد مسح جميع المعاملات والجهات؟ سيُحتفظ بدليل الحسابات.',
+        resetPasswordTitle: 'إعادة تعيين كلمة المرور',
+        editEntityTitle: 'تعديل الجهة',
+        promptAccountCodeTitle: 'رمز الحساب',
+        promptAccountCodeMsg: 'رمز الحساب لهذه المعاملة:',
+        confirmLargeMultiplier: 'المضاعف هو {multiplier}x — ستُضرب المبالغ بهذا العامل. هل تريد المتابعة؟',
+        confirmCurrencyMultiplier: 'أنت تستورد {currency} بمضاعف {multiplier}x. هذا غير معتاد لعملة {currency}. هل تريد المتابعة؟',
+        optionDefaultBank: 'البنك/الصندوق الافتراضي ({code})',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -4509,7 +4776,19 @@
       }
     }
 
+    // Hide every open overlay/modal (account drill-down, audit/chart
+    // drilldowns, confirm dialogs…). Called on every page change so a modal
+    // opened on one page never stays pinned over the next one.
+    function closeAllModals() {
+      document.querySelectorAll('.modal-overlay, [id$="-modal"]').forEach((el) => {
+        if (!el || !el.style) return;
+        if (typeof el.__dialogCancel === 'function') { el.__dialogCancel(); return; }
+        if (el.style.display !== 'none') el.style.display = 'none';
+      });
+    }
+
     function showPage(page) {
+      closeAllModals();
       const requested = validPages.has(page) ? page : 'dashboard';
       document.querySelectorAll('.card[data-page]').forEach(card => {
         card.classList.toggle('active-page', card.getAttribute('data-page') === requested);
@@ -4554,6 +4833,95 @@
       }, 5000);
     }
 
+    // Briefly highlight a freshly inserted row/element and scroll it into
+    // view so the user can confirm the save landed.
+    function flashRow(el) {
+      if (!el) return;
+      el.classList.remove('row-flash');
+      void el.offsetWidth; // restart the animation if the class was present
+      el.classList.add('row-flash');
+      if (typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+      setTimeout(() => el.classList.remove('row-flash'), 2600);
+    }
+
+    // t() with {token} substitution: tf('confirmDeleteUser', {name: 'bob'}).
+    function tf(key, params) {
+      let s = t(key);
+      Object.entries(params || {}).forEach(([k, v]) => {
+        s = s.split('{' + k + '}').join(String(v));
+      });
+      return s;
+    }
+
+    // Promise-based in-app replacements for native confirm()/prompt().
+    // Resolve false/null when dismissed (cancel button, ×, overlay click, or
+    // a page navigation closing every modal via closeAllModals()).
+    function uiConfirm(opts) {
+      const o = opts || {};
+      return new Promise((resolve) => {
+        const modal = document.getElementById('ui-confirm-modal');
+        const okBtn = document.getElementById('ui-confirm-ok');
+        const cancelBtn = document.getElementById('ui-confirm-cancel');
+        const closeBtn = document.getElementById('ui-confirm-close');
+        const done = (val) => {
+          modal.__dialogCancel = null;
+          modal.style.display = 'none';
+          resolve(val);
+        };
+        document.getElementById('ui-confirm-title').textContent = o.title || t('confirmTitle');
+        document.getElementById('ui-confirm-message').textContent = o.message || '';
+        okBtn.textContent = o.confirmLabel || t('btnConfirm');
+        okBtn.className = 'btn ' + (o.danger ? 'btn-danger' : 'btn-primary');
+        cancelBtn.textContent = o.cancelLabel || t('btnCancel');
+        cancelBtn.style.display = o.hideCancel ? 'none' : '';
+        okBtn.onclick = () => done(true);
+        cancelBtn.onclick = () => done(false);
+        closeBtn.onclick = () => done(false);
+        modal.onclick = (e) => { if (e.target === modal) done(false); };
+        modal.__dialogCancel = () => done(false);
+        modal.style.display = 'flex';
+        okBtn.focus();
+      });
+    }
+
+    function uiPrompt(opts) {
+      const o = opts || {};
+      return new Promise((resolve) => {
+        const modal = document.getElementById('ui-prompt-modal');
+        const input = document.getElementById('ui-prompt-input');
+        const okBtn = document.getElementById('ui-prompt-ok');
+        const cancelBtn = document.getElementById('ui-prompt-cancel');
+        const closeBtn = document.getElementById('ui-prompt-close');
+        const done = (val) => {
+          modal.__dialogCancel = null;
+          modal.style.display = 'none';
+          input.onkeydown = null;
+          resolve(val);
+        };
+        document.getElementById('ui-prompt-title').textContent = o.title || t('confirmTitle');
+        document.getElementById('ui-prompt-label').textContent = o.message || '';
+        input.type = o.type || 'text';
+        input.value = o.value != null ? String(o.value) : '';
+        input.placeholder = o.placeholder || '';
+        okBtn.textContent = o.confirmLabel || t('btnConfirm');
+        cancelBtn.textContent = o.cancelLabel || t('btnCancel');
+        okBtn.onclick = () => done(input.value);
+        cancelBtn.onclick = () => done(null);
+        closeBtn.onclick = () => done(null);
+        modal.onclick = (e) => { if (e.target === modal) done(null); };
+        input.onkeydown = (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); done(input.value); }
+          if (e.key === 'Escape') { e.preventDefault(); done(null); }
+        };
+        modal.__dialogCancel = () => done(null);
+        modal.style.display = 'flex';
+        input.focus();
+        if (input.type === 'text' || input.type === 'password') input.select();
+      });
+    }
+
     function formatNum(n) {
       if (n === 0) return '0';
       return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -4573,6 +4941,24 @@
         const data = await r.json().catch(() => ({}));
         if (data && data.currency) window.__REPORTING_CURRENCY = data.currency;
       } catch (_) { /* offline / no auth — keep cached value */ }
+      applyDefaultFormCurrency();
+    }
+
+    // Pre-select the company (reporting) currency on the create forms instead
+    // of the hardcoded IRR first option. Fallback chain: reporting currency →
+    // most common transaction currency → IRR.
+    function preferredFormCurrency() {
+      const meta = window.__FX_META;
+      return window.__REPORTING_CURRENCY ||
+        (meta && (meta.reporting_currency || meta.most_common_currency)) || 'IRR';
+    }
+
+    function applyDefaultFormCurrency() {
+      const pref = String(preferredFormCurrency()).toUpperCase();
+      ['inv-currency', 'txn-currency'].forEach((id) => {
+        const sel = document.getElementById(id);
+        if (sel && [...sel.options].some((o) => o.value === pref)) sel.value = pref;
+      });
     }
 
     // Map ISO code → short symbol for inline display.
@@ -5054,7 +5440,7 @@
       if (delBtn) {
         const id = delBtn.dataset.id;
         const username = delBtn.dataset.username || 'this user';
-        if (!confirm('Delete user "' + username + '"?')) return;
+        if (!(await uiConfirm({ message: tf('confirmDeleteUser', { name: username }), confirmLabel: t('btnDelete'), danger: true }))) return;
         try {
           const res = await fetch(API + '/admin/users/' + encodeURIComponent(id), { method: 'DELETE' });
           const data = await res.json().catch(() => ({}));
@@ -5096,7 +5482,7 @@
       const pwBtn = e.target.closest('.user-pw-btn');
       if (pwBtn) {
         const id = pwBtn.dataset.id;
-        const nextPassword = prompt(t('enterNewPassword'));
+        const nextPassword = await uiPrompt({ title: t('resetPasswordTitle'), message: t('enterNewPassword'), type: 'password' });
         if (nextPassword == null) return;
         if (!nextPassword.trim()) {
           showAlert(t('passwordCannotBeEmpty'), true);
@@ -6197,7 +6583,8 @@
       }
     }
 
-    async function loadManagerInventoryItems() {
+    async function loadManagerInventoryItems(highlightId) {
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       if (!mgrMvItemEl) return;
       try {
         const res = await fetch(API + '/manager-reports/inventory/items');
@@ -6214,11 +6601,12 @@
         if (listEl && rows.length) {
           listEl.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.3rem;">${rows.length} items registered</div>
           <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">${rows.map(i =>
-            `<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;background:#f1f5f9;border-radius:6px;font-size:0.8rem;border:1px solid var(--border);">
+            `<span data-item-id="${escapeHtml(String(i.id))}" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;background:#f1f5f9;border-radius:6px;font-size:0.8rem;border:1px solid var(--border);">
               <strong>${escapeHtml(i.name)}</strong>${i.sku ? ` <span style="color:var(--text-muted);">(${escapeHtml(i.sku)})</span>` : ''}
               ${i.list_price ? ` — ${formatNum(i.list_price)} ${currencyUnit()}` : ''}
             </span>`
           ).join('')}</div>`;
+          if (highlightId) flashRow(listEl.querySelector('[data-item-id="' + CSS.escape(String(highlightId)) + '"]'));
         } else if (listEl) {
           listEl.innerHTML = '<div style="font-size:0.82rem;color:var(--text-muted);">No items yet. Add one above.</div>';
         }
@@ -6250,7 +6638,7 @@
         mgrInvItemNameEl.value = '';
         mgrInvItemSkuEl.value = '';
         showAlert('Inventory item added.');
-        await loadManagerInventoryItems();
+        await loadManagerInventoryItems(data.id);
       } catch (err) {
         showAlert('Error adding inventory item: ' + err.message, true);
       } finally {
@@ -6399,8 +6787,7 @@
       // falling back to most-common currency, then IRR).
       const curSel = document.getElementById('txn-currency');
       if (curSel) {
-        const meta = window.__FX_META;
-        const pref = (meta && (meta.reporting_currency || meta.most_common_currency)) || 'IRR';
+        const pref = preferredFormCurrency();
         if ([...curSel.options].some(o => o.value === pref)) curSel.value = pref;
       }
       linesTbody.innerHTML = '';
@@ -6409,6 +6796,38 @@
       selectedAttachments = [];
       attachmentInput.value = '';
       renderAttachments();
+    }
+
+    // Primary cash/bank account of the seeded chart, used as the default
+    // posting account for invoice payments. Derived from the chart itself
+    // (UK chart → 1200 "Bank current account", Iranian chart → 1110) instead
+    // of hardcoding the Iranian cash code.
+    window.__DEFAULT_CASH_CODE = null;
+    let _defaultCashCodePromise = null;
+    function getDefaultCashCode(force) {
+      if (!_defaultCashCodePromise || force) {
+        _defaultCashCodePromise = (async () => {
+          try {
+            const r = await fetch(API + '/accounts?limit=500');
+            if (r.ok) {
+              const list = await r.json();
+              const codes = new Set((list || []).map((a) => String(a.code)));
+              // Whichever primary cash/bank code the seeded chart contains
+              // wins; the reporting locale only breaks the tie if both exist.
+              const candidates = window.__REPORTING_LOCALE === 'uk' ? ['1200', '1110'] : ['1110', '1200'];
+              let code = candidates.find((c) => codes.has(c));
+              if (!code) {
+                const guess = (list || []).find((a) =>
+                  /^1\d{2,3}$/.test(String(a.code)) && /(bank|cash|بانک|صندوق|نقد)/i.test(String(a.name || '')));
+                code = guess ? String(guess.code) : null;
+              }
+              if (code) window.__DEFAULT_CASH_CODE = code;
+            }
+          } catch (_) { /* keep fallback below */ }
+          return window.__DEFAULT_CASH_CODE || '1110';
+        })();
+      }
+      return _defaultCashCodePromise;
     }
 
     async function loadEntityOptions() {
@@ -6449,16 +6868,17 @@
         }
         const bankSel = document.getElementById('inv-bank-code');
         if (bankSel) {
+          const defaultCash = await getDefaultCashCode();
           bankSel.innerHTML = '';
           const none = document.createElement('option');
           none.value = '';
-          none.dataset.accountCode = '1110';
-          none.textContent = '— Default bank/cash (1110) —';
+          none.dataset.accountCode = defaultCash;
+          none.textContent = '— ' + tf('optionDefaultBank', { code: defaultCash }) + ' —';
           bankSel.appendChild(none);
           (entityOptions.bank || []).forEach(e => {
             const opt = document.createElement('option');
             opt.value = e.id;
-            opt.dataset.accountCode = (e.code || '').trim() || '1110';
+            opt.dataset.accountCode = (e.code || '').trim() || defaultCash;
             opt.textContent = e.name + (e.code ? (' (' + e.code + ')') : '');
             bankSel.appendChild(opt);
           });
@@ -6467,10 +6887,13 @@
       } catch (_) {}
     }
 
-    async function loadInvoices() {
+    let _invoicesCache = [];
+    async function loadInvoices(highlightId) {
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       try {
         const res = await fetch(API + '/invoices');
         const list = await res.json();
+        _invoicesCache = list || [];
         invoicesTbody.innerHTML = '';
         if (!list.length) {
           invoicesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">' + t('noInvoicesYet') + '</td></tr>';
@@ -6480,6 +6903,7 @@
           const isPaid = String(i.status || '').toLowerCase() === 'paid';
           const ccy = (i.currency || 'IRR').toUpperCase();
           const tr = document.createElement('tr');
+          tr.dataset.invoiceId = i.id;
           tr.innerHTML = `
             <td>${escapeHtml(i.number)}</td>
             <td>${escapeHtml(i.kind)}</td>
@@ -6496,12 +6920,14 @@
           `;
           invoicesTbody.appendChild(tr);
         });
+        if (highlightId) flashRow(invoicesTbody.querySelector('tr[data-invoice-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
         invoicesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading invoices.</td></tr>';
       }
     }
 
-    async function loadRecurringRules() {
+    async function loadRecurringRules(highlightId) {
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       try {
         const res = await fetch(API + '/recurring');
         const list = await res.json();
@@ -6512,6 +6938,7 @@
         }
         list.forEach(r => {
           const tr = document.createElement('tr');
+          tr.dataset.ruleId = r.id;
           tr.innerHTML = `
             <td>${escapeHtml(r.name)}</td>
             <td>${escapeHtml(r.direction)}</td>
@@ -6523,6 +6950,7 @@
           `;
           recurringTbody.appendChild(tr);
         });
+        if (highlightId) flashRow(recurringTbody.querySelector('tr[data-rule-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
         recurringTbody.innerHTML = '<tr><td colspan="7" class="empty-state">Error loading recurring rules.</td></tr>';
       }
@@ -7542,7 +7970,6 @@
       summary += '\nCredit entries:\n';
       creditLines.forEach(l => { summary += `  ${l.account_code}: ${l.credit.toLocaleString()}${ccyLabel} ${l.line_description ? '(' + l.line_description + ')' : ''}\n`; });
       summary += `\nTotal: ${lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}${ccyLabel}\n`;
-      summary += '\nSave this voucher?';
       return summary;
     }
 
@@ -7551,7 +7978,7 @@
       const date = document.getElementById('date').value;
       const reference = document.getElementById('reference').value.trim() || null;
       const description = document.getElementById('description').value.trim() || null;
-      const currency = (document.getElementById('txn-currency')?.value || 'IRR');
+      const currency = (document.getElementById('txn-currency')?.value || preferredFormCurrency());
       const rows = Array.from(linesTbody.querySelectorAll('.line-row'));
       const lines = rows.map(tr => ({
         account_code: tr.querySelector('.line-code').value.trim(),
@@ -7572,13 +7999,16 @@
       // Warn if posting into a currency different from the reporting currency
       const meta = window.__FX_META;
       if (meta && meta.reporting_currency && currency && currency.toUpperCase() !== String(meta.reporting_currency).toUpperCase()) {
-        if (!confirm(`This voucher is in ${currency} but your reporting currency is ${meta.reporting_currency}. Reports in ${meta.reporting_currency} will not include this voucher unless you set an exchange rate. Continue?`)) {
-          return;
-        }
+        const proceed = await uiConfirm({
+          title: t('voucherCurrencyMismatchTitle'),
+          message: tf('voucherCurrencyMismatchMsg', { currency, reporting: meta.reporting_currency }),
+          confirmLabel: t('btnContinue'),
+        });
+        if (!proceed) return;
       }
       // Pre-save confirmation
       const confirmMsg = buildConfirmationSummary(date, description, lines, currency);
-      if (!confirm(confirmMsg)) return;
+      if (!(await uiConfirm({ title: t('confirmSaveVoucherTitle'), message: confirmMsg, confirmLabel: t('saveVoucher') }))) return;
 
       submitBtn.disabled = true;
       document.getElementById('results-wrap').classList.add('loading');
@@ -7706,7 +8136,7 @@
         downloadTextFile(`account_${m.code}.csv`, csv, 'text/csv');
       } else {
         const w = window.open('', '_blank');
-        if (!w) { alert(t('allowPopupsPdf')); return; }
+        if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
         w.document.write(`<html><head><title>Account ${escapeHtml(m.code)}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}.num{text-align:right}h2{margin:0 0 4px}p{margin:2px 0;font-size:13px}</style></head><body>
           <h2>${escapeHtml(m.code)} — ${escapeHtml(m.name)}</h2>
           <p>Debit Turnover: ${formatNum(m.debit_turnover)} | Credit Turnover: ${formatNum(m.credit_turnover)}</p>
@@ -7726,7 +8156,9 @@
       if (e.target.id === 'account-modal') e.target.style.display = 'none';
     };
 
-    async function loadEntities() {
+    async function loadEntities(highlightId) {
+      // Also bound directly as an event listener — ignore Event arguments.
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       const tbody = document.getElementById('entities-tbody');
       try {
         const filterType = document.getElementById('entity-filter-type').value;
@@ -7744,6 +8176,7 @@
         }
         list.forEach(e => {
           const tr = document.createElement('tr');
+          tr.dataset.entityId = e.id;
           tr.innerHTML = `
             <td>${escapeHtml(e.type)}</td>
             <td>${escapeHtml(e.name)}</td>
@@ -7756,6 +8189,7 @@
           `;
           tbody.appendChild(tr);
         });
+        if (highlightId) flashRow(tbody.querySelector('tr[data-entity-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
         tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Error loading entities.</td></tr>';
       }
@@ -7784,32 +8218,23 @@
           const data = await res.json().catch(() => ([]));
           if (!res.ok) { showAlert('Cannot load timeline.', true); return; }
           const lines = (data || []).map(x => `${x.at} - ${x.event}${x.detail ? ': ' + x.detail : ''}`).join('\n');
-          alert(lines || 'No timeline events.');
+          await uiConfirm({ title: t('invoiceTimelineTitle'), message: lines || t('noTimelineEvents'), confirmLabel: t('btnClose'), hideCancel: true });
         } catch (err) { showAlert('Connection error: ' + err.message, true); }
       }
       const editBtn = e.target.closest('.inv-edit');
       if (editBtn) {
-        const id = editBtn.dataset.id;
-        const status = prompt('Status (draft, issued, paid, canceled):', editBtn.dataset.status || 'issued');
-        if (status == null) return;
-        try {
-          const res = await fetch(API + '/invoices/' + encodeURIComponent(id), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status })
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) { showAlert(data.detail || 'Error editing invoice.', true); return; }
-          showAlert('Invoice updated.');
-          loadInvoices();
-          loadOwnerDashboard();
-        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        openInvoiceEditModal(editBtn.dataset.id);
       }
       const paidBtn = e.target.closest('.inv-paid');
       if (paidBtn) {
         if (paidBtn.disabled || String(paidBtn.dataset.status || '').toLowerCase() === 'paid') return;
         const id = paidBtn.dataset.id;
-        const payment_date = prompt('Payment date (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
+        const payment_date = await uiPrompt({
+          title: t('markPaidTitle'),
+          message: t('labelPaymentDate'),
+          type: 'date',
+          value: new Date().toISOString().slice(0, 10),
+        });
         if (!payment_date) return;
         const bankSel = document.getElementById('inv-bank-code');
         const bank_entity_id = (bankSel && bankSel.value) ? bankSel.value : null;
@@ -7818,7 +8243,7 @@
           bankSel.selectedOptions &&
           bankSel.selectedOptions[0] &&
           bankSel.selectedOptions[0].dataset.accountCode
-        ) || '1110';
+        ) || (await getDefaultCashCode());
         try {
           const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/mark-paid', {
             method: 'POST',
@@ -7835,7 +8260,7 @@
       }
       const delBtn = e.target.closest('.inv-del');
       if (delBtn) {
-        if (!confirm('Delete this invoice?')) return;
+        if (!(await uiConfirm({ message: t('confirmDeleteInvoice'), confirmLabel: t('btnDelete'), danger: true }))) return;
         try {
           const res = await fetch(API + '/invoices/' + encodeURIComponent(delBtn.dataset.id), { method: 'DELETE' });
           if (!res.ok) {
@@ -7850,10 +8275,77 @@
       }
     });
 
+    // Invoice edit: load the record into the modal form and PATCH on save.
+    let _editingInvoiceId = null;
+    function openInvoiceEditModal(id) {
+      const inv = _invoicesCache.find((x) => String(x.id) === String(id));
+      if (!inv) { showAlert('Error editing invoice.', true); return; }
+      _editingInvoiceId = inv.id;
+      document.getElementById('invoice-edit-number').value = inv.number || '';
+      document.getElementById('invoice-edit-status').value = String(inv.status || 'issued').toLowerCase();
+      document.getElementById('invoice-edit-amount').value = inv.amount != null ? String(inv.amount) : '0';
+      const ccySel = document.getElementById('invoice-edit-currency');
+      const ccy = String(inv.currency || 'IRR').toUpperCase();
+      if ([...ccySel.options].some((o) => o.value === ccy)) ccySel.value = ccy;
+      document.getElementById('invoice-edit-issue').value = inv.issue_date || '';
+      document.getElementById('invoice-edit-due').value = inv.due_date || '';
+      document.getElementById('invoice-edit-desc').value = inv.description || '';
+      document.getElementById('invoice-edit-modal').style.display = 'flex';
+    }
+
+    async function saveInvoiceEdit() {
+      if (!_editingInvoiceId) return;
+      const number = document.getElementById('invoice-edit-number').value.trim();
+      const issue_date = document.getElementById('invoice-edit-issue').value;
+      const due_date = document.getElementById('invoice-edit-due').value;
+      if (!number || !issue_date || !due_date) {
+        showAlert('Invoice number, issue date, and due date are required.', true);
+        return;
+      }
+      const payload = {
+        number,
+        status: document.getElementById('invoice-edit-status').value,
+        amount: parseInt(document.getElementById('invoice-edit-amount').value, 10) || 0,
+        currency: document.getElementById('invoice-edit-currency').value,
+        issue_date,
+        due_date,
+        description: document.getElementById('invoice-edit-desc').value.trim() || null,
+      };
+      const saveBtn = document.getElementById('invoice-edit-save');
+      saveBtn.disabled = true;
+      try {
+        const res = await fetch(API + '/invoices/' + encodeURIComponent(_editingInvoiceId), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Error editing invoice.', true); return; }
+        document.getElementById('invoice-edit-modal').style.display = 'none';
+        showAlert('Invoice updated.');
+        loadInvoices();
+        loadOwnerDashboard();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    }
+    document.getElementById('invoice-edit-save').addEventListener('click', saveInvoiceEdit);
+    document.getElementById('invoice-edit-cancel').addEventListener('click', () => {
+      document.getElementById('invoice-edit-modal').style.display = 'none';
+    });
+    document.getElementById('invoice-edit-close').addEventListener('click', () => {
+      document.getElementById('invoice-edit-modal').style.display = 'none';
+    });
+    document.getElementById('invoice-edit-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'invoice-edit-modal') e.target.style.display = 'none';
+    });
+
     recurringTbody.addEventListener('click', async (e) => {
       const delBtn = e.target.closest('.recurring-del');
       if (!delBtn) return;
-      if (!confirm('Delete recurring rule?')) return;
+      if (!(await uiConfirm({ message: t('confirmDeleteRecurring'), confirmLabel: t('btnDelete'), danger: true }))) return;
       try {
         const res = await fetch(API + '/recurring/' + encodeURIComponent(delBtn.dataset.id), { method: 'DELETE' });
         if (!res.ok) {
@@ -7866,19 +8358,27 @@
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
 
-    async function editEntity(btn) {
-      const id = btn.dataset.entityId;
-      const currentType = (btn.dataset.entityType || '').trim();
-      const currentName = (btn.dataset.entityName || '').trim();
-      const currentCode = (btn.dataset.entityCode || '').trim();
-      const name = prompt('Edit name:', currentName);
-      if (name == null) return;
-      const type = prompt('Edit type (client, bank, employee, supplier):', currentType);
-      if (type == null) return;
-      const code = prompt('Edit code (optional):', currentCode);
-      if (code == null) return;
+    // Entity edit: load the record into the modal form (no chained prompts).
+    let _editingEntityId = null;
+    function editEntity(btn) {
+      _editingEntityId = btn.dataset.entityId;
+      document.getElementById('entity-edit-type').value = (btn.dataset.entityType || 'client').trim();
+      document.getElementById('entity-edit-name').value = (btn.dataset.entityName || '').trim();
+      document.getElementById('entity-edit-code').value = (btn.dataset.entityCode || '').trim();
+      document.getElementById('entity-edit-modal').style.display = 'flex';
+      document.getElementById('entity-edit-name').focus();
+    }
+
+    async function saveEntityEdit() {
+      if (!_editingEntityId) return;
+      const name = document.getElementById('entity-edit-name').value.trim();
+      const type = document.getElementById('entity-edit-type').value;
+      const code = document.getElementById('entity-edit-code').value.trim();
+      if (!name) { showAlert('Enter a name for the entity.', true); return; }
+      const saveBtn = document.getElementById('entity-edit-save');
+      saveBtn.disabled = true;
       try {
-        const res = await fetch(API + '/entities/' + encodeURIComponent(id), {
+        const res = await fetch(API + '/entities/' + encodeURIComponent(_editingEntityId), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, type, code }),
@@ -7888,18 +8388,31 @@
           showAlert(data.detail || 'Error updating entity.', true);
           return;
         }
+        document.getElementById('entity-edit-modal').style.display = 'none';
         showAlert('Entity updated.');
-        loadEntities();
+        loadEntities(_editingEntityId);
         loadEntityOptions();
       } catch (err) {
         showAlert('Connection error: ' + err.message, true);
+      } finally {
+        saveBtn.disabled = false;
       }
     }
+    document.getElementById('entity-edit-save').addEventListener('click', saveEntityEdit);
+    document.getElementById('entity-edit-cancel').addEventListener('click', () => {
+      document.getElementById('entity-edit-modal').style.display = 'none';
+    });
+    document.getElementById('entity-edit-close').addEventListener('click', () => {
+      document.getElementById('entity-edit-modal').style.display = 'none';
+    });
+    document.getElementById('entity-edit-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'entity-edit-modal') e.target.style.display = 'none';
+    });
 
     async function deleteEntity(btn) {
       const id = btn.dataset.entityId;
       const name = btn.dataset.entityName || 'this entity';
-      if (!confirm('Delete entity "' + name + '"?')) return;
+      if (!(await uiConfirm({ message: tf('confirmDeleteEntity', { name }), confirmLabel: t('btnDelete'), danger: true }))) return;
       try {
         const res = await fetch(API + '/entities/' + encodeURIComponent(id), { method: 'DELETE' });
         if (!res.ok) {
@@ -7915,7 +8428,7 @@
       }
     }
     document.getElementById('reset-db-btn').addEventListener('click', async () => {
-      if (!confirm('Clear all transactions and entities? Chart of accounts will be kept.')) return;
+      if (!(await uiConfirm({ message: t('confirmResetDb'), confirmLabel: t('btnResetDb'), danger: true }))) return;
       try {
         const res = await fetch(API + '/admin/reset-db', { method: 'POST' });
         const data = await res.json().catch(() => ({}));
@@ -7948,7 +8461,7 @@
         showAlert('Entity added.');
         document.getElementById('entity-name').value = '';
         document.getElementById('entity-code').value = '';
-        loadEntities();
+        loadEntities(data.id);
         loadEntityOptions();
       } catch (err) {
         showAlert('Connection error: ' + err.message, true);
@@ -7958,7 +8471,7 @@
       const number = document.getElementById('inv-number').value.trim();
       const kind = document.getElementById('inv-kind').value;
       const amount = parseInt(document.getElementById('inv-amount').value, 10) || 0;
-      const currency = document.getElementById('inv-currency')?.value || 'IRR';
+      const currency = document.getElementById('inv-currency')?.value || preferredFormCurrency();
       const issue_date = document.getElementById('inv-issue').value;
       const due_date = document.getElementById('inv-due').value;
       const entity_id = document.getElementById('inv-entity').value || null;
@@ -7973,10 +8486,17 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || 'Error creating invoice.', true); return; }
         showAlert('Invoice created.');
+        // Reset the whole form so the next invoice starts clean: entity back
+        // to "— None —" (avoids billing the next invoice to the same client),
+        // dates back to today/net-30. Currency keeps the company default.
         document.getElementById('inv-number').value = '';
         document.getElementById('inv-amount').value = '0';
         document.getElementById('inv-desc').value = '';
-        loadInvoices();
+        document.getElementById('inv-entity').value = '';
+        document.getElementById('inv-bank-code').value = '';
+        setInvoiceDateDefaults();
+        applyDefaultFormCurrency();
+        loadInvoices(data.id);
         loadOwnerDashboard();
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
@@ -8012,7 +8532,11 @@
         if (s.kind) document.getElementById('inv-kind').value = s.kind;
         if (s.amount != null) document.getElementById('inv-amount').value = String(s.amount);
         if (s.issue_date) document.getElementById('inv-issue').value = s.issue_date;
-        if (s.due_date) document.getElementById('inv-due').value = s.due_date;
+        if (s.due_date) {
+          document.getElementById('inv-due').value = s.due_date;
+          // Scanned due date counts as user-provided — don't recompute net-30.
+          _invDueManuallySet = true;
+        }
         if (s.description) document.getElementById('inv-desc').value = s.description;
         if (s.entity_id && document.getElementById('inv-entity')) {
           document.getElementById('inv-entity').value = s.entity_id;
@@ -8051,7 +8575,7 @@
         if (!res.ok) { showAlert(data.detail || 'Error creating recurring rule.', true); return; }
         showAlert('Recurring rule saved.');
         document.getElementById('recurring-text').value = '';
-        loadRecurringRules();
+        loadRecurringRules(data.id);
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
     document.getElementById('budget-save').addEventListener('click', async () => {
@@ -8385,7 +8909,7 @@
       }
       const delBtn = e.target.closest('.entity-tx-del');
       if (!delBtn) return;
-      if (!confirm('Delete this transaction?')) return;
+      if (!(await uiConfirm({ message: t('confirmDeleteTransaction'), confirmLabel: t('btnDelete'), danger: true }))) return;
       try {
         const res = await fetch(API + '/transactions/' + encodeURIComponent(delBtn.dataset.txId), { method: 'DELETE' });
         if (!res.ok) {
@@ -8425,13 +8949,15 @@
       const active = rows.filter(r => accountTurnover(r) !== 0).length;
       const topDebit = [...rows].sort((a, b) => (b.debit_turnover || 0) - (a.debit_turnover || 0))[0];
       const topCredit = [...rows].sort((a, b) => (b.credit_turnover || 0) - (a.credit_turnover || 0))[0];
+      // "1200 — Bank current account" instead of a bare account code.
+      const acctLabel = (r) => r ? escapeHtml(r.account_code + (r.account_name ? ' — ' + r.account_name : '')) : '—';
       ledgerKpisEl.innerHTML = `
         <div class="ledger-kpi"><div class="k">Accounts shown</div><div class="v">${formatNum(rows.length)}</div></div>
         <div class="ledger-kpi"><div class="k">Active accounts</div><div class="v">${formatNum(active)}</div></div>
-        <div class="ledger-kpi"><div class="k">Total movement</div><div class="v">${formatNum(totalMovement)}</div></div>
-        <div class="ledger-kpi"><div class="k">Net position</div><div class="v ${net >= 0 ? 'ledger-positive' : 'ledger-negative'}">${formatNum(Math.abs(net))} ${net >= 0 ? 'DR' : 'CR'}</div></div>
-        <div class="ledger-kpi"><div class="k">Top debit</div><div class="v">${topDebit ? escapeHtml(topDebit.account_code) : '—'}</div></div>
-        <div class="ledger-kpi"><div class="k">Top credit</div><div class="v">${topCredit ? escapeHtml(topCredit.account_code) : '—'}</div></div>
+        <div class="ledger-kpi"><div class="k">Total movement</div><div class="v">${formatNum(totalMovement)} ${escapeHtml(currencyUnit())}</div></div>
+        <div class="ledger-kpi"><div class="k">Net position</div><div class="v ${net >= 0 ? 'ledger-positive' : 'ledger-negative'}">${formatNum(Math.abs(net))} ${escapeHtml(currencyUnit())} ${net >= 0 ? 'DR' : 'CR'}</div></div>
+        <div class="ledger-kpi"><div class="k">Top debit</div><div class="v" style="font-size:0.95rem;">${acctLabel(topDebit)}</div></div>
+        <div class="ledger-kpi"><div class="k">Top credit</div><div class="v" style="font-size:0.95rem;">${acctLabel(topCredit)}</div></div>
       `;
     }
 
@@ -8645,8 +9171,33 @@
     }
 
     document.getElementById('date').value = new Date().toISOString().slice(0, 10);
-    document.getElementById('inv-issue').value = new Date().toISOString().slice(0, 10);
-    document.getElementById('inv-due').value = new Date().toISOString().slice(0, 10);
+
+    // Invoice dates: due date defaults to issue date + 30 days (net-30) and
+    // follows the issue date until the user edits the due date themselves.
+    const INVOICE_NET_DAYS = 30;
+    let _invDueManuallySet = false;
+    function datePlusDays(iso, days) {
+      const d = new Date((iso || '') + 'T00:00:00Z');
+      if (isNaN(d.getTime())) return iso;
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+    function setInvoiceDateDefaults() {
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('inv-issue').value = today;
+      document.getElementById('inv-due').value = datePlusDays(today, INVOICE_NET_DAYS);
+      _invDueManuallySet = false;
+    }
+    setInvoiceDateDefaults();
+    document.getElementById('inv-issue').addEventListener('change', () => {
+      const issue = document.getElementById('inv-issue').value;
+      if (issue && !_invDueManuallySet) {
+        document.getElementById('inv-due').value = datePlusDays(issue, INVOICE_NET_DAYS);
+      }
+    });
+    document.getElementById('inv-due').addEventListener('change', () => {
+      _invDueManuallySet = true;
+    });
 
     function updateJalaliHint() {
       const dateEl = document.getElementById('date');
@@ -8736,7 +9287,7 @@
           '</tbody></table>';
         wrap.querySelectorAll('.fx-del-rate').forEach(btn => {
           btn.addEventListener('click', async () => {
-            if (!confirm('Delete this exchange rate?')) return;
+            if (!(await uiConfirm({ message: t('confirmDeleteFxRate'), confirmLabel: t('btnDelete'), danger: true }))) return;
             const id = btn.dataset.id;
             const r2 = await fetch(API + '/fx/rates/' + encodeURIComponent(id), { method: 'DELETE' });
             if (r2.ok) loadFxRates();
@@ -8878,7 +9429,7 @@
       const confirmMsg = locale === 'ir'
         ? (t('confirmResetIranian') || 'Reset the database and load the Iranian demo? All current transactions will be deleted.')
         : (t('confirmResetUk') || 'Reset the database and load the UK demo? All current transactions will be deleted.');
-      if (!confirm(confirmMsg)) return;
+      if (!(await uiConfirm({ message: confirmMsg, confirmLabel: t('btnContinue'), danger: true }))) return;
       button.disabled = true;
       if (otherBtn) otherBtn.disabled = true;
       statusEl.style.color = 'var(--text-muted)';
@@ -8927,7 +9478,7 @@
           'Wipe ALL business data — every transaction, invoice, entity, ' +
           'inventory item, AI proposal, audit log. Chart of accounts and ' +
           'the admin user will be preserved. This is irreversible. Continue?';
-        if (!confirm(msg)) return;
+        if (!(await uiConfirm({ message: msg, confirmLabel: t('btnContinue'), danger: true }))) return;
         resetEmptyBtn.disabled = true;
         if (resetIrBtn) resetIrBtn.disabled = true;
         if (resetUkBtn) resetUkBtn.disabled = true;
@@ -9107,7 +9658,8 @@
       const approveBtn = e.target.closest('.bs-approve-btn');
       if (createBtn) {
         const rowId = createBtn.dataset.rowId;
-        const code = createBtn.dataset.code || prompt('Account code for this transaction:', '6190');
+        const code = createBtn.dataset.code ||
+          await uiPrompt({ title: t('promptAccountCodeTitle'), message: t('promptAccountCodeMsg'), value: '6190' });
         if (!code) return;
         try {
           const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/approve', {
@@ -9735,7 +10287,7 @@
           downloadTextFile('transactions.csv', csv, 'text/csv');
         } else {
           const w = window.open('', '_blank');
-          if (!w) { alert(t('allowPopupsPdf')); return; }
+          if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
           w.document.write(`<html><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}.num{text-align:right}h2{margin:0 0 8px}</style></head><body>
             <h2>${escapeHtml(title)}</h2>
             <p>${data.total_count} transactions | Debit: ${formatNum(data.total_debit)} | Credit: ${formatNum(data.total_credit)}</p>
@@ -9760,7 +10312,7 @@
         downloadTextFile((title||'export').replace(/\s+/g, '_') + '.csv', csv, 'text/csv');
       } else {
         const w = window.open('', '_blank');
-        if (!w) { alert(t('allowPopupsPdf')); return; }
+        if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
         w.document.write(`<html><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}h2{margin:0 0 8px}</style></head><body>
           <h2>${escapeHtml(title)}</h2>
           <table><thead><tr>${headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>
@@ -10584,14 +11136,14 @@
         const importCurrency = document.getElementById('excel-import-currency').value || 'IRR';
         // Warn on suspicious combinations before firing the request
         if (multiplier >= 100000) {
-          if (!confirm(`Multiplier is ${multiplier}x — amounts will be scaled by this factor. Continue?`)) {
+          if (!(await uiConfirm({ message: tf('confirmLargeMultiplier', { multiplier }), confirmLabel: t('btnContinue') }))) {
             btn.disabled = false;
             statusEl.innerHTML = '';
             return;
           }
         }
         if (importCurrency !== 'IRR' && multiplier >= 1000) {
-          if (!confirm(`You are importing ${importCurrency} with a ${multiplier}x multiplier. This is uncommon for ${importCurrency}. Continue?`)) {
+          if (!(await uiConfirm({ message: tf('confirmCurrencyMultiplier', { currency: importCurrency, multiplier }), confirmLabel: t('btnContinue') }))) {
             btn.disabled = false;
             statusEl.innerHTML = '';
             return;

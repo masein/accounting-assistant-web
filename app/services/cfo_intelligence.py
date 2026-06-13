@@ -22,6 +22,151 @@ from app.services.reporting.common import classify_account_code, ASSET, LIABILIT
 
 logger = logging.getLogger(__name__)
 
+# ─── Report language support ─────────────────────────────────────────
+# The CFO/CEO builders produce human-readable prose (insight titles and
+# bodies, the narrative paragraph, Q&A answers). These templates localize
+# that prose to the user's preferred UI language; structured KPI labels
+# stay English because the frontend already translates them by key.
+SUPPORTED_REPORT_LANGUAGES = ("en", "fa", "es", "ar")
+
+_CFO_STRINGS: dict[str, dict[str, str]] = {
+    "en": {
+        "ins_unprofitable_title": "Business is unprofitable",
+        "ins_unprofitable_body": "Net loss of {loss:,} {money} over the past 12 months. Revenue: {revenue:,}, Expenses: {expenses:,}.",
+        "ins_runway_critical_title": "Cash runway critical: {runway:.1f} months",
+        "ins_runway_critical_body": "At current burn rate ({burn:,}/month), cash ({cash:,}) will run out in {runway:.1f} months.",
+        "ins_runway_limited_title": "Cash runway is limited: {runway:.1f} months",
+        "ins_runway_limited_body": "Consider reducing expenses or accelerating collections.",
+        "ins_revenue_declined_title": "Revenue declined {pct:.0f}% month-over-month",
+        "ins_revenue_declined_body": "This month: {current:,} vs last month: {previous:,}.",
+        "ins_expense_spike_title": "Expenses spiked {pct:.0f}% this month",
+        "ins_expense_spike_body": "This month: {current:,} vs last month: {previous:,}.",
+        "ins_top_cost_title": "Top cost driver: {category}",
+        "ins_top_cost_body": "{category} accounts for {pct:.0f}% of total expenses ({amount:,} {money}).",
+        "ins_high_receivables_title": "High receivables",
+        "ins_high_receivables_body": "Outstanding receivables ({ar:,}) exceed 2 months of revenue. Collection may be lagging.",
+        "narr_overview": "Over the past 12 months, total revenue was {revenue:,} {money} with total expenses of {expenses:,} {money}.",
+        "narr_profitable": "The business is profitable with a net margin of {margin:.1f}%.",
+        "narr_loss": "The business is running at a loss of {loss:,} {money}.",
+        "narr_cash": "Cash on hand is {cash:,} {money}, providing approximately {runway:.1f} months of runway at the current burn rate of {burn:,}/month.",
+        "narr_key_concern": "Key concern: {title}.",
+        "narr_grade": "Overall financial health grade: {grade}.",
+        "qa_health": "Financial health grade: {grade} (risk score: {risk}/100). {narrative}",
+        "qa_runway": "At the current burn rate of {burn:,} {money}/month, with {cash:,} {money} cash on hand, the business can sustain operations for approximately {runway:.1f} months.",
+        "qa_margin": "Net margin is {margin}%.",
+        "qa_expenses_up": "Expenses increased {pct}% month-over-month.",
+        "qa_no_cost_concentration": "No significant cost concentration detected.",
+        "qa_cash_position": "Cash on hand: {cash:,} {money}.",
+        "qa_burn": "Burn rate: {burn:,}/month.",
+        "qa_receivables": "Outstanding receivables: {ar:,} {money} — consider accelerating collections.",
+        "qa_burn_rate": "Monthly burn rate: {burn:,} {money} (3-month average of expenses).",
+    },
+    "fa": {
+        "ins_unprofitable_title": "کسب‌وکار زیان‌ده است",
+        "ins_unprofitable_body": "زیان خالص {loss:,} {money} در ۱۲ ماه گذشته. درآمد: {revenue:,}، هزینه‌ها: {expenses:,}.",
+        "ins_runway_critical_title": "دوام نقدینگی بحرانی است: {runway:.1f} ماه",
+        "ins_runway_critical_body": "با نرخ سوخت فعلی ({burn:,} در ماه)، نقدینگی ({cash:,}) در {runway:.1f} ماه تمام می‌شود.",
+        "ins_runway_limited_title": "دوام نقدینگی محدود است: {runway:.1f} ماه",
+        "ins_runway_limited_body": "کاهش هزینه‌ها یا تسریع وصول مطالبات را در نظر بگیرید.",
+        "ins_revenue_declined_title": "درآمد نسبت به ماه قبل {pct:.0f}٪ کاهش یافت",
+        "ins_revenue_declined_body": "این ماه: {current:,} در مقابل ماه قبل: {previous:,}.",
+        "ins_expense_spike_title": "هزینه‌ها این ماه {pct:.0f}٪ جهش داشت",
+        "ins_expense_spike_body": "این ماه: {current:,} در مقابل ماه قبل: {previous:,}.",
+        "ins_top_cost_title": "بزرگ‌ترین محرک هزینه: {category}",
+        "ins_top_cost_body": "{category} معادل {pct:.0f}٪ از کل هزینه‌ها است ({amount:,} {money}).",
+        "ins_high_receivables_title": "مطالبات بالا",
+        "ins_high_receivables_body": "مطالبات وصول‌نشده ({ar:,}) از دو ماه درآمد بیشتر است. وصول مطالبات احتمالاً عقب افتاده است.",
+        "narr_overview": "در ۱۲ ماه گذشته، درآمد کل {revenue:,} {money} و هزینه کل {expenses:,} {money} بود.",
+        "narr_profitable": "کسب‌وکار سودآور است و حاشیه سود خالص {margin:.1f}٪ دارد.",
+        "narr_loss": "کسب‌وکار با زیان {loss:,} {money} مواجه است.",
+        "narr_cash": "موجودی نقد {cash:,} {money} است که با نرخ سوخت فعلی {burn:,} در ماه، حدود {runway:.1f} ماه دوام می‌آورد.",
+        "narr_key_concern": "نگرانی اصلی: {title}.",
+        "narr_grade": "نمره کلی سلامت مالی: {grade}.",
+        "qa_health": "نمره سلامت مالی: {grade} (امتیاز ریسک: {risk}/100). {narrative}",
+        "qa_runway": "با نرخ سوخت فعلی {burn:,} {money} در ماه و موجودی نقد {cash:,} {money}، کسب‌وکار می‌تواند حدود {runway:.1f} ماه به فعالیت ادامه دهد.",
+        "qa_margin": "حاشیه سود خالص {margin}٪ است.",
+        "qa_expenses_up": "هزینه‌ها نسبت به ماه قبل {pct}٪ افزایش یافت.",
+        "qa_no_cost_concentration": "تمرکز هزینه قابل‌توجهی یافت نشد.",
+        "qa_cash_position": "موجودی نقد: {cash:,} {money}.",
+        "qa_burn": "نرخ سوخت: {burn:,} در ماه.",
+        "qa_receivables": "مطالبات وصول‌نشده: {ar:,} {money} — تسریع وصول را در نظر بگیرید.",
+        "qa_burn_rate": "نرخ سوخت ماهانه: {burn:,} {money} (میانگین هزینه‌های ۳ ماه اخیر).",
+    },
+    "es": {
+        "ins_unprofitable_title": "El negocio no es rentable",
+        "ins_unprofitable_body": "Pérdida neta de {loss:,} {money} en los últimos 12 meses. Ingresos: {revenue:,}, Gastos: {expenses:,}.",
+        "ins_runway_critical_title": "Liquidez crítica: {runway:.1f} meses de margen",
+        "ins_runway_critical_body": "Al ritmo de gasto actual ({burn:,}/mes), el efectivo ({cash:,}) se agotará en {runway:.1f} meses.",
+        "ins_runway_limited_title": "Margen de liquidez limitado: {runway:.1f} meses",
+        "ins_runway_limited_body": "Considera reducir gastos o acelerar los cobros.",
+        "ins_revenue_declined_title": "Los ingresos cayeron {pct:.0f}% intermensual",
+        "ins_revenue_declined_body": "Este mes: {current:,} frente al mes pasado: {previous:,}.",
+        "ins_expense_spike_title": "Los gastos subieron {pct:.0f}% este mes",
+        "ins_expense_spike_body": "Este mes: {current:,} frente al mes pasado: {previous:,}.",
+        "ins_top_cost_title": "Mayor generador de costes: {category}",
+        "ins_top_cost_body": "{category} representa el {pct:.0f}% de los gastos totales ({amount:,} {money}).",
+        "ins_high_receivables_title": "Cuentas por cobrar elevadas",
+        "ins_high_receivables_body": "Las cuentas por cobrar pendientes ({ar:,}) superan 2 meses de ingresos. El cobro puede estar retrasado.",
+        "narr_overview": "En los últimos 12 meses, los ingresos totales fueron {revenue:,} {money} con gastos totales de {expenses:,} {money}.",
+        "narr_profitable": "El negocio es rentable con un margen neto del {margin:.1f}%.",
+        "narr_loss": "El negocio opera con una pérdida de {loss:,} {money}.",
+        "narr_cash": "El efectivo disponible es {cash:,} {money}, lo que da aproximadamente {runway:.1f} meses de margen al ritmo de gasto actual de {burn:,}/mes.",
+        "narr_key_concern": "Principal preocupación: {title}.",
+        "narr_grade": "Calificación general de salud financiera: {grade}.",
+        "qa_health": "Calificación de salud financiera: {grade} (puntuación de riesgo: {risk}/100). {narrative}",
+        "qa_runway": "Al ritmo de gasto actual de {burn:,} {money}/mes, con {cash:,} {money} de efectivo disponible, el negocio puede operar aproximadamente {runway:.1f} meses.",
+        "qa_margin": "El margen neto es {margin}%.",
+        "qa_expenses_up": "Los gastos aumentaron {pct}% intermensual.",
+        "qa_no_cost_concentration": "No se detectó una concentración de costes significativa.",
+        "qa_cash_position": "Efectivo disponible: {cash:,} {money}.",
+        "qa_burn": "Ritmo de gasto: {burn:,}/mes.",
+        "qa_receivables": "Cuentas por cobrar pendientes: {ar:,} {money} — considera acelerar los cobros.",
+        "qa_burn_rate": "Ritmo de gasto mensual: {burn:,} {money} (promedio de gastos de 3 meses).",
+    },
+    "ar": {
+        "ins_unprofitable_title": "النشاط التجاري غير مربح",
+        "ins_unprofitable_body": "صافي خسارة {loss:,} {money} خلال الـ 12 شهراً الماضية. الإيرادات: {revenue:,}، المصروفات: {expenses:,}.",
+        "ins_runway_critical_title": "مدة كفاية النقد حرجة: {runway:.1f} شهراً",
+        "ins_runway_critical_body": "بمعدل الإنفاق الحالي ({burn:,} شهرياً)، سينفد النقد ({cash:,}) خلال {runway:.1f} شهراً.",
+        "ins_runway_limited_title": "مدة كفاية النقد محدودة: {runway:.1f} شهراً",
+        "ins_runway_limited_body": "فكّر في خفض المصروفات أو تسريع التحصيل.",
+        "ins_revenue_declined_title": "انخفضت الإيرادات {pct:.0f}٪ مقارنة بالشهر السابق",
+        "ins_revenue_declined_body": "هذا الشهر: {current:,} مقابل الشهر الماضي: {previous:,}.",
+        "ins_expense_spike_title": "قفزت المصروفات {pct:.0f}٪ هذا الشهر",
+        "ins_expense_spike_body": "هذا الشهر: {current:,} مقابل الشهر الماضي: {previous:,}.",
+        "ins_top_cost_title": "أكبر بند تكلفة: {category}",
+        "ins_top_cost_body": "{category} يمثل {pct:.0f}٪ من إجمالي المصروفات ({amount:,} {money}).",
+        "ins_high_receivables_title": "ذمم مدينة مرتفعة",
+        "ins_high_receivables_body": "الذمم المدينة المستحقة ({ar:,}) تتجاوز شهرين من الإيرادات. قد يكون التحصيل متأخراً.",
+        "narr_overview": "خلال الـ 12 شهراً الماضية، بلغ إجمالي الإيرادات {revenue:,} {money} وإجمالي المصروفات {expenses:,} {money}.",
+        "narr_profitable": "النشاط التجاري مربح بهامش صافٍ قدره {margin:.1f}٪.",
+        "narr_loss": "النشاط التجاري يعمل بخسارة قدرها {loss:,} {money}.",
+        "narr_cash": "النقد المتاح هو {cash:,} {money}، أي ما يعادل {runway:.1f} شهراً تقريباً بمعدل الإنفاق الحالي {burn:,} شهرياً.",
+        "narr_key_concern": "أهم مصدر قلق: {title}.",
+        "narr_grade": "التقييم العام للصحة المالية: {grade}.",
+        "qa_health": "تقييم الصحة المالية: {grade} (درجة المخاطر: {risk}/100). {narrative}",
+        "qa_runway": "بمعدل الإنفاق الحالي {burn:,} {money} شهرياً، ومع نقد متاح قدره {cash:,} {money}، يمكن للنشاط الاستمرار نحو {runway:.1f} شهراً.",
+        "qa_margin": "هامش الربح الصافي {margin}٪.",
+        "qa_expenses_up": "ارتفعت المصروفات {pct}٪ مقارنة بالشهر السابق.",
+        "qa_no_cost_concentration": "لم يُرصد تركّز كبير في التكاليف.",
+        "qa_cash_position": "النقد المتاح: {cash:,} {money}.",
+        "qa_burn": "معدل الإنفاق: {burn:,} شهرياً.",
+        "qa_receivables": "الذمم المدينة المستحقة: {ar:,} {money} — فكّر في تسريع التحصيل.",
+        "qa_burn_rate": "معدل الإنفاق الشهري: {burn:,} {money} (متوسط مصروفات 3 أشهر).",
+    },
+}
+
+
+def _normalize_report_language(lang: str | None) -> str:
+    lang = (lang or "en").strip().lower()
+    return lang if lang in SUPPORTED_REPORT_LANGUAGES else "en"
+
+
+def _s(lang: str, key: str) -> str:
+    """Localized template lookup with English fallback."""
+    pack = _CFO_STRINGS.get(lang) or _CFO_STRINGS["en"]
+    return pack.get(key) or _CFO_STRINGS["en"][key]
+
 
 @dataclass
 class KPI:
@@ -189,7 +334,8 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
     }
 
 
-def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
+def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en") -> CFOReport:
+    lang = _normalize_report_language(lang)
     report = CFOReport()
     data = _load_monthly_data(db, months_back=12, currency=currency)
     # Currency-unit label that lands on every monetary KPI. Resolved
@@ -270,39 +416,41 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
     if net_profit < 0:
         report.insights.append(Insight(
             priority=priority, category="revenue", severity="critical",
-            title="Business is unprofitable",
-            body=f"Net loss of {abs(net_profit):,} {money} over the past 12 months. Revenue: {total_rev:,}, Expenses: {total_exp:,}.",
+            title=_s(lang, "ins_unprofitable_title"),
+            body=_s(lang, "ins_unprofitable_body").format(
+                loss=abs(net_profit), money=money, revenue=total_rev, expenses=total_exp),
         ))
         priority += 1
 
     if runway < 3:
         report.insights.append(Insight(
             priority=priority, category="cash", severity="critical",
-            title=f"Cash runway critical: {runway:.1f} months",
-            body=f"At current burn rate ({burn_rate:,}/month), cash ({data['total_cash']:,}) will run out in {runway:.1f} months.",
+            title=_s(lang, "ins_runway_critical_title").format(runway=runway),
+            body=_s(lang, "ins_runway_critical_body").format(
+                burn=burn_rate, cash=data["total_cash"], runway=runway),
         ))
         priority += 1
     elif runway < 6:
         report.insights.append(Insight(
             priority=priority, category="cash", severity="warning",
-            title=f"Cash runway is limited: {runway:.1f} months",
-            body=f"Consider reducing expenses or accelerating collections.",
+            title=_s(lang, "ins_runway_limited_title").format(runway=runway),
+            body=_s(lang, "ins_runway_limited_body"),
         ))
         priority += 1
 
     if rev_trend < -10 and prev_rev > 0:
         report.insights.append(Insight(
             priority=priority, category="revenue", severity="warning",
-            title=f"Revenue declined {abs(rev_trend):.0f}% month-over-month",
-            body=f"This month: {cur_rev:,} vs last month: {prev_rev:,}.",
+            title=_s(lang, "ins_revenue_declined_title").format(pct=abs(rev_trend)),
+            body=_s(lang, "ins_revenue_declined_body").format(current=cur_rev, previous=prev_rev),
         ))
         priority += 1
 
     if exp_trend > 30 and prev_exp > 0:
         report.insights.append(Insight(
             priority=priority, category="expense", severity="warning",
-            title=f"Expenses spiked {exp_trend:.0f}% this month",
-            body=f"This month: {cur_exp:,} vs last month: {prev_exp:,}.",
+            title=_s(lang, "ins_expense_spike_title").format(pct=exp_trend),
+            body=_s(lang, "ins_expense_spike_body").format(current=cur_exp, previous=prev_exp),
         ))
         priority += 1
 
@@ -312,8 +460,9 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
         top_pct = top_cat[1] / total_exp * 100 if total_exp > 0 else 0
         report.insights.append(Insight(
             priority=priority, category="expense", severity="info",
-            title=f"Top cost driver: {top_cat[0]}",
-            body=f"{top_cat[0]} accounts for {top_pct:.0f}% of total expenses ({top_cat[1]:,} {money}).",
+            title=_s(lang, "ins_top_cost_title").format(category=top_cat[0]),
+            body=_s(lang, "ins_top_cost_body").format(
+                category=top_cat[0], pct=top_pct, amount=top_cat[1], money=money),
         ))
         priority += 1
 
@@ -321,8 +470,8 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
     if data["total_receivable"] > avg_rev * 2 and avg_rev > 0:
         report.insights.append(Insight(
             priority=priority, category="risk", severity="warning",
-            title="High receivables",
-            body=f"Outstanding receivables ({data['total_receivable']:,}) exceed 2 months of revenue. Collection may be lagging.",
+            title=_s(lang, "ins_high_receivables_title"),
+            body=_s(lang, "ins_high_receivables_body").format(ar=data["total_receivable"]),
         ))
         priority += 1
 
@@ -356,73 +505,73 @@ def build_cfo_report(db: Session, currency: str | None = None) -> CFOReport:
 
     # --- NARRATIVE ---
     parts = []
-    parts.append(f"Over the past 12 months, total revenue was {total_rev:,} {money} with total expenses of {total_exp:,} {money}.")
+    parts.append(_s(lang, "narr_overview").format(revenue=total_rev, expenses=total_exp, money=money))
     if net_profit >= 0:
-        parts.append(f"The business is profitable with a net margin of {margin:.1f}%.")
+        parts.append(_s(lang, "narr_profitable").format(margin=margin))
     else:
-        parts.append(f"The business is running at a loss of {abs(net_profit):,} {money}.")
-    parts.append(f"Cash on hand is {data['total_cash']:,} {money}, providing approximately {runway:.1f} months of runway at the current burn rate of {burn_rate:,}/month.")
+        parts.append(_s(lang, "narr_loss").format(loss=abs(net_profit), money=money))
+    parts.append(_s(lang, "narr_cash").format(
+        cash=data["total_cash"], money=money, runway=runway, burn=burn_rate))
     if report.insights:
         top = report.insights[0]
-        parts.append(f"Key concern: {top.title}.")
-    parts.append(f"Overall financial health grade: {report.health_grade}.")
+        parts.append(_s(lang, "narr_key_concern").format(title=top.title))
+    parts.append(_s(lang, "narr_grade").format(grade=report.health_grade))
     report.narrative = " ".join(parts)
 
     return report
 
 
-def answer_cfo_question(db: Session, question: str, currency: str | None = None) -> str:
+def answer_cfo_question(db: Session, question: str, currency: str | None = None, lang: str = "en") -> str:
     """
     Answer a natural language CFO question using computed KPIs.
-    Returns a plain-text narrative answer.
+    Returns a plain-text narrative answer in the requested language.
     """
-    report = build_cfo_report(db, currency=currency)
+    lang = _normalize_report_language(lang)
+    report = build_cfo_report(db, currency=currency, lang=lang)
     low = question.lower()
     money = _resolve_currency_unit(db, currency)
 
     kpi_map = {k.key: k for k in report.kpis}
 
-    if any(w in low for w in ("healthy", "health", "سلامت", "وضعیت")):
-        return (
-            f"Financial health grade: {report.health_grade} (risk score: {report.risk_score}/100). "
-            f"{report.narrative}"
-        )
+    if any(w in low for w in ("healthy", "health", "سلامت", "وضعیت", "salud", "saludable", "صحة", "سليم")):
+        return _s(lang, "qa_health").format(
+            grade=report.health_grade, risk=report.risk_score, narrative=report.narrative)
 
-    if any(w in low for w in ("survive", "runway", "last", "بقا", "دوام")):
-        r = kpi_map.get("runway_months")
-        return (
-            f"At the current burn rate of {report.burn_rate:,} {money}/month, "
-            f"with {kpi_map.get('cash_on_hand', KPI(key='', label='', value=0)).value:,} {money} cash on hand, "
-            f"the business can sustain operations for approximately {report.runway_months:.1f} months."
-        )
+    if any(w in low for w in ("survive", "runway", "last", "بقا", "دوام", "sobrevivir", "aguantar", "البقاء", "الاستمرار")):
+        return _s(lang, "qa_runway").format(
+            burn=report.burn_rate, money=money,
+            cash=kpi_map.get("cash_on_hand", KPI(key="", label="", value=0)).value,
+            runway=report.runway_months)
 
-    if any(w in low for w in ("profit drop", "profit fell", "profit declin", "سود کاهش", "چرا سود")):
+    if any(w in low for w in ("profit drop", "profit fell", "profit declin", "سود کاهش", "چرا سود", "bajó la ganancia", "cayó el beneficio", "انخفاض الربح")):
         exp_trend = kpi_map.get("expense_trend")
         top_costs = sorted(report.insights, key=lambda i: i.priority)
         expense_insights = [i for i in top_costs if i.category == "expense"]
-        parts = [f"Net margin is {kpi_map.get('net_margin', KPI(key='', label='', value=0)).value}%."]
+        parts = [_s(lang, "qa_margin").format(
+            margin=kpi_map.get("net_margin", KPI(key="", label="", value=0)).value)]
         if expense_insights:
             parts.append(expense_insights[0].body)
         if exp_trend and exp_trend.value > 0:
-            parts.append(f"Expenses increased {exp_trend.value}% month-over-month.")
+            parts.append(_s(lang, "qa_expenses_up").format(pct=exp_trend.value))
         return " ".join(parts) if parts else report.narrative
 
-    if any(w in low for w in ("cost driver", "main cost", "biggest expense", "هزینه اصلی", "بیشترین هزینه")):
+    if any(w in low for w in ("cost driver", "main cost", "biggest expense", "هزینه اصلی", "بیشترین هزینه", "mayor gasto", "mayor coste", "أكبر مصروف", "أكبر تكلفة")):
         cost_insights = [i for i in report.insights if i.category == "expense"]
         if cost_insights:
             return cost_insights[0].body
-        return "No significant cost concentration detected."
+        return _s(lang, "qa_no_cost_concentration")
 
-    if any(w in low for w in ("cash leak", "where.*cash", "نشت نقدینگی", "کجا.*پول")):
-        parts = [f"Cash on hand: {kpi_map.get('cash_on_hand', KPI(key='', label='', value=0)).value:,} {money}."]
-        parts.append(f"Burn rate: {report.burn_rate:,}/month.")
+    if any(w in low for w in ("cash leak", "where.*cash", "نشت نقدینگی", "کجا.*پول", "fuga de efectivo", "تسرب النقد")):
+        parts = [_s(lang, "qa_cash_position").format(
+            cash=kpi_map.get("cash_on_hand", KPI(key="", label="", value=0)).value, money=money)]
+        parts.append(_s(lang, "qa_burn").format(burn=report.burn_rate))
         ar = kpi_map.get("accounts_receivable")
         if ar and ar.value > 0:
-            parts.append(f"Outstanding receivables: {ar.value:,} {money} — consider accelerating collections.")
+            parts.append(_s(lang, "qa_receivables").format(ar=ar.value, money=money))
         return " ".join(parts)
 
-    if any(w in low for w in ("burn rate", "نرخ سوخت", "هزینه ماهانه")):
-        return f"Monthly burn rate: {report.burn_rate:,} {money} (3-month average of expenses)."
+    if any(w in low for w in ("burn rate", "نرخ سوخت", "هزینه ماهانه", "ritmo de gasto", "معدل الإنفاق")):
+        return _s(lang, "qa_burn_rate").format(burn=report.burn_rate, money=money)
 
     # Default: return full narrative
     return report.narrative
@@ -455,9 +604,10 @@ class CEOReport:
     liability_ratio: float = 0.0
 
 
-def build_ceo_report(db: Session, currency: str | None = None) -> CEOReport:
-    """Build a high-level CEO executive summary report."""
-    cfo = build_cfo_report(db, currency=currency)
+def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en") -> CEOReport:
+    """Build a high-level CEO executive summary report. Alerts inherit the
+    localized insight text from the CFO report."""
+    cfo = build_cfo_report(db, currency=currency, lang=lang)
     data = _load_monthly_data(db, months_back=12, currency=currency)
 
     report = CEOReport()

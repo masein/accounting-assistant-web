@@ -16,6 +16,7 @@ from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
 from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction, TransactionLine
+from app.services.cash_service import cash_on_hand as _cash_on_hand_balance
 from app.services.fx_service import get_reporting_currency
 from app.services.locale_service import get_reporting_locale
 from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
@@ -78,11 +79,11 @@ def _line_expense(line: TransactionLine) -> int:
 # Iran 1210 = property/plant). These predicates are selected by reporting
 # locale inside get_owner_dashboard.
 def _cash_predicate(locale: str):
-    if (locale or "").strip().lower() == "uk":
-        # Sage bank + petty-cash accounts: 1200 current, 1210 deposit, 1220 petty.
-        return lambda c: c.startswith(("120", "121", "122"))
-    # Iranian standard: 1110 موجودی نقد و بانک.
-    return lambda c: c == "1110"
+    # Single source of truth lives in cash_service so the dashboard and the
+    # CFO/CEO engine select the same cash/bank accounts (see AI-6).
+    from app.services.cash_service import cash_account_predicate
+
+    return cash_account_predicate(locale)
 
 
 def _receivable_predicate(locale: str):
@@ -464,17 +465,8 @@ def get_owner_dashboard(
     # True cash-on-hand: the net balance of every cash/bank account up to
     # today, not just the trailing window scanned above (which is sized for
     # the burn-rate / forecast and would otherwise understate the balance).
-    cash_account_ids = [a.id for a in db.execute(select(Account)).scalars().all() if _is_cash(a.code)]
-    cash_on_hand = 0
-    if cash_account_ids:
-        cash_q = (
-            select(func.coalesce(func.sum(TransactionLine.debit - TransactionLine.credit), 0))
-            .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-            .where(TransactionLine.account_id.in_(cash_account_ids), Transaction.date <= today)
-        )
-        if currency:
-            cash_q = cash_q.where(Transaction.currency == currency)
-        cash_on_hand = int(db.execute(cash_q).scalar() or 0)
+    # Shared with the CFO/CEO engine via cash_service so both agree (AI-6).
+    cash_on_hand = _cash_on_hand_balance(db, locale=locale, currency=currency, as_of=today)
 
     current_month = _month_key(today)
     monthly_net = monthly_revenue.get(current_month, 0) - monthly_expense.get(current_month, 0)

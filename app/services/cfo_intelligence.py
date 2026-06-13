@@ -338,6 +338,15 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en")
     lang = _normalize_report_language(lang)
     report = CFOReport()
     data = _load_monthly_data(db, months_back=12, currency=currency)
+    # Cash on hand must match the owner dashboard exactly: the true all-time
+    # net balance of cash/bank accounts as of today, not the 12-month
+    # windowed sum _load_monthly_data accumulates for burn/trend (AI-6).
+    from app.services.cash_service import cash_on_hand as _cash_on_hand
+    from app.services.locale_service import get_reporting_locale
+
+    data["total_cash"] = _cash_on_hand(
+        db, locale=get_reporting_locale(db), currency=currency, as_of=date.today()
+    )
     # Currency-unit label that lands on every monetary KPI. Resolved
     # once so the entire report is internally consistent.
     money = _resolve_currency_unit(db, currency)

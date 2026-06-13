@@ -51,10 +51,10 @@ from .read_tools import register_read_tools
 logger = logging.getLogger(__name__)
 
 # Per-message safety cap. A well-behaved chat hits the network ~3 times
-# (resolve entities → propose → wrap up). 8 is comfortable headroom; the
-# brief mandates this kind of cap as part of the rate-limit / spend
-# controls in §4.7.
-MAX_TURNS = 8
+# (resolve entities → propose → wrap up). Raised from 8 to 12 to give entity
+# resolution + OCR-driven document turns a little more headroom before the
+# graceful-partial fallback kicks in (AI-1). Still bounded for spend control.
+MAX_TURNS = 12
 PAUSE_TURN_RETRIES = 3
 
 
@@ -64,20 +64,32 @@ You have a fixed catalogue of tools. You cannot write to the books directly; eve
 
 # Behavioural rules — non-negotiable
 
-1. **Never invent entities.** When the user mentions a person or organisation by name, ALWAYS call ``find_entity`` first. Don't guess which Kim they mean.
+1. **Resolve names, but converge fast.** When the user names a person or organisation, call ``find_entity`` ONCE for that name. Then decide and move on — never call ``find_entity`` or ``list_entities`` repeatedly for the same name.
 2. **Never propose without resolving accounts.** Use ``query_ledger`` or ``get_account_balance`` to confirm the right account_code before proposing a transaction.
-3. **Always confirm ambiguity before proposing.** If the user said "Monday" and it could mean this Monday or last Monday, ask. If currency is unclear, ask. If the entity matches multiple records, list them and ask which.
-4. **Never split bulk requests into a single proposal.** "Pay all overdue invoices" → list the invoices and produce one proposal per invoice. Never aggregate.
-5. **Never silently round, swap currencies, or 'fix' obvious typos in amounts.** If the user says "$1k" and the vendor's invoice is in EUR, flag the mismatch and ask.
-6. **Reject future-dated expenses (>1 day ahead) unless the user explicitly says it's scheduled.**
+3. **Never split bulk requests into a single proposal.** "Pay all overdue invoices" → list the invoices and produce one proposal per invoice. Never aggregate.
+4. **Never silently round, swap currencies, or 'fix' obvious typos in amounts.** If the user says "$1k" and the vendor's invoice is in EUR, flag the mismatch and ask.
+5. **Reject future-dated expenses (>1 day ahead) unless the user explicitly says it's scheduled.**
+
+# Entity resolution — converge in ONE lookup (do not loop)
+
+After a single ``find_entity`` call for a name, pick exactly one path:
+* **Strong match** — top candidate confidence ≥ 0.80, or it's the only candidate: use it. Don't search again.
+* **Several plausible matches** — list the top 2–3 by name and ask the user which one, then STOP and wait. Do not call find_entity/list_entities again.
+* **No usable match** (best < 0.50, or the user said "no supplier / nobody"): entity links are OPTIONAL — go ahead and ``propose_create_transaction`` with an EMPTY ``entity_links`` list, and mention you couldn't match the name so the user can add it later.
+
+Never burn the whole turn budget re-listing entities. A missing entity is fine; a dead-end with no proposal is not.
 
 # Resolution loop — every time the user could cause a write
 
 a. Parse intent (record / query / invoice / etc.) and extract: amount, currency, date, entity, account, memo.
-b. Resolve each entity with ``find_entity``. If confidence ≥ 0.95 use it. Otherwise list candidates and ask the user to pick.
+b. Resolve the entity per the rules above (one ``find_entity`` call, then commit to a path).
 c. Resolve accounts via ``query_ledger`` with a code prefix when unsure.
-d. Fill defaults from ``get_company_defaults`` (currency, today's date, locale). Always call this once at the start of a session to anchor everything.
+d. Fill defaults from ``get_company_defaults`` (currency, today's date, locale). Call this once early to anchor currency and date.
 e. Draft the proposal via ``propose_create_transaction``. The tool registers a pending row and returns a ``confirmation_token`` — DO NOT re-paste the full summary text afterwards; the chat UI renders the action card automatically. Just briefly tell the user what you proposed and end your turn.
+
+# Attached documents (invoice / receipt images or PDFs)
+
+When the user's turn includes "Attached document OCR" context, treat those extracted fields (vendor, date, total, currency, line items) as the primary source for the entry. Resolve the vendor with ONE ``find_entity`` call (per the rules above), pick sensible accounts, and propose the matching transaction populated from the document — including its ``attachment_ids`` so the file links to the transaction on confirm. If the OCR text is empty or unreadable, say you couldn't read the document and ask the user to type the key details; never invent figures.
 
 # When the user asks a pure question (read-only)
 
@@ -86,9 +98,45 @@ Answer with ``query_ledger`` / ``get_account_balance`` / ``list_entities``. No p
 # Style
 
 * Be concise. Don't apologise. Don't lecture about accounting basics.
-* Use the user's language when possible — Persian if they're writing in Persian.
+* ALWAYS reply in the user's language: {lang_name}. If they write in another language, match theirs.
 * Match the company's currency by default (returned by ``get_company_defaults``).
 """
+
+
+# Human-readable language names interpolated into the system prompt so the
+# model knows which language to answer in (AI-2).
+_LANG_NAMES = {
+    "en": "English",
+    "fa": "Persian (فارسی)",
+    "es": "Spanish (Español)",
+    "ar": "Arabic (العربية)",
+}
+
+# Localized status / fallback strings surfaced to the user (AI-2). Keyed by
+# the user's preferred UI language with an English fallback.
+_STATUS_STRINGS = {
+    "en": {
+        "max_turns_candidates": "I found these possible matches — please tell me which one (or say 'none'):\n{candidates}",
+        "max_turns_dead_end": "I couldn't finish that automatically. Could you add a bit more detail (amount, date, and which account or person), and I'll propose the entry?",
+    },
+    "fa": {
+        "max_turns_candidates": "این موارد احتمالی را پیدا کردم — لطفاً بگویید کدام‌یک مدنظرتان است (یا بنویسید «هیچ‌کدام»):\n{candidates}",
+        "max_turns_dead_end": "نتوانستم این کار را به‌صورت خودکار کامل کنم. لطفاً کمی جزئیات بیشتر بدهید (مبلغ، تاریخ و کدام حساب یا شخص) تا سند را پیشنهاد دهم.",
+    },
+    "es": {
+        "max_turns_candidates": "Encontré estas posibles coincidencias — dime cuál es (o escribe «ninguna»):\n{candidates}",
+        "max_turns_dead_end": "No pude completarlo automáticamente. ¿Puedes dar un poco más de detalle (importe, fecha y qué cuenta o persona) y propongo el asiento?",
+    },
+    "ar": {
+        "max_turns_candidates": "وجدت هذه التطابقات المحتملة — من فضلك أخبرني أيها تقصد (أو اكتب «لا شيء»):\n{candidates}",
+        "max_turns_dead_end": "لم أتمكن من إتمام ذلك تلقائياً. هل يمكنك إضافة مزيد من التفاصيل (المبلغ والتاريخ وأي حساب أو شخص) وسأقترح القيد؟",
+    },
+}
+
+
+def _status(lang: str, key: str) -> str:
+    pack = _STATUS_STRINGS.get(lang) or _STATUS_STRINGS["en"]
+    return pack.get(key) or _STATUS_STRINGS["en"][key]
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +274,9 @@ async def run_chat_turn(
     user_message: str,
     session_id: str | None = None,
     ip_address: str | None = None,
+    lang: str = "en",
+    ocr_context: str | None = None,
+    attachment_ids: list[str] | None = None,
     registry: ToolRegistry | None = None,
     client: LLMClient | None = None,
 ) -> ChatResult:
@@ -235,12 +286,23 @@ async def run_chat_turn(
     return value lists every proposal registered during the turn so the
     frontend can render the action cards.
 
+    ``lang`` is the user's preferred UI language; it localizes the
+    fallback/status text and tells the model which language to answer in
+    (AI-2). ``ocr_context`` is OCR text extracted from any attached
+    document, injected into the turn; ``attachment_ids`` are linked onto
+    whatever transaction the model proposes this turn (chat-attachment
+    feature).
+
     ``client`` lets tests inject a mock; in production we look up the
     active shape via ``_resolve_chat_shape`` and instantiate the
     corresponding adapter.
     """
+    lang = lang if lang in _LANG_NAMES else "en"
+    attachment_ids = list(attachment_ids or [])
     reg = registry or build_default_registry()
     tool_defs = reg.to_anthropic()  # provider-neutral: {name, description, input_schema}
+
+    system_prompt = SYSTEM_PROMPT.replace("{lang_name}", _LANG_NAMES[lang])
 
     shape = "anthropic"
     if client is None:
@@ -253,7 +315,16 @@ async def run_chat_turn(
     session_uuid_str = str(chat_session.id)
 
     history = _replay_history(db, chat_session.id)
-    user_turn = ChatMessage(role="user", text=user_message)
+    # Fold OCR context into the user's turn so the model can reason over the
+    # attached document's fields. Persist the augmented text so a session
+    # replay still carries the document context.
+    turn_text = user_message
+    if ocr_context:
+        turn_text = (user_message or "").rstrip()
+        if turn_text:
+            turn_text += "\n\n"
+        turn_text += ocr_context
+    user_turn = ChatMessage(role="user", text=turn_text)
     history.append(user_turn)
     _persist_message(db, session_id=chat_session.id, role="user", content=user_turn.to_dict())
 
@@ -264,10 +335,14 @@ async def run_chat_turn(
         chat_session_id=session_uuid_str,
         user_message=user_message,
         ip_address=ip_address,
+        attachment_ids=attachment_ids,
     )
 
     proposals: list[dict[str, Any]] = []
     tool_call_log: list[dict[str, Any]] = []
+    # Most recent entity-resolution candidates, used to build a graceful
+    # "pick one" partial if the turn budget is exhausted (AI-1).
+    last_candidates: list[dict[str, Any]] = []
     final_text = ""
     stop_reason: str | None = None
     pause_attempts = 0
@@ -275,7 +350,7 @@ async def run_chat_turn(
     for turn in range(1, MAX_TURNS + 1):
         try:
             response = await client.chat(
-                system_prompt=SYSTEM_PROMPT,
+                system_prompt=system_prompt,
                 tools=tool_defs,
                 messages=history,
             )
@@ -365,6 +440,12 @@ async def run_chat_turn(
             log_entry["result"] = result
             if tool.category == "proposal" and isinstance(result, dict) and "confirmation_token" in result:
                 proposals.append(result)
+            # Remember entity candidates so we can offer a "pick one" partial
+            # if the model never converges before MAX_TURNS (AI-1).
+            if call.name in ("find_entity", "list_entities") and isinstance(result, dict):
+                cands = result.get("matches") or result.get("entities") or []
+                if cands:
+                    last_candidates = cands
 
         # Append each tool result as its own ChatMessage (the wire-format
         # adapter batches them appropriately for Anthropic / spreads them
@@ -380,9 +461,23 @@ async def run_chat_turn(
         "ai-accountant: hit MAX_TURNS=%d for session %s — returning partial result",
         MAX_TURNS, session_uuid_str,
     )
+    # Graceful partial instead of a dead-end (AI-1). If the model was stuck
+    # resolving an entity, surface the candidates it found and ask the user
+    # to pick. Otherwise ask for a little more detail. Localized (AI-2).
+    if final_text:
+        fallback_text = final_text
+    elif last_candidates:
+        listed = "\n".join(
+            f"  • {c.get('name', '?')}"
+            + (f" ({c.get('type')})" if c.get("type") else "")
+            for c in last_candidates[:5]
+        )
+        fallback_text = _status(lang, "max_turns_candidates").format(candidates=listed)
+    else:
+        fallback_text = _status(lang, "max_turns_dead_end")
     return ChatResult(
         session_id=session_uuid_str,
-        text=final_text or "(agent reached max turns — please simplify your request)",
+        text=fallback_text,
         proposals=proposals,
         tool_calls=tool_call_log,
         stop_reason=stop_reason,

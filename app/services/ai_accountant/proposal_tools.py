@@ -101,6 +101,14 @@ class ProposeCreateTransactionInput(BaseModel):
         default_factory=list,
         description="Optional links to entities (client, employee, supplier, bank, payee).",
     )
+    attachment_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "IDs of document files (invoice/receipt) to attach to this transaction. "
+            "When the user attached a document this turn, include its attachment_id "
+            "here so the file links to the entry on confirm."
+        ),
+    )
 
     @model_validator(mode="after")
     def _balanced(self) -> "ProposeCreateTransactionInput":
@@ -176,6 +184,15 @@ class ProposeCreateTransaction(BaseTool):
         # losslessly.
         token = uuid.uuid4()
         payload = args.model_dump(mode="json")  # dates → ISO strings
+
+        # Always link any attachments uploaded with this chat turn, merging
+        # them with whatever the model put in attachment_ids. This makes the
+        # file follow the entry even if a weaker model forgets to echo the
+        # UUID into the proposal (chat-attachment feature).
+        merged_attachments = list(
+            dict.fromkeys([*payload.get("attachment_ids", []), *(ctx.attachment_ids or [])])
+        )
+        payload["attachment_ids"] = merged_attachments
 
         proposal = AIProposal(
             confirmation_token=token,

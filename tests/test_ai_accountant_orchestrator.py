@@ -136,7 +136,7 @@ class TestOrchestrator:
             _assistant_text("I drafted a proposal to pay Kim Nguyen 1,000,000 IRR. Please confirm."),
         ])
         result = asyncio.run(run_chat_turn(
-            db, user_id="u1", user_message="paid Kim 1k yesterday", client=client,
+            db, user_id="u1", user_message="paid Kim 1,000,000 yesterday", client=client,
         ))
         assert len(result.proposals) == 1
         prop = result.proposals[0]

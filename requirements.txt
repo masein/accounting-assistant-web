@@ -10,4 +10,7 @@ anthropic>=0.71.0,<1.0
 reportlab>=4.0,<5.0
 openpyxl>=3.1,<4.0
 pypdf>=3.0,<5.0
+# PyMuPDF rasterizes PDF pages to PNG for the vision OCR path (self-contained
+# wheel, no system deps). Falls back to pypdf text extraction if unavailable.
+pymupdf>=1.24,<2.0
 jdatetime>=5.0,<6.0

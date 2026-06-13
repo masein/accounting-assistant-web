@@ -44,6 +44,46 @@ from .base import BaseTool, ToolContext, ToolError
 
 PROPOSAL_TTL = timedelta(minutes=10)
 
+# Above this a proposed amount is digit garbage, never a real entry (the
+# Asiatech OCR bug proposed 8.45e17). Shared definition with ocr_extract.
+from app.services.ocr_extract import MAX_SANE_AMOUNT
+
+# How far the proposed total may diverge from the closest source amount
+# before we refuse to silently propose. 10× catches the "300 → 30,000"
+# mis-scale and OCR digit-concatenation while tolerating aggregation.
+_AMOUNT_DIVERGENCE_FACTOR = 10
+
+
+def _guard_amount(ctx: ToolContext, proposed_total: int) -> None:
+    """Block impossible or wildly-mismatched amounts before a proposal is
+    registered. Raises ToolError (which the model surfaces to the user) so a
+    bad figure is corrected/confirmed rather than one-click committed."""
+    if proposed_total > MAX_SANE_AMOUNT:
+        raise ToolError(
+            f"Proposed amount {proposed_total:,} is impossibly large and was "
+            f"almost certainly mis-read. Re-read the document's labelled total "
+            f"or ask the user for the correct amount before proposing.",
+            code="amount_out_of_range",
+        )
+    sources = [int(a) for a in (getattr(ctx, "source_amounts", None) or []) if a]
+    if not sources or proposed_total <= 0:
+        return
+    # Pass if ANY source amount is within the divergence factor of the
+    # proposal (handles aggregation across several source numbers).
+    for src in sources:
+        if src <= 0:
+            continue
+        hi, lo = max(proposed_total, src), min(proposed_total, src)
+        if hi <= lo * _AMOUNT_DIVERGENCE_FACTOR:
+            return
+    closest = min(sources, key=lambda s: abs(s - proposed_total))
+    raise ToolError(
+        f"Proposed total {proposed_total:,} does not match the amount found in "
+        f"the source (~{closest:,}). Don't propose this figure — confirm the "
+        f"correct amount with the user, or use the document's labelled total.",
+        code="amount_mismatch",
+    )
+
 
 # ---------------------------------------------------------------------------
 # propose_create_transaction
@@ -143,6 +183,12 @@ class ProposeCreateTransaction(BaseTool):
     InputSchema = ProposeCreateTransactionInput
 
     async def run(self, ctx: ToolContext, args: ProposeCreateTransactionInput) -> dict[str, Any]:
+        # Amount sanity guard (financial safety): a wrong amount a user might
+        # one-click confirm is the worst failure. Reject impossible magnitudes
+        # outright, and cross-check the proposed total against the amounts in
+        # the source (OCR'd document total / numbers in the user's message).
+        _guard_amount(ctx, sum(ln.debit for ln in args.lines))
+
         # Resolve and validate every account code referenced in the lines.
         codes = [ln.account_code for ln in args.lines]
         existing = ctx.db.execute(

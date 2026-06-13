@@ -55,6 +55,11 @@ class ToolContext:
     # propose_create_transaction links these onto the transaction it
     # registers so the file follows the entry through to execute.
     attachment_ids: list[str] = field(default_factory=list)
+    # Amounts present in the turn's source material — the OCR'd document
+    # total(s) and any numbers in the user's message. propose_create_transaction
+    # cross-checks the proposed total against these so a mis-scaled or garbled
+    # amount can't be silently proposed for one-click confirmation.
+    source_amounts: list[int] = field(default_factory=list)
 
 
 class BaseTool(ABC):

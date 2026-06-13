@@ -246,26 +246,54 @@ async def upload_bank_statement(
 
     from app.services.bank_statement_parser import parse_csv, parse_excel, parse_ocr_rows, classify_transaction
 
-    if ext in (".csv", ".tsv"):
-        result = parse_csv(content, bank_name=bank_name)
-    elif ext in (".xlsx", ".xls"):
-        tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
-        tmp_path.write_bytes(content)
-        result = parse_excel(str(tmp_path), bank_name=bank_name)
-        tmp_path.unlink(missing_ok=True)
-    elif ext in (".jpg", ".jpeg", ".png", ".webp", ".pdf"):
-        from app.services.ocr_extract import extract_from_attachment
-        tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
-        tmp_path.write_bytes(content)
-        try:
-            ocr_result = await extract_from_attachment(str(tmp_path), file.content_type or "image/jpeg")
-            raw_text = ocr_result.get("raw_text", "")
-            result = parse_ocr_rows(raw_text, bank_name=bank_name)
-            result.source_type = "ocr_pdf" if ext == ".pdf" else "ocr_image"
-        finally:
-            tmp_path.unlink(missing_ok=True)
-    else:
+    if ext not in (".csv", ".tsv", ".xlsx", ".xls", ".jpg", ".jpeg", ".png", ".webp", ".pdf"):
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
+
+    # Any failure parsing the document (corrupt file, OCR/model error, an
+    # unreadable Persian PDF) must surface as a clean JSON 422 — never an
+    # unhandled 500 / plain-text "Internal Server Error" that the frontend
+    # then chokes on with "Unexpected token 'I'…".
+    try:
+        if ext in (".csv", ".tsv"):
+            result = parse_csv(content, bank_name=bank_name)
+        elif ext in (".xlsx", ".xls"):
+            tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
+            tmp_path.write_bytes(content)
+            try:
+                result = parse_excel(str(tmp_path), bank_name=bank_name)
+            finally:
+                tmp_path.unlink(missing_ok=True)
+        else:  # image / PDF → OCR then row-parse
+            from app.services.ocr_extract import extract_from_attachment
+            tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
+            tmp_path.write_bytes(content)
+            try:
+                ocr_result = await extract_from_attachment(str(tmp_path), file.content_type or "image/jpeg")
+                raw_text = ocr_result.get("raw_text", "") or ""
+                result = parse_ocr_rows(raw_text, bank_name=bank_name)
+                result.source_type = "ocr_pdf" if ext == ".pdf" else "ocr_image"
+            finally:
+                tmp_path.unlink(missing_ok=True)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("bank-statement parse failed for %s", filename)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Couldn't read this statement automatically. Try exporting it as "
+                "CSV or Excel, or check that an AI model is configured for OCR."
+            ),
+        )
+
+    # A document we opened but couldn't extract any rows from is still a
+    # soft failure for the user — tell them clearly instead of saving an
+    # empty statement that looks like success.
+    if not result.rows:
+        detail = "No transaction rows could be read from this statement."
+        if result.errors:
+            detail += " " + "; ".join(result.errors[:3])
+        raise HTTPException(status_code=422, detail=detail)
 
     stmt = BankStatement(
         bank_name=bank_name,

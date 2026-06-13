@@ -31,6 +31,7 @@ both adapters in this codebase handle the canonical loop fine).
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -137,6 +138,34 @@ _STATUS_STRINGS = {
 def _status(lang: str, key: str) -> str:
     pack = _STATUS_STRINGS.get(lang) or _STATUS_STRINGS["en"]
     return pack.get(key) or _STATUS_STRINGS["en"][key]
+
+
+def _numbers_in_text(text: str | None) -> list[int]:
+    """Extract candidate monetary amounts from free text (Persian-digit
+    aware), for the proposal amount-sanity cross-check. Handles plain and
+    grouped numbers plus the common 'k'/'m' shorthand ('300', '1,500',
+    '2.5k'). Ignores tiny tokens that are usually quantities/years noise by
+    keeping only values ≥ 1."""
+    if not text:
+        return []
+    from app.services.ocr_extract import coerce_amount, normalize_digits
+
+    norm = normalize_digits(text)
+    out: list[int] = []
+    # number optionally followed by a k/m magnitude suffix
+    for m in re.finditer(r"(\d[\d,٬\.]*)\s*([kKmM])?", norm):
+        digits = m.group(1)
+        suffix = (m.group(2) or "").lower()
+        base = coerce_amount(digits)
+        if base is None:
+            continue
+        if suffix == "k":
+            base *= 1_000
+        elif suffix == "m":
+            base *= 1_000_000
+        if base >= 1:
+            out.append(base)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -277,6 +306,7 @@ async def run_chat_turn(
     lang: str = "en",
     ocr_context: str | None = None,
     attachment_ids: list[str] | None = None,
+    source_amounts: list[int] | None = None,
     registry: ToolRegistry | None = None,
     client: LLMClient | None = None,
 ) -> ChatResult:
@@ -299,6 +329,10 @@ async def run_chat_turn(
     """
     lang = lang if lang in _LANG_NAMES else "en"
     attachment_ids = list(attachment_ids or [])
+    # Source amounts for the proposal sanity guard: OCR'd document totals
+    # passed in by the caller, plus any numbers in the user's own message.
+    src_amounts = list(source_amounts or [])
+    src_amounts.extend(_numbers_in_text(user_message))
     reg = registry or build_default_registry()
     tool_defs = reg.to_anthropic()  # provider-neutral: {name, description, input_schema}
 
@@ -336,6 +370,7 @@ async def run_chat_turn(
         user_message=user_message,
         ip_address=ip_address,
         attachment_ids=attachment_ids,
+        source_amounts=src_amounts,
     )
 
     proposals: list[dict[str, Any]] = []

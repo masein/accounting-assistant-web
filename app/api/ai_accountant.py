@@ -141,15 +141,19 @@ def _user_language(db: Session, user: SessionUser) -> str:
     return lang if lang in _SUPPORTED_CHAT_LANGUAGES else "en"
 
 
-async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> str:
+async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> tuple[str, list[int]]:
     """OCR each attached document and render a compact text block the model
-    can reason over. Failures degrade gracefully — an unreadable document
-    is reported as such rather than raising, so the assistant can ask the
-    user to type the details instead of erroring (feature acceptance)."""
+    can reason over. Returns (context_text, source_amounts) where the amounts
+    are the documents' extracted totals — fed to the proposal sanity guard.
+
+    Failures degrade gracefully — an unreadable document is reported as such
+    rather than raising, so the assistant can ask the user to type the
+    details instead of erroring (feature acceptance)."""
     from app.models.transaction import TransactionAttachment
     from app.services.ocr_extract import extract_from_attachment
 
     blocks: list[str] = []
+    amounts: list[int] = []
     for raw_id in attachment_ids:
         try:
             att_uuid = uuid.UUID(str(raw_id))
@@ -179,8 +183,15 @@ async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> str:
             lines.append(f"  vendor: {fields['vendor_name']}")
         if fields.get("date"):
             lines.append(f"  date: {fields['date']}")
+        for _k in ("subtotal", "tax"):
+            if fields.get(_k) is not None:
+                lines.append(f"  {_k}: {fields[_k]}")
         if fields.get("amount") is not None:
             lines.append(f"  total amount: {fields['amount']} {fields.get('currency') or ''}".rstrip())
+            try:
+                amounts.append(int(fields["amount"]))
+            except (TypeError, ValueError):
+                pass
         if fields.get("invoice_or_receipt_no"):
             lines.append(f"  reference: {fields['invoice_or_receipt_no']}")
         if fields.get("confidence") is not None:
@@ -188,7 +199,7 @@ async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> str:
         if raw_text:
             lines.append("  raw text:\n" + raw_text[:2000])
         blocks.append("\n".join(lines))
-    return "\n\n".join(blocks)
+    return "\n\n".join(blocks), amounts
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -210,8 +221,9 @@ async def chat(
     transaction the model proposes.
     """
     ocr_context = ""
+    ocr_amounts: list[int] = []
     if payload.attachment_ids:
-        ocr_context = await _build_ocr_context(db, payload.attachment_ids)
+        ocr_context, ocr_amounts = await _build_ocr_context(db, payload.attachment_ids)
     try:
         result = await run_chat_turn(
             db,
@@ -222,6 +234,7 @@ async def chat(
             lang=_user_language(db, user),
             ocr_context=ocr_context or None,
             attachment_ids=payload.attachment_ids or None,
+            source_amounts=ocr_amounts or None,
         )
     except AIAccountantError as e:
         raise HTTPException(status_code=502, detail=str(e))

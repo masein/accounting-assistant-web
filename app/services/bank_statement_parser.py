@@ -44,6 +44,11 @@ class ParseResult:
     to_date: date | None = None
     errors: list[str] = field(default_factory=list)
     source_type: str = "csv"
+    # Set when required columns can't be auto-detected: the UI then asks the
+    # user to map headers → roles instead of silently dropping the file.
+    needs_mapping: bool = False
+    headers: list[str] = field(default_factory=list)
+    skipped_rows: int = 0
 
 
 _PERSIAN_DIGIT_TABLE = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
@@ -131,8 +136,19 @@ def _extract_counterparty(desc: str) -> str | None:
     return None
 
 
-def parse_csv(content: str | bytes, bank_name: str = "") -> ParseResult:
-    """Parse a CSV bank statement."""
+def parse_csv(
+    content: str | bytes,
+    bank_name: str = "",
+    column_map: dict[str, int] | None = None,
+) -> ParseResult:
+    """Parse a CSV bank statement.
+
+    If the required columns can't be auto-detected from the header row, the
+    result is flagged ``needs_mapping`` with the detected ``headers`` so the
+    caller (UI) can ask the user to map columns → roles, rather than the file
+    being silently rejected. Pass an explicit ``column_map`` (role → 0-based
+    column index) to skip auto-detection on a re-upload.
+    """
     if isinstance(content, bytes):
         for enc in ("utf-8-sig", "utf-8", "cp1256", "latin-1"):
             try:
@@ -149,9 +165,14 @@ def parse_csv(content: str | bytes, bank_name: str = "") -> ParseResult:
         result.errors.append("CSV has fewer than 2 rows (need header + data)")
         return result
 
-    col_map = _detect_columns(all_rows[0])
-    if "date" not in col_map:
-        result.errors.append("Could not detect a date column in headers")
+    result.headers = [h.strip() for h in all_rows[0]]
+    col_map = dict(column_map) if column_map else _detect_columns(all_rows[0])
+    # Need a date AND a way to read the amount (single amount column, or a
+    # debit/credit pair). If either is missing, ask the user to map columns.
+    has_amount = "amount" in col_map or ("debit" in col_map and "credit" in col_map)
+    if "date" not in col_map or not has_amount:
+        result.needs_mapping = True
+        result.errors.append("Could not detect required columns (date and amount)")
         return result
 
     for idx, row in enumerate(all_rows[1:], start=1):
@@ -160,6 +181,7 @@ def parse_csv(content: str | bytes, bank_name: str = "") -> ParseResult:
         try:
             date_val = _parse_date(row[col_map["date"]]) if "date" in col_map else None
             if not date_val:
+                result.skipped_rows += 1
                 result.errors.append(f"Row {idx}: could not parse date '{row[col_map.get('date', 0)]}'")
                 continue
 
@@ -196,6 +218,7 @@ def parse_csv(content: str | bytes, bank_name: str = "") -> ParseResult:
             )
             result.rows.append(parsed)
         except (IndexError, ValueError) as e:
+            result.skipped_rows += 1
             result.errors.append(f"Row {idx}: {e}")
 
     if result.rows:

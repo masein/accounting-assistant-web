@@ -48,12 +48,23 @@ def _preferred_report_language(db: Session, current: SessionUser) -> str:
 # ─── Schemas ────────────────────────────────────────────────────────
 
 class BankStatementUploadResponse(BaseModel):
-    id: UUID
+    id: UUID | None = None
     status: str
     total_rows: int
     bank_name: str
     source_type: str
     errors: list[str] = Field(default_factory=list)
+    # Number of malformed rows skipped during import (the rest still imported).
+    skipped_rows: int = 0
+    # Set when the file's columns couldn't be auto-detected: the UI shows a
+    # mapping step. `headers` are the detected column names; `required_fields`
+    # the roles that must be mapped.
+    needs_mapping: bool = False
+    headers: list[str] = Field(default_factory=list)
+    required_fields: list[str] = Field(default_factory=list)
+    # Set when an identical file (same content hash) was already imported.
+    duplicate: bool = False
+    duplicate_of: UUID | None = None
 
 
 class BankStatementRowRead(BaseModel):
@@ -90,6 +101,20 @@ class BankStatementRead(BaseModel):
     rows: list[BankStatementRowRead] = Field(default_factory=list)
 
 
+class FeeSuggestion(BaseModel):
+    """An unmatched bank line that looks like a bank fee or interest, offered
+    as a one-click confirm-gated posting (never auto-posted)."""
+    row_id: UUID
+    row_index: int
+    tx_date: date
+    description: str | None
+    amount: int  # positive minor units
+    direction: str  # "debit" (fee/charge out) or "credit" (interest in)
+    kind: str  # "bank_fee" or "interest_income"
+    account_code: str
+    account_name: str
+
+
 class ReconcileResponse(BaseModel):
     total_rows: int
     matched: int
@@ -98,6 +123,11 @@ class ReconcileResponse(BaseModel):
     duplicates: int
     auto_matched: int
     missing_in_bank: int
+    # Net unreconciled difference in minor units: sum of bank rows that didn't
+    # match a ledger transaction. We report it exactly — never force-balance.
+    unreconciled_difference: int = 0
+    currency: str = "IRR"
+    fee_suggestions: list[FeeSuggestion] = Field(default_factory=list)
 
 
 class RowApproval(BaseModel):
@@ -252,9 +282,19 @@ def ocr_health() -> dict:
 async def upload_bank_statement(
     file: UploadFile = File(...),
     bank_name: str = Query("Unknown"),
+    column_map: str | None = Query(
+        None,
+        description='JSON object mapping roles to 0-based column indexes, e.g. {"date":0,"amount":2,"description":1}. Supplied on re-upload after a needs_mapping response.',
+    ),
+    confirm_duplicate: bool = Query(
+        False, description="Import even if an identical file was already uploaded."
+    ),
     db: Session = Depends(get_db),
 ) -> BankStatementUploadResponse:
     """Upload a CSV, Excel, or image/PDF bank statement for parsing and reconciliation."""
+    import hashlib
+    import json as _json
+
     content = await file.read()
     filename = file.filename or "unknown"
     ext = Path(filename).suffix.lower()
@@ -264,13 +304,45 @@ async def upload_bank_statement(
     if ext not in (".csv", ".tsv", ".xlsx", ".xls", ".jpg", ".jpeg", ".png", ".webp", ".pdf"):
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
 
+    # File-level duplicate detection: hash the raw bytes. If we've imported an
+    # identical file before, flag it and ask the user to confirm rather than
+    # silently importing the same transactions twice.
+    content_hash = hashlib.sha256(content).hexdigest()
+    if not confirm_duplicate:
+        existing = db.execute(
+            select(BankStatement).where(BankStatement.content_hash == content_hash)
+            .order_by(BankStatement.created_at.desc())
+        ).scalars().first()
+        if existing:
+            return BankStatementUploadResponse(
+                id=None,
+                status="duplicate",
+                total_rows=0,
+                bank_name=bank_name,
+                source_type=ext.lstrip("."),
+                duplicate=True,
+                duplicate_of=existing.id,
+                errors=[
+                    f"This file was already imported on {existing.created_at:%Y-%m-%d} "
+                    f"as '{existing.source_filename}'."
+                ],
+            )
+
+    parsed_column_map: dict[str, int] | None = None
+    if column_map:
+        try:
+            raw = _json.loads(column_map)
+            parsed_column_map = {str(k): int(v) for k, v in raw.items()}
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=422, detail="Invalid column_map: expected a JSON object of role → column index.")
+
     # Any failure parsing the document (corrupt file, OCR/model error, an
     # unreadable Persian PDF) must surface as a clean JSON 422 — never an
     # unhandled 500 / plain-text "Internal Server Error" that the frontend
     # then chokes on with "Unexpected token 'I'…".
     try:
         if ext in (".csv", ".tsv"):
-            result = parse_csv(content, bank_name=bank_name)
+            result = parse_csv(content, bank_name=bank_name, column_map=parsed_column_map)
         elif ext in (".xlsx", ".xls"):
             tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
             tmp_path.write_bytes(content)
@@ -318,6 +390,21 @@ async def upload_bank_statement(
             ),
         )
 
+    # Unknown column layout → return a structured "needs mapping" response so
+    # the UI can present a mapping step, rather than rejecting the file.
+    if getattr(result, "needs_mapping", False):
+        return BankStatementUploadResponse(
+            id=None,
+            status="needs_mapping",
+            total_rows=0,
+            bank_name=bank_name,
+            source_type=result.source_type,
+            needs_mapping=True,
+            headers=result.headers,
+            required_fields=["date", "amount", "description"],
+            errors=result.errors,
+        )
+
     # A document we opened but couldn't extract any rows from is still a
     # soft failure for the user — tell them clearly instead of saving an
     # empty statement that looks like success.
@@ -331,6 +418,7 @@ async def upload_bank_statement(
         bank_name=bank_name,
         source_type=result.source_type,
         source_filename=filename,
+        content_hash=content_hash,
         currency=result.currency,
         from_date=result.from_date,
         to_date=result.to_date,
@@ -367,6 +455,7 @@ async def upload_bank_statement(
         bank_name=bank_name,
         source_type=result.source_type,
         errors=result.errors,
+        skipped_rows=getattr(result, "skipped_rows", 0),
     )
 
 
@@ -470,6 +559,47 @@ def reconcile_statement(statement_id: UUID, db: Session = Depends(get_db)) -> Re
     matched_ids = {r.matched_transaction_id for r in rows if r.matched_transaction_id}
     missing = detect_missing_entries(db, s.from_date or rows[0].tx_date, s.to_date or rows[-1].tx_date, matched_ids) if rows else []
 
+    # Exact unreconciled difference: net of every bank row that didn't match a
+    # ledger transaction (credit = money in, debit = money out). Reported as-is
+    # — we never force this to zero.
+    unreconciled = sum(
+        (row.credit - row.debit)
+        for row, result in zip(rows, results)
+        if result.status in ("unmatched", "partial")
+    )
+
+    # Fee/interest suggestions: unmatched lines that look like a bank fee or
+    # interest credit. Offered as confirm-gated postings (never auto-posted),
+    # to the locale-aware bank-charges / interest-income account.
+    from app.services.account_resolver import resolve_account_code
+    fee_suggestions: list[FeeSuggestion] = []
+    fee_code = fee_name = int_code = int_name = None
+    for row, result in zip(rows, results):
+        if result.status not in ("unmatched", "partial"):
+            continue
+        kind = _classify_fee_row(row)
+        if not kind:
+            continue
+        if kind == "bank_fee":
+            if fee_code is None:
+                fee_code = resolve_account_code(db, "bank_fee")
+                fee_name = _account_name(db, fee_code)
+            code, name, direction = fee_code, fee_name, "debit"
+            amount = row.debit if row.debit > 0 else row.credit
+        else:  # interest_income
+            if int_code is None:
+                int_code = resolve_account_code(db, "interest_income")
+                int_name = _account_name(db, int_code)
+            code, name, direction = int_code, int_name, "credit"
+            amount = row.credit if row.credit > 0 else row.debit
+        if amount <= 0:
+            continue
+        fee_suggestions.append(FeeSuggestion(
+            row_id=row.id, row_index=row.row_index, tx_date=row.tx_date,
+            description=row.description, amount=amount, direction=direction,
+            kind=kind, account_code=code, account_name=name or code,
+        ))
+
     s.status = "reviewing"
     s.matched_rows = matched
     s.new_rows = unmatched
@@ -483,7 +613,39 @@ def reconcile_statement(statement_id: UUID, db: Session = Depends(get_db)) -> Re
         duplicates=duplicates,
         auto_matched=auto_matched,
         missing_in_bank=len(missing),
+        unreconciled_difference=unreconciled,
+        currency=s.currency,
+        fee_suggestions=fee_suggestions,
     )
+
+
+def _account_name(db: Session, code: str) -> str | None:
+    acc = db.execute(select(Account).where(Account.code == code)).scalar_one_or_none()
+    return acc.name if acc else None
+
+
+# Keyword heuristics for spotting an unmatched bank line as a fee or interest.
+_FEE_KEYWORDS = ("fee", "charge", "commission", "service charge", "overdraft",
+                 "کارمزد", "هزینه بانک", "حق‌الزحمه")
+_INTEREST_KEYWORDS = ("interest", "credit interest", "سود", "بهره")
+
+
+def _classify_fee_row(row: BankStatementRow) -> str | None:
+    """Return 'bank_fee', 'interest_income', or None for a bank statement row,
+    using the category assigned at import plus a description keyword fallback."""
+    cat = (row.category or "").lower()
+    if cat == "bank_fee":
+        return "bank_fee"
+    if cat == "interest":
+        return "interest_income"
+    low = (row.description or "").lower()
+    if any(k in low for k in _INTEREST_KEYWORDS):
+        # A money-in interest line; a debit "interest" is loan interest paid,
+        # which is an expense, not interest income — skip it here.
+        return "interest_income" if row.credit > 0 else None
+    if any(k in low for k in _FEE_KEYWORDS):
+        return "bank_fee"
+    return None
 
 
 @router.post("/bank-statements/{statement_id}/approve", response_model=BatchApprovalResponse)
@@ -522,9 +684,13 @@ def batch_approve_rows(
             skipped += 1
 
         elif approval.action == "create":
+            from app.services.account_resolver import resolve_account_code
             acc_code = approval.account_code or row.suggested_account_code or "6190"
             acc = db.execute(select(Account).where(Account.code == acc_code)).scalar_one_or_none()
-            cash_acc = db.execute(select(Account).where(Account.code == "1110")).scalar_one_or_none()
+            # Locale-aware bank/cash account (UK 1200, Iran 1110) — never
+            # hardcode 1110, which doesn't exist in the UK chart.
+            cash_code = resolve_account_code(db, "bank")
+            cash_acc = db.execute(select(Account).where(Account.code == cash_code)).scalar_one_or_none()
             if not acc or not cash_acc:
                 errors.append(f"Row {row.row_index}: account code '{acc_code}' or cash account not found")
                 continue

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from difflib import SequenceMatcher
@@ -18,6 +19,17 @@ from app.models.bank_statement import BankStatementRow
 from app.models.transaction import Transaction, TransactionLine
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_cash_predicate(db: Session) -> Callable[[str], bool]:
+    """The cash/bank account test for the active reporting locale (UK 12xx,
+    Iran 1110). Reconciliation matches a bank row against the cash leg of a
+    ledger transaction, so this must be locale-aware — hardcoding 1110 made
+    the UK chart match nothing."""
+    from app.services.cash_service import cash_account_predicate
+    from app.services.locale_service import get_reporting_locale
+
+    return cash_account_predicate(get_reporting_locale(db))
 
 
 @dataclass
@@ -58,6 +70,7 @@ def reconcile_row(
     transactions: list[Transaction],
     date_tolerance: int = 3,
     auto_threshold: float = 0.85,
+    is_cash: Callable[[str], bool] | None = None,
 ) -> ReconciliationResult:
     """
     Reconcile a single bank statement row against a list of candidate transactions.
@@ -72,11 +85,15 @@ def reconcile_row(
     row_amount = row.debit if row.debit > 0 else row.credit
     row_is_debit = row.debit > 0
     row_ref = _normalize_ref(row.reference)
+    # Default to the Iranian cash code for back-compat; callers pass the
+    # locale-aware predicate so the UK 12xx accounts match too.
+    if is_cash is None:
+        is_cash = lambda c: (c or "").startswith("1110")  # noqa: E731
 
     for txn in transactions:
         # Calculate the net cash effect of this transaction
-        cash_debit = sum(ln.debit for ln in txn.lines if (ln.account.code or "").startswith("1110"))
-        cash_credit = sum(ln.credit for ln in txn.lines if (ln.account.code or "").startswith("1110"))
+        cash_debit = sum(ln.debit for ln in txn.lines if is_cash(ln.account.code or ""))
+        cash_credit = sum(ln.credit for ln in txn.lines if is_cash(ln.account.code or ""))
 
         txn_amount = 0
         txn_is_debit = False
@@ -178,12 +195,14 @@ def reconcile_statement(
     if not rows:
         return []
 
+    is_cash = _resolve_cash_predicate(db)
     min_date = min(r.tx_date for r in rows) - timedelta(days=date_tolerance * 2)
     max_date = max(r.tx_date for r in rows) + timedelta(days=date_tolerance * 2)
 
     txns = db.execute(
         select(Transaction)
         .where(Transaction.date >= min_date, Transaction.date <= max_date)
+        .where(Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
     ).scalars().unique().all()
 
@@ -192,7 +211,7 @@ def reconcile_statement(
 
     for row in rows:
         available_txns = [t for t in txns if t.id not in already_matched]
-        r = reconcile_row(row, available_txns, date_tolerance, auto_threshold)
+        r = reconcile_row(row, available_txns, date_tolerance, auto_threshold, is_cash=is_cash)
 
         # Deduplicate: prevent same transaction from matching multiple rows
         if r.best_match and r.auto_match:
@@ -226,14 +245,16 @@ def detect_missing_entries(
     Find transactions in the DB within the statement period that have
     no corresponding bank statement row (missing from the bank's side).
     """
+    is_cash = _resolve_cash_predicate(db)
     txns = db.execute(
         select(Transaction)
         .where(Transaction.date >= statement_from, Transaction.date <= statement_to)
+        .where(Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
     ).scalars().unique().all()
 
     cash_txns = [
         t for t in txns
-        if any((ln.account.code or "").startswith("1110") for ln in t.lines)
+        if any(is_cash(ln.account.code or "") for ln in t.lines)
     ]
     return [t for t in cash_txns if t.id not in matched_transaction_ids]

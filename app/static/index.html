@@ -735,8 +735,8 @@
         </div>
       </div>
       <table class="results-table" id="invoices-table">
-        <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="labelType">Type</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="labelDueDate">Due</th><th data-i18n="usersActions">Actions</th></tr></thead>
-        <tbody id="invoices-tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+        <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="labelType">Type</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="invPaid">Paid</th><th data-i18n="invBalanceDue">Balance</th><th data-i18n="labelDueDate">Due</th><th data-i18n="usersActions">Actions</th></tr></thead>
+        <tbody id="invoices-tbody"><tr><td colspan="8" class="empty-state">Loading…</td></tr></tbody>
       </table>
     </div>
 
@@ -2942,6 +2942,19 @@
         aiUndoReversed: 'Reversed ✓',
         aiUndoReversalNote: 'Reversal transaction {id}… recorded.',
         aiReverseFailed: 'Reversal failed',
+        invPaid: 'Paid',
+        invBalanceDue: 'Balance',
+        invAddPayment: 'Add payment',
+        invCreditNote: 'Credit note',
+        invHistory: 'History',
+        invPaymentAmountPrompt: 'Payment amount (balance due {balance} {currency}):',
+        invCreditNoteAmountPrompt: 'Credit note amount:',
+        invCreditNoteReasonPrompt: 'Reason (optional):',
+        invAmountInvalid: 'Enter a valid amount greater than zero.',
+        invPaymentRecorded: 'Payment recorded.',
+        invPaymentError: 'Could not record the payment.',
+        invCreditNoteRecorded: 'Credit note issued.',
+        invCreditNoteError: 'Could not issue the credit note.',
         aiChatStatusCounter: '{turns} turn(s) · {calls} tool call(s)',
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
@@ -3508,6 +3521,19 @@
         aiUndoReversed: 'برگردانده شد ✓',
         aiUndoReversalNote: 'تراکنش برگشتی {id}… ثبت شد.',
         aiReverseFailed: 'برگرداندن ناموفق بود',
+        invPaid: 'پرداخت‌شده',
+        invBalanceDue: 'مانده',
+        invAddPayment: 'ثبت پرداخت',
+        invCreditNote: 'برگ بستانکار',
+        invHistory: 'تاریخچه',
+        invPaymentAmountPrompt: 'مبلغ پرداخت (مانده {balance} {currency}):',
+        invCreditNoteAmountPrompt: 'مبلغ برگ بستانکار:',
+        invCreditNoteReasonPrompt: 'دلیل (اختیاری):',
+        invAmountInvalid: 'مبلغی معتبر و بزرگ‌تر از صفر وارد کنید.',
+        invPaymentRecorded: 'پرداخت ثبت شد.',
+        invPaymentError: 'ثبت پرداخت ممکن نشد.',
+        invCreditNoteRecorded: 'برگ بستانکار صادر شد.',
+        invCreditNoteError: 'صدور برگ بستانکار ممکن نشد.',
         aiChatStatusCounter: '{turns} نوبت · {calls} فراخوانی ابزار',
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
@@ -4057,6 +4083,19 @@
         aiUndoReversed: 'Revertido ✓',
         aiUndoReversalNote: 'Transacción de reversión {id}… registrada.',
         aiReverseFailed: 'La reversión falló',
+        invPaid: 'Pagado',
+        invBalanceDue: 'Saldo',
+        invAddPayment: 'Registrar pago',
+        invCreditNote: 'Nota de crédito',
+        invHistory: 'Historial',
+        invPaymentAmountPrompt: 'Importe del pago (saldo pendiente {balance} {currency}):',
+        invCreditNoteAmountPrompt: 'Importe de la nota de crédito:',
+        invCreditNoteReasonPrompt: 'Motivo (opcional):',
+        invAmountInvalid: 'Introduce un importe válido mayor que cero.',
+        invPaymentRecorded: 'Pago registrado.',
+        invPaymentError: 'No se pudo registrar el pago.',
+        invCreditNoteRecorded: 'Nota de crédito emitida.',
+        invCreditNoteError: 'No se pudo emitir la nota de crédito.',
         aiChatStatusCounter: '{turns} turno(s) · {calls} llamada(s) a herramientas',
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
@@ -4606,6 +4645,19 @@
         aiUndoReversed: 'تم العكس ✓',
         aiUndoReversalNote: 'تم تسجيل معاملة العكس {id}…',
         aiReverseFailed: 'فشل العكس',
+        invPaid: 'المدفوع',
+        invBalanceDue: 'الرصيد',
+        invAddPayment: 'تسجيل دفعة',
+        invCreditNote: 'إشعار دائن',
+        invHistory: 'السجل',
+        invPaymentAmountPrompt: 'مبلغ الدفعة (الرصيد المستحق {balance} {currency}):',
+        invCreditNoteAmountPrompt: 'مبلغ الإشعار الدائن:',
+        invCreditNoteReasonPrompt: 'السبب (اختياري):',
+        invAmountInvalid: 'أدخل مبلغاً صحيحاً أكبر من صفر.',
+        invPaymentRecorded: 'تم تسجيل الدفعة.',
+        invPaymentError: 'تعذّر تسجيل الدفعة.',
+        invCreditNoteRecorded: 'تم إصدار الإشعار الدائن.',
+        invCreditNoteError: 'تعذّر إصدار الإشعار الدائن.',
         aiChatStatusCounter: '{turns} دور · {calls} استدعاء أداة',
         bsParseFailed: 'تعذّر قراءة هذا الكشف — جرّب CSV/Excel أو تحقّق من نموذج الذكاء الاصطناعي.',
       },
@@ -4733,8 +4785,10 @@
       setTextSel('#invoices-table thead th:nth-child(2)', 'labelType');
       setTextSel('#invoices-table thead th:nth-child(3)', 'usersStatus');
       setTextSel('#invoices-table thead th:nth-child(4)', 'labelAmount');
-      setTextSel('#invoices-table thead th:nth-child(5)', 'labelDueDate');
-      setTextSel('#invoices-table thead th:nth-child(6)', 'usersActions');
+      setTextSel('#invoices-table thead th:nth-child(5)', 'invPaid');
+      setTextSel('#invoices-table thead th:nth-child(6)', 'invBalanceDue');
+      setTextSel('#invoices-table thead th:nth-child(7)', 'labelDueDate');
+      setTextSel('#invoices-table thead th:nth-child(8)', 'usersActions');
 
       setTextSel('.card[data-page="recurring"] h2', 'recurringTitle');
       setTextSel('.card[data-page="recurring"] p', 'recurringExample');
@@ -7036,29 +7090,36 @@
           return;
         }
         list.forEach(i => {
-          const isPaid = String(i.status || '').toLowerCase() === 'paid';
+          const status = String(i.status || '').toLowerCase();
+          const isPaid = status === 'paid';
+          const settled = isPaid || status === 'canceled';
           const ccy = (i.currency || 'IRR').toUpperCase();
+          const paid = Number(i.amount_paid || 0);
+          const balance = (i.balance_due != null) ? Number(i.balance_due) : Number(i.amount || 0);
           const tr = document.createElement('tr');
           tr.dataset.invoiceId = i.id;
           tr.innerHTML = `
             <td>${escapeHtml(i.number)}</td>
             <td>${escapeHtml(i.kind)}</td>
-            <td>${escapeHtml(i.status)}</td>
+            <td>${escapeHtml(localizeDynamicText(i.status))}</td>
             <td>${formatMoney(i.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
+            <td>${formatMoney(paid, ccy)}</td>
+            <td><strong>${formatMoney(balance, ccy)}</strong></td>
             <td>${escapeHtml(i.due_date)}</td>
             <td>
-              <button type="button" class="btn btn-secondary btn-sm inv-edit" data-id="${i.id}" data-status="${escapeHtml(i.status)}">Edit</button>
-              <button type="button" class="btn btn-secondary btn-sm inv-paid" data-id="${i.id}" data-status="${escapeHtml(i.status)}" style="margin-left:0.3rem;" ${isPaid ? 'disabled title="Already paid"' : ''}>${isPaid ? 'Paid' : 'Mark paid'}</button>
+              <button type="button" class="btn btn-secondary btn-sm inv-edit" data-id="${i.id}" data-status="${escapeHtml(i.status)}">${escapeHtml(t('btnEdit') || 'Edit')}</button>
+              <button type="button" class="btn btn-primary btn-sm inv-payment" data-id="${i.id}" style="margin-left:0.3rem;" ${settled ? 'disabled' : ''}>${escapeHtml(t('invAddPayment'))}</button>
+              <button type="button" class="btn btn-secondary btn-sm inv-credit-note" data-id="${i.id}" style="margin-left:0.3rem;" ${settled ? 'disabled' : ''}>${escapeHtml(t('invCreditNote'))}</button>
               <a class="btn btn-secondary btn-sm" href="${escapeHtml(i.pdf_url || ('/invoices/' + i.id + '/pdf'))}" target="_blank" style="margin-left:0.3rem; text-decoration:none;">PDF</a>
-              <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}" style="margin-left:0.3rem;">Timeline</button>
-              <button type="button" class="btn btn-danger btn-sm inv-del" data-id="${i.id}" style="margin-left:0.3rem;">Delete</button>
+              <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}" style="margin-left:0.3rem;">${escapeHtml(t('invHistory'))}</button>
+              <button type="button" class="btn btn-danger btn-sm inv-del" data-id="${i.id}" style="margin-left:0.3rem;">${escapeHtml(t('btnDelete') || 'Delete')}</button>
             </td>
           `;
           invoicesTbody.appendChild(tr);
         });
         if (highlightId) flashRow(invoicesTbody.querySelector('tr[data-invoice-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
-        invoicesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading invoices.</td></tr>';
+        invoicesTbody.innerHTML = '<tr><td colspan="8" class="empty-state">Error loading invoices.</td></tr>';
       }
     }
 
@@ -8361,38 +8422,64 @@
       if (editBtn) {
         openInvoiceEditModal(editBtn.dataset.id);
       }
-      const paidBtn = e.target.closest('.inv-paid');
-      if (paidBtn) {
-        if (paidBtn.disabled || String(paidBtn.dataset.status || '').toLowerCase() === 'paid') return;
-        const id = paidBtn.dataset.id;
-        const payment_date = await uiPrompt({
-          title: t('markPaidTitle'),
-          message: t('labelPaymentDate'),
-          type: 'date',
-          value: new Date().toISOString().slice(0, 10),
+      const payBtn = e.target.closest('.inv-payment');
+      if (payBtn && !payBtn.disabled) {
+        const id = payBtn.dataset.id;
+        const inv = _invoicesCache.find((x) => String(x.id) === String(id)) || {};
+        const balance = (inv.balance_due != null) ? inv.balance_due : inv.amount;
+        const raw = await uiPrompt({
+          title: t('invAddPayment'),
+          message: tf('invPaymentAmountPrompt', { balance: formatNum(balance || 0), currency: (inv.currency || '') }),
+          type: 'number',
+          value: String(balance || ''),
         });
-        if (!payment_date) return;
-        const bankSel = document.getElementById('inv-bank-code');
-        const bank_entity_id = (bankSel && bankSel.value) ? bankSel.value : null;
-        const bank_account_code = (
-          bankSel &&
-          bankSel.selectedOptions &&
-          bankSel.selectedOptions[0] &&
-          bankSel.selectedOptions[0].dataset.accountCode
-        ) || (await getDefaultCashCode());
+        if (raw == null) return;
+        const amount = parseInt(raw, 10);
+        if (!amount || amount <= 0) { showAlert(t('invAmountInvalid'), true); return; }
         try {
-          const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/mark-paid', {
+          const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/payments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ payment_date, bank_account_code, bank_entity_id })
+            body: JSON.stringify({ amount }),
           });
           const data = await res.json().catch(() => ({}));
-          if (!res.ok) { showAlert(data.detail || 'Error marking invoice paid.', true); return; }
-          showAlert('Invoice marked paid and transaction created.');
-          loadInvoices();
+          if (!res.ok) { showAlert(data.detail || t('invPaymentError'), true); return; }
+          showAlert(t('invPaymentRecorded'));
+          loadInvoices(id);
           loadLedger();
           loadOwnerDashboard();
         } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        return;
+      }
+      const cnBtn = e.target.closest('.inv-credit-note');
+      if (cnBtn && !cnBtn.disabled) {
+        const id = cnBtn.dataset.id;
+        const inv = _invoicesCache.find((x) => String(x.id) === String(id)) || {};
+        const raw = await uiPrompt({
+          title: t('invCreditNote'),
+          message: t('invCreditNoteAmountPrompt'),
+          type: 'number',
+          value: '',
+        });
+        if (raw == null) return;
+        const amount = parseInt(raw, 10);
+        if (!amount || amount <= 0) { showAlert(t('invAmountInvalid'), true); return; }
+        const reason = await uiPrompt({ title: t('invCreditNote'), message: t('invCreditNoteReasonPrompt'), type: 'text', value: '' });
+        if (reason == null) return;
+        try {
+          const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/credit-notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, reason: reason || null }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(data.detail || t('invCreditNoteError'), true); return; }
+          showAlert(t('invCreditNoteRecorded'));
+          loadInvoices(id);
+          loadLedger();
+          loadOwnerDashboard();
+        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        return;
       }
       const delBtn = e.target.closest('.inv-del');
       if (delBtn) {

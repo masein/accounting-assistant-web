@@ -248,6 +248,17 @@ class ProposeCreateTransaction(BaseTool):
                 code="future_date",
             )
 
+        # Block proposing into a closed (locked) period.
+        from app.services.period_service import get_closed_period
+        locked_through = get_closed_period(ctx.db)
+        if locked_through is not None and args.date <= locked_through:
+            raise ToolError(
+                f"The books are closed through {locked_through.isoformat()}, so I can't "
+                f"record an entry dated {args.date.isoformat()}. Ask an admin to reopen "
+                f"the period, or use a later date.",
+                code="period_locked",
+            )
+
         # Resolve and validate every account code referenced in the lines.
         codes = [ln.account_code for ln in args.lines]
         existing = ctx.db.execute(

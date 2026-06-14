@@ -4,6 +4,7 @@ from app.models.account import Account, AccountLevel
 from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
 from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit
+from app.models.adjustment import Adjustment
 from app.models.credit_note import CreditNote
 from app.models.entity import Entity, TransactionEntity
 from app.models.exchange_rate import ExchangeRate
@@ -26,6 +27,7 @@ __all__ = [
     "AuditLog",
     "BankStatement",
     "BankStatementRow",
+    "Adjustment",
     "BudgetLimit",
     "CreditNote",
     "Entity",

@@ -2269,6 +2269,9 @@ def _create_transaction_from_payload(db: Session, payload: TransactionCreate) ->
             status_code=400,
             detail=f"Transaction date {payload.date} is in the future. Use today's date or a past date.",
         )
+    # Block posting / back-dating into a closed (locked) period.
+    from app.services.period_service import assert_period_open
+    assert_period_open(db, payload.date)
     transaction = Transaction(
         date=payload.date,
         reference=payload.reference,

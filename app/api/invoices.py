@@ -55,7 +55,7 @@ def _validate_kind(kind: str) -> str:
 
 def _validate_status(status: str) -> str:
     v = (status or "").strip().lower()
-    if v not in ("draft", "issued", "paid", "canceled"):
+    if v not in ("draft", "issued", "partially_paid", "paid", "canceled", "voided"):
         raise HTTPException(status_code=400, detail="Invalid invoice status.")
     return v
 
@@ -115,6 +115,10 @@ def _invoice_totals(db: Session, inv: Invoice) -> tuple[int, int, int]:
     if inv.status == "paid" and balance_due > 0:
         paid = amount - credited
         balance_due = 0
+    # Voided/canceled invoices have no open balance — their recognition (and
+    # payments) are reversed; they must not show as receivable/payable.
+    if inv.status in ("voided", "canceled"):
+        balance_due = 0
     return paid, credited, balance_due
 
 
@@ -169,6 +173,11 @@ def _post_entry(
         raise HTTPException(status_code=400, detail=f"Entry not balanced: DR {total_dr} != CR {total_cr}.")
     if total_dr <= 0:
         raise HTTPException(status_code=400, detail="Entry has zero amount.")
+
+    # Block posting into a closed period (invoice recognition, payments,
+    # credit notes all route through here).
+    from app.services.period_service import assert_period_open
+    assert_period_open(db, on)
 
     txn = Transaction(
         date=on,
@@ -697,6 +706,81 @@ def list_credit_notes(invoice_id: UUID, db: Session = Depends(get_db)) -> list[C
         select(CreditNote).where(CreditNote.invoice_id == invoice_id).order_by(CreditNote.date, CreditNote.created_at)
     ).scalars().all()
     return [CreditNoteRead.model_validate(r) for r in rows]
+
+
+def _reverse_txn(db: Session, transaction_id, *, reference: str, description: str) -> None:
+    """Reverse a transaction via the shared ledger machinery (opposite-sign
+    lines), skipping anything already reversed."""
+    from app.services.ai_accountant.execute_service import _already_reversed
+    from app.services.reporting.ledger_service import LedgerService
+
+    if transaction_id is None:
+        return
+    if _already_reversed(db, str(transaction_id)):
+        return
+    LedgerService(db).reverse_journal_entry(
+        transaction_id=transaction_id, reverse_date=date.today(),
+        reference=reference, description=description,
+    )
+    # Mark the reversal in the audit trail so it isn't double-reversed.
+    log_audit_event(
+        db, action="undo", entity_type="transaction", entity_id=str(transaction_id),
+        detail=description,
+    )
+
+
+@router.post("/{invoice_id}/void", response_model=InvoiceRead)
+def void_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead:
+    """Void an invoice: reverse its recognition entry and every payment via
+    the reversal machinery, set status 'voided', and keep the audit trail
+    (rows are never hard-deleted)."""
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.status == "voided":
+        return _to_read(inv)
+
+    # Reverse each payment first (reopen cash), then the recognition entry.
+    payments = db.execute(select(Payment).where(Payment.invoice_id == inv.id)).scalars().all()
+    for p in payments:
+        _reverse_txn(db, p.transaction_id, reference=f"VOID-PAY-{inv.number}",
+                     description=f"Void payment on invoice {inv.number}")
+    _reverse_txn(db, inv.transaction_id, reference=f"VOID-{inv.number}",
+                 description=f"Void invoice {inv.number}")
+    inv.status = "voided"
+    log_audit_event(db, action="update", entity_type="invoice", entity_id=str(inv.id),
+                    detail=f"Invoice {inv.number} voided")
+    db.commit()
+    db.refresh(inv)
+    return _to_read(inv)
+
+
+@router.post("/{invoice_id}/payments/{payment_id}/reverse", response_model=InvoiceRead)
+def reverse_payment(invoice_id: UUID, payment_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead:
+    """Reverse a single payment (chargeback / bounced payment): reverse its
+    journal entry and remove it from the invoice so the open balance reopens.
+    The reversal transaction stays in the ledger/audit trail."""
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    payment = db.get(Payment, payment_id)
+    if not payment or payment.invoice_id != inv.id:
+        raise HTTPException(status_code=404, detail="Payment not found on this invoice")
+    _reverse_txn(db, payment.transaction_id, reference=f"CHGBK-{inv.number}",
+                 description=f"Reversed payment on invoice {inv.number}")
+    db.delete(payment)
+    db.flush()
+    if inv.status not in ("voided", "canceled"):
+        # Drop the 'paid' latch first so _invoice_totals' legacy-paid override
+        # doesn't mask the reopened balance; recompute from the real rows.
+        inv.status = "issued"
+        paid, credited, balance_due = _invoice_totals(db, inv)
+        _recompute_status(inv, paid, credited, balance_due)
+    log_audit_event(db, action="update", entity_type="invoice", entity_id=str(inv.id),
+                    detail=f"Payment reversed on invoice {inv.number}")
+    db.commit()
+    db.refresh(inv)
+    return _to_read(inv)
 
 
 @router.post("/{invoice_id}/mark-paid", response_model=InvoiceRead)

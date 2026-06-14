@@ -25,6 +25,7 @@ from app.services.locale_service import (
     set_reporting_locale,
 )
 from app.models.account import Account
+from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
@@ -282,6 +283,13 @@ def reset_db(
 
     # Delete in strict dependency order (children before parents).
     try:
+        # Bank statements aren't wiped by the business-table reset, so they
+        # accumulate across resets (and across locale switches — stale IRR
+        # statements survive a UK reload). Clear them first so the list
+        # reflects only the freshly seeded demo, and so a re-seeded demo
+        # statement isn't buried under leftovers.
+        db.execute(delete(BankStatementRow))
+        db.execute(delete(BankStatement))
         db.execute(delete(TransactionEntity))
         db.execute(delete(TransactionAttachment))
         db.execute(delete(TransactionLine))

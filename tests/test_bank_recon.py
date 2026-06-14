@@ -291,7 +291,60 @@ def test_upload_reports_skipped_rows(uk):
     assert resp.skipped_rows == 1
 
 
-# ─── 6. Fee/interest account resolution exists on both locales ─────────
+# ─── 6. Demo reset seeds a reconcilable statement (PR 4 follow-up) ─────
+
+def _blank_full_db() -> Session:
+    """A blank session with the full schema — reset_db seeds the chart itself."""
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+
+    @event.listens_for(engine, "connect")
+    def _fk(conn, _rec):  # pragma: no cover
+        cur = conn.cursor()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
+
+    Base.metadata.create_all(bind=engine)
+    return sessionmaker(bind=engine, autoflush=False, autocommit=False)()
+
+
+@pytest.mark.parametrize("locale,currency", [("uk", "GBP"), ("ir", "IRR")])
+def test_demo_reset_seeds_reconcilable_statement(locale, currency):
+    from app.api.admin import reset_db
+    db = _blank_full_db()
+    try:
+        reset_db(db=db, locale=locale, with_demo_data=True, _=None)
+
+        stmts = db.execute(select(BankStatement)).scalars().all()
+        # Exactly one statement, in the locale's currency — no stale leftovers.
+        assert len(stmts) == 1, f"expected 1 demo statement, got {len(stmts)}"
+        assert stmts[0].currency == currency
+        rows = list(stmts[0].rows)
+        assert rows, "demo statement has no rows"
+
+        resp = reconcile_endpoint(stmts[0].id, db)
+        assert resp.matched > 0, f"demo statement reconciled 0 ({locale})"
+        # An un-booked fee line is included, so at least one suggestion shows.
+        assert len(resp.fee_suggestions) >= 1
+    finally:
+        db.close()
+
+
+def test_demo_reset_clears_stale_statements():
+    """A second reset (different locale) must not leave the first locale's
+    statements behind."""
+    from app.api.admin import reset_db
+    db = _blank_full_db()
+    try:
+        reset_db(db=db, locale="ir", with_demo_data=True, _=None)
+        reset_db(db=db, locale="uk", with_demo_data=True, _=None)
+        stmts = db.execute(select(BankStatement)).scalars().all()
+        assert len(stmts) == 1
+        assert stmts[0].currency == "GBP"
+    finally:
+        db.close()
+
+
+# ─── 7. Fee/interest account resolution exists on both locales ─────────
 
 @pytest.mark.parametrize("fixture_name", ["uk", "ir"])
 def test_fee_and_interest_accounts_resolve(fixture_name, request):

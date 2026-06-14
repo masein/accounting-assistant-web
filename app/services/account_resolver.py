@@ -29,6 +29,8 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "sales_returns": "4100",    # Sales returns (contra-revenue)
         "customer_credit": "2150",  # Customer credits and deposits (liability)
         "supplier_advance": "1500", # Supplier prepayments and advances (asset)
+        "vat_output": "2200",       # VAT payable (output tax on sales) — liability
+        "vat_input": "1400",        # VAT receivable (input tax on purchases) — asset
     },
     "ir": {
         "ar": "1112",
@@ -39,6 +41,8 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "sales_returns": "4110",    # no separate returns account → revenue
         "customer_credit": "2120",  # پیش‌دریافت از مشتریان
         "supplier_advance": "1120", # پیش‌پرداخت به تأمین‌کنندگان
+        "vat_output": "2130",       # مالیات بر ارزش افزوده پرداختنی — liability
+        "vat_input": "1130",        # مالیات بر ارزش افزوده دریافتنی — asset
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -57,6 +61,8 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "sales_returns": "Sales returns",
         "customer_credit": "Customer credits and deposits",
         "supplier_advance": "Supplier prepayments and advances",
+        "vat_output": "VAT payable",
+        "vat_input": "VAT receivable",
     },
     "ir": {
         "ar": "حساب‌ها و اسناد دریافتنی تجاری",
@@ -67,6 +73,8 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "sales_returns": "فروش",
         "customer_credit": "پیش‌دریافت از مشتریان",
         "supplier_advance": "پیش‌پرداخت به تأمین‌کنندگان",
+        "vat_output": "مالیات بر ارزش افزوده پرداختنی",
+        "vat_input": "مالیات بر ارزش افزوده دریافتنی",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])

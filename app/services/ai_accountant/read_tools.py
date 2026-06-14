@@ -686,6 +686,44 @@ class GetCompanyDefaults(BaseTool):
 
 
 # ---------------------------------------------------------------------------
+# get_tax_summary
+# ---------------------------------------------------------------------------
+
+
+class GetTaxSummaryInput(BaseModel):
+    from_date: date | None = Field(None, description="Period start (defaults to the current quarter start).")
+    to_date: date | None = Field(None, description="Period end (defaults to today).")
+    currency: str | None = Field(None, description="Filter by currency; defaults to all.")
+
+
+class GetTaxSummary(BaseTool):
+    name = "get_tax_summary"
+    category = "read"
+    description = (
+        "Estimate VAT / sales tax for a period: output tax (on sales), input "
+        "tax (on purchases) and net tax = output − input, computed from the "
+        "tax rates recorded on invoices. Use this for 'how much tax/VAT do I "
+        "owe' questions. The result includes 'assumptions' (the rates used) and "
+        "a 'caveat'. ALWAYS relay the caveat to the user verbatim — even if they "
+        "say 'just give me the number' — and state the assumptions. Do NOT "
+        "invent tax law, rates for other jurisdictions, or filing deadlines; if "
+        "asked, say the current rules must be verified with a tax professional."
+    )
+    InputSchema = GetTaxSummaryInput
+
+    async def run(self, ctx: ToolContext, args: GetTaxSummaryInput) -> dict[str, Any]:
+        from app.services.tax_service import compute_tax_summary
+
+        today = date.today()
+        to_date = args.to_date or today
+        from_date = args.from_date
+        if from_date is None:
+            q_start_month = ((today.month - 1) // 3) * 3 + 1
+            from_date = date(today.year, q_start_month, 1)
+        return compute_tax_summary(ctx.db, from_date, to_date, currency=args.currency)
+
+
+# ---------------------------------------------------------------------------
 # Registry helper
 # ---------------------------------------------------------------------------
 
@@ -697,4 +735,5 @@ def register_read_tools(registry) -> None:
     registry.register(GetAccountBalance())
     registry.register(SearchAccounts())
     registry.register(GetFinancialStatement())
+    registry.register(GetTaxSummary())
     registry.register(GetCompanyDefaults())

@@ -31,6 +31,11 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "supplier_advance": "1500", # Supplier prepayments and advances (asset)
         "vat_output": "2200",       # VAT payable (output tax on sales) — liability
         "vat_input": "1400",        # VAT receivable (input tax on purchases) — asset
+        "accrued_liability": "2400",        # Accruals and deferred income — liability
+        "accrued_income": "1410",           # Accrued income — asset
+        "prepaid_expense": "1300",          # Prepayments and other debtors — asset
+        "depreciation_expense": "8500",     # Depreciation expense
+        "accumulated_depreciation": "0090", # Accumulated depreciation — contra-asset
     },
     "ir": {
         "ar": "1112",
@@ -43,6 +48,11 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "supplier_advance": "1120", # پیش‌پرداخت به تأمین‌کنندگان
         "vat_output": "2130",       # مالیات بر ارزش افزوده پرداختنی — liability
         "vat_input": "1130",        # مالیات بر ارزش افزوده دریافتنی — asset
+        "accrued_liability": "2140",        # هزینه‌های تعهدشده پرداختنی — liability
+        "accrued_income": "1140",           # درآمد تعهدشده دریافتنی — asset
+        "prepaid_expense": "1150",          # پیش‌پرداخت هزینه‌ها — asset
+        "depreciation_expense": "6120",     # هزینه استهلاک
+        "accumulated_depreciation": "1219", # استهلاک انباشته — contra-asset
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -63,6 +73,11 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "supplier_advance": "Supplier prepayments and advances",
         "vat_output": "VAT payable",
         "vat_input": "VAT receivable",
+        "accrued_liability": "Accruals and deferred income",
+        "accrued_income": "Accrued income",
+        "prepaid_expense": "Prepayments and other debtors",
+        "depreciation_expense": "Depreciation expense",
+        "accumulated_depreciation": "Accumulated depreciation",
     },
     "ir": {
         "ar": "حساب‌ها و اسناد دریافتنی تجاری",
@@ -75,6 +90,11 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "supplier_advance": "پیش‌پرداخت به تأمین‌کنندگان",
         "vat_output": "مالیات بر ارزش افزوده پرداختنی",
         "vat_input": "مالیات بر ارزش افزوده دریافتنی",
+        "accrued_liability": "هزینه‌های تعهدشده پرداختنی",
+        "accrued_income": "درآمد تعهدشده دریافتنی",
+        "prepaid_expense": "پیش‌پرداخت هزینه‌ها",
+        "depreciation_expense": "هزینه استهلاک",
+        "accumulated_depreciation": "استهلاک انباشته",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])

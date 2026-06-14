@@ -180,6 +180,46 @@ def update_chat_provider_shape(
     return read_chat_provider_shape(db)
 
 
+class ClosedPeriodRead(BaseModel):
+    closed_period: str | None = None
+
+
+class ClosedPeriodUpdate(BaseModel):
+    closed_period: str | None = None  # ISO date, or empty/null to clear the lock
+
+
+@router.get("/closed-period", response_model=ClosedPeriodRead)
+def read_closed_period(db: Session = Depends(get_db)) -> ClosedPeriodRead:
+    """The date the books are locked through (inclusive), or null if open."""
+    from app.services.period_service import get_closed_period
+
+    cp = get_closed_period(db)
+    return ClosedPeriodRead(closed_period=cp.isoformat() if cp else None)
+
+
+@router.put("/closed-period", response_model=ClosedPeriodRead)
+def update_closed_period(
+    payload: ClosedPeriodUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+) -> ClosedPeriodRead:
+    """Lock the books through a date (inclusive), or clear with empty/null."""
+    from datetime import date as _date
+
+    from app.services.period_service import set_closed_period
+
+    raw = (payload.closed_period or "").strip()
+    value: _date | None = None
+    if raw:
+        try:
+            value = _date.fromisoformat(raw)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="closed_period must be an ISO date (YYYY-MM-DD) or empty.") from e
+    set_closed_period(db, value)
+    db.commit()
+    return read_closed_period(db)
+
+
 @router.get("/anthropic-config")
 def get_anthropic_config(_=Depends(require_admin)) -> dict:
     """Return the AI-accountant (Claude) provider settings only — separate

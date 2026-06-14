@@ -1625,6 +1625,50 @@
         </div>
       </div>
       <div style="margin-top:1rem; padding:0.9rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
+        <h2 style="margin:0 0 0.4rem 0;" data-i18n="periodCloseTitle">Period close &amp; adjustments</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.8rem 0;" data-i18n="periodCloseDesc">Lock closed periods and record period-end adjustments. All entries are balanced and audited.</p>
+        <div class="row" style="margin-bottom:0.8rem; align-items:flex-end;">
+          <div>
+            <label for="closed-period-input" data-i18n="periodLockLabel">Books locked through</label>
+            <input type="date" id="closed-period-input">
+            <div style="font-size:0.72rem;color:var(--text-muted);" data-i18n="periodLockHint">Posting on or before this date is blocked.</div>
+          </div>
+          <div style="display:flex; gap:0.4rem;">
+            <button type="button" class="btn btn-secondary" id="closed-period-save" data-i18n="periodLockSave">Save lock</button>
+            <button type="button" class="btn btn-secondary" id="closed-period-clear" data-i18n="periodLockClear">Clear lock</button>
+          </div>
+          <div id="closed-period-status" style="font-size:0.8rem;color:var(--text-muted);"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.75rem;">
+          <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
+            <strong data-i18n="adjAccrualTitle">Accrual</strong>
+            <div style="margin-top:0.4rem;"><input type="number" id="accr-amount" min="0" step="1" placeholder="Amount" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="date" id="accr-date" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="text" id="accr-desc" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
+            <label style="display:block; margin-top:0.35rem; font-size:0.8rem;"><input type="checkbox" id="accr-reverse" checked> <span data-i18n="adjAutoReverse">Auto-reverse next period</span></label>
+            <button type="button" class="btn btn-primary btn-sm" id="accr-save" style="margin-top:0.45rem;" data-i18n="adjRecord">Record</button>
+          </div>
+          <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
+            <strong data-i18n="adjPrepaymentTitle">Prepayment</strong>
+            <div style="margin-top:0.4rem;"><input type="number" id="prep-amount" min="0" step="1" placeholder="Total" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="number" id="prep-periods" min="1" step="1" data-i18n-placeholder="adjPeriodsPlaceholder" placeholder="Periods" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="date" id="prep-date" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="text" id="prep-desc" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
+            <button type="button" class="btn btn-primary btn-sm" id="prep-save" style="margin-top:0.45rem;" data-i18n="adjRecord">Record</button>
+          </div>
+          <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
+            <strong data-i18n="adjDepreciationTitle">Depreciation</strong>
+            <div style="margin-top:0.4rem;"><input type="number" id="dep-cost" min="0" step="1" data-i18n-placeholder="adjCostPlaceholder" placeholder="Cost" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="number" id="dep-life" min="1" step="1" data-i18n-placeholder="adjLifePlaceholder" placeholder="Life (periods)" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="number" id="dep-residual" min="0" step="1" data-i18n-placeholder="adjResidualPlaceholder" placeholder="Residual" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="date" id="dep-date" style="width:100%;"></div>
+            <button type="button" class="btn btn-primary btn-sm" id="dep-save" style="margin-top:0.45rem;" data-i18n="adjCreate">Create schedule</button>
+          </div>
+        </div>
+        <div id="adjustments-list" style="margin-top:0.8rem; font-size:0.82rem;"></div>
+      </div>
+
+      <div style="margin-top:1rem; padding:0.9rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
         <h2 style="margin:0 0 0.4rem 0;" data-i18n="aiProvidersTitle">AI providers</h2>
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.9rem 0;" data-i18n="aiProvidersDesc">
           Two slots: the OpenAI-shape slot powers transaction-suggest, bank-statement parsing, and other classic AI features. The Anthropic-shape slot powers the conversational AI Chat (tool use, action cards, undo). You can use one Metis account for both by pointing each slot at the matching Metis URL (<code>/openai/v1</code> and <code>/anthropic/v1</code>).
@@ -2953,6 +2997,42 @@
         invBalanceDue: 'Balance',
         invAddPayment: 'Add payment',
         invCreditNote: 'Credit note',
+        invVoid: 'Void',
+        invVoidRecorded: 'Invoice voided.',
+        invVoidError: 'Could not void the invoice.',
+        confirmVoidInvoice: 'Void invoice {number}? Its recognition and any payments will be reversed (audit trail kept).',
+        periodCloseTitle: 'Period close & adjustments',
+        periodCloseDesc: 'Lock closed periods and record period-end adjustments. All entries are balanced and audited.',
+        periodLockLabel: 'Books locked through',
+        periodLockHint: 'Posting on or before this date is blocked.',
+        periodLockSave: 'Save lock',
+        periodLockClear: 'Clear lock',
+        periodLockSaved: 'Period lock updated.',
+        periodLockError: 'Could not update the period lock.',
+        periodLockedThrough: 'Locked through {date}',
+        periodOpen: 'No period lock set.',
+        adjAccrualTitle: 'Accrual',
+        adjPrepaymentTitle: 'Prepayment',
+        adjDepreciationTitle: 'Depreciation',
+        adjDescPlaceholder: 'Description',
+        adjPeriodsPlaceholder: 'Periods',
+        adjCostPlaceholder: 'Cost',
+        adjLifePlaceholder: 'Life (periods)',
+        adjResidualPlaceholder: 'Residual',
+        adjAutoReverse: 'Auto-reverse next period',
+        adjRecord: 'Record',
+        adjCreate: 'Create schedule',
+        adjRelease: 'Release period',
+        adjReleased: 'Period released.',
+        adjReleaseError: 'Could not release the period.',
+        adjRecorded: 'Adjustment recorded.',
+        adjError: 'Could not record the adjustment.',
+        adjNone: 'No adjustments yet.',
+        adjNbv: 'NBV',
+        adjAutoReversed: 'auto-reversed',
+        adj_accrual: 'Accrual',
+        adj_prepayment: 'Prepayment',
+        adj_depreciation: 'Depreciation',
         invHistory: 'History',
         invPaymentAmountPrompt: 'Payment amount (balance due {balance} {currency}):',
         invCreditNoteAmountPrompt: 'Credit note amount:',
@@ -3539,6 +3619,42 @@
         invBalanceDue: 'مانده',
         invAddPayment: 'ثبت پرداخت',
         invCreditNote: 'برگ بستانکار',
+        invVoid: 'ابطال',
+        invVoidRecorded: 'فاکتور باطل شد.',
+        invVoidError: 'ابطال فاکتور ممکن نشد.',
+        confirmVoidInvoice: 'فاکتور {number} باطل شود؟ شناسایی و پرداخت‌های آن برگردانده می‌شود (سابقه حسابرسی حفظ می‌شود).',
+        periodCloseTitle: 'بستن دوره و تعدیلات',
+        periodCloseDesc: 'قفل دوره‌های بسته‌شده و ثبت تعدیلات پایان دوره. همه ثبت‌ها متوازن و حسابرسی‌شده‌اند.',
+        periodLockLabel: 'دفاتر قفل تا تاریخ',
+        periodLockHint: 'ثبت در این تاریخ یا قبل از آن مسدود است.',
+        periodLockSave: 'ذخیره قفل',
+        periodLockClear: 'حذف قفل',
+        periodLockSaved: 'قفل دوره به‌روزرسانی شد.',
+        periodLockError: 'به‌روزرسانی قفل دوره ممکن نشد.',
+        periodLockedThrough: 'قفل تا {date}',
+        periodOpen: 'قفل دوره‌ای تنظیم نشده است.',
+        adjAccrualTitle: 'تعهدی',
+        adjPrepaymentTitle: 'پیش‌پرداخت',
+        adjDepreciationTitle: 'استهلاک',
+        adjDescPlaceholder: 'شرح',
+        adjPeriodsPlaceholder: 'دوره‌ها',
+        adjCostPlaceholder: 'بهای تمام‌شده',
+        adjLifePlaceholder: 'عمر مفید (دوره)',
+        adjResidualPlaceholder: 'ارزش اسقاط',
+        adjAutoReverse: 'برگشت خودکار در دوره بعد',
+        adjRecord: 'ثبت',
+        adjCreate: 'ایجاد برنامه',
+        adjRelease: 'آزادسازی دوره',
+        adjReleased: 'دوره آزاد شد.',
+        adjReleaseError: 'آزادسازی دوره ممکن نشد.',
+        adjRecorded: 'تعدیل ثبت شد.',
+        adjError: 'ثبت تعدیل ممکن نشد.',
+        adjNone: 'هنوز تعدیلی وجود ندارد.',
+        adjNbv: 'ارزش دفتری',
+        adjAutoReversed: 'برگشت خودکار',
+        adj_accrual: 'تعهدی',
+        adj_prepayment: 'پیش‌پرداخت',
+        adj_depreciation: 'استهلاک',
         invHistory: 'تاریخچه',
         invPaymentAmountPrompt: 'مبلغ پرداخت (مانده {balance} {currency}):',
         invCreditNoteAmountPrompt: 'مبلغ برگ بستانکار:',
@@ -4108,6 +4224,42 @@
         invBalanceDue: 'Saldo',
         invAddPayment: 'Registrar pago',
         invCreditNote: 'Nota de crédito',
+        invVoid: 'Anular',
+        invVoidRecorded: 'Factura anulada.',
+        invVoidError: 'No se pudo anular la factura.',
+        confirmVoidInvoice: '¿Anular la factura {number}? Se revertirán su reconocimiento y los pagos (se conserva la auditoría).',
+        periodCloseTitle: 'Cierre de período y ajustes',
+        periodCloseDesc: 'Bloquea períodos cerrados y registra ajustes de fin de período. Todos los asientos están balanceados y auditados.',
+        periodLockLabel: 'Libros bloqueados hasta',
+        periodLockHint: 'Se bloquea registrar en esta fecha o antes.',
+        periodLockSave: 'Guardar bloqueo',
+        periodLockClear: 'Quitar bloqueo',
+        periodLockSaved: 'Bloqueo de período actualizado.',
+        periodLockError: 'No se pudo actualizar el bloqueo.',
+        periodLockedThrough: 'Bloqueado hasta {date}',
+        periodOpen: 'Sin bloqueo de período.',
+        adjAccrualTitle: 'Devengo',
+        adjPrepaymentTitle: 'Pago anticipado',
+        adjDepreciationTitle: 'Depreciación',
+        adjDescPlaceholder: 'Descripción',
+        adjPeriodsPlaceholder: 'Períodos',
+        adjCostPlaceholder: 'Coste',
+        adjLifePlaceholder: 'Vida (períodos)',
+        adjResidualPlaceholder: 'Residual',
+        adjAutoReverse: 'Auto-revertir el próximo período',
+        adjRecord: 'Registrar',
+        adjCreate: 'Crear calendario',
+        adjRelease: 'Liberar período',
+        adjReleased: 'Período liberado.',
+        adjReleaseError: 'No se pudo liberar el período.',
+        adjRecorded: 'Ajuste registrado.',
+        adjError: 'No se pudo registrar el ajuste.',
+        adjNone: 'Aún no hay ajustes.',
+        adjNbv: 'Valor neto',
+        adjAutoReversed: 'auto-revertido',
+        adj_accrual: 'Devengo',
+        adj_prepayment: 'Pago anticipado',
+        adj_depreciation: 'Depreciación',
         invHistory: 'Historial',
         invPaymentAmountPrompt: 'Importe del pago (saldo pendiente {balance} {currency}):',
         invCreditNoteAmountPrompt: 'Importe de la nota de crédito:',
@@ -4677,6 +4829,42 @@
         invBalanceDue: 'الرصيد',
         invAddPayment: 'تسجيل دفعة',
         invCreditNote: 'إشعار دائن',
+        invVoid: 'إبطال',
+        invVoidRecorded: 'تم إبطال الفاتورة.',
+        invVoidError: 'تعذّر إبطال الفاتورة.',
+        confirmVoidInvoice: 'إبطال الفاتورة {number}؟ سيُعكس إثباتها وأي مدفوعات (مع الاحتفاظ بسجل التدقيق).',
+        periodCloseTitle: 'إقفال الفترة والتسويات',
+        periodCloseDesc: 'اقفل الفترات المغلقة وسجّل تسويات نهاية الفترة. كل القيود متوازنة ومدقّقة.',
+        periodLockLabel: 'الدفاتر مقفلة حتى',
+        periodLockHint: 'يُمنع التسجيل في هذا التاريخ أو قبله.',
+        periodLockSave: 'حفظ القفل',
+        periodLockClear: 'إزالة القفل',
+        periodLockSaved: 'تم تحديث قفل الفترة.',
+        periodLockError: 'تعذّر تحديث قفل الفترة.',
+        periodLockedThrough: 'مقفلة حتى {date}',
+        periodOpen: 'لا يوجد قفل للفترة.',
+        adjAccrualTitle: 'استحقاق',
+        adjPrepaymentTitle: 'دفعة مقدمة',
+        adjDepreciationTitle: 'إهلاك',
+        adjDescPlaceholder: 'الوصف',
+        adjPeriodsPlaceholder: 'الفترات',
+        adjCostPlaceholder: 'التكلفة',
+        adjLifePlaceholder: 'العمر (فترات)',
+        adjResidualPlaceholder: 'القيمة المتبقية',
+        adjAutoReverse: 'عكس تلقائي في الفترة التالية',
+        adjRecord: 'تسجيل',
+        adjCreate: 'إنشاء جدول',
+        adjRelease: 'تحرير الفترة',
+        adjReleased: 'تم تحرير الفترة.',
+        adjReleaseError: 'تعذّر تحرير الفترة.',
+        adjRecorded: 'تم تسجيل التسوية.',
+        adjError: 'تعذّر تسجيل التسوية.',
+        adjNone: 'لا توجد تسويات بعد.',
+        adjNbv: 'القيمة الدفترية',
+        adjAutoReversed: 'عُكِس تلقائياً',
+        adj_accrual: 'استحقاق',
+        adj_prepayment: 'دفعة مقدمة',
+        adj_depreciation: 'إهلاك',
         invHistory: 'السجل',
         invPaymentAmountPrompt: 'مبلغ الدفعة (الرصيد المستحق {balance} {currency}):',
         invCreditNoteAmountPrompt: 'مبلغ الإشعار الدائن:',
@@ -7151,6 +7339,7 @@
               <button type="button" class="btn btn-secondary btn-sm inv-credit-note" data-id="${i.id}" style="margin-left:0.3rem;" ${settled ? 'disabled' : ''}>${escapeHtml(t('invCreditNote'))}</button>
               <a class="btn btn-secondary btn-sm" href="${escapeHtml(i.pdf_url || ('/invoices/' + i.id + '/pdf'))}" target="_blank" style="margin-left:0.3rem; text-decoration:none;">PDF</a>
               <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}" style="margin-left:0.3rem;">${escapeHtml(t('invHistory'))}</button>
+              <button type="button" class="btn btn-danger btn-sm inv-void" data-id="${i.id}" data-number="${escapeHtml(i.number)}" style="margin-left:0.3rem;" ${(i.status === 'voided' || i.status === 'canceled') ? 'disabled' : ''}>${escapeHtml(t('invVoid'))}</button>
               <button type="button" class="btn btn-danger btn-sm inv-del" data-id="${i.id}" style="margin-left:0.3rem;">${escapeHtml(t('btnDelete') || 'Delete')}</button>
             </td>
           `;
@@ -8514,6 +8703,21 @@
           const data = await res.json().catch(() => ({}));
           if (!res.ok) { showAlert(data.detail || t('invCreditNoteError'), true); return; }
           showAlert(t('invCreditNoteRecorded'));
+          loadInvoices(id);
+          loadLedger();
+          loadOwnerDashboard();
+        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        return;
+      }
+      const voidBtn = e.target.closest('.inv-void');
+      if (voidBtn && !voidBtn.disabled) {
+        const id = voidBtn.dataset.id;
+        if (!(await uiConfirm({ message: tf('confirmVoidInvoice', { number: voidBtn.dataset.number || '' }), confirmLabel: t('invVoid'), danger: true }))) return;
+        try {
+          const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/void', { method: 'POST' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(data.detail || t('invVoidError'), true); return; }
+          showAlert(t('invVoidRecorded'));
           loadInvoices(id);
           loadLedger();
           loadOwnerDashboard();
@@ -10139,7 +10343,108 @@
       if (page === 'inventory') { loadPriceMgmtItems(); }
       if (page === 'manager') { loadAccountDatalist(); loadProductEntityDatalist(); }
       if (page === 'products') { loadProductsCatalog(); }
+      if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); }
     }
+
+    // ═══════ Period close & adjustments ═══════
+    async function loadClosedPeriod() {
+      const inp = document.getElementById('closed-period-input');
+      const status = document.getElementById('closed-period-status');
+      if (!inp) return;
+      try {
+        const r = await fetch(API + '/admin/closed-period');
+        if (!r.ok) return;
+        const d = await r.json();
+        inp.value = d.closed_period || '';
+        if (status) status.textContent = d.closed_period ? tf('periodLockedThrough', { date: d.closed_period }) : t('periodOpen');
+      } catch (_) {}
+    }
+    async function _saveClosedPeriod(value) {
+      try {
+        const r = await fetch(API + '/admin/closed-period', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ closed_period: value }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { showAlert(d.detail || t('periodLockError'), true); return; }
+        showAlert(t('periodLockSaved'));
+        loadClosedPeriod();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    }
+    document.getElementById('closed-period-save')?.addEventListener('click', () => {
+      _saveClosedPeriod(document.getElementById('closed-period-input').value || '');
+    });
+    document.getElementById('closed-period-clear')?.addEventListener('click', () => _saveClosedPeriod(''));
+
+    async function loadAdjustments() {
+      const wrap = document.getElementById('adjustments-list');
+      if (!wrap) return;
+      try {
+        const r = await fetch(API + '/adjustments');
+        if (!r.ok) return;
+        const rows = await r.json();
+        if (!rows.length) { wrap.innerHTML = '<span style="color:var(--text-muted);">' + escapeHtml(t('adjNone')) + '</span>'; return; }
+        wrap.innerHTML = rows.map((a) => {
+          const sched = (a.kind === 'prepayment' || a.kind === 'depreciation')
+            ? ` — ${a.periods_posted}/${a.periods}` + (a.net_book_value != null ? `, ${t('adjNbv')}: ${formatNum(a.net_book_value)}` : '')
+            : (a.reversal_transaction_id ? ` — ${t('adjAutoReversed')}` : '');
+          const canRelease = (a.kind === 'prepayment' || a.kind === 'depreciation') && a.status === 'active';
+          return `<div style="padding:0.3rem 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; gap:0.5rem;">
+            <span>${escapeHtml(t('adj_' + a.kind) || a.kind)}: ${escapeHtml(a.description || '')} (${formatNum(a.amount)} ${escapeHtml(a.currency)})${escapeHtml(sched)}</span>
+            ${canRelease ? `<button type="button" class="btn btn-secondary btn-sm adj-release" data-id="${a.id}">${escapeHtml(t('adjRelease'))}</button>` : ''}
+          </div>`;
+        }).join('');
+      } catch (_) {}
+    }
+    document.getElementById('adjustments-list')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.adj-release');
+      if (!btn) return;
+      try {
+        const r = await fetch(API + '/adjustments/' + encodeURIComponent(btn.dataset.id) + '/release', { method: 'POST' });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { showAlert(d.detail || t('adjReleaseError'), true); return; }
+        showAlert(t('adjReleased'));
+        loadAdjustments(); loadLedger();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+    async function _postAdjustment(url, body) {
+      try {
+        const r = await fetch(API + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { showAlert(d.detail || t('adjError'), true); return false; }
+        showAlert(t('adjRecorded'));
+        loadAdjustments(); loadLedger(); loadOwnerDashboard();
+        return true;
+      } catch (err) { showAlert('Connection error: ' + err.message, true); return false; }
+    }
+    document.getElementById('accr-save')?.addEventListener('click', () => {
+      const amount = parseInt(document.getElementById('accr-amount').value, 10);
+      const d = document.getElementById('accr-date').value;
+      if (!amount || amount <= 0 || !d) { showAlert(t('invAmountInvalid'), true); return; }
+      _postAdjustment('/adjustments/accrual', {
+        amount, date: d, description: document.getElementById('accr-desc').value || null,
+        currency: currencyUnit(), auto_reverse: document.getElementById('accr-reverse').checked,
+      });
+    });
+    document.getElementById('prep-save')?.addEventListener('click', () => {
+      const amount = parseInt(document.getElementById('prep-amount').value, 10);
+      const periods = parseInt(document.getElementById('prep-periods').value, 10);
+      const d = document.getElementById('prep-date').value;
+      if (!amount || amount <= 0 || !periods || periods < 1 || !d) { showAlert(t('invAmountInvalid'), true); return; }
+      _postAdjustment('/adjustments/prepayment', {
+        amount, periods, start_date: d, description: document.getElementById('prep-desc').value || null, currency: currencyUnit(),
+      });
+    });
+    document.getElementById('dep-save')?.addEventListener('click', () => {
+      const cost = parseInt(document.getElementById('dep-cost').value, 10);
+      const periods = parseInt(document.getElementById('dep-life').value, 10);
+      const residual = parseInt(document.getElementById('dep-residual').value, 10) || 0;
+      const d = document.getElementById('dep-date').value;
+      if (!cost || cost <= 0 || !periods || periods < 1 || !d) { showAlert(t('invAmountInvalid'), true); return; }
+      _postAdjustment('/adjustments/depreciation', {
+        cost, periods, residual, start_date: d, currency: currencyUnit(),
+      });
+    });
     document.getElementById('top-nav').addEventListener('click', (e) => {
       const btn = e.target.closest('.nav-btn[data-page]');
       if (!btn) return;

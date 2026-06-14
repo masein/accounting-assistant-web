@@ -250,6 +250,66 @@ class TestMarkPaid:
         assert _balanced(uk)
 
 
+class TestOverpaymentOnStaleChart:
+    """The live 500: overpayment posted to customer_credit/supplier_advance
+    accounts that an older chart lacked. The resolver now self-heals."""
+
+    def _drop(self, db, code):
+        from app.models.account import Account as A
+        acc = db.execute(select(A).where(A.code == code)).scalars().one_or_none()
+        if acc:
+            db.delete(acc)
+            db.commit()
+
+    def test_sales_overpay_when_customer_credit_missing(self, uk):
+        self._drop(uk, "2150")  # simulate the stale UK chart
+        inv = _issue(uk, kind="sales", amount=1000)
+        # Must NOT 500/raise — the resolver auto-creates 2150.
+        add_payment(inv.id, PaymentCreate(amount=1500), uk)
+        row = _read(uk, inv.id)
+        assert row.status == "paid" and row.balance_due == 0
+        assert _bal(uk, "2150") == -500   # excess booked to (re-created) credit
+        assert _balanced(uk)
+
+    def test_purchase_overpay_when_supplier_advance_missing(self, uk):
+        self._drop(uk, "1500")
+        inv = _issue(uk, kind="purchase", amount=800)
+        add_payment(inv.id, PaymentCreate(amount=1000), uk)
+        row = _read(uk, inv.id)
+        assert row.status == "paid" and row.balance_due == 0
+        assert _bal(uk, "1500") == 200
+        assert _balanced(uk)
+
+    def test_iran_overpay_self_heals(self, ir):
+        self._drop(ir, "2120")
+        inv = _issue(ir, kind="sales", amount=5_000_000, currency="IRR")
+        add_payment(inv.id, PaymentCreate(amount=6_000_000), ir)
+        row = _read(ir, inv.id)
+        assert row.status == "paid" and row.balance_due == 0
+        assert _bal(ir, "2120") == -1_000_000
+        assert _balanced(ir)
+
+
+class TestLegacyPaidInvoice:
+    def test_paid_invoice_with_no_payments_reports_zero_balance(self, uk):
+        # Simulate a legacy invoice marked paid under the old flow: status
+        # 'paid' but no Payment rows.
+        inv = _issue(uk, kind="sales", amount=1000)
+        uk.get(Invoice, inv.id).status = "paid"
+        uk.commit()
+        row = _read(uk, inv.id)
+        assert row.status == "paid"
+        assert row.balance_due == 0
+        assert row.amount_paid == 1000
+
+    def test_legacy_paid_excluded_from_ar_aging(self, uk):
+        inv = _issue(uk, kind="sales", amount=1000)
+        uk.get(Invoice, inv.id).status = "paid"
+        uk.commit()
+        data = accounts_receivable(None, None, uk)
+        assert all(i["invoice_id"] != str(inv.id) for i in data["items"])
+
+
 class TestLocaleResolution:
     def test_resolver_uk(self, uk):
         from app.services.account_resolver import resolve_account_code

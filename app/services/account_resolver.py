@@ -44,24 +44,74 @@ POSTING_CODES: dict[str, dict[str, str]] = {
 # default chart tries Iranian codes first (the historical default), then UK.
 POSTING_CODES["default"] = dict(POSTING_CODES["ir"])
 
+# Names for auto-creating a posting account that's missing from an older chart
+# (these accounts were added in a later release, so charts seeded before it
+# lack them). Names match app/db/seed.py.
+POSTING_NAMES: dict[str, dict[str, str]] = {
+    "uk": {
+        "ar": "Trade debtors",
+        "ap": "Trade creditors",
+        "bank": "Bank current account",
+        "revenue": "Sales",
+        "expense": "Purchases",
+        "sales_returns": "Sales returns",
+        "customer_credit": "Customer credits and deposits",
+        "supplier_advance": "Supplier prepayments and advances",
+    },
+    "ir": {
+        "ar": "حساب‌ها و اسناد دریافتنی تجاری",
+        "ap": "حساب‌ها و اسناد پرداختنی تجاری",
+        "bank": "موجودی نقد و بانک",
+        "revenue": "فروش",
+        "expense": "سایر هزینه‌های عملیاتی",
+        "sales_returns": "فروش",
+        "customer_credit": "پیش‌دریافت از مشتریان",
+        "supplier_advance": "پیش‌پرداخت به تأمین‌کنندگان",
+    },
+}
+POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])
+
 # Order in which to fall back when the active locale lacks an account.
 _FALLBACK_ORDER = ("ir", "uk")
 
 
 class AccountResolutionError(Exception):
-    """No account in the seeded chart matches the requested category."""
+    """No account matches the requested category and it couldn't be created."""
 
 
 def _code_exists(db: Session, code: str) -> bool:
     return db.execute(select(Account.id).where(Account.code == code)).first() is not None
 
 
+def _ensure_account(db: Session, code: str, name: str, locale: str) -> str:
+    """Create the posting account if it's missing (self-heals a chart seeded
+    before this account existed), linking it to its group parent by code
+    prefix. Returns the code."""
+    if _code_exists(db, code):
+        return code
+    from app.db.seed import _parent_code_ir, _parent_code_uk
+    from app.models.account import AccountLevel
+
+    parent_fn = _parent_code_uk if locale == "uk" else _parent_code_ir
+    parent_code = parent_fn(code)
+    parent = (
+        db.execute(select(Account).where(Account.code == parent_code)).scalars().first()
+        if parent_code
+        else None
+    )
+    db.add(Account(code=code, name=name, level=AccountLevel.GENERAL,
+                   parent_id=(parent.id if parent else None)))
+    db.flush()
+    return code
+
+
 def resolve_account_code(db: Session, category: str, *, locale: str | None = None) -> str:
     """Return the chart code for a posting ``category`` in the active locale.
 
     Verifies the code exists; falls back to the other locales' code for the
-    same category if the preferred one is absent. Raises
-    ``AccountResolutionError`` if nothing matches.
+    same category. If none exist (an older chart predating the account), the
+    locale's preferred account is auto-created rather than failing a posting.
+    Raises ``AccountResolutionError`` only for an unknown category.
     """
     cat = category.strip().lower()
     loc = (locale or get_reporting_locale(db) or "default").strip().lower()
@@ -79,9 +129,13 @@ def resolve_account_code(db: Session, category: str, *, locale: str | None = Non
     for code in candidates:
         if _code_exists(db, code):
             return code
+
+    # Self-heal: create the locale's preferred account for this category.
+    name = POSTING_NAMES.get(loc, POSTING_NAMES["default"]).get(cat)
+    if name:
+        return _ensure_account(db, table[cat], name, loc)
     raise AccountResolutionError(
-        f"No account found for category {category!r} (tried {candidates}). "
-        f"Seed the chart for locale {loc!r}."
+        f"No account found for category {category!r} (tried {candidates})."
     )
 
 

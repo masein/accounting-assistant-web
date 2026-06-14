@@ -14,9 +14,10 @@ from __future__ import annotations
 from datetime import date
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.account import Account, AccountLevel
+from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.transaction import Transaction, TransactionLine
 
 
@@ -67,6 +68,105 @@ def _ensure_account(
     session.add(acc)
     session.flush()
     return acc
+
+
+# Locale-aware copy for the demo's one un-booked bank-fee line: a charge the
+# bank applied that hasn't been entered in the ledger, so reconciliation
+# surfaces it as a fee suggestion and a (small, exact) unreconciled difference.
+_DEMO_FEE_TEXT = {
+    "uk": "Monthly account maintenance fee",
+    "ir": "کارمزد ماهانهٔ حساب بانکی",
+    "default": "کارمزد ماهانهٔ حساب بانکی",
+}
+
+
+def seed_demo_bank_statement(session: Session, locale: str) -> int:
+    """Create a demo bank statement whose rows mirror the current-year cash
+    ledger lines, so clicking *Reconcile* yields a high matched count and a
+    near-zero, exact difference — never a force-balanced zero.
+
+    One extra un-booked bank-fee line is appended so the fee-suggestion flow
+    (confirm-gated "record this") has something real to surface. Returns the
+    number of statement rows created (0 if there's no cash activity yet)."""
+    import hashlib
+
+    loc = (locale or "default").strip().lower()
+    is_cash = _cash_predicate(loc)
+    currency = "GBP" if loc == "uk" else "IRR"
+    _, y2 = _demo_years()  # mirror the current fiscal year
+    period_start, period_end = date(y2, 1, 1), date(y2, 12, 31)
+
+    txns = session.execute(
+        select(Transaction)
+        .where(Transaction.date >= period_start, Transaction.date <= period_end)
+        .where(Transaction.deleted_at.is_(None))
+        .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
+        .order_by(Transaction.date)
+    ).scalars().unique().all()
+
+    bank_rows: list[tuple[date, str | None, str | None, int, int]] = []
+    for txn in txns:
+        cash_debit = sum(ln.debit for ln in txn.lines if is_cash(ln.account.code or ""))
+        cash_credit = sum(ln.credit for ln in txn.lines if is_cash(ln.account.code or ""))
+        if cash_debit == cash_credit:
+            continue  # not a cash-affecting transaction
+        if cash_debit > cash_credit:  # cash in → bank credit
+            bank_rows.append((txn.date, txn.description, txn.reference, 0, cash_debit - cash_credit))
+        else:  # cash out → bank debit
+            bank_rows.append((txn.date, txn.description, txn.reference, cash_credit - cash_debit, 0))
+
+    if not bank_rows:
+        return 0
+
+    # One un-booked bank fee mid-period, dated to fall inside the statement.
+    fee_amount = 50 if loc == "uk" else 500_000
+    fee_text = _DEMO_FEE_TEXT.get(loc, _DEMO_FEE_TEXT["default"])
+    bank_rows.append((date(y2, 6, 28), fee_text, None, fee_amount, 0))
+    bank_rows.sort(key=lambda r: r[0])
+
+    from_date = min(r[0] for r in bank_rows)
+    to_date = max(r[0] for r in bank_rows)
+    bank_name = "HSBC UK" if loc == "uk" else "بانک ملت"
+
+    stmt = BankStatement(
+        bank_name=bank_name,
+        source_type="csv",
+        source_filename=f"demo_statement_{y2}.csv",
+        content_hash=hashlib.sha256(f"demo-{loc}-{y2}".encode()).hexdigest(),
+        currency=currency,
+        from_date=from_date,
+        to_date=to_date,
+        status="parsed",
+        total_rows=len(bank_rows),
+    )
+    session.add(stmt)
+    session.flush()
+
+    for idx, (tx_date, desc, ref, debit, credit) in enumerate(bank_rows, start=1):
+        is_fee = desc == fee_text
+        session.add(BankStatementRow(
+            statement_id=stmt.id,
+            row_index=idx,
+            tx_date=tx_date,
+            description=desc,
+            reference=ref,
+            debit=debit,
+            credit=credit,
+            counterparty=None,
+            raw_text=None,
+            confidence=1.0,
+            category="bank_fee" if is_fee else None,
+        ))
+
+    session.commit()
+    return len(bank_rows)
+
+
+def _cash_predicate(locale: str):
+    """The cash/bank account test for the locale (mirrors cash_service so the
+    demo doesn't import API-layer code)."""
+    from app.services.cash_service import cash_account_predicate
+    return cash_account_predicate(locale)
 
 
 def _post(
@@ -198,6 +298,7 @@ def seed_iran_demo(session: Session) -> int:
         _post(session, txn_date, desc, lines, currency="IRR")
 
     session.commit()
+    seed_demo_bank_statement(session, "ir")
     return len(entries)
 
 
@@ -533,6 +634,7 @@ def seed_uk_demo(session: Session) -> int:
         )
 
     session.commit()
+    seed_demo_bank_statement(session, "uk")
     # Return only the journal count for the existing API contract;
     # entities/invoices/inventory show up in their respective panels.
     return len(all_entries)

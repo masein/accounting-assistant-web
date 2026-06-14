@@ -36,6 +36,8 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "prepaid_expense": "1300",          # Prepayments and other debtors — asset
         "depreciation_expense": "8500",     # Depreciation expense
         "accumulated_depreciation": "0090", # Accumulated depreciation — contra-asset
+        "bank_fee": "8000",                 # Bank charges
+        "interest_income": "8300",          # Interest received
     },
     "ir": {
         "ar": "1112",
@@ -53,6 +55,8 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "prepaid_expense": "1150",          # پیش‌پرداخت هزینه‌ها — asset
         "depreciation_expense": "6120",     # هزینه استهلاک
         "accumulated_depreciation": "1219", # استهلاک انباشته — contra-asset
+        "bank_fee": "6210",                 # هزینه‌های مالی (bank charges)
+        "interest_income": "4120",          # درآمد سود (interest income)
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -78,6 +82,8 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "prepaid_expense": "Prepayments and other debtors",
         "depreciation_expense": "Depreciation expense",
         "accumulated_depreciation": "Accumulated depreciation",
+        "bank_fee": "Bank charges",
+        "interest_income": "Interest received",
     },
     "ir": {
         "ar": "حساب‌ها و اسناد دریافتنی تجاری",
@@ -95,6 +101,8 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "prepaid_expense": "پیش‌پرداخت هزینه‌ها",
         "depreciation_expense": "هزینه استهلاک",
         "accumulated_depreciation": "استهلاک انباشته",
+        "bank_fee": "هزینه‌های مالی",
+        "interest_income": "درآمد سود",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])

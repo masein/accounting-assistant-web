@@ -35,6 +35,9 @@ class BankStatement(Base):
     account_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
     source_type: Mapped[str] = mapped_column(String(32), index=True)  # csv, excel, ocr_image, ocr_pdf
     source_filename: Mapped[str] = mapped_column(String(512))
+    # SHA-256 of the raw uploaded bytes, for file-level duplicate detection:
+    # re-uploading the identical file is flagged before importing again.
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     from_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     to_date: Mapped[date | None] = mapped_column(Date, nullable=True)

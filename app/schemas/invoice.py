@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from datetime import date as _date  # alias: fields literally named `date` shadow the type
 from typing import Optional
 from uuid import UUID
 
@@ -53,21 +54,75 @@ class InvoiceUpdate(BaseModel):
     currency: str | None = None
     description: str | None = None
     entity_id: UUID | None = None
+    scheduled_payment_date: date | None = None
     items: list[InvoiceItemCreate] | None = None
 
 
 class MarkInvoicePaidRequest(BaseModel):
     payment_date: date
-    bank_account_code: str = Field(default="1110")
+    bank_account_code: str | None = Field(default=None)
     bank_entity_id: UUID | None = None
     reference: str | None = None
     description: str | None = None
+    method: str = Field(default="bank", description="cash|bank|transfer")
+
+
+class PaymentCreate(BaseModel):
+    amount: int = Field(..., gt=0, description="Whole currency units, > 0")
+    date: _date | None = None
+    currency: str | None = None
+    method: str = Field(default="bank", description="cash|bank|transfer")
+    bank_account_code: str | None = None
+    reference: str | None = None
+    description: str | None = None
+
+
+class PaymentRead(BaseModel):
+    id: UUID
+    invoice_id: UUID
+    date: _date
+    amount: int
+    currency: str
+    method: str
+    direction: str
+    transaction_id: UUID | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CreditNoteCreate(BaseModel):
+    amount: int = Field(..., gt=0, description="Whole currency units, > 0")
+    date: _date | None = None
+    currency: str | None = None
+    reason: str | None = None
+
+
+class CreditNoteRead(BaseModel):
+    id: UUID
+    invoice_id: UUID | None = None
+    entity_id: UUID | None = None
+    kind: str
+    date: _date
+    amount: int
+    currency: str
+    reason: str | None = None
+    note_type: str
+    transaction_id: UUID | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class InvoiceRead(InvoiceBase):
     id: UUID
     status: str
     transaction_id: UUID | None = None
+    scheduled_payment_date: date | None = None
+    # AR/AP balance, computed from payments + credit notes.
+    amount_paid: int = 0
+    credited: int = 0
+    balance_due: int = 0
     pdf_url: str | None = None
     items: list[InvoiceItemRead] = Field(default_factory=list)
     created_at: datetime

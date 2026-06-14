@@ -25,9 +25,13 @@ class Invoice(Base):
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True, index=True)
+    # The recognition journal entry posted when the invoice is issued
+    # (DR AR / CR revenue for sales; DR expense / CR AP for purchases).
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True, index=True
     )
+    # A planned date to pay a bill. Informational only — moves no money.
+    scheduled_payment_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

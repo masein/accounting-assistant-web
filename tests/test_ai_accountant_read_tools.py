@@ -208,10 +208,11 @@ class TestRegistry:
     def test_registers_read_tools(self) -> None:
         reg = ToolRegistry()
         register_read_tools(reg)
-        assert len(reg) == 7
+        assert len(reg) == 8
         for name in ("find_entity", "list_entities", "query_ledger",
                      "get_account_balance", "search_accounts",
-                     "get_financial_statement", "get_company_defaults"):
+                     "get_financial_statement", "get_tax_summary",
+                     "get_company_defaults"):
             assert name in reg
 
     def test_to_anthropic_shape(self) -> None:

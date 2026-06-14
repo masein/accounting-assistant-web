@@ -60,6 +60,33 @@ def _validate_status(status: str) -> str:
     return v
 
 
+def _line_tax(line_total: int, tax_rate, taxable: bool) -> int:
+    """Tax on one line: rounded ``line_total * rate/100`` for taxable lines,
+    0 for exempt lines."""
+    if not taxable:
+        return 0
+    rate = float(tax_rate or 0)
+    if rate <= 0:
+        return 0
+    return int(round(int(line_total or 0) * rate / 100.0))
+
+
+def _tax_breakdown(inv: Invoice) -> tuple[int, int, int]:
+    """(subtotal, tax_total, grand_total) for an invoice from its line items.
+
+    Tax applies per line, only to taxable lines (mixed taxable/exempt is
+    handled naturally). An invoice with no items has no tax: subtotal ==
+    grand_total == its stored amount.
+    """
+    items = list(inv.items or [])
+    if not items:
+        amount = int(inv.amount or 0)
+        return amount, 0, amount
+    subtotal = sum(int(it.line_total or 0) for it in items)
+    tax_total = sum(_line_tax(it.line_total, it.tax_rate, it.taxable) for it in items)
+    return subtotal, tax_total, subtotal + tax_total
+
+
 def _invoice_totals(db: Session, inv: Invoice) -> tuple[int, int, int]:
     """Return (amount_paid, credited, balance_due) for an invoice, where
     credited counts only credit notes that reduce the invoice (note_type
@@ -109,6 +136,10 @@ def _recompute_status(inv: Invoice, paid: int, credited: int, balance_due: int) 
 def _to_read(row: Invoice) -> InvoiceRead:
     data = InvoiceRead.model_validate(row)
     data.pdf_url = f"/invoices/{row.id}/pdf"
+    subtotal, tax_total, grand_total = _tax_breakdown(row)
+    data.subtotal = subtotal
+    data.tax_total = tax_total
+    data.grand_total = grand_total
     db = object_session(row)
     if db is not None:
         paid, credited, balance_due = _invoice_totals(db, row)
@@ -175,21 +206,29 @@ def _recognize_invoice(db: Session, inv: Invoice) -> None:
     amount = int(inv.amount or 0)
     if amount <= 0:
         return
+    # grand_total drives the AR/AP leg; the subtotal/tax split feeds the
+    # revenue/expense and VAT legs. amount == grand_total (kept in sync on
+    # create/update), so net + tax always reconciles to amount.
+    subtotal, tax_total, grand_total = _tax_breakdown(inv)
     if inv.kind == "sales":
         ar = resolve_account_code(db, "ar")
         rev = resolve_account_code(db, "revenue")
         lines = [
-            (ar, amount, 0, f"Invoice {inv.number} — receivable"),
-            (rev, 0, amount, f"Invoice {inv.number} — revenue"),
+            (ar, grand_total, 0, f"Invoice {inv.number} — receivable"),
+            (rev, 0, subtotal, f"Invoice {inv.number} — revenue"),
         ]
+        if tax_total > 0:
+            lines.append((resolve_account_code(db, "vat_output"), 0, tax_total, f"Invoice {inv.number} — output VAT"))
         role = "client"
     else:
         exp = resolve_account_code(db, "expense")
         ap = resolve_account_code(db, "ap")
         lines = [
-            (exp, amount, 0, f"Bill {inv.number} — expense"),
-            (ap, 0, amount, f"Bill {inv.number} — payable"),
+            (exp, subtotal, 0, f"Bill {inv.number} — expense"),
+            (ap, 0, grand_total, f"Bill {inv.number} — payable"),
         ]
+        if tax_total > 0:
+            lines.append((resolve_account_code(db, "vat_input"), tax_total, 0, f"Bill {inv.number} — input VAT"))
         role = "supplier"
     txn = _post_entry(
         db, on=inv.issue_date, reference=inv.number,
@@ -212,15 +251,22 @@ def _resolve_bank_code(db: Session, code: str | None) -> str:
 
 
 def _build_invoice_items(payload_items: list, invoice_id: UUID) -> tuple[list[InvoiceItem], int]:
+    """Build InvoiceItem rows. Returns (rows, grand_total) where grand_total =
+    Σ line_total + Σ per-line tax (taxable lines only), so the invoice's
+    ``amount`` can be kept equal to the tax-inclusive grand total."""
     rows: list[InvoiceItem] = []
-    total = 0
+    subtotal = 0
+    tax_total = 0
     for raw in payload_items or []:
         qty = float(raw.quantity or 0)
         if qty <= 0:
             continue
         unit_price = int(raw.unit_price or 0)
-        line_total = int(raw.line_total if raw.line_total is not None else round(qty * unit_price))
-        total += max(0, line_total)
+        line_total = max(0, int(raw.line_total if raw.line_total is not None else round(qty * unit_price)))
+        tax_rate = float(getattr(raw, "tax_rate", 0) or 0)
+        taxable = bool(getattr(raw, "taxable", True))
+        subtotal += line_total
+        tax_total += _line_tax(line_total, tax_rate, taxable)
         rows.append(
             InvoiceItem(
                 invoice_id=invoice_id,
@@ -228,12 +274,14 @@ def _build_invoice_items(payload_items: list, invoice_id: UUID) -> tuple[list[In
                 quantity=qty,
                 unit_price=max(0, unit_price),
                 unit_cost=(int(raw.unit_cost) if raw.unit_cost is not None else None),
-                line_total=max(0, line_total),
+                line_total=line_total,
+                tax_rate=tax_rate,
+                taxable=taxable,
                 description=(raw.description or "").strip() or None,
                 inventory_item_id=raw.inventory_item_id,
             )
         )
-    return rows, total
+    return rows, subtotal + tax_total
 
 
 def _safe_invoice_number(raw: str | None) -> str:
@@ -407,9 +455,10 @@ def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Inv
         db.flush()
         item_rows, items_total = _build_invoice_items(payload.items, row.id)
         for item in item_rows:
-            db.add(item)
+            row.items.append(item)  # populate the relationship so tax breakdown sees them
         if item_rows:
             row.amount = items_total
+        db.flush()
         # Recognise AR/AP at issue: DR debtors / CR revenue (sales) or
         # DR expense / CR creditors (purchase). Posts once, links the txn.
         if row.status in ("issued", "partially_paid", "paid"):
@@ -450,11 +499,13 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
     if payload.items is not None:
         for item in list(row.items or []):
             db.delete(item)
+        row.items.clear()
         item_rows, items_total = _build_invoice_items(payload.items, row.id)
         for item in item_rows:
-            db.add(item)
+            row.items.append(item)
         if item_rows:
             row.amount = items_total
+        db.flush()
     # If this update brings the invoice into an issued state and it hasn't
     # been recognised yet, post the AR/AP recognition entry now.
     if row.status in ("issued", "partially_paid", "paid"):

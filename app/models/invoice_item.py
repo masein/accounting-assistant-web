@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,10 @@ class InvoiceItem(Base):
     unit_price: Mapped[int] = mapped_column(BigInteger, default=0)
     unit_cost: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     line_total: Mapped[int] = mapped_column(BigInteger, default=0)
+    # VAT / sales-tax: percentage rate (e.g. 20 for 20%); taxable=False makes
+    # the line exempt (contributes to subtotal but not to tax).
+    tax_rate: Mapped[float] = mapped_column(Numeric(7, 4), default=0, server_default="0")
+    taxable: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     inventory_item_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("inventory_items.id"), nullable=True, index=True

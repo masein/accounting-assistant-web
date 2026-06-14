@@ -14,6 +14,8 @@ class InvoiceItemBase(BaseModel):
     unit_price: int = Field(default=0, ge=0)
     unit_cost: int | None = Field(default=None, ge=0)
     line_total: int | None = Field(default=None, ge=0)
+    tax_rate: float = Field(default=0, ge=0, le=100, description="VAT/sales-tax percent, e.g. 20")
+    taxable: bool = Field(default=True, description="Exempt lines (False) contribute to subtotal but not tax")
     description: str | None = None
     inventory_item_id: UUID | None = None
 
@@ -119,6 +121,10 @@ class InvoiceRead(InvoiceBase):
     status: str
     transaction_id: UUID | None = None
     scheduled_payment_date: date | None = None
+    # Tax breakdown, computed from line items.
+    subtotal: int = 0
+    tax_total: int = 0
+    grand_total: int = 0
     # AR/AP balance, computed from payments + credit notes.
     amount_paid: int = 0
     credited: int = 0

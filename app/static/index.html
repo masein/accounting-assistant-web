@@ -702,7 +702,8 @@
       <div class="row" style="margin-bottom: 1rem;">
         <div><label for="inv-number" data-i18n="labelNumber">Number</label><input type="text" id="inv-number" data-i18n-placeholder="placeholderInvoiceNo" placeholder="e.g. INV-1001"></div>
         <div><label for="inv-kind" data-i18n="labelType">Type</label><select id="inv-kind"><option value="sales" data-i18n="optionSales">Sales</option><option value="purchase" data-i18n="optionPurchase">Purchase</option></select></div>
-        <div><label for="inv-amount" data-i18n="labelAmount">Amount</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
+        <div><label for="inv-amount" data-i18n="labelAmountNet">Amount (net)</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
+        <div><label for="inv-tax-rate" data-i18n="labelTaxRate">Tax %</label><input type="number" id="inv-tax-rate" min="0" max="100" step="0.5" value="0"></div>
         <div><label for="inv-currency" data-i18n="invoiceCurrencyLabel">Currency</label><select id="inv-currency">
           <option value="IRR">IRR</option>
           <option value="USD">USD</option>
@@ -2963,6 +2964,10 @@
         invCreditNoteError: 'Could not issue the credit note.',
         invScheduledPayment: 'Scheduled payment date',
         invScheduledHint: 'Planned date only — moves no money.',
+        labelAmountNet: 'Amount (net)',
+        labelTaxRate: 'Tax %',
+        invSubtotal: 'Subtotal',
+        invTax: 'Tax',
         aiChatStatusCounter: '{turns} turn(s) · {calls} tool call(s)',
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
@@ -3545,6 +3550,10 @@
         invCreditNoteError: 'صدور برگ بستانکار ممکن نشد.',
         invScheduledPayment: 'تاریخ پرداخت برنامه‌ریزی‌شده',
         invScheduledHint: 'فقط تاریخ برنامه‌ریزی — پولی جابجا نمی‌شود.',
+        labelAmountNet: 'مبلغ (خالص)',
+        labelTaxRate: 'مالیات ٪',
+        invSubtotal: 'جمع جزء',
+        invTax: 'مالیات',
         aiChatStatusCounter: '{turns} نوبت · {calls} فراخوانی ابزار',
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
@@ -4110,6 +4119,10 @@
         invCreditNoteError: 'No se pudo emitir la nota de crédito.',
         invScheduledPayment: 'Fecha de pago programada',
         invScheduledHint: 'Solo fecha planificada — no mueve dinero.',
+        labelAmountNet: 'Importe (neto)',
+        labelTaxRate: 'Impuesto %',
+        invSubtotal: 'Subtotal',
+        invTax: 'Impuesto',
         aiChatStatusCounter: '{turns} turno(s) · {calls} llamada(s) a herramientas',
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
@@ -4675,6 +4688,10 @@
         invCreditNoteError: 'تعذّر إصدار الإشعار الدائن.',
         invScheduledPayment: 'تاريخ الدفع المجدول',
         invScheduledHint: 'تاريخ مخطط فقط — لا يحرّك أي أموال.',
+        labelAmountNet: 'المبلغ (الصافي)',
+        labelTaxRate: 'الضريبة ٪',
+        invSubtotal: 'المجموع الجزئي',
+        invTax: 'الضريبة',
         aiChatStatusCounter: '{turns} دور · {calls} استدعاء أداة',
         bsParseFailed: 'تعذّر قراءة هذا الكشف — جرّب CSV/Excel أو تحقّق من نموذج الذكاء الاصطناعي.',
       },
@@ -7113,13 +7130,18 @@
           const ccy = (i.currency || 'IRR').toUpperCase();
           const paid = Number(i.amount_paid || 0);
           const balance = (i.balance_due != null) ? Number(i.balance_due) : Number(i.amount || 0);
+          const taxTotal = Number(i.tax_total || 0);
+          const subtotal = Number(i.subtotal || i.amount || 0);
+          const taxLine = taxTotal > 0
+            ? `<div style="font-size:0.72rem;color:var(--text-muted);">${t('invSubtotal')}: ${formatMoney(subtotal, ccy)} + ${t('invTax')}: ${formatMoney(taxTotal, ccy)}</div>`
+            : '';
           const tr = document.createElement('tr');
           tr.dataset.invoiceId = i.id;
           tr.innerHTML = `
             <td>${escapeHtml(i.number)}</td>
             <td>${escapeHtml(i.kind)}</td>
             <td>${escapeHtml(localizeDynamicText(i.status))}</td>
-            <td>${formatMoney(i.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
+            <td>${formatMoney(i.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>${taxLine}</td>
             <td>${formatMoney(paid, ccy)}</td>
             <td><strong>${formatMoney(balance, ccy)}</strong></td>
             <td>${escapeHtml(i.due_date)}</td>
@@ -8713,17 +8735,28 @@
       const number = document.getElementById('inv-number').value.trim();
       const kind = document.getElementById('inv-kind').value;
       const amount = parseInt(document.getElementById('inv-amount').value, 10) || 0;
+      const taxRate = parseFloat(document.getElementById('inv-tax-rate').value) || 0;
       const currency = document.getElementById('inv-currency')?.value || preferredFormCurrency();
       const issue_date = document.getElementById('inv-issue').value;
       const due_date = document.getElementById('inv-due').value;
       const entity_id = document.getElementById('inv-entity').value || null;
       const description = document.getElementById('inv-desc').value.trim() || null;
       if (!number || !issue_date || !due_date) { showAlert('Invoice number, issue date, and due date are required.', true); return; }
+      // When a tax rate is set, send the net amount as a single taxable line
+      // so the backend computes tax and the tax-inclusive grand total.
+      const body = { number, kind, amount, currency, issue_date, due_date, entity_id, description, status: 'issued' };
+      if (taxRate > 0 && amount > 0) {
+        body.items = [{
+          product_name: description || number,
+          quantity: 1, unit_price: amount, line_total: amount,
+          tax_rate: taxRate, taxable: true,
+        }];
+      }
       try {
         const res = await fetch(API + '/invoices', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ number, kind, amount, currency, issue_date, due_date, entity_id, description, status: 'issued' })
+          body: JSON.stringify(body)
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || 'Error creating invoice.', true); return; }
@@ -8733,6 +8766,7 @@
         // dates back to today/net-30. Currency keeps the company default.
         document.getElementById('inv-number').value = '';
         document.getElementById('inv-amount').value = '0';
+        document.getElementById('inv-tax-rate').value = '0';
         document.getElementById('inv-desc').value = '';
         document.getElementById('inv-entity').value = '';
         document.getElementById('inv-bank-code').value = '';

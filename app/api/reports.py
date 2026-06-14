@@ -684,6 +684,28 @@ def invalidate_dashboard_cache() -> None:
     _dashboard_cache.clear()
 
 
+@router.get("/tax-summary")
+def get_tax_summary(
+    from_date: date | None = Query(None, alias="from"),
+    to_date: date | None = Query(None, alias="to"),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """VAT / sales-tax summary for a period: output tax (sales), input tax
+    (purchases) and net tax = output − input, with the rate assumptions used
+    and an estimate caveat. Defaults to the current calendar quarter."""
+    from app.services.tax_service import compute_tax_summary
+
+    today = date.today()
+    if to_date is None:
+        to_date = today
+    if from_date is None:
+        # Start of the current calendar quarter.
+        q_start_month = ((today.month - 1) // 3) * 3 + 1
+        from_date = date(today.year, q_start_month, 1)
+    return compute_tax_summary(db, from_date, to_date, currency=currency)
+
+
 @router.get("/missing-references", response_model=MissingReferenceResponse)
 def get_missing_references(
     currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),

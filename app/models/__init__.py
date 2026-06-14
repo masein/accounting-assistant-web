@@ -4,10 +4,12 @@ from app.models.account import Account, AccountLevel
 from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
 from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit
+from app.models.credit_note import CreditNote
 from app.models.entity import Entity, TransactionEntity
 from app.models.exchange_rate import ExchangeRate
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
+from app.models.payment import Payment
 from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType
 from app.models.recurring import RecurringRule
 from app.models.trial_balance import TrialBalance, TrialBalanceLine
@@ -25,11 +27,13 @@ __all__ = [
     "BankStatement",
     "BankStatementRow",
     "BudgetLimit",
+    "CreditNote",
     "Entity",
     "ExchangeRate",
     "IntegrityCheck",
     "Invoice",
     "InvoiceItem",
+    "Payment",
     "InventoryItem",
     "InventoryMovement",
     "InventoryMovementType",

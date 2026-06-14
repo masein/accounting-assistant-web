@@ -12,24 +12,32 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import DataError
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, object_session, selectinload
 
 from app.db.session import get_db
 from app.models.account import Account
+from app.models.credit_note import CreditNote
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
+from app.models.payment import Payment
 from app.models.transaction import Transaction, TransactionLine
 from app.schemas.invoice import (
+    CreditNoteCreate,
+    CreditNoteRead,
     InvoiceCreate,
     InvoiceOCRResult,
     InvoiceRead,
     InvoiceTimelineEvent,
     InvoiceUpdate,
     MarkInvoicePaidRequest,
+    PaymentCreate,
+    PaymentRead,
 )
+from app.services.account_resolver import resolve_account_code
+from app.services.audit_service import log_audit_event
 from app.services.ocr_extract import OCRExtractError, extract_from_attachment
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -52,10 +60,149 @@ def _validate_status(status: str) -> str:
     return v
 
 
+def _invoice_totals(db: Session, inv: Invoice) -> tuple[int, int, int]:
+    """Return (amount_paid, credited, balance_due) for an invoice, where
+    credited counts only credit notes that reduce the invoice (note_type
+    'reduction'), not standalone overpayment credits. balance_due is clamped
+    to >= 0 (overpayment surfaces as a separate entity credit, never a
+    negative due)."""
+    amount = int(inv.amount or 0)
+    paid = int(
+        db.execute(
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.invoice_id == inv.id)
+        ).scalar()
+        or 0
+    )
+    credited = int(
+        db.execute(
+            select(func.coalesce(func.sum(CreditNote.amount), 0)).where(
+                CreditNote.invoice_id == inv.id, CreditNote.note_type == "reduction"
+            )
+        ).scalar()
+        or 0
+    )
+    balance_due = max(0, amount - paid - credited)
+    return paid, credited, balance_due
+
+
+def _recompute_status(inv: Invoice, paid: int, credited: int, balance_due: int) -> None:
+    """issued → partially_paid → paid based on the open balance. Leaves
+    draft/canceled untouched."""
+    if inv.status in ("draft", "canceled"):
+        return
+    if int(inv.amount or 0) <= 0:
+        return
+    if balance_due <= 0:
+        inv.status = "paid"
+    elif (paid + credited) > 0:
+        inv.status = "partially_paid"
+    else:
+        inv.status = "issued"
+
+
 def _to_read(row: Invoice) -> InvoiceRead:
     data = InvoiceRead.model_validate(row)
     data.pdf_url = f"/invoices/{row.id}/pdf"
+    db = object_session(row)
+    if db is not None:
+        paid, credited, balance_due = _invoice_totals(db, row)
+        data.amount_paid = paid
+        data.credited = credited
+        data.balance_due = balance_due
     return data
+
+
+def _post_entry(
+    db: Session,
+    *,
+    on: date,
+    reference: str | None,
+    description: str | None,
+    currency: str,
+    lines: list[tuple[str, int, int, str | None]],
+    entity_links: list[tuple[UUID, str]] | None = None,
+    audit_detail: str | None = None,
+) -> Transaction:
+    """Post one balanced journal entry (lines = [(account_code, debit, credit,
+    line_description)]) with entity links and an audit-log row. Validates the
+    entry balances and that every account exists."""
+    total_dr = sum(d for _, d, _c, _ld in lines)
+    total_cr = sum(c for _, _d, c, _ld in lines)
+    if total_dr != total_cr:
+        raise HTTPException(status_code=400, detail=f"Entry not balanced: DR {total_dr} != CR {total_cr}.")
+    if total_dr <= 0:
+        raise HTTPException(status_code=400, detail="Entry has zero amount.")
+
+    txn = Transaction(
+        date=on,
+        reference=(reference or None),
+        description=(description or None),
+        currency=(currency or "IRR").strip().upper(),
+    )
+    db.add(txn)
+    db.flush()
+    for code, debit, credit, line_desc in lines:
+        acc = db.execute(select(Account).where(Account.code == code)).scalars().one_or_none()
+        if not acc:
+            raise HTTPException(status_code=400, detail=f"Account not found: {code}")
+        db.add(TransactionLine(
+            transaction_id=txn.id, account_id=acc.id,
+            debit=int(debit), credit=int(credit), line_description=line_desc,
+        ))
+    for ent_id, role in (entity_links or []):
+        if ent_id:
+            db.add(TransactionEntity(transaction_id=txn.id, entity_id=ent_id, role=role))
+    db.flush()
+    log_audit_event(
+        db, action="create", entity_type="transaction", entity_id=str(txn.id),
+        detail=audit_detail,
+    )
+    return txn
+
+
+def _recognize_invoice(db: Session, inv: Invoice) -> None:
+    """Post the AR/AP recognition entry for an issued invoice, once. Sales:
+    DR trade debtors / CR revenue. Purchase: DR expense / CR trade creditors.
+    Links the recognition transaction to the invoice."""
+    if inv.transaction_id is not None or inv.status in ("draft", "canceled"):
+        return
+    amount = int(inv.amount or 0)
+    if amount <= 0:
+        return
+    if inv.kind == "sales":
+        ar = resolve_account_code(db, "ar")
+        rev = resolve_account_code(db, "revenue")
+        lines = [
+            (ar, amount, 0, f"Invoice {inv.number} — receivable"),
+            (rev, 0, amount, f"Invoice {inv.number} — revenue"),
+        ]
+        role = "client"
+    else:
+        exp = resolve_account_code(db, "expense")
+        ap = resolve_account_code(db, "ap")
+        lines = [
+            (exp, amount, 0, f"Bill {inv.number} — expense"),
+            (ap, 0, amount, f"Bill {inv.number} — payable"),
+        ]
+        role = "supplier"
+    txn = _post_entry(
+        db, on=inv.issue_date, reference=inv.number,
+        description=(inv.description or f"Invoice {inv.number} issued"),
+        currency=inv.currency,
+        lines=lines,
+        entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
+        audit_detail=f"AR/AP recognition for invoice {inv.number}",
+    )
+    inv.transaction_id = txn.id
+
+
+def _resolve_bank_code(db: Session, code: str | None) -> str:
+    """The bank/cash account for a payment: an explicit valid code, else the
+    locale's bank account."""
+    c = (code or "").strip()
+    if c and db.execute(select(Account.id).where(Account.code == c)).first():
+        return c
+    return resolve_account_code(db, "bank")
 
 
 def _build_invoice_items(payload_items: list, invoice_id: UUID) -> tuple[list[InvoiceItem], int]:
@@ -257,6 +404,10 @@ def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Inv
             db.add(item)
         if item_rows:
             row.amount = items_total
+        # Recognise AR/AP at issue: DR debtors / CR revenue (sales) or
+        # DR expense / CR creditors (purchase). Posts once, links the txn.
+        if row.status in ("issued", "partially_paid", "paid"):
+            _recognize_invoice(db, row)
         db.commit()
     except DataError as e:
         db.rollback()
@@ -288,6 +439,8 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
         row.description = payload.description.strip() or None
     if payload.entity_id is not None:
         row.entity_id = payload.entity_id
+    if payload.scheduled_payment_date is not None:
+        row.scheduled_payment_date = payload.scheduled_payment_date
     if payload.items is not None:
         for item in list(row.items or []):
             db.delete(item)
@@ -296,6 +449,10 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
             db.add(item)
         if item_rows:
             row.amount = items_total
+    # If this update brings the invoice into an issued state and it hasn't
+    # been recognised yet, post the AR/AP recognition entry now.
+    if row.status in ("issued", "partially_paid", "paid"):
+        _recognize_invoice(db, row)
     db.commit()
     db.refresh(row)
     return _to_read(row)
@@ -310,65 +467,206 @@ def delete_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
+def _apply_payment(
+    db: Session,
+    inv: Invoice,
+    *,
+    amount: int,
+    on: date,
+    method: str,
+    bank_code: str | None,
+    reference: str | None,
+    description: str | None,
+) -> tuple[Payment, CreditNote | None]:
+    """Post a payment against an invoice and update its open balance.
+
+    Sales receipt: DR bank / CR trade debtors (and CR customer-credit for any
+    overpayment). Bill payment: DR trade creditors / CR bank (and DR
+    supplier-advance for overpayment). The excess is surfaced as a standalone
+    entity credit — the invoice never goes to a negative balance.
+    """
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero.")
+    _recognize_invoice(db, inv)
+    db.flush()
+    _paid, _credited, balance_due = _invoice_totals(db, inv)
+    applied = min(amount, balance_due)
+    excess = amount - applied
+    bank = _resolve_bank_code(db, bank_code)
+
+    if inv.kind == "sales":
+        ar = resolve_account_code(db, "ar")
+        lines: list[tuple[str, int, int, str | None]] = [(bank, amount, 0, f"Invoice {inv.number} receipt")]
+        if applied > 0:
+            lines.append((ar, 0, applied, f"Invoice {inv.number} — settle receivable"))
+        if excess > 0:
+            lines.append((resolve_account_code(db, "customer_credit"), 0, excess, f"Overpayment credit — {inv.number}"))
+        direction, role = "in", "client"
+    else:
+        ap = resolve_account_code(db, "ap")
+        lines = []
+        if applied > 0:
+            lines.append((ap, applied, 0, f"Bill {inv.number} — settle payable"))
+        if excess > 0:
+            lines.append((resolve_account_code(db, "supplier_advance"), excess, 0, f"Overpayment advance — {inv.number}"))
+        lines.append((bank, 0, amount, f"Bill {inv.number} payment"))
+        direction, role = "out", "supplier"
+
+    txn = _post_entry(
+        db, on=on, reference=(reference or inv.number),
+        description=(description or f"Payment for invoice {inv.number}"),
+        currency=inv.currency, lines=lines,
+        entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
+        audit_detail=f"Payment {amount} {inv.currency} on invoice {inv.number}",
+    )
+    payment = Payment(
+        invoice_id=inv.id, date=on, amount=int(amount), currency=inv.currency,
+        method=(method or "bank"), direction=direction, transaction_id=txn.id,
+    )
+    db.add(payment)
+    credit: CreditNote | None = None
+    if excess > 0:
+        credit = CreditNote(
+            invoice_id=None, entity_id=inv.entity_id, kind=inv.kind, date=on,
+            amount=int(excess), currency=inv.currency,
+            reason=f"Overpayment on invoice {inv.number}", note_type="credit",
+            transaction_id=txn.id,
+        )
+        db.add(credit)
+    db.flush()
+    paid2, credited2, balance2 = _invoice_totals(db, inv)
+    _recompute_status(inv, paid2, credited2, balance2)
+    return payment, credit
+
+
+@router.post("/{invoice_id}/payments", response_model=PaymentRead, status_code=201)
+def add_payment(invoice_id: UUID, payload: PaymentCreate, db: Session = Depends(get_db)) -> PaymentRead:
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.status == "canceled":
+        raise HTTPException(status_code=400, detail="Cannot pay a canceled invoice.")
+    if payload.currency and payload.currency.strip().upper() != (inv.currency or "").upper():
+        raise HTTPException(status_code=400, detail=f"Payment currency must match the invoice ({inv.currency}).")
+    payment, _credit = _apply_payment(
+        db, inv,
+        amount=int(payload.amount),
+        on=payload.date or date.today(),
+        method=payload.method,
+        bank_code=payload.bank_account_code,
+        reference=payload.reference,
+        description=payload.description,
+    )
+    db.commit()
+    db.refresh(payment)
+    return PaymentRead.model_validate(payment)
+
+
+@router.get("/{invoice_id}/payments", response_model=list[PaymentRead])
+def list_payments(invoice_id: UUID, db: Session = Depends(get_db)) -> list[PaymentRead]:
+    if not db.get(Invoice, invoice_id):
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    rows = db.execute(
+        select(Payment).where(Payment.invoice_id == invoice_id).order_by(Payment.date, Payment.created_at)
+    ).scalars().all()
+    return [PaymentRead.model_validate(r) for r in rows]
+
+
+@router.post("/{invoice_id}/credit-notes", response_model=CreditNoteRead, status_code=201)
+def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = Depends(get_db)) -> CreditNoteRead:
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if payload.currency and payload.currency.strip().upper() != (inv.currency or "").upper():
+        raise HTTPException(status_code=400, detail=f"Credit note currency must match the invoice ({inv.currency}).")
+    amount = int(payload.amount)
+    _recognize_invoice(db, inv)
+    db.flush()
+    _paid, _credited, balance_due = _invoice_totals(db, inv)
+    if amount > balance_due:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Credit note ({amount}) exceeds the open balance ({balance_due}).",
+        )
+    on = payload.date or date.today()
+    # Sales credit note: DR sales returns (contra-revenue) / CR trade debtors.
+    # Purchase credit note: DR trade creditors / CR purchases (expense).
+    if inv.kind == "sales":
+        lines = [
+            (resolve_account_code(db, "sales_returns"), amount, 0, f"Credit note — {inv.number}"),
+            (resolve_account_code(db, "ar"), 0, amount, f"Credit note reduces receivable — {inv.number}"),
+        ]
+        role = "client"
+    else:
+        lines = [
+            (resolve_account_code(db, "ap"), amount, 0, f"Credit note reduces payable — {inv.number}"),
+            (resolve_account_code(db, "expense"), 0, amount, f"Credit note — {inv.number}"),
+        ]
+        role = "supplier"
+    txn = _post_entry(
+        db, on=on, reference=inv.number,
+        description=(payload.reason or f"Credit note against invoice {inv.number}"),
+        currency=inv.currency, lines=lines,
+        entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
+        audit_detail=f"Credit note {amount} {inv.currency} against invoice {inv.number}",
+    )
+    note = CreditNote(
+        invoice_id=inv.id, entity_id=inv.entity_id, kind=inv.kind, date=on,
+        amount=amount, currency=inv.currency, reason=payload.reason,
+        note_type="reduction", transaction_id=txn.id,
+    )
+    db.add(note)
+    db.flush()
+    paid2, credited2, balance2 = _invoice_totals(db, inv)
+    _recompute_status(inv, paid2, credited2, balance2)
+    db.commit()
+    db.refresh(note)
+    return CreditNoteRead.model_validate(note)
+
+
+@router.get("/{invoice_id}/credit-notes", response_model=list[CreditNoteRead])
+def list_credit_notes(invoice_id: UUID, db: Session = Depends(get_db)) -> list[CreditNoteRead]:
+    if not db.get(Invoice, invoice_id):
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    rows = db.execute(
+        select(CreditNote).where(CreditNote.invoice_id == invoice_id).order_by(CreditNote.date, CreditNote.created_at)
+    ).scalars().all()
+    return [CreditNoteRead.model_validate(r) for r in rows]
+
+
 @router.post("/{invoice_id}/mark-paid", response_model=InvoiceRead)
 def mark_invoice_paid(
     invoice_id: UUID,
     payload: MarkInvoicePaidRequest,
     db: Session = Depends(get_db),
 ) -> InvoiceRead:
+    """Thin wrapper over the payment path: settle the full open balance in one
+    payment (kept for the existing UI button)."""
     inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    if inv.status == "paid" and inv.transaction_id:
-        db.refresh(inv)
-        return _to_read(inv)
 
-    bank_entity: Entity | None = None
-    bank_code = (payload.bank_account_code or "").strip() or "1110"
+    # Resolve a bank-entity override into a code, preserving prior behaviour.
+    bank_code = (payload.bank_account_code or "").strip() or None
     if payload.bank_entity_id:
         bank_entity = db.get(Entity, payload.bank_entity_id)
         if not bank_entity or (bank_entity.type or "").strip().lower() != "bank":
             raise HTTPException(status_code=400, detail="Selected bank entity not found.")
         entity_code = (bank_entity.code or "").strip()
-        if entity_code:
-            acc_from_entity = db.execute(select(Account).where(Account.code == entity_code)).scalars().one_or_none()
-            if acc_from_entity:
-                bank_code = entity_code
+        if entity_code and db.execute(select(Account.id).where(Account.code == entity_code)).first():
+            bank_code = entity_code
 
-    bank_acc = db.execute(select(Account).where(Account.code == bank_code)).scalars().one_or_none()
-    if not bank_acc:
-        raise HTTPException(status_code=400, detail=f"Bank account not found: {bank_code}")
-    opposite_code = "4110" if inv.kind == "sales" else "6112"
-    opposite_acc = db.execute(select(Account).where(Account.code == opposite_code)).scalars().one_or_none()
-    if not opposite_acc:
-        raise HTTPException(status_code=400, detail=f"Required account not found: {opposite_code}")
-
-    txn = Transaction(
-        date=payload.payment_date,
-        reference=(payload.reference or inv.number).strip() or None,
-        description=(payload.description or inv.description or f"Invoice {inv.number} paid").strip() or None,
-    )
-    db.add(txn)
+    _recognize_invoice(db, inv)
     db.flush()
-    if inv.kind == "sales":
-        lines = [
-            TransactionLine(transaction_id=txn.id, account_id=bank_acc.id, debit=inv.amount, credit=0, line_description=f"Invoice {inv.number} receipt"),
-            TransactionLine(transaction_id=txn.id, account_id=opposite_acc.id, debit=0, credit=inv.amount, line_description=f"Revenue from invoice {inv.number}"),
-        ]
+    _paid, _credited, balance_due = _invoice_totals(db, inv)
+    if balance_due > 0:
+        _apply_payment(
+            db, inv, amount=balance_due, on=payload.payment_date,
+            method=payload.method, bank_code=bank_code,
+            reference=payload.reference, description=payload.description,
+        )
     else:
-        lines = [
-            TransactionLine(transaction_id=txn.id, account_id=opposite_acc.id, debit=inv.amount, credit=0, line_description=f"Expense from invoice {inv.number}"),
-            TransactionLine(transaction_id=txn.id, account_id=bank_acc.id, debit=0, credit=inv.amount, line_description=f"Invoice {inv.number} payment"),
-        ]
-    for ln in lines:
-        db.add(ln)
-    if bank_entity:
-        db.add(TransactionEntity(transaction_id=txn.id, entity_id=bank_entity.id, role="bank"))
-    if inv.entity_id:
-        inv_role = "client" if inv.kind == "sales" else "supplier"
-        db.add(TransactionEntity(transaction_id=txn.id, entity_id=inv.entity_id, role=inv_role))
-    inv.status = "paid"
-    inv.transaction_id = txn.id
+        _recompute_status(inv, _paid, _credited, balance_due)
     db.commit()
     db.refresh(inv)
     return _to_read(inv)
@@ -382,12 +680,20 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
     events = [
         InvoiceTimelineEvent(at=inv.created_at, event="created", detail=f"Invoice {inv.number} created with status {inv.status}."),
     ]
-    if inv.updated_at and inv.updated_at != inv.created_at:
-        events.append(InvoiceTimelineEvent(at=inv.updated_at, event="updated", detail=f"Invoice status: {inv.status}."))
     if inv.transaction_id:
         txn = db.get(Transaction, inv.transaction_id)
         if txn:
-            events.append(InvoiceTimelineEvent(at=txn.created_at, event="paid", detail=f"Paid via transaction {txn.id}."))
+            events.append(InvoiceTimelineEvent(at=txn.created_at, event="issued", detail=f"AR/AP recognised via transaction {txn.id}."))
+    for p in db.execute(select(Payment).where(Payment.invoice_id == invoice_id)).scalars().all():
+        events.append(InvoiceTimelineEvent(
+            at=p.created_at, event="payment",
+            detail=f"{p.amount:,} {p.currency} {'received' if p.direction == 'in' else 'paid'} ({p.method}).",
+        ))
+    for n in db.execute(select(CreditNote).where(CreditNote.invoice_id == invoice_id)).scalars().all():
+        events.append(InvoiceTimelineEvent(
+            at=n.created_at, event="credit_note",
+            detail=f"Credit note {n.amount:,} {n.currency}" + (f": {n.reason}" if n.reason else "."),
+        ))
     events.sort(key=lambda e: e.at)
     return events
 

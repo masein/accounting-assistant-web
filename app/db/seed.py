@@ -42,8 +42,10 @@ SEED_ACCOUNTS = [
     # General (4-digit) — will link to parent by code prefix
     ("1110", "موجودی نقد و بانک", AccountLevel.GENERAL),
     ("1112", "حساب‌ها و اسناد دریافتنی تجاری", AccountLevel.GENERAL),
+    ("1120", "پیش‌پرداخت به تأمین‌کنندگان", AccountLevel.GENERAL),
     ("1210", "دارایی‌های ثابت مشهود", AccountLevel.GENERAL),
     ("2110", "حساب‌ها و اسناد پرداختنی تجاری", AccountLevel.GENERAL),
+    ("2120", "پیش‌دریافت از مشتریان", AccountLevel.GENERAL),
     ("3110", "سرمایه", AccountLevel.GENERAL),
     ("4110", "فروش", AccountLevel.GENERAL),
     ("6110", "هزینه‌های حقوق و دستمزد", AccountLevel.GENERAL),
@@ -89,9 +91,11 @@ UK_SEED_ACCOUNTS = [
     ("1210", "Bank deposit account", AccountLevel.GENERAL),
     ("1220", "Petty cash", AccountLevel.GENERAL),
     ("1300", "Prepayments and other debtors", AccountLevel.GENERAL),
+    ("1500", "Supplier prepayments and advances", AccountLevel.GENERAL),
     ("1400", "VAT receivable", AccountLevel.GENERAL),
     # Current liabilities — code 21xx-27xx (creditors due within one year)
     ("2100", "Trade creditors", AccountLevel.GENERAL),
+    ("2150", "Customer credits and deposits", AccountLevel.GENERAL),
     ("2200", "VAT payable", AccountLevel.GENERAL),
     ("2210", "PAYE / NIC payable", AccountLevel.GENERAL),
     ("2300", "Corporation tax payable", AccountLevel.GENERAL),

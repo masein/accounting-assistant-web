@@ -477,25 +477,23 @@ def debtor_creditor(
     return svc.debtor_creditor(from_date=from_date, to_date=to_date, currency=currency)
 
 
-@router.get("/operational/accounts-payable")
-def accounts_payable(
-    from_date: date | None = Query(None),
-    to_date: date | None = Query(None),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Get detailed accounts payable with verification status."""
+def _open_invoice_aging(db: Session, kind: str, from_date, to_date) -> dict:
+    """AR (kind='sales') / AP (kind='purchase') aging by OPEN balance, not
+    gross. balance_due = amount − payments − reduction credit notes; only
+    invoices with a positive open balance appear."""
     from app.services.reporting.common import default_period
     from app.models.invoice import Invoice
     from app.models.entity import Entity
-    period = default_period(from_date, to_date)
+    from app.api.invoices import _invoice_totals
 
+    period = default_period(from_date, to_date)
     invoices = db.execute(
         select(Invoice)
         .where(
-            Invoice.kind == "purchase",
+            Invoice.kind == kind,
             Invoice.issue_date >= period.from_date,
             Invoice.issue_date <= period.to_date,
-            Invoice.status.in_(["issued", "draft"]),
+            Invoice.status.in_(["issued", "partially_paid", "draft"]),
         )
         .order_by(Invoice.due_date.asc())
     ).scalars().all()
@@ -503,21 +501,26 @@ def accounts_payable(
     entity_ids = [inv.entity_id for inv in invoices if inv.entity_id]
     entities = {}
     if entity_ids:
-        from sqlalchemy import select as sel
-        ents = db.execute(sel(Entity).where(Entity.id.in_(entity_ids))).scalars().all()
+        ents = db.execute(select(Entity).where(Entity.id.in_(entity_ids))).scalars().all()
         entities = {e.id: e for e in ents}
 
+    party_key = "vendor" if kind == "purchase" else "customer"
     items = []
     total = 0
     for inv in invoices:
-        amt = int(inv.amount or 0)
-        total += amt
+        paid, credited, balance_due = _invoice_totals(db, inv)
+        if balance_due <= 0:
+            continue
+        total += balance_due
         days_overdue = (date.today() - inv.due_date).days if inv.due_date and inv.due_date < date.today() else 0
         items.append({
             "invoice_id": str(inv.id),
             "invoice_number": inv.number,
-            "vendor": entities.get(inv.entity_id).name if inv.entity_id and entities.get(inv.entity_id) else "Unknown",
-            "amount": amt,
+            party_key: entities.get(inv.entity_id).name if inv.entity_id and entities.get(inv.entity_id) else "Unknown",
+            "amount": int(inv.amount or 0),
+            "amount_paid": paid,
+            "credited": credited,
+            "balance_due": balance_due,
             "issue_date": inv.issue_date.isoformat() if inv.issue_date else None,
             "due_date": inv.due_date.isoformat() if inv.due_date else None,
             "status": inv.status,
@@ -526,12 +529,32 @@ def accounts_payable(
         })
 
     return {
-        "report_type": "accounts_payable",
+        "report_type": "accounts_payable" if kind == "purchase" else "accounts_receivable",
         "period": {"from_date": period.from_date.isoformat(), "to_date": period.to_date.isoformat()},
         "items": items,
         "total": total,
         "count": len(items),
     }
+
+
+@router.get("/operational/accounts-payable")
+def accounts_payable(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Accounts payable aging by open balance (purchase invoices/bills)."""
+    return _open_invoice_aging(db, "purchase", from_date, to_date)
+
+
+@router.get("/operational/accounts-receivable")
+def accounts_receivable(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Accounts receivable aging by open balance (sales invoices)."""
+    return _open_invoice_aging(db, "sales", from_date, to_date)
 
 
 @router.get("/operational/person-running-balance", response_model=PersonRunningBalanceResponse)

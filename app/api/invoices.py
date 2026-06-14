@@ -36,7 +36,7 @@ from app.schemas.invoice import (
     PaymentCreate,
     PaymentRead,
 )
-from app.services.account_resolver import resolve_account_code
+from app.services.account_resolver import AccountResolutionError, resolve_account_code
 from app.services.audit_service import log_audit_event
 from app.services.ocr_extract import OCRExtractError, extract_from_attachment
 
@@ -82,6 +82,12 @@ def _invoice_totals(db: Session, inv: Invoice) -> tuple[int, int, int]:
         or 0
     )
     balance_due = max(0, amount - paid - credited)
+    # Legacy reconciliation: invoices marked paid under the old flow have no
+    # Payment rows, so the new calc would show a full open balance that
+    # contradicts the status. Treat a 'paid' invoice as fully settled.
+    if inv.status == "paid" and balance_due > 0:
+        paid = amount - credited
+        balance_due = 0
     return paid, credited, balance_due
 
 
@@ -548,15 +554,19 @@ def add_payment(invoice_id: UUID, payload: PaymentCreate, db: Session = Depends(
         raise HTTPException(status_code=400, detail="Cannot pay a canceled invoice.")
     if payload.currency and payload.currency.strip().upper() != (inv.currency or "").upper():
         raise HTTPException(status_code=400, detail=f"Payment currency must match the invoice ({inv.currency}).")
-    payment, _credit = _apply_payment(
-        db, inv,
-        amount=int(payload.amount),
-        on=payload.date or date.today(),
-        method=payload.method,
-        bank_code=payload.bank_account_code,
-        reference=payload.reference,
-        description=payload.description,
-    )
+    try:
+        payment, _credit = _apply_payment(
+            db, inv,
+            amount=int(payload.amount),
+            on=payload.date or date.today(),
+            method=payload.method,
+            bank_code=payload.bank_account_code,
+            reference=payload.reference,
+            description=payload.description,
+        )
+    except AccountResolutionError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=f"Could not post the payment — {e}") from e
     db.commit()
     db.refresh(payment)
     return PaymentRead.model_validate(payment)
@@ -591,25 +601,29 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
     on = payload.date or date.today()
     # Sales credit note: DR sales returns (contra-revenue) / CR trade debtors.
     # Purchase credit note: DR trade creditors / CR purchases (expense).
-    if inv.kind == "sales":
-        lines = [
-            (resolve_account_code(db, "sales_returns"), amount, 0, f"Credit note — {inv.number}"),
-            (resolve_account_code(db, "ar"), 0, amount, f"Credit note reduces receivable — {inv.number}"),
-        ]
-        role = "client"
-    else:
-        lines = [
-            (resolve_account_code(db, "ap"), amount, 0, f"Credit note reduces payable — {inv.number}"),
-            (resolve_account_code(db, "expense"), 0, amount, f"Credit note — {inv.number}"),
-        ]
-        role = "supplier"
-    txn = _post_entry(
-        db, on=on, reference=inv.number,
-        description=(payload.reason or f"Credit note against invoice {inv.number}"),
-        currency=inv.currency, lines=lines,
-        entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
-        audit_detail=f"Credit note {amount} {inv.currency} against invoice {inv.number}",
-    )
+    try:
+        if inv.kind == "sales":
+            lines = [
+                (resolve_account_code(db, "sales_returns"), amount, 0, f"Credit note — {inv.number}"),
+                (resolve_account_code(db, "ar"), 0, amount, f"Credit note reduces receivable — {inv.number}"),
+            ]
+            role = "client"
+        else:
+            lines = [
+                (resolve_account_code(db, "ap"), amount, 0, f"Credit note reduces payable — {inv.number}"),
+                (resolve_account_code(db, "expense"), 0, amount, f"Credit note — {inv.number}"),
+            ]
+            role = "supplier"
+        txn = _post_entry(
+            db, on=on, reference=inv.number,
+            description=(payload.reason or f"Credit note against invoice {inv.number}"),
+            currency=inv.currency, lines=lines,
+            entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
+            audit_detail=f"Credit note {amount} {inv.currency} against invoice {inv.number}",
+        )
+    except AccountResolutionError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=f"Could not post the credit note — {e}") from e
     note = CreditNote(
         invoice_id=inv.id, entity_id=inv.entity_id, kind=inv.kind, date=on,
         amount=amount, currency=inv.currency, reason=payload.reason,
@@ -656,17 +670,21 @@ def mark_invoice_paid(
         if entity_code and db.execute(select(Account.id).where(Account.code == entity_code)).first():
             bank_code = entity_code
 
-    _recognize_invoice(db, inv)
-    db.flush()
-    _paid, _credited, balance_due = _invoice_totals(db, inv)
-    if balance_due > 0:
-        _apply_payment(
-            db, inv, amount=balance_due, on=payload.payment_date,
-            method=payload.method, bank_code=bank_code,
-            reference=payload.reference, description=payload.description,
-        )
-    else:
-        _recompute_status(inv, _paid, _credited, balance_due)
+    try:
+        _recognize_invoice(db, inv)
+        db.flush()
+        _paid, _credited, balance_due = _invoice_totals(db, inv)
+        if balance_due > 0:
+            _apply_payment(
+                db, inv, amount=balance_due, on=payload.payment_date,
+                method=payload.method, bank_code=bank_code,
+                reference=payload.reference, description=payload.description,
+            )
+        else:
+            _recompute_status(inv, _paid, _credited, balance_due)
+    except AccountResolutionError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=f"Could not post the payment — {e}") from e
     db.commit()
     db.refresh(inv)
     return _to_read(inv)

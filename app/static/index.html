@@ -1960,6 +1960,11 @@
           <label for="invoice-edit-due" data-i18n="labelDueDate">Due date</label>
           <input type="date" id="invoice-edit-due" style="width: 100%;">
         </div>
+        <div>
+          <label for="invoice-edit-scheduled" data-i18n="invScheduledPayment">Scheduled payment date</label>
+          <input type="date" id="invoice-edit-scheduled" style="width: 100%;">
+          <span style="font-size:0.72rem;color:var(--text-muted);" data-i18n="invScheduledHint">Planned date only — moves no money.</span>
+        </div>
         <div style="grid-column: 1 / -1;">
           <label for="invoice-edit-desc" data-i18n="labelDescription">Description</label>
           <input type="text" id="invoice-edit-desc" style="width: 100%;">
@@ -2887,6 +2892,7 @@
         btnCancel: 'Cancel',
         btnClose: 'Close',
         btnDelete: 'Delete',
+        btnEdit: 'Edit',
         btnContinue: 'Continue',
         btnSaveChanges: 'Save changes',
         voucherCurrencyMismatchTitle: 'Currency mismatch',
@@ -2955,6 +2961,8 @@
         invPaymentError: 'Could not record the payment.',
         invCreditNoteRecorded: 'Credit note issued.',
         invCreditNoteError: 'Could not issue the credit note.',
+        invScheduledPayment: 'Scheduled payment date',
+        invScheduledHint: 'Planned date only — moves no money.',
         aiChatStatusCounter: '{turns} turn(s) · {calls} tool call(s)',
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
@@ -3466,6 +3474,7 @@
         btnCancel: 'انصراف',
         btnClose: 'بستن',
         btnDelete: 'حذف',
+        btnEdit: 'ویرایش',
         btnContinue: 'ادامه',
         btnSaveChanges: 'ذخیره تغییرات',
         voucherCurrencyMismatchTitle: 'عدم تطابق ارز',
@@ -3534,6 +3543,8 @@
         invPaymentError: 'ثبت پرداخت ممکن نشد.',
         invCreditNoteRecorded: 'برگ بستانکار صادر شد.',
         invCreditNoteError: 'صدور برگ بستانکار ممکن نشد.',
+        invScheduledPayment: 'تاریخ پرداخت برنامه‌ریزی‌شده',
+        invScheduledHint: 'فقط تاریخ برنامه‌ریزی — پولی جابجا نمی‌شود.',
         aiChatStatusCounter: '{turns} نوبت · {calls} فراخوانی ابزار',
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
@@ -4028,6 +4039,7 @@
         btnCancel: 'Cancelar',
         btnClose: 'Cerrar',
         btnDelete: 'Eliminar',
+        btnEdit: 'Editar',
         btnContinue: 'Continuar',
         btnSaveChanges: 'Guardar cambios',
         voucherCurrencyMismatchTitle: 'Moneda distinta',
@@ -4096,6 +4108,8 @@
         invPaymentError: 'No se pudo registrar el pago.',
         invCreditNoteRecorded: 'Nota de crédito emitida.',
         invCreditNoteError: 'No se pudo emitir la nota de crédito.',
+        invScheduledPayment: 'Fecha de pago programada',
+        invScheduledHint: 'Solo fecha planificada — no mueve dinero.',
         aiChatStatusCounter: '{turns} turno(s) · {calls} llamada(s) a herramientas',
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
@@ -4590,6 +4604,7 @@
         btnCancel: 'إلغاء',
         btnClose: 'إغلاق',
         btnDelete: 'حذف',
+        btnEdit: 'تعديل',
         btnContinue: 'متابعة',
         btnSaveChanges: 'حفظ التغييرات',
         voucherCurrencyMismatchTitle: 'عدم تطابق العملة',
@@ -4658,6 +4673,8 @@
         invPaymentError: 'تعذّر تسجيل الدفعة.',
         invCreditNoteRecorded: 'تم إصدار الإشعار الدائن.',
         invCreditNoteError: 'تعذّر إصدار الإشعار الدائن.',
+        invScheduledPayment: 'تاريخ الدفع المجدول',
+        invScheduledHint: 'تاريخ مخطط فقط — لا يحرّك أي أموال.',
         aiChatStatusCounter: '{turns} دور · {calls} استدعاء أداة',
         bsParseFailed: 'تعذّر قراءة هذا الكشف — جرّب CSV/Excel أو تحقّق من نموذج الذكاء الاصطناعي.',
       },
@@ -8512,6 +8529,7 @@
       if ([...ccySel.options].some((o) => o.value === ccy)) ccySel.value = ccy;
       document.getElementById('invoice-edit-issue').value = inv.issue_date || '';
       document.getElementById('invoice-edit-due').value = inv.due_date || '';
+      document.getElementById('invoice-edit-scheduled').value = inv.scheduled_payment_date || '';
       document.getElementById('invoice-edit-desc').value = inv.description || '';
       document.getElementById('invoice-edit-modal').style.display = 'flex';
     }
@@ -8532,6 +8550,7 @@
         currency: document.getElementById('invoice-edit-currency').value,
         issue_date,
         due_date,
+        scheduled_payment_date: document.getElementById('invoice-edit-scheduled').value || null,
         description: document.getElementById('invoice-edit-desc').value.trim() || null,
       };
       const saveBtn = document.getElementById('invoice-edit-save');

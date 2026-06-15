@@ -29,9 +29,11 @@ from app.models.adjustment import Adjustment
 from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit
 from app.models.credit_note import CreditNote
+from app.models.employee_pay import EmployeePayProfile
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
+from app.models.pay_run import PayRun, PayRunLine
 from app.models.payment import Payment
 from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.recurring import RecurringRule
@@ -293,6 +295,11 @@ def reset_db(
         # statement isn't buried under leftovers.
         db.execute(delete(BankStatementRow))
         db.execute(delete(BankStatement))
+        # Payroll children — pay-run lines + runs + pay profiles. PayRun FKs
+        # transactions.id (SET NULL) but nothing cascades it, so wipe explicitly.
+        db.execute(delete(PayRunLine))
+        db.execute(delete(PayRun))
+        db.execute(delete(EmployeePayProfile))
         db.execute(delete(TransactionEntity))
         db.execute(delete(TransactionAttachment))
         db.execute(delete(TransactionLine))

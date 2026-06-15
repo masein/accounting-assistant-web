@@ -38,6 +38,11 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "accumulated_depreciation": "0090", # Accumulated depreciation — contra-asset
         "bank_fee": "8000",                 # Bank charges
         "interest_income": "8300",          # Interest received
+        "wages_expense": "7100",            # Administrative wages and salaries (gross pay)
+        "paye_payable": "2211",             # PAYE income tax withheld — liability
+        "social_security_payable": "2212",  # National Insurance payable — liability
+        "net_pay_payable": "2250",          # Net wages payable — liability
+        "payroll_deductions_payable": "2260",  # Pension/other deductions payable — liability
     },
     "ir": {
         "ar": "1112",
@@ -57,6 +62,11 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "accumulated_depreciation": "1219", # استهلاک انباشته — contra-asset
         "bank_fee": "6210",                 # هزینه‌های مالی (bank charges)
         "interest_income": "4120",          # درآمد سود (interest income)
+        "wages_expense": "6110",            # حقوق و دستمزد (gross pay)
+        "paye_payable": "2160",             # مالیات حقوق پرداختنی — liability
+        "social_security_payable": "2170",  # بیمه تأمین اجتماعی پرداختنی — liability
+        "net_pay_payable": "2180",          # حقوق پرداختنی — liability
+        "payroll_deductions_payable": "2190",  # کسورات حقوق پرداختنی — liability
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -84,6 +94,11 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "accumulated_depreciation": "Accumulated depreciation",
         "bank_fee": "Bank charges",
         "interest_income": "Interest received",
+        "wages_expense": "Administrative wages and salaries",
+        "paye_payable": "PAYE income tax payable",
+        "social_security_payable": "National Insurance payable",
+        "net_pay_payable": "Net wages payable",
+        "payroll_deductions_payable": "Payroll deductions payable",
     },
     "ir": {
         "ar": "حساب‌ها و اسناد دریافتنی تجاری",
@@ -103,6 +118,11 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "accumulated_depreciation": "استهلاک انباشته",
         "bank_fee": "هزینه‌های مالی",
         "interest_income": "درآمد سود",
+        "wages_expense": "حقوق و دستمزد",
+        "paye_payable": "مالیات حقوق پرداختنی",
+        "social_security_payable": "بیمه تأمین اجتماعی پرداختنی",
+        "net_pay_payable": "حقوق پرداختنی",
+        "payroll_deductions_payable": "کسورات حقوق پرداختنی",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])

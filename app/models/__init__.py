@@ -6,10 +6,12 @@ from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit
 from app.models.adjustment import Adjustment
 from app.models.credit_note import CreditNote
+from app.models.employee_pay import EmployeePayProfile
 from app.models.entity import Entity, TransactionEntity
 from app.models.exchange_rate import ExchangeRate
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
+from app.models.pay_run import PayRun, PayRunLine
 from app.models.payment import Payment
 from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType
 from app.models.recurring import RecurringRule
@@ -30,8 +32,11 @@ __all__ = [
     "Adjustment",
     "BudgetLimit",
     "CreditNote",
+    "EmployeePayProfile",
     "Entity",
     "ExchangeRate",
+    "PayRun",
+    "PayRunLine",
     "IntegrityCheck",
     "Invoice",
     "InvoiceItem",

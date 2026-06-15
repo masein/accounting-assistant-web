@@ -9,10 +9,12 @@ from app.models.credit_note import CreditNote
 from app.models.employee_pay import EmployeePayProfile
 from app.models.entity import Entity, TransactionEntity
 from app.models.exchange_rate import ExchangeRate
+from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.pay_run import PayRun, PayRunLine
 from app.models.payment import Payment
+from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType
 from app.models.recurring import RecurringRule
 from app.models.trial_balance import TrialBalance, TrialBalanceLine
@@ -35,8 +37,12 @@ __all__ = [
     "EmployeePayProfile",
     "Entity",
     "ExchangeRate",
+    "GoodsReceipt",
+    "GoodsReceiptLine",
     "PayRun",
     "PayRunLine",
+    "PurchaseOrder",
+    "PurchaseOrderLine",
     "IntegrityCheck",
     "Invoice",
     "InvoiceItem",

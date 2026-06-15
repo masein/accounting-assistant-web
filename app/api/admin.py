@@ -31,10 +31,12 @@ from app.models.budget import BudgetLimit
 from app.models.credit_note import CreditNote
 from app.models.employee_pay import EmployeePayProfile
 from app.models.entity import Entity, TransactionEntity
+from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.pay_run import PayRun, PayRunLine
 from app.models.payment import Payment
+from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
@@ -300,6 +302,12 @@ def reset_db(
         db.execute(delete(PayRunLine))
         db.execute(delete(PayRun))
         db.execute(delete(EmployeePayProfile))
+        # Purchase orders + receipts — FK entities/invoices/inventory with no
+        # ondelete, so clear them before those parents.
+        db.execute(delete(GoodsReceiptLine))
+        db.execute(delete(GoodsReceipt))
+        db.execute(delete(PurchaseOrderLine))
+        db.execute(delete(PurchaseOrder))
         db.execute(delete(TransactionEntity))
         db.execute(delete(TransactionAttachment))
         db.execute(delete(TransactionLine))

@@ -338,10 +338,13 @@ def _find_or_create_party(db: Session, kind: str, name: str | None) -> UUID | No
 def list_invoices(
     db: Session = Depends(get_db),
     status: str | None = Query(None),
+    kind: str | None = Query(None, description="Filter by kind: sales | purchase"),
 ) -> list[InvoiceRead]:
     q = select(Invoice).options(selectinload(Invoice.items)).order_by(Invoice.issue_date.desc(), Invoice.created_at.desc())
     if status:
         q = q.where(Invoice.status == status.strip().lower())
+    if kind:
+        q = q.where(Invoice.kind == kind.strip().lower())
     rows = db.execute(q).scalars().all()
     return [_to_read(r) for r in rows]
 

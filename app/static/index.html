@@ -658,6 +658,7 @@
       <button type="button" class="nav-btn nav-more-item" data-page="inventory">Inventory</button>
       <button type="button" class="nav-btn nav-more-item" data-page="products" data-i18n="productsNav">Products</button>
       <button type="button" class="nav-btn nav-more-item" data-page="payroll" data-i18n="payrollNav">Payroll</button>
+      <button type="button" class="nav-btn nav-more-item" data-page="purchase-orders" data-i18n="poNav">Purchase Orders</button>
       <button type="button" class="nav-btn nav-more-item" data-page="settings">Settings</button>
     </nav>
 
@@ -1374,6 +1375,61 @@
             <th>Category</th><th>Confidence</th><th>Status</th><th>Action</th>
           </tr></thead><tbody id="bs-rows-body"></tbody></table>
         </div>
+      </div>
+    </div>
+
+    <!-- ═══════ Purchase Orders Page ═══════ -->
+    <div class="card" data-page="purchase-orders">
+      <h2 data-i18n="poTitle">Purchase Orders</h2>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;" data-i18n="poSubtitle">Create a purchase order, record goods received, then 3-way match a vendor bill. A PO is a commitment — it never posts to the ledger; only the bill does.</p>
+
+      <h3 data-i18n="poNewTitle">New purchase order</h3>
+      <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
+        <div><label for="po-supplier" data-i18n="poSupplier">Supplier</label><select id="po-supplier"></select></div>
+        <div><label for="po-order-date" data-i18n="poOrderDate">Order date</label><input type="date" id="po-order-date"></div>
+        <div><label for="po-expected-date" data-i18n="poExpectedDate">Expected date</label><input type="date" id="po-expected-date"></div>
+      </div>
+      <table class="data-table" style="margin-top:0.5rem;">
+        <thead><tr>
+          <th data-i18n="poDescription">Description</th><th data-i18n="poOrderedQty">Ordered qty</th>
+          <th data-i18n="poUnitPrice">Unit price</th><th></th>
+        </tr></thead>
+        <tbody id="po-lines-body"></tbody>
+      </table>
+      <div style="margin-top:0.4rem;display:flex;gap:0.5rem;">
+        <button type="button" class="btn btn-secondary btn-sm" id="po-add-line" data-i18n="poAddLine">Add line</button>
+        <button type="button" class="btn btn-primary" id="po-create-btn" data-i18n="poCreateBtn">Create PO</button>
+      </div>
+
+      <h3 style="margin-top:1.25rem;" data-i18n="poListTitle">Purchase orders</h3>
+      <table class="data-table">
+        <thead><tr>
+          <th data-i18n="poNumber">PO #</th><th data-i18n="poSupplier">Supplier</th>
+          <th data-i18n="poOrderDate">Order date</th><th data-i18n="poTotal">Total</th>
+          <th data-i18n="usersStatus">Status</th><th></th>
+        </tr></thead>
+        <tbody id="po-list-body"></tbody>
+      </table>
+
+      <div id="po-detail" style="display:none;margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem;">
+        <h3 id="po-detail-title" data-i18n="poDetail">Purchase order</h3>
+        <table class="data-table">
+          <thead><tr>
+            <th data-i18n="poDescription">Description</th><th data-i18n="poOrderedQty">Ordered</th>
+            <th data-i18n="poReceivedQty">Received</th><th data-i18n="poUnitPrice">Unit price</th>
+            <th data-i18n="poReceiveCol">Receive</th>
+          </tr></thead>
+          <tbody id="po-detail-lines"></tbody>
+        </table>
+        <div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;">
+          <div><label for="po-receive-date" data-i18n="poReceiptDate">Receipt date</label><input type="date" id="po-receive-date"></div>
+          <button type="button" class="btn btn-primary" id="po-receive-btn" data-i18n="poReceiveBtn">Record receipt</button>
+        </div>
+        <div style="margin-top:0.75rem;display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;">
+          <div><label for="po-match-bill" data-i18n="poMatchBill">Match a bill</label><select id="po-match-bill"></select></div>
+          <button type="button" class="btn btn-primary" id="po-match-btn" data-i18n="poMatchBtn">3-way match</button>
+        </div>
+        <div id="po-match-result" style="display:none;margin-top:0.75rem;padding:0.5rem;border-radius:6px;font-size:0.85rem;"></div>
       </div>
     </div>
 
@@ -2302,7 +2358,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
+    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'purchase-orders', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
     const rawFetch = window.fetch.bind(window);
 
     window.fetch = async (...args) => {
@@ -2978,6 +3034,54 @@
         payrollPayConfirm: 'Pay staff — clear net pay from the bank? This creates a balanced journal entry.',
         payrollPaid: 'Net pay settled from the bank.',
         payrollPayFailed: 'Could not settle net pay.',
+        poNav: 'Purchase Orders',
+        poTitle: 'Purchase Orders',
+        poSubtitle: 'Create a purchase order, record goods received, then 3-way match a vendor bill. A PO is a commitment — it never posts to the ledger; only the bill does.',
+        poNewTitle: 'New purchase order',
+        poSupplier: 'Supplier',
+        poOrderDate: 'Order date',
+        poExpectedDate: 'Expected date',
+        poDescription: 'Description',
+        poOrderedQty: 'Ordered qty',
+        poReceivedQty: 'Received',
+        poUnitPrice: 'Unit price',
+        poAddLine: 'Add line',
+        poCreateBtn: 'Create PO',
+        poListTitle: 'Purchase orders',
+        poNumber: 'PO #',
+        poTotal: 'Total',
+        poDetail: 'Purchase order',
+        poReceiveCol: 'Receive',
+        poReceiptDate: 'Receipt date',
+        poReceiveBtn: 'Record receipt',
+        poMatchBill: 'Match a bill',
+        poMatchBtn: '3-way match',
+        poStatus_draft: 'Draft',
+        poStatus_issued: 'Issued',
+        poStatus_partially_received: 'Partially received',
+        poStatus_received: 'Received',
+        poStatus_closed: 'Closed',
+        poStatus_cancelled: 'Cancelled',
+        poNoSuppliers: 'No suppliers — add a supplier under Entities first.',
+        poNoBills: 'No purchase invoices to match.',
+        poNoneYet: 'No purchase orders yet.',
+        poNeedOrderDate: 'Enter an order date.',
+        poNeedLine: 'Add at least one line with a description and quantity.',
+        poNeedReceiveQty: 'Enter a quantity to receive.',
+        poCreated: 'Purchase order created.',
+        poCreateFailed: 'Could not create the purchase order.',
+        poReceived: 'Goods receipt recorded.',
+        poReceiveFailed: 'Could not record the receipt.',
+        poLoadFailed: 'Could not load the purchase order.',
+        poMatchFailed: 'Could not run the 3-way match.',
+        poMatchOk: 'Matched',
+        poMatchApprovable: 'No discrepancies — the bill can be approved and paid via the AP flow.',
+        poMatchDiscrepancies: 'Discrepancies found',
+        poMatchNotApproved: 'The bill is not auto-approved. Review the discrepancies and confirm before approving.',
+        poDiscOverQty: 'Invoiced more than ordered',
+        poDiscOverPrice: 'Invoice price above PO price',
+        poDiscShortReceipt: 'Invoiced more than received',
+        poDiscNoLine: 'Not on the purchase order',
         cfoTitle: 'CFO Intelligence',
         cfoSubtitle: 'Executive-level financial reasoning, KPIs, risk assessment, and natural language Q&A.',
         healthGrade: 'Health Grade',
@@ -3667,6 +3771,54 @@
         payrollPayConfirm: 'پرداخت به کارکنان — تسویهٔ خالص حقوق از بانک؟ یک سند متوازن ایجاد می‌شود.',
         payrollPaid: 'خالص حقوق از بانک تسویه شد.',
         payrollPayFailed: 'تسویهٔ خالص حقوق ممکن نشد.',
+        poNav: 'سفارش‌های خرید',
+        poTitle: 'سفارش‌های خرید',
+        poSubtitle: 'یک سفارش خرید ایجاد کنید، کالای دریافتی را ثبت کنید، سپس صورتحساب فروشنده را تطبیق سه‌طرفه دهید. سفارش خرید یک تعهد است — در دفتر ثبت نمی‌شود؛ فقط صورتحساب ثبت می‌شود.',
+        poNewTitle: 'سفارش خرید جدید',
+        poSupplier: 'تأمین‌کننده',
+        poOrderDate: 'تاریخ سفارش',
+        poExpectedDate: 'تاریخ مورد انتظار',
+        poDescription: 'شرح',
+        poOrderedQty: 'تعداد سفارش',
+        poReceivedQty: 'دریافت‌شده',
+        poUnitPrice: 'قیمت واحد',
+        poAddLine: 'افزودن ردیف',
+        poCreateBtn: 'ایجاد سفارش',
+        poListTitle: 'سفارش‌های خرید',
+        poNumber: 'شمارهٔ سفارش',
+        poTotal: 'جمع',
+        poDetail: 'سفارش خرید',
+        poReceiveCol: 'دریافت',
+        poReceiptDate: 'تاریخ دریافت',
+        poReceiveBtn: 'ثبت دریافت',
+        poMatchBill: 'تطبیق صورتحساب',
+        poMatchBtn: 'تطبیق سه‌طرفه',
+        poStatus_draft: 'پیش‌نویس',
+        poStatus_issued: 'صادرشده',
+        poStatus_partially_received: 'دریافت جزئی',
+        poStatus_received: 'دریافت‌شده',
+        poStatus_closed: 'بسته‌شده',
+        poStatus_cancelled: 'لغوشده',
+        poNoSuppliers: 'تأمین‌کننده‌ای نیست — ابتدا در بخش اشخاص یک تأمین‌کننده اضافه کنید.',
+        poNoBills: 'صورتحساب خریدی برای تطبیق نیست.',
+        poNoneYet: 'هنوز سفارش خریدی وجود ندارد.',
+        poNeedOrderDate: 'تاریخ سفارش را وارد کنید.',
+        poNeedLine: 'حداقل یک ردیف با شرح و تعداد اضافه کنید.',
+        poNeedReceiveQty: 'تعداد دریافتی را وارد کنید.',
+        poCreated: 'سفارش خرید ایجاد شد.',
+        poCreateFailed: 'ایجاد سفارش خرید ممکن نشد.',
+        poReceived: 'دریافت کالا ثبت شد.',
+        poReceiveFailed: 'ثبت دریافت ممکن نشد.',
+        poLoadFailed: 'بارگذاری سفارش خرید ممکن نشد.',
+        poMatchFailed: 'اجرای تطبیق سه‌طرفه ممکن نشد.',
+        poMatchOk: 'تطبیق شد',
+        poMatchApprovable: 'مغایرتی نیست — صورتحساب می‌تواند از طریق فرایند حساب‌های پرداختنی تأیید و پرداخت شود.',
+        poMatchDiscrepancies: 'مغایرت یافت شد',
+        poMatchNotApproved: 'صورتحساب به‌صورت خودکار تأیید نمی‌شود. مغایرت‌ها را بررسی و پیش از تأیید تأیید کنید.',
+        poDiscOverQty: 'صورتحساب بیش از سفارش',
+        poDiscOverPrice: 'قیمت صورتحساب بالاتر از سفارش',
+        poDiscShortReceipt: 'صورتحساب بیش از دریافت‌شده',
+        poDiscNoLine: 'در سفارش خرید نیست',
         cfoTitle: 'هوش مدیر مالی',
         cfoSubtitle: 'تحلیل مالی در سطح مدیریتی، شاخص‌های کلیدی، ارزیابی ریسک و پرسش و پاسخ به زبان طبیعی.',
         healthGrade: 'درجه سلامت',
@@ -4339,6 +4491,54 @@
         payrollPayConfirm: 'Pagar al personal — ¿liquidar el neto desde el banco? Crea un asiento equilibrado.',
         payrollPaid: 'Neto liquidado desde el banco.',
         payrollPayFailed: 'No se pudo liquidar el neto.',
+        poNav: 'Órdenes de compra',
+        poTitle: 'Órdenes de compra',
+        poSubtitle: 'Crea una orden de compra, registra la mercancía recibida y luego haz una conciliación a 3 vías con la factura del proveedor. Una OC es un compromiso — no se contabiliza; solo la factura lo hace.',
+        poNewTitle: 'Nueva orden de compra',
+        poSupplier: 'Proveedor',
+        poOrderDate: 'Fecha de pedido',
+        poExpectedDate: 'Fecha prevista',
+        poDescription: 'Descripción',
+        poOrderedQty: 'Cant. pedida',
+        poReceivedQty: 'Recibida',
+        poUnitPrice: 'Precio unitario',
+        poAddLine: 'Añadir línea',
+        poCreateBtn: 'Crear OC',
+        poListTitle: 'Órdenes de compra',
+        poNumber: 'OC n.º',
+        poTotal: 'Total',
+        poDetail: 'Orden de compra',
+        poReceiveCol: 'Recibir',
+        poReceiptDate: 'Fecha de recepción',
+        poReceiveBtn: 'Registrar recepción',
+        poMatchBill: 'Conciliar factura',
+        poMatchBtn: 'Conciliación a 3 vías',
+        poStatus_draft: 'Borrador',
+        poStatus_issued: 'Emitida',
+        poStatus_partially_received: 'Parcialmente recibida',
+        poStatus_received: 'Recibida',
+        poStatus_closed: 'Cerrada',
+        poStatus_cancelled: 'Cancelada',
+        poNoSuppliers: 'No hay proveedores — añade un proveedor en Entidades primero.',
+        poNoBills: 'No hay facturas de compra para conciliar.',
+        poNoneYet: 'Aún no hay órdenes de compra.',
+        poNeedOrderDate: 'Introduce una fecha de pedido.',
+        poNeedLine: 'Añade al menos una línea con descripción y cantidad.',
+        poNeedReceiveQty: 'Introduce una cantidad a recibir.',
+        poCreated: 'Orden de compra creada.',
+        poCreateFailed: 'No se pudo crear la orden de compra.',
+        poReceived: 'Recepción de mercancía registrada.',
+        poReceiveFailed: 'No se pudo registrar la recepción.',
+        poLoadFailed: 'No se pudo cargar la orden de compra.',
+        poMatchFailed: 'No se pudo ejecutar la conciliación a 3 vías.',
+        poMatchOk: 'Conciliada',
+        poMatchApprovable: 'Sin discrepancias — la factura puede aprobarse y pagarse por el flujo de CxP.',
+        poMatchDiscrepancies: 'Discrepancias encontradas',
+        poMatchNotApproved: 'La factura no se aprueba automáticamente. Revisa las discrepancias y confirma antes de aprobar.',
+        poDiscOverQty: 'Facturado más de lo pedido',
+        poDiscOverPrice: 'Precio de factura superior al de la OC',
+        poDiscShortReceipt: 'Facturado más de lo recibido',
+        poDiscNoLine: 'No está en la orden de compra',
         cfoTitle: 'Inteligencia del CFO',
         cfoSubtitle: 'Razonamiento financiero de nivel ejecutivo, KPIs, evaluación de riesgos y preguntas en lenguaje natural.',
         healthGrade: 'Calificación de salud',
@@ -5011,6 +5211,54 @@
         payrollPayConfirm: 'الدفع للموظفين — تسوية الصافي من البنك؟ يُنشئ قيداً متوازناً.',
         payrollPaid: 'تمت تسوية صافي الرواتب من البنك.',
         payrollPayFailed: 'تعذّرت تسوية صافي الرواتب.',
+        poNav: 'أوامر الشراء',
+        poTitle: 'أوامر الشراء',
+        poSubtitle: 'أنشئ أمر شراء، وسجّل البضائع المستلمة، ثم طابِق فاتورة المورّد مطابقة ثلاثية. أمر الشراء التزام — لا يُرحَّل إلى الدفتر؛ الفاتورة وحدها تُرحَّل.',
+        poNewTitle: 'أمر شراء جديد',
+        poSupplier: 'المورّد',
+        poOrderDate: 'تاريخ الطلب',
+        poExpectedDate: 'التاريخ المتوقع',
+        poDescription: 'الوصف',
+        poOrderedQty: 'الكمية المطلوبة',
+        poReceivedQty: 'المستلمة',
+        poUnitPrice: 'سعر الوحدة',
+        poAddLine: 'إضافة سطر',
+        poCreateBtn: 'إنشاء أمر',
+        poListTitle: 'أوامر الشراء',
+        poNumber: 'رقم الأمر',
+        poTotal: 'الإجمالي',
+        poDetail: 'أمر الشراء',
+        poReceiveCol: 'استلام',
+        poReceiptDate: 'تاريخ الاستلام',
+        poReceiveBtn: 'تسجيل الاستلام',
+        poMatchBill: 'مطابقة فاتورة',
+        poMatchBtn: 'مطابقة ثلاثية',
+        poStatus_draft: 'مسودة',
+        poStatus_issued: 'صادر',
+        poStatus_partially_received: 'مستلم جزئياً',
+        poStatus_received: 'مستلم',
+        poStatus_closed: 'مغلق',
+        poStatus_cancelled: 'ملغى',
+        poNoSuppliers: 'لا يوجد موردون — أضِف مورّداً من قسم الجهات أولاً.',
+        poNoBills: 'لا توجد فواتير شراء للمطابقة.',
+        poNoneYet: 'لا توجد أوامر شراء بعد.',
+        poNeedOrderDate: 'أدخِل تاريخ الطلب.',
+        poNeedLine: 'أضِف سطراً واحداً على الأقل بوصف وكمية.',
+        poNeedReceiveQty: 'أدخِل الكمية المستلمة.',
+        poCreated: 'تم إنشاء أمر الشراء.',
+        poCreateFailed: 'تعذّر إنشاء أمر الشراء.',
+        poReceived: 'تم تسجيل استلام البضائع.',
+        poReceiveFailed: 'تعذّر تسجيل الاستلام.',
+        poLoadFailed: 'تعذّر تحميل أمر الشراء.',
+        poMatchFailed: 'تعذّرت المطابقة الثلاثية.',
+        poMatchOk: 'مُطابَق',
+        poMatchApprovable: 'لا توجد فروقات — يمكن اعتماد الفاتورة ودفعها عبر مسار الذمم الدائنة.',
+        poMatchDiscrepancies: 'توجد فروقات',
+        poMatchNotApproved: 'لا تُعتمَد الفاتورة تلقائياً. راجِع الفروقات وأكِّد قبل الاعتماد.',
+        poDiscOverQty: 'الفاتورة أكثر من المطلوب',
+        poDiscOverPrice: 'سعر الفاتورة أعلى من أمر الشراء',
+        poDiscShortReceipt: 'الفاتورة أكثر من المستلم',
+        poDiscNoLine: 'غير موجود في أمر الشراء',
         cfoTitle: 'ذكاء المدير المالي',
         cfoSubtitle: 'تحليل مالي على مستوى تنفيذي، ومؤشرات أداء رئيسية، وتقييم المخاطر، وأسئلة وأجوبة بلغة طبيعية.',
         healthGrade: 'درجة الصحة',
@@ -10639,6 +10887,183 @@
       }
     });
 
+    // ═══════ Purchase Orders Module ═══════
+    let poCurrentId = null;
+
+    function poCur() { return (window.__REPORTING_CURRENCY || 'IRR'); }
+
+    function poAddLineRow(desc = '', qty = '', price = '') {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><input type="text" class="po-l-desc" value="${escapeHtml(desc)}"></td>
+        <td><input type="number" class="po-l-qty" min="0" step="0.01" value="${qty}" style="width:7rem;"></td>
+        <td><input type="number" class="po-l-price" min="0" value="${price}" style="width:8rem;"></td>
+        <td><button type="button" class="btn btn-secondary btn-sm po-l-del">✕</button></td>`;
+      document.getElementById('po-lines-body').appendChild(tr);
+    }
+
+    async function loadPurchaseOrders() {
+      // Supplier dropdown.
+      try {
+        const res = await fetch(API + '/entities?type=supplier');
+        const sups = res.ok ? await res.json() : [];
+        const sel = document.getElementById('po-supplier');
+        sel.innerHTML = sups.length
+          ? sups.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')
+          : `<option value="">${t('poNoSuppliers')}</option>`;
+      } catch (e) { /* ignore */ }
+      // Seed one empty line if the editor is empty.
+      if (!document.getElementById('po-lines-body').children.length) poAddLineRow();
+      await loadPOList();
+    }
+
+    document.getElementById('po-add-line').addEventListener('click', () => poAddLineRow());
+    document.getElementById('po-lines-body').addEventListener('click', (e) => {
+      if (e.target.closest('.po-l-del')) e.target.closest('tr').remove();
+    });
+
+    document.getElementById('po-create-btn').addEventListener('click', async () => {
+      const entity_id = document.getElementById('po-supplier').value || null;
+      const order_date = document.getElementById('po-order-date').value;
+      const expected_date = document.getElementById('po-expected-date').value || null;
+      if (!order_date) { showAlert(t('poNeedOrderDate'), true); return; }
+      const lines = [];
+      document.querySelectorAll('#po-lines-body tr').forEach(tr => {
+        const desc = tr.querySelector('.po-l-desc').value.trim();
+        const qty = parseFloat(tr.querySelector('.po-l-qty').value || '0');
+        const price = parseInt(tr.querySelector('.po-l-price').value || '0', 10);
+        if (desc && qty > 0) lines.push({ description: desc, ordered_qty: qty, unit_price: price });
+      });
+      if (!lines.length) { showAlert(t('poNeedLine'), true); return; }
+      try {
+        const res = await fetch(API + '/purchase-orders', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity_id, order_date, expected_date, lines }),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert((data && data.detail) ? data.detail : t('poCreateFailed'), true); return; }
+        showAlert(t('poCreated'));
+        document.getElementById('po-lines-body').innerHTML = '';
+        poAddLineRow();
+        await loadPOList();
+      } catch (e) { showAlert(t('poCreateFailed'), true); }
+    });
+
+    async function loadPOList() {
+      try {
+        const res = await fetch(API + '/purchase-orders');
+        if (!res.ok) return;
+        const pos = await res.json();
+        const body = document.getElementById('po-list-body');
+        body.innerHTML = '';
+        if (!pos.length) {
+          body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:1rem;">${t('poNoneYet')}</td></tr>`;
+          return;
+        }
+        pos.forEach(p => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${escapeHtml(p.number)}</td><td>${escapeHtml(p.supplier_name || '—')}</td>
+            <td>${p.order_date}</td><td>${formatNum(p.total)} ${escapeHtml(p.currency)}</td>
+            <td><span class="badge ${p.status === 'received' ? 'badge-ok' : ''}">${t('poStatus_' + p.status)}</span></td>
+            <td><button class="btn btn-secondary btn-sm po-view" data-id="${p.id}">${t('payrollViewBtn')}</button></td>`;
+          body.appendChild(tr);
+        });
+      } catch (e) { /* ignore */ }
+    }
+
+    document.getElementById('po-list-body').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.po-view');
+      if (!btn) return;
+      await openPODetail(btn.dataset.id);
+    });
+
+    async function openPODetail(id) {
+      try {
+        const res = await fetch(API + '/purchase-orders/' + id);
+        if (!res.ok) return;
+        const po = await res.json();
+        poCurrentId = po.id;
+        document.getElementById('po-detail').style.display = 'block';
+        document.getElementById('po-match-result').style.display = 'none';
+        document.getElementById('po-detail-title').textContent =
+          `${t('poDetail')} ${po.number} (${t('poStatus_' + po.status)})`;
+        const body = document.getElementById('po-detail-lines');
+        body.innerHTML = '';
+        po.lines.forEach(ln => {
+          const outstanding = Math.max(0, ln.ordered_qty - ln.received_qty);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${escapeHtml(ln.description)}</td><td>${ln.ordered_qty}</td>
+            <td>${ln.received_qty}</td><td>${formatNum(ln.unit_price)} ${escapeHtml(po.currency)}</td>
+            <td><input type="number" class="po-recv-qty" data-line="${ln.id}" min="0" max="${outstanding}" step="0.01" value="${outstanding}" style="width:7rem;"></td>`;
+          body.appendChild(tr);
+        });
+        // Bills (purchase invoices) for the match dropdown.
+        const billRes = await fetch(API + '/invoices?kind=purchase');
+        const bills = billRes.ok ? await billRes.json() : [];
+        const sel = document.getElementById('po-match-bill');
+        sel.innerHTML = bills.length
+          ? bills.map(b => `<option value="${b.id}">${escapeHtml(b.number)} — ${formatNum(b.amount)} ${escapeHtml(b.currency)}</option>`).join('')
+          : `<option value="">${t('poNoBills')}</option>`;
+      } catch (e) { showAlert(t('poLoadFailed'), true); }
+    }
+
+    document.getElementById('po-receive-btn').addEventListener('click', async () => {
+      if (!poCurrentId) return;
+      const receipt_date = document.getElementById('po-receive-date').value || new Date().toISOString().slice(0, 10);
+      const lines = [];
+      document.querySelectorAll('#po-detail-lines .po-recv-qty').forEach(inp => {
+        const q = parseFloat(inp.value || '0');
+        if (q > 0) lines.push({ po_line_id: inp.dataset.line, quantity: q });
+      });
+      if (!lines.length) { showAlert(t('poNeedReceiveQty'), true); return; }
+      try {
+        const res = await fetch(API + '/purchase-orders/' + poCurrentId + '/receipts', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ receipt_date, lines }),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert((data && data.detail) ? data.detail : t('poReceiveFailed'), true); return; }
+        showAlert(t('poReceived'));
+        await loadPOList();
+        await openPODetail(poCurrentId);
+      } catch (e) { showAlert(t('poReceiveFailed'), true); }
+    });
+
+    document.getElementById('po-match-btn').addEventListener('click', async () => {
+      if (!poCurrentId) return;
+      const invoice_id = document.getElementById('po-match-bill').value;
+      if (!invoice_id) { showAlert(t('poNoBills'), true); return; }
+      try {
+        const res = await fetch(API + '/purchase-orders/' + poCurrentId + '/match', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoice_id }),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert((data && data.detail) ? data.detail : t('poMatchFailed'), true); return; }
+        renderMatchResult(data);
+        await loadPOList();
+      } catch (e) { showAlert(t('poMatchFailed'), true); }
+    });
+
+    function renderMatchResult(data) {
+      const el = document.getElementById('po-match-result');
+      el.style.display = 'block';
+      if (data.matched) {
+        el.style.background = '#e8f5e9';
+        el.innerHTML = `<strong style="color:#2e7d32;">✓ ${t('poMatchOk')}</strong> — ${t('poMatchApprovable')}`;
+        return;
+      }
+      el.style.background = '#fdecea';
+      const labels = {
+        over_quantity: t('poDiscOverQty'), over_price: t('poDiscOverPrice'),
+        short_receipt: t('poDiscShortReceipt'), no_po_line: t('poDiscNoLine'),
+      };
+      const items = (data.discrepancies || []).map(d =>
+        `<li>${escapeHtml(d.description || '')}: <strong>${labels[d.type] || d.type}</strong></li>`).join('');
+      el.innerHTML = `<strong style="color:#c62828;">⚠ ${t('poMatchDiscrepancies')}</strong>`
+        + `<ul style="margin:0.4rem 0 0;padding-inline-start:1.2rem;">${items}</ul>`
+        + `<p style="margin:0.4rem 0 0;color:var(--text-muted);">${t('poMatchNotApproved')}</p>`;
+    }
+
     // ═══════ Payroll Module ═══════
     let prCurrentRunId = null;
 
@@ -10978,6 +11403,7 @@
       if (page === 'manager') { loadAccountDatalist(); loadProductEntityDatalist(); }
       if (page === 'products') { loadProductsCatalog(); }
       if (page === 'payroll') { loadPayroll(); }
+      if (page === 'purchase-orders') { loadPurchaseOrders(); }
       if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); }
     }
 

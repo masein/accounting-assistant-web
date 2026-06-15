@@ -344,6 +344,99 @@ def test_demo_reset_clears_stale_statements():
         db.close()
 
 
+# ─── 6b. reset-db must survive AR/AP + adjustment children (FK guard) ──
+
+def _seed_txn_referencing_rows(db: Session) -> None:
+    """Create one row in every table that FKs transactions.id or invoices.id,
+    so a reset that forgets to delete any of them 500s with a FK violation."""
+    from app.models.adjustment import Adjustment
+    from app.models.credit_note import CreditNote
+    from app.models.entity import Entity, TransactionEntity
+    from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType
+    from app.models.invoice import Invoice
+    from app.models.invoice_item import InvoiceItem
+    from app.models.payment import Payment
+    from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
+    from app.models.transaction_fee import TransactionFeeApplication
+
+    acc = db.execute(select(Account).where(Account.code == "1200")).scalar_one()
+    when = date(2025, 4, 1)
+
+    ent = Entity(type="client", name="FK Test Ltd")
+    db.add(ent)
+    txn = Transaction(date=when, description="FK test")
+    inv = Invoice(number="FK-1", kind="sales", status="issued", issue_date=when, due_date=when, amount=100)
+    db.add_all([txn, inv])
+    db.flush()
+    inv.transaction_id = txn.id
+
+    item = InventoryItem(name="FK widget")
+    db.add(item)
+    db.flush()
+
+    db.add_all([
+        TransactionLine(transaction_id=txn.id, account_id=acc.id, debit=100, credit=0),
+        TransactionEntity(transaction_id=txn.id, entity_id=ent.id, role="client"),
+        TransactionAttachment(transaction_id=txn.id, file_name="x.pdf", file_path="/tmp/fk-x.pdf", content_type="application/pdf"),
+        TransactionFeeApplication(transaction_id=txn.id),
+        InvoiceItem(invoice_id=inv.id, product_name="FK item"),
+        CreditNote(invoice_id=inv.id, transaction_id=txn.id, date=when, amount=10),
+        Payment(invoice_id=inv.id, transaction_id=txn.id, date=when, amount=20, direction="in"),
+        Adjustment(kind="accrual", start_date=when, transaction_id=txn.id, reversal_transaction_id=txn.id),
+        InventoryMovement(item_id=item.id, movement_date=when, movement_type=InventoryMovementType.IN,
+                          invoice_id=inv.id, transaction_id=txn.id),
+    ])
+    bs = BankStatement(bank_name="FK", source_type="csv", source_filename="fk.csv",
+                       currency="GBP", from_date=when, to_date=when, status="parsed", total_rows=1)
+    db.add(bs)
+    db.flush()
+    db.add(BankStatementRow(statement_id=bs.id, row_index=1, tx_date=when, debit=100,
+                            matched_transaction_id=txn.id, created_transaction_id=txn.id))
+    db.commit()
+
+
+def test_reset_db_succeeds_with_arap_and_adjustment_data():
+    """Repro: with credit notes / payments / adjustments present, the old reset
+    500'd on a ForeignKeyViolation and rolled back entirely."""
+    from app.api.admin import reset_db
+    from app.models.adjustment import Adjustment
+    from app.models.credit_note import CreditNote
+    from app.models.invoice import Invoice
+    from app.models.payment import Payment
+    db = _blank_full_db()
+    try:
+        reset_db(db=db, locale="uk", with_demo_data=False, _=None)  # seed chart only
+        _seed_txn_referencing_rows(db)
+        assert db.query(CreditNote).count() == 1 and db.query(Payment).count() == 1
+
+        out = reset_db(db=db, locale="uk", with_demo_data=False, _=None)
+        assert out["ok"] is True
+        # Every transaction/invoice-referencing table is wiped clean.
+        for model in (CreditNote, Payment, Adjustment, Invoice, Transaction,
+                      TransactionLine, BankStatement, BankStatementRow):
+            assert db.query(model).count() == 0, f"{model.__name__} not cleared"
+    finally:
+        db.close()
+
+
+def test_reset_db_with_demo_succeeds_when_arap_present():
+    """The user's exact path: AR/AP data present → Reset & load UK demo → 200,
+    one GBP statement, reconciles non-zero."""
+    from app.api.admin import reset_db
+    db = _blank_full_db()
+    try:
+        reset_db(db=db, locale="uk", with_demo_data=False, _=None)
+        _seed_txn_referencing_rows(db)
+        out = reset_db(db=db, locale="uk", with_demo_data=True, _=None)
+        assert out["ok"] is True
+        stmts = db.execute(select(BankStatement)).scalars().all()
+        assert len(stmts) == 1 and stmts[0].currency == "GBP"
+        resp = reconcile_endpoint(stmts[0].id, db)
+        assert resp.matched > 0
+    finally:
+        db.close()
+
+
 # ─── 7. Fee/interest account resolution exists on both locales ─────────
 
 @pytest.mark.parametrize("fixture_name", ["uk", "ir"])

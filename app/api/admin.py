@@ -25,11 +25,14 @@ from app.services.locale_service import (
     set_reporting_locale,
 )
 from app.models.account import Account
+from app.models.adjustment import Adjustment
 from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit
+from app.models.credit_note import CreditNote
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
+from app.models.payment import Payment
 from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
@@ -297,6 +300,12 @@ def reset_db(
         db.execute(delete(TransactionFee))
         db.execute(delete(PaymentMethod))
         db.execute(delete(InventoryMovement))
+        # AR/AP + period-close children that FK transactions.id (and invoices.id)
+        # with no ondelete — must go before Invoice/Transaction or the delete
+        # 500s with a ForeignKeyViolation once any of these rows exist.
+        db.execute(delete(CreditNote))
+        db.execute(delete(Payment))
+        db.execute(delete(Adjustment))
         db.execute(delete(InvoiceItem))
         db.execute(delete(InventoryItem))
         db.execute(delete(Invoice))  # can reference Transaction via transaction_id

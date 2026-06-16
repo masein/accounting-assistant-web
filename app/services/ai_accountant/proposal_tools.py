@@ -339,10 +339,28 @@ class ProposeCreateTransaction(BaseTool):
             + f"\n  Total: {total:,} {args.currency}"
         )
 
+        # Expense-approval routing: when the proposed total exceeds the company
+        # approval threshold, flag the card as needing approval. The entry still
+        # only commits on an explicit user Confirm — this just surfaces that an
+        # over-threshold expense should be routed/reviewed, never auto-posted.
+        needs_approval = False
+        try:
+            from app.services.expense_settings import get_approval_threshold
+            threshold = get_approval_threshold(ctx.db)
+            if threshold > 0 and total > threshold:
+                needs_approval = True
+                summary += (
+                    f"\n  ⚠ Over the approval threshold ({threshold:,} {args.currency}) — "
+                    f"needs approval before it is posted."
+                )
+        except Exception:  # settings are best-effort; never block a proposal
+            pass
+
         expires_at = (datetime.now(timezone.utc) + PROPOSAL_TTL).isoformat()
         return {
             "confirmation_token": str(token),
             "status": "pending",
+            "needs_approval": needs_approval,
             "expires_at": expires_at,
             "summary": summary,
             "tool_name": self.name,

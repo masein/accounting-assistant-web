@@ -43,6 +43,8 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "social_security_payable": "2212",  # National Insurance payable — liability
         "net_pay_payable": "2250",          # Net wages payable — liability
         "payroll_deductions_payable": "2260",  # Pension/other deductions payable — liability
+        "mileage_expense": "7400",          # Motor expenses (mileage)
+        "expenses_payable": "2270",         # Employee expenses payable — liability
     },
     "ir": {
         "ar": "1112",
@@ -67,6 +69,8 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "social_security_payable": "2170",  # بیمه تأمین اجتماعی پرداختنی — liability
         "net_pay_payable": "2180",          # حقوق پرداختنی — liability
         "payroll_deductions_payable": "2190",  # کسورات حقوق پرداختنی — liability
+        "mileage_expense": "6130",          # هزینه سفر و ایاب‌وذهاب (travel/mileage)
+        "expenses_payable": "2195",         # بدهی به کارکنان بابت هزینه — liability
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -99,6 +103,8 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "social_security_payable": "National Insurance payable",
         "net_pay_payable": "Net wages payable",
         "payroll_deductions_payable": "Payroll deductions payable",
+        "mileage_expense": "Motor expenses",
+        "expenses_payable": "Employee expenses payable",
     },
     "ir": {
         "ar": "حساب‌ها و اسناد دریافتنی تجاری",
@@ -123,6 +129,8 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "social_security_payable": "بیمه تأمین اجتماعی پرداختنی",
         "net_pay_payable": "حقوق پرداختنی",
         "payroll_deductions_payable": "کسورات حقوق پرداختنی",
+        "mileage_expense": "هزینه سفر و ایاب‌وذهاب",
+        "expenses_payable": "بدهی به کارکنان بابت هزینه",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])

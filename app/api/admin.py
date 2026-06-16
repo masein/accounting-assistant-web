@@ -34,6 +34,7 @@ from app.models.entity import Entity, TransactionEntity
 from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
+from app.models.mileage_claim import MileageClaim
 from app.models.pay_run import PayRun, PayRunLine
 from app.models.payment import Payment
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
@@ -308,6 +309,8 @@ def reset_db(
         db.execute(delete(GoodsReceipt))
         db.execute(delete(PurchaseOrderLine))
         db.execute(delete(PurchaseOrder))
+        # Mileage claims FK entities + transactions (SET NULL); wipe before them.
+        db.execute(delete(MileageClaim))
         db.execute(delete(TransactionEntity))
         db.execute(delete(TransactionAttachment))
         db.execute(delete(TransactionLine))

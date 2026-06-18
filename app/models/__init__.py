@@ -18,6 +18,7 @@ from app.models.payment import Payment
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType
 from app.models.recurring import RecurringRule
+from app.models.tax_rate import TaxRate
 from app.models.trial_balance import TrialBalance, TrialBalanceLine
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
 from app.models.transaction_fee import PaymentMethod, TransactionFee, TransactionFeeApplication
@@ -53,6 +54,7 @@ __all__ = [
     "InventoryMovement",
     "InventoryMovementType",
     "RecurringRule",
+    "TaxRate",
     "TrialBalance",
     "TrialBalanceLine",
     "Transaction",

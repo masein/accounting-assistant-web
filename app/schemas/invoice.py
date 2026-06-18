@@ -16,6 +16,8 @@ class InvoiceItemBase(BaseModel):
     line_total: int | None = Field(default=None, ge=0)
     tax_rate: float = Field(default=0, ge=0, le=100, description="VAT/sales-tax percent, e.g. 20")
     taxable: bool = Field(default=True, description="Exempt lines (False) contribute to subtotal but not tax")
+    tax_code: str | None = Field(default=None, description="Effective-dated tax code, e.g. UK_VAT_STANDARD; rate auto-derived as of the invoice date when no explicit rate is given")
+    tax_treatment: str = Field(default="standard", description="standard | zero_rated | exempt | reverse_charge")
     description: str | None = None
     inventory_item_id: UUID | None = None
 

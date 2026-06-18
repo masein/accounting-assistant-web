@@ -7,6 +7,7 @@ from statistics import mean
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session, selectinload
 
@@ -704,6 +705,72 @@ def get_tax_summary(
         q_start_month = ((today.month - 1) // 3) * 3 + 1
         from_date = date(today.year, q_start_month, 1)
     return compute_tax_summary(db, from_date, to_date, currency=currency)
+
+
+def _tax_rate_read(r) -> dict:
+    return {
+        "id": str(r.id),
+        "code": r.code,
+        "jurisdiction": r.jurisdiction,
+        "description": r.description,
+        "rate": float(r.rate or 0),
+        "effective_from": r.effective_from.isoformat(),
+        "effective_to": r.effective_to.isoformat() if r.effective_to else None,
+    }
+
+
+@router.get("/tax-rates")
+def list_tax_rates_endpoint(code: str | None = Query(None), db: Session = Depends(get_db)) -> list[dict]:
+    """All effective-dated tax rates (optionally filtered to one code), so the
+    UI can show and manage the rate history."""
+    from app.services.tax_rate_service import list_tax_rates
+    return [_tax_rate_read(r) for r in list_tax_rates(db, code)]
+
+
+@router.get("/tax-rates/effective")
+def effective_tax_rate(code: str = Query(...), on: date = Query(...),
+                       db: Session = Depends(get_db)) -> dict:
+    """The rate in effect for ``code`` on date ``on`` (§7.6) — used by the
+    invoice UI to auto-fill the line rate as of the invoice date."""
+    from app.services.tax_rate_service import tax_rate_for
+    rate = tax_rate_for(db, code, on)
+    return {"code": code, "on": on.isoformat(), "rate": rate}
+
+
+class TaxRateUpsert(BaseModel):
+    code: str
+    jurisdiction: str
+    rate: float = Field(..., ge=0, le=100)
+    effective_from: date
+    effective_to: date | None = None
+    description: str | None = None
+
+
+@router.post("/tax-rates", status_code=201)
+def upsert_tax_rate(payload: TaxRateUpsert, db: Session = Depends(get_db)) -> dict:
+    """Add or update an effective-dated rate (admin). Matched by code +
+    effective_from so re-saving a window updates it in place."""
+    from app.models.tax_rate import TaxRate
+    from app.services.audit_service import log_audit_event
+
+    row = db.execute(
+        select(TaxRate).where(
+            TaxRate.code == payload.code.strip(),
+            TaxRate.effective_from == payload.effective_from,
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        row = TaxRate(code=payload.code.strip(), effective_from=payload.effective_from)
+        db.add(row)
+    row.jurisdiction = payload.jurisdiction.strip().upper()
+    row.rate = float(payload.rate)
+    row.effective_to = payload.effective_to
+    row.description = (payload.description or "").strip() or None
+    log_audit_event(db, action="upsert", entity_type="tax_rate", entity_id=payload.code,
+                    detail=f"Tax rate {payload.code} {payload.rate}% from {payload.effective_from}")
+    db.commit()
+    db.refresh(row)
+    return _tax_rate_read(row)
 
 
 @router.get("/missing-references", response_model=MissingReferenceResponse)

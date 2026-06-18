@@ -28,6 +28,10 @@ class InvoiceItem(Base):
     # the line exempt (contributes to subtotal but not to tax).
     tax_rate: Mapped[float] = mapped_column(Numeric(7, 4), default=0, server_default="0")
     taxable: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Effective-dated tax code (e.g. UK_VAT_STANDARD) the rate was derived from,
+    # and the treatment (standard | zero_rated | exempt | reverse_charge).
+    tax_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    tax_treatment: Mapped[str] = mapped_column(String(24), default="standard", server_default="standard")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     inventory_item_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("inventory_items.id"), nullable=True, index=True

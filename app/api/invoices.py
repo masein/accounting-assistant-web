@@ -259,10 +259,20 @@ def _resolve_bank_code(db: Session, code: str | None) -> str:
     return resolve_account_code(db, "bank")
 
 
-def _build_invoice_items(payload_items: list, invoice_id: UUID) -> tuple[list[InvoiceItem], int]:
+def _build_invoice_items(
+    payload_items: list, invoice_id: UUID,
+    db: Session | None = None, on_date: date | None = None,
+) -> tuple[list[InvoiceItem], int]:
     """Build InvoiceItem rows. Returns (rows, grand_total) where grand_total =
-    Σ line_total + Σ per-line tax (taxable lines only), so the invoice's
-    ``amount`` can be kept equal to the tax-inclusive grand total."""
+    Σ line_total + Σ per-line tax (only ``standard``-treatment lines charge tax),
+    so the invoice's ``amount`` stays equal to the tax-inclusive grand total.
+
+    Tax rate resolution (§7.6): if a line gives no explicit ``tax_rate`` but has
+    a ``tax_code``, derive the rate in effect on ``on_date`` (the invoice date).
+    Treatment (§7.3): zero_rated / exempt / reverse_charge charge no output tax;
+    the resolved rate is still stored (for reverse-charge notional reporting)."""
+    from app.services.tax_rate_service import TREATMENTS, tax_rate_for
+
     rows: list[InvoiceItem] = []
     subtotal = 0
     tax_total = 0
@@ -272,10 +282,24 @@ def _build_invoice_items(payload_items: list, invoice_id: UUID) -> tuple[list[In
             continue
         unit_price = int(raw.unit_price or 0)
         line_total = max(0, int(raw.line_total if raw.line_total is not None else round(qty * unit_price)))
+
+        treatment = (getattr(raw, "tax_treatment", "standard") or "standard").strip().lower()
+        if treatment not in TREATMENTS:
+            treatment = "standard"
+        tax_code = (getattr(raw, "tax_code", None) or None)
         tax_rate = float(getattr(raw, "tax_rate", 0) or 0)
-        taxable = bool(getattr(raw, "taxable", True))
+        # Derive the rate from the code as of the invoice date when not given.
+        if tax_rate <= 0 and tax_code and db is not None and on_date is not None:
+            derived = tax_rate_for(db, tax_code, on_date)
+            if derived is not None:
+                tax_rate = float(derived)
+        # Only a standard-treatment line actually charges output tax. The
+        # explicit `taxable=False` flag still forces a line exempt.
+        explicit_taxable = bool(getattr(raw, "taxable", True))
+        charges_tax = explicit_taxable and treatment == "standard"
+
         subtotal += line_total
-        tax_total += _line_tax(line_total, tax_rate, taxable)
+        tax_total += _line_tax(line_total, tax_rate, charges_tax)
         rows.append(
             InvoiceItem(
                 invoice_id=invoice_id,
@@ -285,7 +309,9 @@ def _build_invoice_items(payload_items: list, invoice_id: UUID) -> tuple[list[In
                 unit_cost=(int(raw.unit_cost) if raw.unit_cost is not None else None),
                 line_total=line_total,
                 tax_rate=tax_rate,
-                taxable=taxable,
+                taxable=charges_tax,
+                tax_code=tax_code,
+                tax_treatment=treatment,
                 description=(raw.description or "").strip() or None,
                 inventory_item_id=raw.inventory_item_id,
             )
@@ -426,7 +452,7 @@ async def ocr_import_invoice(
         )
         db.add(row)
         db.flush()
-        item_rows, items_total = _build_invoice_items(suggested.items, row.id)
+        item_rows, items_total = _build_invoice_items(suggested.items, row.id, db, row.issue_date)
         for item in item_rows:
             db.add(item)
         if item_rows:
@@ -465,7 +491,7 @@ def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Inv
     db.add(row)
     try:
         db.flush()
-        item_rows, items_total = _build_invoice_items(payload.items, row.id)
+        item_rows, items_total = _build_invoice_items(payload.items, row.id, db, row.issue_date)
         for item in item_rows:
             row.items.append(item)  # populate the relationship so tax breakdown sees them
         if item_rows:
@@ -512,7 +538,7 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
         for item in list(row.items or []):
             db.delete(item)
         row.items.clear()
-        item_rows, items_total = _build_invoice_items(payload.items, row.id)
+        item_rows, items_total = _build_invoice_items(payload.items, row.id, db, row.issue_date)
         for item in item_rows:
             row.items.append(item)
         if item_rows:

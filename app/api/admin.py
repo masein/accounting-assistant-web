@@ -40,6 +40,7 @@ from app.models.payment import Payment
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.recurring import RecurringRule
+from app.models.tax_rate import TaxRate
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
 from app.models.transaction_fee import PaymentMethod, TransactionFee, TransactionFeeApplication
 from app.models.trial_balance import TrialBalance, TrialBalanceLine
@@ -332,6 +333,7 @@ def reset_db(
         db.execute(delete(BudgetLimit))
         db.execute(delete(TrialBalanceLine))
         db.execute(delete(TrialBalance))
+        db.execute(delete(TaxRate))
         db.execute(delete(Entity))
         db.execute(delete(Account))
         db.commit()
@@ -342,6 +344,8 @@ def reset_db(
     n = seed_chart_if_empty(db, locale=locale_norm)
     seed_payment_methods_if_empty(db)
     seed_admin_user_if_missing(db)
+    from app.services.tax_rate_service import seed_tax_rates
+    seed_tax_rates(db)
 
     # Align the reporting-locale AppSetting with the chart we just seeded.
     set_reporting_locale(db, "uk" if locale_norm == "uk" else "ir")

@@ -47,6 +47,11 @@ def _invoice_tax(inv: Invoice) -> tuple[int, set[float]]:
     return total, rates
 
 
+def _notional_tax(line_total: int, tax_rate) -> int:
+    rate = float(tax_rate or 0)
+    return int(round(int(line_total or 0) * rate / 100.0)) if rate > 0 else 0
+
+
 def compute_tax_summary(
     db: Session,
     from_date: date,
@@ -76,15 +81,45 @@ def compute_tax_summary(
     sales_count = 0
     purchase_count = 0
     rates: set[float] = set()
+    # Breakdowns (§7.3, §7.6): by tax treatment and by the rate actually applied.
+    by_treatment: dict[str, dict[str, int]] = {}
+    by_rate: dict[str, dict[str, int]] = {}
+    reverse_charge_notional = 0
+    jurisdictions: set[str] = set()
+
+    def _bucket(d: dict[str, dict[str, int]], key: str, side: str, amount: int) -> None:
+        slot = d.setdefault(key, {"output": 0, "input": 0, "base": 0})
+        slot[side] += amount
+
     for inv in invoices:
         tax, inv_rates = _invoice_tax(inv)
         rates |= inv_rates
+        side = "output" if inv.kind == "sales" else "input"
         if inv.kind == "sales":
             output_tax += tax
             sales_count += 1
         elif inv.kind == "purchase":
             input_tax += tax
             purchase_count += 1
+
+        for it in inv.items or []:
+            treatment = (getattr(it, "tax_treatment", "standard") or "standard")
+            code = getattr(it, "tax_code", None)
+            if code and "_" in code:
+                jurisdictions.add(code.split("_", 1)[0])
+            base = int(it.line_total or 0)
+            _bucket(by_treatment, treatment, "base", base)
+            if treatment == "standard" and it.taxable:
+                t = _line_tax(it.line_total, it.tax_rate, it.taxable)
+                _bucket(by_treatment, treatment, side, t)
+                _bucket(by_rate, f"{float(it.tax_rate or 0):g}", side, t)
+            elif treatment == "reverse_charge":
+                # Cross-border B2B: customer self-accounts. Notional output AND
+                # input that net to zero — recorded/labelled, never added to net.
+                notional = _notional_tax(it.line_total, it.tax_rate)
+                _bucket(by_treatment, treatment, "output", notional)
+                _bucket(by_treatment, treatment, "input", notional)
+                reverse_charge_notional += notional
 
     rates_sorted = sorted(rates)
     if rates_sorted:
@@ -106,6 +141,10 @@ def compute_tax_summary(
         "sales_invoice_count": sales_count,
         "purchase_invoice_count": purchase_count,
         "rates": rates_sorted,
+        "by_treatment": by_treatment,
+        "by_rate": by_rate,
+        "reverse_charge_notional": reverse_charge_notional,
+        "jurisdictions": sorted(jurisdictions),
         "assumptions": assumptions,
         "caveat": TAX_CAVEAT,
     }

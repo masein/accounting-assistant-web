@@ -706,6 +706,13 @@
         <div><label for="inv-number" data-i18n="labelNumber">Number</label><input type="text" id="inv-number" data-i18n-placeholder="placeholderInvoiceNo" placeholder="e.g. INV-1001"></div>
         <div><label for="inv-kind" data-i18n="labelType">Type</label><select id="inv-kind"><option value="sales" data-i18n="optionSales">Sales</option><option value="purchase" data-i18n="optionPurchase">Purchase</option></select></div>
         <div><label for="inv-amount" data-i18n="labelAmountNet">Amount (net)</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
+        <div><label for="inv-tax-code" data-i18n="taxCodeLabel">Tax code</label><select id="inv-tax-code"><option value="" data-i18n="taxCodeNone">— Manual rate —</option></select></div>
+        <div><label for="inv-tax-treatment" data-i18n="taxTreatmentLabel">Treatment</label><select id="inv-tax-treatment">
+          <option value="standard" data-i18n="taxTreatStandard">Standard</option>
+          <option value="zero_rated" data-i18n="taxTreatZero">Zero-rated (export)</option>
+          <option value="exempt" data-i18n="taxTreatExempt">Exempt</option>
+          <option value="reverse_charge" data-i18n="taxTreatReverse">Reverse charge (cross-border)</option>
+        </select></div>
         <div><label for="inv-tax-rate" data-i18n="labelTaxRate">Tax %</label><input type="number" id="inv-tax-rate" min="0" max="100" step="0.5" value="0"></div>
         <div><label for="inv-currency" data-i18n="invoiceCurrencyLabel">Currency</label><select id="inv-currency">
           <option value="IRR">IRR</option>
@@ -742,6 +749,27 @@
         <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="labelType">Type</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="invPaid">Paid</th><th data-i18n="invBalanceDue">Balance</th><th data-i18n="labelDueDate">Due</th><th data-i18n="usersActions">Actions</th></tr></thead>
         <tbody id="invoices-tbody"><tr><td colspan="8" class="empty-state">Loading…</td></tr></tbody>
       </table>
+
+      <!-- Tax-rate admin: effective-dated rates -->
+      <details style="margin-top:1.25rem;">
+        <summary style="cursor:pointer;font-weight:600;" data-i18n="taxRatesTitle">Tax rates (effective-dated)</summary>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="taxRatesSubtitle">Each code can have several rows with effective dates; an invoice uses the rate in effect on its date.</p>
+        <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
+          <div><label for="tr-code" data-i18n="taxCodeLabel">Tax code</label><input type="text" id="tr-code" placeholder="UK_VAT_STANDARD"></div>
+          <div><label for="tr-juris" data-i18n="taxJurisdiction">Jurisdiction</label><input type="text" id="tr-juris" placeholder="UK" style="width:6rem;"></div>
+          <div><label for="tr-rate" data-i18n="labelTaxRate">Tax %</label><input type="number" id="tr-rate" min="0" max="100" step="0.1" style="width:7rem;"></div>
+          <div><label for="tr-from" data-i18n="taxEffectiveFrom">Effective from</label><input type="date" id="tr-from"></div>
+          <div><label for="tr-to" data-i18n="taxEffectiveTo">Effective to</label><input type="date" id="tr-to"></div>
+          <div><button type="button" class="btn btn-secondary" id="tr-save" data-i18n="taxRateSave">Save rate</button></div>
+        </div>
+        <table class="data-table" style="margin-top:0.5rem;">
+          <thead><tr>
+            <th data-i18n="taxCodeLabel">Tax code</th><th data-i18n="taxJurisdiction">Jurisdiction</th>
+            <th data-i18n="labelTaxRate">Tax %</th><th data-i18n="taxEffectiveFrom">From</th><th data-i18n="taxEffectiveTo">To</th>
+          </tr></thead>
+          <tbody id="tr-list-body"></tbody>
+        </table>
+      </details>
     </div>
 
     <div class="card" data-page="recurring">
@@ -3386,6 +3414,23 @@
         invScheduledHint: 'Planned date only — moves no money.',
         labelAmountNet: 'Amount (net)',
         labelTaxRate: 'Tax %',
+        taxCodeLabel: 'Tax code',
+        taxCodeNone: '— Manual rate —',
+        taxTreatmentLabel: 'Treatment',
+        taxTreatStandard: 'Standard',
+        taxTreatZero: 'Zero-rated (export)',
+        taxTreatExempt: 'Exempt',
+        taxTreatReverse: 'Reverse charge (cross-border)',
+        taxRatesTitle: 'Tax rates (effective-dated)',
+        taxRatesSubtitle: 'Each code can have several rows with effective dates; an invoice uses the rate in effect on its date.',
+        taxJurisdiction: 'Jurisdiction',
+        taxEffectiveFrom: 'Effective from',
+        taxEffectiveTo: 'Effective to',
+        taxRateSave: 'Save rate',
+        taxRateSaved: 'Tax rate saved.',
+        taxRateSaveFailed: 'Could not save the tax rate.',
+        taxRateNeedFields: 'A code and an effective-from date are required.',
+        taxNoRates: 'No tax rates yet.',
         invSubtotal: 'Subtotal',
         invTax: 'Tax',
         aiChatStatusCounter: '{turns} turn(s) · {calls} tool call(s)',
@@ -4167,6 +4212,23 @@
         invScheduledHint: 'فقط تاریخ برنامه‌ریزی — پولی جابجا نمی‌شود.',
         labelAmountNet: 'مبلغ (خالص)',
         labelTaxRate: 'مالیات ٪',
+        taxCodeLabel: 'کد مالیاتی',
+        taxCodeNone: '— نرخ دستی —',
+        taxTreatmentLabel: 'نوع مالیات',
+        taxTreatStandard: 'استاندارد',
+        taxTreatZero: 'نرخ صفر (صادرات)',
+        taxTreatExempt: 'معاف',
+        taxTreatReverse: 'مالیات معکوس (برون‌مرزی)',
+        taxRatesTitle: 'نرخ‌های مالیات (تاریخ‌دار)',
+        taxRatesSubtitle: 'هر کد می‌تواند چند ردیف با تاریخ اجرا داشته باشد؛ هر فاکتور نرخ معتبر در تاریخ خود را به‌کار می‌برد.',
+        taxJurisdiction: 'حوزهٔ مالیاتی',
+        taxEffectiveFrom: 'از تاریخ',
+        taxEffectiveTo: 'تا تاریخ',
+        taxRateSave: 'ذخیرهٔ نرخ',
+        taxRateSaved: 'نرخ مالیات ذخیره شد.',
+        taxRateSaveFailed: 'ذخیرهٔ نرخ مالیات ممکن نشد.',
+        taxRateNeedFields: 'کد و تاریخ شروع لازم است.',
+        taxNoRates: 'هنوز نرخ مالیاتی وجود ندارد.',
         invSubtotal: 'جمع جزء',
         invTax: 'مالیات',
         aiChatStatusCounter: '{turns} نوبت · {calls} فراخوانی ابزار',
@@ -4931,6 +4993,23 @@
         invScheduledHint: 'Solo fecha planificada — no mueve dinero.',
         labelAmountNet: 'Importe (neto)',
         labelTaxRate: 'Impuesto %',
+        taxCodeLabel: 'Código fiscal',
+        taxCodeNone: '— Tasa manual —',
+        taxTreatmentLabel: 'Tratamiento',
+        taxTreatStandard: 'Estándar',
+        taxTreatZero: 'Tasa cero (exportación)',
+        taxTreatExempt: 'Exento',
+        taxTreatReverse: 'Inversión del sujeto pasivo (transfronterizo)',
+        taxRatesTitle: 'Tasas de impuesto (con fechas de vigencia)',
+        taxRatesSubtitle: 'Cada código puede tener varias filas con fechas de vigencia; una factura usa la tasa vigente en su fecha.',
+        taxJurisdiction: 'Jurisdicción',
+        taxEffectiveFrom: 'Vigente desde',
+        taxEffectiveTo: 'Vigente hasta',
+        taxRateSave: 'Guardar tasa',
+        taxRateSaved: 'Tasa de impuesto guardada.',
+        taxRateSaveFailed: 'No se pudo guardar la tasa.',
+        taxRateNeedFields: 'Se requieren un código y una fecha de inicio.',
+        taxNoRates: 'Aún no hay tasas de impuesto.',
         invSubtotal: 'Subtotal',
         invTax: 'Impuesto',
         aiChatStatusCounter: '{turns} turno(s) · {calls} llamada(s) a herramientas',
@@ -5695,6 +5774,23 @@
         invScheduledHint: 'تاريخ مخطط فقط — لا يحرّك أي أموال.',
         labelAmountNet: 'المبلغ (الصافي)',
         labelTaxRate: 'الضريبة ٪',
+        taxCodeLabel: 'رمز الضريبة',
+        taxCodeNone: '— نسبة يدوية —',
+        taxTreatmentLabel: 'المعالجة',
+        taxTreatStandard: 'قياسي',
+        taxTreatZero: 'نسبة صفرية (تصدير)',
+        taxTreatExempt: 'معفى',
+        taxTreatReverse: 'الاحتساب العكسي (عبر الحدود)',
+        taxRatesTitle: 'نسب الضريبة (حسب تاريخ السريان)',
+        taxRatesSubtitle: 'يمكن أن يكون لكل رمز عدة صفوف بتواريخ سريان؛ تستخدم الفاتورة النسبة السارية في تاريخها.',
+        taxJurisdiction: 'الولاية الضريبية',
+        taxEffectiveFrom: 'ساري من',
+        taxEffectiveTo: 'ساري حتى',
+        taxRateSave: 'حفظ النسبة',
+        taxRateSaved: 'تم حفظ نسبة الضريبة.',
+        taxRateSaveFailed: 'تعذّر حفظ نسبة الضريبة.',
+        taxRateNeedFields: 'الرمز وتاريخ البدء مطلوبان.',
+        taxNoRates: 'لا توجد نسب ضريبة بعد.',
         invSubtotal: 'المجموع الجزئي',
         invTax: 'الضريبة',
         aiChatStatusCounter: '{turns} دور · {calls} استدعاء أداة',
@@ -8119,6 +8215,7 @@
     let _invoicesCache = [];
     async function loadInvoices(highlightId) {
       if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
+      loadTaxRates();
       try {
         const res = await fetch(API + '/invoices');
         const list = await res.json();
@@ -9757,20 +9854,24 @@
       const kind = document.getElementById('inv-kind').value;
       const amount = parseInt(document.getElementById('inv-amount').value, 10) || 0;
       const taxRate = parseFloat(document.getElementById('inv-tax-rate').value) || 0;
+      const taxCode = document.getElementById('inv-tax-code').value || null;
+      const taxTreatment = document.getElementById('inv-tax-treatment').value || 'standard';
       const currency = document.getElementById('inv-currency')?.value || preferredFormCurrency();
       const issue_date = document.getElementById('inv-issue').value;
       const due_date = document.getElementById('inv-due').value;
       const entity_id = document.getElementById('inv-entity').value || null;
       const description = document.getElementById('inv-desc').value.trim() || null;
       if (!number || !issue_date || !due_date) { showAlert('Invoice number, issue date, and due date are required.', true); return; }
-      // When a tax rate is set, send the net amount as a single taxable line
-      // so the backend computes tax and the tax-inclusive grand total.
+      // Send the net amount as a single line whenever there's a rate, a tax
+      // code (rate derived server-side as of the issue date), or a non-standard
+      // treatment — so the backend applies effective-dating and treatment.
       const body = { number, kind, amount, currency, issue_date, due_date, entity_id, description, status: 'issued' };
-      if (taxRate > 0 && amount > 0) {
+      if (amount > 0 && (taxRate > 0 || taxCode || taxTreatment !== 'standard')) {
         body.items = [{
           product_name: description || number,
           quantity: 1, unit_price: amount, line_total: amount,
           tax_rate: taxRate, taxable: true,
+          tax_code: taxCode, tax_treatment: taxTreatment,
         }];
       }
       try {
@@ -10479,6 +10580,70 @@
       d.setUTCDate(d.getUTCDate() + days);
       return d.toISOString().slice(0, 10);
     }
+    // ─── Tax rates (effective-dated) ───
+    let _taxRateCodes = [];
+    async function loadTaxRates() {
+      try {
+        const res = await fetch(API + '/reports/tax-rates');
+        if (!res.ok) return;
+        const rates = await res.json();
+        _taxRateCodes = [...new Set(rates.map(r => r.code))];
+        // Populate the invoice tax-code dropdown.
+        const sel = document.getElementById('inv-tax-code');
+        if (sel) {
+          const cur = sel.value;
+          sel.innerHTML = `<option value="">${t('taxCodeNone')}</option>`
+            + _taxRateCodes.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+          sel.value = cur;
+        }
+        // Render the admin list.
+        const body = document.getElementById('tr-list-body');
+        if (body) {
+          body.innerHTML = rates.length
+            ? rates.map(r => `<tr><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.jurisdiction)}</td>
+                <td>${r.rate}%</td><td>${r.effective_from}</td><td>${r.effective_to || '—'}</td></tr>`).join('')
+            : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:0.5rem;">${t('taxNoRates')}</td></tr>`;
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    async function autofillInvoiceTaxRate() {
+      const code = document.getElementById('inv-tax-code').value;
+      const on = document.getElementById('inv-issue').value;
+      const rateInput = document.getElementById('inv-tax-rate');
+      if (!code || !on) return;
+      try {
+        const res = await fetch(API + '/reports/tax-rates/effective?code=' + encodeURIComponent(code) + '&on=' + encodeURIComponent(on));
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.rate != null) rateInput.value = data.rate;
+      } catch (e) { /* ignore */ }
+    }
+    document.getElementById('inv-tax-code').addEventListener('change', autofillInvoiceTaxRate);
+    document.getElementById('inv-issue').addEventListener('change', () => {
+      if (document.getElementById('inv-tax-code').value) autofillInvoiceTaxRate();
+    });
+
+    document.getElementById('tr-save').addEventListener('click', async () => {
+      const payload = {
+        code: document.getElementById('tr-code').value.trim(),
+        jurisdiction: document.getElementById('tr-juris').value.trim() || 'XX',
+        rate: parseFloat(document.getElementById('tr-rate').value || '0'),
+        effective_from: document.getElementById('tr-from').value,
+        effective_to: document.getElementById('tr-to').value || null,
+      };
+      if (!payload.code || !payload.effective_from) { showAlert(t('taxRateNeedFields'), true); return; }
+      try {
+        const res = await fetch(API + '/reports/tax-rates', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert((data && data.detail) ? data.detail : t('taxRateSaveFailed'), true); return; }
+        showAlert(t('taxRateSaved'));
+        await loadTaxRates();
+      } catch (e) { showAlert(t('taxRateSaveFailed'), true); }
+    });
+
     function setInvoiceDateDefaults() {
       const today = new Date().toISOString().slice(0, 10);
       document.getElementById('inv-issue').value = today;

@@ -101,6 +101,10 @@ Worked example — "Record a 300 GBP office-supplies expense paid from cash toda
 Money OUT (the user PAYS someone — "I paid X", "paid from the bank/cash", "spent"): **CREDIT the cash/bank account** and **DEBIT the expense** (or trade-creditors/AP if settling an existing bill). Money IN (the user RECEIVES — "received from X", "X paid us", "deposited"): **DEBIT the cash/bank account** and CREDIT revenue/AR. This is fixed by the direction of the money, NOT by who the other party is. A supplier, contractor, employee or any payee on a payment does NOT invert it — paying a supplier still CREDITS the bank.
 Worked example — "I paid Dan (a supplier/contractor) 500 GBP from the bank": lines [Dr 5000 Purchases 500, Cr 1200 Bank 500] — bank CREDITED. (If clearing an open bill instead: Dr 2100 Trade creditors 500 / Cr 1200 Bank 500.) NEVER Dr bank / Cr expense for a payment — that is a receipt, the opposite of what happened.
 
+Which account on the OTHER side of cash:
+* **Customer receipt** (money in from a client — "received from X", "X paid us", payment "for invoice …"): credit **trade debtors / accounts receivable** to clear the receivable — ``search_accounts("trade debtors")`` (UK 1100). If there was no prior invoice and you're recognising new income, credit **sales/revenue** (4000) instead. NEVER credit **sales returns** (a contra-revenue account, e.g. 4100) for a receipt — sales returns is ONLY for a refund/return TO a customer (money out). Worked example — "received 800 from client Acme for invoice INV-9": lines [Dr 1200 Bank 800, Cr 1100 Trade debtors 800].
+* **Supplier payment**: debit the expense (or trade creditors 2100 to clear a bill), as above.
+
 # Financial statements — use the deterministic tool, never hand-sum
 
 For "balance sheet", "P&L" / "income statement", "trial balance" or "cash flow", call ``get_financial_statement`` with the right ``statement`` value and relay its totals. The figures already balance (Assets = Liabilities + Equity; trial-balance debits == credits) — do NOT reconstruct them from individual ``get_account_balance`` calls.
@@ -163,6 +167,52 @@ _STATUS_STRINGS = {
 def _status(lang: str, key: str) -> str:
     pack = _STATUS_STRINGS.get(lang) or _STATUS_STRINGS["en"]
     return pack.get(key) or _STATUS_STRINGS["en"][key]
+
+
+def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int) -> None:
+    """Within a single turn, drop a standalone propose_create_entity proposal
+    when a propose_create_transaction in the same turn already creates that same
+    party via new_entities — so the user sees ONE combined action card, not two.
+    The dropped proposal's AIProposal row is cancelled so it can't be confirmed."""
+    turn = proposals[turn_start:]
+    if len(turn) < 2:
+        return
+
+    def _names(p: dict) -> set[str]:
+        return {
+            (ne.get("name") or "").strip().lower()
+            for ne in (p.get("new_entities") or []) if ne.get("name")
+        }
+
+    folded: set[str] = set()
+    for p in turn:
+        if p.get("tool_name") == "propose_create_transaction":
+            folded |= _names(p)
+    if not folded:
+        return
+
+    from uuid import UUID
+
+    from app.models.ai_accountant import AIProposal
+
+    kept = []
+    for p in turn:
+        if p.get("tool_name") == "propose_create_entity" and _names(p) & folded:
+            # Cancel the now-redundant standalone proposal so it never executes.
+            try:
+                row = db.execute(
+                    select(AIProposal).where(
+                        AIProposal.confirmation_token == UUID(str(p.get("confirmation_token")))
+                    )
+                ).scalar_one_or_none()
+                if row is not None and row.status == "pending":
+                    row.status = "cancelled"
+                    db.commit()
+            except Exception:  # best-effort cleanup; never break the turn
+                db.rollback()
+            continue
+        kept.append(p)
+    proposals[turn_start:] = kept
 
 
 def _numbers_in_text(text: str | None) -> list[int]:
@@ -465,6 +515,7 @@ async def run_chat_turn(
 
         # Execute every tool the model asked for and feed results back.
         tool_result_messages: list[ChatMessage] = []
+        proposals_before_turn = len(proposals)
         for call in assistant_msg.tool_calls:
             log_entry = {"tool_use_id": call.id, "name": call.name, "input": call.input}
             tool_call_log.append(log_entry)
@@ -525,6 +576,12 @@ async def run_chat_turn(
                 cands = result.get("matches") or result.get("entities") or []
                 if cands:
                     last_candidates = cands
+
+        # One-card UX: if this turn emitted BOTH a standalone propose_create_entity
+        # AND a propose_create_transaction that already folds the same party in via
+        # new_entities, drop the standalone (the model sometimes ignores the prompt
+        # rule). The combined card creates + links the party in one Confirm.
+        _collapse_redundant_entity_proposals(db, proposals, proposals_before_turn)
 
         # Append each tool result as its own ChatMessage (the wire-format
         # adapter batches them appropriately for Anthropic / spreads them

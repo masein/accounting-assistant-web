@@ -325,6 +325,61 @@ class TestRedTeamSafety:
         assert "structuring" in result.text.lower()
 
 
+class TestEntityCardCollapse:
+    """A turn that emits BOTH a standalone propose_create_entity AND a
+    propose_create_transaction folding the same party via new_entities must
+    collapse to ONE action card (the combined transaction)."""
+
+    def test_redundant_standalone_entity_dropped(self, db: Session) -> None:
+        two_calls = LLMResponse(
+            message=ChatMessage(
+                role="assistant", text=None,
+                tool_calls=[
+                    ToolCall(id="c1", name="propose_create_entity",
+                             input={"name": "Sarah Lee", "type": "supplier"}),
+                    ToolCall(id="c2", name="propose_create_transaction", input={
+                        "date": "2026-05-20",
+                        "description": "paid Sarah Lee — freelancer",
+                        "currency": "IRR",
+                        "lines": [
+                            {"account_code": "6112", "debit": 700, "credit": 0},
+                            {"account_code": "1110", "debit": 0, "credit": 700},
+                        ],
+                        "new_entities": [{"name": "Sarah Lee", "type": "supplier", "role": "supplier"}],
+                    }),
+                ],
+            ),
+            stop_reason="tool_use", usage=LLMUsage(),
+        )
+        client = _FakeClient([two_calls, _assistant_text("Drafted the payment to Sarah Lee.")])
+        result = asyncio.run(run_chat_turn(
+            db, user_id="u1",
+            user_message="Sarah Lee is a new freelancer. I paid her 700 from the bank today.",
+            client=client,
+        ))
+        # Exactly one card — the combined transaction (entity folded in).
+        assert len(result.proposals) == 1
+        assert result.proposals[0]["tool_name"] == "propose_create_transaction"
+        assert any(ne["name"] == "Sarah Lee" for ne in result.proposals[0]["new_entities"])
+
+        # The standalone entity proposal was cancelled so it can't be confirmed.
+        ents = db.execute(
+            select(AIProposal).where(AIProposal.tool_name == "propose_create_entity")
+        ).scalars().all()
+        assert ents and all(p.status == "cancelled" for p in ents)
+
+    def test_standalone_entity_kept_when_no_transaction(self, db: Session) -> None:
+        client = _FakeClient([
+            _assistant_tool_call("propose_create_entity", {"name": "Acme Ltd", "type": "client"}),
+            _assistant_text("Proposed adding Acme Ltd as a client."),
+        ])
+        result = asyncio.run(run_chat_turn(
+            db, user_id="u1", user_message="add Acme Ltd as a client", client=client,
+        ))
+        assert len(result.proposals) == 1
+        assert result.proposals[0]["tool_name"] == "propose_create_entity"
+
+
 class TestRegistry:
     def test_default_registry_has_all_tools(self) -> None:
         reg = build_default_registry()

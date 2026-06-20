@@ -58,6 +58,52 @@ class TestCoerceAmount:
         assert coerce_amount(None) is None
         assert coerce_amount("abc") is None
 
+    def test_decimal_pence_not_inflated(self):
+        # Bug 1: a decimal point is the pence/cents separator — round to whole
+        # stored units, never multiply by 100.
+        assert coerce_amount("21.60") == 22       # cafe receipt £21.60
+        assert coerce_amount("18.86") == 19       # grocery £18.86
+        assert coerce_amount("3,600.00") == 3_600  # service invoice
+        assert coerce_amount("£21.60") == 22
+        assert coerce_amount(21.60) == 22
+        assert coerce_amount("0.49") == 0
+
+    def test_european_decimal_comma(self):
+        # "1.234.567,89" — dots are thousands, comma is the decimal.
+        assert coerce_amount("1.234.567,89") == 1_234_568
+        assert coerce_amount("1.234.567") == 1_234_567  # dots = thousands only
+
+    def test_rial_grouped_unchanged(self):
+        # Persian IRR invoice (no minor units) stays exact.
+        assert coerce_amount("3,690,720") == 3_690_720
+        assert coerce_amount("۳٬۶۹۰٬۷۲۰") == 3_690_720
+
+
+class TestNormalizeDate:
+    def test_iso_and_jalali_still_work(self):
+        assert _normalize_date("2026-06-12") == "2026-06-12"
+        # Jalali 1405/03/22 ≈ 2026-06-12 (converter validated elsewhere).
+        assert _normalize_date("1405/03/22") is not None
+
+    def test_dmy_numeric(self):
+        assert _normalize_date("14/06/2026") == "2026-06-14"   # cafe receipt
+        assert _normalize_date("18-06-2026") == "2026-06-18"
+        assert _normalize_date("18.06.2026") == "2026-06-18"
+
+    def test_ambiguous_prefers_day_first(self):
+        assert _normalize_date("06/07/2026") == "2026-07-06"   # DMY → 6 July
+        assert _normalize_date("13/05/2026") == "2026-05-13"   # 13>12 → day-first
+
+    def test_text_dates(self):
+        assert _normalize_date("18 June 2026") == "2026-06-18"  # grocery receipt
+        assert _normalize_date("18 Jun 2026") == "2026-06-18"
+        assert _normalize_date("June 18, 2026") == "2026-06-18"
+        assert _normalize_date("June 18 2026") == "2026-06-18"
+
+    def test_unparseable_returns_none(self):
+        assert _normalize_date("not a date") is None
+        assert _normalize_date("") is None
+
 
 class TestTotalLineExtraction:
     def test_targets_labelled_total_not_max_digit(self):

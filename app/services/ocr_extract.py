@@ -74,16 +74,33 @@ def coerce_amount(value: Any) -> int | None:
     s = normalize_digits(str(value)).strip()
     if not s:
         return None
-    # Keep only digits and a single decimal point; strip separators, currency
-    # words, RTL marks, etc. "۳٬۶۹۰٬۷۲۰ ریال" → "3690720".
-    s = s.replace("٬", "").replace("٫", ".")  # Arabic thousands / decimal
-    s = re.sub(r"[^\d.]", "", s)
+    # Normalize Arabic separators to ASCII, then keep only digits + , . so we
+    # can reason about which is the decimal point. "۳٬۶۹۰٬۷۲۰ ریال" → "3690720".
+    s = s.replace("٬", ",").replace("٫", ".")  # Arabic thousands / decimal
+    s = re.sub(r"[^\d.,]", "", s)
+    if not s or s in (".", ","):
+        return None
+    last_dot = s.rfind(".")
+    last_comma = s.rfind(",")
+    if last_dot >= 0 and last_comma >= 0:
+        # Both present: the LATER separator is the decimal point, the other is
+        # a thousands separator. "3,600.00" → 3600.00; "1.234.567,89" → 1234567.89.
+        if last_dot > last_comma:
+            s = s.replace(",", "")
+        else:
+            s = s.replace(".", "").replace(",", ".")
+    elif last_comma >= 0:
+        # Only commas: thousands separators in our convention. "3,690,720" →
+        # 3690720. (A lone European decimal comma is rare here and the prompt
+        # tells the model to use a period for decimals.)
+        s = s.replace(",", "")
+    else:
+        # Only dots: a single dot is a decimal point ("21.60"); several dots are
+        # thousands separators ("1.234.567" → 1234567).
+        if s.count(".") > 1:
+            s = s.replace(".", "")
     if not s or s == ".":
         return None
-    # Collapse multiple dots (keep the first as decimal).
-    if s.count(".") > 1:
-        head, _, _ = s.partition(".")
-        s = head
     try:
         n = int(round(float(s)))
     except (ValueError, OverflowError):
@@ -91,26 +108,63 @@ def coerce_amount(value: Any) -> int | None:
     return n if 0 <= n <= MAX_SANE_AMOUNT else None
 
 
+_MONTHS = {
+    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+    "aug": 8, "august": 8, "sep": 9, "sept": 9, "september": 9, "oct": 10,
+    "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
+}
+
+
 def _normalize_date(value: Any) -> str | None:
     """Normalize a model-provided date to ISO ``YYYY-MM-DD``. Accepts a
-    Gregorian ISO date, or a Jalali date (1404/10/15 — common on Iranian
-    invoices) which is converted to its Gregorian equivalent."""
+    Gregorian ISO date, a Jalali date (1404/10/15 — common on Iranian
+    invoices), common day-first numeric receipt dates (``DD/MM/YYYY``), and
+    text dates (``18 June 2026`` / ``June 18, 2026``).
+
+    Numeric ``a/b/YYYY`` is read day-first (UK/most-of-world convention) unless
+    that's impossible (a value > 12), in which case it's month-first. Returns
+    None when no date is found so the caller can fall back to today."""
     if not value:
         return None
+    from datetime import date as _date
+
     raw = normalize_digits(str(value)).strip()
-    # Already a plausible Gregorian ISO date?
-    m = re.match(r"^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$", raw)
-    if m and 1900 <= int(m.group(1)) <= 2100:
-        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+    def _iso(y: int, mo: int, d: int) -> str | None:
         try:
-            from datetime import date as _date
-            return _date(y, mo, d).isoformat()
+            return _date(y, mo, d).isoformat() if 1900 <= y <= 2100 else None
         except ValueError:
             return None
+
+    # Already a plausible Gregorian ISO date (YYYY-MM-DD).
+    m = re.match(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$", raw)
+    if m and 1900 <= int(m.group(1)) <= 2100:
+        return _iso(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
     # Jalali (year 13xx/14xx) → Gregorian.
     jalali = try_parse_jalali(raw)
     if jalali:
         return jalali.isoformat()
+
+    # Numeric day/month/year: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY (day-first).
+    m = re.match(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$", raw)
+    if m:
+        a, b, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if a > 12 and b <= 12:        # unambiguous day-first
+            return _iso(y, b, a)
+        if b > 12 and a <= 12:        # unambiguous month-first
+            return _iso(y, a, b)
+        return _iso(y, b, a)          # ambiguous → day-first (UK/intl default)
+
+    # Text dates: "18 June 2026", "18 Jun 2026", "June 18, 2026".
+    low = raw.lower()
+    m = re.match(r"^(\d{1,2})\s+([a-z]+)\.?,?\s+(\d{4})$", low)
+    if m and m.group(2) in _MONTHS:
+        return _iso(int(m.group(3)), _MONTHS[m.group(2)], int(m.group(1)))
+    m = re.match(r"^([a-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$", low)
+    if m and m.group(1) in _MONTHS:
+        return _iso(int(m.group(3)), _MONTHS[m.group(1)], int(m.group(2)))
     return None
 
 
@@ -308,20 +362,24 @@ _VISION_PROMPT = (
     "  date (string or null) — the document/invoice date EXACTLY as printed "
     "(keep Jalali like 1404/10/15 if that is what is shown)\n"
     "  currency (string) — ISO code, e.g. IRR for Rial/ریال\n"
-    "  subtotal (integer or null), tax (integer or null)\n"
-    "  total (integer or null) — the GRAND TOTAL the customer pays, i.e. the "
+    "  subtotal (number or null), tax (number or null)\n"
+    "  total (number or null) — the GRAND TOTAL the customer pays, i.e. the "
     "amount next to a label like 'جمع کل', 'مبلغ کل', 'مبلغ کل بعلاوه مالیات', "
     "'مبلغ قابل پرداخت', or 'Total'. This is usually subtotal + tax.\n"
-    "  amount (integer or null) — same as total\n"
+    "  amount (number or null) — same as total\n"
     "  line_items (array of {description, amount} or empty)\n"
     "  confidence (0..1)\n"
-    "Rules: Convert any Persian digits (۰۱۲۳۴۵۶۷۸۹) to normal digits. Report "
-    "amounts in WHOLE currency units exactly as printed — do NOT scale to "
-    "minor units (no x100 to pence/cents). Return "
-    "amounts as plain integers with NO separators (e.g. 3690720, not "
-    "3,690,720 or ۳٬۶۹۰٬۷۲۰). NEVER concatenate unrelated numbers such as "
-    "economic/tax codes, serial numbers, phone or postal codes — only report "
-    "the labelled monetary total. If you cannot find the total, return null."
+    "Rules: Convert any Persian digits (۰۱۲۳۴۵۶۷۸۹) to normal digits. For "
+    "subtotal, tax, total and amount, report the value in MAJOR currency units "
+    "(pounds, dollars, euros, rials) exactly as printed. A period '.' is a "
+    "DECIMAL point (pence/cents) — KEEP it (e.g. 21.60, 3600.00). Only commas "
+    "',' and the Arabic mark '٬' are thousands separators — remove those "
+    "(3,690,720 → 3690720). Do NOT remove the decimal point and do NOT multiply "
+    "by 100 / scale to minor units (£21.60 stays 21.60, never 2160). Iranian "
+    "Rial amounts have no minor units, so they have no decimals. NEVER "
+    "concatenate unrelated numbers such as economic/tax codes, serial numbers, "
+    "phone or postal codes — only report the labelled monetary total. If you "
+    "cannot find the total, return null."
 )
 
 

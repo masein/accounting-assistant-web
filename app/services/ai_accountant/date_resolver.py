@@ -61,8 +61,29 @@ _ABSOLUTE_RES = (
 )
 
 
+# Spelled-out small numbers → digits, so "two days ago" parses like "2 days
+# ago". English + a few Spanish forms (digits already handle fa/ar numerals).
+_NUMBER_WORDS = {
+    "a": "1", "an": "1", "one": "1", "two": "2", "three": "3", "four": "4",
+    "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+    "eleven": "11", "twelve": "12", "thirteen": "13", "fourteen": "14",
+    "fifteen": "15", "twenty": "20", "thirty": "30",
+    "un": "1", "una": "1", "dos": "2", "tres": "3", "cuatro": "4", "cinco": "5",
+    "seis": "6", "siete": "7", "ocho": "8", "nueve": "9", "diez": "10",
+    "couple": "2",
+}
+_NUMBER_WORD_RE = re.compile(
+    r"\b(" + "|".join(sorted(_NUMBER_WORDS, key=len, reverse=True)) + r")\b(?=\s+(?:days?|weeks?|d[ií]as?|روز|semanas?|weeks?))",
+    re.IGNORECASE,
+)
+
+
+def _words_to_digits(t: str) -> str:
+    return _NUMBER_WORD_RE.sub(lambda m: _NUMBER_WORDS[m.group(1).lower()], t)
+
+
 def _norm(text: str | None) -> str:
-    return (text or "").translate(_DIGIT_TABLE).lower()
+    return _words_to_digits((text or "").translate(_DIGIT_TABLE).lower())
 
 
 def has_explicit_absolute_date(message: str | None) -> bool:

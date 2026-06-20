@@ -333,4 +333,5 @@ class TestRegistry:
             "find_entity", "list_entities", "query_ledger",
             "get_account_balance", "search_accounts", "get_financial_statement",
             "get_tax_summary", "get_company_defaults", "propose_create_transaction",
+            "propose_create_entity",
         }

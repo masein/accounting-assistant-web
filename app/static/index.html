@@ -3351,6 +3351,14 @@
         aiChatAttachBadType: 'Unsupported file type. Use JPG, PNG, WEBP, or PDF.',
         aiChatAttachFailed: 'Could not upload the file.',
         aiChatProposedAction: 'Proposed action — please confirm',
+        aiWillCreateEntity: 'Will create {type}: {name}',
+        aiWillCreateBank: 'Will create bank: {name} → {verb} cash account {code}',
+        aiWillCreateAccount: 'new',
+        aiWillUseAccount: 'use',
+        entType_client: 'client',
+        entType_supplier: 'supplier',
+        entType_employee: 'employee',
+        entType_bank: 'bank',
         aiChatCancelled: '— cancelled —',
         aiChatNewStarted: 'New conversation.',
         aiUndoRecorded: 'Recorded.',
@@ -4149,6 +4157,14 @@
         aiChatAttachBadType: 'نوع فایل پشتیبانی نمی‌شود. از JPG، PNG، WEBP یا PDF استفاده کنید.',
         aiChatAttachFailed: 'بارگذاری فایل ممکن نشد.',
         aiChatProposedAction: 'اقدام پیشنهادی — لطفاً تأیید کنید',
+        aiWillCreateEntity: 'ایجاد {type}: {name}',
+        aiWillCreateBank: 'ایجاد بانک: {name} ← {verb} حساب نقدی {code}',
+        aiWillCreateAccount: 'حساب جدید',
+        aiWillUseAccount: 'استفاده از',
+        entType_client: 'مشتری',
+        entType_supplier: 'تأمین‌کننده',
+        entType_employee: 'کارمند',
+        entType_bank: 'بانک',
         aiChatCancelled: '— لغو شد —',
         aiChatNewStarted: 'گفتگوی جدید.',
         aiUndoRecorded: 'ثبت شد.',
@@ -4930,6 +4946,14 @@
         aiChatAttachBadType: 'Tipo de archivo no admitido. Usa JPG, PNG, WEBP o PDF.',
         aiChatAttachFailed: 'No se pudo subir el archivo.',
         aiChatProposedAction: 'Acción propuesta — por favor confirma',
+        aiWillCreateEntity: 'Se creará {type}: {name}',
+        aiWillCreateBank: 'Se creará banco: {name} → {verb} cuenta de caja {code}',
+        aiWillCreateAccount: 'nueva',
+        aiWillUseAccount: 'usar',
+        entType_client: 'cliente',
+        entType_supplier: 'proveedor',
+        entType_employee: 'empleado',
+        entType_bank: 'banco',
         aiChatCancelled: '— cancelado —',
         aiChatNewStarted: 'Nueva conversación.',
         aiUndoRecorded: 'Registrado.',
@@ -5711,6 +5735,14 @@
         aiChatAttachBadType: 'نوع الملف غير مدعوم. استخدم JPG أو PNG أو WEBP أو PDF.',
         aiChatAttachFailed: 'تعذّر رفع الملف.',
         aiChatProposedAction: 'إجراء مقترح — يرجى التأكيد',
+        aiWillCreateEntity: 'سيتم إنشاء {type}: {name}',
+        aiWillCreateBank: 'سيتم إنشاء بنك: {name} ← {verb} حساب نقدي {code}',
+        aiWillCreateAccount: 'حساب جديد',
+        aiWillUseAccount: 'استخدام',
+        entType_client: 'عميل',
+        entType_supplier: 'مورّد',
+        entType_employee: 'موظف',
+        entType_bank: 'بنك',
         aiChatCancelled: '— أُلغي —',
         aiChatNewStarted: 'محادثة جديدة.',
         aiUndoRecorded: 'تم التسجيل.',
@@ -13640,6 +13672,24 @@
         summary.style.cssText = 'font-size:0.82rem; line-height:1.45; white-space:pre-wrap; font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin:0 0 0.5rem 0;';
         summary.textContent = proposal.summary || '';
         card.appendChild(summary);
+
+        // New entities to be created on Confirm (localized, alongside the entry).
+        if (Array.isArray(proposal.new_entities) && proposal.new_entities.length) {
+          const box = document.createElement('div');
+          box.style.cssText = 'font-size:0.8rem; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:0.4rem 0.6rem; margin:0 0 0.5rem 0;';
+          proposal.new_entities.forEach(ne => {
+            const line = document.createElement('div');
+            const typeLabel = t('entType_' + ne.type) || ne.type;
+            if (ne.type === 'bank' && ne.account_code) {
+              const verb = ne.account_existing ? t('aiWillUseAccount') : t('aiWillCreateAccount');
+              line.textContent = '➕ ' + tf('aiWillCreateBank', { name: ne.name, verb, code: ne.account_code });
+            } else {
+              line.textContent = '➕ ' + tf('aiWillCreateEntity', { type: typeLabel, name: ne.name });
+            }
+            box.appendChild(line);
+          });
+          card.appendChild(box);
+        }
 
         const buttons = document.createElement('div');
         buttons.style.cssText = 'display:flex; gap:0.5rem; flex-wrap:wrap;';

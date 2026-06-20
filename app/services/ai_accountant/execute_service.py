@@ -167,6 +167,13 @@ def execute_proposal(
             actor_username=actor_username,
             ip_address=ip_address,
         )
+    elif proposal.tool_name == "propose_create_entity":
+        txn_id, audit_id = _execute_create_entity(
+            db, proposal,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+        )
     else:
         raise ProposalNotFound(
             f"No executor for tool {proposal.tool_name!r} — this tool's "
@@ -232,6 +239,27 @@ def _execute_create_transaction(
 
     transaction = _create_transaction_from_payload(db, payload)
     db.flush()
+
+    # Create any new entities folded into this proposal, then link them to the
+    # transaction by role. Master-data writes only happen here (post-Confirm).
+    from app.models.entity import TransactionEntity
+    from app.services.ai_accountant.entity_create import create_entity, normalize_entity_type
+    created_entities: list[dict[str, str]] = []
+    for ne in payload_dict.get("new_entities", []) or []:
+        etype = normalize_entity_type(ne.get("type"))
+        res = create_entity(
+            db, name=ne.get("name", ""), type_=etype,
+            existing_account_code=ne.get("existing_account_code"),
+        )
+        role = (ne.get("role") or etype).strip().lower()
+        db.add(TransactionEntity(transaction_id=transaction.id, entity_id=res.entity.id, role=role))
+        created_entities.append({
+            "entity_id": str(res.entity.id), "name": res.entity.name,
+            "type": res.entity.type, "created": res.created,
+            "account_code": res.account_code,
+        })
+
+    db.flush()
     db.refresh(transaction)
     _load_transaction_with_lines(db, transaction)
 
@@ -255,6 +283,7 @@ def _execute_create_transaction(
                 "date": transaction.date.isoformat(),
                 "description": transaction.description,
                 "currency": transaction.currency,
+                "created_entities": created_entities,
                 "tool_input": payload_dict,
             },
             default=str,
@@ -265,6 +294,61 @@ def _execute_create_transaction(
     db.refresh(audit)
 
     return str(transaction.id), str(audit.id)
+
+
+def _execute_create_entity(
+    db: Session,
+    proposal: AIProposal,
+    *,
+    actor_user_id: str,
+    actor_username: str | None,
+    ip_address: str | None,
+) -> tuple[str | None, str]:
+    """Create a standalone entity (client/supplier/employee/bank) from a
+    confirmed propose_create_entity. Returns (None, audit_log_id) — there is no
+    transaction, so the windowed undo (transaction-only) doesn't apply."""
+    from app.services.ai_accountant.entity_create import EntityCreateError, create_entity
+
+    payload_dict = dict(proposal.tool_input)
+    try:
+        res = create_entity(
+            db,
+            name=payload_dict.get("name", ""),
+            type_=payload_dict.get("type", "supplier"),
+            existing_account_code=payload_dict.get("existing_account_code"),
+        )
+    except EntityCreateError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    audit = AuditLog(
+        action="create",
+        entity_type="entity",
+        entity_id=str(res.entity.id),
+        user_id=actor_user_id,
+        username=actor_username,
+        ip_address=ip_address,
+        actor_source="ai-assistant",
+        session_id=proposal.session_id,
+        tool_name=proposal.tool_name,
+        confirmation_token=proposal.confirmation_token,
+        user_message=proposal.user_message,
+        detail=json.dumps(
+            {
+                "entity_id": str(res.entity.id),
+                "name": res.entity.name,
+                "type": res.entity.type,
+                "code": res.entity.code,
+                "account_code": res.account_code,
+                "account_created": res.account_created,
+                "reused_existing": not res.created,
+            },
+            default=str,
+        ),
+    )
+    db.add(audit)
+    db.flush()
+    db.refresh(audit)
+    return None, str(audit.id)
 
 
 # ---------------------------------------------------------------------------

@@ -41,6 +41,12 @@ from app.models.entity import Entity
 
 from .base import BaseTool, ToolContext, ToolError
 from .date_resolver import resolve_entry_date
+from .entity_create import (
+    EntityCreateError,
+    _next_bank_account_code,
+    _validate_name,
+    normalize_entity_type,
+)
 
 
 PROPOSAL_TTL = timedelta(minutes=10)
@@ -144,6 +150,28 @@ class ProposedEntityLink(BaseModel):
     )
 
 
+class ProposedNewEntity(BaseModel):
+    """A party to CREATE on Confirm and link to the transaction. Use only when
+    find_entity found no match and the user clearly named a real party."""
+    name: str = Field(..., min_length=2, max_length=80,
+                      description="The party's name, e.g. 'Dan Campbell'.")
+    type: Literal["client", "supplier", "employee", "bank"] = Field(
+        ...,
+        description=(
+            "client | supplier | employee | bank. Map a contractor / freelancer "
+            "/ subcontractor / vendor to 'supplier', and a customer to 'client'."
+        ),
+    )
+    role: Literal["client", "supplier", "payee", "bank", "employee"] | None = Field(
+        None, description="Role on this transaction; defaults from type when omitted."
+    )
+    existing_account_code: str | None = Field(
+        None,
+        description="For type='bank' ONLY: link to this existing cash account code "
+                    "instead of creating a new GL bank account.",
+    )
+
+
 class ProposeCreateTransactionInput(BaseModel):
     date: _date = Field(..., description="Transaction date (ISO YYYY-MM-DD). Defaults to today if unstated.")
     description: str = Field(
@@ -176,7 +204,16 @@ class ProposeCreateTransactionInput(BaseModel):
     )
     entity_links: list[ProposedEntityLink] = Field(
         default_factory=list,
-        description="Optional links to entities (client, employee, supplier, bank, payee).",
+        description="Optional links to EXISTING entities (resolved via find_entity).",
+    )
+    new_entities: list[ProposedNewEntity] = Field(
+        default_factory=list,
+        description=(
+            "New parties to CREATE on Confirm and link to this entry. Use when "
+            "find_entity returned no usable match and the user is clearly naming "
+            "a real party (e.g. 'Dan is a contractor', 'new supplier Acme'). The "
+            "entity is created only when the user confirms — never silently."
+        ),
     )
     attachment_ids: list[str] = Field(
         default_factory=list,
@@ -295,6 +332,36 @@ class ProposeCreateTransaction(BaseTool):
                     code="entity_not_found",
                 )
 
+        # Validate and preview any new entities to be created on Confirm.
+        new_entity_previews: list[dict[str, Any]] = []
+        for ne in args.new_entities:
+            try:
+                clean = _validate_name(ne.name)
+            except EntityCreateError as e:
+                raise ToolError(str(e), code="invalid_entity_name") from e
+            etype = normalize_entity_type(ne.type)
+            preview = {
+                "name": clean, "type": etype,
+                "role": (ne.role or _default_role_for_type(etype)),
+            }
+            if etype == "bank":
+                # Preview the GL cash account the bank will use (existing or the
+                # next free code) — created for real only on Confirm.
+                if ne.existing_account_code and ctx.db.execute(
+                    select(Account.id).where(Account.code == ne.existing_account_code.strip())
+                ).first():
+                    preview["account_code"] = ne.existing_account_code.strip()
+                    preview["account_existing"] = True
+                else:
+                    from app.services.locale_service import get_reporting_locale
+                    try:
+                        preview["account_code"] = _next_bank_account_code(
+                            ctx.db, (get_reporting_locale(ctx.db) or "default"))
+                        preview["account_existing"] = False
+                    except EntityCreateError:
+                        preview["account_code"] = None
+            new_entity_previews.append(preview)
+
         # Persist the proposal. tool_input is the validated dict; we
         # serialise dates as ISO strings so JSON storage round-trips
         # losslessly.
@@ -338,6 +405,12 @@ class ProposeCreateTransaction(BaseTool):
             + "\n".join(summary_lines)
             + f"\n  Total: {total:,} {args.currency}"
         )
+        for p in new_entity_previews:
+            if p["type"] == "bank" and p.get("account_code"):
+                verb = "use" if p.get("account_existing") else "new"
+                summary += f"\n  Will create bank: {p['name']} → {verb} cash account {p['account_code']}"
+            else:
+                summary += f"\n  Will create {p['type']}: {p['name']}"
 
         # Expense-approval routing: when the proposed total exceeds the company
         # approval threshold, flag the card as needing approval. The entry still
@@ -361,6 +434,7 @@ class ProposeCreateTransaction(BaseTool):
             "confirmation_token": str(token),
             "status": "pending",
             "needs_approval": needs_approval,
+            "new_entities": new_entity_previews,
             "expires_at": expires_at,
             "summary": summary,
             "tool_name": self.name,
@@ -375,9 +449,107 @@ class ProposeCreateTransaction(BaseTool):
 
 
 # ---------------------------------------------------------------------------
+# propose_create_entity (standalone master-data create)
+# ---------------------------------------------------------------------------
+
+
+def _default_role_for_type(etype: str) -> str:
+    return {"client": "client", "supplier": "supplier", "employee": "employee",
+            "bank": "bank"}.get(etype, "supplier")
+
+
+class ProposeCreateEntityInput(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80,
+                      description="The party's name, e.g. 'Acme Ltd' or 'Dan Campbell'.")
+    type: Literal["client", "supplier", "employee", "bank"] = Field(
+        ...,
+        description=(
+            "client | supplier | employee | bank. Map contractor / freelancer / "
+            "subcontractor / vendor → 'supplier'; customer → 'client'."
+        ),
+    )
+    existing_account_code: str | None = Field(
+        None,
+        description="For type='bank' ONLY: link to this existing cash account code "
+                    "instead of creating a new GL bank account.",
+    )
+
+
+class ProposeCreateEntity(BaseTool):
+    name = "propose_create_entity"
+    category = "proposal"
+    description = (
+        "Register a pending NEW ENTITY (client / supplier / employee / bank) for "
+        "the user to confirm. Creating an entity is a master-data write, so it is "
+        "NOT saved until the user clicks Confirm on the action card. Use this when "
+        "find_entity found no match and the user is onboarding a real party with no "
+        "transaction (e.g. 'add Acme Ltd as a client'). To create a party AND record "
+        "a payment in one step, use propose_create_transaction's new_entities field "
+        "instead. For type='bank', a GL cash account is created (or linked) so the "
+        "bank can immediately be used as a payment source."
+    )
+    InputSchema = ProposeCreateEntityInput
+
+    async def run(self, ctx: ToolContext, args: ProposeCreateEntityInput) -> dict[str, Any]:
+        try:
+            clean = _validate_name(args.name)
+        except EntityCreateError as e:
+            raise ToolError(str(e), code="invalid_entity_name") from e
+        etype = normalize_entity_type(args.type)
+
+        preview: dict[str, Any] = {"name": clean, "type": etype,
+                                   "role": _default_role_for_type(etype)}
+        summary = f"Proposed new {etype}: {clean}"
+        if etype == "bank":
+            from app.services.locale_service import get_reporting_locale
+            if args.existing_account_code and ctx.db.execute(
+                select(Account.id).where(Account.code == args.existing_account_code.strip())
+            ).first():
+                preview["account_code"] = args.existing_account_code.strip()
+                preview["account_existing"] = True
+                summary = f"Proposed new bank: {clean} → use cash account {preview['account_code']}"
+            else:
+                try:
+                    preview["account_code"] = _next_bank_account_code(
+                        ctx.db, (get_reporting_locale(ctx.db) or "default"))
+                    preview["account_existing"] = False
+                    summary = f"Proposed new bank: {clean} → new cash account {preview['account_code']}"
+                except EntityCreateError:
+                    preview["account_code"] = None
+
+        token = uuid.uuid4()
+        payload = {"name": clean, "type": etype,
+                   "existing_account_code": args.existing_account_code}
+        proposal = AIProposal(
+            confirmation_token=token, user_id=ctx.user_id,
+            session_id=ctx.chat_session_id, tool_name=self.name,
+            tool_input=payload, user_message=ctx.user_message, status="pending",
+        )
+        ctx.db.add(proposal)
+        ctx.db.commit()
+        ctx.db.refresh(proposal)
+
+        expires_at = (datetime.now(timezone.utc) + PROPOSAL_TTL).isoformat()
+        return {
+            "confirmation_token": str(token),
+            "status": "pending",
+            "new_entities": [preview],
+            "expires_at": expires_at,
+            "summary": summary,
+            "tool_name": self.name,
+            "preview": payload,
+            "next_steps": (
+                "Show this as an action card. The entity is created only when the "
+                "user clicks Confirm. Briefly say what you proposed and end your turn."
+            ),
+        }
+
+
+# ---------------------------------------------------------------------------
 # Registry helper
 # ---------------------------------------------------------------------------
 
 
 def register_proposal_tools(registry) -> None:
     registry.register(ProposeCreateTransaction())
+    registry.register(ProposeCreateEntity())

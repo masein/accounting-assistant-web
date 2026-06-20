@@ -165,6 +165,56 @@ def test_refund_inflow_not_flipped(uk):
     assert _legs(lines)["1200"] == (75, 0)   # untouched
 
 
+# ─── customer receipt → trade debtors, not sales returns ───────────────
+
+def test_receipt_credited_to_sales_returns_steered_to_ar(uk):
+    # Model wrongly credits 4100 Sales returns on a customer receipt.
+    lines = _propose(
+        uk, "Received 800 from client Acme Group into the bank for invoice INV-9",
+        [{"account_code": "1200", "debit": 800, "credit": 0},
+         {"account_code": "4100", "debit": 0, "credit": 800}],
+    )
+    legs = _legs(lines)
+    assert legs["1200"] == (800, 0)        # bank debited (money in) — unchanged
+    assert "1100" in legs                   # steered to trade debtors (AR)
+    assert legs["1100"] == (0, 800)
+    assert "4100" not in legs               # sales returns no longer used
+
+
+def test_receipt_already_to_ar_unchanged(uk):
+    lines = _propose(
+        uk, "received 800 from client Acme into the bank for invoice INV-9",
+        [{"account_code": "1200", "debit": 800, "credit": 0},
+         {"account_code": "1100", "debit": 0, "credit": 800}],
+    )
+    legs = _legs(lines)
+    assert legs["1100"] == (0, 800) and legs["1200"] == (800, 0)
+
+
+def test_customer_refund_keeps_sales_returns(uk):
+    # A genuine refund DEBITS sales returns (money out) — must NOT be steered.
+    lines = _propose(
+        uk, "refunded client Acme 50 from the bank for a returned item",
+        [{"account_code": "4100", "debit": 50, "credit": 0},
+         {"account_code": "1200", "debit": 0, "credit": 50}],
+    )
+    legs = _legs(lines)
+    assert legs["4100"] == (50, 0)          # sales returns still used (debited)
+    assert legs["1200"] == (0, 50)
+
+
+def test_iran_receipt_to_revenue_unchanged(ir):
+    # Iran has no distinct sales-returns account (maps to revenue 4110) — leave it.
+    lines = _propose(
+        ir, "received 800 from client Acme into the bank for invoice INV-9",
+        [{"account_code": "1110", "debit": 800, "credit": 0},
+         {"account_code": "4110", "debit": 0, "credit": 800}],
+        currency="IRR",
+    )
+    legs = _legs(lines)
+    assert legs["4110"] == (0, 800) and legs["1110"] == (800, 0)
+
+
 # ─── spelled-out relative dates ────────────────────────────────────────
 
 def test_number_word_relative_dates():

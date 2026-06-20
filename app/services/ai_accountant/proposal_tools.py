@@ -160,6 +160,50 @@ def _guard_direction(ctx: ToolContext, args) -> None:
         )
 
 
+# A customer-receipt cue: money came in from a client/on an invoice.
+_CUSTOMER_RECEIPT_TERMS = (
+    "from client", "from a client", "from customer", "from a customer",
+    "client paid", "customer paid", "paid us", "paid me", "for invoice",
+    "on invoice", "invoice payment", "received from",
+)
+
+
+def _guard_receipt_account(ctx: ToolContext, args) -> None:
+    """A customer RECEIPT must clear trade debtors (AR), not be credited to
+    'sales returns' (a contra-revenue account for refunds). When the message is
+    a customer receipt and a line CREDITS the sales-returns account, re-point
+    that credit to trade debtors. A genuine refund DEBITS sales returns, so it
+    is never touched. Skipped where the locale has no distinct returns account."""
+    msg = (ctx.user_message or "").lower()
+    if not msg:
+        return
+    inflow = any(term in msg for term in _INFLOW_TERMS)
+    customer = any(term in msg for term in _CUSTOMER_RECEIPT_TERMS)
+    if not inflow or not customer:
+        return
+    try:
+        from app.services.account_resolver import resolve_account_code
+        returns_code = resolve_account_code(ctx.db, "sales_returns")
+        revenue_code = resolve_account_code(ctx.db, "revenue")
+        ar_code = resolve_account_code(ctx.db, "ar")
+    except Exception:
+        return
+    # If 'sales returns' isn't a distinct contra account (e.g. Iran maps it to
+    # revenue), crediting it on a receipt is acceptable — nothing to steer.
+    if returns_code == revenue_code:
+        return
+    steered = False
+    for ln in args.lines:
+        if ln.credit > 0 and ln.account_code == returns_code:
+            ln.account_code = ar_code   # clear the receivable instead
+            steered = True
+    if steered:
+        logger.info(
+            "ai-accountant: steered a customer receipt off sales-returns (%s) "
+            "to trade debtors (%s).", returns_code, ar_code
+        )
+
+
 # ---------------------------------------------------------------------------
 # propose_create_transaction
 # ---------------------------------------------------------------------------
@@ -351,6 +395,14 @@ class ProposeCreateTransaction(BaseTool):
                 code="period_locked",
             )
 
+        # Direction / account guards run BEFORE validation so any corrected
+        # account code is validated and included in the summary lookup.
+        #  - a payment ("I paid …") must CREDIT cash, never debit it; flip a
+        #    wholesale-reversed entry (the supplier-payment bug).
+        #  - a customer receipt must clear trade debtors, not sales returns.
+        _guard_direction(ctx, args)
+        _guard_receipt_account(ctx, args)
+
         # Resolve and validate every account code referenced in the lines.
         codes = [ln.account_code for ln in args.lines]
         existing = ctx.db.execute(
@@ -364,11 +416,6 @@ class ProposeCreateTransaction(BaseTool):
                 f"Call query_ledger or get_account_balance to discover the right code.",
                 code="account_not_found",
             )
-
-        # Direction guard: a payment ("I paid …") must CREDIT cash, never debit
-        # it. Catch a wholesale-reversed entry (the supplier-payment bug) before
-        # it reaches Confirm and flip it so the bank is credited.
-        _guard_direction(ctx, args)
 
         # Resolve entity links.
         if args.entity_links:

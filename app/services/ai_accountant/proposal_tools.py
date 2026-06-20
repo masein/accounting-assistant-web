@@ -27,6 +27,7 @@ Currently implemented:
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date as _date, datetime, timedelta, timezone
 from typing import Any, Literal
@@ -48,6 +49,8 @@ from .entity_create import (
     normalize_entity_type,
 )
 
+
+logger = logging.getLogger(__name__)
 
 PROPOSAL_TTL = timedelta(minutes=10)
 
@@ -103,6 +106,58 @@ def _guard_amount(ctx: ToolContext, proposed_total: int) -> None:
         f"correct amount with the user, or use the document's labelled total.",
         code="amount_mismatch",
     )
+
+
+# Money-out / money-in cues for the direction guard. An outflow that wrongly
+# debits the cash/bank account (a receipt) is the bug we correct.
+_OUTFLOW_TERMS = ("paid", "pay ", "paying", "spent", "spend", "withdrew", "withdrawn",
+                  "i pay", "we pay", "settle", "settled")
+_INFLOW_TERMS = ("received", "receive", "refund", "deposit", "deposited", "paid us",
+                 "paid me", "paid into", "into the bank", "into our", "from a client",
+                 "from client", "from a customer", "from customer", "reimbursed us",
+                 "credited to")
+
+
+def _cash_predicate_for(ctx: ToolContext):
+    from app.services.cash_service import cash_account_predicate
+    from app.services.locale_service import get_reporting_locale
+    base = cash_account_predicate(get_reporting_locale(ctx.db))
+    bank_code = None
+    try:
+        from app.services.account_resolver import resolve_account_code
+        bank_code = resolve_account_code(ctx.db, "bank")
+    except Exception:
+        pass
+    return lambda c: bool(base(c or "")) or (bank_code is not None and c == bank_code)
+
+
+def _guard_direction(ctx: ToolContext, args) -> None:
+    """Stop a reversed cash entry reaching Confirm. When the user clearly
+    describes money LEAVING ("I paid …", "paid from the bank") but the proposed
+    entry DEBITS the cash/bank account (the direction of a receipt), the whole
+    entry was reversed — flip every line so the bank is credited (cash out).
+    A supplier/contractor payee must not invert this. Inflows are left alone."""
+    msg = (ctx.user_message or "").lower()
+    if not msg:
+        return
+    outflow = any(term in msg for term in _OUTFLOW_TERMS)
+    inflow = any(term in msg for term in _INFLOW_TERMS)
+    if not outflow or inflow:
+        return  # not an unambiguous payment
+
+    is_cash = _cash_predicate_for(ctx)
+    cash_lines = [ln for ln in args.lines if is_cash(ln.account_code)]
+    if not cash_lines:
+        return
+    # A genuine payment credits cash. If every cash leg is DEBITED (and none
+    # credited) the entry is reversed — flip all lines (keeps it balanced).
+    if all(ln.debit > 0 for ln in cash_lines) and not any(ln.credit > 0 for ln in cash_lines):
+        for ln in args.lines:
+            ln.debit, ln.credit = ln.credit, ln.debit
+        logger.info(
+            "ai-accountant: auto-corrected reversed payment direction "
+            "(message indicated outflow but cash was debited)."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +364,11 @@ class ProposeCreateTransaction(BaseTool):
                 f"Call query_ledger or get_account_balance to discover the right code.",
                 code="account_not_found",
             )
+
+        # Direction guard: a payment ("I paid …") must CREDIT cash, never debit
+        # it. Catch a wholesale-reversed entry (the supplier-payment bug) before
+        # it reaches Confirm and flip it so the bank is credited.
+        _guard_direction(ctx, args)
 
         # Resolve entity links.
         if args.entity_links:

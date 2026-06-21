@@ -100,7 +100,7 @@ Worked example — "Record a 300 GBP office-supplies expense paid from cash toda
 # Debit/credit direction — NON-NEGOTIABLE, never let a name flip it
 
 Money OUT (the user PAYS someone — "I paid X", "paid from the bank/cash", "spent"): **CREDIT the cash/bank account** and **DEBIT the expense** (or trade-creditors/AP if settling an existing bill). Money IN (the user RECEIVES — "received from X", "X paid us", "deposited"): **DEBIT the cash/bank account** and CREDIT revenue/AR. This is fixed by the direction of the money, NOT by who the other party is. A supplier, contractor, employee or any payee on a payment does NOT invert it — paying a supplier still CREDITS the bank.
-Worked example — "I paid Dan (a supplier/contractor) 500 GBP from the bank": lines [Dr 5000 Purchases 500, Cr 1200 Bank 500] — bank CREDITED. (If clearing an open bill instead: Dr 2100 Trade creditors 500 / Cr 1200 Bank 500.) NEVER Dr bank / Cr expense for a payment — that is a receipt, the opposite of what happened.
+Worked example — "I paid Dan (a supplier/contractor) 500 GBP from the bank": lines [Dr 5000 Purchases 500, Cr 1200 Bank 500] — bank CREDITED. NEVER Dr bank / Cr expense for a payment — that is a receipt, the opposite of what happened. Debit **trade creditors (2100)** ONLY when settling an EXISTING open bill/payable for that supplier; for a direct service payment to a NEW supplier with no prior bill, debit the relevant **expense** (e.g. 7800 Professional fees for a contractor/consultant, 5000 Purchases) — debiting trade creditors with no payable just leaves a debit balance on AP.
 
 Which account on the OTHER side of cash:
 * **Customer receipt** (money in from a client — "received from X", "X paid us", payment "for invoice …"): credit **trade debtors / accounts receivable** to clear the receivable — ``search_accounts("trade debtors")`` (UK 1100). If there was no prior invoice and you're recognising new income, credit **sales/revenue** (4000) instead. NEVER credit **sales returns** (a contra-revenue account, e.g. 4100) for a receipt — sales returns is ONLY for a refund/return TO a customer (money out). Worked example — "received 800 from client Acme for invoice INV-9": lines [Dr 1200 Bank 800, Cr 1100 Trade debtors 800].
@@ -184,15 +184,25 @@ def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int,
     only ever be referenced by name here: ``entity_links`` require an existing
     UUID, so a brand-new party never appears there.
 
-    Result: ONE combined action card. The standalone path survives only when the
-    turn has no transaction ("add Acme as a client")."""
+    Works across the WHOLE chat turn (all LLM turns), since the model often
+    emits the standalone create and the transaction/time action in SEPARATE
+    turns. The standalone path survives only when nothing else this turn uses
+    the party ("add Acme as a client")."""
     turn = proposals[turn_start:]
     if len(turn) < 2:
         return
 
+    # Proposals that already CREATE/link the party themselves (so a separate
+    # propose_create_entity for the same party is redundant). A transaction also
+    # gets the party folded into its new_entities; the time tools bundle creation.
+    _ABSORB = {
+        "propose_create_transaction", "propose_log_time",
+        "propose_create_invoice_from_time",
+    }
+    absorbers = [p for p in turn if p.get("tool_name") in _ABSORB]
     txns = [p for p in turn if p.get("tool_name") == "propose_create_transaction"]
     entities = [p for p in turn if p.get("tool_name") == "propose_create_entity"]
-    if not txns or not entities:
+    if not absorbers or not entities:
         return
 
     from uuid import UUID
@@ -203,14 +213,22 @@ def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int,
         nes = ent.get("new_entities") or []
         return nes[0] if nes else None
 
-    def _txn_references(txn: dict, name: str) -> bool:
+    def _references(absorber: dict, name: str) -> bool:
+        """Does this absorber create/link/name the party? Checks its
+        new_entities, named preview fields (worker/client/project), and a
+        substring of its description."""
         name_l = name.strip().lower()
         if not name_l:
             return False
-        preview = txn.get("preview") or {}
-        for ne in preview.get("new_entities") or []:
+        preview = absorber.get("preview") or {}
+        for ne in (preview.get("new_entities") or []) + (absorber.get("new_entities") or []):
             if (ne.get("name") or "").strip().lower() == name_l:
                 return True
+        for k in ("employee_name", "client_name", "project_name", "name"):
+            if str(preview.get(k) or "").strip().lower() == name_l:
+                return True
+        if str(absorber.get("new_project") or "").strip().lower() == name_l:
+            return True
         return name_l in (preview.get("description") or "").lower()
 
     def _cancel(token: str) -> None:
@@ -281,10 +299,13 @@ def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int,
         party = _party(ent)
         if not party or not party.get("name"):
             continue
-        match = next((t for t in txns if _txn_references(t, party["name"])), None)
-        if match is None:
-            continue  # no transaction references this party — keep standalone
-        _fold_into(match, party)
+        if not any(_references(a, party["name"]) for a in absorbers):
+            continue  # nothing else this turn uses the party — keep standalone
+        # If a transaction references it, fold the party in so Confirm creates +
+        # LINKS it (time tools already bundle creation, so no fold needed there).
+        txn_match = next((t for t in txns if _references(t, party["name"])), None)
+        if txn_match is not None:
+            _fold_into(txn_match, party)
         _cancel(ent.get("confirmation_token"))
         dropped.add(id(ent))
 
@@ -581,6 +602,10 @@ async def run_chat_turn(
 
         if stop_reason == "end_turn" or not assistant_msg.tool_calls:
             final_text = assistant_msg.text or ""
+            # Final one-card pass over EVERY proposal raised this chat turn (the
+            # standalone create and the transaction/time action are often in
+            # different LLM turns), so a redundant standalone create is dropped.
+            _collapse_redundant_entity_proposals(db, proposals, 0, user_message)
             return ChatResult(
                 session_id=session_uuid_str,
                 text=final_text,

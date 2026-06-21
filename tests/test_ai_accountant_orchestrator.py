@@ -368,6 +368,54 @@ class TestEntityCardCollapse:
         ).scalars().all()
         assert ents and all(p.status == "cancelled" for p in ents)
 
+    def test_collapse_when_party_only_in_description(self, db: Session) -> None:
+        # The live case: the model does NOT use new_entities — it calls
+        # propose_create_entity for Tom AND a transaction that names Tom only in
+        # the description. Must still collapse to one card and fold Tom in.
+        two_calls = LLMResponse(
+            message=ChatMessage(
+                role="assistant", text=None,
+                tool_calls=[
+                    ToolCall(id="c1", name="propose_create_entity",
+                             input={"name": "Tom Baker", "type": "supplier"}),
+                    ToolCall(id="c2", name="propose_create_transaction", input={
+                        "date": "2026-05-20",
+                        "description": "Paid Tom Baker for photography",
+                        "currency": "IRR",
+                        "lines": [
+                            {"account_code": "6112", "debit": 650, "credit": 0},
+                            {"account_code": "1110", "debit": 0, "credit": 650},
+                        ],
+                    }),
+                ],
+            ),
+            stop_reason="tool_use", usage=LLMUsage(),
+        )
+        client = _FakeClient([two_calls, _assistant_text("Drafted the payment to Tom Baker.")])
+        result = asyncio.run(run_chat_turn(
+            db, user_id="u1",
+            user_message="Tom Baker is a new freelancer. I paid him 650 from the bank today for photography.",
+            client=client,
+        ))
+        # One card: the transaction, with Tom folded into new_entities.
+        assert len(result.proposals) == 1
+        tp = result.proposals[0]
+        assert tp["tool_name"] == "propose_create_transaction"
+        assert any(ne["name"] == "Tom Baker" for ne in tp["new_entities"])
+        assert "Will create supplier: Tom Baker" in tp["summary"]
+
+        # Persisted so Confirm creates + links Tom.
+        from app.models.ai_accountant import AIProposal as _AIP
+        txn_row = db.execute(
+            select(_AIP).where(_AIP.confirmation_token == uuid.UUID(tp["confirmation_token"]))
+        ).scalar_one()
+        assert any(ne["name"] == "Tom Baker" for ne in txn_row.tool_input["new_entities"])
+        # Standalone cancelled.
+        ents = db.execute(
+            select(_AIP).where(_AIP.tool_name == "propose_create_entity")
+        ).scalars().all()
+        assert ents and all(p.status == "cancelled" for p in ents)
+
     def test_standalone_entity_kept_when_no_transaction(self, db: Session) -> None:
         client = _FakeClient([
             _assistant_tool_call("propose_create_entity", {"name": "Acme Ltd", "type": "client"}),

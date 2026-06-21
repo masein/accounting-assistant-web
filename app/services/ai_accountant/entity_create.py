@@ -54,6 +54,64 @@ def normalize_entity_type(raw: str | None) -> str:
     return t if t in _VALID_TYPES else "supplier"
 
 
+# A freelancer/contractor/consultant you PAY for services is a supplier (AP),
+# never an employee. Employees are payroll staff paid wages/salary. These cues
+# make the type deterministic regardless of which the (non-deterministic) model
+# picked.
+_SUPPLIER_CUES = (
+    "freelancer", "freelance", "contractor", "subcontractor", "sub-contractor",
+    "consultant", "consultancy", "self-employed", "self employed", "sole trader",
+    "on a contract", "on contract", "contract basis", "for a project",
+    "their invoice", "invoiced us", "professional fees",
+)
+_EMPLOYEE_CUES = (
+    "employee", "on payroll", "onto payroll", "on the payroll", "payroll",
+    "salary", "salaried", "wages", "paye", "national insurance", "new hire",
+    "hired onto", "member of staff", "staff member",
+)
+
+
+def classify_entity_type(proposed_type: str | None, *, text: str = "",
+                         staff_cost: bool | None = None) -> str:
+    """Deterministically decide an entity's type, overriding the model's pick.
+
+    * Any freelancer/contractor/consultant/etc. language → ``supplier``.
+    * ``employee`` only survives on genuine employment language; an ``employee``
+      pick on a non-staff-cost posting (``staff_cost is False`` — e.g. the entry
+      debits Professional fees, not wages) is a misclassification → ``supplier``.
+    """
+    t = normalize_entity_type(proposed_type)
+    low = (text or "").lower()
+    if any(cue in low for cue in _SUPPLIER_CUES):
+        return "supplier"
+    if t == "employee":
+        if any(cue in low for cue in _EMPLOYEE_CUES):
+            return "employee"
+        if staff_cost is False:
+            return "supplier"
+    return t
+
+
+def is_staff_cost_code(db, code: str | None) -> bool:
+    """True when ``code`` is a staff-cost / wages account — what a genuine
+    employee payment debits (UK 70xx/71xx; the locale wages_expense elsewhere)."""
+    from app.services.locale_service import get_reporting_locale
+    c = (code or "").strip()
+    if not c:
+        return False
+    if (get_reporting_locale(db) or "").strip().lower() == "uk":
+        return c.startswith(("70", "71"))
+    try:
+        from app.services.account_resolver import resolve_account_code
+        return c == resolve_account_code(db, "wages_expense")
+    except Exception:
+        return False
+
+
+def any_staff_cost(db, codes) -> bool:
+    return any(is_staff_cost_code(db, c) for c in (codes or []))
+
+
 def _validate_name(name: str) -> str:
     name = re.sub(r"\s+", " ", (name or "").strip())
     low = name.lower()

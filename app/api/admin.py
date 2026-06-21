@@ -41,6 +41,7 @@ from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.recurring import RecurringRule
 from app.models.tax_rate import TaxRate
+from app.models.time_billing import BillingRateOverride, Project, TimeEntry
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
 from app.models.transaction_fee import PaymentMethod, TransactionFee, TransactionFeeApplication
 from app.models.trial_balance import TrialBalance, TrialBalanceLine
@@ -312,6 +313,10 @@ def reset_db(
         db.execute(delete(PurchaseOrder))
         # Mileage claims FK entities + transactions (SET NULL); wipe before them.
         db.execute(delete(MileageClaim))
+        # Time billing: entries → overrides → projects, all FK entities/invoices.
+        db.execute(delete(TimeEntry))
+        db.execute(delete(BillingRateOverride))
+        db.execute(delete(Project))
         db.execute(delete(TransactionEntity))
         db.execute(delete(TransactionAttachment))
         db.execute(delete(TransactionLine))

@@ -48,6 +48,7 @@ from .llm_protocol import ChatMessage, LLMClient, LLMClientError, ToolCall
 from .openai_client import OpenAILLMClient
 from .proposal_tools import register_proposal_tools
 from .read_tools import register_read_tools
+from .time_tools import register_time_tools
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,10 @@ Worked example — "I paid Dan (a supplier/contractor) 500 GBP from the bank": l
 Which account on the OTHER side of cash:
 * **Customer receipt** (money in from a client — "received from X", "X paid us", payment "for invoice …"): credit **trade debtors / accounts receivable** to clear the receivable — ``search_accounts("trade debtors")`` (UK 1100). If there was no prior invoice and you're recognising new income, credit **sales/revenue** (4000) instead. NEVER credit **sales returns** (a contra-revenue account, e.g. 4100) for a receipt — sales returns is ONLY for a refund/return TO a customer (money out). Worked example — "received 800 from client Acme for invoice INV-9": lines [Dr 1200 Bank 800, Cr 1100 Trade debtors 800].
 * **Supplier payment**: debit the expense (or trade creditors 2100 to clear a bill), as above.
+
+# Time tracking & billing clients for hours
+
+For "log/record N hours for <person> on <client>[/<project>]", call ``propose_log_time`` — it resolves the worker, client and project by name, creates any that are new in the SAME card, resolves the billable rate, and handles relative dates. For "set <person>'s (billable) rate to X [for <client>/<project>]", call ``propose_set_billable_rate``. For "start a project called X for <client>", ``propose_create_project``. For "how many unbilled hours for <client>?", ``list_unbilled_time`` / ``get_time_summary``. For "invoice/bill <client> for [this month's / the <project>] hours", call ``propose_create_invoice_from_time`` — it aggregates UNBILLED time into a draft invoice (grouped by project then employee) and shows the exact entries/hours/value, subtotal, VAT and total before Confirm. Never invoice already-invoiced time. If a client's unbilled time spans multiple currencies the tool errors — invoice each currency separately or ask.
 
 # Financial statements — use the deterministic tool, never hand-sum
 
@@ -325,6 +330,7 @@ def build_default_registry() -> ToolRegistry:
     reg = ToolRegistry()
     register_read_tools(reg)
     register_proposal_tools(reg)
+    register_time_tools(reg)
     return reg
 
 

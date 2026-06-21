@@ -46,6 +46,8 @@ from .entity_create import (
     EntityCreateError,
     _next_bank_account_code,
     _validate_name,
+    any_staff_cost,
+    classify_entity_type,
     normalize_entity_type,
 )
 
@@ -439,14 +441,21 @@ class ProposeCreateTransaction(BaseTool):
                     code="entity_not_found",
                 )
 
-        # Validate and preview any new entities to be created on Confirm.
+        # Validate and preview any new entities to be created on Confirm. The
+        # type is decided DETERMINISTICALLY (a freelancer/contractor is a
+        # supplier, not an employee), overriding the model's non-deterministic
+        # pick, using the message + description + whether the entry debits a
+        # staff-cost account.
+        debit_codes = [ln.account_code for ln in args.lines if ln.debit > 0]
+        staff_cost = any_staff_cost(ctx.db, debit_codes) if debit_codes else None
+        classify_text = f"{ctx.user_message or ''} {args.description or ''}"
         new_entity_previews: list[dict[str, Any]] = []
         for ne in args.new_entities:
             try:
                 clean = _validate_name(ne.name)
             except EntityCreateError as e:
                 raise ToolError(str(e), code="invalid_entity_name") from e
-            etype = normalize_entity_type(ne.type)
+            etype = classify_entity_type(ne.type, text=classify_text, staff_cost=staff_cost)
             preview = {
                 "name": clean, "type": etype,
                 "role": (ne.role or _default_role_for_type(etype)),
@@ -474,6 +483,12 @@ class ProposeCreateTransaction(BaseTool):
         # losslessly.
         token = uuid.uuid4()
         payload = args.model_dump(mode="json")  # dates → ISO strings
+        # Persist the deterministically-classified types (and the resolved role)
+        # so Confirm creates each party with the corrected type, not the model's.
+        for i, prev in enumerate(new_entity_previews):
+            if i < len(payload.get("new_entities", [])):
+                payload["new_entities"][i]["type"] = prev["type"]
+                payload["new_entities"][i]["role"] = prev["role"]
 
         # Always link any attachments uploaded with this chat turn, merging
         # them with whatever the model put in attachment_ids. This makes the
@@ -602,7 +617,9 @@ class ProposeCreateEntity(BaseTool):
             clean = _validate_name(args.name)
         except EntityCreateError as e:
             raise ToolError(str(e), code="invalid_entity_name") from e
-        etype = normalize_entity_type(args.type)
+        # Deterministic type: a freelancer/contractor named in the message is a
+        # supplier even if the model said "employee".
+        etype = classify_entity_type(args.type, text=(ctx.user_message or ""))
 
         preview: dict[str, Any] = {"name": clean, "type": etype,
                                    "role": _default_role_for_type(etype)}

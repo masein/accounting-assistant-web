@@ -80,7 +80,7 @@ You have a fixed catalogue of tools. You cannot write to the books directly; eve
 After a single ``find_entity`` call for a name, pick exactly one path:
 * **Strong match** — top candidate confidence ≥ 0.80, or it's the only candidate: use it. Don't search again.
 * **Several plausible matches** — list the top 2–3 by name and ask the user which one, then STOP and wait. Do not call find_entity/list_entities again.
-* **No match, but the user is clearly naming a real party** (best < 0.50 AND they describe who it is or call them a new client/supplier/contractor/employee/bank — e.g. "Dan is a contractor", "new supplier Acme"): **propose creating the entity** instead of dropping the link. If there's also a transaction, fold it into ``propose_create_transaction`` via ``new_entities: [{name, type, role}]`` so ONE confirm card both creates the party and posts the entry linked to them — do NOT also call ``propose_create_entity`` in that turn (that produces two separate cards). Use ``propose_create_entity`` ONLY when the user is onboarding a party with no transaction ("add Acme as a client"). Map contractor / freelancer / subcontractor / vendor → ``supplier``, customer → ``client``. For a bank, the confirm step also creates/links its GL cash account so it's usable as a payment source. Never create an entity without the user's Confirm.
+* **No match, but the user is clearly naming a real party** (best < 0.50 AND they describe who it is or call them a new client/supplier/contractor/employee/bank — e.g. "Dan is a contractor", "new supplier Acme"): **propose creating the entity** instead of dropping the link. If there's also a transaction, fold it into ``propose_create_transaction`` via ``new_entities: [{name, type, role}]`` so ONE confirm card both creates the party and posts the entry linked to them — do NOT also call ``propose_create_entity`` in that turn (that produces two separate cards). Use ``propose_create_entity`` ONLY when the user is onboarding a party with no transaction ("add Acme as a client"). A freelancer / contractor / consultant / subcontractor / self-employed person you PAY for services is a **supplier** (accounts payable), NEVER an **employee** — employees are payroll staff paid wages/salary. Example — "Nina is a new freelancer, I paid her 650 for photography" → create **supplier** Nina, ``DR 7800 Professional fees 650 / CR 1200 Bank 650``. Map contractor / freelancer / subcontractor / vendor → ``supplier``, customer → ``client``. For a bank, the confirm step also creates/links its GL cash account so it's usable as a payment source. Never create an entity without the user's Confirm.
 * **No usable match and the user doesn't want an entity** (they said "no supplier / nobody", or it's a vague mention you can't pin to a real party): entity links are OPTIONAL — ``propose_create_transaction`` with an EMPTY ``entity_links`` list and mention you couldn't match the name.
 
 Never burn the whole turn budget re-listing entities. A missing entity is fine; a dead-end with no proposal is not.
@@ -169,7 +169,8 @@ def _status(lang: str, key: str) -> str:
     return pack.get(key) or _STATUS_STRINGS["en"][key]
 
 
-def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int) -> None:
+def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int,
+                                         user_message: str | None = None) -> None:
     """One-card UX, model-agnostic. If a single turn emits BOTH a standalone
     ``propose_create_entity`` for party X AND a ``propose_create_transaction``
     that references X — whether X is in the transaction's ``new_entities`` or
@@ -220,8 +221,17 @@ def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int) -
 
     def _fold_into(txn: dict, party: dict) -> None:
         """Add the party to the transaction's persisted new_entities + card so
-        Confirm creates and links it. Idempotent by name."""
+        Confirm creates and links it. Idempotent by name. The folded type is
+        re-derived deterministically from the transaction context (a freelancer/
+        contractor paid for services is a supplier, not an employee)."""
         name_l = (party.get("name") or "").strip().lower()
+        preview = txn.get("preview") or {}
+        from app.services.ai_accountant.entity_create import any_staff_cost, classify_entity_type
+        debit_codes = [ln.get("account_code") for ln in (preview.get("lines") or []) if ln.get("debit")]
+        staff = any_staff_cost(db, debit_codes) if debit_codes else None
+        text = f"{user_message or ''} {preview.get('description') or ''}"
+        ptype = classify_entity_type(party.get("type"), text=text, staff_cost=staff)
+        party = {**party, "type": ptype, "role": party.get("role") or ptype}
         try:
             row = db.execute(
                 select(AIProposal).where(
@@ -237,8 +247,8 @@ def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int) -
                 # the execute path allocates a new GL bank account on Confirm.
                 existing_code = party.get("account_code") if party.get("account_existing") else None
                 ne_list.append({
-                    "name": party.get("name"), "type": party.get("type"),
-                    "role": party.get("role") or party.get("type"),
+                    "name": party.get("name"), "type": ptype,
+                    "role": party.get("role"),
                     "existing_account_code": existing_code,
                 })
             tool_input["new_entities"] = ne_list
@@ -643,7 +653,7 @@ async def run_chat_turn(
         # AND a propose_create_transaction that already folds the same party in via
         # new_entities, drop the standalone (the model sometimes ignores the prompt
         # rule). The combined card creates + links the party in one Confirm.
-        _collapse_redundant_entity_proposals(db, proposals, proposals_before_turn)
+        _collapse_redundant_entity_proposals(db, proposals, proposals_before_turn, user_message)
 
         # Append each tool result as its own ChatMessage (the wire-format
         # adapter batches them appropriately for Anthropic / spreads them

@@ -416,6 +416,40 @@ class TestEntityCardCollapse:
         ).scalars().all()
         assert ents and all(p.status == "cancelled" for p in ents)
 
+    def test_merge_reclassifies_freelancer_as_supplier(self, db: Session) -> None:
+        # Model calls propose_create_entity(Nina, EMPLOYEE) + a transaction that
+        # names Nina in the description. The merge must fold her in as SUPPLIER.
+        two_calls = LLMResponse(
+            message=ChatMessage(
+                role="assistant", text=None,
+                tool_calls=[
+                    ToolCall(id="c1", name="propose_create_entity",
+                             input={"name": "Nina Hart", "type": "employee"}),
+                    ToolCall(id="c2", name="propose_create_transaction", input={
+                        "date": "2026-05-20",
+                        "description": "Paid Nina Hart for photography",
+                        "currency": "IRR",
+                        "lines": [
+                            {"account_code": "6112", "debit": 650, "credit": 0},
+                            {"account_code": "1110", "debit": 0, "credit": 650},
+                        ],
+                    }),
+                ],
+            ),
+            stop_reason="tool_use", usage=LLMUsage(),
+        )
+        client = _FakeClient([two_calls, _assistant_text("Drafted the payment to Nina.")])
+        result = asyncio.run(run_chat_turn(
+            db, user_id="u1",
+            user_message="Nina Hart is a new freelancer. I paid her 650 from the bank for photography.",
+            client=client,
+        ))
+        assert len(result.proposals) == 1
+        tp = result.proposals[0]
+        nina = next(ne for ne in tp["new_entities"] if ne["name"] == "Nina Hart")
+        assert nina["type"] == "supplier"
+        assert "Will create supplier: Nina Hart" in tp["summary"]
+
     def test_standalone_entity_kept_when_no_transaction(self, db: Session) -> None:
         client = _FakeClient([
             _assistant_tool_call("propose_create_entity", {"name": "Acme Ltd", "type": "client"}),

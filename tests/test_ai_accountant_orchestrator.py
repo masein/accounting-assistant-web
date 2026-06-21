@@ -450,6 +450,59 @@ class TestEntityCardCollapse:
         assert nina["type"] == "supplier"
         assert "Will create supplier: Nina Hart" in tp["summary"]
 
+    def test_collapse_across_separate_turns(self, db: Session) -> None:
+        # The #37 regression: the model emits propose_create_entity in ONE turn
+        # and propose_create_transaction (naming the party only in the
+        # description) in the NEXT turn. The returned result must still have ONE
+        # proposal, with the standalone dropped + cancelled.
+        client = _FakeClient([
+            _assistant_tool_call("propose_create_entity", {"name": "Nina Hart", "type": "supplier"}),
+            _assistant_tool_call("propose_create_transaction", {
+                "date": "2026-05-20", "description": "Paid Nina Hart for photography",
+                "currency": "IRR",
+                "lines": [
+                    {"account_code": "6112", "debit": 650, "credit": 0},
+                    {"account_code": "1110", "debit": 0, "credit": 650},
+                ],
+            }),
+            _assistant_text("Drafted the payment to Nina."),
+        ])
+        result = asyncio.run(run_chat_turn(
+            db, user_id="u1",
+            user_message="Nina Hart is a new freelancer. I paid her 650 from the bank for photography.",
+            client=client,
+        ))
+        assert len(result.proposals) == 1               # ONE card, not two
+        tp = result.proposals[0]
+        assert tp["tool_name"] == "propose_create_transaction"
+        assert any(ne["name"] == "Nina Hart" for ne in tp["new_entities"])
+        ents = db.execute(
+            select(AIProposal).where(AIProposal.tool_name == "propose_create_entity")
+        ).scalars().all()
+        assert ents and all(p.status == "cancelled" for p in ents)
+
+    def test_collapse_time_logging_across_turns(self, db: Session) -> None:
+        # Same one-card rule for time logging that creates a new worker.
+        client = _FakeClient([
+            _assistant_tool_call("propose_create_entity", {"name": "Sam", "type": "employee"}),
+            _assistant_tool_call("propose_log_time", {
+                "employee": "Sam", "client": "Acme", "project": "OTL", "hours": 3,
+                "description": "dashboard",
+            }),
+            _assistant_text("Drafted the time entry for Sam."),
+        ])
+        result = asyncio.run(run_chat_turn(
+            db, user_id="u1",
+            user_message="Log 3 hours for a new worker Sam on a new OTL project for Acme today",
+            client=client,
+        ))
+        assert len(result.proposals) == 1
+        assert result.proposals[0]["tool_name"] == "propose_log_time"
+        ents = db.execute(
+            select(AIProposal).where(AIProposal.tool_name == "propose_create_entity")
+        ).scalars().all()
+        assert ents and all(p.status == "cancelled" for p in ents)
+
     def test_standalone_entity_kept_when_no_transaction(self, db: Session) -> None:
         client = _FakeClient([
             _assistant_tool_call("propose_create_entity", {"name": "Acme Ltd", "type": "client"}),

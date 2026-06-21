@@ -777,8 +777,15 @@ def void_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead
     _reverse_txn(db, inv.transaction_id, reference=f"VOID-{inv.number}",
                  description=f"Void invoice {inv.number}")
     inv.status = "voided"
+    # Un-bill any time entries billed on this invoice so they can be re-invoiced
+    # (atomic with the reversal) — never orphan or double-bill.
+    from app.services.time_billing_service import unbill_for_invoice
+    reverted = unbill_for_invoice(db, inv.id)
+    detail = f"Invoice {inv.number} voided"
+    if reverted:
+        detail += f"; {reverted} time entr{'y' if reverted == 1 else 'ies'} returned to unbilled"
     log_audit_event(db, action="update", entity_type="invoice", entity_id=str(inv.id),
-                    detail=f"Invoice {inv.number} voided")
+                    detail=detail)
     db.commit()
     db.refresh(inv)
     return _to_read(inv)

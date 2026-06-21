@@ -41,6 +41,9 @@ class EmployeePayProfile(Base):
     pension_rate: Mapped[float] = mapped_column(Numeric(6, 4), default=0)  # pre-tax deduction
 
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
+    # Client-billing rate per hour (major currency units) — SEPARATE from the
+    # payroll cost above. Used by time-based billing; null = not billable by default.
+    billable_rate: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

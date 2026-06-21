@@ -30,6 +30,7 @@ from app.api.products import router as products_router
 from app.api.purchase_orders import router as purchase_orders_router
 from app.api.recurring import router as recurring_router
 from app.api.reports import router as reports_router
+from app.api.time_tracking import router as time_tracking_router
 from app.api.transactions import router as transactions_router
 from app.core.config import settings
 from app.core.auth import (
@@ -448,6 +449,7 @@ app.include_router(products_router)
 app.include_router(purchase_orders_router)
 app.include_router(recurring_router)
 app.include_router(reports_router)
+app.include_router(time_tracking_router)
 app.include_router(transactions_router)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"

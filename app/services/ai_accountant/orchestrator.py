@@ -170,49 +170,111 @@ def _status(lang: str, key: str) -> str:
 
 
 def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int) -> None:
-    """Within a single turn, drop a standalone propose_create_entity proposal
-    when a propose_create_transaction in the same turn already creates that same
-    party via new_entities — so the user sees ONE combined action card, not two.
-    The dropped proposal's AIProposal row is cancelled so it can't be confirmed."""
+    """One-card UX, model-agnostic. If a single turn emits BOTH a standalone
+    ``propose_create_entity`` for party X AND a ``propose_create_transaction``
+    that references X — whether X is in the transaction's ``new_entities`` or
+    just named in its description — fold X into the transaction's ``new_entities``
+    (so Confirm creates + links X) and drop the standalone create. The party can
+    only ever be referenced by name here: ``entity_links`` require an existing
+    UUID, so a brand-new party never appears there.
+
+    Result: ONE combined action card. The standalone path survives only when the
+    turn has no transaction ("add Acme as a client")."""
     turn = proposals[turn_start:]
     if len(turn) < 2:
         return
 
-    def _names(p: dict) -> set[str]:
-        return {
-            (ne.get("name") or "").strip().lower()
-            for ne in (p.get("new_entities") or []) if ne.get("name")
-        }
-
-    folded: set[str] = set()
-    for p in turn:
-        if p.get("tool_name") == "propose_create_transaction":
-            folded |= _names(p)
-    if not folded:
+    txns = [p for p in turn if p.get("tool_name") == "propose_create_transaction"]
+    entities = [p for p in turn if p.get("tool_name") == "propose_create_entity"]
+    if not txns or not entities:
         return
 
     from uuid import UUID
 
     from app.models.ai_accountant import AIProposal
 
-    kept = []
-    for p in turn:
-        if p.get("tool_name") == "propose_create_entity" and _names(p) & folded:
-            # Cancel the now-redundant standalone proposal so it never executes.
-            try:
-                row = db.execute(
-                    select(AIProposal).where(
-                        AIProposal.confirmation_token == UUID(str(p.get("confirmation_token")))
-                    )
-                ).scalar_one_or_none()
-                if row is not None and row.status == "pending":
-                    row.status = "cancelled"
-                    db.commit()
-            except Exception:  # best-effort cleanup; never break the turn
-                db.rollback()
+    def _party(ent: dict) -> dict | None:
+        nes = ent.get("new_entities") or []
+        return nes[0] if nes else None
+
+    def _txn_references(txn: dict, name: str) -> bool:
+        name_l = name.strip().lower()
+        if not name_l:
+            return False
+        preview = txn.get("preview") or {}
+        for ne in preview.get("new_entities") or []:
+            if (ne.get("name") or "").strip().lower() == name_l:
+                return True
+        return name_l in (preview.get("description") or "").lower()
+
+    def _cancel(token: str) -> None:
+        try:
+            row = db.execute(
+                select(AIProposal).where(AIProposal.confirmation_token == UUID(str(token)))
+            ).scalar_one_or_none()
+            if row is not None and row.status == "pending":
+                row.status = "cancelled"
+                db.commit()
+        except Exception:  # best-effort; never break the turn
+            db.rollback()
+
+    def _fold_into(txn: dict, party: dict) -> None:
+        """Add the party to the transaction's persisted new_entities + card so
+        Confirm creates and links it. Idempotent by name."""
+        name_l = (party.get("name") or "").strip().lower()
+        try:
+            row = db.execute(
+                select(AIProposal).where(
+                    AIProposal.confirmation_token == UUID(str(txn.get("confirmation_token")))
+                )
+            ).scalar_one_or_none()
+            if row is None or row.status != "pending":
+                return
+            tool_input = dict(row.tool_input or {})
+            ne_list = list(tool_input.get("new_entities") or [])
+            if not any((e.get("name") or "").strip().lower() == name_l for e in ne_list):
+                # Preserve an existing-account link for a bank party; otherwise
+                # the execute path allocates a new GL bank account on Confirm.
+                existing_code = party.get("account_code") if party.get("account_existing") else None
+                ne_list.append({
+                    "name": party.get("name"), "type": party.get("type"),
+                    "role": party.get("role") or party.get("type"),
+                    "existing_account_code": existing_code,
+                })
+            tool_input["new_entities"] = ne_list
+            row.tool_input = tool_input          # reassign so the JSON change persists
+            db.commit()
+        except Exception:
+            db.rollback()
+            return
+        # Update the card payload + summary shown to the user.
+        txn["preview"] = tool_input
+        card_list = list(txn.get("new_entities") or [])
+        if not any((e.get("name") or "").strip().lower() == name_l for e in card_list):
+            card_list.append(party)
+            txn["new_entities"] = card_list
+            label = party.get("type")
+            if party.get("type") == "bank" and party.get("account_code"):
+                txn["summary"] = (txn.get("summary") or "") + (
+                    f"\n  Will create bank: {party.get('name')} → new cash account {party['account_code']}"
+                )
+            else:
+                txn["summary"] = (txn.get("summary") or "") + f"\n  Will create {label}: {party.get('name')}"
+
+    dropped: set[int] = set()
+    for ent in entities:
+        party = _party(ent)
+        if not party or not party.get("name"):
             continue
-        kept.append(p)
-    proposals[turn_start:] = kept
+        match = next((t for t in txns if _txn_references(t, party["name"])), None)
+        if match is None:
+            continue  # no transaction references this party — keep standalone
+        _fold_into(match, party)
+        _cancel(ent.get("confirmation_token"))
+        dropped.add(id(ent))
+
+    if dropped:
+        proposals[turn_start:] = [p for p in turn if id(p) not in dropped]
 
 
 def _numbers_in_text(text: str | None) -> list[int]:

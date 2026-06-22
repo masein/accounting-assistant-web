@@ -2150,7 +2150,7 @@
 
     </div>
 
-    <div class="card" data-page="companies" style="display:none;">
+    <div class="card" data-page="companies">
       <h2 data-i18n="companiesTitle">Companies</h2>
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;" data-i18n="companiesSubtitle">Provision tenant companies. Each company has its own login and fully isolated books.</p>
       <div class="row" style="margin-bottom: 1rem; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
@@ -2515,7 +2515,9 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
+    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies']);
+    // The Companies console is super-admin only; gated in showPage().
+    let isSuperadmin = false;
     const rawFetch = window.fetch.bind(window);
 
     window.fetch = async (...args) => {
@@ -6495,7 +6497,10 @@
 
     function showPage(page) {
       closeAllModals();
-      const requested = validPages.has(page) ? page : 'dashboard';
+      // Companies console is super-admin only — a non-super-admin reaching it
+      // via the #companies hash falls back to the dashboard (backend also 403s).
+      const allowed = validPages.has(page) && !(page === 'companies' && !isSuperadmin);
+      const requested = allowed ? page : 'dashboard';
       document.querySelectorAll('.card[data-page]').forEach(card => {
         card.classList.toggle('active-page', card.getAttribute('data-page') === requested);
       });
@@ -7110,8 +7115,12 @@
           badge.style.display = 'none';
         }
         // Reveal the Companies console only for the super-admin/provisioner.
+        isSuperadmin = !!data.user.is_superadmin;
         const navCo = document.getElementById('nav-companies');
-        if (navCo) navCo.style.display = data.user.is_superadmin ? '' : 'none';
+        if (navCo) navCo.style.display = isSuperadmin ? '' : 'none';
+        // A super-admin who cold-loaded #companies fell back to dashboard
+        // because isSuperadmin wasn't known yet — honour the deep link now.
+        if (isSuperadmin && location.hash === '#companies') showPage('companies');
         loadUsers();
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);

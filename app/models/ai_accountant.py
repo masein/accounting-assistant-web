@@ -29,9 +29,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 _JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class AIProposal(Base):
+class AIProposal(Base, TenantMixin):
     """A pending AI-tool proposal waiting on user confirmation.
 
     Lifecycle states (``status``):
@@ -64,7 +65,7 @@ class AIProposal(Base):
     )
 
 
-class AIChatSession(Base):
+class AIChatSession(Base, TenantMixin):
     """A single AI accountant conversation. Manages turn history + session memory."""
 
     __tablename__ = "ai_chat_sessions"
@@ -85,7 +86,7 @@ class AIChatSession(Base):
     )
 
 
-class AIChatMessage(Base):
+class AIChatMessage(Base, TenantMixin):
     """One assistant / user / tool message inside an ``AIChatSession``.
 
     ``role``:  ``user``  — typed by the human

@@ -22,6 +22,9 @@ class SessionUser:
     user_id: str
     username: str
     is_admin: bool
+    company_id: str | None = None
+    is_superadmin: bool = False
+    token_version: int = 0
 
 
 def _b64url_encode(raw: bytes) -> str:
@@ -66,13 +69,24 @@ def verify_password(password: str, expected_hash: str, salt: str) -> bool:
         return False
 
 
-def create_session_token(*, user_id: str, username: str, is_admin: bool) -> str:
+def create_session_token(
+    *,
+    user_id: str,
+    username: str,
+    is_admin: bool,
+    company_id: str | None = None,
+    is_superadmin: bool = False,
+    token_version: int = 0,
+) -> str:
     now = int(time.time())
     exp = now + int(settings.auth_session_hours * 3600)
     payload = {
         "uid": user_id,
         "usr": username,
         "adm": bool(is_admin),
+        "cid": str(company_id) if company_id else None,
+        "sad": bool(is_superadmin),
+        "tv": int(token_version),
         "iat": now,
         "exp": exp,
     }
@@ -105,7 +119,15 @@ def parse_session_token(token: str | None) -> SessionUser | None:
     usr = str(payload.get("usr", "")).strip()
     if not uid or not usr:
         return None
-    return SessionUser(user_id=uid, username=usr, is_admin=bool(payload.get("adm", False)))
+    cid = payload.get("cid")
+    return SessionUser(
+        user_id=uid,
+        username=usr,
+        is_admin=bool(payload.get("adm", False)),
+        company_id=str(cid) if cid else None,
+        is_superadmin=bool(payload.get("sad", False)),
+        token_version=int(payload.get("tv", 0)),
+    )
 
 
 def get_current_user(request: Request) -> SessionUser:
@@ -119,6 +141,13 @@ def require_admin(request: Request) -> SessionUser:
     user = get_current_user(request)
     if not user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user
+
+
+def require_superadmin(request: Request) -> SessionUser:
+    user = get_current_user(request)
+    if not user.is_superadmin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super-admin access required")
     return user
 
 

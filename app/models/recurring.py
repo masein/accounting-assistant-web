@@ -8,9 +8,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class RecurringRule(Base):
+class RecurringRule(Base, TenantMixin):
     """Recurring reminder/rule for repeated payments or receipts."""
 
     __tablename__ = "recurring_rules"

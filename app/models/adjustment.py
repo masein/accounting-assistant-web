@@ -8,9 +8,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Adjustment(Base):
+class Adjustment(Base, TenantMixin):
     """A period-end adjustment: an accrual, a prepayment with an amortization
     schedule, or a fixed-asset straight-line depreciation schedule.
 

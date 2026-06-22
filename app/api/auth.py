@@ -20,6 +20,19 @@ from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+
+def _company_dict(company) -> dict | None:
+    if company is None:
+        return None
+    return {
+        "id": str(company.id),
+        "name": company.name,
+        "slug": company.slug,
+        "locale": company.locale,
+        "base_currency": company.base_currency,
+        "status": company.status,
+    }
+
 # 5 login attempts per 15 minutes per username
 _login_limiter = RateLimiter(max_requests=5, window_seconds=900)
 SUPPORTED_LANGUAGES = {"en", "fa", "es", "ar"}
@@ -49,8 +62,26 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
+    # Refuse a login whose company is suspended. Checked AFTER credential
+    # verification so it never leaks whether a username exists.
+    company = None
+    if user.company_id is not None:
+        from app.models.company import Company
+        from app.db.tenant import tenant_bypass
+        with tenant_bypass():
+            company = db.get(Company, user.company_id)
+        if company is not None and company.status != "active":
+            audit_log(db, action="login_refused", entity_type="user", entity_id=str(user.id),
+                      detail=f"Suspended company for '{username}'", ip_address=get_client_ip(request))
+            db.commit()
+            raise HTTPException(status_code=403, detail="This company account is suspended")
+
     audit_log(db, action="login", entity_type="user", entity_id=str(user.id), user_id=str(user.id), username=user.username, ip_address=get_client_ip(request))
-    token = create_session_token(user_id=str(user.id), username=user.username, is_admin=user.is_admin)
+    token = create_session_token(
+        user_id=str(user.id), username=user.username, is_admin=user.is_admin,
+        company_id=str(user.company_id) if user.company_id else None,
+        is_superadmin=user.is_superadmin, token_version=user.token_version,
+    )
     response.set_cookie(
         key=settings.auth_cookie_name,
         value=token,
@@ -66,8 +97,10 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
             "id": str(user.id),
             "username": user.username,
             "is_admin": user.is_admin,
+            "is_superadmin": user.is_superadmin,
             "preferred_language": user.preferred_language or "en",
         },
+        "company": _company_dict(company),
     }
 
 
@@ -79,16 +112,24 @@ def logout(response: Response) -> dict:
 
 @router.get("/me")
 def me(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    from app.models.company import Company
+    from app.db.tenant import tenant_bypass
     user_row = db.get(User, current.user_id)
     user_language = user_row.preferred_language if user_row and user_row.preferred_language else "en"
+    company = None
+    if current.company_id:
+        with tenant_bypass():
+            company = db.get(Company, current.company_id)
     return {
         "authenticated": True,
         "user": {
             "id": current.user_id,
             "username": current.username,
             "is_admin": current.is_admin,
+            "is_superadmin": current.is_superadmin,
             "preferred_language": user_language,
         },
+        "company": _company_dict(company),
     }
 
 

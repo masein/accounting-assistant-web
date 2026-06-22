@@ -8,9 +8,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Transaction(Base):
+class Transaction(Base, TenantMixin):
     """Journal entry header. Each transaction has one or more lines (debit/credit)."""
 
     __tablename__ = "transactions"
@@ -39,7 +40,7 @@ class Transaction(Base):
     )
 
 
-class TransactionLine(Base):
+class TransactionLine(Base, TenantMixin):
     """Single debit or credit line of a journal entry."""
 
     __tablename__ = "transaction_lines"
@@ -58,7 +59,7 @@ class TransactionLine(Base):
     account: Mapped["Account"] = relationship("Account")
 
 
-class TransactionAttachment(Base):
+class TransactionAttachment(Base, TenantMixin):
     """Uploaded receipt/invoice file that can be linked to a transaction."""
 
     __tablename__ = "transaction_attachments"

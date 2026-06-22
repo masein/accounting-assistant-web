@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
 class FeeType(str, enum.Enum):
@@ -70,7 +71,7 @@ class TransactionFee(Base):
     bank = relationship("Entity")
 
 
-class TransactionFeeApplication(Base):
+class TransactionFeeApplication(Base, TenantMixin):
     __tablename__ = "transaction_fee_applications"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

@@ -14,9 +14,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class GoodsReceipt(Base):
+class GoodsReceipt(Base, TenantMixin):
     __tablename__ = "goods_receipts"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -32,7 +33,7 @@ class GoodsReceipt(Base):
     )
 
 
-class GoodsReceiptLine(Base):
+class GoodsReceiptLine(Base, TenantMixin):
     __tablename__ = "goods_receipt_lines"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

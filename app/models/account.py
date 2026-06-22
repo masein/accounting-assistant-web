@@ -4,11 +4,12 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
 class AccountLevel(str, enum.Enum):
@@ -18,11 +19,13 @@ class AccountLevel(str, enum.Enum):
     DETAIL = "DETAIL"
 
 
-class Account(Base):
+class Account(Base, TenantMixin):
     __tablename__ = "accounts"
+    # Account codes are unique PER COMPANY — two companies can each have 1100.
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_account_company_code"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(64), index=True)
     name: Mapped[str] = mapped_column(String(512))
     level: Mapped[AccountLevel] = mapped_column(Enum(AccountLevel, name="account_level"))
     parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)

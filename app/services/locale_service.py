@@ -52,6 +52,14 @@ def set_display_calendar(db: Session, calendar: str) -> str:
 
 
 def get_reporting_locale(db: Session) -> str:
+    # In a tenant-scoped request the company's own locale wins.
+    from app.db.tenant import get_current_company
+    cid = get_current_company()
+    if cid:
+        from app.models.company import Company
+        company = db.get(Company, cid)
+        if company and (company.locale or "").strip() in SUPPORTED_LOCALES:
+            return company.locale.strip()
     row = db.execute(
         select(AppSetting).where(AppSetting.key == REPORTING_LOCALE_KEY)
     ).scalar_one_or_none()

@@ -23,9 +23,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class BankStatement(Base):
+class BankStatement(Base, TenantMixin):
     """An imported bank statement batch (one file upload = one batch)."""
 
     __tablename__ = "bank_statements"
@@ -57,7 +58,7 @@ class BankStatement(Base):
     )
 
 
-class BankStatementRow(Base):
+class BankStatementRow(Base, TenantMixin):
     """A single row extracted from a bank statement."""
 
     __tablename__ = "bank_statement_rows"

@@ -29,6 +29,14 @@ DEFAULT_REPORTING_CURRENCY = "IRR"
 
 
 def get_reporting_currency(db: Session) -> str:
+    # In a tenant-scoped request the company's own base currency wins.
+    from app.db.tenant import get_current_company
+    cid = get_current_company()
+    if cid:
+        from app.models.company import Company
+        company = db.get(Company, cid)
+        if company and (company.base_currency or "").strip():
+            return company.base_currency.strip()
     row = db.execute(
         select(AppSetting).where(AppSetting.key == REPORTING_CURRENCY_KEY)
     ).scalar_one_or_none()

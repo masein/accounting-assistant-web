@@ -13,9 +13,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class PayRun(Base):
+class PayRun(Base, TenantMixin):
     __tablename__ = "pay_runs"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -51,7 +52,7 @@ class PayRun(Base):
     )
 
 
-class PayRunLine(Base):
+class PayRunLine(Base, TenantMixin):
     """One employee's computed pay within a run. Stores the full breakdown so a
     payslip and the year-end summary can be reproduced exactly from the row."""
 

@@ -150,8 +150,12 @@ def test_ir_invoice_html_is_rtl_persian(Session):
 
 
 def test_invoice_pdf_bytes_render(Session):
-    """Exercises the real WeasyPrint path end to end."""
-    pytest.importorskip("weasyprint")
+    """Exercises the real WeasyPrint path end to end. Skips cleanly if the
+    native pango/cairo libs aren't present (e.g. a bare environment)."""
+    try:
+        import weasyprint  # noqa: F401
+    except Exception as e:  # ImportError or OSError (missing native libs)
+        pytest.skip(f"weasyprint unavailable: {e}")
     from app.services.documents import render_invoice_pdf
     db = Session()
     company = _company(db, "uk", "GBP", "pdf-co")

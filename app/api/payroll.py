@@ -412,6 +412,28 @@ def get_payslip(run_id: UUID, entity_id: UUID, db: Session = Depends(get_db)) ->
     }
 
 
+@router.get("/runs/{run_id}/payslip/{entity_id}/pdf")
+def payslip_pdf(run_id: UUID, entity_id: UUID, db: Session = Depends(get_db)):
+    """Branded payslip PDF for one employee in a pay run. Tenant-scoped → 404."""
+    from fastapi.responses import Response
+    from app.models.entity import Entity
+    from app.services.documents import render_payslip_pdf
+    run = db.get(PayRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pay run not found.")
+    line = db.execute(
+        select(PayRunLine).where(PayRunLine.run_id == run_id, PayRunLine.entity_id == entity_id)
+    ).scalars().one_or_none()
+    if not line:
+        raise HTTPException(status_code=404, detail="No payslip for this employee in this run.")
+    employee = db.get(Entity, entity_id)
+    pdf = render_payslip_pdf(db, run, line, employee)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="payslip-{(line.employee_name or "employee").replace(" ", "_")}.pdf"'},
+    )
+
+
 @router.get("/year-summary")
 def year_summary(year: int, entity_id: UUID | None = None, db: Session = Depends(get_db)) -> dict:
     """Per-employee year-to-date totals across all runs whose pay_date falls in

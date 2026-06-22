@@ -819,6 +819,26 @@ def reverse_payment(invoice_id: UUID, payment_id: UUID, db: Session = Depends(ge
     return _to_read(inv)
 
 
+@router.get("/{invoice_id}/payments/{payment_id}/receipt")
+def payment_receipt_pdf(invoice_id: UUID, payment_id: UUID, db: Session = Depends(get_db)) -> Response:
+    """Branded receipt / payment confirmation for a payment recorded against an
+    invoice. Tenant-scoped: a cross-company id 404s."""
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    payment = db.get(Payment, payment_id)
+    if not payment or payment.invoice_id != inv.id:
+        raise HTTPException(status_code=404, detail="Payment not found on this invoice")
+    party = db.get(Entity, inv.entity_id) if inv.entity_id else None
+    _, _, balance_due = _invoice_totals(db, inv)
+    from app.services.documents import render_receipt_pdf
+    pdf = render_receipt_pdf(db, payment, inv, party, balance_due)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="receipt-{str(payment.id)[:8]}.pdf"'},
+    )
+
+
 @router.post("/{invoice_id}/mark-paid", response_model=InvoiceRead)
 def mark_invoice_paid(
     invoice_id: UUID,
@@ -893,6 +913,20 @@ def invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Response:
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     party = db.get(Entity, inv.entity_id) if inv.entity_id else None
+
+    # Branded HTML→PDF engine (logo, brand colour, party cards, amount-in-words,
+    # locale-aware RTL/LTR). Falls back to the legacy reportlab layout only if the
+    # engine is unavailable in this environment.
+    try:
+        from app.services.documents import render_invoice_pdf
+        pdf = render_invoice_pdf(db, inv, party)
+        return Response(
+            content=pdf, media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="invoice-{inv.number}.pdf"'},
+        )
+    except Exception:  # pragma: no cover - defensive fallback
+        import logging
+        logging.getLogger(__name__).exception("branded invoice PDF failed; using legacy layout")
 
     amount = int(inv.amount or 0)
     issue = inv.issue_date.isoformat() if inv.issue_date else "-"

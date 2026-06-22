@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="{{ 'fa' if rtl else 'en' }}" dir="{{ dir }}">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --brand: {{ brand_color }};
+    --brand-soft: {{ brand_color }}14;
+    --brand-tint: {{ brand_color }}0d;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+  }
+  @page {
+    size: A4;
+    margin: 16mm 14mm 20mm 14mm;
+    @bottom-center {
+      content: "{{ labels.page }} " counter(page) " / " counter(pages);
+      font-family: {{ font_family }};
+      font-size: 8pt; color: #94a3b8;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: {{ font_family }};
+    color: var(--ink); font-size: 10.5pt; line-height: 1.5;
+    direction: {{ dir }}; margin: 0;
+  }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .brandblock { display: flex; gap: 12px; align-items: center; }
+  .logo { max-height: 64px; max-width: 180px; object-fit: contain; }
+  .logo-fallback {
+    width: 56px; height: 56px; border-radius: 12px; background: var(--brand);
+    color: #fff; font-weight: 700; font-size: 22pt; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .issuer-name { font-size: 15pt; font-weight: 700; color: var(--brand); }
+  .issuer-meta { font-size: 8.5pt; color: var(--muted); line-height: 1.45; }
+  .doc-title { text-align: {{ 'left' if rtl else 'right' }}; }
+  .doc-title h1 {
+    margin: 0; font-size: 26pt; font-weight: 800; letter-spacing: 1px;
+    color: var(--brand); text-transform: uppercase;
+  }
+  .doc-meta { margin-top: 6px; font-size: 9pt; color: var(--muted); }
+  .doc-meta b { color: var(--ink); font-weight: 600; }
+  .rule { height: 3px; background: var(--brand); border-radius: 3px; margin: 14px 0 16px; }
+
+  .parties { display: flex; gap: 12px; margin-bottom: 16px; }
+  .card {
+    flex: 1; background: var(--brand-tint); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  .card .label {
+    font-size: 8pt; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--brand); font-weight: 700; margin-bottom: 4px;
+  }
+  .card .pname { font-size: 12pt; font-weight: 700; }
+  .card .psecondary { font-size: 9pt; color: var(--muted); }
+  .card .pline { font-size: 8.7pt; color: #475569; }
+
+  table.items { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  table.items thead th {
+    background: var(--brand); color: #fff; font-size: 9pt; font-weight: 600;
+    padding: 8px 10px; text-align: start;
+  }
+  table.items thead th.num { text-align: end; }
+  table.items tbody td { padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 9.5pt; }
+  table.items tbody td.num { text-align: end; white-space: nowrap; }
+  table.items tbody tr.group td {
+    background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 9pt;
+  }
+  table.items tbody tr:last-child td { border-bottom: 1px solid var(--line); }
+
+  .lower { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
+  .lower .left { flex: 1.3; }
+  .totals { flex: 1; min-width: 220px; }
+  .totals .row { display: flex; justify-content: space-between; padding: 4px 2px; font-size: 9.5pt; }
+  .totals .row.sub { color: var(--muted); }
+  .payable {
+    margin-top: 8px; background: var(--brand); color: #fff; border-radius: 10px;
+    padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .payable .lbl { font-size: 9pt; text-transform: uppercase; letter-spacing: .6px; opacity: .92; }
+  .payable .val { font-size: 14pt; font-weight: 800; }
+
+  .words {
+    margin: 12px 0; background: var(--brand-tint); border: 1px dashed var(--line);
+    border-radius: 8px; padding: 8px 12px; font-size: 9.5pt;
+  }
+  .words b { color: var(--brand); }
+  .block { margin: 10px 0; font-size: 9pt; }
+  .block .h { font-weight: 700; color: var(--brand); margin-bottom: 2px; }
+  .block .body { color: #334155; white-space: pre-line; }
+
+  .signatures { display: flex; gap: 14px; margin-top: 26px; }
+  .sigbox { flex: 1; text-align: center; }
+  .sigbox .img { height: 46px; }
+  .sigbox .img img { max-height: 46px; max-width: 150px; object-fit: contain; }
+  .sigbox .ln { border-top: 1px solid #94a3b8; margin-top: 6px; padding-top: 4px;
+    font-size: 8.5pt; color: var(--muted); }
+  .footer-note { margin-top: 22px; padding-top: 8px; border-top: 1px solid var(--line);
+    font-size: 8.3pt; color: var(--muted); text-align: center; white-space: pre-line; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="brandblock">
+      {% if issuer.logo %}
+        <img class="logo" src="{{ issuer.logo }}" alt="logo">
+      {% else %}
+        <div class="logo-fallback">{{ issuer.name[:1] | upper }}</div>
+      {% endif %}
+      <div>
+        <div class="issuer-name">{{ issuer.name }}</div>
+        <div class="issuer-meta">
+          {% if issuer.address %}{{ issuer.address }}<br>{% endif %}
+          {% if issuer.tax_id %}{{ labels.tax_id }}: {{ issuer.tax_id }}{% if issuer.registration_number %} · {% endif %}{% endif %}
+          {% if issuer.registration_number %}{{ labels.reg_no }}: {{ issuer.registration_number }}{% endif %}
+          {% if issuer.phone or issuer.email or issuer.website %}<br>{% endif %}
+          {% if issuer.phone %}{{ labels.tel }}: {{ issuer.phone }} {% endif %}
+          {% if issuer.email %}· {{ issuer.email }} {% endif %}
+          {% if issuer.website %}· {{ issuer.website }}{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="doc-title">
+      <h1>{{ title }}</h1>
+      <div class="doc-meta">
+        {% for m in meta %}<div><b>{{ m.label }}:</b> {{ m.value }}</div>{% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="rule"></div>
+
+  {% if parties %}
+  <div class="parties">
+    {% for p in parties %}
+    <div class="card">
+      <div class="label">{{ p.label }}</div>
+      <div class="pname">{{ p.name or '—' }}</div>
+      {% if p.secondary %}<div class="psecondary">{{ p.secondary }}</div>{% endif %}
+      {% for line in p.lines %}{% if line %}<div class="pline">{{ line }}</div>{% endif %}{% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if columns %}
+  <table class="items">
+    <thead>
+      <tr>{% for c in columns %}<th class="{{ 'num' if c.num else '' }}">{{ c.label }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        {% if r.group %}
+          <tr class="group"><td colspan="{{ columns|length }}">{{ r.group }}</td></tr>
+        {% else %}
+          <tr>{% for cell in r.cells %}<td class="{{ 'num' if cell.num else '' }}">{{ cell.value }}</td>{% endfor %}</tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div class="lower">
+    <div class="left">
+      {% if amount_words %}
+      <div class="words"><b>{{ labels.amount_in_words }}:</b> {{ amount_words }}</div>
+      {% endif %}
+      {% if issuer.bank_details %}
+      <div class="block"><div class="h">{{ labels.how_to_pay }}</div><div class="body">{{ issuer.bank_details }}</div></div>
+      {% endif %}
+      {% if notes %}
+      <div class="block"><div class="body">{{ notes }}</div></div>
+      {% endif %}
+    </div>
+    <div class="totals">
+      {% for t in totals %}
+      <div class="row {{ 'sub' if not t.strong else '' }}">
+        <span>{{ t.label }}</span><span>{{ t.value }}</span>
+      </div>
+      {% endfor %}
+      {% if payable %}
+      <div class="payable"><span class="lbl">{{ payable.label }}</span><span class="val">{{ payable.value }}</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if signatures %}
+  <div class="signatures">
+    {% for s in signatures %}
+    <div class="sigbox">
+      <div class="img">{% if s.image %}<img src="{{ s.image }}" alt="">{% endif %}</div>
+      <div class="ln">{{ s.label }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if footer %}<div class="footer-note">{{ footer }}</div>{% endif %}
+</body>
+</html>

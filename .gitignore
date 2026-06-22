@@ -27,3 +27,4 @@ package.json
 # runtime uploads/logs
 app/uploads/
 *.log
+samples/

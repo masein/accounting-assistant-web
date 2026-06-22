@@ -677,6 +677,17 @@
         <div><label for="entity-code" data-i18n="labelCodeOptional">Code (optional)</label><input type="text" id="entity-code" data-i18n-placeholder="placeholderEntityCode" placeholder="e.g. INV-001"></div>
         <div style="display: flex; align-items: flex-end;"><button type="button" class="btn btn-primary" id="entity-add" data-i18n="btnAddEntity">Add entity</button></div>
       </div>
+      <details style="margin-bottom:0.85rem;">
+        <summary style="cursor:pointer; font-size:0.85rem; color:var(--primary);" data-i18n="entBillingDetails">Billing details (for documents) — optional</summary>
+        <div class="row" style="gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
+          <div><label data-i18n="entLegalName">Legal name</label><input type="text" id="entity-legal_name"></div>
+          <div><label data-i18n="entTaxId">Tax ID / VAT</label><input type="text" id="entity-tax_id"></div>
+          <div><label data-i18n="entEmail">Email</label><input type="text" id="entity-email"></div>
+          <div><label data-i18n="entPhone">Phone</label><input type="text" id="entity-phone"></div>
+          <div><label data-i18n="entTerms">Payment terms</label><input type="text" id="entity-payment_terms" placeholder="Net 30"></div>
+          <div style="flex:1; min-width:200px;"><label data-i18n="entAddress">Address</label><input type="text" id="entity-address" style="width:100%;"></div>
+        </div>
+      </details>
       <div class="row" style="margin-bottom: 0.75rem; gap: 0.5rem; align-items: flex-end;">
         <div>
           <label for="entity-filter-type" style="font-size:0.8rem;color:var(--text-muted);">Filter by type</label>
@@ -1877,6 +1888,38 @@
         </div>
         <button type="button" class="btn btn-secondary btn-sm" id="logout-btn" data-i18n="logout">Logout</button>
       </div>
+
+      <div style="border-top:1px solid var(--border); margin:1rem 0; padding-top:1rem;">
+        <h2 data-i18n="cpTitle" style="font-size:1.05rem;">Company profile &amp; branding</h2>
+        <p data-i18n="cpDesc" style="color:var(--text-muted); font-size:0.85rem; margin:0 0 0.75rem 0;">Your logo, brand colour and details appear on every invoice, receipt, statement, purchase order and payslip.</p>
+        <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
+          <div><label data-i18n="cpLegalName">Legal name</label><input type="text" id="cp-legal_name"></div>
+          <div><label data-i18n="cpBrandColor">Brand colour</label><input type="color" id="cp-brand_color" value="#0f766e" style="height:38px; width:60px; padding:2px;"></div>
+          <div><label data-i18n="cpTaxId">Tax ID / VAT</label><input type="text" id="cp-tax_id"></div>
+          <div><label data-i18n="cpRegNo">Reg. number</label><input type="text" id="cp-registration_number"></div>
+        </div>
+        <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
+          <div><label data-i18n="cpEmail">Email</label><input type="text" id="cp-email"></div>
+          <div><label data-i18n="cpPhone">Phone</label><input type="text" id="cp-phone"></div>
+          <div><label data-i18n="cpWebsite">Website</label><input type="text" id="cp-website"></div>
+          <div><label data-i18n="cpPrefix">Invoice prefix</label><input type="text" id="cp-invoice_number_prefix" style="width:110px;"></div>
+        </div>
+        <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-start; margin-top:0.5rem;">
+          <div style="flex:1; min-width:220px;"><label data-i18n="cpAddress">Address</label><textarea id="cp-address" rows="2" style="width:100%;"></textarea></div>
+          <div style="flex:1; min-width:220px;"><label data-i18n="cpBank">Bank details (How to pay)</label><textarea id="cp-bank_details" rows="2" style="width:100%;"></textarea></div>
+        </div>
+        <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-start; margin-top:0.5rem;">
+          <div><label data-i18n="cpTerms">Default payment terms</label><input type="text" id="cp-default_payment_terms" placeholder="Net 30"></div>
+          <div style="flex:1; min-width:220px;"><label data-i18n="cpFooter">Invoice footer</label><textarea id="cp-invoice_footer" rows="2" style="width:100%;"></textarea></div>
+        </div>
+        <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
+          <div><label data-i18n="cpLogo">Logo</label><input type="file" id="cp-logo-file" accept="image/png,image/jpeg,image/gif,image/webp"></div>
+          <div><label data-i18n="cpSignature">Signature / stamp</label><input type="file" id="cp-signature-file" accept="image/png,image/jpeg,image/gif,image/webp"></div>
+          <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="cp-save" data-i18n="cpSave">Save profile</button></div>
+          <div id="cp-status" style="font-size:0.8rem; color:var(--text-muted); align-self:center;"></div>
+        </div>
+      </div>
+
       <div class="row" style="margin-bottom:0.8rem;">
         <div>
           <label for="ui-language-select" id="ui-language-label">Interface language</label>
@@ -2723,6 +2766,32 @@
     };
     const I18N_EXTRA = {
       en: {
+        entBillingDetails: "Billing details (for documents) — optional",
+        entLegalName: "Legal name",
+        entTaxId: "Tax ID / VAT",
+        entEmail: "Email",
+        entPhone: "Phone",
+        entTerms: "Payment terms",
+        entAddress: "Address",
+        cpTitle: "Company profile & branding",
+        cpDesc: "Your logo, brand colour and details appear on every invoice, receipt, statement, purchase order and payslip.",
+        cpLegalName: "Legal name",
+        cpBrandColor: "Brand colour",
+        cpTaxId: "Tax ID / VAT",
+        cpRegNo: "Reg. number",
+        cpEmail: "Email",
+        cpPhone: "Phone",
+        cpWebsite: "Website",
+        cpPrefix: "Invoice prefix",
+        cpAddress: "Address",
+        cpBank: "Bank details (How to pay)",
+        cpTerms: "Default payment terms",
+        cpFooter: "Invoice footer",
+        cpLogo: "Logo",
+        cpSignature: "Signature / stamp",
+        cpSave: "Save profile",
+        cpSaved: "Company profile saved",
+        cpSaveFailed: "Could not save company profile",
         companiesNav: "Companies",
         companiesTitle: "Companies",
         companiesSubtitle: "Provision tenant companies. Each company has its own login and fully isolated books.",
@@ -3601,6 +3670,32 @@
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
       fa: {
+        entBillingDetails: "اطلاعات صورتحساب (برای اسناد) — اختیاری",
+        entLegalName: "نام حقوقی",
+        entTaxId: "شناسه مالیاتی",
+        entEmail: "ایمیل",
+        entPhone: "تلفن",
+        entTerms: "شرایط پرداخت",
+        entAddress: "نشانی",
+        cpTitle: "مشخصات و برند شرکت",
+        cpDesc: "لوگو، رنگ برند و اطلاعات شما روی هر صورتحساب، رسید، صورت‌حساب، سفارش خرید و فیش حقوقی نمایش داده می‌شود.",
+        cpLegalName: "نام حقوقی",
+        cpBrandColor: "رنگ برند",
+        cpTaxId: "شناسه مالیاتی",
+        cpRegNo: "شماره ثبت",
+        cpEmail: "ایمیل",
+        cpPhone: "تلفن",
+        cpWebsite: "وب‌سایت",
+        cpPrefix: "پیشوند شماره",
+        cpAddress: "نشانی",
+        cpBank: "اطلاعات بانکی (نحوه پرداخت)",
+        cpTerms: "شرایط پرداخت پیش‌فرض",
+        cpFooter: "پاورقی صورتحساب",
+        cpLogo: "لوگو",
+        cpSignature: "امضا / مهر",
+        cpSave: "ذخیره مشخصات",
+        cpSaved: "مشخصات شرکت ذخیره شد",
+        cpSaveFailed: "ذخیره مشخصات شرکت ممکن نشد",
         companiesNav: "شرکت‌ها",
         companiesTitle: "شرکت‌ها",
         companiesSubtitle: "ایجاد شرکت‌های مستأجر. هر شرکت ورود مخصوص خود و دفاتر کاملاً مجزا دارد.",
@@ -4476,6 +4571,32 @@
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
       es: {
+        entBillingDetails: "Datos de facturación (para documentos) — opcional",
+        entLegalName: "Nombre legal",
+        entTaxId: "NIF / IVA",
+        entEmail: "Correo",
+        entPhone: "Teléfono",
+        entTerms: "Términos de pago",
+        entAddress: "Dirección",
+        cpTitle: "Perfil y marca de la empresa",
+        cpDesc: "Su logotipo, color de marca y datos aparecen en cada factura, recibo, estado de cuenta, orden de compra y nómina.",
+        cpLegalName: "Nombre legal",
+        cpBrandColor: "Color de marca",
+        cpTaxId: "NIF / IVA",
+        cpRegNo: "N.º de registro",
+        cpEmail: "Correo",
+        cpPhone: "Teléfono",
+        cpWebsite: "Sitio web",
+        cpPrefix: "Prefijo de factura",
+        cpAddress: "Dirección",
+        cpBank: "Datos bancarios (cómo pagar)",
+        cpTerms: "Términos de pago predeterminados",
+        cpFooter: "Pie de factura",
+        cpLogo: "Logotipo",
+        cpSignature: "Firma / sello",
+        cpSave: "Guardar perfil",
+        cpSaved: "Perfil de empresa guardado",
+        cpSaveFailed: "No se pudo guardar el perfil",
         companiesNav: "Empresas",
         companiesTitle: "Empresas",
         companiesSubtitle: "Aprovisione empresas inquilinas. Cada empresa tiene su propio acceso y libros totalmente aislados.",
@@ -5334,6 +5455,32 @@
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
       ar: {
+        entBillingDetails: "بيانات الفوترة (للمستندات) — اختياري",
+        entLegalName: "الاسم القانوني",
+        entTaxId: "الرقم الضريبي",
+        entEmail: "البريد",
+        entPhone: "الهاتف",
+        entTerms: "شروط الدفع",
+        entAddress: "العنوان",
+        cpTitle: "ملف الشركة والعلامة التجارية",
+        cpDesc: "يظهر شعارك ولون علامتك وبياناتك على كل فاتورة وإيصال وكشف حساب وأمر شراء وقسيمة راتب.",
+        cpLegalName: "الاسم القانوني",
+        cpBrandColor: "لون العلامة",
+        cpTaxId: "الرقم الضريبي",
+        cpRegNo: "رقم التسجيل",
+        cpEmail: "البريد",
+        cpPhone: "الهاتف",
+        cpWebsite: "الموقع",
+        cpPrefix: "بادئة الفاتورة",
+        cpAddress: "العنوان",
+        cpBank: "تفاصيل البنك (كيفية الدفع)",
+        cpTerms: "شروط الدفع الافتراضية",
+        cpFooter: "تذييل الفاتورة",
+        cpLogo: "الشعار",
+        cpSignature: "التوقيع / الختم",
+        cpSave: "حفظ الملف",
+        cpSaved: "تم حفظ ملف الشركة",
+        cpSaveFailed: "تعذّر حفظ ملف الشركة",
         companiesNav: "الشركات",
         companiesTitle: "الشركات",
         companiesSubtitle: "إنشاء شركات مستأجرة. لكل شركة تسجيل دخول خاص بها ودفاتر معزولة تمامًا.",
@@ -10245,17 +10392,25 @@
       const name = document.getElementById('entity-name').value.trim();
       const code = document.getElementById('entity-code').value.trim() || null;
       if (!name) { showAlert('Enter a name for the entity.', true); return; }
+      const billing = {};
+      ['legal_name','tax_id','email','phone','payment_terms','address'].forEach(f => {
+        const el = document.getElementById('entity-' + f);
+        if (el && el.value.trim()) billing[f] = el.value.trim();
+      });
       try {
         const res = await fetch(API + '/entities', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type, name, code })
+          body: JSON.stringify({ type, name, code, ...billing })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || 'Error adding entity.', true); return; }
         showAlert('Entity added.');
         document.getElementById('entity-name').value = '';
         document.getElementById('entity-code').value = '';
+        ['legal_name','tax_id','email','phone','payment_terms','address'].forEach(f => {
+          const el = document.getElementById('entity-' + f); if (el) el.value = '';
+        });
         loadEntities(data.id);
         loadEntityOptions();
       } catch (err) {
@@ -12563,9 +12718,53 @@
       if (page === 'purchase-orders') { loadPurchaseOrders(); }
       if (page === 'expenses') { loadExpenses(); }
       if (page === 'time') { loadTimeTab(); }
-      if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); }
+      if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); loadCompanyProfile(); }
       if (page === 'companies') { loadCompanies(); }
     }
+
+    // ═══════ Company profile & branding ═══════
+    const CP_FIELDS = ['legal_name','brand_color','tax_id','registration_number','email','phone',
+      'website','invoice_number_prefix','address','bank_details','default_payment_terms','invoice_footer'];
+    async function loadCompanyProfile() {
+      if (!document.getElementById('cp-save')) return;
+      try {
+        const res = await fetch(API + '/admin/company-profile');
+        if (!res.ok) return;
+        const d = await res.json();
+        CP_FIELDS.forEach(f => {
+          const el = document.getElementById('cp-' + f);
+          if (el) el.value = d[f] || (f === 'brand_color' ? '#0f766e' : '');
+        });
+      } catch (_) {}
+    }
+    (function wireCompanyProfile() {
+      const saveBtn = document.getElementById('cp-save');
+      if (!saveBtn) return;
+      saveBtn.addEventListener('click', async () => {
+        const status = document.getElementById('cp-status');
+        const body = {};
+        CP_FIELDS.forEach(f => { const el = document.getElementById('cp-' + f); if (el) body[f] = el.value; });
+        try {
+          const res = await fetch(API + '/admin/company-profile', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          if (!res.ok) { const e = await res.json().catch(() => ({})); showAlert(e.detail || t('cpSaveFailed'), true); return; }
+          // Upload logo / signature if chosen.
+          for (const [id, path] of [['cp-logo-file','/admin/company-profile/logo'],
+                                    ['cp-signature-file','/admin/company-profile/signature']]) {
+            const fileEl = document.getElementById(id);
+            if (fileEl && fileEl.files && fileEl.files[0]) {
+              const fd = new FormData(); fd.append('file', fileEl.files[0]);
+              const up = await fetch(API + path, { method: 'POST', body: fd });
+              if (!up.ok) { const e = await up.json().catch(() => ({})); showAlert(e.detail || t('cpSaveFailed'), true); return; }
+              fileEl.value = '';
+            }
+          }
+          if (status) { status.textContent = t('cpSaved'); setTimeout(() => { status.textContent = ''; }, 3000); }
+          showAlert(t('cpSaved'));
+        } catch (_) { showAlert(t('cpSaveFailed'), true); }
+      });
+    })();
 
     // ═══════ Companies console (super-admin only) ═══════
     async function loadCompanies() {

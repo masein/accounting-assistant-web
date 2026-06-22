@@ -15,6 +15,7 @@ from app.api.accounts import router as accounts_router
 from app.api.adjustments import router as adjustments_router
 from app.api.admin import router as admin_router
 from app.api.companies import router as companies_router
+from app.api.company_profile import router as company_profile_router
 from app.api.ai_accountant import router as ai_accountant_router
 from app.api.auth import router as auth_router
 from app.api.brain import router as brain_router
@@ -491,6 +492,7 @@ app.include_router(accounts_router)
 app.include_router(adjustments_router)
 app.include_router(admin_router)
 app.include_router(companies_router)
+app.include_router(company_profile_router)
 app.include_router(ai_accountant_router)
 app.include_router(auth_router)
 app.include_router(brain_router)

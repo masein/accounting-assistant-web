@@ -8,6 +8,15 @@ RUN groupadd -r appuser && useradd -r -g appuser -m appuser
 
 WORKDIR /app
 
+# System libraries for WeasyPrint (HTML/CSS → PDF): pango/cairo/gdk-pixbuf
+# render the branded documents incl. RTL/Persian shaping. fonts-* provide a
+# Latin and an Arabic/Persian fallback so PDFs render the same everywhere.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 \
+        libffi8 fonts-dejavu-core fonts-noto-core \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir --upgrade pip
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt

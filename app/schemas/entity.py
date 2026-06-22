@@ -5,7 +5,21 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 
-class EntityBase(BaseModel):
+# Optional billing-identity fields shared by create/update/read.
+class EntityBillingFields(BaseModel):
+    legal_name: str | None = Field(None, max_length=256)
+    address: str | None = None
+    email: str | None = Field(None, max_length=256)
+    phone: str | None = Field(None, max_length=64)
+    website: str | None = Field(None, max_length=256)
+    tax_id: str | None = Field(None, max_length=128)
+    contact_person: str | None = Field(None, max_length=256)
+    payment_terms: str | None = Field(None, max_length=128)
+    currency: str | None = Field(None, max_length=8)
+    notes: str | None = None
+
+
+class EntityBase(EntityBillingFields):
     type: str = Field(..., max_length=32, description="client, bank, employee, supplier")
     name: str = Field(..., min_length=1, max_length=256)
     code: str | None = Field(None, max_length=64)
@@ -15,7 +29,7 @@ class EntityCreate(EntityBase):
     pass
 
 
-class EntityUpdate(BaseModel):
+class EntityUpdate(EntityBillingFields):
     type: str | None = Field(None, max_length=32, description="client, bank, employee, supplier")
     name: str | None = Field(None, min_length=1, max_length=256)
     code: str | None = Field(None, max_length=64)

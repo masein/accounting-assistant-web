@@ -96,6 +96,9 @@ def create_entity(
         name=name,
         code=code,
     )
+    for f in ("legal_name", "address", "email", "phone", "website", "tax_id",
+              "contact_person", "payment_terms", "currency", "notes"):
+        setattr(entity, f, getattr(payload, f, None))
     db.add(entity)
     db.commit()
     db.refresh(entity)
@@ -111,6 +114,56 @@ def get_entity(
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
     return EntityRead.model_validate(entity)
+
+
+@router.get("/{entity_id}/statement.pdf")
+def entity_statement_pdf(
+    entity_id: UUID,
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Branded account statement for a client: their invoices (debit) and
+    payments (credit) with a running balance. Tenant-scoped → 404 cross-company."""
+    from datetime import date
+    from fastapi.responses import Response
+    from app.models.invoice import Invoice
+    from app.models.payment import Payment
+    from app.services.documents import render_statement_pdf
+
+    entity = db.get(Entity, entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    def _parse(s, default):
+        try:
+            return date.fromisoformat(s) if s else default
+        except ValueError:
+            return default
+
+    lo = _parse(date_from, date(date.today().year, 1, 1))
+    hi = _parse(date_to, date.today())
+
+    invoices = db.execute(
+        select(Invoice).where(Invoice.entity_id == entity_id).order_by(Invoice.issue_date)
+    ).scalars().all()
+    events: list[dict] = []
+    ccy = entity.currency
+    for inv in invoices:
+        if inv.issue_date and lo <= inv.issue_date <= hi and (inv.status or "") not in ("voided", "canceled"):
+            events.append({"date": inv.issue_date, "description": f"Invoice {inv.number}",
+                           "debit": int(inv.amount or 0), "credit": 0})
+            ccy = ccy or inv.currency
+        for pay in db.execute(select(Payment).where(Payment.invoice_id == inv.id)).scalars().all():
+            if pay.date and lo <= pay.date <= hi and pay.direction == "in":
+                events.append({"date": pay.date, "description": f"Payment — {inv.number}",
+                               "debit": 0, "credit": int(pay.amount or 0)})
+    events.sort(key=lambda e: e["date"])
+    pdf = render_statement_pdf(db, entity, events, (lo, hi), ccy or "")
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="statement-{entity.name.replace(" ", "_")}.pdf"'},
+    )
 
 
 @router.patch("/{entity_id}", response_model=EntityRead)
@@ -134,6 +187,11 @@ def update_entity(
         entity.name = name
     if payload.code is not None:
         entity.code = payload.code.strip() or None
+    for f in ("legal_name", "address", "email", "phone", "website", "tax_id",
+              "contact_person", "payment_terms", "currency", "notes"):
+        val = getattr(payload, f, None)
+        if val is not None:
+            setattr(entity, f, (val.strip() or None) if isinstance(val, str) else val)
     db.commit()
     db.refresh(entity)
     return EntityRead.model_validate(entity)

@@ -14,3 +14,10 @@ pypdf>=3.0,<5.0
 # wheel, no system deps). Falls back to pypdf text extraction if unavailable.
 pymupdf>=1.24,<2.0
 jdatetime>=5.0,<6.0
+# Branded document engine: HTML/CSS → PDF (needs the pango/cairo system libs
+# installed in the Dockerfile). Jinja2 templates drive the layout; num2words /
+# num2fawords render amount-in-words for English and Persian.
+weasyprint>=63,<70
+jinja2>=3.1,<4.0
+num2words>=0.5,<1.0
+num2fawords>=1.1,<2.0

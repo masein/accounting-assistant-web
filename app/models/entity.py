@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, String, func
+from sqlalchemy import ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,6 +23,18 @@ class Entity(Base, TenantMixin):
     type: Mapped[str] = mapped_column(String(32), index=True)  # client, bank, employee, supplier
     name: Mapped[str] = mapped_column(String(256), index=True)
     code: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+
+    # Billing identity — auto-fills the Bill-To / recipient card on documents.
+    legal_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    email: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    tax_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    contact_person: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    payment_terms: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     transaction_links: Mapped[list["TransactionEntity"]] = relationship(
         "TransactionEntity", back_populates="entity", cascade="all, delete-orphan"

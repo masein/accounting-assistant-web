@@ -397,6 +397,25 @@ def time_invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Respons
         g = groups.setdefault(wkey, {"hours": 0.0, "rate": float(e.rate_snapshot or 0)})
         g["hours"] += float(e.hours or 0)
 
+    # Branded HTML→PDF engine (logo, brand colour, party cards, amount-in-words,
+    # locale-aware). Legacy reportlab layout kept only as a defensive fallback.
+    try:
+        from app.services.documents import render_time_invoice_pdf
+        group_list = [
+            {"project": pname, "worker": wname, "hours": g["hours"], "rate": g["rate"],
+             "amount": tbs._round(g["hours"] * g["rate"])}
+            for (pname, wname), g in sorted(groups.items())
+        ]
+        period = (entries[0].work_date, entries[-1].work_date) if entries else None
+        pdf = render_time_invoice_pdf(db, inv, client, group_list, period)
+        return Response(
+            content=pdf, media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="invoice-{inv.number}.pdf"'},
+        )
+    except Exception:  # pragma: no cover - defensive fallback
+        import logging
+        logging.getLogger(__name__).exception("branded time invoice PDF failed; using legacy layout")
+
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     pw, ph = A4

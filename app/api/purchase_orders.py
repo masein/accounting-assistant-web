@@ -182,6 +182,23 @@ def get_po(po_id: UUID, db: Session = Depends(get_db)) -> dict:
     return _po_read(po, db)
 
 
+@router.get("/{po_id}/pdf")
+def purchase_order_pdf(po_id: UUID, db: Session = Depends(get_db)):
+    """Branded purchase-order PDF (issuer → supplier). Tenant-scoped → 404 cross-company."""
+    from fastapi.responses import Response
+    from app.models.entity import Entity
+    from app.services.documents import render_purchase_order_pdf
+    po = db.get(PurchaseOrder, po_id)
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found.")
+    supplier = db.get(Entity, po.entity_id) if po.entity_id else None
+    pdf = render_purchase_order_pdf(db, po, supplier)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="po-{po.number}.pdf"'},
+    )
+
+
 @router.patch("/{po_id}")
 def patch_po(po_id: UUID, payload: POPatch, db: Session = Depends(get_db)) -> dict:
     po = db.get(PurchaseOrder, po_id)

@@ -474,6 +474,37 @@ async def ocr_import_invoice(
     )
 
 
+@router.post("/preview-pdf")
+def preview_invoice_pdf(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Response:
+    """Render the branded invoice PDF for an UNSAVED draft — no row is persisted
+    and no journal is posted. Reuses render_invoice_pdf so the preview is the
+    real document. Tenant-scoped (the Bill-To party is looked up in the caller's
+    company; a cross-company entity_id just yields no party)."""
+    kind = _validate_kind(payload.kind)
+    item_rows, items_total = _build_invoice_items(payload.items, uuid.uuid4(), db, payload.issue_date)
+    draft = Invoice(
+        number=(payload.number or "DRAFT").strip() or "DRAFT",
+        kind=kind,
+        status=payload.status or "draft",
+        issue_date=payload.issue_date,
+        due_date=payload.due_date,
+        amount=items_total if item_rows else int(payload.amount or 0),
+        currency=(payload.currency or "IRR").strip().upper(),
+        description=(payload.description or "").strip() or None,
+        entity_id=payload.entity_id,
+    )
+    # Attach items to the transient instance only (session.autoflush is off, and
+    # we never add/flush the draft, so nothing is written).
+    draft.items = list(item_rows)
+    party = db.get(Entity, payload.entity_id) if payload.entity_id else None
+    from app.services.documents import render_invoice_pdf
+    pdf = render_invoice_pdf(db, draft, party)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="invoice-preview.pdf"'},
+    )
+
+
 @router.post("", response_model=InvoiceRead, status_code=201)
 def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> InvoiceRead:
     kind = _validate_kind(payload.kind)

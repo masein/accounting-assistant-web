@@ -50,6 +50,20 @@ class AIAccountantError(Exception):
     internals to the UI."""
 
 
+def normalize_anthropic_base_url(url: str | None) -> str | None:
+    """Strip a trailing slash and a trailing ``/v1`` (case-insensitive) so the
+    Anthropic SDK — which always appends ``/v1/messages`` — doesn't produce a
+    doubled ``/v1/v1``. A Metis endpoint typed as ``…/anthropic/v1`` (or with a
+    trailing slash) thus collapses to ``…/anthropic`` and resolves to a single
+    ``/anthropic/v1/messages``. Robust to whatever the user types in Settings."""
+    if not url:
+        return None
+    u = url.strip().rstrip("/")
+    if u.lower().endswith("/v1"):
+        u = u[: -len("/v1")].rstrip("/")
+    return u or None
+
+
 def _client() -> anthropic.AsyncAnthropic:
     cfg = resolve_anthropic_config()
     if not cfg["api_key"]:
@@ -59,7 +73,7 @@ def _client() -> anthropic.AsyncAnthropic:
         )
     return anthropic.AsyncAnthropic(
         api_key=cfg["api_key"],
-        base_url=cfg["base_url"] or None,
+        base_url=normalize_anthropic_base_url(cfg["base_url"]),
         # 60 s is enough headroom for adaptive thinking on tool-use turns
         # without making a dead network drag on indefinitely. Bumped retries
         # from the SDK default of 2 to 3 — agentic loops are bursty.
@@ -114,7 +128,7 @@ async def chat_once(
     decides whether to loop again or finish based on ``stop_reason``.
     """
     cfg = resolve_anthropic_config()
-    chosen_model = (model or cfg.get("model") or "claude-opus-4-7").strip()
+    chosen_model = (model or cfg.get("model") or "claude-opus-4-6").strip()
 
     request_kwargs: dict[str, Any] = {
         "model": chosen_model,
@@ -143,8 +157,13 @@ async def chat_once(
             f"Anthropic API key has no access to {chosen_model!r}: {e.message}"
         ) from e
     except anthropic.NotFoundError as e:
+        # A 404 can mean an unknown model OR a wrong base URL (e.g. a doubled
+        # /v1/v1 path on a gateway). Surface both so it's not mis-diagnosed.
+        resolved = normalize_anthropic_base_url(cfg.get("base_url")) or "(default)"
         raise AIAccountantError(
-            f"Unknown Anthropic model {chosen_model!r}: {e.message}"
+            f"Anthropic request 404'd (model {chosen_model!r}, base_url {resolved!r}). "
+            f"Check both: the model must be one the provider resolves, and the base URL "
+            f"should not include a trailing /v1 (the SDK adds /v1/messages). {e.message}"
         ) from e
     except anthropic.RateLimitError as e:
         raise AIAccountantError(

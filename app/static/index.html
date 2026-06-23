@@ -2164,7 +2164,7 @@
           <div class="ai-runtime-bar" style="margin-bottom:0;">
             <div>
               <label for="anthropic-model-input" data-i18n="aiModel">Model</label>
-              <input type="text" id="anthropic-model-input" placeholder="claude-opus-4-7">
+              <input type="text" id="anthropic-model-input" placeholder="claude-opus-4-6">
             </div>
             <div>
               <label for="anthropic-base-input" data-i18n="aiBaseUrl">Base URL</label>
@@ -7388,7 +7388,7 @@
         modelEl.value = cfg.model || cfg.default_model || '';
         baseEl.value = (cfg.base_url && cfg.base_url !== cfg.default_base_url) ? cfg.base_url : '';
         baseEl.placeholder = cfg.default_base_url || 'https://api.anthropic.com';
-        modelEl.placeholder = cfg.default_model || 'claude-opus-4-7';
+        modelEl.placeholder = cfg.default_model || 'claude-opus-4-6';
         keyEl.value = '';
         if (statusEl) {
           statusEl.textContent = cfg.has_api_key

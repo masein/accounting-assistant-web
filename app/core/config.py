@@ -16,7 +16,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://postgres:postgres@db:5432/accounting"
     app_env: str = "dev"
     app_cors_origins: str = "http://localhost:8000"
-    ai_provider: str = "lmstudio"  # lmstudio | metis | custom
+    # Default to Metis (hosted, OpenAI-compatible) so a fresh deployment has a
+    # working AI out of the box (needs METIS_API_KEY). LM Studio remains an
+    # explicit opt-in for local dev — it points at a local server that doesn't
+    # exist on a hosted box.
+    ai_provider: str = "metis"  # metis | lmstudio | anthropic | custom
     # AI backend (OpenAI-compatible): LM Studio / Metis / others
     ai_base_url: str | None = None
     ai_model: str | None = None
@@ -43,10 +47,10 @@ class Settings(BaseSettings):
     # Model name as shown in LM Studio (e.g. qwen/qwen3-4b, lmstudio-community/granite-4-7b). Use non-"thinking" for speed on 16GB Mac.
     lm_studio_model: str = "qwen/qwen3-4b-thinking-2507"
     # Anthropic (Claude) — separate code path because the API is not OpenAI-compatible.
-    # Default to Opus 4.7 for the AI accountant: correctness matters more than
+    # Default to Opus 4.6 for the AI accountant: correctness matters more than
     # token cost on bookkeeping writes. Override per-deployment via env var.
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-opus-4-7"
+    anthropic_model: str = "claude-opus-4-6"
     anthropic_base_url: str = "https://api.anthropic.com"
     anthropic_max_tokens: int = 8192
     slack_webhook_url: str | None = None

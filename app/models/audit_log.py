@@ -12,9 +12,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class AuditLog(Base):
+class AuditLog(Base, TenantMixin):
     """Immutable append-only audit trail for all state changes."""
 
     __tablename__ = "audit_logs"
@@ -51,7 +52,7 @@ class AuditLog(Base):
     user_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
-class TransactionVersion(Base):
+class TransactionVersion(Base, TenantMixin):
     """Snapshot of a transaction at a point in time for rollback/comparison."""
 
     __tablename__ = "transaction_versions"
@@ -68,7 +69,7 @@ class TransactionVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class IntegrityCheck(Base):
+class IntegrityCheck(Base, TenantMixin):
     """Periodic accounting integrity check results."""
 
     __tablename__ = "integrity_checks"

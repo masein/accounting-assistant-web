@@ -25,9 +25,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Project(Base):
+class Project(Base, TenantMixin):
     """A project / matter belonging to one client (Entity type=client)."""
 
     __tablename__ = "projects"
@@ -43,7 +44,7 @@ class Project(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class BillingRateOverride(Base):
+class BillingRateOverride(Base, TenantMixin):
     """A billable rate for a worker, optionally scoped to a client or project.
     Both client_id and project_id null = the worker's default override."""
 
@@ -64,7 +65,7 @@ class BillingRateOverride(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class TimeEntry(Base):
+class TimeEntry(Base, TenantMixin):
     """One logged block of work. ``employee_id`` is the worker (employee or
     supplier). ``client_id`` is required (derived from the project if given)."""
 

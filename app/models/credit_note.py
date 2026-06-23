@@ -8,9 +8,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class CreditNote(Base):
+class CreditNote(Base, TenantMixin):
     """A credit issued against an invoice (reduces AR for sales / AP for
     purchases) or standalone against an entity (e.g. the excess from an
     overpayment, an available credit that can offset future invoices).

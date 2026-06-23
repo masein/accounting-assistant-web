@@ -8,9 +8,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Entity(Base):
+class Entity(Base, TenantMixin):
     """
     A party you do business with: client, bank, employee, supplier, etc.
     Link transactions to entities to run reports like "all transactions with client X".
@@ -28,7 +29,7 @@ class Entity(Base):
     )
 
 
-class TransactionEntity(Base):
+class TransactionEntity(Base, TenantMixin):
     """Links a transaction to an entity with a role (e.g. this voucher's client is Innotech)."""
 
     __tablename__ = "transaction_entities"

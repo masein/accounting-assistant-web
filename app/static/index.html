@@ -631,7 +631,9 @@
 </head>
 <body>
   <div class="container">
-    <h1 id="app-title">Accounting Assistant</h1>
+    <h1 id="app-title">Accounting Assistant
+      <span id="company-badge" style="display:none; font-size:0.8rem; font-weight:600; vertical-align:middle; margin-inline-start:0.5rem; padding:0.15rem 0.6rem; border-radius:999px; background:var(--accent, #2563eb); color:#fff;"></span>
+    </h1>
     <p class="hero-subtitle" id="hero-subtitle">Use AI chat for accounting tasks, save balanced vouchers, and run manager-grade reports.</p>
 
     <div id="alert" class="alert" role="alert" style="display: none;"></div>
@@ -662,6 +664,7 @@
       <button type="button" class="nav-btn nav-more-item" data-page="expenses" data-i18n="expNav">Expenses</button>
       <button type="button" class="nav-btn nav-more-item" data-page="time" data-i18n="timeNav">Time</button>
       <button type="button" class="nav-btn nav-more-item" data-page="settings">Settings</button>
+      <button type="button" class="nav-btn nav-more-item" id="nav-companies" data-page="companies" data-i18n="companiesNav" style="display:none;">Companies</button>
     </nav>
 
     <main id="main-content" role="main">
@@ -2146,6 +2149,33 @@
       </div>
 
     </div>
+
+    <div class="card" data-page="companies">
+      <h2 data-i18n="companiesTitle">Companies</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;" data-i18n="companiesSubtitle">Provision tenant companies. Each company has its own login and fully isolated books.</p>
+      <div class="row" style="margin-bottom: 1rem; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
+        <div><label for="co-name" data-i18n="companiesName">Company name</label><input type="text" id="co-name" placeholder="Acme Ltd"></div>
+        <div><label for="co-locale" data-i18n="companiesLocale">Locale</label>
+          <select id="co-locale"><option value="uk">UK (GBP)</option><option value="ir">Iran (IRR)</option><option value="default">Default</option></select></div>
+        <div><label for="co-currency" data-i18n="companiesCurrency">Base currency</label><input type="text" id="co-currency" value="GBP" style="width:90px;"></div>
+        <div><label for="co-username" data-i18n="companiesLoginUser">Login username</label><input type="text" id="co-username" placeholder="acme_admin"></div>
+        <div><label for="co-password" data-i18n="companiesLoginPass">Initial password</label><input type="password" id="co-password" autocomplete="new-password"></div>
+        <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="co-create" data-i18n="companiesCreate">Create company</button></div>
+      </div>
+      <table class="results-table" id="companies-table">
+        <thead><tr>
+          <th data-i18n="companiesName">Company</th>
+          <th data-i18n="companiesLocale">Locale</th>
+          <th data-i18n="companiesCurrency">Currency</th>
+          <th data-i18n="companiesLoginUser">Login</th>
+          <th data-i18n="companiesStatus">Status</th>
+          <th data-i18n="companiesActions">Actions</th>
+        </tr></thead>
+        <tbody id="companies-tbody"></tbody>
+      </table>
+    </div>
+
+    </div>
   </div>
   </main>
 
@@ -2485,7 +2515,9 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo']);
+    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies']);
+    // The Companies console is super-admin only; gated in showPage().
+    let isSuperadmin = false;
     const rawFetch = window.fetch.bind(window);
 
     window.fetch = async (...args) => {
@@ -2691,6 +2723,30 @@
     };
     const I18N_EXTRA = {
       en: {
+        companiesNav: "Companies",
+        companiesTitle: "Companies",
+        companiesSubtitle: "Provision tenant companies. Each company has its own login and fully isolated books.",
+        companiesName: "Company name",
+        companiesLocale: "Locale",
+        companiesCurrency: "Base currency",
+        companiesLoginUser: "Login username",
+        companiesLoginPass: "Initial password",
+        companiesCreate: "Create company",
+        companiesStatus: "Status",
+        companiesActions: "Actions",
+        companiesSuspend: "Suspend",
+        companiesReactivate: "Reactivate",
+        companiesResetPw: "Reset password",
+        companiesStatusActive: "Active",
+        companiesStatusSuspended: "Suspended",
+        companiesMissingFields: "Name, username and password are required",
+        companiesCreated: "Company created",
+        companiesCreateFailed: "Could not create company",
+        companiesUpdated: "Company updated",
+        companiesUpdateFailed: "Could not update company",
+        companiesResetOk: "Password reset",
+        companiesResetFailed: "Could not reset password",
+        companiesNewPwPrompt: "New password for this company login",
         entitiesTitle: 'Entities (clients, banks, employees)',
         entitiesSubtitle: 'Add parties you do business with. Link them to vouchers when saving to run reports like "all transactions with client X".',
         invoicesTitle: 'Invoices',
@@ -3545,6 +3601,30 @@
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
       fa: {
+        companiesNav: "شرکت‌ها",
+        companiesTitle: "شرکت‌ها",
+        companiesSubtitle: "ایجاد شرکت‌های مستأجر. هر شرکت ورود مخصوص خود و دفاتر کاملاً مجزا دارد.",
+        companiesName: "نام شرکت",
+        companiesLocale: "منطقه",
+        companiesCurrency: "ارز پایه",
+        companiesLoginUser: "نام کاربری ورود",
+        companiesLoginPass: "رمز اولیه",
+        companiesCreate: "ایجاد شرکت",
+        companiesStatus: "وضعیت",
+        companiesActions: "عملیات",
+        companiesSuspend: "تعلیق",
+        companiesReactivate: "فعال‌سازی مجدد",
+        companiesResetPw: "بازنشانی رمز",
+        companiesStatusActive: "فعال",
+        companiesStatusSuspended: "معلق",
+        companiesMissingFields: "نام، نام کاربری و رمز الزامی است",
+        companiesCreated: "شرکت ایجاد شد",
+        companiesCreateFailed: "ایجاد شرکت ممکن نشد",
+        companiesUpdated: "شرکت به‌روزرسانی شد",
+        companiesUpdateFailed: "به‌روزرسانی شرکت ممکن نشد",
+        companiesResetOk: "رمز بازنشانی شد",
+        companiesResetFailed: "بازنشانی رمز ممکن نشد",
+        companiesNewPwPrompt: "رمز جدید برای ورود این شرکت",
         entitiesTitle: 'اشخاص (مشتری، بانک، کارمند)',
         entitiesSubtitle: 'طرف‌های تجاری را اضافه کنید. هنگام ذخیره سند آن‌ها را لینک کنید تا گزارش‌هایی مثل «تمام تراکنش‌های مشتری X» داشته باشید.',
         invoicesTitle: 'فاکتورها',
@@ -4396,6 +4476,30 @@
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
       es: {
+        companiesNav: "Empresas",
+        companiesTitle: "Empresas",
+        companiesSubtitle: "Aprovisione empresas inquilinas. Cada empresa tiene su propio acceso y libros totalmente aislados.",
+        companiesName: "Nombre de la empresa",
+        companiesLocale: "Configuración regional",
+        companiesCurrency: "Moneda base",
+        companiesLoginUser: "Usuario de acceso",
+        companiesLoginPass: "Contraseña inicial",
+        companiesCreate: "Crear empresa",
+        companiesStatus: "Estado",
+        companiesActions: "Acciones",
+        companiesSuspend: "Suspender",
+        companiesReactivate: "Reactivar",
+        companiesResetPw: "Restablecer contraseña",
+        companiesStatusActive: "Activa",
+        companiesStatusSuspended: "Suspendida",
+        companiesMissingFields: "Se requieren nombre, usuario y contraseña",
+        companiesCreated: "Empresa creada",
+        companiesCreateFailed: "No se pudo crear la empresa",
+        companiesUpdated: "Empresa actualizada",
+        companiesUpdateFailed: "No se pudo actualizar la empresa",
+        companiesResetOk: "Contraseña restablecida",
+        companiesResetFailed: "No se pudo restablecer la contraseña",
+        companiesNewPwPrompt: "Nueva contraseña para el acceso de esta empresa",
         entitiesTitle: 'Entidades (clientes, bancos, empleados)',
         entitiesSubtitle: 'Agrega partes con las que operas. Vincúlalas al guardar comprobantes para reportes por cliente.',
         invoicesTitle: 'Facturas',
@@ -5230,6 +5334,30 @@
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
       ar: {
+        companiesNav: "الشركات",
+        companiesTitle: "الشركات",
+        companiesSubtitle: "إنشاء شركات مستأجرة. لكل شركة تسجيل دخول خاص بها ودفاتر معزولة تمامًا.",
+        companiesName: "اسم الشركة",
+        companiesLocale: "الإعداد المحلي",
+        companiesCurrency: "العملة الأساسية",
+        companiesLoginUser: "اسم مستخدم الدخول",
+        companiesLoginPass: "كلمة المرور الأولية",
+        companiesCreate: "إنشاء شركة",
+        companiesStatus: "الحالة",
+        companiesActions: "الإجراءات",
+        companiesSuspend: "تعليق",
+        companiesReactivate: "إعادة تفعيل",
+        companiesResetPw: "إعادة تعيين كلمة المرور",
+        companiesStatusActive: "نشطة",
+        companiesStatusSuspended: "معلقة",
+        companiesMissingFields: "الاسم واسم المستخدم وكلمة المرور مطلوبة",
+        companiesCreated: "تم إنشاء الشركة",
+        companiesCreateFailed: "تعذّر إنشاء الشركة",
+        companiesUpdated: "تم تحديث الشركة",
+        companiesUpdateFailed: "تعذّر تحديث الشركة",
+        companiesResetOk: "تمت إعادة تعيين كلمة المرور",
+        companiesResetFailed: "تعذّر إعادة تعيين كلمة المرور",
+        companiesNewPwPrompt: "كلمة مرور جديدة لدخول هذه الشركة",
         entitiesTitle: 'الكيانات (عملاء، بنوك، موظفون)',
         entitiesSubtitle: 'أضف الأطراف التي تتعامل معها واربطها بالقيود للحصول على تقارير دقيقة.',
         invoicesTitle: 'الفواتير',
@@ -6369,7 +6497,10 @@
 
     function showPage(page) {
       closeAllModals();
-      const requested = validPages.has(page) ? page : 'dashboard';
+      // Companies console is super-admin only — a non-super-admin reaching it
+      // via the #companies hash falls back to the dashboard (backend also 403s).
+      const allowed = validPages.has(page) && !(page === 'companies' && !isSuperadmin);
+      const requested = allowed ? page : 'dashboard';
       document.querySelectorAll('.card[data-page]').forEach(card => {
         card.classList.toggle('active-page', card.getAttribute('data-page') === requested);
       });
@@ -6975,6 +7106,21 @@
         const lang = (data.user.preferred_language || localStorage.getItem('aa_ui_language') || 'en').toLowerCase();
         applyLanguage(lang, true);
         if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? t('usersAdmin') : t('usersUser');
+        // Show the current company name in the header.
+        const badge = document.getElementById('company-badge');
+        if (badge && data.company && data.company.name) {
+          badge.textContent = data.company.name;
+          badge.style.display = '';
+        } else if (badge) {
+          badge.style.display = 'none';
+        }
+        // Reveal the Companies console only for the super-admin/provisioner.
+        isSuperadmin = !!data.user.is_superadmin;
+        const navCo = document.getElementById('nav-companies');
+        if (navCo) navCo.style.display = isSuperadmin ? '' : 'none';
+        // A super-admin who cold-loaded #companies fell back to dashboard
+        // because isSuperadmin wasn't known yet — honour the deep link now.
+        if (isSuperadmin && location.hash === '#companies') showPage('companies');
         loadUsers();
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
@@ -12418,7 +12564,90 @@
       if (page === 'expenses') { loadExpenses(); }
       if (page === 'time') { loadTimeTab(); }
       if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); }
+      if (page === 'companies') { loadCompanies(); }
     }
+
+    // ═══════ Companies console (super-admin only) ═══════
+    async function loadCompanies() {
+      const tbody = document.getElementById('companies-tbody');
+      if (!tbody) return;
+      try {
+        const res = await fetch(API + '/admin/companies');
+        const data = await res.json().catch(() => []);
+        if (!res.ok || !Array.isArray(data)) { tbody.innerHTML = ''; return; }
+        tbody.innerHTML = data.map(c => {
+          const suspended = c.status === 'suspended';
+          const toggleLabel = suspended ? t('companiesReactivate') : t('companiesSuspend');
+          const nextStatus = suspended ? 'active' : 'suspended';
+          return `<tr>
+            <td>${escapeHtml(c.name)}</td>
+            <td>${escapeHtml(c.locale)}</td>
+            <td>${escapeHtml(c.base_currency)}</td>
+            <td>${escapeHtml(c.login_username || '-')}</td>
+            <td>${escapeHtml(suspended ? t('companiesStatusSuspended') : t('companiesStatusActive'))}</td>
+            <td>
+              <button type="button" class="btn btn-secondary btn-sm co-toggle" data-id="${escapeHtml(c.id)}" data-status="${nextStatus}">${escapeHtml(toggleLabel)}</button>
+              <button type="button" class="btn btn-secondary btn-sm co-reset" data-id="${escapeHtml(c.id)}">${escapeHtml(t('companiesResetPw'))}</button>
+            </td>
+          </tr>`;
+        }).join('');
+      } catch (_) { tbody.innerHTML = ''; }
+    }
+
+    (function wireCompaniesConsole() {
+      const createBtn = document.getElementById('co-create');
+      if (createBtn) createBtn.addEventListener('click', async () => {
+        const name = (document.getElementById('co-name').value || '').trim();
+        const locale = document.getElementById('co-locale').value;
+        const base_currency = (document.getElementById('co-currency').value || '').trim();
+        const username = (document.getElementById('co-username').value || '').trim();
+        const password = document.getElementById('co-password').value || '';
+        if (!name || !username || !password) { showAlert(t('companiesMissingFields'), true); return; }
+        try {
+          const res = await fetch(API + '/admin/companies', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, locale, base_currency, username, password }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(data.detail || t('companiesCreateFailed'), true); return; }
+          showAlert(t('companiesCreated'));
+          document.getElementById('co-name').value = '';
+          document.getElementById('co-username').value = '';
+          document.getElementById('co-password').value = '';
+          loadCompanies();
+        } catch (_) { showAlert(t('companiesCreateFailed'), true); }
+      });
+      const tbody = document.getElementById('companies-tbody');
+      if (tbody) tbody.addEventListener('click', async (e) => {
+        const toggle = e.target.closest('.co-toggle');
+        const reset = e.target.closest('.co-reset');
+        if (toggle) {
+          const id = toggle.getAttribute('data-id');
+          const status = toggle.getAttribute('data-status');
+          try {
+            const res = await fetch(API + '/admin/companies/' + id, {
+              method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status }),
+            });
+            if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('companiesUpdateFailed'), true); return; }
+            showAlert(t('companiesUpdated'));
+            loadCompanies();
+          } catch (_) { showAlert(t('companiesUpdateFailed'), true); }
+        } else if (reset) {
+          const id = reset.getAttribute('data-id');
+          const pw = await uiPrompt({ title: t('companiesResetPw'), message: t('companiesNewPwPrompt'), type: 'password' });
+          if (!pw) return;
+          try {
+            const res = await fetch(API + '/admin/companies/' + id + '/reset-password', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: pw }),
+            });
+            if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('companiesResetFailed'), true); return; }
+            showAlert(t('companiesResetOk'));
+          } catch (_) { showAlert(t('companiesResetFailed'), true); }
+        }
+      });
+    })();
 
     // ═══════ Period close & adjustments ═══════
     async function loadClosedPeriod() {

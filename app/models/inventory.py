@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
 class InventoryMovementType(str, enum.Enum):
@@ -17,7 +18,7 @@ class InventoryMovementType(str, enum.Enum):
     ADJUSTMENT = "ADJUSTMENT"
 
 
-class InventoryItem(Base):
+class InventoryItem(Base, TenantMixin):
     __tablename__ = "inventory_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -36,7 +37,7 @@ class InventoryItem(Base):
     )
 
 
-class InventoryMovement(Base):
+class InventoryMovement(Base, TenantMixin):
     __tablename__ = "inventory_movements"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

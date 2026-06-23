@@ -8,9 +8,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Payment(Base):
+class Payment(Base, TenantMixin):
     """A payment applied to an invoice — a sales receipt (money in) or a bill
     payment (money out). Each payment posts its own balanced journal entry
     against trade debtors / creditors and bank, linked via ``transaction_id``.

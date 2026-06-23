@@ -14,6 +14,7 @@ from sqlalchemy import text
 from app.api.accounts import router as accounts_router
 from app.api.adjustments import router as adjustments_router
 from app.api.admin import router as admin_router
+from app.api.companies import router as companies_router
 from app.api.ai_accountant import router as ai_accountant_router
 from app.api.auth import router as auth_router
 from app.api.brain import router as brain_router
@@ -42,8 +43,9 @@ from app.core.auth import (
 )
 from app.core.rate_limit import RateLimiter
 from app.db.base import Base
+from app.db.tenant import set_current_company, clear_current_company, tenant_bypass
 from app.db.seed import seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
-from app.db.session import engine, SessionLocal
+from app.db.session import engine, SessionLocal, get_db
 import app.models  # noqa: F401 - register models with Base.metadata
 
 logging.basicConfig(
@@ -344,8 +346,63 @@ async def auth_middleware(request: Request, call_next):
 
     token = request.cookies.get(settings.auth_cookie_name)
     user = parse_session_token(token)
+    if user is not None and not _session_is_valid(user):
+        # Token invalidated (password reset or company suspended) → drop it.
+        user = None
     request.state.user = user
 
+    # Scope every tenant query to this user's company for the whole request.
+    set_current_company(user.company_id if user else None)
+    try:
+        return await _dispatch(request, call_next, path, user)
+    finally:
+        clear_current_company()
+
+
+def _session_is_valid(user) -> bool:
+    """Reject a session whose company was suspended or whose password was reset
+    (token_version bumped). Looks the user up directly; if the user can't be
+    found (e.g. stateless test tokens) the token is treated as still valid."""
+    try:
+        sess, gen = _resolve_validation_session()
+        try:
+            from uuid import UUID
+            from app.models.user import User
+            from app.models.company import Company
+            try:
+                uid = UUID(str(user.user_id))
+            except (ValueError, TypeError):
+                uid = user.user_id
+            with tenant_bypass():
+                row = sess.get(User, uid)
+                if row is None:
+                    return True  # unknown user → stateless token, don't break
+                if not row.is_active or int(row.token_version) != int(user.token_version):
+                    return False
+                if row.company_id is not None:
+                    company = sess.get(Company, row.company_id)
+                    if company is not None and company.status != "active":
+                        return False
+            return True
+        finally:
+            if gen is not None:
+                gen.close()
+            else:
+                sess.close()
+    except Exception:
+        return True  # never let validation errors lock everyone out
+
+
+def _resolve_validation_session():
+    """Get a DB session that honours the test get_db override."""
+    override = app.dependency_overrides.get(get_db)
+    if override is not None:
+        gen = override()
+        return next(gen), gen
+    return SessionLocal(), None
+
+
+async def _dispatch(request: Request, call_next, path: str, user):
     if path == "/":
         if not user:
             return RedirectResponse(url="/login", status_code=302)
@@ -433,6 +490,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(accounts_router)
 app.include_router(adjustments_router)
 app.include_router(admin_router)
+app.include_router(companies_router)
 app.include_router(ai_accountant_router)
 app.include_router(auth_router)
 app.include_router(brain_router)

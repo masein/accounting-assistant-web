@@ -1,6 +1,7 @@
 from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
 from app.models.app_setting import AppSetting
 from app.models.account import Account, AccountLevel
+from app.models.company import Company
 from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
 from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit

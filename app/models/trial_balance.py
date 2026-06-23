@@ -8,9 +8,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class TrialBalance(Base):
+class TrialBalance(Base, TenantMixin):
     __tablename__ = "trial_balances"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -23,7 +24,7 @@ class TrialBalance(Base):
     )
 
 
-class TrialBalanceLine(Base):
+class TrialBalanceLine(Base, TenantMixin):
     __tablename__ = "trial_balance_lines"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

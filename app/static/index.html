@@ -461,9 +461,9 @@
       margin-bottom: 0.5rem;
     }
     .report-chart-panel { margin-bottom: 0.75rem; }
-    .prod-tab { background: #e2e8f0; color: var(--text); border: none; padding: 0.55rem 1.25rem; font-weight: 500; font-size: 0.88rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
+    .prod-tab { background: #e2e8f0; color: var(--text); border: none; border-radius: 8px; padding: 0.5rem 1.1rem; font-weight: 600; font-size: 0.86rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
     .prod-tab:hover { background: #cbd5e1; }
-    .prod-tab.active { background: var(--primary); color: white; }
+    .prod-tab.active { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(0,109,119,.18); }
     .prod-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; align-items: end; }
     .prod-form-grid label { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.25rem; }
     .prod-form-grid input, .prod-form-grid select { width: 100%; height: 38px; padding: 0.5rem 0.75rem; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0; box-sizing: border-box; }
@@ -527,7 +527,9 @@
     body.sb-collapsed .sidebar .brand-name { display: none; }
     body.sb-collapsed .sidebar .nav-btn { justify-content: center; padding-inline: .4rem; }
     body.sb-collapsed .sidebar-head { justify-content: center; }
-    body.sb-collapsed .sidebar-collapse { display: none; }
+    /* Keep the toggle visible when collapsed (so it can be re-expanded); flip its chevron. */
+    body.sb-collapsed .sidebar-collapse { margin-inline-start: 0; }
+    body.sb-collapsed #sidebar-collapse svg { transform: rotate(180deg); }
     .sidebar-overlay {
       position: fixed; inset: 0; background: rgba(8,18,33,.45); z-index: 150; display: none;
     }
@@ -2212,13 +2214,13 @@
       </div>
 
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
-        <h2 style="margin-bottom:0.5rem;">Currency &amp; FX</h2>
-        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;">
+        <h2 style="margin-bottom:0.5rem;" data-i18n="fxTitle">Currency &amp; FX</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="fxIntro">
           Set the reporting currency used across reports, and manage exchange rates to convert between currencies at a specific date.
         </p>
         <div class="fx-form-grid" style="margin-bottom:0.75rem;">
           <div>
-            <label for="fx-reporting-currency">Reporting currency</label>
+            <label for="fx-reporting-currency" data-i18n="fxReportingCurrency">Reporting currency</label>
             <select id="fx-reporting-currency">
               <option value="IRR">IRR</option>
               <option value="USD">USD</option>
@@ -2230,39 +2232,39 @@
             </select>
           </div>
           <div class="fx-action">
-            <button type="button" class="btn btn-secondary" id="fx-save-reporting-btn">Save reporting currency</button>
+            <button type="button" class="btn btn-secondary" id="fx-save-reporting-btn" data-i18n="fxSaveReporting">Save reporting currency</button>
           </div>
           <div class="fx-status" id="fx-reporting-status"></div>
         </div>
 
-        <h3 style="margin-top:0.8rem; margin-bottom:0.4rem; font-size:0.95rem;">Exchange rates</h3>
+        <h3 style="margin-top:0.8rem; margin-bottom:0.4rem; font-size:0.95rem;" data-i18n="fxExchangeRates">Exchange rates</h3>
         <div class="fx-rate-grid" style="margin-bottom:0.5rem;">
           <div class="fx-field fx-field-sm">
-            <label for="fx-from">From</label>
+            <label for="fx-from" data-i18n="fxFrom">From</label>
             <input type="text" id="fx-from" placeholder="USD" maxlength="8">
           </div>
           <div class="fx-field fx-field-sm">
-            <label for="fx-to">To</label>
+            <label for="fx-to" data-i18n="fxTo">To</label>
             <input type="text" id="fx-to" placeholder="IRR" maxlength="8">
           </div>
           <div class="fx-field">
-            <label for="fx-rate">Rate (1 From = N To)</label>
+            <label for="fx-rate" data-i18n="fxRateLabel">Rate (1 From = N To)</label>
             <input type="number" id="fx-rate" step="0.0001" min="0" placeholder="150000">
           </div>
           <div class="fx-field">
-            <label for="fx-effective">Effective date</label>
+            <label for="fx-effective" data-i18n="fxEffective">Effective date</label>
             <input type="date" id="fx-effective">
           </div>
           <div class="fx-field">
-            <label for="fx-note">Note</label>
+            <label for="fx-note" data-i18n="fxNote">Note</label>
             <input type="text" id="fx-note" placeholder="optional" maxlength="256">
           </div>
           <div class="fx-action">
-            <button type="button" class="btn btn-primary" id="fx-add-rate-btn">Add / update rate</button>
+            <button type="button" class="btn btn-primary" id="fx-add-rate-btn" data-i18n="fxAddRate">Add / update rate</button>
           </div>
         </div>
         <div id="fx-rates-wrap" style="margin-top:0.5rem;">
-          <p class="empty-state" style="padding:0.4rem;">No exchange rates set.</p>
+          <p class="empty-state" style="padding:0.4rem;" data-i18n="fxNoRates">No exchange rates set.</p>
         </div>
       </div>
 
@@ -2328,7 +2330,14 @@
         <div><label for="co-name" data-i18n="companiesName">Company name</label><input type="text" id="co-name" placeholder="Acme Ltd"></div>
         <div><label for="co-locale" data-i18n="companiesLocale">Locale</label>
           <select id="co-locale"><option value="uk">UK (GBP)</option><option value="ir">Iran (IRR)</option><option value="default">Default</option></select></div>
-        <div><label for="co-currency" data-i18n="companiesCurrency">Base currency</label><input type="text" id="co-currency" value="GBP" style="width:90px;"></div>
+        <div><label for="co-currency" data-i18n="companiesCurrency">Base currency</label><select id="co-currency" style="width:110px;">
+          <option value="IRR">IRR</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="AED">AED</option>
+          <option value="TRY">TRY</option>
+        </select></div>
         <div><label for="co-username" data-i18n="companiesLoginUser">Login username</label><input type="text" id="co-username" placeholder="acme_admin"></div>
         <div><label for="co-password" data-i18n="companiesLoginPass">Initial password</label><input type="password" id="co-password" autocomplete="new-password"></div>
         <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="co-create" data-i18n="companiesCreate">Create company</button></div>
@@ -2894,6 +2903,21 @@
     };
     const I18N_EXTRA = {
       en: {
+        ibRemoveLine: "Remove line",
+        collapseSidebar: "Collapse sidebar",
+        expandSidebar: "Expand sidebar",
+        fxTitle: "Currency & FX",
+        fxIntro: "Set the reporting currency used across reports, and manage exchange rates to convert between currencies at a specific date.",
+        fxReportingCurrency: "Reporting currency",
+        fxSaveReporting: "Save reporting currency",
+        fxExchangeRates: "Exchange rates",
+        fxFrom: "From",
+        fxTo: "To",
+        fxRateLabel: "Rate (1 From = N To)",
+        fxEffective: "Effective date",
+        fxNote: "Note",
+        fxAddRate: "Add / update rate",
+        fxNoRates: "No exchange rates set.",
         invModeLabel: "Invoice lines",
         invModeItemized: "Itemized",
         invModeSimple: "Single amount",
@@ -3822,6 +3846,21 @@
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
       fa: {
+        ibRemoveLine: "حذف ردیف",
+        collapseSidebar: "جمع کردن نوار کناری",
+        expandSidebar: "باز کردن نوار کناری",
+        fxTitle: "ارز و نرخ تبدیل",
+        fxIntro: "ارز گزارش‌گیری مورد استفاده در گزارش‌ها را تنظیم کنید و نرخ‌های تبدیل ارز را برای تبدیل بین ارزها در تاریخ مشخص مدیریت کنید.",
+        fxReportingCurrency: "ارز گزارش‌گیری",
+        fxSaveReporting: "ذخیره ارز گزارش‌گیری",
+        fxExchangeRates: "نرخ‌های تبدیل ارز",
+        fxFrom: "از",
+        fxTo: "به",
+        fxRateLabel: "نرخ (۱ از = N به)",
+        fxEffective: "تاریخ مؤثر",
+        fxNote: "یادداشت",
+        fxAddRate: "افزودن / به‌روزرسانی نرخ",
+        fxNoRates: "نرخ تبدیلی تنظیم نشده است.",
         invModeLabel: "اقلام صورتحساب",
         invModeItemized: "اقلامی",
         invModeSimple: "مبلغ واحد",
@@ -4747,6 +4786,21 @@
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
       es: {
+        ibRemoveLine: "Eliminar línea",
+        collapseSidebar: "Contraer barra lateral",
+        expandSidebar: "Expandir barra lateral",
+        fxTitle: "Moneda y cambio",
+        fxIntro: "Configure la moneda de los informes y gestione los tipos de cambio para convertir entre monedas en una fecha concreta.",
+        fxReportingCurrency: "Moneda de informes",
+        fxSaveReporting: "Guardar moneda de informes",
+        fxExchangeRates: "Tipos de cambio",
+        fxFrom: "De",
+        fxTo: "A",
+        fxRateLabel: "Tipo (1 De = N A)",
+        fxEffective: "Fecha de vigencia",
+        fxNote: "Nota",
+        fxAddRate: "Agregar / actualizar tipo",
+        fxNoRates: "No hay tipos de cambio configurados.",
         invModeLabel: "Líneas de factura",
         invModeItemized: "Detallado",
         invModeSimple: "Importe único",
@@ -5655,6 +5709,21 @@
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
       ar: {
+        ibRemoveLine: "حذف البند",
+        collapseSidebar: "طي الشريط الجانبي",
+        expandSidebar: "توسيع الشريط الجانبي",
+        fxTitle: "العملة والصرف",
+        fxIntro: "عيّن عملة التقارير المستخدمة في جميع التقارير، وأدر أسعار الصرف للتحويل بين العملات في تاريخ محدد.",
+        fxReportingCurrency: "عملة التقارير",
+        fxSaveReporting: "حفظ عملة التقارير",
+        fxExchangeRates: "أسعار الصرف",
+        fxFrom: "من",
+        fxTo: "إلى",
+        fxRateLabel: "السعر (1 من = N إلى)",
+        fxEffective: "تاريخ السريان",
+        fxNote: "ملاحظة",
+        fxAddRate: "إضافة / تحديث السعر",
+        fxNoRates: "لا توجد أسعار صرف.",
         invModeLabel: "بنود الفاتورة",
         invModeItemized: "مفصّل",
         invModeSimple: "مبلغ واحد",
@@ -6815,6 +6884,9 @@
           const p = (location.hash || '#dashboard').slice(1);
           updatePageTitle((typeof validPages !== 'undefined' && validPages.has(p)) ? p : 'dashboard');
         }
+        // Re-localize dynamically-built invoice line rows (treatment/tax-code
+        // options + placeholder were rendered with t() at build time).
+        if (typeof invRelocalizeRows === 'function') invRelocalizeRows();
       } catch (_) {}
     }
 
@@ -10695,9 +10767,24 @@
         `<td><input type="number" class="il-rate" min="0" max="100" step="0.5" value="${p.tax_rate != null ? p.tax_rate : 0}" style="text-align:end;"></td>` +
         `<td><select class="il-treat">${invTreatmentOptions(p.tax_treatment || 'standard')}</select></td>` +
         `<td class="il-total" style="text-align:end; white-space:nowrap;">—</td>` +
-        `<td><button type="button" class="il-del" aria-label="Remove line" style="border:none;background:transparent;cursor:pointer;color:var(--danger);font-size:1.1rem;">×</button></td>`;
+        `<td><button type="button" class="il-del" aria-label="${escapeHtml(t('ibRemoveLine'))}" style="border:none;background:transparent;cursor:pointer;color:var(--danger);font-size:1.1rem;">×</button></td>`;
       body.appendChild(tr);
       invRecompute();
+    }
+
+    // Re-localize the option labels + placeholder of already-rendered rows when
+    // the UI language changes (the generic [data-i18n] loop can't reach them).
+    function invRelocalizeRows() {
+      document.querySelectorAll('#inv-items-body .inv-line').forEach(tr => {
+        const desc = tr.querySelector('.il-desc');
+        if (desc) desc.placeholder = t('ibDescription');
+        const code = tr.querySelector('.il-code');
+        if (code) { const v = code.value; code.innerHTML = invTaxCodeOptions(v); code.value = v; }
+        const treat = tr.querySelector('.il-treat');
+        if (treat) { const v = treat.value; treat.innerHTML = invTreatmentOptions(v); treat.value = v; }
+        const del = tr.querySelector('.il-del');
+        if (del) del.setAttribute('aria-label', t('ibRemoveLine'));
+      });
     }
 
     async function invEffectiveRate(code, on) {
@@ -10863,7 +10950,12 @@
     function invInitBuilder() {
       if (_invBuilderInit) return;
       _invBuilderInit = true;
+      // Default the invoice currency to the company/preferred currency BEFORE
+      // computing totals, so the live Subtotal/Tax/Total show the right code
+      // (not the dropdown's first option, IRR).
+      applyDefaultFormCurrency();
       invSetMode('itemized');     // seeds the first empty line
+      invRecompute();             // refresh totals with the initialized currency
       invLoadProductDatalist();
     }
 
@@ -11717,10 +11809,17 @@
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
       });
       if (overlay) overlay.addEventListener('click', closeSidebarDrawer);
+      const syncCollapseLabel = () => {
+        if (!collapse) return;
+        const c = document.body.classList.contains('sb-collapsed');
+        collapse.setAttribute('aria-label', t(c ? 'expandSidebar' : 'collapseSidebar'));
+      };
       if (collapse) collapse.addEventListener('click', () => {
         const c = document.body.classList.toggle('sb-collapsed');
         localStorage.setItem('aa_sb_collapsed', c ? '1' : '0');
+        syncCollapseLabel();
       });
+      syncCollapseLabel();  // initial (restores correct label for persisted state)
       // User menu dropdown.
       const userBtn = document.getElementById('user-menu-btn');
       const userPop = document.getElementById('user-pop');
@@ -11802,7 +11901,7 @@
         const r = await fetch(API + '/fx/rates');
         if (!r.ok) { wrap.innerHTML = '<p class="empty-state">Failed to load rates.</p>'; return; }
         const rows = await r.json();
-        if (!rows.length) { wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">No exchange rates set.</p>'; return; }
+        if (!rows.length) { wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('fxNoRates')) + '</p>'; return; }
         wrap.innerHTML = '<table class="mini-table"><thead><tr><th>From</th><th>To</th><th>Rate</th><th>Effective</th><th>Note</th><th></th></tr></thead><tbody>' +
           rows.map(row => `<tr>
             <td><span class="ccy-badge ccy-${escapeHtml((row.from_currency||'').toUpperCase())}">${escapeHtml(row.from_currency)}</span></td>
@@ -13292,6 +13391,15 @@
     }
 
     (function wireCompaniesConsole() {
+      // Default the base-currency dropdown from the chosen locale (uk→GBP, else IRR).
+      const coLocale = document.getElementById('co-locale');
+      const coCurrency = document.getElementById('co-currency');
+      const syncCoCurrency = () => {
+        if (!coLocale || !coCurrency) return;
+        coCurrency.value = coLocale.value === 'uk' ? 'GBP' : 'IRR';
+      };
+      if (coLocale) coLocale.addEventListener('change', syncCoCurrency);
+      syncCoCurrency();
       const createBtn = document.getElementById('co-create');
       if (createBtn) createBtn.addEventListener('click', async () => {
         const name = (document.getElementById('co-name').value || '').trim();

@@ -801,18 +801,9 @@
     <div class="card" data-page="invoices">
       <h2 id="invoices-title" data-i18n="invoicesTitle">Invoices</h2>
       <p id="invoices-subtitle" data-i18n="invoicesSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Create sales/purchase invoices, then mark paid to automatically create a transaction.</p>
-      <div class="row" style="margin-bottom: 1rem;">
+      <div class="row" style="margin-bottom: 0.75rem;">
         <div><label for="inv-number" data-i18n="labelNumber">Number</label><input type="text" id="inv-number" data-i18n-placeholder="placeholderInvoiceNo" placeholder="e.g. INV-1001"></div>
         <div><label for="inv-kind" data-i18n="labelType">Type</label><select id="inv-kind"><option value="sales" data-i18n="optionSales">Sales</option><option value="purchase" data-i18n="optionPurchase">Purchase</option></select></div>
-        <div><label for="inv-amount" data-i18n="labelAmountNet">Amount (net)</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
-        <div><label for="inv-tax-code" data-i18n="taxCodeLabel">Tax code</label><select id="inv-tax-code"><option value="" data-i18n="taxCodeNone">— Manual rate —</option></select></div>
-        <div><label for="inv-tax-treatment" data-i18n="taxTreatmentLabel">Treatment</label><select id="inv-tax-treatment">
-          <option value="standard" data-i18n="taxTreatStandard">Standard</option>
-          <option value="zero_rated" data-i18n="taxTreatZero">Zero-rated (export)</option>
-          <option value="exempt" data-i18n="taxTreatExempt">Exempt</option>
-          <option value="reverse_charge" data-i18n="taxTreatReverse">Reverse charge (cross-border)</option>
-        </select></div>
-        <div><label for="inv-tax-rate" data-i18n="labelTaxRate">Tax %</label><input type="number" id="inv-tax-rate" min="0" max="100" step="0.5" value="0"></div>
         <div><label for="inv-currency" data-i18n="invoiceCurrencyLabel">Currency</label><select id="inv-currency">
           <option value="IRR">IRR</option>
           <option value="USD">USD</option>
@@ -825,11 +816,64 @@
         <div><label for="inv-issue" data-i18n="labelIssueDate">Issue date</label><input type="date" id="inv-issue"></div>
         <div><label for="inv-due" data-i18n="labelDueDate">Due date</label><input type="date" id="inv-due"></div>
       </div>
-      <div class="row" style="margin-bottom: 1rem;">
+      <div class="row" style="margin-bottom: 0.75rem;">
         <div><label for="inv-entity" data-i18n="labelEntityOptional">Entity (optional)</label><select id="inv-entity"><option value="" data-i18n="optionNone">— None —</option></select></div>
         <div><label for="inv-bank-code" data-i18n="labelBankPayment">Bank account for payment</label><select id="inv-bank-code"><option value="" data-i18n="optionSelectBank">— Select bank —</option></select></div>
-        <div><label for="inv-desc" data-i18n="labelDescription">Description</label><input type="text" id="inv-desc" data-i18n-placeholder="placeholderInvoiceDesc" placeholder="e.g. Software development"></div>
-        <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="inv-add" data-i18n="btnCreateInvoice">Create invoice</button></div>
+        <div style="flex:2 1 280px;"><label for="inv-desc" data-i18n="labelDescription">Description / notes</label><input type="text" id="inv-desc" data-i18n-placeholder="placeholderInvoiceDesc" placeholder="e.g. Software development"></div>
+      </div>
+
+      <!-- Mode toggle: itemized line builder vs a quick single-amount invoice -->
+      <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.6rem; flex-wrap:wrap;">
+        <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600;" data-i18n="invModeLabel">Invoice lines</span>
+        <button type="button" class="prod-tab active" id="inv-mode-itemized" data-i18n="invModeItemized">Itemized</button>
+        <button type="button" class="prod-tab" id="inv-mode-simple" data-i18n="invModeSimple">Single amount</button>
+      </div>
+
+      <!-- Single-amount mode -->
+      <div id="inv-simple-fields" class="row" style="display:none; margin-bottom:1rem;">
+        <div><label for="inv-amount" data-i18n="labelAmountNet">Amount (net)</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
+        <div><label for="inv-tax-code" data-i18n="taxCodeLabel">Tax code</label><select id="inv-tax-code"><option value="" data-i18n="taxCodeNone">— Manual rate —</option></select></div>
+        <div><label for="inv-tax-treatment" data-i18n="taxTreatmentLabel">Treatment</label><select id="inv-tax-treatment">
+          <option value="standard" data-i18n="taxTreatStandard">Standard</option>
+          <option value="zero_rated" data-i18n="taxTreatZero">Zero-rated (export)</option>
+          <option value="exempt" data-i18n="taxTreatExempt">Exempt</option>
+          <option value="reverse_charge" data-i18n="taxTreatReverse">Reverse charge (cross-border)</option>
+        </select></div>
+        <div><label for="inv-tax-rate" data-i18n="labelTaxRate">Tax %</label><input type="number" id="inv-tax-rate" min="0" max="100" step="0.5" value="0"></div>
+      </div>
+
+      <!-- Itemized mode: editable line rows + live totals -->
+      <div id="inv-items-section" style="margin-bottom:1rem;">
+        <div style="overflow-x:auto;">
+          <table class="results-table" id="inv-items-table" style="min-width:780px;">
+            <thead><tr>
+              <th data-i18n="ibDescription">Description</th>
+              <th style="width:70px; text-align:end;" data-i18n="ibQty">Qty</th>
+              <th style="width:120px; text-align:end;" data-i18n="ibUnitPrice">Unit price</th>
+              <th style="width:130px;" data-i18n="ibTaxCode">Tax code</th>
+              <th style="width:74px; text-align:end;" data-i18n="ibTaxPct">Tax %</th>
+              <th style="width:120px;" data-i18n="ibTreatment">Treatment</th>
+              <th style="width:120px; text-align:end;" data-i18n="ibLineTotal">Line total</th>
+              <th style="width:36px;"></th>
+            </tr></thead>
+            <tbody id="inv-items-body"></tbody>
+          </table>
+        </div>
+        <datalist id="inv-products-datalist"></datalist>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-top:0.6rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-secondary btn-sm" id="inv-add-line" data-i18n="ibAddLine">+ Add line</button>
+          <div style="min-width:240px; font-size:0.92rem;">
+            <div style="display:flex; justify-content:space-between; padding:0.15rem 0; color:var(--text-muted);"><span data-i18n="ibSubtotal">Subtotal</span><span id="inv-sub">—</span></div>
+            <div style="display:flex; justify-content:space-between; padding:0.15rem 0; color:var(--text-muted);"><span data-i18n="ibTax">Tax</span><span id="inv-tax-total">—</span></div>
+            <div style="display:flex; justify-content:space-between; padding:0.3rem 0; font-weight:700; border-top:1px solid var(--border); margin-top:0.15rem;"><span data-i18n="ibTotal">Total</span><span id="inv-grand">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom: 1rem; gap:0.5rem; align-items:center;">
+        <button type="button" class="btn btn-primary" id="inv-add" data-i18n="btnCreateInvoice">Create invoice</button>
+        <button type="button" class="btn btn-secondary" id="inv-preview" data-i18n="invPreview">Preview</button>
+        <a id="inv-download" class="btn btn-secondary" target="_blank" rel="noopener" style="display:none; text-decoration:none;" data-i18n="invDownloadPdf">Download PDF</a>
       </div>
       <div class="row" style="margin-bottom: 1rem;">
         <div style="flex:2 1 380px;">
@@ -2850,6 +2894,25 @@
     };
     const I18N_EXTRA = {
       en: {
+        invModeLabel: "Invoice lines",
+        invModeItemized: "Itemized",
+        invModeSimple: "Single amount",
+        ibDescription: "Description",
+        ibQty: "Qty",
+        ibUnitPrice: "Unit price",
+        ibTaxCode: "Tax code",
+        ibTaxPct: "Tax %",
+        ibTreatment: "Treatment",
+        ibLineTotal: "Line total",
+        ibAddLine: "+ Add line",
+        ibSubtotal: "Subtotal",
+        ibTax: "Tax",
+        ibTotal: "Total",
+        invPreview: "Preview",
+        invDownloadPdf: "Download PDF",
+        invHeaderRequired: "Invoice number, issue date, and due date are required.",
+        invNeedLine: "Add at least one line with a description or amount.",
+        invPreviewFailed: "Could not render preview.",
         navSecOverview: "Overview",
         navSecWork: "Work",
         navSecRecords: "Records",
@@ -3759,6 +3822,25 @@
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
       fa: {
+        invModeLabel: "اقلام صورتحساب",
+        invModeItemized: "اقلامی",
+        invModeSimple: "مبلغ واحد",
+        ibDescription: "شرح",
+        ibQty: "تعداد",
+        ibUnitPrice: "قیمت واحد",
+        ibTaxCode: "کد مالیات",
+        ibTaxPct: "مالیات ٪",
+        ibTreatment: "نوع",
+        ibLineTotal: "جمع ردیف",
+        ibAddLine: "+ افزودن ردیف",
+        ibSubtotal: "جمع جزء",
+        ibTax: "مالیات",
+        ibTotal: "جمع کل",
+        invPreview: "پیش‌نمایش",
+        invDownloadPdf: "دانلود PDF",
+        invHeaderRequired: "شماره، تاریخ صدور و سررسید الزامی است.",
+        invNeedLine: "حداقل یک ردیف با شرح یا مبلغ اضافه کنید.",
+        invPreviewFailed: "تولید پیش‌نمایش ممکن نشد.",
         navSecOverview: "نمای کلی",
         navSecWork: "کارها",
         navSecRecords: "سوابق",
@@ -4665,6 +4747,25 @@
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
       es: {
+        invModeLabel: "Líneas de factura",
+        invModeItemized: "Detallado",
+        invModeSimple: "Importe único",
+        ibDescription: "Descripción",
+        ibQty: "Cant.",
+        ibUnitPrice: "Precio unit.",
+        ibTaxCode: "Código fiscal",
+        ibTaxPct: "Imp. %",
+        ibTreatment: "Tratamiento",
+        ibLineTotal: "Total línea",
+        ibAddLine: "+ Agregar línea",
+        ibSubtotal: "Subtotal",
+        ibTax: "Impuesto",
+        ibTotal: "Total",
+        invPreview: "Vista previa",
+        invDownloadPdf: "Descargar PDF",
+        invHeaderRequired: "El número, la fecha de emisión y el vencimiento son obligatorios.",
+        invNeedLine: "Agregue al menos una línea con descripción o importe.",
+        invPreviewFailed: "No se pudo generar la vista previa.",
         navSecOverview: "Resumen",
         navSecWork: "Trabajo",
         navSecRecords: "Registros",
@@ -5554,6 +5655,25 @@
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
       ar: {
+        invModeLabel: "بنود الفاتورة",
+        invModeItemized: "مفصّل",
+        invModeSimple: "مبلغ واحد",
+        ibDescription: "الوصف",
+        ibQty: "الكمية",
+        ibUnitPrice: "سعر الوحدة",
+        ibTaxCode: "رمز الضريبة",
+        ibTaxPct: "ضريبة ٪",
+        ibTreatment: "المعالجة",
+        ibLineTotal: "إجمالي البند",
+        ibAddLine: "+ إضافة بند",
+        ibSubtotal: "المجموع الفرعي",
+        ibTax: "الضريبة",
+        ibTotal: "الإجمالي",
+        invPreview: "معاينة",
+        invDownloadPdf: "تنزيل PDF",
+        invHeaderRequired: "رقم الفاتورة وتاريخ الإصدار والاستحقاق مطلوبة.",
+        invNeedLine: "أضف بندًا واحدًا على الأقل بوصف أو مبلغ.",
+        invPreviewFailed: "تعذّر إنشاء المعاينة.",
         navSecOverview: "نظرة عامة",
         navSecWork: "العمل",
         navSecRecords: "السجلات",
@@ -10542,49 +10662,248 @@
         showAlert('Connection error: ' + err.message, true);
       }
     });
-    document.getElementById('inv-add').addEventListener('click', async () => {
+    // ═══════ Multi-line invoice builder ═══════
+    let _invMode = 'itemized';
+    const _invRateCache = {};          // "CODE|YYYY-MM-DD" -> rate
+    const _invProductPrice = {};       // product_name(lower) -> last unit price
+
+    function invCurrency() { return document.getElementById('inv-currency')?.value || preferredFormCurrency(); }
+    function invFmt(n) { return (Number(n) || 0).toLocaleString() + ' ' + invCurrency(); }
+
+    function invTaxCodeOptions(selected) {
+      const codes = (typeof _taxRateCodes !== 'undefined' && _taxRateCodes) || [];
+      return `<option value="">${t('taxCodeNone')}</option>` +
+        codes.map(c => `<option value="${escapeHtml(c)}"${c === selected ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('');
+    }
+    function invTreatmentOptions(sel) {
+      const opts = [['standard', t('taxTreatStandard')], ['zero_rated', t('taxTreatZero')],
+                    ['exempt', t('taxTreatExempt')], ['reverse_charge', t('taxTreatReverse')]];
+      return opts.map(([v, l]) => `<option value="${v}"${v === sel ? ' selected' : ''}>${escapeHtml(l)}</option>`).join('');
+    }
+
+    function invAddLine(prefill) {
+      const p = prefill || {};
+      const body = document.getElementById('inv-items-body');
+      if (!body) return;
+      const tr = document.createElement('tr');
+      tr.className = 'inv-line';
+      tr.innerHTML =
+        `<td><input type="text" class="il-desc" list="inv-products-datalist" value="${escapeHtml(p.description || '')}" placeholder="${escapeHtml(t('ibDescription'))}"></td>` +
+        `<td><input type="number" class="il-qty" min="0" step="0.01" value="${p.quantity != null ? p.quantity : 1}" style="text-align:end;"></td>` +
+        `<td><input type="number" class="il-price" min="0" step="1" value="${p.unit_price != null ? p.unit_price : 0}" style="text-align:end;"></td>` +
+        `<td><select class="il-code">${invTaxCodeOptions(p.tax_code || '')}</select></td>` +
+        `<td><input type="number" class="il-rate" min="0" max="100" step="0.5" value="${p.tax_rate != null ? p.tax_rate : 0}" style="text-align:end;"></td>` +
+        `<td><select class="il-treat">${invTreatmentOptions(p.tax_treatment || 'standard')}</select></td>` +
+        `<td class="il-total" style="text-align:end; white-space:nowrap;">—</td>` +
+        `<td><button type="button" class="il-del" aria-label="Remove line" style="border:none;background:transparent;cursor:pointer;color:var(--danger);font-size:1.1rem;">×</button></td>`;
+      body.appendChild(tr);
+      invRecompute();
+    }
+
+    async function invEffectiveRate(code, on) {
+      if (!code || !on) return 0;
+      const key = code + '|' + on;
+      if (_invRateCache[key] != null) return _invRateCache[key];
+      try {
+        const res = await fetch(API + '/reports/tax-rates/effective?code=' + encodeURIComponent(code) + '&on=' + encodeURIComponent(on));
+        if (res.ok) { const d = await res.json(); _invRateCache[key] = (d.rate != null ? Number(d.rate) : 0); return _invRateCache[key]; }
+      } catch (_) {}
+      return 0;
+    }
+
+    function invRecompute() {
+      let sub = 0, tax = 0;
+      document.querySelectorAll('#inv-items-body .inv-line').forEach(tr => {
+        const qty = parseFloat(tr.querySelector('.il-qty').value) || 0;
+        const price = parseFloat(tr.querySelector('.il-price').value) || 0;
+        const rate = parseFloat(tr.querySelector('.il-rate').value) || 0;
+        const treat = tr.querySelector('.il-treat').value;
+        const lt = Math.max(0, Math.round(qty * price));
+        tr.querySelector('.il-total').textContent = invFmt(lt);
+        sub += lt;
+        if (treat === 'standard') tax += Math.round(lt * rate / 100);
+      });
+      const g = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = invFmt(v); };
+      g('inv-sub', sub); g('inv-tax-total', tax); g('inv-grand', sub + tax);
+      return { sub, tax, total: sub + tax };
+    }
+
+    function invCollectItems() {
+      const items = [];
+      document.querySelectorAll('#inv-items-body .inv-line').forEach(tr => {
+        const desc = tr.querySelector('.il-desc').value.trim();
+        const qty = parseFloat(tr.querySelector('.il-qty').value) || 0;
+        const price = parseInt(tr.querySelector('.il-price').value, 10) || 0;
+        if (!desc && qty <= 0) return;
+        const rate = parseFloat(tr.querySelector('.il-rate').value) || 0;
+        items.push({
+          product_name: desc || 'Item',
+          quantity: qty > 0 ? qty : 1,
+          unit_price: price,
+          line_total: Math.max(0, Math.round((qty > 0 ? qty : 1) * price)),
+          tax_rate: rate, taxable: true,
+          tax_code: tr.querySelector('.il-code').value || null,
+          tax_treatment: tr.querySelector('.il-treat').value || 'standard',
+        });
+      });
+      return items;
+    }
+
+    // Build the POST body for both create and preview. Returns null on a
+    // validation error (and shows the alert).
+    function invBuildBody() {
       const number = document.getElementById('inv-number').value.trim();
       const kind = document.getElementById('inv-kind').value;
-      const amount = parseInt(document.getElementById('inv-amount').value, 10) || 0;
-      const taxRate = parseFloat(document.getElementById('inv-tax-rate').value) || 0;
-      const taxCode = document.getElementById('inv-tax-code').value || null;
-      const taxTreatment = document.getElementById('inv-tax-treatment').value || 'standard';
-      const currency = document.getElementById('inv-currency')?.value || preferredFormCurrency();
+      const currency = invCurrency();
       const issue_date = document.getElementById('inv-issue').value;
       const due_date = document.getElementById('inv-due').value;
       const entity_id = document.getElementById('inv-entity').value || null;
       const description = document.getElementById('inv-desc').value.trim() || null;
-      if (!number || !issue_date || !due_date) { showAlert('Invoice number, issue date, and due date are required.', true); return; }
-      // Send the net amount as a single line whenever there's a rate, a tax
-      // code (rate derived server-side as of the issue date), or a non-standard
-      // treatment — so the backend applies effective-dating and treatment.
-      const body = { number, kind, amount, currency, issue_date, due_date, entity_id, description, status: 'issued' };
-      if (amount > 0 && (taxRate > 0 || taxCode || taxTreatment !== 'standard')) {
-        body.items = [{
-          product_name: description || number,
-          quantity: 1, unit_price: amount, line_total: amount,
-          tax_rate: taxRate, taxable: true,
-          tax_code: taxCode, tax_treatment: taxTreatment,
-        }];
+      if (!number || !issue_date || !due_date) { showAlert(t('invHeaderRequired'), true); return null; }
+      const body = { number, kind, amount: 0, currency, issue_date, due_date, entity_id, description, status: 'issued' };
+      if (_invMode === 'itemized') {
+        const items = invCollectItems();
+        if (!items.length) { showAlert(t('invNeedLine'), true); return null; }
+        body.items = items;
+      } else {
+        const amount = parseInt(document.getElementById('inv-amount').value, 10) || 0;
+        const taxRate = parseFloat(document.getElementById('inv-tax-rate').value) || 0;
+        const taxCode = document.getElementById('inv-tax-code').value || null;
+        const taxTreatment = document.getElementById('inv-tax-treatment').value || 'standard';
+        body.amount = amount;
+        if (amount > 0 && (taxRate > 0 || taxCode || taxTreatment !== 'standard')) {
+          body.items = [{ product_name: description || number, quantity: 1, unit_price: amount,
+            line_total: amount, tax_rate: taxRate, taxable: true, tax_code: taxCode, tax_treatment: taxTreatment }];
+        }
       }
+      return body;
+    }
+
+    function invSetMode(mode) {
+      _invMode = mode;
+      const itemized = mode === 'itemized';
+      document.getElementById('inv-items-section').style.display = itemized ? '' : 'none';
+      document.getElementById('inv-simple-fields').style.display = itemized ? 'none' : 'flex';
+      document.getElementById('inv-mode-itemized').classList.toggle('active', itemized);
+      document.getElementById('inv-mode-simple').classList.toggle('active', !itemized);
+      if (itemized && !document.querySelector('#inv-items-body .inv-line')) invAddLine();
+    }
+
+    document.getElementById('inv-mode-itemized').addEventListener('click', () => invSetMode('itemized'));
+    document.getElementById('inv-mode-simple').addEventListener('click', () => invSetMode('simple'));
+    document.getElementById('inv-add-line').addEventListener('click', () => invAddLine());
+    document.getElementById('inv-currency').addEventListener('change', invRecompute);
+
+    // Row interactions (delegated).
+    document.getElementById('inv-items-body').addEventListener('input', (e) => {
+      if (e.target.classList.contains('il-desc')) {
+        const price = _invProductPrice[e.target.value.trim().toLowerCase()];
+        if (price != null) { const row = e.target.closest('tr'); const pe = row.querySelector('.il-price'); if (!parseFloat(pe.value)) pe.value = price; }
+      }
+      invRecompute();
+    });
+    document.getElementById('inv-items-body').addEventListener('change', async (e) => {
+      if (e.target.classList.contains('il-code')) {
+        const row = e.target.closest('tr');
+        const rate = await invEffectiveRate(e.target.value, document.getElementById('inv-issue').value);
+        if (rate) row.querySelector('.il-rate').value = rate;
+        invRecompute();
+      }
+    });
+    document.getElementById('inv-items-body').addEventListener('click', (e) => {
+      if (e.target.classList.contains('il-del')) {
+        e.target.closest('tr').remove();
+        if (!document.querySelector('#inv-items-body .inv-line')) invAddLine();
+        invRecompute();
+      }
+    });
+
+    // Client autofill: currency + due date from the entity's saved terms.
+    document.getElementById('inv-entity').addEventListener('change', async () => {
+      const id = document.getElementById('inv-entity').value;
+      if (!id) return;
+      try {
+        const res = await fetch(API + '/entities/' + id);
+        if (!res.ok) return;
+        const ent = await res.json();
+        if (ent.currency) { const cs = document.getElementById('inv-currency'); if (cs) { cs.value = ent.currency; invRecompute(); } }
+        const m = (ent.payment_terms || '').match(/(\d+)/);
+        if (m) {
+          const issue = document.getElementById('inv-issue').value;
+          if (issue) { const d = new Date(issue + 'T00:00:00'); d.setDate(d.getDate() + parseInt(m[1], 10));
+            document.getElementById('inv-due').value = d.toISOString().slice(0, 10); }
+        }
+      } catch (_) {}
+    });
+
+    async function invLoadProductDatalist() {
+      try {
+        const res = await fetch(API + '/products/catalog');
+        if (!res.ok) return;
+        const data = await res.json();
+        const dl = document.getElementById('inv-products-datalist');
+        if (dl) dl.innerHTML = (data.items || []).map(it => `<option value="${escapeHtml(it.product_name)}"></option>`).join('');
+        (data.items || []).forEach(it => {
+          const last = (it.last_unit_price != null) ? it.last_unit_price : null;
+          if (last != null) _invProductPrice[it.product_name.toLowerCase()] = last;
+        });
+      } catch (_) {}
+    }
+
+    function invResetBuilder() {
+      const body = document.getElementById('inv-items-body');
+      if (body) body.innerHTML = '';
+      const dl = document.getElementById('inv-download');
+      if (dl) dl.style.display = 'none';
+      if (_invMode === 'itemized') invAddLine();
+      invRecompute();
+    }
+
+    let _invBuilderInit = false;
+    function invInitBuilder() {
+      if (_invBuilderInit) return;
+      _invBuilderInit = true;
+      invSetMode('itemized');     // seeds the first empty line
+      invLoadProductDatalist();
+    }
+
+    document.getElementById('inv-preview').addEventListener('click', async () => {
+      const body = invBuildBody();
+      if (!body) return;
+      const btn = document.getElementById('inv-preview');
+      btn.disabled = true;
+      try {
+        const res = await fetch(API + '/invoices/preview-pdf', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); showAlert(e.detail || t('invPreviewFailed'), true); return; }
+        const blob = await res.blob();
+        window.open(URL.createObjectURL(blob), '_blank', 'noopener');
+      } catch (_) { showAlert(t('invPreviewFailed'), true); }
+      finally { btn.disabled = false; }
+    });
+
+    document.getElementById('inv-add').addEventListener('click', async () => {
+      const body = invBuildBody();
+      if (!body) return;
       try {
         const res = await fetch(API + '/invoices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || 'Error creating invoice.', true); return; }
         showAlert('Invoice created.');
-        // Reset the whole form so the next invoice starts clean: entity back
-        // to "— None —" (avoids billing the next invoice to the same client),
-        // dates back to today/net-30. Currency keeps the company default.
+        // Offer the branded PDF for the just-created invoice.
+        const dl = document.getElementById('inv-download');
+        if (dl && data.id) { dl.href = API + '/invoices/' + data.id + '/pdf'; dl.style.display = ''; }
+        // Reset for the next invoice.
         document.getElementById('inv-number').value = '';
         document.getElementById('inv-amount').value = '0';
         document.getElementById('inv-tax-rate').value = '0';
         document.getElementById('inv-desc').value = '';
         document.getElementById('inv-entity').value = '';
         document.getElementById('inv-bank-code').value = '';
+        invResetBuilder();
         setInvoiceDateDefaults();
         applyDefaultFormCurrency();
         loadInvoices(data.id);
@@ -10619,6 +10938,9 @@
           return;
         }
         const s = data.suggested || {};
+        // A scanned invoice fills the single-amount fields — switch to that mode
+        // so the imported amount is visible/editable.
+        if (typeof invSetMode === 'function') invSetMode('simple');
         if (s.number) document.getElementById('inv-number').value = s.number;
         if (s.kind) document.getElementById('inv-kind').value = s.kind;
         if (s.amount != null) document.getElementById('inv-amount').value = String(s.amount);
@@ -11288,6 +11610,12 @@
           sel.innerHTML = `<option value="">${t('taxCodeNone')}</option>`
             + _taxRateCodes.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
           sel.value = cur;
+        }
+        // Refresh any open builder-row tax-code selects now that codes loaded.
+        if (typeof invTaxCodeOptions === 'function') {
+          document.querySelectorAll('#inv-items-body .il-code').forEach(s => {
+            const cur = s.value; s.innerHTML = invTaxCodeOptions(cur);
+          });
         }
         // Render the admin list.
         const body = document.getElementById('tr-list-body');
@@ -12875,7 +13203,7 @@
     function loadPageData(page) {
       if (page === 'dashboard') { loadOwnerDashboard(); }
       if (page === 'entities') { loadEntities(); }
-      if (page === 'invoices') { loadInvoices(); }
+      if (page === 'invoices') { loadInvoices(); invInitBuilder(); }
       if (page === 'recurring') { loadRecurringRules(); }
       if (page === 'bank-statements') { loadBankStatements(); }
       if (page === 'audit') { loadAuditLogs(); }

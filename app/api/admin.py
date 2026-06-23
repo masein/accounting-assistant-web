@@ -243,7 +243,7 @@ def get_anthropic_config(_=Depends(require_admin)) -> dict:
         "model": cfg["model"],
         "has_api_key": bool(cfg.get("api_key")),
         "default_base_url": "https://api.anthropic.com",
-        "default_model": "claude-opus-4-7",
+        "default_model": "claude-opus-4-6",
     }
 
 
@@ -264,7 +264,7 @@ def patch_anthropic_config(payload: AnthropicConfigPatch, _=Depends(require_admi
         "model": cfg["model"],
         "has_api_key": bool(cfg.get("api_key")),
         "default_base_url": "https://api.anthropic.com",
-        "default_model": "claude-opus-4-7",
+        "default_model": "claude-opus-4-6",
     }
 
 

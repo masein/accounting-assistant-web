@@ -53,7 +53,7 @@ _state: dict[str, Any] = {
     # continue to use the OpenAI-compatible providers above.
     "anthropic": {
         "base_url": (settings.anthropic_base_url or "https://api.anthropic.com").strip(),
-        "model": (settings.anthropic_model or "claude-opus-4-7").strip(),
+        "model": (settings.anthropic_model or "claude-opus-4-6").strip(),
         "api_key": (settings.anthropic_api_key or "").strip(),
         "api_key_header": "x-api-key",
         "api_key_prefix": "",
@@ -233,6 +233,6 @@ def resolve_anthropic_config() -> dict[str, str]:
         cfg = _state["anthropic"]
         return {
             "base_url": str(cfg.get("base_url") or "https://api.anthropic.com").strip(),
-            "model": str(cfg.get("model") or "claude-opus-4-7").strip(),
+            "model": str(cfg.get("model") or "claude-opus-4-6").strip(),
             "api_key": str(cfg.get("api_key") or "").strip(),
         }

@@ -17,9 +17,9 @@ class TestAnthropicConfigEndpoint:
         # The endpoint always returns the resolved base_url (defaulted)
         # so the UI has a non-empty value to render.
         assert body["base_url"] == "https://api.anthropic.com"
-        assert body["model"] == "claude-opus-4-7"
+        assert body["model"] == "claude-opus-4-6"
         assert body["default_base_url"] == "https://api.anthropic.com"
-        assert body["default_model"] == "claude-opus-4-7"
+        assert body["default_model"] == "claude-opus-4-6"
         assert isinstance(body["has_api_key"], bool)
 
     def test_patch_overrides_base_url_and_model(self, auth_client) -> None:

@@ -487,16 +487,81 @@
     .alert-chip.high { background: #fee2e2; color: #991b1b; }
     .alert-chip.medium { background: #fff7ed; color: #9a3412; }
     .alert-chip.low { background: #ecfeff; color: #155e75; }
-    .top-nav {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin: 0 0 1rem 0;
-      align-items: center;
+    /* ── Sidebar navigation shell (Feature B) ───────────────────────── */
+    :root { --sb-w: 250px; --sb-w-collapsed: 66px; }
+    body { padding: 0; padding-inline-start: var(--sb-w); transition: padding-inline-start .2s ease; }
+    .sidebar {
+      position: fixed; inset-block: 0; inset-inline-start: 0; width: var(--sb-w);
+      background: #ffffff; border-inline-end: 1px solid var(--border);
+      display: flex; flex-direction: column; z-index: 200; overflow-y: auto;
+      transition: transform .25s ease, width .2s ease;
     }
-    .nav-group-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; padding: 0 0.15rem; user-select: none; }
-    .nav-sep { width: 1px; height: 1.4rem; background: var(--border); margin: 0 0.15rem; }
-    .nav-more-item { font-size: 0.8rem; padding: 0.3rem 0.6rem; }
+    .sidebar-head {
+      display: flex; align-items: center; gap: .55rem; padding: .9rem 1rem;
+      font-weight: 800; color: var(--primary); font-size: 1.02rem;
+      border-bottom: 1px solid var(--border); position: sticky; top: 0; background: #fff; z-index: 1;
+    }
+    .sidebar-head .brand-mark { width: 26px; height: 26px; flex: 0 0 26px; }
+    .sidebar-collapse { margin-inline-start: auto; }
+    .side-nav { padding: .4rem .5rem 1.5rem; display: flex; flex-direction: column; gap: .08rem; }
+    .nav-section { margin-top: .45rem; }
+    .nav-section-h {
+      font-size: .64rem; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--text-muted); font-weight: 700; padding: .55rem .75rem .25rem; user-select: none;
+    }
+    .nav-btn {
+      display: flex; align-items: center; gap: .6rem; width: 100%; text-align: start;
+      border: none; background: transparent; color: var(--text); border-radius: 9px;
+      padding: .5rem .7rem; cursor: pointer; font-size: .855rem; font-weight: 600;
+      transition: background-color .15s ease, color .15s ease;
+    }
+    .nav-btn .ico { width: 18px; height: 18px; flex: 0 0 18px; color: var(--text-muted); }
+    .nav-btn:hover { background: color-mix(in srgb, var(--primary) 9%, transparent); }
+    .nav-btn.active { background: var(--primary); color: #fff; box-shadow: 0 6px 14px rgba(0,109,119,.20); }
+    .nav-btn.active .ico { color: #fff; }
+    /* Collapsed (icon-only) desktop mode */
+    body.sb-collapsed { padding-inline-start: var(--sb-w-collapsed); }
+    body.sb-collapsed .sidebar { width: var(--sb-w-collapsed); }
+    body.sb-collapsed .sidebar .lbl,
+    body.sb-collapsed .sidebar .nav-section-h,
+    body.sb-collapsed .sidebar .brand-name { display: none; }
+    body.sb-collapsed .sidebar .nav-btn { justify-content: center; padding-inline: .4rem; }
+    body.sb-collapsed .sidebar-head { justify-content: center; }
+    body.sb-collapsed .sidebar-collapse { display: none; }
+    .sidebar-overlay {
+      position: fixed; inset: 0; background: rgba(8,18,33,.45); z-index: 150; display: none;
+    }
+    .sidebar-overlay.show { display: block; }
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    .topbar {
+      position: sticky; top: 0; z-index: 100; display: flex; align-items: center; gap: .75rem;
+      padding: .7rem 0; margin-bottom: 1rem;
+      background: rgba(243,247,251,.86); backdrop-filter: blur(8px);
+    }
+    .page-title { font-size: 1.32rem; margin: 0; color: var(--text); font-weight: 700; letter-spacing: .2px; }
+    .topbar-right { margin-inline-start: auto; display: flex; align-items: center; gap: .55rem; }
+    .icon-btn {
+      display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
+      border: 1px solid var(--border); background: #fff; border-radius: 9px; cursor: pointer; color: var(--text);
+    }
+    .icon-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .hamburger { display: none; }
+    .user-menu { position: relative; }
+    .user-pop {
+      position: absolute; inset-inline-end: 0; top: calc(100% + 6px); background: #fff;
+      border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+      padding: .7rem; min-width: 210px; display: none; z-index: 300;
+    }
+    .user-pop.open { display: block; }
+    .user-pop label { margin-bottom: .2rem; }
+    /* ── Global polish ───────────────────────────────────────────────── */
+    .results-table tbody tr:nth-child(even) td { background: rgba(2,6,23,.022); }
+    .results-table tbody tr:hover td { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+    .empty-state { color: var(--text-muted); text-align: center; padding: 1.25rem; font-size: .9rem; }
+    :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+    }
     .ai-runtime-bar {
       display: grid;
       grid-template-columns: 180px 1fr 1.2fr 1fr auto;
@@ -514,27 +579,6 @@
       font-size: 0.76rem;
       color: var(--text-muted);
       margin-top: -0.2rem;
-    }
-    .nav-btn {
-      border: 1px solid var(--border);
-      background: #fff;
-      color: var(--text);
-      border-radius: 999px;
-      padding: 0.4rem 0.8rem;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
-      transition: transform 120ms ease, background-color 180ms ease, color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-    }
-    .nav-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 16px rgba(20,36,59,0.08);
-    }
-    .nav-btn.active {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #fff;
-      box-shadow: 0 10px 18px rgba(0,109,119,0.22);
     }
     .card[data-page] { display: none; }
     .card[data-page].active-page { display: block; animation: page-in 220ms ease; }
@@ -590,23 +634,25 @@
       from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    /* Sidebar → off-canvas drawer on narrow screens */
+    @media (max-width: 900px) {
+      body, body.sb-collapsed { padding-inline-start: 0; }
+      .sidebar { transform: translateX(-100%); width: var(--sb-w); box-shadow: var(--shadow); }
+      html[dir="rtl"] .sidebar { transform: translateX(100%); }
+      .sidebar.open { transform: none; }
+      body.sb-collapsed .sidebar .lbl,
+      body.sb-collapsed .sidebar .nav-section-h,
+      body.sb-collapsed .sidebar .brand-name { display: revert; }
+      body.sb-collapsed .sidebar .nav-btn { justify-content: flex-start; }
+      .hamburger { display: inline-flex; }
+      .sidebar-collapse { display: none; }
+    }
     @media (max-width: 760px) {
-      body { padding: 0.5rem; }
-      .container { max-width: 100%; }
+      .container { max-width: 100%; padding-inline: .9rem; }
       h1 { font-size: 1.45rem; margin-bottom: 0.25rem; }
+      .page-title { font-size: 1.15rem; }
       .card { padding: 0.9rem; border-radius: 12px; }
-      .top-nav {
-        position: sticky;
-        top: 0;
-        z-index: 50;
-        background: rgba(243, 247, 251, 0.95);
-        backdrop-filter: blur(6px);
-        overflow-x: auto;
-        flex-wrap: nowrap;
-        padding-bottom: 0.25rem;
-      }
       .ai-runtime-bar { grid-template-columns: 1fr; }
-      .nav-btn { flex: 0 0 auto; min-height: 40px; }
       .btn { min-height: 40px; }
       .chat-panel { height: 56vh; min-height: 300px; }
       .chat-input-wrap { flex-wrap: wrap; }
@@ -630,42 +676,80 @@
   </style>
 </head>
 <body>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>
+      <span class="brand-name">Aline Books</span>
+      <button type="button" class="icon-btn sidebar-collapse" id="sidebar-collapse" aria-label="Collapse sidebar" style="width:30px;height:30px;border:none;background:transparent;">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+    <nav class="side-nav" id="top-nav" aria-label="Main navigation">
+      <div class="nav-section" role="group">
+        <div class="nav-section-h" data-i18n="navSecOverview">Overview</div>
+        <button type="button" class="nav-btn" data-page="dashboard"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span class="lbl" data-i18n="navDashboard">Dashboard</span></button>
+      </div>
+      <div class="nav-section" role="group">
+        <div class="nav-section-h" data-i18n="navSecWork">Work</div>
+        <button type="button" class="nav-btn" data-page="ai-accountant"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="lbl" data-i18n="aiAccountantNav">AI Chat</span></button>
+        <button type="button" class="nav-btn" data-page="transactions"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8"/></svg><span class="lbl" data-i18n="navTransactions">Vouchers</span></button>
+        <button type="button" class="nav-btn" data-page="invoices"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h12l4 4v16l-3-2-3 2-3-2-3 2-2-1z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span class="lbl" data-i18n="navInvoices">Invoices</span></button>
+        <button type="button" class="nav-btn" data-page="time"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="lbl" data-i18n="timeNav">Time</span></button>
+        <button type="button" class="nav-btn" data-page="expenses"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="lbl" data-i18n="expNav">Expenses</span></button>
+        <button type="button" class="nav-btn" data-page="purchase-orders"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg><span class="lbl" data-i18n="poNav">Purchase Orders</span></button>
+        <button type="button" class="nav-btn" data-page="recurring"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.8-3.4L23 10M1 14l4.7 4.4A9 9 0 0 0 20.5 15"/></svg><span class="lbl" data-i18n="navRecurring">Recurring</span></button>
+      </div>
+      <div class="nav-section" role="group">
+        <div class="nav-section-h" data-i18n="navSecRecords">Records</div>
+        <button type="button" class="nav-btn" data-page="entities"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg><span class="lbl" data-i18n="navEntities">Entities</span></button>
+        <button type="button" class="nav-btn" data-page="products"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 7.3 12 12 3.4 7.3M12 12v9.5M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg><span class="lbl" data-i18n="productsNav">Products</span></button>
+        <button type="button" class="nav-btn" data-page="inventory"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8V21H3V8"/><rect x="1" y="3" width="22" height="5"/><path d="M10 12h4"/></svg><span class="lbl" data-i18n="navInventory">Inventory</span></button>
+        <button type="button" class="nav-btn" data-page="payroll"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M12 5v6M10.5 7.2c0-.7.7-1.2 1.5-1.2s1.5.5 1.5 1.2-.7 1.1-1.5 1.1-1.5.5-1.5 1.2.7 1.2 1.5 1.2 1.5-.5 1.5-1.2"/><path d="M3 21a7 7 0 0 1 18 0"/></svg><span class="lbl" data-i18n="payrollNav">Payroll</span></button>
+        <button type="button" class="nav-btn" data-page="bank-statements"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M4 10h16M5 10 12 4l7 6M6 10v8M18 10v8M10 10v8M14 10v8"/></svg><span class="lbl" data-i18n="bankStatementsNav">Bank Statements</span></button>
+      </div>
+      <div class="nav-section" role="group">
+        <div class="nav-section-h" data-i18n="navSecReports">Reports &amp; insights</div>
+        <button type="button" class="nav-btn" data-page="ledger"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h16v18H4z"/><path d="M8 3v18M8 8h12M8 13h12M8 18h12"/></svg><span class="lbl" data-i18n="navLedger">Ledger</span></button>
+        <button type="button" class="nav-btn" data-page="manager"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-3 3"/></svg><span class="lbl" data-i18n="navManager">Manager reports</span></button>
+        <button type="button" class="nav-btn" data-page="cfo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span class="lbl" data-i18n="cfoModeNav">CFO Mode</span></button>
+        <button type="button" class="nav-btn" data-page="ceo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-9 4 6 3-4 6 7z"/><circle cx="12" cy="4" r="2"/></svg><span class="lbl" data-i18n="ceoModeNav">CEO Mode</span></button>
+        <button type="button" class="nav-btn" data-page="audit"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg><span class="lbl" data-i18n="auditNav">Audit</span></button>
+      </div>
+      <div class="nav-section" role="group">
+        <div class="nav-section-h" data-i18n="navSecSetup">Setup</div>
+        <button type="button" class="nav-btn" data-page="settings"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 7 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 2.6 14H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 10 4.6V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 2.82 1.17l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl" data-i18n="navSettings">Settings</span></button>
+        <button type="button" class="nav-btn" id="nav-companies" data-page="companies" style="display:none;"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg><span class="lbl" data-i18n="companiesNav">Companies</span></button>
+      </div>
+    </nav>
+  </aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
   <div class="container">
-    <h1 id="app-title">Accounting Assistant
-      <span id="company-badge" style="display:none; font-size:0.8rem; font-weight:600; vertical-align:middle; margin-inline-start:0.5rem; padding:0.15rem 0.6rem; border-radius:999px; background:var(--accent, #2563eb); color:#fff;"></span>
-    </h1>
-    <p class="hero-subtitle" id="hero-subtitle">Use AI chat for accounting tasks, save balanced vouchers, and run manager-grade reports.</p>
+    <header class="topbar">
+      <button type="button" class="icon-btn hamburger" id="nav-toggle" aria-label="Open menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      <h1 class="page-title" id="page-title">Dashboard</h1>
+      <div class="topbar-right">
+        <span id="company-badge" style="display:none; font-size:0.8rem; font-weight:600; padding:0.2rem 0.7rem; border-radius:999px; background:var(--primary); color:#fff;"></span>
+        <div class="user-menu">
+          <button type="button" class="icon-btn" id="user-menu-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          </button>
+          <div class="user-pop" id="user-pop">
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;"><span data-i18n="signedInAs">Signed in as</span> <strong id="topbar-user-name">—</strong></div>
+            <label for="topbar-language" data-i18n="languageLabel" style="font-size:0.78rem;">Language</label>
+            <select id="topbar-language" style="margin-bottom:0.5rem;">
+              <option value="en">English</option><option value="fa">فارسی</option>
+              <option value="es">Español</option><option value="ar">العربية</option>
+            </select>
+            <button type="button" class="btn btn-secondary btn-sm" id="topbar-logout" data-i18n="logout" style="width:100%;">Logout</button>
+          </div>
+        </div>
+      </div>
+    </header>
 
     <div id="alert" class="alert" role="alert" style="display: none;"></div>
-    <nav class="top-nav" id="top-nav" aria-label="Main navigation">
-      <span class="nav-group-label">Work</span>
-      <button type="button" class="nav-btn" data-page="ai-accountant" data-i18n="aiAccountantNav">AI Chat</button>
-      <button type="button" class="nav-btn" data-page="transactions">Vouchers</button>
-      <span class="nav-sep"></span>
-      <span class="nav-group-label">Reports</span>
-      <button type="button" class="nav-btn" data-page="dashboard">Dashboard</button>
-      <button type="button" class="nav-btn" data-page="ledger">Ledger</button>
-      <button type="button" class="nav-btn" data-page="manager">Manager reports</button>
-      <span class="nav-sep"></span>
-      <span class="nav-group-label">Brain</span>
-      <button type="button" class="nav-btn" data-page="bank-statements" data-i18n="bankStatementsNav">Bank Statements</button>
-      <button type="button" class="nav-btn" data-page="audit" data-i18n="auditNav">Audit</button>
-      <button type="button" class="nav-btn" data-page="cfo" data-i18n="cfoModeNav">CFO Mode</button>
-      <button type="button" class="nav-btn" data-page="ceo" data-i18n="ceoModeNav">CEO Mode</button>
-      <span class="nav-sep"></span>
-      <span class="nav-group-label">Setup</span>
-      <button type="button" class="nav-btn nav-more-item" data-page="entities">Entities</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="invoices">Invoices</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="recurring">Recurring</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="inventory">Inventory</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="products" data-i18n="productsNav">Products</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="payroll" data-i18n="payrollNav">Payroll</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="purchase-orders" data-i18n="poNav">Purchase Orders</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="expenses" data-i18n="expNav">Expenses</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="time" data-i18n="timeNav">Time</button>
-      <button type="button" class="nav-btn nav-more-item" data-page="settings">Settings</button>
-      <button type="button" class="nav-btn nav-more-item" id="nav-companies" data-page="companies" data-i18n="companiesNav" style="display:none;">Companies</button>
-    </nav>
 
     <main id="main-content" role="main">
     <div class="card" data-page="entities">
@@ -2766,6 +2850,11 @@
     };
     const I18N_EXTRA = {
       en: {
+        navSecOverview: "Overview",
+        navSecWork: "Work",
+        navSecRecords: "Records",
+        navSecReports: "Reports & insights",
+        navSecSetup: "Setup",
         entBillingDetails: "Billing details (for documents) — optional",
         entLegalName: "Legal name",
         entTaxId: "Tax ID / VAT",
@@ -3670,6 +3759,11 @@
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
       fa: {
+        navSecOverview: "نمای کلی",
+        navSecWork: "کارها",
+        navSecRecords: "سوابق",
+        navSecReports: "گزارش‌ها و تحلیل",
+        navSecSetup: "تنظیمات",
         entBillingDetails: "اطلاعات صورتحساب (برای اسناد) — اختیاری",
         entLegalName: "نام حقوقی",
         entTaxId: "شناسه مالیاتی",
@@ -4571,6 +4665,11 @@
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
       es: {
+        navSecOverview: "Resumen",
+        navSecWork: "Trabajo",
+        navSecRecords: "Registros",
+        navSecReports: "Informes e insights",
+        navSecSetup: "Configuración",
         entBillingDetails: "Datos de facturación (para documentos) — opcional",
         entLegalName: "Nombre legal",
         entTaxId: "NIF / IVA",
@@ -5455,6 +5554,11 @@
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
       ar: {
+        navSecOverview: "نظرة عامة",
+        navSecWork: "العمل",
+        navSecRecords: "السجلات",
+        navSecReports: "التقارير والرؤى",
+        navSecSetup: "الإعداد",
         entBillingDetails: "بيانات الفوترة (للمستندات) — اختياري",
         entLegalName: "الاسم القانوني",
         entTaxId: "الرقم الضريبي",
@@ -6358,23 +6462,8 @@
       document.documentElement.dir = RTL_LANGUAGES.has(normalized) ? 'rtl' : 'ltr';
       if (uiLanguageSelectEl) uiLanguageSelectEl.value = normalized;
 
-      const navMap = {
-        dashboard: 'navDashboard',
-        'ai-accountant': 'aiAccountantNav',
-        transactions: 'navTransactions',
-        entities: 'navEntities',
-        invoices: 'navInvoices',
-        recurring: 'navRecurring',
-        ledger: 'navLedger',
-        manager: 'navManager',
-        inventory: 'navInventory',
-        settings: 'navSettings',
-      };
-      Object.entries(navMap).forEach(([page, key]) => {
-        const btn = document.querySelector('.nav-btn[data-page="' + page + '"]');
-        if (btn) btn.textContent = t(key);
-      });
-
+      // Sidebar labels are localized via the generic [data-i18n] loop on each
+      // button's inner <span class="lbl">, which preserves the icon SVG.
       const setText = (id, key) => {
         const el = document.getElementById(id);
         if (el) el.textContent = t(key);
@@ -6598,6 +6687,15 @@
       if (document.title) {
         document.title = t('appTitle');
       }
+      // Keep the top-bar page title + the top-bar language selector in sync.
+      try {
+        const tbLang = document.getElementById('topbar-language');
+        if (tbLang) tbLang.value = normalized;
+        if (typeof updatePageTitle === 'function') {
+          const p = (location.hash || '#dashboard').slice(1);
+          updatePageTitle((typeof validPages !== 'undefined' && validPages.has(p)) ? p : 'dashboard');
+        }
+      } catch (_) {}
     }
 
     async function saveLanguagePreference() {
@@ -6652,10 +6750,35 @@
         card.classList.toggle('active-page', card.getAttribute('data-page') === requested);
       });
       document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-page') === requested);
+        const on = btn.getAttribute('data-page') === requested;
+        btn.classList.toggle('active', on);
+        if (on) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
       });
+      updatePageTitle(requested);
+      closeSidebarDrawer();
       if (location.hash !== '#' + requested) history.replaceState(null, '', '#' + requested);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Map each page to the nav label key so the top-bar title stays localized.
+    const PAGE_TITLE_KEY = {
+      dashboard: 'navDashboard', 'ai-accountant': 'aiAccountantNav', transactions: 'navTransactions',
+      invoices: 'navInvoices', time: 'timeNav', expenses: 'expNav', 'purchase-orders': 'poNav',
+      recurring: 'navRecurring', entities: 'navEntities', products: 'productsNav', inventory: 'navInventory',
+      payroll: 'payrollNav', 'bank-statements': 'bankStatementsNav', ledger: 'navLedger', manager: 'navManager',
+      cfo: 'cfoModeNav', ceo: 'ceoModeNav', audit: 'auditNav', settings: 'navSettings', companies: 'companiesNav',
+    };
+    function updatePageTitle(page) {
+      const el = document.getElementById('page-title');
+      if (el) el.textContent = t(PAGE_TITLE_KEY[page] || 'navDashboard');
+    }
+    function closeSidebarDrawer() {
+      const sb = document.getElementById('sidebar');
+      const ov = document.getElementById('sidebar-overlay');
+      const tg = document.getElementById('nav-toggle');
+      if (sb) sb.classList.remove('open');
+      if (ov) ov.classList.remove('show');
+      if (tg) tg.setAttribute('aria-expanded', 'false');
     }
 
     function toggleInlineChat() {
@@ -7249,6 +7372,8 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.user) return;
         if (settingsUserNameEl) settingsUserNameEl.textContent = data.user.username || '-';
+        const tbUser = document.getElementById('topbar-user-name');
+        if (tbUser) tbUser.textContent = data.user.username || '—';
         if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? t('usersAdmin') : t('usersUser');
         const lang = (data.user.preferred_language || localStorage.getItem('aa_ui_language') || 'en').toLowerCase();
         applyLanguage(lang, true);
@@ -11249,6 +11374,51 @@
       if (!btn) return;
       showPage(btn.getAttribute('data-page'));
     });
+
+    // ── Sidebar / top-bar interactions ──────────────────────────────────
+    (function wireShell() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+      const toggle = document.getElementById('nav-toggle');
+      const collapse = document.getElementById('sidebar-collapse');
+      // Restore desktop collapsed state.
+      if (localStorage.getItem('aa_sb_collapsed') === '1') document.body.classList.add('sb-collapsed');
+      if (toggle) toggle.addEventListener('click', () => {
+        const open = sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('show', open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      if (overlay) overlay.addEventListener('click', closeSidebarDrawer);
+      if (collapse) collapse.addEventListener('click', () => {
+        const c = document.body.classList.toggle('sb-collapsed');
+        localStorage.setItem('aa_sb_collapsed', c ? '1' : '0');
+      });
+      // User menu dropdown.
+      const userBtn = document.getElementById('user-menu-btn');
+      const userPop = document.getElementById('user-pop');
+      if (userBtn && userPop) {
+        userBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const open = userPop.classList.toggle('open');
+          userBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        document.addEventListener('click', (e) => {
+          if (!userPop.contains(e.target) && e.target !== userBtn) {
+            userPop.classList.remove('open'); userBtn.setAttribute('aria-expanded', 'false');
+          }
+        });
+      }
+      const tbLang = document.getElementById('topbar-language');
+      if (tbLang) tbLang.addEventListener('change', () => applyLanguage(tbLang.value));
+      const tbLogout = document.getElementById('topbar-logout');
+      if (tbLogout) tbLogout.addEventListener('click', async () => {
+        try { await fetch(API + '/auth/logout', { method: 'POST' }); } catch (_) {}
+        window.location.href = '/login';
+      });
+      // Esc closes the mobile drawer.
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSidebarDrawer(); });
+    })();
+
     window.addEventListener('hashchange', () => {
       const p = (location.hash || '#dashboard').slice(1);
       showPage(p);

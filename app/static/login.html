@@ -49,6 +49,14 @@
       font-size: 1rem;
       margin-bottom: 0.85rem;
     }
+    .pw-wrap { position: relative; }
+    .pw-wrap > input { padding-inline-end: 2.6rem; }
+    .pw-toggle {
+      position: absolute; inset-inline-end: 0.5rem; top: 0.65rem;
+      width: auto; margin: 0; padding: 0.2rem; border: none; background: transparent;
+      cursor: pointer; color: var(--text-muted, #64748b); display: inline-flex; align-items: center;
+    }
+    .pw-toggle:hover { color: var(--primary); }
     input:focus {
       outline: none;
       border-color: var(--primary);
@@ -136,7 +144,12 @@
     <input id="username" name="username" autocomplete="username" required>
 
     <label for="password" id="password-label">Password</label>
-    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <div class="pw-wrap">
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="button" class="pw-toggle" id="pw-toggle" aria-label="Show password" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
 
     <button type="submit" id="submit-btn">Login</button>
     <div class="error" id="error-box"></div>
@@ -158,6 +171,8 @@
         language: 'Language',
         username: 'Username',
         password: 'Password',
+        showPassword: 'Show password',
+        hidePassword: 'Hide password',
         login: 'Login',
         signingIn: 'Signing in...',
         defaultAdmin: 'Default admin credentials:',
@@ -171,6 +186,8 @@
         language: 'زبان',
         username: 'نام کاربری',
         password: 'رمز عبور',
+        showPassword: 'نمایش رمز',
+        hidePassword: 'پنهان کردن رمز',
         login: 'ورود',
         signingIn: 'در حال ورود...',
         defaultAdmin: 'کاربر پیش‌فرض ادمین:',
@@ -184,6 +201,8 @@
         language: 'Idioma',
         username: 'Usuario',
         password: 'Contraseña',
+        showPassword: 'Mostrar contraseña',
+        hidePassword: 'Ocultar contraseña',
         login: 'Entrar',
         signingIn: 'Ingresando...',
         defaultAdmin: 'Credenciales de admin por defecto:',
@@ -197,6 +216,8 @@
         language: 'اللغة',
         username: 'اسم المستخدم',
         password: 'كلمة المرور',
+        showPassword: 'إظهار كلمة المرور',
+        hidePassword: 'إخفاء كلمة المرور',
         login: 'تسجيل الدخول',
         signingIn: 'جارٍ تسجيل الدخول...',
         defaultAdmin: 'بيانات المدير الافتراضية:',
@@ -227,7 +248,28 @@
       document.getElementById('password-label').textContent = t('password');
       document.getElementById('default-admin-label').textContent = t('defaultAdmin');
       submitBtn.textContent = t('login');
+      const pwBtn = document.getElementById('pw-toggle');
+      const pwInput = document.getElementById('password');
+      if (pwBtn && pwInput) {
+        pwBtn.setAttribute('aria-label', t(pwInput.type === 'password' ? 'showPassword' : 'hidePassword'));
+      }
     }
+
+    // Password show/hide toggle.
+    (function () {
+      const btn = document.getElementById('pw-toggle');
+      const input = document.getElementById('password');
+      if (!btn || !input) return;
+      const EYE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+      const EYE_OFF = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+      btn.addEventListener('click', function () {
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+        btn.setAttribute('aria-label', t(show ? 'hidePassword' : 'showPassword'));
+        btn.innerHTML = show ? EYE_OFF : EYE;
+      });
+    })();
 
     function setError(msg) {
       if (!msg) {

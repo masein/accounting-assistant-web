@@ -7612,13 +7612,26 @@
     let _companyName = '';
     function _setBrandLogo(container, hasLogo, monogramLetter, brandColor, logoUrl) {
       if (!container) return;
-      const mono = `<span class="brand-monogram" style="background:${brandColor || 'var(--primary)'}">${escapeHtml((monogramLetter || 'C').toUpperCase())}</span>`;
+      const letter = escapeHtml((monogramLetter || 'C').toUpperCase());
+      const makeMono = () => {
+        const s = document.createElement('span');
+        s.className = 'brand-monogram';
+        if (brandColor) s.style.background = brandColor;
+        s.textContent = letter;
+        return s;
+      };
+      container.innerHTML = '';
       if (hasLogo) {
-        const url = (logoUrl || (API + '/admin/company-profile/logo')) + '?t=' + Date.now();
-        // If the image 404s/errors, fall back to the monogram.
-        container.innerHTML = `<img src="${url}" alt="" onerror="this.parentElement.innerHTML='${mono.replace(/'/g, "\\'")}'">`;
+        // Build via DOM (not an innerHTML string): the monogram markup contains
+        // double quotes that would otherwise break an inline onerror="" handler
+        // and leak stray text next to the logo.
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = (logoUrl || (API + '/admin/company-profile/logo')) + '?t=' + Date.now();
+        img.onerror = () => { container.innerHTML = ''; container.appendChild(makeMono()); };
+        container.appendChild(img);
       } else {
-        container.innerHTML = mono;
+        container.appendChild(makeMono());
       }
     }
     function applyCompanyBranding(p) {
@@ -13499,8 +13512,10 @@
           const suspended = c.status === 'suspended';
           const toggleLabel = suspended ? t('companiesReactivate') : t('companiesSuspend');
           const nextStatus = suspended ? 'active' : 'suspended';
-          const mono = `<span class=\\'brand-monogram\\' style=\\'width:26px;height:26px;flex:0 0 26px;font-size:12px\\'>${escapeHtml((c.name || 'C')[0].toUpperCase())}</span>`;
-          const logo = `<img src="${API}/admin/companies/${escapeHtml(c.id)}/logo" alt="" style="width:26px;height:26px;border-radius:6px;object-fit:contain;flex:0 0 26px;" onerror="this.outerHTML='${mono}'">`;
+          // Plain <img>; the monogram fallback is wired via JS below (an inline
+          // onerror string can leak stray text — see _setBrandLogo).
+          const letter = escapeHtml((c.name || 'C')[0].toUpperCase());
+          const logo = `<img class="co-logo" data-letter="${letter}" src="${API}/admin/companies/${escapeHtml(c.id)}/logo" alt="" style="width:26px;height:26px;border-radius:6px;object-fit:contain;flex:0 0 26px;">`;
           return `<tr>
             <td><span style="display:inline-flex; align-items:center; gap:0.5rem;">${logo}${escapeHtml(c.name)}</span></td>
             <td>${escapeHtml(c.locale)}</td>
@@ -13513,6 +13528,15 @@
             </td>
           </tr>`;
         }).join('');
+        tbody.querySelectorAll('img.co-logo').forEach(img => {
+          img.onerror = () => {
+            const s = document.createElement('span');
+            s.className = 'brand-monogram';
+            s.style.cssText = 'width:26px;height:26px;flex:0 0 26px;font-size:12px';
+            s.textContent = img.dataset.letter || 'C';
+            img.replaceWith(s);
+          };
+        });
       } catch (_) { tbody.innerHTML = ''; }
     }
 

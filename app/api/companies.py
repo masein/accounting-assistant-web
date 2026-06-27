@@ -2,9 +2,11 @@
 company login's password. All endpoints gated to is_superadmin."""
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,6 +19,12 @@ from app.models.user import User
 from app.services.company_service import SUPPORTED_LOCALES, provision_company
 
 router = APIRouter(prefix="/admin/companies", tags=["companies"])
+
+# Branding lives under uploads/branding/<company_id>/logo.<ext> (see
+# company_profile._save_image), so the super-admin can serve any tenant's logo
+# by id without crossing the ORM tenant scope.
+_UPLOADS_DIR = Path(__file__).resolve().parents[1] / "uploads"
+_LOGO_EXTS = (".png", ".jpg", ".gif", ".webp")
 
 
 class CompanyCreate(BaseModel):
@@ -64,6 +72,19 @@ def list_companies(db: Session = Depends(get_db), _=Depends(require_superadmin))
     with tenant_bypass():
         companies = db.execute(select(Company).order_by(Company.created_at.asc())).scalars().all()
         return [_serialize(db, c) for c in companies]
+
+
+@router.get("/{company_id}/logo")
+def company_logo(company_id: UUID, _=Depends(require_superadmin)) -> FileResponse:
+    """A tenant's logo by id, for the Companies console thumbnail. Super-admin
+    only; the path is built from a validated UUID, so it can't escape the
+    branding dir. 404 when the company hasn't uploaded one."""
+    brand_dir = _UPLOADS_DIR / "branding" / str(company_id)
+    for ext in _LOGO_EXTS:
+        candidate = brand_dir / f"logo{ext}"
+        if candidate.is_file():
+            return FileResponse(candidate)
+    raise HTTPException(status_code=404, detail="No logo")
 
 
 @router.post("", status_code=201)

@@ -7,11 +7,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.auth import require_admin
+from app.core.auth import get_current_user, require_admin
 from app.db.session import get_db
 from app.db.tenant import get_current_company
 from app.models.company import Company
@@ -85,6 +86,24 @@ def get_profile(db: Session = Depends(get_db), _=Depends(require_admin)) -> dict
     profile = _get_or_create(db)
     db.commit()
     return _serialize(db, profile)
+
+
+@router.get("/logo")
+def get_logo(db: Session = Depends(get_db), _=Depends(get_current_user)) -> FileResponse:
+    """Serve the current tenant's logo to any of its signed-in users (it appears
+    on every document — not a secret), so the sidebar/brand can render it. Still
+    tenant-scoped: the query only sees this company's row, never another's."""
+    profile = db.execute(select(CompanyProfile)).scalars().first()
+    if profile is None or not profile.logo_path:
+        raise HTTPException(status_code=404, detail="No logo")
+    abs_path = (UPLOADS_DIR / profile.logo_path).resolve()
+    try:
+        abs_path.relative_to(UPLOADS_DIR.resolve())  # guard against traversal
+    except ValueError:
+        raise HTTPException(status_code=404, detail="No logo")
+    if not abs_path.is_file():
+        raise HTTPException(status_code=404, detail="No logo")
+    return FileResponse(abs_path)
 
 
 @router.put("")

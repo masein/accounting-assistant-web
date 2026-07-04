@@ -1,0 +1,84 @@
+name: Publish image
+
+# Builds the API Docker image and pushes it to the private registry
+# (docker.netixsystem.com) so it can be pulled and deployed on a server.
+#
+#  - push to `main`      → tags `latest` and `sha-<short-sha>`
+#  - push a tag `v1.2.3` → tags `1.2.3`, `1.2`, `1` (and `latest`)
+#  - manual run          → tags `latest` (+ sha)
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   REGISTRY_USERNAME  – login for docker.netixsystem.com
+#   REGISTRY_PASSWORD  – password / token for that user
+# Optional repo variable:
+#   IMAGE_NAME         – override the default image path (see env below)
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: docker.netixsystem.com
+  # Default image path. If your registry needs a project/namespace (e.g. Harbor
+  # → docker.netixsystem.com/<project>/accounting-assistant-api), set the
+  # IMAGE_NAME repo variable to the full path instead.
+  IMAGE_NAME: ${{ vars.IMAGE_NAME || 'docker.netixsystem.com/accounting-assistant-api' }}
+
+jobs:
+  build-push:
+    name: Build & push API image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Derive image tags & labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          labels: |
+            org.opencontainers.image.title=accounting-assistant-api
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # GitHub Actions layer cache so repeat builds skip apt/pip.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "### Pushed image tags" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

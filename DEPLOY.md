@@ -64,6 +64,44 @@ docker compose -f docker-compose.prod.yml up -d
 Postgres data (`pgdata`) and uploaded branding logos (`uploads`) persist across
 redeploys in named volumes.
 
+## 5. Zero-touch deploy (optional)
+
+Make every successful image publish deploy itself: the **Publish image**
+workflow has a `deploy` job that SSHes into the server, syncs
+`docker-compose.prod.yml`, and runs `compose pull && up -d`. It is **off until
+you enable it**.
+
+**On the server (one-time):**
+```bash
+mkdir -p /opt/accounting            # this becomes DEPLOY_PATH
+cd /opt/accounting
+cp /path/to/.env .                  # from .env.prod.example, secrets filled in
+# ensure the deploy user is in the docker group:  sudo usermod -aG docker "$USER"
+# add the deploy public key to ~/.ssh/authorized_keys
+```
+(The compose file is copied by CI each run, so you only maintain `.env`.)
+
+**In GitHub → Settings → Secrets and variables → Actions:**
+
+Add a **Variable** to turn it on:
+
+| Variable | Value |
+| --- | --- |
+| `DEPLOY_ENABLED` | `true` |
+
+Add **Secrets**:
+
+| Secret | Value |
+| --- | --- |
+| `DEPLOY_HOST` | server hostname / IP |
+| `DEPLOY_USER` | SSH user (in the `docker` group) |
+| `DEPLOY_SSH_KEY` | that user's **private** key (full PEM contents) |
+| `DEPLOY_PATH` | e.g. `/opt/accounting` |
+| `DEPLOY_PORT` | optional, defaults to `22` |
+
+Now: push to `main` (or a `v*` tag, or Run workflow) → image builds → server
+pulls it and restarts. Set `DEPLOY_ENABLED` to anything but `true` to pause it.
+
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally
   and bind-mounts the source for live reload. `docker-compose.prod.yml` runs the

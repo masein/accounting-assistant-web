@@ -1,0 +1,50 @@
+# Keep the build context (and the image) small and free of secrets/junk.
+# Without this, `COPY . /app` bakes in .git, .env, local tarballs, caches, etc.
+
+# VCS / tooling
+.git
+.gitignore
+.github
+.claude
+.vscode
+.idea
+
+# Secrets & local env — never bake into the image
+.env
+.env.*
+!.env.prod.example
+
+# Python caches / virtualenvs / test artifacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Large local artifacts that must not enter the build context
+*.tar
+*.tar.gz
+*.zip
+*.docx
+*-REPORT.md
+*_Report*.docx
+samples/
+scripts/
+
+# Runtime-only data (branding logos live in a volume in prod, not the image)
+app/uploads/
+
+# Compose / deploy docs aren't needed inside the image
+docker-compose*.yml
+DEPLOY.md
+
+# OS cruft
+.DS_Store
+Thumbs.db

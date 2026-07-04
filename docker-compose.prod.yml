@@ -1,0 +1,80 @@
+# Production stack — pulls the pre-built image from the registry instead of
+# building locally, and (unlike docker-compose.yml) does NOT bind-mount the
+# source tree, so the container runs exactly what CI published.
+#
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Configure via a .env file next to this one (see .env.prod.example). The API
+# image runs `alembic upgrade head` on start, so migrations apply automatically.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: accounting
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+
+  api:
+    # Override the exact tag with API_IMAGE in .env (e.g. pin :1.2.3 for a
+    # reproducible deploy; defaults to :latest).
+    image: ${API_IMAGE:-docker.netixsystem.com/accounting-assistant-api:latest}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-postgres}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/accounting
+      APP_ENV: ${APP_ENV:-prod}
+      APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-http://localhost:8000}
+      # Session-signing secret — REQUIRED in prod (auth tokens are signed with
+      # it). Generate one: `openssl rand -hex 32`.
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      # AI provider (defaults to Metis; needs METIS_API_KEY).
+      AI_PROVIDER: ${AI_PROVIDER:-metis}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_API_KEY_HEADER: ${AI_API_KEY_HEADER:-Authorization}
+      AI_API_KEY_PREFIX: ${AI_API_KEY_PREFIX:-Bearer}
+      METIS_BASE_URL: ${METIS_BASE_URL:-https://api.metisai.ir/openai/v1}
+      METIS_MODEL: ${METIS_MODEL:-gpt-4o-mini}
+      METIS_API_KEY: ${METIS_API_KEY:-}
+      # Anthropic (Claude) — optional; used when the anthropic provider is picked.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      # Persist uploaded branding logos/stamps across image redeploys.
+      - uploads:/app/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8000/health'); r.raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+volumes:
+  pgdata:
+  uploads:

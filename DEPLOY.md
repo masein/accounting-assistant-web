@@ -47,9 +47,11 @@ docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-The API container runs `alembic upgrade head` on start, so schema migrations
-apply automatically. First boot seeds the chart of accounts and the `admin`
-super-admin (log in as `admin` / `admin`, then change the password).
+On start the API builds the schema and applies migrations automatically (its
+lifespan runs `create_all` → Alembic `stamp`/`upgrade` → seed), so a brand-new
+database boots ready. First boot seeds the chart of accounts and the `admin`
+super-admin under the Default company (log in as `admin` / `admin`, then change
+the password).
 
 Health check: `curl http://SERVER:8000/health` → `{"status":"ok",...}`.
 
@@ -79,7 +81,7 @@ docker compose -f docker-compose.prod.yml up -d   # starts api, db, AND watchtow
 ```
 
 - Only the api is updated (it carries the label `com.centurylinklabs.watchtower.enable=true`); the database is never touched (`WATCHTOWER_LABEL_ENABLE`).
-- On update Watchtower pulls the new image, recreates the container (which runs `alembic upgrade head` on start), removes the old image, and keeps the `pgdata` / `uploads` volumes.
+- On update Watchtower pulls the new image, recreates the container (which applies migrations on start), removes the old image, and keeps the `pgdata` / `uploads` volumes.
 - Tune the check frequency with `WATCHTOWER_POLL_INTERVAL` (seconds; default `120`) in `.env`.
 
 So the full loop is: **push to `main` → CI builds & pushes `:latest` → Watchtower

@@ -28,4 +28,7 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# The app's lifespan runs create_all → seed → alembic upgrade in the correct
+# order (see app/main.py), so we must NOT run `alembic upgrade head` here — on a
+# fresh DB that would run migrations before the base tables/seed exist.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

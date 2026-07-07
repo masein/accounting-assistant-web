@@ -45,7 +45,7 @@ from app.core.auth import (
 from app.core.rate_limit import RateLimiter
 from app.db.base import Base
 from app.db.tenant import set_current_company, clear_current_company, tenant_bypass
-from app.db.seed import seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
+from app.db.seed import ensure_default_company, seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
 from app.db.session import engine, SessionLocal, get_db
 import app.models  # noqa: F401 - register models with Base.metadata
 
@@ -177,16 +177,34 @@ def _apply_user_migrations() -> None:
 
 
 def _run_alembic_migrations() -> None:
-    """Run Alembic migrations programmatically (equivalent to 'alembic upgrade head')."""
+    """Bring the schema to head.
+
+    On a FRESH database `create_all` (run just before this) already builds the
+    current/head schema, so the historical *transform* migrations must NOT run —
+    they collide with it (e.g. migration 015 does `CREATE INDEX
+    ix_accounts_company_id` on an index create_all already made → DuplicateTable,
+    and the whole upgrade rolls back). Detect fresh by the absence of Alembic's
+    version table and `stamp head` instead; migration 015's DATA backfill is done
+    separately and idempotently by `ensure_default_company`. On an existing DB
+    (version table present) run the pending migrations normally.
+    """
     from alembic.config import Config
     from alembic import command
+    from sqlalchemy import inspect
     alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+    fresh_db = not inspect(engine).has_table("alembic_version")
     try:
-        command.upgrade(alembic_cfg, "head")
-        _migration_logger.info("Alembic migrations applied successfully")
+        if fresh_db:
+            command.stamp(alembic_cfg, "head")
+            _migration_logger.info(
+                "Fresh DB — stamped Alembic at head (schema built by create_all)"
+            )
+        else:
+            command.upgrade(alembic_cfg, "head")
+            _migration_logger.info("Alembic migrations applied successfully")
     except Exception:
         _migration_logger.warning(
-            "Alembic migration failed — falling back to idempotent startup SQL",
+            "Alembic step failed — falling back to idempotent startup SQL",
             exc_info=True,
         )
         _apply_numeric_migrations()
@@ -197,10 +215,19 @@ def _run_alembic_migrations() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create DB tables + run migrations
+    # Startup order matters on a FRESH database:
+    #   1. create_all — build the base tables (the migration chain only patches
+    #      an existing schema; it never creates them).
+    #   2. migrate — stamp Alembic at head on a fresh DB (create_all already
+    #      built the head schema) or upgrade an existing one.
+    #   3. seed — create the admin user + chart + defaults (company_id NULL).
+    #   4. ensure_default_company — idempotently create the Default company,
+    #      fold every seeded row + the admin user into it, and promote admin to
+    #      super-admin (the DATA half of migration 015, which never runs on a
+    #      fresh DB because we stamp rather than upgrade).
+    # On an existing DB every step is idempotent (create_all/upgrade/seed no-op).
     Base.metadata.create_all(bind=engine)
     _run_alembic_migrations()
-    # Seed minimal chart of accounts if empty
     db = SessionLocal()
     try:
         seed_chart_if_empty(db)
@@ -212,6 +239,7 @@ async def lifespan(app: FastAPI):
         seed_tax_rates(db)
     finally:
         db.close()
+    ensure_default_company(engine)
     # Restore AI config from database (survives restarts)
     from app.core.ai_runtime import load_ai_config_from_db
     load_ai_config_from_db()

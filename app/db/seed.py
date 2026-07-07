@@ -269,3 +269,50 @@ def seed_admin_user_if_missing(session: "Session") -> int:
     )
     session.commit()
     return 1
+
+
+# The Default company's fixed id — must match migration 015's DEFAULT_COMPANY_ID.
+DEFAULT_COMPANY_ID = "00000000-0000-0000-0000-000000000001"
+
+
+def ensure_default_company(engine) -> None:
+    """Idempotent multi-tenant bootstrap (the DATA half of migration 015).
+
+    On a FRESH database the schema is built by ``create_all`` and Alembic is
+    stamped at head (see ``_run_alembic_migrations``), so migration 015's *data*
+    steps — create the Default company, attach every orphan tenant row + user to
+    it, and promote ``admin`` to super-admin — never run. This performs them.
+
+    Everything is guarded (``ON CONFLICT``, ``WHERE company_id IS NULL``), so on
+    an already-migrated DB it is a harmless no-op. Runs on a raw connection to
+    bypass the ORM tenant-scoping listeners.
+    """
+    from sqlalchemy import text
+    from app.db.tenant import tenant_model_tablenames
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO companies "
+                "(id, name, slug, locale, base_currency, status, token_version, created_at) "
+                "VALUES (:id, 'Default', 'default', 'uk', 'GBP', 'active', 0, now()) "
+                "ON CONFLICT (id) DO NOTHING"
+            ),
+            {"id": DEFAULT_COMPANY_ID},
+        )
+        for table in sorted(tenant_model_tablenames()):
+            conn.execute(
+                text(f"UPDATE {table} SET company_id = :cid WHERE company_id IS NULL"),
+                {"cid": DEFAULT_COMPANY_ID},
+            )
+        conn.execute(
+            text("UPDATE users SET company_id = :cid WHERE company_id IS NULL"),
+            {"cid": DEFAULT_COMPANY_ID},
+        )
+        conn.execute(
+            text(
+                "UPDATE users SET is_superadmin = true, company_id = :cid "
+                "WHERE username = 'admin'"
+            ),
+            {"cid": DEFAULT_COMPANY_ID},
+        )

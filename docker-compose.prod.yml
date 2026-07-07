@@ -5,8 +5,9 @@
 #   docker compose -f docker-compose.prod.yml pull
 #   docker compose -f docker-compose.prod.yml up -d
 #
-# Configure via a .env file next to this one (see .env.prod.example). The API
-# image runs `alembic upgrade head` on start, so migrations apply automatically.
+# Configure via a .env file next to this one (see .env.prod.example). On start
+# the API builds the schema and applies migrations automatically (its lifespan
+# runs create_all → alembic stamp/upgrade → seed), so a fresh DB boots ready.
 services:
   db:
     image: postgres:16

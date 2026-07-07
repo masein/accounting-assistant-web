@@ -92,50 +92,8 @@ jobs:
           echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-  # ── Zero-touch deploy ──────────────────────────────────────────────────────
-  # Runs after a successful image push. OFF by default: it only runs when the
-  # repo variable DEPLOY_ENABLED == 'true'. SSHes into the server, syncs the
-  # prod compose file, and does `compose pull && up -d` so the new image goes
-  # live. Required secrets (Settings → Secrets and variables → Actions):
-  #   DEPLOY_HOST      – server hostname / IP
-  #   DEPLOY_USER      – SSH user (must be able to run docker)
-  #   DEPLOY_SSH_KEY   – that user's PRIVATE key (PEM, full contents)
-  #   DEPLOY_PATH      – dir on the server holding the `.env` (compose is scp'd here)
-  #   DEPLOY_PORT      – optional, defaults to 22
-  deploy:
-    name: Deploy to server
-    needs: build-push
-    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Deploy over SSH (compose pull && up -d)
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          if [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_SSH_KEY:-}" ]; then
-            echo "::warning::DEPLOY_ENABLED is true but DEPLOY_HOST/DEPLOY_SSH_KEY are not set — skipping deploy."
-            exit 0
-          fi
-          PORT="${DEPLOY_PORT:-22}"
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-          SSHOPTS="-i $HOME/.ssh/id_deploy -o StrictHostKeyChecking=accept-new"
-          # Keep the server's compose file in sync (it holds no secrets; .env is untouched).
-          scp $SSHOPTS -P "$PORT" docker-compose.prod.yml \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/docker-compose.prod.yml"
-          ssh $SSHOPTS -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' \
-             && docker compose -f docker-compose.prod.yml pull \
-             && docker compose -f docker-compose.prod.yml up -d \
-             && docker image prune -f"
-          echo "Deployed to $DEPLOY_HOST:$DEPLOY_PATH"
+  # Zero-touch deploy is handled server-side by Watchtower (see
+  # docker-compose.prod.yml + DEPLOY.md), because GitHub's cloud runners can't
+  # reach the server's SSH. Watchtower on the server polls the registry and
+  # redeploys the api container when this workflow publishes a new image — no
+  # inbound access from GitHub required.

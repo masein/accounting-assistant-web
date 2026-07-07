@@ -64,43 +64,31 @@ docker compose -f docker-compose.prod.yml up -d
 Postgres data (`pgdata`) and uploaded branding logos (`uploads`) persist across
 redeploys in named volumes.
 
-## 5. Zero-touch deploy (optional)
+## 5. Zero-touch deploy (Watchtower)
 
-Make every successful image publish deploy itself: the **Publish image**
-workflow has a `deploy` job that SSHes into the server, syncs
-`docker-compose.prod.yml`, and runs `compose pull && up -d`. It is **off until
-you enable it**.
+The deploy is **pull-based**: a `watchtower` service in `docker-compose.prod.yml`
+runs on the server, polls the registry, and auto-recreates the **api** container
+whenever CI publishes a new image. Nothing has to reach *into* the server — it
+only needs outbound access to the registry (which it already has), so this works
+even though GitHub's cloud runners can't SSH in.
 
-**On the server (one-time):**
+It's built into the prod stack — **just run the stack** (§3) and it's on:
+
 ```bash
-mkdir -p /opt/accounting            # this becomes DEPLOY_PATH
-cd /opt/accounting
-cp /path/to/.env .                  # from .env.prod.example, secrets filled in
-# ensure the deploy user is in the docker group:  sudo usermod -aG docker "$USER"
-# add the deploy public key to ~/.ssh/authorized_keys
+docker compose -f docker-compose.prod.yml up -d   # starts api, db, AND watchtower
 ```
-(The compose file is copied by CI each run, so you only maintain `.env`.)
 
-**In GitHub → Settings → Secrets and variables → Actions:**
+- Only the api is updated (it carries the label `com.centurylinklabs.watchtower.enable=true`); the database is never touched (`WATCHTOWER_LABEL_ENABLE`).
+- On update Watchtower pulls the new image, recreates the container (which runs `alembic upgrade head` on start), removes the old image, and keeps the `pgdata` / `uploads` volumes.
+- Tune the check frequency with `WATCHTOWER_POLL_INTERVAL` (seconds; default `120`) in `.env`.
 
-Add a **Variable** to turn it on:
+So the full loop is: **push to `main` → CI builds & pushes `:latest` → Watchtower
+sees it within the poll interval → api redeploys.** For a controlled release
+instead, pin `API_IMAGE=…:1.2.3` in `.env` and re-run `up -d` when you want it.
 
-| Variable | Value |
-| --- | --- |
-| `DEPLOY_ENABLED` | `true` |
-
-Add **Secrets**:
-
-| Secret | Value |
-| --- | --- |
-| `DEPLOY_HOST` | server hostname / IP |
-| `DEPLOY_USER` | SSH user (in the `docker` group) |
-| `DEPLOY_SSH_KEY` | that user's **private** key (full PEM contents) |
-| `DEPLOY_PATH` | e.g. `/opt/accounting` |
-| `DEPLOY_PORT` | optional, defaults to `22` |
-
-Now: push to `main` (or a `v*` tag, or Run workflow) → image builds → server
-pulls it and restarts. Set `DEPLOY_ENABLED` to anything but `true` to pause it.
+> The old SSH-based deploy job was removed — GitHub's runners can't reach the
+> server. If you added `DEPLOY_ENABLED` / `DEPLOY_*` secrets earlier, you can
+> delete them; they're unused now.
 
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally

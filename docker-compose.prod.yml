@@ -57,6 +57,9 @@ services:
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
     ports:
       - "${API_PORT:-8000}:8000"
+    labels:
+      # Only this container is auto-updated by Watchtower (never the DB).
+      com.centurylinklabs.watchtower.enable: "true"
     volumes:
       # Persist uploaded branding logos/stamps across image redeploys.
       - uploads:/app/app/uploads
@@ -74,6 +77,28 @@ services:
         limits:
           cpus: '2'
           memory: 2G
+
+  # Zero-touch deploy: polls the registry and auto-recreates the api container
+  # when CI publishes a new image. LABEL_ENABLE means it only touches containers
+  # labelled com.centurylinklabs.watchtower.enable=true (the api) — never the DB.
+  # No inbound access from GitHub needed; the server pulls. The registry allows
+  # anonymous pulls, so no registry credentials are configured here.
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_CLEANUP: "true"            # remove the old image after updating
+      WATCHTOWER_LABEL_ENABLE: "true"       # only update labelled containers
+      WATCHTOWER_ROLLING_RESTART: "true"
+      WATCHTOWER_POLL_INTERVAL: ${WATCHTOWER_POLL_INTERVAL:-120}  # seconds
+      WATCHTOWER_TIMEOUT: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
 volumes:
   pgdata:

@@ -82,12 +82,20 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         company_id=str(user.company_id) if user.company_id else None,
         is_superadmin=user.is_superadmin, token_version=user.token_version,
     )
+    # Secure flag: explicit override if set, else follow the request scheme so
+    # plain-HTTP access still stores the cookie (a Secure cookie is dropped by
+    # browsers over http://).
+    cookie_secure = (
+        settings.auth_cookie_secure
+        if settings.auth_cookie_secure is not None
+        else request.url.scheme == "https"
+    )
     response.set_cookie(
         key=settings.auth_cookie_name,
         value=token,
         httponly=True,
         samesite="lax",
-        secure=settings.app_env.lower() == "prod",
+        secure=cookie_secure,
         max_age=int(settings.auth_session_hours * 3600),
         path="/",
     )

@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     auth_secret: str = "change-this-in-production"
     auth_cookie_name: str = "aa_session"
     auth_session_hours: int = 24
+    # Whether the session cookie carries the `Secure` flag. Unset (None) →
+    # follow the request scheme (Secure only over HTTPS), so plain-HTTP access
+    # (e.g. http://SERVER_IP:8000 before a TLS proxy is in front) still works.
+    # Set AUTH_COOKIE_SECURE=true to force it on behind a TLS-terminating proxy
+    # that forwards to the app over HTTP.
+    auth_cookie_secure: bool | None = None
 
 
 settings = Settings()

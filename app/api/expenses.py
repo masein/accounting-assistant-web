@@ -204,11 +204,23 @@ def create_mileage(payload: MileageCreate, db: Session = Depends(get_db)) -> dic
     return {**_claim_read(claim), "needs_approval": needs_approval}
 
 
+def _expense_own_scope():
+    """Self-service (Employee) callers see only their own claims."""
+    from app.core.permissions import Perm, own_scope
+    from app.core.request_context import get_current_actor
+    return own_scope(get_current_actor(), Perm.BOOKS_READ)
+
+
 @router.get("")
 def list_expenses(status: str | None = None, db: Session = Depends(get_db)) -> list[dict]:
     q = select(MileageClaim).order_by(MileageClaim.created_at.desc())
     if status:
         q = q.where(MileageClaim.status == status.strip().lower())
+    restricted, own = _expense_own_scope()
+    if restricted:
+        if not own:
+            return []  # self-service caller with no linked employee entity
+        q = q.where(MileageClaim.entity_id == UUID(str(own)))
     return [_claim_read(c) for c in db.execute(q).scalars().all()]
 
 
@@ -216,6 +228,9 @@ def list_expenses(status: str | None = None, db: Session = Depends(get_db)) -> l
 def get_expense(claim_id: UUID, db: Session = Depends(get_db)) -> dict:
     c = db.get(MileageClaim, claim_id)
     if not c:
+        raise HTTPException(status_code=404, detail="Claim not found.")
+    restricted, own = _expense_own_scope()
+    if restricted and str(c.entity_id) != str(own or ""):
         raise HTTPException(status_code=404, detail="Claim not found.")
     return _claim_read(c)
 

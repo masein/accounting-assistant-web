@@ -203,11 +203,27 @@ def list_entries(client_id: UUID | None = None, project_id: UUID | None = None,
         q = q.where(TimeEntry.work_date <= date_to)
     if status:
         q = q.where(TimeEntry.status == status.strip().lower())
+    restricted, own = _time_own_scope()
+    if restricted:
+        if not own:
+            return []
+        q = q.where(TimeEntry.employee_id == UUID(str(own)))
     return [_entry_read(e, db) for e in db.execute(q).scalars().all()]
+
+
+def _time_own_scope():
+    """Self-service (Employee) callers only see/log their own time."""
+    from app.core.permissions import Perm, own_scope
+    from app.core.request_context import get_current_actor
+    return own_scope(get_current_actor(), Perm.BOOKS_READ)
 
 
 @router.post("/entries", status_code=201)
 def create_entry(payload: TimeEntryCreate, db: Session = Depends(get_db)) -> dict:
+    # A self-service caller may only log time for their own employee entity.
+    restricted, own = _time_own_scope()
+    if restricted and str(payload.employee_id) != str(own or ""):
+        raise HTTPException(status_code=403, detail="You can only log your own time.")
     client_id = payload.client_id
     if payload.project_id is not None:
         proj = db.get(Project, payload.project_id)
@@ -237,6 +253,9 @@ def create_entry(payload: TimeEntryCreate, db: Session = Depends(get_db)) -> dic
 def update_entry(entry_id: UUID, payload: TimeEntryUpdate, db: Session = Depends(get_db)) -> dict:
     e = db.get(TimeEntry, entry_id)
     if not e:
+        raise HTTPException(status_code=404, detail="Time entry not found.")
+    restricted, own = _time_own_scope()
+    if restricted and str(e.employee_id) != str(own or ""):
         raise HTTPException(status_code=404, detail="Time entry not found.")
     if e.status != "unbilled":
         raise HTTPException(
@@ -280,6 +299,9 @@ def write_off_entry(entry_id: UUID, db: Session = Depends(get_db)) -> dict:
 def delete_entry(entry_id: UUID, db: Session = Depends(get_db)) -> Response:
     e = db.get(TimeEntry, entry_id)
     if not e:
+        raise HTTPException(status_code=404, detail="Time entry not found.")
+    restricted, own = _time_own_scope()
+    if restricted and str(e.employee_id) != str(own or ""):
         raise HTTPException(status_code=404, detail="Time entry not found.")
     if e.status == "invoiced":
         raise HTTPException(status_code=409, detail="Invoiced time is locked — void its invoice first.")

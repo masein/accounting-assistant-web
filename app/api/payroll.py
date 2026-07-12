@@ -389,8 +389,19 @@ def pay_run(run_id: UUID, bank_account_code: str | None = None, db: Session = De
 # ---------------------------------------------------------------------------
 
 
+def _enforce_own_payslip(entity_id: UUID) -> None:
+    """A self-service caller (Employee, no PAYROLL_READ) may only fetch their
+    OWN payslip; anyone else's looks like it doesn't exist (404)."""
+    from app.core.permissions import Perm, own_scope
+    from app.core.request_context import get_current_actor
+    restricted, own = own_scope(get_current_actor(), Perm.PAYROLL_READ)
+    if restricted and str(entity_id) != str(own or ""):
+        raise HTTPException(status_code=404, detail="No payslip for this employee in this run.")
+
+
 @router.get("/runs/{run_id}/payslip/{entity_id}")
 def get_payslip(run_id: UUID, entity_id: UUID, db: Session = Depends(get_db)) -> dict:
+    _enforce_own_payslip(entity_id)
     run = db.get(PayRun, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Pay run not found.")
@@ -418,6 +429,7 @@ def payslip_pdf(run_id: UUID, entity_id: UUID, db: Session = Depends(get_db)):
     from fastapi.responses import Response
     from app.models.entity import Entity
     from app.services.documents import render_payslip_pdf
+    _enforce_own_payslip(entity_id)
     run = db.get(PayRun, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Pay run not found.")

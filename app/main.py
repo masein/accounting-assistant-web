@@ -24,6 +24,7 @@ from app.api.entities import router as entities_router
 from app.api.expenses import router as expenses_router
 from app.api.exports import router as exports_router
 from app.api.fx import router as fx_router
+from app.api.integration import router as integration_router
 from app.api.invoices import router as invoices_router
 from app.api.manager_reports import router as manager_reports_router
 from app.api.notifications import router as notifications_router
@@ -384,6 +385,25 @@ async def auth_middleware(request: Request, call_next):
     ):
         return await call_next(request)
 
+    # /api/v1 is the key-authenticated integration surface: no session cookie,
+    # no CSRF — the API key alone resolves the company and scopes everything.
+    if path.startswith("/api/v1/"):
+        resolved = _resolve_api_key_actor(request)
+        if resolved is None:
+            return JSONResponse(status_code=401, content={"detail": "A valid API key is required."})
+        company_id, actor = resolved
+        if not _api_key_limiter.is_allowed(actor.user_id):
+            return JSONResponse(status_code=429, content={"detail": "API rate limit exceeded."})
+        request.state.user = actor
+        request.state.api_key = True
+        set_current_company(company_id)
+        set_current_user(actor)
+        try:
+            return await call_next(request)
+        finally:
+            clear_current_company()
+            clear_current_user()
+
     token = request.cookies.get(settings.auth_cookie_name)
     user = parse_session_token(token)
     if user is not None and not _session_is_valid(user):
@@ -448,6 +468,58 @@ def _resolve_validation_session():
         gen = override()
         return next(gen), gen
     return SessionLocal(), None
+
+
+# Per-key rate limit for the /api/v1 integration surface.
+_api_key_limiter = RateLimiter(max_requests=240, window_seconds=60)
+
+
+def _resolve_api_key_actor(request: Request):
+    """Resolve an /api/v1 request's API key to (company_id, service actor).
+    Returns None when the key is missing, unknown, revoked, or its company is
+    not active. The actor is a SessionUser-shaped service identity so audit
+    attribution and object-ownership helpers work unchanged."""
+    from app.core.api_key_auth import extract_api_key, hash_api_key
+    from app.core.auth import SessionUser
+    from app.models.api_key import ApiKey
+    from app.models.company import Company
+    from datetime import datetime, timezone
+
+    raw = extract_api_key(request.headers)
+    if not raw:
+        return None
+    digest = hash_api_key(raw)
+    try:
+        sess, gen = _resolve_validation_session()
+        try:
+            with tenant_bypass():
+                from sqlalchemy import select as _select
+                key = sess.execute(
+                    _select(ApiKey).where(ApiKey.key_hash == digest)
+                ).scalars().first()
+                if key is None or key.revoked:
+                    return None
+                company = sess.get(Company, key.company_id)
+                if company is None or company.status != "active":
+                    return None
+                key.last_used_at = datetime.now(timezone.utc)
+                sess.commit()
+                actor = SessionUser(
+                    user_id=str(key.id),
+                    username=f"api:{key.label or 'integration'}",
+                    is_admin=False,
+                    company_id=str(key.company_id),
+                    role="integration",
+                )
+                return str(key.company_id), actor
+        finally:
+            if gen is not None:
+                gen.close()
+            else:
+                sess.close()
+    except Exception:
+        logging.getLogger("app.api_key").warning("API key resolution failed", exc_info=True)
+        return None
 
 
 async def _dispatch(request: Request, call_next, path: str, user):
@@ -546,6 +618,9 @@ app.include_router(companies_router, dependencies=_rbac)
 app.include_router(company_profile_router, dependencies=_rbac)
 app.include_router(ai_accountant_router, dependencies=_rbac)
 app.include_router(auth_router)
+# /api/v1: API-key auth (middleware) + its own require_api_key guard — NOT the
+# session RBAC guard. The key resolves the company; tenant scoping does the rest.
+app.include_router(integration_router)
 app.include_router(brain_router, dependencies=_rbac)
 app.include_router(budgets_router, dependencies=_rbac)
 app.include_router(entities_router, dependencies=_rbac)

@@ -590,6 +590,69 @@ def delete_user(
     db.commit()
 
 
+# --- Company API keys (Owner-only; the /api/v1 integration credential) --------
+class ApiKeyCreatePayload(BaseModel):
+    label: str = "integration"
+
+
+@router.get("/api-keys")
+def list_api_keys(
+    db: Session = Depends(get_db), caller: SessionUser = Depends(get_current_user)
+) -> list[dict]:
+    from app.models.api_key import ApiKey
+    cid = _caller_company_uuid(caller)
+    if cid is None:
+        return []
+    rows = db.query(ApiKey).filter(ApiKey.company_id == cid).order_by(ApiKey.created_at.desc()).all()
+    return [{
+        "id": str(k.id), "label": k.label, "prefix": k.prefix,
+        "revoked": bool(k.revoked),
+        "created_at": k.created_at.isoformat() if k.created_at else None,
+        "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+    } for k in rows]
+
+
+@router.post("/api-keys", status_code=201)
+def create_api_key(
+    payload: ApiKeyCreatePayload,
+    db: Session = Depends(get_db),
+    caller: SessionUser = Depends(get_current_user),
+) -> dict:
+    """Generate a company API key. The raw key is returned ONCE — store it now;
+    only its hash is kept server-side."""
+    from app.core.api_key_auth import generate_api_key
+    from app.models.api_key import ApiKey
+    cid = _caller_company_uuid(caller)
+    if cid is None:
+        raise HTTPException(status_code=400, detail="No company in context.")
+    raw, digest, prefix = generate_api_key()
+    key = ApiKey(company_id=cid, label=(payload.label or "integration").strip()[:128],
+                 key_hash=digest, prefix=prefix)
+    db.add(key)
+    db.commit()
+    db.refresh(key)
+    return {
+        "id": str(key.id), "label": key.label, "prefix": key.prefix,
+        "api_key": raw,  # shown exactly once
+        "note": "Store this key now — it cannot be retrieved again.",
+    }
+
+
+@router.delete("/api-keys/{key_id}", status_code=204)
+def revoke_api_key(
+    key_id: UUID,
+    db: Session = Depends(get_db),
+    caller: SessionUser = Depends(get_current_user),
+) -> None:
+    from app.models.api_key import ApiKey
+    key = db.get(ApiKey, key_id)
+    cid = _caller_company_uuid(caller)
+    if not key or (cid and key.company_id != cid):
+        raise HTTPException(status_code=404, detail="API key not found")
+    key.revoked = True
+    db.commit()
+
+
 @router.get("/reporting-locale", response_model=ReportingLocaleRead)
 def read_reporting_locale(db: Session = Depends(get_db)) -> ReportingLocaleRead:
     return ReportingLocaleRead(locale=get_reporting_locale(db), supported=sorted(SUPPORTED_LOCALES))

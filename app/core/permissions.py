@@ -386,8 +386,11 @@ for _m, _p in [("POST", "/time/projects"), ("POST", "/time/rates"),
                ("POST", "/time/invoice-preview"), ("POST", "/time/invoice")]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 
-# --- Notifications trigger --------------------------------------------------
+# --- Notifications trigger + low-cash digest (Owner + CFO) ------------------
 _add("POST", "/notifications/check", Perm.REPORTS_READ)
+_add("GET", "/notifications/digest-settings", frozenset({Perm.SETTINGS_READ, Perm.CFO_READ}))
+_add("PUT", "/notifications/digest-settings", Perm.SETTINGS_WRITE)
+_add("POST", "/notifications/daily-digest", Perm.CFO_READ)
 
 
 # ---------------------------------------------------------------------------

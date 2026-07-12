@@ -56,8 +56,13 @@ def get_reporting_locale(db: Session) -> str:
     from app.db.tenant import get_current_company
     cid = get_current_company()
     if cid:
+        import uuid
         from app.models.company import Company
-        company = db.get(Company, cid)
+        try:
+            cid = uuid.UUID(str(cid))  # ContextVar holds a str; PK is UUID
+        except (ValueError, TypeError):
+            cid = None
+        company = db.get(Company, cid) if cid else None
         if company and (company.locale or "").strip() in SUPPORTED_LOCALES:
             return company.locale.strip()
     row = db.execute(

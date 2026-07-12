@@ -1,5 +1,6 @@
 from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
 from app.models.app_setting import AppSetting
+from app.models.digest_setting import DigestSetting
 from app.models.account import Account, AccountLevel
 from app.models.company import Company
 from app.models.company_profile import CompanyProfile
@@ -72,6 +73,7 @@ __all__ = [
     "TransactionVersion",
     "PaymentMethod",
     "AppSetting",
+    "DigestSetting",
     "Company",
     "CompanyProfile",
     "User",

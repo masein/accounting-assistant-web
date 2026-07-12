@@ -351,3 +351,50 @@ def unbill_for_invoice(db: Session, invoice_id) -> int:
     if n:
         db.flush()
     return n
+
+
+# ---------------------------------------------------------------------------
+# Payroll dimension — hours-derived pay (Part A)
+# ---------------------------------------------------------------------------
+
+# entry_type → payroll behaviour (fixed MVP mapping; configurable in phase 2):
+#   work, travel → worked + payable (overtime-eligible)
+#   leave        → payable, NOT worked (no overtime)
+#   unpaid       → neither
+ENTRY_TYPES = ("work", "leave", "travel", "unpaid")
+WORKED_TYPES = ("work", "travel")
+
+
+def default_payable(entry_type: str) -> bool:
+    return (entry_type or "work") != "unpaid"
+
+
+def payroll_hours_summary(
+    db: Session, entity_id, period_start: date, period_end: date,
+    *, run_id=None,
+) -> dict:
+    """Sum one worker's PAYABLE hours in a period, split into worked vs leave.
+
+    Only entries not yet settled in another pay run count (``payroll_run_id``
+    is null, or equals ``run_id`` when re-reading an existing run's set) — so
+    an hour is paid exactly once even across overlapping runs.
+    """
+    q = select(TimeEntry).where(
+        TimeEntry.employee_id == entity_id,
+        TimeEntry.work_date >= period_start,
+        TimeEntry.work_date <= period_end,
+        TimeEntry.payable.is_(True),
+    )
+    if run_id is None:
+        q = q.where(TimeEntry.payroll_run_id.is_(None))
+    else:
+        q = q.where(TimeEntry.payroll_run_id == run_id)
+    entries = db.execute(q).scalars().all()
+    worked = sum(float(e.hours or 0) for e in entries if e.entry_type in WORKED_TYPES)
+    leave = sum(float(e.hours or 0) for e in entries if e.entry_type == "leave")
+    return {
+        "worked_hours": round(worked, 2),
+        "leave_hours": round(leave, 2),
+        "entry_ids": [e.id for e in entries],
+        "entry_count": len(entries),
+    }

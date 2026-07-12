@@ -54,6 +54,10 @@ class TimeEntryCreate(BaseModel):
     hours: float = Field(..., gt=0)
     description: str | None = None
     billable: bool = True
+    # work | leave | travel | unpaid — payroll behaviour (see time_billing model).
+    entry_type: str = "work"
+    # Counts toward employee pay; default derived from entry_type (unpaid → False).
+    payable: bool | None = None
 
 
 class TimeEntryUpdate(BaseModel):
@@ -62,6 +66,8 @@ class TimeEntryUpdate(BaseModel):
     billable: bool | None = None
     project_id: UUID | None = None
     work_date: _date | None = None
+    entry_type: str | None = None
+    payable: bool | None = None
 
 
 class InvoiceFromTimeRequest(BaseModel):
@@ -95,21 +101,32 @@ def _project_read(p: Project, db: Session) -> dict:
 
 def _entry_read(e: TimeEntry, db: Session) -> dict:
     proj = db.get(Project, e.project_id) if e.project_id else None
-    rate = tbs.resolve_billable_rate(db, e.employee_id, e.client_id, e.project_id)
+    rate = (
+        tbs.resolve_billable_rate(db, e.employee_id, e.client_id, e.project_id)
+        if e.client_id else None
+    )
     return {
         "id": str(e.id),
         "employee_id": str(e.employee_id), "employee_name": _name(db, e.employee_id),
-        "client_id": str(e.client_id), "client_name": _name(db, e.client_id),
+        "client_id": (str(e.client_id) if e.client_id else None),
+        "client_name": _name(db, e.client_id),
         "project_id": (str(e.project_id) if e.project_id else None),
         "project_name": (proj.name if proj else None),
         "work_date": e.work_date.isoformat(), "hours": float(e.hours or 0),
         "description": e.description, "billable": bool(e.billable), "status": e.status,
         "invoice_id": (str(e.invoice_id) if e.invoice_id else None),
+        "entry_type": e.entry_type or "work",
+        "payable": bool(e.payable),
+        "payroll_status": e.payroll_status or "unpaid",
+        "payroll_run_id": (str(e.payroll_run_id) if e.payroll_run_id else None),
+        "source": e.source,
+        "external_id": e.external_id,
         "rate": (rate["rate"] if rate else None),
         "rate_source": (rate["source"] if rate else None),
         "rate_snapshot": (float(e.rate_snapshot) if e.rate_snapshot is not None else None),
         "currency": e.currency,
-        "locked": e.status != "unbilled",
+        # Locked by either settlement track: client-invoiced OR in a pay run.
+        "locked": e.status != "unbilled" or e.payroll_run_id is not None,
     }
 
 
@@ -224,22 +241,32 @@ def create_entry(payload: TimeEntryCreate, db: Session = Depends(get_db)) -> dic
     restricted, own = _time_own_scope()
     if restricted and str(payload.employee_id) != str(own or ""):
         raise HTTPException(status_code=403, detail="You can only log your own time.")
+    entry_type = (payload.entry_type or "work").strip().lower()
+    if entry_type not in tbs.ENTRY_TYPES:
+        raise HTTPException(
+            status_code=422, detail=f"entry_type must be one of {', '.join(tbs.ENTRY_TYPES)}."
+        )
     client_id = payload.client_id
     if payload.project_id is not None:
         proj = db.get(Project, payload.project_id)
         if not proj:
             raise HTTPException(status_code=404, detail="Project not found.")
         client_id = proj.client_id  # a project implies its client
+    # A client is only needed for BILLABLE time. Payroll-only entries (leave,
+    # internal work) have no client and are never billable.
+    billable = payload.billable
     if client_id is None:
-        raise HTTPException(status_code=422, detail="A client (or project) is required.")
+        billable = False
     worker = db.get(Entity, payload.employee_id)
     if not worker or worker.type not in ("employee", "supplier"):
         raise HTTPException(status_code=422, detail="Time is logged for an employee or contractor (supplier).")
 
+    payable = payload.payable if payload.payable is not None else tbs.default_payable(entry_type)
     e = TimeEntry(
         employee_id=payload.employee_id, client_id=client_id, project_id=payload.project_id,
         work_date=payload.work_date, hours=payload.hours, description=payload.description,
-        billable=payload.billable, status="unbilled",
+        billable=billable, status="unbilled",
+        entry_type=entry_type, payable=payable, payroll_status="unpaid",
     )
     db.add(e)
     log_audit_event(db, action="create", entity_type="time_entry", entity_id=str(e.id),
@@ -262,14 +289,30 @@ def update_entry(entry_id: UUID, payload: TimeEntryUpdate, db: Session = Depends
             status_code=409,
             detail="This time entry is invoiced and locked. Void its invoice to edit it.",
         )
+    if e.payroll_run_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This time entry is in a pay run and locked. Void the pay run to edit it.",
+        )
     if payload.hours is not None:
         e.hours = payload.hours
     if payload.description is not None:
         e.description = payload.description
     if payload.billable is not None:
-        e.billable = payload.billable
+        e.billable = payload.billable if e.client_id else False
     if payload.work_date is not None:
         e.work_date = payload.work_date
+    if payload.entry_type is not None:
+        et = payload.entry_type.strip().lower()
+        if et not in tbs.ENTRY_TYPES:
+            raise HTTPException(
+                status_code=422, detail=f"entry_type must be one of {', '.join(tbs.ENTRY_TYPES)}."
+            )
+        e.entry_type = et
+        if payload.payable is None:
+            e.payable = tbs.default_payable(et)
+    if payload.payable is not None:
+        e.payable = payload.payable
     if payload.project_id is not None:
         proj = db.get(Project, payload.project_id)
         if proj:
@@ -287,6 +330,8 @@ def write_off_entry(entry_id: UUID, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=404, detail="Time entry not found.")
     if e.status == "invoiced":
         raise HTTPException(status_code=409, detail="Invoiced time is locked — void its invoice first.")
+    if e.payroll_run_id is not None:
+        raise HTTPException(status_code=409, detail="This time entry is in a pay run — void the pay run first.")
     e.status = "written_off"
     log_audit_event(db, action="update", entity_type="time_entry", entity_id=str(e.id),
                     detail="Time written off")
@@ -305,9 +350,68 @@ def delete_entry(entry_id: UUID, db: Session = Depends(get_db)) -> Response:
         raise HTTPException(status_code=404, detail="Time entry not found.")
     if e.status == "invoiced":
         raise HTTPException(status_code=409, detail="Invoiced time is locked — void its invoice first.")
+    if e.payroll_run_id is not None:
+        raise HTTPException(status_code=409, detail="This time entry is in a pay run — void the pay run first.")
     db.delete(e)
     db.commit()
     return Response(status_code=204)
+
+
+@router.get("/my-summary")
+def my_summary(period_start: _date, period_end: _date, db: Session = Depends(get_db)) -> dict:
+    """Self-service: MY hours for a period — required vs worked, leave,
+    overtime/undertime. Resolves to the caller's linked employee entity; users
+    with full payroll access may pass ?entity_id= to view any employee."""
+    from app.core.permissions import Perm, own_scope
+    from app.core.request_context import get_current_actor
+    if period_end < period_start:
+        raise HTTPException(status_code=422, detail="period_end is before period_start.")
+    restricted, own = own_scope(get_current_actor(), Perm.PAYROLL_READ)
+    if restricted:
+        if not own:
+            raise HTTPException(status_code=404, detail="No employee record linked to your account.")
+        entity_id = UUID(str(own))
+    else:
+        actor = get_current_actor()
+        own_ent = getattr(actor, "entity_id", None) if actor else None
+        if not own_ent:
+            raise HTTPException(status_code=404, detail="No employee record linked to your account.")
+        entity_id = UUID(str(own_ent))
+
+    from app.models.employee_pay import EmployeePayProfile
+    s = tbs.payroll_hours_summary(db, entity_id, period_start, period_end)
+    # Include already-settled hours in the display (run_id filter excludes them
+    # from the payable sum, but "my hours" should show everything logged).
+    all_q = select(TimeEntry).where(
+        TimeEntry.employee_id == entity_id,
+        TimeEntry.work_date >= period_start,
+        TimeEntry.work_date <= period_end,
+    )
+    all_entries = db.execute(all_q).scalars().all()
+    total_logged = sum(float(e.hours or 0) for e in all_entries)
+    prof = db.execute(
+        select(EmployeePayProfile).where(EmployeePayProfile.entity_id == entity_id)
+    ).scalars().one_or_none()
+    required = 0.0
+    if prof is not None:
+        required = float(
+            prof.monthly_standard_hours
+            if prof.monthly_standard_hours is not None
+            else (prof.standard_hours or 0)
+        )
+    worked = s["worked_hours"]
+    return {
+        "entity_id": str(entity_id),
+        "period_start": period_start.isoformat(),
+        "period_end": period_end.isoformat(),
+        "required_hours": required,
+        "worked_hours": worked,
+        "leave_hours": s["leave_hours"],
+        "total_logged_hours": round(total_logged, 2),
+        "overtime_hours": round(max(0.0, worked - required), 2) if required > 0 else 0.0,
+        "undertime_hours": round(max(0.0, required - worked), 2) if required > 0 else 0.0,
+        "pay_type": (prof.pay_type if prof else None),
+    }
 
 
 # ---------------------------------------------------------------------------

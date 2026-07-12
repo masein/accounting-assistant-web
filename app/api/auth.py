@@ -108,6 +108,8 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
             "username": user.username,
             "is_admin": user.is_admin,
             "is_superadmin": user.is_superadmin,
+            "role": getattr(user, "role", None) or "owner",
+            "entity_id": str(user.entity_id) if getattr(user, "entity_id", None) else None,
             "preferred_language": user.preferred_language or "en",
         },
         "company": _company_dict(company),
@@ -137,6 +139,10 @@ def me(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict
             "username": current.username,
             "is_admin": current.is_admin,
             "is_superadmin": current.is_superadmin,
+            "role": getattr(current, "role", None) or "owner",
+            "entity_id": (
+                str(user_row.entity_id) if user_row and user_row.entity_id else None
+            ),
             "preferred_language": user_language,
         },
         "company": _company_dict(company),

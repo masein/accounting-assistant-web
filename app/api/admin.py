@@ -8,7 +8,14 @@ from sqlalchemy import delete
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.auth import hash_password, require_admin, validate_password_strength
+from app.core.auth import (
+    SessionUser,
+    get_current_user,
+    hash_password,
+    require_admin,
+    validate_password_strength,
+)
+from app.core.permissions import ALL_ROLES, Role
 from app.core.ai_runtime import (
     get_ai_config_public,
     resolve_anthropic_config,
@@ -63,16 +70,19 @@ class AIConfigPatch(BaseModel):
 class UserCreatePayload(BaseModel):
     username: str
     password: str
+    role: str = Role.EMPLOYEE
     preferred_language: str = "en"
-    is_admin: bool = False
     is_active: bool = True
+    entity_id: UUID | None = None  # link to an employee Entity (self-service)
 
 
 class UserUpdatePayload(BaseModel):
     password: str | None = None
+    role: str | None = None
     preferred_language: str | None = None
-    is_admin: bool | None = None
     is_active: bool | None = None
+    entity_id: UUID | None = None
+    unlink_entity: bool = False  # explicit unlink (entity_id=None is "no change")
 
 
 class ReportingLocaleRead(BaseModel):
@@ -380,98 +390,202 @@ def reset_db(
     }
 
 
+# --- Owner user management (company-scoped, gated to USERS_MANAGE = owner) -----
+def _serialize_user(u: User, entity_name: str | None = None) -> dict:
+    return {
+        "id": str(u.id),
+        "username": u.username,
+        "role": u.role or Role.OWNER,
+        "preferred_language": u.preferred_language or "en",
+        "is_admin": bool(u.is_admin),
+        "is_active": bool(u.is_active),
+        "entity_id": str(u.entity_id) if u.entity_id else None,
+        "entity_name": entity_name,
+        "created_at": u.created_at.isoformat() if u.created_at else None,
+    }
+
+
+def _entity_names(db: Session, user_rows: list[User]) -> dict:
+    ids = {u.entity_id for u in user_rows if u.entity_id}
+    if not ids:
+        return {}
+    rows = db.query(Entity.id, Entity.name).filter(Entity.id.in_(ids)).all()
+    return {eid: name for eid, name in rows}
+
+
+def _caller_company_uuid(caller: SessionUser) -> UUID | None:
+    return UUID(str(caller.company_id)) if caller.company_id else None
+
+
+def _company_users_query(db: Session, caller: SessionUser):
+    """Users in the caller's company. Users aren't tenant-scoped (no auto
+    filter), so we filter by company_id explicitly."""
+    q = db.query(User)
+    cid = _caller_company_uuid(caller)
+    if cid is not None:
+        q = q.filter(User.company_id == cid)
+    return q
+
+
+def _get_company_user(db: Session, caller: SessionUser, user_id: UUID) -> User:
+    user = db.get(User, user_id)
+    # Cross-company (or unknown) targets look like they don't exist.
+    if not user or (caller.company_id and str(user.company_id) != str(caller.company_id)):
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+def _validate_role(role: str) -> str:
+    role = (role or "").strip().lower()
+    if role not in ALL_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role: {role!r}")
+    return role
+
+
+def _validate_entity_link(db: Session, caller: SessionUser, entity_id: UUID) -> None:
+    """The linked entity must be an employee in the caller's company. Entity is
+    tenant-scoped so this query is already company-filtered."""
+    ent = db.get(Entity, entity_id)
+    if not ent:
+        raise HTTPException(status_code=400, detail="Entity not found in this company")
+    if (ent.type or "").lower() != "employee":
+        raise HTTPException(status_code=400, detail="Can only link to an employee entity")
+
+
+def _count_active_owners(db: Session, caller: SessionUser, exclude_id: UUID | None = None) -> int:
+    q = _company_users_query(db, caller).filter(
+        User.role == Role.OWNER, User.is_active.is_(True)
+    )
+    if exclude_id is not None:
+        q = q.filter(User.id != exclude_id)
+    return q.count()
+
+
 @router.get("/users")
-def list_users(db: Session = Depends(get_db), _=Depends(require_admin)) -> list[dict]:
-    users = db.query(User).order_by(User.username.asc()).all()
-    return [
-        {
-            "id": str(u.id),
-            "username": u.username,
-            "preferred_language": u.preferred_language or "en",
-            "is_admin": bool(u.is_admin),
-            "is_active": bool(u.is_active),
-            "created_at": u.created_at.isoformat() if u.created_at else None,
-        }
-        for u in users
-    ]
+def list_users(
+    db: Session = Depends(get_db), caller: SessionUser = Depends(get_current_user)
+) -> list[dict]:
+    users = _company_users_query(db, caller).order_by(User.username.asc()).all()
+    names = _entity_names(db, users)
+    return [_serialize_user(u, names.get(u.entity_id)) for u in users]
 
 
 @router.post("/users", status_code=201)
-def create_user(payload: UserCreatePayload, db: Session = Depends(get_db), _=Depends(require_admin)) -> dict:
+def create_user(
+    payload: UserCreatePayload,
+    db: Session = Depends(get_db),
+    caller: SessionUser = Depends(get_current_user),
+) -> dict:
     username = payload.username.strip()
     if not username:
         raise HTTPException(status_code=400, detail="Username is required")
-    existing = db.query(User).filter(User.username == username).first()
-    if existing:
+    if db.query(User).filter(User.username == username).first():  # globally unique
         raise HTTPException(status_code=400, detail="Username already exists")
     lang = (payload.preferred_language or "en").strip().lower()
     if lang not in {"en", "fa", "es", "ar"}:
         raise HTTPException(status_code=400, detail="Unsupported language")
+    role = _validate_role(payload.role)
     try:
         validate_password_strength(payload.password)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    if payload.entity_id is not None:
+        _validate_entity_link(db, caller, payload.entity_id)
     password_hash, password_salt = hash_password(payload.password)
     user = User(
         username=username,
         password_hash=password_hash,
         password_salt=password_salt,
         preferred_language=lang,
-        is_admin=bool(payload.is_admin),
+        role=role,
+        is_admin=(role == Role.OWNER),  # legacy flag tracks the owner role
+        is_superadmin=False,            # never provisioned here (platform-level)
         is_active=bool(payload.is_active),
+        company_id=_caller_company_uuid(caller),
+        entity_id=payload.entity_id,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {
-        "id": str(user.id),
-        "username": user.username,
-        "preferred_language": user.preferred_language or "en",
-        "is_admin": bool(user.is_admin),
-        "is_active": bool(user.is_active),
-    }
+    name = db.get(Entity, user.entity_id).name if user.entity_id else None
+    return _serialize_user(user, name)
 
 
 @router.patch("/users/{user_id}")
-def update_user(user_id: UUID, payload: UserUpdatePayload, db: Session = Depends(get_db), _=Depends(require_admin)) -> dict:
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+def update_user(
+    user_id: UUID,
+    payload: UserUpdatePayload,
+    db: Session = Depends(get_db),
+    caller: SessionUser = Depends(get_current_user),
+) -> dict:
+    user = _get_company_user(db, caller, user_id)
+    is_self = str(user.id) == str(caller.user_id)
+    bump = False
+
     if payload.password is not None:
         try:
             validate_password_strength(payload.password)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        password_hash, password_salt = hash_password(payload.password)
-        user.password_hash = password_hash
-        user.password_salt = password_salt
+        user.password_hash, user.password_salt = hash_password(payload.password)
+        bump = True
+
+    if payload.role is not None:
+        new_role = _validate_role(payload.role)
+        if new_role != user.role:
+            if is_self:
+                raise HTTPException(status_code=400, detail="You cannot change your own role")
+            # Don't strip the company's last owner.
+            if user.role == Role.OWNER and _count_active_owners(db, caller, exclude_id=user.id) == 0:
+                raise HTTPException(status_code=400, detail="The company must keep at least one owner")
+            user.role = new_role
+            user.is_admin = (new_role == Role.OWNER)
+            bump = True
+
     if payload.preferred_language is not None:
         lang = payload.preferred_language.strip().lower()
         if lang not in {"en", "fa", "es", "ar"}:
             raise HTTPException(status_code=400, detail="Unsupported language")
         user.preferred_language = lang
-    if payload.is_admin is not None:
-        user.is_admin = bool(payload.is_admin)
-    if payload.is_active is not None:
+
+    if payload.is_active is not None and bool(payload.is_active) != user.is_active:
+        if is_self and not payload.is_active:
+            raise HTTPException(status_code=400, detail="You cannot deactivate yourself")
+        if not payload.is_active and user.role == Role.OWNER \
+                and _count_active_owners(db, caller, exclude_id=user.id) == 0:
+            raise HTTPException(status_code=400, detail="The company must keep at least one active owner")
         user.is_active = bool(payload.is_active)
+        bump = True
+
+    if payload.unlink_entity:
+        user.entity_id = None
+    elif payload.entity_id is not None:
+        _validate_entity_link(db, caller, payload.entity_id)
+        user.entity_id = payload.entity_id
+
+    # Invalidate live sessions on any security-relevant change.
+    if bump:
+        user.token_version = int(user.token_version or 0) + 1
+
     db.commit()
     db.refresh(user)
-    return {
-        "id": str(user.id),
-        "username": user.username,
-        "preferred_language": user.preferred_language or "en",
-        "is_admin": bool(user.is_admin),
-        "is_active": bool(user.is_active),
-    }
+    name = db.get(Entity, user.entity_id).name if user.entity_id else None
+    return _serialize_user(user, name)
 
 
 @router.delete("/users/{user_id}", status_code=204)
-def delete_user(user_id: UUID, db: Session = Depends(get_db), _=Depends(require_admin)) -> None:
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+def delete_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    caller: SessionUser = Depends(get_current_user),
+) -> None:
+    user = _get_company_user(db, caller, user_id)
+    if str(user.id) == str(caller.user_id):
+        raise HTTPException(status_code=400, detail="You cannot delete yourself")
     if user.username.lower() == "admin":
         raise HTTPException(status_code=400, detail="Default admin user cannot be deleted")
+    if user.role == Role.OWNER and _count_active_owners(db, caller, exclude_id=user.id) == 0:
+        raise HTTPException(status_code=400, detail="The company must keep at least one owner")
     db.delete(user)
     db.commit()
 

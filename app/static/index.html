@@ -2252,6 +2252,43 @@
       </div>
 
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;" data-i18n="digestTitle">Daily cash digest</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="digestIntro">
+          A daily cash-health summary (cash, runway, AR/AP, low-cash warning) for the Owner and CFO. Contains no salary or bank-account detail.
+        </p>
+        <div class="row" style="margin-bottom:0.5rem; align-items:flex-end;">
+          <div>
+            <label style="display:flex; align-items:center; gap:0.4rem;">
+              <input type="checkbox" id="digest-enabled" style="width:auto;">
+              <span data-i18n="digestEnabled">Enable daily digest</span>
+            </label>
+          </div>
+          <div>
+            <label for="digest-threshold" data-i18n="digestThreshold">Low-cash threshold</label>
+            <input type="number" id="digest-threshold" min="0" step="1" placeholder="0">
+          </div>
+          <div>
+            <label for="digest-runway" data-i18n="digestRunway">Min runway (months)</label>
+            <input type="number" id="digest-runway" min="0" step="0.5" placeholder="3">
+          </div>
+          <div>
+            <label for="digest-channel" data-i18n="digestChannel">Channel</label>
+            <select id="digest-channel">
+              <option value="all" data-i18n="digestChannelAll">All configured</option>
+              <option value="slack" data-i18n="digestChannelSlack">Slack</option>
+              <option value="telegram" data-i18n="digestChannelTelegram">Telegram</option>
+              <option value="email" data-i18n="digestChannelEmail">Email</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:flex-end; gap:0.4rem;">
+            <button type="button" class="btn btn-primary" id="digest-save-btn" data-i18n="digestSave">Save</button>
+            <button type="button" class="btn btn-secondary" id="digest-preview-btn" data-i18n="digestPreview">Preview</button>
+          </div>
+        </div>
+        <pre id="digest-preview" style="display:none; white-space:pre-wrap; background:var(--bg-subtle,#f6f6f6); border:1px solid var(--border); border-radius:8px; padding:0.6rem; font-size:0.82rem; margin:0;"></pre>
+      </div>
+
+      <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
         <h2 style="margin-bottom:0.5rem;" data-i18n="fxTitle">Currency &amp; FX</h2>
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="fxIntro">
           Set the reporting currency used across reports, and manage exchange rates to convert between currencies at a specific date.
@@ -2741,6 +2778,60 @@
         newUserEntityEl.innerHTML = opts.join('');
       } catch (_) { /* leave the none option */ }
     }
+
+    // --- Daily cash digest settings (Owner) ---
+    async function loadDigestSettings() {
+      try {
+        const res = await fetch(API + '/notifications/digest-settings');
+        if (!res.ok) return;
+        const s = await res.json().catch(() => ({}));
+        const en = document.getElementById('digest-enabled');
+        const th = document.getElementById('digest-threshold');
+        const rw = document.getElementById('digest-runway');
+        const ch = document.getElementById('digest-channel');
+        if (en) en.checked = !!s.enabled;
+        if (th) th.value = (s.cash_threshold != null ? s.cash_threshold : 0);
+        if (rw) rw.value = (s.runway_months != null ? s.runway_months : 3);
+        if (ch && s.channel) ch.value = s.channel;
+      } catch (_) { /* ignore */ }
+    }
+
+    async function saveDigestSettings() {
+      const btn = document.getElementById('digest-save-btn');
+      const body = {
+        enabled: document.getElementById('digest-enabled').checked,
+        cash_threshold: parseInt(document.getElementById('digest-threshold').value || '0', 10),
+        runway_months: parseFloat(document.getElementById('digest-runway').value || '3'),
+        channel: document.getElementById('digest-channel').value,
+      };
+      try {
+        if (btn) btn.disabled = true;
+        const res = await fetch(API + '/notifications/digest-settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || t('digestSaveError'), true); return; }
+        showAlert(t('digestSaved'));
+        loadDigestSettings();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      } finally { if (btn) btn.disabled = false; }
+    }
+
+    async function previewDigest() {
+      const out = document.getElementById('digest-preview');
+      try {
+        // deliver=false → build + return the body without sending.
+        const res = await fetch(API + '/notifications/daily-digest?deliver=false', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || t('digestPreviewError'), true); return; }
+        if (out) { out.textContent = data.body || ''; out.style.display = 'block'; }
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      }
+    }
     const createUserBtn = document.getElementById('create-user-btn');
     const usersWrapEl = document.getElementById('users-wrap');
     const ledgerSearchEl = document.getElementById('ledger-search');
@@ -2850,6 +2941,21 @@
         usersNoLink: '— none —',
         usersActivate: 'Activate',
         usersDeactivate: 'Deactivate',
+        digestTitle: 'Daily cash digest',
+        digestIntro: 'A daily cash-health summary (cash, runway, AR/AP, low-cash warning) for the Owner and CFO. Contains no salary or bank-account detail.',
+        digestEnabled: 'Enable daily digest',
+        digestThreshold: 'Low-cash threshold',
+        digestRunway: 'Min runway (months)',
+        digestChannel: 'Channel',
+        digestChannelAll: 'All configured',
+        digestChannelSlack: 'Slack',
+        digestChannelTelegram: 'Telegram',
+        digestChannelEmail: 'Email',
+        digestSave: 'Save',
+        digestPreview: 'Preview',
+        digestSaved: 'Digest settings saved.',
+        digestSaveError: 'Failed to save digest settings.',
+        digestPreviewError: 'Failed to build digest preview.',
         usersUser: 'User',
         usersActive: 'Active',
         usersDisabled: 'Disabled',
@@ -2907,6 +3013,21 @@
         usersNoLink: '— هیچ‌کدام —',
         usersActivate: 'فعال‌سازی',
         usersDeactivate: 'غیرفعال‌سازی',
+        digestTitle: 'خلاصه نقدی روزانه',
+        digestIntro: 'خلاصه‌ای روزانه از سلامت نقدینگی (موجودی نقد، دوام نقدینگی، حساب‌های دریافتنی/پرداختنی و هشدار کمبود نقد) برای مالک و مدیر مالی. شامل حقوق یا جزئیات حساب بانکی نیست.',
+        digestEnabled: 'فعال‌سازی خلاصه روزانه',
+        digestThreshold: 'آستانه کمبود نقد',
+        digestRunway: 'حداقل دوام نقدینگی (ماه)',
+        digestChannel: 'کانال',
+        digestChannelAll: 'همه کانال‌های پیکربندی‌شده',
+        digestChannelSlack: 'اسلک',
+        digestChannelTelegram: 'تلگرام',
+        digestChannelEmail: 'ایمیل',
+        digestSave: 'ذخیره',
+        digestPreview: 'پیش‌نمایش',
+        digestSaved: 'تنظیمات خلاصه ذخیره شد.',
+        digestSaveError: 'ذخیره تنظیمات خلاصه ناموفق بود.',
+        digestPreviewError: 'ساخت پیش‌نمایش خلاصه ناموفق بود.',
         usersUser: 'کاربر',
         usersActive: 'فعال',
         usersDisabled: 'غیرفعال',
@@ -2964,6 +3085,21 @@
         usersNoLink: '— ninguno —',
         usersActivate: 'Activar',
         usersDeactivate: 'Desactivar',
+        digestTitle: 'Resumen de caja diario',
+        digestIntro: 'Un resumen diario de la salud de caja (efectivo, autonomía, cuentas por cobrar/pagar y aviso de caja baja) para el Propietario y el Director financiero. No incluye salarios ni datos bancarios.',
+        digestEnabled: 'Activar resumen diario',
+        digestThreshold: 'Umbral de caja baja',
+        digestRunway: 'Autonomía mínima (meses)',
+        digestChannel: 'Canal',
+        digestChannelAll: 'Todos los configurados',
+        digestChannelSlack: 'Slack',
+        digestChannelTelegram: 'Telegram',
+        digestChannelEmail: 'Correo',
+        digestSave: 'Guardar',
+        digestPreview: 'Vista previa',
+        digestSaved: 'Ajustes del resumen guardados.',
+        digestSaveError: 'No se pudieron guardar los ajustes del resumen.',
+        digestPreviewError: 'No se pudo generar la vista previa del resumen.',
         usersUser: 'Usuario',
         usersActive: 'Activo',
         usersDisabled: 'Deshabilitado',
@@ -3021,6 +3157,21 @@
         usersNoLink: '— لا شيء —',
         usersActivate: 'تفعيل',
         usersDeactivate: 'تعطيل',
+        digestTitle: 'ملخص النقد اليومي',
+        digestIntro: 'ملخص يومي لسلامة النقد (النقد المتاح، مدة السيولة، الذمم المدينة/الدائنة، وتنبيه انخفاض النقد) للمالك والمدير المالي. لا يتضمن رواتب أو تفاصيل حسابات بنكية.',
+        digestEnabled: 'تفعيل الملخص اليومي',
+        digestThreshold: 'حد انخفاض النقد',
+        digestRunway: 'الحد الأدنى لمدة السيولة (أشهر)',
+        digestChannel: 'القناة',
+        digestChannelAll: 'كل القنوات المُعدّة',
+        digestChannelSlack: 'سلاك',
+        digestChannelTelegram: 'تيليجرام',
+        digestChannelEmail: 'البريد الإلكتروني',
+        digestSave: 'حفظ',
+        digestPreview: 'معاينة',
+        digestSaved: 'تم حفظ إعدادات الملخص.',
+        digestSaveError: 'فشل حفظ إعدادات الملخص.',
+        digestPreviewError: 'فشل إنشاء معاينة الملخص.',
         usersUser: 'مستخدم',
         usersActive: 'نشط',
         usersDisabled: 'معطل',
@@ -7849,7 +8000,7 @@
           showPage(roleHome());
           loadPageData(roleHome());
         }
-        if (currentRole === 'owner') { loadUsers(); populateEntityLinkOptions(); }
+        if (currentRole === 'owner') { loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); }
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
       }
@@ -11934,6 +12085,8 @@
       });
     }
     if (createUserBtn) createUserBtn.addEventListener('click', createUser);
+    { const b = document.getElementById('digest-save-btn'); if (b) b.addEventListener('click', saveDigestSettings); }
+    { const b = document.getElementById('digest-preview-btn'); if (b) b.addEventListener('click', previewDigest); }
     if (usersWrapEl) usersWrapEl.addEventListener('click', handleUserTableAction);
     if (usersWrapEl) usersWrapEl.addEventListener('change', async (e) => {
       const sel = e.target.closest('.user-role-select');

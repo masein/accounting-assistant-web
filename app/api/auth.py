@@ -81,6 +81,8 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         user_id=str(user.id), username=user.username, is_admin=user.is_admin,
         company_id=str(user.company_id) if user.company_id else None,
         is_superadmin=user.is_superadmin, token_version=user.token_version,
+        role=getattr(user, "role", None) or "owner",
+        entity_id=str(user.entity_id) if getattr(user, "entity_id", None) else None,
     )
     # Secure flag: explicit override if set, else follow the request scheme so
     # plain-HTTP access still stores the cookie (a Secure cookie is dropped by

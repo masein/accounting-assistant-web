@@ -25,6 +25,11 @@ class SessionUser:
     company_id: str | None = None
     is_superadmin: bool = False
     token_version: int = 0
+    # Company RBAC role. Sourced from the token, then refreshed from the DB per
+    # request in the auth middleware so a role change takes effect immediately.
+    role: str = "owner"
+    # Optional employee-entity link (for "my time / expenses / payslips").
+    entity_id: str | None = None
 
 
 def _b64url_encode(raw: bytes) -> str:
@@ -77,6 +82,8 @@ def create_session_token(
     company_id: str | None = None,
     is_superadmin: bool = False,
     token_version: int = 0,
+    role: str = "owner",
+    entity_id: str | None = None,
 ) -> str:
     now = int(time.time())
     exp = now + int(settings.auth_session_hours * 3600)
@@ -87,6 +94,8 @@ def create_session_token(
         "cid": str(company_id) if company_id else None,
         "sad": bool(is_superadmin),
         "tv": int(token_version),
+        "rol": role or "owner",
+        "ent": str(entity_id) if entity_id else None,
         "iat": now,
         "exp": exp,
     }
@@ -120,6 +129,7 @@ def parse_session_token(token: str | None) -> SessionUser | None:
     if not uid or not usr:
         return None
     cid = payload.get("cid")
+    ent = payload.get("ent")
     return SessionUser(
         user_id=uid,
         username=usr,
@@ -127,6 +137,8 @@ def parse_session_token(token: str | None) -> SessionUser | None:
         company_id=str(cid) if cid else None,
         is_superadmin=bool(payload.get("sad", False)),
         token_version=int(payload.get("tv", 0)),
+        role=str(payload.get("rol") or "owner"),
+        entity_id=str(ent) if ent else None,
     )
 
 

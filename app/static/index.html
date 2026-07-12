@@ -2228,11 +2228,19 @@
             <input type="password" id="new-user-password" data-i18n-placeholder="placeholderTempPassword" placeholder="temporary password">
           </div>
           <div>
-            <label for="new-user-admin" data-i18n="usersRole">Role</label>
-            <select id="new-user-admin">
-              <option value="false" data-i18n="usersUser">User</option>
-              <option value="true" data-i18n="usersAdmin">Admin</option>
+            <label for="new-user-role" data-i18n="usersRole">Role</label>
+            <select id="new-user-role">
+              <option value="owner" data-i18n="roleOwner">Owner</option>
+              <option value="cfo" data-i18n="roleCfo">CFO</option>
+              <option value="accountant" data-i18n="roleAccountant">Accountant</option>
+              <option value="manager" data-i18n="roleManager">Manager</option>
+              <option value="employee" selected data-i18n="roleEmployee">Employee</option>
+              <option value="viewer" data-i18n="roleViewer">Viewer</option>
             </select>
+          </div>
+          <div>
+            <label for="new-user-entity" data-i18n="usersLinkEmployee">Link to employee</label>
+            <select id="new-user-entity"><option value="" data-i18n="usersNoLink">— none —</option></select>
           </div>
           <div style="display:flex; align-items:flex-end;">
             <button type="button" class="btn btn-primary" id="create-user-btn" data-i18n="btnCreateUser">Create user</button>
@@ -2670,7 +2678,69 @@
     const saveLanguageBtn = document.getElementById('save-language-btn');
     const newUserUsernameEl = document.getElementById('new-user-username');
     const newUserPasswordEl = document.getElementById('new-user-password');
-    const newUserAdminEl = document.getElementById('new-user-admin');
+    const newUserRoleEl = document.getElementById('new-user-role');
+    const newUserEntityEl = document.getElementById('new-user-entity');
+    // RBAC role helpers (order = privilege, high → low).
+    const ROLE_ORDER = ['owner', 'cfo', 'accountant', 'manager', 'employee', 'viewer'];
+    const ROLE_KEYS = { owner: 'roleOwner', cfo: 'roleCfo', accountant: 'roleAccountant', manager: 'roleManager', employee: 'roleEmployee', viewer: 'roleViewer' };
+    function roleLabel(r) { return t(ROLE_KEYS[r] || 'roleEmployee'); }
+    let currentRole = 'owner';
+    // Which roles may SEE each page (nav + client-side gate). The server still
+    // enforces — this is cosmetic. Keep in sync with app/core/permissions.py.
+    const PAGE_ROLES = {
+      dashboard: ['owner', 'cfo', 'accountant', 'viewer'],
+      'ai-accountant': ['owner', 'cfo', 'accountant'],
+      transactions: ['owner', 'cfo', 'accountant'],
+      invoices: ['owner', 'cfo', 'accountant'],
+      time: ['owner', 'cfo', 'accountant', 'employee'],
+      expenses: ['owner', 'cfo', 'accountant', 'manager', 'employee'],
+      'purchase-orders': ['owner', 'cfo', 'accountant'],
+      recurring: ['owner', 'cfo', 'accountant'],
+      entities: ['owner', 'cfo', 'accountant'],
+      products: ['owner', 'cfo', 'accountant'],
+      inventory: ['owner', 'cfo', 'accountant'],
+      payroll: ['owner', 'cfo', 'accountant'],
+      'bank-statements': ['owner', 'cfo', 'accountant'],
+      ledger: ['owner', 'cfo', 'accountant', 'viewer'],
+      manager: ['owner', 'cfo', 'accountant', 'viewer'],
+      cfo: ['owner', 'cfo'],
+      ceo: ['owner', 'cfo'],
+      audit: ['owner', 'cfo', 'accountant'],
+      settings: ['owner'],
+      users: ['owner'],
+      // companies is gated separately by isSuperadmin.
+    };
+    // Where each role lands after login.
+    const ROLE_HOME = { owner: 'dashboard', cfo: 'dashboard', accountant: 'dashboard', manager: 'expenses', employee: 'time', viewer: 'dashboard' };
+    function roleHome() { return ROLE_HOME[currentRole] || 'dashboard'; }
+    function canSeePage(page) {
+      if (page === 'companies') return isSuperadmin;
+      if (isSuperadmin) return true;              // platform admin sees everything
+      const roles = PAGE_ROLES[page];
+      return !roles || roles.includes(currentRole);
+    }
+    // Hide nav buttons (and their empty sections) the current role can't use.
+    function applyRoleAccess() {
+      document.querySelectorAll('.nav-btn[data-page]').forEach((btn) => {
+        const page = btn.getAttribute('data-page');
+        if (page === 'companies') return;         // handled by isSuperadmin logic
+        btn.style.display = canSeePage(page) ? '' : 'none';
+      });
+      document.querySelectorAll('.side-nav .nav-section').forEach((sec) => {
+        const anyVisible = Array.from(sec.querySelectorAll('.nav-btn')).some((b) => b.style.display !== 'none');
+        sec.style.display = anyVisible ? '' : 'none';
+      });
+    }
+    async function populateEntityLinkOptions() {
+      if (!newUserEntityEl) return;
+      try {
+        const res = await fetch(API + '/entities?type=employee');
+        const rows = res.ok ? await res.json().catch(() => []) : [];
+        const opts = ['<option value="">' + escapeHtml(t('usersNoLink')) + '</option>']
+          .concat((rows || []).map((e) => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`));
+        newUserEntityEl.innerHTML = opts.join('');
+      } catch (_) { /* leave the none option */ }
+    }
     const createUserBtn = document.getElementById('create-user-btn');
     const usersWrapEl = document.getElementById('users-wrap');
     const ledgerSearchEl = document.getElementById('ledger-search');
@@ -2770,6 +2840,16 @@
         usersStatus: 'Status',
         usersActions: 'Actions',
         usersAdmin: 'Admin',
+        roleOwner: 'Owner',
+        roleCfo: 'CFO',
+        roleAccountant: 'Accountant',
+        roleManager: 'Manager',
+        roleEmployee: 'Employee',
+        roleViewer: 'Viewer',
+        usersLinkEmployee: 'Link to employee',
+        usersNoLink: '— none —',
+        usersActivate: 'Activate',
+        usersDeactivate: 'Deactivate',
         usersUser: 'User',
         usersActive: 'Active',
         usersDisabled: 'Disabled',
@@ -2817,6 +2897,16 @@
         usersStatus: 'وضعیت',
         usersActions: 'عملیات',
         usersAdmin: 'ادمین',
+        roleOwner: 'مالک',
+        roleCfo: 'مدیر مالی',
+        roleAccountant: 'حسابدار',
+        roleManager: 'مدیر/تأییدکننده',
+        roleEmployee: 'کارمند',
+        roleViewer: 'بیننده',
+        usersLinkEmployee: 'اتصال به کارمند',
+        usersNoLink: '— هیچ‌کدام —',
+        usersActivate: 'فعال‌سازی',
+        usersDeactivate: 'غیرفعال‌سازی',
         usersUser: 'کاربر',
         usersActive: 'فعال',
         usersDisabled: 'غیرفعال',
@@ -2864,6 +2954,16 @@
         usersStatus: 'Estado',
         usersActions: 'Acciones',
         usersAdmin: 'Admin',
+        roleOwner: 'Propietario',
+        roleCfo: 'Director financiero',
+        roleAccountant: 'Contable',
+        roleManager: 'Gerente/Aprobador',
+        roleEmployee: 'Empleado',
+        roleViewer: 'Visor',
+        usersLinkEmployee: 'Vincular a empleado',
+        usersNoLink: '— ninguno —',
+        usersActivate: 'Activar',
+        usersDeactivate: 'Desactivar',
         usersUser: 'Usuario',
         usersActive: 'Activo',
         usersDisabled: 'Deshabilitado',
@@ -2911,6 +3011,16 @@
         usersStatus: 'الحالة',
         usersActions: 'الإجراءات',
         usersAdmin: 'مدير',
+        roleOwner: 'المالك',
+        roleCfo: 'المدير المالي',
+        roleAccountant: 'محاسب',
+        roleManager: 'مدير/معتمد',
+        roleEmployee: 'موظف',
+        roleViewer: 'مشاهد',
+        usersLinkEmployee: 'ربط بموظف',
+        usersNoLink: '— لا شيء —',
+        usersActivate: 'تفعيل',
+        usersDeactivate: 'تعطيل',
         usersUser: 'مستخدم',
         usersActive: 'نشط',
         usersDisabled: 'معطل',
@@ -6885,12 +6995,17 @@
       setTextSel('.card[data-page="settings"] div[style*="border-top"] p', 'sectionUserMgmtDesc');
       setLabel('new-user-username', 'usersUsername');
       setLabel('new-user-password', 'labelPassword');
-      setLabel('new-user-admin', 'usersRole');
+      setLabel('new-user-role', 'usersRole');
+      setLabel('new-user-entity', 'usersLinkEmployee');
       setText('create-user-btn', 'btnCreateUser');
       setPlaceholder('new-user-username', 'placeholderUsername');
       setPlaceholder('new-user-password', 'placeholderTempPassword');
-      setOption('new-user-admin', 'false', 'usersUser');
-      setOption('new-user-admin', 'true', 'usersAdmin');
+      setOption('new-user-role', 'owner', 'roleOwner');
+      setOption('new-user-role', 'cfo', 'roleCfo');
+      setOption('new-user-role', 'accountant', 'roleAccountant');
+      setOption('new-user-role', 'manager', 'roleManager');
+      setOption('new-user-role', 'employee', 'roleEmployee');
+      setOption('new-user-role', 'viewer', 'roleViewer');
       setOption('inv-entity', '', 'optionNone');
       setOption('inv-bank-code', '', 'optionSelectBank');
       setOption('inv-kind', 'sales', 'optionSales');
@@ -6974,8 +7089,8 @@
       closeAllModals();
       // Companies console is super-admin only — a non-super-admin reaching it
       // via the #companies hash falls back to the dashboard (backend also 403s).
-      const allowed = validPages.has(page) && !(page === 'companies' && !isSuperadmin);
-      const requested = allowed ? page : 'dashboard';
+      const allowed = validPages.has(page) && canSeePage(page);
+      const requested = allowed ? page : roleHome();
       document.querySelectorAll('.card[data-page]').forEach(card => {
         card.classList.toggle('active-page', card.getAttribute('data-page') === requested);
       });
@@ -7593,12 +7708,16 @@
           <tbody>
             ${users.map((u) => `
               <tr>
-                <td>${escapeHtml(u.username)}</td>
-                <td>${u.is_admin ? escapeHtml(t('usersAdmin')) : escapeHtml(t('usersUser'))}</td>
+                <td>${escapeHtml(u.username)}${u.entity_name ? `<br><span style="color:var(--text-muted);font-size:0.78rem;">${escapeHtml(u.entity_name)}</span>` : ''}</td>
+                <td>
+                  <select class="user-role-select" data-id="${escapeHtml(u.id)}" style="font-size:0.8rem;padding:2px 4px;">
+                    ${ROLE_ORDER.map((r) => `<option value="${r}"${u.role === r ? ' selected' : ''}>${escapeHtml(roleLabel(r))}</option>`).join('')}
+                  </select>
+                </td>
                 <td>${u.is_active ? escapeHtml(t('usersActive')) : escapeHtml(t('usersDisabled'))}</td>
                 <td>
                   <button type="button" class="btn btn-secondary btn-sm user-pw-btn" data-id="${escapeHtml(u.id)}">${escapeHtml(t('usersResetPassword'))}</button>
-                  <button type="button" class="btn btn-secondary btn-sm user-role-btn" data-id="${escapeHtml(u.id)}" data-admin="${u.is_admin ? '1' : '0'}">${u.is_admin ? escapeHtml(t('usersSetUser')) : escapeHtml(t('usersSetAdmin'))}</button>
+                  <button type="button" class="btn btn-secondary btn-sm user-active-btn" data-id="${escapeHtml(u.id)}" data-active="${u.is_active ? '1' : '0'}">${u.is_active ? escapeHtml(t('usersDeactivate')) : escapeHtml(t('usersActivate'))}</button>
                   <button type="button" class="btn btn-danger btn-sm user-del-btn" data-id="${escapeHtml(u.id)}" data-username="${escapeHtml(u.username)}">${escapeHtml(t('usersDelete'))}</button>
                 </td>
               </tr>
@@ -7716,12 +7835,21 @@
         loadCompanyBranding();
         // Reveal the Companies console only for the super-admin/provisioner.
         isSuperadmin = !!data.user.is_superadmin;
+        currentRole = (data.user.role || 'owner').toLowerCase();
         const navCo = document.getElementById('nav-companies');
         if (navCo) navCo.style.display = isSuperadmin ? '' : 'none';
-        // A super-admin who cold-loaded #companies fell back to dashboard
-        // because isSuperadmin wasn't known yet — honour the deep link now.
-        if (isSuperadmin && location.hash === '#companies') showPage('companies');
-        loadUsers();
+        // Role-aware nav: hide what this role can't use (server still enforces).
+        applyRoleAccess();
+        // Land on a page this role may actually see. If the cold-load page is
+        // off-limits, drop to the role's home; honour a valid deep link.
+        const landed = (location.hash || '#dashboard').slice(1);
+        if (isSuperadmin && location.hash === '#companies') {
+          showPage('companies');
+        } else if (!canSeePage(landed) || !validPages.has(landed)) {
+          showPage(roleHome());
+          loadPageData(roleHome());
+        }
+        if (currentRole === 'owner') { loadUsers(); populateEntityLinkOptions(); }
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
       }
@@ -7744,17 +7872,20 @@
     async function createUser() {
       const username = (newUserUsernameEl && newUserUsernameEl.value || '').trim();
       const password = (newUserPasswordEl && newUserPasswordEl.value || '').trim();
-      const isAdmin = (newUserAdminEl && newUserAdminEl.value) === 'true';
+      const role = (newUserRoleEl && newUserRoleEl.value) || 'employee';
+      const entityId = (newUserEntityEl && newUserEntityEl.value) || null;
       if (!username || !password) {
         showAlert(t('usernamePasswordRequired'), true);
         return;
       }
       try {
         createUserBtn.disabled = true;
+        const body = { username, password, role, preferred_language: ((uiLanguageSelectEl && uiLanguageSelectEl.value) || 'en'), is_active: true };
+        if (entityId) body.entity_id = entityId;
         const res = await fetch(API + '/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password, preferred_language: ((uiLanguageSelectEl && uiLanguageSelectEl.value) || 'en'), is_admin: isAdmin, is_active: true }),
+          body: JSON.stringify(body),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -7764,7 +7895,7 @@
         showAlert(t('usersCreated'));
         newUserUsernameEl.value = '';
         newUserPasswordEl.value = '';
-        newUserAdminEl.value = 'false';
+        if (newUserEntityEl) newUserEntityEl.value = '';
         loadUsers();
       } catch (err) {
         showAlert('Connection error: ' + err.message, true);
@@ -7794,19 +7925,19 @@
         return;
       }
 
-      const roleBtn = e.target.closest('.user-role-btn');
-      if (roleBtn) {
-        const id = roleBtn.dataset.id;
-        const nextAdmin = roleBtn.dataset.admin === '1' ? false : true;
+      const activeBtn = e.target.closest('.user-active-btn');
+      if (activeBtn) {
+        const id = activeBtn.dataset.id;
+        const nextActive = activeBtn.dataset.active !== '1';
         try {
           const res = await fetch(API + '/admin/users/' + encodeURIComponent(id), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_admin: nextAdmin }),
+            body: JSON.stringify({ is_active: nextActive }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            showAlert(data.detail || 'Failed to update role.', true);
+            showAlert(data.detail || 'Failed to update user.', true);
             return;
           }
           showAlert(t('usersRoleUpdated'));
@@ -11804,6 +11935,22 @@
     }
     if (createUserBtn) createUserBtn.addEventListener('click', createUser);
     if (usersWrapEl) usersWrapEl.addEventListener('click', handleUserTableAction);
+    if (usersWrapEl) usersWrapEl.addEventListener('change', async (e) => {
+      const sel = e.target.closest('.user-role-select');
+      if (!sel) return;
+      const id = sel.dataset.id;
+      try {
+        const res = await fetch(API + '/admin/users/' + encodeURIComponent(id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: sel.value }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Failed to update role.', true); loadUsers(); return; }
+        showAlert(t('usersRoleUpdated'));
+        loadUsers();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
     if (openAiChatInlineBtn) {
       openAiChatInlineBtn.addEventListener('click', () => {
         toggleInlineChat();

@@ -177,6 +177,7 @@ class AuditLogRead(BaseModel):
     entity_type: str
     entity_id: str | None
     username: str | None
+    actor_role: str | None = None
     detail: str | None
 
 
@@ -769,6 +770,7 @@ def get_audit_logs(
         id=l.id, timestamp=l.timestamp.isoformat() if l.timestamp else "",
         action=l.action, entity_type=l.entity_type,
         entity_id=l.entity_id, username=l.username,
+        actor_role=getattr(l, "actor_role", None),
         detail=l.detail,
     ) for l in logs]
 

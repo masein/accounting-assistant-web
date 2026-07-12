@@ -29,6 +29,8 @@ class AuditLog(Base, TenantMixin):
     entity_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     username: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # The acting user's RBAC role at the time of the action (migration 018).
+    actor_role: Mapped[str | None] = mapped_column(String(16), nullable=True)
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     # JSON string of changed fields or context
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)

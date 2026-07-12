@@ -44,6 +44,7 @@ from app.core.auth import (
 )
 from app.core.rate_limit import RateLimiter
 from app.core.permissions import enforce_route_permission
+from app.core.request_context import set_current_user, clear_current_user
 from app.db.base import Base
 from app.db.tenant import set_current_company, clear_current_company, tenant_bypass
 from app.db.seed import ensure_default_company, seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
@@ -390,12 +391,16 @@ async def auth_middleware(request: Request, call_next):
         user = None
     request.state.user = user
 
-    # Scope every tenant query to this user's company for the whole request.
+    # Scope every tenant query to this user's company, and expose the acting
+    # user (for audit attribution / object-ownership / field-stripping) for the
+    # whole request.
     set_current_company(user.company_id if user else None)
+    set_current_user(user)
     try:
         return await _dispatch(request, call_next, path, user)
     finally:
         clear_current_company()
+        clear_current_user()
 
 
 def _session_is_valid(user) -> bool:

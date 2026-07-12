@@ -387,14 +387,19 @@ def log_audit_event(
     username: str | None = None,
     detail: str | None = None,
     ip_address: str | None = None,
+    role: str | None = None,
 ) -> AuditLog:
-    """Write an immutable audit log entry."""
+    """Write an immutable audit log entry. The acting user (id/username/role)
+    defaults to the request's current user when not supplied."""
+    from app.core.audit import _default_actor
+    user_id, username, role = _default_actor(user_id, username, role)
     entry = AuditLog(
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,
         user_id=user_id,
         username=username,
+        actor_role=role,
         detail=detail,
         ip_address=ip_address,
     )

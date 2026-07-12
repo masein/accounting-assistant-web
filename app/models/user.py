@@ -24,7 +24,17 @@ class User(Base):
         UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
     )
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)
-    # Bumped on password reset so old session tokens stop working.
+    # Company role (RBAC). One role per user per company; enforced server-side
+    # via app/core/permissions.py. Orthogonal to is_superadmin (platform-level).
+    # The pre-RBAC single company login is backfilled to "owner".
+    role: Mapped[str] = mapped_column(String(16), default="owner", server_default="owner")
+    # Optional link to the employee Entity so a staff user's "my time / my
+    # expenses / my payslips / my assigned work" resolve to their own records.
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Bumped on password reset / role change / deactivation so old session
+    # tokens stop working.
     token_version: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -4,7 +4,7 @@ from pathlib import Path
 import time
 import uuid
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -43,6 +43,7 @@ from app.core.auth import (
     validate_csrf,
 )
 from app.core.rate_limit import RateLimiter
+from app.core.permissions import enforce_route_permission
 from app.db.base import Base
 from app.db.tenant import set_current_company, clear_current_company, tenant_bypass
 from app.db.seed import ensure_default_company, seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
@@ -286,15 +287,24 @@ PUBLIC_PATHS = {
 
 PROTECTED_API_PREFIXES = (
     "/accounts",
+    "/adjustments",
     "/admin",
+    "/ai-accountant",
+    "/brain",
     "/budgets",
     "/entities",
+    "/expenses",
     "/exports",
+    "/fx",
     "/invoices",
     "/manager-reports",
     "/notifications",
+    "/payroll",
+    "/products",
+    "/purchase-orders",
     "/recurring",
     "/reports",
+    "/time",
     "/transactions",
     "/auth/me",
     "/auth/change-password",
@@ -412,6 +422,10 @@ def _session_is_valid(user) -> bool:
                     company = sess.get(Company, row.company_id)
                     if company is not None and company.status != "active":
                         return False
+                # Refresh RBAC fields from the DB so a role change / entity link
+                # takes effect on the next request without a re-login.
+                user.role = getattr(row, "role", None) or "owner"
+                user.entity_id = str(row.entity_id) if getattr(row, "entity_id", None) else None
             return True
         finally:
             if gen is not None:
@@ -516,29 +530,33 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-app.include_router(accounts_router)
-app.include_router(adjustments_router)
-app.include_router(admin_router)
-app.include_router(companies_router)
-app.include_router(company_profile_router)
-app.include_router(ai_accountant_router)
+# Every business router carries the central default-deny RBAC guard
+# (app/core/permissions.py). auth_router is exempt — it holds the public
+# login/logout and self-service endpoints that use get_current_user directly.
+_rbac = [Depends(enforce_route_permission)]
+app.include_router(accounts_router, dependencies=_rbac)
+app.include_router(adjustments_router, dependencies=_rbac)
+app.include_router(admin_router, dependencies=_rbac)
+app.include_router(companies_router, dependencies=_rbac)
+app.include_router(company_profile_router, dependencies=_rbac)
+app.include_router(ai_accountant_router, dependencies=_rbac)
 app.include_router(auth_router)
-app.include_router(brain_router)
-app.include_router(budgets_router)
-app.include_router(entities_router)
-app.include_router(expenses_router)
-app.include_router(exports_router)
-app.include_router(fx_router)
-app.include_router(invoices_router)
-app.include_router(manager_reports_router)
-app.include_router(notifications_router)
-app.include_router(payroll_router)
-app.include_router(products_router)
-app.include_router(purchase_orders_router)
-app.include_router(recurring_router)
-app.include_router(reports_router)
-app.include_router(time_tracking_router)
-app.include_router(transactions_router)
+app.include_router(brain_router, dependencies=_rbac)
+app.include_router(budgets_router, dependencies=_rbac)
+app.include_router(entities_router, dependencies=_rbac)
+app.include_router(expenses_router, dependencies=_rbac)
+app.include_router(exports_router, dependencies=_rbac)
+app.include_router(fx_router, dependencies=_rbac)
+app.include_router(invoices_router, dependencies=_rbac)
+app.include_router(manager_reports_router, dependencies=_rbac)
+app.include_router(notifications_router, dependencies=_rbac)
+app.include_router(payroll_router, dependencies=_rbac)
+app.include_router(products_router, dependencies=_rbac)
+app.include_router(purchase_orders_router, dependencies=_rbac)
+app.include_router(recurring_router, dependencies=_rbac)
+app.include_router(reports_router, dependencies=_rbac)
+app.include_router(time_tracking_router, dependencies=_rbac)
+app.include_router(transactions_router, dependencies=_rbac)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"

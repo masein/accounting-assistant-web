@@ -296,7 +296,7 @@ _add("POST", "/brain/cfo/ask", Perm.CFO_READ)
 
 # --- Payroll / salaries -----------------------------------------------------
 _reads(["/payroll/profiles", "/payroll/runs", "/payroll/runs/{run_id}",
-        "/payroll/year-summary"], Perm.PAYROLL_READ)
+        "/payroll/year-summary", "/payroll/hours-summary"], Perm.PAYROLL_READ)
 # Payslip: books payroll people OR the employee's own (object-checked downstream).
 _reads(["/payroll/runs/{run_id}/payslip/{entity_id}",
         "/payroll/runs/{run_id}/payslip/{entity_id}/pdf"],
@@ -304,9 +304,12 @@ _reads(["/payroll/runs/{run_id}/payslip/{entity_id}",
 for _m, _p in [
     ("POST", "/payroll/profiles"), ("POST", "/payroll/runs"),
     ("POST", "/payroll/runs/{run_id}/post"), ("POST", "/payroll/runs/{run_id}/pay"),
+    ("POST", "/payroll/runs/{run_id}/void"),
     ("POST", "/payroll/prorate-raise"),
 ]:
     _add(_m, _p, Perm.PAYROLL_WRITE)
+# Self-service timesheet summary (own hours; payroll people may pass entity_id).
+_add("GET", "/time/my-summary", frozenset({Perm.TIME_OWN, Perm.PAYROLL_READ}))
 
 # --- Reports (dashboard, ledger, manager) ----------------------------------
 _reads([

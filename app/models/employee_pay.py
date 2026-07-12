@@ -34,6 +34,10 @@ class EmployeePayProfile(Base, TenantMixin):
     # Standard hours in a pay period — the overtime threshold for hourly staff
     # and the proration baseline for a mid-period salary change.
     standard_hours: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
+    # Required hours in a MONTHLY payroll period for hours-derived pay runs
+    # (migration 020). Null → falls back to ``standard_hours``. Worked hours
+    # over this are monthly overtime; under it is reported as undertime.
+    monthly_standard_hours: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
     overtime_multiplier: Mapped[float] = mapped_column(Numeric(5, 2), default=1.5)
 
     # Rates as fractions: 0.20 == 20%.

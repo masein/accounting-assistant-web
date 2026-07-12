@@ -265,9 +265,21 @@ def render_payslip_pdf(db: Session, run, line, employee) -> bytes:
     brand, L, loc = _ctx(db)
     ccy = run.currency or brand["base_currency"]
     columns = [{"label": L["description"]}, {"label": L["amount"], "num": True}]
-    rows = [
-        {"cells": [{"value": L["gross_pay"]}, {"value": _money(line.gross or 0, ccy, loc), "num": True}]},
+    rows = []
+    # Hours breakdown (hourly staff): regular / overtime / paid leave.
+    _hrs = [
+        ("regular_hours", "Regular hours", float(line.hours or 0)),
+        ("overtime_hours", "Overtime hours", float(line.overtime_hours or 0)),
+        ("leave_hours", "Paid leave hours", float(getattr(line, "leave_hours", 0) or 0)),
     ]
+    for key, fallback, h in _hrs:
+        if h > 0:
+            rows.append({"cells": [
+                {"value": f"{L.get(key, fallback)}: {h:g} h"}, {"value": "", "num": True},
+            ]})
+    rows.append(
+        {"cells": [{"value": L["gross_pay"]}, {"value": _money(line.gross or 0, ccy, loc), "num": True}]},
+    )
     deductions = [
         ("income_tax", line.income_tax), ("social_security", line.social_security),
         ("deductions", line.pre_tax_deductions),

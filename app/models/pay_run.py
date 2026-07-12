@@ -67,9 +67,11 @@ class PayRunLine(Base, TenantMixin):
     )
     employee_name: Mapped[str] = mapped_column(String(256))
 
-    # Inputs captured at calculation time.
+    # Inputs captured at calculation time. ``hours`` = regular worked hours;
+    # ``leave_hours`` = paid leave (payable, not worked, no overtime).
     hours: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
     overtime_hours: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
+    leave_hours: Mapped[float] = mapped_column(Numeric(8, 2), default=0, server_default="0")
     proration: Mapped[float] = mapped_column(Numeric(6, 4), default=1)  # 1.0 = full period
 
     # Breakdown (whole currency units). taxable_base = gross − pre_tax_deductions.

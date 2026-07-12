@@ -23,8 +23,10 @@ from app.models.account import Account
 from app.models.employee_pay import EmployeePayProfile
 from app.models.entity import Entity
 from app.models.pay_run import PayRun, PayRunLine
+from app.models.time_billing import TimeEntry
 from app.models.transaction import Transaction, TransactionLine
 from app.services import payroll_service
+from app.services.time_billing_service import payroll_hours_summary
 from app.services.account_resolver import resolve_account_code
 from app.services.audit_service import log_audit_event
 from app.services.fx_service import get_reporting_currency
@@ -47,6 +49,9 @@ class PayProfileUpsert(BaseModel):
     base_salary: int = Field(0, ge=0, description="Per-period gross for salaried staff")
     hourly_rate: int = Field(0, ge=0)
     standard_hours: float = Field(0, ge=0, description="Hours per period; overtime threshold")
+    monthly_standard_hours: float | None = Field(
+        None, ge=0, description="Required hours per MONTH for hours-derived pay; null → standard_hours"
+    )
     overtime_multiplier: float = Field(1.5, ge=1)
     income_tax_rate: float = Field(0, ge=0, le=1)
     social_security_rate: float = Field(0, ge=0, le=1)
@@ -95,6 +100,9 @@ def _profile_read(p: EmployeePayProfile, name: str | None = None) -> dict:
         "base_salary": int(p.base_salary or 0),
         "hourly_rate": int(p.hourly_rate or 0),
         "standard_hours": float(p.standard_hours or 0),
+        "monthly_standard_hours": (
+            float(p.monthly_standard_hours) if p.monthly_standard_hours is not None else None
+        ),
         "overtime_multiplier": float(p.overtime_multiplier or 0),
         "income_tax_rate": float(p.income_tax_rate or 0),
         "social_security_rate": float(p.social_security_rate or 0),
@@ -111,6 +119,7 @@ def _line_read(ln: PayRunLine) -> dict:
         "employee_name": ln.employee_name,
         "hours": float(ln.hours or 0),
         "overtime_hours": float(ln.overtime_hours or 0),
+        "leave_hours": float(getattr(ln, "leave_hours", 0) or 0),
         "proration": float(ln.proration or 1),
         "gross": int(ln.gross or 0),
         "pre_tax_deductions": int(ln.pre_tax_deductions or 0),
@@ -207,6 +216,9 @@ def upsert_profile(payload: PayProfileUpsert, db: Session = Depends(get_db)) -> 
     prof.base_salary = int(payload.base_salary)
     prof.hourly_rate = int(payload.hourly_rate)
     prof.standard_hours = float(payload.standard_hours)
+    prof.monthly_standard_hours = (
+        float(payload.monthly_standard_hours) if payload.monthly_standard_hours is not None else None
+    )
     prof.overtime_multiplier = float(payload.overtime_multiplier)
     prof.income_tax_rate = float(payload.income_tax_rate)
     prof.social_security_rate = float(payload.social_security_rate)
@@ -226,7 +238,15 @@ def upsert_profile(payload: PayProfileUpsert, db: Session = Depends(get_db)) -> 
 @router.post("/runs", status_code=201)
 def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
     """Create and calculate a pay run for a period. Computes each employee's
-    gross→net but posts nothing — that's a separate confirm-gated step."""
+    gross→net but posts nothing — that's a separate confirm-gated step.
+
+    Hourly staff: when no explicit ``hours``/``gross_override`` is supplied,
+    gross is DERIVED from the employee's payable tracked time in the period —
+    regular = min(worked, required) · rate, monthly overtime = hours over
+    ``monthly_standard_hours`` (fallback ``standard_hours``) at the multiplier,
+    plus paid leave at the plain rate. The contributing entries are linked to
+    the run so each hour is paid exactly once; POSTING the run locks them.
+    """
     if payload.period_end < payload.period_start:
         raise HTTPException(status_code=422, detail="period_end is before period_start.")
     cur = (payload.currency or get_reporting_currency(db) or "IRR").upper()
@@ -254,19 +274,41 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
     db.flush()
 
     totals = {"gross": 0, "tax": 0, "social": 0, "ded": 0, "net": 0}
+    included_any = False
     for prof in profiles:
         inp = inputs.get(prof.entity_id)
+        is_hourly = (prof.pay_type or "").lower() == "hourly"
+        explicit = inp is not None and (inp.hours is not None or inp.gross_override is not None)
+        derived = None
+        if is_hourly and not explicit:
+            derived = payroll_hours_summary(
+                db, prof.entity_id, payload.period_start, payload.period_end
+            )
+            if derived["worked_hours"] <= 0 and derived["leave_hours"] <= 0:
+                if inp is not None:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"{_employee_name(db, prof.entity_id)}: no payable tracked hours in the period.",
+                    )
+                continue  # auto-included hourly employee with nothing to pay — skip
+        # Monthly required hours are the OT threshold for hours-derived pay.
+        required = float(
+            prof.monthly_standard_hours
+            if prof.monthly_standard_hours is not None
+            else (prof.standard_hours or 0)
+        )
         try:
             comp = payroll_service.calculate(
                 pay_type=prof.pay_type,
                 base_salary=int(prof.base_salary or 0),
                 hourly_rate=int(prof.hourly_rate or 0),
-                standard_hours=float(prof.standard_hours or 0),
+                standard_hours=(required if derived is not None else float(prof.standard_hours or 0)),
                 overtime_multiplier=float(prof.overtime_multiplier or 1),
                 income_tax_rate=float(prof.income_tax_rate or 0),
                 social_security_rate=float(prof.social_security_rate or 0),
                 pension_rate=float(prof.pension_rate or 0),
-                hours=(inp.hours if inp else None),
+                hours=(derived["worked_hours"] if derived is not None else (inp.hours if inp else None)),
+                leave_hours=(derived["leave_hours"] if derived is not None else 0.0),
                 proration=(inp.proration if inp else 1.0),
                 gross_override=(inp.gross_override if inp else None),
             )
@@ -276,16 +318,31 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
         db.add(PayRunLine(
             run_id=run.id, entity_id=prof.entity_id,
             employee_name=_employee_name(db, prof.entity_id),
-            hours=comp.hours, overtime_hours=comp.overtime_hours, proration=comp.proration,
+            hours=comp.hours, overtime_hours=comp.overtime_hours,
+            leave_hours=comp.leave_hours, proration=comp.proration,
             gross=comp.gross, pre_tax_deductions=comp.pre_tax_deductions,
             taxable_base=comp.taxable_base, income_tax=comp.income_tax,
             social_security=comp.social_security, net_pay=comp.net_pay,
         ))
+        included_any = True
+        # Link the contributing entries so they're excluded from other runs and
+        # can be locked (payroll_status='paid') when this run posts.
+        if derived is not None and derived["entry_ids"]:
+            for entry in db.execute(
+                select(TimeEntry).where(TimeEntry.id.in_(derived["entry_ids"]))
+            ).scalars().all():
+                entry.payroll_run_id = run.id
         totals["gross"] += comp.gross
         totals["tax"] += comp.income_tax
         totals["social"] += comp.social_security
         totals["ded"] += comp.pre_tax_deductions
         totals["net"] += comp.net_pay
+
+    if not included_any:
+        raise HTTPException(
+            status_code=422,
+            detail="No employees with anything to pay in this period.",
+        )
 
     run.total_gross = totals["gross"]
     run.total_tax = totals["tax"]
@@ -347,9 +404,109 @@ def post_run(run_id: UUID, db: Session = Depends(get_db)) -> dict:
     )
     run.post_transaction_id = txn.id
     run.status = "posted"
+    # Lock the contributing time entries: settled by this run, no longer
+    # editable (same discipline as the invoiced lock on the billing side).
+    for entry in db.execute(
+        select(TimeEntry).where(TimeEntry.payroll_run_id == run.id)
+    ).scalars().all():
+        entry.payroll_status = "paid"
     db.commit()
     db.refresh(run)
     return _run_read(run)
+
+
+@router.post("/runs/{run_id}/void")
+def void_run(run_id: UUID, db: Session = Depends(get_db)) -> dict:
+    """Void a draft or posted run. A posted run's GL accrual is reversed with a
+    balanced counter-entry; either way the run's time entries are unlocked
+    (payroll_status back to 'unpaid', unlinked) so they can be re-run. A PAID
+    run cannot be voided — the bank settlement must be handled first."""
+    run = db.get(PayRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pay run not found.")
+    if run.status == "paid":
+        raise HTTPException(status_code=409, detail="Run is paid; reverse the bank settlement first.")
+    if run.status == "voided":
+        raise HTTPException(status_code=409, detail="Run is already voided.")
+
+    if run.status == "posted" and run.post_transaction_id:
+        # Reverse the accrual: swap every debit/credit of the posting entry.
+        orig_lines = db.execute(
+            select(TransactionLine).where(TransactionLine.transaction_id == run.post_transaction_id)
+        ).scalars().all()
+        acc_codes = {a.id: a.code for a in db.execute(select(Account)).scalars().all()}
+        rev = [
+            (acc_codes[l.account_id], int(l.credit or 0), int(l.debit or 0),
+             f"Reversal — {l.line_description or ''}".strip())
+            for l in orig_lines
+        ]
+        _post_balanced(
+            db, on=run.pay_date, reference=f"PAYROLL-VOID-{run.pay_date.isoformat()}",
+            description=f"Void payroll {run.period_start.isoformat()}–{run.period_end.isoformat()}",
+            currency=run.currency, lines=rev,
+        )
+
+    unlocked = 0
+    for entry in db.execute(
+        select(TimeEntry).where(TimeEntry.payroll_run_id == run.id)
+    ).scalars().all():
+        entry.payroll_status = "unpaid"
+        entry.payroll_run_id = None
+        unlocked += 1
+    run.status = "voided"
+    log_audit_event(db, action="void", entity_type="pay_run", entity_id=str(run.id),
+                    detail=f"Voided pay run ({unlocked} time entries unlocked)")
+    db.commit()
+    db.refresh(run)
+    return _run_read(run)
+
+
+@router.get("/hours-summary")
+def hours_summary(
+    period_start: _date, period_end: _date,
+    entity_id: UUID | None = None,
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """Per-employee period timesheet summary for HOURLY staff: required vs
+    worked, payable, monthly overtime/undertime, and the projected gross
+    breakdown — the employer's review screen before running payroll."""
+    if period_end < period_start:
+        raise HTTPException(status_code=422, detail="period_end is before period_start.")
+    q = select(EmployeePayProfile).where(EmployeePayProfile.pay_type == "hourly")
+    if entity_id is not None:
+        q = q.where(EmployeePayProfile.entity_id == entity_id)
+    out = []
+    for prof in db.execute(q).scalars().all():
+        s = payroll_hours_summary(db, prof.entity_id, period_start, period_end)
+        required = float(
+            prof.monthly_standard_hours
+            if prof.monthly_standard_hours is not None
+            else (prof.standard_hours or 0)
+        )
+        worked, leave = s["worked_hours"], s["leave_hours"]
+        regular = min(worked, required) if required > 0 else worked
+        overtime = max(0.0, worked - required) if required > 0 else 0.0
+        undertime = max(0.0, required - worked) if required > 0 else 0.0
+        rate = int(prof.hourly_rate or 0)
+        mult = float(prof.overtime_multiplier or 1)
+        out.append({
+            "entity_id": str(prof.entity_id),
+            "employee_name": _employee_name(db, prof.entity_id),
+            "required_hours": required,
+            "worked_hours": worked,
+            "leave_hours": leave,
+            "payable_hours": round(worked + leave, 2),
+            "overtime_hours": round(overtime, 2),
+            "undertime_hours": round(undertime, 2),
+            "entry_count": s["entry_count"],
+            "hourly_rate": rate,
+            "projected_regular_pay": int(regular * rate + 0.5),
+            "projected_overtime_pay": int(overtime * rate * mult + 0.5),
+            "projected_leave_pay": int(leave * rate + 0.5),
+            "projected_gross": int(regular * rate + overtime * rate * mult + leave * rate + 0.5),
+            "currency": prof.currency,
+        })
+    return out
 
 
 @router.post("/runs/{run_id}/pay")

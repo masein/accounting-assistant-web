@@ -415,6 +415,73 @@ def my_summary(period_start: _date, period_end: _date, db: Session = Depends(get
 
 
 # ---------------------------------------------------------------------------
+# Parked integration pushes (unmatched /api/v1 worklogs) — employer resolution
+# ---------------------------------------------------------------------------
+
+
+class PendingResolvePayload(BaseModel):
+    entity_id: UUID  # the employee this parked worklog belongs to
+
+
+@router.get("/pending")
+def list_pending_entries(status: str | None = "pending", db: Session = Depends(get_db)) -> list[dict]:
+    """Parked pushes from external tools whose worker couldn't be matched."""
+    from app.models.pending_time_entry import PendingTimeEntry
+    q = select(PendingTimeEntry).order_by(PendingTimeEntry.created_at.desc())
+    if status:
+        q = q.where(PendingTimeEntry.status == status.strip().lower())
+    return [{
+        "id": str(p.id), "source": p.source, "external_id": p.external_id,
+        "worker": p.worker_ref, "client": p.client_ref, "project": p.project_ref,
+        "work_date": p.work_date.isoformat(), "hours": float(p.hours or 0),
+        "description": p.description, "entry_type": p.entry_type,
+        "billable": bool(p.billable), "status": p.status, "reason": p.reason,
+    } for p in db.execute(q).scalars().all()]
+
+
+@router.post("/pending/{pending_id}/resolve")
+def resolve_pending_entry(pending_id: UUID, payload: PendingResolvePayload,
+                          db: Session = Depends(get_db)) -> dict:
+    """Assign a parked worklog to an employee → becomes a normal time entry
+    (flows into payroll and billing like any other)."""
+    from app.models.pending_time_entry import PendingTimeEntry
+    p = db.get(PendingTimeEntry, pending_id)
+    if not p or p.status != "pending":
+        raise HTTPException(status_code=404, detail="Pending entry not found.")
+    worker = db.get(Entity, payload.entity_id)
+    if not worker or worker.type not in ("employee", "supplier"):
+        raise HTTPException(status_code=422, detail="Resolve to an employee or contractor (supplier).")
+    et = (p.entry_type or "work").lower()
+    e = TimeEntry(
+        employee_id=worker.id, client_id=None, project_id=None,
+        work_date=p.work_date, hours=p.hours, description=p.description,
+        billable=False, status="unbilled",
+        entry_type=et, payable=tbs.default_payable(et), payroll_status="unpaid",
+        source=p.source, external_id=p.external_id, created_by=f"api:{p.source}",
+    )
+    db.add(e)
+    db.flush()
+    p.status = "resolved"
+    p.resolved_entry_id = e.id
+    log_audit_event(db, action="update", entity_type="time_entry", entity_id=str(e.id),
+                    detail=f"Resolved parked {p.source} push {p.external_id} to {worker.name}")
+    db.commit()
+    return _entry_read(e, db)
+
+
+@router.post("/pending/{pending_id}/reject")
+def reject_pending_entry(pending_id: UUID, db: Session = Depends(get_db)) -> dict:
+    from app.models.pending_time_entry import PendingTimeEntry
+    p = db.get(PendingTimeEntry, pending_id)
+    if not p or p.status != "pending":
+        raise HTTPException(status_code=404, detail="Pending entry not found.")
+    p.status = "rejected"
+    p.reason = "Rejected by employer"
+    db.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # Unbilled summary + invoice from time
 # ---------------------------------------------------------------------------
 

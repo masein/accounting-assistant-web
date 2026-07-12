@@ -310,6 +310,14 @@ for _m, _p in [
     _add(_m, _p, Perm.PAYROLL_WRITE)
 # Self-service timesheet summary (own hours; payroll people may pass entity_id).
 _add("GET", "/time/my-summary", frozenset({Perm.TIME_OWN, Perm.PAYROLL_READ}))
+# Parked integration pushes: books people review/resolve them.
+_add("GET", "/time/pending", Perm.BOOKS_READ)
+_add("POST", "/time/pending/{pending_id}/resolve", Perm.BOOKS_WRITE)
+_add("POST", "/time/pending/{pending_id}/reject", Perm.BOOKS_WRITE)
+# Company API keys — Owner only (same gate as user management).
+_add("GET", "/admin/api-keys", Perm.USERS_MANAGE)
+_add("POST", "/admin/api-keys", Perm.USERS_MANAGE)
+_add("DELETE", "/admin/api-keys/{key_id}", Perm.USERS_MANAGE)
 
 # --- Reports (dashboard, ledger, manager) ----------------------------------
 _reads([

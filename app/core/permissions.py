@@ -445,6 +445,28 @@ def user_can_access(user: SessionUser, method: str, path: str) -> bool:
     return role_can(role, required)
 
 
+# ---------------------------------------------------------------------------
+# Object-level ownership
+# ---------------------------------------------------------------------------
+def own_scope(user, full_perm) -> tuple[bool, str | None]:
+    """Decide whether a caller is restricted to their OWN records for a domain.
+
+    Returns ``(restricted, own_entity_id)``:
+      * ``restricted=False`` — the caller holds the domain's full read
+        permission (or is superadmin): they see everything in the company.
+      * ``restricted=True`` — a self-service caller (e.g. an Employee with only
+        the ``*_OWN`` permission): they may see only rows whose owner entity ==
+        ``own_entity_id`` (their linked ``User.entity_id``; ``None`` if unlinked,
+        which then matches nothing).
+    """
+    if user is None or getattr(user, "is_superadmin", False):
+        return (False, None)
+    role = getattr(user, "role", None) or DEFAULT_ROLE
+    if role_can(role, full_perm):
+        return (False, None)
+    return (True, getattr(user, "entity_id", None))
+
+
 def enforce_route_permission(request: Request, user: SessionUser = Depends(get_current_user)) -> SessionUser:
     """Router-level dependency: default-deny RBAC for the matched route."""
     if not user_can_access(user, request.method, request.url.path):

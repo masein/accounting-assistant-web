@@ -33,8 +33,13 @@ def get_reporting_currency(db: Session) -> str:
     from app.db.tenant import get_current_company
     cid = get_current_company()
     if cid:
+        import uuid
         from app.models.company import Company
-        company = db.get(Company, cid)
+        try:
+            cid = uuid.UUID(str(cid))  # the ContextVar holds a str; the PK is UUID
+        except (ValueError, TypeError):
+            cid = None
+        company = db.get(Company, cid) if cid else None
         if company and (company.base_currency or "").strip():
             return company.base_currency.strip()
     row = db.execute(

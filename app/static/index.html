@@ -1622,6 +1622,12 @@
           <button type="button" class="btn btn-secondary" id="tm-preview-cancel" data-i18n="btnCancel">Cancel</button>
         </div>
       </div>
+
+      <div id="tm-pending-section" style="display:none;margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem;">
+        <h3 data-i18n="timePendingTitle">Pending pushed entries</h3>
+        <p style="color:var(--text-muted);font-size:0.84rem;margin:0 0 0.6rem;" data-i18n="timePendingIntro">Worklogs pushed by external tools (Jira, Trello…) whose worker couldn't be matched. Assign each to an employee — nothing is dropped automatically.</p>
+        <div id="tm-pending-wrap"></div>
+      </div>
     </div>
 
     <!-- ═══════ Expenses Page ═══════ -->
@@ -2289,6 +2295,32 @@
       </div>
 
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;" data-i18n="apiKeysTitle">API keys</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="apiKeysIntro">
+          Let external tools (Jira, Trello, Toggl…) push time entries into this company via the /api/v1 integration API. A key is shown once at creation and can be revoked at any time.
+        </p>
+        <div class="row" style="margin-bottom:0.5rem; align-items:flex-end;">
+          <div>
+            <label for="apikey-label" data-i18n="apiKeysLabel">Label</label>
+            <input type="text" id="apikey-label" placeholder="jira" maxlength="128">
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button type="button" class="btn btn-primary" id="apikey-create-btn" data-i18n="apiKeysGenerate">Generate key</button>
+          </div>
+        </div>
+        <div id="apikey-reveal" style="display:none; margin-bottom:0.6rem; padding:0.6rem; border:1px solid var(--border); border-radius:8px; background:var(--bg-subtle,#f6f6f6);">
+          <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.3rem;" data-i18n="apiKeysShownOnce">Copy this key now — it will not be shown again.</div>
+          <div style="display:flex; gap:0.4rem; align-items:center;">
+            <code id="apikey-reveal-value" style="flex:1; word-break:break-all; font-size:0.82rem;"></code>
+            <button type="button" class="btn btn-secondary btn-sm" id="apikey-copy-btn" data-i18n="apiKeysCopy">Copy</button>
+          </div>
+        </div>
+        <div id="apikeys-wrap">
+          <p class="empty-state" data-i18n="apiKeysNone" style="padding:0.4rem;">No API keys yet.</p>
+        </div>
+      </div>
+
+      <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
         <h2 style="margin-bottom:0.5rem;" data-i18n="fxTitle">Currency &amp; FX</h2>
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="fxIntro">
           Set the reporting currency used across reports, and manage exchange rates to convert between currencies at a specific date.
@@ -2832,6 +2864,84 @@
         showAlert('Connection error: ' + err.message, true);
       }
     }
+
+    // --- Company API keys (Owner) ---
+    async function loadApiKeys() {
+      const wrap = document.getElementById('apikeys-wrap');
+      if (!wrap) return;
+      try {
+        const res = await fetch(API + '/admin/api-keys');
+        if (!res.ok) return;
+        const keys = await res.json().catch(() => []);
+        if (!keys.length) {
+          wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('apiKeysNone')) + '</p>';
+          return;
+        }
+        wrap.innerHTML = `
+          <table class="results-table" style="font-size:0.85rem;">
+            <thead><tr>
+              <th>${escapeHtml(t('apiKeysLabel'))}</th><th>${escapeHtml(t('apiKeysPrefix'))}</th>
+              <th>${escapeHtml(t('apiKeysCreated'))}</th><th>${escapeHtml(t('apiKeysLastUsed'))}</th>
+              <th>${escapeHtml(t('usersStatus'))}</th><th></th>
+            </tr></thead>
+            <tbody>${keys.map(k => `
+              <tr>
+                <td>${escapeHtml(k.label)}</td>
+                <td><code>${escapeHtml(k.prefix)}…</code></td>
+                <td>${k.created_at ? escapeHtml(k.created_at.slice(0, 10)) : '—'}</td>
+                <td>${k.last_used_at ? escapeHtml(k.last_used_at.slice(0, 10)) : '—'}</td>
+                <td>${k.revoked ? escapeHtml(t('apiKeysRevoked')) : escapeHtml(t('usersActive'))}</td>
+                <td>${k.revoked ? '' : `<button type="button" class="btn btn-danger btn-sm apikey-revoke-btn" data-id="${escapeHtml(k.id)}" data-label="${escapeHtml(k.label)}">${escapeHtml(t('apiKeysRevoke'))}</button>`}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>`;
+      } catch (_) { /* ignore */ }
+    }
+
+    async function createApiKey() {
+      const btn = document.getElementById('apikey-create-btn');
+      const label = (document.getElementById('apikey-label').value || 'integration').trim();
+      try {
+        if (btn) btn.disabled = true;
+        const res = await fetch(API + '/admin/api-keys', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || t('apiKeysCreateError'), true); return; }
+        const reveal = document.getElementById('apikey-reveal');
+        const val = document.getElementById('apikey-reveal-value');
+        if (val) val.textContent = data.api_key || '';
+        if (reveal) reveal.style.display = '';
+        document.getElementById('apikey-label').value = '';
+        loadApiKeys();
+      } catch (err) {
+        showAlert('Connection error: ' + err.message, true);
+      } finally { if (btn) btn.disabled = false; }
+    }
+
+    document.addEventListener('click', async (ev) => {
+      const copy = ev.target.closest && ev.target.closest('#apikey-copy-btn');
+      if (copy) {
+        const val = document.getElementById('apikey-reveal-value');
+        try { await navigator.clipboard.writeText(val ? val.textContent : ''); showAlert(t('apiKeysCopied')); }
+        catch (_) { /* clipboard unavailable */ }
+        return;
+      }
+      const rev = ev.target.closest && ev.target.closest('.apikey-revoke-btn');
+      if (!rev) return;
+      if (!(await uiConfirm({ message: tf('apiKeysConfirmRevoke', { name: rev.dataset.label || '' }), confirmLabel: t('apiKeysRevoke'), danger: true }))) return;
+      try {
+        const res = await fetch(API + '/admin/api-keys/' + encodeURIComponent(rev.dataset.id), { method: 'DELETE' });
+        if (!res.ok && res.status !== 204) {
+          const data = await res.json().catch(() => ({}));
+          showAlert(data.detail || 'Failed to revoke key.', true);
+          return;
+        }
+        showAlert(t('apiKeysRevokedMsg'));
+        loadApiKeys();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
     const createUserBtn = document.getElementById('create-user-btn');
     const usersWrapEl = document.getElementById('users-wrap');
     const ledgerSearchEl = document.getElementById('ledger-search');
@@ -2956,6 +3066,32 @@
         digestSaved: 'Digest settings saved.',
         digestSaveError: 'Failed to save digest settings.',
         digestPreviewError: 'Failed to build digest preview.',
+        apiKeysTitle: 'API keys',
+        apiKeysIntro: 'Let external tools (Jira, Trello, Toggl…) push time entries into this company via the /api/v1 integration API. A key is shown once at creation and can be revoked at any time.',
+        apiKeysLabel: 'Label',
+        apiKeysGenerate: 'Generate key',
+        apiKeysShownOnce: 'Copy this key now — it will not be shown again.',
+        apiKeysCopy: 'Copy',
+        apiKeysCopied: 'API key copied to clipboard.',
+        apiKeysNone: 'No API keys yet.',
+        apiKeysPrefix: 'Key',
+        apiKeysCreated: 'Created',
+        apiKeysLastUsed: 'Last used',
+        apiKeysRevoked: 'Revoked',
+        apiKeysRevoke: 'Revoke',
+        apiKeysRevokedMsg: 'API key revoked.',
+        apiKeysConfirmRevoke: 'Revoke the API key "{name}"? Tools using it will stop working immediately.',
+        apiKeysCreateError: 'Failed to generate API key.',
+        timePendingTitle: 'Pending pushed entries',
+        timePendingIntro: "Worklogs pushed by external tools (Jira, Trello…) whose worker couldn't be matched. Assign each to an employee — nothing is dropped automatically.",
+        timePendingSource: 'Source',
+        timePendingWorker: 'Pushed worker',
+        timePendingAssign: 'Assign to',
+        timePendingResolve: 'Resolve',
+        timePendingReject: 'Reject',
+        timePendingResolved: 'Entry assigned and created.',
+        timePendingRejected: 'Pushed entry rejected.',
+        timePendingNeedEmployee: 'Pick an employee to assign this entry to.',
         usersUser: 'User',
         usersActive: 'Active',
         usersDisabled: 'Disabled',
@@ -3028,6 +3164,32 @@
         digestSaved: 'تنظیمات خلاصه ذخیره شد.',
         digestSaveError: 'ذخیره تنظیمات خلاصه ناموفق بود.',
         digestPreviewError: 'ساخت پیش‌نمایش خلاصه ناموفق بود.',
+        apiKeysTitle: 'کلیدهای API',
+        apiKeysIntro: 'به ابزارهای بیرونی (جیرا، ترلو، تاگل…) اجازه دهید ورودی‌های زمانی را از طریق API یکپارچه‌سازی ‎/api/v1 به این شرکت ارسال کنند. کلید فقط یک بار هنگام ساخت نمایش داده می‌شود و هر زمان قابل ابطال است.',
+        apiKeysLabel: 'برچسب',
+        apiKeysGenerate: 'ساخت کلید',
+        apiKeysShownOnce: 'این کلید را همین حالا کپی کنید — دوباره نمایش داده نمی‌شود.',
+        apiKeysCopy: 'کپی',
+        apiKeysCopied: 'کلید API در کلیپ‌بورد کپی شد.',
+        apiKeysNone: 'هنوز کلید API وجود ندارد.',
+        apiKeysPrefix: 'کلید',
+        apiKeysCreated: 'تاریخ ساخت',
+        apiKeysLastUsed: 'آخرین استفاده',
+        apiKeysRevoked: 'باطل‌شده',
+        apiKeysRevoke: 'ابطال',
+        apiKeysRevokedMsg: 'کلید API باطل شد.',
+        apiKeysConfirmRevoke: 'کلید API «{name}» باطل شود؟ ابزارهایی که از آن استفاده می‌کنند بلافاصله از کار می‌افتند.',
+        apiKeysCreateError: 'ساخت کلید API ناموفق بود.',
+        timePendingTitle: 'ورودی‌های ارسالی در انتظار',
+        timePendingIntro: 'ساعت‌های کاری ارسال‌شده از ابزارهای بیرونی (جیرا، ترلو…) که کارمندشان شناسایی نشده است. هر مورد را به یک کارمند اختصاص دهید — هیچ موردی به‌طور خودکار حذف نمی‌شود.',
+        timePendingSource: 'منبع',
+        timePendingWorker: 'کارمند ارسالی',
+        timePendingAssign: 'اختصاص به',
+        timePendingResolve: 'ثبت',
+        timePendingReject: 'رد',
+        timePendingResolved: 'ورودی اختصاص یافت و ثبت شد.',
+        timePendingRejected: 'ورودی ارسالی رد شد.',
+        timePendingNeedEmployee: 'برای اختصاص این ورودی یک کارمند انتخاب کنید.',
         usersUser: 'کاربر',
         usersActive: 'فعال',
         usersDisabled: 'غیرفعال',
@@ -3100,6 +3262,32 @@
         digestSaved: 'Ajustes del resumen guardados.',
         digestSaveError: 'No se pudieron guardar los ajustes del resumen.',
         digestPreviewError: 'No se pudo generar la vista previa del resumen.',
+        apiKeysTitle: 'Claves API',
+        apiKeysIntro: 'Permite que herramientas externas (Jira, Trello, Toggl…) envíen registros de tiempo a esta empresa mediante la API de integración /api/v1. La clave se muestra una sola vez al crearla y puede revocarse en cualquier momento.',
+        apiKeysLabel: 'Etiqueta',
+        apiKeysGenerate: 'Generar clave',
+        apiKeysShownOnce: 'Copia esta clave ahora — no volverá a mostrarse.',
+        apiKeysCopy: 'Copiar',
+        apiKeysCopied: 'Clave API copiada al portapapeles.',
+        apiKeysNone: 'Aún no hay claves API.',
+        apiKeysPrefix: 'Clave',
+        apiKeysCreated: 'Creada',
+        apiKeysLastUsed: 'Último uso',
+        apiKeysRevoked: 'Revocada',
+        apiKeysRevoke: 'Revocar',
+        apiKeysRevokedMsg: 'Clave API revocada.',
+        apiKeysConfirmRevoke: '¿Revocar la clave API «{name}»? Las herramientas que la usan dejarán de funcionar de inmediato.',
+        apiKeysCreateError: 'No se pudo generar la clave API.',
+        timePendingTitle: 'Registros enviados pendientes',
+        timePendingIntro: 'Registros de tiempo enviados por herramientas externas (Jira, Trello…) cuyo trabajador no pudo identificarse. Asigna cada uno a un empleado — nada se descarta automáticamente.',
+        timePendingSource: 'Origen',
+        timePendingWorker: 'Trabajador enviado',
+        timePendingAssign: 'Asignar a',
+        timePendingResolve: 'Resolver',
+        timePendingReject: 'Rechazar',
+        timePendingResolved: 'Registro asignado y creado.',
+        timePendingRejected: 'Registro enviado rechazado.',
+        timePendingNeedEmployee: 'Elige un empleado para asignar este registro.',
         usersUser: 'Usuario',
         usersActive: 'Activo',
         usersDisabled: 'Deshabilitado',
@@ -3172,6 +3360,32 @@
         digestSaved: 'تم حفظ إعدادات الملخص.',
         digestSaveError: 'فشل حفظ إعدادات الملخص.',
         digestPreviewError: 'فشل إنشاء معاينة الملخص.',
+        apiKeysTitle: 'مفاتيح API',
+        apiKeysIntro: 'اسمح للأدوات الخارجية (جيرا، تريلو، توغل…) بإرسال إدخالات الوقت إلى هذه الشركة عبر واجهة التكامل ‎/api/v1. يُعرض المفتاح مرة واحدة عند إنشائه ويمكن إبطاله في أي وقت.',
+        apiKeysLabel: 'التسمية',
+        apiKeysGenerate: 'إنشاء مفتاح',
+        apiKeysShownOnce: 'انسخ هذا المفتاح الآن — لن يُعرض مرة أخرى.',
+        apiKeysCopy: 'نسخ',
+        apiKeysCopied: 'تم نسخ مفتاح API إلى الحافظة.',
+        apiKeysNone: 'لا توجد مفاتيح API بعد.',
+        apiKeysPrefix: 'المفتاح',
+        apiKeysCreated: 'تاريخ الإنشاء',
+        apiKeysLastUsed: 'آخر استخدام',
+        apiKeysRevoked: 'مُبطَل',
+        apiKeysRevoke: 'إبطال',
+        apiKeysRevokedMsg: 'تم إبطال مفتاح API.',
+        apiKeysConfirmRevoke: 'هل تريد إبطال مفتاح API «{name}»؟ ستتوقف الأدوات التي تستخدمه فورًا.',
+        apiKeysCreateError: 'فشل إنشاء مفتاح API.',
+        timePendingTitle: 'الإدخالات المرسلة المعلقة',
+        timePendingIntro: 'سجلات عمل أرسلتها أدوات خارجية (جيرا، تريلو…) ولم يتم التعرف على العامل. عيّن كل سجل لموظف — لا يُحذف أي شيء تلقائيًا.',
+        timePendingSource: 'المصدر',
+        timePendingWorker: 'العامل المُرسل',
+        timePendingAssign: 'تعيين إلى',
+        timePendingResolve: 'اعتماد',
+        timePendingReject: 'رفض',
+        timePendingResolved: 'تم تعيين الإدخال وإنشاؤه.',
+        timePendingRejected: 'تم رفض الإدخال المُرسل.',
+        timePendingNeedEmployee: 'اختر موظفًا لتعيين هذا الإدخال إليه.',
         usersUser: 'مستخدم',
         usersActive: 'نشط',
         usersDisabled: 'معطل',
@@ -8000,7 +8214,7 @@
           showPage(roleHome());
           loadPageData(roleHome());
         }
-        if (currentRole === 'owner') { loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); }
+        if (currentRole === 'owner') { loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); loadApiKeys(); }
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
       }
@@ -12087,6 +12301,7 @@
     if (createUserBtn) createUserBtn.addEventListener('click', createUser);
     { const b = document.getElementById('digest-save-btn'); if (b) b.addEventListener('click', saveDigestSettings); }
     { const b = document.getElementById('digest-preview-btn'); if (b) b.addEventListener('click', previewDigest); }
+    { const b = document.getElementById('apikey-create-btn'); if (b) b.addEventListener('click', createApiKey); }
     if (usersWrapEl) usersWrapEl.addEventListener('click', handleUserTableAction);
     if (usersWrapEl) usersWrapEl.addEventListener('change', async (e) => {
       const sel = e.target.closest('.user-role-select');
@@ -12877,7 +13092,74 @@
     let tmReadyPreview = null;
     function tmCur() { return (window.__REPORTING_CURRENCY || 'IRR'); }
 
+    // --- Pending pushed entries (unmatched /api/v1 worklogs) ---
+    async function loadPendingTime() {
+      const section = document.getElementById('tm-pending-section');
+      const wrap = document.getElementById('tm-pending-wrap');
+      if (!section || !wrap) return;
+      try {
+        const res = await fetch(API + '/time/pending');
+        if (!res.ok) { section.style.display = 'none'; return; }  // employees: 403 → hide
+        const rows = await res.json().catch(() => []);
+        if (!rows.length) { section.style.display = 'none'; return; }
+        const er = await fetch(API + '/entities?type=employee');
+        const emps = er.ok ? await er.json().catch(() => []) : [];
+        const opts = emps.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
+        section.style.display = '';
+        wrap.innerHTML = `
+          <table class="results-table" style="font-size:0.85rem;">
+            <thead><tr>
+              <th>${escapeHtml(t('timePendingSource'))}</th><th>${escapeHtml(t('timePendingWorker'))}</th>
+              <th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('timeHours'))}</th>
+              <th>${escapeHtml(t('timePendingAssign'))}</th><th></th>
+            </tr></thead>
+            <tbody>${rows.map(p => `
+              <tr>
+                <td>${escapeHtml(p.source)}<br><span style="color:var(--text-muted);font-size:0.76rem;">${escapeHtml(p.external_id)}</span></td>
+                <td>${escapeHtml(p.worker)}</td>
+                <td>${escapeHtml(p.work_date)}</td>
+                <td>${p.hours}</td>
+                <td><select class="tm-pending-emp" data-id="${escapeHtml(p.id)}" style="font-size:0.8rem;padding:2px 4px;">${opts}</select></td>
+                <td>
+                  <button type="button" class="btn btn-primary btn-sm tm-pending-resolve" data-id="${escapeHtml(p.id)}">${escapeHtml(t('timePendingResolve'))}</button>
+                  <button type="button" class="btn btn-secondary btn-sm tm-pending-reject" data-id="${escapeHtml(p.id)}">${escapeHtml(t('timePendingReject'))}</button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>`;
+      } catch (_) { section.style.display = 'none'; }
+    }
+
+    document.addEventListener('click', async (ev) => {
+      const rbtn = ev.target.closest && ev.target.closest('.tm-pending-resolve');
+      const xbtn = ev.target.closest && ev.target.closest('.tm-pending-reject');
+      if (!rbtn && !xbtn) return;
+      const id = (rbtn || xbtn).dataset.id;
+      try {
+        let res;
+        if (rbtn) {
+          const sel = document.querySelector(`.tm-pending-emp[data-id="${id}"]`);
+          const entityId = sel && sel.value;
+          if (!entityId) { showAlert(t('timePendingNeedEmployee'), true); return; }
+          res = await fetch(API + `/time/pending/${encodeURIComponent(id)}/resolve`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entity_id: entityId }),
+          });
+        } else {
+          res = await fetch(API + `/time/pending/${encodeURIComponent(id)}/reject`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+          });
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || 'Failed.', true); return; }
+        showAlert(rbtn ? t('timePendingResolved') : t('timePendingRejected'));
+        loadPendingTime();
+        if (typeof tmLoadEntries === 'function') tmLoadEntries();
+      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+
     async function loadTimeTab() {
+      loadPendingTime();
       try {
         const [wr, cr] = await Promise.all([
           fetch(API + '/entities?type=employee'), fetch(API + '/entities?type=supplier'),

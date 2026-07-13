@@ -99,10 +99,13 @@ jobs:
           args=()
           while IFS= read -r t; do [ -n "$t" ] && args+=(--tag "$t"); done <<< "$TAGS"
           while IFS= read -r l; do [ -n "$l" ] && args+=(--label "$l"); done <<< "$LABELS"
+          # ignore-error=true → a GitHub Actions *cache* outage (it 400s
+          # independently of the registry) doesn't fail the push.
           for attempt in 1 2 3; do
             echo "::group::GHCR push attempt $attempt / 3"
             if docker buildx build --push "${args[@]}" \
-                 --cache-from type=gha --cache-to type=gha,mode=max . ; then
+                 --cache-from type=gha \
+                 --cache-to type=gha,mode=max,ignore-error=true . ; then
               echo "::endgroup::"; echo "✓ pushed to GHCR on attempt $attempt"; exit 0
             fi
             echo "::endgroup::"; echo "✗ attempt $attempt failed; retrying in 20s…"; sleep 20

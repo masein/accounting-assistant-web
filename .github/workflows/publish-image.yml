@@ -74,16 +74,47 @@ jobs:
             org.opencontainers.image.title=accounting-assistant-api
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
-      - name: Build & push
-        uses: docker/build-push-action@v6
+      # Expose the GitHub Actions cache backend to a raw `docker buildx build`
+      # (build-push-action wires this up for you; the retry loop below doesn't).
+      - name: Expose Actions cache to buildx
+        uses: actions/github-script@v7
         with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # GitHub Actions layer cache so repeat builds skip apt/pip.
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      # The registry (docker.netixsystem.com) sits behind ArvanCloud, which
+      # intermittently returns 502 Bad Gateway on blob HEAD/push. The build is
+      # fine — only the push flaps — so retry the push a few times before
+      # failing. The GHA layer cache means retries re-use built layers and are
+      # fast. This makes publishes self-heal instead of needing manual reruns.
+      - name: Build & push (retry transient registry 5xx)
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          LABELS: ${{ steps.meta.outputs.labels }}
+        run: |
+          set -u
+          args=()
+          while IFS= read -r t; do [ -n "$t" ] && args+=(--tag "$t"); done <<< "$TAGS"
+          while IFS= read -r l; do [ -n "$l" ] && args+=(--label "$l"); done <<< "$LABELS"
+          for attempt in 1 2 3 4 5; do
+            echo "::group::push attempt $attempt / 5"
+            if docker buildx build \
+                 --push \
+                 "${args[@]}" \
+                 --cache-from type=gha \
+                 --cache-to type=gha,mode=max \
+                 . ; then
+              echo "::endgroup::"
+              echo "✓ pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "✗ attempt $attempt failed (likely a transient registry 5xx via ArvanCloud); retrying in 25s…"
+            sleep 25
+          done
+          echo "::error::registry push failed after 5 attempts"
+          exit 1
 
       - name: Summary
         run: |

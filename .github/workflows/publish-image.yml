@@ -1,19 +1,18 @@
 name: Publish image
 
-# Builds the API Docker image and pushes it to the private registry
-# (docker.netixsystem.com) so it can be pulled and deployed on a server.
+# Builds the API Docker image and publishes it so a server can pull + deploy it.
+#
+# Primary registry: GitHub Container Registry (ghcr.io) — reliable, needs no
+# extra secrets (uses the built-in GITHUB_TOKEN). The old registry
+# (docker.netixsystem.com, behind ArvanCloud) is kept only as a BEST-EFFORT
+# mirror: it flaps with 502s, so it can never fail the publish.
 #
 #  - push to `main`      → tags `latest` and `sha-<short-sha>`
 #  - push a tag `v1.2.3` → tags `1.2.3`, `1.2`, `1` (and `latest`)
 #  - manual run          → tags `latest` (+ sha)
 #
-# The registry (docker.netixsystem.com) currently accepts anonymous push, so no
-# credentials are needed. If you later put it behind auth, add these secrets and
-# the login step below runs automatically:
-#   REGISTRY_USERNAME  – login for docker.netixsystem.com
-#   REGISTRY_PASSWORD  – password / token for that user
-# Optional repo variable:
-#   IMAGE_NAME         – override the default image path (see env below)
+# Optional repo variable IMAGE_NAME overrides the mirror image path. To turn the
+# mirror off entirely, set the repo variable MIRROR_ENABLED to "false".
 
 on:
   push:
@@ -26,11 +25,11 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REGISTRY: docker.netixsystem.com
-  # Default image path. If your registry needs a project/namespace (e.g. Harbor
-  # → docker.netixsystem.com/<project>/accounting-assistant-api), set the
-  # IMAGE_NAME repo variable to the full path instead.
-  IMAGE_NAME: ${{ vars.IMAGE_NAME || 'docker.netixsystem.com/accounting-assistant-api' }}
+  # Primary: GitHub Container Registry.
+  GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/accounting-assistant-api
+  # Best-effort legacy mirror (docker.netixsystem.com behind ArvanCloud).
+  MIRROR_REGISTRY: docker.netixsystem.com
+  MIRROR_IMAGE: ${{ vars.IMAGE_NAME || 'docker.netixsystem.com/accounting-assistant-api' }}
 
 jobs:
   build-push:
@@ -38,6 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write        # push to ghcr.io for this repo's owner
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -45,25 +45,31 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Log in only when credentials are configured. The registry allows
-      # anonymous push today, so this no-ops by default. (The check is done in
-      # the shell — the `secrets` context can't be used in a step `if:`.)
-      - name: Log in to the registry (if credentials are set)
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Log in to the legacy mirror only when credentials are configured (it
+      # accepts anonymous push today, so this no-ops by default).
+      - name: Log in to the mirror registry (if credentials are set)
         env:
           REG_USER: ${{ secrets.REGISTRY_USERNAME }}
           REG_PASS: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
           if [ -n "$REG_USER" ]; then
-            echo "$REG_PASS" | docker login "$REGISTRY" -u "$REG_USER" --password-stdin
+            echo "$REG_PASS" | docker login "$MIRROR_REGISTRY" -u "$REG_USER" --password-stdin
           else
-            echo "No REGISTRY_USERNAME configured — pushing anonymously to $REGISTRY."
+            echo "No REGISTRY_USERNAME configured — mirror push is anonymous."
           fi
 
-      - name: Derive image tags & labels
+      - name: Derive image tags & labels (ghcr)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ env.GHCR_IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,enable={{is_default_branch}}
@@ -74,8 +80,7 @@ jobs:
             org.opencontainers.image.title=accounting-assistant-api
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
-      # Expose the GitHub Actions cache backend to a raw `docker buildx build`
-      # (build-push-action wires this up for you; the retry loop below doesn't).
+      # Expose the GitHub Actions cache backend to a raw `docker buildx build`.
       - name: Expose Actions cache to buildx
         uses: actions/github-script@v7
         with:
@@ -83,12 +88,9 @@ jobs:
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
-      # The registry (docker.netixsystem.com) sits behind ArvanCloud, which
-      # intermittently returns 502 Bad Gateway on blob HEAD/push. The build is
-      # fine — only the push flaps — so retry the push a few times before
-      # failing. The GHA layer cache means retries re-use built layers and are
-      # fast. This makes publishes self-heal instead of needing manual reruns.
-      - name: Build & push (retry transient registry 5xx)
+      # Required push → GHCR. Retry a few times for transient registry 5xx; the
+      # GHA layer cache makes retries fast.
+      - name: Build & push to GHCR
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           LABELS: ${{ steps.meta.outputs.labels }}
@@ -97,34 +99,53 @@ jobs:
           args=()
           while IFS= read -r t; do [ -n "$t" ] && args+=(--tag "$t"); done <<< "$TAGS"
           while IFS= read -r l; do [ -n "$l" ] && args+=(--label "$l"); done <<< "$LABELS"
-          for attempt in 1 2 3 4 5; do
-            echo "::group::push attempt $attempt / 5"
-            if docker buildx build \
-                 --push \
-                 "${args[@]}" \
-                 --cache-from type=gha \
-                 --cache-to type=gha,mode=max \
-                 . ; then
-              echo "::endgroup::"
-              echo "✓ pushed on attempt $attempt"
-              exit 0
+          for attempt in 1 2 3; do
+            echo "::group::GHCR push attempt $attempt / 3"
+            if docker buildx build --push "${args[@]}" \
+                 --cache-from type=gha --cache-to type=gha,mode=max . ; then
+              echo "::endgroup::"; echo "✓ pushed to GHCR on attempt $attempt"; exit 0
             fi
-            echo "::endgroup::"
-            echo "✗ attempt $attempt failed (likely a transient registry 5xx via ArvanCloud); retrying in 25s…"
-            sleep 25
+            echo "::endgroup::"; echo "✗ attempt $attempt failed; retrying in 20s…"; sleep 20
           done
-          echo "::error::registry push failed after 5 attempts"
-          exit 1
+          echo "::error::GHCR push failed after 3 attempts"; exit 1
+
+      # Best-effort mirror to the legacy registry. Copies the manifest+blobs
+      # from GHCR (fast, no rebuild). NEVER fails the job — if ArvanCloud is
+      # down it's simply skipped.
+      - name: Mirror to legacy registry (best-effort)
+        if: ${{ vars.MIRROR_ENABLED != 'false' }}
+        continue-on-error: true
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -u
+          src=""
+          createargs=()
+          while IFS= read -r t; do
+            [ -n "$t" ] || continue
+            [ -z "$src" ] && src="$t"
+            mt="${t/${GHCR_IMAGE}/${MIRROR_IMAGE}}"
+            createargs+=(--tag "$mt")
+          done <<< "$TAGS"
+          if [ -n "$src" ]; then
+            for attempt in 1 2 3; do
+              if docker buildx imagetools create "${createargs[@]}" "$src"; then
+                echo "✓ mirrored to $MIRROR_REGISTRY on attempt $attempt"; exit 0
+              fi
+              echo "mirror attempt $attempt failed; retrying in 20s…"; sleep 20
+            done
+            echo "::warning::mirror to $MIRROR_REGISTRY skipped (registry unavailable)"
+          fi
 
       - name: Summary
         run: |
-          echo "### Pushed image tags" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Published to GHCR"
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Zero-touch deploy is handled server-side by Watchtower (see
-  # docker-compose.prod.yml + DEPLOY.md), because GitHub's cloud runners can't
-  # reach the server's SSH. Watchtower on the server polls the registry and
-  # redeploys the api container when this workflow publishes a new image — no
-  # inbound access from GitHub required.
+  # docker-compose.prod.yml + DEPLOY.md). Point the server's API_IMAGE at the
+  # GHCR image to drop the ArvanCloud registry from the deploy path entirely.

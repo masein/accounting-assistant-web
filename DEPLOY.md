@@ -1,24 +1,27 @@
 # Deployment
 
-CI builds the API Docker image and pushes it to the private registry
-`docker.netixsystem.com`; a server then pulls that image and runs it with
-`docker-compose.prod.yml`.
+CI builds the API Docker image and publishes it to **GitHub Container Registry**
+(`ghcr.io/<owner>/accounting-assistant-api`); a server then pulls that image and
+runs it with `docker-compose.prod.yml`. The old `docker.netixsystem.com`
+registry (behind ArvanCloud) is kept only as a **best-effort mirror** — it can't
+fail the publish, so ArvanCloud outages no longer block releases.
 
 ## 1. One-time GitHub setup
 
-Add these under **Settings → Secrets and variables → Actions → Secrets**:
+Nothing is required for the **primary** GHCR push — it uses the built-in
+`GITHUB_TOKEN`. The published package is **private by default** (inherits the
+repo). Either make the package public (Package settings → Change visibility) or,
+to keep it private, have the server log in with a PAT (see §3).
 
-| Secret | Value |
+Optional **Variables** (Settings → Secrets and variables → Actions → Variables):
+
+| Variable | Purpose |
 | --- | --- |
-| `REGISTRY_USERNAME` | login for `docker.netixsystem.com` |
-| `REGISTRY_PASSWORD` | password / access token for that user |
+| `MIRROR_ENABLED` | set to `false` to skip the `docker.netixsystem.com` mirror entirely |
+| `IMAGE_NAME` | override the mirror image path (e.g. Harbor project) |
 
-Optional **Variable** (same screen, "Variables" tab) — only if your registry
-needs a project/namespace (e.g. Harbor):
-
-| Variable | Example |
-| --- | --- |
-| `IMAGE_NAME` | `docker.netixsystem.com/<project>/accounting-assistant-api` |
+Optional **Secrets** — only if the mirror registry is behind auth:
+`REGISTRY_USERNAME` / `REGISTRY_PASSWORD`.
 
 ## 2. Publish an image
 
@@ -35,13 +38,18 @@ The **Publish image** workflow (`.github/workflows/publish-image.yml`) runs:
 ## 3. Run it on the server
 
 ```bash
-# once: install Docker + the compose plugin, then:
-docker login docker.netixsystem.com          # same creds as the CI secret
+# once: install Docker + the compose plugin.
+
+# Pull from GHCR. If the package is PRIVATE, log in first with a GitHub PAT
+# (classic) that has `read:packages` — skip this line if you made it public:
+echo "$GHCR_PAT" | docker login ghcr.io -u <github-username> --password-stdin
 
 # copy these two files to the server (or `git clone`):
 #   docker-compose.prod.yml
 #   .env          (from .env.prod.example — set AUTH_SECRET, DB_PASSWORD, METIS_API_KEY)
 cp .env.prod.example .env && $EDITOR .env
+# Point the deploy at the GHCR image (drops ArvanCloud from the pull path):
+echo 'API_IMAGE=ghcr.io/<owner>/accounting-assistant-api:latest' >> .env
 
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d

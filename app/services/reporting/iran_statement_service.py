@@ -853,6 +853,34 @@ def _period_net_profit(
     return cont_net + s("discontinued_ops")
 
 
+def _equity_period_movements(db: Session, from_d: date, to_d: date) -> dict[str, int]:
+    """Real equity movements in the window, from tagged EquityEvents — dividends
+    declared, capital added (contributions + capital increases), and the portion
+    of capital increases funded out of retained earnings. Used to fill the
+    changes-in-equity matrix rows instead of zero placeholders."""
+    from sqlalchemy import select
+
+    from app.models.equity import EquityEvent
+
+    evs = db.execute(
+        select(EquityEvent).where(EquityEvent.date >= from_d, EquityEvent.date <= to_d)
+    ).scalars().all()
+    dividends = sum(int(e.amount or 0) for e in evs if e.event_type == "dividend_declared")
+    capital_added = sum(
+        int(e.amount or 0) for e in evs if e.event_type in ("contribution", "capital_increase")
+    )
+    retained_capitalised = sum(
+        int(e.amount or 0)
+        for e in evs
+        if e.event_type == "capital_increase" and e.funded_from == "retained_earnings"
+    )
+    return {
+        "dividends": dividends,
+        "capital_added": capital_added,
+        "retained_capitalised": retained_capitalised,
+    }
+
+
 def build_iran_changes_in_equity(
     db: Session,
     from_date: date | None = None,
@@ -883,11 +911,18 @@ def build_iran_changes_in_equity(
     opening = _opening_equity_balances(db, accounts, opening_as_of, currency)
     net_profit = _period_net_profit(db, period.from_date, period.to_date, currency)
 
-    # Closing for current period = opening + the only currently-tagged movement
-    # (net profit into retained earnings). This guarantees the matrix
-    # reconciles even when P&L hasn't been closed into retained earnings yet.
+    # Real equity movements in the period (dividends, contributions, capital
+    # increases) from tagged EquityEvents.
+    mv = _equity_period_movements(db, period.from_date, period.to_date)
+
+    # Closing = opening + net profit into retained earnings + the tagged
+    # movements: capital added (+ share capital), the retained-earnings portion
+    # of any capital increase (− retained), and declared dividends (− retained).
     closing = dict(opening)
     closing["eq_retained_earnings"] = closing.get("eq_retained_earnings", 0) + net_profit
+    closing["eq_capital"] = closing.get("eq_capital", 0) + mv["capital_added"]
+    closing["eq_retained_earnings"] -= mv["retained_capitalised"]
+    closing["eq_retained_earnings"] -= mv["dividends"]
 
     period_header_label_comparative = (
         f"تغییرات حقوق مالکانه در سال منتهی به {comparative_to_date.isoformat()}"
@@ -977,8 +1012,15 @@ def build_iran_changes_in_equity(
             label_en="Total comprehensive income",
             row_type="subtotal",
         ),
-        _equity_empty_row("approved_dividends", "سود سهام مصوب", label_en="Approved dividends"),
-        _equity_empty_row("capital_increase", "افزایش سرمایه", label_en="Capital increase"),
+        _equity_matrix_row(
+            "approved_dividends", "سود سهام مصوب",
+            {"eq_retained_earnings": -mv["dividends"]}, label_en="Approved dividends",
+        ),
+        _equity_matrix_row(
+            "capital_increase", "افزایش سرمایه",
+            {"eq_capital": mv["capital_added"], "eq_retained_earnings": -mv["retained_capitalised"]},
+            label_en="Capital increase",
+        ),
         _equity_empty_row("capital_increase_in_progress", "افزایش سرمایه در جریان", label_en="Capital increase in progress"),
         _equity_empty_row("treasury_buyback", "خرید سهام خزانه", label_en="Treasury stock buyback"),
         _equity_empty_row("treasury_sale", "فروش سهام خزانه", label_en="Treasury stock sale"),
@@ -1003,7 +1045,7 @@ def build_iran_changes_in_equity(
                 "from_date": comparative_from_date.isoformat(),
                 "to_date": comparative_to_date.isoformat(),
             },
-            "note": "Specific movements (dividends, capital raises, buybacks, reserve allocations, error corrections, policy changes) are placeholders until those events are tagged explicitly on transactions.",
+            "note": "Dividends and capital increases reflect tagged equity events for the period; remaining movements (buybacks, reserve allocations, error corrections, policy changes) are placeholders until those events are tagged explicitly.",
         },
     )
 

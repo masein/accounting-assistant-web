@@ -225,6 +225,22 @@ for _m, _p in [
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 
+# --- Books: shareholder equity ----------------------------------------------
+# Equity actions (contributions, capital increases, dividends, current accounts)
+# are Owner / CFO / Accountant only — BOOKS_WRITE excludes Manager/Employee/Viewer.
+_reads(["/equity/cap-table"], Perm.BOOKS_READ)
+for _m, _p in [
+    ("POST", "/equity/shareholdings"),
+    ("PATCH", "/equity/shareholdings/{shareholding_id}"),
+    ("DELETE", "/equity/shareholdings/{shareholding_id}"),
+    ("POST", "/equity/contribution"),
+    ("POST", "/equity/capital-increase"),
+    ("POST", "/equity/dividend/declare"),
+    ("POST", "/equity/dividend/pay"),
+    ("POST", "/equity/current-account"),
+]:
+    _add(_m, _p, Perm.BOOKS_WRITE)
+
 # --- Books: recurring rules -------------------------------------------------
 _reads(["/recurring"], Perm.BOOKS_READ)
 for _m, _p in [("POST", "/recurring"), ("POST", "/recurring/from-text"),

@@ -192,6 +192,17 @@ def execute_proposal(
             actor_username=actor_username,
             ip_address=ip_address,
         )
+    elif proposal.tool_name in (
+        "propose_shareholder_contribution", "propose_capital_increase",
+        "propose_declare_dividend", "propose_shareholder_current_account",
+    ):
+        from app.services.ai_accountant.equity_execute import execute_equity_proposal
+        txn_id, audit_id = execute_equity_proposal(
+            db, proposal,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+        )
     else:
         raise ProposalNotFound(
             f"No executor for tool {proposal.tool_name!r} — this tool's "

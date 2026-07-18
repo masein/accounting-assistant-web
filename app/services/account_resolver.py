@@ -45,6 +45,11 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "payroll_deductions_payable": "2260",  # Pension/other deductions payable — liability
         "mileage_expense": "7400",          # Motor expenses (mileage)
         "expenses_payable": "2270",         # Employee expenses payable — liability
+        # --- Shareholder equity ---
+        "share_capital": "3000",            # Called up share capital — equity
+        "retained_earnings": "3100",        # Retained earnings (P&L account) — equity
+        "dividends_payable": "2750",        # Dividends payable — liability
+        "shareholder_current": "2350",      # Shareholders' current/loan account — liability
     },
     "ir": {
         "ar": "1112",
@@ -71,6 +76,13 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "payroll_deductions_payable": "2190",  # کسورات حقوق پرداختنی — liability
         "mileage_expense": "6130",          # هزینه سفر و ایاب‌وذهاب (travel/mileage)
         "expenses_payable": "2195",         # بدهی به کارکنان بابت هزینه — liability
+        # --- Shareholder equity (سود سهام / افزایش سرمایه / آورده) ---
+        "share_capital": "3110",            # سرمایه — equity (prefix 311 → eq_capital)
+        "retained_earnings": "3300",        # سود (زیان) انباشته — equity (prefix 33)
+        # 2145/2155 deliberately avoid 2150 — that's UK customer_credit, which the
+        # cross-locale fallback would otherwise reach in an IR chart.
+        "dividends_payable": "2145",        # سود سهام پرداختنی — liability
+        "shareholder_current": "2155",      # حساب جاری سهامداران — liability
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -105,6 +117,10 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "payroll_deductions_payable": "Payroll deductions payable",
         "mileage_expense": "Motor expenses",
         "expenses_payable": "Employee expenses payable",
+        "share_capital": "Called up share capital",
+        "retained_earnings": "Retained earnings",
+        "dividends_payable": "Dividends payable",
+        "shareholder_current": "Shareholders' current account",
     },
     "ir": {
         "ar": "حساب‌ها و اسناد دریافتنی تجاری",
@@ -131,6 +147,10 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "payroll_deductions_payable": "کسورات حقوق پرداختنی",
         "mileage_expense": "هزینه سفر و ایاب‌وذهاب",
         "expenses_payable": "بدهی به کارکنان بابت هزینه",
+        "share_capital": "سرمایه",
+        "retained_earnings": "سود (زیان) انباشته",
+        "dividends_payable": "سود سهام پرداختنی",
+        "shareholder_current": "حساب جاری سهامداران",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])

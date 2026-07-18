@@ -13,6 +13,7 @@ from app.models.adjustment import Adjustment
 from app.models.credit_note import CreditNote
 from app.models.employee_pay import EmployeePayProfile
 from app.models.entity import Entity, TransactionEntity
+from app.models.equity import EquityEvent, Shareholding
 from app.models.exchange_rate import ExchangeRate
 from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
 from app.models.invoice import Invoice
@@ -44,6 +45,8 @@ __all__ = [
     "CreditNote",
     "EmployeePayProfile",
     "Entity",
+    "EquityEvent",
+    "Shareholding",
     "ExchangeRate",
     "GoodsReceipt",
     "GoodsReceiptLine",

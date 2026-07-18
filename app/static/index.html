@@ -725,6 +725,7 @@
         <button type="button" class="nav-btn" data-page="products"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 7.3 12 12 3.4 7.3M12 12v9.5M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg><span class="lbl" data-i18n="productsNav">Products</span></button>
         <button type="button" class="nav-btn" data-page="inventory"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8V21H3V8"/><rect x="1" y="3" width="22" height="5"/><path d="M10 12h4"/></svg><span class="lbl" data-i18n="navInventory">Inventory</span></button>
         <button type="button" class="nav-btn" data-page="payroll"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M12 5v6M10.5 7.2c0-.7.7-1.2 1.5-1.2s1.5.5 1.5 1.2-.7 1.1-1.5 1.1-1.5.5-1.5 1.2.7 1.2 1.5 1.2 1.5-.5 1.5-1.2"/><path d="M3 21a7 7 0 0 1 18 0"/></svg><span class="lbl" data-i18n="payrollNav">Payroll</span></button>
+        <button type="button" class="nav-btn" data-page="equity"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span class="lbl" data-i18n="equityNav">Shareholders</span></button>
         <button type="button" class="nav-btn" data-page="bank-statements"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M4 10h16M5 10 12 4l7 6M6 10v8M18 10v8M10 10v8M14 10v8"/></svg><span class="lbl" data-i18n="bankStatementsNav">Bank Statements</span></button>
       </div>
       <div class="nav-section" role="group">
@@ -1808,6 +1809,114 @@
       </div>
     </div>
 
+    <!-- ═══════ Shareholders / Equity Page ═══════ -->
+    <div class="card" data-page="equity">
+      <h2 data-i18n="equityTitle">Shareholders &amp; Equity</h2>
+      <p class="muted" style="margin-top:-0.4rem;" data-i18n="equitySubtitle">Cap table, contributions, dividends, capital increases and shareholder current accounts.</p>
+
+      <div class="kpi-row" style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.75rem 0;">
+        <div class="kpi-card" style="flex:1;min-width:200px;">
+          <div class="kpi-label" data-i18n="equityRegisteredCapital">Registered capital</div>
+          <div class="kpi-value" id="equity-registered-capital">—</div>
+        </div>
+        <div class="kpi-card" style="flex:1;min-width:200px;">
+          <div class="kpi-label" data-i18n="equityTotalPaidIn">Total paid-in</div>
+          <div class="kpi-value" id="equity-total-paidin">—</div>
+        </div>
+        <div class="kpi-card" style="flex:1;min-width:200px;">
+          <div class="kpi-label" data-i18n="equityTotalPercent">Total ownership</div>
+          <div class="kpi-value" id="equity-total-percent">—</div>
+        </div>
+      </div>
+
+      <h3 data-i18n="equityCapTable">Cap table</h3>
+      <div style="overflow-x:auto;">
+        <table class="data-table" id="equity-captable">
+          <thead><tr>
+            <th data-i18n="equityColShareholder">Shareholder</th>
+            <th class="num" data-i18n="equityColPercent">%</th>
+            <th class="num" data-i18n="equityColShares">Shares</th>
+            <th class="num" data-i18n="equityColPaidIn">Paid-in</th>
+            <th class="num" data-i18n="equityColDivDeclared">Dividends declared</th>
+            <th class="num" data-i18n="equityColDivOutstanding">Outstanding</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="equity-captable-body"><tr><td colspan="7" class="empty-state" data-i18n="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <details style="margin-top:0.75rem;">
+        <summary style="cursor:pointer;font-weight:600;" data-i18n="equityAddShareholder">Add a shareholder to the cap table</summary>
+        <div class="form-row" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:end;margin-top:0.5rem;">
+          <label style="flex:2;min-width:180px;"><span data-i18n="equityFieldShareholder">Shareholder</span>
+            <select id="equity-sh-entity"></select></label>
+          <label><span data-i18n="equityFieldPercent">Ownership %</span>
+            <input type="number" id="equity-sh-percent" min="0" max="100" step="0.0001" style="width:110px;"></label>
+          <label><span data-i18n="equityFieldShares">Shares</span>
+            <input type="number" id="equity-sh-shares" min="0" step="1" style="width:110px;"></label>
+          <label><span data-i18n="equityFieldClass">Class</span>
+            <select id="equity-sh-class"><option value="ordinary" data-i18n="equityClassOrdinary">Ordinary</option><option value="preferred" data-i18n="equityClassPreferred">Preferred</option></select></label>
+          <button type="button" class="btn btn-primary" id="equity-sh-add" data-i18n="equityBtnAddShareholder">Add</button>
+        </div>
+      </details>
+
+      <h3 style="margin-top:1.25rem;" data-i18n="equityActions">Equity transactions</h3>
+      <p class="muted" style="margin-top:-0.4rem;font-size:0.85rem;" data-i18n="equityAmountHint">Amounts are in the smallest currency unit (e.g. Rials).</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0.75rem;">
+
+        <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
+          <h4 data-i18n="equityContribution">Contribution (آورده)</h4>
+          <label><span data-i18n="equityFieldShareholder">Shareholder</span><select id="equity-contrib-entity"></select></label>
+          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-contrib-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldDate">Date</span><input type="date" id="equity-contrib-date"></label>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;"><input type="checkbox" id="equity-contrib-tocapital" checked><span data-i18n="equityToCapital">Credit to share capital</span></label>
+          <button type="button" class="btn btn-primary btn-sm" id="equity-contrib-post" data-i18n="equityBtnPost">Post</button>
+        </div>
+
+        <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
+          <h4 data-i18n="equityDividend">Declare dividend (سود سهام)</h4>
+          <label><span data-i18n="equityFieldTotal">Total amount</span><input type="number" id="equity-div-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldDate">Date</span><input type="date" id="equity-div-date"></label>
+          <p class="muted" style="font-size:0.8rem;" data-i18n="equityDivHint">Allocated across shareholders by ownership %.</p>
+          <button type="button" class="btn btn-primary btn-sm" id="equity-div-post" data-i18n="equityBtnDeclare">Declare</button>
+        </div>
+
+        <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
+          <h4 data-i18n="equityCapitalIncrease">Capital increase (افزایش سرمایه)</h4>
+          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-ci-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldSource">Funded from</span>
+            <select id="equity-ci-source">
+              <option value="retained_earnings" data-i18n="equitySourceRetained">Retained earnings</option>
+              <option value="cash" data-i18n="equitySourceCash">New cash</option>
+              <option value="revaluation_surplus" data-i18n="equitySourceReval">Revaluation surplus</option>
+            </select></label>
+          <label><span data-i18n="equityFieldDate">Date</span><input type="date" id="equity-ci-date"></label>
+          <button type="button" class="btn btn-primary btn-sm" id="equity-ci-post" data-i18n="equityBtnPost">Post</button>
+        </div>
+
+        <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
+          <h4 data-i18n="equityCurrentAccount">Current account (حساب جاری)</h4>
+          <label><span data-i18n="equityFieldShareholder">Shareholder</span><select id="equity-ca-entity"></select></label>
+          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-ca-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldDirection">Direction</span>
+            <select id="equity-ca-direction">
+              <option value="out" data-i18n="equityDirOut">Withdrawal (out)</option>
+              <option value="in" data-i18n="equityDirIn">Loan to company (in)</option>
+            </select></label>
+          <label><span data-i18n="equityFieldDate">Date</span><input type="date" id="equity-ca-date"></label>
+          <button type="button" class="btn btn-primary btn-sm" id="equity-ca-post" data-i18n="equityBtnPost">Post</button>
+        </div>
+
+        <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
+          <h4 data-i18n="equityPayDividend">Pay dividend</h4>
+          <label><span data-i18n="equityFieldShareholder">Shareholder</span><select id="equity-pay-entity"></select></label>
+          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-pay-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldDate">Date</span><input type="date" id="equity-pay-date"></label>
+          <button type="button" class="btn btn-primary btn-sm" id="equity-pay-post" data-i18n="equityBtnPay">Pay</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ═══════ Audit Page ═══════ -->
     <div class="card" data-page="audit">
       <h2 data-i18n="auditTitle">System Audit</h2>
@@ -2770,6 +2879,7 @@
       products: ['owner', 'cfo', 'accountant'],
       inventory: ['owner', 'cfo', 'accountant'],
       payroll: ['owner', 'cfo', 'accountant'],
+      equity: ['owner', 'cfo', 'accountant'],
       'bank-statements': ['owner', 'cfo', 'accountant'],
       ledger: ['owner', 'cfo', 'accountant', 'viewer'],
       manager: ['owner', 'cfo', 'accountant', 'viewer'],
@@ -2997,7 +3107,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies']);
+    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies']);
     // The Companies console is super-admin only; gated in showPage().
     let isSuperadmin = false;
     const rawFetch = window.fetch.bind(window);
@@ -3097,6 +3207,68 @@
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Subsidiary — معین',
         ledgerTafsili: 'Detail (by person) — تفضیلی',
+        equityNav: 'Shareholders',
+        equityTitle: 'Shareholders & Equity',
+        equitySubtitle: 'Cap table, contributions, dividends, capital increases and shareholder current accounts.',
+        equityRegisteredCapital: 'Registered capital',
+        equityTotalPaidIn: 'Total paid-in',
+        equityTotalPercent: 'Total ownership',
+        equityCapTable: 'Cap table',
+        equityColShareholder: 'Shareholder',
+        equityColPercent: '%',
+        equityColShares: 'Shares',
+        equityColPaidIn: 'Paid-in',
+        equityColDivDeclared: 'Dividends declared',
+        equityColDivOutstanding: 'Outstanding',
+        equityAddShareholder: 'Add a shareholder to the cap table',
+        equityFieldShareholder: 'Shareholder',
+        equityFieldPercent: 'Ownership %',
+        equityFieldShares: 'Shares',
+        equityFieldClass: 'Class',
+        equityClassOrdinary: 'Ordinary',
+        equityClassPreferred: 'Preferred',
+        equityBtnAddShareholder: 'Add',
+        equityActions: 'Equity transactions',
+        equityAmountHint: 'Amounts are in the smallest currency unit (e.g. Rials).',
+        equityContribution: 'Contribution (آورده)',
+        equityFieldAmount: 'Amount',
+        equityFieldDate: 'Date',
+        equityToCapital: 'Credit to share capital',
+        equityBtnPost: 'Post',
+        equityDividend: 'Declare dividend (سود سهام)',
+        equityFieldTotal: 'Total amount',
+        equityDivHint: 'Allocated across shareholders by ownership %.',
+        equityBtnDeclare: 'Declare',
+        equityCapitalIncrease: 'Capital increase (افزایش سرمایه)',
+        equityFieldSource: 'Funded from',
+        equitySourceRetained: 'Retained earnings',
+        equitySourceCash: 'New cash',
+        equitySourceReval: 'Revaluation surplus',
+        equityCurrentAccount: 'Current account (حساب جاری)',
+        equityFieldDirection: 'Direction',
+        equityDirOut: 'Withdrawal (out)',
+        equityDirIn: 'Loan to company (in)',
+        equityPayDividend: 'Pay dividend',
+        equityBtnPay: 'Pay',
+        equitySelectShareholder: 'Select a shareholder…',
+        equityNoShareholders: 'No shareholders on the cap table yet.',
+        equityLoadError: 'Error loading equity data.',
+        equityPostError: 'Error posting equity transaction.',
+        equityShareholderAdded: 'Shareholder added to cap table.',
+        equityShareholderRemoved: 'Shareholder removed from cap table.',
+        equityConfirmDelete: 'Remove {name} from the cap table? Their equity transactions are kept.',
+        equityPostedContribution: 'Contribution posted.',
+        equityPostedDividend: 'Dividend declared.',
+        equityPostedCapital: 'Capital increase posted.',
+        equityPostedCurrentAccount: 'Current-account movement posted.',
+        equityPostedPayment: 'Dividend payment posted.',
+        equityLedgerTitle: 'Shareholder ledger',
+        equityLedgerHint: 'Contributions, dividends and current-account movements.',
+        equityColOutstandingClaim: 'Net claim',
+        equityLedgerEmpty: 'No movements in this period.',
+        equityColDebit: 'Debit',
+        equityColCredit: 'Credit',
+        equityColBalance: 'Balance',
         usersUser: 'User',
         usersActive: 'Active',
         usersDisabled: 'Disabled',
@@ -3199,6 +3371,68 @@
         ledgerKolTotal: 'جمع کل — {name}',
         ledgerMoin: 'دفتر معین',
         ledgerTafsili: 'دفتر تفضیلی (اشخاص)',
+        equityNav: 'سهامداران',
+        equityTitle: 'سهامداران و حقوق مالکانه',
+        equitySubtitle: 'جدول سهام، آورده، سود سهام، افزایش سرمایه و حساب جاری سهامداران.',
+        equityRegisteredCapital: 'سرمایه ثبت‌شده',
+        equityTotalPaidIn: 'مجموع آورده',
+        equityTotalPercent: 'مجموع مالکیت',
+        equityCapTable: 'جدول سهام (Cap table)',
+        equityColShareholder: 'سهامدار',
+        equityColPercent: 'درصد',
+        equityColShares: 'سهام',
+        equityColPaidIn: 'آورده',
+        equityColDivDeclared: 'سود سهام مصوب',
+        equityColDivOutstanding: 'پرداخت‌نشده',
+        equityAddShareholder: 'افزودن سهامدار به جدول سهام',
+        equityFieldShareholder: 'سهامدار',
+        equityFieldPercent: 'درصد مالکیت',
+        equityFieldShares: 'سهام',
+        equityFieldClass: 'نوع سهم',
+        equityClassOrdinary: 'عادی',
+        equityClassPreferred: 'ممتاز',
+        equityBtnAddShareholder: 'افزودن',
+        equityActions: 'تراکنش‌های حقوق مالکانه',
+        equityAmountHint: 'مبالغ به کوچک‌ترین واحد پول (مثلاً ریال) هستند.',
+        equityContribution: 'آورده',
+        equityFieldAmount: 'مبلغ',
+        equityFieldDate: 'تاریخ',
+        equityToCapital: 'واریز به سرمایه',
+        equityBtnPost: 'ثبت',
+        equityDividend: 'اعلام سود سهام',
+        equityFieldTotal: 'مبلغ کل',
+        equityDivHint: 'به نسبت درصد مالکیت بین سهامداران تقسیم می‌شود.',
+        equityBtnDeclare: 'اعلام',
+        equityCapitalIncrease: 'افزایش سرمایه',
+        equityFieldSource: 'محل تأمین',
+        equitySourceRetained: 'سود انباشته',
+        equitySourceCash: 'آورده نقدی جدید',
+        equitySourceReval: 'مازاد تجدید ارزیابی',
+        equityCurrentAccount: 'حساب جاری',
+        equityFieldDirection: 'جهت',
+        equityDirOut: 'برداشت',
+        equityDirIn: 'وام به شرکت',
+        equityPayDividend: 'پرداخت سود سهام',
+        equityBtnPay: 'پرداخت',
+        equitySelectShareholder: 'یک سهامدار انتخاب کنید…',
+        equityNoShareholders: 'هنوز سهامداری در جدول سهام ثبت نشده است.',
+        equityLoadError: 'خطا در بارگذاری اطلاعات حقوق مالکانه.',
+        equityPostError: 'خطا در ثبت تراکنش حقوق مالکانه.',
+        equityShareholderAdded: 'سهامدار به جدول سهام افزوده شد.',
+        equityShareholderRemoved: 'سهامدار از جدول سهام حذف شد.',
+        equityConfirmDelete: '{name} از جدول سهام حذف شود؟ تراکنش‌های حقوق مالکانه‌ی او باقی می‌ماند.',
+        equityPostedContribution: 'آورده ثبت شد.',
+        equityPostedDividend: 'سود سهام اعلام شد.',
+        equityPostedCapital: 'افزایش سرمایه ثبت شد.',
+        equityPostedCurrentAccount: 'تراکنش حساب جاری ثبت شد.',
+        equityPostedPayment: 'پرداخت سود سهام ثبت شد.',
+        equityLedgerTitle: 'دفتر سهامدار',
+        equityLedgerHint: 'آورده، سود سهام و گردش حساب جاری.',
+        equityColOutstandingClaim: 'خالص مطالبه',
+        equityLedgerEmpty: 'در این دوره گردشی وجود ندارد.',
+        equityColDebit: 'بدهکار',
+        equityColCredit: 'بستانکار',
+        equityColBalance: 'مانده',
         usersUser: 'کاربر',
         usersActive: 'فعال',
         usersDisabled: 'غیرفعال',
@@ -3301,6 +3535,68 @@
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Auxiliar — معین',
         ledgerTafsili: 'Detalle (por persona) — تفضیلی',
+        equityNav: 'Accionistas',
+        equityTitle: 'Accionistas y patrimonio',
+        equitySubtitle: 'Tabla de capital, aportes, dividendos, aumentos de capital y cuentas corrientes de socios.',
+        equityRegisteredCapital: 'Capital registrado',
+        equityTotalPaidIn: 'Total aportado',
+        equityTotalPercent: 'Participación total',
+        equityCapTable: 'Tabla de capital',
+        equityColShareholder: 'Accionista',
+        equityColPercent: '%',
+        equityColShares: 'Acciones',
+        equityColPaidIn: 'Aportado',
+        equityColDivDeclared: 'Dividendos declarados',
+        equityColDivOutstanding: 'Pendiente',
+        equityAddShareholder: 'Añadir un accionista a la tabla de capital',
+        equityFieldShareholder: 'Accionista',
+        equityFieldPercent: '% de participación',
+        equityFieldShares: 'Acciones',
+        equityFieldClass: 'Clase',
+        equityClassOrdinary: 'Ordinaria',
+        equityClassPreferred: 'Preferente',
+        equityBtnAddShareholder: 'Añadir',
+        equityActions: 'Transacciones de patrimonio',
+        equityAmountHint: 'Los importes están en la unidad mínima (p. ej. riales).',
+        equityContribution: 'Aporte (آورده)',
+        equityFieldAmount: 'Importe',
+        equityFieldDate: 'Fecha',
+        equityToCapital: 'Acreditar al capital social',
+        equityBtnPost: 'Registrar',
+        equityDividend: 'Declarar dividendo (سود سهام)',
+        equityFieldTotal: 'Importe total',
+        equityDivHint: 'Repartido entre accionistas según el % de participación.',
+        equityBtnDeclare: 'Declarar',
+        equityCapitalIncrease: 'Aumento de capital (افزایش سرمایه)',
+        equityFieldSource: 'Financiado con',
+        equitySourceRetained: 'Ganancias acumuladas',
+        equitySourceCash: 'Efectivo nuevo',
+        equitySourceReval: 'Superávit por revaluación',
+        equityCurrentAccount: 'Cuenta corriente (حساب جاری)',
+        equityFieldDirection: 'Dirección',
+        equityDirOut: 'Retiro (salida)',
+        equityDirIn: 'Préstamo a la empresa (entrada)',
+        equityPayDividend: 'Pagar dividendo',
+        equityBtnPay: 'Pagar',
+        equitySelectShareholder: 'Selecciona un accionista…',
+        equityNoShareholders: 'Aún no hay accionistas en la tabla de capital.',
+        equityLoadError: 'Error al cargar los datos de patrimonio.',
+        equityPostError: 'Error al registrar la transacción de patrimonio.',
+        equityShareholderAdded: 'Accionista añadido a la tabla de capital.',
+        equityShareholderRemoved: 'Accionista eliminado de la tabla de capital.',
+        equityConfirmDelete: '¿Eliminar a {name} de la tabla de capital? Se conservan sus transacciones de patrimonio.',
+        equityPostedContribution: 'Aporte registrado.',
+        equityPostedDividend: 'Dividendo declarado.',
+        equityPostedCapital: 'Aumento de capital registrado.',
+        equityPostedCurrentAccount: 'Movimiento de cuenta corriente registrado.',
+        equityPostedPayment: 'Pago de dividendo registrado.',
+        equityLedgerTitle: 'Libro del accionista',
+        equityLedgerHint: 'Aportes, dividendos y movimientos de cuenta corriente.',
+        equityColOutstandingClaim: 'Derecho neto',
+        equityLedgerEmpty: 'Sin movimientos en este periodo.',
+        equityColDebit: 'Debe',
+        equityColCredit: 'Haber',
+        equityColBalance: 'Saldo',
         usersUser: 'Usuario',
         usersActive: 'Activo',
         usersDisabled: 'Deshabilitado',
@@ -3403,6 +3699,68 @@
         ledgerKolTotal: 'الإجمالي — {name}',
         ledgerMoin: 'دفتر الأستاذ المساعد',
         ledgerTafsili: 'دفتر التفصيلي (الأشخاص)',
+        equityNav: 'المساهمون',
+        equityTitle: 'المساهمون وحقوق الملكية',
+        equitySubtitle: 'جدول الملكية، المساهمات، الأرباح، زيادة رأس المال والحسابات الجارية للمساهمين.',
+        equityRegisteredCapital: 'رأس المال المسجل',
+        equityTotalPaidIn: 'إجمالي المدفوع',
+        equityTotalPercent: 'إجمالي الملكية',
+        equityCapTable: 'جدول الملكية',
+        equityColShareholder: 'المساهم',
+        equityColPercent: '٪',
+        equityColShares: 'الأسهم',
+        equityColPaidIn: 'المدفوع',
+        equityColDivDeclared: 'أرباح معلنة',
+        equityColDivOutstanding: 'غير مدفوع',
+        equityAddShareholder: 'إضافة مساهم إلى جدول الملكية',
+        equityFieldShareholder: 'المساهم',
+        equityFieldPercent: 'نسبة الملكية',
+        equityFieldShares: 'الأسهم',
+        equityFieldClass: 'الفئة',
+        equityClassOrdinary: 'عادية',
+        equityClassPreferred: 'ممتازة',
+        equityBtnAddShareholder: 'إضافة',
+        equityActions: 'معاملات حقوق الملكية',
+        equityAmountHint: 'المبالغ بأصغر وحدة عملة (مثل الريال).',
+        equityContribution: 'مساهمة (آورده)',
+        equityFieldAmount: 'المبلغ',
+        equityFieldDate: 'التاريخ',
+        equityToCapital: 'إضافة إلى رأس المال',
+        equityBtnPost: 'تسجيل',
+        equityDividend: 'إعلان أرباح (سود سهام)',
+        equityFieldTotal: 'المبلغ الإجمالي',
+        equityDivHint: 'توزَّع على المساهمين حسب نسبة الملكية.',
+        equityBtnDeclare: 'إعلان',
+        equityCapitalIncrease: 'زيادة رأس المال (افزایش سرمایه)',
+        equityFieldSource: 'ممول من',
+        equitySourceRetained: 'الأرباح المحتجزة',
+        equitySourceCash: 'نقد جديد',
+        equitySourceReval: 'فائض إعادة التقييم',
+        equityCurrentAccount: 'الحساب الجاري (حساب جاری)',
+        equityFieldDirection: 'الاتجاه',
+        equityDirOut: 'سحب',
+        equityDirIn: 'قرض للشركة',
+        equityPayDividend: 'دفع الأرباح',
+        equityBtnPay: 'دفع',
+        equitySelectShareholder: 'اختر مساهمًا…',
+        equityNoShareholders: 'لا يوجد مساهمون في جدول الملكية بعد.',
+        equityLoadError: 'خطأ في تحميل بيانات حقوق الملكية.',
+        equityPostError: 'خطأ في تسجيل معاملة حقوق الملكية.',
+        equityShareholderAdded: 'تمت إضافة المساهم إلى جدول الملكية.',
+        equityShareholderRemoved: 'تمت إزالة المساهم من جدول الملكية.',
+        equityConfirmDelete: 'إزالة {name} من جدول الملكية؟ تبقى معاملاته على حقوق الملكية.',
+        equityPostedContribution: 'تم تسجيل المساهمة.',
+        equityPostedDividend: 'تم إعلان الأرباح.',
+        equityPostedCapital: 'تم تسجيل زيادة رأس المال.',
+        equityPostedCurrentAccount: 'تم تسجيل حركة الحساب الجاري.',
+        equityPostedPayment: 'تم تسجيل دفع الأرباح.',
+        equityLedgerTitle: 'دفتر المساهم',
+        equityLedgerHint: 'المساهمات والأرباح وحركات الحساب الجاري.',
+        equityColOutstandingClaim: 'صافي المطالبة',
+        equityLedgerEmpty: 'لا حركات في هذه الفترة.',
+        equityColDebit: 'مدين',
+        equityColCredit: 'دائن',
+        equityColBalance: 'الرصيد',
         usersUser: 'مستخدم',
         usersActive: 'نشط',
         usersDisabled: 'معطل',
@@ -7501,7 +7859,7 @@
       dashboard: 'navDashboard', 'ai-accountant': 'aiAccountantNav', transactions: 'navTransactions',
       invoices: 'navInvoices', time: 'timeNav', expenses: 'expNav', 'purchase-orders': 'poNav',
       recurring: 'navRecurring', entities: 'navEntities', products: 'productsNav', inventory: 'navInventory',
-      payroll: 'payrollNav', 'bank-statements': 'bankStatementsNav', ledger: 'navLedger', manager: 'navManager',
+      payroll: 'payrollNav', equity: 'equityNav', 'bank-statements': 'bankStatementsNav', ledger: 'navLedger', manager: 'navManager',
       cfo: 'cfoModeNav', ceo: 'ceoModeNav', audit: 'auditNav', settings: 'navSettings', companies: 'companiesNav',
     };
     function updatePageTitle(page) {
@@ -14098,11 +14456,170 @@
       if (page === 'manager') { loadAccountDatalist(); loadProductEntityDatalist(); }
       if (page === 'products') { loadProductsCatalog(); }
       if (page === 'payroll') { loadPayroll(); }
+      if (page === 'equity') { loadEquity(); }
       if (page === 'purchase-orders') { loadPurchaseOrders(); }
       if (page === 'expenses') { loadExpenses(); }
       if (page === 'time') { loadTimeTab(); }
       if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); loadCompanyProfile(); }
       if (page === 'companies') { loadCompanies(); }
+    }
+
+    // ═══════ Shareholders & Equity ═══════
+    let _equityCurrency = '';
+    function _eqFmt(n) { return formatNum(n) + (_equityCurrency ? ' ' + _equityCurrency : ''); }
+    async function _equityShareholderOptions() {
+      const res = await fetch(API + '/entities?type=shareholder');
+      const rows = res.ok ? await res.json().catch(() => []) : [];
+      const opts = '<option value="">' + escapeHtml(t('equitySelectShareholder')) + '</option>'
+        + (rows || []).map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
+      ['equity-sh-entity', 'equity-contrib-entity', 'equity-ca-entity', 'equity-pay-entity'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = opts;
+      });
+      return (rows || []);
+    }
+    async function loadEquity() {
+      if (!document.getElementById('equity-captable-body')) return;
+      _equityWire();
+      const today = new Date().toISOString().slice(0, 10);
+      ['equity-contrib-date', 'equity-div-date', 'equity-ci-date', 'equity-ca-date', 'equity-pay-date'].forEach(id => {
+        const el = document.getElementById(id); if (el && !el.value) el.value = today;
+      });
+      await _equityShareholderOptions();
+      try {
+        const res = await fetch(API + '/equity/cap-table');
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        _equityCurrency = data.currency || '';
+        document.getElementById('equity-registered-capital').textContent = _eqFmt(data.registered_capital || 0);
+        document.getElementById('equity-total-paidin').textContent = _eqFmt(data.total_paid_in || 0);
+        document.getElementById('equity-total-percent').textContent = (data.total_percent || 0) + '%';
+        const body = document.getElementById('equity-captable-body');
+        if (!data.rows || !data.rows.length) {
+          body.innerHTML = '<tr><td colspan="7" class="empty-state">' + escapeHtml(t('equityNoShareholders')) + '</td></tr>';
+          return;
+        }
+        body.innerHTML = data.rows.map(r => `
+          <tr class="equity-row" data-entity-id="${escapeHtml(r.entity_id)}" data-name="${escapeHtml(r.entity_name || '')}" style="cursor:pointer;">
+            <td>${escapeHtml(r.entity_name || '—')}</td>
+            <td class="num">${r.percent != null ? r.percent + '%' : '—'}</td>
+            <td class="num">${r.shares != null ? formatNum(r.shares) : '—'}</td>
+            <td class="num">${formatNum(r.paid_in)}</td>
+            <td class="num">${formatNum(r.dividends_declared)}</td>
+            <td class="num ${r.dividends_outstanding > 0 ? 'ledger-negative' : ''}">${formatNum(r.dividends_outstanding)}</td>
+            <td><button type="button" class="btn btn-secondary btn-sm equity-del" data-id="${escapeHtml(r.id)}" data-name="${escapeHtml(r.entity_name || '')}">${escapeHtml(t('btnDelete'))}</button></td>
+          </tr>`).join('');
+      } catch (err) {
+        document.getElementById('equity-captable-body').innerHTML =
+          '<tr><td colspan="7" class="empty-state">' + escapeHtml(t('equityLoadError')) + '</td></tr>';
+      }
+    }
+    async function _equityPost(url, payload, okKey) {
+      const res = await fetch(API + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showAlert(data.detail || t('equityPostError'), true); return null; }
+      showAlert(t(okKey) + (data.summary_lines && data.summary_lines.length ? ' — ' + data.summary_lines.join(' · ') : ''));
+      loadEquity();
+      return data;
+    }
+    function _equityWire() {
+      const add = document.getElementById('equity-sh-add');
+      if (!add || add._wired) return; add._wired = true;
+      add.addEventListener('click', async () => {
+        const entity_id = document.getElementById('equity-sh-entity').value;
+        if (!entity_id) { showAlert(t('equitySelectShareholder'), true); return; }
+        const percent = parseFloat(document.getElementById('equity-sh-percent').value) || null;
+        const shares = parseInt(document.getElementById('equity-sh-shares').value) || null;
+        const share_class = document.getElementById('equity-sh-class').value;
+        const res = await fetch(API + '/equity/shareholdings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity_id, percent, shares, share_class }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || t('equityPostError'), true); return; }
+        showAlert(t('equityShareholderAdded')); loadEquity();
+      });
+      document.getElementById('equity-contrib-post').addEventListener('click', () => {
+        const entity_id = document.getElementById('equity-contrib-entity').value;
+        if (!entity_id) { showAlert(t('equitySelectShareholder'), true); return; }
+        _equityPost('/equity/contribution', {
+          entity_id, amount: parseInt(document.getElementById('equity-contrib-amount').value) || 0,
+          date: document.getElementById('equity-contrib-date').value,
+          to_capital: document.getElementById('equity-contrib-tocapital').checked,
+        }, 'equityPostedContribution');
+      });
+      document.getElementById('equity-div-post').addEventListener('click', () => {
+        _equityPost('/equity/dividend/declare', {
+          total_amount: parseInt(document.getElementById('equity-div-amount').value) || 0,
+          date: document.getElementById('equity-div-date').value,
+        }, 'equityPostedDividend');
+      });
+      document.getElementById('equity-ci-post').addEventListener('click', () => {
+        _equityPost('/equity/capital-increase', {
+          amount: parseInt(document.getElementById('equity-ci-amount').value) || 0,
+          source: document.getElementById('equity-ci-source').value,
+          date: document.getElementById('equity-ci-date').value,
+        }, 'equityPostedCapital');
+      });
+      document.getElementById('equity-ca-post').addEventListener('click', () => {
+        const entity_id = document.getElementById('equity-ca-entity').value;
+        if (!entity_id) { showAlert(t('equitySelectShareholder'), true); return; }
+        _equityPost('/equity/current-account', {
+          entity_id, amount: parseInt(document.getElementById('equity-ca-amount').value) || 0,
+          direction: document.getElementById('equity-ca-direction').value,
+          date: document.getElementById('equity-ca-date').value,
+        }, 'equityPostedCurrentAccount');
+      });
+      document.getElementById('equity-pay-post').addEventListener('click', () => {
+        const entity_id = document.getElementById('equity-pay-entity').value;
+        if (!entity_id) { showAlert(t('equitySelectShareholder'), true); return; }
+        _equityPost('/equity/dividend/pay', {
+          entity_id, amount: parseInt(document.getElementById('equity-pay-amount').value) || 0,
+          date: document.getElementById('equity-pay-date').value,
+        }, 'equityPostedPayment');
+      });
+      // cap-table row → per-shareholder ledger; delete button
+      document.getElementById('equity-captable-body').addEventListener('click', async (e) => {
+        const del = e.target.closest('.equity-del');
+        if (del) {
+          e.stopPropagation();
+          if (!(await uiConfirm({ message: tf('equityConfirmDelete', { name: del.dataset.name }), danger: true }))) return;
+          const res = await fetch(API + '/equity/shareholdings/' + encodeURIComponent(del.dataset.id), { method: 'DELETE' });
+          if (res.ok) { showAlert(t('equityShareholderRemoved')); loadEquity(); }
+          else { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('equityPostError'), true); }
+          return;
+        }
+        const row = e.target.closest('.equity-row');
+        if (row) openShareholderLedger(row.dataset.entityId, row.dataset.name);
+      });
+    }
+    async function openShareholderLedger(entityId, name) {
+      const modal = document.getElementById('account-modal');
+      const body = document.getElementById('account-modal-body');
+      const title = document.getElementById('account-modal-title');
+      title.textContent = (name || '') + ' — ' + t('equityLedgerTitle');
+      body.innerHTML = '<p class="empty-state">' + t('loading') + '</p>';
+      modal.style.display = 'flex';
+      try {
+        const yr = new Date().getFullYear();
+        const res = await fetch(API + '/manager-reports/operational/person-running-balance?role=shareholder'
+          + '&entity_id=' + encodeURIComponent(entityId)
+          + '&from_date=' + (yr - 1) + '-01-01&to_date=' + yr + '-12-31');
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        const rows = (data.rows || []).map(r => `
+          <tr><td>${escapeHtml(r.date || '')}</td><td>${escapeHtml(r.description || r.reference || '')}</td>
+          <td class="num">${r.debit_effect ? formatNum(r.debit_effect) : ''}</td>
+          <td class="num">${r.credit_effect ? formatNum(r.credit_effect) : ''}</td>
+          <td class="num">${formatNum(r.running_balance)}</td></tr>`).join('');
+        body.innerHTML = `
+          <p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('equityLedgerHint'))} · ${escapeHtml(t('equityColOutstandingClaim'))}: <strong>${formatNum(data.closing_balance)}</strong></p>
+          <div style="max-height:400px;overflow:auto;"><table class="detail-table"><thead><tr>
+            <th data-i18n="colDate">Date</th><th data-i18n="colDescription">Description</th>
+            <th class="num" data-i18n="equityColDebit">Debit</th><th class="num" data-i18n="equityColCredit">Credit</th>
+            <th class="num" data-i18n="equityColBalance">Balance</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="5" class="empty-state">' + escapeHtml(t('equityLedgerEmpty')) + '</td></tr>'}</tbody></table></div>`;
+      } catch (err) {
+        body.innerHTML = '<p class="empty-state">' + escapeHtml(t('equityLoadError')) + '</p>';
+      }
     }
 
     // ═══════ Company profile & branding ═══════

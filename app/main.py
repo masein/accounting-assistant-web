@@ -21,6 +21,7 @@ from app.api.auth import router as auth_router
 from app.api.brain import router as brain_router
 from app.api.budgets import router as budgets_router
 from app.api.entities import router as entities_router
+from app.api.equity import router as equity_router
 from app.api.expenses import router as expenses_router
 from app.api.exports import router as exports_router
 from app.api.fx import router as fx_router
@@ -337,6 +338,7 @@ PROTECTED_API_PREFIXES = (
     "/brain",
     "/budgets",
     "/entities",
+    "/equity",
     "/expenses",
     "/exports",
     "/fx",
@@ -666,6 +668,7 @@ app.include_router(integration_router)
 app.include_router(brain_router, dependencies=_rbac)
 app.include_router(budgets_router, dependencies=_rbac)
 app.include_router(entities_router, dependencies=_rbac)
+app.include_router(equity_router, dependencies=_rbac)
 app.include_router(expenses_router, dependencies=_rbac)
 app.include_router(exports_router, dependencies=_rbac)
 app.include_router(fx_router, dependencies=_rbac)

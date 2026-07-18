@@ -129,12 +129,22 @@ class OperationsReportService:
             .order_by(Transaction.date, Transaction.created_at, Transaction.id)
         )
         rows = self.db.execute(q).all()
+        # تفضیلی (per-person sub-ledger) — resolve the AR / AP / bank accounts
+        # for the ACTIVE locale instead of the previous hardcoded Iranian codes
+        # (1112 / 21xx / 1110), so the person ledger works on every chart.
+        from app.services.account_resolver import resolve_account_code
+        ar_code = resolve_account_code(self.db, "ar")
+        ap_prefix = resolve_account_code(self.db, "ap")[:2]
+        bank_code = resolve_account_code(self.db, "bank")
+        # A bank entity's own linked GL account (Entity.code) wins over the
+        # generic bank account — each bank has its own سرفصل.
+        own_bank_code = (entity.code or "").strip() or None
         running = 0
         out: list[PersonRunningBalanceRow] = []
         for txn, line in rows:
             code = line.account.code
             if role_key == "client":
-                if code != "1112":
+                if code != ar_code:
                     continue
                 delta = int(line.debit or 0) - int(line.credit or 0)
                 running += delta
@@ -150,7 +160,7 @@ class OperationsReportService:
                     )
                 )
             elif role_key in ("supplier", "payee"):
-                if not code.startswith("21"):
+                if not code.startswith(ap_prefix):
                     continue
                 delta = int(line.credit or 0) - int(line.debit or 0)
                 running += delta
@@ -166,7 +176,7 @@ class OperationsReportService:
                     )
                 )
             else:
-                if code != "1110":
+                if code != (own_bank_code or bank_code):
                     continue
                 delta = int(line.debit or 0) - int(line.credit or 0)
                 running += delta

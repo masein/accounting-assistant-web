@@ -9,6 +9,9 @@ from pydantic import BaseModel
 class LedgerSummaryRow(BaseModel):
     account_code: str
     account_name: str
+    # کل — the parent GROUP account this (معین) account rolls up into.
+    parent_code: str | None = None
+    parent_name: str | None = None
     debit_turnover: int = 0
     credit_turnover: int = 0
     debit_balance: int = 0
@@ -35,6 +38,9 @@ class AccountLineDetail(BaseModel):
 class AccountDetailResponse(BaseModel):
     account_code: str
     account_name: str
+    # کل — parent GROUP account (this account is the معین level).
+    parent_code: str | None = None
+    parent_name: str | None = None
     debit_turnover: int = 0
     credit_turnover: int = 0
     debit_balance: int = 0

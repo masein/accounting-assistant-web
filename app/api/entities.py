@@ -101,6 +101,17 @@ def create_entity(
     if typ not in VALID_ENTITY_TYPES:
         raise HTTPException(status_code=400, detail="Invalid entity type")
     code = payload.code.strip() if payload.code else None
+    if typ == "bank":
+        # The company's bank ACCOUNT is a ledger account, not just a person:
+        # link (or create) its own GL cash account (سرفصل) so payments can
+        # post against it — same as the AI create path.
+        from app.services.ai_accountant.entity_create import (
+            EntityCreateError, _resolve_bank_account,
+        )
+        try:
+            code, _created = _resolve_bank_account(db, name, code, None)
+        except EntityCreateError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     entity = Entity(
         type=typ,
         name=name,

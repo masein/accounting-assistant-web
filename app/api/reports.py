@@ -176,6 +176,10 @@ def get_ledger_summary(
         key = str(acc.id)
         by_account[key]["account_code"] = acc.code
         by_account[key]["account_name"] = acc.name
+        # کل: the parent GROUP account this معین rolls up into.
+        parent = acc.parent
+        by_account[key]["parent_code"] = parent.code if parent else None
+        by_account[key]["parent_name"] = parent.name if parent else None
         by_account[key]["debit_turnover"] += line.debit
         by_account[key]["credit_turnover"] += line.credit
     # Compute ending balance per account (debit balance = net debit, credit balance = net credit)
@@ -191,6 +195,8 @@ def get_ledger_summary(
         LedgerSummaryRow(
             account_code=d["account_code"],
             account_name=d["account_name"],
+            parent_code=d.get("parent_code"),
+            parent_name=d.get("parent_name"),
             debit_turnover=d["debit_turnover"],
             credit_turnover=d["credit_turnover"],
             debit_balance=d["debit_balance"],
@@ -253,6 +259,8 @@ def get_account_detail(
     return AccountDetailResponse(
         account_code=acc.code,
         account_name=acc.name,
+        parent_code=(acc.parent.code if acc.parent else None),
+        parent_name=(acc.parent.name if acc.parent else None),
         debit_turnover=debit_turnover,
         credit_turnover=credit_turnover,
         debit_balance=debit_balance,

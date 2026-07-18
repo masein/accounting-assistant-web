@@ -776,7 +776,7 @@
       <h2 id="entities-title" data-i18n="entitiesTitle">Entities (clients, banks, employees)</h2>
       <p id="entities-subtitle" data-i18n="entitiesSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Add parties you do business with. Link them to vouchers when saving to run reports like &quot;all transactions with client X&quot;.</p>
       <div class="row" style="margin-bottom: 1rem;">
-        <div><label for="entity-type" data-i18n="labelType">Type</label><select id="entity-type"><option value="client" data-i18n="labelClient">Client</option><option value="bank" data-i18n="labelBank">Bank</option><option value="employee" data-i18n="optionEmployee">Employee</option><option value="supplier" data-i18n="labelSupplier">Supplier</option></select></div>
+        <div><label for="entity-type" data-i18n="labelType">Type</label><select id="entity-type"><option value="client" data-i18n="labelClient">Client</option><option value="bank" data-i18n="labelBank">Bank</option><option value="employee" data-i18n="optionEmployee">Employee</option><option value="supplier" data-i18n="labelSupplier">Supplier</option><option value="shareholder" data-i18n="labelShareholder">Shareholder</option></select></div>
         <div><label for="entity-name" data-i18n="labelName">Name</label><input type="text" id="entity-name" data-i18n-placeholder="placeholderEntityName" placeholder="e.g. Acme Ltd, HSBC"></div>
         <div><label for="entity-code" data-i18n="labelCodeOptional">Code (optional)</label><input type="text" id="entity-code" data-i18n-placeholder="placeholderEntityCode" placeholder="e.g. INV-001"></div>
         <div style="display: flex; align-items: flex-end;"><button type="button" class="btn btn-primary" id="entity-add" data-i18n="btnAddEntity">Add entity</button></div>
@@ -2524,6 +2524,7 @@
             <option value="bank" data-i18n="labelBank">Bank</option>
             <option value="employee" data-i18n="optionEmployee">Employee</option>
             <option value="supplier" data-i18n="labelSupplier">Supplier</option>
+            <option value="shareholder" data-i18n="labelShareholder">Shareholder</option>
           </select>
         </div>
         <div>
@@ -3532,6 +3533,7 @@
         labelBank: 'Bank',
         labelPayee: 'Payee',
         labelSupplier: 'Supplier',
+        labelShareholder: 'Shareholder',
         labelAmount: 'Amount',
         labelIssueDate: 'Issue date',
         labelDueDate: 'Due date',
@@ -4267,6 +4269,7 @@
         entType_supplier: 'supplier',
         entType_employee: 'employee',
         entType_bank: 'bank',
+        entType_shareholder: 'shareholder',
         aiChatCancelled: '— cancelled —',
         aiChatNewStarted: 'New conversation.',
         aiUndoRecorded: 'Recorded.',
@@ -4477,6 +4480,7 @@
         labelBank: 'بانک',
         labelPayee: 'پرداخت‌گیرنده',
         labelSupplier: 'تأمین‌کننده',
+        labelShareholder: 'سهامدار',
         labelAmount: 'مبلغ',
         labelIssueDate: 'تاریخ صدور',
         labelDueDate: 'تاریخ سررسید',
@@ -5209,6 +5213,7 @@
         entType_supplier: 'تأمین‌کننده',
         entType_employee: 'کارمند',
         entType_bank: 'بانک',
+        entType_shareholder: 'سهامدار',
         aiChatCancelled: '— لغو شد —',
         aiChatNewStarted: 'گفتگوی جدید.',
         aiUndoRecorded: 'ثبت شد.',
@@ -5412,6 +5417,7 @@
         labelBank: 'Banco',
         labelPayee: 'Beneficiario',
         labelSupplier: 'Proveedor',
+        labelShareholder: 'Accionista',
         labelAmount: 'Monto',
         labelIssueDate: 'Fecha emisión',
         labelDueDate: 'Fecha vencimiento',
@@ -6134,6 +6140,7 @@
         entType_supplier: 'proveedor',
         entType_employee: 'empleado',
         entType_bank: 'banco',
+        entType_shareholder: 'accionista',
         aiChatCancelled: '— cancelado —',
         aiChatNewStarted: 'Nueva conversación.',
         aiUndoRecorded: 'Registrado.',
@@ -6337,6 +6344,7 @@
         labelBank: 'البنك',
         labelPayee: 'المستفيد',
         labelSupplier: 'المورد',
+        labelShareholder: 'مساهم',
         labelAmount: 'المبلغ',
         labelIssueDate: 'تاريخ الإصدار',
         labelDueDate: 'تاريخ الاستحقاق',
@@ -7059,6 +7067,7 @@
         entType_supplier: 'مورّد',
         entType_employee: 'موظف',
         entType_bank: 'بنك',
+        entType_shareholder: 'مساهم',
         aiChatCancelled: '— أُلغي —',
         aiChatNewStarted: 'محادثة جديدة.',
         aiUndoRecorded: 'تم التسجيل.',
@@ -7379,6 +7388,7 @@
       setOption('entity-type', 'bank', 'labelBank');
       setOption('entity-type', 'employee', 'optionEmployee');
       setOption('entity-type', 'supplier', 'labelSupplier');
+      setOption('entity-type', 'shareholder', 'labelShareholder');
       document.querySelectorAll('[data-i18n]').forEach((el) => {
         const key = el.getAttribute('data-i18n');
         if (key) el.textContent = t(key);
@@ -15664,6 +15674,35 @@
       if (!messagesEl || !sendBtn) return;
 
       let sessionId = null;
+      // Restore the newest chat session after a refresh so the conversation
+      // (and its context) isn't lost — the backend has kept it all along.
+      async function restoreHistory() {
+        try {
+          const sres = await fetch(API + '/ai-accountant/sessions');
+          if (!sres.ok) return;
+          const sessions = await sres.json().catch(() => []);
+          if (!Array.isArray(sessions) || !sessions.length) return;
+          const latest = sessions[0];  // newest first
+          const mres = await fetch(API + '/ai-accountant/sessions/' + encodeURIComponent(latest.id) + '/messages');
+          if (!mres.ok) return;
+          const msgs = await mres.json().catch(() => []);
+          let rendered = 0;
+          msgs.forEach((m) => {
+            const c = m.content || {};
+            const text = (typeof c.text === 'string' && c.text.trim())
+              ? c.text
+              : (typeof c.content === 'string' ? c.content : null);  // legacy shape
+            if (!text) return;  // skip tool turns / empty tool-call turns
+            if (m.role === 'user') { appendBubble('user', text); rendered++; }
+            else if (m.role === 'assistant') { appendBubble('assistant', text); rendered++; }
+          });
+          if (rendered) {
+            sessionId = latest.id;  // continue the same conversation
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+        } catch (_) { /* fresh chat if history can't load */ }
+      }
+      restoreHistory();
       const undoTimers = {};  // audit_log_id → timeout handle
       // Quick one-click undo countdown; matches UNDO_WINDOW in execute_service
       // (AI-7). After it elapses the button becomes a persistent reverse.

@@ -77,6 +77,12 @@ def set_reporting_locale(db: Session, locale: str) -> str:
     value = (locale or "").strip().lower() or DEFAULT_LOCALE
     if value not in SUPPORTED_LOCALES:
         raise ValueError(f"Unsupported locale '{locale}'. Supported: {sorted(SUPPORTED_LOCALES)}")
+    # The read path prefers the tenant company's locale, so update it too —
+    # otherwise the saved value is shadowed and appears to reset on refresh.
+    from app.services.fx_service import _current_company_row
+    company = _current_company_row(db)
+    if company is not None:
+        company.locale = value
     row = db.execute(
         select(AppSetting).where(AppSetting.key == REPORTING_LOCALE_KEY)
     ).scalar_one_or_none()

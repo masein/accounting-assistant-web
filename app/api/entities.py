@@ -82,6 +82,13 @@ def resolve_entities(
     return EntityResolveResponse(resolved=resolved)
 
 
+# client = customer; supplier = vendor/contractor; employee = staff;
+# shareholder = equity holder (سهامدار — profit distribution / capital, NOT
+# payroll); bank = a bank counterparty (the company's own bank ACCOUNT gets its
+# own GL account — see the bank auto-link below).
+VALID_ENTITY_TYPES = ("client", "bank", "employee", "supplier", "shareholder")
+
+
 @router.post("", response_model=EntityRead, status_code=201)
 def create_entity(
     payload: EntityCreate,
@@ -90,9 +97,12 @@ def create_entity(
     name = payload.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Entity name is empty")
+    typ = payload.type.strip().lower()
+    if typ not in VALID_ENTITY_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid entity type")
     code = payload.code.strip() if payload.code else None
     entity = Entity(
-        type=payload.type.strip().lower(),
+        type=typ,
         name=name,
         code=code,
     )
@@ -177,7 +187,7 @@ def update_entity(
         raise HTTPException(status_code=404, detail="Entity not found")
     if payload.type is not None:
         typ = payload.type.strip().lower()
-        if typ not in ("client", "bank", "employee", "supplier"):
+        if typ not in VALID_ENTITY_TYPES:
             raise HTTPException(status_code=400, detail="Invalid entity type")
         entity.type = typ
     if payload.name is not None:

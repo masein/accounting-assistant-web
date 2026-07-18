@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from app.models.account import Account
 from app.models.entity import Entity
 
-_VALID_TYPES = ("client", "supplier", "employee", "bank")
+_VALID_TYPES = ("client", "supplier", "employee", "bank", "shareholder")
 _TYPE_ALIASES = {
     "contractor": "supplier",
     "freelancer": "supplier",
@@ -33,6 +33,14 @@ _TYPE_ALIASES = {
     "payee": "supplier",
     "customer": "client",
     "staff": "employee",
+    # Equity holders (سهامدار) — NOT payroll staff. Profit distribution and
+    # capital movements follow completely different accounting logic.
+    "partner": "shareholder",
+    "co-founder": "shareholder",
+    "cofounder": "shareholder",
+    "founder": "shareholder",
+    "investor": "shareholder",
+    "owner": "shareholder",
 }
 
 
@@ -69,6 +77,14 @@ _EMPLOYEE_CUES = (
     "salary", "salaried", "wages", "paye", "national insurance", "new hire",
     "hired onto", "member of staff", "staff member",
 )
+# Shareholder/equity language wins over everything — a سهامدار is never an
+# employee, even if they also work in the business.
+_SHAREHOLDER_CUES = (
+    "shareholder", "share holder", "stakeholder", "equity holder", "sharehold",
+    "co-founder", "cofounder", "founder", "partner in the company",
+    "business partner", "owns shares", "owns a share", "capital contribution",
+    "dividend", "سهامدار", "سهام", "شریک", "سود سهام", "آورده",
+)
 
 
 def classify_entity_type(proposed_type: str | None, *, text: str = "",
@@ -82,6 +98,8 @@ def classify_entity_type(proposed_type: str | None, *, text: str = "",
     """
     t = normalize_entity_type(proposed_type)
     low = (text or "").lower()
+    if any(cue in low for cue in _SHAREHOLDER_CUES):
+        return "shareholder"
     if any(cue in low for cue in _SUPPLIER_CUES):
         return "supplier"
     if t == "employee":

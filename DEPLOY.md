@@ -55,13 +55,18 @@ docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-On start the API builds the schema and applies migrations automatically (its
-lifespan runs `create_all` → Alembic `stamp`/`upgrade` → seed), so a brand-new
-database boots ready. First boot seeds the chart of accounts and the `admin`
+On start the container's entrypoint runs a **one-shot pre-start** — it waits for
+the database, applies migrations, and seeds — and only then launches the web
+server. So the schema is always at head before anything serves, a brand-new
+database boots ready, and a **migration failure aborts the container loudly**
+(non-zero exit, traceback in `docker compose logs api`) instead of leaving a
+half-started app. First boot seeds the chart of accounts and the `admin`
 super-admin under the Default company (log in as `admin` / `admin`, then change
 the password).
 
-Health check: `curl http://SERVER:8000/health` → `{"status":"ok",...}`.
+Health check: `curl http://SERVER:8000/health` → `{"status":"ok",...}`. A cold
+boot (migrations + fonts) can take up to ~60s before it turns healthy — that's
+the healthcheck `start_period`, not a failure.
 
 ## 4. Update to a new image
 
@@ -99,6 +104,36 @@ instead, pin `API_IMAGE=…:1.2.3` in `.env` and re-run `up -d` when you want it
 > The old SSH-based deploy job was removed — GitHub's runners can't reach the
 > server. If you added `DEPLOY_ENABLED` / `DEPLOY_*` secrets earlier, you can
 > delete them; they're unused now.
+
+## 6. After a deploy: the 30-second health check
+
+Right after `up -d` (or a Watchtower auto-update), confirm the api came back on
+its own — it should, with no manual restart:
+
+```bash
+# 1. Is it Up (healthy)?  NOT Restarting / Exited.
+docker compose -f docker-compose.prod.yml ps
+
+# 2. If it isn't healthy, the reason is in the pre-start logs (DB wait,
+#    migration error, seed error — all printed loudly before the web server):
+docker compose -f docker-compose.prod.yml logs --tail=80 api
+```
+
+What you want to see in the logs, in order:
+
+```
+[entrypoint] pre-start: waiting for DB, applying migrations, seeding ...
+app.prestart Database is accepting connections (after 1 attempt(s)).
+app.prestart Running schema bootstrap (create_all → migrate → seed) ...
+app.prestart Schema bootstrap complete in N.Ns.
+[entrypoint] pre-start OK — starting web server: uvicorn ...
+INFO:     Uvicorn running on http://0.0.0.0:8000
+```
+
+If a migration is broken you'll instead see `PRE-START FAILED` with the full
+traceback and the container will exit non-zero (and, under `restart:
+unless-stopped`, keep retrying loudly) — it will **not** serve a half-migrated
+app. Fix the migration and redeploy.
 
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally

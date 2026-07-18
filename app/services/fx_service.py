@@ -50,8 +50,28 @@ def get_reporting_currency(db: Session) -> str:
     return DEFAULT_REPORTING_CURRENCY
 
 
+def _current_company_row(db: Session):
+    """The tenant Company row for the active request context, or None."""
+    from app.db.tenant import get_current_company
+    cid = get_current_company()
+    if not cid:
+        return None
+    import uuid
+    from app.models.company import Company
+    try:
+        return db.get(Company, uuid.UUID(str(cid)))
+    except (ValueError, TypeError):
+        return None
+
+
 def set_reporting_currency(db: Session, currency: str) -> str:
     currency = (currency or "").strip() or DEFAULT_REPORTING_CURRENCY
+    # The read path prefers the tenant company's base_currency, so the write
+    # must update it too — otherwise the saved value is shadowed and the UI
+    # "resets" on refresh.
+    company = _current_company_row(db)
+    if company is not None:
+        company.base_currency = currency
     row = db.execute(
         select(AppSetting).where(AppSetting.key == REPORTING_CURRENCY_KEY)
     ).scalar_one_or_none()

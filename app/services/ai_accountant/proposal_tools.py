@@ -577,17 +577,19 @@ class ProposeCreateTransaction(BaseTool):
 
 def _default_role_for_type(etype: str) -> str:
     return {"client": "client", "supplier": "supplier", "employee": "employee",
-            "bank": "bank"}.get(etype, "supplier")
+            "bank": "bank", "shareholder": "shareholder"}.get(etype, "supplier")
 
 
 class ProposeCreateEntityInput(BaseModel):
     name: str = Field(..., min_length=2, max_length=80,
                       description="The party's name, e.g. 'Acme Ltd' or 'Dan Campbell'.")
-    type: Literal["client", "supplier", "employee", "bank"] = Field(
+    type: Literal["client", "supplier", "employee", "bank", "shareholder"] = Field(
         ...,
         description=(
-            "client | supplier | employee | bank. Map contractor / freelancer / "
-            "subcontractor / vendor → 'supplier'; customer → 'client'."
+            "client | supplier | employee | bank | shareholder. Map contractor / "
+            "freelancer / subcontractor / vendor → 'supplier'; customer → 'client'; "
+            "partner / founder / investor / سهامدار → 'shareholder' (NEVER "
+            "'employee' — equity holders follow different accounting)."
         ),
     )
     existing_account_code: str | None = Field(
@@ -670,6 +672,116 @@ class ProposeCreateEntity(BaseTool):
 
 
 # ---------------------------------------------------------------------------
+# propose_update_entity (rename / retype an EXISTING party)
+# ---------------------------------------------------------------------------
+
+
+class ProposeUpdateEntityInput(BaseModel):
+    entity_id: str | None = Field(
+        None, description="The entity's id (from find_entity / list_entities). Preferred.")
+    current_name: str | None = Field(
+        None, min_length=2, max_length=120,
+        description="Exact current name, used to look the entity up when no id is given.")
+    new_name: str | None = Field(
+        None, min_length=2, max_length=80, description="The new name, when renaming.")
+    new_type: Literal["client", "supplier", "employee", "bank", "shareholder"] | None = Field(
+        None, description="The corrected type, when re-classifying (e.g. employee → shareholder).")
+
+    @model_validator(mode="after")
+    def _check(self):
+        if not self.entity_id and not self.current_name:
+            raise ValueError("Give entity_id or current_name to identify the entity.")
+        if self.new_name is None and self.new_type is None:
+            raise ValueError("Nothing to change — give new_name and/or new_type.")
+        return self
+
+
+class ProposeUpdateEntity(BaseTool):
+    name = "propose_update_entity"
+    category = "proposal"
+    description = (
+        "Rename or re-classify an EXISTING entity (client / supplier / employee / "
+        "bank / shareholder), pending the user's confirmation. USE THIS — never "
+        "propose_create_entity — when the user wants to change a party that "
+        "already exists (rename it, fix a default name, or correct its type, "
+        "e.g. an employee who is actually a shareholder). Look the entity up "
+        "first with find_entity, then pass its entity_id here."
+    )
+    InputSchema = ProposeUpdateEntityInput
+
+    async def run(self, ctx: ToolContext, args: ProposeUpdateEntityInput) -> dict[str, Any]:
+        from app.models.entity import Entity
+
+        entity = None
+        if args.entity_id:
+            try:
+                entity = ctx.db.get(Entity, uuid.UUID(str(args.entity_id)))
+            except (ValueError, TypeError):
+                entity = None
+        if entity is None and args.current_name:
+            matches = ctx.db.execute(
+                select(Entity).where(Entity.name.ilike(args.current_name.strip()))
+            ).scalars().all()
+            if len(matches) == 1:
+                entity = matches[0]
+            elif len(matches) > 1:
+                raise ToolError(
+                    f"Multiple entities are named {args.current_name!r} — use "
+                    "find_entity and pass the exact entity_id.",
+                    code="ambiguous_entity",
+                )
+        if entity is None:
+            raise ToolError(
+                "Entity not found. Use find_entity to locate it, then pass its "
+                "entity_id.", code="entity_not_found",
+            )
+
+        new_name = None
+        if args.new_name is not None:
+            try:
+                new_name = _validate_name(args.new_name)
+            except EntityCreateError as e:
+                raise ToolError(str(e), code="invalid_entity_name") from e
+
+        changes = []
+        if new_name and new_name != entity.name:
+            changes.append(f"rename '{entity.name}' → '{new_name}'")
+        if args.new_type and args.new_type != entity.type:
+            changes.append(f"type {entity.type} → {args.new_type}")
+        if not changes:
+            raise ToolError("The entity already matches the requested values — nothing to change.",
+                            code="no_change")
+
+        token = uuid.uuid4()
+        payload = {"entity_id": str(entity.id), "new_name": new_name,
+                   "new_type": args.new_type,
+                   "old_name": entity.name, "old_type": entity.type}
+        proposal = AIProposal(
+            confirmation_token=token, user_id=ctx.user_id,
+            session_id=ctx.chat_session_id, tool_name=self.name,
+            tool_input=payload, user_message=ctx.user_message, status="pending",
+        )
+        ctx.db.add(proposal)
+        ctx.db.commit()
+        ctx.db.refresh(proposal)
+
+        summary = f"Proposed update to {entity.name}: " + "; ".join(changes)
+        expires_at = (datetime.now(timezone.utc) + PROPOSAL_TTL).isoformat()
+        return {
+            "confirmation_token": str(token),
+            "status": "pending",
+            "expires_at": expires_at,
+            "summary": summary,
+            "tool_name": self.name,
+            "preview": payload,
+            "next_steps": (
+                "Show this as an action card. The change applies only when the "
+                "user clicks Confirm. Briefly say what will change and end your turn."
+            ),
+        }
+
+
+# ---------------------------------------------------------------------------
 # Registry helper
 # ---------------------------------------------------------------------------
 
@@ -677,3 +789,4 @@ class ProposeCreateEntity(BaseTool):
 def register_proposal_tools(registry) -> None:
     registry.register(ProposeCreateTransaction())
     registry.register(ProposeCreateEntity())
+    registry.register(ProposeUpdateEntity())

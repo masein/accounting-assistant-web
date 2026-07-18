@@ -3093,6 +3093,10 @@
         timePendingResolved: 'Entry assigned and created.',
         timePendingRejected: 'Pushed entry rejected.',
         timePendingNeedEmployee: 'Pick an employee to assign this entry to.',
+        ledgerKol: 'General ledger — کل',
+        ledgerKolTotal: 'Total — {name}',
+        ledgerMoin: 'Subsidiary — معین',
+        ledgerTafsili: 'Detail (by person) — تفضیلی',
         usersUser: 'User',
         usersActive: 'Active',
         usersDisabled: 'Disabled',
@@ -3191,6 +3195,10 @@
         timePendingResolved: 'ورودی اختصاص یافت و ثبت شد.',
         timePendingRejected: 'ورودی ارسالی رد شد.',
         timePendingNeedEmployee: 'برای اختصاص این ورودی یک کارمند انتخاب کنید.',
+        ledgerKol: 'دفتر کل',
+        ledgerKolTotal: 'جمع کل — {name}',
+        ledgerMoin: 'دفتر معین',
+        ledgerTafsili: 'دفتر تفضیلی (اشخاص)',
         usersUser: 'کاربر',
         usersActive: 'فعال',
         usersDisabled: 'غیرفعال',
@@ -3289,6 +3297,10 @@
         timePendingResolved: 'Registro asignado y creado.',
         timePendingRejected: 'Registro enviado rechazado.',
         timePendingNeedEmployee: 'Elige un empleado para asignar este registro.',
+        ledgerKol: 'Mayor general — کل',
+        ledgerKolTotal: 'Total — {name}',
+        ledgerMoin: 'Auxiliar — معین',
+        ledgerTafsili: 'Detalle (por persona) — تفضیلی',
         usersUser: 'Usuario',
         usersActive: 'Activo',
         usersDisabled: 'Deshabilitado',
@@ -3387,6 +3399,10 @@
         timePendingResolved: 'تم تعيين الإدخال وإنشاؤه.',
         timePendingRejected: 'تم رفض الإدخال المُرسل.',
         timePendingNeedEmployee: 'اختر موظفًا لتعيين هذا الإدخال إليه.',
+        ledgerKol: 'دفتر الأستاذ العام',
+        ledgerKolTotal: 'الإجمالي — {name}',
+        ledgerMoin: 'دفتر الأستاذ المساعد',
+        ledgerTafsili: 'دفتر التفصيلي (الأشخاص)',
         usersUser: 'مستخدم',
         usersActive: 'نشط',
         usersDisabled: 'معطل',
@@ -10937,7 +10953,11 @@
         _acctDetailLines = data.lines || [];
         _acctDetailMeta = { code: data.account_code, name: data.account_name, debit_turnover: data.debit_turnover, credit_turnover: data.credit_turnover, debit_balance: data.debit_balance, credit_balance: data.credit_balance };
         title.textContent = data.account_code + ' — ' + data.account_name;
+        const kolLine = data.parent_code
+          ? `<p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('ledgerKol'))}: <strong>${escapeHtml(data.parent_code)} — ${escapeHtml(data.parent_name || '')}</strong> · ${escapeHtml(t('ledgerMoin'))}: <strong>${escapeHtml(data.account_code)}</strong></p>`
+          : '';
         body.innerHTML = `
+          ${kolLine}
           <div class="detail-summary">
             <div><span>${t('fieldTotalDebit')}</span><strong>${formatNum(data.debit_turnover)}</strong></div>
             <div><span>${t('fieldTotalCredit')}</span><strong>${formatNum(data.credit_turnover)}</strong></div>
@@ -12208,20 +12228,58 @@
         ledgerKpisEl.innerHTML = '';
         return;
       }
+      // کل / معین structure: group معین (posting) accounts under their کل
+      // (parent GROUP) with a header + subtotal per group. Rows without a
+      // parent fall into a trailing ungrouped block.
+      const groups = new Map();
       rows.forEach(r => {
-        const net = accountNet(r);
-        const tr = document.createElement('tr');
-        tr.className = 'ledger-row';
-        tr.dataset.accountCode = r.account_code;
-        tr.innerHTML = `
-          <td>${r.account_code}</td>
-          <td>${r.account_name}</td>
-          <td class="num">${formatNum(r.debit_turnover)}</td>
-          <td class="num">${formatNum(r.credit_turnover)}</td>
-          <td class="num">${formatNum(r.debit_balance)}</td>
-          <td class="num ${net < 0 ? 'ledger-negative' : ''}">${formatNum(r.credit_balance)}</td>
-        `;
-        resultsTbody.appendChild(tr);
+        const key = r.parent_code || '~';
+        if (!groups.has(key)) groups.set(key, { code: r.parent_code, name: r.parent_name, rows: [] });
+        groups.get(key).rows.push(r);
+      });
+      const sortedGroups = [...groups.values()].sort((a, b) => (a.code || '￿').localeCompare(b.code || '￿'));
+      const grouped = sortedGroups.length > 1 || (sortedGroups[0] && sortedGroups[0].code);
+      sortedGroups.forEach(g => {
+        if (grouped && g.code) {
+          const gh = document.createElement('tr');
+          gh.className = 'ledger-group-row';
+          gh.innerHTML = `
+            <td style="font-weight:700;background:var(--bg-subtle,#f4f6f8);">${escapeHtml(g.code)}</td>
+            <td colspan="5" style="font-weight:700;background:var(--bg-subtle,#f4f6f8);">${escapeHtml(g.name || '')} <span style="color:var(--text-muted);font-weight:400;font-size:0.78rem;">(${escapeHtml(t('ledgerKol'))})</span></td>
+          `;
+          resultsTbody.appendChild(gh);
+        }
+        g.rows.forEach(r => {
+          const net = accountNet(r);
+          const tr = document.createElement('tr');
+          tr.className = 'ledger-row';
+          tr.dataset.accountCode = r.account_code;
+          tr.innerHTML = `
+            <td style="${grouped && g.code ? 'padding-inline-start:1.4rem;' : ''}">${r.account_code}</td>
+            <td>${r.account_name}</td>
+            <td class="num">${formatNum(r.debit_turnover)}</td>
+            <td class="num">${formatNum(r.credit_turnover)}</td>
+            <td class="num">${formatNum(r.debit_balance)}</td>
+            <td class="num ${net < 0 ? 'ledger-negative' : ''}">${formatNum(r.credit_balance)}</td>
+          `;
+          resultsTbody.appendChild(tr);
+        });
+        if (grouped && g.code && g.rows.length > 1) {
+          const st = g.rows.reduce((a, r) => {
+            a.dt += r.debit_turnover || 0; a.ct += r.credit_turnover || 0;
+            a.db += r.debit_balance || 0; a.cb += r.credit_balance || 0; return a;
+          }, { dt: 0, ct: 0, db: 0, cb: 0 });
+          const sr = document.createElement('tr');
+          sr.innerHTML = `
+            <td></td>
+            <td style="color:var(--text-muted);font-size:0.8rem;">${escapeHtml(tf('ledgerKolTotal', { name: g.name || g.code }))}</td>
+            <td class="num" style="font-weight:600;">${formatNum(st.dt)}</td>
+            <td class="num" style="font-weight:600;">${formatNum(st.ct)}</td>
+            <td class="num" style="font-weight:600;">${formatNum(st.db)}</td>
+            <td class="num" style="font-weight:600;">${formatNum(st.cb)}</td>
+          `;
+          resultsTbody.appendChild(sr);
+        }
       });
       const totals = rows.reduce((acc, r) => {
         acc.debitTurnover += r.debit_turnover || 0;

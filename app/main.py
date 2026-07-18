@@ -179,7 +179,7 @@ def _apply_user_migrations() -> None:
             conn.execute(text(s))
 
 
-def _run_alembic_migrations() -> None:
+def _run_alembic_migrations(strict: bool = False) -> None:
     """Bring the schema to head.
 
     On a FRESH database `create_all` (run just before this) already builds the
@@ -190,6 +190,14 @@ def _run_alembic_migrations() -> None:
     version table and `stamp head` instead; migration 015's DATA backfill is done
     separately and idempotently by `ensure_default_company`. On an existing DB
     (version table present) run the pending migrations normally.
+
+    ``strict`` controls what happens when Alembic itself fails. In BOTH modes we
+    first attempt the idempotent startup SQL as a best-effort recovery of the
+    known historical column tweaks. In strict mode (the container pre-start) we
+    then RE-RAISE, so a genuinely broken migration aborts the boot loudly with
+    the traceback in the logs instead of leaving the app serving a possibly-wrong
+    schema. In tolerant mode (a dev running `uvicorn` directly, via the lifespan
+    self-heal) we swallow and carry on, as before.
     """
     from alembic.config import Config
     from alembic import command
@@ -206,31 +214,46 @@ def _run_alembic_migrations() -> None:
             command.upgrade(alembic_cfg, "head")
             _migration_logger.info("Alembic migrations applied successfully")
     except Exception:
-        _migration_logger.warning(
-            "Alembic step failed — falling back to idempotent startup SQL",
+        _migration_logger.error(
+            "Alembic step failed — attempting idempotent startup SQL recovery",
             exc_info=True,
         )
         _apply_numeric_migrations()
         _apply_entity_cleanup_migrations()
         _apply_transaction_fee_migrations()
         _apply_user_migrations()
+        if strict:
+            # Don't mask a broken migration behind the fallback — fail the boot
+            # loudly so the operator sees exactly what broke (`docker compose
+            # logs api`) rather than an app quietly serving on a bad schema.
+            raise
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup order matters on a FRESH database:
-    #   1. create_all — build the base tables (the migration chain only patches
-    #      an existing schema; it never creates them).
-    #   2. migrate — stamp Alembic at head on a fresh DB (create_all already
-    #      built the head schema) or upgrade an existing one.
-    #   3. seed — create the admin user + chart + defaults (company_id NULL).
-    #   4. ensure_default_company — idempotently create the Default company,
-    #      fold every seeded row + the admin user into it, and promote admin to
-    #      super-admin (the DATA half of migration 015, which never runs on a
-    #      fresh DB because we stamp rather than upgrade).
-    # On an existing DB every step is idempotent (create_all/upgrade/seed no-op).
+def _bootstrap_schema_and_seed(strict: bool = False) -> None:
+    """Build the schema, migrate, and seed — the heavy, potentially-slow work.
+
+    Startup order matters on a FRESH database:
+      1. create_all — build the base tables (the migration chain only patches
+         an existing schema; it never creates them).
+      2. migrate — stamp Alembic at head on a fresh DB (create_all already
+         built the head schema) or upgrade an existing one.
+      3. seed — create the admin user + chart + defaults (company_id NULL).
+      4. ensure_default_company — idempotently create the Default company,
+         fold every seeded row + the admin user into it, and promote admin to
+         super-admin (the DATA half of migration 015, which never runs on a
+         fresh DB because we stamp rather than upgrade).
+    On an existing DB every step is idempotent (create_all/upgrade/seed no-op).
+
+    This is extracted from the lifespan so the container entrypoint
+    (``app/prestart.py``) can run it ONCE in a one-shot pre-start step BEFORE
+    uvicorn boots. That keeps the web server from blocking on — or crash-looping
+    from — migrations: /health answers as soon as uvicorn is up, and a migration
+    failure becomes a loud non-zero exit rather than a half-started ASGI app.
+    Because it stays fully idempotent, the lifespan can still call it as a
+    self-heal fallback when the app is launched without the entrypoint.
+    """
     Base.metadata.create_all(bind=engine)
-    _run_alembic_migrations()
+    _run_alembic_migrations(strict=strict)
     db = SessionLocal()
     try:
         seed_chart_if_empty(db)
@@ -243,7 +266,26 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
     ensure_default_company(engine)
-    # Restore AI config from database (survives restarts)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import os
+
+    # The container entrypoint runs _bootstrap_schema_and_seed() in a one-shot
+    # pre-start (app/prestart.py) BEFORE uvicorn, so the web server answers
+    # /health immediately and a migration failure is a loud, isolated non-zero
+    # exit instead of a crash-looping/half-started app. When that already
+    # happened we skip the (idempotent) redo here; otherwise — e.g. `uvicorn`
+    # run directly, or a test harness — we still bootstrap so the app self-heals.
+    if os.getenv("ENTRYPOINT_BOOTSTRAP") == "1":
+        _migration_logger.info(
+            "Schema bootstrap handled by entrypoint pre-start; skipping in lifespan."
+        )
+    else:
+        _bootstrap_schema_and_seed()
+    # Restore AI config from database (survives restarts). Always runs in-process
+    # because it sets per-process runtime globals the pre-start process can't.
     from app.core.ai_runtime import load_ai_config_from_db
     load_ai_config_from_db()
     yield

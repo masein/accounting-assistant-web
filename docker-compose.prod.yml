@@ -30,9 +30,11 @@ services:
           memory: 1G
 
   api:
-    # Override the exact tag with API_IMAGE in .env (e.g. pin :1.2.3 for a
-    # reproducible deploy; defaults to :latest).
-    image: ${API_IMAGE:-docker.netixsystem.com/accounting-assistant-api:latest}
+    # Pulls from GitHub Container Registry (what CI publishes to). Override the
+    # exact tag with API_IMAGE in .env (e.g. pin :1.2.3 for a reproducible
+    # deploy; defaults to :latest). The old docker.netixsystem.com registry is
+    # only a best-effort mirror now — don't point deploys at it.
+    image: ${API_IMAGE:-ghcr.io/masein/accounting-assistant-api:latest}
     pull_policy: always
     restart: unless-stopped
     environment:
@@ -71,8 +73,12 @@ services:
       test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8000/health'); r.raise_for_status()"]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 20s
+      retries: 5
+      # Cold boot = DB wait + migrations + seed + WeasyPrint/font import (done in
+      # the entrypoint pre-start before uvicorn serves). 60s keeps a normal slow
+      # first boot from being flagged unhealthy; failures inside this window
+      # don't count.
+      start_period: 60s
     deploy:
       resources:
         limits:

@@ -86,6 +86,10 @@ After a single ``find_entity`` call for a name, pick exactly one path:
 
 Never burn the whole turn budget re-listing entities. A missing entity is fine; a dead-end with no proposal is not.
 
+# Changing an EXISTING party — rename / fix a name / correct a type
+
+When the user wants to CHANGE something about a party that already exists — rename it ("change the name to…", "don't keep the default name", "اسمش رو عوض کن"), or fix a wrong type (e.g. someone recorded as employee who is actually a shareholder/سهامدار) — NEVER create a new entity. Do: ``find_entity`` to locate it → ``propose_update_entity`` with its ``entity_id`` and the ``new_name`` and/or ``new_type``. One confirm card applies the change to the SAME record, keeping its transaction history. Creating a duplicate under the new name is always wrong. Shareholders / partners / founders / investors (سهامدار / شریک) are type ``shareholder``, never ``employee``.
+
 # Resolution loop — every time the user could cause a write
 
 a. Parse intent (record / query / invoice / etc.) and extract: amount, currency, date, entity, account, memo.

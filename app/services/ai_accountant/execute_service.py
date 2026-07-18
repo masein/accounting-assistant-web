@@ -174,6 +174,13 @@ def execute_proposal(
             actor_username=actor_username,
             ip_address=ip_address,
         )
+    elif proposal.tool_name == "propose_update_entity":
+        txn_id, audit_id = _execute_update_entity(
+            db, proposal,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+        )
     elif proposal.tool_name in (
         "propose_log_time", "propose_create_project",
         "propose_set_billable_rate", "propose_create_invoice_from_time",
@@ -352,6 +359,65 @@ def _execute_create_entity(
                 "account_code": res.account_code,
                 "account_created": res.account_created,
                 "reused_existing": not res.created,
+            },
+            default=str,
+        ),
+    )
+    db.add(audit)
+    db.flush()
+    db.refresh(audit)
+    return None, str(audit.id)
+
+
+def _execute_update_entity(
+    db: Session,
+    proposal: AIProposal,
+    *,
+    actor_user_id: str,
+    actor_username: str | None,
+    ip_address: str | None,
+) -> tuple[str | None, str]:
+    """Apply a confirmed propose_update_entity (rename / retype). Returns
+    (None, audit_log_id) — no transaction is involved."""
+    from app.models.entity import Entity
+    from app.services.ai_accountant.entity_create import _VALID_TYPES
+
+    payload_dict = dict(proposal.tool_input)
+    try:
+        entity = db.get(Entity, uuid.UUID(str(payload_dict.get("entity_id"))))
+    except (ValueError, TypeError):
+        entity = None
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity no longer exists.")
+
+    old_name, old_type = entity.name, entity.type
+    new_name = (payload_dict.get("new_name") or "").strip() or None
+    new_type = (payload_dict.get("new_type") or "").strip().lower() or None
+    if new_type and new_type not in _VALID_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid entity type {new_type!r}.")
+    if new_name:
+        entity.name = new_name
+    if new_type:
+        entity.type = new_type
+    db.flush()
+
+    audit = AuditLog(
+        action="update",
+        entity_type="entity",
+        entity_id=str(entity.id),
+        user_id=actor_user_id,
+        username=actor_username,
+        ip_address=ip_address,
+        actor_source="ai-assistant",
+        session_id=proposal.session_id,
+        tool_name=proposal.tool_name,
+        confirmation_token=proposal.confirmation_token,
+        user_message=proposal.user_message,
+        detail=json.dumps(
+            {
+                "entity_id": str(entity.id),
+                "old_name": old_name, "new_name": entity.name,
+                "old_type": old_type, "new_type": entity.type,
             },
             default=str,
         ),

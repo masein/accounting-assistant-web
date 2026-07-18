@@ -527,4 +527,6 @@ class TestRegistry:
             "list_unbilled_time", "get_time_summary", "propose_log_time",
             "propose_create_project", "propose_set_billable_rate",
             "propose_create_invoice_from_time",
+            "propose_shareholder_contribution", "propose_capital_increase",
+            "propose_declare_dividend", "propose_shareholder_current_account",
         }

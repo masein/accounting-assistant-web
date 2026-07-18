@@ -568,8 +568,14 @@ def build_uk_changes_in_equity(
     comparative_np = _uk_period_net_profit(db, comparative_from_date, comparative_to_date, currency)
     net_profit = _uk_period_net_profit(db, period.from_date, period.to_date, currency)
 
+    from app.services.reporting.iran_statement_service import _equity_period_movements
+    mv = _equity_period_movements(db, period.from_date, period.to_date)
+
     closing = dict(opening)
     closing["eq_pl_account"] = closing.get("eq_pl_account", 0) + net_profit
+    closing["eq_share_capital"] = closing.get("eq_share_capital", 0) + mv["capital_added"]
+    closing["eq_pl_account"] -= mv["retained_capitalised"]
+    closing["eq_pl_account"] -= mv["dividends"]
 
     rows: list[UKEquityMovementRow] = [
         _uk_equity_row("comparative_opening", f"At {comparative_from_date.isoformat()}", comparative_opening),
@@ -585,8 +591,11 @@ def build_uk_changes_in_equity(
         _uk_equity_row("profit_for_year", "Profit for the year", {"eq_pl_account": net_profit}),
         _uk_equity_empty("oci", "Other comprehensive income"),
         _uk_equity_row("total_ci", "Total comprehensive income", {"eq_pl_account": net_profit}, row_type="subtotal"),
-        _uk_equity_empty("shares_issued", "Shares issued in the year"),
-        _uk_equity_empty("dividends", "Dividends declared and paid"),
+        _uk_equity_row(
+            "shares_issued", "Shares issued in the year",
+            {"eq_share_capital": mv["capital_added"], "eq_pl_account": -mv["retained_capitalised"]},
+        ),
+        _uk_equity_row("dividends", "Dividends declared and paid", {"eq_pl_account": -mv["dividends"]}),
         _uk_equity_empty("transfer_reserves", "Transfers between reserves"),
         _uk_equity_row("closing", f"At {period.to_date.isoformat()}", closing, row_type="total"),
     ]
@@ -603,7 +612,7 @@ def build_uk_changes_in_equity(
                 "from_date": comparative_from_date.isoformat(),
                 "to_date": comparative_to_date.isoformat(),
             },
-            "note": "Shares-issued / dividends / inter-reserve transfers are placeholders until those events are tagged explicitly on transactions.",
+            "note": "Shares-issued and dividends reflect tagged equity events for the period; inter-reserve transfers remain a placeholder until tagged.",
         },
     )
 

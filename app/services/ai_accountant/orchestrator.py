@@ -46,6 +46,7 @@ from .anthropic_client import AIAccountantError, AnthropicLLMClient
 from .base import BaseTool, ToolContext, ToolError, ToolRegistry
 from .llm_protocol import ChatMessage, LLMClient, LLMClientError, ToolCall
 from .openai_client import OpenAILLMClient
+from .equity_tools import register_equity_tools
 from .proposal_tools import register_proposal_tools
 from .read_tools import register_read_tools
 from .time_tools import register_time_tools
@@ -113,6 +114,15 @@ Which account on the OTHER side of cash:
 # Time tracking & billing clients for hours
 
 For "log/record N hours for <person> on <client>[/<project>]", call ``propose_log_time`` — it resolves the worker, client and project by name, creates any that are new in the SAME card, resolves the billable rate, and handles relative dates. For "set <person>'s (billable) rate to X [for <client>/<project>]", call ``propose_set_billable_rate``. For "start a project called X for <client>", ``propose_create_project``. For "how many unbilled hours for <client>?", ``list_unbilled_time`` / ``get_time_summary``. For "invoice/bill <client> for [this month's / the <project>] hours", call ``propose_create_invoice_from_time`` — it aggregates UNBILLED time into a draft invoice (grouped by project then employee) and shows the exact entries/hours/value, subtotal, VAT and total before Confirm. Never invoice already-invoiced time. If a client's unbilled time spans multiple currencies the tool errors — invoice each currency separately or ask.
+
+# Shareholder equity — contributions / capital increase / dividends / current account
+
+These are distinct from ordinary transactions — use the dedicated equity tools so the postings hit the right equity accounts and the changes-in-equity statement reflects them. The party must already be a ``shareholder`` (سهامدار); if not, ``propose_create_entity`` type='shareholder' first (shareholders/partners/founders/سهامدار/شریک are NEVER employees). Amounts are minor units, so "500m" → 500000000. Pick the tool by intent:
+* **Contribution / آورده** — a shareholder puts money IN as capital ("Cyrus contributed 500m as capital", "سیروس ۵۰۰م آورده"): ``propose_shareholder_contribution`` (shareholder_name, amount; to_capital=false only if they explicitly say it's not yet capitalised). Posts DR bank / CR share capital.
+* **Capital increase / افزایش سرمایه** ("increase registered capital by 1bn from retained earnings"): ``propose_capital_increase`` (amount, source=retained_earnings|cash|revaluation_surplus). From retained earnings it posts DR retained earnings / CR share capital.
+* **Dividend / سود سهام** ("distribute/declare a 100m dividend to shareholders"): ``propose_declare_dividend`` (total_amount) — it allocates across shareholders by cap-table ownership and shows the per-shareholder split on ONE card. Posts, per holder, DR retained earnings / CR dividends payable. (Paying a declared dividend is done from the Equity screen.)
+* **Shareholder current account / حساب جاری** ("Sara withdrew 50m", "شریک sara ۵۰م برداشت کرد" → direction='out'; "X lent the company 50m" → 'in'): ``propose_shareholder_current_account`` (shareholder_name, amount, direction).
+Never post equity without a Confirm card. If there's no cap table yet, the dividend tool will say so — tell the user to add shareholders with ownership % first.
 
 # Financial statements — use the deterministic tool, never hand-sum
 
@@ -356,6 +366,7 @@ def build_default_registry() -> ToolRegistry:
     register_read_tools(reg)
     register_proposal_tools(reg)
     register_time_tools(reg)
+    register_equity_tools(reg)
     return reg
 
 

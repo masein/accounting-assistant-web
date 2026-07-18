@@ -112,8 +112,11 @@ class OperationsReportService:
         if not entity:
             raise HTTPException(status_code=404, detail="Entity not found")
         role_key = (role or "").strip().lower()
-        if role_key not in ("client", "supplier", "payee", "bank"):
-            raise HTTPException(status_code=400, detail="role must be client, supplier, payee, or bank")
+        if role_key not in ("client", "supplier", "payee", "bank", "shareholder"):
+            raise HTTPException(
+                status_code=400,
+                detail="role must be client, supplier, payee, bank, or shareholder",
+            )
 
         q = (
             select(Transaction, TransactionLine)
@@ -139,6 +142,15 @@ class OperationsReportService:
         # A bank entity's own linked GL account (Entity.code) wins over the
         # generic bank account — each bank has its own سرفصل.
         own_bank_code = (entity.code or "").strip() or None
+        # Shareholder (تفضیلی) ledger follows their equity/claim accounts: share
+        # capital (contributions), dividends payable, and current account.
+        equity_codes: set[str] = set()
+        if role_key == "shareholder":
+            for cat in ("share_capital", "dividends_payable", "shareholder_current"):
+                try:
+                    equity_codes.add(resolve_account_code(self.db, cat))
+                except Exception:
+                    pass
         running = 0
         out: list[PersonRunningBalanceRow] = []
         for txn, line in rows:
@@ -161,6 +173,25 @@ class OperationsReportService:
                 )
             elif role_key in ("supplier", "payee"):
                 if not code.startswith(ap_prefix):
+                    continue
+                delta = int(line.credit or 0) - int(line.debit or 0)
+                running += delta
+                out.append(
+                    PersonRunningBalanceRow(
+                        date=txn.date,
+                        transaction_id=txn.id,
+                        reference=txn.reference,
+                        description=txn.description,
+                        debit_effect=max(0, -delta),
+                        credit_effect=max(0, delta),
+                        running_balance=running,
+                    )
+                )
+            elif role_key == "shareholder":
+                # Credit-normal claim: their stake/what the company owes them
+                # rises when credited (contribution, dividend declared, loan in)
+                # and falls when debited (dividend paid, withdrawal).
+                if code not in equity_codes:
                     continue
                 delta = int(line.credit or 0) - int(line.debit or 0)
                 running += delta

@@ -3240,6 +3240,8 @@
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Subsidiary — معین',
         ledgerTafsili: 'Detail (by person) — تفضیلی',
+        aiConfirming: 'Confirming…',
+        aiConfirmTimeout: 'The server did not respond within 30 seconds — the entry was NOT posted. Check the server and try again.',
         fldEconomicCode: 'Economic code',
         fldNationalId: 'National ID',
         fldProvince: 'Province / County',
@@ -3411,6 +3413,8 @@
         ledgerKolTotal: 'جمع کل — {name}',
         ledgerMoin: 'دفتر معین',
         ledgerTafsili: 'دفتر تفضیلی (اشخاص)',
+        aiConfirming: 'در حال ثبت…',
+        aiConfirmTimeout: 'سرور در ۳۰ ثانیه پاسخ نداد — سند ثبت نشد. وضعیت سرور را بررسی و دوباره تلاش کنید.',
         fldEconomicCode: 'شماره اقتصادی',
         fldNationalId: 'شناسه ملی',
         fldProvince: 'استان / شهرستان',
@@ -3582,6 +3586,8 @@
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Auxiliar — معین',
         ledgerTafsili: 'Detalle (por persona) — تفضیلی',
+        aiConfirming: 'Confirmando…',
+        aiConfirmTimeout: 'El servidor no respondió en 30 segundos — el asiento NO se registró. Revisa el servidor e inténtalo de nuevo.',
         fldEconomicCode: 'Código económico',
         fldNationalId: 'ID nacional',
         fldProvince: 'Provincia / Condado',
@@ -3753,6 +3759,8 @@
         ledgerKolTotal: 'الإجمالي — {name}',
         ledgerMoin: 'دفتر الأستاذ المساعد',
         ledgerTafsili: 'دفتر التفصيلي (الأشخاص)',
+        aiConfirming: 'جارٍ التأكيد…',
+        aiConfirmTimeout: 'لم يستجب الخادم خلال 30 ثانية — لم يُسجَّل القيد. تحقق من الخادم وحاول مجددًا.',
         fldEconomicCode: 'الرمز الاقتصادي',
         fldNationalId: 'الرقم الوطني',
         fldProvince: 'المحافظة / المقاطعة',
@@ -16625,16 +16633,30 @@
       async function executeProposal(cardEl, token) {
         const confirmBtn = cardEl.querySelector('button.btn-primary');
         const cancelBtn = cardEl.querySelector('button.btn-secondary');
-        if (confirmBtn) confirmBtn.disabled = true;
+        const confirmLabel = confirmBtn ? confirmBtn.textContent : '';
+        if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = t('aiConfirming'); }
         if (cancelBtn) cancelBtn.disabled = true;
+        // A hung server must never leave the button dead with no feedback:
+        // abort after 30s and surface a clear error.
+        const aborter = new AbortController();
+        const killer = setTimeout(() => aborter.abort(), 30000);
         try {
-          const r = await fetch(API + '/ai-accountant/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ confirmation_token: token }),
-          });
-          const data = await r.json();
-          if (!r.ok) throw new Error(data.detail || 'Execute failed');
+          let r;
+          try {
+            r = await fetch(API + '/ai-accountant/execute', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ confirmation_token: token }),
+              signal: aborter.signal,
+            });
+          } catch (netErr) {
+            throw new Error(aborter.signal.aborted ? t('aiConfirmTimeout') : (netErr.message || 'Network error'));
+          } finally {
+            clearTimeout(killer);
+          }
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(data.detail || ('Execute failed (HTTP ' + r.status + ')'));
+          if (confirmBtn) confirmBtn.textContent = confirmLabel;
           const receipt = document.createElement('div');
           receipt.style.cssText = 'margin-top:0.5rem; padding:0.4rem 0.6rem; background:#f0fdf4; border:1px solid #86efac; border-radius:6px; font-size:0.82rem;';
           receipt.innerHTML = '<strong>' + escapeHtml(t('aiUndoRecorded')) + '</strong> ' +
@@ -16679,7 +16701,9 @@
           err.style.cssText = 'margin-top:0.4rem; color:#b91c1c; font-size:0.82rem;';
           err.textContent = 'Error: ' + e.message;
           cardEl.appendChild(err);
-          if (confirmBtn) confirmBtn.disabled = false;
+          showAlert(e.message, true);
+          if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = confirmLabel; }
+          if (cancelBtn) cancelBtn.disabled = false;
         }
       }
 

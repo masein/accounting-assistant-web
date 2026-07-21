@@ -596,16 +596,44 @@ async def _dispatch(request: Request, call_next, path: str, user):
     return await call_next(request)
 
 
+_CODE_SCHEMA_HEAD: str | None = None
+
+
+def _code_schema_head() -> str | None:
+    """The Alembic head revision shipped IN THIS BUILD (cached). Comparing it to
+    the DB's applied version in /health makes a stale deployed image obvious:
+    if the head here lags what's on main, the server never pulled the new image."""
+    global _CODE_SCHEMA_HEAD
+    if _CODE_SCHEMA_HEAD is None:
+        try:
+            from alembic.config import Config as _AlembicConfig
+            from alembic.script import ScriptDirectory
+            script = ScriptDirectory.from_config(
+                _AlembicConfig(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+            )
+            heads = script.get_heads()
+            _CODE_SCHEMA_HEAD = heads[0] if heads else "unknown"
+        except Exception:
+            _CODE_SCHEMA_HEAD = "unknown"
+    return _CODE_SCHEMA_HEAD
+
+
 @app.get("/health", include_in_schema=True, tags=["system"])
 def health_check():
     """Health check endpoint for monitoring and container orchestration."""
     status = "ok"
     db_ok = False
+    db_schema = None
     try:
         db = SessionLocal()
         try:
             db.execute(text("SELECT 1"))
             db_ok = True
+            try:
+                row = db.execute(text("SELECT version_num FROM alembic_version")).first()
+                db_schema = row[0] if row else None
+            except Exception:
+                db_schema = None
         finally:
             db.close()
     except Exception:
@@ -620,6 +648,10 @@ def health_check():
         "status": status,
         "database": "connected" if db_ok else "unavailable",
         "ocr_available": ocr_ok,
+        # Deploy diagnostics: image_schema = migrations shipped in this build;
+        # db_schema = what's applied. image_schema lagging main ⇒ stale image.
+        "image_schema": _code_schema_head(),
+        "db_schema": db_schema,
     }
 
 

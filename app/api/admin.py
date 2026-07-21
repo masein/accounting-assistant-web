@@ -38,7 +38,9 @@ from app.models.budget import BudgetLimit
 from app.models.credit_note import CreditNote
 from app.models.employee_pay import EmployeePayProfile
 from app.models.entity import Entity, TransactionEntity
+from app.models.equity import EquityEvent, Shareholding
 from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
+from app.models.pending_time_entry import PendingTimeEntry
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.mileage_claim import MileageClaim
@@ -323,6 +325,14 @@ def reset_db(
         db.execute(delete(PurchaseOrder))
         # Mileage claims FK entities + transactions (SET NULL); wipe before them.
         db.execute(delete(MileageClaim))
+        # Shareholder equity: events FK transactions/entities (SET NULL) so they
+        # would SURVIVE the wipe with nulled refs and keep feeding ghost rows
+        # into the changes-in-equity statement; shareholdings FK entities.
+        # Wipe both explicitly, and reset the company's registered capital.
+        db.execute(delete(EquityEvent))
+        db.execute(delete(Shareholding))
+        # Inbound time entries parked for review are business data too.
+        db.execute(delete(PendingTimeEntry))
         # Time billing: entries → overrides → projects, all FK entities/invoices.
         db.execute(delete(TimeEntry))
         db.execute(delete(BillingRateOverride))
@@ -351,6 +361,12 @@ def reset_db(
         db.execute(delete(TaxRate))
         db.execute(delete(Entity))
         db.execute(delete(Account))
+        # Registered capital is derived from (now-wiped) contributions and
+        # capital increases — reset it so the cap table starts clean.
+        from app.services.fx_service import _current_company_row
+        company = _current_company_row(db)
+        if company is not None:
+            company.registered_capital = 0
         db.commit()
     except SQLAlchemyError as e:
         db.rollback()

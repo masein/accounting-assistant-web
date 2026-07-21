@@ -26,6 +26,8 @@ _MAX_BYTES = 2 * 1024 * 1024  # 2 MB
 
 _FIELDS = [
     "legal_name", "brand_color", "address", "tax_id", "registration_number",
+    "economic_code", "national_id", "province", "city", "postal_code",
+    "bank_account_no", "iban",
     "email", "phone", "website", "bank_details", "default_payment_terms",
     "invoice_footer", "invoice_number_prefix",
 ]
@@ -37,6 +39,13 @@ class CompanyProfilePut(BaseModel):
     address: str | None = None
     tax_id: str | None = Field(None, max_length=128)
     registration_number: str | None = Field(None, max_length=128)
+    economic_code: str | None = Field(None, max_length=32)
+    national_id: str | None = Field(None, max_length=32)
+    province: str | None = Field(None, max_length=128)
+    city: str | None = Field(None, max_length=128)
+    postal_code: str | None = Field(None, max_length=16)
+    bank_account_no: str | None = Field(None, max_length=64)
+    iban: str | None = Field(None, max_length=34)
     email: str | None = Field(None, max_length=256)
     phone: str | None = Field(None, max_length=64)
     website: str | None = Field(None, max_length=256)
@@ -69,6 +78,13 @@ def _serialize(db: Session, profile: CompanyProfile) -> dict:
         "address": profile.address,
         "tax_id": profile.tax_id,
         "registration_number": profile.registration_number,
+        "economic_code": profile.economic_code,
+        "national_id": profile.national_id,
+        "province": profile.province,
+        "city": profile.city,
+        "postal_code": profile.postal_code,
+        "bank_account_no": profile.bank_account_no,
+        "iban": profile.iban,
         "email": profile.email,
         "phone": profile.phone,
         "website": profile.website,

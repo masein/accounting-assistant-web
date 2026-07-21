@@ -21,12 +21,26 @@ def _ctx(db: Session) -> tuple[dict, dict, str]:
     return brand, L, brand["locale"]
 
 
+def _identity_lines(p: dict, L: dict) -> list:
+    """The official-invoice identity block (فاکتور رسمی) for a party card:
+    economic code (شماره اقتصادی), national ID (شناسه ملی), province + city,
+    postal code — printed only when set, so non-Iranian documents stay clean."""
+    locality = " — ".join(x for x in (p.get("province"), p.get("city")) if x) or None
+    return [
+        (f"{L['economic_code']}: {p['economic_code']}" if p.get("economic_code") else None),
+        (f"{L['national_id']}: {p['national_id']}" if p.get("national_id") else None),
+        locality,
+        (f"{L['postal_code']}: {p['postal_code']}" if p.get("postal_code") else None),
+    ]
+
+
 def _issuer_party(brand: dict, L: dict) -> dict:
     iss = brand["issuer"]
     return {
         "label": L["from"], "name": iss["name"], "secondary": None,
         "lines": [iss.get("address"),
                   (f"{L['tax_id']}: {iss['tax_id']}" if iss.get("tax_id") else None),
+                  *_identity_lines(iss, L),
                   iss.get("phone"), iss.get("email")],
     }
 
@@ -38,6 +52,7 @@ def _recipient_party(rec: dict | None, L: dict, label: str) -> dict:
         "label": label, "name": rec["name"], "secondary": rec.get("secondary"),
         "lines": [rec.get("address"),
                   (f"{L['tax_id']}: {rec['tax_id']}" if rec.get("tax_id") else None),
+                  *_identity_lines(rec, L),
                   rec.get("contact_person"), rec.get("phone"), rec.get("email")],
     }
 

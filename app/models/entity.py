@@ -27,6 +27,14 @@ class Entity(Base, TenantMixin):
     # Billing identity — auto-fills the Bill-To / recipient card on documents.
     legal_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Official-invoice identity (فاکتور رسمی): the Iranian tax invoice requires
+    # the payer's economic code (شماره اقتصادی), national ID (شناسه ملی),
+    # province/county, city, and 10-digit postal code as separate fields.
+    economic_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    national_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    province: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
     email: Mapped[str | None] = mapped_column(String(256), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     website: Mapped[str | None] = mapped_column(String(256), nullable=True)

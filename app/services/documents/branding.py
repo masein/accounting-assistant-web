@@ -67,15 +67,32 @@ def build_brand(db: Session) -> dict:
         or (company.name if company else "Company")
     brand_color = (profile.brand_color if profile and profile.brand_color else None) or DEFAULT_BRAND_COLOR
 
+    # Structured account + شبا/IBAN compose the "how to pay" line when the
+    # free-text bank_details is empty (official invoices print both).
+    bank_details = profile.bank_details if profile else None
+    if not bank_details and profile and (profile.bank_account_no or profile.iban):
+        parts = []
+        if profile.bank_account_no:
+            parts.append(("شماره حساب" if rtl else "Account no.") + f": {profile.bank_account_no}")
+        if profile.iban:
+            parts.append(("شبا" if rtl else "IBAN") + f": {profile.iban}")
+        parts.append(name)
+        bank_details = " — ".join(parts)
+
     issuer = {
         "name": name,
         "address": profile.address if profile else None,
         "tax_id": profile.tax_id if profile else None,
         "registration_number": profile.registration_number if profile else None,
+        "economic_code": profile.economic_code if profile else None,
+        "national_id": profile.national_id if profile else None,
+        "province": profile.province if profile else None,
+        "city": profile.city if profile else None,
+        "postal_code": profile.postal_code if profile else None,
         "email": profile.email if profile else None,
         "phone": profile.phone if profile else None,
         "website": profile.website if profile else None,
-        "bank_details": profile.bank_details if profile else None,
+        "bank_details": bank_details,
         "payment_terms": profile.default_payment_terms if profile else None,
         "footer": profile.invoice_footer if profile else None,
         "logo": _data_uri(profile.logo_path) if profile else None,
@@ -102,6 +119,11 @@ def build_recipient(entity) -> dict | None:
         "secondary": entity.name if (entity.legal_name and entity.legal_name != entity.name) else None,
         "address": getattr(entity, "address", None),
         "tax_id": getattr(entity, "tax_id", None),
+        "economic_code": getattr(entity, "economic_code", None),
+        "national_id": getattr(entity, "national_id", None),
+        "province": getattr(entity, "province", None),
+        "city": getattr(entity, "city", None),
+        "postal_code": getattr(entity, "postal_code", None),
         "email": getattr(entity, "email", None),
         "phone": getattr(entity, "phone", None),
         "contact_person": getattr(entity, "contact_person", None),

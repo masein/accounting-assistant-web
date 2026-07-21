@@ -787,6 +787,11 @@
         <div class="row" style="gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
           <div><label data-i18n="entLegalName">Legal name</label><input type="text" id="entity-legal_name"></div>
           <div><label data-i18n="entTaxId">Tax ID / VAT</label><input type="text" id="entity-tax_id"></div>
+          <div><label data-i18n="fldEconomicCode">Economic code</label><input type="text" id="entity-economic_code"></div>
+          <div><label data-i18n="fldNationalId">National ID</label><input type="text" id="entity-national_id"></div>
+          <div><label data-i18n="fldProvince">Province / County</label><input type="text" id="entity-province"></div>
+          <div><label data-i18n="fldCity">City</label><input type="text" id="entity-city"></div>
+          <div><label data-i18n="fldPostalCode">Postal code</label><input type="text" id="entity-postal_code"></div>
           <div><label data-i18n="entEmail">Email</label><input type="text" id="entity-email"></div>
           <div><label data-i18n="entPhone">Phone</label><input type="text" id="entity-phone"></div>
           <div><label data-i18n="entTerms">Payment terms</label><input type="text" id="entity-payment_terms" placeholder="Net 30"></div>
@@ -2173,6 +2178,18 @@
           <div><label data-i18n="cpTaxId">Tax ID / VAT</label><input type="text" id="cp-tax_id"></div>
           <div><label data-i18n="cpRegNo">Reg. number</label><input type="text" id="cp-registration_number"></div>
         </div>
+        <!-- Official-invoice identity (فاکتور رسمی): required on Iranian tax invoices. -->
+        <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
+          <div><label data-i18n="fldEconomicCode">Economic code</label><input type="text" id="cp-economic_code"></div>
+          <div><label data-i18n="fldNationalId">National ID</label><input type="text" id="cp-national_id"></div>
+          <div><label data-i18n="fldProvince">Province / County</label><input type="text" id="cp-province"></div>
+          <div><label data-i18n="fldCity">City</label><input type="text" id="cp-city"></div>
+          <div><label data-i18n="fldPostalCode">Postal code</label><input type="text" id="cp-postal_code"></div>
+        </div>
+        <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
+          <div><label data-i18n="cpBankAccountNo">Bank account no.</label><input type="text" id="cp-bank_account_no"></div>
+          <div style="min-width:280px;"><label data-i18n="cpIban">IBAN / شبا</label><input type="text" id="cp-iban" style="width:100%;" dir="ltr"></div>
+        </div>
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
           <div><label data-i18n="cpEmail">Email</label><input type="text" id="cp-email"></div>
           <div><label data-i18n="cpPhone">Phone</label><input type="text" id="cp-phone"></div>
@@ -2620,7 +2637,7 @@
   </div>
   <!-- Entity edit modal: replaces the old chained prompt() editing. -->
   <div id="entity-edit-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="entity-edit-title" style="display: none;">
-    <div class="modal-card" style="max-width: 480px;">
+    <div class="modal-card" style="max-width: 620px;">
       <div class="modal-header">
         <h2 id="entity-edit-title" data-i18n="editEntityTitle">Edit entity</h2>
         <button type="button" class="modal-close" aria-label="Close" id="entity-edit-close">×</button>
@@ -2644,6 +2661,22 @@
           <label for="entity-edit-code" data-i18n="labelCodeOptional">Code (optional)</label>
           <input type="text" id="entity-edit-code" style="width: 100%;">
         </div>
+        <details style="margin-top:0.6rem;">
+          <summary style="cursor:pointer; font-size:0.85rem; color:var(--primary);" data-i18n="entBillingDetails">Billing details (for documents) — optional</summary>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.5rem; margin-top:0.5rem;">
+            <div><label data-i18n="entLegalName">Legal name</label><input type="text" id="entity-edit-legal_name" style="width:100%;"></div>
+            <div><label data-i18n="entTaxId">Tax ID / VAT</label><input type="text" id="entity-edit-tax_id" style="width:100%;"></div>
+            <div><label data-i18n="fldEconomicCode">Economic code</label><input type="text" id="entity-edit-economic_code" style="width:100%;"></div>
+            <div><label data-i18n="fldNationalId">National ID</label><input type="text" id="entity-edit-national_id" style="width:100%;"></div>
+            <div><label data-i18n="fldProvince">Province / County</label><input type="text" id="entity-edit-province" style="width:100%;"></div>
+            <div><label data-i18n="fldCity">City</label><input type="text" id="entity-edit-city" style="width:100%;"></div>
+            <div><label data-i18n="fldPostalCode">Postal code</label><input type="text" id="entity-edit-postal_code" style="width:100%;"></div>
+            <div><label data-i18n="entEmail">Email</label><input type="text" id="entity-edit-email" style="width:100%;"></div>
+            <div><label data-i18n="entPhone">Phone</label><input type="text" id="entity-edit-phone" style="width:100%;"></div>
+            <div><label data-i18n="entTerms">Payment terms</label><input type="text" id="entity-edit-payment_terms" style="width:100%;"></div>
+            <div style="grid-column:1/-1;"><label data-i18n="entAddress">Address</label><input type="text" id="entity-edit-address" style="width:100%;"></div>
+          </div>
+        </details>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
         <button type="button" class="btn btn-secondary" id="entity-edit-cancel" data-i18n="btnCancel">Cancel</button>
@@ -3207,6 +3240,13 @@
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Subsidiary — معین',
         ledgerTafsili: 'Detail (by person) — تفضیلی',
+        fldEconomicCode: 'Economic code',
+        fldNationalId: 'National ID',
+        fldProvince: 'Province / County',
+        fldCity: 'City',
+        fldPostalCode: 'Postal code',
+        cpBankAccountNo: 'Bank account no.',
+        cpIban: 'IBAN / شبا',
         equityNav: 'Shareholders',
         equityTitle: 'Shareholders & Equity',
         equitySubtitle: 'Cap table, contributions, dividends, capital increases and shareholder current accounts.',
@@ -3371,6 +3411,13 @@
         ledgerKolTotal: 'جمع کل — {name}',
         ledgerMoin: 'دفتر معین',
         ledgerTafsili: 'دفتر تفضیلی (اشخاص)',
+        fldEconomicCode: 'شماره اقتصادی',
+        fldNationalId: 'شناسه ملی',
+        fldProvince: 'استان / شهرستان',
+        fldCity: 'شهر',
+        fldPostalCode: 'کدپستی',
+        cpBankAccountNo: 'شماره حساب',
+        cpIban: 'شماره شبا',
         equityNav: 'سهامداران',
         equityTitle: 'سهامداران و حقوق مالکانه',
         equitySubtitle: 'جدول سهام، آورده، سود سهام، افزایش سرمایه و حساب جاری سهامداران.',
@@ -3535,6 +3582,13 @@
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Auxiliar — معین',
         ledgerTafsili: 'Detalle (por persona) — تفضیلی',
+        fldEconomicCode: 'Código económico',
+        fldNationalId: 'ID nacional',
+        fldProvince: 'Provincia / Condado',
+        fldCity: 'Ciudad',
+        fldPostalCode: 'Código postal',
+        cpBankAccountNo: 'N.º de cuenta bancaria',
+        cpIban: 'IBAN / شبا',
         equityNav: 'Accionistas',
         equityTitle: 'Accionistas y patrimonio',
         equitySubtitle: 'Tabla de capital, aportes, dividendos, aumentos de capital y cuentas corrientes de socios.',
@@ -3699,6 +3753,13 @@
         ledgerKolTotal: 'الإجمالي — {name}',
         ledgerMoin: 'دفتر الأستاذ المساعد',
         ledgerTafsili: 'دفتر التفصيلي (الأشخاص)',
+        fldEconomicCode: 'الرمز الاقتصادي',
+        fldNationalId: 'الرقم الوطني',
+        fldProvince: 'المحافظة / المقاطعة',
+        fldCity: 'المدينة',
+        fldPostalCode: 'الرمز البريدي',
+        cpBankAccountNo: 'رقم الحساب البنكي',
+        cpIban: 'آيبان / شبا',
         equityNav: 'المساهمون',
         equityTitle: 'المساهمون وحقوق الملكية',
         equitySubtitle: 'جدول الملكية، المساهمات، الأرباح، زيادة رأس المال والحسابات الجارية للمساهمين.',
@@ -11638,14 +11699,29 @@
     });
 
     // Entity edit: load the record into the modal form (no chained prompts).
+    // Billing/official-invoice identity fields editable alongside type/name/code.
+    const _ENT_BILLING = ['legal_name','tax_id','economic_code','national_id','province','city',
+                          'postal_code','email','phone','payment_terms','address'];
     let _editingEntityId = null;
-    function editEntity(btn) {
+    async function editEntity(btn) {
       _editingEntityId = btn.dataset.entityId;
       document.getElementById('entity-edit-type').value = (btn.dataset.entityType || 'client').trim();
       document.getElementById('entity-edit-name').value = (btn.dataset.entityName || '').trim();
       document.getElementById('entity-edit-code').value = (btn.dataset.entityCode || '').trim();
+      _ENT_BILLING.forEach(f => { const el = document.getElementById('entity-edit-' + f); if (el) el.value = ''; });
       document.getElementById('entity-edit-modal').style.display = 'flex';
       document.getElementById('entity-edit-name').focus();
+      // Fill billing fields from the full record (dataset only carries the basics).
+      try {
+        const res = await fetch(API + '/entities/' + encodeURIComponent(_editingEntityId));
+        if (res.ok) {
+          const d = await res.json();
+          _ENT_BILLING.forEach(f => {
+            const el = document.getElementById('entity-edit-' + f);
+            if (el) el.value = d[f] || '';
+          });
+        }
+      } catch (err) { /* billing prefill is best-effort */ }
     }
 
     async function saveEntityEdit() {
@@ -11654,13 +11730,18 @@
       const type = document.getElementById('entity-edit-type').value;
       const code = document.getElementById('entity-edit-code').value.trim();
       if (!name) { showAlert('Enter a name for the entity.', true); return; }
+      const payload = { name, type, code };
+      _ENT_BILLING.forEach(f => {
+        const el = document.getElementById('entity-edit-' + f);
+        if (el) payload[f] = el.value.trim();
+      });
       const saveBtn = document.getElementById('entity-edit-save');
       saveBtn.disabled = true;
       try {
         const res = await fetch(API + '/entities/' + encodeURIComponent(_editingEntityId), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, type, code }),
+          body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -11730,7 +11811,7 @@
       const code = document.getElementById('entity-code').value.trim() || null;
       if (!name) { showAlert('Enter a name for the entity.', true); return; }
       const billing = {};
-      ['legal_name','tax_id','email','phone','payment_terms','address'].forEach(f => {
+      ['legal_name','tax_id','economic_code','national_id','province','city','postal_code','email','phone','payment_terms','address'].forEach(f => {
         const el = document.getElementById('entity-' + f);
         if (el && el.value.trim()) billing[f] = el.value.trim();
       });
@@ -11745,7 +11826,7 @@
         showAlert('Entity added.');
         document.getElementById('entity-name').value = '';
         document.getElementById('entity-code').value = '';
-        ['legal_name','tax_id','email','phone','payment_terms','address'].forEach(f => {
+        ['legal_name','tax_id','economic_code','national_id','province','city','postal_code','email','phone','payment_terms','address'].forEach(f => {
           const el = document.getElementById('entity-' + f); if (el) el.value = '';
         });
         loadEntities(data.id);
@@ -14623,8 +14704,10 @@
     }
 
     // ═══════ Company profile & branding ═══════
-    const CP_FIELDS = ['legal_name','brand_color','tax_id','registration_number','email','phone',
-      'website','invoice_number_prefix','address','bank_details','default_payment_terms','invoice_footer'];
+    const CP_FIELDS = ['legal_name','brand_color','tax_id','registration_number',
+      'economic_code','national_id','province','city','postal_code','bank_account_no','iban',
+      'email','phone','website','invoice_number_prefix','address','bank_details',
+      'default_payment_terms','invoice_footer'];
     async function loadCompanyProfile() {
       if (!document.getElementById('cp-save')) return;
       try {

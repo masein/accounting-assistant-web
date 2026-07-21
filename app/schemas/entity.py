@@ -13,6 +13,12 @@ class EntityBillingFields(BaseModel):
     phone: str | None = Field(None, max_length=64)
     website: str | None = Field(None, max_length=256)
     tax_id: str | None = Field(None, max_length=128)
+    # Official-invoice identity (فاکتور رسمی).
+    economic_code: str | None = Field(None, max_length=32)
+    national_id: str | None = Field(None, max_length=32)
+    province: str | None = Field(None, max_length=128)
+    city: str | None = Field(None, max_length=128)
+    postal_code: str | None = Field(None, max_length=16)
     contact_person: str | None = Field(None, max_length=256)
     payment_terms: str | None = Field(None, max_length=128)
     currency: str | None = Field(None, max_length=8)

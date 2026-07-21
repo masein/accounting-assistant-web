@@ -30,6 +30,17 @@ class CompanyProfile(Base, TenantMixin):
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     tax_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     registration_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Official-invoice identity (فاکتور رسمی): economic code (شماره اقتصادی),
+    # national ID (شناسه ملی), province/county, city, 10-digit postal code.
+    economic_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    national_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    province: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Structured payment identity — printed as the "how to pay" line when the
+    # free-text bank_details is empty.
+    bank_account_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    iban: Mapped[str | None] = mapped_column(String(34), nullable=True)
 
     email: Mapped[str | None] = mapped_column(String(256), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)

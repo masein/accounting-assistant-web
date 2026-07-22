@@ -161,6 +161,22 @@ def _next_bank_account_code(db: Session, locale: str) -> str:
     raise EntityCreateError(f"No free bank account code left in the {prefix}xx range.")
 
 
+# Contact + bank fields the AI may gather when creating a party.
+DETAIL_FIELDS = ("phone", "email", "address", "tax_id", "economic_code",
+                 "contact_person", "bank_name", "account_holder",
+                 "account_number", "iban", "sort_code")
+
+
+def _apply_details(entity: Entity, details: dict | None, *, only_blank: bool) -> None:
+    for f in DETAIL_FIELDS:
+        v = (details or {}).get(f)
+        if v is None or not str(v).strip():
+            continue
+        if only_blank and getattr(entity, f, None):
+            continue  # reuse path: enrich blanks, never overwrite existing data
+        setattr(entity, f, str(v).strip())
+
+
 def create_entity(
     db: Session,
     *,
@@ -168,10 +184,11 @@ def create_entity(
     type_: str,
     existing_account_code: str | None = None,
     locale: str | None = None,
+    details: dict | None = None,
 ) -> CreatedEntity:
     """Get-or-create an entity (idempotent by type + name). For banks, link or
-    create a GL cash account and set ``Entity.code`` to it. Flushes; the caller
-    commits + audits."""
+    create a GL cash account and set ``Entity.code`` to it. ``details`` carries
+    AI-gathered contact + bank fields. Flushes; the caller commits + audits."""
     etype = normalize_entity_type(type_)
     clean = _validate_name(name)
 
@@ -179,14 +196,15 @@ def create_entity(
         select(Entity).where(Entity.type == etype, Entity.name.ilike(clean))
     ).scalars().first()
     if existing is not None:
+        _apply_details(existing, details, only_blank=True)
         # Reuse — but still ensure a bank has a usable GL code.
         if etype == "bank" and not existing.code:
             existing.code = _attach_bank_account(db, clean, existing_account_code, locale)
-            db.flush()
-            return CreatedEntity(entity=existing, created=False, account_code=existing.code)
+        db.flush()
         return CreatedEntity(entity=existing, created=False, account_code=existing.code)
 
     entity = Entity(type=etype, name=clean)
+    _apply_details(entity, details, only_blank=False)
     account_code = None
     account_created = False
     if etype == "bank":

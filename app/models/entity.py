@@ -35,6 +35,14 @@ class Entity(Base, TenantMixin):
     province: Mapped[str | None] = mapped_column(String(128), nullable=True)
     city: Mapped[str | None] = mapped_column(String(128), nullable=True)
     postal_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # The counterparty's / employee's OWN bank account — payroll pays employees
+    # here, and supplier remittances can reference it. (The company's own bank
+    # for invoices lives on CompanyProfile.)
+    bank_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    account_holder: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    account_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    iban: Mapped[str | None] = mapped_column(String(34), nullable=True)
+    sort_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
     email: Mapped[str | None] = mapped_column(String(256), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     website: Mapped[str | None] = mapped_column(String(256), nullable=True)

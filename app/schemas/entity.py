@@ -19,6 +19,13 @@ class EntityBillingFields(BaseModel):
     province: str | None = Field(None, max_length=128)
     city: str | None = Field(None, max_length=128)
     postal_code: str | None = Field(None, max_length=16)
+    # The party's OWN bank account (employee payroll destination / supplier
+    # remittance) — the company's bank lives on the company profile.
+    bank_name: str | None = Field(None, max_length=128)
+    account_holder: str | None = Field(None, max_length=256)
+    account_number: str | None = Field(None, max_length=64)
+    iban: str | None = Field(None, max_length=34)
+    sort_code: str | None = Field(None, max_length=16)
     contact_person: str | None = Field(None, max_length=256)
     payment_terms: str | None = Field(None, max_length=128)
     currency: str | None = Field(None, max_length=8)

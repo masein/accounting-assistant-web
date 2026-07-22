@@ -315,7 +315,8 @@ _reads(["/payroll/profiles", "/payroll/runs", "/payroll/runs/{run_id}",
         "/payroll/year-summary", "/payroll/hours-summary"], Perm.PAYROLL_READ)
 # Payslip: books payroll people OR the employee's own (object-checked downstream).
 _reads(["/payroll/runs/{run_id}/payslip/{entity_id}",
-        "/payroll/runs/{run_id}/payslip/{entity_id}/pdf"],
+        "/payroll/runs/{run_id}/payslip/{entity_id}/pdf",
+        "/payroll/my-payslips"],
        frozenset({Perm.PAYROLL_READ, Perm.PAYROLL_OWN}))
 for _m, _p in [
     ("POST", "/payroll/profiles"), ("POST", "/payroll/runs"),

@@ -597,6 +597,20 @@ class ProposeCreateEntityInput(BaseModel):
         description="For type='bank' ONLY: link to this existing cash account code "
                     "instead of creating a new GL bank account.",
     )
+    # Contact details — fold whatever the user gave into this ONE confirm card.
+    phone: str | None = Field(None, max_length=64)
+    email: str | None = Field(None, max_length=256)
+    address: str | None = Field(None, max_length=512)
+    tax_id: str | None = Field(None, max_length=128)
+    economic_code: str | None = Field(None, max_length=32, description="شماره اقتصادی")
+    contact_person: str | None = Field(None, max_length=256)
+    # The party's OWN bank account — essential for employees (payroll pays them
+    # there); useful for suppliers.
+    bank_name: str | None = Field(None, max_length=128)
+    account_holder: str | None = Field(None, max_length=256)
+    account_number: str | None = Field(None, max_length=64)
+    iban: str | None = Field(None, max_length=34, description="IBAN / شماره شبا")
+    sort_code: str | None = Field(None, max_length=16)
 
 
 class ProposeCreateEntity(BaseTool):
@@ -643,9 +657,32 @@ class ProposeCreateEntity(BaseTool):
                 except EntityCreateError:
                     preview["account_code"] = None
 
+        # Fold provided contact + bank details into the ONE card. Missing key
+        # details are noted in the summary but NEVER block creation.
+        _DETAIL_FIELDS = ("phone", "email", "address", "tax_id", "economic_code",
+                          "contact_person", "bank_name", "account_holder",
+                          "account_number", "iban", "sort_code")
+        details = {}
+        for f in _DETAIL_FIELDS:
+            v = getattr(args, f, None)
+            if v is not None and str(v).strip():
+                details[f] = str(v).strip()
+        if details:
+            preview["details"] = details
+            shown = [f"{k.replace('_', ' ')}: {v}" for k, v in details.items()]
+            summary += " · " + " · ".join(shown[:6])
+        missing = []
+        if etype in ("client", "supplier") and "phone" not in details and "address" not in details:
+            missing.append("phone/address")
+        if etype == "employee" and not any(k in details for k in ("iban", "account_number")):
+            missing.append("bank account (needed for payroll)")
+        if missing:
+            summary += " — missing: " + ", ".join(missing)
+
         token = uuid.uuid4()
         payload = {"name": clean, "type": etype,
-                   "existing_account_code": args.existing_account_code}
+                   "existing_account_code": args.existing_account_code,
+                   "details": details}
         proposal = AIProposal(
             confirmation_token=token, user_id=ctx.user_id,
             session_id=ctx.chat_session_id, tool_name=self.name,

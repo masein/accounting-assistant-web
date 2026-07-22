@@ -276,6 +276,20 @@ def render_purchase_order_pdf(db: Session, po, supplier) -> bytes:
 # ---------------------------------------------------------------------------
 # Payslip
 # ---------------------------------------------------------------------------
+def _paid_to_line(line, employee, L: dict) -> str | None:
+    """'Paid to: Bank · IBAN/account' for the payslip. Uses the pay-time
+    snapshot (line.paid_to) when present, else the employee's current bank
+    fields; None when neither exists (the row is simply omitted)."""
+    dest = (getattr(line, "paid_to", None) or "").strip()
+    if not dest and employee is not None:
+        parts = [p for p in (
+            getattr(employee, "bank_name", None),
+            (getattr(employee, "iban", None) or "").strip() or (getattr(employee, "account_number", None) or "").strip() or None,
+        ) if p]
+        dest = " · ".join(parts)
+    return f"{L['paid_to']}: {dest}" if dest else None
+
+
 def render_payslip_pdf(db: Session, run, line, employee) -> bytes:
     brand, L, loc = _ctx(db)
     ccy = run.currency or brand["base_currency"]
@@ -314,7 +328,11 @@ def render_payslip_pdf(db: Session, run, line, employee) -> bytes:
         ],
         "parties": [_issuer_party(brand, L),
                     {"label": L["employee"], "name": line.employee_name or (employee.name if employee else "—"),
-                     "secondary": None, "lines": []}],
+                     "secondary": None,
+                     # Disbursement destination: the snapshot taken at pay time
+                     # wins; before payment fall back to the employee's current
+                     # bank fields so a draft payslip still previews it.
+                     "lines": [_paid_to_line(line, employee, L)]}],
         "columns": columns, "rows": rows,
         "totals": [
             {"label": L["gross_pay"], "value": _money(line.gross or 0, ccy, loc)},

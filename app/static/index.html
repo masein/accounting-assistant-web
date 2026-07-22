@@ -796,6 +796,11 @@
           <div><label data-i18n="entPhone">Phone</label><input type="text" id="entity-phone"></div>
           <div><label data-i18n="entTerms">Payment terms</label><input type="text" id="entity-payment_terms" placeholder="Net 30"></div>
           <div style="flex:1; min-width:200px;"><label data-i18n="entAddress">Address</label><input type="text" id="entity-address" style="width:100%;"></div>
+          <div><label data-i18n="fldBankName">Bank name</label><input type="text" id="entity-bank_name"></div>
+          <div><label data-i18n="fldAccountHolder">Account holder</label><input type="text" id="entity-account_holder"></div>
+          <div><label data-i18n="fldAccountNumber">Account number</label><input type="text" id="entity-account_number"></div>
+          <div style="min-width:220px;"><label data-i18n="cpIban">IBAN / شبا</label><input type="text" id="entity-iban" dir="ltr"></div>
+          <div><label data-i18n="fldSortCode">Sort code</label><input type="text" id="entity-sort_code"></div>
         </div>
       </details>
       <div class="row" style="margin-bottom: 0.75rem; gap: 0.5rem; align-items: flex-end;">
@@ -1633,6 +1638,26 @@
         <h3 data-i18n="timePendingTitle">Pending pushed entries</h3>
         <p style="color:var(--text-muted);font-size:0.84rem;margin:0 0 0.6rem;" data-i18n="timePendingIntro">Worklogs pushed by external tools (Jira, Trello…) whose worker couldn't be matched. Assign each to an employee — nothing is dropped automatically.</p>
         <div id="tm-pending-wrap"></div>
+      </div>
+
+      <!-- My pay — self-service payslips for the logged-in employee. -->
+      <div id="my-pay-section" style="display:none;margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem;">
+        <h3 data-i18n="myPayTitle">My pay</h3>
+        <p style="color:var(--text-muted);font-size:0.84rem;margin:0 0 0.6rem;" data-i18n="myPaySubtitle">Your payslips — how much and when you were paid. "Paid" means the money left the company account on the pay date.</p>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr>
+              <th data-i18n="myPayColPeriod">Period</th>
+              <th class="num" data-i18n="myPayColGross">Gross</th>
+              <th class="num" data-i18n="myPayColNet">Net</th>
+              <th data-i18n="myPayColPayDate">Pay date</th>
+              <th data-i18n="myPayColStatus">Status</th>
+              <th data-i18n="myPayColPaidTo">Paid to</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="my-pay-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -2674,6 +2699,11 @@
             <div><label data-i18n="entEmail">Email</label><input type="text" id="entity-edit-email" style="width:100%;"></div>
             <div><label data-i18n="entPhone">Phone</label><input type="text" id="entity-edit-phone" style="width:100%;"></div>
             <div><label data-i18n="entTerms">Payment terms</label><input type="text" id="entity-edit-payment_terms" style="width:100%;"></div>
+            <div><label data-i18n="fldBankName">Bank name</label><input type="text" id="entity-edit-bank_name" style="width:100%;"></div>
+            <div><label data-i18n="fldAccountHolder">Account holder</label><input type="text" id="entity-edit-account_holder" style="width:100%;"></div>
+            <div><label data-i18n="fldAccountNumber">Account number</label><input type="text" id="entity-edit-account_number" style="width:100%;"></div>
+            <div><label data-i18n="cpIban">IBAN / شبا</label><input type="text" id="entity-edit-iban" style="width:100%;" dir="ltr"></div>
+            <div><label data-i18n="fldSortCode">Sort code</label><input type="text" id="entity-edit-sort_code" style="width:100%;"></div>
             <div style="grid-column:1/-1;"><label data-i18n="entAddress">Address</label><input type="text" id="entity-edit-address" style="width:100%;"></div>
           </div>
         </details>
@@ -3240,6 +3270,20 @@
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Subsidiary — معین',
         ledgerTafsili: 'Detail (by person) — تفضیلی',
+        fldBankName: 'Bank name',
+        fldAccountHolder: 'Account holder',
+        fldAccountNumber: 'Account number',
+        fldSortCode: 'Sort code',
+        myPayTitle: 'My pay',
+        myPaySubtitle: 'Your payslips — how much and when you were paid. "Paid" means the money left the company account on the pay date.',
+        myPayColPeriod: 'Period',
+        myPayColGross: 'Gross',
+        myPayColNet: 'Net',
+        myPayColPayDate: 'Pay date',
+        myPayColStatus: 'Status',
+        myPayColPaidTo: 'Paid to',
+        myPayStatusPaid: 'Paid',
+        payrollPaidNoBankWarn: 'Paid — but some employees have no bank account on file:',
         aiConfirming: 'Confirming…',
         aiConfirmTimeout: 'The server did not respond within 30 seconds — the entry was NOT posted. Check the server and try again.',
         fldEconomicCode: 'Economic code',
@@ -3413,6 +3457,20 @@
         ledgerKolTotal: 'جمع کل — {name}',
         ledgerMoin: 'دفتر معین',
         ledgerTafsili: 'دفتر تفضیلی (اشخاص)',
+        fldBankName: 'نام بانک',
+        fldAccountHolder: 'صاحب حساب',
+        fldAccountNumber: 'شماره حساب',
+        fldSortCode: 'کد شعبه',
+        myPayTitle: 'حقوق من',
+        myPaySubtitle: 'فیش‌های حقوقی شما — چقدر و چه زمانی پرداخت شد. «پرداخت‌شده» یعنی مبلغ در تاریخ پرداخت از حساب شرکت واریز شده است.',
+        myPayColPeriod: 'دوره',
+        myPayColGross: 'ناخالص',
+        myPayColNet: 'خالص',
+        myPayColPayDate: 'تاریخ پرداخت',
+        myPayColStatus: 'وضعیت',
+        myPayColPaidTo: 'واریز به',
+        myPayStatusPaid: 'پرداخت‌شده',
+        payrollPaidNoBankWarn: 'پرداخت شد — اما برای برخی کارکنان حساب بانکی ثبت نشده است:',
         aiConfirming: 'در حال ثبت…',
         aiConfirmTimeout: 'سرور در ۳۰ ثانیه پاسخ نداد — سند ثبت نشد. وضعیت سرور را بررسی و دوباره تلاش کنید.',
         fldEconomicCode: 'شماره اقتصادی',
@@ -3586,6 +3644,20 @@
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Auxiliar — معین',
         ledgerTafsili: 'Detalle (por persona) — تفضیلی',
+        fldBankName: 'Nombre del banco',
+        fldAccountHolder: 'Titular de la cuenta',
+        fldAccountNumber: 'Número de cuenta',
+        fldSortCode: 'Código de sucursal',
+        myPayTitle: 'Mi paga',
+        myPaySubtitle: 'Tus nóminas — cuánto y cuándo te pagaron. «Pagado» significa que el dinero salió de la cuenta de la empresa en la fecha de pago.',
+        myPayColPeriod: 'Periodo',
+        myPayColGross: 'Bruto',
+        myPayColNet: 'Neto',
+        myPayColPayDate: 'Fecha de pago',
+        myPayColStatus: 'Estado',
+        myPayColPaidTo: 'Pagado a',
+        myPayStatusPaid: 'Pagado',
+        payrollPaidNoBankWarn: 'Pagado — pero algunos empleados no tienen cuenta bancaria registrada:',
         aiConfirming: 'Confirmando…',
         aiConfirmTimeout: 'El servidor no respondió en 30 segundos — el asiento NO se registró. Revisa el servidor e inténtalo de nuevo.',
         fldEconomicCode: 'Código económico',
@@ -3759,6 +3831,20 @@
         ledgerKolTotal: 'الإجمالي — {name}',
         ledgerMoin: 'دفتر الأستاذ المساعد',
         ledgerTafsili: 'دفتر التفصيلي (الأشخاص)',
+        fldBankName: 'اسم البنك',
+        fldAccountHolder: 'صاحب الحساب',
+        fldAccountNumber: 'رقم الحساب',
+        fldSortCode: 'رمز الفرع',
+        myPayTitle: 'راتبي',
+        myPaySubtitle: 'قسائم راتبك — كم دُفع ومتى. «مدفوع» يعني أن المبلغ خرج من حساب الشركة في تاريخ الدفع.',
+        myPayColPeriod: 'الفترة',
+        myPayColGross: 'الإجمالي',
+        myPayColNet: 'الصافي',
+        myPayColPayDate: 'تاريخ الدفع',
+        myPayColStatus: 'الحالة',
+        myPayColPaidTo: 'دُفع إلى',
+        myPayStatusPaid: 'مدفوع',
+        payrollPaidNoBankWarn: 'تم الدفع — لكن بعض الموظفين لا يملكون حسابًا بنكيًا مسجلاً:',
         aiConfirming: 'جارٍ التأكيد…',
         aiConfirmTimeout: 'لم يستجب الخادم خلال 30 ثانية — لم يُسجَّل القيد. تحقق من الخادم وحاول مجددًا.',
         fldEconomicCode: 'الرمز الاقتصادي',
@@ -11709,7 +11795,8 @@
     // Entity edit: load the record into the modal form (no chained prompts).
     // Billing/official-invoice identity fields editable alongside type/name/code.
     const _ENT_BILLING = ['legal_name','tax_id','economic_code','national_id','province','city',
-                          'postal_code','email','phone','payment_terms','address'];
+                          'postal_code','email','phone','payment_terms','address',
+                          'bank_name','account_holder','account_number','iban','sort_code'];
     let _editingEntityId = null;
     async function editEntity(btn) {
       _editingEntityId = btn.dataset.entityId;
@@ -11819,7 +11906,7 @@
       const code = document.getElementById('entity-code').value.trim() || null;
       if (!name) { showAlert('Enter a name for the entity.', true); return; }
       const billing = {};
-      ['legal_name','tax_id','economic_code','national_id','province','city','postal_code','email','phone','payment_terms','address'].forEach(f => {
+      ['legal_name','tax_id','economic_code','national_id','province','city','postal_code','email','phone','payment_terms','address','bank_name','account_holder','account_number','iban','sort_code'].forEach(f => {
         const el = document.getElementById('entity-' + f);
         if (el && el.value.trim()) billing[f] = el.value.trim();
       });
@@ -11834,7 +11921,7 @@
         showAlert('Entity added.');
         document.getElementById('entity-name').value = '';
         document.getElementById('entity-code').value = '';
-        ['legal_name','tax_id','economic_code','national_id','province','city','postal_code','email','phone','payment_terms','address'].forEach(f => {
+        ['legal_name','tax_id','economic_code','national_id','province','city','postal_code','email','phone','payment_terms','address','bank_name','account_holder','account_number','iban','sort_code'].forEach(f => {
           const el = document.getElementById('entity-' + f); if (el) el.value = '';
         });
         loadEntities(data.id);
@@ -13673,8 +13760,34 @@
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
 
+    async function loadMyPay() {
+      const section = document.getElementById('my-pay-section');
+      const body = document.getElementById('my-pay-body');
+      if (!section || !body) return;
+      try {
+        const res = await fetch(API + '/payroll/my-payslips');
+        if (!res.ok) { section.style.display = 'none'; return; }
+        const data = await res.json();
+        const slips = (data && data.payslips) || [];
+        if (!slips.length) { section.style.display = 'none'; return; }
+        section.style.display = '';
+        body.innerHTML = slips.map(s => `
+          <tr>
+            <td>${escapeHtml(s.period_start)} – ${escapeHtml(s.period_end)}</td>
+            <td class="num">${formatNum(s.gross)} ${escapeHtml(s.currency || '')}</td>
+            <td class="num"><strong>${formatNum(s.net_pay)}</strong> ${escapeHtml(s.currency || '')}</td>
+            <td>${escapeHtml(s.pay_date)}</td>
+            <td>${s.status === 'paid' ? '<span style="color:#15803d;font-weight:600;">' + escapeHtml(t('myPayStatusPaid')) + '</span>' : escapeHtml(s.status)}</td>
+            <td>${escapeHtml(s.paid_to || '—')}</td>
+            <td><a class="btn btn-secondary btn-sm" target="_blank"
+                   href="${API}/payroll/runs/${encodeURIComponent(s.run_id)}/payslip/${encodeURIComponent(s.entity_id)}/pdf">PDF</a></td>
+          </tr>`).join('');
+      } catch (err) { section.style.display = 'none'; }
+    }
+
     async function loadTimeTab() {
       loadPendingTime();
+      loadMyPay();
       try {
         const [wr, cr] = await Promise.all([
           fetch(API + '/entities?type=employee'), fetch(API + '/entities?type=supplier'),
@@ -14364,7 +14477,12 @@
         const res = await fetch(API + '/payroll/runs/' + prCurrentRunId + '/pay', { method: 'POST' });
         const data = await readJsonSafe(res);
         if (!res.ok) { showAlert((data && data.detail) ? data.detail : t('payrollPayFailed'), true); return; }
-        showAlert(t('payrollPaid'));
+        if (data && Array.isArray(data.warnings) && data.warnings.length) {
+          // Paid fine, but some employees have no bank on file — surface it.
+          showAlert(t('payrollPaidNoBankWarn') + ' ' + data.warnings.join(' | '), true);
+        } else {
+          showAlert(t('payrollPaid'));
+        }
         await loadPayRuns();
         renderPayRunDetail(data);
       } catch (e) { showAlert(t('payrollPayFailed'), true); }

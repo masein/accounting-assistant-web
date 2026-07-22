@@ -345,6 +345,7 @@ def _execute_create_entity(
             name=payload_dict.get("name", ""),
             type_=payload_dict.get("type", "supplier"),
             existing_account_code=payload_dict.get("existing_account_code"),
+            details=payload_dict.get("details"),
         )
     except EntityCreateError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

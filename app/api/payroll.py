@@ -127,6 +127,7 @@ def _line_read(ln: PayRunLine) -> dict:
         "income_tax": int(ln.income_tax or 0),
         "social_security": int(ln.social_security or 0),
         "net_pay": int(ln.net_pay or 0),
+        "paid_to": getattr(ln, "paid_to", None),
     }
 
 
@@ -536,9 +537,36 @@ def pay_run(run_id: UUID, bank_account_code: str | None = None, db: Session = De
     )
     run.pay_transaction_id = txn.id
     run.status = "paid"
+
+    # Record WHERE each employee's net pay went (their own bank account, from
+    # the entity's bank fields) — snapshotted on the line so the payslip stays
+    # correct if their bank changes later. Missing bank details WARN, never
+    # block: the GL posting above is already correct either way.
+    warnings: list[str] = []
+    from app.models.entity import Entity as _Entity
+    for ln in run.lines:
+        emp = db.get(_Entity, ln.entity_id)
+        dest_parts = []
+        if emp is not None:
+            if emp.bank_name:
+                dest_parts.append(emp.bank_name)
+            acct = (emp.iban or "").strip() or (emp.account_number or "").strip()
+            if acct:
+                dest_parts.append(acct)
+            if emp.account_holder and emp.account_holder.strip() != (ln.employee_name or "").strip():
+                dest_parts.append(emp.account_holder)
+        if dest_parts:
+            ln.paid_to = " · ".join(dest_parts)[:256]
+        else:
+            warnings.append(
+                f"{ln.employee_name or ln.entity_id}: no bank account on file — "
+                f"add their bank details on the entity so payslips show the destination."
+            )
     db.commit()
     db.refresh(run)
-    return _run_read(run)
+    out = _run_read(run)
+    out["warnings"] = warnings
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -601,6 +629,52 @@ def payslip_pdf(run_id: UUID, entity_id: UUID, db: Session = Depends(get_db)):
         content=pdf, media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="payslip-{(line.employee_name or "employee").replace(" ", "_")}.pdf"'},
     )
+
+
+@router.get("/my-payslips")
+def my_payslips(db: Session = Depends(get_db)) -> dict:
+    """Self-service 'My pay': the caller's own payslips across runs — period,
+    gross, net, pay date, status, paid-to — newest first.
+
+    Object-scoped: an Employee (PAYROLL_OWN) sees only the entity linked to
+    their user; payroll/books roles see their own linked entity too (the full
+    runs list already serves the everyone view). An unlinked user gets an empty
+    list with a hint, never someone else's pay.
+    """
+    from app.core.request_context import get_current_actor
+    actor = get_current_actor()
+    own = getattr(actor, "entity_id", None) if actor else None
+    if not own:
+        return {"entity_id": None, "payslips": [],
+                "note": "Your login is not linked to an employee record — ask an owner to link it."}
+    try:
+        own = own if isinstance(own, UUID) else UUID(str(own))
+    except (ValueError, TypeError):
+        return {"entity_id": None, "payslips": []}
+    rows = db.execute(
+        select(PayRunLine, PayRun)
+        .join(PayRun, PayRunLine.run_id == PayRun.id)
+        .where(PayRunLine.entity_id == own, PayRun.status != "void")
+        .order_by(PayRun.pay_date.desc())
+    ).all()
+    return {
+        "entity_id": str(own),
+        "payslips": [
+            {
+                "run_id": str(run.id),
+                "period_start": run.period_start.isoformat(),
+                "period_end": run.period_end.isoformat(),
+                "pay_date": run.pay_date.isoformat(),
+                "currency": run.currency,
+                "status": run.status,  # draft | posted | paid — paid ⇒ money sent on pay_date
+                "gross": int(ln.gross or 0),
+                "net_pay": int(ln.net_pay or 0),
+                "paid_to": getattr(ln, "paid_to", None),
+                "entity_id": str(ln.entity_id),
+            }
+            for ln, run in rows
+        ],
+    }
 
 
 @router.get("/year-summary")

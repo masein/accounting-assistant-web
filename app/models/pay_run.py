@@ -81,6 +81,10 @@ class PayRunLine(Base, TenantMixin):
     income_tax: Mapped[int] = mapped_column(BigInteger, default=0)
     social_security: Mapped[int] = mapped_column(BigInteger, default=0)
     net_pay: Mapped[int] = mapped_column(BigInteger, default=0)
+    # Snapshot of WHERE the net pay was disbursed, taken at pay time from the
+    # employee entity's bank fields (e.g. "Bank Melli · IR12…"). Kept on the
+    # line so the payslip stays correct even if the employee's bank changes.
+    paid_to: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

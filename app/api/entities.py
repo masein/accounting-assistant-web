@@ -119,6 +119,7 @@ def create_entity(
     )
     for f in ("legal_name", "address", "email", "phone", "website", "tax_id",
               "economic_code", "national_id", "province", "city", "postal_code",
+              "bank_name", "account_holder", "account_number", "iban", "sort_code",
               "contact_person", "payment_terms", "currency", "notes"):
         setattr(entity, f, getattr(payload, f, None))
     db.add(entity)
@@ -211,6 +212,7 @@ def update_entity(
         entity.code = payload.code.strip() or None
     for f in ("legal_name", "address", "email", "phone", "website", "tax_id",
               "economic_code", "national_id", "province", "city", "postal_code",
+              "bank_name", "account_holder", "account_number", "iban", "sort_code",
               "contact_person", "payment_terms", "currency", "notes"):
         val = getattr(payload, f, None)
         if val is not None:

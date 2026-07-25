@@ -372,30 +372,40 @@ def reset_db(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}") from e
 
-    n = seed_chart_if_empty(db, locale=locale_norm)
-    seed_payment_methods_if_empty(db)
-    seed_admin_user_if_missing(db)
-    from app.services.tax_rate_service import seed_tax_rates
-    seed_tax_rates(db)
+    # The wipe is committed; any failure from here on must still surface its
+    # actual reason as JSON (an unhandled exception renders FastAPI's plain
+    # 500 and the UI can only say "Reset failed.").
+    try:
+        n = seed_chart_if_empty(db, locale=locale_norm)
+        seed_payment_methods_if_empty(db)
+        seed_admin_user_if_missing(db)
+        from app.services.tax_rate_service import seed_tax_rates
+        seed_tax_rates(db)
 
-    # Align the reporting-locale AppSetting with the chart we just seeded.
-    set_reporting_locale(db, "uk" if locale_norm == "uk" else "ir")
-    # Also align the reporting CURRENCY — otherwise the user loads the UK
-    # demo (which posts GBP transactions) but every report keeps filtering
-    # by the previous reporting currency (typically IRR) and shows £0
-    # everywhere. The reporting_currency AppSetting isn't cleared by the
-    # business-table wipe above, so we must overwrite it explicitly.
-    from app.services.fx_service import set_reporting_currency
-    set_reporting_currency(db, "GBP" if locale_norm == "uk" else "IRR")
-    db.commit()
+        # Align the reporting-locale AppSetting with the chart we just seeded.
+        set_reporting_locale(db, "uk" if locale_norm == "uk" else "ir")
+        # Also align the reporting CURRENCY — otherwise the user loads the UK
+        # demo (which posts GBP transactions) but every report keeps filtering
+        # by the previous reporting currency (typically IRR) and shows £0
+        # everywhere. The reporting_currency AppSetting isn't cleared by the
+        # business-table wipe above, so we must overwrite it explicitly.
+        from app.services.fx_service import set_reporting_currency
+        set_reporting_currency(db, "GBP" if locale_norm == "uk" else "IRR")
+        db.commit()
 
-    demo_entries = 0
-    if with_demo_data:
-        from app.db.demo_data import seed_iran_demo, seed_uk_demo
-        if locale_norm == "uk":
-            demo_entries = seed_uk_demo(db)
-        else:
-            demo_entries = seed_iran_demo(db)
+        demo_entries = 0
+        if with_demo_data:
+            from app.db.demo_data import seed_iran_demo, seed_uk_demo
+            if locale_norm == "uk":
+                demo_entries = seed_uk_demo(db)
+            else:
+                demo_entries = seed_iran_demo(db)
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Reset wiped the data but re-seeding failed: {str(e)[:500]}",
+        ) from e
 
     return {
         "ok": True,

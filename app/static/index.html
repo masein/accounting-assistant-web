@@ -969,7 +969,14 @@
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;" data-i18n="aiAccountantSubtitle">
         Tell the assistant in plain English what you want to record, look up, or review. The assistant proposes structured actions — you confirm them with one click. Every write is audited and can be undone for 30 seconds.
       </p>
-      <div class="chat-panel" style="min-height: 480px; display:flex; flex-direction:column; gap:0.6rem;">
+      <div style="display:flex; gap:0.75rem; align-items:stretch;">
+        <aside id="ai-acct-sidebar" style="width:230px; flex-shrink:0; display:flex; flex-direction:column; gap:0.5rem; border:1px solid var(--border); border-radius:8px; padding:0.5rem; max-height:70vh;">
+          <button type="button" class="btn btn-secondary btn-sm" id="ai-acct-new-chat" data-i18n="chatNewBtn">+ New chat</button>
+          <input type="search" id="ai-acct-session-search" data-i18n-placeholder="chatSearchPlaceholder" placeholder="Search chats…" autocomplete="off" style="width:100%;">
+          <div id="ai-acct-session-list" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:0.25rem;"></div>
+        </aside>
+      <div class="chat-panel" style="min-height: 480px; flex:1; min-width:0; display:flex; flex-direction:column; gap:0.6rem; position:relative;">
+        <div id="ai-acct-dropzone" style="display:none; position:absolute; inset:0; z-index:5; background:rgba(15,118,110,0.12); border:3px dashed var(--primary,#0f766e); border-radius:12px; align-items:center; justify-content:center; font-weight:600; font-size:1.05rem; color:var(--primary,#0f766e); pointer-events:none;" data-i18n="chatDropHint">Drop files to attach</div>
         <div id="ai-acct-messages" style="flex:1; overflow-y:auto; padding:0.6rem; background:#fafafa; border:1px solid var(--border); border-radius:8px; min-height:300px; max-height:60vh;"></div>
         <div style="display:flex; gap:0.4rem; flex-wrap:wrap;" id="ai-acct-quick-actions">
           <button type="button" class="chip" data-msg="What's my cash balance?" data-i18n="aiChipCashBalance">Cash balance</button>
@@ -983,13 +990,14 @@
         <!-- Uploaded invoice/receipt chips for the next chat turn -->
         <div id="ai-acct-attachments" style="display:none; flex-wrap:wrap; gap:0.4rem;"></div>
         <div class="chat-input-wrap" style="display:flex; gap:0.4rem; align-items:center;">
-          <input type="file" id="ai-acct-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;" aria-hidden="true">
+          <input type="file" id="ai-acct-file" accept=".csv,.tsv,.xls,.xlsx,image/jpeg,image/png,image/webp,application/pdf" multiple style="display:none;" aria-hidden="true">
           <button type="button" class="btn btn-secondary" id="ai-acct-attach" data-i18n-title="aiChatAttachTitle" title="Attach an invoice or receipt" aria-label="Attach an invoice or receipt">📎</button>
           <input type="text" id="ai-acct-input" data-i18n-placeholder="aiChatInputPlaceholder" placeholder="e.g. paid HSBC 1,000 yesterday for office supplies" autocomplete="off" style="flex:1;" aria-label="Message">
           <button type="button" class="btn btn-primary" id="ai-acct-send" data-i18n="send">Send</button>
           <button type="button" class="btn btn-secondary" id="ai-acct-new-session" data-i18n-title="aiChatNewTitle" title="Start a new conversation" aria-label="Start a new conversation">💬</button>
         </div>
         <div id="ai-acct-status" style="font-size:0.8rem;color:var(--text-muted);min-height:1em;"></div>
+      </div>
       </div>
     </div>
 
@@ -3971,6 +3979,27 @@
     };
     const I18N_EXTRA = {
       en: {
+        chatNewBtn: "+ New chat",
+        chatSearchPlaceholder: "Search chats…",
+        chatSessionsEmpty: "No chats yet — say hello!",
+        chatUntitled: "Untitled chat",
+        chatRename: "Rename",
+        chatDelete: "Delete",
+        chatDeleteConfirm: "Delete this chat? Its history is archived, not destroyed.",
+        chatDropHint: "Drop files to attach",
+        chatTimeNow: "just now",
+        chatTimeMin: "min ago",
+        chatTimeHour: "h ago",
+        chatTimeDay: "d ago",
+        chatIntakeChartTitle: "Looks like a chart-of-accounts export — preview below",
+        chatIntakeTxnTitle: "Looks like a transaction list",
+        chatIntakeConfirm: "Confirm & apply",
+        chatIntakeApplied: "Applied",
+        chatIntakeAlreadyApplied: "These exact files were already imported — confirming re-applies as an update (no duplicates).",
+        chatIntakeMissingTiers: "Missing from the 4-file set:",
+        chatIntakeRows: "rows",
+        chatIntakeVouchers: "voucher(s)",
+        chatIntakeUnmapped: "unmapped account(s)",
         migrationNav: "Migration",
         migrationTitle: "Migrate from another system",
         migrationIntro: "Import the chart of accounts (گروه / کل / معین), the تفصیلی accounts (banks & counterparties) and opening balances exported from your previous accounting system. Nothing is written until you confirm the preview.",
@@ -4956,6 +4985,27 @@
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
       fa: {
+        chatNewBtn: "+ گفتگوی جدید",
+        chatSearchPlaceholder: "جستجوی گفتگوها…",
+        chatSessionsEmpty: "هنوز گفتگویی نیست — شروع کنید!",
+        chatUntitled: "گفتگوی بی‌نام",
+        chatRename: "تغییر نام",
+        chatDelete: "حذف",
+        chatDeleteConfirm: "این گفتگو حذف شود؟ تاریخچه بایگانی می‌شود، از بین نمی‌رود.",
+        chatDropHint: "فایل‌ها را برای پیوست رها کنید",
+        chatTimeNow: "همین حالا",
+        chatTimeMin: "دقیقه پیش",
+        chatTimeHour: "ساعت پیش",
+        chatTimeDay: "روز پیش",
+        chatIntakeChartTitle: "به نظر خروجی کدینگ حساب‌هاست — پیش‌نمایش در ادامه",
+        chatIntakeTxnTitle: "به نظر فهرست تراکنش‌هاست",
+        chatIntakeConfirm: "تأیید و اعمال",
+        chatIntakeApplied: "اعمال شد",
+        chatIntakeAlreadyApplied: "همین فایل‌ها قبلاً وارد شده‌اند — تأیید دوباره فقط به‌روزرسانی است (بدون تکرار).",
+        chatIntakeMissingTiers: "از مجموعهٔ ۴ فایل، این‌ها کم است:",
+        chatIntakeRows: "ردیف",
+        chatIntakeVouchers: "سند",
+        chatIntakeUnmapped: "حساب نگاشت‌نشده",
         migrationNav: "مهاجرت از سیستم قبلی",
         migrationTitle: "مهاجرت از نرم‌افزار حسابداری قبلی",
         migrationIntro: "کدینگ حساب‌ها (گروه / کل / معین)، حساب‌های تفصیلی (بانک‌ها و طرف‌های مقابل) و مانده‌های افتتاحیه را از خروجی سیستم قبلی وارد کنید. تا زمان تأیید پیش‌نمایش چیزی ثبت نمی‌شود.",
@@ -5938,6 +5988,27 @@
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
       es: {
+        chatNewBtn: "+ Nuevo chat",
+        chatSearchPlaceholder: "Buscar chats…",
+        chatSessionsEmpty: "Aún no hay chats — ¡saluda!",
+        chatUntitled: "Chat sin título",
+        chatRename: "Renombrar",
+        chatDelete: "Eliminar",
+        chatDeleteConfirm: "¿Eliminar este chat? Su historial se archiva, no se destruye.",
+        chatDropHint: "Suelta los archivos para adjuntar",
+        chatTimeNow: "ahora mismo",
+        chatTimeMin: "min atrás",
+        chatTimeHour: "h atrás",
+        chatTimeDay: "d atrás",
+        chatIntakeChartTitle: "Parece una exportación del plan de cuentas — vista previa abajo",
+        chatIntakeTxnTitle: "Parece una lista de transacciones",
+        chatIntakeConfirm: "Confirmar y aplicar",
+        chatIntakeApplied: "Aplicado",
+        chatIntakeAlreadyApplied: "Estos mismos archivos ya se importaron — confirmar de nuevo solo actualiza (sin duplicados).",
+        chatIntakeMissingTiers: "Falta del juego de 4 archivos:",
+        chatIntakeRows: "filas",
+        chatIntakeVouchers: "asiento(s)",
+        chatIntakeUnmapped: "cuenta(s) sin mapear",
         migrationNav: "Migración",
         migrationTitle: "Migrar desde otro sistema",
         migrationIntro: "Importe el plan de cuentas (گروه / کل / معین), las cuentas تفصیلی (bancos y contrapartes) y los saldos de apertura exportados de su sistema contable anterior. No se escribe nada hasta que confirme la vista previa.",
@@ -6903,6 +6974,27 @@
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
       ar: {
+        chatNewBtn: "+ محادثة جديدة",
+        chatSearchPlaceholder: "البحث في المحادثات…",
+        chatSessionsEmpty: "لا محادثات بعد — ابدأ الآن!",
+        chatUntitled: "محادثة بلا عنوان",
+        chatRename: "إعادة تسمية",
+        chatDelete: "حذف",
+        chatDeleteConfirm: "حذف هذه المحادثة؟ يُؤرشف سجلها ولا يُدمَّر.",
+        chatDropHint: "أفلت الملفات لإرفاقها",
+        chatTimeNow: "الآن",
+        chatTimeMin: "دقيقة مضت",
+        chatTimeHour: "ساعة مضت",
+        chatTimeDay: "يوم مضى",
+        chatIntakeChartTitle: "يبدو أنه تصدير دليل الحسابات — المعاينة أدناه",
+        chatIntakeTxnTitle: "يبدو أنه قائمة معاملات",
+        chatIntakeConfirm: "تأكيد وتطبيق",
+        chatIntakeApplied: "تم التطبيق",
+        chatIntakeAlreadyApplied: "هذه الملفات نفسها استُوردت سابقًا — التأكيد مجددًا يحدّث فقط (بلا تكرار).",
+        chatIntakeMissingTiers: "ناقص من مجموعة الملفات الأربعة:",
+        chatIntakeRows: "صفوف",
+        chatIntakeVouchers: "قيد/قيود",
+        chatIntakeUnmapped: "حساب/حسابات غير مربوطة",
         migrationNav: "الترحيل من نظام سابق",
         migrationTitle: "الترحيل من برنامج محاسبة آخر",
         migrationIntro: "استورد دليل الحسابات (گروه / کل / معین) والحسابات التفصيلية (البنوك والأطراف المقابلة) والأرصدة الافتتاحية من مخرجات نظامك المحاسبي السابق. لا يُسجَّل شيء حتى تؤكد المعاينة.",
@@ -16819,35 +16911,169 @@
       if (!messagesEl || !sendBtn) return;
 
       let sessionId = null;
-      // Restore the newest chat session after a refresh so the conversation
-      // (and its context) isn't lost — the backend has kept it all along.
-      async function restoreHistory() {
+      // ─── ChatGPT-style sessions sidebar ───
+      const sessionListEl = document.getElementById('ai-acct-session-list');
+      const sessionSearchEl = document.getElementById('ai-acct-session-search');
+      const newChatBtn = document.getElementById('ai-acct-new-chat');
+      let _sessionsCache = [];
+      let _searchTimer = null;
+
+      function _relTime(iso) {
         try {
-          const sres = await fetch(API + '/ai-accountant/sessions');
-          if (!sres.ok) return;
-          const sessions = await sres.json().catch(() => []);
-          if (!Array.isArray(sessions) || !sessions.length) return;
-          const latest = sessions[0];  // newest first
-          const mres = await fetch(API + '/ai-accountant/sessions/' + encodeURIComponent(latest.id) + '/messages');
+          const d = new Date(iso);
+          const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+          if (mins < 1) return t('chatTimeNow');
+          if (mins < 60) return mins + ' ' + t('chatTimeMin');
+          const hrs = Math.floor(mins / 60);
+          if (hrs < 24) return hrs + ' ' + t('chatTimeHour');
+          return Math.floor(hrs / 24) + ' ' + t('chatTimeDay');
+        } catch (_) { return ''; }
+      }
+      function _highlight(text, q) {
+        const safe = escapeHtml(text);
+        if (!q) return safe;
+        const idx = safe.toLowerCase().indexOf(escapeHtml(q).toLowerCase());
+        if (idx < 0) return safe;
+        return safe.slice(0, idx) + '<mark>' + safe.slice(idx, idx + q.length) + '</mark>' + safe.slice(idx + q.length);
+      }
+      async function loadSessions(q) {
+        if (!sessionListEl) return;
+        try {
+          const url = API + '/ai-accountant/sessions' + (q ? ('?q=' + encodeURIComponent(q)) : '');
+          const res = await fetch(url);
+          if (!res.ok) return;
+          _sessionsCache = await res.json().catch(() => []);
+          renderSessionList(q || '');
+        } catch (_) { /* sidebar is best-effort */ }
+      }
+      function renderSessionList(q) {
+        if (!sessionListEl) return;
+        sessionListEl.innerHTML = '';
+        if (!_sessionsCache.length) {
+          sessionListEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;padding:0.4rem;">' + escapeHtml(t('chatSessionsEmpty')) + '</div>';
+          return;
+        }
+        _sessionsCache.forEach((sess) => {
+          const item = document.createElement('div');
+          const active = sess.id === sessionId;
+          item.style.cssText = 'display:flex;flex-direction:column;gap:0.1rem;padding:0.4rem 0.5rem;border-radius:6px;cursor:pointer;'
+            + (active ? 'background:var(--primary,#0f766e);color:#fff;' : 'background:transparent;');
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:0.3rem;';
+          const title = document.createElement('span');
+          title.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.85rem;';
+          title.innerHTML = _highlight(sess.title || t('chatUntitled'), q);
+          row.appendChild(title);
+          const ren = document.createElement('button');
+          ren.type = 'button'; ren.textContent = '✎'; ren.title = t('chatRename');
+          ren.style.cssText = 'border:none;background:none;cursor:pointer;font-size:0.8rem;color:inherit;opacity:0.7;padding:0;';
+          ren.addEventListener('click', (e) => { e.stopPropagation(); startInlineRename(item, title, sess); });
+          row.appendChild(ren);
+          const del = document.createElement('button');
+          del.type = 'button'; del.textContent = '🗑'; del.title = t('chatDelete');
+          del.style.cssText = ren.style.cssText;
+          del.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!window.confirm(t('chatDeleteConfirm'))) return;
+            await fetch(API + '/ai-accountant/sessions/' + encodeURIComponent(sess.id), { method: 'DELETE' });
+            if (sess.id === sessionId) { sessionId = null; messagesEl.innerHTML = ''; }
+            loadSessions(sessionSearchEl ? sessionSearchEl.value.trim() : '');
+          });
+          row.appendChild(del);
+          item.appendChild(row);
+          const meta = document.createElement('div');
+          meta.style.cssText = 'font-size:0.7rem;opacity:0.75;display:flex;gap:0.4rem;';
+          meta.textContent = _relTime(sess.updated_at);
+          item.appendChild(meta);
+          if (sess.match_snippet) {
+            const snip = document.createElement('div');
+            snip.style.cssText = 'font-size:0.72rem;opacity:0.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+            snip.innerHTML = _highlight(sess.match_snippet, q);
+            item.appendChild(snip);
+          }
+          item.addEventListener('click', () => openSession(sess.id));
+          sessionListEl.appendChild(item);
+        });
+      }
+      function startInlineRename(item, titleEl, sess) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = sess.title || '';
+        input.style.cssText = 'flex:1;font-size:0.85rem;min-width:0;';
+        titleEl.replaceWith(input);
+        input.focus();
+        input.select();
+        const commit = async () => {
+          const val = input.value.trim();
+          if (val && val !== sess.title) {
+            await fetch(API + '/ai-accountant/sessions/' + encodeURIComponent(sess.id), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: val }),
+            });
+          }
+          loadSessions(sessionSearchEl ? sessionSearchEl.value.trim() : '');
+        };
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+          if (e.key === 'Escape') { input.removeEventListener('blur', commit); loadSessions(''); }
+        });
+        input.addEventListener('blur', commit);
+      }
+      function _renderStoredMessages(msgs) {
+        messagesEl.innerHTML = '';
+        msgs.forEach((m) => {
+          const c = m.content || {};
+          const text = (typeof c.text === 'string' && c.text.trim())
+            ? c.text
+            : (typeof c.content === 'string' ? c.content : null);  // legacy shape
+          if (!text) return;  // skip tool turns / empty tool-call turns
+          if (m.role === 'user') appendBubble('user', text);
+          else if (m.role === 'assistant') appendBubble('assistant', text);
+        });
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+      async function openSession(id) {
+        try {
+          const mres = await fetch(API + '/ai-accountant/sessions/' + encodeURIComponent(id) + '/messages');
           if (!mres.ok) return;
           const msgs = await mres.json().catch(() => []);
-          let rendered = 0;
-          msgs.forEach((m) => {
-            const c = m.content || {};
-            const text = (typeof c.text === 'string' && c.text.trim())
-              ? c.text
-              : (typeof c.content === 'string' ? c.content : null);  // legacy shape
-            if (!text) return;  // skip tool turns / empty tool-call turns
-            if (m.role === 'user') { appendBubble('user', text); rendered++; }
-            else if (m.role === 'assistant') { appendBubble('assistant', text); rendered++; }
-          });
-          if (rendered) {
-            sessionId = latest.id;  // continue the same conversation
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-          }
-        } catch (_) { /* fresh chat if history can't load */ }
+          sessionId = id;
+          pendingAttachments = [];
+          renderPendingAttachments();
+          _renderStoredMessages(msgs);
+          renderSessionList(sessionSearchEl ? sessionSearchEl.value.trim() : '');
+        } catch (_) { /* keep current view */ }
       }
-      restoreHistory();
+      async function startNewChat() {
+        try {
+          const res = await fetch(API + '/ai-accountant/sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          });
+          const data = await res.json().catch(() => null);
+          sessionId = (res.ok && data && data.id) ? data.id : null;
+        } catch (_) { sessionId = null; }
+        messagesEl.innerHTML = '';
+        pendingAttachments = [];
+        renderPendingAttachments();
+        statusEl.textContent = t('aiChatNewStarted');
+        loadSessions('');
+      }
+      if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
+      if (sessionSearchEl) {
+        sessionSearchEl.addEventListener('input', () => {
+          clearTimeout(_searchTimer);
+          _searchTimer = setTimeout(() => loadSessions(sessionSearchEl.value.trim()), 300);
+        });
+      }
+      // Restore the newest chat session after a refresh so the conversation
+      // (and its context) isn't lost — the backend has kept it all along.
+      (async function restoreLatest() {
+        await loadSessions('');
+        if (_sessionsCache.length) await openSession(_sessionsCache[0].id);
+      })();
       const undoTimers = {};  // audit_log_id → timeout handle
       // Quick one-click undo countdown; matches UNDO_WINDOW in execute_service
       // (AI-7). After it elapses the button becomes a persistent reverse.
@@ -16856,7 +17082,21 @@
       // the AttachmentRead returned by POST /transactions/attachments.
       let pendingAttachments = [];
       const MAX_ATTACH_BYTES = 8 * 1024 * 1024;
-      const ALLOWED_ATTACH_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      const ALLOWED_ATTACH_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf',
+        'text/csv', 'application/csv', 'text/tab-separated-values',
+        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+      const ALLOWED_ATTACH_EXTENSIONS = ['.csv', '.tsv', '.xls', '.xlsx', '.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+      function _attachTypeOk(file) {
+        if (ALLOWED_ATTACH_TYPES.includes(file.type)) return true;
+        const name = (file.name || '').toLowerCase();
+        return ALLOWED_ATTACH_EXTENSIONS.some((ext) => name.endsWith(ext));
+      }
+      function _fmtSize(bytes) {
+        if (!bytes && bytes !== 0) return '';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      }
 
       function renderPendingAttachments() {
         if (!attachmentsEl) return;
@@ -16867,9 +17107,11 @@
           const chip = document.createElement('span');
           chip.style.cssText = 'display:inline-flex; align-items:center; gap:0.35rem; padding:0.2rem 0.55rem; background:#eef2ff; border:1px solid #c7d2fe; border-radius:14px; font-size:0.8rem; max-width:240px;';
           const isImg = (att.content_type || '').startsWith('image/');
+          const isSheet = /csv|excel|spreadsheet|tab-separated/.test(att.content_type || '');
           const name = document.createElement('span');
           name.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
-          name.textContent = (isImg ? '🖼 ' : '📄 ') + (att.file_name || 'document');
+          const size = _fmtSize(att.size_bytes);
+          name.textContent = (isImg ? '🖼 ' : (isSheet ? '📊 ' : '📄 ')) + (att.file_name || 'document') + (size ? ' · ' + size : '');
           chip.appendChild(name);
           const rm = document.createElement('button');
           rm.type = 'button';
@@ -16888,7 +17130,7 @@
 
       async function handleAttachFile(file) {
         if (!file) return;
-        if (!ALLOWED_ATTACH_TYPES.includes(file.type)) {
+        if (!_attachTypeOk(file)) {
           showAlert(t('aiChatAttachBadType'), true);
           return;
         }
@@ -17044,6 +17286,103 @@
         messagesEl.appendChild(wrap);
         messagesEl.scrollTop = messagesEl.scrollHeight;
         return wrap;
+      }
+
+      // ─── Smart-intake cards (spreadsheet drops) ───
+      function appendIntakeCard(intake) {
+        const card = document.createElement('div');
+        card.style.cssText = 'margin:0.5rem 0; border:1px solid var(--primary,#0f766e); border-inline-start:4px solid var(--primary,#0f766e); border-radius:8px; padding:0.7rem; background:#f0fdfa; font-size:0.88rem;';
+        const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : n);
+        let html = '';
+        if (intake.kind === 'chart_export') {
+          const sm = intake.summary || {};
+          const tiers = sm.tiers || {};
+          const split = sm.tafsili_split || {};
+          const op = sm.opening || {};
+          const tierLabels = { group: t('migrationTierGroups'), kol: t('migrationTierKol'), moein: t('migrationTierMoein'), tafsili: t('migrationTierTafsili') };
+          html += '<div style="font-weight:600;margin-bottom:0.3rem;">' + escapeHtml(t('chatIntakeChartTitle')) + '</div>';
+          html += '<div style="display:flex;gap:1rem;flex-wrap:wrap;">'
+            + Object.keys(tiers).map((k) => '<span><strong>' + fmt(tiers[k]) + '</strong> ' + escapeHtml(tierLabels[k] || k) + '</span>').join('')
+            + '<span><strong>' + fmt(split.bank_accounts || 0) + '</strong> ' + escapeHtml(t('migrationBankAccounts')) + '</span>'
+            + '<span><strong>' + fmt(split.counterparties || 0) + '</strong> ' + escapeHtml(t('migrationCounterparties')) + '</span>'
+            + '</div>';
+          html += '<div style="margin-top:0.3rem;">' + escapeHtml(t('migrationOpeningTotals')) + ': <strong>' + fmt(op.total_debit || 0) + '</strong> / <strong>' + fmt(op.total_credit || 0) + '</strong> — '
+            + (op.balanced ? '<span style="color:var(--success,#28a745);">' + escapeHtml(t('migrationBalancedYes')) + '</span>'
+                           : '<span style="color:var(--danger,#dc3545);">' + escapeHtml(t('migrationBalancedNo')) + '</span>')
+            + '</div>';
+          if ((intake.missing_tiers || []).length) {
+            const tl = intake.missing_tiers.map((k) => tierLabels[k] || k).join('، ');
+            html += '<div style="color:var(--text-muted);margin-top:0.25rem;">' + escapeHtml(t('chatIntakeMissingTiers')) + ' ' + escapeHtml(tl) + '</div>';
+          }
+          if (intake.already_applied) {
+            html += '<div style="color:var(--text-muted);margin-top:0.25rem;">' + escapeHtml(t('chatIntakeAlreadyApplied')) + '</div>';
+          }
+          const warns = ((sm.validation || {}).warnings || []);
+          if (warns.length) {
+            html += '<div style="color:var(--text-muted);margin-top:0.25rem;font-size:0.8rem;">' + warns.map(escapeHtml).join('<br>') + '</div>';
+          }
+        } else if (intake.kind === 'transactions') {
+          html += '<div style="font-weight:600;margin-bottom:0.3rem;">' + escapeHtml(t('chatIntakeTxnTitle')) + '</div>';
+          html += '<div>' + fmt(intake.total_rows) + ' ' + escapeHtml(t('chatIntakeRows')) + ' · '
+            + fmt(intake.total_vouchers) + ' ' + escapeHtml(t('chatIntakeVouchers'))
+            + (intake.unmapped_accounts ? ' · <span style="color:var(--danger,#dc3545);">' + fmt(intake.unmapped_accounts) + ' ' + escapeHtml(t('chatIntakeUnmapped')) + '</span>' : '')
+            + '</div>';
+          const errs = intake.errors || [];
+          if (errs.length) {
+            html += '<div style="color:var(--danger,#dc3545);margin-top:0.25rem;font-size:0.8rem;">' + errs.slice(0, 5).map(escapeHtml).join('<br>') + '</div>';
+          }
+        }
+        card.innerHTML = html;
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'margin-top:0.5rem;display:flex;gap:0.5rem;';
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'btn btn-primary btn-sm';
+        confirmBtn.textContent = t('chatIntakeConfirm');
+        confirmBtn.addEventListener('click', async () => {
+          confirmBtn.disabled = true;
+          try {
+            let res, data;
+            if (intake.kind === 'chart_export') {
+              res = await fetch(API + '/migration/import/confirm', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: intake.token, opening_date: intake.default_opening_date || undefined }),
+              });
+              data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : ((data.detail || {}).message || 'failed'));
+              const r = data.result || {};
+              const chart = r.chart || {};
+              const created = ['group', 'kol', 'moein'].reduce((a, k) => a + ((chart[k] || {}).created || 0), 0);
+              const ents = r.entities || {};
+              appendBubble('assistant', t('chatIntakeApplied') + ' — ' + created + ' ' + t('migrationAccountsCreated')
+                + ', ' + ((ents.banks_created || 0) + (ents.counterparties_created || 0)) + ' ' + t('migrationEntitiesCreated')
+                + '. ' + t('migrationJournalPosted') + ': ' + ((r.opening_journal || {}).opening_date || ''));
+            } else {
+              res = await fetch(API + '/transactions/excel-import/confirm', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  file_token: intake.file_token,
+                  jalali_year: intake.jalali_year,
+                  account_mappings: intake.account_mappings || [],
+                  amount_multiplier: 1,
+                  currency: 'IRR',
+                }),
+              });
+              data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'failed');
+              appendBubble('assistant', t('chatIntakeApplied') + ' — ' + (data.imported || 0) + ' ' + t('chatIntakeVouchers')
+                + ((data.errors || []).length ? ' · ' + data.errors.slice(0, 3).join(' | ') : ''));
+            }
+            confirmBtn.textContent = '✓';
+          } catch (e) {
+            appendBubble('assistant', '[error] ' + e.message);
+            confirmBtn.disabled = false;
+          }
+        });
+        btnRow.appendChild(confirmBtn);
+        card.appendChild(btnRow);
+        messagesEl.appendChild(card);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
       function appendProposalCard(proposal) {
@@ -17264,7 +17603,9 @@
           for (const proposal of (data.proposals || [])) {
             appendProposalCard(proposal);
           }
+          if (data.intake) appendIntakeCard(data.intake);
           statusEl.textContent = tf('aiChatStatusCounter', { turns: data.turns, calls: (data.tool_calls || []).length });
+          loadSessions(sessionSearchEl ? sessionSearchEl.value.trim() : '');
         } catch (e) {
           hideTypingIndicator(typingEl);
           appendBubble('assistant', '[error] ' + e.message);
@@ -17284,20 +17625,61 @@
       });
       if (attachBtn && fileInput) {
         attachBtn.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', () => {
-          const file = fileInput.files && fileInput.files[0];
-          if (file) handleAttachFile(file);
-          fileInput.value = '';  // allow re-selecting the same file
+        fileInput.addEventListener('change', async () => {
+          const files = Array.from(fileInput.files || []);
+          for (const f of files) await handleAttachFile(f);
+          fileInput.value = '';  // allow re-selecting the same files
         });
       }
-      if (newSessionBtn) {
-        newSessionBtn.addEventListener('click', () => {
-          sessionId = null;
-          messagesEl.innerHTML = '';
-          pendingAttachments = [];
-          renderPendingAttachments();
-          statusEl.textContent = t('aiChatNewStarted');
+      // ─── Drag & drop: upload the File bytes, never paste the path ───
+      (function wireDropZone() {
+        const panel = messagesEl ? messagesEl.closest('.chat-panel') : null;
+        const overlay = document.getElementById('ai-acct-dropzone');
+        const card = document.querySelector('.card[data-page="ai-accountant"]');
+        if (!panel || !card) return;
+        let dragDepth = 0;
+        function showOverlay(on) {
+          if (overlay) overlay.style.display = on ? 'flex' : 'none';
+        }
+        card.addEventListener('dragenter', (e) => {
+          if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes('Files')) return;
+          e.preventDefault();
+          dragDepth++;
+          showOverlay(true);
         });
+        card.addEventListener('dragover', (e) => {
+          e.preventDefault();  // REQUIRED: without this the browser opens/pastes the file path
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        });
+        card.addEventListener('dragleave', (e) => {
+          e.preventDefault();
+          dragDepth = Math.max(0, dragDepth - 1);
+          if (!dragDepth) showOverlay(false);
+        });
+        card.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dragDepth = 0;
+          showOverlay(false);
+          const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+          for (const f of files) await handleAttachFile(f);
+        });
+        // Anywhere else on the page a stray drop must not navigate away /
+        // paste a filesystem path.
+        window.addEventListener('dragover', (e) => e.preventDefault());
+        window.addEventListener('drop', (e) => e.preventDefault());
+        // Cmd/Ctrl-V of a copied file attaches it too.
+        if (inputEl) {
+          inputEl.addEventListener('paste', async (e) => {
+            const files = Array.from((e.clipboardData && e.clipboardData.files) || []);
+            if (!files.length) return;
+            e.preventDefault();
+            for (const f of files) await handleAttachFile(f);
+          });
+        }
+      })();
+      if (newSessionBtn) {
+        newSessionBtn.addEventListener('click', startNewChat);
       }
       if (quickActions) {
         quickActions.querySelectorAll('.chip').forEach((chip) => {

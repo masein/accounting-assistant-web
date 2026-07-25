@@ -200,6 +200,14 @@ for _m, _p in [
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 
+# --- AI chat sessions (ChatGPT-style sidebar) --------------------------------
+for _m, _p in [
+    ("POST", "/ai-accountant/sessions"),
+    ("PATCH", "/ai-accountant/sessions/{session_id}"),
+    ("DELETE", "/ai-accountant/sessions/{session_id}"),
+]:
+    _add(_m, _p, Perm.BOOKS_WRITE)
+
 # --- Books: migration from another accounting system (Owner/Accountant only) -
 for _m, _p in [
     ("POST", "/migration/import/preview"),

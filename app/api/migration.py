@@ -71,32 +71,8 @@ async def migration_import_preview(
             raise HTTPException(status_code=400, detail=f"No data rows found in {name}")
         parsed.append((name, rows))
 
-    payload, summary = mig.build_preview(parsed)
     token = hasher.hexdigest()[:32]
-
-    already_applied = False
-    batch = db.execute(
-        select(MigrationBatch).where(MigrationBatch.token == token)
-    ).scalars().first()
-    if batch is not None and batch.status == "applied":
-        already_applied = True
-        summary["validation"]["warnings"].append(
-            "These exact files were already imported — confirming again re-applies as an update (no duplicates)."
-        )
-        batch.status = "pending"
-        batch.payload = payload
-        batch.summary = summary
-    elif batch is not None:
-        batch.payload = payload
-        batch.summary = summary
-        batch.source_files = summary["files"]
-    else:
-        batch = MigrationBatch(
-            token=token, status="pending", payload=payload,
-            summary=summary, source_files=summary["files"],
-        )
-        db.add(batch)
-    db.flush()
+    batch, summary, already_applied = mig.stage_preview_batch(db, parsed, token)
     log_audit_event(
         db, "migration_import_preview", "migration_batch", entity_id=str(batch.id),
         detail=json.dumps({"files": summary["files"], "tiers": summary["tiers"]}, ensure_ascii=False),

@@ -10,9 +10,31 @@ _MAGIC_SIGNATURES: dict[str, list[tuple[bytes, int]]] = {
     "image/png": [(b"\x89PNG\r\n\x1a\n", 0)],
     "image/webp": [(b"RIFF", 0), (b"WEBP", 8)],  # Must match BOTH
     "application/pdf": [(b"%PDF", 0)],
+    # .xlsx is a ZIP container; legacy binary .xls is an OLE2 compound file.
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [(b"PK", 0)],
 }
 
-ALLOWED_TYPES = set(_MAGIC_SIGNATURES.keys())
+# Spreadsheet types that are TEXT on disk (no reliable magic): CSV/TSV, and the
+# SpreadsheetML 2003 ".xls" XML exports Iranian accounting systems produce.
+# Validated as "printable text, no NUL bytes" instead of a byte signature —
+# a binary payload claiming these types is rejected.
+_TEXT_SPREADSHEET_TYPES = {
+    "text/csv",
+    "text/tab-separated-values",
+    "application/csv",
+    "application/vnd.ms-excel",  # browsers send this for both .xls and .csv
+}
+
+ALLOWED_TYPES = set(_MAGIC_SIGNATURES.keys()) | set(_TEXT_SPREADSHEET_TYPES)
+
+# Real legacy binary .xls (OLE2) signature — accepted under the
+# application/vnd.ms-excel claim alongside the XML/CSV text forms.
+_OLE2_SIG = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+
+
+def _looks_like_text(data: bytes) -> bool:
+    sample = data[:4096]
+    return bool(sample) and b"\x00" not in sample
 
 
 def validate_file_magic(data: bytes, claimed_content_type: str) -> None:
@@ -22,6 +44,15 @@ def validate_file_magic(data: bytes, claimed_content_type: str) -> None:
     the file signature doesn't match.
     """
     ct = claimed_content_type.strip().lower()
+    if ct in _TEXT_SPREADSHEET_TYPES:
+        if data[:8] == _OLE2_SIG or data[:2] == b"PK":
+            return  # genuine binary .xls / mislabeled .xlsx — both fine
+        if not _looks_like_text(data):
+            raise HTTPException(
+                status_code=400,
+                detail="File content does not match declared type (possible MIME spoofing)",
+            )
+        return
     if ct not in _MAGIC_SIGNATURES:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {ct}")
 

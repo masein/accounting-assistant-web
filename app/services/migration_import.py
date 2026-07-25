@@ -375,6 +375,43 @@ def build_preview(parsed_files: list[tuple[str, list[dict]]]) -> tuple[dict, dic
     return payload, summary
 
 
+def stage_preview_batch(
+    db: Session, parsed_files: list[tuple[str, list[dict]]], token: str
+) -> tuple[MigrationBatch, dict, bool]:
+    """Build the preview and upsert the staged ``MigrationBatch`` for it.
+
+    Shared by the migration page's preview endpoint and the chat smart-intake
+    (dropping chart exports into the chat). Returns
+    (batch, summary, already_applied). Flushes; the caller commits + audits.
+    """
+    payload, summary = build_preview(parsed_files)
+
+    already_applied = False
+    batch = db.execute(
+        select(MigrationBatch).where(MigrationBatch.token == token)
+    ).scalars().first()
+    if batch is not None and batch.status == "applied":
+        already_applied = True
+        summary["validation"]["warnings"].append(
+            "These exact files were already imported — confirming again re-applies as an update (no duplicates)."
+        )
+        batch.status = "pending"
+        batch.payload = payload
+        batch.summary = summary
+    elif batch is not None:
+        batch.payload = payload
+        batch.summary = summary
+        batch.source_files = summary["files"]
+    else:
+        batch = MigrationBatch(
+            token=token, status="pending", payload=payload,
+            summary=summary, source_files=summary["files"],
+        )
+        db.add(batch)
+    db.flush()
+    return batch, summary, already_applied
+
+
 # ---------------------------------------------------------------------------
 # Apply
 # ---------------------------------------------------------------------------

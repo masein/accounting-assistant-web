@@ -446,6 +446,18 @@ def _persist_message(db: Session, *, session_id: uuid.UUID, role: str, content: 
     db.commit()
 
 
+def maybe_autotitle_session(db: Session, session: AIChatSession, user_message: str) -> None:
+    """Name an untitled session from its first user message (~6 words), the
+    ChatGPT convention — the user can rename it in the sidebar any time."""
+    if session.title:
+        return
+    words = (user_message or "").strip().split()
+    title = " ".join(words[:6])[:60]
+    if title:
+        session.title = title
+        db.commit()
+
+
 def _replay_history(db: Session, session_id: uuid.UUID) -> list[ChatMessage]:
     """Rebuild the normalized ``ChatMessage`` history from saved rows."""
     rows = (
@@ -580,6 +592,7 @@ async def run_chat_turn(
     user_turn = ChatMessage(role="user", text=turn_text)
     history.append(user_turn)
     _persist_message(db, session_id=chat_session.id, role="user", content=user_turn.to_dict())
+    maybe_autotitle_session(db, chat_session, user_message)
 
     tool_ctx = ToolContext(
         db=db,

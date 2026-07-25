@@ -304,19 +304,29 @@ def parse_excel_journal(
         jalali_year: Jalali year for date conversion (e.g. 1403)
         column_mapping: Optional override for column positions {field_name: col_index}
     """
-    wb = openpyxl.load_workbook(str(file_path), data_only=True, read_only=True)
-    ws = wb.active
-    if ws is None:
-        return ExcelParseResult(
-            vouchers=[], column_mapping=ColumnMapping(), headers=[],
-            raw_preview=[], unique_accounts=[], errors=["No active sheet found"],
-        )
+    # CSV/TSV sheets with the same columns are accepted alongside .xlsx —
+    # the chat smart-intake drops them in here too.
+    suffix = Path(file_path).suffix.lower()
+    if suffix in (".csv", ".tsv"):
+        import csv as _csv
 
-    # Read all rows
-    all_rows: list[list[Any]] = []
-    for row in ws.iter_rows(values_only=True):
-        all_rows.append(list(row))
-    wb.close()
+        delimiter = "\t" if suffix == ".tsv" else ","
+        with open(file_path, "r", encoding="utf-8-sig", errors="replace", newline="") as fh:
+            all_rows = [list(r) for r in _csv.reader(fh, delimiter=delimiter)]
+    else:
+        wb = openpyxl.load_workbook(str(file_path), data_only=True, read_only=True)
+        ws = wb.active
+        if ws is None:
+            return ExcelParseResult(
+                vouchers=[], column_mapping=ColumnMapping(), headers=[],
+                raw_preview=[], unique_accounts=[], errors=["No active sheet found"],
+            )
+
+        # Read all rows
+        all_rows = []
+        for row in ws.iter_rows(values_only=True):
+            all_rows.append(list(row))
+        wb.close()
 
     if not all_rows:
         return ExcelParseResult(

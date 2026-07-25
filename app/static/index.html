@@ -738,6 +738,7 @@
       </div>
       <div class="nav-section" role="group">
         <div class="nav-section-h" data-i18n="navSecSetup">Setup</div>
+        <button type="button" class="nav-btn" data-page="migration"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12H3"/><path d="m9 6-6 6 6 6"/><path d="M21 4v16"/></svg><span class="lbl" data-i18n="migrationNav">Migration</span></button>
         <button type="button" class="nav-btn" data-page="settings"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 7 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 2.6 14H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 10 4.6V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 2.82 1.17l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl" data-i18n="navSettings">Settings</span></button>
         <button type="button" class="nav-btn" id="nav-companies" data-page="companies" style="display:none;"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg><span class="lbl" data-i18n="companiesNav">Companies</span></button>
       </div>
@@ -1947,6 +1948,37 @@
       </div>
     </div>
 
+    <!-- ═══════ Migration Import Page ═══════ -->
+    <div class="card" data-page="migration">
+      <h2 data-i18n="migrationTitle">Migrate from another system</h2>
+      <p data-i18n="migrationIntro" style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Import the chart of accounts (گروه / کل / معین), the تفصیلی accounts (banks &amp; counterparties) and opening balances exported from your previous accounting system. Nothing is written until you confirm the preview.</p>
+      <div style="border:2px dashed var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;">
+        <div class="form-grid" style="grid-template-columns:1fr auto auto;align-items:end;gap:0.75rem;">
+          <div>
+            <label for="migration-files" style="font-size:0.85rem;" data-i18n="migrationFilesLabel">Export files (up to 4)</label>
+            <input type="file" id="migration-files" multiple accept=".xls,.xlsx,.csv,.xml">
+          </div>
+          <div>
+            <label for="migration-opening-date" style="font-size:0.85rem;" data-i18n="migrationOpeningDateLabel">Opening date</label>
+            <input type="date" id="migration-opening-date">
+          </div>
+          <div class="btn-cell">
+            <button type="button" class="btn btn-primary" id="migration-upload-btn" onclick="migrationUpload()" data-i18n="migrationPreviewBtn">Upload &amp; preview</button>
+          </div>
+        </div>
+        <div id="migration-status" style="font-size:0.8rem;color:var(--text-muted);min-height:1em;margin-top:0.4rem;"></div>
+        <div id="migration-preview" style="display:none;margin-top:0.75rem;">
+          <div id="migration-preview-summary"></div>
+          <div id="migration-preview-issues" style="margin-top:0.5rem;"></div>
+          <button type="button" class="btn btn-primary" id="migration-confirm-btn" onclick="migrationConfirm()" style="margin-top:0.75rem;" data-i18n="migrationConfirmBtn">Confirm &amp; apply</button>
+        </div>
+        <div id="migration-result" style="display:none;margin-top:0.75rem;"></div>
+      </div>
+      <h3 data-i18n="migrationQueueTitle" style="margin:1rem 0 0.25rem;">Complete imported records</h3>
+      <p data-i18n="migrationQueueIntro" style="color:var(--text-muted);font-size:0.85rem;margin:0 0 0.75rem;">Imported records arrive with only a name, code and balance. Fill in the missing details manually or let the AI ask you for them.</p>
+      <div id="migration-queue"></div>
+    </div>
+
     <!-- ═══════ Audit Page ═══════ -->
     <div class="card" data-page="audit">
       <h2 data-i18n="auditTitle">System Audit</h2>
@@ -2951,6 +2983,7 @@
       audit: ['owner', 'cfo', 'accountant'],
       settings: ['owner'],
       users: ['owner'],
+      migration: ['owner', 'accountant'],
       // companies is gated separately by isSuperadmin.
     };
     // Where each role lands after login.
@@ -3170,7 +3203,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies']);
+    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies', 'migration']);
     // The Companies console is super-admin only; gated in showPage().
     let isSuperadmin = false;
     const rawFetch = window.fetch.bind(window);
@@ -3938,6 +3971,44 @@
     };
     const I18N_EXTRA = {
       en: {
+        migrationNav: "Migration",
+        migrationTitle: "Migrate from another system",
+        migrationIntro: "Import the chart of accounts (گروه / کل / معین), the تفصیلی accounts (banks & counterparties) and opening balances exported from your previous accounting system. Nothing is written until you confirm the preview.",
+        migrationFilesLabel: "Export files (up to 4)",
+        migrationOpeningDateLabel: "Opening date",
+        migrationPreviewBtn: "Upload & preview",
+        migrationConfirmBtn: "Confirm & apply",
+        migrationTierGroups: "groups (گروه)",
+        migrationTierKol: "general (کل)",
+        migrationTierMoein: "subsidiary (معین)",
+        migrationTierTafsili: "detail (تفصیلی)",
+        migrationBankAccounts: "bank accounts",
+        migrationCounterparties: "counterparties",
+        migrationOpeningTotals: "Opening balance (debit / credit)",
+        migrationBalancedYes: "debits = credits",
+        migrationBalancedNo: "out of balance — the difference posts to the suspense account",
+        migrationWarningsLabel: "Warnings",
+        migrationErrorsLabel: "Errors (blocking)",
+        migrationApplied: "Import applied.",
+        migrationAccountsCreated: "accounts created",
+        migrationAccountsUpdated: "accounts updated",
+        migrationEntitiesCreated: "entities created",
+        migrationJournalPosted: "Opening journal posted",
+        migrationJournalReplaced: "(replaced the previous opening journal)",
+        migrationQueueTitle: "Complete imported records",
+        migrationQueueIntro: "Imported records arrive with only a name, code and balance. Fill in the missing details manually or let the AI ask you for them.",
+        migrationQueueEmpty: "Nothing to complete — all imported records are done.",
+        migrationMissing: "Missing",
+        migrationReviewType: "Check type (client/supplier?)",
+        migrationAiBtn: "Complete with AI",
+        migrationResolveBtn: "Mark complete",
+        migrationDismissBtn: "Dismiss",
+        migrationAiPrompt: "Please ask me for the missing details for {type} “{name}” ({missing}) one at a time, then save them on the record.",
+        migFieldAddress: "address",
+        migFieldPhone: "phone",
+        migFieldEmail: "email",
+        migFieldIban: "IBAN (شبا)",
+        migFieldAccountNumber: "account number",
         showPassword: "Show password",
         hidePassword: "Hide password",
         ibRemoveLine: "Remove line",
@@ -4885,6 +4956,44 @@
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
       fa: {
+        migrationNav: "مهاجرت از سیستم قبلی",
+        migrationTitle: "مهاجرت از نرم‌افزار حسابداری قبلی",
+        migrationIntro: "کدینگ حساب‌ها (گروه / کل / معین)، حساب‌های تفصیلی (بانک‌ها و طرف‌های مقابل) و مانده‌های افتتاحیه را از خروجی سیستم قبلی وارد کنید. تا زمان تأیید پیش‌نمایش چیزی ثبت نمی‌شود.",
+        migrationFilesLabel: "فایل‌های خروجی (حداکثر ۴ فایل)",
+        migrationOpeningDateLabel: "تاریخ افتتاحیه",
+        migrationPreviewBtn: "بارگذاری و پیش‌نمایش",
+        migrationConfirmBtn: "تأیید و اعمال",
+        migrationTierGroups: "گروه",
+        migrationTierKol: "کل",
+        migrationTierMoein: "معین",
+        migrationTierTafsili: "تفصیلی",
+        migrationBankAccounts: "حساب بانکی",
+        migrationCounterparties: "طرف مقابل",
+        migrationOpeningTotals: "تراز افتتاحیه (بدهکار / بستانکار)",
+        migrationBalancedYes: "بدهکار = بستانکار",
+        migrationBalancedNo: "تراز نیست — اختلاف به حساب تعدیلات افتتاحیه منتقل می‌شود",
+        migrationWarningsLabel: "هشدارها",
+        migrationErrorsLabel: "خطاها (مانع ثبت)",
+        migrationApplied: "انتقال انجام شد.",
+        migrationAccountsCreated: "حساب ایجاد شد",
+        migrationAccountsUpdated: "حساب به‌روزرسانی شد",
+        migrationEntitiesCreated: "طرف حساب ایجاد شد",
+        migrationJournalPosted: "سند افتتاحیه ثبت شد",
+        migrationJournalReplaced: "(سند افتتاحیه قبلی جایگزین شد)",
+        migrationQueueTitle: "تکمیل اطلاعات رکوردهای واردشده",
+        migrationQueueIntro: "رکوردهای واردشده فقط نام، کد و مانده دارند. اطلاعات ناقص را دستی تکمیل کنید یا از هوش مصنوعی بخواهید از شما بپرسد.",
+        migrationQueueEmpty: "چیزی برای تکمیل نمانده — همهٔ رکوردهای واردشده کامل‌اند.",
+        migrationMissing: "ناقص",
+        migrationReviewType: "بازبینی نوع (مشتری/تأمین‌کننده؟)",
+        migrationAiBtn: "تکمیل با هوش مصنوعی",
+        migrationResolveBtn: "علامت‌گذاری به‌عنوان کامل",
+        migrationDismissBtn: "نادیده گرفتن",
+        migrationAiPrompt: "لطفاً اطلاعات ناقص {type} «{name}» را ({missing}) یکی‌یکی از من بپرس و روی پرونده ذخیره کن.",
+        migFieldAddress: "نشانی",
+        migFieldPhone: "تلفن",
+        migFieldEmail: "ایمیل",
+        migFieldIban: "شبا",
+        migFieldAccountNumber: "شماره حساب",
         showPassword: "نمایش رمز",
         hidePassword: "پنهان کردن رمز",
         ibRemoveLine: "حذف ردیف",
@@ -5829,6 +5938,44 @@
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
       es: {
+        migrationNav: "Migración",
+        migrationTitle: "Migrar desde otro sistema",
+        migrationIntro: "Importe el plan de cuentas (گروه / کل / معین), las cuentas تفصیلی (bancos y contrapartes) y los saldos de apertura exportados de su sistema contable anterior. No se escribe nada hasta que confirme la vista previa.",
+        migrationFilesLabel: "Archivos de exportación (hasta 4)",
+        migrationOpeningDateLabel: "Fecha de apertura",
+        migrationPreviewBtn: "Subir y previsualizar",
+        migrationConfirmBtn: "Confirmar y aplicar",
+        migrationTierGroups: "grupos (گروه)",
+        migrationTierKol: "generales (کل)",
+        migrationTierMoein: "auxiliares (معین)",
+        migrationTierTafsili: "detalle (تفصیلی)",
+        migrationBankAccounts: "cuentas bancarias",
+        migrationCounterparties: "contrapartes",
+        migrationOpeningTotals: "Saldo de apertura (debe / haber)",
+        migrationBalancedYes: "debe = haber",
+        migrationBalancedNo: "descuadrado — la diferencia se registra en la cuenta puente",
+        migrationWarningsLabel: "Avisos",
+        migrationErrorsLabel: "Errores (bloqueantes)",
+        migrationApplied: "Importación aplicada.",
+        migrationAccountsCreated: "cuentas creadas",
+        migrationAccountsUpdated: "cuentas actualizadas",
+        migrationEntitiesCreated: "entidades creadas",
+        migrationJournalPosted: "Asiento de apertura registrado",
+        migrationJournalReplaced: "(reemplazó el asiento de apertura anterior)",
+        migrationQueueTitle: "Completar registros importados",
+        migrationQueueIntro: "Los registros importados llegan solo con nombre, código y saldo. Complete los datos que faltan manualmente o deje que la IA se los pida.",
+        migrationQueueEmpty: "Nada que completar — todos los registros importados están al día.",
+        migrationMissing: "Faltan",
+        migrationReviewType: "Revisar tipo (¿cliente/proveedor?)",
+        migrationAiBtn: "Completar con IA",
+        migrationResolveBtn: "Marcar como completo",
+        migrationDismissBtn: "Descartar",
+        migrationAiPrompt: "Pídeme uno a uno los datos que faltan de {type} “{name}” ({missing}) y guárdalos en el registro.",
+        migFieldAddress: "dirección",
+        migFieldPhone: "teléfono",
+        migFieldEmail: "correo",
+        migFieldIban: "IBAN (شبا)",
+        migFieldAccountNumber: "número de cuenta",
         showPassword: "Mostrar contraseña",
         hidePassword: "Ocultar contraseña",
         ibRemoveLine: "Eliminar línea",
@@ -6756,6 +6903,44 @@
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
       ar: {
+        migrationNav: "الترحيل من نظام سابق",
+        migrationTitle: "الترحيل من برنامج محاسبة آخر",
+        migrationIntro: "استورد دليل الحسابات (گروه / کل / معین) والحسابات التفصيلية (البنوك والأطراف المقابلة) والأرصدة الافتتاحية من مخرجات نظامك المحاسبي السابق. لا يُسجَّل شيء حتى تؤكد المعاينة.",
+        migrationFilesLabel: "ملفات التصدير (حتى 4)",
+        migrationOpeningDateLabel: "تاريخ الافتتاح",
+        migrationPreviewBtn: "رفع ومعاينة",
+        migrationConfirmBtn: "تأكيد وتطبيق",
+        migrationTierGroups: "مجموعات (گروه)",
+        migrationTierKol: "إجمالي (کل)",
+        migrationTierMoein: "مساعد (معین)",
+        migrationTierTafsili: "تفصيلي (تفصیلی)",
+        migrationBankAccounts: "حسابات بنكية",
+        migrationCounterparties: "أطراف مقابلة",
+        migrationOpeningTotals: "الرصيد الافتتاحي (مدين / دائن)",
+        migrationBalancedYes: "المدين = الدائن",
+        migrationBalancedNo: "غير متوازن — يُرحَّل الفرق إلى حساب التسويات",
+        migrationWarningsLabel: "تنبيهات",
+        migrationErrorsLabel: "أخطاء (مانعة)",
+        migrationApplied: "تم تطبيق الاستيراد.",
+        migrationAccountsCreated: "حسابًا أُنشئ",
+        migrationAccountsUpdated: "حسابًا حُدِّث",
+        migrationEntitiesCreated: "جهة أُنشئت",
+        migrationJournalPosted: "قُيِّد قيد الافتتاح",
+        migrationJournalReplaced: "(حل محل قيد الافتتاح السابق)",
+        migrationQueueTitle: "استكمال السجلات المستوردة",
+        migrationQueueIntro: "تصل السجلات المستوردة بالاسم والرمز والرصيد فقط. أكمل البيانات الناقصة يدويًا أو دع الذكاء الاصطناعي يسألك عنها.",
+        migrationQueueEmpty: "لا شيء لاستكماله — جميع السجلات المستوردة مكتملة.",
+        migrationMissing: "ناقص",
+        migrationReviewType: "مراجعة النوع (عميل/مورّد؟)",
+        migrationAiBtn: "استكمال بالذكاء الاصطناعي",
+        migrationResolveBtn: "وضع علامة مكتمل",
+        migrationDismissBtn: "تجاهل",
+        migrationAiPrompt: "اسألني واحدًا تلو الآخر عن البيانات الناقصة لـ {type} «{name}» ({missing}) ثم احفظها في السجل.",
+        migFieldAddress: "العنوان",
+        migFieldPhone: "الهاتف",
+        migFieldEmail: "البريد الإلكتروني",
+        migFieldIban: "شبا (IBAN)",
+        migFieldAccountNumber: "رقم الحساب",
         showPassword: "إظهار كلمة المرور",
         hidePassword: "إخفاء كلمة المرور",
         ibRemoveLine: "حذف البند",
@@ -8015,7 +8200,7 @@
       invoices: 'navInvoices', time: 'timeNav', expenses: 'expNav', 'purchase-orders': 'poNav',
       recurring: 'navRecurring', entities: 'navEntities', products: 'productsNav', inventory: 'navInventory',
       payroll: 'payrollNav', equity: 'equityNav', 'bank-statements': 'bankStatementsNav', ledger: 'navLedger', manager: 'navManager',
-      cfo: 'cfoModeNav', ceo: 'ceoModeNav', audit: 'auditNav', settings: 'navSettings', companies: 'companiesNav',
+      cfo: 'cfoModeNav', ceo: 'ceoModeNav', audit: 'auditNav', settings: 'navSettings', companies: 'companiesNav', migration: 'migrationNav',
     };
     function updatePageTitle(page) {
       const el = document.getElementById('page-title');
@@ -14669,6 +14854,181 @@
       if (page === 'time') { loadTimeTab(); }
       if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); loadCompanyProfile(); }
       if (page === 'companies') { loadCompanies(); }
+      if (page === 'migration') { migrationInitPage(); }
+    }
+
+
+    // ═══════ Migration from another accounting system ═══════
+    let _migrationToken = null;
+    let _migrationPendingCache = [];
+    function _migFieldLabel(f) {
+      const map = { address: 'migFieldAddress', phone: 'migFieldPhone', iban: 'migFieldIban', account_number: 'migFieldAccountNumber', email: 'migFieldEmail' };
+      return map[f] ? t(map[f]) : f;
+    }
+    function migrationInitPage() { migrationLoadPending(); }
+    async function migrationUpload() {
+      const filesEl = document.getElementById('migration-files');
+      const statusEl = document.getElementById('migration-status');
+      if (!filesEl.files.length) { statusEl.textContent = t('migrationFilesLabel'); return; }
+      const fd = new FormData();
+      Array.from(filesEl.files).slice(0, 4).forEach((f) => fd.append('files', f));
+      statusEl.textContent = '…';
+      document.getElementById('migration-result').style.display = 'none';
+      try {
+        const res = await fetch(API + '/migration/import/preview', { method: 'POST', body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(typeof err.detail === 'string' ? err.detail : res.statusText);
+        }
+        const body = await res.json();
+        _migrationToken = body.token;
+        const dateEl = document.getElementById('migration-opening-date');
+        if (!dateEl.value && body.default_opening_date) dateEl.value = body.default_opening_date;
+        _migrationRenderPreview(body);
+        statusEl.textContent = '';
+      } catch (e) {
+        statusEl.textContent = e.message || String(e);
+      }
+    }
+    function _migrationRenderPreview(body) {
+      const s = body.summary || {};
+      const tiers = s.tiers || {};
+      const split = s.tafsili_split || {};
+      const opening = s.opening || {};
+      const v = s.validation || {};
+      const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : n);
+      const tierLabels = { group: t('migrationTierGroups'), kol: t('migrationTierKol'), moein: t('migrationTierMoein'), tafsili: t('migrationTierTafsili') };
+      let html = '<div style="display:flex;gap:1.5rem;flex-wrap:wrap;font-size:0.9rem;">';
+      Object.keys(tiers).forEach((k) => {
+        html += `<div><strong>${fmt(tiers[k])}</strong> ${escapeHtml(tierLabels[k] || k)}</div>`;
+      });
+      html += `<div><strong>${fmt(split.bank_accounts || 0)}</strong> ${escapeHtml(t('migrationBankAccounts'))}</div>`;
+      html += `<div><strong>${fmt(split.counterparties || 0)}</strong> ${escapeHtml(t('migrationCounterparties'))}</div>`;
+      html += '</div>';
+      const okColor = 'var(--success,#28a745)', badColor = 'var(--danger,#dc3545)';
+      html += `<div style="margin-top:0.5rem;font-size:0.9rem;">${escapeHtml(t('migrationOpeningTotals'))}: `
+        + `<strong>${fmt(opening.total_debit || 0)}</strong> / <strong>${fmt(opening.total_credit || 0)}</strong> — `
+        + (opening.balanced
+            ? `<span style="color:${okColor};">${escapeHtml(t('migrationBalancedYes'))}</span>`
+            : `<span style="color:${badColor};">${escapeHtml(t('migrationBalancedNo'))} (${fmt(Math.abs(opening.difference || 0))})</span>`)
+        + '</div>';
+      let issues = '';
+      if ((v.errors || []).length) {
+        issues += `<div style="color:${badColor};font-size:0.85rem;"><strong>${escapeHtml(t('migrationErrorsLabel'))}:</strong><ul style="margin:0.25rem 0 0 1.25rem;">`
+          + v.errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('') + '</ul></div>';
+      }
+      if ((v.warnings || []).length) {
+        issues += `<div style="color:var(--text-muted);font-size:0.85rem;margin-top:0.25rem;"><strong>${escapeHtml(t('migrationWarningsLabel'))}:</strong><ul style="margin:0.25rem 0 0 1.25rem;">`
+          + v.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('') + '</ul></div>';
+      }
+      document.getElementById('migration-preview-summary').innerHTML = html;
+      document.getElementById('migration-preview-issues').innerHTML = issues;
+      document.getElementById('migration-confirm-btn').disabled = (v.errors || []).length > 0;
+      document.getElementById('migration-preview').style.display = 'block';
+    }
+    async function migrationConfirm() {
+      if (!_migrationToken) return;
+      const statusEl = document.getElementById('migration-status');
+      const btn = document.getElementById('migration-confirm-btn');
+      btn.disabled = true;
+      statusEl.textContent = '…';
+      try {
+        const payload = { token: _migrationToken };
+        const dateVal = document.getElementById('migration-opening-date').value;
+        if (dateVal) payload.opening_date = dateVal;
+        const res = await fetch(API + '/migration/import/confirm', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          const d = err.detail;
+          throw new Error(typeof d === 'string' ? d : (d && d.message) || res.statusText);
+        }
+        const body = await res.json();
+        const r = body.result || {};
+        const chart = r.chart || {};
+        const ents = r.entities || {};
+        const oj = r.opening_journal || {};
+        const created = ['group', 'kol', 'moein'].reduce((a, k) => a + ((chart[k] || {}).created || 0), 0);
+        const updated = ['group', 'kol', 'moein'].reduce((a, k) => a + ((chart[k] || {}).updated || 0), 0);
+        const entCreated = (ents.banks_created || 0) + (ents.counterparties_created || 0);
+        let html = `<div style="background:var(--bg-success,#d4edda);border:1px solid var(--success,#28a745);border-radius:8px;padding:1rem;font-size:0.9rem;">`
+          + `<strong>${escapeHtml(t('migrationApplied'))}</strong><br>`
+          + `${created} ${escapeHtml(t('migrationAccountsCreated'))}, ${updated} ${escapeHtml(t('migrationAccountsUpdated'))}, `
+          + `${entCreated} ${escapeHtml(t('migrationEntitiesCreated'))}.<br>`
+          + `${escapeHtml(t('migrationJournalPosted'))}: ${oj.opening_date || ''}`
+          + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString()})` : '')
+          + (oj.replaced_previous ? ` ${escapeHtml(t('migrationJournalReplaced'))}` : '')
+          + `</div>`;
+        const resEl = document.getElementById('migration-result');
+        resEl.innerHTML = html;
+        resEl.style.display = 'block';
+        document.getElementById('migration-preview').style.display = 'none';
+        statusEl.textContent = '';
+        migrationLoadPending();
+      } catch (e) {
+        statusEl.textContent = e.message || String(e);
+        btn.disabled = false;
+      }
+    }
+    async function migrationLoadPending() {
+      const el = document.getElementById('migration-queue');
+      if (!el) return;
+      try {
+        const res = await fetch(API + '/migration/pending');
+        if (!res.ok) { el.innerHTML = ''; return; }
+        const rows = await res.json();
+        _migrationPendingCache = rows;
+        if (!rows.length) {
+          el.innerHTML = `<p style="color:var(--text-muted);font-size:0.85rem;">${escapeHtml(t('migrationQueueEmpty'))}</p>`;
+          return;
+        }
+        el.innerHTML = rows.map((r) => {
+          const missing = (r.missing_fields || []).map(_migFieldLabel).join('، ');
+          const flags = (r.review_flags || []).includes('type_ambiguous')
+            ? `<span class="chip" style="font-size:0.75rem;">${escapeHtml(t('migrationReviewType'))}</span>` : '';
+          return `<div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.75rem;margin-bottom:0.5rem;">`
+            + `<strong>${escapeHtml(r.entity_name)}</strong>`
+            + `<span style="color:var(--text-muted);font-size:0.8rem;">${escapeHtml(r.entity_type)}${r.source_code ? ' · ' + escapeHtml(r.source_code) : ''}</span>`
+            + (missing ? `<span style="font-size:0.8rem;">${escapeHtml(t('migrationMissing'))}: ${escapeHtml(missing)}</span>` : '')
+            + flags
+            + `<span style="margin-inline-start:auto;display:flex;gap:0.4rem;">`
+            + `<button type="button" class="btn btn-secondary btn-sm" onclick="migrationAskAI('${r.id}')">${escapeHtml(t('migrationAiBtn'))}</button>`
+            + `<button type="button" class="btn btn-secondary btn-sm" onclick="migrationResolve('${r.id}')">${escapeHtml(t('migrationResolveBtn'))}</button>`
+            + `<button type="button" class="btn btn-secondary btn-sm" onclick="migrationDismiss('${r.id}')">${escapeHtml(t('migrationDismissBtn'))}</button>`
+            + `</span></div>`;
+        }).join('');
+      } catch (_) { el.innerHTML = ''; }
+    }
+    async function migrationResolve(id) {
+      try {
+        const res = await fetch(API + '/migration/pending/' + id + '/resolve', { method: 'POST' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          const d = err.detail;
+          const missing = d && d.missing_fields ? d.missing_fields.map(_migFieldLabel).join('، ') : '';
+          alert((d && d.message ? d.message : t('migrationMissing')) + (missing ? ': ' + missing : ''));
+        }
+      } catch (_) {}
+      migrationLoadPending();
+    }
+    async function migrationDismiss(id) {
+      try { await fetch(API + '/migration/pending/' + id + '/dismiss', { method: 'POST' }); } catch (_) {}
+      migrationLoadPending();
+    }
+    function migrationAskAI(id) {
+      const rec = _migrationPendingCache.find((r) => r.id === id);
+      if (!rec) return;
+      const missing = (rec.missing_fields || []).map(_migFieldLabel).join('، ');
+      const msg = t('migrationAiPrompt')
+        .replace('{type}', rec.entity_type).replace('{name}', rec.entity_name).replace('{missing}', missing);
+      showPage('ai-accountant');
+      const input = document.getElementById('ai-acct-input');
+      if (input) {
+        input.value = msg;
+        const send = document.getElementById('ai-acct-send');
+        if (send) send.click();
+      }
     }
 
     // ═══════ Shareholders & Equity ═══════

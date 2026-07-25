@@ -123,6 +123,35 @@ ALLOWED_ATTACHMENT_TYPES = {
     "image/png",
     "image/webp",
     "application/pdf",
+    # Spreadsheets — chat smart-intake (chart exports, transaction sheets, Q&A)
+    "text/csv",
+    "application/csv",
+    "text/tab-separated-values",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+# Extension fallback: browsers often send spreadsheet files with a blank or
+# generic content type (e.g. application/octet-stream for .xls) — infer from
+# the filename so the picker's accept list and the server agree.
+_EXTENSION_CONTENT_TYPES = {
+    ".csv": "text/csv",
+    ".tsv": "text/tab-separated-values",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+}
+
+SPREADSHEET_ATTACHMENT_TYPES = {
+    "text/csv",
+    "application/csv",
+    "text/tab-separated-values",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 
 
@@ -1186,7 +1215,15 @@ async def upload_attachment(
 
     content_type = (file.content_type or "").strip().lower()
     if content_type not in ALLOWED_ATTACHMENT_TYPES:
-        raise HTTPException(status_code=400, detail="Unsupported file type. Use JPG, PNG, WEBP, or PDF.")
+        # Browsers send blank/generic types for spreadsheets — infer from name.
+        inferred = _EXTENSION_CONTENT_TYPES.get(Path(file.filename or "").suffix.lower())
+        if inferred:
+            content_type = inferred
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file type. Use JPG, PNG, WEBP, PDF, CSV, TSV, XLS, or XLSX.",
+            )
     raw = await file.read()
     if not raw:
         raise HTTPException(status_code=400, detail="Attachment is empty.")

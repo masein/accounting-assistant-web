@@ -15,6 +15,7 @@ separate module wired in via the orchestrator (next chunk of work).
 """
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -40,6 +41,7 @@ from app.services.ai_accountant.execute_service import (
     undo_action,
 )
 from app.services.ai_accountant.orchestrator import run_chat_turn
+from app.services.audit_service import log_audit_event
 
 router = APIRouter(prefix="/ai-accountant", tags=["ai-accountant"])
 
@@ -107,6 +109,19 @@ class ChatResponse(BaseModel):
     tool_calls: list[dict] = []
     stop_reason: str | None = None
     turns: int
+    # Smart-intake card for spreadsheet drops: {kind: chart_export|transactions,
+    # ...card data}. The UI renders it with its own Confirm targeting the
+    # existing migration / excel-import confirm endpoints.
+    intake: dict | None = None
+
+
+class ChatSessionCreate(BaseModel):
+    title: str | None = None
+
+
+class ChatSessionUpdate(BaseModel):
+    title: str | None = None
+    archived: bool | None = None
 
 
 class ChatSessionRead(BaseModel):
@@ -115,6 +130,7 @@ class ChatSessionRead(BaseModel):
     created_at: str
     updated_at: str
     message_count: int
+    match_snippet: str | None = None  # only set on q= searches
 
 
 class ChatMessageRead(BaseModel):
@@ -202,6 +218,45 @@ async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> tuple[st
     return "\n\n".join(blocks), amounts
 
 
+def _deterministic_turn(
+    db: Session,
+    user: SessionUser,
+    payload: ChatPayload,
+    assistant_text: str,
+    *,
+    intake: dict | None,
+) -> ChatResponse:
+    """Persist a server-decided turn (path guard / smart-intake detection)
+    into the session history — no LLM call, nothing written to the books."""
+    from datetime import timedelta
+
+    from app.services.ai_accountant.orchestrator import (
+        _get_or_create_session,
+        maybe_autotitle_session,
+    )
+
+    session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.session_id)
+    # Explicit microsecond timestamps: both rows land in the same DB second and
+    # server_default now() has second precision on SQLite — ordering must hold.
+    now = datetime.now(timezone.utc)
+    db.add(AIChatMessage(session_id=session.id, role="user",
+                         content={"role": "user", "text": payload.message}, created_at=now))
+    db.add(AIChatMessage(session_id=session.id, role="assistant",
+                         content={"role": "assistant", "text": assistant_text},
+                         created_at=now + timedelta(milliseconds=1)))
+    db.commit()
+    maybe_autotitle_session(db, session, payload.message)
+    return ChatResponse(
+        session_id=str(session.id),
+        text=assistant_text,
+        proposals=[],
+        tool_calls=[],
+        stop_reason="intake",
+        turns=0,
+        intake=intake,
+    )
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     payload: ChatPayload,
@@ -220,10 +275,73 @@ async def chat(
     model as context for the turn; the files are linked onto whatever
     transaction the model proposes.
     """
+    from app.services.ai_accountant.file_intake import (
+        build_spreadsheet_intake,
+        is_path_only_message,
+    )
+
+    # A message that is only a filesystem path (the old drag-drop failure
+    # mode): don't let the model hallucinate file contents — ask for a real
+    # upload. Deterministic, no LLM call.
+    if not payload.attachment_ids and is_path_only_message(payload.message):
+        text = (
+            "آن فقط مسیر فایل است — من به محتوای فایل دسترسی ندارم. لطفاً خود فایل را "
+            "با گیره 📎 پیوست کنید یا آن را داخل گفتگو بکشید و رها کنید."
+            if _user_language(db, user) == "fa"
+            else "That's just a file path — I can't read files from a path. Please attach "
+                 "the file itself with the paperclip 📎 or drag it into the chat."
+        )
+        return _deterministic_turn(db, user, payload, text, intake=None)
+
+    # Partition attachments: spreadsheets go through smart intake; images/PDFs
+    # keep the OCR path.
+    from app.api.transactions import SPREADSHEET_ATTACHMENT_TYPES
+    from app.models.transaction import TransactionAttachment
+
+    sheet_atts: list[TransactionAttachment] = []
+    ocr_ids: list[str] = []
+    for att_id in payload.attachment_ids or []:
+        try:
+            att = db.get(TransactionAttachment, uuid.UUID(str(att_id)))
+        except (ValueError, TypeError):
+            att = None
+        if att is None:
+            continue
+        if (att.content_type or "").lower() in SPREADSHEET_ATTACHMENT_TYPES:
+            sheet_atts.append(att)
+        else:
+            ocr_ids.append(att_id)
+
+    intake_context = ""
+    if sheet_atts:
+        from app.core.permissions import Perm, role_can
+
+        intake = build_spreadsheet_intake(
+            db, sheet_atts, can_migrate=role_can(user.role, Perm.MIGRATION_WRITE)
+        )
+        if intake is not None and intake.kind in ("chart_export", "transactions"):
+            # Deterministic detection + confirm card — no LLM call, no silent
+            # writes: Confirm goes through the existing gated endpoints.
+            if intake.kind == "chart_export":
+                log_audit_event(
+                    db, "migration_import_preview", "migration_batch",
+                    entity_id=str(intake.payload.get("batch_id")),
+                    detail=json.dumps({"via": "chat", "files": [a.file_name for a in sheet_atts]},
+                                      ensure_ascii=False),
+                )
+            db.commit()
+            return _deterministic_turn(
+                db, user, payload, intake.detected,
+                intake={"kind": intake.kind, **intake.payload},
+            )
+        if intake is not None:
+            intake_context = "\n\n" + intake.context_text if intake.context_text else ""
+
     ocr_context = ""
     ocr_amounts: list[int] = []
-    if payload.attachment_ids:
-        ocr_context, ocr_amounts = await _build_ocr_context(db, payload.attachment_ids)
+    if ocr_ids:
+        ocr_context, ocr_amounts = await _build_ocr_context(db, ocr_ids)
+    ocr_context = (ocr_context or "") + intake_context
     try:
         result = await run_chat_turn(
             db,
@@ -259,37 +377,156 @@ async def chat(
     )
 
 
+def _session_to_read(session: AIChatSession, count: int, snippet: str | None = None) -> ChatSessionRead:
+    return ChatSessionRead(
+        id=str(session.id),
+        title=session.title,
+        created_at=session.created_at.isoformat() if session.created_at else "",
+        updated_at=session.updated_at.isoformat() if session.updated_at else "",
+        message_count=count,
+        match_snippet=snippet,
+    )
+
+
 @router.get("/sessions", response_model=list[ChatSessionRead])
 def list_sessions(
+    q: str | None = None,
     db: Session = Depends(get_db),
     user: SessionUser = Depends(get_current_user),
 ) -> list[ChatSessionRead]:
-    """List the calling user's chat sessions, newest first."""
-    from sqlalchemy import func
-    rows = (
-        db.execute(
-            select(
-                AIChatSession,
-                func.count(AIChatMessage.id),
-            )
-            .outerjoin(AIChatMessage, AIChatMessage.session_id == AIChatSession.id)
-            .where(AIChatSession.user_id == user.user_id)
-            .group_by(AIChatSession.id)
-            .order_by(AIChatSession.updated_at.desc())
-            .limit(50)
-        )
-        .all()
+    """List the calling user's chat sessions, newest first (archived hidden).
+
+    ``q`` filters by title AND message content; matched sessions carry a
+    ``match_snippet`` around the first content hit so the UI can highlight it.
+    """
+    from sqlalchemy import Text, cast, func, or_
+
+    query = (
+        select(AIChatSession, func.count(AIChatMessage.id))
+        .outerjoin(AIChatMessage, AIChatMessage.session_id == AIChatSession.id)
+        .where(AIChatSession.user_id == user.user_id, AIChatSession.archived.is_(False))
+        .group_by(AIChatSession.id)
+        .order_by(AIChatSession.updated_at.desc())
+        .limit(50)
     )
-    return [
-        ChatSessionRead(
-            id=str(row[0].id),
-            title=row[0].title,
-            created_at=row[0].created_at.isoformat() if row[0].created_at else "",
-            updated_at=row[0].updated_at.isoformat() if row[0].updated_at else "",
-            message_count=int(row[1] or 0),
+    term = (q or "").strip()
+    # Non-ASCII terms: SQLite's JSON serializer stores \uXXXX escapes while
+    # Postgres JSONB keeps raw Unicode — search both forms of the term.
+    _term_likes = []
+    if term:
+        variants = {term.lower(), json.dumps(term, ensure_ascii=True)[1:-1].lower()}
+        _term_likes = [f"%{v}%" for v in variants]
+    if term:
+        from sqlalchemy.orm import aliased
+
+        msg = aliased(AIChatMessage)  # outer query already joins AIChatMessage
+        content_col = func.lower(cast(msg.content, Text))
+        content_match = (
+            select(msg.id)
+            .where(
+                msg.session_id == AIChatSession.id,
+                or_(*[content_col.like(lk) for lk in _term_likes]),
+            )
+            .exists()
         )
-        for row in rows
-    ]
+        query = query.where(or_(
+            func.lower(AIChatSession.title).like(f"%{term.lower()}%"), content_match
+        ))
+
+    rows = db.execute(query).all()
+    out: list[ChatSessionRead] = []
+    for session, count in rows:
+        snippet = None
+        if term:
+            hit_col = func.lower(cast(AIChatMessage.content, Text))
+            hit = db.execute(
+                select(AIChatMessage)
+                .where(
+                    AIChatMessage.session_id == session.id,
+                    or_(*[hit_col.like(lk) for lk in _term_likes]),
+                )
+                .order_by(AIChatMessage.created_at)
+                .limit(1)
+            ).scalars().first()
+            if hit is not None:
+                text = str((hit.content or {}).get("text") or "")
+                pos = text.lower().find(term.lower())
+                if pos >= 0:
+                    start = max(0, pos - 40)
+                    snippet = ("…" if start else "") + text[start: pos + len(term) + 40]
+        out.append(_session_to_read(session, int(count or 0), snippet))
+    return out
+
+
+@router.post("/sessions", response_model=ChatSessionRead, status_code=201)
+def create_session(
+    payload: ChatSessionCreate,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> ChatSessionRead:
+    """Start a fresh, empty chat session (the sidebar's New chat)."""
+    session = AIChatSession(user_id=user.user_id, title=(payload.title or "").strip() or None)
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    log_audit_event(db, "create", "ai_chat_session", entity_id=str(session.id))
+    db.commit()
+    return _session_to_read(session, 0)
+
+
+def _get_own_session(db: Session, user: SessionUser, session_id: str) -> AIChatSession:
+    try:
+        sid = uuid.UUID(session_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid session_id")
+    session = db.execute(
+        select(AIChatSession).where(AIChatSession.id == sid)
+    ).scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Session belongs to a different user")
+    return session
+
+
+@router.patch("/sessions/{session_id}", response_model=ChatSessionRead)
+def update_session(
+    session_id: str,
+    payload: ChatSessionUpdate,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> ChatSessionRead:
+    """Rename and/or archive (soft-delete) a chat session."""
+    session = _get_own_session(db, user, session_id)
+    changes: dict[str, object] = {}
+    if payload.title is not None:
+        session.title = payload.title.strip()[:256] or None
+        changes["title"] = session.title
+    if payload.archived is not None:
+        session.archived = bool(payload.archived)
+        changes["archived"] = session.archived
+    if not changes:
+        raise HTTPException(status_code=400, detail="Nothing to change")
+    db.commit()
+    log_audit_event(db, "update", "ai_chat_session", entity_id=str(session.id),
+                    detail=json.dumps(changes, ensure_ascii=False, default=str))
+    db.commit()
+    return _session_to_read(session, len(session.messages))
+
+
+@router.delete("/sessions/{session_id}", response_model=ChatSessionRead)
+def delete_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> ChatSessionRead:
+    """Soft-delete: archive the session (history kept for audit)."""
+    session = _get_own_session(db, user, session_id)
+    session.archived = True
+    db.commit()
+    log_audit_event(db, "archive", "ai_chat_session", entity_id=str(session.id))
+    db.commit()
+    return _session_to_read(session, len(session.messages))
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[ChatMessageRead])

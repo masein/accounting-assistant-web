@@ -75,6 +75,12 @@ _COUNTERPARTY_DETAIL_TYPES = ("طرف مقابل", "طرف حساب")
 # Parent-معین title cues for counterparty direction.
 _CLIENT_MOEIN_CUES = ("دریافتنی", "بدهکاران", "مشتری")
 _SUPPLIER_MOEIN_CUES = ("پرداختنی", "بستانکاران", "تامین", "تأمین", "فروشندگان")
+_EMPLOYEE_MOEIN_CUES = ("حقوق", "دستمزد", "کارکنان", "پرسنل")
+
+# Iranian systems conventionally number personnel تفصيلي codes in the 1xxxx
+# range (e.g. 10001 مدرسی…) and corporate counterparties in 2xxxx. Used only
+# when the export carries no معین link — and always review-flagged.
+_PERSONNEL_CODE_RE = re.compile(r"^1\d{4,}$")
 
 # Fields an imported entity still needs before it's "complete".
 REQUIRED_ENTITY_FIELDS = {
@@ -255,8 +261,9 @@ def infer_counterparty_type(row: dict, moein_by_code: dict[str, dict]) -> tuple[
     """(entity_type, ambiguous?) for a طرف مقابل row.
 
     Uses the parent معین title when the export links one (``کد معین`` column,
-    or a tafsili code prefixed with a known معین code). The sample exports
-    carry no link, so those default to client + review flag."""
+    or a tafsili code prefixed with a known معین code). Without a link, the
+    personnel code convention (1xxxx = پرسنل) marks employees; everything else
+    defaults to client — both review-flagged."""
     parent = None
     pc = row.get("parent_code")
     if pc and pc in moein_by_code:
@@ -269,10 +276,14 @@ def infer_counterparty_type(row: dict, moein_by_code: dict[str, dict]) -> tuple[
                 break
     if parent:
         title = parent["title"]
+        if any(cue in title for cue in _EMPLOYEE_MOEIN_CUES):
+            return "employee", False
         if any(cue in title for cue in _CLIENT_MOEIN_CUES):
             return "client", False
         if any(cue in title for cue in _SUPPLIER_MOEIN_CUES):
             return "supplier", False
+    if _PERSONNEL_CODE_RE.match(row["code"]):
+        return "employee", True
     return "client", True
 
 
@@ -360,6 +371,10 @@ def build_preview(parsed_files: list[tuple[str, list[dict]]]) -> tuple[dict, dic
         "files": files_meta,
         "tiers": {t: len(payload.get(t, [])) for t in TIER_ORDER if t in payload},
         "tafsili_split": {"bank_accounts": len(banks), "counterparties": len(counterparties)},
+        "counterparty_types": {
+            t: sum(1 for c in cp_preview if c["entity_type"] == t)
+            for t in sorted({c["entity_type"] for c in cp_preview})
+        },
         "banks": bank_preview,
         "counterparties": cp_preview,
         "opening": {
@@ -513,10 +528,17 @@ def _import_entities(db: Session, payload: dict, locale: str) -> tuple[dict, lis
             etype, ambiguous = infer_counterparty_type(row, moein_by_code)
             name = row["title"]
             entity = _find_imported_entity(db, etype, name, None)
-            if entity is None and ambiguous:
-                # a re-import may find it under the other direction
-                other = "supplier" if etype == "client" else "client"
-                entity = _find_imported_entity(db, other, name, None)
+            if entity is None:
+                # A re-import may find it under a different inferred type
+                # (e.g. previously defaulted to client, now recognized as an
+                # employee) — reuse and retype instead of duplicating.
+                for other in ("client", "supplier", "employee"):
+                    if other == etype:
+                        continue
+                    entity = _find_imported_entity(db, other, name, None)
+                    if entity is not None:
+                        entity.type = etype
+                        break
             if entity is None:
                 entity = Entity(type=etype, name=name)
                 db.add(entity)
@@ -718,6 +740,23 @@ def apply_batch(db: Session, batch: MigrationBatch, opening_date: date) -> dict:
     bank_records = [r for r in records if r["is_bank"]]
     lines, journal_info = _build_opening_lines(db, payload, bank_records)
     txn, replaced = _post_opening_journal(db, lines, opening_date, locale)
+    if txn is not None:
+        # Link every migrated party with an opening balance to the journal, so
+        # entity-level activity, AR/AP and "who are our clients" views see the
+        # migrated books — not just the aggregate معین totals.
+        from app.models.entity import TransactionEntity
+
+        linked = 0
+        for rec in records:
+            if rec["balance"] == 0:
+                continue
+            db.add(TransactionEntity(
+                transaction_id=txn.id, entity_id=rec["entity"].id,
+                role=rec["entity"].type,
+            ))
+            linked += 1
+        db.flush()
+        journal_info["entity_links"] = linked
     pending_count = _queue_pending_records(db, batch, records)
 
     batch.status = "applied"

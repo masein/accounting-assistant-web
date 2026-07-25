@@ -108,12 +108,18 @@ def test_infer_counterparty_type():
         "111201": {"code": "111201", "title": "حسابهای دریافتنی تجاری"},
         "211002": {"code": "211002", "title": "اسناد پرداختنی ریالی"},
     }
-    client_row = {"code": "10001", "title": "x", "parent_code": "111201"}
+    moein["211101"] = {"code": "211101", "title": "حقوق و دستمزد پرداختنی"}
+    client_row = {"code": "20005", "title": "x", "parent_code": "111201"}
     supplier_row = {"code": "20001", "title": "y", "parent_code": "211002"}
-    orphan_row = {"code": "30001", "title": "z", "parent_code": None}
+    employee_row = {"code": "20007", "title": "w", "parent_code": "211101"}
+    orphan_company = {"code": "30001", "title": "z", "parent_code": None}
+    orphan_person = {"code": "10001", "title": "p", "parent_code": None}
     assert mig.infer_counterparty_type(client_row, moein) == ("client", False)
     assert mig.infer_counterparty_type(supplier_row, moein) == ("supplier", False)
-    assert mig.infer_counterparty_type(orphan_row, moein) == ("client", True)
+    assert mig.infer_counterparty_type(employee_row, moein) == ("employee", False)
+    assert mig.infer_counterparty_type(orphan_company, moein) == ("client", True)
+    # personnel code convention: 1xxxx with no معین link → employee, flagged
+    assert mig.infer_counterparty_type(orphan_person, moein) == ("employee", True)
 
 
 @needs_samples
@@ -158,6 +164,8 @@ def test_preview_real_samples(auth_client):
     assert body["token"]
     banks = {b["account_number"] for b in s["banks"]}
     assert banks == {"0101790457004", "0106881965003"}
+    # 1xxxx personnel codes → employees; 2xxxx companies → clients
+    assert s["counterparty_types"] == {"client": 4, "employee": 5}
 
 
 @needs_samples
@@ -187,9 +195,13 @@ def test_confirm_applies_chart_entities_and_journal(auth_client, db):
     assert result["entities"]["banks_created"] == 2
     assert result["entities"]["counterparties_created"] == 9
 
-    # Counterparties default to client + review flag (sample has no معین link)
+    # Counterparties: 2xxxx company codes → client; 1xxxx personnel → employee
     cp = db.execute(select(Entity).where(Entity.name == "ابر اروان")).scalars().one()
     assert cp.type == "client"
+    emp = db.execute(
+        select(Entity).where(Entity.name == "اقتداری محمد حسین")
+    ).scalars().one()
+    assert emp.type == "employee"
 
     # Opening journal: balanced, dated, bank معین split into per-bank GL lines
     txn_id = uuid.UUID(result["opening_journal"]["transaction_id"])
@@ -207,6 +219,16 @@ def test_confirm_applies_chart_entities_and_journal(auth_client, db):
         by_code[acc.code] = by_code.get(acc.code, 0) + l.debit - l.credit
     assert by_code[bank.code] == 282242080          # آینده جردن
     assert "111005" not in by_code                   # fully split into bank GLs
+
+    # Every party with an opening balance is linked to the journal, so
+    # entity-level activity / AR-AP views see the migrated books.
+    from app.models.entity import TransactionEntity
+    links = db.execute(
+        select(TransactionEntity).where(TransactionEntity.transaction_id == txn_id)
+    ).scalars().all()
+    assert result["opening_journal"]["entity_links"] == len(links) > 0
+    linked_ids = {l.entity_id for l in links}
+    assert bank.id in linked_ids and cp.id in linked_ids
 
     # Completion queue: every imported entity is missing address/phone or iban
     # (scope to this batch — the shared test DB may hold other tests' records)
@@ -431,3 +453,36 @@ def test_synthetic_full_flow_chart_bank_split_and_hierarchy(auth_client, db):
         by_code[acc.code] = by_code.get(acc.code, 0) + l.debit - l.credit
     assert by_code[bank.code] == 600      # bank معین fully split to the bank GL
     assert "781001" not in by_code
+
+
+def test_reimport_retypes_previously_misclassified_counterparty(auth_client, db):
+    """A counterparty imported under an old inference (client) is retyped —
+    not duplicated — when a re-import infers a different type (employee)."""
+    from sqlalchemy import func
+
+    name = "پرسنل ريتايپ نمونه"
+    fa_name = "پرسنل ریتایپ نمونه"
+    tafsili = _ss_xml([
+        HEADER_TAFSILI,
+        ["10077", name, "طرف مقابل", "0", "0", "0.0000", "90.0000"],
+    ])
+    kol_file = _ss_xml([
+        HEADER_4,
+        ["7820", "موازنه ريتايپ", "0", "0", "90.0000", "0.0000"],
+        ["7830", "مقابل ريتايپ", "0", "0", "0.0000", "90.0000"],
+    ])
+    # simulate the pre-fix state: already imported as a client
+    existing = Entity(type="client", name=fa_name)
+    db.add(existing)
+    db.commit()
+
+    r = auth_client.post("/migration/import/preview",
+                         files=_upload([("tafsili.xls", tafsili), ("kol.xls", kol_file)]))
+    c = auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+    assert c.status_code == 200, c.text
+    assert c.json()["result"]["entities"]["counterparties_reused"] == 1
+    assert c.json()["result"]["entities"]["counterparties_created"] == 0
+
+    rows = db.execute(select(Entity).where(Entity.name == fa_name)).scalars().all()
+    assert len(rows) == 1                 # no duplicate
+    assert rows[0].type == "employee"     # retyped by the 1xxxx convention

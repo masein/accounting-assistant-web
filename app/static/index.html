@@ -3979,6 +3979,9 @@
     };
     const I18N_EXTRA = {
       en: {
+        migCpTypeClient: "clients",
+        migCpTypeSupplier: "suppliers",
+        migCpTypeEmployee: "employees",
         chatNewBtn: "+ New chat",
         chatSearchPlaceholder: "Search chats…",
         chatSessionsEmpty: "No chats yet — say hello!",
@@ -4985,6 +4988,9 @@
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
       },
       fa: {
+        migCpTypeClient: "مشتری",
+        migCpTypeSupplier: "تأمین‌کننده",
+        migCpTypeEmployee: "کارمند",
         chatNewBtn: "+ گفتگوی جدید",
         chatSearchPlaceholder: "جستجوی گفتگوها…",
         chatSessionsEmpty: "هنوز گفتگویی نیست — شروع کنید!",
@@ -5988,6 +5994,9 @@
         bsParseFailed: 'خواندن این صورت‌حساب ممکن نشد — از CSV/اکسل استفاده کنید یا مدل هوش مصنوعی را بررسی کنید.',
       },
       es: {
+        migCpTypeClient: "clientes",
+        migCpTypeSupplier: "proveedores",
+        migCpTypeEmployee: "empleados",
         chatNewBtn: "+ Nuevo chat",
         chatSearchPlaceholder: "Buscar chats…",
         chatSessionsEmpty: "Aún no hay chats — ¡saluda!",
@@ -6974,6 +6983,9 @@
         bsParseFailed: 'No se pudo leer este extracto — prueba con CSV/Excel o revisa el modelo de IA.',
       },
       ar: {
+        migCpTypeClient: "عملاء",
+        migCpTypeSupplier: "موردون",
+        migCpTypeEmployee: "موظفون",
         chatNewBtn: "+ محادثة جديدة",
         chatSearchPlaceholder: "البحث في المحادثات…",
         chatSessionsEmpty: "لا محادثات بعد — ابدأ الآن!",
@@ -14982,6 +14994,12 @@
         statusEl.textContent = e.message || String(e);
       }
     }
+    function _cpTypesLabel(types) {
+      if (!types) return '';
+      const map = { client: 'migCpTypeClient', supplier: 'migCpTypeSupplier', employee: 'migCpTypeEmployee' };
+      const parts = Object.keys(types).map((k) => types[k] + ' ' + t(map[k] || k));
+      return parts.length ? ' (' + parts.join(' · ') + ')' : '';
+    }
     function _migrationRenderPreview(body) {
       const s = body.summary || {};
       const tiers = s.tiers || {};
@@ -14995,7 +15013,7 @@
         html += `<div><strong>${fmt(tiers[k])}</strong> ${escapeHtml(tierLabels[k] || k)}</div>`;
       });
       html += `<div><strong>${fmt(split.bank_accounts || 0)}</strong> ${escapeHtml(t('migrationBankAccounts'))}</div>`;
-      html += `<div><strong>${fmt(split.counterparties || 0)}</strong> ${escapeHtml(t('migrationCounterparties'))}</div>`;
+      html += `<div><strong>${fmt(split.counterparties || 0)}</strong> ${escapeHtml(t('migrationCounterparties'))}${escapeHtml(_cpTypesLabel(s.counterparty_types))}</div>`;
       html += '</div>';
       const okColor = 'var(--success,#28a745)', badColor = 'var(--danger,#dc3545)';
       html += `<div style="margin-top:0.5rem;font-size:0.9rem;">${escapeHtml(t('migrationOpeningTotals'))}: `
@@ -17304,7 +17322,7 @@
           html += '<div style="display:flex;gap:1rem;flex-wrap:wrap;">'
             + Object.keys(tiers).map((k) => '<span><strong>' + fmt(tiers[k]) + '</strong> ' + escapeHtml(tierLabels[k] || k) + '</span>').join('')
             + '<span><strong>' + fmt(split.bank_accounts || 0) + '</strong> ' + escapeHtml(t('migrationBankAccounts')) + '</span>'
-            + '<span><strong>' + fmt(split.counterparties || 0) + '</strong> ' + escapeHtml(t('migrationCounterparties')) + '</span>'
+            + '<span><strong>' + fmt(split.counterparties || 0) + '</strong> ' + escapeHtml(t('migrationCounterparties')) + escapeHtml(_cpTypesLabel(sm.counterparty_types)) + '</span>'
             + '</div>';
           html += '<div style="margin-top:0.3rem;">' + escapeHtml(t('migrationOpeningTotals')) + ': <strong>' + fmt(op.total_debit || 0) + '</strong> / <strong>' + fmt(op.total_credit || 0) + '</strong> — '
             + (op.balanced ? '<span style="color:var(--success,#28a745);">' + escapeHtml(t('migrationBalancedYes')) + '</span>'

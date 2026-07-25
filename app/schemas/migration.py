@@ -53,6 +53,12 @@ class MigrationPendingRead(BaseModel):
     created_at: datetime
 
 
+class MigrationPendingResolveRequest(BaseModel):
+    """Optional field values to patch onto the EXISTING entity before the
+    completeness re-check — update-in-place, never a new record."""
+    fields: dict[str, str] = Field(default_factory=dict)
+
+
 class MigrationPendingResolveResponse(BaseModel):
     id: UUID
     status: str

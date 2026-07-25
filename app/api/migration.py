@@ -30,6 +30,7 @@ from app.schemas.migration import (
     MigrationConfirmRequest,
     MigrationConfirmResponse,
     MigrationPendingRead,
+    MigrationPendingResolveRequest,
     MigrationPendingResolveResponse,
     MigrationPreviewResponse,
 )
@@ -190,6 +191,13 @@ def migration_pending(db: Session = Depends(get_db)) -> list[MigrationPendingRea
         entity = db.get(Entity, rec.entity_id)
         if entity is not None:
             rec.missing_fields = mig.missing_entity_fields(entity)
+            # Fully completed elsewhere (entity form / AI update card) and no
+            # review flags left → auto-resolve; the queue only shows real gaps.
+            if not rec.missing_fields and not (rec.review_flags or []):
+                from datetime import datetime, timezone
+                rec.status = "resolved"
+                rec.resolved_at = datetime.now(timezone.utc)
+                continue
         out.append(_pending_to_read(rec, entity))
     db.commit()
     return out
@@ -197,14 +205,31 @@ def migration_pending(db: Session = Depends(get_db)) -> list[MigrationPendingRea
 
 @router.post("/pending/{pending_id}/resolve", response_model=MigrationPendingResolveResponse)
 def migration_pending_resolve(
-    pending_id: UUID, db: Session = Depends(get_db)
+    pending_id: UUID,
+    payload: MigrationPendingResolveRequest | None = None,
+    db: Session = Depends(get_db),
 ) -> MigrationPendingResolveResponse:
-    """Mark a queue record complete. Requires the missing fields to be filled
-    (via the entity form or the AI) unless only review flags remain."""
+    """Mark a queue record complete. Optional ``fields`` are patched onto the
+    EXISTING entity (update-in-place — never a new record) before the
+    completeness re-check; otherwise the fields must already be filled (via
+    the entity form or the AI update card)."""
     rec = db.get(MigrationPendingRecord, pending_id)
     if rec is None:
         raise HTTPException(status_code=404, detail="Pending record not found")
     entity = db.get(Entity, rec.entity_id)
+    fields = (payload.fields if payload else {}) or {}
+    if fields and entity is not None:
+        from app.services.ai_accountant.entity_create import DETAIL_FIELDS, _apply_details
+        allowed = set(DETAIL_FIELDS)
+        bad = [k for k in fields if k not in allowed]
+        if bad:
+            raise HTTPException(
+                status_code=400,
+                detail={"message": "Unknown fields", "fields": bad,
+                        "allowed": sorted(allowed)},
+            )
+        _apply_details(entity, fields, only_blank=False)
+        db.flush()
     missing = mig.missing_entity_fields(entity) if entity is not None else []
     if missing:
         raise HTTPException(
@@ -215,7 +240,11 @@ def migration_pending_resolve(
     rec.status = "resolved"
     rec.missing_fields = []
     rec.resolved_at = datetime.now(timezone.utc)
-    log_audit_event(db, "migration_pending_resolve", "migration_pending_record", entity_id=str(rec.id))
+    log_audit_event(
+        db, "migration_pending_resolve", "migration_pending_record", entity_id=str(rec.id),
+        detail=json.dumps({"entity_id": str(rec.entity_id), "patched_fields": sorted(fields)},
+                          ensure_ascii=False),
+    )
     db.commit()
     return MigrationPendingResolveResponse(id=rec.id, status=rec.status, missing_fields=[])
 

@@ -209,7 +209,10 @@ def test_confirm_applies_chart_entities_and_journal(auth_client, db):
     assert "111005" not in by_code                   # fully split into bank GLs
 
     # Completion queue: every imported entity is missing address/phone or iban
-    pending = auth_client.get("/migration/pending").json()
+    # (scope to this batch — the shared test DB may hold other tests' records)
+    batch_id = resp.json()["batch_id"]
+    pending = [p for p in auth_client.get("/migration/pending").json()
+               if p["batch_id"] == batch_id]
     assert len(pending) >= 11
     flagged = [p for p in pending if "type_ambiguous" in p["review_flags"]]
     assert len(flagged) == 9

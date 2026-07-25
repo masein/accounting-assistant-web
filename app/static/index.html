@@ -4003,7 +4003,7 @@
         migrationAiBtn: "Complete with AI",
         migrationResolveBtn: "Mark complete",
         migrationDismissBtn: "Dismiss",
-        migrationAiPrompt: "Please ask me for the missing details for {type} “{name}” ({missing}) one at a time, then save them on the record.",
+        migrationAiPrompt: "The {type} “{name}” already exists (imported — entity id {id}). Ask me for its missing details ({missing}) one at a time, then propose an UPDATE to that existing entity (entity_id {id}) — do NOT create a new one.",
         migFieldAddress: "address",
         migFieldPhone: "phone",
         migFieldEmail: "email",
@@ -4988,7 +4988,7 @@
         migrationAiBtn: "تکمیل با هوش مصنوعی",
         migrationResolveBtn: "علامت‌گذاری به‌عنوان کامل",
         migrationDismissBtn: "نادیده گرفتن",
-        migrationAiPrompt: "لطفاً اطلاعات ناقص {type} «{name}» را ({missing}) یکی‌یکی از من بپرس و روی پرونده ذخیره کن.",
+        migrationAiPrompt: "{type} «{name}» از قبل وجود دارد (واردشده از مهاجرت — شناسه {id}). اطلاعات ناقصش را ({missing}) یکی‌یکی از من بپرس و سپس به‌روزرسانی همان موجودیت (entity_id {id}) را پیشنهاد بده — موجودیت جدید نساز.",
         migFieldAddress: "نشانی",
         migFieldPhone: "تلفن",
         migFieldEmail: "ایمیل",
@@ -5970,7 +5970,7 @@
         migrationAiBtn: "Completar con IA",
         migrationResolveBtn: "Marcar como completo",
         migrationDismissBtn: "Descartar",
-        migrationAiPrompt: "Pídeme uno a uno los datos que faltan de {type} “{name}” ({missing}) y guárdalos en el registro.",
+        migrationAiPrompt: "El {type} “{name}” ya existe (importado — entity id {id}). Pídeme uno a uno los datos que faltan ({missing}) y propone una ACTUALIZACIÓN de esa entidad existente (entity_id {id}) — NO crees una nueva.",
         migFieldAddress: "dirección",
         migFieldPhone: "teléfono",
         migFieldEmail: "correo",
@@ -6935,7 +6935,7 @@
         migrationAiBtn: "استكمال بالذكاء الاصطناعي",
         migrationResolveBtn: "وضع علامة مكتمل",
         migrationDismissBtn: "تجاهل",
-        migrationAiPrompt: "اسألني واحدًا تلو الآخر عن البيانات الناقصة لـ {type} «{name}» ({missing}) ثم احفظها في السجل.",
+        migrationAiPrompt: "{type} «{name}» موجود بالفعل (مستورد — المعرّف {id}). اسألني عن بياناته الناقصة ({missing}) واحدًا تلو الآخر ثم اقترح تحديث الكيان الموجود نفسه (entity_id {id}) — لا تنشئ كيانًا جديدًا.",
         migFieldAddress: "العنوان",
         migFieldPhone: "الهاتف",
         migFieldEmail: "البريد الإلكتروني",
@@ -15021,7 +15021,8 @@
       if (!rec) return;
       const missing = (rec.missing_fields || []).map(_migFieldLabel).join('، ');
       const msg = t('migrationAiPrompt')
-        .replace('{type}', rec.entity_type).replace('{name}', rec.entity_name).replace('{missing}', missing);
+        .replaceAll('{type}', rec.entity_type).replaceAll('{name}', rec.entity_name)
+        .replaceAll('{missing}', missing).replaceAll('{id}', rec.entity_id);
       showPage('ai-accountant');
       const input = document.getElementById('ai-acct-input');
       if (input) {

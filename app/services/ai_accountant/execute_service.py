@@ -411,6 +411,12 @@ def _execute_update_entity(
         entity.name = new_name
     if new_type:
         entity.type = new_type
+    # Fill contact/bank details on the SAME record (e.g. completing an imported
+    # entity's IBAN/address). Explicit updates overwrite; this is confirm-gated.
+    details = payload_dict.get("details") or {}
+    if details:
+        from app.services.ai_accountant.entity_create import _apply_details
+        _apply_details(entity, details, only_blank=False)
     db.flush()
 
     audit = AuditLog(
@@ -430,6 +436,7 @@ def _execute_update_entity(
                 "entity_id": str(entity.id),
                 "old_name": old_name, "new_name": entity.name,
                 "old_type": old_type, "new_type": entity.type,
+                "details": details,
             },
             default=str,
         ),

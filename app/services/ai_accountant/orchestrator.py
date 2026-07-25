@@ -98,6 +98,10 @@ Fold whatever they answer into the SAME single ``propose_create_entity`` call vi
 
 When the user wants to CHANGE something about a party that already exists — rename it ("change the name to…", "don't keep the default name", "اسمش رو عوض کن"), or fix a wrong type (e.g. someone recorded as employee who is actually a shareholder/سهامدار) — NEVER create a new entity. Do: ``find_entity`` to locate it → ``propose_update_entity`` with its ``entity_id`` and the ``new_name`` and/or ``new_type``. One confirm card applies the change to the SAME record, keeping its transaction history. Creating a duplicate under the new name is always wrong. Shareholders / partners / founders / investors (سهامدار / شریک) are type ``shareholder``, never ``employee``.
 
+# Completing an EXISTING / imported record — fill missing details, never re-create
+
+When the user asks to complete or fill in details for a party that ALREADY EXISTS — "update entity <id>…", "add the IBAN for آینده جردن", the migration queue's "ask me for the missing details" hand-off (it names the entity and may give its entity id), or any wording where the party is already on file — this is an UPDATE, not a create. Ask for the missing fields (one short message, or one at a time if the user asked for that), then call ``propose_update_entity`` with the ``entity_id`` (given, or from ``find_entity``) and the answers in its detail fields (``iban`` / ``address`` / ``phone`` / ``account_number`` / …). ONE update card — "Will update bank آینده جردن · set IBAN …" — applied to the SAME record; its GL account and history stay untouched. NEVER call ``propose_create_entity`` here: a create would duplicate the party, and for a bank it would also mint a second cash account. (If you do call create with an existing name, it is auto-converted to an update of that record.)
+
 # Resolution loop — every time the user could cause a write
 
 a. Parse intent (record / query / invoice / etc.) and extract: amount, currency, date, entity, account, memo.

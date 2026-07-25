@@ -130,6 +130,32 @@ def any_staff_cost(db, codes) -> bool:
     return any(is_staff_cost_code(db, c) for c in (codes or []))
 
 
+# Arabic↔Persian letterforms + digits so 'آينده جردن' matches 'آینده جردن'.
+_FA_MATCH_TRANS = str.maketrans(
+    "يكى‌۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "یکی 01234567890123456789"
+)
+
+
+def normalize_match_name(name: str | None) -> str:
+    """Case/whitespace/Persian-letterform-insensitive key for duplicate checks."""
+    s = str(name or "").translate(_FA_MATCH_TRANS)
+    return re.sub(r"\s+", " ", s).strip().casefold()
+
+
+def find_entity_normalized(db: Session, etype: str, name: str) -> Entity | None:
+    """An existing entity of this type whose name matches modulo case,
+    whitespace and Arabic-vs-Persian letterforms (ي/ی, ك/ک). Guards against
+    duplicate creates — for banks, a duplicate would also mint a second GL
+    cash account."""
+    target = normalize_match_name(name)
+    if not target:
+        return None
+    for cand in db.execute(select(Entity).where(Entity.type == etype)).scalars():
+        if normalize_match_name(cand.name) == target:
+            return cand
+    return None
+
+
 def _validate_name(name: str) -> str:
     name = re.sub(r"\s+", " ", (name or "").strip())
     low = name.lower()
@@ -195,6 +221,10 @@ def create_entity(
     existing = db.execute(
         select(Entity).where(Entity.type == etype, Entity.name.ilike(clean))
     ).scalars().first()
+    if existing is None:
+        # ilike misses Arabic-vs-Persian letterform variants (ي/ی, ك/ک) — an
+        # imported 'آینده جردن' must be reused for a typed 'آينده جردن'.
+        existing = find_entity_normalized(db, etype, clean)
     if existing is not None:
         _apply_details(existing, details, only_blank=True)
         # Reuse — but still ensure a bank has a usable GL code.

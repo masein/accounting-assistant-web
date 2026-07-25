@@ -637,6 +637,58 @@ class ProposeCreateEntity(BaseTool):
         # supplier even if the model said "employee".
         etype = classify_entity_type(args.type, text=(ctx.user_message or ""))
 
+        # Duplicate guard: a create for a party that already exists (matched
+        # case/whitespace/Persian-letterform-insensitively) becomes an UPDATE of
+        # that record — never a duplicate. Worst case is a bank: a second
+        # 'آینده جردن' would also mint a second GL cash account.
+        from app.services.ai_accountant.entity_create import find_entity_normalized
+        existing = find_entity_normalized(ctx.db, etype, clean)
+        if existing is not None:
+            details = {}
+            for f in ("phone", "email", "address", "tax_id", "economic_code",
+                      "contact_person", "bank_name", "account_holder",
+                      "account_number", "iban", "sort_code"):
+                v = getattr(args, f, None)
+                if v is not None and str(v).strip():
+                    details[f] = str(v).strip()
+            if not details:
+                raise ToolError(
+                    f"A {etype} named {existing.name!r} already exists "
+                    f"(entity_id {existing.id}). Do not create a duplicate — ask "
+                    "the user whether they meant to update the existing record, "
+                    "then use propose_update_entity with this entity_id.",
+                    code="entity_exists",
+                )
+            token = uuid.uuid4()
+            payload = {"entity_id": str(existing.id), "new_name": None,
+                       "new_type": None, "details": details,
+                       "old_name": existing.name, "old_type": existing.type}
+            proposal = AIProposal(
+                confirmation_token=token, user_id=ctx.user_id,
+                session_id=ctx.chat_session_id, tool_name="propose_update_entity",
+                tool_input=payload, user_message=ctx.user_message, status="pending",
+            )
+            ctx.db.add(proposal)
+            ctx.db.commit()
+            ctx.db.refresh(proposal)
+            shown = [f"{k.replace('_', ' ')}: {v}" for k, v in details.items()]
+            summary = (f"Will update existing {existing.type} '{existing.name}' · "
+                       + " · ".join(shown[:6]))
+            return {
+                "confirmation_token": str(token),
+                "status": "pending",
+                "expires_at": (datetime.now(timezone.utc) + PROPOSAL_TTL).isoformat(),
+                "summary": summary,
+                "tool_name": "propose_update_entity",
+                "preview": payload,
+                "next_steps": (
+                    f"A {existing.type} named '{existing.name}' already exists, so "
+                    "this was converted to an UPDATE of that record (no duplicate, "
+                    "no new account). Show the card; the details are saved onto the "
+                    "existing entity when the user clicks Confirm."
+                ),
+            }
+
         preview: dict[str, Any] = {"name": clean, "type": etype,
                                    "role": _default_role_for_type(etype)}
         summary = f"Proposed new {etype}: {clean}"
@@ -713,6 +765,12 @@ class ProposeCreateEntity(BaseTool):
 # ---------------------------------------------------------------------------
 
 
+# Contact + bank fields an update may fill in (mirrors ProposeCreateEntityInput).
+_UPDATE_DETAIL_FIELDS = ("phone", "email", "address", "tax_id", "economic_code",
+                         "contact_person", "bank_name", "account_holder",
+                         "account_number", "iban", "sort_code")
+
+
 class ProposeUpdateEntityInput(BaseModel):
     entity_id: str | None = Field(
         None, description="The entity's id (from find_entity / list_entities). Preferred.")
@@ -723,13 +781,36 @@ class ProposeUpdateEntityInput(BaseModel):
         None, min_length=2, max_length=80, description="The new name, when renaming.")
     new_type: Literal["client", "supplier", "employee", "bank", "shareholder"] | None = Field(
         None, description="The corrected type, when re-classifying (e.g. employee → shareholder).")
+    # Fill in missing contact/bank details on the SAME record (e.g. completing
+    # an imported entity: IBAN, address, phone, …).
+    phone: str | None = Field(None, max_length=64)
+    email: str | None = Field(None, max_length=256)
+    address: str | None = Field(None, max_length=512)
+    tax_id: str | None = Field(None, max_length=128)
+    economic_code: str | None = Field(None, max_length=32, description="شماره اقتصادی")
+    contact_person: str | None = Field(None, max_length=256)
+    bank_name: str | None = Field(None, max_length=128)
+    account_holder: str | None = Field(None, max_length=256)
+    account_number: str | None = Field(None, max_length=64)
+    iban: str | None = Field(None, max_length=34, description="IBAN / شماره شبا")
+    sort_code: str | None = Field(None, max_length=16)
+
+    def detail_updates(self) -> dict[str, str]:
+        out = {}
+        for f in _UPDATE_DETAIL_FIELDS:
+            v = getattr(self, f, None)
+            if v is not None and str(v).strip():
+                out[f] = str(v).strip()
+        return out
 
     @model_validator(mode="after")
     def _check(self):
         if not self.entity_id and not self.current_name:
             raise ValueError("Give entity_id or current_name to identify the entity.")
-        if self.new_name is None and self.new_type is None:
-            raise ValueError("Nothing to change — give new_name and/or new_type.")
+        if self.new_name is None and self.new_type is None and not self.detail_updates():
+            raise ValueError(
+                "Nothing to change — give new_name, new_type, and/or detail fields "
+                "(iban, address, phone, …).")
         return self
 
 
@@ -737,12 +818,13 @@ class ProposeUpdateEntity(BaseTool):
     name = "propose_update_entity"
     category = "proposal"
     description = (
-        "Rename or re-classify an EXISTING entity (client / supplier / employee / "
-        "bank / shareholder), pending the user's confirmation. USE THIS — never "
-        "propose_create_entity — when the user wants to change a party that "
-        "already exists (rename it, fix a default name, or correct its type, "
-        "e.g. an employee who is actually a shareholder). Look the entity up "
-        "first with find_entity, then pass its entity_id here."
+        "Update an EXISTING entity (client / supplier / employee / bank / "
+        "shareholder), pending the user's confirmation: rename it, correct its "
+        "type, and/or fill in missing contact + bank details (iban, address, "
+        "phone, account_number, …). USE THIS — never propose_create_entity — "
+        "when the party already exists, including completing an imported record "
+        "('update entity <id>', 'add the IBAN for…'). Look the entity up first "
+        "with find_entity (or use the id the user gave), then pass entity_id here."
     )
     InputSchema = ProposeUpdateEntityInput
 
@@ -780,18 +862,21 @@ class ProposeUpdateEntity(BaseTool):
             except EntityCreateError as e:
                 raise ToolError(str(e), code="invalid_entity_name") from e
 
+        details = args.detail_updates()
         changes = []
         if new_name and new_name != entity.name:
             changes.append(f"rename '{entity.name}' → '{new_name}'")
         if args.new_type and args.new_type != entity.type:
             changes.append(f"type {entity.type} → {args.new_type}")
+        for f, v in details.items():
+            changes.append(f"set {f.replace('_', ' ')}: {v}")
         if not changes:
             raise ToolError("The entity already matches the requested values — nothing to change.",
                             code="no_change")
 
         token = uuid.uuid4()
         payload = {"entity_id": str(entity.id), "new_name": new_name,
-                   "new_type": args.new_type,
+                   "new_type": args.new_type, "details": details,
                    "old_name": entity.name, "old_type": entity.type}
         proposal = AIProposal(
             confirmation_token=token, user_id=ctx.user_id,

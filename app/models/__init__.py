@@ -18,6 +18,7 @@ from app.models.exchange_rate import ExchangeRate
 from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
+from app.models.migration import MigrationBatch, MigrationPendingRecord
 from app.models.mileage_claim import MileageClaim
 from app.models.pay_run import PayRun, PayRunLine
 from app.models.payment import Payment
@@ -50,6 +51,8 @@ __all__ = [
     "ExchangeRate",
     "GoodsReceipt",
     "GoodsReceiptLine",
+    "MigrationBatch",
+    "MigrationPendingRecord",
     "MileageClaim",
     "PayRun",
     "PayRunLine",

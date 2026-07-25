@@ -57,6 +57,11 @@ MATRIX = [
     ("GET", "/transactions", {O, C, A, V}),
     ("GET", "/invoices", {O, C, A, V}),
     ("GET", "/accounts", {O, C, A, V}),
+    # Migration from another accounting system (Owner/Accountant only)
+    ("POST", "/migration/import/preview", {O, A}),
+    ("POST", "/migration/import/confirm", {O, A}),
+    ("GET", "/migration/pending", {O, A}),
+    ("POST", "/migration/pending/00000000-0000-0000-0000-000000000000/resolve", {O, A}),
     # Payroll / salaries
     ("GET", "/payroll/runs", {O, C, A}),
     ("POST", "/payroll/runs", {O, C, A}),

@@ -61,6 +61,7 @@ class Perm:
     REPORTS_LIMITED = "reports:limited"  # the slice a Manager may see
     CFO_READ = "cfo:read"              # CFO / CEO mode
     APPROVALS_WRITE = "approvals:write"
+    MIGRATION_WRITE = "migration:write"  # import from another accounting system
     TIME_OWN = "time:own"              # log/view own time
     EXPENSES_OWN = "expenses:own"      # submit/view own expenses
 
@@ -98,6 +99,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         Perm.PAYROLL_READ, Perm.PAYROLL_WRITE,
         Perm.BANK_READ,
         Perm.REPORTS_READ, Perm.REPORTS_LIMITED,
+        Perm.MIGRATION_WRITE,
     }),
     # Manager/Approver: act on over-threshold items + a limited report slice.
     Role.MANAGER: frozenset({
@@ -197,6 +199,17 @@ for _m, _p in [
     ("POST", "/transactions/excel-import/confirm"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
+
+# --- Books: migration from another accounting system (Owner/Accountant only) -
+for _m, _p in [
+    ("POST", "/migration/import/preview"),
+    ("POST", "/migration/import/confirm"),
+    ("GET", "/migration/batches"),
+    ("GET", "/migration/pending"),
+    ("POST", "/migration/pending/{pending_id}/resolve"),
+    ("POST", "/migration/pending/{pending_id}/dismiss"),
+]:
+    _add(_m, _p, Perm.MIGRATION_WRITE)
 
 # --- Books: invoices --------------------------------------------------------
 _reads(["/invoices", "/invoices/{invoice_id}/payments",

@@ -28,6 +28,7 @@ from app.api.fx import router as fx_router
 from app.api.integration import router as integration_router
 from app.api.invoices import router as invoices_router
 from app.api.manager_reports import router as manager_reports_router
+from app.api.migration import router as migration_router
 from app.api.notifications import router as notifications_router
 from app.api.payroll import router as payroll_router
 from app.api.products import router as products_router
@@ -706,6 +707,7 @@ app.include_router(exports_router, dependencies=_rbac)
 app.include_router(fx_router, dependencies=_rbac)
 app.include_router(invoices_router, dependencies=_rbac)
 app.include_router(manager_reports_router, dependencies=_rbac)
+app.include_router(migration_router, dependencies=_rbac)
 app.include_router(notifications_router, dependencies=_rbac)
 app.include_router(payroll_router, dependencies=_rbac)
 app.include_router(products_router, dependencies=_rbac)

@@ -9,6 +9,21 @@ from __future__ import annotations
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_anthropic_state():
+    """Make these tests independent of the developer's .env: a local
+    ANTHROPIC_BASE_URL/MODEL override seeds the runtime state at import time
+    and would break the "defaults when unset" assertions."""
+    from app.core import ai_runtime
+
+    with ai_runtime._lock:
+        saved = dict(ai_runtime._state["anthropic"])
+        ai_runtime._state["anthropic"] = {"base_url": None, "model": None, "api_key": None}
+    yield
+    with ai_runtime._lock:
+        ai_runtime._state["anthropic"] = saved
+
+
 class TestAnthropicConfigEndpoint:
     def test_get_returns_defaults_when_unset(self, auth_client) -> None:
         r = auth_client.get("/admin/anthropic-config")

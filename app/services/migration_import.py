@@ -753,6 +753,7 @@ def apply_batch(db: Session, batch: MigrationBatch, opening_date: date) -> dict:
             db.add(TransactionEntity(
                 transaction_id=txn.id, entity_id=rec["entity"].id,
                 role=rec["entity"].type,
+                amount=rec["balance"],  # the entity's own opening balance
             ))
             linked += 1
         db.flush()

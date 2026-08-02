@@ -160,6 +160,7 @@ Time words follow the company's calendar (``get_company_defaults``): for an Iran
 * Be concise. Don't apologise. Don't lecture about accounting basics.
 * LANGUAGE — non-negotiable: reply in the language of the user's LAST message. A Persian question gets a Persian answer, even if the interface language is {lang_name}. Only when the message has no clear language (numbers, a bare filename) fall back to {lang_name}. Write Persian entity names in Persian script — never transliterate them to Latin ("تولیدی آرد روشن", not "Ard roshan").
 * Match the company's currency by default (returned by ``get_company_defaults``).
+* TOMAN: Iranian users quote prices in تومان but the books are kept in ریال (IRR). 1 تومان = 10 ریال — ALWAYS convert: «۲۱۵ میلیون تومان» → propose 2,150,000,000 IRR, and say the conversion in your reply («۲۱۵ میلیون تومان = ۲٬۱۵۰٬۰۰۰٬۰۰۰ ریال»). Amounts said in ریال are used as-is. If the user corrects the figure, use their number.
 
 # Refusals
 
@@ -342,12 +343,30 @@ def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int,
         proposals[turn_start:] = [p for p in turn if id(p) not in dropped]
 
 
+# Persian/English magnitude words: «۲۱۵ میلیون» = 215,000,000. Written with
+# both Persian (ی) and Arabic (ي) letterforms since users type either.
+_MAGNITUDE_WORDS = {
+    "هزار": 1_000, "thousand": 1_000,
+    "میلیون": 1_000_000, "ميليون": 1_000_000, "ملیون": 1_000_000, "million": 1_000_000,
+    "میلیارد": 1_000_000_000, "ميليارد": 1_000_000_000, "billion": 1_000_000_000,
+}
+_MAG_ALTS = "|".join(_MAGNITUDE_WORDS)
+# one "<number> <magnitude>" term
+_MAG_TERM_RE = re.compile(rf"(\d[\d,٬\.]*)\s*({_MAG_ALTS})")
+# a compound of such terms joined by و/and: «۲ میلیارد و ۱۵۰ میلیون»
+_MAG_COMPOUND_RE = re.compile(
+    rf"(\d[\d,٬\.]*)\s*(?:{_MAG_ALTS})(?:\s*(?:و|and)\s*(\d[\d,٬\.]*)\s*(?:{_MAG_ALTS}))+"
+)
+_TOMAN_RE = re.compile(r"تومان|تومن|تومــان|toman", re.IGNORECASE)
+
+
 def _numbers_in_text(text: str | None) -> list[int]:
     """Extract candidate monetary amounts from free text (Persian-digit
     aware), for the proposal amount-sanity cross-check. Handles plain and
-    grouped numbers plus the common 'k'/'m' shorthand ('300', '1,500',
-    '2.5k'). Ignores tiny tokens that are usually quantities/years noise by
-    keeping only values ≥ 1."""
+    grouped numbers, the 'k'/'m' shorthand, Persian magnitude words
+    («۲۱۵ میلیون», compounds like «۲ میلیارد و ۱۵۰ میلیون»), and — when the
+    text prices in تومان — the ×10 rial equivalent of every amount, so a
+    correct toman→rial conversion is never rejected as a mismatch."""
     if not text:
         return []
     from app.services.ocr_extract import coerce_amount, normalize_digits
@@ -367,6 +386,23 @@ def _numbers_in_text(text: str | None) -> list[int]:
             base *= 1_000_000
         if base >= 1:
             out.append(base)
+    # magnitude-word terms: «۲۱۵ میلیون» → 215,000,000
+    for m in _MAG_TERM_RE.finditer(norm):
+        base = coerce_amount(m.group(1))
+        if base:
+            out.append(base * _MAGNITUDE_WORDS[m.group(2)])
+    # compounds: «۲ میلیارد و ۱۵۰ میلیون» → 2,150,000,000
+    for m in _MAG_COMPOUND_RE.finditer(norm):
+        total = 0
+        for term in _MAG_TERM_RE.finditer(m.group(0)):
+            base = coerce_amount(term.group(1))
+            if base:
+                total += base * _MAGNITUDE_WORDS[term.group(2)]
+        if total:
+            out.append(total)
+    # toman pricing: the books are in rial — accept the ×10 conversion too
+    if _TOMAN_RE.search(norm):
+        out.extend([a * 10 for a in out])
     return out
 
 

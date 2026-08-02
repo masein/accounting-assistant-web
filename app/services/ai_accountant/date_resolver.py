@@ -135,6 +135,41 @@ def relative_offset_date(message: str | None, today: date) -> date | None:
     return None
 
 
+# Jalali month names (Persian + Arabic letterforms). A DAY NUMBER must
+# precede the month («۴ مرداد», «۱۲ دی ماه») — the bare word دی is also a
+# bank name, so a month word alone never counts as a date.
+_JALALI_MONTHS = {
+    "فروردین": 1, "فروردين": 1, "اردیبهشت": 2, "ارديبهشت": 2, "خرداد": 3,
+    "تیر": 4, "تير": 4, "مرداد": 5, "امرداد": 5, "شهریور": 6, "شهريور": 6,
+    "مهر": 7, "آبان": 8, "ابان": 8, "آذر": 9, "اذر": 9, "دی": 10, "دي": 10,
+    "بهمن": 11, "اسفند": 12,
+}
+_JALALI_DAY_MONTH_RE = re.compile(
+    r"(?<![\d/])(\d{1,2})(?:ام|م)?\s*(" + "|".join(_JALALI_MONTHS) + r")(?:\s*ماه)?(?:\s*(1[34]\d{2}))?"
+)
+
+
+def jalali_named_date(message: str | None, today: date) -> date | None:
+    """«۴ مرداد [ماه] [۱۴۰۵]» → the Gregorian date, resolved server-side (the
+    model reliably ignores Jalali dates and stamps today instead). Year
+    defaults to the current Jalali year."""
+    t = (message or "").translate(_DIGIT_TABLE)
+    m = _JALALI_DAY_MONTH_RE.search(t)
+    if not m:
+        return None
+    day = int(m.group(1))
+    month = _JALALI_MONTHS[m.group(2)]
+    if not 1 <= day <= 31:
+        return None
+    try:
+        from app.utils.jalali import gregorian_to_jalali, jalali_to_gregorian
+
+        year = int(m.group(3)) if m.group(3) else gregorian_to_jalali(today)[0]
+        return jalali_to_gregorian(year, month, day)
+    except Exception:
+        return None
+
+
 def resolve_entry_date(
     message: str | None,
     model_date: date,
@@ -159,6 +194,12 @@ def resolve_entry_date(
     rel = relative_offset_date(message, today)
     if rel is not None:
         return rel
+
+    # An explicit Jalali date («۴ مرداد») → resolve it ourselves; the model
+    # reliably ignores these and stamps today.
+    jal = jalali_named_date(message, today)
+    if jal is not None:
+        return jal
 
     # An explicit absolute date in the message → trust the model's parse of it
     # (even if far in the past, e.g. backdating an old entry).

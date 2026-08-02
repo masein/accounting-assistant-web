@@ -251,6 +251,7 @@ def _transaction_to_read(t: Transaction) -> TransactionRead:
                 entity_id=link.entity_id,
                 entity_name=(link.entity.name if link.entity else None),
                 entity_type=(link.entity.type if link.entity else None),
+                amount=link.amount,
             )
             for link in (t.entity_links or [])
         ],

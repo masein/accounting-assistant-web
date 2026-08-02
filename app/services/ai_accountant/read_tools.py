@@ -43,6 +43,24 @@ from app.services.reporting.common import (
 from .base import BaseTool, ToolContext, ToolError
 
 
+# Contact + bank fields shown to the model so questions like "what is this
+# bank's IBAN / شبا?" answer from the record instead of "not recorded". Only
+# non-empty fields are included to keep tool output small.
+_ENTITY_DETAIL_FIELDS = (
+    "phone", "email", "address", "tax_id", "economic_code", "national_id",
+    "contact_person", "bank_name", "account_holder", "account_number",
+    "iban", "sort_code",
+)
+
+
+def _entity_details(e: Entity) -> dict[str, Any]:
+    return {
+        f: str(v).strip()
+        for f in _ENTITY_DETAIL_FIELDS
+        if (v := getattr(e, f, None)) and str(v).strip()
+    }
+
+
 # ---------------------------------------------------------------------------
 # find_entity
 # ---------------------------------------------------------------------------
@@ -116,6 +134,7 @@ class FindEntity(BaseTool):
                     "type": e.type,
                     "code": e.code,
                     "confidence": round(score, 3),
+                    **_entity_details(e),
                 }
                 for (score, e) in top
                 if score >= 0.30  # filter pure-noise matches
@@ -164,6 +183,7 @@ class ListEntities(BaseTool):
                     "name": e.name,
                     "type": e.type,
                     "code": e.code,
+                    **_entity_details(e),
                 }
                 for e in rows
             ],

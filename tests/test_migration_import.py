@@ -229,6 +229,11 @@ def test_confirm_applies_chart_entities_and_journal(auth_client, db):
     assert result["opening_journal"]["entity_links"] == len(links) > 0
     linked_ids = {l.entity_id for l in links}
     assert bank.id in linked_ids and cp.id in linked_ids
+    # each link carries the entity's OWN share, so per-entity views don't show
+    # the whole 34.4B journal total for everyone
+    by_entity = {l.entity_id: l.amount for l in links}
+    assert by_entity[bank.id] == 282242080          # آینده جردن debit share
+    assert by_entity[cp.id] == 659689833                # ابر اروان net debit share
 
     # Completion queue: every imported entity is missing address/phone or iban
     # (scope to this batch — the shared test DB may hold other tests' records)
@@ -486,3 +491,22 @@ def test_reimport_retypes_previously_misclassified_counterparty(auth_client, db)
     rows = db.execute(select(Entity).where(Entity.name == fa_name)).scalars().all()
     assert len(rows) == 1                 # no duplicate
     assert rows[0].type == "employee"     # retyped by the 1xxxx convention
+
+
+@needs_samples
+def test_reimport_entity_view_shows_single_journal_with_share(auth_client, db):
+    """After a re-import replaces the opening journal, the per-entity
+    transactions view shows ONE journal (soft-deleted one hidden) and the
+    entity's own share, not just the aggregate total."""
+    for _ in range(2):  # import + idempotent re-import (replaces the journal)
+        r = auth_client.post("/migration/import/preview", files=_sample_uploads())
+        auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+
+    ent = db.execute(
+        select(Entity).where(Entity.name == "گستره هزاره فناوری ایده نوین")
+    ).scalars().one()
+    txns = auth_client.get(f"/reports/entities/{ent.id}/transactions").json()
+    opening = [t for t in txns if t["reference"] == mig.OPENING_REFERENCE]
+    assert len(opening) == 1  # the replaced journal is hidden
+    link = next(l for l in opening[0]["entity_links"] if l["entity_id"] == str(ent.id))
+    assert link["amount"] == -4554880000  # its OWN opening balance (credit)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import BigInteger, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -70,6 +70,11 @@ class TransactionEntity(Base, TenantMixin):
         UUID(as_uuid=True), ForeignKey("entities.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[str] = mapped_column(String(32), index=True)  # client, bank, payee, supplier
+    # This entity's own share of the journal (signed minor units: + = debit),
+    # when it is known — e.g. a migrated opening balance inside the single
+    # aggregate opening journal. NULL = the whole transaction concerns the
+    # entity (the normal voucher case).
+    amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     transaction: Mapped["Transaction"] = relationship("Transaction", back_populates="entity_links")
     entity: Mapped["Entity"] = relationship("Entity", back_populates="transaction_links")

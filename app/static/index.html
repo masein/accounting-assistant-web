@@ -2707,7 +2707,9 @@
         <h2 id="entity-edit-title" data-i18n="editEntityTitle">Edit entity</h2>
         <button type="button" class="modal-close" aria-label="Close" id="entity-edit-close">×</button>
       </div>
-      <div style="padding: 1rem 1.25rem; display: grid; gap: 0.75rem;">
+      <!-- min-height:0 + overflow-y lets the long bank/billing form scroll
+           INSIDE the card instead of spilling past its 90vh bound -->
+      <div style="padding: 1rem 1.25rem; display: grid; gap: 0.75rem; overflow-y: auto; flex: 1; min-height: 0;">
         <div>
           <label for="entity-edit-type" data-i18n="labelType">Type</label>
           <select id="entity-edit-type" style="width: 100%;">
@@ -12691,12 +12693,18 @@
         }
         body.innerHTML = `
           <table class="detail-table">
-            <thead><tr><th>Date</th><th>Reference</th><th>Ccy</th><th>Description</th><th>Attachments</th><th class="num">Total debit</th><th class="num">Total credit</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Date</th><th>Reference</th><th>Ccy</th><th>Description</th><th>Attachments</th><th class="num">This entity</th><th class="num">Total debit</th><th class="num">Total credit</th><th>Actions</th></tr></thead>
             <tbody>
               ${transactions.map(t => {
                 const totalD = (t.lines || []).reduce((s, l) => s + (l.debit || 0), 0);
                 const totalC = (t.lines || []).reduce((s, l) => s + (l.credit || 0), 0);
+                // the entity's OWN share of an aggregate journal (e.g. the
+                // migration opening entry), when the link carries it
+                const ownLink = (t.entity_links || []).find(l => l.entity_id === entityId && l.amount != null);
                 const ccy = (t.currency || 'IRR').toUpperCase();
+                const share = ownLink
+                  ? formatMoney(Math.abs(ownLink.amount), ccy) + (ownLink.amount >= 0 ? ' DR' : ' CR')
+                  : '—';
                 const att = (t.attachments || []);
                 const attHtml = att.length
                   ? att.map(a => {
@@ -12710,6 +12718,7 @@
                   <td><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
                   <td>${escapeHtml((t.description || '—').slice(0, 50))}${(t.description && t.description.length > 50) ? '…' : ''}</td>
                   <td>${attHtml}</td>
+                  <td class="num">${share}</td>
                   <td class="num">${formatMoney(totalD, ccy)}</td>
                   <td class="num">${formatMoney(totalC, ccy)}</td>
                   <td>

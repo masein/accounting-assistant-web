@@ -284,7 +284,10 @@ def get_entity_transactions(
     q = (
         select(Transaction)
         .join(TransactionEntity, Transaction.id == TransactionEntity.transaction_id)
-        .where(TransactionEntity.entity_id == entity_id)
+        .where(
+            TransactionEntity.entity_id == entity_id,
+            Transaction.deleted_at.is_(None),  # hide soft-deleted (e.g. a replaced opening journal)
+        )
     )
     if currency:
         q = q.where(Transaction.currency == currency)
@@ -324,6 +327,7 @@ def get_entity_transactions(
                         entity_id=link.entity_id,
                         entity_name=(link.entity.name if link.entity else None),
                         entity_type=(link.entity.type if link.entity else None),
+                        amount=link.amount,
                     )
                     for link in (t.entity_links or [])
                 ],

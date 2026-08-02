@@ -76,6 +76,8 @@ class TransactionEntityLinkRead(BaseModel):
     entity_id: UUID
     entity_name: str | None = None
     entity_type: str | None = None
+    # signed minor-unit share of the journal (+ = debit), when known
+    amount: int | None = None
 
 
 class AttachmentRead(BaseModel):

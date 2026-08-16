@@ -62,6 +62,8 @@ class Perm:
     CFO_READ = "cfo:read"              # CFO / CEO mode
     APPROVALS_WRITE = "approvals:write"
     MIGRATION_WRITE = "migration:write"  # import from another accounting system
+    PETTY_OWN = "petty:own"        # hold a petty cash float, record expenses
+    PETTY_MANAGE = "petty:manage"  # create/charge/adjust accounts, approve expenses
     TIME_OWN = "time:own"              # log/view own time
     EXPENSES_OWN = "expenses:own"      # submit/view own expenses
 
@@ -91,6 +93,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         Perm.REPORTS_READ, Perm.REPORTS_LIMITED,
         Perm.CFO_READ,
         Perm.APPROVALS_WRITE,
+        Perm.PETTY_OWN, Perm.PETTY_MANAGE,
     }),
     # Accountant: full books + payroll (read/write) + standard reports; NO CFO
     # mode, NO user management, NO settings write, NO approvals.
@@ -100,17 +103,20 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         Perm.BANK_READ,
         Perm.REPORTS_READ, Perm.REPORTS_LIMITED,
         Perm.MIGRATION_WRITE,
+        Perm.PETTY_OWN, Perm.PETTY_MANAGE,
     }),
     # Manager/Approver: act on over-threshold items + a limited report slice.
     Role.MANAGER: frozenset({
         Perm.APPROVALS_WRITE,
         Perm.REPORTS_LIMITED,
+        Perm.PETTY_OWN,
     }),
     # Employee: self-service only — own time, own expenses, own payslip.
     Role.EMPLOYEE: frozenset({
         Perm.TIME_OWN,
         Perm.EXPENSES_OWN,
         Perm.PAYROLL_OWN,
+        Perm.PETTY_OWN,
     }),
     # Viewer: read-only reports/dashboard (sensitive fields stripped downstream).
     Role.VIEWER: frozenset({
@@ -207,6 +213,37 @@ for _m, _p in [
     ("DELETE", "/ai-accountant/sessions/{session_id}"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
+
+# --- Notifications feed + personal reminders (any authenticated role) -------
+for _m, _p in [
+    ("GET", "/notifications/feed"),
+    ("POST", "/notifications/feed/{notification_id}/read"),
+    ("POST", "/notifications/feed/read-all"),
+    ("GET", "/notifications/reminders"),
+    ("POST", "/notifications/reminders"),
+    ("PATCH", "/notifications/reminders/{reminder_id}"),
+    ("DELETE", "/notifications/reminders/{reminder_id}"),
+]:
+    _add(_m, _p, ANY_ROLE)
+
+# --- Petty cash (تنخواه): own float for everyone, management for finance ----
+for _m, _p in [
+    ("GET", "/petty-cash/accounts"),
+    ("GET", "/petty-cash/accounts/{account_id}"),
+    ("POST", "/petty-cash/accounts/{account_id}/expenses"),
+]:
+    _add(_m, _p, frozenset({Perm.PETTY_OWN, Perm.PETTY_MANAGE}))
+for _m, _p in [
+    ("POST", "/petty-cash/accounts"),
+    ("POST", "/petty-cash/accounts/{account_id}/deposit"),
+    ("POST", "/petty-cash/accounts/{account_id}/adjust"),
+    ("POST", "/petty-cash/expenses/{txn_id}/approve"),
+    ("POST", "/petty-cash/expenses/{txn_id}/reject"),
+]:
+    _add(_m, _p, Perm.PETTY_MANAGE)
+
+# --- Recurring materializer --------------------------------------------------
+_add("POST", "/recurring/run-due", Perm.BOOKS_WRITE)
 
 # --- Books: migration from another accounting system (Owner/Accountant only) -
 for _m, _p in [

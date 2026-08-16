@@ -726,6 +726,7 @@
         <button type="button" class="nav-btn" data-page="inventory"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8V21H3V8"/><rect x="1" y="3" width="22" height="5"/><path d="M10 12h4"/></svg><span class="lbl" data-i18n="navInventory">Inventory</span></button>
         <button type="button" class="nav-btn" data-page="payroll"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M12 5v6M10.5 7.2c0-.7.7-1.2 1.5-1.2s1.5.5 1.5 1.2-.7 1.1-1.5 1.1-1.5.5-1.5 1.2.7 1.2 1.5 1.2 1.5-.5 1.5-1.2"/><path d="M3 21a7 7 0 0 1 18 0"/></svg><span class="lbl" data-i18n="payrollNav">Payroll</span></button>
         <button type="button" class="nav-btn" data-page="equity"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span class="lbl" data-i18n="equityNav">Shareholders</span></button>
+        <button type="button" class="nav-btn" data-page="petty-cash"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg><span class="lbl" data-i18n="pettyNav">Petty cash</span></button>
         <button type="button" class="nav-btn" data-page="bank-statements"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M4 10h16M5 10 12 4l7 6M6 10v8M18 10v8M10 10v8M14 10v8"/></svg><span class="lbl" data-i18n="bankStatementsNav">Bank Statements</span></button>
       </div>
       <div class="nav-section" role="group">
@@ -754,6 +755,36 @@
       <h1 class="page-title" id="page-title">Dashboard</h1>
       <div class="topbar-right">
         <span id="company-badge" style="display:none; font-size:0.8rem; font-weight:600; padding:0.2rem 0.7rem; border-radius:999px; background:var(--primary); color:#fff;"></span>
+        <div class="user-menu" style="position:relative;">
+          <button type="button" class="icon-btn" id="notify-bell-btn" data-i18n-title="notifyBellTitle" title="Notifications" aria-label="Notifications" style="position:relative;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span id="notify-badge" style="display:none; position:absolute; top:-4px; inset-inline-end:-4px; min-width:18px; height:18px; padding:0 4px; border-radius:9px; background:var(--danger,#dc3545); color:#fff; font-size:0.68rem; font-weight:700; line-height:18px; text-align:center;"></span>
+          </button>
+          <div id="notify-pop" style="display:none; position:absolute; inset-inline-end:0; top:44px; width:min(400px, 92vw); max-height:70vh; overflow-y:auto; background:var(--card,#fff); border:1px solid var(--border); border-radius:12px; box-shadow:0 18px 40px -12px rgba(0,0,0,0.3); padding:0.6rem; z-index:60;">
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem;">
+              <strong style="flex:1;" data-i18n="notifyTitle">Notifications</strong>
+              <button type="button" class="btn btn-secondary btn-sm" id="notify-read-all" data-i18n="notifyReadAll">Mark all read</button>
+            </div>
+            <div id="notify-list"></div>
+            <hr style="margin:0.6rem 0; border:none; border-top:1px solid var(--border);">
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.35rem;">
+              <strong style="flex:1; font-size:0.9rem;" data-i18n="remTitle">Reminders</strong>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 110px; gap:0.35rem; margin-bottom:0.35rem;">
+              <input type="text" id="rem-new-title" data-i18n-placeholder="remNewPlaceholder" placeholder="New reminder…" style="font-size:0.85rem;">
+              <input type="date" id="rem-new-date" style="font-size:0.8rem;">
+              <select id="rem-new-repeat" style="font-size:0.8rem;">
+                <option value="none" data-i18n="remRepeatNone">No repeat</option>
+                <option value="daily" data-i18n="remRepeatDaily">Daily</option>
+                <option value="weekly" data-i18n="remRepeatWeekly">Weekly</option>
+                <option value="monthly" data-i18n="remRepeatMonthly">Monthly</option>
+                <option value="yearly" data-i18n="remRepeatYearly">Yearly</option>
+              </select>
+              <button type="button" class="btn btn-primary btn-sm" id="rem-new-add" data-i18n="remAddBtn">Add</button>
+            </div>
+            <div id="rem-list"></div>
+          </div>
+        </div>
         <div class="user-menu">
           <button type="button" class="icon-btn" id="user-menu-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
@@ -948,18 +979,51 @@
     </div>
 
     <div class="card" data-page="recurring">
-      <h2 id="recurring-title" data-i18n="recurringTitle">Recurring rules (AI text)</h2>
-      <p id="recurring-example" data-i18n="recurringExample" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Example: <code>I have to pay 2,500 rent every month from HSBC bank</code> or <code>I receive 120,000 yearly from client X</code>.</p>
-      <div class="row" style="margin-bottom: 0.75rem;">
-        <div style="flex: 3 1 420px;">
-          <label for="recurring-text" data-i18n="recurringInputLabel">Tell AI your recurring payment/receipt</label>
-          <input type="text" id="recurring-text" data-i18n-placeholder="placeholderRecurring" placeholder="e.g. I pay 2,500 office rent every month from HSBC bank">
+      <h2 id="recurring-title" data-i18n="recurringTitle">Recurring payments &amp; receipts</h2>
+      <p data-i18n="recurringManualIntro" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Define the schedule and the accounts once — when a date comes due, the matching journal entry posts automatically through the chosen bank and balances update.</p>
+      <div style="border:1px solid var(--border); border-radius:8px; padding:0.85rem; margin-bottom:1rem;">
+        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:0.6rem;">
+          <div><label for="rec-name" data-i18n="labelName">Name</label><input type="text" id="rec-name"></div>
+          <div><label for="rec-direction" data-i18n="tableDirection">Direction</label>
+            <select id="rec-direction">
+              <option value="payment" data-i18n="recDirPayment">Payment (money out)</option>
+              <option value="receipt" data-i18n="recDirReceipt">Receipt (money in)</option>
+            </select></div>
+          <div><label for="rec-frequency" data-i18n="tableFrequency">Frequency</label>
+            <select id="rec-frequency">
+              <option value="daily" data-i18n="recFreqDaily">Daily</option>
+              <option value="weekly" data-i18n="recFreqWeekly">Weekly</option>
+              <option value="monthly" selected data-i18n="recFreqMonthly">Monthly</option>
+              <option value="quarterly" data-i18n="recFreqQuarterly">Quarterly</option>
+              <option value="yearly" data-i18n="recFreqYearly">Yearly</option>
+            </select></div>
+          <div><label for="rec-amount" data-i18n="labelAmount">Amount</label><input type="number" id="rec-amount" min="0"></div>
+          <div><label for="rec-start" data-i18n="recStartDate">Start date</label><input type="date" id="rec-start"></div>
+          <div><label for="rec-end" data-i18n="recEndDate">End date (optional)</label><input type="date" id="rec-end"></div>
+          <div><label for="rec-bank" data-i18n="recBankLabel">Bank account</label><select id="rec-bank"></select></div>
+          <div><label for="rec-counter" data-i18n="recCounterLabel">Expense / income account</label><select id="rec-counter"></select></div>
         </div>
-        <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="recurring-create" data-i18n="btnSaveRecurring">Save recurring rule</button></div>
+        <div style="display:flex; gap:0.9rem; align-items:center; margin-top:0.6rem; flex-wrap:wrap;">
+          <label style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.85rem;">
+            <input type="checkbox" id="rec-autopost" checked> <span data-i18n="recAutoPost">Post the journal entry automatically when due</span>
+          </label>
+          <button type="button" class="btn btn-primary" id="rec-manual-create" data-i18n="recCreateBtn">Save recurring rule</button>
+          <button type="button" class="btn btn-secondary" id="rec-run-due" data-i18n="recRunDueBtn">Run due now</button>
+          <span id="rec-form-status" style="font-size:0.8rem; color:var(--text-muted);"></span>
+        </div>
       </div>
+      <details style="margin-bottom:0.9rem;">
+        <summary data-i18n="recurringInputLabel" style="cursor:pointer; font-size:0.85rem; color:var(--text-muted);">Tell AI your recurring payment/receipt</summary>
+        <div class="row" style="margin-top:0.5rem;">
+          <div style="flex: 3 1 420px;">
+            <input type="text" id="recurring-text" data-i18n-placeholder="placeholderRecurring" placeholder="e.g. I pay 2,500 office rent every month from HSBC bank">
+          </div>
+          <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-secondary" id="recurring-create" data-i18n="btnSaveRecurring">Save recurring rule</button></div>
+        </div>
+      </details>
       <table class="results-table" id="recurring-table">
-        <thead><tr><th data-i18n="labelName">Name</th><th data-i18n="tableDirection">Direction</th><th data-i18n="tableFrequency">Frequency</th><th data-i18n="labelAmount">Amount</th><th data-i18n="tableNextRun">Next run</th><th data-i18n="usersStatus">Status</th><th></th></tr></thead>
-        <tbody id="recurring-tbody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
+        <thead><tr><th data-i18n="labelName">Name</th><th data-i18n="tableDirection">Direction</th><th data-i18n="tableFrequency">Frequency</th><th data-i18n="labelAmount">Amount</th><th data-i18n="recBankLabel">Bank account</th><th data-i18n="recCounterLabel">Expense / income account</th><th data-i18n="tableNextRun">Next run</th><th data-i18n="recAutoCol">Auto</th><th data-i18n="usersStatus">Status</th><th></th></tr></thead>
+        <tbody id="recurring-tbody"><tr><td colspan="10" class="empty-state">Loading…</td></tr></tbody>
       </table>
     </div>
 
@@ -1952,6 +2016,52 @@
           <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-pay-amount" min="1" step="1"></label>
           <label><span data-i18n="equityFieldDate">Date</span><input type="date" id="equity-pay-date"></label>
           <button type="button" class="btn btn-primary btn-sm" id="equity-pay-post" data-i18n="equityBtnPay">Pay</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ Petty Cash Page ═══════ -->
+    <div class="card" data-page="petty-cash">
+      <h2 data-i18n="pettyTitle">Petty cash (تنخواه)</h2>
+      <p data-i18n="pettyIntro" style="color:var(--text-muted); font-size:0.875rem; margin:0 0 0.75rem;">Company-funded floats for day-to-day spending: record expenses with receipts, admins charge accounts and approve spends — balances and history update in real time.</p>
+
+      <div id="petty-admin-section" style="display:none; border:1px solid var(--border); border-radius:8px; padding:0.85rem; margin-bottom:1rem;">
+        <h3 style="margin:0 0 0.5rem; font-size:1rem;" data-i18n="pettyAdminTitle">Administration</h3>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:0.7rem;">
+          <div><label for="petty-new-username" data-i18n="pettyNewUser">Holder username</label><input type="text" id="petty-new-username" style="width:180px;"></div>
+          <div><label for="petty-new-holder" data-i18n="pettyNewHolder">Display name (optional)</label><input type="text" id="petty-new-holder" style="width:180px;"></div>
+          <button type="button" class="btn btn-primary btn-sm" id="petty-create-account" data-i18n="pettyCreateBtn">Create account</button>
+          <span id="petty-admin-status" style="font-size:0.8rem; color:var(--text-muted);"></span>
+        </div>
+        <div id="petty-pending-wrap" style="margin-bottom:0.7rem;"></div>
+        <table class="results-table">
+          <thead><tr><th data-i18n="pettyHolder">Holder</th><th data-i18n="pettyBalance">Balance</th><th data-i18n="pettyPendingCol">Pending</th><th></th></tr></thead>
+          <tbody id="petty-admin-tbody"><tr><td colspan="4" class="empty-state">—</td></tr></tbody>
+        </table>
+      </div>
+
+      <div id="petty-own-section">
+        <h3 style="margin:0 0 0.5rem; font-size:1rem;" data-i18n="pettyMyTitle">My petty cash</h3>
+        <div id="petty-own-none" class="empty-state" data-i18n="pettyNoAccount" style="display:none;">No petty cash account yet — ask an admin to create one for you.</div>
+        <div id="petty-own-wrap" style="display:none;">
+          <div style="display:flex; gap:1.2rem; flex-wrap:wrap; align-items:center; margin-bottom:0.7rem;">
+            <div style="font-size:1.05rem;"><span data-i18n="pettyBalance">Balance</span>: <strong id="petty-own-balance">—</strong></div>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:0.7rem; border:1px dashed var(--border); border-radius:8px; padding:0.6rem;">
+            <div><label for="petty-exp-amount" data-i18n="labelAmount">Amount</label><input type="number" id="petty-exp-amount" min="1" style="width:140px;"></div>
+            <div style="flex:1; min-width:180px;"><label for="petty-exp-desc" data-i18n="pettyExpDesc">What was it for?</label><input type="text" id="petty-exp-desc"></div>
+            <div><label for="petty-exp-cat" data-i18n="recCounterLabel">Expense / income account</label><select id="petty-exp-cat"></select></div>
+            <div>
+              <input type="file" id="petty-exp-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;">
+              <button type="button" class="btn btn-secondary btn-sm" id="petty-exp-attach">📎 <span data-i18n="pettyReceipt">Receipt</span></button>
+              <span id="petty-exp-attach-name" style="font-size:0.75rem; color:var(--text-muted);"></span>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="petty-exp-submit" data-i18n="pettyExpSubmit">Record expense</button>
+          </div>
+          <table class="results-table">
+            <thead><tr><th data-i18n="labelDate">Date</th><th data-i18n="pettyKind">Type</th><th data-i18n="labelAmount">Amount</th><th data-i18n="labelDescription">Description</th><th data-i18n="usersStatus">Status</th></tr></thead>
+            <tbody id="petty-own-tbody"><tr><td colspan="5" class="empty-state">—</td></tr></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -2994,6 +3104,7 @@
       settings: ['owner'],
       users: ['owner'],
       migration: ['owner', 'accountant'],
+      'petty-cash': ['owner', 'cfo', 'accountant', 'manager', 'employee'],
       // companies is gated separately by isSuperadmin.
     };
     // Where each role lands after login.
@@ -3213,7 +3324,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies', 'migration']);
+    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies', 'migration', 'petty-cash']);
     // The Companies console is super-admin only; gated in showPage().
     let isSuperadmin = false;
     const rawFetch = window.fetch.bind(window);
@@ -3984,6 +4095,72 @@
         migCpTypeClient: "clients",
         migCpTypeSupplier: "suppliers",
         migCpTypeEmployee: "employees",
+        notifyBellTitle: "Notifications",
+        notifyTitle: "Notifications",
+        notifyReadAll: "Mark all read",
+        notifyEmpty: "You're all caught up.",
+        remTitle: "Reminders",
+        remNewPlaceholder: "New reminder…",
+        remAddBtn: "Add",
+        remEmpty: "No reminders yet.",
+        remRepeatNone: "No repeat",
+        remRepeatDaily: "Daily",
+        remRepeatWeekly: "Weekly",
+        remRepeatMonthly: "Monthly",
+        remRepeatYearly: "Yearly",
+        recurringManualIntro: "Define the schedule and the accounts once — when a date comes due, the matching journal entry posts automatically through the chosen bank and balances update.",
+        recDirPayment: "Payment (money out)",
+        recDirReceipt: "Receipt (money in)",
+        recFreqDaily: "Daily",
+        recFreqWeekly: "Weekly",
+        recFreqMonthly: "Monthly",
+        recFreqQuarterly: "Quarterly",
+        recFreqYearly: "Yearly",
+        recStartDate: "Start date",
+        recEndDate: "End date (optional)",
+        recBankLabel: "Bank account",
+        recCounterLabel: "Expense / income account",
+        recAutoPost: "Post the journal entry automatically when due",
+        recAutoCol: "Auto",
+        recCreateBtn: "Save recurring rule",
+        recRunDueBtn: "Run due now",
+        recFormMissing: "Name, amount and start date are required.",
+        recFormFailed: "Could not save the rule.",
+        recFormSaved: "Rule saved.",
+        recPostedNow: "{n} due entries posted.",
+        recNoBanks: "No bank accounts yet",
+        pettyNav: "Petty cash",
+        pettyTitle: "Petty cash (تنخواه)",
+        pettyIntro: "Company-funded floats for day-to-day spending: record expenses with receipts, admins charge accounts and approve spends — balances and history update in real time.",
+        pettyAdminTitle: "Administration",
+        pettyNewUser: "Holder username",
+        pettyNewHolder: "Display name (optional)",
+        pettyCreateBtn: "Create account",
+        pettyCreated: "Account created.",
+        pettyHolder: "Holder",
+        pettyBalance: "Balance",
+        pettyPendingCol: "Pending",
+        pettyPendingTitle: "Expenses awaiting approval",
+        pettyDepositBtn: "Charge",
+        pettyAdjustBtn: "Adjust",
+        pettyApproveBtn: "Approve",
+        pettyRejectBtn: "Reject",
+        pettyDepositPrompt: "Deposit amount (Rials)",
+        pettyDepositBankPrompt: "From/to which GL account code?",
+        pettyAdjustPrompt: "Adjustment amount (± Rials)",
+        pettyMyTitle: "My petty cash",
+        pettyNoAccount: "No petty cash account yet — ask an admin to create one for you.",
+        pettyExpDesc: "What was it for?",
+        pettyExpSubmit: "Record expense",
+        pettyReceipt: "Receipt",
+        pettyCatAuto: "Default expense account",
+        pettyKind: "Type",
+        pettyKindDeposit: "Deposit",
+        pettyKindExpense: "Expense",
+        pettyKindAdjust: "Adjustment",
+        pettyStPending: "Pending",
+        pettyStApproved: "Approved",
+        pettyStRejected: "Rejected",
         chatNewBtn: "+ New chat",
         chatSearchPlaceholder: "Search chats…",
         chatSessionsEmpty: "No chats yet — say hello!",
@@ -4993,6 +5170,72 @@
         migCpTypeClient: "مشتری",
         migCpTypeSupplier: "تأمین‌کننده",
         migCpTypeEmployee: "کارمند",
+        notifyBellTitle: "اعلان‌ها",
+        notifyTitle: "اعلان‌ها",
+        notifyReadAll: "خواندن همه",
+        notifyEmpty: "اعلان جدیدی ندارید.",
+        remTitle: "یادآورها",
+        remNewPlaceholder: "یادآور جدید…",
+        remAddBtn: "افزودن",
+        remEmpty: "هنوز یادآوری ندارید.",
+        remRepeatNone: "بدون تکرار",
+        remRepeatDaily: "روزانه",
+        remRepeatWeekly: "هفتگی",
+        remRepeatMonthly: "ماهانه",
+        remRepeatYearly: "سالانه",
+        recurringManualIntro: "زمان‌بندی و حساب‌ها را یک بار تعریف کنید — در هر سررسید، سند حسابداری به‌طور خودکار از بانک انتخابی ثبت و مانده‌ها به‌روز می‌شود.",
+        recDirPayment: "پرداخت (خروج پول)",
+        recDirReceipt: "دریافت (ورود پول)",
+        recFreqDaily: "روزانه",
+        recFreqWeekly: "هفتگی",
+        recFreqMonthly: "ماهانه",
+        recFreqQuarterly: "سه‌ماهه",
+        recFreqYearly: "سالانه",
+        recStartDate: "تاریخ شروع",
+        recEndDate: "تاریخ پایان (اختیاری)",
+        recBankLabel: "حساب بانکی",
+        recCounterLabel: "حساب هزینه / درآمد",
+        recAutoPost: "در سررسید، سند به‌طور خودکار ثبت شود",
+        recAutoCol: "خودکار",
+        recCreateBtn: "ذخیره قانون تکرارشونده",
+        recRunDueBtn: "اجرای سررسیدها",
+        recFormMissing: "نام، مبلغ و تاریخ شروع الزامی است.",
+        recFormFailed: "ذخیره قانون ناموفق بود.",
+        recFormSaved: "قانون ذخیره شد.",
+        recPostedNow: "{n} سند سررسیدشده ثبت شد.",
+        recNoBanks: "هنوز حساب بانکی ندارید",
+        pettyNav: "تنخواه",
+        pettyTitle: "حساب تنخواه",
+        pettyIntro: "تنخواه شرکت برای هزینه‌های روزمره: هزینه‌ها را با رسید ثبت کنید؛ مدیر حساب را شارژ و هزینه‌ها را تأیید می‌کند — مانده و تاریخچه لحظه‌ای به‌روز می‌شود.",
+        pettyAdminTitle: "مدیریت",
+        pettyNewUser: "نام کاربری تنخواه‌گردان",
+        pettyNewHolder: "نام نمایشی (اختیاری)",
+        pettyCreateBtn: "ایجاد حساب",
+        pettyCreated: "حساب ایجاد شد.",
+        pettyHolder: "تنخواه‌گردان",
+        pettyBalance: "مانده",
+        pettyPendingCol: "در انتظار",
+        pettyPendingTitle: "هزینه‌های در انتظار تأیید",
+        pettyDepositBtn: "شارژ",
+        pettyAdjustBtn: "تعدیل",
+        pettyApproveBtn: "تأیید",
+        pettyRejectBtn: "رد",
+        pettyDepositPrompt: "مبلغ شارژ (ریال)",
+        pettyDepositBankPrompt: "کد حساب بانک مبدأ/مقصد؟",
+        pettyAdjustPrompt: "مبلغ تعدیل (± ریال)",
+        pettyMyTitle: "تنخواه من",
+        pettyNoAccount: "هنوز حساب تنخواه ندارید — از مدیر بخواهید برایتان ایجاد کند.",
+        pettyExpDesc: "بابت چه بود؟",
+        pettyExpSubmit: "ثبت هزینه",
+        pettyReceipt: "رسید",
+        pettyCatAuto: "حساب هزینه پیش‌فرض",
+        pettyKind: "نوع",
+        pettyKindDeposit: "شارژ",
+        pettyKindExpense: "هزینه",
+        pettyKindAdjust: "تعدیل",
+        pettyStPending: "در انتظار",
+        pettyStApproved: "تأییدشده",
+        pettyStRejected: "ردشده",
         chatNewBtn: "+ گفتگوی جدید",
         chatSearchPlaceholder: "جستجوی گفتگوها…",
         chatSessionsEmpty: "هنوز گفتگویی نیست — شروع کنید!",
@@ -5999,6 +6242,72 @@
         migCpTypeClient: "clientes",
         migCpTypeSupplier: "proveedores",
         migCpTypeEmployee: "empleados",
+        notifyBellTitle: "Notificaciones",
+        notifyTitle: "Notificaciones",
+        notifyReadAll: "Marcar todo leído",
+        notifyEmpty: "Estás al día.",
+        remTitle: "Recordatorios",
+        remNewPlaceholder: "Nuevo recordatorio…",
+        remAddBtn: "Añadir",
+        remEmpty: "Aún no hay recordatorios.",
+        remRepeatNone: "Sin repetición",
+        remRepeatDaily: "Diario",
+        remRepeatWeekly: "Semanal",
+        remRepeatMonthly: "Mensual",
+        remRepeatYearly: "Anual",
+        recurringManualIntro: "Defina el calendario y las cuentas una vez — al vencer cada fecha, el asiento se registra automáticamente por el banco elegido y los saldos se actualizan.",
+        recDirPayment: "Pago (sale dinero)",
+        recDirReceipt: "Cobro (entra dinero)",
+        recFreqDaily: "Diario",
+        recFreqWeekly: "Semanal",
+        recFreqMonthly: "Mensual",
+        recFreqQuarterly: "Trimestral",
+        recFreqYearly: "Anual",
+        recStartDate: "Fecha de inicio",
+        recEndDate: "Fecha fin (opcional)",
+        recBankLabel: "Cuenta bancaria",
+        recCounterLabel: "Cuenta de gasto / ingreso",
+        recAutoPost: "Registrar el asiento automáticamente al vencer",
+        recAutoCol: "Auto",
+        recCreateBtn: "Guardar regla recurrente",
+        recRunDueBtn: "Ejecutar vencidos",
+        recFormMissing: "Nombre, importe y fecha de inicio son obligatorios.",
+        recFormFailed: "No se pudo guardar la regla.",
+        recFormSaved: "Regla guardada.",
+        recPostedNow: "{n} asientos vencidos registrados.",
+        recNoBanks: "Aún no hay cuentas bancarias",
+        pettyNav: "Caja chica",
+        pettyTitle: "Caja chica (تنخواه)",
+        pettyIntro: "Fondos de la empresa para gastos diarios: registre gastos con recibos; los administradores cargan cuentas y aprueban gastos — saldos e historial en tiempo real.",
+        pettyAdminTitle: "Administración",
+        pettyNewUser: "Usuario del titular",
+        pettyNewHolder: "Nombre visible (opcional)",
+        pettyCreateBtn: "Crear cuenta",
+        pettyCreated: "Cuenta creada.",
+        pettyHolder: "Titular",
+        pettyBalance: "Saldo",
+        pettyPendingCol: "Pendientes",
+        pettyPendingTitle: "Gastos pendientes de aprobación",
+        pettyDepositBtn: "Cargar",
+        pettyAdjustBtn: "Ajustar",
+        pettyApproveBtn: "Aprobar",
+        pettyRejectBtn: "Rechazar",
+        pettyDepositPrompt: "Importe del cargo (riales)",
+        pettyDepositBankPrompt: "¿Código de cuenta origen/destino?",
+        pettyAdjustPrompt: "Importe del ajuste (± riales)",
+        pettyMyTitle: "Mi caja chica",
+        pettyNoAccount: "Sin cuenta de caja chica — pida a un administrador que la cree.",
+        pettyExpDesc: "¿Para qué fue?",
+        pettyExpSubmit: "Registrar gasto",
+        pettyReceipt: "Recibo",
+        pettyCatAuto: "Cuenta de gasto por defecto",
+        pettyKind: "Tipo",
+        pettyKindDeposit: "Carga",
+        pettyKindExpense: "Gasto",
+        pettyKindAdjust: "Ajuste",
+        pettyStPending: "Pendiente",
+        pettyStApproved: "Aprobado",
+        pettyStRejected: "Rechazado",
         chatNewBtn: "+ Nuevo chat",
         chatSearchPlaceholder: "Buscar chats…",
         chatSessionsEmpty: "Aún no hay chats — ¡saluda!",
@@ -6988,6 +7297,72 @@
         migCpTypeClient: "عملاء",
         migCpTypeSupplier: "موردون",
         migCpTypeEmployee: "موظفون",
+        notifyBellTitle: "الإشعارات",
+        notifyTitle: "الإشعارات",
+        notifyReadAll: "تحديد الكل كمقروء",
+        notifyEmpty: "لا إشعارات جديدة.",
+        remTitle: "التذكيرات",
+        remNewPlaceholder: "تذكير جديد…",
+        remAddBtn: "إضافة",
+        remEmpty: "لا تذكيرات بعد.",
+        remRepeatNone: "بلا تكرار",
+        remRepeatDaily: "يومي",
+        remRepeatWeekly: "أسبوعي",
+        remRepeatMonthly: "شهري",
+        remRepeatYearly: "سنوي",
+        recurringManualIntro: "عرّف الجدولة والحسابات مرة واحدة — عند حلول كل استحقاق يُسجَّل القيد تلقائيًا عبر البنك المختار وتُحدَّث الأرصدة.",
+        recDirPayment: "دفع (خروج نقود)",
+        recDirReceipt: "قبض (دخول نقود)",
+        recFreqDaily: "يومي",
+        recFreqWeekly: "أسبوعي",
+        recFreqMonthly: "شهري",
+        recFreqQuarterly: "ربع سنوي",
+        recFreqYearly: "سنوي",
+        recStartDate: "تاريخ البدء",
+        recEndDate: "تاريخ الانتهاء (اختياري)",
+        recBankLabel: "الحساب البنكي",
+        recCounterLabel: "حساب المصروف / الإيراد",
+        recAutoPost: "تسجيل القيد تلقائيًا عند الاستحقاق",
+        recAutoCol: "تلقائي",
+        recCreateBtn: "حفظ القاعدة المتكررة",
+        recRunDueBtn: "تنفيذ المستحق الآن",
+        recFormMissing: "الاسم والمبلغ وتاريخ البدء مطلوبة.",
+        recFormFailed: "تعذّر حفظ القاعدة.",
+        recFormSaved: "حُفظت القاعدة.",
+        recPostedNow: "سُجّلت {n} قيود مستحقة.",
+        recNoBanks: "لا حسابات بنكية بعد",
+        pettyNav: "العهدة النقدية",
+        pettyTitle: "العهدة النقدية (تنخواه)",
+        pettyIntro: "عُهد نقدية بتمويل الشركة للمصروفات اليومية: سجّل المصروفات مع الإيصالات؛ يشحن المديرون الحسابات ويعتمدون المصروفات — الأرصدة والسجل يتحدثان لحظيًا.",
+        pettyAdminTitle: "الإدارة",
+        pettyNewUser: "اسم مستخدم أمين العهدة",
+        pettyNewHolder: "الاسم الظاهر (اختياري)",
+        pettyCreateBtn: "إنشاء حساب",
+        pettyCreated: "أُنشئ الحساب.",
+        pettyHolder: "أمين العهدة",
+        pettyBalance: "الرصيد",
+        pettyPendingCol: "قيد الانتظار",
+        pettyPendingTitle: "مصروفات بانتظار الاعتماد",
+        pettyDepositBtn: "شحن",
+        pettyAdjustBtn: "تسوية",
+        pettyApproveBtn: "اعتماد",
+        pettyRejectBtn: "رفض",
+        pettyDepositPrompt: "مبلغ الشحن (ريال)",
+        pettyDepositBankPrompt: "رمز الحساب المصدر/الوجهة؟",
+        pettyAdjustPrompt: "مبلغ التسوية (± ريال)",
+        pettyMyTitle: "عهدتي",
+        pettyNoAccount: "لا حساب عهدة بعد — اطلب من المدير إنشاءه لك.",
+        pettyExpDesc: "علامَ صُرف؟",
+        pettyExpSubmit: "تسجيل مصروف",
+        pettyReceipt: "إيصال",
+        pettyCatAuto: "حساب المصروف الافتراضي",
+        pettyKind: "النوع",
+        pettyKindDeposit: "شحن",
+        pettyKindExpense: "مصروف",
+        pettyKindAdjust: "تسوية",
+        pettyStPending: "قيد الانتظار",
+        pettyStApproved: "معتمد",
+        pettyStRejected: "مرفوض",
         chatNewBtn: "+ محادثة جديدة",
         chatSearchPlaceholder: "البحث في المحادثات…",
         chatSessionsEmpty: "لا محادثات بعد — ابدأ الآن!",
@@ -8306,7 +8681,7 @@
       invoices: 'navInvoices', time: 'timeNav', expenses: 'expNav', 'purchase-orders': 'poNav',
       recurring: 'navRecurring', entities: 'navEntities', products: 'productsNav', inventory: 'navInventory',
       payroll: 'payrollNav', equity: 'equityNav', 'bank-statements': 'bankStatementsNav', ledger: 'navLedger', manager: 'navManager',
-      cfo: 'cfoModeNav', ceo: 'ceoModeNav', audit: 'auditNav', settings: 'navSettings', companies: 'companiesNav', migration: 'migrationNav',
+      cfo: 'cfoModeNav', ceo: 'ceoModeNav', audit: 'auditNav', settings: 'navSettings', companies: 'companiesNav', migration: 'migrationNav', 'petty-cash': 'pettyNav',
     };
     function updatePageTitle(page) {
       const el = document.getElementById('page-title');
@@ -10611,26 +10986,40 @@
         const list = await res.json();
         recurringTbody.innerHTML = '';
         if (!list.length) {
-          recurringTbody.innerHTML = '<tr><td colspan="7" class="empty-state">No recurring rules yet.</td></tr>';
+          recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">No recurring rules yet.</td></tr>';
           return;
         }
         list.forEach(r => {
           const tr = document.createElement('tr');
           tr.dataset.ruleId = r.id;
+          const paused = r.status === 'paused';
           tr.innerHTML = `
             <td>${escapeHtml(r.name)}</td>
             <td>${escapeHtml(r.direction)}</td>
             <td>${escapeHtml(r.frequency)}</td>
             <td>${r.amount == null ? '—' : formatNum(r.amount)}</td>
+            <td>${escapeHtml(r.bank_account_code || r.bank_name || '—')}</td>
+            <td>${escapeHtml(r.counter_account_code || '—')}</td>
             <td>${escapeHtml(r.next_run_date)}</td>
+            <td>${r.auto_post ? '✓' : '—'}</td>
             <td>${escapeHtml(r.status)}</td>
-            <td><button type="button" class="btn btn-danger btn-sm recurring-del" data-id="${r.id}">Delete</button></td>
+            <td>
+              <button type="button" class="btn btn-secondary btn-sm recurring-pause" data-id="${r.id}" data-paused="${paused ? '1' : ''}">${paused ? '▶' : '⏸'}</button>
+              <button type="button" class="btn btn-danger btn-sm recurring-del" data-id="${r.id}">Delete</button>
+            </td>
           `;
           recurringTbody.appendChild(tr);
         });
+        recurringTbody.querySelectorAll('.recurring-pause').forEach(b => b.addEventListener('click', async () => {
+          await fetch(API + '/recurring/' + b.dataset.id, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: b.dataset.paused ? 'active' : 'paused' }),
+          }).catch(() => {});
+          loadRecurringRules();
+        }));
         if (highlightId) flashRow(recurringTbody.querySelector('tr[data-rule-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
-        recurringTbody.innerHTML = '<tr><td colspan="7" class="empty-state">Error loading recurring rules.</td></tr>';
+        recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">Error loading recurring rules.</td></tr>';
       }
     }
 
@@ -14968,6 +15357,8 @@
       if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); loadCompanyProfile(); }
       if (page === 'companies') { loadCompanies(); }
       if (page === 'migration') { migrationInitPage(); }
+      if (page === 'petty-cash') { pettyInitPage(); }
+      if (page === 'recurring') { recurringInitPage(); }
     }
 
 
@@ -15150,6 +15541,350 @@
         if (send) send.click();
       }
     }
+
+
+    // ═══════ Recurring: manual form + run-due ═══════
+    async function _recLoadSelectors() {
+      try {
+        const [banksRes, acctsRes] = await Promise.all([
+          fetch(API + '/entities?type=bank'), fetch(API + '/accounts'),
+        ]);
+        const banks = banksRes.ok ? await banksRes.json() : [];
+        const accts = acctsRes.ok ? await acctsRes.json() : [];
+        const bankSel = document.getElementById('rec-bank');
+        if (bankSel) {
+          bankSel.innerHTML = banks.filter(b => b.code)
+            .map(b => `<option value="${escapeHtml(b.code)}">${escapeHtml(b.name)} (${escapeHtml(b.code)})</option>`).join('')
+            || `<option value="">${escapeHtml(t('recNoBanks'))}</option>`;
+        }
+        const counterSel = document.getElementById('rec-counter');
+        const pettySel = document.getElementById('petty-exp-cat');
+        const opts = accts
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+        if (counterSel) counterSel.innerHTML = opts;
+        if (pettySel) pettySel.innerHTML = `<option value="">${escapeHtml(t('pettyCatAuto'))}</option>` + opts;
+      } catch (_) { /* selectors stay empty */ }
+    }
+    async function recurringInitPage() {
+      _recLoadSelectors();
+      const st = document.getElementById('rec-form-status');
+      try {
+        const run = await fetch(API + '/recurring/run-due', { method: 'POST' });
+        if (run.ok) {
+          const data = await run.json();
+          if (st && (data.posted || []).length) {
+            st.textContent = tf('recPostedNow', { n: data.posted.length });
+          }
+        }
+      } catch (_) {}
+      loadRecurringRules();
+    }
+    (function wireRecurringForm() {
+      const btn = document.getElementById('rec-manual-create');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        const st = document.getElementById('rec-form-status');
+        const name = document.getElementById('rec-name').value.trim();
+        const amount = parseInt(document.getElementById('rec-amount').value, 10);
+        const start = document.getElementById('rec-start').value;
+        if (!name || !amount || !start) { st.textContent = t('recFormMissing'); return; }
+        const payload = {
+          name,
+          direction: document.getElementById('rec-direction').value,
+          frequency: document.getElementById('rec-frequency').value,
+          amount,
+          start_date: start,
+          next_run_date: start,
+          end_date: document.getElementById('rec-end').value || null,
+          bank_account_code: document.getElementById('rec-bank').value || null,
+          counter_account_code: document.getElementById('rec-counter').value || null,
+          auto_post: document.getElementById('rec-autopost').checked,
+        };
+        try {
+          const res = await fetch(API + '/recurring', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { st.textContent = (typeof data.detail === 'string' ? data.detail : t('recFormFailed')); return; }
+          st.textContent = t('recFormSaved');
+          document.getElementById('rec-name').value = '';
+          document.getElementById('rec-amount').value = '';
+          recurringInitPage();
+        } catch (e) { st.textContent = e.message; }
+      });
+      const runBtn = document.getElementById('rec-run-due');
+      if (runBtn) runBtn.addEventListener('click', recurringInitPage);
+    })();
+
+    // ═══════ Notifications bell + reminders ═══════
+    let _notifyOpen = false;
+    async function notifyRefresh() {
+      try {
+        const res = await fetch(API + '/notifications/feed');
+        if (!res.ok) return;
+        const items = await res.json();
+        const unread = items.filter(i => !i.read).length;
+        const badge = document.getElementById('notify-badge');
+        if (badge) {
+          badge.style.display = unread ? 'block' : 'none';
+          badge.textContent = unread > 99 ? '99+' : String(unread);
+        }
+        const list = document.getElementById('notify-list');
+        if (!list) return;
+        if (!items.length) {
+          list.innerHTML = `<div class="empty-state" style="font-size:0.85rem;">${escapeHtml(t('notifyEmpty'))}</div>`;
+          return;
+        }
+        const colors = { high: 'var(--danger,#dc3545)', warning: '#d97706', info: 'var(--text-muted)' };
+        list.innerHTML = items.map(i => `
+          <div class="notify-item" data-id="${i.id}" data-page="${escapeHtml(i.link_page || '')}"
+               style="display:flex; gap:0.5rem; padding:0.4rem 0.3rem; border-radius:6px; cursor:pointer; ${i.read ? 'opacity:0.65;' : ''}">
+            <span style="width:8px; height:8px; margin-top:6px; border-radius:50%; flex-shrink:0; background:${colors[i.level] || colors.info};"></span>
+            <span style="flex:1; min-width:0;">
+              <span style="display:block; font-size:0.85rem; font-weight:${i.read ? '400' : '600'};">${escapeHtml(i.title)}</span>
+              <span style="display:block; font-size:0.75rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis;">${escapeHtml(i.message || '')}</span>
+            </span>
+          </div>`).join('');
+        list.querySelectorAll('.notify-item').forEach(el => {
+          el.addEventListener('click', async () => {
+            await fetch(API + '/notifications/feed/' + el.dataset.id + '/read', { method: 'POST' }).catch(() => {});
+            const page = el.dataset.page;
+            if (page && typeof showPage === 'function') {
+              showPage(page);
+              if (typeof loadPageData === 'function') loadPageData(page);
+              _toggleNotify(false);
+            }
+            notifyRefresh();
+          });
+        });
+      } catch (_) {}
+    }
+    async function remRefresh() {
+      try {
+        const res = await fetch(API + '/notifications/reminders');
+        if (!res.ok) return;
+        const rows = await res.json();
+        const list = document.getElementById('rem-list');
+        if (!list) return;
+        list.innerHTML = rows.length ? rows.map(r => `
+          <div style="display:flex; gap:0.4rem; align-items:center; padding:0.25rem 0.3rem; font-size:0.82rem;">
+            <span style="flex:1; ${r.status === 'paused' ? 'opacity:0.5;' : ''}">${escapeHtml(r.title)} · ${escapeHtml(r.due_date)}${r.repeat !== 'none' ? ' ↻' : ''}</span>
+            <button type="button" class="rem-toggle" data-id="${r.id}" data-status="${r.status}" style="border:none;background:none;cursor:pointer;">${r.status === 'paused' ? '▶' : '⏸'}</button>
+            <button type="button" class="rem-del" data-id="${r.id}" style="border:none;background:none;cursor:pointer;">🗑</button>
+          </div>`).join('')
+          : `<div style="font-size:0.78rem; color:var(--text-muted);">${escapeHtml(t('remEmpty'))}</div>`;
+        list.querySelectorAll('.rem-toggle').forEach(b => b.addEventListener('click', async () => {
+          await fetch(API + '/notifications/reminders/' + b.dataset.id, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: b.dataset.status === 'paused' ? 'active' : 'paused' }),
+          });
+          remRefresh(); notifyRefresh();
+        }));
+        list.querySelectorAll('.rem-del').forEach(b => b.addEventListener('click', async () => {
+          await fetch(API + '/notifications/reminders/' + b.dataset.id, { method: 'DELETE' });
+          remRefresh(); notifyRefresh();
+        }));
+      } catch (_) {}
+    }
+    function _toggleNotify(open) {
+      const pop = document.getElementById('notify-pop');
+      if (!pop) return;
+      _notifyOpen = open === undefined ? !_notifyOpen : open;
+      pop.style.display = _notifyOpen ? 'block' : 'none';
+      if (_notifyOpen) { notifyRefresh(); remRefresh(); }
+    }
+    (function wireNotify() {
+      const bell = document.getElementById('notify-bell-btn');
+      if (!bell) return;
+      bell.addEventListener('click', (e) => { e.stopPropagation(); _toggleNotify(); });
+      document.addEventListener('click', (e) => {
+        const pop = document.getElementById('notify-pop');
+        if (_notifyOpen && pop && !pop.contains(e.target)) _toggleNotify(false);
+      });
+      const readAll = document.getElementById('notify-read-all');
+      if (readAll) readAll.addEventListener('click', async () => {
+        await fetch(API + '/notifications/feed/read-all', { method: 'POST' }).catch(() => {});
+        notifyRefresh();
+      });
+      const addBtn = document.getElementById('rem-new-add');
+      if (addBtn) addBtn.addEventListener('click', async () => {
+        const title = document.getElementById('rem-new-title').value.trim();
+        const due = document.getElementById('rem-new-date').value;
+        if (!title || !due) return;
+        await fetch(API + '/notifications/reminders', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, due_date: due,
+            repeat: document.getElementById('rem-new-repeat').value, days_before: 3 }),
+        }).catch(() => {});
+        document.getElementById('rem-new-title').value = '';
+        remRefresh(); notifyRefresh();
+      });
+      // badge refresh on load + every 90s
+      notifyRefresh();
+      setInterval(notifyRefresh, 90000);
+    })();
+
+    // ═══════ Petty cash page ═══════
+    let _pettyOwnAccount = null;
+    let _pettyAttachment = null;
+    function _pettyIsManager() { return ['owner', 'cfo', 'accountant'].includes(currentRole); }
+    async function pettyInitPage() {
+      _recLoadSelectors();
+      const adminSec = document.getElementById('petty-admin-section');
+      if (adminSec) adminSec.style.display = _pettyIsManager() ? 'block' : 'none';
+      try {
+        const res = await fetch(API + '/petty-cash/accounts');
+        if (!res.ok) return;
+        const accounts = await res.json();
+        // my own account = the one whose user_id matches me (admins may also hold one)
+        const meRes = await fetch(API + '/auth/me').catch(() => null);
+        const me = meRes && meRes.ok ? await meRes.json() : {};
+        const myId = (me.user && me.user.id) || me.user_id || me.id || null;
+        _pettyOwnAccount = accounts.find(a => a.user_id === myId) ||
+                           (!_pettyIsManager() ? accounts[0] : null);
+        _pettyRenderOwn();
+        if (_pettyIsManager()) _pettyRenderAdmin(accounts);
+      } catch (_) {}
+    }
+    async function _pettyRenderOwn() {
+      const none = document.getElementById('petty-own-none');
+      const wrap = document.getElementById('petty-own-wrap');
+      if (!_pettyOwnAccount) { none.style.display = 'block'; wrap.style.display = 'none'; return; }
+      none.style.display = 'none'; wrap.style.display = 'block';
+      try {
+        const res = await fetch(API + '/petty-cash/accounts/' + _pettyOwnAccount.id);
+        if (!res.ok) return;
+        const acc = await res.json();
+        document.getElementById('petty-own-balance').textContent = formatMoney(acc.balance, 'IRR');
+        const kinds = { deposit: t('pettyKindDeposit'), expense: t('pettyKindExpense'), adjustment: t('pettyKindAdjust') };
+        const stats = { pending: t('pettyStPending'), approved: t('pettyStApproved'), rejected: t('pettyStRejected') };
+        document.getElementById('petty-own-tbody').innerHTML = (acc.transactions || []).map(x => `
+          <tr><td>${escapeHtml((x.created_at || '').slice(0, 10))}</td>
+              <td>${escapeHtml(kinds[x.kind] || x.kind)}</td>
+              <td class="num">${formatMoney(x.signed_amount, 'IRR')}</td>
+              <td>${escapeHtml(x.description || '')}</td>
+              <td>${escapeHtml(stats[x.status] || x.status)}</td></tr>`).join('')
+          || `<tr><td colspan="5" class="empty-state">—</td></tr>`;
+      } catch (_) {}
+    }
+    async function _pettyRenderAdmin(accounts) {
+      const tbody = document.getElementById('petty-admin-tbody');
+      tbody.innerHTML = accounts.map(a => `
+        <tr><td>${escapeHtml(a.holder_name)}</td>
+            <td class="num">${formatMoney(a.balance, 'IRR')}</td>
+            <td class="num">${a.pending_expenses || 0}</td>
+            <td>
+              <button type="button" class="btn btn-secondary btn-sm petty-deposit" data-id="${a.id}" data-name="${escapeHtml(a.holder_name)}">${escapeHtml(t('pettyDepositBtn'))}</button>
+              <button type="button" class="btn btn-secondary btn-sm petty-adjust" data-id="${a.id}" data-name="${escapeHtml(a.holder_name)}">${escapeHtml(t('pettyAdjustBtn'))}</button>
+            </td></tr>`).join('')
+        || `<tr><td colspan="4" class="empty-state">—</td></tr>`;
+      tbody.querySelectorAll('.petty-deposit').forEach(b => b.addEventListener('click', async () => {
+        const amount = parseInt(window.prompt(t('pettyDepositPrompt') + ' — ' + b.dataset.name) || '', 10);
+        if (!amount || amount <= 0) return;
+        const bank = window.prompt(t('pettyDepositBankPrompt'), document.getElementById('rec-bank')?.value || '1110');
+        if (!bank) return;
+        const res = await fetch(API + '/petty-cash/accounts/' + b.dataset.id + '/deposit', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount, bank_account_code: bank.trim() }),
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'failed', true); }
+        pettyInitPage();
+      }));
+      tbody.querySelectorAll('.petty-adjust').forEach(b => b.addEventListener('click', async () => {
+        const signed = parseInt(window.prompt(t('pettyAdjustPrompt') + ' — ' + b.dataset.name) || '', 10);
+        if (!signed) return;
+        const counter = window.prompt(t('pettyDepositBankPrompt'), '1110');
+        if (!counter) return;
+        const res = await fetch(API + '/petty-cash/accounts/' + b.dataset.id + '/adjust', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signed_amount: signed, counter_account_code: counter.trim(),
+                                 description: t('pettyAdjustBtn') }),
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'failed', true); }
+        pettyInitPage();
+      }));
+      // pending approvals list
+      const wrap = document.getElementById('petty-pending-wrap');
+      const pend = [];
+      for (const a of accounts.filter(x => x.pending_expenses > 0)) {
+        const det = await (await fetch(API + '/petty-cash/accounts/' + a.id)).json();
+        (det.transactions || []).filter(x => x.status === 'pending' && x.kind === 'expense')
+          .forEach(x => pend.push({ ...x, holder: a.holder_name }));
+      }
+      wrap.innerHTML = pend.length ? `
+        <strong style="font-size:0.9rem;">${escapeHtml(t('pettyPendingTitle'))}</strong>
+        ${pend.map(x => `
+          <div style="display:flex; gap:0.6rem; align-items:center; border:1px solid var(--border); border-radius:6px; padding:0.4rem 0.6rem; margin-top:0.3rem; font-size:0.85rem;">
+            <span style="flex:1;">${escapeHtml(x.holder)} — ${formatMoney(x.amount, 'IRR')} · ${escapeHtml(x.description || '')}</span>
+            <button type="button" class="btn btn-primary btn-sm petty-approve" data-id="${x.id}">${escapeHtml(t('pettyApproveBtn'))}</button>
+            <button type="button" class="btn btn-danger btn-sm petty-reject" data-id="${x.id}">${escapeHtml(t('pettyRejectBtn'))}</button>
+          </div>`).join('')}` : '';
+      wrap.querySelectorAll('.petty-approve').forEach(b => b.addEventListener('click', async () => {
+        await fetch(API + '/petty-cash/expenses/' + b.dataset.id + '/approve', { method: 'POST' });
+        pettyInitPage(); notifyRefresh();
+      }));
+      wrap.querySelectorAll('.petty-reject').forEach(b => b.addEventListener('click', async () => {
+        await fetch(API + '/petty-cash/expenses/' + b.dataset.id + '/reject', { method: 'POST' });
+        pettyInitPage(); notifyRefresh();
+      }));
+    }
+    (function wirePettyForms() {
+      const createBtn = document.getElementById('petty-create-account');
+      if (createBtn) createBtn.addEventListener('click', async () => {
+        const st = document.getElementById('petty-admin-status');
+        const username = document.getElementById('petty-new-username').value.trim();
+        if (!username) { st.textContent = t('pettyNewUser'); return; }
+        const res = await fetch(API + '/petty-cash/accounts', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username,
+            holder_name: document.getElementById('petty-new-holder').value.trim() || null }),
+        });
+        const d = await res.json().catch(() => ({}));
+        st.textContent = res.ok ? t('pettyCreated') : (typeof d.detail === 'string' ? d.detail : 'failed');
+        if (res.ok) { document.getElementById('petty-new-username').value = ''; pettyInitPage(); }
+      });
+      const attachBtn = document.getElementById('petty-exp-attach');
+      const fileEl = document.getElementById('petty-exp-file');
+      if (attachBtn && fileEl) {
+        attachBtn.addEventListener('click', () => fileEl.click());
+        fileEl.addEventListener('change', async () => {
+          const f = fileEl.files && fileEl.files[0];
+          if (!f) return;
+          const fd = new FormData();
+          fd.append('file', f);
+          const res = await fetch(API + '/transactions/attachments', { method: 'POST', body: fd });
+          if (res.ok) {
+            _pettyAttachment = await res.json();
+            document.getElementById('petty-exp-attach-name').textContent = _pettyAttachment.file_name;
+          }
+          fileEl.value = '';
+        });
+      }
+      const submitBtn = document.getElementById('petty-exp-submit');
+      if (submitBtn) submitBtn.addEventListener('click', async () => {
+        if (!_pettyOwnAccount) return;
+        const amount = parseInt(document.getElementById('petty-exp-amount').value, 10);
+        const desc = document.getElementById('petty-exp-desc').value.trim();
+        if (!amount || !desc) { showAlert(t('recFormMissing'), true); return; }
+        const res = await fetch(API + '/petty-cash/accounts/' + _pettyOwnAccount.id + '/expenses', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount, description: desc,
+            category_account_code: document.getElementById('petty-exp-cat').value || null,
+            attachment_id: _pettyAttachment ? _pettyAttachment.id : null }),
+        });
+        if (res.ok) {
+          document.getElementById('petty-exp-amount').value = '';
+          document.getElementById('petty-exp-desc').value = '';
+          document.getElementById('petty-exp-attach-name').textContent = '';
+          _pettyAttachment = null;
+          _pettyRenderOwn(); pettyInitPage();
+        } else {
+          const d = await res.json().catch(() => ({}));
+          showAlert(typeof d.detail === 'string' ? d.detail : 'failed', true);
+        }
+      });
+    })();
 
     // ═══════ Shareholders & Equity ═══════
     let _equityCurrency = '';

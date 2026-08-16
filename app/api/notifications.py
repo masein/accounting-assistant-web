@@ -147,3 +147,215 @@ async def send_daily_digest(deliver: bool = True, db: Session = Depends(get_db))
             except Exception:
                 pass
     return {"digest": d, "body": text, "delivered": delivered, "enabled": conf["enabled"]}
+
+
+# ---------------------------------------------------------------------------
+# Persisted feed (the in-app bell) + user reminders
+# ---------------------------------------------------------------------------
+import uuid as _uuid
+from datetime import date as _date, datetime as _dt, timezone as _tz
+
+from fastapi import HTTPException
+from sqlalchemy import select as _select
+
+from app.core.auth import SessionUser, get_current_user
+from app.models.notification import Notification, Reminder
+
+
+class FeedItem(BaseModel):
+    id: str
+    kind: str
+    level: str
+    title: str
+    message: str
+    link_page: str | None = None
+    due_date: str | None = None
+    read: bool
+    created_at: str
+
+
+class ReminderPayload(BaseModel):
+    title: str
+    note: str | None = None
+    due_date: _date
+    repeat: str = "none"        # none|daily|weekly|monthly|yearly
+    days_before: int = 3
+
+
+class ReminderUpdate(BaseModel):
+    title: str | None = None
+    note: str | None = None
+    due_date: _date | None = None
+    repeat: str | None = None
+    days_before: int | None = None
+    status: str | None = None   # active|paused|done
+
+
+class ReminderRead(BaseModel):
+    id: str
+    title: str
+    note: str | None = None
+    due_date: str
+    repeat: str
+    days_before: int
+    status: str
+
+
+_REPEATS = {"none", "daily", "weekly", "monthly", "yearly"}
+
+
+@router.get("/feed", response_model=list[FeedItem])
+def notifications_feed(
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> list[FeedItem]:
+    """Refresh + return the caller's visible notifications (undismissed,
+    newest/most-urgent first). Personal rows (reminders, petty-cash decisions)
+    are user-scoped; company rows are role-gated by kind."""
+    from app.services.notification_service import refresh_notifications, visible_to
+
+    refresh_notifications(db)
+    rows = db.execute(
+        _select(Notification).where(Notification.dismissed_at.is_(None))
+        .order_by(Notification.level.desc(), Notification.due_date.nulls_last(),
+                  Notification.created_at.desc())
+    ).scalars().all()
+    role = (user.role or "owner").lower()
+    out = []
+    for row in rows:
+        if not visible_to(row, user_id=user.user_id, role=role):
+            continue
+        out.append(FeedItem(
+            id=str(row.id), kind=row.kind, level=row.level, title=row.title,
+            message=row.message, link_page=row.link_page,
+            due_date=row.due_date.isoformat() if row.due_date else None,
+            read=row.read_at is not None,
+            created_at=row.created_at.isoformat() if row.created_at else "",
+        ))
+    level_rank = {"high": 0, "warning": 1, "info": 2}
+    out.sort(key=lambda i: (level_rank.get(i.level, 3), i.due_date or "9999"))
+    return out
+
+
+@router.post("/feed/{notification_id}/read")
+def mark_read(
+    notification_id: _uuid.UUID,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> dict:
+    row = db.get(Notification, notification_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    row.read_at = _dt.now(_tz.utc)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/feed/read-all")
+def mark_all_read(
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> dict:
+    from app.services.notification_service import visible_to
+
+    rows = db.execute(
+        _select(Notification).where(
+            Notification.dismissed_at.is_(None), Notification.read_at.is_(None))
+    ).scalars().all()
+    role = (user.role or "owner").lower()
+    now = _dt.now(_tz.utc)
+    n = 0
+    for row in rows:
+        if visible_to(row, user_id=user.user_id, role=role):
+            row.read_at = now
+            n += 1
+    db.commit()
+    return {"ok": True, "marked": n}
+
+
+# --- reminders (personal; any authenticated role) --------------------------
+
+def _reminder_read(r: Reminder) -> ReminderRead:
+    return ReminderRead(
+        id=str(r.id), title=r.title, note=r.note, due_date=r.due_date.isoformat(),
+        repeat=r.repeat, days_before=r.days_before, status=r.status,
+    )
+
+
+def _own_reminder(db: Session, user: SessionUser, reminder_id: _uuid.UUID) -> Reminder:
+    row = db.get(Reminder, reminder_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    if row.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your reminder")
+    return row
+
+
+@router.get("/reminders", response_model=list[ReminderRead])
+def list_reminders(
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> list[ReminderRead]:
+    rows = db.execute(
+        _select(Reminder).where(Reminder.user_id == user.user_id,
+                                Reminder.status != "done")
+        .order_by(Reminder.due_date)
+    ).scalars().all()
+    return [_reminder_read(r) for r in rows]
+
+
+@router.post("/reminders", response_model=ReminderRead, status_code=201)
+def create_reminder(
+    payload: ReminderPayload,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> ReminderRead:
+    repeat = (payload.repeat or "none").lower()
+    if repeat not in _REPEATS:
+        raise HTTPException(status_code=400, detail=f"repeat must be one of {sorted(_REPEATS)}")
+    row = Reminder(
+        user_id=user.user_id, title=payload.title.strip()[:256],
+        note=(payload.note or "").strip() or None, due_date=payload.due_date,
+        repeat=repeat, days_before=max(0, min(payload.days_before, 60)),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _reminder_read(row)
+
+
+@router.patch("/reminders/{reminder_id}", response_model=ReminderRead)
+def update_reminder(
+    reminder_id: _uuid.UUID,
+    payload: ReminderUpdate,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> ReminderRead:
+    row = _own_reminder(db, user, reminder_id)
+    if payload.title is not None:
+        row.title = payload.title.strip()[:256]
+    if payload.note is not None:
+        row.note = payload.note.strip() or None
+    if payload.due_date is not None:
+        row.due_date = payload.due_date
+    if payload.repeat is not None:
+        if payload.repeat.lower() not in _REPEATS:
+            raise HTTPException(status_code=400, detail=f"repeat must be one of {sorted(_REPEATS)}")
+        row.repeat = payload.repeat.lower()
+    if payload.days_before is not None:
+        row.days_before = max(0, min(payload.days_before, 60))
+    if payload.status is not None and payload.status in ("active", "paused", "done"):
+        row.status = payload.status
+    db.commit()
+    return _reminder_read(row)
+
+
+@router.delete("/reminders/{reminder_id}", status_code=204)
+def delete_reminder(
+    reminder_id: _uuid.UUID,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> None:
+    row = _own_reminder(db, user, reminder_id)
+    db.delete(row)
+    db.commit()

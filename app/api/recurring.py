@@ -66,6 +66,16 @@ def _find_or_create_entity(db: Session, name: str | None, direction: str) -> UUI
     return row.id
 
 
+@router.post("/run-due")
+def run_due(db: Session = Depends(get_db)) -> dict:
+    """Materialize every due auto-post rule into journal entries and advance
+    schedules. Idempotent (reference-per-occurrence) — safe to call from the
+    recurring page load, a button, or an external daily cron."""
+    from app.services.recurring_service import materialize_due_rules
+
+    return materialize_due_rules(db)
+
+
 @router.get("", response_model=list[RecurringRuleRead])
 def list_rules(db: Session = Depends(get_db)) -> list[RecurringRuleRead]:
     rows = db.execute(select(RecurringRule).order_by(RecurringRule.next_run_date, RecurringRule.created_at.desc())).scalars().all()
@@ -81,8 +91,12 @@ def create_rule(payload: RecurringRuleCreate, db: Session = Depends(get_db)) -> 
         amount=payload.amount,
         start_date=payload.start_date,
         next_run_date=payload.next_run_date,
+        end_date=payload.end_date,
         entity_id=payload.entity_id,
         bank_name=(payload.bank_name or "").strip() or None,
+        bank_account_code=(payload.bank_account_code or "").strip() or None,
+        counter_account_code=(payload.counter_account_code or "").strip() or None,
+        auto_post=payload.auto_post,
         reference_prefix=(payload.reference_prefix or "").strip() or None,
         note=(payload.note or "").strip() or None,
         status=payload.status.strip().lower(),

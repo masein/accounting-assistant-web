@@ -19,6 +19,8 @@ from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.migration import MigrationBatch, MigrationPendingRecord
+from app.models.notification import Notification, Reminder
+from app.models.petty_cash import PettyCashAccount, PettyCashTransaction
 from app.models.mileage_claim import MileageClaim
 from app.models.pay_run import PayRun, PayRunLine
 from app.models.payment import Payment
@@ -53,6 +55,10 @@ __all__ = [
     "GoodsReceiptLine",
     "MigrationBatch",
     "MigrationPendingRecord",
+    "Notification",
+    "PettyCashAccount",
+    "PettyCashTransaction",
+    "Reminder",
     "MileageClaim",
     "PayRun",
     "PayRunLine",

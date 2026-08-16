@@ -44,6 +44,7 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "net_pay_payable": "2250",          # Net wages payable — liability
         "payroll_deductions_payable": "2260",  # Pension/other deductions payable — liability
         "mileage_expense": "7400",          # Motor expenses (mileage)
+        "petty_cash": "1220",               # Petty cash (imprest control)
         "expenses_payable": "2270",         # Employee expenses payable — liability
         # --- Shareholder equity ---
         "share_capital": "3000",            # Called up share capital — equity
@@ -75,6 +76,7 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "net_pay_payable": "2180",          # حقوق پرداختنی — liability
         "payroll_deductions_payable": "2190",  # کسورات حقوق پرداختنی — liability
         "mileage_expense": "6130",          # هزینه سفر و ایاب‌وذهاب (travel/mileage)
+        "petty_cash": "1160",               # تنخواه گردان‌ها (imprest control)
         "expenses_payable": "2195",         # بدهی به کارکنان بابت هزینه — liability
         # --- Shareholder equity (سود سهام / افزایش سرمایه / آورده) ---
         "share_capital": "3110",            # سرمایه — equity (prefix 311 → eq_capital)
@@ -116,6 +118,7 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "net_pay_payable": "Net wages payable",
         "payroll_deductions_payable": "Payroll deductions payable",
         "mileage_expense": "Motor expenses",
+        "petty_cash": "Petty cash",
         "expenses_payable": "Employee expenses payable",
         "share_capital": "Called up share capital",
         "retained_earnings": "Retained earnings",
@@ -146,6 +149,7 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "net_pay_payable": "حقوق پرداختنی",
         "payroll_deductions_payable": "کسورات حقوق پرداختنی",
         "mileage_expense": "هزینه سفر و ایاب‌وذهاب",
+        "petty_cash": "تنخواه گردان‌ها",
         "expenses_payable": "بدهی به کارکنان بابت هزینه",
         "share_capital": "سرمایه",
         "retained_earnings": "سود (زیان) انباشته",

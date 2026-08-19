@@ -912,3 +912,139 @@ def register_proposal_tools(registry) -> None:
     registry.register(ProposeCreateTransaction())
     registry.register(ProposeCreateEntity())
     registry.register(ProposeUpdateEntity())
+    registry.register(ProposeReverseTransaction())
+
+
+# ---------------------------------------------------------------------------
+# propose_reverse_transaction (undo/reverse an EXISTING journal entry).
+# Defined after register_proposal_tools on purpose (name resolution happens at
+# call time); registered above.
+# ---------------------------------------------------------------------------
+
+
+class ProposeReverseTransactionInput(BaseModel):
+    transaction_id: str | None = Field(
+        None, description="The transaction's id, when known (e.g. from query_ledger).")
+    reference: str | None = Field(
+        None, max_length=128, description="…or its reference (e.g. 'REC-NET-2026-08-01').")
+    last: bool = Field(
+        False, description="…or true to reverse the MOST RECENT recorded entry.")
+
+    @model_validator(mode="after")
+    def _check(self):
+        if not self.transaction_id and not self.reference and not self.last:
+            raise ValueError("Give transaction_id, reference, or last=true.")
+        return self
+
+
+class ProposeReverseTransaction(BaseTool):
+    name = "propose_reverse_transaction"
+    category = "proposal"
+    description = (
+        "Reverse (undo) an EXISTING recorded journal entry, pending the user's "
+        "confirmation. The reversal's legs are computed SERVER-SIDE by mirroring "
+        "the original's lines exactly — ALWAYS use this for 'undo/reverse the "
+        "last transaction' or 'برگردون/معکوس کن' requests; NEVER hand-build a "
+        "reversal with propose_create_transaction (a wrong-direction reversal "
+        "double-books instead of undoing)."
+    )
+    InputSchema = ProposeReverseTransactionInput
+
+    async def run(self, ctx: ToolContext, args: ProposeReverseTransactionInput) -> dict[str, Any]:
+        from datetime import date as _date
+
+        from app.models.transaction import Transaction, TransactionLine
+
+        txn = None
+        if args.transaction_id:
+            try:
+                txn = ctx.db.get(Transaction, uuid.UUID(str(args.transaction_id)))
+            except (ValueError, TypeError):
+                txn = None
+            if txn is not None and txn.deleted_at is not None:
+                txn = None
+        if txn is None and args.reference:
+            txn = ctx.db.execute(
+                select(Transaction).where(
+                    Transaction.reference == args.reference.strip(),
+                    Transaction.deleted_at.is_(None),
+                ).order_by(Transaction.created_at.desc())
+            ).scalars().first()
+        if txn is None and args.last:
+            txn = ctx.db.execute(
+                select(Transaction).where(Transaction.deleted_at.is_(None))
+                .order_by(Transaction.created_at.desc()).limit(1)
+            ).scalars().first()
+        if txn is None:
+            raise ToolError(
+                "Transaction to reverse not found — give its id or reference, or "
+                "last=true for the most recent entry.", code="transaction_not_found")
+
+        rev_ref = f"REV-{(txn.reference or str(txn.id)[:8])}"[:128]
+        already = ctx.db.execute(
+            select(Transaction.id).where(
+                Transaction.reference == rev_ref, Transaction.deleted_at.is_(None))
+        ).first()
+        if already:
+            raise ToolError(
+                f"That entry was already reversed ({rev_ref}). Reversing again "
+                "would double-book — tell the user instead.", code="already_reversed")
+
+        lines = ctx.db.execute(
+            select(TransactionLine).where(TransactionLine.transaction_id == txn.id)
+        ).scalars().all()
+        if not lines:
+            raise ToolError("The transaction has no lines to reverse.", code="empty_transaction")
+        mirrored = []
+        for ln in lines:
+            acc = ctx.db.get(Account, ln.account_id)
+            if acc is None:
+                raise ToolError("A line's account is not accessible — cannot build "
+                                "the reversal safely.", code="account_missing")
+            mirrored.append({
+                "account_code": acc.code,
+                "debit": ln.credit,    # exact mirror — never model-authored
+                "credit": ln.debit,
+                "line_description": f"Reversal: {ln.line_description or txn.description or ''}"[:512],
+            })
+
+        payload = {
+            "date": _date.today().isoformat(),
+            "reference": rev_ref,
+            "description": f"Reversal of {txn.reference or str(txn.id)[:8]} — {(txn.description or '')}"[:2000],
+            "currency": txn.currency or "IRR",
+            "lines": mirrored,
+            "entity_links": [
+                {"entity_id": str(link.entity_id), "role": link.role}
+                for link in (txn.entity_links or [])
+            ],
+        }
+        token = uuid.uuid4()
+        proposal = AIProposal(
+            confirmation_token=token, user_id=ctx.user_id,
+            session_id=ctx.chat_session_id, tool_name="propose_create_transaction",
+            tool_input=payload, user_message=ctx.user_message, status="pending",
+        )
+        ctx.db.add(proposal)
+        ctx.db.commit()
+        ctx.db.refresh(proposal)
+
+        total = sum(m["debit"] for m in mirrored)
+        summary = (
+            f"Reversal of {txn.reference or str(txn.id)[:8]} ({txn.date}): "
+            + "; ".join(f"{'DR' if m['debit'] else 'CR'} {m['account_code']} "
+                        f"{(m['debit'] or m['credit']):,}" for m in mirrored[:4])
+            + f" · Total {total:,} {txn.currency or 'IRR'}"
+        )
+        return {
+            "confirmation_token": str(token),
+            "status": "pending",
+            "expires_at": (datetime.now(timezone.utc) + PROPOSAL_TTL).isoformat(),
+            "summary": summary,
+            "tool_name": "propose_create_transaction",
+            "preview": payload,
+            "next_steps": (
+                "Show this as an action card — the legs are the exact mirror of the "
+                "original entry. It posts only when the user clicks Confirm."
+            ),
+        }

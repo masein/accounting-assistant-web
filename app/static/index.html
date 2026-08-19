@@ -13526,6 +13526,10 @@
     async function loadLedger() {
       try {
         const res = await fetch(API + '/reports/ledger-summary');
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error('HTTP ' + res.status + (typeof err.detail === 'string' ? ' — ' + err.detail : ''));
+        }
         const data = await res.json();
         ledgerData = data;
         if (!data.rows || data.rows.length === 0) {
@@ -13537,7 +13541,8 @@
         }
         renderLedgerView();
       } catch (err) {
-        resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading ledger.</td></tr>';
+        // show the real reason so a server failure is diagnosable from the UI
+        resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading ledger. ' + escapeHtml(err.message || '') + '</td></tr>';
         resultsFoot.style.display = 'none';
         document.getElementById('charts-row').style.display = 'none';
         ledgerKpisEl.innerHTML = '';

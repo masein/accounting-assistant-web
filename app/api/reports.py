@@ -156,7 +156,12 @@ def get_ledger_summary(
     Aggregate all transaction lines by account: turnover (sum of debits/credits) and
     ending balance (debit_balance / credit_balance), in trial-balance style like the Excel files.
     """
-    q = select(TransactionLine).join(Transaction, TransactionLine.transaction_id == Transaction.id).options(selectinload(TransactionLine.account))
+    q = (
+        select(TransactionLine)
+        .join(Transaction, TransactionLine.transaction_id == Transaction.id)
+        .where(Transaction.deleted_at.is_(None))  # replaced/undone journals must not count
+        .options(selectinload(TransactionLine.account))
+    )
     if currency:
         q = q.where(Transaction.currency == currency)
     lines = db.execute(q).scalars().all()
@@ -173,6 +178,10 @@ def get_ledger_summary(
     )
     for line in lines:
         acc = line.account
+        if acc is None:
+            # account row invisible (e.g. filtered by tenancy after a partial
+            # wipe) — skip rather than 500 the whole ledger
+            continue
         key = str(acc.id)
         by_account[key]["account_code"] = acc.code
         by_account[key]["account_name"] = acc.name
@@ -232,7 +241,7 @@ def get_account_detail(
     q = (
         select(TransactionLine, Transaction)
         .join(Transaction, TransactionLine.transaction_id == Transaction.id)
-        .where(TransactionLine.account_id == acc.id)
+        .where(TransactionLine.account_id == acc.id, Transaction.deleted_at.is_(None))
     )
     if currency:
         q = q.where(Transaction.currency == currency)
@@ -281,14 +290,33 @@ def get_entity_transactions(
     entity = db.get(Entity, entity_id)
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
-    q = (
-        select(Transaction)
-        .join(TransactionEntity, Transaction.id == TransactionEntity.transaction_id)
-        .where(
-            TransactionEntity.entity_id == entity_id,
-            Transaction.deleted_at.is_(None),  # hide soft-deleted (e.g. a replaced opening journal)
-        )
+    # Linked transactions… and, for a BANK, every journal that touches its GL
+    # cash account — an ordinary voucher moves the bank's money without ever
+    # linking the bank entity, and hiding those made the list disagree with
+    # the balance (the reported bug).
+    bank_account_id = None
+    if entity.type == "bank" and (entity.code or "").strip():
+        acc = db.execute(
+            select(Account).where(Account.code == entity.code.strip())
+        ).scalars().first()
+        bank_account_id = acc.id if acc else None
+    link_exists = (
+        select(TransactionEntity.id)
+        .where(TransactionEntity.transaction_id == Transaction.id,
+               TransactionEntity.entity_id == entity_id)
+        .exists()
     )
+    if bank_account_id is not None:
+        line_exists = (
+            select(TransactionLine.id)
+            .where(TransactionLine.transaction_id == Transaction.id,
+                   TransactionLine.account_id == bank_account_id)
+            .exists()
+        )
+        cond = or_(link_exists, line_exists)
+    else:
+        cond = link_exists
+    q = select(Transaction).where(cond, Transaction.deleted_at.is_(None))
     if currency:
         q = q.where(Transaction.currency == currency)
     q = (
@@ -321,16 +349,36 @@ def get_entity_transactions(
                 reference=t.reference,
                 description=t.description,
                 lines=lines_read,
-                entity_links=[
-                    TransactionEntityLinkRead(
-                        role=link.role,
-                        entity_id=link.entity_id,
-                        entity_name=(link.entity.name if link.entity else None),
-                        entity_type=(link.entity.type if link.entity else None),
-                        amount=link.amount,
+                entity_links=(
+                    [
+                        TransactionEntityLinkRead(
+                            role=link.role,
+                            entity_id=link.entity_id,
+                            entity_name=(link.entity.name if link.entity else None),
+                            entity_type=(link.entity.type if link.entity else None),
+                            amount=link.amount,
+                        )
+                        for link in (t.entity_links or [])
+                    ]
+                    + (
+                        # bank pulled in via its GL lines (no explicit link):
+                        # synthesize a link carrying the bank's own net move so
+                        # the "This entity" column shows its share, not the
+                        # whole journal total
+                        [TransactionEntityLinkRead(
+                            role="bank", entity_id=entity_id,
+                            entity_name=entity.name, entity_type=entity.type,
+                            amount=sum(
+                                l.debit - l.credit for l in t.lines
+                                if l.account_id == bank_account_id
+                            ),
+                        )]
+                        if bank_account_id is not None
+                        and not any(link.entity_id == entity_id for link in (t.entity_links or []))
+                        and any(l.account_id == bank_account_id for l in t.lines)
+                        else []
                     )
-                    for link in (t.entity_links or [])
-                ],
+                ),
                 attachments=[
                     AttachmentRead(
                         id=a.id,

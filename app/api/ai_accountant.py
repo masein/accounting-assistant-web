@@ -218,6 +218,24 @@ async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> tuple[st
     return "\n\n".join(blocks), amounts
 
 
+import re as _re
+
+# A message that IS a confirmation and nothing else ("confirm", "تایید کن",
+# "yes do it") — not a sentence that merely contains the word.
+_CONFIRM_RE = _re.compile(
+    r"^\s*(?:please\s+|لطفا\s+|لطفاً\s+)?"
+    r"(?:confirm(?:\s+(?:it|the\s+transaction|the\s+entry))?|yes[,!\s]*(?:confirm|do\s+it|record\s+it)?|"
+    r"ok(?:ay)?[,!\s]*(?:confirm|do\s+it)?|do\s+it|record\s+it|"
+    r"تایید(?:\s*کن)?|تأیید(?:\s*کن)?|بله(?:\s*(?:تایید|تأیید|ثبت)\s*کن)?|ثبت\s*کن|باشه(?:\s*ثبت\s*کن)?)"
+    r"\s*[.!؟?]*\s*$",
+    _re.IGNORECASE,
+)
+
+
+def _is_bare_confirmation(message: str | None) -> bool:
+    return bool(message) and bool(_CONFIRM_RE.match(message))
+
+
 def _deterministic_turn(
     db: Session,
     user: SessionUser,
@@ -279,6 +297,37 @@ async def chat(
         build_spreadsheet_intake,
         is_path_only_message,
     )
+
+    # A bare "confirm" typed into the chat while a card is pending: the model
+    # cannot execute proposals and (observed on gpt-4o-mini) re-creates an
+    # IDENTICAL new card instead — which the user then also confirms →
+    # double-posting. Deterministic reply pointing at the card's button.
+    if _is_bare_confirmation(payload.message) and not payload.attachment_ids:
+        from app.services.ai_accountant.proposal_tools import PROPOSAL_TTL
+
+        cutoff = datetime.now(timezone.utc) - PROPOSAL_TTL
+        pending_q = select(AIProposal).where(
+            AIProposal.user_id == user.user_id,
+            AIProposal.status == "pending",
+            AIProposal.created_at >= cutoff,
+        )
+        if payload.session_id:
+            pending_q = pending_q.where(AIProposal.session_id == payload.session_id)
+        pending = db.execute(
+            pending_q.order_by(AIProposal.created_at.desc()).limit(1)
+        ).scalars().first()
+        if pending is not None:
+            text = (
+                "برای ثبت، روی دکمهٔ «Confirm» روی همان کارت پیشنهاد بالا کلیک کنید "
+                "(یا «Cancel» برای انصراف). من از پیام متنی چیزی ثبت نمی‌کنم و کارت "
+                "جدیدی هم نمی‌سازم — کارت قبلی هنوز منتظر تأیید شماست."
+                if _user_language(db, user) == "fa"
+                else "To record it, click the Confirm button on the proposal card above "
+                     "(or Cancel to discard). I never record from a typed message, and "
+                     "I won't create a duplicate card — the existing one is still "
+                     "waiting for your click."
+            )
+            return _deterministic_turn(db, user, payload, text, intake=None)
 
     # A message that is only a filesystem path (the old drag-drop failure
     # mode): don't let the model hallucinate file contents — ask for a real

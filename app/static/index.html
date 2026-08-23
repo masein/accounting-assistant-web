@@ -9865,6 +9865,7 @@
       panel.appendChild(canvasWrap);
       inner.appendChild(panel);
       if (onClick) chartCfg.options = { ...(chartCfg.options || {}), onClick };
+      if (typeof Chart === 'undefined') return null;  // chart lib missing → skip the panel
       const chart = new Chart(canvas, chartCfg);
       _extraChartInstances.push(chart);
       // Wire the reset-zoom button (only present when zoom is enabled).
@@ -13379,6 +13380,7 @@
     function renderCharts(rows) {
       const row = document.getElementById('charts-row');
       if (!rows || rows.length === 0) { row.style.display = 'none'; return; }
+      if (typeof Chart === 'undefined') { row.style.display = 'none'; return; }  // chart lib missing → table still works
       row.style.display = 'grid';
       const maxN = Number(ledgerTopNEl.value || 12);
       const chartRows = rows.slice(0, maxN);

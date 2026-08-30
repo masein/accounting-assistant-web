@@ -19,6 +19,9 @@ class Company(Base):
     name: Mapped[str] = mapped_column(String(256))
     slug: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     locale: Mapped[str] = mapped_column(String(16), default="default")  # uk | ir | default
+    # business = an SME with the full role set; personal = a single-user
+    # personal-finance tenant (simplified chart, personal role, slim UI).
+    kind: Mapped[str] = mapped_column(String(16), default="business", server_default="business")
     base_currency: Mapped[str] = mapped_column(String(8), default="IRR")
     status: Mapped[str] = mapped_column(String(16), default="active", index=True)  # active | suspended
     # Bumped on suspend / password reset to invalidate existing session tokens.

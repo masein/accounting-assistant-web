@@ -8,12 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import hash_password
+from app.core.permissions import Role
 from app.db.seed import seed_chart_if_empty
 from app.db.tenant import tenant_bypass, use_company
 from app.models.company import Company
 from app.models.user import User
 
 SUPPORTED_LOCALES = {"uk", "ir", "default"}
+SUPPORTED_KINDS = {"business", "personal"}
 
 
 def slugify(name: str) -> str:
@@ -35,8 +37,9 @@ def seed_company_books(db: Session, company: Company) -> int:
     the company's tenant context so every seeded row is stamped to it."""
     locale = company.locale if company.locale in SUPPORTED_LOCALES else "default"
     seed_locale = "uk" if locale == "uk" else ("ir" if locale == "ir" else "ir")
+    chart = "personal" if getattr(company, "kind", "business") == "personal" else None
     with use_company(company.id):
-        n = seed_chart_if_empty(db, locale=seed_locale)
+        n = seed_chart_if_empty(db, locale=seed_locale, chart=chart)
         try:
             from app.services.tax_rate_service import seed_tax_rates
             seed_tax_rates(db)
@@ -54,19 +57,27 @@ def provision_company(
     base_currency: str,
     username: str,
     password: str,
+    kind: str = "business",
 ) -> tuple[Company, User]:
     """Create a company + its single login + its seeded books. Raises
-    ValueError on a duplicate username (globally unique) or bad input."""
+    ValueError on a duplicate username (globally unique) or bad input.
+
+    ``kind="personal"`` provisions a personal-finance tenant: the personal
+    chart of accounts and a first user with the 'personal' role instead of
+    the implicit owner."""
     name = (name or "").strip()
     username = (username or "").strip()
     locale = (locale or "default").strip().lower()
     base_currency = (base_currency or "").strip().upper() or "IRR"
+    kind = (kind or "business").strip().lower()
     if not name:
         raise ValueError("Company name is required")
     if not username:
         raise ValueError("Login username is required")
     if locale not in SUPPORTED_LOCALES:
         raise ValueError(f"Unsupported locale '{locale}'")
+    if kind not in SUPPORTED_KINDS:
+        raise ValueError(f"Unsupported company kind '{kind}'")
 
     with tenant_bypass():
         if db.execute(select(User).where(User.username == username)).scalars().first():
@@ -75,6 +86,7 @@ def provision_company(
             name=name,
             slug=_unique_slug(db, slugify(name)),
             locale=locale,
+            kind=kind,
             base_currency=base_currency,
             status="active",
         )
@@ -86,10 +98,13 @@ def provision_company(
             username=username,
             password_hash=pw_hash,
             password_salt=pw_salt,
-            is_admin=True,          # company-level admin of their own books
+            # A personal tenant's user is not a company admin — the personal
+            # role scopes what they can reach; there is nothing to administer.
+            is_admin=(kind != "personal"),
             is_superadmin=False,
             company_id=company.id,
             is_active=True,
+            role=Role.PERSONAL if kind == "personal" else Role.OWNER,
         )
         db.add(user)
         db.flush()

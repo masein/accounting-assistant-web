@@ -177,6 +177,55 @@ UK_SEED_ACCOUNTS = [
 ]
 
 
+# Personal-finance chart (kind='personal' companies). Human categories, not
+# SME bookkeeping. Codes reuse the Iranian scheme (2-digit groups, 4-digit
+# generals, expenses under 61/62) so every locale predicate that recognises
+# the IR chart — e.g. /budgets/actual-vs-budget's expense filter — works
+# unchanged. (code, name_fa, name_en, level); parents before children.
+PERSONAL_SEED_ACCOUNTS = [
+    # Groups
+    ("11", "دارایی‌ها", "Assets", AccountLevel.GROUP),
+    ("21", "بدهی‌ها و وام‌ها", "Liabilities & loans", AccountLevel.GROUP),
+    ("31", "خالص دارایی", "Net worth", AccountLevel.GROUP),
+    ("41", "درآمدها", "Income", AccountLevel.GROUP),
+    ("61", "هزینه‌های زندگی", "Living expenses", AccountLevel.GROUP),
+    ("62", "سایر هزینه‌ها", "Other expenses", AccountLevel.GROUP),
+    # Assets
+    ("1110", "موجودی نقد", "Cash on hand", AccountLevel.GENERAL),
+    ("1120", "حساب بانکی", "Bank accounts", AccountLevel.GENERAL),
+    ("1130", "پس‌انداز طلا و سکه", "Gold & coin savings", AccountLevel.GENERAL),
+    ("1140", "پس‌انداز ارزی", "Foreign currency savings", AccountLevel.GENERAL),
+    ("1150", "طلب از دیگران", "Money owed to me", AccountLevel.GENERAL),
+    # Liabilities
+    ("2110", "وام بانکی", "Bank loans", AccountLevel.GENERAL),
+    ("2120", "اقساط پرداختنی", "Installments payable", AccountLevel.GENERAL),
+    ("2130", "بدهی به دیگران", "Money I owe", AccountLevel.GENERAL),
+    ("2140", "بدهی کارت اعتباری", "Credit card debt", AccountLevel.GENERAL),
+    # Net worth
+    ("3110", "خالص دارایی اولیه", "Opening net worth", AccountLevel.GENERAL),
+    ("3300", "مازاد (کسری) انباشته", "Accumulated surplus (deficit)", AccountLevel.GENERAL),
+    # Income
+    ("4110", "حقوق و دستمزد", "Salary & wages", AccountLevel.GENERAL),
+    ("4120", "درآمد آزاد", "Freelance income", AccountLevel.GENERAL),
+    ("4130", "سود سپرده و سرمایه‌گذاری", "Interest & investment income", AccountLevel.GENERAL),
+    ("4140", "سایر درآمدها", "Other income", AccountLevel.GENERAL),
+    # Living expenses
+    ("6110", "خوراک و سوپرمارکت", "Food & groceries", AccountLevel.GENERAL),
+    ("6120", "مسکن و اجاره", "Housing & rent", AccountLevel.GENERAL),
+    ("6130", "حمل‌ونقل", "Transport", AccountLevel.GENERAL),
+    ("6140", "قبوض و خدمات", "Utilities & bills", AccountLevel.GENERAL),
+    ("6150", "سلامت و درمان", "Health", AccountLevel.GENERAL),
+    ("6160", "آموزش", "Education", AccountLevel.GENERAL),
+    ("6170", "پوشاک", "Clothing", AccountLevel.GENERAL),
+    ("6180", "تفریح و رستوران", "Leisure & dining out", AccountLevel.GENERAL),
+    ("6190", "اشتراک‌ها", "Subscriptions", AccountLevel.GENERAL),
+    ("6195", "خانواده و هدایا", "Family & gifts", AccountLevel.GENERAL),
+    # Other
+    ("6210", "کارمزد بانکی", "Bank fees", AccountLevel.GENERAL),
+    ("6220", "متفرقه", "Miscellaneous", AccountLevel.GENERAL),
+]
+
+
 def _parent_code_ir(code: str) -> str | None:
     """Iranian chart hierarchy: 1110 -> 11, 6112 -> 61."""
     if len(code) <= 2:
@@ -192,11 +241,13 @@ def _parent_code_uk(code: str) -> str | None:
     return code[:1]
 
 
-def seed_chart_if_empty(session: "Session", locale: str = "ir") -> int:
+def seed_chart_if_empty(session: "Session", locale: str = "ir", chart: str | None = None) -> int:
     """
     Insert seed accounts for the requested locale if the chart is empty.
 
     ``locale`` is a soft tag — the only real effect is which list is used.
+    ``chart="personal"`` selects the personal-finance chart instead of the
+    SME chart (account names in Persian, or English when locale is 'uk').
     Returns the number of accounts inserted (0 when the chart was non-empty).
     """
     from sqlalchemy import func, select
@@ -206,7 +257,11 @@ def seed_chart_if_empty(session: "Session", locale: str = "ir") -> int:
         return 0
 
     locale_norm = (locale or "ir").strip().lower()
-    if locale_norm == "uk":
+    if chart == "personal":
+        name_idx = 2 if locale_norm == "uk" else 1
+        seed_list = [(r[0], r[name_idx], r[3]) for r in PERSONAL_SEED_ACCOUNTS]
+        parent_fn = _parent_code_ir
+    elif locale_norm == "uk":
         seed_list = UK_SEED_ACCOUNTS
         parent_fn = _parent_code_uk
     else:

@@ -30,6 +30,7 @@ _LOGO_EXTS = (".png", ".jpg", ".gif", ".webp")
 class CompanyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=256)
     locale: str = Field(default="default")
+    kind: str = Field(default="business")  # business | personal
     base_currency: str = Field(default="IRR", max_length=8)
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=128)
@@ -60,6 +61,7 @@ def _serialize(db: Session, c: Company) -> dict:
         "name": c.name,
         "slug": c.slug,
         "locale": c.locale,
+        "kind": getattr(c, "kind", "business") or "business",
         "base_currency": c.base_currency,
         "status": c.status,
         "login_username": login.username if login else None,
@@ -101,6 +103,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db), _=Depe
             base_currency=payload.base_currency,
             username=payload.username,
             password=payload.password,
+            kind=payload.kind,
         )
     except ValueError as e:
         db.rollback()

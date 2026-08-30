@@ -125,3 +125,30 @@ def test_frontend_roles_match_backend_roles():
     order_line = js.split("const ROLE_ORDER = ", 1)[1].split(";", 1)[0]
     frontend_roles = set(re.findall(r"'([a-z]+)'", order_line))
     assert frontend_roles == set(ALL_ROLES)
+
+
+# ---------------------------------------------------------------------------
+# SME-only controls on the statement page
+# ---------------------------------------------------------------------------
+def test_reconcile_and_approve_all_are_marked_sme_only():
+    """Reconciling against existing bookkeeping is meaningless for a personal
+    tenant — every statement row is new spending, not a match candidate."""
+    html = INDEX.read_text(encoding="utf-8")
+    for button_id in ("bs-reconcile-btn", "bs-approve-all-btn"):
+        tag = re.search(rf'<button[^>]*id="{button_id}"[^>]*>', html)
+        assert tag, button_id
+        assert "sme-only" in tag.group(0), f"{button_id} should be hidden from personal users"
+
+
+def test_post_all_is_not_sme_only():
+    """Posting the suggested rows is the personal user's whole workflow."""
+    html = INDEX.read_text(encoding="utf-8")
+    tag = re.search(r'<button[^>]*id="bs-post-all-btn"[^>]*>', html)
+    assert tag and "sme-only" not in tag.group(0)
+
+
+def test_apply_role_access_hides_sme_only_for_personal():
+    js = CORE_JS.read_text(encoding="utf-8")
+    body = js.split("function applyRoleAccess()", 1)[1].split("\n    }", 1)[0]
+    assert "sme-only" in body
+    assert "personalMode ? 'none' : ''" in body

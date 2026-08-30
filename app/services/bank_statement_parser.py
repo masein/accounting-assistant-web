@@ -157,12 +157,33 @@ def parse_csv(
             except UnicodeDecodeError:
                 continue
 
-    result = ParseResult(source_type="csv", bank_name=bank_name)
     reader = csv.reader(io.StringIO(content))
-    all_rows = list(reader)
+    return _parse_table(
+        list(reader), source_type="csv", bank_name=bank_name, column_map=column_map,
+        too_short="CSV has fewer than 2 rows (need header + data)",
+    )
+
+
+def _parse_table(
+    all_rows: list[list[str]],
+    *,
+    source_type: str,
+    bank_name: str = "",
+    column_map: dict[str, int] | None = None,
+    too_short: str = "File has fewer than 2 rows (need header + data)",
+) -> ParseResult:
+    """Turn already-split rows into a ParseResult.
+
+    Shared by the CSV and Excel paths so both get identical column detection,
+    mapping, date/amount parsing and error reporting. Excel used to reach this
+    logic by joining cells into CSV text and re-parsing, which dropped the
+    caller's column_map, mislabelled the source, and silently shifted columns
+    whenever a cell contained a comma.
+    """
+    result = ParseResult(source_type=source_type, bank_name=bank_name)
 
     if len(all_rows) < 2:
-        result.errors.append("CSV has fewer than 2 rows (need header + data)")
+        result.errors.append(too_short)
         return result
 
     result.headers = [h.strip() for h in all_rows[0]]
@@ -227,8 +248,17 @@ def parse_csv(
     return result
 
 
-def parse_excel(file_path: str, bank_name: str = "") -> ParseResult:
-    """Parse an Excel bank statement using openpyxl."""
+def parse_excel(
+    file_path: str,
+    bank_name: str = "",
+    column_map: dict[str, int] | None = None,
+) -> ParseResult:
+    """Parse an Excel bank statement using openpyxl.
+
+    Takes ``column_map`` for the same reason parse_csv does: when the columns
+    can't be auto-detected the UI asks the user to map them and re-uploads.
+    Without it that retry could never succeed for a spreadsheet.
+    """
     result = ParseResult(source_type="excel", bank_name=bank_name)
     try:
         import openpyxl
@@ -241,12 +271,12 @@ def parse_excel(file_path: str, bank_name: str = "") -> ParseResult:
     all_rows = [[str(cell.value or "") for cell in row] for row in ws.iter_rows()]
     wb.close()
 
-    if len(all_rows) < 2:
-        result.errors.append("Excel has fewer than 2 rows")
-        return result
-
-    csv_text = "\n".join(",".join(row) for row in all_rows)
-    return parse_csv(csv_text, bank_name=bank_name)
+    # Cells go straight to the shared row engine — no CSV round-trip, so a
+    # comma inside a description can't shift every column after it.
+    return _parse_table(
+        all_rows, source_type="excel", bank_name=bank_name, column_map=column_map,
+        too_short="Excel has fewer than 2 rows",
+    )
 
 
 def parse_vision_rows(vision_rows: list[dict], bank_name: str = "") -> ParseResult:

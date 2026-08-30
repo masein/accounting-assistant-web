@@ -200,6 +200,11 @@
         .forEach((c) => { c.style.display = personalMode ? 'none' : ''; });
       document.querySelectorAll('#ai-acct-quick-actions .chip-personal')
         .forEach((c) => { c.style.display = personalMode ? '' : 'none'; });
+      // Reconciling a statement against existing bookkeeping is an SME job. A
+      // personal tenant has nothing to reconcile against — every row is new
+      // spending to categorise and post — so these would only confuse.
+      document.querySelectorAll('.sme-only')
+        .forEach((el) => { el.style.display = personalMode ? 'none' : ''; });
     }
     async function populateEntityLinkOptions() {
       if (!newUserEntityEl) return;

@@ -351,7 +351,7 @@ async def upload_bank_statement(
             tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
             tmp_path.write_bytes(content)
             try:
-                result = parse_excel(str(tmp_path), bank_name=bank_name)
+                result = parse_excel(str(tmp_path), bank_name=bank_name, column_map=parsed_column_map)
             finally:
                 tmp_path.unlink(missing_ok=True)
         else:  # image / PDF → vision row-extraction, fall back to text scraping

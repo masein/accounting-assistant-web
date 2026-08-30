@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     # (see app/core/auth.py), so this can be raised safely over time.
     # Tests lower it — hashing cost otherwise dominates the suite.
     password_hash_iterations: int = 600_000
+    # Ask the LLM to place statement rows the deterministic categorizer
+    # can't. Costs one batched call per import and sends narrations to the
+    # configured backend, so it self-disables when no backend is set — and
+    # the test suite turns it off outright to stay hermetic.
+    statement_llm_categorization: bool = True
     auth_cookie_name: str = "aa_session"
     auth_session_hours: int = 24
     # Whether the session cookie carries the `Secure` flag. Unset (None) →

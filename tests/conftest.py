@@ -29,6 +29,10 @@ from app.core.config import settings as _settings
 # dominate the run time. Tests that care about the work factor set it
 # explicitly rather than relying on this default.
 _settings.password_hash_iterations = 1_000
+# Tests must never reach the network: the LLM categorization tier would
+# otherwise fire on every statement upload, making runs slow and
+# non-deterministic. Its own tests mock the call directly.
+_settings.statement_llm_categorization = False
 
 from app.db.base import Base
 import app.models  # noqa: F401 — register all models with Base.metadata

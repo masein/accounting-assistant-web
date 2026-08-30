@@ -20,6 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.auth import SessionUser, get_current_user
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
@@ -440,6 +441,7 @@ async def upload_bank_statement(
     # are individually already on file so they aren't posted twice.
     dupe_idx = duplicate_row_indices(db, result.rows, exclude_statement_id=stmt.id)
 
+    unresolved: list[BankStatementRow] = []
     for i, row in enumerate(result.rows):
         # Chart-aware suggestion first (history, then bilingual keywords
         # resolved against this tenant's own accounts). The legacy keyword
@@ -471,6 +473,28 @@ async def upload_bank_statement(
             recon_status="duplicate" if i in dupe_idx else "unmatched",
         )
         db.add(db_row)
+        if code is None and i not in dupe_idx:
+            unresolved.append(db_row)
+
+    db.flush()
+
+    # Long tail: whatever the deterministic tiers couldn't place goes to the
+    # model in ONE batched call. Best-effort by design — the import is already
+    # complete and valid at this point, so a model that is slow, down or simply
+    # not configured just leaves those rows blank for the user to fill in.
+    if unresolved and settings.statement_llm_categorization:
+        try:
+            from app.services.statement_llm_categorizer import suggest_unknown
+
+            hits = await suggest_unknown(
+                db, [(r.id, r.description or "", r.debit > 0) for r in unresolved]
+            )
+            for r in unresolved:
+                hit = hits.get(r.id)
+                if hit is not None:
+                    r.category, r.suggested_account_code = hit.category, hit.account_code
+        except Exception:  # noqa: BLE001 - never fail an import over this
+            logger.warning("LLM categorization pass skipped", exc_info=True)
 
     db.commit()
     return BankStatementUploadResponse(

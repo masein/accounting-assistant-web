@@ -25,6 +25,7 @@
       <div class="nav-section" role="group">
         <div class="nav-section-h" data-i18n="navSecOverview">Overview</div>
         <button type="button" class="nav-btn" data-page="dashboard"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span class="lbl" data-i18n="navDashboard">Dashboard</span></button>
+        <button type="button" class="nav-btn" data-page="personal-dashboard"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 13h4"/><path d="M2 10h20"/></svg><span class="lbl" data-i18n="pdNav">My finances</span></button>
       </div>
       <div class="nav-section" role="group">
         <div class="nav-section-h" data-i18n="navSecWork">Work</div>
@@ -590,6 +591,33 @@
           <button type="submit" class="btn btn-primary" id="submit-btn" data-i18n="saveVoucher">Save voucher</button>
         </div>
       </form>
+    </div>
+
+    <div class="card" data-page="personal-dashboard">
+      <h2 data-i18n="pdTitle">My finances</h2>
+      <p data-i18n="pdSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Where your money went, month by month — categories, trends, and budgets.</p>
+      <div id="pd-kpi-grid" class="kpi-grid"></div>
+      <div class="dashboard-grid">
+        <div class="panel">
+          <h3 data-i18n="pdSpendByCategory">Spending by category</h3>
+          <div style="max-width:340px; margin:0 auto 0.75rem;"><canvas id="pd-cat-chart"></canvas></div>
+          <div id="pd-cat-wrap"></div>
+        </div>
+        <div class="panel">
+          <h3 data-i18n="pdTrend">Monthly spending</h3>
+          <div><canvas id="pd-trend-chart"></canvas></div>
+        </div>
+        <div class="panel">
+          <h3 data-i18n="panelBudgetVsActual">Budget vs actual (monthly)</h3>
+          <div class="row" style="margin-bottom:0.5rem;">
+            <div><label for="pd-budget-month" data-i18n="labelMonth">Month</label><input type="month" id="pd-budget-month"></div>
+            <div><label for="pd-budget-category" data-i18n="labelCategory">Category</label><select id="pd-budget-category"></select></div>
+            <div><label for="pd-budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="pd-budget-limit" min="0" step="1" value="0"></div>
+            <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="pd-budget-save" data-i18n="btnSaveBudget">Save budget</button></div>
+          </div>
+          <div id="pd-budget-wrap"></div>
+        </div>
+      </div>
     </div>
 
     <div class="card" data-page="dashboard">
@@ -2055,6 +2083,8 @@
         <div><label for="co-name" data-i18n="companiesName">Company name</label><input type="text" id="co-name" placeholder="Acme Ltd"></div>
         <div><label for="co-locale" data-i18n="companiesLocale">Locale</label>
           <select id="co-locale"><option value="uk">UK (GBP)</option><option value="ir">Iran (IRR)</option><option value="default">Default</option></select></div>
+        <div><label for="co-kind" data-i18n="companiesKind">Type</label>
+          <select id="co-kind"><option value="business" data-i18n="companiesKindBusiness">Business</option><option value="personal" data-i18n="companiesKindPersonal">Personal</option></select></div>
         <div><label for="co-currency" data-i18n="companiesCurrency">Base currency</label><select id="co-currency" style="width:110px;">
           <option value="IRR">IRR</option>
           <option value="USD">USD</option>

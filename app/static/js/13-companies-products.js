@@ -100,6 +100,7 @@
       if (createBtn) createBtn.addEventListener('click', async () => {
         const name = (document.getElementById('co-name').value || '').trim();
         const locale = document.getElementById('co-locale').value;
+        const kind = document.getElementById('co-kind')?.value || 'business';
         const base_currency = (document.getElementById('co-currency').value || '').trim();
         const username = (document.getElementById('co-username').value || '').trim();
         const password = document.getElementById('co-password').value || '';
@@ -107,7 +108,7 @@
         try {
           const res = await fetch(API + '/admin/companies', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, locale, base_currency, username, password }),
+            body: JSON.stringify({ name, locale, kind, base_currency, username, password }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) { showAlert(data.detail || t('companiesCreateFailed'), true); return; }

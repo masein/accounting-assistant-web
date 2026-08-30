@@ -1176,3 +1176,138 @@
         mgrAddMvBtn.disabled = false;
       }
     }
+
+    // ═══════ Personal-finance dashboard (role: personal) ═══════
+    // Reuses /reports/owner-dashboard (cash, burn, expense_by_category,
+    // monthly_expense_series) and /budgets — rendered in personal language.
+    let _pdCatChart = null;
+    let _pdTrendChart = null;
+    const _PD_PALETTE = ['#2f6f62', '#e0a458', '#7d9fc2', '#c26b6b', '#8fbf9f',
+                        '#b58ecc', '#d98e73', '#6bb0c2', '#c2b26b', '#9aa5b1'];
+
+    async function pdFillBudgetCategories() {
+      const sel = document.getElementById('pd-budget-category');
+      if (!sel || sel.options.length) return;
+      try {
+        const res = await fetch(API + '/manager-reports/accounts/list');
+        if (!res.ok) return;
+        const accs = await res.json();
+        sel.innerHTML = accs
+          .filter(a => (a.code || '').length > 2 && (a.code.startsWith('61') || a.code.startsWith('62')))
+          .map(a => `<option value="${escapeHtml(a.name)}">${escapeHtml(a.name)}</option>`)
+          .join('');
+      } catch (_) { /* offline */ }
+    }
+
+    async function pdLoadBudgets() {
+      const wrap = document.getElementById('pd-budget-wrap');
+      if (!wrap) return;
+      const monthEl = document.getElementById('pd-budget-month');
+      if (monthEl && !monthEl.value) monthEl.value = new Date().toISOString().slice(0, 7);
+      const monthVal = monthEl ? monthEl.value : new Date().toISOString().slice(0, 7);
+      try {
+        const res = await fetch(API + '/budgets/actual-vs-budget?month=' + encodeURIComponent(monthVal));
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'budget error');
+        const rows = data.rows || [];
+        if (!rows.length) {
+          wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('pdNoBudgets')) + '</p>';
+          return;
+        }
+        wrap.innerHTML = rows.map(r => {
+          const pct = Math.max(0, Math.min(150, Number(r.utilization_pct) || 0));
+          const color = pct >= 100 ? 'var(--danger, #c0392b)' : (pct >= 85 ? '#e0a458' : 'var(--accent, #2f6f62)');
+          return `
+            <div style="margin-bottom:0.55rem;">
+              <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
+                <span>${escapeHtml(r.category)}</span>
+                <span>${formatNum(r.actual_amount)} / ${formatNum(r.limit_amount)} (${escapeHtml(String(r.utilization_pct))}%)</span>
+              </div>
+              <div style="background:var(--border); border-radius:6px; height:8px; overflow:hidden;">
+                <div style="width:${Math.min(100, pct)}%; height:100%; background:${color};"></div>
+              </div>
+            </div>`;
+        }).join('');
+      } catch (_) {
+        wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('pdNoBudgets')) + '</p>';
+      }
+    }
+
+    async function loadPersonalDashboard() {
+      const grid = document.getElementById('pd-kpi-grid');
+      if (!grid) return;
+      try {
+        if (!window.__FX_META) { try { await loadFxMetadata(); } catch (_) { /* offline */ } }
+        await loadReportingCurrency();
+        const res = await fetch(API + '/reports/owner-dashboard');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'dashboard error');
+        const kpis = data.kpis || [];
+        const kv = (key) => kpis.find(k => k.key === key) || {};
+        const cards = [
+          { label: t('kpiCashOnHand'), k: kv('cash_on_hand') },
+          { label: t('pdKpiSpent'), k: kv('burn_rate') },
+          { label: t('pdKpiSaved'), k: kv('monthly_net_profit') },
+        ];
+        grid.innerHTML = cards.map(c => `
+          <div class="kpi-card">
+            <div class="label">${escapeHtml(c.label)}</div>
+            <div class="value">${escapeHtml(formatKpiValue(c.k.value, c.k.unit))}</div>
+          </div>
+        `).join('');
+
+        const cats = data.expense_by_category || [];
+        renderMiniTable('pd-cat-wrap', ['category', 'amount'],
+          cats.map(r => [escapeHtml(r.category), formatNum(r.amount)]));
+        const catCanvas = document.getElementById('pd-cat-chart');
+        if (typeof Chart !== 'undefined' && catCanvas && cats.length) {
+          if (_pdCatChart) _pdCatChart.destroy();
+          _pdCatChart = new Chart(catCanvas, {
+            type: 'doughnut',
+            data: {
+              labels: cats.map(r => r.category),
+              datasets: [{ data: cats.map(r => r.amount), backgroundColor: _PD_PALETTE }],
+            },
+            options: { plugins: { legend: { position: 'bottom' } } },
+          });
+        }
+
+        const series = data.monthly_expense_series || [];
+        const trendCanvas = document.getElementById('pd-trend-chart');
+        if (typeof Chart !== 'undefined' && trendCanvas && series.length) {
+          if (_pdTrendChart) _pdTrendChart.destroy();
+          _pdTrendChart = new Chart(trendCanvas, {
+            type: 'bar',
+            data: {
+              labels: series.map(r => r.period),
+              datasets: [{ data: series.map(r => r.value), backgroundColor: _PD_PALETTE[0] }],
+            },
+            options: { plugins: { legend: { display: false } } },
+          });
+        }
+      } catch (_) {
+        grid.innerHTML = '<p class="empty-state">' + escapeHtml(t('errorLoadingOwnerDashboard')) + '</p>';
+      }
+      pdFillBudgetCategories();
+      pdLoadBudgets();
+    }
+
+    (function wirePersonalDashboard() {
+      const saveBtn = document.getElementById('pd-budget-save');
+      const monthEl = document.getElementById('pd-budget-month');
+      if (monthEl) monthEl.addEventListener('change', pdLoadBudgets);
+      if (saveBtn) saveBtn.addEventListener('click', async () => {
+        const month = (monthEl && monthEl.value) || new Date().toISOString().slice(0, 7);
+        const category = document.getElementById('pd-budget-category')?.value || '';
+        const limit = Number(document.getElementById('pd-budget-limit')?.value || 0);
+        if (!category || !(limit > 0)) return;
+        try {
+          const res = await fetch(API + '/budgets', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month, category, limit_amount: limit }),
+          });
+          if (res.ok) { showAlert(t('btnSaveBudget') + ' ✓'); pdLoadBudgets(); }
+          else { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'error', true); }
+        } catch (_) { showAlert('error', true); }
+      });
+    })();

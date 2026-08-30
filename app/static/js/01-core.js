@@ -140,21 +140,22 @@
     const newUserRoleEl = document.getElementById('new-user-role');
     const newUserEntityEl = document.getElementById('new-user-entity');
     // RBAC role helpers (order = privilege, high → low).
-    const ROLE_ORDER = ['owner', 'cfo', 'accountant', 'manager', 'employee', 'viewer'];
-    const ROLE_KEYS = { owner: 'roleOwner', cfo: 'roleCfo', accountant: 'roleAccountant', manager: 'roleManager', employee: 'roleEmployee', viewer: 'roleViewer' };
+    const ROLE_ORDER = ['owner', 'cfo', 'accountant', 'manager', 'employee', 'viewer', 'personal'];
+    const ROLE_KEYS = { owner: 'roleOwner', cfo: 'roleCfo', accountant: 'roleAccountant', manager: 'roleManager', employee: 'roleEmployee', viewer: 'roleViewer', personal: 'rolePersonal' };
     function roleLabel(r) { return t(ROLE_KEYS[r] || 'roleEmployee'); }
     let currentRole = 'owner';
     // Which roles may SEE each page (nav + client-side gate). The server still
     // enforces — this is cosmetic. Keep in sync with app/core/permissions.py.
     const PAGE_ROLES = {
       dashboard: ['owner', 'cfo', 'accountant', 'viewer'],
-      'ai-accountant': ['owner', 'cfo', 'accountant'],
-      transactions: ['owner', 'cfo', 'accountant'],
+      'personal-dashboard': ['personal'],
+      'ai-accountant': ['owner', 'cfo', 'accountant', 'personal'],
+      transactions: ['owner', 'cfo', 'accountant', 'personal'],
       invoices: ['owner', 'cfo', 'accountant'],
       time: ['owner', 'cfo', 'accountant', 'employee'],
       expenses: ['owner', 'cfo', 'accountant', 'manager', 'employee'],
       'purchase-orders': ['owner', 'cfo', 'accountant'],
-      recurring: ['owner', 'cfo', 'accountant'],
+      recurring: ['owner', 'cfo', 'accountant', 'personal'],
       entities: ['owner', 'cfo', 'accountant'],
       products: ['owner', 'cfo', 'accountant'],
       inventory: ['owner', 'cfo', 'accountant'],
@@ -173,7 +174,7 @@
       // companies is gated separately by isSuperadmin.
     };
     // Where each role lands after login.
-    const ROLE_HOME = { owner: 'dashboard', cfo: 'dashboard', accountant: 'dashboard', manager: 'expenses', employee: 'time', viewer: 'dashboard' };
+    const ROLE_HOME = { owner: 'dashboard', cfo: 'dashboard', accountant: 'dashboard', manager: 'expenses', employee: 'time', viewer: 'dashboard', personal: 'ai-accountant' };
     function roleHome() { return ROLE_HOME[currentRole] || 'dashboard'; }
     function canSeePage(page) {
       if (page === 'companies') return isSuperadmin;
@@ -389,7 +390,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies', 'migration', 'petty-cash']);
+    const validPages = new Set(['dashboard', 'personal-dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies', 'migration', 'petty-cash']);
     // The Companies console is super-admin only; gated in showPage().
     let isSuperadmin = false;
     const rawFetch = window.fetch.bind(window);

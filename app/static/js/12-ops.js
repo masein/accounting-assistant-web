@@ -4,6 +4,7 @@
     // data (otherwise e.g. CFO/CEO cards render their empty "—" placeholders).
     function loadPageData(page) {
       if (page === 'dashboard') { loadOwnerDashboard(); }
+      if (page === 'personal-dashboard') { loadPersonalDashboard(); }
       if (page === 'entities') { loadEntities(); }
       if (page === 'invoices') { loadInvoices(); invInitBuilder(); }
       if (page === 'recurring') { loadRecurringRules(); }

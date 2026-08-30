@@ -56,7 +56,7 @@ def owner_ctx(db, client):
 
 def test_owner_creates_users_with_roles(owner_ctx):
     api, company, owner = owner_ctx
-    for role in (Role.CFO, Role.ACCOUNTANT, Role.MANAGER, Role.EMPLOYEE, Role.VIEWER):
+    for role in (Role.CFO, Role.ACCOUNTANT, Role.MANAGER, Role.EMPLOYEE, Role.VIEWER, Role.PERSONAL):
         r = api.post("/admin/users", json={"username": f"{role}-x", "password": PW, "role": role})
         assert r.status_code == 201, r.text
         assert r.json()["role"] == role

@@ -37,7 +37,8 @@ KIND_ROLES = {
     "payroll": ("owner", "cfo", "accountant"),
     "approvals": ("owner", "cfo", "manager"),
     "petty_cash": ("owner", "cfo", "accountant"),
-    "recurring": ("owner", "cfo", "accountant"),
+    "recurring": ("owner", "cfo", "accountant", "personal"),
+    "budget": ("owner", "cfo", "accountant", "personal"),
     "reminder": (),  # always personal
 }
 

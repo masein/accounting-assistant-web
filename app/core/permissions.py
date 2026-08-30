@@ -38,9 +38,13 @@ class Role:
     MANAGER = "manager"
     EMPLOYEE = "employee"
     VIEWER = "viewer"
+    # Personal-finance mode: the sole user of their own single-user company
+    # (kind='personal'). Full books + reports inside that tenant, none of the
+    # SME machinery (payroll, approvals, POs, migration, user management).
+    PERSONAL = "personal"
 
 
-ALL_ROLES = (Role.OWNER, Role.CFO, Role.ACCOUNTANT, Role.MANAGER, Role.EMPLOYEE, Role.VIEWER)
+ALL_ROLES = (Role.OWNER, Role.CFO, Role.ACCOUNTANT, Role.MANAGER, Role.EMPLOYEE, Role.VIEWER, Role.PERSONAL)
 DEFAULT_ROLE = Role.OWNER  # the pre-RBAC single company login becomes the Owner
 
 
@@ -121,6 +125,16 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     # Viewer: read-only reports/dashboard (sensitive fields stripped downstream).
     Role.VIEWER: frozenset({
         Perm.REPORTS_READ, Perm.REPORTS_LIMITED,
+    }),
+    # Personal: own books + reports (incl. the AI accountant, which rides on
+    # books:read/write) inside their own personal-kind company. Reads settings
+    # (calendar/currency) but cannot change company settings, manage users,
+    # touch payroll/approvals/CFO mode, or import migrations.
+    Role.PERSONAL: frozenset({
+        Perm.SETTINGS_READ,
+        Perm.BOOKS_READ, Perm.BOOKS_WRITE,
+        Perm.BANK_READ,
+        Perm.REPORTS_READ,
     }),
 }
 

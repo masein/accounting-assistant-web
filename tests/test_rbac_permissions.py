@@ -19,8 +19,9 @@ from app.core.auth import CSRF_COOKIE, SessionUser, create_session_token, genera
 from app.core.config import settings
 from app.core.permissions import ALL_ROLES, Role, user_can_access
 
-O, C, A, M, E, V = (
+O, C, A, M, E, V, P = (
     Role.OWNER, Role.CFO, Role.ACCOUNTANT, Role.MANAGER, Role.EMPLOYEE, Role.VIEWER,
+    Role.PERSONAL,
 )
 
 
@@ -36,7 +37,7 @@ MATRIX = [
     # Company settings & branding
     ("PUT", "/admin/company-profile", {O}),
     ("POST", "/admin/company-profile/logo", {O}),
-    ("GET", "/admin/company-profile", {O, C}),
+    ("GET", "/admin/company-profile", {O, C, P}),
     ("PUT", "/fx/reporting-currency", {O}),
     ("POST", "/admin/reset-db", {O}),
     # User management (Owner only)
@@ -45,21 +46,21 @@ MATRIX = [
     ("PATCH", "/admin/users/00000000-0000-0000-0000-000000000000", {O}),
     ("DELETE", "/admin/users/00000000-0000-0000-0000-000000000000", {O}),
     # Books: write = owner/cfo/accountant
-    ("POST", "/transactions", {O, C, A}),
-    ("DELETE", "/transactions/tx1", {O, C, A}),
-    ("POST", "/invoices", {O, C, A}),
-    ("POST", "/entities", {O, C, A}),
-    ("POST", "/ai-accountant/chat", {O, C, A}),
-    ("POST", "/ai-accountant/sessions", {O, C, A}),
-    ("PATCH", "/ai-accountant/sessions/00000000-0000-0000-0000-000000000000", {O, C, A}),
-    ("DELETE", "/ai-accountant/sessions/00000000-0000-0000-0000-000000000000", {O, C, A}),
-    ("POST", "/manager-reports/journal/register", {O, C, A}),
-    ("POST", "/adjustments/accrual", {O, C, A}),
-    ("POST", "/purchase-orders", {O, C, A}),
+    ("POST", "/transactions", {O, C, A, P}),
+    ("DELETE", "/transactions/tx1", {O, C, A, P}),
+    ("POST", "/invoices", {O, C, A, P}),
+    ("POST", "/entities", {O, C, A, P}),
+    ("POST", "/ai-accountant/chat", {O, C, A, P}),
+    ("POST", "/ai-accountant/sessions", {O, C, A, P}),
+    ("PATCH", "/ai-accountant/sessions/00000000-0000-0000-0000-000000000000", {O, C, A, P}),
+    ("DELETE", "/ai-accountant/sessions/00000000-0000-0000-0000-000000000000", {O, C, A, P}),
+    ("POST", "/manager-reports/journal/register", {O, C, A, P}),
+    ("POST", "/adjustments/accrual", {O, C, A, P}),
+    ("POST", "/purchase-orders", {O, C, A, P}),
     # Books: read = owner/cfo/accountant + viewer (reports); NOT manager/employee
-    ("GET", "/transactions", {O, C, A, V}),
-    ("GET", "/invoices", {O, C, A, V}),
-    ("GET", "/accounts", {O, C, A, V}),
+    ("GET", "/transactions", {O, C, A, V, P}),
+    ("GET", "/invoices", {O, C, A, V, P}),
+    ("GET", "/accounts", {O, C, A, V, P}),
     # Migration from another accounting system (Owner/Accountant only)
     ("POST", "/migration/import/preview", {O, A}),
     ("POST", "/migration/import/confirm", {O, A}),
@@ -70,23 +71,23 @@ MATRIX = [
     ("POST", "/payroll/runs", {O, C, A}),
     ("GET", "/payroll/runs/r1/payslip/e1", {O, C, A, E}),  # + employee's own
     # Bank accounts & balances (account numbers)
-    ("GET", "/brain/bank-statements", {O, C, A}),
-    ("GET", "/brain/bank-statements/s1", {O, C, A}),
+    ("GET", "/brain/bank-statements", {O, C, A, P}),
+    ("GET", "/brain/bank-statements/s1", {O, C, A, P}),
     # Reports / dashboard = owner/cfo/accountant/viewer
-    ("GET", "/reports/owner-dashboard", {O, C, A, V}),
-    ("GET", "/manager-reports/books/trial-balance", {O, C, A, V}),
+    ("GET", "/reports/owner-dashboard", {O, C, A, V, P}),
+    ("GET", "/manager-reports/books/trial-balance", {O, C, A, V, P}),
     # CFO / CEO mode
     ("GET", "/brain/cfo/report", {O, C}),
     ("GET", "/brain/ceo/report", {O, C}),
     # Approvals
     ("POST", "/expenses/c1/approve", {O, C, M}),
     ("POST", "/expenses/c1/reject", {O, C, M}),
-    ("POST", "/expenses/c1/reimburse", {O, C, A}),  # reimburse = books write
+    ("POST", "/expenses/c1/reimburse", {O, C, A, P}),  # reimburse = books write
     # Self-service: own time / own expenses
     ("POST", "/expenses/mileage", {O, E}),
-    ("POST", "/time/entries", {O, C, A, E}),  # employees log; books people too
-    ("GET", "/time/entries", {O, C, A, E}),
-    ("GET", "/expenses", {O, C, A, M, E}),  # everyone who can see claims; not viewer
+    ("POST", "/time/entries", {O, C, A, E, P}),  # employees log; books people too
+    ("GET", "/time/entries", {O, C, A, E, P}),
+    ("GET", "/expenses", {O, C, A, M, E, P}),  # everyone who can see claims; not viewer
 ]
 
 
@@ -139,6 +140,27 @@ def test_viewer_cannot_write_anything():
         ("POST", "/expenses/c1/approve"),
     ]:
         assert user_can_access(viewer, method, path) is False, f"{method} {path}"
+
+
+def test_personal_owns_their_books_but_no_sme_machinery():
+    """Personal-finance role: full books + reports + AI inside their own
+    tenant, but none of the SME/admin surface."""
+    per = _user(P)
+    for method, path in [
+        ("POST", "/transactions"), ("GET", "/transactions"),
+        ("POST", "/ai-accountant/chat"), ("GET", "/reports/owner-dashboard"),
+        ("POST", "/budgets"), ("GET", "/budgets/actual-vs-budget"),
+    ]:
+        assert user_can_access(per, method, path) is True, f"{method} {path}"
+    for method, path in [
+        ("GET", "/admin/users"), ("POST", "/admin/users"),
+        ("PUT", "/admin/company-profile"), ("POST", "/admin/reset-db"),
+        ("GET", "/payroll/runs"), ("POST", "/payroll/runs"),
+        ("GET", "/brain/cfo/report"), ("GET", "/brain/ceo/report"),
+        ("POST", "/expenses/c1/approve"), ("POST", "/migration/import/preview"),
+        ("PUT", "/fx/reporting-currency"),
+    ]:
+        assert user_can_access(per, method, path) is False, f"{method} {path}"
 
 
 def test_every_guarded_business_route_is_mapped():

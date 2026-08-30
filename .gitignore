@@ -28,3 +28,10 @@ package.json
 app/uploads/
 *.log
 samples/
+
+# local data dumps / archives (never commit)
+*.dump
+*.tgz
+
+# claude worktrees
+.claude/worktrees/

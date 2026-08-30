@@ -32,7 +32,7 @@
 
     // Map each page to the nav label key so the top-bar title stays localized.
     const PAGE_TITLE_KEY = {
-      dashboard: 'navDashboard', 'personal-dashboard': 'pdNav', 'ai-accountant': 'aiAccountantNav', transactions: 'navTransactions',
+      dashboard: 'navDashboard', 'personal-dashboard': 'pdNav', commitments: 'cmNav', 'ai-accountant': 'aiAccountantNav', transactions: 'navTransactions',
       invoices: 'navInvoices', time: 'timeNav', expenses: 'expNav', 'purchase-orders': 'poNav',
       recurring: 'navRecurring', entities: 'navEntities', products: 'productsNav', inventory: 'navInventory',
       payroll: 'payrollNav', equity: 'equityNav', 'bank-statements': 'bankStatementsNav', ledger: 'navLedger', manager: 'navManager',

@@ -36,6 +36,7 @@
         <button type="button" class="nav-btn" data-page="expenses"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="lbl" data-i18n="expNav">Expenses</span></button>
         <button type="button" class="nav-btn" data-page="purchase-orders"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg><span class="lbl" data-i18n="poNav">Purchase Orders</span></button>
         <button type="button" class="nav-btn" data-page="recurring"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.8-3.4L23 10M1 14l4.7 4.4A9 9 0 0 0 20.5 15"/></svg><span class="lbl" data-i18n="navRecurring">Recurring</span></button>
+        <button type="button" class="nav-btn" data-page="commitments"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15h6"/></svg><span class="lbl" data-i18n="cmNav">Installments &amp; cheques</span></button>
       </div>
       <div class="nav-section" role="group">
         <div class="nav-section-h" data-i18n="navSecRecords">Records</div>
@@ -600,6 +601,50 @@
           <button type="submit" class="btn btn-primary" id="submit-btn" data-i18n="saveVoucher">Save voucher</button>
         </div>
       </form>
+    </div>
+
+    <div class="card" data-page="commitments">
+      <h2 data-i18n="cmTitle">Installments &amp; cheques</h2>
+      <p data-i18n="cmSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Track what you owe and what you are owed, with a reminder before each due date.</p>
+      <div id="cm-summary" class="kpi-grid"></div>
+
+      <div class="dashboard-grid">
+        <div class="panel">
+          <h3 data-i18n="cmNewPlan">New installment plan</h3>
+          <div class="row">
+            <div><label for="cm-p-title" data-i18n="cmFieldTitle">Title</label><input type="text" id="cm-p-title" placeholder="وام خودرو"></div>
+            <div><label for="cm-p-total" data-i18n="cmFieldTotal">Total amount</label><input type="number" id="cm-p-total" min="1" step="1"></div>
+            <div><label for="cm-p-count" data-i18n="cmFieldCount">Installments</label><input type="number" id="cm-p-count" min="1" max="600" value="12"></div>
+            <div><label for="cm-p-first" data-i18n="cmFieldFirstDue">First due</label><input type="date" id="cm-p-first"></div>
+            <div><label for="cm-p-dir" data-i18n="cmFieldDirection">Direction</label>
+              <select id="cm-p-dir"><option value="pay" data-i18n="cmDirPay">I pay</option><option value="receive" data-i18n="cmDirReceive">I receive</option></select></div>
+            <div><label for="cm-p-acct" data-i18n="cmFieldAccount">Account (optional)</label><select id="cm-p-acct"></select></div>
+            <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="cm-p-save" data-i18n="cmCreatePlan">Create plan</button></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3 data-i18n="cmNewCheque">New cheque</h3>
+          <div class="row">
+            <div><label for="cm-c-title" data-i18n="cmFieldTitle">Title</label><input type="text" id="cm-c-title" placeholder="چک اجاره"></div>
+            <div><label for="cm-c-amount" data-i18n="cmFieldAmount">Amount</label><input type="number" id="cm-c-amount" min="1" step="1"></div>
+            <div><label for="cm-c-due" data-i18n="cmFieldDue">Due date</label><input type="date" id="cm-c-due"></div>
+            <div><label for="cm-c-ref" data-i18n="cmFieldChequeNo">Cheque no.</label><input type="text" id="cm-c-ref"></div>
+            <div><label for="cm-c-bank" data-i18n="cmFieldBank">Bank</label><input type="text" id="cm-c-bank"></div>
+            <div><label for="cm-c-dir" data-i18n="cmFieldDirection">Direction</label>
+              <select id="cm-c-dir"><option value="pay" data-i18n="cmDirPay">I pay</option><option value="receive" data-i18n="cmDirReceive">I receive</option></select></div>
+            <div><label for="cm-c-acct" data-i18n="cmFieldAccount">Account (optional)</label><select id="cm-c-acct"></select></div>
+            <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="cm-c-save" data-i18n="cmCreateCheque">Add cheque</button></div>
+          </div>
+        </div>
+      </div>
+
+      <h3 data-i18n="cmUpcoming" style="margin-top:1rem;">Upcoming</h3>
+      <div style="overflow-x:auto;"><table class="mini-table"><thead><tr>
+        <th data-i18n="cmColDue">Due</th><th data-i18n="cmColWhat">What</th>
+        <th data-i18n="cmColAmount">Amount</th><th data-i18n="cmColStatus">Status</th>
+        <th data-i18n="cmColActions">Actions</th>
+      </tr></thead><tbody id="cm-rows"></tbody></table></div>
     </div>
 
     <div class="card" data-page="personal-dashboard">

@@ -149,6 +149,7 @@
     const PAGE_ROLES = {
       dashboard: ['owner', 'cfo', 'accountant', 'viewer'],
       'personal-dashboard': ['personal'],
+      commitments: ['owner', 'cfo', 'accountant', 'personal'],
       'ai-accountant': ['owner', 'cfo', 'accountant', 'personal'],
       transactions: ['owner', 'cfo', 'accountant', 'personal'],
       invoices: ['owner', 'cfo', 'accountant'],
@@ -402,7 +403,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'personal-dashboard', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies', 'migration', 'petty-cash']);
+    const validPages = new Set(['dashboard', 'personal-dashboard', 'commitments', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies', 'migration', 'petty-cash']);
     // The Companies console is super-admin only; gated in showPage().
     let isSuperadmin = false;
     const rawFetch = window.fetch.bind(window);

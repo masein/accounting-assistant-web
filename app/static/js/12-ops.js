@@ -5,6 +5,7 @@
     function loadPageData(page) {
       if (page === 'dashboard') { loadOwnerDashboard(); }
       if (page === 'personal-dashboard') { loadPersonalDashboard(); }
+      if (page === 'commitments') { loadCommitments(); }
       if (page === 'entities') { loadEntities(); }
       if (page === 'invoices') { loadInvoices(); invInitBuilder(); }
       if (page === 'recurring') { loadRecurringRules(); }
@@ -709,3 +710,134 @@
         body.innerHTML = '<p class="empty-state">' + escapeHtml(t('equityLoadError')) + '</p>';
       }
     }
+
+    // ═══════ Installments (اقساط) & cheques (چک) ═══════
+    async function cmFillAccounts() {
+      const sels = [document.getElementById('cm-p-acct'), document.getElementById('cm-c-acct')];
+      if (!sels[0] || sels[0].options.length) return;
+      try {
+        const res = await fetch(API + '/manager-reports/accounts/list');
+        if (!res.ok) return;
+        const accs = await res.json();
+        // Settling moves money against a liability or a receivable, not an
+        // expense — offer only those, plus a blank for tracking-only items.
+        const opts = `<option value="">${escapeHtml(t('cmNoPosting'))}</option>` + accs
+          .filter(a => (a.code || '').startsWith('2') || (a.code || '').startsWith('1'))
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`)
+          .join('');
+        sels.forEach(s => { if (s) s.innerHTML = opts; });
+      } catch (_) { /* offline */ }
+    }
+
+    function cmStatusChip(row) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (row.status === 'settled') return '<span class="alert-chip low">' + escapeHtml(t('cmSettled')) + '</span>';
+      if (row.status === 'bounced') return '<span class="alert-chip high">' + escapeHtml(t('cmBounced')) + '</span>';
+      if (row.due_date < today) return '<span class="alert-chip high">' + escapeHtml(t('cmOverdue')) + '</span>';
+      return '<span class="alert-chip medium">' + escapeHtml(t('cmPending')) + '</span>';
+    }
+
+    async function loadCommitments() {
+      const body = document.getElementById('cm-rows');
+      if (!body) return;
+      await cmFillAccounts();
+      try {
+        const [rows, sum] = await Promise.all([
+          (await fetch(API + '/commitments')).json(),
+          (await fetch(API + '/commitments/summary')).json(),
+        ]);
+        document.getElementById('cm-summary').innerHTML = `
+          <div class="kpi-card"><div class="label">${escapeHtml(t('cmYouOwe'))}</div>
+            <div class="value">${escapeHtml(formatNum(sum.payable))} ${escapeHtml(currencyUnit())}</div></div>
+          <div class="kpi-card"><div class="label">${escapeHtml(t('cmOwedToYou'))}</div>
+            <div class="value">${escapeHtml(formatNum(sum.receivable))} ${escapeHtml(currencyUnit())}</div></div>
+          <div class="kpi-card"><div class="label">${escapeHtml(t('cmNextDue'))}</div>
+            <div class="value">${sum.next_due_date ? escapeHtml(formatDisplayDate(sum.next_due_date)) : '—'}</div></div>`;
+
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="5" class="empty-state" style="padding:0.6rem;">${escapeHtml(t('cmNone'))}</td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.map(r => {
+          const seq = (r.sequence && r.plan_total) ? ` (${r.sequence}/${r.plan_total})` : '';
+          const who = r.direction === 'pay' ? t('cmDirPay') : t('cmDirReceive');
+          const actions = r.status === 'settled' ? '✓' :
+            `<button class="btn btn-secondary btn-sm cm-settle" data-id="${escapeHtml(r.id)}">${escapeHtml(t('cmSettle'))}</button>` +
+            (r.kind === 'cheque' && r.status !== 'bounced'
+              ? ` <button class="btn btn-secondary btn-sm cm-bounce" data-id="${escapeHtml(r.id)}">${escapeHtml(t('cmBounce'))}</button>` : '');
+          return `<tr>
+            <td>${escapeHtml(formatDisplayDate(r.due_date))}</td>
+            <td dir="auto">${escapeHtml(r.title)}${escapeHtml(seq)} <span style="color:var(--text-muted); font-size:0.8rem;">${escapeHtml(who)}</span></td>
+            <td>${escapeHtml(formatNum(r.amount))}</td>
+            <td>${cmStatusChip(r)}</td>
+            <td>${actions}</td>
+          </tr>`;
+        }).join('');
+      } catch (_) {
+        body.innerHTML = `<tr><td colspan="5" class="empty-state">${escapeHtml(t('cmNone'))}</td></tr>`;
+      }
+    }
+
+    (function wireCommitments() {
+      const planBtn = document.getElementById('cm-p-save');
+      if (planBtn) planBtn.addEventListener('click', async () => {
+        const body = {
+          title: (document.getElementById('cm-p-title').value || '').trim(),
+          total_amount: Number(document.getElementById('cm-p-total').value || 0),
+          count: Number(document.getElementById('cm-p-count').value || 0),
+          first_due: document.getElementById('cm-p-first').value,
+          direction: document.getElementById('cm-p-dir').value,
+          counter_account_code: document.getElementById('cm-p-acct').value || null,
+        };
+        if (!body.title || !body.total_amount || !body.count || !body.first_due) {
+          showAlert(t('cmMissingFields'), true); return;
+        }
+        try {
+          const res = await fetch(API + '/commitments/installments', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'error', true); return; }
+          showAlert(tf('cmPlanCreated', { n: body.count }));
+          document.getElementById('cm-p-title').value = '';
+          await loadCommitments();
+        } catch (_) { showAlert('error', true); }
+      });
+
+      const chequeBtn = document.getElementById('cm-c-save');
+      if (chequeBtn) chequeBtn.addEventListener('click', async () => {
+        const body = {
+          title: (document.getElementById('cm-c-title').value || '').trim(),
+          amount: Number(document.getElementById('cm-c-amount').value || 0),
+          due_date: document.getElementById('cm-c-due').value,
+          direction: document.getElementById('cm-c-dir').value,
+          reference: document.getElementById('cm-c-ref').value || null,
+          bank_name: document.getElementById('cm-c-bank').value || null,
+          counter_account_code: document.getElementById('cm-c-acct').value || null,
+        };
+        if (!body.title || !body.amount || !body.due_date) { showAlert(t('cmMissingFields'), true); return; }
+        try {
+          const res = await fetch(API + '/commitments/cheques', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'error', true); return; }
+          showAlert(t('cmChequeAdded'));
+          document.getElementById('cm-c-title').value = '';
+          document.getElementById('cm-c-amount').value = '';
+          await loadCommitments();
+        } catch (_) { showAlert('error', true); }
+      });
+
+      const rows = document.getElementById('cm-rows');
+      if (rows) rows.addEventListener('click', async (e) => {
+        const settle = e.target.closest('.cm-settle');
+        const bounce = e.target.closest('.cm-bounce');
+        if (!settle && !bounce) return;
+        const id = (settle || bounce).dataset.id;
+        if (settle && !await uiConfirm({ title: t('cmSettle'), message: t('cmSettleConfirm') })) return;
+        try {
+          await fetch(API + `/commitments/${id}/` + (settle ? 'settle' : 'bounce'), {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: settle ? JSON.stringify({ post: true }) : '{}' });
+          await loadCommitments();
+          if (typeof notifyRefresh === 'function') notifyRefresh();
+        } catch (_) { showAlert('error', true); }
+      });
+    })();

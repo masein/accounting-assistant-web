@@ -161,7 +161,7 @@
       inventory: ['owner', 'cfo', 'accountant'],
       payroll: ['owner', 'cfo', 'accountant'],
       equity: ['owner', 'cfo', 'accountant'],
-      'bank-statements': ['owner', 'cfo', 'accountant'],
+      'bank-statements': ['owner', 'cfo', 'accountant', 'personal'],
       ledger: ['owner', 'cfo', 'accountant', 'viewer'],
       manager: ['owner', 'cfo', 'accountant', 'viewer'],
       cfo: ['owner', 'cfo'],

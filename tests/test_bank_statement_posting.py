@@ -283,3 +283,90 @@ def test_failed_row_stays_unposted_and_unapproved(ir):
     row = ir.execute(select(BankStatementRow)).scalars().one()
     assert row.created_transaction_id is None
     assert row.user_approved is not True
+
+
+# ---------------------------------------------------------------------------
+# End-to-end: personal statement import → suggestion → post
+# ---------------------------------------------------------------------------
+def test_personal_csv_import_categorizes_and_posts(personal):
+    """The whole flow a personal user drives: upload a month of spending, the
+    import suggests a category per row from their own chart, and posting turns
+    the suggested rows into real balanced entries."""
+    import asyncio
+    from io import BytesIO
+
+    from starlette.datastructures import Headers, UploadFile
+
+    from app.api.brain import upload_bank_statement
+
+    csv = (
+        "Date,Description,Amount\n"
+        f"{TODAY.isoformat()},POS-4821 خرید اسنپ 12345,-120000\n"
+        f"{TODAY.isoformat()},سوپرمارکت رفاه,-450000\n"
+        f"{TODAY.isoformat()},قبض برق,-80000\n"
+        f"{TODAY.isoformat()},واریز حقوق,25000000\n"
+    ).encode("utf-8")
+    up = UploadFile(file=BytesIO(csv), filename="statement.csv",
+                    headers=Headers({"content-type": "text/csv"}))
+    result = asyncio.run(upload_bank_statement(
+        file=up, bank_name="Bank Melli", column_map=None,
+        confirm_duplicate=False, db=personal,
+    ))
+    assert result.total_rows == 4
+
+    rows = personal.execute(
+        select(BankStatementRow).order_by(BankStatementRow.row_index)
+    ).scalars().all()
+    suggested = [r.suggested_account_code for r in rows]
+    assert suggested == ["6130", "6110", "6140", "4110"], suggested
+
+    stmt = personal.get(BankStatement, result.id)
+    resp = _create_all(personal, stmt)  # post each row on its own suggestion
+    assert resp.created == 4, resp.errors
+
+    # Every posted entry is balanced, and the salary row went the other way.
+    txns = personal.execute(select(Transaction)).scalars().all()
+    assert len(txns) == 4
+    for txn in txns:
+        lines = personal.execute(
+            select(TransactionLine).where(TransactionLine.transaction_id == txn.id)
+        ).scalars().all()
+        assert sum(l.debit for l in lines) == sum(l.credit for l in lines) > 0
+
+    salary_row = rows[3]
+    posted = _lines(personal, salary_row.created_transaction_id)
+    assert posted["4110"][1] == 25_000_000   # income credited
+    assert posted["1110"][0] == 25_000_000   # bank debited
+
+
+def test_second_import_reuses_what_the_user_chose_the_first_time(personal):
+    """History beats keywords: a merchant the user filed under Education keeps
+    coming back as Education on the next statement."""
+    import asyncio
+    from io import BytesIO
+
+    from starlette.datastructures import Headers, UploadFile
+
+    from app.api.brain import upload_bank_statement
+
+    # The user's earlier decision, already in the ledger.
+    other = personal.execute(select(Account).where(Account.code == "6160")).scalars().one()
+    bank = personal.execute(select(Account).where(Account.code == "1110")).scalars().one()
+    txn = Transaction(date=TODAY - timedelta(days=30), description="POS-1111 کلاس زبان 777")
+    personal.add(txn)
+    personal.flush()
+    personal.add(TransactionLine(transaction_id=txn.id, account_id=other.id, debit=500_000, credit=0))
+    personal.add(TransactionLine(transaction_id=txn.id, account_id=bank.id, debit=0, credit=500_000))
+    personal.commit()
+
+    csv = f"Date,Description,Amount\n{TODAY.isoformat()},POS-9999 کلاس زبان 222,-500000\n".encode("utf-8")
+    up = UploadFile(file=BytesIO(csv), filename="s2.csv",
+                    headers=Headers({"content-type": "text/csv"}))
+    asyncio.run(upload_bank_statement(
+        file=up, bank_name="Bank Melli", column_map=None,
+        confirm_duplicate=False, db=personal,
+    ))
+    row = personal.execute(
+        select(BankStatementRow).order_by(BankStatementRow.row_index.desc())
+    ).scalars().first()
+    assert row.suggested_account_code == "6160"

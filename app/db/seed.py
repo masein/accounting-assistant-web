@@ -190,9 +190,13 @@ PERSONAL_SEED_ACCOUNTS = [
     ("41", "درآمدها", "Income", AccountLevel.GROUP),
     ("61", "هزینه‌های زندگی", "Living expenses", AccountLevel.GROUP),
     ("62", "سایر هزینه‌ها", "Other expenses", AccountLevel.GROUP),
-    # Assets
-    ("1110", "موجودی نقد", "Cash on hand", AccountLevel.GENERAL),
-    ("1120", "حساب بانکی", "Bank accounts", AccountLevel.GENERAL),
+    # Assets. 1110 is the BANK account, not physical cash: the Iranian chart's
+    # 1110 is "cash and bank", so account_resolver maps the 'bank' posting
+    # category to it and the locale cash predicate keys on it. Keeping the bank
+    # here means statement imports and the cash KPI both land where a personal
+    # user keeps their money; loose notes get their own account below.
+    ("1110", "حساب بانکی", "Bank accounts", AccountLevel.GENERAL),
+    ("1120", "موجودی نقد", "Cash on hand", AccountLevel.GENERAL),
     ("1130", "پس‌انداز طلا و سکه", "Gold & coin savings", AccountLevel.GENERAL),
     ("1140", "پس‌انداز ارزی", "Foreign currency savings", AccountLevel.GENERAL),
     ("1150", "طلب از دیگران", "Money owed to me", AccountLevel.GENERAL),

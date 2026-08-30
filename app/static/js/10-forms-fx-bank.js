@@ -602,8 +602,38 @@
       await loadStatementDetail(currentStatementId);
     });
 
+    // Postable accounts for the per-row category picker. Fetched once per
+    // page visit; the import's suggestion just preselects an option.
+    let _bsAccounts = [];
+    async function bsLoadAccountOptions() {
+      if (_bsAccounts.length) return;
+      try {
+        const res = await fetch(API + '/manager-reports/accounts/list');
+        if (!res.ok) return;
+        _bsAccounts = await res.json();
+      } catch (_) { /* offline — falls back to a free-text prompt */ }
+    }
+
+    function bsCategoryCell(r) {
+      // Settled rows just show what they were filed as; rows still awaiting a
+      // decision get a picker preselected to the import's suggestion.
+      if (r.recon_status !== 'unmatched' || !_bsAccounts.length) {
+        return escapeHtml(r.category || '—');
+      }
+      // Build the markup directly with a `selected` ATTRIBUTE — setting .value
+      // on a detached <select> sets the property, which outerHTML does not
+      // serialize, so the suggestion would silently vanish from the picker.
+      const chosen = r.suggested_account_code || '';
+      const opts = _bsAccounts.map(a =>
+        `<option value="${escapeHtml(a.code)}"${a.code === chosen ? ' selected' : ''}>` +
+        `${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+      return `<select class="bs-code-select" data-row-id="${escapeHtml(r.id)}">` +
+             `<option value="">${escapeHtml(t('bsPickCategory'))}</option>${opts}</select>`;
+    }
+
     async function loadStatementDetail(id) {
       try {
+        await bsLoadAccountOptions();
         const res = await fetch(bsAPI + '/bank-statements/' + id);
         if (!res.ok) return;
         const stmt = await res.json();
@@ -619,7 +649,7 @@
             <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString() : ''}</td>
             <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString() : ''}</td>
             <td>${r.balance != null ? r.balance.toLocaleString() : ''}</td>
-            <td>${escapeHtml(r.category || '—')}</td>
+            <td>${bsCategoryCell(r)}</td>
             <td style="color:${confColor}">${(r.confidence * 100).toFixed(0)}%</td>
             <td>${r.recon_status}</td>
             <td>${r.recon_status === 'unmatched' ? `<button class="btn btn-secondary btn-sm bs-create-btn" data-row-id="${r.id}" data-code="${r.suggested_account_code || ''}">Create</button>` : r.user_approved ? '✓' : `<button class="btn btn-secondary btn-sm bs-approve-btn" data-row-id="${r.id}">Approve</button>`}</td>`;
@@ -724,14 +754,37 @@
       } catch (e) { showAlert('Approval failed: ' + e.message, true); }
     });
 
+    // Bulk-post: create a ledger entry for every unmatched row that has a
+    // category chosen (the import preselects one). Rows the user blanked out
+    // are left alone, so this is safe to press repeatedly.
+    document.getElementById('bs-post-all-btn').addEventListener('click', async () => {
+      if (!currentStatementId) return;
+      const approvals = Array.from(document.querySelectorAll('.bs-code-select'))
+        .filter(sel => sel.value)
+        .map(sel => ({ row_id: sel.dataset.rowId, action: 'create', account_code: sel.value }));
+      if (!approvals.length) { showAlert(t('bsNothingToPost')); return; }
+      if (!await uiConfirm({ title: t('bsPostAllBtn'), message: tf('bsPostAllConfirm', { n: approvals.length }) })) return;
+      try {
+        const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/approve', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ approvals })
+        });
+        const data = await res.json();
+        showAlert(tf('bsPostedCount', { n: data.created }) + (data.errors.length ? ' — ' + data.errors.join('; ') : ''),
+                  data.errors.length > 0);
+        await loadStatementDetail(currentStatementId);
+      } catch (e) { showAlert('Post failed: ' + e.message, true); }
+    });
+
     document.getElementById('bs-rows-body').addEventListener('click', async (e) => {
       const createBtn = e.target.closest('.bs-create-btn');
       const approveBtn = e.target.closest('.bs-approve-btn');
       if (createBtn) {
         const rowId = createBtn.dataset.rowId;
-        const code = createBtn.dataset.code ||
-          await uiPrompt({ title: t('promptAccountCodeTitle'), message: t('promptAccountCodeMsg'), value: '6190' });
-        if (!code) return;
+        const sel = createBtn.closest('tr')?.querySelector('.bs-code-select');
+        const code = (sel && sel.value) || createBtn.dataset.code ||
+          await uiPrompt({ title: t('promptAccountCodeTitle'), message: t('promptAccountCodeMsg'), value: '' });
+        if (!code) { showAlert(t('bsPickCategory'), true); return; }
         try {
           const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/approve', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },

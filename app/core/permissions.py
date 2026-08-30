@@ -428,6 +428,17 @@ _reads(["/budgets", "/budgets/actual-vs-budget"], Perm.REPORTS_READ)
 # --- Personal finance: net worth + the holdings behind it ------------------
 # Reads expose asset balances -> the same bar as the dashboard.
 _reads(["/personal/net-worth", "/personal/holdings"], Perm.REPORTS_READ)
+
+# --- Installments + cheques -------------------------------------------------
+# Same bar as reading transactions: a Viewer who can already see every entry
+# and the trial balance can infer the schedule anyway.
+_reads(["/commitments", "/commitments/summary", "/commitments/plans/{plan_id}"],
+       frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
+for _m, _p in [("POST", "/commitments/installments"), ("POST", "/commitments/cheques"),
+               ("POST", "/commitments/{commitment_id}/settle"),
+               ("POST", "/commitments/{commitment_id}/bounce"),
+               ("DELETE", "/commitments/{commitment_id}")]:
+    _add(_m, _p, Perm.BOOKS_WRITE)
 _add("POST", "/personal/holdings", Perm.BOOKS_WRITE)
 _add("DELETE", "/personal/holdings/{holding_id}", Perm.BOOKS_WRITE)
 _add("POST", "/budgets", Perm.BOOKS_WRITE)

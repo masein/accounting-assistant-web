@@ -16,6 +16,7 @@ from sqlalchemy import text
 from app.api.accounts import router as accounts_router
 from app.api.adjustments import router as adjustments_router
 from app.api.admin import router as admin_router
+from app.api.commitments import router as commitments_router
 from app.api.companies import router as companies_router
 from app.api.company_profile import router as company_profile_router
 from app.api.ai_accountant import router as ai_accountant_router
@@ -715,6 +716,7 @@ app.include_router(migration_router, dependencies=_rbac)
 app.include_router(notifications_router, dependencies=_rbac)
 app.include_router(payroll_router, dependencies=_rbac)
 app.include_router(personal_router, dependencies=_rbac)
+app.include_router(commitments_router, dependencies=_rbac)
 app.include_router(petty_cash_router, dependencies=_rbac)
 app.include_router(products_router, dependencies=_rbac)
 app.include_router(purchase_orders_router, dependencies=_rbac)

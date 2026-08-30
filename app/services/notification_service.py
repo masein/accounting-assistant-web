@@ -39,6 +39,7 @@ KIND_ROLES = {
     "petty_cash": ("owner", "cfo", "accountant"),
     "recurring": ("owner", "cfo", "accountant", "personal"),
     "budget": ("owner", "cfo", "accountant", "personal"),
+    "commitment": ("owner", "cfo", "accountant", "personal"),
     "reminder": (),  # always personal
 }
 
@@ -156,6 +157,37 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
                     title=rem.title,
                     message=(rem.note or "") + f" — due {rem.due_date.isoformat()}",
                     due_date=rem.due_date, user_id=rem.user_id)
+
+    # --- installments & cheques falling due -------------------------------
+    # The reason this feature exists: a missed قسط or an uncovered cheque has
+    # consequences well beyond the bookkeeping, so warn before the date, not
+    # after. Overdue stays on the feed until it is settled or written off.
+    try:
+        from app.models.commitment import BOUNCED, CHEQUE, PENDING, Commitment
+
+        due_rows = db.execute(
+            select(Commitment).where(Commitment.status.in_([PENDING, BOUNCED]))
+        ).scalars().all()
+        for c in due_rows:
+            overdue = c.due_date < today
+            if not overdue and c.due_date > soon:
+                continue
+            if c.status == BOUNCED:
+                level, when = "high", f"bounced — still outstanding ({c.due_date.isoformat()})"
+            elif overdue:
+                level, when = "high", f"{(today - c.due_date).days} day(s) overdue ({c.due_date.isoformat()})"
+            else:
+                level, when = "warning", f"due {c.due_date.isoformat()}"
+            noun = "Cheque" if c.kind == CHEQUE else "Installment"
+            seq = f" {c.sequence}/{c.plan_total}" if c.sequence and c.plan_total else ""
+            verb = "to pay" if c.direction == "pay" else "to receive"
+            _upsert(db, seen, dedupe_key=f"commitment-{c.id}", kind="commitment",
+                    level=level, title=f"{noun}{seq}: {c.title}",
+                    message=f"{c.amount:,} {verb} — {when}",
+                    link_page="commitments", due_date=c.due_date)
+    except Exception:
+        # Never let this break the whole feed refresh.
+        pass
 
     # --- budgets: current month at >=85% (warning) / >=100% (over, high) ---
     month = f"{today.year:04d}-{today.month:02d}"

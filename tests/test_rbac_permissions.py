@@ -84,6 +84,10 @@ MATRIX = [
     ("GET", "/personal/net-worth", {O, C, A, V, P}),
     ("GET", "/personal/holdings", {O, C, A, V, P}),
     ("POST", "/personal/holdings", {O, C, A, P}),
+    # Installments + cheques
+    ("GET", "/commitments", {O, C, A, V, P}),
+    ("POST", "/commitments/installments", {O, C, A, P}),
+    ("POST", "/commitments/cheques", {O, C, A, P}),
     ("GET", "/manager-reports/books/trial-balance", {O, C, A, V, P}),
     # CFO / CEO mode
     ("GET", "/brain/cfo/report", {O, C}),

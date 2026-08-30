@@ -340,7 +340,7 @@ def cash_flow_statement(
 def cash_flow_periods(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
-    granularity: str = Query("monthly", regex="^(weekly|monthly|quarterly|seasonal)$"),
+    granularity: str = Query("monthly", pattern="^(weekly|monthly|quarterly|seasonal)$"),
     currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -643,7 +643,7 @@ def update_inventory_price(
 def balance_sheet_periods(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
-    granularity: str = Query("monthly", regex="^(weekly|monthly|quarterly|seasonal)$"),
+    granularity: str = Query("monthly", pattern="^(weekly|monthly|quarterly|seasonal)$"),
     currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -748,7 +748,7 @@ def sales_trend(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     product_name: str | None = Query(None),
-    granularity: str = Query("monthly", regex="^(weekly|monthly|quarterly|seasonal)$"),
+    granularity: str = Query("monthly", pattern="^(weekly|monthly|quarterly|seasonal)$"),
     currency: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> dict:

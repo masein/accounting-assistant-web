@@ -876,8 +876,8 @@ def search_transactions(
     currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    sort_by: str = Query("date", regex="^(date|account_code|debit|credit|reference)$"),
-    sort_dir: str = Query("desc", regex="^(asc|desc)$"),
+    sort_by: str = Query("date", pattern="^(date|account_code|debit|credit|reference)$"),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
 ) -> TransactionSearchResponse:
     """Flexible transaction search for drill-down views."""

@@ -70,6 +70,11 @@ class Perm:
     PETTY_MANAGE = "petty:manage"  # create/charge/adjust accounts, approve expenses
     TIME_OWN = "time:own"              # log/view own time
     EXPENSES_OWN = "expenses:own"      # submit/view own expenses
+    # LLM provider/model wiring. Owner-only by construction: no other role
+    # lists it, and ALL_PERMS (Owner) is derived by reflection. Spelled out as
+    # its own capability so the route table states the intent, rather than
+    # leaving it to a require_admin stacked on top of a laxer mapping.
+    AI_CONFIG = "ai:config"
 
 
 ALL_PERMS = frozenset(
@@ -184,11 +189,12 @@ for _p in ("/admin/reporting-locale", "/admin/display-calendar",
            "/admin/chat-provider-shape"):
     _add("GET", _p, Perm.SETTINGS_READ)
     _add("PUT", _p, Perm.SETTINGS_WRITE)
-# AI provider config is an owner-level setting.
-_add("GET", "/admin/ai-config", Perm.SETTINGS_READ)
-_add("PATCH", "/admin/ai-config", Perm.SETTINGS_WRITE)
-_add("GET", "/admin/anthropic-config", Perm.SETTINGS_READ)
-_add("PATCH", "/admin/anthropic-config", Perm.SETTINGS_WRITE)
+# AI provider config is an owner-level setting — including the reads, which
+# expose the configured provider/model/base_url (secrets are never returned).
+_add("GET", "/admin/ai-config", Perm.AI_CONFIG)
+_add("PATCH", "/admin/ai-config", Perm.AI_CONFIG)
+_add("GET", "/admin/anthropic-config", Perm.AI_CONFIG)
+_add("PATCH", "/admin/anthropic-config", Perm.AI_CONFIG)
 _add("POST", "/admin/reset-db", Perm.SETTINGS_WRITE)  # destructive, owner-only
 
 # --- User management (Owner only) ------------------------------------------

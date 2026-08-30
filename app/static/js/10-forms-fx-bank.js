@@ -176,12 +176,13 @@
     applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
     // NOTE: the initial showPage/loadPageData bootstrap lives in 16-boot.js —
     // it must run after every script file so all loaders are declared.
+    // NOTE: owner-only loaders (users, AI provider config) are NOT called here
+    // — currentRole isn't known until /auth/me resolves, so firing them for
+    // every role produced a row of 403s in the console on each login. They run
+    // from loadCurrentUser()'s owner branch instead.
     loadCurrentUser();
-    loadAIConfig();
-    loadAnthropicConfig();
     loadChatProviderShape();
     loadReportingCurrency();
-    loadUsers();
     renderAttachments();
     loadLedger();
     loadEntities();

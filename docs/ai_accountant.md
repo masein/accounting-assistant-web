@@ -146,6 +146,54 @@ because Claude 4.7 follows literal instructions more closely than
 earlier models — avoid "if you're not sure please consider whether…"
 phrasing; prefer "ask the user before…".
 
+## Personal-finance mode
+
+A `kind='personal'` company is a single-user tenant: one person tracking
+their own money, with the SME machinery (payroll, POs, approvals,
+equity, time-billing) hidden. Its user has `role='personal'`.
+
+The agent runs the *same* loop, tools and proposal→confirm→undo flow.
+Two things differ, both selected by `run_chat_turn(..., mode="personal")`
+— which `/ai-accountant/chat` passes when `user.role == Role.PERSONAL`:
+
+| | business (default) | personal |
+|---|---|---|
+| registry | `build_default_registry()` (22 tools) | `build_personal_registry()` (12: reads + core proposals; no time-billing, no equity) |
+| prompt | `SYSTEM_PROMPT` | `SYSTEM_PROMPT + PERSONAL_MODE_ADDENDUM` |
+
+`PERSONAL_MODE_ADDENDUM` reframes tone and defaults only — plain
+language instead of debit/credit, everyday categories, no counterparty
+interrogation for a grocery run. **Every safety rule in the base prompt
+still applies**: direction-of-money, the Toman→Rial conversion, the
+refusal rules, and the "LLM can't write" invariant. The addendum is
+appended, never substituted, so a change to the base rules reaches both
+modes.
+
+Note the addendum is a *suffix*: with prompt caching, business-mode
+requests keep hitting the cached prefix unchanged. Adding personal mode
+did not invalidate the business cache.
+
+### Provisioning a personal account
+
+There is no self-signup. A super-admin creates the tenant and its login
+in one call — Companies console → **Type: Personal**, or:
+
+```
+POST /admin/companies
+{"name": "Omid", "kind": "personal", "locale": "ir",
+ "base_currency": "IRR", "username": "omid", "password": "…"}
+```
+
+`provision_company(kind="personal")` then seeds the personal chart of
+accounts (`PERSONAL_SEED_ACCOUNTS` — everyday categories, Persian names,
+English for `locale='uk'`) and creates the login with `role='personal'`,
+`is_admin=False`. The chart deliberately reuses the Iranian code scheme
+(expenses under `61xx`/`62xx`) so every locale-aware expense predicate —
+budgets, reports — works on it unchanged.
+
+The user lands on the AI chat (`ROLE_HOME`), with a four-item nav: My
+finances, AI Chat, Vouchers, Recurring.
+
 ## Inspecting the audit trail
 
 Every AI-initiated write tags the audit row with `actor_source =

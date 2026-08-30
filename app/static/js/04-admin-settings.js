@@ -328,7 +328,10 @@
           showPage(roleHome());
           loadPageData(roleHome());
         }
-        if (currentRole === 'owner') { loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); loadApiKeys(); }
+        if (currentRole === 'owner') {
+          loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); loadApiKeys();
+          loadAIConfig(); loadAnthropicConfig();
+        }
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
       }

@@ -97,7 +97,8 @@ class ReportingLocaleUpdate(BaseModel):
 
 
 @router.get("/ai-config")
-def get_ai_config(_=Depends(require_admin)) -> dict:
+def get_ai_config(_=Depends(get_current_user)) -> dict:
+    # Gate: the router-level RBAC guard (Perm.AI_CONFIG, owner-only).
     return get_ai_config_public()
 
 
@@ -244,7 +245,7 @@ def update_closed_period(
 
 
 @router.get("/anthropic-config")
-def get_anthropic_config(_=Depends(require_admin)) -> dict:
+def get_anthropic_config(_=Depends(get_current_user)) -> dict:
     """Return the AI-accountant (Claude) provider settings only — separate
     from the OpenAI-compatible default provider config. The default
     ``base_url`` (``https://api.anthropic.com``) is returned when no

@@ -193,6 +193,13 @@
         const anyVisible = Array.from(sec.querySelectorAll('.nav-btn')).some((b) => b.style.display !== 'none');
         sec.style.display = anyVisible ? '' : 'none';
       });
+      // AI chat quick actions: personal users get money-diary prompts, not
+      // balance-sheet/P&L ones.
+      const personalMode = currentRole === 'personal';
+      document.querySelectorAll('#ai-acct-quick-actions .chip-business')
+        .forEach((c) => { c.style.display = personalMode ? 'none' : ''; });
+      document.querySelectorAll('#ai-acct-quick-actions .chip-personal')
+        .forEach((c) => { c.style.display = personalMode ? '' : 'none'; });
     }
     async function populateEntityLinkOptions() {
       if (!newUserEntityEl) return;

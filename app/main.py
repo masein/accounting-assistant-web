@@ -1,13 +1,15 @@
 from contextlib import asynccontextmanager
+import hashlib
 import logging
 from pathlib import Path
+import re
 import time
 import uuid
 
 from fastapi import Depends, FastAPI
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
@@ -727,25 +729,64 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+# --- Static asset cache-busting ---------------------------------------------
+# index.html is served no-store, but the js/ and css/ files it pulls are cached
+# by the browser. Without a version marker a deploy can leave a client running
+# a mix of old and new files — the load order across js/01..16 is load-bearing,
+# so a stale file is a broken app, not a cosmetic glitch. Each reference gets
+# ?v=<content hash>, so a changed file gets a new URL and an unchanged one stays
+# cached. Hashes are memoised per mtime, which keeps the dev bind-mount honest.
+_ASSET_VERSIONS: dict[str, tuple[float, str]] = {}
+_ASSET_REF_RE = re.compile(
+    r'(?P<attr>src|href)="/static/(?P<path>[A-Za-z0-9][A-Za-z0-9._/-]*\.(?:js|css))"'
+)
+
+
+def _asset_version(rel_path: str) -> str | None:
+    """Short content hash for a static asset, or None if it isn't a readable
+    file under STATIC_DIR."""
+    path = (STATIC_DIR / rel_path).resolve()
+    try:
+        path.relative_to(STATIC_DIR.resolve())  # never step outside static/
+        mtime = path.stat().st_mtime
+    except (OSError, ValueError):
+        return None
+    cached = _ASSET_VERSIONS.get(rel_path)
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()[:8]
+    except OSError:
+        return None
+    _ASSET_VERSIONS[rel_path] = (mtime, digest)
+    return digest
+
+
+def render_versioned_html(name: str) -> str:
+    """Read a static HTML page and stamp ?v=<hash> onto its local js/css refs."""
+    html = (STATIC_DIR / name).read_text(encoding="utf-8")
+
+    def _stamp(m: re.Match) -> str:
+        version = _asset_version(m.group("path"))
+        if version is None:
+            return m.group(0)  # unknown file: leave the reference untouched
+        return f'{m.group("attr")}="/static/{m.group("path")}?v={version}"'
+
+    return _ASSET_REF_RE.sub(_stamp, html)
+
+
+_NO_STORE = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
 @app.get("/", include_in_schema=False)
 def index():
-    return FileResponse(
-        STATIC_DIR / "index.html",
-        headers={
-            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-            "Pragma": "no-cache",
-            "Expires": "0",
-        },
-    )
+    return HTMLResponse(render_versioned_html("index.html"), headers=_NO_STORE)
 
 
 @app.get("/login", include_in_schema=False)
 def login():
-    return FileResponse(
-        STATIC_DIR / "login.html",
-        headers={
-            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-            "Pragma": "no-cache",
-            "Expires": "0",
-        },
-    )
+    return HTMLResponse(render_versioned_html("login.html"), headers=_NO_STORE)

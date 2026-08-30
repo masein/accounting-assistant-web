@@ -361,13 +361,22 @@
         <div id="ai-acct-dropzone" style="display:none; position:absolute; inset:0; z-index:5; background:rgba(15,118,110,0.12); border:3px dashed var(--primary,#0f766e); border-radius:12px; align-items:center; justify-content:center; font-weight:600; font-size:1.05rem; color:var(--primary,#0f766e); pointer-events:none;" data-i18n="chatDropHint">Drop files to attach</div>
         <div id="ai-acct-messages" style="flex:1; overflow-y:auto; padding:0.6rem; background:#fafafa; border:1px solid var(--border); border-radius:8px; min-height:300px; max-height:60vh;"></div>
         <div style="display:flex; gap:0.4rem; flex-wrap:wrap;" id="ai-acct-quick-actions">
-          <button type="button" class="chip" data-msg="What's my cash balance?" data-i18n="aiChipCashBalance">Cash balance</button>
-          <button type="button" class="chip" data-msg="Show balance sheet" data-i18n="aiChipBalanceSheet">Balance Sheet</button>
-          <button type="button" class="chip" data-msg="Show P&amp;L this month" data-i18n="aiChipPL">P&amp;L</button>
-          <button type="button" class="chip" data-msg="Show cash flow" data-i18n="aiChipCashFlow">Cash Flow</button>
-          <button type="button" class="chip" data-msg="What is my bank balance?" data-i18n="aiChipBankBalance">Bank Balance</button>
-          <button type="button" class="chip" data-msg="How much did I spend last month?" data-i18n="aiChipLastMonthSpend">Last month spend</button>
-          <button type="button" class="chip" data-msg="Show last 5 transactions" data-i18n="aiChipLast5Txns">Last 5 txns</button>
+          <button type="button" class="chip chip-business" data-msg="What's my cash balance?" data-i18n="aiChipCashBalance">Cash balance</button>
+          <button type="button" class="chip chip-business" data-msg="Show balance sheet" data-i18n="aiChipBalanceSheet">Balance Sheet</button>
+          <button type="button" class="chip chip-business" data-msg="Show P&amp;L this month" data-i18n="aiChipPL">P&amp;L</button>
+          <button type="button" class="chip chip-business" data-msg="Show cash flow" data-i18n="aiChipCashFlow">Cash Flow</button>
+          <button type="button" class="chip chip-business" data-msg="What is my bank balance?" data-i18n="aiChipBankBalance">Bank Balance</button>
+          <button type="button" class="chip chip-business" data-msg="How much did I spend last month?" data-i18n="aiChipLastMonthSpend">Last month spend</button>
+          <button type="button" class="chip chip-business" data-msg="Show last 5 transactions" data-i18n="aiChipLast5Txns">Last 5 txns</button>
+          <!-- Personal-mode chips: deliberately NO data-msg, so the click sends
+               the chip's own localized label and the assistant answers in the
+               user's language (see the send handler's textContent fallback). -->
+          <button type="button" class="chip chip-personal" style="display:none;" data-i18n="aiChipPdSpentMonth">How much did I spend this month?</button>
+          <button type="button" class="chip chip-personal" style="display:none;" data-i18n="aiChipPdByCategory">Show my spending by category</button>
+          <button type="button" class="chip chip-personal" style="display:none;" data-i18n="aiChipPdBalance">How much money do I have?</button>
+          <button type="button" class="chip chip-personal" style="display:none;" data-i18n="aiChipPdBiggest">What were my biggest expenses?</button>
+          <button type="button" class="chip chip-personal" style="display:none;" data-i18n="aiChipPdIncome">How much did I earn this month?</button>
+          <button type="button" class="chip chip-personal" style="display:none;" data-i18n="aiChipPdRecent">Show my last 5 entries</button>
         </div>
         <!-- Uploaded invoice/receipt chips for the next chat turn -->
         <div id="ai-acct-attachments" style="display:none; flex-wrap:wrap; gap:0.4rem;"></div>

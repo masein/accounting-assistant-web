@@ -40,6 +40,11 @@ MATRIX = [
     ("GET", "/admin/company-profile", {O, C, P}),
     ("PUT", "/fx/reporting-currency", {O}),
     ("POST", "/admin/reset-db", {O}),
+    # LLM provider wiring: owner-only, reads included (Perm.AI_CONFIG)
+    ("GET", "/admin/ai-config", {O}),
+    ("PATCH", "/admin/ai-config", {O}),
+    ("GET", "/admin/anthropic-config", {O}),
+    ("PATCH", "/admin/anthropic-config", {O}),
     # User management (Owner only)
     ("GET", "/admin/users", {O}),
     ("POST", "/admin/users", {O}),
@@ -216,6 +221,12 @@ def _role_client(client, role: str):
     (P, "get", "/admin/company-profile", False),
     (C, "put", "/admin/company-profile", True),
     (P, "put", "/admin/company-profile", True),
+    # AI provider config is owner-only through the route table alone — the
+    # handlers no longer stack their own require_admin on the reads.
+    (C, "get", "/admin/ai-config", True),
+    (P, "get", "/admin/ai-config", True),
+    (C, "get", "/admin/anthropic-config", True),
+    (O, "get", "/admin/anthropic-config", False),
 ])
 def test_live_guard_returns_403_when_denied(client, role, method, path, denied):
     rc = _role_client(client, role)

@@ -176,6 +176,26 @@ If you must refuse on ethical/legal grounds, never give a bare "I can't help wit
 """
 
 
+# Appended to SYSTEM_PROMPT for personal-mode tenants (kind='personal',
+# role='personal'). Every behavioural rule above still applies — same tools,
+# same proposal flow, same refusals; this only reframes WHO you're helping
+# and HOW to talk to them.
+PERSONAL_MODE_ADDENDUM = """
+
+# PERSONAL-FINANCE MODE — this tenant is a person, not a company
+
+The books you manage here belong to ONE PERSON tracking their own daily money — not a business. Adjust accordingly:
+
+* Say "your money / your spending / your budget", never "the company", "the books", "the manager". The user is the owner of their own finances.
+* SPEAK HUMAN, NOT ACCOUNTANT. Never say debit/credit, journal entry, voucher, ledger, AR/AP in replies — say "I'll log 250,000 Toman under Food & groceries, paid from your bank account". (Proposals still need technically correct lines — the translation is in how you TALK, not in what you propose.)
+* The chart of accounts is a set of everyday categories (خوراک، حمل‌ونقل، اجاره، اقساط…). Resolve them with ``search_accounts`` exactly as usual. When nothing fits, use the closest category or Miscellaneous (متفرقه) — don't interrogate the user about classification.
+* Most entries have NO counterparty entity. Groceries, taxi, utility bills → empty ``entity_links``; don't ask "which supplier?". Create an entity only for a real recurring party the user names (their landlord, a person who owes them money, their bank).
+* Typical shapes: spending = Dr expense category / Cr cash or bank · income (salary, freelance) = Dr bank / Cr income category · loan installment (قسط) = Dr installments payable / Cr bank · moving money to savings (gold, FX) = Dr the savings asset / Cr bank.
+* Spending questions ("این ماه چقدر خرج غذا کردم؟", "how much did I spend on transport?") → ``query_ledger`` / ``get_account_balance`` on the matching category, answered in one plain sentence with the number.
+* Be brief and friendly — this is a daily money diary, not a compliance interview. One confirm card per thing the user said happened.
+"""
+
+
 # Human-readable language names interpolated into the system prompt so the
 # model knows which language to answer in (AI-2).
 _LANG_NAMES = {
@@ -429,6 +449,17 @@ def build_default_registry() -> ToolRegistry:
     return reg
 
 
+def build_personal_registry() -> ToolRegistry:
+    """Personal-finance mode: reads + core proposals only. No time-billing,
+    no equity — those tools talk SME concepts (projects, billable rates,
+    dividends) that don't exist for a personal tenant, and dropping them
+    keeps the model from ever proposing one."""
+    reg = ToolRegistry()
+    register_read_tools(reg)
+    register_proposal_tools(reg)
+    return reg
+
+
 # ---------------------------------------------------------------------------
 # LLM client selection
 # ---------------------------------------------------------------------------
@@ -569,6 +600,7 @@ async def run_chat_turn(
     source_amounts: list[int] | None = None,
     registry: ToolRegistry | None = None,
     client: LLMClient | None = None,
+    mode: str = "default",
 ) -> ChatResult:
     """Drive one user-message turn through the AI accountant agent loop.
 
@@ -586,6 +618,9 @@ async def run_chat_turn(
     ``client`` lets tests inject a mock; in production we look up the
     active shape via ``_resolve_chat_shape`` and instantiate the
     corresponding adapter.
+
+    ``mode="personal"`` (personal-finance tenants) selects the trimmed
+    personal tool registry and appends the personal-mode prompt addendum.
     """
     lang = lang if lang in _LANG_NAMES else "en"
     attachment_ids = list(attachment_ids or [])
@@ -593,7 +628,8 @@ async def run_chat_turn(
     # passed in by the caller, plus any numbers in the user's own message.
     src_amounts = list(source_amounts or [])
     src_amounts.extend(_numbers_in_text(user_message))
-    reg = registry or build_default_registry()
+    personal = mode == "personal"
+    reg = registry or (build_personal_registry() if personal else build_default_registry())
     tool_defs = reg.to_anthropic()  # provider-neutral: {name, description, input_schema}
 
     # Give the model the REAL current date — it won't reliably read it from a
@@ -613,8 +649,9 @@ async def run_chat_turn(
             today_str = f"{today.isoformat()} (Jalali {format_jalali(today)})"
     except Exception:
         pass
+    prompt_template = SYSTEM_PROMPT + (PERSONAL_MODE_ADDENDUM if personal else "")
     system_prompt = (
-        SYSTEM_PROMPT.replace("{lang_name}", _LANG_NAMES[lang]).replace("{today}", today_str)
+        prompt_template.replace("{lang_name}", _LANG_NAMES[lang]).replace("{today}", today_str)
     )
 
     shape = "anthropic"

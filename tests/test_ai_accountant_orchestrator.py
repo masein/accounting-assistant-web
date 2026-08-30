@@ -530,3 +530,56 @@ class TestRegistry:
             "propose_shareholder_contribution", "propose_capital_increase",
             "propose_declare_dividend", "propose_shareholder_current_account",
         }
+
+
+class TestPersonalMode:
+    """mode='personal' → trimmed registry + the personal prompt addendum."""
+
+    def test_personal_registry_is_reads_plus_core_proposals(self) -> None:
+        from app.services.ai_accountant.orchestrator import build_personal_registry
+
+        names = {t.name for t in build_personal_registry()}
+        assert names == {
+            "find_entity", "list_entities", "query_ledger",
+            "get_account_balance", "search_accounts", "get_financial_statement",
+            "get_tax_summary", "get_company_defaults", "propose_create_transaction",
+            "propose_create_entity", "propose_update_entity", "propose_reverse_transaction",
+        }
+
+    def test_personal_mode_prompt_and_tools(self, db: Session) -> None:
+        captured: dict = {}
+
+        class _CapturingClient:
+            shape = "fake"
+
+            async def chat(self, *, system_prompt, tools, messages, model=None, max_tokens=8192):
+                captured["system_prompt"] = system_prompt
+                captured["tools"] = tools
+                return _assistant_text("hi")
+
+        asyncio.run(run_chat_turn(
+            db, user_id="u1", user_message="hello", client=_CapturingClient(),
+            mode="personal",
+        ))
+        assert "PERSONAL-FINANCE MODE" in captured["system_prompt"]
+        tool_names = {t["name"] for t in captured["tools"]}
+        assert "propose_create_transaction" in tool_names
+        assert "propose_declare_dividend" not in tool_names
+        assert "propose_log_time" not in tool_names
+
+    def test_default_mode_unchanged(self, db: Session) -> None:
+        captured: dict = {}
+
+        class _CapturingClient:
+            shape = "fake"
+
+            async def chat(self, *, system_prompt, tools, messages, model=None, max_tokens=8192):
+                captured["system_prompt"] = system_prompt
+                captured["tools"] = tools
+                return _assistant_text("hi")
+
+        asyncio.run(run_chat_turn(
+            db, user_id="u1", user_message="hello", client=_CapturingClient(),
+        ))
+        assert "PERSONAL-FINANCE MODE" not in captured["system_prompt"]
+        assert "propose_declare_dividend" in {t["name"] for t in captured["tools"]}

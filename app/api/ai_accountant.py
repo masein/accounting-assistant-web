@@ -25,6 +25,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import SessionUser, get_current_user
+from app.core.permissions import Role
 from app.db.session import get_db
 from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
 from app.services.ai_accountant.anthropic_client import AIAccountantError
@@ -402,6 +403,7 @@ async def chat(
             ocr_context=ocr_context or None,
             attachment_ids=payload.attachment_ids or None,
             source_amounts=ocr_amounts or None,
+            mode="personal" if user.role == Role.PERSONAL else "default",
         )
     except AIAccountantError as e:
         raise HTTPException(status_code=502, detail=str(e))

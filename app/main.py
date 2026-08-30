@@ -33,6 +33,7 @@ from app.api.manager_reports import router as manager_reports_router
 from app.api.migration import router as migration_router
 from app.api.notifications import router as notifications_router
 from app.api.payroll import router as payroll_router
+from app.api.personal import router as personal_router
 from app.api.petty_cash import router as petty_cash_router
 from app.api.products import router as products_router
 from app.api.purchase_orders import router as purchase_orders_router
@@ -713,6 +714,7 @@ app.include_router(manager_reports_router, dependencies=_rbac)
 app.include_router(migration_router, dependencies=_rbac)
 app.include_router(notifications_router, dependencies=_rbac)
 app.include_router(payroll_router, dependencies=_rbac)
+app.include_router(personal_router, dependencies=_rbac)
 app.include_router(petty_cash_router, dependencies=_rbac)
 app.include_router(products_router, dependencies=_rbac)
 app.include_router(purchase_orders_router, dependencies=_rbac)

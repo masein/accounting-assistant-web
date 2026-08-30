@@ -80,6 +80,10 @@ MATRIX = [
     ("GET", "/brain/bank-statements/s1", {O, C, A, P}),
     # Reports / dashboard = owner/cfo/accountant/viewer
     ("GET", "/reports/owner-dashboard", {O, C, A, V, P}),
+    # Personal net worth + the holdings behind it
+    ("GET", "/personal/net-worth", {O, C, A, V, P}),
+    ("GET", "/personal/holdings", {O, C, A, V, P}),
+    ("POST", "/personal/holdings", {O, C, A, P}),
     ("GET", "/manager-reports/books/trial-balance", {O, C, A, V, P}),
     # CFO / CEO mode
     ("GET", "/brain/cfo/report", {O, C}),

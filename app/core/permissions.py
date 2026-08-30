@@ -424,6 +424,12 @@ _reads([
 _add("POST", "/reports/tax-rates", Perm.BOOKS_WRITE)
 # Budgets — reporting/planning reads + books writes.
 _reads(["/budgets", "/budgets/actual-vs-budget"], Perm.REPORTS_READ)
+
+# --- Personal finance: net worth + the holdings behind it ------------------
+# Reads expose asset balances -> the same bar as the dashboard.
+_reads(["/personal/net-worth", "/personal/holdings"], Perm.REPORTS_READ)
+_add("POST", "/personal/holdings", Perm.BOOKS_WRITE)
+_add("DELETE", "/personal/holdings/{holding_id}", Perm.BOOKS_WRITE)
 _add("POST", "/budgets", Perm.BOOKS_WRITE)
 _add("DELETE", "/budgets/{budget_id}", Perm.BOOKS_WRITE)
 # Exports of the books/reports.

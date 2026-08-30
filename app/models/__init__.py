@@ -9,6 +9,7 @@ from app.models.company_profile import CompanyProfile
 from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
 from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.budget import BudgetLimit
+from app.models.personal_holding import PersonalHolding
 from app.models.adjustment import Adjustment
 from app.models.credit_note import CreditNote
 from app.models.employee_pay import EmployeePayProfile
@@ -45,6 +46,7 @@ __all__ = [
     "BankStatementRow",
     "Adjustment",
     "BudgetLimit",
+    "PersonalHolding",
     "CreditNote",
     "EmployeePayProfile",
     "Entity",

@@ -1244,9 +1244,16 @@
         if (!res.ok) throw new Error(data.detail || 'dashboard error');
         const kpis = data.kpis || [];
         const kv = (key) => kpis.find(k => k.key === key) || {};
+        // "Spent this month" = the current month's actual from the expense
+        // series (burn_rate is a trailing average, not this month's number).
+        const thisMonth = new Date().toISOString().slice(0, 7);
+        const monthRow = (data.monthly_expense_series || []).find(r => r.period === thisMonth);
+        const spentCard = monthRow
+          ? { value: monthRow.value, unit: kv('burn_rate').unit }
+          : kv('burn_rate');
         const cards = [
           { label: t('kpiCashOnHand'), k: kv('cash_on_hand') },
-          { label: t('pdKpiSpent'), k: kv('burn_rate') },
+          { label: t('pdKpiSpent'), k: spentCard },
           { label: t('pdKpiSaved'), k: kv('monthly_net_profit') },
         ];
         grid.innerHTML = cards.map(c => `

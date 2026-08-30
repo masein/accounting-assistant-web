@@ -65,6 +65,9 @@ class BankStatementUploadResponse(BaseModel):
     # Set when an identical file (same content hash) was already imported.
     duplicate: bool = False
     duplicate_of: UUID | None = None
+    # Rows that were individually recognised as already imported (overlapping
+    # date ranges), flagged rather than posted a second time.
+    duplicate_rows: int = 0
 
 
 class BankStatementRowRead(BaseModel):
@@ -430,8 +433,14 @@ async def upload_bank_statement(
     db.flush()
 
     from app.services.statement_categorizer import suggest_for_row
+    from app.services.statement_dedup import duplicate_row_indices
 
-    for row in result.rows:
+    # An overlapping re-import (Aug 1-15, then Aug 1-31) has a different file
+    # hash, so the content-hash gate above lets it through. Flag the rows that
+    # are individually already on file so they aren't posted twice.
+    dupe_idx = duplicate_row_indices(db, result.rows, exclude_statement_id=stmt.id)
+
+    for i, row in enumerate(result.rows):
         # Chart-aware suggestion first (history, then bilingual keywords
         # resolved against this tenant's own accounts). The legacy keyword
         # table only knows Iranian codes, so it's a last resort and its code is
@@ -459,6 +468,7 @@ async def upload_bank_statement(
             confidence=row.confidence,
             category=cat,
             suggested_account_code=code,
+            recon_status="duplicate" if i in dupe_idx else "unmatched",
         )
         db.add(db_row)
 
@@ -471,6 +481,7 @@ async def upload_bank_statement(
         source_type=result.source_type,
         errors=result.errors,
         skipped_rows=getattr(result, "skipped_rows", 0),
+        duplicate_rows=len(dupe_idx),
     )
 
 
@@ -556,6 +567,11 @@ def reconcile_statement(statement_id: UUID, db: Session = Depends(get_db)) -> Re
 
     matched = partial = unmatched = duplicates = auto_matched = 0
     for row, result in zip(rows, results):
+        # A row already recognised at import as previously imported stays a
+        # duplicate: reconciling must not hand it back as postable.
+        if row.recon_status == "duplicate":
+            duplicates += 1
+            continue
         row.recon_status = result.status
         if result.best_match:
             row.matched_transaction_id = result.best_match.transaction_id
@@ -699,6 +715,16 @@ def batch_approve_rows(
             skipped += 1
 
         elif approval.action == "create":
+            # Refuse to post a row already recognised as previously imported.
+            # The UI doesn't offer Create on these, but double-posting money is
+            # bad enough to guard at the API too; a genuine one-off can still be
+            # keyed as a normal voucher.
+            if row.recon_status == "duplicate":
+                errors.append(
+                    f"Row {row.row_index}: already imported previously — not posted again"
+                )
+                continue
+
             # Post through the canonical builder so a statement row gets the
             # same guards as a hand-keyed voucher: balanced legs, no future
             # date, no posting into a closed period, and the statement's own

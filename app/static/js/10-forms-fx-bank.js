@@ -580,6 +580,7 @@
         }
         let msg = tf('bsParsed', { rows: data.total_rows, bank: data.bank_name, type: data.source_type });
         if (data.skipped_rows) msg += ' ' + tf('bsSkipped', { n: data.skipped_rows });
+        if (data.duplicate_rows) msg += ' ' + tf('bsAlreadyImported', { n: data.duplicate_rows });
         statusEl.textContent = msg;
         statusEl.className = 'alert';
         loadBankStatements();

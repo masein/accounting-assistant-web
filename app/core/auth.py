@@ -57,21 +57,63 @@ def validate_password_strength(password: str) -> None:
         raise ValueError("Password must contain at least one digit or special character")
 
 
-def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+# Stored hashes carry their own work factor: "pbkdf2_sha256$<iterations>$<hex>".
+# Hashes written before that format are bare hex at the original 120k count, so
+# they still verify — and get upgraded the next time the user logs in.
+_HASH_SCHEME = "pbkdf2_sha256"
+LEGACY_ITERATIONS = 120_000
+
+
+def _pbkdf2(password: str, salt: str, iterations: int) -> str:
+    return hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt.encode("utf-8"), iterations
+    ).hex()
+
+
+def _parse_hash(stored: str) -> tuple[int, str]:
+    """(iterations, digest) for a stored hash, old format or new."""
+    parts = (stored or "").split("$")
+    if len(parts) == 3 and parts[0] == _HASH_SCHEME:
+        try:
+            return int(parts[1]), parts[2]
+        except ValueError:
+            return LEGACY_ITERATIONS, parts[2]
+    return LEGACY_ITERATIONS, stored or ""
+
+
+def hash_password(
+    password: str, salt: str | None = None, *, iterations: int | None = None
+) -> tuple[str, str]:
+    """Hash a password, returning (encoded_hash, salt).
+
+    The work factor is embedded in the result, so raising
+    ``settings.password_hash_iterations`` never locks anyone out.
+    """
     password = (password or "").strip()
     if not password:
         raise ValueError("Password cannot be empty")
     salt = salt or secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 120_000)
-    return digest.hex(), salt
+    iters = iterations or settings.password_hash_iterations
+    return f"{_HASH_SCHEME}${iters}${_pbkdf2(password, salt, iters)}", salt
 
 
 def verify_password(password: str, expected_hash: str, salt: str) -> bool:
     try:
-        calculated, _ = hash_password(password, salt=salt)
-        return hmac.compare_digest(calculated, expected_hash)
+        iterations, digest = _parse_hash(expected_hash)
+        calculated = _pbkdf2((password or "").strip(), salt, iterations)
+        return hmac.compare_digest(calculated, digest)
     except Exception:
         return False
+
+
+def needs_rehash(expected_hash: str) -> bool:
+    """True when a stored hash is weaker than the current policy.
+
+    Callers rehash after a *successful* verify, which is the only moment the
+    plaintext is available — an offline re-hash is impossible by design.
+    """
+    iterations, _digest = _parse_hash(expected_hash)
+    return iterations < settings.password_hash_iterations
 
 
 def create_session_token(

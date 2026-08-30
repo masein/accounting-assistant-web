@@ -9,6 +9,7 @@ from app.core.auth import (
     create_session_token,
     get_current_user,
     hash_password,
+    needs_rehash,
     require_admin,
     verify_password,
 )
@@ -61,6 +62,17 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         audit_log(db, action="login_failed", entity_type="user", detail=f"Failed login for '{username}'", ip_address=get_client_ip(request))
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    # Upgrade a stale hash now — a successful verify is the only moment the
+    # plaintext exists, so raising the work factor can only ever take effect
+    # here. Never block the login on it: a failed rehash is not the user's
+    # problem, and the old hash still verifies fine.
+    try:
+        if needs_rehash(user.password_hash):
+            user.password_hash, user.password_salt = hash_password(payload.password)
+            db.commit()
+    except Exception:  # pragma: no cover - defensive
+        db.rollback()
 
     # Refuse a login whose company is suspended. Checked AFTER credential
     # verification so it never leaks whether a username exists.

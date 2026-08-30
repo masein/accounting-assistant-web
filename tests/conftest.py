@@ -22,6 +22,14 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings as _settings
+
+# Hashing is deliberately slow in production (600k PBKDF2 rounds). The suite
+# creates users constantly, so at the real work factor password hashing would
+# dominate the run time. Tests that care about the work factor set it
+# explicitly rather than relying on this default.
+_settings.password_hash_iterations = 1_000
+
 from app.db.base import Base
 import app.models  # noqa: F401 — register all models with Base.metadata
 from app.db.seed import seed_chart_if_empty, seed_payment_methods_if_empty

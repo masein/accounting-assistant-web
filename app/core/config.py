@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_to: str | None = None
     auth_secret: str = "change-this-in-production"
+    # PBKDF2-HMAC-SHA256 work factor. 600k is the current OWASP figure;
+    # existing hashes carry their own count and are upgraded on next login
+    # (see app/core/auth.py), so this can be raised safely over time.
+    # Tests lower it — hashing cost otherwise dominates the suite.
+    password_hash_iterations: int = 600_000
     auth_cookie_name: str = "aa_session"
     auth_session_hours: int = 24
     # Whether the session cookie carries the `Secure` flag. Unset (None) →

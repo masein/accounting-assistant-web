@@ -1,4 +1,4 @@
-"""Sanity check that the four language packs in app/static/index.html
+"""Sanity check that the four language packs in app/static/js/02-i18n.js
 have parity — every key in the English pack must also exist in fa, es,
 and ar (and vice-versa). Guards against regressions when new strings
 are added but only translated in one pack.
@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 
-INDEX_HTML = Path(__file__).resolve().parents[1] / "app" / "static" / "index.html"
+INDEX_HTML = Path(__file__).resolve().parents[1] / "app" / "static" / "js" / "02-i18n.js"
 
 
 def _parse_lang_packs() -> dict[str, set[str]]:

@@ -1,6 +1,6 @@
 """Unit-test the Jalali (Shamsi) calendar converter.
 
-The actual converter lives in JavaScript inside ``app/static/index.html``;
+The actual converter lives in JavaScript inside ``app/static/js/01-core.js``;
 this test re-implements the same Khayyam algorithm in Python (verified
 byte-for-byte against the JS source) and asserts known
 Gregorian → Jalali pairs.
@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 
-INDEX_HTML = Path(__file__).resolve().parents[1] / "app" / "static" / "index.html"
+INDEX_HTML = Path(__file__).resolve().parents[1] / "app" / "static" / "js" / "01-core.js"
 
 
 def gregorian_to_jalali(gy: int, gm: int, gd: int) -> tuple[int, int, int]:

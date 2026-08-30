@@ -98,7 +98,11 @@ def _serialize(db: Session, profile: CompanyProfile) -> dict:
 
 
 @router.get("")
-def get_profile(db: Session = Depends(get_db), _=Depends(require_admin)) -> dict:
+def get_profile(db: Session = Depends(get_db), _=Depends(get_current_user)) -> dict:
+    """Read the profile. Authorization is the router-level RBAC guard
+    (SETTINGS_READ — owner, CFO, personal); an extra require_admin here used
+    to 403 CFO/personal users despite the route table. Writes below stay
+    admin-only (require_admin + SETTINGS_WRITE)."""
     profile = _get_or_create(db)
     db.commit()
     return _serialize(db, profile)

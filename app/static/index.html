@@ -2276,9 +2276,10 @@
   </div>
 
   <script src="/static/chart.umd.min.js"></script>
-  <!-- chartjs-plugin-zoom was loaded from a CDN here, but the CSP
-       (script-src 'self') has always blocked it — charts render without
-       zoom. Vendor it next to chart.umd.min.js to actually enable zoom. -->
+  <!-- Drag/wheel/pinch zoom + pan on charts. Vendored (the CSP blocks CDNs);
+       hammer.js provides the touch-gesture recognition the plugin needs. -->
+  <script src="/static/hammer.min.js"></script>
+  <script src="/static/chartjs-plugin-zoom.min.js"></script>
   <script src="/static/js/01-core.js"></script>
   <script src="/static/js/02-i18n.js"></script>
   <script src="/static/js/03-ui.js"></script>

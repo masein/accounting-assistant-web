@@ -210,6 +210,12 @@ def _role_client(client, role: str):
     (A, "get", "/admin/users", True),
     (O, "get", "/accounts", False),
     (A, "get", "/transactions", False),
+    # company-profile: SETTINGS_READ roles may read; writes stay owner-only.
+    # Guards the require_admin-vs-RBAC mismatch that used to 403 CFO reads.
+    (C, "get", "/admin/company-profile", False),
+    (P, "get", "/admin/company-profile", False),
+    (C, "put", "/admin/company-profile", True),
+    (P, "put", "/admin/company-profile", True),
 ])
 def test_live_guard_returns_403_when_denied(client, role, method, path, denied):
     rc = _role_client(client, role)

@@ -429,8 +429,22 @@ async def upload_bank_statement(
     db.add(stmt)
     db.flush()
 
+    from app.services.statement_categorizer import suggest_for_row
+
     for row in result.rows:
-        cat, code = classify_transaction(row.description)
+        # Chart-aware suggestion first (history, then bilingual keywords
+        # resolved against this tenant's own accounts). The legacy keyword
+        # table only knows Iranian codes, so it's a last resort and its code is
+        # dropped unless that account actually exists here.
+        hit = suggest_for_row(db, row.description, is_debit=row.debit > 0)
+        if hit is not None:
+            cat, code = hit.category, hit.account_code
+        else:
+            cat, code = classify_transaction(row.description)
+            if code and not db.execute(
+                select(Account).where(Account.code == code)
+            ).scalars().first():
+                code = None
         db_row = BankStatementRow(
             statement_id=stmt.id,
             row_index=row.row_index,

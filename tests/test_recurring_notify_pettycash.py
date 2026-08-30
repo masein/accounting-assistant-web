@@ -342,3 +342,59 @@ def test_duplicate_active_account_rejected(auth_client, db):
     acc, holder = _petty_account(auth_client, db)
     dup = auth_client.post("/petty-cash/accounts", json={"username": holder.username})
     assert dup.status_code == 400
+
+
+def test_feed_budget_alert_warning_over_and_cleared(auth_client, db):
+    """Budget alerts: >=85% utilization -> warning, >=100% -> high, and the
+    row auto-dismisses when the condition clears (limit raised)."""
+    from app.models.account import Account, AccountLevel
+    from app.models.budget import BudgetLimit
+
+    # A dedicated expense account so spending posted by OTHER tests in this
+    # module (e.g. recurring auto-posting against 6112) can't skew the pct.
+    exp = Account(code="6119", name=f"BUDTEST-{uuid.uuid4().hex[:6]}",
+                  level=AccountLevel.GENERAL)
+    db.add(exp)
+    db.flush()
+    cash = db.execute(select(Account).where(Account.code == "1110")).scalars().first()
+    assert cash is not None
+    today = date.today()
+    month = f"{today.year:04d}-{today.month:02d}"
+    limit = BudgetLimit(month=month, category=exp.name, limit_amount=1_000_000)
+    db.add(limit)
+
+    txn = Transaction(date=today, description="budget test spend",
+                      reference=f"BUD-{uuid.uuid4().hex[:6]}")
+    db.add(txn)
+    db.flush()
+    db.add_all([
+        TransactionLine(transaction_id=txn.id, account_id=exp.id, debit=900_000, credit=0),
+        TransactionLine(transaction_id=txn.id, account_id=cash.id, debit=0, credit=900_000),
+    ])
+    db.commit()
+
+    feed = auth_client.get("/notifications/feed").json()
+    hit = next((i for i in feed if i["kind"] == "budget" and exp.name in i["title"]), None)
+    assert hit is not None
+    assert hit["level"] == "warning"
+
+    txn2 = Transaction(date=today, description="budget test spend 2",
+                       reference=f"BUD-{uuid.uuid4().hex[:6]}")
+    db.add(txn2)
+    db.flush()
+    db.add_all([
+        TransactionLine(transaction_id=txn2.id, account_id=exp.id, debit=200_000, credit=0),
+        TransactionLine(transaction_id=txn2.id, account_id=cash.id, debit=0, credit=200_000),
+    ])
+    db.commit()
+
+    feed = auth_client.get("/notifications/feed").json()
+    hit = next((i for i in feed if i["kind"] == "budget" and exp.name in i["title"]), None)
+    assert hit is not None
+    assert hit["level"] == "high"
+
+    # raising the limit clears the alert on the next refresh
+    limit.limit_amount = 100_000_000
+    db.commit()
+    feed = auth_client.get("/notifications/feed").json()
+    assert not any(i["kind"] == "budget" and exp.name in i["title"] for i in feed)

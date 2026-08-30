@@ -4,12 +4,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.budget import BudgetLimit
-from app.models.transaction import Transaction, TransactionLine
 from app.schemas.budget import BudgetActualResponse, BudgetActualRow, BudgetLimitCreate, BudgetLimitRead
+from app.services.budget_service import budget_utilization
 
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
@@ -55,33 +55,5 @@ def actual_vs_budget(
     db: Session = Depends(get_db),
     month: str = Query(..., pattern=r"^\d{4}-\d{2}$"),
 ) -> BudgetActualResponse:
-    limits = db.execute(select(BudgetLimit).where(BudgetLimit.month == month)).scalars().all()
-    actual_by_cat: dict[str, int] = {}
-    txns = db.execute(
-        select(Transaction).options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
-    ).scalars().all()
-    for t in txns:
-        m = f"{t.date.year:04d}-{t.date.month:02d}"
-        if m != month:
-            continue
-        for ln in t.lines:
-            code = ln.account.code
-            if code.startswith("61") or code.startswith("62"):
-                cat = ln.account.name
-                actual_by_cat[cat] = actual_by_cat.get(cat, 0) + max(0, ln.debit - ln.credit)
-    rows: list[BudgetActualRow] = []
-    for b in limits:
-        actual = actual_by_cat.get(b.category, 0)
-        util = (actual / b.limit_amount * 100.0) if b.limit_amount > 0 else 0.0
-        rows.append(
-            BudgetActualRow(
-                month=b.month,
-                category=b.category,
-                limit_amount=b.limit_amount,
-                actual_amount=actual,
-                variance=b.limit_amount - actual,
-                utilization_pct=round(util, 2),
-            )
-        )
-    rows.sort(key=lambda x: x.utilization_pct, reverse=True)
+    rows = [BudgetActualRow(**r) for r in budget_utilization(db, month)]
     return BudgetActualResponse(rows=rows)

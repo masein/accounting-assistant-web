@@ -157,6 +157,27 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
                     message=(rem.note or "") + f" — due {rem.due_date.isoformat()}",
                     due_date=rem.due_date, user_id=rem.user_id)
 
+    # --- budgets: current month at >=85% (warning) / >=100% (over, high) ---
+    month = f"{today.year:04d}-{today.month:02d}"
+    try:
+        from app.services.budget_service import budget_utilization
+
+        for row in budget_utilization(db, month):
+            pct = row["utilization_pct"]
+            if pct < 85:
+                continue
+            over = pct >= 100
+            _upsert(db, seen, dedupe_key=f"budget-{month}-{row['category']}",
+                    kind="budget", level="high" if over else "warning",
+                    title=(f"Budget exceeded: {row['category']}" if over
+                           else f"Budget at {int(pct)}%: {row['category']}"),
+                    message=(f"{row['actual_amount']:,} of {row['limit_amount']:,} "
+                             f"spent in {month} ({row['utilization_pct']}%)"),
+                    link_page="personal-dashboard")
+    except Exception:
+        # budget alerts must never break the whole feed refresh
+        pass
+
     # --- resolve rows whose source condition cleared -----------------------
     open_rows = db.execute(
         select(Notification).where(Notification.dismissed_at.is_(None))

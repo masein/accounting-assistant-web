@@ -685,31 +685,51 @@ def batch_approve_rows(
             skipped += 1
 
         elif approval.action == "create":
-            from app.services.account_resolver import resolve_account_code
-            acc_code = approval.account_code or row.suggested_account_code or "6190"
-            acc = db.execute(select(Account).where(Account.code == acc_code)).scalar_one_or_none()
-            # Locale-aware bank/cash account (UK 1200, Iran 1110) — never
-            # hardcode 1110, which doesn't exist in the UK chart.
-            cash_code = resolve_account_code(db, "bank")
-            cash_acc = db.execute(select(Account).where(Account.code == cash_code)).scalar_one_or_none()
-            if not acc or not cash_acc:
-                errors.append(f"Row {row.row_index}: account code '{acc_code}' or cash account not found")
+            # Post through the canonical builder so a statement row gets the
+            # same guards as a hand-keyed voucher: balanced legs, no future
+            # date, no posting into a closed period, and the statement's own
+            # currency (the old inline builder skipped all four).
+            from app.api.transactions import _create_transaction_from_payload
+            from app.schemas.transaction import TransactionCreate, TransactionLineCreate
+            from app.services.account_resolver import AccountResolutionError, resolve_account_code
+
+            try:
+                # Counter leg: the user's choice, else the import's guess, else
+                # the locale's generic expense account (never a hardcoded code —
+                # 6190 is Iran-only and 404s on a UK chart).
+                acc_code = (
+                    approval.account_code
+                    or row.suggested_account_code
+                    or resolve_account_code(db, "expense")
+                )
+                cash_code = resolve_account_code(db, "bank")
+            except AccountResolutionError as e:
+                errors.append(f"Row {row.row_index}: {e}")
                 continue
 
-            txn = Transaction(
+            amount = row.debit if row.debit > 0 else row.credit
+            # debit on the statement = money leaving the bank.
+            legs = (
+                [(acc_code, amount, 0), (cash_code, 0, amount)]
+                if row.debit > 0
+                else [(cash_code, amount, 0), (acc_code, 0, amount)]
+            )
+            payload = TransactionCreate(
                 date=row.tx_date,
                 reference=row.reference,
                 description=row.description or f"Bank statement row #{row.row_index}",
+                currency=s.currency or "IRR",
+                lines=[
+                    TransactionLineCreate(account_code=code, debit=dr, credit=cr)
+                    for code, dr, cr in legs
+                ],
             )
-            db.add(txn)
-            db.flush()
-
-            if row.debit > 0:
-                db.add(TransactionLine(transaction_id=txn.id, account_id=acc.id, debit=row.debit, credit=0))
-                db.add(TransactionLine(transaction_id=txn.id, account_id=cash_acc.id, debit=0, credit=row.debit))
-            else:
-                db.add(TransactionLine(transaction_id=txn.id, account_id=cash_acc.id, debit=row.credit, credit=0))
-                db.add(TransactionLine(transaction_id=txn.id, account_id=acc.id, debit=0, credit=row.credit))
+            try:
+                txn = _create_transaction_from_payload(db, payload)
+            except HTTPException as e:
+                # One unpostable row must not sink the whole batch.
+                errors.append(f"Row {row.row_index}: {e.detail}")
+                continue
 
             row.created_transaction_id = txn.id
             row.recon_status = "matched"

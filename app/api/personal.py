@@ -24,7 +24,10 @@ router = APIRouter(prefix="/personal", tags=["personal"])
 
 class HoldingUpsert(BaseModel):
     account_code: str = Field(..., min_length=1, max_length=64)
-    unit: str = Field(..., min_length=1, max_length=16)
+    # Capped at 8 to match exchange_rates.from_currency: a longer unit could
+    # be stored here but could never have a rate, so the holding would be
+    # permanently unvaluable. Fail at entry instead.
+    unit: str = Field(..., min_length=1, max_length=8)
     quantity: float = Field(..., ge=0)
     label: str | None = Field(default=None, max_length=128)
 

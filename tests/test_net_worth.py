@@ -150,8 +150,8 @@ def test_soft_deleted_transactions_are_excluded(db):
 def test_gold_is_restated_at_the_current_rate(db):
     """Bought 10g at 30m rials; gold is now 5m/g, so it's worth 50m."""
     _post(db, GOLD, BANK, 30_000_000)
-    _hold(db, GOLD, "GOLD_GRAM", 10)
-    _rate(db, "GOLD_GRAM", 5_000_000)
+    _hold(db, GOLD, "GOLDG", 10)
+    _rate(db, "GOLDG", 5_000_000)
 
     nw = compute_net_worth(db, with_trend=False)
     gold = _line(nw, GOLD)
@@ -161,14 +161,14 @@ def test_gold_is_restated_at_the_current_rate(db):
     assert gold.unrealized_gain == 20_000_000
     assert gold.revalued is True
     assert gold.quantity == 10
-    assert gold.unit == "GOLD_GRAM"
+    assert gold.unit == "GOLDG"
 
 
 def test_net_worth_includes_the_revaluation(db):
     _post(db, GOLD, BANK, 30_000_000)   # moved 30m of savings into gold
     _post(db, BANK, INCOME, 30_000_000)  # ...funded by income, so bank nets 0
-    _hold(db, GOLD, "GOLD_GRAM", 10)
-    _rate(db, "GOLD_GRAM", 5_000_000)
+    _hold(db, GOLD, "GOLDG", 10)
+    _rate(db, "GOLDG", 5_000_000)
 
     nw = compute_net_worth(db, with_trend=False)
     assert nw.net_worth == 50_000_000        # not the 30m book value
@@ -187,17 +187,17 @@ def test_foreign_currency_uses_the_same_mechanism(db):
 
 def test_a_falling_price_produces_a_loss(db):
     _post(db, GOLD, BANK, 60_000_000)
-    _hold(db, GOLD, "GOLD_GRAM", 10)
-    _rate(db, "GOLD_GRAM", 5_000_000)
+    _hold(db, GOLD, "GOLDG", 10)
+    _rate(db, "GOLDG", 5_000_000)
     assert _line(compute_net_worth(db, with_trend=False), GOLD).unrealized_gain == -10_000_000
 
 
 def test_the_latest_rate_on_or_before_the_date_wins(db):
     # Bought 90 days ago, so the holding exists at both valuation dates.
     _post(db, GOLD, BANK, 10_000_000, when=TODAY - timedelta(days=90))
-    _hold(db, GOLD, "GOLD_GRAM", 1)
-    _rate(db, "GOLD_GRAM", 4_000_000, on=TODAY - timedelta(days=60))
-    _rate(db, "GOLD_GRAM", 6_000_000, on=TODAY - timedelta(days=1))
+    _hold(db, GOLD, "GOLDG", 1)
+    _rate(db, "GOLDG", 4_000_000, on=TODAY - timedelta(days=60))
+    _rate(db, "GOLDG", 6_000_000, on=TODAY - timedelta(days=1))
 
     assert _line(compute_net_worth(db, with_trend=False), GOLD).market_value == 6_000_000
     old = compute_net_worth(db, as_of=TODAY - timedelta(days=30), with_trend=False)
@@ -207,10 +207,10 @@ def test_the_latest_rate_on_or_before_the_date_wins(db):
 def test_two_units_on_one_account_are_summed(db):
     """Coins and loose grams both sit in the gold account."""
     _post(db, GOLD, BANK, 50_000_000)
-    _hold(db, GOLD, "GOLD_GRAM", 10, label="شمش")
-    _hold(db, GOLD, "GOLD_COIN", 2, label="سکه")
-    _rate(db, "GOLD_GRAM", 5_000_000)
-    _rate(db, "GOLD_COIN", 40_000_000)
+    _hold(db, GOLD, "GOLDG", 10, label="شمش")
+    _hold(db, GOLD, "GOLDC", 2, label="سکه")
+    _rate(db, "GOLDG", 5_000_000)
+    _rate(db, "GOLDC", 40_000_000)
 
     gold = _line(compute_net_worth(db, with_trend=False), GOLD)
     assert gold.market_value == 130_000_000     # 10*5m + 2*40m
@@ -221,13 +221,13 @@ def test_a_missing_rate_is_reported_not_silently_zero(db):
     """Valuing someone's gold at nothing because a rate is unset would be worse
     than saying so."""
     _post(db, GOLD, BANK, 30_000_000)
-    _hold(db, GOLD, "GOLD_GRAM", 10)   # no rate on file
+    _hold(db, GOLD, "GOLDG", 10)   # no rate on file
 
     nw = compute_net_worth(db, with_trend=False)
     gold = _line(nw, GOLD)
     assert gold.market_value == 30_000_000     # falls back to book
     assert gold.revalued is False
-    assert "GOLD_GRAM" in nw.missing_rates
+    assert "GOLDG" in nw.missing_rates
 
 
 def test_accounts_without_holdings_are_never_revalued(db):
@@ -240,8 +240,8 @@ def test_accounts_without_holdings_are_never_revalued(db):
 def test_revaluation_posts_no_journal_entry(db):
     """Reporting-only: the books stay at cost."""
     _post(db, GOLD, BANK, 30_000_000)
-    _hold(db, GOLD, "GOLD_GRAM", 10)
-    _rate(db, "GOLD_GRAM", 5_000_000)
+    _hold(db, GOLD, "GOLDG", 10)
+    _rate(db, "GOLDG", 5_000_000)
     before = len(db.execute(select(Transaction)).scalars().all())
     compute_net_worth(db, with_trend=False)
     assert len(db.execute(select(Transaction)).scalars().all()) == before
@@ -333,3 +333,12 @@ class TestHoldingsApi:
 
     def test_trend_can_be_skipped(self, auth_client):
         assert auth_client.get("/personal/net-worth?trend=false").json()["trend"] == []
+
+
+def test_unit_longer_than_the_rate_column_is_rejected(auth_client):
+    """exchange_rates.from_currency is String(8). A 9-character unit could be
+    stored as a holding but could never have a rate, leaving it permanently
+    unvaluable — so it must be refused at entry, not discovered later."""
+    r = auth_client.post("/personal/holdings", json={
+        "account_code": "1110", "unit": "GOLD_GRAM", "quantity": 5})
+    assert r.status_code == 422

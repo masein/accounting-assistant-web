@@ -608,6 +608,30 @@
       <div id="pd-kpi-grid" class="kpi-grid"></div>
       <div class="dashboard-grid">
         <div class="panel">
+          <h3 data-i18n="nwTitle">Net worth</h3>
+          <div id="nw-headline" style="margin-bottom:0.5rem;"></div>
+          <div><canvas id="nw-trend-chart"></canvas></div>
+          <div id="nw-breakdown" style="margin-top:0.6rem;"></div>
+        </div>
+        <div class="panel">
+          <h3 data-i18n="nwHoldingsTitle">Gold &amp; currency holdings</h3>
+          <p style="color:var(--text-muted); font-size:0.8rem; margin:0 0 0.5rem 0;" data-i18n="nwHoldingsHelp">Your books record what these cost. Enter how much you hold and today's rate to see what they're worth now.</p>
+          <div class="row" style="margin-bottom:0.5rem;">
+            <div><label for="nw-h-account" data-i18n="nwHoldingAccount">Account</label><select id="nw-h-account"></select></div>
+            <div><label for="nw-h-unit" data-i18n="nwHoldingUnit">Unit</label>
+              <select id="nw-h-unit">
+                <option value="GOLDG" data-i18n="nwUnitGoldGram">Gold (gram)</option>
+                <option value="GOLDC" data-i18n="nwUnitGoldCoin">Gold (coin)</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="AED">AED</option>
+              </select></div>
+            <div><label for="nw-h-qty" data-i18n="nwHoldingQty">Quantity</label><input type="number" id="nw-h-qty" min="0" step="0.01" value="0"></div>
+            <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="nw-h-save" data-i18n="nwHoldingSave">Save holding</button></div>
+          </div>
+          <div id="nw-holdings-wrap"></div>
+        </div>
+        <div class="panel">
           <h3 data-i18n="pdSpendByCategory">Spending by category</h3>
           <div style="max-width:340px; margin:0 auto 0.75rem;"><canvas id="pd-cat-chart"></canvas></div>
           <div id="pd-cat-wrap"></div>

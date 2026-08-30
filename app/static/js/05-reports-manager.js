@@ -1216,7 +1216,7 @@
         }
         wrap.innerHTML = rows.map(r => {
           const pct = Math.max(0, Math.min(150, Number(r.utilization_pct) || 0));
-          const color = pct >= 100 ? 'var(--danger, #c0392b)' : (pct >= 85 ? '#e0a458' : 'var(--accent, #2f6f62)');
+          const color = pct >= 100 ? 'var(--danger)' : (pct >= 85 ? 'var(--accent)' : 'var(--success)');
           return `
             <div style="margin-bottom:0.55rem;">
               <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
@@ -1297,6 +1297,7 @@
       }
       pdFillBudgetCategories();
       pdLoadBudgets();
+      loadNetWorth();
     }
 
     (function wirePersonalDashboard() {
@@ -1316,5 +1317,129 @@
           if (res.ok) { showAlert(t('btnSaveBudget') + ' ✓'); pdLoadBudgets(); }
           else { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'error', true); }
         } catch (_) { showAlert('error', true); }
+      });
+    })();
+
+    // ═══════ Net worth (personal) ═══════
+    // Assets minus liabilities, with gold/FX restated at current rates. The
+    // books stay at cost; this panel is the "what is it worth now" view.
+    let _nwTrendChart = null;
+
+    async function nwFillAccountOptions() {
+      const sel = document.getElementById('nw-h-account');
+      if (!sel || sel.options.length) return;
+      try {
+        const res = await fetch(API + '/manager-reports/accounts/list');
+        if (!res.ok) return;
+        const accs = await res.json();
+        // Only asset accounts can hold gold/currency.
+        sel.innerHTML = accs
+          .filter(a => (a.code || '').startsWith('1'))
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`)
+          .join('');
+        // Default to the gold savings account when the chart has one.
+        const gold = accs.find(a => a.code === '1130');
+        if (gold) sel.value = '1130';
+      } catch (_) { /* offline */ }
+    }
+
+    async function nwLoadHoldings() {
+      const wrap = document.getElementById('nw-holdings-wrap');
+      if (!wrap) return;
+      try {
+        const rows = await (await fetch(API + '/personal/holdings')).json();
+        if (!rows.length) {
+          wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('nwNoHoldings')) + '</p>';
+          return;
+        }
+        wrap.innerHTML = `<table class="mini-table"><tbody>${rows.map(r => `
+          <tr>
+            <td>${escapeHtml(r.account_name || r.account_code)}</td>
+            <td>${escapeHtml(String(r.quantity))} ${escapeHtml(r.unit)}</td>
+            <td style="text-align:end;"><button class="btn btn-secondary btn-sm nw-h-del" data-id="${escapeHtml(r.id)}">×</button></td>
+          </tr>`).join('')}</tbody></table>`;
+      } catch (_) {
+        wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('nwNoHoldings')) + '</p>';
+      }
+    }
+
+    async function loadNetWorth() {
+      const headline = document.getElementById('nw-headline');
+      if (!headline) return;
+      try {
+        const d = await (await fetch(API + '/personal/net-worth')).json();
+        const gain = d.unrealized_gain || 0;
+        const gainColor = gain > 0 ? 'var(--success)' : (gain < 0 ? 'var(--danger)' : 'var(--text-muted)');
+        headline.innerHTML = `
+          <div style="font-size:1.6rem; font-weight:700;">${escapeHtml(formatNum(d.net_worth))} ${escapeHtml(d.currency)}</div>
+          <div style="font-size:0.82rem; color:var(--text-muted);">
+            ${escapeHtml(t('nwAssets'))}: ${escapeHtml(formatNum(d.total_assets))} ·
+            ${escapeHtml(t('nwDebts'))}: ${escapeHtml(formatNum(d.total_liabilities))}
+          </div>
+          ${gain ? `<div style="font-size:0.82rem; color:${gainColor};">${escapeHtml(t('nwUnrealized'))}: ${escapeHtml(formatNum(gain))}</div>` : ''}
+          ${(d.missing_rates || []).length ? `<div class="alert-chip medium" style="margin-top:0.35rem;">${escapeHtml(tf('nwMissingRate', { units: d.missing_rates.join(', ') }))}</div>` : ''}
+        `;
+
+        renderMiniTable('nw-breakdown', ['item', 'value'],
+          [...d.assets, ...d.liabilities].map(l => [
+            escapeHtml(l.account_name) + (l.revalued ? ' ★' : ''),
+            formatNum(l.market_value),
+          ]));
+
+        const canvas = document.getElementById('nw-trend-chart');
+        const trend = d.trend || [];
+        if (typeof Chart !== 'undefined' && canvas && trend.length) {
+          if (_nwTrendChart) _nwTrendChart.destroy();
+          _nwTrendChart = new Chart(canvas, {
+            type: 'line',
+            data: {
+              labels: trend.map(r => r.period),
+              datasets: [{
+                data: trend.map(r => r.value),
+                borderColor: _PD_PALETTE[0],
+                backgroundColor: 'rgba(47,111,98,0.12)',
+                fill: true, tension: 0.25, pointRadius: 2,
+              }],
+            },
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+          });
+        }
+      } catch (_) {
+        headline.innerHTML = '<p class="empty-state">' + escapeHtml(t('errorLoadingOwnerDashboard')) + '</p>';
+      }
+      nwFillAccountOptions();
+      nwLoadHoldings();
+    }
+
+    (function wireNetWorth() {
+      const saveBtn = document.getElementById('nw-h-save');
+      if (saveBtn) saveBtn.addEventListener('click', async () => {
+        const account_code = document.getElementById('nw-h-account')?.value || '';
+        const unit = document.getElementById('nw-h-unit')?.value || '';
+        const quantity = Number(document.getElementById('nw-h-qty')?.value || 0);
+        if (!account_code || !unit || !(quantity >= 0)) return;
+        try {
+          const res = await fetch(API + '/personal/holdings', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account_code, unit, quantity }),
+          });
+          if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            showAlert(d.detail || 'error', true);
+            return;
+          }
+          showAlert(t('nwHoldingSaved'));
+          await loadNetWorth();
+        } catch (_) { showAlert('error', true); }
+      });
+
+      const wrap = document.getElementById('nw-holdings-wrap');
+      if (wrap) wrap.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.nw-h-del');
+        if (!btn) return;
+        try {
+          await fetch(API + '/personal/holdings/' + btn.dataset.id, { method: 'DELETE' });
+          await loadNetWorth();
+        } catch (_) { /* ignore */ }
       });
     })();

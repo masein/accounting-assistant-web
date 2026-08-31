@@ -300,6 +300,13 @@
     <div class="card" data-page="recurring">
       <h2 id="recurring-title" data-i18n="recurringTitle">Recurring payments &amp; receipts</h2>
       <p data-i18n="recurringManualIntro" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Define the schedule and the accounts once — when a date comes due, the matching journal entry posts automatically through the chosen bank and balances update.</p>
+      <!-- Payments that already repeat but have no rule yet. Hidden entirely
+           when there is nothing to suggest, so it never becomes furniture. -->
+      <div id="rec-detected-wrap" style="display:none; border:1px solid var(--border); border-radius:8px; padding:0.85rem; margin-bottom:1rem; background:var(--success-bg);">
+        <h3 style="margin-top:0;" data-i18n="rdTitle">Looks like these repeat</h3>
+        <p style="color:var(--text-muted); font-size:0.82rem; margin:0 0 0.6rem 0;" data-i18n="rdSubtitle">Already in your books on a steady schedule. Turn one into a rule and it will post itself from now on.</p>
+        <div id="rec-detected-list"></div>
+      </div>
       <div style="border:1px solid var(--border); border-radius:8px; padding:0.85rem; margin-bottom:1rem;">
         <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:0.6rem;">
           <div><label for="rec-name" data-i18n="labelName">Name</label><input type="text" id="rec-name"></div>

@@ -320,7 +320,7 @@ for _m, _p in [
     _add(_m, _p, Perm.BOOKS_WRITE)
 
 # --- Books: recurring rules -------------------------------------------------
-_reads(["/recurring"], Perm.BOOKS_READ)
+_reads(["/recurring", "/recurring/detected"], Perm.BOOKS_READ)
 for _m, _p in [("POST", "/recurring"), ("POST", "/recurring/from-text"),
                ("PATCH", "/recurring/{rule_id}"), ("DELETE", "/recurring/{rule_id}")]:
     _add(_m, _p, Perm.BOOKS_WRITE)

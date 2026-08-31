@@ -76,6 +76,18 @@ def run_due(db: Session = Depends(get_db)) -> dict:
     return materialize_due_rules(db)
 
 
+@router.get("/detected")
+def detected_rules(db: Session = Depends(get_db)) -> list[dict]:
+    """Payments that already repeat on a steady cadence but have no rule yet.
+
+    Read-only: it suggests, the user decides. Series that already match a rule
+    are filtered out so the list doesn't nag about things already automated.
+    """
+    from app.services.recurring_detection import detect_recurring
+
+    return [c.as_dict() for c in detect_recurring(db)]
+
+
 @router.get("", response_model=list[RecurringRuleRead])
 def list_rules(db: Session = Depends(get_db)) -> list[RecurringRuleRead]:
     rows = db.execute(select(RecurringRule).order_by(RecurringRule.next_run_date, RecurringRule.created_at.desc())).scalars().all()

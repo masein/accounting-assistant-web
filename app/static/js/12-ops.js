@@ -245,6 +245,7 @@
         }
       } catch (_) {}
       loadRecurringRules();
+      loadDetectedRecurring();
     }
     (function wireRecurringForm() {
       const btn = document.getElementById('rec-manual-create');
@@ -838,6 +839,66 @@
             body: settle ? JSON.stringify({ post: true }) : '{}' });
           await loadCommitments();
           if (typeof notifyRefresh === 'function') notifyRefresh();
+        } catch (_) { showAlert('error', true); }
+      });
+    })();
+
+    // ═══════ Detected recurring payments ═══════
+    // Suggestions only: the panel hides itself when there's nothing to say, and
+    // creating a rule is always an explicit click.
+    async function loadDetectedRecurring() {
+      const wrap = document.getElementById('rec-detected-wrap');
+      const list = document.getElementById('rec-detected-list');
+      if (!wrap || !list) return;
+      try {
+        const rows = await (await fetch(API + '/recurring/detected')).json();
+        if (!Array.isArray(rows) || !rows.length) { wrap.style.display = 'none'; return; }
+        wrap.style.display = '';
+        list.innerHTML = rows.map(r => {
+          const freq = t('freq_' + r.frequency) || r.frequency;
+          const approx = r.amount_varies ? '≈ ' : '';
+          return `<div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; padding:0.4rem 0; border-top:1px solid var(--border);">
+            <div>
+              <strong dir="auto">${escapeHtml(r.description)}</strong>
+              <div style="font-size:0.8rem; color:var(--text-muted);">
+                ${escapeHtml(approx + formatNum(r.typical_amount))} ${escapeHtml(currencyUnit())} ·
+                ${escapeHtml(freq)} · ${escapeHtml(tf('rdSeenTimes', { n: r.occurrences }))} ·
+                ${escapeHtml(tf('rdNextAbout', { d: formatDisplayDate(r.next_expected) }))}
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm rd-create"
+              data-payload="${escapeHtml(JSON.stringify(r))}">${escapeHtml(t('rdCreateRule'))}</button>
+          </div>`;
+        }).join('');
+      } catch (_) { wrap.style.display = 'none'; }
+    }
+
+    (function wireDetectedRecurring() {
+      const list = document.getElementById('rec-detected-list');
+      if (!list) return;
+      list.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.rd-create');
+        if (!btn) return;
+        let d;
+        try { d = JSON.parse(btn.dataset.payload); } catch (_) { return; }
+        // auto_post stays OFF: the app should not start posting entries by
+        // itself off a guess. The user enables it once they trust the rule.
+        const body = {
+          name: d.description, direction: d.direction, frequency: d.frequency,
+          amount: d.typical_amount, start_date: d.next_expected,
+          next_run_date: d.next_expected,
+          bank_account_code: d.bank_account_code || null,
+          counter_account_code: d.counter_account_code || null,
+          auto_post: false,
+        };
+        try {
+          const res = await fetch(API + '/recurring', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body) });
+          if (!res.ok) { const j = await res.json().catch(() => ({})); showAlert(j.detail || 'error', true); return; }
+          showAlert(t('rdRuleCreated'));
+          await loadRecurringRules();
+          await loadDetectedRecurring();
         } catch (_) { showAlert('error', true); }
       });
     })();

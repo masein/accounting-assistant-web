@@ -78,6 +78,19 @@ from app.services.transaction_fee import (
 )
 
 
+# Transaction building moved to app/services/ledger_posting so services stop
+# importing from the API layer. Re-exported under the old names: several
+# modules and tests import these paths.
+from app.services.ledger_posting import (  # noqa: E402
+    create_transaction_from_payload as _create_transaction_from_payload,
+    get_account_by_code as _get_account_by_code,
+    get_or_create_entity as _get_or_create_entity,
+    load_attachments as _load_attachments,
+    upsert_role_link as _upsert_role_link,
+    validate_balanced_lines as _validate_balanced_lines,
+)
+
+
 def _load_transaction_with_lines(db: Session, t: Transaction) -> None:
     """Ensure transaction lines and their accounts are loaded."""
     _ = t.lines
@@ -171,61 +184,6 @@ def _attachment_to_read(a: TransactionAttachment) -> AttachmentRead:
     )
 
 
-def _load_attachments(db: Session, attachment_ids: list[UUID]) -> list[TransactionAttachment]:
-    if not attachment_ids:
-        return []
-    found = db.execute(
-        select(TransactionAttachment).where(TransactionAttachment.id.in_(attachment_ids))
-    ).scalars().all()
-    by_id = {a.id: a for a in found}
-    missing = [str(i) for i in attachment_ids if i not in by_id]
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Attachment not found: {', '.join(missing)}")
-    return [by_id[i] for i in attachment_ids if i in by_id]
-
-
-def _get_account_by_code(db: Session, code: str) -> Account:
-    code = code.strip()
-    acc = db.execute(select(Account).where(Account.code == code)).scalars().one_or_none()
-    if not acc:
-        raise HTTPException(status_code=400, detail=f"Account not found: {code}")
-    return acc
-
-
-def _get_or_create_entity(db: Session, role: str, name: str) -> Entity:
-    """Find entity by type and name (case-insensitive), or create it."""
-    name = re.sub(r"\s+", " ", (name or "").strip())
-    # Guardrail: reject malformed phrase-like names from chat extraction.
-    lower_name = name.lower()
-    if (
-        len(name) < 2
-        or len(name) > 80
-        or len(name.split()) > 5
-        or re.search(r"\b(via|bank|account|about|project|payment|transaction)\b", lower_name)
-        or lower_name in {"us", "our", "me", "we", "you", "your"}
-    ):
-        raise HTTPException(status_code=400, detail=f"Invalid entity name: {name}")
-    if not name:
-        raise HTTPException(status_code=400, detail="Entity name is empty")
-    role = role.strip().lower()
-    entity_type = role if role in ("client", "bank", "employee", "supplier") else "employee"
-    existing = (
-        db.execute(
-            select(Entity).where(
-                Entity.type == entity_type,
-                Entity.name.ilike(name),
-            )
-        )
-        .scalars().first()
-    )
-    if existing:
-        return existing
-    entity = Entity(type=entity_type, name=name)
-    db.add(entity)
-    db.flush()
-    return entity
-
-
 def _transaction_to_read(t: Transaction) -> TransactionRead:
     lines = [
         TransactionLineRead(
@@ -268,15 +226,6 @@ def _transaction_brief(t: Transaction) -> str:
         desc = desc[:48] + "…"
     jalali = format_jalali(t.date) if t.date else ""
     return f"{t.date.isoformat()} ({jalali}) | ref: {(t.reference or '—')} | {desc}"
-
-
-def _upsert_role_link(db: Session, t: Transaction, role: str, entity: Entity) -> None:
-    role_key = (role or "").strip().lower()
-    existing = next((ln for ln in (t.entity_links or []) if (ln.role or "").strip().lower() == role_key), None)
-    if existing:
-        existing.entity_id = entity.id
-    else:
-        db.add(TransactionEntity(transaction_id=t.id, entity_id=entity.id, role=role_key))
 
 
 def _all_bank_names(db: Session) -> list[str]:
@@ -2284,72 +2233,6 @@ def get_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
     _load_transaction_with_lines(db, t)
     return _transaction_to_read(t)
-
-
-def _create_transaction_from_payload(db: Session, payload: TransactionCreate) -> Transaction:
-    lines_data = payload.lines
-    total_debit = sum(l.debit for l in lines_data)
-    total_credit = sum(l.credit for l in lines_data)
-    if total_debit != total_credit:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Debits ({total_debit}) must equal credits ({total_credit})",
-        )
-    if total_debit == 0 and total_credit == 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Transaction must have non-zero amounts",
-        )
-    # Warn on future-dated transactions (more than 1 day ahead)
-    from datetime import date as _date_type, timedelta
-    if payload.date > _date_type.today() + timedelta(days=1):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Transaction date {payload.date} is in the future. Use today's date or a past date.",
-        )
-    # Block posting / back-dating into a closed (locked) period.
-    from app.services.period_service import assert_period_open
-    assert_period_open(db, payload.date)
-    transaction = Transaction(
-        date=payload.date,
-        reference=payload.reference,
-        description=payload.description,
-        currency=(getattr(payload, "currency", None) or "IRR"),
-    )
-    db.add(transaction)
-    db.flush()
-    for line in lines_data:
-        acc = _get_account_by_code(db, line.account_code)
-        db.add(
-            TransactionLine(
-                transaction_id=transaction.id,
-                account_id=acc.id,
-                debit=line.debit,
-                credit=line.credit,
-                line_description=line.line_description,
-            )
-        )
-    for link in getattr(payload, "entity_links", []) or []:
-        role = link.role.strip().lower()
-        if link.entity_id:
-            entity = db.get(Entity, link.entity_id)
-            if not entity:
-                raise HTTPException(status_code=400, detail=f"Entity not found: {link.entity_id}")
-        else:
-            entity = _get_or_create_entity(db, role, link.name or "")
-        db.add(
-            TransactionEntity(
-                transaction_id=transaction.id,
-                entity_id=entity.id,
-                role=role,
-            )
-        )
-    attachments = _load_attachments(db, getattr(payload, "attachment_ids", []) or [])
-    for a in attachments:
-        if a.transaction_id and a.transaction_id != transaction.id:
-            raise HTTPException(status_code=400, detail=f"Attachment already linked: {a.id}")
-        a.transaction_id = transaction.id
-    return transaction
 
 
 @router.post("", response_model=TransactionRead, status_code=201)

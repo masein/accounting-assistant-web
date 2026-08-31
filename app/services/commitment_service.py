@@ -123,7 +123,7 @@ def settle(db: Session, row: Commitment, *, on: date | None = None, post: bool =
     when = on or date.today()
 
     if post and row.counter_account_code:
-        from app.api.transactions import _create_transaction_from_payload
+        from app.services.ledger_posting import create_transaction_from_payload as _create_transaction_from_payload
         from app.schemas.transaction import TransactionCreate, TransactionLineCreate
         from app.services.account_resolver import AccountResolutionError, resolve_account_code
 

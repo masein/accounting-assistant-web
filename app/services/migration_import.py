@@ -673,7 +673,7 @@ def _post_opening_journal(db: Session, lines: list[dict], opening_date: date, lo
     """Post the opening journal, replacing a previous migration opening journal
     if one exists (re-import updates, never duplicates). Returns
     (transaction, replaced_previous)."""
-    from app.api.transactions import _create_transaction_from_payload
+    from app.services.ledger_posting import create_transaction_from_payload as _create_transaction_from_payload
     from app.schemas.transaction import TransactionCreate
     from app.services.account_resolver import _ensure_account
 

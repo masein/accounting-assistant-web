@@ -81,7 +81,7 @@ def materialize_due_rules(db: Session, *, today: date | None = None) -> dict:
     Commits per rule. Returns a summary dict."""
     from fastapi import HTTPException
 
-    from app.api.transactions import _create_transaction_from_payload
+    from app.services.ledger_posting import create_transaction_from_payload as _create_transaction_from_payload
     from app.schemas.transaction import TransactionCreate
 
     today = today or date.today()

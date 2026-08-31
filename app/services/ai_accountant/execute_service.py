@@ -33,7 +33,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.transactions import _create_transaction_from_payload, _load_transaction_with_lines
+from app.api.transactions import _load_transaction_with_lines
+from app.services.ledger_posting import create_transaction_from_payload as _create_transaction_from_payload
 from app.models.ai_accountant import AIProposal
 from app.models.audit_log import AuditLog
 from app.models.transaction import Transaction

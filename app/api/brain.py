@@ -753,7 +753,7 @@ def batch_approve_rows(
             # same guards as a hand-keyed voucher: balanced legs, no future
             # date, no posting into a closed period, and the statement's own
             # currency (the old inline builder skipped all four).
-            from app.api.transactions import _create_transaction_from_payload
+            from app.services.ledger_posting import create_transaction_from_payload as _create_transaction_from_payload
             from app.schemas.transaction import TransactionCreate, TransactionLineCreate
             from app.services.account_resolver import AccountResolutionError, resolve_account_code
 

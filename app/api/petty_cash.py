@@ -119,7 +119,7 @@ def _get_account(db: Session, account_id: uuid.UUID, user: SessionUser,
 
 def _post_gl(db: Session, *, debit_code: str, credit_code: str, amount: int,
              description: str, entry_date: date | None = None):
-    from app.api.transactions import _create_transaction_from_payload
+    from app.services.ledger_posting import create_transaction_from_payload as _create_transaction_from_payload
     from app.schemas.transaction import TransactionCreate
 
     payload = TransactionCreate(

@@ -76,7 +76,7 @@ def _post(
     shareholder_id=None,
 ) -> Transaction:
     """Build + persist one balanced journal via the canonical posting path."""
-    from app.api.transactions import _create_transaction_from_payload
+    from app.services.ledger_posting import create_transaction_from_payload as _create_transaction_from_payload
 
     payload = TransactionCreate(
         date=txn_date,

@@ -900,7 +900,9 @@ def list_journal_entries(
 
 @router.patch("/journal/{transaction_id}", response_model=TransactionRead)
 def edit_journal_entry(transaction_id: UUID, payload: TransactionUpdate, db: Session = Depends(get_db)) -> TransactionRead:
-    from app.api.transactions import _load_transaction_with_lines, _transaction_to_read, _validate_balanced_lines, _get_account_by_code
+    from app.api.transactions import _load_transaction_with_lines, _transaction_to_read
+    from app.services.ledger_posting import get_account_by_code as _get_account_by_code
+    from app.services.ledger_posting import validate_balanced_lines as _validate_balanced_lines
     from app.models.entity import Entity, TransactionEntity
 
     t = db.get(Transaction, transaction_id)

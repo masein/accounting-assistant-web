@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import (
+    validate_password_strength,
     create_session_token,
     get_current_user,
     hash_password,
@@ -18,6 +19,7 @@ from app.core.config import settings
 from app.core.rate_limit import RateLimiter
 from app.db.session import get_db
 from app.models.user import User
+from app.services.company_service import SUPPORTED_LOCALES, provision_company
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -36,12 +38,21 @@ def _company_dict(company) -> dict | None:
 
 # 5 login attempts per 15 minutes per username
 _login_limiter = RateLimiter(max_requests=5, window_seconds=900)
+_signup_limiter = RateLimiter(max_requests=5, window_seconds=3600)
 SUPPORTED_LANGUAGES = {"en", "fa", "es", "ar"}
 
 
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=128)
+
+
+class SignupRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=1, max_length=128)
+    # What to call their books; defaults to the username.
+    display_name: str | None = Field(default=None, max_length=256)
+    locale: str = Field(default="default")
 
 
 class PasswordChangeRequest(BaseModel):
@@ -122,6 +133,89 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
             "is_superadmin": user.is_superadmin,
             "role": getattr(user, "role", None) or "owner",
             "entity_id": str(user.entity_id) if getattr(user, "entity_id", None) else None,
+            "preferred_language": user.preferred_language or "en",
+        },
+        "company": _company_dict(company),
+    }
+
+
+@router.post("/signup", status_code=201)
+def signup(payload: SignupRequest, request: Request, response: Response,
+           db: Session = Depends(get_db)) -> dict:
+    """Create a personal-finance account and sign the user in.
+
+    Only ever creates a **personal** tenant: an anonymous stranger must not be
+    able to provision a business company with payroll, approvals and user
+    management attached. Business tenants stay super-admin provisioned.
+
+    Off unless the operator sets ALLOW_SELF_SIGNUP. There is no email
+    verification, because this app has no mail infrastructure and is routinely
+    deployed air-gapped — so the protections here are the opt-in flag and a
+    per-IP rate limit. Anyone exposing this to the open internet should add
+    verification before doing so.
+    """
+    if not settings.allow_self_signup:
+        raise HTTPException(status_code=403, detail="Self-signup is disabled on this server.")
+
+    ip = get_client_ip(request)
+    if not _signup_limiter.is_allowed(ip or "unknown"):
+        raise HTTPException(status_code=429, detail="Too many sign-up attempts. Try again later.")
+
+    username = payload.username.strip()
+    try:
+        validate_password_strength(payload.password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    locale = (payload.locale or "default").strip().lower()
+    if locale not in SUPPORTED_LOCALES:
+        raise HTTPException(status_code=400, detail=f"Unsupported locale '{payload.locale}'")
+
+    try:
+        company, user = provision_company(
+            db,
+            name=(payload.display_name or "").strip() or username,
+            locale=locale,
+            base_currency="GBP" if locale == "uk" else "IRR",
+            username=username,
+            password=payload.password,
+            kind="personal",
+        )
+    except ValueError as e:
+        db.rollback()
+        # Covers the duplicate-username case; the message is the service's.
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    audit_log(db, action="signup", entity_type="user", entity_id=str(user.id),
+              detail=f"Self-signup for '{username}'", ip_address=ip)
+    db.commit()
+
+    # Sign them in: they just proved the password, so a second step would be
+    # friction with no security gain.
+    token = create_session_token(
+        user_id=str(user.id), username=user.username, is_admin=user.is_admin,
+        company_id=str(user.company_id) if user.company_id else None,
+        is_superadmin=user.is_superadmin, token_version=user.token_version,
+        role=user.role, entity_id=None,
+    )
+    cookie_secure = (
+        settings.auth_cookie_secure
+        if settings.auth_cookie_secure is not None
+        else request.url.scheme == "https"
+    )
+    response.set_cookie(
+        key=settings.auth_cookie_name, value=token, httponly=True, samesite="lax",
+        secure=cookie_secure, max_age=int(settings.auth_session_hours * 3600), path="/",
+    )
+    return {
+        "ok": True,
+        "user": {
+            "id": str(user.id),
+            "username": user.username,
+            "is_admin": user.is_admin,
+            "is_superadmin": user.is_superadmin,
+            "role": user.role,
+            "entity_id": None,
             "preferred_language": user.preferred_language or "en",
         },
         "company": _company_dict(company),

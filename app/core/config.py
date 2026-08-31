@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     # (see app/core/auth.py), so this can be raised safely over time.
     # Tests lower it — hashing cost otherwise dominates the suite.
     password_hash_iterations: int = 600_000
+    # Public account creation. OFF by default and deliberately so: this app
+    # is deployed for firms, and a deployment that silently started accepting
+    # strangers' signups would be a security regression. Operators opt in.
+    allow_self_signup: bool = False
     # Ask the LLM to place statement rows the deterministic categorizer
     # can't. Costs one batched call per import and sends narrations to the
     # configured backend, so it self-disables when no backend is set — and

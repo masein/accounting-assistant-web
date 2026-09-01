@@ -141,3 +141,8 @@ app. Fix the migration and redeploy.
   published image with no source mount.
 - Put a TLS reverse proxy (Caddy/Nginx/Traefik) in front for a public URL and
   set `APP_CORS_ORIGINS` to that URL.
+- Outgoing mail (signup confirmation, operator alerts) is a separate one-time
+  setup — see **[docs/MAIL_SETUP.md](docs/MAIL_SETUP.md)**. It stays off until
+  `SMTP_HOST` is set, so a deploy without it is fine. Note that the prod stack
+  has no `.env` inside the container: mail variables reach the app only because
+  `docker-compose.prod.yml` passes them through.

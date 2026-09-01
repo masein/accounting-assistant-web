@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from uuid import UUID
 from sqlalchemy import delete
 from sqlalchemy.exc import SQLAlchemyError
@@ -94,6 +94,23 @@ class ReportingLocaleRead(BaseModel):
 
 class ReportingLocaleUpdate(BaseModel):
     locale: str
+
+
+class TestEmailRequest(BaseModel):
+    to: str = Field(..., min_length=3, max_length=254)
+
+
+@router.post("/test-email")
+def send_test_email_endpoint(payload: TestEmailRequest, _=Depends(require_admin)) -> dict:
+    """Send a test message to check the SMTP settings.
+
+    Reports the server's actual reason on failure — "it didn't work" is
+    useless when you are configuring a mail host.
+    """
+    from app.services.mail_service import send_test_email
+
+    ok, message = send_test_email(payload.to.strip())
+    return {"ok": ok, "message": message}
 
 
 @router.get("/ai-config")

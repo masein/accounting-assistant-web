@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import smtplib
-from email.message import EmailMessage
 
 import httpx
 from fastapi import APIRouter, Depends
@@ -47,18 +45,12 @@ async def _send_telegram(text: str) -> bool:
 
 
 def _send_email(text: str) -> bool:
-    if not all([settings.smtp_host, settings.smtp_user, settings.smtp_password, settings.smtp_to]):
+    """Operator alert channel: one fixed recipient, set by SMTP_TO."""
+    from app.services.mail_service import send_email
+
+    if not settings.smtp_to:
         return False
-    msg = EmailMessage()
-    msg["Subject"] = "Accounting Assistant Alerts"
-    msg["From"] = settings.smtp_user
-    msg["To"] = settings.smtp_to
-    msg.set_content(text)
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as s:
-        s.starttls()
-        s.login(settings.smtp_user, settings.smtp_password)
-        s.send_message(msg)
-    return True
+    return send_email(to=settings.smtp_to, subject="Accounting Assistant Alerts", text=text)
 
 
 @router.post("/check", response_model=NotificationCheckResponse)

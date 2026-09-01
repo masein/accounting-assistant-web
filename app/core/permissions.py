@@ -191,6 +191,8 @@ for _p in ("/admin/reporting-locale", "/admin/display-calendar",
     _add("PUT", _p, Perm.SETTINGS_WRITE)
 # AI provider config is an owner-level setting — including the reads, which
 # expose the configured provider/model/base_url (secrets are never returned).
+# Sending a test email exposes the mail host and can emit traffic: owner-only.
+_add("POST", "/admin/test-email", Perm.SETTINGS_WRITE)
 _add("GET", "/admin/ai-config", Perm.AI_CONFIG)
 _add("PATCH", "/admin/ai-config", Perm.AI_CONFIG)
 _add("GET", "/admin/anthropic-config", Perm.AI_CONFIG)

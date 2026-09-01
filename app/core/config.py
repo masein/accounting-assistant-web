@@ -56,10 +56,24 @@ class Settings(BaseSettings):
     slack_webhook_url: str | None = None
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
+    # --- Outgoing mail (DirectAdmin on netixsystem.com, or any SMTP host) ---
+    # Mail is OFF whenever smtp_host is unset, which is also what keeps the
+    # test suite from ever touching the network.
     smtp_host: str | None = None
+    # 587 = STARTTLS (the usual DirectAdmin submission port); 465 = implicit
+    # SSL, which needs smtp_use_ssl=true since TLS is negotiated on connect.
     smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
+    smtp_use_ssl: bool = False
+    smtp_starttls: bool = True
+    smtp_timeout: int = 20
+    # Envelope sender. Defaults to smtp_user, which on DirectAdmin is the full
+    # mailbox address; set it explicitly when sending as a different address.
+    smtp_from: str | None = None
+    smtp_from_name: str = "Accounting Assistant"
+    # Fixed recipient for the operator alert channel (/notifications/check).
+    # Per-user mail (verification, digests) addresses the user instead.
     smtp_to: str | None = None
     auth_secret: str = "change-this-in-production"
     # PBKDF2-HMAC-SHA256 work factor. 600k is the current OWASP figure;

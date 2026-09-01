@@ -58,6 +58,23 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
+      # --- Outgoing mail (verification, alerts). Mail is disabled while
+      # SMTP_HOST is empty, so leaving these unset is safe.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-20}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Accounting Assistant}
+      SMTP_TO: ${SMTP_TO:-}
+      # Absolute base URL used in emailed links — a relative link is useless
+      # in an inbox, so this must be the address users actually browse to.
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:8000}
+      # Public account creation (personal tenants only). Off unless set.
+      ALLOW_SELF_SIGNUP: ${ALLOW_SELF_SIGNUP:-false}
     ports:
       - "${API_PORT:-8000}:8000"
     labels:

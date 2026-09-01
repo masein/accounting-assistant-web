@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from fastapi.responses import RedirectResponse
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -19,6 +20,13 @@ from app.core.config import settings
 from app.core.rate_limit import RateLimiter
 from app.db.session import get_db
 from app.models.user import User
+from app.services.email_verification import (
+    awaiting_verification,
+    consume_token,
+    issue_token,
+    send_verification_email,
+    verification_required,
+)
 from app.services.company_service import SUPPORTED_LOCALES, provision_company
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -50,6 +58,8 @@ class LoginRequest(BaseModel):
 class SignupRequest(BaseModel):
     username: str = Field(min_length=3, max_length=64)
     password: str = Field(min_length=1, max_length=128)
+    # Required only when the server can send mail — see the signup handler.
+    email: str | None = Field(default=None, max_length=254)
     # What to call their books; defaults to the username.
     display_name: str | None = Field(default=None, max_length=256)
     locale: str = Field(default="default")
@@ -73,6 +83,12 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         audit_log(db, action="login_failed", entity_type="user", detail=f"Failed login for '{username}'", ip_address=get_client_ip(request))
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    if awaiting_verification(user):
+        raise HTTPException(
+            status_code=403,
+            detail="Confirm your email address before signing in. Check your inbox for the link.",
+        )
 
     # Upgrade a stale hash now — a successful verify is the only moment the
     # plaintext exists, so raising the work factor can only ever take effect
@@ -167,6 +183,13 @@ def signup(payload: SignupRequest, request: Request, response: Response,
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
+    # Checked before provision_company, which commits: rejecting afterwards
+    # would leave an orphan account holding the username.
+    if verification_required():
+        candidate = (payload.email or "").strip()
+        if not candidate or "@" not in candidate or candidate.startswith("@") or candidate.endswith("@"):
+            raise HTTPException(status_code=400, detail="A valid email address is required.")
+
     locale = (payload.locale or "default").strip().lower()
     if locale not in SUPPORTED_LOCALES:
         raise HTTPException(status_code=400, detail=f"Unsupported locale '{payload.locale}'")
@@ -186,9 +209,27 @@ def signup(payload: SignupRequest, request: Request, response: Response,
         # Covers the duplicate-username case; the message is the service's.
         raise HTTPException(status_code=400, detail=str(e)) from e
 
+    email = (payload.email or "").strip() or None
+    pending_verification = verification_required()
+    if pending_verification:
+        user.email = email
+        issue_token(user)
+    elif email:
+        user.email = email
+
     audit_log(db, action="signup", entity_type="user", entity_id=str(user.id),
               detail=f"Self-signup for '{username}'", ip_address=ip)
     db.commit()
+
+    if pending_verification:
+        # Best effort: the account exists either way, and the user can ask for
+        # another link. Failing the signup over a mail hiccup would be worse.
+        send_verification_email(user)
+        return {
+            "ok": True,
+            "pending_verification": True,
+            "message": f"Account created. Check {email} to confirm your address before signing in.",
+        }
 
     # Sign them in: they just proved the password, so a second step would be
     # friction with no security gain.
@@ -220,6 +261,51 @@ def signup(payload: SignupRequest, request: Request, response: Response,
         },
         "company": _company_dict(company),
     }
+
+
+@router.get("/verify")
+def verify_email(token: str = "", db: Session = Depends(get_db)) -> RedirectResponse:
+    """Confirm an address from the emailed link.
+
+    A GET because it is clicked in a mail client, and it redirects to the login
+    page rather than returning JSON — nobody wants a raw payload in a browser
+    tab. The outcome is carried in the query string so the page can say what
+    happened.
+    """
+    ok, message = consume_token(db, token)
+    from urllib.parse import quote
+
+    return RedirectResponse(
+        url=f"/login?verified={'1' if ok else '0'}&msg={quote(message)}",
+        status_code=303,
+    )
+
+
+@router.post("/resend-verification")
+def resend_verification(payload: LoginRequest, db: Session = Depends(get_db)) -> dict:
+    """Send a fresh confirmation link.
+
+    Credentials are required so this cannot be used to spray mail at an address
+    on someone else's behalf, and the reply is deliberately identical whether
+    or not the account exists — otherwise it would confirm which usernames are
+    registered.
+    """
+    generic = {"ok": True, "message": "If that account needs confirming, a new link is on its way."}
+    if not _login_limiter.is_allowed(f"resend:{payload.username.strip()}"):
+        raise HTTPException(status_code=429, detail="Too many requests. Try again later.")
+
+    user = db.execute(
+        select(User).where(User.username == payload.username.strip())
+    ).scalars().first()
+    if not user or not verify_password(payload.password, user.password_hash, user.password_salt):
+        return generic
+    if not awaiting_verification(user):
+        return generic
+
+    issue_token(user)
+    db.commit()
+    send_verification_email(user)
+    return generic
 
 
 @router.post("/logout")

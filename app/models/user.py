@@ -33,6 +33,18 @@ class User(Base):
     entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Email + verification. Nullable throughout: users provisioned by a
+    # super-admin have never needed an address, and must not be broken by this.
+    # A non-null verification_token means "signed up, not yet confirmed" and is
+    # what gates login — so accounts created before this existed are unaffected.
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True, index=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    verification_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    verification_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # Bumped on password reset / role change / deactivation so old session
     # tokens stop working.
     token_version: Mapped[int] = mapped_column(Integer, default=0)

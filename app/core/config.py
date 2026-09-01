@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     # mailbox address; set it explicitly when sending as a different address.
     smtp_from: str | None = None
     smtp_from_name: str = "Accounting Assistant"
+    # Absolute base URL used in links we email out (verification, etc.).
+    # A relative link is useless in an inbox, so this must be set for mail
+    # to be worth sending.
+    app_public_url: str = "http://localhost:8000"
     # Fixed recipient for the operator alert channel (/notifications/check).
     # Per-user mail (verification, digests) addresses the user instead.
     smtp_to: str | None = None

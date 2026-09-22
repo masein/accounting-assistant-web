@@ -555,6 +555,9 @@ def _perform_reversal(
     if original is None or original.deleted_at is not None:
         raise UndoNotApplicable("Original transaction no longer exists (already undone?).")
 
+    from app.services.statement_import import release_statement_rows
+
+    release_statement_rows(db, original.id)
     svc = LedgerService(db)
     reversal = svc.reverse_journal_entry(
         transaction_id=original_txn_uuid,
@@ -631,6 +634,9 @@ def _perform_delete(
         raise UndoNotApplicable("Original transaction no longer exists (already undone?).")
 
     original.deleted_at = datetime.now(timezone.utc)
+    from app.services.statement_import import release_statement_rows
+
+    release_statement_rows(db, original.id)
     undo_audit = AuditLog(
         action="undo",
         entity_type="transaction",

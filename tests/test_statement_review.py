@@ -177,11 +177,19 @@ def test_closing_balance_gap_uses_the_statement_banks_own_account(db, make_trans
     assert review.balance is not None and review.balance.gap == 0
     assert not any(f.kind == "balance_gap" for f in review.findings)
 
-    # Statement says 1,500 → 500 gap the unrecorded rows don't explain → high.
+    # Statement says 1,500 → a 500 gap. With a row still unrecorded it stays
+    # informational (posting will move it) …
     s2 = _stmt(db, [(date(2031, 6, 2), "deposit", 0, 1_000, 1_500, "unmatched")], bank_name=bank.name)
     review2 = build_statement_review(db, s2)
     gap = next(f for f in review2.findings if f.kind == "balance_gap")
-    assert review2.balance.gap == 500 and gap.severity == "high" and gap.amount == 500
+    assert review2.balance.gap == 500 and gap.severity == "info" and gap.amount == 500
+    # … but once every row is settled, a leftover gap is a real alarm.
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s2.id)).scalar_one()
+    row.recon_status, row.user_approved = "skipped", True
+    db.commit()
+    review3 = build_statement_review(db, s2)
+    gap3 = next(f for f in review3.findings if f.kind == "balance_gap")
+    assert gap3.severity == "high" and gap3.suggested_fix == "review_entry"
 
 
 def test_gap_explained_by_unrecorded_rows_is_informational(db):
@@ -195,6 +203,35 @@ def test_gap_explained_by_unrecorded_rows_is_informational(db):
     assert review.balance.explained is True
     gap = next(f for f in review.findings if f.kind == "balance_gap")
     assert gap.severity == "info" and gap.suggested_fix == "post_row"
+    # The balance check comes after the rows that will move it.
+    kinds = [f.kind for f in review.findings]
+    assert kinds.index("unrecorded") < kinds.index("balance_gap")
+
+
+def test_unexplained_gap_stays_informational_while_rows_are_unrecorded(db):
+    """A brand-new company importing its first statement: 0 in the books, a
+    big closing balance. That is not an alarm yet — post the rows first."""
+    code = "1110"
+    d = date(2031, 10, 1)
+    book = book_balance_as_of(db, code, d)
+    s = _stmt(db, [(d, "first ever row", 500, 0, book + 9_999_000, "unmatched")], bank_name="Fresh Books Bank")
+    review = build_statement_review(db, s)
+    gap = next(f for f in review.findings if f.kind == "balance_gap")
+    assert gap.severity == "info" and gap.suggested_fix == "review_entry"
+    assert "Post the unrecorded rows first" in gap.detail
+    assert [f.kind for f in review.findings][0] == "unrecorded"
+
+
+def test_identical_rows_in_one_statement_are_labelled_as_such(db):
+    d = date(2031, 11, 5)
+    s = _stmt(db, [
+        (d, "خرید اینترنتی پارسیان ۹۹۲۲۸۵۵۲", 1_560_000, 0, None, "unmatched"),
+        (d, "خرید اینترنتی پارسیان ۹۹۲۲۸۵۵۲", 1_560_000, 0, None, "unmatched"),
+    ])
+    review = build_statement_review(db, s)
+    dup = next(f for f in review.findings if f.kind == "duplicate")
+    assert dup.row_index == 2 and dup.category == "same_statement" and dup.matched_amount == 1_560_000
+    assert "row #1" in dup.detail
 
 
 # ---------------------------------------------------------------------------
@@ -274,16 +311,20 @@ def test_confirming_a_row_proposal_marks_the_statement_row_posted(db):
     row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
 
     token = _propose_row(db, row)
+    token2 = _propose_row(db, row)          # a second card raised while the row was still open
     ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
     db.refresh(row)
     assert str(row.created_transaction_id) == ex.transaction_id
     assert row.recon_status == "matched" and row.user_approved is True
 
-    # A second card for the same row must not post it again.
-    token2 = _propose_row(db, row)
+    # Confirming the stale second card must not post the row again …
     with pytest.raises(HTTPException) as ei:
         execute_proposal(db, confirmation_token=token2, actor_user_id=USER)
     assert ei.value.status_code == 409
+    # … and a new card for a posted row is refused at proposal time.
+    from app.services.ai_accountant.base import ToolError
+    with pytest.raises(ToolError):
+        _propose_row(db, row)
     # And the review no longer lists it.
     assert build_statement_review(db, s).clean is True
 
@@ -292,10 +333,109 @@ def test_duplicate_row_cannot_be_posted_from_chat(db):
     from fastapi import HTTPException
     from app.services.ai_accountant.execute_service import execute_proposal
 
-    s = _stmt(db, [(date(2026, 5, 21), "dupe row", 66_000, 0, None, "duplicate")])
+    s = _stmt(db, [(date(2026, 5, 21), "dupe row", 66_000, 0, None, "unmatched")])
     row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
     token = _propose_row(db, row)
+    # Flagged as a duplicate after the card was raised (e.g. an overlapping
+    # re-import) → Confirm is refused.
+    row.recon_status = "duplicate"
+    db.commit()
     with pytest.raises(HTTPException) as ei:
         execute_proposal(db, confirmation_token=token, actor_user_id=USER)
     assert ei.value.status_code == 409
+    # And a fresh card for a duplicate row is refused up front.
+    from app.services.ai_accountant.base import ToolError
+    with pytest.raises(ToolError):
+        _propose_row(db, row)
     assert db.execute(select(Transaction).where(Transaction.description == "dupe row")).scalars().all() == []
+
+
+def test_undoing_a_posted_row_hands_the_row_back(db):
+    from app.services.ai_accountant.execute_service import execute_proposal, undo_action
+
+    s = _stmt(db, [(date(2026, 5, 22), "undo me", 31_000, 0, None, "unmatched")])
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
+    ex = execute_proposal(db, confirmation_token=_propose_row(db, row), actor_user_id=USER)
+    db.refresh(row)
+    assert row.created_transaction_id is not None
+
+    undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+    db.refresh(row)
+    assert row.created_transaction_id is None and row.recon_status == "unmatched" and row.user_approved is False
+    # …and the review offers it again.
+    kinds = [f.kind for f in build_statement_review(db, s).findings]
+    assert "unrecorded" in kinds
+
+
+def test_deleting_a_posted_row_via_rest_hands_the_row_back(auth_client, db):
+    from app.services.ai_accountant.execute_service import execute_proposal
+
+    s = _stmt(db, [(date(2026, 5, 23), "delete me", 32_000, 0, None, "unmatched")])
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
+    ex = execute_proposal(db, confirmation_token=_propose_row(db, row), actor_user_id=USER)
+    r = auth_client.delete(f"/transactions/{ex.transaction_id}")
+    assert r.status_code == 204, r.text
+    db.expire_all()
+    row = db.get(BankStatementRow, row.id)
+    assert row.created_transaction_id is None and row.recon_status == "unmatched"
+
+
+def test_row_proposal_keeps_the_banks_date_even_when_the_message_says_next(db):
+    """The relative-date resolver anchors chat proposals to 'today' when the
+    message has no date; a statement row's date must win over that."""
+    from app.models.ai_accountant import AIProposal
+    from app.services.ai_accountant.base import ToolContext, ToolError
+    from app.services.ai_accountant.proposal_tools import (
+        ProposeCreateTransaction,
+        ProposeCreateTransactionInput,
+    )
+
+    s = _stmt(db, [(date(2026, 6, 27), "کارمزد بل", 120_000, 0, None, "unmatched")])
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
+    ctx = ToolContext(db=db, user_id=USER, username="tester", user_message="next")
+    payload = ProposeCreateTransactionInput(
+        date="2026-09-22", description="Bank fee (model's paraphrase)", currency="IRR",
+        lines=[{"account_code": "6112", "debit": 120_000, "credit": 0},
+               {"account_code": "1110", "debit": 0, "credit": 120_000}],
+        bank_statement_row_id=str(row.id),
+    )
+    out = asyncio.run(ProposeCreateTransaction().run(ctx, payload))
+    prop = db.execute(select(AIProposal).where(AIProposal.confirmation_token == uuid.UUID(out["confirmation_token"]))).scalar_one()
+    assert prop.tool_input["date"] == "2026-06-27"
+    assert prop.tool_input["description"] == "کارمزد بل"   # the bank's narration, verbatim
+    assert "2026-06-27" in out["summary"]
+
+    with pytest.raises(ToolError):
+        asyncio.run(ProposeCreateTransaction().run(ctx, payload.model_copy(update={"bank_statement_row_id": str(uuid.uuid4())})))
+
+
+def test_proposal_tool_refuses_a_row_that_is_already_posted(db, make_transaction):
+    from app.services.ai_accountant.base import ToolContext, ToolError
+    from app.services.ai_accountant.proposal_tools import (
+        ProposeCreateTransaction,
+        ProposeCreateTransactionInput,
+    )
+
+    s = _stmt(db, [(date(2026, 6, 28), "already posted", 48_080_000, 0, None, "unmatched"),
+                   (date(2026, 6, 28), "dup row", 1_000, 0, None, "duplicate")])
+    rows = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)
+                      .order_by(BankStatementRow.row_index)).scalars().all()
+    txn = make_transaction([("6112", 48_080_000, 0), ("1110", 0, 48_080_000)], tx_date=date(2026, 6, 28))
+    rows[0].created_transaction_id = txn.id
+    db.commit()
+    ctx = ToolContext(db=db, user_id=USER, username="tester", user_message="next")
+
+    def payload(row, amount):
+        return ProposeCreateTransactionInput(
+            date="2026-06-28", description="x", currency="IRR",
+            lines=[{"account_code": "6112", "debit": amount, "credit": 0},
+                   {"account_code": "1110", "debit": 0, "credit": amount}],
+            bank_statement_row_id=str(row.id),
+        )
+
+    with pytest.raises(ToolError) as e1:
+        asyncio.run(ProposeCreateTransaction().run(ctx, payload(rows[0], 48_080_000)))
+    assert "already posted" in str(e1.value)
+    with pytest.raises(ToolError) as e2:
+        asyncio.run(ProposeCreateTransaction().run(ctx, payload(rows[1], 1_000)))
+    assert "duplicate" in str(e2.value)

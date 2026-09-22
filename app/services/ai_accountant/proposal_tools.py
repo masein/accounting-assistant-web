@@ -377,11 +377,45 @@ class ProposeCreateTransaction(BaseTool):
         # earlier invoice's date), so resolve relative/missing dates from the
         # server's clock. OCR/document turns keep the document's own date.
         scheduled = _mentions_scheduled(ctx.user_message)
-        args.date = resolve_entry_date(
-            ctx.user_message, args.date,
-            has_attachment=bool(getattr(ctx, "attachment_ids", None)),
-            scheduled=scheduled,
-        )
+        statement_row = None
+        if args.bank_statement_row_id:
+            # Posting a bank-statement row: the bank's date is the truth — not
+            # the model's guess, and not "today" from the relative-date resolver
+            # (the user's message is just "next" or "post it").
+            from app.models.bank_statement import BankStatementRow
+
+            try:
+                statement_row = ctx.db.get(BankStatementRow, uuid.UUID(str(args.bank_statement_row_id)))
+            except (ValueError, TypeError):
+                statement_row = None
+            if statement_row is None:
+                raise ToolError(
+                    f"Bank statement row {args.bank_statement_row_id!r} not found — call "
+                    f"review_bank_statement again and use a row_id from its findings.",
+                    code="statement_row_not_found",
+                )
+            if statement_row.created_transaction_id is not None:
+                raise ToolError(
+                    "That bank statement row is already posted to the books — do not propose it again. "
+                    "Call review_bank_statement for the current findings and take the next one.",
+                    code="statement_row_already_posted",
+                )
+            if statement_row.recon_status == "duplicate":
+                raise ToolError(
+                    "That bank statement row is a duplicate of one already imported — it must not be posted.",
+                    code="statement_row_duplicate",
+                )
+            args.date = statement_row.tx_date
+            # …and so is the bank's narration: weaker models paraphrase or
+            # garble Persian text when copying it into the proposal.
+            if (statement_row.description or "").strip():
+                args.description = statement_row.description.strip()[:1024]
+        else:
+            args.date = resolve_entry_date(
+                ctx.user_message, args.date,
+                has_attachment=bool(getattr(ctx, "attachment_ids", None)),
+                scheduled=scheduled,
+            )
 
         # Future-date guard, enforced server-side against the REAL today (the
         # model judged "future" against its training-era clock and wrongly

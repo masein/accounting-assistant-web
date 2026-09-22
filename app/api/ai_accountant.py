@@ -44,6 +44,9 @@ from app.services.ai_accountant.execute_service import (
 from app.services.ai_accountant.orchestrator import run_chat_turn
 from app.services.audit_service import log_audit_event
 
+import logging
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/ai-accountant", tags=["ai-accountant"])
 
 
@@ -430,6 +433,35 @@ async def chat(
         raise HTTPException(status_code=502, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
+
+    # Step-by-step statement review: the model described a finding but
+    # didn't raise the card (observed on gpt-4o-mini) → raise it for it.
+    def _statement_turn(tc: dict) -> bool:
+        if tc.get("name") == "review_bank_statement":
+            return True
+        inp = tc.get("input") or {}
+        return isinstance(inp, dict) and bool(inp.get("bank_statement_row_id"))
+
+    if not result.proposals and any(_statement_turn(tc) for tc in (result.tool_calls or [])):
+        from app.services.ai_accountant.statement_intake import ensure_statement_row_proposal
+
+        try:
+            extra = await ensure_statement_row_proposal(
+                db, user_id=user.user_id, username=user.username,
+                session_id=result.session_id, user_message=payload.message,
+                tool_calls=result.tool_calls or [], assistant_text=result.text,
+            )
+        except Exception:  # noqa: BLE001 — never fail the turn over the safety net
+            logger.warning("statement row proposal safety net failed", exc_info=True)
+            extra = None
+        if extra:
+            result.proposals.append(extra)
+            hint = (
+                "👉 برای ثبت این ردیف، روی «Confirm» کارت زیر بزنید (یا «Cancel»)."
+                if _user_language(db, user) == "fa"
+                else "👉 Click Confirm on the card below to record this row (or Cancel to skip it)."
+            )
+            result.text = ((result.text or "").rstrip() + "\n\n" + hint).strip()
     return ChatResponse(
         session_id=result.session_id,
         text=result.text,

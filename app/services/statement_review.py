@@ -41,8 +41,11 @@ from app.schemas.brain import (
     StatementReviewResponse,
 )
 
-_ORDER = {"balance_gap": 0, "amount_mismatch": 1, "missing_in_bank": 2,
-          "needs_confirmation": 3, "unrecorded": 4, "duplicate": 5}
+# What the user should look at first: entries the books got wrong, then
+# entries the books are missing, then the closing-balance check (which moves
+# as the unrecorded rows get posted, so it comes after them), then FYIs.
+_ORDER = {"amount_mismatch": 0, "missing_in_bank": 1, "needs_confirmation": 2,
+          "unrecorded": 3, "balance_gap": 4, "duplicate": 5}
 
 
 def bank_account_for_statement(db: Session, stmt: BankStatement) -> str | None:
@@ -121,9 +124,21 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
             description=row.description, amount=amount, direction=direction,
         )
         if row.recon_status == "duplicate":
+            # Flagged at import (an earlier statement already carried this row)
+            # or by reconcile (an identical row higher up in THIS statement —
+            # same day, amount and narration — which may be a double charge).
+            twin = next((r for r in rows if r.row_index < row.row_index and r.tx_date == row.tx_date
+                         and r.debit == row.debit and r.credit == row.credit
+                         and (r.description or "") == (row.description or "")), None)
             findings.append(StatementFinding(
                 id=f"row:{row.id}", kind="duplicate", severity="info", suggested_fix="none",
-                detail="Already imported from an earlier statement; not posted again.", **base,
+                detail=(f"Identical to row #{twin.row_index} of this statement (same day, amount and "
+                        f"narration) — check with the bank whether you were charged twice."
+                        if twin else "Already imported from an earlier statement; not posted again."),
+                matched_amount=(twin.debit or twin.credit) if twin else None,
+                matched_date=twin.tx_date if twin else None,
+                category="same_statement" if twin else "earlier_statement",
+                **base,
             ))
             continue
         if row.created_transaction_id is not None or row.recon_status in ("matched", "skipped"):
@@ -198,15 +213,22 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
             explained=(gap == unrecorded_net),
         )
         if gap != 0:
+            # While unrecorded rows remain, the gap is expected to move — keep it
+            # informational; it only becomes a real alarm once the rows are in.
+            has_unrecorded = any(f.kind == "unrecorded" for f in findings)
             findings.append(StatementFinding(
-                id="balance", kind="balance_gap", severity="high" if not balance.explained else "info",
+                id="balance", kind="balance_gap",
+                severity="info" if (balance.explained or has_unrecorded) else "high",
                 tx_date=as_of, amount=abs(gap), direction="in" if gap > 0 else "out",
                 suggested_account_code=bank_code, suggested_account_name=name_of(bank_code),
                 suggested_fix="post_row" if balance.explained else "review_entry",
                 detail=(f"Statement closes at {last.balance:,}; the books show {book:,} on "
                         f"{bank_code}. " + ("Posting the unrecorded rows closes the gap."
                                            if balance.explained else
-                                           "The unrecorded rows do not explain the whole gap.")),
+                                           ("Post the unrecorded rows first, then re-check; the rest is "
+                                            "usually an opening balance the books never recorded."
+                                            if has_unrecorded else
+                                            "The unrecorded rows do not explain the whole gap."))),
             ))
 
     findings.sort(key=lambda f: (_ORDER.get(f.kind, 9), f.tx_date or date.min, f.row_index or 0))

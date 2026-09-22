@@ -509,3 +509,18 @@ def classify_fee_row(row: BankStatementRow) -> str | None:
     if any(k in low for k in _FEE_KEYWORDS):
         return "bank_fee"
     return None
+
+
+def release_statement_rows(db: Session, transaction_id) -> int:
+    """A transaction that was posted from a statement row and is now being
+    undone, reversed or deleted must hand the row back: otherwise the row
+    stays "posted" forever and the review never offers it again. Returns the
+    number of rows released."""
+    rows = db.execute(
+        select(BankStatementRow).where(BankStatementRow.created_transaction_id == transaction_id)
+    ).scalars().all()
+    for row in rows:
+        row.created_transaction_id = None
+        row.user_approved = False
+        row.recon_status = "unmatched"
+    return len(rows)

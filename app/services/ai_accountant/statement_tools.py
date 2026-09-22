@@ -81,13 +81,20 @@ class ReviewBankStatement(BaseTool):
         data["findings_truncated"] = total > args.max_findings
         data["how_to_fix"] = {
             "post_row": (
-                "propose_create_transaction with bank_statement_row_id=<row_id>; a bank DEBIT "
+                "Call propose_create_transaction NOW, in this same turn, with bank_statement_row_id=<row_id> "
+                "— do NOT ask the user whether to proceed first; the confirm card is how they answer. A bank DEBIT "
                 "(direction 'out') is Dr <suggested/expense account> / Cr <bank_account_code>, a "
                 "bank CREDIT ('in') is Dr <bank_account_code> / Cr <revenue or receivable>. Use "
-                "the statement's currency and the row's date and description."
+                "the statement's currency, the row's date, and the row's description COPIED VERBATIM (never paraphrased or translated)."
             ),
             "approve_match": "No posting: tell the user it is the same entry and to approve it on the Bank Statements page.",
             "review_entry": "Explain both sides and ask the user which is right before proposing anything.",
+            "balance_gap": (
+                "Handle LAST. While unrecorded rows remain, just mention that the closing balance will be "
+                "re-checked after they are posted; a leftover gap is usually an opening balance the books "
+                "never recorded — offer to post it as an opening entry only if the user confirms."
+            ),
+            "duplicate": "No posting. category=same_statement means an identical row in this statement (possible double charge) — mention it once.",
         }
         return data
 

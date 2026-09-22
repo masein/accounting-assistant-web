@@ -1560,6 +1560,9 @@ def delete_transaction(
     _log_transaction_audit(db, "delete", t)
     # Soft delete: mark as deleted instead of removing from DB
     t.deleted_at = datetime.now(timezone.utc)
+    # A statement row posted as this entry becomes postable again.
+    from app.services.statement_import import release_statement_rows
+    release_statement_rows(db, t.id)
     db.commit()
     from app.api.reports import invalidate_dashboard_cache
     invalidate_dashboard_cache()

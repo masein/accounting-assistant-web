@@ -21,16 +21,19 @@ context, exactly as before.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.transaction import TransactionAttachment
 
 logger = logging.getLogger(__name__)
+_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
 
 
 @dataclass
@@ -213,3 +216,142 @@ async def maybe_statement_intake(
         }
         return StatementTurn(text=_reply(lang, intake), intake=intake)
     return None
+
+
+def _pending_row_ids(db: Session, user_id: str, session_id: str | None) -> set[str]:
+    """Statement rows that already have a live pending card in THIS chat
+    session. Cards in other sessions aren't on the user's screen, and a row
+    can't be posted twice anyway (execute refuses), so they don't count."""
+    from app.models.ai_accountant import AIProposal
+
+    from datetime import datetime, timedelta, timezone
+
+    from app.services.ai_accountant.proposal_tools import PROPOSAL_TTL
+
+    q = select(AIProposal).where(AIProposal.status == "pending",
+                                 AIProposal.tool_name == "propose_create_transaction",
+                                 AIProposal.user_id == str(user_id),
+                                 # a card past its TTL can't be confirmed any more
+                                 AIProposal.created_at >= datetime.now(timezone.utc) - PROPOSAL_TTL)
+    if session_id:
+        q = q.where(AIProposal.session_id == str(session_id))
+    out: set[str] = set()
+    for p in db.execute(q).scalars().all():
+        rid = (p.tool_input or {}).get("bank_statement_row_id")
+        if rid:
+            out.add(str(rid))
+    return out
+
+
+async def ensure_statement_row_proposal(
+    db: Session,
+    *,
+    user_id: str,
+    username: str | None,
+    session_id: str | None,
+    user_message: str,
+    tool_calls: list[dict[str, Any]],
+    assistant_text: str | None = None,
+) -> dict[str, Any] | None:
+    """Safety net for the step-by-step review.
+
+    The prompt tells the model to raise a proposal card for the first
+    unrecorded row; gpt-4o-mini reliably *describes* the row and then asks
+    "shall I record it?" instead of calling the tool. When a turn called
+    ``review_bank_statement`` and registered no proposal, build the card the
+    model should have built — for the first unrecorded row without a pending
+    card — through the very same proposal tool, so validation, audit and the
+    Confirm gate are identical. Returns the tool's result dict or None.
+    """
+    from sqlalchemy import select as _select
+
+    from app.models.bank_statement import BankStatement
+    from app.services.account_resolver import resolve_account_code
+    from app.services.ai_accountant.base import ToolContext, ToolError
+    from app.services.ai_accountant.proposal_tools import (
+        ProposeCreateTransaction,
+        ProposeCreateTransactionInput,
+    )
+    from app.services.statement_review import build_statement_review
+
+    from app.models.bank_statement import BankStatementRow
+
+    stmt_id = None
+    row_id = None
+    for tc in tool_calls or []:
+        args = tc.get("input") or tc.get("args") or tc.get("arguments") or {}
+        if not isinstance(args, dict):
+            continue
+        if tc.get("name") == "review_bank_statement" and args.get("statement_id"):
+            stmt_id = args["statement_id"]
+        if args.get("bank_statement_row_id"):
+            row_id = args["bank_statement_row_id"]
+    stmt = None
+    if stmt_id:
+        try:
+            stmt = db.get(BankStatement, uuid.UUID(str(stmt_id)))
+        except (ValueError, TypeError):
+            stmt = None
+    if stmt is None and row_id:
+        # The model re-tried a row (already posted, say): its statement is the one under review.
+        try:
+            row = db.get(BankStatementRow, uuid.UUID(str(row_id)))
+        except (ValueError, TypeError):
+            row = None
+        if row is not None:
+            stmt = db.get(BankStatement, row.statement_id)
+    if stmt is None:
+        stmt = db.execute(_select(BankStatement).order_by(BankStatement.created_at.desc())).scalars().first()
+    if stmt is None:
+        return None
+
+    review = build_statement_review(db, stmt)
+    pending = _pending_row_ids(db, user_id, session_id)
+    candidates = [f for f in review.findings
+                  if f.kind == "unrecorded" and f.suggested_fix == "post_row" and f.row_id
+                  and str(f.row_id) not in pending]
+    if not candidates:
+        return None
+    # Prefer the row the model actually described (its amount appears in the
+    # reply) so the card under the text is the one the text talks about.
+    finding = None
+    digits = re.sub(r"[^\d]", "", (assistant_text or "").translate(_DIGITS))
+    if assistant_text:
+        for f in candidates:
+            amt = str(int(f.amount or 0))
+            if amt and (f"{int(f.amount):,}" in assistant_text or amt in digits):
+                finding = f
+                break
+    if finding is None:
+        finding = candidates[0]
+    try:
+        bank_code = review.bank_account_code or resolve_account_code(db, "bank")
+        counter = finding.suggested_account_code or resolve_account_code(
+            db, "expense" if finding.direction == "out" else "revenue"
+        )
+    except Exception:
+        return None
+    amount = int(finding.amount or 0)
+    if amount <= 0:
+        return None
+    if finding.direction == "out":
+        lines = [{"account_code": counter, "debit": amount, "credit": 0},
+                 {"account_code": bank_code, "debit": 0, "credit": amount}]
+    else:
+        lines = [{"account_code": bank_code, "debit": amount, "credit": 0},
+                 {"account_code": counter, "debit": 0, "credit": amount}]
+    try:
+        payload = ProposeCreateTransactionInput(
+            date=finding.tx_date,
+            description=(finding.description or f"Bank statement row #{finding.row_index}")[:1024],
+            currency=stmt.currency or "IRR",
+            lines=lines,
+            bank_statement_row_id=str(finding.row_id),
+        )
+        ctx = ToolContext(db=db, user_id=user_id, username=username,
+                          chat_session_id=str(session_id) if session_id else None,
+                          user_message=user_message)
+        return await ProposeCreateTransaction().run(ctx, payload)
+    except (ToolError, ValueError) as e:  # closed period, bad account … — leave it to the model
+        logger.info("statement row proposal safety net skipped: %s", e)
+        return None

@@ -157,3 +157,141 @@ def test_unreadable_statement_gets_a_clear_reply(db, tmp_path, monkeypatch):
     out = asyncio.run(maybe_statement_intake(db, user_role="owner", attachments=[att], message="", lang="fa"))
     assert out is not None and out.intake["status"] == "failed"
     assert "CSV" in out.text
+
+
+def test_review_turn_without_a_card_gets_one_built_for_the_first_unrecorded_row(auth_client, db, monkeypatch):
+    """gpt-4o-mini describes the row and asks 'shall I record it?' instead of
+    calling the proposal tool; the server raises the card itself."""
+    import app.api.ai_accountant as api
+    from app.models.ai_accountant import AIProposal
+    from app.models.bank_statement import BankStatement, BankStatementRow
+    from app.services.ai_accountant.orchestrator import ChatResult
+
+    s = BankStatement(bank_name="Net Bank", source_type="csv", source_filename="net.csv", currency="IRR",
+                      from_date=date(2026, 5, 1), to_date=date(2026, 5, 31), status="parsed", total_rows=2)
+    db.add(s); db.flush()
+    r1 = BankStatementRow(statement_id=s.id, row_index=1, tx_date=date(2026, 5, 3), description="کارمزد بانکی",
+                          debit=120_000, credit=0, confidence=1.0, recon_status="unmatched", suggested_account_code="6112")
+    r2 = BankStatementRow(statement_id=s.id, row_index=2, tx_date=date(2026, 5, 4), description="واریز مشتری",
+                          debit=0, credit=900_000, confidence=1.0, recon_status="unmatched")
+    db.add_all([r1, r2]); db.commit()
+
+    stable_session = str(uuid.uuid4())
+
+    async def described_but_no_card(*a, **k):
+        return ChatResult(session_id=stable_session, text="Row 1 is a bank fee of 120,000. Shall I record it?",
+                          proposals=[], tool_calls=[{"name": "review_bank_statement", "input": {"statement_id": str(s.id)}}],
+                          stop_reason="end_turn", turns=2)
+
+    monkeypatch.setattr(api, "run_chat_turn", described_but_no_card)
+    resp = _chat(auth_client, f"Review bank statement {s.id} step by step")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body["proposals"]) == 1
+    assert "Click Confirm" in body["text"]
+    prop = db.execute(select(AIProposal).where(
+        AIProposal.confirmation_token == uuid.UUID(body["proposals"][0]["confirmation_token"]))).scalar_one()
+    assert prop.tool_input["bank_statement_row_id"] == str(r1.id)
+    legs = {(l["account_code"], l["debit"], l["credit"]) for l in prop.tool_input["lines"]}
+    assert legs == {("6112", 120_000, 0), ("1110", 0, 120_000)}   # money out: Dr expense / Cr bank
+
+    # The same turn again in the same session (card still pending) moves on
+    # to the next row; the text names no amount, so the first free row wins.
+    resp2 = _chat(auth_client, "next", session_id=body["session_id"])
+    prop2 = db.execute(select(AIProposal).where(
+        AIProposal.confirmation_token == uuid.UUID(resp2.json()["proposals"][0]["confirmation_token"]))).scalar_one()
+    assert prop2.tool_input["bank_statement_row_id"] == str(r2.id)
+    legs2 = {(l["account_code"], l["debit"], l["credit"]) for l in prop2.tool_input["lines"]}
+    assert ("1110", 900_000, 0) in legs2                              # money in: Dr bank
+
+    # Confirming posts the row and the statement remembers it.
+    ex = auth_client.post("/ai-accountant/execute", json={"confirmation_token": str(prop.confirmation_token)})
+    assert ex.status_code == 200, ex.text
+    db.expire_all()
+    assert str(db.get(BankStatementRow, r1.id).created_transaction_id) == ex.json()["transaction_id"]
+
+
+def test_safety_net_stays_quiet_when_the_model_did_its_job(auth_client, db, monkeypatch):
+    import app.api.ai_accountant as api
+    from app.services.ai_accountant.orchestrator import ChatResult
+
+    async def with_card(*a, **k):
+        return ChatResult(session_id=str(uuid.uuid4()), text="Proposed.", tool_calls=[{"name": "review_bank_statement", "input": {}}],
+                          proposals=[{"confirmation_token": str(uuid.uuid4()), "tool_name": "propose_create_transaction",
+                                      "summary": "x", "preview": {}}], stop_reason="end_turn", turns=2)
+
+    monkeypatch.setattr(api, "run_chat_turn", with_card)
+    body = _chat(auth_client, "review").json()
+    assert len(body["proposals"]) == 1 and "Click Confirm" not in body["text"]
+
+
+def test_safety_net_builds_the_card_for_the_row_the_model_described(db):
+    """When the model narrates row 2 (its amount is in the text), the card must
+    be for row 2 even though row 1 is also unrecorded."""
+    from app.models.ai_accountant import AIProposal
+    from app.models.bank_statement import BankStatement, BankStatementRow
+    from app.services.ai_accountant.statement_intake import ensure_statement_row_proposal
+
+    s = BankStatement(bank_name="Match Bank", source_type="csv", source_filename="m.csv", currency="IRR",
+                      from_date=date(2026, 4, 1), to_date=date(2026, 4, 30), status="parsed", total_rows=2)
+    db.add(s); db.flush()
+    r1 = BankStatementRow(statement_id=s.id, row_index=1, tx_date=date(2026, 4, 3), description="اول", debit=120_000, credit=0, confidence=1.0, recon_status="unmatched")
+    r2 = BankStatementRow(statement_id=s.id, row_index=2, tx_date=date(2026, 4, 4), description="دوم", debit=600_000_000, credit=0, confidence=1.0, recon_status="unmatched")
+    db.add_all([r1, r2]); db.commit()
+
+    out = asyncio.run(ensure_statement_row_proposal(
+        db, user_id="u-match", username="t", session_id=None, user_message="next",
+        tool_calls=[{"name": "review_bank_statement", "input": {"statement_id": str(s.id)}}],
+        assistant_text="Next: 2026-04-04, ۶۰۰٬۰۰۰٬۰۰۰ ریال left the account — دوم. Shall I record it?",
+    ))
+    prop = db.execute(select(AIProposal).where(AIProposal.confirmation_token == uuid.UUID(out["confirmation_token"]))).scalar_one()
+    assert prop.tool_input["bank_statement_row_id"] == str(r2.id)
+    assert prop.tool_input["description"] == "دوم" and prop.tool_input["date"] == "2026-04-04"
+
+    # No amount in the text → first unrecorded row without a pending card (r1).
+    out2 = asyncio.run(ensure_statement_row_proposal(
+        db, user_id="u-match", username="t", session_id=None, user_message="next",
+        tool_calls=[{"name": "review_bank_statement", "input": {"statement_id": str(s.id)}}],
+        assistant_text="Shall we continue?",
+    ))
+    prop2 = db.execute(select(AIProposal).where(AIProposal.confirmation_token == uuid.UUID(out2["confirmation_token"]))).scalar_one()
+    assert prop2.tool_input["bank_statement_row_id"] == str(r1.id)
+    # Both rows now carry a pending card → nothing left to build.
+    assert asyncio.run(ensure_statement_row_proposal(
+        db, user_id="u-match", username="t", session_id=None, user_message="next",
+        tool_calls=[{"name": "review_bank_statement", "input": {"statement_id": str(s.id)}}],
+    )) is None
+
+
+def test_safety_net_also_fires_when_the_model_tried_a_posted_row(auth_client, db, monkeypatch, make_transaction):
+    """'next' after a confirm: the model re-tries the posted row (the tool
+    refuses), describes the next one and asks — the card is built for the one
+    it described."""
+    import app.api.ai_accountant as api
+    from app.models.ai_accountant import AIProposal
+    from app.models.bank_statement import BankStatement, BankStatementRow
+    from app.services.ai_accountant.orchestrator import ChatResult
+
+    s = BankStatement(bank_name="Retry Bank", source_type="csv", source_filename="r.csv", currency="IRR",
+                      from_date=date(2026, 3, 1), to_date=date(2026, 3, 31), status="parsed", total_rows=2)
+    db.add(s); db.flush()
+    posted = make_transaction([("6112", 120_000, 0), ("1110", 0, 120_000)], tx_date=date(2026, 3, 3), description="posted")
+    r1 = BankStatementRow(statement_id=s.id, row_index=1, tx_date=date(2026, 3, 3), description="posted", debit=120_000, credit=0,
+                          confidence=1.0, recon_status="matched", user_approved=True, created_transaction_id=posted.id)
+    r2 = BankStatementRow(statement_id=s.id, row_index=2, tx_date=date(2026, 3, 4), description="open", debit=600_000_000, credit=0,
+                          confidence=1.0, recon_status="unmatched")
+    db.add_all([r1, r2]); db.commit()
+
+    async def retried_posted_row(*a, **k):
+        return ChatResult(session_id=str(uuid.uuid4()),
+                          text="That one is already recorded. Next: 600,000,000 IRR left the account on 2026-03-04. Shall I record it?",
+                          proposals=[], tool_calls=[{"name": "propose_create_transaction",
+                                                     "input": {"bank_statement_row_id": str(r1.id)}}],
+                          stop_reason="end_turn", turns=3)
+
+    monkeypatch.setattr(api, "run_chat_turn", retried_posted_row)
+    body = _chat(auth_client, "next").json()
+    assert len(body["proposals"]) == 1
+    prop = db.execute(select(AIProposal).where(
+        AIProposal.confirmation_token == uuid.UUID(body["proposals"][0]["confirmation_token"]))).scalar_one()
+    assert prop.tool_input["bank_statement_row_id"] == str(r2.id)

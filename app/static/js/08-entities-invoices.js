@@ -125,7 +125,7 @@
               <button type="button" class="btn btn-secondary btn-sm edit-entity" data-entity-id="${e.id}" data-entity-type="${escapeHtml(e.type)}" data-entity-name="${escapeHtml(e.name)}" data-entity-code="${escapeHtml(e.code || '')}">Edit</button>
               <button type="button" class="btn btn-danger btn-sm delete-entity" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}" style="margin-left:0.35rem;">Delete</button>
             </td>
-            <td><button type="button" class="btn btn-secondary btn-sm view-entity-txns" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}">View transactions</button></td>
+            <td><button type="button" class="btn btn-secondary btn-sm view-entity-txns" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}" data-entity-type="${escapeHtml(e.type || '')}">${escapeHtml(t('entTxViewBtn'))}</button></td>
           `;
           tbody.appendChild(tr);
         });
@@ -144,7 +144,7 @@
 
     document.getElementById('entities-tbody').addEventListener('click', (e) => {
       const btn = e.target.closest('.view-entity-txns');
-      if (btn) openEntityTransactions(btn.dataset.entityId, btn.dataset.entityName || '');
+      if (btn) openEntityTransactions(btn.dataset.entityId, btn.dataset.entityName || '', btn.dataset.entityType || '');
       const editBtn = e.target.closest('.edit-entity');
       if (editBtn) editEntity(editBtn);
       const delBtn = e.target.closest('.delete-entity');
@@ -930,13 +930,22 @@
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
 
-    async function openEntityTransactions(entityId, entityName) {
+    // Maps an entity type to the voucher link role it is saved under.
+    function entityRoleForType(type) {
+      const tp = String(type || '').toLowerCase();
+      if (tp === 'employee') return 'payee';
+      if (tp === 'client' || tp === 'bank' || tp === 'supplier' || tp === 'payee') return tp;
+      return '';
+    }
+
+    async function openEntityTransactions(entityId, entityName, entityType) {
       const modal = document.getElementById('account-modal');
       const body = document.getElementById('account-modal-body');
       const title = document.getElementById('account-modal-title');
-      currentEntityContext = { entityId, entityName };
-      title.textContent = 'Transactions with ' + entityName + ' — Loading…';
-      body.innerHTML = '<p class="empty-state">Loading…</p>';
+      const prevType = (currentEntityContext && currentEntityContext.entityId === entityId) ? currentEntityContext.entityType : '';
+      currentEntityContext = { entityId, entityName, entityType: entityType || prevType || '', controlAccount: null };
+      title.textContent = tf('entTxTitle', { name: entityName }) + ' — ' + t('loading');
+      body.innerHTML = '<p class="empty-state">' + escapeHtml(t('loading')) + '</p>';
       modal.style.display = 'flex';
       try {
         const res = await fetch(API + '/reports/entities/' + encodeURIComponent(entityId) + '/transactions');
@@ -944,44 +953,65 @@
         const transactions = await res.json();
         entityTransactionsCache = transactions || [];
         await loadEntityOptions();
-        title.textContent = 'Transactions with ' + entityName;
+        title.textContent = tf('entTxTitle', { name: entityName });
+        if (transactions.length) {
+          const first = transactions[0];
+          currentEntityContext.controlAccount = first.entity_control_account || null;
+          if (!currentEntityContext.entityType) {
+            const own = (first.entity_links || []).find(l => l.entity_id === entityId);
+            if (own && own.entity_type) currentEntityContext.entityType = own.entity_type;
+          }
+        }
+        // Manual entry from the statement itself (QA: "no feature for adding
+        // transactions manually") — opens the editor in create mode with the
+        // entity already linked.
+        const toolbar = `
+          <div style="display:flex; justify-content:flex-end; margin-bottom:0.5rem;">
+            <button type="button" class="btn btn-primary btn-sm entity-tx-add">${escapeHtml(t('entTxAddBtn'))}</button>
+          </div>`;
         if (!transactions.length) {
-          body.innerHTML = '<p class="empty-state">No transactions linked to this entity yet. Link entities when saving a voucher to see them here.</p>';
+          body.innerHTML = toolbar + '<p class="empty-state">' + escapeHtml(t('entTxEmpty')) + '</p>';
           return;
         }
-        body.innerHTML = `
+        // Statement-of-account columns: Debtor = the entity paid / gave,
+        // Creditor = the entity received, Remaining = running balance.
+        const money = (n, ccy) => (n ? formatMoney(n, ccy) : '');
+        body.innerHTML = toolbar + `
           <table class="detail-table">
-            <thead><tr><th>Date</th><th>Reference</th><th>Ccy</th><th>Description</th><th>Attachments</th><th class="num">This entity</th><th class="num">Total debit</th><th class="num">Total credit</th><th>Actions</th></tr></thead>
+            <thead><tr>
+              <th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('entTxColCcy'))}</th>
+              <th>${escapeHtml(t('labelDescription'))}</th><th>${escapeHtml(t('entTxColAttachments'))}</th>
+              <th class="num" title="${escapeHtml(t('entTxDebtorHint'))}">${escapeHtml(t('entTxDebtor'))}</th>
+              <th class="num" title="${escapeHtml(t('entTxCreditorHint'))}">${escapeHtml(t('entTxCreditor'))}</th>
+              <th class="num" title="${escapeHtml(t('entTxRemainingHint'))}">${escapeHtml(t('entTxRemaining'))}</th>
+              <th>${escapeHtml(t('entTxColActions'))}</th>
+            </tr></thead>
             <tbody>
-              ${transactions.map(t => {
-                const totalD = (t.lines || []).reduce((s, l) => s + (l.debit || 0), 0);
-                const totalC = (t.lines || []).reduce((s, l) => s + (l.credit || 0), 0);
-                // the entity's OWN share of an aggregate journal (e.g. the
-                // migration opening entry), when the link carries it
-                const ownLink = (t.entity_links || []).find(l => l.entity_id === entityId && l.amount != null);
-                const ccy = (t.currency || 'IRR').toUpperCase();
-                const share = ownLink
-                  ? formatMoney(Math.abs(ownLink.amount), ccy) + (ownLink.amount >= 0 ? ' DR' : ' CR')
-                  : '—';
-                const att = (t.attachments || []);
+              ${transactions.map(t0 => {
+                const ccy = (t0.currency || 'IRR').toUpperCase();
+                const att = (t0.attachments || []);
                 const attHtml = att.length
                   ? att.map(a => {
                       const href = encodeURI(String(a.url || ''));
                       return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(a.file_name || 'attachment')}</a>`;
                     }).join('<br>')
                   : '—';
+                const placed = t0.entity_placed !== false;
+                const paid = placed ? money(t0.entity_paid, ccy) : '—';
+                const received = placed ? money(t0.entity_received, ccy) : '—';
+                const remaining = placed ? formatMoney(t0.entity_balance || 0, ccy) : '—';
                 return `<tr>
-                  <td>${escapeHtml(formatDateDual(t.date))}</td>
-                  <td>${escapeHtml(t.reference || '—')}</td>
+                  <td>${escapeHtml(formatDateDual(t0.date))}</td>
+                  <td>${escapeHtml(t0.reference || '—')}</td>
                   <td><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
-                  <td>${escapeHtml((t.description || '—').slice(0, 50))}${(t.description && t.description.length > 50) ? '…' : ''}</td>
+                  <td>${escapeHtml((t0.description || '—').slice(0, 50))}${(t0.description && t0.description.length > 50) ? '…' : ''}</td>
                   <td>${attHtml}</td>
-                  <td class="num">${share}</td>
-                  <td class="num">${formatMoney(totalD, ccy)}</td>
-                  <td class="num">${formatMoney(totalC, ccy)}</td>
+                  <td class="num">${paid}</td>
+                  <td class="num">${received}</td>
+                  <td class="num" style="font-weight:600;">${remaining}</td>
                   <td>
-                    <button type="button" class="btn btn-secondary btn-sm entity-tx-edit" data-tx-id="${t.id}">Edit</button>
-                    <button type="button" class="btn btn-danger btn-sm entity-tx-del" data-tx-id="${t.id}" style="margin-left:0.35rem;">Delete</button>
+                    <button type="button" class="btn btn-secondary btn-sm entity-tx-edit" data-tx-id="${t0.id}">${escapeHtml(t('btnEdit'))}</button>
+                    <button type="button" class="btn btn-danger btn-sm entity-tx-del" data-tx-id="${t0.id}" style="margin-left:0.35rem;">${escapeHtml(t('btnDelete'))}</button>
                   </td>
                 </tr>`;
               }).join('')}
@@ -989,7 +1019,7 @@
           </table>
         `;
       } catch (err) {
-        body.innerHTML = '<p class="empty-state">Error loading transactions.</p>';
+        body.innerHTML = '<p class="empty-state">' + escapeHtml(t('entTxLoadError')) + '</p>';
       }
     }
 
@@ -1020,10 +1050,27 @@
       `;
     }
 
-    function openEntityTransactionEditor(tx) {
+    function openEntityTransactionEditor(txOrNull) {
       const body = document.getElementById('account-modal-body');
       const title = document.getElementById('account-modal-title');
-      title.textContent = 'Edit transaction';
+      const creating = !txOrNull;
+      let tx = txOrNull;
+      if (creating) {
+        // New journal with the current entity already linked under its role
+        // and its control account on the first line, so a non-accountant
+        // only has to fill the amount and the counter account.
+        const ctx = currentEntityContext || {};
+        const role = entityRoleForType(ctx.entityType);
+        tx = {
+          date: new Date().toISOString().slice(0, 10),
+          reference: '', description: '',
+          entity_links: role ? [{ role, entity_id: ctx.entityId }] : [],
+          lines: [{ account_code: ctx.controlAccount || '' }, {}],
+        };
+      }
+      title.textContent = creating
+        ? tf('entTxAddTitle', { name: (currentEntityContext || {}).entityName || '' })
+        : t('entTxEditTitle');
       body.innerHTML = `
         <form id="entity-tx-edit-form">
           <div class="form-grid">
@@ -1068,8 +1115,8 @@
             </div>
           </div>
           <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
-            <button type="submit" class="btn btn-primary">Save changes</button>
-            <button type="button" class="btn btn-secondary" id="entity-tx-edit-cancel">Back</button>
+            <button type="submit" class="btn btn-primary">${escapeHtml(creating ? t('entTxSaveNew') : t('entTxSaveChanges'))}</button>
+            <button type="button" class="btn btn-secondary" id="entity-tx-edit-cancel">${escapeHtml(t('entTxBack'))}</button>
           </div>
         </form>
       `;
@@ -1136,17 +1183,17 @@
             entity_links,
           };
           try {
-            const res = await fetch(API + '/transactions/' + encodeURIComponent(tx.id), {
-              method: 'PATCH',
+            const res = await fetch(creating ? API + '/transactions' : API + '/transactions/' + encodeURIComponent(tx.id), {
+              method: creating ? 'POST' : 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-              showAlert(data.detail || 'Error updating transaction.', true);
+              showAlert(data.detail || (creating ? t('entTxCreateError') : t('entTxUpdateError')), true);
               return;
             }
-            showAlert('Transaction updated.');
+            showAlert(creating ? t('entTxCreated') : t('entTxUpdated'));
             if (currentEntityContext) openEntityTransactions(currentEntityContext.entityId, currentEntityContext.entityName);
             loadOwnerDashboard();
             loadLedger();
@@ -1158,6 +1205,10 @@
     }
 
     document.getElementById('account-modal-body').addEventListener('click', async (e) => {
+      if (e.target.closest('.entity-tx-add')) {
+        openEntityTransactionEditor(null);
+        return;
+      }
       const editBtn = e.target.closest('.entity-tx-edit');
       if (editBtn) {
         const tx = entityTransactionsCache.find(x => String(x.id) === String(editBtn.dataset.txId));

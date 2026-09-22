@@ -42,7 +42,13 @@ from app.schemas.report import (
     ProfitabilityRow,
     VendorSpendRow,
 )
-from app.schemas.transaction import AttachmentRead, TransactionEntityLinkRead, TransactionLineRead, TransactionRead
+from app.schemas.transaction import (
+    AttachmentRead,
+    EntityTransactionRead,
+    TransactionEntityLinkRead,
+    TransactionLineRead,
+    TransactionRead,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -278,15 +284,19 @@ def get_account_detail(
     )
 
 
-@router.get("/entities/{entity_id}/transactions", response_model=list[TransactionRead])
+@router.get("/entities/{entity_id}/transactions", response_model=list[EntityTransactionRead])
 def get_entity_transactions(
     entity_id: UUID,
     currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
     db: Session = Depends(get_db),
-) -> list[TransactionRead]:
+) -> list[EntityTransactionRead]:
     """
-    All transactions linked to this entity (e.g. all vouchers with client Innotech).
+    All transactions linked to this entity (e.g. all vouchers with client
+    Innotech), as a statement of account: each row carries the entity's own
+    Debtor / Creditor movement and the running Remaining balance.
     """
+    from app.services.entity_statement import build_entity_statement, control_account_code
+
     entity = db.get(Entity, entity_id)
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
@@ -329,8 +339,10 @@ def get_entity_transactions(
         )
     )
     transactions = db.execute(q).scalars().unique().all()
+    movements = build_entity_statement(db, entity, transactions)
+    control_code = control_account_code(db, entity)
     out = []
-    for t in transactions:
+    for t, mv in zip(transactions, movements):
         lines_read = [
             TransactionLineRead(
                 id=line.id,
@@ -343,11 +355,17 @@ def get_entity_transactions(
             for line in t.lines
         ]
         out.append(
-            TransactionRead(
+            EntityTransactionRead(
                 id=t.id,
                 date=t.date,
                 reference=t.reference,
                 description=t.description,
+                currency=t.currency or "IRR",
+                entity_paid=mv.paid,
+                entity_received=mv.received,
+                entity_balance=mv.balance,
+                entity_placed=mv.placed,
+                entity_control_account=control_code,
                 lines=lines_read,
                 entity_links=(
                     [

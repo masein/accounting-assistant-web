@@ -111,6 +111,20 @@ class TransactionRead(TransactionBase):
     model_config = {"from_attributes": True}
 
 
+class EntityTransactionRead(TransactionRead):
+    """A journal as seen on a counterparty's statement of account: what the
+    entity paid (Debtor), what it received (Creditor) and the running balance
+    after the journal (Remaining). ``entity_placed`` is False when the journal
+    could not be attributed to the entity's account — the columns then render
+    blank instead of a guessed figure."""
+    entity_paid: int = 0
+    entity_received: int = 0
+    entity_balance: int = 0
+    entity_placed: bool = True
+    # The entity's control account on the active chart (prefills manual entry).
+    entity_control_account: Optional[str] = None
+
+
 # ----- Import (bulk) -----
 class ImportTransactionLine(BaseModel):
     account_code: str

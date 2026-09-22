@@ -7,6 +7,7 @@ import re
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.release_notes import CURRENT_RELEASE
 from app.core.auth import hash_password
 from app.core.permissions import Role
 from app.db.seed import seed_chart_if_empty
@@ -105,6 +106,8 @@ def provision_company(
             company_id=company.id,
             is_active=True,
             role=Role.PERSONAL if kind == "personal" else Role.OWNER,
+            # A brand-new user's first login shouldn't open with a changelog.
+            last_seen_release=CURRENT_RELEASE,
         )
         db.add(user)
         db.flush()

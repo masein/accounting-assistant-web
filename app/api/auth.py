@@ -314,16 +314,34 @@ def logout(response: Response) -> dict:
     return {"ok": True}
 
 
+def _load_user(db: Session, current) -> User | None:
+    """Session user ids travel as strings; the column is a UUID (SQLite in
+    tests insists on the real type)."""
+    import uuid as _uuid
+
+    try:
+        key = _uuid.UUID(str(current.user_id))
+    except (ValueError, TypeError, AttributeError):
+        key = current.user_id
+    try:
+        return db.get(User, key)
+    except Exception:
+        return None
+
+
 @router.get("/me")
 def me(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     from app.models.company import Company
     from app.db.tenant import tenant_bypass
-    user_row = db.get(User, current.user_id)
+    user_row = _load_user(db, current)
     user_language = user_row.preferred_language if user_row and user_row.preferred_language else "en"
     company = None
     if current.company_id:
         with tenant_bypass():
             company = db.get(Company, current.company_id)
+    from app.core.release_notes import whats_new_for
+
+    role = getattr(current, "role", None) or "owner"
     return {
         "authenticated": True,
         "user": {
@@ -331,14 +349,41 @@ def me(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict
             "username": current.username,
             "is_admin": current.is_admin,
             "is_superadmin": current.is_superadmin,
-            "role": getattr(current, "role", None) or "owner",
+            "role": role,
             "entity_id": (
                 str(user_row.entity_id) if user_row and user_row.entity_id else None
             ),
             "preferred_language": user_language,
         },
         "company": _company_dict(company),
+        # Releases this user hasn't been walked through yet (first login after
+        # an update shows the tour; POST /auth/whats-new/seen marks it done).
+        "whats_new": whats_new_for(role, user_row.last_seen_release if user_row else None),
     }
+
+
+@router.get("/whats-new")
+def whats_new(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    """Every release's highlights for this role (the Settings button), plus
+    what is still unseen."""
+    from app.core.release_notes import whats_new_for
+
+    user_row = _load_user(db, current)
+    role = getattr(current, "role", None) or "owner"
+    return whats_new_for(role, user_row.last_seen_release if user_row else None, include_all=True)
+
+
+@router.post("/whats-new/seen")
+def whats_new_seen(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    """Remember that this user has seen the current release's tour."""
+    from app.core.release_notes import CURRENT_RELEASE
+
+    user_row = _load_user(db, current)
+    if user_row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_row.last_seen_release = CURRENT_RELEASE
+    db.commit()
+    return {"last_seen_release": CURRENT_RELEASE, "seen": True}
 
 
 @router.post("/change-password")

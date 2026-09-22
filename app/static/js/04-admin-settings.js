@@ -319,6 +319,10 @@
         if (navCo) navCo.style.display = isSuperadmin ? '' : 'none';
         // Role-aware nav: hide what this role can't use (server still enforces).
         applyRoleAccess();
+        // First login after an update → short tour of what changed (once).
+        if (data.whats_new && !data.whats_new.seen && typeof openWhatsNew === 'function') {
+          setTimeout(() => openWhatsNew(data.whats_new, { markSeen: true }), 400);
+        }
         // Land on a page this role may actually see. If the cold-load page is
         // off-limits, drop to the role's home; honour a valid deep link.
         const landed = (location.hash || '#dashboard').slice(1);

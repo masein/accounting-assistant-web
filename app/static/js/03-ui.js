@@ -10,6 +10,83 @@
       });
     }
 
+    // ─── What's new tour: shown once per release, reopenable from Settings ───
+    // Steps come from /auth/me (unseen releases) or /auth/whats-new (all).
+    // Copy is server-owned in four languages; we pick the current UI language.
+    const _wn = { steps: [], idx: 0, markSeen: false };
+    function _wnText(obj) {
+      const lang = (typeof currentLanguage === 'string' ? currentLanguage : 'en');
+      return (obj && (obj[lang] || obj.en)) || '';
+    }
+    function openWhatsNew(payload, { markSeen = false } = {}) {
+      const releases = (payload && payload.releases) || [];
+      const steps = [];
+      releases.forEach(r => (r.highlights || []).forEach(h => steps.push({ version: r.version, date: r.date, ...h })));
+      if (!steps.length) return false;
+      _wn.steps = steps; _wn.idx = 0; _wn.markSeen = markSeen;
+      const modal = document.getElementById('whats-new-modal');
+      if (!modal) return false;
+      _wnRender();
+      modal.style.display = 'flex';
+      return true;
+    }
+    function _wnRender() {
+      const st = _wn.steps[_wn.idx];
+      if (!st) return;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('whats-new-version', tf('wnVersion', { version: st.version, date: st.date || '' }) + ' · ' + tf('wnStep', { n: _wn.idx + 1, total: _wn.steps.length }));
+      set('whats-new-step-title', _wnText(st.title));
+      set('whats-new-step-body', _wnText(st.body));
+      const dots = document.getElementById('whats-new-dots');
+      if (dots) {
+        dots.innerHTML = _wn.steps.map((_, i) =>
+          `<span style="width:8px;height:8px;border-radius:50%;background:${i === _wn.idx ? 'var(--primary)' : 'var(--border)'};"></span>`).join('');
+      }
+      const back = document.getElementById('whats-new-back');
+      const next = document.getElementById('whats-new-next');
+      const show = document.getElementById('whats-new-show');
+      if (back) back.style.visibility = _wn.idx === 0 ? 'hidden' : 'visible';
+      if (next) next.textContent = _wn.idx === _wn.steps.length - 1 ? t('wnDone') : t('wnNext');
+      if (show) show.style.display = (st.page && typeof canSeePage === 'function' && canSeePage(st.page)) ? '' : 'none';
+    }
+    async function _wnFinish() {
+      const modal = document.getElementById('whats-new-modal');
+      if (modal) modal.style.display = 'none';
+      if (_wn.markSeen) {
+        _wn.markSeen = false;
+        try { await fetch(API + '/auth/whats-new/seen', { method: 'POST' }); } catch (_) { /* retry next login */ }
+      }
+    }
+    (function wireWhatsNew() {
+      const next = document.getElementById('whats-new-next');
+      const back = document.getElementById('whats-new-back');
+      const close = document.getElementById('whats-new-close');
+      const show = document.getElementById('whats-new-show');
+      const modal = document.getElementById('whats-new-modal');
+      if (next) next.addEventListener('click', () => {
+        if (_wn.idx >= _wn.steps.length - 1) { _wnFinish(); return; }
+        _wn.idx += 1; _wnRender();
+      });
+      if (back) back.addEventListener('click', () => { if (_wn.idx > 0) { _wn.idx -= 1; _wnRender(); } });
+      if (close) close.addEventListener('click', _wnFinish);
+      if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) _wnFinish(); });
+      if (show) show.addEventListener('click', () => {
+        const st = _wn.steps[_wn.idx];
+        if (!st || !st.page) return;
+        _wnFinish();
+        showPage(st.page);
+        if (typeof loadPageData === 'function') loadPageData(st.page);
+      });
+      const settingsBtn = document.getElementById('settings-whats-new-btn');
+      if (settingsBtn) settingsBtn.addEventListener('click', async () => {
+        try {
+          const r = await fetch(API + '/auth/whats-new');
+          const data = await r.json().catch(() => null);
+          if (r.ok && data) openWhatsNew(data, { markSeen: !data.seen });
+        } catch (_) { /* offline */ }
+      });
+    })();
+
     function showPage(page) {
       closeAllModals();
       // Companies console is super-admin only — a non-super-admin reaching it

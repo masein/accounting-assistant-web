@@ -204,15 +204,25 @@ def test_statement_due_after_forty_days(db):
     assert detect_statement_due(db, date(2050, 2, 20)) == []   # only 20 days
 
 
-def test_receivables_growth(db, make_transaction):
+def test_receivables_growth(db, make_transaction, monkeypatch):
+    # Balances are cumulative, so isolate on a receivable account only this
+    # test posts to (the shared test DB holds other tests' 1112 activity).
+    from app.services import cfo_intelligence
+    from app.services.account_resolver import _ensure_account
+    _ensure_account(db, "1191", "حساب دریافتنی تست بینش — test AR", "ir")
+    real = cfo_intelligence._resolve_code_map
+    monkeypatch.setattr(cfo_intelligence, "_resolve_code_map", lambda db_: {**real(db_), "ar": ("1191",)})
+
     today = date(2051, 8, 30)
-    make_transaction([("1112", 100_000_000, 0), ("4110", 0, 100_000_000)], tx_date=date(2051, 7, 1))
-    make_transaction([("1112", 50_000_000, 0), ("4110", 0, 50_000_000)], tx_date=date(2051, 8, 20))
+    make_transaction([("1191", 100_000_000, 0), ("4110", 0, 100_000_000)], tx_date=date(2051, 7, 1))
+    make_transaction([("1191", 50_000_000, 0), ("4110", 0, 50_000_000)], tx_date=date(2051, 8, 20))
     db.commit()
     (ins,) = detect_receivables_growth(db, today)
-    # Other tests' receivables (2026) are in both balances, so assert the move.
-    assert ins.data["current"] - ins.data["previous"] == 50_000_000
-    assert ins.page == "invoices"
+    assert (ins.data["current"], ins.data["previous"], ins.data["pct"]) == (150_000_000, 100_000_000, 50.0)
+    assert ins.page == "invoices" and "50%" in ins.localize("en")["title"]
+
+    # Flat receivables → nothing.
+    assert detect_receivables_growth(db, date(2051, 7, 20)) == []
 
 
 # ---------------------------------------------------------------------------

@@ -1768,6 +1768,7 @@
         <div style="font-size:0.9rem; color:var(--text-muted);">
           <span id="settings-signed-prefix" data-i18n="signedInAs">Signed in as</span> <strong id="settings-user-name">-</strong>
           <span id="settings-user-role" style="margin-left:0.35rem; font-size:0.78rem; color:var(--primary);"></span>
+          <button type="button" class="btn btn-secondary btn-sm" id="settings-whats-new-btn" data-i18n="btnWhatsNew" style="margin-inline-start:0.6rem;">What's new</button>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" id="logout-btn" data-i18n="logout">Logout</button>
       </div>
@@ -2208,6 +2209,27 @@
     </div>
   </div>
   </main>
+
+  <div id="whats-new-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="whats-new-title" style="display: none;">
+    <div class="modal-card" style="max-width: 560px;">
+      <div class="modal-header">
+        <h2 id="whats-new-title" data-i18n="wnTitle">What's new</h2>
+        <button type="button" class="modal-close" aria-label="Close" id="whats-new-close">×</button>
+      </div>
+      <div id="whats-new-body" style="padding: 1rem 1.25rem;">
+        <div id="whats-new-version" style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.35rem;"></div>
+        <h3 id="whats-new-step-title" style="margin:0 0 0.5rem;"></h3>
+        <p id="whats-new-step-body" style="margin:0 0 0.75rem; line-height:1.55;"></p>
+        <div id="whats-new-dots" style="display:flex; gap:0.35rem; margin-bottom:0.85rem;"></div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <button type="button" class="btn btn-secondary btn-sm" id="whats-new-show" data-i18n="wnShowMe">Show me</button>
+          <span style="flex:1;"></span>
+          <button type="button" class="btn btn-secondary btn-sm" id="whats-new-back" data-i18n="wnBack">Back</button>
+          <button type="button" class="btn btn-primary btn-sm" id="whats-new-next" data-i18n="wnNext">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="account-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" style="display: none;">
     <div class="modal-card">

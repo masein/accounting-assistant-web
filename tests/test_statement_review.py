@@ -222,7 +222,7 @@ def test_review_tool_defaults_to_latest_statement_and_explains_fixes(db):
     # Other tests import statements in the same second; pin this one as the
     # unambiguous latest.
     from datetime import datetime, timezone
-    s.created_at = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    s.created_at = datetime(2099, 12, 31, tzinfo=timezone.utc)
     db.commit()
     ctx = ToolContext(db=db, user_id=USER)
     out = asyncio.run(ReviewBankStatement().run(ctx, ReviewBankStatementInput()))

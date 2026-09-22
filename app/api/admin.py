@@ -8,6 +8,7 @@ from sqlalchemy import delete
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.release_notes import CURRENT_RELEASE
 from app.core.auth import (
     SessionUser,
     get_current_user,
@@ -547,6 +548,7 @@ def create_user(
         is_active=bool(payload.is_active),
         company_id=_caller_company_uuid(caller),
         entity_id=payload.entity_id,
+        last_seen_release=CURRENT_RELEASE,  # no changelog on a brand-new user's first login
     )
     db.add(user)
     db.commit()

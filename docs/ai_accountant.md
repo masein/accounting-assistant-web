@@ -3,7 +3,7 @@
 The AI accountant is a conversational bookkeeper that exposes a small,
 typed tool catalogue to an LLM. The LLM never writes to the books
 directly — every write goes through a proposal → confirmation →
-execute loop with idempotency tokens and a 30-second undo window.
+execute loop with idempotency tokens and a 120-second undo window (the quick undo soft-deletes the entry; the later Reverse posts a compensating entry).
 
 The agent is **provider-neutral**: it works in a normalized
 `ChatMessage` / `LLMResponse` vocabulary and dispatches to an
@@ -51,7 +51,7 @@ a new provider is ~150 LOC.
          │   • flips ai_proposals.status='executed'           │
          └────────────────────────────────────────────────────┘
 
-         ┌─────────── HTTP undo (frontend only, 30s) ────────┐
+         ┌─────────── HTTP undo (frontend only, 120s) ───────┐
          │ POST /ai-accountant/undo                          │
          │   • LedgerService.reverse_journal_entry            │
          │   • paired audit_logs row (action='undo')          │
@@ -84,7 +84,7 @@ Key invariants:
 ```
 app/
 ├─ api/
-│   ├─ ai_accountant.py            # POST /chat, /execute, /undo; GET /sessions, /proposals/{token}
+│   ├─ ai_accountant.py            # POST /chat, /execute, /undo, /reverse, /briefing; GET /sessions, /proposals/{token}
 │   └─ admin.py                    # /admin/anthropic-config, /admin/chat-provider-shape
 ├─ services/ai_accountant/
 │   ├─ llm_protocol.py             # ChatMessage, ToolCall, LLMResponse, LLMClient (abstract)
@@ -92,8 +92,11 @@ app/
 │   ├─ openai_client.py            # OpenAILLMClient (httpx, /v1/chat/completions)
 │   ├─ base.py                     # BaseTool, ToolContext, ToolRegistry, ToolError
 │   ├─ read_tools.py               # find_entity, list_entities, query_ledger, …
-│   ├─ proposal_tools.py           # propose_create_transaction
-│   ├─ execute_service.py          # execute_proposal(), undo_action()
+│   ├─ proposal_tools.py           # propose_create_transaction (+ bank_statement_row_id), …
+│   ├─ statement_tools.py          # review_bank_statement (statement vs books findings)
+│   ├─ insight_tools.py            # get_insights (proactive insights)
+│   ├─ statement_intake.py         # chat drop of a statement PDF/image → import + review card
+│   ├─ execute_service.py          # execute_proposal(), undo_action() (soft-delete), reverse_action()
 │   └─ orchestrator.py             # run_chat_turn(), SYSTEM_PROMPT, _resolve_chat_shape()
 └─ models/
     ├─ ai_accountant.py             # AIProposal, AIChatSession, AIChatMessage
@@ -193,6 +196,46 @@ budgets, reports — works on it unchanged.
 
 The user lands on the AI chat (`ROLE_HOME`), with a four-item nav: My
 finances, AI Chat, Vouchers, Recurring.
+
+## Bank statements in the chat
+
+A statement dropped into the chat (PDF, image, CSV, Excel) is recognised
+deterministically — `app/services/statement_import.py::looks_like_bank_statement`
+looks at the filename, the user's message and the PDF's embedded text
+(NFKC-normalised, so Iranian bank PDFs with presentation-form letters match) —
+and routed through the same pipeline as the Bank Statements page upload
+(`import_statement_bytes`). The reply is a **deterministic turn** (no model
+call, nothing posted) carrying an `intake` of kind `bank_statement` that the
+UI renders as a card with *Fix step by step* and *Open in Bank statements*.
+
+`app/services/statement_review.py::build_statement_review` turns a reconciled
+statement into findings — `unrecorded`, `needs_confirmation`,
+`amount_mismatch`, `missing_in_bank`, `duplicate`, `balance_gap` — each with a
+`suggested_fix`. Three surfaces read it: `POST /brain/bank-statements/{id}/review`
+(the page's *Check against books* panel), the `review_bank_statement` tool,
+and the chat card's counts.
+
+The system prompt tells the model to take findings **one per turn**: describe,
+propose exactly one fix, stop. An `unrecorded` row is posted with
+`propose_create_transaction(bank_statement_row_id=…)`; on Confirm the
+statement row is marked posted, and a second card for the same row is refused
+with 409, as is any row flagged `duplicate`.
+
+## Proactive insights & the briefing
+
+`app/services/insight_service.py` is LLM-free: payroll month-over-month with
+joiners/leavers, fresh pay profiles, expense accounts above 1.5× their
+3-month average, revenue drops, runway, supplier payments ≥ 3× that
+supplier's median, statement overdue (40 days), receivables +25% in 30 days,
+missed recurring payments. Wording lives in `_TEMPLATES` in en/fa/es/ar
+(tested for parity); results are cached ~10 min per tenant because the
+notification feed recomputes on every 90-second bell poll.
+
+Surfaces: `GET /insights` (dashboard "What changed" panels), notification
+kind `insight` (auto-resolves when the condition clears), the `get_insights`
+tool, and `POST /ai-accountant/briefing` — a deterministic assistant-first
+message the chat requests once a day when opened, persisted in the session
+with `content.briefing = true`.
 
 ## Inspecting the audit trail
 

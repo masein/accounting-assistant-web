@@ -45,6 +45,9 @@ class User(Base):
     verification_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Release whose what's-new tour this user has seen (app/core/release_notes).
+    # NULL = existing user from before the feature → show the current release once.
+    last_seen_release: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # Bumped on password reset / role change / deactivation so old session
     # tokens stop working.
     token_version: Mapped[int] = mapped_column(Integer, default=0)

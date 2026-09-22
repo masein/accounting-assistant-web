@@ -596,6 +596,16 @@
 
     let currentStatementId = null;
 
+    // Deep link from the AI chat's statement card: open the Bank statements
+    // page on this statement and show its differences with the books.
+    async function openStatementFromChat(id, { review = false } = {}) {
+      if (!id) return;
+      showPage('bank-statements');
+      currentStatementId = String(id);
+      await loadStatementDetail(currentStatementId);
+      if (review) await runStatementReview();
+    }
+
     document.getElementById('bs-list-body').addEventListener('click', async (e) => {
       const btn = e.target.closest('.bs-view-btn');
       if (!btn) return;
@@ -738,6 +748,117 @@
         await loadStatementDetail(currentStatementId);
       } catch (e) { showAlert('Reconciliation failed: ' + e.message, true); }
     });
+
+    // ─── Check against the books: contradictions + one-click fixes ───
+    const FINDING_LABEL_KEY = {
+      unrecorded: 'bsFindUnrecorded', needs_confirmation: 'bsFindNeedsConfirm',
+      amount_mismatch: 'bsFindAmount', missing_in_bank: 'bsFindMissing',
+      duplicate: 'bsFindDuplicate', balance_gap: 'bsFindBalance',
+    };
+    async function runStatementReview() {
+      if (!currentStatementId) return;
+      const el = document.getElementById('bs-recon-summary');
+      try {
+        const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/review', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        renderStatementReview(data);
+        await loadStatementDetail(currentStatementId);
+      } catch (e) {
+        el.style.display = 'block';
+        el.textContent = t('bsReviewFailed') + ': ' + e.message;
+      }
+    }
+    function renderStatementReview(data) {
+      const el = document.getElementById('bs-recon-summary');
+      el.style.display = 'block';
+      el.innerHTML = '';
+      const ccy = data.currency || currencyUnit();
+      const title = document.createElement('div');
+      title.style.cssText = 'font-weight:600;margin-bottom:0.35rem;';
+      title.textContent = t('bsReviewTitle');
+      el.appendChild(title);
+      const c = data.counts || {};
+      const line = document.createElement('div');
+      line.textContent = tf('bsReviewSummary', {
+        matched: c.matched || 0, unrecorded: c.unrecorded || 0, confirm: c.needs_confirmation || 0,
+        mismatch: c.amount_mismatch || 0, missing: c.missing_in_bank || 0, dupes: c.duplicates || 0,
+      });
+      el.appendChild(line);
+      if (data.balance && data.balance.gap != null) {
+        const b = data.balance;
+        const bl = document.createElement('div');
+        bl.style.cssText = 'margin-top:0.3rem;font-weight:600;color:' + (b.gap === 0 ? '#2e7d32' : '#c62828') + ';';
+        bl.textContent = tf('bsReviewBalance', {
+          bank: formatNum(b.statement_closing), books: formatNum(b.book_balance), gap: formatNum(b.gap), ccy,
+        }) + (b.gap !== 0 && b.explained ? ' — ' + t('bsReviewGapExplained') : '');
+        el.appendChild(bl);
+      }
+      if (data.clean) {
+        const ok = document.createElement('div');
+        ok.style.cssText = 'margin-top:0.4rem;color:#2e7d32;font-weight:600;';
+        ok.textContent = t('bsReviewClean');
+        el.appendChild(ok);
+        return;
+      }
+      (data.findings || []).forEach(f => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-top:0.4rem;padding-top:0.35rem;border-top:1px solid rgba(0,0,0,0.06);';
+        const badge = document.createElement('span');
+        const color = f.severity === 'high' ? '#c62828' : f.severity === 'info' ? '#546e7a' : '#f57f17';
+        badge.style.cssText = 'font-size:0.72rem;font-weight:600;padding:0.1rem 0.4rem;border-radius:10px;color:#fff;background:' + color + ';white-space:nowrap;';
+        badge.textContent = t(FINDING_LABEL_KEY[f.kind] || 'bsFindUnrecorded');
+        const span = document.createElement('span');
+        span.dir = 'auto';
+        span.style.flex = '1';
+        let txt = (f.tx_date || '') + ' · ' + (f.description || '') + ' · ' + formatNum(f.amount) + ' ' + ccy;
+        if (f.kind === 'amount_mismatch' && f.matched_amount != null) {
+          txt += ' — ' + t('bsFindBook') + ': ' + formatNum(f.matched_amount) + ' (' + (f.matched_date || '') + ')';
+        } else if (f.kind === 'needs_confirmation' && f.matched_date) {
+          txt += ' — ' + t('bsFindBook') + ': ' + (f.matched_date || '') + ' ' + (f.matched_description || '');
+        } else if (f.kind === 'unrecorded' && f.suggested_account_code) {
+          txt += ' → ' + f.suggested_account_code + ' ' + (f.suggested_account_name || '');
+        }
+        span.textContent = txt;
+        row.appendChild(badge);
+        row.appendChild(span);
+        if (f.suggested_fix === 'post_row' && f.row_id) {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-secondary btn-sm';
+          btn.textContent = t('bsFindPostBtn');
+          btn.onclick = () => applyFindingAction(f, 'create');
+          row.appendChild(btn);
+        } else if (f.suggested_fix === 'approve_match' && f.row_id) {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-secondary btn-sm';
+          btn.textContent = t('bsFindApproveBtn');
+          btn.onclick = () => applyFindingAction(f, 'approve');
+          row.appendChild(btn);
+        }
+        el.appendChild(row);
+      });
+    }
+    async function applyFindingAction(f, action) {
+      if (action === 'create') {
+        const ok = await uiConfirm({
+          title: t('bsRecordConfirmTitle'),
+          message: tf('bsRecordConfirmMsg', { desc: f.description || '', account: (f.suggested_account_code || '') + ' ' + (f.suggested_account_name || '') }),
+        });
+        if (!ok) return;
+      }
+      try {
+        const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/approve', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ approvals: [{ row_id: f.row_id, action, account_code: f.suggested_account_code || null }] }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        if ((data.errors || []).length) { showAlert(data.errors[0], true); return; }
+        showAlert(action === 'create' ? t('bsFindPosted') : t('bsFindApproved'));
+        await runStatementReview();
+      } catch (e) { showAlert(t('bsReviewFailed') + ': ' + e.message, true); }
+    }
+    document.getElementById('bs-review-btn').addEventListener('click', runStatementReview);
 
     document.getElementById('bs-approve-all-btn').addEventListener('click', async () => {
       if (!currentStatementId) return;

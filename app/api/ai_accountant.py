@@ -392,6 +392,25 @@ async def chat(
     ocr_context = ""
     ocr_amounts: list[int] = []
     if ocr_ids:
+        # A bank statement PDF/image is a table of many rows, not a receipt:
+        # import it through the statement pipeline and answer with a review
+        # card instead of asking the user to type the rows (QA finding 1).
+        from app.services.ai_accountant.statement_intake import maybe_statement_intake
+
+        ocr_atts = [a for a in (db.get(TransactionAttachment, uuid.UUID(str(i))) for i in ocr_ids) if a is not None]
+        stmt_turn = await maybe_statement_intake(
+            db, user_role=user.role, attachments=ocr_atts,
+            message=payload.message, lang=_user_language(db, user),
+        )
+        if stmt_turn is not None:
+            log_audit_event(
+                db, "bank_statement_import", "bank_statement",
+                entity_id=str(stmt_turn.intake.get("statement_id") or ""),
+                detail=json.dumps({"via": "chat", "file": stmt_turn.intake.get("file_name"),
+                                   "status": stmt_turn.intake.get("status")}, ensure_ascii=False),
+            )
+            db.commit()
+            return _deterministic_turn(db, user, payload, stmt_turn.text, intake=stmt_turn.intake)
         ocr_context, ocr_amounts = await _build_ocr_context(db, ocr_ids)
     ocr_context = (ocr_context or "") + intake_context
     try:

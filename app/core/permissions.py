@@ -375,6 +375,7 @@ _reads(["/brain/bank-statements", "/brain/bank-statements/{statement_id}",
 for _m, _p in [
     ("POST", "/brain/bank-statements/upload"),
     ("POST", "/brain/bank-statements/{statement_id}/reconcile"),
+    ("POST", "/brain/bank-statements/{statement_id}/review"),
     ("POST", "/brain/bank-statements/{statement_id}/approve"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)

@@ -276,8 +276,36 @@ def _execute_create_transaction(
             detail=f"Stored proposal payload is malformed: {e}",
         ) from e
 
+    # A proposal that posts a bank-statement row must not post it twice: if
+    # the row was already posted (from the Bank Statements page, or an earlier
+    # card) refuse before touching the ledger.
+    statement_row = None
+    if payload_dict.get("bank_statement_row_id"):
+        from app.models.bank_statement import BankStatementRow
+
+        try:
+            statement_row = db.get(BankStatementRow, uuid.UUID(str(payload_dict["bank_statement_row_id"])))
+        except (ValueError, TypeError):
+            statement_row = None
+        if statement_row is not None:
+            if statement_row.created_transaction_id is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This bank statement row has already been posted to the books.",
+                )
+            if statement_row.recon_status == "duplicate":
+                raise HTTPException(
+                    status_code=409,
+                    detail="This bank statement row was imported earlier and must not be posted again.",
+                )
+
     transaction = _create_transaction_from_payload(db, payload)
     db.flush()
+
+    if statement_row is not None:
+        statement_row.created_transaction_id = transaction.id
+        statement_row.recon_status = "matched"
+        statement_row.user_approved = True
 
     # Create any new entities folded into this proposal, then link them to the
     # transaction by role. Master-data writes only happen here (post-Confirm).

@@ -99,6 +99,66 @@ class ReconcileResponse(BaseModel):
     fee_suggestions: list[FeeSuggestion] = Field(default_factory=list)
 
 
+class StatementFinding(BaseModel):
+    """One contradiction between a bank statement and the books, with the fix
+    the review suggests. ``kind``:
+
+    * ``unrecorded``        — bank row with no book entry → post it
+    * ``needs_confirmation``— bank row that probably IS a book entry (same
+                              amount, date/narration differ) → approve match
+    * ``amount_mismatch``   — bank row close to a book entry but the amount
+                              differs → fix the entry or post the difference
+    * ``missing_in_bank``   — book entry on the bank account the statement
+                              never shows → check it happened
+    * ``duplicate``         — row already imported earlier (informational)
+    * ``balance_gap``       — statement closing balance ≠ book balance
+    """
+    id: str
+    kind: str
+    severity: str = "warning"          # info | warning | high
+    row_id: UUID | None = None
+    row_index: int | None = None
+    tx_date: date | None = None
+    description: str | None = None
+    amount: int = 0                    # absolute minor units of the bank row / entry
+    direction: str | None = None       # "out" (bank debit) | "in" (bank credit)
+    suggested_account_code: str | None = None
+    suggested_account_name: str | None = None
+    category: str | None = None
+    matched_transaction_id: UUID | None = None
+    matched_amount: int | None = None
+    matched_date: date | None = None
+    matched_description: str | None = None
+    transaction_id: UUID | None = None  # for missing_in_bank
+    suggested_fix: str = "none"        # post_row | approve_match | review_entry | none
+    detail: str = ""                   # short English explanation (UI localizes by kind)
+
+
+class StatementBalanceCheck(BaseModel):
+    statement_closing: int | None = None
+    book_balance: int | None = None
+    gap: int | None = None
+    bank_account_code: str | None = None
+    # Net of the still-unrecorded bank rows (in - out): when it equals the
+    # gap, posting them closes the difference.
+    unrecorded_net: int = 0
+    explained: bool = False
+
+
+class StatementReviewResponse(BaseModel):
+    statement_id: UUID
+    bank_name: str
+    currency: str = "IRR"
+    from_date: date | None = None
+    to_date: date | None = None
+    total_rows: int = 0
+    counts: dict[str, int] = Field(default_factory=dict)
+    bank_account_code: str | None = None
+    balance: StatementBalanceCheck | None = None
+    findings: list[StatementFinding] = Field(default_factory=list)
+    clean: bool = False
+
+
 class RowApproval(BaseModel):
     row_id: UUID
     action: str = Field(..., description="approve, reject, skip, create")

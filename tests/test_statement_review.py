@@ -1,0 +1,301 @@
+"""Statement-vs-books review (the "upload your statement, we find the
+contradictions and fix them step by step" feature) and the pieces the AI
+chat builds on: statement detection, the review engine, its endpoint, the
+``review_bank_statement`` tool, and posting a row from a chat proposal.
+"""
+from __future__ import annotations
+
+import asyncio
+import uuid
+from datetime import date
+
+import pytest
+from sqlalchemy import select
+
+from app.models.account import Account
+from app.models.bank_statement import BankStatement, BankStatementRow
+from app.models.entity import Entity
+from app.models.transaction import Transaction
+from app.services.statement_import import (
+    guess_bank_name,
+    looks_like_bank_statement,
+    statement_text_score,
+)
+from app.services.statement_review import (
+    bank_account_for_statement,
+    book_balance_as_of,
+    build_statement_review,
+)
+
+USER = "u-stmt-review"
+
+# What pypdf pulls out of an Iranian bank PDF: presentation-form letters, no
+# separators between cells, Jalali dates, comma-grouped amounts.
+MELLAT_TEXT = (
+    "ﺗﺎﺭﯾﺦﺯﻣﺎﻥﺷﻌﺒﻪﮐﺪ ﺣﺴﺎﺑﮕﺮﯼﺷﻤﺎﺭﻩ ﺳﺮﯾﺎﻝﺷﻨﺎﺳﻪ ﻭﺍﺭﯾﺰﻭﺍﺭﯾﺰ ﮐﻨﻨﺪﻩ/ ﺫﯾﺘﻔﻊﺷﺮﺡﻣﺒﻠﻎ ﮔﺮﺩﺵﺑﺪﻫﮑﺎﺭﻣﺎﻧﺪﻩﺭﺩﻳﻒﻣﺒﻠﻎ ﮔﺮﺩﺵﺑﺴﺘﺎﻧﮑﺎﺭ"
+    "14:34:50251405/04/06ﺍﻗﺪﺳﯿﻪ 654330143451920 ﮐﺎﺭﻣﺰﺩ ﭘﻞ 3,563,506,455 120,000"
+    "14:34:50065433 1405/04/06 2,963,506,455 600,000,000 ﭘﻞ ﺍﺯ ﻫﻤﺮﺍﻩ"
+    "15:45:38271405/04/07 ﺍﺩﺍﺭﻩ ﺣﺴﺎﺑﺪﺍﺭﯼ 2,915,426,455 48,080,000"
+    "12:09:58065433 1405/04/10 1,415,426,455 1,500,000,000 ﺳﺎﺗﻨﺎ"
+    "12:09:58291405/04/10 ﮐﺎﺭﻣﺰﺩ ﺳﺎﺗﻨﺎ 1,415,126,455 300,000"
+    "15:21:33 1405/04/15 1,403,759,255 11,367,200 ﮐﺎﺭﺕ ﺑﻪ ﮐﺎﺭﺕ"
+)
+RECEIPT_TEXT = "فروشگاه رفاه\nتاریخ 1405/04/06\nجمع کل 1,250,000 ریال\nشماره فاکتور 88213\nبا تشکر"
+
+
+# ---------------------------------------------------------------------------
+# Detection
+# ---------------------------------------------------------------------------
+
+def test_detects_statement_from_filename_or_message():
+    assert looks_like_bank_statement(filename="mellat-transactions.pdf")
+    assert looks_like_bank_statement(filename="scan.pdf", message='these are last "Mellat" transactions. add them')
+    assert looks_like_bank_statement(filename="IMG_0412.jpg", message="صورتحساب بانک ملت رو ثبت کن")
+    assert looks_like_bank_statement(filename="x.pdf", message="بانک سامان — اینا رو اضافه کن")
+
+
+def test_detects_statement_from_pdf_text_with_presentation_forms():
+    dates, headers = statement_text_score(MELLAT_TEXT)
+    assert dates >= 5 and headers >= 2   # NFKC folds ﺑﺪﻫﮑﺎﺭ → بدهکار
+    assert looks_like_bank_statement(filename="doc.pdf", text=MELLAT_TEXT)
+
+
+def test_receipt_is_not_a_statement():
+    assert not looks_like_bank_statement(filename="receipt.pdf", message="record this expense", text=RECEIPT_TEXT)
+    assert not looks_like_bank_statement(filename="contract.pdf", text="This agreement is made on 2026-01-01 between…")
+
+
+def test_guess_bank_name():
+    assert guess_bank_name("mellat-transactions (1).pdf") == "Mellat"
+    assert guess_bank_name("scan.pdf", "صورتحساب بانک سامان") == "Saman"
+    assert guess_bank_name("scan.pdf", "add these") == "Unknown"
+
+
+# ---------------------------------------------------------------------------
+# Review engine
+# ---------------------------------------------------------------------------
+
+def _stmt(db, rows, *, bank_name="Review Test Bank", from_date=None, to_date=None, currency="IRR"):
+    """rows: (date, description, debit, credit, balance, recon_status)"""
+    s = BankStatement(
+        bank_name=bank_name, source_type="csv", source_filename=f"{uuid.uuid4().hex[:6]}.csv",
+        currency=currency, from_date=from_date or min(r[0] for r in rows),
+        to_date=to_date or max(r[0] for r in rows), status="parsed", total_rows=len(rows),
+    )
+    db.add(s)
+    db.flush()
+    for i, (d, desc, debit, credit, bal, status) in enumerate(rows, start=1):
+        db.add(BankStatementRow(
+            statement_id=s.id, row_index=i, tx_date=d, description=desc, debit=debit,
+            credit=credit, balance=bal, confidence=1.0, recon_status=status,
+            suggested_account_code="6112" if debit else None, category="misc" if debit else None,
+        ))
+    db.commit()
+    return s
+
+
+def test_review_classifies_every_kind_of_contradiction(db, make_transaction):
+    # Isolated date window (no other test posts cash here).
+    d = date(2031, 3, 10)
+    exact = make_transaction([("6112", 510_000, 0), ("1110", 0, 510_000)], tx_date=d, description="اجاره فروردین")
+    shifted = make_transaction([("6112", 620_000, 0), ("1110", 0, 620_000)], tx_date=d, description="quarterly hosting invoice")
+    close = make_transaction([("6112", 1_000_000, 0), ("1110", 0, 1_000_000)], tx_date=date(2031, 3, 14), description="خرید تجهیزات")
+    never_seen = make_transaction([("6112", 777_000, 0), ("1110", 0, 777_000)], tx_date=date(2031, 3, 16), description="پرداخت نقدی که بانک ندید")
+    db.commit()
+
+    s = _stmt(db, [
+        (d, "اجاره فروردین", 510_000, 0, None, "unmatched"),                      # matched exactly
+        (date(2031, 3, 12), "برداشت اینترنتی", 620_000, 0, None, "unmatched"),  # same amount, +2 days → needs_confirmation
+        (date(2031, 3, 14), "خرید تجهیزات", 1_030_000, 0, None, "unmatched"),   # 3% off → amount_mismatch
+        (date(2031, 3, 15), "کارمزد بانکی", 90_000, 0, None, "unmatched"),       # nothing in the books → unrecorded
+        (date(2031, 3, 15), "قبلاً وارد شده", 45_000, 0, None, "duplicate"),     # flagged at import
+    ], from_date=d, to_date=date(2031, 3, 20))
+
+    review = build_statement_review(db, s)
+    kinds = {f.kind: f for f in review.findings}
+
+    assert review.total_rows == 5
+    assert review.counts["matched"] == 1
+    assert kinds["needs_confirmation"].matched_transaction_id == shifted.id
+    assert kinds["needs_confirmation"].suggested_fix == "approve_match"
+    assert kinds["amount_mismatch"].matched_transaction_id == close.id
+    assert kinds["amount_mismatch"].matched_amount == 1_000_000 and kinds["amount_mismatch"].amount == 1_030_000
+    assert kinds["unrecorded"].amount == 90_000 and kinds["unrecorded"].direction == "out"
+    assert kinds["unrecorded"].suggested_fix == "post_row" and kinds["unrecorded"].suggested_account_code == "6112"
+    assert kinds["duplicate"].severity == "info" and kinds["duplicate"].suggested_fix == "none"
+    missing = [f for f in review.findings if f.kind == "missing_in_bank"]
+    assert {f.transaction_id for f in missing} == {never_seen.id}
+    assert review.bank_account_code == "1110"
+    assert review.clean is False
+    # Ordering: what is wrong in the books comes before what is merely missing.
+    order = [f.kind for f in review.findings]
+    assert order.index("amount_mismatch") < order.index("unrecorded") < order.index("duplicate")
+    # The exactly-matched row produced no finding at all.
+    assert not any(f.row_index == 1 for f in review.findings)
+
+
+def test_review_is_clean_when_everything_matches(db, make_transaction):
+    d = date(2031, 4, 2)
+    make_transaction([("6112", 333_000, 0), ("1110", 0, 333_000)], tx_date=d, description="clean row")
+    db.commit()
+    s = _stmt(db, [(d, "clean row", 333_000, 0, None, "unmatched")])
+    review = build_statement_review(db, s)
+    assert review.clean is True and review.findings == []
+
+
+def test_rerun_keeps_rows_the_user_already_posted(db, make_transaction):
+    d = date(2031, 5, 5)
+    s = _stmt(db, [(d, "posted from page", 12_345, 0, None, "unmatched")])
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
+    txn = make_transaction([("6112", 12_345, 0), ("1110", 0, 12_345)], tx_date=d, description="posted from page")
+    row.created_transaction_id = txn.id
+    row.recon_status = "matched"
+    row.user_approved = True
+    db.commit()
+    review = build_statement_review(db, s)
+    assert review.clean is True
+    db.refresh(row)
+    assert row.created_transaction_id == txn.id and row.recon_status == "matched"
+
+
+def test_closing_balance_gap_uses_the_statement_banks_own_account(db, make_transaction):
+    code = "1116"
+    from app.services.account_resolver import _ensure_account
+    _ensure_account(db, code, "بانک ریویو — bank", "ir")
+    bank = Entity(type="bank", name=f"Gap Bank {uuid.uuid4().hex[:4]}", code=code)
+    db.add(bank)
+    db.commit()
+    d = date(2031, 6, 1)
+    make_transaction([(code, 1_000, 0), ("4110", 0, 1_000)], tx_date=d, description="opening")
+    db.commit()
+    assert book_balance_as_of(db, code, d) == 1_000
+
+    # Statement says 1,000 too → no gap, no finding.
+    s = _stmt(db, [(d, "deposit", 0, 1_000, 1_000, "unmatched")], bank_name=bank.name)
+    assert bank_account_for_statement(db, s) == code
+    review = build_statement_review(db, s)
+    assert review.balance is not None and review.balance.gap == 0
+    assert not any(f.kind == "balance_gap" for f in review.findings)
+
+    # Statement says 1,500 → 500 gap the unrecorded rows don't explain → high.
+    s2 = _stmt(db, [(date(2031, 6, 2), "deposit", 0, 1_000, 1_500, "unmatched")], bank_name=bank.name)
+    review2 = build_statement_review(db, s2)
+    gap = next(f for f in review2.findings if f.kind == "balance_gap")
+    assert review2.balance.gap == 500 and gap.severity == "high" and gap.amount == 500
+
+
+def test_gap_explained_by_unrecorded_rows_is_informational(db):
+    code = "1110"
+    d = date(2031, 7, 3)
+    book = book_balance_as_of(db, code, d)
+    # One unrecorded credit of 250 → closing = book + 250 explains itself.
+    s = _stmt(db, [(d, "unrecorded deposit", 0, 250, book + 250, "unmatched")], bank_name="Explained Bank")
+    review = build_statement_review(db, s)
+    assert review.balance.gap == 250 and review.balance.unrecorded_net == 250
+    assert review.balance.explained is True
+    gap = next(f for f in review.findings if f.kind == "balance_gap")
+    assert gap.severity == "info" and gap.suggested_fix == "post_row"
+
+
+# ---------------------------------------------------------------------------
+# Endpoint + AI tool
+# ---------------------------------------------------------------------------
+
+def test_review_endpoint(auth_client, db):
+    d = date(2031, 8, 1)
+    s = _stmt(db, [(d, "api unrecorded", 5_000, 0, None, "unmatched")])
+    r = auth_client.post(f"/brain/bank-statements/{s.id}/review")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["statement_id"] == str(s.id)
+    assert body["counts"]["unrecorded"] == 1
+    assert body["findings"][0]["kind"] == "unrecorded"
+    assert auth_client.post(f"/brain/bank-statements/{uuid.uuid4()}/review").status_code == 404
+
+
+def test_review_tool_defaults_to_latest_statement_and_explains_fixes(db):
+    from app.services.ai_accountant.base import ToolContext, ToolError
+    from app.services.ai_accountant.statement_tools import ReviewBankStatement, ReviewBankStatementInput
+
+    d = date(2031, 9, 1)
+    s = _stmt(db, [(d, "tool unrecorded", 7_000, 0, None, "unmatched")])
+    # Other tests import statements in the same second; pin this one as the
+    # unambiguous latest.
+    from datetime import datetime, timezone
+    s.created_at = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    db.commit()
+    ctx = ToolContext(db=db, user_id=USER)
+    out = asyncio.run(ReviewBankStatement().run(ctx, ReviewBankStatementInput()))
+    assert out["statement_id"] == str(s.id)
+    assert out["findings"][0]["kind"] == "unrecorded"
+    assert out["bank_account_code"] == "1110"
+    assert "post_row" in out["how_to_fix"]
+
+    out2 = asyncio.run(ReviewBankStatement().run(ctx, ReviewBankStatementInput(statement_id=str(s.id), max_findings=1)))
+    assert out2["findings_total"] >= 1 and len(out2["findings"]) == 1
+
+    with pytest.raises(ToolError):
+        asyncio.run(ReviewBankStatement().run(ctx, ReviewBankStatementInput(statement_id=str(uuid.uuid4()))))
+
+
+def test_review_tool_is_registered_for_both_modes():
+    from app.services.ai_accountant.orchestrator import build_default_registry, build_personal_registry
+    assert "review_bank_statement" in {t["name"] for t in build_default_registry().to_anthropic()}
+    assert "review_bank_statement" in {t["name"] for t in build_personal_registry().to_anthropic()}
+
+
+# ---------------------------------------------------------------------------
+# Posting an unrecorded row from a chat proposal
+# ---------------------------------------------------------------------------
+
+def _propose_row(db, row, *, user_id=USER):
+    from app.services.ai_accountant.base import ToolContext
+    from app.services.ai_accountant.proposal_tools import (
+        ProposeCreateTransaction,
+        ProposeCreateTransactionInput,
+    )
+    ctx = ToolContext(db=db, user_id=user_id, username="tester", user_message="post it")
+    payload = ProposeCreateTransactionInput(
+        date="2026-05-20", description=row.description or "row", currency="IRR",
+        lines=[
+            {"account_code": "6112", "debit": row.debit, "credit": 0},
+            {"account_code": "1110", "debit": 0, "credit": row.debit},
+        ],
+        bank_statement_row_id=str(row.id),
+    )
+    return asyncio.run(ProposeCreateTransaction().run(ctx, payload))["confirmation_token"]
+
+
+def test_confirming_a_row_proposal_marks_the_statement_row_posted(db):
+    from fastapi import HTTPException
+    from app.services.ai_accountant.execute_service import execute_proposal
+
+    s = _stmt(db, [(date(2026, 5, 20), "chat posted row", 88_000, 0, None, "unmatched")])
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
+
+    token = _propose_row(db, row)
+    ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
+    db.refresh(row)
+    assert str(row.created_transaction_id) == ex.transaction_id
+    assert row.recon_status == "matched" and row.user_approved is True
+
+    # A second card for the same row must not post it again.
+    token2 = _propose_row(db, row)
+    with pytest.raises(HTTPException) as ei:
+        execute_proposal(db, confirmation_token=token2, actor_user_id=USER)
+    assert ei.value.status_code == 409
+    # And the review no longer lists it.
+    assert build_statement_review(db, s).clean is True
+
+
+def test_duplicate_row_cannot_be_posted_from_chat(db):
+    from fastapi import HTTPException
+    from app.services.ai_accountant.execute_service import execute_proposal
+
+    s = _stmt(db, [(date(2026, 5, 21), "dupe row", 66_000, 0, None, "duplicate")])
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
+    token = _propose_row(db, row)
+    with pytest.raises(HTTPException) as ei:
+        execute_proposal(db, confirmation_token=token, actor_user_id=USER)
+    assert ei.value.status_code == 409
+    assert db.execute(select(Transaction).where(Transaction.description == "dupe row")).scalars().all() == []

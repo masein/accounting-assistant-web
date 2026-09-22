@@ -393,12 +393,69 @@
         return wrap;
       }
 
+      // ─── Bank statement card: imported + checked against the books ───
+      function appendStatementCard(card, intake, fmt) {
+        const c = intake.counts || {};
+        let html = '<div style="font-weight:600;margin-bottom:0.3rem;">' + escapeHtml(t('chatStmtTitle')) + ' — ' + escapeHtml(intake.bank_name || '') + '</div>';
+        if (intake.status === 'duplicate') {
+          html += '<div>' + escapeHtml(t('chatStmtDuplicateFile')) + '</div>';
+        } else if (intake.status === 'failed' || intake.status === 'needs_mapping') {
+          html += '<div style="color:var(--danger,#dc3545);">' + escapeHtml(intake.error || t('chatStmtNeedsMapping')) + '</div>';
+        } else {
+          html += '<div>' + fmt(intake.total_rows || 0) + ' ' + escapeHtml(t('chatStmtRows'))
+            + ((intake.from_date && intake.to_date) ? ' · ' + escapeHtml(formatDateDual(intake.from_date)) + ' – ' + escapeHtml(formatDateDual(intake.to_date)) : '')
+            + '</div>';
+          const bits = [];
+          if (c.matched) bits.push('<span><strong>' + fmt(c.matched) + '</strong> ' + escapeHtml(t('chatStmtOnFile')) + '</span>');
+          if (c.unrecorded) bits.push('<span style="color:#b45309;"><strong>' + fmt(c.unrecorded) + '</strong> ' + escapeHtml(t('chatStmtNew')) + '</span>');
+          if (c.needs_confirmation) bits.push('<span><strong>' + fmt(c.needs_confirmation) + '</strong> ' + escapeHtml(t('chatStmtConfirm')) + '</span>');
+          if (c.amount_mismatch) bits.push('<span style="color:var(--danger,#dc3545);"><strong>' + fmt(c.amount_mismatch) + '</strong> ' + escapeHtml(t('chatStmtMismatch')) + '</span>');
+          if (c.missing_in_bank) bits.push('<span style="color:var(--danger,#dc3545);"><strong>' + fmt(c.missing_in_bank) + '</strong> ' + escapeHtml(t('chatStmtMissing')) + '</span>');
+          if (c.duplicates) bits.push('<span style="color:var(--text-muted);"><strong>' + fmt(c.duplicates) + '</strong> ' + escapeHtml(t('chatStmtDupes')) + '</span>');
+          if (bits.length) html += '<div style="display:flex;gap:0.8rem;flex-wrap:wrap;margin-top:0.3rem;">' + bits.join('') + '</div>';
+          const b = intake.balance;
+          if (b && b.gap) {
+            html += '<div style="margin-top:0.3rem;font-weight:600;color:' + (b.explained ? '#b45309' : 'var(--danger,#dc3545)') + ';">'
+              + escapeHtml(tf('chatStmtGap', { gap: fmt(Math.abs(b.gap)), ccy: intake.currency || '' }))
+              + (b.explained ? ' · ' + escapeHtml(t('chatStmtGapExplained')) : '') + '</div>';
+          }
+          if (intake.clean) html += '<div style="margin-top:0.3rem;color:var(--success,#059669);font-weight:600;">' + escapeHtml(t('chatStmtClean')) + '</div>';
+        }
+        card.innerHTML = html;
+        if (!intake.statement_id) return;
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;';
+        if (intake.status === 'imported' && !intake.clean) {
+          const fixBtn = document.createElement('button');
+          fixBtn.type = 'button';
+          fixBtn.className = 'btn btn-primary btn-sm';
+          fixBtn.textContent = t('chatStmtReviewBtn');
+          fixBtn.addEventListener('click', () => sendMessage(tf('chatStmtReviewMsg', { id: intake.statement_id })));
+          btnRow.appendChild(fixBtn);
+        }
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = 'btn btn-secondary btn-sm';
+        openBtn.textContent = t('chatStmtOpenBtn');
+        openBtn.addEventListener('click', () => {
+          if (typeof openStatementFromChat === 'function') openStatementFromChat(intake.statement_id, { review: true });
+        });
+        btnRow.appendChild(openBtn);
+        card.appendChild(btnRow);
+      }
+
       // ─── Smart-intake cards (spreadsheet drops) ───
       function appendIntakeCard(intake) {
         const card = document.createElement('div');
         card.style.cssText = 'margin:0.5rem 0; border:1px solid var(--primary,#0f766e); border-inline-start:4px solid var(--primary,#0f766e); border-radius:8px; padding:0.7rem; background:#f0fdfa; font-size:0.88rem;';
         const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : n);
         let html = '';
+        if (intake.kind === 'bank_statement') {
+          appendStatementCard(card, intake, fmt);
+          messagesEl.appendChild(card);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return;
+        }
         if (intake.kind === 'chart_export') {
           const sm = intake.summary || {};
           const tiers = sm.tiers || {};

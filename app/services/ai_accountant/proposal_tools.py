@@ -324,6 +324,14 @@ class ProposeCreateTransactionInput(BaseModel):
             "here so the file links to the entry on confirm."
         ),
     )
+    bank_statement_row_id: str | None = Field(
+        None,
+        description=(
+            "When this entry posts an 'unrecorded' bank statement row from "
+            "review_bank_statement, the row's row_id. On confirm the row is marked as "
+            "posted so it is never offered (or posted) again."
+        ),
+    )
 
     @model_validator(mode="after")
     def _balanced(self) -> "ProposeCreateTransactionInput":

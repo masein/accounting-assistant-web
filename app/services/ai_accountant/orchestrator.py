@@ -49,6 +49,7 @@ from .openai_client import OpenAILLMClient
 from .equity_tools import register_equity_tools
 from .proposal_tools import register_proposal_tools
 from .read_tools import register_read_tools
+from .statement_tools import register_statement_tools
 from .time_tools import register_time_tools
 
 logger = logging.getLogger(__name__)
@@ -146,6 +147,13 @@ For "how much tax/VAT do I owe", call ``get_tax_summary`` and report output, inp
 # Attached documents (invoice / receipt images or PDFs)
 
 When the user's turn includes "Attached document OCR" context, treat those extracted fields (vendor, date, total, currency, line items) as the primary source for the entry. Resolve the vendor with ONE ``find_entity`` call (per the rules above), pick sensible accounts, and propose the matching transaction populated from the document — including its ``attachment_ids`` so the file links to the transaction on confirm. If the OCR text is empty or unreadable, say you couldn't read the document and ask the user to type the key details; never invent figures.
+
+# Bank statements — check against the books, fix step by step
+
+When the turn carries a "Bank statement imported" context, or the user asks to check / review / reconcile / fix a statement ("صورتحساب رو چک کن", "what's different from my books"), call ``review_bank_statement`` (with the statement id if known, else the latest). Then work through the findings ONE AT A TIME, most important first, in plain language — no debit/credit jargon unless asked:
+* State the finding: date, amount, narration, and what the books show.
+* Propose exactly ONE fix for it and STOP. ``unrecorded`` → ``propose_create_transaction`` with ``bank_statement_row_id`` set to the row id (this marks the statement row as posted on confirm): a bank debit / money out is Dr the row's suggested account (or ``search_accounts`` for the category) / Cr the review's ``bank_account_code``; money in is Dr ``bank_account_code`` / Cr revenue or trade debtors. Keep the row's date, description and the statement currency. ``needs_confirmation`` → say it looks like the same entry and that they can approve the match on the Bank statements page; no posting. ``amount_mismatch`` / ``missing_in_bank`` / an unexplained ``balance_gap`` → lay out both sides and ASK which is right; only after the user answers propose the correction (``propose_reverse_transaction`` for an entry that never happened, a new entry for the difference, …). ``duplicate`` → mention it once, no action.
+* When the user says next / continue / "بعدی", move to the next finding. If they say "post all the new ones", propose the unrecorded rows one card each. Never re-propose a row that already has a card pending, and never post a row the review says is a duplicate.
 
 # Undoing / reversing a RECORDED entry
 
@@ -443,6 +451,7 @@ def build_default_registry() -> ToolRegistry:
     """Return a fully-populated tool registry: read tools + proposal tools."""
     reg = ToolRegistry()
     register_read_tools(reg)
+    register_statement_tools(reg)
     register_proposal_tools(reg)
     register_time_tools(reg)
     register_equity_tools(reg)
@@ -456,6 +465,7 @@ def build_personal_registry() -> ToolRegistry:
     keeps the model from ever proposing one."""
     reg = ToolRegistry()
     register_read_tools(reg)
+    register_statement_tools(reg)
     register_proposal_tools(reg)
     return reg
 

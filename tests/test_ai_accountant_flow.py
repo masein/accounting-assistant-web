@@ -14,6 +14,7 @@ expressible without a live LLM:
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -206,41 +207,62 @@ class TestExecute:
 
 
 class TestUndo:
-    def test_undo_creates_reversing_entry(self, db: Session) -> None:
+    def test_undo_removes_the_entry_instead_of_reversing(self, db: Session) -> None:
+        """QA finding: Confirm then Undo must make the entry disappear, not
+        leave a 'REVERSAL of …' pair in the ledger."""
         token = _make_proposal(db)
         ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
+        before = db.execute(select(Transaction).where(Transaction.deleted_at.is_(None))).scalars().all()
 
         result = undo_action(
             db, audit_log_id=ex.audit_log_id, actor_user_id=USER,
         )
 
-        # Reversal must be a distinct transaction.
-        assert result.reversal_transaction_id != result.original_transaction_id
-        reversal_txn = db.get(Transaction, uuid.UUID(result.reversal_transaction_id))
-        assert reversal_txn is not None
+        assert result.mode == "deleted"
+        assert result.reversal_transaction_id is None
+        original = db.get(Transaction, uuid.UUID(result.original_transaction_id))
+        assert original is not None and original.deleted_at is not None
+        # No compensating transaction was created — the live ledger shrank by one.
+        after = db.execute(select(Transaction).where(Transaction.deleted_at.is_(None))).scalars().all()
+        assert len(after) == len(before) - 1
+        assert not any((t.reference or "").startswith("REVERSAL of") for t in after)
 
-        # Reversal lines mirror the original (debits ↔ credits).
-        orig_lines = db.execute(
-            select(TransactionLine).where(
-                TransactionLine.transaction_id == uuid.UUID(result.original_transaction_id)
-            )
-        ).scalars().all()
-        rev_lines = db.execute(
-            select(TransactionLine).where(
-                TransactionLine.transaction_id == reversal_txn.id
-            )
-        ).scalars().all()
-        assert sum(int(l.debit or 0) for l in orig_lines) == sum(
-            int(l.credit or 0) for l in rev_lines
-        )
-
-        # Both audit rows visible (original 'create' + undo).
+        # Both audit rows visible (original 'create' + undo, tagged as a delete).
         audits = db.execute(
             select(AuditLog).where(AuditLog.entity_id == result.original_transaction_id)
         ).scalars().all()
         actions = {a.action for a in audits}
         assert "create" in actions
         assert "undo" in actions
+        undo_row = next(a for a in audits if a.action == "undo")
+        assert json.loads(undo_row.detail)["mode"] == "deleted"
+
+    def test_undo_cannot_run_twice(self, db: Session) -> None:
+        token = _make_proposal(db)
+        ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
+        undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+        with pytest.raises(UndoNotApplicable):
+            undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+
+    def test_undo_in_closed_period_falls_back_to_reversal(self, db: Session) -> None:
+        """Deleting from a locked period would silently change closed figures,
+        so the quick undo posts a compensating entry there instead."""
+        from app.services.period_service import set_closed_period
+
+        token = _make_proposal(db)
+        ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
+        txn = db.get(Transaction, uuid.UUID(ex.transaction_id))
+        set_closed_period(db, txn.date)
+        try:
+            result = undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
+        finally:
+            set_closed_period(db, None)
+        assert result.mode == "reversed"
+        assert result.reversal_transaction_id
+        db.refresh(txn)
+        assert txn.deleted_at is None  # original untouched
+        rev = db.get(Transaction, uuid.UUID(result.reversal_transaction_id))
+        assert rev is not None
 
     def test_undo_outside_window_rejected(self, db: Session) -> None:
         token = _make_proposal(db)
@@ -314,7 +336,7 @@ class TestReverse:
         token = _make_proposal(db)
         ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
         undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
-        # Already compensated by the quick undo → persistent reverse is a no-op.
+        # Already removed by the quick undo → persistent reverse is a no-op.
         with pytest.raises(UndoNotApplicable):
             reverse_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
 

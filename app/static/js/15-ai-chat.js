@@ -643,10 +643,16 @@
           });
           const data = await r.json();
           if (!r.ok) throw new Error(data.detail || t('aiReverseFailed'));
-          btn.textContent = t('aiUndoReversed');
+          // Quick undo removes the entry outright (mode "deleted"); the
+          // persistent reverse — or an undo inside a closed period — posts a
+          // compensating entry instead and says so.
+          const deleted = data.mode === 'deleted';
+          btn.textContent = deleted ? t('aiUndoDeleted') : t('aiUndoReversed');
           const note = document.createElement('div');
           note.style.cssText = 'margin-top:0.3rem; color:var(--text-muted); font-size:0.78rem;';
-          note.textContent = tf('aiUndoReversalNote', { id: (data.reversal_transaction_id || '').slice(0, 8) });
+          note.textContent = deleted
+            ? t('aiUndoDeletedNote')
+            : tf('aiUndoReversalNote', { id: (data.reversal_transaction_id || '').slice(0, 8) });
           cardEl.appendChild(note);
         } catch (e) {
           btn.disabled = false;

@@ -16,10 +16,15 @@ Guarantees:
   with ``actor_source='ai-assistant'``, the original ``user_message``,
   the ``tool_name``, and the ``confirmation_token``. The orchestrator
   + chat UI never write to the audit log — only this module does.
-* **Undo via compensating entry.** ``undo_action`` builds a reversing
-  journal (via the existing ``LedgerService.reverse_journal_entry``)
-  and writes a paired audit-log entry. The original transaction is
-  never edited or deleted.
+* **Quick undo removes the entry.** Within ``UNDO_WINDOW`` the
+  just-confirmed transaction is soft-deleted (``deleted_at``) and a paired
+  ``undo`` audit row is written — the books read as if it was never
+  recorded, while the audit log keeps the full story. Only an entry dated
+  in a closed period is undone via a compensating entry instead.
+* **Persistent reverse via compensating entry.** After the window,
+  ``reverse_action`` builds a reversing journal (via the existing
+  ``LedgerService.reverse_journal_entry``) and writes the same paired
+  audit row. Neither path edits the original lines.
 """
 from __future__ import annotations
 
@@ -80,8 +85,12 @@ class ExecutionResult:
 @dataclass
 class UndoResult:
     original_transaction_id: str
-    reversal_transaction_id: str
+    reversal_transaction_id: str | None
     audit_log_id: str
+    # "deleted"  — the quick undo removed the just-created entry (soft delete)
+    # "reversed" — a compensating entry was posted (persistent reverse, or a
+    #              quick undo whose entry sits in a closed period)
+    mode: str = "reversed"
 
 
 # ---------------------------------------------------------------------------
@@ -510,13 +519,13 @@ def _perform_reversal(
         raise UndoNotApplicable(f"Invalid transaction ID on audit row: {e}") from e
 
     if _already_reversed(db, str(original_txn_uuid)):
-        raise UndoNotApplicable("This entry has already been reversed.")
+        raise UndoNotApplicable("This entry has already been undone or reversed.")
 
     original = db.execute(
         select(Transaction).where(Transaction.id == original_txn_uuid)
     ).scalar_one_or_none()
-    if original is None:
-        raise UndoNotApplicable("Original transaction no longer exists (already reversed?).")
+    if original is None or original.deleted_at is not None:
+        raise UndoNotApplicable("Original transaction no longer exists (already undone?).")
 
     svc = LedgerService(db)
     reversal = svc.reverse_journal_entry(
@@ -554,6 +563,82 @@ def _perform_reversal(
         original_transaction_id=str(original_txn_uuid),
         reversal_transaction_id=str(reversal.transaction_id),
         audit_log_id=str(undo_audit.id),
+        mode="reversed",
+    )
+
+
+def _perform_delete(
+    db: Session,
+    audit: AuditLog,
+    *,
+    actor_user_id: str,
+    actor_username: str | None,
+    ip_address: str | None,
+) -> UndoResult:
+    """Quick undo: soft-delete the entry the assistant just created.
+
+    Within the undo window the entry is seconds old and nothing else can have
+    built on it, so the honest correction is to make it disappear from the
+    books (QA feedback: a "REVERSAL of …" pair for an entry the user never
+    meant to record only clutters the ledger). The row stays in the database
+    with ``deleted_at`` set — every report already excludes soft-deleted
+    journals, and the audit log keeps both the create and the undo — and the
+    same paired ``undo`` audit row is written so the "already undone" guards
+    behave exactly as for a reversal.
+    """
+    if not audit.entity_id:
+        raise UndoNotApplicable("Audit row is missing entity_id.")
+    try:
+        original_txn_uuid = uuid.UUID(audit.entity_id)
+    except (ValueError, TypeError) as e:
+        raise UndoNotApplicable(f"Invalid transaction ID on audit row: {e}") from e
+
+    if _already_reversed(db, str(original_txn_uuid)):
+        raise UndoNotApplicable("This entry has already been undone or reversed.")
+
+    original = db.execute(
+        select(Transaction).where(Transaction.id == original_txn_uuid)
+    ).scalar_one_or_none()
+    if original is None or original.deleted_at is not None:
+        raise UndoNotApplicable("Original transaction no longer exists (already undone?).")
+
+    original.deleted_at = datetime.now(timezone.utc)
+    undo_audit = AuditLog(
+        action="undo",
+        entity_type="transaction",
+        entity_id=str(original_txn_uuid),
+        user_id=actor_user_id,
+        username=actor_username,
+        ip_address=ip_address,
+        actor_source="ai-assistant",
+        session_id=audit.session_id,
+        tool_name="undo_action",
+        confirmation_token=audit.confirmation_token,
+        user_message=audit.user_message,
+        detail=json.dumps(
+            {
+                "mode": "deleted",
+                "undone_audit_id": str(audit.id),
+                "deleted_transaction_id": str(original_txn_uuid),
+            },
+            default=str,
+        ),
+    )
+    db.add(undo_audit)
+    db.commit()
+    db.refresh(undo_audit)
+    try:
+        from app.api.reports import invalidate_dashboard_cache
+
+        invalidate_dashboard_cache()
+    except Exception:  # pragma: no cover - cache is best effort
+        pass
+
+    return UndoResult(
+        original_transaction_id=str(original_txn_uuid),
+        reversal_transaction_id=None,
+        audit_log_id=str(undo_audit.id),
+        mode="deleted",
     )
 
 
@@ -566,23 +651,24 @@ def undo_action(
     ip_address: str | None = None,
     undo_window: timedelta | None = None,
 ) -> UndoResult:
-    """Reverse an AI-initiated write via a compensating entry, within the
-    quick one-click undo window.
+    """Quick one-click undo of an AI-initiated write.
 
-    The original transaction is **never edited or deleted** — the
-    reversal is a new transaction with opposite-sign lines and a
-    descriptive reference. Both transactions remain visible in the
-    audit log forever.
+    Within the undo window the just-created entry is **soft-deleted** — it
+    vanishes from every report as if it had never been confirmed, and the
+    audit log keeps the paired ``create`` + ``undo`` rows. The only time the
+    quick undo falls back to a compensating entry is when the entry's date
+    already sits in a closed period (deleting from a locked period would
+    change closed figures), in which case ``mode`` says ``"reversed"``.
 
     Constraints:
       * The audit row must be ``actor_source='ai-assistant'`` and
         ``entity_type='transaction'``.
       * Must be within the undo window (``UNDO_WINDOW`` default).
       * The original row's transaction must still exist and not already
-        be reversed.
+        be undone or reversed.
 
-    Once the window closes use ``reverse_action`` instead — same
-    mechanism, no time limit (AI-7).
+    Once the window closes use ``reverse_action`` instead — a compensating
+    entry, no time limit (AI-7).
     """
     audit = _resolve_undoable_audit(db, audit_log_id, actor_user_id)
 
@@ -596,13 +682,35 @@ def undo_action(
             f"Reverse the entry via the Reverse action instead."
         )
 
-    return _perform_reversal(
+    if _entry_in_closed_period(db, audit):
+        return _perform_reversal(
+            db, audit,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+            tool_name="undo_action",
+        )
+    return _perform_delete(
         db, audit,
         actor_user_id=actor_user_id,
         actor_username=actor_username,
         ip_address=ip_address,
-        tool_name="undo_action",
     )
+
+
+def _entry_in_closed_period(db: Session, audit: AuditLog) -> bool:
+    """True when the transaction behind ``audit`` is dated inside a locked
+    period — the quick undo then must not delete it."""
+    from app.services.period_service import get_closed_period
+
+    try:
+        txn = db.get(Transaction, uuid.UUID(str(audit.entity_id)))
+    except (ValueError, TypeError):
+        return False
+    if txn is None:
+        return False
+    locked_through = get_closed_period(db)
+    return locked_through is not None and txn.date <= locked_through
 
 
 def reverse_action(

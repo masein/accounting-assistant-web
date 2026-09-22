@@ -70,8 +70,10 @@ class UndoPayload(BaseModel):
 
 class UndoResponse(BaseModel):
     original_transaction_id: str
-    reversal_transaction_id: str
+    reversal_transaction_id: str | None = None
     audit_log_id: str
+    # "deleted" (quick undo removed the entry) | "reversed" (compensating entry)
+    mode: str = "reversed"
 
 
 class ProposalRead(BaseModel):
@@ -661,11 +663,13 @@ def undo(
     db: Session = Depends(get_db),
     user: SessionUser = Depends(get_current_user),
 ) -> UndoResponse:
-    """Reverse a recent AI-initiated transaction via a compensating entry.
+    """Quick undo of a recent AI-initiated transaction: the entry is removed
+    (soft-deleted) so the books look as if it was never confirmed. Only when
+    the entry sits in a closed period is a compensating entry posted instead
+    (``mode="reversed"``).
 
     Allowed only:
-      * Within ``UNDO_WINDOW`` seconds of the original audit timestamp
-        (30s by default).
+      * Within ``UNDO_WINDOW`` seconds of the original audit timestamp.
       * For audit rows with ``actor_source='ai-assistant'``.
       * By the same user who initiated the write.
     """
@@ -686,6 +690,7 @@ def undo(
         original_transaction_id=result.original_transaction_id,
         reversal_transaction_id=result.reversal_transaction_id,
         audit_log_id=result.audit_log_id,
+        mode=result.mode,
     )
 
 
@@ -717,6 +722,7 @@ def reverse(
         original_transaction_id=result.original_transaction_id,
         reversal_transaction_id=result.reversal_transaction_id,
         audit_log_id=result.audit_log_id,
+        mode=result.mode,
     )
 
 

@@ -522,7 +522,7 @@ class TestRegistry:
         assert names == {
             "find_entity", "list_entities", "query_ledger",
             "get_account_balance", "search_accounts", "get_financial_statement",
-            "get_tax_summary", "get_company_defaults", "review_bank_statement",
+            "get_tax_summary", "get_company_defaults", "review_bank_statement", "get_insights",
             "propose_create_transaction",
             "propose_create_entity", "propose_update_entity", "propose_reverse_transaction",
             "list_unbilled_time", "get_time_summary", "propose_log_time",
@@ -543,7 +543,7 @@ class TestPersonalMode:
         assert names == {
             "find_entity", "list_entities", "query_ledger",
             "get_account_balance", "search_accounts", "get_financial_statement",
-            "get_tax_summary", "get_company_defaults", "review_bank_statement",
+            "get_tax_summary", "get_company_defaults", "review_bank_statement", "get_insights",
             "propose_create_transaction",
             "propose_create_entity", "propose_update_entity", "propose_reverse_transaction",
         }

@@ -56,6 +56,7 @@
           ])
         );
 
+        loadInsightsPanel('insights-wrap');
         const alertsWrap = document.getElementById('alerts-wrap');
         const alerts = data.alerts || [];
         if (!alerts.length) {
@@ -1233,9 +1234,44 @@
       }
     }
 
+    // ─── Proactive insights panel (owner + personal dashboards) ───
+    async function loadInsightsPanel(wrapId) {
+      const wrap = document.getElementById(wrapId);
+      if (!wrap) return;
+      try {
+        const res = await fetch(API + '/insights');
+        if (!res.ok) { wrap.innerHTML = ''; return; }
+        const data = await res.json();
+        const items = data.insights || [];
+        if (!items.length) {
+          wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('insightsEmpty')) + '</p>';
+          return;
+        }
+        const levelClass = { high: 'high', warning: 'medium', info: 'low' };
+        wrap.innerHTML = items.map(i => `
+          <div class="insight-item" style="border:1px solid var(--border); border-radius:10px; padding:0.55rem; margin-bottom:0.45rem;">
+            <span class="alert-chip ${escapeHtml(levelClass[i.severity] || 'low')}">${escapeHtml(t('insightSeverity_' + (i.severity || 'info')))}</span>
+            <strong style="display:block; margin-top:0.25rem;">${escapeHtml(i.title || '')}</strong>
+            <div style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(i.message || '')}</div>
+            <div style="display:flex; gap:0.4rem; margin-top:0.4rem; flex-wrap:wrap;">
+              ${i.page ? `<button type="button" class="btn btn-secondary btn-sm insight-open" data-page="${escapeHtml(i.page)}">${escapeHtml(t('insightsOpen'))}</button>` : ''}
+              <button type="button" class="btn btn-secondary btn-sm insight-ask" data-title="${escapeHtml(i.title || '')}">${escapeHtml(t('insightsAsk'))}</button>
+            </div>
+          </div>`).join('');
+        wrap.querySelectorAll('.insight-open').forEach(b => b.addEventListener('click', () => {
+          const page = b.dataset.page;
+          if (page && typeof showPage === 'function') { showPage(page); if (typeof loadPageData === 'function') loadPageData(page); }
+        }));
+        wrap.querySelectorAll('.insight-ask').forEach(b => b.addEventListener('click', () => {
+          if (typeof window.aiChatAsk === 'function') window.aiChatAsk(tf('insightsAskMsg', { title: b.dataset.title || '' }));
+        }));
+      } catch (_) { wrap.innerHTML = ''; }
+    }
+
     async function loadPersonalDashboard() {
       const grid = document.getElementById('pd-kpi-grid');
       if (!grid) return;
+      loadInsightsPanel('pd-insights-wrap');
       try {
         if (!window.__FX_META) { try { await loadFxMetadata(); } catch (_) { /* offline */ } }
         await loadReportingCurrency();

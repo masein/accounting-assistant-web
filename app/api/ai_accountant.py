@@ -676,6 +676,44 @@ def execute(
     )
 
 
+class BriefingPayload(BaseModel):
+    session_id: str | None = None
+
+
+class BriefingResponse(BaseModel):
+    session_id: str | None = None
+    text: str | None = None
+    count: int = 0
+
+
+@router.post("/briefing", response_model=BriefingResponse)
+def briefing(
+    payload: BriefingPayload,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> BriefingResponse:
+    """The assistant speaks first: a short, deterministic briefing of the
+    proactive insights (no LLM call), persisted as an assistant message in
+    the chat session so it survives reload and shows in the transcript.
+    Returns ``text=None`` — and writes nothing — when there is nothing to say."""
+    from app.services.ai_accountant.orchestrator import _get_or_create_session
+    from app.services.insight_service import briefing_text, compute_insights
+
+    insights = compute_insights(db)
+    text = briefing_text(insights, _user_language(db, user))
+    if not text:
+        return BriefingResponse(session_id=payload.session_id, text=None, count=0)
+    try:
+        session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.session_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    db.add(AIChatMessage(session_id=session.id, role="assistant",
+                         content={"role": "assistant", "text": text, "briefing": True},
+                         created_at=datetime.now(timezone.utc)))
+    db.commit()
+    return BriefingResponse(session_id=str(session.id), text=text, count=len(insights))
+
+
 @router.post("/undo", response_model=UndoResponse)
 def undo(
     payload: UndoPayload,

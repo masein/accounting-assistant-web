@@ -365,6 +365,7 @@ _reads(["/ai-accountant/sessions", "/ai-accountant/sessions/{session_id}/message
 for _m, _p in [
     ("POST", "/ai-accountant/chat"), ("POST", "/ai-accountant/execute"),
     ("POST", "/ai-accountant/undo"), ("POST", "/ai-accountant/reverse"),
+    ("POST", "/ai-accountant/briefing"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 
@@ -423,6 +424,7 @@ _reads([
     "/reports/entities/{entity_id}/transactions", "/reports/owner-dashboard",
     "/reports/tax-summary", "/reports/tax-rates", "/reports/tax-rates/effective",
     "/reports/missing-references", "/reports/transactions/search",
+    "/insights",
 ], Perm.REPORTS_READ)
 _add("POST", "/reports/tax-rates", Perm.BOOKS_WRITE)
 # Budgets — reporting/planning reads + books writes.

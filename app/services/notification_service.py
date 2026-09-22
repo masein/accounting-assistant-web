@@ -40,6 +40,7 @@ KIND_ROLES = {
     "recurring": ("owner", "cfo", "accountant", "personal"),
     "budget": ("owner", "cfo", "accountant", "personal"),
     "commitment": ("owner", "cfo", "accountant", "personal"),
+    "insight": ("owner", "cfo", "accountant", "personal"),
     "reminder": (),  # always personal
 }
 
@@ -208,6 +209,24 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
                     link_page="personal-dashboard")
     except Exception:
         # budget alerts must never break the whole feed refresh
+        pass
+
+    # --- proactive insights: payroll moves, expense spikes, statement due … --
+    # Computed by insight_service (cached ~10 min per tenant, so the 90-second
+    # bell poll doesn't rescan a year of ledger each time). Keys carry the
+    # period, so an insight re-emits while its condition holds and auto-resolves
+    # below once it no longer does.
+    try:
+        from app.services.insight_service import compute_insights, insight_language
+
+        lang = insight_language(db)
+        for ins in compute_insights(db, today=today):
+            loc = ins.localize(lang)
+            _upsert(db, seen, dedupe_key=f"insight-{ins.key}"[:160], kind="insight",
+                    level=ins.severity if ins.severity in ("info", "warning", "high") else "info",
+                    title=loc["title"][:256], message=loc["message"], link_page=ins.page)
+    except Exception:
+        # insights must never break the whole feed refresh
         pass
 
     # --- resolve rows whose source condition cleared -----------------------

@@ -150,6 +150,32 @@
           renderSessionList(sessionSearchEl ? sessionSearchEl.value.trim() : '');
         } catch (_) { /* keep current view */ }
       }
+      // The assistant speaks first: once a day, when a chat is opened, ask
+      // the server for a briefing of the proactive insights. Deterministic —
+      // no model call — and persisted in the session, so it reads like any
+      // other assistant message.
+      async function maybeBriefing() {
+        const key = 'aa_ai_briefing_' + new Date().toISOString().slice(0, 10);
+        try { if (localStorage.getItem(key)) return; } catch (_) { /* storage blocked */ }
+        try {
+          const r = await fetch(API + '/ai-accountant/briefing', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId }),
+          });
+          const data = await readJsonSafe(r);
+          if (!r.ok || !data || !data.text) return;
+          sessionId = data.session_id || sessionId;
+          appendBubble('assistant', data.text);
+          try { localStorage.setItem(key, '1'); } catch (_) { /* ignore */ }
+          loadSessions('');
+        } catch (_) { /* briefing is best effort */ }
+      }
+      // Dashboard "Ask the AI" buttons land here.
+      window.aiChatAsk = (text) => {
+        if (typeof showPage === 'function') showPage('ai-accountant');
+        sendMessage(text);
+      };
+
       async function startNewChat() {
         try {
           const res = await fetch(API + '/ai-accountant/sessions', {
@@ -165,6 +191,7 @@
         renderPendingAttachments();
         statusEl.textContent = t('aiChatNewStarted');
         loadSessions('');
+        maybeBriefing();
       }
       if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
       if (sessionSearchEl) {
@@ -178,6 +205,7 @@
       (async function restoreLatest() {
         await loadSessions('');
         if (_sessionsCache.length) await openSession(_sessionsCache[0].id);
+        maybeBriefing();
       })();
       const undoTimers = {};  // audit_log_id → timeout handle
       // Quick one-click undo countdown; matches UNDO_WINDOW in execute_service

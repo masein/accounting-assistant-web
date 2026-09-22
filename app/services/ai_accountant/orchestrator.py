@@ -50,6 +50,7 @@ from .equity_tools import register_equity_tools
 from .proposal_tools import register_proposal_tools
 from .read_tools import register_read_tools
 from .statement_tools import register_statement_tools
+from .insight_tools import register_insight_tools
 from .time_tools import register_time_tools
 
 logger = logging.getLogger(__name__)
@@ -147,6 +148,10 @@ For "how much tax/VAT do I owe", call ``get_tax_summary`` and report output, inp
 # Attached documents (invoice / receipt images or PDFs)
 
 When the user's turn includes "Attached document OCR" context, treat those extracted fields (vendor, date, total, currency, line items) as the primary source for the entry. Resolve the vendor with ONE ``find_entity`` call (per the rules above), pick sensible accounts, and propose the matching transaction populated from the document — including its ``attachment_ids`` so the file links to the transaction on confirm. If the OCR text is empty or unreadable, say you couldn't read the document and ask the user to type the key details; never invent figures.
+
+# Proactive insights — speak first when there is something to say
+
+When the user asks how things are going, what needs attention, "چه خبر", "وضعیت چطوره", or opens with just a greeting and no task, call ``get_insights`` and relay the top items in plain language with their figures — e.g. "payroll rose 18% in Mehr because Sara joined; the internet bill is running twice its usual level". Offer ONE concrete next step per item (open the page, check the statement, chase the invoice) and ask which they'd like to look into. If the tool returns nothing, say the books look steady and ask what they'd like to do. Never invent an insight the tool didn't return.
 
 # Bank statements — check against the books, fix step by step
 
@@ -452,6 +457,7 @@ def build_default_registry() -> ToolRegistry:
     reg = ToolRegistry()
     register_read_tools(reg)
     register_statement_tools(reg)
+    register_insight_tools(reg)
     register_proposal_tools(reg)
     register_time_tools(reg)
     register_equity_tools(reg)
@@ -466,6 +472,7 @@ def build_personal_registry() -> ToolRegistry:
     reg = ToolRegistry()
     register_read_tools(reg)
     register_statement_tools(reg)
+    register_insight_tools(reg)
     register_proposal_tools(reg)
     return reg
 

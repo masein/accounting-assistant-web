@@ -410,7 +410,7 @@ def get_entity_transactions(
                         file_name=a.file_name,
                         content_type=a.content_type,
                         size_bytes=a.size_bytes,
-                        url=_attachment_url(a.file_path),
+                        url=f"/transactions/attachments/{a.id}/file",
                         transaction_id=t.id,
                     )
                     for a in (t.attachments or [])

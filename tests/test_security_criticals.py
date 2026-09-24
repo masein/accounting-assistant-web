@@ -96,14 +96,19 @@ def test_snapshot_is_served_only_to_its_own_company(client, db):
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
 
-def test_attachment_extension_ignores_the_user_file_name(auth_client):
+def test_attachment_extension_ignores_the_user_file_name(auth_client, db):
+    from app.models.transaction import TransactionAttachment
     r = auth_client.post("/transactions/attachments", files={"file": ("evil.html", PNG, "image/png")})
     assert r.status_code == 201, r.text
-    assert r.json()["url"].endswith(".png")
+    assert str(db.get(TransactionAttachment, uuid.UUID(r.json()["id"])).file_path).endswith(".png")
+    got = auth_client.get(r.json()["url"])
+    assert got.status_code == 200 and got.headers["content-type"].startswith("image/png")
     r2 = auth_client.post("/transactions/attachments",
                           files={"file": ("evil.svg", b"date,amount\n2026-01-01,5\n", "text/csv")})
     assert r2.status_code == 201, r2.text
-    assert r2.json()["url"].endswith(".csv")
+    assert str(db.get(TransactionAttachment, uuid.UUID(r2.json()["id"])).file_path).endswith(".csv")
+    got2 = auth_client.get(r2.json()["url"])
+    assert got2.status_code == 200 and got2.headers["content-disposition"].startswith("attachment")
 
 
 # ---------------------------------------------------------------------------

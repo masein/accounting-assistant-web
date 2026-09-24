@@ -122,11 +122,22 @@ _BANK_NAMES = (
 )
 
 
-def guess_bank_name(*sources: str) -> str:
-    """Best-effort bank name from the filename / message / document text."""
+def guess_bank_name(*sources: str, document_text: str = "") -> str:
+    """Best-effort bank name.
+
+    The filename and the user's message are trusted; the document body is
+    consulted only through its first lines (the statement header). A merchant
+    called "Refah store" deep in the rows must not turn a Mellat statement
+    into a "Refah" one (QA 2026-09-24)."""
     hint = _norm(" ".join(s for s in sources if s))
     for key, name in _BANK_NAMES:
         if key in hint:
+            return name
+    # Only the first line — a statement's title, never its rows.
+    first = ((document_text or "").strip().splitlines() or [""])[0]
+    head = _norm(first[:160])
+    for key, name in _BANK_NAMES:
+        if key in head:
             return name
     return "Unknown"
 

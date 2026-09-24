@@ -166,3 +166,13 @@ def test_phone_layout_rules_for_dashboard_panels_and_chat():
     assert "#ai-acct-sidebar { width: 100% !important" in css
     assert "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)" in css
     assert ".panel > div { max-width: 100%; overflow-x: auto; }" in css
+def test_voucher_balance_bar_reads_the_real_lines_table():
+    """QA 2026-09-24: the live Debit/Credit bar never moved because it
+    queried `#lines-body` while the table body is `#lines-tbody`."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "app" / "static"
+    js = (root / "js" / "07-chat-reports.js").read_text(encoding="utf-8")
+    html = (root / "index.html").read_text(encoding="utf-8")
+    assert 'id="lines-tbody"' in html
+    assert "querySelectorAll('#lines-tbody tr')" in js
+    assert "#lines-body tr" not in js

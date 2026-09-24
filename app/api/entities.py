@@ -56,7 +56,27 @@ def list_entities(
     if search and search.strip():
         q = q.where(Entity.name.ilike(f"%{search.strip()}%"))
     entities = db.execute(q).scalars().all()
-    return [EntityRead.model_validate(e) for e in entities]
+    return [_strip_for_actor(EntityRead.model_validate(e)) for e in entities]
+
+
+# Fields only roles with bank:read may see. Entities are readable with
+# reports:read so a viewer can label dashboards, but a viewer must not get
+# bank account numbers, IBANs or national ids (production QA 2026-09-24).
+_BANK_SENSITIVE_FIELDS = ("account_number", "iban", "sort_code", "account_holder", "national_id")
+
+
+def _strip_for_actor(read: EntityRead) -> EntityRead:
+    from app.core.permissions import Perm, role_can
+    from app.core.request_context import get_current_actor
+
+    actor = get_current_actor()
+    role = getattr(actor, "role", None) if actor is not None else None
+    if actor is None or getattr(actor, "is_superadmin", False) or role_can(role, Perm.BANK_READ):
+        return read
+    for f in _BANK_SENSITIVE_FIELDS:
+        if getattr(read, f, None) is not None:
+            setattr(read, f, None)
+    return read
 
 
 @router.post("/resolve", response_model=EntityResolveResponse)
@@ -136,7 +156,7 @@ def get_entity(
     entity = db.get(Entity, entity_id)
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
-    return EntityRead.model_validate(entity)
+    return _strip_for_actor(EntityRead.model_validate(entity))
 
 
 @router.get("/{entity_id}/statement.pdf")

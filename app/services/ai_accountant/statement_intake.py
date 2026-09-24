@@ -42,6 +42,16 @@ class StatementTurn:
     intake: dict[str, Any]
 
 
+_PERSIAN_RE = re.compile(r"[\u0600-\u06FF]")
+
+
+def _message_language(message: str | None, fallback: str) -> str:
+    """Persian/Arabic script in the message wins over the UI language."""
+    if message and _PERSIAN_RE.search(message):
+        return "fa" if fallback != "ar" else "ar"
+    return fallback
+
+
 def _fmt(n: int | None) -> str:
     return f"{int(n):,}" if n is not None else "—"
 
@@ -153,7 +163,10 @@ async def maybe_statement_intake(
         if not looks_like_bank_statement(filename=att.file_name or "", message=message or "", text=text):
             continue
 
-        bank_name = guess_bank_name(att.file_name or "", message or "", text[:4000])
+        bank_name = guess_bank_name(att.file_name or "", message or "", document_text=text)
+        # Answer in the language the user wrote in, not the UI language: a
+        # Persian message got an English summary (QA 2026-09-24).
+        lang = _message_language(message, lang)
         try:
             content = path.read_bytes()
             result = await import_statement_bytes(
@@ -314,15 +327,22 @@ async def ensure_statement_row_proposal(
         return None
     # Prefer the row the model actually described (its amount appears in the
     # reply) so the card under the text is the one the text talks about.
-    finding = None
-    digits = re.sub(r"[^\d]", "", (assistant_text or "").translate(_DIGITS))
-    if assistant_text:
-        for f in candidates:
-            amt = str(int(f.amount or 0))
-            if amt and (f"{int(f.amount):,}" in assistant_text or amt in digits):
-                finding = f
-                break
+    text = (assistant_text or "").translate(_DIGITS)
+
+    def mentioned(amount) -> bool:
+        a = int(amount or 0)
+        return bool(a) and (f"{a:,}" in text or re.search(rf"(?<!\d){a}(?!\d)", re.sub(r"[,٬]", "", text)) is not None)
+
+    finding = next((f for f in candidates if mentioned(f.amount)), None)
     if finding is None:
+        # The reply talks about a finding that is NOT postable (a book entry
+        # the bank never saw, an amount mismatch, the balance gap): attaching
+        # an unrelated card under it confused testers (QA 2026-09-24). Only
+        # fall back to the first open row when the reply names no other
+        # finding's amount.
+        others = [f for f in review.findings if f.kind != "unrecorded" and mentioned(f.amount)]
+        if others:
+            return None
         finding = candidates[0]
     try:
         bank_code = review.bank_account_code or resolve_account_code(db, "bank")

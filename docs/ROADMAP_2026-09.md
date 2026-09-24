@@ -19,6 +19,14 @@ attachment extensions from the validated type, soft-delete filters in
 exports/budgets/running balance, payroll voided-run filter, statement upload
 cap, CSV formula guard (#106). ✅ All 37 QA findings (#87–#105).
 
+**"Now" block (§7 step 1) — shipped 2026-09-24:** ✅ 1.1 uploads behind auth
+(#111) · ✅ 1.2/1.3 sessions + change-password (#108) · ✅ 1.4 admin audit +
+append-only audit_logs (#118) · ✅ 1.5 closed period on every posting path,
+chat undo soft-deletes (#110) · ✅ 1.9 backups (#112) · ✅ 1.10 CI-gated
+publish, pinned Watchtower, Secure cookie, proxy headers, HSTS (#112) · ✅ 2.1
+scheduler (#113) · ✅ test suites 1–3 (#114, #115, #116) · ✅ chat page
+redesign incl. RTL (#109) · ✅ SQLite UUID affinity flake (#117).
+
 ---
 
 ## 1. Security and data safety (do before onboarding paying customers)

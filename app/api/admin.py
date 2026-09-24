@@ -18,6 +18,8 @@ from app.core.auth import (
     require_superadmin,
 )
 from app.core.permissions import ALL_ROLES, Role
+from app.services.audit_service import log_audit_event
+import json as _json
 from app.core.ai_runtime import (
     get_ai_config_public,
     resolve_anthropic_config,
@@ -129,8 +131,8 @@ def get_ai_config(_=Depends(require_superadmin)) -> dict:
 
 
 @router.patch("/ai-config")
-def patch_ai_config(payload: AIConfigPatch, _=Depends(require_superadmin)) -> dict:
-    return update_ai_config(
+def patch_ai_config(payload: AIConfigPatch, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+    result = update_ai_config(
         provider=payload.provider,
         model=payload.model,
         base_url=payload.base_url,
@@ -138,6 +140,12 @@ def patch_ai_config(payload: AIConfigPatch, _=Depends(require_superadmin)) -> di
         api_key_header=payload.api_key_header,
         api_key_prefix=payload.api_key_prefix,
     )
+    # Platform-wide change: who switched the model matters. Never the key itself.
+    log_audit_event(db, action="update", entity_type="ai_config", entity_id="platform",
+                    detail=_json.dumps({"provider": payload.provider, "model": payload.model,
+                                        "base_url": payload.base_url, "api_key_changed": bool(payload.api_key)}))
+    db.commit()
+    return result
 
 
 SUPPORTED_CHAT_SHAPES = ("anthropic", "openai")
@@ -226,6 +234,7 @@ def update_chat_provider_shape(
         row.value = value
     else:
         db.add(AppSetting(key="ai_chat_provider_shape", value=value))
+    log_audit_event(db, action="update", entity_type="setting", entity_id="ai_chat_provider_shape", detail=value or "auto")
     db.commit()
     return read_chat_provider_shape(db)
 
@@ -265,7 +274,12 @@ def update_closed_period(
             value = _date.fromisoformat(raw)
         except ValueError as e:
             raise HTTPException(status_code=400, detail="closed_period must be an ISO date (YYYY-MM-DD) or empty.") from e
+    from app.services.period_service import get_closed_period
+    previous = get_closed_period(db)
     set_closed_period(db, value)
+    log_audit_event(db, action=("lock_period" if value else "reopen_period"), entity_type="closed_period",
+                    entity_id=(value.isoformat() if value else None),
+                    detail=f"closed through {previous.isoformat() if previous else 'none'} → {value.isoformat() if value else 'open'}")
     db.commit()
     return read_closed_period(db)
 
@@ -287,7 +301,7 @@ def get_anthropic_config(_=Depends(require_superadmin)) -> dict:
 
 
 @router.patch("/anthropic-config")
-def patch_anthropic_config(payload: AnthropicConfigPatch, _=Depends(require_superadmin)) -> dict:
+def patch_anthropic_config(payload: AnthropicConfigPatch, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
     """Update the Anthropic provider settings used by the AI accountant.
     Any field left blank is left unchanged. Use ``api_key = "-"`` to clear
     the stored key. Setting ``base_url`` to an empty string falls back to
@@ -297,6 +311,10 @@ def patch_anthropic_config(payload: AnthropicConfigPatch, _=Depends(require_supe
         model=payload.model,
         api_key=payload.api_key,
     )
+    log_audit_event(db, action="update", entity_type="ai_config", entity_id="anthropic",
+                    detail=_json.dumps({"base_url": payload.base_url, "model": payload.model,
+                                        "api_key_changed": bool(payload.api_key)}))
+    db.commit()
     cfg = resolve_anthropic_config()
     return {
         "base_url": cfg["base_url"],
@@ -418,6 +436,8 @@ def reset_db(
         # business-table wipe above, so we must overwrite it explicitly.
         from app.services.fx_service import set_reporting_currency
         set_reporting_currency(db, "GBP" if locale_norm == "uk" else "IRR")
+        log_audit_event(db, action="reset_db", entity_type="database", entity_id=locale_norm,
+                        detail=f"all data deleted and chart reseeded (locale={locale_norm}, demo={with_demo_data})")
         db.commit()
 
         demo_entries = 0
@@ -559,6 +579,9 @@ def create_user(
         last_seen_release=CURRENT_RELEASE,  # no changelog on a brand-new user's first login
     )
     db.add(user)
+    db.flush()
+    log_audit_event(db, action="create", entity_type="user", entity_id=str(user.id),
+                    detail=_json.dumps({"username": user.username, "role": user.role, "is_active": user.is_active}))
     db.commit()
     db.refresh(user)
     name = db.get(Entity, user.entity_id).name if user.entity_id else None
@@ -621,6 +644,11 @@ def update_user(
     if bump:
         user.token_version = int(user.token_version or 0) + 1
 
+    changed = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if k != "password"}
+    if payload.model_dump(exclude_unset=True).get("password"):
+        changed["password_reset"] = True
+    log_audit_event(db, action="update", entity_type="user", entity_id=str(user.id),
+                    detail=_json.dumps({"username": user.username, **changed}, default=str))
     db.commit()
     db.refresh(user)
     name = db.get(Entity, user.entity_id).name if user.entity_id else None
@@ -640,6 +668,8 @@ def delete_user(
         raise HTTPException(status_code=400, detail="Default admin user cannot be deleted")
     if user.role == Role.OWNER and _count_active_owners(db, caller, exclude_id=user.id) == 0:
         raise HTTPException(status_code=400, detail="The company must keep at least one owner")
+    log_audit_event(db, action="delete", entity_type="user", entity_id=str(user.id),
+                    detail=_json.dumps({"username": user.username, "role": user.role}))
     db.delete(user)
     db.commit()
 
@@ -683,6 +713,9 @@ def create_api_key(
     key = ApiKey(company_id=cid, label=(payload.label or "integration").strip()[:128],
                  key_hash=digest, prefix=prefix)
     db.add(key)
+    db.flush()
+    log_audit_event(db, action="create", entity_type="api_key", entity_id=str(key.id),
+                    detail=_json.dumps({"name": getattr(key, "name", None), "prefix": getattr(key, "prefix", None)}))
     db.commit()
     db.refresh(key)
     return {
@@ -704,6 +737,7 @@ def revoke_api_key(
     if not key or (cid and key.company_id != cid):
         raise HTTPException(status_code=404, detail="API key not found")
     key.revoked = True
+    log_audit_event(db, action="revoke", entity_type="api_key", entity_id=str(key_id))
     db.commit()
 
 
@@ -722,6 +756,7 @@ def update_reporting_locale(
         locale = set_reporting_locale(db, payload.locale)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    log_audit_event(db, action="update", entity_type="setting", entity_id="reporting_locale", detail=str(locale))
     db.commit()
     return ReportingLocaleRead(locale=locale, supported=sorted(SUPPORTED_LOCALES))
 
@@ -750,6 +785,7 @@ def update_display_calendar(
         cal = set_display_calendar(db, payload.calendar)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    log_audit_event(db, action="update", entity_type="setting", entity_id="display_calendar", detail=str(cal))
     db.commit()
     return DisplayCalendarRead(calendar=cal, supported=sorted(SUPPORTED_CALENDARS))
 
@@ -787,5 +823,6 @@ def update_iran_shares_outstanding(
         row.value = value
     else:
         db.add(AppSetting(key=SHARES_OUTSTANDING_KEY, value=value))
+    log_audit_event(db, action="update", entity_type="setting", entity_id="iran_shares_outstanding", detail=str(value))
     db.commit()
     return {"shares": payload.shares if payload.shares > 0 else None}

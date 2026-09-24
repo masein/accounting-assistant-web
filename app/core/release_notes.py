@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.22"
+CURRENT_RELEASE = "2026.09.24"
 
 
 @dataclass(frozen=True)
@@ -164,6 +164,97 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "اولین بار که پس از هر به‌روزرسانی وارد می‌شوید، خلاصهٔ کوتاهی از تغییرات می‌بینید. از تنظیمات هر زمان می‌توانید دوباره آن را باز کنید.",
                     "es": "La primera vez que inicies sesión tras una actualización verás un breve recorrido por las novedades. Puedes reabrirlo cuando quieras desde Ajustes.",
                     "ar": "في أول تسجيل دخول بعد أي تحديث ستحصل على جولة قصيرة بالجديد. يمكنك إعادة فتحها في أي وقت من الإعدادات.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.24",
+        date="2026-09-24",
+        highlights=(
+            Highlight(
+                key="per-currency-views",
+                page="ledger",
+                roles=_BOOKS,
+                title={
+                    "en": "Reports show one currency at a time",
+                    "fa": "گزارش‌ها هر بار یک ارز را نشان می‌دهند",
+                    "es": "Los informes muestran una moneda a la vez",
+                    "ar": "التقارير تعرض عملة واحدة في كل مرة",
+                },
+                body={
+                    "en": "The ledger, trial balance and dashboard show your reporting currency and list any other currency in the books as its own view. Amounts in different currencies are never added together.",
+                    "fa": "دفتر کل، تراز آزمایشی و داشبورد ارز گزارشگری شما را نشان می‌دهند و هر ارز دیگری در دفاتر را به‌صورت نمای جداگانه فهرست می‌کنند. مبالغ ارزهای مختلف هرگز با هم جمع نمی‌شوند.",
+                    "es": "El libro mayor, el balance de comprobación y el panel muestran tu moneda de informe y listan cualquier otra moneda de los libros como una vista propia. Los importes en distintas monedas nunca se suman.",
+                    "ar": "يعرض دفتر الأستاذ وميزان المراجعة ولوحة المعلومات عملة التقارير الخاصة بك ويدرجون أي عملة أخرى في الدفاتر كعرض مستقل. لا تُجمع المبالغ بعملات مختلفة أبداً.",
+                },
+            ),
+            Highlight(
+                key="balance-sheet-check",
+                page="manager",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "A balance sheet that balances",
+                    "fa": "ترازنامه‌ای که تراز است",
+                    "es": "Un balance que cuadra",
+                    "ar": "ميزانية متوازنة",
+                },
+                body={
+                    "en": "Balances keep their sign (an overdrawn cash account shows as negative), the period's unclosed profit appears under equity, and the statement shows assets against liabilities + equity with a balanced / not balanced check.",
+                    "fa": "مانده‌ها علامت خود را نگه می‌دارند (حساب نقد منفی، منفی نشان داده می‌شود)، سود بسته‌نشدهٔ دوره زیر حقوق مالکانه می‌آید و صورت، دارایی‌ها را در برابر بدهی‌ها + حقوق مالکانه با نشانگر تراز / ناتراز نشان می‌دهد.",
+                    "es": "Los saldos conservan su signo (una caja en descubierto aparece en negativo), el beneficio no cerrado del periodo aparece en el patrimonio y el estado muestra el activo frente al pasivo + patrimonio con un indicador de cuadra / no cuadra.",
+                    "ar": "تحافظ الأرصدة على إشارتها (حساب النقد المكشوف يظهر بالسالب)، ويظهر ربح الفترة غير المُقفل ضمن حقوق الملكية، وتعرض القائمة الأصول مقابل الالتزامات + حقوق الملكية مع مؤشر متوازنة / غير متوازنة.",
+                },
+            ),
+            Highlight(
+                key="chat-periods-cash",
+                page="ai-accountant",
+                roles=_BOOKS,
+                title={
+                    "en": "Ask “how much did I spend this month?”",
+                    "fa": "بپرسید «این ماه چقدر خرج کردم؟»",
+                    "es": "Pregunta «¿cuánto gasté este mes?»",
+                    "ar": "اسأل «كم أنفقت هذا الشهر؟»",
+                },
+                body={
+                    "en": "The assistant now works out “this month”, “last month” and “this year” in your own calendar (Jalali for Iranian books), answers “how much cash do we have?” from every cash and bank account, and books a spend with no matching category to general expenses instead of asking which account.",
+                    "fa": "دستیار اکنون «این ماه»، «ماه گذشته» و «امسال» را در تقویم خود شما (شمسی برای دفاتر ایرانی) حساب می‌کند، «چقدر پول داریم؟» را از همهٔ حساب‌های نقد و بانک پاسخ می‌دهد و خرجی که دسته‌بندی مشخصی ندارد را به جای پرسیدن، زیر هزینه‌های عمومی ثبت می‌کند.",
+                    "es": "El asistente ahora resuelve «este mes», «el mes pasado» y «este año» en tu propio calendario (jalali para libros iraníes), responde «¿cuánto efectivo tenemos?» sumando todas las cuentas de caja y banco, y registra un gasto sin categoría clara en gastos generales en lugar de preguntar qué cuenta usar.",
+                    "ar": "يحسب المساعد الآن «هذا الشهر» و«الشهر الماضي» و«هذا العام» وفق تقويمك (الهجري الشمسي للدفاتر الإيرانية)، ويجيب عن «كم نقداً لدينا؟» من كل حسابات النقد والبنك، ويسجّل المصروف الذي لا فئة له ضمن المصروفات العامة بدل أن يسأل عن الحساب.",
+                },
+            ),
+            Highlight(
+                key="stricter-checks",
+                page="entities",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Fewer slips get through",
+                    "fa": "اشتباه‌های کمتری رد می‌شوند",
+                    "es": "Se cuelan menos errores",
+                    "ar": "أخطاء أقل تمرّ",
+                },
+                body={
+                    "en": "A second party with the same name and type or a reused invoice number is refused, IBANs are checked, a day cannot hold more than 24 hours of time, petty cash cannot spend beyond its float, and uploading an Excel file you already imported shows a warning first. Edits now appear in the audit log too.",
+                    "fa": "طرف حساب تکراری با همان نام و نوع یا شمارهٔ فاکتور تکراری رد می‌شود، شبا بررسی می‌شود، یک روز نمی‌تواند بیش از ۲۴ ساعت کار داشته باشد، تنخواه نمی‌تواند بیش از موجودی‌اش خرج کند و بارگذاری فایل اکسلی که قبلاً وارد کرده‌اید ابتدا هشدار می‌دهد. ویرایش‌ها هم اکنون در گزارش رخدادها دیده می‌شوند.",
+                    "es": "Se rechaza un segundo tercero con el mismo nombre y tipo o un número de factura repetido, se verifican los IBAN, un día no puede tener más de 24 horas, la caja chica no puede gastar más de su fondo y subir un Excel ya importado avisa primero. Las ediciones también aparecen ahora en el registro de auditoría.",
+                    "ar": "يُرفض طرف ثانٍ بنفس الاسم والنوع أو رقم فاتورة مكرر، ويُتحقق من أرقام الآيبان، ولا يمكن أن يتجاوز اليوم 24 ساعة عمل، ولا تنفق العهدة أكثر من رصيدها، ويُظهر رفع ملف إكسل سبق استيراده تحذيراً أولاً. تظهر التعديلات الآن في سجل التدقيق أيضاً.",
+                },
+            ),
+            Highlight(
+                key="invoice-credit",
+                page="invoices",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Over-payments shown as credit",
+                    "fa": "پرداخت اضافه به‌صورت اعتبار نشان داده می‌شود",
+                    "es": "Los pagos en exceso se muestran como saldo a favor",
+                    "ar": "المدفوعات الزائدة تُعرض كرصيد دائن",
+                },
+                body={
+                    "en": "When an invoice is paid above its amount, the invoice list shows the settled part as paid and the excess as credit on account, instead of a paid figure larger than the invoice.",
+                    "fa": "وقتی فاکتوری بیش از مبلغش پرداخت می‌شود، فهرست فاکتورها بخش تسویه‌شده را به‌عنوان پرداخت‌شده و مازاد را به‌عنوان اعتبار نزد ما نشان می‌دهد، نه رقمی بزرگ‌تر از خود فاکتور.",
+                    "es": "Cuando una factura se paga por encima de su importe, la lista muestra la parte liquidada como pagada y el exceso como saldo a favor, en lugar de un pagado mayor que la factura.",
+                    "ar": "عندما تُسدَّد فاتورة بأكثر من قيمتها، تعرض القائمة الجزء المسدَّد كمدفوع والزائد كرصيد دائن، بدلاً من رقم مدفوع أكبر من الفاتورة.",
                 },
             ),
         ),

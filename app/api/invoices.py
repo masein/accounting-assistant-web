@@ -674,6 +674,18 @@ def add_payment(invoice_id: UUID, payload: PaymentCreate, db: Session = Depends(
         raise HTTPException(status_code=400, detail="Cannot pay a canceled invoice.")
     if payload.currency and payload.currency.strip().upper() != (inv.currency or "").upper():
         raise HTTPException(status_code=400, detail=f"Payment currency must match the invoice ({inv.currency}).")
+    # Never take more than is owed: an over-payment is a refund or a credit
+    # note, not a payment (QA 2026-09-24: 8,000,000 was accepted on a
+    # 3,000,000 invoice and the status still read "paid").
+    _paid, _credited, balance_due = _invoice_totals(db, inv)
+    if balance_due <= 0:
+        raise HTTPException(status_code=400, detail="This invoice has no open balance.")
+    if int(payload.amount) > balance_due:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Payment {int(payload.amount):,} exceeds the open balance of {balance_due:,} {inv.currency}. "
+                   f"Record the balance as a payment and the excess as a refund or credit note.",
+        )
     try:
         payment, _credit = _apply_payment(
             db, inv,

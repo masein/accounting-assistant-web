@@ -455,6 +455,9 @@ async def auth_middleware(request: Request, call_next):
     path = request.url.path
     if path in PUBLIC_PATHS and request.method == "POST" and not _same_origin(request):
         return JSONResponse(status_code=403, content={"detail": "Cross-site request refused"})
+    if settings.app_env == "prod" and (path.startswith(("/docs", "/redoc")) or path == "/openapi.json"):
+        # The interactive API docs stay a development aid (review L1).
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
     # allow app/static resources and framework internals
     if (
         path in PUBLIC_PATHS
@@ -707,7 +710,7 @@ def health_check():
         ocr_ok = ocr_engine_available()
     except Exception:
         ocr_ok = False
-    return {
+    body = {
         "status": status,
         "database": "connected" if db_ok else "unavailable",
         "ocr_available": ocr_ok,
@@ -716,6 +719,12 @@ def health_check():
         "image_schema": _code_schema_head(),
         "db_schema": db_schema,
     }
+    if status != "ok":
+        # A 200 "degraded" kept the container healthy while the database was
+        # down (security review 2026-09-24, M6). Monitors and the compose
+        # healthcheck need the status code to say it.
+        return JSONResponse(status_code=503, content=body)
+    return body
 
 
 from fastapi.exceptions import RequestValidationError

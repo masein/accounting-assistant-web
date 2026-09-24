@@ -97,8 +97,9 @@ docker compose -f docker-compose.prod.yml up -d   # starts api, db, AND watchtow
 - On update Watchtower pulls the new image, recreates the container (which applies migrations on start), removes the old image, and keeps the `pgdata` / `uploads` volumes.
 - Tune the check frequency with `WATCHTOWER_POLL_INTERVAL` (seconds; default `120`) in `.env`.
 
-So the full loop is: **push to `main` → CI builds & pushes `:latest` → Watchtower
-sees it within the poll interval → api redeploys.** For a controlled release
+So the full loop is: **push to `main` → CI tests pass → the Publish workflow
+builds & pushes `:latest` (it runs only on a green CI run, never on a failed
+one) → Watchtower sees it within the poll interval → api redeploys.** For a controlled release
 instead, pin `API_IMAGE=…:1.2.3` in `.env` and re-run `up -d` when you want it.
 
 > The old SSH-based deploy job was removed — GitHub's runners can't reach the
@@ -134,6 +135,45 @@ If a migration is broken you'll instead see `PRE-START FAILED` with the full
 traceback and the container will exit non-zero (and, under `restart:
 unless-stopped`, keep retrying loudly) — it will **not** serve a half-migrated
 app. Fix the migration and redeploy.
+
+## 7. Backups and restore
+
+The prod stack includes a `backup` service (`postgres:16`, `scripts/backup-loop.sh`).
+Every day at `BACKUP_HOUR` (default 02, server time) it writes
+
+- `db-<stamp>.dump` — `pg_dump -Fc` (compressed custom format) of the database
+- `uploads-<stamp>.tgz` — the uploads volume (receipts, statements, branding)
+
+into `BACKUP_DIR` (default `./backups` next to the compose file) and deletes
+copies older than `BACKUP_KEEP_DAYS` (14). **Copy that folder off the server**
+(rclone to object storage, scp to another box, …) — a backup on the same disk
+only protects against mistakes, not against losing the machine.
+
+Before a risky deploy take one by hand:
+
+```bash
+scripts/backup.sh            # → ./backups/db-<stamp>.dump + uploads-<stamp>.tgz
+```
+
+Restore (destructive — replaces the live database; asks for confirmation):
+
+```bash
+scripts/restore.sh backups/db-20260924-020000.dump backups/uploads-20260924-020000.tgz
+```
+
+It stops the api, runs `pg_restore --clean`, optionally unpacks the uploads,
+and starts the api again (which applies any newer migrations on boot).
+
+## 8. Proxy, cookies and ports
+
+- `AUTH_COOKIE_SECURE=true` (default) — the session cookie always carries
+  `Secure`; production is HTTPS. Only set it to `false` on a plain-HTTP test box.
+- `FORWARDED_ALLOW_IPS` — the proxy address(es) allowed to set `X-Forwarded-*`
+  (uvicorn runs with `--proxy-headers`). Default `127.0.0.1`; use your proxy's IP
+  or `*` if the proxy is remote and port 8000 is firewalled to it.
+- `API_BIND=127.0.0.1` when nginx/caddy on the same host terminates TLS, so the
+  plain-HTTP port is not exposed to the internet.
+- In `APP_ENV=prod` every response carries `Strict-Transport-Security`.
 
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally

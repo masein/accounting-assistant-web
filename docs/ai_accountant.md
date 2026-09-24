@@ -387,7 +387,7 @@ Results on 2026-09-24 (5-page Mellat statement; Default company):
 | OCR | gemini-2.5-flash / flash-lite | returned non-JSON | — | — |
 | chat | gpt-4o-mini (old default) | 7/9; Persian Toman card 0/3, statement card 0/3 | 13 s/turn | $6 / 1,000 turns |
 | chat | **gpt-4.1-mini (new default)** | 8/9; Persian card 2/3, statement card 3/3 | 9 s/turn | $15 / 1,000 turns |
-| chat | gpt-5.6-luna | 8/9 (needs `reasoning_effort: none` with tools) | 20 s/turn | $8 / 1,000 turns |
+| chat | gpt-5.6-luna | 8/9 (needs `reasoning_effort: none` with tools); on 3× repeats Persian card 2/3, statement card 3/3, receipt 3/3 | 20 s/turn (14–40 s) | $8–10 / 1,000 turns |
 | chat | gpt-5-mini (low effort) | 8/9 | 17 s/turn | $13 / 1,000 turns |
 | chat | gpt-5-nano | 8/9 | 72 s/turn | $4 / 1,000 turns |
 | chat | gpt-4.1-nano | 5/9 | 16 s/turn | $3 / 1,000 turns |

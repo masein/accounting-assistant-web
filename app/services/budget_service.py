@@ -32,7 +32,7 @@ def expense_actuals_by_category(db: Session, month: str) -> dict[str, int]:
     start, end = month_bounds(month)
     txns = db.execute(
         select(Transaction)
-        .where(Transaction.date >= start, Transaction.date <= end)
+        .where(Transaction.date >= start, Transaction.date <= end, Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
     ).scalars().all()
     actual_by_cat: dict[str, int] = {}

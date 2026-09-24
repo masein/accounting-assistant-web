@@ -141,6 +141,11 @@ ALLOWED_ATTACHMENT_TYPES = {
 # Extension fallback: browsers often send spreadsheet files with a blank or
 # generic content type (e.g. application/octet-stream for .xls) — infer from
 # the filename so the picker's accept list and the server agree.
+_STORED_EXTENSIONS = {
+    "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "application/pdf": ".pdf",
+    "text/csv": ".csv", "text/tab-separated-values": ".tsv", "application/vnd.ms-excel": ".xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+}
 _EXTENSION_CONTENT_TYPES = {
     ".csv": "text/csv",
     ".tsv": "text/tab-separated-values",
@@ -400,12 +405,10 @@ async def upload_attachment(
     validate_file_magic(raw, content_type)
     if len(raw) > MAX_ATTACHMENT_SIZE_BYTES:
         raise HTTPException(status_code=400, detail="Attachment too large. Max size is 8 MB.")
-    ext = Path(file.filename or "file").suffix or {
-        "image/jpeg": ".jpg",
-        "image/png": ".png",
-        "image/webp": ".webp",
-        "application/pdf": ".pdf",
-    }.get(content_type, "")
+    # The stored extension comes from the VALIDATED content type, never from
+    # the user's file name: "evil.html" declared as text/csv used to be saved
+    # as .html and served from our origin as HTML (stored XSS, review H2).
+    ext = _STORED_EXTENSIONS.get(content_type, ".bin")
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     stored_name = f"{uuid.uuid4().hex}{ext}"
     path = UPLOADS_DIR / stored_name

@@ -23,6 +23,8 @@ from app.models.bank_statement import BankStatement, BankStatementRow
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/brain", tags=["financial-brain"])
 
+MAX_STATEMENT_UPLOAD_BYTES = 20 * 1024 * 1024  # the only upload route that had no cap (review M7)
+
 
 # Models live in app/schemas/brain; imported here so the handlers below and
 # the modules/tests that import them from this router keep working.
@@ -138,6 +140,8 @@ async def upload_bank_statement(
     from app.services.statement_import import import_statement_bytes
 
     content = await file.read()
+    if len(content) > MAX_STATEMENT_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Statement file too large (max 20 MB).")
     return await import_statement_bytes(
         db,
         content=content,

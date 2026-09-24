@@ -851,6 +851,8 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || 'Snapshot failed.', true); return; }
         showAlert('Snapshot created: ' + (data.snapshot_file || 'ok'));
+        // Served only to this company's signed-in users (never from /uploads).
+        if (data.snapshot_file) window.open(API + data.snapshot_file, '_blank');
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
     document.getElementById('notify-btn').addEventListener('click', async () => {

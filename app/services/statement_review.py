@@ -48,24 +48,8 @@ _ORDER = {"amount_mismatch": 0, "missing_in_bank": 1, "needs_confirmation": 2,
           "unrecorded": 3, "balance_gap": 4, "duplicate": 5}
 
 
-def bank_account_for_statement(db: Session, stmt: BankStatement) -> str | None:
-    """The GL account this statement's bank posts to: a bank entity named
-    like the statement with its own account wins, else the chart's bank."""
-    from app.services.account_resolver import resolve_account_code
-
-    name = (stmt.bank_name or "").strip()
-    if name and name.lower() != "unknown":
-        ent = db.execute(
-            select(Entity).where(Entity.type == "bank", func.lower(Entity.name) == name.lower())
-        ).scalars().first()
-        if ent is not None and (ent.code or "").strip():
-            code = ent.code.strip()
-            if db.execute(select(Account.id).where(Account.code == code)).first():
-                return code
-    try:
-        return resolve_account_code(db, "bank")
-    except Exception:
-        return None
+# Re-exported: the resolution lives with the import/reconcile layer now.
+from app.services.statement_import import bank_account_for_statement  # noqa: E402,F401
 
 
 def book_balance_as_of(db: Session, account_code: str, as_of: date) -> int:
@@ -97,9 +81,10 @@ def _txn_amount(txn: Transaction) -> int:
 
 def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewResponse:
     from app.services.reconciliation import detect_missing_entries
-    from app.services.statement_import import reconcile_statement_rows
+    from app.services.statement_import import reconcile_statement_rows, statement_predicates
 
     recon = reconcile_statement_rows(db, stmt)
+    _code, _match_pred, missing_pred = statement_predicates(db, stmt)
 
     rows = db.execute(
         select(BankStatementRow).where(BankStatementRow.statement_id == stmt.id)
@@ -188,7 +173,8 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
         known = {r.matched_transaction_id for r in rows if r.matched_transaction_id}
         known |= {r.created_transaction_id for r in rows if r.created_transaction_id}
         missing = detect_missing_entries(
-            db, stmt.from_date or rows[0].tx_date, stmt.to_date or rows[-1].tx_date, known
+            db, stmt.from_date or rows[0].tx_date, stmt.to_date or rows[-1].tx_date, known,
+            is_cash=missing_pred,
         )
         for txn in missing:
             findings.append(StatementFinding(

@@ -187,15 +187,21 @@ def reconcile_statement(
     rows: list[BankStatementRow],
     date_tolerance: int = 3,
     auto_threshold: float = 0.85,
+    is_cash: Callable[[str], bool] | None = None,
 ) -> list[ReconciliationResult]:
     """
     Reconcile all rows of a bank statement against existing transactions.
     Uses a date window around the statement period for candidate loading.
+
+    ``is_cash`` selects the ledger leg a bank row is matched against. Callers
+    pass the statement bank's own GL account (plus the locale cash accounts);
+    the default is the locale cash predicate alone, which mis-reports a
+    statement for a bank that has its own account (QA 2026-09-24).
     """
     if not rows:
         return []
 
-    is_cash = _resolve_cash_predicate(db)
+    is_cash = is_cash or _resolve_cash_predicate(db)
     min_date = min(r.tx_date for r in rows) - timedelta(days=date_tolerance * 2)
     max_date = max(r.tx_date for r in rows) + timedelta(days=date_tolerance * 2)
 
@@ -240,12 +246,17 @@ def detect_missing_entries(
     statement_from: date,
     statement_to: date,
     matched_transaction_ids: set[UUID],
+    is_cash: Callable[[str], bool] | None = None,
 ) -> list[Transaction]:
     """
     Find transactions in the DB within the statement period that have
     no corresponding bank statement row (missing from the bank's side).
+
+    ``is_cash`` should select ONLY the statement bank's account when the
+    bank has one: an entry on the petty-cash account is not "missing" from
+    a Mellat statement.
     """
-    is_cash = _resolve_cash_predicate(db)
+    is_cash = is_cash or _resolve_cash_predicate(db)
     txns = db.execute(
         select(Transaction)
         .where(Transaction.date >= statement_from, Transaction.date <= statement_to)

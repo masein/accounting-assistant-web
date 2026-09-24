@@ -177,3 +177,18 @@ def test_endpoint_returns_statement_columns(auth_client, db, make_transaction):
     assert by_ref["ST-1"]["entity_placed"] is True
     # The generic fields the editor relies on are still there.
     assert by_ref["ST-1"]["lines"] and "entity_links" in by_ref["ST-1"]
+
+
+def test_supplier_paid_from_a_bank_with_its_own_account_is_placed(db, make_transaction):
+    """QA 2026-09-24: Dr expense / Cr 1111 (bank entity's account) linked to a
+    supplier showed blank columns because only 1110 counted as cash."""
+    from app.services.account_resolver import _ensure_account
+    code = "1124"
+    _ensure_account(db, code, "بانک تأمین‌کننده — bank", "ir")
+    db.add(Entity(type="bank", name=f"Supplier Pay Bank {uuid.uuid4().hex[:4]}", code=code))
+    supplier = _entity(db, "supplier")
+    pay = make_transaction([("6112", 1_200_000, 0), (code, 0, 1_200_000)], tx_date=date(2026, 9, 24))
+    _link(db, pay, supplier, "supplier")
+    (row,) = _statement(db, supplier)
+    assert row.placed is True
+    assert (row.paid, row.received, row.balance) == (1_200_000, 1_200_000, 0)   # cash deal, settled

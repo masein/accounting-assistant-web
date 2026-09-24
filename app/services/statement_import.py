@@ -361,6 +361,55 @@ async def import_statement_bytes(
 
 
 # ---------------------------------------------------------------------------
+# Which GL account is this statement about?
+# ---------------------------------------------------------------------------
+
+def bank_account_for_statement(db: Session, stmt: BankStatement) -> str | None:
+    """The GL account this statement's bank posts to: a bank entity named
+    like the statement with its own account wins, else the chart's bank."""
+    from app.models.entity import Entity
+    from app.services.account_resolver import resolve_account_code
+    from sqlalchemy import func
+
+    name = (stmt.bank_name or "").strip()
+    if name and name.lower() != "unknown":
+        ent = db.execute(
+            select(Entity).where(Entity.type == "bank", func.lower(Entity.name) == name.lower())
+        ).scalars().first()
+        if ent is not None and (ent.code or "").strip():
+            code = ent.code.strip()
+            if db.execute(select(Account.id).where(Account.code == code)).first():
+                return code
+    try:
+        return resolve_account_code(db, "bank")
+    except Exception:
+        return None
+
+
+def statement_predicates(db: Session, stmt: BankStatement):
+    """(bank_code, match_predicate, missing_predicate) for ``stmt``.
+
+    * matching is lenient: the statement bank's own account OR any locale
+      cash/bank account, so entries a user keyed to the generic bank account
+      before creating the bank entity still match;
+    * "missing in bank" is strict: only entries on the statement bank's own
+      account count when the bank has one — otherwise every petty-cash
+      voucher would be reported as absent from the statement.
+    """
+    from app.services.cash_service import cash_account_predicate
+    from app.services.locale_service import get_reporting_locale
+
+    cash = cash_account_predicate(get_reporting_locale(db))
+    bank_code = bank_account_for_statement(db, stmt)
+    if bank_code and not cash(bank_code):
+        match = lambda c, _b=bank_code, _cash=cash: c == _b or _cash(c)  # noqa: E731
+        missing = lambda c, _b=bank_code: c == _b  # noqa: E731
+    else:
+        match = missing = cash
+    return bank_code, match, missing
+
+
+# ---------------------------------------------------------------------------
 # Reconcile
 # ---------------------------------------------------------------------------
 
@@ -387,7 +436,8 @@ def reconcile_statement_rows(db: Session, stmt: BankStatement) -> ReconcileRespo
     from app.services.reconciliation import detect_missing_entries
     from app.services.reconciliation import reconcile_statement as _reconcile
 
-    results = _reconcile(db, rows)
+    _bank_code, match_pred, missing_pred = statement_predicates(db, stmt)
+    results = _reconcile(db, rows, is_cash=match_pred)
 
     matched = partial = unmatched = duplicates = auto_matched = 0
     open_pairs = []  # (row, result) still open after this pass
@@ -422,7 +472,8 @@ def reconcile_statement_rows(db: Session, stmt: BankStatement) -> ReconcileRespo
     matched_ids |= {r.created_transaction_id for r in rows if r.created_transaction_id}
     missing = (
         detect_missing_entries(
-            db, stmt.from_date or rows[0].tx_date, stmt.to_date or rows[-1].tx_date, matched_ids
+            db, stmt.from_date or rows[0].tx_date, stmt.to_date or rows[-1].tx_date, matched_ids,
+            is_cash=missing_pred,
         )
         if rows else []
     )

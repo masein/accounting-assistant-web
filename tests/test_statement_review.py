@@ -177,19 +177,23 @@ def test_closing_balance_gap_uses_the_statement_banks_own_account(db, make_trans
     assert review.balance is not None and review.balance.gap == 0
     assert not any(f.kind == "balance_gap" for f in review.findings)
 
-    # Statement says 1,500 → a 500 gap. With a row still unrecorded it stays
-    # informational (posting will move it) …
+    # Statement says 1,500 → a 500 gap. The deposit row matches the entry on
+    # the bank's own account (nothing left to post), so the gap is a real
+    # alarm straight away.
     s2 = _stmt(db, [(date(2031, 6, 2), "deposit", 0, 1_000, 1_500, "unmatched")], bank_name=bank.name)
     review2 = build_statement_review(db, s2)
+    # (row dated a day after the entry → "probably the same entry", not a firm match)
+    assert review2.counts["matched"] + review2.counts["needs_confirmation"] == 1
+    assert review2.counts["unrecorded"] == 0
     gap = next(f for f in review2.findings if f.kind == "balance_gap")
-    assert review2.balance.gap == 500 and gap.severity == "info" and gap.amount == 500
-    # … but once every row is settled, a leftover gap is a real alarm.
-    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s2.id)).scalar_one()
-    row.recon_status, row.user_approved = "skipped", True
-    db.commit()
-    review3 = build_statement_review(db, s2)
+    assert review2.balance.gap == 500 and gap.severity == "high" and gap.amount == 500
+    assert gap.suggested_fix == "review_entry"
+    # A statement with an unrecorded row keeps the gap informational.
+    s3 = _stmt(db, [(date(2031, 6, 3), "unknown deposit", 0, 250, 1_750, "unmatched")], bank_name=bank.name)
+    review3 = build_statement_review(db, s3)
+    assert review3.counts["unrecorded"] == 1
     gap3 = next(f for f in review3.findings if f.kind == "balance_gap")
-    assert gap3.severity == "high" and gap3.suggested_fix == "review_entry"
+    assert gap3.severity == "info"
 
 
 def test_gap_explained_by_unrecorded_rows_is_informational(db):
@@ -439,3 +443,64 @@ def test_proposal_tool_refuses_a_row_that_is_already_posted(db, make_transaction
     with pytest.raises(ToolError) as e2:
         asyncio.run(ProposeCreateTransaction().run(ctx, payload(rows[1], 1_000)))
     assert "duplicate" in str(e2.value)
+
+
+# ---------------------------------------------------------------------------
+# The statement's own bank account (QA 2026-09-24, high #2)
+# ---------------------------------------------------------------------------
+
+def _own_bank(db, code, name):
+    from app.services.account_resolver import _ensure_account
+    _ensure_account(db, code, f"{name} — bank", "ir")
+    bank = Entity(type="bank", name=name, code=code)
+    db.add(bank)
+    db.commit()
+    return bank
+
+
+def test_statement_predicates_prefer_the_banks_own_account(db):
+    from app.services.statement_import import statement_predicates
+
+    bank = _own_bank(db, "1121", f"Own Bank {uuid.uuid4().hex[:4]}")
+    s = _stmt(db, [(date(2031, 12, 1), "x", 1, 0, None, "unmatched")], bank_name=bank.name)
+    code, match, missing = statement_predicates(db, s)
+    assert code == "1121"
+    assert match("1121") and match("1110") and not match("6112")   # lenient matching
+    assert missing("1121") and not missing("1110")                   # strict "missing in bank"
+
+    generic = _stmt(db, [(date(2031, 12, 2), "y", 1, 0, None, "unmatched")], bank_name="Unknown")
+    code2, match2, missing2 = statement_predicates(db, generic)
+    assert code2 == "1110" and match2("1110") and missing2("1110") and not missing2("1121")
+
+
+def test_review_matches_entries_on_the_statement_banks_account(db, make_transaction):
+    bank = _own_bank(db, "1122", f"Match Bank {uuid.uuid4().hex[:4]}")
+    d = date(2032, 1, 10)
+    # Already posted on the bank's own account → must match, not "unrecorded".
+    make_transaction([(bank.code, 5_000_000, 0), ("4110", 0, 5_000_000)], tx_date=d, description="customer deposit")
+    # Petty-cash voucher in the same window → must NOT be "missing in bank".
+    make_transaction([("6112", 100, 0), ("1110", 0, 100)], tx_date=date(2032, 1, 12), description="petty cash coffee")
+    # Entry on the bank's account the statement never shows → IS missing.
+    gone = make_transaction([("6112", 777_000, 0), (bank.code, 0, 777_000)], tx_date=date(2032, 1, 15), description="bank payment not on statement")
+    db.commit()
+    s = _stmt(db, [(d, "customer deposit", 0, 5_000_000, None, "unmatched")], bank_name=bank.name,
+              from_date=d, to_date=date(2032, 1, 31))
+    review = build_statement_review(db, s)
+    assert review.counts["matched"] == 1 and review.counts["unrecorded"] == 0
+    missing = [f for f in review.findings if f.kind == "missing_in_bank"]
+    assert [f.transaction_id for f in missing] == [gone.id]
+    assert review.bank_account_code == bank.code
+
+
+def test_page_post_uses_the_statement_banks_account(db):
+    from app.api.brain import BatchApprovalRequest, RowApproval, batch_approve_rows
+
+    bank = _own_bank(db, "1123", f"Post Bank {uuid.uuid4().hex[:4]}")
+    s = _stmt(db, [(date(2026, 5, 24), "page posted fee", 30_000, 0, None, "unmatched")], bank_name=bank.name)
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
+    resp = batch_approve_rows(s.id, BatchApprovalRequest(approvals=[RowApproval(row_id=row.id, action="create", account_code="6112")]), db=db)
+    assert resp.created == 1, resp.errors
+    db.refresh(row)
+    txn = db.get(Transaction, row.created_transaction_id)
+    legs = {(l.account.code, l.debit, l.credit) for l in txn.lines}
+    assert legs == {("6112", 30_000, 0), (bank.code, 0, 30_000)}

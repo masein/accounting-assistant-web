@@ -308,7 +308,10 @@ def batch_approve_rows(
                     or row.suggested_account_code
                     or resolve_account_code(db, "expense")
                 )
-                cash_code = resolve_account_code(db, "bank")
+                # The statement's own bank account, not the generic chart
+                # bank — the chat card already posts there (QA 2026-09-24).
+                from app.services.statement_import import bank_account_for_statement
+                cash_code = bank_account_for_statement(db, s) or resolve_account_code(db, "bank")
             except AccountResolutionError as e:
                 errors.append(f"Row {row.row_index}: {e}")
                 continue

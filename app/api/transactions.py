@@ -1544,6 +1544,12 @@ def update_transaction(
                 if a.transaction_id and a.transaction_id != t.id:
                     raise HTTPException(status_code=400, detail=f"Attachment already linked: {a.id}")
                 a.transaction_id = t.id
+    db.flush()
+    # Edits are as auditable as creates and deletes (QA 2026-09-24 2.10: the
+    # audit log showed no 'update' for a PATCH). Reload so the snapshot holds
+    # the replaced lines, then record the event + a new version.
+    db.expire(t)
+    _log_transaction_audit(db, "update", t)
     db.commit()
     db.refresh(t)
     _load_transaction_with_lines(db, t)

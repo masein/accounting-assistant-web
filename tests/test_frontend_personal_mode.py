@@ -152,3 +152,15 @@ def test_apply_role_access_hides_sme_only_for_personal():
     body = js.split("function applyRoleAccess()", 1)[1].split("\n    }", 1)[0]
     assert "sme-only" in body
     assert "personalMode ? 'none' : ''" in body
+
+
+def test_voucher_balance_bar_reads_the_real_lines_table():
+    """QA 2026-09-24: the live Debit/Credit bar never moved because it
+    queried `#lines-body` while the table body is `#lines-tbody`."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "app" / "static"
+    js = (root / "js" / "07-chat-reports.js").read_text(encoding="utf-8")
+    html = (root / "index.html").read_text(encoding="utf-8")
+    assert 'id="lines-tbody"' in html
+    assert "querySelectorAll('#lines-tbody tr')" in js
+    assert "#lines-body tr" not in js

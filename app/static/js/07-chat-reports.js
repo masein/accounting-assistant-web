@@ -846,7 +846,7 @@
 
     // Voucher balance bar live updater
     function updateVoucherBalanceBar() {
-      const rows = document.querySelectorAll('#lines-body tr');
+      const rows = document.querySelectorAll('#lines-tbody tr');
       let totalDebit = 0, totalCredit = 0;
       rows.forEach(r => {
         totalDebit += parseInt(r.querySelector('.line-debit')?.value) || 0;

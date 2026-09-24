@@ -173,3 +173,16 @@ def create_transaction_from_payload(db: Session, payload: TransactionCreate) -> 
             raise HTTPException(status_code=400, detail=f"Attachment already linked: {a.id}")
         a.transaction_id = transaction.id
     return transaction
+
+
+def assert_transaction_mutable(db, txn, new_date=None) -> None:
+    """Editing or deleting an entry is as much a change to closed figures as
+    posting one: refuse when the entry's current date — or the date it is
+    being moved to — falls inside the closed period (HTTP 422, same message
+    as posting). Soft-deleting from a closed period would silently change a
+    reported balance, which is exactly what the lock exists to prevent."""
+    from app.services.period_service import assert_period_open
+
+    assert_period_open(db, txn.date)
+    if new_date is not None and new_date != txn.date:
+        assert_period_open(db, new_date)

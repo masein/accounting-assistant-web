@@ -458,6 +458,7 @@ _add("DELETE", "/budgets/{budget_id}", Perm.BOOKS_WRITE)
 # Exports of the books/reports.
 _reads(["/exports/transactions.csv", "/exports/transactions.xlsx"], Perm.REPORTS_READ)
 _add("POST", "/exports/monthly-snapshot", Perm.BOOKS_WRITE)
+_add("GET", "/exports/monthly-snapshot/{name}", Perm.BOOKS_WRITE)
 
 # Manager-reports: financial statements + books + operational + inventory + sales.
 _MR_READ = [

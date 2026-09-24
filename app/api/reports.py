@@ -437,7 +437,11 @@ def get_owner_dashboard(
     months_back: int = 12,
 ) -> OwnerDashboardResponse:
     currency, other_currencies = resolve_currency_view(db, currency)
-    cache_key = f"dashboard:{months_back}:{currency}"
+    # The cache is process-wide, so the key MUST carry the tenant: without it a
+    # company saw another company's dashboard for up to a minute (security
+    # review 2026-09-24, C2).
+    from app.db.tenant import get_current_company
+    cache_key = f"dashboard:{get_current_company() or 'platform'}:{months_back}:{currency}"
     now = _time.time()
     cached = _dashboard_cache.get(cache_key)
     if cached and (now - cached[0]) < _DASHBOARD_CACHE_TTL:
@@ -453,7 +457,7 @@ def get_owner_dashboard(
     _is_current_liab = _current_liability_predicate(locale)
 
     cutoff = today - timedelta(days=months_back * 31)
-    txn_q = select(Transaction).where(Transaction.date >= cutoff)
+    txn_q = select(Transaction).where(Transaction.date >= cutoff, Transaction.deleted_at.is_(None))
     txn_q = txn_q.where(Transaction.currency == currency)  # single-currency view
     txns = db.execute(
         txn_q.options(

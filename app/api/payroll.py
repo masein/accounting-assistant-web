@@ -654,7 +654,7 @@ def my_payslips(db: Session = Depends(get_db)) -> dict:
     rows = db.execute(
         select(PayRunLine, PayRun)
         .join(PayRun, PayRunLine.run_id == PayRun.id)
-        .where(PayRunLine.entity_id == own, PayRun.status != "void")
+        .where(PayRunLine.entity_id == own, PayRun.status.in_(("posted", "paid")))  # never drafts or voided runs
         .order_by(PayRun.pay_date.desc())
     ).all()
     return {
@@ -688,7 +688,7 @@ def year_summary(year: int | None = None, entity_id: UUID | None = None, db: Ses
     q = (
         select(PayRunLine, PayRun)
         .join(PayRun, PayRunLine.run_id == PayRun.id)
-        .where(PayRun.pay_date >= start, PayRun.pay_date <= end)
+        .where(PayRun.pay_date >= start, PayRun.pay_date <= end, PayRun.status.in_(("posted", "paid")))
     )
     if entity_id is not None:
         q = q.where(PayRunLine.entity_id == entity_id)

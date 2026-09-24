@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import csv
 import io
+import re
+import uuid
 import json
 from datetime import date
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse, Response
 from openpyxl import Workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -20,12 +22,36 @@ from app.models.transaction import Transaction, TransactionLine
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
-SNAPSHOT_DIR = Path(__file__).resolve().parents[1] / "uploads" / "snapshots"
+# Snapshots hold a company's whole books, so they live OUTSIDE the public
+# /uploads mount, in a per-company folder, and are only served through the
+# authenticated download route below (security review 2026-09-24, C1: the old
+# uploads/snapshots/snapshot-YYYY-MM.zip was world-readable and shared by every
+# tenant).
+SNAPSHOT_DIR = Path(__file__).resolve().parents[1] / "private_uploads" / "snapshots"
 SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
+_SNAPSHOT_NAME = re.compile(r"^snapshot-\d{4}-\d{2}-[0-9a-f]{8}\.zip$")
+
+
+def _snapshot_folder() -> Path:
+    from app.db.tenant import get_current_company
+    folder = SNAPSHOT_DIR / str(get_current_company() or "platform")
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+def _csv_safe(value: str | None) -> str:
+    """Spreadsheets execute cells that start with = + - @ (CSV formula
+    injection); neutralise free text with a leading apostrophe."""
+    text = value or ""
+    return "'" + text if text[:1] in ("=", "+", "-", "@") else text
 
 
 def _rows(db: Session, currency: str | None = None) -> list[list[str]]:
-    q = select(Transaction).options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
+    q = (
+        select(Transaction)
+        .where(Transaction.deleted_at.is_(None))  # undone/replaced journals are not books
+        .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
+    )
     if currency:
         q = q.where(Transaction.currency == currency)
     txns = db.execute(q).scalars().all()
@@ -35,13 +61,13 @@ def _rows(db: Session, currency: str | None = None) -> list[list[str]]:
             rows.append([
                 str(t.id),
                 t.date.isoformat(),
-                t.reference or "",
-                t.description or "",
+                _csv_safe(t.reference),
+                _csv_safe(t.description),
                 ln.account.code,
                 ln.account.name,
                 str(ln.debit),
                 str(ln.credit),
-                ln.line_description or "",
+                _csv_safe(ln.line_description),
                 getattr(t, "currency", "IRR"),
             ])
     return rows
@@ -86,8 +112,11 @@ def export_transactions_xlsx(
 @router.post("/monthly-snapshot")
 def create_monthly_snapshot(db: Session = Depends(get_db)) -> dict:
     month = f"{date.today().year:04d}-{date.today().month:02d}"
-    path = SNAPSHOT_DIR / f"snapshot-{month}.zip"
-    txns = db.execute(select(Transaction).options(selectinload(Transaction.lines).selectinload(TransactionLine.account))).scalars().all()
+    path = _snapshot_folder() / f"snapshot-{month}-{uuid.uuid4().hex[:8]}.zip"
+    txns = db.execute(
+        select(Transaction).where(Transaction.deleted_at.is_(None))
+        .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
+    ).scalars().all()
     entities = db.execute(select(Entity)).scalars().all()
     invoices = db.execute(select(Invoice)).scalars().all()
     with ZipFile(path, "w", compression=ZIP_DEFLATED) as z:
@@ -112,4 +141,15 @@ def create_monthly_snapshot(db: Session = Depends(get_db)) -> dict:
             {"id": str(i.id), "number": i.number, "kind": i.kind, "status": i.status, "issue_date": i.issue_date.isoformat(), "due_date": i.due_date.isoformat(), "amount": i.amount}
             for i in invoices
         ], ensure_ascii=False, indent=2))
-    return {"ok": True, "snapshot_file": f"/uploads/snapshots/{path.name}"}
+    return {"ok": True, "snapshot_file": f"/exports/monthly-snapshot/{path.name}"}
+
+
+@router.get("/monthly-snapshot/{name}")
+def download_monthly_snapshot(name: str) -> FileResponse:
+    """Serve a snapshot of the CALLER'S company only (session-authenticated)."""
+    if not _SNAPSHOT_NAME.match(name):
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    path = (_snapshot_folder() / name).resolve()
+    if path.parent != _snapshot_folder().resolve() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    return FileResponse(path, media_type="application/zip", filename=name)

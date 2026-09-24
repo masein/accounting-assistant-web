@@ -128,6 +128,7 @@ class OperationsReportService:
                 TransactionEntity.role == role_key,
                 Transaction.date >= period.from_date,
                 Transaction.date <= period.to_date,
+                Transaction.deleted_at.is_(None),
             )
             .order_by(Transaction.date, Transaction.created_at, Transaction.id)
         )

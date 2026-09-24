@@ -24,7 +24,8 @@ app's own API from the page context; the plan is `docs/QA_PLAN.md`.
 | AI provider config editable per company / persisted per tenant | fixed — one platform-wide row, super-admin only; Settings → AI providers hidden for company roles | #97 |
 | multi-currency face-value sums | fixed — ledger summary, account detail, trial balance and owner dashboard show one currency (the reporting currency by default) and list the others present as separate views; amounts are never summed across currencies | #98 |
 | balance sheet imbalance | fixed — balances keep their sign (overdrawn cash shows negative), unclosed profit/loss to date is an equity line, `totals.liabilities_and_equity` + a balanced/not-balanced check in the UI; Iran statement no longer clamps buckets | #99 |
-| personal spend question / Jalali date; remaining lows | open | — |
+| personal chat: "این ماه چقدر خرج کردم؟" wrong + Jalali date hallucinated | fixed — new `get_spending_summary` tool resolves period words (this/last month, year, week) in the company calendar and returns the total, categories and period labels; prompt forbids the model from converting dates itself and gives today as «۲ مهر ۱۴۰۵» | #100 |
+| remaining lows | open | — |
 
 
 ## Findings to fix, in priority order

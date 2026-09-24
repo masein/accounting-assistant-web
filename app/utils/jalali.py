@@ -59,6 +59,30 @@ def format_jalali(d: date) -> str:
     return f"{y}/{m:02d}/{day:02d}"
 
 
+# Month number → Persian name (the first alias in _MONTH_NAMES is canonical).
+JALALI_MONTH_NAMES_FA: list[str] = [
+    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+]
+JALALI_MONTH_NAMES_EN: list[str] = [
+    "Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar",
+    "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand",
+]
+_ASCII_TO_PERSIAN = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+
+
+def to_persian_digits(text: str | int) -> str:
+    return str(text).translate(_ASCII_TO_PERSIAN)
+
+
+def format_jalali_long(d: date) -> str:
+    """'۲ مهر ۱۴۰۵' — the way a Persian speaker writes the date. Given to the
+    model so it copies the day/month instead of deriving them (it once turned
+    2026-09-24 into '۲۴ مهر')."""
+    y, m, day = gregorian_to_jalali(d)
+    return f"{to_persian_digits(day)} {JALALI_MONTH_NAMES_FA[m - 1]} {to_persian_digits(y)}"
+
+
 def try_parse_jalali(text: str) -> date | None:
     """
     Try to parse a Jalali date from free text. Returns Gregorian date or None.

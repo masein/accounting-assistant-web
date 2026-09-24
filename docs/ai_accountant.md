@@ -95,6 +95,7 @@ app/
 │   ├─ proposal_tools.py           # propose_create_transaction (+ bank_statement_row_id), …
 │   ├─ statement_tools.py          # review_bank_statement (statement vs books findings)
 │   ├─ insight_tools.py            # get_insights (proactive insights)
+│   ├─ spending_tools.py           # get_spending_summary (period words → dates in the company calendar)
 │   ├─ statement_intake.py         # chat drop of a statement PDF/image → import + review card
 │   ├─ execute_service.py          # execute_proposal(), undo_action() (soft-delete), reverse_action()
 │   └─ orchestrator.py             # run_chat_turn(), SYSTEM_PROMPT, _resolve_chat_shape()

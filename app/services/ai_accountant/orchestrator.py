@@ -174,7 +174,13 @@ Answer with ``query_ledger`` / ``get_account_balance`` / ``list_entities``. No p
 
 "Who are our clients / suppliers / employees?" ("مشتری‌هامون کی‌ان", "کارمندهامون") is a MASTER-DATA question — answer it with ``list_entities`` filtered by type and list the names. Do NOT answer it from invoices or this period's transactions: a party with no recent activity (e.g. one migrated from a previous system with only an opening balance) is still a client. Mention activity only if the user asked about it.
 
-Time words follow the company's calendar (``get_company_defaults``): for an Iranian (Jalali-calendar) company, "امسال / this year" means the CURRENT JALALI YEAR — from Farvardin 1 (≈ March 21) to today — never January 1. Same for "پارسال" (previous Jalali year), "این ماه" (Jalali month).
+Time words follow the company's calendar: for an Iranian (Jalali-calendar) company, "امسال / this year" means the CURRENT JALALI YEAR — from Farvardin 1 (≈ March 21) to today — never January 1. Same for "پارسال" (previous Jalali year), "این ماه" (the current Jalali month, which starts around the 21st–23rd of a Gregorian month).
+
+"How much did I spend / earn <time word>?" ("این ماه چقدر خرج کردم؟", "how much did we spend last month?", "امسال چقدر درآمد داشتم؟") → call ``get_spending_summary`` with the matching ``period`` keyword (this_month, last_month, this_year, …). It resolves the dates in the company's calendar and returns the total, the categories and the period label — answer with its ``total`` and quote its period label. Never work out month boundaries or the date range yourself, and never conclude "nothing recorded" from a query whose dates you computed.
+
+# Dates in replies
+
+Copy dates. The current date is given above in both calendars — when you mention today or a period in Persian, use the Jalali string from that line or from a tool result (``today_jalali_long``, ``period.label_fa``) verbatim. Never convert a Gregorian date to Jalali (or back) yourself: 2026-09-24 is ۲ مهر ۱۴۰۵, not «۲۴ مهر».
 
 # Style
 
@@ -204,7 +210,7 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * The chart of accounts is a set of everyday categories (خوراک، حمل‌ونقل، اجاره، اقساط…). Resolve them with ``search_accounts`` exactly as usual. When nothing fits, use the closest category or Miscellaneous (متفرقه) — don't interrogate the user about classification.
 * Most entries have NO counterparty entity. Groceries, taxi, utility bills → empty ``entity_links``; don't ask "which supplier?". Create an entity only for a real recurring party the user names (their landlord, a person who owes them money, their bank).
 * Typical shapes: spending = Dr expense category / Cr cash or bank · income (salary, freelance) = Dr bank / Cr income category · loan installment (قسط) = Dr installments payable / Cr bank · moving money to savings (gold, FX) = Dr the savings asset / Cr bank.
-* Spending questions ("این ماه چقدر خرج غذا کردم؟", "how much did I spend on transport?") → ``query_ledger`` / ``get_account_balance`` on the matching category, answered in one plain sentence with the number.
+* Spending questions with a time word ("این ماه چقدر خرج کردم؟", "how much did I spend last month?") → ``get_spending_summary`` with the period keyword (add ``category_code`` when they name a category); answer in one plain sentence with the ``total`` and the period as the tool labels it. Per-category questions without a time word → ``query_ledger`` on that category.
 * Be brief and friendly — this is a daily money diary, not a compliance interview. One confirm card per thing the user said happened.
 """
 
@@ -663,7 +669,9 @@ async def run_chat_turn(
         if get_display_calendar(db) == "jalali":
             from app.utils.jalali import format_jalali
 
-            today_str = f"{today.isoformat()} (Jalali {format_jalali(today)})"
+            from app.utils.jalali import format_jalali_long
+
+            today_str = f"{today.isoformat()} (Jalali {format_jalali(today)} = {format_jalali_long(today)})"
     except Exception:
         pass
     prompt_template = SYSTEM_PROMPT + (PERSONAL_MODE_ADDENDUM if personal else "")

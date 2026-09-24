@@ -7,6 +7,7 @@
     }
 
     async function loadAIConfig() {
+      if (!isSuperadmin) return;
       try {
         const res = await fetch(API + '/admin/ai-config');
         const cfg = await res.json().catch(() => ({}));
@@ -20,6 +21,7 @@
     }
 
     async function loadAnthropicConfig() {
+      if (!isSuperadmin) return;
       const modelEl = document.getElementById('anthropic-model-input');
       const baseEl = document.getElementById('anthropic-base-input');
       const keyEl = document.getElementById('anthropic-key-input');
@@ -94,6 +96,7 @@
     }
 
     async function loadChatProviderShape() {
+      if (!isSuperadmin) return;
       const sel = document.getElementById('chat-shape-select');
       const hint = document.getElementById('chat-shape-hint');
       if (!sel) return;
@@ -315,6 +318,13 @@
         // Reveal the Companies console only for the super-admin/provisioner.
         isSuperadmin = !!data.user.is_superadmin;
         currentRole = (data.user.role || 'owner').toLowerCase();
+        // AI provider wiring is platform-wide → super-admin only. Owners get a
+        // note instead of controls that would 403.
+        const aiSec = document.getElementById('ai-providers-section');
+        const aiNote = document.getElementById('ai-providers-note');
+        if (aiSec) aiSec.style.display = isSuperadmin ? '' : 'none';
+        if (aiNote) aiNote.style.display = isSuperadmin ? 'none' : '';
+        if (isSuperadmin) { loadAIConfig(); loadAnthropicConfig(); loadChatProviderShape(); }
         const navCo = document.getElementById('nav-companies');
         if (navCo) navCo.style.display = isSuperadmin ? '' : 'none';
         // Role-aware nav: hide what this role can't use (server still enforces).

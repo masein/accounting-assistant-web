@@ -160,6 +160,21 @@ def auth_client(client: TestClient) -> _CSRFTestClient:
     return _CSRFTestClient(client, csrf)
 
 
+@pytest.fixture()
+def superadmin_client(client: TestClient) -> _CSRFTestClient:
+    """Platform super-admin session — needed for platform-wide settings
+    (AI provider wiring) that no company role may touch."""
+    from app.core.auth import CSRF_COOKIE, create_session_token, generate_csrf_token
+    from app.core.config import settings
+
+    token = create_session_token(user_id=str(uuid.uuid4()), username="superadmin", is_admin=True,
+                                 is_superadmin=True)
+    csrf = generate_csrf_token()
+    client.cookies.set(settings.auth_cookie_name, token)
+    client.cookies.set(CSRF_COOKIE, csrf)
+    return _CSRFTestClient(client, csrf)
+
+
 # ---------------------------------------------------------------------------
 # Factory helpers
 # ---------------------------------------------------------------------------

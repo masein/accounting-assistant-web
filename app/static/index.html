@@ -1886,7 +1886,8 @@
         <div id="adjustments-list" style="margin-top:0.8rem; font-size:0.82rem;"></div>
       </div>
 
-      <div style="margin-top:1rem; padding:0.9rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
+      <p id="ai-providers-note" data-i18n="aiManagedByPlatform" style="display:none; margin-top:1rem; padding:0.7rem 0.9rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px; font-size:0.85rem; color:var(--text-muted);">AI providers are configured by the platform administrator.</p>
+      <div id="ai-providers-section" style="margin-top:1rem; padding:0.9rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
         <h2 style="margin:0 0 0.4rem 0;" data-i18n="aiProvidersTitle">AI providers</h2>
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.9rem 0;" data-i18n="aiProvidersDesc">
           Two slots: the OpenAI-shape slot powers transaction-suggest, bank-statement parsing, and other classic AI features. The Anthropic-shape slot powers the conversational AI Chat (tool use, action cards, undo). You can use one Metis account for both by pointing each slot at the matching Metis URL (<code>/openai/v1</code> and <code>/anthropic/v1</code>).

@@ -22,7 +22,7 @@ app's own API from the page context; the plan is `docs/QA_PLAN.md`.
 | personal net worth ignores a holding | fixed | #95 |
 | invoice over-payment accepted | **reclassified: by design** — the excess is booked to customer credit / supplier advance (see `tests/test_ar_ap_payments.py`); the only issue is that `amount_paid` shows the raw sum. Kept as LOW (display) | — |
 | AI provider config editable per company / persisted per tenant | fixed — one platform-wide row, super-admin only; Settings → AI providers hidden for company roles | #97 |
-| multi-currency face-value sums | fixed — ledger summary, account detail, trial balance and owner dashboard show one currency (the reporting currency by default) and list the others present as separate views; amounts are never summed across currencies | #PRNUM |
+| multi-currency face-value sums | fixed — ledger summary, account detail, trial balance and owner dashboard show one currency (the reporting currency by default) and list the others present as separate views; amounts are never summed across currencies | #98 |
 | balance sheet imbalance; personal spend question / Jalali date; remaining lows | open | — |
 
 

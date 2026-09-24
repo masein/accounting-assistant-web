@@ -11,6 +11,7 @@ _lock = RLock()
 _logger = logging.getLogger(__name__)
 
 _DB_KEY = "ai_config"
+_KEYED_PROVIDERS = ("lmstudio", "metis", "custom", "anthropic")
 
 
 _SUPPORTED_PROVIDERS = ("lmstudio", "metis", "custom", "anthropic")
@@ -61,6 +62,12 @@ _state: dict[str, Any] = {
 }
 
 
+# Keys that came from the environment. An operator who rotates METIS_API_KEY
+# in .env expects it to take effect; the database copy (set through the UI)
+# must not silently override it (security review 2026-09-24, M10).
+_ENV_KEYS: dict[str, str] = {prov: _state[prov]["api_key"] for prov in _KEYED_PROVIDERS}
+
+
 def _sanitize_provider(p: str | None) -> str:
     v = (p or "").strip().lower()
     return v if v in _SUPPORTED_PROVIDERS else _state["provider"]
@@ -96,14 +103,27 @@ def load_ai_config_from_db() -> None:
                         .first()
                     )
             if row and row.value:
+                from app.core.secrets import decrypt_secret, is_encrypted
                 saved = json.loads(row.value)
+                had_plaintext_key = False
                 with _lock:
                     if "provider" in saved:
                         _state["provider"] = _sanitize_provider(saved["provider"])
-                    for prov in ("lmstudio", "metis", "custom"):
+                    for prov in _KEYED_PROVIDERS:
                         if prov in saved and isinstance(saved[prov], dict):
-                            _state[prov].update(saved[prov])
+                            incoming = dict(saved[prov])
+                            stored_key = incoming.pop("api_key", None)
+                            _state[prov].update(incoming)
+                            if stored_key:
+                                if not is_encrypted(stored_key):
+                                    had_plaintext_key = True
+                                if _ENV_KEYS.get(prov):
+                                    continue  # the environment's key wins
+                                _state[prov]["api_key"] = decrypt_secret(stored_key)
                 _logger.info("Loaded AI config from database (provider=%s)", _state["provider"])
+                if had_plaintext_key:
+                    _logger.warning("AI config held a plain-text API key; re-saving it encrypted")
+                    _persist_to_db()
         finally:
             db.close()
     except Exception:
@@ -116,8 +136,14 @@ def _persist_to_db() -> None:
         from app.db.session import SessionLocal
         from app.models.app_setting import AppSetting
 
+        from app.core.secrets import encrypt_secret
         with _lock:
-            snapshot = json.dumps(_state)
+            # Never write a plain-text key: encrypt each api_key in the snapshot.
+            data = {k: (dict(v) if isinstance(v, dict) else v) for k, v in _state.items()}
+            for prov in _KEYED_PROVIDERS:
+                if isinstance(data.get(prov), dict):
+                    data[prov]["api_key"] = encrypt_secret(data[prov].get("api_key") or "")
+            snapshot = json.dumps(data)
 
         db = SessionLocal()
         try:

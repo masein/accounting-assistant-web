@@ -221,6 +221,7 @@ _reads(["/transactions", "/transactions/{transaction_id}",
         "/transactions/fees/methods", "/transactions/fees"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _add("POST", "/transactions/fees/calculate", frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
+_reads(["/transactions/attachments/{attachment_id}/file"], Perm.BOOKS_READ)
 for _m, _p in [
     ("POST", "/transactions"), ("PATCH", "/transactions/{transaction_id}"),
     ("DELETE", "/transactions/{transaction_id}"),

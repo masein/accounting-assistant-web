@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 import sqlalchemy as sa
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -169,7 +170,7 @@ SPREADSHEET_ATTACHMENT_TYPES = {
 
 def _attachment_url(file_path: str) -> str:
     p = Path(file_path)
-    return f"/uploads/transactions/{p.name}"
+    return f"/transactions/attachments/{p.stem}/file"  # legacy shape; callers pass the id below
 
 
 def _attachment_to_read(a: TransactionAttachment) -> AttachmentRead:
@@ -178,7 +179,7 @@ def _attachment_to_read(a: TransactionAttachment) -> AttachmentRead:
         file_name=a.file_name,
         content_type=a.content_type,
         size_bytes=a.size_bytes,
-        url=_attachment_url(a.file_path),
+        url=f"/transactions/attachments/{a.id}/file",
         transaction_id=a.transaction_id,
     )
 
@@ -443,6 +444,35 @@ def delete_attachment(
         pass
     db.delete(row)
     db.commit()
+
+
+# Types a browser may render in-page; everything else downloads. The stored
+# extension always comes from the validated type, so nothing here can be HTML.
+_INLINE_TYPES = ("image/jpeg", "image/png", "image/webp", "application/pdf")
+
+
+@router.get("/attachments/{attachment_id}/file")
+def download_attachment(attachment_id: UUID, db: Session = Depends(get_db)) -> FileResponse:
+    """Serve an attachment to a signed-in user of ITS company only (the row
+    lookup is tenant-scoped, so another company's id is a 404). Replaces the
+    public /uploads mount."""
+    att = db.get(TransactionAttachment, attachment_id)
+    if att is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    path = Path(str(att.file_path))
+    if not path.is_absolute():
+        path = UPLOADS_DIR / path.name
+    path = path.resolve()
+    try:
+        path.relative_to(UPLOADS_DIR.resolve())
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Attachment file is missing")
+    disposition = "inline" if att.content_type in _INLINE_TYPES else "attachment"
+    return FileResponse(path, media_type=att.content_type,
+                        headers={"Content-Disposition": f'{disposition}; filename="{path.name}"',
+                                 "X-Content-Type-Options": "nosniff"})
 
 
 @router.post("/attachments/{attachment_id}/ocr", response_model=AttachmentOCRResponse)

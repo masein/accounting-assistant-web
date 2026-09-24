@@ -444,7 +444,6 @@ async def auth_middleware(request: Request, call_next):
     # allow app/static resources and framework internals
     if (
         path in PUBLIC_PATHS
-        or path.startswith("/uploads/")
         or path.startswith("/static/")
         or path.startswith("/docs")
         or path.startswith("/redoc")
@@ -774,7 +773,10 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
-app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+# Uploaded files (receipts, statements, logos, signatures) are NOT mounted as
+# public static files any more (security review 2026-09-24, H1): they are
+# served by authenticated, tenant-scoped routes — GET /transactions/attachments/
+# {id}/file and GET /admin/company-profile/logo — and never from /uploads.
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 

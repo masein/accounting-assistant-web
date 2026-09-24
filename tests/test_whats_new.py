@@ -55,7 +55,11 @@ def test_whats_new_for_role_and_last_seen():
     assert out["seen"] is False
     assert [r["version"] for r in out["releases"]] == [rn.CURRENT_RELEASE]
     keys = {h["key"] for h in out["releases"][0]["highlights"]}
-    assert {"chat-statement", "insights", "whats-new"} <= keys
+    assert {"per-currency-views", "chat-periods-cash", "balance-sheet-check"} <= keys
+    # Earlier releases stay in the full history.
+    history = rn.whats_new_for("owner", None, include_all=True)
+    all_keys = {h["key"] for r in history["releases"] for h in r["highlights"]}
+    assert {"chat-statement", "insights", "whats-new"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -63,17 +67,24 @@ def test_whats_new_for_role_and_last_seen():
     # A future last_seen (rolled back deploy) is also "seen".
     assert rn.whats_new_for("owner", "2099.01.01")["releases"] == []
 
-    # Role filtering: a personal user doesn't get the SME-only entity note and
-    # their insights step opens their own dashboard.
-    personal = rn.whats_new_for("personal", None)["releases"][0]["highlights"]
-    pkeys = {h["key"]: h for h in personal}
+    # Role filtering on the 2026.09.22 release (from the full history): a
+    # personal user doesn't get the SME-only entity note and their insights
+    # step opens their own dashboard.
+    def _rel(role, version):
+        rels = rn.whats_new_for(role, None, include_all=True)["releases"]
+        return {h["key"]: h for r in rels if r["version"] == version for h in r["highlights"]}
+
+    pkeys = _rel("personal", "2026.09.22")
     assert "entity-statement" not in pkeys
     assert pkeys["insights"]["page"] == "personal-dashboard"
-    owner = {h["key"]: h for h in out["releases"][0]["highlights"]}
-    assert owner["insights"]["page"] == "dashboard"
+    assert _rel("owner", "2026.09.22")["insights"]["page"] == "dashboard"
+    # …and on the current release: SME-only notes are hidden from personal users.
+    pcur = {h["key"] for h in rn.whats_new_for("personal", None)["releases"][0]["highlights"]}
+    assert {"per-currency-views", "chat-periods-cash"} <= pcur
+    assert not ({"stricter-checks", "balance-sheet-check", "invoice-credit"} & pcur)
 
     # An employee only gets the notes meant for everyone.
-    emp = rn.whats_new_for("employee", None)
+    emp = rn.whats_new_for("employee", None, include_all=True)
     assert {h["key"] for r in emp["releases"] for h in r["highlights"]} == {"whats-new"}
 
     # include_all lists history regardless of what was seen.

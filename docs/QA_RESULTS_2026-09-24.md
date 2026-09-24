@@ -27,7 +27,8 @@ app's own API from the page context; the plan is `docs/QA_PLAN.md`.
 | personal chat: "این ماه چقدر خرج کردم؟" wrong + Jalali date hallucinated | fixed — new `get_spending_summary` tool resolves period words (this/last month, year, week) in the company calendar and returns the total, categories and period labels; prompt forbids the model from converting dates itself and gives today as «۲ مهر ۱۴۰۵» | #100 |
 | validation lows: duplicate entity name (2.16), invalid IBAN (2.15), duplicate invoice number (3.1), zero budget (3.26), 25 h day (3.11), petty cash spend above the float (3.25), year-summary / my-summary 422 without params (3.22, 3.11) | fixed — 409 on a same-type duplicate party unless `allow_duplicate`, IBAN structure + mod-97 check (422), 409 on a reused invoice number per kind, budgets must be > 0, 24 h cap per entry and per day, petty-cash expenses limited to the float net of pending, summaries default to the current year / month | #101 |
 | audit log: edits not recorded (2.10) | fixed — PATCH writes an `update` audit event + version snapshot | #102 |
-| remaining lows (dashboard alert noise, statement row order + duplicate label, chat cash question / ناهار / نقدی, amount_paid display, Excel re-upload warning, budget link page, employee dropdown, CFO runway wording) | open | — |
+| chat lows: cash question from one account (5.9), personal نقدی → bank (A.8-2), ناهار asks for an account (5.2) | fixed — `get_cash_position` tool, personal alias table (نقد → 1120, کارت → 1110, everyday categories), no-category fallback rule | #103 |
+| remaining lows (dashboard alert noise, statement row order + duplicate label, amount_paid display, Excel re-upload warning, budget link page, employee dropdown, CFO runway wording) | open | — |
 
 
 ## Findings to fix, in priority order

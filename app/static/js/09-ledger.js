@@ -209,15 +209,29 @@
       renderLedgerTable(rows);
     }
 
-    async function loadLedger() {
+    // Keep the currency <select> in step with the server's view: it lists the
+    // currency shown first, then every other currency the books contain.
+    function syncLedgerCurrencyControls(data) {
+      const sel = document.getElementById('ledger-currency');
+      if (sel && data && data.currency) {
+        const opts = [data.currency].concat((data.other_currencies || []).filter(c => c !== data.currency));
+        sel.innerHTML = opts.map(c => '<option value="' + escapeHtml(c) + '"' + (c === data.currency ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('');
+      }
+      renderCurrencyViewNote(document.getElementById('ledger-currency-note'), data, (c) => loadLedger(c));
+    }
+
+    async function loadLedger(currency) {
       try {
-        const res = await fetch(API + '/reports/ledger-summary');
+        const sel = document.getElementById('ledger-currency');
+        const ccy = (typeof currency === 'string' && currency) || (sel && sel.value) || '';
+        const res = await fetch(API + '/reports/ledger-summary' + (ccy ? ('?currency=' + encodeURIComponent(ccy)) : ''));
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error('HTTP ' + res.status + (typeof err.detail === 'string' ? ' — ' + err.detail : ''));
         }
         const data = await res.json();
         ledgerData = data;
+        syncLedgerCurrencyControls(data);
         if (!data.rows || data.rows.length === 0) {
           resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">No transactions yet. Use the form above to add a voucher.</td></tr>';
           resultsFoot.style.display = 'none';
@@ -235,6 +249,7 @@
       }
     }
 
+    { const sel = document.getElementById('ledger-currency'); if (sel) sel.addEventListener('change', () => loadLedger(sel.value)); }
     [ledgerSearchEl, ledgerSortEl, ledgerTopNEl, ledgerNonZeroEl].forEach(el => {
       if (!el) return;
       el.addEventListener('input', renderLedgerView);

@@ -29,6 +29,7 @@ from app.services.reporting.repository import (
     paged_journal_entries,
     trial_balance_rows,
 )
+from app.services.reporting.repository import resolve_currency_view
 
 
 def _to_journal_item(txn: Transaction) -> JournalEntryRead:
@@ -133,6 +134,9 @@ class LedgerService:
         currency: str | None = None,
     ) -> TrialBalanceResponse:
         period = default_period(from_date, to_date)
+        # Single-currency view: the reporting currency unless asked otherwise;
+        # other currencies in the period are listed, never summed in.
+        currency, other_currencies = resolve_currency_view(self.db, currency, period.from_date, period.to_date)
         rows = trial_balance_rows(self.db, period.from_date, period.to_date, currency=currency)
         total = len(rows)
         offset = max(0, (page - 1) * page_size)
@@ -159,6 +163,8 @@ class LedgerService:
             )
         return TrialBalanceResponse(
             report_type=report_type,
+            currency=currency,
+            other_currencies=other_currencies,
             period=ReportPeriod(from_date=period.from_date, to_date=period.to_date),
             page=page,
             page_size=page_size,

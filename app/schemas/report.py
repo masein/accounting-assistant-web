@@ -19,6 +19,10 @@ class LedgerSummaryRow(BaseModel):
 
 
 class LedgerSummaryResponse(BaseModel):
+    # Single-currency view: which currency the figures are in, and which other
+    # currencies the books hold (never summed into these figures).
+    currency: str | None = None
+    other_currencies: list[str] = []
     rows: list[LedgerSummaryRow]
     total_debit_turnover: int
     total_credit_turnover: int
@@ -36,6 +40,10 @@ class AccountLineDetail(BaseModel):
 
 
 class AccountDetailResponse(BaseModel):
+    # Single-currency view: which currency the figures are in, and which other
+    # currencies the books hold (never summed into these figures).
+    currency: str | None = None
+    other_currencies: list[str] = []
     account_code: str
     account_name: str
     # کل — parent GROUP account (this account is the معین level).
@@ -117,6 +125,10 @@ class AlertItem(BaseModel):
 
 class OwnerDashboardResponse(BaseModel):
     generated_on: date
+    # Single-currency view: which currency the figures are in, and which other
+    # currencies the books hold (never summed into these figures).
+    currency: str | None = None
+    other_currencies: list[str] = []
     kpis: list[KpiCard]
     forecast_13_weeks: list[ForecastRow]
     ar_aging: list[AgingRow]

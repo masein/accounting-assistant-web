@@ -36,6 +36,23 @@ def distinct_currencies(db: Session, from_date: date | None = None, to_date: dat
     return sorted([c or "IRR" for c in db.execute(q).scalars().all()])
 
 
+def resolve_currency_view(
+    db: Session, currency: str | None, from_date: date | None = None, to_date: date | None = None
+) -> tuple[str, list[str]]:
+    """Which single currency a report shows, and which other currencies the
+    books contain (optionally within a period).
+
+    Amounts in different currencies are never added together: a report called
+    without an explicit ``currency`` shows the company's reporting currency,
+    and lists the others so the UI can offer them as separate views.
+    """
+    from app.services.fx_service import get_reporting_currency
+
+    shown = (currency or get_reporting_currency(db) or "IRR").strip().upper()
+    others = [c for c in distinct_currencies(db, from_date, to_date) if (c or "IRR").upper() != shown]
+    return shown, others
+
+
 def most_common_currency(db: Session) -> str:
     """Return the currency with the most transactions, or IRR if empty."""
     q = (

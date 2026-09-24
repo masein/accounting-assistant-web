@@ -10,7 +10,7 @@
       el.innerHTML = `<table class="mini-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
     }
 
-    async function loadOwnerDashboard() {
+    async function loadOwnerDashboard(pickedCurrency) {
       try {
         // Make sure the reporting currency is resolved before the first paint,
         // so figures are labelled in the company's currency (GBP for UK, etc.)
@@ -18,13 +18,17 @@
         if (!window.__FX_META) { try { await loadFxMetadata(); } catch (_) { /* offline */ } }
         await loadReportingCurrency();
         // Honour a global currency selector if one is present; falls back to no filter.
-        const dashCcy = document.getElementById('mgr-currency')?.value
+        const dashCcy = (typeof pickedCurrency === 'string' && pickedCurrency)
+          || document.getElementById('mgr-currency')?.value
           || window.__FX_META?.reporting_currency
           || '';
         const url = API + '/reports/owner-dashboard' + (dashCcy ? ('?currency=' + encodeURIComponent(dashCcy)) : '');
         const res = await fetch(url);
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'owner dashboard error');
+        // Other currencies in the books are offered as separate views, never
+        // folded into these figures.
+        renderCurrencyViewNote(document.getElementById('dash-currency-note'), data, (c) => loadOwnerDashboard(c));
 
         const kpiGrid = document.getElementById('kpi-grid');
         const kpiLabelMap = {
@@ -1039,7 +1043,17 @@
         // show a banner warning that numbers are summed across currencies and
         // offer a one-click switch to a single-currency view.
         let mixWarning = '';
-        if (!currency) {
+        if (!currency && data && data.currency) {
+          // Server resolved a single-currency view (reporting currency by
+          // default): say which, and offer the other currencies separately.
+          const others = Array.isArray(data.other_currencies) ? data.other_currencies : [];
+          if (others.length) {
+            const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('currencyViewOnly').replace('{currency}', ccy))}</button>`).join(' ');
+            mixWarning = `<div class="report-meta" style="margin-bottom:0.6rem;">${escapeHtml(t('currencyViewNote').replace('{currency}', data.currency).replace('{others}', others.join(', ')))}
+              <div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>
+            </div>`;
+          }
+        } else if (!currency) {
           const meta = window.__FX_META;
           const used = (meta && Array.isArray(meta.used_currencies)) ? meta.used_currencies : [];
           if (used.length > 1) {

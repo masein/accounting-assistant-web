@@ -19,6 +19,7 @@ from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction, TransactionLine
 from app.services.cash_service import cash_on_hand as _cash_on_hand_balance
 from app.services.fx_service import get_reporting_currency
+from app.services.reporting.repository import resolve_currency_view
 from app.services.locale_service import get_reporting_locale
 from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
 from app.schemas.report import (
@@ -168,8 +169,10 @@ def get_ledger_summary(
         .where(Transaction.deleted_at.is_(None))  # replaced/undone journals must not count
         .options(selectinload(TransactionLine.account))
     )
-    if currency:
-        q = q.where(Transaction.currency == currency)
+    # One currency per view — never sum IRR and USD face values. Default is
+    # the reporting currency; the response lists the other currencies present.
+    currency, other_currencies = resolve_currency_view(db, currency)
+    q = q.where(Transaction.currency == currency)
     lines = db.execute(q).scalars().all()
     # Aggregate by account_id
     by_account: dict[str, dict] = defaultdict(
@@ -224,6 +227,8 @@ def get_ledger_summary(
     total_debit_balance = sum(r.debit_balance for r in rows)
     total_credit_balance = sum(r.credit_balance for r in rows)
     return LedgerSummaryResponse(
+        currency=currency,
+        other_currencies=other_currencies,
         rows=rows,
         total_debit_turnover=total_debit_turnover,
         total_credit_turnover=total_credit_turnover,
@@ -249,8 +254,8 @@ def get_account_detail(
         .join(Transaction, TransactionLine.transaction_id == Transaction.id)
         .where(TransactionLine.account_id == acc.id, Transaction.deleted_at.is_(None))
     )
-    if currency:
-        q = q.where(Transaction.currency == currency)
+    currency, other_currencies = resolve_currency_view(db, currency)
+    q = q.where(Transaction.currency == currency)
     q = q.order_by(Transaction.date, Transaction.id)
     rows = db.execute(q).all()
     lines: list[AccountLineDetail] = []
@@ -272,6 +277,8 @@ def get_account_detail(
     debit_balance = net if net >= 0 else 0
     credit_balance = -net if net < 0 else 0
     return AccountDetailResponse(
+        currency=currency,
+        other_currencies=other_currencies,
         account_code=acc.code,
         account_name=acc.name,
         parent_code=(acc.parent.code if acc.parent else None),
@@ -427,7 +434,8 @@ def get_owner_dashboard(
     db: Session = Depends(get_db),
     months_back: int = 12,
 ) -> OwnerDashboardResponse:
-    cache_key = f"dashboard:{months_back}:{currency or 'all'}"
+    currency, other_currencies = resolve_currency_view(db, currency)
+    cache_key = f"dashboard:{months_back}:{currency}"
     now = _time.time()
     cached = _dashboard_cache.get(cache_key)
     if cached and (now - cached[0]) < _DASHBOARD_CACHE_TTL:
@@ -444,8 +452,7 @@ def get_owner_dashboard(
 
     cutoff = today - timedelta(days=months_back * 31)
     txn_q = select(Transaction).where(Transaction.date >= cutoff)
-    if currency:
-        txn_q = txn_q.where(Transaction.currency == currency)
+    txn_q = txn_q.where(Transaction.currency == currency)  # single-currency view
     txns = db.execute(
         txn_q.options(
             selectinload(Transaction.lines).selectinload(TransactionLine.account),
@@ -709,7 +716,7 @@ def get_owner_dashboard(
     # locale, IRR for Iran, etc.) instead of hardcoding IRR. When the caller
     # filters by an explicit currency, honour that; otherwise fall back to the
     # company's reporting-currency setting.
-    display_currency = (currency or get_reporting_currency(db) or "IRR").upper()
+    display_currency = currency
 
     kpis = [
         KpiCard(key="cash_on_hand", label="Cash on hand", value=cash_on_hand, unit=display_currency),
@@ -739,6 +746,8 @@ def get_owner_dashboard(
     )
 
     result = OwnerDashboardResponse(
+        currency=currency,
+        other_currencies=other_currencies,
         generated_on=today,
         kpis=kpis,
         forecast_13_weeks=forecast_rows,

@@ -65,11 +65,11 @@ jobs:
       - name: Ruff check (non-gating)
         run: ruff check --output-format=github --exit-zero .
 
-  # The suite above runs on SQLite; production is PostgreSQL. This job applies
-  # every migration to an empty PostgreSQL (gating), reports model/migration
-  # drift (informational until the historical drift is cleaned up), and runs
-  # the whole suite against PostgreSQL (gating) — roadmap 2026-09 §1.12 /
-  # review M8.
+  # The suite above runs on SQLite; production is PostgreSQL. This job
+  # bootstraps an empty PostgreSQL exactly like the container entrypoint and
+  # checks the schema ends at head (gating), reports model/migration drift
+  # (informational until the historical drift is cleaned up), and runs the
+  # whole suite against PostgreSQL (gating) — roadmap 2026-09 §1.12 / M8.
   postgres:
     name: Tests on PostgreSQL
     runs-on: ubuntu-latest
@@ -110,8 +110,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Apply every migration to an empty database (gating)
-        run: alembic upgrade head
+      # The migration chain assumes the tables exist (the very first migrations
+      # patch a create_all schema), so an empty database is bootstrapped exactly
+      # the way the container entrypoint does it: create_all → stamp/upgrade →
+      # seed. Any migration that no longer applies fails here, before deploy.
+      - name: Bootstrap an empty database like the container (create_all → migrate → seed)
+        run: |
+          python -m app.prestart
+          alembic current | tee current.txt
+          grep -q "(head)" current.txt
 
       - name: Model vs migration drift (informational)
         continue-on-error: true

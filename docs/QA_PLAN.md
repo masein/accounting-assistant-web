@@ -1,4 +1,4 @@
-# Full QA plan — accounting assistant (release 2026.09.22)
+# Full QA plan — accounting assistant (release 2026.09.24)
 
 A complete re-assessment of every feature, page by page, role by role. Each
 check has an id, steps, and the expected result, so a run can be logged as
@@ -18,7 +18,7 @@ Conventions
 | id | check | expected |
 |---|---|---|
 | 0.1 | `GET /health` on the target | 200 |
-| 0.2 | Container logs on boot | migrations up to **034**, seed done, no tracebacks |
+| 0.2 | Container logs on boot | migrations up to **035**, seed done, no tracebacks |
 | 0.3 | Static assets | every `js/*.js` and `css/app.css` loads with `?v=<hash>`; hard reload picks up the new release (no stale JS) |
 | 0.4 | Test tenants | one `IR` business company (owner + one user per other role), one `UK` business company, one `personal` tenant; super-admin login |
 | 0.5 | Test files at hand | Mellat PDF statement, a CSV statement, an Excel statement, a receipt image, an invoice PDF, a chart-of-accounts Excel export, a transactions Excel |
@@ -434,3 +434,107 @@ Repeat these with the personal user — the UI must never show SME concepts:
 8. Recurring detector after 3 months of the same rent payment.
 9. Try `#payroll`, `#invoices`, `#cfo` deep links → bounced to home; API 403.
 10. What's-new tour shows the personal variant (Show me → My finances).
+
+
+---
+
+# Appendix B — Added 2026-09-24 (security review, coverage audit, new features)
+
+Run these in addition to Parts 0–7 and Appendix A. Ids continue the part they
+belong to. Items marked **auto** should also exist as pytest suites (see
+`ROADMAP_2026-09.md` §6).
+
+## B.1 Security and tenancy (Part 7 extension)
+
+| id | check | expected |
+|---|---|---|
+| 7.10 | Logged out, open `/uploads/…` links copied earlier (receipt, statement, logo, signature) and `/exports/monthly-snapshot/<name>` | receipt/statement/branding: **currently public — must become 401** after roadmap 1.1; snapshot: 401/404 |
+| 7.11 | Company A user requests company B's ids on: invoice PDF, payment receipt, PO, pay run payslip PDF, attachment delete, shareholding PATCH, FX rate DELETE, time entry, recurring rule, adjustment | 404 every time; B's data unchanged (**auto**) |
+| 7.12 | Every non-GET route × every role (owner, cfo, accountant, manager, employee, viewer, personal) with a real request | 403 exactly where the RBAC matrix denies; never a 500 (**auto**) |
+| 7.13 | Two owners of different companies open the dashboard within 60 s, same currency | each sees only their own figures |
+| 7.14 | Delete a user, then reuse their still-valid cookie | rejected (after roadmap 1.2; today it works) |
+| 7.15 | Change password in tab 1; tab 2 keeps the old session | tab 2 is logged out (after 1.2) |
+| 7.16 | Logout, then replay the old cookie | rejected (after 1.2) |
+| 7.17 | Change password without supplying the current one | 400 (after 1.3) |
+| 7.18 | Upload `evil.html` declared as `text/csv`; open the returned URL | stored as `.csv`, served as CSV/download, never rendered as HTML |
+| 7.19 | Upload `<svg onload=…>` as `image/png` | 400 (magic mismatch) |
+| 7.20 | Logo and signature uploads with a spoofed `image/png` that is HTML | **currently accepted — must become 400** |
+| 7.21 | Mutating calls without CSRF header on `/commitments`, `/insights`, `/personal`, `/migration`, `/petty-cash`, `/auth/whats-new/seen` | **currently pass — must become 403** after 1.7 |
+| 7.22 | 6 wrong passwords for `admin` from IP X, then a correct one from IP Y | after 1.8: Y not locked out; today: username-wide lockout |
+| 7.23 | Unknown username vs wrong password: response times | indistinguishable (after 1.8) |
+| 7.24 | Export CSV with a description starting `=`, `+`, `-`, `@`; open in Excel/LibreOffice | cell shows as text, no formula runs |
+| 7.25 | `/docs`, `/openapi.json` in prod | 404 (after 1.13) |
+| 7.26 | Reopen a closed period, reset-db, create/revoke API key, create/suspend company | each appears in the audit log with the acting super-admin (after 1.4) |
+| 7.27 | Post into a closed period via: bulk JSON import, Excel import confirm, FX revalue, journal reverse, chat "undo" | refused (after 1.5; today all succeed) |
+
+## B.2 Concurrency and idempotency (new)
+
+| id | check | expected |
+|---|---|---|
+| 8.1 | Double-click Confirm on a chat card; two parallel `POST /invoices/{id}/payments` of the full amount | one posting; second is 409 or credited correctly, never a double payment |
+| 8.2 | `POST /recurring/run-due` twice in one day; once after 3 skipped days | one entry per due date; catch-up posts the missed dates once |
+| 8.3 | `POST /fx/revalue` twice for the same date | one revaluation entry |
+| 8.4 | `POST /payroll/runs/{id}/post` and `/pay` fired twice in parallel | second returns 409; one GL posting |
+| 8.5 | Two users editing the same voucher (PATCH) | last write wins with both versions in the audit trail; no lost lines |
+| 8.6 | Monthly recurring rule starting on the 31st | Feb/Apr/Jun… post on the last day of the month |
+
+## B.3 Soft delete, undo and versions (Part 2 extension)
+
+| id | check | expected |
+|---|---|---|
+| 2.30 | Delete a voucher, then check: CSV/XLSX export, snapshot, budget vs actual, person running balance, debtor/creditor, general journal, cash-bank statement, product sales, insights, dashboard KPIs | none includes it (**auto**) |
+| 2.31 | Chat "undo" right after posting | soft delete (row still in audit/versions), audit `delete`, statement row released; **today it hard-deletes** |
+| 2.32 | Edit a voucher twice, then delete | versions 1..4 with actions create/update/update/delete; audit trail matches |
+| 2.33 | Undo an AI card via `POST /ai-accountant/undo` and `/reverse` over HTTP | same behaviour as the service tests; RBAC applies |
+
+## B.4 Calendar, numbers, i18n (Appendix A.1 extension)
+
+| id | check | expected |
+|---|---|---|
+| 9.1 | Enter `1404/12/30` | rejected (1404 is not leap); `1403/12/30` accepted |
+| 9.2 | Report period ending Esfand 29 vs 30; a voucher on 1 Farvardin | lands in the right Jalali month/year on every report incl. budgets, balance-sheet periods and payroll year summary (**today Gregorian buckets for ir companies**) |
+| 9.3 | Chat: "۲۵ اسفند" with no year on 3 Farvardin | resolves to the just-finished Esfand, not next year's |
+| 9.4 | Arabic-Indic digits `١٢٣٬٤٥٠` in every amount field and chat | parsed like Persian digits |
+| 9.5 | Excel journal with Jalali dates as text `1404/06/31` and as Excel serials | both convert |
+| 9.6 | VAT on `.5` boundaries (per line vs total), 10^14 IRR converted to USD and back, fee in basis points | integer results consistent (banker's rounding documented) |
+| 9.7 | Spanish and Arabic UI: no empty strings, RTL PDF for Arabic, Arabic-Indic vs Persian digit rendering | parity test extended to empty values |
+
+## B.5 Files and limits (Part 7.4 extension)
+
+| id | check | expected |
+|---|---|---|
+| 7.30 | Each upload route with a file just over its cap: attachments 8 MB, invoice OCR 10 MB, migration 20 MB, Excel 20 MB, statement 20 MB, logo/signature 2 MB | 400/413 before the file is fully read into memory |
+| 7.31 | Chat message of 200 kB; 500 attachment ids | bounded → 413/422 (today unbounded) |
+| 7.32 | 10k-row statement CSV and a 5k-line Excel journal | completes < 30 s, UI stays responsive, preview paginated |
+| 7.33 | Password-protected PDF, 0-byte file, HEIC | clear error, no 500 |
+
+## B.6 PDFs and documents (new)
+
+| id | check | expected |
+|---|---|---|
+| 10.1 | Invoice, receipt, entity statement, payslip, PO, time-invoice PDFs in `IR` (RTL, Persian digits, Jalali) and `UK` | `%PDF-` content, correct totals, branding, no missing glyphs |
+| 10.2 | The same six routes as a viewer / employee / other company | 403 / 404 as per RBAC and tenancy |
+| 10.3 | reportlab fallback path when WeasyPrint libs are missing | still produces a readable PDF |
+
+## B.7 Payroll statuses (Part 3.G extension)
+
+| id | check | expected |
+|---|---|---|
+| 3.40 | Void a posted run; employee opens My pay; owner opens year summary | voided run absent from both; drafts absent from year summary |
+| 3.41 | 1405 parameters (minimum wage, حق مسکن, بن, insurance ceiling, tax brackets) | editable per year, applied by pay date (after roadmap 3.3) |
+
+## B.8 New features shipped 2026-09-24 (regression)
+
+| id | check | expected |
+|---|---|---|
+| 2.50 | Ledger page with IRR + USD vouchers | shows the reporting currency, note lists USD with a "USD only" button; totals never mixed |
+| 2.51 | Trial balance / dashboard `?currency=usd` | case-insensitive; `other_currencies` lists IRR |
+| 2.52 | Balance sheet after: capital 5 M, sales 3 M, expense 1 M | assets 7 M = liabilities 0 + equity 7 M; equity shows "Current period earnings 2 M"; badge "balanced" |
+| 2.53 | Balance sheet with overdrawn cash | 1110 negative, still balanced; Iran statement metadata true |
+| 5.30 | Personal chat: post «۵۰ هزار تومان نان نقدی» then «این ماه چقدر خرج کردم؟» | card Dr 6110 / Cr **1120**; answer includes 500,000 and «مهر ۱۴۰۵»; no invented Jalali date |
+| 5.31 | Business chat: "how much cash do we have?" with cash box negative and bank positive | lists every cash/bank account and the total; does not call it an overdraft |
+| 5.32 | «۲۰۰ هزار تومان ناهار نقدی دادیم» in a business tenant with no lunch account | one card on general expenses, no "which account?" question |
+| 2.54 | Duplicate client name, invoice number reuse, 25 h day, 0 budget, IBAN `not-an-iban`, petty cash above float | 409/422 as specified; `allow_duplicate` overrides the party check |
+| 2.55 | Re-upload an already imported Excel journal | red "already imported on … (n vouchers)" banner before confirm |
+| 6.20 | Settings → AI providers as a company owner vs super-admin | hidden with a note vs editable; saved once, survives a container restart for every company |
+| 6.21 | First login after deploy | what's-new tour "2026.09.24" with 5 (SME) or 2 (personal) steps; not shown twice |

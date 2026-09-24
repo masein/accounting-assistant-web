@@ -27,6 +27,16 @@ publish, pinned Watchtower, Secure cookie, proxy headers, HSTS (#112) · ✅ 2.1
 scheduler (#113) · ✅ test suites 1–3 (#114, #115, #116) · ✅ chat page
 redesign incl. RTL (#109) · ✅ SQLite UUID affinity flake (#117).
 
+**Next block (§7 step 2, security remainder) — shipped 2026-09-24/25:** ✅ 1.4
+admin audit + append-only audit_logs (#118) · ✅ 1.7 protected prefixes derived
+from routers, cross-site login/logout refused (#119) · ✅ 1.8 login limits per
+username and per IP, dummy hash, X-Forwarded-For gated (#120) · ✅ 1.11 AI keys
+encrypted at rest, env wins (#121) · ✅ 1.12 PostgreSQL CI job — bootstrap +
+full suite (#122) · ✅ 1.13 /health 503, docs off in prod (#123) · ✅ 2.3
+upload/parse handlers synchronous, middleware DB work off the loop (#124).
+Still open in §1: API key scopes/expiry, 2FA, CSP without inline scripts,
+non-superuser DB role, model/migration drift cleanup (alembic check).
+
 ---
 
 ## 1. Security and data safety (do before onboarding paying customers)

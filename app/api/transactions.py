@@ -383,7 +383,7 @@ from app.services.transaction_chat import (  # noqa: E402
 
 
 @router.post("/attachments", response_model=AttachmentRead, status_code=201)
-async def upload_attachment(
+def upload_attachment(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> AttachmentRead:
@@ -400,7 +400,7 @@ async def upload_attachment(
                 status_code=400,
                 detail="Unsupported file type. Use JPG, PNG, WEBP, PDF, CSV, TSV, XLS, or XLSX.",
             )
-    raw = await file.read()
+    raw = file.file.read()
     if not raw:
         raise HTTPException(status_code=400, detail="Attachment is empty.")
     validate_file_magic(raw, content_type)
@@ -1733,7 +1733,7 @@ def _record_excel_import(db: Session, file_path: str, file_token: str, imported:
 
 
 @router.post("/excel-import/preview", response_model=ExcelImportPreviewResponse)
-async def excel_import_preview(
+def excel_import_preview(
     file: UploadFile = File(...),
     jalali_year: int | None = Query(None, description="Jalali year for date conversion (e.g. 1403)"),
     db: Session = Depends(get_db),
@@ -1745,7 +1745,7 @@ async def excel_import_preview(
         raise HTTPException(status_code=400, detail="Only .xlsx/.xls files are supported")
 
     # Save to temp file
-    content = await file.read()
+    content = file.file.read()
     if len(content) > 20 * 1024 * 1024:  # 20MB limit
         raise HTTPException(status_code=400, detail="File too large (max 20MB)")
 

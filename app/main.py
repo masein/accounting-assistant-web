@@ -7,6 +7,7 @@ import time
 import uuid
 
 from fastapi import Depends, FastAPI
+from starlette.concurrency import run_in_threadpool
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -473,7 +474,7 @@ async def auth_middleware(request: Request, call_next):
     # /api/v1 is the key-authenticated integration surface: no session cookie,
     # no CSRF — the API key alone resolves the company and scopes everything.
     if path.startswith("/api/v1/"):
-        resolved = _resolve_api_key_actor(request)
+        resolved = await run_in_threadpool(_resolve_api_key_actor, request)
         if resolved is None:
             return JSONResponse(status_code=401, content={"detail": "A valid API key is required."})
         company_id, actor = resolved
@@ -491,7 +492,9 @@ async def auth_middleware(request: Request, call_next):
 
     token = request.cookies.get(settings.auth_cookie_name)
     user = parse_session_token(token)
-    if user is not None and not _session_is_valid(user):
+    # Session validation hits the database: keep it off the event loop so one
+    # slow query cannot stall every other request (review M5).
+    if user is not None and not await run_in_threadpool(_session_is_valid, user):
         # Token invalidated (password reset or company suspended) → drop it.
         user = None
     request.state.user = user

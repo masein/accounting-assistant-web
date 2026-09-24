@@ -2128,6 +2128,15 @@
         aiChipPdIncome: 'How much did I earn this month?',
         aiChipPdRecent: 'Show my last 5 entries',
         aiChatInputPlaceholder: 'e.g. paid HSBC 1,000 yesterday for office supplies',
+        aiChatHint: 'Enter to send · Shift+Enter for a new line',
+        aiChatYou: 'You',
+        aiChatAssistant: 'Assistant',
+        aiChatEmptyTitle: 'What would you like to do?',
+        aiChatEmptyBody: 'Record a payment, ask about your numbers, or drop a receipt or bank statement here. Nothing is saved until you confirm a card.',
+        aiChatExample1: 'Paid 2,500,000 for office rent from the bank today',
+        aiChatExample2: 'How much did we spend last month?',
+        aiChatExample3: 'Show the balance sheet',
+        aiChatScrollBottom: 'Scroll to latest',
         aiChatAttachTitle: 'Attach an invoice or receipt (JPG, PNG, WEBP, PDF)',
         aiChatNewTitle: 'Start a new conversation',
         aiChatRemoveAttachment: 'Remove attachment',
@@ -3296,6 +3305,15 @@
         aiChipPdIncome: 'این ماه چقدر درآمد داشتم؟',
         aiChipPdRecent: 'آخرین ۵ مورد ثبت‌شده',
         aiChatInputPlaceholder: 'مثال: دیروز ۵۰۰ بابت ملزومات اداری به ملت پرداختم',
+        aiChatHint: 'Enter برای ارسال · Shift+Enter برای خط جدید',
+        aiChatYou: 'شما',
+        aiChatAssistant: 'دستیار',
+        aiChatEmptyTitle: 'چه کاری می‌خواهید انجام دهید؟',
+        aiChatEmptyBody: 'پرداختی را ثبت کنید، دربارهٔ ارقامتان بپرسید، یا رسید و صورتحساب بانکی را همین‌جا رها کنید. تا کارتی را تأیید نکنید چیزی ذخیره نمی‌شود.',
+        aiChatExample1: 'امروز ۲٬۵۰۰٬۰۰۰ اجارهٔ دفتر از بانک پرداخت کردم',
+        aiChatExample2: 'ماه گذشته چقدر خرج کردیم؟',
+        aiChatExample3: 'ترازنامه را نشان بده',
+        aiChatScrollBottom: 'برو به آخرین پیام',
         aiChatAttachTitle: 'پیوست فاکتور یا رسید (JPG، PNG، WEBP، PDF)',
         aiChatNewTitle: 'شروع گفتگوی جدید',
         aiChatRemoveAttachment: 'حذف پیوست',
@@ -4447,6 +4465,15 @@
         aiChipPdIncome: '¿Cuánto ingresé este mes?',
         aiChipPdRecent: 'Muestra mis últimos 5 registros',
         aiChatInputPlaceholder: 'p. ej. pagué 1.000 a BBVA ayer por material de oficina',
+        aiChatHint: 'Enter para enviar · Shift+Enter para nueva línea',
+        aiChatYou: 'Tú',
+        aiChatAssistant: 'Asistente',
+        aiChatEmptyTitle: '¿Qué quieres hacer?',
+        aiChatEmptyBody: 'Registra un pago, pregunta por tus cifras o suelta aquí un recibo o extracto bancario. Nada se guarda hasta que confirmes una tarjeta.',
+        aiChatExample1: 'Pagué hoy 2.500 de alquiler de la oficina desde el banco',
+        aiChatExample2: '¿Cuánto gastamos el mes pasado?',
+        aiChatExample3: 'Muestra el balance',
+        aiChatScrollBottom: 'Ir al último mensaje',
         aiChatAttachTitle: 'Adjuntar una factura o recibo (JPG, PNG, WEBP, PDF)',
         aiChatNewTitle: 'Iniciar una nueva conversación',
         aiChatRemoveAttachment: 'Quitar adjunto',
@@ -5598,6 +5625,15 @@
         aiChipPdIncome: 'كم دخلي هذا الشهر؟',
         aiChipPdRecent: 'اعرض آخر ٥ قيود لي',
         aiChatInputPlaceholder: 'مثال: دفعت أمس 1,000 لبنك HSBC مقابل لوازم مكتبية',
+        aiChatHint: 'Enter للإرسال · Shift+Enter لسطر جديد',
+        aiChatYou: 'أنت',
+        aiChatAssistant: 'المساعد',
+        aiChatEmptyTitle: 'ماذا تريد أن تفعل؟',
+        aiChatEmptyBody: 'سجّل دفعة، أو اسأل عن أرقامك، أو أسقط إيصالاً أو كشف حساب هنا. لا يُحفظ شيء حتى تؤكد بطاقة.',
+        aiChatExample1: 'دفعت اليوم 2,500 إيجار المكتب من البنك',
+        aiChatExample2: 'كم أنفقنا الشهر الماضي؟',
+        aiChatExample3: 'أظهر الميزانية',
+        aiChatScrollBottom: 'الانتقال إلى الأحدث',
         aiChatAttachTitle: 'إرفاق فاتورة أو إيصال (JPG، PNG، WEBP، PDF)',
         aiChatNewTitle: 'بدء محادثة جديدة',
         aiChatRemoveAttachment: 'إزالة المرفق',
@@ -5948,6 +5984,10 @@
       document.querySelectorAll('[data-i18n-title]').forEach((el) => {
         const key = el.getAttribute('data-i18n-title');
         if (key) el.title = t(key);
+      });
+      document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-aria-label');
+        if (key) el.setAttribute('aria-label', t(key));
       });
       if (document.title) {
         document.title = t('appTitle');

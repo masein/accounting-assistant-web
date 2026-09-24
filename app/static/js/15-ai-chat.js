@@ -13,7 +13,50 @@
       const attachBtn = document.getElementById('ai-acct-attach');
       const fileInput = document.getElementById('ai-acct-file');
       const attachmentsEl = document.getElementById('ai-acct-attachments');
+      const titleEl = document.getElementById('ai-acct-title');
+      const scrollBtn = document.getElementById('ai-acct-scroll-bottom');
       if (!messagesEl || !sendBtn) return;
+
+      const _lang = () => (typeof currentLanguage !== 'undefined' && currentLanguage) || 'en';
+      function _fmtTime(iso) {
+        try {
+          const d = iso ? new Date(iso) : new Date();
+          if (Number.isNaN(d.getTime())) return '';
+          const loc = { fa: 'fa-IR', ar: 'ar-EG', es: 'es-ES' }[_lang()] || 'en-GB';
+          return d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
+        } catch (_) { return ''; }
+      }
+      // Keep the view pinned to the newest message unless the reader has
+      // scrolled up to re-read something; then offer a jump-back button.
+      function _nearBottom() { return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 120; }
+      function scrollToBottom(force) {
+        if (force || _nearBottom()) messagesEl.scrollTop = messagesEl.scrollHeight;
+        if (scrollBtn) scrollBtn.hidden = _nearBottom();
+      }
+      messagesEl.addEventListener('scroll', () => { if (scrollBtn) scrollBtn.hidden = _nearBottom(); });
+      if (scrollBtn) scrollBtn.addEventListener('click', () => scrollToBottom(true));
+      function setChatTitle(text) { if (titleEl) titleEl.textContent = text || ''; }
+      function renderEmptyState() {
+        if (messagesEl.children.length) return;
+        const box = document.createElement('div');
+        box.className = 'ai-empty';
+        box.innerHTML = '<div class="ai-empty-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>'
+          + '<h3>' + escapeHtml(t('aiChatEmptyTitle')) + '</h3><p>' + escapeHtml(t('aiChatEmptyBody')) + '</p>';
+        const list = document.createElement('div');
+        list.className = 'ai-examples';
+        ['aiChatExample1', 'aiChatExample2', 'aiChatExample3'].forEach((k) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'ai-example'; b.textContent = t(k);
+          b.addEventListener('click', () => sendMessage(b.textContent));
+          list.appendChild(b);
+        });
+        box.appendChild(list);
+        messagesEl.appendChild(box);
+      }
+      function clearEmptyState() {
+        const e = messagesEl.querySelector('.ai-empty');
+        if (e) e.remove();
+      }
 
       let sessionId = null;
       // ─── ChatGPT-style sessions sidebar ───
@@ -55,44 +98,45 @@
         if (!sessionListEl) return;
         sessionListEl.innerHTML = '';
         if (!_sessionsCache.length) {
-          sessionListEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;padding:0.4rem;">' + escapeHtml(t('chatSessionsEmpty')) + '</div>';
+          sessionListEl.innerHTML = '<div class="sess-empty">' + escapeHtml(t('chatSessionsEmpty')) + '</div>';
           return;
         }
         _sessionsCache.forEach((sess) => {
           const item = document.createElement('div');
           const active = sess.id === sessionId;
-          item.style.cssText = 'display:flex;flex-direction:column;gap:0.1rem;padding:0.4rem 0.5rem;border-radius:6px;cursor:pointer;'
-            + (active ? 'background:var(--primary,#0f766e);color:#fff;' : 'background:transparent;');
+          item.className = 'sess-item' + (active ? ' active' : '');
+          item.setAttribute('role', 'listitem');
+          if (active) setChatTitle(sess.title || t('chatUntitled'));
           const row = document.createElement('div');
-          row.style.cssText = 'display:flex;align-items:center;gap:0.3rem;';
+          row.className = 'sess-row';
           const title = document.createElement('span');
-          title.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.85rem;';
+          title.className = 'sess-title';
           title.innerHTML = _highlight(sess.title || t('chatUntitled'), q);
           row.appendChild(title);
           const ren = document.createElement('button');
-          ren.type = 'button'; ren.textContent = '✎'; ren.title = t('chatRename');
-          ren.style.cssText = 'border:none;background:none;cursor:pointer;font-size:0.8rem;color:inherit;opacity:0.7;padding:0;';
+          ren.type = 'button'; ren.className = 'sess-act'; ren.textContent = '✎'; ren.title = t('chatRename');
+          ren.setAttribute('aria-label', t('chatRename'));
           ren.addEventListener('click', (e) => { e.stopPropagation(); startInlineRename(item, title, sess); });
           row.appendChild(ren);
           const del = document.createElement('button');
-          del.type = 'button'; del.textContent = '🗑'; del.title = t('chatDelete');
-          del.style.cssText = ren.style.cssText;
+          del.type = 'button'; del.className = 'sess-act'; del.textContent = '🗑'; del.title = t('chatDelete');
+          del.setAttribute('aria-label', t('chatDelete'));
           del.addEventListener('click', async (e) => {
             e.stopPropagation();
             if (!window.confirm(t('chatDeleteConfirm'))) return;
             await fetch(API + '/ai-accountant/sessions/' + encodeURIComponent(sess.id), { method: 'DELETE' });
-            if (sess.id === sessionId) { sessionId = null; messagesEl.innerHTML = ''; }
+            if (sess.id === sessionId) { sessionId = null; messagesEl.innerHTML = ''; setChatTitle(''); renderEmptyState(); }
             loadSessions(sessionSearchEl ? sessionSearchEl.value.trim() : '');
           });
           row.appendChild(del);
           item.appendChild(row);
           const meta = document.createElement('div');
-          meta.style.cssText = 'font-size:0.7rem;opacity:0.75;display:flex;gap:0.4rem;';
+          meta.className = 'sess-meta';
           meta.textContent = _relTime(sess.updated_at);
           item.appendChild(meta);
           if (sess.match_snippet) {
             const snip = document.createElement('div');
-            snip.style.cssText = 'font-size:0.72rem;opacity:0.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+            snip.className = 'sess-snip';
             snip.innerHTML = _highlight(sess.match_snippet, q);
             item.appendChild(snip);
           }
@@ -104,7 +148,7 @@
         const input = document.createElement('input');
         input.type = 'text';
         input.value = sess.title || '';
-        input.style.cssText = 'flex:1;font-size:0.85rem;min-width:0;';
+        input.className = 'sess-rename';
         titleEl.replaceWith(input);
         input.focus();
         input.select();
@@ -133,10 +177,11 @@
             ? c.text
             : (typeof c.content === 'string' ? c.content : null);  // legacy shape
           if (!text) return;  // skip tool turns / empty tool-call turns
-          if (m.role === 'user') appendBubble('user', text);
-          else if (m.role === 'assistant') appendBubble('assistant', text);
+          if (m.role === 'user') appendBubble('user', text, { at: m.created_at, animate: false });
+          else if (m.role === 'assistant') appendBubble('assistant', text, { at: m.created_at, animate: false });
         });
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        renderEmptyState();
+        scrollToBottom(true);
       }
       async function openSession(id) {
         try {
@@ -147,6 +192,8 @@
           pendingAttachments = [];
           renderPendingAttachments();
           _renderStoredMessages(msgs);
+          const sess = _sessionsCache.find((x) => x.id === id);
+          setChatTitle(sess ? (sess.title || t('chatUntitled')) : '');
           renderSessionList(sessionSearchEl ? sessionSearchEl.value.trim() : '');
         } catch (_) { /* keep current view */ }
       }
@@ -189,6 +236,8 @@
         messagesEl.innerHTML = '';
         pendingAttachments = [];
         renderPendingAttachments();
+        setChatTitle(t('chatUntitled'));
+        renderEmptyState();
         statusEl.textContent = t('aiChatNewStarted');
         loadSessions('');
         maybeBriefing();
@@ -205,6 +254,7 @@
       (async function restoreLatest() {
         await loadSessions('');
         if (_sessionsCache.length) await openSession(_sessionsCache[0].id);
+        else { setChatTitle(t('chatUntitled')); renderEmptyState(); }
         maybeBriefing();
       })();
       const undoTimers = {};  // audit_log_id → timeout handle
@@ -238,11 +288,11 @@
         attachmentsEl.style.display = 'flex';
         pendingAttachments.forEach((att) => {
           const chip = document.createElement('span');
-          chip.style.cssText = 'display:inline-flex; align-items:center; gap:0.35rem; padding:0.2rem 0.55rem; background:#eef2ff; border:1px solid #c7d2fe; border-radius:14px; font-size:0.8rem; max-width:240px;';
+          chip.className = 'ai-attachment';
           const isImg = (att.content_type || '').startsWith('image/');
           const isSheet = /csv|excel|spreadsheet|tab-separated/.test(att.content_type || '');
           const name = document.createElement('span');
-          name.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+          name.className = 'name';
           const size = _fmtSize(att.size_bytes);
           name.textContent = (isImg ? '🖼 ' : (isSheet ? '📊 ' : '📄 ')) + (att.file_name || 'document') + (size ? ' · ' + size : '');
           chip.appendChild(name);
@@ -251,7 +301,6 @@
           rm.textContent = '✕';
           rm.title = t('aiChatRemoveAttachment');
           rm.setAttribute('aria-label', t('aiChatRemoveAttachment'));
-          rm.style.cssText = 'border:none; background:none; cursor:pointer; color:var(--text-muted); font-size:0.9rem; line-height:1; padding:0;';
           rm.addEventListener('click', () => {
             pendingAttachments = pendingAttachments.filter((a) => a.id !== att.id);
             renderPendingAttachments();
@@ -307,8 +356,9 @@
         const phrases = CHAT_THINKING_PHRASES[lang] || CHAT_THINKING_PHRASES.en;
         const rtl = (typeof RTL_LANGUAGES !== 'undefined' && RTL_LANGUAGES.has && RTL_LANGUAGES.has(lang));
 
+        clearEmptyState();
         const wrap = document.createElement('div');
-        wrap.style.cssText = (rtl ? 'text-align:right;' : 'text-align:left;') + ' margin:0.4rem 0;';
+        wrap.className = 'typing-row';
         wrap.dataset.typing = '1';
 
         const bubble = document.createElement('div');
@@ -329,7 +379,7 @@
         bubble.appendChild(caption);
         wrap.appendChild(bubble);
         messagesEl.appendChild(wrap);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        scrollToBottom(true);
 
         // Clear any stale "N turn(s)" summary from the previous reply.
         if (statusEl) statusEl.textContent = '';
@@ -348,10 +398,13 @@
         if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
       }
 
-      // Minimal markdown → HTML. Escapes first (XSS-safe), then handles
-      // the subset LLMs emit in chat: # / ## / ### headings, **bold**,
-      // *italic*, `inline code`, bulleted (- / * / •) and numbered
-      // (1. 2. 3.) lists, plus blank-line paragraphs.
+      // Minimal markdown → HTML. Escapes first (XSS-safe), then handles the
+      // subset LLMs emit in chat: # / ## / ### headings, **bold**, *italic*,
+      // `inline code`, ``` fenced code, bulleted (- / * / •) and numbered
+      // (1. 2. 3.) lists, | pipe | tables |, --- rules and paragraphs. Output
+      // uses classes (styled under .md) and every block is direction-neutral
+      // so Persian and English lines each lay out their own way.
+      const _NUMERIC_CELL = /^[\s\d.,٬٫،%()+\-−۰-۹٠-٩]*[\d۰-۹٠-٩][\s\d.,٬٫،%()+\-−۰-۹٠-٩]*$/;
       function _renderChatMarkdown(text) {
         const esc = String(text || '').replace(/[&<>"']/g, c => ({
           '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
@@ -359,65 +412,101 @@
         const lines = esc.split(/\r?\n/);
         const out = [];
         let listType = null;  // 'ul' | 'ol' | null
+        let para = [];
+        let inCode = false;
+        let table = null;     // array of row arrays while inside a pipe table
+        const flushPara = () => { if (para.length) { out.push('<p>' + para.join('<br>') + '</p>'); para = []; } };
         const closeList = () => { if (listType) { out.push(`</${listType}>`); listType = null; } };
+        const flushTable = () => {
+          if (!table) return;
+          const [head, ...body] = table;
+          const cell = (c, tag) => `<${tag}${_NUMERIC_CELL.test(c.replace(/&[a-z#0-9]+;/g, '')) && c.trim() ? ' class="num"' : ''}>${inline(c.trim())}</${tag}>`;
+          let html = '<table><thead><tr>' + head.map(c => cell(c, 'th')).join('') + '</tr></thead>';
+          if (body.length) html += '<tbody>' + body.map(r => '<tr>' + r.map(c => cell(c, 'td')).join('') + '</tr>').join('') + '</tbody>';
+          out.push(html + '</table>');
+          table = null;
+        };
         const inline = (s) =>
           s
-            // `code` first so other patterns don't eat it
-            .replace(/`([^`]+?)`/g, '<code style="background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:0.92em;">$1</code>')
-            // bold (process before italic so ** doesn't read as nested *)
+            .replace(/`([^`]+?)`/g, '<code>$1</code>')
             .replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>')
             .replace(/__([^_]+?)__/g, '<strong>$1</strong>')
-            // italic
             .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
             .replace(/(^|[^_])_([^_\n]+?)_(?!_)/g, '$1<em>$2</em>');
+        const splitRow = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
         for (let i = 0; i < lines.length; i++) {
-          const raw = lines[i];
-          const line = raw.trimEnd();
-          if (!line.trim()) { closeList(); out.push(''); continue; }
+          const line = lines[i].trimEnd();
+          if (/^```/.test(line.trim())) {
+            flushPara(); closeList(); flushTable();
+            if (inCode) { out.push('</code></pre>'); inCode = false; }
+            else { out.push('<pre><code>'); inCode = true; }
+            continue;
+          }
+          if (inCode) { out.push(line); continue; }
+          if (!line.trim()) { flushPara(); closeList(); flushTable(); continue; }
           let m;
+          if (/^\s*\|.*\|\s*$/.test(line)) {
+            flushPara(); closeList();
+            const cells = splitRow(line);
+            if (cells.every(c => /^\s*:?-{2,}:?\s*$/.test(c))) continue;  // header separator
+            (table = table || []).push(cells);
+            continue;
+          }
+          flushTable();
+          if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { flushPara(); closeList(); out.push('<hr>'); continue; }
           if ((m = /^(#{1,3})\s+(.*)$/.exec(line))) {
-            closeList();
+            flushPara(); closeList();
             const level = m[1].length + 2;  // # → h3, ## → h4, ### → h5
-            out.push(`<h${level} style="margin:0.4rem 0 0.2rem;font-size:${1.1 - 0.05*(level-3)}em;">${inline(m[2])}</h${level}>`);
+            out.push(`<h${level}>${inline(m[2])}</h${level}>`);
             continue;
           }
           if ((m = /^\s*[-*•]\s+(.*)$/.exec(line))) {
-            if (listType !== 'ul') { closeList(); out.push('<ul style="margin:0.2rem 0;padding-inline-start:1.4em;">'); listType = 'ul'; }
+            flushPara();
+            if (listType !== 'ul') { closeList(); out.push('<ul>'); listType = 'ul'; }
             out.push(`<li>${inline(m[1])}</li>`);
             continue;
           }
           if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(line))) {
-            if (listType !== 'ol') { closeList(); out.push('<ol style="margin:0.2rem 0;padding-inline-start:1.6em;">'); listType = 'ol'; }
+            flushPara();
+            if (listType !== 'ol') { closeList(); out.push('<ol>'); listType = 'ol'; }
             out.push(`<li>${inline(m[1])}</li>`);
             continue;
           }
           closeList();
-          out.push(inline(line));
+          para.push(inline(line));
         }
-        closeList();
-        return out.join('\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
+        if (inCode) out.push('</code></pre>');
+        flushPara(); closeList(); flushTable();
+        return out.join('');
       }
 
-      function appendBubble(role, text) {
+      // One message row: meta line (who + when) and a direction-neutral bubble.
+      // role: 'user' | 'assistant' | 'system' (errors). opts.at = ISO time.
+      function appendBubble(role, text, opts) {
+        opts = opts || {};
+        clearEmptyState();
         const wrap = document.createElement('div');
-        wrap.style.cssText = (role === 'user'
-          ? 'text-align:right; margin:0.4rem 0;'
-          : 'text-align:left; margin:0.4rem 0;');
+        const kind = role === 'user' ? 'user' : (role === 'system' ? 'system' : 'assistant');
+        wrap.className = 'msg-row ' + kind + (opts.animate === false ? '' : ' message-in');
+        const meta = document.createElement('div');
+        meta.className = 'msg-meta';
+        const who = document.createElement('span');
+        who.textContent = kind === 'user' ? t('aiChatYou') : t('aiChatAssistant');
+        meta.appendChild(who);
+        const when = _fmtTime(opts.at);
+        if (when) { const tm = document.createElement('span'); tm.textContent = when; meta.appendChild(tm); }
         const bubble = document.createElement('div');
-        const isAssistant = role !== 'user';
-        bubble.style.cssText = (role === 'user'
-          ? 'display:inline-block; max-width:78%; background:#0f766e; color:#fff; padding:0.5rem 0.75rem; border-radius:14px 14px 4px 14px; text-align:left; white-space:pre-wrap;'
-          // Assistant: drop white-space:pre-wrap so the markdown renderer's
-          // explicit <br> and block elements lay out correctly.
-          : 'display:inline-block; max-width:78%; background:#fff; color:#0f172a; padding:0.5rem 0.75rem; border-radius:14px 14px 14px 4px; border:1px solid var(--border); line-height:1.45;');
-        if (isAssistant) {
-          bubble.innerHTML = _renderChatMarkdown(text);
-        } else {
-          bubble.textContent = text;
-        }
-        wrap.appendChild(bubble);
+        bubble.className = 'msg' + (kind === 'assistant' ? ' md' : '');
+        bubble.setAttribute('dir', 'auto');
+        if (kind === 'assistant') bubble.innerHTML = _renderChatMarkdown(text);
+        else bubble.textContent = text;
+        const body = document.createElement('div');
+        body.className = 'msg-body';
+        body.appendChild(bubble);
+        wrap.appendChild(meta);
+        wrap.appendChild(body);
         messagesEl.appendChild(wrap);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        scrollToBottom(kind === 'user');
         return wrap;
       }
 
@@ -474,8 +563,11 @@
 
       // ─── Smart-intake cards (spreadsheet drops) ───
       function appendIntakeCard(intake) {
+        clearEmptyState();
         const card = document.createElement('div');
-        card.style.cssText = 'margin:0.5rem 0; border:1px solid var(--primary,#0f766e); border-inline-start:4px solid var(--primary,#0f766e); border-radius:8px; padding:0.7rem; background:#f0fdfa; font-size:0.88rem;';
+        card.className = 'ai-card message-in';
+        card.setAttribute('dir', 'auto');
+        card.style.cssText = 'background:#f0fdfa; font-size:0.88rem;';
         const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : n);
         let html = '';
         if (intake.kind === 'bank_statement') {
@@ -565,7 +657,7 @@
             }
             confirmBtn.textContent = '✓';
           } catch (e) {
-            appendBubble('assistant', '[error] ' + e.message);
+            appendBubble('system', '⚠ ' + e.message);
             confirmBtn.disabled = false;
           }
         });
@@ -576,24 +668,30 @@
       }
 
       function appendProposalCard(proposal) {
+        clearEmptyState();
         const card = document.createElement('div');
-        card.style.cssText = 'margin:0.6rem 0; padding:0.75rem 1rem; background:#fff; border:1px solid var(--border); border-left:4px solid #0f766e; border-radius:8px;';
+        card.className = 'ai-card message-in';
+        card.setAttribute('dir', 'auto');
         card.dataset.token = proposal.confirmation_token;
 
         const title = document.createElement('div');
-        title.style.cssText = 'font-weight:600; margin-bottom:0.3rem;';
-        title.textContent = t('aiChatProposedAction');
+        title.className = 'ai-card-head';
+        title.innerHTML = '<span class="ai-card-icon">✓</span>';
+        const titleText = document.createElement('span');
+        titleText.textContent = t('aiChatProposedAction');
+        title.appendChild(titleText);
         card.appendChild(title);
 
         const summary = document.createElement('pre');
-        summary.style.cssText = 'font-size:0.82rem; line-height:1.45; white-space:pre-wrap; font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin:0 0 0.5rem 0;';
+        summary.className = 'ai-card-summary';
+        summary.setAttribute('dir', 'auto');
         summary.textContent = proposal.summary || '';
         card.appendChild(summary);
 
         // New entities to be created on Confirm (localized, alongside the entry).
         if (Array.isArray(proposal.new_entities) && proposal.new_entities.length) {
           const box = document.createElement('div');
-          box.style.cssText = 'font-size:0.8rem; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:0.4rem 0.6rem; margin:0 0 0.5rem 0;';
+          box.className = 'ai-card-note';
           proposal.new_entities.forEach(ne => {
             const line = document.createElement('div');
             const typeLabel = t('entType_' + ne.type) || ne.type;
@@ -609,7 +707,7 @@
         }
 
         const buttons = document.createElement('div');
-        buttons.style.cssText = 'display:flex; gap:0.5rem; flex-wrap:wrap;';
+        buttons.className = 'ai-card-actions';
 
         const confirmBtn = document.createElement('button');
         confirmBtn.type = 'button';
@@ -622,7 +720,7 @@
         cancelBtn.className = 'btn btn-secondary btn-sm';
         cancelBtn.textContent = t('btnCancel');
         cancelBtn.addEventListener('click', () => {
-          card.style.opacity = '0.5';
+          card.classList.add('is-cancelled');
           confirmBtn.disabled = true;
           cancelBtn.disabled = true;
           const cancelled = document.createElement('div');
@@ -635,7 +733,7 @@
         buttons.appendChild(cancelBtn);
         card.appendChild(buttons);
         messagesEl.appendChild(card);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        scrollToBottom(true);
       }
 
       async function executeProposal(cardEl, token) {
@@ -752,15 +850,14 @@
       // Render the user's turn, showing any attached document names as
       // chips beneath the text so the upload is visible in the transcript.
       function appendUserTurn(text, attachments) {
-        const wrap = appendBubble('user', text || '');
+        const wrap = appendBubble('user', text || '', { at: new Date().toISOString() });
         if (attachments && attachments.length) {
-          const bubble = wrap.querySelector('div');
+          const bubble = wrap.querySelector('.msg');
           if (bubble) {
             const strip = document.createElement('div');
-            strip.style.cssText = 'margin-top:0.35rem; display:flex; flex-wrap:wrap; gap:0.3rem;';
+            strip.className = 'msg-attach';
             attachments.forEach((att) => {
               const tag = document.createElement('span');
-              tag.style.cssText = 'display:inline-flex; align-items:center; gap:0.25rem; padding:0.1rem 0.45rem; background:rgba(255,255,255,0.2); border-radius:10px; font-size:0.75rem;';
               const isImg = (att.content_type || '').startsWith('image/');
               tag.textContent = (isImg ? '🖼 ' : '📄 ') + (att.file_name || 'document');
               strip.appendChild(tag);
@@ -777,6 +874,7 @@
         if (!text && !attachments.length) return;
         appendUserTurn(text, attachments);
         inputEl.value = '';
+        autosizeInput();
         pendingAttachments = [];
         renderPendingAttachments();
         sendBtn.disabled = true;
@@ -795,7 +893,7 @@
           hideTypingIndicator(typingEl);
           if (!r.ok || data._nonJson) throw new Error((data && data.detail) || 'Chat failed');
           sessionId = data.session_id;
-          if (data.text) appendBubble('assistant', data.text);
+          if (data.text) appendBubble('assistant', data.text, { at: new Date().toISOString() });
           for (const proposal of (data.proposals || [])) {
             appendProposalCard(proposal);
           }
@@ -812,6 +910,12 @@
         }
       }
 
+      // Composer grows with the text (1–6 lines); Enter sends, Shift+Enter breaks.
+      function autosizeInput() {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 152) + 'px';
+      }
+      inputEl.addEventListener('input', autosizeInput);
       sendBtn.addEventListener('click', () => sendMessage(inputEl.value));
       inputEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {

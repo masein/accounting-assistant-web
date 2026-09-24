@@ -174,6 +174,10 @@ and starts the api again (which applies any newer migrations on boot).
 - `API_BIND=127.0.0.1` when nginx/caddy on the same host terminates TLS, so the
   plain-HTTP port is not exposed to the internet.
 - In `APP_ENV=prod` every response carries `Strict-Transport-Security`.
+- `TRUST_PROXY_HEADERS=true` makes the app read `X-Forwarded-For` itself (audit
+  IPs, per-IP login limits). Leave it `false` when `FORWARDED_ALLOW_IPS` covers
+  your proxy — uvicorn already rewrites the client address, and trusting the
+  header blindly lets anyone forge it.
 
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally

@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     auth_cookie_secure: bool | None = None
     # In-process background jobs (recurring postings, feed refresh, digest).
     # See app/jobs/scheduler.py. Off → nothing runs unless a browser triggers it.
+    # Read the client IP from X-Forwarded-For (audit rows, per-IP limits). Only
+    # for deployments whose proxy is NOT declared to uvicorn via
+    # --forwarded-allow-ips; otherwise anyone can forge the header.
+    trust_proxy_headers: bool = False
     scheduler_enabled: bool = True
     scheduler_digest_hour: int = 8  # server local time, 0-23
 

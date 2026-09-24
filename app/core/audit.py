@@ -13,10 +13,19 @@ _logger = logging.getLogger("app.audit")
 
 
 def get_client_ip(request: Request) -> str | None:
-    """Extract client IP, respecting X-Forwarded-For from reverse proxies."""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """The client's IP for audit rows and rate limits.
+
+    X-Forwarded-For is honoured only when TRUST_PROXY_HEADERS is on: anyone can
+    send that header, so trusting it blindly let a caller forge audit IPs and
+    dodge per-IP limits (security review 2026-09-24, M2). In production uvicorn
+    already runs with --proxy-headers for the configured proxy, which rewrites
+    request.client.host, so the default is to read that."""
+    from app.core.config import settings
+
+    if settings.trust_proxy_headers:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
     return request.client.host if request.client else None
 
 

@@ -8,6 +8,22 @@ app's own API from the page context; the plan is `docs/QA_PLAN.md`.
 
 **112 checks logged · 3 high · 15 medium · 19 low · rest pass.**
 
+## Fix status (updated 2026-09-24, same day)
+
+| finding | status | PR |
+|---|---|---|
+| default admin password active + advertised | fixed — default-password logins are locked to a change-password screen; hint removed | #89 |
+| statement matching ignores the bank's own account | fixed — bank account resolved per statement for matching, missing-in-bank and posting | #88 |
+| closed period only blocked creates | fixed — edits and deletes refused inside the lock | #87 |
+| voucher live balance bar dead | fixed | #90 |
+| viewer receives bank details | fixed — bank fields stripped for roles without bank:read | #92 |
+| phone layouts (dashboard table, chat page) | fixed | #93 |
+| chat: bank name from merchant rows / English reply to Persian / mismatched safety-net card | fixed | #94 |
+| personal net worth ignores a holding | fixed | #95 |
+| invoice over-payment accepted | **reclassified: by design** — the excess is booked to customer credit / supplier advance (see `tests/test_ar_ap_payments.py`); the only issue is that `amount_paid` shows the raw sum. Kept as LOW (display) | — |
+| multi-currency face-value sums; balance sheet imbalance; personal spend question / Jalali date; AI config scope; remaining lows | open | — |
+
+
 ## Findings to fix, in priority order
 
 ### High
@@ -129,7 +145,7 @@ manager-report PDF exports through the UI, the UK-locale tenant, and load/perfor
 | 3.1 | invoice create / issue | P | sales invoice 3,000,000 to client, issued; AR posted |
 | 3.1 | duplicate invoice number | F (LOW) | second invoice "QA-INV-1" accepted (201) |
 | 3.2 | partial payment | P | 1,000,000 on 3,000,000 → 201 |
-| 3.2 | overpayment | **F (MED)** | 5,000,000 then 2,000,000 more accepted on a 3,000,000 invoice → paid 8,000,000, status "paid"; no over-payment guard |
+| 3.2 | overpayment | F (LOW, reclassified) | excess is intentionally booked to customer credit (2120) — see test_ar_ap_payments; but `amount_paid` reports the raw 8,000,000 instead of 3,000,000 settled + 5,000,000 credit |
 | 3.3 | reverse payment, void | P | reverse 200; void → status voided |
 | 3.7 | recurring rule → run due | P | monthly rule posted once (2026-09-01), second run posts nothing, next_run advanced to 2026-10-01 |
 | 3.9 | installment plan | P | 3 × 3,000,000 pending; settle one posts and settle-twice → 400 |

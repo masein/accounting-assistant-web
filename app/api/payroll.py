@@ -678,9 +678,12 @@ def my_payslips(db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/year-summary")
-def year_summary(year: int, entity_id: UUID | None = None, db: Session = Depends(get_db)) -> dict:
+def year_summary(year: int | None = None, entity_id: UUID | None = None, db: Session = Depends(get_db)) -> dict:
     """Per-employee year-to-date totals across all runs whose pay_date falls in
-    ``year``. Totals tie to the sum of the underlying pay-run lines."""
+    ``year`` (defaults to the current year). Totals tie to the sum of the
+    underlying pay-run lines."""
+    if year is None:
+        year = date.today().year
     start, end = date(year, 1, 1), date(year, 12, 31)
     q = (
         select(PayRunLine, PayRun)

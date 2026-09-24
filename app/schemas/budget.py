@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 class BudgetLimitCreate(BaseModel):
     month: str = Field(..., pattern=r"^\d{4}-\d{2}$")
     category: str = Field(..., min_length=1)
-    limit_amount: int = Field(..., ge=0)
+    limit_amount: int = Field(..., gt=0, description="A budget of 0 is meaningless — delete the budget instead.")
 
 
 class BudgetLimitRead(BudgetLimitCreate):

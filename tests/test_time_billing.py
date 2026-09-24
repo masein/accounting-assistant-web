@@ -261,5 +261,5 @@ def test_invoiced_entry_is_locked(uk):
     entry = uk.execute(select(TimeEntry)).scalars().one()
     from fastapi import HTTPException
     with pytest.raises(HTTPException) as ei:
-        update_entry(entry.id, TimeEntryUpdate(hours=99), uk)
+        update_entry(entry.id, TimeEntryUpdate(hours=9), uk)
     assert ei.value.status_code == 409

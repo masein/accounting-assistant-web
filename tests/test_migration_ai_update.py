@@ -86,7 +86,7 @@ def test_create_with_existing_name_converts_to_update(db):
     out = asyncio.run(ProposeCreateEntity().run(
         _ctx(db, "create the bank and save the IBAN"),
         ProposeCreateEntityInput(type="bank", name=arabic_variant,
-                                 iban="IR120570028200010101790457"),
+                                 iban="IR720570028200010101790457"),
     ))
     assert out["tool_name"] == "propose_update_entity"
     assert "update existing" in out["summary"].lower()
@@ -95,7 +95,7 @@ def test_create_with_existing_name_converts_to_update(db):
     execute_proposal(db, confirmation_token=out["confirmation_token"],
                      actor_user_id=USER, actor_username="t")
     db.refresh(ent)
-    assert ent.iban == "IR120570028200010101790457"
+    assert ent.iban == "IR720570028200010101790457"
     assert ent.code == "1112"                # kept its GL account
     assert _counts(db) == (n_ent, n_acc)     # no duplicate entity, no new GL account
 

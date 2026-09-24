@@ -641,7 +641,18 @@
             ${table}
           </div>`;
         }).join('');
-        return cards || '<p class="empty-state">' + escapeHtml(t('noSectionRows')) + '</p>';
+        // Balance sheets: show the accounting equation check next to the sections.
+        const bt = report.totals || {};
+        let check = '';
+        if (rt === 'balance_sheet' && bt.liabilities_and_equity != null) {
+          const diff = (bt.assets || 0) - (bt.liabilities_and_equity || 0);
+          const ok = diff === 0;
+          check = `<div class="report-meta" style="margin-bottom:0.45rem;${ok ? '' : 'color:#b91c1c;'}">
+            ${escapeHtml(t('sectionAssets'))}: ${formatNum(bt.assets || 0)} · ${escapeHtml(t('bsLiabilitiesAndEquity'))}: ${formatNum(bt.liabilities_and_equity || 0)} ·
+            ${escapeHtml(ok ? t('bsBalanced') : t('bsNotBalanced').replace('{diff}', formatNum(diff)))}
+          </div>`;
+        }
+        return (check + cards) || '<p class="empty-state">' + escapeHtml(t('noSectionRows')) + '</p>';
       }
       const tableData = reportToTableData(report);
       if (tableData.headers.length && tableData.rows.length) {

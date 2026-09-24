@@ -505,11 +505,26 @@ def preview_invoice_pdf(payload: InvoiceCreate, db: Session = Depends(get_db)) -
     )
 
 
+def _assert_number_free(db: Session, number: str, kind: str, *, exclude_id=None) -> None:
+    """Invoice numbers are unique per kind (our sales numbering vs suppliers'
+    own numbers on purchase invoices may legitimately coincide)."""
+    q = select(Invoice).where(Invoice.number == number, Invoice.kind == kind)
+    if exclude_id is not None:
+        q = q.where(Invoice.id != exclude_id)
+    twin = db.execute(q).scalars().first()
+    if twin is not None:
+        raise HTTPException(status_code=409, detail=f"{kind.capitalize()} invoice number '{number}' already exists (id {twin.id}).")
+
+
 @router.post("", response_model=InvoiceRead, status_code=201)
 def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> InvoiceRead:
     kind = _validate_kind(payload.kind)
+    number = payload.number.strip()
+    if not number:
+        raise HTTPException(status_code=422, detail="Invoice number is empty.")
+    _assert_number_free(db, number, kind)
     row = Invoice(
-        number=payload.number.strip(),
+        number=number,
         kind=kind,
         status=_validate_status(payload.status),
         issue_date=payload.issue_date,
@@ -546,7 +561,12 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
     if not row:
         raise HTTPException(status_code=404, detail="Invoice not found")
     if payload.number is not None:
-        row.number = payload.number.strip()
+        number = payload.number.strip()
+        if not number:
+            raise HTTPException(status_code=422, detail="Invoice number is empty.")
+        kind_for_check = _validate_kind(payload.kind) if payload.kind is not None else row.kind
+        _assert_number_free(db, number, kind_for_check, exclude_id=row.id)
+        row.number = number
     if payload.kind is not None:
         row.kind = _validate_kind(payload.kind)
     if payload.status is not None:

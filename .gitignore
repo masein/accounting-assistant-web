@@ -36,3 +36,5 @@ samples/
 
 # claude worktrees
 .claude/worktrees/
+# nightly backups written by the prod backup service
+backups/

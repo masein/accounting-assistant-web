@@ -12,6 +12,9 @@ services:
   db:
     image: postgres:16
     restart: unless-stopped
+    logging: &log
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
     environment:
       POSTGRES_DB: accounting
       POSTGRES_USER: ${DB_USER:-postgres}
@@ -37,6 +40,12 @@ services:
     image: ${API_IMAGE:-ghcr.io/masein/accounting-assistant-api:latest}
     pull_policy: always
     restart: unless-stopped
+    logging: *log
+    # Behind a TLS-terminating proxy the app must read X-Forwarded-* to know
+    # the real scheme/client IP. FORWARDED_ALLOW_IPS lists the proxy address(es)
+    # allowed to set those headers (default: same host only).
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000",
+              "--proxy-headers", "--forwarded-allow-ips", "${FORWARDED_ALLOW_IPS:-127.0.0.1}"]
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER:-postgres}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/accounting
       APP_ENV: ${APP_ENV:-prod}
@@ -47,6 +56,9 @@ services:
       # Background jobs (recurring postings, feed refresh, daily digest).
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
       SCHEDULER_DIGEST_HOUR: ${SCHEDULER_DIGEST_HOUR:-8}
+      # The site is served over HTTPS: the session cookie always carries Secure.
+      # Set AUTH_COOKIE_SECURE=false only for a plain-HTTP test box.
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
       # AI provider (defaults to Metis; needs METIS_API_KEY).
       AI_PROVIDER: ${AI_PROVIDER:-metis}
       AI_BASE_URL: ${AI_BASE_URL:-}
@@ -82,7 +94,9 @@ services:
       # Public account creation (personal tenants only). Off unless set.
       ALLOW_SELF_SIGNUP: ${ALLOW_SELF_SIGNUP:-false}
     ports:
-      - "${API_PORT:-8000}:8000"
+      # API_BIND=127.0.0.1 when a reverse proxy runs on the same host, so the
+      # unencrypted port is not reachable from the internet.
+      - "${API_BIND:-0.0.0.0}:${API_PORT:-8000}:8000"
     labels:
       # Only this container is auto-updated by Watchtower (never the DB).
       com.centurylinklabs.watchtower.enable: "true"
@@ -114,8 +128,9 @@ services:
   # No inbound access from GitHub needed; the server pulls. The registry allows
   # anonymous pulls, so no registry credentials are configured here.
   watchtower:
-    image: containrrr/watchtower
+    image: containrrr/watchtower:1.7.1   # pinned: this container holds the Docker socket
     restart: unless-stopped
+    logging: *log
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -124,6 +139,37 @@ services:
       WATCHTOWER_ROLLING_RESTART: "true"
       WATCHTOWER_POLL_INTERVAL: ${WATCHTOWER_POLL_INTERVAL:-120}  # seconds
       WATCHTOWER_TIMEOUT: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Daily backups (security review 2026-09-24, H5: there were none). Every day at
+  # BACKUP_HOUR (server time) it writes a pg_dump custom-format archive and a tar
+  # of the uploads volume into BACKUP_DIR on the host, then prunes copies older
+  # than BACKUP_KEEP_DAYS. Copy that folder off the box (rclone / scp / an S3
+  # bucket) — a backup on the same disk is not a backup. Run one now with
+  # `scripts/backup.sh`; restore with `scripts/restore.sh`.
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    logging: *log
+    environment:
+      PGHOST: db
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      PGDATABASE: accounting
+      BACKUP_HOUR: ${BACKUP_HOUR:-02}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+      - uploads:/uploads:ro
+      - ./scripts/backup-loop.sh:/backup-loop.sh:ro
+    entrypoint: ["sh", "/backup-loop.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
     deploy:
       resources:
         limits:

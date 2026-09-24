@@ -7,7 +7,7 @@ name: Publish image
 # (docker.netixsystem.com, behind ArvanCloud) is kept only as a BEST-EFFORT
 # mirror: it flaps with 502s, so it can never fail the publish.
 #
-#  - push to `main`      → tags `latest` and `sha-<short-sha>`
+#  - CI green on `main`  → tags `latest` and `sha-<short-sha>` (never before CI passes)
 #  - push a tag `v1.2.3` → tags `1.2.3`, `1.2`, `1` (and `latest`)
 #  - manual run          → tags `latest` (+ sha)
 #
@@ -15,8 +15,14 @@ name: Publish image
 # mirror off entirely, set the repo variable MIRROR_ENABLED to "false".
 
 on:
-  push:
+  # Publish the main image ONLY after the CI workflow has passed on that commit
+  # (security review 2026-09-24, H5: untested images used to reach production
+  # within two minutes of a push).
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
+  push:
     tags: ["v*.*.*"]
   workflow_dispatch:
 
@@ -34,13 +40,21 @@ env:
 jobs:
   build-push:
     name: Build & push API image
+    # A CI run that failed or was cancelled never publishes.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write        # push to ghcr.io for this repo's owner
     steps:
-      - name: Check out code
+      - name: Check out the tested commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Short SHA of the tested commit
+        id: sha
+        run: echo "short=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -71,8 +85,9 @@ jobs:
         with:
           images: ${{ env.GHCR_IMAGE }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-,enable={{is_default_branch}}
+            # main (via a green CI run) and manual runs → latest + sha-<short>
+            type=raw,value=latest,enable=${{ github.event_name != 'push' }}
+            type=raw,value=sha-${{ steps.sha.outputs.short }},enable=${{ github.event_name != 'push' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}

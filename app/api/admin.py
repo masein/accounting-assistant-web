@@ -115,6 +115,13 @@ def send_test_email_endpoint(payload: TestEmailRequest, _=Depends(require_admin)
     return {"ok": ok, "message": message}
 
 
+@router.get("/jobs/status")
+def jobs_status(_=Depends(require_superadmin)) -> dict:
+    """Last run / last error of every background job (platform-wide)."""
+    from app.jobs.scheduler import status_snapshot
+    return status_snapshot()
+
+
 @router.get("/ai-config")
 def get_ai_config(_=Depends(require_superadmin)) -> dict:
     # Platform-wide setting: super-admin only (route table + this dependency).

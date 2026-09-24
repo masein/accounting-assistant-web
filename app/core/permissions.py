@@ -199,6 +199,7 @@ _add("POST", "/admin/test-email", Perm.SETTINGS_WRITE)
 # super-admin only, reads included. Decided 2026-09-24 after the QA run found
 # a per-company save flipping the model for every tenant until restart.
 for _m, _p in [
+    ("GET", "/admin/jobs/status"),
     ("GET", "/admin/ai-config"), ("PATCH", "/admin/ai-config"),
     ("GET", "/admin/anthropic-config"), ("PATCH", "/admin/anthropic-config"),
     ("GET", "/admin/chat-provider-shape"), ("PUT", "/admin/chat-provider-shape"),

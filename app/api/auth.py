@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hmac
+
 from fastapi.responses import RedirectResponse
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -65,8 +67,45 @@ class SignupRequest(BaseModel):
     locale: str = Field(default="default")
 
 
+# The password the seed gives the first admin. A login that presents it (for
+# any account) is let in only as far as the change-password screen.
+DEFAULT_SEED_PASSWORD = "admin"
+MIN_PASSWORD_LENGTH = 8
+
+
 class PasswordChangeRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
+
+
+def _set_session_cookie(request: Request, response: Response, token: str) -> None:
+    # Secure flag: explicit override if set, else follow the request scheme so
+    # plain-HTTP access still stores the cookie (a Secure cookie is dropped by
+    # browsers over http://).
+    cookie_secure = (
+        settings.auth_cookie_secure
+        if settings.auth_cookie_secure is not None
+        else request.url.scheme == "https"
+    )
+    response.set_cookie(
+        key=settings.auth_cookie_name,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=cookie_secure,
+        max_age=int(settings.auth_session_hours * 3600),
+        path="/",
+    )
+
+
+def _session_token_for(user: User, *, must_change_password: bool = False) -> str:
+    return create_session_token(
+        user_id=str(user.id), username=user.username, is_admin=user.is_admin,
+        company_id=str(user.company_id) if user.company_id else None,
+        is_superadmin=user.is_superadmin, token_version=user.token_version,
+        role=getattr(user, "role", None) or "owner",
+        entity_id=str(user.entity_id) if getattr(user, "entity_id", None) else None,
+        must_change_password=must_change_password,
+    )
 
 
 class PreferencesPatchRequest(BaseModel):
@@ -115,33 +154,17 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
             db.commit()
             raise HTTPException(status_code=403, detail="This company account is suspended")
 
-    audit_log(db, action="login", entity_type="user", entity_id=str(user.id), user_id=str(user.id), username=user.username, ip_address=get_client_ip(request))
-    token = create_session_token(
-        user_id=str(user.id), username=user.username, is_admin=user.is_admin,
-        company_id=str(user.company_id) if user.company_id else None,
-        is_superadmin=user.is_superadmin, token_version=user.token_version,
-        role=getattr(user, "role", None) or "owner",
-        entity_id=str(user.entity_id) if getattr(user, "entity_id", None) else None,
-    )
-    # Secure flag: explicit override if set, else follow the request scheme so
-    # plain-HTTP access still stores the cookie (a Secure cookie is dropped by
-    # browsers over http://).
-    cookie_secure = (
-        settings.auth_cookie_secure
-        if settings.auth_cookie_secure is not None
-        else request.url.scheme == "https"
-    )
-    response.set_cookie(
-        key=settings.auth_cookie_name,
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=cookie_secure,
-        max_age=int(settings.auth_session_hours * 3600),
-        path="/",
-    )
+    # The seeded default password gets a locked session: nothing but the
+    # change-password screen works until a real password is set (production
+    # QA 2026-09-24 found admin/admin still active on a live server).
+    must_change = hmac.compare_digest(payload.password, DEFAULT_SEED_PASSWORD)
+    audit_log(db, action="login", entity_type="user", entity_id=str(user.id), user_id=str(user.id), username=user.username,
+              detail=("default password — change required" if must_change else None), ip_address=get_client_ip(request))
+    token = _session_token_for(user, must_change_password=must_change)
+    _set_session_cookie(request, response, token)
     return {
         "ok": True,
+        "must_change_password": must_change,
         "user": {
             "id": str(user.id),
             "username": user.username,
@@ -387,14 +410,25 @@ def whats_new_seen(current=Depends(get_current_user), db: Session = Depends(get_
 
 
 @router.post("/change-password")
-def change_password(payload: PasswordChangeRequest, db: Session = Depends(get_db), current=Depends(get_current_user)) -> dict:
-    user = db.get(User, current.user_id)
+def change_password(payload: PasswordChangeRequest, request: Request, response: Response,
+                    db: Session = Depends(get_db), current=Depends(get_current_user)) -> dict:
+    user = _load_user(db, current)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    h, s = hash_password(payload.password)
+    new = payload.password
+    if len(new) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+    if hmac.compare_digest(new, DEFAULT_SEED_PASSWORD) or new.lower() == user.username.lower():
+        raise HTTPException(status_code=400, detail="Choose a password that is not the default and not your username.")
+    h, s = hash_password(new)
     user.password_hash = h
     user.password_salt = s
     db.commit()
+    audit_log(db, action="password_changed", entity_type="user", entity_id=str(user.id), user_id=str(user.id),
+              username=user.username, ip_address=get_client_ip(request))
+    db.commit()
+    # Re-issue the session without the change-required lock.
+    _set_session_cookie(request, response, _session_token_for(user, must_change_password=False))
     return {"ok": True}
 
 

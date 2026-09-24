@@ -30,6 +30,9 @@ class SessionUser:
     role: str = "owner"
     # Optional employee-entity link (for "my time / expenses / payslips").
     entity_id: str | None = None
+    # The session was opened with the seeded default password: the app is
+    # locked to /auth/change-password until a real one is set.
+    must_change_password: bool = False
 
 
 def _b64url_encode(raw: bytes) -> str:
@@ -126,6 +129,7 @@ def create_session_token(
     token_version: int = 0,
     role: str = "owner",
     entity_id: str | None = None,
+    must_change_password: bool = False,
 ) -> str:
     now = int(time.time())
     exp = now + int(settings.auth_session_hours * 3600)
@@ -138,6 +142,7 @@ def create_session_token(
         "tv": int(token_version),
         "rol": role or "owner",
         "ent": str(entity_id) if entity_id else None,
+        "pwc": bool(must_change_password),
         "iat": now,
         "exp": exp,
     }
@@ -181,6 +186,7 @@ def parse_session_token(token: str | None) -> SessionUser | None:
         token_version=int(payload.get("tv", 0)),
         role=str(payload.get("rol") or "owner"),
         entity_id=str(ent) if ent else None,
+        must_change_password=bool(payload.get("pwc", False)),
     )
 
 

@@ -435,6 +435,31 @@ _ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
         "financial expense": (["interest", "finance", "bank charge", "مالی", "بهره", "کارمزد"], ["6210"]),
         "capital / equity": (["capital", "equity", "owner", "سرمایه"], ["3110"]),
     },
+    # Personal-finance chart (app/db/seed.py PERSONAL_SEED_ACCOUNTS): 1110 is
+    # the BANK/card account, 1120 the cash on hand — the reverse of what the
+    # Iranian SME aliases would suggest, which is why personal mode gets its
+    # own table (QA 2026-09-24 A.8-2: "نقدی" was posted to the bank account).
+    "personal": {
+        "cash on hand": (["cash", "cash on hand", "نقد", "نقدی", "پول نقد", "اسکناس"], ["1120"]),
+        "bank / card": (["bank", "card", "transfer", "بانک", "کارت", "کارت به کارت", "انتقال", "حساب بانکی", "پوز"], ["1110"]),
+        "gold / fx savings": (["gold", "coin", "طلا", "سکه"], ["1130"]),
+        "fx savings": (["dollar", "euro", "fx", "دلار", "یورو", "ارز"], ["1140"]),
+        "food": (["food", "grocery", "groceries", "supermarket", "خوراک", "سوپرمارکت", "میوه", "نان", "غذا"], ["6110"]),
+        "housing": (["rent", "housing", "اجاره", "مسکن", "شارژ"], ["6120"]),
+        "transport": (["transport", "taxi", "fuel", "petrol", "metro", "snapp", "حمل", "تاکسی", "بنزین", "مترو", "اسنپ"], ["6130"]),
+        "bills": (["bill", "bills", "utilities", "electricity", "water", "gas", "internet", "قبض", "قبوض", "برق", "آب", "گاز", "اینترنت"], ["6140"]),
+        "health": (["health", "doctor", "pharmacy", "medicine", "سلامت", "درمان", "دکتر", "دارو"], ["6150"]),
+        "education": (["education", "school", "course", "book", "آموزش", "کلاس", "شهریه", "کتاب"], ["6160"]),
+        "clothing": (["clothes", "clothing", "پوشاک", "لباس", "کفش"], ["6170"]),
+        "leisure / dining": (["restaurant", "cafe", "lunch", "dinner", "leisure", "cinema", "رستوران", "کافه", "ناهار", "شام", "تفریح", "سینما"], ["6180"]),
+        "subscriptions": (["subscription", "اشتراک"], ["6190"]),
+        "family / gifts": (["gift", "family", "هدیه", "کادو", "خانواده"], ["6195"]),
+        "bank fees": (["bank fee", "fee", "کارمزد"], ["6210"]),
+        "misc": (["misc", "miscellaneous", "متفرقه"], ["6220"]),
+        "salary income": (["salary", "wages", "حقوق", "دستمزد"], ["4110"]),
+        "freelance income": (["freelance", "project income", "درآمد آزاد", "پروژه"], ["4120"]),
+        "loan / installment": (["loan", "installment", "وام", "قسط", "اقساط"], ["2110", "2120"]),
+    },
     "default": {
         "cash / bank": (["cash", "bank", "petty cash"], ["1110", "1200"]),
         "expense": (["expense", "supplies", "rent", "utilities"], ["6112", "7600"]),
@@ -484,7 +509,8 @@ class SearchAccounts(BaseTool):
             raise ToolError("query must be non-empty")
 
         locale = get_reporting_locale(ctx.db)
-        aliases = _ACCOUNT_ALIASES.get(locale, _ACCOUNT_ALIASES["default"])
+        alias_key = "personal" if getattr(ctx, "mode", "default") == "personal" else locale
+        aliases = _ACCOUNT_ALIASES.get(alias_key, _ACCOUNT_ALIASES["default"])
 
         # An alias whose synonym appears IN the query (e.g. query "office
         # supplies" contains synonym "office supplies") contributes its
@@ -749,6 +775,7 @@ class GetTaxSummary(BaseTool):
 
 
 def register_read_tools(registry) -> None:
+    from app.services.ai_accountant.cash_tools import register_cash_tools
     from app.services.ai_accountant.spending_tools import register_spending_tools
 
     registry.register(FindEntity())
@@ -760,3 +787,4 @@ def register_read_tools(registry) -> None:
     registry.register(GetTaxSummary())
     registry.register(GetCompanyDefaults())
     register_spending_tools(registry)
+    register_cash_tools(registry)

@@ -60,6 +60,9 @@ class ToolContext:
     # cross-checks the proposed total against these so a mis-scaled or garbled
     # amount can't be silently proposed for one-click confirmation.
     source_amounts: list[int] = field(default_factory=list)
+    # "personal" for personal-finance tenants: tools adapt their category
+    # aliases (cash → موجودی نقد 1120, card/bank → حساب بانکی 1110) and wording.
+    mode: str = "default"
 
 
 class BaseTool(ABC):

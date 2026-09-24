@@ -908,6 +908,8 @@ def edit_journal_entry(transaction_id: UUID, payload: TransactionUpdate, db: Ses
     t = db.get(Transaction, transaction_id)
     if not t:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    from app.services.ledger_posting import assert_transaction_mutable
+    assert_transaction_mutable(db, t, new_date=payload.date)
     if payload.date is not None:
         t.date = payload.date
     if payload.reference is not None:

@@ -80,6 +80,17 @@ def _create_tables():
     Base.metadata.drop_all(bind=_engine)
 
 
+@pytest.fixture(autouse=True)
+def _reset_auth_limiters():
+    """Login attempts are limited per username AND per client IP; the whole
+    suite comes from one IP ('testclient'), so start every test with clean
+    buckets or a run of failed-login tests would 429 the rest."""
+    from app.api import auth as auth_mod
+    for lim in (auth_mod._login_limiter, auth_mod._login_ip_limiter, auth_mod._signup_limiter):
+        lim._hits.clear()
+    yield
+
+
 @pytest.fixture()
 def db() -> Generator[Session, None, None]:
     session = _TestSession()

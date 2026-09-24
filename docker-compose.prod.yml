@@ -55,6 +55,8 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
       # Background jobs (recurring postings, feed refresh, daily digest).
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      # Only when the proxy is NOT declared via FORWARDED_ALLOW_IPS.
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
       SCHEDULER_DIGEST_HOUR: ${SCHEDULER_DIGEST_HOUR:-8}
       # The site is served over HTTPS: the session cookie always carries Secure.
       # Set AUTH_COOKIE_SECURE=false only for a plain-HTTP test box.

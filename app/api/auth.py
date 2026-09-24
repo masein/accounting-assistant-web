@@ -47,9 +47,17 @@ def _company_dict(company) -> dict | None:
         "status": company.status,
     }
 
-# 5 login attempts per 15 minutes per username
+# Brute-force protection (security review 2026-09-24, M2):
+#  * per username: 5 FAILED attempts per 15 minutes (successes never count, so
+#    a legitimate user logging in often is never locked out);
+#  * per client IP: 30 failed attempts per 15 minutes across all usernames
+#    (stops one address spraying a password over many accounts).
 _login_limiter = RateLimiter(max_requests=5, window_seconds=900)
+_login_ip_limiter = RateLimiter(max_requests=30, window_seconds=900)
 _signup_limiter = RateLimiter(max_requests=5, window_seconds=3600)
+# Verifying against this when the username does not exist makes an unknown
+# name cost the same time as a wrong password — no user enumeration by timing.
+_DUMMY_HASH, _DUMMY_SALT = hash_password("no-such-user-timing-equaliser")
 SUPPORTED_LANGUAGES = {"en", "fa", "es", "ar"}
 
 
@@ -117,10 +125,15 @@ class PreferencesPatchRequest(BaseModel):
 @router.post("/login")
 def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
     username = payload.username.strip()
-    if not _login_limiter.is_allowed(username):
+    ip_key = f"ip:{get_client_ip(request) or 'unknown'}"
+    if not _login_limiter.would_allow(username) or not _login_ip_limiter.would_allow(ip_key):
         raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
     user = db.execute(select(User).where(User.username == username)).scalars().first()
+    if user is None:
+        verify_password(payload.password, _DUMMY_HASH, _DUMMY_SALT)  # constant-time-ish: same work as a real check
     if not user or not user.is_active or not verify_password(payload.password, user.password_hash, user.password_salt):
+        _login_limiter.hit(username)
+        _login_ip_limiter.hit(ip_key)
         audit_log(db, action="login_failed", entity_type="user", detail=f"Failed login for '{username}'", ip_address=get_client_ip(request))
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -160,6 +173,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     # change-password screen works until a real password is set (production
     # QA 2026-09-24 found admin/admin still active on a live server).
     must_change = hmac.compare_digest(payload.password, DEFAULT_SEED_PASSWORD)
+    _login_limiter.reset(username)  # a correct password clears the failed-attempt count
     audit_log(db, action="login", entity_type="user", entity_id=str(user.id), user_id=str(user.id), username=user.username,
               detail=("default password — change required" if must_change else None), ip_address=get_client_ip(request))
     token = _session_token_for(user, must_change_password=must_change)

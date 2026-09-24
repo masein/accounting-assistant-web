@@ -314,9 +314,19 @@ async def lifespan(app: FastAPI):
     # because it sets per-process runtime globals the pre-start process can't.
     from app.core.ai_runtime import load_ai_config_from_db
     load_ai_config_from_db()
+    # Background jobs: recurring postings, notification feed, daily digest —
+    # they used to run only while a browser had the app open.
+    import asyncio as _asyncio
+    from app.jobs.scheduler import scheduler_loop
+    _stop = _asyncio.Event()
+    _task = _asyncio.create_task(scheduler_loop(_stop)) if settings.scheduler_enabled else None
     yield
-    # Shutdown: nothing to do
-    pass
+    if _task is not None:
+        _stop.set()
+        try:
+            await _asyncio.wait_for(_task, timeout=5)
+        except Exception:
+            _task.cancel()
 
 
 app = FastAPI(

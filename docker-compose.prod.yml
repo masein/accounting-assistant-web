@@ -44,6 +44,9 @@ services:
       # Session-signing secret — REQUIRED in prod (auth tokens are signed with
       # it). Generate one: `openssl rand -hex 32`.
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      # Background jobs (recurring postings, feed refresh, daily digest).
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      SCHEDULER_DIGEST_HOUR: ${SCHEDULER_DIGEST_HOUR:-8}
       # AI provider (defaults to Metis; needs METIS_API_KEY).
       AI_PROVIDER: ${AI_PROVIDER:-metis}
       AI_BASE_URL: ${AI_BASE_URL:-}

@@ -131,6 +131,8 @@ class InvoiceRead(InvoiceBase):
     amount_paid: int = 0
     credited: int = 0
     balance_due: int = 0
+    # Paid beyond the invoice: customer credit / supplier advance, not "paid".
+    overpaid: int = 0
     pdf_url: str | None = None
     items: list[InvoiceItemRead] = Field(default_factory=list)
     created_at: datetime

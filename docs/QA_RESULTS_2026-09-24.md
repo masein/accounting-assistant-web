@@ -28,7 +28,7 @@ app's own API from the page context; the plan is `docs/QA_PLAN.md`.
 | validation lows: duplicate entity name (2.16), invalid IBAN (2.15), duplicate invoice number (3.1), zero budget (3.26), 25 h day (3.11), petty cash spend above the float (3.25), year-summary / my-summary 422 without params (3.22, 3.11) | fixed — 409 on a same-type duplicate party unless `allow_duplicate`, IBAN structure + mod-97 check (422), 409 on a reused invoice number per kind, budgets must be > 0, 24 h cap per entry and per day, petty-cash expenses limited to the float net of pending, summaries default to the current year / month | #101 |
 | audit log: edits not recorded (2.10) | fixed — PATCH writes an `update` audit event + version snapshot | #102 |
 | chat lows: cash question from one account (5.9), personal نقدی → bank (A.8-2), ناهار asks for an account (5.2) | fixed — `get_cash_position` tool, personal alias table (نقد → 1120, کارت → 1110, everyday categories), no-category fallback rule | #103 |
-| remaining lows (dashboard alert noise, statement row order + duplicate label, amount_paid display, Excel re-upload warning, budget link page, employee dropdown, CFO runway wording) | open | — |
+| remaining lows: dashboard alert noise (6.1), budget notification link page (3.26/1.21), CFO negative runway wording (6.2), employee dropdown filled only at login (6.5), amount_paid on over-payment (3.2), Excel re-upload warning (2.12), same-day statement row order (2.17), same-statement duplicate label (4.8) | fixed — alert thresholds, tenant-aware link, 'overdrawn: no runway', dropdown reload, settled vs `overpaid`, SHA-256 import history + warning, creation-time ordering, 'Repeated in this statement' label | #104 |
 
 
 ## Findings to fix, in priority order

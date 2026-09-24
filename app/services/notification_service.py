@@ -66,6 +66,20 @@ def _upsert(db: Session, seen: set[str], *, dedupe_key: str, kind: str, level: s
         row.link_page = link_page
 
 
+def _budget_link_page(db: Session) -> str:
+    """Budgets live on the personal dashboard for personal tenants; a business
+    owner has no such page (clicking bounced them home — QA 2026-09-24 3.26), so
+    they land on the main dashboard instead."""
+    try:
+        from app.services.fx_service import _current_company_row
+        row = _current_company_row(db)
+        if row is not None and (getattr(row, "kind", None) or "business") == "personal":
+            return "personal-dashboard"
+    except Exception:
+        pass
+    return "dashboard"
+
+
 def refresh_notifications(db: Session, *, today: date | None = None) -> int:
     """Recompute the feed. Returns the number of open notifications."""
     today = today or date.today()
@@ -206,7 +220,7 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
                            else f"Budget at {int(pct)}%: {row['category']}"),
                     message=(f"{row['actual_amount']:,} of {row['limit_amount']:,} "
                              f"spent in {month} ({row['utilization_pct']}%)"),
-                    link_page="personal-dashboard")
+                    link_page=_budget_link_page(db))
     except Exception:
         # budget alerts must never break the whole feed refresh
         pass

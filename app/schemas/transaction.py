@@ -265,6 +265,9 @@ class ExcelImportPreviewResponse(BaseModel):
     total_vouchers: int = 0
     errors: list[str] = Field(default_factory=list)
     raw_preview: list[list[Optional[str]]] = Field(default_factory=list)
+    file_sha256: str = ""
+    # Set when this exact file was already confirmed: {at, times, imported, filename}.
+    already_imported: Optional[dict] = None
 
 class ExcelImportConfirmRequest(BaseModel):
     """Confirm import with account mappings and optional overrides."""

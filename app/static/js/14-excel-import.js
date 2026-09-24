@@ -77,6 +77,12 @@
             ${data.errors.length ? '<span style="color:var(--danger);"><strong>Warnings:</strong> ' + data.errors.length + '</span>' : '<span style="color:var(--success);">All vouchers balanced</span>'}
           </div>
         `;
+        if (data.already_imported) {
+          const ai = data.already_imported;
+          const when = ai.at ? String(ai.at).slice(0, 10) : '';
+          infoEl.innerHTML += '<div style="margin-top:0.5rem;background:#fdecea;border:1px solid #f5c6cb;color:#b71c1c;border-radius:6px;padding:0.5rem;font-size:0.85rem;">'
+            + escapeHtml(tf('excelAlreadyImported', { when, count: ai.imported || 0, times: ai.times || 1 })) + '</div>';
+        }
 
         // Render account mapping table
         _renderExcelAccountMappings(data.unique_accounts);

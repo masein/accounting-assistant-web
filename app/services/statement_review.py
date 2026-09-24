@@ -218,7 +218,9 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
             ))
 
     findings.sort(key=lambda f: (_ORDER.get(f.kind, 9), f.tx_date or date.min, f.row_index or 0))
+    same_statement = sum(1 for f in findings if f.kind == "duplicate" and f.category == "same_statement")
     counts = {
+        "same_statement": same_statement,
         "matched": recon.matched, "partial": recon.partial, "unmatched": recon.unmatched,
         "duplicates": recon.duplicates, "missing_in_bank": recon.missing_in_bank,
         "unrecorded": sum(1 for f in findings if f.kind == "unrecorded"),

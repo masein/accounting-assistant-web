@@ -1641,6 +1641,46 @@ from app.schemas.transaction import (
 _EXCEL_UPLOAD_STORE: dict[str, str] = {}
 
 
+def _excel_import_history(db: Session, sha: str) -> dict | None:
+    """When this exact file was confirmed before, say so (QA 2026-09-24 2.12:
+    a second upload showed no warning and would have imported duplicates).
+    History lives in the audit log — action 'excel_import', entity_id = the
+    file's SHA-256."""
+    import json as _json
+
+    from app.models.audit_log import AuditLog
+
+    rows = db.execute(
+        select(AuditLog).where(AuditLog.action == "excel_import", AuditLog.entity_id == sha)
+        .order_by(AuditLog.timestamp.desc())
+    ).scalars().all()
+    if not rows:
+        return None
+    last = rows[0]
+    try:
+        detail = _json.loads(last.detail or "{}")
+    except ValueError:
+        detail = {}
+    return {
+        "at": last.timestamp.isoformat() if last.timestamp else None,
+        "times": len(rows),
+        "imported": int(detail.get("imported") or 0),
+        "filename": detail.get("filename"),
+    }
+
+
+def _record_excel_import(db: Session, file_path: str, file_token: str, imported: int) -> None:
+    import json as _json
+
+    from app.services.audit_service import log_audit_event
+
+    sha = hashlib.sha256(_Path(file_path).read_bytes()).hexdigest()
+    filename = file_token.split("_", 1)[1] if "_" in file_token else file_token
+    log_audit_event(db, action="excel_import", entity_type="excel_file", entity_id=sha,
+                    detail=_json.dumps({"filename": filename, "imported": imported}))
+    db.commit()
+
+
 @router.post("/excel-import/preview", response_model=ExcelImportPreviewResponse)
 async def excel_import_preview(
     file: UploadFile = File(...),
@@ -1658,7 +1698,8 @@ async def excel_import_preview(
     if len(content) > 20 * 1024 * 1024:  # 20MB limit
         raise HTTPException(status_code=400, detail="File too large (max 20MB)")
 
-    token = hashlib.sha256(content).hexdigest()[:16] + "_" + (file.filename or "import")
+    sha = hashlib.sha256(content).hexdigest()
+    token = sha[:16] + "_" + (file.filename or "import")
     tmp_dir = _Path(tempfile.gettempdir()) / "excel_imports"
     tmp_dir.mkdir(exist_ok=True)
     tmp_path = tmp_dir / f"{token}.xlsx"
@@ -1722,6 +1763,8 @@ async def excel_import_preview(
         col_map[f] = getattr(m, f)
 
     return ExcelImportPreviewResponse(
+        file_sha256=sha,
+        already_imported=_excel_import_history(db, sha),
         file_token=token,
         headers=result.headers,
         column_mapping=col_map,
@@ -1882,6 +1925,10 @@ def excel_import_confirm(
     except Exception:
         pass
 
+    try:
+        _record_excel_import(db, file_path, payload.file_token, len(transaction_ids))
+    except Exception as exc:  # the import itself succeeded; history is best-effort
+        chat_logger.warning("excel_import_history_failed: %s", exc)
     return ExcelImportConfirmResponse(
         imported=len(transaction_ids),
         transaction_ids=transaction_ids,

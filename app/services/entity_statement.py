@@ -149,7 +149,13 @@ def build_entity_statement(
     from app.services.locale_service import get_reporting_locale
 
     spec = control_spec_for(db, entity)
-    is_cash = cash_account_predicate(get_reporting_locale(db))
+    locale_cash = cash_account_predicate(get_reporting_locale(db))
+    # Every bank entity's own GL account is cash too — a supplier paid from
+    # Mellat (1111) is as settled as one paid from petty cash (1110).
+    bank_codes = {
+        (c or "").strip() for (c,) in db.execute(select(Entity.code).where(Entity.type == "bank")).all() if c
+    }
+    is_cash = lambda code, _l=locale_cash, _b=bank_codes: code in _b or _l(code)  # noqa: E731
     running = 0
     out: list[EntityMovement] = []
     for txn in transactions:

@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import hash_password, require_superadmin, validate_password_strength
 from app.db.session import get_db
+from app.services.audit_service import log_audit_event
+import json as _json
 from app.db.tenant import tenant_bypass
 from app.models.company import Company
 from app.models.user import User
@@ -108,6 +110,11 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db), _=Depe
     except ValueError as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
+    with tenant_bypass():
+        log_audit_event(db, action="create", entity_type="company", entity_id=str(company.id),
+                        detail=_json.dumps({"name": company.name, "locale": company.locale, "kind": getattr(company, "kind", None),
+                                            "login": user.username}))
+        db.commit()
     return _serialize(db, company)
 
 
@@ -135,6 +142,8 @@ def update_company(company_id: UUID, payload: CompanyPatch, db: Session = Depend
                 # Suspending bumps the company token version → any live session
                 # for that login is invalidated on its next request.
                 company.token_version = (company.token_version or 0) + 1
+        log_audit_event(db, action="update", entity_type="company", entity_id=str(company.id),
+                        detail=_json.dumps(payload.model_dump(exclude_unset=True), default=str))
         db.commit()
         db.refresh(company)
         return _serialize(db, company)
@@ -158,5 +167,7 @@ def reset_company_password(company_id: UUID, payload: PasswordReset, db: Session
         user.password_salt = s
         # Invalidate the user's existing sessions.
         user.token_version = (user.token_version or 0) + 1
+        log_audit_event(db, action="reset_password", entity_type="user", entity_id=str(user.id),
+                        detail=_json.dumps({"company_id": str(company.id), "username": user.username}))
         db.commit()
         return {"ok": True, "username": user.username}

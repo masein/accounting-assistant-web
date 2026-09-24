@@ -85,3 +85,46 @@ class IntegrityCheck(Base, TenantMixin):
     # 0-100 integrity score
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+# --- Append-only guard (ORM level) -----------------------------------------
+# The database has a trigger for the same rule (migration 036); this catches
+# it earlier, in every environment including SQLite, so no code path can
+# quietly rewrite history. Bulk core DELETEs (test teardown) are not ORM
+# instance operations and are left to the database trigger.
+from sqlalchemy import event as _event  # noqa: E402
+from sqlalchemy.orm import Session as _Session  # noqa: E402
+
+
+class AuditLogImmutableError(RuntimeError):
+    pass
+
+
+import contextlib as _contextlib  # noqa: E402
+import contextvars as _contextvars  # noqa: E402
+
+_mutation_allowed: _contextvars.ContextVar[bool] = _contextvars.ContextVar("audit_mutation_allowed", default=False)
+
+
+@_contextlib.contextmanager
+def allow_audit_log_mutation():
+    """Test-only escape hatch (e.g. to age a row past the undo window). Never
+    used by application code; the database trigger still applies in
+    production."""
+    token = _mutation_allowed.set(True)
+    try:
+        yield
+    finally:
+        _mutation_allowed.reset(token)
+
+
+@_event.listens_for(_Session, "before_flush")
+def _audit_logs_are_append_only(session, flush_context, instances):
+    if _mutation_allowed.get():
+        return
+    for obj in session.deleted:
+        if isinstance(obj, AuditLog):
+            raise AuditLogImmutableError("audit_logs is append-only: rows cannot be deleted")
+    for obj in session.dirty:
+        if isinstance(obj, AuditLog) and session.is_modified(obj, include_collections=False):
+            raise AuditLogImmutableError("audit_logs is append-only: rows cannot be modified")

@@ -23,7 +23,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.ai_accountant import AIProposal
-from app.models.audit_log import AuditLog
+from app.models.audit_log import AuditLog, allow_audit_log_mutation
 from app.models.entity import TransactionEntity
 from app.models.transaction import Transaction, TransactionLine
 from app.services.ai_accountant.base import ToolContext
@@ -269,7 +269,9 @@ class TestUndo:
         ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
         # Push the audit timestamp back so the window has closed.
         audit = db.get(AuditLog, uuid.UUID(ex.audit_log_id))
-        audit.timestamp = datetime.now(timezone.utc) - timedelta(minutes=5)
+        with allow_audit_log_mutation():  # the log is append-only; tests may age a row
+            audit.timestamp = datetime.now(timezone.utc) - timedelta(minutes=5)
+            db.flush()
         db.commit()
         with pytest.raises(UndoWindowClosed):
             undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)
@@ -307,7 +309,9 @@ class TestReverse:
         ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
         # Window long closed — the quick undo would reject, reverse still works.
         audit = db.get(AuditLog, uuid.UUID(ex.audit_log_id))
-        audit.timestamp = datetime.now(timezone.utc) - timedelta(days=3)
+        with allow_audit_log_mutation():
+            audit.timestamp = datetime.now(timezone.utc) - timedelta(days=3)
+            db.flush()
         db.commit()
         with pytest.raises(UndoWindowClosed):
             undo_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER)

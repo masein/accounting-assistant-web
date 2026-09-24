@@ -29,9 +29,13 @@ from app.services.reporting.common import (
     balance_from_turnovers,
     classify_account_code,
     default_period,
-    statement_sign_value,
 )
-from app.services.reporting.repository import account_turnovers_between, account_turnovers_upto, list_accounts
+from app.services.reporting.repository import (
+    account_turnovers_between,
+    account_turnovers_upto,
+    list_accounts,
+    net_profit_to_date,
+)
 
 
 @dataclass
@@ -240,16 +244,36 @@ def build_balance_sheet(
     accounts = list_accounts(db)
     turnover = _build_balance_map(account_turnovers_upto(db, period.to_date, currency=currency))
 
+    # Balances keep their sign: an overdrawn cash account is a negative asset
+    # and accumulated depreciation nets against cost. Clamping them to zero
+    # (the old behaviour) silently broke assets = liabilities + equity.
     own_balances: dict[UUID, int] = {}
     for acc in accounts:
         t = turnover.get(acc.id, AccountBalance())
         acc_type = classify_account_code(acc.code)
-        own_balances[acc.id] = statement_sign_value(acc_type, balance_from_turnovers(acc_type, t.debit, t.credit))
+        own_balances[acc.id] = balance_from_turnovers(acc_type, t.debit, t.credit)
     rolled = _rollup_account_tree(accounts, own_balances)
 
     assets = _build_section_tree(accounts, rolled, ASSET)
     liabilities = _build_section_tree(accounts, rolled, LIABILITY)
     equity = _build_section_tree(accounts, rolled, EQUITY)
+
+    # Unclosed profit/(loss) to date belongs to the owners: show it as its own
+    # equity line (the same implicit closing the Iran/UK statements apply) so
+    # the statement balances before any year-end closing entry exists.
+    earnings = net_profit_to_date(db, period.to_date, currency=currency)
+    if earnings:
+        equity.append(
+            StatementAccountNode(
+                account_id=None,
+                account_code="",
+                account_name="Current period earnings (unclosed profit and loss)",
+                account_type=EQUITY,
+                label_fa="سود (زیان) دوره جاری (بسته‌نشده)",
+                balance=earnings,
+                is_computed=True,
+            )
+        )
 
     sections = {
         "assets": StatementSection(key="assets", label="Assets", label_fa="دارایی‌ها", items=assets, total=_sum_nodes(assets)),
@@ -267,6 +291,7 @@ def build_balance_sheet(
         "liabilities": sections["liabilities"].total,
         "equity": sections["equity"].total,
     }
+    totals["liabilities_and_equity"] = totals["liabilities"] + totals["equity"]
 
     comparative = None
     if comparative_to_date:
@@ -274,6 +299,14 @@ def build_balance_sheet(
         comparative = ReportPeriod(from_date=cp.from_date, to_date=cp.to_date)
 
     analysis = _analyze_balance_sheet(totals, assets)
+    difference = totals["assets"] - totals["liabilities_and_equity"]
+    if difference:
+        analysis.warnings.insert(
+            0,
+            f"Balance sheet does not balance: assets {totals['assets']:,} vs liabilities + equity "
+            f"{totals['liabilities_and_equity']:,} (difference {difference:,}). Check for unbalanced or "
+            "memo-account entries.",
+        )
 
     return BalanceSheetResponse(
         period=ReportPeriod(from_date=period.from_date, to_date=period.to_date),

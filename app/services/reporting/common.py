@@ -61,7 +61,10 @@ def balance_from_turnovers(account_type: str, debit_turnover: int, credit_turnov
 
 
 def statement_sign_value(account_type: str, raw_balance: int) -> int:
-    """Return positive presentation value for statements."""
+    """Deprecated: statements now keep the sign of a balance (an overdrawn
+    cash account is a negative asset, accumulated depreciation nets against
+    cost) so that assets = liabilities + equity holds. Kept for callers that
+    still want a clamped magnitude."""
     return max(0, int(raw_balance))
 
 

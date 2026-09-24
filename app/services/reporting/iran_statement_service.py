@@ -549,7 +549,7 @@ def _balance_sheet_buckets(
     as_of: date,
     currency: str | None,
 ) -> dict[tuple[str, str], int]:
-    """Sum sign-corrected balances as-of a date, grouped by (section, bucket).
+    """Sum signed balances as-of a date, grouped by (section, bucket).
 
     The retained-earnings bucket also receives any net P&L that has not yet
     been closed into account 33xx; this lets the Balance Sheet balance even
@@ -567,15 +567,12 @@ def _balance_sheet_buckets(
         debit, credit = turnovers.get(acc.id, (0, 0))
         acc_type = classify_account_code(acc.code)
         balance = balance_from_turnovers(acc_type, debit, credit)
-        _section, bucket = key
-        if bucket == "eq_retained_earnings":
-            # Retained earnings can legitimately go negative (dividend debits,
-            # accumulated losses); preserve the sign so the BS equation closes.
-            buckets[key] = buckets.get(key, 0) + int(balance)
-        else:
-            # Other buckets render as positive magnitude — section context
-            # determines interpretation (asset vs liability vs equity).
-            buckets[key] = buckets.get(key, 0) + max(0, balance)
+        # Every bucket keeps its sign: retained earnings go negative with
+        # accumulated losses, treasury stock is a debit against equity, and an
+        # overdrawn cash account is a negative asset. Clamping to zero (the
+        # old behaviour for non-retained buckets) hid the balance and broke
+        # assets = equity + liabilities.
+        buckets[key] = buckets.get(key, 0) + int(balance)
     pl_to_date = _ir_pl_to_date(db, accounts, as_of, currency)
     if pl_to_date:
         buckets[("equity", "eq_retained_earnings")] = (

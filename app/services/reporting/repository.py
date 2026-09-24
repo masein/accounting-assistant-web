@@ -83,6 +83,28 @@ def account_turnovers_upto(db: Session, to_date: date, currency: str | None = No
     return [(a, int(d or 0), int(c or 0)) for a, d, c in db.execute(q).all()]
 
 
+def net_profit_to_date(db: Session, as_of: date, currency: str | None = None) -> int:
+    """Net profit/(loss) of every revenue and expense account up to ``as_of``:
+    the earnings that have not been closed into retained earnings yet.
+
+    Balance sheets fold this into equity so that assets = liabilities + equity
+    holds even when no year-end closing entries have been posted. Once the
+    P&L accounts are closed their cumulative balance is zero and this is 0.
+    """
+    from app.services.reporting.common import EXPENSE, REVENUE, balance_from_turnovers, classify_account_code
+
+    turnovers = {a: (d, c) for a, d, c in account_turnovers_upto(db, as_of, currency=currency)}
+    total = 0
+    for acc in list_accounts(db):
+        acc_type = classify_account_code(acc.code)
+        if acc_type not in (REVENUE, EXPENSE):
+            continue
+        d, c = turnovers.get(acc.id, (0, 0))
+        balance = balance_from_turnovers(acc_type, d, c)
+        total += int(balance) if acc_type == REVENUE else -int(balance)
+    return total
+
+
 def paged_journal_entries(db: Session, from_date: date, to_date: date, page: int, page_size: int, currency: str | None = None) -> tuple[int, list[Transaction]]:
     base_where = [Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None)]
     if currency:

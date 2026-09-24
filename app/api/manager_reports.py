@@ -651,8 +651,8 @@ def balance_sheet_periods(
     import calendar
     from datetime import timedelta
     from app.services.reporting.common import default_period
-    from app.services.reporting.repository import account_turnovers_upto, list_accounts
-    from app.services.reporting.common import classify_account_code, balance_from_turnovers, statement_sign_value, ASSET, LIABILITY, EQUITY
+    from app.services.reporting.repository import account_turnovers_upto, list_accounts, net_profit_to_date
+    from app.services.reporting.common import classify_account_code, balance_from_turnovers, ASSET, LIABILITY, EQUITY
 
     def _add_months(d: date, n: int) -> date:
         m = d.month - 1 + n
@@ -706,8 +706,10 @@ def balance_sheet_periods(
                 continue
             tc = turnover_map.get(acc.id)
             if tc:
-                raw = balance_from_turnovers(acc_type, tc[0], tc[1])
-                totals[acc_type] += statement_sign_value(acc_type, raw)
+                # signed, like the statement itself (overdrafts, contra assets)
+                totals[acc_type] += balance_from_turnovers(acc_type, tc[0], tc[1])
+        # unclosed profit/(loss) to date is equity, so the trend balances too
+        totals[EQUITY] += net_profit_to_date(db, end_date, currency=currency)
 
         if granularity == "monthly":
             label = end_date.strftime("%Y-%m")

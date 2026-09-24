@@ -23,6 +23,9 @@ class StatementAccountNode(BaseModel):
     debit_turnover: int = 0
     credit_turnover: int = 0
     children: list["StatementAccountNode"] = Field(default_factory=list)
+    # True for lines the statement derives rather than reads from an account
+    # (e.g. unclosed current-period earnings shown under equity).
+    is_computed: bool = False
 
 
 class StatementSection(BaseModel):

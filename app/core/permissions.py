@@ -199,6 +199,10 @@ _add("POST", "/admin/test-email", Perm.SETTINGS_WRITE)
 # super-admin only, reads included. Decided 2026-09-24 after the QA run found
 # a per-company save flipping the model for every tenant until restart.
 for _m, _p in [
+    # Tenant console: provisioning, suspension, password resets — super-admin only.
+    ("GET", "/admin/companies"), ("POST", "/admin/companies"),
+    ("GET", "/admin/companies/{company_id}/logo"), ("PATCH", "/admin/companies/{company_id}"),
+    ("POST", "/admin/companies/{company_id}/reset-password"),
     ("GET", "/admin/ai-config"), ("PATCH", "/admin/ai-config"),
     ("GET", "/admin/anthropic-config"), ("PATCH", "/admin/anthropic-config"),
     ("GET", "/admin/chat-provider-shape"), ("PUT", "/admin/chat-provider-shape"),

@@ -21,7 +21,7 @@ CASH, CAPITAL, EXPENSE = "1110", "3110", "6112"
 
 
 def _ccy(prefix="Q"):
-    return prefix + uuid.uuid4().hex[:2].upper()
+    return prefix + uuid.uuid4().hex[:5].upper()
 
 
 def _post(db, make_transaction, ccy, lines, day, **kw):

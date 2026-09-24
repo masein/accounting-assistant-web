@@ -48,7 +48,7 @@ def _walk(nodes):
 @pytest.fixture()
 def funded_books(db, make_transaction):
     """Capital 5M, sales 3M, expenses 1M → assets 7M = equity 5M + earnings 2M."""
-    ccy = "X" + uuid.uuid4().hex[:2].upper()
+    ccy = "X" + uuid.uuid4().hex[:5].upper()
     _post(db, make_transaction, ccy, [(CASH, 5_000_000, 0), (CAPITAL, 0, 5_000_000)])
     _post(db, make_transaction, ccy, [(CASH, 3_000_000, 0), (REVENUE, 0, 3_000_000)])
     _post(db, make_transaction, ccy, [(EXPENSE, 1_000_000, 0), (CASH, 0, 1_000_000)])
@@ -59,7 +59,7 @@ def funded_books(db, make_transaction):
 @pytest.fixture()
 def overdrawn_books(db, make_transaction):
     """An expense paid from an empty cash account: cash −1M, loss −1M."""
-    ccy = "N" + uuid.uuid4().hex[:2].upper()
+    ccy = "N" + uuid.uuid4().hex[:5].upper()
     _post(db, make_transaction, ccy, [(EXPENSE, 1_000_000, 0), (CASH, 0, 1_000_000)])
     db.commit()
     return ccy
@@ -94,7 +94,7 @@ def test_standard_balance_sheet_keeps_negative_asset_sign(client, overdrawn_book
 
 
 def test_standard_balance_sheet_without_earnings_has_no_computed_line(client, db, make_transaction):
-    ccy = "Z" + uuid.uuid4().hex[:2].upper()
+    ccy = "Z" + uuid.uuid4().hex[:5].upper()
     _post(db, make_transaction, ccy, [(CASH, 500, 0), (CAPITAL, 0, 500)])
     db.commit()
     data = _api(client).get("/manager-reports/financial/balance-sheet",

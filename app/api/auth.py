@@ -9,12 +9,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import (
-    validate_password_strength,
+    parse_session_token,
     create_session_token,
     get_current_user,
     hash_password,
     needs_rehash,
     require_admin,
+    validate_password_strength,
     verify_password,
 )
 from app.core.audit import audit_log, get_client_ip
@@ -74,6 +75,7 @@ MIN_PASSWORD_LENGTH = 8
 
 
 class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=1, max_length=128)
 
 
@@ -332,7 +334,18 @@ def resend_verification(payload: LoginRequest, db: Session = Depends(get_db)) ->
 
 
 @router.post("/logout")
-def logout(response: Response) -> dict:
+def logout(request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
+    """Log out everywhere: bump token_version so the cookie (and any copy of
+    it on another device) stops working, not just the browser's copy."""
+    current = getattr(request.state, "user", None) or parse_session_token(request.cookies.get(settings.auth_cookie_name))
+    if current is not None:
+        user = _load_user(db, current)
+        if user is not None:
+            user.token_version = int(user.token_version or 0) + 1
+            db.commit()
+            audit_log(db, action="logout", entity_type="user", entity_id=str(user.id), user_id=str(user.id),
+                      username=user.username, ip_address=get_client_ip(request))
+            db.commit()
     response.delete_cookie(key=settings.auth_cookie_name, path="/")
     return {"ok": True}
 
@@ -415,14 +428,25 @@ def change_password(payload: PasswordChangeRequest, request: Request, response: 
     user = _load_user(db, current)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    # Proof of possession: a hijacked session must not be able to set a new
+    # password (security review 2026-09-24, H3).
+    if not verify_password(payload.current_password, user.password_hash, user.password_salt):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
     new = payload.password
-    if len(new) < MIN_PASSWORD_LENGTH:
-        raise HTTPException(status_code=400, detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+    try:
+        validate_password_strength(new)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if hmac.compare_digest(new, DEFAULT_SEED_PASSWORD) or new.lower() == user.username.lower():
         raise HTTPException(status_code=400, detail="Choose a password that is not the default and not your username.")
+    if hmac.compare_digest(new, payload.current_password):
+        raise HTTPException(status_code=400, detail="The new password must differ from the current one.")
     h, s = hash_password(new)
     user.password_hash = h
     user.password_salt = s
+    # Every other session of this user dies with the old password; this one
+    # is re-issued below with the new version.
+    user.token_version = int(user.token_version or 0) + 1
     db.commit()
     audit_log(db, action="password_changed", entity_type="user", entity_id=str(user.id), user_id=str(user.id),
               username=user.username, ip_address=get_client_ip(request))

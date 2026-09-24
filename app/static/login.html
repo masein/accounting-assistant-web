@@ -158,6 +158,8 @@
   <form class="card" id="change-form" style="display:none;">
     <h1 id="change-title">Set a new password</h1>
     <p class="sub" id="change-sub">You signed in with the default password. Choose a new one to continue.</p>
+    <label for="current-password" id="current-password-label">Current password</label>
+    <input id="current-password" type="password" autocomplete="current-password">
     <label for="new-password" id="new-password-label">New password</label>
     <input id="new-password" type="password" autocomplete="new-password" minlength="8" required>
     <label for="confirm-password" id="confirm-password-label">Confirm password</label>
@@ -174,6 +176,7 @@
     const SUPPORTED_UI_LANGUAGES = ['en', 'fa', 'es', 'ar'];
     const RTL_LANGUAGES = new Set(['fa', 'ar']);
     let currentLanguage = 'en';
+    let loginPassword = '';  // set after a default-password login (see below)
     const I18N = {
       en: {
         title: 'Accounting Assistant',
@@ -188,6 +191,8 @@
         changeTitle: 'Set a new password',
         changeSub: 'You signed in with the default password. Choose a new one to continue.',
         newPassword: 'New password',
+        currentPassword: 'Current password',
+        currentPasswordRequired: 'Enter your current password.',
         confirmPassword: 'Confirm password',
         savePassword: 'Save password',
         passwordMismatch: 'The two passwords do not match.',
@@ -209,6 +214,8 @@
         changeTitle: 'رمز عبور جدید تعیین کنید',
         changeSub: 'با رمز پیش‌فرض وارد شدید. برای ادامه یک رمز جدید انتخاب کنید.',
         newPassword: 'رمز عبور جدید',
+        currentPassword: 'رمز عبور فعلی',
+        currentPasswordRequired: 'رمز عبور فعلی را وارد کنید.',
         confirmPassword: 'تکرار رمز عبور',
         savePassword: 'ذخیرهٔ رمز',
         passwordMismatch: 'دو رمز با هم یکی نیستند.',
@@ -230,6 +237,8 @@
         changeTitle: 'Establece una nueva contraseña',
         changeSub: 'Has iniciado sesión con la contraseña por defecto. Elige una nueva para continuar.',
         newPassword: 'Nueva contraseña',
+        currentPassword: 'Contraseña actual',
+        currentPasswordRequired: 'Introduce tu contraseña actual.',
         confirmPassword: 'Confirmar contraseña',
         savePassword: 'Guardar contraseña',
         passwordMismatch: 'Las contraseñas no coinciden.',
@@ -251,6 +260,8 @@
         changeTitle: 'عيّن كلمة مرور جديدة',
         changeSub: 'سجّلت الدخول بكلمة المرور الافتراضية. اختر كلمة جديدة للمتابعة.',
         newPassword: 'كلمة المرور الجديدة',
+        currentPassword: 'كلمة المرور الحالية',
+        currentPasswordRequired: 'أدخل كلمة المرور الحالية.',
         confirmPassword: 'تأكيد كلمة المرور',
         savePassword: 'حفظ كلمة المرور',
         passwordMismatch: 'كلمتا المرور غير متطابقتين.',
@@ -285,6 +296,7 @@
       document.getElementById('new-password-label').textContent = t('newPassword');
       document.getElementById('confirm-password-label').textContent = t('confirmPassword');
       document.getElementById('change-btn').textContent = t('savePassword');
+      document.getElementById('current-password-label').textContent = t('currentPassword');
       submitBtn.textContent = t('login');
       const pwBtn = document.getElementById('pw-toggle');
       const pwInput = document.getElementById('password');
@@ -347,8 +359,15 @@
         if (data.must_change_password) {
           // Locked session: every API call is refused until a real password
           // is set, so swap the login card for the change form right here.
+          // The password just typed proves possession — carry it over so the
+          // user is not asked twice.
+          loginPassword = passwordInput.value;
           form.style.display = 'none';
           document.getElementById('change-form').style.display = '';
+          const cur = document.getElementById('current-password');
+          cur.value = loginPassword;
+          cur.style.display = 'none';
+          document.getElementById('current-password-label').style.display = 'none';
           document.getElementById('new-password').focus();
           return;
         }
@@ -365,8 +384,10 @@
       e.preventDefault();
       const errEl = document.getElementById('change-error');
       errEl.textContent = '';
+      const cur = document.getElementById('current-password').value || loginPassword;
       const p1 = document.getElementById('new-password').value;
       const p2 = document.getElementById('confirm-password').value;
+      if (!cur) { errEl.textContent = t('currentPasswordRequired'); return; }
       if (p1.length < 8) { errEl.textContent = t('passwordShort'); return; }
       if (p1 !== p2) { errEl.textContent = t('passwordMismatch'); return; }
       const btn = document.getElementById('change-btn');
@@ -375,7 +396,7 @@
         const res = await fetch('/auth/change-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: p1 }),
+          body: JSON.stringify({ current_password: cur, password: p1 }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { errEl.textContent = data.detail || t('failed'); return; }

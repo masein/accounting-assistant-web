@@ -44,7 +44,7 @@ _ALLOWED_EXTENSIONS = (".xls", ".xlsx", ".csv", ".xml")
 
 
 @router.post("/import/preview", response_model=MigrationPreviewResponse)
-async def migration_import_preview(
+def migration_import_preview(
     files: list[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ) -> MigrationPreviewResponse:
@@ -59,7 +59,7 @@ async def migration_import_preview(
         name = f.filename or "upload"
         if not name.lower().endswith(_ALLOWED_EXTENSIONS):
             raise HTTPException(status_code=400, detail=f"Unsupported file type: {name}")
-        content = await f.read()
+        content = f.file.read()
         if len(content) > _MAX_FILE_SIZE:
             raise HTTPException(status_code=400, detail=f"File too large: {name}")
         hasher.update(content)

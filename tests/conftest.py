@@ -47,20 +47,28 @@ from app.models.transaction import Transaction, TransactionLine
 # ---------------------------------------------------------------------------
 # Engine & session wired to SQLite
 # ---------------------------------------------------------------------------
-_SQLALCHEMY_TEST_URL = "sqlite://"
+# Default: in-memory SQLite (fast, hermetic). Set TEST_DATABASE_URL to a
+# PostgreSQL URL to run the same suite against the production engine — the
+# CI job "Tests on PostgreSQL" does exactly that (roadmap 2026-09 §1.12).
+import os as _os
 
-_engine = create_engine(
-    _SQLALCHEMY_TEST_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+_SQLALCHEMY_TEST_URL = _os.environ.get("TEST_DATABASE_URL") or "sqlite://"
+IS_SQLITE = _SQLALCHEMY_TEST_URL.startswith("sqlite")
 
+if IS_SQLITE:
+    _engine = create_engine(
+        _SQLALCHEMY_TEST_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
 
-@event.listens_for(_engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, _connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+    @event.listens_for(_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+else:
+    _engine = create_engine(_SQLALCHEMY_TEST_URL, pool_pre_ping=True)
 
 
 _TestSession = sessionmaker(bind=_engine, autoflush=False, autocommit=False)

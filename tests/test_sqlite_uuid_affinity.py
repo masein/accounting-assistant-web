@@ -5,9 +5,14 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
+
 from sqlalchemy import text
 
 from app.models.account import Account, AccountLevel
+from tests.conftest import IS_SQLITE
+
+pytestmark = pytest.mark.skipif(not IS_SQLITE, reason="SQLite affinity rules only")
 
 
 def test_uuid_columns_are_char32_on_sqlite(db):

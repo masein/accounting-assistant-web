@@ -16,7 +16,7 @@ def test_health_is_503_when_the_database_is_down(client, monkeypatch):
 
     def boom():
         raise RuntimeError("db down")
-    monkeypatch.setattr(main_mod, "SessionLocal", boom)
+    monkeypatch.setattr(main_mod, "_resolve_validation_session", boom)
     r = client.get("/health")
     assert r.status_code == 503
     assert r.json()["status"] == "degraded" and r.json()["database"] == "unavailable"

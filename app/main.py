@@ -691,7 +691,9 @@ def health_check():
     db_ok = False
     db_schema = None
     try:
-        db = SessionLocal()
+        # Same session source as the auth middleware: the real engine in
+        # production, the overridden one under test.
+        db, gen = _resolve_validation_session()
         try:
             db.execute(text("SELECT 1"))
             db_ok = True
@@ -701,7 +703,10 @@ def health_check():
             except Exception:
                 db_schema = None
         finally:
-            db.close()
+            if gen is not None:
+                gen.close()
+            else:
+                db.close()
     except Exception:
         status = "degraded"
     try:

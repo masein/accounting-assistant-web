@@ -352,6 +352,22 @@
 
     // Per-session cache of FX metadata from /fx/metadata
     window.__FX_META = window.__FX_META || null;
+    // Per-currency views: a report shows ONE currency (the reporting currency
+    // by default) and names the others the books contain. Amounts in
+    // different currencies are never added together; the note offers each
+    // other currency as its own view.
+    function renderCurrencyViewNote(el, data, onPick) {
+      if (!el) return;
+      const others = (data && Array.isArray(data.other_currencies)) ? data.other_currencies : [];
+      if (!data || !data.currency || !others.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+      const note = t('currencyViewNote').replace('{currency}', data.currency).replace('{others}', others.join(', '));
+      const buttons = others.map(c => '<button type="button" class="btn btn-secondary btn-sm ccy-view-switch" data-ccy="' + escapeHtml(c) + '">'
+        + escapeHtml(t('currencyViewOnly').replace('{currency}', c)) + '</button>').join(' ');
+      el.innerHTML = escapeHtml(note) + ' <span style="display:inline-flex;gap:0.35rem;flex-wrap:wrap;vertical-align:middle;">' + buttons + '</span>';
+      el.style.display = '';
+      el.querySelectorAll('.ccy-view-switch').forEach(b => b.addEventListener('click', () => { if (onPick) onPick(b.dataset.ccy); }));
+    }
+
     async function loadFxMetadata(force) {
       if (window.__FX_META && !force) return window.__FX_META;
       try {

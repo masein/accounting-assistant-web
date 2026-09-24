@@ -365,33 +365,17 @@ PUBLIC_PATHS = {
     "/auth/logout",
 }
 
-PROTECTED_API_PREFIXES = (
-    "/accounts",
-    "/adjustments",
-    "/admin",
-    "/ai-accountant",
-    "/brain",
-    "/budgets",
-    "/entities",
-    "/equity",
-    "/expenses",
-    "/exports",
-    "/fx",
-    "/invoices",
-    "/manager-reports",
-    "/notifications",
-    "/payroll",
-    "/products",
-    "/purchase-orders",
-    "/recurring",
-    "/reports",
-    "/time",
-    "/transactions",
+# Self-service auth endpoints that need a session (+ CSRF on writes). The
+# router prefixes are added below, once the routers are registered, so the
+# list is derived from the app instead of maintained by hand.
+_AUTH_SELF_SERVICE_PATHS = (
     "/auth/me",
     "/auth/change-password",
     "/auth/preferences",
     "/auth/admin-check",
+    "/auth/whats-new",
 )
+PROTECTED_API_PREFIXES: tuple[str, ...] = _AUTH_SELF_SERVICE_PATHS
 
 
 @app.middleware("http")
@@ -452,9 +436,25 @@ async def request_logging_middleware(request, call_next):
 _CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
+def _same_origin(request: Request) -> bool:
+    """Browsers send Origin (or at least Referer) on cross-site POSTs. When
+    present it must name this host; absent (curl, tests, same-origin GET) is
+    fine. Protects /auth/login and /auth/logout, which have no CSRF token
+    yet (security review 2026-09-24, L9)."""
+    from urllib.parse import urlsplit
+
+    src = request.headers.get("origin") or request.headers.get("referer")
+    if not src:
+        return True
+    host = (request.headers.get("host") or request.url.netloc or "").lower()
+    return urlsplit(src).netloc.lower() == host
+
+
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
+    if path in PUBLIC_PATHS and request.method == "POST" and not _same_origin(request):
+        return JSONResponse(status_code=403, content={"detail": "Cross-site request refused"})
     # allow app/static resources and framework internals
     if (
         path in PUBLIC_PATHS
@@ -782,6 +782,23 @@ app.include_router(recurring_router, dependencies=_rbac)
 app.include_router(reports_router, dependencies=_rbac)
 app.include_router(time_tracking_router, dependencies=_rbac)
 app.include_router(transactions_router, dependencies=_rbac)
+
+# Every router mounted behind the RBAC guard is protected API surface: session
+# required, CSRF on writes, global rate limit, default-password lock. Derived
+# from the registrations so a new router can never be forgotten — the hand-kept
+# list used to miss /commitments, /insights, /personal, /migration and
+# /petty-cash (security review 2026-09-24, M1).
+_GUARDED_PREFIXES = tuple(sorted({
+    r.prefix for r in (
+        accounts_router, adjustments_router, admin_router, companies_router, company_profile_router,
+        ai_accountant_router, brain_router, budgets_router, entities_router, equity_router,
+        expenses_router, exports_router, fx_router, invoices_router, manager_reports_router,
+        migration_router, notifications_router, payroll_router, personal_router, insights_router,
+        commitments_router, petty_cash_router, products_router, purchase_orders_router,
+        recurring_router, reports_router, time_tracking_router, transactions_router,
+    ) if r.prefix
+}))
+PROTECTED_API_PREFIXES = _GUARDED_PREFIXES + _AUTH_SELF_SERVICE_PATHS
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"

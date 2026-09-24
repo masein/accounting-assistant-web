@@ -21,7 +21,7 @@ BANK = {
     "bank_name": "Bank Melli",
     "account_holder": "Dana Rahimi",
     "account_number": "0123456789",
-    "iban": "IR120170000000123456789012",
+    "iban": "IR050170000000123456789012",
 }
 
 
@@ -65,8 +65,8 @@ def test_entity_bank_fields_roundtrip(db, client, company):
     d = r.json()
     for k, v in BANK.items():
         assert d[k] == v
-    r2 = api.patch(f"/entities/{d['id']}", json={"iban": "IR999999999999999999999999"})
-    assert r2.json()["iban"] == "IR999999999999999999999999"
+    r2 = api.patch(f"/entities/{d['id']}", json={"iban": "IR200170000000121518633003"})
+    assert r2.json()["iban"] == "IR200170000000121518633003"
     assert r2.json()["bank_name"] == "Bank Melli"
 
 
@@ -80,7 +80,7 @@ def test_ai_create_entity_with_details(db, company):
     from app.services.ai_accountant.execute_service import execute_proposal
 
     ctx = ToolContext(db=db, user_id="u1", username="t",
-                      user_message="add Dana as an employee, bank melli IR120170000000123456789012")
+                      user_message="add Dana as an employee, bank melli IR050170000000123456789012")
     out = asyncio.run(ProposeCreateEntity().run(ctx, ProposeCreateEntityInput(
         name=f"Dana {uuid.uuid4().hex[:6]}", type="employee",
         phone="0912 111 2233", address="Tehran, Valiasr", **BANK)))

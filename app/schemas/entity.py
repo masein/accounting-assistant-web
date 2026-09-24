@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.utils.iban import normalize_iban
 
 
 # Optional billing-identity fields shared by create/update/read.
@@ -32,17 +34,30 @@ class EntityBillingFields(BaseModel):
     notes: str | None = None
 
 
+class _IbanInput(BaseModel):
+    """Input-side IBAN check (create/update only — reads render what is
+    stored). Structure + mod-97 checksum; blanks become None. A wrong IBAN on
+    a payee means a failed payment later, so it is refused here (422)."""
+
+    @field_validator("iban", check_fields=False)
+    @classmethod
+    def _valid_iban(cls, v: str | None) -> str | None:
+        return normalize_iban(v)
+
+
 class EntityBase(EntityBillingFields):
     type: str = Field(..., max_length=32, description="client, bank, employee, supplier")
     name: str = Field(..., min_length=1, max_length=256)
     code: str | None = Field(None, max_length=64)
 
 
-class EntityCreate(EntityBase):
-    pass
+class EntityCreate(_IbanInput, EntityBase):
+    # A second party with the same name and type is usually a typo or a
+    # re-entry; the API refuses it (409) unless the caller says it is wanted.
+    allow_duplicate: bool = False
 
 
-class EntityUpdate(EntityBillingFields):
+class EntityUpdate(_IbanInput, EntityBillingFields):
     type: str | None = Field(None, max_length=32, description="client, bank, employee, supplier")
     name: str | None = Field(None, min_length=1, max_length=256)
     code: str | None = Field(None, max_length=64)

@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -51,7 +51,7 @@ class TimeEntryCreate(BaseModel):
     client_id: UUID | None = None
     project_id: UUID | None = None
     work_date: _date
-    hours: float = Field(..., gt=0)
+    hours: float = Field(..., gt=0, le=24)
     description: str | None = None
     billable: bool = True
     # work | leave | travel | unpaid — payroll behaviour (see time_billing model).
@@ -61,7 +61,7 @@ class TimeEntryCreate(BaseModel):
 
 
 class TimeEntryUpdate(BaseModel):
-    hours: float | None = Field(None, gt=0)
+    hours: float | None = Field(None, gt=0, le=24)
     description: str | None = None
     billable: bool | None = None
     project_id: UUID | None = None
@@ -235,6 +235,23 @@ def _time_own_scope():
     return own_scope(get_current_actor(), Perm.BOOKS_READ)
 
 
+def _assert_day_capacity(db: Session, employee_id, work_date, hours: float, *, exclude_id=None) -> None:
+    """One person cannot work more than 24 hours in a day — a 25 h entry (or a
+    stack of entries that adds up past 24 h) is a typo, refused with 422."""
+    q = select(func.coalesce(func.sum(TimeEntry.hours), 0)).where(
+        TimeEntry.employee_id == employee_id, TimeEntry.work_date == work_date,
+    )
+    if exclude_id is not None:
+        q = q.where(TimeEntry.id != exclude_id)
+    already = float(db.execute(q).scalar() or 0)
+    if already + float(hours) > 24 + 1e-9:
+        raise HTTPException(
+            status_code=422,
+            detail=f"That would be {already + float(hours):g} hours on {work_date.isoformat()} "
+                   f"({already:g} already logged); a day has 24.",
+        )
+
+
 @router.post("/entries", status_code=201)
 def create_entry(payload: TimeEntryCreate, db: Session = Depends(get_db)) -> dict:
     # A self-service caller may only log time for their own employee entity.
@@ -260,6 +277,7 @@ def create_entry(payload: TimeEntryCreate, db: Session = Depends(get_db)) -> dic
     worker = db.get(Entity, payload.employee_id)
     if not worker or worker.type not in ("employee", "supplier"):
         raise HTTPException(status_code=422, detail="Time is logged for an employee or contractor (supplier).")
+    _assert_day_capacity(db, payload.employee_id, payload.work_date, payload.hours)
 
     payable = payload.payable if payload.payable is not None else tbs.default_payable(entry_type)
     e = TimeEntry(
@@ -294,6 +312,10 @@ def update_entry(entry_id: UUID, payload: TimeEntryUpdate, db: Session = Depends
             status_code=409,
             detail="This time entry is in a pay run and locked. Void the pay run to edit it.",
         )
+    new_hours = payload.hours if payload.hours is not None else e.hours
+    new_date = payload.work_date if payload.work_date is not None else e.work_date
+    if payload.hours is not None or payload.work_date is not None:
+        _assert_day_capacity(db, e.employee_id, new_date, new_hours, exclude_id=e.id)
     if payload.hours is not None:
         e.hours = payload.hours
     if payload.description is not None:
@@ -358,12 +380,21 @@ def delete_entry(entry_id: UUID, db: Session = Depends(get_db)) -> Response:
 
 
 @router.get("/my-summary")
-def my_summary(period_start: _date, period_end: _date, db: Session = Depends(get_db)) -> dict:
+def my_summary(period_start: _date | None = None, period_end: _date | None = None,
+               db: Session = Depends(get_db)) -> dict:
     """Self-service: MY hours for a period — required vs worked, leave,
     overtime/undertime. Resolves to the caller's linked employee entity; users
-    with full payroll access may pass ?entity_id= to view any employee."""
+    with full payroll access may pass ?entity_id= to view any employee.
+    Without dates, the period is the current month to date."""
     from app.core.permissions import Perm, own_scope
     from app.core.request_context import get_current_actor
+    today = _date.today()
+    if period_start is None and period_end is None:
+        period_start, period_end = today.replace(day=1), today
+    elif period_start is None:
+        period_start = period_end.replace(day=1)
+    elif period_end is None:
+        period_end = today if today >= period_start else period_start
     if period_end < period_start:
         raise HTTPException(status_code=422, detail="period_end is before period_start.")
     restricted, own = own_scope(get_current_actor(), Perm.PAYROLL_READ)

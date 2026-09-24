@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -121,6 +121,16 @@ def create_entity(
     if typ not in VALID_ENTITY_TYPES:
         raise HTTPException(status_code=400, detail="Invalid entity type")
     code = payload.code.strip() if payload.code else None
+    if not payload.allow_duplicate:
+        twin = db.execute(
+            select(Entity).where(Entity.type == typ, func.lower(Entity.name) == name.lower())
+        ).scalars().first()
+        if twin is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A {typ} named '{twin.name}' already exists (id {twin.id}). "
+                       "Use it, or send allow_duplicate=true to create another one on purpose.",
+            )
     if typ == "bank":
         # The company's bank ACCOUNT is a ledger account, not just a person:
         # link (or create) its own GL cash account (سرفصل) so payments can

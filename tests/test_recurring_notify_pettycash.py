@@ -315,6 +315,10 @@ def test_petty_cash_own_scope(client, db):
     other = PettyCashAccount(user_id="someone-else", holder_name="other")
     db.add_all([mine, other])
     db.commit()
+    # a float to spend from — expenses may not exceed what is in the tin
+    db.add(PettyCashTransaction(account_id=mine.id, kind="deposit", amount=10_000, signed_amount=10_000,
+                                description="float", status="approved", created_by="admin"))
+    db.commit()
 
     token = create_session_token(user_id=str(emp.id), username=emp.username,
                                  is_admin=False, role="employee")

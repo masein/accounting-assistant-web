@@ -275,6 +275,7 @@ def record_expense(
     acc = _get_account(db, account_id, user)  # own or admin
     if payload.attachment_id is not None and db.get(TransactionAttachment, payload.attachment_id) is None:
         raise HTTPException(status_code=404, detail="Attachment not found")
+    _assert_within_float(db, acc.id, payload.amount)
     row = PettyCashTransaction(
         account_id=acc.id, kind="expense", amount=payload.amount,
         signed_amount=-payload.amount, description=payload.description,
@@ -289,6 +290,26 @@ def record_expense(
                     detail=f"amount={payload.amount} pending")
     db.commit()
     return _txn_read(row)
+
+
+def _assert_within_float(db: Session, account_id: uuid.UUID, amount: int) -> None:
+    """A petty-cash spend cannot exceed what is in the tin. Pending expenses
+    count too, so two holders cannot both spend the same float."""
+    balance = _balance(db, account_id)
+    pending = int(db.execute(
+        select(func.coalesce(func.sum(PettyCashTransaction.amount), 0)).where(
+            PettyCashTransaction.account_id == account_id,
+            PettyCashTransaction.kind == "expense",
+            PettyCashTransaction.status == "pending",
+        )
+    ).scalar() or 0)
+    available = balance - pending
+    if amount > available:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Expense {amount:,} exceeds the petty cash available ({available:,}"
+                   + (f" after {pending:,} pending)" if pending else ")") + ". Top up the float first.",
+        )
 
 
 def _get_pending_expense(db: Session, txn_id: uuid.UUID) -> PettyCashTransaction:
@@ -311,6 +332,7 @@ def approve_expense(
     if not _is_manager(user):
         raise HTTPException(status_code=403, detail="Admin access required")
     row = _get_pending_expense(db, txn_id)
+    _assert_within_float(db, row.account_id, row.amount)  # the float may have shrunk since
     petty_code = resolve_account_code(db, "petty_cash")
     category = row.counter_account_code or resolve_account_code(db, "expense")
     txn = _post_gl(db, debit_code=category, credit_code=petty_code,

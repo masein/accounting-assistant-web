@@ -749,6 +749,8 @@ class GetTaxSummary(BaseTool):
 
 
 def register_read_tools(registry) -> None:
+    from app.services.ai_accountant.spending_tools import register_spending_tools
+
     registry.register(FindEntity())
     registry.register(ListEntities())
     registry.register(QueryLedger())
@@ -757,3 +759,4 @@ def register_read_tools(registry) -> None:
     registry.register(GetFinancialStatement())
     registry.register(GetTaxSummary())
     registry.register(GetCompanyDefaults())
+    register_spending_tools(registry)

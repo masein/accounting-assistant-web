@@ -175,6 +175,33 @@ def _parse_response(body: dict[str, Any]) -> LLMResponse:
 # ---------------------------------------------------------------------------
 
 
+def output_limit_param(model: str) -> str:
+    """Name of the output-token cap parameter this model family accepts."""
+    m = (model or "").lower()
+    if m.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4")):
+        return "max_completion_tokens"
+    return "max_tokens"
+
+
+def reasoning_effort_param(model: str) -> str | None:
+    """Reasoning effort to send, by model family, or None to omit it.
+
+    * gpt-5.6-* / gpt-6-* on the chat-completions endpoint refuse function
+      tools unless ``reasoning_effort`` is explicitly ``"none"`` (measured on
+      Metis, 2026-09-24: 400 "Function tools with reasoning_effort are not
+      supported" without it, tool calls work with it).
+    * gpt-5 / 5.1 / 5.4 (-mini/-nano) and the o-series are reasoning models;
+      ``"low"`` keeps a bookkeeping turn from spending 40+ seconds thinking.
+    * Everything else (gpt-4o, gpt-4.1, LM Studio models) does not take it.
+    """
+    m = (model or "").lower()
+    if m.startswith(("gpt-5.6", "gpt-6")):
+        return "none"
+    if m.startswith(("gpt-5", "o1", "o3", "o4")):
+        return "low"
+    return None
+
+
 def _chat_completions_url(base_url: str) -> str:
     """Normalize a base URL to the chat/completions endpoint. Handles:
         https://api.openai.com           → /v1/chat/completions
@@ -263,8 +290,14 @@ class OpenAILLMClient(LLMClient):
         payload: dict[str, Any] = {
             "model": chosen_model,
             "messages": wire_messages,
-            "max_tokens": max_tokens,
+            # OpenAI's reasoning-era models (gpt-5.x, o-series) reject
+            # ``max_tokens`` outright; older models and most OpenAI-compatible
+            # servers (LM Studio, vLLM) only know ``max_tokens``.
+            output_limit_param(chosen_model): max_tokens,
         }
+        effort = reasoning_effort_param(chosen_model)
+        if effort:
+            payload["reasoning_effort"] = effort
         if tools:
             payload["tools"] = [tool_to_openai(t) for t in tools]
             payload["tool_choice"] = "auto"

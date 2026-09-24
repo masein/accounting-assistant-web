@@ -29,15 +29,26 @@ class Settings(BaseSettings):
     ai_api_key_prefix: str = "Bearer"
     # Metis defaults
     metis_base_url: str = "https://api.metisai.ir/openai/v1"
-    metis_model: str = "gpt-4o-mini"
+    # Chat / tool-calling model. Benchmarked on our own agent scenarios
+    # (scripts/model_eval.py chat, 2026-09-24): gpt-4o-mini never raised the
+    # proposal card for a Persian Toman expense or for a statement finding
+    # (0/3 each); gpt-4.1-mini did, at ~9 s a turn — the fastest of the
+    # candidates — for about $0.015 a turn. gpt-5-mini/nano were 2-5× slower
+    # (reasoning), gpt-4.1-nano unreliable. gpt-5.6-luna is a cheaper
+    # alternative ($0.008/turn) but 2× slower per turn.
+    metis_model: str = "gpt-4.1-mini"
     metis_api_key: str | None = None
-    # OCR/document extraction uses a stronger vision model than the
-    # conversational chat. Tested on real Persian invoices: gpt-4o-mini
-    # concatenates digits into garbage, gpt-4o misreads Persian numerals
-    # (3→2, 1404→1401), but gemini-2.5-pro reads them exactly. So OCR
-    # defaults to Gemini (via Metis's Google-format wrapper) and falls back
-    # to the OpenAI-compatible gpt-4o path if Gemini is unavailable.
-    ocr_model: str = "gemini-2.5-pro"
+    # OCR/document extraction uses a vision model separate from the chat
+    # model. Measured on a real 5-page Mellat statement (2026-09-24,
+    # scripts/model_eval.py ocr): gemini-3.7-flash read all 36 rows with a
+    # fully consistent running balance in 22 s for $0.03; gemini-2.5-pro (the
+    # previous default) took 96 s, $0.20, and mis-read four rows (a dropped
+    # zero, a flipped direction). gemini-2.5-flash / flash-lite returned
+    # non-JSON; gpt-4o misreads Persian numerals (3→2, 1404→1401) and
+    # gpt-4o-mini concatenates digits. Chain: primary Gemini → secondary
+    # Gemini → OpenAI-compatible gpt-4o.
+    ocr_model: str = "gemini-3.7-flash"
+    ocr_gemini_fallback_model: str = "gemini-2.5-pro"
     ocr_fallback_model: str = "gpt-4o"
     # Metis exposes Gemini at Google's native generateContent endpoint
     # (x-goog-api-key header), separate from the OpenAI-compatible path.

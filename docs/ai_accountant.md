@@ -326,7 +326,7 @@ So pointing AI Chat at Metis's OpenAI endpoint just requires:
 ```bash
 AI_PROVIDER=metis
 METIS_BASE_URL=https://api.metisai.ir/openai/v1
-METIS_MODEL=gpt-4o-mini
+METIS_MODEL=gpt-4.1-mini
 METIS_API_KEY=tpsg-…
 ```
 
@@ -360,6 +360,49 @@ PUT  /admin/chat-provider-shape  body: {shape: "" | "anthropic" | "openai"}
 
 Empty string clears the explicit choice and re-enables auto-detection.
 Unknown values 400.
+
+## Choosing models (measured, not guessed)
+
+`scripts/model_eval.py` benchmarks candidate models on **our** tasks
+against Metis pricing (`docs.metisai.ir/pricing`). Run it inside the api
+container; it never posts to the books (chat cards are cancelled).
+
+```bash
+# statement OCR: rows vs the first model, running-balance consistency, latency, USD/statement
+docker compose run --rm -v "$PWD/tmp:/eval" api python scripts/model_eval.py ocr \
+  --pdf /eval/statement.pdf --models gemini-3.7-flash,gemini-2.5-pro,gemini-3.1-flash-lite
+# chat agent: 9 scenarios (en/fa expense, receipt, questions, insights, refusal, statement review, new client)
+docker compose run --rm api python scripts/model_eval.py chat \
+  --user-id <owner uuid> --company-id <company uuid> --statement-id <statement uuid> \
+  --models gpt-4.1-mini,gpt-4o-mini --repeat 3
+```
+
+Results on 2026-09-24 (5-page Mellat statement; Default company):
+
+| task | model | outcome | latency | cost |
+|---|---|---|---|---|
+| OCR | gemini-2.5-pro (old default) | 36 rows, 3 running-balance breaks (dropped zero, flipped direction) | 96 s | $0.20 / statement |
+| OCR | **gemini-3.7-flash (new default)** | 36 rows, 0 breaks | 22 s | $0.03 |
+| OCR | gemini-3.1-flash-lite | 36 rows, 2 breaks | 36 s | $0.006 |
+| OCR | gemini-2.5-flash / flash-lite | returned non-JSON | — | — |
+| chat | gpt-4o-mini (old default) | 7/9; Persian Toman card 0/3, statement card 0/3 | 13 s/turn | $6 / 1,000 turns |
+| chat | **gpt-4.1-mini (new default)** | 8/9; Persian card 2/3, statement card 3/3 | 9 s/turn | $15 / 1,000 turns |
+| chat | gpt-5.6-luna | 8/9 (needs `reasoning_effort: none` with tools) | 20 s/turn | $8 / 1,000 turns |
+| chat | gpt-5-mini (low effort) | 8/9 | 17 s/turn | $13 / 1,000 turns |
+| chat | gpt-5-nano | 8/9 | 72 s/turn | $4 / 1,000 turns |
+| chat | gpt-4.1-nano | 5/9 | 16 s/turn | $3 / 1,000 turns |
+
+The "English expense from *test bank*" scenario fails on every capable
+model because that bank does not exist in the test company — the models
+correctly ask instead of guessing; only gpt-4o-mini posts blindly.
+
+The OpenAI-shape client adapts the request to the model family:
+`max_completion_tokens` and `reasoning_effort` (`none` for gpt-5.6/6,
+`low` for gpt-5.x and o-series) — see `openai_client.output_limit_param`
+and `reasoning_effort_param`. The model actually used at runtime is the one
+saved in Settings → AI providers (persisted in `app_settings`), so changing
+the default in `config.py` only affects fresh installs; existing
+deployments switch the model in Settings.
 
 ## Cost notes
 

@@ -470,11 +470,19 @@ async def _vision_raw(pages: list[tuple[str, str]], prompt: str) -> str:
     _, model = _resolve_ocr_base_model()
     last_err: Exception | None = None
     if _gemini_enabled(model):
-        try:
-            return await _gemini_raw(pages, model, prompt)
-        except Exception as e:  # fall through to the OpenAI-compatible model
-            last_err = e
-            logger.warning("Gemini OCR failed — falling back to %s", settings.ocr_fallback_model, exc_info=True)
+        # Primary Gemini, then a second Gemini (a different generation is a
+        # real fallback: 2.5-flash returned non-JSON where 3.7-flash and
+        # 2.5-pro both read the table), then the OpenAI-compatible model.
+        chain = [model]
+        secondary = (settings.ocr_gemini_fallback_model or "").strip()
+        if secondary and secondary != model:
+            chain.append(secondary)
+        for gm in chain:
+            try:
+                return await _gemini_raw(pages, gm, prompt)
+            except Exception as e:  # fall through to the next model
+                last_err = e
+                logger.warning("Gemini OCR with %s failed — falling back", gm, exc_info=True)
     fallback = settings.ocr_fallback_model or "gpt-4o"
     try:
         return await _openai_vision_raw(pages, fallback, prompt)

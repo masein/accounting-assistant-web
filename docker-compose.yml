@@ -38,7 +38,10 @@ services:
       AI_API_KEY_HEADER: ${AI_API_KEY_HEADER:-Authorization}
       AI_API_KEY_PREFIX: ${AI_API_KEY_PREFIX:-Bearer}
       METIS_BASE_URL: ${METIS_BASE_URL:-https://api.metisai.ir/openai/v1}
-      METIS_MODEL: ${METIS_MODEL:-gpt-4o-mini}
+      METIS_MODEL: ${METIS_MODEL:-gpt-4.1-mini}
+      OCR_MODEL: ${OCR_MODEL:-gemini-3.7-flash}
+      OCR_GEMINI_FALLBACK_MODEL: ${OCR_GEMINI_FALLBACK_MODEL:-gemini-2.5-pro}
+      OCR_FALLBACK_MODEL: ${OCR_FALLBACK_MODEL:-gpt-4o}
       METIS_API_KEY: ${METIS_API_KEY:-}
       LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234}
       LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-qwen/qwen3-4b-thinking-2507}

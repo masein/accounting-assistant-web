@@ -96,3 +96,58 @@ class TestExtractStatementRows:
         pdf.write_bytes(b"%PDF-1.4\n")
         with pytest.raises(ocr_extract.OCRExtractError):
             asyncio.run(ocr_extract.extract_statement_rows(str(pdf), "application/pdf"))
+
+
+
+class TestVisionFallbackChain:
+    """Primary Gemini → secondary Gemini → OpenAI-compatible model."""
+
+    def _arm(self, monkeypatch, fail: set[str]):
+        from app.services import ocr_extract
+        calls: list[str] = []
+
+        async def fake_gemini(pages, model, prompt):
+            calls.append(f"gemini:{model}")
+            if model in fail:
+                raise RuntimeError(f"{model} down")
+            return f"[from {model}]"
+
+        async def fake_openai(pages, model, prompt):
+            calls.append(f"openai:{model}")
+            if model in fail:
+                raise RuntimeError(f"{model} down")
+            return f"[from {model}]"
+
+        monkeypatch.setattr(ocr_extract, "_gemini_raw", fake_gemini)
+        monkeypatch.setattr(ocr_extract, "_openai_vision_raw", fake_openai)
+        monkeypatch.setattr(ocr_extract, "_gemini_enabled", lambda m: True)
+        monkeypatch.setattr(ocr_extract, "_resolve_ocr_base_model", lambda: ("https://x", "gemini-3.7-flash"))
+        monkeypatch.setattr(ocr_extract.settings, "ocr_gemini_fallback_model", "gemini-2.5-pro")
+        monkeypatch.setattr(ocr_extract.settings, "ocr_fallback_model", "gpt-4o")
+        return calls
+
+    def test_primary_wins_when_healthy(self, monkeypatch):
+        import asyncio
+        from app.services import ocr_extract
+        calls = self._arm(monkeypatch, fail=set())
+        assert asyncio.run(ocr_extract._vision_raw([("image/png", "x")], "p")) == "[from gemini-3.7-flash]"
+        assert calls == ["gemini:gemini-3.7-flash"]
+
+    def test_second_gemini_then_openai(self, monkeypatch):
+        import asyncio
+        from app.services import ocr_extract
+        calls = self._arm(monkeypatch, fail={"gemini-3.7-flash"})
+        assert asyncio.run(ocr_extract._vision_raw([("image/png", "x")], "p")) == "[from gemini-2.5-pro]"
+        assert calls == ["gemini:gemini-3.7-flash", "gemini:gemini-2.5-pro"]
+
+        calls = self._arm(monkeypatch, fail={"gemini-3.7-flash", "gemini-2.5-pro"})
+        assert asyncio.run(ocr_extract._vision_raw([("image/png", "x")], "p")) == "[from gpt-4o]"
+        assert calls == ["gemini:gemini-3.7-flash", "gemini:gemini-2.5-pro", "openai:gpt-4o"]
+
+    def test_everything_down_is_a_clean_ocr_error(self, monkeypatch):
+        import asyncio
+        import pytest
+        from app.services import ocr_extract
+        self._arm(monkeypatch, fail={"gemini-3.7-flash", "gemini-2.5-pro", "gpt-4o"})
+        with pytest.raises(ocr_extract.OCRExtractError):
+            asyncio.run(ocr_extract._vision_raw([("image/png", "x")], "p"))

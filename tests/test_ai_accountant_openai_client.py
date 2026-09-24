@@ -358,3 +358,26 @@ class TestOpenAIClientChat:
                 messages=[ChatMessage(role="user", text="hi")],
             ))
         assert "anthropic" in str(ei.value).lower()
+
+
+
+def test_output_limit_param_by_model_family():
+    from app.services.ai_accountant.openai_client import output_limit_param
+
+    assert output_limit_param("gpt-4o-mini") == "max_tokens"
+    assert output_limit_param("gpt-4.1-mini") == "max_tokens"
+    assert output_limit_param("qwen/qwen3-4b") == "max_tokens"
+    for m in ("gpt-5-mini", "gpt-5.6-luna", "gpt-5.4-nano", "o4-mini", "o3-mini", "gpt-6-astra"):
+        assert output_limit_param(m) == "max_completion_tokens", m
+
+
+def test_reasoning_effort_by_model_family():
+    from app.services.ai_accountant.openai_client import reasoning_effort_param
+
+    assert reasoning_effort_param("gpt-4o-mini") is None
+    assert reasoning_effort_param("gpt-4.1-mini") is None
+    assert reasoning_effort_param("qwen/qwen3-4b") is None
+    assert reasoning_effort_param("gpt-5.6-luna") == "none"
+    assert reasoning_effort_param("gpt-6-astra") == "none"
+    for m in ("gpt-5-mini", "gpt-5-nano", "gpt-5.4-nano", "o4-mini"):
+        assert reasoning_effort_param(m) == "low", m

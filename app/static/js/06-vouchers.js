@@ -235,7 +235,7 @@
             <td>${escapeHtml(i.kind)}</td>
             <td>${escapeHtml(localizeDynamicText(i.status))}</td>
             <td>${formatMoney(i.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>${taxLine}</td>
-            <td>${formatMoney(paid, ccy)}</td>
+            <td>${formatMoney(paid, ccy)}${Number(i.overpaid || 0) > 0 ? '<div style="font-size:0.72rem;color:var(--text-muted);">+' + formatMoney(Number(i.overpaid), ccy) + ' ' + escapeHtml(t('invOverpaidCredit')) + '</div>' : ''}</td>
             <td><strong>${formatMoney(balance, ccy)}</strong></td>
             <td>${escapeHtml(i.due_date)}</td>
             <td>

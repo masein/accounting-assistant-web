@@ -807,7 +807,9 @@
         const badge = document.createElement('span');
         const color = f.severity === 'high' ? '#c62828' : f.severity === 'info' ? '#546e7a' : '#f57f17';
         badge.style.cssText = 'font-size:0.72rem;font-weight:600;padding:0.1rem 0.4rem;border-radius:10px;color:#fff;background:' + color + ';white-space:nowrap;';
-        badge.textContent = t(FINDING_LABEL_KEY[f.kind] || 'bsFindUnrecorded');
+        // A duplicate can be a row imported from an EARLIER statement or a row
+        // repeated inside THIS statement (possible double charge) — label them apart.
+        badge.textContent = t((f.kind === 'duplicate' && f.category === 'same_statement') ? 'bsFindDuplicateSame' : (FINDING_LABEL_KEY[f.kind] || 'bsFindUnrecorded'));
         const span = document.createElement('span');
         span.dir = 'auto';
         span.style.flex = '1';

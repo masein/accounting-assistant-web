@@ -256,7 +256,7 @@ def get_account_detail(
     )
     currency, other_currencies = resolve_currency_view(db, currency)
     q = q.where(Transaction.currency == currency)
-    q = q.order_by(Transaction.date, Transaction.id)
+    q = q.order_by(Transaction.date, Transaction.created_at, Transaction.id)
     rows = db.execute(q).all()
     lines: list[AccountLineDetail] = []
     debit_turnover = credit_turnover = 0
@@ -338,7 +338,7 @@ def get_entity_transactions(
         q = q.where(Transaction.currency == currency)
     q = (
         q.distinct()
-        .order_by(Transaction.date, Transaction.id)
+        .order_by(Transaction.date, Transaction.created_at, Transaction.id)
         .options(
             selectinload(Transaction.lines).selectinload(TransactionLine.account),
             selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity),
@@ -426,6 +426,8 @@ import time as _time
 
 _dashboard_cache: dict[str, tuple[float, OwnerDashboardResponse]] = {}
 _DASHBOARD_CACHE_TTL = 60  # seconds
+# Fewer entries than this in the dashboard window → no risk alerts (see get_owner_dashboard).
+MIN_TXNS_FOR_ALERTS = 10
 
 
 @router.get("/owner-dashboard", response_model=OwnerDashboardResponse)
@@ -694,15 +696,21 @@ def get_owner_dashboard(
     overdue_ar = sum(r.days_31_60 + r.days_60_plus for r in ar_rows)
     overdue_ap = sum(r.days_31_60 + r.days_60_plus for r in ap_rows)
     alerts: list[AlertItem] = []
-    if runway_months is not None and runway_months < 3:
+    # Minimum activity before the alarms fire: a fresh company with three tiny
+    # vouchers is empty, not "at risk" (QA 2026-09-24 6.1). Runway / spike need
+    # two months of expenses and a real sample of entries; the quality score
+    # needs a sample to be a score at all.
+    months_with_expenses = sum(1 for m in recent_months if monthly_expense.get(m, 0) > 0)
+    enough_history = len(txns) >= MIN_TXNS_FOR_ALERTS and months_with_expenses >= 2
+    if runway_months is not None and runway_months < 3 and enough_history:
         alerts.append(AlertItem(level="high", title="Cash runway is short", message=f"Estimated runway is {runway_months} months based on recent burn rate."))
     if overdue_ar > 0:
         alerts.append(AlertItem(level="medium", title="Overdue receivables", message=f"Overdue AR is {overdue_ar:,}. Follow up collections."))
     if overdue_ap > 0:
         alerts.append(AlertItem(level="medium", title="Overdue payables", message=f"Overdue AP is {overdue_ap:,}. Plan vendor payments."))
-    if health_score < 70:
+    if health_score < 70 and len(txns) >= MIN_TXNS_FOR_ALERTS:
         alerts.append(AlertItem(level="medium", title="Book quality risk", message=f"Data quality score is {health_score}/100. Resolve missing references/entities/attachments."))
-    if burn_rate > 0 and monthly_expense.get(current_month, 0) > int(burn_rate * 1.5):
+    if burn_rate > 0 and monthly_expense.get(current_month, 0) > int(burn_rate * 1.5) and enough_history:
         alerts.append(AlertItem(level="low", title="Expense spike", message="This month expenses are significantly above recent average."))
 
     close_checklist = [

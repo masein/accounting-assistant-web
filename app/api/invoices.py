@@ -109,6 +109,10 @@ def _invoice_totals(db: Session, inv: Invoice) -> tuple[int, int, int]:
         or 0
     )
     balance_due = max(0, amount - paid - credited)
+    # amount_paid is what settled THIS invoice; anything above it is the
+    # customer's credit / supplier advance (booked separately at payment time)
+    # and is reported as `overpaid`, not folded into amount_paid (QA 3.2).
+    paid = min(paid, max(0, amount - credited))
     # Legacy reconciliation: invoices marked paid under the old flow have no
     # Payment rows, so the new calc would show a full open balance that
     # contradicts the status. Treat a 'paid' invoice as fully settled.
@@ -137,6 +141,14 @@ def _recompute_status(inv: Invoice, paid: int, credited: int, balance_due: int) 
         inv.status = "issued"
 
 
+def _overpayment(db: Session, inv: Invoice) -> int:
+    """Payments received beyond the invoice amount (net of reductions)."""
+    raw = int(db.execute(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.invoice_id == inv.id)).scalar() or 0)
+    credited = int(db.execute(select(func.coalesce(func.sum(CreditNote.amount), 0)).where(
+        CreditNote.invoice_id == inv.id, CreditNote.note_type == "reduction")).scalar() or 0)
+    return max(0, raw - max(0, int(inv.amount or 0) - credited))
+
+
 def _to_read(row: Invoice) -> InvoiceRead:
     data = InvoiceRead.model_validate(row)
     data.pdf_url = f"/invoices/{row.id}/pdf"
@@ -150,6 +162,7 @@ def _to_read(row: Invoice) -> InvoiceRead:
         data.amount_paid = paid
         data.credited = credited
         data.balance_due = balance_due
+        data.overpaid = _overpayment(db, row)
     return data
 
 

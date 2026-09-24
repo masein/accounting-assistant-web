@@ -37,6 +37,10 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "ins_runway_critical_body": "At current burn rate ({burn:,}/month), cash ({cash:,}) will run out in {runway:.1f} months.",
         "ins_runway_limited_title": "Cash runway is limited: {runway:.1f} months",
         "ins_runway_limited_body": "Consider reducing expenses or accelerating collections.",
+        "ins_runway_overdrawn_title": "Cash is overdrawn: no runway",
+        "ins_runway_overdrawn_body": "Cash on hand is {cash:,} {money}: spending is running ahead of the money that funds it (burn {burn:,}/month). Bring cash back above zero before anything else.",
+        "narr_cash_overdrawn": "Cash on hand is {cash:,} {money}, i.e. overdrawn; there is no runway at the current burn rate of {burn:,}/month.",
+        "qa_runway_overdrawn": "With cash at {cash:,} {money} the business is overdrawn and has no runway; the burn rate is {burn:,} {money}/month.",
         "ins_revenue_declined_title": "Revenue declined {pct:.0f}% month-over-month",
         "ins_revenue_declined_body": "This month: {current:,} vs last month: {previous:,}.",
         "ins_expense_spike_title": "Expenses spiked {pct:.0f}% this month",
@@ -68,6 +72,10 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "ins_runway_critical_body": "با نرخ سوخت فعلی ({burn:,} در ماه)، نقدینگی ({cash:,}) در {runway:.1f} ماه تمام می‌شود.",
         "ins_runway_limited_title": "دوام نقدینگی محدود است: {runway:.1f} ماه",
         "ins_runway_limited_body": "کاهش هزینه‌ها یا تسریع وصول مطالبات را در نظر بگیرید.",
+        "ins_runway_overdrawn_title": "موجودی نقد منفی است: دوامی باقی نمانده",
+        "ins_runway_overdrawn_body": "موجودی نقد {cash:,} {money} است؛ خرج از پولی که آن را تأمین می‌کند جلو زده (نرخ سوخت {burn:,} در ماه). پیش از هر چیز نقدینگی را به بالای صفر برگردانید.",
+        "narr_cash_overdrawn": "موجودی نقد {cash:,} {money} یعنی منفی است؛ با نرخ سوخت {burn:,} در ماه دوامی باقی نمانده.",
+        "qa_runway_overdrawn": "با موجودی نقد {cash:,} {money} کسب‌وکار در اضافه‌برداشت است و دوامی ندارد؛ نرخ سوخت {burn:,} {money} در ماه است.",
         "ins_revenue_declined_title": "درآمد نسبت به ماه قبل {pct:.0f}٪ کاهش یافت",
         "ins_revenue_declined_body": "این ماه: {current:,} در مقابل ماه قبل: {previous:,}.",
         "ins_expense_spike_title": "هزینه‌ها این ماه {pct:.0f}٪ جهش داشت",
@@ -99,6 +107,10 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "ins_runway_critical_body": "Al ritmo de gasto actual ({burn:,}/mes), el efectivo ({cash:,}) se agotará en {runway:.1f} meses.",
         "ins_runway_limited_title": "Margen de liquidez limitado: {runway:.1f} meses",
         "ins_runway_limited_body": "Considera reducir gastos o acelerar los cobros.",
+        "ins_runway_overdrawn_title": "Caja en descubierto: sin margen",
+        "ins_runway_overdrawn_body": "La caja es {cash:,} {money}: el gasto va por delante del dinero que lo financia (consumo {burn:,}/mes). Recupera una caja positiva antes que nada.",
+        "narr_cash_overdrawn": "La caja es {cash:,} {money}, es decir, en descubierto; no hay margen al consumo actual de {burn:,}/mes.",
+        "qa_runway_overdrawn": "Con una caja de {cash:,} {money} el negocio está en descubierto y no tiene margen; el consumo es {burn:,} {money}/mes.",
         "ins_revenue_declined_title": "Los ingresos cayeron {pct:.0f}% intermensual",
         "ins_revenue_declined_body": "Este mes: {current:,} frente al mes pasado: {previous:,}.",
         "ins_expense_spike_title": "Los gastos subieron {pct:.0f}% este mes",
@@ -130,6 +142,10 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "ins_runway_critical_body": "بمعدل الإنفاق الحالي ({burn:,} شهرياً)، سينفد النقد ({cash:,}) خلال {runway:.1f} شهراً.",
         "ins_runway_limited_title": "مدة كفاية النقد محدودة: {runway:.1f} شهراً",
         "ins_runway_limited_body": "فكّر في خفض المصروفات أو تسريع التحصيل.",
+        "ins_runway_overdrawn_title": "النقد بالسالب: لا مدى متبقٍ",
+        "ins_runway_overdrawn_body": "النقد المتاح {cash:,} {money}؛ الإنفاق يسبق المال الذي يموّله (معدل الاستهلاك {burn:,}/شهر). أعد النقد فوق الصفر قبل أي شيء.",
+        "narr_cash_overdrawn": "النقد المتاح {cash:,} {money}، أي بالسالب؛ لا مدى متبقٍ بمعدل استهلاك {burn:,}/شهر.",
+        "qa_runway_overdrawn": "بنقد قدره {cash:,} {money} يكون العمل مكشوفاً ولا مدى متبقٍ له؛ معدل الاستهلاك {burn:,} {money}/شهر.",
         "ins_revenue_declined_title": "انخفضت الإيرادات {pct:.0f}٪ مقارنة بالشهر السابق",
         "ins_revenue_declined_body": "هذا الشهر: {current:,} مقابل الشهر الماضي: {previous:,}.",
         "ins_expense_spike_title": "قفزت المصروفات {pct:.0f}٪ هذا الشهر",
@@ -400,7 +416,15 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en")
     report.kpis.append(KPI(key="burn_rate", label="Monthly Burn Rate", value=burn_rate, unit=money))
 
     # KPI: Runway
-    runway = data["total_cash"] / burn_rate if burn_rate > 0 else 999
+    # Negative cash is not "-0.6 months of runway" — it is no runway at all
+    # (QA 2026-09-24 6.2): report 0 and say overdrawn.
+    overdrawn = data["total_cash"] <= 0 and burn_rate > 0
+    if burn_rate <= 0:
+        runway = 999
+    elif overdrawn:
+        runway = 0.0
+    else:
+        runway = data["total_cash"] / burn_rate
     report.runway_months = round(runway, 1)
     report.kpis.append(KPI(
         key="runway_months", label="Cash Runway", value=round(runway, 1),
@@ -431,7 +455,15 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en")
         ))
         priority += 1
 
-    if runway < 3:
+    if overdrawn:
+        report.insights.append(Insight(
+            priority=priority, category="cash", severity="critical",
+            title=_s(lang, "ins_runway_overdrawn_title"),
+            body=_s(lang, "ins_runway_overdrawn_body").format(
+                burn=burn_rate, cash=data["total_cash"], money=money),
+        ))
+        priority += 1
+    elif runway < 3:
         report.insights.append(Insight(
             priority=priority, category="cash", severity="critical",
             title=_s(lang, "ins_runway_critical_title").format(runway=runway),
@@ -519,7 +551,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en")
         parts.append(_s(lang, "narr_profitable").format(margin=margin))
     else:
         parts.append(_s(lang, "narr_loss").format(loss=abs(net_profit), money=money))
-    parts.append(_s(lang, "narr_cash").format(
+    parts.append(_s(lang, "narr_cash_overdrawn" if overdrawn else "narr_cash").format(
         cash=data["total_cash"], money=money, runway=runway, burn=burn_rate))
     if report.insights:
         top = report.insights[0]
@@ -547,10 +579,10 @@ def answer_cfo_question(db: Session, question: str, currency: str | None = None,
             grade=report.health_grade, risk=report.risk_score, narrative=report.narrative)
 
     if any(w in low for w in ("survive", "runway", "last", "بقا", "دوام", "sobrevivir", "aguantar", "البقاء", "الاستمرار")):
-        return _s(lang, "qa_runway").format(
-            burn=report.burn_rate, money=money,
-            cash=kpi_map.get("cash_on_hand", KPI(key="", label="", value=0)).value,
-            runway=report.runway_months)
+        cash_value = kpi_map.get("cash_on_hand", KPI(key="", label="", value=0)).value
+        key = "qa_runway_overdrawn" if (cash_value <= 0 and report.burn_rate > 0) else "qa_runway"
+        return _s(lang, key).format(
+            burn=report.burn_rate, money=money, cash=cash_value, runway=report.runway_months)
 
     if any(w in low for w in ("profit drop", "profit fell", "profit declin", "سود کاهش", "چرا سود", "bajó la ganancia", "cayó el beneficio", "انخفاض الربح")):
         exp_trend = kpi_map.get("expense_trend")

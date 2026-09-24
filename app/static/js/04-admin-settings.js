@@ -352,6 +352,9 @@
     }
 
     async function loadUsers() {
+      // Employees created after login must be linkable too (QA 6.5): refresh
+      // the "link to employee" options every time the user table loads.
+      if (typeof populateEntityLinkOptions === 'function') populateEntityLinkOptions();
       try {
         const res = await fetch(API + '/admin/users');
         const data = await res.json().catch(() => []);

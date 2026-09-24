@@ -142,7 +142,7 @@ def build_entity_statement(
     transactions: Iterable[Transaction],
 ) -> list[EntityMovement]:
     """Per-journal Debtor / Creditor / Remaining for ``transactions``, which
-    must already be in statement order (date, then id). Balance is the
+    must already be in statement order (date, then creation time, then id). Balance is the
     entity's natural balance: asset-side entities grow with "received",
     liability-side entities grow with "paid" (what they gave us)."""
     from app.services.cash_service import cash_account_predicate

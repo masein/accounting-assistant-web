@@ -619,9 +619,16 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
 
 @router.delete("/{invoice_id}", status_code=204)
 def delete_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> None:
+    """Only a draft can be deleted. An issued invoice has a recognition entry
+    (and maybe payments) in the ledger: void it instead, which reverses those
+    postings and keeps the trail (security review 2026-09-24 H7)."""
     row = db.get(Invoice, invoice_id)
     if not row:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    if row.status != "draft":
+        raise HTTPException(status_code=409, detail=f"Only draft invoices can be deleted; this one is {row.status}. Void it instead.")
+    log_audit_event(db, action="delete", entity_type="invoice", entity_id=str(row.id),
+                    detail=f"Draft invoice {row.number} deleted")
     db.delete(row)
     db.commit()
 
@@ -703,8 +710,8 @@ def add_payment(invoice_id: UUID, payload: PaymentCreate, db: Session = Depends(
     inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    if inv.status == "canceled":
-        raise HTTPException(status_code=400, detail="Cannot pay a canceled invoice.")
+    if inv.status in ("canceled", "voided"):
+        raise HTTPException(status_code=409, detail=f"Cannot pay a {inv.status} invoice.")
     if payload.currency and payload.currency.strip().upper() != (inv.currency or "").upper():
         raise HTTPException(status_code=400, detail=f"Payment currency must match the invoice ({inv.currency}).")
     try:
@@ -914,6 +921,8 @@ def mark_invoice_paid(
     inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.status in ("canceled", "voided"):
+        raise HTTPException(status_code=409, detail=f"Cannot pay a {inv.status} invoice.")
 
     # Resolve a bank-entity override into a code, preserving prior behaviour.
     bank_code = (payload.bank_account_code or "").strip() or None

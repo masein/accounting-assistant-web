@@ -404,6 +404,16 @@ saved in Settings → AI providers (persisted in `app_settings`), so changing
 the default in `config.py` only affects fresh installs; existing
 deployments switch the model in Settings.
 
+## Who configures the provider
+
+AI provider wiring (OpenAI-shape provider + key, Anthropic config, chat shape)
+is **platform-wide**: one runtime configuration for every company on the
+server, stored in a single `app_settings` row with `company_id = NULL` and
+editable only by the super-admin (`Perm.PLATFORM_ADMIN`, held by no company
+role). Owners see a note in Settings instead of the controls. Decided
+2026-09-24 after a per-company save was found to flip the model for every
+tenant until the next restart.
+
 ## Cost notes
 
 The system prompt + tool catalogue are cached (`cache_control:

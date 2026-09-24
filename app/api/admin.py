@@ -15,6 +15,7 @@ from app.core.auth import (
     hash_password,
     require_admin,
     validate_password_strength,
+    require_superadmin,
 )
 from app.core.permissions import ALL_ROLES, Role
 from app.core.ai_runtime import (
@@ -115,13 +116,13 @@ def send_test_email_endpoint(payload: TestEmailRequest, _=Depends(require_admin)
 
 
 @router.get("/ai-config")
-def get_ai_config(_=Depends(get_current_user)) -> dict:
-    # Gate: the router-level RBAC guard (Perm.AI_CONFIG, owner-only).
+def get_ai_config(_=Depends(require_superadmin)) -> dict:
+    # Platform-wide setting: super-admin only (route table + this dependency).
     return get_ai_config_public()
 
 
 @router.patch("/ai-config")
-def patch_ai_config(payload: AIConfigPatch, _=Depends(require_admin)) -> dict:
+def patch_ai_config(payload: AIConfigPatch, _=Depends(require_superadmin)) -> dict:
     return update_ai_config(
         provider=payload.provider,
         model=payload.model,
@@ -176,7 +177,7 @@ def _resolve_effective_shape(db: Session) -> str:
 
 
 @router.get("/chat-provider-shape", response_model=ChatShapeRead)
-def read_chat_provider_shape(db: Session = Depends(get_db)) -> ChatShapeRead:
+def read_chat_provider_shape(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> ChatShapeRead:
     """Return the AI Chat provider-shape selector for the Settings UI."""
     from sqlalchemy import select as _sel
     from app.models.app_setting import AppSetting
@@ -198,7 +199,7 @@ def read_chat_provider_shape(db: Session = Depends(get_db)) -> ChatShapeRead:
 def update_chat_provider_shape(
     payload: ChatShapeUpdate,
     db: Session = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_superadmin),
 ) -> ChatShapeRead:
     """Persist the user's explicit chat-shape choice (or clear it to
     re-enable auto-detection by sending an empty string)."""
@@ -263,7 +264,7 @@ def update_closed_period(
 
 
 @router.get("/anthropic-config")
-def get_anthropic_config(_=Depends(get_current_user)) -> dict:
+def get_anthropic_config(_=Depends(require_superadmin)) -> dict:
     """Return the AI-accountant (Claude) provider settings only — separate
     from the OpenAI-compatible default provider config. The default
     ``base_url`` (``https://api.anthropic.com``) is returned when no
@@ -279,7 +280,7 @@ def get_anthropic_config(_=Depends(get_current_user)) -> dict:
 
 
 @router.patch("/anthropic-config")
-def patch_anthropic_config(payload: AnthropicConfigPatch, _=Depends(require_admin)) -> dict:
+def patch_anthropic_config(payload: AnthropicConfigPatch, _=Depends(require_superadmin)) -> dict:
     """Update the Anthropic provider settings used by the AI accountant.
     Any field left blank is left unchanged. Use ``api_key = "-"`` to clear
     the stored key. Setting ``base_url`` to an empty string falls back to

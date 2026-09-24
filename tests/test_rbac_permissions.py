@@ -40,11 +40,13 @@ MATRIX = [
     ("GET", "/admin/company-profile", {O, C, P}),
     ("PUT", "/fx/reporting-currency", {O}),
     ("POST", "/admin/reset-db", {O}),
-    # LLM provider wiring: owner-only, reads included (Perm.AI_CONFIG)
-    ("GET", "/admin/ai-config", {O}),
-    ("PATCH", "/admin/ai-config", {O}),
-    ("GET", "/admin/anthropic-config", {O}),
-    ("PATCH", "/admin/anthropic-config", {O}),
+    # LLM provider wiring is platform-wide: NO company role, super-admin only
+    ("GET", "/admin/ai-config", set()),
+    ("PATCH", "/admin/ai-config", set()),
+    ("GET", "/admin/anthropic-config", set()),
+    ("PATCH", "/admin/anthropic-config", set()),
+    ("GET", "/admin/chat-provider-shape", set()),
+    ("PUT", "/admin/chat-provider-shape", set()),
     # User management (Owner only)
     ("GET", "/admin/users", {O}),
     ("POST", "/admin/users", {O}),
@@ -114,8 +116,10 @@ def test_permission_matrix(method, path, allowed):
 
 
 def test_owner_can_do_everything_in_matrix():
-    for method, path, _ in MATRIX:
-        assert user_can_access(_user(O), method, path) is True
+    # Rows with an empty role set are platform-only (super-admin) routes — no
+    # company role, not even the Owner, may reach them.
+    for method, path, allowed in MATRIX:
+        assert user_can_access(_user(O), method, path) is bool(allowed), (method, path)
 
 
 def test_superadmin_bypasses_rbac():
@@ -229,12 +233,13 @@ def _role_client(client, role: str):
     (P, "get", "/admin/company-profile", False),
     (C, "put", "/admin/company-profile", True),
     (P, "put", "/admin/company-profile", True),
-    # AI provider config is owner-only through the route table alone — the
-    # handlers no longer stack their own require_admin on the reads.
+    # AI provider config is platform-wide: every company role is denied,
+    # including the owner (super-admin covered in test_superadmin_only_ai_config).
     (C, "get", "/admin/ai-config", True),
     (P, "get", "/admin/ai-config", True),
     (C, "get", "/admin/anthropic-config", True),
-    (O, "get", "/admin/anthropic-config", False),
+    (O, "get", "/admin/anthropic-config", True),
+    (O, "get", "/admin/ai-config", True),
 ])
 def test_live_guard_returns_403_when_denied(client, role, method, path, denied):
     rc = _role_client(client, role)

@@ -77,7 +77,24 @@ def load_ai_config_from_db() -> None:
 
         db = SessionLocal()
         try:
-            row = db.query(AppSetting).filter(AppSetting.key == _DB_KEY).first()
+            # The AI wiring is one platform-wide row (company_id NULL). Older
+            # deployments saved it per company; fall back to the most recently
+            # touched of those so an upgrade keeps working, and the next save
+            # writes the platform row.
+            from app.db.tenant import tenant_bypass
+            with tenant_bypass():
+                row = (
+                    db.query(AppSetting)
+                    .filter(AppSetting.key == _DB_KEY, AppSetting.company_id.is_(None))
+                    .first()
+                )
+                if row is None:
+                    row = (
+                        db.query(AppSetting)
+                        .filter(AppSetting.key == _DB_KEY)
+                        .order_by(AppSetting.updated_at.desc())
+                        .first()
+                    )
             if row and row.value:
                 saved = json.loads(row.value)
                 with _lock:
@@ -104,12 +121,18 @@ def _persist_to_db() -> None:
 
         db = SessionLocal()
         try:
-            row = db.query(AppSetting).filter(AppSetting.key == _DB_KEY).first()
-            if row:
-                row.value = snapshot
-            else:
-                db.add(AppSetting(key=_DB_KEY, value=snapshot))
-            db.commit()
+            from app.db.tenant import tenant_bypass
+            with tenant_bypass():
+                row = (
+                    db.query(AppSetting)
+                    .filter(AppSetting.key == _DB_KEY, AppSetting.company_id.is_(None))
+                    .first()
+                )
+                if row:
+                    row.value = snapshot
+                else:
+                    db.add(AppSetting(key=_DB_KEY, value=snapshot, company_id=None))
+                db.commit()
         finally:
             db.close()
     except Exception:

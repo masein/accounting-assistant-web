@@ -75,10 +75,15 @@ class Perm:
     # its own capability so the route table states the intent, rather than
     # leaving it to a require_admin stacked on top of a laxer mapping.
     AI_CONFIG = "ai:config"
+    # Platform-level settings (AI providers, chat shape). Held by NO company
+    # role — only the super-admin passes (user_can_access short-circuits on
+    # is_superadmin). Excluded from ALL_PERMS below so the owner doesn't get it.
+    PLATFORM_ADMIN = "platform:admin"
 
 
 ALL_PERMS = frozenset(
-    v for k, v in vars(Perm).items() if not k.startswith("_") and isinstance(v, str)
+    v for k, v in vars(Perm).items()
+    if not k.startswith("_") and isinstance(v, str) and k != "PLATFORM_ADMIN"
 )
 
 # Any authenticated user with a known role may hit these harmless lookups
@@ -185,18 +190,20 @@ _add("PUT", "/admin/company-profile", Perm.SETTINGS_WRITE)
 _add("POST", "/admin/company-profile/logo", Perm.SETTINGS_WRITE)
 _add("POST", "/admin/company-profile/signature", Perm.SETTINGS_WRITE)
 for _p in ("/admin/reporting-locale", "/admin/display-calendar",
-           "/admin/iran-shares-outstanding", "/admin/closed-period",
-           "/admin/chat-provider-shape"):
+           "/admin/iran-shares-outstanding", "/admin/closed-period"):
     _add("GET", _p, Perm.SETTINGS_READ)
     _add("PUT", _p, Perm.SETTINGS_WRITE)
-# AI provider config is an owner-level setting — including the reads, which
-# expose the configured provider/model/base_url (secrets are never returned).
 # Sending a test email exposes the mail host and can emit traffic: owner-only.
 _add("POST", "/admin/test-email", Perm.SETTINGS_WRITE)
-_add("GET", "/admin/ai-config", Perm.AI_CONFIG)
-_add("PATCH", "/admin/ai-config", Perm.AI_CONFIG)
-_add("GET", "/admin/anthropic-config", Perm.AI_CONFIG)
-_add("PATCH", "/admin/anthropic-config", Perm.AI_CONFIG)
+# AI provider wiring is PLATFORM-wide (one runtime, one key, every company):
+# super-admin only, reads included. Decided 2026-09-24 after the QA run found
+# a per-company save flipping the model for every tenant until restart.
+for _m, _p in [
+    ("GET", "/admin/ai-config"), ("PATCH", "/admin/ai-config"),
+    ("GET", "/admin/anthropic-config"), ("PATCH", "/admin/anthropic-config"),
+    ("GET", "/admin/chat-provider-shape"), ("PUT", "/admin/chat-provider-shape"),
+]:
+    _add(_m, _p, Perm.PLATFORM_ADMIN)
 _add("POST", "/admin/reset-db", Perm.SETTINGS_WRITE)  # destructive, owner-only
 
 # --- User management (Owner only) ------------------------------------------

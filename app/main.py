@@ -267,6 +267,7 @@ def _bootstrap_schema_and_seed(strict: bool = False) -> None:
         seed_chart_if_empty(db)
         seed_payment_methods_if_empty(db)
         seed_admin_user_if_missing(db)
+        _warn_if_default_admin_password(db)
         from app.services.fx_service import seed_default_rates_if_empty
         seed_default_rates_if_empty(db)
         from app.services.tax_rate_service import seed_tax_rates
@@ -274,6 +275,23 @@ def _bootstrap_schema_and_seed(strict: bool = False) -> None:
     finally:
         db.close()
     ensure_default_company(engine)
+
+
+def _warn_if_default_admin_password(db) -> None:
+    """Loud boot-time warning while the seeded admin still has 'admin'."""
+    try:
+        from sqlalchemy import func, select
+        from app.core.auth import verify_password
+        from app.models.user import User
+
+        row = db.execute(select(User).where(func.lower(User.username) == "admin")).scalars().first()
+        if row is not None and verify_password("admin", row.password_hash, row.password_salt):
+            logging.getLogger("app.security").warning(
+                "SECURITY: the 'admin' account still uses the default password. "
+                "Sign in and set a new one — until then that session is locked to the change-password screen."
+            )
+    except Exception:  # pragma: no cover - never block boot on this
+        pass
 
 
 @asynccontextmanager
@@ -573,7 +591,23 @@ def _resolve_api_key_actor(request: Request):
         return None
 
 
+# What a session opened with the default password may still reach.
+_PASSWORD_CHANGE_ALLOWED = {"/auth/change-password", "/auth/logout", "/auth/me", "/login"}
+
+
 async def _dispatch(request: Request, call_next, path: str, user):
+    if user is not None and getattr(user, "must_change_password", False) and path not in _PASSWORD_CHANGE_ALLOWED:
+        # Locked session: the seeded default password was used. Send the app
+        # shell back to the login page (which shows the change form) and
+        # refuse every API call with a machine-readable reason.
+        if path == "/":
+            return RedirectResponse(url="/login?change=1", status_code=302)
+        if path.startswith(PROTECTED_API_PREFIXES) or path.startswith("/auth/"):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "You signed in with the default password. Set a new password to continue.",
+                         "code": "password_change_required"},
+            )
     if path == "/":
         if not user:
             return RedirectResponse(url="/login", status_code=302)
@@ -587,7 +621,7 @@ async def _dispatch(request: Request, call_next, path: str, user):
         return response
 
     if path == "/login":
-        if user:
+        if user and not getattr(user, "must_change_password", False):
             return RedirectResponse(url="/", status_code=302)
         return await call_next(request)
 

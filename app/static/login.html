@@ -153,7 +153,17 @@
 
     <button type="submit" id="submit-btn">Login</button>
     <div class="error" id="error-box"></div>
-    <div class="hint"><span id="default-admin-label">Default admin credentials:</span> <strong>admin / admin</strong></div>
+  </form>
+
+  <form class="card" id="change-form" style="display:none;">
+    <h1 id="change-title">Set a new password</h1>
+    <p class="sub" id="change-sub">You signed in with the default password. Choose a new one to continue.</p>
+    <label for="new-password" id="new-password-label">New password</label>
+    <input id="new-password" type="password" autocomplete="new-password" minlength="8" required>
+    <label for="confirm-password" id="confirm-password-label">Confirm password</label>
+    <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required>
+    <button type="submit" id="change-btn">Save password</button>
+    <div class="error" id="change-error"></div>
   </form>
 
   <script>
@@ -175,7 +185,13 @@
         hidePassword: 'Hide password',
         login: 'Login',
         signingIn: 'Signing in...',
-        defaultAdmin: 'Default admin credentials:',
+        changeTitle: 'Set a new password',
+        changeSub: 'You signed in with the default password. Choose a new one to continue.',
+        newPassword: 'New password',
+        confirmPassword: 'Confirm password',
+        savePassword: 'Save password',
+        passwordMismatch: 'The two passwords do not match.',
+        passwordShort: 'Use at least 8 characters.',
         required: 'Username and password are required.',
         failed: 'Login failed.',
         connectionError: 'Connection error',
@@ -190,7 +206,13 @@
         hidePassword: 'پنهان کردن رمز',
         login: 'ورود',
         signingIn: 'در حال ورود...',
-        defaultAdmin: 'کاربر پیش‌فرض ادمین:',
+        changeTitle: 'رمز عبور جدید تعیین کنید',
+        changeSub: 'با رمز پیش‌فرض وارد شدید. برای ادامه یک رمز جدید انتخاب کنید.',
+        newPassword: 'رمز عبور جدید',
+        confirmPassword: 'تکرار رمز عبور',
+        savePassword: 'ذخیرهٔ رمز',
+        passwordMismatch: 'دو رمز با هم یکی نیستند.',
+        passwordShort: 'حداقل ۸ کاراکتر وارد کنید.',
         required: 'نام کاربری و رمز عبور الزامی است.',
         failed: 'ورود ناموفق بود.',
         connectionError: 'خطای اتصال',
@@ -205,7 +227,13 @@
         hidePassword: 'Ocultar contraseña',
         login: 'Entrar',
         signingIn: 'Ingresando...',
-        defaultAdmin: 'Credenciales de admin por defecto:',
+        changeTitle: 'Establece una nueva contraseña',
+        changeSub: 'Has iniciado sesión con la contraseña por defecto. Elige una nueva para continuar.',
+        newPassword: 'Nueva contraseña',
+        confirmPassword: 'Confirmar contraseña',
+        savePassword: 'Guardar contraseña',
+        passwordMismatch: 'Las contraseñas no coinciden.',
+        passwordShort: 'Usa al menos 8 caracteres.',
         required: 'Usuario y contraseña son obligatorios.',
         failed: 'Error de inicio de sesión.',
         connectionError: 'Error de conexión',
@@ -220,7 +248,13 @@
         hidePassword: 'إخفاء كلمة المرور',
         login: 'تسجيل الدخول',
         signingIn: 'جارٍ تسجيل الدخول...',
-        defaultAdmin: 'بيانات المدير الافتراضية:',
+        changeTitle: 'عيّن كلمة مرور جديدة',
+        changeSub: 'سجّلت الدخول بكلمة المرور الافتراضية. اختر كلمة جديدة للمتابعة.',
+        newPassword: 'كلمة المرور الجديدة',
+        confirmPassword: 'تأكيد كلمة المرور',
+        savePassword: 'حفظ كلمة المرور',
+        passwordMismatch: 'كلمتا المرور غير متطابقتين.',
+        passwordShort: 'استخدم 8 أحرف على الأقل.',
         required: 'اسم المستخدم وكلمة المرور مطلوبان.',
         failed: 'فشل تسجيل الدخول.',
         connectionError: 'خطأ في الاتصال',
@@ -246,7 +280,11 @@
       document.getElementById('login-language-label').textContent = t('language');
       document.getElementById('username-label').textContent = t('username');
       document.getElementById('password-label').textContent = t('password');
-      document.getElementById('default-admin-label').textContent = t('defaultAdmin');
+      document.getElementById('change-title').textContent = t('changeTitle');
+      document.getElementById('change-sub').textContent = t('changeSub');
+      document.getElementById('new-password-label').textContent = t('newPassword');
+      document.getElementById('confirm-password-label').textContent = t('confirmPassword');
+      document.getElementById('change-btn').textContent = t('savePassword');
       submitBtn.textContent = t('login');
       const pwBtn = document.getElementById('pw-toggle');
       const pwInput = document.getElementById('password');
@@ -306,6 +344,14 @@
         if (data.user && data.user.preferred_language) {
           localStorage.setItem('aa_ui_language', data.user.preferred_language);
         }
+        if (data.must_change_password) {
+          // Locked session: every API call is refused until a real password
+          // is set, so swap the login card for the change form right here.
+          form.style.display = 'none';
+          document.getElementById('change-form').style.display = '';
+          document.getElementById('new-password').focus();
+          return;
+        }
         window.location.href = '/';
       } catch (err) {
         setError(t('connectionError') + ': ' + err.message);
@@ -314,6 +360,36 @@
         submitBtn.textContent = t('login');
       }
     });
+
+    document.getElementById('change-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('change-error');
+      errEl.textContent = '';
+      const p1 = document.getElementById('new-password').value;
+      const p2 = document.getElementById('confirm-password').value;
+      if (p1.length < 8) { errEl.textContent = t('passwordShort'); return; }
+      if (p1 !== p2) { errEl.textContent = t('passwordMismatch'); return; }
+      const btn = document.getElementById('change-btn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: p1 }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { errEl.textContent = data.detail || t('failed'); return; }
+        window.location.href = '/';
+      } catch (err) {
+        errEl.textContent = t('connectionError') + ': ' + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    if (new URLSearchParams(location.search).get('change') === '1') {
+      form.style.display = 'none';
+      document.getElementById('change-form').style.display = '';
+    }
 
     langPills.addEventListener('click', (e) => {
       const btn = e.target.closest('.lang-pill[data-lang]');

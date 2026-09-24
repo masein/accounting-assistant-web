@@ -357,9 +357,13 @@
     .kpi-card { border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem; background: #fff; }
     .kpi-card .label { font-size: 0.78rem; color: var(--text-muted); }
     .kpi-card .value { font-size: 1.2rem; font-weight: 700; color: var(--text); }
-    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
-    .panel { border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem; background: #fff; }
+    /* minmax(0, …) + min-width:0: a wide table inside a panel scrolls within the
+       panel instead of stretching the grid column and the whole page (the
+       13-week forecast overflowed phones — QA 2026-09-24). */
+    .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
+    @media (max-width: 900px) { .dashboard-grid { grid-template-columns: minmax(0, 1fr); } }
+    .panel { border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem; background: #fff; min-width: 0; }
+    .panel > div { max-width: 100%; overflow-x: auto; }
     .panel h3 { margin: 0 0 0.5rem 0; font-size: 0.95rem; color: var(--text-muted); }
     .mini-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     .mini-table th, .mini-table td { border: 1px solid var(--border); padding: 0.35rem 0.45rem; text-align: left; }
@@ -655,6 +659,11 @@
       .sidebar-collapse { display: none; }
     }
     @media (max-width: 760px) {
+      /* AI chat: sessions above the conversation instead of a 230px column
+         squeezing the messages and chips (QA 2026-09-24). */
+      .ai-acct-layout { flex-direction: column; }
+      #ai-acct-sidebar { width: 100% !important; max-height: 30vh !important; }
+      #ai-acct-session-list { max-height: 18vh; }
       .container { max-width: 100%; padding-inline: .9rem; }
       h1 { font-size: 1.45rem; margin-bottom: 0.25rem; }
       .page-title { font-size: 1.15rem; }

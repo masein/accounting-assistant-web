@@ -152,3 +152,17 @@ def test_apply_role_access_hides_sme_only_for_personal():
     body = js.split("function applyRoleAccess()", 1)[1].split("\n    }", 1)[0]
     assert "sme-only" in body
     assert "personalMode ? 'none' : ''" in body
+
+
+def test_phone_layout_rules_for_dashboard_panels_and_chat():
+    """QA 2026-09-24: the dashboard's forecast table stretched the page and
+    the chat page kept a 230px sessions column at phone width."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "app" / "static"
+    css = (root / "css" / "app.css").read_text(encoding="utf-8")
+    html = (root / "index.html").read_text(encoding="utf-8")
+    assert 'class="ai-acct-layout"' in html
+    assert ".ai-acct-layout { flex-direction: column; }" in css
+    assert "#ai-acct-sidebar { width: 100% !important" in css
+    assert "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)" in css
+    assert ".panel > div { max-width: 100%; overflow-x: auto; }" in css

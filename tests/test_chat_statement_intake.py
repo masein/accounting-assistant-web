@@ -298,3 +298,50 @@ def test_safety_net_also_fires_when_the_model_tried_a_posted_row(auth_client, db
     prop = db.execute(select(AIProposal).where(
         AIProposal.confirmation_token == uuid.UUID(body["proposals"][0]["confirmation_token"]))).scalar_one()
     assert prop.tool_input["bank_statement_row_id"] == str(r2.id)
+
+
+def test_bank_name_comes_from_filename_or_header_not_from_merchant_rows():
+    from app.services.statement_import import guess_bank_name
+    body = "Date Description Debit Credit Balance\n2026-09-02 POS purchase — Refah store 4433 1,250,000"
+    assert guess_bank_name("qa-bank-statement.pdf", "add these", document_text=body) == "Unknown"
+    assert guess_bank_name("mellat-transactions.pdf", "", document_text=body) == "Mellat"
+    assert guess_bank_name("scan.pdf", "صورتحساب بانک سامان", document_text=body) == "Saman"
+    header = "بانک ملت — صورتحساب\n" + body
+    assert guess_bank_name("scan.pdf", "", document_text=header) == "Mellat"
+
+
+def test_statement_summary_follows_the_message_language(db, tmp_path, vision_rows):
+    from app.services.ai_accountant.statement_intake import maybe_statement_intake
+    p = tmp_path / "mellat-statement-fa.pdf"
+    p.write_bytes(FAKE_PDF + b"% fa\n")
+    att = TransactionAttachment(file_name=p.name, file_path=str(p), content_type="application/pdf", size_bytes=10)
+    db.add(att); db.flush()
+    out = asyncio.run(maybe_statement_intake(db, user_role="owner", attachments=[att],
+                                             message="اینا گردش حساب ملته، ثبتشون کن", lang="en"))
+    assert out is not None and out.intake["status"] == "imported"
+    assert "ردیف" in out.text and "rows" not in out.text
+
+
+def test_safety_net_stays_quiet_when_the_reply_is_about_a_missing_entry(db, make_transaction):
+    """The model described a book entry the bank never saw (amount 100); no
+    unrelated 'unrecorded' card may be attached under that reply."""
+    from app.models.bank_statement import BankStatement, BankStatementRow
+    from app.services.ai_accountant.statement_intake import ensure_statement_row_proposal
+
+    s = BankStatement(bank_name="Quiet Bank", source_type="csv", source_filename="q.csv", currency="IRR",
+                      from_date=date(2026, 2, 1), to_date=date(2026, 2, 28), status="parsed", total_rows=1)
+    db.add(s); db.flush()
+    db.add(BankStatementRow(statement_id=s.id, row_index=1, tx_date=date(2026, 2, 3), description="unrecorded row",
+                            debit=450_000, credit=0, confidence=1.0, recon_status="unmatched"))
+    make_transaction([("6112", 100, 0), ("1110", 0, 100)], tx_date=date(2026, 2, 10), description="never on statement")
+    db.commit()
+    calls = [{"name": "review_bank_statement", "input": {"statement_id": str(s.id)}}]
+    quiet = asyncio.run(ensure_statement_row_proposal(
+        db, user_id="u-quiet", username="t", session_id=None, user_message="next", tool_calls=calls,
+        assistant_text="Finding 1: 2026-02-10 'never on statement', amount 100 — recorded in the books but absent from the statement. Did it happen?"))
+    assert quiet is None
+    # A reply naming the unrecorded amount (or naming nothing) still gets its card.
+    card = asyncio.run(ensure_statement_row_proposal(
+        db, user_id="u-quiet", username="t", session_id=None, user_message="next", tool_calls=calls,
+        assistant_text="Next: 450,000 left the account on 2026-02-03 with no entry. Shall I record it?"))
+    assert card is not None

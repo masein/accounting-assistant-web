@@ -53,6 +53,9 @@ services:
       # Session-signing secret — REQUIRED in prod (auth tokens are signed with
       # it). Generate one: `openssl rand -hex 32`.
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      # Background jobs (recurring postings, feed refresh, daily digest).
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      SCHEDULER_DIGEST_HOUR: ${SCHEDULER_DIGEST_HOUR:-8}
       # The site is served over HTTPS: the session cookie always carries Secure.
       # Set AUTH_COOKIE_SECURE=false only for a plain-HTTP test box.
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}

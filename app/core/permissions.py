@@ -203,6 +203,7 @@ for _m, _p in [
     ("GET", "/admin/companies"), ("POST", "/admin/companies"),
     ("GET", "/admin/companies/{company_id}/logo"), ("PATCH", "/admin/companies/{company_id}"),
     ("POST", "/admin/companies/{company_id}/reset-password"),
+    ("GET", "/admin/jobs/status"),
     ("GET", "/admin/ai-config"), ("PATCH", "/admin/ai-config"),
     ("GET", "/admin/anthropic-config"), ("PATCH", "/admin/anthropic-config"),
     ("GET", "/admin/chat-provider-shape"), ("PUT", "/admin/chat-provider-shape"),

@@ -113,6 +113,10 @@ class Settings(BaseSettings):
     # Set AUTH_COOKIE_SECURE=true to force it on behind a TLS-terminating proxy
     # that forwards to the app over HTTP.
     auth_cookie_secure: bool | None = None
+    # In-process background jobs (recurring postings, feed refresh, digest).
+    # See app/jobs/scheduler.py. Off → nothing runs unless a browser triggers it.
+    scheduler_enabled: bool = True
+    scheduler_digest_hour: int = 8  # server local time, 0-23
 
 
 settings = Settings()

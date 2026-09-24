@@ -342,3 +342,27 @@ def test_unit_longer_than_the_rate_column_is_rejected(auth_client):
     r = auth_client.post("/personal/holdings", json={
         "account_code": "1110", "unit": "GOLD_GRAM", "quantity": 5})
     assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Holdings on an account that carries no book balance (QA 2026-09-24)
+# ---------------------------------------------------------------------------
+def test_holding_without_a_book_balance_is_still_valued(db):
+    """Gold registered before its purchase was ever posted: 10 g at 5m/g must
+    show up as a 50m asset with a 50m unrealized gain, not vanish."""
+    _hold(db, GOLD, "GOLDG", 10)
+    _rate(db, "GOLDG", 5_000_000)
+    nw = compute_net_worth(db, with_trend=True)
+    gold = _line(nw, GOLD)
+    assert gold is not None and gold.revalued is True
+    assert gold.book_value == 0 and gold.market_value == 50_000_000 and gold.unrealized_gain == 50_000_000
+    assert nw.net_worth == 50_000_000 and nw.missing_rates == []
+    # The trend also carries the held asset for the current month.
+    assert nw.trend and nw.trend[-1][1] == 50_000_000
+
+
+def test_holding_without_a_rate_is_reported_missing_even_with_zero_balance(db):
+    _hold(db, GOLD, "GOLDC", 3)
+    nw = compute_net_worth(db, with_trend=False)
+    assert "GOLDC" in nw.missing_rates
+    assert _line(nw, GOLD) is None          # nothing valued, nothing invented

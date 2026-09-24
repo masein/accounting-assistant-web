@@ -153,7 +153,13 @@ def compute_net_worth(
     balances = _balances_by_account(db, as_of)
     holdings = _holdings_by_account(db)
 
-    for code, book in sorted(balances.items()):
+    # Holdings on an account with no book balance yet (gold bought before the
+    # purchase was ever posted, say) must still be valued — iterating only
+    # the accounts that carry a balance silently dropped them and reported
+    # no missing rate either (production QA 2026-09-24).
+    codes = sorted(set(balances) | set(holdings))
+    for code in codes:
+        book = balances.get(code, 0)
         acc = accounts.get(code)
         if acc is None:
             continue
@@ -201,6 +207,8 @@ def _compute_trend(
     series: list[tuple[str, int]] = []
     for end in _month_ends(as_of, TREND_MONTHS):
         balances = _balances_by_account(db, end)
+        for code in holdings:           # value held assets even before any posting
+            balances.setdefault(code, 0)
         total = 0
         for code, book in balances.items():
             if code not in accounts:

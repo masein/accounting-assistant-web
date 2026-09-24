@@ -509,17 +509,23 @@ def _session_is_valid(user) -> bool:
             with tenant_bypass():
                 row = sess.get(User, uid)
                 if row is None:
-                    return True  # unknown user → stateless token, don't break
+                    # A deleted user must not keep a working session (security
+                    # review 2026-09-24, H4). Stateless tokens with no user row
+                    # exist only in dev/test fixtures.
+                    return settings.app_env in ("dev", "test")
                 if not row.is_active or int(row.token_version) != int(user.token_version):
                     return False
                 if row.company_id is not None:
                     company = sess.get(Company, row.company_id)
                     if company is not None and company.status != "active":
                         return False
-                # Refresh RBAC fields from the DB so a role change / entity link
-                # takes effect on the next request without a re-login.
+                # Refresh RBAC + privilege fields from the DB so a role change,
+                # entity link or revoked super-admin flag takes effect on the
+                # next request without a re-login (never trust the token's copy).
                 user.role = getattr(row, "role", None) or "owner"
                 user.entity_id = str(row.entity_id) if getattr(row, "entity_id", None) else None
+                user.is_superadmin = bool(getattr(row, "is_superadmin", False))
+                user.is_admin = bool(getattr(row, "is_admin", False)) or user.is_superadmin
             return True
         finally:
             if gen is not None:
@@ -527,7 +533,10 @@ def _session_is_valid(user) -> bool:
             else:
                 sess.close()
     except Exception:
-        return True  # never let validation errors lock everyone out
+        # Fail closed: a validation error means we cannot prove the session is
+        # still good. The client simply retries / re-logs in.
+        logging.getLogger("app.auth").warning("session_validation_failed", exc_info=True)
+        return False
 
 
 def _resolve_validation_session():

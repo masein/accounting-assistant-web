@@ -53,12 +53,16 @@ def test_default_password_session_is_locked_until_changed(client, db):
 
     # Weak or default replacements are refused.
     hdr = {"X-CSRF-Token": csrf}
-    assert client.post("/auth/change-password", json={"password": "admin"}, headers=hdr).status_code == 400
-    assert client.post("/auth/change-password", json={"password": "short"}, headers=hdr).status_code == 400
-    assert client.post("/auth/change-password", json={"password": u.username}, headers=hdr).status_code == 400
+    cur = {"current_password": "admin"}
+    assert client.post("/auth/change-password", json={**cur, "password": "admin"}, headers=hdr).status_code == 400
+    assert client.post("/auth/change-password", json={**cur, "password": "short"}, headers=hdr).status_code == 400
+    assert client.post("/auth/change-password", json={**cur, "password": u.username}, headers=hdr).status_code == 400
+    # …and never without proof of the current password.
+    assert client.post("/auth/change-password", json={"password": "Strong#Pass2026"}, headers=hdr).status_code == 422
+    assert client.post("/auth/change-password", json={"current_password": "wrong", "password": "Strong#Pass2026"}, headers=hdr).status_code == 400
 
     # A real password unlocks the session in place (fresh cookie, no flag).
-    r = client.post("/auth/change-password", json={"password": "Strong#Pass2026"}, headers=hdr)
+    r = client.post("/auth/change-password", json={**cur, "password": "Strong#Pass2026"}, headers=hdr)
     assert r.status_code == 200, r.text
     assert client.get("/entities").status_code == 200
     me = client.get("/auth/me").json()

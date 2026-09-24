@@ -1972,9 +1972,14 @@
         ceoAR: 'Accounts Receivable',
         ceoAP: 'Accounts Payable',
         invoiceCurrencyLabel: 'Currency',
+<<<<<<< HEAD
         bsLiabilitiesAndEquity: 'Liabilities + equity',
         bsBalanced: 'balanced',
         bsNotBalanced: 'does not balance (difference {diff})',
+=======
+        currencyViewNote: 'Figures shown in {currency}. The books also contain {others}. Amounts in different currencies are never added together; pick one to view it on its own.',
+        currencyViewOnly: '{currency} only',
+>>>>>>> origin/main
         noInvoicesYet: 'No invoices yet.',
         cfoKpiTotalRevenue: 'Total Revenue (12m)',
         cfoKpiAvgMonthlyRevenue: 'Avg Monthly Revenue',
@@ -3135,9 +3140,14 @@
         ceoAR: 'حساب‌های دریافتنی',
         ceoAP: 'حساب‌های پرداختنی',
         invoiceCurrencyLabel: 'واحد پول',
+<<<<<<< HEAD
         bsLiabilitiesAndEquity: 'بدهی‌ها + حقوق مالکانه',
         bsBalanced: 'تراز است',
         bsNotBalanced: 'تراز نیست (اختلاف {diff})',
+=======
+        currencyViewNote: 'ارقام به {currency} نمایش داده می‌شود. دفاتر شامل {others} هم هستند. مبالغ ارزهای مختلف هرگز با هم جمع نمی‌شوند؛ برای مشاهدهٔ جداگانه یکی را انتخاب کنید.',
+        currencyViewOnly: 'فقط {currency}',
+>>>>>>> origin/main
         noInvoicesYet: 'هنوز فاکتوری ثبت نشده است.',
         cfoKpiTotalRevenue: 'درآمد کل (۱۲ ماه)',
         cfoKpiAvgMonthlyRevenue: 'میانگین درآمد ماهانه',
@@ -4281,9 +4291,14 @@
         ceoAR: 'Cuentas por cobrar',
         ceoAP: 'Cuentas por pagar',
         invoiceCurrencyLabel: 'Moneda',
+<<<<<<< HEAD
         bsLiabilitiesAndEquity: 'Pasivo + patrimonio',
         bsBalanced: 'cuadra',
         bsNotBalanced: 'no cuadra (diferencia {diff})',
+=======
+        currencyViewNote: 'Cifras en {currency}. Los libros también contienen {others}. Los importes en distintas monedas nunca se suman; elige una para verla por separado.',
+        currencyViewOnly: 'Solo {currency}',
+>>>>>>> origin/main
         noInvoicesYet: 'Aún no hay facturas.',
         cfoKpiTotalRevenue: 'Ingresos totales (12m)',
         cfoKpiAvgMonthlyRevenue: 'Ingreso mensual promedio',
@@ -5427,9 +5442,14 @@
         ceoAR: 'الذمم المدينة',
         ceoAP: 'الذمم الدائنة',
         invoiceCurrencyLabel: 'العملة',
+<<<<<<< HEAD
         bsLiabilitiesAndEquity: 'الالتزامات + حقوق الملكية',
         bsBalanced: 'متوازنة',
         bsNotBalanced: 'غير متوازنة (الفرق {diff})',
+=======
+        currencyViewNote: 'الأرقام معروضة بعملة {currency}. تحتوي الدفاتر أيضاً على {others}. لا تُجمع المبالغ بعملات مختلفة أبداً؛ اختر عملة لعرضها منفصلة.',
+        currencyViewOnly: '{currency} فقط',
+>>>>>>> origin/main
         noInvoicesYet: 'لا توجد فواتير بعد.',
         cfoKpiTotalRevenue: 'إجمالي الإيرادات (12 شهرًا)',
         cfoKpiAvgMonthlyRevenue: 'متوسط الإيراد الشهري',

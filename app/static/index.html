@@ -713,6 +713,7 @@
       <h2 id="dashboard-title" data-i18n="dashboardTitle">Owner insights dashboard</h2>
       <p id="dashboard-subtitle" data-i18n="dashboardSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Business-focused KPIs, forecasts, aging, profitability, data quality checks, and actionable alerts.</p>
       <div id="kpi-grid" class="kpi-grid"></div>
+      <p id="dash-currency-note" class="currency-view-note" style="display:none;color:var(--text-muted);font-size:0.85rem;margin:0.25rem 0 0.75rem 0;"></p>
       <div class="dashboard-grid">
         <div class="panel">
           <h3 data-i18n="panelCashForecast">13-week cash forecast</h3>
@@ -812,6 +813,10 @@
             <option value="10000" data-i18n="all">All</option>
           </select>
         </div>
+        <div>
+          <label for="ledger-currency" data-i18n="invoiceCurrencyLabel">Currency</label>
+          <select id="ledger-currency"></select>
+        </div>
         <div class="ledger-check">
           <label for="ledger-nonzero">
             <input type="checkbox" id="ledger-nonzero" checked>
@@ -819,6 +824,7 @@
           </label>
         </div>
       </div>
+      <p id="ledger-currency-note" class="currency-view-note" style="display:none;color:var(--text-muted);font-size:0.85rem;margin:0 0 0.75rem 0;"></p>
       <div class="ledger-kpis" id="ledger-kpis"></div>
       <div id="results-wrap">
         <table class="results-table" id="results-table">

@@ -149,6 +149,10 @@ class TrialBalanceRow(BaseModel):
 
 class TrialBalanceResponse(BaseModel):
     report_type: str = "trial_balance"
+    # Single-currency view: which currency the figures are in, and which other
+    # currencies the books hold (never summed into these figures).
+    currency: str | None = None
+    other_currencies: list[str] = []
     period: ReportPeriod
     page: int
     page_size: int

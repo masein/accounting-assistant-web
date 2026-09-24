@@ -487,12 +487,14 @@ async def chat(
     _undo_low = last_user_message.strip().lower()
     if _undo_low in ("undo", "undo last", "delete last", "لغو", "لغو آخری", "حذف آخری", "برگرد"):
         last_txn = db.execute(
-            select(Transaction).order_by(Transaction.created_at.desc()).limit(1)
+            select(Transaction).where(Transaction.deleted_at.is_(None))
+            .order_by(Transaction.created_at.desc()).limit(1)
         ).scalar_one_or_none()
         if last_txn:
             txn_brief = f"{last_txn.date.isoformat()} - {last_txn.description or last_txn.reference or str(last_txn.id)[:8]}"
-            db.delete(last_txn)
-            db.commit()
+            # Same path as DELETE: closed-period check, audit + version, soft
+            # delete (was a hard delete with no trail — review H7).
+            _soft_delete_transaction(db, last_txn)
             return ChatResponse(
                 message=f"Deleted the last voucher: {txn_brief}",
                 transaction=None,
@@ -1561,6 +1563,23 @@ def update_transaction(
     return _transaction_to_read(t)
 
 
+def _soft_delete_transaction(db: Session, t: Transaction) -> None:
+    """The one way an entry leaves the books: closed-period check, audit
+    event + version, soft delete, statement rows released. Used by DELETE
+    /transactions/{id} and by the chat's "undo" (which used to hard-delete)."""
+    from datetime import datetime, timezone
+    from app.services.ledger_posting import assert_transaction_mutable
+    from app.services.statement_import import release_statement_rows
+
+    assert_transaction_mutable(db, t)
+    _log_transaction_audit(db, "delete", t)
+    t.deleted_at = datetime.now(timezone.utc)
+    release_statement_rows(db, t.id)
+    db.commit()
+    from app.api.reports import invalidate_dashboard_cache
+    invalidate_dashboard_cache()
+
+
 @router.delete("/{transaction_id}", status_code=204)
 def delete_transaction(
     transaction_id: UUID,
@@ -1568,19 +1587,9 @@ def delete_transaction(
 ) -> None:
     from datetime import datetime, timezone
     t = db.get(Transaction, transaction_id)
-    if not t:
+    if not t or t.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    from app.services.ledger_posting import assert_transaction_mutable
-    assert_transaction_mutable(db, t)
-    _log_transaction_audit(db, "delete", t)
-    # Soft delete: mark as deleted instead of removing from DB
-    t.deleted_at = datetime.now(timezone.utc)
-    # A statement row posted as this entry becomes postable again.
-    from app.services.statement_import import release_statement_rows
-    release_statement_rows(db, t.id)
-    db.commit()
-    from app.api.reports import invalidate_dashboard_cache
-    invalidate_dashboard_cache()
+    _soft_delete_transaction(db, t)
 
 
 @router.post("/import", response_model=ImportTransactionsResponse)
@@ -1589,7 +1598,10 @@ def import_transactions(
     db: Session = Depends(get_db),
 ) -> ImportTransactionsResponse:
     """Import multiple transactions in one request. Each transaction must have balanced lines (sum debits = sum credits)."""
+    from app.services.period_service import assert_period_open
+
     ids: list[UUID] = []
+    created: list[Transaction] = []
     for imp in payload.transactions:
         total_debit = sum(l.debit for l in imp.lines)
         total_credit = sum(l.credit for l in imp.lines)
@@ -1598,6 +1610,7 @@ def import_transactions(
                 status_code=400,
                 detail=f"Transaction dated {imp.date}: debits ({total_debit}) must equal credits ({total_credit})",
             )
+        assert_period_open(db, imp.date)  # the lock applies to imports too (review H7)
         t = Transaction(
             date=imp.date,
             reference=imp.reference,
@@ -1617,7 +1630,12 @@ def import_transactions(
                 )
             )
         ids.append(t.id)
+        created.append(t)
     db.commit()
+    for t in created:
+        _log_transaction_audit(db, "create", t)  # imports leave a trail like any posting
+    from app.api.reports import invalidate_dashboard_cache
+    invalidate_dashboard_cache()
     return ImportTransactionsResponse(imported=len(ids), ids=ids)
 
 
@@ -1826,6 +1844,12 @@ def excel_import_confirm(
     transaction_ids: list[UUID] = []
     errors: list[str] = []
 
+    # Refuse the whole file when a voucher falls inside the closed period —
+    # importing the rest would leave a half-applied batch (review H7).
+    from app.services.period_service import assert_period_open
+    for v in result.vouchers:
+        if getattr(v, "gregorian_date", None):
+            assert_period_open(db, v.gregorian_date)
     for v in result.vouchers:
         if not v.gregorian_date:
             errors.append(f"Voucher {v.voucher_number}: could not determine date (day code: {v.date_code})")

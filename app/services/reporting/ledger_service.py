@@ -224,8 +224,11 @@ class LedgerService:
         ).scalars().one_or_none()
         if not src:
             raise HTTPException(status_code=404, detail="Transaction not found")
+        from app.services.period_service import assert_period_open
+        rev_date = reverse_date or date.today()
+        assert_period_open(self.db, rev_date)  # the reversal is a new posting (review H7)
         rev = Transaction(
-            date=reverse_date or date.today(),
+            date=rev_date,
             reference=(reference or (f"REV-{src.reference}" if src.reference else f"REV-{src.id.hex[:8]}"))[:128],
             description=(description or f"Reversal of {src.id}"),
             currency=src.currency,

@@ -176,6 +176,8 @@ def revalue_foreign_currency_balances(
     """
     target = payload.target_currency.strip().upper()
     on = payload.as_of
+    from app.services.period_service import assert_period_open
+    assert_period_open(db, on)  # a revaluation entry is a posting too (review H7)
     errors: list[str] = []
 
     # 1. Collect foreign currency balances per account, grouped by (account_id, currency)

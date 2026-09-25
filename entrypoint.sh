@@ -10,6 +10,13 @@
 # to uvicorn. `exec` hands PID 1 to uvicorn so signals/shutdown behave correctly.
 set -e
 
+# Prometheus multi-worker mode keeps one file per worker here; stale files
+# from the previous container would double-count, so start empty.
+if [ -n "${PROMETHEUS_MULTIPROC_DIR:-}" ]; then
+  rm -rf "$PROMETHEUS_MULTIPROC_DIR"
+  mkdir -p "$PROMETHEUS_MULTIPROC_DIR"
+fi
+
 echo "[entrypoint] pre-start: waiting for DB, applying migrations, seeding ..."
 python -m app.prestart
 echo "[entrypoint] pre-start OK — starting web server: $*"

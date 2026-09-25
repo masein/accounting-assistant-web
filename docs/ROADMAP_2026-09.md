@@ -72,7 +72,12 @@ products on money, net-zero revaluations posted nothing) · ✅ 8 uploads (#139:
 raw filename in the Excel temp path, import history never recorded, temp files
 leaked, logo/signature/OCR trusted the content type, order-dependent inventory
 on-hand; tests can no longer reach the network). Remaining: suites 9–10,
-coverage gate, Playwright smoke suite.
+coverage gate, Playwright smoke suite. ✅ 2.4 observability: request id in a
+context variable on every log line and response (also 401/429 answered by
+the auth middleware, which were never logged), JSON logs in prod, 500s answer
+with the request id, token-gated `/metrics` (HTTP by route template, LLM
+calls, jobs; multi-worker aggregation), optional Sentry/GlitchTip with
+scrubbing (DEPLOY.md §10).
 
 ---
 

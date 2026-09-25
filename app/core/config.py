@@ -124,6 +124,17 @@ class Settings(BaseSettings):
     # Other workers pick up an AI provider change saved by the super-admin
     # within this many seconds (roadmap §2.2). 0 disables the check.
     ai_config_refresh_seconds: int = 15
+    # --- Observability (roadmap §2.4) ---
+    # json: one JSON object per line (ship to Loki/ELK); text: human-readable.
+    # Default: json in prod, text elsewhere.
+    log_format: str | None = None
+    log_level: str = "INFO"
+    # Error reporting (Sentry or a compatible GlitchTip). Empty = off.
+    sentry_dsn: str | None = None
+    sentry_traces_sample_rate: float = 0.0
+    # Bearer token a Prometheus scraper must send to GET /metrics. Empty =
+    # the endpoint answers 404.
+    metrics_token: str | None = None
 
 
 settings = Settings()

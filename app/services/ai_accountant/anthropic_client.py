@@ -27,6 +27,7 @@ import logging
 from typing import Any
 
 import anthropic
+from app.core.observability import observe_llm
 from anthropic.types import Message
 
 from app.core.ai_runtime import resolve_anthropic_config
@@ -147,7 +148,8 @@ async def chat_once(
 
     client = _client()
     try:
-        response = await client.messages.create(**request_kwargs)
+        async with observe_llm("anthropic", "chat"):
+            response = await client.messages.create(**request_kwargs)
     except anthropic.AuthenticationError as e:
         raise AIAccountantError(
             "Anthropic authentication failed — check ANTHROPIC_API_KEY."

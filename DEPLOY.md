@@ -201,6 +201,27 @@ The per-request API limiter (120 requests per minute per user) stays per
 worker, so with N workers the effective limit is N × 120. Each worker also
 loads the app separately, so budget roughly 250 MB of memory per worker.
 
+## 10. Logs, errors and metrics
+
+- **Logs are JSON by default in production**, one object per line, with `request_id`, `company_id`, `method`, `path`, `status`, `ms` and `user_id` on every request line. Set `LOG_FORMAT=text` for human-readable lines. Every response carries an `x-request-id` header, and error bodies include it too, so an id a user quotes finds the whole request with `docker compose logs api | grep <id>`.
+- **Error reporting is optional.** Set `SENTRY_DSN` to a Sentry project or a self-hosted GlitchTip (same protocol). Unhandled exceptions are sent with the request id as a tag. Cookies, auth headers, query strings and request bodies are stripped before sending.
+- **Metrics:** set `METRICS_TOKEN`, then scrape `GET /metrics` with `Authorization: Bearer <token>`. Without a token the endpoint answers 404. Series:
+  - `aa_http_requests_total` and `aa_http_request_duration_seconds`, labelled by route template, never raw ids;
+  - `aa_llm_calls_total` and `aa_llm_call_duration_seconds`, by provider and purpose (chat, suggest, ocr) with an ok or error outcome;
+  - `aa_job_runs_total` and `aa_job_duration_seconds`, per scheduler job.
+
+  With several workers, `PROMETHEUS_MULTIPROC_DIR` (set in the compose file) aggregates them; the entrypoint empties it on start.
+
+  A minimal Prometheus job:
+
+  ```yaml
+  - job_name: accounting-assistant
+    scheme: https
+    authorization: { credentials: "<METRICS_TOKEN>" }
+    static_configs: [{ targets: ["accounting.example.com"] }]
+  ```
+- **Log rotation** is already on for every container: 10 MB × 5 files (`x-logging` in `docker-compose.prod.yml`).
+
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally
   and bind-mounts the source for live reload. `docker-compose.prod.yml` runs the

@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI
 from starlette.concurrency import run_in_threadpool
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
@@ -66,10 +66,19 @@ from app.db.session import engine, SessionLocal, get_db
 import app.models  # noqa: F401 - register models with Base.metadata
 import app.core.shared_state  # noqa: F401,E402 - registers the books-version flush hook
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s %(message)s",
+from app.core.observability import (  # noqa: E402
+    clean_request_id,
+    configure_logging,
+    current_request_id,
+    init_error_reporting,
+    metrics_payload,
+    observe_request,
+    request_id_var,
 )
+
+# Request id + company on every line; JSON in prod (roadmap §2.4).
+configure_logging()
+init_error_reporting()
 request_logger = logging.getLogger("app.request")
 
 
@@ -416,35 +425,6 @@ async def security_headers_middleware(request: Request, call_next):
     return response
 
 
-@app.middleware("http")
-async def request_logging_middleware(request, call_next):
-    req_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
-    started = time.perf_counter()
-    try:
-        response = await call_next(request)
-    except Exception:
-        elapsed_ms = int((time.perf_counter() - started) * 1000)
-        request_logger.exception(
-            "request_failed id=%s method=%s path=%s ms=%s",
-            req_id,
-            request.method,
-            request.url.path,
-            elapsed_ms,
-        )
-        raise
-    elapsed_ms = int((time.perf_counter() - started) * 1000)
-    response.headers["x-request-id"] = req_id
-    request_logger.info(
-        "request_done id=%s method=%s path=%s status=%s ms=%s",
-        req_id,
-        request.method,
-        request.url.path,
-        response.status_code,
-        elapsed_ms,
-    )
-    return response
-
-
 _CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
@@ -760,6 +740,70 @@ def _sanitize_errors(errors: list[dict]) -> list[dict]:
     return safe
 
 
+# Registered LAST so it is the OUTERMOST middleware: every response — also a
+# 401/403/429 answered by the auth or rate-limit middleware — gets a request
+# id, a log line and a metric. (It used to sit inside the auth middleware, so
+# rejected requests were never logged.)
+_QUIET_PATHS = ("/health", "/metrics", "/favicon")
+
+
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    req_id = clean_request_id(request.headers.get("x-request-id")) or uuid.uuid4().hex[:16]
+    token = request_id_var.set(req_id)
+    request.state.request_id = req_id
+    started = time.perf_counter()
+    path = request.url.path
+    try:
+        try:
+            response = await call_next(request)
+        except Exception:
+            elapsed = time.perf_counter() - started
+            observe_request(request.method, path, 500, elapsed)
+            request_logger.exception(
+                "request_failed id=%s method=%s path=%s ms=%s", req_id, request.method, path,
+                int(elapsed * 1000),
+                extra={"method": request.method, "path": path, "status": 500, "ms": int(elapsed * 1000)},
+            )
+            raise
+        elapsed = time.perf_counter() - started
+        response.headers["x-request-id"] = req_id
+        observe_request(request.method, path, response.status_code, elapsed)
+        user = getattr(request.state, "user", None)
+        request_logger.log(
+            logging.DEBUG if path.startswith(_QUIET_PATHS) else logging.INFO,
+            "request_done id=%s method=%s path=%s status=%s ms=%s",
+            req_id, request.method, path, response.status_code, int(elapsed * 1000),
+            extra={"method": request.method, "path": path, "status": response.status_code,
+                   "ms": int(elapsed * 1000), "user_id": getattr(user, "user_id", None)},
+        )
+        return response
+    finally:
+        # Only after the request's own log line, so it carries the id too.
+        request_id_var.reset(token)
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics(request: Request):
+    """Prometheus exposition. Off (404) unless METRICS_TOKEN is set; the
+    scraper sends ``Authorization: Bearer <token>``."""
+    import hmac
+    expected = (settings.metrics_token or "").strip()
+    if not expected:
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+    auth = request.headers.get("authorization", "")
+    given = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+    if not hmac.compare_digest(given.encode(), expected.encode()):
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized"},
+                            headers={"WWW-Authenticate": "Bearer"})
+    body, ctype = metrics_payload()
+    return Response(content=body, media_type=ctype)
+
+
+def _request_id_of(request: Request) -> str | None:
+    return getattr(request.state, "request_id", None) or current_request_id()
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Return structured error responses for validation failures."""
@@ -769,8 +813,31 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "code": "VALIDATION_ERROR",
             "detail": "Request validation failed",
             "errors": _sanitize_errors(exc.errors()),
-            "request_id": request.headers.get("x-request-id"),
+            "request_id": _request_id_of(request),
         },
+        headers={"x-request-id": _request_id_of(request) or ""},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """A crash answers with the request id (users quote it; the log line and
+    the Sentry event carry the same id) and never with a traceback."""
+    rid = _request_id_of(request)
+    try:
+        from app.core.observability import _sentry_on
+        if _sentry_on:
+            import sentry_sdk
+            with sentry_sdk.new_scope() as scope:
+                if rid:
+                    scope.set_tag("request_id", rid)
+                sentry_sdk.capture_exception(exc)
+    except Exception:  # monitoring must never mask the original error
+        pass
+    return JSONResponse(
+        status_code=500,
+        content={"code": "INTERNAL_ERROR", "detail": "Internal server error", "request_id": rid},
+        headers={"x-request-id": rid or ""},
     )
 
 

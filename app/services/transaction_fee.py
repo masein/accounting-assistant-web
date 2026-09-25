@@ -246,7 +246,9 @@ def fee_amount_for_base(base_amount: int, rule: TransactionFee) -> tuple[int, bo
     if rule.fee_type == FeeType.FREE:
         return 0, False
     flat_fee, percent_bps = _effective_fee_values(rule)
-    percent_fee = int(round(base * (percent_bps / 10_000)))
+    # Exact integer arithmetic, half-up: 1 % of 250 is 3, not round()'s 2
+    # (half-to-even), and no float product on large rial amounts.
+    percent_fee = (base * int(percent_bps) + 5_000) // 10_000
     if rule.fee_type == FeeType.FLAT:
         fee = flat_fee
     elif rule.fee_type == FeeType.PERCENT:

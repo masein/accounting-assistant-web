@@ -48,7 +48,11 @@ visible (#127) · ✅ 4.2 quotes → invoice (#128) · ✅ 4.2 invoice e-mail wi
 PDF + payment details, automatic overdue reminders (owner opt-in, default
 3/10/20 days, one per stage, e-mail log) (#129) · ✅ 4.2 recurring invoices
 with optional auto-send, anchored schedules incl. Jalali months, closed-period
-retry. §4.2 done except SMS (no provider chosen yet). Next: §3.1 مودیان export.
+retry (#130). §4.2 done except SMS (no provider chosen yet). ✅ 3.1 phase 1:
+مودیان export for a trusted provider — 22-char tax number (Verhoeff), official
+JSON packet, readiness checks, stable per-company serials, result tracking,
+confirmed-invoice lock, 12-day deadline alerts. Phase 2 (direct API with the
+company's signing key, return/cancel invoices) is still open.
 
 ---
 

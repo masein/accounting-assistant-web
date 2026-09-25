@@ -73,6 +73,7 @@ def _read(db: Session, q: Quote) -> QuoteRead:
             "tax_rate": float(it.tax_rate or 0), "taxable": bool(it.taxable),
             "tax_code": it.tax_code, "tax_treatment": it.tax_treatment or "standard",
             "description": it.description, "inventory_item_id": it.inventory_item_id,
+            "sstid": it.sstid, "mu": it.mu,
         } for it in (q.items or [])],
         created_at=q.created_at, updated_at=q.updated_at,
     )
@@ -117,7 +118,7 @@ def _set_items(db: Session, q: Quote, items: list[InvoiceItemCreate]) -> None:
             position=pos, product_name=b.product_name, quantity=b.quantity, unit_price=b.unit_price,
             unit_cost=b.unit_cost, line_total=b.line_total, tax_rate=b.tax_rate, taxable=b.taxable,
             tax_code=b.tax_code, tax_treatment=b.tax_treatment, description=b.description,
-            inventory_item_id=b.inventory_item_id,
+            inventory_item_id=b.inventory_item_id, sstid=b.sstid, mu=b.mu,
         ))
     if built:
         q.amount = grand_total
@@ -310,7 +311,7 @@ def convert_quote(quote_id: UUID, payload: QuoteConvert | None = None, db: Sessi
         product_name=it.product_name, quantity=float(it.quantity or 0), unit_price=int(it.unit_price or 0),
         unit_cost=it.unit_cost, line_total=int(it.line_total or 0), tax_rate=float(it.tax_rate or 0),
         taxable=bool(it.taxable), tax_code=it.tax_code, tax_treatment=it.tax_treatment or "standard",
-        description=it.description, inventory_item_id=it.inventory_item_id,
+        description=it.description, inventory_item_id=it.inventory_item_id, sstid=it.sstid, mu=it.mu,
     ) for it in (q.items or [])]
     try:
         inv = insert_invoice(db, InvoiceCreate(

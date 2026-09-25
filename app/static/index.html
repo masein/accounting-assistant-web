@@ -227,9 +227,10 @@
       <!-- Itemized mode: editable line rows + live totals -->
       <div id="inv-items-section" style="margin-bottom:1rem;">
         <div style="overflow-x:auto;">
-          <table class="results-table" id="inv-items-table" style="min-width:780px;">
+          <table class="results-table" id="inv-items-table" style="min-width:900px;">
             <thead><tr>
               <th data-i18n="ibDescription">Description</th>
+              <th style="width:130px;" data-i18n="ibGoodsId" title="سامانه مودیان">Goods/service ID</th>
               <th style="width:70px; text-align:end;" data-i18n="ibQty">Qty</th>
               <th style="width:120px; text-align:end;" data-i18n="ibUnitPrice">Unit price</th>
               <th style="width:130px;" data-i18n="ibTaxCode">Tax code</th>
@@ -295,6 +296,42 @@
         <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="qtCustomer">Customer</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="qtValidUntil">Valid until</th><th data-i18n="usersActions">Actions</th></tr></thead>
         <tbody id="quotes-tbody"><tr><td colspan="6" class="empty-state" data-i18n="qtNone">No quotes yet.</td></tr></tbody>
       </table>
+
+      <!-- سامانه مودیان export -->
+      <details id="moadian-panel" style="margin-top:1.25rem;">
+        <summary style="cursor:pointer;font-weight:600;" data-i18n="moTitle">سامانه مودیان (e-invoicing)</summary>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="moSubtitle">Prepare sales invoices for the tax organisation: each one gets its 22-character tax number and is exported in the official JSON structure for your trusted provider (شرکت معتمد). Record the provider's answer here. Invoices must reach the system within the deadline after issue.</p>
+        <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
+          <div><label for="mo-memory" data-i18n="moMemoryId">Tax memory id</label>
+            <input type="text" id="mo-memory" maxlength="6" dir="ltr" style="width:7rem;text-transform:uppercase;" placeholder="A11XY9"></div>
+          <div><label for="mo-sstid" data-i18n="moDefaultSstid">Default goods/service ID</label>
+            <input type="text" id="mo-sstid" maxlength="13" dir="ltr" inputmode="numeric" style="width:10rem;"></div>
+          <div><label for="mo-mu" data-i18n="moDefaultMu">Default unit code</label>
+            <input type="text" id="mo-mu" maxlength="8" dir="ltr" inputmode="numeric" style="width:6rem;"></div>
+          <div><label for="mo-deadline" data-i18n="moDeadline">Deadline (days)</label>
+            <input type="number" id="mo-deadline" min="1" max="60" style="width:5rem;"></div>
+          <div><button type="button" class="btn btn-secondary" id="mo-save" data-i18n="moSave">Save</button></div>
+        </div>
+        <p style="color:var(--text-muted);font-size:0.78rem;margin:0.25rem 0 0.6rem;" data-i18n="moSettingsHint">The memory id comes from your مودیان account. A line without its own goods/service ID uses the default; the unit code comes from the tax organisation's list of units.</p>
+        <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;margin-bottom:0.5rem;">
+          <div><label for="mo-state" data-i18n="qtFilter">Show</label>
+            <select id="mo-state">
+              <option value="pending" data-i18n="moState_pending">Not sent</option>
+              <option value="exported" data-i18n="moState_exported">Exported</option>
+              <option value="rejected" data-i18n="moState_rejected">Rejected</option>
+              <option value="confirmed" data-i18n="moState_confirmed">Confirmed</option>
+              <option value="all" data-i18n="qtFilterAll">All</option>
+            </select></div>
+          <div><button type="button" class="btn btn-primary" id="mo-export" data-i18n="moExport">Export selected</button></div>
+          <div id="mo-summary" style="font-size:0.82rem;color:var(--text-muted);align-self:center;"></div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="results-table" id="mo-table">
+            <thead><tr><th><input type="checkbox" id="mo-all" aria-label="Select all"></th><th data-i18n="tableNo">No.</th><th data-i18n="labelIssueDate">Issue date</th><th data-i18n="qtCustomer">Customer</th><th data-i18n="labelAmount">Amount</th><th data-i18n="moDeadlineCol">Deadline</th><th data-i18n="usersStatus">Status</th><th data-i18n="moReadiness">Ready?</th><th data-i18n="usersActions">Actions</th></tr></thead>
+            <tbody id="mo-tbody"><tr><td colspan="9" class="empty-state" data-i18n="moNone">Nothing to show.</td></tr></tbody>
+          </table>
+        </div>
+      </details>
 
       <!-- Recurring invoices -->
       <h3 style="margin-top:1.25rem;" data-i18n="riTitle">Recurring invoices</h3>

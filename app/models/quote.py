@@ -80,6 +80,10 @@ class QuoteItem(Base, TenantMixin):
     taxable: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     tax_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     tax_treatment: Mapped[str] = mapped_column(String(24), default="standard", server_default="standard")
+    # سامانه مودیان: 13-digit goods/service id (شناسه کالا/خدمت) and the
+    # tax organisation's measurement-unit code. Blank → the company default.
+    sstid: Mapped[str | None] = mapped_column(String(13), nullable=True)
+    mu: Mapped[str | None] = mapped_column(String(8), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     inventory_item_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("inventory_items.id"), nullable=True

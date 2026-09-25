@@ -134,6 +134,8 @@ def _cross_tenant_calls(w):
         ("patch", f"/quotes/{w['quote']}", {"description": "tampered"}),
         ("post", f"/quotes/{w['quote']}/convert", {}),
         ("delete", f"/quotes/{w['quote']}", None),
+        ("get", f"/moadian/invoices/{w['inv']}/preview", None),
+        ("patch", f"/moadian/invoices/{w['inv']}", {"status": "pending"}),
         ("get", f"/recurring-invoices/{w['rinv']}", None),
         ("get", f"/recurring-invoices/{w['rinv']}/invoices", None),
         ("patch", f"/recurring-invoices/{w['rinv']}", {"name": "tampered"}),
@@ -167,6 +169,17 @@ def test_company_b_cannot_see_or_change_company_a_objects(client, db, world):
         assert q is not None and q.status == "draft" and q.description is None and q.converted_invoice_id is None
         assert db.get(RecurringInvoice, w["rinv"]).name == "A retainer"
     assert Path(w["att_path"]).exists()
+
+
+def test_company_b_cannot_export_company_a_invoices(client, db, world):
+    w = world
+    b = _owner(client, w["b"])
+    out = b.post("/moadian/export", json={"invoice_ids": [str(w["inv"])]}).json()
+    assert out["count"] == 0 and out["skipped"][0]["problems"] == ["Invoice not found."]
+    db.expire_all()
+    with tenant_bypass():
+        inv = db.get(Invoice, w["inv"])
+        assert inv.moadian_serial is None and inv.moadian_status is None
 
 
 def test_company_a_still_reaches_its_own_objects(client, world):

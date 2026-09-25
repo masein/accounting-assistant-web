@@ -282,7 +282,7 @@ def create_invoice_from_time(db: Session, *, client_id, project_id=None, date_fr
     if preview["empty"]:
         raise TimeBillingError("There is no unbilled time to invoice for this selection.")
 
-    from app.api.invoices import create_invoice as _create_invoice
+    from app.api.invoices import insert_invoice as _insert_invoice
     from app.schemas.invoice import InvoiceCreate, InvoiceItemCreate
 
     vat_code = preview["tax_code"]
@@ -307,7 +307,11 @@ def create_invoice_from_time(db: Session, *, client_id, project_id=None, date_fr
             line_total=m["amount"], tax_code=vat_code, tax_treatment=treatment,
         ))
 
-    inv_read = _create_invoice(InvoiceCreate(
+    # One unit of work: the invoice (with its AR entry) and the "invoiced"
+    # stamps on the entries commit together. It used to commit the invoice
+    # first, so a failure while stamping left billed hours looking unbilled —
+    # ready to be invoiced a second time.
+    inv = _insert_invoice(db, InvoiceCreate(
         number=(number or _next_time_invoice_number(db)),
         kind="sales", status="issued",
         issue_date=date.fromisoformat(preview["invoice_date"]),
@@ -315,9 +319,7 @@ def create_invoice_from_time(db: Session, *, client_id, project_id=None, date_fr
         amount=0, currency=preview["currency"],
         description=f"Time billing — {preview['client_name']} ({preview['period_from']} → {preview['period_to']})",
         entity_id=client_id, items=items,
-    ), db)
-
-    inv = db.get(Invoice, inv_read.id)
+    ))
     # Stamp the contributing entries as invoiced (locked) with their rate.
     rate_by_entry: dict[str, float] = {}
     for b in preview["groups"]:
@@ -331,7 +333,11 @@ def create_invoice_from_time(db: Session, *, client_id, project_id=None, date_fr
             e.invoice_id = inv.id
             e.rate_snapshot = rate_by_entry.get(eid)
             e.currency = preview["currency"]
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(inv)
     return inv, preview
 

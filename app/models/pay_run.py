@@ -32,6 +32,7 @@ class PayRun(Base, TenantMixin):
     total_social: Mapped[int] = mapped_column(BigInteger, default=0)
     total_deductions: Mapped[int] = mapped_column(BigInteger, default=0)
     total_net: Mapped[int] = mapped_column(BigInteger, default=0)
+    total_employer_social: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
 
     # Ledger links: the gross→net accrual on post, the bank settlement on pay.
     post_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -80,6 +81,12 @@ class PayRunLine(Base, TenantMixin):
     taxable_base: Mapped[int] = mapped_column(BigInteger, default=0)
     income_tax: Mapped[int] = mapped_column(BigInteger, default=0)
     social_security: Mapped[int] = mapped_column(BigInteger, default=0)
+    # Statutory extras (0 in flat mode): fixed allowances included in gross,
+    # the wage the insurance was computed on (after the ceiling), and the
+    # employer's own insurance share — a cost, not a deduction from the employee.
+    allowances: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    insurable_wage: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    employer_social: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     net_pay: Mapped[int] = mapped_column(BigInteger, default=0)
     # Snapshot of WHERE the net pay was disbursed, taken at pay time from the
     # employee entity's bank fields (e.g. "Bank Melli · IR12…"). Kept on the

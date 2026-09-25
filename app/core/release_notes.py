@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.24"
+CURRENT_RELEASE = "2026.09.25"
 
 
 @dataclass(frozen=True)
@@ -255,6 +255,46 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "وقتی فاکتوری بیش از مبلغش پرداخت می‌شود، فهرست فاکتورها بخش تسویه‌شده را به‌عنوان پرداخت‌شده و مازاد را به‌عنوان اعتبار نزد ما نشان می‌دهد، نه رقمی بزرگ‌تر از خود فاکتور.",
                     "es": "Cuando una factura se paga por encima de su importe, la lista muestra la parte liquidada como pagada y el exceso como saldo a favor, en lugar de un pagado mayor que la factura.",
                     "ar": "عندما تُسدَّد فاتورة بأكثر من قيمتها، تعرض القائمة الجزء المسدَّد كمدفوع والزائد كرصيد دائن، بدلاً من رقم مدفوع أكبر من الفاتورة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.25",
+        date="2026-09-25",
+        highlights=(
+            Highlight(
+                key="payroll-statutory-rules",
+                page="payroll",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Payroll knows the 1405 rules",
+                    "fa": "حقوق و دستمزد قوانین ۱۴۰۵ را می‌داند",
+                    "es": "La nómina conoce las reglas de 1405",
+                    "ar": "الرواتب تعرف قواعد 1405",
+                },
+                body={
+                    "en": "Switch a pay profile to “Statutory rules”: housing, grocery, child and seniority allowances are added, insurance is 7 % / 23 % on the capped wage, and salary tax follows the monthly brackets. The employer's share is posted as a cost, and every run exports the insurance list and the salary-tax list as CSV. UK profiles get PAYE bands and National Insurance the same way.",
+                    "fa": "پروفایل حقوق را روی «قوانین رسمی» بگذارید: حق مسکن، بن، حق اولاد و پایه سنوات اضافه می‌شود، بیمه ۷٪ / ۲۳٪ روی دستمزد مشمول تا سقف محاسبه می‌شود و مالیات حقوق طبق پلکان‌های ماهانه است. سهم کارفرما به‌عنوان هزینه ثبت می‌شود و هر لیست حقوق، لیست بیمه و لیست مالیات حقوق را به‌صورت CSV خروجی می‌دهد.",
+                    "es": "Cambia un perfil de pago a «Reglas legales»: se añaden los complementos de vivienda, alimentación, hijos y antigüedad, el seguro es 7 % / 23 % sobre el salario con tope y el impuesto sigue los tramos mensuales. La cuota patronal se contabiliza como gasto y cada nómina exporta la lista de seguro y la de impuesto salarial en CSV. Los perfiles del Reino Unido obtienen PAYE y National Insurance del mismo modo.",
+                    "ar": "حوّل ملف الراتب إلى «القواعد النظامية»: تُضاف بدلات السكن والمواد الغذائية والأبناء والأقدمية، ويُحسب التأمين 7٪ / 23٪ على الأجر حتى السقف، وتتبع ضريبة الراتب الشرائح الشهرية. تُسجَّل حصة صاحب العمل كمصروف، ويصدّر كل كشف رواتب قائمة التأمين وقائمة ضريبة الرواتب بصيغة CSV. ملفات المملكة المتحدة تحصل على شرائح PAYE والتأمين الوطني بالطريقة نفسها.",
+                },
+            ),
+            Highlight(
+                key="ai-invoices-cheques",
+                page="ai-accountant",
+                roles=_BOOKS,
+                title={
+                    "en": "Ask the assistant about invoices and cheques",
+                    "fa": "از دستیار دربارهٔ فاکتورها و چک‌ها بپرسید",
+                    "es": "Pregunta al asistente por facturas y cheques",
+                    "ar": "اسأل المساعد عن الفواتير والشيكات",
+                },
+                body={
+                    "en": "“Which invoices are overdue?”, “what cheques fall due this month?”, “record a payment on invoice 1042”, “settle the Bank Melli cheque” — the assistant reads your invoices, cheques and installments and proposes the entry for your Confirm.",
+                    "fa": "«کدام فاکتورها سررسید گذشته‌اند؟»، «این ماه کدام چک‌ها سررسید می‌شوند؟»، «پرداخت فاکتور ۱۰۴۲ را ثبت کن»، «چک بانک ملی را پاس کن» — دستیار فاکتورها، چک‌ها و اقساط شما را می‌خواند و سند را برای تأیید شما پیشنهاد می‌دهد.",
+                    "es": "«¿Qué facturas están vencidas?», «¿qué cheques vencen este mes?», «registra un pago de la factura 1042», «liquida el cheque del Bank Melli»: el asistente lee tus facturas, cheques y cuotas y propone el asiento para tu confirmación.",
+                    "ar": "«ما الفواتير المتأخرة؟»، «ما الشيكات المستحقة هذا الشهر؟»، «سجّل دفعة على الفاتورة 1042»، «سدّد شيك بنك ملي» — يقرأ المساعد فواتيرك وشيكاتك وأقساطك ويقترح القيد لتأكيدك.",
                 },
             ),
         ),

@@ -37,6 +37,13 @@ upload/parse handlers synchronous, middleware DB work off the loop (#124).
 Still open in §1: API key scopes/expiry, 2FA, CSP without inline scripts,
 non-superuser DB role, model/migration drift cleanup (alembic check).
 
+**§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
+invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as
+data (`payroll_rule_sets`, Iran 1405 + UK 2026/27 seeded, super-admin edits,
+statutory pay profiles, employer share posted, لیست بیمه + salary-tax CSV
+exports) — remaining in 3.3: عیدی/سنوات year-end runs, بیمه/مالیات portal
+file formats once a customer supplies the templates.
+
 ---
 
 ## 1. Security and data safety (do before onboarding paying customers)

@@ -25,6 +25,7 @@ from app.models.notification import Notification, Reminder
 from app.models.petty_cash import PettyCashAccount, PettyCashTransaction
 from app.models.mileage_claim import MileageClaim
 from app.models.pay_run import PayRun, PayRunLine
+from app.models.payroll_rules import PayrollRuleSet
 from app.models.payment import Payment
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType

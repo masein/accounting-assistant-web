@@ -43,6 +43,7 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "social_security_payable": "2212",  # National Insurance payable — liability
         "net_pay_payable": "2250",          # Net wages payable — liability
         "payroll_deductions_payable": "2260",  # Pension/other deductions payable — liability
+        "employer_social_expense": "7101",  # Employer's National Insurance — expense
         "mileage_expense": "7400",          # Motor expenses (mileage)
         "petty_cash": "1220",               # Petty cash (imprest control)
         "expenses_payable": "2270",         # Employee expenses payable — liability
@@ -75,6 +76,7 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "social_security_payable": "2170",  # بیمه تأمین اجتماعی پرداختنی — liability
         "net_pay_payable": "2180",          # حقوق پرداختنی — liability
         "payroll_deductions_payable": "2190",  # کسورات حقوق پرداختنی — liability
+        "employer_social_expense": "6111",  # هزینه بیمه سهم کارفرما — expense
         "mileage_expense": "6130",          # هزینه سفر و ایاب‌وذهاب (travel/mileage)
         "petty_cash": "1160",               # تنخواه گردان‌ها (imprest control)
         "expenses_payable": "2195",         # بدهی به کارکنان بابت هزینه — liability
@@ -117,6 +119,7 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "social_security_payable": "National Insurance payable",
         "net_pay_payable": "Net wages payable",
         "payroll_deductions_payable": "Payroll deductions payable",
+        "employer_social_expense": "Employer's National Insurance",
         "mileage_expense": "Motor expenses",
         "petty_cash": "Petty cash",
         "expenses_payable": "Employee expenses payable",
@@ -148,6 +151,7 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "social_security_payable": "بیمه تأمین اجتماعی پرداختنی",
         "net_pay_payable": "حقوق پرداختنی",
         "payroll_deductions_payable": "کسورات حقوق پرداختنی",
+        "employer_social_expense": "هزینه بیمه سهم کارفرما",
         "mileage_expense": "هزینه سفر و ایاب‌وذهاب",
         "petty_cash": "تنخواه گردان‌ها",
         "expenses_payable": "بدهی به کارکنان بابت هزینه",

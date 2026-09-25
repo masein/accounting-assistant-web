@@ -10,10 +10,14 @@ Posting and paying are separate, explicit steps — money never moves on its own
 """
 from __future__ import annotations
 
+import csv
+import io
+import json
 from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -30,6 +34,13 @@ from app.services.time_billing_service import payroll_hours_summary
 from app.services.account_resolver import resolve_account_code
 from app.services.audit_service import log_audit_event
 from app.services.fx_service import get_reporting_currency
+from app.services.locale_service import get_reporting_locale
+from app.services.payroll_rules import (
+    RuleParams,
+    parse_params,
+    rule_set_read,
+    rules_in_force,
+)
 from app.services.payroll_service import PayrollInputError
 from app.services.period_service import assert_period_open
 
@@ -56,6 +67,9 @@ class PayProfileUpsert(BaseModel):
     income_tax_rate: float = Field(0, ge=0, le=1)
     social_security_rate: float = Field(0, ge=0, le=1)
     pension_rate: float = Field(0, ge=0, le=1, description="Pre-tax deduction fraction")
+    tax_mode: str = Field("flat", description="flat (the rates above) | statutory (the locale's rule set)")
+    children: int = Field(0, ge=0, le=20, description="Dependants for the child allowance (statutory mode)")
+    seniority_eligible: bool = Field(False, description="Gets the seniority base (statutory mode)")
     currency: str | None = None
     active: bool = True
 
@@ -76,6 +90,22 @@ class PayRunCreate(BaseModel):
     currency: str | None = None
     # If omitted, every active profile is included.
     employees: list[PayRunEmployeeInput] | None = None
+
+
+class RuleSetCreate(BaseModel):
+    locale: str = Field(..., description="ir | uk")
+    year: str = Field(..., min_length=1, max_length=16)
+    name: str = Field(..., min_length=1, max_length=128)
+    effective_from: _date
+    effective_to: _date | None = None
+    params: RuleParams
+
+
+class RuleSetUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=128)
+    effective_from: _date | None = None
+    effective_to: _date | None = None
+    params: RuleParams | None = None
 
 
 class ProrateRaiseRequest(BaseModel):
@@ -107,6 +137,9 @@ def _profile_read(p: EmployeePayProfile, name: str | None = None) -> dict:
         "income_tax_rate": float(p.income_tax_rate or 0),
         "social_security_rate": float(p.social_security_rate or 0),
         "pension_rate": float(p.pension_rate or 0),
+        "tax_mode": (p.tax_mode or "flat"),
+        "children": int(p.children or 0),
+        "seniority_eligible": bool(p.seniority_eligible),
         "currency": p.currency,
         "active": bool(p.active),
     }
@@ -127,6 +160,9 @@ def _line_read(ln: PayRunLine) -> dict:
         "income_tax": int(ln.income_tax or 0),
         "social_security": int(ln.social_security or 0),
         "net_pay": int(ln.net_pay or 0),
+        "allowances": int(getattr(ln, "allowances", 0) or 0),
+        "insurable_wage": int(getattr(ln, "insurable_wage", 0) or 0),
+        "employer_social": int(getattr(ln, "employer_social", 0) or 0),
         "paid_to": getattr(ln, "paid_to", None),
     }
 
@@ -144,6 +180,7 @@ def _run_read(run: PayRun) -> dict:
         "total_social": int(run.total_social or 0),
         "total_deductions": int(run.total_deductions or 0),
         "total_net": int(run.total_net or 0),
+        "total_employer_social": int(getattr(run, "total_employer_social", 0) or 0),
         "post_transaction_id": str(run.post_transaction_id) if run.post_transaction_id else None,
         "pay_transaction_id": str(run.pay_transaction_id) if run.pay_transaction_id else None,
         "lines": [_line_read(ln) for ln in run.lines],
@@ -205,6 +242,13 @@ def upsert_profile(payload: PayProfileUpsert, db: Session = Depends(get_db)) -> 
         raise HTTPException(status_code=422, detail="Pay profiles are only for employee entities.")
     if payload.pay_type not in ("salaried", "hourly"):
         raise HTTPException(status_code=422, detail="pay_type must be 'salaried' or 'hourly'.")
+    if payload.tax_mode not in ("flat", "statutory"):
+        raise HTTPException(status_code=422, detail="tax_mode must be 'flat' or 'statutory'.")
+    if payload.tax_mode == "statutory" and rules_in_force(db, get_reporting_locale(db), _date.today()) is None:
+        raise HTTPException(
+            status_code=422,
+            detail="No statutory payroll rule set covers today for this locale; ask the platform admin to add one.",
+        )
 
     prof = db.execute(
         select(EmployeePayProfile).where(EmployeePayProfile.entity_id == payload.entity_id)
@@ -224,6 +268,9 @@ def upsert_profile(payload: PayProfileUpsert, db: Session = Depends(get_db)) -> 
     prof.income_tax_rate = float(payload.income_tax_rate)
     prof.social_security_rate = float(payload.social_security_rate)
     prof.pension_rate = float(payload.pension_rate)
+    prof.tax_mode = payload.tax_mode
+    prof.children = int(payload.children)
+    prof.seniority_eligible = bool(payload.seniority_eligible)
     prof.currency = cur
     prof.active = bool(payload.active)
     db.commit()
@@ -269,12 +316,27 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
         if not profiles:
             raise HTTPException(status_code=422, detail="No active pay profiles to run.")
 
+    # Statutory profiles use the rule set in force at the START of the period
+    # (a run for Esfand 1404 keeps 1404 figures even when run in Farvardin).
+    statutory = [p for p in profiles if (p.tax_mode or "flat") == "statutory"]
+    rules = None
+    if statutory:
+        rules = rules_in_force(db, get_reporting_locale(db), payload.period_start)
+        if rules is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"No statutory payroll rule set covers {payload.period_start.isoformat()} "
+                    f"for this locale; add one under Payroll → Statutory rules."
+                ),
+            )
+
     run = PayRun(period_start=payload.period_start, period_end=payload.period_end,
                  pay_date=payload.pay_date, currency=cur, status="draft")
     db.add(run)
     db.flush()
 
-    totals = {"gross": 0, "tax": 0, "social": 0, "ded": 0, "net": 0}
+    totals = {"gross": 0, "tax": 0, "social": 0, "ded": 0, "net": 0, "employer": 0}
     included_any = False
     for prof in profiles:
         inp = inputs.get(prof.entity_id)
@@ -312,6 +374,9 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
                 leave_hours=(derived["leave_hours"] if derived is not None else 0.0),
                 proration=(inp.proration if inp else 1.0),
                 gross_override=(inp.gross_override if inp else None),
+                rules=(rules.params if (rules is not None and (prof.tax_mode or "flat") == "statutory") else None),
+                children=int(prof.children or 0),
+                seniority_eligible=bool(prof.seniority_eligible),
             )
         except PayrollInputError as e:
             raise HTTPException(status_code=422, detail=f"{_employee_name(db, prof.entity_id)}: {e}") from e
@@ -324,6 +389,8 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
             gross=comp.gross, pre_tax_deductions=comp.pre_tax_deductions,
             taxable_base=comp.taxable_base, income_tax=comp.income_tax,
             social_security=comp.social_security, net_pay=comp.net_pay,
+            allowances=comp.allowances, insurable_wage=comp.insurable_wage,
+            employer_social=comp.employer_social,
         ))
         included_any = True
         # Link the contributing entries so they're excluded from other runs and
@@ -338,6 +405,7 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
         totals["social"] += comp.social_security
         totals["ded"] += comp.pre_tax_deductions
         totals["net"] += comp.net_pay
+        totals["employer"] += comp.employer_social
 
     if not included_any:
         raise HTTPException(
@@ -350,6 +418,7 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
     run.total_social = totals["social"]
     run.total_deductions = totals["ded"]
     run.total_net = totals["net"]
+    run.total_employer_social = totals["employer"]
     db.commit()
     db.refresh(run)
     return _run_read(run)
@@ -397,6 +466,13 @@ def post_run(run_id: UUID, db: Session = Depends(get_db)) -> dict:
     if run.total_deductions > 0:
         lines.append((deductions, 0, run.total_deductions, "Pre-tax deductions withheld"))
     lines.append((net_pay, 0, run.total_net, "Net pay payable"))
+    employer = int(getattr(run, "total_employer_social", 0) or 0)
+    if employer > 0:
+        # The employer's insurance share is a cost of employing, not part of
+        # gross: DR employer insurance expense / CR the same insurance payable.
+        lines.append((resolve_account_code(db, "employer_social_expense"), employer, 0,
+                      "Employer social insurance"))
+        lines.append((social, 0, employer, "Employer social insurance payable"))
 
     txn = _post_balanced(
         db, on=run.pay_date, reference=f"PAYROLL-{run.pay_date.isoformat()}",
@@ -699,13 +775,14 @@ def year_summary(year: int | None = None, entity_id: UUID | None = None, db: Ses
         agg = by_emp.setdefault(key, {
             "entity_id": key, "employee_name": line.employee_name,
             "gross": 0, "pre_tax_deductions": 0, "income_tax": 0,
-            "social_security": 0, "net_pay": 0, "runs": 0,
+            "social_security": 0, "net_pay": 0, "employer_social": 0, "runs": 0,
         })
         agg["gross"] += int(line.gross or 0)
         agg["pre_tax_deductions"] += int(line.pre_tax_deductions or 0)
         agg["income_tax"] += int(line.income_tax or 0)
         agg["social_security"] += int(line.social_security or 0)
         agg["net_pay"] += int(line.net_pay or 0)
+        agg["employer_social"] += int(getattr(line, "employer_social", 0) or 0)
         agg["runs"] += 1
 
     return {"year": year, "employees": list(by_emp.values())}
@@ -723,3 +800,187 @@ def compute_prorate_raise(payload: ProrateRaiseRequest, db: Session = Depends(ge
     except PayrollInputError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     return {"gross": gross}
+
+
+# ---------------------------------------------------------------------------
+# Statutory rule sets (platform-wide; super-admin edits, payroll roles read)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/rules")
+def list_rule_sets(db: Session = Depends(get_db)) -> list[dict]:
+    """Every statutory rule set, newest window first."""
+    from app.models.payroll_rules import PayrollRuleSet
+    rows = db.execute(
+        select(PayrollRuleSet).order_by(PayrollRuleSet.locale, PayrollRuleSet.effective_from.desc())
+    ).scalars().all()
+    return [rule_set_read(r) for r in rows]
+
+
+@router.get("/rules/active")
+def active_rule_set(on: _date | None = None, locale: str | None = None,
+                    db: Session = Depends(get_db)) -> dict:
+    """The rule set in force on ``on`` (today by default) for this company's
+    locale — or an explicit ``locale`` (the super-admin console has no
+    company) — or ``{"rule_set": null}`` when none covers the date."""
+    loc = (locale or "").strip().lower()
+    if loc not in ("ir", "uk"):
+        loc = get_reporting_locale(db)
+    found = rules_in_force(db, loc, on or _date.today())
+    return {
+        "locale": ("uk" if loc == "uk" else "ir"),
+        "on": (on or _date.today()).isoformat(),
+        "rule_set": rule_set_read(found.rule_set) if found else None,
+    }
+
+
+@router.post("/rules", status_code=201)
+def create_rule_set(payload: RuleSetCreate, db: Session = Depends(get_db)) -> dict:
+    from app.models.payroll_rules import PayrollRuleSet
+    loc = (payload.locale or "").strip().lower()
+    if loc not in ("ir", "uk"):
+        raise HTTPException(status_code=422, detail="locale must be 'ir' or 'uk'.")
+    if payload.effective_to is not None and payload.effective_to < payload.effective_from:
+        raise HTTPException(status_code=422, detail="effective_to is before effective_from.")
+    dup = db.execute(
+        select(PayrollRuleSet.id).where(PayrollRuleSet.locale == loc, PayrollRuleSet.year == payload.year.strip())
+    ).first()
+    if dup:
+        raise HTTPException(status_code=409, detail=f"A {loc} rule set for {payload.year} already exists.")
+    row = PayrollRuleSet(
+        locale=loc, year=payload.year.strip(), name=payload.name.strip(),
+        effective_from=payload.effective_from, effective_to=payload.effective_to,
+        params=json.dumps(payload.params.model_dump()),
+    )
+    db.add(row)
+    db.flush()
+    log_audit_event(db, action="create", entity_type="payroll_rule_set", entity_id=str(row.id),
+                    detail=f"Payroll rules {loc} {row.year} created")
+    db.commit()
+    db.refresh(row)
+    return rule_set_read(row)
+
+
+@router.put("/rules/{rule_set_id}")
+def update_rule_set(rule_set_id: UUID, payload: RuleSetUpdate, db: Session = Depends(get_db)) -> dict:
+    """Edit a rule set's window or parameters. Existing pay runs keep the
+    figures they were computed with (they are stored on the lines)."""
+    from app.models.payroll_rules import PayrollRuleSet
+    row = db.get(PayrollRuleSet, rule_set_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Rule set not found.")
+    # Validate the resulting window BEFORE touching the row, so a rejected
+    # edit leaves nothing dirty in the session.
+    new_from = payload.effective_from if payload.effective_from is not None else row.effective_from
+    new_to = payload.effective_to if payload.effective_to is not None else row.effective_to
+    if new_to is not None and new_to < new_from:
+        raise HTTPException(status_code=422, detail="effective_to is before effective_from.")
+    if payload.name is not None:
+        row.name = payload.name.strip()
+    row.effective_from = new_from
+    row.effective_to = new_to
+    changed: list[str] = []
+    if payload.params is not None:
+        before = parse_params(row.params).model_dump()
+        after = payload.params.model_dump()
+        changed = sorted(k for k in after if before.get(k) != after[k])
+        row.params = json.dumps(after)
+    log_audit_event(db, action="update", entity_type="payroll_rule_set", entity_id=str(row.id),
+                    detail=f"Payroll rules {row.locale} {row.year} updated"
+                           + (f" ({', '.join(changed)})" if changed else ""))
+    db.commit()
+    db.refresh(row)
+    return rule_set_read(row)
+
+
+# ---------------------------------------------------------------------------
+# Statutory exports: لیست بیمه (insurance list) and the salary-tax list
+# ---------------------------------------------------------------------------
+
+
+def _csv_safe(value: str | None) -> str:
+    text = value or ""
+    return "'" + text if text[:1] in ("=", "+", "-", "@") else text
+
+
+def _run_for_export(db: Session, run_id: UUID) -> PayRun:
+    run = db.get(PayRun, run_id)
+    if not run or run.status == "voided":
+        raise HTTPException(status_code=404, detail="Pay run not found.")
+    return run
+
+
+def _csv_response(rows: list[list], filename: str) -> Response:
+    out = io.StringIO()
+    w = csv.writer(out)
+    for r in rows:
+        w.writerow(r)
+    # BOM so Excel opens Persian text correctly.
+    data = ("\ufeff" + out.getvalue()).encode("utf-8")
+    return Response(content=data, media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/runs/{run_id}/insurance-list.csv")
+def insurance_list_csv(run_id: UUID, db: Session = Depends(get_db)) -> Response:
+    """لیست بیمه: one row per employee with the insurable wage, days and the
+    worker's and employer's shares — the figures the social-insurance
+    portal asks for each month."""
+    run = _run_for_export(db, run_id)
+    employees = {e.id: e for e in db.execute(
+        select(Entity).where(Entity.id.in_([ln.entity_id for ln in run.lines]))
+    ).scalars().all()}
+    rows: list[list] = [[
+        "employee_name", "national_id", "employee_code", "days", "base_wage", "allowances",
+        "insurable_wage", "employee_share", "employer_share", "total_premium", "currency",
+    ]]
+    tot = {"base": 0, "allow": 0, "ins": 0, "emp": 0, "er": 0}
+    for ln in run.lines:
+        e = employees.get(ln.entity_id)
+        days = round(30 * float(ln.proration or 1)) if (ln.proration or 1) != 1 else 30
+        base = int(ln.gross or 0) - int(ln.allowances or 0)
+        rows.append([
+            _csv_safe(ln.employee_name), _csv_safe(e.national_id if e else ""),
+            _csv_safe(e.code if e else ""), days, base, int(ln.allowances or 0),
+            int(ln.insurable_wage or 0), int(ln.social_security or 0),
+            int(ln.employer_social or 0), int(ln.social_security or 0) + int(ln.employer_social or 0),
+            run.currency,
+        ])
+        tot["base"] += base
+        tot["allow"] += int(ln.allowances or 0)
+        tot["ins"] += int(ln.insurable_wage or 0)
+        tot["emp"] += int(ln.social_security or 0)
+        tot["er"] += int(ln.employer_social or 0)
+    rows.append(["TOTAL", "", "", "", tot["base"], tot["allow"], tot["ins"], tot["emp"], tot["er"],
+                 tot["emp"] + tot["er"], run.currency])
+    return _csv_response(rows, f"insurance-list-{run.period_start.isoformat()}.csv")
+
+
+@router.get("/runs/{run_id}/tax-list.csv")
+def tax_list_csv(run_id: UUID, db: Session = Depends(get_db)) -> Response:
+    """Salary-tax list: gross, deductions, taxable base and tax withheld per
+    employee, plus a total row — the monthly return to the tax office."""
+    run = _run_for_export(db, run_id)
+    employees = {e.id: e for e in db.execute(
+        select(Entity).where(Entity.id.in_([ln.entity_id for ln in run.lines]))
+    ).scalars().all()}
+    rows: list[list] = [[
+        "employee_name", "national_id", "gross", "allowances", "pre_tax_deductions",
+        "social_security", "taxable_base", "income_tax", "net_pay", "currency",
+    ]]
+    tot = {k: 0 for k in ("gross", "allow", "ded", "soc", "tax_base", "tax", "net")}
+    for ln in run.lines:
+        e = employees.get(ln.entity_id)
+        rows.append([
+            _csv_safe(ln.employee_name), _csv_safe(e.national_id if e else ""),
+            int(ln.gross or 0), int(ln.allowances or 0), int(ln.pre_tax_deductions or 0),
+            int(ln.social_security or 0), int(ln.taxable_base or 0), int(ln.income_tax or 0),
+            int(ln.net_pay or 0), run.currency,
+        ])
+        tot["gross"] += int(ln.gross or 0); tot["allow"] += int(ln.allowances or 0)
+        tot["ded"] += int(ln.pre_tax_deductions or 0); tot["soc"] += int(ln.social_security or 0)
+        tot["tax_base"] += int(ln.taxable_base or 0); tot["tax"] += int(ln.income_tax or 0)
+        tot["net"] += int(ln.net_pay or 0)
+    rows.append(["TOTAL", "", tot["gross"], tot["allow"], tot["ded"], tot["soc"], tot["tax_base"],
+                 tot["tax"], tot["net"], run.currency])
+    return _csv_response(rows, f"salary-tax-list-{run.period_start.isoformat()}.csv")

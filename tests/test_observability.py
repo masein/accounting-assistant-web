@@ -104,9 +104,11 @@ def test_a_crash_answers_json_with_the_request_id(db, monkeypatch):
 
     app.dependency_overrides[get_db] = _override
     try:
-        with TestClient(app, raise_server_exceptions=False) as raw:
-            c = _role_client(raw, "owner")
-            r = c.get("/fx/reporting-currency", headers={"x-request-id": "crash-7"})
+        # Not used as a context manager: that would run the real lifespan
+        # (schema bootstrap against DATABASE_URL), which the suite never does.
+        raw = TestClient(app, raise_server_exceptions=False)
+        c = _role_client(raw, "owner")
+        r = c.get("/fx/reporting-currency", headers={"x-request-id": "crash-7"})
     finally:
         app.dependency_overrides.clear()
     assert r.status_code == 500

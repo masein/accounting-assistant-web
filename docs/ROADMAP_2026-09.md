@@ -36,7 +36,10 @@ full suite (#122) · ✅ 1.13 /health 503, docs off in prod (#123) · ✅ 2.3
 upload/parse handlers synchronous, middleware DB work off the loop (#124).
 ✅ 1.13 API-key scopes (`time:read` / `time:write`) + expiry (default one
 year, owner warned 14 days before, expired keys refused) (#146).
-Still open in §1: 2FA, CSP without inline scripts, non-superuser DB role,
+✅ 1.13 two-factor sign-in (TOTP + ten recovery codes, any role, recommended
+for owners/super-admins, owner reset for a lost phone) (#147). Follow-up: a
+policy switch that *requires* 2FA for owners.
+Still open in §1: CSP without inline scripts, non-superuser DB role,
 model/migration drift cleanup (alembic check).
 
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for

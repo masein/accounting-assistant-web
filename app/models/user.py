@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -48,6 +48,15 @@ class User(Base):
     # Release whose what's-new tour this user has seen (app/core/release_notes).
     # NULL = existing user from before the feature → show the current release once.
     last_seen_release: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Two-factor sign-in (app/core/two_factor.py). Secrets are encrypted at
+    # rest; pending = scanned but not yet confirmed with a first code.
+    # totp_last_step stops a code being used twice; totp_recovery holds the
+    # keyed hashes of the unused one-time recovery codes.
+    totp_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    totp_pending_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    totp_last_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    totp_recovery: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Bumped on password reset / role change / deactivation so old session
     # tokens stop working.
     token_version: Mapped[int] = mapped_column(Integer, default=0)

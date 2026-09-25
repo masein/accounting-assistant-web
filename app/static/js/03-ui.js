@@ -537,3 +537,156 @@
       };
       return map[key] ? t(map[key]) : String(name || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     }
+
+    // ═══════ Two-factor sign-in (account menu → security dialog) ═══════
+    // Every role reaches it from the account menu; the server does the work
+    // (/auth/2fa*), this only walks the user through set-up and turn-off.
+    const _tfa = { user: null };
+    function setTwoFactorHint(user) {
+      _tfa.user = user || null;
+      const dot = document.getElementById('topbar-security-dot');
+      if (dot) dot.style.display = (user && user.two_factor_recommended && !user.two_factor_enabled) ? '' : 'none';
+    }
+    function _tfaShow(section) {
+      ['tfa-off', 'tfa-scan', 'tfa-codes', 'tfa-on'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = id === section ? '' : 'none';
+      });
+      _tfaError('');
+    }
+    function _tfaError(msg) {
+      const el = document.getElementById('tfa-error');
+      if (!el) return;
+      el.textContent = msg || '';
+      el.style.display = msg ? '' : 'none';
+    }
+    async function _tfaPost(path, body) {
+      const res = await fetch(API + path, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : t('tfaFailed'));
+      return data;
+    }
+    function _tfaRenderStatus(st) {
+      if (!st.enabled) {
+        const rec = document.getElementById('tfa-recommend');
+        if (rec) rec.style.display = (_tfa.user && _tfa.user.two_factor_recommended) ? '' : 'none';
+        document.getElementById('tfa-setup-password').value = '';
+        _tfaShow('tfa-off');
+        return;
+      }
+      const since = st.enabled_at ? String(st.enabled_at).slice(0, 10) : '';
+      document.getElementById('tfa-on-status').textContent = tf('tfaOnSince', { date: since });
+      document.getElementById('tfa-on-left').textContent = tf('tfaCodesLeft', { n: st.recovery_codes_left });
+      document.getElementById('tfa-on-code').value = '';
+      document.getElementById('tfa-off-password').value = '';
+      _tfaShow('tfa-on');
+    }
+    function _tfaShowCodes(codes) {
+      _tfa.codes = codes || [];
+      document.getElementById('tfa-codes-list').textContent = _tfa.codes.join('\n');
+      _tfaShow('tfa-codes');
+    }
+    async function openSecurityModal() {
+      const modal = document.getElementById('security-modal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      try {
+        const res = await fetch(API + '/auth/2fa');
+        const st = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(st.detail || t('tfaFailed'));
+        _tfaRenderStatus(st);
+      } catch (err) {
+        _tfaShow('');
+        _tfaError(err.message);
+      }
+    }
+    function _tfaAfterChange(enabled) {
+      if (_tfa.user) _tfa.user.two_factor_enabled = enabled;
+      setTwoFactorHint(_tfa.user);
+    }
+    (function wireTwoFactor() {
+      const modal = document.getElementById('security-modal');
+      if (!modal) return;
+      const close = () => { modal.style.display = 'none'; _tfa.codes = null; };
+      document.getElementById('security-modal-close').addEventListener('click', close);
+      modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+      const menuBtn = document.getElementById('topbar-security');
+      if (menuBtn) menuBtn.addEventListener('click', () => {
+        const pop = document.getElementById('user-pop');
+        if (pop) pop.classList.remove('open');
+        openSecurityModal();
+      });
+
+      document.getElementById('tfa-start').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const password = document.getElementById('tfa-setup-password').value;
+        if (!password) { _tfaError(t('tfaNeedPassword')); return; }
+        btn.disabled = true;
+        try {
+          const data = await _tfaPost('/auth/2fa/setup', { password });
+          document.getElementById('tfa-qr').src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(data.qr_svg);
+          document.getElementById('tfa-qr').alt = t('tfaQrAlt');
+          document.getElementById('tfa-secret').textContent = (data.secret || '').replace(/(.{4})/g, '$1 ').trim();
+          document.getElementById('tfa-enable-code').value = '';
+          _tfaShow('tfa-scan');
+          document.getElementById('tfa-enable-code').focus();
+        } catch (err) { _tfaError(err.message); } finally { btn.disabled = false; }
+      });
+
+      document.getElementById('tfa-confirm').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const code = document.getElementById('tfa-enable-code').value.trim();
+        if (!code) { _tfaError(t('tfaNeedCode')); return; }
+        btn.disabled = true;
+        try {
+          const data = await _tfaPost('/auth/2fa/enable', { code });
+          _tfaAfterChange(true);
+          _tfaShowCodes(data.recovery_codes);
+        } catch (err) { _tfaError(err.message); } finally { btn.disabled = false; }
+      });
+      document.getElementById('tfa-enable-code').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('tfa-confirm').click(); }
+      });
+
+      document.getElementById('tfa-codes-copy').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText((_tfa.codes || []).join('\n')); showAlert(t('tfaCopied')); }
+        catch (_) { _tfaError(t('tfaCopyFailed')); }
+      });
+      document.getElementById('tfa-codes-download').addEventListener('click', () => {
+        const who = (_tfa.user && _tfa.user.username) || 'account';
+        const text = t('tfaFileHeader') + ' — ' + who + '\n\n' + (_tfa.codes || []).join('\n') + '\n';
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+        a.download = 'recovery-codes-' + who + '.txt';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      });
+      document.getElementById('tfa-codes-done').addEventListener('click', () => { _tfa.codes = null; openSecurityModal(); });
+
+      document.getElementById('tfa-new-codes').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const code = document.getElementById('tfa-on-code').value.trim();
+        if (!code) { _tfaError(t('tfaNeedAppCode')); return; }
+        btn.disabled = true;
+        try { _tfaShowCodes((await _tfaPost('/auth/2fa/recovery-codes', { code })).recovery_codes); }
+        catch (err) { _tfaError(err.message); } finally { btn.disabled = false; }
+      });
+
+      document.getElementById('tfa-disable').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const code = document.getElementById('tfa-on-code').value.trim();
+        const password = document.getElementById('tfa-off-password').value;
+        if (!code || !password) { _tfaError(t('tfaNeedBoth')); return; }
+        if (!(await uiConfirm({ message: t('tfaConfirmOff'), confirmLabel: t('tfaTurnOff'), danger: true }))) return;
+        modal.style.display = 'flex';  // uiConfirm closes over it; keep ours open
+        btn.disabled = true;
+        try {
+          const st = await _tfaPost('/auth/2fa/disable', { password, code });
+          _tfaAfterChange(false);
+          _tfaRenderStatus(st);
+          showAlert(t('tfaTurnedOff'));
+        } catch (err) { _tfaError(err.message); } finally { btn.disabled = false; }
+      });
+    })();

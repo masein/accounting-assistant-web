@@ -383,6 +383,7 @@ _CSP_POLICY = (
 
 PUBLIC_PATHS = {
     "/auth/login",
+    "/auth/login/2fa",
     "/auth/logout",
 }
 
@@ -395,6 +396,7 @@ _AUTH_SELF_SERVICE_PATHS = (
     "/auth/preferences",
     "/auth/admin-check",
     "/auth/whats-new",
+    "/auth/2fa",
 )
 PROTECTED_API_PREFIXES: tuple[str, ...] = _AUTH_SELF_SERVICE_PATHS
 

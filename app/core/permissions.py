@@ -465,6 +465,7 @@ _add("POST", "/time/pending/{pending_id}/reject", Perm.BOOKS_WRITE)
 # Company API keys — Owner only (same gate as user management).
 _add("GET", "/admin/api-keys", Perm.USERS_MANAGE)
 _add("GET", "/admin/api-keys/scopes", Perm.USERS_MANAGE)
+_add("POST", "/admin/users/{user_id}/reset-2fa", Perm.USERS_MANAGE)
 _add("POST", "/admin/api-keys", Perm.USERS_MANAGE)
 _add("DELETE", "/admin/api-keys/{key_id}", Perm.USERS_MANAGE)
 

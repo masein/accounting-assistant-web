@@ -478,6 +478,7 @@ def _serialize_user(u: User, entity_name: str | None = None) -> dict:
         "is_active": bool(u.is_active),
         "entity_id": str(u.entity_id) if u.entity_id else None,
         "entity_name": entity_name,
+        "two_factor": bool(u.totp_enabled_at and u.totp_secret),
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }
 
@@ -676,6 +677,35 @@ def delete_user(
                     detail=_json.dumps({"username": user.username, "role": user.role}))
     db.delete(user)
     db.commit()
+
+
+@router.post("/users/{user_id}/reset-2fa")
+def reset_user_two_factor(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    caller: SessionUser = Depends(get_current_user),
+) -> dict:
+    """For a user who lost their phone and their recovery codes: an owner
+    turns two-factor sign-in off for them (a super-admin can for anyone). They
+    sign in with the password alone and set it up again. Not for yourself —
+    that goes through Settings with a code."""
+    user = _get_company_user(db, caller, user_id)
+    if str(user.id) == str(caller.user_id):
+        raise HTTPException(status_code=400, detail="Turn off your own two-factor sign-in under Settings → Security.")
+    if not (user.totp_enabled_at or user.totp_pending_secret):
+        raise HTTPException(status_code=400, detail="Two-factor sign-in is not on for this user.")
+    user.totp_secret = None
+    user.totp_pending_secret = None
+    user.totp_enabled_at = None
+    user.totp_last_step = None
+    user.totp_recovery = None
+    user.token_version = int(user.token_version or 0) + 1  # their open sessions end
+    log_audit_event(db, action="2fa_reset", entity_type="user", entity_id=str(user.id),
+                    detail=_json.dumps({"username": user.username}))
+    db.commit()
+    db.refresh(user)
+    name = db.get(Entity, user.entity_id).name if user.entity_id else None
+    return _serialize_user(user, name)
 
 
 # --- Company API keys (Owner-only; the /api/v1 integration credential) --------

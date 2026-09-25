@@ -49,14 +49,22 @@ def test_version_tuple_orders_dates_and_suffixes():
     assert rn.version_tuple(None) == ()
 
 
-def test_locale_limited_highlights():
-    ir = {h["key"] for r in rn.whats_new_for("owner", None, locale="ir")["releases"] for h in r["highlights"]}
-    uk = rn.whats_new_for("owner", None, locale="uk")
-    assert "moadian-export" in ir
-    assert all(h["key"] != "moadian-export" for r in uk["releases"] for h in r["highlights"])
-    assert uk["seen"] is True        # nothing else in this release for a UK company
+def _keys(out) -> set[str]:
+    return {h["key"] for r in out["releases"] for h in r["highlights"]}
+
+
+def test_locale_limited_highlights(monkeypatch):
+    since = "2026.09.25.3"  # the release before the مودیان export
+    assert "moadian-export" in _keys(rn.whats_new_for("owner", since, locale="ir"))
+    assert "moadian-export" not in _keys(rn.whats_new_for("owner", since, locale="uk"))
     # Unknown locale (no company in the session) keeps every highlight.
-    assert "moadian-export" in {h["key"] for r in rn.whats_new_for("owner", None)["releases"] for h in r["highlights"]}
+    assert "moadian-export" in _keys(rn.whats_new_for("owner", since))
+    # A release whose only highlight is for another locale counts as seen.
+    only_ir = next(r for r in rn.RELEASES if r.version == "2026.09.25.4")
+    monkeypatch.setattr(rn, "RELEASES", (only_ir,))
+    monkeypatch.setattr(rn, "CURRENT_RELEASE", only_ir.version)
+    assert rn.whats_new_for("owner", None, locale="uk")["seen"] is True
+    assert rn.whats_new_for("owner", None, locale="ir")["seen"] is False
 
 
 def test_whats_new_for_role_and_last_seen():
@@ -65,14 +73,14 @@ def test_whats_new_for_role_and_last_seen():
     assert out["seen"] is False
     assert [r["version"] for r in out["releases"]] == [rn.CURRENT_RELEASE]
     keys = {h["key"] for h in out["releases"][0]["highlights"]}
-    assert {"moadian-export"} <= keys
+    assert keys == {h.key for h in rn.RELEASES[-1].highlights if h.for_role("owner")}
     # Earlier releases stay in the full history.
     history = rn.whats_new_for("owner", None, include_all=True)
     all_keys = {h["key"] for r in history["releases"] for h in r["highlights"]}
     assert {"chat-statement", "insights", "whats-new",
             "per-currency-views", "chat-periods-cash", "balance-sheet-check",
             "payroll-statutory-rules", "ai-invoices-cheques", "quotes", "invoice-email-reminders",
-            "recurring-invoices"} <= all_keys
+            "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -92,8 +100,10 @@ def test_whats_new_for_role_and_last_seen():
     assert pkeys["insights"]["page"] == "personal-dashboard"
     assert _rel("owner", "2026.09.22")["insights"]["page"] == "dashboard"
     # …and on the current release: SME-only notes are hidden from personal users.
-    # The current release is SME-only (مودیان export): a personal user gets nothing new.
-    assert rn.whats_new_for("personal", None)["releases"] == []
+    # The مودیان release is SME-only: a personal user got nothing from it…
+    assert _rel("personal", "2026.09.25.4") == {}
+    # …and from the current one only the note meant for everyone.
+    assert _keys(rn.whats_new_for("personal", None)) == {"two-factor"}
     p25 = set(_rel("personal", "2026.09.25"))
     assert {"ai-invoices-cheques"} <= p25
     assert "payroll-statutory-rules" not in p25
@@ -103,7 +113,7 @@ def test_whats_new_for_role_and_last_seen():
 
     # An employee only gets the notes meant for everyone.
     emp = rn.whats_new_for("employee", None, include_all=True)
-    assert {h["key"] for r in emp["releases"] for h in r["highlights"]} == {"whats-new"}
+    assert {h["key"] for r in emp["releases"] for h in r["highlights"]} == {"whats-new", "two-factor"}
 
     # include_all lists history regardless of what was seen.
     everything = rn.whats_new_for("owner", rn.CURRENT_RELEASE, include_all=True)
@@ -176,3 +186,11 @@ def test_new_users_start_on_the_current_release(db):
     assert "last_seen_release=CURRENT_RELEASE" in inspect.getsource(company_service.provision_company)
     src = inspect.getsource(admin)
     assert "last_seen_release=CURRENT_RELEASE" in src
+
+
+def test_two_factor_note_reaches_every_role_and_key_scopes_only_owners():
+    since = "2026.09.25.4"
+    for role in ("owner", "cfo", "accountant", "manager", "employee", "viewer", "personal"):
+        keys = _keys(rn.whats_new_for(role, since))
+        assert "two-factor" in keys, role
+        assert ("api-key-scopes" in keys) == (role == "owner"), role

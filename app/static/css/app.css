@@ -804,3 +804,8 @@
       .ai-hint { display: none; }
       .ai-page-sub { display: none; }
     }
+
+/* Two-factor sign-in (account menu → security dialog) */
+.tfa-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warning, #d97706); vertical-align: middle; margin-inline-start: .3rem; }
+.tfa-note { margin: 0 0 .75rem; padding: .55rem .75rem; border-radius: 8px; font-size: .85rem; line-height: 1.5;
+  background: color-mix(in srgb, var(--warning, #d97706) 10%, transparent); border: 1px solid color-mix(in srgb, var(--warning, #d97706) 35%, transparent); }

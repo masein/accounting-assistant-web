@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.25.4"
+CURRENT_RELEASE = "2026.09.25.5"
 
 
 @dataclass(frozen=True)
@@ -391,6 +391,44 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "شناسه یکتای حافظه مالیاتی را در «فاکتورها ← سامانه مودیان» وارد کنید. سپس برای هر صورتحساب فروش نشان داده می‌شود چه چیزی کم است (شناسه کالا/خدمت، شناسه ملی خریدار، کد پستی). «خروجی موارد انتخاب‌شده» صورتحساب‌ها را با ساختار JSON سازمان امور مالیاتی و شمارهٔ منحصربه‌فرد ۲۲ کاراکتری برای شرکت معتمد دانلود می‌کند. زنگ اعلان سه روز پیش از پایان مهلت ۱۲ روزه هشدار می‌دهد.",
                     "es": "Introduce tu ID de memoria fiscal en Facturas → سامانه مودیان. Cada factura de venta muestra entonces lo que falta (ID de bien/servicio, ID nacional del comprador, código postal). «Exportar seleccionadas» descarga las facturas en el JSON de la administración tributaria con su número fiscal de 22 caracteres para tu proveedor autorizado. La campana avisa tres días antes del plazo de 12 días.",
                     "ar": "أدخل معرّف الذاكرة الضريبية في الفواتير ← سامانه مودیان. عندها تُظهر كل فاتورة مبيعات ما ينقصها (معرّف السلعة/الخدمة، الرقم الوطني للمشتري، الرمز البريدي). «تصدير المحدد» ينزّل الفواتير بصيغة JSON الخاصة بمصلحة الضرائب مع أرقامها الضريبية ذات 22 حرفًا لمزوّدك المعتمد. ينبّه الجرس قبل ثلاثة أيام من انتهاء مهلة الـ 12 يومًا.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.25.5",
+        date="2026-09-25",
+        highlights=(
+            Highlight(
+                key="two-factor",
+                title={
+                    "en": "Two-factor sign-in",
+                    "fa": "ورود دومرحله‌ای",
+                    "es": "Verificación en dos pasos",
+                    "ar": "التحقق بخطوتين",
+                },
+                body={
+                    "en": "Open the account menu (top right) → Two-factor sign-in. Scan the code with an authenticator app and sign-in will ask for a six-digit code after your password, so a leaked password alone is not enough. Keep the ten recovery codes somewhere safe. Recommended for owners.",
+                    "fa": "منوی حساب (بالا) ← ورود دومرحله‌ای را باز کنید. کد را با یک برنامهٔ احراز هویت اسکن کنید؛ از این پس پس از رمز عبور یک کد شش‌رقمی خواسته می‌شود و لو رفتن رمز به‌تنهایی کافی نیست. ده کد بازیابی را جای امنی نگه دارید. برای مالکان توصیه می‌شود.",
+                    "es": "Abre el menú de la cuenta (arriba) → Verificación en dos pasos. Escanea el código con una app de autenticación y, tras la contraseña, se pedirá un código de seis dígitos, así que una contraseña filtrada no basta. Guarda los diez códigos de recuperación en un lugar seguro. Recomendado para propietarios.",
+                    "ar": "افتح قائمة الحساب (في الأعلى) ← التحقق بخطوتين. امسح الرمز بتطبيق مصادقة، وبعد كلمة المرور سيُطلب رمز من ستة أرقام، فلا تكفي كلمة مرور مسرّبة وحدها. احفظ رموز الاسترداد العشرة في مكان آمن. موصى به للمالكين.",
+                },
+            ),
+            Highlight(
+                key="api-key-scopes",
+                page="settings",
+                roles=("owner",),
+                title={
+                    "en": "Limit and expire integration keys",
+                    "fa": "محدودیت و انقضای کلیدهای یکپارچه‌سازی",
+                    "es": "Limita y caduca las claves de integración",
+                    "ar": "تقييد مفاتيح التكامل وتحديد انتهائها",
+                },
+                body={
+                    "en": "Settings → API keys: choose what a new key may do (read or push worklogs) and when it expires — 90 days, a year, two years or never. Existing keys keep working. You get a notification two weeks before a key expires.",
+                    "fa": "تنظیمات ← کلیدهای API: برای کلید جدید تعیین کنید چه کاری مجاز است (خواندن یا ارسال کارکرد) و کی منقضی شود — ۹۰ روز، یک سال، دو سال یا هرگز. کلیدهای فعلی کار می‌کنند. دو هفته پیش از انقضای کلید اعلان دریافت می‌کنید.",
+                    "es": "Ajustes → Claves API: elige qué puede hacer una clave nueva (leer o enviar registros de trabajo) y cuándo caduca: 90 días, un año, dos años o nunca. Las claves existentes siguen funcionando. Recibirás un aviso dos semanas antes de que caduque una clave.",
+                    "ar": "الإعدادات ← مفاتيح API: اختر ما يُسمح للمفتاح الجديد به (قراءة سجلات العمل أو إرسالها) ومتى ينتهي — 90 يومًا أو سنة أو سنتان أو أبدًا. المفاتيح الحالية تستمر في العمل. يصلك إشعار قبل أسبوعين من انتهاء المفتاح.",
                 },
             ),
         ),

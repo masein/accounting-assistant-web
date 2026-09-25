@@ -16,7 +16,10 @@ from datetime import date
 
 import jdatetime
 
-_PERSIAN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
+# Persian (U+06F0…) AND Arabic-Indic (U+0660…) digits: Arabic keyboards and
+# many bank exports use the latter, which used to leave dates unparsed.
+_PERSIAN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+DIGITS_TO_ASCII = _PERSIAN_DIGITS
 
 _MONTH_NAMES: dict[str, int] = {
     "فروردین": 1, "farvardin": 1, "فروردين": 1,
@@ -108,7 +111,7 @@ def try_parse_jalali(text: str) -> date | None:
         except ValueError:
             pass
 
-    today_jalali = jdatetime.date.today()
+    today_jalali = _today_jalali()
     current_jalali_year = today_jalali.year
 
     # "27 بهمن 1404" or "بهمن 27 1404" or "بهمن 1404" (with explicit year)
@@ -168,25 +171,45 @@ def try_parse_jalali(text: str) -> date | None:
     return None
 
 
+def _today_jalali() -> jdatetime.date:
+    """Today on the Tehran clock (UTC+3:30), not the server's: between 20:30
+    and midnight UTC the server's date is a day behind Iran's."""
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone(timedelta(hours=3, minutes=30)))
+    return jdatetime.date.fromgregorian(date=now.date())
+
+
+def nearest_jalali_date(month: int, day: int, today_jalali: jdatetime.date | None = None) -> date | None:
+    """The Gregorian date of Jalali month/day in the year that puts it
+    closest to today — last, this or next year. Around Nowruz this is what
+    people mean: "5 فروردین" typed on 28 Esfand is next week, and "25 اسفند"
+    typed on 5 Farvardin was ten days ago. (It used to try only this year and
+    last year, so early-Farvardin dates typed in Esfand landed a year back.)
+    A day that doesn't exist in a year (30 Esfand in a common year) skips it."""
+    today_jalali = today_jalali or _today_jalali()
+    best: tuple[int, jdatetime.date] | None = None
+    for year in (today_jalali.year - 1, today_jalali.year, today_jalali.year + 1):
+        try:
+            candidate = jdatetime.date(year, month, day)
+        except ValueError:
+            continue
+        distance = abs((candidate - today_jalali).days)
+        if best is None or distance < best[0]:
+            best = (distance, candidate)
+    if best is None:
+        return None
+    gd = best[1].togregorian()
+    return date(gd.year, gd.month, gd.day)
+
+
 def _resolve_jalali_no_year(
     current_year: int,
     today_jalali: jdatetime.date,
     month: int,
     day: int,
 ) -> date | None:
-    """Pick the closest year (current or previous) for a Jalali month/day with no year."""
-    for year in (current_year, current_year - 1):
-        try:
-            candidate = jdatetime.date(year, month, day)
-        except ValueError:
-            continue
-        # If the candidate is more than ~6 months (180 days) in the future,
-        # it's almost certainly referring to the previous year.
-        delta_days = (candidate - today_jalali).days
-        if delta_days <= 180:
-            gd = candidate.togregorian()
-            return date(gd.year, gd.month, gd.day)
-    return None
+    """Kept for callers; see ``nearest_jalali_date``."""
+    return nearest_jalali_date(month, day, today_jalali)
 
 
 def find_and_replace_jalali_dates(text: str) -> tuple[str, list[tuple[str, date]]]:

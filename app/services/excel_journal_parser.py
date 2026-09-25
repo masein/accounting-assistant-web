@@ -201,12 +201,17 @@ def _jalali_day_to_gregorian(day_code: Any, jalali_year: int) -> date | None:
     if code < 100:
         return None
 
+    year = jalali_year
     if code >= 10000:
-        # Full date: 14030419 = year 1403, month 04, day 19
+        # Full date: 14030419 = year 1403, month 04, day 19. The code's own
+        # year wins over the import year (it used to be thrown away, so a
+        # 14021229 row in a 1403 import landed in 1403).
         y = code // 10000
         remainder = code % 10000
         m = remainder // 100
         d = remainder % 100
+        if 1300 <= y <= 1499:
+            year = y
     elif code >= 1000:
         # MMdd format: 1018 = month 10, day 18
         m = code // 100
@@ -220,7 +225,7 @@ def _jalali_day_to_gregorian(day_code: Any, jalali_year: int) -> date | None:
         return None
 
     try:
-        jd = jdatetime.date(jalali_year, m, d)
+        jd = jdatetime.date(year, m, d)
         return jd.togregorian()
     except (ValueError, OverflowError):
         return None

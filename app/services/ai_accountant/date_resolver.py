@@ -164,8 +164,13 @@ def jalali_named_date(message: str | None, today: date) -> date | None:
     try:
         from app.utils.jalali import gregorian_to_jalali, jalali_to_gregorian
 
-        year = int(m.group(3)) if m.group(3) else gregorian_to_jalali(today)[0]
-        return jalali_to_gregorian(year, month, day)
+        if m.group(3):
+            return jalali_to_gregorian(int(m.group(3)), month, day)
+        # No year: the nearest one to today (around Nowruz the current Jalali
+        # year is often the wrong one; see nearest_jalali_date).
+        import jdatetime
+        from app.utils.jalali import nearest_jalali_date
+        return nearest_jalali_date(month, day, jdatetime.date.fromgregorian(date=today))
     except Exception:
         return None
 

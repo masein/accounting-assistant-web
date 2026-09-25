@@ -44,6 +44,17 @@ def require_api_key(request: Request) -> None:
         raise HTTPException(status_code=401, detail="A valid API key is required.")
 
 
+def require_scope(scope: str):
+    """A route's permission for integration keys (roadmap §1.13): the key
+    must carry ``scope``. 403 names the missing scope so the integrator knows
+    what to ask the owner for."""
+    def _check(request: Request) -> None:
+        require_api_key(request)
+        if scope not in getattr(request.state, "api_scopes", set()):
+            raise HTTPException(status_code=403, detail=f"This API key lacks the '{scope}' scope.")
+    return _check
+
+
 # ---------------------------------------------------------------------------
 # Schemas (the integrator contract)
 # ---------------------------------------------------------------------------
@@ -274,7 +285,7 @@ def _process_one(db: Session, item: TimeEntryPush) -> PushResult:
                       status="mapped", id=str(entry.id))
 
 
-@router.post("/time-entries", dependencies=[Depends(require_api_key)])
+@router.post("/time-entries", dependencies=[Depends(require_scope("time:write"))])
 def push_time_entries(
     payload: TimeEntryPush | TimeEntryPushBatch,
     db: Session = Depends(get_db),
@@ -298,7 +309,7 @@ def push_time_entries(
     }
 
 
-@router.get("/time-entries", dependencies=[Depends(require_api_key)])
+@router.get("/time-entries", dependencies=[Depends(require_scope("time:read"))])
 def list_pushed_entries(
     source: str | None = None,
     worker: str | None = None,
@@ -344,7 +355,7 @@ def list_pushed_entries(
 
 
 @router.delete("/time-entries/by-external/{source}/{external_id:path}",
-               dependencies=[Depends(require_api_key)])
+               dependencies=[Depends(require_scope("time:write"))])
 def delete_pushed_entry(source: str, external_id: str, db: Session = Depends(get_db)) -> dict:
     """Remove a worklog that was deleted upstream. Blocked once the entry is
     invoiced or settled in a pay run (void those first)."""

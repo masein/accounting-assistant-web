@@ -2215,6 +2215,20 @@
             <label for="apikey-label" data-i18n="apiKeysLabel">Label</label>
             <input type="text" id="apikey-label" placeholder="jira" maxlength="128">
           </div>
+          <div>
+            <label for="apikey-expiry" data-i18n="apiKeysExpiry">Expires</label>
+            <select id="apikey-expiry">
+              <option value="90" data-i18n="apiKeysExpiry90">In 90 days</option>
+              <option value="365" selected data-i18n="apiKeysExpiry365">In a year</option>
+              <option value="730" data-i18n="apiKeysExpiry730">In two years</option>
+              <option value="never" data-i18n="apiKeysExpiryNever">Never</option>
+            </select>
+          </div>
+          <fieldset style="border:none; padding:0; margin:0;">
+            <legend style="font-size:0.82rem;" data-i18n="apiKeysScopes">Allowed to</legend>
+            <label style="display:flex; gap:0.35rem; align-items:center;"><input type="checkbox" class="apikey-scope" value="time:read" checked> <span data-i18n="apiKeysScopeTimeRead">Read pushed worklogs</span></label>
+            <label style="display:flex; gap:0.35rem; align-items:center;"><input type="checkbox" class="apikey-scope" value="time:write" checked> <span data-i18n="apiKeysScopeTimeWrite">Push and delete worklogs</span></label>
+          </fieldset>
           <div style="display:flex; align-items:flex-end;">
             <button type="button" class="btn btn-primary" id="apikey-create-btn" data-i18n="apiKeysGenerate">Generate key</button>
           </div>

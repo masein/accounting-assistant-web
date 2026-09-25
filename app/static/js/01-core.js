@@ -288,16 +288,20 @@
           <table class="results-table" style="font-size:0.85rem;">
             <thead><tr>
               <th>${escapeHtml(t('apiKeysLabel'))}</th><th>${escapeHtml(t('apiKeysPrefix'))}</th>
+              <th>${escapeHtml(t('apiKeysScopes'))}</th>
               <th>${escapeHtml(t('apiKeysCreated'))}</th><th>${escapeHtml(t('apiKeysLastUsed'))}</th>
+              <th>${escapeHtml(t('apiKeysExpiry'))}</th>
               <th>${escapeHtml(t('usersStatus'))}</th><th></th>
             </tr></thead>
             <tbody>${keys.map(k => `
               <tr>
                 <td>${escapeHtml(k.label)}</td>
                 <td><code>${escapeHtml(k.prefix)}…</code></td>
+                <td>${(k.scopes || []).map(s => `<code>${escapeHtml(s)}</code>`).join(' ')}</td>
                 <td>${k.created_at ? escapeHtml(k.created_at.slice(0, 10)) : '—'}</td>
                 <td>${k.last_used_at ? escapeHtml(k.last_used_at.slice(0, 10)) : '—'}</td>
-                <td>${k.revoked ? escapeHtml(t('apiKeysRevoked')) : escapeHtml(t('usersActive'))}</td>
+                <td>${k.expires_at ? escapeHtml(k.expires_at.slice(0, 10)) : escapeHtml(t('apiKeysExpiryNever'))}</td>
+                <td>${k.revoked ? escapeHtml(t('apiKeysRevoked')) : (k.expired ? escapeHtml(t('apiKeysExpired')) : escapeHtml(t('usersActive')))}</td>
                 <td>${k.revoked ? '' : `<button type="button" class="btn btn-danger btn-sm apikey-revoke-btn" data-id="${escapeHtml(k.id)}" data-label="${escapeHtml(k.label)}">${escapeHtml(t('apiKeysRevoke'))}</button>`}</td>
               </tr>`).join('')}
             </tbody>
@@ -308,11 +312,14 @@
     async function createApiKey() {
       const btn = document.getElementById('apikey-create-btn');
       const label = (document.getElementById('apikey-label').value || 'integration').trim();
+      const scopes = [...document.querySelectorAll('.apikey-scope:checked')].map(c => c.value);
+      if (!scopes.length) { showAlert(t('apiKeysNeedScope'), true); return; }
+      const exp = (document.getElementById('apikey-expiry') || {}).value || '365';
       try {
         if (btn) btn.disabled = true;
         const res = await fetch(API + '/admin/api-keys', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ label }),
+          body: JSON.stringify({ label, scopes, expires_in_days: exp === 'never' ? null : parseInt(exp, 10) }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || t('apiKeysCreateError'), true); return; }

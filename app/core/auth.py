@@ -33,6 +33,8 @@ class SessionUser:
     # The session was opened with the seeded default password: the app is
     # locked to /auth/change-password until a real one is set.
     must_change_password: bool = False
+    # Integration keys only: the scopes the key was granted (roadmap §1.13).
+    api_scopes: frozenset = frozenset()
 
 
 def _b64url_encode(raw: bytes) -> str:

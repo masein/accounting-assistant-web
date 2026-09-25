@@ -35,6 +35,7 @@ KIND_ROLES = {
     "invoice_due": ("owner", "cfo", "accountant"),
     "invoice_overdue": ("owner", "cfo", "accountant"),
     "moadian": ("owner", "cfo", "accountant"),
+    "api_key": ("owner",),
     "payroll": ("owner", "cfo", "accountant"),
     "approvals": ("owner", "cfo", "manager"),
     "petty_cash": ("owner", "cfo", "accountant"),
@@ -65,6 +66,38 @@ def _upsert(db: Session, seen: set[str], *, dedupe_key: str, kind: str, level: s
         row.message = message
         row.due_date = due_date
         row.link_page = link_page
+
+
+API_KEY_WARN_DAYS = 14
+
+
+def _api_key_expiry(db: Session, seen: set[str], today: date) -> None:
+    """Warn the owner two weeks before an integration key expires (and once
+    it has): an expired key silently stops a Jira/Toggl sync."""
+    from app.db.tenant import get_current_company
+    from app.models.api_key import ApiKey
+    cid = get_current_company()
+    if not cid:
+        return
+    import uuid as _uuid
+    try:
+        company_uuid = _uuid.UUID(str(cid))
+    except ValueError:
+        return
+    horizon = datetime.combine(today + timedelta(days=API_KEY_WARN_DAYS), datetime.min.time(), tzinfo=timezone.utc)
+    keys = db.execute(select(ApiKey).where(
+        ApiKey.company_id == company_uuid, ApiKey.revoked.is_(False),
+        ApiKey.expires_at.is_not(None), ApiKey.expires_at <= horizon,
+    )).scalars().all()
+    for k in keys:
+        exp = k.expires_at if k.expires_at.tzinfo else k.expires_at.replace(tzinfo=timezone.utc)
+        left = (exp.date() - today).days
+        _upsert(db, seen, dedupe_key=f"apikey-{k.id}", kind="api_key",
+                level="high" if left < 0 else "warning",
+                title=(f"API key '{k.label}' has expired" if left < 0 else f"API key '{k.label}' expires in {left} day(s)"),
+                message=f"Integrations using {k.prefix}… stop working on {exp.date().isoformat()}. "
+                        "Create a new key under Settings → API keys and update the integration.",
+                link_page="settings", due_date=exp.date())
 
 
 def _moadian_deadlines(db: Session, seen: set[str], today: date) -> None:
@@ -135,6 +168,9 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
 
     # --- سامانه مودیان: 12-day sending deadline -------------------------------
     _moadian_deadlines(db, seen, today)
+
+    # --- integration keys about to stop working --------------------------------
+    _api_key_expiry(db, seen, today)
 
     # --- payroll paydays ---------------------------------------------------
     runs = db.execute(

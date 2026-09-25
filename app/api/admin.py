@@ -681,6 +681,29 @@ def delete_user(
 # --- Company API keys (Owner-only; the /api/v1 integration credential) --------
 class ApiKeyCreatePayload(BaseModel):
     label: str = "integration"
+    # Omitted → every scope the API has (the old behaviour).
+    scopes: list[str] | None = None
+    # Days until the key stops working; None → never (explicit), default a year.
+    expires_in_days: int | None = Field(365, ge=1, le=730)
+
+
+def _api_key_read(k) -> dict:
+    from app.core.api_key_auth import is_expired, parse_scopes
+    return {
+        "id": str(k.id), "label": k.label, "prefix": k.prefix,
+        "revoked": bool(k.revoked),
+        "scopes": sorted(parse_scopes(k.scopes)),
+        "expires_at": k.expires_at.isoformat() if k.expires_at else None,
+        "expired": is_expired(k.expires_at),
+        "created_at": k.created_at.isoformat() if k.created_at else None,
+        "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+    }
+
+
+@router.get("/api-keys/scopes")
+def api_key_scopes() -> dict:
+    from app.core.api_key_auth import DEFAULT_EXPIRY_DAYS, SCOPES
+    return {"scopes": SCOPES, "default_expiry_days": DEFAULT_EXPIRY_DAYS}
 
 
 @router.get("/api-keys")
@@ -692,12 +715,7 @@ def list_api_keys(
     if cid is None:
         return []
     rows = db.query(ApiKey).filter(ApiKey.company_id == cid).order_by(ApiKey.created_at.desc()).all()
-    return [{
-        "id": str(k.id), "label": k.label, "prefix": k.prefix,
-        "revoked": bool(k.revoked),
-        "created_at": k.created_at.isoformat() if k.created_at else None,
-        "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
-    } for k in rows]
+    return [_api_key_read(k) for k in rows]
 
 
 @router.post("/api-keys", status_code=201)
@@ -708,22 +726,30 @@ def create_api_key(
 ) -> dict:
     """Generate a company API key. The raw key is returned ONCE — store it now;
     only its hash is kept server-side."""
-    from app.core.api_key_auth import generate_api_key
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+    from app.core.api_key_auth import DEFAULT_SCOPES, generate_api_key, normalize_scopes
     from app.models.api_key import ApiKey
     cid = _caller_company_uuid(caller)
     if cid is None:
         raise HTTPException(status_code=400, detail="No company in context.")
+    try:
+        scopes = normalize_scopes(payload.scopes if payload.scopes is not None else DEFAULT_SCOPES)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    expires_at = (_dt.now(_tz.utc) + _td(days=payload.expires_in_days)) if payload.expires_in_days else None
     raw, digest, prefix = generate_api_key()
     key = ApiKey(company_id=cid, label=(payload.label or "integration").strip()[:128],
-                 key_hash=digest, prefix=prefix)
+                 key_hash=digest, prefix=prefix, scopes=",".join(scopes), expires_at=expires_at)
     db.add(key)
     db.flush()
     log_audit_event(db, action="create", entity_type="api_key", entity_id=str(key.id),
-                    detail=_json.dumps({"name": getattr(key, "name", None), "prefix": getattr(key, "prefix", None)}))
+                    detail=_json.dumps({"label": key.label, "prefix": key.prefix, "scopes": scopes,
+                                        "expires_at": expires_at.isoformat() if expires_at else None}))
     db.commit()
     db.refresh(key)
     return {
-        "id": str(key.id), "label": key.label, "prefix": key.prefix,
+        **_api_key_read(key),
         "api_key": raw,  # shown exactly once
         "note": "Store this key now — it cannot be retrieved again.",
     }

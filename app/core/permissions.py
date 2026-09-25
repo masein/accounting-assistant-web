@@ -308,6 +308,12 @@ for _m, _p in [
     ("POST", "/invoices/{invoice_id}/mark-paid"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
+# Invoice e-mail: sending one invoice is a books action; turning automatic
+# customer reminders on (mail goes out with nobody clicking) is owner-level.
+_reads(["/invoices/{invoice_id}/emails", "/invoices/reminder-settings"],
+       frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
+_add("POST", "/invoices/{invoice_id}/send", Perm.BOOKS_WRITE)
+_add("PUT", "/invoices/reminder-settings", Perm.SETTINGS_WRITE)
 # Quotes (پیش‌فاکتور): same people as invoices; a quote never posts, but
 # converting one issues an invoice, so writes need BOOKS_WRITE.
 _reads(["/quotes", "/quotes/next-number", "/quotes/{quote_id}", "/quotes/{quote_id}/pdf"],

@@ -151,6 +151,33 @@
       if (delBtn) deleteEntity(delBtn);
     });
     invoicesTbody.addEventListener('click', async (e) => {
+      const mailBtn = e.target.closest('.inv-email');
+      if (mailBtn) {
+        let to = '';
+        if (mailBtn.dataset.entity) {
+          try {
+            const r = await fetch(API + '/entities/' + encodeURIComponent(mailBtn.dataset.entity));
+            if (r.ok) to = (await r.json()).email || '';
+          } catch (_) {}
+        }
+        const addr = await uiPrompt({
+          title: t('invEmailTitle').replace('{n}', mailBtn.dataset.number),
+          message: t('invEmailPrompt'), value: to, placeholder: 'billing@example.com', confirmLabel: t('invEmailSend'),
+        });
+        if (addr === null || addr === undefined) return;
+        mailBtn.disabled = true;
+        try {
+          const res = await fetch(API + '/invoices/' + encodeURIComponent(mailBtn.dataset.id) + '/send', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: String(addr).trim() || null }),
+          });
+          const data = await readJsonSafe(res);
+          if (!res.ok) { showAlert((data && typeof data.detail === 'string') ? data.detail : t('invEmailFailed'), true); return; }
+          showAlert(t('invEmailSent').replace('{to}', data.to_address));
+        } catch (_) { showAlert(t('invEmailFailed'), true); }
+        finally { mailBtn.disabled = false; }
+        return;
+      }
       const tlBtn = e.target.closest('.inv-timeline');
       if (tlBtn) {
         try {
@@ -749,6 +776,47 @@
         loadInvoices(data.id);
         loadOwnerDashboard();
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+
+    // ═══════ Automatic reminders (owner switches them on) ═══════
+    async function loadReminderSettings() {
+      try {
+        const res = await fetch(API + '/invoices/reminder-settings');
+        if (!res.ok) return;
+        const s = await res.json();
+        document.getElementById('rem-enabled').checked = !!s.reminders_enabled;
+        document.getElementById('rem-days').value = (s.reminder_days || []).join(', ');
+        document.getElementById('rem-instructions').value = s.payment_instructions || '';
+        document.getElementById('rem-link').value = s.payment_link || '';
+        const st = document.getElementById('rem-mail-status');
+        st.textContent = t(s.mail_configured ? 'remMailOn' : 'remMailOff');
+        st.style.color = s.mail_configured ? 'var(--text-muted)' : 'var(--danger, #b91c1c)';
+      } catch (_) {}
+    }
+    document.getElementById('inv-rem-panel').addEventListener('toggle', (e) => { if (e.target.open) loadReminderSettings(); });
+    document.getElementById('rem-save').addEventListener('click', async () => {
+      const days = document.getElementById('rem-days').value.split(/[,،;\s]+/).map(x => x.trim()).filter(Boolean)
+        .map(x => parseInt(x.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10));
+      if (!days.length || days.some(Number.isNaN)) { showAlert(t('remDaysInvalid'), true); return; }
+      const enabled = document.getElementById('rem-enabled').checked;
+      if (enabled) {
+        const ok = await uiConfirm({ title: t('remTitle'), message: t('remEnableConfirm') });
+        if (!ok) return;
+      }
+      try {
+        const res = await fetch(API + '/invoices/reminder-settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reminders_enabled: enabled, reminder_days: days,
+            payment_instructions: document.getElementById('rem-instructions').value,
+            payment_link: document.getElementById('rem-link').value.trim(),
+          }),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert((data && typeof data.detail === 'string') ? data.detail : t('remSaveFailed'), true); return; }
+        showAlert(t('remSaved'));
+        loadReminderSettings();
+      } catch (_) { showAlert(t('remSaveFailed'), true); }
     });
 
     // ═══════ Quotes (پیش‌فاکتور) ═══════

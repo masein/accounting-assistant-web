@@ -14,6 +14,8 @@ Jobs
 * ``notifications_refresh``  every 15 m  rebuild the in-app feed (due invoices, budgets, insights …)
 * ``daily_digest``           daily at SCHEDULER_DIGEST_HOUR (server time) deliver the cash digest
                               to the company's configured channel
+* ``invoice_reminders``      daily at SCHEDULER_DIGEST_HOUR  e-mail overdue customers (only for
+                              companies that switched reminders on; see app/services/invoice_mail.py)
 
 Runs in a single asyncio task started from the app lifespan; sync DB work is
 pushed to a thread so requests are never blocked. Disable with
@@ -132,6 +134,11 @@ def job_daily_digest(db, today: date) -> dict:
     return {"delivered": delivered, "enabled": True}
 
 
+def job_invoice_reminders(db, today: date) -> dict:
+    from app.services.invoice_mail import run_reminders
+    return run_reminders(db, today=today)
+
+
 def run_job_for_all_companies(name: str, fn: Callable[[Any, date], dict], *, today: date,
                               once_per_day: bool) -> JobStatus:
     """Run ``fn(db, today)`` under every active company. ``once_per_day`` jobs
@@ -189,6 +196,9 @@ def run_pending_jobs(now: datetime | None = None) -> list[str]:
     if now.hour >= int(settings.scheduler_digest_hour):
         run_job_for_all_companies("daily_digest", job_daily_digest, today=today, once_per_day=True)
         ran.append("daily_digest")
+        # Customer reminders go out in business hours too, never at midnight.
+        run_job_for_all_companies("invoice_reminders", job_invoice_reminders, today=today, once_per_day=True)
+        ran.append("invoice_reminders")
     return ran
 
 

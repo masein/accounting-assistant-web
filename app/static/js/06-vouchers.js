@@ -244,6 +244,7 @@
               <button type="button" class="btn btn-secondary btn-sm inv-credit-note" data-id="${i.id}" style="margin-left:0.3rem;" ${settled ? 'disabled' : ''}>${escapeHtml(t('invCreditNote'))}</button>
               <a class="btn btn-secondary btn-sm" href="${escapeHtml(i.pdf_url || ('/invoices/' + i.id + '/pdf'))}" target="_blank" style="margin-left:0.3rem; text-decoration:none;">PDF</a>
               <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}" style="margin-left:0.3rem;">${escapeHtml(t('invHistory'))}</button>
+              ${(i.kind === 'sales' && ['issued', 'partially_paid', 'paid'].includes(status)) ? `<button type="button" class="btn btn-secondary btn-sm inv-email" data-id="${i.id}" data-number="${escapeHtml(i.number)}" data-entity="${escapeHtml(i.entity_id || '')}" style="margin-left:0.3rem;">${escapeHtml(t('invEmail'))}</button>` : ''}
               <button type="button" class="btn btn-danger btn-sm inv-void" data-id="${i.id}" data-number="${escapeHtml(i.number)}" style="margin-left:0.3rem;" ${(i.status === 'voided' || i.status === 'canceled') ? 'disabled' : ''}>${escapeHtml(t('invVoid'))}</button>
               <button type="button" class="btn btn-danger btn-sm inv-del" data-id="${i.id}" style="margin-left:0.3rem;">${escapeHtml(t('btnDelete') || 'Delete')}</button>
             </td>

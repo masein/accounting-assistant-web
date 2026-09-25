@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.25.1"
+CURRENT_RELEASE = "2026.09.25.2"
 
 
 @dataclass(frozen=True)
@@ -318,6 +318,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "فرم فاکتور را پر کنید و «ذخیره به‌عنوان پیش‌فاکتور» را بزنید. پیش‌فاکتور در دفاتر ثبت نمی‌شود؛ آن را ارسال‌شده، پذیرفته یا ردشده علامت بزنید، PDF آن را بگیرید و وقتی مشتری موافقت کرد «تبدیل به فاکتور» را بزنید — فاکتور فروش با همان ردیف‌ها ساخته و پیش‌فاکتور قفل می‌شود.",
                     "es": "Rellena el formulario de factura y pulsa «Guardar como presupuesto». El presupuesto no se contabiliza; márcalo como enviado, aceptado o rechazado, descarga su PDF y, cuando el cliente acepte, pulsa «Convertir en factura»: la factura de venta se crea con las mismas líneas y el presupuesto queda bloqueado.",
                     "ar": "املأ نموذج الفاتورة واضغط «حفظ كعرض سعر». لا يُسجَّل العرض في الدفاتر؛ ضع عليه علامة مُرسل أو مقبول أو مرفوض، ونزّل ملف PDF، وعندما يوافق العميل اضغط «تحويل إلى فاتورة» — تُنشأ فاتورة المبيعات بالبنود نفسها ويُقفل العرض.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.25.2",
+        date="2026-09-25",
+        highlights=(
+            Highlight(
+                key="invoice-email-reminders",
+                page="invoices",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "E-mail invoices and let reminders chase late payers",
+                    "fa": "فاکتور را ایمیل کنید و یادآوری‌ها بدهکاران را پیگیری کنند",
+                    "es": "Envía facturas por correo y deja que los recordatorios persigan a los morosos",
+                    "ar": "أرسل الفواتير بالبريد ودع التذكيرات تلاحق المتأخرين",
+                },
+                body={
+                    "en": "The new Email button sends the invoice PDF with your payment details to the customer. Under “Automatic reminders” the owner can switch on reminder e-mails for unpaid invoices (by default 3, 10 and 20 days after the due date). Every e-mail appears in the invoice history. Mail needs SMTP to be set up on the server.",
+                    "fa": "دکمهٔ جدید «ایمیل» PDF فاکتور را همراه اطلاعات پرداخت برای مشتری می‌فرستد. در «یادآوری خودکار» مالک می‌تواند ایمیل یادآوری فاکتورهای پرداخت‌نشده را روشن کند (به‌طور پیش‌فرض ۳، ۱۰ و ۲۰ روز پس از سررسید). هر ایمیل در تاریخچهٔ فاکتور دیده می‌شود. ارسال ایمیل نیاز به تنظیم SMTP روی سرور دارد.",
+                    "es": "El nuevo botón Correo envía el PDF de la factura con tus datos de pago al cliente. En «Recordatorios automáticos» el propietario puede activar correos para facturas impagadas (por defecto 3, 10 y 20 días tras el vencimiento). Cada correo aparece en el historial de la factura. Requiere SMTP configurado en el servidor.",
+                    "ar": "زر «بريد» الجديد يرسل ملف PDF للفاتورة مع بيانات الدفع إلى العميل. ومن «تذكيرات تلقائية» يمكن للمالك تفعيل رسائل التذكير للفواتير غير المسددة (افتراضيًا بعد 3 و10 و20 يومًا من الاستحقاق). تظهر كل رسالة في سجل الفاتورة. يتطلب ذلك ضبط SMTP على الخادم.",
                 },
             ),
         ),

@@ -120,6 +120,12 @@ jobs:
           alembic current | tee current.txt
           grep -q "(head)" current.txt
 
+      # A fresh database is stamped, not migrated, so guards that only a
+      # migration created were missing on new installs (app/db/guards.py).
+      - name: Fresh install has the database guards
+        run: |
+          python -c "import os, sqlalchemy as sa; c = sa.create_engine(os.environ['DATABASE_URL']).connect(); q = lambda s: c.execute(sa.text(s)).first(); assert q(\"SELECT 1 FROM pg_trigger WHERE tgname = 'trg_audit_logs_append_only'\"), 'append-only trigger missing'; assert q(\"SELECT 1 FROM pg_constraint WHERE conname = 'fk_audit_logs_company'\"), 'audit FK missing'; print('database guards present')"
+
       - name: Model vs migration drift (informational)
         continue-on-error: true
         run: alembic check

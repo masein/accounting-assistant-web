@@ -80,6 +80,18 @@ _TestSession = sessionmaker(bind=_engine, autoflush=False, autocommit=False)
 @pytest.fixture(scope="session", autouse=True)
 def _create_tables():
     Base.metadata.create_all(bind=_engine)
+    if not IS_SQLITE:
+        # The shared test database is bootstrapped like production, so it has
+        # the append-only audit_logs trigger and RESTRICT foreign key
+        # (app/db/guards.py). Test cleanup deletes whole companies, audit rows
+        # included, so switch them off for the run; the ORM guard still
+        # applies, and test_boot_platform_settings re-enables the trigger
+        # inside a rolled-back transaction to prove it works.
+        from sqlalchemy import text as _text
+        with _engine.begin() as conn:
+            if conn.execute(_text("SELECT 1 FROM pg_trigger WHERE tgname = 'trg_audit_logs_append_only'")).first():
+                conn.execute(_text("ALTER TABLE audit_logs DISABLE TRIGGER trg_audit_logs_append_only"))
+            conn.execute(_text("ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS fk_audit_logs_company"))
     db = _TestSession()
     seed_chart_if_empty(db)
     seed_payment_methods_if_empty(db)

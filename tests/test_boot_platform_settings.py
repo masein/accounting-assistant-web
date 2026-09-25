@@ -124,17 +124,31 @@ def test_failed_login_for_unknown_user_leaves_a_company_less_audit_row(client, d
     assert row is not None and row.company_id is None
 
 
-def test_postgres_trigger_refuses_the_old_backfill():
+def test_db_guards_install_idempotently_and_refuse_updates():
+    """app/db/guards.py gives every PostgreSQL install the append-only
+    trigger and RESTRICT foreign key (a stamped fresh database used to have
+    neither). The shared test database runs with them off (conftest), so this
+    test installs them, proves them, and switches them off again."""
+    from sqlalchemy.exc import DBAPIError
+
+    from app.db.guards import install_db_guards
     from tests.conftest import IS_SQLITE, _engine
     if IS_SQLITE:
-        pytest.skip("the append-only trigger exists on PostgreSQL only")
-    from sqlalchemy.exc import DBAPIError
-    with _engine.begin() as conn:
-        has_trigger = conn.execute(text(
-            "SELECT 1 FROM pg_trigger WHERE tgname = 'trg_audit_logs_append_only'")).first()
-    if not has_trigger:
-        pytest.skip("trigger not installed in this database")
-    with pytest.raises(DBAPIError):
+        assert install_db_guards(_engine) == []          # SQLite relies on the ORM guard
+        return
+    try:
+        install_db_guards(_engine)
+        assert install_db_guards(_engine) == []          # a second boot changes nothing
         with _engine.begin() as conn:
-            conn.execute(text("UPDATE audit_logs SET company_id = company_id WHERE company_id IS NULL "
-                              "AND id IN (SELECT id FROM audit_logs LIMIT 1)"))
+            conn.execute(text("ALTER TABLE audit_logs ENABLE TRIGGER trg_audit_logs_append_only"))
+        with pytest.raises(DBAPIError):
+            with _engine.begin() as conn:
+                conn.execute(text("INSERT INTO audit_logs (id, action, entity_type, detail) "
+                                  "VALUES (gen_random_uuid(), 'probe', 'test', 'trigger probe')"))
+                conn.execute(text("UPDATE audit_logs SET detail = 'changed' WHERE action = 'probe'"))
+    finally:
+        with _engine.begin() as conn:
+            conn.execute(text("ALTER TABLE audit_logs DISABLE TRIGGER trg_audit_logs_append_only"))
+            conn.execute(text("ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS fk_audit_logs_company"))
+    with _engine.begin() as conn:
+        assert conn.execute(text("SELECT 1 FROM audit_logs WHERE action = 'probe'")).first() is None

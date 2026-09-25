@@ -473,6 +473,7 @@ async def auth_middleware(request: Request, call_next):
             return JSONResponse(status_code=429, content={"detail": "API rate limit exceeded."})
         request.state.user = actor
         request.state.api_key = True
+        request.state.api_scopes = actor.api_scopes
         set_current_company(company_id)
         set_current_user(actor)
         try:
@@ -567,7 +568,7 @@ def _resolve_api_key_actor(request: Request):
     Returns None when the key is missing, unknown, revoked, or its company is
     not active. The actor is a SessionUser-shaped service identity so audit
     attribution and object-ownership helpers work unchanged."""
-    from app.core.api_key_auth import extract_api_key, hash_api_key
+    from app.core.api_key_auth import extract_api_key, hash_api_key, is_expired, parse_scopes
     from app.core.auth import SessionUser
     from app.models.api_key import ApiKey
     from app.models.company import Company
@@ -585,7 +586,7 @@ def _resolve_api_key_actor(request: Request):
                 key = sess.execute(
                     _select(ApiKey).where(ApiKey.key_hash == digest)
                 ).scalars().first()
-                if key is None or key.revoked:
+                if key is None or key.revoked or is_expired(key.expires_at):
                     return None
                 company = sess.get(Company, key.company_id)
                 if company is None or company.status != "active":
@@ -598,6 +599,7 @@ def _resolve_api_key_actor(request: Request):
                     is_admin=False,
                     company_id=str(key.company_id),
                     role="integration",
+                    api_scopes=frozenset(parse_scopes(key.scopes)),
                 )
                 return str(key.company_id), actor
         finally:

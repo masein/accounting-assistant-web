@@ -26,6 +26,18 @@ from app.services import email_verification as ev
 PW = "verify-pass-2026"
 
 
+def _clear_limits():
+    from sqlalchemy import delete
+    from app.models.shared_state import RateLimitEvent
+    from tests.conftest import _TestSession
+    s = _TestSession()
+    try:
+        s.execute(delete(RateLimitEvent))
+        s.commit()
+    finally:
+        s.close()
+
+
 @pytest.fixture
 def signup_enabled():
     original = settings.allow_self_signup
@@ -48,8 +60,8 @@ def mail_on(monkeypatch):
 def _cleanup(db):
     from app.api.auth import _signup_limiter, _login_limiter
 
-    _signup_limiter._hits.clear()
-    _login_limiter._hits.clear()
+    _clear_limits()
+    _clear_limits()
     with tenant_bypass():
         before = {c.id for c in db.execute(select(Company)).scalars().all()}
     yield
@@ -61,8 +73,8 @@ def _cleanup(db):
             db.execute(delete(User).where(User.company_id == company.id))
             db.execute(delete(Company).where(Company.id == company.id))
         db.commit()
-    _signup_limiter._hits.clear()
-    _login_limiter._hits.clear()
+    _clear_limits()
+    _clear_limits()
 
 
 def _user(db, username: str) -> User:

@@ -22,6 +22,18 @@ from app.db.tenant import tenant_bypass, use_company
 PW = "signup-pass-2026"
 
 
+def _clear_limits():
+    from sqlalchemy import delete
+    from app.models.shared_state import RateLimitEvent
+    from tests.conftest import _TestSession
+    s = _TestSession()
+    try:
+        s.execute(delete(RateLimitEvent))
+        s.commit()
+    finally:
+        s.close()
+
+
 @pytest.fixture
 def signup_enabled():
     original = settings.allow_self_signup
@@ -34,9 +46,9 @@ def signup_enabled():
 def _reset_limiter():
     from app.api.auth import _signup_limiter
 
-    _signup_limiter._hits.clear()
+    _clear_limits()
     yield
-    _signup_limiter._hits.clear()
+    _clear_limits()
 
 
 @pytest.fixture(autouse=True)

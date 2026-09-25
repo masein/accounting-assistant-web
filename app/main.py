@@ -64,6 +64,7 @@ from app.db.tenant import set_current_company, clear_current_company, tenant_byp
 from app.db.seed import ensure_default_company, seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
 from app.db.session import engine, SessionLocal, get_db
 import app.models  # noqa: F401 - register models with Base.metadata
+import app.core.shared_state  # noqa: F401,E402 - registers the books-version flush hook
 
 logging.basicConfig(
     level=logging.INFO,

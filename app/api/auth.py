@@ -20,7 +20,8 @@ from app.core.auth import (
 )
 from app.core.audit import audit_log, get_client_ip
 from app.core.config import settings
-from app.core.rate_limit import RateLimiter
+from app.core.rate_limit import RateLimiter  # noqa: F401  (re-exported for older imports)
+from app.core.shared_state import DbRateLimiter
 from app.db.session import get_db
 from app.models.user import User
 from app.services.email_verification import (
@@ -52,9 +53,10 @@ def _company_dict(company) -> dict | None:
 #    a legitimate user logging in often is never locked out);
 #  * per client IP: 30 failed attempts per 15 minutes across all usernames
 #    (stops one address spraying a password over many accounts).
-_login_limiter = RateLimiter(max_requests=5, window_seconds=900)
-_login_ip_limiter = RateLimiter(max_requests=30, window_seconds=900)
-_signup_limiter = RateLimiter(max_requests=5, window_seconds=3600)
+# Counted in Postgres (roadmap §2.2) so every worker sees the same attempts.
+_login_limiter = DbRateLimiter("login", max_requests=5, window_seconds=900)
+_login_ip_limiter = DbRateLimiter("login_ip", max_requests=30, window_seconds=900)
+_signup_limiter = DbRateLimiter("signup", max_requests=5, window_seconds=3600)
 # Verifying against this when the username does not exist makes an unknown
 # name cost the same time as a wrong password — no user enumeration by timing.
 _DUMMY_HASH, _DUMMY_SALT = hash_password("no-such-user-timing-equaliser")
@@ -126,14 +128,14 @@ class PreferencesPatchRequest(BaseModel):
 def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
     username = payload.username.strip()
     ip_key = f"ip:{get_client_ip(request) or 'unknown'}"
-    if not _login_limiter.would_allow(username) or not _login_ip_limiter.would_allow(ip_key):
+    if not _login_limiter.would_allow(db, username) or not _login_ip_limiter.would_allow(db, ip_key):
         raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
     user = db.execute(select(User).where(User.username == username)).scalars().first()
     if user is None:
         verify_password(payload.password, _DUMMY_HASH, _DUMMY_SALT)  # constant-time-ish: same work as a real check
     if not user or not user.is_active or not verify_password(payload.password, user.password_hash, user.password_salt):
-        _login_limiter.hit(username)
-        _login_ip_limiter.hit(ip_key)
+        _login_limiter.hit(db, username)
+        _login_ip_limiter.hit(db, ip_key)
         audit_log(db, action="login_failed", entity_type="user", detail=f"Failed login for '{username}'", ip_address=get_client_ip(request))
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -173,7 +175,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     # change-password screen works until a real password is set (production
     # QA 2026-09-24 found admin/admin still active on a live server).
     must_change = hmac.compare_digest(payload.password, DEFAULT_SEED_PASSWORD)
-    _login_limiter.reset(username)  # a correct password clears the failed-attempt count
+    _login_limiter.reset(db, username)  # a correct password clears the failed-attempt count
     audit_log(db, action="login", entity_type="user", entity_id=str(user.id), user_id=str(user.id), username=user.username,
               detail=("default password — change required" if must_change else None), ip_address=get_client_ip(request))
     token = _session_token_for(user, must_change_password=must_change)
@@ -213,7 +215,7 @@ def signup(payload: SignupRequest, request: Request, response: Response,
         raise HTTPException(status_code=403, detail="Self-signup is disabled on this server.")
 
     ip = get_client_ip(request)
-    if not _signup_limiter.is_allowed(ip or "unknown"):
+    if not _signup_limiter.is_allowed(db, ip or "unknown"):
         raise HTTPException(status_code=429, detail="Too many sign-up attempts. Try again later.")
 
     username = payload.username.strip()
@@ -330,7 +332,7 @@ def resend_verification(payload: LoginRequest, db: Session = Depends(get_db)) ->
     registered.
     """
     generic = {"ok": True, "message": "If that account needs confirming, a new link is on its way."}
-    if not _login_limiter.is_allowed(f"resend:{payload.username.strip()}"):
+    if not _login_limiter.is_allowed(db, f"resend:{payload.username.strip()}"):
         raise HTTPException(status_code=429, detail="Too many requests. Try again later.")
 
     user = db.execute(

@@ -179,6 +179,28 @@ and starts the api again (which applies any newer migrations on boot).
   your proxy — uvicorn already rewrites the client address, and trusting the
   header blindly lets anyone forge it.
 
+## 9. More than one worker
+
+One uvicorn worker is the default. To use several, set `WEB_CONCURRENCY=2` (up
+to 4) in `.env` and recreate the api container. This is safe because:
+
+- **Limits that matter are shared.** Login, sign-up, e-mail resend and chat
+  limits are counted in Postgres (`rate_limit_events`), so every worker sees
+  the same attempts.
+- **Caches can't go stale across workers.** The dashboard and insights caches
+  key on a per-company books version that is bumped in the same transaction
+  as any ledger or invoice write.
+- **Two-step uploads work on any worker.** Excel import tokens are stored in
+  `upload_tokens`, scoped to the company.
+- **AI provider changes reach every worker** within `AI_CONFIG_REFRESH_SECONDS`
+  (default 15).
+- **Background jobs run once.** Each scheduler tick takes a Postgres advisory
+  lock, so only one worker runs it.
+
+The per-request API limiter (120 requests per minute per user) stays per
+worker, so with N workers the effective limit is N × 120. Each worker also
+loads the app separately, so budget roughly 250 MB of memory per worker.
+
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally
   and bind-mounts the source for live reload. `docker-compose.prod.yml` runs the

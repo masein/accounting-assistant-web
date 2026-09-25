@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import time
 from threading import RLock
 from typing import Any
 
@@ -11,6 +13,49 @@ _lock = RLock()
 _logger = logging.getLogger(__name__)
 
 _DB_KEY = "ai_config"
+
+# Multi-worker freshness (roadmap §2.2): every worker loads the platform row at
+# startup; a save on one worker changes that row, and the others notice within
+# REFRESH_SECONDS by comparing a hash of its value (cheap, one indexed read).
+REFRESH_SECONDS: float = float(settings.ai_config_refresh_seconds or 0)
+_loaded_marker: str | None = None
+_last_check: float = 0.0
+
+
+def _session_factory():
+    from app.db.session import SessionLocal
+    return SessionLocal
+
+
+def _marker(value: str | None) -> str | None:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest() if value else None
+
+
+def _refresh_if_stale() -> None:
+    global _last_check
+    if not REFRESH_SECONDS:
+        return
+    now = time.monotonic()
+    if now - _last_check < REFRESH_SECONDS:
+        return
+    _last_check = now
+    try:
+        from app.db.tenant import tenant_bypass
+        from app.models.app_setting import AppSetting
+        db = _session_factory()()
+        try:
+            with tenant_bypass():
+                row = (db.query(AppSetting.value)
+                       .filter(AppSetting.key == _DB_KEY, AppSetting.company_id.is_(None)).first())
+        finally:
+            db.close()
+    except Exception:
+        _logger.debug("AI config freshness check failed", exc_info=True)
+        return
+    marker = _marker(row[0]) if row else None
+    if marker and marker != _loaded_marker:
+        _logger.info("AI config changed on another worker; reloading")
+        load_ai_config_from_db()
 _KEYED_PROVIDERS = ("lmstudio", "metis", "custom", "anthropic")
 
 
@@ -78,11 +123,11 @@ def _sanitize_provider(p: str | None) -> str:
 # ---------------------------------------------------------------------------
 def load_ai_config_from_db() -> None:
     """Load AI config from the app_settings table (called once at startup)."""
+    global _loaded_marker
     try:
-        from app.db.session import SessionLocal
         from app.models.app_setting import AppSetting
 
-        db = SessionLocal()
+        db = _session_factory()()
         try:
             # The AI wiring is one platform-wide row (company_id NULL). Older
             # deployments saved it per company; fall back to the most recently
@@ -104,6 +149,8 @@ def load_ai_config_from_db() -> None:
                     )
             if row and row.value:
                 from app.core.secrets import decrypt_secret, is_encrypted
+                if row.company_id is None:
+                    _loaded_marker = _marker(row.value)
                 saved = json.loads(row.value)
                 had_plaintext_key = False
                 with _lock:
@@ -132,8 +179,8 @@ def load_ai_config_from_db() -> None:
 
 def _persist_to_db() -> None:
     """Save current AI config state to the database (best-effort)."""
+    global _loaded_marker
     try:
-        from app.db.session import SessionLocal
         from app.models.app_setting import AppSetting
 
         from app.core.secrets import encrypt_secret
@@ -145,7 +192,7 @@ def _persist_to_db() -> None:
                     data[prov]["api_key"] = encrypt_secret(data[prov].get("api_key") or "")
             snapshot = json.dumps(data)
 
-        db = SessionLocal()
+        db = _session_factory()()
         try:
             from app.db.tenant import tenant_bypass
             with tenant_bypass():
@@ -159,6 +206,7 @@ def _persist_to_db() -> None:
                 else:
                     db.add(AppSetting(key=_DB_KEY, value=snapshot, company_id=None))
                 db.commit()
+            _loaded_marker = _marker(snapshot)
         finally:
             db.close()
     except Exception:
@@ -169,6 +217,7 @@ def _persist_to_db() -> None:
 # Public API (unchanged signatures)
 # ---------------------------------------------------------------------------
 def get_ai_config_public() -> dict[str, Any]:
+    _refresh_if_stale()
     with _lock:
         provider = _state["provider"]
         active = dict(_state.get(provider, {}))
@@ -235,6 +284,7 @@ def update_ai_config(
 
 
 def resolve_active_ai_backend() -> dict[str, str]:
+    _refresh_if_stale()
     with _lock:
         provider = _state["provider"]
         cfg = _state[provider]
@@ -278,6 +328,7 @@ def resolve_anthropic_config() -> dict[str, str]:
     """Always returns the Anthropic backend config, regardless of the
     currently-selected default provider. Used by the AI accountant feature,
     which uses Claude irrespective of the OpenAI-compatible default."""
+    _refresh_if_stale()
     with _lock:
         cfg = _state["anthropic"]
         return {

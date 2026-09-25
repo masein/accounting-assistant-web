@@ -74,7 +74,7 @@ def test_journal_reversal_dated_inside_the_lock_is_refused(auth_client):
 
 def test_chat_undo_soft_deletes_with_audit_and_respects_the_lock(auth_client, db, monkeypatch):
     from app.api import transactions as tx_api
-    monkeypatch.setattr(tx_api, "_chat_limiter", tx_api._RateLimiter(max_requests=1000, window_seconds=60))  # other tests share the global bucket
+    monkeypatch.setattr(tx_api, "_chat_limiter", tx_api._DbRateLimiter("chat", max_requests=1000, window_seconds=60))  # other tests share the global bucket
     tid = _post(auth_client, OUTSIDE, f"undo-me-{uuid.uuid4().hex[:6]}")
     _make_latest(db, tid, hours=1)  # same-second created_at ties with other tests' rows otherwise
     r = auth_client.post("/transactions/chat", json={"messages": [{"role": "user", "content": "undo"}]})

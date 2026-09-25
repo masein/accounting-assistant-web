@@ -124,7 +124,11 @@ class _RateLimiter:
         return True
 
 
-_chat_limiter = _RateLimiter(max_requests=10, window_seconds=60)
+# Shared across workers (roadmap §2.2); one global bucket as before (per-user
+# AI budgets are roadmap §2.5).
+from app.core.shared_state import DbRateLimiter as _DbRateLimiter  # noqa: E402
+
+_chat_limiter = _DbRateLimiter("chat", max_requests=10, window_seconds=60)
 MAX_ATTACHMENT_SIZE_BYTES = 8 * 1024 * 1024
 ALLOWED_ATTACHMENT_TYPES = {
     "image/jpeg",
@@ -500,7 +504,7 @@ async def chat(
     which bank account, what for. When it has enough info, returns message + transaction to fill the form.
     """
     rate_key = "global"
-    if not _chat_limiter.check(rate_key):
+    if not _chat_limiter.is_allowed(db, rate_key):
         return ChatResponse(
             message="You're sending messages too quickly. Please wait a moment before trying again.",
             transaction=None,
@@ -1688,8 +1692,10 @@ from app.schemas.transaction import (
     ExcelImportPreviewVoucher,
 )
 
-# Temp storage for uploaded Excel files (token → file path)
-_EXCEL_UPLOAD_STORE: dict[str, str] = {}
+# Uploaded Excel files wait for "confirm" in the tenant-scoped upload_tokens
+# table (roadmap §2.2): a preview on one worker can be confirmed on another,
+# and a token only resolves inside the company that uploaded it.
+EXCEL_UPLOAD_KIND = "excel_journal"
 
 
 def _excel_import_history(db: Session, sha: str) -> dict | None:
@@ -1755,7 +1761,8 @@ def excel_import_preview(
     tmp_dir.mkdir(exist_ok=True)
     tmp_path = tmp_dir / f"{token}.xlsx"
     tmp_path.write_bytes(content)
-    _EXCEL_UPLOAD_STORE[token] = str(tmp_path)
+    from app.core.shared_state import store_upload
+    store_upload(db, EXCEL_UPLOAD_KIND, token, str(tmp_path))
 
     # Parse
     result = parse_excel_journal(str(tmp_path), jalali_year=jalali_year)
@@ -1838,7 +1845,8 @@ def excel_import_confirm(
     from app.services.excel_journal_parser import parse_excel_journal
 
     # Retrieve file
-    file_path = _EXCEL_UPLOAD_STORE.get(payload.file_token)
+    from app.core.shared_state import find_upload
+    file_path = find_upload(db, EXCEL_UPLOAD_KIND, payload.file_token)
     if not file_path or not _Path(file_path).exists():
         raise HTTPException(status_code=400, detail="Upload expired or not found. Please re-upload the file.")
 
@@ -1978,7 +1986,8 @@ def excel_import_confirm(
     # Clean up temp file
     try:
         _Path(file_path).unlink(missing_ok=True)
-        _EXCEL_UPLOAD_STORE.pop(payload.file_token, None)
+        from app.core.shared_state import drop_upload
+        drop_upload(db, EXCEL_UPLOAD_KIND, payload.file_token)
     except Exception:
         pass
 

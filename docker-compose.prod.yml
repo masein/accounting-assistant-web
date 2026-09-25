@@ -58,6 +58,10 @@ services:
       # Only when the proxy is NOT declared via FORWARDED_ALLOW_IPS.
       TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
       SCHEDULER_DIGEST_HOUR: ${SCHEDULER_DIGEST_HOUR:-8}
+      # uvicorn worker processes (read by uvicorn itself). Shared state is in
+      # Postgres and the scheduler runs in one worker at a time, so 2–4 is safe;
+      # see DEPLOY.md "More than one worker".
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
       # The site is served over HTTPS: the session cookie always carries Secure.
       # Set AUTH_COOKIE_SECURE=false only for a plain-HTTP test box.
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}

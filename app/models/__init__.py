@@ -33,6 +33,7 @@ from app.models.quote import Quote, QuoteItem
 from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType
 from app.models.recurring import RecurringRule
 from app.models.recurring_invoice import RecurringInvoice
+from app.models.shared_state import BooksVersion, RateLimitEvent, UploadToken
 from app.models.tax_rate import TaxRate
 from app.models.time_billing import BillingRateOverride, Project, TimeEntry
 from app.models.trial_balance import TrialBalance, TrialBalanceLine

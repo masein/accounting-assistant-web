@@ -52,7 +52,12 @@ retry (#130). §4.2 done except SMS (no provider chosen yet). ✅ 3.1 phase 1:
 مودیان export for a trusted provider — 22-char tax number (Verhoeff), official
 JSON packet, readiness checks, stable per-company serials, result tracking,
 confirmed-invoice lock, 12-day deadline alerts. Phase 2 (direct API with the
-company's signing key, return/cancel invoices) is still open.
+company's signing key, return/cancel invoices) is still open (#131). ✅ boot fix:
+append-only audit_logs skipped by the Default-company backfill (#132). ✅ 2.2
+shared state: login/sign-up/resend/chat limits in Postgres, books version for
+the dashboard + insights caches, tenant-scoped upload tokens, AI config
+refresh across workers, scheduler tick behind an advisory lock;
+`WEB_CONCURRENCY` in the prod compose (DEPLOY.md §9).
 
 ---
 

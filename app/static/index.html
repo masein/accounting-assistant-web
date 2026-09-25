@@ -254,6 +254,7 @@
 
       <div class="row" style="margin-bottom: 1rem; gap:0.5rem; align-items:center;">
         <button type="button" class="btn btn-primary" id="inv-add" data-i18n="btnCreateInvoice">Create invoice</button>
+        <button type="button" class="btn btn-secondary" id="inv-save-quote" data-i18n="qtSaveAsQuote">Save as quote</button>
         <button type="button" class="btn btn-secondary" id="inv-preview" data-i18n="invPreview">Preview</button>
         <a id="inv-download" class="btn btn-secondary" target="_blank" rel="noopener" style="display:none; text-decoration:none;" data-i18n="invDownloadPdf">Download PDF</a>
       </div>
@@ -273,6 +274,26 @@
       <table class="results-table" id="invoices-table">
         <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="labelType">Type</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="invPaid">Paid</th><th data-i18n="invBalanceDue">Balance</th><th data-i18n="labelDueDate">Due</th><th data-i18n="usersActions">Actions</th></tr></thead>
         <tbody id="invoices-tbody"><tr><td colspan="8" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+
+      <!-- Quotes (پیش‌فاکتور): offers that never post until converted -->
+      <h3 style="margin-top:1.25rem;" data-i18n="qtTitle">Quotes</h3>
+      <p style="color:var(--text-muted);font-size:0.82rem;margin:0 0 0.5rem;" data-i18n="qtSubtitle">A quote uses the same lines as an invoice but is not posted to the books. When the customer accepts, convert it: the sales invoice is created from the same lines and the quote is locked.</p>
+      <div class="row" style="gap:0.5rem;align-items:end;margin-bottom:0.5rem;">
+        <div><label for="qt-filter" data-i18n="qtFilter">Show</label>
+          <select id="qt-filter">
+            <option value="" data-i18n="qtFilterAll">All</option>
+            <option value="draft" data-i18n="qtStatus_draft">Draft</option>
+            <option value="sent" data-i18n="qtStatus_sent">Sent</option>
+            <option value="accepted" data-i18n="qtStatus_accepted">Accepted</option>
+            <option value="expired" data-i18n="qtStatus_expired">Expired</option>
+            <option value="declined" data-i18n="qtStatus_declined">Declined</option>
+            <option value="converted" data-i18n="qtStatus_converted">Invoiced</option>
+          </select></div>
+      </div>
+      <table class="results-table" id="quotes-table">
+        <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="qtCustomer">Customer</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="qtValidUntil">Valid until</th><th data-i18n="usersActions">Actions</th></tr></thead>
+        <tbody id="quotes-tbody"><tr><td colspan="6" class="empty-state" data-i18n="qtNone">No quotes yet.</td></tr></tbody>
       </table>
 
       <!-- Tax-rate admin: effective-dated rates -->

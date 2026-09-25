@@ -21,6 +21,7 @@ from app.models.equity import Shareholding
 from app.models.invoice import Invoice
 from app.models.pay_run import PayRun, PayRunLine
 from app.models.purchase_order import PurchaseOrder
+from app.models.quote import Quote, QuoteItem
 from app.models.recurring import RecurringRule
 from app.models.time_billing import TimeEntry
 from app.models.transaction import Transaction, TransactionAttachment
@@ -71,7 +72,11 @@ def world(db, tmp_path):
         po = PurchaseOrder(id=uuid.uuid4(), number=f"PO-{uuid.uuid4().hex[:5]}", order_date=d, status="draft",
                            currency="IRR", entity_id=client_ent.id, description="A order")
         run = PayRun(id=uuid.uuid4(), period_start=d, period_end=d, pay_date=d, currency="IRR", status="posted")
-        db.add_all([att, inv, po, run]); db.flush()
+        quote = Quote(id=uuid.uuid4(), number=f"QA-{uuid.uuid4().hex[:5]}", status="draft", issue_date=d,
+                      valid_until=d, amount=7_000, currency="IRR", entity_id=client_ent.id)
+        db.add_all([att, inv, po, run, quote]); db.flush()
+        db.add(QuoteItem(id=uuid.uuid4(), quote_id=quote.id, product_name="A line", quantity=1,
+                         unit_price=7_000, line_total=7_000))
         db.add(PayRunLine(id=uuid.uuid4(), run_id=run.id, entity_id=emp.id, employee_name=emp.name,
                           gross=100_000, net_pay=80_000))
         sh = Shareholding(id=uuid.uuid4(), entity_id=holder.id, shares=100, percent=100)
@@ -84,6 +89,7 @@ def world(db, tmp_path):
         db.add_all([sh, te, rule, adj])
         db.commit()
     ids = {"txn": txn.id, "att": att.id, "inv": inv.id, "po": po.id, "run": run.id, "emp": emp.id,
+           "quote": quote.id,
            "sh": sh.id, "te": te.id, "rule": rule.id, "adj": adj.id, "att_path": str(stored)}
     # The app shares this session in tests. Rows still sitting in its identity
     # map would be handed back by session.get() WITHOUT a query — and the tenant
@@ -119,6 +125,11 @@ def _cross_tenant_calls(w):
         ("patch", f"/recurring/{w['rule']}", {"name": "tampered"}),
         ("delete", f"/recurring/{w['rule']}", None),
         ("get", f"/adjustments/{w['adj']}", None),
+        ("get", f"/quotes/{w['quote']}", None),
+        ("get", f"/quotes/{w['quote']}/pdf", None),
+        ("patch", f"/quotes/{w['quote']}", {"description": "tampered"}),
+        ("post", f"/quotes/{w['quote']}/convert", {}),
+        ("delete", f"/quotes/{w['quote']}", None),
     ]
 
 
@@ -144,6 +155,8 @@ def test_company_b_cannot_see_or_change_company_a_objects(client, db, world):
         assert float(db.get(Shareholding, w["sh"]).percent) == 100
         assert float(db.get(TimeEntry, w["te"]).hours) == 3
         assert db.get(RecurringRule, w["rule"]).name == "A rent"
+        q = db.get(Quote, w["quote"])
+        assert q is not None and q.status == "draft" and q.description is None and q.converted_invoice_id is None
     assert Path(w["att_path"]).exists()
 
 
@@ -153,7 +166,7 @@ def test_company_a_still_reaches_its_own_objects(client, world):
     ok = {
         f"/transactions/{w['txn']}", f"/transactions/attachments/{w['att']}/file",
         f"/invoices/{w['inv']}/timeline", f"/purchase-orders/{w['po']}",
-        f"/payroll/runs/{w['run']}", f"/adjustments/{w['adj']}",
+        f"/payroll/runs/{w['run']}", f"/adjustments/{w['adj']}", f"/quotes/{w['quote']}",
     }
     for url in ok:
         r = a.get(url)
@@ -164,9 +177,10 @@ def test_list_endpoints_never_include_the_other_company(client, world):
     w = world
     b = _owner(client, w["b"])
     for url, key in (("/transactions", "id"), ("/invoices", "id"), ("/purchase-orders", "id"),
-                     ("/payroll/runs", "id"), ("/recurring", "id"), ("/entities", "id"), ("/equity/cap-table", None)):
+                     ("/payroll/runs", "id"), ("/recurring", "id"), ("/entities", "id"), ("/equity/cap-table", None),
+                     ("/quotes", "id")):
         r = b.get(url)
         assert r.status_code == 200, (url, r.status_code)
         text = r.text
-        for obj in ("txn", "inv", "po", "run", "rule", "emp", "sh"):
+        for obj in ("txn", "inv", "po", "run", "rule", "emp", "sh", "quote"):
             assert str(w[obj]) not in text, (url, obj)

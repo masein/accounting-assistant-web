@@ -308,6 +308,15 @@ for _m, _p in [
     ("POST", "/invoices/{invoice_id}/mark-paid"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
+# Quotes (پیش‌فاکتور): same people as invoices; a quote never posts, but
+# converting one issues an invoice, so writes need BOOKS_WRITE.
+_reads(["/quotes", "/quotes/next-number", "/quotes/{quote_id}", "/quotes/{quote_id}/pdf"],
+       frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
+for _m, _p in [
+    ("POST", "/quotes"), ("PATCH", "/quotes/{quote_id}"), ("DELETE", "/quotes/{quote_id}"),
+    ("POST", "/quotes/{quote_id}/convert"),
+]:
+    _add(_m, _p, Perm.BOOKS_WRITE)
 
 # --- Books: entities --------------------------------------------------------
 _reads(["/entities", "/entities/{entity_id}", "/entities/{entity_id}/statement.pdf"],

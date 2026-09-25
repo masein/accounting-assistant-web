@@ -529,8 +529,10 @@ def _assert_number_free(db: Session, number: str, kind: str, *, exclude_id=None)
         raise HTTPException(status_code=409, detail=f"{kind.capitalize()} invoice number '{number}' already exists (id {twin.id}).")
 
 
-@router.post("", response_model=InvoiceRead, status_code=201)
-def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> InvoiceRead:
+def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
+    """Validate, insert and (when issued) recognise an invoice — flushed but
+    NOT committed, so a caller can create an invoice as part of a larger unit
+    of work (quote conversion, recurring invoices) and commit once."""
     kind = _validate_kind(payload.kind)
     number = payload.number.strip()
     if not number:
@@ -548,18 +550,46 @@ def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Inv
         entity_id=payload.entity_id,
     )
     db.add(row)
+    db.flush()
+    item_rows, items_total = _build_invoice_items(payload.items, row.id, db, row.issue_date)
+    for item in item_rows:
+        row.items.append(item)  # populate the relationship so tax breakdown sees them
+    if item_rows:
+        row.amount = items_total
+    db.flush()
+    # Recognise AR/AP at issue: DR debtors / CR revenue (sales) or
+    # DR expense / CR creditors (purchase). Posts once, links the txn.
+    if row.status in ("issued", "partially_paid", "paid"):
+        _recognize_invoice(db, row)
+    return row
+
+
+def suggest_number(db: Session, model, prefix: str, *, kind: str | None = None, start: int = 1001) -> str:
+    """Next number in a ``<prefix><digits>`` series: one above the highest
+    numeric suffix already used with that prefix (``start`` when none)."""
+    q = select(model.number).where(model.number.like(f"{prefix}%"))
+    if kind is not None:
+        q = q.where(model.kind == kind)
+    best = start - 1
+    for (num,) in db.execute(q).all():
+        if not (num or "").startswith(prefix):  # LIKE treats _ and % in the prefix as wildcards
+            continue
+        tail = num[len(prefix):]
+        if tail.isdigit():
+            best = max(best, int(tail))
+    return f"{prefix}{best + 1}"
+
+
+def invoice_number_prefix(db: Session) -> str:
+    from app.models.company_profile import CompanyProfile
+    prof = db.execute(select(CompanyProfile)).scalars().first()
+    return ((prof.invoice_number_prefix if prof else None) or "INV-").strip() or "INV-"
+
+
+@router.post("", response_model=InvoiceRead, status_code=201)
+def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> InvoiceRead:
     try:
-        db.flush()
-        item_rows, items_total = _build_invoice_items(payload.items, row.id, db, row.issue_date)
-        for item in item_rows:
-            row.items.append(item)  # populate the relationship so tax breakdown sees them
-        if item_rows:
-            row.amount = items_total
-        db.flush()
-        # Recognise AR/AP at issue: DR debtors / CR revenue (sales) or
-        # DR expense / CR creditors (purchase). Posts once, links the txn.
-        if row.status in ("issued", "partially_paid", "paid"):
-            _recognize_invoice(db, row)
+        row = insert_invoice(db, payload)
         db.commit()
     except DataError as e:
         db.rollback()
@@ -962,6 +992,13 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
     events = [
         InvoiceTimelineEvent(at=inv.created_at, event="created", detail=f"Invoice {inv.number} created with status {inv.status}."),
     ]
+    from app.models.quote import Quote
+    source = db.execute(select(Quote).where(Quote.converted_invoice_id == inv.id)).scalars().first()
+    if source is not None:
+        events.append(InvoiceTimelineEvent(
+            at=source.created_at, event="quote",
+            detail=f"Created from quote {source.number} (issued {source.issue_date.isoformat()}).",
+        ))
     if inv.transaction_id:
         txn = db.get(Transaction, inv.transaction_id)
         if txn:

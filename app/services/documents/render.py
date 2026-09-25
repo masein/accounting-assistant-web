@@ -72,6 +72,17 @@ def _money(n, ccy, loc):
 # Invoice
 # ---------------------------------------------------------------------------
 def render_invoice_pdf(db: Session, inv, party) -> bytes:
+    return _render_invoice_like(db, inv, party)
+
+
+def render_quote_pdf(db: Session, quote, party) -> bytes:
+    """A quote (پیش‌فاکتور) uses the invoice layout with its own title, a
+    "valid until" date instead of the due date and no payable block wording
+    change — the total is what the customer will be invoiced."""
+    return _render_invoice_like(db, quote, party, kind="quote")
+
+
+def _render_invoice_like(db: Session, inv, party, *, kind: str = "invoice") -> bytes:
     brand, L, loc = _ctx(db)
     ccy = inv.currency or brand["base_currency"]
     items = list(inv.items or [])
@@ -108,14 +119,16 @@ def render_invoice_pdf(db: Session, inv, party) -> bytes:
     totals = [{"label": L["subtotal"], "value": _money(subtotal, ccy, loc)}]
     if tax_total:
         totals.append({"label": L["tax"], "value": _money(tax_total, ccy, loc)})
+    is_quote = kind == "quote"
     ctx = {
         **brand,
-        "title": L["invoice"],
+        "title": L["quote"] if is_quote else L["invoice"],
         "labels": L,
         "meta": [
             {"label": L["number"], "value": fmt_digits(inv.number, loc)},
             {"label": L["issue_date"], "value": fmt_date(inv.issue_date, loc)},
-            {"label": L["due_date"], "value": fmt_date(inv.due_date, loc)},
+            ({"label": L["valid_until"], "value": fmt_date(inv.valid_until, loc)} if is_quote
+             else {"label": L["due_date"], "value": fmt_date(inv.due_date, loc)}),
             {"label": L["status"], "value": (inv.status or "issued")},
         ],
         "parties": [_issuer_party(brand, L), _recipient_party(build_recipient(party), L, L["bill_to"])],

@@ -42,7 +42,10 @@ invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as
 data (`payroll_rule_sets`, Iran 1405 + UK 2026/27 seeded, super-admin edits,
 statutory pay profiles, employer share posted, لیست بیمه + salary-tax CSV
 exports) — remaining in 3.3: عیدی/سنوات year-end runs, بیمه/مالیات portal
-file formats once a customer supplies the templates.
+file formats once a customer supplies the templates. · ✅ boot fix: platform
+AI settings kept out of the Default-company backfill, pre-start tracebacks
+visible (#127) · 🔄 4.2 quotes → invoice (this PR), then invoice e-mail +
+automatic overdue reminders, then recurring invoices with auto-send.
 
 ---
 

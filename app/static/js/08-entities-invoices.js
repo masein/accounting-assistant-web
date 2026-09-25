@@ -583,7 +583,8 @@
 
     // Build the POST body for both create and preview. Returns null on a
     // validation error (and shows the alert).
-    function invBuildBody() {
+    function invBuildBody(opts) {
+      const allowBlankNumber = !!(opts && opts.allowBlankNumber);
       const number = document.getElementById('inv-number').value.trim();
       const kind = document.getElementById('inv-kind').value;
       const currency = invCurrency();
@@ -591,7 +592,9 @@
       const due_date = document.getElementById('inv-due').value;
       const entity_id = document.getElementById('inv-entity').value || null;
       const description = document.getElementById('inv-desc').value.trim() || null;
-      if (!number || !issue_date || !due_date) { showAlert(t('invHeaderRequired'), true); return null; }
+      if ((!number && !allowBlankNumber) || !issue_date || !due_date) {
+        showAlert(t(allowBlankNumber ? 'qtHeaderRequired' : 'invHeaderRequired'), true); return null;
+      }
       const body = { number, kind, amount: 0, currency, issue_date, due_date, entity_id, description, status: 'issued' };
       if (_invMode === 'itemized') {
         const items = invCollectItems();
@@ -746,6 +749,135 @@
         loadInvoices(data.id);
         loadOwnerDashboard();
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+
+    // ═══════ Quotes (پیش‌فاکتور) ═══════
+    // Same form as the invoice; the due date becomes "valid until".
+    document.getElementById('inv-save-quote').addEventListener('click', async () => {
+      if (document.getElementById('inv-kind').value !== 'sales') { showAlert(t('qtSalesOnly'), true); return; }
+      const body = invBuildBody({ allowBlankNumber: true });
+      if (!body) return;
+      const payload = {
+        number: body.number || null, issue_date: body.issue_date, valid_until: body.due_date,
+        amount: body.amount || 0, currency: body.currency, description: body.description,
+        entity_id: body.entity_id, items: body.items || [], status: 'draft',
+      };
+      try {
+        const res = await fetch(API + '/quotes', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert(qtError(data, 'qtSaveFailed'), true); return; }
+        showAlert(t('qtSaved').replace('{n}', data.number));
+        document.getElementById('inv-number').value = '';
+        document.getElementById('inv-desc').value = '';
+        invResetBuilder();
+        loadQuotes(data.id);
+      } catch (err) { showAlert(t('qtSaveFailed'), true); }
+    });
+
+    function qtError(data, fallbackKey) {
+      if (data && typeof data.detail === 'string') return data.detail;
+      if (data && Array.isArray(data.detail) && data.detail[0] && data.detail[0].msg) return data.detail[0].msg;
+      return t(fallbackKey);
+    }
+
+    async function loadQuotes(highlightId) {
+      const body = document.getElementById('quotes-tbody');
+      if (!body) return;
+      const filter = (document.getElementById('qt-filter') || {}).value || '';
+      try {
+        const res = await fetch(API + '/quotes' + (filter ? ('?status=' + encodeURIComponent(filter)) : ''));
+        if (!res.ok) { body.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(t('qtLoadFailed'))}</td></tr>`; return; }
+        const list = await res.json();
+        if (!list.length) { body.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(t('qtNone'))}</td></tr>`; return; }
+        body.innerHTML = '';
+        list.forEach(q => {
+          const ccy = (q.currency || 'IRR').toUpperCase();
+          const st = q.effective_status || q.status;
+          const open = q.status === 'draft' || q.status === 'sent';
+          const canConvert = q.status !== 'converted' && q.status !== 'declined';
+          const btn = (cls, key, extra) => `<button type="button" class="btn btn-secondary btn-sm ${cls}" data-id="${q.id}" data-number="${escapeHtml(q.number)}" style="margin-inline-start:0.3rem;" ${extra || ''}>${escapeHtml(t(key))}</button>`;
+          const actions = [
+            `<a class="btn btn-secondary btn-sm" href="${API}/quotes/${encodeURIComponent(q.id)}/pdf" target="_blank" rel="noopener" style="text-decoration:none;">PDF</a>`,
+            q.status === 'draft' ? btn('qt-set', 'qtMarkSent', 'data-status="sent"') : '',
+            open ? btn('qt-set', 'qtMarkAccepted', 'data-status="accepted"') : '',
+            open ? btn('qt-set', 'qtMarkDeclined', 'data-status="declined"') : '',
+            (q.status === 'declined' || q.status === 'accepted') ? btn('qt-set', 'qtReopen', 'data-status="draft"') : '',
+            canConvert ? `<button type="button" class="btn btn-primary btn-sm qt-convert" data-id="${q.id}" data-number="${escapeHtml(q.number)}" style="margin-inline-start:0.3rem;">${escapeHtml(t('qtConvert'))}</button>` : '',
+            q.status !== 'converted' ? `<button type="button" class="btn btn-danger btn-sm qt-del" data-id="${q.id}" data-number="${escapeHtml(q.number)}" style="margin-inline-start:0.3rem;">${escapeHtml(t('btnDelete') || 'Delete')}</button>` : '',
+          ].join('');
+          const invoiced = q.converted_invoice_number
+            ? `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(t('qtInvoicedAs'))} ${escapeHtml(q.converted_invoice_number)}</div>` : '';
+          const tr = document.createElement('tr');
+          tr.dataset.quoteId = q.id;
+          tr.innerHTML = `
+            <td>${escapeHtml(q.number)}</td>
+            <td>${escapeHtml(q.entity_name || '—')}</td>
+            <td><span class="qt-status qt-status-${escapeHtml(st)}">${escapeHtml(t('qtStatus_' + st))}</span>${invoiced}</td>
+            <td>${formatMoney(q.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
+            <td>${escapeHtml(q.valid_until)}</td>
+            <td>${actions}</td>`;
+          body.appendChild(tr);
+        });
+        if (highlightId) flashRow(body.querySelector('tr[data-quote-id="' + CSS.escape(String(highlightId)) + '"]'));
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(t('qtLoadFailed'))}</td></tr>`;
+      }
+    }
+
+    document.getElementById('qt-filter').addEventListener('change', () => loadQuotes());
+
+    document.getElementById('quotes-tbody').addEventListener('click', async (e) => {
+      const set = e.target.closest('.qt-set');
+      const conv = e.target.closest('.qt-convert');
+      const del = e.target.closest('.qt-del');
+      if (set) {
+        try {
+          const res = await fetch(API + '/quotes/' + encodeURIComponent(set.dataset.id), {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: set.dataset.status }),
+          });
+          const data = await readJsonSafe(res);
+          if (!res.ok) { showAlert(qtError(data, 'qtSaveFailed'), true); return; }
+          loadQuotes(set.dataset.id);
+        } catch (_) { showAlert(t('qtSaveFailed'), true); }
+        return;
+      }
+      if (conv) {
+        let suggested = '';
+        try {
+          const r = await fetch(API + '/quotes/next-number');
+          if (r.ok) suggested = (await r.json()).invoice_number || '';
+        } catch (_) {}
+        const number = await uiPrompt({
+          title: t('qtConvertTitle').replace('{n}', conv.dataset.number),
+          message: t('qtConvertPrompt'), value: suggested, confirmLabel: t('qtConvert'),
+        });
+        if (number === null || number === undefined) return;
+        try {
+          const res = await fetch(API + '/quotes/' + encodeURIComponent(conv.dataset.id) + '/convert', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ number: String(number).trim() || null, status: 'issued' }),
+          });
+          const data = await readJsonSafe(res);
+          if (!res.ok) { showAlert(qtError(data, 'qtConvertFailed'), true); return; }
+          showAlert(t('qtConverted').replace('{n}', data.invoice.number));
+          loadQuotes(conv.dataset.id);
+          loadInvoices(data.invoice.id);
+          if (typeof loadOwnerDashboard === 'function') loadOwnerDashboard();
+        } catch (_) { showAlert(t('qtConvertFailed'), true); }
+        return;
+      }
+      if (del) {
+        const ok = await uiConfirm({ title: t('btnDelete') || 'Delete', message: t('qtDeleteConfirm').replace('{n}', del.dataset.number) });
+        if (!ok) return;
+        try {
+          const res = await fetch(API + '/quotes/' + encodeURIComponent(del.dataset.id), { method: 'DELETE' });
+          if (!res.ok) { const data = await readJsonSafe(res); showAlert(qtError(data, 'qtSaveFailed'), true); return; }
+          loadQuotes();
+        } catch (_) { showAlert(t('qtSaveFailed'), true); }
+      }
     });
 
     async function runInvoiceOCRImport(createDirect) {

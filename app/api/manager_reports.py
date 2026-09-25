@@ -981,7 +981,7 @@ def trial_balance_by_currency(
     using the most recent FX rate on or before `to_date` (or today).
     """
     from app.services.reporting.repository import distinct_currencies
-    from app.services.fx_service import get_rate
+    from app.services.fx_service import convert_minor, get_rate
     import traceback, sys
     svc = LedgerService(db)
     try:
@@ -1028,8 +1028,8 @@ def trial_balance_by_currency(
                     block["converted_credit_balance"] = None
                 else:
                     block["converted_rate"] = rate
-                    block["converted_debit_balance"] = int(round(total_debit_balance * rate))
-                    block["converted_credit_balance"] = int(round(total_credit_balance * rate))
+                    block["converted_debit_balance"] = convert_minor(int(total_debit_balance), rate)
+                    block["converted_credit_balance"] = convert_minor(int(total_credit_balance), rate)
             if block.get("converted_debit_balance") is not None:
                 converted_grand_total_debit += block["converted_debit_balance"]
             if block.get("converted_credit_balance") is not None:

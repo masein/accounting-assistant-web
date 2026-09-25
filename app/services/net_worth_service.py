@@ -127,7 +127,8 @@ def _market_value(
     missing rate is reported rather than silently treated as zero — quietly
     valuing someone's gold at nothing is worse than saying the rate is unset.
     """
-    total = 0.0
+    from decimal import ROUND_HALF_UP, Decimal
+    total = Decimal(0)  # exact (quantities are fractional, e.g. grams of gold)
     missing: list[str] = []
     rates: list[float] = []
     for h in holdings:
@@ -135,11 +136,12 @@ def _market_value(
         if rate is None:
             missing.append(h.unit)
             continue
-        total += float(h.quantity) * rate
+        total += Decimal(repr(float(h.quantity))) * Decimal(repr(float(rate)))
         rates.append(rate)
     if missing and not rates:
         return None, missing, None
-    return int(round(total)), missing, (rates[0] if len(rates) == 1 else None)
+    return (int(total.quantize(Decimal(1), rounding=ROUND_HALF_UP)), missing,
+            (rates[0] if len(rates) == 1 else None))
 
 
 def compute_net_worth(

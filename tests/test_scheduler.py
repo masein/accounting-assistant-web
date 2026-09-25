@@ -28,16 +28,17 @@ def two_companies(db, monkeypatch):
 
 def test_jobs_run_per_active_company_and_daily_ones_only_once(two_companies, monkeypatch):
     a, b, s = two_companies
-    seen: dict[str, list[str]] = {"recurring": [], "refresh": [], "digest": [], "reminders": []}
+    seen: dict[str, list[str]] = {"recurring": [], "refresh": [], "digest": [], "reminders": [], "rinv": []}
     from app.db.tenant import get_current_company
     monkeypatch.setattr(sched, "job_recurring_run_due", lambda db, today: seen["recurring"].append(get_current_company()) or {"posted": 0})
     monkeypatch.setattr(sched, "job_notifications_refresh", lambda db, today: seen["refresh"].append(get_current_company()) or {"created": 0})
     monkeypatch.setattr(sched, "job_daily_digest", lambda db, today: seen["digest"].append(get_current_company()) or {"delivered": []})
     monkeypatch.setattr(sched, "job_invoice_reminders", lambda db, today: seen["reminders"].append(get_current_company()) or {"sent": 0})
+    monkeypatch.setattr(sched, "job_recurring_invoices", lambda db, today: seen["rinv"].append(get_current_company()) or {"issued": 0})
 
     now = datetime(2026, 9, 24, 9, 0)  # after the default digest hour (8)
     ran = sched.run_pending_jobs(now)
-    assert ran == ["recurring_run_due", "notifications_refresh", "daily_digest", "invoice_reminders"]
+    assert ran == ["recurring_run_due", "notifications_refresh", "daily_digest", "recurring_invoices", "invoice_reminders"]
     for key in seen:
         assert set(seen[key]) >= {str(a.id), str(b.id)}, key
         assert str(s.id) not in seen[key], key  # suspended tenants are left alone
@@ -47,7 +48,7 @@ def test_jobs_run_per_active_company_and_daily_ones_only_once(two_companies, mon
     ran2 = sched.run_pending_jobs(datetime(2026, 9, 24, 9, 5))
     assert "notifications_refresh" not in ran2
     assert len(seen["recurring"]) == before["recurring"] and len(seen["digest"]) == before["digest"]
-    assert len(seen["reminders"]) == before["reminders"]
+    assert len(seen["reminders"]) == before["reminders"] and len(seen["rinv"]) == before["rinv"]
     # 15 minutes later the feed refreshes again; next day the daily jobs run again.
     sched.run_pending_jobs(datetime(2026, 9, 24, 9, 20))
     assert len(seen["refresh"]) > before["refresh"]
@@ -59,6 +60,7 @@ def test_digest_waits_for_its_hour(two_companies, monkeypatch):
     calls, reminders = [], []
     monkeypatch.setattr(sched, "job_daily_digest", lambda db, today: calls.append(1) or {})
     monkeypatch.setattr(sched, "job_invoice_reminders", lambda db, today: reminders.append(1) or {})
+    monkeypatch.setattr(sched, "job_recurring_invoices", lambda db, today: reminders.append(2) or {})
     monkeypatch.setattr(sched, "job_recurring_run_due", lambda db, today: {})
     monkeypatch.setattr(sched, "job_notifications_refresh", lambda db, today: {})
     ran = sched.run_pending_jobs(datetime(2026, 9, 24, 6, 30))
@@ -66,7 +68,7 @@ def test_digest_waits_for_its_hour(two_companies, monkeypatch):
     assert "invoice_reminders" not in ran and not reminders   # customers are never mailed at night
     ran = sched.run_pending_jobs(datetime(2026, 9, 24, 8, 0))
     assert "daily_digest" in ran and calls
-    assert "invoice_reminders" in ran and reminders
+    assert "invoice_reminders" in ran and "recurring_invoices" in ran and set(reminders) == {1, 2}
 
 
 def test_one_failing_company_does_not_stop_the_others(two_companies, monkeypatch):

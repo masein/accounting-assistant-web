@@ -257,6 +257,7 @@
       }
       // Quotes live on the same page (08-entities-invoices.js defines it).
       if (!highlightId && typeof loadQuotes === 'function') loadQuotes();
+      if (!highlightId && typeof loadRecurringInvoices === 'function') loadRecurringInvoices();
     }
 
     async function loadRecurringRules(highlightId) {

@@ -23,6 +23,7 @@ from app.models.pay_run import PayRun, PayRunLine
 from app.models.purchase_order import PurchaseOrder
 from app.models.quote import Quote, QuoteItem
 from app.models.recurring import RecurringRule
+from app.models.recurring_invoice import RecurringInvoice
 from app.models.time_billing import TimeEntry
 from app.models.transaction import Transaction, TransactionAttachment
 from tests.conftest import _CSRFTestClient
@@ -86,10 +87,13 @@ def world(db, tmp_path):
                              amount=1_000, start_date=d, next_run_date=d, auto_post=False, status="active")
         adj = Adjustment(id=uuid.uuid4(), kind="accrual", amount=1_000, start_date=d, direction="expense",
                          description="A accrual")
-        db.add_all([sh, te, rule, adj])
+        rinv = RecurringInvoice(id=uuid.uuid4(), name="A retainer", entity_id=client_ent.id, currency="IRR",
+                                amount=9_000, items="[]", frequency="monthly", calendar="gregorian",
+                                start_date=date(2030, 1, 1), next_run_date=date(2030, 1, 1), status="active")
+        db.add_all([sh, te, rule, adj, rinv])
         db.commit()
     ids = {"txn": txn.id, "att": att.id, "inv": inv.id, "po": po.id, "run": run.id, "emp": emp.id,
-           "quote": quote.id,
+           "quote": quote.id, "rinv": rinv.id,
            "sh": sh.id, "te": te.id, "rule": rule.id, "adj": adj.id, "att_path": str(stored)}
     # The app shares this session in tests. Rows still sitting in its identity
     # map would be handed back by session.get() WITHOUT a query — and the tenant
@@ -130,6 +134,10 @@ def _cross_tenant_calls(w):
         ("patch", f"/quotes/{w['quote']}", {"description": "tampered"}),
         ("post", f"/quotes/{w['quote']}/convert", {}),
         ("delete", f"/quotes/{w['quote']}", None),
+        ("get", f"/recurring-invoices/{w['rinv']}", None),
+        ("get", f"/recurring-invoices/{w['rinv']}/invoices", None),
+        ("patch", f"/recurring-invoices/{w['rinv']}", {"name": "tampered"}),
+        ("delete", f"/recurring-invoices/{w['rinv']}", None),
     ]
 
 
@@ -157,6 +165,7 @@ def test_company_b_cannot_see_or_change_company_a_objects(client, db, world):
         assert db.get(RecurringRule, w["rule"]).name == "A rent"
         q = db.get(Quote, w["quote"])
         assert q is not None and q.status == "draft" and q.description is None and q.converted_invoice_id is None
+        assert db.get(RecurringInvoice, w["rinv"]).name == "A retainer"
     assert Path(w["att_path"]).exists()
 
 
@@ -167,6 +176,7 @@ def test_company_a_still_reaches_its_own_objects(client, world):
         f"/transactions/{w['txn']}", f"/transactions/attachments/{w['att']}/file",
         f"/invoices/{w['inv']}/timeline", f"/purchase-orders/{w['po']}",
         f"/payroll/runs/{w['run']}", f"/adjustments/{w['adj']}", f"/quotes/{w['quote']}",
+        f"/recurring-invoices/{w['rinv']}",
     }
     for url in ok:
         r = a.get(url)
@@ -178,9 +188,9 @@ def test_list_endpoints_never_include_the_other_company(client, world):
     b = _owner(client, w["b"])
     for url, key in (("/transactions", "id"), ("/invoices", "id"), ("/purchase-orders", "id"),
                      ("/payroll/runs", "id"), ("/recurring", "id"), ("/entities", "id"), ("/equity/cap-table", None),
-                     ("/quotes", "id")):
+                     ("/quotes", "id"), ("/recurring-invoices", "id")):
         r = b.get(url)
         assert r.status_code == 200, (url, r.status_code)
         text = r.text
-        for obj in ("txn", "inv", "po", "run", "rule", "emp", "sh", "quote"):
+        for obj in ("txn", "inv", "po", "run", "rule", "emp", "sh", "quote", "rinv"):
             assert str(w[obj]) not in text, (url, obj)

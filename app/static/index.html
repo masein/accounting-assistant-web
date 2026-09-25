@@ -296,6 +296,34 @@
         <tbody id="quotes-tbody"><tr><td colspan="6" class="empty-state" data-i18n="qtNone">No quotes yet.</td></tr></tbody>
       </table>
 
+      <!-- Recurring invoices -->
+      <h3 style="margin-top:1.25rem;" data-i18n="riTitle">Recurring invoices</h3>
+      <p style="color:var(--text-muted);font-size:0.82rem;margin:0 0 0.5rem;" data-i18n="riSubtitle">Bill a customer the same lines every week, month, quarter or year. Each invoice is issued and posted like one you create by hand, and can be e-mailed to the customer automatically.</p>
+      <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;margin-bottom:0.35rem;">
+        <div><label for="ri-frequency" data-i18n="riRepeat">Repeat</label>
+          <select id="ri-frequency">
+            <option value="monthly" data-i18n="riFreq_monthly">Monthly</option>
+            <option value="weekly" data-i18n="riFreq_weekly">Weekly</option>
+            <option value="quarterly" data-i18n="riFreq_quarterly">Quarterly</option>
+            <option value="yearly" data-i18n="riFreq_yearly">Yearly</option>
+          </select></div>
+        <div><label for="ri-calendar" data-i18n="riCalendar">Calendar</label>
+          <select id="ri-calendar">
+            <option value="" data-i18n="riCalendarDefault">Company default</option>
+            <option value="gregorian" data-i18n="riCalendarGregorian">Gregorian</option>
+            <option value="jalali" data-i18n="riCalendarJalali">Persian (Jalali)</option>
+          </select></div>
+        <div><label for="ri-end" data-i18n="riEnds">Ends (optional)</label><input type="date" id="ri-end"></div>
+        <div style="align-self:center;"><label style="display:flex;gap:0.35rem;align-items:center;cursor:pointer;">
+          <input type="checkbox" id="ri-auto-send"> <span data-i18n="riAutoSend">E-mail each invoice to the customer</span></label></div>
+        <div><button type="button" class="btn btn-secondary" id="ri-create" data-i18n="riCreate">Make recurring from the form</button></div>
+      </div>
+      <p style="color:var(--text-muted);font-size:0.78rem;margin:0 0 0.5rem;" data-i18n="riHint">Uses the customer, currency and lines from the invoice form above. The first invoice is dated on the form's issue date, and the gap to its due date becomes the payment terms.</p>
+      <table class="results-table" id="ri-table">
+        <thead><tr><th data-i18n="qtCustomer">Customer</th><th data-i18n="riRepeat">Repeat</th><th data-i18n="riNext">Next invoice</th><th data-i18n="labelAmount">Amount</th><th data-i18n="riIssued">Issued</th><th data-i18n="usersStatus">Status</th><th data-i18n="usersActions">Actions</th></tr></thead>
+        <tbody id="ri-tbody"><tr><td colspan="7" class="empty-state" data-i18n="riNone">No recurring invoices yet.</td></tr></tbody>
+      </table>
+
       <!-- Automatic overdue reminders -->
       <details id="inv-rem-panel" style="margin-top:1.25rem;">
         <summary style="cursor:pointer;font-weight:600;" data-i18n="remTitle">Automatic reminders</summary>

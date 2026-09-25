@@ -14,6 +14,8 @@ Jobs
 * ``notifications_refresh``  every 15 m  rebuild the in-app feed (due invoices, budgets, insights …)
 * ``daily_digest``           daily at SCHEDULER_DIGEST_HOUR (server time) deliver the cash digest
                               to the company's configured channel
+* ``recurring_invoices``     daily at SCHEDULER_DIGEST_HOUR  issue due recurring sales invoices
+                              (and e-mail them when the template says so)
 * ``invoice_reminders``      daily at SCHEDULER_DIGEST_HOUR  e-mail overdue customers (only for
                               companies that switched reminders on; see app/services/invoice_mail.py)
 
@@ -134,6 +136,13 @@ def job_daily_digest(db, today: date) -> dict:
     return {"delivered": delivered, "enabled": True}
 
 
+def job_recurring_invoices(db, today: date) -> dict:
+    from app.services.recurring_invoice_service import generate_due
+    out = generate_due(db, today=today)
+    out.pop("invoice_ids", None)
+    return out
+
+
 def job_invoice_reminders(db, today: date) -> dict:
     from app.services.invoice_mail import run_reminders
     return run_reminders(db, today=today)
@@ -196,7 +205,10 @@ def run_pending_jobs(now: datetime | None = None) -> list[str]:
     if now.hour >= int(settings.scheduler_digest_hour):
         run_job_for_all_companies("daily_digest", job_daily_digest, today=today, once_per_day=True)
         ran.append("daily_digest")
-        # Customer reminders go out in business hours too, never at midnight.
+        # Recurring invoices first (they may be e-mailed), then reminders — both
+        # in business hours, never at midnight.
+        run_job_for_all_companies("recurring_invoices", job_recurring_invoices, today=today, once_per_day=True)
+        ran.append("recurring_invoices")
         run_job_for_all_companies("invoice_reminders", job_invoice_reminders, today=today, once_per_day=True)
         ran.append("invoice_reminders")
     return ran

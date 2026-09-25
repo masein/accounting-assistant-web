@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.25.2"
+CURRENT_RELEASE = "2026.09.25.3"
 
 
 @dataclass(frozen=True)
@@ -341,6 +341,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "دکمهٔ جدید «ایمیل» PDF فاکتور را همراه اطلاعات پرداخت برای مشتری می‌فرستد. در «یادآوری خودکار» مالک می‌تواند ایمیل یادآوری فاکتورهای پرداخت‌نشده را روشن کند (به‌طور پیش‌فرض ۳، ۱۰ و ۲۰ روز پس از سررسید). هر ایمیل در تاریخچهٔ فاکتور دیده می‌شود. ارسال ایمیل نیاز به تنظیم SMTP روی سرور دارد.",
                     "es": "El nuevo botón Correo envía el PDF de la factura con tus datos de pago al cliente. En «Recordatorios automáticos» el propietario puede activar correos para facturas impagadas (por defecto 3, 10 y 20 días tras el vencimiento). Cada correo aparece en el historial de la factura. Requiere SMTP configurado en el servidor.",
                     "ar": "زر «بريد» الجديد يرسل ملف PDF للفاتورة مع بيانات الدفع إلى العميل. ومن «تذكيرات تلقائية» يمكن للمالك تفعيل رسائل التذكير للفواتير غير المسددة (افتراضيًا بعد 3 و10 و20 يومًا من الاستحقاق). تظهر كل رسالة في سجل الفاتورة. يتطلب ذلك ضبط SMTP على الخادم.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.25.3",
+        date="2026-09-25",
+        highlights=(
+            Highlight(
+                key="recurring-invoices",
+                page="invoices",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Recurring invoices",
+                    "fa": "فاکتورهای دوره‌ای",
+                    "es": "Facturas recurrentes",
+                    "ar": "الفواتير المتكررة",
+                },
+                body={
+                    "en": "Fill in the invoice form and press “Make recurring from the form” to bill a customer every week, month, quarter or year. Monthly schedules can follow Persian months. Each invoice is issued and posted automatically and, if you tick the box, e-mailed to the customer.",
+                    "fa": "فرم فاکتور را پر کنید و «ساخت فاکتور دوره‌ای از فرم» را بزنید تا مشتری هر هفته، ماه، فصل یا سال صورتحساب شود. برنامهٔ ماهانه می‌تواند بر اساس ماه‌های شمسی باشد. هر فاکتور خودکار صادر و ثبت می‌شود و اگر گزینه را بزنید، برای مشتری ایمیل می‌شود.",
+                    "es": "Rellena el formulario de factura y pulsa «Hacer recurrente desde el formulario» para facturar a un cliente cada semana, mes, trimestre o año. Los calendarios mensuales pueden seguir los meses persas. Cada factura se emite y contabiliza sola y, si marcas la casilla, se envía al cliente por correo.",
+                    "ar": "املأ نموذج الفاتورة واضغط «اجعلها متكررة من النموذج» لفوترة العميل كل أسبوع أو شهر أو ربع أو سنة. يمكن أن تتبع الجداول الشهرية الأشهر الفارسية. تصدر كل فاتورة وتُسجَّل تلقائيًا، وتُرسل إلى العميل بالبريد إذا فعّلت الخيار.",
                 },
             ),
         ),

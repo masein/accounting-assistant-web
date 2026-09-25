@@ -90,6 +90,9 @@ class PayRunCreate(BaseModel):
     currency: str | None = None
     # If omitted, every active profile is included.
     employees: list[PayRunEmployeeInput] | None = None
+    # A salaried employee already in a live run for an overlapping period
+    # would be paid twice; set this only for a deliberate off-cycle run.
+    allow_overlap: bool = False
 
 
 class RuleSetCreate(BaseModel):
@@ -315,6 +318,35 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
         inputs = {}
         if not profiles:
             raise HTTPException(status_code=422, detail="No active pay profiles to run.")
+
+    # Paying the same person twice for the same days: refuse unless asked for.
+    # Hourly staff whose pay comes from tracked time are exempt — each entry
+    # can only ever belong to one run.
+    if not payload.allow_overlap:
+        at_risk = [
+            p for p in profiles
+            if (p.pay_type or "").lower() != "hourly"
+            or (inputs.get(p.entity_id) is not None
+                and (inputs[p.entity_id].hours is not None or inputs[p.entity_id].gross_override is not None))
+        ]
+        if at_risk:
+            clashes = db.execute(
+                select(PayRunLine.employee_name, PayRun.period_start, PayRun.period_end)
+                .join(PayRun, PayRunLine.run_id == PayRun.id)
+                .where(
+                    PayRunLine.entity_id.in_([p.entity_id for p in at_risk]),
+                    PayRun.status != "voided",
+                    PayRun.period_start <= payload.period_end,
+                    PayRun.period_end >= payload.period_start,
+                )
+            ).all()
+            if clashes:
+                detail = "; ".join(f"{n} ({a.isoformat()}–{b.isoformat()})" for n, a, b in clashes[:10])
+                raise HTTPException(
+                    status_code=409,
+                    detail=(f"Already in a pay run for an overlapping period: {detail}. Void that run, "
+                            "or set allow_overlap for a deliberate off-cycle run."),
+                )
 
     # Statutory profiles use the rule set in force at the START of the period
     # (a run for Esfand 1404 keeps 1404 figures even when run in Farvardin).

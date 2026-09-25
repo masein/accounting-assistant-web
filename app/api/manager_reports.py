@@ -481,21 +481,25 @@ def _open_invoice_aging(db: Session, kind: str, from_date, to_date) -> dict:
     """AR (kind='sales') / AP (kind='purchase') aging by OPEN balance, not
     gross. balance_due = amount − payments − reduction credit notes; only
     invoices with a positive open balance appear."""
-    from app.services.reporting.common import default_period
     from app.models.invoice import Invoice
     from app.models.entity import Entity
     from app.api.invoices import _invoice_totals
 
-    period = default_period(from_date, to_date)
+    # Aging is a snapshot AS OF a date: every open invoice issued on or before
+    # it, however old. (It used to default to invoices issued this month, so
+    # last month's overdue invoice vanished from receivables.) Drafts are not
+    # owed yet and never appear. ``from_date`` narrows by issue date only when
+    # given explicitly.
+    as_of = to_date or date.today()
+    conditions = [
+        Invoice.kind == kind,
+        Invoice.issue_date <= as_of,
+        Invoice.status.in_(["issued", "partially_paid"]),
+    ]
+    if from_date is not None:
+        conditions.append(Invoice.issue_date >= from_date)
     invoices = db.execute(
-        select(Invoice)
-        .where(
-            Invoice.kind == kind,
-            Invoice.issue_date >= period.from_date,
-            Invoice.issue_date <= period.to_date,
-            Invoice.status.in_(["issued", "partially_paid", "draft"]),
-        )
-        .order_by(Invoice.due_date.asc())
+        select(Invoice).where(*conditions).order_by(Invoice.due_date.asc())
     ).scalars().all()
 
     entity_ids = [inv.entity_id for inv in invoices if inv.entity_id]
@@ -512,7 +516,7 @@ def _open_invoice_aging(db: Session, kind: str, from_date, to_date) -> dict:
         if balance_due <= 0:
             continue
         total += balance_due
-        days_overdue = (date.today() - inv.due_date).days if inv.due_date and inv.due_date < date.today() else 0
+        days_overdue = (as_of - inv.due_date).days if inv.due_date and inv.due_date < as_of else 0
         items.append({
             "invoice_id": str(inv.id),
             "invoice_number": inv.number,
@@ -525,12 +529,15 @@ def _open_invoice_aging(db: Session, kind: str, from_date, to_date) -> dict:
             "due_date": inv.due_date.isoformat() if inv.due_date else None,
             "status": inv.status,
             "days_overdue": days_overdue,
-            "aging_bucket": "current" if days_overdue <= 0 else "31-60" if days_overdue <= 60 else "60+" if days_overdue <= 90 else "90+",
+            # Buckets by days past due (1–30 used to be labelled "31-60").
+            "aging_bucket": ("current" if days_overdue <= 0 else "1-30" if days_overdue <= 30
+                             else "31-60" if days_overdue <= 60 else "61-90" if days_overdue <= 90 else "90+"),
         })
 
     return {
         "report_type": "accounts_payable" if kind == "purchase" else "accounts_receivable",
-        "period": {"from_date": period.from_date.isoformat(), "to_date": period.to_date.isoformat()},
+        "period": {"from_date": from_date.isoformat() if from_date else None, "to_date": as_of.isoformat()},
+        "as_of": as_of.isoformat(),
         "items": items,
         "total": total,
         "count": len(items),

@@ -75,7 +75,9 @@ class InventoryReportService:
         self.db = db
 
     def create_item(self, payload: InventoryItemCreate) -> InventoryItemRead:
-        row = InventoryItem(sku=(payload.sku or "").strip() or None, name=payload.name.strip(), unit=(payload.unit or "unit").strip())
+        # list_price was accepted but never stored, so every new item read back 0.
+        row = InventoryItem(sku=(payload.sku or "").strip() or None, name=payload.name.strip(),
+                            unit=(payload.unit or "unit").strip(), list_price=int(payload.list_price or 0))
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)

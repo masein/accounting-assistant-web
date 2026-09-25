@@ -222,9 +222,9 @@ class CashBankStatementResponse(BaseModel):
 
 class InventoryItemCreate(BaseModel):
     sku: str | None = None
-    name: str
+    name: str = Field(..., min_length=1)
     unit: str = "unit"
-    list_price: int = 0
+    list_price: int = Field(0, ge=0)
 
 
 class InventoryItemRead(BaseModel):

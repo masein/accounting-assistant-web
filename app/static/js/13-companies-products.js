@@ -1137,7 +1137,8 @@
       if (type === 'accounts_payable') {
         try {
           const q = new URLSearchParams();
-          if (mgrFromDateEl.value) q.set('from_date', mgrFromDateEl.value);
+          // Aging is as of the 'to' date: every open invoice, however old.
+          
           if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
           mgrRunBtn.disabled = true;
           const res = await fetch(API + '/manager-reports/operational/accounts-payable?' + q.toString());
@@ -1157,14 +1158,14 @@
           // AP chart by aging
           if (typeof Chart !== 'undefined' && items.length) {
             const buckets = {};
-            items.forEach(it => { buckets[it.aging_bucket] = (buckets[it.aging_bucket] || 0) + it.amount; });
+            items.forEach(it => { buckets[it.aging_bucket] = (buckets[it.aging_bucket] || 0) + (it.balance_due != null ? it.balance_due : it.amount); });
             const chartPanel = document.getElementById('mgr-report-chart-panel');
             chartPanel.style.display = 'block';
             if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
             managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
               type: 'doughnut', data: {
                 labels: Object.keys(buckets),
-                datasets: [{ label: 'AP Aging', data: Object.values(buckets), backgroundColor: ['#0f766e', '#f57f17', '#c62828', '#8b5cf6'] }]
+                datasets: [{ label: 'AP Aging', data: Object.values(buckets), backgroundColor: ['#0f766e', '#eab308', '#f57f17', '#c62828', '#8b5cf6'] }]
               }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'AP by Aging Bucket' } },
                 onClick: (e, els) => { if (els.length) { const key = Object.keys(buckets)[els[0].index]; showChartDrilldown('AP Aging', key, { bucket: key, amount: buckets[key] }); } }
               }

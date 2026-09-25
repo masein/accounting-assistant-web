@@ -312,11 +312,17 @@ def inventory_movements_for_balance(db: Session, to_date: date) -> list[tuple[In
     return db.execute(q).all()
 
 
+# Only invoices that are (or were) actually owed count as sales or purchases:
+# a draft was never issued, a voided or canceled one was reversed.
+NOT_LIVE_INVOICE_STATUSES = ("draft", "voided", "canceled")
+
+
 def sales_items_between(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[InvoiceItem, Invoice]]:
     q = (
         select(InvoiceItem, Invoice)
         .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
         .where(
+            Invoice.status.not_in(NOT_LIVE_INVOICE_STATUSES),
             Invoice.kind == "sales",
             Invoice.issue_date >= from_date,
             Invoice.issue_date <= to_date,
@@ -333,6 +339,7 @@ def purchase_items_between(db: Session, from_date: date, to_date: date, currency
         select(InvoiceItem, Invoice)
         .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
         .where(
+            Invoice.status.not_in(NOT_LIVE_INVOICE_STATUSES),
             Invoice.kind == "purchase",
             Invoice.issue_date >= from_date,
             Invoice.issue_date <= to_date,
@@ -347,7 +354,8 @@ def purchase_items_between(db: Session, from_date: date, to_date: date, currency
 def invoices_between(db: Session, from_date: date, to_date: date, *, kind: str | None = None, currency: str | None = None) -> list[Invoice]:
     q = (
         select(Invoice)
-        .where(Invoice.issue_date >= from_date, Invoice.issue_date <= to_date)
+        .where(Invoice.issue_date >= from_date, Invoice.issue_date <= to_date,
+               Invoice.status.not_in(NOT_LIVE_INVOICE_STATUSES))
         .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
     )
     if kind:

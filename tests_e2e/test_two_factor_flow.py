@@ -1,20 +1,19 @@
 """Two-factor sign-in end to end in a real browser (roadmap 2026-09 §1.13):
 set it up from the account menu, sign out, sign in with password + code,
-then turn it off with a recovery code. Runs as a throwaway accountant the
-owner creates, so the shared e2e owner is never left with 2FA on."""
+then turn it off with a recovery code. Runs as the seeded e2e accountant, so
+the shared e2e owner is never left with 2FA on."""
 from __future__ import annotations
 
 import base64
 import hashlib
 import hmac
 import os
-import secrets
 import struct
 import time
 
 import pytest
 
-from tests_e2e.conftest import ARTIFACTS, BASE_URL, PageWatch
+from tests_e2e.conftest import ARTIFACTS, BASE_URL, PASSWORD, PageWatch
 
 
 def _totp(secret: str, step: int) -> str:
@@ -30,28 +29,12 @@ def _step() -> int:
     return int(time.time() // 30)
 
 
-def _csrf_headers(ctx) -> dict:
-    # the app shell sets the double-submit cookie on load (app/main.py)
-    token = next((c["value"] for c in ctx.cookies() if c["name"] == "aa_csrf"), "")
-    return {"X-CSRF-Token": token}
-
-
 @pytest.fixture()
-def staff_user(browser, logged_in_state):
-    """An accountant the owner creates for this test and deletes after it."""
-    ctx = browser.new_context(storage_state=logged_in_state)
-    page = ctx.new_page()
-    page.goto(f"{BASE_URL}/")
-    page.wait_for_load_state("networkidle")
-    username = f"e2e_tfa_{secrets.token_hex(4)}"
-    password = secrets.token_urlsafe(18) + "#9a"
-    r = page.request.post(f"{BASE_URL}/admin/users", headers=_csrf_headers(ctx),
-                          data={"username": username, "password": password, "role": "accountant"})
-    assert r.status == 201, r.text()
-    uid = r.json()["id"]
-    yield username, password
-    page.request.delete(f"{BASE_URL}/admin/users/{uid}", headers=_csrf_headers(ctx))
-    ctx.close()
+def staff_user():
+    """The accountant tests_e2e/seed_user.py creates for this flow."""
+    if not PASSWORD:
+        pytest.skip("E2E_PASSWORD not set")
+    return os.environ.get("E2E_TFA_USERNAME", "e2e_tfa"), PASSWORD
 
 
 def _shot(page, name):

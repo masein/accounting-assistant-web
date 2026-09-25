@@ -67,9 +67,9 @@ jobs:
 
   # The suite above runs on SQLite; production is PostgreSQL. This job
   # bootstraps an empty PostgreSQL exactly like the container entrypoint and
-  # checks the schema ends at head (gating), reports model/migration drift
-  # (informational until the historical drift is cleaned up), and runs the
-  # whole suite against PostgreSQL (gating) — roadmap 2026-09 §1.12 / M8.
+  # checks the schema ends at head, that both a fresh and a migrated install
+  # match the models exactly (alembic check), and runs the whole suite against
+  # PostgreSQL — all gating (roadmap 2026-09 §1.12 / M8, §1.13 drift).
   postgres:
     name: Tests on PostgreSQL
     runs-on: ubuntu-latest
@@ -141,9 +141,24 @@ jobs:
         run: |
           python -c "import os, sqlalchemy as sa; c = sa.create_engine(os.environ['DATABASE_URL']).connect(); q = lambda s: c.execute(sa.text(s)).first(); assert q(\"SELECT 1 FROM pg_trigger WHERE tgname = 'trg_audit_logs_append_only'\"), 'append-only trigger missing'; assert q(\"SELECT 1 FROM pg_constraint WHERE conname = 'fk_audit_logs_company'\"), 'audit FK missing'; print('database guards present')"
 
-      - name: Model vs migration drift (informational)
-        continue-on-error: true
+      # A model change without its migration (or the reverse) fails here.
+      # Tenant company_id NOT NULL / FKs are owned by app/db/guards.py and
+      # left out of the comparison by alembic/env.py.
+      - name: Fresh install matches the models (alembic check)
         run: alembic check
+
+      # The other kind of install: a database built up through the migration
+      # chain, like production. The fixture is such a schema at 044; upgrading
+      # it must land on exactly the same schema as a fresh install.
+      - name: Migrated install converges on the models (044 snapshot → head → alembic check)
+        env:
+          PGPASSWORD: postgres
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/accounting_migrated
+        run: |
+          createdb -h localhost -U postgres accounting_migrated
+          psql -q -h localhost -U postgres -d accounting_migrated -v ON_ERROR_STOP=1 -f tests/fixtures/schema_044_migrated.sql
+          alembic upgrade head
+          alembic check
 
       - name: Run the suite against PostgreSQL
         run: |

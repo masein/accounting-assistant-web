@@ -16,6 +16,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Numeric,
     String,
     Text,
@@ -78,6 +79,8 @@ class TimeEntry(Base, TenantMixin):
     """
 
     __tablename__ = "time_entries"
+    # /api/v1 idempotency lookup by (source, external_id).
+    __table_args__ = (Index("ix_time_entries_source_external", "source", "external_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     employee_id: Mapped[uuid.UUID] = mapped_column(
@@ -92,7 +95,7 @@ class TimeEntry(Base, TenantMixin):
     work_date: Mapped[date] = mapped_column(Date, index=True)
     hours: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    billable: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    billable: Mapped[bool] = mapped_column(Boolean, default=True)
     # unbilled | invoiced | written_off
     status: Mapped[str] = mapped_column(String(16), default="unbilled", index=True)
     invoice_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -101,11 +104,9 @@ class TimeEntry(Base, TenantMixin):
     # --- payroll dimension (migration 020) ---
     # work | leave | travel | unpaid. Fixed MVP behaviour: work/travel = worked
     # + payable (overtime-eligible); leave = payable, not worked; unpaid = neither.
-    entry_type: Mapped[str] = mapped_column(
-        String(16), default="work", server_default="work", index=True
-    )
+    entry_type: Mapped[str] = mapped_column(String(16), default="work", server_default="work")
     # Counts toward EMPLOYEE PAY — independent of ``billable`` (client invoice).
-    payable: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", index=True)
+    payable: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # unpaid | paid — payroll settlement, independent of billing ``status``.
     payroll_status: Mapped[str] = mapped_column(
         String(16), default="unpaid", server_default="unpaid", index=True
@@ -114,8 +115,8 @@ class TimeEntry(Base, TenantMixin):
         UUID(as_uuid=True), ForeignKey("pay_runs.id", ondelete="SET NULL"), nullable=True, index=True
     )
     # --- integration source (Part B, /api/v1 pushes) ---
-    source: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
-    external_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # The rate actually billed, stamped when invoiced (major currency units).
     rate_snapshot: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
     currency: Mapped[str | None] = mapped_column(String(8), nullable=True)

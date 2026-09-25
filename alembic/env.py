@@ -28,12 +28,33 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def include_object(obj, name, type_, reflected, compare_to):
+    """Leave the tenant company_id constraints out of model/database comparison.
+
+    TenantMixin keeps ``company_id`` nullable and FK-less in the models on
+    purpose (the test harness writes rows with no company); in a real database
+    migration 015 and ``app/db/guards.install_tenant_guards`` own its NOT NULL
+    and ``fk_<table>_company`` foreign key. Everything else is compared, and
+    ``alembic check`` is a gating CI step."""
+    from app.db.tenant import tenant_model_tablenames
+
+    tenant_tables = tenant_model_tablenames()
+    if type_ == "column" and name == "company_id" and obj.table.name in tenant_tables:
+        return False
+    if type_ == "foreign_key_constraint" and obj.table.name in tenant_tables \
+            and [c.name for c in obj.columns] == ["company_id"] \
+            and obj.referred_table.name == "companies":
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode (generates SQL script)."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        include_object=include_object,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -49,7 +70,8 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(connection=connection, target_metadata=target_metadata,
+                          include_object=include_object)
         with context.begin_transaction():
             context.run_migrations()
 

@@ -47,7 +47,13 @@ browser test that injected inline code is refused (#148).
 creates `aa_app` (rows only; audit_logs INSERT/SELECT; no DDL), the web
 server connects as it; CI checks the refusals and runs the browser suite
 under it (#149).
-Still open in §1: model/migration drift cleanup (alembic check).
+✅ 1.13 model/migration drift — 139 differences resolved: migration 045
+converges fresh and migrated installs (BIGINT salaries, partial unique
+app_settings keys, users→companies CASCADE, NOT NULL timestamps, one index per
+purpose); `install_tenant_guards` gives fresh installs the tenant NOT NULL +
+FKs migrated ones have had since 015 (FKs for the 16 later tenant tables too);
+tax rates seeded per company; `alembic check` gating on a fresh bootstrap and
+on a migrated 044 snapshot (#150). §1 is done.
 
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as

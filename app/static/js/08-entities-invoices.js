@@ -778,6 +778,92 @@
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
 
+    // ═══════ Recurring invoices ═══════
+    document.getElementById('ri-create').addEventListener('click', async () => {
+      if (document.getElementById('inv-kind').value !== 'sales') { showAlert(t('qtSalesOnly'), true); return; }
+      const body = invBuildBody({ allowBlankNumber: true });
+      if (!body) return;
+      if (!body.entity_id) { showAlert(t('riNeedCustomer'), true); return; }
+      const terms = Math.max(0, Math.round((new Date(body.due_date + 'T00:00:00') - new Date(body.issue_date + 'T00:00:00')) / 86400000));
+      const payload = {
+        entity_id: body.entity_id, currency: body.currency, description: body.description,
+        amount: body.amount || 0, items: body.items || [], start_date: body.issue_date, terms_days: terms,
+        frequency: document.getElementById('ri-frequency').value,
+        calendar: document.getElementById('ri-calendar').value || null,
+        end_date: document.getElementById('ri-end').value || null,
+        auto_send: document.getElementById('ri-auto-send').checked, issue_status: 'issued',
+      };
+      try {
+        const res = await fetch(API + '/recurring-invoices', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert(qtError(data, 'riSaveFailed'), true); return; }
+        const n = (data.generated && data.generated.issued) || 0;
+        showAlert(n ? t('riCreatedNow').replace('{n}', n) : t('riCreatedLater').replace('{d}', data.next_run_date));
+        if (data.last_error) showAlert(data.last_error, true);
+        loadRecurringInvoices(data.id);
+        if (n) { loadInvoices(); if (typeof loadOwnerDashboard === 'function') loadOwnerDashboard(); }
+      } catch (_) { showAlert(t('riSaveFailed'), true); }
+    });
+
+    async function loadRecurringInvoices(highlightId) {
+      const body = document.getElementById('ri-tbody');
+      if (!body) return;
+      try {
+        const res = await fetch(API + '/recurring-invoices');
+        if (!res.ok) { body.innerHTML = `<tr><td colspan="7" class="empty-state">${escapeHtml(t('riLoadFailed'))}</td></tr>`; return; }
+        const list = await res.json();
+        if (!list.length) { body.innerHTML = `<tr><td colspan="7" class="empty-state">${escapeHtml(t('riNone'))}</td></tr>`; return; }
+        body.innerHTML = '';
+        list.forEach(r => {
+          const ccy = (r.currency || 'IRR').toUpperCase();
+          const toggle = r.status === 'ended' ? '' : `<button type="button" class="btn btn-secondary btn-sm ri-toggle" data-id="${r.id}" data-status="${r.status === 'active' ? 'paused' : 'active'}">${escapeHtml(t(r.status === 'active' ? 'riPause' : 'riResume'))}</button>`;
+          const err = r.last_error ? `<div style="font-size:0.72rem;color:var(--danger, #b91c1c);">${escapeHtml(r.last_error)}</div>` : '';
+          const mail = r.auto_send ? `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(t('riEmailed'))}${r.entity_email ? ' → ' + escapeHtml(r.entity_email) : ''}</div>` : '';
+          const tr = document.createElement('tr');
+          tr.dataset.riId = r.id;
+          tr.innerHTML = `
+            <td>${escapeHtml(r.entity_name || '—')}${mail}</td>
+            <td>${escapeHtml(t('riFreq_' + r.frequency))}${r.calendar === 'jalali' ? ' · ' + escapeHtml(t('riCalendarJalali')) : ''}</td>
+            <td>${r.status === 'ended' ? '—' : escapeHtml(r.next_run_date)}</td>
+            <td>${formatMoney(r.total, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
+            <td>${escapeHtml(String(r.occurrences))}${r.last_invoice_number ? ' · ' + escapeHtml(r.last_invoice_number) : ''}</td>
+            <td>${escapeHtml(t('riStatus_' + r.status))}${err}</td>
+            <td>${toggle}<button type="button" class="btn btn-danger btn-sm ri-del" data-id="${r.id}" data-name="${escapeHtml(r.name)}" style="margin-inline-start:0.3rem;">${escapeHtml(t('btnDelete') || 'Delete')}</button></td>`;
+          body.appendChild(tr);
+        });
+        if (highlightId) flashRow(body.querySelector('tr[data-ri-id="' + CSS.escape(String(highlightId)) + '"]'));
+      } catch (_) {
+        body.innerHTML = `<tr><td colspan="7" class="empty-state">${escapeHtml(t('riLoadFailed'))}</td></tr>`;
+      }
+    }
+
+    document.getElementById('ri-tbody').addEventListener('click', async (e) => {
+      const tog = e.target.closest('.ri-toggle');
+      const del = e.target.closest('.ri-del');
+      if (tog) {
+        try {
+          const res = await fetch(API + '/recurring-invoices/' + encodeURIComponent(tog.dataset.id), {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: tog.dataset.status }),
+          });
+          const data = await readJsonSafe(res);
+          if (!res.ok) { showAlert(qtError(data, 'riSaveFailed'), true); return; }
+          loadRecurringInvoices(tog.dataset.id);
+        } catch (_) { showAlert(t('riSaveFailed'), true); }
+        return;
+      }
+      if (del) {
+        const ok = await uiConfirm({ title: t('btnDelete') || 'Delete', message: t('riDeleteConfirm').replace('{n}', del.dataset.name) });
+        if (!ok) return;
+        try {
+          const res = await fetch(API + '/recurring-invoices/' + encodeURIComponent(del.dataset.id), { method: 'DELETE' });
+          if (!res.ok) { const data = await readJsonSafe(res); showAlert(qtError(data, 'riSaveFailed'), true); return; }
+          loadRecurringInvoices();
+        } catch (_) { showAlert(t('riSaveFailed'), true); }
+      }
+    });
+
     // ═══════ Automatic reminders (owner switches them on) ═══════
     async function loadReminderSettings() {
       try {

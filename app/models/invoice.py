@@ -31,6 +31,12 @@ class Invoice(Base, TenantMixin):
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True, index=True
     )
+    # The recurring template that raised this invoice (roadmap §4.2), if any.
+    recurring_invoice_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("recurring_invoices.id", ondelete="SET NULL", use_alter=True,
+                                       name="fk_invoices_recurring_invoice"),
+        nullable=True, index=True,
+    )
     # A planned date to pay a bill. Informational only — moves no money.
     scheduled_payment_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

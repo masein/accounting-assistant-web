@@ -46,8 +46,9 @@ file formats once a customer supplies the templates. · ✅ boot fix: platform
 AI settings kept out of the Default-company backfill, pre-start tracebacks
 visible (#127) · ✅ 4.2 quotes → invoice (#128) · ✅ 4.2 invoice e-mail with
 PDF + payment details, automatic overdue reminders (owner opt-in, default
-3/10/20 days, one per stage, e-mail log) · next: recurring invoices with
-auto-send. SMS is not included (no provider chosen yet).
+3/10/20 days, one per stage, e-mail log) (#129) · ✅ 4.2 recurring invoices
+with optional auto-send, anchored schedules incl. Jalali months, closed-period
+retry. §4.2 done except SMS (no provider chosen yet). Next: §3.1 مودیان export.
 
 ---
 

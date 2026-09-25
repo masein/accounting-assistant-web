@@ -77,7 +77,12 @@ context variable on every log line and response (also 401/429 answered by
 the auth middleware, which were never logged), JSON logs in prod, 500s answer
 with the request id, token-gated `/metrics` (HTTP by route template, LLM
 calls, jobs; multi-worker aggregation), optional Sentry/GlitchTip with
-scrubbing (DEPLOY.md §10).
+scrubbing (DEPLOY.md §10) (#141). ✅ suites 9–10: Jalali edges (#142: Nowruz
+year guessing, Arabic-Indic digits, Excel full codes, invalid Jalali days
+parsed as Gregorian) and time billing + fees (#143: two-commit invoicing from
+time, float/half-to-even fees). ✅ coverage gate: CI fails below 80 % of app/
+(82 % at introduction). Least covered: demo_data 0 %, products API 13 %,
+recurring API 43 %, transaction_chat 45 %. Still open: Playwright smoke suite.
 
 ---
 

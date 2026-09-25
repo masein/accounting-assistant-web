@@ -24,3 +24,16 @@ ignore = [
 
 [tool.ruff.format]
 quote-style = "double"
+
+# Coverage gate (roadmap 2026-09 §6): the SQLite CI job fails below 80 %
+# of app/ (82 % when this was added, 2026-09-25). Raise it as coverage grows;
+# never lower it to make a PR pass.
+[tool.coverage.run]
+source = ["app"]
+branch = false
+
+[tool.coverage.report]
+fail_under = 80
+skip_covered = true
+show_missing = true
+precision = 1

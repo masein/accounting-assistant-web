@@ -340,6 +340,10 @@ def seed_admin_user_if_missing(session: "Session") -> int:
 DEFAULT_COMPANY_ID = "00000000-0000-0000-0000-000000000001"
 
 
+# Tables whose rows are immutable once written (see app/models/audit_log.py).
+APPEND_ONLY_TABLES = frozenset({"audit_logs"})
+
+
 def orphan_backfill_statements(tables, company_id: str = None) -> list[tuple[str, dict]]:
     """``UPDATE <table> SET company_id = Default WHERE company_id IS NULL`` for
     each tenant table — except platform-wide settings rows (e.g. the AI
@@ -351,6 +355,12 @@ def orphan_backfill_statements(tables, company_id: str = None) -> list[tuple[str
     cid = company_id or DEFAULT_COMPANY_ID
     out: list[tuple[str, dict]] = []
     for table in tables:
+        if table in APPEND_ONLY_TABLES:
+            # Never rewritten, and a company-less row is legitimate there: a
+            # failed login for an unknown user, a super-admin action. The
+            # append-only trigger (migration 036) refuses the UPDATE, which
+            # used to abort every boot after the first such row (2026-09-25).
+            continue
         sql = f"UPDATE {table} SET company_id = :cid WHERE company_id IS NULL"
         params: dict = {"cid": cid}
         if table == "app_settings" and PLATFORM_SETTING_KEYS:

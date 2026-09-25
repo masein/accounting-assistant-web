@@ -22,6 +22,14 @@ from app.db.base import Base
 from app.db.tenant import TenantMixin
 
 
+# Keys stored ONCE for the whole installation (``company_id IS NULL``), never
+# per company. Boot-time backfills that attach orphan rows to the Default
+# company must skip these: moving the platform AI config into a company either
+# hijacks it or, once that company already has a copy, violates
+# uq_app_settings_company_key and crash-loops the boot (found 2026-09-25).
+PLATFORM_SETTING_KEYS: frozenset[str] = frozenset({"ai_config"})
+
+
 class AppSetting(Base, TenantMixin):
     __tablename__ = "app_settings"
     __table_args__ = (

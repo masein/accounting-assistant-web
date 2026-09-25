@@ -340,6 +340,29 @@ def seed_admin_user_if_missing(session: "Session") -> int:
 DEFAULT_COMPANY_ID = "00000000-0000-0000-0000-000000000001"
 
 
+def orphan_backfill_statements(tables, company_id: str = None) -> list[tuple[str, dict]]:
+    """``UPDATE <table> SET company_id = Default WHERE company_id IS NULL`` for
+    each tenant table — except platform-wide settings rows (e.g. the AI
+    provider wiring), which are company-less by design. Attaching those to
+    Default would hijack them and, once Default holds its own copy, violate
+    ``uq_app_settings_company_key`` and crash-loop every boot (2026-09-25)."""
+    from app.models.app_setting import PLATFORM_SETTING_KEYS
+
+    cid = company_id or DEFAULT_COMPANY_ID
+    out: list[tuple[str, dict]] = []
+    for table in tables:
+        sql = f"UPDATE {table} SET company_id = :cid WHERE company_id IS NULL"
+        params: dict = {"cid": cid}
+        if table == "app_settings" and PLATFORM_SETTING_KEYS:
+            names = []
+            for i, key in enumerate(sorted(PLATFORM_SETTING_KEYS)):
+                params[f"k{i}"] = key
+                names.append(f":k{i}")
+            sql += f" AND key NOT IN ({', '.join(names)})"
+        out.append((sql, params))
+    return out
+
+
 def ensure_default_company(engine) -> None:
     """Idempotent multi-tenant bootstrap (the DATA half of migration 015).
 
@@ -365,11 +388,8 @@ def ensure_default_company(engine) -> None:
             ),
             {"id": DEFAULT_COMPANY_ID},
         )
-        for table in sorted(tenant_model_tablenames()):
-            conn.execute(
-                text(f"UPDATE {table} SET company_id = :cid WHERE company_id IS NULL"),
-                {"cid": DEFAULT_COMPANY_ID},
-            )
+        for sql, params in orphan_backfill_statements(sorted(tenant_model_tablenames())):
+            conn.execute(text(sql), params)
         conn.execute(
             text("UPDATE users SET company_id = :cid WHERE company_id IS NULL"),
             {"cid": DEFAULT_COMPANY_ID},

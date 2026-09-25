@@ -57,7 +57,22 @@ append-only audit_logs skipped by the Default-company backfill (#132). ✅ 2.2
 shared state: login/sign-up/resend/chat limits in Postgres, books version for
 the dashboard + insights caches, tenant-scoped upload tokens, AI config
 refresh across workers, scheduler tick behind an advisory lock;
-`WEB_CONCURRENCY` in the prod compose (DEPLOY.md §9).
+`WEB_CONCURRENCY` in the prod compose (DEPLOY.md §9) (#133). ✅ fresh installs
+get the audit guards (#134).
+
+**§6 test suites 4–8 — shipped 2026-09-25, each with the defects it found:**
+✅ 4 equity (#135: revaluation-surplus account on the Iranian chart, dividends
+paid beyond declared, mixed percent/share weights, deleting an owed holder,
+half-posted declarations, closed-period PUT with a wrong key cleared the lock) ·
+✅ 5 payroll lifecycle (#136: overlapping runs paid a salaried employee twice) ·
+✅ 6 manager reports (#137: AR/AP aging only saw this month's invoices,
+mislabelled buckets, drafts as receivables, voided invoices counted as sales,
+inventory list price dropped) · ✅ 7 FX (#138: half-to-even rounding and float
+products on money, net-zero revaluations posted nothing) · ✅ 8 uploads (#139:
+raw filename in the Excel temp path, import history never recorded, temp files
+leaked, logo/signature/OCR trusted the content type, order-dependent inventory
+on-hand; tests can no longer reach the network). Remaining: suites 9–10,
+coverage gate, Playwright smoke suite.
 
 ---
 
@@ -160,12 +175,12 @@ counterparts):
 Plus: `--cov --cov-fail-under=80` in CI; a Postgres CI job that runs `alembic upgrade head` and the suite; a 10-page Playwright smoke suite for the five JS files no test reads (`05-reports-manager`, `08-entities-invoices`, `11-time-expenses-payroll`, `12-ops`, `13-companies-products`); property tests for `balance_from_turnovers` / `resolve_period`; a nightly AI eval (5.5).
 
 Known defects found by the audits and **not yet fixed** (small, worth branches now):
-- logo/signature uploads trust the browser `content_type` (`company_profile.py:147`) — use `validate_file_magic`;
-- rate limiter memory never freed (`core/rate_limit.py`);
-- `_EXCEL_UPLOAD_STORE` temp files never cleaned, token contains the raw filename (`transactions.py:1703`);
-- `/health` returns 200 while degraded;
-- login/logout have no CSRF/Origin check;
-- Excel import confirm and bulk JSON import bypass the closed-period lock (1.5).
+- ✅ logo/signature uploads trust the browser `content_type` — fixed in #139;
+- ✅ rate limiter memory never freed — fixed in #120;
+- ✅ `_EXCEL_UPLOAD_STORE` temp files never cleaned, token contains the raw filename — fixed in #133/#139;
+- ✅ `/health` returns 200 while degraded — fixed in #123;
+- ✅ login/logout have no CSRF/Origin check — fixed in #119;
+- ✅ Excel import confirm and bulk JSON import bypass the closed-period lock — fixed in #110.
 
 ## 7. Suggested order of work
 

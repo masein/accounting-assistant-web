@@ -30,7 +30,7 @@ _HALF_WORDS = {"نیم", "نصف"}
 
 
 def _persian_to_ascii(text: str) -> str:
-    mapping = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
+    mapping = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
     return text.translate(mapping)
 
 

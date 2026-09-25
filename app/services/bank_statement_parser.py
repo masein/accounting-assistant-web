@@ -90,9 +90,14 @@ def _parse_date(raw: str) -> date | None:
     for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y"):
         try:
             from datetime import datetime as _dt
-            return _dt.strptime(text, fmt).date()
+            parsed = _dt.strptime(text, fmt).date()
         except ValueError:
             continue
+        # A Jalali-range year is never a Gregorian one: "1404/12/30" (not a
+        # valid Jalali day) used to come back as 30 December 1404 AD.
+        if parsed.year < 1900:
+            return None
+        return parsed
     return None
 
 

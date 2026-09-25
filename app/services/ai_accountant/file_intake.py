@@ -102,11 +102,9 @@ def _try_transactions(db: Session, files: list[tuple[str, bytes]]) -> dict[str, 
     if suffix not in (".xlsx", ".xls", ".csv", ".tsv"):
         return None
 
-    token = hashlib.sha256(data).hexdigest()[:16] + "_" + name
-    tmp_dir = Path(tempfile.gettempdir()) / "excel_imports"
-    tmp_dir.mkdir(exist_ok=True)
+    from app.api.transactions import excel_upload_token
     store_suffix = suffix if suffix in (".csv", ".tsv") else ".xlsx"
-    tmp_path = tmp_dir / f"{token}{store_suffix}"
+    token, tmp_path = excel_upload_token(data, name, store_suffix)
     try:
         tmp_path.write_bytes(data)
         result = parse_excel_journal(str(tmp_path))

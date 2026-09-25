@@ -121,6 +121,25 @@ def _reset_auth_limiters():
 
 
 @pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """No test may open a real network connection. The OCR path used to post
+    test images to the configured vision provider (with the developer's key
+    from .env). The in-process TestClient and httpx.MockTransport are their
+    own transports and keep working; real HTTP fails fast with ConnectError,
+    which the app already handles as "backend unavailable"."""
+    import httpx
+
+    def _refuse(self, request, *a, **k):
+        raise httpx.ConnectError(f"network disabled in tests: {request.url.host}", request=request)
+
+    async def _refuse_async(self, request, *a, **k):
+        raise httpx.ConnectError(f"network disabled in tests: {request.url.host}", request=request)
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _refuse)
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", _refuse_async)
+
+
+@pytest.fixture(autouse=True)
 def _no_real_ai_calls(monkeypatch):
     """No test may reach a real LLM backend: an unreachable one costs retries
     and sleeps (three chat tests took 44 s once the shared chat bucket stopped

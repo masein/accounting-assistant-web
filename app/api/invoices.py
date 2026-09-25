@@ -410,9 +410,13 @@ async def ocr_import_invoice(
         raise HTTPException(status_code=400, detail="File is empty.")
     if len(raw) > MAX_IMPORT_SIZE_BYTES:
         raise HTTPException(status_code=400, detail="File too large. Max size is 10 MB.")
+    from app.core.file_validation import validate_file_magic
+    validate_file_magic(raw, content_type)  # the label must match the bytes
 
     OCR_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    ext = Path(file.filename or "invoice").suffix or ".bin"
+    # Extension from the validated type, never from the client's filename.
+    ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+           "application/pdf": ".pdf"}.get(content_type, ".bin")
     path = OCR_UPLOAD_DIR / f"{uuid.uuid4().hex}{ext}"
     path.write_bytes(raw)
 

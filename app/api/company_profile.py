@@ -149,6 +149,10 @@ def _save_image(db: Session, file: UploadFile, kind: str) -> dict:
     raw = file.file.read()
     if len(raw) > _MAX_BYTES:
         raise HTTPException(status_code=400, detail="Image too large (max 2 MB)")
+    # Check the bytes, not the browser's label: these images are embedded in
+    # every PDF and served back, so an HTML/SVG payload must never pass as PNG.
+    from app.core.file_validation import validate_file_magic
+    validate_file_magic(raw, file.content_type)
     cid = get_current_company()
     if not cid:
         raise HTTPException(status_code=400, detail="No company context")

@@ -127,8 +127,24 @@ def _bump_books_version(session: Session, _ctx) -> None:
 # Upload tokens
 # ---------------------------------------------------------------------------
 
+def _remove_expired_file(path: str) -> None:
+    """Delete an expired upload's temp file — only inside the import
+    directory, never anything a stray row might point at elsewhere."""
+    import tempfile
+    from pathlib import Path
+    root = (Path(tempfile.gettempdir()) / "excel_imports").resolve()
+    try:
+        p = Path(path).resolve()
+        if p.parent == root and p.is_file():
+            p.unlink()
+    except OSError:
+        pass
+
+
 def store_upload(db: Session, kind: str, token: str, file_path: str, *, ttl_hours: int = 6) -> None:
     now = _utcnow()
+    for old in db.execute(select(UploadToken).where(UploadToken.expires_at < now)).scalars().all():
+        _remove_expired_file(old.file_path)
     db.execute(delete(UploadToken).where(UploadToken.expires_at < now))
     row = db.execute(select(UploadToken).where(UploadToken.kind == kind, UploadToken.token == token)).scalars().first()
     if row is None:

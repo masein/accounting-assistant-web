@@ -29,6 +29,21 @@ class ReportingPureFunctionTests(unittest.TestCase):
         self.assertAlmostEqual(acc.on_hand, 16.0)
         self.assertEqual(acc.cogs, 600)
 
+    def test_on_hand_does_not_depend_on_same_day_order(self):
+        """OUT 4 then IN 10 used to clamp to 0 first and end at 10."""
+        for order in (("IN", 10), ("OUT", 4)), (("OUT", 4), ("IN", 10)):
+            acc = ItemAccumulator()
+            for kind, qty in order:
+                apply_inventory_movement(acc, getattr(InventoryMovementType, kind).value, qty, 100)
+            self.assertAlmostEqual(acc.on_hand, 6.0)
+
+    def test_overselling_shows_as_negative_stock(self):
+        acc = ItemAccumulator()
+        apply_inventory_movement(acc, InventoryMovementType.IN.value, 2, 100)
+        apply_inventory_movement(acc, InventoryMovementType.OUT.value, 5, 100)
+        self.assertAlmostEqual(acc.on_hand, -3.0)
+        self.assertEqual(acc.inventory_value, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

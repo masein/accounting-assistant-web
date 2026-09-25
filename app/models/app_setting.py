@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Column, String, Text, UniqueConstraint
+from sqlalchemy import Column, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.base import Base
@@ -32,8 +32,14 @@ PLATFORM_SETTING_KEYS: frozenset[str] = frozenset({"ai_config"})
 
 class AppSetting(Base, TenantMixin):
     __tablename__ = "app_settings"
+    # One row per key per company, and one per key for the platform. A plain
+    # UNIQUE (company_id, key) would let the platform (NULL company) hold the
+    # same key twice — NULLs never collide — so these are partial indexes.
     __table_args__ = (
-        UniqueConstraint("company_id", "key", name="uq_app_settings_company_key"),
+        Index("uq_app_settings_company_key", "company_id", "key", unique=True,
+              postgresql_where=text("company_id IS NOT NULL"), sqlite_where=text("company_id IS NOT NULL")),
+        Index("uq_app_settings_global_key", "key", unique=True,
+              postgresql_where=text("company_id IS NULL"), sqlite_where=text("company_id IS NULL")),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

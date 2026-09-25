@@ -17,11 +17,14 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # globally unique
     password_hash: Mapped[str] = mapped_column(String(256))
     password_salt: Mapped[str] = mapped_column(String(128))
-    preferred_language: Mapped[str] = mapped_column(String(8), default="en")
+    preferred_language: Mapped[str] = mapped_column(String(8), default="en", server_default="en")
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     # The company this login belongs to (null only for a super-admin/provisioner).
+    # CASCADE, never SET NULL: a login with no company is a platform-wide one,
+    # so a deleted company's users must go with it, not lose their scope.
     company_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True
+        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE", name="fk_users_company"),
+        nullable=True, index=True,
     )
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)
     # Company role (RBAC). One role per user per company; enforced server-side

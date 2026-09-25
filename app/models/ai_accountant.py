@@ -19,7 +19,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -43,12 +43,17 @@ class AIProposal(Base, TenantMixin):
     """
 
     __tablename__ = "ai_proposals"
+    __table_args__ = (
+        UniqueConstraint("confirmation_token", name="ai_proposals_confirmation_token_key"),
+        # "this user's pending proposals" — also serves lookups by user alone
+        Index("ix_ai_proposals_user_status", "user_id", "status"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     confirmation_token: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4, index=True
+        UUID(as_uuid=True), nullable=False, default=uuid.uuid4
     )
-    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False)
     session_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     tool_name: Mapped[str] = mapped_column(String(64), nullable=False)
     tool_input: Mapped[dict[str, Any]] = mapped_column(_JSONType, nullable=False)
@@ -103,6 +108,7 @@ class AIChatMessage(Base, TenantMixin):
     """
 
     __tablename__ = "ai_chat_messages"
+    __table_args__ = (Index("ix_ai_chat_messages_session", "session_id", "created_at"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(

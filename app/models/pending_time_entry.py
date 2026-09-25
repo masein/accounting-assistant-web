@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Numeric, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Index, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,11 +20,13 @@ from app.db.tenant import TenantMixin
 
 class PendingTimeEntry(Base, TenantMixin):
     __tablename__ = "pending_time_entries"
+    # The idempotency lookup (company, source, external_id) in one index.
+    __table_args__ = (Index("ix_pending_time_source_external", "company_id", "source", "external_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     # Idempotency key within the company: one parked row per (source, external_id).
-    source: Mapped[str] = mapped_column(String(32), index=True)
-    external_id: Mapped[str] = mapped_column(String(128), index=True)
+    source: Mapped[str] = mapped_column(String(32))
+    external_id: Mapped[str] = mapped_column(String(128))
     # What the pusher sent, verbatim (matched later by the employer).
     worker_ref: Mapped[str] = mapped_column(String(256))
     client_ref: Mapped[str | None] = mapped_column(String(256), nullable=True)

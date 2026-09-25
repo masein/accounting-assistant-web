@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -17,6 +17,7 @@ DEFAULT_BRAND_COLOR = "#0f766e"  # app teal
 
 class CompanyProfile(Base, TenantMixin):
     __tablename__ = "company_profiles"
+    __table_args__ = (UniqueConstraint("company_id", name="uq_company_profile_company"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     # Issuer identity (falls back to Company.name when unset).

@@ -291,16 +291,45 @@ def _bootstrap_schema_and_seed(strict: bool = False) -> None:
         _warn_if_default_admin_password(db)
         from app.services.fx_service import seed_default_rates_if_empty
         seed_default_rates_if_empty(db)
-        from app.services.tax_rate_service import seed_tax_rates
-        seed_tax_rates(db)
         from app.services.payroll_rules import seed_payroll_rules
         seed_payroll_rules(db)
     finally:
         db.close()
     ensure_default_company(get_admin_engine())
+    # Standard tax rates are per company: every company gets any rate added
+    # to the code (a company-less row would violate NOT NULL on tax_rates).
+    from sqlalchemy.orm import Session as _Session
+
+    db = _Session(bind=get_admin_engine(), autoflush=False)
+    try:
+        _seed_tax_rates_per_company(db)
+    finally:
+        db.close()
+    # Now that no row is company-less: the tenant NOT NULL + FK a migrated
+    # database has had since 015 (fresh installs are stamped, never migrated).
+    from app.db.guards import install_tenant_guards
+    for item in install_tenant_guards(get_admin_engine()):
+        logging.getLogger("app.migrations").info("installed tenant guard: %s", item)
     # Last, so every table the steps above created is covered by the grants.
     from app.db.roles import ensure_app_role
     ensure_app_role(get_admin_engine())
+
+
+def _seed_tax_rates_per_company(db) -> int:
+    """Give every company the standard rates it lacks. Returns rows added."""
+    from sqlalchemy import select
+
+    from app.db.tenant import tenant_bypass, use_company
+    from app.models.company import Company
+    from app.services.tax_rate_service import seed_tax_rates
+
+    with tenant_bypass():
+        company_ids = [row[0] for row in db.execute(select(Company.id)).all()]
+    added = 0
+    for cid in company_ids:
+        with use_company(cid):
+            added += seed_tax_rates(db)
+    return added
 
 
 def _warn_if_default_admin_password(db) -> None:

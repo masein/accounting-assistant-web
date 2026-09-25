@@ -148,11 +148,19 @@ def allocate_by_cap_table(db: Session, total: int) -> list[tuple[uuid.UUID, int]
     """
     total = _positive(total, "Dividend total")
     holdings = db.execute(select(Shareholding)).scalars().all()
-    weights: list[tuple[uuid.UUID, float]] = []
-    for h in holdings:
-        w = float(h.percent) if h.percent is not None else (float(h.shares) if h.shares else 0.0)
-        if w > 0:
-            weights.append((h.entity_id, w))
+    # Percentages and share counts are different units: a 60 % holder next to
+    # a 1,000-share holder must not be weighed 60 : 1,000.
+    by_percent = [h for h in holdings if h.percent is not None and float(h.percent) > 0]
+    by_shares = [h for h in holdings if (h.percent is None or float(h.percent) <= 0) and h.shares]
+    if by_percent and by_shares:
+        raise EquityError(
+            "Some shareholders have a percent and others only a share count. Give every "
+            "shareholder a percent (or every one a share count) before allocating."
+        )
+    weights: list[tuple[uuid.UUID, float]] = (
+        [(h.entity_id, float(h.percent)) for h in by_percent] if by_percent
+        else [(h.entity_id, float(h.shares)) for h in by_shares]
+    )
     if not weights:
         raise EquityError(
             "No shareholdings with ownership to allocate to. Add shareholders to the cap "
@@ -243,8 +251,9 @@ def capital_increase(
         debit_code = resolve_account_code(db, "bank")
         debit_desc = "Cash for capital increase"
     elif source == "revaluation_surplus":
-        # revaluation reserve → share capital (uk 3020; ir falls back via resolver)
-        debit_code = "3020"
+        # revaluation reserve → share capital (uk 3020, ir 3150 — was a
+        # hard-coded 3020, which doesn't exist on the Iranian chart)
+        debit_code = resolve_account_code(db, "revaluation_reserve")
         debit_desc = "Revaluation surplus capitalised"
     else:
         debit_code = resolve_account_code(db, "retained_earnings")
@@ -325,6 +334,18 @@ def declare_dividend(
     return result
 
 
+def dividend_outstanding(db: Session, entity_id) -> int:
+    """Declared minus paid dividends for one shareholder."""
+    from sqlalchemy import func
+    eid = entity_id if isinstance(entity_id, uuid.UUID) else uuid.UUID(str(entity_id))
+
+    def _sum(kind: str) -> int:
+        return int(db.execute(select(func.coalesce(func.sum(EquityEvent.amount), 0)).where(
+            EquityEvent.entity_id == eid, EquityEvent.event_type == kind)).scalar() or 0)
+
+    return _sum("dividend_declared") - _sum("dividend_paid")
+
+
 def pay_dividend(
     db: Session,
     *,
@@ -335,9 +356,17 @@ def pay_dividend(
     reference: str | None = None,
 ) -> EquityPostingResult:
     """Pay a declared dividend: DR dividends payable / CR bank, linked to the
-    shareholder (reduces their outstanding dividend)."""
+    shareholder (reduces their outstanding dividend). Paying more than was
+    declared and not yet paid is refused: it would push dividends payable
+    into a debit balance for money the company never owed."""
     amount = _positive(amount)
     ent = _require_entity(db, entity_id, want_shareholder=True)
+    owed = dividend_outstanding(db, ent.id)
+    if amount > owed:
+        raise EquityError(
+            f"{ent.name} is owed {owed:,} in declared dividends; a payment of {amount:,} would exceed it."
+            + (" Declare the dividend first." if owed == 0 else "")
+        )
     payable_code = resolve_account_code(db, "dividends_payable")
     bank_code = (bank_account_code or "").strip() or resolve_account_code(db, "bank")
     txn = _post(

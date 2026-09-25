@@ -37,6 +37,23 @@ def _err(exc: eq.EquityError) -> HTTPException:
     return HTTPException(status_code=422, detail=str(exc))
 
 
+def _run(db: Session, fn, **kwargs) -> eq.EquityPostingResult:
+    """Run one equity operation as a single unit of work. A dividend
+    declaration posts one entry per shareholder; if a later one fails (an
+    unknown holder, a closed period, a missing account) the earlier ones must
+    not survive in the session and get committed by the next request."""
+    try:
+        res = fn(db, **kwargs)
+    except eq.EquityError as e:
+        db.rollback()
+        raise _err(e) from e
+    except HTTPException:
+        db.rollback()
+        raise
+    db.commit()
+    return res
+
+
 def _entity_name(db: Session, entity_id) -> str | None:
     ent = db.get(Entity, entity_id)
     return ent.name if ent else None
@@ -171,6 +188,13 @@ def delete_shareholding(shareholding_id: UUID, db: Session = Depends(get_db)) ->
     h = db.get(Shareholding, shareholding_id)
     if h is None:
         raise HTTPException(status_code=404, detail="Shareholding not found")
+    owed = eq.dividend_outstanding(db, h.entity_id)
+    if owed:
+        raise HTTPException(
+            status_code=409,
+            detail=(f"{_entity_name(db, h.entity_id)} is still owed {owed:,} in declared dividends; "
+                    "pay them before removing the holding."),
+        )
     db.delete(h)
     db.commit()
 
@@ -188,29 +212,19 @@ def _resp(result: eq.EquityPostingResult) -> EquityPostingResponse:
 
 @router.post("/contribution", response_model=EquityPostingResponse, status_code=201)
 def post_contribution(payload: ContributionRequest, db: Session = Depends(get_db)) -> EquityPostingResponse:
-    try:
-        res = eq.contribution(
-            db, entity_id=payload.entity_id, amount=payload.amount, txn_date=payload.date,
-            to_capital=payload.to_capital, asset_account_code=payload.asset_account_code,
-            reference=payload.reference,
-        )
-    except eq.EquityError as e:
-        raise _err(e) from e
-    db.commit()
-    return _resp(res)
+    return _resp(_run(
+        db, eq.contribution, entity_id=payload.entity_id, amount=payload.amount, txn_date=payload.date,
+        to_capital=payload.to_capital, asset_account_code=payload.asset_account_code,
+        reference=payload.reference,
+    ))
 
 
 @router.post("/capital-increase", response_model=EquityPostingResponse, status_code=201)
 def post_capital_increase(payload: CapitalIncreaseRequest, db: Session = Depends(get_db)) -> EquityPostingResponse:
-    try:
-        res = eq.capital_increase(
-            db, amount=payload.amount, txn_date=payload.date, source=payload.source,
-            entity_id=payload.entity_id, reference=payload.reference,
-        )
-    except eq.EquityError as e:
-        raise _err(e) from e
-    db.commit()
-    return _resp(res)
+    return _resp(_run(
+        db, eq.capital_increase, amount=payload.amount, txn_date=payload.date, source=payload.source,
+        entity_id=payload.entity_id, reference=payload.reference,
+    ))
 
 
 @router.post("/dividend/declare", response_model=EquityPostingResponse, status_code=201)
@@ -218,39 +232,24 @@ def post_dividend_declare(payload: DividendDeclareRequest, db: Session = Depends
     allocations = None
     if payload.allocations:
         allocations = [(a.entity_id, a.amount) for a in payload.allocations]
-    try:
-        res = eq.declare_dividend(
-            db, total_amount=payload.total_amount, txn_date=payload.date,
-            allocations=allocations, reference=payload.reference,
-        )
-    except eq.EquityError as e:
-        raise _err(e) from e
-    db.commit()
-    return _resp(res)
+    return _resp(_run(
+        db, eq.declare_dividend, total_amount=payload.total_amount, txn_date=payload.date,
+        allocations=allocations, reference=payload.reference,
+    ))
 
 
 @router.post("/dividend/pay", response_model=EquityPostingResponse, status_code=201)
 def post_dividend_pay(payload: DividendPayRequest, db: Session = Depends(get_db)) -> EquityPostingResponse:
-    try:
-        res = eq.pay_dividend(
-            db, entity_id=payload.entity_id, amount=payload.amount, txn_date=payload.date,
-            bank_account_code=payload.bank_account_code, reference=payload.reference,
-        )
-    except eq.EquityError as e:
-        raise _err(e) from e
-    db.commit()
-    return _resp(res)
+    return _resp(_run(
+        db, eq.pay_dividend, entity_id=payload.entity_id, amount=payload.amount, txn_date=payload.date,
+        bank_account_code=payload.bank_account_code, reference=payload.reference,
+    ))
 
 
 @router.post("/current-account", response_model=EquityPostingResponse, status_code=201)
 def post_current_account(payload: CurrentAccountRequest, db: Session = Depends(get_db)) -> EquityPostingResponse:
-    try:
-        res = eq.shareholder_current_account(
-            db, entity_id=payload.entity_id, amount=payload.amount, txn_date=payload.date,
-            direction=payload.direction, bank_account_code=payload.bank_account_code,
-            reference=payload.reference,
-        )
-    except eq.EquityError as e:
-        raise _err(e) from e
-    db.commit()
-    return _resp(res)
+    return _resp(_run(
+        db, eq.shareholder_current_account, entity_id=payload.entity_id, amount=payload.amount,
+        txn_date=payload.date, direction=payload.direction, bank_account_code=payload.bank_account_code,
+        reference=payload.reference,
+    ))

@@ -1696,6 +1696,20 @@ from app.schemas.transaction import (
 # table (roadmap §2.2): a preview on one worker can be confirmed on another,
 # and a token only resolves inside the company that uploaded it.
 EXCEL_UPLOAD_KIND = "excel_journal"
+EXCEL_IMPORT_DIR = _Path(tempfile.gettempdir()) / "excel_imports"
+
+
+def excel_upload_token(content: bytes, filename: str | None, suffix: str = ".xlsx") -> tuple[str, "_Path"]:
+    """(token, temp path) for an uploaded sheet. The path is named by the
+    content hash only; the client's filename is untrusted and used for display
+    (the token tail) after sanitising. It used to be spliced into the path, so
+    a name with "/" crashed the preview with a 500 (security review 2026-09-25)."""
+    import re as _re
+    digest = hashlib.sha256(content).hexdigest()[:32]
+    base = _re.split(r"[\\/]", filename or "")[-1]
+    safe = _re.sub(r"[^\w .()\-]", "_", base).strip(" .")[:120] or "import"
+    EXCEL_IMPORT_DIR.mkdir(parents=True, exist_ok=True)
+    return f"{digest}_{safe}", EXCEL_IMPORT_DIR / f"{digest}{suffix}"
 
 
 def _excel_import_history(db: Session, sha: str) -> dict | None:
@@ -1756,10 +1770,7 @@ def excel_import_preview(
         raise HTTPException(status_code=400, detail="File too large (max 20MB)")
 
     sha = hashlib.sha256(content).hexdigest()
-    token = sha[:16] + "_" + (file.filename or "import")
-    tmp_dir = _Path(tempfile.gettempdir()) / "excel_imports"
-    tmp_dir.mkdir(exist_ok=True)
-    tmp_path = tmp_dir / f"{token}.xlsx"
+    token, tmp_path = excel_upload_token(content, file.filename)
     tmp_path.write_bytes(content)
     from app.core.shared_state import store_upload
     store_upload(db, EXCEL_UPLOAD_KIND, token, str(tmp_path))
@@ -1983,18 +1994,22 @@ def excel_import_confirm(
         except Exception:
             pass
 
+    # Record the history BEFORE removing the file: it hashes the file, and the
+    # old order (delete first) made the history write fail every time, so the
+    # "already imported" warning could never fire.
+    try:
+        _record_excel_import(db, file_path, payload.file_token, len(transaction_ids))
+    except Exception as exc:  # the import itself succeeded; history is best-effort
+        chat_logger.warning("excel_import_history_failed: %s", exc)
+
     # Clean up temp file
     try:
         _Path(file_path).unlink(missing_ok=True)
         from app.core.shared_state import drop_upload
         drop_upload(db, EXCEL_UPLOAD_KIND, payload.file_token)
+        db.commit()
     except Exception:
         pass
-
-    try:
-        _record_excel_import(db, file_path, payload.file_token, len(transaction_ids))
-    except Exception as exc:  # the import itself succeeded; history is best-effort
-        chat_logger.warning("excel_import_history_failed: %s", exc)
     return ExcelImportConfirmResponse(
         imported=len(transaction_ids),
         transaction_ids=transaction_ids,

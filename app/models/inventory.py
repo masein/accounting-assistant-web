@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import BigInteger, Date, DateTime, Enum, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -56,6 +56,10 @@ class InventoryMovement(Base, TenantMixin):
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True, index=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Set in Python (microseconds): SQLite's CURRENT_TIMESTAMP has one-second
+    # resolution, so same-second movements sorted randomly by id.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), default=lambda: datetime.now(timezone.utc)
+    )
 
     item: Mapped["InventoryItem"] = relationship("InventoryItem", back_populates="movements")

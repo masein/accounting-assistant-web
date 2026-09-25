@@ -9,6 +9,7 @@ _MAGIC_SIGNATURES: dict[str, list[tuple[bytes, int]]] = {
     "image/jpeg": [(b"\xff\xd8\xff", 0)],
     "image/png": [(b"\x89PNG\r\n\x1a\n", 0)],
     "image/webp": [(b"RIFF", 0), (b"WEBP", 8)],  # Must match BOTH
+    "image/gif": [(b"GIF8", 0)],                   # GIF87a and GIF89a
     "application/pdf": [(b"%PDF", 0)],
     # .xlsx is a ZIP container; legacy binary .xls is an OLE2 compound file.
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [(b"PK", 0)],

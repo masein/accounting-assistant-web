@@ -60,8 +60,11 @@ def apply_inventory_movement(acc: ItemAccumulator, movement_type: str, quantity:
         use_cost = cost if cost > 0 else acc.avg_cost
         cogs_value = int(round(qty * use_cost))
         acc.cogs += cogs_value
-        acc.on_hand = max(0.0, acc.on_hand - qty)
-        acc.inventory_value = max(0, acc.inventory_value - cogs_value)
+        # No clamp: quantity must not depend on the order of same-day rows. A
+        # clamp at 0 turned "OUT 4 then IN 10" (same day, same second) into 10
+        # on hand instead of 6. A negative on-hand now means oversold.
+        acc.on_hand = acc.on_hand - qty
+        acc.inventory_value = max(0, acc.inventory_value - cogs_value) if acc.on_hand > 0 else 0
         return acc
     # ADJUSTMENT: positive quantity with explicit valuation.
     acc.qty_in += qty

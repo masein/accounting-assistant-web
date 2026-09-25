@@ -213,6 +213,17 @@ def execute_proposal(
             actor_username=actor_username,
             ip_address=ip_address,
         )
+    elif proposal.tool_name in (
+        "propose_record_invoice_payment", "propose_create_invoice",
+        "propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque",
+    ):
+        from app.services.ai_accountant.invoice_execute import execute_invoice_proposal
+        txn_id, audit_id = execute_invoice_proposal(
+            db, proposal,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+        )
     else:
         raise ProposalNotFound(
             f"No executor for tool {proposal.tool_name!r} — this tool's "

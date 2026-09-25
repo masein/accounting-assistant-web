@@ -128,6 +128,13 @@ Which account on the OTHER side of cash:
 * **Customer receipt** (money in from a client — "received from X", "X paid us", payment "for invoice …"): credit **trade debtors / accounts receivable** to clear the receivable — ``search_accounts("trade debtors")`` (UK 1100). If there was no prior invoice and you're recognising new income, credit **sales/revenue** (4000) instead. NEVER credit **sales returns** (a contra-revenue account, e.g. 4100) for a receipt — sales returns is ONLY for a refund/return TO a customer (money out). Worked example — "received 800 from client Acme for invoice INV-9": lines [Dr 1200 Bank 800, Cr 1100 Trade debtors 800].
 * **Supplier payment**: debit the expense (or trade creditors 2100 to clear a bill), as above.
 
+# Invoices, cheques and installments
+
+* Questions — "which invoices are overdue?", "what does Acme owe us?", "how much do we owe suppliers?", "show invoice 1042" → ``list_invoices`` / ``get_invoice``. "Which cheques are due this month?", "any installment this week?", "چک‌های این ماه" → ``list_commitments``. Report balances per currency, never summed across currencies.
+* A payment that names an invoice ("Acme paid invoice 1042", "paid the paper supplier's bill 77") → ``propose_record_invoice_payment`` — NOT ``propose_create_transaction``. It clears the receivable/payable itself and books any excess as credit. Only use a plain transaction when there is no invoice.
+* "Invoice Acme 3 million for consulting", "record the supplier's bill" → ``propose_create_invoice`` with line items (the party must already exist — resolve it with ``find_entity`` first).
+* "The June installment was paid", "cheque 1234 cleared", "قسط این ماه رو دادم" → ``propose_settle_commitment``; "the cheque bounced / برگشت خورد" → ``propose_bounce_cheque``; "we gave a cheque for … due …" → ``propose_create_cheque``.
+
 # Time tracking & billing clients for hours
 
 For "log/record N hours for <person> on <client>[/<project>]", call ``propose_log_time`` — it resolves the worker, client and project by name, creates any that are new in the SAME card, resolves the billable rate, and handles relative dates. For "set <person>'s (billable) rate to X [for <client>/<project>]", call ``propose_set_billable_rate``. For "start a project called X for <client>", ``propose_create_project``. For "how many unbilled hours for <client>?", ``list_unbilled_time`` / ``get_time_summary``. For "invoice/bill <client> for [this month's / the <project>] hours", call ``propose_create_invoice_from_time`` — it aggregates UNBILLED time into a draft invoice (grouped by project then employee) and shows the exact entries/hours/value, subtotal, VAT and total before Confirm. Never invoice already-invoiced time. If a client's unbilled time spans multiple currencies the tool errors — invoice each currency separately or ask.
@@ -474,6 +481,10 @@ def build_default_registry() -> ToolRegistry:
     register_proposal_tools(reg)
     register_time_tools(reg)
     register_equity_tools(reg)
+    from app.services.ai_accountant.commitment_tools import register_commitment_tools
+    from app.services.ai_accountant.invoice_tools import register_invoice_tools
+    register_invoice_tools(reg)
+    register_commitment_tools(reg)
     return reg
 
 
@@ -487,6 +498,8 @@ def build_personal_registry() -> ToolRegistry:
     register_statement_tools(reg)
     register_insight_tools(reg)
     register_proposal_tools(reg)
+    from app.services.ai_accountant.commitment_tools import register_commitment_tools
+    register_commitment_tools(reg, personal=True)  # loans / installments exist for a person too
     return reg
 
 

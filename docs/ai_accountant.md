@@ -97,6 +97,9 @@ app/
 │   ├─ insight_tools.py            # get_insights (proactive insights)
 │   ├─ spending_tools.py           # get_spending_summary (period words → dates in the company calendar)
 │   ├─ cash_tools.py               # get_cash_position (every cash + bank account, totalled)
+│   ├─ invoice_tools.py            # list_invoices, get_invoice, propose_record_invoice_payment, propose_create_invoice
+│   ├─ commitment_tools.py         # list_commitments, propose_settle_commitment, propose_bounce_cheque, propose_create_cheque
+│   ├─ invoice_execute.py          # confirm handlers for the two modules above
 │   ├─ statement_intake.py         # chat drop of a statement PDF/image → import + review card
 │   ├─ execute_service.py          # execute_proposal(), undo_action() (soft-delete), reverse_action()
 │   └─ orchestrator.py             # run_chat_turn(), SYSTEM_PROMPT, _resolve_chat_shape()

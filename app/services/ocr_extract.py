@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from app.core.observability import observe_llm
 from pypdf import PdfReader
 
 from app.core.ai_runtime import resolve_active_ai_backend
@@ -417,7 +418,7 @@ async def _gemini_raw(pages: list[tuple[str, str]], model: str, prompt: str) -> 
     for mime, b64 in pages:
         parts.append({"inline_data": {"mime_type": mime, "data": b64}})
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0}}
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with observe_llm("gemini", "ocr"), httpx.AsyncClient(timeout=120) as client:
         r = await client.post(
             url, json=payload,
             headers={"x-goog-api-key": key, "Content-Type": "application/json"},
@@ -451,7 +452,7 @@ async def _openai_vision_raw(pages: list[tuple[str, str]], model: str, prompt: s
         "temperature": 0.0,
         "max_tokens": 4000,
     }
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with observe_llm("openai-compatible", "ocr"), httpx.AsyncClient(timeout=120) as client:
         r = await client.post(url, json=payload, headers=headers or None)
         r.raise_for_status()
         body = r.json()

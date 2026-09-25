@@ -170,7 +170,9 @@ def run_job_for_all_companies(name: str, fn: Callable[[Any, date], dict], *, tod
             with use_company(cid):
                 if once_per_day and _marker(db, name) == today.isoformat():
                     continue
-                result = fn(db, today)
+                from app.core.observability import observe_job
+                with observe_job(name):
+                    result = fn(db, today)
                 if once_per_day:
                     _set_marker(db, name, today.isoformat())
             status.companies_ok += 1

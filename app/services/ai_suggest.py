@@ -10,6 +10,7 @@ from datetime import date, timedelta
 from typing import Any
 
 import httpx
+from app.core.observability import observe_llm
 
 from app.core.ai_runtime import resolve_active_ai_backend
 from app.core.config import settings
@@ -277,7 +278,8 @@ async def _post_lm_studio(url: str, payload: dict[str, Any], base: str, headers:
     last_error: Exception | None = None
     for attempt in range(LM_STUDIO_MAX_ATTEMPTS):
         try:
-            async with httpx.AsyncClient(timeout=LM_STUDIO_TIMEOUT) as client:
+            async with observe_llm("openai-compatible", "suggest"), \
+                    httpx.AsyncClient(timeout=LM_STUDIO_TIMEOUT) as client:
                 r = await client.post(url, json=payload, headers=headers or None)
                 r.raise_for_status()
                 return r.json()

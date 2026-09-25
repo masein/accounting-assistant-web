@@ -9,7 +9,10 @@ import pytest
 from app import main as main_mod
 from app.main import PROTECTED_API_PREFIXES, app
 
-EXEMPT = ("/auth/login", "/auth/logout", "/auth/signup", "/auth/verify", "/auth/resend", "/api/v1/", "/health", "/docs", "/redoc", "/openapi.json")
+# /metrics is scraped by Prometheus, not a browser: it has its own bearer
+# token (METRICS_TOKEN) and answers 404 when none is configured.
+EXEMPT = ("/auth/login", "/auth/logout", "/auth/signup", "/auth/verify", "/auth/resend", "/api/v1/", "/health",
+          "/docs", "/redoc", "/openapi.json", "/metrics")
 
 
 def test_every_api_route_is_behind_a_protected_prefix():

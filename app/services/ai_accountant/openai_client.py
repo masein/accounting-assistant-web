@@ -32,6 +32,7 @@ import logging
 from typing import Any
 
 import httpx
+from app.core.observability import observe_llm
 
 from app.core.ai_runtime import resolve_active_ai_backend
 
@@ -305,8 +306,9 @@ class OpenAILLMClient(LLMClient):
         last_error: Exception | None = None
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT_SECONDS) as client:
-                    r = await client.post(url, headers=headers, json=payload)
+                async with observe_llm(cfg.get("provider") or "openai-compatible", "chat"):
+                    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT_SECONDS) as client:
+                        r = await client.post(url, headers=headers, json=payload)
             except httpx.ConnectError as e:
                 last_error = e
                 logger.warning("openai-shape: connection error (attempt %d/%d): %s",

@@ -22,3 +22,8 @@ jinja2>=3.1,<4.0
 num2words>=0.5,<1.0
 num2fawords>=1.1,<2.0
 cryptography>=42,<47
+# Observability (roadmap §2.4): Prometheus metrics at /metrics (token-gated;
+# multi-worker aggregation via PROMETHEUS_MULTIPROC_DIR) and optional error
+# reporting to Sentry/GlitchTip when SENTRY_DSN is set.
+prometheus-client>=0.20,<1.0
+sentry-sdk[fastapi]>=2.0,<3.0

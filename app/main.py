@@ -368,13 +368,20 @@ app.add_middleware(
 # Global API rate limiter: 120 requests per minute per user/IP
 _api_limiter = RateLimiter(max_requests=120, window_seconds=60)
 
+# No inline script of any kind (roadmap 2026-09 §1.13): an injected <script>
+# or on…= attribute never runs. The front end wires events through
+# data-action + registerAction (js/01-core.js) and the login page's code is
+# /static/login.js; tests/test_csp.py fails on any inline handler that creeps
+# back. Inline *styles* stay allowed — they cannot execute code.
 _CSP_POLICY = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline'; "
+    "script-src 'self'; "
+    "script-src-attr 'none'; "
     "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; "
     "font-src 'self' https://fonts.gstatic.com; "
     "img-src 'self' data: https:; "
     "connect-src 'self'; "
+    "object-src 'none'; "
     "frame-ancestors 'none'; "
     "base-uri 'self'; "
     "form-action 'self'"

@@ -39,8 +39,12 @@ year, owner warned 14 days before, expired keys refused) (#146).
 ✅ 1.13 two-factor sign-in (TOTP + ten recovery codes, any role, recommended
 for owners/super-admins, owner reset for a lost phone) (#147). Follow-up: a
 policy switch that *requires* 2FA for owners.
-Still open in §1: CSP without inline scripts, non-superuser DB role,
-model/migration drift cleanup (alembic check).
+✅ 1.13 strict CSP — `script-src 'self'`, `script-src-attr 'none'`,
+`object-src 'none'`; every inline handler replaced by `data-action` +
+`registerAction`, the login script in `/static/login.js`, a scanner test and a
+browser test that injected inline code is refused (#148).
+Still open in §1: non-superuser DB role, model/migration drift cleanup
+(alembic check).
 
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as

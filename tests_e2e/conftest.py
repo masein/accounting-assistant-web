@@ -47,14 +47,25 @@ class PageWatch:
         self.js_errors: list[str] = []
         self.console_errors: list[str] = []
         self.server_errors: list[str] = []
+        self.csp_violations: list[str] = []
         page.on("pageerror", lambda e: self.js_errors.append(str(e)))
-        page.on("console", lambda m: self.console_errors.append(m.text) if m.type == "error" else None)
+        page.on("console", self._console)
         page.on("response", lambda r: self.server_errors.append(f"{r.status} {r.url}") if r.status >= 500 else None)
+
+    def _console(self, m) -> None:
+        if m.type != "error":
+            return
+        self.console_errors.append(m.text)
+        # The strict CSP refuses inline code with a console error, not an
+        # exception — a button wired inline would just silently do nothing.
+        if "Content Security Policy" in m.text:
+            self.csp_violations.append(m.text)
 
     def problems(self) -> list[str]:
         # A 4xx fetch logs "Failed to load resource" in the console; those are
-        # expected for role-gated endpoints. Exceptions and 5xx are never fine.
-        return self.js_errors + self.server_errors
+        # expected for role-gated endpoints. Exceptions, 5xx and CSP refusals
+        # are never fine.
+        return self.js_errors + self.server_errors + self.csp_violations
 
 
 @pytest.fixture()

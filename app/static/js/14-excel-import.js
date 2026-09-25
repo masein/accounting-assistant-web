@@ -274,12 +274,7 @@
               ${result.errors.length ? '<br><span style="color:var(--danger);">Warnings: ' + result.errors.length + '</span>' : ''}
             </p>
             ${result.errors.length ? '<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--danger);">' + result.errors.map(e => '<div>' + escapeHtml(e) + '</div>').join('') + '</div>' : ''}
-            <button type="button" class="btn btn-secondary btn-sm" style="margin-top:0.75rem;" onclick="
-              document.getElementById('excel-import-step3').style.display='none';
-              document.getElementById('excel-import-step1').style.display='block';
-              document.getElementById('excel-import-file').value='';
-              loadTransactions();
-            ">Done</button>
+            <button type="button" class="btn btn-secondary btn-sm" style="margin-top:0.75rem;" data-action="excel-import-done">Done</button>
           </div>
         `;
 
@@ -292,3 +287,13 @@
         btn.disabled = false;
       }
     }
+
+    registerAction('excel-import-currency', () => excelImportCurrencyChanged());
+    registerAction('excel-import-upload', () => excelImportUpload());
+    registerAction('excel-import-confirm', () => excelImportConfirm());
+    registerAction('excel-import-done', () => {
+      document.getElementById('excel-import-step3').style.display = 'none';
+      document.getElementById('excel-import-step1').style.display = 'block';
+      document.getElementById('excel-import-file').value = '';
+      if (typeof loadTransactions === 'function') loadTransactions();
+    });

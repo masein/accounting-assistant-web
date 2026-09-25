@@ -28,8 +28,8 @@
           </div>
           <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center;">
             <input type="text" id="acct-detail-search" placeholder="${t('placeholderSearchCodeName')}" style="flex:1;min-width:180px;padding:0.4rem 0.6rem;font-size:0.85rem;">
-            <button class="btn btn-secondary btn-sm" onclick="_exportAcctDetail('csv')">CSV</button>
-            <button class="btn btn-secondary btn-sm" onclick="_exportAcctDetail('pdf')">PDF</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="export-acct-detail" data-format="csv">CSV</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="export-acct-detail" data-format="pdf">PDF</button>
           </div>
           <div id="acct-detail-table-wrap" style="max-height:400px;overflow:auto;"></div>
         `;
@@ -1652,3 +1652,5 @@
         showAlert('Connection error: ' + err.message, true);
       }
     });
+
+    registerAction('export-acct-detail', (el) => _exportAcctDetail(el.dataset.format));

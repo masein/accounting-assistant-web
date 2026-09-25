@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Accounting Assistant — Register events and ledger</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap" media="print" data-async-css>
   <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
@@ -530,7 +530,7 @@
       </p>
       <p style="margin: 0 0 0.9rem 0; display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <button type="button" class="btn btn-secondary btn-sm" id="open-ai-chat-inline" data-i18n="openAiChat">Open AI chat</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="open-excel-import-btn" onclick="document.getElementById('excel-import-section').style.display = document.getElementById('excel-import-section').style.display === 'none' ? 'block' : 'none'">
+        <button type="button" class="btn btn-secondary btn-sm" id="open-excel-import-btn" data-action="toggle" data-target="excel-import-section">
           <span style="margin-inline-end:0.3em;">📥</span> Import from Excel
         </button>
       </p>
@@ -555,7 +555,7 @@
             </div>
             <div>
               <label for="excel-import-currency" style="font-size: 0.85rem;">Currency</label>
-              <select id="excel-import-currency" onchange="excelImportCurrencyChanged()">
+              <select id="excel-import-currency" data-change-action="excel-import-currency">
                 <option value="IRR">IRR (Rial)</option>
                 <option value="IRT">IRT (Toman)</option>
                 <option value="USD">USD ($)</option>
@@ -577,7 +577,7 @@
               </select>
             </div>
             <div class="btn-cell">
-              <button type="button" class="btn btn-primary" id="excel-import-upload-btn" onclick="excelImportUpload()">
+              <button type="button" class="btn btn-primary" id="excel-import-upload-btn" data-action="excel-import-upload">
                 Upload &amp; Preview
               </button>
             </div>
@@ -619,10 +619,10 @@
 
           <!-- Confirm -->
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <button type="button" class="btn btn-primary" id="excel-import-confirm-btn" onclick="excelImportConfirm()">
+            <button type="button" class="btn btn-primary" id="excel-import-confirm-btn" data-action="excel-import-confirm">
               Confirm Import
             </button>
-            <button type="button" class="btn btn-secondary" onclick="document.getElementById('excel-import-step2').style.display='none'; document.getElementById('excel-import-step1').style.display='block';">
+            <button type="button" class="btn btn-secondary" data-action="hide" data-target="excel-import-step2" data-show="excel-import-step1">
               Back
             </button>
             <span id="excel-import-confirm-status" style="font-size: 0.85rem;"></span>
@@ -1690,14 +1690,14 @@
             <input type="date" id="migration-opening-date">
           </div>
           <div class="btn-cell">
-            <button type="button" class="btn btn-primary" id="migration-upload-btn" onclick="migrationUpload()" data-i18n="migrationPreviewBtn">Upload &amp; preview</button>
+            <button type="button" class="btn btn-primary" id="migration-upload-btn" data-action="migration-upload" data-i18n="migrationPreviewBtn">Upload &amp; preview</button>
           </div>
         </div>
         <div id="migration-status" style="font-size:0.8rem;color:var(--text-muted);min-height:1em;margin-top:0.4rem;"></div>
         <div id="migration-preview" style="display:none;margin-top:0.75rem;">
           <div id="migration-preview-summary"></div>
           <div id="migration-preview-issues" style="margin-top:0.5rem;"></div>
-          <button type="button" class="btn btn-primary" id="migration-confirm-btn" onclick="migrationConfirm()" style="margin-top:0.75rem;" data-i18n="migrationConfirmBtn">Confirm &amp; apply</button>
+          <button type="button" class="btn btn-primary" id="migration-confirm-btn" data-action="migration-confirm" style="margin-top:0.75rem;" data-i18n="migrationConfirmBtn">Confirm &amp; apply</button>
         </div>
         <div id="migration-result" style="display:none;margin-top:0.75rem;"></div>
       </div>
@@ -1750,9 +1750,9 @@
       </div>
     </div>
     <!-- Audit drill-down modal -->
-    <div id="audit-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" onclick="if(event.target===this)this.style.display='none'">
+    <div id="audit-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" data-overlay-close>
       <div style="background:white;max-width:600px;margin:5vh auto;border-radius:12px;padding:1.5rem;position:relative;">
-        <button type="button" onclick="this.closest('#audit-drilldown-modal').style.display='none'" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
+        <button type="button" data-action="hide" data-target="audit-drilldown-modal" aria-label="Close" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
         <h3 id="audit-modal-title">Finding Details</h3>
         <div id="audit-modal-body"></div>
         <div style="margin-top:1rem;display:flex;gap:0.5rem;">
@@ -1764,9 +1764,9 @@
       </div>
     </div>
     <!-- Chart drill-down modal -->
-    <div id="chart-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" onclick="if(event.target===this)this.style.display='none'">
+    <div id="chart-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" data-overlay-close>
       <div style="background:white;max-width:900px;margin:4vh auto;border-radius:12px;padding:1.5rem;position:relative;">
-        <button type="button" onclick="this.closest('#chart-drilldown-modal').style.display='none'" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
+        <button type="button" data-action="hide" data-target="chart-drilldown-modal" aria-label="Close" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
         <h3 id="chart-modal-title">Chart Detail</h3>
         <div id="chart-modal-body"></div>
         <div id="chart-modal-txn-area" style="display:none;">
@@ -1774,8 +1774,8 @@
             <input type="text" id="drilldown-search" placeholder="Search description, reference, entity..." style="flex:1;min-width:180px;margin-bottom:0;">
             <input type="date" id="drilldown-from" style="margin-bottom:0;">
             <input type="date" id="drilldown-to" style="margin-bottom:0;">
-            <button class="btn btn-secondary btn-sm" onclick="_exportDrilldown('csv')">CSV</button>
-            <button class="btn btn-secondary btn-sm" onclick="_exportDrilldown('pdf')">PDF</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="export-drilldown" data-format="csv">CSV</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="export-drilldown" data-format="pdf">PDF</button>
           </div>
           <div id="drilldown-summary" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;"></div>
           <div id="drilldown-table-wrap" style="max-height:400px;overflow:auto;"></div>
@@ -1922,7 +1922,7 @@
       <div id="prod-detail-panel" style="display:none;margin-top:1rem;border:1px solid var(--border);border-radius:10px;padding:1rem;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
           <h3 id="prod-detail-title" style="margin:0;">Product Detail</h3>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('prod-detail-panel').style.display='none';">Close</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="hide" data-target="prod-detail-panel">Close</button>
         </div>
         <div id="prod-detail-body"></div>
       </div>

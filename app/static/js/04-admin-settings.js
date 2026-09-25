@@ -184,6 +184,7 @@
               <th>${escapeHtml(t('usersUsername'))}</th>
               <th>${escapeHtml(t('usersRole'))}</th>
               <th>${escapeHtml(t('usersStatus'))}</th>
+              <th>${escapeHtml(t('tfaColumn'))}</th>
               <th>${escapeHtml(t('usersActions'))}</th>
             </tr>
           </thead>
@@ -197,9 +198,11 @@
                   </select>
                 </td>
                 <td>${u.is_active ? escapeHtml(t('usersActive')) : escapeHtml(t('usersDisabled'))}</td>
+                <td>${u.two_factor ? escapeHtml(t('tfaOn')) : '<span style="color:var(--text-muted);">' + escapeHtml(t('tfaOff')) + '</span>'}</td>
                 <td>
                   <button type="button" class="btn btn-secondary btn-sm user-pw-btn" data-id="${escapeHtml(u.id)}">${escapeHtml(t('usersResetPassword'))}</button>
                   <button type="button" class="btn btn-secondary btn-sm user-active-btn" data-id="${escapeHtml(u.id)}" data-active="${u.is_active ? '1' : '0'}">${u.is_active ? escapeHtml(t('usersDeactivate')) : escapeHtml(t('usersActivate'))}</button>
+                  ${u.two_factor ? `<button type="button" class="btn btn-secondary btn-sm user-2fa-btn" data-id="${escapeHtml(u.id)}" data-username="${escapeHtml(u.username)}">${escapeHtml(t('tfaReset'))}</button>` : ''}
                   <button type="button" class="btn btn-danger btn-sm user-del-btn" data-id="${escapeHtml(u.id)}" data-username="${escapeHtml(u.username)}">${escapeHtml(t('usersDelete'))}</button>
                 </td>
               </tr>
@@ -297,6 +300,15 @@
         if (settingsUserNameEl) settingsUserNameEl.textContent = data.user.username || '-';
         const tbUser = document.getElementById('topbar-user-name');
         if (tbUser) tbUser.textContent = data.user.username || '—';
+        if (typeof setTwoFactorHint === 'function') setTwoFactorHint(data.user);
+        // Signed in with a recovery code (login page) → say how many are left.
+        try {
+          const left = sessionStorage.getItem('aa_tfa_recovery_left');
+          if (left !== null) {
+            sessionStorage.removeItem('aa_tfa_recovery_left');
+            setTimeout(() => showAlert(tf('tfaRecoveryUsed', { n: left }), Number(left) <= 2), 600);
+          }
+        } catch (_) { /* storage blocked: nothing to show */ }
         if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? t('usersAdmin') : t('usersUser');
         const lang = (data.user.preferred_language || localStorage.getItem('aa_ui_language') || 'en').toLowerCase();
         applyLanguage(lang, true);
@@ -404,6 +416,21 @@
     }
 
     async function handleUserTableAction(e) {
+      const tfaBtn = e.target.closest('.user-2fa-btn');
+      if (tfaBtn) {
+        const username = tfaBtn.dataset.username || '';
+        if (!(await uiConfirm({ message: tf('tfaConfirmReset', { name: username }), confirmLabel: t('tfaReset'), danger: true }))) return;
+        try {
+          const res = await fetch(API + '/admin/users/' + encodeURIComponent(tfaBtn.dataset.id) + '/reset-2fa', { method: 'POST' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(data.detail || t('tfaFailed'), true); return; }
+          showAlert(tf('tfaResetDone', { name: username }));
+          loadUsers();
+        } catch (err) {
+          showAlert('Connection error: ' + err.message, true);
+        }
+        return;
+      }
       const delBtn = e.target.closest('.user-del-btn');
       if (delBtn) {
         const id = delBtn.dataset.id;

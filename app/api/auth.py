@@ -21,7 +21,20 @@ from app.core.auth import (
 from app.core.audit import audit_log, get_client_ip
 from app.core.config import settings
 from app.core.rate_limit import RateLimiter  # noqa: F401  (re-exported for older imports)
+from app.core.secrets import decrypt_secret, encrypt_secret
 from app.core.shared_state import DbRateLimiter
+from app.core.two_factor import (
+    issue_challenge,
+    new_recovery_codes,
+    new_secret,
+    parse_challenge,
+    provisioning_uri,
+    qr_svg,
+    recovery_codes_left,
+    use_recovery_code,
+    verify_totp,
+    was_already_used,
+)
 from app.db.session import get_db
 from app.models.user import User
 from app.services.email_verification import (
@@ -159,6 +172,36 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
 
     # Refuse a login whose company is suspended. Checked AFTER credential
     # verification so it never leaks whether a username exists.
+    company = _active_company_or_refuse(db, user, request)
+
+    # The seeded default password gets a locked session: nothing but the
+    # change-password screen works until a real password is set (production
+    # QA 2026-09-24 found admin/admin still active on a live server).
+    must_change = hmac.compare_digest(payload.password, DEFAULT_SEED_PASSWORD)
+    _login_limiter.reset(db, username)  # a correct password clears the failed-attempt count
+
+    if two_factor_on(user):
+        # The password was right; the session waits for the authenticator
+        # code (POST /auth/login/2fa). No cookie yet — only a signed,
+        # five-minute challenge that is useless as a session.
+        audit_log(db, action="login_2fa_challenge", entity_type="user", entity_id=str(user.id),
+                  user_id=str(user.id), username=user.username, ip_address=get_client_ip(request))
+        db.commit()
+        return {
+            "ok": False,
+            "two_factor_required": True,
+            "challenge": issue_challenge(user_id=str(user.id), token_version=int(user.token_version or 0),
+                                         must_change_password=must_change),
+        }
+
+    audit_log(db, action="login", entity_type="user", entity_id=str(user.id), user_id=str(user.id), username=user.username,
+              detail=("default password — change required" if must_change else None), ip_address=get_client_ip(request))
+    db.commit()  # the successful sign-in used to be flushed and then rolled back with the session
+    _set_session_cookie(request, response, _session_token_for(user, must_change_password=must_change))
+    return _login_body(user, company, must_change)
+
+
+def _active_company_or_refuse(db: Session, user: User, request: Request):
     company = None
     if user.company_id is not None:
         from app.models.company import Company
@@ -167,19 +210,13 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
             company = db.get(Company, user.company_id)
         if company is not None and company.status != "active":
             audit_log(db, action="login_refused", entity_type="user", entity_id=str(user.id),
-                      detail=f"Suspended company for '{username}'", ip_address=get_client_ip(request))
+                      detail=f"Suspended company for '{user.username}'", ip_address=get_client_ip(request))
             db.commit()
             raise HTTPException(status_code=403, detail="This company account is suspended")
+    return company
 
-    # The seeded default password gets a locked session: nothing but the
-    # change-password screen works until a real password is set (production
-    # QA 2026-09-24 found admin/admin still active on a live server).
-    must_change = hmac.compare_digest(payload.password, DEFAULT_SEED_PASSWORD)
-    _login_limiter.reset(db, username)  # a correct password clears the failed-attempt count
-    audit_log(db, action="login", entity_type="user", entity_id=str(user.id), user_id=str(user.id), username=user.username,
-              detail=("default password — change required" if must_change else None), ip_address=get_client_ip(request))
-    token = _session_token_for(user, must_change_password=must_change)
-    _set_session_cookie(request, response, token)
+
+def _login_body(user: User, company, must_change: bool) -> dict:
     return {
         "ok": True,
         "must_change_password": must_change,
@@ -194,6 +231,90 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         },
         "company": _company_dict(company),
     }
+
+
+# --- two-factor sign-in (app/core/two_factor.py) ------------------------------------
+# Five wrong codes per user per 15 minutes, shared by every worker.
+_two_factor_limiter = DbRateLimiter("login_2fa", max_requests=5, window_seconds=900)
+
+
+def two_factor_on(user: User | None) -> bool:
+    return bool(user is not None and user.totp_enabled_at is not None and user.totp_secret)
+
+
+def _check_second_factor(user: User, code: str, *, allow_recovery: bool = True) -> str | None:
+    """'totp' or 'recovery' when the code is good (and consumed), else None."""
+    step = verify_totp(decrypt_secret(user.totp_secret), code, last_step=user.totp_last_step)
+    if step is not None:
+        user.totp_last_step = step
+        return "totp"
+    if allow_recovery:
+        remaining = use_recovery_code(user.totp_recovery, code)
+        if remaining is not None:
+            user.totp_recovery = remaining
+            return "recovery"
+    return None
+
+
+def _clear_two_factor(user: User) -> None:
+    user.totp_secret = None
+    user.totp_pending_secret = None
+    user.totp_enabled_at = None
+    user.totp_last_step = None
+    user.totp_recovery = None
+
+
+class TwoFactorLoginRequest(BaseModel):
+    challenge: str = Field(min_length=1, max_length=1024)
+    code: str = Field(min_length=1, max_length=32)
+
+
+@router.post("/login/2fa")
+def login_two_factor(payload: TwoFactorLoginRequest, request: Request, response: Response,
+                     db: Session = Depends(get_db)) -> dict:
+    """Second step of a sign-in: the password was right, now the code."""
+    import uuid as _uuid
+
+    data = parse_challenge(payload.challenge)
+    expired = HTTPException(status_code=401, detail="Sign-in timed out. Enter your password again.")
+    if data is None:
+        raise expired
+    uid = str(data["uid"])
+    if not _two_factor_limiter.would_allow(db, uid):
+        raise HTTPException(status_code=429, detail="Too many wrong codes. Try again later.")
+    try:
+        user = db.get(User, _uuid.UUID(uid))
+    except ValueError:
+        user = None
+    # A password change, deactivation or 2FA reset since the password step
+    # bumps token_version and kills the challenge.
+    if (user is None or not user.is_active or not two_factor_on(user)
+            or int(user.token_version or 0) != int(data.get("tv", -1))):
+        raise expired
+    company = _active_company_or_refuse(db, user, request)
+    method = _check_second_factor(user, payload.code)
+    if method is None:
+        _two_factor_limiter.hit(db, uid)
+        audit_log(db, action="login_2fa_failed", entity_type="user", entity_id=uid, user_id=uid,
+                  username=user.username, ip_address=get_client_ip(request))
+        db.commit()
+        if was_already_used(decrypt_secret(user.totp_secret), payload.code, last_step=user.totp_last_step):
+            raise HTTPException(status_code=401, detail="That code was already used. Wait for the next one.")
+        raise HTTPException(status_code=401, detail="That code is not right. Check the time on your phone and try again.")
+    _two_factor_limiter.reset(db, uid)
+    left = recovery_codes_left(user.totp_recovery)
+    must_change = bool(data.get("pwc"))
+    audit_log(db, action="login", entity_type="user", entity_id=uid, user_id=uid, username=user.username,
+              detail=("two-factor: authenticator code" if method == "totp"
+                      else f"two-factor: recovery code ({left} left)")
+                     + ("; default password — change required" if must_change else ""),
+              ip_address=get_client_ip(request))
+    db.commit()
+    _set_session_cookie(request, response, _session_token_for(user, must_change_password=must_change))
+    body = _login_body(user, company, must_change)
+    body["two_factor_method"] = method
+    body["recovery_codes_left"] = left
+    return body
 
 
 @router.post("/signup", status_code=201)
@@ -387,10 +508,17 @@ def me(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict
     from app.db.tenant import tenant_bypass
     user_row = _load_user(db, current)
     user_language = user_row.preferred_language if user_row and user_row.preferred_language else "en"
+    import uuid as _uuid
+
     company = None
     if current.company_id:
-        with tenant_bypass():
-            company = db.get(Company, current.company_id)
+        try:
+            company_key = _uuid.UUID(str(current.company_id))
+        except ValueError:
+            company_key = None
+        if company_key is not None:
+            with tenant_bypass():
+                company = db.get(Company, company_key)
     from app.core.release_notes import whats_new_for
 
     role = getattr(current, "role", None) or "owner"
@@ -406,6 +534,9 @@ def me(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict
                 str(user_row.entity_id) if user_row and user_row.entity_id else None
             ),
             "preferred_language": user_language,
+            "two_factor_enabled": two_factor_on(user_row),
+            # Owners and super-admins can move money and users: nudge them.
+            "two_factor_recommended": bool(current.is_superadmin or role == "owner"),
         },
         "company": _company_dict(company),
         # Releases this user hasn't been walked through yet (first login after
@@ -481,6 +612,142 @@ def change_password(payload: PasswordChangeRequest, request: Request, response: 
     # Re-issue the session without the change-required lock.
     _set_session_cookie(request, response, _session_token_for(user, must_change_password=False))
     return {"ok": True}
+
+
+class TwoFactorPasswordRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+
+
+class TwoFactorCodeRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=32)
+
+
+class TwoFactorDisableRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+    code: str = Field(min_length=1, max_length=32)
+
+
+def _require_password(db: Session, user: User, password: str) -> None:
+    """Re-authentication for 2FA changes. Wrong guesses count against the same
+    per-username bucket as the login form, so a stolen session cannot be used
+    to brute-force the password here either."""
+    if not _login_limiter.would_allow(db, user.username):
+        raise HTTPException(status_code=429, detail="Too many attempts. Try again later.")
+    if not verify_password(password, user.password_hash, user.password_salt):
+        _login_limiter.hit(db, user.username)
+        raise HTTPException(status_code=400, detail="Password is incorrect.")
+
+
+def _two_factor_status(user: User) -> dict:
+    return {
+        "enabled": two_factor_on(user),
+        "enabled_at": user.totp_enabled_at.isoformat() if user.totp_enabled_at else None,
+        "pending": bool(user.totp_pending_secret) and not two_factor_on(user),
+        "recovery_codes_left": recovery_codes_left(user.totp_recovery) if two_factor_on(user) else 0,
+    }
+
+
+def _reissue(request: Request, response: Response, db: Session, user: User) -> None:
+    """Every other session ends; this one continues on the new version."""
+    user.token_version = int(user.token_version or 0) + 1
+    db.commit()
+    _set_session_cookie(request, response, _session_token_for(user))
+
+
+@router.get("/2fa")
+def two_factor_status(db: Session = Depends(get_db), current=Depends(get_current_user)) -> dict:
+    user = _load_user(db, current)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return _two_factor_status(user)
+
+
+@router.post("/2fa/setup")
+def two_factor_setup(payload: TwoFactorPasswordRequest, db: Session = Depends(get_db),
+                     current=Depends(get_current_user)) -> dict:
+    """Step 1: a fresh secret to scan. Nothing changes for sign-in until the
+    first code confirms it (POST /auth/2fa/enable)."""
+    user = _load_user(db, current)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if two_factor_on(user):
+        raise HTTPException(status_code=409, detail="Two-factor sign-in is already on. Turn it off first to move it to a new phone.")
+    _require_password(db, user, payload.password)
+    secret = new_secret()
+    user.totp_pending_secret = encrypt_secret(secret)
+    db.commit()
+    uri = provisioning_uri(secret, user.username)
+    return {"secret": secret, "otpauth_uri": uri, "qr_svg": qr_svg(uri)}
+
+
+@router.post("/2fa/enable")
+def two_factor_enable(payload: TwoFactorCodeRequest, request: Request, response: Response,
+                      db: Session = Depends(get_db), current=Depends(get_current_user)) -> dict:
+    """Step 2: the first code from the app proves the scan worked."""
+    from datetime import datetime, timezone
+
+    user = _load_user(db, current)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if two_factor_on(user):
+        raise HTTPException(status_code=409, detail="Two-factor sign-in is already on.")
+    secret = decrypt_secret(user.totp_pending_secret)
+    if not secret:
+        raise HTTPException(status_code=400, detail="Start the setup again — scan a new code first.")
+    step = verify_totp(secret, payload.code)
+    if step is None:
+        raise HTTPException(status_code=400, detail="That code is not right. Check the time on your phone and try again.")
+    codes, hashes = new_recovery_codes()
+    user.totp_secret = user.totp_pending_secret
+    user.totp_pending_secret = None
+    user.totp_enabled_at = datetime.now(timezone.utc)
+    user.totp_last_step = step
+    user.totp_recovery = hashes
+    audit_log(db, action="2fa_enabled", entity_type="user", entity_id=str(user.id), user_id=str(user.id),
+              username=user.username, ip_address=get_client_ip(request))
+    _reissue(request, response, db, user)
+    return {**_two_factor_status(user), "recovery_codes": codes}
+
+
+@router.post("/2fa/disable")
+def two_factor_disable(payload: TwoFactorDisableRequest, request: Request, response: Response,
+                       db: Session = Depends(get_db), current=Depends(get_current_user)) -> dict:
+    """Needs the password AND a code (or a recovery code): a session left open
+    on a shared computer must not be enough to remove the second factor."""
+    user = _load_user(db, current)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not two_factor_on(user):
+        raise HTTPException(status_code=400, detail="Two-factor sign-in is not on.")
+    _require_password(db, user, payload.password)
+    if _check_second_factor(user, payload.code) is None:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="That code is not right.")
+    _clear_two_factor(user)
+    audit_log(db, action="2fa_disabled", entity_type="user", entity_id=str(user.id), user_id=str(user.id),
+              username=user.username, ip_address=get_client_ip(request))
+    _reissue(request, response, db, user)
+    return _two_factor_status(user)
+
+
+@router.post("/2fa/recovery-codes")
+def two_factor_new_recovery_codes(payload: TwoFactorCodeRequest, request: Request,
+                                  db: Session = Depends(get_db), current=Depends(get_current_user)) -> dict:
+    """Replace the recovery codes (the old ones stop working). Needs a code
+    from the app itself, not a recovery code."""
+    user = _load_user(db, current)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not two_factor_on(user):
+        raise HTTPException(status_code=400, detail="Two-factor sign-in is not on.")
+    if _check_second_factor(user, payload.code, allow_recovery=False) is None:
+        raise HTTPException(status_code=400, detail="That code is not right.")
+    codes, hashes = new_recovery_codes()
+    user.totp_recovery = hashes
+    audit_log(db, action="2fa_recovery_codes_replaced", entity_type="user", entity_id=str(user.id),
+              user_id=str(user.id), username=user.username, ip_address=get_client_ip(request))
+    db.commit()
+    return {**_two_factor_status(user), "recovery_codes": codes}
 
 
 @router.patch("/preferences")

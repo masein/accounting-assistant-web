@@ -115,6 +115,7 @@
               <option value="en">English</option><option value="fa">فارسی</option>
               <option value="es">Español</option><option value="ar">العربية</option>
             </select>
+            <button type="button" class="btn btn-secondary btn-sm" id="topbar-security" style="width:100%; margin-bottom:0.4rem;"><span data-i18n="tfaMenu">Two-factor sign-in</span> <span id="topbar-security-dot" class="tfa-dot" style="display:none;" data-i18n-title="tfaRecommended" title="Recommended"></span></button>
             <button type="button" class="btn btn-secondary btn-sm" id="topbar-logout" data-i18n="logout" style="width:100%;">Logout</button>
           </div>
         </div>
@@ -2410,6 +2411,67 @@
           <button type="button" class="btn btn-secondary btn-sm" id="whats-new-back" data-i18n="wnBack">Back</button>
           <button type="button" class="btn btn-primary btn-sm" id="whats-new-next" data-i18n="wnNext">Next</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="security-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="security-modal-title" style="display: none;">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h2 id="security-modal-title" data-i18n="tfaTitle">Two-factor sign-in</h2>
+        <button type="button" class="modal-close" aria-label="Close" id="security-modal-close">×</button>
+      </div>
+      <div style="padding: 1rem 1.25rem;">
+        <p data-i18n="tfaIntro" style="margin:0 0 0.85rem; color:var(--text-muted); font-size:0.88rem; line-height:1.55;">After your password, sign-in asks for a six-digit code from an authenticator app on your phone, so a leaked password alone is not enough.</p>
+
+        <div id="tfa-off" style="display:none;">
+          <p id="tfa-recommend" class="tfa-note" data-i18n="tfaRecommendOwner" style="display:none;">Recommended for your role: you can move money and manage users.</p>
+          <label for="tfa-setup-password" data-i18n="tfaPassword">Your password</label>
+          <input type="password" id="tfa-setup-password" autocomplete="current-password" style="width:100%;">
+          <button type="button" class="btn btn-primary" id="tfa-start" data-i18n="tfaStart" style="margin-top:0.6rem;">Set up</button>
+        </div>
+
+        <div id="tfa-scan" style="display:none;">
+          <ol style="margin:0 0 0.75rem; padding-inline-start:1.2rem; font-size:0.88rem; line-height:1.6;">
+            <li data-i18n="tfaStep1">Open an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…).</li>
+            <li data-i18n="tfaStep2">Scan this code, or type the key below.</li>
+            <li data-i18n="tfaStep3">Enter the six-digit code the app shows.</li>
+          </ol>
+          <div style="display:flex; justify-content:center; margin-bottom:0.6rem;">
+            <img id="tfa-qr" alt="" width="200" height="200" style="background:#fff; border-radius:8px; padding:4px;">
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted);" data-i18n="tfaKey">Key</div>
+          <code id="tfa-secret" dir="ltr" style="display:block; word-break:break-all; font-size:0.9rem; margin-bottom:0.6rem; user-select:all;"></code>
+          <label for="tfa-enable-code" data-i18n="tfaCode">Code from the app</label>
+          <input type="text" id="tfa-enable-code" inputmode="numeric" autocomplete="one-time-code" maxlength="9" dir="ltr" style="width:10rem; letter-spacing:0.2em;">
+          <button type="button" class="btn btn-primary" id="tfa-confirm" data-i18n="tfaConfirm" style="margin-inline-start:0.4rem;">Turn on</button>
+        </div>
+
+        <div id="tfa-codes" style="display:none;">
+          <p class="tfa-note" data-i18n="tfaCodesIntro">Keep these recovery codes somewhere safe. Each one signs you in once if you lose your phone. They are shown only now.</p>
+          <pre id="tfa-codes-list" dir="ltr" style="columns:2; font-size:0.95rem; background:var(--surface-2, #f4f4f5); padding:0.6rem 0.8rem; border-radius:8px; margin:0 0 0.6rem;"></pre>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" id="tfa-codes-copy" data-i18n="tfaCopy">Copy</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="tfa-codes-download" data-i18n="tfaDownload">Download</button>
+            <span style="flex:1;"></span>
+            <button type="button" class="btn btn-primary btn-sm" id="tfa-codes-done" data-i18n="tfaSaved">I've saved them</button>
+          </div>
+        </div>
+
+        <div id="tfa-on" style="display:none;">
+          <p id="tfa-on-status" style="margin:0 0 0.4rem; font-weight:600;"></p>
+          <p id="tfa-on-left" style="margin:0 0 0.8rem; font-size:0.85rem; color:var(--text-muted);"></p>
+          <label for="tfa-on-code" data-i18n="tfaCodeOrRecovery">Code from the app (or a recovery code)</label>
+          <input type="text" id="tfa-on-code" autocomplete="one-time-code" maxlength="16" dir="ltr" style="width:12rem;">
+          <label for="tfa-off-password" data-i18n="tfaPasswordToTurnOff" style="margin-top:0.5rem;">Your password (to turn off)</label>
+          <input type="password" id="tfa-off-password" autocomplete="current-password" style="width:100%;">
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.7rem;">
+            <button type="button" class="btn btn-secondary btn-sm" id="tfa-new-codes" data-i18n="tfaNewCodes">New recovery codes</button>
+            <span style="flex:1;"></span>
+            <button type="button" class="btn btn-danger btn-sm" id="tfa-disable" data-i18n="tfaTurnOff">Turn off</button>
+          </div>
+        </div>
+        <div class="error" id="tfa-error" role="alert" style="display:none; margin-top:0.6rem; color:var(--danger, #b91c1c); font-size:0.85rem;"></div>
       </div>
     </div>
   </div>

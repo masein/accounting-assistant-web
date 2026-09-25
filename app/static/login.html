@@ -85,6 +85,10 @@
       display: none;
     }
     .hint { font-size: 0.84rem; color: var(--muted); margin-top: 0.85rem; }
+    button.link-btn { width: auto; background: none; color: var(--primary); font-weight: 600; font-size: 0.88rem; padding: 0.35rem 0; margin-top: 0.6rem; }
+    button.link-btn:hover { background: none; text-decoration: underline; }
+    .tfa-links { display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+    #tfa-code { letter-spacing: 0.25em; text-align: center; font-size: 1.15rem; }
     .lang-row { margin-bottom: 0.75rem; }
     .lang-row label { margin: 0 0 0.35rem 0; min-width: 74px; }
     .lang-pills {
@@ -155,6 +159,19 @@
     <div class="error" id="error-box"></div>
   </form>
 
+  <form class="card" id="tfa-form" style="display:none;" novalidate>
+    <h1 id="tfa-title">Two-factor sign-in</h1>
+    <p class="sub" id="tfa-sub">Enter the six-digit code from your authenticator app.</p>
+    <label for="tfa-code" id="tfa-code-label">Code</label>
+    <input id="tfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="16" dir="ltr" autocapitalize="off" spellcheck="false">
+    <button type="submit" id="tfa-btn">Verify</button>
+    <div class="tfa-links">
+      <button type="button" class="link-btn" id="tfa-recovery-toggle">Use a recovery code</button>
+      <button type="button" class="link-btn" id="tfa-back">Back</button>
+    </div>
+    <div class="error" id="tfa-error"></div>
+  </form>
+
   <form class="card" id="change-form" style="display:none;">
     <h1 id="change-title">Set a new password</h1>
     <p class="sub" id="change-sub">You signed in with the default password. Choose a new one to continue.</p>
@@ -177,6 +194,17 @@
     const RTL_LANGUAGES = new Set(['fa', 'ar']);
     let currentLanguage = 'en';
     let loginPassword = '';  // set after a default-password login (see below)
+    // Second step of a sign-in with two-factor on: the server returned a
+    // short-lived challenge instead of a session.
+    const tfa = { challenge: null, recovery: false };
+    function renderTfaMode() {
+      document.getElementById('tfa-sub').textContent = t(tfa.recovery ? 'tfaSubRecovery' : 'tfaSub');
+      document.getElementById('tfa-code-label').textContent = t(tfa.recovery ? 'tfaRecoveryCode' : 'tfaCode');
+      document.getElementById('tfa-recovery-toggle').textContent = t(tfa.recovery ? 'tfaUseApp' : 'tfaUseRecovery');
+      const input = document.getElementById('tfa-code');
+      input.setAttribute('inputmode', tfa.recovery ? 'text' : 'numeric');
+      input.setAttribute('autocomplete', tfa.recovery ? 'off' : 'one-time-code');
+    }
     const I18N = {
       en: {
         title: 'Accounting Assistant',
@@ -188,6 +216,17 @@
         hidePassword: 'Hide password',
         login: 'Login',
         signingIn: 'Signing in...',
+        tfaTitle: "Two-factor sign-in",
+        tfaSub: "Enter the six-digit code from your authenticator app.",
+        tfaSubRecovery: "Enter one of your recovery codes. Each works once.",
+        tfaCode: "Code",
+        tfaRecoveryCode: "Recovery code",
+        tfaVerify: "Verify",
+        tfaUseRecovery: "Use a recovery code",
+        tfaUseApp: "Use the app code",
+        tfaBack: "Back",
+        tfaNeedCode: "Enter the code.",
+        tfaRecoveryLow: "You signed in with a recovery code — {n} left. Make new ones under Two-factor sign-in.",
         changeTitle: 'Set a new password',
         changeSub: 'You signed in with the default password. Choose a new one to continue.',
         newPassword: 'New password',
@@ -211,6 +250,17 @@
         hidePassword: 'پنهان کردن رمز',
         login: 'ورود',
         signingIn: 'در حال ورود...',
+        tfaTitle: "ورود دومرحله‌ای",
+        tfaSub: "کد شش‌رقمی برنامهٔ احراز هویت را وارد کنید.",
+        tfaSubRecovery: "یکی از کدهای بازیابی را وارد کنید. هر کد یک بار کار می‌کند.",
+        tfaCode: "کد",
+        tfaRecoveryCode: "کد بازیابی",
+        tfaVerify: "تأیید",
+        tfaUseRecovery: "استفاده از کد بازیابی",
+        tfaUseApp: "استفاده از کد برنامه",
+        tfaBack: "بازگشت",
+        tfaNeedCode: "کد را وارد کنید.",
+        tfaRecoveryLow: "با کد بازیابی وارد شدید — {n} کد باقی مانده. از بخش ورود دومرحله‌ای کدهای جدید بسازید.",
         changeTitle: 'رمز عبور جدید تعیین کنید',
         changeSub: 'با رمز پیش‌فرض وارد شدید. برای ادامه یک رمز جدید انتخاب کنید.',
         newPassword: 'رمز عبور جدید',
@@ -234,6 +284,17 @@
         hidePassword: 'Ocultar contraseña',
         login: 'Entrar',
         signingIn: 'Ingresando...',
+        tfaTitle: "Verificación en dos pasos",
+        tfaSub: "Introduce el código de seis dígitos de tu app de autenticación.",
+        tfaSubRecovery: "Introduce uno de tus códigos de recuperación. Cada uno sirve una vez.",
+        tfaCode: "Código",
+        tfaRecoveryCode: "Código de recuperación",
+        tfaVerify: "Verificar",
+        tfaUseRecovery: "Usar un código de recuperación",
+        tfaUseApp: "Usar el código de la app",
+        tfaBack: "Volver",
+        tfaNeedCode: "Introduce el código.",
+        tfaRecoveryLow: "Entraste con un código de recuperación: quedan {n}. Crea nuevos en Verificación en dos pasos.",
         changeTitle: 'Establece una nueva contraseña',
         changeSub: 'Has iniciado sesión con la contraseña por defecto. Elige una nueva para continuar.',
         newPassword: 'Nueva contraseña',
@@ -257,6 +318,17 @@
         hidePassword: 'إخفاء كلمة المرور',
         login: 'تسجيل الدخول',
         signingIn: 'جارٍ تسجيل الدخول...',
+        tfaTitle: "التحقق بخطوتين",
+        tfaSub: "أدخل الرمز المكوّن من ستة أرقام من تطبيق المصادقة.",
+        tfaSubRecovery: "أدخل أحد رموز الاسترداد. كل رمز يعمل مرة واحدة.",
+        tfaCode: "الرمز",
+        tfaRecoveryCode: "رمز الاسترداد",
+        tfaVerify: "تحقّق",
+        tfaUseRecovery: "استخدام رمز استرداد",
+        tfaUseApp: "استخدام رمز التطبيق",
+        tfaBack: "رجوع",
+        tfaNeedCode: "أدخل الرمز.",
+        tfaRecoveryLow: "دخلت برمز استرداد — تبقّى {n}. أنشئ رموزًا جديدة من التحقق بخطوتين.",
         changeTitle: 'عيّن كلمة مرور جديدة',
         changeSub: 'سجّلت الدخول بكلمة المرور الافتراضية. اختر كلمة جديدة للمتابعة.',
         newPassword: 'كلمة المرور الجديدة',
@@ -298,6 +370,10 @@
       document.getElementById('change-btn').textContent = t('savePassword');
       document.getElementById('current-password-label').textContent = t('currentPassword');
       submitBtn.textContent = t('login');
+      document.getElementById('tfa-title').textContent = t('tfaTitle');
+      document.getElementById('tfa-btn').textContent = t('tfaVerify');
+      document.getElementById('tfa-back').textContent = t('tfaBack');
+      renderTfaMode();
       const pwBtn = document.getElementById('pw-toggle');
       const pwInput = document.getElementById('password');
       if (pwBtn && pwInput) {
@@ -353,30 +429,100 @@
           setError(data.detail || t('failed'));
           return;
         }
-        if (data.user && data.user.preferred_language) {
-          localStorage.setItem('aa_ui_language', data.user.preferred_language);
-        }
-        if (data.must_change_password) {
-          // Locked session: every API call is refused until a real password
-          // is set, so swap the login card for the change form right here.
-          // The password just typed proves possession — carry it over so the
-          // user is not asked twice.
-          loginPassword = passwordInput.value;
+        if (data.two_factor_required && data.challenge) {
+          tfa.challenge = data.challenge;
+          tfa.recovery = false;
+          loginPassword = password;  // for the default-password change form after the code
           form.style.display = 'none';
-          document.getElementById('change-form').style.display = '';
-          const cur = document.getElementById('current-password');
-          cur.value = loginPassword;
-          cur.style.display = 'none';
-          document.getElementById('current-password-label').style.display = 'none';
-          document.getElementById('new-password').focus();
+          document.getElementById('tfa-form').style.display = '';
+          document.getElementById('tfa-code').value = '';
+          setTfaError('');
+          renderTfaMode();
+          document.getElementById('tfa-code').focus();
           return;
         }
-        window.location.href = '/';
+        afterSignIn(data, password);
       } catch (err) {
         setError(t('connectionError') + ': ' + err.message);
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = t('login');
+      }
+    });
+
+    // A session is open: remember the language, then either the forced
+    // password change (default password) or the app.
+    function afterSignIn(data, password) {
+      if (data.user && data.user.preferred_language) {
+        localStorage.setItem('aa_ui_language', data.user.preferred_language);
+      }
+      if (data.two_factor_method === 'recovery') {
+        try { sessionStorage.setItem('aa_tfa_recovery_left', String(data.recovery_codes_left)); } catch (_) { /* optional */ }
+      }
+      if (data.must_change_password) {
+        // Locked session: every API call is refused until a real password
+        // is set, so swap the login card for the change form right here.
+        // The password just typed proves possession — carry it over so the
+        // user is not asked twice.
+        loginPassword = password;
+        form.style.display = 'none';
+        document.getElementById('tfa-form').style.display = 'none';
+        document.getElementById('change-form').style.display = '';
+        const cur = document.getElementById('current-password');
+        cur.value = loginPassword;
+        cur.style.display = 'none';
+        document.getElementById('current-password-label').style.display = 'none';
+        document.getElementById('new-password').focus();
+        return;
+      }
+      window.location.href = '/';
+    }
+
+    function setTfaError(msg) {
+      const el = document.getElementById('tfa-error');
+      el.textContent = msg || '';
+      el.style.display = msg ? 'block' : 'none';
+    }
+    function backToPassword() {
+      tfa.challenge = null;
+      document.getElementById('tfa-form').style.display = 'none';
+      form.style.display = '';
+      document.getElementById('password').value = '';
+      document.getElementById('password').focus();
+    }
+    document.getElementById('tfa-recovery-toggle').addEventListener('click', () => {
+      tfa.recovery = !tfa.recovery;
+      document.getElementById('tfa-code').value = '';
+      setTfaError('');
+      renderTfaMode();
+      document.getElementById('tfa-code').focus();
+    });
+    document.getElementById('tfa-back').addEventListener('click', backToPassword);
+    document.getElementById('tfa-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setTfaError('');
+      const code = document.getElementById('tfa-code').value.trim();
+      if (!code) { setTfaError(t('tfaNeedCode')); return; }
+      const btn = document.getElementById('tfa-btn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/auth/login/2fa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ challenge: tfa.challenge, code }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setTfaError(data.detail || t('failed'));
+          // The challenge is gone (timed out, password changed): start over.
+          if (res.status === 401 && /timed out/i.test(String(data.detail || ''))) setTimeout(backToPassword, 1500);
+          return;
+        }
+        afterSignIn(data, loginPassword);
+      } catch (err) {
+        setTfaError(t('connectionError') + ': ' + err.message);
+      } finally {
+        btn.disabled = false;
       }
     });
 

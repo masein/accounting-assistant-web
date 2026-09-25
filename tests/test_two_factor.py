@@ -551,6 +551,8 @@ def test_reset_refuses_self_other_companies_and_non_owners(client, db, clock):
 
 def test_login_page_has_the_code_step():
     from pathlib import Path
-    html = (Path(__file__).resolve().parents[1] / "app" / "static" / "login.html").read_text(encoding="utf-8")
-    assert 'id="tfa-form"' in html and "/auth/login/2fa" in html
-    assert "passwordInput" not in html  # the undefined name that broke the default-password hand-off
+    static = Path(__file__).resolve().parents[1] / "app" / "static"
+    html = (static / "login.html").read_text(encoding="utf-8")
+    js = (static / "login.js").read_text(encoding="utf-8")
+    assert 'id="tfa-form"' in html and "/auth/login/2fa" in js
+    assert "passwordInput" not in js  # the undefined name that broke the default-password hand-off

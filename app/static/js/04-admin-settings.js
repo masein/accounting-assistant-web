@@ -227,7 +227,7 @@
       container.innerHTML = '';
       if (hasLogo) {
         // Build via DOM (not an innerHTML string): the monogram markup contains
-        // double quotes that would otherwise break an inline onerror="" handler
+        // double quotes that would otherwise break an inline error-handler attribute
         // and leak stray text next to the logo.
         const img = document.createElement('img');
         img.alt = '';

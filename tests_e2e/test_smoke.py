@@ -76,3 +76,32 @@ def test_the_watch_really_catches_errors(app_page):
     page.wait_for_timeout(500)
     problems = " | ".join(watch.problems())
     assert "smoke self-test" in problems and "500" in problems
+
+
+def test_buttons_work_and_inline_code_is_refused_under_the_csp(app_page):
+    """Buttons are wired through data-action (no inline handlers), and code
+    injected inline — an on…= attribute or a <script> — never runs."""
+    page, watch = app_page
+    page.locator('.nav-btn[data-page="transactions"]').first.click()
+    page.wait_for_load_state("networkidle")
+    section = page.locator("#excel-import-section")
+    before = section.is_visible()
+    page.click("#open-excel-import-btn")
+    assert section.is_visible() != before
+    page.click("#open-excel-import-btn")
+    assert section.is_visible() == before
+    assert watch.problems() == [], watch.problems()
+
+    page.evaluate("""() => {
+        const b = document.createElement('button');
+        b.id = 'csp-probe'; b.textContent = 'probe';
+        b.setAttribute('onclick', 'window.__inlineRan = true');
+        document.body.prepend(b);
+        const s = document.createElement('script');
+        s.textContent = 'window.__scriptRan = true';
+        document.body.appendChild(s);
+    }""")
+    page.evaluate("document.getElementById('csp-probe').click()")  # not covered by the sticky top bar
+    page.wait_for_timeout(300)
+    assert page.evaluate("window.__inlineRan === undefined && window.__scriptRan === undefined")
+    assert watch.csp_violations, "the browser should report the refused inline code"

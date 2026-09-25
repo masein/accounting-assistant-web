@@ -170,9 +170,9 @@
             + (missing ? `<span style="font-size:0.8rem;">${escapeHtml(t('migrationMissing'))}: ${escapeHtml(missing)}</span>` : '')
             + flags
             + `<span style="margin-inline-start:auto;display:flex;gap:0.4rem;">`
-            + `<button type="button" class="btn btn-secondary btn-sm" onclick="migrationAskAI('${r.id}')">${escapeHtml(t('migrationAiBtn'))}</button>`
-            + `<button type="button" class="btn btn-secondary btn-sm" onclick="migrationResolve('${r.id}')">${escapeHtml(t('migrationResolveBtn'))}</button>`
-            + `<button type="button" class="btn btn-secondary btn-sm" onclick="migrationDismiss('${r.id}')">${escapeHtml(t('migrationDismissBtn'))}</button>`
+            + `<button type="button" class="btn btn-secondary btn-sm" data-action="migration-ask-ai" data-id="${escapeHtml(String(r.id))}">${escapeHtml(t('migrationAiBtn'))}</button>`
+            + `<button type="button" class="btn btn-secondary btn-sm" data-action="migration-resolve" data-id="${escapeHtml(String(r.id))}">${escapeHtml(t('migrationResolveBtn'))}</button>`
+            + `<button type="button" class="btn btn-secondary btn-sm" data-action="migration-dismiss" data-id="${escapeHtml(String(r.id))}">${escapeHtml(t('migrationDismissBtn'))}</button>`
             + `</span></div>`;
         }).join('');
       } catch (_) { el.innerHTML = ''; }
@@ -902,3 +902,9 @@
         } catch (_) { showAlert('error', true); }
       });
     })();
+
+    registerAction('migration-upload', () => migrationUpload());
+    registerAction('migration-confirm', () => migrationConfirm());
+    registerAction('migration-ask-ai', (el) => migrationAskAI(el.dataset.id));
+    registerAction('migration-resolve', (el) => migrationResolve(el.dataset.id));
+    registerAction('migration-dismiss', (el) => migrationDismiss(el.dataset.id));

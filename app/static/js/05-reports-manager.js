@@ -860,8 +860,8 @@
           <div><span>Total COGS</span><strong>${formatNum(totalCOGS)} ${currencyUnit()}</strong></div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
-          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('inv-report-preview'),'Inventory_Balance','csv')">CSV</button>
-          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('inv-report-preview'),'Inventory_Balance','pdf')">PDF</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="inv-report-preview" data-name="Inventory_Balance" data-format="csv">CSV</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="inv-report-preview" data-name="Inventory_Balance" data-format="pdf">PDF</button>
         </div>
         <div style="max-height:400px;overflow:auto;">
         <table class="detail-table">
@@ -952,8 +952,8 @@
         <h4 style="margin:0.75rem 0 0.3rem;font-size:0.9rem;">Movement Log</h4>
         <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
           <input type="text" id="inv-mv-search" placeholder="Search movements..." style="width:200px;padding:0.35rem 0.6rem;font-size:0.85rem;margin:0;">
-          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('inv-report-preview'),'Inventory_Movements','csv')">CSV</button>
-          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('inv-report-preview'),'Inventory_Movements','pdf')">PDF</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="inv-report-preview" data-name="Inventory_Movements" data-format="csv">CSV</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="inv-report-preview" data-name="Inventory_Movements" data-format="pdf">PDF</button>
         </div>
         <div id="inv-mv-table-wrap" style="max-height:350px;overflow:auto;">
         <table class="detail-table"><thead><tr>

@@ -657,9 +657,9 @@
         const totalPages = Math.ceil(data.total_count / data.page_size);
         if (totalPages > 1) {
           pagEl.innerHTML = `
-            <button class="btn btn-secondary btn-sm" ${_drilldownPage <= 1 ? 'disabled' : ''} onclick="_drilldownPage--;_fetchDrilldown();">&#8592; Prev</button>
+            <button class="btn btn-secondary btn-sm" ${_drilldownPage <= 1 ? 'disabled' : ''} data-action="drilldown-page" data-delta="-1">&#8592; Prev</button>
             <span style="font-size:0.85rem;">${data.page} / ${totalPages}</span>
-            <button class="btn btn-secondary btn-sm" ${_drilldownPage >= totalPages ? 'disabled' : ''} onclick="_drilldownPage++;_fetchDrilldown();">Next &#8594;</button>
+            <button class="btn btn-secondary btn-sm" ${_drilldownPage >= totalPages ? 'disabled' : ''} data-action="drilldown-page" data-delta="1">Next &#8594;</button>
           `;
         } else {
           pagEl.innerHTML = '';
@@ -806,8 +806,8 @@
             ${data.items.length} products | ${t('fieldRevenue')}: ${formatNum(data.total_revenue)} | ${t('fieldCost')}: ${formatNum(data.total_cost)} | ${t('fieldProfit')}: ${formatNum(data.total_profit)} ${currencyUnit()}
           </span>
           <span>
-            <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'Products_Catalog','csv')">CSV</button>
-            <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'Products_Catalog','pdf')">PDF</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="prod-content" data-name="Products_Catalog" data-format="csv">CSV</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="prod-content" data-name="Products_Catalog" data-format="pdf">PDF</button>
           </span>
         </div>
         <div style="max-height:400px;overflow:auto;">
@@ -934,8 +934,8 @@
 
       content.innerHTML = `
         <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
-          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'${isClient?'Client':'Supplier'}_Matrix','csv')">CSV</button>
-          <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'${isClient?'Client':'Supplier'}_Matrix','pdf')">PDF</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="prod-content" data-name="${isClient?'Client':'Supplier'}_Matrix" data-format="csv">CSV</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="prod-content" data-name="${isClient?'Client':'Supplier'}_Matrix" data-format="pdf">PDF</button>
         </div>
         <div style="max-height:450px;overflow:auto;">
         <table class="mini-table">
@@ -984,8 +984,8 @@
             ${t('fieldRevenue')}: ${formatNum(data.total_revenue)} | ${t('fieldCost')}: ${formatNum(data.total_cost)} | ${t('fieldProfit')}: ${formatNum(data.total_profit)} | Avg Margin: ${data.avg_margin != null ? data.avg_margin + '%' : '—'}
           </span>
           <span>
-            <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'Profitability','csv')">CSV</button>
-            <button class="btn btn-secondary btn-sm" onclick="_exportTableFromEl(document.getElementById('prod-content'),'Profitability','pdf')">PDF</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="prod-content" data-name="Profitability" data-format="csv">CSV</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="prod-content" data-name="Profitability" data-format="pdf">PDF</button>
           </span>
         </div>
         <h4 style="margin:0.5rem 0 0.3rem;">By Product</h4>
@@ -1323,4 +1323,13 @@
         renderAuditFindings('all');
       } catch (e) { showAlert('Audit failed: ' + e.message, true); }
       finally { newAuditBtn.disabled = false; }
+    });
+
+    registerAction('export-table', (el) => {
+      _exportTableFromEl(document.getElementById(el.dataset.target), el.dataset.name, el.dataset.format);
+    });
+    registerAction('export-drilldown', (el) => _exportDrilldown(el.dataset.format));
+    registerAction('drilldown-page', (el) => {
+      _drilldownPage = Math.max(1, _drilldownPage + (Number(el.dataset.delta) || 0));
+      _fetchDrilldown();
     });

@@ -1,5 +1,49 @@
     const API = ''; // same origin
 
+    // ─── CSP-safe event wiring ────────────────────────────────────────
+    // The Content-Security-Policy forbids inline event-handler attributes, so
+    // markup — static or built in template strings — names an action instead:
+    //   <button data-action="export-table" data-target="prod-content" …>
+    // and one delegated listener runs it. Actions are registered with
+    // registerAction(name, fn(el, event)) by the chunk that owns them; the
+    // generic ones (show/hide/toggle, overlay close) live here.
+    const UI_ACTIONS = Object.create(null);
+    function registerAction(name, fn) { UI_ACTIONS[name] = fn; }
+    function _byIdOrClosest(el, ref) {
+      if (!ref) return null;
+      return document.getElementById(ref) || el.closest('#' + ref);
+    }
+    registerAction('hide', (el) => {
+      String(el.dataset.target || '').split(/\s+/).filter(Boolean).forEach((id) => {
+        const t = _byIdOrClosest(el, id); if (t) t.style.display = 'none';
+      });
+      String(el.dataset.show || '').split(/\s+/).filter(Boolean).forEach((id) => {
+        const t = document.getElementById(id); if (t) t.style.display = 'block';
+      });
+    });
+    registerAction('toggle', (el) => {
+      const t = _byIdOrClosest(el, el.dataset.target);
+      if (t) t.style.display = t.style.display === 'none' ? 'block' : 'none';
+    });
+    document.addEventListener('click', (e) => {
+      // A dimmed backdrop that closes when clicked outside its card.
+      if (e.target instanceof Element && e.target.hasAttribute('data-overlay-close')) {
+        e.target.style.display = 'none';
+        return;
+      }
+      const el = e.target instanceof Element ? e.target.closest('[data-action]') : null;
+      if (!el || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
+      const fn = UI_ACTIONS[el.dataset.action];
+      if (typeof fn === 'function') fn(el, e);
+    });
+    document.addEventListener('change', (e) => {
+      const el = e.target instanceof Element ? e.target.closest('[data-change-action]') : null;
+      const fn = el && UI_ACTIONS[el.dataset.changeAction];
+      if (typeof fn === 'function') fn(el, e);
+    });
+    // Web fonts load without blocking render (media="print" until now).
+    document.querySelectorAll('link[data-async-css]').forEach((l) => { l.media = 'all'; });
+
     // Register the zoom plugin with Chart.js once both have loaded.
     try {
       if (typeof Chart !== 'undefined' && typeof window !== 'undefined' && window['chartjs-plugin-zoom']) {

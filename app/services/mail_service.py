@@ -43,21 +43,38 @@ def sender_address() -> str:
     return (settings.smtp_from or settings.smtp_user or "").strip()
 
 
+Attachment = tuple[str, bytes, str]  # (filename, content, "maintype/subtype")
+
+
+def _no_newlines(value: str | None) -> str:
+    """Header values must be one line; a CR/LF would let a caller-supplied
+    name or address inject extra headers."""
+    return " ".join((value or "").splitlines()).strip()
+
+
 def build_message(
-    *, to: str | list[str], subject: str, text: str, html: str | None = None
+    *, to: str | list[str], subject: str, text: str, html: str | None = None,
+    attachments: list[Attachment] | None = None, reply_to: str | None = None,
+    from_name: str | None = None,
 ) -> EmailMessage:
     """Compose the message. Separated from sending so it can be asserted on
     without a server."""
     recipients = [to] if isinstance(to, str) else list(to)
     msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = formataddr((settings.smtp_from_name, sender_address()))
-    msg["To"] = ", ".join(recipients)
+    msg["Subject"] = _no_newlines(subject)
+    msg["From"] = formataddr((_no_newlines(from_name) or settings.smtp_from_name, sender_address()))
+    msg["To"] = ", ".join(_no_newlines(r) for r in recipients)
+    if reply_to:
+        msg["Reply-To"] = _no_newlines(reply_to)
     msg.set_content(text)
     if html:
         # Clients that can render HTML take the alternative; the rest — and
         # anything indexing the mail — still get readable text.
         msg.add_alternative(html, subtype="html")
+    for filename, content, mimetype in attachments or []:
+        maintype, _, subtype = (mimetype or "application/octet-stream").partition("/")
+        msg.add_attachment(content, maintype=maintype, subtype=subtype or "octet-stream",
+                           filename=_no_newlines(filename))
     return msg
 
 
@@ -75,28 +92,42 @@ def _connect() -> smtplib.SMTP:
 
 
 def send_email(
-    *, to: str | list[str], subject: str, text: str, html: str | None = None
+    *, to: str | list[str], subject: str, text: str, html: str | None = None,
+    attachments: list[Attachment] | None = None, reply_to: str | None = None,
+    from_name: str | None = None,
 ) -> bool:
     """Send one message. Returns whether it went out; never raises."""
+    return send_email_detailed(to=to, subject=subject, text=text, html=html, attachments=attachments,
+                               reply_to=reply_to, from_name=from_name)[0]
+
+
+def send_email_detailed(
+    *, to: str | list[str], subject: str, text: str, html: str | None = None,
+    attachments: list[Attachment] | None = None, reply_to: str | None = None,
+    from_name: str | None = None,
+) -> tuple[bool, str | None]:
+    """Like ``send_email`` but also returns why it failed, for callers that
+    record the outcome (the invoice e-mail log). Never raises."""
     if not mail_configured():
         logger.debug("mail not configured — skipping send of %r", subject)
-        return False
+        return False, "Outgoing mail is not configured on this server."
     recipients = [to] if isinstance(to, str) else list(to)
     if not any((r or "").strip() for r in recipients):
         logger.warning("mail send skipped: no recipient for %r", subject)
-        return False
+        return False, "No recipient address."
 
-    msg = build_message(to=recipients, subject=subject, text=text, html=html)
+    msg = build_message(to=recipients, subject=subject, text=text, html=html,
+                        attachments=attachments, reply_to=reply_to, from_name=from_name)
     try:
         with _connect() as server:
             server.login(settings.smtp_user, settings.smtp_password)
             server.send_message(msg)
         logger.info("mail sent: %r to %d recipient(s)", subject, len(recipients))
-        return True
+        return True, None
     except Exception as e:  # noqa: BLE001 - a mail failure must not break callers
         # str(e) can carry the server's rejection text but never our password.
         logger.warning("mail send failed for %r: %s: %s", subject, type(e).__name__, e)
-        return False
+        return False, f"{type(e).__name__}: {e}"[:500]
 
 
 def send_test_email(to: str) -> tuple[bool, str]:

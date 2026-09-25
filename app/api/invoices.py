@@ -1008,6 +1008,13 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
             at=p.created_at, event="payment",
             detail=f"{p.amount:,} {p.currency} {'received' if p.direction == 'in' else 'paid'} ({p.method}).",
         ))
+    from app.models.invoice_email import InvoiceEmail
+    for m in db.execute(select(InvoiceEmail).where(InvoiceEmail.invoice_id == invoice_id)).scalars().all():
+        what = "Reminder" if m.kind == "reminder" else "Invoice"
+        events.append(InvoiceTimelineEvent(
+            at=m.created_at, event="email" if m.status == "sent" else "email_failed",
+            detail=f"{what} e-mailed to {m.to_address}" + ("." if m.status == "sent" else f" — failed: {m.error}"),
+        ))
     for n in db.execute(select(CreditNote).where(CreditNote.invoice_id == invoice_id)).scalars().all():
         events.append(InvoiceTimelineEvent(
             at=n.created_at, event="credit_note",

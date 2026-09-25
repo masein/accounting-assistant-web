@@ -296,6 +296,25 @@
         <tbody id="quotes-tbody"><tr><td colspan="6" class="empty-state" data-i18n="qtNone">No quotes yet.</td></tr></tbody>
       </table>
 
+      <!-- Automatic overdue reminders -->
+      <details id="inv-rem-panel" style="margin-top:1.25rem;">
+        <summary style="cursor:pointer;font-weight:600;" data-i18n="remTitle">Automatic reminders</summary>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="remSubtitle">Once a day, customers with an unpaid sales invoice get one e-mail for each reminder day they reach, with the invoice PDF and your payment details. A customer is never sent the same reminder twice; if several were missed, only the latest goes out.</p>
+        <div id="rem-mail-status" style="font-size:0.82rem;margin-bottom:0.4rem;"></div>
+        <label style="display:flex;gap:0.4rem;align-items:center;cursor:pointer;margin-bottom:0.5rem;">
+          <input type="checkbox" id="rem-enabled"> <span data-i18n="remEnable">E-mail customers about unpaid invoices</span></label>
+        <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
+          <div><label for="rem-days" data-i18n="remDays">Days after the due date</label>
+            <input type="text" id="rem-days" placeholder="3, 10, 20" dir="ltr" style="width:10rem;"></div>
+          <div style="flex:2 1 260px;"><label for="rem-link" data-i18n="remLink">Payment link (optional)</label>
+            <input type="url" id="rem-link" placeholder="https://" dir="ltr"></div>
+        </div>
+        <p style="color:var(--text-muted);font-size:0.78rem;margin:0.25rem 0 0.5rem;" data-i18n="remDaysHint">Comma-separated. A negative number reminds before the due date, e.g. -3.</p>
+        <label for="rem-instructions" data-i18n="remInstructions">How to pay (shown in every invoice e-mail)</label>
+        <textarea id="rem-instructions" rows="3" style="width:100%;" data-i18n-placeholder="remInstructionsPh" placeholder="Card number, IBAN / شبا, or other payment details. Empty = the bank details from your company profile."></textarea>
+        <div style="margin-top:0.5rem;"><button type="button" class="btn btn-primary" id="rem-save" data-i18n="remSave">Save reminders</button></div>
+      </details>
+
       <!-- Tax-rate admin: effective-dated rates -->
       <details style="margin-top:1.25rem;">
         <summary style="cursor:pointer;font-weight:600;" data-i18n="taxRatesTitle">Tax rates (effective-dated)</summary>

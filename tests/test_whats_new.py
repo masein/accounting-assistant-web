@@ -55,13 +55,13 @@ def test_whats_new_for_role_and_last_seen():
     assert out["seen"] is False
     assert [r["version"] for r in out["releases"]] == [rn.CURRENT_RELEASE]
     keys = {h["key"] for h in out["releases"][0]["highlights"]}
-    assert {"quotes"} <= keys
+    assert {"invoice-email-reminders"} <= keys
     # Earlier releases stay in the full history.
     history = rn.whats_new_for("owner", None, include_all=True)
     all_keys = {h["key"] for r in history["releases"] for h in r["highlights"]}
     assert {"chat-statement", "insights", "whats-new",
             "per-currency-views", "chat-periods-cash", "balance-sheet-check",
-            "payroll-statutory-rules", "ai-invoices-cheques"} <= all_keys
+            "payroll-statutory-rules", "ai-invoices-cheques", "quotes"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -81,7 +81,7 @@ def test_whats_new_for_role_and_last_seen():
     assert pkeys["insights"]["page"] == "personal-dashboard"
     assert _rel("owner", "2026.09.22")["insights"]["page"] == "dashboard"
     # …and on the current release: SME-only notes are hidden from personal users.
-    # The current release is SME-only (quotes): a personal user gets nothing new.
+    # The current release is SME-only (invoice e-mail): a personal user gets nothing new.
     assert rn.whats_new_for("personal", None)["releases"] == []
     p25 = set(_rel("personal", "2026.09.25"))
     assert {"ai-invoices-cheques"} <= p25

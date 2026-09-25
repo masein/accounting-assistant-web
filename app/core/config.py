@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://postgres:postgres@db:5432/accounting"
+    # Restricted role the web server connects as (app/db/roles.py). Empty
+    # password = off: everything runs as DATABASE_URL's user, as before.
+    app_db_user: str = "aa_app"
+    app_db_password: str = ""
     app_env: str = "dev"
     app_cors_origins: str = "http://localhost:8000"
     # Default to Metis (hosted, OpenAI-compatible) so a fresh deployment has a

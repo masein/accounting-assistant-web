@@ -62,7 +62,7 @@ from app.core.request_context import set_current_user, clear_current_user
 from app.db.base import Base
 from app.db.tenant import set_current_company, clear_current_company, tenant_bypass
 from app.db.seed import ensure_default_company, seed_admin_user_if_missing, seed_chart_if_empty, seed_payment_methods_if_empty
-from app.db.session import engine, SessionLocal, get_db
+from app.db.session import SessionLocal, get_admin_engine, get_db
 import app.models  # noqa: F401 - register models with Base.metadata
 import app.core.shared_state  # noqa: F401,E402 - registers the books-version flush hook
 
@@ -114,7 +114,7 @@ def _apply_numeric_migrations() -> None:
     Idempotent startup migrations: promote INT columns to BIGINT for IRR values.
     Only alters columns that are not already BIGINT.
     """
-    if engine.dialect.name != "postgresql":
+    if get_admin_engine().dialect.name != "postgresql":
         return
     targets = [
         ("invoices", "amount"),
@@ -123,7 +123,7 @@ def _apply_numeric_migrations() -> None:
         ("transaction_lines", "debit"),
         ("transaction_lines", "credit"),
     ]
-    with engine.begin() as conn:
+    with get_admin_engine().begin() as conn:
         for table, col in targets:
             current = _col_type(conn, table, col)
             if current and current != "bigint":
@@ -138,7 +138,7 @@ def _apply_entity_cleanup_migrations() -> None:
     Cleanup malformed entity names produced by old chat parsing paths.
     These UPDATEs/DELETEs use WHERE clauses so they are naturally idempotent.
     """
-    if engine.dialect.name != "postgresql":
+    if get_admin_engine().dialect.name != "postgresql":
         return
     stmts = [
         "UPDATE entities SET name = btrim(regexp_replace(name, '\\s+', ' ', 'g')) WHERE name ~ '\\s{2,}'",
@@ -167,7 +167,7 @@ def _apply_entity_cleanup_migrations() -> None:
             "AND e.name ~* '^(us|our|me|we|you|your)[[:space:]]+via[[:space:]].*(bank|account|about)'"
         ),
     ]
-    with engine.begin() as conn:
+    with get_admin_engine().begin() as conn:
         for s in stmts:
             conn.execute(text(s))
 
@@ -176,9 +176,9 @@ def _apply_transaction_fee_migrations() -> None:
     """
     Idempotent: only drop NOT NULL if the column is currently NOT NULL.
     """
-    if engine.dialect.name != "postgresql":
+    if get_admin_engine().dialect.name != "postgresql":
         return
-    with engine.begin() as conn:
+    with get_admin_engine().begin() as conn:
         nullable = _col_is_nullable(conn, "transaction_fee_applications", "transaction_id")
         if nullable is False:
             _migration_logger.info("Dropping NOT NULL on transaction_fee_applications.transaction_id")
@@ -191,13 +191,13 @@ def _apply_user_migrations() -> None:
     """
     Startup-safe user schema adjustments.
     """
-    if engine.dialect.name != "postgresql":
+    if get_admin_engine().dialect.name != "postgresql":
         return
     stmts = [
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(8) DEFAULT 'en'",
         "UPDATE users SET preferred_language = 'en' WHERE preferred_language IS NULL OR btrim(preferred_language) = ''",
     ]
-    with engine.begin() as conn:
+    with get_admin_engine().begin() as conn:
         for s in stmts:
             conn.execute(text(s))
 
@@ -226,7 +226,7 @@ def _run_alembic_migrations(strict: bool = False) -> None:
     from alembic import command
     from sqlalchemy import inspect
     alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
-    fresh_db = not inspect(engine).has_table("alembic_version")
+    fresh_db = not inspect(get_admin_engine()).has_table("alembic_version")
     try:
         if fresh_db:
             command.stamp(alembic_cfg, "head")
@@ -275,13 +275,15 @@ def _bootstrap_schema_and_seed(strict: bool = False) -> None:
     Because it stays fully idempotent, the lifespan can still call it as a
     self-heal fallback when the app is launched without the entrypoint.
     """
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_admin_engine())
     _run_alembic_migrations(strict=strict)
     # Guards a stamped (never migrated) fresh database would otherwise lack.
     from app.db.guards import install_db_guards
-    for item in install_db_guards(engine):
+    for item in install_db_guards(get_admin_engine()):
         logging.getLogger("app.migrations").info("installed database guard: %s", item)
-    db = SessionLocal()
+    from sqlalchemy.orm import Session as _Session
+
+    db = _Session(bind=get_admin_engine(), autoflush=False)
     try:
         seed_chart_if_empty(db)
         seed_payment_methods_if_empty(db)
@@ -295,7 +297,10 @@ def _bootstrap_schema_and_seed(strict: bool = False) -> None:
         seed_payroll_rules(db)
     finally:
         db.close()
-    ensure_default_company(engine)
+    ensure_default_company(get_admin_engine())
+    # Last, so every table the steps above created is covered by the grants.
+    from app.db.roles import ensure_app_role
+    ensure_app_role(get_admin_engine())
 
 
 def _warn_if_default_admin_password(db) -> None:

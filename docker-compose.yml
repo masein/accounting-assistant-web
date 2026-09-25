@@ -28,6 +28,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/accounting
+      APP_DB_USER: ${APP_DB_USER:-aa_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
       APP_ENV: ${APP_ENV:-dev}
       APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-http://localhost:8000}
       AUTH_SECRET: ${AUTH_SECRET:-}

@@ -43,8 +43,11 @@ policy switch that *requires* 2FA for owners.
 `object-src 'none'`; every inline handler replaced by `data-action` +
 `registerAction`, the login script in `/static/login.js`, a scanner test and a
 browser test that injected inline code is refused (#148).
-Still open in §1: non-superuser DB role, model/migration drift cleanup
-(alembic check).
+✅ 1.4 restricted database role — opt-in `APP_DB_PASSWORD`; pre-start
+creates `aa_app` (rows only; audit_logs INSERT/SELECT; no DDL), the web
+server connects as it; CI checks the refusals and runs the browser suite
+under it (#149).
+Still open in §1: model/migration drift cleanup (alembic check).
 
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as

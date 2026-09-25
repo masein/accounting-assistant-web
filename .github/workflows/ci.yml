@@ -115,10 +115,25 @@ jobs:
       # the way the container entrypoint does it: create_all → stamp/upgrade →
       # seed. Any migration that no longer applies fails here, before deploy.
       - name: Bootstrap an empty database like the container (create_all → migrate → seed)
+        env:
+          APP_DB_PASSWORD: ci-only-app-role-password-0123456789
         run: |
           python -m app.prestart
           alembic current | tee current.txt
           grep -q "(head)" current.txt
+
+      # Pre-start created the restricted role the web server can run as
+      # (app/db/roles.py, DEPLOY.md §11): rows yes, schema and audit edits no.
+      - name: Restricted app role can write rows but not touch the audit log
+        env:
+          PGPASSWORD: ci-only-app-role-password-0123456789
+        run: |
+          psql -h localhost -U aa_app -d accounting -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM audit_logs" -c "INSERT INTO rate_limit_events (id, bucket, identity, at) VALUES (gen_random_uuid(), 'ci', 'ci', now())"
+          for sql in "UPDATE audit_logs SET action = action" "DELETE FROM audit_logs" "TRUNCATE audit_logs" "ALTER TABLE audit_logs DISABLE TRIGGER ALL" "DROP TABLE companies" "CREATE TABLE pwned (id int)"; do
+            if psql -h localhost -U aa_app -d accounting -v ON_ERROR_STOP=1 -c "$sql" 2>err.txt; then echo "ALLOWED: $sql"; exit 1; fi
+            grep -qiE "permission denied|must be owner" err.txt || { cat err.txt; exit 1; }
+            echo "refused as expected: $sql"
+          done
 
       # A fresh database is stamped, not migrated, so guards that only a
       # migration created were missing on new installs (app/db/guards.py).
@@ -157,6 +172,9 @@ jobs:
       AUTH_SECRET: ci-only-secret-not-for-production-0123456789abcdef
       APP_ENV: test
       SCHEDULER_ENABLED: "false"
+      # The browser suite runs the server as the restricted role, so any code
+      # path that needs more than row access fails here, not in production.
+      APP_DB_PASSWORD: ci-only-app-role-password-0123456789
       E2E_BASE_URL: http://127.0.0.1:8000
       E2E_USERNAME: e2e_owner
     steps:

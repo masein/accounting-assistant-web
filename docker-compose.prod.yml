@@ -48,6 +48,11 @@ services:
               "--proxy-headers", "--forwarded-allow-ips", "${FORWARDED_ALLOW_IPS:-127.0.0.1}"]
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER:-postgres}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/accounting
+      # Optional restricted role for the web server (DEPLOY.md §11): set a
+      # password and pre-start creates APP_DB_USER, which cannot alter the
+      # schema or change the audit log. Empty = run as DB_USER, as before.
+      APP_DB_USER: ${APP_DB_USER:-aa_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
       APP_ENV: ${APP_ENV:-prod}
       APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-http://localhost:8000}
       # Session-signing secret — REQUIRED in prod (auth tokens are signed with

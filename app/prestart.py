@@ -31,8 +31,11 @@ def wait_for_db(max_wait: float = 60.0, interval: float = 2.0) -> None:
     """
     from sqlalchemy import text
 
-    from app.db.session import engine
+    # The schema owner: on a first boot the restricted app role does not
+    # exist yet (pre-start creates it).
+    from app.db.session import get_admin_engine
 
+    engine = get_admin_engine()
     deadline = time.monotonic() + max_wait
     attempt = 0
     while True:

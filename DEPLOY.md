@@ -222,6 +222,39 @@ loads the app separately, so budget roughly 250 MB of memory per worker.
   ```
 - **Log rotation** is already on for every container: 10 MB × 5 files (`x-logging` in `docker-compose.prod.yml`).
 
+## 11. A restricted database role for the web server
+
+By default the web server connects as `DB_USER`, the owner of every table. To
+make the audit log append-only even against the app's own credentials, give
+the web server its own role:
+
+1. Add a password to `.env` (at least 16 characters):
+   ```bash
+   echo "APP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
+   ```
+2. Recreate the api container (`docker compose -f docker-compose.prod.yml up -d api`,
+   or let Watchtower do it on the next image).
+
+On start, pre-start (still running as `DB_USER`) creates the role `aa_app`
+(`APP_DB_USER` to rename it) and grants it read and write on rows only:
+
+- it cannot create, alter or drop tables, or turn the audit trigger off;
+- on `audit_logs` it can only INSERT and SELECT — no UPDATE, DELETE or TRUNCATE;
+- on `alembic_version` it can only SELECT.
+
+The grants are re-applied on every start, so tables added by later migrations
+are covered, and changing `APP_DB_PASSWORD` rotates the role's password on the
+next start. Check it took:
+
+```bash
+docker compose -f docker-compose.prod.yml exec db psql -U postgres -d accounting -c "\du aa_app"
+```
+
+Backups and restores keep running as `DB_USER`; after a restore the next api
+start re-applies the grants. To go back, remove `APP_DB_PASSWORD` and recreate
+the api container; the unused role can then be dropped with
+`DROP OWNED BY aa_app; DROP ROLE aa_app;`.
+
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally
   and bind-mounts the source for live reload. `docker-compose.prod.yml` runs the

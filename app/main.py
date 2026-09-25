@@ -268,6 +268,10 @@ def _bootstrap_schema_and_seed(strict: bool = False) -> None:
     """
     Base.metadata.create_all(bind=engine)
     _run_alembic_migrations(strict=strict)
+    # Guards a stamped (never migrated) fresh database would otherwise lack.
+    from app.db.guards import install_db_guards
+    for item in install_db_guards(engine):
+        logging.getLogger("app.migrations").info("installed database guard: %s", item)
     db = SessionLocal()
     try:
         seed_chart_if_empty(db)

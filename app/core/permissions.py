@@ -314,6 +314,13 @@ _reads(["/invoices/{invoice_id}/emails", "/invoices/reminder-settings"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _add("POST", "/invoices/{invoice_id}/send", Perm.BOOKS_WRITE)
 _add("PUT", "/invoices/reminder-settings", Perm.SETTINGS_WRITE)
+# سامانه مودیان export: books people prepare and track it; the memory id and
+# defaults are company settings.
+_reads(["/moadian/settings", "/moadian/invoices", "/moadian/invoices/{invoice_id}/preview"],
+       frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
+_add("POST", "/moadian/export", Perm.BOOKS_WRITE)
+_add("PATCH", "/moadian/invoices/{invoice_id}", Perm.BOOKS_WRITE)
+_add("PUT", "/moadian/settings", Perm.SETTINGS_WRITE)
 # Recurring invoices: raising invoices on a schedule is a books action.
 _reads(["/recurring-invoices", "/recurring-invoices/{template_id}", "/recurring-invoices/{template_id}/invoices"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))

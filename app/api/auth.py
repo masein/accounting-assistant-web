@@ -408,7 +408,8 @@ def me(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict
         "company": _company_dict(company),
         # Releases this user hasn't been walked through yet (first login after
         # an update shows the tour; POST /auth/whats-new/seen marks it done).
-        "whats_new": whats_new_for(role, user_row.last_seen_release if user_row else None),
+        "whats_new": whats_new_for(role, user_row.last_seen_release if user_row else None,
+                                   locale=(company.locale if company else None)),
     }
 
 
@@ -420,7 +421,17 @@ def whats_new(current=Depends(get_current_user), db: Session = Depends(get_db)) 
 
     user_row = _load_user(db, current)
     role = getattr(current, "role", None) or "owner"
-    return whats_new_for(role, user_row.last_seen_release if user_row else None, include_all=True)
+    locale = None
+    if getattr(current, "company_id", None):
+        import uuid as _uuid
+        from app.models.company import Company
+        try:
+            company = db.get(Company, _uuid.UUID(str(current.company_id)))
+        except (ValueError, TypeError):
+            company = None
+        locale = company.locale if company else None
+    return whats_new_for(role, user_row.last_seen_release if user_row else None, include_all=True,
+                         locale=locale)
 
 
 @router.post("/whats-new/seen")

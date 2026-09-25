@@ -533,6 +533,7 @@
       tr.className = 'inv-line';
       tr.innerHTML =
         `<td><input type="text" class="il-desc" list="inv-products-datalist" value="${escapeHtml(p.description || '')}" placeholder="${escapeHtml(t('ibDescription'))}"></td>` +
+        `<td><input type="text" class="il-sstid" maxlength="13" inputmode="numeric" dir="ltr" value="${escapeHtml(p.sstid || '')}" placeholder="${escapeHtml(t('ibGoodsIdPh'))}"></td>` +
         `<td><input type="number" class="il-qty" min="0" step="0.01" value="${p.quantity != null ? p.quantity : 1}" style="text-align:end;"></td>` +
         `<td><input type="number" class="il-price" min="0" step="1" value="${p.unit_price != null ? p.unit_price : 0}" style="text-align:end;"></td>` +
         `<td><select class="il-code">${invTaxCodeOptions(p.tax_code || '')}</select></td>` +
@@ -550,6 +551,8 @@
       document.querySelectorAll('#inv-items-body .inv-line').forEach(tr => {
         const desc = tr.querySelector('.il-desc');
         if (desc) desc.placeholder = t('ibDescription');
+        const sid = tr.querySelector('.il-sstid');
+        if (sid) sid.placeholder = t('ibGoodsIdPh');
         const code = tr.querySelector('.il-code');
         if (code) { const v = code.value; code.innerHTML = invTaxCodeOptions(v); code.value = v; }
         const treat = tr.querySelector('.il-treat');
@@ -603,6 +606,7 @@
           tax_rate: rate, taxable: true,
           tax_code: tr.querySelector('.il-code').value || null,
           tax_treatment: tr.querySelector('.il-treat').value || 'standard',
+          sstid: (tr.querySelector('.il-sstid').value || '').trim() || null,
         });
       });
       return items;
@@ -776,6 +780,133 @@
         loadInvoices(data.id);
         loadOwnerDashboard();
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
+    });
+
+    // ═══════ سامانه مودیان export ═══════
+    let _moRows = [];
+    async function loadMoadian() {
+      const body = document.getElementById('mo-tbody');
+      const state = document.getElementById('mo-state').value || 'pending';
+      try {
+        const res = await fetch(API + '/moadian/invoices?state=' + encodeURIComponent(state));
+        const data = await readJsonSafe(res);
+        if (!res.ok) { body.innerHTML = `<tr><td colspan="9" class="empty-state">${escapeHtml(qtError(data, 'moLoadFailed'))}</td></tr>`; return; }
+        const st = data.settings || {};
+        document.getElementById('mo-memory').value = st.memory_id || '';
+        document.getElementById('mo-sstid').value = st.default_sstid || '';
+        document.getElementById('mo-mu').value = st.default_mu || '';
+        document.getElementById('mo-deadline').value = st.deadline_days || 12;
+        _moRows = data.invoices || [];
+        document.getElementById('mo-summary').textContent = data.overdue
+          ? t('moOverdueCount').replace('{n}', data.overdue) : '';
+        document.getElementById('mo-all').checked = false;
+        if (!_moRows.length) { body.innerHTML = `<tr><td colspan="9" class="empty-state">${escapeHtml(t('moNone'))}</td></tr>`; return; }
+        body.innerHTML = '';
+        _moRows.forEach(r => {
+          const late = r.moadian_status === null && r.days_left < 0;
+          const deadline = r.moadian_status ? escapeHtml(r.deadline)
+            : `<span style="color:${late ? 'var(--danger, #b91c1c)' : 'inherit'};">${escapeHtml(r.deadline)} · ${escapeHtml(t(late ? 'moDaysLate' : 'moDaysLeft').replace('{n}', Math.abs(r.days_left)))}</span>`;
+          const status = t('moState_' + (r.moadian_status || 'pending'))
+            + (r.reference ? `<div style="font-size:0.72rem;color:var(--text-muted);" dir="ltr">${escapeHtml(r.reference)}</div>` : '')
+            + (r.error ? `<div style="font-size:0.72rem;color:var(--danger, #b91c1c);">${escapeHtml(r.error)}</div>` : '')
+            + (r.taxid ? `<div style="font-size:0.7rem;color:var(--text-muted);font-family:monospace;" dir="ltr">${escapeHtml(r.taxid)}</div>` : '');
+          const ready = r.ready
+            ? `<span style="color:var(--success, #15803d);">✓</span>${(r.warnings || []).map(w => `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(w)}</div>`).join('')}`
+            : (r.problems || []).map(p => `<div style="font-size:0.74rem;color:var(--danger, #b91c1c);">${escapeHtml(p)}</div>`).join('');
+          const canSelect = r.ready && r.moadian_status !== 'confirmed';
+          const actions = [
+            `<button type="button" class="btn btn-secondary btn-sm mo-preview" data-id="${r.id}">${escapeHtml(t('moPreview'))}</button>`,
+            r.taxid && r.moadian_status !== 'confirmed' ? `<button type="button" class="btn btn-secondary btn-sm mo-result" data-id="${r.id}" data-status="confirmed" style="margin-inline-start:0.3rem;">${escapeHtml(t('moMarkConfirmed'))}</button>` : '',
+            r.taxid && r.moadian_status !== 'confirmed' ? `<button type="button" class="btn btn-secondary btn-sm mo-result" data-id="${r.id}" data-status="rejected" style="margin-inline-start:0.3rem;">${escapeHtml(t('moMarkRejected'))}</button>` : '',
+          ].join('');
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><input type="checkbox" class="mo-pick" data-id="${r.id}" ${canSelect ? '' : 'disabled'}></td>
+            <td>${escapeHtml(r.number)}</td><td>${escapeHtml(r.issue_date)}</td><td>${escapeHtml(r.customer || '—')}</td>
+            <td>${formatMoney(r.amount, r.currency)}</td><td>${deadline}</td><td>${status}</td><td>${ready}</td><td>${actions}</td>`;
+          body.appendChild(tr);
+        });
+      } catch (_) {
+        body.innerHTML = `<tr><td colspan="9" class="empty-state">${escapeHtml(t('moLoadFailed'))}</td></tr>`;
+      }
+    }
+    document.getElementById('moadian-panel').addEventListener('toggle', (e) => { if (e.target.open) loadMoadian(); });
+    document.getElementById('mo-state').addEventListener('change', loadMoadian);
+    document.getElementById('mo-all').addEventListener('change', (e) => {
+      document.querySelectorAll('#mo-tbody .mo-pick:not(:disabled)').forEach(cb => { cb.checked = e.target.checked; });
+    });
+    document.getElementById('mo-save').addEventListener('click', async () => {
+      try {
+        const res = await fetch(API + '/moadian/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            memory_id: document.getElementById('mo-memory').value.trim(),
+            default_sstid: document.getElementById('mo-sstid').value.trim(),
+            default_mu: document.getElementById('mo-mu').value.trim(),
+            deadline_days: parseInt(document.getElementById('mo-deadline').value, 10) || 12,
+          }),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert(qtError(data, 'moSaveFailed'), true); return; }
+        showAlert(t('moSaved'));
+        loadMoadian();
+      } catch (_) { showAlert(t('moSaveFailed'), true); }
+    });
+    document.getElementById('mo-export').addEventListener('click', async () => {
+      const ids = [...document.querySelectorAll('#mo-tbody .mo-pick:checked')].map(cb => cb.dataset.id);
+      if (!ids.length) { showAlert(t('moPickSome'), true); return; }
+      try {
+        const res = await fetch(API + '/moadian/export', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invoice_ids: ids }),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert(qtError(data, 'moExportFailed'), true); return; }
+        if (data.count) {
+          const file = { generated_at: data.generated_at, invoices: data.invoices, packets: data.packets };
+          const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }));
+          const a = document.createElement('a');
+          a.href = url; a.download = data.file_name; document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+        }
+        let msg = t('moExported').replace('{n}', data.count);
+        if (data.skipped && data.skipped.length) {
+          msg += ' ' + t('moSkipped').replace('{n}', data.skipped.length) + ' '
+            + data.skipped.map(x => `${x.number || x.id}: ${(x.problems || []).join('; ')}`).join(' | ');
+        }
+        showAlert(msg, !!(data.skipped && data.skipped.length));
+        loadMoadian();
+      } catch (_) { showAlert(t('moExportFailed'), true); }
+    });
+    document.getElementById('mo-tbody').addEventListener('click', async (e) => {
+      const pv = e.target.closest('.mo-preview');
+      const rs = e.target.closest('.mo-result');
+      if (pv) {
+        try {
+          const res = await fetch(API + '/moadian/invoices/' + encodeURIComponent(pv.dataset.id) + '/preview');
+          const data = await readJsonSafe(res);
+          if (!res.ok) { showAlert(qtError(data, 'moLoadFailed'), true); return; }
+          const head = data.provisional ? t('moProvisional') + '\n\n' : '';
+          await uiConfirm({ title: t('moPreview'), message: head + JSON.stringify(data.packet, null, 2), confirmLabel: t('btnClose'), hideCancel: true });
+        } catch (_) { showAlert(t('moLoadFailed'), true); }
+        return;
+      }
+      if (rs) {
+        const status = rs.dataset.status;
+        const val = await uiPrompt({
+          title: t(status === 'confirmed' ? 'moMarkConfirmed' : 'moMarkRejected'),
+          message: t(status === 'confirmed' ? 'moRefPrompt' : 'moErrorPrompt'), value: '',
+        });
+        if (val === null || val === undefined) return;
+        const body = status === 'confirmed' ? { status, reference: String(val).trim() } : { status, error: String(val).trim() };
+        try {
+          const res = await fetch(API + '/moadian/invoices/' + encodeURIComponent(rs.dataset.id), {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          const data = await readJsonSafe(res);
+          if (!res.ok) { showAlert(qtError(data, 'moSaveFailed'), true); return; }
+          loadMoadian();
+        } catch (_) { showAlert(t('moSaveFailed'), true); }
+      }
     });
 
     // ═══════ Recurring invoices ═══════

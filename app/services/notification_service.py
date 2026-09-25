@@ -34,6 +34,7 @@ DUE_SOON_DAYS = 3
 KIND_ROLES = {
     "invoice_due": ("owner", "cfo", "accountant"),
     "invoice_overdue": ("owner", "cfo", "accountant"),
+    "moadian": ("owner", "cfo", "accountant"),
     "payroll": ("owner", "cfo", "accountant"),
     "approvals": ("owner", "cfo", "manager"),
     "petty_cash": ("owner", "cfo", "accountant"),
@@ -64,6 +65,34 @@ def _upsert(db: Session, seen: set[str], *, dedupe_key: str, kind: str, level: s
         row.message = message
         row.due_date = due_date
         row.link_page = link_page
+
+
+def _moadian_deadlines(db: Session, seen: set[str], today: date) -> None:
+    """Only for companies that use مودیان (memory id entered): a warning
+    three days before the sending deadline, high once it has passed."""
+    from app.services.moadian.settings import WARN_DAYS_BEFORE, enabled, get_settings
+    if not enabled(db):
+        return
+    days = int(get_settings(db)["deadline_days"])
+    horizon = today - timedelta(days=days - WARN_DAYS_BEFORE)
+    rows = db.execute(select(Invoice).where(
+        Invoice.kind == "sales", Invoice.status.in_(("issued", "partially_paid", "paid")),
+        Invoice.moadian_status.is_(None), Invoice.issue_date <= horizon,
+    )).scalars().all()
+    for inv in rows:
+        due = inv.issue_date + timedelta(days=days)
+        left = (due - today).days
+        number = inv.number or str(inv.id)[:8]
+        if left < 0:
+            _upsert(db, seen, dedupe_key=f"moadian-{inv.id}", kind="moadian", level="high",
+                    title=f"Invoice {number} not sent to سامانه مودیان",
+                    message=f"The {days}-day deadline passed on {due.isoformat()} ({-left} day(s) ago).",
+                    link_page="invoices", due_date=due)
+        else:
+            _upsert(db, seen, dedupe_key=f"moadian-{inv.id}", kind="moadian", level="warning",
+                    title=f"Send invoice {number} to سامانه مودیان",
+                    message=f"Deadline {due.isoformat()} ({left} day(s) left).",
+                    link_page="invoices", due_date=due)
 
 
 def _budget_link_page(db: Session) -> str:
@@ -103,6 +132,9 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
             _upsert(db, seen, dedupe_key=f"inv-{inv.id}-due", kind="invoice_due",
                     level="warning", title=f"Invoice {number} due {inv.due_date.isoformat()}",
                     message=label, link_page="invoices", due_date=inv.due_date)
+
+    # --- سامانه مودیان: 12-day sending deadline -------------------------------
+    _moadian_deadlines(db, seen, today)
 
     # --- payroll paydays ---------------------------------------------------
     runs = db.execute(

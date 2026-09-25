@@ -37,6 +37,16 @@ class Invoice(Base, TenantMixin):
                                        name="fk_invoices_recurring_invoice"),
         nullable=True, index=True,
     )
+    # سامانه مودیان (roadmap §3.1). The serial is allocated once, on the first
+    # export, and never reused; the 22-char tax number is derived from it,
+    # the company's memory id and the issue date. Status: exported (handed to
+    # the provider) | confirmed | rejected; NULL = not sent yet.
+    moadian_serial: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    moadian_taxid: Mapped[str | None] = mapped_column(String(22), nullable=True)
+    moadian_status: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    moadian_exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    moadian_reference: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    moadian_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A planned date to pay a bill. Informational only — moves no money.
     scheduled_payment_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

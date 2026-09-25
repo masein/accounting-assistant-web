@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.25.3"
+CURRENT_RELEASE = "2026.09.25.4"
 
 
 @dataclass(frozen=True)
@@ -36,10 +36,13 @@ class Highlight:
     page: str | None = None                          # SPA page "Show me" opens
     page_by_role: dict[str, str] = field(default_factory=dict)
     roles: tuple[str, ...] | None = None              # None = everyone
+    locales: tuple[str, ...] | None = None            # None = every company locale
 
-    def for_role(self, role: str | None) -> dict[str, Any] | None:
+    def for_role(self, role: str | None, locale: str | None = None) -> dict[str, Any] | None:
         r = (role or "owner").lower()
         if self.roles is not None and r not in self.roles:
+            return None
+        if self.locales is not None and locale is not None and locale.lower() not in self.locales:
             return None
         return {
             "key": self.key,
@@ -368,6 +371,30 @@ RELEASES: tuple[Release, ...] = (
             ),
         ),
     ),
+    Release(
+        version="2026.09.25.4",
+        date="2026-09-25",
+        highlights=(
+            Highlight(
+                key="moadian-export",
+                page="invoices",
+                roles=_SME_BOOKS,
+                locales=("ir",),
+                title={
+                    "en": "Get invoices ready for سامانه مودیان",
+                    "fa": "آماده‌سازی صورتحساب‌ها برای سامانه مودیان",
+                    "es": "Prepara las facturas para سامانه مودیان",
+                    "ar": "تجهيز الفواتير لـ سامانه مودیان",
+                },
+                body={
+                    "en": "Enter your tax memory id under Invoices → سامانه مودیان. Each sales invoice then shows what is missing (goods/service ID, buyer national id, postal code). “Export selected” downloads the invoices in the tax organisation's JSON with their 22-character tax numbers for your trusted provider. The bell warns three days before the 12-day deadline.",
+                    "fa": "شناسه یکتای حافظه مالیاتی را در «فاکتورها ← سامانه مودیان» وارد کنید. سپس برای هر صورتحساب فروش نشان داده می‌شود چه چیزی کم است (شناسه کالا/خدمت، شناسه ملی خریدار، کد پستی). «خروجی موارد انتخاب‌شده» صورتحساب‌ها را با ساختار JSON سازمان امور مالیاتی و شمارهٔ منحصربه‌فرد ۲۲ کاراکتری برای شرکت معتمد دانلود می‌کند. زنگ اعلان سه روز پیش از پایان مهلت ۱۲ روزه هشدار می‌دهد.",
+                    "es": "Introduce tu ID de memoria fiscal en Facturas → سامانه مودیان. Cada factura de venta muestra entonces lo que falta (ID de bien/servicio, ID nacional del comprador, código postal). «Exportar seleccionadas» descarga las facturas en el JSON de la administración tributaria con su número fiscal de 22 caracteres para tu proveedor autorizado. La campana avisa tres días antes del plazo de 12 días.",
+                    "ar": "أدخل معرّف الذاكرة الضريبية في الفواتير ← سامانه مودیان. عندها تُظهر كل فاتورة مبيعات ما ينقصها (معرّف السلعة/الخدمة، الرقم الوطني للمشتري، الرمز البريدي). «تصدير المحدد» ينزّل الفواتير بصيغة JSON الخاصة بمصلحة الضرائب مع أرقامها الضريبية ذات 22 حرفًا لمزوّدك المعتمد. ينبّه الجرس قبل ثلاثة أيام من انتهاء مهلة الـ 12 يومًا.",
+                },
+            ),
+        ),
+    ),
 )
 
 
@@ -383,7 +410,8 @@ def version_tuple(version: str | None) -> tuple[int, ...]:
     return tuple(out)
 
 
-def whats_new_for(role: str | None, last_seen: str | None, *, include_all: bool = False) -> dict[str, Any]:
+def whats_new_for(role: str | None, last_seen: str | None, *, include_all: bool = False,
+                  locale: str | None = None) -> dict[str, Any]:
     """Releases the user hasn't seen, highlights filtered to their role.
 
     ``last_seen=None`` (a user from before this feature) sees only the
@@ -398,7 +426,7 @@ def whats_new_for(role: str | None, last_seen: str | None, *, include_all: bool 
                 continue
             if last_seen is not None and version_tuple(rel.version) <= seen_t:
                 continue
-        items = [h for h in (hl.for_role(role) for hl in rel.highlights) if h]
+        items = [h for h in (hl.for_role(role, locale) for hl in rel.highlights) if h]
         if items:
             releases.append({"version": rel.version, "date": rel.date, "highlights": items})
     return {

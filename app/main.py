@@ -33,6 +33,7 @@ from app.api.integration import router as integration_router
 from app.api.invoices import router as invoices_router
 from app.api.invoice_mail import router as invoice_mail_router
 from app.api.quotes import router as quotes_router
+from app.api.moadian import router as moadian_router
 from app.api.recurring_invoices import router as recurring_invoices_router
 from app.api.manager_reports import router as manager_reports_router
 from app.api.migration import router as migration_router
@@ -792,6 +793,7 @@ app.include_router(fx_router, dependencies=_rbac)
 app.include_router(invoice_mail_router, dependencies=_rbac)
 app.include_router(invoices_router, dependencies=_rbac)
 app.include_router(quotes_router, dependencies=_rbac)
+app.include_router(moadian_router, dependencies=_rbac)
 app.include_router(recurring_invoices_router, dependencies=_rbac)
 app.include_router(manager_reports_router, dependencies=_rbac)
 app.include_router(migration_router, dependencies=_rbac)
@@ -818,7 +820,7 @@ _GUARDED_PREFIXES = tuple(sorted({
         accounts_router, adjustments_router, admin_router, companies_router, company_profile_router,
         ai_accountant_router, brain_router, budgets_router, entities_router, equity_router,
         expenses_router, exports_router, fx_router, invoices_router, invoice_mail_router, manager_reports_router,
-        migration_router, notifications_router, payroll_router, personal_router, insights_router,
+        migration_router, moadian_router, notifications_router, payroll_router, personal_router, insights_router,
         commitments_router, petty_cash_router, products_router, purchase_orders_router,
         quotes_router, recurring_router, recurring_invoices_router, reports_router, time_tracking_router, transactions_router,
     ) if r.prefix

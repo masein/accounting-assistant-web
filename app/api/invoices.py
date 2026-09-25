@@ -327,6 +327,8 @@ def _build_invoice_items(
                 tax_treatment=treatment,
                 description=(raw.description or "").strip() or None,
                 inventory_item_id=raw.inventory_item_id,
+                sstid=getattr(raw, "sstid", None),
+                mu=((getattr(raw, "mu", None) or "").strip() or None),
             )
         )
     return rows, subtotal + tax_total
@@ -603,6 +605,27 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
     row = db.execute(select(Invoice).where(Invoice.id == invoice_id).options(selectinload(Invoice.items))).scalars().one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    if row.moadian_status == "confirmed":
+        # Block only real changes: the edit dialog re-sends unchanged fields.
+        sent = payload.model_dump(exclude_unset=True)
+        current = {"number": row.number, "kind": row.kind, "issue_date": row.issue_date,
+                   "amount": int(row.amount or 0), "entity_id": row.entity_id,
+                   "currency": (row.currency or "").upper()}
+        touched = set()
+        for key, now_val in current.items():
+            if key in sent and sent[key] is not None:
+                new_val = sent[key].strip().upper() if key == "currency" else (
+                    sent[key].strip() if key == "number" else sent[key])
+                if new_val != now_val:
+                    touched.add(key)
+        if sent.get("items") is not None:
+            touched.add("items")
+        if touched:
+            raise HTTPException(
+                status_code=409,
+                detail=("This invoice is registered in سامانه مودیان; its " + ", ".join(sorted(touched))
+                        + " can't change. Issue a corrective (اصلاحی) invoice instead."),
+            )
     if payload.number is not None:
         number = payload.number.strip()
         if not number:

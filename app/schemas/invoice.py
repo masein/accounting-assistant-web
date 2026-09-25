@@ -5,7 +5,7 @@ from datetime import date as _date  # alias: fields literally named `date` shado
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class InvoiceItemBase(BaseModel):
@@ -20,6 +20,19 @@ class InvoiceItemBase(BaseModel):
     tax_treatment: str = Field(default="standard", description="standard | zero_rated | exempt | reverse_charge")
     description: str | None = None
     inventory_item_id: UUID | None = None
+    sstid: str | None = Field(default=None, description="سامانه مودیان goods/service id, 13 digits")
+    mu: str | None = Field(default=None, max_length=8, description="سامانه مودیان measurement-unit code")
+
+    @field_validator("sstid")
+    @classmethod
+    def _sstid(cls, v):
+        v = (v or "").strip()
+        if not v:
+            return None
+        v = v.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"))
+        if not (v.isdigit() and len(v) == 13):
+            raise ValueError("The goods/service id (شناسه کالا/خدمت) is 13 digits.")
+        return v
 
 
 class InvoiceItemCreate(InvoiceItemBase):
@@ -133,6 +146,10 @@ class InvoiceRead(InvoiceBase):
     balance_due: int = 0
     # Paid beyond the invoice: customer credit / supplier advance, not "paid".
     overpaid: int = 0
+    # سامانه مودیان
+    moadian_status: str | None = None
+    moadian_taxid: str | None = None
+    moadian_reference: str | None = None
     pdf_url: str | None = None
     items: list[InvoiceItemRead] = Field(default_factory=list)
     created_at: datetime

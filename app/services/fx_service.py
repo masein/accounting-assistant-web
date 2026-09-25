@@ -143,6 +143,16 @@ def convert(
     return float(amount) * rate
 
 
+def convert_minor(amount: int, rate: float) -> int:
+    """``amount × rate`` in whole units, exact and rounded half-up (away from
+    zero). Money must never go through a float product: a double holds every
+    integer only up to 9e15, and a large Iranian company's annual figures in
+    rial pass that; Python's round() is also half-to-even (2.5 → 2)."""
+    from decimal import ROUND_HALF_UP, Decimal
+    product = Decimal(int(amount)) * Decimal(repr(float(rate)))
+    return int(product.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
 def convert_or_none(
     db: Session,
     amount: int | float,
@@ -150,11 +160,11 @@ def convert_or_none(
     to_ccy: str,
     on: date | None = None,
 ) -> int | None:
-    """Convenience integer wrapper. Returns rounded int or None if no rate."""
-    result = convert(db, float(amount), from_ccy, to_ccy, on)
-    if result is None:
+    """Convenience integer wrapper: exact, half-up; None if no rate."""
+    rate = get_rate(db, from_ccy, to_ccy, on)
+    if rate is None:
         return None
-    return int(round(result))
+    return convert_minor(int(round(float(amount))) if not isinstance(amount, int) else amount, rate)
 
 
 DEFAULT_RATES: list[tuple[str, str, float, str]] = [

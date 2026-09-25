@@ -27,6 +27,7 @@ from app.schemas.fx import (
     ReportingCurrencyUpdate,
 )
 from app.services.fx_service import (
+    convert_minor,
     convert as fx_convert,
     get_rate,
     get_reporting_currency,
@@ -233,7 +234,7 @@ def revalue_foreign_currency_balances(
                     f"Missing rate {fc}->{target} on/before {on.isoformat()} for account {acc.code}"
                 )
                 continue
-            tgt_val = int(round(src_balance * rate))
+            tgt_val = convert_minor(src_balance, rate)
             converted_total += tgt_val
             per_currency_rates.append((fc, src_balance, rate, tgt_val))
         if not per_currency_rates:
@@ -257,7 +258,11 @@ def revalue_foreign_currency_balances(
 
     # 2. If not dry-run, post the adjustment as a journal entry in target currency
     posted_id: UUID | None = None
-    if not payload.dry_run and total_adjustment != 0:
+    # Post whenever ANY account moves: a USD asset and a USD liability can
+    # revalue by equal and opposite amounts (net gain 0) and both balances
+    # still have to change. It used to post only when the net was non-zero.
+    any_adjustment = any(ln.adjustment for ln in revalue_lines)
+    if not payload.dry_run and any_adjustment:
         if not payload.gain_account_code or not payload.loss_account_code:
             raise HTTPException(
                 status_code=400,

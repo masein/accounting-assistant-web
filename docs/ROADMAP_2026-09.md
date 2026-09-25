@@ -82,7 +82,9 @@ year guessing, Arabic-Indic digits, Excel full codes, invalid Jalali days
 parsed as Gregorian) and time billing + fees (#143: two-commit invoicing from
 time, float/half-to-even fees). ✅ coverage gate: CI fails below 80 % of app/
 (82 % at introduction). Least covered: demo_data 0 %, products API 13 %,
-recurring API 43 %, transaction_chat 45 %. Still open: Playwright smoke suite.
+recurring API 43 %, transaction_chat 45 % (#144). ✅ Playwright smoke suite
+(tests_e2e/, CI job "Browser smoke"): a CI-only owner clicks through all 23
+owner pages and the Persian invoices page; any JS exception or 5xx fails.
 
 ---
 

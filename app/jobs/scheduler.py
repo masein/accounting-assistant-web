@@ -27,11 +27,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Callable
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.core.config import settings
 
@@ -214,11 +215,48 @@ def run_pending_jobs(now: datetime | None = None) -> list[str]:
     return ran
 
 
+# With several uvicorn workers every worker runs this loop; a Postgres
+# advisory lock makes exactly one of them run each tick (roadmap §2.2), so a
+# daily job can't pass its "already ran today" check twice and send customers
+# duplicate reminders. SQLite (dev/tests) has one process: no lock needed.
+TICK_LOCK_KEY = 8042026
+
+
+@contextmanager
+def single_runner(engine=None):
+    """Yields True in the one process allowed to run this tick."""
+    if engine is None:
+        from app.db.session import engine as _engine
+        engine = _engine
+    if engine.dialect.name != "postgresql":
+        yield True
+        return
+    conn = engine.connect()
+    try:
+        got = bool(conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": TICK_LOCK_KEY}).scalar())
+        try:
+            yield got
+        finally:
+            if got:
+                conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": TICK_LOCK_KEY})
+    finally:
+        conn.close()
+
+
+def run_tick_if_leader() -> list[str] | None:
+    """One tick, if this process holds the tick lock; None when another
+    worker is running it."""
+    with single_runner() as leader:
+        if not leader:
+            return None
+        return run_pending_jobs()
+
+
 async def scheduler_loop(stop: asyncio.Event) -> None:
     log.info("scheduler started (tick=%ss, digest_hour=%s)", TICK_SECONDS, settings.scheduler_digest_hour)
     while not stop.is_set():
         try:
-            await asyncio.to_thread(run_pending_jobs)
+            await asyncio.to_thread(run_tick_if_leader)
         except Exception:  # never let the loop die
             log.exception("scheduler_tick_failed")
         try:

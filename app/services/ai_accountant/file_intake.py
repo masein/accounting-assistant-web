@@ -89,11 +89,12 @@ def _try_chart(files: list[tuple[str, bytes]]) -> list[tuple[str, list[dict]]] |
     return parsed or None
 
 
-def _try_transactions(files: list[tuple[str, bytes]]) -> dict[str, Any] | None:
+def _try_transactions(db: Session, files: list[tuple[str, bytes]]) -> dict[str, Any] | None:
     """One journal-shaped sheet → excel-import preview data (token + vouchers
     + account mappings). Multi-file transaction drops take the first sheet and
     flag the rest."""
-    from app.api.transactions import _EXCEL_UPLOAD_STORE
+    from app.api.transactions import EXCEL_UPLOAD_KIND
+    from app.core.shared_state import store_upload
     from app.services.excel_journal_parser import parse_excel_journal
 
     name, data = files[0]
@@ -116,7 +117,7 @@ def _try_transactions(files: list[tuple[str, bytes]]) -> dict[str, Any] | None:
         tmp_path.unlink(missing_ok=True)
         return None
 
-    _EXCEL_UPLOAD_STORE[token] = str(tmp_path)
+    store_upload(db, EXCEL_UPLOAD_KIND, token, str(tmp_path))
     return {"token": token, "result": result,
             "extra_files": [n for n, _ in files[1:]]}
 
@@ -198,7 +199,7 @@ def build_spreadsheet_intake(
             },
         )
 
-    txn = _try_transactions(files)
+    txn = _try_transactions(db, files)
     if txn is not None:
         result = txn["result"]
         from sqlalchemy import select

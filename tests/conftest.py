@@ -93,10 +93,33 @@ def _reset_auth_limiters():
     """Login attempts are limited per username AND per client IP; the whole
     suite comes from one IP ('testclient'), so start every test with clean
     buckets or a run of failed-login tests would 429 the rest."""
-    from app.api import auth as auth_mod
-    for lim in (auth_mod._login_limiter, auth_mod._login_ip_limiter, auth_mod._signup_limiter):
-        lim._hits.clear()
+    from sqlalchemy import delete
+
+    from app.core import ai_runtime
+    from app.models.shared_state import RateLimitEvent
+    s = _TestSession()
+    try:
+        s.execute(delete(RateLimitEvent))
+        s.commit()
+    finally:
+        s.close()
+    # Workers-share-config polling would read the dev database from tests.
+    ai_runtime.REFRESH_SECONDS = 0
     yield
+
+
+@pytest.fixture(autouse=True)
+def _no_real_ai_calls(monkeypatch):
+    """No test may reach a real LLM backend: an unreachable one costs retries
+    and sleeps (three chat tests took 44 s once the shared chat bucket stopped
+    rate-limiting them by accident). Fail fast with the same error the app
+    shows when the backend is down; tests that need a reply mock above this."""
+    from app.services import ai_suggest
+
+    async def _offline(url, payload, base, headers=None):
+        raise ai_suggest.AISuggestError("AI backend is disabled in tests.")
+
+    monkeypatch.setattr(ai_suggest, "_post_lm_studio", _offline)
 
 
 @pytest.fixture()

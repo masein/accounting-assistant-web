@@ -121,6 +121,9 @@ class Settings(BaseSettings):
     trust_proxy_headers: bool = False
     scheduler_enabled: bool = True
     scheduler_digest_hour: int = 8  # server local time, 0-23
+    # Other workers pick up an AI provider change saved by the super-admin
+    # within this many seconds (roadmap §2.2). 0 disables the check.
+    ai_config_refresh_seconds: int = 15
 
 
 settings = Settings()

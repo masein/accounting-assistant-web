@@ -626,7 +626,8 @@ def compute_insights(db: Session, *, today: date | None = None, use_cache: bool 
     from app.db.tenant import get_current_company
 
     today = today or date.today()
-    ckey = f"{get_current_company() or 'global'}"
+    from app.core.shared_state import books_version, current_scope
+    ckey = f"{get_current_company() or 'global'}:{books_version(db, current_scope())}"
     if use_cache:
         hit = _cache.get(ckey)
         if hit and hit[1] == today and time.monotonic() - hit[0] < CACHE_TTL_SECONDS:

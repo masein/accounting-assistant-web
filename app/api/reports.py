@@ -440,8 +440,11 @@ def get_owner_dashboard(
     # The cache is process-wide, so the key MUST carry the tenant: without it a
     # company saw another company's dashboard for up to a minute (security
     # review 2026-09-24, C2).
-    from app.db.tenant import get_current_company
-    cache_key = f"dashboard:{get_current_company() or 'platform'}:{months_back}:{currency}"
+    # The books version is bumped in the same transaction as any ledger or
+    # invoice write, so a worker that didn't see the write still misses.
+    from app.core.shared_state import books_version, current_scope
+    scope = current_scope()
+    cache_key = f"dashboard:{scope}:{books_version(db, scope)}:{months_back}:{currency}"
     now = _time.time()
     cached = _dashboard_cache.get(cache_key)
     if cached and (now - cached[0]) < _DASHBOARD_CACHE_TTL:

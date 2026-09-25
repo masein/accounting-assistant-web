@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.25"
+CURRENT_RELEASE = "2026.09.25.1"
 
 
 @dataclass(frozen=True)
@@ -295,6 +295,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«کدام فاکتورها سررسید گذشته‌اند؟»، «این ماه کدام چک‌ها سررسید می‌شوند؟»، «پرداخت فاکتور ۱۰۴۲ را ثبت کن»، «چک بانک ملی را پاس کن» — دستیار فاکتورها، چک‌ها و اقساط شما را می‌خواند و سند را برای تأیید شما پیشنهاد می‌دهد.",
                     "es": "«¿Qué facturas están vencidas?», «¿qué cheques vencen este mes?», «registra un pago de la factura 1042», «liquida el cheque del Bank Melli»: el asistente lee tus facturas, cheques y cuotas y propone el asiento para tu confirmación.",
                     "ar": "«ما الفواتير المتأخرة؟»، «ما الشيكات المستحقة هذا الشهر؟»، «سجّل دفعة على الفاتورة 1042»، «سدّد شيك بنك ملي» — يقرأ المساعد فواتيرك وشيكاتك وأقساطك ويقترح القيد لتأكيدك.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.25.1",
+        date="2026-09-25",
+        highlights=(
+            Highlight(
+                key="quotes",
+                page="invoices",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Quotes that turn into invoices",
+                    "fa": "پیش‌فاکتورهایی که فاکتور می‌شوند",
+                    "es": "Presupuestos que se convierten en facturas",
+                    "ar": "عروض أسعار تتحول إلى فواتير",
+                },
+                body={
+                    "en": "Fill in the invoice form and press “Save as quote”. The quote is not posted to the books; mark it sent, accepted or declined, download its PDF, and when the customer agrees press “Convert to invoice” — the sales invoice is created from the same lines and the quote is locked.",
+                    "fa": "فرم فاکتور را پر کنید و «ذخیره به‌عنوان پیش‌فاکتور» را بزنید. پیش‌فاکتور در دفاتر ثبت نمی‌شود؛ آن را ارسال‌شده، پذیرفته یا ردشده علامت بزنید، PDF آن را بگیرید و وقتی مشتری موافقت کرد «تبدیل به فاکتور» را بزنید — فاکتور فروش با همان ردیف‌ها ساخته و پیش‌فاکتور قفل می‌شود.",
+                    "es": "Rellena el formulario de factura y pulsa «Guardar como presupuesto». El presupuesto no se contabiliza; márcalo como enviado, aceptado o rechazado, descarga su PDF y, cuando el cliente acepte, pulsa «Convertir en factura»: la factura de venta se crea con las mismas líneas y el presupuesto queda bloqueado.",
+                    "ar": "املأ نموذج الفاتورة واضغط «حفظ كعرض سعر». لا يُسجَّل العرض في الدفاتر؛ ضع عليه علامة مُرسل أو مقبول أو مرفوض، ونزّل ملف PDF، وعندما يوافق العميل اضغط «تحويل إلى فاتورة» — تُنشأ فاتورة المبيعات بالبنود نفسها ويُقفل العرض.",
                 },
             ),
         ),

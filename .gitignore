@@ -38,3 +38,4 @@ samples/
 .claude/worktrees/
 # nightly backups written by the prod backup service
 backups/
+e2e-artifacts/

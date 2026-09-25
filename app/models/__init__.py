@@ -28,6 +28,7 @@ from app.models.pay_run import PayRun, PayRunLine
 from app.models.payroll_rules import PayrollRuleSet
 from app.models.payment import Payment
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
+from app.models.quote import Quote, QuoteItem
 from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType
 from app.models.recurring import RecurringRule
 from app.models.tax_rate import TaxRate

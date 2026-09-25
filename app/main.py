@@ -31,6 +31,7 @@ from app.api.exports import router as exports_router
 from app.api.fx import router as fx_router
 from app.api.integration import router as integration_router
 from app.api.invoices import router as invoices_router
+from app.api.quotes import router as quotes_router
 from app.api.manager_reports import router as manager_reports_router
 from app.api.migration import router as migration_router
 from app.api.notifications import router as notifications_router
@@ -787,6 +788,7 @@ app.include_router(expenses_router, dependencies=_rbac)
 app.include_router(exports_router, dependencies=_rbac)
 app.include_router(fx_router, dependencies=_rbac)
 app.include_router(invoices_router, dependencies=_rbac)
+app.include_router(quotes_router, dependencies=_rbac)
 app.include_router(manager_reports_router, dependencies=_rbac)
 app.include_router(migration_router, dependencies=_rbac)
 app.include_router(notifications_router, dependencies=_rbac)
@@ -814,7 +816,7 @@ _GUARDED_PREFIXES = tuple(sorted({
         expenses_router, exports_router, fx_router, invoices_router, manager_reports_router,
         migration_router, notifications_router, payroll_router, personal_router, insights_router,
         commitments_router, petty_cash_router, products_router, purchase_orders_router,
-        recurring_router, reports_router, time_tracking_router, transactions_router,
+        quotes_router, recurring_router, reports_router, time_tracking_router, transactions_router,
     ) if r.prefix
 }))
 PROTECTED_API_PREFIXES = _GUARDED_PREFIXES + _AUTH_SELF_SERVICE_PATHS

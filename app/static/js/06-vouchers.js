@@ -254,6 +254,8 @@
       } catch (err) {
         invoicesTbody.innerHTML = '<tr><td colspan="8" class="empty-state">Error loading invoices.</td></tr>';
       }
+      // Quotes live on the same page (08-entities-invoices.js defines it).
+      if (!highlightId && typeof loadQuotes === 'function') loadQuotes();
     }
 
     async function loadRecurringRules(highlightId) {

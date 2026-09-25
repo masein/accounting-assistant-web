@@ -7,6 +7,8 @@ from __future__ import annotations
 
 EN = {
     "invoice": "INVOICE",
+    "quote": "QUOTE",
+    "valid_until": "Valid until",
     "time_invoice": "INVOICE",
     "receipt": "RECEIPT",
     "statement": "ACCOUNT STATEMENT",
@@ -67,6 +69,8 @@ EN = {
 
 FA = {
     "invoice": "صورتحساب",
+    "quote": "پیش‌فاکتور",
+    "valid_until": "معتبر تا",
     "time_invoice": "صورتحساب",
     "receipt": "رسید",
     "statement": "صورت‌حساب دوره‌ای",

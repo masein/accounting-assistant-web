@@ -407,7 +407,15 @@ _add("POST", "/brain/cfo/ask", Perm.CFO_READ)
 
 # --- Payroll / salaries -----------------------------------------------------
 _reads(["/payroll/profiles", "/payroll/runs", "/payroll/runs/{run_id}",
-        "/payroll/year-summary", "/payroll/hours-summary"], Perm.PAYROLL_READ)
+        "/payroll/year-summary", "/payroll/hours-summary",
+        # Statutory rule sets are readable by anyone who runs payroll; the
+        # monthly insurance and salary-tax lists are derived from a run.
+        "/payroll/rules", "/payroll/rules/active",
+        "/payroll/runs/{run_id}/insurance-list.csv", "/payroll/runs/{run_id}/tax-list.csv"],
+       Perm.PAYROLL_READ)
+# Statutory parameters are platform-wide (one decree, every tenant): super-admin only.
+_add("POST", "/payroll/rules", Perm.PLATFORM_ADMIN)
+_add("PUT", "/payroll/rules/{rule_set_id}", Perm.PLATFORM_ADMIN)
 # Payslip: books payroll people OR the employee's own (object-checked downstream).
 _reads(["/payroll/runs/{run_id}/payslip/{entity_id}",
         "/payroll/runs/{run_id}/payslip/{entity_id}/pdf",

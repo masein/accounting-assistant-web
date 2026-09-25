@@ -9,7 +9,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy.sql.expression import false as sa_false
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +45,15 @@ class EmployeePayProfile(Base, TenantMixin):
     income_tax_rate: Mapped[float] = mapped_column(Numeric(6, 4), default=0)
     social_security_rate: Mapped[float] = mapped_column(Numeric(6, 4), default=0)
     pension_rate: Mapped[float] = mapped_column(Numeric(6, 4), default=0)  # pre-tax deduction
+
+    # flat: the three rates above. statutory: the locale's rule set in force
+    # for the pay period (progressive tax brackets, insurance rates + ceiling,
+    # Iran's fixed allowances) — see app/services/payroll_rules.py.
+    tax_mode: Mapped[str] = mapped_column(String(16), default="flat", server_default="flat")
+    # Dependants for حق اولاد (Iran); ignored by locales without a child allowance.
+    children: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # پایه سنوات: workers with at least one year's service at the same employer.
+    seniority_eligible: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
 
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     # Client-billing rate per hour (major currency units) — SEPARATE from the

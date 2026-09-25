@@ -645,7 +645,129 @@
       } catch (e) { /* ignore */ }
       await loadPayProfiles();
       await loadPayRuns();
+      await loadPayrollRules();
     }
+
+    // ── Statutory rule sets (read for everyone on this page; edit = super-admin) ──
+    let prRuleSets = [];
+
+    function prRuleSummary(rs) {
+      if (!rs) return `<p style="color:var(--text-muted);">${t('payrollRulesNone')}</p>`;
+      const p = rs.params || {};
+      const cur = p.currency || prCur();
+      const brackets = (p.tax_brackets || []).map(b =>
+        b.upto == null ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%` : `${formatNum(b.upto)}: ${Math.round(b.rate * 100)}%`
+      ).join(' · ');
+      const item = (label, val) => `<div><span style="color:var(--text-muted);">${t(label)}:</span> ${val}</div>`;
+      return `<div style="font-weight:600;margin-bottom:0.3rem;">${escapeHtml(rs.name)} (${escapeHtml(rs.year)}) — ${rs.effective_from} → ${rs.effective_to || '…'}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.25rem 1rem;">
+          ${item('payrollRulesMinWage', `${formatNum(p.min_wage_daily || 0)} ${cur}`)}
+          ${item('payrollRulesHousing', `${formatNum(p.housing_allowance || 0)} ${cur}`)}
+          ${item('payrollRulesGrocery', `${formatNum(p.grocery_allowance || 0)} ${cur}`)}
+          ${item('payrollRulesChild', `${formatNum(p.child_allowance_per_child || 0)} ${cur}`)}
+          ${item('payrollRulesSeniority', `${formatNum(p.seniority_daily || 0)} ${cur}`)}
+          ${item('payrollRulesInsurance', `${Math.round((p.insurance_employee_rate || 0) * 100)}% / ${Math.round((p.insurance_employer_rate || 0) * 100)}%`)}
+          ${item('payrollRulesCeiling', p.insurance_ceiling == null ? '—' : `${formatNum(p.insurance_ceiling)} ${cur}`)}
+          ${item('payrollRulesOvertime', `× ${p.overtime_multiplier || 1}`)}
+        </div>
+        <div style="margin-top:0.3rem;"><span style="color:var(--text-muted);">${t('payrollRulesBrackets')}:</span> ${brackets || '—'}</div>`;
+    }
+
+    function prFillRuleEditor(rs) {
+      if (!rs) return;
+      document.getElementById('pr-rules-name').value = rs.name || '';
+      document.getElementById('pr-rules-from').value = rs.effective_from || '';
+      document.getElementById('pr-rules-to').value = rs.effective_to || '';
+      document.getElementById('pr-rules-json').value = JSON.stringify(rs.params || {}, null, 2);
+    }
+
+    async function loadPayrollRules() {
+      const summary = document.getElementById('pr-rules-summary');
+      if (!summary) return;
+      try {
+        const res = await fetch(API + '/payroll/rules/active');
+        if (!res.ok) { summary.innerHTML = ''; return; }
+        const data = await res.json();
+        summary.innerHTML = prRuleSummary(data.rule_set);
+      } catch (e) { summary.innerHTML = ''; }
+      const admin = document.getElementById('pr-rules-admin');
+      if (!isSuperadmin) { admin.style.display = 'none'; return; }
+      admin.style.display = '';
+      try {
+        const res = await fetch(API + '/payroll/rules');
+        prRuleSets = res.ok ? await res.json() : [];
+      } catch (e) { prRuleSets = []; }
+      const sel = document.getElementById('pr-rules-select');
+      sel.innerHTML = prRuleSets.map(rs =>
+        `<option value="${rs.id}">${escapeHtml(rs.locale.toUpperCase())} ${escapeHtml(rs.year)} — ${escapeHtml(rs.name)}</option>`
+      ).join('');
+      prFillRuleEditor(prRuleSets[0]);
+    }
+
+    document.getElementById('pr-rules-select').addEventListener('change', (e) => {
+      prFillRuleEditor(prRuleSets.find(rs => rs.id === e.target.value));
+    });
+
+    function prReadRuleJson() {
+      try { return JSON.parse(document.getElementById('pr-rules-json').value || '{}'); }
+      catch (e) { showAlert(t('payrollRulesBadJson'), true); return null; }
+    }
+
+    document.getElementById('pr-rules-save').addEventListener('click', async () => {
+      const id = document.getElementById('pr-rules-select').value;
+      const params = prReadRuleJson();
+      if (!id || !params) return;
+      const payload = {
+        name: document.getElementById('pr-rules-name').value.trim() || null,
+        effective_from: document.getElementById('pr-rules-from').value || null,
+        effective_to: document.getElementById('pr-rules-to').value || null,
+        params,
+      };
+      try {
+        const res = await fetch(API + '/payroll/rules/' + encodeURIComponent(id), {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert((data && data.detail) ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : t('payrollRulesSaveFailed'), true); return; }
+        showAlert(t('payrollRulesSaved'));
+        await loadPayrollRules();
+      } catch (e) { showAlert(t('payrollRulesSaveFailed'), true); }
+    });
+
+    document.getElementById('pr-rules-create').addEventListener('click', async () => {
+      const year = document.getElementById('pr-rules-new-year').value.trim();
+      const params = prReadRuleJson();
+      if (!year) { showAlert(t('payrollRulesNeedYear'), true); return; }
+      if (!params) return;
+      const payload = {
+        locale: document.getElementById('pr-rules-new-locale').value,
+        year,
+        name: document.getElementById('pr-rules-name').value.trim() || year,
+        effective_from: document.getElementById('pr-rules-from').value,
+        effective_to: document.getElementById('pr-rules-to').value || null,
+        params,
+      };
+      try {
+        const res = await fetch(API + '/payroll/rules', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert((data && data.detail) ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : t('payrollRulesSaveFailed'), true); return; }
+        showAlert(t('payrollRulesSaved'));
+        document.getElementById('pr-rules-new-year').value = '';
+        await loadPayrollRules();
+      } catch (e) { showAlert(t('payrollRulesSaveFailed'), true); }
+    });
+
+    function prToggleTaxMode() {
+      const statutory = document.getElementById('pr-taxmode').value === 'statutory';
+      document.getElementById('pr-children-wrap').style.display = statutory ? '' : 'none';
+      document.getElementById('pr-seniority-wrap').style.display = statutory ? '' : 'none';
+      document.getElementById('pr-taxmode-hint').style.display = statutory ? '' : 'none';
+      document.getElementById('pr-tax').disabled = statutory;
+      document.getElementById('pr-ss').disabled = statutory;
+    }
+    document.getElementById('pr-taxmode').addEventListener('change', prToggleTaxMode);
 
     async function loadPayProfiles() {
       try {
@@ -663,9 +785,11 @@
             ? `${formatNum(p.hourly_rate)} ${prCur()}/h · ${p.standard_hours}h`
             : `${formatNum(p.base_salary)} ${prCur()}`;
           const tr = document.createElement('tr');
+          const statutory = p.tax_mode === 'statutory';
+          const statutoryCell = `<span title="${t('payrollTaxModeStatutory')}">${t('payrollStatutoryShort')}${p.children ? ` · ${p.children} ${t('payrollChildrenShort')}` : ''}</span>`;
           tr.innerHTML = `<td>${escapeHtml(p.employee_name || '')}</td><td>${t(p.pay_type === 'hourly' ? 'payrollHourly' : 'payrollSalaried')}</td>
-            <td>${pay}</td><td>${(p.income_tax_rate * 100).toFixed(1)}%</td>
-            <td>${(p.social_security_rate * 100).toFixed(1)}%</td><td>${(p.pension_rate * 100).toFixed(1)}%</td>`;
+            <td>${pay}</td><td>${statutory ? statutoryCell : (p.income_tax_rate * 100).toFixed(1) + '%'}</td>
+            <td>${statutory ? t('payrollStatutoryShort') : (p.social_security_rate * 100).toFixed(1) + '%'}</td><td>${(p.pension_rate * 100).toFixed(1)}%</td>`;
           body.appendChild(tr);
         });
       } catch (e) { /* ignore */ }
@@ -684,6 +808,9 @@
         income_tax_rate: parseFloat(document.getElementById('pr-tax').value || '0') / 100,
         social_security_rate: parseFloat(document.getElementById('pr-ss').value || '0') / 100,
         pension_rate: parseFloat(document.getElementById('pr-pension').value || '0') / 100,
+        tax_mode: document.getElementById('pr-taxmode').value,
+        children: parseInt(document.getElementById('pr-children').value || '0', 10),
+        seniority_eligible: document.getElementById('pr-seniority').checked,
       };
       try {
         const res = await fetch(API + '/payroll/profiles', {
@@ -755,13 +882,18 @@
       (run.lines || []).forEach(ln => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${escapeHtml(ln.employee_name)}</td><td>${formatNum(ln.gross)}</td>
+          <td>${formatNum(ln.allowances || 0)}</td>
           <td>${formatNum(ln.income_tax)}</td><td>${formatNum(ln.social_security)}</td>
+          <td>${formatNum(ln.employer_social || 0)}</td>
           <td>${formatNum(ln.pre_tax_deductions)}</td><td>${formatNum(ln.net_pay)}</td>
           <td><button class="btn btn-secondary btn-sm pr-payslip" data-rid="${run.id}" data-eid="${ln.entity_id}">${t('payrollPayslip')}</button></td>`;
         body.appendChild(tr);
       });
       document.getElementById('pr-post-btn').style.display = run.status === 'draft' ? '' : 'none';
       document.getElementById('pr-pay-btn').style.display = run.status === 'posted' ? '' : 'none';
+      const rid = encodeURIComponent(run.id);
+      document.getElementById('pr-ins-csv').href = `${API}/payroll/runs/${rid}/insurance-list.csv`;
+      document.getElementById('pr-tax-csv').href = `${API}/payroll/runs/${rid}/tax-list.csv`;
     }
 
     document.getElementById('pr-post-btn').addEventListener('click', async () => {
@@ -810,6 +942,8 @@
           + `${t('payrollIncomeTax')}: ${formatNum(s.income_tax)} ${cur}\n`
           + `${t('payrollSocial')}: ${formatNum(s.social_security)} ${cur}\n`
           + `${t('payrollDeductions')}: ${formatNum(s.pre_tax_deductions)} ${cur}\n`
+          + (s.allowances ? `${t('payrollAllowances')}: ${formatNum(s.allowances)} ${cur}\n` : '')
+          + (s.employer_social ? `${t('payrollEmployerShare')}: ${formatNum(s.employer_social)} ${cur}\n` : '')
           + `${t('payrollNet')}: ${formatNum(s.net_pay)} ${cur}`;
         await uiConfirm({ title: t('payrollPayslip') + ' — ' + s.employee_name, message: msg, hideCancel: true });
       } catch (err) { /* ignore */ }

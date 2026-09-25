@@ -273,6 +273,8 @@ def _bootstrap_schema_and_seed(strict: bool = False) -> None:
         seed_default_rates_if_empty(db)
         from app.services.tax_rate_service import seed_tax_rates
         seed_tax_rates(db)
+        from app.services.payroll_rules import seed_payroll_rules
+        seed_payroll_rules(db)
     finally:
         db.close()
     ensure_default_company(engine)

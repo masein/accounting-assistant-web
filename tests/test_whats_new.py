@@ -55,11 +55,12 @@ def test_whats_new_for_role_and_last_seen():
     assert out["seen"] is False
     assert [r["version"] for r in out["releases"]] == [rn.CURRENT_RELEASE]
     keys = {h["key"] for h in out["releases"][0]["highlights"]}
-    assert {"per-currency-views", "chat-periods-cash", "balance-sheet-check"} <= keys
+    assert {"payroll-statutory-rules", "ai-invoices-cheques"} <= keys
     # Earlier releases stay in the full history.
     history = rn.whats_new_for("owner", None, include_all=True)
     all_keys = {h["key"] for r in history["releases"] for h in r["highlights"]}
-    assert {"chat-statement", "insights", "whats-new"} <= all_keys
+    assert {"chat-statement", "insights", "whats-new",
+            "per-currency-views", "chat-periods-cash", "balance-sheet-check"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -80,8 +81,11 @@ def test_whats_new_for_role_and_last_seen():
     assert _rel("owner", "2026.09.22")["insights"]["page"] == "dashboard"
     # …and on the current release: SME-only notes are hidden from personal users.
     pcur = {h["key"] for h in rn.whats_new_for("personal", None)["releases"][0]["highlights"]}
-    assert {"per-currency-views", "chat-periods-cash"} <= pcur
-    assert not ({"stricter-checks", "balance-sheet-check", "invoice-credit"} & pcur)
+    assert {"ai-invoices-cheques"} <= pcur
+    assert "payroll-statutory-rules" not in pcur
+    p24 = set(_rel("personal", "2026.09.24"))
+    assert {"per-currency-views", "chat-periods-cash"} <= p24
+    assert not ({"stricter-checks", "balance-sheet-check", "invoice-credit"} & p24)
 
     # An employee only gets the notes meant for everyone.
     emp = rn.whats_new_for("employee", None, include_all=True)

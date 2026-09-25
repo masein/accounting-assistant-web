@@ -52,6 +52,7 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "retained_earnings": "3100",        # Retained earnings (P&L account) — equity
         "dividends_payable": "2750",        # Dividends payable — liability
         "shareholder_current": "2350",      # Shareholders' current/loan account — liability
+        "revaluation_reserve": "3020",      # Revaluation reserve — equity
     },
     "ir": {
         "ar": "1112",
@@ -87,6 +88,7 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         # cross-locale fallback would otherwise reach in an IR chart.
         "dividends_payable": "2145",        # سود سهام پرداختنی — liability
         "shareholder_current": "2155",      # حساب جاری سهامداران — liability
+        "revaluation_reserve": "3150",      # مازاد تجدید ارزیابی دارایی‌ها — equity
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -127,6 +129,7 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "retained_earnings": "Retained earnings",
         "dividends_payable": "Dividends payable",
         "shareholder_current": "Shareholders' current account",
+        "revaluation_reserve": "Revaluation reserve",
     },
     "ir": {
         "ar": "حساب‌ها و اسناد دریافتنی تجاری",
@@ -159,6 +162,7 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "retained_earnings": "سود (زیان) انباشته",
         "dividends_payable": "سود سهام پرداختنی",
         "shareholder_current": "حساب جاری سهامداران",
+        "revaluation_reserve": "مازاد تجدید ارزیابی دارایی‌ها",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])

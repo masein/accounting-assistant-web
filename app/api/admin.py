@@ -244,6 +244,10 @@ class ClosedPeriodRead(BaseModel):
 
 
 class ClosedPeriodUpdate(BaseModel):
+    # An unknown key used to read as "no date" and silently CLEAR the lock
+    # (found 2026-09-25 when a test sent {"closed_through": …}).
+    model_config = {"extra": "forbid"}
+
     closed_period: str | None = None  # ISO date, or empty/null to clear the lock
 
 

@@ -383,3 +383,27 @@ def delete_pushed_entry(source: str, external_id: str, db: Session = Depends(get
         parked.reason = "Deleted upstream"
     db.commit()
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Bank SMS forwarding (roadmap §4.1): a phone automation posts each SMS the
+# bank sends; it lands in the company's SMS-feed statements for review.
+# ---------------------------------------------------------------------------
+class BankSmsPush(BaseModel):
+    text: str | None = Field(None, max_length=20_000)
+    messages: list[str] | None = Field(None, max_length=200)
+
+
+@router.post("/bank-sms", dependencies=[Depends(require_scope("bank_sms:write"))])
+def push_bank_sms(payload: BankSmsPush, db: Session = Depends(get_db)) -> dict:
+    from app.services.bank_sms import ingest
+    if not (payload.text or payload.messages):
+        raise HTTPException(status_code=422, detail="Send the SMS as 'text' or a list in 'messages'.")
+    try:
+        out = ingest(db, payload.messages if payload.messages else payload.text)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    log_audit_event(db, "bank_sms_forward", "bank_statement", entity_id=None,
+                    detail=f"{out['added']} added, {out['duplicates']} already on file, {len(out['unparsed'])} unread")
+    db.commit()
+    return {k: out[k] for k in ("received", "added", "duplicates", "unparsed", "gaps", "statements")}

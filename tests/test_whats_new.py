@@ -81,7 +81,7 @@ def test_whats_new_for_role_and_last_seen():
             "per-currency-views", "chat-periods-cash", "balance-sheet-check",
             "payroll-statutory-rules", "ai-invoices-cheques", "quotes", "invoice-email-reminders",
             "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes", "ai-usage",
-            "seasonal-tax-reports", "uk-mtd"} <= all_keys
+            "seasonal-tax-reports", "uk-mtd", "bank-sms"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -105,8 +105,10 @@ def test_whats_new_for_role_and_last_seen():
     assert _rel("personal", "2026.09.25.4") == {}
     # …from 2026.09.25.5 only the note meant for everyone…
     assert set(_rel("personal", "2026.09.25.5")) == {"two-factor"}
-    # …and nothing from the owner-only AI usage release.
+    # …nothing from the owner-only AI usage release…
     assert _rel("personal", "2026.09.26") == {}
+    # …and the bank-SMS note, which is for them too.
+    assert "bank-sms" in _rel("personal", "2026.09.26.3")
     p25 = set(_rel("personal", "2026.09.25"))
     assert {"ai-invoices-cheques"} <= p25
     assert "payroll-statutory-rules" not in p25

@@ -92,6 +92,16 @@ the mandation test (£50k/£30k/£20k two years earlier), request bodies,
 workbook, deadline reminders. Later: direct HMRC submission (OAuth, fraud
 prevention headers, obligations/periodKey), final declaration.
 
+**§4 — 2026-09-26:** ✅ 4.1 bank SMS capture (#156): a format-agnostic parser
+for Iranian bank SMS (bank by name, direction by keyword or sign, amount vs
+balance vs masked/dashed account numbers, Jalali dates in five forms always
+resolved to the past, تومان → rials, OTP codes ignored); pasted batches split;
+rows filed into monthly SMS-feed statements per bank/account so the usual
+review → approve pipeline applies; exact repeats skipped, balance gaps
+flagged; `POST /bank-sms` (+ preview) and `POST /api/v1/bank-sms` with the new
+`bank_sms:write` key scope for phone automations. Later: statement e-mail
+ingestion, open-banking balances.
+
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as
 data (`payroll_rule_sets`, Iran 1405 + UK 2026/27 seeded, super-admin edits,

@@ -1262,6 +1262,24 @@
         <button type="button" class="btn btn-primary" id="bs-upload-btn" data-i18n="bsUploadBtn">Upload & Parse</button>
       </div>
       <div id="bs-upload-status" style="display:none;margin-bottom:1rem;" class="alert"></div>
+
+      <!-- Bank SMS capture (roadmap §4.1) -->
+      <details id="sms-panel" style="margin:0 0 1rem;">
+        <summary style="cursor:pointer;font-weight:600;" data-i18n="smsTitle">Paste bank SMS</summary>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="smsDesc">Paste the text messages your bank sends — one or many at once. Each becomes a row of that bank's monthly SMS statement below, ready to review and approve like any statement. Messages already filed are skipped.</p>
+        <textarea id="sms-text" rows="6" style="width:100%;" data-i18n-placeholder="smsPlaceholder" placeholder="بانک ملت&#10;برداشت:125,000&#10;حساب:123456789&#10;مانده:1,234,567&#10;0703-13:45"></textarea>
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.4rem;">
+          <button type="button" class="btn btn-primary btn-sm" id="sms-add" data-i18n="smsAdd">Add to statements</button>
+          <span id="sms-preview-note" style="font-size:0.8rem;color:var(--text-muted);"></span>
+        </div>
+        <div id="sms-result" style="margin-top:0.5rem;"></div>
+        <details style="margin-top:0.6rem;">
+          <summary style="cursor:pointer;font-size:0.86rem;" data-i18n="smsAutoTitle">Forward automatically from your phone</summary>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin:0.4rem 0;" data-i18n="smsAutoDesc">Create an API key with the "Forward bank SMS" permission under Settings → API keys, then have an SMS-forwarding app or a phone shortcut send each bank message to this address:</p>
+          <pre id="sms-auto-example" dir="ltr" style="font-size:0.76rem;background:var(--surface-2, #f4f4f5);padding:0.6rem;border-radius:8px;white-space:pre-wrap;"></pre>
+        </details>
+      </details>
+
       <div id="bs-list-wrap">
         <h3 data-i18n="bsRecentStatements">Recent Statements</h3>
         <table class="results-table" id="bs-list-table"><thead><tr>
@@ -2312,6 +2330,7 @@
             <legend style="font-size:0.82rem;" data-i18n="apiKeysScopes">Allowed to</legend>
             <label style="display:flex; gap:0.35rem; align-items:center;"><input type="checkbox" class="apikey-scope" value="time:read" checked> <span data-i18n="apiKeysScopeTimeRead">Read pushed worklogs</span></label>
             <label style="display:flex; gap:0.35rem; align-items:center;"><input type="checkbox" class="apikey-scope" value="time:write" checked> <span data-i18n="apiKeysScopeTimeWrite">Push and delete worklogs</span></label>
+            <label style="display:flex; gap:0.35rem; align-items:center;"><input type="checkbox" class="apikey-scope" value="bank_sms:write"> <span data-i18n="apiKeysScopeBankSms">Forward bank SMS</span></label>
           </fieldset>
           <div style="display:flex; align-items:flex-end;">
             <button type="button" class="btn btn-primary" id="apikey-create-btn" data-i18n="apiKeysGenerate">Generate key</button>

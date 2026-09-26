@@ -319,6 +319,10 @@ _add("PUT", "/invoices/reminder-settings", Perm.SETTINGS_WRITE)
 _reads(["/moadian/settings", "/moadian/invoices", "/moadian/invoices/{invoice_id}/preview"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _add("POST", "/moadian/export", Perm.BOOKS_WRITE)
+# Seasonal filings (TTMS report, VAT return): read-only figures for whoever
+# prepares or reviews the books.
+_reads(["/tax/ir/seasons", "/tax/ir/quarterly", "/tax/ir/quarterly/export", "/tax/ir/vat-return"],
+       frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _add("PATCH", "/moadian/invoices/{invoice_id}", Perm.BOOKS_WRITE)
 _add("PUT", "/moadian/settings", Perm.SETTINGS_WRITE)
 # Recurring invoices: raising invoices on a schedule is a books action.

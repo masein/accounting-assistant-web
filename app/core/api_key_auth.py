@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 SCOPES: dict[str, str] = {
     "time:read": "List worklogs the integration pushed",
     "time:write": "Push and delete worklogs",
+    "bank_sms:write": "Forward bank SMS and notifications (roadmap §4.1)",
 }
 DEFAULT_SCOPES: tuple[str, ...] = ("time:read", "time:write")
 DEFAULT_EXPIRY_DAYS = 365

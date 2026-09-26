@@ -428,6 +428,8 @@ for _m, _p in [
     ("POST", "/brain/bank-statements/{statement_id}/reconcile"),
     ("POST", "/brain/bank-statements/{statement_id}/review"),
     ("POST", "/brain/bank-statements/{statement_id}/approve"),
+    # bank SMS pasted into the SMS-feed statements (roadmap §4.1)
+    ("POST", "/bank-sms"), ("POST", "/bank-sms/preview"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 # Audit views (who did what) — books-level read.

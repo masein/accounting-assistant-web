@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.26.2"
+CURRENT_RELEASE = "2026.09.26.3"
 
 
 @dataclass(frozen=True)
@@ -500,6 +500,30 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«فاکتورها ← MTD بریتانیا»: نُه خانهٔ اظهارنامهٔ VAT برای هر دوره از روی فاکتورها با خروجی CSV؛ و برای خوداشتغالان و موجران، به‌روزرسانی فصلی مالیات بر درآمد در دسته‌بندی‌های HMRC — تجمعی از آوریل، با نگاشت قابل تغییر حساب‌ها، فایل اکسل و ساختار مورد انتظار HMRC. پیش از هر مهلت یادآوری دریافت می‌کنید.",
                     "es": "Facturas → Making Tax Digital (Reino Unido): las nueve casillas de la declaración de IVA de cada periodo a partir de tus facturas, con un CSV para tu software MTD; y, para autónomos y arrendadores, la actualización trimestral del impuesto sobre la renta en las categorías de HMRC, acumulada desde abril, con la asignación de cuentas editable, un Excel y la actualización que espera HMRC. Recibirás avisos antes de cada plazo.",
                     "ar": "الفواتير ← الضرائب الرقمية (المملكة المتحدة): الخانات التسع لإقرار القيمة المضافة لكل فترة من فواتيرك مع ملف CSV لبرنامج MTD؛ وللعاملين لحسابهم والمؤجرين، التحديث الفصلي لضريبة الدخل بفئات HMRC — تراكميًا من أبريل، مع ربط حسابات قابل للتعديل وملف Excel والتحديث الذي تتوقعه HMRC. تصلك تذكيرات قبل كل مهلة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.26.3",
+        date="2026-09-26",
+        highlights=(
+            Highlight(
+                key="bank-sms",
+                page="bank-statements",
+                roles=("owner", "cfo", "accountant", "personal"),
+                locales=("ir",),
+                title={
+                    "en": "Bank SMS straight into your books",
+                    "fa": "پیامک بانکی مستقیم در دفاتر",
+                    "es": "SMS del banco directos a tus libros",
+                    "ar": "رسائل البنك مباشرة إلى دفاترك",
+                },
+                body={
+                    "en": "Bank statements → Paste bank SMS: paste the messages your bank sends (many at once) and each becomes a row of that bank's monthly SMS statement, to review and approve like any statement. Repeats are skipped and a balance that doesn't follow the previous message is flagged. A phone automation can forward them with an API key.",
+                    "fa": "«صورت‌حساب‌های بانکی ← چسباندن پیامک بانکی»: پیامک‌های بانک را (چند تا با هم) بچسبانید تا هر کدام یک سطر از صورت‌حساب پیامکی ماهانهٔ همان بانک شود و مثل هر صورت‌حساب دیگری بررسی و تأیید شود. پیامک تکراری نادیده گرفته می‌شود و مانده‌ای که با پیامک قبلی جور نباشد علامت می‌خورد. با یک کلید API گوشی هم می‌تواند آن‌ها را خودکار بفرستد.",
+                    "es": "Extractos bancarios → Pegar SMS del banco: pega los mensajes que envía tu banco (varios a la vez) y cada uno se convierte en una fila del extracto mensual de SMS de ese banco, para revisar y aprobar como cualquier extracto. Los repetidos se omiten y se avisa si un saldo no cuadra con el mensaje anterior. Un atajo del teléfono puede reenviarlos con una clave API.",
+                    "ar": "كشوف البنك ← لصق رسائل البنك: الصق الرسائل التي يرسلها بنكك (عدة رسائل معًا) لتصبح كل رسالة سطرًا في كشف الرسائل الشهري لذلك البنك، للمراجعة والاعتماد كأي كشف. تُتجاوز المكررة ويُنبَّه على الرصيد الذي لا يتبع الرسالة السابقة. يمكن لاختصار في الهاتف إعادة توجيهها بمفتاح API.",
                 },
             ),
         ),

@@ -929,3 +929,46 @@
         } catch (e) { showAlert('Approve failed.', true); }
       }
     });
+
+    // ═══════ Bank SMS capture (app/services/bank_sms.py) ═══════
+    (function wireBankSms() {
+      const box = document.getElementById('sms-text');
+      if (!box) return;
+      const note = document.getElementById('sms-preview-note');
+      const example = document.getElementById('sms-auto-example');
+      if (example) example.textContent = `POST ${location.origin}/api/v1/bank-sms\nAuthorization: Bearer <API key>\nContent-Type: application/json\n\n{"text": "<the SMS as received>"}`;
+      let timer = null;
+      box.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          const text = box.value.trim();
+          if (!text) { note.textContent = ''; return; }
+          try {
+            const r = await fetch(API + '/bank-sms/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { note.textContent = ''; return; }
+            const ok = (d.messages || []).filter(m => !m.problems.length).length;
+            note.textContent = tf('smsPreview', { ok, n: (d.messages || []).length });
+          } catch (_) { note.textContent = ''; }
+        }, 400);
+      });
+      document.getElementById('sms-add').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const text = box.value.trim();
+        const out = document.getElementById('sms-result');
+        if (!text) return;
+        btn.disabled = true;
+        try {
+          const r = await fetch(API + '/bank-sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { out.innerHTML = `<div class="tfa-note">${escapeHtml(typeof d.detail === 'string' ? d.detail : t('smsFailed'))}</div>`; return; }
+          const parts = [`<div class="tfa-note" style="background:color-mix(in srgb, var(--success, #16a34a) 10%, transparent);border-color:color-mix(in srgb, var(--success, #16a34a) 35%, transparent);">${escapeHtml(tf('smsDone', { added: d.added, dup: d.duplicates }))}</div>`];
+          if ((d.gaps || []).length) parts.push(`<div class="tfa-note">${escapeHtml(tf('smsGaps', { n: d.gaps.length }))}</div>`);
+          if ((d.unparsed || []).length) {
+            parts.push(`<div class="tfa-note"><strong>${escapeHtml(tf('smsUnread', { n: d.unparsed.length }))}</strong><ul style="margin:0.3rem 0 0;padding-inline-start:1.1rem;">${d.unparsed.slice(0, 10).map(u => `<li><span dir="auto">${escapeHtml(u.text.split('\n')[0])}</span> — ${escapeHtml(u.problems.join(', '))}</li>`).join('')}</ul></div>`);
+          }
+          out.innerHTML = parts.join('');
+          if (d.added) { box.value = ''; note.textContent = ''; if (typeof loadBankStatements === 'function') loadBankStatements(); }
+        } catch (_) { out.innerHTML = `<div class="tfa-note">${escapeHtml(t('smsFailed'))}</div>`; } finally { btn.disabled = false; }
+      });
+    })();

@@ -47,6 +47,7 @@ from app.api.purchase_orders import router as purchase_orders_router
 from app.api.recurring import router as recurring_router
 from app.api.reports import router as reports_router
 from app.api.tax_ir import router as tax_ir_router
+from app.api.tax_uk import router as tax_uk_router
 from app.api.time_tracking import router as time_tracking_router
 from app.api.transactions import router as transactions_router
 from app.core.config import settings
@@ -963,6 +964,7 @@ app.include_router(purchase_orders_router, dependencies=_rbac)
 app.include_router(recurring_router, dependencies=_rbac)
 app.include_router(reports_router, dependencies=_rbac)
 app.include_router(tax_ir_router, dependencies=_rbac)
+app.include_router(tax_uk_router, dependencies=_rbac)
 app.include_router(time_tracking_router, dependencies=_rbac)
 app.include_router(transactions_router, dependencies=_rbac)
 
@@ -978,7 +980,7 @@ _GUARDED_PREFIXES = tuple(sorted({
         expenses_router, exports_router, fx_router, invoices_router, invoice_mail_router, manager_reports_router,
         migration_router, moadian_router, notifications_router, payroll_router, personal_router, insights_router,
         commitments_router, petty_cash_router, products_router, purchase_orders_router,
-        quotes_router, recurring_router, recurring_invoices_router, reports_router, tax_ir_router,
+        quotes_router, recurring_router, recurring_invoices_router, reports_router, tax_ir_router, tax_uk_router,
         time_tracking_router, transactions_router,
     ) if r.prefix
 }))

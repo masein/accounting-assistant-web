@@ -398,6 +398,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Compress anything over 1 KB the browser accepts gzip for (roadmap §2.6):
+# the front end is ~1.1 MB of script and CSS, ~270 KB compressed.
+from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
+
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Global API rate limiter: 120 requests per minute per user/IP
 _api_limiter = RateLimiter(max_requests=120, window_seconds=60)
@@ -458,6 +463,13 @@ async def security_headers_middleware(request: Request, call_next):
     # CSP header on HTML pages and API responses
     if "text/html" in response.headers.get("content-type", "") or path.startswith(PROTECTED_API_PREFIXES):
         response.headers["Content-Security-Policy"] = _CSP_POLICY
+    if path.startswith("/static/") and response.status_code in (200, 304):
+        # Pages reference every script and stylesheet as ?v=<content hash>
+        # (render_versioned_html), so a versioned URL can never change: keep
+        # it for a year. A bare URL revalidates against its ETag every time.
+        response.headers["Cache-Control"] = (
+            "public, max-age=31536000, immutable" if request.query_params.get("v") else "no-cache"
+        )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"

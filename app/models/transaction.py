@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,6 +15,13 @@ class Transaction(Base, TenantMixin):
     """Journal entry header. Each transaction has one or more lines (debit/credit)."""
 
     __tablename__ = "transactions"
+    # Every report reads live journals of one company in one currency over a
+    # date range (roadmap §2.6): one index serves them all, and replaced or
+    # undone journals are not in it.
+    __table_args__ = (
+        Index("ix_transactions_live", "company_id", "currency", "date",
+              postgresql_where=text("deleted_at IS NULL"), sqlite_where=text("deleted_at IS NULL")),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     date: Mapped[date] = mapped_column(Date, index=True)

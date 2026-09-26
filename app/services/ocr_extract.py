@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from app.core.observability import observe_llm
+from app.services.ai_usage import AIBudgetExceeded, metered_llm, usage_from_gemini, usage_from_openai
 from pypdf import PdfReader
 
 from app.core.ai_runtime import resolve_active_ai_backend
@@ -418,13 +418,14 @@ async def _gemini_raw(pages: list[tuple[str, str]], model: str, prompt: str) -> 
     for mime, b64 in pages:
         parts.append({"inline_data": {"mime_type": mime, "data": b64}})
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0}}
-    async with observe_llm("gemini", "ocr"), httpx.AsyncClient(timeout=120) as client:
+    async with metered_llm("gemini", model, "ocr") as meter, httpx.AsyncClient(timeout=120) as client:
         r = await client.post(
             url, json=payload,
             headers={"x-goog-api-key": key, "Content-Type": "application/json"},
         )
         r.raise_for_status()
         body = r.json()
+        meter.ok(usage_from_gemini(body), prompt=prompt, output=body.get("candidates"))
     candidates = body.get("candidates") or []
     if not candidates:
         raise OCRExtractError("No OCR output from Gemini")
@@ -452,10 +453,12 @@ async def _openai_vision_raw(pages: list[tuple[str, str]], model: str, prompt: s
         "temperature": 0.0,
         "max_tokens": 4000,
     }
-    async with observe_llm("openai-compatible", "ocr"), httpx.AsyncClient(timeout=120) as client:
+    provider = resolve_active_ai_backend().get("provider") or "openai-compatible"
+    async with metered_llm(provider, model, "ocr") as meter, httpx.AsyncClient(timeout=120) as client:
         r = await client.post(url, json=payload, headers=headers or None)
         r.raise_for_status()
         body = r.json()
+        meter.ok(usage_from_openai(body), prompt=prompt, output=body.get("choices"))
     choices = body.get("choices") or []
     if not choices:
         raise OCRExtractError("No OCR output from model")
@@ -481,12 +484,16 @@ async def _vision_raw(pages: list[tuple[str, str]], prompt: str) -> str:
         for gm in chain:
             try:
                 return await _gemini_raw(pages, gm, prompt)
+            except AIBudgetExceeded:
+                raise  # no fallback model can help: the allowance is used up
             except Exception as e:  # fall through to the next model
                 last_err = e
                 logger.warning("Gemini OCR with %s failed — falling back", gm, exc_info=True)
     fallback = settings.ocr_fallback_model or "gpt-4o"
     try:
         return await _openai_vision_raw(pages, fallback, prompt)
+    except AIBudgetExceeded:
+        raise
     except Exception as e:
         raise OCRExtractError(f"Vision OCR failed: {e}") from (last_err or e)
 

@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.25.5"
+CURRENT_RELEASE = "2026.09.26"
 
 
 @dataclass(frozen=True)
@@ -429,6 +429,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "تنظیمات ← کلیدهای API: برای کلید جدید تعیین کنید چه کاری مجاز است (خواندن یا ارسال کارکرد) و کی منقضی شود — ۹۰ روز، یک سال، دو سال یا هرگز. کلیدهای فعلی کار می‌کنند. دو هفته پیش از انقضای کلید اعلان دریافت می‌کنید.",
                     "es": "Ajustes → Claves API: elige qué puede hacer una clave nueva (leer o enviar registros de trabajo) y cuándo caduca: 90 días, un año, dos años o nunca. Las claves existentes siguen funcionando. Recibirás un aviso dos semanas antes de que caduque una clave.",
                     "ar": "الإعدادات ← مفاتيح API: اختر ما يُسمح للمفتاح الجديد به (قراءة سجلات العمل أو إرسالها) ومتى ينتهي — 90 يومًا أو سنة أو سنتان أو أبدًا. المفاتيح الحالية تستمر في العمل. يصلك إشعار قبل أسبوعين من انتهاء المفتاح.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.26",
+        date="2026-09-26",
+        highlights=(
+            Highlight(
+                key="ai-usage",
+                page="settings",
+                roles=("owner",),
+                title={
+                    "en": "See and cap your AI usage",
+                    "fa": "مشاهده و سقف‌گذاری مصرف هوش مصنوعی",
+                    "es": "Consulta y limita el uso de IA",
+                    "ar": "اطّلع على استخدام الذكاء الاصطناعي وحدّده",
+                },
+                body={
+                    "en": "Settings → AI usage shows how many tokens the AI used in the last 24 hours and 30 days — per user, per use (chat, reading documents, suggestions) and per model — with an estimated cost. You can cap how much each user may use in 24 hours; you are notified at 80% of the company allowance.",
+                    "fa": "«تنظیمات ← مصرف هوش مصنوعی» نشان می‌دهد هوش مصنوعی در ۲۴ ساعت و ۳۰ روز گذشته چند توکن مصرف کرده — به تفکیک کاربر، کاربرد (گفت‌وگو، خواندن اسناد، پیشنهادها) و مدل — همراه با هزینهٔ تخمینی. می‌توانید سقف مصرف هر کاربر در ۲۴ ساعت را تعیین کنید؛ در ۸۰٪ سقف شرکت به شما اطلاع داده می‌شود.",
+                    "es": "Ajustes → Uso de IA muestra cuántos tokens usó la IA en las últimas 24 horas y 30 días —por usuario, por uso (chat, lectura de documentos, sugerencias) y por modelo— con un coste estimado. Puedes limitar lo que cada usuario usa en 24 horas; te avisamos al 80 % del límite de la empresa.",
+                    "ar": "الإعدادات ← استخدام الذكاء الاصطناعي تعرض عدد الرموز التي استخدمها الذكاء الاصطناعي خلال آخر 24 ساعة و30 يومًا — حسب المستخدم والاستخدام (المحادثة، قراءة المستندات، الاقتراحات) والنموذج — مع تكلفة تقديرية. يمكنك تحديد ما يستخدمه كل مستخدم خلال 24 ساعة، ويصلك تنبيه عند 80٪ من حد الشركة.",
                 },
             ),
         ),

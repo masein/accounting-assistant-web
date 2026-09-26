@@ -124,11 +124,10 @@ class _RateLimiter:
         return True
 
 
-# Shared across workers (roadmap §2.2); one global bucket as before (per-user
-# AI budgets are roadmap §2.5).
-from app.core.shared_state import DbRateLimiter as _DbRateLimiter  # noqa: E402
-
-_chat_limiter = _DbRateLimiter("chat", max_requests=10, window_seconds=60)
+# AI endpoints are limited per user and per company, with a 24-hour token
+# budget (app/services/ai_usage.py, roadmap §2.5); the old single global
+# chat bucket let one user lock everybody out.
+from app.services.ai_usage import AIBudgetExceeded, AIRateLimited, guard_ai_request  # noqa: E402
 MAX_ATTACHMENT_SIZE_BYTES = 8 * 1024 * 1024
 ALLOWED_ATTACHMENT_TYPES = {
     "image/jpeg",
@@ -487,6 +486,7 @@ async def ocr_attachment(
     row = db.get(TransactionAttachment, attachment_id)
     if not row:
         raise HTTPException(status_code=404, detail="Attachment not found")
+    guard_ai_request(db)
     try:
         out = await extract_from_attachment(row.file_path, row.content_type)
     except OCRExtractError as e:
@@ -503,12 +503,11 @@ async def chat(
     Conversational flow: send messages (user/assistant history). AI may ask which client,
     which bank account, what for. When it has enough info, returns message + transaction to fill the form.
     """
-    rate_key = "global"
-    if not _chat_limiter.is_allowed(db, rate_key):
-        return ChatResponse(
-            message="You're sending messages too quickly. Please wait a moment before trying again.",
-            transaction=None,
-        )
+    try:
+        guard_ai_request(db)
+    except (AIRateLimited, AIBudgetExceeded) as e:
+        # The chat shows the reason as the assistant's reply.
+        return ChatResponse(message=str(e), transaction=None)
     accounts = db.execute(select(Account).order_by(Account.code)).scalars().all()
     account_list = [{"code": a.code, "name": a.name} for a in accounts]
     if not account_list:
@@ -1232,6 +1231,7 @@ async def suggest_transaction(
     LM Studio suggests date, description, and balanced debit/credit lines. If the chart has no
     fitting account, the AI may suggest new_accounts; they are created and the transaction uses them.
     """
+    guard_ai_request(db)
     accounts = db.execute(select(Account).order_by(Account.code)).scalars().all()
     account_list = [{"code": a.code, "name": a.name} for a in accounts]
     if not account_list:

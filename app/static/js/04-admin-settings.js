@@ -356,8 +356,9 @@
         }
         if (currentRole === 'owner') {
           loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); loadApiKeys();
-          loadAIConfig(); loadAnthropicConfig();
+          loadAIConfig(); loadAnthropicConfig(); loadAIUsage();
         }
+        if (isSuperadmin) loadAILimits();
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
       }
@@ -500,3 +501,134 @@
         }
       }
     }
+
+    // ═══════ AI usage (Settings, owner) and AI limits (super-admin) ═══════
+    // Server: app/services/ai_usage.py — tokens over any 24 hours, 0 = unlimited.
+    function aiTokens(n) {
+      const v = Number(n) || 0;
+      if (v >= 1e6) return (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M';
+      if (v >= 1e3) return Math.round(v / 1e3) + 'k';
+      return String(v);
+    }
+    function aiUsd(n) { const v = Number(n) || 0; return '$' + v.toFixed(v < 1 ? 4 : 2); }
+    function aiMeter(used, budget) {
+      if (!budget) return '';
+      const pct = Math.min(100, Math.round(((Number(used) || 0) / budget) * 100));
+      const cls = pct >= 100 ? 'over' : (pct >= 80 ? 'warn' : '');
+      return `<div class="ai-meter ${cls}" role="img" aria-label="${pct}%"><span style="width:${pct}%"></span></div>`;
+    }
+    function aiPurposeLabel(key) {
+      const k = { chat: 'aiPurposeChat', ocr: 'aiPurposeOcr', suggest: 'aiPurposeSuggest', categorize: 'aiPurposeCategorize' }[key];
+      return k ? t(k) : key;
+    }
+    async function loadAIUsage() {
+      const sum = document.getElementById('ai-usage-summary');
+      if (!sum) return;
+      try {
+        const res = await fetch(API + '/admin/ai-usage?days=30');
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { sum.textContent = d.detail || t('aiUsageLoadFailed'); return; }
+        renderAIUsage(d);
+      } catch (_) { sum.textContent = t('aiUsageLoadFailed'); }
+    }
+    function renderAIUsage(d) {
+      const c = d.company || {};
+      const rpm = d.requests_per_minute || {};
+      document.getElementById('ai-usage-summary').innerHTML = `
+        <div class="ai-usage-stat"><div class="k">${escapeHtml(t('aiUsageCompany24h'))}</div>
+          <div class="v" dir="ltr">${escapeHtml(aiTokens(c.tokens_24h))} / ${c.budget ? escapeHtml(aiTokens(c.budget)) : '∞'}</div>${aiMeter(c.tokens_24h, c.budget)}</div>
+        <div class="ai-usage-stat"><div class="k">${escapeHtml(tf('aiUsageCostPeriod', { days: d.period_days }))}</div>
+          <div class="v" dir="ltr">${escapeHtml(aiUsd(d.cost_usd_period))}</div>
+          <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem;">${escapeHtml(t('aiUsageCostNote'))}</div></div>
+        <div class="ai-usage-stat"><div class="k">${escapeHtml(t('aiUsageRate'))}</div>
+          <div class="v" dir="ltr">${escapeHtml(String(rpm.user || '∞'))} · ${escapeHtml(String(rpm.company || '∞'))}</div>
+          <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem;">${escapeHtml(t('aiUsageRateHint'))}</div></div>`;
+      const inp = document.getElementById('ai-user-budget');
+      if (inp) {
+        inp.value = d.user_budget_is_default ? '' : String(d.user_budget);
+        inp.placeholder = d.user_budget_is_default ? String(d.user_budget) : '';
+      }
+      const hint = document.getElementById('ai-user-budget-hint');
+      if (hint) hint.textContent = d.user_budget_is_default
+        ? tf('aiUsageDefaultHint', { n: d.user_budget ? aiTokens(d.user_budget) : '∞' })
+        : t('aiUsageZeroHint');
+      const rows = d.users || [];
+      document.getElementById('ai-usage-users').innerHTML = rows.length ? `
+        <table class="results-table" style="font-size:0.84rem;">
+          <thead><tr><th>${escapeHtml(t('usersUsername'))}</th><th>${escapeHtml(t('aiUsage24h'))}</th>
+            <th>${escapeHtml(tf('aiUsagePeriodTokens', { days: d.period_days }))}</th><th>${escapeHtml(t('aiUsageRequests'))}</th><th>${escapeHtml(t('aiUsageCost'))}</th></tr></thead>
+          <tbody>${rows.map(u => `<tr><td>${escapeHtml(u.username)}</td>
+            <td dir="ltr">${escapeHtml(aiTokens(u.tokens_24h))}${d.user_budget ? ' / ' + escapeHtml(aiTokens(d.user_budget)) : ''}${aiMeter(u.tokens_24h, d.user_budget)}</td>
+            <td dir="ltr">${escapeHtml(aiTokens(u.tokens_period))}</td><td dir="ltr">${escapeHtml(String(u.requests_period))}</td>
+            <td dir="ltr">${escapeHtml(aiUsd(u.cost_usd_period))}</td></tr>`).join('')}</tbody>
+        </table>` : `<p class="empty-state" style="padding:0.4rem;">${escapeHtml(t('aiUsageNone'))}</p>`;
+      const table = (title, list, label) => `
+        <div style="flex:1 1 18rem;"><h3 style="font-size:0.9rem;margin:0.4rem 0;">${escapeHtml(title)}</h3>
+          <table class="results-table" style="font-size:0.82rem;"><thead><tr><th></th><th>${escapeHtml(t('aiUsageTokens'))}</th><th>${escapeHtml(t('aiUsageCalls'))}</th><th>${escapeHtml(t('aiUsageCost'))}</th></tr></thead>
+          <tbody>${(list || []).map(r => `<tr><td>${escapeHtml(label(r.key))}</td><td dir="ltr">${escapeHtml(aiTokens(r.tokens))}</td><td dir="ltr">${escapeHtml(String(r.calls))}</td>
+            <td dir="ltr">${r.unpriced_calls && r.unpriced_calls === r.calls ? escapeHtml(t('aiUsageUnpriced')) : escapeHtml(aiUsd(r.cost_usd))}</td></tr>`).join('')}</tbody></table></div>`;
+      document.getElementById('ai-usage-breakdown').innerHTML = (d.by_purpose || []).length
+        ? table(t('aiUsageByPurpose'), d.by_purpose, aiPurposeLabel) + table(t('aiUsageByModel'), d.by_model, (k) => k)
+        : '';
+    }
+    (function wireAIUsage() {
+      const btn = document.getElementById('ai-user-budget-save');
+      if (btn) btn.addEventListener('click', async () => {
+        const raw = (document.getElementById('ai-user-budget').value || '').trim();
+        const v = raw === '' ? null : Number(raw);
+        if (v !== null && (!Number.isFinite(v) || v < 0)) { showAlert(t('aiUsageBadNumber'), true); return; }
+        btn.disabled = true;
+        try {
+          const res = await fetch(API + '/admin/ai-usage/user-budget', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_daily_tokens: v === null ? null : Math.round(v) }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(d.detail || t('aiUsageSaveFailed'), true); return; }
+          renderAIUsage(d);
+          showAlert(t('aiUsageSaved'));
+        } catch (_) { showAlert(t('aiUsageSaveFailed'), true); } finally { btn.disabled = false; }
+      });
+    })();
+
+    async function loadAILimits() {
+      const card = document.getElementById('ai-limits-card');
+      if (!card) return;
+      try {
+        const res = await fetch(API + '/admin/ai-limits');
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { card.style.display = 'none'; return; }
+        card.style.display = '';
+        document.getElementById('ai-lim-company').value = d.company_daily_tokens;
+        document.getElementById('ai-lim-user').value = d.user_daily_tokens;
+        document.getElementById('ai-lim-user-rpm').value = d.user_requests_per_minute;
+        document.getElementById('ai-lim-company-rpm').value = d.company_requests_per_minute;
+        document.getElementById('ai-lim-pricing').value = JSON.stringify(d.pricing || {}, null, 1);
+      } catch (_) { card.style.display = 'none'; }
+    }
+    (function wireAILimits() {
+      const btn = document.getElementById('ai-lim-save');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        const status = document.getElementById('ai-lim-status');
+        let pricing;
+        try { pricing = JSON.parse(document.getElementById('ai-lim-pricing').value || '{}'); }
+        catch (_) { status.textContent = t('aiLimitsBadJson'); return; }
+        const num = (id) => Math.max(0, Math.round(Number(document.getElementById(id).value) || 0));
+        btn.disabled = true;
+        try {
+          const res = await fetch(API + '/admin/ai-limits', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              company_daily_tokens: num('ai-lim-company'), user_daily_tokens: num('ai-lim-user'),
+              user_requests_per_minute: num('ai-lim-user-rpm'), company_requests_per_minute: num('ai-lim-company-rpm'),
+              pricing,
+            }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { status.textContent = (typeof d.detail === 'string' ? d.detail : t('aiUsageSaveFailed')); return; }
+          status.textContent = t('aiUsageSaved');
+          loadAILimits();
+        } catch (_) { status.textContent = t('aiUsageSaveFailed'); } finally { btn.disabled = false; }
+      });
+    })();

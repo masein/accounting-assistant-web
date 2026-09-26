@@ -118,6 +118,34 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db), _=Depe
     return _serialize(db, company)
 
 
+class CompanyAIBudget(BaseModel):
+    # tokens over any 24 hours for the whole company; 0 = unlimited, None = platform default
+    daily_tokens: int | None = Field(None, ge=0, le=100_000_000_000)
+
+
+@router.get("/ai-usage")
+def companies_ai_usage(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> list[dict]:
+    """Every company's AI use (24 hours, 30 days, estimated cost) and budget."""
+    from app.services.ai_usage import platform_summary
+    return platform_summary(db)
+
+
+@router.put("/{company_id}/ai-budget")
+def set_company_ai_budget(company_id: UUID, payload: CompanyAIBudget, db: Session = Depends(get_db),
+                          _=Depends(require_superadmin)) -> dict:
+    with tenant_bypass():
+        company = db.get(Company, company_id)
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+        before = company.ai_daily_token_budget
+        company.ai_daily_token_budget = payload.daily_tokens
+        log_audit_event(db, action="update", entity_type="ai_budget", entity_id=str(company.id),
+                        detail=_json.dumps({"company_daily_tokens": payload.daily_tokens, "was": before}))
+        db.commit()
+    from app.services.ai_usage import platform_summary
+    return next(r for r in platform_summary(db) if r["company_id"] == str(company_id))
+
+
 @router.patch("/{company_id}")
 def update_company(company_id: UUID, payload: CompanyPatch, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
     with tenant_bypass():

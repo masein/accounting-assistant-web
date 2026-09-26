@@ -54,6 +54,10 @@
         const res = await fetch(API + '/admin/companies');
         const data = await res.json().catch(() => []);
         if (!res.ok || !Array.isArray(data)) { tbody.innerHTML = ''; return; }
+        // AI use per company (24 h against the budget) — optional, never blocks the list.
+        const aiRes = await fetch(API + '/admin/companies/ai-usage').catch(() => null);
+        const aiRows = aiRes && aiRes.ok ? await aiRes.json().catch(() => []) : [];
+        const ai = Object.fromEntries((Array.isArray(aiRows) ? aiRows : []).map(r => [r.company_id, r]));
         tbody.innerHTML = data.map(c => {
           const suspended = c.status === 'suspended';
           const toggleLabel = suspended ? t('companiesReactivate') : t('companiesSuspend');
@@ -68,7 +72,9 @@
             <td>${escapeHtml(c.base_currency)}</td>
             <td>${escapeHtml(c.login_username || '-')}</td>
             <td>${escapeHtml(suspended ? t('companiesStatusSuspended') : t('companiesStatusActive'))}</td>
+            <td dir="ltr">${ai[c.id] ? escapeHtml(aiTokens(ai[c.id].tokens_24h) + ' / ' + (ai[c.id].budget ? aiTokens(ai[c.id].budget) : '∞') + (ai[c.id].budget_is_default ? '' : ' *')) : '—'}</td>
             <td>
+              <button type="button" class="btn btn-secondary btn-sm co-ai" data-id="${escapeHtml(c.id)}" data-budget="${ai[c.id] && !ai[c.id].budget_is_default ? escapeHtml(String(ai[c.id].budget)) : ''}">${escapeHtml(t('companiesAiBudget'))}</button>
               <button type="button" class="btn btn-secondary btn-sm co-toggle" data-id="${escapeHtml(c.id)}" data-status="${nextStatus}">${escapeHtml(toggleLabel)}</button>
               <button type="button" class="btn btn-secondary btn-sm co-reset" data-id="${escapeHtml(c.id)}">${escapeHtml(t('companiesResetPw'))}</button>
             </td>
@@ -123,6 +129,24 @@
       if (tbody) tbody.addEventListener('click', async (e) => {
         const toggle = e.target.closest('.co-toggle');
         const reset = e.target.closest('.co-reset');
+        const aiBtn = e.target.closest('.co-ai');
+        if (aiBtn) {
+          const raw = await uiPrompt({ title: t('companiesAiBudget'), message: t('companiesAiBudgetPrompt'), value: aiBtn.dataset.budget || '' });
+          if (raw === null) return;
+          const trimmed = String(raw).trim();
+          const daily = trimmed === '' ? null : Number(trimmed.replace(/[,\s]/g, ''));
+          if (daily !== null && (!Number.isFinite(daily) || daily < 0)) { showAlert(t('aiUsageBadNumber'), true); return; }
+          try {
+            const res = await fetch(API + '/admin/companies/' + aiBtn.dataset.id + '/ai-budget', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ daily_tokens: daily === null ? null : Math.round(daily) }),
+            });
+            if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('companiesUpdateFailed'), true); return; }
+            showAlert(t('companiesUpdated'));
+            loadCompanies();
+          } catch (_) { showAlert(t('companiesUpdateFailed'), true); }
+          return;
+        }
         if (toggle) {
           const id = toggle.getAttribute('data-id');
           const status = toggle.getAttribute('data-status');

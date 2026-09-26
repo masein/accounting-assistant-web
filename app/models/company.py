@@ -29,4 +29,9 @@ class Company(Base):
     # Registered/authorised share capital (minor units) — raised by capital
     # increases and paid-in contributions; surfaced on the cap table.
     registered_capital: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    # AI token budgets over any 24 hours (app/services/ai_usage.py). NULL =
+    # the platform default; 0 = unlimited. The company budget is set by the
+    # super-admin, the per-user one by the company's owner.
+    ai_daily_token_budget: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ai_user_daily_token_budget: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

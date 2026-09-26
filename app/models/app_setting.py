@@ -27,7 +27,7 @@ from app.db.tenant import TenantMixin
 # company must skip these: moving the platform AI config into a company either
 # hijacks it or, once that company already has a copy, violates
 # uq_app_settings_company_key and crash-loops the boot (found 2026-09-25).
-PLATFORM_SETTING_KEYS: frozenset[str] = frozenset({"ai_config"})
+PLATFORM_SETTING_KEYS: frozenset[str] = frozenset({"ai_config", "ai_limits"})
 
 
 class AppSetting(Base, TenantMixin):

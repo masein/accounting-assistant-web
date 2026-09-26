@@ -121,6 +121,14 @@ def _reset_auth_limiters():
 
 
 @pytest.fixture(autouse=True)
+def _ai_usage_to_test_db(monkeypatch):
+    """The AI usage ledger writes through its own session: into the test
+    database, never the dev one (app/services/ai_usage.py)."""
+    from app.services import ai_usage
+    monkeypatch.setattr(ai_usage, "_session_factory", lambda: _TestSession)
+
+
+@pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
     """No test may open a real network connection. The OCR path used to post
     test images to the configured vision provider (with the developer's key
@@ -147,7 +155,7 @@ def _no_real_ai_calls(monkeypatch):
     shows when the backend is down; tests that need a reply mock above this."""
     from app.services import ai_suggest
 
-    async def _offline(url, payload, base, headers=None):
+    async def _offline(url, payload, base, headers=None, **_kw):
         raise ai_suggest.AISuggestError("AI backend is disabled in tests.")
 
     monkeypatch.setattr(ai_suggest, "_post_lm_studio", _offline)

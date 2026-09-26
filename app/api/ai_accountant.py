@@ -392,6 +392,11 @@ async def chat(
         if intake is not None:
             intake_context = "\n\n" + intake.context_text if intake.context_text else ""
 
+    # From here on the turn uses the AI (OCR, statement vision, the model
+    # loop): per-user / per-company limits and the 24-hour token budget.
+    from app.services.ai_usage import guard_ai_request
+    guard_ai_request(db)
+
     ocr_context = ""
     ocr_amounts: list[int] = []
     if ocr_ids:

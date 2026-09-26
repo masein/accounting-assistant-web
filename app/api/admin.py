@@ -148,6 +148,106 @@ def patch_ai_config(payload: AIConfigPatch, db: Session = Depends(get_db), _=Dep
     return result
 
 
+# --- AI usage and limits (app/services/ai_usage.py, roadmap §2.5) ---------------
+class AIUserBudgetPayload(BaseModel):
+    # tokens per user over any 24 hours; 0 = unlimited, None = platform default
+    user_daily_tokens: int | None = Field(None, ge=0, le=10_000_000_000)
+
+
+class AILimitsPayload(BaseModel):
+    company_daily_tokens: int = Field(ge=0, le=100_000_000_000)
+    user_daily_tokens: int = Field(ge=0, le=10_000_000_000)
+    user_requests_per_minute: int = Field(ge=0, le=10_000)
+    company_requests_per_minute: int = Field(ge=0, le=100_000)
+    # {model prefix: [input, output, cached input]} in USD per million tokens
+    pricing: dict[str, list[float]] = Field(default_factory=dict)
+
+
+@router.get("/ai-usage")
+def ai_usage(days: int = 30, db: Session = Depends(get_db),
+             caller: SessionUser = Depends(get_current_user)) -> dict:
+    """This company's AI use: the last 24 hours against its budgets, per
+    user, and the last ``days`` days by purpose, model and day."""
+    from app.services.ai_usage import company_summary
+    cid = _caller_company_uuid(caller)
+    if cid is None:
+        raise HTTPException(status_code=400, detail="No company in this session")
+    return company_summary(db, cid, days=max(1, min(int(days), 365)))
+
+
+@router.put("/ai-usage/user-budget")
+def set_ai_user_budget(payload: AIUserBudgetPayload, db: Session = Depends(get_db),
+                       caller: SessionUser = Depends(get_current_user)) -> dict:
+    """The owner sets how many AI tokens each user of the company may use in
+    24 hours (the company budget, set by the platform, still caps the total)."""
+    from app.db.tenant import tenant_bypass
+    from app.models.company import Company
+    from app.services.ai_usage import company_summary
+    cid = _caller_company_uuid(caller)
+    if cid is None:
+        raise HTTPException(status_code=400, detail="No company in this session")
+    with tenant_bypass():
+        company = db.get(Company, cid)
+    if company is None:
+        raise HTTPException(status_code=404, detail="Company not found")
+    before = company.ai_user_daily_token_budget
+    company.ai_user_daily_token_budget = payload.user_daily_tokens
+    log_audit_event(db, action="update", entity_type="ai_budget", entity_id=str(cid),
+                    detail=_json.dumps({"user_daily_tokens": payload.user_daily_tokens, "was": before}))
+    db.commit()
+    return company_summary(db, cid)
+
+
+def _ai_limits_read(db: Session) -> dict:
+    from app.services.ai_usage import DEFAULT_LIMITS, DEFAULT_PRICING, load_settings
+    cur = load_settings(db)
+    return {
+        **{k: cur[k] for k in DEFAULT_LIMITS},
+        "pricing": {k: list(v) for k, v in sorted(cur["pricing"].items())},
+        "defaults": {**DEFAULT_LIMITS, "pricing": {k: list(v) for k, v in DEFAULT_PRICING.items()}},
+        "note": "Tokens are prompt + completion over any 24 hours; 0 = unlimited. "
+                "Prices are USD per million tokens [input, output, cached input], longest model-prefix wins.",
+    }
+
+
+@router.get("/ai-limits")
+def get_ai_limits(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+    return _ai_limits_read(db)
+
+
+@router.put("/ai-limits")
+def put_ai_limits(payload: AILimitsPayload, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+    from sqlalchemy import select as _sel
+
+    from app.models.app_setting import AppSetting
+    from app.services.ai_usage import LIMITS_KEY
+    pricing: dict[str, list[float]] = {}
+    for model, price in payload.pricing.items():
+        name = (model or "").strip().lower()
+        if not name or len(name) > 128:
+            raise HTTPException(status_code=422, detail=f"Bad model name {model!r}")
+        if len(price) not in (2, 3) or any((p is None or p < 0 or p > 10_000) for p in price):
+            raise HTTPException(status_code=422, detail=f"Price for {name} must be [input, output] or "
+                                                        "[input, output, cached], each 0–10000 USD per million tokens")
+        pricing[name] = [float(p) for p in price]
+    from app.db.tenant import tenant_bypass
+    value = _json.dumps({**payload.model_dump(exclude={"pricing"}), "pricing": pricing})
+    # A platform row: found and written with tenant filtering and stamping off.
+    with tenant_bypass():
+        row = db.execute(_sel(AppSetting).where(AppSetting.key == LIMITS_KEY,
+                                                AppSetting.company_id.is_(None))).scalars().first()
+        if row is None:
+            row = AppSetting(key=LIMITS_KEY, value=value, company_id=None)
+            db.add(row)
+        else:
+            row.value = value
+        db.flush()
+    log_audit_event(db, action="update", entity_type="ai_limits", entity_id="platform",
+                    detail=_json.dumps({**payload.model_dump(exclude={"pricing"}), "priced_models": sorted(pricing)}))
+    db.commit()
+    return _ai_limits_read(db)
+
+
 SUPPORTED_CHAT_SHAPES = ("anthropic", "openai")
 
 

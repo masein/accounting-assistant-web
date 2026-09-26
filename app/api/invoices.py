@@ -412,6 +412,8 @@ async def ocr_import_invoice(
         raise HTTPException(status_code=400, detail="File too large. Max size is 10 MB.")
     from app.core.file_validation import validate_file_magic
     validate_file_magic(raw, content_type)  # the label must match the bytes
+    from app.services.ai_usage import guard_ai_request
+    guard_ai_request(db)
 
     OCR_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     # Extension from the validated type, never from the client's filename.

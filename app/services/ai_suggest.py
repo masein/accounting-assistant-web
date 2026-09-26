@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from typing import Any
 
 import httpx
-from app.core.observability import observe_llm
+from app.services.ai_usage import metered_llm, usage_from_openai
 
 from app.core.ai_runtime import resolve_active_ai_backend
 from app.core.config import settings
@@ -270,19 +270,26 @@ def _coerce_legacy_transaction_shape(transaction: dict[str, Any]) -> dict[str, A
     }
 
 
-async def _post_lm_studio(url: str, payload: dict[str, Any], base: str, headers: dict[str, str] | None = None) -> dict[str, Any]:
+async def _post_lm_studio(url: str, payload: dict[str, Any], base: str, headers: dict[str, str] | None = None,
+                          *, purpose: str = "suggest") -> dict[str, Any]:
     """
     POST to LM Studio with retries on timeout, connection errors, and 503/429.
     Raises AISuggestError with a clear message after retries are exhausted.
+    Every attempt is metered (app/services/ai_usage.py) under ``purpose``.
     """
     last_error: Exception | None = None
+    provider = resolve_active_ai_backend().get("provider") or "openai-compatible"
+    model = str(payload.get("model") or "")
     for attempt in range(LM_STUDIO_MAX_ATTEMPTS):
         try:
-            async with observe_llm("openai-compatible", "suggest"), \
+            async with metered_llm(provider, model, purpose) as meter, \
                     httpx.AsyncClient(timeout=LM_STUDIO_TIMEOUT) as client:
                 r = await client.post(url, json=payload, headers=headers or None)
                 r.raise_for_status()
-                return r.json()
+                body = r.json()
+                meter.ok(usage_from_openai(body), prompt=payload.get("messages"),
+                         output=((body.get("choices") or [{}])[0].get("message") or {}).get("content"))
+                return body
         except httpx.TimeoutException as e:
             last_error = e
             if attempt < LM_STUDIO_MAX_ATTEMPTS - 1:
@@ -890,12 +897,12 @@ async def chat_turn(
         "temperature": 0.2,
     }
     try:
-        data = await _post_lm_studio(url, payload, base, headers=headers)
+        data = await _post_lm_studio(url, payload, base, headers=headers, purpose="chat")
     except AISuggestError:
         # Retry once without image blocks for text-only models.
         if attachment_context:
             payload["messages"] = _build_chat_messages(system, messages, attachment_context, include_images=False)
-            data = await _post_lm_studio(url, payload, base, headers=headers)
+            data = await _post_lm_studio(url, payload, base, headers=headers, purpose="chat")
         else:
             raise
     choices = data.get("choices") or []
@@ -1293,7 +1300,7 @@ async def parse_transaction_edit_intent(messages: list[dict[str, str]]) -> dict[
         "temperature": 0.0,
     }
     try:
-        data = await _post_lm_studio(_chat_completions_url(base), payload, base, headers=headers)
+        data = await _post_lm_studio(_chat_completions_url(base), payload, base, headers=headers, purpose="chat")
         choices = data.get("choices") or []
         if not choices:
             return _fallback_edit_intent(messages)

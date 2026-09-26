@@ -356,6 +356,34 @@
           <a class="btn btn-secondary btn-sm" id="mtd-download" href="#" download data-i18n="mtdDownload">Download CSV</a>
         </div>
         <div id="mtd-return" style="margin-top:0.6rem;"></div>
+
+        <h3 style="font-size:0.95rem;margin:1.1rem 0 0.3rem;" data-i18n="mtdItsaTitle">Income tax: quarterly updates</h3>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0 0 0.5rem;" data-i18n="mtdItsaDesc">For sole traders and landlords: income and expenses in HMRC's categories, cumulative from the start of the tax year, due on the 7th after each quarter. Check how each account is mapped; download the figures and the update HMRC expects.</p>
+        <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
+          <div><label for="mtd-source" data-i18n="mtdSource">These books are</label>
+            <select id="mtd-source">
+              <option value="none" data-i18n="mtdSourceNone">Not used for MTD income tax</option>
+              <option value="self_employment" data-i18n="mtdSourceSe">A self-employment business</option>
+              <option value="uk_property" data-i18n="mtdSourceProperty">A UK property business</option>
+            </select></div>
+          <div><label for="mtd-basis" data-i18n="mtdBasis">Quarters</label>
+            <select id="mtd-basis">
+              <option value="standard" data-i18n="mtdBasisStandard">Standard (6 Apr – 5 Jul …)</option>
+              <option value="calendar" data-i18n="mtdBasisCalendar">Calendar (1 Apr – 30 Jun …)</option>
+            </select></div>
+          <div><label for="mtd-itsa-year" data-i18n="mtdTaxYear">Tax year</label><select id="mtd-itsa-year"></select></div>
+          <div><label for="mtd-itsa-quarter" data-i18n="mtdQuarter">Quarter</label><select id="mtd-itsa-quarter"></select></div>
+          <a class="btn btn-secondary btn-sm" id="mtd-itsa-download" href="#" download data-i18n="ttmsDownload">Download Excel</a>
+          <button type="button" class="btn btn-secondary btn-sm" id="mtd-itsa-json" data-i18n="mtdShowBody">Show HMRC update</button>
+        </div>
+        <div id="mtd-itsa-mandation" style="margin-top:0.5rem;"></div>
+        <div id="mtd-itsa" style="margin-top:0.5rem;"></div>
+        <pre id="mtd-itsa-body" dir="ltr" style="display:none;max-height:20rem;overflow:auto;font-size:0.76rem;background:var(--surface-2, #f4f4f5);padding:0.6rem;border-radius:8px;"></pre>
+        <details id="mtd-mapping" style="margin-top:0.6rem;">
+          <summary style="cursor:pointer;font-size:0.88rem;" data-i18n="mtdMapping">Account → HMRC category</summary>
+          <div id="mtd-mapping-table" style="margin-top:0.4rem;"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="mtd-mapping-save" data-i18n="aiSave" style="margin-top:0.4rem;">Save</button>
+        </details>
       </details>
 
       <!-- Seasonal filings: TTMS (ماده ۱۶۹ مکرر) and the VAT return — Iranian companies -->

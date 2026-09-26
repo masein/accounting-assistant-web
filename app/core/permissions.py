@@ -324,7 +324,8 @@ _add("POST", "/moadian/export", Perm.BOOKS_WRITE)
 _reads(["/tax/ir/seasons", "/tax/ir/quarterly", "/tax/ir/quarterly/export", "/tax/ir/vat-return"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 # UK Making Tax Digital: same readers; the MTD settings are company settings.
-_reads(["/tax/uk/settings", "/tax/uk/vat/periods", "/tax/uk/vat/return", "/tax/uk/vat/return/export"],
+_reads(["/tax/uk/settings", "/tax/uk/vat/periods", "/tax/uk/vat/return", "/tax/uk/vat/return/export",
+        "/tax/uk/itsa/quarters", "/tax/uk/itsa/update", "/tax/uk/itsa/update/export", "/tax/uk/itsa/categories"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _add("PUT", "/tax/uk/settings", Perm.SETTINGS_WRITE)
 _add("PATCH", "/moadian/invoices/{invoice_id}", Perm.BOOKS_WRITE)

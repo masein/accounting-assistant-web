@@ -103,6 +103,36 @@ def _api_key_expiry(db: Session, seen: set[str], today: date) -> None:
 
 
 UK_VAT_WARN_DAYS = 10
+UK_ITSA_WARN_DAYS = 10
+
+
+def _uk_itsa_deadline(db: Session, seen: set[str], today: date) -> None:
+    """UK companies keeping MTD for Income Tax records: the quarterly update
+    for the quarter that last ended is due on the 7th (app/services/uk_mtd)."""
+    try:
+        from app.services.fx_service import _current_company_row
+        row = _current_company_row(db)
+    except Exception:
+        row = None
+    if row is None or (getattr(row, "locale", "") or "").lower() != "uk":
+        return
+    from app.services.uk_mtd import periods as P
+    from app.services.uk_mtd import settings as S
+    conf = S.get_settings(db)
+    if conf.get("income_source") not in ("self_employment", "uk_property"):
+        return
+    basis = conf.get("period_basis") or "standard"
+    current = P.itsa_quarter_of(today, basis)
+    prev = P.ItsaQuarter(current.tax_year, current.quarter - 1, basis) if current.quarter > 1 \
+        else P.ItsaQuarter(current.tax_year - 1, 4, basis)
+    left = (prev.deadline - today).days
+    if 0 <= left <= UK_ITSA_WARN_DAYS:
+        _upsert(db, seen, dedupe_key=f"uk-itsa-{prev.tax_year}-{prev.quarter}", kind="tax_filing",
+                level="high" if left <= 2 else "warning",
+                title=f"MTD quarterly update ({P.tax_year_label(prev.tax_year)} Q{prev.quarter}) due "
+                      + ("today" if left == 0 else f"in {left} day(s)"),
+                message="Figures by HMRC category and the update file: Invoices → Making Tax Digital.",
+                link_page="invoices", due_date=prev.deadline)
 
 
 def _uk_vat_deadline(db: Session, seen: set[str], today: date) -> None:
@@ -276,8 +306,9 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
     # --- Iranian seasonal filings (VAT return, TTMS) ------------------------------
     _tax_filing_deadlines(db, seen, today)
 
-    # --- UK MTD VAT return ----------------------------------------------------------
+    # --- UK MTD VAT return and income tax quarterly update ----------------------------
     _uk_vat_deadline(db, seen, today)
+    _uk_itsa_deadline(db, seen, today)
 
     # --- payroll paydays ---------------------------------------------------
     runs = db.execute(

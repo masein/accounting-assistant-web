@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.26.1"
+CURRENT_RELEASE = "2026.09.26.2"
 
 
 @dataclass(frozen=True)
@@ -476,6 +476,30 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«فاکتورها ← گزارش‌های فصلی مالیاتی»: یک فصل را انتخاب کنید تا فروش و خرید به تفکیک طرف معامله برای گزارش معاملات فصلی (تا ۴۵ روز پس از فصل) و ارقام اظهارنامهٔ ارزش افزوده (تا ۱۵ روز پس از فصل) را ببینید که با هم تطبیق داده می‌شوند. فایل اکسل را برای TTMS دانلود کنید؛ طرف‌هایی که شناسه ملی، کد اقتصادی، کد پستی، نشانی یا تلفن ندارند فهرست می‌شوند. فروش‌های پذیرفته‌شده در سامانه مودیان کنار گذاشته می‌شوند. پیش از هر مهلت یادآوری دریافت می‌کنید.",
                     "es": "Facturas → Informes fiscales trimestrales: elige un trimestre del calendario persa para ver ventas y compras por contraparte para el informe TTMS (45 días tras el trimestre) y las cifras de la declaración de IVA (15 días tras el trimestre), cotejadas entre sí. Descarga el Excel para TTMS; se listan las contrapartes sin identificación nacional, código económico, código postal, dirección o teléfono. Las ventas aceptadas en سامانه مودیان quedan fuera. Recibirás un aviso antes de cada plazo.",
                     "ar": "الفواتير ← التقارير الضريبية الفصلية: اختر فصلًا لترى المبيعات والمشتريات حسب الطرف المقابل لتقرير المعاملات الفصلي (خلال 45 يومًا من نهاية الفصل) وأرقام إقرار القيمة المضافة (خلال 15 يومًا)، مع مطابقتها. نزّل ملف Excel لـ TTMS؛ تُدرج الأطراف التي تنقصها الهوية الوطنية أو الرمز الاقتصادي أو الرمز البريدي أو العنوان أو الهاتف. المبيعات المقبولة في سامانه مودیان مستبعدة. يصلك تذكير قبل كل مهلة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.26.2",
+        date="2026-09-26",
+        highlights=(
+            Highlight(
+                key="uk-mtd",
+                page="invoices",
+                roles=_SME_BOOKS,
+                locales=("uk",),
+                title={
+                    "en": "Making Tax Digital: VAT boxes and income tax updates",
+                    "fa": "MTD بریتانیا: خانه‌های VAT و به‌روزرسانی‌های مالیات بر درآمد",
+                    "es": "Making Tax Digital: casillas de IVA y actualizaciones del impuesto sobre la renta",
+                    "ar": "الضرائب الرقمية: خانات القيمة المضافة وتحديثات ضريبة الدخل",
+                },
+                body={
+                    "en": "Invoices → Making Tax Digital (UK): the nine VAT return boxes for each VAT period from your invoices, with a CSV for your MTD software; and, for sole traders and landlords, the quarterly income tax update in HMRC's categories — cumulative from April, with the account mapping you can change, an Excel file and the update HMRC expects. Reminders arrive before each deadline.",
+                    "fa": "«فاکتورها ← MTD بریتانیا»: نُه خانهٔ اظهارنامهٔ VAT برای هر دوره از روی فاکتورها با خروجی CSV؛ و برای خوداشتغالان و موجران، به‌روزرسانی فصلی مالیات بر درآمد در دسته‌بندی‌های HMRC — تجمعی از آوریل، با نگاشت قابل تغییر حساب‌ها، فایل اکسل و ساختار مورد انتظار HMRC. پیش از هر مهلت یادآوری دریافت می‌کنید.",
+                    "es": "Facturas → Making Tax Digital (Reino Unido): las nueve casillas de la declaración de IVA de cada periodo a partir de tus facturas, con un CSV para tu software MTD; y, para autónomos y arrendadores, la actualización trimestral del impuesto sobre la renta en las categorías de HMRC, acumulada desde abril, con la asignación de cuentas editable, un Excel y la actualización que espera HMRC. Recibirás avisos antes de cada plazo.",
+                    "ar": "الفواتير ← الضرائب الرقمية (المملكة المتحدة): الخانات التسع لإقرار القيمة المضافة لكل فترة من فواتيرك مع ملف CSV لبرنامج MTD؛ وللعاملين لحسابهم والمؤجرين، التحديث الفصلي لضريبة الدخل بفئات HMRC — تراكميًا من أبريل، مع ربط حسابات قابل للتعديل وملف Excel والتحديث الذي تتوقعه HMRC. تصلك تذكيرات قبل كل مهلة.",
                 },
             ),
         ),

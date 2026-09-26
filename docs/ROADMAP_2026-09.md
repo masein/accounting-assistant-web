@@ -55,6 +55,14 @@ FKs migrated ones have had since 015 (FKs for the 16 later tenant tables too);
 tax rates seeded per company; `alembic check` gating on a fresh bootstrap and
 on a migrated 044 snapshot (#150). §1 is done.
 
+**§2 continued — 2026-09-26:** ✅ 2.5 AI usage ledger + limits
+(`ai_usage_events`, one row per provider call from the five choke points with
+real token counts and an estimated cost; rolling 24-hour token budgets per
+company (super-admin) and per user (owner), per-minute request limits per user
+and per company replacing the single global chat bucket; 429 with a reason,
+mid-turn stop; owner/CFO view in Settings → AI usage; owner notification at
+80 %; `aa_llm_tokens_total`) (#151).
+
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as
 data (`payroll_rule_sets`, Iran 1405 + UK 2026/27 seeded, super-admin edits,

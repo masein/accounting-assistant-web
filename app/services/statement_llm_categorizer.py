@@ -173,7 +173,7 @@ async def _ask(accounts: list[Account], narrations: list[str]) -> dict:
         "max_tokens": 1000,
     }
     data = await _post_lm_studio(
-        _chat_completions_url(base), payload, base, _resolve_ai_headers()
+        _chat_completions_url(base), payload, base, _resolve_ai_headers(), purpose="categorize"
     )
     content = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
     return _extract_json_object(content)

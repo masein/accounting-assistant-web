@@ -2057,6 +2057,22 @@
 
       <p id="ai-providers-note" data-i18n="aiManagedByPlatform" style="display:none; margin-top:1rem; padding:0.7rem 0.9rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px; font-size:0.85rem; color:var(--text-muted);">AI providers are configured by the platform administrator.</p>
       <div id="ai-providers-section" style="margin-top:1rem; padding:0.9rem 1rem; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
+        <div id="ai-limits-card" style="margin:0 0 1rem 0; padding:0 0 0.9rem 0; border-bottom:1px solid var(--border);">
+          <h2 style="margin:0 0 0.4rem 0;" data-i18n="aiLimitsTitle">AI limits (whole platform)</h2>
+          <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="aiLimitsDesc">Defaults for every company. Tokens are prompt + completion over any 24 hours; 0 means unlimited. A company's own budget is set in the Companies console; the per-user budget by each company's owner.</p>
+          <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
+            <div><label for="ai-lim-company" data-i18n="aiLimitsCompanyTokens">Tokens per company / 24 h</label><input type="number" id="ai-lim-company" min="0" dir="ltr" style="width:11rem;"></div>
+            <div><label for="ai-lim-user" data-i18n="aiLimitsUserTokens">Tokens per user / 24 h</label><input type="number" id="ai-lim-user" min="0" dir="ltr" style="width:11rem;"></div>
+            <div><label for="ai-lim-user-rpm" data-i18n="aiLimitsUserRpm">Requests per user / minute</label><input type="number" id="ai-lim-user-rpm" min="0" dir="ltr" style="width:8rem;"></div>
+            <div><label for="ai-lim-company-rpm" data-i18n="aiLimitsCompanyRpm">Requests per company / minute</label><input type="number" id="ai-lim-company-rpm" min="0" dir="ltr" style="width:8rem;"></div>
+          </div>
+          <label for="ai-lim-pricing" data-i18n="aiLimitsPricing" style="margin-top:0.6rem;">Prices (USD per million tokens: input, output, cached input)</label>
+          <textarea id="ai-lim-pricing" rows="6" dir="ltr" style="width:100%; font-family:ui-monospace,monospace; font-size:0.8rem;"></textarea>
+          <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.5rem;">
+            <button type="button" class="btn btn-secondary" id="ai-lim-save" data-i18n="aiSave">Save</button>
+            <span id="ai-lim-status" style="font-size:0.82rem; color:var(--text-muted);"></span>
+          </div>
+        </div>
         <h2 style="margin:0 0 0.4rem 0;" data-i18n="aiProvidersTitle">AI providers</h2>
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.9rem 0;" data-i18n="aiProvidersDesc">
           Two slots: the OpenAI-shape slot powers transaction-suggest, bank-statement parsing, and other classic AI features. The Anthropic-shape slot powers the conversational AI Chat (tool use, action cards, undo). You can use one Metis account for both by pointing each slot at the matching Metis URL (<code>/openai/v1</code> and <code>/anthropic/v1</code>).
@@ -2246,6 +2262,26 @@
         </div>
       </div>
 
+      <div id="ai-usage-section" style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;" data-i18n="aiUsageTitle">AI usage</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="aiUsageDesc">
+          Tokens the AI used for your company (chat, OCR, suggestions, statement categorising) over the last 24 hours and 30 days, and the estimated cost.
+        </p>
+        <div id="ai-usage-summary" class="ai-usage-summary"></div>
+        <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin:0.7rem 0;">
+          <div>
+            <label for="ai-user-budget" data-i18n="aiUsageUserBudget">Tokens per user per 24 hours</label>
+            <input type="number" id="ai-user-budget" min="0" step="10000" style="width:12rem;" dir="ltr">
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button type="button" class="btn btn-secondary" id="ai-user-budget-save" data-i18n="aiSave">Save</button>
+          </div>
+          <div id="ai-user-budget-hint" style="font-size:0.8rem; color:var(--text-muted); align-self:center;"></div>
+        </div>
+        <div id="ai-usage-users"></div>
+        <div id="ai-usage-breakdown" style="display:flex; gap:1rem; flex-wrap:wrap; margin-top:0.6rem;"></div>
+      </div>
+
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
         <h2 style="margin-bottom:0.5rem;" data-i18n="fxTitle">Currency &amp; FX</h2>
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="fxIntro">
@@ -2384,6 +2420,7 @@
           <th data-i18n="companiesCurrency">Currency</th>
           <th data-i18n="companiesLoginUser">Login</th>
           <th data-i18n="companiesStatus">Status</th>
+          <th data-i18n="companiesAi">AI · 24 h</th>
           <th data-i18n="companiesActions">Actions</th>
         </tr></thead>
         <tbody id="companies-tbody"></tbody>

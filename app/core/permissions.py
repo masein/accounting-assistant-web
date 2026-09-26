@@ -466,6 +466,14 @@ _add("POST", "/time/pending/{pending_id}/reject", Perm.BOOKS_WRITE)
 _add("GET", "/admin/api-keys", Perm.USERS_MANAGE)
 _add("GET", "/admin/api-keys/scopes", Perm.USERS_MANAGE)
 _add("POST", "/admin/users/{user_id}/reset-2fa", Perm.USERS_MANAGE)
+# AI usage (roadmap §2.5): owner and CFO see it, the owner sets the per-user
+# budget; platform limits and company budgets are the super-admin's.
+_add("GET", "/admin/ai-usage", frozenset({Perm.SETTINGS_READ, Perm.CFO_READ}))
+_add("PUT", "/admin/ai-usage/user-budget", Perm.SETTINGS_WRITE)
+_add("GET", "/admin/ai-limits", Perm.PLATFORM_ADMIN)
+_add("PUT", "/admin/ai-limits", Perm.PLATFORM_ADMIN)
+_add("GET", "/admin/companies/ai-usage", Perm.PLATFORM_ADMIN)
+_add("PUT", "/admin/companies/{company_id}/ai-budget", Perm.PLATFORM_ADMIN)
 _add("POST", "/admin/api-keys", Perm.USERS_MANAGE)
 _add("DELETE", "/admin/api-keys/{key_id}", Perm.USERS_MANAGE)
 

@@ -80,7 +80,7 @@ def test_whats_new_for_role_and_last_seen():
     assert {"chat-statement", "insights", "whats-new",
             "per-currency-views", "chat-periods-cash", "balance-sheet-check",
             "payroll-statutory-rules", "ai-invoices-cheques", "quotes", "invoice-email-reminders",
-            "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes"} <= all_keys
+            "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes", "ai-usage"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -102,8 +102,10 @@ def test_whats_new_for_role_and_last_seen():
     # …and on the current release: SME-only notes are hidden from personal users.
     # The مودیان release is SME-only: a personal user got nothing from it…
     assert _rel("personal", "2026.09.25.4") == {}
-    # …and from the current one only the note meant for everyone.
-    assert _keys(rn.whats_new_for("personal", None)) == {"two-factor"}
+    # …from 2026.09.25.5 only the note meant for everyone…
+    assert set(_rel("personal", "2026.09.25.5")) == {"two-factor"}
+    # …and nothing from the owner-only AI usage release.
+    assert _rel("personal", "2026.09.26") == {}
     p25 = set(_rel("personal", "2026.09.25"))
     assert {"ai-invoices-cheques"} <= p25
     assert "payroll-statutory-rules" not in p25
@@ -194,3 +196,9 @@ def test_two_factor_note_reaches_every_role_and_key_scopes_only_owners():
         keys = _keys(rn.whats_new_for(role, since))
         assert "two-factor" in keys, role
         assert ("api-key-scopes" in keys) == (role == "owner"), role
+
+
+def test_ai_usage_note_is_for_owners_only():
+    for role in ("owner", "cfo", "accountant", "manager", "employee", "viewer", "personal"):
+        keys = _keys(rn.whats_new_for(role, "2026.09.25.5"))
+        assert ("ai-usage" in keys) == (role == "owner"), role

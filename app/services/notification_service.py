@@ -36,6 +36,7 @@ KIND_ROLES = {
     "invoice_overdue": ("owner", "cfo", "accountant"),
     "moadian": ("owner", "cfo", "accountant"),
     "api_key": ("owner",),
+    "ai_budget": ("owner", "cfo"),
     "payroll": ("owner", "cfo", "accountant"),
     "approvals": ("owner", "cfo", "manager"),
     "petty_cash": ("owner", "cfo", "accountant"),
@@ -98,6 +99,36 @@ def _api_key_expiry(db: Session, seen: set[str], today: date) -> None:
                 message=f"Integrations using {k.prefix}… stop working on {exp.date().isoformat()}. "
                         "Create a new key under Settings → API keys and update the integration.",
                 link_page="settings", due_date=exp.date())
+
+
+AI_BUDGET_WARN_SHARE = 0.8
+
+
+def _ai_budget(db: Session, seen: set[str], today: date) -> None:
+    """Warn the owner when the company has used 80 % of its 24-hour AI
+    allowance (app/services/ai_usage.py), and louder once it is used up —
+    before the chat starts refusing."""
+    from app.db.tenant import get_current_company
+    from app.services import ai_usage
+    cid = ai_usage._uuid(get_current_company())
+    if cid is None:
+        return
+    limits = ai_usage.load_settings(db)
+    budget, _user_budget = ai_usage.effective_budgets(db, cid, limits)
+    if not budget:
+        return
+    used, _oldest = ai_usage._used_since(db, ai_usage._now() - ai_usage.WINDOW, company_id=cid)
+    if used < budget * AI_BUDGET_WARN_SHARE:
+        return
+    pct = int(used * 100 / budget)
+    _upsert(db, seen, dedupe_key=f"ai-budget-{today.isoformat()}", kind="ai_budget",
+            level="high" if used >= budget else "warning",
+            title=(f"AI allowance used up ({pct}%)" if used >= budget else f"AI allowance {pct}% used"),
+            message=f"{used:,} of {budget:,} tokens in the last 24 hours. "
+                    + ("AI features are paused until older use drops out of the window."
+                       if used >= budget else "AI features pause when it reaches 100%.")
+                    + " See Settings → AI usage.",
+            link_page="settings")
 
 
 def _moadian_deadlines(db: Session, seen: set[str], today: date) -> None:
@@ -171,6 +202,9 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
 
     # --- integration keys about to stop working --------------------------------
     _api_key_expiry(db, seen, today)
+
+    # --- AI allowance nearly used ------------------------------------------------
+    _ai_budget(db, seen, today)
 
     # --- payroll paydays ---------------------------------------------------
     runs = db.execute(

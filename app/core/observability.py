@@ -122,6 +122,8 @@ if _PROM:
     LLM_CALLS = Counter("aa_llm_calls_total", "LLM / OCR provider calls", ["provider", "purpose", "outcome"])
     LLM_LATENCY = Histogram("aa_llm_call_duration_seconds", "LLM / OCR call latency",
                             ["provider", "purpose"], buckets=_BUCKETS_SLOW)
+    LLM_TOKENS = Counter("aa_llm_tokens_total", "LLM / OCR tokens (app/services/ai_usage.py)",
+                         ["provider", "purpose", "kind"])
     JOB_RUNS = Counter("aa_job_runs_total", "Background job runs per company", ["job", "outcome"])
     JOB_LATENCY = Histogram("aa_job_duration_seconds", "Background job duration per company",
                             ["job"], buckets=_BUCKETS_SLOW)

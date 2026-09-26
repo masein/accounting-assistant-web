@@ -1,4 +1,5 @@
 from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
+from app.models.ai_usage import AIUsageEvent
 from app.models.api_key import ApiKey
 from app.models.app_setting import AppSetting
 from app.models.digest_setting import DigestSetting
@@ -45,6 +46,7 @@ __all__ = [
     "Account",
     "AccountLevel",
     "AIChatMessage",
+    "AIUsageEvent",
     "AIChatSession",
     "AIProposal",
     "AuditLog",

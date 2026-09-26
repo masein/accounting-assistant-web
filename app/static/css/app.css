@@ -805,6 +805,16 @@
       .ai-page-sub { display: none; }
     }
 
+/* AI usage (Settings) */
+.ai-usage-summary { display: flex; gap: .8rem; flex-wrap: wrap; }
+.ai-usage-stat { flex: 1 1 14rem; padding: .6rem .8rem; border: 1px solid var(--border); border-radius: 10px; }
+.ai-usage-stat .k { font-size: .78rem; color: var(--text-muted); }
+.ai-usage-stat .v { font-size: 1.05rem; font-weight: 700; margin-top: .15rem; }
+.ai-meter { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: .35rem; }
+.ai-meter > span { display: block; height: 100%; background: var(--primary); }
+.ai-meter.warn > span { background: var(--warning, #d97706); }
+.ai-meter.over > span { background: var(--danger, #b91c1c); }
+
 /* Two-factor sign-in (account menu → security dialog) */
 .tfa-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warning, #d97706); vertical-align: middle; margin-inline-start: .3rem; }
 .tfa-note { margin: 0 0 .75rem; padding: .55rem .75rem; border-radius: 8px; font-size: .85rem; line-height: 1.5;

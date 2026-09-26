@@ -864,6 +864,31 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+from app.services.ai_usage import AIBudgetExceeded, AIRateLimited  # noqa: E402
+
+
+@app.exception_handler(AIBudgetExceeded)
+async def ai_budget_handler(request: Request, exc: AIBudgetExceeded):
+    """Any AI call past the 24-hour token budget (app/services/ai_usage.py) —
+    from an endpoint's up-front guard or mid-way through a long AI turn."""
+    return JSONResponse(
+        status_code=429,
+        content={"code": "ai_budget_exceeded", "scope": exc.scope, "detail": str(exc),
+                 "used": exc.used, "limit": exc.limit, "request_id": _request_id_of(request)},
+        headers={"Retry-After": str(exc.retry_after_seconds), "x-request-id": _request_id_of(request) or ""},
+    )
+
+
+@app.exception_handler(AIRateLimited)
+async def ai_rate_handler(request: Request, exc: AIRateLimited):
+    return JSONResponse(
+        status_code=429,
+        content={"code": "ai_rate_limited", "scope": exc.scope, "detail": str(exc),
+                 "request_id": _request_id_of(request)},
+        headers={"Retry-After": "60", "x-request-id": _request_id_of(request) or ""},
+    )
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     """A crash answers with the request id (users quote it; the log line and

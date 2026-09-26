@@ -302,8 +302,9 @@
         if (tbUser) tbUser.textContent = data.user.username || '—';
         if (typeof setTwoFactorHint === 'function') setTwoFactorHint(data.user);
         // Iranian-only panels (seasonal TTMS / VAT return) follow the company's locale.
-        const isIr = ((data.company && data.company.locale) || '').toLowerCase() === 'ir';
-        document.querySelectorAll('.ir-only').forEach((el) => { el.style.display = isIr ? '' : 'none'; });
+        const coLocale = ((data.company && data.company.locale) || '').toLowerCase();
+        document.querySelectorAll('.ir-only').forEach((el) => { el.style.display = coLocale === 'ir' ? '' : 'none'; });
+        document.querySelectorAll('.uk-only').forEach((el) => { el.style.display = coLocale === 'uk' ? '' : 'none'; });
         // Signed in with a recovery code (login page) → say how many are left.
         try {
           const left = sessionStorage.getItem('aa_tfa_recovery_left');

@@ -334,6 +334,30 @@
         </div>
       </details>
 
+      <!-- UK Making Tax Digital: VAT return boxes 1–9 — UK companies -->
+      <details id="mtd-panel" class="uk-only" style="margin-top:1.25rem;">
+        <summary style="cursor:pointer;font-weight:600;" data-i18n="mtdTitle">Making Tax Digital (UK)</summary>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="mtdDesc">VAT return boxes 1–9 for each VAT period from your invoices, due one month and seven days after the period ends. Download them as CSV for your MTD bridging software.</p>
+        <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
+          <label style="display:flex;gap:0.35rem;align-items:center;font-size:0.85rem;"><input type="checkbox" id="mtd-vat-registered"> <span data-i18n="mtdVatRegistered">VAT registered</span></label>
+          <div><label for="mtd-vrn" data-i18n="mtdVrn">VAT number</label><input type="text" id="mtd-vrn" dir="ltr" maxlength="14" style="width:9rem;" placeholder="GB999999973"></div>
+          <div><label for="mtd-stagger" data-i18n="mtdStagger">VAT quarters end in</label>
+            <select id="mtd-stagger">
+              <option value="1" data-i18n="mtdStagger1">Mar, Jun, Sep, Dec</option>
+              <option value="2" data-i18n="mtdStagger2">Apr, Jul, Oct, Jan</option>
+              <option value="3" data-i18n="mtdStagger3">May, Aug, Nov, Feb</option>
+              <option value="monthly" data-i18n="mtdStaggerMonthly">Every month</option>
+            </select></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="mtd-save" data-i18n="aiSave">Save</button>
+          <span id="mtd-status" style="font-size:0.82rem;color:var(--text-muted);"></span>
+        </div>
+        <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;margin-top:0.7rem;">
+          <div><label for="mtd-period" data-i18n="mtdPeriod">VAT period</label><select id="mtd-period" style="min-width:16rem;"></select></div>
+          <a class="btn btn-secondary btn-sm" id="mtd-download" href="#" download data-i18n="mtdDownload">Download CSV</a>
+        </div>
+        <div id="mtd-return" style="margin-top:0.6rem;"></div>
+      </details>
+
       <!-- Seasonal filings: TTMS (ماده ۱۶۹ مکرر) and the VAT return — Iranian companies -->
       <details id="ttms-panel" class="ir-only" style="margin-top:1.25rem;">
         <summary style="cursor:pointer;font-weight:600;" data-i18n="ttmsTitle">Seasonal tax reports (TTMS · VAT return)</summary>

@@ -102,6 +102,38 @@ def _api_key_expiry(db: Session, seen: set[str], today: date) -> None:
                 link_page="settings", due_date=exp.date())
 
 
+UK_VAT_WARN_DAYS = 10
+
+
+def _uk_vat_deadline(db: Session, seen: set[str], today: date) -> None:
+    """UK VAT-registered companies (MTD settings): the return for the period
+    that last ended is due one month and seven days later
+    (app/services/uk_mtd). Remind ten days before, louder in the last two."""
+    try:
+        from app.services.fx_service import _current_company_row
+        row = _current_company_row(db)
+    except Exception:
+        row = None
+    if row is None or (getattr(row, "locale", "") or "").lower() != "uk":
+        return
+    from app.services.uk_mtd import periods as P
+    from app.services.uk_mtd import settings as S
+    conf = S.get_settings(db)
+    if not conf.get("vat_registered"):
+        return
+    for period in P.vat_periods_before(today, conf["vat_stagger"], count=3):
+        if period.end >= today:
+            continue  # still open
+        left = (period.deadline - today).days
+        if 0 <= left <= UK_VAT_WARN_DAYS:
+            _upsert(db, seen, dedupe_key=f"uk-vat-{period.key}", kind="tax_filing",
+                    level="high" if left <= 2 else "warning",
+                    title=f"VAT return for {period.start.strftime('%b')}–{period.end.strftime('%b %Y')} due "
+                          + ("today" if left == 0 else f"in {left} day(s)"),
+                    message="Boxes 1–9 and a CSV for your MTD software: Invoices → Making Tax Digital.",
+                    link_page="invoices", due_date=period.deadline)
+
+
 TTMS_WARN_DAYS = 10
 VAT_RETURN_WARN_DAYS = 7
 
@@ -243,6 +275,9 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
 
     # --- Iranian seasonal filings (VAT return, TTMS) ------------------------------
     _tax_filing_deadlines(db, seen, today)
+
+    # --- UK MTD VAT return ----------------------------------------------------------
+    _uk_vat_deadline(db, seen, today)
 
     # --- payroll paydays ---------------------------------------------------
     runs = db.execute(

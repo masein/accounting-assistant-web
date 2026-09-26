@@ -1734,3 +1734,68 @@
       document.getElementById('ttms-season').addEventListener('change', () => { updateTtmsDownload(); loadTtms(); });
       document.getElementById('ttms-include-mo').addEventListener('change', () => { updateTtmsDownload(); loadTtms(); });
     })();
+
+    // ═══════ UK Making Tax Digital: VAT boxes 1–9 (app/services/uk_mtd) ═══════
+    let _mtdLoaded = false;
+    const MTD_BOXES = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    async function loadMtd() {
+      try {
+        const [sr, pr] = await Promise.all([fetch(API + '/tax/uk/settings'), fetch(API + '/tax/uk/vat/periods')]);
+        const conf = await sr.json().catch(() => ({}));
+        const per = await pr.json().catch(() => ({}));
+        if (!sr.ok || !pr.ok) { document.getElementById('mtd-return').textContent = t('mtdLoadFailed'); return; }
+        document.getElementById('mtd-vat-registered').checked = !!conf.vat_registered;
+        document.getElementById('mtd-vrn').value = conf.vrn || '';
+        document.getElementById('mtd-stagger').value = conf.vat_stagger || '1';
+        const sel = document.getElementById('mtd-period');
+        const periods = per.periods || [];
+        const pick = periods.find(p => !p.open) || periods[0];
+        sel.innerHTML = periods.map(p => `<option value="${escapeHtml(p.end)}"${p === pick ? ' selected' : ''}>${escapeHtml(p.start)} – ${escapeHtml(p.end)}${p.open ? ' · ' + escapeHtml(t('mtdOpen')) : ''}</option>`).join('');
+        _mtdLoaded = true;
+        loadMtdReturn();
+      } catch (_) { document.getElementById('mtd-return').textContent = t('mtdLoadFailed'); }
+    }
+    async function loadMtdReturn() {
+      const end = document.getElementById('mtd-period').value;
+      const box = document.getElementById('mtd-return');
+      const dl = document.getElementById('mtd-download');
+      if (!end) { box.innerHTML = ''; return; }
+      dl.href = `${API}/tax/uk/vat/return/export?period_end=${encodeURIComponent(end)}`;
+      try {
+        const r = await fetch(`${API}/tax/uk/vat/return?period_end=${encodeURIComponent(end)}`);
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { box.textContent = (typeof d.detail === 'string' ? d.detail : t('mtdLoadFailed')); return; }
+        const fmt = (n, i) => i <= 5 ? formatMoney(n, d.currency) : formatMoney(Math.trunc(n), d.currency);
+        const days = (() => { const ms = new Date(d.period.deadline) - new Date(new Date().toDateString()); return Math.round(ms / 86400000); })();
+        box.innerHTML = `
+          <p style="font-size:0.84rem;margin:0 0 0.4rem;">${escapeHtml(tf('mtdDue', { date: d.period.deadline }))} · ${escapeHtml(days < 0 ? t('mtdPassed') : tf('mtdDaysLeft', { n: days }))} · ${escapeHtml(d.direction === 'payable' ? t('mtdPayable') : t('mtdRepayable'))}</p>
+          <table class="results-table" style="font-size:0.84rem;max-width:44rem;"><tbody>
+            ${MTD_BOXES.map(n => `<tr${n === '5' ? ' style="font-weight:700;"' : ''}><td style="width:3rem;">${escapeHtml(t('mtdBox'))} ${n}</td><td>${escapeHtml(t('mtdBox' + n))}</td><td dir="ltr" style="text-align:end;">${fmt(d.boxes[n], Number(n))}</td></tr>`).join('')}
+          </tbody></table>
+          ${(d.other_currency || []).length ? `<div class="tfa-note" style="margin-top:0.5rem;">${escapeHtml(tf('mtdOtherCurrency', { n: d.other_currency.length }))}</div>` : ''}
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem;">${escapeHtml(t('mtdNorthernIreland'))}</div>`;
+      } catch (_) { box.textContent = t('mtdLoadFailed'); }
+    }
+    (function wireMtd() {
+      const panel = document.getElementById('mtd-panel');
+      if (!panel) return;
+      panel.addEventListener('toggle', (e) => { if (e.target.open && !_mtdLoaded) loadMtd(); });
+      document.getElementById('mtd-period').addEventListener('change', loadMtdReturn);
+      document.getElementById('mtd-save').addEventListener('click', async () => {
+        const status = document.getElementById('mtd-status');
+        try {
+          const res = await fetch(API + '/tax/uk/settings', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vat_registered: document.getElementById('mtd-vat-registered').checked,
+              vrn: document.getElementById('mtd-vrn').value.trim(),
+              vat_stagger: document.getElementById('mtd-stagger').value,
+            }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { status.textContent = typeof d.detail === 'string' ? d.detail : t('aiUsageSaveFailed'); return; }
+          status.textContent = t('aiUsageSaved');
+          loadMtd();
+        } catch (_) { status.textContent = t('aiUsageSaveFailed'); }
+      });
+    })();

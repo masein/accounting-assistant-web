@@ -81,6 +81,16 @@ deadlines season end + 45 / + 15 days with reminders, Invoices → Seasonal tax
 reports for Iranian companies. The TTMS program's native Access file is not
 written; its figures are. Follow-up: aggregate small retail sales below the
 حد نصاب, per-purchase "already in the taxpayer portal" flag.
+✅ 3.6 UK Making Tax Digital, export first (#154, #155): VAT return boxes
+1–9 from invoices (reverse charge in 1 and 4, credit notes netted, NI boxes
+0) with the MTD VAT API body and CSV; ITSA quarterly updates for
+self-employment / UK property in HMRC's categories (field names from HMRC's
+published schemas), cumulative from April on the standard or calendar basis,
+default mapping from the UK chart with per-account overrides, disallowable
+entertaining/depreciation, consolidated expenses below the VAT threshold,
+the mandation test (£50k/£30k/£20k two years earlier), request bodies,
+workbook, deadline reminders. Later: direct HMRC submission (OAuth, fraud
+prevention headers, obligations/periodKey), final declaration.
 
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as

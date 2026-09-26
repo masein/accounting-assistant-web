@@ -77,11 +77,15 @@ def save_settings(db: Session, **changes) -> dict:
         overrides = changes["category_overrides"]
         if not isinstance(overrides, dict):
             raise MtdSettingsError("category_overrides must map account codes to categories")
+        from app.services.uk_mtd.categories import all_categories
+        known = all_categories()
         cleaned = {}
         for code, cat in overrides.items():
             code = str(code).strip()
             if not code or not isinstance(cat, str) or not cat.strip():
-                continue
+                continue  # an empty choice clears the override
+            if cat.strip() not in known:
+                raise MtdSettingsError(f"Unknown HMRC category {cat!r} for account {code}")
             cleaned[code] = cat.strip()
         cur["category_overrides"] = cleaned
     row = _row(db)

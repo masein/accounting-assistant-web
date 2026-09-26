@@ -1747,12 +1747,15 @@
         document.getElementById('mtd-vat-registered').checked = !!conf.vat_registered;
         document.getElementById('mtd-vrn').value = conf.vrn || '';
         document.getElementById('mtd-stagger').value = conf.vat_stagger || '1';
+        document.getElementById('mtd-source').value = conf.income_source || 'none';
+        document.getElementById('mtd-basis').value = conf.period_basis || 'standard';
         const sel = document.getElementById('mtd-period');
         const periods = per.periods || [];
         const pick = periods.find(p => !p.open) || periods[0];
         sel.innerHTML = periods.map(p => `<option value="${escapeHtml(p.end)}"${p === pick ? ' selected' : ''}>${escapeHtml(p.start)} – ${escapeHtml(p.end)}${p.open ? ' · ' + escapeHtml(t('mtdOpen')) : ''}</option>`).join('');
         _mtdLoaded = true;
         loadMtdReturn();
+        loadMtdItsa();
       } catch (_) { document.getElementById('mtd-return').textContent = t('mtdLoadFailed'); }
     }
     async function loadMtdReturn() {
@@ -1790,6 +1793,8 @@
               vat_registered: document.getElementById('mtd-vat-registered').checked,
               vrn: document.getElementById('mtd-vrn').value.trim(),
               vat_stagger: document.getElementById('mtd-stagger').value,
+              income_source: document.getElementById('mtd-source').value,
+              period_basis: document.getElementById('mtd-basis').value,
             }),
           });
           const d = await res.json().catch(() => ({}));
@@ -1797,5 +1802,107 @@
           status.textContent = t('aiUsageSaved');
           loadMtd();
         } catch (_) { status.textContent = t('aiUsageSaveFailed'); }
+      });
+    })();
+
+    // ═══════ UK MTD for Income Tax (app/services/uk_mtd/itsa.py) ═══════
+    // HMRC's own category names (the API field names), labelled in English —
+    // the terms a UK sole trader or landlord sees on HMRC's side.
+    const MTD_CAT_LABELS = {
+      turnover: 'Turnover', other: 'Other business income', costOfGoods: 'Cost of goods',
+      paymentsToSubcontractors: 'Payments to subcontractors (CIS)', wagesAndStaffCosts: 'Wages and staff costs',
+      carVanTravelExpenses: 'Car, van and travel', premisesRunningCosts: 'Premises running costs',
+      maintenanceCosts: 'Repairs and maintenance', adminCosts: 'Phone, stationery and office',
+      businessEntertainmentCosts: 'Business entertainment (disallowable)', advertisingCosts: 'Advertising',
+      interestOnBankOtherLoans: 'Interest on bank and other loans', financeCharges: 'Bank and finance charges',
+      irrecoverableDebts: 'Irrecoverable debts', professionalFees: 'Professional fees',
+      depreciation: 'Depreciation (disallowable)', otherExpenses: 'Other expenses',
+      periodAmount: 'Rents', premiumsOfLeaseGrant: 'Premiums for granting a lease', reversePremiums: 'Reverse premiums',
+      otherIncome: 'Other property income', rentARoomRents: 'Rent a Room rents', repairsAndMaintenance: 'Repairs and maintenance',
+      financialCosts: 'Financial costs (non-residential)', costOfServices: 'Cost of services', travelCosts: 'Travel costs',
+      residentialFinancialCost: 'Residential finance costs', rentARoomClaimed: 'Rent a Room relief claimed',
+      excluded: 'Not part of the business',
+    };
+    const mtdCat = (k) => MTD_CAT_LABELS[k] || k;
+    let _mtdItsa = null;
+    function _mtdTaxYears() {
+      const now = new Date();
+      const y = (now.getMonth() > 3 || (now.getMonth() === 3 && now.getDate() >= 6)) ? now.getFullYear() : now.getFullYear() - 1;
+      return [y, y - 1].map(v => `${v}-${String(v + 1).slice(-2)}`);
+    }
+    async function loadMtdItsa() {
+      const box = document.getElementById('mtd-itsa');
+      const src = document.getElementById('mtd-source').value;
+      const yearSel = document.getElementById('mtd-itsa-year');
+      if (!yearSel.options.length) yearSel.innerHTML = _mtdTaxYears().map(v => `<option value="${v}">${v}</option>`).join('');
+      document.getElementById('mtd-itsa-body').style.display = 'none';
+      if (src === 'none') { box.innerHTML = `<p class="empty-state" style="padding:0.3rem;">${escapeHtml(t('mtdChooseSource'))}</p>`; document.getElementById('mtd-itsa-mandation').innerHTML = ''; return; }
+      try {
+        const qr = await fetch(`${API}/tax/uk/itsa/quarters?tax_year=${encodeURIComponent(yearSel.value)}`);
+        const qd = await qr.json().catch(() => ({}));
+        if (!qr.ok) { box.textContent = qd.detail || t('mtdLoadFailed'); return; }
+        const qSel = document.getElementById('mtd-itsa-quarter');
+        const keep = qSel.value;
+        const pick = (qd.quarters.find(q => !q.open && q.days_left >= 0) || qd.quarters.find(q => q.open) || qd.quarters[0]).quarter;
+        qSel.innerHTML = qd.quarters.map(q => `<option value="${q.quarter}">Q${q.quarter} · ${escapeHtml(q.start)} – ${escapeHtml(q.end)} · ${escapeHtml(tf('mtdDue', { date: q.deadline }))}</option>`).join('');
+        qSel.value = keep && qd.quarters.some(q => String(q.quarter) === keep) ? keep : String(pick);
+        const m = qd.mandation;
+        document.getElementById('mtd-itsa-mandation').innerHTML = m ? `<div class="tfa-note">${escapeHtml(m.required
+          ? tf('mtdMandated', { year: m.tax_year, income: formatMoney(m.qualifying_income, 'GBP'), base: m.based_on, threshold: formatMoney(m.threshold, 'GBP') })
+          : tf('mtdNotMandated', { year: m.tax_year, income: formatMoney(m.qualifying_income, 'GBP'), base: m.based_on, threshold: formatMoney(m.threshold || 0, 'GBP') }))}</div>` : '';
+        const ur = await fetch(`${API}/tax/uk/itsa/update?tax_year=${encodeURIComponent(yearSel.value)}&quarter=${qSel.value}`);
+        const up = await ur.json().catch(() => ({}));
+        if (!ur.ok) { box.textContent = typeof up.detail === 'string' ? up.detail : t('mtdLoadFailed'); return; }
+        _mtdItsa = up;
+        document.getElementById('mtd-itsa-download').href = `${API}/tax/uk/itsa/update/export?tax_year=${encodeURIComponent(yearSel.value)}&quarter=${qSel.value}`;
+        const money = (n) => formatMoney(n, up.currency);
+        const rows = (list) => list.filter(l => l.quarter || l.year_to_date).map(l => `<tr><td>${escapeHtml(mtdCat(l.category))} <code style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(l.category)}</code></td><td dir="ltr" style="text-align:end;">${money(l.quarter)}</td><td dir="ltr" style="text-align:end;">${money(l.year_to_date)}</td></tr>`).join('');
+        box.innerHTML = `
+          <table class="results-table" style="font-size:0.83rem;max-width:46rem;">
+            <thead><tr><th></th><th>${escapeHtml(t('mtdThisQuarter'))}</th><th>${escapeHtml(t('mtdYearToDate'))}</th></tr></thead>
+            <tbody>
+              <tr><th colspan="3" style="text-align:start;">${escapeHtml(t('mtdIncome'))}</th></tr>${rows(up.income) || `<tr><td colspan="3" class="empty-state">—</td></tr>`}
+              <tr><th colspan="3" style="text-align:start;">${escapeHtml(t('mtdExpenses'))}</th></tr>${rows(up.expenses) || `<tr><td colspan="3" class="empty-state">—</td></tr>`}
+              <tr style="font-weight:700;"><td>${escapeHtml(t('mtdProfit'))}</td><td dir="ltr" style="text-align:end;">${money(up.totals.quarter.profit)}</td><td dir="ltr" style="text-align:end;">${money(up.totals.year_to_date.profit)}</td></tr>
+            </tbody></table>
+          ${(up.unmapped || []).length ? `<div class="tfa-note" style="margin-top:0.4rem;">${escapeHtml(tf('mtdUnmapped', { n: up.unmapped.length }))}</div>` : ''}
+          ${up.consolidated_allowed ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">${escapeHtml(t('mtdConsolidatedAllowed'))}</div>` : ''}
+          <ul style="font-size:0.78rem;color:var(--text-muted);margin:0.4rem 0 0;padding-inline-start:1.1rem;">${(up.notes || []).map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`;
+      } catch (_) { box.textContent = t('mtdLoadFailed'); }
+    }
+    async function loadMtdMapping() {
+      const wrap = document.getElementById('mtd-mapping-table');
+      try {
+        const r = await fetch(API + '/tax/uk/itsa/categories');
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !(d.accounts || []).length) { wrap.innerHTML = `<p class="empty-state" style="padding:0.3rem;">${escapeHtml(t('mtdChooseSource'))}</p>`; return; }
+        const cat = d.catalogue[d.source];
+        const choices = [...cat.income, ...cat.expenses, d.excluded];
+        wrap.innerHTML = `<table class="results-table" style="font-size:0.8rem;"><thead><tr><th>${escapeHtml(t('tableCode'))}</th><th>${escapeHtml(t('mtdAccount'))}</th><th>${escapeHtml(t('mtdCategory'))}</th></tr></thead><tbody>
+          ${d.accounts.map(a => `<tr><td dir="ltr">${escapeHtml(a.code)}</td><td>${escapeHtml(a.name)}</td><td>
+            <select class="mtd-map" data-code="${escapeHtml(a.code)}" style="font-size:0.8rem;">
+              <option value="">${escapeHtml(t('mtdDefault'))}: ${escapeHtml(mtdCat(a.default || '—'))}</option>
+              ${choices.map(c => `<option value="${escapeHtml(c)}"${a.override === c ? ' selected' : ''}>${escapeHtml(mtdCat(c))}</option>`).join('')}
+            </select></td></tr>`).join('')}</tbody></table>`;
+      } catch (_) { wrap.textContent = t('mtdLoadFailed'); }
+    }
+    (function wireMtdItsa() {
+      if (!document.getElementById('mtd-panel')) return;
+      ['mtd-itsa-year', 'mtd-itsa-quarter'].forEach(id => document.getElementById(id).addEventListener('change', loadMtdItsa));
+      document.getElementById('mtd-itsa-json').addEventListener('click', () => {
+        const pre = document.getElementById('mtd-itsa-body');
+        if (!_mtdItsa) return;
+        pre.textContent = JSON.stringify(_mtdItsa.hmrc_body, null, 2);
+        pre.style.display = pre.style.display === 'none' ? '' : 'none';
+      });
+      document.getElementById('mtd-mapping').addEventListener('toggle', (e) => { if (e.target.open) loadMtdMapping(); });
+      document.getElementById('mtd-mapping-save').addEventListener('click', async () => {
+        const overrides = {};
+        document.querySelectorAll('#mtd-mapping-table .mtd-map').forEach(s => { if (s.value) overrides[s.dataset.code] = s.value; });
+        const res = await fetch(API + '/tax/uk/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category_overrides: overrides }) }).catch(() => null);
+        const d = res ? await res.json().catch(() => ({})) : {};
+        showAlert(res && res.ok ? t('aiUsageSaved') : (typeof d.detail === 'string' ? d.detail : t('aiUsageSaveFailed')), !(res && res.ok));
+        if (res && res.ok) loadMtdItsa();
       });
     })();

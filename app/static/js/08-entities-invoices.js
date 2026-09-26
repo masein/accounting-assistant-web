@@ -1654,3 +1654,83 @@
     });
 
     registerAction('export-acct-detail', (el) => _exportAcctDetail(el.dataset.format));
+
+    // ═══════ Seasonal tax reports: TTMS + VAT return (app/services/tax_ir.py) ═══════
+    let _ttmsSeasons = [];
+    function _ttmsDays(n) {
+      if (n < 0) return t('ttmsPassed');
+      return n === 0 ? t('ttmsToday') : tf('ttmsDaysLeft', { n });
+    }
+    async function loadTtmsSeasons() {
+      const sel = document.getElementById('ttms-season');
+      if (!sel) return;
+      try {
+        const res = await fetch(API + '/tax/ir/seasons');
+        const rows = res.ok ? await res.json() : [];
+        _ttmsSeasons = Array.isArray(rows) ? rows : [];
+        // Default to the season just ended: the one whose filings are due.
+        const pick = _ttmsSeasons.find(s => !s.current) || _ttmsSeasons[0];
+        sel.innerHTML = _ttmsSeasons.map(s => `<option value="${s.year}-${s.season}"${s === pick ? ' selected' : ''}>${escapeHtml(s.name)}${s.current ? ' · ' + escapeHtml(t('ttmsCurrent')) : ''} (${escapeHtml(String(s.sales_count + s.purchase_count))})</option>`).join('');
+        updateTtmsDownload();
+        loadTtms();
+      } catch (_) { sel.innerHTML = ''; }
+    }
+    function _ttmsPick() {
+      const v = (document.getElementById('ttms-season').value || '').split('-');
+      return { year: v[0], season: v[1], mo: document.getElementById('ttms-include-mo').checked };
+    }
+    function updateTtmsDownload() {
+      const p = _ttmsPick();
+      const a = document.getElementById('ttms-download');
+      if (a && p.year) a.href = `${API}/tax/ir/quarterly/export?year=${encodeURIComponent(p.year)}&season=${encodeURIComponent(p.season)}&include_moadian=${p.mo}`;
+    }
+    async function loadTtms() {
+      const p = _ttmsPick();
+      if (!p.year) return;
+      const sumEl = document.getElementById('ttms-summary');
+      const alerts = document.getElementById('ttms-alerts');
+      const tables = document.getElementById('ttms-tables');
+      try {
+        const qs = `year=${encodeURIComponent(p.year)}&season=${encodeURIComponent(p.season)}`;
+        const [rr, vr] = await Promise.all([
+          fetch(`${API}/tax/ir/quarterly?${qs}&include_moadian=${p.mo}`), fetch(`${API}/tax/ir/vat-return?${qs}`),
+        ]);
+        const rep = await rr.json().catch(() => ({}));
+        const ret = await vr.json().catch(() => ({}));
+        if (!rr.ok || !vr.ok) { sumEl.textContent = rep.detail || ret.detail || t('ttmsLoadFailed'); return; }
+        const sd = rep.season;
+        const money = (n) => formatMoney(n, 'IRR');
+        const s = rep.totals.sales, pu = rep.totals.purchases;
+        const stat = (k, v, sub) => `<div class="ai-usage-stat"><div class="k">${escapeHtml(k)}</div><div class="v" dir="ltr">${v}</div>${sub ? `<div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem;">${sub}</div>` : ''}</div>`;
+        const sdMeta = _ttmsSeasons.find(x => String(x.year) === String(sd.year) && String(x.season) === String(sd.season)) || {};
+        sumEl.innerHTML = [
+          stat(t('ttmsSales'), money(s.net_base), escapeHtml(t('ttmsVat')) + ': ' + money(s.net_vat)),
+          stat(t('ttmsPurchases'), money(pu.net_base), escapeHtml(t('ttmsVat')) + ': ' + money(pu.net_vat)),
+          stat(ret.payable ? t('ttmsReturnPayable') : t('ttmsReturnCredit'), money(ret.payable || ret.credit_carried_forward),
+               escapeHtml(t('ttmsDeadlineVat')) + ': ' + escapeHtml(sd.vat_deadline_jalali) + ' · ' + escapeHtml(_ttmsDays(sdMeta.vat_days_left ?? 1))),
+          stat(t('ttmsDeadlineTtms'), escapeHtml(sd.ttms_deadline_jalali), escapeHtml(_ttmsDays(sdMeta.ttms_days_left ?? 1))),
+        ].join('');
+        const notes = [];
+        const rec = ret.reconciliation || {};
+        notes.push(`<div class="tfa-note" style="${rec.matches ? 'background:color-mix(in srgb, var(--success, #16a34a) 10%, transparent);border-color:color-mix(in srgb, var(--success, #16a34a) 35%, transparent);' : ''}">${escapeHtml(rec.matches ? t('ttmsReconOk') : t('ttmsReconBad'))}</div>`);
+        if (rep.excluded_moadian && rep.excluded_moadian.count) notes.push(`<div class="tfa-note">${escapeHtml(tf('ttmsExcludedMoadian', { n: rep.excluded_moadian.count }))}</div>`);
+        if ((rep.other_currency || []).length) notes.push(`<div class="tfa-note">${escapeHtml(tf('ttmsOtherCurrency', { n: rep.other_currency.length }))}</div>`);
+        if ((rep.incomplete || []).length) {
+          notes.push(`<div class="tfa-note"><strong>${escapeHtml(tf('ttmsIncomplete', { n: rep.incomplete.length }))}</strong><ul style="margin:0.3rem 0 0;padding-inline-start:1.1rem;">${rep.incomplete.slice(0, 12).map(r => `<li>${escapeHtml(r.name)} — ${escapeHtml(r.missing_labels.join('، '))}</li>`).join('')}</ul></div>`);
+        }
+        alerts.innerHTML = notes.join('');
+        const table = (title, rows) => `<div style="flex:1 1 22rem;"><h3 style="font-size:0.9rem;margin:0.4rem 0;">${escapeHtml(title)}</h3>
+          <table class="results-table" style="font-size:0.82rem;"><thead><tr><th>${escapeHtml(t('ttmsParty'))}</th><th>${escapeHtml(t('ttmsInvoices'))}</th><th>${escapeHtml(t('ttmsNet'))}</th><th>${escapeHtml(t('ttmsVat'))}</th></tr></thead>
+          <tbody>${rows.length ? rows.slice(0, 15).map(r => `<tr><td>${escapeHtml(r.name)}${r.missing.length ? ' <span title="' + escapeHtml(t('ttmsMissing')) + '">⚠</span>' : ''}</td><td dir="ltr">${escapeHtml(String(r.invoice_count))}</td><td dir="ltr">${money(r.net_base)}</td><td dir="ltr">${money(r.net_vat)}</td></tr>`).join('')
+            : `<tr><td colspan="4" class="empty-state">${escapeHtml(t('ttmsNoData'))}</td></tr>`}</tbody></table></div>`;
+        tables.innerHTML = table(t('ttmsSales'), rep.sales || []) + table(t('ttmsPurchases'), rep.purchases || []);
+      } catch (_) { sumEl.textContent = t('ttmsLoadFailed'); }
+    }
+    (function wireTtms() {
+      const panel = document.getElementById('ttms-panel');
+      if (!panel) return;
+      panel.addEventListener('toggle', (e) => { if (e.target.open && !_ttmsSeasons.length) loadTtmsSeasons(); });
+      document.getElementById('ttms-load').addEventListener('click', () => { updateTtmsDownload(); loadTtms(); });
+      document.getElementById('ttms-season').addEventListener('change', () => { updateTtmsDownload(); loadTtms(); });
+      document.getElementById('ttms-include-mo').addEventListener('change', () => { updateTtmsDownload(); loadTtms(); });
+    })();

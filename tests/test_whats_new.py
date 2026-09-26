@@ -80,7 +80,8 @@ def test_whats_new_for_role_and_last_seen():
     assert {"chat-statement", "insights", "whats-new",
             "per-currency-views", "chat-periods-cash", "balance-sheet-check",
             "payroll-statutory-rules", "ai-invoices-cheques", "quotes", "invoice-email-reminders",
-            "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes", "ai-usage"} <= all_keys
+            "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes", "ai-usage",
+            "seasonal-tax-reports"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -202,3 +203,10 @@ def test_ai_usage_note_is_for_owners_only():
     for role in ("owner", "cfo", "accountant", "manager", "employee", "viewer", "personal"):
         keys = _keys(rn.whats_new_for(role, "2026.09.25.5"))
         assert ("ai-usage" in keys) == (role == "owner"), role
+
+
+def test_seasonal_tax_note_is_for_iranian_books_people():
+    since = "2026.09.26"
+    assert "seasonal-tax-reports" in _keys(rn.whats_new_for("accountant", since, locale="ir"))
+    assert "seasonal-tax-reports" not in _keys(rn.whats_new_for("accountant", since, locale="uk"))
+    assert "seasonal-tax-reports" not in _keys(rn.whats_new_for("employee", since, locale="ir"))

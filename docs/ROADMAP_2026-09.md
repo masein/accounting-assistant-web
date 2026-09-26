@@ -71,6 +71,17 @@ deleted_at IS NULL`; gzip (front end 1.1 MB → ~270 KB) and a year's
 with the books. Left in 2.6: per-language i18n packs (02-i18n.js 422 KB,
 113 KB gzipped), moving the dashboard's per-journal aggregation into SQL.
 
+**§3 continued — 2026-09-26:** ✅ 3.2 seasonal filings (#153): per Jalali
+season the TTMS figures per counterparty (identity fields in Latin digits,
+person type, returns netted with their VAT share, sales accepted in مودیان
+left out, other currencies and incomplete parties listed), the VAT return
+(output, input, returns, payable / carried forward) reconciled against it,
+an RTL Excel workbook (خلاصه / فروش / خرید / صورتحساب‌ها / اطلاعات ناقص),
+deadlines season end + 45 / + 15 days with reminders, Invoices → Seasonal tax
+reports for Iranian companies. The TTMS program's native Access file is not
+written; its figures are. Follow-up: aggregate small retail sales below the
+حد نصاب, per-purchase "already in the taxpayer portal" flag.
+
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as
 data (`payroll_rule_sets`, Iran 1405 + UK 2026/27 seeded, super-admin edits,

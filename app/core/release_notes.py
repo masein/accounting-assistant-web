@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.26"
+CURRENT_RELEASE = "2026.09.26.1"
 
 
 @dataclass(frozen=True)
@@ -452,6 +452,30 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«تنظیمات ← مصرف هوش مصنوعی» نشان می‌دهد هوش مصنوعی در ۲۴ ساعت و ۳۰ روز گذشته چند توکن مصرف کرده — به تفکیک کاربر، کاربرد (گفت‌وگو، خواندن اسناد، پیشنهادها) و مدل — همراه با هزینهٔ تخمینی. می‌توانید سقف مصرف هر کاربر در ۲۴ ساعت را تعیین کنید؛ در ۸۰٪ سقف شرکت به شما اطلاع داده می‌شود.",
                     "es": "Ajustes → Uso de IA muestra cuántos tokens usó la IA en las últimas 24 horas y 30 días —por usuario, por uso (chat, lectura de documentos, sugerencias) y por modelo— con un coste estimado. Puedes limitar lo que cada usuario usa en 24 horas; te avisamos al 80 % del límite de la empresa.",
                     "ar": "الإعدادات ← استخدام الذكاء الاصطناعي تعرض عدد الرموز التي استخدمها الذكاء الاصطناعي خلال آخر 24 ساعة و30 يومًا — حسب المستخدم والاستخدام (المحادثة، قراءة المستندات، الاقتراحات) والنموذج — مع تكلفة تقديرية. يمكنك تحديد ما يستخدمه كل مستخدم خلال 24 ساعة، ويصلك تنبيه عند 80٪ من حد الشركة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.26.1",
+        date="2026-09-26",
+        highlights=(
+            Highlight(
+                key="seasonal-tax-reports",
+                page="invoices",
+                roles=_SME_BOOKS,
+                locales=("ir",),
+                title={
+                    "en": "Seasonal tax reports: TTMS and the VAT return",
+                    "fa": "گزارش‌های فصلی: معاملات فصلی و اظهارنامهٔ ارزش افزوده",
+                    "es": "Informes trimestrales: TTMS y declaración de IVA",
+                    "ar": "التقارير الفصلية: TTMS وإقرار القيمة المضافة",
+                },
+                body={
+                    "en": "Invoices → Seasonal tax reports: pick a Jalali season to see sales and purchases per counterparty for the quarterly transactions report (due 45 days after the season) and the VAT return figures (due 15 days after), checked against each other. Download the Excel file for TTMS; parties with missing national id, economic code, postal code, address or phone are listed. Sales accepted in سامانه مودیان are left out. You are reminded before each deadline.",
+                    "fa": "«فاکتورها ← گزارش‌های فصلی مالیاتی»: یک فصل را انتخاب کنید تا فروش و خرید به تفکیک طرف معامله برای گزارش معاملات فصلی (تا ۴۵ روز پس از فصل) و ارقام اظهارنامهٔ ارزش افزوده (تا ۱۵ روز پس از فصل) را ببینید که با هم تطبیق داده می‌شوند. فایل اکسل را برای TTMS دانلود کنید؛ طرف‌هایی که شناسه ملی، کد اقتصادی، کد پستی، نشانی یا تلفن ندارند فهرست می‌شوند. فروش‌های پذیرفته‌شده در سامانه مودیان کنار گذاشته می‌شوند. پیش از هر مهلت یادآوری دریافت می‌کنید.",
+                    "es": "Facturas → Informes fiscales trimestrales: elige un trimestre del calendario persa para ver ventas y compras por contraparte para el informe TTMS (45 días tras el trimestre) y las cifras de la declaración de IVA (15 días tras el trimestre), cotejadas entre sí. Descarga el Excel para TTMS; se listan las contrapartes sin identificación nacional, código económico, código postal, dirección o teléfono. Las ventas aceptadas en سامانه مودیان quedan fuera. Recibirás un aviso antes de cada plazo.",
+                    "ar": "الفواتير ← التقارير الضريبية الفصلية: اختر فصلًا لترى المبيعات والمشتريات حسب الطرف المقابل لتقرير المعاملات الفصلي (خلال 45 يومًا من نهاية الفصل) وأرقام إقرار القيمة المضافة (خلال 15 يومًا)، مع مطابقتها. نزّل ملف Excel لـ TTMS؛ تُدرج الأطراف التي تنقصها الهوية الوطنية أو الرمز الاقتصادي أو الرمز البريدي أو العنوان أو الهاتف. المبيعات المقبولة في سامانه مودیان مستبعدة. يصلك تذكير قبل كل مهلة.",
                 },
             ),
         ),

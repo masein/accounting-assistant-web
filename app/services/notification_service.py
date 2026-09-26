@@ -37,6 +37,7 @@ KIND_ROLES = {
     "moadian": ("owner", "cfo", "accountant"),
     "api_key": ("owner",),
     "ai_budget": ("owner", "cfo"),
+    "tax_filing": ("owner", "cfo", "accountant"),
     "payroll": ("owner", "cfo", "accountant"),
     "approvals": ("owner", "cfo", "manager"),
     "petty_cash": ("owner", "cfo", "accountant"),
@@ -99,6 +100,40 @@ def _api_key_expiry(db: Session, seen: set[str], today: date) -> None:
                 message=f"Integrations using {k.prefix}… stop working on {exp.date().isoformat()}. "
                         "Create a new key under Settings → API keys and update the integration.",
                 link_page="settings", due_date=exp.date())
+
+
+TTMS_WARN_DAYS = 10
+VAT_RETURN_WARN_DAYS = 7
+
+
+def _tax_filing_deadlines(db: Session, seen: set[str], today: date) -> None:
+    """Iranian companies: the season that just ended has a VAT return due 15
+    days later and a TTMS report 45 days later (app/services/tax_ir.py).
+    Remind before each, louder in the last two days; only when the season
+    had any invoices."""
+    try:
+        from app.services.fx_service import _current_company_row
+        row = _current_company_row(db)
+    except Exception:
+        row = None
+    if row is None or (getattr(row, "locale", "") or "").lower() != "ir":
+        return
+    from app.services import tax_ir
+    season = tax_ir.season_of(today).previous()
+    if not tax_ir._season_invoices(db, season):
+        return
+    for kind, deadline, warn, title in (
+        ("vat", season.vat_deadline, VAT_RETURN_WARN_DAYS, f"VAT return for {season.name} due"),
+        ("ttms", season.ttms_deadline, TTMS_WARN_DAYS, f"Quarterly transactions report (TTMS) for {season.name} due"),
+    ):
+        left = (deadline - today).days
+        if 0 <= left <= warn:
+            _upsert(db, seen, dedupe_key=f"tax-{kind}-{season.year}-{season.season}", kind="tax_filing",
+                    level="high" if left <= 2 else "warning",
+                    title=f"{title} {'today' if left == 0 else f'in {left} day(s)'}",
+                    message="Figures and the Excel file: Invoices → Seasonal tax reports. "
+                            "A Friday or holiday deadline moves to the next working day.",
+                    link_page="invoices", due_date=deadline)
 
 
 AI_BUDGET_WARN_SHARE = 0.8
@@ -205,6 +240,9 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
 
     # --- AI allowance nearly used ------------------------------------------------
     _ai_budget(db, seen, today)
+
+    # --- Iranian seasonal filings (VAT return, TTMS) ------------------------------
+    _tax_filing_deadlines(db, seen, today)
 
     # --- payroll paydays ---------------------------------------------------
     runs = db.execute(

@@ -61,7 +61,15 @@ real token counts and an estimated cost; rolling 24-hour token budgets per
 company (super-admin) and per user (owner), per-minute request limits per user
 and per company replacing the single global chat bucket; 429 with a reason,
 mid-turn stop; owner/CFO view in Settings → AI usage; owner notification at
-80 %; `aa_llm_tokens_total`) (#151).
+80 %; `aa_llm_tokens_total`) (#151). ✅ 2.6 performance, first pass (#152),
+measured with `scripts/perf_bench.py` on 20k journals / 60k lines: ledger
+summary 1,083 → 23 ms (SQL GROUP BY), owner dashboard 3,145 → ~510 ms cold
+(flat column reads, 132 → 13 queries, output byte-identical), journal list
+98 → 7 queries; `ix_transactions_live (company_id, currency, date) WHERE
+deleted_at IS NULL`; gzip (front end 1.1 MB → ~270 KB) and a year's
+`immutable` cache for `?v=` assets; CI guards that query counts do not grow
+with the books. Left in 2.6: per-language i18n packs (02-i18n.js 422 KB,
+113 KB gzipped), moving the dashboard's per-journal aggregation into SQL.
 
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as

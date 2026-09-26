@@ -1472,6 +1472,9 @@ def list_transactions(
         .options(
             selectinload(Transaction.lines).selectinload(TransactionLine.account),
             selectinload(Transaction.attachments),
+            # the serializer reads every link and its entity: two lazy loads
+            # per row (98 queries for a page of 50) without these
+            selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity),
         )
         .order_by(Transaction.date.desc(), Transaction.created_at.desc())
         .offset(skip)

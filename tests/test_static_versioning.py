@@ -98,3 +98,53 @@ def test_unknown_asset_is_left_untouched():
 @pytest.mark.parametrize("evil", ["../main.py", "js/../../main.py", "../../etc/passwd"])
 def test_asset_version_refuses_paths_outside_static(evil):
     assert _asset_version(evil) is None
+
+
+# ---------------------------------------------------------------------------
+# Transfer size and caching (roadmap 2026-09 §2.6)
+# ---------------------------------------------------------------------------
+def test_scripts_are_gzipped_when_the_browser_accepts_it(client):
+    raw = (STATIC_DIR / "js" / "02-i18n.js").read_bytes()
+    r = client.get("/static/js/02-i18n.js", headers={"Accept-Encoding": "gzip"})
+    assert r.status_code == 200
+    assert r.headers.get("content-encoding") == "gzip"
+    assert r.num_bytes_downloaded < len(raw) / 3               # compressed on the wire
+    assert r.content == raw                                    # and identical once decoded
+
+
+def test_no_gzip_without_accept_encoding(client):
+    r = client.get("/static/js/02-i18n.js", headers={"Accept-Encoding": "identity"})
+    assert "content-encoding" not in r.headers
+
+
+def test_versioned_assets_are_immutable_bare_ones_revalidate(client):
+    v = _content_hash("js/01-core.js")
+    r = client.get(f"/static/js/01-core.js?v={v}")
+    assert r.headers["cache-control"] == "public, max-age=31536000, immutable"
+    r = client.get("/static/js/01-core.js")
+    assert r.headers["cache-control"] == "no-cache"
+    etag = r.headers.get("etag")
+    assert etag
+    r = client.get("/static/js/01-core.js", headers={"If-None-Match": etag})
+    assert r.status_code == 304
+
+
+def test_every_reference_on_the_page_gets_the_long_cache(client):
+    html = render_versioned_html("index.html")
+    for path, qs, _v in REF_RE.findall(html)[:5]:
+        r = client.get(f"/static/{path}{qs}")
+        assert r.status_code == 200 and "immutable" in r.headers["cache-control"], path
+
+
+def test_the_pages_themselves_are_never_cached(auth_client, client):
+    assert "no-store" in auth_client.get("/").headers["cache-control"]
+    assert "no-store" in client.get("/login").headers["cache-control"]
+
+
+def test_large_api_responses_are_compressed_small_ones_are_not(auth_client):
+    big = auth_client.get("/accounts", headers={"Accept-Encoding": "gzip"})
+    assert big.status_code == 200
+    if len(big.content) > 1024:
+        assert big.headers.get("content-encoding") == "gzip"
+    small = auth_client.get("/health", headers={"Accept-Encoding": "gzip"})
+    assert len(small.content) < 1024 and "content-encoding" not in small.headers

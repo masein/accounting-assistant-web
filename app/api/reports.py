@@ -16,7 +16,7 @@ from app.models.account import Account
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
 from app.models.recurring import RecurringRule
-from app.models.transaction import Transaction, TransactionLine
+from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
 from app.services.cash_service import cash_on_hand as _cash_on_hand_balance
 from app.services.fx_service import get_reporting_currency
 from app.services.reporting.repository import resolve_currency_view
@@ -66,20 +66,6 @@ def _attachment_url(file_path: str) -> str:
 
 def _month_key(d: date) -> str:
     return f"{d.year}-{d.month:02d}"
-
-
-def _line_revenue(line: TransactionLine) -> int:
-    # Locale-agnostic: any revenue-nature account (Iran 41xx, UK 4xxx, …).
-    if classify_account_code(line.account.code) == REVENUE:
-        return line.credit - line.debit
-    return 0
-
-
-def _line_expense(line: TransactionLine) -> int:
-    # Locale-agnostic: any expense-nature account (Iran 5x/6x, UK 5/7/8/9xxx).
-    if classify_account_code(line.account.code) == EXPENSE:
-        return line.debit - line.credit
-    return 0
 
 
 # Cash / receivable / current-liability detection IS chart-specific: the same
@@ -163,52 +149,43 @@ def get_ledger_summary(
     Aggregate all transaction lines by account: turnover (sum of debits/credits) and
     ending balance (debit_balance / credit_balance), in trial-balance style like the Excel files.
     """
-    q = (
-        select(TransactionLine)
-        .join(Transaction, TransactionLine.transaction_id == Transaction.id)
-        .where(Transaction.deleted_at.is_(None))  # replaced/undone journals must not count
-        .options(selectinload(TransactionLine.account))
-    )
     # One currency per view — never sum IRR and USD face values. Default is
     # the reporting currency; the response lists the other currencies present.
     currency, other_currencies = resolve_currency_view(db, currency)
-    q = q.where(Transaction.currency == currency)
-    lines = db.execute(q).scalars().all()
-    # Aggregate by account_id
-    by_account: dict[str, dict] = defaultdict(
-        lambda: {
-            "account_code": "",
-            "account_name": "",
-            "debit_turnover": 0,
-            "credit_turnover": 0,
-            "debit_balance": 0,
-            "credit_balance": 0,
-        }
-    )
-    for line in lines:
-        acc = line.account
+    # Summed in the database (roadmap §2.6): loading every line into Python
+    # took ~1 s at 60k lines. Replaced/undone journals never count.
+    totals = db.execute(
+        select(TransactionLine.account_id, func.sum(TransactionLine.debit), func.sum(TransactionLine.credit))
+        .join(Transaction, TransactionLine.transaction_id == Transaction.id)
+        .where(Transaction.deleted_at.is_(None), Transaction.currency == currency)
+        .group_by(TransactionLine.account_id)
+    ).all()
+    accounts = {a.id: a for a in db.execute(
+        select(Account).where(Account.id.in_([t[0] for t in totals]))
+        .options(selectinload(Account.parent))
+    ).scalars().all()} if totals else {}
+    by_account: dict[str, dict] = {}
+    for account_id, debit, credit in totals:
+        acc = accounts.get(account_id)
         if acc is None:
             # account row invisible (e.g. filtered by tenancy after a partial
             # wipe) — skip rather than 500 the whole ledger
             continue
-        key = str(acc.id)
-        by_account[key]["account_code"] = acc.code
-        by_account[key]["account_name"] = acc.name
         # کل: the parent GROUP account this معین rolls up into.
         parent = acc.parent
-        by_account[key]["parent_code"] = parent.code if parent else None
-        by_account[key]["parent_name"] = parent.name if parent else None
-        by_account[key]["debit_turnover"] += line.debit
-        by_account[key]["credit_turnover"] += line.credit
-    # Compute ending balance per account (debit balance = net debit, credit balance = net credit)
-    for key, data in by_account.items():
+        by_account[str(acc.id)] = {
+            "account_code": acc.code,
+            "account_name": acc.name,
+            "parent_code": parent.code if parent else None,
+            "parent_name": parent.name if parent else None,
+            "debit_turnover": int(debit or 0),
+            "credit_turnover": int(credit or 0),
+        }
+    # Ending balance per account (debit balance = net debit, credit balance = net credit)
+    for data in by_account.values():
         net = data["debit_turnover"] - data["credit_turnover"]
-        if net >= 0:
-            data["debit_balance"] = net
-            data["credit_balance"] = 0
-        else:
-            data["debit_balance"] = 0
-            data["credit_balance"] = -net
+        data["debit_balance"] = net if net >= 0 else 0
+        data["credit_balance"] = -net if net < 0 else 0
     rows = [
         LedgerSummaryRow(
             account_code=d["account_code"],
@@ -460,15 +437,34 @@ def get_owner_dashboard(
     _is_current_liab = _current_liability_predicate(locale)
 
     cutoff = today - timedelta(days=months_back * 31)
-    txn_q = select(Transaction).where(Transaction.date >= cutoff, Transaction.deleted_at.is_(None))
-    txn_q = txn_q.where(Transaction.currency == currency)  # single-currency view
-    txns = db.execute(
-        txn_q.options(
-            selectinload(Transaction.lines).selectinload(TransactionLine.account),
-            selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity),
-            selectinload(Transaction.attachments),
-        )
-    ).scalars().unique().all()
+    # Flat column queries instead of an object graph (roadmap §2.6): the
+    # selectin loads cost ~130 round trips and 3 s at 20k journals. Every
+    # query repeats the window filter as a join so the tenant criteria apply.
+    live = (Transaction.date >= cutoff, Transaction.deleted_at.is_(None), Transaction.currency == currency)
+    txns = db.execute(select(Transaction.id, Transaction.date, Transaction.reference).where(*live)).all()
+    lines_by_txn: dict = defaultdict(list)
+    for tid, debit, credit, code, name, desc in db.execute(
+        select(TransactionLine.transaction_id, TransactionLine.debit, TransactionLine.credit,
+               Account.code, Account.name, TransactionLine.line_description)
+        .join(Transaction, TransactionLine.transaction_id == Transaction.id)
+        .join(Account, TransactionLine.account_id == Account.id)
+        .where(*live)
+    ):
+        lines_by_txn[tid].append((int(debit or 0), int(credit or 0), code, name, desc))
+    links_by_txn: dict = defaultdict(list)
+    for tid, role, entity_name in db.execute(
+        select(TransactionEntity.transaction_id, TransactionEntity.role, Entity.name)
+        .join(Transaction, TransactionEntity.transaction_id == Transaction.id)
+        .outerjoin(Entity, TransactionEntity.entity_id == Entity.id)
+        .where(*live)
+    ):
+        links_by_txn[tid].append((role, entity_name))
+    with_attachment = set(db.execute(
+        select(TransactionAttachment.transaction_id).distinct()
+        .join(Transaction, TransactionAttachment.transaction_id == Transaction.id)
+        .where(*live)
+    ).scalars())
+    nature = {}  # account code → revenue / expense / … (classified once per code)
 
     monthly_revenue: dict[str, int] = defaultdict(int)
     monthly_expense: dict[str, int] = defaultdict(int)
@@ -485,31 +481,48 @@ def get_owner_dashboard(
     tax_and_liability_payable = 0
     expense_txn_count = 0
     expense_txn_with_attachment = 0
+    line_count = 0
+    missing_line_desc = 0
+    missing_reference = 0
+    unlinked_entities = 0
 
-    for t in txns:
-        month = _month_key(t.date)
-        week_start = t.date - timedelta(days=t.date.weekday())
+    for t_id, t_date, t_reference in txns:
+        t_lines = lines_by_txn.get(t_id, ())
+        t_links = links_by_txn.get(t_id, ())
+        line_count += len(t_lines)
+        if not (t_reference or "").strip():
+            missing_reference += 1
+        if not t_links:
+            unlinked_entities += 1
+        month = _month_key(t_date)
+        week_start = t_date - timedelta(days=t_date.weekday())
         txn_revenue = 0
         txn_expense = 0
         txn_cash_delta = 0
         receivable_delta = 0
         payable_delta = 0
         expense_accounts_seen: set[str] = set()
-        for ln in t.lines:
-            rev = _line_revenue(ln)
-            exp = _line_expense(ln)
-            cash_delta = (ln.debit - ln.credit) if _is_cash(ln.account.code) else 0
+        for debit, credit, code, name, desc in t_lines:
+            if not (desc or "").strip():
+                missing_line_desc += 1
+            kind = nature.get(code)
+            if kind is None:
+                kind = nature[code] = classify_account_code(code)
+            # locale-agnostic natures: revenue (Iran 41xx, UK 4xxx), expense (Iran 5x/6x, UK 5/7/8/9xxx)
+            rev = (credit - debit) if kind == REVENUE else 0
+            exp = (debit - credit) if kind == EXPENSE else 0
+            cash_delta = (debit - credit) if _is_cash(code) else 0
             txn_revenue += rev
             txn_expense += exp
             txn_cash_delta += cash_delta
-            if _is_receivable(ln.account.code):
-                receivable_delta += ln.debit - ln.credit
-            if _is_current_liab(ln.account.code):
-                payable_delta += ln.credit - ln.debit
-                tax_and_liability_payable += ln.credit - ln.debit
+            if _is_receivable(code):
+                receivable_delta += debit - credit
+            if _is_current_liab(code):
+                payable_delta += credit - debit
+                tax_and_liability_payable += credit - debit
             if exp > 0:
-                expense_accounts_seen.add(ln.account.name)
-                expense_by_category[ln.account.name] += exp
+                expense_accounts_seen.add(name)
+                expense_by_category[name] += exp
         monthly_revenue[month] += max(0, txn_revenue)
         monthly_expense[month] += max(0, txn_expense)
         if txn_cash_delta >= 0:
@@ -518,8 +531,8 @@ def get_owner_dashboard(
             weekly_cash_out[week_start] += -txn_cash_delta
 
         roles = defaultdict(list)
-        for link in t.entity_links:
-            roles[(link.role or "").lower()].append(link.entity.name if link.entity else "Unknown")
+        for role, entity_name in t_links:
+            roles[(role or "").lower()].append(entity_name if entity_name is not None else "Unknown")
         client_names = roles.get("client", []) or ["Unassigned client"]
         vendor_names = roles.get("payee", []) + roles.get("supplier", [])
         if not vendor_names and txn_expense > 0:
@@ -531,7 +544,7 @@ def get_owner_dashboard(
             profitability[c]["revenue"] += max(0, txn_revenue)
             profitability[c]["cost"] += max(0, txn_expense)
 
-        age_days = max(0, (today - t.date).days)
+        age_days = max(0, (today - t_date).days)
         bucket = _bucket_by_age(age_days)
         if receivable_delta > 0:
             for c in client_names:
@@ -554,7 +567,7 @@ def get_owner_dashboard(
 
         if expense_accounts_seen:
             expense_txn_count += 1
-            if t.attachments:
+            if t_id in with_attachment:
                 expense_txn_with_attachment += 1
 
     # True cash-on-hand: the net balance of every cash/bank account up to
@@ -681,11 +694,8 @@ def get_owner_dashboard(
     profitability_rows.sort(key=lambda r: r.profit, reverse=True)
 
     txn_count = len(txns) or 1
-    line_count = sum(len(t.lines) for t in txns) or 1
-    missing_reference = sum(1 for t in txns if not (t.reference or "").strip())
-    unlinked_entities = sum(1 for t in txns if not t.entity_links)
+    line_count = line_count or 1
     missing_attachments_on_expense = max(0, expense_txn_count - expense_txn_with_attachment)
-    missing_line_desc = sum(1 for t in txns for ln in t.lines if not (ln.line_description or "").strip())
     health_issues = [
         HealthIssue(key="missing_reference", label="Missing reference", count=missing_reference, ratio=missing_reference / txn_count),
         HealthIssue(key="unlinked_entity", label="Transactions without entity", count=unlinked_entities, ratio=unlinked_entities / txn_count),

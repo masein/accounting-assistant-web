@@ -59,6 +59,14 @@
             {__html: r.risk ? '<span class="alert-chip high">' + escapeHtml(t('risk')) + '</span>' : '<span class="alert-chip low">' + escapeHtml(t('ok')) + '</span>'}
           ])
         );
+        renderForecastSummary(data.forecast_13_weeks || []);
+        window.__DASH_CCY = data.currency || '';
+        const explorer = document.getElementById('forecast-explorer');
+        if (explorer && !explorer.dataset.bound) {
+          explorer.dataset.bound = '1';
+          explorer.addEventListener('toggle', () => { if (explorer.open) loadForecastExplorer(); });
+        }
+        if (explorer && explorer.open) loadForecastExplorer();
 
         loadInsightsPanel('insights-wrap');
         const alertsWrap = document.getElementById('alerts-wrap');
@@ -1280,6 +1288,182 @@
           if (typeof window.aiChatAsk === 'function') window.aiChatAsk(tf('insightsAskMsg', { title: b.dataset.title || '' }));
         }));
       } catch (_) { wrap.innerHTML = ''; }
+    }
+
+    // --- 13-week cash forecast: summary, week details and what-if (roadmap §5.3) ---
+    function forecastItemLabel(i) {
+      const kind = t('forecastKind_' + i.kind);
+      const head = i.name ? kind + ' ' + i.name : kind;
+      return i.entity_name ? head + ' — ' + i.entity_name : head;
+    }
+
+    function renderForecastSummary(rows) {
+      const el = document.getElementById('forecast-summary');
+      if (!el) return;
+      if (!rows.length) { el.textContent = ''; el.classList.remove('forecast-risk'); return; }
+      // the first lowest week, as the server reports it
+      const low = rows.reduce((a, r) => (r.projected_cash < a.projected_cash ? r : a), rows[0]);
+      const neg = rows.find((r) => r.projected_cash < 0);
+      const lowest = tf('forecastLowest', { amount: formatNum(low.projected_cash), week: formatDisplayDate(low.week_start) });
+      el.textContent = neg ? tf('forecastNegative', { week: formatDisplayDate(neg.week_start) }) + ' · ' + lowest : lowest;
+      el.classList.toggle('forecast-risk', !!neg);
+    }
+
+    function forecastLearnedHtml(data) {
+      const learned = data.learned || {};
+      const lines = [learned.company_days_late > 0
+        ? tf('forecastLearned', { days: learned.company_days_late }) : t('forecastLearnedOnTime')];
+      (learned.customers || []).filter((c) => c.days_late > 0).slice(0, 5).forEach((c) => {
+        lines.push(tf('forecastLateCustomer', { name: c.name || '—', days: c.days_late, n: c.paid_invoices }));
+      });
+      const d = data.doubtful || {};
+      if (d.count) lines.push(tf('forecastDoubtful', { n: d.count, days: d.after_days, amount: formatNum(d.total) }));
+      const b = data.baseline || {};
+      lines.push(b.weeks_of_history >= 4
+        ? tf('forecastUsualWeek', { inflow: formatNum(b.inflow), outflow: formatNum(b.outflow), weeks: b.weeks_of_history })
+        : t('forecastNoHistory'));
+      return '<div class="forecast-learned">' + lines.map((l) => '<div>' + escapeHtml(l) + '</div>').join('') + '</div>';
+    }
+
+    function forecastWeeksHtml(weeks) {
+      return weeks.map((w) => {
+        const items = (w.items || []).map((i) => '<li class="' + (i.amount < 0 ? 'fc-out' : 'fc-in') + '">'
+          + '<span>' + escapeHtml(formatDisplayDate(i.date)) + '</span>'
+          + '<span>' + escapeHtml(forecastItemLabel(i)) + '</span>'
+          + (i.overdue ? '<span class="alert-chip medium">' + escapeHtml(t('forecastOverdue')) + '</span>' : '')
+          + (i.days_late ? '<span class="fc-note">(' + escapeHtml(tf('forecastPaysLate', { days: i.days_late })) + ')</span>' : '')
+          + (i.covers_invoice ? '<span class="fc-note">(' + escapeHtml(tf('forecastCovers', { number: i.covers_invoice })) + ')</span>' : '')
+          + '<span class="fc-amt">' + escapeHtml(formatNum(i.amount)) + '</span></li>').join('');
+        const usual = (w.baseline_in || w.baseline_out)
+          ? '<div class="fc-note">' + escapeHtml(tf('forecastUsualLine', { inflow: formatNum(w.baseline_in), outflow: formatNum(w.baseline_out) })) + '</div>'
+          : '';
+        return '<details class="fc-week' + (w.risk ? ' fc-risk' : '') + '"><summary><strong>'
+          + escapeHtml(formatDisplayDate(w.week_start)) + '</strong> — '
+          + escapeHtml(tf('forecastWeekLine', { inflow: formatNum(w.inflow), outflow: formatNum(w.outflow), closing: formatNum(w.closing) }))
+          + '</summary>' + (items ? '<ul class="fc-items">' + items + '</ul>' : '<div class="fc-note">' + escapeHtml(t('forecastNoItems')) + '</div>')
+          + usual + '</details>';
+      }).join('');
+    }
+
+    // What the what-if form offers: the cheques/installments and invoices the
+    // forecast is counting on, and the parties behind them.
+    function forecastChoices(data) {
+      const seen = new Set();
+      const commits = [];
+      const invoices = [];
+      const parties = new Map();
+      (data.weeks || []).forEach((w) => (w.items || []).forEach((i) => {
+        if (i.entity_id && i.entity_name) parties.set(i.entity_id, i.entity_name);
+        if (!i.source_id || seen.has(i.kind + i.source_id)) return;
+        seen.add(i.kind + i.source_id);
+        if (/^(cheque|installment)_/.test(i.kind)) commits.push(i);
+        else if (i.kind === 'invoice_in' || i.kind === 'bill_out') invoices.push(i);
+      }));
+      invoices.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+      return { commits: commits.slice(0, 40), invoices: invoices.slice(0, 40),
+               parties: [...parties.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1]))) };
+    }
+
+    function forecastWhatIfHtml(data) {
+      const c = forecastChoices(data);
+      const pick = (name, i) => '<label class="fc-pick"><input type="checkbox" name="' + name + '" value="' + escapeHtml(i.source_id) + '"> '
+        + escapeHtml(formatDisplayDate(i.date) + ' · ' + forecastItemLabel(i) + ' · ' + formatNum(i.amount)) + '</label>';
+      const none = '<div class="fc-note">' + escapeHtml(t('forecastNothingToPick')) + '</div>';
+      const options = c.parties.map(([id, n]) => '<option value="' + escapeHtml(id) + '">' + escapeHtml(n) + '</option>').join('');
+      return '<form id="fc-whatif" class="fc-whatif">'
+        + '<h4>' + escapeHtml(t('forecastWhatIf')) + '</h4>'
+        + '<fieldset><legend>' + escapeHtml(t('forecastBounce')) + '</legend>' + (c.commits.length ? c.commits.map((i) => pick('bounce', i)).join('') : none) + '</fieldset>'
+        + '<fieldset><legend>' + escapeHtml(t('forecastSkip')) + '</legend>' + (c.invoices.length ? c.invoices.map((i) => pick('skip', i)).join('') : none) + '</fieldset>'
+        + '<fieldset><legend>' + escapeHtml(t('forecastDelay')) + '</legend>'
+        + '<select name="delay_entity"><option value="">' + escapeHtml(t('forecastPickParty')) + '</option>' + options + '</select>'
+        + '<input type="number" name="delay_days" min="1" max="365" value="30" style="width:6rem;"> ' + escapeHtml(t('forecastDelayDays')) + '</fieldset>'
+        + '<fieldset><legend>' + escapeHtml(t('forecastOneOff')) + '</legend>'
+        + '<select name="oneoff_sign"><option value="-1">' + escapeHtml(t('forecastOneOffOut')) + '</option><option value="1">' + escapeHtml(t('forecastOneOffIn')) + '</option></select>'
+        + '<input type="number" name="oneoff_amount" min="0" step="1" placeholder="0" style="width:9rem;">'
+        + '<input type="date" name="oneoff_date">'
+        + '<input type="text" name="oneoff_label" maxlength="120" placeholder="' + escapeHtml(t('forecastOneOffLabel')) + '"></fieldset>'
+        + '<div style="display:flex; gap:0.5rem; margin-top:0.5rem;"><button type="submit" class="btn btn-primary btn-sm">' + escapeHtml(t('forecastRun')) + '</button>'
+        + '<button type="reset" class="btn btn-secondary btn-sm">' + escapeHtml(t('forecastReset')) + '</button></div>'
+        + '<div id="fc-result"></div></form>';
+    }
+
+    function forecastScenarioPayload(form, data) {
+      const payload = {
+        currency: data.currency || null,
+        weeks: (data.weeks || []).length || 13,
+        bounce_commitments: [...form.querySelectorAll('input[name=bounce]:checked')].map((x) => x.value),
+        skip_invoices: [...form.querySelectorAll('input[name=skip]:checked')].map((x) => x.value),
+        delays: [],
+        one_offs: [],
+      };
+      const entity = form.elements.delay_entity.value;
+      const days = parseInt(form.elements.delay_days.value, 10);
+      if (entity && days) payload.delays.push({ entity_id: entity, days });
+      const amount = parseInt(form.elements.oneoff_amount.value, 10);
+      const on = form.elements.oneoff_date.value;
+      if (amount > 0 && on) {
+        payload.one_offs.push({ on, amount: amount * parseInt(form.elements.oneoff_sign.value, 10),
+                                label: form.elements.oneoff_label.value.trim() || null });
+      }
+      const empty = !payload.bounce_commitments.length && !payload.skip_invoices.length
+        && !payload.delays.length && !payload.one_offs.length;
+      return empty ? null : payload;
+    }
+
+    function forecastScenarioHtml(r) {
+      const b = r.base;
+      const s = r.scenario;
+      const cell = (v) => '<td>' + escapeHtml(formatNum(v)) + '</td>';
+      const head = '<tr><th></th><th>' + escapeHtml(t('forecastBase')) + '</th><th>' + escapeHtml(t('forecastScenario'))
+        + '</th><th>' + escapeHtml(t('forecastDifference')) + '</th></tr>';
+      const summary = '<table class="mini-table"><thead>' + head + '</thead><tbody>'
+        + '<tr><td>' + escapeHtml(t('forecastLowestShort')) + '</td>' + cell(b.lowest.closing) + cell(s.lowest.closing) + cell(r.lowest_difference) + '</tr>'
+        + '<tr><td>' + escapeHtml(t('forecastEnd')) + '</td>' + cell(b.closing_cash) + cell(s.closing_cash) + cell(r.closing_difference) + '</tr>'
+        + '</tbody></table>';
+      const weeks = '<table class="mini-table" style="margin-top:0.5rem;"><thead><tr><th>' + escapeHtml(t('forecastWeek')) + '</th><th>'
+        + escapeHtml(t('forecastBase')) + '</th><th>' + escapeHtml(t('forecastScenario')) + '</th><th>' + escapeHtml(t('forecastDifference'))
+        + '</th></tr></thead><tbody>'
+        + b.weeks.map((w, k) => '<tr' + (s.weeks[k].risk ? ' class="fc-risk-text"' : '') + '><td>' + escapeHtml(formatDisplayDate(w.week_start)) + '</td>'
+          + cell(w.closing) + cell(s.weeks[k].closing) + cell(r.difference[k].closing_difference) + '</tr>').join('')
+        + '</tbody></table>';
+      const neg = s.first_negative_week
+        ? '<p class="fc-risk-text">' + escapeHtml(tf('forecastNegative', { week: formatDisplayDate(s.first_negative_week) })) + '</p>' : '';
+      const notes = (r.scenario_notes || []).map((n) => '<div class="fc-note">' + escapeHtml(n) + '</div>').join('');
+      return neg + summary + weeks + notes;
+    }
+
+    async function loadForecastExplorer() {
+      const body = document.getElementById('forecast-explorer-body');
+      if (!body) return;
+      body.innerHTML = '<p class="fc-note">' + escapeHtml(t('loading')) + '</p>';
+      const ccy = window.__DASH_CCY || '';
+      try {
+        const res = await fetch(API + '/reports/cash-forecast' + (ccy ? '?currency=' + encodeURIComponent(ccy) : ''));
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'cash forecast error');
+        body.innerHTML = forecastLearnedHtml(data) + forecastWeeksHtml(data.weeks || []) + forecastWhatIfHtml(data);
+        const form = body.querySelector('#fc-whatif');
+        const out = form.querySelector('#fc-result');
+        form.addEventListener('reset', () => { out.innerHTML = ''; });
+        form.addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+          const payload = forecastScenarioPayload(form, data);
+          if (!payload) { out.innerHTML = '<p class="fc-note">' + escapeHtml(t('forecastScenarioEmpty')) + '</p>'; return; }
+          out.innerHTML = '<p class="fc-note">' + escapeHtml(t('loading')) + '</p>';
+          try {
+            const r = await fetch(API + '/reports/cash-forecast/scenario', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+            });
+            const result = await r.json();
+            if (!r.ok) throw new Error(result.detail || 'scenario error');
+            out.innerHTML = forecastScenarioHtml(result);
+          } catch (_) {
+            out.innerHTML = '<p class="fc-note">' + escapeHtml(t('forecastError')) + '</p>';
+          }
+        });
+      } catch (_) {
+        body.innerHTML = '<p class="fc-note">' + escapeHtml(t('forecastError')) + '</p>';
+      }
     }
 
     async function loadPersonalDashboard() {

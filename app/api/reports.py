@@ -14,8 +14,6 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.entity import Entity, TransactionEntity
-from app.models.invoice import Invoice
-from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
 from app.services.cash_service import cash_on_hand as _cash_on_hand_balance
 from app.services.fx_service import get_reporting_currency
@@ -68,18 +66,10 @@ def _month_key(d: date) -> str:
     return f"{d.year}-{d.month:02d}"
 
 
-# Cash / receivable / current-liability detection IS chart-specific: the same
+# Receivable / current-liability detection IS chart-specific: the same
 # code means different things across locales (e.g. UK 1210 = bank deposit,
 # Iran 1210 = property/plant). These predicates are selected by reporting
 # locale inside get_owner_dashboard.
-def _cash_predicate(locale: str):
-    # Single source of truth lives in cash_service so the dashboard and the
-    # CFO/CEO engine select the same cash/bank accounts (see AI-6).
-    from app.services.cash_service import cash_account_predicate
-
-    return cash_account_predicate(locale)
-
-
 def _receivable_predicate(locale: str):
     if (locale or "").strip().lower() == "uk":
         return lambda c: c.startswith("1100")  # Trade debtors
@@ -108,36 +98,6 @@ def _apply_reduction(buckets: dict[str, int], amount: int) -> None:
         take = min(amount, buckets[key])
         buckets[key] -= take
         amount -= take
-
-
-def _week_start(d: date) -> date:
-    return d - timedelta(days=d.weekday())
-
-
-def _week_of_month(d: date) -> int:
-    return ((d.day - 1) // 7) + 1
-
-
-def _next_month_same_day(d: date) -> date:
-    year = d.year + (1 if d.month == 12 else 0)
-    month = 1 if d.month == 12 else d.month + 1
-    day = min(d.day, 28)
-    while day >= 1:
-        try:
-            return date(year, month, day)
-        except ValueError:
-            day -= 1
-    return date(year, month, 1)
-
-
-def _next_year_same_day(d: date) -> date:
-    day = min(d.day, 28)
-    while day >= 1:
-        try:
-            return date(d.year + 1, d.month, day)
-        except ValueError:
-            day -= 1
-    return date(d.year + 1, d.month, 1)
 
 
 @router.get("/ledger-summary", response_model=LedgerSummaryResponse)
@@ -432,7 +392,6 @@ def get_owner_dashboard(
     # receivable / current-liability predicates once up front so the KPI
     # aggregation works for the UK (and any non-Iranian) chart, not just Iran.
     locale = get_reporting_locale(db)
-    _is_cash = _cash_predicate(locale)
     _is_receivable = _receivable_predicate(locale)
     _is_current_liab = _current_liability_predicate(locale)
 
@@ -468,8 +427,6 @@ def get_owner_dashboard(
 
     monthly_revenue: dict[str, int] = defaultdict(int)
     monthly_expense: dict[str, int] = defaultdict(int)
-    weekly_cash_in: dict[date, int] = defaultdict(int)
-    weekly_cash_out: dict[date, int] = defaultdict(int)
     expense_by_category: dict[str, int] = defaultdict(int)
     spend_by_vendor: dict[str, int] = defaultdict(int)
     profitability: dict[str, dict[str, int]] = defaultdict(lambda: {"revenue": 0, "cost": 0})
@@ -495,10 +452,8 @@ def get_owner_dashboard(
         if not t_links:
             unlinked_entities += 1
         month = _month_key(t_date)
-        week_start = t_date - timedelta(days=t_date.weekday())
         txn_revenue = 0
         txn_expense = 0
-        txn_cash_delta = 0
         receivable_delta = 0
         payable_delta = 0
         expense_accounts_seen: set[str] = set()
@@ -511,10 +466,8 @@ def get_owner_dashboard(
             # locale-agnostic natures: revenue (Iran 41xx, UK 4xxx), expense (Iran 5x/6x, UK 5/7/8/9xxx)
             rev = (credit - debit) if kind == REVENUE else 0
             exp = (debit - credit) if kind == EXPENSE else 0
-            cash_delta = (debit - credit) if _is_cash(code) else 0
             txn_revenue += rev
             txn_expense += exp
-            txn_cash_delta += cash_delta
             if _is_receivable(code):
                 receivable_delta += debit - credit
             if _is_current_liab(code):
@@ -525,10 +478,6 @@ def get_owner_dashboard(
                 expense_by_category[name] += exp
         monthly_revenue[month] += max(0, txn_revenue)
         monthly_expense[month] += max(0, txn_expense)
-        if txn_cash_delta >= 0:
-            weekly_cash_in[week_start] += txn_cash_delta
-        else:
-            weekly_cash_out[week_start] += -txn_cash_delta
 
         roles = defaultdict(list)
         for role, entity_name in t_links:
@@ -587,82 +536,18 @@ def get_owner_dashboard(
     burn_rate = int(mean(burn_values)) if burn_values else 0
     runway_months = round(cash_on_hand / burn_rate, 1) if burn_rate > 0 else None
 
-    week_keys = sorted(set(weekly_cash_in.keys()) | set(weekly_cash_out.keys()))
-    hist_weeks = week_keys[-24:] if week_keys else []
-    avg_in = int(mean([weekly_cash_in.get(w, 0) for w in hist_weeks])) if hist_weeks else 0
-    avg_out = int(mean([weekly_cash_out.get(w, 0) for w in hist_weeks])) if hist_weeks else 0
-
-    # Weekly seasonality profile (week-of-month) from historical cash behavior.
-    wom_in: dict[int, list[int]] = defaultdict(list)
-    wom_out: dict[int, list[int]] = defaultdict(list)
-    for w in hist_weeks:
-        wom = _week_of_month(w)
-        wom_in[wom].append(weekly_cash_in.get(w, 0))
-        wom_out[wom].append(weekly_cash_out.get(w, 0))
-
-    base_week = _week_start(today)
-    forecast_weeks = [base_week + timedelta(days=7 * i) for i in range(1, 14)]
-    forecast_start = forecast_weeks[0]
-    forecast_end = forecast_weeks[-1] + timedelta(days=6)
-
-    # Scheduled expectations from unpaid invoices due in forecast window.
-    sched_in: dict[date, int] = defaultdict(int)
-    sched_out: dict[date, int] = defaultdict(int)
-    open_invoices = db.execute(
-        select(Invoice).where(
-            Invoice.status.in_(("draft", "issued")),
-            Invoice.due_date >= forecast_start,
-            Invoice.due_date <= forecast_end,
-        )
-    ).scalars().all()
-    for inv in open_invoices:
-        w = _week_start(inv.due_date)
-        if inv.kind == "sales":
-            sched_in[w] += max(0, inv.amount)
-        elif inv.kind == "purchase":
-            sched_out[w] += max(0, inv.amount)
-
-    # Scheduled expectations from active recurring rules.
-    active_rules = db.execute(
-        select(RecurringRule).where(
-            RecurringRule.status == "active",
-            RecurringRule.amount.is_not(None),
-            RecurringRule.amount > 0,
-        )
-    ).scalars().all()
-    for rule in active_rules:
-        run_on = rule.next_run_date
-        while run_on < forecast_start:
-            run_on = _next_year_same_day(run_on) if rule.frequency == "yearly" else _next_month_same_day(run_on)
-        while run_on <= forecast_end:
-            w = _week_start(run_on)
-            amt = int(rule.amount or 0)
-            if (rule.direction or "").lower() == "receipt":
-                sched_in[w] += amt
-            else:
-                sched_out[w] += amt
-            run_on = _next_year_same_day(run_on) if rule.frequency == "yearly" else _next_month_same_day(run_on)
-
-    projected_cash = cash_on_hand
-    forecast_rows: list[ForecastRow] = []
-    for w in forecast_weeks:
-        wom = _week_of_month(w)
-        seasonal_in = int(mean(wom_in[wom])) if wom_in.get(wom) else avg_in
-        seasonal_out = int(mean(wom_out[wom])) if wom_out.get(wom) else avg_out
-        projected_in = max(0, seasonal_in + sched_in.get(w, 0))
-        projected_out = max(0, seasonal_out + sched_out.get(w, 0))
-        net = projected_in - projected_out
-        projected_cash += net
-        forecast_rows.append(
-            ForecastRow(
-                week_start=w,
-                projected_inflow=projected_in,
-                projected_outflow=projected_out,
-                projected_net=net,
-                projected_cash=projected_cash,
-                risk=projected_cash < 0,
-            )
-        )
+    # The 13 weeks come from the forecast service (roadmap §5.3): open invoices
+    # on each customer's learned payment habit, cheques, payroll, recurring
+    # flows and the median unscheduled week — the same figures the forecast
+    # page and the AI accountant show.
+    from app.services.cash_forecast import forecast as _cash_forecast
+    fc = _cash_forecast(db, today=today, currency=currency, locale=locale, opening=cash_on_hand)
+    forecast_rows = [
+        ForecastRow(week_start=date.fromisoformat(w["week_start"]), projected_inflow=w["inflow"],
+                    projected_outflow=w["outflow"], projected_net=w["net"], projected_cash=w["closing"],
+                    risk=w["risk"])
+        for w in fc["weeks"]
+    ]
 
     ar_rows = []
     for n, b in ar_buckets.items():
@@ -795,6 +680,53 @@ def get_owner_dashboard(
 def invalidate_dashboard_cache() -> None:
     """Call after transaction create/update/delete to clear cached dashboard."""
     _dashboard_cache.clear()
+
+
+class _ForecastDelay(BaseModel):
+    entity_id: UUID
+    days: int = Field(..., ge=-90, le=365)
+
+
+class _ForecastOneOff(BaseModel):
+    on: date
+    amount: int = Field(..., ge=-10**15, le=10**15)
+    label: str | None = Field(None, max_length=120)
+
+
+class CashForecastScenarioIn(BaseModel):
+    currency: str | None = Field(None, max_length=8)
+    weeks: int = Field(13, ge=1, le=26)
+    bounce_commitments: list[UUID] = Field(default_factory=list, max_length=200)
+    skip_invoices: list[UUID] = Field(default_factory=list, max_length=200)
+    delays: list[_ForecastDelay] = Field(default_factory=list, max_length=100)
+    one_offs: list[_ForecastOneOff] = Field(default_factory=list, max_length=50)
+
+
+@router.get("/cash-forecast")
+def get_cash_forecast(
+    currency: str | None = Query(None, max_length=8),
+    weeks: int = Query(13, ge=1, le=26),
+    db: Session = Depends(get_db),
+) -> dict:
+    """The 13-week cash forecast (roadmap §5.3): scheduled flows on their
+    learned dates plus the usual unscheduled week, and the lowest point."""
+    from app.services.cash_forecast import forecast
+    return forecast(db, currency=currency, weeks=weeks)
+
+
+@router.post("/cash-forecast/scenario")
+def post_cash_forecast_scenario(body: CashForecastScenarioIn, db: Session = Depends(get_db)) -> dict:
+    """What if: cheques that bounce, invoices never paid, parties paying later,
+    one-off flows. Returns the base and the scenario side by side. Read-only."""
+    from app.services.cash_forecast import compare, resolve_scenario
+    scenario, notes = resolve_scenario(
+        db, bounce_ids=body.bounce_commitments, skip_invoice_ids=body.skip_invoices,
+        delays=[{"entity_id": d.entity_id, "days": d.days} for d in body.delays],
+        one_offs=[{"date": o.on.isoformat(), "amount": o.amount, "label": o.label} for o in body.one_offs],
+    )
+    out = compare(db, scenario, currency=body.currency, weeks=body.weeks)
+    out["scenario_notes"] = notes
+    return out
 
 
 @router.get("/tax-summary")

@@ -116,18 +116,19 @@ def _queries(books, url):
     return q["n"]
 
 
-@pytest.mark.parametrize("url", [
-    "/transactions?limit=50",
-    "/reports/ledger-summary",
-    "/reports/owner-dashboard",
+@pytest.mark.parametrize("url, cap", [
+    ("/transactions?limit=50", 20),
+    ("/reports/ledger-summary", 20),
+    # the dashboard's 13-week forecast reads its dozen sources once each (§5.3)
+    ("/reports/owner-dashboard", 32),
 ])
-def test_query_count_does_not_grow_with_the_books(db, books, url):
+def test_query_count_does_not_grow_with_the_books(db, books, url, cap):
     _many(db, books, 12)
     small = _queries(books, url)
     _many(db, books, 36)
     large = _queries(books, url)
     assert large <= small, f"{url}: {small} → {large} queries — an N+1 crept in"
-    assert large <= 20, f"{url}: {large} queries"
+    assert large <= cap, f"{url}: {large} queries"
 
 
 def test_ledger_summary_figures(db, books):

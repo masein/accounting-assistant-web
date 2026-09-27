@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.27"
+CURRENT_RELEASE = "2026.09.27.1"
 
 
 @dataclass(frozen=True)
@@ -547,6 +547,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "بینش‌های داشبورد و گفت‌وگو اکنون این موارد را نشان می‌دهند: پرداخت احتمالاً تکراری به تأمین‌کننده، پرداخت‌های تقسیم‌شده کمی زیر سقف تأیید، نخستین پرداخت بزرگ به تأمین‌کنندهٔ جدید، سندهای رُند در روز تعطیل، سهم ناگهانی یک حساب هزینه از کل هزینه‌ها، و برگشت‌های پرتعداد برای یک مشتری یا تأمین‌کننده.",
                     "es": "Las ideas del panel y del chat señalan ahora posibles pagos duplicados a proveedores, pagos divididos justo por debajo del límite de aprobación, un primer pago elevado a un proveedor nuevo, asientos redondos en fin de semana, una cuenta de gasto que de pronto acapara el gasto y una racha de anulaciones para un cliente o proveedor.",
                     "ar": "تُظهر الرؤى في لوحة التحكم والمحادثة الآن: دفعات مكررة محتملة للموردين، ودفعات مقسّمة أقل بقليل من حد الموافقة، وأول دفعة كبيرة لمورّد جديد، وقيودًا بمبالغ مدوّرة في عطلة نهاية الأسبوع، وحساب مصروفات يستحوذ فجأة على الإنفاق، وسلسلة انعكاسات لعميل أو مورّد.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.27.1",
+        date="2026-09-27",
+        highlights=(
+            Highlight(
+                key="cash-forecast",
+                page="dashboard",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "A cash forecast that learns — and asks “what if?”",
+                    "fa": "پیش‌بینی نقدینگی که یاد می‌گیرد — و می‌پرسد «اگر…؟»",
+                    "es": "Un pronóstico de caja que aprende — y pregunta «¿y si…?»",
+                    "ar": "توقع نقدي يتعلّم — ويسأل «ماذا لو؟»",
+                },
+                body={
+                    "en": "The dashboard's 13-week forecast now expects each customer's invoices when that customer usually pays, and adds bills, pending cheques and installments, payroll and recurring flows to your usual week. Open “Forecast details and what-if” to see each week's items, or try a scenario — a cheque that bounces, an invoice that isn't paid, a customer paying a month late, a one-off purchase. You can also ask the AI: “what if the Mellat cheque bounces?”",
+                    "fa": "پیش‌بینی ۱۳ هفته‌ای داشبورد اکنون فاکتورهای هر مشتری را همان زمانی انتظار دارد که آن مشتری معمولاً پرداخت می‌کند و قبض‌ها، چک‌ها و اقساط در جریان، حقوق و پرداخت‌های تکراری را به هفتهٔ معمول شما اضافه می‌کند. «جزئیات پیش‌بینی و اگر…» را باز کنید تا اقلام هر هفته را ببینید، یا یک سناریو امتحان کنید — برگشت خوردن یک چک، پرداخت نشدن یک فاکتور، یک ماه دیرتر پرداختن یک مشتری، یک خرید یک‌باره. از دستیار هم می‌توانید بپرسید: «اگه چک ملت برگشت بخوره چی؟»",
+                    "es": "El pronóstico de 13 semanas del panel espera ahora las facturas de cada cliente cuando ese cliente suele pagar, y suma facturas de proveedores, cheques y cuotas pendientes, nóminas y flujos recurrentes a tu semana habitual. Abre «Detalle del pronóstico y ¿y si…?» para ver las partidas de cada semana o prueba un escenario: un cheque devuelto, una factura que no se cobra, un cliente que paga un mes tarde, una compra puntual. También puedes preguntar a la IA: «¿y si rebota el cheque del banco Mellat?»",
+                    "ar": "يتوقع توقع الـ 13 أسبوعًا في لوحة التحكم الآن فواتير كل عميل في الموعد الذي يدفع فيه ذلك العميل عادةً، ويضيف فواتير الموردين والشيكات والأقساط المعلّقة والرواتب والتدفقات المتكررة إلى أسبوعك المعتاد. افتح «تفاصيل التوقع وماذا لو» لرؤية بنود كل أسبوع، أو جرّب سيناريو — شيك يرتد، فاتورة لا تُدفع، عميل يدفع متأخرًا شهرًا، شراء لمرة واحدة. ويمكنك أيضًا سؤال المساعد: «ماذا لو ارتد شيك بنك ملت؟»",
                 },
             ),
         ),

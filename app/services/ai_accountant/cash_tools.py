@@ -91,5 +91,96 @@ class GetCashPosition(BaseTool):
         return out
 
 
+class ForecastDelay(BaseModel):
+    entity_id: str | None = Field(None, description="Customer/supplier id (from find_entity).")
+    entity_name: str | None = Field(None, description="Or the name; matched loosely.")
+    days: int = Field(..., ge=-90, le=365, description="Extra days they take to pay (or get paid).")
+
+
+class ForecastOneOff(BaseModel):
+    on: date = Field(..., description="Date of the one-off flow.")
+    amount: int = Field(..., description="Positive = money in, negative = money out.")
+    label: str | None = Field(None, max_length=120)
+
+
+class GetCashForecastInput(BaseModel):
+    weeks: int = Field(13, ge=1, le=26, description="How many weeks ahead (default 13).")
+    currency: str | None = Field(None, description="Currency to forecast. Defaults to the reporting currency.")
+    bounce_commitment_ids: list[str] = Field(default_factory=list, max_length=100,
+                                             description="What if these cheques/installments never settle (ids from list_commitments).")
+    bounce_matching: str | None = Field(None, max_length=120, description=(
+        "Or match pending cheques/installments by bank, counterparty, title or cheque number — "
+        "e.g. 'Mellat' for 'what if the Mellat cheque bounces'."))
+    skip_invoice_ids: list[str] = Field(default_factory=list, max_length=100,
+                                        description="What if these invoices are never paid (ids from list_invoices).")
+    delays: list[ForecastDelay] = Field(default_factory=list, max_length=50,
+                                        description="What if a customer pays (or we pay a supplier) N days later.")
+    one_offs: list[ForecastOneOff] = Field(default_factory=list, max_length=50,
+                                           description="What if a one-off receipt/payment happens (a loan, a big purchase).")
+
+
+def _compact_weeks(weeks: list[dict], per_week: int = 4) -> list[dict]:
+    out = []
+    for w in weeks:
+        items = sorted(w["items"], key=lambda i: -abs(i["amount"]))
+        out.append({k: w[k] for k in ("week_start", "inflow", "outflow", "closing", "risk")} | {
+            "main_items": [{k: i.get(k) for k in ("date", "label", "amount", "entity_name", "note", "overdue")}
+                           for i in items[:per_week]],
+            "other_items": max(0, len(items) - per_week),
+        })
+    return out
+
+
+def _summary(f: dict) -> dict:
+    return {"opening_cash": f["opening_cash"], "closing_cash": f["closing_cash"], "lowest": f["lowest"],
+            "first_negative_week": f["first_negative_week"]}
+
+
+class GetCashForecast(BaseTool):
+    name = "get_cash_forecast"
+    category = "read"
+    description = (
+        "The 13-week cash forecast: today's cash, then week by week the expected money in and out — "
+        "open sales invoices on the date THAT customer usually pays (learned from their paid invoices), "
+        "bills, pending cheques and installments, payroll, recurring payments and invoices, plus the "
+        "usual unscheduled week. Returns the lowest balance, the first week cash goes negative and the "
+        "main items each week. Pass a scenario to ask 'what if': a cheque bounces (bounce_matching='Mellat' "
+        "or ids), an invoice isn't paid, a customer pays 30 days late, a one-off loan or purchase — the "
+        "result then compares base vs scenario. Use it for 'will we have enough cash', 'when do we run "
+        "short', 'پیش‌بینی نقدینگی', 'اگه چک ملت برگشت بخوره'. Pure read, changes nothing."
+    )
+    InputSchema = GetCashForecastInput
+
+    async def run(self, ctx: ToolContext, args: GetCashForecastInput) -> dict[str, Any]:
+        from app.services.cash_forecast import compare, forecast, resolve_scenario
+
+        scenario, notes = resolve_scenario(
+            ctx.db, bounce_ids=args.bounce_commitment_ids, bounce_matching=args.bounce_matching,
+            skip_invoice_ids=args.skip_invoice_ids,
+            delays=[d.model_dump() for d in args.delays],
+            one_offs=[{"date": o.on.isoformat(), "amount": o.amount, "label": o.label} for o in args.one_offs],
+        )
+        kw = {"weeks": args.weeks, "currency": args.currency}
+        if scenario.empty:
+            f = forecast(ctx.db, **kw)
+            out = {"currency": f["currency"], "as_of": f["as_of"], **_summary(f),
+                   "weeks": _compact_weeks(f["weeks"]), "learned": f["learned"], "baseline": f["baseline"],
+                   "doubtful": {k: f["doubtful"][k] for k in ("count", "total", "after_days")}
+                   | {"invoices": f["doubtful"]["invoices"][:5]},
+                   "notes": f["notes"]}
+        else:
+            c = compare(ctx.db, scenario, **kw)
+            out = {"currency": c["base"]["currency"], "as_of": c["base"]["as_of"],
+                   "base": _summary(c["base"]), "scenario": _summary(c["scenario"]),
+                   "scenario_applied": c["scenario"]["scenario"],
+                   "closing_difference": c["closing_difference"], "lowest_difference": c["lowest_difference"],
+                   "scenario_weeks": _compact_weeks(c["scenario"]["weeks"], per_week=3),
+                   "notes": c["base"]["notes"]}
+        if notes:
+            out["scenario_notes"] = notes
+        return out
+
+
 def register_cash_tools(registry) -> None:
     registry.register(GetCashPosition())
+    registry.register(GetCashForecast())

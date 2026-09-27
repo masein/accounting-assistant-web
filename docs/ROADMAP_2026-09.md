@@ -109,7 +109,17 @@ under the approval threshold (or under a round number), a new supplier's
 large first payment, round-amount weekend entries (Friday in Iran), expense
 category drift (≥10 points of spending share), reversal runs per
 counterparty; in the dashboard feed and the chat through the existing
-insight tool.
+insight tool. ✅ 5.3 13-week cash forecast that learns (#158):
+`app/services/cash_forecast.py` — opening cash on hand; open sales invoices
+on each customer's learned payment date (due + median lateness over the last
+year, company median as fallback), bills on their scheduled date, pending
+cheques/installments, unpaid pay runs + next months' payroll, recurring
+rules and recurring invoices; plus the median unscheduled week of the last
+26 without the journals those sources explain. Scenarios (bounce, unpaid
+invoice, late payer, one-off) via `GET /reports/cash-forecast`,
+`POST /reports/cash-forecast/scenario`, the `get_cash_forecast` AI tool
+("what if the Mellat cheque bounces") and the dashboard's what-if explorer;
+the dashboard table now shows the same figures.
 
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as

@@ -48,6 +48,12 @@
       height: 38px;
     }
     textarea { height: auto; }
+    /* The rule above is for text fields: a checkbox or radio got 100 % width,
+       38 px height and padding, and floated away from its label. */
+    input[type="checkbox"], input[type="radio"] {
+      width: auto; height: auto; padding: 0; margin: 0; border: 0; box-shadow: none;
+      flex: none; vertical-align: middle; accent-color: var(--primary);
+    }
     input:focus, textarea:focus, select:focus {
       outline: none;
       border-color: var(--primary);
@@ -384,8 +390,12 @@
     .fc-whatif fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 0.4rem 0; padding: 0.4rem 0.6rem;
                           display: flex; flex-wrap: wrap; gap: 0.35rem 0.8rem; align-items: center; min-width: 0; }
     .fc-whatif legend { font-size: 0.82rem; font-weight: 600; padding: 0 0.3rem; }
-    .fc-whatif input, .fc-whatif select { max-width: 100%; }
-    .fc-pick { font-size: 0.8rem; display: flex; gap: 0.3rem; align-items: center; min-width: 0; }
+    .fc-whatif input, .fc-whatif select { max-width: 100%; margin-bottom: 0; }
+    .fc-whatif input[type="number"], .fc-whatif input[type="date"], .fc-whatif input[type="text"],
+    .fc-whatif select { width: auto; flex: 1 1 9rem; }
+    .fc-pick { font-size: 0.8rem; font-weight: 400; color: var(--text); display: flex; gap: 0.45rem;
+               align-items: flex-start; margin: 0; flex: 1 1 18rem; min-width: 0; }
+    .fc-pick input { margin-top: 0.15rem; }
     #fc-result { margin-top: 0.6rem; overflow-x: auto; }
     /* fixed-asset register (roadmap §4.3) */
     .asset-due { border: 1px solid #fde68a; background: #fffbeb; border-radius: 10px; padding: 0.55rem 0.8rem;

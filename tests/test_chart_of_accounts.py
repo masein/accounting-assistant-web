@@ -318,3 +318,30 @@ def test_the_page_is_wired():
     assert "if (page === 'accounts') { loadChartOfAccounts(); }" in ops
     block = ops.split("// ═══════ Chart of accounts", 1)[1]
     assert "onclick" not in block and "confirm(" not in block.replace("uiConfirm(", "")
+
+
+def test_the_accounts_postings_really_use_are_protected_whatever_the_locale(db, client):
+    """Seen in the step-3 screenshots: a UK-locale company on the Iranian chart
+    offered Deactivate/Delete on 1110, which its bank postings resolve to."""
+    from app.services.chart_service import protected_codes
+    cid = uuid.uuid4()
+    db.add(Company(id=cid, name="Mixed", slug=f"mix-{uuid.uuid4().hex[:8]}", locale="uk", base_currency="GBP",
+                   status="active", token_version=0))
+    db.commit()
+    try:
+        with use_company(cid):
+            seed_chart_if_empty(db, locale="ir")
+            db.commit()
+            codes = protected_codes(db)
+        assert {"1110", "1112", "2110", "1219", "6120"} <= codes and "1200" not in codes
+    finally:
+        from tests.test_admin_audit import _purge_company
+        _purge_company(db, str(cid))
+
+
+def test_checkboxes_are_not_styled_as_text_fields():
+    from pathlib import Path
+    css = (Path(__file__).resolve().parents[1] / "app" / "static" / "css" / "app.css").read_text(encoding="utf-8")
+    rule = css.split('input[type="checkbox"], input[type="radio"] {', 1)[1].split("}", 1)[0]
+    assert "width: auto" in rule and "height: auto" in rule and "margin: 0" in rule
+    assert css.index('input[type="checkbox"], input[type="radio"] {') > css.index("input, textarea, select {")

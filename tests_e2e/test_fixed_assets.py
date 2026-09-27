@@ -13,7 +13,7 @@ def test_add_an_asset_and_preview_depreciation(app_page):
     page.locator('.nav-btn[data-page="fixed-assets"]').first.click()
     page.wait_for_load_state("networkidle")
     try:
-        page.wait_for_selector("#asset-category option")
+        page.wait_for_selector("#asset-category option", state="attached")   # options are never "visible"
         page.select_option("#asset-category", "other")
         page.fill("#asset-name", "E2E laptop")
         page.fill("#asset-cost", "3600000")

@@ -325,6 +325,7 @@ def detect_reversal_pattern(db: Session, today: date) -> list[Insight]:
         .join(Transaction, TransactionEntity.transaction_id == Transaction.id)
         .outerjoin(Entity, TransactionEntity.entity_id == Entity.id)
         .where(Transaction.deleted_at.is_not(None), Transaction.deleted_at >= since_dt)
+        .execution_options(include_deleted=True)            # the undone ones are the point here
     ):
         undone[eid] += 1
         names[eid] = name or ""

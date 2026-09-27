@@ -79,8 +79,11 @@ def test_chat_undo_soft_deletes_with_audit_and_respects_the_lock(auth_client, db
     assert r.status_code == 200, r.text
     assert "Deleted the last voucher" in r.json()["message"]
     db.expire_all()
-    row = db.get(Transaction, uuid.UUID(tid))
-    assert row is not None and row.deleted_at is not None  # soft, not hard
+    assert db.get(Transaction, uuid.UUID(tid)) is None      # undone journals are invisible…
+    from app.models.transaction import include_deleted_transactions
+    with include_deleted_transactions():                    # …but still there: soft, not hard
+        row = db.get(Transaction, uuid.UUID(tid))
+    assert row is not None and row.deleted_at is not None
     actions = sorted(e.action for e in db.execute(select(AuditLog).where(AuditLog.entity_type == "transaction", AuditLog.entity_id == tid)).scalars().all())
     assert actions == ["create", "delete"]
     # a second "undo" never touches the already-deleted entry

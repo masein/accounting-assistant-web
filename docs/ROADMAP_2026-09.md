@@ -53,7 +53,12 @@ app_settings keys, users→companies CASCADE, NOT NULL timestamps, one index per
 purpose); `install_tenant_guards` gives fresh installs the tenant NOT NULL +
 FKs migrated ones have had since 015 (FKs for the 16 later tenant tables too);
 tax rates seeded per company; `alembic check` gating on a fresh bootstrap and
-on a migrated 044 snapshot (#150). §1 is done.
+on a migrated 044 snapshot (#150). ✅ 1.6 global soft-delete filter (#160):
+every SELECT leaves out undone journals and the lines of undone journals
+(`app/models/transaction.py`, opt in with `include_deleted_transactions()`);
+four audit checks — accounting equation, debit/credit balance, negative
+balances, liability threshold — had been summing undone journals' lines.
+No measurable cost on the 20k-journal bench. §1 is done.
 
 **§2 continued — 2026-09-26:** ✅ 2.5 AI usage ledger + limits
 (`ai_usage_events`, one row per provider call from the five choke points with

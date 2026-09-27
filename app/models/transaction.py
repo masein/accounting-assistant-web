@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, String, Text, func, text
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, String, Text, event, exists, func, text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship, with_loader_criteria
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
@@ -82,3 +84,42 @@ class TransactionAttachment(Base, TenantMixin):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     transaction: Mapped["Transaction | None"] = relationship("Transaction", back_populates="attachments")
+
+
+# --- Soft delete: an undone or replaced journal is invisible (roadmap §1.6) ---
+# ``deleted_at`` marks a journal as undone (chat undo, a correction, a
+# re-import). Every SELECT leaves out deleted journals, and journal lines whose
+# journal is deleted, unless the caller asks with ``include_deleted_transactions()``
+# (or the ``include_deleted`` execution option). Refreshing an object already
+# in the session and loading a related collection are left alone, so a
+# journal just soft-deleted can still be read back and its lines listed.
+_include_deleted: ContextVar[bool] = ContextVar("include_deleted_transactions", default=False)
+# A plain table alias for the line check: it never auto-correlates with a
+# ``transactions`` the outer query already selects from.
+_live_txn = Transaction.__table__.alias("live_txn")
+
+
+@contextmanager
+def include_deleted_transactions():
+    token = _include_deleted.set(True)
+    try:
+        yield
+    finally:
+        _include_deleted.reset(token)
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _hide_deleted_transactions(execute_state) -> None:
+    if not execute_state.is_select or execute_state.is_column_load or execute_state.is_relationship_load:
+        return
+    if _include_deleted.get() or execute_state.execution_options.get("include_deleted"):
+        return
+    execute_state.statement = execute_state.statement.options(
+        with_loader_criteria(Transaction, lambda cls: cls.deleted_at.is_(None),
+                             include_aliases=True, propagate_to_loaders=False),
+        with_loader_criteria(
+            TransactionLine,
+            lambda cls: exists().where(_live_txn.c.id == cls.transaction_id, _live_txn.c.deleted_at.is_(None)),
+            include_aliases=True, propagate_to_loaders=False,
+        ),
+    )

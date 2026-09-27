@@ -1320,3 +1320,124 @@
       document.getElementById('coa-new-save').addEventListener('click', coaCreate);
       document.getElementById('coa-opening-save').addEventListener('click', coaSaveOpening);
     })();
+
+    // ═══════ Historical journals from another system (roadmap §4.11) ═══════
+    let _ji = null;                 // the last preview: token, preset, columns, accounts…
+    let _jiChart = null;
+    const JI_STATUS = ['ready', 'unmapped_account', 'unbalanced', 'closed_period', 'future', 'already_imported'];
+
+    async function jiChart() {
+      if (_jiChart) return _jiChart;
+      const rows = await (await fetch(API + '/accounts?limit=500')).json();
+      _jiChart = (rows || []).filter((a) => a.level !== 'GROUP');
+      return _jiChart;
+    }
+
+    function jiPresetName(key) {
+      const o = document.querySelector('#ji-preset option[value="' + key + '"]');
+      return o ? o.textContent.trim() : key;
+    }
+
+    function jiRender(r) {
+      const box = document.getElementById('ji-result');
+      const opt = (i, h, sel) => '<option value="' + i + '"' + (sel ? ' selected' : '') + '>' + escapeHtml(h || ('#' + (i + 1))) + '</option>';
+      const colPick = (field) => '<label class="ji-col"><span>' + escapeHtml(t('jiField_' + field)) + '</span><select data-ji-field="' + field + '">'
+        + '<option value="-1">—</option>' + (r.headers || []).map((h, i) => opt(i, h, r.columns[field] === i)).join('') + '</select></label>';
+      const counts = JI_STATUS.filter((k) => r.counts && r.counts[k]).map((k) =>
+        '<span class="alert-chip ' + (k === 'ready' ? 'low' : 'medium') + '">' + escapeHtml(tf('jiStatus_' + k, { n: r.counts[k] })) + '</span>').join(' ');
+      let html = '<p class="fc-note">' + escapeHtml(tf('jiSummary', { vouchers: formatNum(r.voucher_count), lines: formatNum(r.line_count),
+        from: r.from ? formatDisplayDate(r.from) : '—', to: r.to ? formatDisplayDate(r.to) : '—', preset: jiPresetName(r.preset) })) + '</p>';
+      if (counts) html += '<div style="display:flex; gap:0.35rem; flex-wrap:wrap; margin:0.3rem 0;">' + counts + '</div>';
+      if (r.rounded_lines) html += '<p class="fc-note">' + escapeHtml(tf('jiRounded', { n: r.rounded_lines })) + '</p>';
+      if ((r.skipped_rows || []).length) html += '<p class="fc-note">' + escapeHtml(tf('jiSkippedRows', { n: r.skipped_rows.length })) + '</p>';
+      if ((r.needs || []).length) html += '<p class="fc-risk-text">' + escapeHtml(t('jiNeeds')) + '</p>';
+      html += '<details class="asset-opening"' + ((r.needs || []).length ? ' open' : '') + '><summary>' + escapeHtml(tf('jiColumns', { row: r.header_row })) + '</summary>'
+        + '<div class="ji-cols">' + (r.fields || []).map(colPick).join('') + '</div>'
+        + '<button type="button" class="btn btn-secondary btn-sm" id="ji-reread">' + escapeHtml(t('jiReread')) + '</button></details>';
+      if ((r.accounts || []).length) {
+        html += '<h4 style="margin:0.8rem 0 0.3rem;">' + escapeHtml(t('jiAccounts')) + '</h4><div style="overflow-x:auto;"><table class="mini-table"><thead><tr><th>'
+          + escapeHtml(t('jiSourceAccount')) + '</th><th>' + escapeHtml(t('coaDebit')) + '</th><th>' + escapeHtml(t('coaCredit')) + '</th><th>'
+          + escapeHtml(t('jiMapsTo')) + '</th></tr></thead><tbody>' + r.accounts.map((a) => {
+            const pick = a.mapped_to || (a.suggestions[0] && a.suggestions[0].code) || '';
+            const options = '<option value="">' + escapeHtml(t('jiChoose')) + '</option>' + (_jiChart || []).map((c) =>
+              '<option value="' + escapeHtml(c.code) + '"' + (c.code === pick ? ' selected' : '') + '>' + escapeHtml(c.code + ' — ' + c.name) + '</option>').join('');
+            return '<tr><td dir="auto">' + escapeHtml([a.code, a.name].filter(Boolean).join(' — ')) + (a.how ? ' <span class="fc-note">(' + escapeHtml(t('jiHow_' + a.how)) + ')</span>' : '') + '</td>'
+              + '<td>' + escapeHtml(formatNum(a.debit)) + '</td><td>' + escapeHtml(formatNum(a.credit)) + '</td>'
+              + '<td><select data-ji-account="' + escapeHtml(a.key) + '">' + options + '</select></td></tr>';
+          }).join('') + '</tbody></table></div>';
+      }
+      const problems = (r.vouchers || []).filter((v) => v.problem).slice(0, 30);
+      if (problems.length) {
+        html += '<h4 style="margin:0.8rem 0 0.3rem;">' + escapeHtml(t('jiProblems')) + '</h4><table class="mini-table"><tbody>' + problems.map((v) =>
+          '<tr><td>' + escapeHtml(v.number) + '</td><td>' + escapeHtml(formatDisplayDate(v.date)) + '</td><td>' + escapeHtml(formatNum(v.debit))
+          + ' / ' + escapeHtml(formatNum(v.credit)) + '</td><td>' + escapeHtml(t('jiProblem_' + v.problem)) + '</td></tr>').join('') + '</tbody></table>';
+      }
+      html += '<div style="display:flex; gap:0.5rem; margin-top:0.8rem;"><button type="button" class="btn btn-secondary" id="ji-recheck">' + escapeHtml(t('jiRecheck'))
+        + '</button><button type="button" class="btn btn-primary" id="ji-apply"' + ((r.counts && r.counts.ready) ? '' : ' disabled') + '>'
+        + escapeHtml(tf('jiApply', { n: (r.counts && r.counts.ready) || 0 })) + '</button></div><p id="ji-msg" class="fc-note"></p>';
+      box.innerHTML = html;
+      document.getElementById('ji-reread').addEventListener('click', () => jiReview());
+      document.getElementById('ji-recheck').addEventListener('click', () => jiReview());
+      document.getElementById('ji-apply').addEventListener('click', jiApply);
+    }
+
+    function jiCollect() {
+      const columns = {};
+      document.querySelectorAll('#ji-result select[data-ji-field]').forEach((s) => {
+        const v = parseInt(s.value, 10);
+        columns[s.dataset.jiField] = v >= 0 ? v : null;
+      });
+      const account_map = {};
+      document.querySelectorAll('#ji-result select[data-ji-account]').forEach((s) => { if (s.value) account_map[s.dataset.jiAccount] = s.value; });
+      return { token: _ji.token, preset: document.getElementById('ji-preset').value, columns, account_map };
+    }
+
+    async function jiSend(url, body, isForm) {
+      const res = await fetch(API + url, isForm ? { method: 'POST', body } :
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof d.detail === 'string' ? d.detail : t('jiFailed'));
+      return d;
+    }
+
+    async function jiPreview() {
+      const file = document.getElementById('ji-file').files[0];
+      const box = document.getElementById('ji-result');
+      if (!file) { box.innerHTML = '<p class="fc-note">' + escapeHtml(t('jiPickFile')) + '</p>'; return; }
+      box.innerHTML = '<p class="fc-note">' + escapeHtml(t('loading')) + '</p>';
+      try {
+        await jiChart();
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('preset', document.getElementById('ji-preset').value);
+        _ji = await jiSend('/migration/journals/preview', fd, true);
+        jiRender(_ji);
+      } catch (err) { box.innerHTML = '<p class="fc-risk-text">' + escapeHtml(err.message) + '</p>'; }
+    }
+
+    async function jiReview() {
+      if (!_ji) return;
+      try {
+        const body = jiCollect();
+        const r = await jiSend('/migration/journals/review', body);
+        _ji = { ..._ji, ...r };
+        jiRender(_ji);
+      } catch (err) { document.getElementById('ji-msg').textContent = err.message; }
+    }
+
+    async function jiApply() {
+      if (!_ji) return;
+      const body = jiCollect();
+      if (!(await uiConfirm({ message: tf('jiConfirm', { n: (_ji.counts && _ji.counts.ready) || 0 }), confirmLabel: t('jiApplyShort') }))) return;
+      try {
+        const out = await jiSend('/migration/journals/apply', body);
+        document.getElementById('ji-result').innerHTML = '<p class="fc-note">' + escapeHtml(tf('jiDone', { n: formatNum(out.posted),
+          skipped: formatNum(Object.values(out.skipped || {}).reduce((a, b) => a + b, 0)) })) + '</p>';
+        _ji = null;
+      } catch (err) { document.getElementById('ji-msg').textContent = err.message; }
+    }
+
+    (function wireJournalImport() {
+      const btn = document.getElementById('ji-preview-btn');
+      if (btn) btn.addEventListener('click', jiPreview);
+    })();

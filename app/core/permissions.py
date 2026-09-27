@@ -299,6 +299,9 @@ for _m, _p in [
     ("GET", "/migration/pending"),
     ("POST", "/migration/pending/{pending_id}/resolve"),
     ("POST", "/migration/pending/{pending_id}/dismiss"),
+    ("POST", "/migration/journals/preview"),
+    ("POST", "/migration/journals/review"),
+    ("POST", "/migration/journals/apply"),
 ]:
     _add(_m, _p, Perm.MIGRATION_WRITE)
 

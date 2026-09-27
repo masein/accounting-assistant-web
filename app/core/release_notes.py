@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.27.6"
+CURRENT_RELEASE = "2026.09.27.7"
 
 
 @dataclass(frozen=True)
@@ -683,6 +683,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«منوی حساب ← اعلان روی گوشی: روشن کن». از آن پس اعلان‌های جدید زنگوله — فاکتور سررسیدگذشته، چک سررسیدشده، تأییدی که منتظر است، یادآورهای خودتان — حتی وقتی برنامه بسته است روی همین دستگاه می‌رسند. چند اعلان هم‌زمان در یک خلاصه می‌آیند.",
                     "es": "Menú de la cuenta → Avisos en el móvil: activar. Los avisos nuevos de la campana — una factura vencida, un cheque que vence, una aprobación pendiente, tus recordatorios — llegarán a este dispositivo aunque la app esté cerrada. Si llegan varios a la vez, verás un resumen.",
                     "ar": "قائمة الحساب ← إشعارات الهاتف: تشغيل. ستصل تنبيهات الجرس الجديدة — فاتورة متأخرة، شيك مستحق، موافقة بانتظارك، تذكيراتك — إلى هذا الجهاز حتى والتطبيق مغلق. وإن وصلت عدة تنبيهات معًا فستصلك في ملخص واحد.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.27.7",
+        date="2026-09-27",
+        highlights=(
+            Highlight(
+                key="journal-import",
+                page="migration",
+                roles=("owner", "accountant"),
+                title={
+                    "en": "Bring your past vouchers over from another system",
+                    "fa": "اسناد سال‌های قبل را از نرم‌افزار قبلی بیاورید",
+                    "es": "Trae tus asientos anteriores desde otro sistema",
+                    "ar": "انقل قيودك السابقة من نظام آخر",
+                },
+                body={
+                    "en": "Migration → Historical journals: export the journal from Hesabfa, Sepidar, Holoo, Xero or QuickBooks (or any spreadsheet) and upload it. The columns are recognised in English or Persian, Jalali dates too; you match any account the app doesn't know once, see which vouchers can't be posted and why, then post the rest. Importing the same file again never doubles them.",
+                    "fa": "«مهاجرت ← اسناد سال‌های قبل»: دفتر روزنامه را از حسابفا، سپیدار، هلو، زیرو یا کوئیک‌بوکس (یا هر صفحه‌گسترده‌ای) خروجی بگیرید و بارگذاری کنید. ستون‌ها به فارسی یا انگلیسی شناخته می‌شوند و تاریخ شمسی هم خوانده می‌شود؛ حساب‌هایی را که برنامه نمی‌شناسد یک بار معادل‌سازی می‌کنید، می‌بینید کدام اسناد و چرا ثبت نمی‌شوند، و بقیه را ثبت می‌کنید. ورود دوبارهٔ همان فایل هیچ سندی را تکراری ثبت نمی‌کند.",
+                    "es": "Migración → Asientos históricos: exporta el diario de Hesabfa, Sepidar, Holoo, Xero o QuickBooks (o cualquier hoja) y súbelo. Las columnas se reconocen en inglés o persa, también las fechas jalali; asignas una vez las cuentas que la app no conoce, ves qué asientos no se pueden contabilizar y por qué, y contabilizas el resto. Importar el mismo archivo otra vez nunca los duplica.",
+                    "ar": "الترحيل ← القيود التاريخية: صدّر دفتر اليومية من حسابفا أو سبيدار أو هلو أو Xero أو QuickBooks (أو أي جدول) وارفعه. تُعرف الأعمدة بالإنجليزية أو الفارسية والتواريخ الشمسية أيضًا؛ تطابق مرة واحدة الحسابات التي لا يعرفها التطبيق، وترى القيود التي لا يمكن ترحيلها ولماذا، ثم ترحّل الباقي. لا يكرر استيراد الملف نفسه أي قيد.",
                 },
             ),
         ),

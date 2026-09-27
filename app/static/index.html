@@ -1971,6 +1971,24 @@
         </div>
         <div id="migration-result" style="display:none;margin-top:0.75rem;"></div>
       </div>
+      <!-- Historical journals from another system (roadmap §4.11) -->
+      <div class="panel" style="margin-bottom:1rem;">
+        <h3 data-i18n="jiTitle">Historical journals</h3>
+        <p class="fc-note" data-i18n="jiIntro">Bring over past vouchers from Hesabfa, Sepidar, Holoo, Xero, QuickBooks or any spreadsheet with one line per row: export the journal (دفتر روزنامه / Journal report) to Excel or CSV. Nothing is posted until you confirm.</p>
+        <div class="form-grid" style="grid-template-columns:2fr 1fr auto; align-items:end;">
+          <div><label for="ji-file" data-i18n="jiFile">Journal export</label><input type="file" id="ji-file" accept=".xlsx,.xls,.xml,.csv,.tsv,.txt"></div>
+          <div><label for="ji-preset" data-i18n="jiPreset">From</label>
+            <select id="ji-preset">
+              <option value="auto" data-i18n="jiPreset_auto">Detect</option>
+              <option value="hesabfa">Hesabfa · حسابفا</option><option value="sepidar">Sepidar · سپیدار</option>
+              <option value="holoo">Holoo · هلو</option><option value="xero">Xero</option>
+              <option value="quickbooks">QuickBooks</option><option value="generic" data-i18n="jiPreset_generic">Other spreadsheet</option>
+            </select></div>
+          <div class="btn-cell"><button type="button" class="btn btn-primary" id="ji-preview-btn" data-i18n="jiRead">Read the file</button></div>
+        </div>
+        <div id="ji-result"></div>
+      </div>
+
       <h3 data-i18n="migrationQueueTitle" style="margin:1rem 0 0.25rem;">Complete imported records</h3>
       <p data-i18n="migrationQueueIntro" style="color:var(--text-muted);font-size:0.85rem;margin:0 0 0.75rem;">Imported records arrive with only a name, code and balance. Fill in the missing details manually or let the AI ask you for them.</p>
       <div id="migration-queue"></div>

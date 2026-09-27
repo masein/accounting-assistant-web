@@ -39,11 +39,22 @@ def _locale(db: Session) -> str:
 
 
 def protected_codes(db: Session) -> set[str]:
-    """Accounts the automated postings resolve to — for this locale and the
-    fallbacks — plus the migration/opening adjustments account."""
-    from app.services.account_resolver import POSTING_CODES
-    table = POSTING_CODES.get(_locale(db), POSTING_CODES["default"])
-    return set(table.values()) | {ADJUSTMENT_CODE}
+    """The accounts the automated postings actually resolve to, plus the
+    opening-adjustments account. Per posting category that is the locale's
+    code if the chart has it, else the first fallback chart's code it has —
+    the same order ``resolve_account_code`` uses — so a UK-locale company on
+    the Iranian chart protects 1110, not a 1200 it doesn't have."""
+    from app.services.account_resolver import _FALLBACK_ORDER, POSTING_CODES
+    existing = set(db.execute(select(Account.code)).scalars())
+    loc = _locale(db)
+    table = POSTING_CODES.get(loc, POSTING_CODES["default"])
+    out = {ADJUSTMENT_CODE}
+    for category, preferred in table.items():
+        candidates = [preferred] + [POSTING_CODES[fb][category] for fb in _FALLBACK_ORDER
+                                    if category in POSTING_CODES[fb]]
+        hit = next((c for c in candidates if c in existing), None)
+        out.add(hit or preferred)
+    return out
 
 
 def _by_code(db: Session, code: str) -> Account | None:

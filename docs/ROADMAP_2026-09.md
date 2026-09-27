@@ -100,7 +100,18 @@ rows filed into monthly SMS-feed statements per bank/account so the usual
 review → approve pipeline applies; exact repeats skipped, balance gaps
 flagged; `POST /bank-sms` (+ preview) and `POST /api/v1/bank-sms` with the new
 `bank_sms:write` key scope for phone automations. Later: statement e-mail
-ingestion, open-banking balances.
+ingestion, open-banking balances. ✅ 4.3 fixed-asset register (#159):
+`app/services/fixed_assets.py` + `/fixed-assets` — asset cards (migration
+048), straight-line and declining-balance schedules in the company's calendar
+(Jalali months for Iran, starting the month after use; the 5 % rule), a
+month-end run that posts each ended month once (closed months caught up on
+the first open day), acquisition from bank or on credit, disposal with gain
+(IR 4310 / UK 4200) or loss (IR 6220 / UK 7860), the register report, a
+`get_fixed_assets` AI tool and a Records → Fixed assets page. Iranian presets
+are only the art. 149 rows two sources agree on (buildings 25/15 years,
+vehicles 6, taxis/light vans 4, computers and software 3, office furniture 5);
+the rest is entered per asset. Later: the full table from the official
+circular, revaluation, idle-asset (70 %) extension, impairment.
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same

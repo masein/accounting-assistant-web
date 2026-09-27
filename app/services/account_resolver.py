@@ -36,6 +36,7 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "prepaid_expense": "1300",          # Prepayments and other debtors — asset
         "depreciation_expense": "8500",     # Depreciation expense
         "accumulated_depreciation": "0090", # Accumulated depreciation — contra-asset
+        "fixed_assets": "0010",             # Plant and machinery — cost
         "bank_fee": "8000",                 # Bank charges
         "interest_income": "8300",          # Interest received
         "wages_expense": "7100",            # Administrative wages and salaries (gross pay)
@@ -70,6 +71,7 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "prepaid_expense": "1150",          # پیش‌پرداخت هزینه‌ها — asset
         "depreciation_expense": "6120",     # هزینه استهلاک
         "accumulated_depreciation": "1219", # استهلاک انباشته — contra-asset
+        "fixed_assets": "1210",             # دارایی‌های ثابت مشهود
         "bank_fee": "6210",                 # هزینه‌های مالی (bank charges)
         "interest_income": "4120",          # درآمد سود (interest income)
         "wages_expense": "6110",            # حقوق و دستمزد (gross pay)
@@ -114,6 +116,7 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "prepaid_expense": "Prepayments and other debtors",
         "depreciation_expense": "Depreciation expense",
         "accumulated_depreciation": "Accumulated depreciation",
+        "fixed_assets": "Plant and machinery — cost",
         "bank_fee": "Bank charges",
         "interest_income": "Interest received",
         "wages_expense": "Administrative wages and salaries",
@@ -147,6 +150,7 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "prepaid_expense": "پیش‌پرداخت هزینه‌ها",
         "depreciation_expense": "هزینه استهلاک",
         "accumulated_depreciation": "استهلاک انباشته",
+        "fixed_assets": "دارایی‌های ثابت مشهود",
         "bank_fee": "هزینه‌های مالی",
         "interest_income": "درآمد سود",
         "wages_expense": "حقوق و دستمزد",

@@ -18,6 +18,7 @@ from app.models.employee_pay import EmployeePayProfile
 from app.models.entity import Entity, TransactionEntity
 from app.models.equity import EquityEvent, Shareholding
 from app.models.exchange_rate import ExchangeRate
+from app.models.fixed_asset import FixedAsset, FixedAssetDepreciation
 from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
@@ -58,6 +59,8 @@ __all__ = [
     "PersonalHolding",
     "CreditNote",
     "EmployeePayProfile",
+    "FixedAsset",
+    "FixedAssetDepreciation",
     "Entity",
     "EquityEvent",
     "Shareholding",

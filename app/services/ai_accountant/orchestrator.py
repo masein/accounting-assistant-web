@@ -483,10 +483,12 @@ def build_default_registry() -> ToolRegistry:
     register_proposal_tools(reg)
     register_time_tools(reg)
     register_equity_tools(reg)
+    from app.services.ai_accountant.asset_tools import register_asset_tools
     from app.services.ai_accountant.commitment_tools import register_commitment_tools
     from app.services.ai_accountant.invoice_tools import register_invoice_tools
     register_invoice_tools(reg)
     register_commitment_tools(reg)
+    register_asset_tools(reg)
     return reg
 
 

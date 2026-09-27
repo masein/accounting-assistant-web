@@ -216,6 +216,7 @@
       users: ['owner'],
       migration: ['owner', 'accountant'],
       'petty-cash': ['owner', 'cfo', 'accountant', 'manager', 'employee'],
+      'fixed-assets': ['owner', 'cfo', 'accountant'],
       // companies is gated separately by isSuperadmin.
     };
     // Where each role lands after login.
@@ -454,7 +455,7 @@
     let lastManagerReport = null;
     let inventoryReportChart = null;
     let lastInventoryReport = null;
-    const validPages = new Set(['dashboard', 'personal-dashboard', 'commitments', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies', 'migration', 'petty-cash']);
+    const validPages = new Set(['dashboard', 'personal-dashboard', 'commitments', 'ai-accountant', 'transactions', 'entities', 'invoices', 'recurring', 'ledger', 'manager', 'inventory', 'products', 'payroll', 'equity', 'purchase-orders', 'expenses', 'time', 'settings', 'bank-statements', 'audit', 'cfo', 'ceo', 'companies', 'migration', 'petty-cash', 'fixed-assets']);
     // The Companies console is super-admin only; gated in showPage().
     let isSuperadmin = false;
     const rawFetch = window.fetch.bind(window);

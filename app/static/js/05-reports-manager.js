@@ -1119,7 +1119,7 @@
           listEl.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.3rem;">${rows.length} items registered</div>
           <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">${rows.map(i =>
             `<span data-item-id="${escapeHtml(String(i.id))}" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;background:#f1f5f9;border-radius:6px;font-size:0.8rem;border:1px solid var(--border);">
-              <strong>${escapeHtml(i.name)}</strong>${i.sku ? ` <span style="color:var(--text-muted);">(${escapeHtml(i.sku)})</span>` : ''}
+              <strong>${escapeHtml(i.name)}</strong>${i.sku ? ` <span style="color:var(--text-muted);">(${escapeHtml(i.sku)})</span>` : ''}${i.barcode ? ` <span style="color:var(--text-muted);" dir="ltr">▮ ${escapeHtml(i.barcode)}</span>` : ''}
               ${i.list_price ? ` — ${formatNum(i.list_price)} ${currencyUnit()}` : ''}
             </span>`
           ).join('')}</div>`;
@@ -1144,7 +1144,10 @@
           body: JSON.stringify({
             name,
             sku: (mgrInvItemSkuEl.value || '').trim() || null,
-            unit: (mgrInvItemUnitEl.value || 'unit').trim() || 'unit'
+            unit: (mgrInvItemUnitEl.value || 'unit').trim() || 'unit',
+            barcode: (document.getElementById('mgr-inv-item-barcode')?.value || '').trim() || null,
+            reorder_level: document.getElementById('mgr-inv-item-reorder')?.value === ''
+              ? null : Number(document.getElementById('mgr-inv-item-reorder')?.value || 0)
           })
         });
         const data = await res.json().catch(() => ({}));
@@ -1154,8 +1157,10 @@
         }
         mgrInvItemNameEl.value = '';
         mgrInvItemSkuEl.value = '';
+        ['mgr-inv-item-barcode', 'mgr-inv-item-reorder'].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
         showAlert('Inventory item added.');
         await loadManagerInventoryItems(data.id);
+        if (typeof loadStockPanel === 'function') loadStockPanel();
       } catch (err) {
         showAlert('Error adding inventory item: ' + err.message, true);
       } finally {
@@ -1193,6 +1198,7 @@
           return;
         }
         showAlert('Inventory movement added.');
+        if (typeof stockShowValuation === 'function') stockShowValuation().catch(() => {});
       } catch (err) {
         showAlert('Error adding movement: ' + err.message, true);
       } finally {

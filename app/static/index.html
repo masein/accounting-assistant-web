@@ -1230,7 +1230,7 @@
       <!-- Inventory Items Section -->
       <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
         <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);">Add Inventory Item</h3>
-        <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+        <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;">
           <div>
             <label for="mgr-inv-item-name" data-i18n="labelInventoryItemName">Item name</label>
             <input type="text" id="mgr-inv-item-name" data-i18n-placeholder="placeholderInvItem" placeholder="e.g. Product A">
@@ -1242,6 +1242,14 @@
           <div>
             <label for="mgr-inv-item-unit" data-i18n="labelUnit">Unit</label>
             <input type="text" id="mgr-inv-item-unit" value="unit">
+          </div>
+          <div>
+            <label for="mgr-inv-item-barcode" data-i18n="stockBarcode">Barcode</label>
+            <input type="text" id="mgr-inv-item-barcode" maxlength="64" inputmode="numeric" data-i18n-placeholder="placeholderOptional" placeholder="optional">
+          </div>
+          <div>
+            <label for="mgr-inv-item-reorder" data-i18n="stockReorderLevel">Reorder at</label>
+            <input type="number" id="mgr-inv-item-reorder" min="0" step="0.0001" data-i18n-placeholder="placeholderOptional" placeholder="optional">
           </div>
           <div class="btn-cell">
             <button type="button" class="btn btn-primary" id="mgr-add-item-btn" data-i18n="btnAddInventoryItem">Add item</button>
@@ -1275,6 +1283,54 @@
             <button type="button" class="btn btn-primary" id="mgr-add-mv-btn" data-i18n="btnAddMovement">Add movement</button>
           </div>
         </div>
+      </div>
+
+      <!-- Stock value and reorder (roadmap §4.4) -->
+      <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
+        <h3 style="margin:0 0 0.5rem;font-size:1rem;color:var(--primary);" data-i18n="stockTitle">Stock value and reorder</h3>
+        <p class="fc-note" data-i18n="stockHint">Values come from the movements, so changing the method re-values the history.</p>
+        <div class="form-grid" style="grid-template-columns: 1fr auto 1fr auto;">
+          <div>
+            <label for="stock-method" data-i18n="stockMethod">Costing method</label>
+            <select id="stock-method"><option value="weighted_average" data-i18n="stockMethod_weighted_average">Weighted average</option><option value="fifo" data-i18n="stockMethod_fifo">FIFO (first in, first out)</option></select>
+          </div>
+          <div class="btn-cell"><button type="button" class="btn btn-secondary" id="stock-method-save" data-i18n="stockMethodSave">Use this method</button></div>
+          <div>
+            <label for="stock-asof" data-i18n="stockAsOf">As of</label>
+            <input type="date" id="stock-asof">
+          </div>
+          <div class="btn-cell"><button type="button" class="btn btn-primary" id="stock-refresh" data-i18n="stockRefresh">Show stock</button></div>
+        </div>
+        <div id="stock-summary" class="fc-note"></div>
+        <div id="stock-table" style="overflow-x:auto;"></div>
+      </div>
+
+      <!-- Recipes (bill of materials) and production (roadmap §4.4) -->
+      <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
+        <h3 style="margin:0 0 0.5rem;font-size:1rem;color:var(--primary);" data-i18n="bomTitle">Recipes and production</h3>
+        <p class="fc-note" data-i18n="bomHint">Say what goes into one unit of a finished item. A production run takes the components out at cost and brings the finished item in at their total.</p>
+        <div class="form-grid" style="grid-template-columns: 2fr auto;">
+          <div>
+            <label for="bom-product" data-i18n="bomProduct">Finished item</label>
+            <select id="bom-product"></select>
+          </div>
+          <div class="btn-cell"><button type="button" class="btn btn-secondary" id="bom-add-line" data-i18n="bomAddLine">Add a component</button></div>
+        </div>
+        <div id="bom-lines"></div>
+        <button type="button" class="btn btn-secondary btn-sm" id="bom-save" data-i18n="bomSave">Save the recipe</button>
+        <span id="bom-status" class="fc-note"></span>
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr auto; margin-top:0.75rem;">
+          <div>
+            <label for="prod-qty" data-i18n="prodQty">Quantity to make</label>
+            <input type="number" id="prod-qty" min="0.0001" step="0.0001" value="1">
+          </div>
+          <div>
+            <label for="prod-date" data-i18n="prodDate">Date</label>
+            <input type="date" id="prod-date">
+          </div>
+          <div class="btn-cell"><button type="button" class="btn btn-primary" id="prod-run" data-i18n="prodRun">Produce</button></div>
+        </div>
+        <div id="prod-result" class="fc-note"></div>
       </div>
 
       <!-- Price Management Section -->

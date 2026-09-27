@@ -22,8 +22,8 @@ def browser():
         b.close()
 
 
-@pytest.fixture(scope="session")
-def logged_in_state(browser):
+
+def _log_in(browser, username):
     """Log in once through the real login form; later tests reuse the
     session cookies."""
     if not PASSWORD:
@@ -31,13 +31,21 @@ def logged_in_state(browser):
     ctx = browser.new_context()
     page = ctx.new_page()
     page.goto(f"{BASE_URL}/login")
-    page.fill("#username", USERNAME)
+    page.fill("#username", username)
     page.fill("#password", PASSWORD)
     page.click("#submit-btn")
     page.wait_for_url(lambda url: "/login" not in url, timeout=15_000)
     state = ctx.storage_state()
     ctx.close()
     return state
+
+
+@pytest.fixture(scope="session")
+def logged_in_state(browser):
+    return _log_in(browser, USERNAME)
+
+
+_flow_states: dict = {}
 
 
 class PageWatch:
@@ -68,12 +76,35 @@ class PageWatch:
         return self.js_errors + self.server_errors + self.csp_violations
 
 
-@pytest.fixture()
-def app_page(browser, logged_in_state):
-    ctx = browser.new_context(storage_state=logged_in_state, viewport={"width": 1280, "height": 900})
+def _open(browser, state):
+    ctx = browser.new_context(storage_state=state, viewport={"width": 1280, "height": 900})
     page = ctx.new_page()
     watch = PageWatch(page)
     page.goto(f"{BASE_URL}/")
     page.wait_for_load_state("networkidle")
+    return ctx, page, watch
+
+
+@pytest.fixture()
+def app_page(browser, logged_in_state):
+    ctx, page, watch = _open(browser, logged_in_state)
     yield page, watch
     ctx.close()
+
+
+@pytest.fixture()
+def flow_page(browser):
+    """``flow_page("e2e_stock")`` → (page, watch) signed in as one of the
+    feature-flow accountants (seed_user.FLOW_USERS), each with its own
+    rate-limit budget."""
+    opened = []
+
+    def open_as(username):
+        if username not in _flow_states:
+            _flow_states[username] = _log_in(browser, username)
+        ctx, page, watch = _open(browser, _flow_states[username])
+        opened.append(ctx)
+        return page, watch
+    yield open_as
+    for ctx in opened:
+        ctx.close()

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections import defaultdict
-from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
@@ -27,64 +25,29 @@ from app.services.reporting.repository import (
 )
 
 
-@dataclass
-class ItemAccumulator:
-    qty_in: float = 0.0
-    qty_out: float = 0.0
-    on_hand: float = 0.0
-    inventory_value: int = 0
-    cogs: int = 0
-
-    @property
-    def avg_cost(self) -> int:
-        if self.on_hand <= 0:
-            return 0
-        return int(round(self.inventory_value / self.on_hand))
-
-
-def apply_inventory_movement(acc: ItemAccumulator, movement_type: str, quantity: float, unit_cost: int) -> ItemAccumulator:
-    """
-    Unit-testable weighted-average inventory calculator.
-    """
-    qty = float(quantity or 0)
-    cost = int(unit_cost or 0)
-    if qty <= 0:
-        return acc
-    if movement_type == InventoryMovementType.IN.value:
-        acc.qty_in += qty
-        acc.on_hand += qty
-        acc.inventory_value += int(round(qty * cost))
-        return acc
-    if movement_type == InventoryMovementType.OUT.value:
-        acc.qty_out += qty
-        use_cost = cost if cost > 0 else acc.avg_cost
-        cogs_value = int(round(qty * use_cost))
-        acc.cogs += cogs_value
-        # No clamp: quantity must not depend on the order of same-day rows. A
-        # clamp at 0 turned "OUT 4 then IN 10" (same day, same second) into 10
-        # on hand instead of 6. A negative on-hand now means oversold.
-        acc.on_hand = acc.on_hand - qty
-        acc.inventory_value = max(0, acc.inventory_value - cogs_value) if acc.on_hand > 0 else 0
-        return acc
-    # ADJUSTMENT: positive quantity with explicit valuation.
-    acc.qty_in += qty
-    acc.on_hand += qty
-    acc.inventory_value += int(round(qty * cost))
-    return acc
-
-
 class InventoryReportService:
     def __init__(self, db: Session):
         self.db = db
 
     def create_item(self, payload: InventoryItemCreate) -> InventoryItemRead:
         # list_price was accepted but never stored, so every new item read back 0.
+        barcode = (payload.barcode or "").strip() or None
+        self.assert_barcode_free(barcode)
         row = InventoryItem(sku=(payload.sku or "").strip() or None, name=payload.name.strip(),
-                            unit=(payload.unit or "unit").strip(), list_price=int(payload.list_price or 0))
+                            unit=(payload.unit or "unit").strip(), list_price=int(payload.list_price or 0),
+                            barcode=barcode, reorder_level=payload.reorder_level, reorder_qty=payload.reorder_qty)
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
         return InventoryItemRead.model_validate(row)
+
+    def assert_barcode_free(self, barcode: str | None, *, except_id=None) -> None:
+        if not barcode:
+            return
+        from sqlalchemy import select
+        clash = self.db.execute(select(InventoryItem.id).where(InventoryItem.barcode == barcode)).scalars().all()
+        if any(i != except_id for i in clash):
+            raise HTTPException(status_code=409, detail=f"Another item already has barcode {barcode}.")
 
     def list_items(self) -> list[InventoryItemRead]:
         return [InventoryItemRead.model_validate(x) for x in list_inventory_items(self.db)]
@@ -156,33 +119,33 @@ class InventoryReportService:
             rows=mapped,
         )
 
-    def balance_report(self, to_date: date | None = None) -> InventoryBalanceResponse:
+    def balance_report(self, to_date: date | None = None, method: str | None = None) -> InventoryBalanceResponse:
+        """Per item on hand, unit cost, value and cost of sales to date, costed
+        with the company's method (weighted average unless set to FIFO)."""
+        from app.services.inventory_costing import get_method, run_costing
         period = default_period(None, to_date)
         rows = inventory_movements_for_balance(self.db, period.to_date)
-        item_map: dict[UUID, dict] = {}
-        stats: dict[UUID, ItemAccumulator] = defaultdict(ItemAccumulator)
-        for mv, item in rows:
-            item_map[item.id] = {"name": item.name, "sku": item.sku, "unit": item.unit}
-            acc = stats[item.id]
-            apply_inventory_movement(acc, mv.movement_type.value, float(mv.quantity), int(mv.unit_cost or 0))
+        item_map: dict[UUID, dict] = {item.id: {"name": item.name, "sku": item.sku, "unit": item.unit}
+                                      for _mv, item in rows}
+        states, _ = run_costing([mv for mv, _item in rows], method or get_method(self.db))
 
         out: list[InventoryBalanceRow] = []
         total_value = 0
         total_cogs = 0
         total_qty = 0.0
-        for item_id, acc in stats.items():
+        for item_id, st in states.items():
             meta = item_map[item_id]
             row = InventoryBalanceRow(
                 item_id=item_id,
                 sku=meta["sku"],
                 item_name=meta["name"],
                 unit=meta["unit"] or "unit",
-                qty_in=round(acc.qty_in, 4),
-                qty_out=round(acc.qty_out, 4),
-                on_hand_qty=round(acc.on_hand, 4),
-                average_cost=acc.avg_cost,
-                inventory_value=int(acc.inventory_value),
-                cogs=int(acc.cogs),
+                qty_in=round(float(st.qty_in), 4),
+                qty_out=round(float(st.qty_out), 4),
+                on_hand_qty=round(float(st.on_hand), 4),
+                average_cost=st.unit_cost,
+                inventory_value=int(st.value),
+                cogs=int(st.cogs),
             )
             out.append(row)
             total_value += row.inventory_value

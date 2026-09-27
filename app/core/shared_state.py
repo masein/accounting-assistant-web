@@ -83,7 +83,8 @@ class DbRateLimiter:
 # ---------------------------------------------------------------------------
 
 _TRACKED = ("transactions", "transaction_lines", "invoices", "invoice_items", "payments", "credit_notes",
-            "pay_runs", "commitments", "exchange_rates", "budget_limits", "accounts", "entities")
+            "pay_runs", "commitments", "exchange_rates", "budget_limits", "accounts", "entities",
+            "inventory_items", "inventory_movements")
 
 _BUMP_SQL = text(
     "INSERT INTO books_versions (scope, version) VALUES (:scope, 1) "

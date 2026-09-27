@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import date, datetime, timezone
 
-from sqlalchemy import BigInteger, Date, DateTime, Enum, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import BigInteger, Date, DateTime, Enum, ForeignKey, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,10 @@ class InventoryItem(Base, TenantMixin):
     unit: Mapped[str] = mapped_column(String(32), default="unit")
     is_active: Mapped[bool] = mapped_column(default=True)
     list_price: Mapped[int] = mapped_column(BigInteger, default=0, doc="Current list/selling price")
+    barcode: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    # Reorder point (roadmap §4.4): at or below it the item shows as low stock.
+    reorder_level: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    reorder_qty: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -63,3 +67,21 @@ class InventoryMovement(Base, TenantMixin):
     )
 
     item: Mapped["InventoryItem"] = relationship("InventoryItem", back_populates="movements")
+
+
+class InventoryBomLine(Base, TenantMixin):
+    """One component of a finished item's bill of materials: ``quantity`` of
+    ``component`` goes into one unit of ``product`` (roadmap §4.4)."""
+
+    __tablename__ = "inventory_bom_lines"
+    __table_args__ = (UniqueConstraint("product_id", "component_id", name="uq_inventory_bom_component"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True
+    )
+    component_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True
+    )
+    quantity: Mapped[float] = mapped_column(Numeric(18, 4))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

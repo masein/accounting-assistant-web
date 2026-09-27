@@ -32,7 +32,7 @@ from app.models.payroll_rules import PayrollRuleSet
 from app.models.payment import Payment
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.models.quote import Quote, QuoteItem
-from app.models.inventory import InventoryItem, InventoryMovement, InventoryMovementType
+from app.models.inventory import InventoryBomLine, InventoryItem, InventoryMovement, InventoryMovementType
 from app.models.recurring import RecurringRule
 from app.models.recurring_invoice import RecurringInvoice
 from app.models.shared_state import BooksVersion, RateLimitEvent, UploadToken

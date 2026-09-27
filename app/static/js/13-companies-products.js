@@ -1270,6 +1270,137 @@
       return chart;
     };
 
+    // ═══════ Stock value, reorder, recipes and production (roadmap §4.4) ═══════
+    let _stockItems = [];
+    async function loadStockPanel() {
+      const table = document.getElementById('stock-table');
+      if (!table) return;
+      try {
+        const [settings, items] = await Promise.all([
+          fetch(API + '/manager-reports/inventory/settings').then((r) => r.json()),
+          fetch(API + '/manager-reports/inventory/items').then((r) => r.json()),
+        ]);
+        document.getElementById('stock-method').value = settings.method || 'weighted_average';
+        _stockItems = Array.isArray(items) ? items : [];
+        const opts = _stockItems.map((i) => '<option value="' + escapeHtml(i.id) + '">' + escapeHtml(i.name) + '</option>').join('');
+        const product = document.getElementById('bom-product');
+        const keep = product.value;
+        product.innerHTML = opts;
+        if (keep && _stockItems.some((i) => i.id === keep)) product.value = keep;
+        if (!document.getElementById('prod-date').value) document.getElementById('prod-date').value = new Date().toISOString().slice(0, 10);
+        await Promise.all([stockShowValuation(), bomLoad()]);
+      } catch (_) {
+        table.innerHTML = '<p class="fc-note">' + escapeHtml(t('stockLoadError')) + '</p>';
+      }
+    }
+
+    async function stockShowValuation() {
+      const table = document.getElementById('stock-table');
+      const asOf = document.getElementById('stock-asof').value;
+      const res = await fetch(API + '/manager-reports/inventory/valuation' + (asOf ? '?as_of=' + encodeURIComponent(asOf) : ''));
+      const v = await res.json();
+      if (!res.ok) throw new Error(v.detail || 'valuation');
+      document.getElementById('stock-summary').textContent = tf('stockSummary', {
+        value: formatNum(v.totals.value), method: t('stockMethod_' + v.method),
+        other: formatNum(v.other_method.value), otherMethod: t('stockMethod_' + v.other_method.method),
+        low: v.totals.below_reorder });
+      if (!v.rows.length) { table.innerHTML = '<p class="fc-note">' + escapeHtml(t('stockNone')) + '</p>'; return; }
+      const head = ['stockColItem', 'stockColOnHand', 'stockColUnitCost', 'stockColValue', 'stockColCogs', 'stockReorderLevel', '']
+        .map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
+      table.innerHTML = '<table class="mini-table"><thead><tr>' + head + '</tr></thead><tbody>' + v.rows.map((r) => {
+        const chip = r.oversold ? '<span class="alert-chip high">' + escapeHtml(t('stockOversold')) + '</span>'
+          : (r.below_reorder ? '<span class="alert-chip medium">' + escapeHtml(t('stockReorderNow')) + '</span>' : '');
+        return '<tr><td dir="auto">' + escapeHtml(r.name) + (r.sku ? ' <span class="fc-note">(' + escapeHtml(r.sku) + ')</span>' : '') + '</td>'
+          + '<td>' + escapeHtml(formatNum(r.on_hand) + ' ' + (r.unit || '')) + '</td><td>' + escapeHtml(formatNum(r.unit_cost)) + '</td>'
+          + '<td>' + escapeHtml(formatNum(r.value)) + '</td><td>' + escapeHtml(formatNum(r.cogs)) + '</td>'
+          + '<td>' + (r.reorder_level == null ? '—' : escapeHtml(formatNum(r.reorder_level))) + '</td><td>' + chip + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    }
+
+    function bomLineRow(line) {
+      const row = document.createElement('div');
+      row.className = 'form-grid bom-line';
+      row.style.gridTemplateColumns = '2fr 1fr auto';
+      const opts = _stockItems.map((i) => '<option value="' + escapeHtml(i.id) + '"' + (line && line.component_id === i.id ? ' selected' : '')
+        + '>' + escapeHtml(i.name) + '</option>').join('');
+      row.innerHTML = '<div><select class="bom-component">' + opts + '</select></div>'
+        + '<div><input type="number" class="bom-qty" min="0.0001" step="0.0001" value="' + escapeHtml(String(line ? line.quantity : 1)) + '"></div>'
+        + '<div class="btn-cell"><button type="button" class="btn btn-secondary btn-sm bom-remove">×</button></div>';
+      row.querySelector('.bom-remove').addEventListener('click', () => row.remove());
+      return row;
+    }
+
+    async function bomLoad() {
+      const box = document.getElementById('bom-lines');
+      const product = document.getElementById('bom-product').value;
+      box.innerHTML = '';
+      document.getElementById('bom-status').textContent = '';
+      if (!product) return;
+      const res = await fetch(API + '/manager-reports/inventory/items/' + encodeURIComponent(product) + '/bom');
+      const bom = await res.json();
+      if (!res.ok) return;
+      (bom.lines || []).forEach((ln) => box.appendChild(bomLineRow(ln)));
+      if (!(bom.lines || []).length) document.getElementById('bom-status').textContent = t('bomEmpty');
+    }
+
+    async function bomSave() {
+      const product = document.getElementById('bom-product').value;
+      const status = document.getElementById('bom-status');
+      if (!product) return;
+      const lines = [...document.querySelectorAll('#bom-lines .bom-line')].map((row) => ({
+        component_id: row.querySelector('.bom-component').value, quantity: Number(row.querySelector('.bom-qty').value || 0) }));
+      const res = await fetch(API + '/manager-reports/inventory/items/' + encodeURIComponent(product) + '/bom', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines }) });
+      const d = await res.json().catch(() => ({}));
+      status.textContent = res.ok ? tf('bomSaved', { n: (d.lines || []).length })
+        : (typeof d.detail === 'string' ? d.detail : t('stockLoadError'));
+    }
+
+    async function prodRun() {
+      const out = document.getElementById('prod-result');
+      const body = { product_id: document.getElementById('bom-product').value,
+                     quantity: Number(document.getElementById('prod-qty').value || 0),
+                     on: document.getElementById('prod-date').value };
+      if (!body.product_id || !body.quantity || !body.on) { out.textContent = t('prodMissing'); return; }
+      const send = async (allowShort) => {
+        const res = await fetch(API + '/manager-reports/inventory/production', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, allow_short: allowShort }) });
+        return [res, await res.json().catch(() => ({}))];
+      };
+      let [res, d] = await send(false);
+      if (res.status === 409 && d.detail && d.detail.short) {
+        const names = d.detail.short.map((s) => {
+          const it = _stockItems.find((i) => i.id === s.component_id);
+          return (it ? it.name : s.component_id) + ' (' + formatNum(s.on_hand) + ' / ' + formatNum(s.needed) + ')';
+        }).join(', ');
+        if (!(await uiConfirm({ message: tf('prodShortConfirm', { names }), confirmLabel: t('prodRun') }))) return;
+        [res, d] = await send(true);
+      }
+      if (!res.ok) { out.textContent = typeof d.detail === 'string' ? d.detail : t('stockLoadError'); return; }
+      out.textContent = tf('prodDone', { qty: formatNum(d.quantity), cost: formatNum(d.components_cost), unit: formatNum(d.unit_cost) });
+      stockShowValuation().catch(() => {});
+    }
+
+    (function wireStockPanel() {
+      const refresh = document.getElementById('stock-refresh');
+      if (!refresh) return;
+      refresh.addEventListener('click', () => stockShowValuation().catch(() => {}));
+      document.getElementById('stock-method-save').addEventListener('click', async () => {
+        const method = document.getElementById('stock-method').value;
+        if (!(await uiConfirm({ message: tf('stockMethodConfirm', { method: t('stockMethod_' + method) }), confirmLabel: t('stockMethodSave') }))) return;
+        const res = await fetch(API + '/manager-reports/inventory/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method }) });
+        if (res.ok) stockShowValuation().catch(() => {});
+      });
+      document.getElementById('bom-product').addEventListener('change', () => bomLoad().catch(() => {}));
+      document.getElementById('bom-add-line').addEventListener('click', () => {
+        document.getElementById('bom-lines').appendChild(bomLineRow(null));
+        document.getElementById('bom-status').textContent = '';
+      });
+      document.getElementById('bom-save').addEventListener('click', () => bomSave().catch(() => {}));
+      document.getElementById('prod-run').addEventListener('click', () => prodRun().catch(() => {}));
+    })();
+
     // ═══════ Price Management ═══════
     async function loadPriceMgmtItems() {
       try {

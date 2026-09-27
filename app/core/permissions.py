@@ -263,6 +263,12 @@ for _m, _p in [
     ("POST", "/notifications/reminders"),
     ("PATCH", "/notifications/reminders/{reminder_id}"),
     ("DELETE", "/notifications/reminders/{reminder_id}"),
+    # push to one's own devices (roadmap §4.10): every role has a bell
+    ("GET", "/notifications/push/key"),
+    ("GET", "/notifications/push/subscriptions"),
+    ("POST", "/notifications/push/subscriptions"),
+    ("DELETE", "/notifications/push/subscriptions"),
+    ("POST", "/notifications/push/test"),
 ]:
     _add(_m, _p, ANY_ROLE)
 

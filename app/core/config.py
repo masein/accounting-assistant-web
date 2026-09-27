@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     # A relative link is useless in an inbox, so this must be set for mail
     # to be worth sending.
     app_public_url: str = "http://localhost:8000"
+    # Web push (roadmap §4.10): the VAPID key pair is generated and stored on
+    # first use; set VAPID_PRIVATE_KEY (raw P-256 key, base64url) to pin it.
+    # The subject push services contact about abuse: mailto: or https URL
+    # (default: SMTP_FROM, else APP_PUBLIC_URL).
+    vapid_private_key: str | None = None
+    vapid_subject: str | None = None
     # Fixed recipient for the operator alert channel (/notifications/check).
     # Per-user mail (verification, digests) addresses the user instead.
     smtp_to: str | None = None

@@ -142,8 +142,17 @@ versioned by the static assets' hashes) that caches only versioned static
 files and answers a failed page load with the offline page — never an API
 response or the app page; a share target (a photo/PDF shared to the app lands
 in the chat), a camera button in the chat on touch devices, big photos shrunk
-to ≤ 2000 px JPEG before upload, "Install the app" in the account menu. Part 2:
-bell notifications via Web Push.
+to ≤ 2000 px JPEG before upload, "Install the app" in the account menu. ✅ Part 2,
+web push (#164): `app/services/web_push.py` speaks VAPID (RFC 8292) and
+aes128gcm payload encryption (RFC 8291 — reproduces the RFC's example) with
+`cryptography` + `httpx`, no new dependency (pywebpush wants cryptography ≥ 47
+and aiohttp); the key pair is made once and kept encrypted in the platform
+setting `web_push_vapid` (or `VAPID_PRIVATE_KEY`); subscriptions only for the
+major push services (no SSRF); the 15-minute notifications job pushes each new
+open alert to the devices of the people who see it in the bell, > 3 at once as
+one summary, gone devices removed, `notifications.pushed_at` so nothing goes
+twice (migration 051 marks existing alerts pushed). "Phone notifications" in
+the account menu. §4.10 done except a native app.
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same

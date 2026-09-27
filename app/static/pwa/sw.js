@@ -64,3 +64,33 @@ self.addEventListener('fetch', (event) => {
   }
   // everything else (the API above all) goes straight to the network
 });
+
+// Push (roadmap §4.10, part 2): an alert from the bell, shown by the system;
+// a tap opens (or focuses) the app on the alert's page.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (_) { data = { body: event.data ? event.data.text() : '' }; }
+  const page = typeof data.page === 'string' && /^[a-z0-9-]{1,40}$/.test(data.page) ? data.page : '';
+  event.waitUntil(self.registration.showNotification(data.title || 'Accounting Assistant', {
+    body: data.body || '',
+    icon: '/static/pwa/icon-192.png',
+    badge: '/static/pwa/icon-192.png',
+    tag: data.tag || undefined,
+    data: { url: page ? '/#' + page : '/' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of windows) {
+      if (new URL(w.url).origin === self.location.origin && 'focus' in w) {
+        await w.focus();
+        return 'navigate' in w ? w.navigate(url) : undefined;
+      }
+    }
+    return self.clients.openWindow(url);
+  })());
+});

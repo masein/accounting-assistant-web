@@ -226,6 +226,12 @@ class _CSRFTestClient:
     def patch(self, *a, **kw):    return self._client.patch(*a, **self._inject(kw))
     def delete(self, *a, **kw):   return self._client.delete(*a, **self._inject(kw))
 
+    def request(self, method, *a, **kw):
+        """Any method — e.g. a DELETE with a JSON body, which ``delete()`` can't send."""
+        if method.upper() not in self._SAFE:
+            kw = self._inject(kw)
+        return self._client.request(method, *a, **kw)
+
 
 @pytest.fixture()
 def auth_client(client: TestClient) -> _CSRFTestClient:

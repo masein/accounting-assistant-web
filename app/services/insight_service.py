@@ -63,7 +63,7 @@ class Insight:
     def localize(self, lang: str) -> dict[str, str]:
         lang = lang if lang in SUPPORTED_LANGUAGES else "en"
         if self.kind not in _TEMPLATES:
-            from app.services import anomaly_detection  # noqa: F401 — registers its templates
+            from app.services import anomaly_detection, inventory_costing  # noqa: F401 — register their templates
         tpl = _TEMPLATES[self.kind]
         out = {}
         for part in ("title", "message"):
@@ -619,8 +619,8 @@ def all_detectors():
     """These plus the anomaly detectors (roadmap §5.2), which live in their
     own module and register their wording in _TEMPLATES when imported —
     looked up at call time so neither module imports the other at load."""
-    from app.services import anomaly_detection
-    return DETECTORS + anomaly_detection.DETECTORS
+    from app.services import anomaly_detection, inventory_costing
+    return DETECTORS + anomaly_detection.DETECTORS + inventory_costing.DETECTORS
 
 
 _SEVERITY_ORDER = {"high": 0, "warning": 1, "info": 2}

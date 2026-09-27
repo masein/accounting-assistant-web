@@ -225,6 +225,19 @@ class InventoryItemCreate(BaseModel):
     name: str = Field(..., min_length=1)
     unit: str = "unit"
     list_price: int = Field(0, ge=0)
+    barcode: str | None = Field(None, max_length=64)
+    reorder_level: float | None = Field(None, ge=0)
+    reorder_qty: float | None = Field(None, gt=0)
+
+
+class InventoryItemUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=256)
+    sku: str | None = Field(None, max_length=64)
+    unit: str | None = Field(None, min_length=1, max_length=32)
+    barcode: str | None = Field(None, max_length=64)
+    reorder_level: float | None = Field(None, ge=0)
+    reorder_qty: float | None = Field(None, gt=0)
+    is_active: bool | None = None
 
 
 class InventoryItemRead(BaseModel):
@@ -234,6 +247,9 @@ class InventoryItemRead(BaseModel):
     unit: str
     is_active: bool
     list_price: int = 0
+    barcode: str | None = None
+    reorder_level: float | None = None
+    reorder_qty: float | None = None
 
     model_config = {"from_attributes": True}
 

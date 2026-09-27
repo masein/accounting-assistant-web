@@ -533,7 +533,7 @@ class TestRegistry:
             "propose_declare_dividend", "propose_shareholder_current_account",
             "list_invoices", "get_invoice", "propose_record_invoice_payment", "propose_create_invoice",
             "list_commitments", "propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque",
-            "get_fixed_assets",
+            "get_fixed_assets", "get_inventory",
         }
 
 

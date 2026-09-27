@@ -116,7 +116,17 @@ the first open day), acquisition from bank or on credit, disposal with gain
 are only the art. 149 rows two sources agree on (buildings 25/15 years,
 vehicles 6, taxis/light vans 4, computers and software 3, office furniture 5);
 the rest is entered per asset. Later: the full table from the official
-circular, revaluation, idle-asset (70 %) extension, impairment.
+circular, revaluation, idle-asset (70 %) extension, impairment. ✅ 4.4 inventory
+costing (#161): `app/services/inventory_costing.py` — weighted average (the
+old running average, now half-up) or FIFO per company, always recomputed from
+the movements; stock valuation as of any date with the other method's total
+beside it; reorder point + quantity per item, a low-stock insight on the
+dashboard; barcode field and lookup (unique per company); bills of materials
+and production runs (components out at cost, finished item in at their total,
+short components refused unless confirmed); `get_inventory` AI tool; the
+Inventory page panels (migration 049). Later: automatic movements from goods
+receipts and sales invoices (opt-in, to avoid double counting manual ones),
+perpetual COGS postings, stock counts.
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same

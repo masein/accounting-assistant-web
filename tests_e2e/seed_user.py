@@ -5,11 +5,16 @@ from the environment; refuses to run with APP_ENV=prod.
 * the owner every page smoke test uses;
 * an accountant for the two-factor flow (E2E_TFA_USERNAME, same password),
   so turning 2FA on and off never touches the owner, and seeding it here
-  costs none of the owner's API rate-limit budget."""
+  costs none of the owner's API rate-limit budget;
+* one accountant per feature flow (FLOW_USERS, same password): forecast,
+  fixed assets and inventory each make many requests, and sharing a user
+  ran into the per-user limit of 120 requests a minute."""
 from __future__ import annotations
 
 import os
 import sys
+
+FLOW_USERS = ("e2e_forecast", "e2e_assets", "e2e_stock")
 
 
 def main() -> int:
@@ -32,6 +37,7 @@ def main() -> int:
     wanted = [
         (os.environ.get("E2E_USERNAME", "e2e_owner"), "owner"),
         (os.environ.get("E2E_TFA_USERNAME", "e2e_tfa"), "accountant"),
+        *[(name, "accountant") for name in FLOW_USERS],
     ]
     db = SessionLocal()
     try:

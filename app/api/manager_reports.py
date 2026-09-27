@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -37,6 +38,7 @@ from app.schemas.manager_report import (
     IncomeStatementResponse,
     InventoryBalanceResponse,
     InventoryItemCreate,
+    InventoryItemUpdate,
     InventoryItemRead,
     InventoryMovementCreate,
     InventoryMovementRead,
@@ -644,6 +646,128 @@ def update_inventory_price(
     item.list_price = list_price
     db.commit()
     return {"item_id": str(item.id), "name": item.name, "old_price": old_price, "new_price": list_price}
+
+
+# --- Inventory costing, valuation, reorder, barcode, BOM (roadmap §4.4) -------------------
+
+class InventorySettingsIn(BaseModel):
+    method: str = Field(..., pattern="^(weighted_average|fifo)$")
+
+
+class BomLineIn(BaseModel):
+    component_id: UUID
+    quantity: float = Field(..., gt=0)
+
+
+class BomIn(BaseModel):
+    lines: list[BomLineIn] = Field(default_factory=list, max_length=200)
+
+
+class ProductionIn(BaseModel):
+    product_id: UUID
+    quantity: float = Field(..., gt=0, le=10**9)
+    on: date
+    reference: str | None = Field(None, max_length=120)
+    allow_short: bool = False
+
+
+def _inventory_item(db: Session, item_id: UUID):
+    from app.models.inventory import InventoryItem
+    item = db.get(InventoryItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item
+
+
+@router.get("/inventory/settings")
+def get_inventory_settings(db: Session = Depends(get_db)) -> dict:
+    from app.services.inventory_costing import METHODS, get_method
+    return {"method": get_method(db), "methods": list(METHODS)}
+
+
+@router.put("/inventory/settings")
+def put_inventory_settings(body: InventorySettingsIn, db: Session = Depends(get_db)) -> dict:
+    """Switch the costing method. Values are recomputed from the movements, so
+    every report re-values history under the new method."""
+    from app.services.audit_service import log_audit_event
+    from app.services.inventory_costing import METHODS, get_method, set_method
+    before = get_method(db)
+    method = set_method(db, body.method)
+    log_audit_event(db, action="update", entity_type="inventory_settings", entity_id="costing",
+                    detail=f"{before} → {method}")
+    db.commit()
+    return {"method": method, "methods": list(METHODS)}
+
+
+@router.get("/inventory/valuation")
+def inventory_valuation(as_of: date | None = Query(None),
+                        method: str | None = Query(None, pattern="^(weighted_average|fifo)$"),
+                        db: Session = Depends(get_db)) -> dict:
+    from app.services.inventory_costing import valuation
+    return valuation(db, as_of=as_of, method=method)
+
+
+@router.get("/inventory/low-stock")
+def inventory_low_stock(db: Session = Depends(get_db)) -> dict:
+    from app.services.inventory_costing import low_stock
+    rows = low_stock(db)
+    return {"count": len(rows), "rows": rows}
+
+
+@router.get("/inventory/items/by-barcode/{barcode}", response_model=InventoryItemRead)
+def inventory_item_by_barcode(barcode: str, db: Session = Depends(get_db)) -> InventoryItemRead:
+    from app.models.inventory import InventoryItem
+    item = db.execute(select(InventoryItem).where(InventoryItem.barcode == barcode.strip())).scalars().first()
+    if not item:
+        raise HTTPException(status_code=404, detail="No item has this barcode")
+    return InventoryItemRead.model_validate(item)
+
+
+@router.patch("/inventory/items/{item_id}", response_model=InventoryItemRead)
+def update_inventory_item(item_id: UUID, body: InventoryItemUpdate, db: Session = Depends(get_db)) -> InventoryItemRead:
+    item = _inventory_item(db, item_id)
+    changes = body.model_dump(exclude_unset=True)
+    if "barcode" in changes:
+        changes["barcode"] = (changes["barcode"] or "").strip() or None
+        InventoryReportService(db).assert_barcode_free(changes["barcode"], except_id=item.id)
+    for key in ("name", "sku", "unit"):
+        if key in changes and changes[key] is not None:
+            changes[key] = changes[key].strip() or (None if key == "sku" else changes[key])
+    for key, value in changes.items():
+        setattr(item, key, value)
+    db.commit()
+    db.refresh(item)
+    return InventoryItemRead.model_validate(item)
+
+
+@router.get("/inventory/items/{item_id}/bom")
+def get_inventory_bom(item_id: UUID, db: Session = Depends(get_db)) -> dict:
+    from app.services.inventory_costing import get_bom
+    item = _inventory_item(db, item_id)
+    return {"product_id": str(item.id), "name": item.name, "lines": get_bom(db, item.id)}
+
+
+@router.put("/inventory/items/{item_id}/bom")
+def put_inventory_bom(item_id: UUID, body: BomIn, db: Session = Depends(get_db)) -> dict:
+    from app.services.inventory_costing import set_bom
+    item = _inventory_item(db, item_id)
+    lines = set_bom(db, item, [ln.model_dump() for ln in body.lines])
+    db.commit()
+    return {"product_id": str(item.id), "name": item.name, "lines": lines}
+
+
+@router.post("/inventory/production", status_code=201)
+def inventory_production(body: ProductionIn, db: Session = Depends(get_db)) -> dict:
+    """Make ``quantity`` of a finished item from its bill of materials: the
+    components go out at cost and the product comes in at their total."""
+    from app.services.audit_service import log_audit_event
+    from app.services.inventory_costing import produce
+    item = _inventory_item(db, body.product_id)
+    out = produce(db, item, body.quantity, on=body.on, reference=body.reference, allow_short=body.allow_short)
+    log_audit_event(db, action="create", entity_type="production_run", entity_id=str(item.id),
+                    detail=f"{out['quantity']} × {item.name} at {out['unit_cost']}")
+    db.commit()
+    return out
 
 
 @router.get("/financial/balance-sheet-periods")

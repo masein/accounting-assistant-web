@@ -13,7 +13,7 @@
       if (page === 'audit') { loadAuditLogs(); }
       if (page === 'cfo') { loadCFOReport(); }
       if (page === 'ceo') { loadCEOReport(); }
-      if (page === 'inventory') { loadPriceMgmtItems(); }
+      if (page === 'inventory') { loadPriceMgmtItems(); loadStockPanel(); }
       if (page === 'manager') { loadAccountDatalist(); loadProductEntityDatalist(); }
       if (page === 'products') { loadProductsCatalog(); }
       if (page === 'payroll') { loadPayroll(); }

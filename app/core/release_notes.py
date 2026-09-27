@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.27.2"
+CURRENT_RELEASE = "2026.09.27.3"
 
 
 @dataclass(frozen=True)
@@ -593,6 +593,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«سوابق ← دارایی‌های ثابت»: هر دارایی را با بهای تمام‌شده، روش و عمر مفید ثبت کنید (برای شرکت‌های ایرانی گروه‌های رایج جدول استهلاکات ماده ۱۴۹، با شروع از ماه بعد از بهره‌برداری). با یک کلیک استهلاک همهٔ ماه‌های تمام‌شده ثبت می‌شود و هنگام فروش یا اسقاط، سود یا زیان آن خودکار محاسبه می‌شود.",
                     "es": "Registros → Activos fijos: añade cada activo con su coste, método y vida útil. Un clic contabiliza la amortización de todos los meses terminados, y al vender o dar de baja un activo se calcula la ganancia o la pérdida.",
                     "ar": "السجلات ← الأصول الثابتة: أضف كل أصل بتكلفته وطريقته وعمره الإنتاجي. بنقرة واحدة يُرحَّل استهلاك كل الأشهر المنتهية، وعند بيع أصل أو شطبه يُحسب الربح أو الخسارة تلقائيًا.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.27.3",
+        date="2026-09-27",
+        highlights=(
+            Highlight(
+                key="inventory-costing",
+                page="inventory",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Stock valued by FIFO or weighted average, with reorder alerts",
+                    "fa": "ارزیابی موجودی با FIFO یا میانگین موزون، همراه با هشدار نقطهٔ سفارش",
+                    "es": "Existencias valoradas por FIFO o precio medio, con avisos de reposición",
+                    "ar": "تقييم المخزون بطريقة FIFO أو المتوسط المرجح، مع تنبيهات إعادة الطلب",
+                },
+                body={
+                    "en": "Inventory now shows the value of your stock on any date under the costing method you choose (and what the other method would give), marks items at their reorder point — the dashboard tells you too — and takes barcodes. Recipes say what goes into a finished item, and a production run moves the components out and the finished item in at cost.",
+                    "fa": "بخش موجودی اکنون ارزش کالاها را در هر تاریخ با روش ارزیابی انتخابی شما نشان می‌دهد (و رقم روش دیگر را هم برای مقایسه)، کالاهایی را که به نقطهٔ سفارش رسیده‌اند علامت می‌زند — داشبورد هم خبر می‌دهد — و بارکد می‌پذیرد. با فرمول ساخت مشخص می‌کنید هر کالای ساخته‌شده از چه اجزایی تشکیل شده و با هر تولید، اجزا خارج و کالای ساخته‌شده به بهای تمام‌شده وارد انبار می‌شود.",
+                    "es": "Inventario muestra ahora el valor de tus existencias en cualquier fecha con el método que elijas (y lo que daría el otro), marca los artículos en su punto de pedido —también en el panel— y admite códigos de barras. Las recetas indican qué lleva un producto terminado, y una producción saca los componentes y entra el producto a coste.",
+                    "ar": "يعرض المخزون الآن قيمة بضاعتك في أي تاريخ بطريقة التكلفة التي تختارها (وما ستعطيه الطريقة الأخرى)، ويعلّم الأصناف عند نقطة إعادة الطلب — وتنبّهك لوحة التحكم أيضًا — ويقبل الباركود. تحدد الوصفات ما يدخل في المنتج النهائي، وتُخرج عملية الإنتاج المكونات وتُدخل المنتج بالتكلفة.",
                 },
             ),
         ),

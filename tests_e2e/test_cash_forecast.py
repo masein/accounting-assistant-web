@@ -9,8 +9,8 @@ from datetime import date, timedelta
 from tests_e2e.conftest import ARTIFACTS
 
 
-def test_forecast_explorer_runs_a_scenario(app_page):
-    page, watch = app_page
+def test_forecast_explorer_runs_a_scenario(flow_page):
+    page, watch = flow_page("e2e_forecast")
     page.locator('.nav-btn[data-page="dashboard"]').first.click()
     page.wait_for_load_state("networkidle")
     try:

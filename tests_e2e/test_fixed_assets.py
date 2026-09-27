@@ -8,8 +8,8 @@ from datetime import date, timedelta
 from tests_e2e.conftest import ARTIFACTS
 
 
-def test_add_an_asset_and_preview_depreciation(app_page):
-    page, watch = app_page
+def test_add_an_asset_and_preview_depreciation(flow_page):
+    page, watch = flow_page("e2e_assets")
     page.locator('.nav-btn[data-page="fixed-assets"]').first.click()
     page.wait_for_load_state("networkidle")
     try:

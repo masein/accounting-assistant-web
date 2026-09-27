@@ -102,8 +102,16 @@ def job_recurring_run_due(db, today: date) -> dict:
 
 
 def job_notifications_refresh(db, today: date) -> dict:
+    """Recompute the bell, then push what is new to the devices of the people
+    who see it (roadmap §4.10) — pushing never runs on a request."""
     from app.services.notification_service import refresh_notifications
-    return {"created": refresh_notifications(db, today=today)}
+    from app.services.web_push import deliver_pending
+    out = {"created": refresh_notifications(db, today=today)}
+    pushed = deliver_pending(db)
+    db.commit()
+    if pushed["sent"] or pushed["gone"] or pushed["failed"]:
+        out["push"] = pushed
+    return out
 
 
 def job_daily_digest(db, today: date) -> dict:

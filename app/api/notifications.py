@@ -2,10 +2,10 @@ from __future__ import annotations
 
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.reports import get_owner_dashboard
 from app.core.config import settings
@@ -351,3 +351,83 @@ def delete_reminder(
     row = _own_reminder(db, user, reminder_id)
     db.delete(row)
     db.commit()
+
+
+# --- Push to phones and browsers (roadmap §4.10, part 2) ----------------------------
+
+class PushKeys(BaseModel):
+    p256dh: str = Field(..., min_length=80, max_length=128)
+    auth: str = Field(..., min_length=16, max_length=64)
+
+
+class PushSubscriptionIn(BaseModel):
+    endpoint: str = Field(..., min_length=10, max_length=1024)
+    keys: PushKeys
+
+
+class PushEndpointIn(BaseModel):
+    endpoint: str = Field(..., min_length=10, max_length=1024)
+
+
+@router.get("/push/key")
+def push_public_key(db: Session = Depends(get_db)) -> dict:
+    """The server's VAPID public key, for ``pushManager.subscribe``."""
+    from app.services.web_push import vapid_keys
+    _key, public = vapid_keys(db)
+    db.commit()                                   # a key generated on first use is kept
+    return {"public_key": public}
+
+
+@router.get("/push/subscriptions")
+def my_push_devices(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    from app.models.push_subscription import PushSubscription
+    count = len(db.execute(_select(PushSubscription.id).where(PushSubscription.user_id == str(user.user_id))).all())
+    return {"devices": count}
+
+
+@router.post("/push/subscriptions", status_code=201)
+def subscribe_push(body: PushSubscriptionIn, request: Request, db: Session = Depends(get_db),
+                   user: SessionUser = Depends(get_current_user)) -> dict:
+    """Keep this device's subscription (re-subscribing just refreshes it)."""
+    from app.models.push_subscription import PushSubscription
+    from app.services.web_push import b64url_decode, endpoint_allowed
+    if not endpoint_allowed(body.endpoint):
+        raise HTTPException(status_code=422, detail="That push service isn't supported.")
+    try:
+        key, secret = b64url_decode(body.keys.p256dh), b64url_decode(body.keys.auth)
+    except (ValueError, TypeError):
+        key, secret = b"", b""
+    if len(key) != 65 or key[0] != 4 or len(secret) != 16:
+        raise HTTPException(status_code=422, detail="The subscription keys are not valid.")
+    row = db.execute(_select(PushSubscription).where(PushSubscription.endpoint == body.endpoint)).scalars().first()
+    if row is None:
+        row = PushSubscription(endpoint=body.endpoint)
+        db.add(row)
+    row.user_id = str(user.user_id)               # a shared device now belongs to whoever signed in
+    row.p256dh, row.auth, row.failures = body.keys.p256dh, body.keys.auth, 0
+    row.user_agent = (request.headers.get("user-agent") or "")[:256] or None
+    db.commit()
+    return {"subscribed": True}
+
+
+@router.delete("/push/subscriptions", status_code=204)
+def unsubscribe_push(body: PushEndpointIn, db: Session = Depends(get_db),
+                     user: SessionUser = Depends(get_current_user)) -> None:
+    from app.models.push_subscription import PushSubscription
+    for row in db.execute(_select(PushSubscription).where(PushSubscription.endpoint == body.endpoint,
+                                                          PushSubscription.user_id == str(user.user_id))).scalars():
+        db.delete(row)
+    db.commit()
+
+
+@router.post("/push/test")
+def push_test(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    """Send a test notification to the caller's own devices."""
+    from app.models.push_subscription import PushSubscription
+    from app.services.web_push import send
+    stats = {"sent": 0, "gone": 0, "failed": 0}
+    for sub in db.execute(_select(PushSubscription).where(PushSubscription.user_id == str(user.user_id))).scalars().all():
+        stats[send(db, sub, {"title": "Notifications are on", "body": "Alerts from your books will arrive here.",
+                             "page": None, "tag": "test"})] += 1
+    db.commit()
+    return stats

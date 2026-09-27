@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.27.5"
+CURRENT_RELEASE = "2026.09.27.6"
 
 
 @dataclass(frozen=True)
@@ -662,6 +662,27 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "از منوی حساب «نصب برنامه» را بزنید تا روی صفحهٔ اصلی گوشی قرار بگیرد. روی گوشی، گفت‌وگو دکمهٔ دوربین دارد: از رسید عکس بگیرید تا با حجمی مناسب پیوست شود. همچنین می‌توانید عکس یا PDF را از برنامه‌ای دیگر مستقیم با این برنامه به اشتراک بگذارید.",
                     "es": "Abre el menú de la cuenta y elige Instalar la app para tenerla en la pantalla de inicio. En el móvil el chat tiene un botón de cámara: fotografía un recibo y se adjunta, reducido a un tamaño razonable. También puedes compartir una foto o un PDF desde otra app directamente.",
                     "ar": "افتح قائمة الحساب واختر تثبيت التطبيق لوضعه على الشاشة الرئيسية. على الهاتف تحتوي المحادثة على زر كاميرا: صوّر الإيصال فيُرفق بحجم مناسب. ويمكنك أيضًا مشاركة صورة أو ملف PDF من تطبيق آخر مباشرة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.27.6",
+        date="2026-09-27",
+        highlights=(
+            Highlight(
+                key="push-notifications",
+                title={
+                    "en": "Alerts on your phone",
+                    "fa": "اعلان‌ها روی گوشی شما",
+                    "es": "Avisos en tu móvil",
+                    "ar": "التنبيهات على هاتفك",
+                },
+                body={
+                    "en": "Account menu → Phone notifications: turn on. New alerts from the bell — an invoice overdue, a cheque due, an approval waiting, your own reminders — then arrive on this device even when the app is closed. Several at once come as one summary.",
+                    "fa": "«منوی حساب ← اعلان روی گوشی: روشن کن». از آن پس اعلان‌های جدید زنگوله — فاکتور سررسیدگذشته، چک سررسیدشده، تأییدی که منتظر است، یادآورهای خودتان — حتی وقتی برنامه بسته است روی همین دستگاه می‌رسند. چند اعلان هم‌زمان در یک خلاصه می‌آیند.",
+                    "es": "Menú de la cuenta → Avisos en el móvil: activar. Los avisos nuevos de la campana — una factura vencida, un cheque que vence, una aprobación pendiente, tus recordatorios — llegarán a este dispositivo aunque la app esté cerrada. Si llegan varios a la vez, verás un resumen.",
+                    "ar": "قائمة الحساب ← إشعارات الهاتف: تشغيل. ستصل تنبيهات الجرس الجديدة — فاتورة متأخرة، شيك مستحق، موافقة بانتظارك، تذكيراتك — إلى هذا الجهاز حتى والتطبيق مغلق. وإن وصلت عدة تنبيهات معًا فستصلك في ملخص واحد.",
                 },
             ),
         ),

@@ -718,3 +718,57 @@
         btn.style.display = 'none';
       });
     })();
+
+    // ═══════ Push notifications (roadmap §4.10, part 2) ═══════
+    function _pushKeyBytes(b64) {
+      const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+      const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+    }
+    async function _pushRegistration() {
+      return ('serviceWorker' in navigator) ? navigator.serviceWorker.getRegistration('/') : null;
+    }
+    async function refreshPushButton() {
+      const btn = document.getElementById('push-toggle-btn');
+      if (!btn) return;
+      const supported = window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window
+        && 'Notification' in window;
+      const reg = supported ? await _pushRegistration() : null;
+      if (!reg || Notification.permission === 'denied') { btn.style.display = 'none'; return; }
+      const sub = await reg.pushManager.getSubscription();
+      btn.textContent = t(sub ? 'pushTurnOff' : 'pushTurnOn');
+      btn.dataset.on = sub ? '1' : '';
+      btn.style.display = '';
+    }
+    (function setupPush() {
+      const btn = document.getElementById('push-toggle-btn');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        const reg = await _pushRegistration();
+        if (!reg) return;
+        try {
+          if (btn.dataset.on) {
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) {
+              await fetch(API + '/notifications/push/subscriptions', { method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) });
+              await sub.unsubscribe();
+            }
+          } else {
+            if ((await Notification.requestPermission()) !== 'granted') { refreshPushButton(); return; }
+            const { public_key: key } = await (await fetch(API + '/notifications/push/key')).json();
+            const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _pushKeyBytes(key) });
+            const res = await fetch(API + '/notifications/push/subscriptions', { method: 'POST',
+              headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub.toJSON()) });
+            if (!res.ok) { await sub.unsubscribe(); showAlert(t('pushFailed'), true); }
+            else { fetch(API + '/notifications/push/test', { method: 'POST' }).catch(() => {}); }
+          }
+        } catch (_) {
+          showAlert(t('pushFailed'), true);
+        }
+        refreshPushButton();
+      });
+      if ('serviceWorker' in navigator && window.isSecureContext) {
+        navigator.serviceWorker.ready.then(() => refreshPushButton()).catch(() => {});
+      }
+    })();

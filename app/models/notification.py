@@ -40,6 +40,8 @@ class Notification(Base, TenantMixin):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # When the alert went to the devices of the people who see it (web push).
+    pushed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

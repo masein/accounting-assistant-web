@@ -81,7 +81,7 @@ def test_whats_new_for_role_and_last_seen():
             "per-currency-views", "chat-periods-cash", "balance-sheet-check",
             "payroll-statutory-rules", "ai-invoices-cheques", "quotes", "invoice-email-reminders",
             "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes", "ai-usage",
-            "seasonal-tax-reports", "uk-mtd", "bank-sms", "anomaly-insights", "cash-forecast", "fixed-assets", "inventory-costing", "chart-of-accounts", "installable-app"} <= all_keys
+            "seasonal-tax-reports", "uk-mtd", "bank-sms", "anomaly-insights", "cash-forecast", "fixed-assets", "inventory-costing", "chart-of-accounts", "installable-app", "push-notifications"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -118,7 +118,8 @@ def test_whats_new_for_role_and_last_seen():
 
     # An employee only gets the notes meant for everyone.
     emp = rn.whats_new_for("employee", None, include_all=True)
-    assert {h["key"] for r in emp["releases"] for h in r["highlights"]} == {"whats-new", "two-factor"}
+    assert {h["key"] for r in emp["releases"] for h in r["highlights"]} == {"whats-new", "two-factor",
+                                                                          "push-notifications"}
 
     # include_all lists history regardless of what was seen.
     everything = rn.whats_new_for("owner", rn.CURRENT_RELEASE, include_all=True)

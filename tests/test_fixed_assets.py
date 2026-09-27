@@ -480,7 +480,9 @@ def test_the_page_is_wired():
     core = (root / "js" / "01-core.js").read_text(encoding="utf-8")
     ops = (root / "js" / "12-ops.js").read_text(encoding="utf-8")
     assert 'data-page="fixed-assets"' in html and html.count('data-page="fixed-assets"') == 2   # nav + card
-    assert "'fixed-assets': ['owner', 'cfo', 'accountant']" in core and "'fixed-assets']);" in core
+    import re
+    valid = re.search(r"const validPages = new Set\(\[([^\]]*)\]\)", core).group(1)
+    assert "'fixed-assets': ['owner', 'cfo', 'accountant']" in core and "'fixed-assets'" in valid
     assert "if (page === 'fixed-assets') { loadFixedAssets(); }" in ops
     block = ops.split("// ═══════ Fixed-asset register", 1)[1]
     assert "confirm(" not in block.replace("uiConfirm(", "")                  # the in-app dialog only

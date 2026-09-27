@@ -126,7 +126,17 @@ and production runs (components out at cost, finished item in at their total,
 short components refused unless confirmed); `get_inventory` AI tool; the
 Inventory page panels (migration 049). Later: automatic movements from goods
 receipts and sales invoices (opt-in, to avoid double counting manual ones),
-perpetual COGS postings, stock counts.
+perpetual COGS postings, stock counts. ✅ 4.5 chart-of-accounts
+management (#162): `app/services/chart_service.py` + `/accounts` — add under
+a parent (code suggested, must start with the parent's; level follows GROUP →
+GENERAL → SUB → DETAIL, i.e. گروه/کل/معین/تفصیلی), rename, deactivate
+(zero balance, no active children, never a posting default; inactive
+accounts refuse postings and leave the pickers and the AI's account search),
+delete only if never used; the tree with rolled-up balances; opening balances
+as one replaceable journal (`OPENING-BALANCES`, replaces the migration
+opening too; a difference goes to 3999). Setup → Chart of accounts page
+(migration 050). Later: moving an account to another parent, floating
+تفصیلی groups shared across معین accounts.
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same

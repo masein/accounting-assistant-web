@@ -59,6 +59,7 @@
       </div>
       <div class="nav-section" role="group">
         <div class="nav-section-h" data-i18n="navSecSetup">Setup</div>
+        <button type="button" class="nav-btn" data-page="accounts"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h4M3 12h4M3 19h4"/><path d="M11 5h10M13 12h8M15 19h6"/><path d="M7 5v14"/></svg><span class="lbl" data-i18n="coaNav">Chart of accounts</span></button>
         <button type="button" class="nav-btn" data-page="migration"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12H3"/><path d="m9 6-6 6 6 6"/><path d="M21 4v16"/></svg><span class="lbl" data-i18n="migrationNav">Migration</span></button>
         <button type="button" class="nav-btn" data-page="settings"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 7 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 2.6 14H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 10 4.6V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 2.82 1.17l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl" data-i18n="navSettings">Settings</span></button>
         <button type="button" class="nav-btn" id="nav-companies" data-page="companies" style="display:none;"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg><span class="lbl" data-i18n="companiesNav">Companies</span></button>
@@ -798,6 +799,46 @@
           <button type="submit" class="btn btn-primary" id="submit-btn" data-i18n="saveVoucher">Save voucher</button>
         </div>
       </form>
+    </div>
+
+    <div class="card" data-page="accounts">
+      <h2 data-i18n="coaTitle">Chart of accounts</h2>
+      <p data-i18n="coaSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Add accounts under the right parent, rename them, retire the ones you no longer use, and enter your opening balances.</p>
+
+      <div class="panel" style="margin-bottom:1rem;">
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center; margin-bottom:0.5rem;">
+          <input type="search" id="coa-filter" data-i18n-placeholder="coaFilter" placeholder="Find by code or name" style="flex:1; min-width:12rem; margin:0;">
+          <label style="display:flex; gap:0.35rem; align-items:center; margin:0;"><input type="checkbox" id="coa-show-inactive"> <span data-i18n="coaShowInactive">Show inactive accounts</span></label>
+        </div>
+        <div id="coa-tree" style="overflow-x:auto;"></div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="panel">
+          <h3 data-i18n="coaNew">Add an account</h3>
+          <div class="row">
+            <div><label for="coa-new-parent" data-i18n="coaParent">Parent account (code)</label><input type="text" id="coa-new-parent" inputmode="numeric" maxlength="16"></div>
+            <div><label for="coa-new-code" data-i18n="coaCode">Code</label><input type="text" id="coa-new-code" inputmode="numeric" maxlength="16"></div>
+          </div>
+          <div class="row">
+            <div><label for="coa-new-name" data-i18n="coaName">Name</label><input type="text" id="coa-new-name" maxlength="512"></div>
+          </div>
+          <p class="fc-note" data-i18n="coaNewHint">The code is suggested from the parent; a child's code always starts with its parent's.</p>
+          <button type="button" class="btn btn-primary" id="coa-new-save" data-i18n="coaNewSave">Add the account</button>
+          <p id="coa-new-msg" class="fc-note"></p>
+        </div>
+        <div class="panel">
+          <h3 data-i18n="coaOpeningTitle">Opening balances</h3>
+          <p class="fc-note" data-i18n="coaOpeningHint">One entry on the opening date. Saving again replaces it; any difference between the sides goes to Opening balance adjustments (3999).</p>
+          <div class="row">
+            <div><label for="coa-opening-date" data-i18n="coaOpeningDate">Opening date</label><input type="date" id="coa-opening-date"></div>
+          </div>
+          <div id="coa-opening-grid" style="max-height:26rem; overflow:auto;"></div>
+          <p id="coa-opening-totals" class="fc-note"></p>
+          <button type="button" class="btn btn-primary" id="coa-opening-save" data-i18n="coaOpeningSave">Save opening balances</button>
+          <p id="coa-opening-msg" class="fc-note"></p>
+        </div>
+      </div>
     </div>
 
     <div class="card" data-page="fixed-assets">

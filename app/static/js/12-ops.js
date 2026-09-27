@@ -26,6 +26,7 @@
       if (page === 'migration') { migrationInitPage(); }
       if (page === 'petty-cash') { pettyInitPage(); }
       if (page === 'fixed-assets') { loadFixedAssets(); }
+      if (page === 'accounts') { loadChartOfAccounts(); }
       if (page === 'recurring') { recurringInitPage(); }
     }
 
@@ -1140,4 +1141,182 @@
       document.getElementById('asset-run-post').addEventListener('click', async () => {
         if (await uiConfirm({ message: t('assetRunConfirm'), confirmLabel: t('assetRunPost') })) assetRun(false);
       });
+    })();
+
+    // ═══════ Chart of accounts (roadmap §4.5) ═══════
+    let _coaTree = [];
+    function coaFlatten(nodes, depth, out) {
+      nodes.forEach((n) => { out.push({ ...n, depth }); coaFlatten(n.children || [], depth + 1, out); });
+      return out;
+    }
+
+    function coaRender() {
+      const box = document.getElementById('coa-tree');
+      const q = (document.getElementById('coa-filter').value || '').trim().toLowerCase();
+      const rows = coaFlatten(_coaTree, 0, []).filter((n) => !q || n.code.includes(q) || (n.name || '').toLowerCase().includes(q));
+      if (!rows.length) { box.innerHTML = '<p class="fc-note">' + escapeHtml(t('coaNone')) + '</p>'; return; }
+      const head = ['coaCode', 'coaName', 'coaLevel', 'coaBalance', 'coaStatus', ''].map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
+      box.innerHTML = '<table class="mini-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows.map((n) => {
+        const act = (name, label, cls) => '<button type="button" class="btn btn-' + (cls || 'secondary') + ' btn-sm" data-coa="' + name + '" data-id="' + escapeHtml(n.id) + '">' + escapeHtml(t(label)) + '</button>';
+        const actions = [
+          n.level !== 'DETAIL' && n.is_active ? act('child', 'coaAddChild') : '',
+          act('rename', 'coaRename'),
+          n.protected ? '' : (n.is_active ? act('off', 'coaDeactivate') : act('on', 'coaReactivate')),
+          n.protected ? '' : act('delete', 'coaDelete', 'danger'),
+        ].join(' ');
+        return '<tr' + (n.is_active ? '' : ' style="opacity:0.55;"') + '><td dir="ltr" style="padding-inline-start:' + (0.4 + n.depth * 1.1) + 'rem;">' + escapeHtml(n.code) + '</td>'
+          + '<td dir="auto">' + escapeHtml(n.name) + '</td><td>' + escapeHtml(t('coaLevel_' + n.level)) + '</td>'
+          + '<td>' + escapeHtml(formatNum(n.total)) + '</td>'
+          + '<td>' + (n.is_active ? '' : '<span class="alert-chip low">' + escapeHtml(t('coaInactive')) + '</span>')
+          + (n.protected ? ' <span class="fc-note">' + escapeHtml(t('coaProtected')) + '</span>' : '') + '</td>'
+          + '<td style="white-space:nowrap;">' + actions + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    }
+
+    async function loadChartOfAccounts() {
+      const box = document.getElementById('coa-tree');
+      if (!box) return;
+      try {
+        const inactive = document.getElementById('coa-show-inactive').checked;
+        const res = await fetch(API + '/accounts/tree?include_inactive=' + (inactive ? 'true' : 'false'));
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'tree');
+        _coaTree = data.accounts || [];
+        coaRender();
+        coaLoadOpening();
+      } catch (_) {
+        box.innerHTML = '<p class="fc-note">' + escapeHtml(t('coaLoadError')) + '</p>';
+      }
+    }
+
+    function coaNode(id) { return coaFlatten(_coaTree, 0, []).find((n) => n.id === id); }
+
+    async function coaSend(url, method, body) {
+      const res = await fetch(API + url, { method, headers: { 'Content-Type': 'application/json' },
+                                           body: body ? JSON.stringify(body) : undefined });
+      const d = res.status === 204 ? {} : await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof d.detail === 'string' ? d.detail : t('coaLoadError'));
+      return d;
+    }
+
+    async function coaAction(kind, id) {
+      const n = coaNode(id);
+      if (!n) return;
+      const msg = document.getElementById('coa-new-msg');
+      try {
+        if (kind === 'child') {
+          document.getElementById('coa-new-parent').value = n.code;
+          await coaSuggest();
+          document.getElementById('coa-new-name').focus();
+          return;
+        }
+        if (kind === 'rename') {
+          const name = await uiPrompt({ title: t('coaRename'), message: n.code, value: n.name, confirmLabel: t('coaRename') });
+          if (name == null || !name.trim() || name.trim() === n.name) return;
+          await coaSend('/accounts/' + encodeURIComponent(id), 'PATCH', { name: name.trim() });
+        } else if (kind === 'off' || kind === 'on') {
+          await coaSend('/accounts/' + encodeURIComponent(id), 'PATCH', { is_active: kind === 'on' });
+        } else if (kind === 'delete') {
+          if (!(await uiConfirm({ message: tf('coaDeleteConfirm', { code: n.code, name: n.name }), confirmLabel: t('coaDelete'), danger: true }))) return;
+          await coaSend('/accounts/' + encodeURIComponent(id), 'DELETE');
+        }
+        msg.textContent = '';
+        loadChartOfAccounts();
+      } catch (err) {
+        msg.textContent = err.message;
+        document.getElementById('coa-new-msg').scrollIntoView({ block: 'nearest' });
+      }
+    }
+
+    async function coaSuggest() {
+      const parent = (document.getElementById('coa-new-parent').value || '').trim();
+      if (!parent) return;
+      try {
+        const d = await coaSend('/accounts/suggest-code/' + encodeURIComponent(parent), 'GET');
+        document.getElementById('coa-new-code').value = d.code;
+      } catch (_) { /* an unknown parent is reported on save */ }
+    }
+
+    async function coaCreate() {
+      const msg = document.getElementById('coa-new-msg');
+      const body = { name: (document.getElementById('coa-new-name').value || '').trim(),
+                     parent_code: (document.getElementById('coa-new-parent').value || '').trim() || null,
+                     code: (document.getElementById('coa-new-code').value || '').trim() || null };
+      if (!body.name) { msg.textContent = t('coaNeedName'); return; }
+      try {
+        const d = await coaSend('/accounts', 'POST', body);
+        msg.textContent = tf('coaAdded', { code: d.code, name: d.name });
+        document.getElementById('coa-new-name').value = '';
+        document.getElementById('coa-new-code').value = '';
+        loadChartOfAccounts();
+      } catch (err) { msg.textContent = err.message; }
+    }
+
+    async function coaLoadOpening() {
+      const grid = document.getElementById('coa-opening-grid');
+      try {
+        const cur = await coaSend('/accounts/opening-balances', 'GET');
+        document.getElementById('coa-opening-date').value = cur.date || '';
+        const have = {};
+        (cur.lines || []).forEach((ln) => { have[ln.account_code] = ln; });
+        const postable = coaFlatten(_coaTree, 0, []).filter((n) => n.level !== 'GROUP' && n.is_active);
+        grid.innerHTML = '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('coaCode')) + '</th><th>' + escapeHtml(t('coaName'))
+          + '</th><th>' + escapeHtml(t('coaDebit')) + '</th><th>' + escapeHtml(t('coaCredit')) + '</th></tr></thead><tbody>'
+          + postable.map((n) => {
+            const ln = have[n.code] || {};
+            return '<tr><td dir="ltr">' + escapeHtml(n.code) + '</td><td dir="auto">' + escapeHtml(n.name) + '</td>'
+              + '<td><input type="number" min="0" step="1" class="coa-dr" data-code="' + escapeHtml(n.code) + '" value="' + (ln.debit || '') + '" style="width:8rem;"></td>'
+              + '<td><input type="number" min="0" step="1" class="coa-cr" data-code="' + escapeHtml(n.code) + '" value="' + (ln.credit || '') + '" style="width:8rem;"></td></tr>';
+          }).join('') + '</tbody></table>';
+        grid.querySelectorAll('input').forEach((inp) => inp.addEventListener('input', coaOpeningTotals));
+        coaOpeningTotals();
+        if (cur.source === 'migration') document.getElementById('coa-opening-msg').textContent = t('coaOpeningFromMigration');
+      } catch (_) { grid.innerHTML = ''; }
+    }
+
+    function coaOpeningLines() {
+      const byCode = {};
+      document.querySelectorAll('#coa-opening-grid input').forEach((inp) => {
+        const v = Math.round(Number(inp.value || 0));
+        if (!v) return;
+        const row = byCode[inp.dataset.code] || (byCode[inp.dataset.code] = { account_code: inp.dataset.code, debit: 0, credit: 0 });
+        row[inp.classList.contains('coa-dr') ? 'debit' : 'credit'] += v;
+      });
+      return Object.values(byCode);
+    }
+
+    function coaOpeningTotals() {
+      const lines = coaOpeningLines();
+      const dr = lines.reduce((a, l) => a + l.debit, 0);
+      const cr = lines.reduce((a, l) => a + l.credit, 0);
+      document.getElementById('coa-opening-totals').textContent = tf(dr === cr ? 'coaOpeningBalanced' : 'coaOpeningDiff',
+        { debit: formatNum(dr), credit: formatNum(cr), diff: formatNum(Math.abs(dr - cr)) });
+    }
+
+    async function coaSaveOpening() {
+      const msg = document.getElementById('coa-opening-msg');
+      const on = document.getElementById('coa-opening-date').value;
+      if (!on) { msg.textContent = t('coaOpeningNeedDate'); return; }
+      const lines = coaOpeningLines();
+      if (lines.some((l) => l.debit && l.credit)) { msg.textContent = t('coaOpeningBothSides'); return; }
+      if (!(await uiConfirm({ message: t('coaOpeningConfirm'), confirmLabel: t('coaOpeningSave') }))) return;
+      try {
+        const d = await coaSend('/accounts/opening-balances', 'PUT', { on, lines });
+        msg.textContent = d.adjustment ? tf('coaOpeningSavedAdj', { amount: formatNum(Math.abs(d.adjustment)) }) : t('coaOpeningSaved');
+        loadChartOfAccounts();
+      } catch (err) { msg.textContent = err.message; }
+    }
+
+    (function wireChartOfAccounts() {
+      const tree = document.getElementById('coa-tree');
+      if (!tree) return;
+      tree.addEventListener('click', (ev) => {
+        const b = ev.target.closest('button[data-coa]');
+        if (b) coaAction(b.dataset.coa, b.dataset.id);
+      });
+      document.getElementById('coa-filter').addEventListener('input', coaRender);
+      document.getElementById('coa-show-inactive').addEventListener('change', loadChartOfAccounts);
+      document.getElementById('coa-new-parent').addEventListener('change', coaSuggest);
+      document.getElementById('coa-new-save').addEventListener('click', coaCreate);
+      document.getElementById('coa-opening-save').addEventListener('click', coaSaveOpening);
     })();

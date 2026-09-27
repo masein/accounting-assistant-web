@@ -113,7 +113,7 @@
       invoices: 'navInvoices', time: 'timeNav', expenses: 'expNav', 'purchase-orders': 'poNav',
       recurring: 'navRecurring', entities: 'navEntities', products: 'productsNav', inventory: 'navInventory',
       payroll: 'payrollNav', equity: 'equityNav', 'bank-statements': 'bankStatementsNav', ledger: 'navLedger', manager: 'navManager',
-      cfo: 'cfoModeNav', ceo: 'ceoModeNav', audit: 'auditNav', settings: 'navSettings', companies: 'companiesNav', migration: 'migrationNav', 'petty-cash': 'pettyNav', 'fixed-assets': 'assetNav',
+      cfo: 'cfoModeNav', ceo: 'ceoModeNav', audit: 'auditNav', settings: 'navSettings', companies: 'companiesNav', migration: 'migrationNav', 'petty-cash': 'pettyNav', 'fixed-assets': 'assetNav', accounts: 'coaNav',
     };
     function updatePageTitle(page) {
       const el = document.getElementById('page-title');

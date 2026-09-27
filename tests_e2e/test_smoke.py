@@ -11,7 +11,7 @@ from tests_e2e.conftest import ARTIFACTS, BASE_URL, PageWatch
 PAGES = [
     "dashboard", "ai-accountant", "transactions", "ledger", "invoices", "entities", "time", "expenses",
     "payroll", "purchase-orders", "recurring", "commitments", "bank-statements", "manager", "cfo", "ceo",
-    "equity", "inventory", "products", "petty-cash", "fixed-assets", "audit", "migration", "settings",
+    "equity", "inventory", "products", "petty-cash", "fixed-assets", "accounts", "audit", "migration", "settings",
 ]
 
 

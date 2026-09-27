@@ -102,6 +102,15 @@ flagged; `POST /bank-sms` (+ preview) and `POST /api/v1/bank-sms` with the new
 `bank_sms:write` key scope for phone automations. Later: statement e-mail
 ingestion, open-banking balances.
 
+**§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
+`app/services/anomaly_detection.py` — duplicate supplier payments (same
+amount within a week or same reference), payments/expense claims split just
+under the approval threshold (or under a round number), a new supplier's
+large first payment, round-amount weekend entries (Friday in Iran), expense
+category drift (≥10 points of spending share), reversal runs per
+counterparty; in the dashboard feed and the chat through the existing
+insight tool.
+
 **§7 step 2 (features) — in progress 2026-09-25:** ✅ 5.1 AI tools for
 invoices, cheques and installments (#125) · ✅ 3.3 statutory payroll rules as
 data (`payroll_rule_sets`, Iran 1405 + UK 2026/27 seeded, super-admin edits,

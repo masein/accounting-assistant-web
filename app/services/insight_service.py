@@ -62,6 +62,8 @@ class Insight:
 
     def localize(self, lang: str) -> dict[str, str]:
         lang = lang if lang in SUPPORTED_LANGUAGES else "en"
+        if self.kind not in _TEMPLATES:
+            from app.services import anomaly_detection  # noqa: F401 — registers its templates
         tpl = _TEMPLATES[self.kind]
         out = {}
         for part in ("title", "message"):
@@ -613,6 +615,14 @@ DETECTORS: tuple[tuple[str, Callable[[Session, date], list[Insight]]], ...] = (
     ("recurring_missed", detect_recurring_missed),
 )
 
+def all_detectors():
+    """These plus the anomaly detectors (roadmap §5.2), which live in their
+    own module and register their wording in _TEMPLATES when imported —
+    looked up at call time so neither module imports the other at load."""
+    from app.services import anomaly_detection
+    return DETECTORS + anomaly_detection.DETECTORS
+
+
 _SEVERITY_ORDER = {"high": 0, "warning": 1, "info": 2}
 _cache: dict[str, tuple[float, date, list[Insight]]] = {}
 
@@ -633,7 +643,7 @@ def compute_insights(db: Session, *, today: date | None = None, use_cache: bool 
         if hit and hit[1] == today and time.monotonic() - hit[0] < CACHE_TTL_SECONDS:
             return list(hit[2])
     out: list[Insight] = []
-    for name, fn in DETECTORS:
+    for name, fn in all_detectors():
         try:
             out.extend(fn(db, today))
         except Exception:  # noqa: BLE001 — one broken detector must not hide the rest
@@ -680,3 +690,4 @@ def briefing_text(insights: list[Insight], lang: str, *, limit: int = 4) -> str 
         loc = ins.localize(lang)
         lines.append(f"• {loc['title']} — {loc['message']}")
     return head + "\n" + "\n".join(lines) + "\n" + tail
+

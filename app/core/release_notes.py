@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.26.3"
+CURRENT_RELEASE = "2026.09.27"
 
 
 @dataclass(frozen=True)
@@ -524,6 +524,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«صورت‌حساب‌های بانکی ← چسباندن پیامک بانکی»: پیامک‌های بانک را (چند تا با هم) بچسبانید تا هر کدام یک سطر از صورت‌حساب پیامکی ماهانهٔ همان بانک شود و مثل هر صورت‌حساب دیگری بررسی و تأیید شود. پیامک تکراری نادیده گرفته می‌شود و مانده‌ای که با پیامک قبلی جور نباشد علامت می‌خورد. با یک کلید API گوشی هم می‌تواند آن‌ها را خودکار بفرستد.",
                     "es": "Extractos bancarios → Pegar SMS del banco: pega los mensajes que envía tu banco (varios a la vez) y cada uno se convierte en una fila del extracto mensual de SMS de ese banco, para revisar y aprobar como cualquier extracto. Los repetidos se omiten y se avisa si un saldo no cuadra con el mensaje anterior. Un atajo del teléfono puede reenviarlos con una clave API.",
                     "ar": "كشوف البنك ← لصق رسائل البنك: الصق الرسائل التي يرسلها بنكك (عدة رسائل معًا) لتصبح كل رسالة سطرًا في كشف الرسائل الشهري لذلك البنك، للمراجعة والاعتماد كأي كشف. تُتجاوز المكررة ويُنبَّه على الرصيد الذي لا يتبع الرسالة السابقة. يمكن لاختصار في الهاتف إعادة توجيهها بمفتاح API.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.27",
+        date="2026-09-27",
+        highlights=(
+            Highlight(
+                key="anomaly-insights",
+                page="dashboard",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "The assistant now watches for unusual entries",
+                    "fa": "دستیار اکنون سندهای غیرعادی را زیر نظر دارد",
+                    "es": "El asistente vigila ahora los asientos inusuales",
+                    "ar": "المساعد يراقب الآن القيود غير المعتادة",
+                },
+                body={
+                    "en": "Insights on the dashboard and in the chat now flag possible duplicate supplier payments, payments split just under your approval limit, a large first payment to a new supplier, round-amount entries on a weekend, one expense account suddenly taking over your spending, and a run of reversals for one customer or supplier.",
+                    "fa": "بینش‌های داشبورد و گفت‌وگو اکنون این موارد را نشان می‌دهند: پرداخت احتمالاً تکراری به تأمین‌کننده، پرداخت‌های تقسیم‌شده کمی زیر سقف تأیید، نخستین پرداخت بزرگ به تأمین‌کنندهٔ جدید، سندهای رُند در روز تعطیل، سهم ناگهانی یک حساب هزینه از کل هزینه‌ها، و برگشت‌های پرتعداد برای یک مشتری یا تأمین‌کننده.",
+                    "es": "Las ideas del panel y del chat señalan ahora posibles pagos duplicados a proveedores, pagos divididos justo por debajo del límite de aprobación, un primer pago elevado a un proveedor nuevo, asientos redondos en fin de semana, una cuenta de gasto que de pronto acapara el gasto y una racha de anulaciones para un cliente o proveedor.",
+                    "ar": "تُظهر الرؤى في لوحة التحكم والمحادثة الآن: دفعات مكررة محتملة للموردين، ودفعات مقسّمة أقل بقليل من حد الموافقة، وأول دفعة كبيرة لمورّد جديد، وقيودًا بمبالغ مدوّرة في عطلة نهاية الأسبوع، وحساب مصروفات يستحوذ فجأة على الإنفاق، وسلسلة انعكاسات لعميل أو مورّد.",
                 },
             ),
         ),

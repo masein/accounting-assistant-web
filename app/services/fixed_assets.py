@@ -91,7 +91,7 @@ DEFAULT_ACCOUNTS = {
 }
 ACCOUNT_NAMES = {
     "ir": {"4310": "سود حاصل از فروش دارایی‌های ثابت", "6220": "زیان حاصل از فروش دارایی‌های ثابت"},
-    "uk": {"7860": "Loss on disposal of fixed assets"},
+    "uk": {"4200": "Other operating income", "7860": "Loss on disposal of fixed assets"},
 }
 
 
@@ -244,15 +244,32 @@ def _account_exists(db: Session, code: str) -> bool:
     return db.execute(select(Account.id).where(Account.code == code)).first() is not None
 
 
+def _pick_account(db: Session, explicit: str | None, preferred: list[str | None], posting_category: str) -> str:
+    """An account the user named must exist. Otherwise the first preferred
+    code the chart has, else the posting category's own resolution — which
+    falls back across charts and self-heals (a UK-locale company can carry the
+    Iranian chart, and the other way round)."""
+    from app.services.account_resolver import resolve_account_code
+    if explicit:
+        if not _account_exists(db, explicit):
+            raise HTTPException(status_code=422, detail=f"Account not found: {explicit}")
+        return explicit
+    for code in preferred:
+        if code and _account_exists(db, code):
+            return code
+    return resolve_account_code(db, posting_category)
+
+
 def _gain_loss_account(db: Session, locale: str, kind: str) -> str:
+    """The locale's gain/loss account, else the other chart's if this company
+    has that one, else create the locale's."""
     from app.services.account_resolver import _ensure_account
+    other = "ir" if locale == "uk" else "uk"
+    for code in (DEFAULT_ACCOUNTS[locale][kind], DEFAULT_ACCOUNTS[other][kind]):
+        if _account_exists(db, code):
+            return code
     code = DEFAULT_ACCOUNTS[locale][kind]
-    if _account_exists(db, code):
-        return code
-    name = ACCOUNT_NAMES[locale].get(code)
-    if not name:
-        raise HTTPException(status_code=422, detail=f"Account not found: {code}")
-    return _ensure_account(db, code, name, locale)
+    return _ensure_account(db, code, ACCOUNT_NAMES[locale][code], locale)
 
 
 def next_number(db: Session) -> str:
@@ -299,13 +316,12 @@ def create_asset(db: Session, data: dict[str, Any]) -> FixedAsset:
         raise HTTPException(status_code=422, detail="Say up to which date the brought-over depreciation runs.")
     defaults = DEFAULT_ACCOUNTS[locale]
     accounts = {
-        "asset": data.get("asset_account_code") or cat.asset_account or defaults["asset"],
-        "accumulated": data.get("accumulated_account_code") or cat.accumulated_account or defaults["accumulated"],
-        "expense": data.get("expense_account_code") or defaults["expense"],
+        "asset": _pick_account(db, data.get("asset_account_code"), [cat.asset_account, defaults["asset"]],
+                               "fixed_assets"),
+        "accumulated": _pick_account(db, data.get("accumulated_account_code"),
+                                     [cat.accumulated_account, defaults["accumulated"]], "accumulated_depreciation"),
+        "expense": _pick_account(db, data.get("expense_account_code"), [defaults["expense"]], "depreciation_expense"),
     }
-    for code in accounts.values():
-        if not _account_exists(db, code):
-            raise HTTPException(status_code=422, detail=f"Account not found: {code}")
     start = data.get("depreciation_start")
     start = month_start(start, calendar_for(locale)) if start else default_start(in_service, locale)
     asset = FixedAsset(

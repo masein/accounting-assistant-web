@@ -485,3 +485,27 @@ def test_the_page_is_wired():
     block = ops.split("// ═══════ Fixed-asset register", 1)[1]
     assert "confirm(" not in block.replace("uiConfirm(", "")                  # the in-app dialog only
     assert "onclick" not in block
+
+
+def test_a_company_whose_chart_is_from_the_other_locale(db, client):
+    """A UK-locale company on the Iranian chart (the Default company of a fresh
+    install) couldn't add an asset: "Account not found: 0010"."""
+    c = Company(id=uuid.uuid4(), name="Mixed", slug=f"mix-{uuid.uuid4().hex[:8]}", locale="uk",
+                base_currency="GBP", status="active", token_version=0)
+    db.add(c)
+    db.commit()
+    try:
+        with use_company(c.id):
+            seed_chart_if_empty(db, locale="ir")
+            db.commit()
+            a = fa.create_asset(db, {"name": "Van", "category": "motor_vehicle", "cost": 1_200_000,
+                                     "acquired_on": date.today() - timedelta(days=40)})
+            db.commit()
+            assert (a.asset_account_code, a.accumulated_account_code, a.expense_account_code) == ("1210", "1219", "6120")
+            out = fa.dispose(db, a, on=date.today(), proceeds=2_000_000)
+            db.commit()
+            gain_code = next(code for code, _d, cr in _lines(db, {"company": c}, out["transaction_id"]) if cr == out["gain"])
+            assert gain_code == "4200"                  # the UK statement's other operating income
+    finally:
+        from tests.test_admin_audit import _purge_company
+        _purge_company(db, str(c.id))

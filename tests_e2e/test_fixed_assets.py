@@ -20,7 +20,11 @@ def test_add_an_asset_and_preview_depreciation(app_page):
         page.fill("#asset-life", "36")
         page.fill("#asset-acquired", (date.today() - timedelta(days=150)).isoformat())
         page.click("#asset-save")
-        page.wait_for_selector("#asset-register table tbody tr")
+        try:
+            page.wait_for_selector("#asset-register table tbody tr", timeout=10_000)
+        except Exception as exc:                            # say why the save didn't land
+            raise AssertionError(f"no register row; form says: {page.inner_text('#asset-save-msg')!r}; "
+                                 f"problems: {watch.problems()}") from exc
         assert "E2E laptop" in page.locator("#asset-register").inner_text()
 
         page.click("#asset-run-preview")

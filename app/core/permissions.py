@@ -494,8 +494,9 @@ _reads([
     "/reports/entities/{entity_id}/transactions", "/reports/owner-dashboard",
     "/reports/tax-summary", "/reports/tax-rates", "/reports/tax-rates/effective",
     "/reports/missing-references", "/reports/transactions/search",
-    "/insights",
+    "/insights", "/reports/cash-forecast",
 ], Perm.REPORTS_READ)
+_add("POST", "/reports/cash-forecast/scenario", Perm.REPORTS_READ)   # a what-if read: changes nothing
 _add("POST", "/reports/tax-rates", Perm.BOOKS_WRITE)
 # Budgets — reporting/planning reads + books writes.
 _reads(["/budgets", "/budgets/actual-vs-budget"], Perm.REPORTS_READ)

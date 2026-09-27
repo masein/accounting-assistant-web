@@ -25,6 +25,7 @@
       if (page === 'companies') { loadCompanies(); }
       if (page === 'migration') { migrationInitPage(); }
       if (page === 'petty-cash') { pettyInitPage(); }
+      if (page === 'fixed-assets') { loadFixedAssets(); }
       if (page === 'recurring') { recurringInitPage(); }
     }
 
@@ -908,3 +909,235 @@
     registerAction('migration-ask-ai', (el) => migrationAskAI(el.dataset.id));
     registerAction('migration-resolve', (el) => migrationResolve(el.dataset.id));
     registerAction('migration-dismiss', (el) => migrationDismiss(el.dataset.id));
+
+
+    // ═══════ Fixed-asset register (roadmap §4.3) ═══════
+    let _assetCategories = null;
+    function assetCategoryLabel(key) {
+      const k = 'assetCat_' + key;
+      const v = t(k);
+      return v === k ? key : v;
+    }
+    function assetTermsText(a) {
+      return a.method === 'declining_balance'
+        ? tf('assetTermsDeclining', { rate: (Number(a.rate_bps || 0) / 100).toString() })
+        : tf('assetTermsStraight', { months: a.life_months || 0 });
+    }
+    function assetStatusChip(a) {
+      if (a.status === 'disposed') return '<span class="alert-chip low">' + escapeHtml(t('assetStatusDisposed')) + '</span>';
+      if (a.fully_depreciated) return '<span class="alert-chip low">' + escapeHtml(t('assetStatusDone')) + '</span>';
+      return '<span class="alert-chip medium">' + escapeHtml(t('assetStatusActive')) + '</span>';
+    }
+
+    async function assetLoadCategories() {
+      if (_assetCategories) return _assetCategories;
+      const res = await fetch(API + '/fixed-assets/categories');
+      if (!res.ok) throw new Error('categories');
+      _assetCategories = await res.json();
+      const sel = document.getElementById('asset-category');
+      sel.innerHTML = _assetCategories.categories.map((c) =>
+        '<option value="' + escapeHtml(c.key) + '">' + escapeHtml(assetCategoryLabel(c.key)) + '</option>').join('');
+      sel.value = _assetCategories.categories[0].key;
+      assetApplyCategory();
+      return _assetCategories;
+    }
+
+    function assetApplyCategory() {
+      if (!_assetCategories) return;
+      const key = document.getElementById('asset-category').value;
+      const c = _assetCategories.categories.find((x) => x.key === key);
+      if (!c) return;
+      document.getElementById('asset-method').value = c.method;
+      document.getElementById('asset-life').value = c.life_months || '';
+      document.getElementById('asset-rate').value = c.rate_bps ? (c.rate_bps / 100) : '';
+      assetApplyMethod();
+      const hint = document.getElementById('asset-category-hint');
+      hint.textContent = c.statutory ? t('assetStatutoryHint') : (key === 'other' ? t('assetOtherHint') : t('assetPolicyHint'));
+    }
+
+    function assetApplyMethod() {
+      const declining = document.getElementById('asset-method').value === 'declining_balance';
+      document.getElementById('asset-life-wrap').style.display = declining ? 'none' : '';
+      document.getElementById('asset-rate-wrap').style.display = declining ? '' : 'none';
+    }
+
+    async function assetFillSuppliers() {
+      const sel = document.getElementById('asset-supplier');
+      if (!sel || sel.dataset.loaded) return;
+      try {
+        const rows = await (await fetch(API + '/entities?type=supplier')).json();
+        sel.innerHTML = '<option value="">—</option>' + (rows || []).map((e) =>
+          '<option value="' + escapeHtml(e.id) + '">' + escapeHtml(e.name) + '</option>').join('');
+        sel.dataset.loaded = '1';
+      } catch (_) { sel.innerHTML = '<option value="">—</option>'; }
+    }
+
+    function assetMoneyByCurrency(map, field) {
+      return Object.entries(map || {}).map(([ccy, v]) => formatNum(field ? v[field] : v) + ' ' + ccy).join(' · ') || '0';
+    }
+
+    async function loadFixedAssets() {
+      const wrap = document.getElementById('asset-register');
+      if (!wrap) return;
+      try { await assetLoadCategories(); } catch (_) { /* the form stays usable without presets */ }
+      assetFillSuppliers();
+      try {
+        const res = await fetch(API + '/fixed-assets');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'assets');
+        document.getElementById('asset-summary').innerHTML = [
+          ['assetKpiCost', assetMoneyByCurrency(data.totals, 'cost')],
+          ['assetKpiAccumulated', assetMoneyByCurrency(data.totals, 'accumulated')],
+          ['assetKpiNbv', assetMoneyByCurrency(data.totals, 'net_book_value')],
+        ].map(([k, v]) => '<div class="kpi-card"><div class="label">' + escapeHtml(t(k)) + '</div><div class="value">'
+          + escapeHtml(v) + '</div></div>').join('');
+        const due = document.getElementById('asset-due');
+        if (data.due && data.due.months) {
+          due.style.display = '';
+          due.textContent = tf('assetDueBanner', { n: data.due.months, oldest: data.due.oldest,
+                                                   amount: assetMoneyByCurrency(data.due.amount) });
+        } else {
+          due.style.display = 'none';
+        }
+        const rows = data.assets || [];
+        if (!rows.length) {
+          wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('assetNone')) + '</p>';
+          return;
+        }
+        const head = ['assetColNumber', 'assetColName', 'assetFieldCategory', 'assetColInService', 'assetColTerms',
+                      'assetFieldCost', 'assetColAccumulated', 'assetColNbv', 'assetColStatus', '']
+          .map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
+        wrap.innerHTML = '<table class="mini-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows.map((a) => '<tr>'
+          + '<td>' + escapeHtml(a.number) + '</td><td dir="auto">' + escapeHtml(a.name) + '</td>'
+          + '<td>' + escapeHtml(assetCategoryLabel(a.category)) + '</td>'
+          + '<td>' + escapeHtml(formatDisplayDate(a.in_service_on)) + '</td>'
+          + '<td>' + escapeHtml(assetTermsText(a)) + '</td>'
+          + '<td>' + escapeHtml(formatNum(a.cost)) + '</td><td>' + escapeHtml(formatNum(a.accumulated)) + '</td>'
+          + '<td>' + escapeHtml(formatNum(a.net_book_value)) + '</td><td>' + assetStatusChip(a) + '</td>'
+          + '<td><button type="button" class="btn btn-secondary btn-sm asset-open" data-id="' + escapeHtml(a.id) + '">'
+          + escapeHtml(t('assetDetails')) + '</button></td></tr>').join('') + '</tbody></table>';
+        wrap.querySelectorAll('.asset-open').forEach((b) => b.addEventListener('click', () => assetShowDetail(b.dataset.id)));
+      } catch (_) {
+        wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('assetLoadError')) + '</p>';
+      }
+    }
+
+    async function assetShowDetail(id) {
+      const box = document.getElementById('asset-detail');
+      box.style.display = '';
+      box.innerHTML = '<p class="fc-note">' + escapeHtml(t('loading')) + '</p>';
+      try {
+        const res = await fetch(API + '/fixed-assets/' + encodeURIComponent(id));
+        const a = await res.json();
+        if (!res.ok) throw new Error(a.detail || 'asset');
+        const sched = (a.schedule || []).map((m) => '<tr><td>' + escapeHtml(m.label) + '</td><td>' + escapeHtml(formatNum(m.amount))
+          + '</td><td>' + escapeHtml(formatNum(m.closing_nbv)) + '</td><td>' + (m.posted ? '✓' : '') + '</td></tr>').join('');
+        const dispose = a.status === 'active'
+          ? '<h4>' + escapeHtml(t('assetDisposeTitle')) + '</h4><div class="row">'
+            + '<div><label for="asset-dispose-on">' + escapeHtml(t('assetDisposeOn')) + '</label><input type="date" id="asset-dispose-on"></div>'
+            + '<div><label for="asset-dispose-proceeds">' + escapeHtml(t('assetDisposeProceeds')) + '</label><input type="number" id="asset-dispose-proceeds" min="0" step="1" value="0"></div></div>'
+            + '<div style="display:flex; gap:0.5rem;"><button type="button" class="btn btn-secondary btn-sm" id="asset-dispose-preview">' + escapeHtml(t('assetRunPreview')) + '</button>'
+            + '<button type="button" class="btn btn-danger btn-sm" id="asset-dispose-post">' + escapeHtml(t('assetDisposePost')) + '</button></div>'
+            + '<div id="asset-dispose-result"></div>'
+          : '<p class="fc-note">' + escapeHtml(tf('assetDisposedOn', { date: formatDisplayDate(a.disposed_on), amount: formatNum(a.disposal_proceeds || 0) })) + '</p>';
+        box.innerHTML = '<div style="display:flex; justify-content:space-between; gap:0.5rem; align-items:center;">'
+          + '<h3 style="margin:0;" dir="auto">' + escapeHtml(a.number + ' — ' + a.name) + '</h3>'
+          + '<button type="button" class="btn btn-secondary btn-sm" id="asset-detail-close">' + escapeHtml(t('assetClose')) + '</button></div>'
+          + '<p class="fc-note">' + escapeHtml(assetCategoryLabel(a.category) + ' · ' + assetTermsText(a) + ' · '
+            + tf('assetStartsFrom', { date: formatDisplayDate(a.depreciation_start) })) + '</p>'
+          + dispose
+          + '<details style="margin-top:0.6rem;"><summary>' + escapeHtml(tf('assetScheduleTitle', { n: (a.schedule || []).length })) + '</summary>'
+          + '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('assetColMonth')) + '</th><th>' + escapeHtml(t('assetColCharge'))
+          + '</th><th>' + escapeHtml(t('assetColNbv')) + '</th><th>' + escapeHtml(t('assetColPosted')) + '</th></tr></thead><tbody>'
+          + sched + '</tbody></table></details>';
+        document.getElementById('asset-detail-close').addEventListener('click', () => { box.style.display = 'none'; box.innerHTML = ''; });
+        if (a.status === 'active') {
+          const onEl = document.getElementById('asset-dispose-on');
+          onEl.value = new Date().toISOString().slice(0, 10);
+          const send = async (preview) => {
+            const out = document.getElementById('asset-dispose-result');
+            const body = { on: onEl.value, proceeds: Number(document.getElementById('asset-dispose-proceeds').value || 0) };
+            if (!body.on) { out.innerHTML = '<p class="fc-note">' + escapeHtml(t('assetDisposeNeedDate')) + '</p>'; return; }
+            if (!preview && !(await uiConfirm({ message: t('assetDisposeConfirm'), confirmLabel: t('assetDisposePost'), danger: true }))) return;
+            try {
+              const r = await fetch(API + '/fixed-assets/' + encodeURIComponent(a.id) + '/dispose' + (preview ? '/preview' : ''), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+              const d = await r.json();
+              if (!r.ok) throw new Error(d.detail || 'dispose');
+              out.innerHTML = '<p class="fc-note">' + escapeHtml(tf(d.gain ? 'assetDisposeGain' : 'assetDisposeLoss', {
+                nbv: formatNum(d.net_book_value), proceeds: formatNum(d.proceeds), amount: formatNum(d.gain || d.loss) })) + '</p>';
+              if (!preview) { loadFixedAssets(); assetShowDetail(a.id); }
+            } catch (err) {
+              out.innerHTML = '<p class="fc-note fc-risk-text">' + escapeHtml(err.message || t('assetLoadError')) + '</p>';
+            }
+          };
+          document.getElementById('asset-dispose-preview').addEventListener('click', () => send(true));
+          document.getElementById('asset-dispose-post').addEventListener('click', () => send(false));
+        }
+      } catch (err) {
+        box.innerHTML = '<p class="fc-note fc-risk-text">' + escapeHtml(err.message || t('assetLoadError')) + '</p>';
+      }
+    }
+
+    async function assetRun(preview) {
+      const out = document.getElementById('asset-run-result');
+      const through = document.getElementById('asset-run-through').value || null;
+      try {
+        const res = preview
+          ? await fetch(API + '/fixed-assets/depreciation-run' + (through ? '?through=' + encodeURIComponent(through) : ''))
+          : await fetch(API + '/fixed-assets/depreciation-run', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                  body: JSON.stringify({ through }) });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.detail || 'run');
+        if (!d.journals.length) { out.innerHTML = '<p class="fc-note">' + escapeHtml(t('assetRunNothing')) + '</p>'; return; }
+        out.innerHTML = '<p class="fc-note">' + escapeHtml(t(preview ? 'assetRunWould' : 'assetRunDone')) + '</p>'
+          + '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('assetColMonth')) + '</th><th>' + escapeHtml(t('assetColDate'))
+          + '</th><th>' + escapeHtml(t('assetColAssets')) + '</th><th>' + escapeHtml(t('assetColCharge')) + '</th></tr></thead><tbody>'
+          + d.journals.map((j) => '<tr><td>' + escapeHtml(j.months.join(', ')) + '</td><td>' + escapeHtml(formatDisplayDate(j.date))
+            + '</td><td>' + escapeHtml(String(j.assets)) + '</td><td>' + escapeHtml(formatNum(j.amount) + ' ' + j.currency) + '</td></tr>').join('')
+          + '</tbody></table>';
+        if (!preview) loadFixedAssets();
+      } catch (err) {
+        out.innerHTML = '<p class="fc-note fc-risk-text">' + escapeHtml(err.message || t('assetLoadError')) + '</p>';
+      }
+    }
+
+    async function assetSave() {
+      const msg = document.getElementById('asset-save-msg');
+      const val = (id) => document.getElementById(id).value;
+      const method = val('asset-method');
+      const body = {
+        name: val('asset-name').trim(), category: val('asset-category') || 'other',
+        cost: Number(val('asset-cost') || 0), residual: Number(val('asset-residual') || 0),
+        acquired_on: val('asset-acquired'), in_service_on: val('asset-in-service') || null, method,
+        life_months: method === 'straight_line' ? (Number(val('asset-life')) || null) : null,
+        rate_bps: method === 'declining_balance' ? (Math.round(Number(val('asset-rate')) * 100) || null) : null,
+        acquisition: val('asset-acquisition'), entity_id: val('asset-supplier') || null,
+        serial_number: val('asset-serial').trim() || null, location: val('asset-location').trim() || null,
+        opening_accumulated: Number(val('asset-opening') || 0), opening_date: val('asset-opening-date') || null,
+      };
+      if (!body.name || !body.cost || !body.acquired_on) { msg.textContent = t('assetSaveMissing'); return; }
+      try {
+        const res = await fetch(API + '/fixed-assets', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                         body: JSON.stringify(body) });
+        const d = await res.json();
+        if (!res.ok) throw new Error(typeof d.detail === 'string' ? d.detail : t('assetLoadError'));
+        msg.textContent = tf('assetSaved', { number: d.number });
+        ['asset-name', 'asset-cost', 'asset-serial', 'asset-location', 'asset-opening-date'].forEach((id) => { document.getElementById(id).value = ''; });
+        document.getElementById('asset-residual').value = '0';
+        document.getElementById('asset-opening').value = '0';
+        loadFixedAssets();
+      } catch (err) { msg.textContent = err.message; }
+    }
+
+    (function wireFixedAssets() {
+      const save = document.getElementById('asset-save');
+      if (!save) return;
+      save.addEventListener('click', assetSave);
+      document.getElementById('asset-category').addEventListener('change', assetApplyCategory);
+      document.getElementById('asset-method').addEventListener('change', assetApplyMethod);
+      document.getElementById('asset-run-preview').addEventListener('click', () => assetRun(true));
+      document.getElementById('asset-run-post').addEventListener('click', async () => {
+        if (await uiConfirm({ message: t('assetRunConfirm'), confirmLabel: t('assetRunPost') })) assetRun(false);
+      });
+    })();

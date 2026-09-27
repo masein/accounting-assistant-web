@@ -45,6 +45,7 @@
         <button type="button" class="nav-btn" data-page="inventory"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8V21H3V8"/><rect x="1" y="3" width="22" height="5"/><path d="M10 12h4"/></svg><span class="lbl" data-i18n="navInventory">Inventory</span></button>
         <button type="button" class="nav-btn" data-page="payroll"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M12 5v6M10.5 7.2c0-.7.7-1.2 1.5-1.2s1.5.5 1.5 1.2-.7 1.1-1.5 1.1-1.5.5-1.5 1.2.7 1.2 1.5 1.2 1.5-.5 1.5-1.2"/><path d="M3 21a7 7 0 0 1 18 0"/></svg><span class="lbl" data-i18n="payrollNav">Payroll</span></button>
         <button type="button" class="nav-btn" data-page="equity"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span class="lbl" data-i18n="equityNav">Shareholders</span></button>
+        <button type="button" class="nav-btn" data-page="fixed-assets"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M2 13h20"/></svg><span class="lbl" data-i18n="assetNav">Fixed assets</span></button>
         <button type="button" class="nav-btn" data-page="petty-cash"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg><span class="lbl" data-i18n="pettyNav">Petty cash</span></button>
         <button type="button" class="nav-btn" data-page="bank-statements"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M4 10h16M5 10 12 4l7 6M6 10v8M18 10v8M10 10v8M14 10v8"/></svg><span class="lbl" data-i18n="bankStatementsNav">Bank Statements</span></button>
       </div>
@@ -797,6 +798,75 @@
           <button type="submit" class="btn btn-primary" id="submit-btn" data-i18n="saveVoucher">Save voucher</button>
         </div>
       </form>
+    </div>
+
+    <div class="card" data-page="fixed-assets">
+      <h2 data-i18n="assetTitle">Fixed assets</h2>
+      <p data-i18n="assetSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">The register of what the business owns, its depreciation month by month, and what happens when it is sold or scrapped.</p>
+      <div id="asset-summary" class="kpi-grid"></div>
+      <div id="asset-due" class="asset-due" style="display:none;"></div>
+
+      <div class="panel" style="margin-bottom:1rem;">
+        <h3 data-i18n="assetRegister">Register</h3>
+        <div id="asset-register"></div>
+      </div>
+
+      <div id="asset-detail" class="panel" style="display:none; margin-bottom:1rem;"></div>
+
+      <div class="dashboard-grid">
+        <div class="panel">
+          <h3 data-i18n="assetNew">Add an asset</h3>
+          <div class="row">
+            <div><label for="asset-name" data-i18n="assetFieldName">Name</label><input type="text" id="asset-name" maxlength="256"></div>
+            <div><label for="asset-category" data-i18n="assetFieldCategory">Category</label><select id="asset-category"></select></div>
+          </div>
+          <p id="asset-category-hint" class="fc-note"></p>
+          <div class="row">
+            <div><label for="asset-cost" data-i18n="assetFieldCost">Cost</label><input type="number" id="asset-cost" min="1" step="1"></div>
+            <div><label for="asset-residual" data-i18n="assetFieldResidual">Residual value</label><input type="number" id="asset-residual" min="0" step="1" value="0"></div>
+          </div>
+          <div class="row">
+            <div><label for="asset-acquired" data-i18n="assetFieldAcquired">Acquired on</label><input type="date" id="asset-acquired"></div>
+            <div><label for="asset-in-service" data-i18n="assetFieldInService">In use from</label><input type="date" id="asset-in-service"></div>
+          </div>
+          <div class="row">
+            <div><label for="asset-method" data-i18n="assetFieldMethod">Method</label>
+              <select id="asset-method"><option value="straight_line" data-i18n="assetMethod_straight_line">Straight line</option><option value="declining_balance" data-i18n="assetMethod_declining_balance">Declining balance</option></select></div>
+            <div id="asset-life-wrap"><label for="asset-life" data-i18n="assetFieldLife">Life (months)</label><input type="number" id="asset-life" min="1" max="1200" step="1"></div>
+            <div id="asset-rate-wrap" style="display:none;"><label for="asset-rate" data-i18n="assetFieldRate">Rate per year (%)</label><input type="number" id="asset-rate" min="0.01" max="100" step="0.01"></div>
+          </div>
+          <div class="row">
+            <div><label for="asset-acquisition" data-i18n="assetFieldAcquisition">Record the purchase</label>
+              <select id="asset-acquisition"><option value="none" data-i18n="assetAcq_none">Already in the books</option><option value="bank" data-i18n="assetAcq_bank">Paid from the bank</option><option value="payable" data-i18n="assetAcq_payable">Bought on credit</option></select></div>
+            <div><label for="asset-supplier" data-i18n="assetFieldSupplier">Supplier (optional)</label><select id="asset-supplier"></select></div>
+          </div>
+          <div class="row">
+            <div><label for="asset-serial" data-i18n="assetFieldSerial">Serial number</label><input type="text" id="asset-serial" maxlength="128"></div>
+            <div><label for="asset-location" data-i18n="assetFieldLocation">Location</label><input type="text" id="asset-location" maxlength="128"></div>
+          </div>
+          <details class="asset-opening">
+            <summary data-i18n="assetOpeningTitle">Bringing over an asset that already has depreciation</summary>
+            <div class="row">
+              <div><label for="asset-opening" data-i18n="assetFieldOpening">Depreciation so far</label><input type="number" id="asset-opening" min="0" step="1" value="0"></div>
+              <div><label for="asset-opening-date" data-i18n="assetFieldOpeningDate">Up to</label><input type="date" id="asset-opening-date"></div>
+            </div>
+          </details>
+          <button type="button" class="btn btn-primary" id="asset-save" data-i18n="assetSave">Add to the register</button>
+          <p id="asset-save-msg" class="fc-note"></p>
+        </div>
+        <div class="panel">
+          <h3 data-i18n="assetRunTitle">Month-end depreciation</h3>
+          <p class="fc-note" data-i18n="assetRunHint">Posts one entry per month that has ended: depreciation expense against accumulated depreciation. A month in a closed period is caught up on the first open day.</p>
+          <div class="row">
+            <div><label for="asset-run-through" data-i18n="assetRunThrough">Up to</label><input type="date" id="asset-run-through"></div>
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="btn btn-secondary" id="asset-run-preview" data-i18n="assetRunPreview">Preview</button>
+            <button type="button" class="btn btn-primary" id="asset-run-post" data-i18n="assetRunPost">Post depreciation</button>
+          </div>
+          <div id="asset-run-result"></div>
+        </div>
+      </div>
     </div>
 
     <div class="card" data-page="commitments">

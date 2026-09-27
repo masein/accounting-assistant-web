@@ -18,6 +18,7 @@ from app.api.accounts import router as accounts_router
 from app.api.adjustments import router as adjustments_router
 from app.api.admin import router as admin_router
 from app.api.commitments import router as commitments_router
+from app.api.fixed_assets import router as fixed_assets_router
 from app.api.companies import router as companies_router
 from app.api.company_profile import router as company_profile_router
 from app.api.ai_accountant import router as ai_accountant_router
@@ -959,6 +960,7 @@ app.include_router(payroll_router, dependencies=_rbac)
 app.include_router(personal_router, dependencies=_rbac)
 app.include_router(insights_router, dependencies=_rbac)
 app.include_router(commitments_router, dependencies=_rbac)
+app.include_router(fixed_assets_router, dependencies=_rbac)
 app.include_router(petty_cash_router, dependencies=_rbac)
 app.include_router(products_router, dependencies=_rbac)
 app.include_router(purchase_orders_router, dependencies=_rbac)
@@ -981,7 +983,7 @@ _GUARDED_PREFIXES = tuple(sorted({
         ai_accountant_router, brain_router, budgets_router, entities_router, equity_router,
         expenses_router, exports_router, fx_router, invoices_router, invoice_mail_router, manager_reports_router,
         migration_router, moadian_router, notifications_router, payroll_router, personal_router, insights_router,
-        commitments_router, petty_cash_router, products_router, purchase_orders_router,
+        commitments_router, fixed_assets_router, petty_cash_router, products_router, purchase_orders_router,
         quotes_router, recurring_router, recurring_invoices_router, reports_router, tax_ir_router, tax_uk_router,
         bank_sms_router,
         time_tracking_router, transactions_router,

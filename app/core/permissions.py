@@ -515,6 +515,14 @@ for _m, _p in [("POST", "/commitments/installments"), ("POST", "/commitments/che
                ("POST", "/commitments/{commitment_id}/bounce"),
                ("DELETE", "/commitments/{commitment_id}")]:
     _add(_m, _p, Perm.BOOKS_WRITE)
+# --- Fixed-asset register ---------------------------------------------------
+# Reads at the same bar as the books; every write posts (or could post) journals.
+_reads(["/fixed-assets", "/fixed-assets/categories", "/fixed-assets/depreciation-run",
+        "/fixed-assets/{asset_id}"], frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
+for _m, _p in [("POST", "/fixed-assets"), ("PATCH", "/fixed-assets/{asset_id}"),
+               ("DELETE", "/fixed-assets/{asset_id}"), ("POST", "/fixed-assets/depreciation-run"),
+               ("POST", "/fixed-assets/{asset_id}/dispose"), ("POST", "/fixed-assets/{asset_id}/dispose/preview")]:
+    _add(_m, _p, Perm.BOOKS_WRITE)
 _add("POST", "/personal/holdings", Perm.BOOKS_WRITE)
 _add("DELETE", "/personal/holdings/{holding_id}", Perm.BOOKS_WRITE)
 _add("POST", "/budgets", Perm.BOOKS_WRITE)

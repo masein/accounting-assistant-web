@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.27.1"
+CURRENT_RELEASE = "2026.09.27.2"
 
 
 @dataclass(frozen=True)
@@ -570,6 +570,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "پیش‌بینی ۱۳ هفته‌ای داشبورد اکنون فاکتورهای هر مشتری را همان زمانی انتظار دارد که آن مشتری معمولاً پرداخت می‌کند و قبض‌ها، چک‌ها و اقساط در جریان، حقوق و پرداخت‌های تکراری را به هفتهٔ معمول شما اضافه می‌کند. «جزئیات پیش‌بینی و اگر…» را باز کنید تا اقلام هر هفته را ببینید، یا یک سناریو امتحان کنید — برگشت خوردن یک چک، پرداخت نشدن یک فاکتور، یک ماه دیرتر پرداختن یک مشتری، یک خرید یک‌باره. از دستیار هم می‌توانید بپرسید: «اگه چک ملت برگشت بخوره چی؟»",
                     "es": "El pronóstico de 13 semanas del panel espera ahora las facturas de cada cliente cuando ese cliente suele pagar, y suma facturas de proveedores, cheques y cuotas pendientes, nóminas y flujos recurrentes a tu semana habitual. Abre «Detalle del pronóstico y ¿y si…?» para ver las partidas de cada semana o prueba un escenario: un cheque devuelto, una factura que no se cobra, un cliente que paga un mes tarde, una compra puntual. También puedes preguntar a la IA: «¿y si rebota el cheque del banco Mellat?»",
                     "ar": "يتوقع توقع الـ 13 أسبوعًا في لوحة التحكم الآن فواتير كل عميل في الموعد الذي يدفع فيه ذلك العميل عادةً، ويضيف فواتير الموردين والشيكات والأقساط المعلّقة والرواتب والتدفقات المتكررة إلى أسبوعك المعتاد. افتح «تفاصيل التوقع وماذا لو» لرؤية بنود كل أسبوع، أو جرّب سيناريو — شيك يرتد، فاتورة لا تُدفع، عميل يدفع متأخرًا شهرًا، شراء لمرة واحدة. ويمكنك أيضًا سؤال المساعد: «ماذا لو ارتد شيك بنك ملت؟»",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.27.2",
+        date="2026-09-27",
+        highlights=(
+            Highlight(
+                key="fixed-assets",
+                page="fixed-assets",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "A fixed-asset register with month-end depreciation",
+                    "fa": "فهرست دارایی‌های ثابت با استهلاک پایان ماه",
+                    "es": "Un registro de activos fijos con amortización de fin de mes",
+                    "ar": "سجل للأصول الثابتة مع استهلاك نهاية الشهر",
+                },
+                body={
+                    "en": "Records → Fixed assets: add each asset with its cost, method and life (Iranian companies get the Article 149 table's common categories, starting the month after the asset comes into use). One click posts every month of depreciation that has ended, and selling or scrapping an asset works out the gain or loss for you.",
+                    "fa": "«سوابق ← دارایی‌های ثابت»: هر دارایی را با بهای تمام‌شده، روش و عمر مفید ثبت کنید (برای شرکت‌های ایرانی گروه‌های رایج جدول استهلاکات ماده ۱۴۹، با شروع از ماه بعد از بهره‌برداری). با یک کلیک استهلاک همهٔ ماه‌های تمام‌شده ثبت می‌شود و هنگام فروش یا اسقاط، سود یا زیان آن خودکار محاسبه می‌شود.",
+                    "es": "Registros → Activos fijos: añade cada activo con su coste, método y vida útil. Un clic contabiliza la amortización de todos los meses terminados, y al vender o dar de baja un activo se calcula la ganancia o la pérdida.",
+                    "ar": "السجلات ← الأصول الثابتة: أضف كل أصل بتكلفته وطريقته وعمره الإنتاجي. بنقرة واحدة يُرحَّل استهلاك كل الأشهر المنتهية، وعند بيع أصل أو شطبه يُحسب الربح أو الخسارة تلقائيًا.",
                 },
             ),
         ),

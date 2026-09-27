@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.27.3"
+CURRENT_RELEASE = "2026.09.27.4"
 
 
 @dataclass(frozen=True)
@@ -616,6 +616,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "بخش موجودی اکنون ارزش کالاها را در هر تاریخ با روش ارزیابی انتخابی شما نشان می‌دهد (و رقم روش دیگر را هم برای مقایسه)، کالاهایی را که به نقطهٔ سفارش رسیده‌اند علامت می‌زند — داشبورد هم خبر می‌دهد — و بارکد می‌پذیرد. با فرمول ساخت مشخص می‌کنید هر کالای ساخته‌شده از چه اجزایی تشکیل شده و با هر تولید، اجزا خارج و کالای ساخته‌شده به بهای تمام‌شده وارد انبار می‌شود.",
                     "es": "Inventario muestra ahora el valor de tus existencias en cualquier fecha con el método que elijas (y lo que daría el otro), marca los artículos en su punto de pedido —también en el panel— y admite códigos de barras. Las recetas indican qué lleva un producto terminado, y una producción saca los componentes y entra el producto a coste.",
                     "ar": "يعرض المخزون الآن قيمة بضاعتك في أي تاريخ بطريقة التكلفة التي تختارها (وما ستعطيه الطريقة الأخرى)، ويعلّم الأصناف عند نقطة إعادة الطلب — وتنبّهك لوحة التحكم أيضًا — ويقبل الباركود. تحدد الوصفات ما يدخل في المنتج النهائي، وتُخرج عملية الإنتاج المكونات وتُدخل المنتج بالتكلفة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.27.4",
+        date="2026-09-27",
+        highlights=(
+            Highlight(
+                key="chart-of-accounts",
+                page="accounts",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Manage your chart of accounts and opening balances",
+                    "fa": "مدیریت کدینگ حساب‌ها و تراز افتتاحیه",
+                    "es": "Gestiona tu plan de cuentas y los saldos de apertura",
+                    "ar": "أدر دليل حساباتك وأرصدتك الافتتاحية",
+                },
+                body={
+                    "en": "Setup → Chart of accounts: add accounts under the right parent (the code is suggested and the level follows — group, general, subsidiary, detail), rename them, deactivate the ones you no longer use (they keep their history but take no new entries), and enter your opening balances in one place.",
+                    "fa": "«تنظیمات ← کدینگ حساب‌ها»: حساب‌ها را زیر حساب مادر درست اضافه کنید (کد پیشنهاد می‌شود و سطح — گروه، کل، معین، تفصیلی — از مادر می‌آید)، نامشان را تغییر دهید، حساب‌های بلااستفاده را غیرفعال کنید (سوابقشان می‌ماند ولی سند جدید نمی‌گیرند) و تراز افتتاحیه را یک‌جا وارد کنید.",
+                    "es": "Configuración → Plan de cuentas: añade cuentas bajo la cuenta madre correcta (se sugiere el código y el nivel la sigue), cámbiales el nombre, desactiva las que no uses (conservan su historial pero no admiten asientos nuevos) e introduce los saldos de apertura en un solo lugar.",
+                    "ar": "الإعداد ← دليل الحسابات: أضف الحسابات تحت الحساب الأب الصحيح (يُقترح الرمز ويتبعه المستوى)، وغيّر أسماءها، وأوقف ما لا تستخدمه (يبقى سجله لكنه لا يقبل قيودًا جديدة)، وأدخل الأرصدة الافتتاحية في مكان واحد.",
                 },
             ),
         ),

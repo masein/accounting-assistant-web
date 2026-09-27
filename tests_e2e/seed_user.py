@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import sys
 
-FLOW_USERS = ("e2e_forecast", "e2e_assets", "e2e_stock")
+FLOW_USERS = ("e2e_forecast", "e2e_assets", "e2e_stock", "e2e_chart")
 
 
 def main() -> int:

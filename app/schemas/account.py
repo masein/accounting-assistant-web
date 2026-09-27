@@ -14,5 +14,6 @@ class AccountRead(BaseModel):
     level: AccountLevel
     parent_id: UUID | None
     detail_type: str | None
+    is_active: bool = True
 
     model_config = {"from_attributes": True}

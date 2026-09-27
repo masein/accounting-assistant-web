@@ -63,6 +63,8 @@ def get_account_by_code(db: Session, code: str) -> Account:
     acc = db.execute(select(Account).where(Account.code == code)).scalars().one_or_none()
     if not acc:
         raise HTTPException(status_code=400, detail=f"Account not found: {code}")
+    if acc.is_active is False:
+        raise HTTPException(status_code=422, detail=f"Account {code} ({acc.name}) is inactive — reactivate it or pick another.")
     return acc
 
 

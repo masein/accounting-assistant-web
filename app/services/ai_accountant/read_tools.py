@@ -526,7 +526,8 @@ class SearchAccounts(BaseTool):
 
         from app.models.account import AccountLevel
 
-        rows = ctx.db.execute(select(Account)).scalars().all()
+        # Deactivated accounts take no postings (roadmap §4.5): never propose one.
+        rows = ctx.db.execute(select(Account).where(Account.is_active.is_(True))).scalars().all()
         scored: list[tuple[float, Account, str]] = []
         for acc in rows:
             # Only postable (leaf) accounts — group/header accounts can't take

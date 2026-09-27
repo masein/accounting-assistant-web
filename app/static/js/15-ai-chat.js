@@ -310,12 +310,34 @@
         });
       }
 
+      // A phone photo is 3–8 MB; the reader needs far less. Scale big photos
+      // to at most 2000 px as JPEG before upload (keeps within the limit and
+      // off the user's data plan). Anything that can't be decoded goes as is.
+      async function shrinkImage(file) {
+        if (!/^image\/(jpeg|png|webp)$/.test(file.type || '') || file.size <= 1500000
+            || typeof createImageBitmap !== 'function') return file;
+        try {
+          const bmp = await createImageBitmap(file);
+          const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(bmp.width * scale);
+          canvas.height = Math.round(bmp.height * scale);
+          canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+          const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+          if (!blob || blob.size >= file.size) return file;
+          return new File([blob], (file.name || 'photo').replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+        } catch (_) {
+          return file;
+        }
+      }
+
       async function handleAttachFile(file) {
         if (!file) return;
         if (!_attachTypeOk(file)) {
           showAlert(t('aiChatAttachBadType'), true);
           return;
         }
+        file = await shrinkImage(file);
         if (file.size > MAX_ATTACH_BYTES) {
           showAlert(t('aiChatAttachTooLarge'), true);
           return;
@@ -923,6 +945,37 @@
           sendMessage(inputEl.value);
         }
       });
+      // Camera capture (phones): the photo goes through the same attach path.
+      const cameraBtn = document.getElementById('ai-acct-camera-btn');
+      const cameraInput = document.getElementById('ai-acct-camera');
+      if (cameraBtn && cameraInput) {
+        cameraBtn.addEventListener('click', () => cameraInput.click());
+        cameraInput.addEventListener('change', async () => {
+          const shot = (cameraInput.files || [])[0];
+          cameraInput.value = '';
+          if (shot) await handleAttachFile(shot);
+        });
+      }
+
+      // A photo or PDF shared to the installed app: the service worker kept
+      // it in the "shared-files" cache and opened /?shared=N#ai-accountant.
+      (async function pickUpSharedFiles() {
+        const params = new URLSearchParams(location.search);
+        if (!params.has('shared') || !('caches' in window)) return;
+        history.replaceState(null, '', location.pathname + location.hash);
+        try {
+          const cache = await caches.open('shared-files');
+          for (const req of await cache.keys()) {
+            const res = await cache.match(req);
+            await cache.delete(req);
+            if (!res) continue;
+            const blob = await res.blob();
+            const name = new URL(req.url).searchParams.get('name') || 'shared';
+            await handleAttachFile(new File([blob], name, { type: blob.type }));
+          }
+        } catch (_) { /* nothing to pick up */ }
+      })();
+
       if (attachBtn && fileInput) {
         attachBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', async () => {

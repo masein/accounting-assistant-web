@@ -690,3 +690,31 @@
         } catch (err) { _tfaError(err.message); } finally { btn.disabled = false; }
       });
     })();
+
+    // ═══════ Installable app (roadmap §4.10) ═══════
+    // The service worker needs a secure context (https, or localhost in dev).
+    let _installPrompt = null;
+    (function setupInstallableApp() {
+      if ('serviceWorker' in navigator && window.isSecureContext) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => { /* the app works without it */ });
+        });
+      }
+      const btn = document.getElementById('install-app-btn');
+      window.addEventListener('beforeinstallprompt', (ev) => {
+        ev.preventDefault();                 // offer it from the account menu instead of a banner
+        _installPrompt = ev;
+        if (btn) btn.style.display = '';
+      });
+      window.addEventListener('appinstalled', () => {
+        _installPrompt = null;
+        if (btn) btn.style.display = 'none';
+      });
+      if (btn) btn.addEventListener('click', async () => {
+        if (!_installPrompt) return;
+        _installPrompt.prompt();
+        try { await _installPrompt.userChoice; } catch (_) { /* dismissed */ }
+        _installPrompt = null;
+        btn.style.display = 'none';
+      });
+    })();

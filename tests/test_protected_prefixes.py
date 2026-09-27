@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from app import main as main_mod
-from app.main import PROTECTED_API_PREFIXES, app
+from app.main import APP_SHELL_PATHS, PROTECTED_API_PREFIXES, app
 
 # /metrics is scraped by Prometheus, not a browser: it has its own bearer
 # token (METRICS_TOKEN) and answers 404 when none is configured.
@@ -19,7 +19,8 @@ def test_every_api_route_is_behind_a_protected_prefix():
     unprotected = []
     for route in app.routes:
         path = getattr(route, "path", "")
-        if not path or path in ("/", "/login", "/health") or path.startswith(EXEMPT) or path.startswith(("/static", "/uploads")):
+        if not path or path in ("/", "/login", "/health", *APP_SHELL_PATHS) or path.startswith(EXEMPT) \
+                or path.startswith(("/static", "/uploads")):
             continue
         if not path.startswith(PROTECTED_API_PREFIXES):
             unprotected.append(path)

@@ -1063,3 +1063,74 @@ def index():
 @app.get("/login", include_in_schema=False)
 def login():
     return HTMLResponse(render_versioned_html("login.html"), headers=_NO_STORE)
+
+
+# --- Installable app (roadmap §4.10) -----------------------------------------
+# Served from the root so the service worker's scope is the whole app. None of
+# these needs a session (the browser fetches them before and after sign-in),
+# and none carries any data: they are the only public routes besides the pages.
+APP_SHELL_PATHS = ("/sw.js", "/manifest.webmanifest", "/offline", "/share-target")
+
+def app_build_version() -> str:
+    """One hash over every script and stylesheet: a deploy that changes any of
+    them changes the service worker, which then drops its old static cache."""
+    import hashlib
+    h = hashlib.sha256()
+    for path in sorted([*(STATIC_DIR / "js").glob("*.js"), *(STATIC_DIR / "css").glob("*.css"),
+                        STATIC_DIR / "pwa" / "sw.js", STATIC_DIR / "pwa" / "offline.html"]):
+        h.update(path.name.encode())
+        h.update((_asset_version(str(path.relative_to(STATIC_DIR))) or "").encode())
+    return h.hexdigest()[:12]
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    body = (STATIC_DIR / "pwa" / "sw.js").read_text(encoding="utf-8").replace("__VERSION__", app_build_version())
+    return Response(body, media_type="application/javascript",
+                    headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
+
+
+APP_MANIFEST = {
+    "name": "Accounting Assistant",
+    "short_name": "Accounting",
+    "description": "Books, invoices, payroll and an AI accountant for small businesses.",
+    "start_url": "/?source=pwa",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#ffffff",
+    "theme_color": "#006d77",
+    "dir": "auto",
+    "icons": [
+        {"src": "/static/pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+        {"src": "/static/pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+        {"src": "/static/pwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+    ],
+    # Share a receipt photo or PDF from the phone straight into the AI chat.
+    "share_target": {
+        "action": "/share-target", "method": "POST", "enctype": "multipart/form-data",
+        "params": {"files": [{"name": "file", "accept": ["image/*", "application/pdf"]}]},
+    },
+    "shortcuts": [
+        {"name": "AI chat", "url": "/#ai-accountant", "icons": [{"src": "/static/pwa/icon-192.png", "sizes": "192x192"}]},
+        {"name": "Invoices", "url": "/#invoices", "icons": [{"src": "/static/pwa/icon-192.png", "sizes": "192x192"}]},
+    ],
+}
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def web_manifest():
+    return JSONResponse(APP_MANIFEST, media_type="application/manifest+json",
+                        headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/offline", include_in_schema=False)
+def offline_page():
+    return HTMLResponse((STATIC_DIR / "pwa" / "offline.html").read_text(encoding="utf-8"))
+
+
+@app.post("/share-target", include_in_schema=False)
+def share_target():
+    """The service worker answers a share itself. Before it is installed the
+    share lands here: nothing is kept — open the chat so the user can attach."""
+    return RedirectResponse(url="/#ai-accountant", status_code=303)

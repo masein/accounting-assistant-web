@@ -136,7 +136,14 @@ delete only if never used; the tree with rolled-up balances; opening balances
 as one replaceable journal (`OPENING-BALANCES`, replaces the migration
 opening too; a difference goes to 3999). Setup → Chart of accounts page
 (migration 050). Later: moving an account to another parent, floating
-تفصیلی groups shared across معین accounts.
+تفصیلی groups shared across معین accounts. ✅ 4.10 part 1, installable
+app (#163): web-app manifest + icons, a root-scoped service worker (`/sw.js`,
+versioned by the static assets' hashes) that caches only versioned static
+files and answers a failed page load with the offline page — never an API
+response or the app page; a share target (a photo/PDF shared to the app lands
+in the chat), a camera button in the chat on touch devices, big photos shrunk
+to ≤ 2000 px JPEG before upload, "Install the app" in the account menu. Part 2:
+bell notifications via Web Push.
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same

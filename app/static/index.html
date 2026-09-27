@@ -2,6 +2,10 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" href="/static/pwa/icon-192.png">
+  <link rel="apple-touch-icon" href="/static/pwa/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="Accounting">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#006d77">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -118,6 +122,7 @@
               <option value="es">Español</option><option value="ar">العربية</option>
             </select>
             <button type="button" class="btn btn-secondary btn-sm" id="topbar-security" style="width:100%; margin-bottom:0.4rem;"><span data-i18n="tfaMenu">Two-factor sign-in</span> <span id="topbar-security-dot" class="tfa-dot" style="display:none;" data-i18n-title="tfaRecommended" title="Recommended"></span></button>
+            <button type="button" class="btn btn-secondary btn-sm" id="install-app-btn" data-i18n="pwaInstall" style="width:100%; margin-bottom:0.4rem; display:none;">Install the app</button>
             <button type="button" class="btn btn-secondary btn-sm" id="topbar-logout" data-i18n="logout" style="width:100%;">Logout</button>
           </div>
         </div>
@@ -574,6 +579,10 @@
           <div id="ai-acct-attachments" class="ai-attachments"></div>
           <div class="chat-input-wrap ai-composer">
             <input type="file" id="ai-acct-file" accept=".csv,.tsv,.xls,.xlsx,image/jpeg,image/png,image/webp,application/pdf" multiple style="display:none;" aria-hidden="true">
+            <input type="file" id="ai-acct-camera" accept="image/*" capture="environment" style="display:none;" aria-hidden="true">
+            <button type="button" class="ai-icon-btn ai-camera-btn" id="ai-acct-camera-btn" data-i18n-title="aiChatCameraTitle" data-i18n-aria-label="aiChatCameraTitle" title="Photograph a receipt" aria-label="Photograph a receipt">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
             <button type="button" class="ai-icon-btn" id="ai-acct-attach" data-i18n-title="aiChatAttachTitle" title="Attach an invoice or receipt" aria-label="Attach an invoice or receipt">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             </button>

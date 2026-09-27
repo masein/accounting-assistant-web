@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.27.4"
+CURRENT_RELEASE = "2026.09.27.5"
 
 
 @dataclass(frozen=True)
@@ -639,6 +639,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«تنظیمات ← کدینگ حساب‌ها»: حساب‌ها را زیر حساب مادر درست اضافه کنید (کد پیشنهاد می‌شود و سطح — گروه، کل، معین، تفصیلی — از مادر می‌آید)، نامشان را تغییر دهید، حساب‌های بلااستفاده را غیرفعال کنید (سوابقشان می‌ماند ولی سند جدید نمی‌گیرند) و تراز افتتاحیه را یک‌جا وارد کنید.",
                     "es": "Configuración → Plan de cuentas: añade cuentas bajo la cuenta madre correcta (se sugiere el código y el nivel la sigue), cámbiales el nombre, desactiva las que no uses (conservan su historial pero no admiten asientos nuevos) e introduce los saldos de apertura en un solo lugar.",
                     "ar": "الإعداد ← دليل الحسابات: أضف الحسابات تحت الحساب الأب الصحيح (يُقترح الرمز ويتبعه المستوى)، وغيّر أسماءها، وأوقف ما لا تستخدمه (يبقى سجله لكنه لا يقبل قيودًا جديدة)، وأدخل الأرصدة الافتتاحية في مكان واحد.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.27.5",
+        date="2026-09-27",
+        highlights=(
+            Highlight(
+                key="installable-app",
+                page="ai-accountant",
+                roles=_BOOKS,
+                title={
+                    "en": "Install it on your phone — and photograph receipts into the chat",
+                    "fa": "برنامه را روی گوشی نصب کنید — و از رسیدها مستقیم در گفت‌وگو عکس بگیرید",
+                    "es": "Instálala en el móvil y fotografía recibos directamente en el chat",
+                    "ar": "ثبّته على هاتفك — وصوّر الإيصالات مباشرة في المحادثة",
+                },
+                body={
+                    "en": "Open the account menu and choose Install the app to put it on your home screen. On a phone the chat has a camera button: photograph a receipt and it is attached, shrunk to a sensible size. You can also share a photo or PDF from another app straight to Accounting.",
+                    "fa": "از منوی حساب «نصب برنامه» را بزنید تا روی صفحهٔ اصلی گوشی قرار بگیرد. روی گوشی، گفت‌وگو دکمهٔ دوربین دارد: از رسید عکس بگیرید تا با حجمی مناسب پیوست شود. همچنین می‌توانید عکس یا PDF را از برنامه‌ای دیگر مستقیم با این برنامه به اشتراک بگذارید.",
+                    "es": "Abre el menú de la cuenta y elige Instalar la app para tenerla en la pantalla de inicio. En el móvil el chat tiene un botón de cámara: fotografía un recibo y se adjunta, reducido a un tamaño razonable. También puedes compartir una foto o un PDF desde otra app directamente.",
+                    "ar": "افتح قائمة الحساب واختر تثبيت التطبيق لوضعه على الشاشة الرئيسية. على الهاتف تحتوي المحادثة على زر كاميرا: صوّر الإيصال فيُرفق بحجم مناسب. ويمكنك أيضًا مشاركة صورة أو ملف PDF من تطبيق آخر مباشرة.",
                 },
             ),
         ),

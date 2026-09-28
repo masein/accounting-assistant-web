@@ -638,6 +638,107 @@
       if (_tfa.user) _tfa.user.two_factor_enabled = enabled;
       setTwoFactorHint(_tfa.user);
     }
+    // ─── Telegram / Bale (roadmap §5.7) ─────────────────────────────────
+    let _msgStatus = null;
+    async function refreshMessengerButton() {
+      const btn = document.getElementById('messenger-btn');
+      if (!btn) return;
+      try {
+        const res = await fetch(API + '/ai-accountant/messenger');
+        _msgStatus = res.ok ? await res.json() : null;
+      } catch (_) { _msgStatus = null; }
+      const any = _msgStatus && Object.values(_msgStatus.platforms || {}).some(p => p.connected);
+      btn.style.display = any ? '' : 'none';
+    }
+    function renderMessengerModal() {
+      const st = _msgStatus || { platforms: {}, links: [] };
+      const plat = document.getElementById('messenger-platforms');
+      plat.innerHTML = Object.entries(st.platforms).filter(([, p]) => p.connected).map(([key, p]) =>
+        `<button type="button" class="btn btn-primary btn-sm msg-connect" data-platform="${escapeHtml(key)}">${escapeHtml(tf('msgConnect', { name: p.name }))}</button>`).join('');
+      plat.querySelectorAll('.msg-connect').forEach(b => b.addEventListener('click', async () => {
+        b.disabled = true;
+        try {
+          const res = await fetch(API + '/ai-accountant/messenger/link', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: b.dataset.platform }) });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(d.detail || t('msgFailed'), true); return; }
+          const box = document.getElementById('messenger-code');
+          box.innerHTML = '<div>' + escapeHtml(tf('msgOpenLink', { bot: '@' + d.bot })) + '</div>'
+            + `<a class="btn btn-primary btn-sm" href="${escapeHtml(d.url)}" target="_blank" rel="noopener">${escapeHtml(tf('msgOpen', { name: st.platforms[b.dataset.platform].name }))}</a>`
+            + '<div class="fx-hint" style="margin-top:0.45rem;">' + escapeHtml(t('msgOrSend')) + ' <code dir="ltr">/start ' + escapeHtml(d.code) + '</code> · '
+            + escapeHtml(t('msgExpires')) + '</div>';
+          box.hidden = false;
+        } finally { b.disabled = false; }
+      }));
+      const links = document.getElementById('messenger-links');
+      links.innerHTML = (st.links || []).length ? st.links.map(l => `<div class="msg-link"><span><strong>${escapeHtml(l.name)}</strong> · <bdi>${escapeHtml(l.chat_name || '')}</bdi></span>
+          <button type="button" class="btn btn-secondary btn-sm msg-unlink" data-id="${escapeHtml(l.id)}">${escapeHtml(t('msgUnlink'))}</button></div>`).join('')
+        : '<p class="fx-hint">' + escapeHtml(t('msgNoLinks')) + '</p>';
+      links.querySelectorAll('.msg-unlink').forEach(b => b.addEventListener('click', async () => {
+        if (!(await uiConfirm({ message: t('msgUnlinkConfirm'), confirmLabel: t('msgUnlink'), danger: true }))) return;
+        const res = await fetch(API + '/ai-accountant/messenger/links/' + encodeURIComponent(b.dataset.id), { method: 'DELETE' });
+        if (res.ok) { await refreshMessengerButton(); renderMessengerModal(); }
+      }));
+    }
+    (function wireMessenger() {
+      const modal = document.getElementById('messenger-modal');
+      const btn = document.getElementById('messenger-btn');
+      if (!modal || !btn) return;
+      const close = () => { modal.style.display = 'none'; document.getElementById('messenger-code').hidden = true; };
+      document.getElementById('messenger-modal-close').addEventListener('click', close);
+      modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+      btn.addEventListener('click', async () => {
+        const pop = document.getElementById('user-pop');
+        if (pop) pop.classList.remove('open');
+        await refreshMessengerButton();
+        renderMessengerModal();
+        modal.style.display = 'flex';
+      });
+    })();
+
+    // Platform admin: connect the bots (Settings → Messenger bots).
+    async function loadMessengerBots() {
+      const card = document.getElementById('msg-bots-card');
+      if (!card) return;
+      const res = await fetch(API + '/admin/messenger-bots').catch(() => null);
+      if (!res || !res.ok) { card.style.display = 'none'; return; }
+      const d = await res.json();
+      card.style.display = '';
+      document.getElementById('msg-bots-url').textContent = tf('msgBotsUrl', { url: d.public_url || '' });
+      const list = document.getElementById('msg-bots-list');
+      list.innerHTML = Object.entries(d.bots || {}).map(([key, b]) => `<div class="msg-bot" data-platform="${escapeHtml(key)}">
+          <strong>${escapeHtml(b.name)}</strong>
+          ${b.connected
+            ? `<span>${escapeHtml(tf('msgBotConnected', { bot: '@' + (b.username || '') }))}</span>
+               <button type="button" class="btn btn-secondary btn-sm msg-bot-off">${escapeHtml(t('msgBotDisconnect'))}</button>`
+            : `<input type="password" class="msg-bot-token" autocomplete="off" dir="ltr" placeholder="123456:ABC…" aria-label="${escapeHtml(tf('msgBotToken', { name: b.name }))}">
+               <button type="button" class="btn btn-primary btn-sm msg-bot-on">${escapeHtml(t('msgBotConnect'))}</button>`}
+        </div>`).join('');
+      list.querySelectorAll('.msg-bot').forEach(row => {
+        const platform = row.dataset.platform;
+        const on = row.querySelector('.msg-bot-on');
+        if (on) on.addEventListener('click', async () => {
+          const token = row.querySelector('.msg-bot-token').value.trim();
+          if (!token) return;
+          on.disabled = true;
+          try {
+            const r = await fetch(API + '/admin/messenger-bots/' + platform, { method: 'PUT',
+              headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+            const out = await r.json().catch(() => ({}));
+            if (!r.ok) { showAlert(typeof out.detail === 'string' ? out.detail : t('msgFailed'), true); return; }
+            showAlert(tf('msgBotConnected', { bot: '@' + (out.username || '') }));
+            loadMessengerBots(); refreshMessengerButton();
+          } finally { on.disabled = false; }
+        });
+        const off = row.querySelector('.msg-bot-off');
+        if (off) off.addEventListener('click', async () => {
+          if (!(await uiConfirm({ message: t('msgBotDisconnectConfirm'), confirmLabel: t('msgBotDisconnect'), danger: true }))) return;
+          await fetch(API + '/admin/messenger-bots/' + platform, { method: 'DELETE' });
+          loadMessengerBots(); refreshMessengerButton();
+        });
+      });
+    }
+
     (function wireTwoFactor() {
       const modal = document.getElementById('security-modal');
       if (!modal) return;

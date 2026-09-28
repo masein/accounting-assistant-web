@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.6"
+CURRENT_RELEASE = "2026.09.28.7"
 
 
 @dataclass(frozen=True)
@@ -845,6 +845,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "گفتگوی هوشمند دکمهٔ میکروفون دارد: بزنید، بگویید «پنجاه هزار تومن نون از کارت خریدم» و دوباره بزنید. متن در کادر می‌آید تا بررسی کنید و مثل همیشه بفرستید — تا کارت را تأیید نکنید چیزی ثبت نمی‌شود. خود صدا هرگز نگه داشته نمی‌شود.",
                     "es": "El chat con IA tiene un botón de micrófono: tócalo, di «pagué 20 libras de comida con la tarjeta» y vuelve a tocarlo. El texto aparece en el cuadro para que lo revises y lo envíes como siempre; nada se guarda hasta que confirmes la tarjeta. La grabación nunca se conserva.",
                     "ar": "في محادثة الذكاء الاصطناعي زر ميكروفون: اضغطه، وقل «دفعت 20 جنيهًا للغداء بالبطاقة»، ثم اضغطه ثانية. يظهر النص في المربع لتراجعه ثم ترسله كالمعتاد — لا يُحفظ شيء حتى تؤكد البطاقة. ولا يُحتفظ بالتسجيل نفسه أبدًا.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.7",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="messenger-bot",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Tell the assistant from Telegram or Bale",
+                    "fa": "دستیار در تلگرام و بله",
+                    "es": "Habla con el asistente desde Telegram o Bale",
+                    "ar": "المساعد في تيليغرام وبله",
+                },
+                body={
+                    "en": "Account menu → Telegram / Bale: link your chat once, then send the bot what you spent or earned — a line of text or a voice note — and it answers like the chat here, with Confirm and Cancel buttons on anything it would record. Nothing is saved until you tap Confirm; /new starts a new conversation and /stop unlinks the chat. (Shown once the administrator has connected a bot.)",
+                    "fa": "«منوی حساب ← تلگرام / بله»: یک بار گفتگوی خود را وصل کنید، سپس خرج یا دریافتی‌تان را — یک خط متن یا پیام صوتی — برای ربات بفرستید. مثل گفتگوی اینجا پاسخ می‌دهد و روی هر چیزی که ثبت می‌کند دکمهٔ «تأیید» و «لغو» می‌گذارد. تا «تأیید» نزنید چیزی ثبت نمی‌شود؛ /new گفتگوی تازه و /stop قطع اتصال. (وقتی مدیر سرور رباتی وصل کرده باشد نمایش داده می‌شود.)",
+                    "es": "Menú de la cuenta → Telegram / Bale: vincula tu chat una vez y envía al bot lo que gastaste o cobraste, en una línea o una nota de voz; responde como el chat de aquí, con botones Confirmar y Cancelar en lo que registraría. Nada se guarda hasta que pulses Confirmar; /new empieza otra conversación y /stop desvincula el chat. (Aparece cuando el administrador ha conectado un bot.)",
+                    "ar": "قائمة الحساب ← تيليغرام / بله: اربط محادثتك مرة واحدة، ثم أرسل للبوت ما أنفقته أو استلمته — سطرًا أو ملاحظة صوتية — فيجيب مثل المحادثة هنا، مع زري «تأكيد» و«إلغاء» على ما سيسجّله. لا يُحفظ شيء حتى تضغط «تأكيد»؛ /new لمحادثة جديدة و/stop لإلغاء الربط. (يظهر عندما يربط المسؤول بوتًا.)",
                 },
             ),
         ),

@@ -362,7 +362,13 @@
           loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); loadApiKeys();
           loadAIConfig(); loadAnthropicConfig(); loadAIUsage();
         }
-        if (isSuperadmin) { loadAILimits(); if (typeof loadRateFeeds === 'function') loadRateFeeds(); }
+        if (isSuperadmin) {
+          loadAILimits();
+          if (typeof loadRateFeeds === 'function') loadRateFeeds();
+          if (typeof loadMessengerBots === 'function') loadMessengerBots();
+        }
+        // the Telegram/Bale item for whoever may use the assistant (roadmap §5.7)
+        if (typeof canSeePage === 'function' && canSeePage('ai-accountant') && typeof refreshMessengerButton === 'function') refreshMessengerButton();
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
       }

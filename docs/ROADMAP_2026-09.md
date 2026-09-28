@@ -252,8 +252,23 @@ on confirmations that posted an entry.
 Gemini through Metis first (`STT_GEMINI_MODEL`), then the active backend's
 OpenAI-compatible `/audio/transcriptions` (`STT_MODEL`,
 gpt-4o-mini-transcribe); format sniffed from the bytes, 10 MB cap, metered as
-purpose `speech`, budget-guarded; audio never stored. Next: part 2 — the
-Telegram/Bale bot (Bale speaks the Telegram Bot API) for linked users.
+purpose `speech`, budget-guarded; audio never stored.
+✅ 5.7, part 2 — Telegram / Bale bot (`app/services/messenger.py`,
+`app/api/bots.py`, migration 055): one adapter for both (Bale speaks the
+Telegram Bot API at tapi.bale.ai). The platform admin pastes a token
+(Settings → Messenger bots): getMe + setWebhook to
+`APP_PUBLIC_URL/bots/<platform>/webhook/<secret>` with the same
+secret_token (both checked; wrong → 404); token encrypted in platform setting
+`messenger_bots`. Users link a private chat from the account menu with a
+one-time 10-minute code (`/start <code>`); a message is one assistant turn
+as that user (company scope, actor for the AI budget, chat permission
+re-checked, suspended companies refused), a voice note is transcribed first,
+proposals come back with Confirm/Cancel inline buttons (callback executes as
+the linked user, someone else's card refused, buttons removed after). /new,
+/stop. Groups and unlinked chats get instructions only; re-delivered updates
+ignored (`messenger_updates`); the webhook returns at once and handles the
+update in the background. WhatsApp left out (needs Meta business
+verification). §5.7 done.
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same

@@ -124,6 +124,42 @@ def jobs_status(_=Depends(require_superadmin)) -> dict:
     return status_snapshot()
 
 
+# --- Messenger bots (roadmap §5.7): Telegram / Bale, platform-wide ---------------------------
+
+class MessengerBotPayload(BaseModel):
+    token: str = Field(..., min_length=10, max_length=200)
+
+
+@router.get("/messenger-bots")
+def get_messenger_bots(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+    from app.core.config import settings
+    from app.services.messenger import public_status
+    return {"bots": public_status(db), "public_url": settings.app_public_url}
+
+
+@router.put("/messenger-bots/{platform}")
+async def put_messenger_bot(platform: str, payload: MessengerBotPayload, db: Session = Depends(get_db),
+                            _=Depends(require_superadmin)) -> dict:
+    """Check the token with the platform and point its webhook at this server."""
+    from app.services.messenger import connect
+    try:
+        out = await connect(db, platform, payload.token)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    log_audit_event(db, action="update", entity_type="messenger_bot", entity_id=platform,
+                    detail=f"connected @{out.get('username')}")
+    db.commit()
+    return out
+
+
+@router.delete("/messenger-bots/{platform}", status_code=204)
+async def delete_messenger_bot(platform: str, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> None:
+    from app.services.messenger import disconnect
+    await disconnect(db, platform)
+    log_audit_event(db, action="delete", entity_type="messenger_bot", entity_id=platform, detail="disconnected")
+    db.commit()
+
+
 # --- Exchange-rate feeds (roadmap §4.6): the platform's daily rates ------------------------
 
 class RateFeedItem(BaseModel):

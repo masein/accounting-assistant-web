@@ -28,7 +28,7 @@ from app.db.tenant import TenantMixin
 # hijacks it or, once that company already has a copy, violates
 # uq_app_settings_company_key and crash-loops the boot (found 2026-09-25).
 PLATFORM_SETTING_KEYS: frozenset[str] = frozenset({"ai_config", "ai_limits", "web_push_vapid",
-                                                   "rate_feeds", "rate_feeds_status"})
+                                                   "rate_feeds", "rate_feeds_status", "messenger_bots"})
 
 
 class AppSetting(Base, TenantMixin):

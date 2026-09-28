@@ -124,6 +124,7 @@
             <button type="button" class="btn btn-secondary btn-sm" id="topbar-security" style="width:100%; margin-bottom:0.4rem;"><span data-i18n="tfaMenu">Two-factor sign-in</span> <span id="topbar-security-dot" class="tfa-dot" style="display:none;" data-i18n-title="tfaRecommended" title="Recommended"></span></button>
             <button type="button" class="btn btn-secondary btn-sm" id="install-app-btn" data-i18n="pwaInstall" style="width:100%; margin-bottom:0.4rem; display:none;">Install the app</button>
             <button type="button" class="btn btn-secondary btn-sm" id="push-toggle-btn" style="width:100%; margin-bottom:0.4rem; display:none;"></button>
+            <button type="button" class="btn btn-secondary btn-sm" id="messenger-btn" data-i18n="msgMenu" style="width:100%; margin-bottom:0.4rem; display:none;">Telegram / Bale</button>
             <button type="button" class="btn btn-secondary btn-sm" id="topbar-logout" data-i18n="logout" style="width:100%;">Logout</button>
           </div>
         </div>
@@ -2584,6 +2585,13 @@
         <div id="ai-usage-breakdown" style="display:flex; gap:1rem; flex-wrap:wrap; margin-top:0.6rem;"></div>
       </div>
 
+      <div id="msg-bots-card" style="display:none; margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;" data-i18n="msgBotsTitle">Messenger bots</h2>
+        <p class="fx-hint" data-i18n="msgBotsIntro">Create a bot with @BotFather (Telegram) or @botfather in Bale, paste its token here and connect: the platform then sends the bot's messages to this server. Users link their own chats from the account menu.</p>
+        <p class="fx-hint" id="msg-bots-url"></p>
+        <div id="msg-bots-list"></div>
+      </div>
+
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
         <h2 style="margin-bottom:0.5rem;" data-i18n="fxTitle">Currency &amp; FX</h2>
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="fxIntro">
@@ -2780,6 +2788,22 @@
           <button type="button" class="btn btn-secondary btn-sm" id="whats-new-back" data-i18n="wnBack">Back</button>
           <button type="button" class="btn btn-primary btn-sm" id="whats-new-next" data-i18n="wnNext">Next</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="messenger-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="messenger-modal-title" style="display: none;">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 id="messenger-modal-title" data-i18n="msgTitle">Use the assistant from Telegram or Bale</h2>
+        <button type="button" class="modal-close" aria-label="Close" id="messenger-modal-close">×</button>
+      </div>
+      <div style="padding: 1rem 1.25rem;">
+        <p data-i18n="msgIntro" class="msg-note">Link your chat once, then send the bot what you spent or earned — text or a voice note. It answers like the chat here, and nothing is saved until you tap Confirm.</p>
+        <div id="messenger-platforms" class="msg-platforms"></div>
+        <div id="messenger-code" class="msg-code" hidden></div>
+        <h3 class="msg-sub" data-i18n="msgLinked">Linked chats</h3>
+        <div id="messenger-links"></div>
       </div>
     </div>
   </div>

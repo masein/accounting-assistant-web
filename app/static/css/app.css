@@ -462,6 +462,17 @@
       padding-bottom: 0.45rem;
     }
     .fx-hint { color: var(--text-muted); font-size: 0.82rem; margin: 0 0 0.5rem 0; }
+    .msg-note { margin: 0 0 0.85rem; color: var(--text-muted); font-size: 0.88rem; line-height: 1.55; }
+    .msg-platforms { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.6rem; }
+    .msg-code { border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.8rem; margin-bottom: 0.8rem; font-size: 0.88rem; }
+    .msg-code .btn { margin-top: 0.45rem; }
+    .msg-code a.btn { display: inline-block; text-decoration: none; }
+    .msg-code code { font-size: 0.95rem; letter-spacing: 0.04em; }
+    .msg-sub { font-size: 0.9rem; margin: 0.4rem 0 0.35rem; }
+    .msg-link { display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.86rem; }
+    .msg-bot { display: grid; grid-template-columns: 7rem 1fr auto; gap: 0.5rem; align-items: center; padding: 0.45rem 0; border-bottom: 1px solid var(--border); font-size: 0.86rem; }
+    .msg-bot input { width: 100%; box-sizing: border-box; }
+    @media (max-width: 560px) { .msg-bot { grid-template-columns: 1fr; } }
     .ai-prefs { margin-top: 0.6rem; border-top: 1px solid var(--border); padding-top: 0.5rem; font-size: 0.82rem; }
     .ai-prefs summary { cursor: pointer; font-weight: 600; color: var(--text); padding: 0.2rem 0; }
     .ai-prefs-hint, .ai-prefs-empty { color: var(--text-muted); margin: 0.3rem 0; font-size: 0.78rem; }

@@ -509,6 +509,16 @@
                       color: #78350f; border-radius: 10px; font-size: 0.86rem; }
     .fx-unconverted p { margin: 0 0 0.45rem 0; }
     .fx-unconverted .btn { margin-top: 0.15rem; }
+    /* Cheque print layout: four narrow columns fit a phone (the phone rules
+       would otherwise make it one scrolling line) */
+    @media (max-width: 700px) {
+      #cm-pl-fields { display: table; width: 100%; table-layout: fixed; white-space: normal; }
+      #cm-pl-fields thead { display: table-header-group; }
+      #cm-pl-fields tbody { display: table-row-group; }
+      #cm-pl-fields tr { display: table-row; white-space: normal; }
+      #cm-pl-fields th, #cm-pl-fields td { padding: 0.3rem; font-size: 0.75rem; }
+      #cm-pl-fields input { width: 100% !important; min-width: 0; padding: 0.3rem 0.35rem; }
+    }
     /* Installments & cheques (§3.4): a compact actions cell; stacked rows on a phone */
     .cm-actions { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
     .cm-actions select { width: auto; max-width: 11rem; padding-block: 0.3rem; }

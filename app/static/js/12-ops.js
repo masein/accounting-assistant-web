@@ -779,10 +779,11 @@
         bounced: rec ? ['redeposit', 'clear', 'return'] : ['clear', 'return'],
       }[r.status] || [];
       if (['pending', 'deposited'].includes(r.status) && !r.sayad_registered_on) steps.push('sayad');
+      if (!rec && ['pending', 'bounced'].includes(r.status)) steps.unshift('print');   // we write the ones we issue
       return steps;
     }
     const CM_STEP_LABEL = { settle: 'cmSettle', deposit: 'cmActDeposit', redeposit: 'cmActDepositAgain', clear: 'cmActClear',
-      bounce: 'cmActBounce', return: 'cmActReturn', endorse: 'cmActEndorse', sayad: 'cmActSayad' };
+      bounce: 'cmActBounce', return: 'cmActReturn', endorse: 'cmActEndorse', sayad: 'cmActSayad', print: 'cmActPrint' };
 
     function cmRowHtml(r) {
       const seq = (r.sequence && r.plan_total) ? ` (${r.sequence}/${r.plan_total})` : '';
@@ -824,6 +825,7 @@
       const body = document.getElementById('cm-rows');
       if (!body) return;
       await cmFillAccounts();
+      cmLoadLayout();
       const on = document.getElementById('cm-c-on');
       if (on && !on.value) on.value = localIsoDate();
       cmFillInvoices('cm-c-inv', document.getElementById('cm-c-dir')?.value === 'receive' ? 'sales' : 'purchase');
@@ -874,7 +876,8 @@
       const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
       document.getElementById('cm-step-title').textContent = t(CM_STEP_LABEL[step]);
       document.getElementById('cm-step-what').textContent = `${row.title} — ${formatNum(row.amount)} ${currencyUnit()}`;
-      document.getElementById('cm-step-date').value = localIsoDate();
+      // a cheque is dated the day it falls due
+      document.getElementById('cm-step-date').value = step === 'print' ? row.due_date : localIsoDate();
       const bankSel = document.getElementById('cm-step-bank');
       bankSel.innerHTML = `<option value="">${escapeHtml(t('cmDefaultBank'))}</option>` + _cmBanks
         .map(b => `<option value="${escapeHtml(b.code)}">${escapeHtml(b.name)} (${escapeHtml(b.code)})</option>`).join('');
@@ -891,6 +894,12 @@
       show('cm-step-to-row', step === 'endorse');
       show('cm-step-acct-row', step === 'endorse');
       show('cm-step-note-row', ['bounce', 'return'].includes(step));
+      show('cm-step-payee-row', step === 'print');
+      show('cm-step-nid-row', step === 'print');
+      show('cm-step-guide-row', step === 'print');
+      document.getElementById('cm-step-payee').value = row.counterparty || '';
+      document.getElementById('cm-step-nid').value = '';
+      document.getElementById('cm-step-guide').checked = false;
       document.getElementById('cm-step-hint').textContent = t('cmHint_' + step) || '';
       if (step === 'endorse') cmFillInvoices('cm-step-bill', 'purchase');
       return new Promise((resolve) => {
@@ -903,6 +912,9 @@
           account_code: document.getElementById('cm-step-acct').value || null,
           invoice_id: document.getElementById('cm-step-bill').value || null,
           note: document.getElementById('cm-step-note').value.trim() || null,
+          payee: document.getElementById('cm-step-payee').value.trim() || null,
+          national_id: document.getElementById('cm-step-nid').value.trim() || null,
+          guide: document.getElementById('cm-step-guide').checked,
         });
         document.getElementById('cm-step-cancel').onclick = () => done(null);
         document.getElementById('cm-step-close').onclick = () => done(null);
@@ -913,11 +925,42 @@
       });
     }
 
+    // A PDF from a POST, in a tab opened while the click still counts as the
+    // user's (a tab opened after the request would be blocked as a pop-up).
+    async function cmOpenPdf(url, body) {
+      const win = window.open('', '_blank');
+      try {
+        const res = await fetch(API + url, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          if (win) win.close();
+          showAlert(typeof d.detail === 'string' ? d.detail : t('cmStepFailed'), true);
+          return false;
+        }
+        const href = URL.createObjectURL(await res.blob());
+        if (win) win.location.href = href;
+        else { showAlert(t('cmPrintBlocked'), true); }
+        setTimeout(() => URL.revokeObjectURL(href), 60_000);
+        return true;
+      } catch (_) {
+        if (win) win.close();
+        showAlert(t('cmStepFailed'), true);
+        return false;
+      }
+    }
+
     async function cmRunStep(id, step) {
       const row = _cmRows.find(r => r.id === id);
       if (!row) return;
       const v = await cmStepDialog(row, step);
       if (!v) return;
+      if (step === 'print') {
+        const ok = await cmOpenPdf(`/commitments/${id}/print`,
+          { on: v.on, payee: v.payee, national_id: v.national_id, guide: v.guide });
+        if (ok && !v.guide) loadCommitments();          // the print is in its history
+        return;
+      }
       const route = { settle: 'settle', clear: 'settle', deposit: 'deposit', redeposit: 'deposit', bounce: 'bounce',
         return: 'return', endorse: 'endorse', sayad: 'sayad' }[step];
       const body = {
@@ -940,7 +983,57 @@
       } catch (_) { showAlert(t('cmStepFailed'), true); }
     }
 
+    // ── Cheque print layout (§3.4): where each field lands on the leaf ──
+    const CM_PL_FIELDS = ['date', 'date_words', 'payee', 'national_id', 'amount_words', 'amount'];
+    function cmFillLayout(l) {
+      ['width', 'height', 'offset_x', 'offset_y', 'font_size'].forEach(k => {
+        const el = document.getElementById('cm-pl-' + k);
+        if (el) el.value = l[k];
+      });
+      const body = document.querySelector('#cm-pl-fields tbody');
+      if (!body) return;
+      body.innerHTML = CM_PL_FIELDS.filter(f => l.fields[f]).map(f => {
+        const b = l.fields[f];
+        const cell = (k) => `<td><input type="number" step="0.5" data-field="${f}" data-k="${k}" value="${escapeHtml(String(b[k]))}" style="width:6rem;"></td>`;
+        return `<tr><td>${escapeHtml(t('cmPf_' + f))}</td>${cell('x')}${cell('y')}${cell('w')}</tr>`;
+      }).join('');
+    }
+    async function cmLoadLayout() {
+      if (!document.getElementById('cm-print-panel')) return;
+      try {
+        const res = await fetch(API + '/commitments/print-layout');
+        if (res.ok) cmFillLayout(await res.json());
+      } catch (_) { /* offline */ }
+    }
+    function cmReadLayout() {
+      const num = (id) => Number(document.getElementById('cm-pl-' + id).value);
+      const fields = {};
+      document.querySelectorAll('#cm-pl-fields input[data-field]').forEach(inp => {
+        (fields[inp.dataset.field] = fields[inp.dataset.field] || {})[inp.dataset.k] = Number(inp.value);
+      });
+      return { width: num('width'), height: num('height'), offset_x: num('offset_x'), offset_y: num('offset_y'),
+               font_size: num('font_size'), fields };
+    }
+
     (function wireCommitments() {
+      document.getElementById('cm-pl-save')?.addEventListener('click', async () => {
+        try {
+          const res = await fetch(API + '/commitments/print-layout', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cmReadLayout()) });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('cmStepFailed'), true); return; }
+          cmFillLayout(d);
+          showAlert(t('cmPrintSaved'));
+        } catch (_) { showAlert(t('cmStepFailed'), true); }
+      });
+      document.getElementById('cm-pl-test')?.addEventListener('click', () => cmOpenPdf('/commitments/print-test', {}));
+      document.getElementById('cm-pl-reset')?.addEventListener('click', async () => {
+        try {
+          const res = await fetch(API + '/commitments/print-layout/reset', { method: 'POST' });
+          if (res.ok) { cmFillLayout(await res.json()); showAlert(t('cmPrintSaved')); }
+        } catch (_) { showAlert(t('cmStepFailed'), true); }
+      });
+
       const planBtn = document.getElementById('cm-p-save');
       if (planBtn) planBtn.addEventListener('click', async () => {
         const body = {

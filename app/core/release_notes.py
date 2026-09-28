@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.9"
+CURRENT_RELEASE = "2026.09.28.10"
 
 
 @dataclass(frozen=True)
@@ -917,6 +917,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«اقساط و چک‌ها ← عملیات»: چک را به بانک بسپارید، وصول یا برگشت آن را ثبت کنید، چک برگشتی را دوباره بخوابانید، عودت دهید یا چک مشتری را به تأمین‌کننده خرج کنید. هر مرحله از طریق اسناد دریافتنی، اسناد در جریان وصول و اسناد پرداختنی ثبت می‌شود؛ چکی که بابت فاکتور ثبت شود آن را تسویه می‌کند و برگشت آن فاکتور را دوباره باز می‌کند. شناسه ۱۶ رقمی صیاد را وارد کنید تا پیش از سررسید برای ثبت (یا تأیید) چک در صیاد یادآوری شود. «گردش چک» مسیر هر چک را نشان می‌دهد.",
                     "es": "Cuotas y cheques → Acciones: deposita un cheque en el banco, márcalo cobrado o rechazado, deposita de nuevo uno rechazado, devuélvelo o endosa el cheque de un cliente a un proveedor. Cada paso se registra en efectos a cobrar, cheques en gestión de cobro y efectos a pagar; un cheque registrado para una factura la paga, y si se rechaza la factura se reabre. Añade el ID Sayad de 16 dígitos y se te recordará registrar (o confirmar) el cheque en Sayad antes del vencimiento. El historial muestra el recorrido de cada cheque.",
                     "ar": "الأقساط والشيكات ← إجراءات: أودع الشيك في البنك، سجّل تحصيله أو ارتجاعه، أودع المرتجع مجددًا، أعده، أو ظهّر شيك العميل لمورد. تُقيَّد كل خطوة عبر أوراق القبض والشيكات قيد التحصيل وأوراق الدفع؛ والشيك المسجل لفاتورة يسددها، وارتجاعه يعيد فتحها. أضف معرّف صياد المكوّن من ١٦ رقمًا ليُذكّرك النظام بتسجيل الشيك (أو تأكيده) في صياد قبل استحقاقه. ويعرض السجل مسار كل شيك.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.10",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="cheque-print",
+                page="commitments",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Print a cheque you issue",
+                    "fa": "چاپ چک صادره",
+                    "es": "Imprime los cheques que emites",
+                    "ar": "اطبع الشيكات التي تصدرها",
+                },
+                body={
+                    "en": "Installments & cheques → Actions → Print cheque: a PDF the size of the leaf with the date (and, on Iranian cheques, the date in words), the payee and their national id, and the amount in words and figures. Print it at 100 % with the cheque in the manual feed. Leaves differ by bank, so first print the guide on plain paper under “Cheque printing”, hold it against a cheque and adjust the positions. Each print is kept in the cheque's history.",
+                    "fa": "«اقساط و چک‌ها ← عملیات ← چاپ چک»: یک PDF به اندازه برگ چک با تاریخ و تاریخ به حروف، «در وجه» و کد/شناسه ملی گیرنده، و مبلغ به حروف و به عدد. با مقیاس ۱۰۰٪ و برگ چک در سینی دستی چاپ کنید. برگ چک بانک‌ها کمی فرق دارد؛ پس اول در بخش «چاپ چک» راهنما را روی کاغذ ساده چاپ کنید، روی یک برگ چک بگذارید و جای فیلدها را تنظیم کنید. هر چاپ در «گردش چک» ثبت می‌شود.",
+                    "es": "Cuotas y cheques → Acciones → Imprimir cheque: un PDF del tamaño del cheque con la fecha, el beneficiario y su documento, y el importe en letras y en cifras. Imprímelo al 100 % con el cheque en la bandeja manual. Los cheques varían según el banco: imprime primero la guía en papel normal en «Impresión de cheques», colócala sobre un cheque y ajusta las posiciones. Cada impresión queda en el historial del cheque.",
+                    "ar": "الأقساط والشيكات ← إجراءات ← طباعة الشيك: ملف PDF بحجم ورقة الشيك فيه التاريخ، والمستفيد ورقمه الوطني، والمبلغ كتابةً وبالأرقام. اطبعه بمقياس 100٪ والشيك في درج التغذية اليدوية. تختلف أوراق الشيكات بين البنوك، فاطبع الدليل أولًا على ورق عادي من «طباعة الشيكات»، وضعه على شيك واضبط المواضع. تُحفظ كل طباعة في سجل الشيك.",
                 },
             ),
         ),

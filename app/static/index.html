@@ -973,6 +973,27 @@
         </div>
       </div>
 
+      <details class="panel" id="cm-print-panel" style="margin-top:1rem;">
+        <summary data-i18n="cmPrintTitle" style="cursor:pointer; font-weight:600;">Cheque printing</summary>
+        <p data-i18n="cmPrintIntro" style="color:var(--text-muted); font-size:0.85rem; margin:0.5rem 0;">Where each field lands on your bank's cheque leaf, in millimetres. Print the guide on plain paper, hold it against a cheque, adjust, and save.</p>
+        <div class="row">
+          <div><label for="cm-pl-width" data-i18n="cmPrintWidth">Leaf width (mm)</label><input type="number" id="cm-pl-width" step="0.5"></div>
+          <div><label for="cm-pl-height" data-i18n="cmPrintHeight">Leaf height (mm)</label><input type="number" id="cm-pl-height" step="0.5"></div>
+          <div><label for="cm-pl-offset_x" data-i18n="cmPrintOffsetX">Move everything right (mm)</label><input type="number" id="cm-pl-offset_x" step="0.5"></div>
+          <div><label for="cm-pl-offset_y" data-i18n="cmPrintOffsetY">Move everything down (mm)</label><input type="number" id="cm-pl-offset_y" step="0.5"></div>
+          <div><label for="cm-pl-font_size" data-i18n="cmPrintFont">Font size (pt)</label><input type="number" id="cm-pl-font_size" step="0.5"></div>
+        </div>
+        <div style="overflow-x:auto;"><table class="mini-table" id="cm-pl-fields"><thead><tr>
+          <th data-i18n="cmPrintField">Field</th><th data-i18n="cmPrintX">From left (mm)</th>
+          <th data-i18n="cmPrintY">From top (mm)</th><th data-i18n="cmPrintW">Width (mm)</th>
+        </tr></thead><tbody></tbody></table></div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.6rem;">
+          <button type="button" class="btn btn-primary" id="cm-pl-save" data-i18n="cmPrintSave">Save layout</button>
+          <button type="button" class="btn btn-secondary" id="cm-pl-test" data-i18n="cmPrintTest">Test print (guide)</button>
+          <button type="button" class="btn btn-secondary" id="cm-pl-reset" data-i18n="cmPrintReset">Back to the default</button>
+        </div>
+      </details>
+
       <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; margin-top:1rem;">
         <h3 data-i18n="cmUpcoming" style="margin:0;">Upcoming</h3>
         <div><label for="cm-filter" data-i18n="cmShow" style="font-size:0.8rem;">Show</label>
@@ -2924,6 +2945,9 @@
         <div id="cm-step-to-row"><label for="cm-step-to" data-i18n="cmStepTo">Passed to</label><input type="text" id="cm-step-to" style="width:100%;"></div>
         <div id="cm-step-acct-row"><label for="cm-step-acct" data-i18n="cmStepAccount">Their account</label><select id="cm-step-acct" style="width:100%;"></select></div>
         <div id="cm-step-note-row"><label for="cm-step-note" data-i18n="cmStepNote">Note</label><input type="text" id="cm-step-note" maxlength="500" style="width:100%;"></div>
+        <div id="cm-step-payee-row"><label for="cm-step-payee" data-i18n="cmStepPayee">Pay to</label><input type="text" id="cm-step-payee" maxlength="256" dir="auto" style="width:100%;"></div>
+        <div id="cm-step-nid-row"><label for="cm-step-nid" data-i18n="cmStepNid">Payee national id</label><input type="text" id="cm-step-nid" maxlength="32" inputmode="numeric" dir="ltr" style="width:100%;"></div>
+        <label id="cm-step-guide-row" style="display:flex; gap:0.45rem; align-items:center;"><input type="checkbox" id="cm-step-guide"> <span data-i18n="cmStepGuide">Guide on plain paper (to line the fields up)</span></label>
         <p id="cm-step-hint" style="margin:0; font-size:0.8rem; color:var(--text-muted);"></p>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">

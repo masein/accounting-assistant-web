@@ -547,7 +547,7 @@ _reads(["/personal/net-worth", "/personal/holdings"], Perm.REPORTS_READ)
 # Same bar as reading transactions: a Viewer who can already see every entry
 # and the trial balance can infer the schedule anyway.
 _reads(["/commitments", "/commitments/summary", "/commitments/plans/{plan_id}",
-        "/commitments/{commitment_id}/history"],
+        "/commitments/{commitment_id}/history", "/commitments/print-layout"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 for _m, _p in [("POST", "/commitments/installments"), ("POST", "/commitments/cheques"),
                ("POST", "/commitments/{commitment_id}/settle"),
@@ -556,6 +556,9 @@ for _m, _p in [("POST", "/commitments/installments"), ("POST", "/commitments/che
                ("POST", "/commitments/{commitment_id}/return"),
                ("POST", "/commitments/{commitment_id}/endorse"),
                ("POST", "/commitments/{commitment_id}/sayad"),
+               ("POST", "/commitments/{commitment_id}/print"),
+               ("PUT", "/commitments/print-layout"), ("POST", "/commitments/print-layout/reset"),
+               ("POST", "/commitments/print-test"),
                ("DELETE", "/commitments/{commitment_id}")]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 # --- Fixed-asset register ---------------------------------------------------

@@ -92,8 +92,9 @@ class VendorSpendRow(BaseModel):
 
 
 class MonthlySeriesRow(BaseModel):
-    period: str
+    period: str          # "YYYY-MM" in the company's calendar ("1405-07" = Mehr 1405)
     value: int
+    label: str | None = None
 
 
 class ProfitabilityRow(BaseModel):

@@ -789,10 +789,15 @@ def my_payslips(db: Session = Depends(get_db)) -> dict:
 def year_summary(year: int | None = None, entity_id: UUID | None = None, db: Session = Depends(get_db)) -> dict:
     """Per-employee year-to-date totals across all runs whose pay_date falls in
     ``year`` (defaults to the current year). Totals tie to the sum of the
-    underlying pay-run lines."""
+    underlying pay-run lines.
+
+    The company's year (roadmap §3.5): an Iranian company's default is the
+    Jalali year (1405 = 21 Mar 2026 – 20 Mar 2027), and a year below 1700 is
+    always read as Jalali."""
+    from app.services.calendar_periods import company_calendar, year_bounds, year_of
     if year is None:
-        year = date.today().year
-    start, end = date(year, 1, 1), date(year, 12, 31)
+        year = year_of(date.today(), company_calendar(db))
+    start, end = year_bounds(year)
     q = (
         select(PayRunLine, PayRun)
         .join(PayRun, PayRunLine.run_id == PayRun.id)

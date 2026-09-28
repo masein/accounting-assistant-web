@@ -105,7 +105,7 @@
     }
     document.getElementById('date').addEventListener('change', updateJalaliHint);
     updateJalaliHint();
-    document.getElementById('budget-month').value = new Date().toISOString().slice(0, 7);
+    document.getElementById('budget-month').value = currentMonthKey();
     if (mgrFromDateEl) mgrFromDateEl.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
     if (mgrToDateEl) mgrToDateEl.value = new Date().toISOString().slice(0, 10);
     if (invFromDateEl) invFromDateEl.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
@@ -623,6 +623,7 @@
             const data = await r.json();
             window.__DISPLAY_CALENDAR = data.calendar;
             if (status) status.textContent = 'Saved: ' + data.calendar;
+            if (typeof applyCalendarMonthPickers === 'function') applyCalendarMonthPickers();
           } else {
             const data = await r.json().catch(() => ({}));
             if (status) status.textContent = (data.detail || 'Failed to save.');

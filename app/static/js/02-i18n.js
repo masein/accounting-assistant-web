@@ -8830,6 +8830,7 @@
         // The exchange-rate table and the rate feeds are drawn by script too.
         if (typeof fxRelocalize === 'function') fxRelocalize();
         if (typeof window.aiRelocalize === 'function') window.aiRelocalize();
+        if (typeof applyCalendarMonthPickers === 'function') applyCalendarMonthPickers();   // month names
       } catch (_) {}
     }
 

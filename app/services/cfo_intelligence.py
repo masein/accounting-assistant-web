@@ -215,8 +215,10 @@ class CFOReport:
     health_grade: str = "A"  # A, B, C, D, F
 
 
-def _month_key(d: date) -> str:
-    return d.strftime("%Y-%m")
+def _month_key(d: date, cal: str = "gregorian") -> str:
+    """In the company's calendar (roadmap §3.5): "1405-07" for Mehr."""
+    from app.services.calendar_periods import month_key
+    return month_key(d, cal)
 
 
 # Locale-specific account-code prefixes for the three "live" buckets the
@@ -281,6 +283,8 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
 
     code_map = _resolve_code_map(db)
     cash_prefixes = code_map["cash"]
+    from app.services.calendar_periods import company_calendar
+    cal = company_calendar(db)
     ar_prefixes = code_map["ar"]
     ap_prefixes = code_map["ap"]
 
@@ -296,7 +300,7 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
     total_payable_ledger = 0
 
     for txn in txns:
-        month = _month_key(txn.date)
+        month = _month_key(txn.date, cal)
         for ln in txn.lines:
             code = ln.account.code or ""
             # one currency's own amounts, else every currency at base value (roadmap §4.6)
@@ -375,8 +379,10 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en")
     cash_in_vals = list(data["monthly_cash_in"].values())
     cash_out_vals = list(data["monthly_cash_out"].values())
 
-    current_month = _month_key(date.today())
-    prev_month = _month_key(date.today().replace(day=1) - timedelta(days=1))
+    from app.services.calendar_periods import company_calendar, previous_month_key
+    cal = company_calendar(db)
+    current_month = _month_key(date.today(), cal)
+    prev_month = previous_month_key(date.today(), cal)
 
     cur_rev = data["monthly_revenue"].get(current_month, 0)
     prev_rev = data["monthly_revenue"].get(prev_month, 0)

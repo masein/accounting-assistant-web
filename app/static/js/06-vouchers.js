@@ -369,7 +369,7 @@
     }
 
     async function loadBudgets() {
-      const monthVal = document.getElementById('budget-month').value || new Date().toISOString().slice(0, 7);
+      const monthVal = document.getElementById('budget-month').value || currentMonthKey();
       try {
         const res = await fetch(API + '/budgets/actual-vs-budget?month=' + encodeURIComponent(monthVal));
         const data = await res.json();

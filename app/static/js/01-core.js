@@ -104,6 +104,78 @@
       return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     }
 
+    // A period key from a report: "1405-07" (Jalali, year < 1700) → "مهر ۱۴۰۵" /
+    // "Mehr 1405"; "2026-09" → "Sep 2026"; "1405-Q1" → "بهار ۱۴۰۵" (§3.5).
+    const _J_MONTHS = { fa: ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'],
+      en: ['Farvardin','Ordibehesht','Khordad','Tir','Mordad','Shahrivar','Mehr','Aban','Azar','Dey','Bahman','Esfand'] };
+    const _SEASONS = { fa: ['بهار','تابستان','پاییز','زمستان'], en: ['Spring','Summer','Autumn','Winter'] };
+    function formatPeriodKey(key) {
+      const s = String(key || '');
+      const lang = (typeof currentLanguage !== 'undefined' && currentLanguage === 'fa') ? 'fa' : 'en';
+      const digits = (x) => lang === 'fa' ? String(x).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]) : String(x);
+      let m = /^(\d{4})-(\d{2})$/.exec(s);
+      if (m) {
+        const y = +m[1], mo = +m[2];
+        if (y < 1700) return _J_MONTHS[lang][mo - 1] + ' ' + digits(y);
+        try { return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString(lang === 'fa' ? 'fa-IR-u-ca-gregory' : 'en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+        catch (_) { return s; }
+      }
+      m = /^(\d{4})-Q([1-4])$/.exec(s);
+      if (m && +m[1] < 1700) return _SEASONS[lang][+m[2] - 1] + ' ' + digits(m[1]);
+      return s;
+    }
+
+    // This month's key in the display calendar ("1405-07" or "2026-09").
+    function currentMonthKey(d) {
+      const dt = d || new Date();
+      if ((window.__DISPLAY_CALENDAR || 'gregorian') === 'jalali') {
+        const { jy, jm } = gregorianToJalali(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+        return jy + '-' + String(jm).padStart(2, '0');
+      }
+      return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
+    }
+
+    // Month pickers (budgets) in the display calendar: an Iranian company
+    // budgets by Jalali month (§3.5). The <input type=month> stays — it holds
+    // the key, "1405-07" being a valid value — and a Jalali month list beside it
+    // sets it, so code reading .value and its change listeners are unchanged.
+    const CALENDAR_MONTH_INPUTS = ['budget-month', 'pd-budget-month'];
+    function applyCalendarMonthPickers() {
+      const jalali = (window.__DISPLAY_CALENDAR || 'gregorian') === 'jalali';
+      CALENDAR_MONTH_INPUTS.forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        let sel = document.getElementById(id + '-jalali');
+        if (!jalali) {
+          if (sel) sel.remove();
+          input.hidden = false;
+          if (/^1[0-6]\d\d-/.test(input.value)) input.value = currentMonthKey();
+          return;
+        }
+        if (!/^1[0-6]\d\d-\d\d$/.test(input.value)) input.value = currentMonthKey();
+        if (!sel) {
+          sel = document.createElement('select');
+          sel.id = id + '-jalali';
+          const label = document.querySelector('label[for="' + id + '"]');
+          if (label) label.setAttribute('for', sel.id);
+          input.insertAdjacentElement('afterend', sel);
+          sel.addEventListener('change', () => {
+            input.value = sel.value;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        }
+        const [cy, cm] = currentMonthKey().split('-').map(Number);
+        const keys = [];
+        for (let i = -12; i <= 12; i++) {
+          const idx = cy * 12 + (cm - 1) + i;
+          keys.push(Math.floor(idx / 12) + '-' + String(idx % 12 + 1).padStart(2, '0'));
+        }
+        sel.innerHTML = keys.map(k => '<option value="' + k + '">' + escapeHtml(formatPeriodKey(k)) + '</option>').join('');
+        sel.value = keys.includes(input.value) ? input.value : currentMonthKey();
+        input.hidden = true;
+      });
+    }
+
     async function loadDisplayCalendar() {
       try {
         const r = await fetch(API + '/admin/display-calendar');
@@ -113,6 +185,7 @@
         const sel = document.getElementById('display-calendar-select');
         if (sel) sel.value = window.__DISPLAY_CALENDAR;
       } catch (_) {}
+      applyCalendarMonthPickers();
     }
 
     // Standard zoom-plugin options applied to line / time-series charts.

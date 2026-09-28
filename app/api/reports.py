@@ -393,8 +393,9 @@ def get_owner_dashboard(
     # invoice write, so a worker that didn't see the write still misses.
     from app.core.shared_state import books_version, current_scope, platform_version
     scope = current_scope()
+    from app.services.calendar_periods import company_calendar as _cal
     cache_key = (f"dashboard:{scope}:{books_version(db, scope)}:{platform_version(db)}:"
-                 f"{months_back}:{currency}")
+                 f"{months_back}:{currency}:{_cal(db)}")
     now = _time.time()
     cached = _dashboard_cache.get(cache_key)
     if cached and (now - cached[0]) < _DASHBOARD_CACHE_TTL:
@@ -404,6 +405,9 @@ def get_owner_dashboard(
     # Chart-of-accounts conventions differ by locale; resolve the cash /
     # receivable / current-liability predicates once up front so the KPI
     # aggregation works for the UK (and any non-Iranian) chart, not just Iran.
+    # Months are the company's months: Jalali for an Iranian company (§3.5).
+    from app.services.calendar_periods import company_calendar, last_n_months, month_key, month_label
+    cal = company_calendar(db)
     locale = get_reporting_locale(db)
     _is_receivable = _receivable_predicate(locale)
     _is_current_liab = _current_liability_predicate(locale)
@@ -468,7 +472,7 @@ def get_owner_dashboard(
             missing_reference += 1
         if not t_links:
             unlinked_entities += 1
-        month = _month_key(t_date)
+        month = month_key(t_date, cal)
         txn_revenue = 0
         txn_expense = 0
         receivable_delta = 0
@@ -542,13 +546,11 @@ def get_owner_dashboard(
     # Shared with the CFO/CEO engine via cash_service so both agree (AI-6).
     cash_on_hand = _cash_on_hand_balance(db, locale=locale, currency=currency, as_of=today)
 
-    current_month = _month_key(today)
+    current_month = month_key(today, cal)
     monthly_net = monthly_revenue.get(current_month, 0) - monthly_expense.get(current_month, 0)
 
-    recent_months = []
-    for i in range(3):
-        m = (today.replace(day=1) - timedelta(days=i * 31))
-        recent_months.append(_month_key(m))
+    # this month and the two before it, in the company's calendar (§3.5)
+    recent_months = [p.key for p in last_n_months(today, 3, cal)][::-1]
     burn_values = [monthly_expense.get(m, 0) for m in recent_months]
     burn_rate = int(mean(burn_values)) if burn_values else 0
     runway_months = round(cash_on_hand / burn_rate, 1) if burn_rate > 0 else None
@@ -586,7 +588,8 @@ def get_owner_dashboard(
     vendor_rows = [VendorSpendRow(vendor=k, amount=v) for k, v in sorted(spend_by_vendor.items(), key=lambda x: x[1], reverse=True)[:8]]
 
     series_keys = sorted(set(monthly_revenue.keys()) | set(monthly_expense.keys()))
-    monthly_expense_series = [MonthlySeriesRow(period=m, value=monthly_expense.get(m, 0)) for m in series_keys[-12:]]
+    monthly_expense_series = [MonthlySeriesRow(period=m, value=monthly_expense.get(m, 0), label=month_label(m))
+                              for m in series_keys[-12:]]
 
     profitability_rows: list[ProfitabilityRow] = []
     for client, vals in profitability.items():

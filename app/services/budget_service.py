@@ -9,7 +9,6 @@ transaction into Python.
 """
 from __future__ import annotations
 
-from calendar import monthrange
 from datetime import date
 
 from sqlalchemy import select
@@ -21,9 +20,11 @@ from app.services.reporting.common import EXPENSE, classify_account_code
 
 
 def month_bounds(month: str) -> tuple[date, date]:
-    """'YYYY-MM' → (first day, last day)."""
-    year, mon = int(month[:4]), int(month[5:7])
-    return date(year, mon, 1), date(year, mon, monthrange(year, mon)[1])
+    """'YYYY-MM' → (first day, last day), in the calendar the year says:
+    '1405-07' is Mehr 1405 (23 Sep – 22 Oct 2026), '2026-09' is September
+    (roadmap §3.5 — an Iranian company budgets by Jalali month)."""
+    from app.services.calendar_periods import key_bounds
+    return key_bounds(month)
 
 
 def expense_actuals_by_category(db: Session, month: str) -> dict[str, int]:

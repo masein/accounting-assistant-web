@@ -917,6 +917,17 @@
 
 /* Installable app (roadmap §4.10): the camera button only where there is a camera to point */
 .ai-camera-btn { display: none; }
+.ai-mic-btn.recording { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; animation: ai-mic-pulse 1.2s ease-in-out infinite; }
+.ai-mic-btn.busy { opacity: 0.6; cursor: progress; }
+/* Phones: with camera, attach and microphone the text box had no room —
+   it takes the first row, the buttons the second. */
+@media (max-width: 560px) {
+  .ai-composer { flex-wrap: wrap; row-gap: 0.45rem; }
+  .ai-composer .ai-input { order: -1; flex: 1 1 100%; }
+  .ai-composer .ai-send { margin-inline-start: auto; }
+}
+@keyframes ai-mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); } 50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); } }
+@media (prefers-reduced-motion: reduce) { .ai-mic-btn.recording { animation: none; } }
 @media (pointer: coarse) { .ai-camera-btn { display: inline-flex; } }
 
 /* Historical journal import (roadmap §4.11): the column mapper */

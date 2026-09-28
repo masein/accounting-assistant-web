@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.5"
+CURRENT_RELEASE = "2026.09.28.6"
 
 
 @dataclass(frozen=True)
@@ -822,6 +822,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "ردیف صورت‌حساب بانک را به حسابی غیر از پیشنهادی ثبت کنید، سندی را به حساب دیگری ببرید یا طرف حسابش را عوض کنید — ردیف یا سند بعدی با همان عبارت انتخاب شما را می‌گیرد. می‌توانید فقط بگویید «همیشه اسنپ رو بزن تو ایاب و ذهاب». صفحهٔ گفتگو آنچه یاد گرفته را نشان می‌دهد («آنچه یاد گرفته‌ام») و هر کدام را می‌شود حذف کرد.",
                     "es": "Contabiliza una línea del extracto en otra cuenta que la sugerida, mueve un asiento a otra cuenta o cambia su tercero, y la próxima línea o asiento con el mismo texto recibirá tu elección. También puedes decir «pon siempre Snapp en desplazamientos». La página del chat muestra lo aprendido («Lo que he aprendido») y se puede borrar.",
                     "ar": "رحّل سطر كشف البنك إلى حساب غير المقترح، أو انقل قيدًا إلى حساب آخر أو غيّر طرفه — وسيحصل السطر أو القيد التالي بالعبارة نفسها على اختيارك. ويمكنك أن تقول ببساطة «ضع سناب دائمًا تحت التنقلات». تعرض صفحة المحادثة ما تعلّمه («ما تعلّمته») ويمكن حذف أي منه.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.6",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="voice-notes",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Say it instead of typing it",
+                    "fa": "به‌جای تایپ، بگویید",
+                    "es": "Dilo en vez de escribirlo",
+                    "ar": "قُلها بدل كتابتها",
+                },
+                body={
+                    "en": "The AI chat has a microphone button: tap it, say \"paid 20 pounds for lunch from the card\" (or it in Persian), tap again. The text appears in the box for you to check, then send it as usual — nothing is saved until you confirm the card. The recording itself is never kept.",
+                    "fa": "گفتگوی هوشمند دکمهٔ میکروفون دارد: بزنید، بگویید «پنجاه هزار تومن نون از کارت خریدم» و دوباره بزنید. متن در کادر می‌آید تا بررسی کنید و مثل همیشه بفرستید — تا کارت را تأیید نکنید چیزی ثبت نمی‌شود. خود صدا هرگز نگه داشته نمی‌شود.",
+                    "es": "El chat con IA tiene un botón de micrófono: tócalo, di «pagué 20 libras de comida con la tarjeta» y vuelve a tocarlo. El texto aparece en el cuadro para que lo revises y lo envíes como siempre; nada se guarda hasta que confirmes la tarjeta. La grabación nunca se conserva.",
+                    "ar": "في محادثة الذكاء الاصطناعي زر ميكروفون: اضغطه، وقل «دفعت 20 جنيهًا للغداء بالبطاقة»، ثم اضغطه ثانية. يظهر النص في المربع لتراجعه ثم ترسله كالمعتاد — لا يُحفظ شيء حتى تؤكد البطاقة. ولا يُحتفظ بالتسجيل نفسه أبدًا.",
                 },
             ),
         ),

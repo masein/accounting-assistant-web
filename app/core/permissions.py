@@ -435,6 +435,7 @@ for _m, _p in [
     _add(_m, _p, Perm.BOOKS_WRITE)
 # What the assistant learned from corrections (roadmap §5.4).
 _reads(["/ai-accountant/preferences"], Perm.BOOKS_READ)
+_add("POST", "/ai-accountant/transcribe", Perm.BOOKS_WRITE)      # voice notes (roadmap §5.7)
 _add("POST", "/ai-accountant/preferences", Perm.BOOKS_WRITE)
 _add("DELETE", "/ai-accountant/preferences/{pref_id}", Perm.BOOKS_WRITE)
 

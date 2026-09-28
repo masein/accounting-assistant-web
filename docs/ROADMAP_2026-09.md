@@ -246,6 +246,15 @@ overlap, else every learned word present. Chat page → "What I've learned"
 lists and forgets them (`/ai-accountant/preferences`). Undo/Reverse now only
 on confirmations that posted an entry.
 
+✅ 5.7, part 1 — voice notes (`app/services/speech.py`,
+`POST /ai-accountant/transcribe`): the chat's microphone button records
+(MediaRecorder, 2 min max) and the text lands in the input to check and send.
+Gemini through Metis first (`STT_GEMINI_MODEL`), then the active backend's
+OpenAI-compatible `/audio/transcriptions` (`STT_MODEL`,
+gpt-4o-mini-transcribe); format sniffed from the bytes, 10 MB cap, metered as
+purpose `speech`, budget-guarded; audio never stored. Next: part 2 — the
+Telegram/Bale bot (Bale speaks the Telegram Bot API) for linked users.
+
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
 amount within a week or same reference), payments/expense claims split just

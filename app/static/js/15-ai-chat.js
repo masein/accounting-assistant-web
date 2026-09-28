@@ -119,6 +119,12 @@
       // Drawn by script, so redrawn in a new language (02-i18n.js applyLanguage).
       window.aiRelocalize = () => {
         if (sessionListEl && Array.isArray(_sessionsCache)) renderSessionList(sessionSearchEl ? sessionSearchEl.value.trim() : '');
+        // a new, empty chat: its title and welcome were drawn in the old language
+        if (messagesEl && messagesEl.querySelector('.ai-empty') && !messagesEl.querySelector('.msg-row')) {
+          if (!sessionId) setChatTitle(t('chatUntitled'));
+          clearEmptyState();
+          renderEmptyState();
+        }
         const box = document.getElementById('ai-prefs');
         if (box && !box.hidden) aiLoadPreferences(false);
       };
@@ -991,6 +997,84 @@
         }
       });
       // Camera capture (phones): the photo goes through the same attach path.
+      // Voice notes (roadmap §5.7): record → /ai-accountant/transcribe → the
+      // text lands in the input for the user to check and send.
+      const micBtn = document.getElementById('ai-acct-mic');
+      const MIC_MAX_SECONDS = 120;
+      let _rec = null, _recChunks = [], _recTimer = null, _recStarted = 0;
+      function _micType() {
+        const types = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm'];
+        return types.find(tp => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(tp)) || '';
+      }
+      function _micTick() {
+        const secs = Math.floor((Date.now() - _recStarted) / 1000);
+        statusEl.textContent = tf('aiMicRecording', { time: Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0') });
+        if (secs >= MIC_MAX_SECONDS && _rec && _rec.state === 'recording') _rec.stop();
+      }
+      async function _micSend(blob) {
+        micBtn.classList.add('busy');
+        micBtn.disabled = true;
+        statusEl.textContent = t('aiMicTranscribing');
+        try {
+          const fd = new FormData();
+          fd.append('file', blob, 'voice-note');
+          const res = await fetch(API + '/ai-accountant/transcribe', { method: 'POST', body: fd });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.text) {
+            statusEl.textContent = '';
+            // 422: nothing understood — say so in the user's language; other
+            // refusals (the AI budget, the rate limit) carry their own reason
+            const why = res.status !== 422 && typeof data.detail === 'string' ? data.detail : '';
+            showAlert(why || t('aiMicFailed'), true);
+            return;
+          }
+          const cur = inputEl.value.trim();
+          inputEl.value = cur ? cur + ' ' + data.text : data.text;
+          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+          inputEl.focus();
+          statusEl.textContent = t('aiMicDone');
+        } catch (_) {
+          statusEl.textContent = '';
+          showAlert(t('aiMicFailed'), true);
+        } finally {
+          micBtn.classList.remove('busy');
+          micBtn.disabled = false;
+        }
+      }
+      if (micBtn && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder) {
+        micBtn.hidden = false;
+        micBtn.addEventListener('click', async () => {
+          if (_rec && _rec.state === 'recording') { _rec.stop(); return; }
+          let stream;
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          } catch (_) {
+            showAlert(t('aiMicDenied'), true);
+            return;
+          }
+          const type = _micType();
+          _rec = type ? new MediaRecorder(stream, { mimeType: type }) : new MediaRecorder(stream);
+          _recChunks = [];
+          _rec.addEventListener('dataavailable', (e) => { if (e.data && e.data.size) _recChunks.push(e.data); });
+          _rec.addEventListener('stop', () => {
+            clearInterval(_recTimer);
+            stream.getTracks().forEach(tr => tr.stop());
+            micBtn.classList.remove('recording');
+            micBtn.setAttribute('aria-pressed', 'false');
+            const blob = new Blob(_recChunks, { type: (_rec && _rec.mimeType) || type || 'audio/webm' });
+            _rec = null;
+            if (blob.size) _micSend(blob);
+            else statusEl.textContent = '';
+          });
+          _rec.start();
+          _recStarted = Date.now();
+          micBtn.classList.add('recording');
+          micBtn.setAttribute('aria-pressed', 'true');
+          _micTick();
+          _recTimer = setInterval(_micTick, 500);
+        });
+      }
+
       const cameraBtn = document.getElementById('ai-acct-camera-btn');
       const cameraInput = document.getElementById('ai-acct-camera');
       if (cameraBtn && cameraInput) {

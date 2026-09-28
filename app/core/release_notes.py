@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.10"
+CURRENT_RELEASE = "2026.09.28.11"
 
 
 @dataclass(frozen=True)
@@ -940,6 +940,30 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«اقساط و چک‌ها ← عملیات ← چاپ چک»: یک PDF به اندازه برگ چک با تاریخ و تاریخ به حروف، «در وجه» و کد/شناسه ملی گیرنده، و مبلغ به حروف و به عدد. با مقیاس ۱۰۰٪ و برگ چک در سینی دستی چاپ کنید. برگ چک بانک‌ها کمی فرق دارد؛ پس اول در بخش «چاپ چک» راهنما را روی کاغذ ساده چاپ کنید، روی یک برگ چک بگذارید و جای فیلدها را تنظیم کنید. هر چاپ در «گردش چک» ثبت می‌شود.",
                     "es": "Cuotas y cheques → Acciones → Imprimir cheque: un PDF del tamaño del cheque con la fecha, el beneficiario y su documento, y el importe en letras y en cifras. Imprímelo al 100 % con el cheque en la bandeja manual. Los cheques varían según el banco: imprime primero la guía en papel normal en «Impresión de cheques», colócala sobre un cheque y ajusta las posiciones. Cada impresión queda en el historial del cheque.",
                     "ar": "الأقساط والشيكات ← إجراءات ← طباعة الشيك: ملف PDF بحجم ورقة الشيك فيه التاريخ، والمستفيد ورقمه الوطني، والمبلغ كتابةً وبالأرقام. اطبعه بمقياس 100٪ والشيك في درج التغذية اليدوية. تختلف أوراق الشيكات بين البنوك، فاطبع الدليل أولًا على ورق عادي من «طباعة الشيكات»، وضعه على شيك واضبط المواضع. تُحفظ كل طباعة في سجل الشيك.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.11",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="uk-frs102-statements",
+                page="manager",
+                roles=("owner", "cfo", "accountant", "manager", "viewer"),
+                locales=("uk",),
+                title={
+                    "en": "UK statements, complete",
+                    "fa": "صورت‌های مالی بریتانیا، کامل",
+                    "es": "Estados financieros del Reino Unido, completos",
+                    "ar": "القوائم المالية البريطانية كاملة",
+                },
+                body={
+                    "en": "The FRS 102 statements now come entirely from your books: every account is on the balance sheet (accrued income and prepayments were missing), sales returns reduce turnover, depreciation and amortisation are stated, a revaluation shows as other comprehensive income, the changes in equity list shares issued, dividends and transfers for both years and close on the balance sheet, and the cash flow shows dividends paid, directors' loans and a reconciliation of operating profit to cash generated from operations.",
+                    "fa": "صورت‌های مالی FRS 102 اکنون کاملاً از دفاتر شما ساخته می‌شوند: همه حساب‌ها در ترازنامه هستند، برگشت از فروش از درآمد کم می‌شود، استهلاک نمایش داده می‌شود، تجدید ارزیابی در سود جامع دیگر می‌آید، تغییرات حقوق مالکانه صدور سهام، سود سهام و انتقال بین اندوخته‌ها را برای هر دو سال نشان می‌دهد و با ترازنامه می‌خواند، و صورت جریان نقد سود سهام پرداختی، وام مدیران و تطبیق سود عملیاتی با نقد حاصل از عملیات را دارد.",
+                    "es": "Los estados FRS 102 salen ahora por completo de tu contabilidad: todas las cuentas están en el balance, las devoluciones reducen la cifra de negocios, se indica la amortización, una revalorización aparece como otro resultado integral, los cambios en el patrimonio muestran emisiones, dividendos y traspasos de ambos años y cuadran con el balance, y el flujo de caja muestra dividendos pagados, préstamos de administradores y la conciliación del resultado de explotación con la caja generada.",
+                    "ar": "تُبنى قوائم FRS 102 الآن بالكامل من دفاترك: كل الحسابات في الميزانية، ومردودات المبيعات تخفض الإيرادات، ويُفصح عن الاستهلاك والإطفاء، وتظهر إعادة التقييم في الدخل الشامل الآخر، وتعرض التغيرات في حقوق الملكية إصدار الأسهم والتوزيعات والتحويلات لكلا العامين وتطابق الميزانية، وتعرض التدفقات النقدية التوزيعات المدفوعة وقروض المديرين وتسوية الربح التشغيلي مع النقد الناتج من العمليات.",
                 },
             ),
         ),

@@ -961,17 +961,29 @@
             <div><label for="cm-c-amount" data-i18n="cmFieldAmount">Amount</label><input type="number" id="cm-c-amount" min="1" step="1"></div>
             <div><label for="cm-c-due" data-i18n="cmFieldDue">Due date</label><input type="date" id="cm-c-due"></div>
             <div><label for="cm-c-ref" data-i18n="cmFieldChequeNo">Cheque no.</label><input type="text" id="cm-c-ref"></div>
+            <div><label for="cm-c-sayad" data-i18n="cmFieldSayad">Sayad id</label><input type="text" id="cm-c-sayad" inputmode="numeric" maxlength="19" dir="ltr" data-i18n-placeholder="cmSayadPlaceholder" placeholder="16 digits"></div>
             <div><label for="cm-c-bank" data-i18n="cmFieldBank">Bank</label><input type="text" id="cm-c-bank"></div>
             <div><label for="cm-c-dir" data-i18n="cmFieldDirection">Direction</label>
               <select id="cm-c-dir"><option value="pay" data-i18n="cmDirPay">I pay</option><option value="receive" data-i18n="cmDirReceive">I receive</option></select></div>
+            <div><label for="cm-c-inv" data-i18n="cmFieldInvoice">Invoice / bill it pays</label><select id="cm-c-inv"></select></div>
             <div><label for="cm-c-acct" data-i18n="cmFieldAccount">Account (optional)</label><select id="cm-c-acct"></select></div>
+            <div><label for="cm-c-on" data-i18n="cmFieldOn">Received / issued on</label><input type="date" id="cm-c-on"></div>
             <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="cm-c-save" data-i18n="cmCreateCheque">Add cheque</button></div>
           </div>
         </div>
       </div>
 
-      <h3 data-i18n="cmUpcoming" style="margin-top:1rem;">Upcoming</h3>
-      <div style="overflow-x:auto;"><table class="mini-table"><thead><tr>
+      <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; margin-top:1rem;">
+        <h3 data-i18n="cmUpcoming" style="margin:0;">Upcoming</h3>
+        <div><label for="cm-filter" data-i18n="cmShow" style="font-size:0.8rem;">Show</label>
+          <select id="cm-filter">
+            <option value="open" data-i18n="cmShowOpen">Open</option>
+            <option value="cheque" data-i18n="cmShowCheques">Cheques</option>
+            <option value="installment" data-i18n="cmShowInstallments">Installments</option>
+            <option value="all" data-i18n="cmShowAll">All</option>
+          </select></div>
+      </div>
+      <div style="overflow-x:auto;"><table class="mini-table cm-table"><thead><tr>
         <th data-i18n="cmColDue">Due</th><th data-i18n="cmColWhat">What</th>
         <th data-i18n="cmColAmount">Amount</th><th data-i18n="cmColStatus">Status</th>
         <th data-i18n="cmColActions">Actions</th>
@@ -2893,6 +2905,30 @@
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
         <button type="button" class="btn btn-secondary" id="ui-confirm-cancel">Cancel</button>
         <button type="button" class="btn btn-primary" id="ui-confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+  <!-- A step in a cheque's life (roadmap §3.4): deposit, clear, bounce, return, pass on, Sayad. -->
+  <div id="cm-step-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="cm-step-title" style="display: none;">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 id="cm-step-title"></h2>
+        <button type="button" class="modal-close" aria-label="Close" id="cm-step-close">×</button>
+      </div>
+      <div style="padding: 1rem 1.25rem; display:grid; gap:0.6rem;">
+        <p id="cm-step-what" style="margin:0; color:var(--text-muted); font-size:0.875rem;" dir="auto"></p>
+        <div id="cm-step-date-row"><label for="cm-step-date" data-i18n="cmStepDate">Date</label><input type="date" id="cm-step-date" style="width:100%;"></div>
+        <div id="cm-step-bank-row"><label for="cm-step-bank" data-i18n="cmStepBank">Bank account</label><select id="cm-step-bank" style="width:100%;"></select></div>
+        <div id="cm-step-sayad-row"><label for="cm-step-sayad" data-i18n="cmStepSayad">Sayad id (16 digits)</label><input type="text" id="cm-step-sayad" inputmode="numeric" maxlength="19" dir="ltr" style="width:100%;"></div>
+        <div id="cm-step-bill-row"><label for="cm-step-bill" data-i18n="cmStepBill">Bill it pays (optional)</label><select id="cm-step-bill" style="width:100%;"></select></div>
+        <div id="cm-step-to-row"><label for="cm-step-to" data-i18n="cmStepTo">Passed to</label><input type="text" id="cm-step-to" style="width:100%;"></div>
+        <div id="cm-step-acct-row"><label for="cm-step-acct" data-i18n="cmStepAccount">Their account</label><select id="cm-step-acct" style="width:100%;"></select></div>
+        <div id="cm-step-note-row"><label for="cm-step-note" data-i18n="cmStepNote">Note</label><input type="text" id="cm-step-note" maxlength="500" style="width:100%;"></div>
+        <p id="cm-step-hint" style="margin:0; font-size:0.8rem; color:var(--text-muted);"></p>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
+        <button type="button" class="btn btn-secondary" id="cm-step-cancel" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="cm-step-ok" data-i18n="cmStepSave">Save</button>
       </div>
     </div>
   </div>

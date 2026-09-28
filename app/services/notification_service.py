@@ -384,17 +384,31 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
     # consequences well beyond the bookkeeping, so warn before the date, not
     # after. Overdue stays on the feed until it is settled or written off.
     try:
-        from app.models.commitment import BOUNCED, CHEQUE, PENDING, Commitment
+        from app.models.commitment import BOUNCED, CHEQUE, OPEN_STATUSES, Commitment
+        from app.services.cheques import needs_sayad
 
         due_rows = db.execute(
-            select(Commitment).where(Commitment.status.in_([PENDING, BOUNCED]))
+            select(Commitment).where(Commitment.status.in_(OPEN_STATUSES))
         ).scalars().all()
         for c in due_rows:
+            # سامانه صیاد: an issued cheque not registered, or a received one
+            # not confirmed, is refused when presented — nudge in the month
+            # before it falls due, until it is (§3.4).
+            if needs_sayad(db, c) and (c.due_date - today).days <= 30:
+                _upsert(db, seen, dedupe_key=f"cheque-sayad-{c.id}", kind="commitment", level="warning",
+                        title=(f"Register cheque in Sayad: {c.title}" if c.direction == "pay"
+                               else f"Confirm cheque in Sayad: {c.title}"),
+                        message=(f"{c.amount:,} due {c.due_date.isoformat()} — "
+                                 + ("an issued cheque must be registered in the Sayad system (صیاد) to be honoured."
+                                    if c.direction == "pay" else
+                                    "confirm receiving it in the Sayad system (صیاد) through your bank's app.")),
+                        link_page="commitments", due_date=c.due_date)
             overdue = c.due_date < today
             if not overdue and c.due_date > soon:
                 continue
             if c.status == BOUNCED:
-                level, when = "high", f"bounced — still outstanding ({c.due_date.isoformat()})"
+                level, when = "high", (f"bounced — {'the customer owes it again' if c.direction == 'receive' else 'still owed'}"
+                                       f" ({c.due_date.isoformat()})")
             elif overdue:
                 level, when = "high", f"{(today - c.due_date).days} day(s) overdue ({c.due_date.isoformat()})"
             else:

@@ -76,13 +76,13 @@ def resolve_scenario(db: Session, *, bounce_ids=(), bounce_matching: str | None 
     """Turn a what-if request into a checked :class:`Scenario`, with a note for
     everything that could not be applied (so the caller can say so instead of
     silently forecasting the base case)."""
-    from app.models.commitment import PENDING, Commitment
+    from app.models.commitment import DEPOSITED, PENDING, Commitment
     from app.models.entity import Entity
     from app.models.invoice import Invoice
 
     sc = Scenario()
     notes: list[str] = []
-    pending = db.execute(select(Commitment).where(Commitment.status == PENDING)).scalars().all()
+    pending = db.execute(select(Commitment).where(Commitment.status.in_((PENDING, DEPOSITED)))).scalars().all()
     by_id = {c.id: c for c in pending}
     for raw in bounce_ids or ():
         cid = _uuid(raw)
@@ -208,7 +208,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
                     scenario: Scenario, lateness: dict, company_lateness: int,
                     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """(the dated flows, the doubtful receivables left out of them)."""
-    from app.models.commitment import PAY, PENDING, RECEIVE, Commitment
+    from app.models.commitment import DEPOSITED, PAY, PENDING, RECEIVE, Commitment
     from app.models.pay_run import PayRun
     from app.models.recurring import RecurringRule
     from app.models.recurring_invoice import RecurringInvoice
@@ -238,26 +238,34 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
         return int(scenario.delay_entities.get(str(entity_id), 0)) if entity_id else 0
 
     # Commitments carry no currency: they are in the base currency.
-    commitments = (db.execute(select(Commitment).where(Commitment.status == PENDING)).scalars().all()
+    # A deposited cheque is money on its way too (§3.4).
+    commitments = (db.execute(select(Commitment).where(Commitment.status.in_((PENDING, DEPOSITED)))).scalars().all()
                    if currency == base_currency else [])
     # A cheque (or installment) given for an invoice IS that invoice's payment:
     # pair a pending one with an open invoice of the same party, direction and
     # amount and count the money once, on the cheque's date. Bouncing the
     # cheque then takes the invoice's money out of the horizon too.
+    # A cheque recorded for the invoice says so; otherwise the same party and
+    # amount is taken as a match.
+    linked = {c.invoice_id: c for c in commitments if c.invoice_id}
     unpaired: dict = defaultdict(list)
     for c in sorted(commitments, key=lambda c: c.due_date):
-        if c.entity_id:
+        if c.entity_id and not c.invoice_id:
             unpaired[(c.entity_id, c.direction, int(c.amount or 0))].append(c)
     covers: dict = {}
     skip_commitments: set[str] = set()
     for inv, due_amount in _open_invoices(db, currency):
-        paired = unpaired.get((inv.entity_id, RECEIVE if inv.kind == "sales" else PAY, due_amount))
-        if paired:
-            c = paired.pop(0)
+        c = linked.get(inv.id)
+        if c is None:
+            paired = unpaired.get((inv.entity_id, RECEIVE if inv.kind == "sales" else PAY, due_amount))
+            c = paired.pop(0) if paired else None
+        if c is not None:
             covers[c.id] = inv
             if str(inv.id) in scenario.skip_invoices:
                 skip_commitments.add(str(c.id))
-            continue
+            due_amount -= int(c.amount or 0)
+            if due_amount <= 0:
+                continue                         # the cheque is the whole payment
         if str(inv.id) in scenario.skip_invoices:
             continue
         if inv.kind == "sales":

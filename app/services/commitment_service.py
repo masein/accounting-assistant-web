@@ -15,9 +15,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.commitment import (
-    BOUNCED,
     CHEQUE,
     INSTALLMENT,
+    OPEN_STATUSES,
     PAY,
     PENDING,
     RECEIVE,
@@ -99,17 +99,15 @@ def create_cheque(
     counterparty: str | None = None,
     counter_account_code: str | None = None,
     note: str | None = None,
+    **more,
 ) -> Commitment:
-    if amount <= 0:
-        raise HTTPException(status_code=400, detail="Cheque amount must be positive")
-    row = Commitment(
-        kind=CHEQUE, direction=direction, title=title, amount=amount,
-        due_date=due_date, status=PENDING, reference=reference, bank_name=bank_name,
-        counterparty=counterparty, counter_account_code=counter_account_code, note=note,
+    """A cheque received or issued — its whole life is in ``cheques``."""
+    from app.services import cheques
+    return cheques.record(
+        db, title=title, amount=amount, due_date=due_date, direction=direction, reference=reference,
+        bank_name=bank_name, counterparty=counterparty, counter_account_code=counter_account_code,
+        note=note, **more,
     )
-    db.add(row)
-    db.flush()
-    return row
 
 
 def settle(db: Session, row: Commitment, *, on: date | None = None, post: bool = True) -> Commitment:
@@ -118,6 +116,9 @@ def settle(db: Session, row: Commitment, *, on: date | None = None, post: bool =
     Money out (paying an installment, an issued cheque clearing) debits the
     counter account and credits the bank; money in does the reverse.
     """
+    if row.kind == CHEQUE:
+        from app.services import cheques
+        return cheques.clear(db, row, on=on, post=post)
     if row.status == SETTLED:
         raise HTTPException(status_code=400, detail="Already settled")
     when = on or date.today()
@@ -155,14 +156,13 @@ def settle(db: Session, row: Commitment, *, on: date | None = None, post: bool =
     return row
 
 
-def mark_bounced(db: Session, row: Commitment) -> Commitment:
+def mark_bounced(db: Session, row: Commitment, *, on: date | None = None) -> Commitment:
     """A cheque that didn't clear. Stays outstanding — the money is still owed,
     which is exactly why it must not read as settled."""
     if row.kind != CHEQUE:
         raise HTTPException(status_code=400, detail="Only a cheque can bounce")
-    row.status = BOUNCED
-    db.flush()
-    return row
+    from app.services import cheques
+    return cheques.bounce(db, row, on=on)
 
 
 def plan_summary(db: Session, plan_id: uuid.UUID) -> dict:
@@ -185,7 +185,7 @@ def plan_summary(db: Session, plan_id: uuid.UUID) -> dict:
 
 def outstanding(db: Session, *, direction: str | None = None) -> Iterable[Commitment]:
     """Everything still owed or awaited, soonest first."""
-    q = select(Commitment).where(Commitment.status.in_([PENDING, BOUNCED]))
+    q = select(Commitment).where(Commitment.status.in_(OPEN_STATUSES))
     if direction:
         q = q.where(Commitment.direction == direction)
     return db.execute(q.order_by(Commitment.due_date)).scalars().all()
@@ -193,9 +193,14 @@ def outstanding(db: Session, *, direction: str | None = None) -> Iterable[Commit
 
 def totals(db: Session) -> dict:
     rows = list(outstanding(db))
+    cheques = [r for r in rows if r.kind == CHEQUE and r.direction == RECEIVE]
     return {
         "payable": sum(r.amount for r in rows if r.direction == PAY),
         "receivable": sum(r.amount for r in rows if r.direction == RECEIVE),
         "count": len(rows),
         "next_due_date": min((r.due_date for r in rows), default=None),
+        # received cheques by where they are (§3.4)
+        "cheques_in_hand": sum(r.amount for r in cheques if r.status == PENDING),
+        "cheques_at_bank": sum(r.amount for r in cheques if r.status == "deposited"),
+        "cheques_bounced": sum(r.amount for r in rows if r.kind == CHEQUE and r.status == "bounced"),
     }

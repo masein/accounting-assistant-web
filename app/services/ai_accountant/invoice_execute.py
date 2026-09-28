@@ -48,13 +48,15 @@ def execute_invoice_proposal(
                           detail={"number": read.number, "kind": read.kind, "amount": read.amount, "party": p.get("party")}, **common)
         return txn_id, audit_id
 
-    if name in ("propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque"):
+    if name in ("propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque", "propose_cheque_step"):
         from app.models.commitment import Commitment
         from app.services import commitment_service as cs
         if name == "propose_create_cheque":
             row = cs.create_cheque(db, title=p["title"], amount=int(p["amount"]), due_date=date.fromisoformat(p["due_date"]),
                                    direction=p["direction"], reference=p.get("reference"), bank_name=p.get("bank_name"),
-                                   counterparty=p.get("counterparty"), counter_account_code=p.get("counter_account_code"))
+                                   counterparty=p.get("counterparty"), counter_account_code=p.get("counter_account_code"),
+                                   sayad_id=p.get("sayad_id"),
+                                   invoice_id=UUID(p["invoice_id"]) if p.get("invoice_id") else None)
             db.flush()
             audit_id = _audit(db, proposal, entity_type="commitment", entity_id=str(row.id),
                               detail={"kind": "cheque", "title": row.title, "amount": row.amount, "due": row.due_date.isoformat()}, **common)
@@ -68,9 +70,36 @@ def execute_invoice_proposal(
             audit_id = _audit(db, proposal, entity_type="commitment", entity_id=str(row.id),
                               detail={"action": "settle", "title": row.title, "amount": row.amount, "on": p["date"], "transaction_id": txn_id}, **common)
             return txn_id, audit_id
+        if name == "propose_cheque_step":
+            from app.services import cheques
+            on = date.fromisoformat(p["date"])
+            if p["action"] == "deposit":
+                cheques.deposit(db, row, on=on)
+            elif p["action"] == "return":
+                cheques.return_cheque(db, row, on=on)
+            else:
+                cheques.endorse(db, row, to=p.get("to") or "", on=on, account_code=p.get("account_code"),
+                                invoice_id=UUID(p["invoice_id"]) if p.get("invoice_id") else None)
+            txn_id = _last_entry(db, row)
+            audit_id = _audit(db, proposal, entity_type="commitment", entity_id=str(row.id),
+                              detail={"action": p["action"], "title": row.title, "amount": row.amount, "on": p["date"],
+                                      "transaction_id": txn_id}, **common)
+            return txn_id, audit_id
         cs.mark_bounced(db, row)
+        bounce_txn = _last_entry(db, row)
         audit_id = _audit(db, proposal, entity_type="commitment", entity_id=str(row.id),
-                          detail={"action": "bounce", "title": row.title, "amount": row.amount}, **common)
-        return None, audit_id
+                          detail={"action": "bounce", "title": row.title, "amount": row.amount,
+                                  "transaction_id": bounce_txn}, **common)
+        return bounce_txn, audit_id
 
     raise ValueError(f"no invoice/commitment executor for {name}")
+
+
+def _last_entry(db: Session, row) -> str | None:
+    """The ledger entry the cheque's latest step posted, if it posted one."""
+    from sqlalchemy import select
+
+    from app.models.commitment import CommitmentEvent
+    last = db.execute(select(CommitmentEvent).where(CommitmentEvent.commitment_id == row.id)
+                      .order_by(CommitmentEvent.created_at.desc(), CommitmentEvent.id.desc())).scalars().first()
+    return str(last.transaction_id) if last and last.transaction_id else None

@@ -509,6 +509,26 @@
                       color: #78350f; border-radius: 10px; font-size: 0.86rem; }
     .fx-unconverted p { margin: 0 0 0.45rem 0; }
     .fx-unconverted .btn { margin-top: 0.15rem; }
+    /* Installments & cheques (§3.4): a compact actions cell; stacked rows on a phone */
+    .cm-actions { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
+    .cm-actions select { width: auto; max-width: 11rem; padding-block: 0.3rem; }
+    .cm-table .cm-meta { color: var(--text-muted); font-size: 0.78rem; overflow-wrap: anywhere; }
+    @media (max-width: 700px) {
+      .cm-table, .cm-table tbody { display: block; border: 0; }
+      .cm-table thead { display: none; }
+      .cm-table tr[data-row] { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.3rem 0.6rem;
+                               padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+      .cm-table td { display: block; border: 0; padding: 0; min-width: 0; }
+      /* the phone rules keep other tables on one scrolling line; these rows wrap */
+      table.cm-table, .cm-table tr[data-row], .cm-table tr[data-row] td { white-space: normal; overflow-x: visible; }
+      .cm-table td[data-label]::before { content: attr(data-label); display: block; font-size: 0.72rem;
+                                         color: var(--text-muted); margin-bottom: 0.05rem; }
+      .cm-table td.cm-what { grid-column: 1 / -1; order: -1; }
+      .cm-table td.cm-amount { text-align: end; }
+      .cm-table td.cm-status { grid-column: 1 / -1; }
+      .cm-table td.cm-act { grid-column: 1 / -1; }
+      .cm-table tr.cm-history-row, .cm-table tr.cm-history-row td { display: block; }
+    }
     #fx-rates-wrap { overflow-x: auto; }
     .fx-rates-tools input[type=search] { width: 9rem; text-transform: uppercase; }
     @media (max-width: 700px) {

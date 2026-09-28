@@ -97,6 +97,12 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         # سود و زیان تسعیر ارز — non-operating (group 62), realised on settlement
         "fx_gain": "6240",
         "fx_loss": "6230",
+        # چک (roadmap §3.4): a received cheque in hand, one at the bank for
+        # collection, and an issued one not yet cleared. Iranian books only —
+        # a UK cheque is simply banked.
+        "notes_receivable": "1113",         # اسناد دریافتنی
+        "cheques_in_collection": "1114",    # اسناد در جریان وصول
+        "notes_payable": "2111",            # اسناد پرداختنی
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -177,6 +183,9 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "revaluation_reserve": "مازاد تجدید ارزیابی دارایی‌ها",
         "fx_gain": "سود تسعیر ارز",
         "fx_loss": "زیان تسعیر ارز",
+        "notes_receivable": "اسناد دریافتنی",
+        "cheques_in_collection": "اسناد در جریان وصول",
+        "notes_payable": "اسناد پرداختنی",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])

@@ -286,6 +286,33 @@ calendar and saw Gregorian dates in an Iranian company; report and invoice
 date defaults were UTC, a day early in Tehran before 03:30; the budget table
 did not reload on a month change and its headers were English only.
 
+✅ Statements for the seeded Iranian chart (#176): the balance sheet and
+cash-flow statement mapped accounts by the standard's 3-digit groups, which
+the seed's 4-digit codes don't follow — VAT receivable showed as short-term
+investments, accrued income as inventory, wages payable as liabilities of
+assets held for sale, paying an accrued expense as a dividend. Seeded codes
+are pinned first; petty cash is cash in both statements; cash in the flows is
+the balance sheet's cash line, so opening + flows = closing.
+
+✅ 3.4 cheque lifecycle (`app/services/cheques.py`, migration 056): received
+cheque in hand → deposited (در جریان وصول) → cleared / bounced → deposited
+again or returned (عودت); passed on to a supplier (خرج چک, optionally paying a
+bill); issued cheque → cleared / bounced (presented again) / returned. In
+Iranian business books (`ledger_mode = "notes"`) each step posts through
+notes receivable 1113, cheques in collection 1114 and notes payable 2111
+(posting categories, pinned on the statements as receivables / payables); a
+cheque for an invoice is that invoice's payment (method `cheque`), a bounce or
+a return takes the payment off so the invoice reopens, and the invoice
+screen refuses to reverse or void it. A bounce moves the claim to the party
+(AR/AP), never back into an expense or income account. UK and personal books
+and older cheques post only when the cheque clears (`"direct"`). Sayad id
+(16 digits, Persian digits accepted, unique) and registration date; a nudge
+to register (issued) or confirm (received) in the month before it is due.
+`commitment_events` is each cheque's history. Deposited cheques count in the
+cash forecast; an explicit invoice link wins over the party/amount guess. AI:
+`propose_create_cheque` takes the Sayad id and invoice, `propose_cheque_step`
+deposits, returns and passes on. Still to do: the cheque print layout.
+
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
 amount within a week or same reference), payments/expense claims split just
@@ -394,7 +421,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 3.1 | **سامانه مودیان e-invoicing** — the #1 gap vs Hesabfa/Sepidar/Holoo. Since آذر 1404 paper invoices have no tax validity. Needs: per-company شناسه یکتای حافظه مالیاتی, 22-char شماره منحصربه‌فرد مالیاتی generator, 13-digit شناسه کالا/خدمت on products, invoice patterns (نوع ۱ B2B / نوع ۲ B2C, الگوها), signing with the company's private key/CSR, submission (direct or via a trusted provider such as the ones Mahak/Sepidar bundle), status tracking (pending / confirmed / rejected), 12/20-day deadline reminders as notifications, resend on rejection | New module `app/services/moadian/`, fields on `Company`, `Invoice`, `Product`; start with file export for a trusted provider, then direct API |
 | 3.2 | **گزارش معاملات فصلی (ماده 169) — TTMS export** of purchases/sales per quarter (45-day deadline) reconciled to the VAT return; **اظهارنامه ارزش افزوده** quarterly figures (15-day deadline) from `tax_summary` | `app/api/reports.py:770` tax summary → add TTMS file layout + a "quarter close" checklist item |
 | 3.3 | **Payroll 1405 parameters as data, not code**: minimum wage 5,541,850/day, حق مسکن 30,000,000, بن 22,000,000, حق اولاد, سنوات, insurance 7%/23% with the ceiling, income-tax brackets (exempt to 480 M/yr, 10/15/20/25/30 %), overtime 1.4×, عیدی 2–3× | `payroll_service.py` → a versioned `payroll_rules` table per Jalali year + UI to edit; **لیست بیمه (تامین اجتماعی) and salary-tax file exports** |
-| 3.4 | **Cheque handling like Iranian books expect**: چک دریافتی/پرداختی lifecycle (in hand → deposited → cleared / bounced → returned), صیاد ID field, cheque print layout, reminder on sayad registration | extends `commitments` (already bounced ≠ settled) |
+| 3.4 | ✅ **Cheque handling like Iranian books expect** (2026-09-28, print layout still to do): چک دریافتی/پرداختی lifecycle (in hand → deposited → cleared / bounced → returned), صیاد ID field, cheque print layout, reminder on sayad registration | extends `commitments` (already bounced ≠ settled) |
 | 3.5 | ✅ **Jalali everywhere in reports** (2026-09-28): monthly buckets, budgets and `year-summary` use Gregorian months for `ir` companies | `manager_reports.py:671`, `budget_service.py:26`, `payroll.py:681` |
 
 ### UK

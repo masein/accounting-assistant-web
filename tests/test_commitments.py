@@ -141,8 +141,10 @@ class TestSettlement:
         db.commit()
 
         assert row.status == SETTLED and row.settled_on == TODAY
+        # Iranian books: the issue moved the debt into notes payable (اسناد
+        # پرداختنی), the clearing takes it out of there and the bank (§3.4)
         posted = self._codes(db, row.settled_transaction_id)
-        assert posted["2110"] == (500_000, 0)     # liability debited down
+        assert posted["2111"] == (500_000, 0)     # notes payable debited down
         assert posted["1110"] == (0, 500_000)     # bank credited
 
     def test_receiving_money_reverses_the_legs(self, db):
@@ -154,7 +156,7 @@ class TestSettlement:
         db.commit()
         posted = self._codes(db, row.settled_transaction_id)
         assert posted["1110"] == (800_000, 0)     # bank debited
-        assert posted["1112"] == (0, 800_000)
+        assert posted["1113"] == (0, 800_000)     # out of notes receivable (the receipt credited 1112)
 
     def test_settling_without_an_account_records_no_entry(self, db):
         """Tracking-only: some users just want the reminder, not the posting."""

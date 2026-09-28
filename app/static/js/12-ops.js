@@ -715,16 +715,24 @@
     }
 
     // ═══════ Installments (اقساط) & cheques (چک) ═══════
+    // A cheque's life (roadmap §3.4): in hand → deposited → cleared / bounced →
+    // deposited again or returned; passed on; Sayad registration. Each step
+    // is one POST; the server decides what it posts (app/services/cheques.py).
+    let _cmRows = [];
+    let _cmBanks = [];
+    let _cmAccts = [];
+
     async function cmFillAccounts() {
       const sels = [document.getElementById('cm-p-acct'), document.getElementById('cm-c-acct')];
       if (!sels[0] || sels[0].options.length) return;
       try {
-        const res = await fetch(API + '/manager-reports/accounts/list');
-        if (!res.ok) return;
-        const accs = await res.json();
+        const [accRes, bankRes] = await Promise.all([
+          fetch(API + '/manager-reports/accounts/list'), fetch(API + '/entities?type=bank')]);
+        if (accRes.ok) _cmAccts = await accRes.json();
+        if (bankRes.ok) _cmBanks = (await bankRes.json()).filter(b => b.code);
         // Settling moves money against a liability or a receivable, not an
         // expense — offer only those, plus a blank for tracking-only items.
-        const opts = `<option value="">${escapeHtml(t('cmNoPosting'))}</option>` + accs
+        const opts = `<option value="">${escapeHtml(t('cmNoPosting'))}</option>` + _cmAccts
           .filter(a => (a.code || '').startsWith('2') || (a.code || '').startsWith('1'))
           .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`)
           .join('');
@@ -732,53 +740,204 @@
       } catch (_) { /* offline */ }
     }
 
+    // Open invoices (received cheque) or bills (issued) a new cheque can pay.
+    async function cmFillInvoices(selId, kind) {
+      const sel = document.getElementById(selId);
+      if (!sel) return;
+      sel.innerHTML = `<option value="">${escapeHtml(t('cmNoInvoice'))}</option>`;
+      try {
+        const res = await fetch(API + '/invoices?kind=' + kind);
+        if (!res.ok) return;
+        const rows = (await res.json()).filter(r => r.balance_due > 0 && !['draft', 'voided', 'canceled'].includes(r.status));
+        sel.innerHTML += rows.map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.number)} — ${escapeHtml(formatNum(r.balance_due))}</option>`).join('');
+      } catch (_) { /* offline */ }
+    }
+
     function cmStatusChip(row) {
-      const today = new Date().toISOString().slice(0, 10);
-      if (row.status === 'settled') return '<span class="alert-chip low">' + escapeHtml(t('cmSettled')) + '</span>';
-      if (row.status === 'bounced') return '<span class="alert-chip high">' + escapeHtml(t('cmBounced')) + '</span>';
-      if (row.due_date < today) return '<span class="alert-chip high">' + escapeHtml(t('cmOverdue')) + '</span>';
-      return '<span class="alert-chip medium">' + escapeHtml(t('cmPending')) + '</span>';
+      const today = localIsoDate();
+      const chip = (level, key) => '<span class="alert-chip ' + level + '">' + escapeHtml(t(key)) + '</span>';
+      const cheque = row.kind === 'cheque';
+      let out;
+      if (row.status === 'settled') out = chip('low', cheque ? (row.direction === 'receive' ? 'cmClearedIn' : 'cmClearedOut') : 'cmSettled');
+      else if (row.status === 'bounced') out = chip('high', 'cmBounced');
+      else if (row.status === 'returned') out = chip('low', 'cmReturned');
+      else if (row.status === 'endorsed') out = chip('low', 'cmEndorsed');
+      else if (row.status === 'deposited') out = chip('medium', 'cmDeposited');
+      else if (row.due_date < today) out = chip('high', 'cmOverdue');
+      else out = chip('medium', cheque ? (row.direction === 'receive' ? 'cmInHand' : 'cmIssued') : 'cmPending');
+      if (row.needs_sayad) out += ' <span class="alert-chip high" title="' + escapeHtml(t('cmSayadHint')) + '">' + escapeHtml(t('cmSayadMissing')) + '</span>';
+      return out;
+    }
+
+    // The steps a row can take next.
+    function cmSteps(r) {
+      if (r.kind !== 'cheque') return r.status === 'pending' ? ['settle'] : [];
+      const rec = r.direction === 'receive';
+      const steps = {
+        pending: rec ? ['deposit', 'clear', 'bounce', 'endorse', 'return'] : ['clear', 'bounce', 'return'],
+        deposited: ['clear', 'bounce'],
+        bounced: rec ? ['redeposit', 'clear', 'return'] : ['clear', 'return'],
+      }[r.status] || [];
+      if (['pending', 'deposited'].includes(r.status) && !r.sayad_registered_on) steps.push('sayad');
+      return steps;
+    }
+    const CM_STEP_LABEL = { settle: 'cmSettle', deposit: 'cmActDeposit', redeposit: 'cmActDepositAgain', clear: 'cmActClear',
+      bounce: 'cmActBounce', return: 'cmActReturn', endorse: 'cmActEndorse', sayad: 'cmActSayad' };
+
+    function cmRowHtml(r) {
+      const seq = (r.sequence && r.plan_total) ? ` (${r.sequence}/${r.plan_total})` : '';
+      const who = r.direction === 'pay' ? t('cmDirPay') : t('cmDirReceive');
+      const meta = [];
+      if (r.reference) meta.push('#' + r.reference);
+      if (r.sayad_id) meta.push(t('cmFieldSayad') + ' ' + r.sayad_id);
+      if (r.bank_name) meta.push(r.bank_name);
+      if (r.invoice_number) meta.push(tf('cmPaysInvoice', { n: r.invoice_number }));
+      if (r.endorsed_to) meta.push(tf('cmPassedTo', { to: r.endorsed_to }));
+      const steps = cmSteps(r);
+      const actions = (steps.length
+        ? `<select class="cm-step" data-id="${escapeHtml(r.id)}" aria-label="${escapeHtml(t('cmColActions'))}">
+             <option value="">${escapeHtml(t('cmActions'))}</option>
+             ${steps.map(st => `<option value="${st}">${escapeHtml(t(CM_STEP_LABEL[st]))}</option>`).join('')}
+           </select>` : '<span aria-hidden="true">✓</span>')
+        + (r.kind === 'cheque' ? `<button type="button" class="btn btn-secondary btn-sm cm-history" data-id="${escapeHtml(r.id)}" aria-expanded="false">${escapeHtml(t('cmActHistory'))}</button>` : '');
+      return `<tr data-row="${escapeHtml(r.id)}">
+        <td class="cm-due" data-label="${escapeHtml(t('cmColDue'))}">${escapeHtml(formatDisplayDate(r.due_date))}</td>
+        <td class="cm-what" dir="auto">${escapeHtml(r.title)}${escapeHtml(seq)} <span style="color:var(--text-muted); font-size:0.8rem;">${escapeHtml(who)}</span>
+          ${meta.length ? `<div class="cm-meta" dir="auto">${escapeHtml(meta.join(' · '))}</div>` : ''}</td>
+        <td class="cm-amount" data-label="${escapeHtml(t('cmColAmount'))}">${escapeHtml(formatNum(r.amount))}</td>
+        <td class="cm-status">${cmStatusChip(r)}</td>
+        <td class="cm-act"><div class="cm-actions">${actions}</div></td>
+      </tr>`;
+    }
+
+    function cmRender() {
+      const body = document.getElementById('cm-rows');
+      if (!body) return;
+      const f = document.getElementById('cm-filter')?.value || 'open';
+      const open = ['pending', 'deposited', 'bounced'];
+      const rows = _cmRows.filter(r => f === 'all' ? true : f === 'open' ? open.includes(r.status) : r.kind === f);
+      body.innerHTML = rows.length ? rows.map(cmRowHtml).join('')
+        : `<tr><td colspan="5" class="empty-state" style="padding:0.6rem;">${escapeHtml(t('cmNone'))}</td></tr>`;
     }
 
     async function loadCommitments() {
       const body = document.getElementById('cm-rows');
       if (!body) return;
       await cmFillAccounts();
+      const on = document.getElementById('cm-c-on');
+      if (on && !on.value) on.value = localIsoDate();
+      cmFillInvoices('cm-c-inv', document.getElementById('cm-c-dir')?.value === 'receive' ? 'sales' : 'purchase');
       try {
         const [rows, sum] = await Promise.all([
           (await fetch(API + '/commitments')).json(),
           (await fetch(API + '/commitments/summary')).json(),
         ]);
-        document.getElementById('cm-summary').innerHTML = `
-          <div class="kpi-card"><div class="label">${escapeHtml(t('cmYouOwe'))}</div>
-            <div class="value">${escapeHtml(formatNum(sum.payable))} ${escapeHtml(currencyUnit())}</div></div>
-          <div class="kpi-card"><div class="label">${escapeHtml(t('cmOwedToYou'))}</div>
-            <div class="value">${escapeHtml(formatNum(sum.receivable))} ${escapeHtml(currencyUnit())}</div></div>
-          <div class="kpi-card"><div class="label">${escapeHtml(t('cmNextDue'))}</div>
-            <div class="value">${sum.next_due_date ? escapeHtml(formatDisplayDate(sum.next_due_date)) : '—'}</div></div>`;
-
-        if (!rows.length) {
-          body.innerHTML = `<tr><td colspan="5" class="empty-state" style="padding:0.6rem;">${escapeHtml(t('cmNone'))}</td></tr>`;
-          return;
-        }
-        body.innerHTML = rows.map(r => {
-          const seq = (r.sequence && r.plan_total) ? ` (${r.sequence}/${r.plan_total})` : '';
-          const who = r.direction === 'pay' ? t('cmDirPay') : t('cmDirReceive');
-          const actions = r.status === 'settled' ? '✓' :
-            `<button class="btn btn-secondary btn-sm cm-settle" data-id="${escapeHtml(r.id)}">${escapeHtml(t('cmSettle'))}</button>` +
-            (r.kind === 'cheque' && r.status !== 'bounced'
-              ? ` <button class="btn btn-secondary btn-sm cm-bounce" data-id="${escapeHtml(r.id)}">${escapeHtml(t('cmBounce'))}</button>` : '');
-          return `<tr>
-            <td>${escapeHtml(formatDisplayDate(r.due_date))}</td>
-            <td dir="auto">${escapeHtml(r.title)}${escapeHtml(seq)} <span style="color:var(--text-muted); font-size:0.8rem;">${escapeHtml(who)}</span></td>
-            <td>${escapeHtml(formatNum(r.amount))}</td>
-            <td>${cmStatusChip(r)}</td>
-            <td>${actions}</td>
-          </tr>`;
-        }).join('');
+        const kpi = (label, value) => `<div class="kpi-card"><div class="label">${escapeHtml(t(label))}</div><div class="value">${value}</div></div>`;
+        const money = (n) => `${escapeHtml(formatNum(n))} ${escapeHtml(currencyUnit())}`;
+        document.getElementById('cm-summary').innerHTML =
+          kpi('cmYouOwe', money(sum.payable)) + kpi('cmOwedToYou', money(sum.receivable))
+          + kpi('cmNextDue', sum.next_due_date ? escapeHtml(formatDisplayDate(sum.next_due_date)) : '—')
+          + (sum.cheques_in_hand ? kpi('cmInHandTotal', money(sum.cheques_in_hand)) : '')
+          + (sum.cheques_at_bank ? kpi('cmAtBankTotal', money(sum.cheques_at_bank)) : '')
+          + (sum.cheques_bounced ? kpi('cmBouncedTotal', money(sum.cheques_bounced)) : '');
+        _cmRows = Array.isArray(rows) ? rows : [];
+        cmRender();
       } catch (_) {
         body.innerHTML = `<tr><td colspan="5" class="empty-state">${escapeHtml(t('cmNone'))}</td></tr>`;
       }
+    }
+
+    async function cmShowHistory(btn) {
+      const tr = btn.closest('tr');
+      const next = tr.nextElementSibling;
+      if (next && next.classList.contains('cm-history-row')) {
+        next.remove(); btn.setAttribute('aria-expanded', 'false'); return;
+      }
+      btn.setAttribute('aria-expanded', 'true');
+      const row = document.createElement('tr');
+      row.className = 'cm-history-row';
+      row.innerHTML = `<td colspan="5" style="background:var(--surface-2, #f8fafc);">…</td>`;
+      tr.insertAdjacentElement('afterend', row);
+      try {
+        const data = await (await fetch(API + `/commitments/${btn.dataset.id}/history`)).json();
+        const ev = data.events || [];
+        row.firstElementChild.innerHTML = ev.length
+          ? '<ol class="cm-history" style="margin:0; padding-inline-start:1.2rem; font-size:0.85rem;">' + ev.map(e =>
+              `<li>${escapeHtml(formatDisplayDate(e.on))} — ${escapeHtml(t('cmEv_' + e.action) || e.action)}${e.note ? ' <span dir="auto" style="color:var(--text-muted);">(' + escapeHtml(e.note) + ')</span>' : ''}${e.transaction_id ? ' <span style="color:var(--text-muted); font-size:0.75rem;">· ' + escapeHtml(t('cmEvPosted')) + '</span>' : ''}</li>`).join('') + '</ol>'
+          : escapeHtml(t('cmNoHistory'));
+      } catch (_) { row.firstElementChild.textContent = t('cmNoHistory'); }
+    }
+
+    // One dialog for every step; only the fields a step needs are shown.
+    function cmStepDialog(row, step) {
+      const modal = document.getElementById('cm-step-modal');
+      const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+      document.getElementById('cm-step-title').textContent = t(CM_STEP_LABEL[step]);
+      document.getElementById('cm-step-what').textContent = `${row.title} — ${formatNum(row.amount)} ${currencyUnit()}`;
+      document.getElementById('cm-step-date').value = localIsoDate();
+      const bankSel = document.getElementById('cm-step-bank');
+      bankSel.innerHTML = `<option value="">${escapeHtml(t('cmDefaultBank'))}</option>` + _cmBanks
+        .map(b => `<option value="${escapeHtml(b.code)}">${escapeHtml(b.name)} (${escapeHtml(b.code)})</option>`).join('');
+      if (row.deposit_account_code) bankSel.value = row.deposit_account_code;
+      document.getElementById('cm-step-sayad').value = row.sayad_id || '';
+      document.getElementById('cm-step-to').value = '';
+      document.getElementById('cm-step-note').value = '';
+      document.getElementById('cm-step-acct').innerHTML = `<option value="">—</option>` + _cmAccts
+        .filter(a => /^[12]/.test(a.code || ''))
+        .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+      show('cm-step-bank-row', ['deposit', 'redeposit', 'clear', 'settle'].includes(step));
+      show('cm-step-sayad-row', step === 'sayad');
+      show('cm-step-bill-row', step === 'endorse');
+      show('cm-step-to-row', step === 'endorse');
+      show('cm-step-acct-row', step === 'endorse');
+      show('cm-step-note-row', ['bounce', 'return'].includes(step));
+      document.getElementById('cm-step-hint').textContent = t('cmHint_' + step) || '';
+      if (step === 'endorse') cmFillInvoices('cm-step-bill', 'purchase');
+      return new Promise((resolve) => {
+        const done = (val) => { modal.__dialogCancel = null; modal.style.display = 'none'; resolve(val); };
+        document.getElementById('cm-step-ok').onclick = () => done({
+          on: document.getElementById('cm-step-date').value || null,
+          bank_account_code: bankSel.value || null,
+          sayad_id: document.getElementById('cm-step-sayad').value.trim() || null,
+          to: document.getElementById('cm-step-to').value.trim(),
+          account_code: document.getElementById('cm-step-acct').value || null,
+          invoice_id: document.getElementById('cm-step-bill').value || null,
+          note: document.getElementById('cm-step-note').value.trim() || null,
+        });
+        document.getElementById('cm-step-cancel').onclick = () => done(null);
+        document.getElementById('cm-step-close').onclick = () => done(null);
+        modal.onclick = (e) => { if (e.target === modal) done(null); };
+        modal.__dialogCancel = () => done(null);
+        modal.style.display = 'flex';
+        document.getElementById('cm-step-ok').focus();
+      });
+    }
+
+    async function cmRunStep(id, step) {
+      const row = _cmRows.find(r => r.id === id);
+      if (!row) return;
+      const v = await cmStepDialog(row, step);
+      if (!v) return;
+      const route = { settle: 'settle', clear: 'settle', deposit: 'deposit', redeposit: 'deposit', bounce: 'bounce',
+        return: 'return', endorse: 'endorse', sayad: 'sayad' }[step];
+      const body = {
+        settle: { on: v.on, post: true, bank_account_code: v.bank_account_code },
+        clear: { on: v.on, post: true, bank_account_code: v.bank_account_code },
+        deposit: { on: v.on, bank_account_code: v.bank_account_code },
+        redeposit: { on: v.on, bank_account_code: v.bank_account_code },
+        bounce: { on: v.on, note: v.note }, return: { on: v.on, note: v.note },
+        endorse: { on: v.on, to: v.to, account_code: v.account_code, invoice_id: v.invoice_id },
+        sayad: { on: v.on, sayad_id: v.sayad_id },
+      }[step];
+      try {
+        const res = await fetch(API + `/commitments/${id}/${route}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('cmStepFailed'), true); return; }
+        showAlert(t('cmStepDone'));
+        await loadCommitments();
+        if (typeof notifyRefresh === 'function') notifyRefresh();
+      } catch (_) { showAlert(t('cmStepFailed'), true); }
     }
 
     (function wireCommitments() {
@@ -805,6 +964,15 @@
         } catch (_) { showAlert('error', true); }
       });
 
+      const dirSel = document.getElementById('cm-c-dir');
+      if (dirSel) dirSel.addEventListener('change', () => cmFillInvoices('cm-c-inv', dirSel.value === 'receive' ? 'sales' : 'purchase'));
+      const invSel = document.getElementById('cm-c-inv');
+      if (invSel) invSel.addEventListener('change', () => {
+        // an invoice decides the account (its receivable / payable)
+        const acct = document.getElementById('cm-c-acct');
+        if (acct) { acct.disabled = !!invSel.value; if (invSel.value) acct.value = ''; }
+      });
+
       const chequeBtn = document.getElementById('cm-c-save');
       if (chequeBtn) chequeBtn.addEventListener('click', async () => {
         const body = {
@@ -813,36 +981,42 @@
           due_date: document.getElementById('cm-c-due').value,
           direction: document.getElementById('cm-c-dir').value,
           reference: document.getElementById('cm-c-ref').value || null,
+          sayad_id: (document.getElementById('cm-c-sayad').value || '').trim() || null,
           bank_name: document.getElementById('cm-c-bank').value || null,
-          counter_account_code: document.getElementById('cm-c-acct').value || null,
+          invoice_id: document.getElementById('cm-c-inv').value || null,
+          counter_account_code: document.getElementById('cm-c-inv').value ? null : (document.getElementById('cm-c-acct').value || null),
+          on: document.getElementById('cm-c-on').value || null,
         };
         if (!body.title || !body.amount || !body.due_date) { showAlert(t('cmMissingFields'), true); return; }
         try {
           const res = await fetch(API + '/commitments/cheques', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-          if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'error', true); return; }
+          if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(typeof d.detail === 'string' ? d.detail : 'error', true); return; }
           showAlert(t('cmChequeAdded'));
-          document.getElementById('cm-c-title').value = '';
-          document.getElementById('cm-c-amount').value = '';
+          ['cm-c-title', 'cm-c-amount', 'cm-c-ref', 'cm-c-sayad'].forEach(id => { document.getElementById(id).value = ''; });
+          document.getElementById('cm-c-inv').value = '';
+          document.getElementById('cm-c-acct').disabled = false;
           await loadCommitments();
         } catch (_) { showAlert('error', true); }
       });
 
+      const filter = document.getElementById('cm-filter');
+      if (filter) filter.addEventListener('change', cmRender);
+
       const rows = document.getElementById('cm-rows');
-      if (rows) rows.addEventListener('click', async (e) => {
-        const settle = e.target.closest('.cm-settle');
-        const bounce = e.target.closest('.cm-bounce');
-        if (!settle && !bounce) return;
-        const id = (settle || bounce).dataset.id;
-        if (settle && !await uiConfirm({ title: t('cmSettle'), message: t('cmSettleConfirm') })) return;
-        try {
-          await fetch(API + `/commitments/${id}/` + (settle ? 'settle' : 'bounce'), {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: settle ? JSON.stringify({ post: true }) : '{}' });
-          await loadCommitments();
-          if (typeof notifyRefresh === 'function') notifyRefresh();
-        } catch (_) { showAlert('error', true); }
-      });
+      if (rows) {
+        rows.addEventListener('change', (e) => {
+          const sel = e.target.closest('.cm-step');
+          if (!sel || !sel.value) return;
+          const step = sel.value;
+          sel.value = '';
+          cmRunStep(sel.dataset.id, step);
+        });
+        rows.addEventListener('click', (e) => {
+          const btn = e.target.closest('.cm-history');
+          if (btn) cmShowHistory(btn);
+        });
+      }
     })();
 
     // ═══════ Detected recurring payments ═══════

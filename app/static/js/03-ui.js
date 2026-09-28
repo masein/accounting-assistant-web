@@ -389,6 +389,10 @@
       const others = (data && Array.isArray(data.other_currencies)) ? data.other_currencies : [];
       if (!data || !data.currency || !others.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
       const combined = data.currency === 'ALL';
+      // "All, in GBP" when the books hold only GBP is the GBP view: nothing to explain
+      if (combined && others.length === 1 && others[0] === baseCurrencyCode()) {
+        el.style.display = 'none'; el.innerHTML = ''; return;
+      }
       const note = combined ? baseViewNoteText()
         : t('currencyViewNote').replace('{currency}', data.currency).replace('{others}', others.join(', '));
       const picks = combined ? others : ['ALL'].concat(others);
@@ -406,10 +410,29 @@
         const r = await fetch(API + '/fx/metadata');
         if (!r.ok) return null;
         window.__FX_META = await r.json();
+        applyReportCurrencyDefault(window.__FX_META);
         return window.__FX_META;
       } catch (_) {
         return null;
       }
+    }
+
+    // The reports' currency select (#mgr-currency): several currencies in the
+    // books → all of them at base value (roadmap §4.6); one → that one. Set
+    // here, with the metadata, so the dashboard — which reads the select on
+    // its first paint — never sees the markup's "All" default before it is
+    // settled. Only once: after that the choice is the user's.
+    function applyReportCurrencyDefault(meta) {
+      const sel = document.getElementById('mgr-currency');
+      if (!sel || !meta) return;
+      const pref = meta.reporting_currency || meta.most_common_currency || 'IRR';
+      const allOpt = [...sel.options].find(o => o.value === 'ALL');
+      if (allOpt) allOpt.textContent = t('currencyAllInBase').replace('{base}', pref);
+      if (sel.dataset.defaulted) return;
+      sel.dataset.defaulted = '1';
+      const used = Array.isArray(meta.used_currencies) ? meta.used_currencies : [];
+      const want = used.length > 1 ? 'ALL' : (meta.most_common_currency || pref);
+      if ([...sel.options].some(o => o.value === want)) sel.value = want;
     }
 
     function toJalali(isoDate) {

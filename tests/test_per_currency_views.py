@@ -143,3 +143,29 @@ def test_frontend_has_currency_view_controls():
     from tests.i18n_source import i18n_text
     i18n = i18n_text()
     assert i18n.count("currencyViewNote:") == 4 and i18n.count("currencyViewOnly:") == 4
+
+
+def test_the_report_currency_is_settled_before_the_dashboard_reads_it():
+    """#mgr-currency starts on "All" in the markup; its real default (one
+    currency in the books → that one) used to arrive in a separate callback,
+    so the dashboard's first paint sometimes read "All" and showed "every
+    currency, converted to GBP … [GBP only]" for books holding only GBP."""
+    import re
+    ui = open("app/static/js/03-ui.js", encoding="utf-8").read()
+    meta = ui[ui.index("async function loadFxMetadata"):ui.index("function applyReportCurrencyDefault")]
+    # the default is applied where the metadata lands, before anyone awaiting it resumes
+    assert ("window.__FX_META = await r.json();\n        applyReportCurrencyDefault(window.__FX_META);\n"
+            "        return window.__FX_META;") in meta
+    fn = ui[ui.index("function applyReportCurrencyDefault"):]
+    fn = fn[:fn.index("\n    }\n")]
+    assert "sel.dataset.defaulted" in fn and "used.length > 1 ? 'ALL'" in fn     # once; several → All
+    dash = open("app/static/js/05-reports-manager.js", encoding="utf-8").read()
+    load = dash[dash.index("async function loadOwnerDashboard"):]
+    assert load.index("await loadFxMetadata()") < load.index("getElementById('mgr-currency')?.value")
+    forms = open("app/static/js/10-forms-fx-bank.js", encoding="utf-8").read()
+    assert "mgrSel" not in forms                                   # one place decides the default
+    # the combined view of books holding only the base currency explains nothing
+    note = ui[ui.index("function renderCurrencyViewNote"):]
+    note = note[:note.index("\n    }\n")]
+    assert re.search(r"combined && others\.length === 1 && others\[0\] === baseCurrencyCode\(\)\)\s*\{\s*"
+                     r"el\.style\.display = 'none'", note)

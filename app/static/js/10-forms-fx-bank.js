@@ -733,18 +733,8 @@
       if (txnSel && [...txnSel.options].some(o => o.value === pref)) {
         txnSel.value = pref;
       }
-      // Manager reports: several currencies in the books → all of them at
-      // base value (roadmap §4.6); one → that one.
-      const mgrSel = document.getElementById('mgr-currency');
-      if (mgrSel) {
-        const allOpt = [...mgrSel.options].find(o => o.value === 'ALL');
-        if (allOpt) allOpt.textContent = t('currencyAllInBase').replace('{base}', pref);
-        const used = Array.isArray(meta.used_currencies) ? meta.used_currencies : [];
-        const mgrPref = used.length > 1 ? 'ALL' : (meta.most_common_currency || pref);
-        if ([...mgrSel.options].some(o => o.value === mgrPref)) {
-          mgrSel.value = mgrPref;
-        }
-      }
+      // Manager reports' currency: applyReportCurrencyDefault (03-ui.js), run
+      // by loadFxMetadata itself.
       // Excel import form: default to most common currency too
       const impSel = document.getElementById('excel-import-currency');
       if (impSel && [...impSel.options].some(o => o.value === (meta.most_common_currency || pref))) {

@@ -31,7 +31,7 @@ from datetime import date, timedelta
 from statistics import median
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
 WEEKS = 13
@@ -376,36 +376,47 @@ def baseline(db: Session, today: date, currency: str, locale: str) -> dict[str, 
     is_cash = cash_account_predicate(locale)
     end = _week_start(today)
     start = end - timedelta(weeks=HISTORY_WEEKS)
-    # Separate queries, not a UNION: the tenant filter is injected per ORM select.
-    explained = set(db.execute(select(Payment.transaction_id)).scalars())
-    for a, b in db.execute(select(PayRun.post_transaction_id, PayRun.pay_transaction_id)):
-        explained |= {a, b}
-    explained |= set(db.execute(select(Commitment.settled_transaction_id)).scalars())
-    explained.discard(None)
-    net: dict = defaultdict(int)
-    when: dict = {}
-    first_seen = None
-    for tid, d, ref, code, debit, credit in db.execute(
-        select(Transaction.id, Transaction.date, Transaction.reference, Account.code, TransactionLine.debit,
-               TransactionLine.credit)
+    cash_ids = [aid for aid, code in db.execute(select(Account.id, Account.code)) if is_cash(code or "")]
+    # Summed in the database (roadmap §2.6): each journal's net cash movement,
+    # then one row per day. The history starts at the first journal of the
+    # window, cash or not.
+    per_txn = (
+        select(Transaction.id.label("tid"), Transaction.date.label("day"), Transaction.reference.label("ref"),
+               func.sum(case((TransactionLine.account_id.in_(cash_ids),
+                              func.coalesce(TransactionLine.debit, 0) - func.coalesce(TransactionLine.credit, 0)),
+                             else_=0)).label("net"))
         .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
-        .join(Account, TransactionLine.account_id == Account.id)
         .where(Transaction.deleted_at.is_(None), Transaction.currency == currency,
                Transaction.date >= start, Transaction.date < end)
-    ):
-        first_seen = d if first_seen is None or d < first_seen else first_seen
-        if tid in explained or (ref or "").upper().startswith("REC-") or not is_cash(code or ""):
-            continue
-        net[tid] += int(debit or 0) - int(credit or 0)
-        when[tid] = d
+        .group_by(Transaction.id, Transaction.date, Transaction.reference)
+        .subquery("per_txn")
+    )
+
+    def _ids(col):
+        return select(col).where(col.is_not(None))
+    # Journals a scheduled source already explains, and recurring postings.
+    counted = and_(
+        ~func.upper(func.coalesce(per_txn.c.ref, "")).startswith("REC-"),
+        per_txn.c.tid.not_in(_ids(Payment.transaction_id)),
+        per_txn.c.tid.not_in(_ids(PayRun.post_transaction_id)),
+        per_txn.c.tid.not_in(_ids(PayRun.pay_transaction_id)),
+        per_txn.c.tid.not_in(_ids(Commitment.settled_transaction_id)),
+    )
     weekly_in = defaultdict(int)
     weekly_out = defaultdict(int)
-    for tid, amount in net.items():
-        wk = _week_start(when[tid])
-        if amount > 0:
-            weekly_in[wk] += amount
-        elif amount < 0:
-            weekly_out[wk] += -amount
+    first_seen = None
+    for day, cash_in, cash_out in db.execute(
+        select(per_txn.c.day,
+               func.sum(case((and_(counted, per_txn.c.net > 0), per_txn.c.net), else_=0)),
+               func.sum(case((and_(counted, per_txn.c.net < 0), -per_txn.c.net), else_=0)))
+        .group_by(per_txn.c.day),
+        # the window filter above leaves out undone journals itself
+        execution_options={"include_deleted": True},
+    ):
+        first_seen = day if first_seen is None or day < first_seen else first_seen
+        wk = _week_start(day)
+        weekly_in[wk] += int(cash_in or 0)
+        weekly_out[wk] += int(cash_out or 0)
     if first_seen is None:
         return {"inflow": 0, "outflow": 0, "weeks_of_history": 0}
     weeks = [start + timedelta(weeks=i) for i in range(HISTORY_WEEKS)]

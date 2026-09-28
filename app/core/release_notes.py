@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.13"
+CURRENT_RELEASE = "2026.09.28.14"
 
 
 @dataclass(frozen=True)
@@ -1009,6 +1009,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "منوی زبان در بالای صفحه اکنون انتخاب شما را در نمایه‌تان ذخیره می‌کند، پس پس از ورود دوباره هم می‌ماند، و صفحه‌ای که در آن هستید — همراه با جدول‌ها و نمودارها — بی‌درنگ به زبان تازه نمایش داده می‌شود. برنامه هم سریع‌تر بارگذاری می‌شود: هر زبان فقط وقتی به کارش می‌برید دریافت می‌شود.",
                     "es": "El menú de idioma de la parte superior guarda ahora tu elección en tu perfil, así que se mantiene al volver a iniciar sesión, y la página abierta —tablas y gráficos incluidos— se vuelve a dibujar en el nuevo idioma al momento. La aplicación también carga más rápido: cada idioma se descarga solo cuando lo usas.",
                     "ar": "قائمة اللغة في الأعلى تحفظ الآن اختيارك في ملفك الشخصي، فيبقى بعد تسجيل الدخول مجددًا، ويُعاد رسم الصفحة المفتوحة — بما فيها الجداول والرسوم — باللغة الجديدة فورًا. كما يُحمَّل التطبيق أسرع: تُنزَّل كل لغة فقط عند استخدامها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.14",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="dashboard-aging-order",
+                page="dashboard",
+                roles=("owner", "cfo", "accountant", "viewer"),
+                title={
+                    "en": "A faster dashboard, and receipts always clear their sales",
+                    "fa": "داشبورد سریع‌تر، و دریافت‌ها همیشه فروش خود را تسویه می‌کنند",
+                    "es": "Un panel más rápido, y los cobros siempre saldan sus ventas",
+                    "ar": "لوحة أسرع، والمقبوضات تسوّي مبيعاتها دائمًا",
+                },
+                body={
+                    "en": "The dashboard now adds up your books in the database, so it opens noticeably faster on a large ledger. The receivables and payables aging now takes entries in date order: a receipt entered before the sale it pays — an imported bank statement, say — used to be missed and left that sale showing as overdue.",
+                    "fa": "داشبورد اکنون جمع‌های دفاتر را در پایگاه داده می‌گیرد و روی دفاتر بزرگ به‌طور محسوسی سریع‌تر باز می‌شود. سنی‌بندی دریافتنی‌ها و پرداختنی‌ها اکنون سندها را به ترتیب تاریخ می‌خواند: دریافتی که پیش از فروشِ مربوطش ثبت شده بود — مثلاً از صورت‌حساب بانکی واردشده — نادیده می‌ماند و آن فروش سررسیدگذشته نشان داده می‌شد.",
+                    "es": "El panel suma ahora la contabilidad en la base de datos, así que se abre bastante más rápido con muchos asientos. La antigüedad de cobros y pagos toma ahora los asientos por fecha: un cobro registrado antes de la venta que paga —por ejemplo, de un extracto bancario importado— se pasaba por alto y la venta seguía apareciendo como vencida.",
+                    "ar": "تجمع اللوحة الآن أرصدة دفاترك في قاعدة البيانات، فتُفتح أسرع بشكل ملحوظ مع الدفاتر الكبيرة. وتقرأ أعمار الذمم المدينة والدائنة الآن القيود بترتيب التاريخ: القبض المسجّل قبل البيع الذي يسدّده — من كشف بنكي مستورد مثلًا — كان يُغفل ويبقى ذلك البيع ظاهرًا كمتأخر.",
                 },
             ),
         ),

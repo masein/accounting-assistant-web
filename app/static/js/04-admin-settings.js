@@ -382,7 +382,9 @@
         const res = await fetch(API + '/admin/users');
         const data = await res.json().catch(() => []);
         if (!res.ok) {
-          usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('usersNoPermission')) + '</p>';
+          // only a refusal means "no permission" (a rate limit used to show it too)
+          const key = res.status === 403 ? 'usersNoPermission' : (res.status === 429 ? 'rateLimitedShort' : 'usersLoadError');
+          usersWrapEl.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t(key)) + '</p>';
           return;
         }
         renderUsersTable(data);

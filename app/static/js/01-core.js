@@ -461,11 +461,26 @@
     let isSuperadmin = false;
     const rawFetch = window.fetch.bind(window);
 
+    // Too many requests in a minute: say so once (not "no permission", not a
+    // blank panel) — AI budget refusals carry their own code and message.
+    let _rateNoticeUntil = 0;
+    async function _noticeRateLimit(res) {
+      try {
+        const body = await res.clone().json();
+        if (body && body.code && body.code !== 'rate_limited') return;
+        const now = Date.now();
+        if (now < _rateNoticeUntil) return;
+        const wait = Number(res.headers.get('Retry-After')) || Number(body && body.retry_after) || 30;
+        _rateNoticeUntil = now + Math.min(wait, 30) * 1000;
+        if (typeof showAlert === 'function' && typeof tf === 'function') showAlert(tf('rateLimitedNotice', { seconds: wait }), true);
+      } catch (_) { /* not JSON: nothing to say */ }
+    }
     window.fetch = async (...args) => {
       const res = await rawFetch(...args);
       if (res.status === 401) {
         window.location.href = '/login';
         throw new Error('Authentication required');
       }
+      if (res.status === 429) _noticeRateLimit(res);
       return res;
     };

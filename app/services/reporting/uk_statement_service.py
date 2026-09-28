@@ -9,10 +9,15 @@ Implements the five small-company statements:
 * Statement of Cash Flows (FRS 102 Section 7)
 
 All amounts are stored as whole pounds (integers). Line items are derived
-from the seeded UK chart of accounts via prefix mapping. Lines that need
-metadata we don't yet capture (e.g. depreciation/amortisation as separate
-P&L lines, OCI items) are emitted as zero placeholders so the statement
-structure is always complete.
+from the seeded UK chart of accounts via prefix mapping; every seeded code is
+placed on purpose, and codes a user adds under a group fall into that group's
+line (roadmap 2026-09 §3.7).
+
+From the ledger, not placeholders: depreciation and amortisation charged
+(stated after operating profit), other comprehensive income (revaluation
+reserve movements against the assets), every changes-in-equity movement for
+both years, dividends paid and directors' loans in the cash flow, and the
+reconciliation of operating profit to cash generated from operations.
 """
 from __future__ import annotations
 
@@ -88,42 +93,38 @@ def _header(key: str, label: str, *, indent: int = 0) -> UKStatementRow:
 # ---------------------------------------------------------------------------
 # Balance Sheet (Companies Act format 1)
 # ---------------------------------------------------------------------------
-# Prefix → BS bucket. Order matters: longer prefixes first.
+# Prefix → BS bucket. Order matters: longer prefixes first; each group ends
+# with a catch-all so an account a user adds (chart_service) lands on its
+# group's line instead of dropping off the statement — which used to happen to
+# accrued income (1410), supplier prepayments (1500) and the opening-balance
+# adjustment (3999), so the sheet stopped balancing.
 _UK_BS_MAP: list[tuple[str, str]] = [
     # Intangible assets (NBV = cost − accum amort, both classified ASSET so
     # the contra-amort accounts naturally subtract via signed sum).
     ("01", "fa_intangibles"),
-    # Tangible fixed assets — NBV
-    ("00", "fa_tangibles"),
     # Investments held as fixed assets
     ("02", "fa_investments"),
-    # Current assets
-    ("1000", "ca_stocks"),
-    ("1100", "ca_debtors"),
-    ("1300", "ca_debtors"),
-    ("1400", "ca_debtors"),
-    ("1200", "ca_cash"),
-    ("1210", "ca_cash"),
-    ("1220", "ca_cash"),
-    # Creditors due within one year (current liabilities)
-    ("21", "cl_creditors"),
-    ("22", "cl_creditors"),
-    ("23", "cl_creditors"),
-    ("24", "cl_creditors"),
-    ("25", "cl_creditors"),
-    ("26", "cl_creditors"),
-    ("27", "cl_creditors"),
+    # Tangible fixed assets — NBV (00xx and any other fixed asset)
+    ("0", "fa_tangibles"),
+    # Current assets: stocks 10xx, cash 12xx, everything else a debtor
+    # (trade debtors, prepayments, accrued income, VAT, supplier advances)
+    ("10", "ca_stocks"),
+    ("12", "ca_cash"),
+    ("1", "ca_debtors"),
     # Provisions for liabilities
     ("295", "ncl_provisions"),
     # Creditors due after more than one year
     ("28", "ncl_creditors"),
     ("29", "ncl_creditors"),
+    # Creditors due within one year (everything else in group 2)
+    ("2", "cl_creditors"),
     # Capital and reserves
     ("3000", "eq_share_capital"),
     ("3010", "eq_share_premium"),
     ("3020", "eq_revaluation_reserve"),
-    ("3030", "eq_other_reserves"),
-    ("3100", "eq_pl_account"),
+    ("31", "eq_pl_account"),
+    ("3999", "eq_pl_account"),          # opening balance adjustments: earnings from before the books
+    ("3", "eq_other_reserves"),
 ]
 
 
@@ -307,31 +308,25 @@ def build_uk_balance_sheet(
 # ---------------------------------------------------------------------------
 # Profit and Loss Account (FRS 102 1A, format 1, by function)
 # ---------------------------------------------------------------------------
-# Prefix → P&L bucket.
+# Prefix → P&L bucket, longer prefixes first, a catch-all per group.
 _UK_PL_MAP: list[tuple[str, str]] = [
-    ("4000", "turnover"),
-    ("4100", "turnover"),         # sales returns — sign is captured by ledger direction
-    ("4200", "other_operating_income"),
+    # other operating income: 4200, FX gains 4210, disposal gains
+    ("42", "other_operating_income"),
+    ("4", "turnover"),            # sales 4000 less returns 4100 (signed)
     ("5", "cost_of_sales"),
     ("70", "distribution_costs"),
-    ("71", "admin_expenses"),
-    ("72", "admin_expenses"),
-    ("73", "admin_expenses"),
-    ("74", "admin_expenses"),
-    ("75", "admin_expenses"),
-    ("76", "admin_expenses"),
-    ("77", "admin_expenses"),
-    ("78", "admin_expenses"),
-    ("79", "admin_expenses"),
-    ("8000", "admin_expenses"),    # bank charges
-    ("8500", "admin_expenses"),    # depreciation
-    ("8600", "admin_expenses"),    # amortisation
+    ("7", "admin_expenses"),      # 71xx–79xx incl. FX losses 7950, disposal losses 7860
     ("8100", "interest_payable"),
     ("8200", "interest_payable"),
     ("8300", "interest_receivable"),
     ("8400", "investment_income"),
+    ("8", "admin_expenses"),      # bank charges 8000, depreciation 8500, amortisation 8600
     ("9", "tax_on_profit"),
 ]
+
+# Charged within the lines above, stated after operating profit (FRS 102 1A notes).
+_UK_DEPRECIATION = "8500"
+_UK_AMORTISATION = "8600"
 
 
 def _pl_bucket_for_code(code: str) -> str | None:
@@ -370,9 +365,20 @@ def _uk_pl_buckets(
         if not bucket:
             continue
         debit, credit = turnovers.get(acc.id, (0, 0))
+        # signed: sales returns reduce turnover and a refund reduces a cost
+        # (clamping each account at zero dropped them and left the P&L out of
+        # step with the balance sheet's profit)
         raw = balance_from_turnovers(classify_account_code(acc.code), debit, credit)
-        buckets[bucket] = buckets.get(bucket, 0) + max(0, int(raw))
+        buckets[bucket] = buckets.get(bucket, 0) + int(raw)
     return buckets
+
+
+def _charged(db: Session, accounts: list[Account], from_d: date, to_d: date, currency: str | None,
+             prefix: str) -> int:
+    """An expense charged in the period on accounts under ``prefix``."""
+    turnovers = {a: (d, c) for a, d, c in account_turnovers_between(db, from_d, to_d, currency=currency)}
+    return sum(int(d - c) for acc in accounts if (acc.code or "").startswith(prefix)
+               for d, c in [turnovers.get(acc.id, (0, 0))])
 
 
 def build_uk_income_statement(
@@ -440,6 +446,13 @@ def build_uk_income_statement(
         _subtotal("profit_before_tax", "Profit/(loss) before taxation", before_tax_cur, before_tax_pri),
         _line("tax_on_profit", "Tax on profit/(loss)", tax_cur, tax_pri, negative_presentation=True),
         _subtotal("profit_for_year", "Profit/(loss) for the financial year", net_cur, net_pri, row_type="total"),
+        _header("stated_after_section", "Operating profit is stated after charging:"),
+        _line("depreciation_charged", "Depreciation of tangible fixed assets",
+              _charged(db, accounts, period.from_date, period.to_date, currency, _UK_DEPRECIATION),
+              _charged(db, accounts, comparative_from_date, comparative_to_date, currency, _UK_DEPRECIATION)),
+        _line("amortisation_charged", "Amortisation of intangible assets",
+              _charged(db, accounts, period.from_date, period.to_date, currency, _UK_AMORTISATION),
+              _charged(db, accounts, comparative_from_date, comparative_to_date, currency, _UK_AMORTISATION)),
     ]
 
     return UKIncomeStatementResponse(
@@ -448,6 +461,62 @@ def build_uk_income_statement(
         rows=rows,
         metadata={"currency": currency or "GBP"},
     )
+
+
+# ---------------------------------------------------------------------------
+# Equity movements from the ledger (OCI, changes in equity)
+# ---------------------------------------------------------------------------
+_EQ_MOVEMENTS = ("closed_profit", "oci", "shares_issued", "dividends", "transfers")
+
+
+def _equity_movements(db: Session, from_d: date, to_d: date, currency: str | None) -> dict[str, dict[str, int]]:
+    """Each equity movement in [from_d, to_d] by what is on the other side of
+    the entry, per equity component (increase = +):
+
+    * ``shares_issued`` — share capital / premium moved (a bonus issue out of
+      the P&L reserve shows the reserve going down in the same row);
+    * ``transfers`` — equity-only entries between reserves;
+    * ``dividends`` — the P&L reserve debited against dividends payable, a
+      shareholder's account, cash or another liability;
+    * ``oci`` — the revaluation reserve moved against the assets;
+    * ``closed_profit`` — a closing entry moving P&L balances into the reserve.
+
+    Anything else (opening-balance adjustments, corrections) is left for the
+    changes-in-equity "Other movements" row, which makes each column tie to
+    the balance sheet."""
+    from app.services.reporting.repository import line_net, transactions_with_lines_between
+
+    from app.services.chart_service import OPENING_REFERENCE
+    from app.services.migration_import import OPENING_REFERENCE as MIGRATION_OPENING
+
+    out: dict[str, dict[str, int]] = {k: {} for k in _EQ_MOVEMENTS}
+    for txn in transactions_with_lines_between(db, from_d, to_d, currency=currency):
+        if (txn.reference or "") in (OPENING_REFERENCE, MIGRATION_OPENING):
+            continue                           # opening balances are not the year's movements
+        eq = [(ln, _bs_bucket_for_code(ln.account.code or "")) for ln in txn.lines
+              if (ln.account.code or "").startswith("3")]
+        if not eq:
+            continue
+        others = [(ln.account.code or "") for ln in txn.lines if not (ln.account.code or "").startswith("3")]
+        comps = {b[1] for _, b in eq if b}
+        reserve_debited = any((ln.account.code or "").startswith("31") and line_net(ln, currency) > 0 for ln, _ in eq)
+        if comps & {"eq_share_capital", "eq_share_premium"}:
+            kind = "shares_issued"
+        elif not others:
+            kind = "transfers"
+        elif all(c[:1] in "456789" for c in others):
+            kind = "closed_profit"
+        elif reserve_debited and any(c.startswith(("2", "12")) for c in others):
+            kind = "dividends"
+        elif comps == {"eq_revaluation_reserve"}:
+            kind = "oci"
+        else:
+            continue
+        for ln, bucket in eq:
+            if bucket:
+                comp = bucket[1]
+                out[kind][comp] = out[kind].get(comp, 0) - int(line_net(ln, currency))   # credit = increase
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -486,14 +555,18 @@ def build_uk_comprehensive_income(
 
     np_cur = _uk_period_net_profit(db, period.from_date, period.to_date, currency)
     np_pri = _uk_period_net_profit(db, comparative_from_date, comparative_to_date, currency)
-    # OCI lines remain zero placeholders until tagged.
-    oci_cur = 0
-    oci_pri = 0
+    # Revaluation gains/(losses): the revaluation reserve moved against the
+    # assets. No foreign operations are consolidated, so no translation line;
+    # a deferred tax charged to the reserve shows net in the revaluation line.
+    reval_cur = _equity_movements(db, period.from_date, period.to_date, currency)["oci"].get("eq_revaluation_reserve", 0)
+    reval_pri = _equity_movements(db, comparative_from_date, comparative_to_date, currency)["oci"].get("eq_revaluation_reserve", 0)
+    oci_cur = reval_cur
+    oci_pri = reval_pri
 
     rows: list[UKStatementRow] = [
         _subtotal("profit_for_year", "Profit/(loss) for the financial year", np_cur, np_pri, indent=0),
         _header("oci_section", "Other comprehensive income (net of tax):"),
-        _line("oci_revaluation", "Revaluation gains/(losses) on tangible assets", 0, 0, indent=2),
+        _line("oci_revaluation", "Revaluation gains/(losses) on tangible assets", reval_cur, reval_pri, indent=2),
         _line("oci_fx_translation", "Foreign currency translation differences", 0, 0, indent=2),
         _line("oci_other", "Other comprehensive income items", 0, 0, indent=2),
         _line("oci_tax", "Tax on other comprehensive income", 0, 0, indent=2, negative_presentation=True),
@@ -507,7 +580,7 @@ def build_uk_comprehensive_income(
         rows=rows,
         metadata={
             "currency": currency or "GBP",
-            "note": "OCI lines remain zero until revaluation / FX translation / other OCI movements are tagged explicitly on transactions.",
+            "note": "Other comprehensive income is the revaluation reserve's movement against the assets in the period; transfers between reserves are not OCI.",
         },
     )
 
@@ -529,7 +602,9 @@ def _uk_equity_balances(
     db: Session, accounts: list[Account], as_of: date, currency: str | None,
 ) -> dict[str, int]:
     buckets = _uk_balance_sheet_buckets(db, accounts, as_of, currency)
-    return {bucket: buckets.get(("equity", bucket), 0) for _, bucket in _UK_EQUITY_COMPONENTS}
+    # (key, label) pairs — this read the label as the key, so every opening and
+    # closing balance in the statement came out as zero
+    return {bucket: buckets.get(("equity", bucket), 0) for bucket, _label in _UK_EQUITY_COMPONENTS}
 
 
 def _uk_equity_row(
@@ -563,40 +638,60 @@ def build_uk_changes_in_equity(
         comparative_from_date = _shift_one_year(period.from_date)
 
     accounts = list_accounts(db)
+    opening_date = period.from_date - timedelta(days=1)
     comparative_opening = _uk_equity_balances(db, accounts, comparative_from_date - timedelta(days=1), currency)
-    opening = _uk_equity_balances(db, accounts, period.from_date - timedelta(days=1), currency)
-    comparative_np = _uk_period_net_profit(db, comparative_from_date, comparative_to_date, currency)
-    net_profit = _uk_period_net_profit(db, period.from_date, period.to_date, currency)
+    opening = _uk_equity_balances(db, accounts, opening_date, currency)
+    closing = _uk_equity_balances(db, accounts, period.to_date, currency)
 
-    from app.services.reporting.iran_statement_service import _equity_period_movements
-    mv = _equity_period_movements(db, period.from_date, period.to_date)
+    def movements(from_d: date, to_d: date, start: dict, end: dict) -> dict[str, dict[str, int]]:
+        """One year's rows, per component; "other" makes the year tie to the
+        balance sheet (opening + movements = closing)."""
+        mv = _equity_movements(db, from_d, to_d, currency)
+        profit = _uk_period_net_profit(db, from_d, to_d, currency)
+        rows = {
+            "profit": {"eq_pl_account": profit + mv["closed_profit"].get("eq_pl_account", 0)},
+            "oci": dict(mv["oci"]),
+            "shares_issued": dict(mv["shares_issued"]),
+            "dividends": dict(mv["dividends"]),
+            "transfers": dict(mv["transfers"]),
+        }
+        other = {}
+        for comp, _label in _UK_EQUITY_COMPONENTS:
+            explained = sum(r.get(comp, 0) for r in rows.values())
+            left = end.get(comp, 0) - start.get(comp, 0) - explained
+            if left:
+                other[comp] = left
+        rows["other"] = other
+        rows["total_ci"] = {k: rows["profit"].get(k, 0) + rows["oci"].get(k, 0)
+                            for k in set(rows["profit"]) | set(rows["oci"])}
+        return rows
 
-    closing = dict(opening)
-    closing["eq_pl_account"] = closing.get("eq_pl_account", 0) + net_profit
-    closing["eq_share_capital"] = closing.get("eq_share_capital", 0) + mv["capital_added"]
-    closing["eq_pl_account"] -= mv["retained_capitalised"]
-    closing["eq_pl_account"] -= mv["dividends"]
+    # the comparative year runs up to the current year's opening, so the two chain
+    prev = movements(comparative_from_date, opening_date, comparative_opening, opening)
+    cur = movements(period.from_date, period.to_date, opening, closing)
+
+    def block(prefix: str, mv: dict) -> list[UKEquityMovementRow]:
+        p = f"{prefix}_" if prefix else ""
+        out = [
+            _uk_equity_row(f"{p}profit" if prefix else "profit_for_year", "Profit for the year", mv["profit"]),
+            _uk_equity_row(f"{p}oci", "Other comprehensive income", mv["oci"]),
+            _uk_equity_row(f"{p}total_ci", "Total comprehensive income", mv["total_ci"], row_type="subtotal"),
+            _uk_equity_row(f"{p}shares_issued", "Shares issued in the year", mv["shares_issued"]),
+            _uk_equity_row(f"{p}dividends", "Dividends declared and paid", mv["dividends"]),
+            _uk_equity_row(f"{p}transfer_reserves", "Transfers between reserves", mv["transfers"]),
+        ]
+        if mv["other"]:
+            out.append(_uk_equity_row(f"{p}other", "Other movements (opening balances, corrections)", mv["other"]))
+        return out
 
     rows: list[UKEquityMovementRow] = [
         _uk_equity_row("comparative_opening", f"At {comparative_from_date.isoformat()}", comparative_opening),
-        _uk_equity_header("comparative_period", f"Movements in the year ended {comparative_to_date.isoformat()}"),
-        _uk_equity_row("comparative_profit", "Profit for the year", {"eq_pl_account": comparative_np}),
-        _uk_equity_empty("comparative_oci", "Other comprehensive income"),
-        _uk_equity_row("comparative_total_ci", "Total comprehensive income", {"eq_pl_account": comparative_np}, row_type="subtotal"),
-        _uk_equity_empty("comparative_shares_issued", "Shares issued in the year"),
-        _uk_equity_empty("comparative_dividends", "Dividends declared and paid"),
-        _uk_equity_empty("comparative_transfer_reserves", "Transfers between reserves"),
-        _uk_equity_row("opening", f"At {(period.from_date - timedelta(days=1)).isoformat()}", opening, row_type="subtotal"),
+        # the block runs to the current opening so the two years chain
+        _uk_equity_header("comparative_period", f"Movements in the year ended {opening_date.isoformat()}"),
+        *block("comparative", prev),
+        _uk_equity_row("opening", f"At {opening_date.isoformat()}", opening, row_type="subtotal"),
         _uk_equity_header("current_period", f"Movements in the year ended {period.to_date.isoformat()}"),
-        _uk_equity_row("profit_for_year", "Profit for the year", {"eq_pl_account": net_profit}),
-        _uk_equity_empty("oci", "Other comprehensive income"),
-        _uk_equity_row("total_ci", "Total comprehensive income", {"eq_pl_account": net_profit}, row_type="subtotal"),
-        _uk_equity_row(
-            "shares_issued", "Shares issued in the year",
-            {"eq_share_capital": mv["capital_added"], "eq_pl_account": -mv["retained_capitalised"]},
-        ),
-        _uk_equity_row("dividends", "Dividends declared and paid", {"eq_pl_account": -mv["dividends"]}),
-        _uk_equity_empty("transfer_reserves", "Transfers between reserves"),
+        *block("", cur),
         _uk_equity_row("closing", f"At {period.to_date.isoformat()}", closing, row_type="total"),
     ]
 
@@ -612,7 +707,7 @@ def build_uk_changes_in_equity(
                 "from_date": comparative_from_date.isoformat(),
                 "to_date": comparative_to_date.isoformat(),
             },
-            "note": "Shares-issued and dividends reflect tagged equity events for the period; inter-reserve transfers remain a placeholder until tagged.",
+            "note": "Movements come from the ledger: shares issued (share capital / premium), dividends (the P&L reserve against dividends payable or cash), transfers between reserves, revaluations (OCI). Anything else is under other movements, so each column ties to the balance sheet.",
         },
     )
 
@@ -621,11 +716,11 @@ def build_uk_changes_in_equity(
 # Cash Flow Statement (FRS 102 Section 7, indirect method skeleton)
 # ---------------------------------------------------------------------------
 #
-# The UK indirect-method cash flow ideally reconciles operating profit to
-# operating cash via working-capital movements. We don't yet capture
-# dep/amort separately on transactions, so this implementation uses the
-# direct counterparty-prefix classification (same approach as the Iranian
-# template) and shows the prescribed FRS 102 line skeleton.
+# The statement uses the direct method (FRS 102 7.7 allows it): each cash
+# movement is classified by its largest counterparty. Below it, the note that
+# reconciles operating profit to cash generated from operations — depreciation,
+# amortisation, fixed-asset gains and losses, and the working-capital
+# movements — with any difference left visible.
 
 _UK_CF_CATEGORY_MAP: list[tuple[str, str]] = [
     # Investing — fixed-asset categories
@@ -633,11 +728,17 @@ _UK_CF_CATEGORY_MAP: list[tuple[str, str]] = [
     ("01", "inv_intangibles"),
     ("02", "inv_investments"),
     # Financing
+    # an issue credits capital and premium together: one line, not all of it
+    # on whichever of the two is larger
     ("3000", "fin_share_capital"),
-    ("3010", "fin_share_premium"),
+    ("3010", "fin_share_capital"),
     ("2600", "fin_borrowings"),     # bank loan ST current portion
     ("2800", "fin_borrowings"),     # bank loan LT
+    ("2500", "fin_borrowings"),     # bank overdraft drawn / repaid
     ("2810", "fin_lease"),
+    ("2750", "fin_dividends"),      # paying a declared dividend
+    ("31", "fin_dividends"),        # a dividend paid straight out of the reserve
+    ("2350", "fin_director_loans"), # directors' / shareholders' loan account
     # Tax
     ("2300", "op_tax_paid"),
     # Interest receipts / payments — captured under operating in FRS 102 1A
@@ -706,13 +807,56 @@ _UK_CF_ROW_TEMPLATE: list[tuple[str, str, str]] = [
     ("investing", "inv_investments_inflow", "Proceeds from sale of investments"),
     ("investing", "inv_investments_outflow", "Purchase of investments"),
     # Financing
-    ("financing", "fin_share_capital_inflow", "Proceeds from issue of share capital"),
-    ("financing", "fin_share_premium_inflow", "Share premium received"),
+    ("financing", "fin_share_capital_inflow", "Proceeds from issue of shares (including premium)"),
     ("financing", "fin_borrowings_inflow", "New bank loans drawn"),
     ("financing", "fin_borrowings_outflow", "Repayment of bank loans"),
     ("financing", "fin_lease_outflow", "Capital element of finance-lease payments"),
-    ("financing", "fin_dividends_outflow", "Dividends paid (placeholder)"),
+    ("financing", "fin_director_loans_inflow", "Advances from directors"),
+    ("financing", "fin_director_loans_outflow", "Repayments to directors"),
+    ("financing", "fin_dividends_outflow", "Equity dividends paid"),
 ]
+
+
+# Creditors that are not working capital: tax (its own line), dividends,
+# directors' loans, borrowings and long-term creditors (financing).
+_UK_NON_WC_CREDITORS = ("2300", "2350", "2500", "2600", "2750", "28", "29")
+
+
+def _uk_cash_reconciliation(db: Session, accounts: list[Account], from_d: date, to_d: date,
+                            currency: str | None) -> dict[str, int]:
+    """Operating profit → cash generated from operations (indirect method)."""
+    from app.services.reporting.repository import line_net, transactions_with_lines_between
+
+    turn = {a: (d, c) for a, d, c in account_turnovers_between(db, from_d, to_d, currency=currency)}
+
+    def movement(pred) -> int:            # debit − credit over the period
+        return sum(int(d - c) for acc in accounts if pred(acc.code or "")
+                   for d, c in [turn.get(acc.id, (0, 0))])
+
+    pl = _uk_pl_buckets(db, accounts, from_d, to_d, currency)
+    operating = sum(_pl_signed(b, pl.get(b, 0)) for b in
+                    ("turnover", "cost_of_sales", "distribution_costs", "admin_expenses", "other_operating_income"))
+    # gains and losses in entries that touch fixed assets (disposals, write-downs),
+    # beyond depreciation and amortisation
+    fixed_asset_pl = 0
+    for txn in transactions_with_lines_between(db, from_d, to_d, currency=currency):
+        codes = [(ln.account.code or "") for ln in txn.lines]
+        if not any(c.startswith("0") for c in codes):
+            continue
+        for ln in txn.lines:
+            c = ln.account.code or ""
+            if c[:1] in "4567" or (c.startswith("8") and not c.startswith((_UK_DEPRECIATION, _UK_AMORTISATION))):
+                fixed_asset_pl += int(line_net(ln, currency))          # a loss (debit) is added back
+    return {
+        "operating_profit": operating,
+        "depreciation": movement(lambda c: c.startswith(_UK_DEPRECIATION)),
+        "amortisation": movement(lambda c: c.startswith(_UK_AMORTISATION)),
+        "fixed_asset_pl": fixed_asset_pl,
+        "stocks": -movement(lambda c: c.startswith("10")),
+        "debtors": -movement(lambda c: c.startswith("1") and not c.startswith(("10", "12"))),
+        "creditors": -movement(lambda c: c.startswith("2") and not c.startswith(_UK_NON_WC_CREDITORS + ("295",))),
+        "provisions": -movement(lambda c: c.startswith("295")),
+    }
 
 
 def _uk_section_sum(section: str, buckets: dict[tuple[str, str], int]) -> int:
@@ -736,6 +880,33 @@ def _cf_row(
         amount_current=cur, amount_prior=pri,
         is_negative_presentation=(cur < 0 or pri < 0),
     )
+
+
+_UK_RECON_LINES = (
+    ("operating_profit", "Operating profit/(loss)"),
+    ("depreciation", "Depreciation of tangible fixed assets"),
+    ("amortisation", "Amortisation of intangible assets"),
+    ("fixed_asset_pl", "(Profit)/loss on disposal and write-down of fixed assets"),
+    ("stocks", "(Increase)/decrease in stocks"),
+    ("debtors", "(Increase)/decrease in debtors"),
+    ("creditors", "Increase/(decrease) in creditors"),
+    ("provisions", "Increase/(decrease) in provisions"),
+)
+
+
+def _reconciliation_rows(cur: dict, pri: dict, generated_cur: int, generated_pri: int) -> list[UKStatementRow]:
+    """The note, ending on the statement's cash generated from operations. A
+    difference (non-cash investing or financing through working capital,
+    entries classified by their largest line) is shown, never hidden."""
+    rows = [_header("recon_section", "Reconciliation of operating profit to cash generated from operations")]
+    rows += [_line(f"recon_{k}", label, cur[k], pri[k], indent=1,
+                   negative_presentation=False) for k, label in _UK_RECON_LINES]
+    diff_cur = generated_cur - sum(cur.values())
+    diff_pri = generated_pri - sum(pri.values())
+    if diff_cur or diff_pri:
+        rows.append(_line("recon_other", "Other non-cash items and reclassifications", diff_cur, diff_pri, indent=1))
+    rows.append(_subtotal("recon_cash_generated", "Cash generated from operations", generated_cur, generated_pri))
+    return rows
 
 
 def build_uk_cash_flow(
@@ -793,6 +964,10 @@ def build_uk_cash_flow(
         _subtotal("opening_cash", "Cash at the beginning of the year", opening_cash_cur, opening_cash_pri),
         _subtotal("fx_effect", "Effect of exchange-rate changes", fx_cur, fx_pri),
         _subtotal("closing_cash", "Cash at the end of the year", closing_cash_cur, closing_cash_pri, row_type="total"),
+        *_reconciliation_rows(
+            _uk_cash_reconciliation(db, accounts, period.from_date, period.to_date, currency),
+            _uk_cash_reconciliation(db, accounts, comparative_from_date, comparative_to_date, currency),
+            current.get(("operating", "op_other"), 0), prior.get(("operating", "op_other"), 0)),
     ]
 
     return UKCashFlowResponse(

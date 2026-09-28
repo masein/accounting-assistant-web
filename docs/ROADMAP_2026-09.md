@@ -325,6 +325,25 @@ guide print (outline + field names) on plain paper is how it is calibrated,
 and a test print needs no cheque. Real prints go in the cheque's history.
 Issued cheques only. §3.4 done.
 
+✅ 3.7 UK FRS 102 statements from the ledger (`reporting/uk_statement_service.py`):
+every seeded UK account is placed on purpose and each group ends in a
+catch-all, so user-added accounts land on their line — accrued income (1410),
+supplier prepayments (1500) and the opening-balance adjustment (3999) used to
+drop off and the balance sheet stopped balancing. P&L sums signed (sales
+returns reduced nothing: each account was clamped at zero), FX gains are other
+operating income, and operating profit is "stated after charging"
+depreciation and amortisation. OCI = the revaluation reserve moved against the
+assets. Changes in equity: every movement for both years from the ledger
+(profit, OCI, shares issued, dividends, transfers between reserves, other),
+the comparative year chaining to the opening; the opening and closing
+balances had always been zero (a tuple unpacked the wrong way round). Cash
+flow: dividends paid (2750 or straight from the reserve), directors' loans,
+overdraft, share issues as one line, and the reconciliation of operating
+profit to cash generated from operations (depreciation, amortisation,
+fixed-asset gains/losses, stocks, debtors, creditors, provisions) with any
+difference shown as its own line. §3 done except مودیان phase 2 and HMRC
+direct submission.
+
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
 amount within a week or same reference), payments/expense claims split just
@@ -440,7 +459,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | # | Item | Notes |
 |---|---|---|
 | 3.6 | **MTD for Income Tax (April 2026)** — quarterly updates for sole traders/landlords over £50k (£30k in 2027): digital records tag (self-employment / UK property), quarterly income/expense summary in HMRC's categories, export or (later) HMRC API submission; MTD VAT return figures (boxes 1–9) from the tax summary | new `app/services/uk_mtd/`; FreeAgent/Xero parity |
-| 3.7 | UK FRS 102 statements: real depreciation/amortisation lines, OCI, dividends paid (currently placeholders) | `reporting/uk_statement_service.py:12,489,615,714` |
+| 3.7 | ✅ UK FRS 102 statements (2026-09-28): real depreciation/amortisation lines, OCI, dividends paid (currently placeholders) | `reporting/uk_statement_service.py:12,489,615,714` |
 
 ## 4. Product features (what customers compare against)
 

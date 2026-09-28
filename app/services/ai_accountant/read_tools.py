@@ -338,16 +338,19 @@ class QueryLedger(BaseTool):
             result["unconverted"] = left_out
 
         if args.group_by == "month":
+            # the company's months: Jalali for an Iranian company (§3.5)
+            from app.services.calendar_periods import company_calendar, month_key, month_label
+            cal = company_calendar(ctx.db)
             buckets: dict[str, dict[str, int]] = {}
             for txn, line, _acc in rows:
-                key = txn.date.strftime("%Y-%m")
+                key = month_key(txn.date, cal)
                 slot = buckets.setdefault(key, {"debit": 0, "credit": 0, "count": 0})
                 d, c = line_dr_cr(line, ccy)
                 slot["debit"] += d
                 slot["credit"] += c
                 slot["count"] += 1
             result["by_month"] = [
-                {"month": m, **buckets[m]}
+                {"month": m, "label": month_label(m), **buckets[m]}
                 for m in sorted(buckets)
             ]
         elif args.group_by == "account":

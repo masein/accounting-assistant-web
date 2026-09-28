@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.7"
+CURRENT_RELEASE = "2026.09.28.8"
 
 
 @dataclass(frozen=True)
@@ -868,6 +868,31 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«منوی حساب ← تلگرام / بله»: یک بار گفتگوی خود را وصل کنید، سپس خرج یا دریافتی‌تان را — یک خط متن یا پیام صوتی — برای ربات بفرستید. مثل گفتگوی اینجا پاسخ می‌دهد و روی هر چیزی که ثبت می‌کند دکمهٔ «تأیید» و «لغو» می‌گذارد. تا «تأیید» نزنید چیزی ثبت نمی‌شود؛ /new گفتگوی تازه و /stop قطع اتصال. (وقتی مدیر سرور رباتی وصل کرده باشد نمایش داده می‌شود.)",
                     "es": "Menú de la cuenta → Telegram / Bale: vincula tu chat una vez y envía al bot lo que gastaste o cobraste, en una línea o una nota de voz; responde como el chat de aquí, con botones Confirmar y Cancelar en lo que registraría. Nada se guarda hasta que pulses Confirmar; /new empieza otra conversación y /stop desvincula el chat. (Aparece cuando el administrador ha conectado un bot.)",
                     "ar": "قائمة الحساب ← تيليغرام / بله: اربط محادثتك مرة واحدة، ثم أرسل للبوت ما أنفقته أو استلمته — سطرًا أو ملاحظة صوتية — فيجيب مثل المحادثة هنا، مع زري «تأكيد» و«إلغاء» على ما سيسجّله. لا يُحفظ شيء حتى تضغط «تأكيد»؛ /new لمحادثة جديدة و/stop لإلغاء الربط. (يظهر عندما يربط المسؤول بوتًا.)",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.8",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="jalali-reports",
+                page="manager",
+                page_by_role={"personal": "dashboard"},
+                roles=("owner", "cfo", "accountant", "manager", "viewer", "personal"),
+                locales=("ir",),
+                title={
+                    "en": "Reports in Jalali months",
+                    "fa": "گزارش‌ها با ماه‌های شمسی",
+                    "es": "Informes por meses del calendario persa",
+                    "ar": "التقارير بالأشهر الشمسية",
+                },
+                body={
+                    "en": "When the display calendar is Jalali, budgets, the dashboard's monthly charts, trend and cash-flow periods, seasons, insight comparisons and the payroll year all follow Jalali months — Mehr 1405 is 23 September to 22 October — instead of splitting each month in two. The budget month picker lists Jalali months. Budgets set before this keep their Gregorian months.",
+                    "fa": "وقتی تقویم نمایش شمسی است، بودجه‌ها، نمودارهای ماهانهٔ داشبورد، دوره‌های روند و جریان نقد، فصل‌ها، مقایسه‌های بینش‌ها و سال حقوق و دستمزد همه با ماه‌های شمسی حساب می‌شوند — مهر ۱۴۰۵ از ۱ تا ۳۰ مهر — نه با ماه میلادی که هر ماه را دو تکه می‌کرد. انتخاب ماه بودجه هم ماه‌های شمسی را نشان می‌دهد. بودجه‌هایی که پیش‌تر تعریف شده‌اند ماه میلادی خود را نگه می‌دارند.",
+                    "es": "Con el calendario persa (jalalí) como calendario de visualización, los presupuestos, los gráficos mensuales del panel, los periodos de tendencia y de flujo de caja, las estaciones, las comparaciones de las observaciones y el año de nómina siguen los meses jalalíes (Mehr 1405 va del 23 de septiembre al 22 de octubre) en lugar de partir cada mes en dos. El selector de mes del presupuesto muestra meses jalalíes; los presupuestos anteriores conservan sus meses gregorianos.",
+                    "ar": "عندما يكون تقويم العرض هو التقويم الشمسي، تتبع الموازنات والرسوم الشهرية في لوحة المعلومات وفترات الاتجاه والتدفق النقدي والفصول ومقارنات الرؤى وسنة الرواتب الأشهرَ الشمسية — مهر ١٤٠٥ من ٢٣ سبتمبر إلى ٢٢ أكتوبر — بدل تقسيم كل شهر إلى نصفين. ويعرض منتقي شهر الموازنة الأشهر الشمسية، وتحتفظ الموازنات السابقة بأشهرها الميلادية.",
                 },
             ),
         ),

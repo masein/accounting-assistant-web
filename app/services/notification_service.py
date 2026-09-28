@@ -411,11 +411,14 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
         pass
 
     # --- budgets: current month at >=85% (warning) / >=100% (over, high) ---
-    month = f"{today.year:04d}-{today.month:02d}"
+    # This month in the company's calendar (a Jalali month for an Iranian
+    # company), and the Gregorian one for budgets set before §3.5.
+    from app.services.calendar_periods import company_calendar, month_key
+    months = list(dict.fromkeys([month_key(today, company_calendar(db)), f"{today.year:04d}-{today.month:02d}"]))
     try:
         from app.services.budget_service import budget_utilization
 
-        for row in budget_utilization(db, month):
+        for month, row in ((mo, r) for mo in months for r in budget_utilization(db, mo)):
             pct = row["utilization_pct"]
             if pct < 85:
                 continue

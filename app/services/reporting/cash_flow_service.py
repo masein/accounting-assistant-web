@@ -21,6 +21,8 @@ class CashFlowService:
         """Return cash inflows and outflows grouped by period."""
         from app.services.reporting.repository import line_net, transactions_with_lines_between
 
+        from app.services.calendar_periods import company_calendar, period_key
+        cal = company_calendar(self.db)
         period = default_period(from_date, to_date)
         txns = transactions_with_lines_between(self.db, period.from_date, period.to_date, currency=currency)
 
@@ -34,23 +36,7 @@ class CashFlowService:
                 continue
             cash_delta = sum(line_net(ln, currency) for ln in cash_lines)
 
-            if granularity == "weekly":
-                key = txn.date.strftime("%Y-W%W")
-            elif granularity == "quarterly":
-                q = (txn.date.month - 1) // 3 + 1
-                key = f"{txn.date.year}-Q{q}"
-            elif granularity == "seasonal":
-                month = txn.date.month
-                if month in (3, 4, 5):
-                    key = f"{txn.date.year}-Spring"
-                elif month in (6, 7, 8):
-                    key = f"{txn.date.year}-Summer"
-                elif month in (9, 10, 11):
-                    key = f"{txn.date.year}-Autumn"
-                else:
-                    key = f"{txn.date.year}-Winter"
-            else:  # monthly
-                key = txn.date.strftime("%Y-%m")
+            key = period_key(txn.date, granularity, cal)        # the company's calendar (§3.5)
 
             if cash_delta > 0:
                 inflows[key] += int(cash_delta)

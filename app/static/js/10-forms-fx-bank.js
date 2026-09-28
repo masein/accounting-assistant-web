@@ -80,7 +80,7 @@
     });
 
     function setInvoiceDateDefaults() {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localIsoDate();
       document.getElementById('inv-issue').value = today;
       document.getElementById('inv-due').value = datePlusDays(today, INVOICE_NET_DAYS);
       _invDueManuallySet = false;
@@ -105,11 +105,12 @@
     }
     document.getElementById('date').addEventListener('change', updateJalaliHint);
     updateJalaliHint();
-    document.getElementById('budget-month').value = new Date().toISOString().slice(0, 7);
-    if (mgrFromDateEl) mgrFromDateEl.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-    if (mgrToDateEl) mgrToDateEl.value = new Date().toISOString().slice(0, 10);
-    if (invFromDateEl) invFromDateEl.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-    if (invToDateEl) invToDateEl.value = new Date().toISOString().slice(0, 10);
+    document.getElementById('budget-month').value = currentMonthKey();
+    document.getElementById('budget-month').addEventListener('change', loadBudgets);
+    if (mgrFromDateEl) mgrFromDateEl.value = mgrFromDateEl.dataset.auto = monthStartIso();
+    if (mgrToDateEl) mgrToDateEl.value = localIsoDate();
+    if (invFromDateEl) invFromDateEl.value = invFromDateEl.dataset.auto = monthStartIso();
+    if (invToDateEl) invToDateEl.value = localIsoDate();
     syncManagerFilterLabels();
     topNav.addEventListener('click', (e) => {
       const btn = e.target.closest('.nav-btn[data-page]');
@@ -623,6 +624,7 @@
             const data = await r.json();
             window.__DISPLAY_CALENDAR = data.calendar;
             if (status) status.textContent = 'Saved: ' + data.calendar;
+            if (typeof applyCalendarMonthPickers === 'function') applyCalendarMonthPickers();
           } else {
             const data = await r.json().catch(() => ({}));
             if (status) status.textContent = (data.detail || 'Failed to save.');

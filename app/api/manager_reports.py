@@ -794,40 +794,13 @@ def balance_sheet_periods(
     period = default_period(from_date, to_date)
     accounts = list_accounts(db)
 
-    # Build list of period-end dates
-    ends: list[date] = []
-    if granularity == "monthly":
-        cursor = period.from_date.replace(day=1)
-        while cursor <= period.to_date:
-            month_end = date(cursor.year, cursor.month, calendar.monthrange(cursor.year, cursor.month)[1])
-            ends.append(min(month_end, period.to_date))
-            cursor = _add_months(cursor, 1)
-    elif granularity == "quarterly":
-        cursor = period.from_date.replace(day=1)
-        while cursor <= period.to_date:
-            q_end_month = _add_months(cursor, 3)
-            q_end = q_end_month - timedelta(days=1)
-            ends.append(min(q_end, period.to_date))
-            cursor = q_end_month
-    elif granularity == "weekly":
-        cursor = period.from_date
-        while cursor <= period.to_date:
-            week_end = cursor + timedelta(days=(6 - cursor.weekday()))
-            ends.append(min(week_end, period.to_date))
-            cursor = week_end + timedelta(days=1)
-    else:  # seasonal
-        cursor = period.from_date.replace(day=1)
-        while cursor <= period.to_date:
-            q_end_month = _add_months(cursor, 3)
-            q_end = q_end_month - timedelta(days=1)
-            ends.append(min(q_end, period.to_date))
-            cursor = q_end_month
-
-    # Deduplicate and sort
-    ends = sorted(set(ends))
+    # Period ends in the company's calendar: Jalali months and seasons for an
+    # Iranian company (roadmap §3.5), Gregorian otherwise.
+    from app.services.calendar_periods import company_calendar, period_ends
+    buckets = period_ends(period.from_date, period.to_date, granularity, company_calendar(db))
 
     periods = []
-    for end_date in ends:
+    for label, end_date in buckets:
         turnovers = account_turnovers_upto(db, end_date, currency=currency)
         turnover_map = {aid: (d, c) for aid, d, c in turnovers}
         totals = {ASSET: 0, LIABILITY: 0, EQUITY: 0}
@@ -841,18 +814,6 @@ def balance_sheet_periods(
                 totals[acc_type] += balance_from_turnovers(acc_type, tc[0], tc[1])
         # unclosed profit/(loss) to date is equity, so the trend balances too
         totals[EQUITY] += net_profit_to_date(db, end_date, currency=currency)
-
-        if granularity == "monthly":
-            label = end_date.strftime("%Y-%m")
-        elif granularity == "quarterly":
-            q = (end_date.month - 1) // 3 + 1
-            label = f"{end_date.year}-Q{q}"
-        elif granularity == "weekly":
-            label = end_date.strftime("%Y-W%W")
-        else:
-            month = end_date.month
-            season = "Spring" if month in (3, 4, 5) else "Summer" if month in (6, 7, 8) else "Autumn" if month in (9, 10, 11) else "Winter"
-            label = f"{end_date.year}-{season}"
 
         periods.append({
             "period": label,
@@ -890,6 +851,8 @@ def sales_trend(
     from app.services.reporting.common import default_period
     from app.services.reporting.repository import sales_items_between
 
+    from app.services.calendar_periods import company_calendar, period_key
+    cal = company_calendar(db)
     period = default_period(from_date, to_date)
     rows = sales_items_between(db, period.from_date, period.to_date, currency=currency)
 
@@ -903,18 +866,7 @@ def sales_trend(
         if product_name and product_name.lower() not in name.lower():
             continue
 
-        d = inv.issue_date
-        if granularity == "weekly":
-            key = d.strftime("%Y-W%W")
-        elif granularity == "quarterly":
-            q = (d.month - 1) // 3 + 1
-            key = f"{d.year}-Q{q}"
-        elif granularity == "seasonal":
-            month = d.month
-            season = "Spring" if month in (3, 4, 5) else "Summer" if month in (6, 7, 8) else "Autumn" if month in (9, 10, 11) else "Winter"
-            key = f"{d.year}-{season}"
-        else:
-            key = d.strftime("%Y-%m")
+        key = period_key(inv.issue_date, granularity, cal)       # the company's calendar (§3.5)
 
         by_period[key]["quantity"] += float(item.quantity or 0)
         by_period[key]["sales_amount"] += int(item.line_total or 0)

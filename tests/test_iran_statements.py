@@ -355,14 +355,14 @@ class TestIranBalanceSheet:
         cases = {
             "1110": ("current_assets", "ca_cash"),
             "1112": ("current_assets", "ca_trade_receivables"),
-            "1140": ("current_assets", "ca_inventory"),
+            "1145": ("current_assets", "ca_inventory"),       # the standard's 114 group
             "1180": ("current_assets", "ca_other"),           # 118x falls through to ca_other
             "1210": ("non_current_assets", "nca_ppe"),
             "1230": ("non_current_assets", "nca_intangibles"),
             "1290": ("non_current_assets", "nca_other"),
             "2110": ("current_liabilities", "cl_trade_payables"),
             "2150": ("current_liabilities", "cl_st_loans"),
-            "2190": ("current_liabilities", "cl_other"),
+            "2199": ("current_liabilities", "cl_other"),      # an unseeded 219x falls through
             "2220": ("non_current_liabilities", "ncl_lt_loans"),
             "2270": ("non_current_liabilities", "ncl_employee_benefits"),
             "3110": ("equity", "eq_capital"),
@@ -592,12 +592,12 @@ class TestIranCashFlow:
         cases = {
             "1210": ("investing", "inv_ppe"),
             "1230": ("investing", "inv_intangibles"),
-            "1130": ("investing", "inv_st_investments"),
+            "1135": ("investing", "inv_st_investments"),     # the standard's 113 group
             "3110": ("financing", "fin_capital"),
-            "2140": ("financing", "fin_dividends"),
+            "2145": ("financing", "fin_dividends"),
             "2150": ("financing", "fin_st_loans"),
             "2220": ("financing", "fin_lt_loans"),
-            "2130": ("operating", "op_tax_paid"),
+            "2135": ("operating", "op_tax_paid"),            # the standard's 213 group
             "6110": ("operating", "op_other"),  # unmatched falls through
             "4110": ("operating", "op_other"),
         }

@@ -195,3 +195,33 @@ def test_the_budget_pickers_follow_the_display_calendar():
     manager = (JS / "05-reports-manager.js").read_text(encoding="utf-8")
     assert "new Date().toISOString().slice(0, 7)" not in manager
     assert manager.count("formatPeriodKey(p.period)") >= 5
+    forms = (JS / "10-forms-fx-bank.js").read_text(encoding="utf-8")
+    assert "getElementById('budget-month').addEventListener('change', loadBudgets)" in forms
+    assert "mgrFromDateEl.dataset.auto = monthStartIso()" in forms
+    assert "new Date().toISOString().slice(0, 10)" not in forms                    # UTC: a day early in Tehran
+    i18n = (JS / "02-i18n.js").read_text(encoding="utf-8")
+    vouchers = (JS / "06-vouchers.js").read_text(encoding="utf-8")
+    assert "<th>Actual</th>" not in vouchers and "t('budgetColActual')" in vouchers
+    assert i18n.count("budgetColActual: ") == 4 and i18n.count("budgetNoRows: ") == 4
+    assert "setLabel('budget-month', 'labelMonth')" in i18n and "forId + '-jalali\"]'" in i18n
+
+
+@pytest.mark.parametrize("role", ["accountant", "manager", "employee", "viewer"])
+def test_every_role_reads_the_display_calendar(client, role):
+    """The calendar every page draws in: roles without settings access got
+    Gregorian dates and month pickers in an Iranian company."""
+    from app.core.auth import CSRF_COOKIE, create_session_token, generate_csrf_token
+    from app.core.config import settings
+    from tests.conftest import _CSRFTestClient
+    tok = create_session_token(user_id=str(uuid.uuid4()), username=role, is_admin=False, role=role)
+    csrf = generate_csrf_token()
+    client.cookies.clear()
+    client.cookies.set(settings.auth_cookie_name, tok)
+    client.cookies.set(CSRF_COOKIE, csrf)
+    api = _CSRFTestClient(client, csrf)
+    try:
+        r = api.get("/admin/display-calendar")
+        assert r.status_code == 200 and r.json()["calendar"] in ("jalali", "gregorian")
+        assert api.put("/admin/display-calendar", json={"calendar": "jalali"}).status_code == 403
+    finally:
+        client.cookies.clear()

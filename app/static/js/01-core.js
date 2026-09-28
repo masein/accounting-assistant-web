@@ -122,6 +122,8 @@
       }
       m = /^(\d{4})-Q([1-4])$/.exec(s);
       if (m && +m[1] < 1700) return _SEASONS[lang][+m[2] - 1] + ' ' + digits(m[1]);
+      m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);             // a Jalali week, by its Saturday
+      if (m && +m[1] < 1700) return digits(+m[3]) + ' ' + _J_MONTHS[lang][+m[2] - 1] + ' ' + digits(m[1]);
       return s;
     }
 
@@ -133,6 +135,22 @@
         return jy + '-' + String(jm).padStart(2, '0');
       }
       return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
+    }
+
+    // A date as YYYY-MM-DD in local time (toISOString is UTC: a day early in Tehran before 03:30).
+    function localIsoDate(d) {
+      const dt = d || new Date();
+      return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+    }
+
+    // The first day of this month in the display calendar, as a Gregorian ISO date.
+    function monthStartIso(d) {
+      const dt = d || new Date();
+      if ((window.__DISPLAY_CALENDAR || 'gregorian') === 'jalali') {
+        const { jd } = gregorianToJalali(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+        return localIsoDate(new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() - (jd - 1)));
+      }
+      return localIsoDate(new Date(dt.getFullYear(), dt.getMonth(), 1));
     }
 
     // Month pickers (budgets) in the display calendar: an Iranian company
@@ -186,6 +204,11 @@
         if (sel) sel.value = window.__DISPLAY_CALENDAR;
       } catch (_) {}
       applyCalendarMonthPickers();
+      // report ranges still on their default start from this month of the calendar
+      ['mgr-from-date', 'inv-from-date'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && el.dataset.auto && el.value === el.dataset.auto) el.value = el.dataset.auto = monthStartIso();
+      });
     }
 
     // Standard zoom-plugin options applied to line / time-series charts.

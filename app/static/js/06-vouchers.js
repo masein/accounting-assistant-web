@@ -376,12 +376,12 @@
         if (!res.ok) throw new Error(data.detail || 'budget error');
         const rows = data.rows || [];
         if (!rows.length) {
-          budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">No budget rows for this month.</p>';
+          budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('budgetNoRows')) + '</p>';
           return;
         }
         budgetWrap.innerHTML = `
           <table class="mini-table">
-            <thead><tr><th>Category</th><th>Limit</th><th>Actual</th><th>Variance</th><th>Utilization</th></tr></thead>
+            <thead><tr><th>${escapeHtml(t('labelCategory'))}</th><th>${escapeHtml(t('labelLimit'))}</th><th>${escapeHtml(t('budgetColActual'))}</th><th>${escapeHtml(t('budgetColVariance'))}</th><th>${escapeHtml(t('budgetColUsed'))}</th></tr></thead>
             <tbody>
               ${rows.map(r => `<tr>
                 <td>${escapeHtml(r.category)}</td>
@@ -394,7 +394,7 @@
           </table>
         `;
       } catch (err) {
-        budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">Error loading budgets.</p>';
+        budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('budgetLoadError')) + '</p>';
       }
     }
 

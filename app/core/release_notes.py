@@ -880,6 +880,7 @@ RELEASES: tuple[Release, ...] = (
                 key="jalali-reports",
                 page="manager",
                 page_by_role={"personal": "dashboard"},
+                roles=("owner", "cfo", "accountant", "manager", "viewer", "personal"),
                 locales=("ir",),
                 title={
                     "en": "Reports in Jalali months",

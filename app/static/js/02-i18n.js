@@ -2054,6 +2054,11 @@
         msgBotDisconnectConfirm: "Disconnect this bot? Linked chats stop working until it is connected again.",
         rateLimitedNotice: "Too many requests in a minute — wait {seconds} seconds, then try again.",
         rateLimitedShort: "Too many requests just now — reload in a minute.",
+        budgetColActual: 'Actual',
+        budgetColVariance: 'Variance',
+        budgetColUsed: 'Used',
+        budgetNoRows: 'No budget for this month.',
+        budgetLoadError: 'Could not load the budgets.',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",
@@ -3942,6 +3947,11 @@
         msgBotDisconnectConfirm: "این ربات قطع شود؟ گفتگوهای وصل‌شده تا اتصال دوباره کار نمی‌کنند.",
         rateLimitedNotice: "درخواست‌ها در یک دقیقه زیاد شد — {seconds} ثانیه صبر کنید و دوباره امتحان کنید.",
         rateLimitedShort: "الان درخواست‌ها زیاد است — یک دقیقهٔ دیگر دوباره بارگذاری کنید.",
+        budgetColActual: 'واقعی',
+        budgetColVariance: 'اختلاف',
+        budgetColUsed: 'مصرف‌شده',
+        budgetNoRows: 'برای این ماه بودجه‌ای تعریف نشده است.',
+        budgetLoadError: 'بودجه‌ها بارگذاری نشد.',
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",
@@ -5785,6 +5795,11 @@
         msgBotDisconnectConfirm: "¿Desconectar este bot? Los chats vinculados dejarán de funcionar hasta que se vuelva a conectar.",
         rateLimitedNotice: "Demasiadas solicitudes en un minuto: espera {seconds} segundos y vuelve a intentarlo.",
         rateLimitedShort: "Demasiadas solicitudes ahora mismo: recarga en un minuto.",
+        budgetColActual: 'Real',
+        budgetColVariance: 'Diferencia',
+        budgetColUsed: 'Usado',
+        budgetNoRows: 'No hay presupuesto para este mes.',
+        budgetLoadError: 'No se pudieron cargar los presupuestos.',
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",
@@ -7653,6 +7668,11 @@
         msgBotDisconnectConfirm: "قطع اتصال هذا البوت؟ تتوقف المحادثات المرتبطة حتى يُربط مجددًا.",
         rateLimitedNotice: "طلبات كثيرة خلال دقيقة — انتظر {seconds} ثانية ثم حاول مجددًا.",
         rateLimitedShort: "طلبات كثيرة الآن — أعد التحميل بعد دقيقة.",
+        budgetColActual: 'الفعلي',
+        budgetColVariance: 'الفرق',
+        budgetColUsed: 'المستخدم',
+        budgetNoRows: 'لا توجد موازنة لهذا الشهر.',
+        budgetLoadError: 'تعذّر تحميل الموازنات.',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",
@@ -8600,7 +8620,8 @@
         if (el) el.textContent = t(key);
       };
       const setLabel = (forId, key) => {
-        const el = document.querySelector('label[for="' + forId + '"]');
+        // a month picker's label points at its Jalali list (applyCalendarMonthPickers)
+        const el = document.querySelector('label[for="' + forId + '"], label[for="' + forId + '-jalali"]');
         if (el) el.textContent = t(key);
       };
       const setPlaceholder = (id, key) => {
@@ -8719,7 +8740,7 @@
 
       setTextSel('.card[data-page="dashboard"] h2', 'dashboardTitle');
       setTextSel('.card[data-page="dashboard"] p', 'dashboardSubtitle');
-      setLabel('budget-month', 'labelFrom');
+      setLabel('budget-month', 'labelMonth');
       setLabel('budget-category', 'labelDescription');
       setLabel('budget-limit', 'labelAmount');
       setText('budget-save', 'btnSaveBudget');
@@ -8839,6 +8860,7 @@
         if (typeof fxRelocalize === 'function') fxRelocalize();
         if (typeof window.aiRelocalize === 'function') window.aiRelocalize();
         if (typeof applyCalendarMonthPickers === 'function') applyCalendarMonthPickers();   // month names
+        if (typeof loadBudgets === 'function' && document.querySelector('#budget-wrap table, #budget-wrap .empty-state')) loadBudgets();
       } catch (_) {}
     }
 

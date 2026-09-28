@@ -391,7 +391,7 @@
               const idx = els[0].index;
               const dsIdx = els[0].datasetIndex;
               const prefixes = ['11,12,13,14,15', '21,22,23,24', '31,32,33'][dsIdx];
-              if (prefixes) showTransactionDrilldown(['Assets', 'Liabilities', 'Equity'][dsIdx] + ' — ' + periods[idx].period, { account_code_prefix: prefixes, to_date: periods[idx].date });
+              if (prefixes) showTransactionDrilldown(['Assets', 'Liabilities', 'Equity'][dsIdx] + ' — ' + formatPeriodKey(periods[idx].period), { account_code_prefix: prefixes, to_date: periods[idx].date });
             });
             // Net worth trend
             _addExtraChart('Net Worth Over Time', {

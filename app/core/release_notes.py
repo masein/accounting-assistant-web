@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.14"
+CURRENT_RELEASE = "2026.09.28.15"
 
 
 @dataclass(frozen=True)
@@ -1032,6 +1032,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "داشبورد اکنون جمع‌های دفاتر را در پایگاه داده می‌گیرد و روی دفاتر بزرگ به‌طور محسوسی سریع‌تر باز می‌شود. سنی‌بندی دریافتنی‌ها و پرداختنی‌ها اکنون سندها را به ترتیب تاریخ می‌خواند: دریافتی که پیش از فروشِ مربوطش ثبت شده بود — مثلاً از صورت‌حساب بانکی واردشده — نادیده می‌ماند و آن فروش سررسیدگذشته نشان داده می‌شد.",
                     "es": "El panel suma ahora la contabilidad en la base de datos, así que se abre bastante más rápido con muchos asientos. La antigüedad de cobros y pagos toma ahora los asientos por fecha: un cobro registrado antes de la venta que paga —por ejemplo, de un extracto bancario importado— se pasaba por alto y la venta seguía apareciendo como vencida.",
                     "ar": "تجمع اللوحة الآن أرصدة دفاترك في قاعدة البيانات، فتُفتح أسرع بشكل ملحوظ مع الدفاتر الكبيرة. وتقرأ أعمار الذمم المدينة والدائنة الآن القيود بترتيب التاريخ: القبض المسجّل قبل البيع الذي يسدّده — من كشف بنكي مستورد مثلًا — كان يُغفل ويبقى ذلك البيع ظاهرًا كمتأخر.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.15",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="statement-review-cards",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Statement review drafts every fix again",
+                    "fa": "بازبینی صورت‌حساب دوباره برای هر مغایرت سند پیشنهاد می‌دهد",
+                    "es": "La revisión del extracto vuelve a proponer cada corrección",
+                    "ar": "مراجعة الكشف تقترح كل تصحيح من جديد",
+                },
+                body={
+                    "en": "When you asked the assistant to review a bank statement, it could refuse to draft the entry for a row the books were missing, saying the amount didn't match — the statement's reference number was being read as an amount. Each draft is now checked against the statement row itself.",
+                    "fa": "وقتی از دستیار می‌خواستید صورت‌حساب بانکی را بازبینی کند، گاهی برای ردیفی که در دفاتر نبود سند پیشنهاد نمی‌داد و می‌گفت مبلغ نمی‌خواند — شناسه صورت‌حساب به‌جای مبلغ خوانده می‌شد. اکنون هر پیش‌نویس با خود ردیف صورت‌حساب سنجیده می‌شود.",
+                    "es": "Al pedir al asistente que revisara un extracto bancario, a veces se negaba a preparar el asiento de una fila que faltaba en la contabilidad diciendo que el importe no cuadraba: leía la referencia del extracto como un importe. Ahora cada borrador se comprueba con la propia fila del extracto.",
+                    "ar": "عند طلب مراجعة كشف بنكي، كان المساعد أحيانًا يرفض إعداد قيد لصف غير موجود في الدفاتر قائلًا إن المبلغ لا يطابق — إذ كان يقرأ رقم مرجع الكشف كمبلغ. الآن يُطابَق كل مسودة مع صف الكشف نفسه.",
                 },
             ),
         ),

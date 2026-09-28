@@ -1,0 +1,133 @@
+# Nightly AI eval (roadmap §5.5): the eval set against a live model, compared
+# with the last good run. A scenario that used to pass and now fails — or any
+# failure of a critical one — fails this job, and GitHub mails the failure.
+#
+# Needs a repository secret AI_EVAL_API_KEY (a Metis key; without it the job
+# says so and stops). Optional repository variables: AI_EVAL_MODEL (default
+# gpt-4.1-mini, the production chat model) and AI_EVAL_REPEAT (default 3).
+# Costs a few cents a night: ~17 scenarios × 3 runs.
+name: AI eval
+
+on:
+  schedule:
+    - cron: "23 1 * * *"          # 01:23 UTC, nightly
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Model to evaluate (default: AI_EVAL_MODEL or gpt-4.1-mini)"
+        required: false
+      repeat:
+        description: "Runs per scenario"
+        required: false
+        default: "3"
+      accept:
+        description: "Keep this run as the new baseline even if it regressed"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-eval
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    name: AI eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aa_eval_scratch
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/aa_eval_scratch
+      AUTH_SECRET: ci-only-secret-not-for-production-0123456789abcdef
+      APP_ENV: test
+      SCHEDULER_ENABLED: "false"
+      AI_PROVIDER: metis
+      METIS_API_KEY: ${{ secrets.AI_EVAL_API_KEY }}
+      METIS_MODEL: ${{ inputs.model || vars.AI_EVAL_MODEL || 'gpt-4.1-mini' }}
+      REPEAT: ${{ inputs.repeat || vars.AI_EVAL_REPEAT || '3' }}
+    steps:
+      - name: Need an eval key
+        id: key
+        run: |
+          if [ -z "$METIS_API_KEY" ]; then
+            echo "::notice::AI_EVAL_API_KEY is not set — add it under Settings → Secrets → Actions to run the nightly eval."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out code
+        if: steps.key.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        if: steps.key.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install WeasyPrint system libraries
+        if: steps.key.outputs.run == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libffi-dev fonts-dejavu-core
+
+      - name: Install dependencies
+        if: steps.key.outputs.run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.lock
+
+      - name: Bootstrap the scratch database
+        if: steps.key.outputs.run == 'true'
+        run: python -m app.prestart
+
+      # The last good run's report (saved below); the newest cache wins.
+      - name: Restore the previous report
+        if: steps.key.outputs.run == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ai-eval-baseline
+          key: ai-eval-report-${{ github.run_id }}
+          restore-keys: ai-eval-report-
+
+      - name: Run the eval
+        if: steps.key.outputs.run == 'true'
+        run: |
+          mkdir -p ai-eval-baseline ai-eval-out
+          python -m scripts.ai_eval run --repeat "$REPEAT" \
+            --previous ai-eval-baseline/report.json --out ai-eval-out/report.json \
+            --summary "$GITHUB_STEP_SUMMARY" --fail-on-regression
+
+      - name: Keep the report for the next run
+        if: steps.key.outputs.run == 'true' && (success() || inputs.accept)
+        run: cp ai-eval-out/report.json ai-eval-baseline/report.json
+
+      - name: Save it as the new baseline
+        if: steps.key.outputs.run == 'true' && (success() || inputs.accept)
+        uses: actions/cache/save@v4
+        with:
+          path: ai-eval-baseline
+          key: ai-eval-report-${{ github.run_id }}
+
+      - name: Upload the report
+        if: always() && steps.key.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-eval-report
+          path: ai-eval-out/report.json
+          if-no-files-found: ignore
+          retention-days: 30

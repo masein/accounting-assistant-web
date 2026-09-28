@@ -504,3 +504,42 @@ def test_page_post_uses_the_statement_banks_account(db):
     txn = db.get(Transaction, row.created_transaction_id)
     legs = {(l.account.code, l.debit, l.credit) for l in txn.lines}
     assert legs == {("6112", 30_000, 0), (bank.code, 0, 30_000)}
+
+
+def test_row_cards_are_checked_against_the_row_not_the_message(db):
+    """The review button sends "Review bank statement <uuid> …": the UUID's
+    digit runs used to count as source amounts and every card the review
+    proposed was refused as amount_mismatch (found by the §5.5 eval). A
+    statement-row card is checked against the row's own amount."""
+    from app.services.ai_accountant.base import ToolContext, ToolError
+    from app.services.ai_accountant.orchestrator import _numbers_in_text
+    from app.services.ai_accountant.proposal_tools import (
+        ProposeCreateTransaction,
+        ProposeCreateTransactionInput,
+    )
+
+    msg = "Review bank statement 8eda6b10-2fec-466b-ba0f-2238bd2b771f against the books."
+    assert _numbers_in_text(msg) == []
+    assert _numbers_in_text("statement 8eda6b10-2fec-466b-ba0f-2238bd2b771f, fee 250,000") == [250_000]
+
+    s = _stmt(db, [(date(2026, 6, 27), "کارمزد بانکی", 250_000, 0, None, "unmatched")])
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
+    # a message whose figures have nothing to do with the row
+    ctx = ToolContext(db=db, user_id=USER, username="tester", user_message="review statement 1405/06/01",
+                      source_amounts=[1405, 6, 1])
+
+    def card(amount):
+        return ProposeCreateTransactionInput(
+            date="2026-06-27", description="fee", currency="IRR",
+            lines=[{"account_code": "6210", "debit": amount, "credit": 0},
+                   {"account_code": "1110", "debit": 0, "credit": amount}],
+            bank_statement_row_id=str(row.id))
+
+    assert asyncio.run(ProposeCreateTransaction().run(ctx, card(250_000)))["confirmation_token"]
+    with pytest.raises(ToolError) as e:                      # 10× off the row is still refused
+        asyncio.run(ProposeCreateTransaction().run(ctx, card(25_000_000)))
+    assert e.value.code == "amount_mismatch"
+    # without a row, the message's figures still guard the card
+    plain = card(250_000).model_copy(update={"bank_statement_row_id": None})
+    with pytest.raises(ToolError):
+        asyncio.run(ProposeCreateTransaction().run(ctx, plain))

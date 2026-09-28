@@ -375,6 +375,24 @@ amount without a rate counts as over. Budget per message: `tool_calls_per_messag
 calls get error results, and a model that keeps calling is stopped with every
 call answered so the next request stays valid.
 
+✅ 5.5, part 1 — the eval set (`app/services/ai_eval/`): 17 fa/en scenarios in
+`scenarios.json`, each with what a good turn does (tools, tool order, cards and
+their total / bank side / date / fields, reply language, the figure the reply
+must quote) and a recorded good trajectory; `fixture.py` seeds the books they
+run against. Every CI run replays each trajectory through the real agent loop
+and tools with no model (`tests/test_ai_eval.py`), so a tool or card change
+that breaks a scenario fails the build. Nightly `.github/workflows/ai-eval.yml`
+runs the set 3× against the live model (secret `AI_EVAL_API_KEY`) and compares
+with the last good run: a scenario that passed ≥ 2/3 and now passes < 1/2, any
+failure of a critical one (refusals), or the shared pass rate falling 10 points
+fails the job; `scripts/ai_eval.py` runs it by hand on a scratch database and
+compares models (`scripts/model_eval.py` keeps the OCR bench). The first replay
+found the statement-review button's own message refusing its cards: the
+statement's UUID digits counted as "source amounts", so every row card was
+`amount_mismatch` — identifiers are no longer amounts, and a card that settles
+a statement row is checked against that row. Left in 5.5: sampling production
+turns into a review queue.
+
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
 hash; the runtime lock constrains the other two). The Dockerfile and every CI
@@ -529,7 +547,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 5.2 | **Anomaly detection as insights**: duplicate supplier payment, payment just under an approval threshold, new vendor + large first payment, round-amount weekend entries, expense category drift, entity with sudden reversal pattern | industry-standard agent capability; `insight_service` has the hook points |
 | 5.3 | **13-week cash forecast that learns**: recurring rules + open AR/AP + payroll dates + commitments → scenario ("what if the Mellat cheque bounces"); expose as a tool and on the dashboard | dashboard forecast today is a moving average |
 | 5.4 | **Correction memory**: when the user edits a proposed category/entity, store the (description pattern → account/entity) preference per company and feed it to `search_accounts`/`find_entity` and statement categorisation | QuickBooks-style learning; cuts repeat questions |
-| 5.5 | **Evaluation harness**: turn `scripts/model_eval.py` into a CI-able eval set (fa/en scenarios, expected tool trajectory + card contents), run nightly against the configured model, alert on regressions; sample 10 % of prod turns into an offline review queue (no PII beyond the tenant) | model/prompt changes are only checked by hand today |
+| 5.5 | ✅ part 1 (2026-09-28) **Evaluation harness**: turn `scripts/model_eval.py` into a CI-able eval set (fa/en scenarios, expected tool trajectory + card contents), run nightly against the configured model, alert on regressions; sample 10 % of prod turns into an offline review queue (no PII beyond the tenant) | model/prompt changes are only checked by hand today |
 | 5.6 | ✅ **Guardrails** (2026-09-28): max proposal amount vs source amounts already exists — add per-company confirm thresholds (two-person approval above X), refuse to post into closed periods from chat (server-side), tool-call budget per turn | agent safety |
 | 5.7 | **Voice notes** (Persian speech-to-text via Metis) into the chat; **WhatsApp/Telegram inbound bot** for personal tenants ("۵۰ هزار نان") | the daily-diary use case lives in messengers |
 

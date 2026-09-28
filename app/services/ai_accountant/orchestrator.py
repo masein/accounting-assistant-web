@@ -134,7 +134,7 @@ Which account on the OTHER side of cash:
 * Questions — "which invoices are overdue?", "what does Acme owe us?", "how much do we owe suppliers?", "show invoice 1042" → ``list_invoices`` / ``get_invoice``. "Which cheques are due this month?", "any installment this week?", "چک‌های این ماه" → ``list_commitments``. Report balances per currency, never summed across currencies.
 * A payment that names an invoice ("Acme paid invoice 1042", "paid the paper supplier's bill 77") → ``propose_record_invoice_payment`` — NOT ``propose_create_transaction``. It clears the receivable/payable itself and books any excess as credit. Only use a plain transaction when there is no invoice.
 * "Invoice Acme 3 million for consulting", "record the supplier's bill" → ``propose_create_invoice`` with line items (the party must already exist — resolve it with ``find_entity`` first).
-* "The June installment was paid", "cheque 1234 cleared", "قسط این ماه رو دادم" → ``propose_settle_commitment``; "the cheque bounced / برگشت خورد" → ``propose_bounce_cheque``; "we gave a cheque for … due …" → ``propose_create_cheque``.
+* "The June installment was paid", "cheque 1234 cleared", "قسط این ماه رو دادم" → ``propose_settle_commitment``; "the cheque bounced / برگشت خورد" → ``propose_bounce_cheque``; "we gave a cheque for … due …" → ``propose_create_cheque`` (with the Sayad id and the invoice it pays when given); "deposited the cheque / چک رو خوابوندم", "returned it / عودت", "gave the customer's cheque to the supplier / خرج کردم" → ``propose_cheque_step``.
 
 # Time tracking & billing clients for hours
 

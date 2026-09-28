@@ -425,6 +425,8 @@ _BS_CURRENT_ASSET_MAP: list[tuple[str, str]] = [
     # first hit — otherwise `1112` (receivables in the seed) would be swallowed
     # by the 3-digit `111` cash prefix.
     ("1112", "ca_trade_receivables"),    # seed: حساب‌ها و اسناد دریافتنی تجاری
+    ("1113", "ca_trade_receivables"),    # اسناد دریافتنی (cheques in hand) — not the 111 cash group
+    ("1114", "ca_trade_receivables"),    # اسناد در جریان وصول (cheques at the bank, not yet cash)
     ("1110", "ca_cash"),                 # seed: موجودی نقد و بانک
     # The rest of the seeded chart: its 4-digit codes do not follow the
     # standard's 3-digit groups (1130 is VAT receivable, not an investment;

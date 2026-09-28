@@ -903,6 +903,33 @@ def _reverse_txn(db: Session, transaction_id, *, reference: str, description: st
     )
 
 
+def detach_payment(db: Session, inv: Invoice, payment: Payment) -> None:
+    """Take a payment off an invoice so its balance reopens. The ledger side is
+    the caller's: a reversal (chargeback) or a bounced cheque's own entry."""
+    db.delete(payment)
+    db.flush()
+    if inv.status not in ("voided", "canceled"):
+        # Drop the 'paid' latch first so _invoice_totals' legacy-paid override
+        # doesn't mask the reopened balance; recompute from the real rows.
+        inv.status = "issued"
+        paid, credited, balance_due = _invoice_totals(db, inv)
+        _recompute_status(inv, paid, credited, balance_due)
+
+
+def _cheque_for_payment(db: Session, payment_id) -> "Commitment | None":
+    from app.models.commitment import Commitment
+    return db.execute(select(Commitment).where(Commitment.payment_id == payment_id)).scalars().first()
+
+
+def _refuse_if_cheque(db: Session, payment: Payment) -> None:
+    """A payment made by a cheque follows the cheque (roadmap §3.4): it comes
+    off when the cheque bounces or is handed back, not by a reversal here."""
+    if _cheque_for_payment(db, payment.id) is not None:
+        raise HTTPException(status_code=409, detail=(
+            "This payment is a cheque. Mark the cheque bounced or returned under Installments & cheques "
+            "— that reopens the invoice and moves the cheque out of the books."))
+
+
 @router.post("/{invoice_id}/void", response_model=InvoiceRead)
 def void_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead:
     """Void an invoice: reverse its recognition entry and every payment via
@@ -916,6 +943,9 @@ def void_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead
 
     # Reverse each payment first (reopen cash), then the recognition entry.
     payments = db.execute(select(Payment).where(Payment.invoice_id == inv.id)).scalars().all()
+    if any(_cheque_for_payment(db, p.id) is not None for p in payments):
+        raise HTTPException(status_code=409, detail=(
+            "A cheque paid this invoice. Mark it bounced or returned under Installments & cheques first."))
     for p in payments:
         _reverse_txn(db, p.transaction_id, reference=f"VOID-PAY-{inv.number}",
                      description=f"Void payment on invoice {inv.number}")
@@ -947,16 +977,10 @@ def reverse_payment(invoice_id: UUID, payment_id: UUID, db: Session = Depends(ge
     payment = db.get(Payment, payment_id)
     if not payment or payment.invoice_id != inv.id:
         raise HTTPException(status_code=404, detail="Payment not found on this invoice")
+    _refuse_if_cheque(db, payment)
     _reverse_txn(db, payment.transaction_id, reference=f"CHGBK-{inv.number}",
                  description=f"Reversed payment on invoice {inv.number}")
-    db.delete(payment)
-    db.flush()
-    if inv.status not in ("voided", "canceled"):
-        # Drop the 'paid' latch first so _invoice_totals' legacy-paid override
-        # doesn't mask the reopened balance; recompute from the real rows.
-        inv.status = "issued"
-        paid, credited, balance_due = _invoice_totals(db, inv)
-        _recompute_status(inv, paid, credited, balance_due)
+    detach_payment(db, inv, payment)
     log_audit_event(db, action="update", entity_type="invoice", entity_id=str(inv.id),
                     detail=f"Payment reversed on invoice {inv.number}")
     db.commit()

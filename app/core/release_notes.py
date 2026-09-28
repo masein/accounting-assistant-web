@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.8"
+CURRENT_RELEASE = "2026.09.28.9"
 
 
 @dataclass(frozen=True)
@@ -893,6 +893,30 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "وقتی تقویم نمایش شمسی است، بودجه‌ها، نمودارهای ماهانهٔ داشبورد، دوره‌های روند و جریان نقد، فصل‌ها، مقایسه‌های بینش‌ها و سال حقوق و دستمزد همه با ماه‌های شمسی حساب می‌شوند — مهر ۱۴۰۵ از ۱ تا ۳۰ مهر — نه با ماه میلادی که هر ماه را دو تکه می‌کرد. انتخاب ماه بودجه هم ماه‌های شمسی را نشان می‌دهد. بودجه‌هایی که پیش‌تر تعریف شده‌اند ماه میلادی خود را نگه می‌دارند.",
                     "es": "Con el calendario persa (jalalí) como calendario de visualización, los presupuestos, los gráficos mensuales del panel, los periodos de tendencia y de flujo de caja, las estaciones, las comparaciones de las observaciones y el año de nómina siguen los meses jalalíes (Mehr 1405 va del 23 de septiembre al 22 de octubre) en lugar de partir cada mes en dos. El selector de mes del presupuesto muestra meses jalalíes; los presupuestos anteriores conservan sus meses gregorianos.",
                     "ar": "عندما يكون تقويم العرض هو التقويم الشمسي، تتبع الموازنات والرسوم الشهرية في لوحة المعلومات وفترات الاتجاه والتدفق النقدي والفصول ومقارنات الرؤى وسنة الرواتب الأشهرَ الشمسية — مهر ١٤٠٥ من ٢٣ سبتمبر إلى ٢٢ أكتوبر — بدل تقسيم كل شهر إلى نصفين. ويعرض منتقي شهر الموازنة الأشهر الشمسية، وتحتفظ الموازنات السابقة بأشهرها الميلادية.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.9",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="cheque-lifecycle",
+                page="commitments",
+                roles=("owner", "cfo", "accountant", "personal"),
+                locales=("ir",),
+                title={
+                    "en": "Cheques from receipt to clearing",
+                    "fa": "گردش کامل چک، از دریافت تا وصول",
+                    "es": "Cheques de la recepción al cobro",
+                    "ar": "الشيكات من الاستلام إلى التحصيل",
+                },
+                body={
+                    "en": "Installments & cheques → Actions: deposit a cheque at the bank, mark it cleared or bounced, deposit a bounced one again, hand it back, or pass a customer's cheque on to a supplier. Each step is booked through notes receivable, cheques in collection and notes payable; a cheque recorded for an invoice pays it, and a bounce reopens it. Add the 16-digit Sayad id, and you are reminded to register (or confirm) a cheque in Sayad before it falls due. History shows each cheque's journey.",
+                    "fa": "«اقساط و چک‌ها ← عملیات»: چک را به بانک بسپارید، وصول یا برگشت آن را ثبت کنید، چک برگشتی را دوباره بخوابانید، عودت دهید یا چک مشتری را به تأمین‌کننده خرج کنید. هر مرحله از طریق اسناد دریافتنی، اسناد در جریان وصول و اسناد پرداختنی ثبت می‌شود؛ چکی که بابت فاکتور ثبت شود آن را تسویه می‌کند و برگشت آن فاکتور را دوباره باز می‌کند. شناسه ۱۶ رقمی صیاد را وارد کنید تا پیش از سررسید برای ثبت (یا تأیید) چک در صیاد یادآوری شود. «گردش چک» مسیر هر چک را نشان می‌دهد.",
+                    "es": "Cuotas y cheques → Acciones: deposita un cheque en el banco, márcalo cobrado o rechazado, deposita de nuevo uno rechazado, devuélvelo o endosa el cheque de un cliente a un proveedor. Cada paso se registra en efectos a cobrar, cheques en gestión de cobro y efectos a pagar; un cheque registrado para una factura la paga, y si se rechaza la factura se reabre. Añade el ID Sayad de 16 dígitos y se te recordará registrar (o confirmar) el cheque en Sayad antes del vencimiento. El historial muestra el recorrido de cada cheque.",
+                    "ar": "الأقساط والشيكات ← إجراءات: أودع الشيك في البنك، سجّل تحصيله أو ارتجاعه، أودع المرتجع مجددًا، أعده، أو ظهّر شيك العميل لمورد. تُقيَّد كل خطوة عبر أوراق القبض والشيكات قيد التحصيل وأوراق الدفع؛ والشيك المسجل لفاتورة يسددها، وارتجاعه يعيد فتحها. أضف معرّف صياد المكوّن من ١٦ رقمًا ليُذكّرك النظام بتسجيل الشيك (أو تأكيده) في صياد قبل استحقاقه. ويعرض السجل مسار كل شيك.",
                 },
             ),
         ),

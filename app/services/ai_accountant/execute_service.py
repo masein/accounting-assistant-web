@@ -215,7 +215,7 @@ def execute_proposal(
         )
     elif proposal.tool_name in (
         "propose_record_invoice_payment", "propose_create_invoice",
-        "propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque",
+        "propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque", "propose_cheque_step",
     ):
         from app.services.ai_accountant.invoice_execute import execute_invoice_proposal
         txn_id, audit_id = execute_invoice_proposal(

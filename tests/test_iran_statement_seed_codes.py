@@ -11,7 +11,8 @@ from app.db.seed import SEED_ACCOUNTS
 from app.services.reporting.iran_statement_service import _bs_bucket_for_code, _cf_bucket, _is_cash_code
 
 EXPECTED_BS = {
-    "1110": "ca_cash", "1112": "ca_trade_receivables", "1120": "ca_prepayments",
+    "1110": "ca_cash", "1112": "ca_trade_receivables", "1113": "ca_trade_receivables",
+    "1114": "ca_trade_receivables", "2111": "cl_trade_payables", "1120": "ca_prepayments",
     "1130": "ca_trade_receivables", "1140": "ca_trade_receivables", "1150": "ca_prepayments",
     "1160": "ca_cash", "1210": "nca_ppe", "1219": "nca_ppe",
     "2110": "cl_trade_payables", "2120": "cl_advances", "2130": "cl_trade_payables",

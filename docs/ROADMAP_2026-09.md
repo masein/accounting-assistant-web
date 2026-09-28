@@ -79,8 +79,16 @@ with the books. ✅ Per-language i18n packs: 02-i18n.js carries English only
 core scripts, so a Persian page draws in Persian from the first paint; switching
 language fetches the pack once, then saves the choice to the profile and redraws
 the open page (the top-bar switch used to be overridden at the next sign-in and
-left script-drawn tables in the old language). Left in 2.6: moving the
-dashboard's per-journal aggregation into SQL.
+left script-drawn tables in the old language). ✅ Dashboard folds in SQL
+(`app/services/reporting/dashboard_folds.py`): months, book quality, expense by
+account, vendors and clients are GROUP BY queries over one per-journal subquery;
+only journals that move a receivable or a current liability come back one by
+one, in date order, for the aging. The 13-week forecast's baseline is summed per
+day in SQL too. On the 20k-journal bench the owner dashboard went 679 → ~380 ms
+(28 → 27 queries), output byte-identical; `tests/test_dashboard_folds.py` keeps
+the old line-by-line folds as references and checks them on random books. Fixed
+on the way: aging read journals in no set order, so a receipt entered before
+the sale it settles was dropped and the sale stayed overdue. §2.6 done.
 
 **§3 continued — 2026-09-26:** ✅ 3.2 seasonal filings (#153): per Jalali
 season the TTMS figures per counterparty (identity fields in Latin digits,

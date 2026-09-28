@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.entity import Entity, TransactionEntity
-from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
+from app.models.transaction import Transaction, TransactionLine
 from app.services.cash_service import cash_on_hand as _cash_on_hand_balance
 from app.services.fx_service import get_reporting_currency
 from app.services.reporting.repository import (
@@ -25,7 +25,7 @@ from app.services.reporting.repository import (
     resolve_currency_view,
 )
 from app.services.locale_service import get_reporting_locale
-from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
+from app.services.reporting.dashboard_folds import fold_dashboard
 from app.schemas.report import (
     AccountDetailResponse,
     AccountLineDetail,
@@ -87,23 +87,6 @@ def _current_liability_predicate(locale: str):
         # Creditors due within one year: 2100–2799 (2800+ is long-term).
         return lambda c: len(c) >= 2 and c[0] == "2" and c[1] in "1234567"
     return lambda c: c.startswith("21")  # Iranian current liabilities
-
-
-def _bucket_by_age(days_old: int) -> str:
-    if days_old <= 30:
-        return "current"
-    if days_old <= 60:
-        return "days_31_60"
-    return "days_60_plus"
-
-
-def _apply_reduction(buckets: dict[str, int], amount: int) -> None:
-    for key in ("days_60_plus", "days_31_60", "current"):
-        if amount <= 0:
-            return
-        take = min(amount, buckets[key])
-        buckets[key] -= take
-        amount -= take
 
 
 @router.get("/ledger-summary", response_model=LedgerSummaryResponse)
@@ -420,125 +403,24 @@ def get_owner_dashboard(
     base_view = is_base_view(currency)
     live = (Transaction.date >= cutoff, Transaction.deleted_at.is_(None),
             *(() if base_view else (Transaction.currency == currency,)))
-    txns = db.execute(select(Transaction.id, Transaction.date, Transaction.reference).where(*live)).all()
-    lines_by_txn: dict = defaultdict(list)
     dr_col, cr_col = amount_columns(currency)
-    for tid, debit, credit, code, name, desc in db.execute(
-        select(TransactionLine.transaction_id, dr_col, cr_col,
-               Account.code, Account.name, TransactionLine.line_description)
-        .join(Transaction, TransactionLine.transaction_id == Transaction.id)
-        .join(Account, TransactionLine.account_id == Account.id)
-        .where(*live)
-    ):
-        lines_by_txn[tid].append((int(debit or 0), int(credit or 0), code, name, desc))
-    links_by_txn: dict = defaultdict(list)
-    for tid, role, entity_name in db.execute(
-        select(TransactionEntity.transaction_id, TransactionEntity.role, Entity.name)
-        .join(Transaction, TransactionEntity.transaction_id == Transaction.id)
-        .outerjoin(Entity, TransactionEntity.entity_id == Entity.id)
-        .where(*live)
-    ):
-        links_by_txn[tid].append((role, entity_name))
-    with_attachment = set(db.execute(
-        select(TransactionAttachment.transaction_id).distinct()
-        .join(Transaction, TransactionAttachment.transaction_id == Transaction.id)
-        .where(*live)
-    ).scalars())
-    nature = {}  # account code → revenue / expense / … (classified once per code)
-
-    monthly_revenue: dict[str, int] = defaultdict(int)
-    monthly_expense: dict[str, int] = defaultdict(int)
-    expense_by_category: dict[str, int] = defaultdict(int)
-    spend_by_vendor: dict[str, int] = defaultdict(int)
-    profitability: dict[str, dict[str, int]] = defaultdict(lambda: {"revenue": 0, "cost": 0})
-    ar_buckets: dict[str, dict[str, int]] = defaultdict(lambda: {"current": 0, "days_31_60": 0, "days_60_plus": 0})
-    ap_buckets: dict[str, dict[str, int]] = defaultdict(lambda: {"current": 0, "days_31_60": 0, "days_60_plus": 0})
-
-    receivable_due_this_week = 0
-    payable_due_this_week = 0
-    tax_and_liability_payable = 0
-    expense_txn_count = 0
-    expense_txn_with_attachment = 0
-    line_count = 0
-    missing_line_desc = 0
-    missing_reference = 0
-    unlinked_entities = 0
-
-    for t_id, t_date, t_reference in txns:
-        t_lines = lines_by_txn.get(t_id, ())
-        t_links = links_by_txn.get(t_id, ())
-        line_count += len(t_lines)
-        if not (t_reference or "").strip():
-            missing_reference += 1
-        if not t_links:
-            unlinked_entities += 1
-        month = month_key(t_date, cal)
-        txn_revenue = 0
-        txn_expense = 0
-        receivable_delta = 0
-        payable_delta = 0
-        expense_accounts_seen: set[str] = set()
-        for debit, credit, code, name, desc in t_lines:
-            if not (desc or "").strip():
-                missing_line_desc += 1
-            kind = nature.get(code)
-            if kind is None:
-                kind = nature[code] = classify_account_code(code)
-            # locale-agnostic natures: revenue (Iran 41xx, UK 4xxx), expense (Iran 5x/6x, UK 5/7/8/9xxx)
-            rev = (credit - debit) if kind == REVENUE else 0
-            exp = (debit - credit) if kind == EXPENSE else 0
-            txn_revenue += rev
-            txn_expense += exp
-            if _is_receivable(code):
-                receivable_delta += debit - credit
-            if _is_current_liab(code):
-                payable_delta += credit - debit
-                tax_and_liability_payable += credit - debit
-            if exp > 0:
-                expense_accounts_seen.add(name)
-                expense_by_category[name] += exp
-        monthly_revenue[month] += max(0, txn_revenue)
-        monthly_expense[month] += max(0, txn_expense)
-
-        roles = defaultdict(list)
-        for role, entity_name in t_links:
-            roles[(role or "").lower()].append(entity_name if entity_name is not None else "Unknown")
-        client_names = roles.get("client", []) or ["Unassigned client"]
-        vendor_names = roles.get("payee", []) + roles.get("supplier", [])
-        if not vendor_names and txn_expense > 0:
-            vendor_names = ["Unassigned vendor"]
-
-        for n in vendor_names:
-            spend_by_vendor[n] += max(0, txn_expense)
-        for c in client_names:
-            profitability[c]["revenue"] += max(0, txn_revenue)
-            profitability[c]["cost"] += max(0, txn_expense)
-
-        age_days = max(0, (today - t_date).days)
-        bucket = _bucket_by_age(age_days)
-        if receivable_delta > 0:
-            for c in client_names:
-                ar_buckets[c][bucket] += receivable_delta
-            if age_days >= 23 and age_days <= 30:
-                receivable_due_this_week += receivable_delta
-        elif receivable_delta < 0:
-            for c in client_names:
-                _apply_reduction(ar_buckets[c], -receivable_delta)
-        if payable_delta > 0:
-            names = vendor_names or ["Unassigned vendor"]
-            for v in names:
-                ap_buckets[v][bucket] += payable_delta
-            if age_days >= 23 and age_days <= 30:
-                payable_due_this_week += payable_delta
-        elif payable_delta < 0:
-            names = vendor_names or ["Unassigned vendor"]
-            for v in names:
-                _apply_reduction(ap_buckets[v], -payable_delta)
-
-        if expense_accounts_seen:
-            expense_txn_count += 1
-            if t_id in with_attachment:
-                expense_txn_with_attachment += 1
+    # Summed in the database, one row per day / account / party (§2.6); only
+    # the journals that move a receivable or a liability come back one by one.
+    folds = fold_dashboard(db, live=live, dr_col=dr_col, cr_col=cr_col,
+                           is_receivable=_is_receivable, is_current_liability=_is_current_liab,
+                           month_of=lambda d: month_key(d, cal), today=today)
+    monthly_revenue, monthly_expense = folds.monthly_revenue, folds.monthly_expense
+    expense_by_category, spend_by_vendor = folds.expense_by_category, folds.spend_by_vendor
+    profitability, ar_buckets, ap_buckets = folds.profitability, folds.ar_buckets, folds.ap_buckets
+    receivable_due_this_week = folds.receivable_due_this_week
+    payable_due_this_week = folds.payable_due_this_week
+    tax_and_liability_payable = folds.tax_and_liability_payable
+    expense_txn_count = folds.expense_txn_count
+    expense_txn_with_attachment = folds.expense_txn_with_attachment
+    line_count = folds.line_count
+    missing_line_desc = folds.missing_line_desc
+    missing_reference = folds.missing_reference
+    unlinked_entities = folds.unlinked_entities
 
     # True cash-on-hand: the net balance of every cash/bank account up to
     # today, not just the trailing window scanned above (which is sized for
@@ -575,17 +457,17 @@ def get_owner_dashboard(
         total = b["current"] + b["days_31_60"] + b["days_60_plus"]
         if total > 0:
             ar_rows.append(AgingRow(name=n, current=b["current"], days_31_60=b["days_31_60"], days_60_plus=b["days_60_plus"], total=total))
-    ar_rows.sort(key=lambda r: r.total, reverse=True)
+    ar_rows.sort(key=lambda r: (-r.total, r.name))
 
     ap_rows = []
     for n, b in ap_buckets.items():
         total = b["current"] + b["days_31_60"] + b["days_60_plus"]
         if total > 0:
             ap_rows.append(AgingRow(name=n, current=b["current"], days_31_60=b["days_31_60"], days_60_plus=b["days_60_plus"], total=total))
-    ap_rows.sort(key=lambda r: r.total, reverse=True)
+    ap_rows.sort(key=lambda r: (-r.total, r.name))
 
-    expense_rows = [ExpenseCategoryRow(category=k, amount=v) for k, v in sorted(expense_by_category.items(), key=lambda x: x[1], reverse=True)[:8]]
-    vendor_rows = [VendorSpendRow(vendor=k, amount=v) for k, v in sorted(spend_by_vendor.items(), key=lambda x: x[1], reverse=True)[:8]]
+    expense_rows = [ExpenseCategoryRow(category=k, amount=v) for k, v in sorted(expense_by_category.items(), key=lambda x: (-x[1], x[0]))[:8]]
+    vendor_rows = [VendorSpendRow(vendor=k, amount=v) for k, v in sorted(spend_by_vendor.items(), key=lambda x: (-x[1], x[0]))[:8]]
 
     series_keys = sorted(set(monthly_revenue.keys()) | set(monthly_expense.keys()))
     monthly_expense_series = [MonthlySeriesRow(period=m, value=monthly_expense.get(m, 0), label=month_label(m))
@@ -598,9 +480,9 @@ def get_owner_dashboard(
         profit = rev - cost
         margin = round((profit / rev) * 100.0, 2) if rev > 0 else None
         profitability_rows.append(ProfitabilityRow(client=client, revenue=rev, cost=cost, profit=profit, margin_pct=margin))
-    profitability_rows.sort(key=lambda r: r.profit, reverse=True)
+    profitability_rows.sort(key=lambda r: (-r.profit, r.client))
 
-    txn_count = len(txns) or 1
+    txn_count = folds.txn_count or 1
     line_count = line_count or 1
     missing_attachments_on_expense = max(0, expense_txn_count - expense_txn_with_attachment)
     health_issues = [
@@ -625,14 +507,14 @@ def get_owner_dashboard(
     # two months of expenses and a real sample of entries; the quality score
     # needs a sample to be a score at all.
     months_with_expenses = sum(1 for m in recent_months if monthly_expense.get(m, 0) > 0)
-    enough_history = len(txns) >= MIN_TXNS_FOR_ALERTS and months_with_expenses >= 2
+    enough_history = folds.txn_count >= MIN_TXNS_FOR_ALERTS and months_with_expenses >= 2
     if runway_months is not None and runway_months < 3 and enough_history:
         alerts.append(AlertItem(level="high", title="Cash runway is short", message=f"Estimated runway is {runway_months} months based on recent burn rate."))
     if overdue_ar > 0:
         alerts.append(AlertItem(level="medium", title="Overdue receivables", message=f"Overdue AR is {overdue_ar:,}. Follow up collections."))
     if overdue_ap > 0:
         alerts.append(AlertItem(level="medium", title="Overdue payables", message=f"Overdue AP is {overdue_ap:,}. Plan vendor payments."))
-    if health_score < 70 and len(txns) >= MIN_TXNS_FOR_ALERTS:
+    if health_score < 70 and folds.txn_count >= MIN_TXNS_FOR_ALERTS:
         alerts.append(AlertItem(level="medium", title="Book quality risk", message=f"Data quality score is {health_score}/100. Resolve missing references/entities/attachments."))
     if burn_rate > 0 and monthly_expense.get(current_month, 0) > int(burn_rate * 1.5) and enough_history:
         alerts.append(AlertItem(level="low", title="Expense spike", message="This month expenses are significantly above recent average."))

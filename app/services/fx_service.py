@@ -167,6 +167,13 @@ def _pair_rate(db: Session, fc: str, tc: str, on: date, strict: bool = False) ->
     return None
 
 
+def _has_any_rate(db: Session, ccy: str) -> bool:
+    q = (select(ExchangeRate.id)
+         .where(or_(ExchangeRate.from_currency == ccy, ExchangeRate.to_currency == ccy))
+         .where(visible_rates()).limit(1))
+    return db.execute(q).first() is not None
+
+
 def get_rate(
     db: Session, from_ccy: str, to_ccy: str, on: date | None = None, *, strict: bool = False
 ) -> float | None:
@@ -182,6 +189,11 @@ def get_rate(
         on = date.today()
     fc = from_ccy.strip().upper()
     tc = to_ccy.strip().upper()
+    # A currency in no rate at all can't be reached directly, inversely or
+    # through a cross: one query instead of the ~30 the search below makes
+    # (every entry posted in such a currency asks — roadmap §4.6).
+    if not _has_any_rate(db, fc) or not _has_any_rate(db, tc):
+        return None
     rate = _pair_rate(db, fc, tc, on, strict)
     if rate is not None:
         return rate

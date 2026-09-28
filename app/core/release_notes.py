@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.2"
+CURRENT_RELEASE = "2026.09.28.3"
 
 
 @dataclass(frozen=True)
@@ -752,6 +752,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "هر سند از این پس ارزش خود را به ارز پایهٔ شما هم نگه می‌دارد، با نرخ تاریخ خودش (یا نرخی که روی سند وارد می‌کنید). در دفتر کل یا گزارش‌های مدیریتی «همهٔ ارزها» را انتخاب کنید تا دلار و یورو و پوند درست با هم جمع شوند؛ نمایش تک‌ارزی مثل قبل کار می‌کند. سندی که برای تاریخش نرخ نیست منتظر می‌ماند و به محض ورود نرخ تبدیل می‌شود. تسعیر ارز حالا فقط ارزش پایهٔ وجه نقد، دریافتنی‌ها و پرداختنی‌ها را تغییر می‌دهد — دارایی ثابت به بهای تمام‌شده می‌ماند.",
                     "es": "Cada asiento guarda ahora también su valor en su moneda base, al tipo de su fecha (o al que escriba en el asiento). Elija «Todas las monedas» en el libro mayor o en los informes para ver dólares, euros y libras bien sumados; una sola moneda sigue funcionando como antes. Un asiento sin tipo para su fecha espera y se convierte en cuanto se añade uno. La revaluación cambia ahora solo el valor base de caja, cobros y pagos; el inmovilizado queda al coste.",
                     "ar": "يحفظ كل قيد الآن قيمته بعملتك الأساسية أيضًا، بسعر تاريخه (أو بالسعر الذي تكتبه على القيد). اختر «كل العملات» في دفتر الأستاذ أو تقارير الإدارة لترى الدولار واليورو والجنيه مجموعة بشكل صحيح؛ وعرض العملة الواحدة يعمل كما كان. القيد الذي لا سعر لتاريخه ينتظر ويُحوَّل فور إضافة سعر. وإعادة التقييم تغيّر الآن القيمة الأساسية فقط للنقد والذمم المدينة والدائنة — والأصول الثابتة تبقى بالتكلفة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.3",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="realised-fx",
+                page="invoices",
+                roles=("owner", "cfo", "accountant"),
+                title={
+                    "en": "Exchange gains and losses when a foreign invoice is paid",
+                    "fa": "سود و زیان تسعیر ارز هنگام تسویهٔ فاکتور ارزی",
+                    "es": "Diferencias de cambio al cobrar o pagar una factura en divisa",
+                    "ar": "أرباح وخسائر الصرف عند سداد فاتورة بعملة أجنبية",
+                },
+                body={
+                    "en": "A dollar invoice booked at one rate and paid at another now clears the receivable (or payable) at the rate it was booked at, takes the money in at the day's rate, and posts the difference to Foreign exchange gains or losses — the payment message tells you how much. Part payments, credit notes and overpayments work the same way, and reversing a payment undoes its gain or loss too.",
+                    "fa": "فاکتور دلاری که با یک نرخ ثبت و با نرخ دیگری تسویه شود، از این پس حساب دریافتنی (یا پرداختنی) را با همان نرخ ثبت می‌بندد، وجه را با نرخ روز می‌گیرد و تفاوت را در سود یا زیان تسعیر ارز ثبت می‌کند — پیام دریافت مبلغ آن را می‌گوید. پرداخت‌های جزئی، اعلامیه‌های بستانکار و اضافه‌پرداخت هم همین‌طورند و برگشت یک پرداخت، سود یا زیان آن را هم برمی‌گرداند.",
+                    "es": "Una factura en dólares registrada a un tipo y cobrada a otro salda ahora el cobro (o pago) al tipo con que se registró, recibe el dinero al tipo del día y lleva la diferencia a diferencias de cambio positivas o negativas; el mensaje del cobro indica el importe. Los pagos parciales, las notas de crédito y los sobrepagos funcionan igual, y revertir un pago deshace también su diferencia.",
+                    "ar": "الفاتورة بالدولار المسجّلة بسعر والمسددة بسعر آخر تُقفل الآن الذمم المدينة (أو الدائنة) بالسعر الذي سُجّلت به، وتستلم المال بسعر اليوم، وتسجّل الفرق في أرباح أو خسائر الصرف — وتُخبرك رسالة الدفعة بالمبلغ. وتعمل الدفعات الجزئية وإشعارات الدائن والدفعات الزائدة بالطريقة نفسها، وعكس الدفعة يُلغي ربحها أو خسارتها أيضًا.",
                 },
             ),
         ),

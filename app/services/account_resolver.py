@@ -54,6 +54,9 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "dividends_payable": "2750",        # Dividends payable — liability
         "shareholder_current": "2350",      # Shareholders' current/loan account — liability
         "revaluation_reserve": "3020",      # Revaluation reserve — equity
+        # --- Foreign exchange (roadmap §4.6): realised on settlement ---
+        "fx_gain": "4210",                  # Foreign exchange gains
+        "fx_loss": "7950",                  # Foreign exchange losses
     },
     "ir": {
         "ar": "1112",
@@ -91,6 +94,9 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "dividends_payable": "2145",        # سود سهام پرداختنی — liability
         "shareholder_current": "2155",      # حساب جاری سهامداران — liability
         "revaluation_reserve": "3150",      # مازاد تجدید ارزیابی دارایی‌ها — equity
+        # سود و زیان تسعیر ارز — non-operating (group 62), realised on settlement
+        "fx_gain": "6240",
+        "fx_loss": "6230",
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -133,6 +139,8 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "dividends_payable": "Dividends payable",
         "shareholder_current": "Shareholders' current account",
         "revaluation_reserve": "Revaluation reserve",
+        "fx_gain": "Foreign exchange gains",
+        "fx_loss": "Foreign exchange losses",
     },
     "ir": {
         "ar": "حساب‌ها و اسناد دریافتنی تجاری",
@@ -167,6 +175,8 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "dividends_payable": "سود سهام پرداختنی",
         "shareholder_current": "حساب جاری سهامداران",
         "revaluation_reserve": "مازاد تجدید ارزیابی دارایی‌ها",
+        "fx_gain": "سود تسعیر ارز",
+        "fx_loss": "زیان تسعیر ارز",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])

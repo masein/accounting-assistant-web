@@ -148,6 +148,20 @@ def _txn_of(db: Session, line: TransactionLine) -> Transaction | None:
     return db.get(Transaction, line.transaction_id)
 
 
+def _is_fx_line(line: TransactionLine) -> bool:
+    from app.services.fx_settlement import is_fx_line
+    return is_fx_line(line)
+
+
+def _unsettle(session: Session, txn: Transaction) -> None:
+    from app.services.fx_settlement import is_fx_line
+    if txn.id is not None:
+        for ln in session.execute(select(TransactionLine).where(TransactionLine.transaction_id == txn.id)).scalars():
+            if is_fx_line(ln):
+                session.delete(ln)
+    txn.fx_role = None
+
+
 def _changed(obj, *names: str) -> bool:
     state = inspect(obj)
     return any(state.attrs[n].history.has_changes() for n in names)
@@ -159,8 +173,16 @@ def _fill_base_amounts(session: Session, _ctx, _instances) -> None:
         return
     todo: dict[int, tuple[Transaction, bool]] = {}
 
-    def want(txn: Transaction | None, relookup: bool = False) -> None:
-        if txn is None or txn.fx_role or txn in session.deleted or txn.deleted_at is not None:
+    def want(txn: Transaction | None, relookup: bool = False, amounts_changed: bool = False) -> None:
+        if txn is None or txn in session.deleted or txn.deleted_at is not None:
+            return
+        if txn.fx_role == "settlement" and amounts_changed:
+            # an existing amount, line or date changed: the settlement no longer
+            # holds; an ordinary entry again until settle_waiting runs
+            # (app/services/fx_settlement.py). Lines merely added — a reversal
+            # copying one with its base values — do not undo it.
+            _unsettle(session, txn)
+        if txn.fx_role:
             return
         prev = todo.get(id(txn))
         todo[id(txn)] = (txn, relookup or (prev[1] if prev else False))
@@ -173,11 +195,13 @@ def _fill_base_amounts(session: Session, _ctx, _instances) -> None:
                 elif obj in session.dirty and _changed(obj, "currency", "date", "fx_rate"):
                     # a new currency or date means a new rate — unless this
                     # same change says which rate
-                    want(obj, relookup=not _changed(obj, "fx_rate"))
+                    want(obj, relookup=not _changed(obj, "fx_rate"), amounts_changed=True)
             elif isinstance(obj, TransactionLine):
+                if _is_fx_line(obj):
+                    continue                                 # the settlement's own difference line
                 if obj in session.dirty and not _changed(obj, "debit", "credit", "transaction_id"):
                     continue
-                want(_txn_of(session, obj))
+                want(_txn_of(session, obj), amounts_changed=obj not in session.new)
         base = base_currency(session) if todo else None
         for txn, relookup in todo.values():
             convert_transaction(session, txn, relookup=relookup, base=base)
@@ -210,7 +234,11 @@ def fill_pending(db: Session) -> dict:
         else:
             left += 1
     db.flush()
-    return {"converted": done, "still_pending": left}
+    # payments on foreign invoices that could not be settled without a rate
+    from app.services.fx_settlement import settle_waiting
+    settled = settle_waiting(db)
+    db.flush()
+    return {"converted": done, "still_pending": left, "settled": settled}
 
 
 def recompute_all(db: Session) -> dict:
@@ -225,6 +253,8 @@ def recompute_all(db: Session) -> dict:
             txn.fx_role = "legacy_revaluation"
             reval += 1
             continue
+        if txn.fx_role == "settlement":
+            _unsettle(db, txn)                      # re-settled below, in the new base
         if txn.fx_role:
             continue
         if convert_transaction(db, txn, relookup=True):
@@ -232,7 +262,10 @@ def recompute_all(db: Session) -> dict:
         else:
             left += 1
     db.flush()
-    return {"converted": done, "still_pending": left, "revaluations_cleared": reval}
+    from app.services.fx_settlement import settle_waiting
+    settled = settle_waiting(db)
+    db.flush()
+    return {"converted": done, "still_pending": left, "revaluations_cleared": reval, "settled": settled}
 
 
 def fill_pending_all_companies(db: Session) -> dict:
@@ -242,7 +275,7 @@ def fill_pending_all_companies(db: Session) -> dict:
     from app.models.company import Company
     with tenant_bypass():
         ids = [str(c) for c in db.execute(select(Company.id)).scalars()]
-    total = {"converted": 0, "still_pending": 0}
+    total = {"converted": 0, "still_pending": 0, "settled": 0}
     for cid in ids:
         try:
             with use_company(cid):

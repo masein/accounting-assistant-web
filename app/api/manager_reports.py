@@ -1075,6 +1075,9 @@ def edit_journal_entry(transaction_id: UUID, payload: TransactionUpdate, db: Ses
                 continue
             db.add(TransactionEntity(transaction_id=t.id, entity_id=entity.id, role=link.role.strip().lower()))
     db.commit()
+    from app.services.fx_settlement import settle_waiting    # an edited payment is settled again
+    if settle_waiting(db):
+        db.commit()
     db.refresh(t)
     _load_transaction_with_lines(db, t)
     return _transaction_to_read(t)

@@ -105,6 +105,10 @@ class PaymentRead(BaseModel):
     direction: str
     transaction_id: UUID | None = None
     created_at: datetime
+    # A foreign invoice settled at another rate than it was booked at: the
+    # realised gain (+) or loss (−) in the base currency (roadmap §4.6).
+    realised_fx: int | None = None
+    base_currency: str | None = None
 
     model_config = {"from_attributes": True}
 

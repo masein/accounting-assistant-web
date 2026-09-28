@@ -205,9 +205,18 @@ accounts only; pre-existing mirror revaluations neutralised
 (`legacy_revaluation`). Default currency is the base currency everywhere (was
 a literal IRR in posting, recurring rules, petty cash, invoices, adjustments,
 AI proposals, bulk import). The placeholder USD→IRR 150,000 seed is gone.
-Next: part 3 — realised gain/loss when a payment settles an invoice at
-another rate; part 4 — the rest of the readers on base values (dashboard,
-AI tools, insights, budgets, net worth, invoices in the combined view).
+✅ 4.6, part 3 — realised gain/loss (`app/services/fx_settlement.py`): a
+payment or credit note on a foreign invoice clears the AR/AP line at the
+invoice's rate (the last one takes exactly the base left, so part payments
+never leave a penny), the rest at its own rate, and the difference on one
+base-only line to `fx_gain` / `fx_loss` (UK 4210/7950, IR 6240/6230,
+created on first use); `fx_role='settlement'`. Overpayment excess is a new
+balance at today's rate. Settled when both rates are known — immediately, or
+by `settle_waiting` after a rate arrives, an edit, a base change. Reversals
+now copy the original's rate and base values, so voiding undoes the FX too.
+Closed periods are never re-settled. `PaymentRead.realised_fx`.
+Next: part 4 — the rest of the readers on base values (dashboard, AI tools,
+insights, budgets, net worth, invoices in the combined view).
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same

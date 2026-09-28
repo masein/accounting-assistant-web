@@ -226,11 +226,15 @@ class LedgerService:
         from app.services.period_service import assert_period_open
         rev_date = reverse_date or date.today()
         assert_period_open(self.db, rev_date)  # the reversal is a new posting (review H7)
+        # At the original rate and base values (roadmap §4.6): a reversal
+        # undoes the entry in the base currency too, realised FX included.
         rev = Transaction(
             date=rev_date,
             reference=(reference or (f"REV-{src.reference}" if src.reference else f"REV-{src.id.hex[:8]}"))[:128],
             description=(description or f"Reversal of {src.id}"),
             currency=src.currency,
+            fx_rate=src.fx_rate,
+            fx_role=src.fx_role,
         )
         self.db.add(rev)
         self.db.flush()
@@ -241,6 +245,8 @@ class LedgerService:
                     account_id=line.account_id,
                     debit=int(line.credit or 0),
                     credit=int(line.debit or 0),
+                    base_debit=line.base_credit,
+                    base_credit=line.base_debit,
                     line_description=(line.line_description or "Reversal"),
                 )
             )

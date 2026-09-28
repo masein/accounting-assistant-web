@@ -436,6 +436,13 @@ for _m, _p in [
 # What the assistant learned from corrections (roadmap §5.4).
 _reads(["/ai-accountant/preferences"], Perm.BOOKS_READ)
 _add("POST", "/ai-accountant/transcribe", Perm.BOOKS_WRITE)      # voice notes (roadmap §5.7)
+# Messenger bots (roadmap §5.7): a chat linked to a login can use the assistant.
+_reads(["/ai-accountant/messenger"], Perm.BOOKS_READ)
+_add("POST", "/ai-accountant/messenger/link", Perm.BOOKS_WRITE)
+_add("DELETE", "/ai-accountant/messenger/links/{link_id}", Perm.BOOKS_WRITE)
+_add("GET", "/admin/messenger-bots", Perm.PLATFORM_ADMIN)
+_add("PUT", "/admin/messenger-bots/{platform}", Perm.PLATFORM_ADMIN)
+_add("DELETE", "/admin/messenger-bots/{platform}", Perm.PLATFORM_ADMIN)
 _add("POST", "/ai-accountant/preferences", Perm.BOOKS_WRITE)
 _add("DELETE", "/ai-accountant/preferences/{pref_id}", Perm.BOOKS_WRITE)
 

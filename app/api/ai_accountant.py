@@ -837,6 +837,43 @@ async def transcribe_voice_note(file: UploadFile = File(...), db: Session = Depe
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
+# ─── Messenger bots (roadmap §5.7) ─────────────────────────────────────
+
+class MessengerLinkRequest(BaseModel):
+    platform: str = Field(..., pattern="^(telegram|bale)$")
+
+
+@router.get("/messenger")
+def messenger_status(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    """Which bots this server has, and the caller's linked chats."""
+    from app.services.messenger import links_of, public_status
+    return {"platforms": public_status(db), "links": links_of(db, user.user_id)}
+
+
+@router.post("/messenger/link", status_code=201)
+def messenger_link(payload: MessengerLinkRequest, db: Session = Depends(get_db),
+                   user: SessionUser = Depends(get_current_user)) -> dict:
+    """A one-time link (10 minutes) that ties a Telegram/Bale chat to this login."""
+    from app.services.messenger import start_link
+    try:
+        out = start_link(db, user_id=user.user_id, platform=payload.platform)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    db.commit()
+    return out
+
+
+@router.delete("/messenger/links/{link_id}", status_code=204)
+def messenger_unlink(link_id: UUID, db: Session = Depends(get_db),
+                     user: SessionUser = Depends(get_current_user)) -> None:
+    from app.models.messenger import MessengerLink
+    link = db.get(MessengerLink, link_id)
+    if link is None or str(link.user_id) != user.user_id:
+        raise HTTPException(status_code=404, detail="Not found")
+    db.delete(link)
+    db.commit()
+
+
 # ─── Correction memory (roadmap §5.4) ─────────────────────────────────
 
 class PreferenceCreate(BaseModel):

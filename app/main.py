@@ -49,6 +49,7 @@ from app.api.recurring import router as recurring_router
 from app.api.reports import router as reports_router
 from app.api.tax_ir import router as tax_ir_router
 from app.api.bank_sms import router as bank_sms_router
+from app.api.bots import router as bots_router
 from app.api.tax_uk import router as tax_uk_router
 from app.api.time_tracking import router as time_tracking_router
 from app.api.transactions import router as transactions_router
@@ -978,6 +979,9 @@ app.include_router(recurring_router, dependencies=_rbac)
 app.include_router(reports_router, dependencies=_rbac)
 app.include_router(tax_ir_router, dependencies=_rbac)
 app.include_router(bank_sms_router, dependencies=_rbac)
+# Telegram / Bale post their updates here: no session, the path's secret is
+# the guard (app/api/bots.py). Deliberately outside _GUARDED_PREFIXES.
+app.include_router(bots_router)
 app.include_router(tax_uk_router, dependencies=_rbac)
 app.include_router(time_tracking_router, dependencies=_rbac)
 app.include_router(transactions_router, dependencies=_rbac)

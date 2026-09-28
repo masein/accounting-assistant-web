@@ -206,7 +206,8 @@ def test_every_guarded_business_route_is_mapped():
     mapped = {(m, norm(t)) for (m, t) in ROUTE_PERMISSIONS}
     exempt = ("/auth", "/health", "/docs", "/redoc", "/openapi.json",
               "/", "/login", "/uploads", "/static", "/favicon",
-              "/api/v1")  # key-authenticated integration surface (own guard)
+              "/api/v1",   # key-authenticated integration surface (own guard)
+              "/bots/")    # messenger webhooks: the bot secret in the path is the guard
     missing = []
     for path, ops in app.openapi()["paths"].items():
         if path.startswith(exempt):

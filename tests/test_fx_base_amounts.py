@@ -219,9 +219,12 @@ def test_lines_written_directly_also_get_base_amounts(uk, db):
         assert t.fx_rate == 0.5
 
 
-def test_a_reversal_is_converted_at_its_own_rate(uk, db):
+def test_a_reversal_undoes_the_entry_at_its_original_rate(uk, db):
+    """Reversed today, when $1 is worth less: the reversal still takes back
+    exactly the pounds the entry put in (voids, bounced payments)."""
     api, cid = uk
     _rate(api, "USD", "GBP", 0.8, "2026-08-01")
+    _rate(api, "USD", "GBP", 0.5, date.today().isoformat())
     out = _post(api, "2026-09-01", SALE, "USD")
     from app.db.tenant import use_company
     from app.services.reporting.ledger_service import LedgerService
@@ -230,7 +233,6 @@ def test_a_reversal_is_converted_at_its_own_rate(uk, db):
         db.commit()
     t, lines = _txn(db, cid, str(rev.transaction_id))
     assert t.fx_rate == 0.8 and lines == [("1200", 0, 100, 0, 80), ("4000", 100, 0, 80, 0)]
-
 
 def test_revaluation_entries_are_never_recomputed(uk, db):
     from app.db.tenant import use_company

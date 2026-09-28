@@ -1599,6 +1599,10 @@ def update_transaction(
     db.expire(t)
     _log_transaction_audit(db, "update", t)
     db.commit()
+    # an edited payment on a foreign invoice is settled again (roadmap §4.6)
+    from app.services.fx_settlement import settle_waiting
+    if settle_waiting(db):
+        db.commit()
     db.refresh(t)
     _load_transaction_with_lines(db, t)
     from app.api.reports import invalidate_dashboard_cache

@@ -214,7 +214,10 @@
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) { showAlert(data.detail || t('invPaymentError'), true); return; }
-          showAlert(t('invPaymentRecorded'));
+          // a foreign invoice paid at another rate than it was booked at (roadmap §4.6)
+          const fx = Number(data.realised_fx || 0);
+          showAlert(fx ? t('invPaymentRecorded') + ' ' + tf(fx > 0 ? 'invRealisedGain' : 'invRealisedLoss',
+            { amount: formatNum(Math.abs(fx)), currency: data.base_currency || '' }) : t('invPaymentRecorded'));
           loadInvoices(id);
           loadLedger();
           loadOwnerDashboard();

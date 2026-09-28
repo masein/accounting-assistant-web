@@ -693,6 +693,14 @@ def delete_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
+def _payment_read(db: Session, payment: Payment) -> PaymentRead:
+    from app.services.fx_settlement import realised_on
+    out = PaymentRead.model_validate(payment)
+    if payment.transaction_id:
+        out.realised_fx, out.base_currency = realised_on(db, payment.transaction_id)
+    return out
+
+
 def _apply_payment(
     db: Session,
     inv: Invoice,
@@ -760,6 +768,10 @@ def _apply_payment(
         )
         db.add(credit)
     db.flush()
+    # foreign invoice: the receivable/payable at the invoice's rate, the
+    # difference as realised FX (roadmap §4.6)
+    from app.services.fx_settlement import settle
+    settle(db, txn, inv)
     paid2, credited2, balance2 = _invoice_totals(db, inv)
     _recompute_status(inv, paid2, credited2, balance2)
     return payment, credit
@@ -789,7 +801,7 @@ def add_payment(invoice_id: UUID, payload: PaymentCreate, db: Session = Depends(
         raise HTTPException(status_code=422, detail=f"Could not post the payment — {e}") from e
     db.commit()
     db.refresh(payment)
-    return PaymentRead.model_validate(payment)
+    return _payment_read(db, payment)
 
 
 @router.get("/{invoice_id}/payments", response_model=list[PaymentRead])
@@ -799,7 +811,7 @@ def list_payments(invoice_id: UUID, db: Session = Depends(get_db)) -> list[Payme
     rows = db.execute(
         select(Payment).where(Payment.invoice_id == invoice_id).order_by(Payment.date, Payment.created_at)
     ).scalars().all()
-    return [PaymentRead.model_validate(r) for r in rows]
+    return [_payment_read(db, r) for r in rows]
 
 
 @router.post("/{invoice_id}/credit-notes", response_model=CreditNoteRead, status_code=201)
@@ -851,6 +863,8 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
     )
     db.add(note)
     db.flush()
+    from app.services.fx_settlement import settle
+    settle(db, txn, inv)
     paid2, credited2, balance2 = _invoice_totals(db, inv)
     _recompute_status(inv, paid2, credited2, balance2)
     db.commit()

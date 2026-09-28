@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     # Metis exposes Gemini at Google's native generateContent endpoint
     # (x-goog-api-key header), separate from the OpenAI-compatible path.
     gemini_base_url: str = "https://api.metisai.ir/v1beta"
+    # Voice notes (roadmap §5.7): Gemini first (Persian speech), then the
+    # OpenAI-compatible /audio/transcriptions with STT_MODEL.
+    stt_gemini_model: str = "gemini-3.7-flash"
+    stt_model: str = "gpt-4o-mini-transcribe"
     # Backward-compatible LM Studio defaults
     lm_studio_base_url: str = "http://host.docker.internal:1234"
     # Model name as shown in LM Studio (e.g. qwen/qwen3-4b, lmstudio-community/granite-4-7b). Use non-"thinking" for speed on 16GB Mac.

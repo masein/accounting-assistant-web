@@ -20,7 +20,7 @@ import uuid
 from uuid import UUID
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -819,6 +819,22 @@ def reverse(
         audit_log_id=result.audit_log_id,
         mode=result.mode,
     )
+
+
+# ─── Voice notes (roadmap §5.7) ─────────────────────────────────────────
+
+@router.post("/transcribe")
+async def transcribe_voice_note(file: UploadFile = File(...), db: Session = Depends(get_db)) -> dict:
+    """A recorded voice note → its text, for the user to check and send.
+    Metered and budgeted like a chat turn; the audio is not kept."""
+    from app.services.ai_usage import guard_ai_request
+    from app.services.speech import MAX_BYTES, SpeechError, transcribe
+    data = await file.read(MAX_BYTES + 1)
+    guard_ai_request(db)
+    try:
+        return await transcribe(data)
+    except SpeechError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 # ─── Correction memory (roadmap §5.4) ─────────────────────────────────

@@ -13,6 +13,7 @@ worker keeps its own counts (roadmap §2.2 moves this to a shared store).
 """
 from __future__ import annotations
 
+import math
 import time
 from collections import defaultdict
 
@@ -50,6 +51,15 @@ class RateLimiter:
 
     def reset(self, identity: str) -> None:
         self._hits.pop(identity, None)
+
+    def retry_after(self, identity: str) -> int:
+        """Whole seconds until the oldest hit in the window expires and one
+        more request fits (at least 1)."""
+        now = time.monotonic()
+        hits = self._live(identity, now)
+        if len(hits) < self.max_requests:
+            return 0
+        return max(1, math.ceil(hits[0] + self.window_seconds - now))
 
     def is_allowed(self, identity: str) -> bool:
         """Check and record in one step."""

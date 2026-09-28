@@ -472,7 +472,12 @@ async def security_headers_middleware(request: Request, call_next):
             request.client.host if request.client else "unknown"
         )
         if not _api_limiter.is_allowed(identity):
-            return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Try again shortly."})
+            # a code the app can tell apart from a refusal (it used to show
+            # "no permission"), and when to try again
+            wait = _api_limiter.retry_after(identity)
+            return JSONResponse(status_code=429, headers={"Retry-After": str(wait)},
+                                content={"code": "rate_limited", "retry_after": wait,
+                                         "detail": f"Too many requests — try again in {wait} s."})
 
     response = await call_next(request)
     # CSP header on HTML pages and API responses
@@ -540,7 +545,10 @@ async def auth_middleware(request: Request, call_next):
             return JSONResponse(status_code=401, content={"detail": "A valid API key is required."})
         company_id, actor = resolved
         if not _api_key_limiter.is_allowed(actor.user_id):
-            return JSONResponse(status_code=429, content={"detail": "API rate limit exceeded."})
+            wait = _api_key_limiter.retry_after(actor.user_id)
+            return JSONResponse(status_code=429, headers={"Retry-After": str(wait)},
+                                content={"code": "rate_limited", "retry_after": wait,
+                                         "detail": "API rate limit exceeded."})
         request.state.user = actor
         request.state.api_key = True
         request.state.api_scopes = actor.api_scopes

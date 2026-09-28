@@ -81,6 +81,14 @@ class FindEntityInput(BaseModel):
         ),
     )
     limit: int = Field(10, ge=1, le=25, description="Max candidates to return.")
+    description: str | None = Field(
+        None,
+        description=(
+            "The transaction's own wording (e.g. 'POS SNAPP TEHRAN', 'paid Kim for design'). "
+            "Pass it: the party the user chose before for wording like this comes first, marked learned."
+        ),
+        max_length=512,
+    )
 
 
 class FindEntity(BaseTool):
@@ -123,9 +131,18 @@ class FindEntity(BaseTool):
             scored.append((ratio, row))
 
         scored.sort(key=lambda pair: pair[0], reverse=True)
+        # The party the user chose before for this wording (roadmap §5.4).
+        from app.services.learned_preferences import lookup, mark_used
+        learned = lookup(ctx.db, args.description or q, want="entity")
+        learned_entity = None
+        if learned is not None:
+            learned_entity = next((e for (_s, e) in scored if e.id == learned.preference.entity_id), None)
+            if learned_entity is not None:
+                scored = [(0.95, learned_entity)] + [x for x in scored if x[1].id != learned_entity.id]
+                mark_used(ctx.db, learned.preference)
         top = scored[: args.limit]
 
-        return {
+        out = {
             "query": q,
             "matches": [
                 {
@@ -134,12 +151,17 @@ class FindEntity(BaseTool):
                     "type": e.type,
                     "code": e.code,
                     "confidence": round(score, 3),
+                    **({"learned": True} if learned_entity is not None and e.id == learned_entity.id else {}),
                     **_entity_details(e),
                 }
                 for (score, e) in top
                 if score >= 0.30  # filter pure-noise matches
             ],
         }
+        if learned_entity is not None:
+            out["learned_note"] = (f"The user chose {learned_entity.name} before for "
+                                   f"\"{learned.preference.label}\".")
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -528,6 +550,14 @@ class SearchAccountsInput(BaseModel):
     account_type: Literal["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"] | None = Field(
         None, description="Optional filter by statement nature."
     )
+    description: str | None = Field(
+        None,
+        description=(
+            "The transaction's own wording (e.g. 'POS SNAPP TEHRAN', 'paid Kim for design'). "
+            "Pass it: what the user chose before for wording like this comes first, marked learned."
+        ),
+        max_length=512,
+    )
     limit: int = Field(8, ge=1, le=25, description="Max accounts to return.")
 
 
@@ -593,8 +623,18 @@ class SearchAccounts(BaseTool):
                 scored.append((score, acc, acc_type))
 
         scored.sort(key=lambda t: t[0], reverse=True)
+        # The user's own earlier choice for this wording goes first (roadmap §5.4).
+        from app.services.learned_preferences import lookup, mark_used
+        learned = lookup(ctx.db, args.description or args.query, want="account")
+        learned_acc = None
+        if learned is not None:
+            learned_acc = next((a for (_s, a, _t) in scored if a.code == learned.preference.account_code), None)
+            if learned_acc is not None:
+                scored = [(1.0, learned_acc, classify_account_code(learned_acc.code))] + [
+                    x for x in scored if x[1].code != learned_acc.code]
+                mark_used(ctx.db, learned.preference)
         top = scored[: args.limit]
-        return {
+        out = {
             "query": args.query,
             "reporting_locale": locale,
             "matches": [
@@ -604,10 +644,15 @@ class SearchAccounts(BaseTool):
                     "type": acc_type,
                     "normal_balance": _normal_balance(acc_type),
                     "confidence": round(score, 3),
+                    **({"learned": True} if learned_acc is not None and acc.code == learned_acc.code else {}),
                 }
                 for (score, acc, acc_type) in top
             ],
         }
+        if learned_acc is not None:
+            out["learned_note"] = (f"The user chose {learned_acc.code} ({learned_acc.name}) before for "
+                                   f"\"{learned.preference.label}\" — use it unless they say otherwise now.")
+        return out
 
 
 # ---------------------------------------------------------------------------

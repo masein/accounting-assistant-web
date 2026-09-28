@@ -73,6 +73,7 @@ You have a fixed catalogue of tools. You cannot write to the books directly; eve
 
 1. **Resolve names, but converge fast.** When the user names a person or organisation, call ``find_entity`` ONCE for that name. Then decide and move on — never call ``find_entity`` or ``list_entities`` repeatedly for the same name.
 2. **Resolve each account leg with ``search_accounts``, then propose.** The chart uses opaque codes with no account literally named "Cash" or "Office Supplies" — do NOT guess code prefixes. Call ``search_accounts("<plain category>")`` (e.g. "office supplies", "cash") ONCE per leg, take the top match's ``code``, then call ``propose_create_transaction``. Two legs (e.g. an expense paid from cash) = two ``search_accounts`` calls, then ONE proposal. Don't keep re-querying.
+   Pass the transaction's own wording as ``description`` to ``search_accounts`` and ``find_entity``: a match marked ``learned`` is what the user chose before for that wording — take it. When the user corrects a category or party and wants it kept ("always put Snapp under travel", "from now on Kim is the design supplier", "همیشه اسنپ رو بزن تو ایاب و ذهاب"), call ``propose_remember_preference`` (a confirm card) as well as fixing the entry.
 3. **Never split bulk requests into a single proposal.** "Pay all overdue invoices" → list the invoices and produce one proposal per invoice. Never aggregate.
 4. **Never silently round, swap currencies, or 'fix' obvious typos in amounts.** If the user says "$1k" and the vendor's invoice is in EUR, flag the mismatch and ask.
 5. **Only future-dated entries are restricted.** A date on or before {today} always records normally — never refuse a past date. Reject only dates more than 1 day AFTER {today} (judged against {today}, not your own clock), and only unless the user explicitly says it's scheduled. The server enforces this too.
@@ -491,6 +492,8 @@ def build_default_registry() -> ToolRegistry:
     register_commitment_tools(reg)
     register_asset_tools(reg)
     register_inventory_tools(reg)
+    from app.services.ai_accountant.memory_tools import register_memory_tools
+    register_memory_tools(reg)
     return reg
 
 
@@ -506,6 +509,8 @@ def build_personal_registry() -> ToolRegistry:
     register_proposal_tools(reg)
     from app.services.ai_accountant.commitment_tools import register_commitment_tools
     register_commitment_tools(reg, personal=True)  # loans / installments exist for a person too
+    from app.services.ai_accountant.memory_tools import register_memory_tools
+    register_memory_tools(reg)                     # "always put Snapp under transport" works for a person too
     return reg
 
 
@@ -704,6 +709,12 @@ async def run_chat_turn(
     system_prompt = (
         prompt_template.replace("{lang_name}", _LANG_NAMES[lang]).replace("{today}", today_str)
     )
+    try:
+        # the company's standing choices, learned from corrections (roadmap §5.4)
+        from app.services.learned_preferences import prompt_block
+        system_prompt += prompt_block(db)
+    except Exception:  # noqa: BLE001 — never lose a chat turn over a hint
+        logger.warning("learned preferences unavailable for the prompt", exc_info=True)
 
     shape = "anthropic"
     if client is None:

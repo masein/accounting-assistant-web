@@ -230,6 +230,22 @@ in a non-IRR company (`POST /fx/relabel`, closed periods untouched). Still
 per currency by design: invoice-based reports (sales/purchase by product,
 tax summaries, aging from invoices). §4.6 done.
 
+**§5 continued — 2026-09-28:** ✅ 5.4 correction memory
+(`app/services/learned_preferences.py`, table `learned_preferences`,
+migration 054): the normalised narration → account and/or party the user
+chose when they overruled a suggestion — a statement row approved with
+another account, an entry recategorised (one account swapped for another at
+the same amount; restructurings teach nothing) or given another party (both
+edit routes), the assistant told "always …" (`propose_remember_preference`,
+a confirm card), or added by hand. Used first by the statement categoriser
+(source `learned`, any nature — a refund back to its expense is right; an
+inactive account is skipped), by `search_accounts` / `find_entity` (new
+`description` input; the match is marked `learned` with a note) and in the
+assistant's prompt (top 15). Matching: same narration, else ≥ 60 % word
+overlap, else every learned word present. Chat page → "What I've learned"
+lists and forgets them (`/ai-accountant/preferences`). Undo/Reverse now only
+on confirmations that posted an entry.
+
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
 amount within a week or same reference), payments/expense claims split just

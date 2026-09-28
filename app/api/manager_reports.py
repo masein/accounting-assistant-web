@@ -1043,6 +1043,8 @@ def edit_journal_entry(transaction_id: UUID, payload: TransactionUpdate, db: Ses
         raise HTTPException(status_code=404, detail="Transaction not found")
     from app.services.ledger_posting import assert_transaction_mutable
     assert_transaction_mutable(db, t, new_date=payload.date)
+    from app.services.learned_preferences import learn_from_edit, snapshot
+    before = snapshot(t)                       # correction memory (roadmap §5.4)
     if payload.date is not None:
         t.date = payload.date
     if payload.reference is not None:
@@ -1074,6 +1076,9 @@ def edit_journal_entry(transaction_id: UUID, payload: TransactionUpdate, db: Ses
             if not entity:
                 continue
             db.add(TransactionEntity(transaction_id=t.id, entity_id=entity.id, role=link.role.strip().lower()))
+    db.flush()
+    db.expire(t, ["lines", "entity_links"])
+    learn_from_edit(db, t.description, before, snapshot(t))
     db.commit()
     from app.services.fx_settlement import settle_waiting    # an edited payment is settled again
     if settle_waiting(db):

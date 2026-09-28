@@ -1528,6 +1528,8 @@ def update_transaction(
     # DELETE inside the lock used to succeed).
     from app.services.ledger_posting import assert_transaction_mutable
     assert_transaction_mutable(db, t, new_date=payload.date)
+    from app.services.learned_preferences import learn_from_edit, snapshot
+    before = snapshot(t)                       # correction memory (roadmap §5.4)
     if payload.date is not None:
         t.date = payload.date
     if payload.reference is not None:
@@ -1593,6 +1595,8 @@ def update_transaction(
                     raise HTTPException(status_code=400, detail=f"Attachment already linked: {a.id}")
                 a.transaction_id = t.id
     db.flush()
+    db.expire(t, ["lines", "entity_links"])
+    learn_from_edit(db, t.description, before, snapshot(t))
     # Edits are as auditable as creates and deletes (QA 2026-09-24 2.10: the
     # audit log showed no 'update' for a PATCH). Reload so the snapshot holds
     # the replaced lines, then record the event + a new version.

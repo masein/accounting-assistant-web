@@ -533,7 +533,7 @@ class TestRegistry:
             "propose_declare_dividend", "propose_shareholder_current_account",
             "list_invoices", "get_invoice", "propose_record_invoice_payment", "propose_create_invoice",
             "list_commitments", "propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque",
-            "get_fixed_assets", "get_inventory",
+            "get_fixed_assets", "get_inventory", "propose_remember_preference",
         }
 
 
@@ -551,7 +551,7 @@ class TestPersonalMode:
             "get_spending_summary", "get_cash_position", "get_cash_forecast",
             "propose_create_transaction",
             "propose_create_entity", "propose_update_entity", "propose_reverse_transaction",
-            "list_commitments", "propose_settle_commitment",
+            "list_commitments", "propose_settle_commitment", "propose_remember_preference",
         }
 
     def test_personal_mode_prompt_and_tools(self, db: Session) -> None:

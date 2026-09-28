@@ -4,7 +4,10 @@ Replaces the old keyword table in ``bank_statement_parser.classify_transaction``
 which mapped narrations to *hardcoded Iranian codes* — so a UK or personal chart
 got suggestions pointing at accounts it does not have.
 
-Two signals, strongest first:
+Signals, strongest first:
+
+0. **The user's corrections** — a narration they re-categorised before
+   (app/services/learned_preferences.py, roadmap §5.4).
 
 1. **History** — what account did this tenant last use for a narration like this?
    Self-improving and chart-agnostic by construction: it can only ever return an
@@ -51,7 +54,7 @@ class CategorySuggestion:
     account_name: str
     category: str
     confidence: float
-    source: str  # "history" | "keyword"
+    source: str  # "learned" | "history" | "keyword"
 
 
 # --- Narration → semantic category -----------------------------------------
@@ -218,6 +221,24 @@ def _history_suggestion(
     return None
 
 
+# --- Signal 0: the user's own corrections --------------------------------------
+CONFIDENCE_LEARNED = 0.99
+
+
+def _learned_suggestion(db: Session, description: str | None) -> CategorySuggestion | None:
+    from app.services.learned_preferences import lookup, mark_used
+    match = lookup(db, description, want="account")
+    if match is None:
+        return None
+    acc = _postable(db).get(match.preference.account_code or "")
+    if acc is None or acc.is_active is False:
+        return None
+    mark_used(db, match.preference)
+    return CategorySuggestion(account_code=acc.code, account_name=acc.name, category=acc.name,
+                              confidence=CONFIDENCE_LEARNED if match.score >= 1.0 else CONFIDENCE_HISTORY_EXACT,
+                              source="learned")
+
+
 # --- Signal 2: keywords -----------------------------------------------------
 def _match_category(narration: str) -> str | None:
     """Longest keyword wins, so 'اسنپ فود' beats 'اسنپ'."""
@@ -262,6 +283,13 @@ def suggest_for_row(db: Session, description: str | None, *, is_debit: bool) -> 
     if not narration:
         return None
     want_nature = EXPENSE if is_debit else REVENUE
+
+    # 0. What the user chose when they corrected a narration like this
+    # (roadmap §5.4) — any nature: a refund credited back to the expense it
+    # came from is right.
+    learned = _learned_suggestion(db, description)
+    if learned is not None:
+        return learned
 
     hit = _history_suggestion(db, narration, want_nature=want_nature)
     if hit is not None:

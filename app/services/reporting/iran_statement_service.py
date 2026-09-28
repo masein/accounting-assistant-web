@@ -426,6 +426,15 @@ _BS_CURRENT_ASSET_MAP: list[tuple[str, str]] = [
     # by the 3-digit `111` cash prefix.
     ("1112", "ca_trade_receivables"),    # seed: حساب‌ها و اسناد دریافتنی تجاری
     ("1110", "ca_cash"),                 # seed: موجودی نقد و بانک
+    # The rest of the seeded chart: its 4-digit codes do not follow the
+    # standard's 3-digit groups (1130 is VAT receivable, not an investment;
+    # 1140 accrued income, not inventory; 1150 prepaid expenses, not assets
+    # held for sale; 1160 petty cash, not a prepayment).
+    ("1120", "ca_prepayments"),          # seed: پیش‌پرداخت به تأمین‌کنندگان
+    ("1130", "ca_trade_receivables"),    # seed: مالیات بر ارزش افزوده دریافتنی (سایر دریافتنی‌ها)
+    ("1140", "ca_trade_receivables"),    # seed: درآمد تعهدشده دریافتنی (سایر دریافتنی‌ها)
+    ("1150", "ca_prepayments"),          # seed: پیش‌پرداخت هزینه‌ها
+    ("1160", "ca_cash"),                 # seed: تنخواه گردان‌ها
     # Iranian-standard 3-digit groupings.
     ("111", "ca_cash"),                  # موجودی نقد
     ("112", "ca_trade_receivables"),     # دریافتنی‌های تجاری و سایر دریافتنی‌ها
@@ -443,6 +452,20 @@ _BS_NON_CURRENT_ASSET_MAP: list[tuple[str, str]] = [
     ("127", "nca_deferred_tax"),         # دارایی مالیات انتقالی
 ]
 _BS_CURRENT_LIAB_MAP: list[tuple[str, str]] = [
+    # Seeded 4-digit codes first, as for assets: 2140 is accrued expenses (not
+    # dividends), 2155 the shareholders' current account (not a bank loan),
+    # 2160–2195 payroll payables (not provisions, advances or liabilities of
+    # assets held for sale).
+    ("2120", "cl_advances"),             # seed: پیش‌دریافت از مشتریان
+    ("2130", "cl_trade_payables"),       # seed: مالیات بر ارزش افزوده پرداختنی — VAT is «سایر پرداختنی‌ها», the tax line is income tax
+    ("2140", "cl_trade_payables"),       # seed: هزینه‌های تعهدشده پرداختنی (سایر پرداختنی‌ها)
+    ("2145", "cl_dividends_payable"),    # seed: سود سهام پرداختنی
+    ("2155", "cl_trade_payables"),       # seed: حساب جاری سهامداران
+    ("2160", "cl_trade_payables"),       # seed: مالیات حقوق پرداختنی (withheld, not the company's tax)
+    ("2170", "cl_trade_payables"),       # seed: بیمه تأمین اجتماعی پرداختنی
+    ("2180", "cl_trade_payables"),       # seed: حقوق پرداختنی
+    ("2190", "cl_trade_payables"),       # seed: کسورات حقوق پرداختنی
+    ("2195", "cl_trade_payables"),       # seed: بدهی به کارکنان بابت هزینه
     ("211", "cl_trade_payables"),        # پرداختنی‌های تجاری و سایر پرداختنی‌ها
     ("213", "cl_tax_payable"),           # مالیات پرداختنی
     ("214", "cl_dividends_payable"),     # سود سهام پرداختنی
@@ -464,6 +487,7 @@ _BS_EQUITY_MAP: list[tuple[str, str]] = [
     ("314", "eq_treasury_premium"),      # صرف سهام خزانه
     ("321", "eq_legal_reserve"),         # اندوخته قانونی
     ("322", "eq_other_reserves"),        # سایر اندوخته‌ها
+    ("3150", "eq_revaluation_surplus"),  # seed: مازاد تجدید ارزیابی دارایی‌ها (posting category)
     ("323", "eq_revaluation_surplus"),   # مازاد تجدید ارزیابی دارایی‌ها
     ("324", "eq_fx_translation"),        # تفاوت تسعیر ارز عملیات خارجی
     ("33", "eq_retained_earnings"),      # سود (زیان) انباشته
@@ -1138,7 +1162,7 @@ def build_iran_comprehensive_income(
 # Cash Flow Statement (صورت جریان‌های نقدی) — Iranian template
 # ---------------------------------------------------------------------------
 # We scan transactions in the period, split those that touch a cash account
-# (1110) by:
+# (the balance sheet's cash line: 1110, petty cash 1160) by:
 #   1. the largest counterparty account prefix → category (PPE, intangibles, …)
 #   2. the sign of the cash delta → inflow vs outflow line
 # The row order matches the audited Iranian template (5 sections: operating,
@@ -1150,6 +1174,15 @@ def build_iran_comprehensive_income(
 # come first. Each category is split into _inflow / _outflow when emitted, so
 # each row matches exactly one of the prescribed line items.
 _CF_CATEGORY_MAP: list[tuple[str, str]] = [
+    # ----- The seeded chart's working-capital accounts (operating) -----
+    # Their codes collide with the standard's 3-digit groups below: paying
+    # input VAT (1130) is not buying investments, a prepaid expense (1150) is
+    # not an asset held for sale, an accrued expense (2140) is not a dividend
+    # and VAT (2130) is not income tax.
+    ("1130", "op_other"),
+    ("1150", "op_other"),
+    ("2130", "op_other"),
+    ("2140", "op_other"),
     # ----- Investing categories -----
     ("121", "inv_ppe"),                  # دارایی‌های ثابت مشهود
     ("122", "inv_investment_property"),  # سرمایه‌گذاری در املاک
@@ -1208,6 +1241,12 @@ def _cf_bucket_directional(code: str, cash_delta: int) -> tuple[str, str]:
     return (section, category + suffix)
 
 
+def _is_cash_code(code: str | None) -> bool:
+    """Cash for the flows is what the balance sheet calls cash (1110, petty
+    cash 1160, sub-accounts), so opening + flows = closing by construction."""
+    return _bs_bucket_for_code(code or "") == ("current_assets", "ca_cash")
+
+
 def _cash_flow_buckets(
     db: Session, from_d: date, to_d: date, currency: str | None
 ) -> dict[tuple[str, str], int]:
@@ -1216,13 +1255,13 @@ def _cash_flow_buckets(
     txns = transactions_with_lines_between(db, from_d, to_d, currency=currency)
     buckets: dict[tuple[str, str], int] = {}
     for txn in txns:
-        cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("1110")]
+        cash_lines = [ln for ln in txn.lines if _is_cash_code(ln.account.code)]
         if not cash_lines:
             continue
         cash_delta = int(sum(line_net(ln, currency) for ln in cash_lines))
         if cash_delta == 0:
             continue
-        counters = [ln for ln in txn.lines if not (ln.account.code or "").startswith("1110")]
+        counters = [ln for ln in txn.lines if not _is_cash_code(ln.account.code)]
         if not counters:
             key = ("operating", "op_other")
         else:

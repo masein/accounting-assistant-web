@@ -60,10 +60,12 @@ class GetCashPosition(BaseTool):
         as_of = args.as_of or date.today()
         locale = get_reporting_locale(ctx.db)
         codes = cash_account_codes(ctx.db, locale=locale, mode=getattr(ctx, "mode", "default"))
+        # every currency at its base value (roadmap §4.6): dollars and pounds
+        # were added as raw numbers and labelled in the reporting currency
         rows = ctx.db.execute(
             select(Account.code, Account.name,
-                   func.coalesce(func.sum(TransactionLine.debit), 0),
-                   func.coalesce(func.sum(TransactionLine.credit), 0))
+                   func.coalesce(func.sum(TransactionLine.base_debit), 0),
+                   func.coalesce(func.sum(TransactionLine.base_credit), 0))
             .join(TransactionLine, TransactionLine.account_id == Account.id)
             .join(Transaction, Transaction.id == TransactionLine.transaction_id)
             .where(Account.code.in_(codes), Transaction.deleted_at.is_(None), Transaction.date <= as_of)
@@ -84,6 +86,9 @@ class GetCashPosition(BaseTool):
             "total": total,
             "account_count": len(accounts),
         }
+        from app.services.fx_base import unconverted_note
+        if (left_out := unconverted_note(ctx.db)):
+            out["unconverted"] = left_out
         negatives = [a for a in accounts if a["balance"] < 0]
         if negatives:
             out["note"] = ("Some accounts are negative (" + ", ".join(f"{a['account_code']} {a['account_name']}" for a in negatives)

@@ -188,9 +188,15 @@ def _fill_base_amounts(session: Session, _ctx, _instances) -> None:
         todo[id(txn)] = (txn, relookup or (prev[1] if prev else False))
 
     with session.no_autoflush:
+        base: str | None = None
         for obj in list(session.new) + list(session.dirty) + list(session.deleted):
             if isinstance(obj, Transaction):
                 if obj in session.new:
+                    if not obj.currency:
+                        # a writer that names no currency means the company's
+                        # own — the column default was a literal "IRR"
+                        base = base or base_currency(session)
+                        obj.currency = base
                     want(obj)
                 elif obj in session.dirty and _changed(obj, "currency", "date", "fx_rate"):
                     # a new currency or date means a new rate — unless this
@@ -202,7 +208,7 @@ def _fill_base_amounts(session: Session, _ctx, _instances) -> None:
                 if obj in session.dirty and not _changed(obj, "debit", "credit", "transaction_id"):
                     continue
                 want(_txn_of(session, obj), amounts_changed=obj not in session.new)
-        base = base_currency(session) if todo else None
+        base = (base or base_currency(session)) if todo else None
         for txn, relookup in todo.values():
             convert_transaction(session, txn, relookup=relookup, base=base)
 
@@ -287,6 +293,16 @@ def fill_pending_all_companies(db: Session) -> dict:
             db.rollback()
             log.exception("base-amount catch-up failed company=%s", cid)
     return total
+
+
+def unconverted_note(db: Session) -> str | None:
+    """For the AI tools: which entries a base-currency total leaves out."""
+    s = pending_summary(db)
+    if not s["count"]:
+        return None
+    return (f"{s['count']} entr{'y' if s['count'] == 1 else 'ies'} in {', '.join(s['currencies'])} "
+            f"ha{'s' if s['count'] == 1 else 've'} no exchange rate yet and {'is' if s['count'] == 1 else 'are'} "
+            "not in this total — the user can add rates under Settings → Currency & FX.")
 
 
 def line_amounts(line: TransactionLine, base_view: bool) -> tuple[int, int]:

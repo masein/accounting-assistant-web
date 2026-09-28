@@ -215,8 +215,20 @@ balance at today's rate. Settled when both rates are known — immediately, or
 by `settle_waiting` after a rate arrives, an edit, a base change. Reversals
 now copy the original's rate and base values, so voiding undoes the FX too.
 Closed periods are never re-settled. `PaymentRead.realised_fx`.
-Next: part 4 — the rest of the readers on base values (dashboard, AI tools,
-insights, budgets, net worth, invoices in the combined view).
+✅ 4.6, part 4 — the rest of the readers: a caller that names no currency
+now sums base values (`repository.sums_base`) — statements, cash flow, CFO
+data, cash on hand; the AI tools (query_ledger / get_account_balance take an
+optional currency, get_cash_position, spending summary) report in the base
+currency and say which entries wait for a rate; insights, anomaly drift,
+budgets, net worth, person balances on base values. Bank statements are
+checked against entries in their own currency; recurring suggestions come
+from base-currency entries only. The dashboard has the combined view
+(default when the books hold several currencies). New entries written with
+no currency get the base currency (the column default was "IRR"); Settings →
+Currency & FX lists entries waiting for a rate and offers to relabel IRR ones
+in a non-IRR company (`POST /fx/relabel`, closed periods untouched). Still
+per currency by design: invoice-based reports (sales/purchase by product,
+tax summaries, aging from invoices). §4.6 done.
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same

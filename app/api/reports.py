@@ -412,11 +412,15 @@ def get_owner_dashboard(
     # Flat column queries instead of an object graph (roadmap §2.6): the
     # selectin loads cost ~130 round trips and 3 s at 20k journals. Every
     # query repeats the window filter as a join so the tenant criteria apply.
-    live = (Transaction.date >= cutoff, Transaction.deleted_at.is_(None), Transaction.currency == currency)
+    # currency=ALL: every currency at its base value (roadmap §4.6).
+    base_view = is_base_view(currency)
+    live = (Transaction.date >= cutoff, Transaction.deleted_at.is_(None),
+            *(() if base_view else (Transaction.currency == currency,)))
     txns = db.execute(select(Transaction.id, Transaction.date, Transaction.reference).where(*live)).all()
     lines_by_txn: dict = defaultdict(list)
+    dr_col, cr_col = amount_columns(currency)
     for tid, debit, credit, code, name, desc in db.execute(
-        select(TransactionLine.transaction_id, TransactionLine.debit, TransactionLine.credit,
+        select(TransactionLine.transaction_id, dr_col, cr_col,
                Account.code, Account.name, TransactionLine.line_description)
         .join(Transaction, TransactionLine.transaction_id == Transaction.id)
         .join(Account, TransactionLine.account_id == Account.id)
@@ -554,7 +558,9 @@ def get_owner_dashboard(
     # flows and the median unscheduled week — the same figures the forecast
     # page and the AI accountant show.
     from app.services.cash_forecast import forecast as _cash_forecast
-    fc = _cash_forecast(db, today=today, currency=currency, locale=locale, opening=cash_on_hand)
+    # the forecast is per currency; the combined view forecasts the base one
+    fc = _cash_forecast(db, today=today, currency=(get_reporting_currency(db) if base_view else currency),
+                        locale=locale, opening=cash_on_hand)
     forecast_rows = [
         ForecastRow(week_start=date.fromisoformat(w["week_start"]), projected_inflow=w["inflow"],
                     projected_outflow=w["outflow"], projected_net=w["net"], projected_cash=w["closing"],
@@ -639,7 +645,7 @@ def get_owner_dashboard(
     # locale, IRR for Iran, etc.) instead of hardcoding IRR. When the caller
     # filters by an explicit currency, honour that; otherwise fall back to the
     # company's reporting-currency setting.
-    display_currency = currency
+    display_currency = get_reporting_currency(db) if base_view else currency
 
     kpis = [
         KpiCard(key="cash_on_hand", label="Cash on hand", value=cash_on_hand, unit=display_currency),

@@ -208,6 +208,46 @@
         }
       } catch (_) {}
       loadFxRates();
+      renderFxUnconverted();
+    }
+
+    // Entries with no rate yet (roadmap §4.6). IRR ones in a company whose
+    // base is not IRR are most likely pounds (etc.) saved under the old IRR
+    // default: offer to relabel them.
+    async function renderFxUnconverted() {
+      const box = document.getElementById('fx-unconverted');
+      if (!box) return;
+      const meta = await loadFxMetadata(true);
+      const u = meta && meta.unconverted;
+      if (!u || !u.count) { box.hidden = true; box.innerHTML = ''; return; }
+      const base = meta.reporting_currency || '';
+      let html = '<p>' + escapeHtml(tf('fxUnconvertedNote', { n: u.count, currencies: (u.currencies || []).join(', '), base })) + '</p>';
+      const suspect = (u.currencies || []).includes('IRR') && base && base !== 'IRR';
+      if (suspect) {
+        html += '<p>' + escapeHtml(tf('fxRelabelHint', { base })) + '</p>'
+          + '<button type="button" class="btn btn-secondary btn-sm" id="fx-relabel-btn">' + escapeHtml(tf('fxRelabelBtn', { base })) + '</button>';
+      }
+      box.innerHTML = html;
+      box.hidden = false;
+      const btn = document.getElementById('fx-relabel-btn');
+      if (btn) btn.addEventListener('click', async () => {
+        const post = (apply) => fetch(API + '/fx/relabel', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from_currency: 'IRR', apply }),
+        }).then(r => r.json().then(d => ({ ok: r.ok, d })));
+        try {
+          const dry = await post(false);
+          if (!dry.ok) { showAlert(dry.d.detail || t('fxFeedsFailed'), true); return; }
+          const msg = tf('fxRelabelConfirm', { entries: dry.d.entries, invoices: dry.d.invoices, base: dry.d.to_currency })
+            + (dry.d.locked ? ' ' + tf('fxRelabelLocked', { n: dry.d.locked }) : '');
+          if (!(await uiConfirm({ message: msg, confirmLabel: tf('fxRelabelBtn', { base: dry.d.to_currency }) }))) return;
+          const done = await post(true);
+          if (!done.ok) { showAlert(done.d.detail || t('fxFeedsFailed'), true); return; }
+          showAlert(tf('fxRelabelDone', { entries: done.d.entries, base: done.d.to_currency }));
+          loadFxSettings();
+          if (typeof loadLedger === 'function') loadLedger();
+        } catch (_) { showAlert(t('fxFeedsFailed'), true); }
+      });
     }
 
     let _fxRatesRows = null;

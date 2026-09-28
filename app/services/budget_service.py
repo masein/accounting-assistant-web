@@ -40,7 +40,8 @@ def expense_actuals_by_category(db: Session, month: str) -> dict[str, int]:
         for ln in t.lines:
             if classify_account_code(ln.account.code) == EXPENSE:
                 cat = ln.account.name
-                actual_by_cat[cat] = actual_by_cat.get(cat, 0) + max(0, ln.debit - ln.credit)
+                # base value: a budget is in the company's currency (roadmap §4.6)
+                actual_by_cat[cat] = actual_by_cat.get(cat, 0) + max(0, (ln.base_debit or 0) - (ln.base_credit or 0))
     return actual_by_cat
 
 

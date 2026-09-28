@@ -188,6 +188,7 @@ def reconcile_statement(
     date_tolerance: int = 3,
     auto_threshold: float = 0.85,
     is_cash: Callable[[str], bool] | None = None,
+    currency: str | None = None,
 ) -> list[ReconciliationResult]:
     """
     Reconcile all rows of a bank statement against existing transactions.
@@ -205,12 +206,15 @@ def reconcile_statement(
     min_date = min(r.tx_date for r in rows) - timedelta(days=date_tolerance * 2)
     max_date = max(r.tx_date for r in rows) + timedelta(days=date_tolerance * 2)
 
-    txns = db.execute(
+    q = (
         select(Transaction)
         .where(Transaction.date >= min_date, Transaction.date <= max_date)
         .where(Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
-    ).scalars().unique().all()
+    )
+    if currency:        # a USD statement matches USD entries only (roadmap §4.6)
+        q = q.where(Transaction.currency == currency.strip().upper())
+    txns = db.execute(q).scalars().unique().all()
 
     already_matched: set[UUID] = set()
     results: list[ReconciliationResult] = []
@@ -247,6 +251,7 @@ def detect_missing_entries(
     statement_to: date,
     matched_transaction_ids: set[UUID],
     is_cash: Callable[[str], bool] | None = None,
+    currency: str | None = None,
 ) -> list[Transaction]:
     """
     Find transactions in the DB within the statement period that have
@@ -257,12 +262,15 @@ def detect_missing_entries(
     a Mellat statement.
     """
     is_cash = is_cash or _resolve_cash_predicate(db)
-    txns = db.execute(
+    q = (
         select(Transaction)
         .where(Transaction.date >= statement_from, Transaction.date <= statement_to)
         .where(Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
-    ).scalars().unique().all()
+    )
+    if currency:
+        q = q.where(Transaction.currency == currency.strip().upper())
+    txns = db.execute(q).scalars().unique().all()
 
     cash_txns = [
         t for t in txns

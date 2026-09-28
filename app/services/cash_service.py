@@ -49,8 +49,9 @@ def cash_on_hand(
     as_of: date | None = None,
 ) -> int:
     """True cash on hand: the net balance (debit − credit) of every
-    cash/bank account up to ``as_of`` (defaults to today), in the given
-    reporting currency, excluding soft-deleted transactions.
+    cash/bank account up to ``as_of`` (defaults to today) — in ``currency``'s
+    own amounts when one is given, else every currency at its base value —
+    excluding soft-deleted transactions.
 
     Returns 0 when the chart has no matching cash account.
     """
@@ -61,14 +62,16 @@ def cash_on_hand(
     if not cash_account_ids:
         return 0
 
+    from app.services.reporting.repository import amount_columns, sums_base
+    dr, cr = amount_columns(currency)
     q = (
-        select(func.coalesce(func.sum(TransactionLine.debit - TransactionLine.credit), 0))
+        select(func.coalesce(func.sum(func.coalesce(dr, 0) - func.coalesce(cr, 0)), 0))
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(TransactionLine.account_id.in_(cash_account_ids))
         .where(Transaction.deleted_at.is_(None))
     )
     if as_of is not None:
         q = q.where(Transaction.date <= as_of)
-    if currency:
+    if not sums_base(currency):
         q = q.where(Transaction.currency == currency)
     return int(db.execute(q).scalar() or 0)

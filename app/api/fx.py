@@ -8,6 +8,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -196,6 +197,60 @@ def delete_rate(rate_id: UUID, db: Session = Depends(get_db),
                                                     "in your company.")
     db.delete(row)
     db.commit()
+
+
+# ─── Entries saved in the wrong currency ──────────────────────
+
+class RelabelRequest(BaseModel):
+    from_currency: str = Field(..., min_length=1, max_length=8)
+    to_currency: str | None = Field(None, max_length=8, description="Default: the base currency")
+    apply: bool = Field(False, description="False: only count what would change")
+
+
+@router.post("/relabel")
+def relabel_entries(payload: RelabelRequest, db: Session = Depends(get_db)) -> dict:
+    """Move every entry and invoice saved in ``from_currency`` to
+    ``to_currency`` (the base currency by default), amounts unchanged.
+
+    For books where amounts were right but the currency label was wrong: until
+    2026-09-28 recurring rules, petty cash, invoices without a currency and
+    other paths saved entries as IRR whatever the company's currency, so a UK
+    company's pounds could sit there as "rials" waiting for a rial rate
+    (roadmap §4.6). Entries in a closed period are left as they are.
+    """
+    from app.models.credit_note import CreditNote
+    from app.models.invoice import Invoice
+    from app.models.payment import Payment
+    from app.services.audit_service import log_audit_event
+    from app.services.fx_base import base_currency
+    from app.services.period_service import is_period_locked
+
+    src = payload.from_currency.strip().upper()
+    dst = (payload.to_currency or base_currency(db)).strip().upper()
+    if src == dst:
+        raise HTTPException(status_code=400, detail="Pick two different currencies.")
+    entries = db.execute(select(Transaction).where(Transaction.currency == src,
+                                                   Transaction.fx_role.is_(None))).scalars().all()
+    locked = [t for t in entries if is_period_locked(db, t.date)]
+    movable = [t for t in entries if t not in locked]
+    invoices = db.execute(select(Invoice).where(Invoice.currency == src)).scalars().all()
+    out = {"from_currency": src, "to_currency": dst, "entries": len(movable), "locked": len(locked),
+           "invoices": len(invoices), "applied": False}
+    if not payload.apply:
+        return out
+    for t in movable:
+        t.currency = dst                                  # base amounts follow (app/services/fx_base.py)
+    for inv in invoices:
+        inv.currency = dst
+        for p in db.execute(select(Payment).where(Payment.invoice_id == inv.id)).scalars():
+            p.currency = dst
+        for n in db.execute(select(CreditNote).where(CreditNote.invoice_id == inv.id)).scalars():
+            n.currency = dst
+    log_audit_event(db, action="update", entity_type="currency_relabel", entity_id=f"{src}->{dst}",
+                    detail=f"{len(movable)} entries, {len(invoices)} invoices relabelled {src} → {dst}; "
+                           f"{len(locked)} in a closed period left")
+    db.commit()
+    return {**out, "applied": True}
 
 
 # ─── One-off conversion helper ────────────────────────────────

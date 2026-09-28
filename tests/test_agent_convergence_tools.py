@@ -71,6 +71,10 @@ def _make_session(chart, parent_fn, locale: str) -> Session:
         if parent and parent in by_code:
             by_code[code].parent_id = by_code[parent].id
     set_reporting_locale(db, locale)
+    if locale == "uk":
+        # a UK book is kept in pounds: its GBP entries are base-currency ones
+        from app.services.fx_service import set_reporting_currency
+        set_reporting_currency(db, "GBP")
     db.commit()
     return db
 

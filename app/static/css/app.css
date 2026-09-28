@@ -487,6 +487,10 @@
     .fx-feeds-status ul { margin: 0.2rem 0 0 0; padding-inline-start: 1.1rem; }
     .fx-feeds-status .err { color: var(--danger); }
     .fx-rates-tools { display: flex; gap: 0.6rem; align-items: center; }
+    .fx-unconverted { margin-top: 0.8rem; padding: 0.7rem 0.8rem; border: 1px solid #fcd34d; background: #fffbeb;
+                      color: #78350f; border-radius: 10px; font-size: 0.86rem; }
+    .fx-unconverted p { margin: 0 0 0.45rem 0; }
+    .fx-unconverted .btn { margin-top: 0.15rem; }
     #fx-rates-wrap { overflow-x: auto; }
     .fx-rates-tools input[type=search] { width: 9rem; text-transform: uppercase; }
     @media (max-width: 700px) {

@@ -52,11 +52,13 @@ _ORDER = {"amount_mismatch": 0, "missing_in_bank": 1, "needs_confirmation": 2,
 from app.services.statement_import import bank_account_for_statement  # noqa: E402,F401
 
 
-def book_balance_as_of(db: Session, account_code: str, as_of: date) -> int:
+def book_balance_as_of(db: Session, account_code: str, as_of: date, currency: str | None = None) -> int:
+    """The account's balance in the statement's currency (a USD statement is
+    compared with the USD entries, not dollars plus rials — roadmap §4.6)."""
     acc = db.execute(select(Account).where(Account.code == account_code)).scalars().first()
     if acc is None:
         return 0
-    total = db.execute(
+    q = (
         select(func.coalesce(func.sum(TransactionLine.debit - TransactionLine.credit), 0))
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(
@@ -64,8 +66,10 @@ def book_balance_as_of(db: Session, account_code: str, as_of: date) -> int:
             Transaction.date <= as_of,
             Transaction.deleted_at.is_(None),
         )
-    ).scalar()
-    return int(total or 0)
+    )
+    if currency:
+        q = q.where(Transaction.currency == currency.strip().upper())
+    return int(db.execute(q).scalar() or 0)
 
 
 def _account_name(db: Session, code: str | None) -> str | None:
@@ -174,7 +178,7 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
         known |= {r.created_transaction_id for r in rows if r.created_transaction_id}
         missing = detect_missing_entries(
             db, stmt.from_date or rows[0].tx_date, stmt.to_date or rows[-1].tx_date, known,
-            is_cash=missing_pred,
+            is_cash=missing_pred, currency=stmt.currency,
         )
         for txn in missing:
             findings.append(StatementFinding(
@@ -191,7 +195,7 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
     if closing_rows and bank_code:
         last = max(closing_rows, key=lambda r: (r.tx_date, r.row_index))
         as_of = stmt.to_date or last.tx_date
-        book = book_balance_as_of(db, bank_code, as_of)
+        book = book_balance_as_of(db, bank_code, as_of, currency=stmt.currency)
         gap = int(last.balance) - book
         balance = StatementBalanceCheck(
             statement_closing=int(last.balance), book_balance=book, gap=gap,

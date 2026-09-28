@@ -222,7 +222,8 @@ class GetSpendingSummary(BaseTool):
         for txn, line, acc in ctx.db.execute(stmt).all():
             if classify_account_code(acc.code) != wanted:
                 continue
-            d, c = int(line.debit or 0), int(line.credit or 0)
+            # base value: every currency in one total (roadmap §4.6)
+            d, c = int(line.base_debit or 0), int(line.base_credit or 0)
             amount = (d - c) if wanted == EXPENSE else (c - d)
             slot = by_code.setdefault(acc.code, {"category_code": acc.code, "category_name": acc.name, "amount": 0, "count": 0})
             slot["amount"] += amount
@@ -243,6 +244,9 @@ class GetSpendingSummary(BaseTool):
         if cal == "jalali":
             out["today_jalali"] = format_jalali(today)
             out["today_jalali_long"] = format_jalali_long(today)
+        from app.services.fx_base import unconverted_note
+        if (left_out := unconverted_note(ctx.db)):
+            out["unconverted"] = left_out
         if not categories:
             out["note"] = f"No {args.kind} recorded between {period.from_date.isoformat()} and {period.to_date.isoformat()}."
         return out

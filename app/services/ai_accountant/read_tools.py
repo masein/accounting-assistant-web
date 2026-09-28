@@ -216,6 +216,14 @@ class QueryLedgerInput(BaseModel):
         None,
         description="Filter by case-insensitive substring of the transaction description.",
     )
+    currency: str | None = Field(
+        None,
+        description=(
+            "Omit for every currency together at its base-currency value (the "
+            "company's reporting currency). Give a code (USD, EUR…) for entries in "
+            "that currency only, in their own amounts."
+        ),
+    )
     group_by: Literal["none", "month", "account"] = Field(
         "none",
         description=(
@@ -257,6 +265,9 @@ class QueryLedger(BaseTool):
 
         if args.account_code:
             stmt = stmt.where(Account.code.like(f"{args.account_code}%"))
+        ccy = (args.currency or "").strip().upper() or None
+        if ccy:
+            stmt = stmt.where(Transaction.currency == ccy)
 
         if args.entity_id:
             stmt = stmt.where(
@@ -276,8 +287,12 @@ class QueryLedger(BaseTool):
 
         rows = ctx.db.execute(stmt).all()
 
-        total_debit = sum(int(line.debit or 0) for (_t, line, _a) in rows)
-        total_credit = sum(int(line.credit or 0) for (_t, line, _a) in rows)
+        from app.services.fx_base import base_currency, unconverted_note
+        from app.services.reporting.repository import line_dr_cr
+        # one currency's own amounts, else every currency at base value
+        amounts = [line_dr_cr(line, ccy) for (_t, line, _a) in rows]
+        total_debit = sum(d for d, _ in amounts)
+        total_credit = sum(c for _, c in amounts)
         # Net by account-nature: for a single asset/expense query this is
         # the natural "amount spent / paid"; for revenue / liability it's
         # the natural "amount received / owed".
@@ -291,19 +306,23 @@ class QueryLedger(BaseTool):
 
         result: dict[str, Any] = {
             "period": {"from": from_d.isoformat(), "to": to_d.isoformat()},
+            "currency": ccy or base_currency(ctx.db),
             "total_debit": total_debit,
             "total_credit": total_credit,
             "signed_net": signed_net,
             "row_count": len(rows),
         }
+        if not ccy and (left_out := unconverted_note(ctx.db)):
+            result["unconverted"] = left_out
 
         if args.group_by == "month":
             buckets: dict[str, dict[str, int]] = {}
             for txn, line, _acc in rows:
                 key = txn.date.strftime("%Y-%m")
                 slot = buckets.setdefault(key, {"debit": 0, "credit": 0, "count": 0})
-                slot["debit"] += int(line.debit or 0)
-                slot["credit"] += int(line.credit or 0)
+                d, c = line_dr_cr(line, ccy)
+                slot["debit"] += d
+                slot["credit"] += c
                 slot["count"] += 1
             result["by_month"] = [
                 {"month": m, **buckets[m]}
@@ -317,8 +336,9 @@ class QueryLedger(BaseTool):
                     key,
                     {"name": acc.name, "debit": 0, "credit": 0, "count": 0},
                 )
-                slot["debit"] += int(line.debit or 0)
-                slot["credit"] += int(line.credit or 0)
+                d, c = line_dr_cr(line, ccy)
+                slot["debit"] += d
+                slot["credit"] += c
                 slot["count"] += 1
             result["by_account"] = [
                 {"account_code": code, **buckets[code]}
@@ -333,6 +353,10 @@ class QueryLedger(BaseTool):
                     "account_name": acc.name,
                     "debit": int(line.debit or 0),
                     "credit": int(line.credit or 0),
+                    "currency": txn.currency,
+                    # the same in the base currency (None: no rate yet)
+                    "base_debit": line.base_debit,
+                    "base_credit": line.base_credit,
                     "description": txn.description,
                 }
                 for (txn, line, acc) in rows[: args.limit]
@@ -349,6 +373,14 @@ class GetAccountBalanceInput(BaseModel):
     account_code: str = Field(..., description="Exact account code (e.g. '1110').")
     as_of: date | None = Field(
         None, description="Snapshot date. Defaults to today."
+    )
+    currency: str | None = Field(
+        None,
+        description=(
+            "Omit for every currency together at its base-currency value (the "
+            "company's reporting currency). Give a code (USD, EUR…) for entries in "
+            "that currency only, in their own amounts."
+        ),
     )
 
 
@@ -370,11 +402,16 @@ class GetAccountBalance(BaseTool):
         if acc is None:
             raise ToolError(f"Account {code!r} not found", code="account_not_found")
 
-        # Sum the lines for this account up to as_of.
+        # Sum the lines for this account up to as_of — one currency's own
+        # amounts, else every currency at base value (roadmap §4.6).
+        from app.services.fx_base import base_currency, unconverted_note
+        from app.services.reporting.repository import amount_columns
+        ccy = (args.currency or "").strip().upper() or None
+        dr, cr = amount_columns(ccy)
         stmt = (
             select(
-                func.coalesce(func.sum(TransactionLine.debit), 0),
-                func.coalesce(func.sum(TransactionLine.credit), 0),
+                func.coalesce(func.sum(dr), 0),
+                func.coalesce(func.sum(cr), 0),
             )
             .select_from(TransactionLine)
             .join(Transaction, Transaction.id == TransactionLine.transaction_id)
@@ -384,6 +421,8 @@ class GetAccountBalance(BaseTool):
                 Transaction.date <= as_of,
             )
         )
+        if ccy:
+            stmt = stmt.where(Transaction.currency == ccy)
         debit_sum, credit_sum = ctx.db.execute(stmt).one()
         acc_type = classify_account_code(code)
         balance = balance_from_turnovers(acc_type, int(debit_sum or 0), int(credit_sum or 0))
@@ -392,9 +431,11 @@ class GetAccountBalance(BaseTool):
             "account_name": acc.name,
             "account_type": acc_type,
             "as_of": as_of.isoformat(),
+            "currency": ccy or base_currency(ctx.db),
             "debit_total": int(debit_sum or 0),
             "credit_total": int(credit_sum or 0),
             "balance": int(balance),
+            **({"unconverted": note} if not ccy and (note := unconverted_note(ctx.db)) else {}),
         }
 
 

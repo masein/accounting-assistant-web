@@ -448,7 +448,7 @@ def reconcile_statement_rows(db: Session, stmt: BankStatement) -> ReconcileRespo
     from app.services.reconciliation import reconcile_statement as _reconcile
 
     _bank_code, match_pred, missing_pred = statement_predicates(db, stmt)
-    results = _reconcile(db, rows, is_cash=match_pred)
+    results = _reconcile(db, rows, is_cash=match_pred, currency=stmt.currency)
 
     matched = partial = unmatched = duplicates = auto_matched = 0
     open_pairs = []  # (row, result) still open after this pass
@@ -484,7 +484,7 @@ def reconcile_statement_rows(db: Session, stmt: BankStatement) -> ReconcileRespo
     missing = (
         detect_missing_entries(
             db, stmt.from_date or rows[0].tx_date, stmt.to_date or rows[-1].tx_date, matched_ids,
-            is_cash=missing_pred,
+            is_cash=missing_pred, currency=stmt.currency,
         )
         if rows else []
     )

@@ -103,11 +103,14 @@ def _balances_by_account(db: Session, on: date) -> dict[str, int]:
     ).all()
     out: dict[str, int] = {}
     for line, _d, code in rows:
+        # book values in the reporting currency: every line at its base
+        # value (roadmap §4.6) — dollars were added to rials as they were
         nature = classify_account_code(code)
+        d, c = int(line.base_debit or 0), int(line.base_credit or 0)
         if nature == ASSET:
-            out[code] = out.get(code, 0) + line.debit - line.credit
+            out[code] = out.get(code, 0) + d - c
         elif nature == LIABILITY:
-            out[code] = out.get(code, 0) + line.credit - line.debit
+            out[code] = out.get(code, 0) + c - d
     return out
 
 

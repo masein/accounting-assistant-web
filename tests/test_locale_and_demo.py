@@ -41,6 +41,9 @@ def _restore_default_iran_chart(db: Session) -> None:
     """Restore the session-level Iran chart so subsequent tests that rely
     on the auto-seeded fixture keep working."""
     _wipe(db)
+    from app.services.fx_service import set_reporting_currency
+    set_reporting_currency(db, "IRR")
+    db.commit()
     seed_chart_if_empty(db, locale="ir")
 
 
@@ -58,6 +61,10 @@ def ir_demo_db(db: Session):
 @pytest.fixture()
 def uk_demo_db(db: Session):
     _wipe(db)
+    # the UK demo is a pounds book (base GBP), as a UK company is
+    from app.services.fx_service import set_reporting_currency
+    set_reporting_currency(db, "GBP")
+    db.commit()
     seed_chart_if_empty(db, locale="uk")
     seed_uk_demo(db)
     yield db

@@ -18,10 +18,8 @@
         if (!window.__FX_META) { try { await loadFxMetadata(); } catch (_) { /* offline */ } }
         await loadReportingCurrency();
         // Honour a global currency selector if one is present; falls back to no filter.
-        // The dashboard has no combined (ALL) view yet: it keeps to one currency.
-        const mgrCcy = document.getElementById('mgr-currency')?.value;
         const dashCcy = (typeof pickedCurrency === 'string' && pickedCurrency)
-          || (mgrCcy && mgrCcy !== 'ALL' ? mgrCcy : '')
+          || document.getElementById('mgr-currency')?.value
           || window.__FX_META?.reporting_currency
           || '';
         const url = API + '/reports/owner-dashboard' + (dashCcy ? ('?currency=' + encodeURIComponent(dashCcy)) : '');

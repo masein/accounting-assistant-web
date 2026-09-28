@@ -361,6 +361,18 @@ amount without a rate counts as over. Budget per message: `tool_calls_per_messag
 calls get error results, and a model that keeps calling is stopped with every
 call answered so the next request stays valid.
 
+✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
+`requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
+hash; the runtime lock constrains the other two). The Dockerfile and every CI
+job install them with `--require-hashes`; `requirements*.txt` keep the ranges
+for the dev stack, and `scripts/lock-deps.sh [pkg …]` re-pins.
+`tests/test_dependency_lock.py` fails when a lock falls outside its ranges,
+misses a hash or drifts from the runtime lock. pypdf's cap raised (4.3 →
+6.19). `offline-deploy.sh` now builds the image and ships only the images,
+`docker-compose.prod.yml`, `.env.prod.example` and the backup scripts (it
+used to tar the whole tree — `./backups` dumps included — and start the dev
+stack); `.dockerignore` keeps dumps, SQL and `backups/` out of the image.
+
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
 amount within a week or same reference), payments/expense claims split just
@@ -459,7 +471,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 2.4 | **Observability**: JSON logs with request id in a contextvar, Sentry (or GlitchTip) for exceptions, `/metrics` (Prometheus) for request latency / LLM calls / job runs, Docker log rotation | no error reporting, no metrics, request id not in log lines | `main.py:63-66,722` |
 | 2.5 | **Per-user and per-company AI limits** with a daily token budget and cost log | one user can exhaust the global chat bucket; no cost visibility | `transactions.py:469`, `ai_accountant.py` |
 | 2.6 | **Performance**: SQL aggregation for ledger summary and dashboard (they load every line), composite index `(company_id, date, currency)` + partial index on `deleted_at`, N+1 in `payroll.py:548` and `manager_reports.py:942`, gzip + `Cache-Control: immutable` for hashed static files, per-language i18n packs (02-i18n.js is 350 KB) | dashboard/ledger will not scale past a few thousand entries | `reports.py:166,456`, `models/transaction.py` |
-| 2.7 | Dependency lock file with hashes (uv/pip-tools); raise `pypdf<5` cap; `offline-deploy.sh` must use the prod compose and exclude `*.dump`, `*.tgz` | prod and dev differ; a local DB dump could ship inside the image | `requirements.txt`, `.dockerignore`, `scripts/offline-deploy.sh` |
+| 2.7 | ✅ (2026-09-28) Dependency lock file with hashes (uv/pip-tools); raise `pypdf<5` cap; `offline-deploy.sh` must use the prod compose and exclude `*.dump`, `*.tgz` | prod and dev differ; a local DB dump could ship inside the image | `requirements.txt`, `.dockerignore`, `scripts/offline-deploy.sh` |
 
 ## 3. Compliance features (market entry blockers)
 

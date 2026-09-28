@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install --require-hashes -r requirements-dev.lock
 
       - name: Run tests (coverage gate — fails below the threshold in pyproject.toml)
         run: pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=80
@@ -108,7 +108,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install --require-hashes -r requirements-dev.lock
 
       # The migration chain assumes the tables exist (the very first migrations
       # patch a create_all schema), so an empty database is bootstrapped exactly
@@ -212,7 +212,7 @@ jobs:
       - name: Install dependencies and Chromium
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-e2e.txt
+          pip install --require-hashes -r requirements-e2e.lock
           python -m playwright install --with-deps chromium
 
       - name: Bootstrap the database and the CI-only owner

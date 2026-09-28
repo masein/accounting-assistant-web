@@ -9,14 +9,19 @@ Conventions:
   - If `from == to`, the rate is always 1.0 (identity).
   - Inverse lookups are supported: if no direct rate is stored but
     the reverse pair has one, we invert it.
+  - A company's own rates for a pair (either direction) replace the shared
+    ones for that pair; another company's rates are never seen.
+  - A pair with no rate either way is crossed through USD, EUR, GBP or IRR
+    when both legs are known.
 """
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import date
 from typing import Iterable
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.app_setting import AppSetting
@@ -83,13 +88,40 @@ def set_reporting_currency(db: Session, currency: str) -> str:
     return currency
 
 
+def _viewer() -> uuid.UUID | None:
+    """The company whose own rates count alongside the shared ones (None
+    outside a company: the scheduler, the CLI)."""
+    from app.db.tenant import get_current_company
+    cid = get_current_company()
+    try:
+        return uuid.UUID(str(cid)) if cid else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _owned_by(owner):
+    return ExchangeRate.company_id.is_(None) if owner is None else ExchangeRate.company_id == owner
+
+
+def visible_rates():
+    """WHERE clause for the rows the current company may see: its own and the
+    shared ones — never another company's."""
+    owner = _viewer()
+    if owner is None:
+        return ExchangeRate.company_id.is_(None)
+    return or_(ExchangeRate.company_id.is_(None), ExchangeRate.company_id == owner)
+
+
 def _latest_rate(
-    db: Session, from_ccy: str, to_ccy: str, on: date
+    db: Session, from_ccy: str, to_ccy: str, on: date, owner=None
 ) -> ExchangeRate | None:
+    """The newest rate on or before ``on`` among ``owner``'s rows (None = the
+    shared rows), else that owner's earliest rate for the pair."""
     q = (
         select(ExchangeRate)
         .where(ExchangeRate.from_currency == from_ccy)
         .where(ExchangeRate.to_currency == to_ccy)
+        .where(_owned_by(owner))
         .where(ExchangeRate.effective_date <= on)
         .order_by(ExchangeRate.effective_date.desc())
         .limit(1)
@@ -102,10 +134,31 @@ def _latest_rate(
         select(ExchangeRate)
         .where(ExchangeRate.from_currency == from_ccy)
         .where(ExchangeRate.to_currency == to_ccy)
+        .where(_owned_by(owner))
         .order_by(ExchangeRate.effective_date.asc())
         .limit(1)
     )
     return db.execute(fallback).scalar_one_or_none()
+
+
+# A pair with no rate either way is priced through one of these, when both
+# legs are known: the daily feeds store gold and sterling in rials and the
+# dollar against sterling, and GOLDG → GBP or USD → IRR should still work.
+CROSS_VIA = ("USD", "EUR", "GBP", "IRR")
+
+
+def _pair_rate(db: Session, fc: str, tc: str, on: date) -> float | None:
+    """The pair or its inverse — the company's own rates first: a company that
+    has priced a pair itself never gets the shared rate for it."""
+    viewer = _viewer()
+    for owner in ([viewer, None] if viewer else [None]):
+        direct = _latest_rate(db, fc, tc, on, owner)
+        if direct:
+            return float(direct.rate)
+        reverse = _latest_rate(db, tc, fc, on, owner)
+        if reverse and reverse.rate:
+            return 1.0 / float(reverse.rate)
+    return None
 
 
 def get_rate(
@@ -121,12 +174,18 @@ def get_rate(
         on = date.today()
     fc = from_ccy.strip().upper()
     tc = to_ccy.strip().upper()
-    direct = _latest_rate(db, fc, tc, on)
-    if direct:
-        return float(direct.rate)
-    reverse = _latest_rate(db, tc, fc, on)
-    if reverse and reverse.rate:
-        return 1.0 / float(reverse.rate)
+    rate = _pair_rate(db, fc, tc, on)
+    if rate is not None:
+        return rate
+    for via in CROSS_VIA:
+        if via in (fc, tc):
+            continue
+        first = _pair_rate(db, fc, via, on)
+        if first is None:
+            continue
+        second = _pair_rate(db, via, tc, on)
+        if second is not None:
+            return first * second
     return None
 
 
@@ -187,6 +246,7 @@ def seed_default_rates_if_empty(db: Session) -> int:
             select(ExchangeRate)
             .where(ExchangeRate.from_currency == from_ccy)
             .where(ExchangeRate.to_currency == to_ccy)
+            .where(ExchangeRate.company_id.is_(None))
             .limit(1)
         ).scalar_one_or_none()
         if existing:
@@ -207,9 +267,9 @@ def seed_default_rates_if_empty(db: Session) -> int:
 def available_currencies(db: Session) -> list[str]:
     """Distinct set of currencies seen in rates + default codes."""
     rows = db.execute(
-        select(ExchangeRate.from_currency).distinct()
+        select(ExchangeRate.from_currency).where(visible_rates()).distinct()
     ).scalars().all()
     rows2 = db.execute(
-        select(ExchangeRate.to_currency).distinct()
+        select(ExchangeRate.to_currency).where(visible_rates()).distinct()
     ).scalars().all()
     return sorted(set([*rows, *rows2, DEFAULT_REPORTING_CURRENCY]))

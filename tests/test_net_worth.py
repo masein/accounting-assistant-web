@@ -336,12 +336,21 @@ class TestHoldingsApi:
 
 
 def test_unit_longer_than_the_rate_column_is_rejected(auth_client):
-    """exchange_rates.from_currency is String(8). A 9-character unit could be
+    """exchange_rates.from_currency is String(16). A longer unit could be
     stored as a holding but could never have a rate, leaving it permanently
     unvaluable — so it must be refused at entry, not discovered later."""
     r = auth_client.post("/personal/holdings", json={
-        "account_code": "1110", "unit": "GOLD_GRAM", "quantity": 5})
+        "account_code": "1110", "unit": "GOLD_GRAM_18CARAT", "quantity": 5})
     assert r.status_code == 422
+
+
+def test_gold_gram_fits_since_rates_took_16_characters(auth_client):
+    """Migration 052 widened the rate codes so the unit the feeds price gold
+    in — GOLD_GRAM, nine characters — can be held (it was refused before)."""
+    r = auth_client.post("/personal/holdings", json={
+        "account_code": "1110", "unit": "GOLD_GRAM", "quantity": 5})
+    assert r.status_code in (200, 201), r.text
+    assert r.json()["unit"] == "GOLD_GRAM"
 
 
 # ---------------------------------------------------------------------------

@@ -276,7 +276,20 @@
 
     function formatNum(n) {
       if (n === 0) return '0';
-      return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      // Group the whole part only: 1.4224 used to come out as "1.4,224".
+      const s = String(n);
+      const dot = s.indexOf('.');
+      const head = dot < 0 ? s : s.slice(0, dot);
+      return head.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (dot < 0 ? '' : s.slice(dot));
+    }
+    // An exchange rate: every digit of a large one (a gold coin in rials), six
+    // significant ones of a tiny one (rials into dollars), never 1e-7.
+    function formatRate(n) {
+      const v = Number(n);
+      if (!isFinite(v)) return String(n);
+      return Math.abs(v) >= 1
+        ? v.toLocaleString('en-US', { maximumFractionDigits: 6 })
+        : v.toLocaleString('en-US', { maximumSignificantDigits: 6 });
     }
 
     // Active reporting-currency label. Loaded once on page boot from

@@ -2599,11 +2599,11 @@
         <div class="fx-rate-grid" style="margin-bottom:0.5rem;">
           <div class="fx-field fx-field-sm">
             <label for="fx-from" data-i18n="fxFrom">From</label>
-            <input type="text" id="fx-from" placeholder="USD" maxlength="8">
+            <input type="text" id="fx-from" placeholder="USD" maxlength="16">
           </div>
           <div class="fx-field fx-field-sm">
             <label for="fx-to" data-i18n="fxTo">To</label>
-            <input type="text" id="fx-to" placeholder="IRR" maxlength="8">
+            <input type="text" id="fx-to" placeholder="IRR" maxlength="16">
           </div>
           <div class="fx-field">
             <label for="fx-rate" data-i18n="fxRateLabel">Rate (1 From = N To)</label>
@@ -2621,8 +2621,36 @@
             <button type="button" class="btn btn-primary" id="fx-add-rate-btn" data-i18n="fxAddRate">Add / update rate</button>
           </div>
         </div>
+        <div class="fx-rates-head">
+          <p class="fx-hint" data-i18n="fxOwnRatesHint">Rates marked “shared” are fetched for every company. A rate you add for a pair is your company’s own and replaces the shared one in your books.</p>
+          <div class="fx-rates-tools">
+            <input type="search" id="fx-rates-filter" maxlength="16" dir="ltr" placeholder="USD" data-i18n-placeholder="fxRatesFilter" aria-label="Filter by currency">
+            <label class="fx-check"><input type="checkbox" id="fx-rates-history"> <span data-i18n="fxShowHistory">Show every date</span></label>
+          </div>
+        </div>
         <div id="fx-rates-wrap" style="margin-top:0.5rem;">
           <p class="empty-state" style="padding:0.4rem;" data-i18n="fxNoRates">No exchange rates set.</p>
+        </div>
+
+        <div id="fx-feeds-card" class="fx-feeds" style="display:none;">
+          <h3 data-i18n="fxFeedsTitle">Automatic rates</h3>
+          <p class="fx-hint" data-i18n="fxFeedsIntro">Fetched once a day and shared by every company on this server. A company’s own rate for a pair always wins in its books.</p>
+          <div class="fx-feeds-row">
+            <label class="fx-check"><input type="checkbox" id="fx-feeds-enabled"> <span data-i18n="fxFeedsEnabled">Fetch rates every day</span></label>
+            <label class="fx-inline" for="fx-feeds-hour"><span data-i18n="fxFeedsHour">from</span> <select id="fx-feeds-hour"></select> <span data-i18n="fxFeedsHourSuffix">(server time)</span></label>
+          </div>
+          <label class="fx-check"><input type="checkbox" id="fx-feeds-ecb"> <span data-i18n="fxFeedsEcb">European Central Bank reference rates (free, no key)</span></label>
+          <p class="fx-hint fx-indent" id="fx-feeds-ecb-list"></p>
+          <h4 data-i18n="fxFeedsCustom">Other feeds: the rial market, gold</h4>
+          <p class="fx-hint" data-i18n="fxFeedsCustomHint">Any provider with a JSON API. Paste its URL with your key, press Test, then pick the numbers you need. Gold units: GOLDG (one gram) and GOLDC (one coin). A price in toman: multiply by 10.</p>
+          <div id="fx-feeds-list"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="fx-feeds-add" data-i18n="fxFeedsAdd">+ Add a feed</button>
+          <div class="fx-feeds-actions">
+            <button type="button" class="btn btn-primary" id="fx-feeds-save" data-i18n="fxFeedsSave">Save</button>
+            <button type="button" class="btn btn-secondary" id="fx-feeds-run" data-i18n="fxFeedsRun">Fetch now</button>
+            <span class="fx-status" id="fx-feeds-msg" role="status"></span>
+          </div>
+          <div id="fx-feeds-status" class="fx-feeds-status"></div>
         </div>
       </div>
 

@@ -18,6 +18,8 @@ Jobs
                               (and e-mail them when the template says so)
 * ``invoice_reminders``      daily at SCHEDULER_DIGEST_HOUR  e-mail overdue customers (only for
                               companies that switched reminders on; see app/services/invoice_mail.py)
+* ``rate_feeds``             daily from the hour the platform admin picked — ONE run for the
+                              whole platform: fetch the shared exchange rates (app/services/rate_feeds.py)
 
 Runs in a single asyncio task started from the app lifespan; sync DB work is
 pushed to a thread so requests are never blocked. Disable with
@@ -157,6 +159,35 @@ def job_invoice_reminders(db, today: date) -> dict:
     return run_reminders(db, today=today)
 
 
+def run_platform_rate_feeds(now: datetime) -> bool:
+    """The daily exchange-rate fetch: platform-wide, not per company (the rates
+    are shared). Returns whether it ran."""
+    from app.services import rate_feeds
+    status = STATUS.setdefault("rate_feeds", JobStatus())
+    db = _session_factory()()
+    try:
+        if not rate_feeds.due(db, now):
+            return False
+        status.last_started = datetime.now()
+        from app.core.observability import observe_job
+        with observe_job("rate_feeds"):
+            result = rate_feeds.run_all(db, today=now.date())
+        db.commit()
+        failed = [r["source"] for r in result.get("results", []) if r.get("error")]
+        status.companies_ok, status.companies_failed = 1, 0
+        status.last_error = f"failed: {', '.join(failed)}" if failed else None
+        status.detail = {"results": result.get("results", [])}
+    except Exception as exc:  # the scheduler loop must never die
+        db.rollback()
+        status.companies_failed = 1
+        status.last_error = repr(exc)
+        log.exception("job_failed job=rate_feeds")
+    finally:
+        db.close()
+    status.last_finished = datetime.now()
+    return True
+
+
 def run_job_for_all_companies(name: str, fn: Callable[[Any, date], dict], *, today: date,
                               once_per_day: bool) -> JobStatus:
     """Run ``fn(db, today)`` under every active company. ``once_per_day`` jobs
@@ -222,6 +253,9 @@ def run_pending_jobs(now: datetime | None = None) -> list[str]:
         ran.append("recurring_invoices")
         run_job_for_all_companies("invoice_reminders", job_invoice_reminders, today=today, once_per_day=True)
         ran.append("invoice_reminders")
+    # Shared exchange rates: once a day (retried a little when a source failed).
+    if run_platform_rate_feeds(now):
+        ran.append("rate_feeds")
     return ran
 
 

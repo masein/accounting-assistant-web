@@ -124,6 +124,78 @@ def jobs_status(_=Depends(require_superadmin)) -> dict:
     return status_snapshot()
 
 
+# --- Exchange-rate feeds (roadmap §4.6): the platform's daily rates ------------------------
+
+class RateFeedItem(BaseModel):
+    unit: str = Field(..., max_length=16)
+    to: str = Field(..., max_length=16)
+    path: str = Field(..., max_length=120)
+    multiply: float = 1
+
+
+class RateFeed(BaseModel):
+    name: str = Field(..., max_length=60)
+    url: str = Field(..., max_length=1024)
+    enabled: bool = True
+    items: list[RateFeedItem] = Field(default_factory=list, max_length=40)
+
+
+class RateFeedsPayload(BaseModel):
+    enabled: bool = False
+    ecb: bool = True
+    hour: int = 7
+    feeds: list[RateFeed] = Field(default_factory=list, max_length=10)
+
+
+class RateFeedTestPayload(BaseModel):
+    url: str = Field(..., max_length=1024)
+    name: str | None = Field(None, max_length=60)
+
+
+def _rate_feeds_read(db: Session) -> dict:
+    from app.services import rate_feeds
+    return {**rate_feeds.load_settings(db), "status": rate_feeds.load_status(db),
+            "ecb_currencies": list(rate_feeds.ECB_MAJORS) + ["AED"]}
+
+
+@router.get("/rate-feeds")
+def get_rate_feeds(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+    """The daily rate sources (feed URLs shown with their keys hidden) and the
+    last run."""
+    return _rate_feeds_read(db)
+
+
+@router.put("/rate-feeds")
+def put_rate_feeds(payload: RateFeedsPayload, db: Session = Depends(get_db),
+                   _=Depends(require_superadmin)) -> dict:
+    from app.services import rate_feeds
+    rate_feeds.save_settings(db, payload.model_dump())
+    log_audit_event(db, action="update", entity_type="rate_feeds", entity_id="platform",
+                    detail=_json.dumps({"enabled": payload.enabled, "ecb": payload.ecb, "hour": payload.hour,
+                                        "feeds": [f.name for f in payload.feeds]}))
+    db.commit()
+    return _rate_feeds_read(db)
+
+
+@router.post("/rate-feeds/run")
+def run_rate_feeds(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+    """Fetch every configured source now, even while the daily run is off."""
+    from app.services import rate_feeds
+    status = rate_feeds.run_all(db, force=True)
+    db.commit()
+    return status
+
+
+@router.post("/rate-feeds/test")
+def test_rate_feed(payload: RateFeedTestPayload, db: Session = Depends(get_db),
+                   _=Depends(require_superadmin)) -> dict:
+    """Fetch a feed without storing anything and list the numbers in it with
+    their paths, to pick the items from. A masked URL (a saved feed's) is
+    resolved to the stored one by name."""
+    from app.services import rate_feeds
+    return rate_feeds.preview(db, payload.url, name=payload.name)
+
+
 @router.get("/ai-config")
 def get_ai_config(_=Depends(require_superadmin)) -> dict:
     # Platform-wide setting: super-admin only (route table + this dependency).

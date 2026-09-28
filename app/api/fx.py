@@ -8,9 +8,10 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.auth import SessionUser, get_current_user
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.exchange_rate import ExchangeRate
@@ -32,6 +33,7 @@ from app.services.fx_service import (
     get_rate,
     get_reporting_currency,
     set_reporting_currency,
+    visible_rates,
 )
 from app.services.reporting.repository import distinct_currencies, most_common_currency
 
@@ -73,43 +75,86 @@ def update_reporting_currency(
 
 # ─── Exchange rate CRUD ───────────────────────────────────────
 
+def _rate_read(row: ExchangeRate) -> ExchangeRateRead:
+    out = ExchangeRateRead.model_validate(row)
+    out.shared = row.company_id is None
+    note = row.note or ""
+    out.source = note[len("feed:"):] if note.startswith("feed:") else None
+    return out
+
+
 @router.get("/rates", response_model=list[ExchangeRateRead])
 def list_rates(
     from_currency: str | None = Query(None),
     to_currency: str | None = Query(None),
+    latest: bool = Query(False, description="Only the newest rate of each pair (own and shared apart)"),
+    limit: int = Query(1000, ge=1, le=5000),
     db: Session = Depends(get_db),
 ) -> list[ExchangeRateRead]:
-    q = select(ExchangeRate).order_by(ExchangeRate.effective_date.desc())
+    """This company's own rates and the shared ones — never another company's."""
+    q = select(ExchangeRate).where(visible_rates()).order_by(
+        ExchangeRate.effective_date.desc(), ExchangeRate.from_currency, ExchangeRate.to_currency)
     if from_currency:
         q = q.where(ExchangeRate.from_currency == from_currency.strip().upper())
     if to_currency:
         q = q.where(ExchangeRate.to_currency == to_currency.strip().upper())
-    rows = db.execute(q).scalars().all()
-    return [ExchangeRateRead.model_validate(r) for r in rows]
+    if latest:
+        newest = (select(ExchangeRate.from_currency, ExchangeRate.to_currency, ExchangeRate.company_id,
+                         func.max(ExchangeRate.effective_date).label("d"))
+                  .where(visible_rates())
+                  .group_by(ExchangeRate.from_currency, ExchangeRate.to_currency, ExchangeRate.company_id)
+                  .subquery())
+        q = q.join(newest, and_(newest.c.from_currency == ExchangeRate.from_currency,
+                                newest.c.to_currency == ExchangeRate.to_currency,
+                                newest.c.d == ExchangeRate.effective_date,
+                                or_(newest.c.company_id == ExchangeRate.company_id,
+                                    and_(newest.c.company_id.is_(None), ExchangeRate.company_id.is_(None)))))
+    rows = db.execute(q.limit(limit)).scalars().all()
+    return [_rate_read(r) for r in rows]
+
+
+def _current_company_uuid() -> UUID | None:
+    from app.db.tenant import get_current_company
+    cid = get_current_company()
+    try:
+        return UUID(str(cid)) if cid else None
+    except (ValueError, TypeError):
+        return None
 
 
 @router.post("/rates", response_model=ExchangeRateRead, status_code=201)
 def create_rate(
     payload: ExchangeRateCreate,
     db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
 ) -> ExchangeRateRead:
+    """A rate for the current company — for that pair it replaces the shared
+    rate in this company's books only. ``shared`` (platform admin) sets it for
+    every company."""
     fc = payload.from_currency.strip().upper()
     tc = payload.to_currency.strip().upper()
     if fc == tc:
         raise HTTPException(status_code=400, detail="from_currency and to_currency must differ")
+    owner = None if payload.shared else _current_company_uuid()
+    if payload.shared and not getattr(user, "is_superadmin", False):
+        raise HTTPException(status_code=403, detail="Only the platform admin sets rates for every company.")
+    if owner is None and not payload.shared and not getattr(user, "is_superadmin", False):
+        raise HTTPException(status_code=400, detail="Pick a company first.")
     existing = db.execute(
         select(ExchangeRate)
         .where(ExchangeRate.from_currency == fc)
         .where(ExchangeRate.to_currency == tc)
         .where(ExchangeRate.effective_date == payload.effective_date)
+        .where(ExchangeRate.company_id.is_(None) if owner is None else ExchangeRate.company_id == owner)
     ).scalar_one_or_none()
     if existing:
         existing.rate = float(payload.rate)
         existing.note = payload.note
         db.commit()
         db.refresh(existing)
-        return ExchangeRateRead.model_validate(existing)
+        return _rate_read(existing)
     row = ExchangeRate(
+        company_id=owner,
         from_currency=fc,
         to_currency=tc,
         rate=float(payload.rate),
@@ -119,14 +164,20 @@ def create_rate(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return ExchangeRateRead.model_validate(row)
+    return _rate_read(row)
 
 
 @router.delete("/rates/{rate_id}", status_code=204)
-def delete_rate(rate_id: UUID, db: Session = Depends(get_db)) -> None:
+def delete_rate(rate_id: UUID, db: Session = Depends(get_db),
+                user: SessionUser = Depends(get_current_user)) -> None:
     row = db.get(ExchangeRate, rate_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="Rate not found")
+    owner = _current_company_uuid()
+    if not row or (row.company_id is not None and row.company_id != owner):
+        raise HTTPException(status_code=404, detail="Rate not found")   # another company's: not there for you
+    if row.company_id is None and not getattr(user, "is_superadmin", False):
+        raise HTTPException(status_code=403, detail="A shared rate — only the platform admin can delete it. "
+                                                    "Add your own rate for this pair instead; it takes precedence "
+                                                    "in your company.")
     db.delete(row)
     db.commit()
 

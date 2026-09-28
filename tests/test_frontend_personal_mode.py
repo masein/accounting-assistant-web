@@ -70,7 +70,8 @@ def test_apply_role_access_toggles_both_chip_sets():
 def test_personal_chip_labels_exist_in_every_language_pack(key):
     """Parity across en/fa/es/ar (test_translation_parity guards the whole set;
     this pins the chip keys specifically, since a missing one renders blank)."""
-    js = I18N_JS.read_text(encoding="utf-8")
+    from tests.i18n_source import i18n_text
+    js = i18n_text()
     assert js.count(f"{key}:") == 4, f"{key} must be defined in all four packs"
 
 
@@ -78,7 +79,8 @@ def test_every_chip_i18n_key_is_defined():
     html = INDEX.read_text(encoding="utf-8")
     block = html.split('id="ai-acct-quick-actions"', 1)[1].split("</div>", 1)[0]
     keys = re.findall(r'data-i18n="([A-Za-z0-9_]+)"', block)
-    js = I18N_JS.read_text(encoding="utf-8")
+    from tests.i18n_source import i18n_text
+    js = i18n_text()
     missing = [k for k in keys if f"{k}:" not in js]
     assert not missing, f"chip labels with no translation entry: {missing}"
 

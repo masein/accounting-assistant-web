@@ -126,6 +126,7 @@ def test_iran_balance_sheet_keeps_negative_cash_and_balances(client, overdrawn_b
 def test_frontend_shows_the_equation_check():
     js = open("app/static/js/07-chat-reports.js", encoding="utf-8").read()
     assert "liabilities_and_equity" in js and "bsNotBalanced" in js
-    i18n = open("app/static/js/02-i18n.js", encoding="utf-8").read()
+    from tests.i18n_source import i18n_text
+    i18n = i18n_text()
     for key in ("bsLiabilitiesAndEquity:", "bsBalanced:", "bsNotBalanced:"):
         assert i18n.count(key) == 4, key

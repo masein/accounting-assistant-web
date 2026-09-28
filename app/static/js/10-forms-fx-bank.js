@@ -159,7 +159,7 @@
         });
       }
       const tbLang = document.getElementById('topbar-language');
-      if (tbLang) tbLang.addEventListener('change', () => applyLanguage(tbLang.value));
+      if (tbLang) tbLang.addEventListener('change', () => switchLanguage(tbLang.value));
       const tbLogout = document.getElementById('topbar-logout');
       if (tbLogout) tbLogout.addEventListener('click', async () => {
         try { await fetch(API + '/auth/logout', { method: 'POST' }); } catch (_) {}

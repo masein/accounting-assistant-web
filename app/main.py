@@ -1033,7 +1033,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # cached. Hashes are memoised per mtime, which keeps the dev bind-mount honest.
 _ASSET_VERSIONS: dict[str, tuple[float, str]] = {}
 _ASSET_REF_RE = re.compile(
-    r'(?P<attr>src|href)="/static/(?P<path>[A-Za-z0-9][A-Za-z0-9._/-]*\.(?:js|css))"'
+    # data-pack-xx: the per-language string packs 00-lang.js loads (roadmap §2.6)
+    r'(?P<attr>src|href|data-pack-[a-z]{2})="/static/(?P<path>[A-Za-z0-9][A-Za-z0-9._/-]*\.(?:js|css))"'
 )
 
 
@@ -1098,7 +1099,8 @@ def app_build_version() -> str:
     them changes the service worker, which then drops its old static cache."""
     import hashlib
     h = hashlib.sha256()
-    for path in sorted([*(STATIC_DIR / "js").glob("*.js"), *(STATIC_DIR / "css").glob("*.css"),
+    for path in sorted([*(STATIC_DIR / "js").glob("*.js"), *(STATIC_DIR / "js" / "i18n").glob("*.js"),
+                        *(STATIC_DIR / "css").glob("*.css"),
                         STATIC_DIR / "pwa" / "sw.js", STATIC_DIR / "pwa" / "offline.html"]):
         h.update(path.name.encode())
         h.update((_asset_version(str(path.relative_to(STATIC_DIR))) or "").encode())

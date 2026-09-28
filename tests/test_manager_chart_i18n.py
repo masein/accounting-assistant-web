@@ -11,7 +11,9 @@ import pytest
 
 JS = Path(__file__).resolve().parents[1] / "app" / "static" / "js"
 MANAGER = (JS / "05-reports-manager.js").read_text(encoding="utf-8")
-I18N = (JS / "02-i18n.js").read_text(encoding="utf-8")
+from tests.i18n_source import i18n_text  # noqa: E402
+
+I18N = i18n_text()
 
 NEW_KEYS = (
     "chartBalanceSheetTrend", "chartNetWorthOverTime", "legendNetWorth", "chartCostProfitBreakdown",

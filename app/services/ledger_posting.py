@@ -26,6 +26,15 @@ from app.models.transaction import Transaction, TransactionAttachment, Transacti
 from app.schemas.transaction import TransactionCreate
 
 
+def default_currency(db: Session, currency: str | None) -> str:
+    """The currency an entry is in: the one given, else the company's base
+    currency — never a hard-coded one."""
+    if currency and currency.strip():
+        return currency.strip().upper()
+    from app.services.fx_service import get_reporting_currency
+    return (get_reporting_currency(db) or "IRR").strip().upper()
+
+
 def validate_balanced_lines(lines) -> None:
     """Reject an unbalanced or empty set of legs.
 
@@ -139,7 +148,11 @@ def create_transaction_from_payload(db: Session, payload: TransactionCreate) -> 
         date=payload.date,
         reference=payload.reference,
         description=payload.description,
-        currency=(getattr(payload, "currency", None) or "IRR"),
+        # the company's base currency when none is given (it was a literal
+        # "IRR", so a UK company's entries came out in rials)
+        currency=default_currency(db, getattr(payload, "currency", None)),
+        # the caller's rate, else the rate on file for the date (app/services/fx_base.py)
+        fx_rate=getattr(payload, "fx_rate", None),
     )
     db.add(transaction)
     db.flush()

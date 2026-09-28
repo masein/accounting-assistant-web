@@ -19,7 +19,7 @@ class CashFlowService:
 
     def cash_flow_periods(self, from_date: date | None = None, to_date: date | None = None, granularity: str = "monthly", currency: str | None = None) -> dict:
         """Return cash inflows and outflows grouped by period."""
-        from app.services.reporting.repository import transactions_with_lines_between
+        from app.services.reporting.repository import line_net, transactions_with_lines_between
 
         period = default_period(from_date, to_date)
         txns = transactions_with_lines_between(self.db, period.from_date, period.to_date, currency=currency)
@@ -32,7 +32,7 @@ class CashFlowService:
             cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("1110")]
             if not cash_lines:
                 continue
-            cash_delta = sum((ln.debit or 0) - (ln.credit or 0) for ln in cash_lines)
+            cash_delta = sum(line_net(ln, currency) for ln in cash_lines)
 
             if granularity == "weekly":
                 key = txn.date.strftime("%Y-W%W")

@@ -293,8 +293,6 @@ def _bootstrap_schema_and_seed(strict: bool = False) -> None:
         seed_payment_methods_if_empty(db)
         seed_admin_user_if_missing(db)
         _warn_if_default_admin_password(db)
-        from app.services.fx_service import seed_default_rates_if_empty
-        seed_default_rates_if_empty(db)
         from app.services.payroll_rules import seed_payroll_rules
         seed_payroll_rules(db)
     finally:
@@ -307,6 +305,18 @@ def _bootstrap_schema_and_seed(strict: bool = False) -> None:
     db = _Session(bind=get_admin_engine(), autoflush=False)
     try:
         _seed_tax_rates_per_company(db)
+    finally:
+        db.close()
+    # Base-currency amounts of entries that had no rate (and every foreign
+    # entry right after migration 053). Never blocks the boot.
+    db = _Session(bind=get_admin_engine(), autoflush=False)
+    try:
+        from app.services.fx_base import fill_pending_all_companies
+        out = fill_pending_all_companies(db)
+        if out["converted"] or out["still_pending"]:
+            logging.getLogger("app.migrations").info("base amounts: %s", out)
+    except Exception:  # noqa: BLE001
+        logging.getLogger("app.migrations").exception("base-amount catch-up failed")
     finally:
         db.close()
     # Now that no row is company-less: the tenant NOT NULL + FK a migrated

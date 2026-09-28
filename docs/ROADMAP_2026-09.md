@@ -186,8 +186,28 @@ table for every company, so any accountant could change another company's
 rates; now a company's own rows are private and, for a pair it has priced,
 replace the shared ones; shared rows are the platform admin's. Codes widened
 to 16 characters. Lookups cross through USD/EUR/GBP/IRR when a pair has no
-rate. Caches keyed on the shared-rate version too. Open: realised FX
-gain/loss on settlement (needs a decision on the base-currency model).
+rate. Caches keyed on the shared-rate version too.
+
+✅ 4.6, part 2 — base-currency values (decision 2026-09-28: option 2, as
+Xero/QuickBooks): `transactions.fx_rate` + `transaction_lines.base_debit /
+base_credit` (migration 053). A `before_flush` hook in
+`app/services/fx_base.py` fills them for every writer: rate 1 in the base
+currency, else the voucher's rate, else the rate on file *on or before* the
+date (company's own, shared, crossed) — fixed at posting; half-up with a
+rounding unit taken back so every entry balances in base. No rate → NULL,
+counted in `/fx/metadata.unconverted`, converted when a rate arrives (rate
+entry, daily feeds, boot). Base currency change → everything reconverted.
+`currency=ALL` in the repository helpers = every currency at base value:
+ledger summary, account detail, trial balance/GL/journal, balance sheet, P&L,
+cash flow, Iran/UK statements, transaction search. Revaluation rewritten:
+base-only lines per foreign currency (`fx_role='revaluation'`), monetary
+accounts only; pre-existing mirror revaluations neutralised
+(`legacy_revaluation`). Default currency is the base currency everywhere (was
+a literal IRR in posting, recurring rules, petty cash, invoices, adjustments,
+AI proposals, bulk import). The placeholder USD→IRR 150,000 seed is gone.
+Next: part 3 — realised gain/loss when a payment settles an invoice at
+another rate; part 4 — the rest of the readers on base values (dashboard,
+AI tools, insights, budgets, net worth, invoices in the combined view).
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same

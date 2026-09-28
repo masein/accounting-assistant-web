@@ -51,7 +51,8 @@ class InvoiceBase(BaseModel):
     issue_date: date
     due_date: date
     amount: int = Field(..., ge=0)
-    currency: str = Field(default="IRR")
+    # None: the company's base currency (it was a literal "IRR")
+    currency: Optional[str] = Field(default=None, max_length=8)
     description: Optional[str] = None
     entity_id: UUID | None = None
     items: list[InvoiceItemCreate] = Field(default_factory=list)

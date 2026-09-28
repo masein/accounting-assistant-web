@@ -130,7 +130,6 @@ def materialize_due_rules(db: Session, *, today: date | None = None) -> dict:
                         date=run_date,
                         reference=ref,
                         description=f"{rule.name} (recurring)",
-                        currency="IRR",
                         lines=lines,
                         entity_links=(
                             [{"entity_id": rule.entity_id,

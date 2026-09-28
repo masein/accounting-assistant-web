@@ -264,7 +264,7 @@ def _execute_create_transaction(
             date=payload_dict["date"],
             description=payload_dict.get("description"),
             reference=payload_dict.get("reference"),
-            currency=payload_dict.get("currency", "IRR"),
+            currency=payload_dict.get("currency"),       # None → the company's base currency
             lines=[
                 TransactionLineCreate(
                     account_code=ln["account_code"],

@@ -18,8 +18,10 @@
         if (!window.__FX_META) { try { await loadFxMetadata(); } catch (_) { /* offline */ } }
         await loadReportingCurrency();
         // Honour a global currency selector if one is present; falls back to no filter.
+        // The dashboard has no combined (ALL) view yet: it keeps to one currency.
+        const mgrCcy = document.getElementById('mgr-currency')?.value;
         const dashCcy = (typeof pickedCurrency === 'string' && pickedCurrency)
-          || document.getElementById('mgr-currency')?.value
+          || (mgrCcy && mgrCcy !== 'ALL' ? mgrCcy : '')
           || window.__FX_META?.reporting_currency
           || '';
         const url = API + '/reports/owner-dashboard' + (dashCcy ? ('?currency=' + encodeURIComponent(dashCcy)) : '');
@@ -1051,7 +1053,13 @@
         // show a banner warning that numbers are summed across currencies and
         // offer a one-click switch to a single-currency view.
         let mixWarning = '';
-        if (!currency && data && data.currency) {
+        if (currency === 'ALL') {
+          const others = Array.isArray(data.other_currencies) ? data.other_currencies : [];
+          const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('currencyViewOnly').replace('{currency}', ccy))}</button>`).join(' ');
+          mixWarning = `<div class="report-meta" style="margin-bottom:0.6rem;">${escapeHtml(baseViewNoteText())}
+              ${buttons ? `<div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>` : ''}
+            </div>`;
+        } else if (!currency && data && data.currency) {
           // Server resolved a single-currency view (reporting currency by
           // default): say which, and offer the other currencies separately.
           const others = Array.isArray(data.other_currencies) ? data.other_currencies : [];
@@ -1074,7 +1082,7 @@
         }
         mgrReportPreviewEl.innerHTML = `
           ${mixWarning}
-          ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}${currency ? ' · <span class="ccy-badge ccy-' + escapeHtml(currency) + '">' + escapeHtml(currency) + '</span>' : ''}</div>` : ''}
+          ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}${currency ? ' · <span class="ccy-badge ccy-' + escapeHtml(currency) + '">' + escapeHtml(currency === 'ALL' ? t('currencyAllInBase').replace('{base}', baseCurrencyCode()) : currency) + '</span>' : ''}</div>` : ''}
           ${renderReportPreviewHtml(data)}
         `;
         // Wire up the "switch currency" buttons in the warning banner

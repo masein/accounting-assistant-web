@@ -183,6 +183,8 @@ def run_rate_feeds(db: Session = Depends(get_db), _=Depends(require_superadmin))
     from app.services import rate_feeds
     status = rate_feeds.run_all(db, force=True)
     db.commit()
+    from app.services.fx_base import fill_pending_all_companies
+    status["base_amounts"] = fill_pending_all_companies(db)
     return status
 
 

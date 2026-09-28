@@ -48,11 +48,14 @@ def currency_metadata(db: Session = Depends(get_db)) -> dict:
 
     Useful for smart-defaulting dropdowns in the UI.
     """
+    from app.services.fx_base import pending_summary
     used = distinct_currencies(db)
     return {
         "reporting_currency": get_reporting_currency(db),
         "most_common_currency": most_common_currency(db),
         "used_currencies": used,
+        # entries with no rate yet: the combined (currency=ALL) views leave them out
+        "unconverted": pending_summary(db),
     }
 
 
@@ -113,6 +116,17 @@ def list_rates(
     return [_rate_read(r) for r in rows]
 
 
+def _convert_waiting_entries(db: Session, shared: bool) -> None:
+    """Entries posted before any rate existed for their date convert now
+    (roadmap §4.6). A shared rate may unblock every company's."""
+    from app.services.fx_base import fill_pending, fill_pending_all_companies
+    if shared or _current_company_uuid() is None:
+        fill_pending_all_companies(db)
+    else:
+        fill_pending(db)
+        db.commit()
+
+
 def _current_company_uuid() -> UUID | None:
     from app.db.tenant import get_current_company
     cid = get_current_company()
@@ -152,6 +166,7 @@ def create_rate(
         existing.note = payload.note
         db.commit()
         db.refresh(existing)
+        _convert_waiting_entries(db, shared=existing.company_id is None)
         return _rate_read(existing)
     row = ExchangeRate(
         company_id=owner,
@@ -164,6 +179,7 @@ def create_rate(
     db.add(row)
     db.commit()
     db.refresh(row)
+    _convert_waiting_entries(db, shared=row.company_id is None)
     return _rate_read(row)
 
 
@@ -190,7 +206,7 @@ def convert_amount(
     db: Session = Depends(get_db),
 ) -> ConvertResponse:
     on = payload.on_date or date.today()
-    rate = get_rate(db, payload.from_currency, payload.to_currency, on)
+    rate = get_rate(db, payload.from_currency, payload.to_currency, on, strict=payload.strict)
     if rate is None:
         return ConvertResponse(
             amount=payload.amount,
@@ -212,193 +228,148 @@ def convert_amount(
 
 # ─── Period-end revaluation ───────────────────────────────────
 
+# Balances that stay at their historical rate: they are not money owed or
+# held, so a rate change is no gain or loss (IAS 21 / FRS 102 s30).
+NON_MONETARY_CATEGORIES = ("fixed_assets", "accumulated_depreciation", "prepaid_expense", "supplier_advance")
+
+
+def _non_monetary_codes() -> set[str]:
+    from app.services.account_resolver import POSTING_CODES
+    return {codes[c] for codes in POSTING_CODES.values() for c in NON_MONETARY_CATEGORIES if c in codes}
+
+
 @router.post("/revalue", response_model=FXRevalueResponse)
 def revalue_foreign_currency_balances(
     payload: FXRevalueRequest,
     db: Session = Depends(get_db),
 ) -> FXRevalueResponse:
-    """Revalue foreign-currency account balances into the target reporting currency.
+    """Period-end revaluation of foreign-currency balances (roadmap §4.6).
 
-    Compares (a) the balance held in foreign currency converted at the as_of rate
-    against (b) the balance posted so far in the target currency for the same
-    account. The difference is the adjustment needed to align the books.
-
-    Dry-run by default; pass dry_run=false plus gain/loss account codes to post
-    a single balancing journal entry.
+    Every line keeps its value in the base currency at the rate it was posted
+    at. For each account and foreign currency: the foreign balance at the
+    ``as_of`` rate, minus the base value it is carried at, is the unrealised
+    gain or loss. Posted (``dry_run=false``) as one entry per currency whose
+    lines move base values only — the foreign balances do not change — with
+    the net to the gain or loss account. Running it again for the same date
+    and rate finds nothing left to adjust.
     """
-    target = payload.target_currency.strip().upper()
+    from app.services.fx_base import base_currency
+    from app.services.reporting.common import ASSET, LIABILITY, classify_account_code
+
+    base = base_currency(db)
+    target = (payload.target_currency or base).strip().upper()
+    if target != base:
+        raise HTTPException(status_code=400, detail=f"Revaluation is into the base currency, {base}.")
     on = payload.as_of
     from app.services.period_service import assert_period_open
     assert_period_open(db, on)  # a revaluation entry is a posting too (review H7)
     errors: list[str] = []
 
-    # 1. Collect foreign currency balances per account, grouped by (account_id, currency)
     q = (
-        select(
-            TransactionLine.account_id,
-            Transaction.currency,
-            TransactionLine.debit,
-            TransactionLine.credit,
-        )
+        select(TransactionLine.account_id, Transaction.currency, TransactionLine.debit, TransactionLine.credit,
+               TransactionLine.base_debit, TransactionLine.base_credit)
         .join(Transaction, TransactionLine.transaction_id == Transaction.id)
-        .where(Transaction.deleted_at.is_(None))
-        .where(Transaction.date <= on)
+        .where(Transaction.deleted_at.is_(None), Transaction.date <= on, Transaction.currency != base)
     )
+    accounts = {a.id: a for a in db.execute(select(Account)).scalars().all()}
     if payload.account_codes:
         codes = {c.strip() for c in payload.account_codes if c and c.strip()}
-        acc_ids = [
-            a.id
-            for a in db.execute(select(Account).where(Account.code.in_(codes))).scalars().all()
-        ]
+        acc_ids = [a.id for a in accounts.values() if a.code in codes]
         if not acc_ids:
             raise HTTPException(status_code=400, detail="No accounts matched the provided codes")
         q = q.where(TransactionLine.account_id.in_(acc_ids))
-    rows = db.execute(q).all()
-    # account_id -> currency -> net (debit - credit)
-    by_acct: dict[UUID, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    for account_id, curr, debit, credit in rows:
-        by_acct[account_id][(curr or "IRR").upper()] += (debit or 0) - (credit or 0)
-
-    accounts = {a.id: a for a in db.execute(select(Account)).scalars().all()}
+        wanted = set(acc_ids)
+    else:
+        skip = _non_monetary_codes()
+        wanted = {a.id for a in accounts.values()
+                  if classify_account_code(a.code) in (ASSET, LIABILITY) and a.code not in skip}
+    # (account, currency) -> [foreign balance, base value, lines without a rate]
+    held: dict[tuple[UUID, str], list[int]] = defaultdict(lambda: [0, 0, 0])
+    for account_id, curr, debit, credit, bdebit, bcredit in db.execute(q).all():
+        if account_id not in wanted:
+            continue
+        slot = held[(account_id, (curr or "IRR").upper())]
+        slot[0] += (debit or 0) - (credit or 0)
+        slot[1] += (bdebit or 0) - (bcredit or 0)
+        if bdebit is None and bcredit is None and (debit or credit):
+            slot[2] += 1
 
     revalue_lines: list[FXRevalueLine] = []
-    total_adjustment = 0
-    for account_id, by_curr in by_acct.items():
+    for (account_id, fc), (foreign, carried, unconverted) in sorted(
+            held.items(), key=lambda kv: (accounts[kv[0][0]].code if kv[0][0] in accounts else "", kv[0][1])):
         acc = accounts.get(account_id)
-        if not acc:
+        if acc is None or (foreign == 0 and carried == 0):
             continue
-        # Skip accounts that only have target-currency data
-        foreign_currencies = [c for c in by_curr.keys() if c != target]
-        if not foreign_currencies:
+        if unconverted:
+            errors.append(f"{acc.code}: {unconverted} {fc} entr{'y has' if unconverted == 1 else 'ies have'} "
+                          f"no rate yet — add a {fc}→{base} rate for {'its' if unconverted == 1 else 'their'} "
+                          "date first")
             continue
-        current_target_balance = by_curr.get(target, 0)
-        # Sum all foreign balances converted into target at the as_of rate
-        converted_total = 0
-        per_currency_rates: list[tuple[str, int, float, int]] = []
-        for fc in foreign_currencies:
-            src_balance = by_curr[fc]
-            if src_balance == 0:
-                continue
-            rate = get_rate(db, fc, target, on)
-            if rate is None:
-                errors.append(
-                    f"Missing rate {fc}->{target} on/before {on.isoformat()} for account {acc.code}"
-                )
-                continue
-            tgt_val = convert_minor(src_balance, rate)
-            converted_total += tgt_val
-            per_currency_rates.append((fc, src_balance, rate, tgt_val))
-        if not per_currency_rates:
+        rate = get_rate(db, fc, base, on, strict=True)
+        if rate is None:
+            errors.append(f"Missing rate {fc}->{base} on/before {on.isoformat()} for account {acc.code}")
             continue
-        adjustment = converted_total - current_target_balance
-        for fc, src_balance, rate, tgt_val in per_currency_rates:
-            # Represent each source currency row; adjustment is surfaced on the
-            # first (or only) row per account to avoid double-counting.
-            revalue_lines.append(FXRevalueLine(
-                account_code=acc.code,
-                account_name=acc.name,
-                source_currency=fc,
-                source_balance=src_balance,
-                target_currency=target,
-                rate=rate,
-                target_balance=tgt_val,
-                current_target_balance=current_target_balance if fc == per_currency_rates[0][0] else 0,
-                adjustment=adjustment if fc == per_currency_rates[0][0] else 0,
-            ))
-        total_adjustment += adjustment
+        value = convert_minor(foreign, rate)
+        revalue_lines.append(FXRevalueLine(
+            account_code=acc.code, account_name=acc.name, source_currency=fc, source_balance=foreign,
+            target_currency=base, rate=rate, target_balance=value, current_target_balance=carried,
+            adjustment=value - carried,
+        ))
+    total_adjustment = sum(ln.adjustment for ln in revalue_lines)
 
-    # 2. If not dry-run, post the adjustment as a journal entry in target currency
-    posted_id: UUID | None = None
+    posted: list[UUID] = []
     # Post whenever ANY account moves: a USD asset and a USD liability can
     # revalue by equal and opposite amounts (net gain 0) and both balances
-    # still have to change. It used to post only when the net was non-zero.
-    any_adjustment = any(ln.adjustment for ln in revalue_lines)
-    if not payload.dry_run and any_adjustment:
+    # still have to change.
+    if not payload.dry_run and any(ln.adjustment for ln in revalue_lines):
         if not payload.gain_account_code or not payload.loss_account_code:
             raise HTTPException(
                 status_code=400,
                 detail="gain_account_code and loss_account_code are required when dry_run=false",
             )
-        gain_acc = db.execute(
-            select(Account).where(Account.code == payload.gain_account_code.strip())
-        ).scalar_one_or_none()
-        loss_acc = db.execute(
-            select(Account).where(Account.code == payload.loss_account_code.strip())
-        ).scalar_one_or_none()
+        by_code = {a.code: a for a in accounts.values()}
+        gain_acc = by_code.get(payload.gain_account_code.strip())
+        loss_acc = by_code.get(payload.loss_account_code.strip())
         if not gain_acc or not loss_acc:
             raise HTTPException(status_code=400, detail="Gain or loss account not found")
-
-        # Build a balanced entry: adjust each foreign account up/down in target
-        # currency, offset by the net unrealized gain/loss account.
-        # Per-account adjustments we already have = (current - need_to_be)
-        # We post: debit account if adjustment > 0 else credit it.
-        # Counter-side lands on gain (credit) / loss (debit) as appropriate.
-        txn = Transaction(
-            date=on,
-            reference=(payload.reference or f"FX-REVAL-{on.isoformat()}"),
-            description=(payload.description or f"FX revaluation to {target} as of {on.isoformat()}"),
-            currency=target,
-        )
-        db.add(txn)
-        db.flush()
-
-        running_delta = 0
-        seen_accounts: set[UUID] = set()
-        for ln in revalue_lines:
-            # Only post one line per (account_code) — adjustment is on first source-currency row
-            if ln.adjustment == 0:
-                continue
-            acc = db.execute(
-                select(Account).where(Account.code == ln.account_code)
-            ).scalar_one()
-            if acc.id in seen_accounts:
-                continue
-            seen_accounts.add(acc.id)
-            adj = ln.adjustment
-            running_delta += adj
-            if adj > 0:
+        from app.services.audit_service import log_audit_event
+        for fc in sorted({ln.source_currency for ln in revalue_lines if ln.adjustment}):
+            moves = [ln for ln in revalue_lines if ln.source_currency == fc and ln.adjustment]
+            rate = moves[0].rate
+            txn = Transaction(
+                date=on,
+                reference=(payload.reference or f"FX-REVAL-{on.isoformat()}")[:120] + f"-{fc}",
+                description=(payload.description
+                             or f"Unrealised FX on {fc} balances at {rate:g} {base} as of {on.isoformat()}"),
+                currency=fc, fx_rate=rate, fx_role="revaluation",
+            )
+            db.add(txn)
+            db.flush()
+            net = 0
+            for ln in moves:
+                net += ln.adjustment
                 db.add(TransactionLine(
-                    transaction_id=txn.id,
-                    account_id=acc.id,
-                    debit=abs(adj),
-                    credit=0,
-                    line_description=f"Reval {ln.source_currency}->{target} at {ln.rate}",
+                    transaction_id=txn.id, account_id=by_code[ln.account_code].id, debit=0, credit=0,
+                    base_debit=max(ln.adjustment, 0), base_credit=max(-ln.adjustment, 0),
+                    line_description=f"Revalued {fc} {ln.source_balance:,} at {rate:g}",
                 ))
-            else:
+            if net:
                 db.add(TransactionLine(
-                    transaction_id=txn.id,
-                    account_id=acc.id,
-                    debit=0,
-                    credit=abs(adj),
-                    line_description=f"Reval {ln.source_currency}->{target} at {ln.rate}",
+                    transaction_id=txn.id, account_id=(gain_acc if net > 0 else loss_acc).id, debit=0, credit=0,
+                    base_debit=max(-net, 0), base_credit=max(net, 0),
+                    line_description=f"Unrealised FX {'gain' if net > 0 else 'loss'} on {fc}",
                 ))
-        # Counter-side: if net running_delta > 0 the foreign accounts grew in value,
-        # so we credit "FX gain". If negative, we debit "FX loss".
-        if running_delta > 0:
-            db.add(TransactionLine(
-                transaction_id=txn.id,
-                account_id=gain_acc.id,
-                debit=0,
-                credit=running_delta,
-                line_description="Net unrealized FX gain",
-            ))
-        elif running_delta < 0:
-            db.add(TransactionLine(
-                transaction_id=txn.id,
-                account_id=loss_acc.id,
-                debit=abs(running_delta),
-                credit=0,
-                line_description="Net unrealized FX loss",
-            ))
+            log_audit_event(db, action="create", entity_type="fx_revaluation", entity_id=str(txn.id),
+                            detail=f"{fc} as of {on.isoformat()} at {rate:g}: net {net}")
+            posted.append(txn.id)
         db.commit()
-        db.refresh(txn)
-        posted_id = txn.id
 
     return FXRevalueResponse(
         as_of=on,
-        target_currency=target,
+        target_currency=base,
         lines=revalue_lines,
         total_adjustment=total_adjustment,
-        posted_transaction_id=posted_id,
+        posted_transaction_id=posted[0] if posted else None,
+        posted_transaction_ids=posted,
         errors=errors,
     )

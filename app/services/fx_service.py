@@ -70,7 +70,8 @@ def _current_company_row(db: Session):
 
 
 def set_reporting_currency(db: Session, currency: str) -> str:
-    currency = (currency or "").strip() or DEFAULT_REPORTING_CURRENCY
+    currency = (currency or "").strip().upper() or DEFAULT_REPORTING_CURRENCY
+    before = get_reporting_currency(db).strip().upper()
     # The read path prefers the tenant company's base_currency, so the write
     # must update it too — otherwise the saved value is shadowed and the UI
     # "resets" on refresh.
@@ -85,6 +86,10 @@ def set_reporting_currency(db: Session, currency: str) -> str:
     else:
         db.add(AppSetting(key=REPORTING_CURRENCY_KEY, value=currency))
     db.flush()
+    if currency != before:
+        # every entry's base amounts were in the old base currency
+        from app.services.fx_base import recompute_all
+        recompute_all(db)
     return currency
 
 
@@ -113,10 +118,11 @@ def visible_rates():
 
 
 def _latest_rate(
-    db: Session, from_ccy: str, to_ccy: str, on: date, owner=None
+    db: Session, from_ccy: str, to_ccy: str, on: date, owner=None, strict: bool = False
 ) -> ExchangeRate | None:
     """The newest rate on or before ``on`` among ``owner``'s rows (None = the
-    shared rows), else that owner's earliest rate for the pair."""
+    shared rows), else — unless ``strict`` — that owner's earliest rate for
+    the pair."""
     q = (
         select(ExchangeRate)
         .where(ExchangeRate.from_currency == from_ccy)
@@ -127,7 +133,7 @@ def _latest_rate(
         .limit(1)
     )
     row = db.execute(q).scalar_one_or_none()
-    if row:
+    if row or strict:
         return row
     # Fall back to earliest-ever rate for this pair
     fallback = (
@@ -147,26 +153,28 @@ def _latest_rate(
 CROSS_VIA = ("USD", "EUR", "GBP", "IRR")
 
 
-def _pair_rate(db: Session, fc: str, tc: str, on: date) -> float | None:
+def _pair_rate(db: Session, fc: str, tc: str, on: date, strict: bool = False) -> float | None:
     """The pair or its inverse — the company's own rates first: a company that
     has priced a pair itself never gets the shared rate for it."""
     viewer = _viewer()
     for owner in ([viewer, None] if viewer else [None]):
-        direct = _latest_rate(db, fc, tc, on, owner)
+        direct = _latest_rate(db, fc, tc, on, owner, strict)
         if direct:
             return float(direct.rate)
-        reverse = _latest_rate(db, tc, fc, on, owner)
+        reverse = _latest_rate(db, tc, fc, on, owner, strict)
         if reverse and reverse.rate:
             return 1.0 / float(reverse.rate)
     return None
 
 
 def get_rate(
-    db: Session, from_ccy: str, to_ccy: str, on: date | None = None
+    db: Session, from_ccy: str, to_ccy: str, on: date | None = None, *, strict: bool = False
 ) -> float | None:
     """Return rate such that amount_in_from * rate == amount_in_to.
 
-    Returns None if no rate is found and currencies differ.
+    Returns None if no rate is found and currencies differ. ``strict``: only a
+    rate dated on or before ``on`` — what an entry is converted at, since its
+    rate is then fixed (a rate from months later would stay wrong).
     """
     if (from_ccy or "").strip().upper() == (to_ccy or "").strip().upper():
         return 1.0
@@ -174,16 +182,16 @@ def get_rate(
         on = date.today()
     fc = from_ccy.strip().upper()
     tc = to_ccy.strip().upper()
-    rate = _pair_rate(db, fc, tc, on)
+    rate = _pair_rate(db, fc, tc, on, strict)
     if rate is not None:
         return rate
     for via in CROSS_VIA:
         if via in (fc, tc):
             continue
-        first = _pair_rate(db, fc, via, on)
+        first = _pair_rate(db, fc, via, on, strict)
         if first is None:
             continue
-        second = _pair_rate(db, via, tc, on)
+        second = _pair_rate(db, via, tc, on, strict)
         if second is not None:
             return first * second
     return None
@@ -226,42 +234,10 @@ def convert_or_none(
     return convert_minor(int(round(float(amount))) if not isinstance(amount, int) else amount, rate)
 
 
-DEFAULT_RATES: list[tuple[str, str, float, str]] = [
-    # (from_currency, to_currency, rate, note)
-    ("USD", "IRR", 150_000.0, "Default seed rate — update in Settings → Currency & FX"),
-]
-
-
-def seed_default_rates_if_empty(db: Session) -> int:
-    """Seed `DEFAULT_RATES` for any (from, to) pair that has no rows yet.
-
-    Returns the number of rows inserted. Idempotent — skips pairs that already
-    have at least one rate, so admin-customised values are preserved across
-    restarts.
-    """
-    inserted = 0
-    today = date.today()
-    for from_ccy, to_ccy, rate, note in DEFAULT_RATES:
-        existing = db.execute(
-            select(ExchangeRate)
-            .where(ExchangeRate.from_currency == from_ccy)
-            .where(ExchangeRate.to_currency == to_ccy)
-            .where(ExchangeRate.company_id.is_(None))
-            .limit(1)
-        ).scalar_one_or_none()
-        if existing:
-            continue
-        db.add(ExchangeRate(
-            from_currency=from_ccy,
-            to_currency=to_ccy,
-            rate=rate,
-            effective_date=today,
-            note=note,
-        ))
-        inserted += 1
-    if inserted:
-        db.commit()
-    return inserted
+# A placeholder USD→IRR rate (150,000) used to be seeded here. Entries now
+# keep the rate they were converted at, so a made-up rate would have been
+# fixed into every USD entry of an Iranian company; migration 053 removes the
+# untouched seed row. Rates come from the user or the daily feeds.
 
 
 def available_currencies(db: Session) -> list[str]:

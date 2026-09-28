@@ -135,21 +135,44 @@ def _lines_of(db, cid, tid):
     return {code: (int(d), int(c)) for code, d, c in rows}
 
 
+def _base_lines_of(db, cid, tid):
+    from app.db.tenant import use_company
+    from app.models.account import Account
+    from app.models.transaction import TransactionLine
+    with use_company(cid):
+        rows = db.execute(select(Account.code, TransactionLine.debit, TransactionLine.credit,
+                                 TransactionLine.base_debit, TransactionLine.base_credit)
+                          .join(Account, Account.id == TransactionLine.account_id)
+                          .where(TransactionLine.transaction_id == uuid.UUID(tid))).all()
+    return {code: (int(d), int(c), int(bd or 0), int(bc or 0)) for code, d, c, bd, bc in rows}
+
+
 def test_revaluation_posts_every_adjustment_and_is_idempotent(co, db):
+    """Each line carries its rial value at the rate it was posted at; a rate
+    change is the only thing to revalue. A USD asset and a USD liability move
+    by equal and opposite amounts — both still change, net gain 0."""
     api, cid = co
     _rate(api, "USD", "IRR", 1_000_000, "2026-01-01")
     # USD cash in, owed to a supplier in USD: an asset and a liability.
     _txn(api, "2026-02-01", [_l("1110", dr=100), _l("2110", cr=100)], "USD")
+    same = _reval(api, "2026-03-31", codes=["1110", "2110"]).json()
+    assert all(x["adjustment"] == 0 for x in same["lines"]) and same["total_adjustment"] == 0
+    assert {x["account_code"]: x["current_target_balance"] for x in same["lines"]} == {"1110": 100_000_000,
+                                                                                      "2110": -100_000_000}
+    _rate(api, "USD", "IRR", 1_100_000, "2026-03-01")
     pv = _reval(api, "2026-03-31", codes=["1110", "2110"]).json()
     adj = {x["account_code"]: x["adjustment"] for x in pv["lines"]}
-    assert adj == {"1110": 100_000_000, "2110": -100_000_000} and pv["total_adjustment"] == 0
+    assert adj == {"1110": 10_000_000, "2110": -10_000_000} and pv["total_adjustment"] == 0
 
     posted = _reval(api, "2026-03-31", codes=["1110", "2110"], dry_run=False).json()
-    # Gains and losses net to zero, but both balances must still move.
-    assert posted["posted_transaction_id"], posted
-    lines = _lines_of(db, cid, posted["posted_transaction_id"])
-    assert lines["1110"] == (100_000_000, 0) and lines["2110"] == (0, 100_000_000)
+    assert posted["posted_transaction_id"] and posted["posted_transaction_ids"] == [posted["posted_transaction_id"]]
+    lines = _base_lines_of(db, cid, posted["posted_transaction_id"])
+    # base values move; the dollar balances do not
+    assert lines["1110"] == (0, 0, 10_000_000, 0) and lines["2110"] == (0, 0, 0, 10_000_000)
     assert "4110" not in lines and "6210" not in lines
+    from app.models.transaction import Transaction
+    txn = db.get(Transaction, uuid.UUID(posted["posted_transaction_id"]))
+    assert txn.currency == "USD" and txn.fx_role == "revaluation" and txn.fx_rate == 1_100_000
 
     # Run again: nothing left to adjust, nothing posted.
     again = _reval(api, "2026-03-31", codes=["1110", "2110"], dry_run=False).json()
@@ -161,33 +184,45 @@ def test_a_rate_change_posts_only_the_difference_as_gain(co, db):
     api, cid = co
     _rate(api, "USD", "IRR", 1_000_000, "2026-01-01")
     _txn(api, "2026-02-01", [_l("1110", dr=50), _l("3110", cr=50)], "USD")
+    # Posted at 1,000,000 and still at it: nothing to revalue (the old mirror
+    # model booked the whole 50,000,000 as gain here).
     first = _reval(api, "2026-03-31", codes=["1110"], dry_run=False).json()
-    assert first["total_adjustment"] == 50_000_000
-    assert _lines_of(db, cid, first["posted_transaction_id"])["4110"] == (0, 50_000_000)   # gain
+    assert first["total_adjustment"] == 0 and first["posted_transaction_id"] is None
     _rate(api, "USD", "IRR", 900_000, "2026-06-01")
     second = _reval(api, "2026-06-30", codes=["1110"], dry_run=False).json()
     assert second["total_adjustment"] == -5_000_000                                     # 50 × −100,000
-    assert _lines_of(db, cid, second["posted_transaction_id"])["6210"] == (5_000_000, 0)  # loss
+    assert _base_lines_of(db, cid, second["posted_transaction_id"])["6210"] == (0, 0, 5_000_000, 0)  # loss
     assert _reval(api, "2026-06-30", codes=["1110"]).json()["total_adjustment"] == 0
+    _rate(api, "USD", "IRR", 1_200_000, "2026-09-01")
+    third = _reval(api, "2026-09-30", codes=["1110"], dry_run=False).json()
+    assert third["total_adjustment"] == 15_000_000                                      # 60M − 45M carried
+    assert _base_lines_of(db, cid, third["posted_transaction_id"])["4110"] == (0, 0, 0, 15_000_000)  # gain
 
 
 def test_revaluation_rounds_half_up(co):
     api, _ = co
     _rate(api, "USD", "IRR", 0.5, "2026-01-01")
     _txn(api, "2026-02-01", [_l("1110", dr=5), _l("3110", cr=5)], "USD")
-    pv = _reval(api, "2026-03-31", codes=["1110"]).json()
-    assert pv["lines"][0]["target_balance"] == 3                                        # 2.5 → 3
+    carried = _reval(api, "2026-03-31", codes=["1110"]).json()["lines"][0]
+    assert carried["current_target_balance"] == 3                                       # 2.5 → 3 when posted
+    _rate(api, "USD", "IRR", 0.7, "2026-05-01")
+    pv = _reval(api, "2026-05-31", codes=["1110"]).json()
+    assert pv["lines"][0]["target_balance"] == 4 and pv["lines"][0]["adjustment"] == 1   # 3.5 → 4
 
 
 def test_revaluation_guards(co):
     api, _ = co
-    _txn(api, "2026-02-01", [_l("1110", dr=10), _l("3110", cr=10)], "GBP")
+    _txn(api, "2026-02-01", [_l("1110", dr=10), _l("3110", cr=10)], "GBP")          # no GBP rate yet
     pv = _reval(api, "2026-03-31", codes=["1110"]).json()
-    assert any("Missing rate GBP->IRR" in e for e in pv["errors"]) and pv["posted_transaction_id"] is None
-    _rate(api, "GBP", "IRR", 1_500_000, "2026-01-01")
+    assert any("no rate yet" in e for e in pv["errors"]) and pv["posted_transaction_id"] is None
+    _rate(api, "GBP", "IRR", 1_500_000, "2026-01-01")                                # converts the entry
+    assert _reval(api, "2026-03-31", codes=["1110"]).json()["errors"] == []
+    _rate(api, "GBP", "IRR", 1_600_000, "2026-03-01")
     r = api.post("/fx/revalue", json={"as_of": "2026-03-31", "target_currency": "IRR", "account_codes": ["1110"],
                                       "dry_run": False})
     assert r.status_code == 400                                                         # no gain/loss accounts
     assert _reval(api, "2026-03-31", codes=["9999"]).status_code == 400
+    r = api.post("/fx/revalue", json={"as_of": "2026-03-31", "target_currency": "USD"})
+    assert r.status_code == 400 and "base currency, IRR" in r.json()["detail"]
     assert api.put("/admin/closed-period", json={"closed_period": "2026-03-31"}).status_code == 200
     assert _reval(api, "2026-03-31", codes=["1110"], dry_run=False).status_code in (409, 422)

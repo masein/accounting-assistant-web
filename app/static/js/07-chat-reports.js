@@ -904,6 +904,36 @@
       return summary;
     }
 
+    // A voucher in another currency than the base one is converted at a rate
+    // (roadmap §4.6): the one typed here, else the rate on file for its date.
+    async function syncVoucherRate() {
+      const wrap = document.getElementById('txn-rate-wrap');
+      if (!wrap) return;
+      const cur = (document.getElementById('txn-currency')?.value || '').toUpperCase();
+      const base = String(baseCurrencyCode() || '').toUpperCase();
+      wrap.hidden = !cur || !base || cur === base;
+      if (wrap.hidden) { document.getElementById('txn-fx-rate').value = ''; return; }
+      document.getElementById('txn-fx-rate-pair').textContent = '1 ' + cur + ' = ? ' + base;
+      const hint = document.getElementById('txn-fx-rate-hint');
+      const input = document.getElementById('txn-fx-rate');
+      try {
+        const res = await fetch(API + '/fx/convert', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: 1, from_currency: cur, to_currency: base, strict: true,
+                                 on_date: document.getElementById('date').value || null }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.ok && d.rate) {
+          input.placeholder = formatRate(d.rate);
+          hint.textContent = tf('voucherRateOnFile', { rate: formatRate(d.rate) });
+        } else {
+          input.placeholder = '';
+          hint.textContent = tf('voucherRateNone', { pair: cur + '→' + base });
+        }
+      } catch (_) { hint.textContent = ''; }
+    }
+    ['txn-currency', 'date'].forEach((id) => document.getElementById(id)?.addEventListener('change', syncVoucherRate));
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const date = document.getElementById('date').value;
@@ -961,6 +991,8 @@
             reference,
             description,
             currency,
+            fx_rate: (Number(document.getElementById('txn-fx-rate')?.value) > 0
+              ? Number(document.getElementById('txn-fx-rate').value) : null),
             lines,
             entity_links,
             attachment_ids: selectedAttachments.map(a => a.id),

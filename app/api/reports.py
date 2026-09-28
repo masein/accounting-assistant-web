@@ -17,7 +17,13 @@ from app.models.entity import Entity, TransactionEntity
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
 from app.services.cash_service import cash_on_hand as _cash_on_hand_balance
 from app.services.fx_service import get_reporting_currency
-from app.services.reporting.repository import resolve_currency_view
+from app.services.reporting.repository import (
+    _currency_filter,
+    amount_columns,
+    is_base_view,
+    line_dr_cr,
+    resolve_currency_view,
+)
 from app.services.locale_service import get_reporting_locale
 from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
 from app.schemas.report import (
@@ -114,11 +120,14 @@ def get_ledger_summary(
     currency, other_currencies = resolve_currency_view(db, currency)
     # Summed in the database (roadmap §2.6): loading every line into Python
     # took ~1 s at 60k lines. Replaced/undone journals never count.
+    # currency=ALL: every currency at its base-currency value (roadmap §4.6).
+    dr, cr = amount_columns(currency)
     totals = db.execute(
-        select(TransactionLine.account_id, func.sum(TransactionLine.debit), func.sum(TransactionLine.credit))
-        .join(Transaction, TransactionLine.transaction_id == Transaction.id)
-        .where(Transaction.deleted_at.is_(None), Transaction.currency == currency)
-        .group_by(TransactionLine.account_id)
+        _currency_filter(
+            select(TransactionLine.account_id, func.sum(dr), func.sum(cr))
+            .join(Transaction, TransactionLine.transaction_id == Transaction.id)
+            .where(Transaction.deleted_at.is_(None))
+            .group_by(TransactionLine.account_id), currency)
     ).all()
     accounts = {a.id: a for a in db.execute(
         select(Account).where(Account.id.in_([t[0] for t in totals]))
@@ -192,21 +201,22 @@ def get_account_detail(
         .where(TransactionLine.account_id == acc.id, Transaction.deleted_at.is_(None))
     )
     currency, other_currencies = resolve_currency_view(db, currency)
-    q = q.where(Transaction.currency == currency)
+    q = _currency_filter(q, currency)
     q = q.order_by(Transaction.date, Transaction.created_at, Transaction.id)
     rows = db.execute(q).all()
     lines: list[AccountLineDetail] = []
     debit_turnover = credit_turnover = 0
     for line, txn in rows:
-        debit_turnover += line.debit
-        credit_turnover += line.credit
+        debit, credit = line_dr_cr(line, currency)
+        debit_turnover += debit
+        credit_turnover += credit
         lines.append(
             AccountLineDetail(
                 transaction_date=txn.date,
                 reference=txn.reference,
                 description=txn.description,
-                debit=line.debit,
-                credit=line.credit,
+                debit=debit,
+                credit=credit,
                 line_description=line.line_description,
             )
         )
@@ -294,6 +304,8 @@ def get_entity_transactions(
                 account_code=line.account.code,
                 debit=line.debit,
                 credit=line.credit,
+                base_debit=line.base_debit,
+                base_credit=line.base_credit,
                 line_description=line.line_description,
             )
             for line in t.lines
@@ -873,8 +885,11 @@ def search_transactions(
         .where(Transaction.deleted_at.is_(None))
     )
 
-    if currency:
-        q = q.where(Transaction.currency == currency)
+    base_view = is_base_view(currency)          # every currency, at base value
+    if base_view:
+        from app.services.fx_base import base_currency
+        base_ccy = base_currency(db)
+    q = _currency_filter(q, currency)
 
     if account_code:
         q = q.where(Account.code == account_code)
@@ -932,8 +947,8 @@ def search_transactions(
     sort_col_map = {
         "date": Transaction.date,
         "account_code": Account.code,
-        "debit": TransactionLine.debit,
-        "credit": TransactionLine.credit,
+        "debit": amount_columns(currency)[0],
+        "credit": amount_columns(currency)[1],
         "reference": Transaction.reference,
     }
     sort_col = sort_col_map.get(sort_by, Transaction.date)
@@ -964,18 +979,19 @@ def search_transactions(
     total_debit = 0
     total_credit = 0
     for line, txn, acc in results:
-        total_debit += line.debit
-        total_credit += line.credit
+        debit, credit = line_dr_cr(line, currency)
+        total_debit += debit
+        total_credit += credit
         rows.append(TransactionSearchRow(
             transaction_id=txn.id,
             date=txn.date,
             reference=txn.reference,
             description=txn.description,
-            currency=getattr(txn, "currency", None) or "IRR",
+            currency=(base_ccy if base_view else (getattr(txn, "currency", None) or "IRR")),
             account_code=acc.code,
             account_name=acc.name,
-            debit=line.debit,
-            credit=line.credit,
+            debit=debit,
+            credit=credit,
             line_description=line.line_description,
             entity_names=entity_map.get(txn.id, []),
         ))

@@ -20,6 +20,7 @@ from app.models.adjustment import Adjustment
 from app.models.transaction import Transaction, TransactionLine
 from app.services.account_resolver import resolve_account_code
 from app.services.audit_service import log_audit_event
+from app.services.ledger_posting import default_currency
 from app.services.period_service import assert_period_open
 from app.services.reporting.ledger_service import LedgerService
 
@@ -49,7 +50,7 @@ def _post(db: Session, *, on: date, reference: str, description: str, currency: 
     if total_dr != total_cr or total_dr <= 0:
         raise HTTPException(status_code=400, detail="Adjustment entry must be balanced and non-zero.")
     txn = Transaction(date=on, reference=reference[:128], description=description,
-                      currency=(currency or "IRR").strip().upper())
+                      currency=default_currency(db, currency))
     db.add(txn)
     db.flush()
     for code, debit, credit, line_desc in lines:
@@ -117,7 +118,7 @@ class AccrualCreate(BaseModel):
     amount: int = Field(..., gt=0)
     date: _date
     description: str | None = None
-    currency: str = "IRR"
+    currency: str | None = None          # None: the company's base currency
     direction: str = Field("expense", description="expense (DR expense/CR accrued liability) or income (DR accrued income/CR revenue)")
     auto_reverse: bool = True
     period_months: int = Field(1, ge=1)
@@ -129,7 +130,7 @@ class PrepaymentCreate(BaseModel):
     start_date: _date
     period_months: int = Field(1, ge=1)
     description: str | None = None
-    currency: str = "IRR"
+    currency: str | None = None          # None: the company's base currency
     bank_account_code: str | None = None
 
 
@@ -140,7 +141,7 @@ class DepreciationCreate(BaseModel):
     residual: int = Field(0, ge=0)
     period_months: int = Field(1, ge=1)
     description: str | None = None
-    currency: str = "IRR"
+    currency: str | None = None          # None: the company's base currency
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +154,7 @@ def create_accrual(payload: AccrualCreate, db: Session = Depends(get_db)) -> dic
     """Record an accrual; optionally auto-reverse on the first day of the next
     period so it nets to zero across the two periods."""
     amount = int(payload.amount)
-    cur = (payload.currency or "IRR").upper()
+    cur = default_currency(db, payload.currency)
     desc = payload.description or "Accrual"
     ref = f"ACCR-{payload.date.isoformat()}"
     if payload.direction == "income":
@@ -197,7 +198,7 @@ def create_prepayment(payload: PrepaymentCreate, db: Session = Depends(get_db)) 
     """Record a prepayment (DR prepaid asset / CR bank) and set up an even
     amortization schedule released via /release."""
     amount = int(payload.amount)
-    cur = (payload.currency or "IRR").upper()
+    cur = default_currency(db, payload.currency)
     desc = payload.description or "Prepayment"
     bank = payload.bank_account_code
     if not (bank and db.execute(select(Account.id).where(Account.code == bank)).first()):
@@ -230,7 +231,7 @@ def create_depreciation(payload: DepreciationCreate, db: Session = Depends(get_d
         raise HTTPException(status_code=400, detail="Residual must be less than cost.")
     adj = Adjustment(
         kind="depreciation", description=(payload.description or "Depreciation"),
-        currency=(payload.currency or "IRR").upper(), amount=int(payload.cost),
+        currency=default_currency(db, payload.currency), amount=int(payload.cost),
         residual=int(payload.residual), periods=payload.periods,
         period_months=payload.period_months, start_date=payload.start_date,
         periods_posted=0, status="active",

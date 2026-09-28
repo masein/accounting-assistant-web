@@ -691,10 +691,14 @@
       if (txnSel && [...txnSel.options].some(o => o.value === pref)) {
         txnSel.value = pref;
       }
-      // Manager reports: default to the most common currency in data
+      // Manager reports: several currencies in the books → all of them at
+      // base value (roadmap §4.6); one → that one.
       const mgrSel = document.getElementById('mgr-currency');
       if (mgrSel) {
-        const mgrPref = meta.most_common_currency || pref;
+        const allOpt = [...mgrSel.options].find(o => o.value === 'ALL');
+        if (allOpt) allOpt.textContent = t('currencyAllInBase').replace('{base}', pref);
+        const used = Array.isArray(meta.used_currencies) ? meta.used_currencies : [];
+        const mgrPref = used.length > 1 ? 'ALL' : (meta.most_common_currency || pref);
         if ([...mgrSel.options].some(o => o.value === mgrPref)) {
           mgrSel.value = mgrPref;
         }

@@ -173,6 +173,9 @@ def run_platform_rate_feeds(now: datetime) -> bool:
         with observe_job("rate_feeds"):
             result = rate_feeds.run_all(db, today=now.date())
         db.commit()
+        # entries that were waiting for today's rates get their base amounts
+        from app.services.fx_base import fill_pending_all_companies
+        fill_pending_all_companies(db)
         failed = [r["source"] for r in result.get("results", []) if r.get("error")]
         status.companies_ok, status.companies_failed = 1, 0
         status.last_error = f"failed: {', '.join(failed)}" if failed else None

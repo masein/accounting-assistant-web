@@ -745,6 +745,11 @@
             </select>
             <span id="txn-currency-hint" style="font-size: 0.75rem; color: var(--text-muted);">All lines share this currency.</span>
           </div>
+          <div id="txn-rate-wrap" hidden>
+            <label for="txn-fx-rate"><span data-i18n="voucherRateLabel">Rate</span> <bdi id="txn-fx-rate-pair" dir="ltr"></bdi></label>
+            <input type="number" id="txn-fx-rate" min="0" step="any" dir="ltr" inputmode="decimal">
+            <span id="txn-fx-rate-hint" style="font-size: 0.75rem; color: var(--text-muted);"></span>
+          </div>
         </div>
         <div>
           <label for="description" data-i18n="labelDescription">Description</label>
@@ -1238,7 +1243,7 @@
         <div>
           <label for="mgr-currency" data-i18n="invoiceCurrencyLabel">Currency</label>
           <select id="mgr-currency">
-            <option value="" selected>All (no filter)</option>
+            <option value="ALL" selected data-i18n="currencyAllInBaseShort">All currencies, in the base currency</option>
             <option value="IRR">IRR (Rial)</option>
             <option value="USD">USD ($)</option>
             <option value="EUR">EUR (€)</option>

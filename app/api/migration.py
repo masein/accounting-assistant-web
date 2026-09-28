@@ -18,7 +18,8 @@ import json
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -240,3 +241,92 @@ def migration_pending_dismiss(
     return MigrationPendingResolveResponse(
         id=rec.id, status=rec.status, missing_fields=list(rec.missing_fields or [])
     )
+
+
+# --- Historical journals from another system (roadmap §4.11) ----------------------------
+
+_JOURNAL_KIND = "journal_import"
+_JOURNAL_EXTENSIONS = (".xlsx", ".xls", ".xml", ".csv", ".tsv", ".txt")
+
+
+class JournalReviewIn(BaseModel):
+    token: str = Field(..., min_length=8, max_length=64)
+    preset: str = Field("auto", max_length=16)
+    columns: dict[str, int | None] = Field(default_factory=dict)
+    account_map: dict[str, str] = Field(default_factory=dict)
+
+
+class JournalApplyIn(JournalReviewIn):
+    link_parties: bool = True
+    currency: str | None = Field(None, max_length=8)
+
+
+def _journal_path(token: str):
+    import re
+    import tempfile
+    from pathlib import Path
+    if not re.fullmatch(r"[0-9a-f]{32}", token):
+        raise HTTPException(status_code=422, detail="Unknown upload.")
+    folder = Path(tempfile.gettempdir()) / "journal_imports"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / f"{token}.bin"
+
+
+def _journal_parse(db: Session, token: str, preset: str, columns: dict):
+    from app.core.shared_state import find_upload
+    from app.services import journal_import as ji
+    stored = find_upload(db, _JOURNAL_KIND, token)
+    path = _journal_path(token)
+    if not stored or not path.exists():
+        raise HTTPException(status_code=410, detail="The upload has expired — choose the file again.")
+    return ji.parse_file(ji.read_rows(path.name, path.read_bytes()), preset=preset, columns=columns)
+
+
+@router.post("/journals/preview")
+def journal_import_preview(file: UploadFile = File(...), preset: str = Form("auto"),
+                           db: Session = Depends(get_db)) -> dict:
+    """Read an exported journal and show what would be posted — nothing is yet."""
+    from app.core.shared_state import store_upload
+    from app.services import journal_import as ji
+    name = file.filename or "journal"
+    if not name.lower().endswith(_JOURNAL_EXTENSIONS):
+        raise HTTPException(status_code=422, detail="Upload an Excel or CSV export.")
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status_code=422, detail="The file is empty.")
+    if len(content) > _MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (20 MB at most).")
+    token = hashlib.sha256(content).hexdigest()[:32]
+    parsed = ji.parse_file(ji.read_rows(name, content), preset=preset)
+    _journal_path(token).write_bytes(content)
+    store_upload(db, _JOURNAL_KIND, token, str(_journal_path(token)))
+    out = ji.review(db, parsed)
+    out.update({"token": token, "filename": name[:120], "presets": list(ji.PRESETS), "fields": list(ji.FIELDS)})
+    return out
+
+
+@router.post("/journals/review")
+def journal_import_review(body: JournalReviewIn, db: Session = Depends(get_db)) -> dict:
+    """The same file again with corrected columns, preset or account choices."""
+    from app.services import journal_import as ji
+    parsed = _journal_parse(db, body.token, body.preset, body.columns)
+    out = ji.review(db, parsed, body.account_map)
+    out.update({"token": body.token, "presets": list(ji.PRESETS), "fields": list(ji.FIELDS)})
+    return out
+
+
+@router.post("/journals/apply")
+def journal_import_apply(body: JournalApplyIn, db: Session = Depends(get_db)) -> dict:
+    from app.core.shared_state import drop_upload
+    from app.services import journal_import as ji
+    parsed = _journal_parse(db, body.token, body.preset, body.columns)
+    out = ji.apply(db, parsed, account_map=body.account_map, currency=body.currency, link_parties=body.link_parties)
+    log_audit_event(db, "journal_import", "migration", entity_id=body.token,
+                    detail=json.dumps({"preset": parsed["preset"], **out}, ensure_ascii=False))
+    drop_upload(db, _JOURNAL_KIND, body.token)
+    db.commit()
+    try:
+        _journal_path(body.token).unlink()
+    except OSError:
+        pass
+    return out

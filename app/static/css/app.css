@@ -861,3 +861,8 @@
 /* Installable app (roadmap §4.10): the camera button only where there is a camera to point */
 .ai-camera-btn { display: none; }
 @media (pointer: coarse) { .ai-camera-btn { display: inline-flex; } }
+
+/* Historical journal import (roadmap §4.11): the column mapper */
+.ji-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.4rem 0.8rem; margin: 0.5rem 0; }
+.ji-col { font-size: 0.8rem; font-weight: 600; margin: 0; }
+.ji-col select { margin: 0.15rem 0 0; }

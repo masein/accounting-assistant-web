@@ -154,6 +154,22 @@ one summary, gone devices removed, `notifications.pushed_at` so nothing goes
 twice (migration 051 marks existing alerts pushed). "Phone notifications" in
 the account menu. §4.10 done except a native app.
 
+**§4 continued — 2026-09-27:** ✅ 4.11 historical journals (#166):
+`app/services/journal_import.py` + `/migration/journals/{preview,review,apply}`
+— one importer for the journal exports of Hesabfa, Sepidar, Holoo, Xero,
+QuickBooks and any one-line-per-row sheet (xlsx, SpreadsheetML .xls, CSV/TSV):
+header row found by column names in English and Persian (under a report title
+too), preset guessed from the headers (QuickBooks: month-first dates, a filled
+date starts the next voucher; Iranian: Jalali dates, Persian digits), every
+detected column editable; amounts with thousands separators, parentheses,
+trailing minus, CR; whole units rounded half-up with a rounding plug so a
+balanced voucher stays balanced; accounts matched by code, then name, then the
+user's remembered choice; unbalanced / closed-period / future / already
+imported (`IMPORT-<preset>-<voucher>`) / unmapped vouchers reported, never
+posted; parties linked as client or supplier from the account they sit on.
+Later: vendor-specific samples as customers send them, opening balances from
+the same files, sales/purchase invoices as documents.
+
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
 amount within a week or same reference), payments/expense claims split just

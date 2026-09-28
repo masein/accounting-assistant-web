@@ -32,13 +32,16 @@ from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
 from app.services.ai_accountant.anthropic_client import AIAccountantError
 from app.services.ai_accountant.execute_service import (
     PROPOSAL_TTL,
+    ApprovalRequired,
     PermissionDenied,
     ProposalCancelled,
     ProposalExpired,
     ProposalNotFound,
     UndoNotApplicable,
     UndoWindowClosed,
+    approve_proposal,
     execute_proposal,
+    reject_proposal,
     reverse_action,
     undo_action,
 )
@@ -107,6 +110,10 @@ class ChatProposal(BaseModel):
     summary: str
     preview: dict
     expires_at: str | None = None
+    # guardrails (§5.6): confirming sends it for a second person's approval
+    needs_approval: bool = False
+    approval_threshold: int | None = None
+    amount_in_base: int | None = None
 
 
 class ChatResponse(BaseModel):
@@ -478,6 +485,9 @@ async def chat(
                 summary=p.get("summary", ""),
                 preview=p.get("preview", {}),
                 expires_at=p.get("expires_at"),
+                needs_approval=bool(p.get("needs_approval")),
+                approval_threshold=p.get("approval_threshold"),
+                amount_in_base=p.get("amount_in_base"),
             )
             for p in result.proposals
         ],
@@ -697,6 +707,10 @@ def execute(
             actor_user_id=user.user_id,
             actor_username=user.username,
         )
+    except ApprovalRequired as e:
+        # above the company's threshold: waiting for someone else (§5.6)
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=202, content={**e.info, "confirmation_token": payload.confirmation_token})
     except ProposalNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ProposalExpired as e:
@@ -712,6 +726,78 @@ def execute(
         tool_name=result.tool_name,
         idempotent=result.idempotent,
     )
+
+
+# --- Guardrails: two-person approval (roadmap §5.6) -------------------------------------------------
+
+class GuardrailsUpdate(BaseModel):
+    approval_threshold: int | None = Field(default=None, ge=0, description="Base-currency amount; empty = off")
+
+
+@router.get("/guardrails")
+def read_guardrails(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    from app.services.ai_accountant import guardrails
+    return {**guardrails.get_settings(db), "approvers": guardrails.approvers(db)}
+
+
+@router.put("/guardrails")
+def save_guardrails(payload: GuardrailsUpdate, db: Session = Depends(get_db),
+                    user: SessionUser = Depends(get_current_user)) -> dict:
+    from app.services.ai_accountant import guardrails
+    before = guardrails.get_settings(db)
+    out = guardrails.save_settings(db, approval_threshold=payload.approval_threshold)
+    log_audit_event(db, action="update", entity_type="ai_guardrails", entity_id="approval_threshold",
+                    user_id=user.user_id, username=user.username,
+                    detail=json.dumps({"from": before["approval_threshold"], "to": out["approval_threshold"]}))
+    db.commit()
+    return {**out, "approvers": guardrails.approvers(db)}
+
+
+@router.get("/approvals")
+def list_approvals(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    """Proposals waiting for a second person; yours are listed but not yours to approve."""
+    from app.services.ai_accountant import guardrails
+    items = [guardrails.describe(db, p) for p in guardrails.waiting(db)]
+    for it in items:
+        it["mine"] = str(it["requested_by_id"]) == str(user.user_id)
+    return {"items": items}
+
+
+class RejectPayload(BaseModel):
+    note: str | None = Field(default=None, max_length=1000)
+
+
+@router.post("/approvals/{token}/approve", response_model=ExecuteResponse)
+def approve(token: str, db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> ExecuteResponse:
+    try:
+        result = approve_proposal(db, confirmation_token=token, approver_user_id=user.user_id,
+                                  approver_username=user.username)
+    except ProposalNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ProposalExpired as e:
+        raise HTTPException(status_code=410, detail=str(e))
+    except ProposalCancelled as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return ExecuteResponse(transaction_id=result.transaction_id, audit_log_id=result.audit_log_id,
+                           confirmation_token=result.confirmation_token, tool_name=result.tool_name,
+                           idempotent=result.idempotent)
+
+
+@router.post("/approvals/{token}/reject")
+def reject(token: str, payload: RejectPayload, db: Session = Depends(get_db),
+           user: SessionUser = Depends(get_current_user)) -> dict:
+    try:
+        row = reject_proposal(db, confirmation_token=token, approver_user_id=user.user_id,
+                              approver_username=user.username, note=payload.note)
+    except ProposalNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ProposalCancelled as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return {"status": "rejected", "confirmation_token": str(row.confirmation_token)}
 
 
 class BriefingPayload(BaseModel):

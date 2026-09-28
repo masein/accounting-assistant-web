@@ -360,7 +360,7 @@
         }
         if (currentRole === 'owner') {
           loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); loadApiKeys();
-          loadAIConfig(); loadAnthropicConfig(); loadAIUsage();
+          loadAIConfig(); loadAnthropicConfig(); loadAIUsage(); loadGuardrails();
         }
         if (isSuperadmin) {
           loadAILimits();
@@ -598,6 +598,43 @@
           const d = await res.json().catch(() => ({}));
           if (!res.ok) { showAlert(d.detail || t('aiUsageSaveFailed'), true); return; }
           renderAIUsage(d);
+          showAlert(t('aiUsageSaved'));
+        } catch (_) { showAlert(t('aiUsageSaveFailed'), true); } finally { btn.disabled = false; }
+      });
+    })();
+
+    // ── AI approvals (§5.6): the two-person threshold (owner) ──
+    function renderGuardrails(d) {
+      document.getElementById('ai-guard-section').style.display = '';
+      const inp = document.getElementById('ai-guard-threshold');
+      inp.value = d.approval_threshold ? String(d.approval_threshold) : '';
+      inp.placeholder = t('aiGuardOff');
+      const who = (d.approvers || []).map(a => a.username).join(', ');
+      const el = document.getElementById('ai-guard-approvers');
+      el.textContent = who ? tf('aiGuardApprovers', { who }) : t('aiGuardNoApprovers');
+      el.style.color = (!who && d.approval_threshold) ? '#b45309' : 'var(--text-muted)';
+    }
+    async function loadGuardrails() {
+      if (!document.getElementById('ai-guard-section')) return;
+      try {
+        const res = await fetch(API + '/ai-accountant/guardrails');
+        if (res.ok) renderGuardrails(await res.json());
+      } catch (_) { /* hidden */ }
+    }
+    (function wireGuardrails() {
+      const btn = document.getElementById('ai-guard-save');
+      if (btn) btn.addEventListener('click', async () => {
+        const raw = (document.getElementById('ai-guard-threshold').value || '').trim();
+        const v = raw === '' ? null : Number(raw);
+        if (v !== null && (!Number.isFinite(v) || v < 0)) { showAlert(t('aiUsageBadNumber'), true); return; }
+        btn.disabled = true;
+        try {
+          const res = await fetch(API + '/ai-accountant/guardrails', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approval_threshold: v === null ? null : Math.round(v) }) });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('aiUsageSaveFailed'), true); return; }
+          renderGuardrails(d);
           showAlert(t('aiUsageSaved'));
         } catch (_) { showAlert(t('aiUsageSaveFailed'), true); } finally { btn.disabled = false; }
       });

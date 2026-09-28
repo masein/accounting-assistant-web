@@ -21,7 +21,7 @@
       if (page === 'purchase-orders') { loadPurchaseOrders(); }
       if (page === 'expenses') { loadExpenses(); }
       if (page === 'time') { loadTimeTab(); }
-      if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); loadCompanyProfile(); }
+      if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); loadCompanyProfile(); if (typeof loadGuardrails === 'function') loadGuardrails(); }
       if (page === 'companies') { loadCompanies(); }
       if (page === 'migration') { migrationInitPage(); }
       if (page === 'petty-cash') { pettyInitPage(); }

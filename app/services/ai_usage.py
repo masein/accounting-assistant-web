@@ -44,6 +44,9 @@ DEFAULT_LIMITS: dict[str, int] = {
     # AI requests (a chat message, an OCR, a suggestion) per minute
     "user_requests_per_minute": 20,
     "company_requests_per_minute": 60,
+    # the assistant's budget per chat message (guardrails, roadmap §5.6)
+    "tool_calls_per_message": 60,
+    "proposals_per_message": 20,
 }
 
 # USD per million tokens: (input, output, cached input). Public list prices,

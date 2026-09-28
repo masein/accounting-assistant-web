@@ -550,6 +550,11 @@
           <button type="button" class="btn btn-primary btn-sm ai-new-chat" id="ai-acct-new-chat" data-i18n="chatNewBtn">+ New chat</button>
           <input type="search" id="ai-acct-session-search" class="ai-session-search" data-i18n-placeholder="chatSearchPlaceholder" placeholder="Search chats…" autocomplete="off">
           <div id="ai-acct-session-list" class="ai-session-list" role="list"></div>
+          <details id="ai-approvals" class="ai-prefs" hidden open>
+            <summary><span data-i18n="aiApprovalsTitle">Waiting for approval</span><span id="ai-approvals-count"></span></summary>
+            <p class="ai-prefs-hint" data-i18n="aiApprovalsHint">Entries the assistant drafted above your company's approval limit. Someone other than the person who asked approves them.</p>
+            <div id="ai-approvals-list"></div>
+          </details>
           <details id="ai-prefs" class="ai-prefs" hidden>
             <summary><span data-i18n="aiPrefsTitle">What I've learned</span><span id="ai-prefs-count"></span></summary>
             <p class="ai-prefs-hint" data-i18n="aiPrefsHint">When you correct an account or a party, I remember it for wording like that.</p>
@@ -2616,6 +2621,17 @@
         </div>
         <div id="ai-usage-users"></div>
         <div id="ai-usage-breakdown" style="display:flex; gap:1rem; flex-wrap:wrap; margin-top:0.6rem;"></div>
+      </div>
+
+      <div id="ai-guard-section" style="display:none; margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;" data-i18n="aiGuardTitle">AI approvals</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="aiGuardDesc">Anything the assistant drafts at or above this amount (in the base currency) is recorded only after a second person — an owner, CFO or manager other than the one who asked — approves it. Leave empty for no limit.</p>
+        <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
+          <div><label for="ai-guard-threshold" data-i18n="aiGuardThreshold">Approval needed from</label>
+            <input type="number" id="ai-guard-threshold" min="0" step="1" style="width:12rem;" dir="ltr"></div>
+          <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-secondary" id="ai-guard-save" data-i18n="aiSave">Save</button></div>
+        </div>
+        <p id="ai-guard-approvers" style="font-size:0.82rem; color:var(--text-muted); margin:0.5rem 0 0;"></p>
       </div>
 
       <div id="msg-bots-card" style="display:none; margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">

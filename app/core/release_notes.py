@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.11"
+CURRENT_RELEASE = "2026.09.28.12"
 
 
 @dataclass(frozen=True)
@@ -964,6 +964,30 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "صورت‌های مالی FRS 102 اکنون کاملاً از دفاتر شما ساخته می‌شوند: همه حساب‌ها در ترازنامه هستند، برگشت از فروش از درآمد کم می‌شود، استهلاک نمایش داده می‌شود، تجدید ارزیابی در سود جامع دیگر می‌آید، تغییرات حقوق مالکانه صدور سهام، سود سهام و انتقال بین اندوخته‌ها را برای هر دو سال نشان می‌دهد و با ترازنامه می‌خواند، و صورت جریان نقد سود سهام پرداختی، وام مدیران و تطبیق سود عملیاتی با نقد حاصل از عملیات را دارد.",
                     "es": "Los estados FRS 102 salen ahora por completo de tu contabilidad: todas las cuentas están en el balance, las devoluciones reducen la cifra de negocios, se indica la amortización, una revalorización aparece como otro resultado integral, los cambios en el patrimonio muestran emisiones, dividendos y traspasos de ambos años y cuadran con el balance, y el flujo de caja muestra dividendos pagados, préstamos de administradores y la conciliación del resultado de explotación con la caja generada.",
                     "ar": "تُبنى قوائم FRS 102 الآن بالكامل من دفاترك: كل الحسابات في الميزانية، ومردودات المبيعات تخفض الإيرادات، ويُفصح عن الاستهلاك والإطفاء، وتظهر إعادة التقييم في الدخل الشامل الآخر، وتعرض التغيرات في حقوق الملكية إصدار الأسهم والتوزيعات والتحويلات لكلا العامين وتطابق الميزانية، وتعرض التدفقات النقدية التوزيعات المدفوعة وقروض المديرين وتسوية الربح التشغيلي مع النقد الناتج من العمليات.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.12",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="ai-approvals",
+                page="settings",
+                page_by_role={"cfo": "ai-accountant", "manager": "ai-accountant"},
+                roles=("owner", "cfo", "manager"),
+                title={
+                    "en": "A second pair of eyes on large AI entries",
+                    "fa": "تأیید نفر دوم برای سندهای بزرگ دستیار",
+                    "es": "Una segunda aprobación para los asientos grandes de la IA",
+                    "ar": "موافقة شخص ثانٍ على قيود المساعد الكبيرة",
+                },
+                body={
+                    "en": "Settings → AI approvals: set an amount, and anything the assistant drafts at or above it waits for someone other than the person who asked — an owner, CFO or manager — to approve it in the AI chat (Waiting for approval) before it is recorded. The assistant also no longer drafts anything dated in a closed period, and it stops after a set number of steps in one message.",
+                    "fa": "«تنظیمات ← تأیید سندهای دستیار»: یک مبلغ تعیین کنید؛ هر سندی که دستیار با این مبلغ یا بیشتر پیش‌نویس کند، تا کسی غیر از درخواست‌کننده — مالک، مدیر مالی یا مدیر — آن را در گفتگوی هوش مصنوعی («در انتظار تأیید») تأیید نکند ثبت نمی‌شود. دستیار دیگر برای دوره‌های بسته سند پیش‌نویس نمی‌کند و در یک پیام بیش از تعداد معینی مرحله انجام نمی‌دهد.",
+                    "es": "Ajustes → Aprobaciones de la IA: fija un importe y todo lo que el asistente prepare por ese importe o más esperará a que otra persona —propietario, director financiero o gerente— lo apruebe en el chat de IA (Pendientes de aprobación) antes de registrarse. Además, el asistente ya no prepara nada con fecha en un periodo cerrado y se detiene tras un número fijo de pasos por mensaje.",
+                    "ar": "الإعدادات ← موافقات المساعد: حدّد مبلغًا، وكل ما يعدّه المساعد بهذا المبلغ أو أكثر ينتظر موافقة شخص غير من طلبه — مالك أو مدير مالي أو مدير — في محادثة الذكاء الاصطناعي («بانتظار الموافقة») قبل تسجيله. ولم يعد المساعد يعدّ قيودًا بتاريخ في فترة مغلقة، ويتوقف بعد عدد محدد من الخطوات في الرسالة الواحدة.",
                 },
             ),
         ),

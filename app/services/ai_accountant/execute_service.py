@@ -64,6 +64,15 @@ class ProposalNotFound(Exception): ...
 class ProposalExpired(Exception): ...
 class ProposalCancelled(Exception): ...
 class PermissionDenied(Exception): ...
+
+
+class ApprovalRequired(Exception):
+    """Above the company's approval threshold: the proposal now waits for
+    someone else who can approve (guardrails, roadmap §5.6)."""
+
+    def __init__(self, info: dict):
+        super().__init__(info.get("detail", "Sent for approval."))
+        self.info = info
 class UndoWindowClosed(Exception): ...
 class UndoNotApplicable(Exception): ...
 
@@ -154,7 +163,18 @@ def execute_proposal(
         )
 
     if proposal.status == "cancelled":
-        raise ProposalCancelled("This proposal was cancelled — cannot execute.")
+        raise ProposalCancelled("This proposal was cancelled — cannot execute."
+                                + (" It was rejected by an approver." if proposal.approval_status == "rejected" else ""))
+
+    # Two-person approval: above the threshold the requester's Confirm sends
+    # it for approval instead (approve_proposal executes it).
+    from app.services.ai_accountant import guardrails
+    if proposal.approval_status == "requested":
+        if guardrails.approval_expired(proposal):
+            proposal.status = "expired"
+            db.commit()
+            raise ProposalExpired("The approval request expired; ask the assistant to draft it again.")
+        raise ApprovalRequired(guardrails.request_approval(db, proposal))
 
     # Expiry check (10 min from creation).
     created = proposal.created_at
@@ -168,6 +188,88 @@ def execute_proposal(
             f"{int(PROPOSAL_TTL.total_seconds())}s). Ask the assistant to draft a new one."
         )
 
+    if guardrails.needs_approval(db, proposal):
+        info = guardrails.request_approval(db, proposal)
+        db.commit()
+        raise ApprovalRequired(info)
+
+    txn_id, audit_id = _dispatch(db, proposal, actor_user_id=actor_user_id, actor_username=actor_username,
+                                 ip_address=ip_address)
+
+    # Mark the proposal executed inside the same DB transaction.
+    proposal.status = "executed"
+    proposal.executed_at = datetime.now(timezone.utc)
+    proposal.executed_audit_id = uuid.UUID(audit_id)
+    db.commit()
+
+    return ExecutionResult(
+        transaction_id=txn_id,
+        audit_log_id=audit_id,
+        confirmation_token=str(proposal.confirmation_token),
+        tool_name=proposal.tool_name,
+        idempotent=False,
+    )
+
+
+def approve_proposal(db: Session, *, confirmation_token: str, approver_user_id: str,
+                     approver_username: str | None = None, ip_address: str | None = None) -> ExecutionResult:
+    """The second person: execute a proposal waiting for approval, as the
+    approver. The requester can't approve their own."""
+    from app.services.ai_accountant import guardrails
+    from app.services.audit_service import log_audit_event
+    proposal = _resolve_proposal(db, confirmation_token)
+    if proposal.status != "pending" or proposal.approval_status != "requested":
+        raise ProposalCancelled("This proposal is not waiting for approval.")
+    if str(proposal.user_id) == str(approver_user_id):
+        raise PermissionDenied("You asked for this one — someone else has to approve it.")
+    if guardrails.approval_expired(proposal):
+        proposal.status = "expired"
+        db.commit()
+        raise ProposalExpired("The approval request expired; ask the assistant to draft it again.")
+    proposal.approval_status = "approved"
+    proposal.approved_by = str(approver_user_id)
+    proposal.approved_at = datetime.now(timezone.utc)
+    txn_id, audit_id = _dispatch(db, proposal, actor_user_id=approver_user_id, actor_username=approver_username,
+                                 ip_address=ip_address)
+    proposal.status = "executed"
+    proposal.executed_at = datetime.now(timezone.utc)
+    proposal.executed_audit_id = uuid.UUID(audit_id)
+    log_audit_event(db, action="approve", entity_type="ai_proposal", entity_id=str(proposal.id),
+                    detail=json.dumps({"tool": proposal.tool_name, "amount": proposal.amount,
+                                       "requested_by": proposal.user_id, "approved_by": approver_user_id,
+                                       "executed_audit_id": audit_id, "transaction_id": txn_id}),
+                    user_id=approver_user_id, username=approver_username, ip_address=ip_address)
+    db.commit()
+    return ExecutionResult(transaction_id=txn_id, audit_log_id=audit_id,
+                           confirmation_token=str(proposal.confirmation_token), tool_name=proposal.tool_name,
+                           idempotent=False)
+
+
+def reject_proposal(db: Session, *, confirmation_token: str, approver_user_id: str,
+                    approver_username: str | None = None, note: str | None = None) -> AIProposal:
+    from app.services.audit_service import log_audit_event
+    proposal = _resolve_proposal(db, confirmation_token)
+    if proposal.status != "pending" or proposal.approval_status != "requested":
+        raise ProposalCancelled("This proposal is not waiting for approval.")
+    if str(proposal.user_id) == str(approver_user_id):
+        raise PermissionDenied("You asked for this one — someone else decides on it.")
+    proposal.status = "cancelled"
+    proposal.approval_status = "rejected"
+    proposal.approved_by = str(approver_user_id)
+    proposal.approved_at = datetime.now(timezone.utc)
+    proposal.approval_note = (note or "").strip()[:1000] or None
+    log_audit_event(db, action="reject", entity_type="ai_proposal", entity_id=str(proposal.id),
+                    detail=json.dumps({"tool": proposal.tool_name, "amount": proposal.amount,
+                                       "requested_by": proposal.user_id, "rejected_by": approver_user_id,
+                                       "note": proposal.approval_note}),
+                    user_id=approver_user_id, username=approver_username)
+    db.commit()
+    return proposal
+
+
+def _dispatch(db: Session, proposal: AIProposal, *, actor_user_id: str, actor_username: str | None,
+              ip_address: str | None) -> tuple[str | None, str]:
+    """Run a proposal's executor; returns (transaction_id, audit_log_id)."""
     # Dispatch by tool_name. Only the v1 scope (create_transaction) is
     # implemented; add elif branches as new proposal tools land.
     if proposal.tool_name == "propose_create_transaction":
@@ -242,20 +344,7 @@ def execute_proposal(
             f"No executor for tool {proposal.tool_name!r} — this tool's "
             f"execute path has not been implemented yet."
         )
-
-    # Mark the proposal executed inside the same DB transaction.
-    proposal.status = "executed"
-    proposal.executed_at = datetime.now(timezone.utc)
-    proposal.executed_audit_id = uuid.UUID(audit_id)
-    db.commit()
-
-    return ExecutionResult(
-        transaction_id=txn_id,
-        audit_log_id=audit_id,
-        confirmation_token=str(proposal.confirmation_token),
-        tool_name=proposal.tool_name,
-        idempotent=False,
-    )
+    return txn_id, audit_id
 
 
 def _execute_create_transaction(

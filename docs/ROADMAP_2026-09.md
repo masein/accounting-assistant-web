@@ -344,6 +344,23 @@ fixed-asset gains/losses, stocks, debtors, creditors, provisions) with any
 difference shown as its own line. §3 done except مودیان phase 2 and HMRC
 direct submission.
 
+✅ 5.6 guardrails (`app/services/ai_accountant/guardrails.py`, migration 057):
+every proposal passes `guardrails.review` in the orchestrator right after the
+tool makes it (whichever of the seven creation paths) — one dated in a closed
+period is cancelled and the model told why (only the entry tool checked
+before; the posting path still refuses at execution); its base-currency
+amount and summary are stored. Two-person approval: the owner's threshold
+(`ai_guardrails` setting, Settings → AI approvals, lists who can approve);
+at or above it the requester's Confirm (chat or messenger) returns 202 and
+the proposal waits up to 7 days for someone else with `approvals:write`
+(owner/CFO/manager) — "Waiting for approval" in the chat sidebar and an
+"Approval needed" bell item; approve executes as the approver and writes an
+append-only `approve` audit row naming both, reject cancels with a note. An
+amount without a rate counts as over. Budget per message: `tool_calls_per_message`
+(60) and `proposals_per_message` (20) in platform `ai_limits`; past them the
+calls get error results, and a model that keeps calling is stopped with every
+call answered so the next request stays valid.
+
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
 amount within a week or same reference), payments/expense claims split just
@@ -487,7 +504,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 5.3 | **13-week cash forecast that learns**: recurring rules + open AR/AP + payroll dates + commitments → scenario ("what if the Mellat cheque bounces"); expose as a tool and on the dashboard | dashboard forecast today is a moving average |
 | 5.4 | **Correction memory**: when the user edits a proposed category/entity, store the (description pattern → account/entity) preference per company and feed it to `search_accounts`/`find_entity` and statement categorisation | QuickBooks-style learning; cuts repeat questions |
 | 5.5 | **Evaluation harness**: turn `scripts/model_eval.py` into a CI-able eval set (fa/en scenarios, expected tool trajectory + card contents), run nightly against the configured model, alert on regressions; sample 10 % of prod turns into an offline review queue (no PII beyond the tenant) | model/prompt changes are only checked by hand today |
-| 5.6 | **Guardrails**: max proposal amount vs source amounts already exists — add per-company confirm thresholds (two-person approval above X), refuse to post into closed periods from chat (server-side), tool-call budget per turn | agent safety |
+| 5.6 | ✅ **Guardrails** (2026-09-28): max proposal amount vs source amounts already exists — add per-company confirm thresholds (two-person approval above X), refuse to post into closed periods from chat (server-side), tool-call budget per turn | agent safety |
 | 5.7 | **Voice notes** (Persian speech-to-text via Metis) into the chat; **WhatsApp/Telegram inbound bot** for personal tenants ("۵۰ هزار نان") | the daily-diary use case lives in messengers |
 
 ## 6. Quality engineering (tests to add)

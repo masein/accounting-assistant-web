@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.4"
+CURRENT_RELEASE = "2026.09.28.5"
 
 
 @dataclass(frozen=True)
@@ -799,6 +799,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "داشبورد، موجودی نقد، بودجه، دارایی خالص، بینش‌ها و پاسخ‌های حسابدار هوشمند حالا همهٔ ارزها را با نرخی که هر سند با آن ثبت شده، به ارز خودتان جمع می‌زنند — پیش از این دلار با ریال یا پوند مثل عدد ساده جمع می‌شد. صورت‌حساب بانک همچنان با اسناد همان ارز مقایسه می‌شود. اگر در «تنظیمات ← ارز و نرخ تبدیل» آمده که اسنادی به ریال ثبت شده‌اند در حالی که دفاتر شما به ارز دیگری است، با یک کلیک ارزشان اصلاح می‌شود.",
                     "es": "El panel, la caja, los presupuestos, el patrimonio, las alertas y las respuestas del contable IA suman ahora todas las monedas al tipo con que se registró cada asiento, en tu propia moneda; antes se sumaban dólares y libras como simples números. Un extracto bancario se sigue comparando con los asientos de su moneda. Si Ajustes → Moneda y cambio indica asientos marcados IRR aunque tus libros estén en otra moneda, un clic los corrige.",
                     "ar": "لوحة المعلومات والنقد والميزانيات وصافي الثروة والتنبيهات وإجابات المحاسب الذكي تجمع الآن كل العملات بالسعر الذي سُجّل به كل قيد، بعملتك أنت — كان الدولار يُجمع مع الجنيه أو الريال كأرقام عادية. ويبقى كشف البنك يُقارن بقيود عملته. وإن ظهر في الإعدادات ← العملة والصرف أن قيودًا معلّمة بالريال بينما دفاترك بعملة أخرى، فنقرة واحدة تصحّحها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.5",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="correction-memory",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "The assistant remembers your corrections",
+                    "fa": "دستیار اصلاح‌های شما را به خاطر می‌سپارد",
+                    "es": "El asistente recuerda tus correcciones",
+                    "ar": "المساعد يتذكّر تصحيحاتك",
+                },
+                body={
+                    "en": "Post a bank-statement row to another account than the one suggested, move an entry to a different account, or change its party — and the next statement row or entry with the same wording gets your choice. You can also just say \"always put Snapp under travel\". The chat page lists what it learned (What I've learned), and any of it can be removed.",
+                    "fa": "ردیف صورت‌حساب بانک را به حسابی غیر از پیشنهادی ثبت کنید، سندی را به حساب دیگری ببرید یا طرف حسابش را عوض کنید — ردیف یا سند بعدی با همان عبارت انتخاب شما را می‌گیرد. می‌توانید فقط بگویید «همیشه اسنپ رو بزن تو ایاب و ذهاب». صفحهٔ گفتگو آنچه یاد گرفته را نشان می‌دهد («آنچه یاد گرفته‌ام») و هر کدام را می‌شود حذف کرد.",
+                    "es": "Contabiliza una línea del extracto en otra cuenta que la sugerida, mueve un asiento a otra cuenta o cambia su tercero, y la próxima línea o asiento con el mismo texto recibirá tu elección. También puedes decir «pon siempre Snapp en desplazamientos». La página del chat muestra lo aprendido («Lo que he aprendido») y se puede borrar.",
+                    "ar": "رحّل سطر كشف البنك إلى حساب غير المقترح، أو انقل قيدًا إلى حساب آخر أو غيّر طرفه — وسيحصل السطر أو القيد التالي بالعبارة نفسها على اختيارك. ويمكنك أن تقول ببساطة «ضع سناب دائمًا تحت التنقلات». تعرض صفحة المحادثة ما تعلّمه («ما تعلّمته») ويمكن حذف أي منه.",
                 },
             ),
         ),

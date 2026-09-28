@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import json
 import uuid
+from uuid import UUID
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -818,6 +819,49 @@ def reverse(
         audit_log_id=result.audit_log_id,
         mode=result.mode,
     )
+
+
+# ─── Correction memory (roadmap §5.4) ─────────────────────────────────
+
+class PreferenceCreate(BaseModel):
+    description: str = Field(..., min_length=2, max_length=256)
+    account_code: str | None = Field(None, max_length=64)
+    entity_id: UUID | None = None
+
+
+@router.get("/preferences")
+def list_preferences(db: Session = Depends(get_db)) -> list[dict]:
+    """What was learned from the user's corrections: wording → account/party."""
+    from app.services.learned_preferences import describe, list_all
+    return [describe(db, p) for p in list_all(db)]
+
+
+@router.post("/preferences", status_code=201)
+def add_preference(payload: PreferenceCreate, db: Session = Depends(get_db)) -> dict:
+    from app.models.account import Account, AccountLevel
+    from app.models.entity import Entity
+    from app.services.learned_preferences import describe, remember
+    if payload.account_code:
+        acc = db.execute(select(Account).where(Account.code == payload.account_code.strip())).scalars().first()
+        if acc is None or acc.level == AccountLevel.GROUP or acc.is_active is False:
+            raise HTTPException(status_code=422, detail=f"Account {payload.account_code} is not a postable account.")
+    if payload.entity_id and db.get(Entity, payload.entity_id) is None:
+        raise HTTPException(status_code=422, detail="Entity not found.")
+    pref = remember(db, payload.description, account_code=(payload.account_code or "").strip() or None,
+                    entity_id=payload.entity_id, source="manual")
+    if pref is None:
+        raise HTTPException(status_code=422, detail="Give an account or a party, and wording that is more than "
+                                                    "numbers and common words.")
+    db.commit()
+    return describe(db, pref)
+
+
+@router.delete("/preferences/{pref_id}", status_code=204)
+def delete_preference(pref_id: UUID, db: Session = Depends(get_db)) -> None:
+    from app.services.learned_preferences import forget
+    if not forget(db, pref_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    db.commit()
 
 
 @router.get("/proposals/{token}", response_model=ProposalRead)

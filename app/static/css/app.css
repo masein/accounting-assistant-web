@@ -462,6 +462,13 @@
       padding-bottom: 0.45rem;
     }
     .fx-hint { color: var(--text-muted); font-size: 0.82rem; margin: 0 0 0.5rem 0; }
+    .ai-prefs { margin-top: 0.6rem; border-top: 1px solid var(--border); padding-top: 0.5rem; font-size: 0.82rem; }
+    .ai-prefs summary { cursor: pointer; font-weight: 600; color: var(--text); padding: 0.2rem 0; }
+    .ai-prefs-hint, .ai-prefs-empty { color: var(--text-muted); margin: 0.3rem 0; font-size: 0.78rem; }
+    .ai-pref { display: flex; gap: 0.4rem; align-items: flex-start; padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
+    .ai-pref-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .ai-pref-meta { display: block; color: var(--text-muted); font-size: 0.74rem; }
+    .ai-prefs #ai-prefs-list { max-height: 260px; overflow-y: auto; }
     .fx-indent { margin-inline-start: 1.6rem; }
     .fx-check { display: flex; gap: 0.4rem; align-items: center; font-size: 0.86rem; margin: 0.25rem 0; }
     .fx-inline { display: inline-flex; gap: 0.35rem; align-items: center; font-size: 0.86rem; }

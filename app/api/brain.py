@@ -348,6 +348,11 @@ def batch_approve_rows(
             row.recon_status = "matched"
             row.user_approved = True
             created += 1
+            # The user overruled the suggestion: next time this narration
+            # comes, suggest what they chose (roadmap §5.4).
+            if approval.account_code and approval.account_code != row.suggested_account_code:
+                from app.services.learned_preferences import remember
+                remember(db, row.description, account_code=approval.account_code, source="statement")
 
     s.status = "approved" if all(
         r.recon_status in ("matched", "skipped", "duplicate") for r in db.execute(

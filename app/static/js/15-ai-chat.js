@@ -84,6 +84,45 @@
         if (idx < 0) return safe;
         return safe.slice(0, idx) + '<mark>' + safe.slice(idx, idx + q.length) + '</mark>' + safe.slice(idx + q.length);
       }
+      // What the assistant learned from corrections (roadmap §5.4).
+      async function aiLoadPreferences(open) {
+        const box = document.getElementById('ai-prefs');
+        const list = document.getElementById('ai-prefs-list');
+        if (!box || !list) return;
+        let rows = [];
+        try {
+          const res = await fetch(API + '/ai-accountant/preferences');
+          if (!res.ok) { box.hidden = true; return; }
+          rows = await res.json();
+        } catch (_) { box.hidden = true; return; }
+        box.hidden = false;
+        document.getElementById('ai-prefs-count').textContent = rows.length ? ' (' + rows.length + ')' : '';
+        if (open && rows.length) box.open = true;
+        if (!rows.length) { list.innerHTML = '<p class="ai-prefs-empty">' + escapeHtml(t('aiPrefsEmpty')) + '</p>'; return; }
+        list.innerHTML = rows.map(r => {
+          const target = [r.account_code ? (r.account_code + (r.account_name ? ' ' + r.account_name : '')) : '',
+                          r.entity_name || ''].filter(Boolean).join(' · ');
+          return `<div class="ai-pref" data-id="${escapeHtml(r.id)}">
+            <div class="ai-pref-text"><bdi dir="auto">${escapeHtml(r.label)}</bdi> → <bdi dir="auto">${escapeHtml(target)}</bdi>
+              <span class="ai-pref-meta">${escapeHtml(tf('aiPrefsMeta', { source: t('aiPrefsSource_' + r.source), n: r.times_used }))}</span></div>
+            <button type="button" class="btn btn-secondary btn-sm ai-pref-forget" aria-label="${escapeHtml(t('aiPrefsForget'))}" title="${escapeHtml(t('aiPrefsForget'))}">✕</button>
+          </div>`;
+        }).join('');
+        list.querySelectorAll('.ai-pref-forget').forEach(btn => btn.addEventListener('click', async () => {
+          const row = btn.closest('.ai-pref');
+          if (!(await uiConfirm({ message: t('aiPrefsForgetConfirm'), confirmLabel: t('aiPrefsForget'), danger: true }))) return;
+          const res = await fetch(API + '/ai-accountant/preferences/' + encodeURIComponent(row.dataset.id), { method: 'DELETE' });
+          if (res.ok) aiLoadPreferences(true);
+        }));
+      }
+      window.aiLoadPreferences = aiLoadPreferences;
+      // Drawn by script, so redrawn in a new language (02-i18n.js applyLanguage).
+      window.aiRelocalize = () => {
+        if (sessionListEl && Array.isArray(_sessionsCache)) renderSessionList(sessionSearchEl ? sessionSearchEl.value.trim() : '');
+        const box = document.getElementById('ai-prefs');
+        if (box && !box.hidden) aiLoadPreferences(false);
+      };
+
       async function loadSessions(q) {
         if (!sessionListEl) return;
         try {
@@ -253,6 +292,7 @@
       // (and its context) isn't lost — the backend has kept it all along.
       (async function restoreLatest() {
         await loadSessions('');
+        aiLoadPreferences(false);
         if (_sessionsCache.length) await openSession(_sessionsCache[0].id);
         else { setChatTitle(t('chatUntitled')); renderEmptyState(); }
         maybeBriefing();
@@ -791,8 +831,13 @@
             (data.transaction_id ? `Transaction <code>${escapeHtml(data.transaction_id.slice(0,8))}…</code>` : '') +
             (data.idempotent ? ' <em>' + escapeHtml(t('aiUndoAlreadyCommitted')) + '</em>' : '');
           cardEl.appendChild(receipt);
+          if (data.tool_name === 'propose_remember_preference' && typeof aiLoadPreferences === 'function') {
+            aiLoadPreferences(true);
+          }
 
-          if (!data.idempotent) {
+          // Undo / Reverse act on a posted entry; a created party or a saved
+          // preference has none (their undo would only fail).
+          if (!data.idempotent && data.transaction_id) {
             // Quick one-click undo with a countdown. When it elapses the
             // button becomes a persistent "Reverse entry" action (AI-7) so
             // the user always has recourse, never just manual deletion.

@@ -224,6 +224,19 @@ def execute_proposal(
             actor_username=actor_username,
             ip_address=ip_address,
         )
+    elif proposal.tool_name == "propose_remember_preference":
+        from app.services.ai_accountant.time_execute import _audit
+        from app.services.learned_preferences import remember
+        p = dict(proposal.tool_input or {})
+        pref = remember(db, p["description"], account_code=p.get("account_code"),
+                        entity_id=p.get("entity_id"), source="chat")
+        if pref is None:
+            raise ValueError("that wording is too generic to remember")
+        txn_id = None
+        audit_id = _audit(db, proposal, entity_type="learned_preference", entity_id=str(pref.id),
+                          detail={"description": p["description"], "account_code": p.get("account_code"),
+                                  "entity": p.get("entity_name")},
+                          actor_user_id=actor_user_id, actor_username=actor_username, ip_address=ip_address)
     else:
         raise ProposalNotFound(
             f"No executor for tool {proposal.tool_name!r} — this tool's "

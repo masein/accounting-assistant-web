@@ -549,6 +549,11 @@
           <button type="button" class="btn btn-primary btn-sm ai-new-chat" id="ai-acct-new-chat" data-i18n="chatNewBtn">+ New chat</button>
           <input type="search" id="ai-acct-session-search" class="ai-session-search" data-i18n-placeholder="chatSearchPlaceholder" placeholder="Search chats…" autocomplete="off">
           <div id="ai-acct-session-list" class="ai-session-list" role="list"></div>
+          <details id="ai-prefs" class="ai-prefs" hidden>
+            <summary><span data-i18n="aiPrefsTitle">What I've learned</span><span id="ai-prefs-count"></span></summary>
+            <p class="ai-prefs-hint" data-i18n="aiPrefsHint">When you correct an account or a party, I remember it for wording like that.</p>
+            <div id="ai-prefs-list"></div>
+          </details>
         </aside>
         <div class="chat-panel ai-chat">
           <div class="ai-chat-head">

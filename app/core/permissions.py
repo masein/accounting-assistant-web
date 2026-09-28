@@ -404,6 +404,7 @@ for _m, _p in [
 _reads(["/fx/metadata", "/fx/reporting-currency", "/fx/rates"], _READ_LOOKUPS)
 _add("POST", "/fx/convert", _READ_LOOKUPS)
 _add("PUT", "/fx/reporting-currency", Perm.SETTINGS_WRITE)
+_add("POST", "/fx/relabel", Perm.SETTINGS_WRITE)      # entries saved in the wrong currency
 for _m, _p in [("POST", "/fx/rates"), ("DELETE", "/fx/rates/{rate_id}"),
                ("POST", "/fx/revalue")]:
     _add(_m, _p, Perm.BOOKS_WRITE)

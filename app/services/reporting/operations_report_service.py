@@ -152,6 +152,7 @@ class OperationsReportService:
                     equity_codes.add(resolve_account_code(self.db, cat))
                 except Exception:
                     pass
+        # base value: a person's balance across every currency (roadmap §4.6)
         running = 0
         out: list[PersonRunningBalanceRow] = []
         for txn, line in rows:
@@ -159,7 +160,7 @@ class OperationsReportService:
             if role_key == "client":
                 if code != ar_code:
                     continue
-                delta = int(line.debit or 0) - int(line.credit or 0)
+                delta = int(line.base_debit or 0) - int(line.base_credit or 0)
                 running += delta
                 out.append(
                     PersonRunningBalanceRow(
@@ -175,7 +176,7 @@ class OperationsReportService:
             elif role_key in ("supplier", "payee"):
                 if not code.startswith(ap_prefix):
                     continue
-                delta = int(line.credit or 0) - int(line.debit or 0)
+                delta = int(line.base_credit or 0) - int(line.base_debit or 0)
                 running += delta
                 out.append(
                     PersonRunningBalanceRow(
@@ -194,7 +195,7 @@ class OperationsReportService:
                 # and falls when debited (dividend paid, withdrawal).
                 if code not in equity_codes:
                     continue
-                delta = int(line.credit or 0) - int(line.debit or 0)
+                delta = int(line.base_credit or 0) - int(line.base_debit or 0)
                 running += delta
                 out.append(
                     PersonRunningBalanceRow(
@@ -210,7 +211,7 @@ class OperationsReportService:
             else:
                 if code != (own_bank_code or bank_code):
                     continue
-                delta = int(line.debit or 0) - int(line.credit or 0)
+                delta = int(line.base_debit or 0) - int(line.base_credit or 0)
                 running += delta
                 out.append(
                     PersonRunningBalanceRow(

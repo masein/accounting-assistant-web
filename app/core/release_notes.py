@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.3"
+CURRENT_RELEASE = "2026.09.28.4"
 
 
 @dataclass(frozen=True)
@@ -775,6 +775,30 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "فاکتور دلاری که با یک نرخ ثبت و با نرخ دیگری تسویه شود، از این پس حساب دریافتنی (یا پرداختنی) را با همان نرخ ثبت می‌بندد، وجه را با نرخ روز می‌گیرد و تفاوت را در سود یا زیان تسعیر ارز ثبت می‌کند — پیام دریافت مبلغ آن را می‌گوید. پرداخت‌های جزئی، اعلامیه‌های بستانکار و اضافه‌پرداخت هم همین‌طورند و برگشت یک پرداخت، سود یا زیان آن را هم برمی‌گرداند.",
                     "es": "Una factura en dólares registrada a un tipo y cobrada a otro salda ahora el cobro (o pago) al tipo con que se registró, recibe el dinero al tipo del día y lleva la diferencia a diferencias de cambio positivas o negativas; el mensaje del cobro indica el importe. Los pagos parciales, las notas de crédito y los sobrepagos funcionan igual, y revertir un pago deshace también su diferencia.",
                     "ar": "الفاتورة بالدولار المسجّلة بسعر والمسددة بسعر آخر تُقفل الآن الذمم المدينة (أو الدائنة) بالسعر الذي سُجّلت به، وتستلم المال بسعر اليوم، وتسجّل الفرق في أرباح أو خسائر الصرف — وتُخبرك رسالة الدفعة بالمبلغ. وتعمل الدفعات الجزئية وإشعارات الدائن والدفعات الزائدة بالطريقة نفسها، وعكس الدفعة يُلغي ربحها أو خسارتها أيضًا.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.4",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="base-currency-everywhere",
+                page="dashboard",
+                page_by_role={"personal": "personal-dashboard"},
+                roles=("owner", "cfo", "accountant", "viewer", "personal"),
+                title={
+                    "en": "One total for all your currencies",
+                    "fa": "یک جمع برای همهٔ ارزها",
+                    "es": "Un solo total para todas tus monedas",
+                    "ar": "مجموع واحد لكل عملاتك",
+                },
+                body={
+                    "en": "The dashboard, cash on hand, budgets, net worth, insights and the AI accountant's answers now add up every currency at the rate each entry was posted at, in your own currency — before, dollars were added to pounds or rials as plain numbers. A bank statement is still checked against entries in its own currency. If Settings → Currency & FX says some entries are marked IRR although your books are in another currency, one click relabels them.",
+                    "fa": "داشبورد، موجودی نقد، بودجه، دارایی خالص، بینش‌ها و پاسخ‌های حسابدار هوشمند حالا همهٔ ارزها را با نرخی که هر سند با آن ثبت شده، به ارز خودتان جمع می‌زنند — پیش از این دلار با ریال یا پوند مثل عدد ساده جمع می‌شد. صورت‌حساب بانک همچنان با اسناد همان ارز مقایسه می‌شود. اگر در «تنظیمات ← ارز و نرخ تبدیل» آمده که اسنادی به ریال ثبت شده‌اند در حالی که دفاتر شما به ارز دیگری است، با یک کلیک ارزشان اصلاح می‌شود.",
+                    "es": "El panel, la caja, los presupuestos, el patrimonio, las alertas y las respuestas del contable IA suman ahora todas las monedas al tipo con que se registró cada asiento, en tu propia moneda; antes se sumaban dólares y libras como simples números. Un extracto bancario se sigue comparando con los asientos de su moneda. Si Ajustes → Moneda y cambio indica asientos marcados IRR aunque tus libros estén en otra moneda, un clic los corrige.",
+                    "ar": "لوحة المعلومات والنقد والميزانيات وصافي الثروة والتنبيهات وإجابات المحاسب الذكي تجمع الآن كل العملات بالسعر الذي سُجّل به كل قيد، بعملتك أنت — كان الدولار يُجمع مع الجنيه أو الريال كأرقام عادية. ويبقى كشف البنك يُقارن بقيود عملته. وإن ظهر في الإعدادات ← العملة والصرف أن قيودًا معلّمة بالريال بينما دفاترك بعملة أخرى، فنقرة واحدة تصحّحها.",
                 },
             ),
         ),

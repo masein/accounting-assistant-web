@@ -278,7 +278,8 @@ def detect_category_drift(db: Session, today: date) -> list[Insight]:
     shares = {"recent": defaultdict(int), "base": defaultdict(int)}
     names: dict = {}
     for d, code, name, debit, credit in db.execute(
-        select(Transaction.date, Account.code, Account.name, TransactionLine.debit, TransactionLine.credit)
+        # base value: shares of spending across every currency (roadmap §4.6)
+        select(Transaction.date, Account.code, Account.name, TransactionLine.base_debit, TransactionLine.base_credit)
         .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
         .join(Account, TransactionLine.account_id == Account.id)
         .where(Transaction.date >= base_from, Transaction.date <= today, Transaction.deleted_at.is_(None))

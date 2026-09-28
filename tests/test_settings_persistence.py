@@ -63,11 +63,18 @@ def test_currency_round_trip_through_api(db, client):
     _purge_setting(db, "reporting_currency")
     co = _company(db, base_currency="GBP")
     api = _owner_api(client, co)
-    r = api.put("/fx/reporting-currency", json={"currency": "EUR"})
-    assert r.status_code == 200, r.text
-    # simulate the refresh: a fresh GET must show the saved value
-    r2 = api.get("/fx/reporting-currency")
-    assert r2.json()["currency"] == "EUR"
+    try:
+        r = api.put("/fx/reporting-currency", json={"currency": "EUR"})
+        assert r.status_code == 200, r.text
+        # simulate the refresh: a fresh GET must show the saved value
+        r2 = api.get("/fx/reporting-currency")
+        assert r2.json()["currency"] == "EUR"
+    finally:
+        # the row is found by every later test that runs outside a company,
+        # and base-currency sums (roadmap §4.6) would then be in euros
+        db.rollback()
+        _purge_setting(db, "reporting_currency")
+        db.commit()
 
 
 def test_set_locale_updates_tenant_company(db):

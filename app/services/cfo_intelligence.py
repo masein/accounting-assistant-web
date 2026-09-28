@@ -274,7 +274,8 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
         .where(Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
     )
-    if currency:
+    from app.services.reporting.repository import line_dr_cr, sums_base
+    if not sums_base(currency):
         q = q.where(Transaction.currency == currency)
     txns = db.execute(q).scalars().unique().all()
 
@@ -298,16 +299,18 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
         month = _month_key(txn.date)
         for ln in txn.lines:
             code = ln.account.code or ""
+            # one currency's own amounts, else every currency at base value (roadmap §4.6)
+            d, c = line_dr_cr(ln, currency)
             acc_type = classify_account_code(code)
             if acc_type == REVENUE:
-                monthly_revenue[month] += ln.credit - ln.debit
+                monthly_revenue[month] += c - d
             elif acc_type == EXPENSE:
-                monthly_expense[month] += ln.debit - ln.credit
-                expense_by_cat[ln.account.name] += ln.debit - ln.credit
+                monthly_expense[month] += d - c
+                expense_by_cat[ln.account.name] += d - c
                 expense_code_by_cat[ln.account.name] = code
 
             if any(code.startswith(p) for p in cash_prefixes):
-                delta = ln.debit - ln.credit
+                delta = d - c
                 total_cash += delta
                 if delta > 0:
                     monthly_cash_in[month] += delta
@@ -315,9 +318,9 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
                     monthly_cash_out[month] += abs(delta)
 
             if any(code.startswith(p) for p in ar_prefixes):
-                total_receivable_ledger += ln.debit - ln.credit
+                total_receivable_ledger += d - c
             if any(code.startswith(p) for p in ap_prefixes):
-                total_payable_ledger += ln.credit - ln.debit
+                total_payable_ledger += c - d
 
     # Fold outstanding invoices into AR/AP. Without this an SME running
     # cash-basis bookkeeping (sales recorded as cash receipts, not via
@@ -690,12 +693,14 @@ def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en")
     from app.models.account import Account as AccountModel
     from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY
     accounts = db.execute(select(AccountModel)).scalars().all()
+    from app.services.reporting.repository import amount_columns, sums_base
+    dr_col, cr_col = amount_columns(currency)
     lines_q = select(
         TransactionLine.account_id,
-        func.coalesce(func.sum(TransactionLine.debit), 0),
-        func.coalesce(func.sum(TransactionLine.credit), 0),
+        func.coalesce(func.sum(dr_col), 0),
+        func.coalesce(func.sum(cr_col), 0),
     ).join(Transaction, TransactionLine.transaction_id == Transaction.id)
-    if currency:
+    if not sums_base(currency):
         lines_q = lines_q.where(Transaction.currency == currency)
     lines_q = lines_q.group_by(TransactionLine.account_id)
     acc_by_id = {a.id: a for a in accounts}

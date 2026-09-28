@@ -24,17 +24,24 @@ def is_base_view(currency: str | None) -> bool:
     return (currency or "").strip().upper() == BASE_VIEW
 
 
+def sums_base(currency: str | None) -> bool:
+    """No currency, or ALL: every currency at base value. A caller that names
+    no currency used to add dollars and pounds as raw numbers (roadmap §4.6,
+    part 4); one that names a currency gets that currency's own amounts."""
+    return not (currency or "").strip() or is_base_view(currency)
+
+
 def amount_columns(currency: str | None):
-    """The (debit, credit) columns a report sums: the entry's own amounts, or
-    the base-currency ones in the base view."""
-    if is_base_view(currency):
+    """The (debit, credit) columns a report sums: a named currency's own
+    amounts, else the base-currency ones."""
+    if sums_base(currency):
         return TransactionLine.base_debit, TransactionLine.base_credit
     return TransactionLine.debit, TransactionLine.credit
 
 
 def line_dr_cr(line: TransactionLine, currency: str | None) -> tuple[int, int]:
     """A loaded line's (debit, credit) in the view a report shows."""
-    if is_base_view(currency):
+    if sums_base(currency):
         return int(line.base_debit or 0), int(line.base_credit or 0)
     return int(line.debit or 0), int(line.credit or 0)
 

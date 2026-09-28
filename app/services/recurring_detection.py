@@ -139,9 +139,13 @@ def detect_recurring(db: Session, *, today: date | None = None) -> list[Recurrin
     today = today or date.today()
     since = today - timedelta(days=LOOKBACK_DAYS)
 
+    # Recurring rules post in the base currency: only base-currency entries
+    # can suggest one (a $50 subscription is not a £50 standing order).
+    from app.services.fx_base import base_currency
     txns = db.execute(
         select(Transaction)
-        .where(Transaction.deleted_at.is_(None), Transaction.date >= since)
+        .where(Transaction.deleted_at.is_(None), Transaction.date >= since,
+               Transaction.currency == base_currency(db))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
         .order_by(Transaction.date)
     ).scalars().all()

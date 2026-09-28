@@ -196,6 +196,9 @@ for _p in ("/admin/reporting-locale", "/admin/display-calendar",
 # Every page draws dates and month pickers in the company's calendar, so every
 # role reads it — an accountant in an Iranian company saw Gregorian (§3.5).
 _add("GET", "/admin/display-calendar", ANY_ROLE)
+# Likewise the reporting locale: it picks the Iranian / UK statement templates
+# and default accounts, and without it an accountant got the generic ones.
+_add("GET", "/admin/reporting-locale", ANY_ROLE)
 # Sending a test email exposes the mail host and can emit traffic: owner-only.
 _add("POST", "/admin/test-email", Perm.SETTINGS_WRITE)
 # AI provider wiring is PLATFORM-wide (one runtime, one key, every company):

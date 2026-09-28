@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.12"
+CURRENT_RELEASE = "2026.09.28.13"
 
 
 @dataclass(frozen=True)
@@ -988,6 +988,27 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«تنظیمات ← تأیید سندهای دستیار»: یک مبلغ تعیین کنید؛ هر سندی که دستیار با این مبلغ یا بیشتر پیش‌نویس کند، تا کسی غیر از درخواست‌کننده — مالک، مدیر مالی یا مدیر — آن را در گفتگوی هوش مصنوعی («در انتظار تأیید») تأیید نکند ثبت نمی‌شود. دستیار دیگر برای دوره‌های بسته سند پیش‌نویس نمی‌کند و در یک پیام بیش از تعداد معینی مرحله انجام نمی‌دهد.",
                     "es": "Ajustes → Aprobaciones de la IA: fija un importe y todo lo que el asistente prepare por ese importe o más esperará a que otra persona —propietario, director financiero o gerente— lo apruebe en el chat de IA (Pendientes de aprobación) antes de registrarse. Además, el asistente ya no prepara nada con fecha en un periodo cerrado y se detiene tras un número fijo de pasos por mensaje.",
                     "ar": "الإعدادات ← موافقات المساعد: حدّد مبلغًا، وكل ما يعدّه المساعد بهذا المبلغ أو أكثر ينتظر موافقة شخص غير من طلبه — مالك أو مدير مالي أو مدير — في محادثة الذكاء الاصطناعي («بانتظار الموافقة») قبل تسجيله. ولم يعد المساعد يعدّ قيودًا بتاريخ في فترة مغلقة، ويتوقف بعد عدد محدد من الخطوات في الرسالة الواحدة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.13",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="language-switch",
+                title={
+                    "en": "Changing language now sticks",
+                    "fa": "تغییر زبان اکنون ماندگار است",
+                    "es": "El cambio de idioma ahora se mantiene",
+                    "ar": "تغيير اللغة يبقى الآن",
+                },
+                body={
+                    "en": "The language menu at the top now saves your choice to your profile, so it stays after you sign in again, and the page you are on — tables and charts included — redraws in the new language straight away. The app also loads faster: each language is fetched only when you use it.",
+                    "fa": "منوی زبان در بالای صفحه اکنون انتخاب شما را در نمایه‌تان ذخیره می‌کند، پس پس از ورود دوباره هم می‌ماند، و صفحه‌ای که در آن هستید — همراه با جدول‌ها و نمودارها — بی‌درنگ به زبان تازه نمایش داده می‌شود. برنامه هم سریع‌تر بارگذاری می‌شود: هر زبان فقط وقتی به کارش می‌برید دریافت می‌شود.",
+                    "es": "El menú de idioma de la parte superior guarda ahora tu elección en tu perfil, así que se mantiene al volver a iniciar sesión, y la página abierta —tablas y gráficos incluidos— se vuelve a dibujar en el nuevo idioma al momento. La aplicación también carga más rápido: cada idioma se descarga solo cuando lo usas.",
+                    "ar": "قائمة اللغة في الأعلى تحفظ الآن اختيارك في ملفك الشخصي، فيبقى بعد تسجيل الدخول مجددًا، ويُعاد رسم الصفحة المفتوحة — بما فيها الجداول والرسوم — باللغة الجديدة فورًا. كما يُحمَّل التطبيق أسرع: تُنزَّل كل لغة فقط عند استخدامها.",
                 },
             ),
         ),

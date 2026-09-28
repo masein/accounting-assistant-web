@@ -177,7 +177,8 @@ def test_the_page_offers_printing_for_cheques_we_issue():
     ops = (JS / "12-ops.js").read_text(encoding="utf-8")
     assert "if (!rec && ['pending', 'bounced'].includes(r.status)) steps.unshift('print');" in ops
     assert "window.open('', '_blank')" in ops                     # opened inside the click, not after the request
-    i18n = (JS / "02-i18n.js").read_text(encoding="utf-8")
+    from tests.i18n_source import i18n_text
+    i18n = i18n_text()
     for key in ("cmActPrint", "cmStepPayee", "cmStepNid", "cmStepGuide", "cmHint_print", "cmEv_printed",
                 "cmPrintTitle", "cmPrintSave", "cmPrintTest", *[f"cmPf_{f}" for f in cp.FIELDS]):
         assert len(re.findall(rf"^        {key}: ", i18n, re.M)) == 4, key

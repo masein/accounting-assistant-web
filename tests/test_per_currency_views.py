@@ -140,5 +140,6 @@ def test_frontend_has_currency_view_controls():
     assert "function renderCurrencyViewNote" in js
     ledger_js = open("app/static/js/09-ledger.js", encoding="utf-8").read()
     assert "'/reports/ledger-summary' + (ccy ? ('?currency='" in ledger_js
-    i18n = open("app/static/js/02-i18n.js", encoding="utf-8").read()
+    from tests.i18n_source import i18n_text
+    i18n = i18n_text()
     assert i18n.count("currencyViewNote:") == 4 and i18n.count("currencyViewOnly:") == 4

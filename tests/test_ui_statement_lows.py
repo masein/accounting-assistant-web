@@ -189,7 +189,8 @@ def test_frontend_wiring_for_the_lows():
     assert "bsFindDuplicateSame" in open("app/static/js/10-forms-fx-bank.js", encoding="utf-8").read()
     assert "excelAlreadyImported" in open("app/static/js/14-excel-import.js", encoding="utf-8").read()
     assert "invOverpaidCredit" in open("app/static/js/06-vouchers.js", encoding="utf-8").read()
-    i18n = open("app/static/js/02-i18n.js", encoding="utf-8").read()
+    from tests.i18n_source import i18n_text
+    i18n = i18n_text()
     for key in ("invOverpaidCredit:", "excelAlreadyImported:", "bsFindDuplicateSame:"):
         assert i18n.count(key) == 4, key
     assert i18n.count("{dupes} imported before") == 0

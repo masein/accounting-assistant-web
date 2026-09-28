@@ -11,7 +11,9 @@ STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
 HTML = (STATIC / "index.html").read_text(encoding="utf-8")
 JS = (STATIC / "js" / "15-ai-chat.js").read_text(encoding="utf-8")
 CSS = (STATIC / "css" / "app.css").read_text(encoding="utf-8")
-I18N = (STATIC / "js" / "02-i18n.js").read_text(encoding="utf-8")
+from tests.i18n_source import i18n_text  # noqa: E402
+
+I18N = i18n_text()
 
 
 def _chat_block() -> str:

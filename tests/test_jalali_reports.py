@@ -199,7 +199,8 @@ def test_the_budget_pickers_follow_the_display_calendar():
     assert "getElementById('budget-month').addEventListener('change', loadBudgets)" in forms
     assert "mgrFromDateEl.dataset.auto = monthStartIso()" in forms
     assert "new Date().toISOString().slice(0, 10)" not in forms                    # UTC: a day early in Tehran
-    i18n = (JS / "02-i18n.js").read_text(encoding="utf-8")
+    from tests.i18n_source import i18n_text
+    i18n = i18n_text()
     vouchers = (JS / "06-vouchers.js").read_text(encoding="utf-8")
     assert "<th>Actual</th>" not in vouchers and "t('budgetColActual')" in vouchers
     assert i18n.count("budgetColActual: ") == 4 and i18n.count("budgetNoRows: ") == 4

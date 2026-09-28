@@ -73,8 +73,14 @@ summary 1,083 → 23 ms (SQL GROUP BY), owner dashboard 3,145 → ~510 ms cold
 98 → 7 queries; `ix_transactions_live (company_id, currency, date) WHERE
 deleted_at IS NULL`; gzip (front end 1.1 MB → ~270 KB) and a year's
 `immutable` cache for `?v=` assets; CI guards that query counts do not grow
-with the books. Left in 2.6: per-language i18n packs (02-i18n.js 422 KB,
-113 KB gzipped), moving the dashboard's per-journal aggregation into SQL.
+with the books. ✅ Per-language i18n packs: 02-i18n.js carries English only
+(588 → 141 KB, 162 → 41 KB gzipped); fa, es and ar live in `js/i18n/<lang>.js`
+(~40 KB gzipped each). `00-lang.js` loads the saved language's pack before the
+core scripts, so a Persian page draws in Persian from the first paint; switching
+language fetches the pack once, then saves the choice to the profile and redraws
+the open page (the top-bar switch used to be overridden at the next sign-in and
+left script-drawn tables in the old language). Left in 2.6: moving the
+dashboard's per-journal aggregation into SQL.
 
 **§3 continued — 2026-09-26:** ✅ 3.2 seasonal filings (#153): per Jalali
 season the TTMS figures per counterparty (identity fields in Latin digits,

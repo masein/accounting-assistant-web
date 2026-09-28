@@ -170,6 +170,25 @@ posted; parties linked as client or supplier from the account they sit on.
 Later: vendor-specific samples as customers send them, opening balances from
 the same files, sales/purchase invoices as documents.
 
+**§4 continued — 2026-09-28:** ✅ 4.6, part 1 — rate feeds and rates per
+company: `app/services/rate_feeds.py` fetches the shared rates once a day
+(scheduler job `rate_feeds`, one run for the platform, hourly retries up to 3
+when a source fails) from the ECB's daily reference file (keyless; stored as
+crosses into USD, EUR, GBP and every company's reporting currency; AED on its
+3.6725 peg) and from JSON feeds the platform admin configures in Settings →
+Currency & FX (URL with the key encrypted at rest and masked on screen; per
+item unit, currency, JSON path, multiplier — ×10 for toman; GOLDG/GOLDC for
+personal gold holdings). "Test" lists every number in a feed with its path.
+Feed URLs must be https and resolve to public addresses on every redirect
+hop (no SSRF), 2 MB cap. A rate typed by hand for a day is never
+overwritten. Migration 052: `exchange_rates.company_id` — rates were one
+table for every company, so any accountant could change another company's
+rates; now a company's own rows are private and, for a pair it has priced,
+replace the shared ones; shared rows are the platform admin's. Codes widened
+to 16 characters. Lookups cross through USD/EUR/GBP/IRR when a pair has no
+rate. Caches keyed on the shared-rate version too. Open: realised FX
+gain/loss on settlement (needs a decision on the base-currency model).
+
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
 amount within a week or same reference), payments/expense claims split just
@@ -296,7 +315,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 4.3 | **Fixed-asset register**: asset cards, depreciation methods (straight-line exists as an adjustment), disposal, Iranian tax useful-life table | adjustments exist but there is no register or disposal |
 | 4.4 | **Inventory costing** (weighted average / FIFO), stock valuation report, reorder alerts, barcode field; production/BOM light | Hesabfa/Holoo core; ours is movements + average price only |
 | 4.5 | **Chart-of-accounts management**: create / rename / deactivate accounts, تفصیلی groups, opening balances UI | accounts are only created implicitly today |
-| 4.6 | **Multi-currency close**: unrealised FX revaluation exists; add realised gain/loss on settlement, rate feed (manual today, XE-style hourly for GBP/EUR/USD, a gold-price feed for personal holdings) | Xero parity; personal tenants hold gold/FX |
+| 4.6 | **Multi-currency close**: unrealised FX revaluation exists; add realised gain/loss on settlement, rate feed (manual today, XE-style hourly for GBP/EUR/USD, a gold-price feed for personal holdings) — ✅ feeds + per-company rates 2026-09-28; realised gain/loss open | Xero parity; personal tenants hold gold/FX |
 | 4.7 | **Budgets**: edit route, Jalali months, per-project budgets, roll-forward | `budgets.py` has no PATCH |
 | 4.8 | **Purchase orders**: cancel/delete, partial receipts to bills, supplier price history | `purchase_orders.py` |
 | 4.9 | **Documents**: statements of account e-mailed to clients, payslips e-mailed to employees, PDF/XLSX export of financial statements (server side), a "monthly close pack" zip | mail service exists but sends nothing to parties |

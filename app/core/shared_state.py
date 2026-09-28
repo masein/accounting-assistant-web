@@ -94,6 +94,8 @@ _BUMP_SQL = text(
 
 def _scope_of(obj) -> str:
     from app.db.tenant import get_current_company
+    if getattr(getattr(obj, "__table__", None), "name", None) == "exchange_rates" and obj.company_id is None:
+        return "platform"      # a shared rate: every company's figures move (see platform_version)
     cid = getattr(obj, "company_id", None) or get_current_company()
     return str(cid) if cid else "platform"
 
@@ -102,6 +104,12 @@ def current_scope() -> str:
     from app.db.tenant import get_current_company
     cid = get_current_company()
     return str(cid) if cid else "platform"
+
+
+def platform_version(db: Session) -> int:
+    """Bumped by changes every company sees — the shared exchange rates. Part
+    of each cache key that converts currencies."""
+    return books_version(db, "platform")
 
 
 def books_version(db: Session, scope: str | None = None) -> int:

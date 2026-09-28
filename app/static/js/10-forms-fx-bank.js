@@ -210,36 +210,265 @@
       loadFxRates();
     }
 
+    let _fxRatesRows = null;
+    let _fxRatesAllShared = false;
+    const FX_SHARED_SHOWN = 8;
+
     async function loadFxRates() {
       const wrap = document.getElementById('fx-rates-wrap');
       if (!wrap) return;
+      const history = document.getElementById('fx-rates-history');
       try {
-        const r = await fetch(API + '/fx/rates');
-        if (!r.ok) { wrap.innerHTML = '<p class="empty-state">Failed to load rates.</p>'; return; }
-        const rows = await r.json();
-        if (!rows.length) { wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('fxNoRates')) + '</p>'; return; }
-        wrap.innerHTML = '<table class="mini-table"><thead><tr><th>From</th><th>To</th><th>Rate</th><th>Effective</th><th>Note</th><th></th></tr></thead><tbody>' +
-          rows.map(row => `<tr>
-            <td><span class="ccy-badge ccy-${escapeHtml((row.from_currency||'').toUpperCase())}">${escapeHtml(row.from_currency)}</span></td>
-            <td><span class="ccy-badge ccy-${escapeHtml((row.to_currency||'').toUpperCase())}">${escapeHtml(row.to_currency)}</span></td>
-            <td class="num">${formatNum(row.rate)}</td>
-            <td>${escapeHtml(row.effective_date)}</td>
-            <td>${escapeHtml(row.note || '')}</td>
-            <td><button class="btn btn-secondary btn-sm fx-del-rate" data-id="${escapeHtml(row.id)}">Delete</button></td>
-          </tr>`).join('') +
-          '</tbody></table>';
-        wrap.querySelectorAll('.fx-del-rate').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            if (!(await uiConfirm({ message: t('confirmDeleteFxRate'), confirmLabel: t('btnDelete'), danger: true }))) return;
-            const id = btn.dataset.id;
-            const r2 = await fetch(API + '/fx/rates/' + encodeURIComponent(id), { method: 'DELETE' });
-            if (r2.ok) loadFxRates();
-          });
-        });
+        const r = await fetch(API + '/fx/rates' + (history && history.checked ? '' : '?latest=true'));
+        if (!r.ok) { wrap.innerHTML = '<p class="empty-state">' + escapeHtml(t('fxRatesLoadFailed')) + '</p>'; return; }
+        _fxRatesRows = await r.json();
+        renderFxRates();
       } catch (_) {
-        wrap.innerHTML = '<p class="empty-state">Error loading rates.</p>';
+        wrap.innerHTML = '<p class="empty-state">' + escapeHtml(t('fxRatesLoadFailed')) + '</p>';
       }
     }
+
+    function renderFxRates() {
+      const wrap = document.getElementById('fx-rates-wrap');
+      if (!wrap || !_fxRatesRows) return;
+      const q = ((document.getElementById('fx-rates-filter') || {}).value || '').trim().toUpperCase();
+      const match = (row) => !q || (row.from_currency || '').includes(q) || (row.to_currency || '').includes(q);
+      const rows = _fxRatesRows.filter(match);
+      if (!_fxRatesRows.length) { wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('fxNoRates')) + '</p>'; return; }
+      // The company's own rates first; the shared ones (dozens, from the
+      // daily feeds) folded after a few unless asked for or filtered.
+      const own = rows.filter(r => !r.shared);
+      const shared = rows.filter(r => r.shared);
+      const showShared = (_fxRatesAllShared || q) ? shared : shared.slice(0, FX_SHARED_SHOWN);
+      const canDelete = (row) => !row.shared || (typeof isSuperadmin !== 'undefined' && isSuperadmin);
+      const line = (row) => `<tr>
+            <td><span class="ccy-badge ccy-${escapeHtml((row.from_currency||'').toUpperCase())}">${escapeHtml(row.from_currency)}</span></td>
+            <td><span class="ccy-badge ccy-${escapeHtml((row.to_currency||'').toUpperCase())}">${escapeHtml(row.to_currency)}</span></td>
+            <td class="num">${escapeHtml(formatRate(row.rate))}</td>
+            <td>${escapeHtml(row.effective_date)}</td>
+            <td>${row.shared ? '<span class="fx-shared">' + escapeHtml(row.source ? tf('fxSharedFrom', { source: row.source === 'ecb' ? 'ECB' : row.source }) : t('fxShared')) + '</span> ' : ''}${escapeHtml(row.source ? '' : (row.note || ''))}</td>
+            <td>${canDelete(row) ? `<button class="btn btn-secondary btn-sm fx-del-rate" data-id="${escapeHtml(row.id)}">${escapeHtml(t('btnDelete'))}</button>` : ''}</td>
+          </tr>`;
+      const more = shared.length - showShared.length;
+      wrap.innerHTML = (rows.length ? '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('fxFrom')) + '</th><th>' + escapeHtml(t('fxTo')) +
+          '</th><th>' + escapeHtml(t('fxRateCol')) + '</th><th>' + escapeHtml(t('fxEffective')) + '</th><th>' + escapeHtml(t('fxNote')) + '</th><th></th></tr></thead><tbody>' +
+          own.map(line).join('') + showShared.map(line).join('') + '</tbody></table>'
+          : '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('fxNoRatesMatch')) + '</p>') +
+        (more > 0 ? `<button type="button" class="btn btn-secondary btn-sm" id="fx-rates-more" style="margin-top:0.4rem;">${escapeHtml(tf('fxShowAllShared', { n: shared.length }))}</button>` : '');
+      const moreBtn = document.getElementById('fx-rates-more');
+      if (moreBtn) moreBtn.addEventListener('click', () => { _fxRatesAllShared = true; renderFxRates(); });
+      wrap.querySelectorAll('.fx-del-rate').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!(await uiConfirm({ message: t('confirmDeleteFxRate'), confirmLabel: t('btnDelete'), danger: true }))) return;
+          const id = btn.dataset.id;
+          const r2 = await fetch(API + '/fx/rates/' + encodeURIComponent(id), { method: 'DELETE' });
+          if (r2.ok) loadFxRates();
+          else {
+            const d = await r2.json().catch(() => ({}));
+            showAlert(d.detail || t('fxFeedsFailed'), true);
+          }
+        });
+      });
+    }
+    const fxRatesFilter = document.getElementById('fx-rates-filter');
+    if (fxRatesFilter) fxRatesFilter.addEventListener('input', renderFxRates);
+    const fxHistoryToggle = document.getElementById('fx-rates-history');
+    if (fxHistoryToggle) fxHistoryToggle.addEventListener('change', loadFxRates);
+
+    // ─── Automatic rates (platform admin; roadmap §4.6) ─────────────────
+    let _fxFeeds = null;   // {enabled, ecb, hour, feeds: [{name, url, enabled, items: [...]}]}
+    const _fxFound = {};   // feed index → numbers found by the last Test
+    let _fxFeedStatus = null;
+    function fxRelocalize() {
+      if (_fxRatesRows) renderFxRates();
+      if (_fxFeeds) { renderRateFeeds(); renderRateFeedStatus(_fxFeedStatus || {}); }
+    }
+
+    async function loadRateFeeds() {
+      const card = document.getElementById('fx-feeds-card');
+      if (!card) return;
+      try {
+        const res = await fetch(API + '/admin/rate-feeds');
+        if (!res.ok) { card.style.display = 'none'; return; }
+        const d = await res.json();
+        card.style.display = '';
+        _fxFeeds = { enabled: !!d.enabled, ecb: !!d.ecb, hour: d.hour, feeds: d.feeds || [] };
+        document.getElementById('fx-feeds-enabled').checked = _fxFeeds.enabled;
+        document.getElementById('fx-feeds-ecb').checked = _fxFeeds.ecb;
+        const hour = document.getElementById('fx-feeds-hour');
+        if (!hour.options.length) {
+          for (let h = 0; h < 24; h++) hour.add(new Option(String(h).padStart(2, '0') + ':00', String(h)));
+        }
+        hour.value = String(_fxFeeds.hour);
+        document.getElementById('fx-feeds-ecb-list').textContent = (d.ecb_currencies || []).join(' · ');
+        renderRateFeeds();
+        renderRateFeedStatus(d.status || {});
+      } catch (_) { card.style.display = 'none'; }
+      loadFxRates();   // shared rows get a Delete button for the platform admin
+    }
+
+    // tf() with each value isolated left-to-right: codes, counts and dates keep
+    // their order inside a Persian or Arabic sentence.
+    function tfBdi(key, vars) {
+      return escapeHtml(t(key)).replace(/\{(\w+)\}/g, (m, k) =>
+        (k in vars) ? '<bdi dir="ltr">' + escapeHtml(String(vars[k])) + '</bdi>' : m);
+    }
+
+    function renderRateFeedStatus(st) {
+      _fxFeedStatus = st;
+      const el = document.getElementById('fx-feeds-status');
+      if (!el) return;
+      if (!st.ran_at) { el.textContent = t('fxFeedsNever'); return; }
+      const when = new Date(st.ran_at);
+      const items = (st.results || []).map(r => {
+        const src = '<bdi>' + escapeHtml(r.source === 'ecb' ? 'ECB' : r.source) + '</bdi>';
+        if (r.error) return `<li class="err">${src}: ${escapeHtml(t('fxFeedsFailed'))} — <bdi dir="ltr">${escapeHtml(r.error)}</bdi></li>`;
+        let line = src + ': ' + tfBdi('fxFeedsResult', { added: r.added || 0, updated: r.updated || 0 });
+        if (r.kept) line += ', ' + tfBdi('fxFeedsKept', { kept: r.kept });
+        if (r.date) line += ' · ' + tfBdi('fxFeedsRatesOf', { date: r.date });
+        if ((r.errors || []).length) line += ` <span class="err">(<bdi dir="ltr">${escapeHtml(r.errors.join('; '))}</bdi>)</span>`;
+        return '<li>' + line + '</li>';
+      });
+      el.innerHTML = tfBdi('fxFeedsLastRun', { when: isNaN(when) ? st.ran_at : when.toLocaleString() }) +
+        (items.length ? '<ul>' + items.join('') + '</ul>' : '');
+    }
+
+    function renderRateFeeds() {
+      const list = document.getElementById('fx-feeds-list');
+      if (!list || !_fxFeeds) return;
+      list.innerHTML = _fxFeeds.feeds.map((f, i) => `
+        <div class="fx-feed" data-i="${i}">
+          <div class="fx-feed-top">
+            <div><label for="fx-feed-name-${i}">${escapeHtml(t('fxFeedsName'))}</label>
+              <input type="text" id="fx-feed-name-${i}" data-k="name" maxlength="60" value="${escapeHtml(f.name || '')}" placeholder="Navasan"></div>
+            <div><label for="fx-feed-url-${i}">${escapeHtml(t('fxFeedsUrl'))}</label>
+              <input type="url" id="fx-feed-url-${i}" data-k="url" dir="ltr" maxlength="1024" value="${escapeHtml(f.url || '')}" placeholder="https://…?api_key=…"></div>
+            <label class="fx-check"><input type="checkbox" data-k="enabled" ${f.enabled !== false ? 'checked' : ''}> ${escapeHtml(t('fxFeedsFeedOn'))}</label>
+            <button type="button" class="btn btn-secondary btn-sm fx-feed-test">${escapeHtml(t('fxFeedsTest'))}</button>
+            <button type="button" class="btn btn-secondary btn-sm fx-feed-remove">${escapeHtml(t('fxFeedsRemove'))}</button>
+          </div>
+          <div class="fx-feed-items fx-stack">
+            ${(f.items || []).length ? '' : '<p class="fx-hint" style="margin:0 0 0.3rem 0;">' + escapeHtml(t('fxFeedsNoItems')) + '</p>'}
+            <table class="mini-table"${(f.items || []).length ? '' : ' hidden'}><thead><tr><th>${escapeHtml(t('fxFeedsUnit'))}</th><th>${escapeHtml(t('fxFeedsPricedIn'))}</th><th>${escapeHtml(t('fxFeedsPath'))}</th><th>×</th><th></th></tr></thead>
+            <tbody>${(f.items || []).map((it, j) => `<tr data-j="${j}">
+              <td class="fx-code" data-label="${escapeHtml(t('fxFeedsUnit'))}"><input type="text" data-ik="unit" dir="ltr" maxlength="16" value="${escapeHtml(it.unit || '')}" placeholder="GOLDG" aria-label="${escapeHtml(t('fxFeedsUnit'))}"></td>
+              <td class="fx-code" data-label="${escapeHtml(t('fxFeedsPricedIn'))}"><input type="text" data-ik="to" dir="ltr" maxlength="16" value="${escapeHtml(it.to || '')}" placeholder="IRR" aria-label="${escapeHtml(t('fxFeedsPricedIn'))}"></td>
+              <td class="fx-path" data-label="${escapeHtml(t('fxFeedsPath'))}"><input type="text" data-ik="path" dir="ltr" maxlength="120" value="${escapeHtml(it.path || '')}" placeholder="data.gold18.price" aria-label="${escapeHtml(t('fxFeedsPath'))}"></td>
+              <td class="fx-mult" data-label="${escapeHtml(t('fxFeedsMultiply'))}" style="width:5.5rem;"><input type="number" data-ik="multiply" dir="ltr" min="0" step="any" value="${escapeHtml(String(it.multiply ?? 1))}" aria-label="${escapeHtml(t('fxFeedsMultiply'))}"></td>
+              <td class="fx-rm" style="width:1%;"><button type="button" class="btn btn-secondary btn-sm fx-item-remove" aria-label="${escapeHtml(t('fxFeedsRemove'))}">✕</button></td>
+            </tr>`).join('')}</tbody></table>
+            <button type="button" class="btn btn-secondary btn-sm fx-item-add" style="margin-top:0.35rem;">${escapeHtml(t('fxFeedsAddItem'))}</button>
+          </div>
+          <div class="fx-feed-found" id="fx-feed-found-${i}">${renderFound(i)}</div>
+        </div>`).join('');
+      list.querySelectorAll('.fx-feed').forEach(card => {
+        const i = Number(card.dataset.i);
+        const feed = _fxFeeds.feeds[i];
+        card.querySelectorAll('[data-k]').forEach(inp => inp.addEventListener('input', () => {
+          feed[inp.dataset.k] = inp.type === 'checkbox' ? inp.checked : inp.value;
+        }));
+        card.querySelectorAll('tr[data-j]').forEach(tr => {
+          const it = feed.items[Number(tr.dataset.j)];
+          tr.querySelectorAll('[data-ik]').forEach(inp => inp.addEventListener('input', () => {
+            const k = inp.dataset.ik;
+            it[k] = (k === 'unit' || k === 'to') ? inp.value.toUpperCase().trim() : inp.value.trim();
+          }));
+          tr.querySelector('.fx-item-remove').addEventListener('click', () => {
+            feed.items.splice(Number(tr.dataset.j), 1); renderRateFeeds();
+          });
+        });
+        card.querySelector('.fx-item-add').addEventListener('click', () => {
+          feed.items.push({ unit: '', to: 'IRR', path: '', multiply: 1 }); renderRateFeeds();
+        });
+        card.querySelector('.fx-feed-remove').addEventListener('click', async () => {
+          if (!(await uiConfirm({ message: tf('fxFeedsRemoveConfirm', { name: feed.name || '—' }), confirmLabel: t('fxFeedsRemove'), danger: true }))) return;
+          _fxFeeds.feeds.splice(i, 1); delete _fxFound[i]; renderRateFeeds();
+        });
+        card.querySelector('.fx-feed-test').addEventListener('click', async (ev) => {
+          const btn = ev.currentTarget;
+          btn.disabled = true;
+          try {
+            const res = await fetch(API + '/admin/rate-feeds/test', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: feed.url || '', name: feed.name || null }),
+            });
+            _fxFound[i] = await res.json().catch(() => ({ ok: false, error: 'error' }));
+          } catch (_) { _fxFound[i] = { ok: false, error: 'error' }; }
+          btn.disabled = false;
+          const box = document.getElementById('fx-feed-found-' + i);
+          if (box) { box.innerHTML = renderFound(i); wireFound(i, box); }
+        });
+        const box = document.getElementById('fx-feed-found-' + i);
+        if (box) wireFound(i, box);
+      });
+    }
+
+    function renderFound(i) {
+      const f = _fxFound[i];
+      if (!f) return '';
+      if (!f.ok) return `<span class="err" style="color:var(--danger);">${escapeHtml(t('fxFeedsFailed'))}: ${escapeHtml(f.error || '')}</span>`;
+      if (!(f.numbers || []).length) return escapeHtml(t('fxFeedsNothingFound'));
+      return '<div>' + escapeHtml(tf('fxFeedsFound', { n: f.numbers.length })) + '</div><table class="mini-table"><tbody>' +
+        f.numbers.map((n, k) => `<tr><td dir="ltr"><code>${escapeHtml(n.path)}</code></td><td class="num">${escapeHtml(formatRate(n.value))}</td>
+          <td style="width:1%;"><button type="button" class="btn btn-secondary btn-sm fx-use" data-k="${k}">${escapeHtml(t('fxFeedsUse'))}</button></td></tr>`).join('') +
+        '</tbody></table>';
+    }
+
+    function wireFound(i, box) {
+      box.querySelectorAll('.fx-use').forEach(b => b.addEventListener('click', () => {
+        const n = _fxFound[i].numbers[Number(b.dataset.k)];
+        _fxFeeds.feeds[i].items.push({ unit: '', to: 'IRR', path: n.path, multiply: 1 });
+        renderRateFeeds();
+        const rows = document.querySelectorAll(`.fx-feed[data-i="${i}"] tr[data-j] [data-ik="unit"]`);
+        if (rows.length) rows[rows.length - 1].focus();
+      }));
+    }
+
+    (function wireRateFeeds() {
+      const add = document.getElementById('fx-feeds-add');
+      if (!add) return;
+      add.addEventListener('click', () => {
+        if (!_fxFeeds) return;
+        _fxFeeds.feeds.push({ name: '', url: '', enabled: true, items: [] });
+        renderRateFeeds();
+      });
+      document.getElementById('fx-feeds-save').addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const msg = document.getElementById('fx-feeds-msg');
+        if (!_fxFeeds) return;
+        const body = {
+          enabled: document.getElementById('fx-feeds-enabled').checked,
+          ecb: document.getElementById('fx-feeds-ecb').checked,
+          hour: Number(document.getElementById('fx-feeds-hour').value || 7),
+          feeds: _fxFeeds.feeds.map(f => ({ ...f, items: (f.items || []).map(it => ({ ...it, multiply: Number(it.multiply) || 0 })) })),
+        };
+        btn.disabled = true;
+        try {
+          const res = await fetch(API + '/admin/rate-feeds', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            msg.textContent = typeof d.detail === 'string' ? d.detail : t('fxFeedsFailed');
+            return;
+          }
+          msg.textContent = t('fxFeedsSaved');
+          await loadRateFeeds();
+        } catch (_) { msg.textContent = t('fxFeedsFailed'); } finally { btn.disabled = false; }
+      });
+      document.getElementById('fx-feeds-run').addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const msg = document.getElementById('fx-feeds-msg');
+        btn.disabled = true;
+        msg.textContent = t('fxFeedsRunning');
+        try {
+          const res = await fetch(API + '/admin/rate-feeds/run', { method: 'POST' });
+          const d = await res.json().catch(() => ({}));
+          msg.textContent = res.ok ? '' : (typeof d.detail === 'string' ? d.detail : t('fxFeedsFailed'));
+          if (res.ok) { renderRateFeedStatus(d); loadFxRates(); if (typeof loadFxMetadata === 'function') loadFxMetadata(true); }
+        } catch (_) { msg.textContent = t('fxFeedsFailed'); } finally { btn.disabled = false; }
+      });
+    })();
 
     const fxSaveReportingBtn = document.getElementById('fx-save-reporting-btn');
     if (fxSaveReportingBtn) {

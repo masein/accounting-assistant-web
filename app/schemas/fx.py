@@ -8,20 +8,27 @@ from pydantic import BaseModel, Field
 
 
 class ExchangeRateBase(BaseModel):
-    from_currency: str = Field(..., min_length=1, max_length=8)
-    to_currency: str = Field(..., min_length=1, max_length=8)
+    # 16: holding units such as GOLD_GRAM are priced like currencies.
+    from_currency: str = Field(..., min_length=1, max_length=16)
+    to_currency: str = Field(..., min_length=1, max_length=16)
     rate: float = Field(..., gt=0)
     effective_date: date
     note: Optional[str] = Field(None, max_length=256)
 
 
 class ExchangeRateCreate(ExchangeRateBase):
-    pass
+    # A rate for every company (platform admin only); otherwise it is the
+    # current company's own.
+    shared: bool = False
 
 
 class ExchangeRateRead(ExchangeRateBase):
     id: UUID
     created_at: datetime
+    # A shared rate (a daily feed, or entered before rates were per company)
+    # rather than this company's own.
+    shared: bool = False
+    source: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -36,8 +43,8 @@ class ReportingCurrencyUpdate(BaseModel):
 
 class ConvertRequest(BaseModel):
     amount: float
-    from_currency: str = Field(..., min_length=1, max_length=8)
-    to_currency: str = Field(..., min_length=1, max_length=8)
+    from_currency: str = Field(..., min_length=1, max_length=16)
+    to_currency: str = Field(..., min_length=1, max_length=16)
     on_date: Optional[date] = None
 
 

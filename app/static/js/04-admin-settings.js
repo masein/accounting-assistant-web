@@ -362,7 +362,7 @@
           loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); loadApiKeys();
           loadAIConfig(); loadAnthropicConfig(); loadAIUsage();
         }
-        if (isSuperadmin) loadAILimits();
+        if (isSuperadmin) { loadAILimits(); if (typeof loadRateFeeds === 'function') loadRateFeeds(); }
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
       }

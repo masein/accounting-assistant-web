@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.27.7"
+CURRENT_RELEASE = "2026.09.28"
 
 
 @dataclass(frozen=True)
@@ -706,6 +706,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«مهاجرت ← اسناد سال‌های قبل»: دفتر روزنامه را از حسابفا، سپیدار، هلو، زیرو یا کوئیک‌بوکس (یا هر صفحه‌گسترده‌ای) خروجی بگیرید و بارگذاری کنید. ستون‌ها به فارسی یا انگلیسی شناخته می‌شوند و تاریخ شمسی هم خوانده می‌شود؛ حساب‌هایی را که برنامه نمی‌شناسد یک بار معادل‌سازی می‌کنید، می‌بینید کدام اسناد و چرا ثبت نمی‌شوند، و بقیه را ثبت می‌کنید. ورود دوبارهٔ همان فایل هیچ سندی را تکراری ثبت نمی‌کند.",
                     "es": "Migración → Asientos históricos: exporta el diario de Hesabfa, Sepidar, Holoo, Xero o QuickBooks (o cualquier hoja) y súbelo. Las columnas se reconocen en inglés o persa, también las fechas jalali; asignas una vez las cuentas que la app no conoce, ves qué asientos no se pueden contabilizar y por qué, y contabilizas el resto. Importar el mismo archivo otra vez nunca los duplica.",
                     "ar": "الترحيل ← القيود التاريخية: صدّر دفتر اليومية من حسابفا أو سبيدار أو هلو أو Xero أو QuickBooks (أو أي جدول) وارفعه. تُعرف الأعمدة بالإنجليزية أو الفارسية والتواريخ الشمسية أيضًا؛ تطابق مرة واحدة الحسابات التي لا يعرفها التطبيق، وترى القيود التي لا يمكن ترحيلها ولماذا، ثم ترحّل الباقي. لا يكرر استيراد الملف نفسه أي قيد.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="fx-rates",
+                page="settings",
+                roles=("owner",),
+                title={
+                    "en": "Exchange rates: your own, and daily shared ones",
+                    "fa": "نرخ ارز: نرخ‌های خودتان، و نرخ‌های مشترک روزانه",
+                    "es": "Tipos de cambio: los tuyos y los compartidos cada día",
+                    "ar": "أسعار الصرف: أسعارك الخاصة، وأسعار مشتركة يومية",
+                },
+                body={
+                    "en": "Settings → Currency & FX: a rate you enter now belongs to your company alone and, for that pair, replaces the shared rate in your books — no other company can see or change it. Rates marked “shared” arrive automatically each day where the server is set up for it: the euro, dollar, pound and more from the European Central Bank, and the rial market and gold from a provider the administrator chooses. A pair with no rate is worked out through the dollar, euro, pound or rial.",
+                    "fa": "«تنظیمات ← ارز و نرخ تبدیل»: نرخی که از این پس وارد می‌کنید فقط مال شرکت شماست و برای همان جفت ارز در دفاتر شما جای نرخ مشترک را می‌گیرد — هیچ شرکت دیگری آن را نمی‌بیند یا تغییر نمی‌دهد. نرخ‌های «مشترک» هر روز خودکار می‌رسند، اگر سرور برایش تنظیم شده باشد: یورو، دلار، پوند و ارزهای دیگر از بانک مرکزی اروپا، و بازار آزاد ریال و طلا از سرویسی که مدیر سرور انتخاب می‌کند. جفت ارزی که نرخ ندارد از طریق دلار، یورو، پوند یا ریال حساب می‌شود.",
+                    "es": "Ajustes → Moneda y cambio: un tipo que introduzcas ahora es solo de tu empresa y, para ese par, sustituye al compartido en tus libros; ninguna otra empresa puede verlo ni cambiarlo. Los tipos «compartidos» llegan solos cada día si el servidor está configurado: el euro, el dólar, la libra y más del Banco Central Europeo, y el mercado del rial y el oro de un proveedor que elige el administrador. Un par sin tipo se calcula a través del dólar, el euro, la libra o el rial.",
+                    "ar": "الإعدادات ← العملة والصرف: السعر الذي تُدخله الآن خاص بشركتك وحدها، ويحلّ لذلك الزوج محل السعر المشترك في دفاترك — ولا تستطيع أي شركة أخرى رؤيته أو تغييره. تصل الأسعار «المشتركة» تلقائيًا كل يوم إن كان الخادم مهيّأً لذلك: اليورو والدولار والجنيه وغيرها من البنك المركزي الأوروبي، وسوق الريال والذهب من مزوّد يختاره المسؤول. أما الزوج الذي لا سعر له فيُحسب عبر الدولار أو اليورو أو الجنيه أو الريال.",
                 },
             ),
         ),

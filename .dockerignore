@@ -28,9 +28,15 @@ htmlcov/
 venv/
 env/
 
-# Large local artifacts that must not enter the build context
+# Large local artifacts that must not enter the build context — and database
+# dumps / backups, which would otherwise ship inside the image (roadmap §2.7)
 *.tar
 *.tar.gz
+*.tgz
+*.dump
+*.sql
+*.sql.gz
+backups/
 *.zip
 *.docx
 *-REPORT.md

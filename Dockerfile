@@ -18,8 +18,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --upgrade pip
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# The locked set, every file checked against its hash (roadmap §2.7): the
+# image gets exactly the versions CI tested, whatever PyPI serves today.
+# requirements.txt keeps the ranges; scripts/lock-deps.sh re-pins.
+COPY requirements.lock /app/requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r /app/requirements.lock
 
 COPY . /app
 

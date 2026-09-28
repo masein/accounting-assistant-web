@@ -255,6 +255,32 @@ start re-applies the grants. To go back, remove `APP_DB_PASSWORD` and recreate
 the api container; the unused role can then be dropped with
 `DROP OWNED BY aa_app; DROP ROLE aa_app;`.
 
+## 12. Dependencies and servers without internet
+
+The image installs **`requirements.lock`** with `pip install --require-hashes`:
+every package pinned to the version CI tested, every file checked against its
+hash, whatever PyPI serves on the day of the build. `requirements.txt` keeps
+the allowed ranges; the locks are generated from it:
+
+```bash
+scripts/lock-deps.sh              # re-resolve everything (newest allowed)
+scripts/lock-deps.sh fastapi      # move only fastapi, keep the rest
+```
+
+It resolves inside `python:3.12-slim` for `linux/amd64` (the image's platform)
+and writes `requirements.lock`, `requirements-dev.lock` (CI's test jobs) and
+`requirements-e2e.lock` (the browser job). Commit the three with the change to
+`requirements*.txt`; `tests/test_dependency_lock.py` fails when a lock doesn't
+match its ranges. The dev stack (`docker-compose.yml`) still installs the
+ranges, so a local run needs no re-lock.
+
+**A server without internet:** `scripts/offline-deploy.sh user@server` builds
+the image, saves it with `postgres:16` and Watchtower, and copies them with
+`docker-compose.prod.yml`, `.env.prod.example` and the backup scripts — never
+the source tree, a `.env`, a `backups/` folder or a database dump. On the
+server it loads the images and runs `docker compose -f docker-compose.prod.yml
+up -d --pull never` (the first time it stops and asks for the `.env`).
+
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally
   and bind-mounts the source for live reload. `docker-compose.prod.yml` runs the

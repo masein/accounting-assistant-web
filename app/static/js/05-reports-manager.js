@@ -314,13 +314,13 @@
       if (hasZoom) {
         const hint = document.createElement('span');
         hint.style.cssText = 'font-size:0.72rem;color:var(--text-muted);font-weight:400;';
-        hint.textContent = t('zoomHint') || 'drag to zoom · shift+wheel · alt+drag to pan';
+        hint.textContent = t('zoomHint');
         h.appendChild(hint);
         const resetBtn = document.createElement('button');
         resetBtn.type = 'button';
         resetBtn.className = 'btn btn-secondary btn-sm';
         resetBtn.style.cssText = 'padding:2px 8px;font-size:0.72rem;';
-        resetBtn.textContent = t('btnResetZoom') || 'Reset zoom';
+        resetBtn.textContent = t('btnResetZoom');
         resetBtn.dataset.role = 'reset-zoom';
         h.appendChild(resetBtn);
       }
@@ -345,7 +345,18 @@
       return chart;
     }
 
-    function renderManagerReportChart(report) {
+    // The inputs a report's supplementary charts were drawn for: a redraw in
+    // another language fetches the same periods, whatever the form says now.
+    function managerChartInputs() {
+      return {
+        fromDate: mgrFromDateEl.value || '',
+        toDate: mgrToDateEl.value || '',
+        granularity: mgrPeriodGranularityEl ? mgrPeriodGranularityEl.value : 'monthly',
+        chartCurrency: document.getElementById('mgr-currency')?.value || '',
+      };
+    }
+
+    function renderManagerReportChart(report, inputs) {
       if (!mgrReportChartPanelEl || !mgrReportChartEl) return;
       _destroyExtraCharts();
       const chart = renderReportChart(mgrReportChartEl, report, managerReportChart);
@@ -358,10 +369,7 @@
 
       // Supplementary charts per report type
       const rt = (report.report_type || '').toLowerCase();
-      const fromDate = mgrFromDateEl.value || '';
-      const toDate = mgrToDateEl.value || '';
-      const granularity = mgrPeriodGranularityEl ? mgrPeriodGranularityEl.value : 'monthly';
-      const chartCurrency = document.getElementById('mgr-currency')?.value || '';
+      const { fromDate, toDate, granularity, chartCurrency } = inputs || managerChartInputs();
       const palette = ['#0f766e', '#0ea5e9', '#eab308', '#f97316', '#8b5cf6', '#ef4444', '#10b981', '#64748b'];
 
       if (rt === 'balance_sheet') {
@@ -375,14 +383,14 @@
           .then(r => r.json()).then(data => {
             const periods = data.periods || [];
             if (periods.length < 2) return;
-            _addExtraChart('Balance Sheet Trend', {
+            _addExtraChart(t('chartBalanceSheetTrend'), {
               type: 'line',
               data: {
                 labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [
-                  { label: 'Assets', data: periods.map(p => p.assets), borderColor: palette[0], backgroundColor: 'rgba(15,118,110,0.12)', fill: true, tension: 0.3 },
-                  { label: 'Liabilities', data: periods.map(p => p.liabilities), borderColor: '#c62828', backgroundColor: 'rgba(198,40,40,0.08)', fill: true, tension: 0.3 },
-                  { label: 'Equity', data: periods.map(p => p.equity), borderColor: palette[1], backgroundColor: 'rgba(14,165,233,0.08)', fill: true, tension: 0.3 },
+                  { label: t('legendAssets'), data: periods.map(p => p.assets), borderColor: palette[0], backgroundColor: 'rgba(15,118,110,0.12)', fill: true, tension: 0.3 },
+                  { label: t('legendLiabilities'), data: periods.map(p => p.liabilities), borderColor: '#c62828', backgroundColor: 'rgba(198,40,40,0.08)', fill: true, tension: 0.3 },
+                  { label: t('legendEquity'), data: periods.map(p => p.equity), borderColor: palette[1], backgroundColor: 'rgba(14,165,233,0.08)', fill: true, tension: 0.3 },
                 ]
               },
               options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, zoom: zoomPluginOptions() }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
@@ -391,15 +399,15 @@
               const idx = els[0].index;
               const dsIdx = els[0].datasetIndex;
               const prefixes = ['11,12,13,14,15', '21,22,23,24', '31,32,33'][dsIdx];
-              if (prefixes) showTransactionDrilldown(['Assets', 'Liabilities', 'Equity'][dsIdx] + ' — ' + formatPeriodKey(periods[idx].period), { account_code_prefix: prefixes, to_date: periods[idx].date });
+              if (prefixes) showTransactionDrilldown(t(['legendAssets', 'legendLiabilities', 'legendEquity'][dsIdx]) + ' — ' + formatPeriodKey(periods[idx].period), { account_code_prefix: prefixes, to_date: periods[idx].date });
             });
             // Net worth trend
-            _addExtraChart('Net Worth Over Time', {
+            _addExtraChart(t('chartNetWorthOverTime'), {
               type: 'bar',
               data: {
                 labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [{
-                  label: 'Net Worth (Assets − Liabilities)',
+                  label: t('legendNetWorth'),
                   data: periods.map(p => p.net_worth),
                   backgroundColor: periods.map(p => p.net_worth >= 0 ? 'rgba(15,118,110,0.7)' : 'rgba(198,40,40,0.7)')
                 }]
@@ -417,11 +425,11 @@
         const otherExp = totals.other_expenses || 0;
         const netProfit = totals.net_profit || 0;
         if (grossProfit || opex || otherExp) {
-          _addExtraChart('Cost & Profit Breakdown', {
+          _addExtraChart(t('chartCostProfitBreakdown'), {
             type: 'doughnut',
             data: {
-              labels: ['Net Profit', 'COGS', 'Operating Expenses', 'Other Expenses'],
-              datasets: [{ label: 'Breakdown', data: [Math.max(0, netProfit), totals.cogs || 0, opex, otherExp], backgroundColor: [palette[0], palette[3], palette[5], palette[4]] }]
+              labels: [t('legendNetProfit'), t('legendCogs'), t('legendOperatingExpenses'), t('legendOtherExpenses')],
+              datasets: [{ label: t('legendBreakdown'), data: [Math.max(0, netProfit), totals.cogs || 0, opex, otherExp], backgroundColor: [palette[0], palette[3], palette[5], palette[4]] }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
           });
@@ -436,11 +444,11 @@
           .then(r => r.json()).then(data => {
             const periods = data.periods || [];
             if (periods.length < 2) return;
-            _addExtraChart('Sales Revenue Trend', {
+            _addExtraChart(t('chartSalesTrend'), {
               type: 'bar',
               data: {
                 labels: periods.map(p => formatPeriodKey(p.period)),
-                datasets: [{ label: 'Sales Revenue', data: periods.map(p => p.sales_amount), backgroundColor: palette[0] }]
+                datasets: [{ label: t('legendSales'), data: periods.map(p => p.sales_amount), backgroundColor: palette[0] }]
               },
               options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
             });
@@ -458,23 +466,23 @@
           .then(r => r.json()).then(data => {
             const periods = data.periods || [];
             if (periods.length < 2) return;
-            _addExtraChart('Cash Inflow vs Outflow Over Time', {
+            _addExtraChart(t('chartCashInOutOverTime'), {
               type: 'bar',
               data: {
                 labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [
-                  { label: 'Inflow', data: periods.map(p => p.inflow), backgroundColor: 'rgba(15,118,110,0.75)' },
-                  { label: 'Outflow', data: periods.map(p => p.outflow), backgroundColor: 'rgba(198,40,40,0.65)' }
+                  { label: t('legendInflow'), data: periods.map(p => p.inflow), backgroundColor: 'rgba(15,118,110,0.75)' },
+                  { label: t('legendOutflow'), data: periods.map(p => p.outflow), backgroundColor: 'rgba(198,40,40,0.65)' }
                 ]
               },
               options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
             });
-            _addExtraChart('Net Cash Flow Trend', {
+            _addExtraChart(t('chartNetCashFlowTrend'), {
               type: 'line',
               data: {
                 labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [{
-                  label: 'Net Cash Flow',
+                  label: t('legendNetCashFlow'),
                   data: periods.map(p => p.net),
                   borderColor: palette[0], backgroundColor: 'rgba(15,118,110,0.12)', fill: true, tension: 0.3,
                   pointBackgroundColor: periods.map(p => p.net >= 0 ? palette[0] : '#c62828')
@@ -493,7 +501,9 @@
       const _findRow = (key) => (report.rows || []).find(r => r && r.key === key) || null;
       const _amt = (row, field) => (row && row[field] != null) ? Number(row[field]) : 0;
 
-      const ROW_LABEL = (r) => (r && (r.label_fa || r.label_en || r.label || r.key)) || '';
+      // Iranian statement rows carry both labels: show the one for the UI's language.
+      const _fa = currentLanguage === 'fa';
+      const ROW_LABEL = (r) => (r && ((_fa ? r.label_fa : r.label_en) || r.label_fa || r.label_en || r.label || r.key)) || '';
 
       const _compositionPie = (title, rowKeys, signFn) => {
         const items = rowKeys
@@ -520,8 +530,8 @@
           data: {
             labels: rows.map(ROW_LABEL),
             datasets: [
-              { label: t('labelCurrent') || 'Current', data: rows.map(r => _amt(r, 'amount_current')), backgroundColor: palette[0] },
-              { label: t('labelPrior') || 'Prior', data: rows.map(r => _amt(r, 'amount_prior')), backgroundColor: palette[1] },
+              { label: t('labelCurrent'), data: rows.map(r => _amt(r, 'amount_current')), backgroundColor: palette[0] },
+              { label: t('labelPrior'), data: rows.map(r => _amt(r, 'amount_prior')), backgroundColor: palette[1] },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } },
@@ -579,15 +589,15 @@
         const equityKeys = isUK
           ? ['eq_share_capital', 'eq_share_premium', 'eq_revaluation_reserve', 'eq_other_reserves', 'eq_pl_account']
           : ['eq_capital', 'eq_share_premium', 'eq_legal_reserve', 'eq_other_reserves', 'eq_revaluation_surplus', 'eq_retained_earnings', 'eq_treasury_stock'];
-        _compositionPie(t('chartAssetComposition') || 'Asset composition', assetKeys);
-        _compositionPie(t('chartLiabilityComposition') || 'Liabilities composition', liabKeys);
-        _compositionPie(t('chartEquityComposition') || 'Equity composition', equityKeys);
+        _compositionPie(t('chartAssetComposition'), assetKeys);
+        _compositionPie(t('chartLiabilityComposition'), liabKeys);
+        _compositionPie(t('chartEquityComposition'), equityKeys);
         // Trend across periods (uses default-locale endpoint; both locales share the chart of accounts ranges via classify_account_code).
-        _addPeriodsTrend('/manager-reports/financial/balance-sheet-periods', t('chartBSTrend') || 'Assets / Liabilities / Equity over time',
+        _addPeriodsTrend('/manager-reports/financial/balance-sheet-periods', t('chartBSTrend'),
           [
-            { field: 'assets', label: t('legendAssets') || 'Assets', color: palette[0] },
-            { field: 'liabilities', label: t('legendLiabilities') || 'Liabilities', color: '#c62828' },
-            { field: 'equity', label: t('legendEquity') || 'Equity', color: palette[1] },
+            { field: 'assets', label: t('legendAssets'), color: palette[0] },
+            { field: 'liabilities', label: t('legendLiabilities'), color: '#c62828' },
+            { field: 'equity', label: t('legendEquity'), color: palette[1] },
           ]);
       }
 
@@ -599,14 +609,14 @@
         const expenseKeys = isUK
           ? ['cost_of_sales', 'distribution_costs', 'admin_expenses', 'interest_payable', 'tax_on_profit']
           : ['cogs', 'opex_sga', 'impairment_receivables', 'other_operating_expenses', 'financial_expenses', 'tax_current_year', 'tax_prior_years'];
-        _compositionPie(t('chartExpenseComposition') || 'Expense composition', expenseKeys, v => Math.abs(v));
+        _compositionPie(t('chartExpenseComposition'), expenseKeys, v => Math.abs(v));
         // Revenue / income comparison
         const revKeys = isUK ? ['turnover', 'other_operating_income', 'investment_income', 'interest_receivable']
                               : ['revenue_operating', 'other_operating_income', 'non_operating_net'];
-        _comparisonBar(t('chartRevenueLines') || 'Revenue / income lines', revKeys, isUK ? '4' : '41,42,43');
+        _comparisonBar(t('chartRevenueLines'), revKeys, isUK ? '4' : '41,42,43');
         // Sales trend (period-aware): only if we have a sales endpoint — works for any locale
-        _addPeriodsTrend('/manager-reports/sales/trend', t('chartSalesTrend') || 'Sales revenue trend',
-          [{ field: 'sales_amount', label: t('legendSales') || 'Sales', color: palette[0] }]);
+        _addPeriodsTrend('/manager-reports/sales/trend', t('chartSalesTrend'),
+          [{ field: 'sales_amount', label: t('legendSales'), color: palette[0] }]);
       }
 
       // ── Iran / UK Cash Flow ─────────────────────────────────────────
@@ -620,12 +630,12 @@
                          isUK ? 'fx_effect' : 'fx_rate_effect',
                          isUK ? 'closing_cash' : 'closing_cash'].map(k => _findRow(k)).filter(r => r);
         if (recRows.length >= 4) {
-          _addExtraChart(t('chartCashReconciliation') || 'Cash reconciliation', {
+          _addExtraChart(t('chartCashReconciliation'), {
             type: 'bar',
             data: {
               labels: recRows.map(r => _localizeDatesInLabel(ROW_LABEL(r))),
               datasets: [{
-                label: t('legendMovement') || 'Movement',
+                label: t('legendMovement'),
                 data: recRows.map(r => _amt(r, 'amount_current')),
                 backgroundColor: recRows.map(r => _amt(r, 'amount_current') >= 0 ? palette[0] : '#c62828'),
               }],
@@ -639,19 +649,19 @@
           : ['inv_ppe_inflow', 'inv_ppe_outflow', 'inv_intangibles_inflow', 'inv_intangibles_outflow',
              'inv_lt_investments_inflow', 'inv_lt_investments_outflow', 'inv_st_investments_inflow', 'inv_st_investments_outflow',
              'inv_loans_to_others_outflow', 'inv_loans_to_others_inflow'];
-        _compositionPie(t('chartInvestingActivity') || 'Investing activity (cash magnitude)', invKeys, v => Math.abs(v));
+        _compositionPie(t('chartInvestingActivity'), invKeys, v => Math.abs(v));
         // Financing breakdown
         const finKeys = isUK
           ? ['fin_share_capital_inflow', 'fin_share_premium_inflow', 'fin_borrowings_inflow', 'fin_borrowings_outflow', 'fin_lease_outflow', 'fin_dividends_outflow']
           : ['fin_capital_inflow', 'fin_share_premium_inflow', 'fin_st_loans_inflow', 'fin_st_loans_outflow',
              'fin_loans_interest_outflow_placeholder', 'fin_dividends_outflow'];
-        _compositionPie(t('chartFinancingActivity') || 'Financing activity (cash magnitude)', finKeys, v => Math.abs(v));
+        _compositionPie(t('chartFinancingActivity'), finKeys, v => Math.abs(v));
         // Period trend: inflow / outflow / net using the default cash-flow-periods endpoint
-        _addPeriodsTrend('/manager-reports/financial/cash-flow-periods', t('chartCashFlowOverTime') || 'Cash flow over time',
+        _addPeriodsTrend('/manager-reports/financial/cash-flow-periods', t('chartCashFlowOverTime'),
           [
-            { field: 'inflow', label: t('legendInflow') || 'Inflow', color: palette[0] },
-            { field: 'outflow', label: t('legendOutflow') || 'Outflow', color: '#c62828' },
-            { field: 'net', label: t('legendNet') || 'Net', color: palette[1] },
+            { field: 'inflow', label: t('legendInflow'), color: palette[0] },
+            { field: 'outflow', label: t('legendOutflow'), color: '#c62828' },
+            { field: 'net', label: t('legendNet'), color: palette[1] },
           ]);
       }
 
@@ -660,7 +670,7 @@
         const npKey = rt === 'uk_comprehensive_income' ? 'profit_for_year' : 'net_profit';
         const ociKey = 'oci_total';
         const totalKey = rt === 'uk_comprehensive_income' ? 'total_comprehensive_income' : 'comprehensive_income';
-        _comparisonBar(t('chartNpOciTotal') || 'Net profit / OCI / Comprehensive', [npKey, ociKey, totalKey]);
+        _comparisonBar(t('chartNpOciTotal'), [npKey, ociKey, totalKey]);
       }
 
       // ── Iran / UK Changes in Equity ─────────────────────────────────
@@ -674,13 +684,13 @@
           const cellsOf = (row) => Object.fromEntries((row.cells || []).map(c => [c.component, c.amount]));
           const openCells = cellsOf(openingRow);
           const closeCells = cellsOf(closingRow);
-          _addExtraChart(t('chartEquityComponents') || 'Equity components: opening vs closing', {
+          _addExtraChart(t('chartEquityComponents'), {
             type: 'bar',
             data: {
-              labels: components.map(c => c.label_fa || c.label || c.key),
+              labels: components.map(c => (_fa ? c.label_fa : c.label_en) || c.label_fa || c.label || c.key),
               datasets: [
-                { label: t('labelOpening') || 'Opening', data: components.map(c => Number(openCells[c.key] || 0)), backgroundColor: palette[1] },
-                { label: t('labelClosing') || 'Closing', data: components.map(c => Number(closeCells[c.key] || 0)), backgroundColor: palette[0] },
+                { label: t('labelOpening'), data: components.map(c => Number(openCells[c.key] || 0)), backgroundColor: palette[1] },
+                { label: t('labelClosing'), data: components.map(c => Number(closeCells[c.key] || 0)), backgroundColor: palette[0] },
               ],
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } },
@@ -692,7 +702,7 @@
         // Top debit vs credit accounts horizontal bar
         const rows = (report.rows || []).slice().sort((a, b) => (b.debit_turnover + b.credit_turnover) - (a.debit_turnover + a.credit_turnover)).slice(0, 15);
         if (rows.length > 3) {
-          _addExtraChart('Top Accounts: Debit vs Credit', {
+          _addExtraChart(t('chartTopAccountsDrCr'), {
             type: 'bar',
             data: {
               labels: rows.map(r => r.account_code + ' ' + (r.account_name || '').slice(0, 20)),
@@ -708,12 +718,12 @@
             if (row && row.account_code) showTransactionDrilldown(row.account_name || row.account_code, { account_code: row.account_code, from_date: fromDate, to_date: toDate });
           });
           // Net balance bar
-          _addExtraChart('Net Balance by Account', {
+          _addExtraChart(t('chartNetBalanceByAccount'), {
             type: 'bar',
             data: {
               labels: rows.map(r => r.account_code),
               datasets: [{
-                label: 'Net Balance',
+                label: t('legendNetBalance'),
                 data: rows.map(r => (r.debit_balance || 0) - (r.credit_balance || 0)),
                 backgroundColor: rows.map(r => ((r.debit_balance || 0) - (r.credit_balance || 0)) >= 0 ? palette[0] : '#c62828')
               }]
@@ -739,20 +749,20 @@
           .then(r => r.json()).then(data => {
             const periods = data.periods || [];
             if (periods.length < 2) return;
-            const label = rt.includes('purchase') ? 'Purchase' : 'Sales';
-            _addExtraChart(label + ' Trend Over Time' + (filterVal ? ' — ' + filterVal : ''), {
+            const purchase = rt.includes('purchase');
+            _addExtraChart(t(purchase ? 'chartPurchaseTrendOverTime' : 'chartSalesTrendOverTime') + (filterVal ? ' — ' + filterVal : ''), {
               type: 'bar',
               data: {
                 labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [
-                  { label: label + ' Amount', data: periods.map(p => p.sales_amount), backgroundColor: palette[0], yAxisID: 'y' },
-                  { label: 'Quantity', data: periods.map(p => p.quantity), type: 'line', borderColor: palette[3], backgroundColor: 'transparent', yAxisID: 'y1', tension: 0.3 }
+                  { label: t(purchase ? 'legendPurchaseAmount' : 'legendSalesAmount'), data: periods.map(p => p.sales_amount), backgroundColor: palette[0], yAxisID: 'y' },
+                  { label: t('legendQuantity'), data: periods.map(p => p.quantity), type: 'line', borderColor: palette[3], backgroundColor: 'transparent', yAxisID: 'y1', tension: 0.3 }
                 ]
               },
               options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { position: 'bottom' } },
-                scales: { y: { position: 'left', ticks: { callback: v => formatNum(v) } }, y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Qty' } } }
+                scales: { y: { position: 'left', ticks: { callback: v => formatNum(v) } }, y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: t('axisQty') } } }
               }
             });
           }).catch(() => {});
@@ -766,11 +776,11 @@
         const totalDebt = debtors.reduce((s, r) => s + Math.abs(r.net_delta || 0), 0);
         const totalCred = creditors.reduce((s, r) => s + Math.abs(r.net_delta || 0), 0);
         if (totalDebt || totalCred) {
-          _addExtraChart('Receivables vs Payables', {
+          _addExtraChart(t('chartReceivablesVsPayables'), {
             type: 'doughnut',
             data: {
-              labels: ['Receivables (Debtors)', 'Payables (Creditors)'],
-              datasets: [{ label: 'AR vs AP', data: [totalDebt, totalCred], backgroundColor: [palette[0], palette[5]] }]
+              labels: [t('legendReceivablesDebtors'), t('legendPayablesCreditors')],
+              datasets: [{ label: t('legendArVsAp'), data: [totalDebt, totalCred], backgroundColor: [palette[0], palette[5]] }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
           });
@@ -778,12 +788,12 @@
         // Top entities
         const topEntities = rows.slice().sort((a, b) => Math.abs(b.net_delta || 0) - Math.abs(a.net_delta || 0)).slice(0, 10);
         if (topEntities.length > 2) {
-          _addExtraChart('Top Entities by Amount', {
+          _addExtraChart(t('chartTopEntities'), {
             type: 'bar',
             data: {
-              labels: topEntities.map(r => (r.entity_name || 'Unknown').slice(0, 20)),
+              labels: topEntities.map(r => (r.entity_name || t('labelUnknownEntity')).slice(0, 20)),
               datasets: [{
-                label: 'Net Amount',
+                label: t('legendNetAmount'),
                 data: topEntities.map(r => r.net_delta || 0),
                 backgroundColor: topEntities.map(r => r.role === 'debtor' ? palette[0] : palette[5])
               }]
@@ -1038,6 +1048,7 @@
         q.set('page', '1');
         q.set('page_size', '120');
         const url = API + endpoint + (q.toString() ? ('?' + q.toString()) : '');
+        const chartInputs = managerChartInputs();
         mgrRunBtn.disabled = true;
         const res = await fetch(url);
         const data = await res.json().catch(() => ({}));
@@ -1046,56 +1057,7 @@
           return;
         }
         lastManagerReport = data;
-        const period = reportPeriodText(data);
-        // When no currency filter is selected and data spans multiple currencies,
-        // show a banner warning that numbers are summed across currencies and
-        // offer a one-click switch to a single-currency view.
-        let mixWarning = '';
-        if (currency === 'ALL') {
-          const others = Array.isArray(data.other_currencies) ? data.other_currencies : [];
-          const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('currencyViewOnly').replace('{currency}', ccy))}</button>`).join(' ');
-          mixWarning = `<div class="report-meta" style="margin-bottom:0.6rem;">${escapeHtml(baseViewNoteText())}
-              ${buttons ? `<div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>` : ''}
-            </div>`;
-        } else if (!currency && data && data.currency) {
-          // Server resolved a single-currency view (reporting currency by
-          // default): say which, and offer the other currencies separately.
-          const others = Array.isArray(data.other_currencies) ? data.other_currencies : [];
-          if (others.length) {
-            const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('currencyViewOnly').replace('{currency}', ccy))}</button>`).join(' ');
-            mixWarning = `<div class="report-meta" style="margin-bottom:0.6rem;">${escapeHtml(t('currencyViewNote').replace('{currency}', data.currency).replace('{others}', others.join(', ')))}
-              <div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>
-            </div>`;
-          }
-        } else if (!currency) {
-          const meta = window.__FX_META;
-          const used = (meta && Array.isArray(meta.used_currencies)) ? meta.used_currencies : [];
-          if (used.length > 1) {
-            const buttons = used.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}"><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span> only</button>`).join(' ');
-            mixWarning = `<div style="background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:0.55rem 0.75rem;border-radius:8px;margin-bottom:0.6rem;font-size:0.85rem;">
-              ⚠️ No currency filter selected. Numbers below sum ${used.join(', ')} as raw integers, which is not meaningful. Pick a currency:
-              <div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>
-            </div>`;
-          }
-        }
-        mgrReportPreviewEl.innerHTML = `
-          ${mixWarning}
-          ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}${currency ? ' · <span class="ccy-badge ccy-' + escapeHtml(currency) + '">' + escapeHtml(currency === 'ALL' ? t('currencyAllInBase').replace('{base}', baseCurrencyCode()) : currency) + '</span>' : ''}</div>` : ''}
-          ${renderReportPreviewHtml(data)}
-        `;
-        // Wire up the "switch currency" buttons in the warning banner
-        mgrReportPreviewEl.querySelectorAll('.mgr-ccy-switch').forEach(b => {
-          b.addEventListener('click', () => {
-            const ccy = b.dataset.ccy;
-            const sel = document.getElementById('mgr-currency');
-            if (sel && ccy) {
-              sel.value = ccy;
-              runManagerReport();
-            }
-          });
-        });
-        mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
-        renderManagerReportChart(data);
+        renderManagerReport(data, currency, chartInputs);
         if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
         if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
         if (mgrExportPdfBtn) mgrExportPdfBtn.disabled = false;
@@ -1104,6 +1066,72 @@
       } finally {
         mgrRunBtn.disabled = false;
       }
+    }
+
+    // What the manager page shows: the report, its currency and chart inputs,
+    // kept so a language change can draw it again (mgrRelocalize).
+    let _mgrShown = null;
+
+    function renderManagerReport(data, currency, chartInputs) {
+      _mgrShown = { data, currency, chartInputs };
+      const period = reportPeriodText(data);
+      // When no currency filter is selected and data spans multiple currencies,
+      // show a banner warning that numbers are summed across currencies and
+      // offer a one-click switch to a single-currency view.
+      let mixWarning = '';
+      if (currency === 'ALL') {
+        const others = Array.isArray(data.other_currencies) ? data.other_currencies : [];
+        const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('currencyViewOnly').replace('{currency}', ccy))}</button>`).join(' ');
+        mixWarning = `<div class="report-meta" style="margin-bottom:0.6rem;">${escapeHtml(baseViewNoteText())}
+            ${buttons ? `<div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>` : ''}
+          </div>`;
+      } else if (!currency && data && data.currency) {
+        // Server resolved a single-currency view (reporting currency by
+        // default): say which, and offer the other currencies separately.
+        const others = Array.isArray(data.other_currencies) ? data.other_currencies : [];
+        if (others.length) {
+          const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('currencyViewOnly').replace('{currency}', ccy))}</button>`).join(' ');
+          mixWarning = `<div class="report-meta" style="margin-bottom:0.6rem;">${escapeHtml(t('currencyViewNote').replace('{currency}', data.currency).replace('{others}', others.join(', ')))}
+            <div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>
+          </div>`;
+        }
+      } else if (!currency) {
+        const meta = window.__FX_META;
+        const used = (meta && Array.isArray(meta.used_currencies)) ? meta.used_currencies : [];
+        if (used.length > 1) {
+          const buttons = used.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}"><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span> only</button>`).join(' ');
+          mixWarning = `<div style="background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:0.55rem 0.75rem;border-radius:8px;margin-bottom:0.6rem;font-size:0.85rem;">
+            ⚠️ No currency filter selected. Numbers below sum ${used.join(', ')} as raw integers, which is not meaningful. Pick a currency:
+            <div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>
+          </div>`;
+        }
+      }
+      mgrReportPreviewEl.innerHTML = `
+        ${mixWarning}
+        ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}${currency ? ' · <span class="ccy-badge ccy-' + escapeHtml(currency) + '">' + escapeHtml(currency === 'ALL' ? t('currencyAllInBase').replace('{base}', baseCurrencyCode()) : currency) + '</span>' : ''}</div>` : ''}
+        ${renderReportPreviewHtml(data)}
+      `;
+      // Wire up the "switch currency" buttons in the warning banner
+      mgrReportPreviewEl.querySelectorAll('.mgr-ccy-switch').forEach(b => {
+        b.addEventListener('click', () => {
+          const ccy = b.dataset.ccy;
+          const sel = document.getElementById('mgr-currency');
+          if (sel && ccy) {
+            sel.value = ccy;
+            runManagerReport();
+          }
+        });
+      });
+      mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
+      renderManagerReportChart(data, chartInputs);
+    }
+
+    // Called by applyLanguage: the report on screen, drawn again in the new
+    // language (titles, legends, statement row labels, period names). Not a
+    // report another panel put on the page since (the payables view).
+    function mgrRelocalize() {
+      if (!_mgrShown || lastManagerReport !== _mgrShown.data || !mgrReportPreviewEl) return;
+      renderManagerReport(_mgrShown.data, _mgrShown.currency, _mgrShown.chartInputs);
     }
 
     async function loadManagerInventoryItems(highlightId) {

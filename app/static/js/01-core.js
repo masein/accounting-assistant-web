@@ -107,23 +107,31 @@
     // A period key from a report: "1405-07" (Jalali, year < 1700) → "مهر ۱۴۰۵" /
     // "Mehr 1405"; "2026-09" → "Sep 2026"; "1405-Q1" → "بهار ۱۴۰۵" (§3.5).
     const _J_MONTHS = { fa: ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'],
+      ar: ['فروردين','أرديبهشت','خرداد','تير','مرداد','شهريور','مهر','آبان','آذر','دي','بهمن','إسفند'],
       en: ['Farvardin','Ordibehesht','Khordad','Tir','Mordad','Shahrivar','Mehr','Aban','Azar','Dey','Bahman','Esfand'] };
-    const _SEASONS = { fa: ['بهار','تابستان','پاییز','زمستان'], en: ['Spring','Summer','Autumn','Winter'] };
+    const _SEASONS = { fa: ['بهار','تابستان','پاییز','زمستان'], ar: ['الربيع','الصيف','الخريف','الشتاء'],
+      es: ['Primavera','Verano','Otoño','Invierno'], en: ['Spring','Summer','Autumn','Winter'] };
     function formatPeriodKey(key) {
       const s = String(key || '');
-      const lang = (typeof currentLanguage !== 'undefined' && currentLanguage === 'fa') ? 'fa' : 'en';
-      const digits = (x) => lang === 'fa' ? String(x).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]) : String(x);
+      const ui = (typeof currentLanguage !== 'undefined') ? currentLanguage : 'en';
+      const months = _J_MONTHS[ui] || _J_MONTHS.en;
+      const seasons = _SEASONS[ui] || _SEASONS.en;
+      const digits = (x) => ui === 'fa' ? String(x).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]) : String(x);
       let m = /^(\d{4})-(\d{2})$/.exec(s);
       if (m) {
         const y = +m[1], mo = +m[2];
-        if (y < 1700) return _J_MONTHS[lang][mo - 1] + ' ' + digits(y);
-        try { return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString(lang === 'fa' ? 'fa-IR-u-ca-gregory' : 'en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+        if (y < 1700) return months[mo - 1] + ' ' + digits(y);
+        // a Gregorian month in the UI's language (Latin digits for Arabic, like the figures)
+        const locale = { fa: 'fa-IR-u-ca-gregory', es: 'es-ES', ar: 'ar-u-nu-latn' }[ui] || 'en-GB';
+        try { return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString(locale, { month: 'short', year: 'numeric', timeZone: 'UTC' }); }
         catch (_) { return s; }
       }
       m = /^(\d{4})-Q([1-4])$/.exec(s);
-      if (m && +m[1] < 1700) return _SEASONS[lang][+m[2] - 1] + ' ' + digits(m[1]);
+      if (m && +m[1] < 1700) return seasons[+m[2] - 1] + ' ' + digits(m[1]);
+      m = /^(\d{4})-(Spring|Summer|Autumn|Winter)$/.exec(s);   // a Gregorian (meteorological) season
+      if (m) return seasons[_SEASONS.en.indexOf(m[2])] + ' ' + digits(m[1]);
       m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);             // a Jalali week, by its Saturday
-      if (m && +m[1] < 1700) return digits(+m[3]) + ' ' + _J_MONTHS[lang][+m[2] - 1] + ' ' + digits(m[1]);
+      if (m && +m[1] < 1700) return digits(+m[3]) + ' ' + months[+m[2] - 1] + ' ' + digits(m[1]);
       return s;
     }
 

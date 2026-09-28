@@ -64,9 +64,9 @@ from app.models.commitment import (
 SAYAD_RE = re.compile(r"^\d{16}$")
 
 # the history's actions
-RECEIVED, ISSUED, DEPOSIT, REDEPOSIT, CLEARED, BOUNCE, RETURN, ENDORSE, SAYAD = (
+RECEIVED, ISSUED, DEPOSIT, REDEPOSIT, CLEARED, BOUNCE, RETURN, ENDORSE, SAYAD, PRINTED = (
     "received", "issued", "deposited", "redeposited", "cleared", "bounced", "returned", "endorsed",
-    "sayad_registered")
+    "sayad_registered", "printed")
 
 
 def _refuse(detail: str, status: int = 409):
@@ -255,9 +255,10 @@ def record(db: Session, *, title: str, amount: int, due_date: date, direction: s
     )
     if inv is not None:
         row.counter_account_code = _code(db, "ar" if direction == RECEIVE else "ap")
-    if inv is not None and not row.counterparty:
+    if not row.counterparty and row.entity_id:
+        # the party's name: shown in the list and written on a printed cheque
         from app.models.entity import Entity
-        party = db.get(Entity, inv.entity_id) if inv.entity_id else None
+        party = db.get(Entity, row.entity_id)
         row.counterparty = getattr(party, "name", None)
     db.add(row)
     db.flush()
@@ -452,6 +453,11 @@ def register_sayad(db: Session, row: Commitment, *, sayad_id: str | None = None,
     row.sayad_registered_on = on or date.today()
     _event(db, row, SAYAD, row.sayad_registered_on)
     return row
+
+
+def record_print(db: Session, row: Commitment, *, payee: str | None = None) -> None:
+    """The leaf was printed (cheque_print): who it was made out to, in the history."""
+    _event(db, row, PRINTED, date.today(), note=payee)
 
 
 def history(db: Session, row: Commitment) -> list[dict]:

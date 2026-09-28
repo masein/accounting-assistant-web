@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="{{ 'fa' if rtl else 'en' }}" dir="{{ 'rtl' if rtl else 'ltr' }}">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Exactly the leaf: print at 100 % (no "fit to page") on the cheque itself. */
+  @page { size: {{ layout.width }}mm {{ layout.height }}mm; margin: 0; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: {{ "'Vazirmatn', 'Noto Naskh Arabic', 'Noto Sans Arabic', 'DejaVu Sans', sans-serif" if rtl else "'Noto Sans', 'DejaVu Sans', Arial, sans-serif" }}; color: #000; }
+  .leaf { position: relative; width: {{ layout.width }}mm; height: {{ layout.height }}mm; overflow: hidden; }
+  .f { position: absolute; height: 7mm; line-height: 7mm; white-space: nowrap; overflow: hidden; }
+  {% if guide %}
+  .leaf { outline: 0.3mm dashed #888; outline-offset: -0.3mm; }
+  .f { outline: 0.2mm dotted #aaa; overflow: visible; }   /* the name sits just above its box */
+  .lbl { position: absolute; top: -3.4mm; font-size: 6pt; line-height: 3mm; color: #888; }
+  .note { position: absolute; bottom: 1.5mm; left: 3mm; right: 3mm; font-size: 6pt; color: #888; text-align: center; }
+  {% endif %}
+</style>
+</head>
+<body>
+<div class="leaf">
+  {% for b in boxes %}
+  <div class="f f-{{ b.name }}" dir="{{ b.dir }}"
+       style="left: {{ b.x }}mm; top: {{ b.y }}mm; width: {{ b.w }}mm; font-size: {{ b.font_size }}pt; text-align: {{ b.align }};">
+    {% if guide %}<span class="lbl" style="{{ 'right' if rtl else 'left' }}: 0;">{{ b.label }}</span>{% endif %}{{ b.text }}
+  </div>
+  {% endfor %}
+  {% if guide %}
+  <div class="note">{{ "راهنمای تنظیم: روی کاغذ ساده چاپ کنید، روی یک برگ چک بگذارید و جابه‌جایی‌ها را اصلاح کنید." if rtl else "Guide: print on plain paper, hold it against a cheque and adjust the positions." }}</div>
+  {% endif %}
+</div>
+</body>
+</html>

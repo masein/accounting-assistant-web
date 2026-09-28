@@ -311,7 +311,19 @@ to register (issued) or confirm (received) in the month before it is due.
 `commitment_events` is each cheque's history. Deposited cheques count in the
 cash forecast; an explicit invoice link wins over the party/amount guess. AI:
 `propose_create_cheque` takes the Sayad id and invoice, `propose_cheque_step`
-deposits, returns and passes on. Still to do: the cheque print layout.
+deposits, returns and passes on.
+
+✅ 3.4, part 2 — printing an issued cheque (`app/services/cheque_print.py`,
+template `documents/templates/cheque.html`): a WeasyPrint PDF the size of the
+leaf (Sayad 175 × 80 mm, UK 178 × 80 mm) with only what the drawer writes —
+date in figures and (Iranian) in words («پنجم مهر ماه یک هزار و چهارصد و
+پنج»), payee and national id, amount in words and in guarded figures
+(#۱۲٬۵۰۰٬۰۰۰#); long lines shrink to their box. The layout is the company's
+(app_settings `cheque_print_layout`: page size, global offset, each field's
+box in mm, validated to stay on the leaf) because leaves differ by bank; a
+guide print (outline + field names) on plain paper is how it is calibrated,
+and a test print needs no cheque. Real prints go in the cheque's history.
+Issued cheques only. §3.4 done.
 
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
@@ -421,7 +433,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 3.1 | **سامانه مودیان e-invoicing** — the #1 gap vs Hesabfa/Sepidar/Holoo. Since آذر 1404 paper invoices have no tax validity. Needs: per-company شناسه یکتای حافظه مالیاتی, 22-char شماره منحصربه‌فرد مالیاتی generator, 13-digit شناسه کالا/خدمت on products, invoice patterns (نوع ۱ B2B / نوع ۲ B2C, الگوها), signing with the company's private key/CSR, submission (direct or via a trusted provider such as the ones Mahak/Sepidar bundle), status tracking (pending / confirmed / rejected), 12/20-day deadline reminders as notifications, resend on rejection | New module `app/services/moadian/`, fields on `Company`, `Invoice`, `Product`; start with file export for a trusted provider, then direct API |
 | 3.2 | **گزارش معاملات فصلی (ماده 169) — TTMS export** of purchases/sales per quarter (45-day deadline) reconciled to the VAT return; **اظهارنامه ارزش افزوده** quarterly figures (15-day deadline) from `tax_summary` | `app/api/reports.py:770` tax summary → add TTMS file layout + a "quarter close" checklist item |
 | 3.3 | **Payroll 1405 parameters as data, not code**: minimum wage 5,541,850/day, حق مسکن 30,000,000, بن 22,000,000, حق اولاد, سنوات, insurance 7%/23% with the ceiling, income-tax brackets (exempt to 480 M/yr, 10/15/20/25/30 %), overtime 1.4×, عیدی 2–3× | `payroll_service.py` → a versioned `payroll_rules` table per Jalali year + UI to edit; **لیست بیمه (تامین اجتماعی) and salary-tax file exports** |
-| 3.4 | ✅ **Cheque handling like Iranian books expect** (2026-09-28, print layout still to do): چک دریافتی/پرداختی lifecycle (in hand → deposited → cleared / bounced → returned), صیاد ID field, cheque print layout, reminder on sayad registration | extends `commitments` (already bounced ≠ settled) |
+| 3.4 | ✅ **Cheque handling like Iranian books expect** (2026-09-28, lifecycle #177, print): چک دریافتی/پرداختی lifecycle (in hand → deposited → cleared / bounced → returned), صیاد ID field, cheque print layout, reminder on sayad registration | extends `commitments` (already bounced ≠ settled) |
 | 3.5 | ✅ **Jalali everywhere in reports** (2026-09-28): monthly buckets, budgets and `year-summary` use Gregorian months for `ir` companies | `manager_reports.py:671`, `budget_service.py:26`, `payroll.py:681` |
 
 ### UK

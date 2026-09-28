@@ -7,13 +7,14 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.commitment import NOTES, OPEN_STATUSES, PAY, PENDING, Commitment
-from app.services import cheques
+from app.services import cheque_print, cheques
 from app.services import commitment_service as svc
 
 router = APIRouter(prefix="/commitments", tags=["commitments"])
@@ -190,6 +191,58 @@ def create_cheque(payload: ChequeCreate, db: Session = Depends(get_db)) -> Commi
     return _read(db, row)
 
 
+# --- printing an issued cheque (§3.4 part 2) — before the /{commitment_id} routes ---------------------------
+
+class PrintLayoutUpdate(BaseModel):
+    width: float | None = None
+    height: float | None = None
+    offset_x: float | None = None
+    offset_y: float | None = None
+    font_size: float | None = None
+    fields: dict[str, dict[str, float]] = Field(default_factory=dict)
+
+
+class PrintRequest(BaseModel):
+    payee: str | None = Field(default=None, max_length=256, description="در وجه — defaults to the cheque's party")
+    national_id: str | None = Field(default=None, max_length=32, description="The payee's national id / کد ملی")
+    on: date | None = Field(default=None, description="The date written on the cheque (defaults to its due date)")
+    guide: bool = Field(default=False, description="Outline and field names, for calibrating on plain paper")
+
+
+def _pdf(data: bytes, name: str) -> Response:
+    return Response(content=data, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{name}"', "Cache-Control": "no-store"})
+
+
+@router.get("/print-layout")
+def read_print_layout(db: Session = Depends(get_db)) -> dict:
+    return cheque_print.get_layout(db)
+
+
+@router.put("/print-layout")
+def save_print_layout(payload: PrintLayoutUpdate, db: Session = Depends(get_db)) -> dict:
+    out = cheque_print.save_layout(db, payload.model_dump(exclude_none=True))
+    db.commit()
+    return out
+
+
+@router.post("/print-layout/reset")
+def reset_print_layout(db: Session = Depends(get_db)) -> dict:
+    out = cheque_print.reset_layout(db)
+    db.commit()
+    return out
+
+
+@router.post("/print-test")
+def print_test(db: Session = Depends(get_db)) -> Response:
+    """The guide with sample values, to calibrate before there is a cheque to print."""
+    from types import SimpleNamespace
+    sample = SimpleNamespace(amount=12_500_000, due_date=date.today(), counterparty=cheque_print.SAMPLE["payee"],
+                             entity_id=None)
+    values = cheque_print.cheque_values(db, sample, national_id=cheque_print.SAMPLE["national_id"])
+    return _pdf(cheque_print.render_pdf(db, values, guide=True), "cheque-guide.pdf")
+
+
 def _get(db: Session, commitment_id: UUID) -> Commitment:
     row = db.get(Commitment, commitment_id)
     if not row:
@@ -245,6 +298,22 @@ def register_sayad(commitment_id: UUID, payload: SayadRequest, db: Session = Dep
     row = cheques.register_sayad(db, _get(db, commitment_id), sayad_id=payload.sayad_id, on=payload.on)
     db.commit()
     return _read(db, row)
+
+
+@router.post("/{commitment_id}/print")
+def print_cheque(commitment_id: UUID, payload: PrintRequest, db: Session = Depends(get_db)) -> Response:
+    """The cheque's leaf as a PDF (issued cheques). A real print goes in its history."""
+    row = _get(db, commitment_id)
+    if row.kind != "cheque" or row.direction != PAY:
+        raise HTTPException(status_code=400, detail="Only a cheque we issue is printed; a received one is written by its drawer.")
+    if row.status in ("settled", "returned", "cancelled"):
+        raise HTTPException(status_code=409, detail=f"This cheque is {row.status}.")
+    values = cheque_print.cheque_values(db, row, payee=payload.payee, national_id=payload.national_id, on=payload.on)
+    pdf = cheque_print.render_pdf(db, values, guide=payload.guide)
+    if not payload.guide:
+        cheques.record_print(db, row, payee=values.get("payee") or None)
+        db.commit()
+    return _pdf(pdf, f"cheque-{row.reference or str(row.id)[:8]}.pdf")
 
 
 @router.get("/{commitment_id}/history")

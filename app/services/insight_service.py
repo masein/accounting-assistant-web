@@ -244,16 +244,25 @@ def _fmt(n: int | float | None) -> str:
     return f"{int(round(n)):,}"
 
 
+# The company's calendar for this run (roadmap §3.5): "this month" for an
+# Iranian company is مهر, not September. Set by compute_insights.
+from contextvars import ContextVar  # noqa: E402
+
+_CALENDAR: ContextVar[str] = ContextVar("insight_calendar", default="gregorian")
+
+
 def _month_key(d: date) -> str:
-    return d.strftime("%Y-%m")
+    from app.services.calendar_periods import month_key
+    return month_key(d, _CALENDAR.get())
 
 
 def _first_of_month(d: date) -> date:
-    return d.replace(day=1)
+    from app.services.calendar_periods import month_bounds_of
+    return month_bounds_of(d, _CALENDAR.get())[0]
 
 
 def _prev_month_first(d: date) -> date:
-    return (_first_of_month(d) - timedelta(days=1)).replace(day=1)
+    return _first_of_month(_first_of_month(d) - timedelta(days=1))
 
 
 def insight_language(db: Session) -> str:
@@ -427,10 +436,9 @@ def detect_revenue_drop(db: Session, today: date, *, txns: list[Transaction] | N
 
 
 def _iter_months(start: date, end: date):
-    m = _first_of_month(start)
-    while m <= end:
-        yield m
-        m = (m + timedelta(days=32)).replace(day=1)
+    from app.services.calendar_periods import months_between
+    for p in months_between(start, end, _CALENDAR.get()):
+        yield p.start
 
 
 def runway_insight(cash: int, burn: int, today: date) -> Insight | None:
@@ -637,8 +645,19 @@ def compute_insights(db: Session, *, today: date | None = None, use_cache: bool 
     from app.db.tenant import get_current_company
 
     today = today or date.today()
+    from app.services.calendar_periods import company_calendar
+    cal_token = _CALENDAR.set(company_calendar(db))
+    try:
+        return _compute_insights(db, today=today, use_cache=use_cache)
+    finally:
+        _CALENDAR.reset(cal_token)
+
+
+def _compute_insights(db: Session, *, today: date, use_cache: bool) -> list[Insight]:
+    from app.db.tenant import get_current_company
     from app.core.shared_state import books_version, current_scope, platform_version
-    ckey = f"{get_current_company() or 'global'}:{books_version(db, current_scope())}:{platform_version(db)}"
+    ckey = (f"{get_current_company() or 'global'}:{books_version(db, current_scope())}:{platform_version(db)}:"
+            f"{_CALENDAR.get()}")
     if use_cache:
         hit = _cache.get(ckey)
         if hit and hit[1] == today and time.monotonic() - hit[0] < CACHE_TTL_SECONDS:

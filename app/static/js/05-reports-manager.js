@@ -378,7 +378,7 @@
             _addExtraChart('Balance Sheet Trend', {
               type: 'line',
               data: {
-                labels: periods.map(p => p.period),
+                labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [
                   { label: 'Assets', data: periods.map(p => p.assets), borderColor: palette[0], backgroundColor: 'rgba(15,118,110,0.12)', fill: true, tension: 0.3 },
                   { label: 'Liabilities', data: periods.map(p => p.liabilities), borderColor: '#c62828', backgroundColor: 'rgba(198,40,40,0.08)', fill: true, tension: 0.3 },
@@ -391,13 +391,13 @@
               const idx = els[0].index;
               const dsIdx = els[0].datasetIndex;
               const prefixes = ['11,12,13,14,15', '21,22,23,24', '31,32,33'][dsIdx];
-              if (prefixes) showTransactionDrilldown(['Assets', 'Liabilities', 'Equity'][dsIdx] + ' — ' + periods[idx].period, { account_code_prefix: prefixes, to_date: periods[idx].date });
+              if (prefixes) showTransactionDrilldown(['Assets', 'Liabilities', 'Equity'][dsIdx] + ' — ' + formatPeriodKey(periods[idx].period), { account_code_prefix: prefixes, to_date: periods[idx].date });
             });
             // Net worth trend
             _addExtraChart('Net Worth Over Time', {
               type: 'bar',
               data: {
-                labels: periods.map(p => p.period),
+                labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [{
                   label: 'Net Worth (Assets − Liabilities)',
                   data: periods.map(p => p.net_worth),
@@ -439,7 +439,7 @@
             _addExtraChart('Sales Revenue Trend', {
               type: 'bar',
               data: {
-                labels: periods.map(p => p.period),
+                labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [{ label: 'Sales Revenue', data: periods.map(p => p.sales_amount), backgroundColor: palette[0] }]
               },
               options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } } }
@@ -461,7 +461,7 @@
             _addExtraChart('Cash Inflow vs Outflow Over Time', {
               type: 'bar',
               data: {
-                labels: periods.map(p => p.period),
+                labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [
                   { label: 'Inflow', data: periods.map(p => p.inflow), backgroundColor: 'rgba(15,118,110,0.75)' },
                   { label: 'Outflow', data: periods.map(p => p.outflow), backgroundColor: 'rgba(198,40,40,0.65)' }
@@ -472,7 +472,7 @@
             _addExtraChart('Net Cash Flow Trend', {
               type: 'line',
               data: {
-                labels: periods.map(p => p.period),
+                labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [{
                   label: 'Net Cash Flow',
                   data: periods.map(p => p.net),
@@ -546,7 +546,7 @@
             _addExtraChart(title, {
               type: 'line',
               data: {
-                labels: periods.map(p => p.period),
+                labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: datasetSpecs.map((ds, i) => ({
                   label: ds.label,
                   data: periods.map(p => Number(p[ds.field] || 0)),
@@ -743,7 +743,7 @@
             _addExtraChart(label + ' Trend Over Time' + (filterVal ? ' — ' + filterVal : ''), {
               type: 'bar',
               data: {
-                labels: periods.map(p => p.period),
+                labels: periods.map(p => formatPeriodKey(p.period)),
                 datasets: [
                   { label: label + ' Amount', data: periods.map(p => p.sales_amount), backgroundColor: palette[0], yAxisID: 'y' },
                   { label: 'Quantity', data: periods.map(p => p.quantity), type: 'line', borderColor: palette[3], backgroundColor: 'transparent', yAxisID: 'y1', tension: 0.3 }
@@ -1238,8 +1238,8 @@
       const wrap = document.getElementById('pd-budget-wrap');
       if (!wrap) return;
       const monthEl = document.getElementById('pd-budget-month');
-      if (monthEl && !monthEl.value) monthEl.value = new Date().toISOString().slice(0, 7);
-      const monthVal = monthEl ? monthEl.value : new Date().toISOString().slice(0, 7);
+      if (monthEl && !monthEl.value) monthEl.value = currentMonthKey();
+      const monthVal = monthEl ? monthEl.value : currentMonthKey();
       try {
         const res = await fetch(API + '/budgets/actual-vs-budget?month=' + encodeURIComponent(monthVal));
         const data = await res.json();
@@ -1492,7 +1492,7 @@
         const kv = (key) => kpis.find(k => k.key === key) || {};
         // "Spent this month" = the current month's actual from the expense
         // series (burn_rate is a trailing average, not this month's number).
-        const thisMonth = new Date().toISOString().slice(0, 7);
+        const thisMonth = currentMonthKey();         // a Jalali month for an Iranian company (§3.5)
         const monthRow = (data.monthly_expense_series || []).find(r => r.period === thisMonth);
         const spentCard = monthRow
           ? { value: monthRow.value, unit: kv('burn_rate').unit }
@@ -1532,7 +1532,7 @@
           _pdTrendChart = new Chart(trendCanvas, {
             type: 'bar',
             data: {
-              labels: series.map(r => r.period),
+              labels: series.map(r => formatPeriodKey(r.period)),
               datasets: [{ data: series.map(r => r.value), backgroundColor: _PD_PALETTE[0] }],
             },
             options: { plugins: { legend: { display: false } } },
@@ -1551,7 +1551,7 @@
       const monthEl = document.getElementById('pd-budget-month');
       if (monthEl) monthEl.addEventListener('change', pdLoadBudgets);
       if (saveBtn) saveBtn.addEventListener('click', async () => {
-        const month = (monthEl && monthEl.value) || new Date().toISOString().slice(0, 7);
+        const month = (monthEl && monthEl.value) || currentMonthKey();
         const category = document.getElementById('pd-budget-category')?.value || '';
         const limit = Number(document.getElementById('pd-budget-limit')?.value || 0);
         if (!category || !(limit > 0)) return;

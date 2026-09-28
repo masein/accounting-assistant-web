@@ -270,6 +270,22 @@ ignored (`messenger_updates`); the webhook returns at once and handles the
 update in the background. WhatsApp left out (needs Meta business
 verification). §5.7 done.
 
+**§3 continued — 2026-09-28:** ✅ 3.5 Jalali everywhere in reports
+(`app/services/calendar_periods.py`): everything that buckets money by period
+asks the company's display calendar (Jalali by default for `ir`). Month keys
+are `"YYYY-MM"` in their own calendar — a year below 1700 is Jalali — so a key
+says which calendar it is in and budgets saved before keep their Gregorian
+months. Jalali months in budgets (the month picker lists them), budget alerts,
+the dashboard's monthly series (with a `label`), balance-sheet / cash-flow /
+sales trend periods (seasons are Jalali quarters, weeks start on Saturday),
+insight comparisons, the CFO report, the ledger tool's `group_by=month` and
+the payroll year summary (year 1405 = 21 Mar 2026 – 20 Mar 2027). Charts label
+periods "Mehr 1405" / «مهر ۱۴۰۵». Found on the way: roles without settings
+access (accountant, manager, employee, viewer) could not read the display
+calendar and saw Gregorian dates in an Iranian company; report and invoice
+date defaults were UTC, a day early in Tehran before 03:30; the budget table
+did not reload on a month change and its headers were English only.
+
 **§5 — 2026-09-27:** ✅ 5.2 anomaly detection as insights (#157):
 `app/services/anomaly_detection.py` — duplicate supplier payments (same
 amount within a week or same reference), payments/expense claims split just
@@ -379,7 +395,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 3.2 | **گزارش معاملات فصلی (ماده 169) — TTMS export** of purchases/sales per quarter (45-day deadline) reconciled to the VAT return; **اظهارنامه ارزش افزوده** quarterly figures (15-day deadline) from `tax_summary` | `app/api/reports.py:770` tax summary → add TTMS file layout + a "quarter close" checklist item |
 | 3.3 | **Payroll 1405 parameters as data, not code**: minimum wage 5,541,850/day, حق مسکن 30,000,000, بن 22,000,000, حق اولاد, سنوات, insurance 7%/23% with the ceiling, income-tax brackets (exempt to 480 M/yr, 10/15/20/25/30 %), overtime 1.4×, عیدی 2–3× | `payroll_service.py` → a versioned `payroll_rules` table per Jalali year + UI to edit; **لیست بیمه (تامین اجتماعی) and salary-tax file exports** |
 | 3.4 | **Cheque handling like Iranian books expect**: چک دریافتی/پرداختی lifecycle (in hand → deposited → cleared / bounced → returned), صیاد ID field, cheque print layout, reminder on sayad registration | extends `commitments` (already bounced ≠ settled) |
-| 3.5 | **Jalali everywhere in reports**: monthly buckets, budgets and `year-summary` use Gregorian months for `ir` companies | `manager_reports.py:671`, `budget_service.py:26`, `payroll.py:681` |
+| 3.5 | ✅ **Jalali everywhere in reports** (2026-09-28): monthly buckets, budgets and `year-summary` use Gregorian months for `ir` companies | `manager_reports.py:671`, `budget_service.py:26`, `payroll.py:681` |
 
 ### UK
 | # | Item | Notes |

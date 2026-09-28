@@ -440,7 +440,7 @@ def build_cash_flow_statement(
     to_date: date | None = None,
     currency: str | None = None,
 ) -> CashFlowResponse:
-    from app.services.reporting.repository import transactions_with_lines_between
+    from app.services.reporting.repository import line_net, transactions_with_lines_between
 
     period = default_period(from_date, to_date)
     txns = transactions_with_lines_between(db, period.from_date, period.to_date, currency=currency)
@@ -451,7 +451,7 @@ def build_cash_flow_statement(
         cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("1110")]
         if not cash_lines:
             continue
-        cash_delta = int(sum((ln.debit or 0) - (ln.credit or 0) for ln in cash_lines))
+        cash_delta = int(sum(line_net(ln, currency) for ln in cash_lines))
         if cash_delta == 0:
             continue
         counter = [ln for ln in txn.lines if not (ln.account.code or "").startswith("1110")]

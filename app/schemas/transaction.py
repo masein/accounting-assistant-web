@@ -38,6 +38,9 @@ class TransactionLineRead(BaseModel):
     account_code: str
     debit: int
     credit: int
+    # the same in the company's base currency (None: no rate known yet)
+    base_debit: Optional[int] = None
+    base_credit: Optional[int] = None
     line_description: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -51,7 +54,12 @@ class TransactionBase(BaseModel):
     currency: Optional[str] = Field(
         default=None,
         max_length=8,
-        description="ISO-like currency code (IRR, USD, EUR, GBP, AED, TRY, IRT). Defaults to IRR if omitted.",
+        description="ISO-like currency code (IRR, USD, EUR, GBP, AED, TRY, IRT). Defaults to the company's base currency.",
+    )
+    fx_rate: Optional[float] = Field(
+        default=None, gt=0,
+        description="1 unit of `currency` = fx_rate units of the base currency. Omit to use the rate on file "
+                    "for the date; ignored for an entry in the base currency.",
     )
 
 
@@ -66,6 +74,7 @@ class TransactionUpdate(BaseModel):
     reference: Optional[str] = None
     description: Optional[str] = None
     currency: Optional[str] = Field(default=None, max_length=8)
+    fx_rate: Optional[float] = Field(default=None, gt=0)
     lines: Optional[list[TransactionLineCreate]] = None
     entity_links: Optional[list[EntityLink]] = None
     attachment_ids: Optional[list[UUID]] = None

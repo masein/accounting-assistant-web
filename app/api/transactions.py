@@ -195,6 +195,8 @@ def _transaction_to_read(t: Transaction) -> TransactionRead:
             account_code=line.account.code,
             debit=line.debit,
             credit=line.credit,
+            base_debit=line.base_debit,
+            base_credit=line.base_credit,
             line_description=line.line_description,
         )
         for line in t.lines
@@ -205,6 +207,7 @@ def _transaction_to_read(t: Transaction) -> TransactionRead:
         reference=t.reference,
         description=t.description,
         currency=t.currency or "IRR",
+        fx_rate=t.fx_rate,
         lines=lines,
         entity_links=[
             TransactionEntityLinkRead(
@@ -1532,7 +1535,10 @@ def update_transaction(
     if payload.description is not None:
         t.description = payload.description
     if payload.currency is not None:
-        t.currency = payload.currency.strip() or "IRR"
+        from app.services.ledger_posting import default_currency
+        t.currency = default_currency(db, payload.currency)
+    if payload.fx_rate is not None:
+        t.fx_rate = payload.fx_rate          # base amounts follow (app/services/fx_base.py)
     if payload.lines is not None:
         total_debit = sum(l.debit for l in payload.lines)
         total_credit = sum(l.credit for l in payload.lines)
@@ -1648,10 +1654,12 @@ def import_transactions(
                 detail=f"Transaction dated {imp.date}: debits ({total_debit}) must equal credits ({total_credit})",
             )
         assert_period_open(db, imp.date)  # the lock applies to imports too (review H7)
+        from app.services.ledger_posting import default_currency
         t = Transaction(
             date=imp.date,
             reference=imp.reference,
             description=imp.description,
+            currency=default_currency(db, None),
         )
         db.add(t)
         db.flush()

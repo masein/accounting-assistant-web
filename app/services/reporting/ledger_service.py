@@ -29,16 +29,16 @@ from app.services.reporting.repository import (
     paged_journal_entries,
     trial_balance_rows,
 )
-from app.services.reporting.repository import resolve_currency_view
+from app.services.reporting.repository import line_dr_cr, resolve_currency_view
 
 
-def _to_journal_item(txn: Transaction) -> JournalEntryRead:
+def _to_journal_item(txn: Transaction, currency: str | None = None) -> JournalEntryRead:
     lines = [
         JournalLineRead(
             account_code=ln.account.code,
             account_name=ln.account.name,
-            debit=int(ln.debit or 0),
-            credit=int(ln.credit or 0),
+            debit=line_dr_cr(ln, currency)[0],
+            credit=line_dr_cr(ln, currency)[1],
             line_description=ln.line_description,
         )
         for ln in txn.lines
@@ -68,7 +68,7 @@ class LedgerService:
             page=page,
             page_size=page_size,
             total=total,
-            items=[_to_journal_item(t) for t in items],
+            items=[_to_journal_item(t, currency) for t in items],
         )
 
     def account_ledger(self, account_code: str, from_date: date | None, to_date: date | None, page: int = 1, page_size: int = 100, currency: str | None = None) -> AccountLedgerResponse:
@@ -84,8 +84,7 @@ class LedgerService:
         debit_turnover = 0
         credit_turnover = 0
         for line, txn in rows:
-            debit = int(line.debit or 0)
-            credit = int(line.credit or 0)
+            debit, credit = line_dr_cr(line, currency)
             debit_turnover += debit
             credit_turnover += credit
             if acc_type in (ASSET, EXPENSE, OTHER):

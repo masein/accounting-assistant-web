@@ -14,8 +14,49 @@ from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.transaction import Transaction, TransactionLine
 
 
+# ``currency=BASE_VIEW``: every currency at once, each line at its base-currency
+# value (the rate its entry was posted at — roadmap §4.6). Entries still
+# waiting for a rate have no base value and add nothing (the UI says how many).
+BASE_VIEW = "ALL"
+
+
+def is_base_view(currency: str | None) -> bool:
+    return (currency or "").strip().upper() == BASE_VIEW
+
+
+def amount_columns(currency: str | None):
+    """The (debit, credit) columns a report sums: the entry's own amounts, or
+    the base-currency ones in the base view."""
+    if is_base_view(currency):
+        return TransactionLine.base_debit, TransactionLine.base_credit
+    return TransactionLine.debit, TransactionLine.credit
+
+
+def line_dr_cr(line: TransactionLine, currency: str | None) -> tuple[int, int]:
+    """A loaded line's (debit, credit) in the view a report shows."""
+    if is_base_view(currency):
+        return int(line.base_debit or 0), int(line.base_credit or 0)
+    return int(line.debit or 0), int(line.credit or 0)
+
+
+def line_net(line: TransactionLine, currency: str | None) -> int:
+    d, c = line_dr_cr(line, currency)
+    return d - c
+
+
+def _invoice_currency(db: Session, currency: str) -> str:
+    """Invoices carry no base values yet: the combined view lists the ones in
+    the base currency rather than adding currencies together."""
+    if is_base_view(currency):
+        from app.services.fx_service import get_reporting_currency
+        return (get_reporting_currency(db) or "IRR").strip().upper()
+    return currency
+
+
 def _currency_filter(q, currency: str | None):
     """Apply currency filter to a query that already joins Transaction."""
+    if is_base_view(currency):
+        return q
     if currency:
         return q.where(Transaction.currency == currency)
     return q
@@ -49,6 +90,9 @@ def resolve_currency_view(
     from app.services.fx_service import get_reporting_currency
 
     shown = (currency or get_reporting_currency(db) or "IRR").strip().upper()
+    if shown == BASE_VIEW:
+        # the combined view: every currency the books hold can still be opened alone
+        return shown, distinct_currencies(db, from_date, to_date)
     others = [c for c in distinct_currencies(db, from_date, to_date) if (c or "IRR").upper() != shown]
     return shown, others
 
@@ -69,11 +113,12 @@ def most_common_currency(db: Session) -> str:
 
 
 def account_turnovers_between(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[UUID, int, int]]:
+    dr, cr = amount_columns(currency)
     q = (
         select(
             TransactionLine.account_id,
-            func.coalesce(func.sum(TransactionLine.debit), 0),
-            func.coalesce(func.sum(TransactionLine.credit), 0),
+            func.coalesce(func.sum(dr), 0),
+            func.coalesce(func.sum(cr), 0),
         )
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(Transaction.date >= from_date, Transaction.date <= to_date)
@@ -85,11 +130,12 @@ def account_turnovers_between(db: Session, from_date: date, to_date: date, curre
 
 
 def account_turnovers_upto(db: Session, to_date: date, currency: str | None = None) -> list[tuple[UUID, int, int]]:
+    dr, cr = amount_columns(currency)
     q = (
         select(
             TransactionLine.account_id,
-            func.coalesce(func.sum(TransactionLine.debit), 0),
-            func.coalesce(func.sum(TransactionLine.credit), 0),
+            func.coalesce(func.sum(dr), 0),
+            func.coalesce(func.sum(cr), 0),
         )
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(Transaction.date <= to_date)
@@ -124,7 +170,7 @@ def net_profit_to_date(db: Session, as_of: date, currency: str | None = None) ->
 
 def paged_journal_entries(db: Session, from_date: date, to_date: date, page: int, page_size: int, currency: str | None = None) -> tuple[int, list[Transaction]]:
     base_where = [Transaction.date >= from_date, Transaction.date <= to_date, Transaction.deleted_at.is_(None)]
-    if currency:
+    if currency and not is_base_view(currency):
         base_where.append(Transaction.currency == currency)
     count_q = select(func.count(Transaction.id)).where(*base_where)
     total = int(db.execute(count_q).scalar() or 0)
@@ -159,7 +205,7 @@ def paged_account_lines(
         Transaction.date <= to_date,
         Transaction.deleted_at.is_(None),
     ]
-    if currency:
+    if currency and not is_base_view(currency):
         where_clauses.append(Transaction.currency == currency)
     count_q = (
         select(func.count(TransactionLine.id))
@@ -186,10 +232,11 @@ def opening_balance_before(
     before_date: date,
     currency: str | None = None,
 ) -> tuple[int, int]:
+    dr, cr = amount_columns(currency)
     q = (
         select(
-            func.coalesce(func.sum(TransactionLine.debit), 0),
-            func.coalesce(func.sum(TransactionLine.credit), 0),
+            func.coalesce(func.sum(dr), 0),
+            func.coalesce(func.sum(cr), 0),
         )
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(TransactionLine.account_id == account_id, Transaction.date < before_date, Transaction.deleted_at.is_(None))
@@ -200,12 +247,13 @@ def opening_balance_before(
 
 
 def trial_balance_rows(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[str, str, int, int]]:
+    dr, cr = amount_columns(currency)
     q = (
         select(
             Account.code,
             Account.name,
-            func.coalesce(func.sum(TransactionLine.debit), 0).label("debit_turnover"),
-            func.coalesce(func.sum(TransactionLine.credit), 0).label("credit_turnover"),
+            func.coalesce(func.sum(dr), 0).label("debit_turnover"),
+            func.coalesce(func.sum(cr), 0).label("credit_turnover"),
         )
         .join(TransactionLine, TransactionLine.account_id == Account.id)
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
@@ -224,13 +272,14 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
     role: debtor | creditor
     delta positive means increase, negative decrease.
     """
+    dr, cr = amount_columns(currency)
     # Receivable (1112): debit increases debtors, credit decreases.
     ar_q = (
         select(
             Transaction.date,
             TransactionEntity.entity_id,
             Entity.name,
-            (func.coalesce(func.sum(TransactionLine.debit), 0) - func.coalesce(func.sum(TransactionLine.credit), 0)).label("delta"),
+            (func.coalesce(func.sum(dr), 0) - func.coalesce(func.sum(cr), 0)).label("delta"),
         )
         .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
         .join(TransactionEntity, TransactionEntity.transaction_id == Transaction.id)
@@ -251,7 +300,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
             Transaction.date,
             TransactionEntity.entity_id,
             Entity.name,
-            (func.coalesce(func.sum(TransactionLine.credit), 0) - func.coalesce(func.sum(TransactionLine.debit), 0)).label("delta"),
+            (func.coalesce(func.sum(cr), 0) - func.coalesce(func.sum(dr), 0)).label("delta"),
         )
         .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
         .join(TransactionEntity, TransactionEntity.transaction_id == Transaction.id)
@@ -330,7 +379,7 @@ def sales_items_between(db: Session, from_date: date, to_date: date, currency: s
         .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
     )
     if currency:
-        q = q.where(Invoice.currency == currency)
+        q = q.where(Invoice.currency == _invoice_currency(db, currency))
     return db.execute(q).all()
 
 
@@ -347,7 +396,7 @@ def purchase_items_between(db: Session, from_date: date, to_date: date, currency
         .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
     )
     if currency:
-        q = q.where(Invoice.currency == currency)
+        q = q.where(Invoice.currency == _invoice_currency(db, currency))
     return db.execute(q).all()
 
 
@@ -361,7 +410,7 @@ def invoices_between(db: Session, from_date: date, to_date: date, *, kind: str |
     if kind:
         q = q.where(Invoice.kind == kind)
     if currency:
-        q = q.where(Invoice.currency == currency)
+        q = q.where(Invoice.currency == _invoice_currency(db, currency))
     return db.execute(q).scalars().all()
 
 
@@ -385,6 +434,6 @@ def transactions_with_lines_between(db: Session, from_date: date, to_date: date,
             selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity),
         )
     )
-    if currency:
+    if currency and not is_base_view(currency):
         q = q.where(Transaction.currency == currency)
     return db.execute(q).scalars().unique().all()

@@ -38,6 +38,7 @@ from app.schemas.invoice import (
 )
 from app.services.account_resolver import AccountResolutionError, resolve_account_code
 from app.services.audit_service import log_audit_event
+from app.services.ledger_posting import default_currency
 from app.services.ocr_extract import OCRExtractError, extract_from_attachment
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -196,7 +197,7 @@ def _post_entry(
         date=on,
         reference=(reference or None),
         description=(description or None),
-        currency=(currency or "IRR").strip().upper(),
+        currency=default_currency(db, currency),
     )
     db.add(txn)
     db.flush()
@@ -436,7 +437,7 @@ async def ocr_import_invoice(
     parsed_due = due_date or (parsed_date + timedelta(days=14))
     parsed_kind = _guess_kind_from_text(str(extracted.get("raw_text") or ""), k)
     parsed_amount = int(extracted.get("amount") or 0)
-    parsed_currency = str(extracted.get("currency") or "IRR").upper()[:8]
+    parsed_currency = default_currency(db, str(extracted.get("currency") or ""))[:8]
     parsed_ref = _safe_invoice_number(extracted.get("invoice_or_receipt_no"))
     parsed_desc = (description or "").strip() or (
         f"OCR import - {extracted.get('vendor_name')}" if extracted.get("vendor_name") else "OCR imported invoice"
@@ -510,7 +511,7 @@ def preview_invoice_pdf(payload: InvoiceCreate, db: Session = Depends(get_db)) -
         issue_date=payload.issue_date,
         due_date=payload.due_date,
         amount=items_total if item_rows else int(payload.amount or 0),
-        currency=(payload.currency or "IRR").strip().upper(),
+        currency=default_currency(db, payload.currency),
         description=(payload.description or "").strip() or None,
         entity_id=payload.entity_id,
     )
@@ -553,7 +554,7 @@ def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
         issue_date=payload.issue_date,
         due_date=payload.due_date,
         amount=int(payload.amount or 0),
-        currency=(payload.currency or "IRR").strip().upper(),
+        currency=default_currency(db, payload.currency),
         description=(payload.description or "").strip() or None,
         entity_id=payload.entity_id,
     )

@@ -215,7 +215,10 @@
       const sel = document.getElementById('ledger-currency');
       if (sel && data && data.currency) {
         const opts = [data.currency].concat((data.other_currencies || []).filter(c => c !== data.currency));
-        sel.innerHTML = opts.map(c => '<option value="' + escapeHtml(c) + '"' + (c === data.currency ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('');
+        // more than one currency: offer them all together, at base value
+        if (opts.length > 1 && !opts.includes('ALL')) opts.push('ALL');
+        const label = (c) => c === 'ALL' ? t('currencyAllInBase').replace('{base}', baseCurrencyCode()) : c;
+        sel.innerHTML = opts.map(c => '<option value="' + escapeHtml(c) + '"' + (c === data.currency ? ' selected' : '') + '>' + escapeHtml(label(c)) + '</option>').join('');
       }
       renderCurrencyViewNote(document.getElementById('ledger-currency-note'), data, (c) => loadLedger(c));
     }

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, String, Text, event, exists, func, text
+from sqlalchemy import BigInteger, Date, DateTime, Float, ForeignKey, Index, String, Text, event, exists, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship, with_loader_criteria
 
@@ -30,6 +30,17 @@ class Transaction(Base, TenantMixin):
     reference: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     currency: Mapped[str] = mapped_column(String(8), default="IRR", server_default="IRR", index=True)
+    # Base-currency values (roadmap §4.6, option 2 — as Xero and QuickBooks
+    # keep them): 1 unit of ``currency`` = ``fx_rate`` units of the company's
+    # base currency, fixed when the entry is posted (1 for a base-currency
+    # entry). NULL = no rate was known yet: the lines' base amounts are NULL
+    # too until one is added (app/services/fx_base.py fills them).
+    fx_rate: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+    # Entries whose base amounts the system sets itself and no rate may
+    # recompute: "revaluation" (period-end, base-only lines),
+    # "legacy_revaluation" (a pre-2026-09-28 mirror revaluation, neutralised in
+    # base by migration 053). NULL for every ordinary entry.
+    fx_role: Mapped[str | None] = mapped_column(String(24), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -62,6 +73,12 @@ class TransactionLine(Base, TenantMixin):
 
     debit: Mapped[int] = mapped_column(BigInteger, default=0)
     credit: Mapped[int] = mapped_column(BigInteger, default=0)
+    # The same amounts in the company's base currency at the entry's fx_rate,
+    # rounded half-up with the entry kept balanced. NULL while no rate is
+    # known. A line with no foreign amount and a base amount is base-only (a
+    # revaluation or a settlement difference).
+    base_debit: Mapped[int | None] = mapped_column(BigInteger, nullable=True, default=None)
+    base_credit: Mapped[int | None] = mapped_column(BigInteger, nullable=True, default=None)
     line_description: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     transaction: Mapped["Transaction"] = relationship("Transaction", back_populates="lines")

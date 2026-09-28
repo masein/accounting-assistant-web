@@ -46,6 +46,8 @@ class ConvertRequest(BaseModel):
     from_currency: str = Field(..., min_length=1, max_length=16)
     to_currency: str = Field(..., min_length=1, max_length=16)
     on_date: Optional[date] = None
+    # only a rate dated on or before on_date — the one an entry would be posted at
+    strict: bool = False
 
 
 class ConvertResponse(BaseModel):
@@ -60,10 +62,13 @@ class ConvertResponse(BaseModel):
 
 class FXRevalueRequest(BaseModel):
     as_of: date
-    target_currency: str = Field(..., min_length=1, max_length=8, description="Reporting currency to revalue into")
+    target_currency: Optional[str] = Field(
+        None, min_length=1, max_length=8,
+        description="The company's base currency (the default); any other is refused — base values are in it.")
     account_codes: Optional[list[str]] = Field(
         None,
-        description="Limit revaluation to these account codes (defaults to all foreign-currency bearing accounts).",
+        description="Limit revaluation to these account codes (default: every asset and liability account holding "
+                    "a foreign balance, except fixed assets, depreciation and prepayments — they stay at cost).",
     )
     dry_run: bool = Field(True, description="When true, preview adjustments without posting")
     gain_account_code: Optional[str] = Field(
@@ -93,5 +98,7 @@ class FXRevalueResponse(BaseModel):
     target_currency: str
     lines: list[FXRevalueLine]
     total_adjustment: int
+    # one entry per foreign currency; the first also as posted_transaction_id
     posted_transaction_id: Optional[UUID] = None
+    posted_transaction_ids: list[UUID] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)

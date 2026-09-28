@@ -369,13 +369,32 @@
     // by default) and names the others the books contain. Amounts in
     // different currencies are never added together; the note offers each
     // other currency as its own view.
+    function baseCurrencyCode() {
+      return (window.__FX_META && window.__FX_META.reporting_currency) || currencyUnit();
+    }
+    // "ALL": every currency at its base-currency value (roadmap §4.6) — the
+    // rate each entry was posted at. Entries with no rate yet are left out and
+    // counted in /fx/metadata.unconverted.
+    function baseViewNoteText() {
+      const base = baseCurrencyCode();
+      let txt = t('currencyBaseViewNote').replace('{base}', base);
+      const u = window.__FX_META && window.__FX_META.unconverted;
+      if (u && u.count) {
+        txt += ' ' + t('currencyBaseViewPending').replace('{n}', String(u.count)).replace('{currencies}', (u.currencies || []).join(', '));
+      }
+      return txt;
+    }
     function renderCurrencyViewNote(el, data, onPick) {
       if (!el) return;
       const others = (data && Array.isArray(data.other_currencies)) ? data.other_currencies : [];
       if (!data || !data.currency || !others.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
-      const note = t('currencyViewNote').replace('{currency}', data.currency).replace('{others}', others.join(', '));
-      const buttons = others.map(c => '<button type="button" class="btn btn-secondary btn-sm ccy-view-switch" data-ccy="' + escapeHtml(c) + '">'
-        + escapeHtml(t('currencyViewOnly').replace('{currency}', c)) + '</button>').join(' ');
+      const combined = data.currency === 'ALL';
+      const note = combined ? baseViewNoteText()
+        : t('currencyViewNote').replace('{currency}', data.currency).replace('{others}', others.join(', '));
+      const picks = combined ? others : ['ALL'].concat(others);
+      const buttons = picks.map(c => '<button type="button" class="btn btn-secondary btn-sm ccy-view-switch" data-ccy="' + escapeHtml(c) + '">'
+        + escapeHtml(c === 'ALL' ? t('currencyAllInBase').replace('{base}', baseCurrencyCode())
+          : t('currencyViewOnly').replace('{currency}', c)) + '</button>').join(' ');
       el.innerHTML = escapeHtml(note) + ' <span style="display:inline-flex;gap:0.35rem;flex-wrap:wrap;vertical-align:middle;">' + buttons + '</span>';
       el.style.display = '';
       el.querySelectorAll('.ccy-view-switch').forEach(b => b.addEventListener('click', () => { if (onPick) onPick(b.dataset.ccy); }));

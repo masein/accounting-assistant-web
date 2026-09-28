@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28"
+CURRENT_RELEASE = "2026.09.28.2"
 
 
 @dataclass(frozen=True)
@@ -729,6 +729,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«تنظیمات ← ارز و نرخ تبدیل»: نرخی که از این پس وارد می‌کنید فقط مال شرکت شماست و برای همان جفت ارز در دفاتر شما جای نرخ مشترک را می‌گیرد — هیچ شرکت دیگری آن را نمی‌بیند یا تغییر نمی‌دهد. نرخ‌های «مشترک» هر روز خودکار می‌رسند، اگر سرور برایش تنظیم شده باشد: یورو، دلار، پوند و ارزهای دیگر از بانک مرکزی اروپا، و بازار آزاد ریال و طلا از سرویسی که مدیر سرور انتخاب می‌کند. جفت ارزی که نرخ ندارد از طریق دلار، یورو، پوند یا ریال حساب می‌شود.",
                     "es": "Ajustes → Moneda y cambio: un tipo que introduzcas ahora es solo de tu empresa y, para ese par, sustituye al compartido en tus libros; ninguna otra empresa puede verlo ni cambiarlo. Los tipos «compartidos» llegan solos cada día si el servidor está configurado: el euro, el dólar, la libra y más del Banco Central Europeo, y el mercado del rial y el oro de un proveedor que elige el administrador. Un par sin tipo se calcula a través del dólar, el euro, la libra o el rial.",
                     "ar": "الإعدادات ← العملة والصرف: السعر الذي تُدخله الآن خاص بشركتك وحدها، ويحلّ لذلك الزوج محل السعر المشترك في دفاترك — ولا تستطيع أي شركة أخرى رؤيته أو تغييره. تصل الأسعار «المشتركة» تلقائيًا كل يوم إن كان الخادم مهيّأً لذلك: اليورو والدولار والجنيه وغيرها من البنك المركزي الأوروبي، وسوق الريال والذهب من مزوّد يختاره المسؤول. أما الزوج الذي لا سعر له فيُحسب عبر الدولار أو اليورو أو الجنيه أو الريال.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.28.2",
+        date="2026-09-28",
+        highlights=(
+            Highlight(
+                key="base-currency-values",
+                page="ledger",
+                roles=("owner", "cfo", "accountant", "viewer"),
+                title={
+                    "en": "Every currency in one report",
+                    "fa": "همهٔ ارزها در یک گزارش",
+                    "es": "Todas las monedas en un solo informe",
+                    "ar": "كل العملات في تقرير واحد",
+                },
+                body={
+                    "en": "Each entry now also keeps its value in your base currency, at the rate of its date (or the one you type on the voucher). Pick \"All currencies\" in the ledger or the manager reports to see dollars, euros and pounds added up properly; one currency on its own still works as before. An entry with no rate for its date waits and is converted as soon as one is added. Revaluation now changes only the base value of cash, receivables and payables — fixed assets stay at cost.",
+                    "fa": "هر سند از این پس ارزش خود را به ارز پایهٔ شما هم نگه می‌دارد، با نرخ تاریخ خودش (یا نرخی که روی سند وارد می‌کنید). در دفتر کل یا گزارش‌های مدیریتی «همهٔ ارزها» را انتخاب کنید تا دلار و یورو و پوند درست با هم جمع شوند؛ نمایش تک‌ارزی مثل قبل کار می‌کند. سندی که برای تاریخش نرخ نیست منتظر می‌ماند و به محض ورود نرخ تبدیل می‌شود. تسعیر ارز حالا فقط ارزش پایهٔ وجه نقد، دریافتنی‌ها و پرداختنی‌ها را تغییر می‌دهد — دارایی ثابت به بهای تمام‌شده می‌ماند.",
+                    "es": "Cada asiento guarda ahora también su valor en su moneda base, al tipo de su fecha (o al que escriba en el asiento). Elija «Todas las monedas» en el libro mayor o en los informes para ver dólares, euros y libras bien sumados; una sola moneda sigue funcionando como antes. Un asiento sin tipo para su fecha espera y se convierte en cuanto se añade uno. La revaluación cambia ahora solo el valor base de caja, cobros y pagos; el inmovilizado queda al coste.",
+                    "ar": "يحفظ كل قيد الآن قيمته بعملتك الأساسية أيضًا، بسعر تاريخه (أو بالسعر الذي تكتبه على القيد). اختر «كل العملات» في دفتر الأستاذ أو تقارير الإدارة لترى الدولار واليورو والجنيه مجموعة بشكل صحيح؛ وعرض العملة الواحدة يعمل كما كان. القيد الذي لا سعر لتاريخه ينتظر ويُحوَّل فور إضافة سعر. وإعادة التقييم تغيّر الآن القيمة الأساسية فقط للنقد والذمم المدينة والدائنة — والأصول الثابتة تبقى بالتكلفة.",
                 },
             ),
         ),

@@ -285,8 +285,8 @@ class ProposeCreateTransactionInput(BaseModel):
         description="Optional reference number (invoice #, receipt #, voucher #).",
         max_length=128,
     )
-    currency: str = Field(
-        "IRR",
+    currency: str | None = Field(
+        None,
         description=(
             "ISO currency code (IRR, GBP, USD, EUR…). Use the currency the "
             "user or document stated; otherwise default to the company "

@@ -126,7 +126,6 @@ def _post_gl(db: Session, *, debit_code: str, credit_code: str, amount: int,
         date=entry_date or date.today(),
         reference=None,
         description=description[:2000],
-        currency="IRR",
         lines=[
             {"account_code": debit_code, "debit": amount, "credit": 0,
              "line_description": description[:512]},

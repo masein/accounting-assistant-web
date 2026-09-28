@@ -670,7 +670,7 @@ def _uk_cf_directional(code: str, cash_delta: int) -> tuple[str, str]:
 def _uk_cash_flow_buckets(
     db: Session, from_d: date, to_d: date, currency: str | None,
 ) -> dict[tuple[str, str], int]:
-    from app.services.reporting.repository import transactions_with_lines_between
+    from app.services.reporting.repository import line_net, transactions_with_lines_between
 
     txns = transactions_with_lines_between(db, from_d, to_d, currency=currency)
     buckets: dict[tuple[str, str], int] = {}
@@ -678,14 +678,14 @@ def _uk_cash_flow_buckets(
         cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("12")]
         if not cash_lines:
             continue
-        cash_delta = int(sum((ln.debit or 0) - (ln.credit or 0) for ln in cash_lines))
+        cash_delta = int(sum(line_net(ln, currency) for ln in cash_lines))
         if cash_delta == 0:
             continue
         counters = [ln for ln in txn.lines if not (ln.account.code or "").startswith("12")]
         if not counters:
             key = ("operating", "op_other")
         else:
-            counters.sort(key=lambda ln: abs((ln.debit or 0) - (ln.credit or 0)), reverse=True)
+            counters.sort(key=lambda ln: abs(line_net(ln, currency)), reverse=True)
             key = _uk_cf_directional(counters[0].account.code or "", cash_delta)
         buckets[key] = buckets.get(key, 0) + cash_delta
     return buckets

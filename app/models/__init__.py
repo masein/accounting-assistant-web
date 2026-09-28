@@ -109,3 +109,7 @@ __all__ = [
     "CompanyProfile",
     "User",
 ]
+
+# Every journal line gets its base-currency amounts on flush (roadmap §4.6).
+# Registered here so any code that can write a line has the hook.
+import app.services.fx_base  # noqa: E402,F401

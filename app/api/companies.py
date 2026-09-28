@@ -159,8 +159,11 @@ def update_company(company_id: UUID, payload: CompanyPatch, db: Session = Depend
             if loc not in SUPPORTED_LOCALES:
                 raise HTTPException(status_code=400, detail=f"Unsupported locale '{payload.locale}'")
             company.locale = loc
+        rebase = False
         if payload.base_currency is not None:
-            company.base_currency = payload.base_currency.strip().upper() or company.base_currency
+            new_base = payload.base_currency.strip().upper() or company.base_currency
+            rebase = new_base != (company.base_currency or "").upper()
+            company.base_currency = new_base
         if payload.status is not None:
             st = payload.status.strip().lower()
             if st not in {"active", "suspended"}:
@@ -173,6 +176,14 @@ def update_company(company_id: UUID, payload: CompanyPatch, db: Session = Depend
         log_audit_event(db, action="update", entity_type="company", entity_id=str(company.id),
                         detail=_json.dumps(payload.model_dump(exclude_unset=True), default=str))
         db.commit()
+    if rebase:
+        # the company's entries were in the old base currency (roadmap §4.6)
+        from app.db.tenant import use_company
+        from app.services.fx_base import recompute_all
+        with use_company(company_id):
+            recompute_all(db)
+            db.commit()
+    with tenant_bypass():
         db.refresh(company)
         return _serialize(db, company)
 

@@ -106,6 +106,7 @@
         const pref = preferredFormCurrency();
         if ([...curSel.options].some(o => o.value === pref)) curSel.value = pref;
       }
+      if (typeof syncVoucherRate === 'function') syncVoucherRate();
       linesTbody.innerHTML = '';
       addLineRow();
       addLineRow();

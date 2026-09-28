@@ -116,6 +116,50 @@
         }));
       }
       window.aiLoadPreferences = aiLoadPreferences;
+
+      // Two-person approval (§5.6): what waits for someone who can approve.
+      // Only approvers get the list (403 for everyone else → panel hidden).
+      async function aiLoadApprovals() {
+        const box = document.getElementById('ai-approvals');
+        const list = document.getElementById('ai-approvals-list');
+        if (!box || !list) return;
+        let items = [];
+        try {
+          const res = await fetch(API + '/ai-accountant/approvals');
+          if (!res.ok) { box.hidden = true; return; }
+          items = (await res.json()).items || [];
+        } catch (_) { box.hidden = true; return; }
+        box.hidden = !items.length;
+        document.getElementById('ai-approvals-count').textContent = items.length ? ' (' + items.length + ')' : '';
+        list.innerHTML = items.map(it => `<div class="ai-pref ai-approval" data-token="${escapeHtml(it.confirmation_token)}">
+            <div class="ai-pref-text"><bdi dir="auto">${escapeHtml(it.summary || it.tool_name)}</bdi>
+              <span class="ai-pref-meta">${escapeHtml(tf('aiApprovalMeta', { who: it.requested_by }))}${it.amount != null ? ' · ' + escapeHtml(formatNum(it.amount)) + ' ' + escapeHtml(currencyUnit()) : ''}</span>
+              ${it.mine ? `<span class="ai-pref-meta">${escapeHtml(t('aiApprovalMine'))}</span>` : `<span class="ai-approval-actions">
+                <button type="button" class="btn btn-primary btn-sm ai-approve">${escapeHtml(t('aiApprove'))}</button>
+                <button type="button" class="btn btn-secondary btn-sm ai-reject">${escapeHtml(t('aiReject'))}</button></span>`}
+            </div></div>`).join('');
+        list.querySelectorAll('.ai-approve').forEach(btn => btn.addEventListener('click', async () => {
+          const token = btn.closest('.ai-approval').dataset.token;
+          if (!(await uiConfirm({ message: t('aiApproveConfirm'), confirmLabel: t('aiApprove') }))) return;
+          const res = await fetch(API + '/ai-accountant/approvals/' + encodeURIComponent(token) + '/approve', { method: 'POST' });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('aiApprovalFailed'), true); }
+          else { showAlert(t('aiApproved')); }
+          aiLoadApprovals();
+          if (typeof notifyRefresh === 'function') notifyRefresh();
+        }));
+        list.querySelectorAll('.ai-reject').forEach(btn => btn.addEventListener('click', async () => {
+          const token = btn.closest('.ai-approval').dataset.token;
+          const note = await uiPrompt({ title: t('aiReject'), message: t('aiRejectPrompt'), confirmLabel: t('aiReject') });
+          if (note === null) return;
+          const res = await fetch(API + '/ai-accountant/approvals/' + encodeURIComponent(token) + '/reject', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }) });
+          if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(typeof d.detail === 'string' ? d.detail : t('aiApprovalFailed'), true); }
+          aiLoadApprovals();
+          if (typeof notifyRefresh === 'function') notifyRefresh();
+        }));
+      }
+      window.aiLoadApprovals = aiLoadApprovals;
       // Drawn by script, so redrawn in a new language (02-i18n.js applyLanguage).
       window.aiRelocalize = () => {
         if (sessionListEl && Array.isArray(_sessionsCache)) renderSessionList(sessionSearchEl ? sessionSearchEl.value.trim() : '');
@@ -127,6 +171,8 @@
         }
         const box = document.getElementById('ai-prefs');
         if (box && !box.hidden) aiLoadPreferences(false);
+        const appr = document.getElementById('ai-approvals');
+        if (appr && !appr.hidden) aiLoadApprovals();
       };
 
       async function loadSessions(q) {
@@ -299,6 +345,7 @@
       (async function restoreLatest() {
         await loadSessions('');
         aiLoadPreferences(false);
+        aiLoadApprovals();
         if (_sessionsCache.length) await openSession(_sessionsCache[0].id);
         else { setChatTitle(t('chatUntitled')); renderEmptyState(); }
         maybeBriefing();
@@ -774,6 +821,13 @@
           card.appendChild(box);
         }
 
+        if (proposal.needs_approval) {
+          const note = document.createElement('div');
+          note.className = 'ai-card-note ai-card-approval';
+          note.textContent = '⚖ ' + tf('aiNeedsApproval', { limit: formatNum(proposal.approval_threshold || 0) + ' ' + currencyUnit() });
+          card.appendChild(note);
+        }
+
         const buttons = document.createElement('div');
         buttons.className = 'ai-card-actions';
 
@@ -831,6 +885,15 @@
           const data = await r.json().catch(() => ({}));
           if (!r.ok) throw new Error(data.detail || ('Execute failed (HTTP ' + r.status + ')'));
           if (confirmBtn) confirmBtn.textContent = confirmLabel;
+          if (r.status === 202 && data.status === 'awaiting_approval') {
+            // above the approval limit: not recorded yet, waiting for someone else
+            const waitNote = document.createElement('div');
+            waitNote.className = 'ai-card-note ai-card-approval';
+            waitNote.textContent = '⏳ ' + t(data.approvers ? 'aiSentForApproval' : 'aiSentNoApprover');
+            cardEl.appendChild(waitNote);
+            if (typeof aiLoadApprovals === 'function') aiLoadApprovals();
+            return;
+          }
           const receipt = document.createElement('div');
           receipt.style.cssText = 'margin-top:0.5rem; padding:0.4rem 0.6rem; background:#f0fdf4; border:1px solid #86efac; border-radius:6px; font-size:0.82rem;';
           receipt.innerHTML = '<strong>' + escapeHtml(t('aiUndoRecorded')) + '</strong> ' +

@@ -19,7 +19,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,6 +40,11 @@ class AIProposal(Base, TenantMixin):
         executed  — confirmed and committed; idempotent on re-confirm
         expired   — older than 10 minutes; no longer executable
         cancelled — explicitly dismissed by the user
+
+    Two-person approval (roadmap 2026-09 §5.6): above the company's
+    threshold, the requester's Confirm sets ``approval_status`` to
+    ``requested`` (the proposal stays pending, for days rather than minutes)
+    and someone else who can approve executes or rejects it.
     """
 
     __tablename__ = "ai_proposals"
@@ -68,6 +73,14 @@ class AIProposal(Base, TenantMixin):
     executed_audit_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )
+    # what the card said, and what it moves in the base currency (guardrails)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    approval_status: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    approval_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approval_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class AIChatSession(Base, TenantMixin):

@@ -480,6 +480,8 @@
     .ai-pref-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
     .ai-pref-meta { display: block; color: var(--text-muted); font-size: 0.74rem; }
     .ai-prefs #ai-prefs-list { max-height: 260px; overflow-y: auto; }
+    .ai-approval-actions { display: flex; gap: 0.35rem; margin-top: 0.3rem; flex-wrap: wrap; }
+    .ai-card-note.ai-card-approval { border-color: #f59e0b; background: #fffbeb; }
     .fx-indent { margin-inline-start: 1.6rem; }
     .fx-check { display: flex; gap: 0.4rem; align-items: center; font-size: 0.86rem; margin: 0.25rem 0; }
     .fx-inline { display: inline-flex; gap: 0.35rem; align-items: center; font-size: 0.86rem; }

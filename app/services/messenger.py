@@ -66,6 +66,7 @@ TEXTS = {
         "heard": "🎙 {text}",
         "confirm": "✅ Confirm", "cancel": "✖ Cancel",
         "done": "✅ Done.", "cancelled": "Cancelled — nothing was saved.",
+        "awaiting_approval": "⏳ Sent for approval — it is recorded once someone who can approve confirms it.",
         "expired": "This card has expired — ask again.", "not_yours": "This card isn't yours.",
         "failed": "Something went wrong — nothing was saved. Try again in the app.",
         "busy": "The assistant is busy or over today's limit — try again later.",
@@ -86,6 +87,7 @@ TEXTS = {
         "heard": "🎙 {text}",
         "confirm": "✅ تأیید", "cancel": "✖ لغو",
         "done": "✅ ثبت شد.", "cancelled": "لغو شد — چیزی ثبت نشد.",
+        "awaiting_approval": "⏳ برای تأیید فرستاده شد — پس از تأیید یک نفر دیگر ثبت می‌شود.",
         "expired": "این کارت منقضی شده — دوباره بپرسید.", "not_yours": "این کارت مال شما نیست.",
         "failed": "مشکلی پیش آمد — چیزی ثبت نشد. در برنامه دوباره امتحان کنید.",
         "busy": "دستیار مشغول است یا سهمیهٔ امروز تمام شده — بعداً امتحان کنید.",
@@ -527,7 +529,7 @@ async def _run_turn(db: Session, link: MessengerLink, text: str, lang: str, repl
 async def _on_callback(db: Session, platform: str, cq: dict) -> _Reply | None:
     from app.models.ai_accountant import AIProposal
     from app.services.ai_accountant.execute_service import (
-        PermissionDenied, ProposalCancelled, ProposalExpired, ProposalNotFound, execute_proposal)
+        ApprovalRequired, PermissionDenied, ProposalCancelled, ProposalExpired, ProposalNotFound, execute_proposal)
     msg = cq.get("message") or {}
     chat_id = str((msg.get("chat") or {}).get("id") or "")
     reply = _Reply(chat_id)
@@ -556,6 +558,9 @@ async def _on_callback(db: Session, platform: str, cq: dict) -> _Reply | None:
             try:
                 execute_proposal(db, confirmation_token=token, actor_user_id=su.user_id, actor_username=su.username)
                 outcome = _t(lang, "done")
+            except ApprovalRequired:
+                db.commit()
+                outcome = _t(lang, "awaiting_approval")
             except ProposalExpired:
                 outcome = _t(lang, "expired")
             except (ProposalCancelled, ProposalNotFound):

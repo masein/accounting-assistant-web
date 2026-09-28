@@ -323,6 +323,20 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
                             + ("passed" if run.pay_date < today else "coming up"),
                     link_page="payroll", due_date=run.pay_date)
 
+    # --- the assistant's proposals waiting for a second person (§5.6) -----
+    try:
+        from app.services.ai_accountant import guardrails
+        for p in guardrails.waiting(db):
+            info = guardrails.describe(db, p)
+            _upsert(db, seen, dedupe_key=f"ai-approval-{p.id}", kind="approvals", level="warning",
+                    title=f"Approval needed: {(info['summary'] or p.tool_name)[:120]}",
+                    message=(f"Asked by {info['requested_by']} in the AI chat"
+                             + (f" — {p.amount:,}" if p.amount is not None else "")
+                             + ". Open the AI chat to approve or reject it."),
+                    link_page="ai-accountant")
+    except Exception:  # noqa: BLE001 — never break the feed
+        pass
+
     # --- pending approvals -------------------------------------------------
     pending_claims = db.execute(
         select(MileageClaim).where(MileageClaim.status == "pending_approval")

@@ -428,3 +428,32 @@ def test_only_the_platform_admin_connects_bots(client, co, bot_api, db, monkeypa
     assert admin.put("/admin/messenger-bots/bale", json={"token": "nonsense-token"}).status_code == 422
     assert admin.delete("/admin/messenger-bots/bale").status_code == 204
     assert admin.get("/admin/messenger-bots").json()["bots"]["bale"]["connected"] is False
+
+
+def test_confirm_above_the_approval_limit_goes_for_approval(co, bot_api, db):
+    """Guardrails (§5.6): the bot's Confirm is the requester's, so above the
+    company's threshold it sends the entry for approval instead of posting."""
+    from app.db.seed import seed_chart_if_empty
+    from app.db.tenant import use_company
+    from app.models.ai_accountant import AIProposal
+    from app.services.ai_accountant import guardrails
+    cid, uid = co
+    calls, _ = bot_api
+    with use_company(cid):
+        seed_chart_if_empty(db, locale="uk")
+        guardrails.save_settings(db, approval_threshold=1_000)
+        token = uuid.uuid4()
+        db.add(AIProposal(confirmation_token=token, user_id=uid, tool_name="propose_create_transaction",
+                          tool_input={"date": "2026-09-20", "description": "Van", "lines": [
+                              {"account_code": "7400", "debit": 5_000, "credit": 0},
+                              {"account_code": "1200", "debit": 0, "credit": 5_000}]},
+                          status="pending", amount=5_000))
+        db.commit()
+    _link(db, uid)
+    _tap(db, f"ok:{token}")
+    text = next(b["text"] for m, b in calls if m == "answerCallbackQuery")
+    assert text.startswith("⏳ Sent for approval")
+    with use_company(cid):
+        db.expire_all()
+        p = db.execute(select(AIProposal).where(AIProposal.confirmation_token == token)).scalars().one()
+        assert p.status == "pending" and p.approval_status == "requested"

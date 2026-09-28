@@ -16,6 +16,12 @@ Hard safeguards:
 
 * ``MAX_TURNS`` — caps tool-use iterations per user message. Above this we
   return the partial response and log a warning rather than rolling forever.
+* Tool budget (roadmap §5.6) — at most ``tool_calls_per_message`` tool calls
+  and ``proposals_per_message`` proposals per user message (platform
+  ``ai_limits``). Past it the remaining calls get an error result and the
+  model answers once more without tools.
+* Every proposal goes through ``guardrails.review``: refused in a closed
+  period, flagged for two-person approval above the company's threshold.
 * ``PAUSE_TURN_RETRIES`` — handles Anthropic's `pause_turn` (server-side
   iteration cap) by re-sending; OpenAI doesn't surface this.
 * All tool exceptions are caught and surfaced to the model as
@@ -247,18 +253,22 @@ _STATUS_STRINGS = {
     "en": {
         "max_turns_candidates": "I found these possible matches — please tell me which one (or say 'none'):\n{candidates}",
         "max_turns_dead_end": "I couldn't finish that automatically. Could you add a bit more detail (amount, date, and which account or person), and I'll propose the entry?",
+        "tool_budget": "I stopped here — that was a lot of steps for one message. Ask me to carry on with the rest.",
     },
     "fa": {
         "max_turns_candidates": "این موارد احتمالی را پیدا کردم — لطفاً بگویید کدام‌یک مدنظرتان است (یا بنویسید «هیچ‌کدام»):\n{candidates}",
         "max_turns_dead_end": "نتوانستم این کار را به‌صورت خودکار کامل کنم. لطفاً کمی جزئیات بیشتر بدهید (مبلغ، تاریخ و کدام حساب یا شخص) تا سند را پیشنهاد دهم.",
+        "tool_budget": "همین‌جا متوقف شدم؛ برای یک پیام مراحل زیادی شد. بگویید تا بقیه را ادامه دهم.",
     },
     "es": {
         "max_turns_candidates": "Encontré estas posibles coincidencias — dime cuál es (o escribe «ninguna»):\n{candidates}",
         "max_turns_dead_end": "No pude completarlo automáticamente. ¿Puedes dar un poco más de detalle (importe, fecha y qué cuenta o persona) y propongo el asiento?",
+        "tool_budget": "Me detuve aquí: eran demasiados pasos para un solo mensaje. Pídeme que siga con el resto.",
     },
     "ar": {
         "max_turns_candidates": "وجدت هذه التطابقات المحتملة — من فضلك أخبرني أيها تقصد (أو اكتب «لا شيء»):\n{candidates}",
         "max_turns_dead_end": "لم أتمكن من إتمام ذلك تلقائياً. هل يمكنك إضافة مزيد من التفاصيل (المبلغ والتاريخ وأي حساب أو شخص) وسأقترح القيد؟",
+        "tool_budget": "توقفت هنا؛ كانت خطوات كثيرة لرسالة واحدة. اطلب مني متابعة الباقي.",
     },
 }
 
@@ -758,6 +768,12 @@ async def run_chat_turn(
     # Most recent entity-resolution candidates, used to build a graceful
     # "pick one" partial if the turn budget is exhausted (AI-1).
     last_candidates: list[dict[str, Any]] = []
+    from app.services.ai_accountant import guardrails
+    from app.services.ai_usage import load_settings as _ai_limits
+    _limits = _ai_limits(db)
+    call_budget = int(_limits.get("tool_calls_per_message") or 60)
+    proposal_budget = int(_limits.get("proposals_per_message") or 20)
+    budget_spent = False
     final_text = ""
     stop_reason: str | None = None
     pause_attempts = 0
@@ -787,6 +803,22 @@ async def run_chat_turn(
                 break
             continue
 
+        if budget_spent and assistant_msg.tool_calls:
+            # Told the budget is spent and still calling: answer every call (a
+            # call without its result breaks the next request) and stop here.
+            for call in assistant_msg.tool_calls:
+                trm = ChatMessage(role="tool", tool_call_id=call.id, is_error=True,
+                                  text="Tool budget for this message is used up.")
+                history.append(trm)
+                _persist_message(db, session_id=chat_session.id, role="tool", content=trm.to_dict())
+            _collapse_redundant_entity_proposals(db, proposals, 0, user_message)
+            return ChatResult(
+                session_id=session_uuid_str,
+                text=(assistant_msg.text or "").strip() or _status(lang, "tool_budget"),
+                proposals=proposals, tool_calls=tool_call_log, stop_reason="tool_budget",
+                turns=turn, provider_shape=shape,
+            )
+
         if stop_reason == "end_turn" or not assistant_msg.tool_calls:
             final_text = assistant_msg.text or ""
             # Final one-card pass over EVERY proposal raised this chat turn (the
@@ -810,6 +842,21 @@ async def run_chat_turn(
             log_entry = {"tool_use_id": call.id, "name": call.name, "input": call.input}
             tool_call_log.append(log_entry)
             tool = reg.get(call.name)
+            if len(tool_call_log) > call_budget:
+                budget_spent = True
+                tool_result_messages.append(ChatMessage(
+                    role="tool", tool_call_id=call.id, is_error=True,
+                    text=(f"Tool budget for this message is used up ({call_budget} calls). Don't call more "
+                          "tools: answer the user with what you have and say what is left to do."),
+                ))
+                continue
+            if tool is not None and tool.category == "proposal" and len(proposals) >= proposal_budget:
+                tool_result_messages.append(ChatMessage(
+                    role="tool", tool_call_id=call.id, is_error=True,
+                    text=(f"{proposal_budget} proposals are waiting in this message already — that's the limit. "
+                          "Tell the user to confirm or cancel those first, then continue."),
+                ))
+                continue
             if tool is None:
                 tool_result_messages.append(ChatMessage(
                     role="tool", tool_call_id=call.id,
@@ -851,6 +898,16 @@ async def run_chat_turn(
                     text=f"Internal tool error: {type(e).__name__}: {e}", is_error=True,
                 ))
                 continue
+
+            if tool.category == "proposal" and isinstance(result, dict) and "confirmation_token" in result:
+                try:
+                    result.update(guardrails.review(db, result))
+                except guardrails.ProposalRefused as e:
+                    tool_result_messages.append(ChatMessage(
+                        role="tool", tool_call_id=call.id,
+                        text=f"Refused (period_locked): {e}", is_error=True,
+                    ))
+                    continue
 
             import json as _json
             tool_result_messages.append(ChatMessage(

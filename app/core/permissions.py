@@ -451,6 +451,13 @@ _add("PUT", "/admin/messenger-bots/{platform}", Perm.PLATFORM_ADMIN)
 _add("DELETE", "/admin/messenger-bots/{platform}", Perm.PLATFORM_ADMIN)
 _add("POST", "/ai-accountant/preferences", Perm.BOOKS_WRITE)
 _add("DELETE", "/ai-accountant/preferences/{pref_id}", Perm.BOOKS_WRITE)
+# Guardrails (roadmap §5.6): the owner sets the two-person threshold; the
+# people who can approve (owner, CFO, manager) execute or reject what waits.
+_add("GET", "/ai-accountant/guardrails", Perm.SETTINGS_READ)
+_add("PUT", "/ai-accountant/guardrails", Perm.SETTINGS_WRITE)
+_add("GET", "/ai-accountant/approvals", Perm.APPROVALS_WRITE)
+_add("POST", "/ai-accountant/approvals/{token}/approve", Perm.APPROVALS_WRITE)
+_add("POST", "/ai-accountant/approvals/{token}/reject", Perm.APPROVALS_WRITE)
 
 # --- Books: bank statements & reconcile (brain) ----------------------------
 # Reads expose bank account numbers -> BANK_READ.

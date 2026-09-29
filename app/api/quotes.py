@@ -343,7 +343,8 @@ def convert_quote(quote_id: UUID, payload: QuoteConvert | None = None, db: Sessi
 def quote_pdf(quote_id: UUID, db: Session = Depends(get_db)) -> Response:
     from app.services.documents.render import render_quote_pdf
     q = _load(db, quote_id)
-    party = db.get(Entity, q.entity_id) if q.entity_id else None
+    from app.core.redaction import redacted_entity
+    party = redacted_entity(db.get(Entity, q.entity_id) if q.entity_id else None)
     pdf = render_quote_pdf(db, q, party)
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": content_disposition(f'quote-{q.number}.pdf', inline=True)})

@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.6"
+CURRENT_RELEASE = "2026.09.29.7"
 
 
 @dataclass(frozen=True)
@@ -1251,6 +1251,30 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "حسابدار هوشمند اکنون به «امسال چقدر به سارا پرداختیم؟» و «از بودجه جلو زدیم؟» پاسخ می‌دهد، پیش‌نویس حقوق یک دوره را حساب می‌کند، آن را ثبت و پرداخت می‌کند، بودجه ماهانه می‌گذارد و می‌گوید پیش از بستن ماه چه کارهایی مانده است. هر تغییر مثل قبل یک کارت است که تأییدش می‌کنید.",
                     "es": "El contable IA ya responde a «¿cuánto le pagamos a Sara este año?» y «¿vamos por encima del presupuesto?», calcula un borrador de nómina para un periodo, lo registra y lo paga, fija presupuestos mensuales y te dice qué falta antes de cerrar un mes. Cada cambio es una tarjeta que confirmas, como siempre.",
                     "ar": "صار المحاسب الذكي يجيب عن «كم دفعنا لسارة هذا العام؟» و«هل تجاوزنا الموازنة؟»، ويحسب مسودة رواتب لفترة ثم يرحّلها ويدفعها، ويضع موازنات شهرية، ويخبرك بما بقي قبل إقفال الشهر. كل تغيير بطاقة تؤكّدها كما في السابق.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.7",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="payroll-year-end",
+                page="payroll",
+                roles=("owner", "cfo", "accountant"),
+                locales=("ir",),
+                title={
+                    "en": "Eidi and Sanavat at year end",
+                    "fa": "عیدی و سنوات پایان سال",
+                    "es": "Eidi y Sanavat a fin de año",
+                    "ar": "العيدية ومكافأة الخدمة في نهاية السنة",
+                },
+                body={
+                    "en": "On the Payroll page, Year end: pick the Jalali year and a pay date, and each employee's Eidi (two months' wage, capped at three months of the minimum wage) and Sanavat (a month's wage a year) are worked out, pro-rated from their hire date — add it to their pay profile. No insurance on either; the Eidi above one month's tax exemption is taxed with their salary. It's a draft run: post and pay it like any other, and the payslip shows both.",
+                    "fa": "در صفحه حقوق و دستمزد، بخش «پایان سال»: سال و تاریخ پرداخت را انتخاب کنید تا عیدی هر کارمند (دو ماه مزد، حداکثر سه ماه حداقل مزد) و حق سنوات (یک ماه مزد برای هر سال) به نسبت روزهای کارکرد از تاریخ استخدام محاسبه شود — تاریخ استخدام را در پرونده حقوقی وارد کنید. هیچ‌کدام بیمه ندارد؛ مازاد عیدی بر معافیت یک ماه، همراه حقوق مشمول مالیات است. لیست پیش‌نویس است: مثل هر لیست دیگر ثبت و پرداختش کنید؛ فیش هر دو را نشان می‌دهد.",
+                    "es": "En Nóminas, Fin de año: elige el año persa y la fecha de pago, y se calculan el Eidi de cada empleado (dos meses de salario, con tope de tres meses del salario mínimo) y el Sanavat (un mes de salario por año), prorrateados desde la fecha de alta — añádela a su ficha. Ninguno cotiza; el Eidi por encima de un mes de exención tributa con el salario. Es un borrador: regístralo y págalo como cualquier otra nómina; el recibo muestra ambos.",
+                    "ar": "في صفحة الرواتب، قسم «نهاية السنة»: اختر السنة وتاريخ الدفع فتُحتسب عيدية كل موظف (أجر شهرين بحدّ أقصى ثلاثة أشهر من الحد الأدنى للأجر) ومكافأة الخدمة (أجر شهر عن كل سنة) بالتناسب من تاريخ التعيين — أضفه إلى ملفه. لا تأمينات على أيٍّ منهما؛ وما يزيد من العيدية على إعفاء شهر واحد يُضرَّب مع الراتب. إنها دورة مسودة: رحّلها وادفعها كأي دورة، والقسيمة تُظهر الاثنين.",
                 },
             ),
         ),

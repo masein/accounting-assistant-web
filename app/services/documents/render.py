@@ -319,6 +319,15 @@ def render_payslip_pdf(db: Session, run, line, employee) -> bytes:
             rows.append({"cells": [
                 {"value": f"{L.get(key, fallback)}: {h:g} h"}, {"value": "", "num": True},
             ]})
+    year_end = (getattr(run, "kind", None) or "regular") == "year_end"
+    if year_end:                                    # عیدی and سنوات, then the gross they make (§3.3)
+        from app.services.documents.formatting import to_persian_digits
+        days = str(int(getattr(line, "days_worked", 0) or 0))
+        rows.append({"cells": [{"value": f"{L['days_worked']}: {to_persian_digits(days) if loc == 'ir' else days}"},
+                               {"value": "", "num": True}]})
+        for key in ("eidi", "sanavat"):
+            if int(getattr(line, key, 0) or 0):
+                rows.append({"cells": [{"value": L[key]}, {"value": _money(getattr(line, key), ccy, loc), "num": True}]})
     rows.append(
         {"cells": [{"value": L["gross_pay"]}, {"value": _money(line.gross or 0, ccy, loc), "num": True}]},
     )
@@ -334,7 +343,7 @@ def render_payslip_pdf(db: Session, run, line, employee) -> bytes:
             rows.append({"cells": [{"value": L.get(key, key)}, {"value": "-" + _money(v, ccy, loc), "num": True}]})
     net = int(line.net_pay or 0)
     ctx = {
-        **brand, "title": L["payslip"], "labels": L,
+        **brand, "title": L["year_end_payslip"] if year_end else L["payslip"], "labels": L,
         "meta": [
             {"label": L["pay_period"], "value": f"{fmt_date(run.period_start, loc)} – {fmt_date(run.period_end, loc)}"},
             {"label": L["date"], "value": fmt_date(run.pay_date, loc)},

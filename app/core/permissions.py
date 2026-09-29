@@ -518,7 +518,7 @@ _reads(["/payroll/runs/{run_id}/payslip/{entity_id}",
         "/payroll/my-payslips"],
        frozenset({Perm.PAYROLL_READ, Perm.PAYROLL_OWN}))
 for _m, _p in [
-    ("POST", "/payroll/profiles"), ("POST", "/payroll/runs"),
+    ("POST", "/payroll/profiles"), ("POST", "/payroll/runs"), ("POST", "/payroll/runs/year-end"),
     ("POST", "/payroll/runs/{run_id}/post"), ("POST", "/payroll/runs/{run_id}/pay"),
     ("POST", "/payroll/runs/{run_id}/void"),
     ("POST", "/payroll/prorate-raise"),

@@ -15,7 +15,7 @@
     size: A4;
     margin: 16mm 14mm 20mm 14mm;
     @bottom-center {
-      content: "{{ labels.page }} " counter(page) " / " counter(pages);
+      content: "{{ labels.page }} " counter(page{{ ', persian' if rtl else '' }}) " / " counter(pages{{ ', persian' if rtl else '' }});
       font-family: {{ font_family | safe }};
       font-size: 8pt; color: #94a3b8;
     }

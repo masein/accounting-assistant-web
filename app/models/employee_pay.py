@@ -7,9 +7,9 @@ pension %, currency). One profile per employee entity.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.sql.expression import false as sa_false
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -58,6 +58,8 @@ class EmployeePayProfile(Base, TenantMixin):
     seniority_eligible: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
 
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
+    # First day of employment: pro-rates عیدی / سنوات for someone who joined mid-year (§3.3).
+    hired_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     # Client-billing rate per hour (major currency units) — SEPARATE from the
     # payroll cost above. Used by time-based billing; null = not billable by default.
     billable_rate: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)

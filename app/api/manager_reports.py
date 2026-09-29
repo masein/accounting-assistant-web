@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import io
 from datetime import date
 from uuid import UUID
@@ -12,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.http_headers import content_disposition
+from app.core.spreadsheet import csv_writer
 from app.api.transactions import _create_transaction_from_payload
 from app.db.session import get_db
 from app.models.transaction import Transaction, TransactionLine
@@ -64,7 +64,7 @@ router = APIRouter(prefix="/manager-reports", tags=["manager-reports"])
 
 def _csv_response(filename: str, headers: list[str], rows: list[list[str | int | float]]) -> Response:
     buf = io.StringIO()
-    w = csv.writer(buf)
+    w = csv_writer(buf)
     w.writerow(headers)
     for row in rows:
         w.writerow(row)

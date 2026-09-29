@@ -356,8 +356,9 @@ def render_xlsx(tabs: list[Table], meta: dict, *, company: str = "", extra_sheet
             ws.cell(row=ws.max_row, column=1).font = Font(italic=True, color="64748B")
     for name, rows in extra_sheets or []:
         plain(name, rows)
+    from app.core.spreadsheet import no_formulas
     buf = io.BytesIO()
-    wb.save(buf)
+    no_formulas(wb).save(buf)
     return buf.getvalue()
 
 

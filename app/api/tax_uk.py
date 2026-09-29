@@ -96,12 +96,13 @@ _BOX_LABELS = {
 @router.get("/vat/return/export")
 def export_vat_return(period_end: date = Query(...), db: Session = Depends(get_db)) -> Response:
     """The nine boxes as CSV, for bridging software or the records."""
-    import csv
     import io
+
+    from app.core.spreadsheet import csv_writer
     conf = S.get_settings(db)
     out = vat_return(db, _period(db, period_end), currency=_base_currency(db))
     buf = io.StringIO()
-    w = csv.writer(buf)
+    w = csv_writer(buf)
     w.writerow(["VRN", conf["vrn"] or ""])
     w.writerow(["Period", out["period"]["start"], out["period"]["end"]])
     w.writerow(["Due", out["period"]["deadline"]])
@@ -225,8 +226,9 @@ def itsa_export(quarter: int = Query(..., ge=1, le=4), tax_year: str | None = No
     if up["hmrc_body_consolidated"]:
         body.append(["Consolidated expenses alternative"])
         body.append([json.dumps(up["hmrc_body_consolidated"], indent=2)])
+    from app.core.spreadsheet import no_formulas
     buf = io.BytesIO()
-    wb.save(buf)
+    no_formulas(wb).save(buf)
     name = f"mtd-itsa-{q['tax_year']}-q{q['quarter']}.xlsx"
     return Response(content=buf.getvalue(),
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

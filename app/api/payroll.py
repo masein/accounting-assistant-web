@@ -10,7 +10,6 @@ Posting and paying are separate, explicit steps — money never moves on its own
 """
 from __future__ import annotations
 
-import csv
 import io
 import json
 from datetime import date
@@ -23,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.http_headers import content_disposition
+from app.core.spreadsheet import csv_writer
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.employee_pay import EmployeePayProfile
@@ -1005,11 +1005,6 @@ def update_rule_set(rule_set_id: UUID, payload: RuleSetUpdate, db: Session = Dep
 # ---------------------------------------------------------------------------
 
 
-def _csv_safe(value: str | None) -> str:
-    text = value or ""
-    return "'" + text if text[:1] in ("=", "+", "-", "@") else text
-
-
 def _run_for_export(db: Session, run_id: UUID) -> PayRun:
     run = db.get(PayRun, run_id)
     if not run or run.status == "voided":
@@ -1019,7 +1014,7 @@ def _run_for_export(db: Session, run_id: UUID) -> PayRun:
 
 def _csv_response(rows: list[list], filename: str) -> Response:
     out = io.StringIO()
-    w = csv.writer(out)
+    w = csv_writer(out)
     for r in rows:
         w.writerow(r)
     # BOM so Excel opens Persian text correctly.
@@ -1047,8 +1042,8 @@ def insurance_list_csv(run_id: UUID, db: Session = Depends(get_db)) -> Response:
         days = round(30 * float(ln.proration or 1)) if (ln.proration or 1) != 1 else 30
         base = int(ln.gross or 0) - int(ln.allowances or 0)
         rows.append([
-            _csv_safe(ln.employee_name), _csv_safe(e.national_id if e else ""),
-            _csv_safe(e.code if e else ""), days, base, int(ln.allowances or 0),
+            ln.employee_name, e.national_id if e else "",
+            e.code if e else "", days, base, int(ln.allowances or 0),
             int(ln.insurable_wage or 0), int(ln.social_security or 0),
             int(ln.employer_social or 0), int(ln.social_security or 0) + int(ln.employer_social or 0),
             run.currency,
@@ -1079,7 +1074,7 @@ def tax_list_csv(run_id: UUID, db: Session = Depends(get_db)) -> Response:
     for ln in run.lines:
         e = employees.get(ln.entity_id)
         rows.append([
-            _csv_safe(ln.employee_name), _csv_safe(e.national_id if e else ""),
+            ln.employee_name, e.national_id if e else "",
             int(ln.gross or 0), int(ln.allowances or 0), int(ln.pre_tax_deductions or 0),
             int(ln.social_security or 0), int(ln.taxable_base or 0), int(ln.income_tax or 0),
             int(ln.net_pay or 0), run.currency,

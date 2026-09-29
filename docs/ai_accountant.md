@@ -368,21 +368,50 @@ Unknown values 400.
 
 ## Choosing models (measured, not guessed)
 
-`scripts/model_eval.py` benchmarks candidate models on **our** tasks
-against Metis pricing (`docs.metisai.ir/pricing`). Run it inside the api
-container; it never posts to the books (chat cards are cancelled).
+Two benches, both against Metis pricing (`docs.metisai.ir/pricing`).
+
+**Statement OCR** — `scripts/model_eval.py` (inside the api container):
 
 ```bash
-# statement OCR: rows vs the first model, running-balance consistency, latency, USD/statement
+# rows vs the first model, running-balance consistency, latency, USD/statement
 docker compose run --rm -v "$PWD/tmp:/eval" api python scripts/model_eval.py ocr \
   --pdf /eval/statement.pdf --models gemini-3.7-flash,gemini-2.5-pro,gemini-3.1-flash-lite
-# chat agent: 9 scenarios (en/fa expense, receipt, questions, insights, refusal, statement review, new client)
-docker compose run --rm api python scripts/model_eval.py chat \
-  --user-id <owner uuid> --company-id <company uuid> --statement-id <statement uuid> \
-  --models gpt-4.1-mini,gpt-4o-mini --repeat 3
 ```
 
-Results on 2026-09-24 (5-page Mellat statement; Default company):
+**The chat eval set** (roadmap §5.5) — `app/services/ai_eval/`:
+`scenarios.json` holds fa/en scenarios (expenses, the toman slip, receipts,
+cash questions that must quote the right figure, suppliers, insights,
+refusals, statement review, a new client, an invoice payment, cheques, a sales
+invoice, spending, receivables). Each says what a good turn does — tools,
+tool order, the cards and what is on them (total, which side the bank is on,
+date, fields), reply language, figures the reply must quote — and carries a
+recorded good trajectory. `fixture.py` seeds the small company they run
+against (cash 2,070,000,000 IRR, INV-1001 open, a cheque due in five days,
+a statement with one unrecorded fee).
+
+* **Every CI run** replays each trajectory through the real agent loop and
+  tools, no model and no network (`tests/test_ai_eval.py`): a tool renamed,
+  an argument dropped or a card that no longer carries what a scenario checks
+  fails the build. (The first replay found statement-review cards refused as
+  `amount_mismatch` — the review message's UUID digits counted as amounts.)
+* **Nightly** `.github/workflows/ai-eval.yml` runs the set three times per
+  scenario against the live model (secret `AI_EVAL_API_KEY`; variable
+  `AI_EVAL_MODEL`, default gpt-4.1-mini) and compares with the last good
+  run. A scenario that passed ≥ 2/3 and now passes < 1/2, any failure of a
+  critical one (the refusals), or the shared pass rate falling 10 points
+  fails the job — GitHub mails the failure; the summary table shows each
+  scenario against the previous run. Run it by hand from the Actions tab
+  (`accept` keeps a changed run as the new baseline).
+* **By hand**, on a scratch database (the script refuses any other):
+
+```bash
+DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/aa_eval_scratch APP_ENV=test \
+  python -m scripts.ai_eval run --models gpt-4.1-mini,gpt-5-mini --repeat 3 --out /tmp/eval.json
+python -m scripts.ai_eval replay        # the recorded trajectories only
+```
+
+Results on 2026-09-24 (5-page Mellat statement; Default company; the chat
+rows are from the earlier 9-scenario bench):
 
 | task | model | outcome | latency | cost |
 |---|---|---|---|---|
@@ -397,9 +426,10 @@ Results on 2026-09-24 (5-page Mellat statement; Default company):
 | chat | gpt-5-nano | 8/9 | 72 s/turn | $4 / 1,000 turns |
 | chat | gpt-4.1-nano | 5/9 | 16 s/turn | $3 / 1,000 turns |
 
-The "English expense from *test bank*" scenario fails on every capable
-model because that bank does not exist in the test company — the models
-correctly ask instead of guessing; only gpt-4o-mini posts blindly.
+In that bench the "English expense from *test bank*" scenario failed on
+every capable model because that bank did not exist in the test company —
+the models correctly asked instead of guessing; only gpt-4o-mini posted
+blindly. The eval books have a Test Bank.
 
 The OpenAI-shape client adapts the request to the model family:
 `max_completion_tokens` and `reasoning_effort` (`none` for gpt-5.6/6,

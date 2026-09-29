@@ -434,6 +434,9 @@ _MAG_COMPOUND_RE = re.compile(
 _TOMAN_RE = re.compile(r"تومان|تومن|تومــان|toman", re.IGNORECASE)
 
 
+_UUID_RE = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
+
+
 def _numbers_in_text(text: str | None) -> list[int]:
     """Extract candidate monetary amounts from free text (Persian-digit
     aware), for the proposal amount-sanity cross-check. Handles plain and
@@ -445,6 +448,10 @@ def _numbers_in_text(text: str | None) -> list[int]:
         return []
     from app.services.ocr_extract import coerce_amount, normalize_digits
 
+    # Identifiers aren't amounts: the statement-review button sends the
+    # statement's UUID, whose digit runs used to become "source amounts" and
+    # refuse every card the review proposed (roadmap §5.5 eval).
+    text = _UUID_RE.sub(" ", text)
     norm = normalize_digits(text)
     out: list[int] = []
     # number optionally followed by a k/m magnitude suffix

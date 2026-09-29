@@ -79,10 +79,15 @@ def _mentions_scheduled(message: str | None) -> bool:
     return any(term in t for term in _SCHEDULED_TERMS)
 
 
-def _guard_amount(ctx: ToolContext, proposed_total: int) -> None:
+def _guard_amount(ctx: ToolContext, proposed_total: int, *, record_amount: int | None = None) -> None:
     """Block impossible or wildly-mismatched amounts before a proposal is
     registered. Raises ToolError (which the model surfaces to the user) so a
-    bad figure is corrected/confirmed rather than one-click committed."""
+    bad figure is corrected/confirmed rather than one-click committed.
+
+    ``record_amount`` is the amount of the record the card settles (a bank
+    statement row): that record is the source, not whatever figures the
+    message happens to hold — "review statement 1405/06" has none of the
+    row amounts in it."""
     if proposed_total > MAX_SANE_AMOUNT:
         raise ToolError(
             f"Proposed amount {proposed_total:,} is impossibly large and was "
@@ -90,7 +95,8 @@ def _guard_amount(ctx: ToolContext, proposed_total: int) -> None:
             f"or ask the user for the correct amount before proposing.",
             code="amount_out_of_range",
         )
-    sources = [int(a) for a in (getattr(ctx, "source_amounts", None) or []) if a]
+    sources = [int(record_amount)] if record_amount else \
+        [int(a) for a in (getattr(ctx, "source_amounts", None) or []) if a]
     if not sources or proposed_total <= 0:
         return
     # Pass if ANY source amount is within the divergence factor of the
@@ -369,8 +375,11 @@ class ProposeCreateTransaction(BaseTool):
         # Amount sanity guard (financial safety): a wrong amount a user might
         # one-click confirm is the worst failure. Reject impossible magnitudes
         # outright, and cross-check the proposed total against the amounts in
-        # the source (OCR'd document total / numbers in the user's message).
-        _guard_amount(ctx, sum(ln.debit for ln in args.lines))
+        # the source (OCR'd document total / numbers in the user's message, or
+        # the bank statement row the card settles — checked below).
+        total = sum(ln.debit for ln in args.lines)
+        if not args.bank_statement_row_id:
+            _guard_amount(ctx, total)
 
         # Anchor the entry date to reality. The model is unreliable at "today"
         # (it dated a "…today" expense 2023-10-18 and mid-session copied an
@@ -405,6 +414,7 @@ class ProposeCreateTransaction(BaseTool):
                     "That bank statement row is a duplicate of one already imported — it must not be posted.",
                     code="statement_row_duplicate",
                 )
+            _guard_amount(ctx, total, record_amount=int(statement_row.debit or 0) or int(statement_row.credit or 0))
             args.date = statement_row.tx_date
             # …and so is the bank's narration: weaker models paraphrase or
             # garble Persian text when copying it into the proposal.

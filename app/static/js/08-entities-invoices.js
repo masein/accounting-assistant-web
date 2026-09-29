@@ -1468,12 +1468,22 @@
       return match && match.entity_id ? String(match.entity_id) : '';
     }
 
-    function roleSelectHtml(role, currentId) {
-      const options = entityOptions[role] || [];
+    function roleSelectHtml(role, currentId, currentName) {
+      const options = (entityOptions[role] || []).slice();
+      // The journal's own party is always an option: saving must never drop a
+      // link just because the list didn't load (or the party has another type).
+      if (currentId && !options.some(o => String(o.id) === String(currentId))) {
+        options.unshift({ id: currentId, name: currentName || currentId });
+      }
       return `
         <option value="">— None —</option>
         ${options.map(o => `<option value="${escapeHtml(String(o.id))}" ${String(o.id) === String(currentId || '') ? 'selected' : ''}>${escapeHtml(o.name || '')}</option>`).join('')}
       `;
+    }
+    function linkedNameForRole(tx, role) {
+      const links = tx && tx.entity_links ? tx.entity_links : [];
+      const match = links.find(l => (l.role || '').toLowerCase() === role);
+      return match ? (match.entity_name || match.name || '') : '';
     }
 
     function txLineRowHtml(line) {
@@ -1528,19 +1538,19 @@
             </div>
             <div>
               <label>Client</label>
-              <select id="edit-tx-client">${roleSelectHtml('client', selectedEntityIdForRole(tx, 'client'))}</select>
+              <select id="edit-tx-client">${roleSelectHtml('client', selectedEntityIdForRole(tx, 'client'), linkedNameForRole(tx, 'client'))}</select>
             </div>
             <div>
               <label>Bank</label>
-              <select id="edit-tx-bank">${roleSelectHtml('bank', selectedEntityIdForRole(tx, 'bank'))}</select>
+              <select id="edit-tx-bank">${roleSelectHtml('bank', selectedEntityIdForRole(tx, 'bank'), linkedNameForRole(tx, 'bank'))}</select>
             </div>
             <div>
               <label>Payee</label>
-              <select id="edit-tx-payee">${roleSelectHtml('payee', selectedEntityIdForRole(tx, 'payee'))}</select>
+              <select id="edit-tx-payee">${roleSelectHtml('payee', selectedEntityIdForRole(tx, 'payee'), linkedNameForRole(tx, 'payee'))}</select>
             </div>
             <div>
               <label>Supplier</label>
-              <select id="edit-tx-supplier">${roleSelectHtml('supplier', selectedEntityIdForRole(tx, 'supplier'))}</select>
+              <select id="edit-tx-supplier">${roleSelectHtml('supplier', selectedEntityIdForRole(tx, 'supplier'), linkedNameForRole(tx, 'supplier'))}</select>
             </div>
             <div style="grid-column:1 / -1;">
               <label>Lines (debit/credit)</label>

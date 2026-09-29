@@ -62,7 +62,7 @@ def test_boot_runs_only_shell_calls():
 PAGE_LOADERS = {
     "loadOwnerDashboard": ("dashboard",), "loadBudgets": ("dashboard",), "loadLedger": ("ledger",),
     "loadEntities": ("entities",), "loadInvoices": ("invoices",), "loadRecurringRules": ("recurring",),
-    "loadEntityOptions": ("transactions", "invoices"), "loadManagerInventoryItems": ("inventory",),
+    "loadManagerInventoryItems": ("inventory",),
 }
 
 
@@ -160,3 +160,27 @@ def test_shared_requests_go_out_once():
     forms = _js("10-forms-fx-bank.js")
     save = forms[forms.index("method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ currency: value }),"):]
     assert "window.__REPORTING_CURRENCY = data.currency;" in save[:600]
+
+
+def test_the_party_pickers_load_wherever_the_journal_editor_opens():
+    """loadEntityOptions fills entityOptions, which the journal editor in the
+    entity statement reads on any page. Guarded to the voucher/invoice pages
+    (#187), the editor's party dropdowns came up empty and saving dropped the
+    journal's parties."""
+    vouchers = _js("06-vouchers.js")
+    body = _function(vouchers, "loadEntityOptions")
+    assert "onPage(" not in body                                          # loads on any page…
+    boot = _js("10-forms-fx-bank.js")
+    assert "loadEntityOptions();" not in boot[boot.index("const userReady"):boot.index("// ─── FX settings panel")]  # …never at boot
+    lines = _page_data_lines()
+    assert "loadEntityOptions()" in lines["transactions"] and "loadEntityOptions()" in lines["invoices"]
+    ent = _js("08-entities-invoices.js")
+    opener = _function(ent, "openEntityTransactions")
+    assert "await loadEntityOptions();" in opener
+    # and even if the list fails, the journal's own party stays selectable
+    picker = _function(ent, "roleSelectHtml")
+    assert "options.unshift({ id: currentId" in picker
+    editor = _function(ent, "openEntityTransactionEditor")
+    for role in ("client", "bank", "payee", "supplier"):
+        assert f"roleSelectHtml('{role}', selectedEntityIdForRole(tx, '{role}'), linkedNameForRole(tx, '{role}'))" in editor
+

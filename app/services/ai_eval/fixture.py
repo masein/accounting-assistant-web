@@ -28,6 +28,7 @@ CASH_ON_HAND = 2_070_000_000
 OPEN_INVOICE = "INV-1001"
 OPEN_INVOICE_AMOUNT = 30_000_000
 CHEQUE_AMOUNT = 12_000_000
+SARA_PAY = 150_000_000                     # the PAY-1 wages, as Sara's pay run shows them
 BANK_FEE = 250_000
 
 
@@ -93,8 +94,17 @@ def seed_eval_company(db: Session, *, today: date | None = None, slug: str | Non
         _journal(db, acc, d(20), "Aria Trading paid INV-0999", [("1110", 300_000_000, 0), ("1112", 0, 300_000_000)],
                  reference="RCPT-0999", party=parties["Aria Trading"])
         _journal(db, acc, d(15), "اجاره دفتر", [("6112", 80_000_000, 0), ("1110", 0, 80_000_000)], reference="RENT-1")
-        _journal(db, acc, d(10), "حقوق کارکنان", [("6110", 150_000_000, 0), ("1110", 0, 150_000_000)],
-                 reference="PAY-1", party=parties["Sara Ahmadi"], role="payee")
+        wages = _journal(db, acc, d(10), "حقوق کارکنان", [("6110", SARA_PAY, 0), ("1110", 0, SARA_PAY)],
+                         reference="PAY-1", party=parties["Sara Ahmadi"], role="payee")
+        from app.models.employee_pay import EmployeePayProfile
+        from app.models.pay_run import PayRun, PayRunLine
+        db.add(EmployeePayProfile(entity_id=parties["Sara Ahmadi"].id, base_salary=SARA_PAY, currency="IRR"))
+        run = PayRun(id=uuid.uuid4(), period_start=d(40), period_end=d(10), pay_date=d(10), currency="IRR",
+                     status="paid", total_gross=SARA_PAY, total_net=SARA_PAY, pay_transaction_id=wages.id)
+        db.add(run)
+        db.flush()
+        db.add(PayRunLine(run_id=run.id, entity_id=parties["Sara Ahmadi"].id, employee_name="Sara Ahmadi",
+                          gross=SARA_PAY, taxable_base=SARA_PAY, net_pay=SARA_PAY))
         _journal(db, acc, d(5), "Office supplies from Delta Supplies", [("6112", 45_000_000, 0), ("2110", 0, 45_000_000)],
                  reference="BILL-77", party=parties["Delta Supplies"], role="supplier")
         _journal(db, acc, d(20), "Invoice INV-1001 to Behsaz", [("1112", OPEN_INVOICE_AMOUNT, 0),

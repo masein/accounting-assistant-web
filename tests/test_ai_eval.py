@@ -82,6 +82,16 @@ def test_the_fixture_figures_are_what_the_scenarios_say(db, books):
         assert cash_on_hand(db, locale="ir", currency="IRR") == CASH_ON_HAND == 2_070_000_000
     cash_q = next(s for s in SCENARIOS if s["id"] == "cash_question_en")
     assert CASH_ON_HAND in cash_q["expect"]["reply_numbers_any"]
+    # Sara's pay run is the PAY-1 wages entry
+    from sqlalchemy import select
+
+    from app.models.pay_run import PayRun
+    from app.services.ai_eval.fixture import SARA_PAY
+    with use_company(books.company_id):
+        (run,) = db.execute(select(PayRun)).scalars().all()
+        assert (run.status, run.total_net, run.lines[0].employee_name) == ("paid", SARA_PAY, "Sara Ahmadi")
+    pay_q = next(s for s in SCENARIOS if s["id"] == "payroll_question_en")
+    assert SARA_PAY in pay_q["expect"]["reply_numbers_any"]
 
 
 # --- scoring ------------------------------------------------------------------------------------------

@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.5"
+CURRENT_RELEASE = "2026.09.29.6"
 
 
 @dataclass(frozen=True)
@@ -1228,6 +1228,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "پایین صفحه گزارش‌های مدیریتی، ماهی را انتخاب کنید تا ببینید چه کارهایی مانده است — ردیف‌های بانکی تطبیق‌نشده، فاکتورهای پیش‌نویس، حقوقِ ثبت‌نشده، استهلاکِ اجرانشده، اسنادِ منتظر نرخ ارز. سپس بسته را دریافت کنید: یک فایل ZIP با PDF و اکسل (فهرست بررسی، صورت‌های مالی، تراز آزمایشی، سنی مطالبات و بدهی‌ها، مغایرت بانکی، بودجه و عملکرد) و دفتر روزنامه ماه به صورت CSV. فاکتورها و دیگر PDFها هم اکنون با قلم درست چاپ می‌شوند.",
                     "es": "Al final de Informes de gestión, elige un mes para ver qué queda pendiente: líneas bancarias sin conciliar, facturas en borrador, una nómina sin registrar, amortización sin ejecutar, asientos sin tipo de cambio. Luego descarga el paquete: un ZIP con un PDF y un Excel (la lista, los estados, el balance de comprobación, la antigüedad de cobros y pagos, la conciliación bancaria, presupuesto frente a real) y el diario del mes en CSV. Las facturas y demás PDF ya usan la fuente correcta.",
                     "ar": "في أسفل تقارير الإدارة، اختر شهرًا لترى ما بقي مفتوحًا — سطور بنكية غير مطابقة، فواتير مسودة، رواتب غير مرحّلة، إهلاك لم يُشغَّل، قيود تنتظر سعر صرف. ثم نزّل الحزمة: ملف ZIP فيه PDF وExcel (القائمة، والقوائم المالية، وميزان المراجعة، وأعمار الذمم المدينة والدائنة، والتسوية البنكية، والموازنة مقابل الفعلي) ودفتر يومية الشهر بصيغة CSV. وصارت الفواتير وسائر ملفات PDF تُطبع بالخط الصحيح أيضًا.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.6",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="chat-payroll-budgets",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant"),
+                title={
+                    "en": "Ask the assistant about payroll, budgets and month end",
+                    "fa": "درباره حقوق، بودجه و بستن ماه از دستیار بپرسید",
+                    "es": "Pregunta al asistente por nóminas, presupuestos y cierre",
+                    "ar": "اسأل المساعد عن الرواتب والموازنات وإقفال الشهر",
+                },
+                body={
+                    "en": "The AI accountant can now answer \"what did we pay Sara this year?\" and \"are we over budget?\", run a draft payroll for a period, post it and pay it, set monthly budgets, and tell you what's still open before you close a month. Every change is a card you confirm, as before.",
+                    "fa": "حسابدار هوشمند اکنون به «امسال چقدر به سارا پرداختیم؟» و «از بودجه جلو زدیم؟» پاسخ می‌دهد، پیش‌نویس حقوق یک دوره را حساب می‌کند، آن را ثبت و پرداخت می‌کند، بودجه ماهانه می‌گذارد و می‌گوید پیش از بستن ماه چه کارهایی مانده است. هر تغییر مثل قبل یک کارت است که تأییدش می‌کنید.",
+                    "es": "El contable IA ya responde a «¿cuánto le pagamos a Sara este año?» y «¿vamos por encima del presupuesto?», calcula un borrador de nómina para un periodo, lo registra y lo paga, fija presupuestos mensuales y te dice qué falta antes de cerrar un mes. Cada cambio es una tarjeta que confirmas, como siempre.",
+                    "ar": "صار المحاسب الذكي يجيب عن «كم دفعنا لسارة هذا العام؟» و«هل تجاوزنا الموازنة؟»، ويحسب مسودة رواتب لفترة ثم يرحّلها ويدفعها، ويضع موازنات شهرية، ويخبرك بما بقي قبل إقفال الشهر. كل تغيير بطاقة تؤكّدها كما في السابق.",
                 },
             ),
         ),

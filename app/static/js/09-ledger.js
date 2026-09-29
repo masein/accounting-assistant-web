@@ -224,6 +224,7 @@
     }
 
     async function loadLedger(currency) {
+      if (!onPage('ledger')) return;      // reloads when it opens (loadPageData)
       try {
         const sel = document.getElementById('ledger-currency');
         const ccy = (typeof currency === 'string' && currency) || (sel && sel.value) || '';

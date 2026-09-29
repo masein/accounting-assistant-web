@@ -292,11 +292,15 @@
       attachPasswordToggle(document.getElementById(id));
     });
 
+    // Resolves once the user is known (true) or couldn't be (false); boot
+    // loads the first page's data after it (16-boot.js).
     async function loadCurrentUser() {
       try {
         const res = await fetch(API + '/auth/me');
         const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.user) return;
+        if (!res.ok || !data.user) return false;
+        isSuperadmin = !!data.user.is_superadmin;
+        currentRole = (data.user.role || 'owner').toLowerCase();
         if (settingsUserNameEl) settingsUserNameEl.textContent = data.user.username || '-';
         const tbUser = document.getElementById('topbar-user-name');
         if (tbUser) tbUser.textContent = data.user.username || '—';
@@ -315,6 +319,12 @@
         } catch (_) { /* storage blocked: nothing to show */ }
         if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? t('usersAdmin') : t('usersUser');
         const lang = (data.user.preferred_language || localStorage.getItem('aa_ui_language') || 'en').toLowerCase();
+        // A language this browser hasn't saved yet (first sign-in on a device):
+        // wait for its pack, so the first page's tables draw in it too.
+        if (typeof I18N !== 'undefined' && typeof loadLanguagePack === 'function'
+            && SUPPORTED_UI_LANGUAGES.includes(lang) && !I18N[lang]) {
+          try { await loadLanguagePack(lang); } catch (_) { /* applyLanguage says so */ }
+        }
         applyLanguage(lang, true);
         if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? t('usersAdmin') : t('usersUser');
         // Show the current company name in the header.
@@ -330,17 +340,16 @@
         _companyName = (data.company && data.company.name) || _companyName;
         const sideName = document.getElementById('sidebar-company-name');
         if (sideName && _companyName) sideName.textContent = _companyName;
-        loadCompanyBranding();
-        // Reveal the Companies console only for the super-admin/provisioner.
-        isSuperadmin = !!data.user.is_superadmin;
-        currentRole = (data.user.role || 'owner').toLowerCase();
+        // The logo and legal name come from the company profile, which only
+        // roles that read settings may open; the others keep the name above.
+        if (isSuperadmin || ['owner', 'cfo', 'personal'].includes(currentRole)) loadCompanyBranding();
         // AI provider wiring is platform-wide → super-admin only. Owners get a
         // note instead of controls that would 403.
         const aiSec = document.getElementById('ai-providers-section');
         const aiNote = document.getElementById('ai-providers-note');
         if (aiSec) aiSec.style.display = isSuperadmin ? '' : 'none';
         if (aiNote) aiNote.style.display = isSuperadmin ? 'none' : '';
-        if (isSuperadmin) { loadAIConfig(); loadAnthropicConfig(); loadChatProviderShape(); }
+        // Reveal the Companies console only for the super-admin/provisioner.
         const navCo = document.getElementById('nav-companies');
         if (navCo) navCo.style.display = isSuperadmin ? '' : 'none';
         // Role-aware nav: hide what this role can't use (server still enforces).
@@ -350,27 +359,37 @@
           setTimeout(() => openWhatsNew(data.whats_new, { markSeen: true }), 400);
         }
         // Land on a page this role may actually see. If the cold-load page is
-        // off-limits, drop to the role's home; honour a valid deep link.
+        // off-limits, drop to the role's home; honour a valid deep link. The
+        // page's data loads after this (16-boot.js), and the Settings panels
+        // (users, API keys, AI usage, …) with the Settings page.
         const landed = (location.hash || '#dashboard').slice(1);
         if (isSuperadmin && location.hash === '#companies') {
           showPage('companies');
         } else if (!canSeePage(landed) || !validPages.has(landed)) {
           showPage(roleHome());
-          loadPageData(roleHome());
-        }
-        if (currentRole === 'owner') {
-          loadUsers(); populateEntityLinkOptions(); loadDigestSettings(); loadApiKeys();
-          loadAIConfig(); loadAnthropicConfig(); loadAIUsage(); loadGuardrails();
-        }
-        if (isSuperadmin) {
-          loadAILimits();
-          if (typeof loadRateFeeds === 'function') loadRateFeeds();
-          if (typeof loadMessengerBots === 'function') loadMessengerBots();
         }
         // the Telegram/Bale item for whoever may use the assistant (roadmap §5.7)
         if (typeof canSeePage === 'function' && canSeePage('ai-accountant') && typeof refreshMessengerButton === 'function') refreshMessengerButton();
+        return true;
       } catch (_) {
         applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
+        return false;
+      }
+    }
+
+    // Everything on the Settings page. The owner's panels and the
+    // super-admin's platform ones used to load at every sign-in, on any page.
+    function loadSettingsPage() {
+      loadClosedPeriod(); loadAdjustments(); loadCompanyProfile();
+      if (typeof loadFxSettings === 'function') loadFxSettings();
+      if (currentRole === 'owner') {
+        loadUsers(); loadDigestSettings(); loadApiKeys(); loadAIUsage();
+        if (typeof loadGuardrails === 'function') loadGuardrails();
+      }
+      if (isSuperadmin) {
+        loadAIConfig(); loadAnthropicConfig(); loadChatProviderShape(); loadAILimits();
+        if (typeof loadRateFeeds === 'function') loadRateFeeds();
+        if (typeof loadMessengerBots === 'function') loadMessengerBots();
       }
     }
 

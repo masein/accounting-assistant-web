@@ -308,9 +308,11 @@
           loadSessions('');
         } catch (_) { /* briefing is best effort */ }
       }
-      // Dashboard "Ask the AI" buttons land here.
-      window.aiChatAsk = (text) => {
+      // Dashboard "Ask the AI" buttons (and the migration page) land here:
+      // the chat is opened — its latest session restored — before sending.
+      window.aiChatAsk = async (text) => {
         if (typeof showPage === 'function') showPage('ai-accountant');
+        await window.aiChatInit();
         sendMessage(text);
       };
 
@@ -342,14 +344,22 @@
       }
       // Restore the newest chat session after a refresh so the conversation
       // (and its context) isn't lost — the backend has kept it all along.
-      (async function restoreLatest() {
-        await loadSessions('');
-        aiLoadPreferences(false);
-        aiLoadApprovals();
-        if (_sessionsCache.length) await openSession(_sessionsCache[0].id);
-        else { setChatTitle(t('chatUntitled')); renderEmptyState(); }
-        maybeBriefing();
-      })();
+      // Once, when the chat is first opened (loadPageData, aiChatAsk): it used
+      // to run at every sign-in, on every page, for roles without the chat.
+      let _chatReady = null;
+      window.aiChatInit = () => {
+        if (!_chatReady) {
+          _chatReady = (async function restoreLatest() {
+            await loadSessions('');
+            aiLoadPreferences(false);
+            aiLoadApprovals();
+            if (_sessionsCache.length) await openSession(_sessionsCache[0].id);
+            else { setChatTitle(t('chatUntitled')); renderEmptyState(); }
+            maybeBriefing();
+          })();
+        }
+        return _chatReady;
+      };
       const undoTimers = {};  // audit_log_id → timeout handle
       // Quick one-click undo countdown; matches UNDO_WINDOW in execute_service
       // (AI-7). After it elapses the button becomes a persistent reverse.

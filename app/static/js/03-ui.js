@@ -107,6 +107,15 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // The page on screen: showPage marks its card. A page's loaders fetch only
+    // while their page is shown — loadPageData runs them when it opens, so a
+    // refresh after a save needn't reload a page nobody is looking at.
+    function activePage() {
+      const card = document.querySelector('.card[data-page].active-page');
+      return card ? card.getAttribute('data-page') : null;
+    }
+    function onPage(...pages) { return pages.includes(activePage()); }
+
     // Map each page to the nav label key so the top-bar title stays localized.
     const PAGE_TITLE_KEY = {
       dashboard: 'navDashboard', 'personal-dashboard': 'pdNav', commitments: 'cmNav', 'ai-accountant': 'aiAccountantNav', transactions: 'navTransactions',
@@ -299,14 +308,27 @@
     window.__REPORTING_CURRENCY = window.__REPORTING_CURRENCY || 'IRR';
     function currencyUnit() { return window.__REPORTING_CURRENCY || 'IRR'; }
     function fmtCurrency(v) { return formatNum(v) + ' ' + currencyUnit(); }
-    async function loadReportingCurrency() {
-      try {
-        const r = await fetch(API + '/fx/reporting-currency');
-        if (!r.ok) return;
-        const data = await r.json().catch(() => ({}));
-        if (data && data.currency) window.__REPORTING_CURRENCY = data.currency;
-      } catch (_) { /* offline / no auth — keep cached value */ }
-      applyDefaultFormCurrency();
+    // Fetched once per page load (sign-in; a dashboard opened while that is out
+    // shares it) — the dashboards used to refetch it on every open. Saving it
+    // in Settings updates the cached value; ``force`` refetches.
+    let _reportingCurrencyInflight = null;
+    let _reportingCurrencyLoaded = false;
+    function loadReportingCurrency(force) {
+      if (_reportingCurrencyLoaded && !force && !_reportingCurrencyInflight) return Promise.resolve();
+      if (!_reportingCurrencyInflight) {
+        _reportingCurrencyInflight = (async () => {
+          try {
+            const r = await fetch(API + '/fx/reporting-currency');
+            if (r.ok) {
+              const data = await r.json().catch(() => ({}));
+              if (data && data.currency) window.__REPORTING_CURRENCY = data.currency;
+              _reportingCurrencyLoaded = true;
+            }
+          } catch (_) { /* offline / no auth — keep cached value */ }
+          applyDefaultFormCurrency();
+        })().finally(() => { _reportingCurrencyInflight = null; });
+      }
+      return _reportingCurrencyInflight;
     }
 
     // Pre-select the company (reporting) currency on the create forms instead
@@ -404,17 +426,25 @@
       el.querySelectorAll('.ccy-view-switch').forEach(b => b.addEventListener('click', () => { if (onPick) onPick(b.dataset.ccy); }));
     }
 
+    // Callers that arrive while a request is out share it (four used to go
+    // out at sign-in); ``force`` skips the cached copy, not the one in flight.
+    let _fxMetaInflight = null;
     async function loadFxMetadata(force) {
       if (window.__FX_META && !force) return window.__FX_META;
-      try {
-        const r = await fetch(API + '/fx/metadata');
-        if (!r.ok) return null;
-        window.__FX_META = await r.json();
-        applyReportCurrencyDefault(window.__FX_META);
-        return window.__FX_META;
-      } catch (_) {
-        return null;
+      if (!_fxMetaInflight) {
+        _fxMetaInflight = (async () => {
+          try {
+            const r = await fetch(API + '/fx/metadata');
+            if (!r.ok) return null;
+            window.__FX_META = await r.json();
+            applyReportCurrencyDefault(window.__FX_META);
+            return window.__FX_META;
+          } catch (_) {
+            return null;
+          }
+        })().finally(() => { _fxMetaInflight = null; });
       }
+      return _fxMetaInflight;
     }
 
     // The reports' currency select (#mgr-currency): several currencies in the

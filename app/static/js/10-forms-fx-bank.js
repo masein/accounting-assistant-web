@@ -172,27 +172,21 @@
     window.addEventListener('hashchange', () => {
       const p = (location.hash || '#dashboard').slice(1);
       showPage(p);
-      loadPageData(p);
+      // the page shown — a role sent to its home instead of p loads that one
+      loadPageData(activePage() || p);
     });
     applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
-    // NOTE: the initial showPage/loadPageData bootstrap lives in 16-boot.js —
-    // it must run after every script file so all loaders are declared.
-    // NOTE: owner-only loaders (users, AI provider config) are NOT called here
-    // — currentRole isn't known until /auth/me resolves, so firing them for
-    // every role produced a row of 403s in the console on each login. They run
-    // from loadCurrentUser()'s owner branch instead.
-    loadCurrentUser();
-    loadChatProviderShape();
+    // Boot fetches the shell only: who is signed in (role, company, language),
+    // the reporting currency, and — below — the reporting locale, the display
+    // calendar and the currency defaults every form uses. Each page's data
+    // comes from loadPageData when that page is shown; the first one is
+    // loaded by 16-boot.js once userReady settles, because which page a role
+    // lands on depends on it. (Every page's lists used to load here at each
+    // sign-in — about 40 requests, the dashboard twice, and a row of 403s for
+    // roles that can't open those pages.)
+    const userReady = loadCurrentUser();
     loadReportingCurrency();
     renderAttachments();
-    loadLedger();
-    loadEntities();
-    loadInvoices();
-    loadRecurringRules();
-    loadOwnerDashboard();
-    loadBudgets();
-    loadEntityOptions();
-    loadManagerInventoryItems();
 
     // ─── FX settings panel ───────────────────────────────────────────────
     async function loadFxSettings() {
@@ -525,7 +519,10 @@
         if (r.ok) {
           const data = await r.json();
           if (status) status.textContent = 'Saved: ' + data.currency;
-          // Refresh cached metadata so dropdowns reflect the new default
+          // the cached reporting currency (loadReportingCurrency) and metadata
+          // follow, so labels and dropdowns reflect the new default
+          if (data.currency) window.__REPORTING_CURRENCY = data.currency;
+          applyDefaultFormCurrency();
           await loadFxMetadata(true);
         } else {
           if (status) status.textContent = 'Failed to save.';
@@ -562,7 +559,7 @@
         }
       });
     }
-    loadFxSettings();
+    // loadFxSettings runs with the Settings page (loadSettingsPage).
 
     // ─── Reporting locale panel ──────────────────────────────────────────
     // Cached so managerEndpointFor() can route reports to Iran endpoints

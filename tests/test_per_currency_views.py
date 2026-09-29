@@ -154,8 +154,8 @@ def test_the_report_currency_is_settled_before_the_dashboard_reads_it():
     ui = open("app/static/js/03-ui.js", encoding="utf-8").read()
     meta = ui[ui.index("async function loadFxMetadata"):ui.index("function applyReportCurrencyDefault")]
     # the default is applied where the metadata lands, before anyone awaiting it resumes
-    assert ("window.__FX_META = await r.json();\n        applyReportCurrencyDefault(window.__FX_META);\n"
-            "        return window.__FX_META;") in meta
+    assert ("window.__FX_META = await r.json();\n            applyReportCurrencyDefault(window.__FX_META);\n"
+            "            return window.__FX_META;") in meta
     fn = ui[ui.index("function applyReportCurrencyDefault"):]
     fn = fn[:fn.index("\n    }\n")]
     assert "sel.dataset.defaulted" in fn and "used.length > 1 ? 'ALL'" in fn     # once; several → All

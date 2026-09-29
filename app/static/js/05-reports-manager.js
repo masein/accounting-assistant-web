@@ -11,6 +11,7 @@
     }
 
     async function loadOwnerDashboard(pickedCurrency) {
+      if (!onPage('dashboard')) return;   // reloads when it opens (loadPageData)
       try {
         // Make sure the reporting currency is resolved before the first paint,
         // so figures are labelled in the company's currency (GBP for UK, etc.)
@@ -1135,6 +1136,7 @@
     }
 
     async function loadManagerInventoryItems(highlightId) {
+      if (!onPage('inventory')) return;
       if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       if (!mgrMvItemEl) return;
       try {

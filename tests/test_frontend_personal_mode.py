@@ -104,10 +104,14 @@ def test_owner_only_loaders_are_not_called_eagerly_at_boot(loader):
 
 
 @pytest.mark.parametrize("loader", OWNER_ONLY_LOADERS)
-def test_owner_only_loaders_run_from_the_owner_branch(loader):
+def test_owner_only_loaders_run_from_the_settings_page(loader):
+    """They load with the Settings page (tests/test_boot_page_data.py): the
+    users table in the owner's branch, the platform AI wiring in the
+    super-admin's (it 403s for anyone else)."""
     js = ADMIN_JS.read_text(encoding="utf-8")
-    branch = js.split("if (currentRole === 'owner') {", 1)[1].split("}", 1)[0]
-    assert f"{loader}()" in branch
+    page = js.split("function loadSettingsPage() {", 1)[1].split("\n    }\n", 1)[0]
+    branch = "if (currentRole === 'owner') {" if loader == "loadUsers" else "if (isSuperadmin) {"
+    assert f"{loader}()" in page.split(branch, 1)[1].split("}", 1)[0]
 
 
 # ---------------------------------------------------------------------------

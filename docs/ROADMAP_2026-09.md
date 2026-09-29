@@ -473,6 +473,21 @@ dropped, so invoices, payslips and statements printed in the fallback serif —
 now Noto Sans / Noto Naskh Arabic. The statement PDF prints wide tables (the
 equity matrix) landscape, and Persian labels' ISO dates in Jalali. **4.9 done.**
 
+✅ 5.1, payroll / budgets / month end — chat tools (`payroll_tools.py`,
+`period_tools.py`, executed in `payroll_execute.py` through the Payroll and
+Budgets routes): `get_payroll` (recent runs with drafts waiting, or one
+employee's run-by-run pay and totals), `propose_run_payroll` (a DRAFT run for
+a period — nothing posted; refuses anyone already paid for those days),
+`propose_post_pay_run` / `propose_pay_pay_run` (a run by id, a day in its
+period or its Jalali/Gregorian month; they carry the pay date and amount, so
+closed periods and two-person approval apply), `get_budget_status`,
+`propose_set_budget` (an expense account, one month or several — not money
+moved, so no approval), `get_close_checklist` (the close pack's checklist).
+Business registry only. Four eval scenarios (payroll question, draft run in
+Persian, budget question in Persian, close checklist); the eval company has
+Sara's pay profile and a paid run. Left in 5.1: recurring & reminders, petty
+cash, purchase orders, FX, cap table read, period lock, audit trail.
+
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
 hash; the runtime lock constrains the other two). The Dockerfile and every CI

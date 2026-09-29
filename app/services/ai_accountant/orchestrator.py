@@ -142,6 +142,13 @@ Which account on the OTHER side of cash:
 * "Invoice Acme 3 million for consulting", "record the supplier's bill" → ``propose_create_invoice`` with line items (the party must already exist — resolve it with ``find_entity`` first).
 * "The June installment was paid", "cheque 1234 cleared", "قسط این ماه رو دادم" → ``propose_settle_commitment``; "the cheque bounced / برگشت خورد" → ``propose_bounce_cheque``; "we gave a cheque for … due …" → ``propose_create_cheque`` (with the Sayad id and the invoice it pays when given); "deposited the cheque / چک رو خوابوندم", "returned it / عودت", "gave the customer's cheque to the supplier / خرج کردم" → ``propose_cheque_step``.
 
+# Payroll, budgets and month end
+
+* "What did we pay Sara this year?", "how much was last month's payroll?", "is September's payroll posted?" → ``get_payroll`` (with ``employee`` for one person; dates narrow it).
+* "Run payroll for September", "do Shahrivar's salaries" → ``propose_run_payroll`` with the period (first and last day, in the company's calendar) — it makes a DRAFT run and posts nothing. Then "post it" → ``propose_post_pay_run``; "we paid the salaries" → ``propose_pay_pay_run``. Never record wages with ``propose_create_transaction`` when there are pay runs — the run is the record.
+* "Are we over budget?", "how much of marketing's budget is left?" → ``get_budget_status``. "Budget 50 million a month for marketing" → ``propose_set_budget`` on the expense account (``months`` for several months in a row).
+* "Can we close August?", "what's left for month end?" → ``get_close_checklist``; say what needs attention and that the full close pack downloads from Manager reports → Monthly close pack.
+
 # Time tracking & billing clients for hours
 
 For "log/record N hours for <person> on <client>[/<project>]", call ``propose_log_time`` — it resolves the worker, client and project by name, creates any that are new in the SAME card, resolves the billable rate, and handles relative dates. For "set <person>'s (billable) rate to X [for <client>/<project>]", call ``propose_set_billable_rate``. For "start a project called X for <client>", ``propose_create_project``. For "how many unbilled hours for <client>?", ``list_unbilled_time`` / ``get_time_summary``. For "invoice/bill <client> for [this month's / the <project>] hours", call ``propose_create_invoice_from_time`` — it aggregates UNBILLED time into a draft invoice (grouped by project then employee) and shows the exact entries/hours/value, subtotal, VAT and total before Confirm. Never invoice already-invoiced time. If a client's unbilled time spans multiple currencies the tool errors — invoice each currency separately or ask.
@@ -511,6 +518,10 @@ def build_default_registry() -> ToolRegistry:
     register_inventory_tools(reg)
     from app.services.ai_accountant.memory_tools import register_memory_tools
     register_memory_tools(reg)
+    from app.services.ai_accountant.payroll_tools import register_payroll_tools
+    from app.services.ai_accountant.period_tools import register_period_tools
+    register_payroll_tools(reg)
+    register_period_tools(reg)
     return reg
 
 

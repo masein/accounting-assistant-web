@@ -195,6 +195,50 @@
         {"tool": "list_invoices", "input": {"kind": "sales", "open_only": true}},
         {"text": "بهساز فاکتور INV-1001 را به مبلغ ۳۰٬۰۰۰٬۰۰۰ ریال هنوز پرداخت نکرده است."}
       ]
+    },
+    {
+      "id": "payroll_question_en",
+      "lang": "en",
+      "message": "how much did we pay Sara Ahmadi last month?",
+      "expect": {"proposals": 0, "tools_any": ["get_payroll", "query_ledger"], "reply_numbers_any": [150000000],
+                 "reply_lang": "en"},
+      "replay": [
+        {"tool": "get_payroll", "input": {"employee": "Sara Ahmadi"}},
+        {"text": "Sara Ahmadi was paid 150,000,000 IRR net for the run paid on {today-10}."}
+      ]
+    },
+    {
+      "id": "run_payroll_fa",
+      "lang": "fa",
+      "message": "حقوق دوره {today+1} تا {today+30} رو حساب کن",
+      "expect": {"proposals": 1, "tools_all": ["propose_run_payroll"], "tools_none": ["propose_create_transaction"],
+                 "card": {"tool": "propose_run_payroll", "fields_contain": {"employees": "Sara Ahmadi"}},
+                 "reply_lang": "fa"},
+      "replay": [
+        {"tool": "propose_run_payroll", "input": {"period_start": "{today+1}", "period_end": "{today+30}"}},
+        {"text": "پیش‌نویس لیست حقوق برای سارا احمدی آماده است؛ با تأیید محاسبه می‌شود و هنوز در دفاتر ثبت نمی‌شود."}
+      ]
+    },
+    {
+      "id": "budget_question_fa",
+      "lang": "fa",
+      "message": "این ماه از بودجه جلو زدیم؟",
+      "expect": {"proposals": 0, "tools_any": ["get_budget_status"], "reply_lang": "fa", "reply_contains_any": ["بودجه"]},
+      "replay": [
+        {"tool": "get_budget_status", "input": {}},
+        {"text": "برای این ماه بودجه‌ای تعیین نشده است؛ بیشترین هزینه‌ها سایر هزینه‌های عملیاتی است. می‌خواهید بودجه بگذارم؟"}
+      ]
+    },
+    {
+      "id": "close_checklist_en",
+      "lang": "en",
+      "message": "what's still open before we can close last month?",
+      "expect": {"proposals": 0, "tools_any": ["get_close_checklist"], "reply_lang": "en",
+                 "reply_contains_any": ["close pack", "checklist", "lock"]},
+      "replay": [
+        {"tool": "get_close_checklist", "input": {}},
+        {"text": "Debits equal credits and there are no draft invoices. Lock the books once you're happy — the full close pack is under Manager reports → Monthly close pack."}
+      ]
     }
   ]
 }

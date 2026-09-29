@@ -326,6 +326,16 @@ def _dispatch(db: Session, proposal: AIProposal, *, actor_user_id: str, actor_us
             actor_username=actor_username,
             ip_address=ip_address,
         )
+    elif proposal.tool_name in (
+        "propose_run_payroll", "propose_post_pay_run", "propose_pay_pay_run", "propose_set_budget",
+    ):
+        from app.services.ai_accountant.payroll_execute import execute_payroll_proposal
+        txn_id, audit_id = execute_payroll_proposal(
+            db, proposal,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+        )
     elif proposal.tool_name == "propose_remember_preference":
         from app.services.ai_accountant.time_execute import _audit
         from app.services.learned_preferences import remember

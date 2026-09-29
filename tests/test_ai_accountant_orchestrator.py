@@ -534,6 +534,8 @@ class TestRegistry:
             "list_invoices", "get_invoice", "propose_record_invoice_payment", "propose_create_invoice",
             "list_commitments", "propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque",
             "propose_cheque_step", "get_fixed_assets", "get_inventory", "propose_remember_preference",
+            "get_payroll", "propose_run_payroll", "propose_post_pay_run", "propose_pay_pay_run",
+            "get_budget_status", "propose_set_budget", "get_close_checklist",
         }
 
 

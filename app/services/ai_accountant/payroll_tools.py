@@ -36,6 +36,7 @@ def _run_row(run: PayRun) -> dict[str, Any]:
     return {
         "id": str(run.id), "period_start": run.period_start.isoformat(), "period_end": run.period_end.isoformat(),
         "pay_date": run.pay_date.isoformat(), "status": run.status, "currency": run.currency,
+        "kind": run.kind or "regular", "year_key": run.year_key,             # year_end = عیدی و سنوات
         "employees": len(run.lines), "total_gross": int(run.total_gross or 0), "total_tax": int(run.total_tax or 0),
         "total_social": int(run.total_social or 0), "total_deductions": int(run.total_deductions or 0),
         "total_net": int(run.total_net or 0), "employer_social": int(run.total_employer_social or 0),
@@ -190,7 +191,7 @@ class ProposeRunPayroll(BaseTool):
             select(PayRunLine.employee_name, PayRun.period_start, PayRun.period_end, PayRun.status)
             .join(PayRun, PayRunLine.run_id == PayRun.id)
             .where(PayRunLine.entity_id.in_([e.id for e, p in chosen if (p.pay_type or "").lower() != "hourly"]),
-                   PayRun.status.in_(LIVE), PayRun.period_start <= args.period_end,
+                   PayRun.status.in_(LIVE), PayRun.kind != "year_end", PayRun.period_start <= args.period_end,
                    PayRun.period_end >= args.period_start)).all()
         if clashes:
             raise ToolError("Already in a pay run for an overlapping period: " + "; ".join(

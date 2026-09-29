@@ -151,6 +151,20 @@ def test_payroll_for_named_people_and_what_it_refuses(staff, db):
         _tool(cid, db, ProposePostPayRun(), PayRunRefInput(run="someday"))
 
 
+def test_a_year_end_run_doesnt_block_the_monthly_one(staff, db):
+    from app.services import payroll_year_end as ye
+    from app.services.payroll_rules import seed_payroll_rules
+    api, cid, *_ = staff
+    with use_company(cid):
+        seed_payroll_rules(db)
+        ye.create_year_end_run(db, year="1405", pay_date=date(2027, 3, 10))
+        db.commit()
+    card = _tool(cid, db, ProposeRunPayroll(), ProposeRunPayrollInput(**KHORDAD))      # عیدی و سنوات span the year
+    assert card["status"] == "pending"
+    out = _tool(cid, db, GetPayroll(), GetPayrollInput(include_drafts=True))
+    assert [(r["kind"], r["year_key"]) for r in out["drafts_waiting"]] == [("year_end", "1405")]
+
+
 def test_payroll_proposals_meet_the_guardrails(staff, db):
     api, cid, _sara, _ = staff
     run = _run(api).json()

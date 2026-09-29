@@ -46,6 +46,11 @@ CONFIDENCE_LLM = 0.5
 MAX_CANDIDATE_ACCOUNTS = 80
 # Rows per request. Keeps one bad batch from poisoning a whole large import.
 MAX_ROWS_PER_CALL = 40
+# Requests per statement. Each is paid from the company's AI allowance, and a
+# statement can arrive unattended (the statements mailbox): a 20 MB CSV of odd
+# narrations must not use the day's allowance up. Past this, rows stay blank
+# for the user to fill in — the same as with no model configured.
+MAX_CALLS_PER_IMPORT = 5
 
 _SYSTEM = (
     "You categorise bank statement lines for a bookkeeping system. "
@@ -122,6 +127,7 @@ async def suggest_unknown(
     # Debits and credits have disjoint candidate sets, so they're asked separately
     # — that alone makes it impossible for the model to file a payment as income.
     out: dict[object, CategorySuggestion] = {}
+    calls = 0
     for is_debit in (True, False):
         group = [(k, n) for k, n, d in items if d == is_debit and (n or "").strip()]
         if not group:
@@ -131,24 +137,40 @@ async def suggest_unknown(
         if not accounts:
             continue
         by_code = {a.code: a for a in accounts}
-        for start in range(0, len(group), MAX_ROWS_PER_CALL):
-            chunk = group[start : start + MAX_ROWS_PER_CALL]
+        # One question per distinct narration: a statement repeats the same
+        # merchant many times, and every row with that text gets the answer.
+        keys_by_text: dict[str, list[object]] = {}
+        text_of: dict[str, str] = {}
+        for key, narration in group:
+            norm = " ".join(narration.split()).casefold()
+            keys_by_text.setdefault(norm, []).append(key)
+            text_of.setdefault(norm, narration)
+        distinct = list(keys_by_text)
+        for start in range(0, len(distinct), MAX_ROWS_PER_CALL):
+            if calls >= MAX_CALLS_PER_IMPORT:
+                logger.info("LLM categorization stopped after %s requests; %s narrations left blank",
+                            calls, len(distinct) - start)
+                return out
+            chunk = distinct[start : start + MAX_ROWS_PER_CALL]
+            calls += 1
             try:
-                answers = await _ask(accounts, [n for _k, n in chunk])
+                answers = await _ask(accounts, [text_of[norm] for norm in chunk])
             except Exception as e:  # noqa: BLE001 - never break an import
                 logger.warning("LLM categorization unavailable: %s", e)
                 return out
-            for idx, (key, _narration) in enumerate(chunk, start=1):
+            for idx, norm in enumerate(chunk, start=1):
                 code = answers.get(str(idx))
                 if not isinstance(code, str):
                     continue
                 acc = by_code.get(code.strip())
                 if acc is None:
                     continue  # hallucinated or out-of-chart code
-                out[key] = CategorySuggestion(
+                suggestion = CategorySuggestion(
                     account_code=acc.code, account_name=acc.name,
                     category=acc.name, confidence=CONFIDENCE_LLM, source="llm",
                 )
+                for key in keys_by_text[norm]:
+                    out[key] = suggestion
     return out
 
 

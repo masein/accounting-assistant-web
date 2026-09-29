@@ -195,6 +195,38 @@ def test_large_imports_are_chunked(db, monkeypatch):
     assert sizes == [mod.MAX_ROWS_PER_CALL, 5]
 
 
+def test_a_repeated_narration_is_asked_once_and_every_row_gets_the_answer(db, monkeypatch):
+    asked: list[list[str]] = []
+
+    async def _ask(accounts, narrations):
+        asked.append(list(narrations))
+        return {str(i): "6130" for i in range(1, len(narrations) + 1)}
+
+    monkeypatch.setattr(mod, "_ask", _ask)
+    items = [(f"r{i}", ("POS SNAPP TEHRAN", "pos  snapp tehran", "Taxi Maxim")[i % 3], True) for i in range(300)]
+    out = _run(db, items)
+    assert asked == [["POS SNAPP TEHRAN", "Taxi Maxim"]]                 # 300 rows, one request, two questions
+    assert len(out) == 300 and {s.account_code for s in out.values()} == {"6130"}
+
+
+def test_a_statement_can_spend_only_so_many_requests(db, monkeypatch):
+    """Each request is paid from the company's AI allowance, and a statement
+    can arrive unattended (the statements mailbox)."""
+    sizes: list[int] = []
+
+    async def _ask(accounts, narrations):
+        sizes.append(len(narrations))
+        return {str(i): "6130" for i in range(1, len(narrations) + 1)}
+
+    monkeypatch.setattr(mod, "_ask", _ask)
+    debits = [(f"d{i}", f"merchant {i}", True) for i in range(1_000)]
+    credits = [(f"c{i}", f"payer {i}", False) for i in range(50)]
+    out = _run(db, debits + credits)
+    assert len(sizes) == mod.MAX_CALLS_PER_IMPORT and sum(sizes) == mod.MAX_CALLS_PER_IMPORT * mod.MAX_ROWS_PER_CALL
+    assert len(out) == mod.MAX_CALLS_PER_IMPORT * mod.MAX_ROWS_PER_CALL      # the rest stay blank for the user
+    assert all(k.startswith("d") for k in out)
+
+
 # ---------------------------------------------------------------------------
 # Reply parsing
 # ---------------------------------------------------------------------------

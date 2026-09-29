@@ -565,7 +565,7 @@ _reads(["/budgets", "/budgets/actual-vs-budget"], Perm.REPORTS_READ)
 
 # --- Personal finance: net worth + the holdings behind it ------------------
 # Reads expose asset balances -> the same bar as the dashboard.
-_reads(["/personal/net-worth", "/personal/holdings"], Perm.REPORTS_READ)
+_reads(["/personal/net-worth", "/personal/holdings", "/personal/goals", "/personal/report-card"], Perm.REPORTS_READ)
 
 # --- Installments + cheques -------------------------------------------------
 # Same bar as reading transactions: a Viewer who can already see every entry
@@ -595,6 +595,9 @@ for _m, _p in [("POST", "/fixed-assets"), ("PATCH", "/fixed-assets/{asset_id}"),
     _add(_m, _p, Perm.BOOKS_WRITE)
 _add("POST", "/personal/holdings", Perm.BOOKS_WRITE)
 _add("DELETE", "/personal/holdings/{holding_id}", Perm.BOOKS_WRITE)
+_add("POST", "/personal/goals", Perm.BOOKS_WRITE)                              # savings goals (§4.12)
+_add("PATCH", "/personal/goals/{goal_id}", Perm.BOOKS_WRITE)
+_add("DELETE", "/personal/goals/{goal_id}", Perm.BOOKS_WRITE)
 _add("POST", "/budgets", Perm.BOOKS_WRITE)
 _add("PATCH", "/budgets/{budget_id}", Perm.BOOKS_WRITE)
 _add("POST", "/budgets/roll-forward", Perm.BOOKS_WRITE)

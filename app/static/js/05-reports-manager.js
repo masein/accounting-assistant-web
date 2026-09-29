@@ -1635,7 +1635,137 @@
       pdFillBudgetCategories();
       pdLoadBudgets();
       loadNetWorth();
+      loadReportCard();
+      loadGoals();
     }
+
+    // ═══════ Monthly report card + savings goals (personal, roadmap §4.12) ═══════
+    function rcLang() { return currentLanguage === 'fa' ? 'fa' : 'en'; }
+
+    async function loadReportCard() {
+      const sel = document.getElementById('rc-month');
+      const figs = document.getElementById('rc-figures');
+      if (!sel || !figs) return;
+      const q = new URLSearchParams({ lang: rcLang() });
+      if (sel.value) q.set('month', sel.value);
+      let d;
+      try {
+        const res = await fetch(API + '/personal/report-card?' + q.toString());
+        if (!res.ok) throw new Error(String(res.status));
+        d = await res.json();
+      } catch (e) {
+        figs.innerHTML = '<p class="empty-state">' + escapeHtml(t('rcFailed')) + '</p>';
+        return;
+      }
+      if (sel.dataset.lang !== d.lang || !sel.options.length) {
+        const picked = sel.value || d.month;
+        sel.innerHTML = d.months.map(m => `<option value="${escapeHtml(m.key)}">${escapeHtml(m.label)}</option>`).join('');
+        sel.value = [...sel.options].some(o => o.value === picked) ? picked : d.month;
+        sel.dataset.lang = d.lang;
+      }
+      const note = document.getElementById('rc-note');
+      note.hidden = !d.note;
+      note.textContent = d.note || '';
+      const prev = d.previous || {};
+      const fig = (label, value, sub, cls) => `<div class="rc-fig ${cls || ''}"><div class="lbl">${escapeHtml(label)}</div>`
+        + `<div class="val">${escapeHtml(value)}</div>${sub ? `<div class="sub">${escapeHtml(sub)}</div>` : ''}</div>`;
+      const rate = (r) => (r === null || r === undefined) ? '—' : `${formatNum(r)}%`;
+      figs.innerHTML = [
+        fig(t('rcIncome'), formatNum(d.income), tf('rcLastMonth', { v: formatNum(prev.income || 0) })),
+        fig(t('rcSpending'), formatNum(d.spending), d.average_spending_3m == null ? '' : tf('rcAverage', { v: formatNum(d.average_spending_3m) })),
+        fig(t('rcSaved'), formatNum(d.saved), tf('rcLastMonth', { v: formatNum(prev.saved || 0) }), d.saved >= 0 ? 'good' : 'bad'),
+        fig(t('rcRate'), rate(d.savings_rate), tf('rcLastMonth', { v: rate(prev.savings_rate) })),
+      ].join('');
+      const marks = { true: ['ok', '✓'], false: ['warn', '!'], null: ['info', '•'] };
+      document.getElementById('rc-checks').innerHTML = d.checks.map(c => {
+        const [cls, mark] = marks[String(c.ok)];
+        return `<li class="${cls}" data-key="${escapeHtml(c.key)}"><span class="mark" aria-hidden="true">${mark}</span>`
+          + `<span class="item">${escapeHtml(c.item)}</span><span class="detail">${escapeHtml(c.detail)}</span></li>`;
+      }).join('');
+      const bits = [];
+      if (d.categories.length) {
+        bits.push(`<p><strong>${escapeHtml(t('rcTopCategories'))}:</strong> ` + d.categories.map(c =>
+          `${escapeHtml(c.category)} ${escapeHtml(formatNum(c.amount))}`
+          + (c.change_pct == null ? '' : ` <span class="goal-meta">(${c.change_pct > 0 ? '+' : ''}${escapeHtml(formatNum(c.change_pct))}%)</span>`)).join(' · ') + '</p>');
+      }
+      if (d.biggest_rise) bits.push(`<p>${escapeHtml(tf('rcBiggestRise', { cat: d.biggest_rise.category, v: formatNum(d.biggest_rise.increase) }))}</p>`);
+      const nw = d.net_worth || {};
+      bits.push(`<p>${escapeHtml(tf('rcNetWorth', { v: (nw.change > 0 ? '+' : '') + formatNum(nw.change || 0), end: formatNum(nw.end || 0) }))}</p>`);
+      if (d.goals.length) {
+        bits.push(`<p>${escapeHtml(t('goalsTitle'))}: ` + d.goals.map(g => `${escapeHtml(g.name)} ${escapeHtml(formatNum(g.percent))}%`).join(' · ') + '</p>');
+      }
+      document.getElementById('rc-details').innerHTML = bits.join('');
+    }
+
+    async function goalFillAccounts() {
+      const sel = document.getElementById('goal-account');
+      if (!sel || sel.options.length) return;
+      try {
+        const res = await fetch(API + '/manager-reports/accounts/list');
+        if (!res.ok) return;
+        const accs = await res.json();
+        sel.innerHTML = accs.filter(a => (a.code || '').startsWith('1'))
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+      } catch (_) { /* offline */ }
+    }
+
+    async function loadGoals() {
+      const wrap = document.getElementById('goals-list');
+      if (!wrap) return;
+      goalFillAccounts();
+      let rows = [];
+      try {
+        const res = await fetch(API + '/personal/goals');
+        rows = res.ok ? await res.json() : [];
+      } catch (_) { rows = []; }
+      if (!rows.length) {
+        wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('goalsEmpty')) + '</p>';
+        return;
+      }
+      wrap.innerHTML = rows.map(g => {
+        let badge = '';
+        if (g.reached) badge = `<span class="goal-badge ok">${escapeHtml(t('goalReached'))}</span>`;
+        else if (g.on_track === true) badge = `<span class="goal-badge ok">${escapeHtml(t('goalOnTrack'))}</span>`;
+        else if (g.on_track === false) badge = `<span class="goal-badge warn">${escapeHtml(t('goalBehind'))}</span>`;
+        const meta = [tf('goalProgress', { v: formatNum(g.current), target: formatNum(g.target_amount) })];
+        if (!g.reached && g.needed_per_month != null) meta.push(tf('goalNeeded', { v: formatNum(g.needed_per_month), date: g.target_date }));
+        if (!g.reached && g.pace_per_month > 0) meta.push(tf('goalPace', { v: formatNum(g.pace_per_month) }));
+        return `<div class="goal${g.reached ? ' reached' : ''}" data-id="${escapeHtml(g.id)}">
+          <div class="goal-top"><span class="goal-name">${escapeHtml(g.name)}</span>
+            <span>${badge} <button type="button" class="btn btn-secondary btn-sm goal-del" data-id="${escapeHtml(g.id)}" aria-label="${escapeHtml(t('goalDelete'))}">×</button></span></div>
+          <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Number(g.percent)}"><span style="width:${Math.max(0, Math.min(100, Number(g.percent)))}%"></span></div>
+          <div class="goal-meta">${escapeHtml(formatNum(g.percent))}% · ${escapeHtml(g.account_name || g.account_code)} · ${meta.map(escapeHtml).join(' · ')}</div>
+        </div>`;
+      }).join('');
+    }
+
+    document.getElementById('rc-month')?.addEventListener('change', loadReportCard);
+    document.getElementById('goal-save')?.addEventListener('click', async () => {
+      const name = document.getElementById('goal-name').value.trim();
+      const account_code = document.getElementById('goal-account').value;
+      const target_amount = parseInt(document.getElementById('goal-target').value || '0', 10);
+      const target_date = document.getElementById('goal-date').value || null;
+      if (!name || !account_code || !(target_amount > 0)) { showAlert(t('goalMissing'), true); return; }
+      try {
+        const res = await fetch(API + '/personal/goals', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, account_code, target_amount, target_date }) });
+        const d = await readJsonSafe(res);
+        if (!res.ok) { showAlert((d && d.detail) ? d.detail : t('goalFailed'), true); return; }
+        showAlert(t('goalSaved'));
+        ['goal-name', 'goal-target', 'goal-date'].forEach(id => { document.getElementById(id).value = ''; });
+        document.getElementById('goal-add').open = false;
+        await loadGoals();
+      } catch (_) { showAlert(t('goalFailed'), true); }
+    });
+    document.getElementById('goals-list')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.goal-del');
+      if (!btn) return;
+      if (!(await uiConfirm({ message: t('goalDeleteConfirm'), confirmLabel: t('goalDelete'), danger: true }))) return;
+      try {
+        await fetch(API + '/personal/goals/' + btn.dataset.id, { method: 'DELETE' });
+        await loadGoals();
+      } catch (_) { /* ignore */ }
+    });
 
     (function wirePersonalDashboard() {
       const saveBtn = document.getElementById('pd-budget-save');

@@ -26,6 +26,7 @@ from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.invoice_email import InvoiceEmail
 from app.models.document_email import DocumentEmail
+from app.models.savings_goal import SavingsGoal
 from app.models.migration import MigrationBatch, MigrationPendingRecord
 from app.models.notification import Notification, Reminder
 from app.models.petty_cash import PettyCashAccount, PettyCashTransaction

@@ -6,6 +6,7 @@ posting, and confirm-gated reimbursement — all double-entry balanced.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import date
 from uuid import UUID
 
@@ -74,6 +75,18 @@ def ir():
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def _signed_in(username: str):
+    """The approver is whoever is signed in (it can't be named in the request)."""
+    from app.core.auth import SessionUser
+    from app.core.request_context import clear_current_user, set_current_user
+    set_current_user(SessionUser(user_id="u-approver", username=username, role="manager", is_admin=False))
+    try:
+        yield
+    finally:
+        clear_current_user()
 
 
 def _employee(db: Session, name="Alice Patel") -> Entity:
@@ -155,9 +168,10 @@ def test_above_threshold_routes_not_posted_then_approve(uk):
     assert res["transaction_id"] is None
     assert _txn_count(uk) == 0                     # routed, nothing posted
 
-    approved = approve_expense(UUID(res["id"]), "manager@co", uk)
+    with _signed_in("manager@co"):
+        approved = approve_expense(UUID(res["id"]), uk)
     assert approved["status"] == "approved"
-    assert approved["decided_by"] == "manager@co"  # audit trail records approver
+    assert approved["decided_by"] == "manager@co"  # audit trail records the signed-in approver
     assert approved["decided_at"] is not None
     assert approved["transaction_id"] is not None
     assert _balanced(uk, approved["transaction_id"]) == (250, 250)
@@ -179,7 +193,8 @@ def test_reject_posts_nothing(uk):
     res = create_mileage(MileageCreate(
         entity_id=emp.id, claim_date=date(2025, 6, 10), distance=300, rate=1,
     ), uk)
-    rejected = reject_expense(UUID(res["id"]), "manager@co", uk)
+    with _signed_in("manager@co"):
+        rejected = reject_expense(UUID(res["id"]), uk)
     assert rejected["status"] == "rejected"
     assert rejected["decided_by"] == "manager@co"
     assert rejected["transaction_id"] is None

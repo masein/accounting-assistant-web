@@ -48,9 +48,8 @@ def test_no_actor_when_context_empty(db):
     assert entry.user_id is None and entry.username is None and entry.actor_role is None
 
 
-def test_decider_falls_back_to_current_user(actor):
+def test_decider_is_the_current_user(actor):
     from app.api.expenses import _decider
-    assert _decider(None) == "alice"          # from context
-    assert _decider("explicit") == "explicit"  # explicit wins
+    assert _decider() == "alice"              # from context — a caller can't name someone else
     clear_current_user()
-    assert _decider(None) == "admin"           # safe default when unauthenticated
+    assert _decider() == "admin"               # safe default when unauthenticated

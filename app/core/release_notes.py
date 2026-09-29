@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.11"
+CURRENT_RELEASE = "2026.09.29.12"
 
 
 @dataclass(frozen=True)
@@ -1382,6 +1382,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "در ثبت زمان، شما به‌عنوان کارکن و مشتریانی که کار برایشان است نمایش داده می‌شوند و درخواست هزینه رفت‌وآمد به نام خودتان ثبت می‌شود. مدیران صف تأیید را بدون فرم‌هایی که استفاده نمی‌کنند می‌بینند.",
                     "es": "Al registrar tiempo apareces tú como trabajador y los clientes a los que facturarlo, y una solicitud de kilometraje se presenta a tu nombre. Los responsables ven la cola de aprobaciones sin los formularios que no usan.",
                     "ar": "عند تسجيل الوقت تظهر أنت كعامل ويظهر العملاء الذين يُفوتر لهم، ويُقدَّم طلب المسافات باسمك. ويرى المديرون قائمة الموافقات دون النماذج التي لا يستخدمونها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.12",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="employee-privacy",
+                page="time",
+                roles=("owner", "cfo", "accountant"),
+                title={
+                    "en": "Employees see only their own time and rates",
+                    "fa": "کارمندان فقط زمان و نرخ خودشان را می‌بینند",
+                    "es": "Los empleados solo ven su propio tiempo y tarifas",
+                    "ar": "يرى الموظفون وقتهم وأسعارهم فقط",
+                },
+                body={
+                    "en": "An employee's Time page now shows their own billable rate and unbilled hours only — not their colleagues' — and no client invoices. Whether time counts towards pay is yours to set: an employee's entry takes its type's default (unpaid stays unpaid). Mileage claims are filed only in the claimant's own name.",
+                    "fa": "در صفحه زمانِ کارمند اکنون فقط نرخ و ساعت‌های صورت‌حساب‌نشده خودش دیده می‌شود — نه همکارانش — و فاکتور مشتریان نمایش داده نمی‌شود. اینکه زمانی در حقوق حساب شود با شماست: ثبتِ کارمند پیش‌فرضِ نوعش را می‌گیرد (بدون حقوق، بدون حقوق می‌ماند). درخواست هزینه رفت‌وآمد فقط به نام خود متقاضی ثبت می‌شود.",
+                    "es": "La página de Tiempo de un empleado muestra ahora solo su propia tarifa y sus horas sin facturar —no las de sus compañeros— y ninguna factura de clientes. Si el tiempo cuenta para la nómina lo decides tú: la entrada de un empleado toma el valor por defecto de su tipo (lo no remunerado sigue sin remunerar). Las solicitudes de kilometraje solo se presentan a nombre de quien las pide.",
+                    "ar": "تعرض صفحة الوقت للموظف الآن سعره وساعاته غير المفوترة فقط — لا ساعات زملائه — ولا فواتير العملاء. واحتساب الوقت في الراتب قرارك: يأخذ قيد الموظف القيمة الافتراضية لنوعه (غير المدفوع يبقى غير مدفوع). وتُقدَّم طلبات المسافات باسم صاحبها فقط.",
                 },
             ),
         ),

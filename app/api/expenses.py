@@ -27,10 +27,9 @@ from app.services.audit_service import log_audit_event
 from app.core.request_context import get_current_actor
 
 
-def _decider(approver: str | None) -> str:
-    """Who acted on the claim: an explicit approver, else the current user."""
-    if approver:
-        return approver
+def _decider() -> str:
+    """Who acted on the claim: the signed-in user. (It used to take any name
+    from ?approver=, which then went into the claim and the audit log.)"""
     actor = get_current_actor()
     return getattr(actor, "username", None) or "admin"
 from app.services.expense_settings import (
@@ -270,7 +269,7 @@ def get_expense(claim_id: UUID, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/{claim_id}/approve")
-def approve_expense(claim_id: UUID, approver: str | None = None, db: Session = Depends(get_db)) -> dict:
+def approve_expense(claim_id: UUID, db: Session = Depends(get_db)) -> dict:
     """Approve a routed claim and post it (confirm-gated). Records the approver."""
     c = db.get(MileageClaim, claim_id)
     if not c:
@@ -279,7 +278,7 @@ def approve_expense(claim_id: UUID, approver: str | None = None, db: Session = D
         raise HTTPException(status_code=409, detail=f"Claim is {c.status}; nothing to approve.")
     _post_claim_accrual(db, c)
     c.status = "approved"
-    c.decided_by = _decider(approver)
+    c.decided_by = _decider()
     c.decided_at = datetime.now(timezone.utc)
     log_audit_event(db, action="approve", entity_type="mileage_claim", entity_id=str(c.id),
                     username=c.decided_by, detail=f"Approved mileage claim {c.amount} {c.currency}")
@@ -289,7 +288,7 @@ def approve_expense(claim_id: UUID, approver: str | None = None, db: Session = D
 
 
 @router.post("/{claim_id}/reject")
-def reject_expense(claim_id: UUID, approver: str | None = None, db: Session = Depends(get_db)) -> dict:
+def reject_expense(claim_id: UUID, db: Session = Depends(get_db)) -> dict:
     """Reject a routed claim — posts nothing. Records the decider."""
     c = db.get(MileageClaim, claim_id)
     if not c:
@@ -297,7 +296,7 @@ def reject_expense(claim_id: UUID, approver: str | None = None, db: Session = De
     if c.status != "pending_approval":
         raise HTTPException(status_code=409, detail=f"Claim is {c.status}; nothing to reject.")
     c.status = "rejected"
-    c.decided_by = _decider(approver)
+    c.decided_by = _decider()
     c.decided_at = datetime.now(timezone.utc)
     log_audit_event(db, action="reject", entity_type="mileage_claim", entity_id=str(c.id),
                     username=c.decided_by, detail=f"Rejected mileage claim {c.amount} {c.currency}")

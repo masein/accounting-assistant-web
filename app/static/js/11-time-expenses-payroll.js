@@ -1,6 +1,7 @@
 
     // ═══════ Time & Billing Module ═══════
     let tmReadyPreview = null;
+    let tmBooks = true;                  // set from /time/pickers: false for an employee
     function tmCur() { return (window.__REPORTING_CURRENCY || 'IRR'); }
 
     // --- Pending pushed entries (unmatched /api/v1 worklogs) ---
@@ -102,7 +103,8 @@
         const res = await fetch(API + '/time/pickers');
         const pk = res.ok ? await res.json() : { workers: [], clients: [], books: false };
         if (pk.books) loadPendingTime();                  // assigning pushed entries is a books job
-        // projects and billable rates are set up by the books people
+        // projects and billable rates are set up by the books people, and they invoice
+        tmBooks = !!pk.books;
         ['tm-new-project-btn', 'tm-set-rate-btn'].forEach((id) => {
           const b = document.getElementById(id);
           if (b) b.style.display = pk.books ? '' : 'none';
@@ -288,6 +290,10 @@
     });
 
     async function tmLoadReady() {
+      // invoicing clients is a books job; an employee's page leaves it out
+      const sec = document.getElementById('tm-ready-section');
+      if (sec) sec.style.display = tmBooks ? '' : 'none';
+      if (!tmBooks) return;
       try {
         const res = await fetch(API + '/time/unbilled');
         if (!res.ok) return;

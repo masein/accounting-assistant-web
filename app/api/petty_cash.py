@@ -157,17 +157,26 @@ def create_account(
 ) -> dict:
     if not _is_manager(user):
         raise HTTPException(status_code=403, detail="Admin access required")
-    target_id, holder = payload.user_id, (payload.holder_name or "").strip()
-    if not target_id and payload.username:
-        row = db.execute(
-            select(User).where(func.lower(User.username) == payload.username.strip().lower())
-        ).scalars().first()
-        if row is None:
-            raise HTTPException(status_code=404, detail=f"User not found: {payload.username}")
-        target_id = str(row.id)
-        holder = holder or row.username
-    if not target_id:
+    holder = (payload.holder_name or "").strip()
+    if not payload.user_id and not payload.username:
         raise HTTPException(status_code=400, detail="Give username or user_id for the holder")
+    # The holder is a user of THIS company. Users aren't tenant-scoped, so the
+    # lookup used to find any company's user (and a raw user_id wasn't checked).
+    from app.db.tenant import get_current_company
+    cid = get_current_company()
+    q = select(User).where(User.company_id == uuid.UUID(str(cid)) if cid else User.company_id.is_(None))
+    if payload.user_id:
+        try:
+            q = q.where(User.id == uuid.UUID(str(payload.user_id)))
+        except ValueError:
+            raise HTTPException(status_code=404, detail="User not found")
+    else:
+        q = q.where(func.lower(User.username) == payload.username.strip().lower())
+    row = db.execute(q).scalars().first()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"User not found: {payload.username or payload.user_id}")
+    target_id = str(row.id)
+    holder = holder or row.username
     existing = db.execute(
         select(PettyCashAccount).where(
             PettyCashAccount.user_id == target_id,

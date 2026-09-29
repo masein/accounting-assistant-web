@@ -213,6 +213,12 @@ def project_budgets(include_closed: bool = False, db: Session = Depends(get_db))
 @router.get("/rates")
 def list_rates(employee_id: UUID | None = None, db: Session = Depends(get_db)) -> list[dict]:
     q = select(BillingRateOverride)
+    # an employee sees their own rates, not their colleagues'
+    restricted, own = _time_own_scope()
+    if restricted:
+        if not own:
+            return []
+        employee_id = UUID(str(own))
     if employee_id is not None:
         q = q.where(BillingRateOverride.employee_id == employee_id)
     out = []
@@ -343,7 +349,9 @@ def create_entry(payload: TimeEntryCreate, db: Session = Depends(get_db)) -> dic
         raise HTTPException(status_code=422, detail="Time is logged for an employee or contractor (supplier).")
     _assert_day_capacity(db, payload.employee_id, payload.work_date, payload.hours)
 
-    payable = payload.payable if payload.payable is not None else tbs.default_payable(entry_type)
+    # Whether time counts towards pay is the books people's call: an employee's
+    # entry takes its type's default (marking unpaid time payable raised their pay).
+    payable = tbs.default_payable(entry_type) if restricted or payload.payable is None else payload.payable
     e = TimeEntry(
         employee_id=payload.employee_id, client_id=client_id, project_id=payload.project_id,
         work_date=payload.work_date, hours=payload.hours, description=payload.description,
@@ -395,9 +403,9 @@ def update_entry(entry_id: UUID, payload: TimeEntryUpdate, db: Session = Depends
                 status_code=422, detail=f"entry_type must be one of {', '.join(tbs.ENTRY_TYPES)}."
             )
         e.entry_type = et
-        if payload.payable is None:
+        if payload.payable is None or restricted:
             e.payable = tbs.default_payable(et)
-    if payload.payable is not None:
+    if payload.payable is not None and not restricted:       # an employee can't make their time payable
         e.payable = payload.payable
     if payload.project_id is not None:
         proj = db.get(Project, payload.project_id)
@@ -583,8 +591,12 @@ def reject_pending_entry(pending_id: UUID, db: Session = Depends(get_db)) -> dic
 
 @router.get("/unbilled")
 def unbilled_summary(client_id: UUID | None = None, db: Session = Depends(get_db)) -> dict:
-    """'Ready to invoice': unbilled hours + value by client → project."""
+    """'Ready to invoice': unbilled hours + value by client → project. An
+    employee sees only their own unbilled time."""
     entries = tbs._unbilled_query(db, client_id=client_id)
+    restricted, own = _time_own_scope()
+    if restricted:
+        entries = [e for e in entries if own and str(e.employee_id) == str(own)]
     clients: dict = {}
     for e in entries:
         rate = tbs.resolve_billable_rate(db, e.employee_id, e.client_id, e.project_id)
@@ -662,7 +674,10 @@ def time_invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Respons
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
 
-    inv = db.get(Invoice, invoice_id)
+    # A client invoice — its total, everyone's hours and rates — is for the
+    # books people; an employee asking gets what any unknown id gets.
+    restricted, _own = _time_own_scope()
+    inv = None if restricted else db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found.")
     client = db.get(Entity, inv.entity_id) if inv.entity_id else None

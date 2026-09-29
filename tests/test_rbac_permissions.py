@@ -63,6 +63,11 @@ MATRIX = [
     ("DELETE", "/purchase-orders/p1", {O, C, A, P}),
     ("POST", "/purchase-orders/p1/bill", {O, C, A, P}),
     ("GET", "/purchase-orders/price-history", {O, C, A, P}),
+    # Statements and payslips by e-mail (roadmap §4.9)
+    ("POST", "/entities/e1/statement/email", {O, C, A, P}),
+    ("GET", "/entities/e1/emails", {O, C, A, V, P}),
+    ("POST", "/payroll/runs/r1/payslips/email", {O, C, A}),
+    ("GET", "/payroll/runs/r1/emails", {O, C, A}),
     # User management (Owner only)
     ("GET", "/admin/users", {O}),
     ("POST", "/admin/users", {O}),

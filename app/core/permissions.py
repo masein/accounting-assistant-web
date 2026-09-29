@@ -336,6 +336,9 @@ for _m, _p in [
 _reads(["/invoices/{invoice_id}/emails", "/invoices/reminder-settings"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _add("POST", "/invoices/{invoice_id}/send", Perm.BOOKS_WRITE)
+# Statements of account by e-mail (roadmap §4.9): like sending an invoice.
+_add("POST", "/entities/{entity_id}/statement/email", Perm.BOOKS_WRITE)
+_add("GET", "/entities/{entity_id}/emails", frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _add("PUT", "/invoices/reminder-settings", Perm.SETTINGS_WRITE)
 # سامانه مودیان export: books people prepare and track it; the memory id and
 # defaults are company settings.
@@ -506,6 +509,9 @@ _reads(["/payroll/profiles", "/payroll/runs", "/payroll/runs/{run_id}",
 # Statutory parameters are platform-wide (one decree, every tenant): super-admin only.
 _add("POST", "/payroll/rules", Perm.PLATFORM_ADMIN)
 _add("PUT", "/payroll/rules/{rule_set_id}", Perm.PLATFORM_ADMIN)
+# Payslips by e-mail: each employee gets only their own; sending is payroll work.
+_add("POST", "/payroll/runs/{run_id}/payslips/email", Perm.PAYROLL_WRITE)
+_add("GET", "/payroll/runs/{run_id}/emails", Perm.PAYROLL_READ)
 # Payslip: books payroll people OR the employee's own (object-checked downstream).
 _reads(["/payroll/runs/{run_id}/payslip/{entity_id}",
         "/payroll/runs/{run_id}/payslip/{entity_id}/pdf",

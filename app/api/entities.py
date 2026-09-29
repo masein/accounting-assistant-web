@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.entity import Entity
+from app.services.audit_service import log_audit_event
 from app.schemas.entity import (
     EntityCreate,
     EntityRead,
@@ -180,8 +183,6 @@ def entity_statement_pdf(
     payments (credit) with a running balance. Tenant-scoped → 404 cross-company."""
     from datetime import date
     from fastapi.responses import Response
-    from app.models.invoice import Invoice
-    from app.models.payment import Payment
     from app.services.documents import render_statement_pdf
 
     entity = db.get(Entity, entity_id)
@@ -197,27 +198,53 @@ def entity_statement_pdf(
     lo = _parse(date_from, date(date.today().year, 1, 1))
     hi = _parse(date_to, date.today())
 
-    invoices = db.execute(
-        select(Invoice).where(Invoice.entity_id == entity_id).order_by(Invoice.issue_date)
-    ).scalars().all()
-    events: list[dict] = []
-    ccy = entity.currency
-    for inv in invoices:
-        if inv.issue_date and lo <= inv.issue_date <= hi and (inv.status or "") not in ("voided", "canceled"):
-            events.append({"date": inv.issue_date, "description": f"Invoice {inv.number}",
-                           "debit": int(inv.amount or 0), "credit": 0})
-            ccy = ccy or inv.currency
-        for pay in db.execute(select(Payment).where(Payment.invoice_id == inv.id)).scalars().all():
-            if pay.date and lo <= pay.date <= hi and pay.direction == "in":
-                events.append({"date": pay.date, "description": f"Payment — {inv.number}",
-                               "debit": 0, "credit": int(pay.amount or 0)})
-    events.sort(key=lambda e: e["date"])
+    from app.services.document_mail import statement_events
+    events, ccy = statement_events(db, entity, lo, hi)
     pdf = render_statement_pdf(db, entity, events, (lo, hi), ccy or "")
     return Response(
         content=pdf, media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="statement-{entity.name.replace(" ", "_")}.pdf"'},
     )
 
+
+
+class StatementEmail(BaseModel):
+    to: str | None = Field(None, max_length=512, description="Defaults to the party's e-mail")
+    date_from: date | None = None
+    date_to: date | None = None
+    message: str | None = Field(None, max_length=2000)
+
+
+@router.post("/{entity_id}/statement/email")
+def email_statement(entity_id: UUID, payload: StatementEmail, db: Session = Depends(get_db)) -> dict:
+    """E-mail the statement of account to the client or supplier (roadmap §4.9)."""
+    from app.core.request_context import get_current_actor
+    from app.services.document_mail import email_log, send_statement
+    from app.services.invoice_mail import InvoiceMailError
+    entity = db.get(Entity, entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    today = date.today()
+    actor = get_current_actor()
+    try:
+        row = send_statement(db, entity, start=payload.date_from or date(today.year, 1, 1),
+                             end=payload.date_to or today, to=payload.to, message=payload.message,
+                             actor=getattr(actor, "username", None))
+    except InvoiceMailError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+    log_audit_event(db, action="email", entity_type="statement", entity_id=str(entity.id),
+                    detail=f"Statement to {row.to_address}: {row.status}")
+    db.commit()
+    return {"status": row.status, "to": row.to_address, "error": row.error, "log": email_log(db, entity_id=entity.id)}
+
+
+@router.get("/{entity_id}/emails")
+def entity_emails(entity_id: UUID, db: Session = Depends(get_db)) -> list[dict]:
+    """Statements e-mailed to this party."""
+    from app.services.document_mail import email_log
+    if not db.get(Entity, entity_id):
+        raise HTTPException(status_code=404, detail="Entity not found")
+    return email_log(db, entity_id=entity_id)
 
 @router.patch("/{entity_id}", response_model=EntityRead)
 def update_entity(

@@ -1405,7 +1405,9 @@
         // transactions manually") — opens the editor in create mode with the
         // entity already linked.
         const toolbar = `
-          <div style="display:flex; justify-content:flex-end; margin-bottom:0.5rem;">
+          <div style="display:flex; justify-content:flex-end; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+            <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener" href="${API}/entities/${encodeURIComponent(entityId)}/statement.pdf">${escapeHtml(t('entStatementPdf'))}</a>
+            <button type="button" class="btn btn-secondary btn-sm entity-statement-email">${escapeHtml(t('entStatementEmail'))}</button>
             <button type="button" class="btn btn-primary btn-sm entity-tx-add">${escapeHtml(t('entTxAddBtn'))}</button>
           </div>`;
         if (!transactions.length) {
@@ -1654,6 +1656,26 @@
     }
 
     document.getElementById('account-modal-body').addEventListener('click', async (e) => {
+      if (e.target.closest('.entity-statement-email')) {
+        // this year to date, to the party's address unless you type another (roadmap §4.9)
+        const ctx = currentEntityContext || {};
+        let email = '';
+        try {
+          const r = await fetch(API + '/entities/' + encodeURIComponent(ctx.entityId));
+          if (r.ok) email = ((await r.json()).email || '');
+        } catch (_) { /* type it */ }
+        const to = await uiPrompt({ title: t('entStatementEmail'), message: tf('entStatementEmailPrompt', { name: ctx.entityName || '' }), value: email });
+        if (to === null) return;
+        try {
+          const res = await fetch(API + '/entities/' + encodeURIComponent(ctx.entityId) + '/statement/email', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: to.trim() || null }) });
+          const d = await readJsonSafe(res);
+          if (!res.ok) { showAlert((d && d.detail) ? d.detail : t('entStatementEmailFailed'), true); return; }
+          if (d.status === 'sent') showAlert(tf('entStatementEmailSent', { to: d.to }));
+          else showAlert(tf('entStatementEmailNotSent', { reason: d.error || '' }), true);
+        } catch (_) { showAlert(t('entStatementEmailFailed'), true); }
+        return;
+      }
       if (e.target.closest('.entity-tx-add')) {
         openEntityTransactionEditor(null);
         return;

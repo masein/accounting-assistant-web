@@ -739,6 +739,38 @@ def payslip_pdf(run_id: UUID, entity_id: UUID, db: Session = Depends(get_db)):
     )
 
 
+class PayslipEmail(BaseModel):
+    entity_ids: list[UUID] | None = Field(None, description="Only these employees; default everyone on the run")
+
+
+@router.post("/runs/{run_id}/payslips/email")
+def email_payslips(run_id: UUID, payload: PayslipEmail, db: Session = Depends(get_db)) -> dict:
+    """E-mail each employee on a posted/paid run their own payslip (roadmap §4.9)."""
+    from app.core.request_context import get_current_actor
+    from app.services.document_mail import send_payslips
+    from app.services.invoice_mail import InvoiceMailError
+    run = db.get(PayRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pay run not found.")
+    actor = get_current_actor()
+    try:
+        out = send_payslips(db, run, entity_ids=payload.entity_ids, actor=getattr(actor, "username", None))
+    except InvoiceMailError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+    log_audit_event(db, action="email", entity_type="payslips", entity_id=str(run.id),
+                    detail=f"Payslips e-mailed: {len(out.sent)} sent, {len(out.failed)} failed, {len(out.skipped)} skipped")
+    db.commit()
+    return out.as_dict()
+
+
+@router.get("/runs/{run_id}/emails")
+def payslip_emails(run_id: UUID, db: Session = Depends(get_db)) -> list[dict]:
+    from app.services.document_mail import email_log
+    if not db.get(PayRun, run_id):
+        raise HTTPException(status_code=404, detail="Pay run not found.")
+    return email_log(db, pay_run_id=run_id)
+
+
 @router.get("/my-payslips")
 def my_payslips(db: Session = Depends(get_db)) -> dict:
     """Self-service 'My pay': the caller's own payslips across runs — period,

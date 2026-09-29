@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.10"
+CURRENT_RELEASE = "2026.09.29.11"
 
 
 @dataclass(frozen=True)
@@ -1359,6 +1359,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "در «پول من»، بخش خانواده ← دعوت از یک نفر: پیوند را بفرستید (یا بگذارید ایمیل کنیم) تا با نام کاربری و رمز خودش در همین دفتر ثبت‌نام کند — همین پول، بودجه‌ها و اهداف؛ و سابقه نشان می‌دهد چه کسی چه چیزی ثبت کرده است. تا شش نفر؛ هر وقت خواستید کسی را حذف کنید.",
                     "es": "En Mis finanzas, Hogar → Invitar a alguien: envía el enlace (o deja que lo mandemos por correo) y se registra con su propio usuario y contraseña en las mismas cuentas: el mismo dinero, presupuestos y metas, y el historial muestra quién registró qué. Hasta seis personas; puedes quitar a alguien cuando quieras.",
                     "ar": "في «أموالي»، قسم الأسرة ← دعوة شخص: أرسل الرابط (أو دعنا نرسله بالبريد) فيسجّل باسم مستخدم وكلمة مرور خاصين به في الدفاتر نفسها — المال والموازنات والأهداف نفسها، ويُظهر السجل من سجّل ماذا. حتى ستة أشخاص؛ ويمكنك إزالة أي شخص في أي وقت.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.11",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="self-service-forms",
+                page_by_role={"employee": "time", "manager": "expenses"},
+                roles=("employee", "manager"),
+                title={
+                    "en": "Your Time and Expenses pages work for you",
+                    "fa": "صفحه‌های زمان و هزینه‌ها برای شما کار می‌کنند",
+                    "es": "Tus páginas de Tiempo y Gastos funcionan para ti",
+                    "ar": "صفحتا الوقت والمصروفات تعملان لك",
+                },
+                body={
+                    "en": "Logging time now offers you as the worker and the clients to bill it to, and a mileage claim is filed in your own name. Managers see the approvals queue without the forms they don't use.",
+                    "fa": "در ثبت زمان، شما به‌عنوان کارکن و مشتریانی که کار برایشان است نمایش داده می‌شوند و درخواست هزینه رفت‌وآمد به نام خودتان ثبت می‌شود. مدیران صف تأیید را بدون فرم‌هایی که استفاده نمی‌کنند می‌بینند.",
+                    "es": "Al registrar tiempo apareces tú como trabajador y los clientes a los que facturarlo, y una solicitud de kilometraje se presenta a tu nombre. Los responsables ven la cola de aprobaciones sin los formularios que no usan.",
+                    "ar": "عند تسجيل الوقت تظهر أنت كعامل ويظهر العملاء الذين يُفوتر لهم، ويُقدَّم طلب المسافات باسمك. ويرى المديرون قائمة الموافقات دون النماذج التي لا يستخدمونها.",
                 },
             ),
         ),

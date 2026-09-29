@@ -297,6 +297,25 @@ def _assert_day_capacity(db: Session, employee_id, work_date, hours: float, *, e
         )
 
 
+@router.get("/pickers")
+def time_pickers(db: Session = Depends(get_db)) -> dict:
+    """What the time form can pick. Books people: every worker and client. A
+    self-service caller (an employee): themselves as the worker — the only
+    one they may log for — and the clients by name, so billable time can say
+    whom it was for (the entity list itself stays books-only)."""
+    restricted, own = _time_own_scope()
+    if restricted:
+        me = db.get(Entity, UUID(str(own))) if own else None
+        workers = [me] if me is not None and me.type in ("employee", "supplier") else []
+    else:
+        workers = db.execute(select(Entity).where(Entity.type.in_(("employee", "supplier")))
+                             .order_by(Entity.type, Entity.name)).scalars().all()
+    clients = db.execute(select(Entity).where(Entity.type == "client").order_by(Entity.name)).scalars().all()
+    return {"restricted": restricted, "self": str(own) if own else None, "books": not restricted,
+            "workers": [{"id": str(w.id), "name": w.name, "type": w.type} for w in workers],
+            "clients": [{"id": str(c.id), "name": c.name} for c in clients]}
+
+
 @router.post("/entries", status_code=201)
 def create_entry(payload: TimeEntryCreate, db: Session = Depends(get_db)) -> dict:
     # A self-service caller may only log time for their own employee entity.

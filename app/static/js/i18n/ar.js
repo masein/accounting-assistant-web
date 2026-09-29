@@ -1495,6 +1495,7 @@ window.I18N_PACKS.ar = Object.assign({
         hhLinkEmailed: "أرسلنا هذا الرابط بالبريد. يمكنك أيضًا إرساله بنفسك — يعمل مرة واحدة لمدة ٧ أيام:",
         hhLinkCopy: "أرسل هذا الرابط إليه — يعمل مرة واحدة لمدة ٧ أيام:",
         hhFailed: "تعذّر تحديث الأسرة.",
+        timeNotLinked: "حسابك غير مرتبط بسجل موظف بعد — اطلب ذلك من المالك.",
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

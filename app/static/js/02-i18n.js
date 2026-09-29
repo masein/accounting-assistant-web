@@ -1542,6 +1542,7 @@
         hhLinkEmailed: "We e-mailed this link. You can also send it yourself — it works once, for 7 days:",
         hhLinkCopy: "Send this link to them — it works once, for 7 days:",
         hhFailed: "Couldn't update the household.",
+        timeNotLinked: "Your account isn't linked to an employee record yet — ask the owner.",
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

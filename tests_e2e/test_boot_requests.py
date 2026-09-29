@@ -56,12 +56,9 @@ def test_a_page_load_fetches_the_shell_and_the_landing_page_once(browser, userna
         assert not [p for p in paths if p in PAGE_ONLY], paths
         assert len(paths) <= 16, paths                                  # was 28–41
         refused = [p for s, p in seen if s == 403]
-        if home == "dashboard":
-            assert refused == [], refused                               # was 0–6
-        else:
-            # what's left is the landing page's own calls, not the preload
-            assert len(refused) <= 4, refused                           # was 14–18
-            assert "/reports/owner-dashboard" not in refused and "/invoices" not in refused
+        # nothing refused for any role — a manager's Expenses and an employee's
+        # Time page ask their own pickers, not the books-only entity list
+        assert refused == [], refused                                   # was 14–18, then up to 4
     finally:
         ctx.close()
 

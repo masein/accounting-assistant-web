@@ -1702,6 +1702,7 @@
       <h2 data-i18n="expTitle">Expenses &amp; Mileage</h2>
       <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;" data-i18n="expSubtitle">Submit a mileage claim (distance × rate). Claims above the approval threshold are routed for approval before they post. Reimbursing the employee is a separate, confirmed step.</p>
 
+      <div id="exp-settings-section">
       <h3 data-i18n="expSettingsTitle">Expense settings</h3>
       <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
         <div><label for="exp-rate" data-i18n="expRate">Mileage rate</label><input type="number" id="exp-rate" min="0" step="0.01"></div>
@@ -1710,7 +1711,9 @@
         <div><label for="exp-threshold" data-i18n="expThreshold">Approval threshold</label><input type="number" id="exp-threshold" min="0"></div>
         <div><button type="button" class="btn btn-secondary" id="exp-save-settings" data-i18n="expSaveSettings">Save settings</button></div>
       </div>
+      </div>
 
+      <div id="exp-claim-section">
       <h3 style="margin-top:1.25rem;" data-i18n="expMileageTitle">New mileage claim</h3>
       <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
         <div><label for="exp-emp" data-i18n="expEmployee">Employee</label><select id="exp-emp"></select></div>
@@ -1720,6 +1723,7 @@
         <div><button type="button" class="btn btn-primary" id="exp-submit" data-i18n="expSubmit">Submit claim</button></div>
       </div>
       <div id="exp-calc" style="margin-top:0.4rem;font-size:0.85rem;color:var(--text-muted);"></div>
+      </div>
 
       <h3 style="margin-top:1.25rem;" data-i18n="expQueueTitle">Approvals queue</h3>
       <table class="data-table">

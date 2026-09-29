@@ -48,6 +48,7 @@ from app.api.purchase_orders import router as purchase_orders_router
 from app.api.recurring import router as recurring_router
 from app.api.reports import router as reports_router
 from app.api.tax_ir import router as tax_ir_router
+from app.api.bank_mailbox import router as bank_mailbox_router
 from app.api.bank_sms import router as bank_sms_router
 from app.api.bots import router as bots_router
 from app.api.tax_uk import router as tax_uk_router
@@ -987,6 +988,7 @@ app.include_router(recurring_router, dependencies=_rbac)
 app.include_router(reports_router, dependencies=_rbac)
 app.include_router(tax_ir_router, dependencies=_rbac)
 app.include_router(bank_sms_router, dependencies=_rbac)
+app.include_router(bank_mailbox_router, dependencies=_rbac)
 # Telegram / Bale post their updates here: no session, the path's secret is
 # the guard (app/api/bots.py). Deliberately outside _GUARDED_PREFIXES.
 app.include_router(bots_router)
@@ -1007,7 +1009,7 @@ _GUARDED_PREFIXES = tuple(sorted({
         migration_router, moadian_router, notifications_router, payroll_router, personal_router, insights_router,
         commitments_router, fixed_assets_router, petty_cash_router, products_router, purchase_orders_router,
         quotes_router, recurring_router, recurring_invoices_router, reports_router, tax_ir_router, tax_uk_router,
-        bank_sms_router,
+        bank_sms_router, bank_mailbox_router,
         time_tracking_router, transactions_router,
     ) if r.prefix
 }))

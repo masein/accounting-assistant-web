@@ -18,6 +18,9 @@ Jobs
                               (and e-mail them when the template says so)
 * ``invoice_reminders``      daily at SCHEDULER_DIGEST_HOUR  e-mail overdue customers (only for
                               companies that switched reminders on; see app/services/invoice_mail.py)
+* ``bank_mailbox``           every 30 m  read the statements mailbox of each company that set one
+                              up and file e-mailed bank statements for review
+                              (app/services/statement_mailbox.py)
 * ``rate_feeds``             daily from the hour the platform admin picked — ONE run for the
                               whole platform: fetch the shared exchange rates (app/services/rate_feeds.py)
 
@@ -65,6 +68,8 @@ class JobStatus:
 
 STATUS: dict[str, JobStatus] = {}
 _last_refresh_tick: datetime | None = None
+_last_mailbox_tick: datetime | None = None
+MAILBOX_EVERY = timedelta(minutes=30)
 
 
 def _session_factory():
@@ -101,6 +106,15 @@ def _set_marker(db, name: str, value: str) -> None:
 def job_recurring_run_due(db, today: date) -> dict:
     from app.services.recurring_service import materialize_due_rules
     return materialize_due_rules(db, today=today)
+
+
+def job_bank_mailbox(db, today: date) -> dict:
+    """Companies without a mailbox cost one settings read."""
+    from app.services import statement_mailbox
+    if not statement_mailbox.is_enabled(db):
+        return {}
+    out = statement_mailbox.check_mailbox(db)
+    return {k: out.get(k) for k in ("ok", "found", "imported", "error_code")}
 
 
 def job_ai_review_purge(db, today: date) -> dict:
@@ -240,7 +254,7 @@ def run_job_for_all_companies(name: str, fn: Callable[[Any, date], dict], *, tod
 def run_pending_jobs(now: datetime | None = None) -> list[str]:
     """One scheduler tick: decide which jobs are due and run them. Returns the
     names that ran (used by the tests and the admin status view)."""
-    global _last_refresh_tick
+    global _last_refresh_tick, _last_mailbox_tick
     now = now or datetime.now()
     today = now.date()
     ran: list[str] = []
@@ -249,6 +263,11 @@ def run_pending_jobs(now: datetime | None = None) -> list[str]:
     ran.append("recurring_run_due")
     run_job_for_all_companies("ai_review_purge", job_ai_review_purge, today=today, once_per_day=True)
     ran.append("ai_review_purge")
+    # Statements mailboxes: every 30 minutes, before the feed refresh picks them up.
+    if _last_mailbox_tick is None or now - _last_mailbox_tick >= MAILBOX_EVERY:
+        run_job_for_all_companies("bank_mailbox", job_bank_mailbox, today=today, once_per_day=False)
+        _last_mailbox_tick = now
+        ran.append("bank_mailbox")
     # Feed refresh: every 15 minutes (cheap; insights are cached server-side).
     if _last_refresh_tick is None or now - _last_refresh_tick >= timedelta(minutes=15):
         run_job_for_all_companies("notifications_refresh", job_notifications_refresh, today=today, once_per_day=False)

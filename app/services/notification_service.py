@@ -45,6 +45,7 @@ KIND_ROLES = {
     "budget": ("owner", "cfo", "accountant", "personal"),
     "commitment": ("owner", "cfo", "accountant", "personal"),
     "insight": ("owner", "cfo", "accountant", "personal"),
+    "bank_mail": ("owner", "cfo", "accountant", "personal"),
     "reminder": (),  # always personal
 }
 
@@ -201,6 +202,35 @@ def _tax_filing_deadlines(db: Session, seen: set[str], today: date) -> None:
 AI_BUDGET_WARN_SHARE = 0.8
 
 
+MAILBOX_FAILURES_BEFORE_ALERT = 2      # one bad check (a mail server blip) isn't worth a bell
+
+
+def _bank_mail(db: Session, seen: set[str], today: date) -> None:
+    """Statements that arrived by e-mail and wait for review, and a
+    statements mailbox that keeps failing (app/services/statement_mailbox.py)."""
+    from sqlalchemy import func
+
+    from app.models.bank_statement import BankStatement
+    from app.services import statement_mailbox
+    waiting = db.execute(select(func.count(BankStatement.id)).where(
+        BankStatement.origin == "email", BankStatement.status == "parsed")).scalar() or 0
+    if waiting:
+        _upsert(db, seen, dedupe_key="bank-mail-waiting", kind="bank_mail", level="info",
+                title=(f"{waiting} bank statement arrived by e-mail" if waiting == 1
+                       else f"{waiting} bank statements arrived by e-mail"),
+                message="They're on the Bank statements page, waiting for you to check and approve them.",
+                link_page="bank-statements")
+    if not statement_mailbox.is_enabled(db):
+        return
+    status = statement_mailbox.load_status(db)
+    if not status.get("ok", True) and int(status.get("failures") or 0) >= MAILBOX_FAILURES_BEFORE_ALERT:
+        _upsert(db, seen, dedupe_key="bank-mail-failing", kind="bank_mail", level="warning",
+                title="The statements mailbox can't be read",
+                message=f"The last {status['failures']} checks failed: {status.get('error') or 'unknown error'}. "
+                        "Check the server, username and password on the Bank statements page.",
+                link_page="bank-statements")
+
+
 def _ai_budget(db: Session, seen: set[str], today: date) -> None:
     """Warn the owner when the company has used 80 % of its 24-hour AI
     allowance (app/services/ai_usage.py), and louder once it is used up —
@@ -302,6 +332,9 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
 
     # --- AI allowance nearly used ------------------------------------------------
     _ai_budget(db, seen, today)
+
+    # --- statements that came by e-mail; a mailbox that can't be read ------------------
+    _bank_mail(db, seen, today)
 
     # --- Iranian seasonal filings (VAT return, TTMS) ------------------------------
     _tax_filing_deadlines(db, seen, today)

@@ -35,6 +35,8 @@ class BankStatement(Base, TenantMixin):
     bank_name: Mapped[str] = mapped_column(String(256), index=True)
     account_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
     source_type: Mapped[str] = mapped_column(String(32), index=True)  # csv, excel, ocr_image, ocr_pdf
+    # How it arrived when not uploaded by hand: "email" (the statements mailbox).
+    origin: Mapped[str | None] = mapped_column(String(16), nullable=True)
     source_filename: Mapped[str] = mapped_column(String(512))
     # SHA-256 of the raw uploaded bytes, for file-level duplicate detection:
     # re-uploading the identical file is flagged before importing again.

@@ -779,7 +779,7 @@
         stmts.forEach(s => {
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(s.bank_name)}</td><td>${escapeHtml(s.source_filename)}</td>
-            <td>${s.source_type}</td><td>${s.total_rows}</td><td>${s.matched_rows || 0}</td>
+            <td>${escapeHtml(s.source_type)}${s.origin === 'email' ? ` <span class="badge" title="${escapeHtml(t('bsViaEmailTitle'))}">${escapeHtml(t('bsViaEmail'))}</span>` : ''}</td><td>${s.total_rows}</td><td>${s.matched_rows || 0}</td>
             <td><span class="badge ${s.status === 'approved' ? 'badge-ok' : ''}">${s.status}</span></td>
             <td><button class="btn btn-secondary btn-sm bs-view-btn" data-id="${s.id}">View</button></td>`;
           body.appendChild(tr);
@@ -1233,4 +1233,120 @@
           if (d.added) { box.value = ''; note.textContent = ''; if (typeof loadBankStatements === 'function') loadBankStatements(); }
         } catch (_) { out.innerHTML = `<div class="tfa-note">${escapeHtml(t('smsFailed'))}</div>`; } finally { btn.disabled = false; }
       });
+    })();
+
+    // ═══════ Bank statements by e-mail (app/services/statement_mailbox.py) ═══════
+    const MAIL_ERROR_KEYS = { resolve: 'mailErrResolve', private: 'mailErrPrivate', connect: 'mailErrConnect',
+      timeout: 'mailErrTimeout', tls: 'mailErrTls', auth: 'mailErrAuth', folder: 'mailErrFolder', protocol: 'mailErrProtocol' };
+    const MAIL_OUTCOME_KEYS = { imported: 'mailOutImported', duplicate: 'mailOutDuplicate', needs_mapping: 'mailOutNeedsMapping',
+      failed: 'mailOutFailed', no_attachment: 'mailOutNoAttachment', too_large: 'mailOutTooLarge' };
+    let _mailCfg = null;
+    function _mailEl(id) { return document.getElementById(id); }
+    function _mailForm() {
+      return {
+        host: _mailEl('mail-host').value.trim(), port: parseInt(_mailEl('mail-port').value, 10) || 993,
+        username: _mailEl('mail-user').value.trim(), password: _mailEl('mail-password').value,
+        folder: _mailEl('mail-folder').value.trim() || 'INBOX', senders: _mailEl('mail-senders').value,
+        enabled: _mailEl('mail-enabled').checked,
+      };
+    }
+    function mailWhen(iso) {
+      const d = iso ? new Date(iso) : null;
+      if (!d || isNaN(d.getTime())) return '';
+      const p = (n) => String(n).padStart(2, '0');
+      // an isolated LTR run: after Persian words "2026-09-29" would otherwise read "29-09-2026"
+      return `\u2066${formatDisplayDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`)} ${p(d.getHours())}:${p(d.getMinutes())}\u2069`;
+    }
+    function mailError(r) {
+      const f = _mailForm();
+      const key = MAIL_ERROR_KEYS[r && r.error_code];
+      return key ? tf(key, { host: f.host || (_mailCfg && _mailCfg.host) || '', port: f.port, folder: f.folder })
+        : ((r && r.error) || t('mailErrProtocol'));
+    }
+    function _mailNote(text, ok) {
+      const style = ok ? ' style="background:color-mix(in srgb, var(--success, #16a34a) 10%, transparent);border-color:color-mix(in srgb, var(--success, #16a34a) 35%, transparent);"' : '';
+      _mailEl('mail-result').innerHTML = `<div class="tfa-note"${style}>${escapeHtml(text)}</div>`;
+    }
+    function renderMailState(cfg) {
+      const st = cfg.status || {};
+      let text;
+      if (!cfg.host) text = t('mailStateOff');
+      else if (st.checked_at && st.ok === false) text = tf('mailStateError', { when: mailWhen(st.checked_at), error: mailError(st) });
+      else if (st.checked_at) text = tf('mailStateOk', { when: mailWhen(st.checked_at), imported: st.imported || 0 });
+      else text = cfg.enabled ? t('mailStateWaiting') : t('mailStatePaused');
+      if (cfg.host && !cfg.enabled && st.checked_at) text += ' · ' + t('mailStatePaused');
+      _mailEl('mail-summary-state').textContent = '— ' + text;
+    }
+    function renderMailbox(cfg) {
+      _mailCfg = cfg;
+      _mailEl('mail-host').value = cfg.host || '';
+      _mailEl('mail-port').value = cfg.port || 993;
+      _mailEl('mail-user').value = cfg.username || '';
+      _mailEl('mail-password').value = '';
+      _mailEl('mail-password').placeholder = cfg.has_password ? t('mailPasswordSaved') : '';
+      _mailEl('mail-folder').value = cfg.folder || 'INBOX';
+      _mailEl('mail-senders').value = (cfg.senders || []).map(s => s.bank_name ? `${s.match}, ${s.bank_name}` : s.match).join('\n');
+      _mailEl('mail-enabled').checked = !!cfg.enabled;
+      _mailEl('mail-form').disabled = !cfg.can_manage;
+      document.querySelectorAll('#mail-panel .mail-manage').forEach(b => { b.style.display = cfg.can_manage ? '' : 'none'; });
+      _mailEl('mail-view-only').style.display = cfg.can_manage ? 'none' : '';
+      _mailEl('mail-check').disabled = !(cfg.host && cfg.has_password && (cfg.senders || []).length);
+      renderMailState(cfg);
+    }
+    async function loadMailLog() {
+      try {
+        const r = await fetch(API + '/bank-mailbox/messages');
+        if (!r.ok) return;
+        const rows = (await r.json()).messages || [];
+        _mailEl('mail-log-wrap').style.display = rows.length ? '' : 'none';
+        _mailEl('mail-log-body').innerHTML = rows.map(m => `<tr>
+          <td style="white-space:nowrap;">${escapeHtml(mailWhen(m.received_at || m.checked_at))}</td>
+          <td dir="ltr">${escapeHtml(m.sender)}</td>
+          <td><bdi>${escapeHtml(m.subject || '')}</bdi></td>
+          <td><span class="badge ${m.status === 'imported' ? 'badge-ok' : ''}"${m.detail ? ` title="${escapeHtml(m.detail)}"` : ''}>${escapeHtml(t(MAIL_OUTCOME_KEYS[m.status] || 'mailOutFailed'))}</span></td>
+        </tr>`).join('');
+      } catch (_) { /* the panel still works without its log */ }
+    }
+    async function loadMailbox() {
+      if (!_mailEl('mail-panel')) return;
+      try {
+        const r = await fetch(API + '/bank-mailbox');
+        if (!r.ok) { _mailEl('mail-panel').style.display = 'none'; return; }
+        _mailEl('mail-panel').style.display = '';
+        renderMailbox(await r.json());
+        loadMailLog();
+      } catch (_) { /* offline: leave the panel as it is */ }
+    }
+    (function wireMailbox() {
+      if (!_mailEl('mail-panel')) return;
+      const busy = async (btn, fn) => { btn.disabled = true; try { await fn(); } finally { btn.disabled = false; } };
+      _mailEl('mail-save').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+        const body = _mailForm();
+        if (!body.password) delete body.password;
+        const r = await fetch(API + '/bank-mailbox', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { _mailNote(typeof d.detail === 'string' ? d.detail : t('mailSaveFailed')); return; }
+        renderMailbox(d);
+        _mailNote(t('mailSaved'), true);
+      }));
+      _mailEl('mail-test').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+        const f = _mailForm();
+        const body = { host: f.host, port: f.port, username: f.username, folder: f.folder };
+        if (f.password) body.password = f.password;
+        const r = await fetch(API + '/bank-mailbox/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { _mailNote(typeof d.detail === 'string' ? d.detail : t('mailErrProtocol')); return; }
+        _mailNote(d.ok ? tf('mailTestOk', { n: d.messages, folder: d.folder }) : mailError(d), !!d.ok);
+      }));
+      _mailEl('mail-check').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+        _mailNote(t('mailChecking'), true);
+        const r = await fetch(API + '/bank-mailbox/check', { method: 'POST' });
+        const d = await r.json().catch(() => ({}));
+        if (r.status === 409) { _mailNote(t('mailNotSetUp')); return; }
+        if (!r.ok) { _mailNote(typeof d.detail === 'string' ? d.detail : t('mailErrProtocol')); return; }
+        _mailNote(d.ok ? tf('mailCheckDone', { found: d.found, imported: d.imported }) : mailError(d), !!d.ok);
+        if (_mailCfg) { _mailCfg.status = d; renderMailState(_mailCfg); }
+        loadMailLog();
+        if (d.imported && typeof loadBankStatements === 'function') loadBankStatements();
+      }));
     })();

@@ -78,6 +78,10 @@ class Perm:
     # The AI review queue (roadmap §5.5): other users' chat turns, kept for
     # review. Owner-only by construction, like AI_CONFIG.
     AI_REVIEW = "ai:review"
+    # The statements mailbox (roadmap §4.1): its password reads the company's
+    # mail, so setting it up is the owner's (and a personal user's, for their
+    # own books) — not every role that can import a statement.
+    BANK_MAIL = "bank_mail:manage"
     # Platform-level settings (AI providers, chat shape). Held by NO company
     # role — only the super-admin passes (user_can_access short-circuits on
     # is_superadmin). Excluded from ALL_PERMS below so the owner doesn't get it.
@@ -146,7 +150,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     Role.PERSONAL: frozenset({
         Perm.SETTINGS_READ,
         Perm.BOOKS_READ, Perm.BOOKS_WRITE,
-        Perm.BANK_READ,
+        Perm.BANK_READ, Perm.BANK_MAIL,
         Perm.REPORTS_READ,
     }),
 }
@@ -484,8 +488,14 @@ for _m, _p in [
     ("POST", "/brain/bank-statements/{statement_id}/approve"),
     # bank SMS pasted into the SMS-feed statements (roadmap §4.1)
     ("POST", "/bank-sms"), ("POST", "/bank-sms/preview"),
+    # the statements mailbox: checking now imports like an upload
+    ("POST", "/bank-mailbox/check"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
+# The statements mailbox: the settings (password never returned) and what was read.
+_reads(["/bank-mailbox", "/bank-mailbox/messages"], Perm.BANK_READ)
+_add("PUT", "/bank-mailbox", Perm.BANK_MAIL)
+_add("POST", "/bank-mailbox/test", Perm.BANK_MAIL)
 # Audit views (who did what) — books-level read.
 _reads(["/brain/audit/report", "/brain/audit/logs", "/brain/audit/integrity-history",
         "/brain/audit/versions/{transaction_id}"], Perm.BOOKS_READ)

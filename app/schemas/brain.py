@@ -67,6 +67,7 @@ class BankStatementRead(BaseModel):
     total_rows: int
     matched_rows: int
     new_rows: int
+    origin: str | None = None          # "email": read from the statements mailbox
     rows: list[BankStatementRowRead] = Field(default_factory=list)
 
 

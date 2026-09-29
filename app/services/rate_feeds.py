@@ -49,26 +49,21 @@ _TRANSPORT = None                         # tests put an httpx.MockTransport her
 
 
 def _resolve(host: str, port: int) -> list[str]:
-    import socket
-    return [info[4][0] for info in socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)]
+    from app.core.public_address import resolve
+    return resolve(host, port)
 
 
 def check_public_url(url: str) -> None:
     """A feed is fetched by the server, so its URL must not point inside the
-    network the server sits in (the metadata service, the database, a router):
-    https only, and every address the host resolves to must be public."""
-    import ipaddress
+    network the server sits in (app/core/public_address.py): https only, and
+    every address the host resolves to must be public."""
     from urllib.parse import urlsplit
+
+    from app.core.public_address import public_addresses
     parts = urlsplit(url)
     if parts.scheme != "https" or not parts.hostname:
         raise ValueError("feed URLs must be https")
-    try:
-        addresses = _resolve(parts.hostname, parts.port or 443)
-    except OSError as exc:
-        raise ValueError(f"can't resolve {parts.hostname}") from exc
-    for addr in addresses:
-        if not ipaddress.ip_address(addr.split("%", 1)[0]).is_global:
-            raise ValueError(f"{parts.hostname} is not a public address")
+    public_addresses(parts.hostname, parts.port or 443, resolver=_resolve)
 
 
 def _fetch(url: str) -> bytes:

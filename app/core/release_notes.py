@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.12"
+CURRENT_RELEASE = "2026.09.29.13"
 
 
 @dataclass(frozen=True)
@@ -1405,6 +1405,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "در صفحه زمانِ کارمند اکنون فقط نرخ و ساعت‌های صورت‌حساب‌نشده خودش دیده می‌شود — نه همکارانش — و فاکتور مشتریان نمایش داده نمی‌شود. اینکه زمانی در حقوق حساب شود با شماست: ثبتِ کارمند پیش‌فرضِ نوعش را می‌گیرد (بدون حقوق، بدون حقوق می‌ماند). درخواست هزینه رفت‌وآمد فقط به نام خود متقاضی ثبت می‌شود.",
                     "es": "La página de Tiempo de un empleado muestra ahora solo su propia tarifa y sus horas sin facturar —no las de sus compañeros— y ninguna factura de clientes. Si el tiempo cuenta para la nómina lo decides tú: la entrada de un empleado toma el valor por defecto de su tipo (lo no remunerado sigue sin remunerar). Las solicitudes de kilometraje solo se presentan a nombre de quien las pide.",
                     "ar": "تعرض صفحة الوقت للموظف الآن سعره وساعاته غير المفوترة فقط — لا ساعات زملائه — ولا فواتير العملاء. واحتساب الوقت في الراتب قرارك: يأخذ قيد الموظف القيمة الافتراضية لنوعه (غير المدفوع يبقى غير مدفوع). وتُقدَّم طلبات المسافات باسم صاحبها فقط.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.13",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="statements-by-email",
+                page="bank-statements",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Bank statements straight from your mailbox",
+                    "fa": "صورت‌حساب بانکی مستقیم از صندوق ایمیل",
+                    "es": "Extractos bancarios directamente desde tu buzón",
+                    "ar": "كشوف الحساب البنكية مباشرة من صندوق بريدك",
+                },
+                body={
+                    "en": "If your bank e-mails statements, save the mailbox under Bank statements → Statements by e-mail. Every 30 minutes the app reads only your banks' messages and files each attached CSV, Excel or PDF statement for you to review. It never changes your mail, never imports a message twice, and the password is stored encrypted.",
+                    "fa": "اگر بانک صورت‌حساب را ایمیل می‌کند، صندوق ایمیل را در صورت‌حساب‌های بانکی ← صورت‌حساب از راه ایمیل ذخیره کنید. برنامه هر ۳۰ دقیقه فقط پیام‌های بانک‌هایتان را می‌خواند و هر صورت‌حساب CSV، اکسل یا PDFِ پیوست‌شده را برای بررسی شما ثبت می‌کند. هیچ ایمیلی را تغییر نمی‌دهد، هیچ پیامی را دو بار وارد نمی‌کند و رمز عبور رمزنگاری‌شده نگه داشته می‌شود.",
+                    "es": "Si tu banco envía extractos por correo, guarda el buzón en Extractos bancarios → Extractos por correo. Cada 30 minutos la aplicación lee solo los mensajes de tus bancos y guarda cada extracto adjunto en CSV, Excel o PDF para que lo revises. Nunca cambia tu correo, nunca importa un mensaje dos veces y la contraseña se guarda cifrada.",
+                    "ar": "إذا كان بنكك يرسل الكشوف بالبريد، احفظ صندوق البريد في كشوف الحساب البنكية ← كشوف الحساب عبر البريد. كل 30 دقيقة يقرأ التطبيق رسائل بنوكك فقط ويسجّل كل كشف مرفق بصيغة CSV أو Excel أو PDF لتراجعه. لا يغيّر بريدك أبدًا، ولا يستورد رسالة مرتين، وتُحفظ كلمة المرور مشفّرة.",
                 },
             ),
         ),

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.http_headers import content_disposition
 from app.api.transactions import _create_transaction_from_payload
 from app.db.session import get_db
 from app.models.transaction import Transaction, TransactionLine
@@ -70,7 +71,7 @@ def _csv_response(filename: str, headers: list[str], rows: list[list[str | int |
     return Response(
         content=buf.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": content_disposition(filename)},
     )
 
 
@@ -365,7 +366,7 @@ def export_statements(
         body = render_xlsx(tabs, meta, company=build_brand(db)["issuer"]["name"])
         media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     return Response(content=body, media_type=media,
-                    headers={"Content-Disposition": f'attachment; filename="{filename(meta, "financial-statements", format)}"'})
+                    headers={"Content-Disposition": content_disposition(filename(meta, "financial-statements", format))})
 
 
 def _close_month(db: Session, month: str | None, lang: str | None, *, documents: bool = True):
@@ -412,7 +413,7 @@ def close_pack(
     else:
         body, media = cp.xlsx(db, m), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     return Response(content=body, media_type=media,
-                    headers={"Content-Disposition": f'attachment; filename="close-pack-{m.key}.{format}"'})
+                    headers={"Content-Disposition": content_disposition(f'close-pack-{m.key}.{format}')})
 
 
 @router.get("/financial/cash-flow-periods")

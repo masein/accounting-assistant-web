@@ -15,6 +15,7 @@ from openpyxl import Workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.invoice import Invoice
@@ -84,7 +85,7 @@ def export_transactions_csv(
     for r in _rows(db, currency):
         w.writerow(r)
     csv_bytes = out.getvalue().encode("utf-8")
-    headers = {"Content-Disposition": f'attachment; filename="transactions-{date.today().isoformat()}.csv"'}
+    headers = {"Content-Disposition": content_disposition(f'transactions-{date.today().isoformat()}.csv')}
     return Response(content=csv_bytes, media_type="text/csv", headers=headers)
 
 
@@ -101,7 +102,7 @@ def export_transactions_xlsx(
         ws.append(r)
     bio = io.BytesIO()
     wb.save(bio)
-    headers = {"Content-Disposition": f'attachment; filename="transactions-{date.today().isoformat()}.xlsx"'}
+    headers = {"Content-Disposition": content_disposition(f'transactions-{date.today().isoformat()}.xlsx')}
     return Response(
         content=bio.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session, object_session, selectinload
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.credit_note import CreditNote
@@ -523,7 +524,7 @@ def preview_invoice_pdf(payload: InvoiceCreate, db: Session = Depends(get_db)) -
     pdf = render_invoice_pdf(db, draft, party)
     return Response(
         content=pdf, media_type="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="invoice-preview.pdf"'},
+        headers={"Content-Disposition": content_disposition('invoice-preview.pdf', inline=True)},
     )
 
 
@@ -1009,7 +1010,7 @@ def payment_receipt_pdf(invoice_id: UUID, payment_id: UUID, db: Session = Depend
     pdf = render_receipt_pdf(db, payment, inv, party, balance_due)
     return Response(
         content=pdf, media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="receipt-{str(payment.id)[:8]}.pdf"'},
+        headers={"Content-Disposition": content_disposition(f'receipt-{str(payment.id)[:8]}.pdf', inline=True)},
     )
 
 
@@ -1112,7 +1113,7 @@ def invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Response:
         pdf = render_invoice_pdf(db, inv, party)
         return Response(
             content=pdf, media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="invoice-{inv.number}.pdf"'},
+            headers={"Content-Disposition": content_disposition(f'invoice-{inv.number}.pdf', inline=True)},
         )
     except Exception:  # pragma: no cover - defensive fallback
         import logging
@@ -1246,5 +1247,5 @@ def invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Response:
     c.drawRightString(page_w - margin, 15 * mm, f"Invoice ID: {inv.id}")
     c.showPage()
     c.save()
-    headers = {"Content-Disposition": f'inline; filename="invoice-{inv.number}.pdf"'}
+    headers = {"Content-Disposition": content_disposition(f'invoice-{inv.number}.pdf', inline=True)}
     return Response(content=buf.getvalue(), media_type="application/pdf", headers=headers)

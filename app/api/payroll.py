@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.employee_pay import EmployeePayProfile
@@ -735,7 +736,7 @@ def payslip_pdf(run_id: UUID, entity_id: UUID, db: Session = Depends(get_db)):
     pdf = render_payslip_pdf(db, run, line, employee)
     return Response(
         content=pdf, media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="payslip-{(line.employee_name or "employee").replace(" ", "_")}.pdf"'},
+        headers={"Content-Disposition": content_disposition(f'payslip-{(line.employee_name or "employee").replace(" ", "_")}.pdf', inline=True)},
     )
 
 
@@ -987,7 +988,7 @@ def _csv_response(rows: list[list], filename: str) -> Response:
     # BOM so Excel opens Persian text correctly.
     data = ("\ufeff" + out.getvalue()).encode("utf-8")
     return Response(content=data, media_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+                    headers={"Content-Disposition": content_disposition(filename)})
 
 
 @router.get("/runs/{run_id}/insurance-list.csv")

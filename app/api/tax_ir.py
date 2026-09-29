@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.services import tax_ir
 
@@ -40,7 +41,7 @@ def quarterly_export(year: int = Query(...), season: int = Query(..., ge=1, le=4
     return Response(
         content=body,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="ttms-{s.year}-{s.season}.xlsx"'},
+        headers={"Content-Disposition": content_disposition(f'ttms-{s.year}-{s.season}.xlsx')},
     )
 
 

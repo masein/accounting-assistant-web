@@ -330,7 +330,7 @@ def test_the_scheduler_runs_the_feeds_once_for_the_whole_platform(clean, monkeyp
     from app.jobs import scheduler as sched
     from tests.conftest import _TestSession
     monkeypatch.setattr(db_session, "SessionLocal", _TestSession)
-    for name in ("job_recurring_run_due", "job_notifications_refresh", "job_daily_digest",
+    for name in ("job_recurring_run_due", "job_ai_review_purge", "job_notifications_refresh", "job_daily_digest",
                  "job_recurring_invoices", "job_invoice_reminders"):
         monkeypatch.setattr(sched, name, lambda db, today: {})
     sched.STATUS.clear()

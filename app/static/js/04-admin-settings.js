@@ -383,7 +383,7 @@
       loadClosedPeriod(); loadAdjustments(); loadCompanyProfile();
       if (typeof loadFxSettings === 'function') loadFxSettings();
       if (currentRole === 'owner') {
-        loadUsers(); loadDigestSettings(); loadApiKeys(); loadAIUsage();
+        loadUsers(); loadDigestSettings(); loadApiKeys(); loadAIUsage(); loadAIReview();
         if (typeof loadGuardrails === 'function') loadGuardrails();
       }
       if (isSuperadmin) {
@@ -656,6 +656,112 @@
           renderGuardrails(d);
           showAlert(t('aiUsageSaved'));
         } catch (_) { showAlert(t('aiUsageSaveFailed'), true); } finally { btn.disabled = false; }
+      });
+    })();
+
+    // ─── AI review queue (roadmap §5.5, owner) ─────────────────────────
+    let _aiRevStatus = 'new';
+    let _aiRevItems = [];
+    async function loadAIReview(status) {
+      const sec = document.getElementById('ai-review-section');
+      if (!sec) return;
+      if (status) _aiRevStatus = status;
+      try {
+        const res = await fetch(API + '/ai-accountant/review-samples?status=' + encodeURIComponent(_aiRevStatus));
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { sec.style.display = 'none'; return; }
+        sec.style.display = '';
+        document.getElementById('ai-rev-enabled').checked = !!(d.settings && d.settings.enabled);
+        _aiRevItems = d.items || [];
+        renderAIReview(d.counts || {});
+      } catch (_) { sec.style.display = 'none'; }
+    }
+    function renderAIReview(counts) {
+      const labels = { new: 'aiRevTabNew', bad: 'aiRevTabBad', good: 'aiRevTabGood', all: 'aiRevTabAll' };
+      document.querySelectorAll('.ai-rev-tab').forEach((b) => {
+        const st = b.dataset.status;
+        const n = st === 'all' ? counts.total : counts[st];
+        b.textContent = t(labels[st]) + (n != null ? ' (' + n + ')' : '');
+        b.classList.toggle('btn-primary', st === _aiRevStatus);
+        b.classList.toggle('btn-secondary', st !== _aiRevStatus);
+      });
+      const list = document.getElementById('ai-rev-list');
+      if (!_aiRevItems.length) {
+        list.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('aiRevEmpty')) + '</p>';
+        return;
+      }
+      list.innerHTML = _aiRevItems.map((s) => {
+        const when = s.created_at ? formatDisplayDate(s.created_at.slice(0, 10)) + ' ' + s.created_at.slice(11, 16) : '';
+        const meta = [when, s.username || '—', s.channel, s.model, s.latency_ms != null ? (s.latency_ms / 1000).toFixed(1) + ' s' : null]
+          .filter(Boolean).map(escapeHtml).join(' · ');
+        const tools = (s.tools || []).length
+          ? (s.tools || []).map((x) => '<span class="ai-rev-chip' + (x.ok ? '' : ' ai-rev-chip-bad') + '"'
+              + (x.ok ? '' : ' title="' + escapeHtml(t('aiRevToolFailed')) + '"') + '>' + escapeHtml(x.name || '?') + '</span>').join(' ')
+          : '<span class="ai-rev-muted">' + escapeHtml(t('aiRevNoTools')) + '</span>';
+        const cards = (s.cards || []).map((c) => '<li>' + escapeHtml(c.summary || c.tool) + '</li>').join('');
+        const verdict = s.verdict
+          ? '<p class="ai-rev-verdict ai-rev-' + escapeHtml(s.verdict) + '">' + escapeHtml(tf('aiRevReviewedBy', {
+              verdict: t(s.verdict === 'good' ? 'aiRevGood' : 'aiRevBad'), user: s.reviewed_by || '—' }))
+            + (s.note ? ' — ' + escapeHtml(s.note) : '') + '</p>'
+          : '';
+        const dir = s.lang === 'fa' || s.lang === 'ar' ? 'rtl' : 'auto';
+        return '<div class="ai-rev-item" data-id="' + escapeHtml(s.id) + '">'
+          + '<div class="ai-rev-meta" dir="auto">' + meta + '</div>'
+          + '<p class="ai-rev-q" dir="' + dir + '">' + escapeHtml(s.message) + '</p>'
+          + '<details' + ((s.reply || '').length < 280 ? ' open' : '') + '><summary>' + escapeHtml(t('aiRevReply')) + '</summary>'
+          + '<p class="ai-rev-a" dir="' + dir + '">' + escapeHtml(s.reply || '—') + '</p></details>'
+          + '<div class="ai-rev-tools">' + tools + '</div>'
+          + (cards ? '<ul class="ai-rev-cards">' + cards + '</ul>' : '')
+          + verdict
+          + '<div class="ai-rev-actions">'
+          + '<button type="button" class="btn btn-secondary btn-sm" data-rev="good">👍 ' + escapeHtml(t('aiRevGood')) + '</button>'
+          + '<button type="button" class="btn btn-secondary btn-sm" data-rev="bad">👎 ' + escapeHtml(t('aiRevBad')) + '</button>'
+          + (s.verdict ? '<button type="button" class="btn btn-secondary btn-sm" data-rev="reset">' + escapeHtml(t('aiRevReset')) + '</button>' : '')
+          + '<a class="btn btn-secondary btn-sm" download href="' + API + '/ai-accountant/review-samples/' + encodeURIComponent(s.id) + '/scenario">'
+          + escapeHtml(t('aiRevDownload')) + '</a>'
+          + '<button type="button" class="btn btn-danger btn-sm" data-rev="discard">' + escapeHtml(t('aiRevDiscard')) + '</button>'
+          + '</div></div>';
+      }).join('');
+    }
+    (function wireAIReview() {
+      const sec = document.getElementById('ai-review-section');
+      if (!sec) return;
+      document.getElementById('ai-rev-tabs').addEventListener('click', (e) => {
+        const b = e.target.closest('.ai-rev-tab');
+        if (b) loadAIReview(b.dataset.status);
+      });
+      document.getElementById('ai-rev-enabled').addEventListener('change', async (e) => {
+        const box = e.target;
+        try {
+          const res = await fetch(API + '/ai-accountant/review-settings', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: box.checked }) });
+          if (!res.ok) throw new Error();
+          showAlert(t('aiRevSaved'));
+        } catch (_) { box.checked = !box.checked; showAlert(t('aiUsageSaveFailed'), true); }
+      });
+      document.getElementById('ai-rev-list').addEventListener('click', async (e) => {
+        const b = e.target.closest('button[data-rev]');
+        if (!b) return;
+        const id = b.closest('.ai-rev-item').dataset.id;
+        const action = b.dataset.rev;
+        const url = API + '/ai-accountant/review-samples/' + encodeURIComponent(id);
+        let res;
+        if (action === 'discard') {
+          if (!(await uiConfirm({ message: t('aiRevDiscardConfirm'), confirmLabel: t('aiRevDiscard'), danger: true }))) return;
+          res = await fetch(url, { method: 'DELETE' });
+        } else {
+          let note = null;
+          if (action === 'bad') {
+            note = await uiPrompt({ title: t('aiRevBad'), message: t('aiRevNotePrompt') });
+            if (note === null) return;
+          }
+          const verdict = action === 'reset' ? null : action;
+          res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ verdict, note }) });
+        }
+        if (!res.ok) { showAlert(t('aiUsageSaveFailed'), true); return; }
+        loadAIReview();
       });
     })();
 

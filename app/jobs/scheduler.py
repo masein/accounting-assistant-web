@@ -103,6 +103,12 @@ def job_recurring_run_due(db, today: date) -> dict:
     return materialize_due_rules(db, today=today)
 
 
+def job_ai_review_purge(db, today: date) -> dict:
+    """Review samples past their 90 days (roadmap §5.5)."""
+    from app.services.ai_review import purge_expired
+    return purge_expired(db, today)
+
+
 def job_notifications_refresh(db, today: date) -> dict:
     """Recompute the bell, then push what is new to the devices of the people
     who see it (roadmap §4.10) — pushing never runs on a request."""
@@ -241,6 +247,8 @@ def run_pending_jobs(now: datetime | None = None) -> list[str]:
     # Recurring rules: once a day per company, as early as the day starts.
     run_job_for_all_companies("recurring_run_due", job_recurring_run_due, today=today, once_per_day=True)
     ran.append("recurring_run_due")
+    run_job_for_all_companies("ai_review_purge", job_ai_review_purge, today=today, once_per_day=True)
+    ran.append("ai_review_purge")
     # Feed refresh: every 15 minutes (cheap; insights are cached server-side).
     if _last_refresh_tick is None or now - _last_refresh_tick >= timedelta(minutes=15):
         run_job_for_all_companies("notifications_refresh", job_notifications_refresh, today=today, once_per_day=False)

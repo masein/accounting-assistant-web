@@ -410,6 +410,15 @@ DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/aa_eval_scratch APP_
 python -m scripts.ai_eval replay        # the recorded trajectories only
 ```
 
+**The review queue** (roadmap §5.5, part 2) — `app/services/ai_review.py`:
+about one real turn in ten (web and bots) is kept for the company's owner in
+Settings → AI review: the question, the answer, each tool call (input, and
+whether it worked), the cards, model and latency. The owner marks it good or
+needs work, or downloads it as a draft scenario for `scenarios.json`. Samples
+stay in the company (the platform console counts them, never reads them), go
+with their conversation or after 90 days, and the owner can stop the sampling.
+Tests keep it off (`tests/conftest.py`) except `tests/test_ai_review.py`.
+
 Results on 2026-09-24 (5-page Mellat statement; Default company; the chat
 rows are from the earlier 9-scenario bench):
 

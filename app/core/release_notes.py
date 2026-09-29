@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.28.15"
+CURRENT_RELEASE = "2026.09.29"
 
 
 @dataclass(frozen=True)
@@ -1055,6 +1055,46 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "وقتی از دستیار می‌خواستید صورت‌حساب بانکی را بازبینی کند، گاهی برای ردیفی که در دفاتر نبود سند پیشنهاد نمی‌داد و می‌گفت مبلغ نمی‌خواند — شناسه صورت‌حساب به‌جای مبلغ خوانده می‌شد. اکنون هر پیش‌نویس با خود ردیف صورت‌حساب سنجیده می‌شود.",
                     "es": "Al pedir al asistente que revisara un extracto bancario, a veces se negaba a preparar el asiento de una fila que faltaba en la contabilidad diciendo que el importe no cuadraba: leía la referencia del extracto como un importe. Ahora cada borrador se comprueba con la propia fila del extracto.",
                     "ar": "عند طلب مراجعة كشف بنكي، كان المساعد أحيانًا يرفض إعداد قيد لصف غير موجود في الدفاتر قائلًا إن المبلغ لا يطابق — إذ كان يقرأ رقم مرجع الكشف كمبلغ. الآن يُطابَق كل مسودة مع صف الكشف نفسه.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="ai-review-queue",
+                page="settings",
+                roles=("owner",),
+                title={
+                    "en": "See how the assistant really does",
+                    "fa": "ببینید دستیار واقعاً چطور کار می‌کند",
+                    "es": "Mira cómo trabaja de verdad el asistente",
+                    "ar": "شاهد كيف يعمل المساعد فعلًا",
+                },
+                body={
+                    "en": "Settings → AI review: about one turn in ten of your team's conversations with the assistant (web chat and the Telegram/Bale bots) is kept for you — the question, the answer, the tools it used and the cards it made. Mark each one good or needs work, with a note, or download it as a test case. They stay inside your company, only you see them, and they go with the conversation or after 90 days. You can switch it off there.",
+                    "fa": "«تنظیمات ← بازبینی دستیار»: حدود یک پیام از هر ده پیامِ گفتگوی همکارانتان با دستیار (گفتگوی وب و ربات‌های تلگرام/بله) برای شما نگه داشته می‌شود — پرسش، پاسخ، ابزارهایی که به کار برد و کارت‌هایی که ساخت. هرکدام را «خوب» یا «نیاز به اصلاح» با یادداشت علامت بزنید یا به‌عنوان نمونه آزمون دریافت کنید. درون شرکت شما می‌مانند، فقط شما می‌بینید، و با حذف گفتگو یا پس از ۹۰ روز پاک می‌شوند. همان‌جا می‌توانید خاموشش کنید.",
+                    "es": "Ajustes → Revisión de la IA: se guarda para ti aproximadamente uno de cada diez turnos de las conversaciones de tu equipo con el asistente (chat web y bots de Telegram/Bale): la pregunta, la respuesta, las herramientas que usó y las tarjetas que creó. Márcalos como bien o mejorables, con una nota, o descárgalos como caso de prueba. Se quedan en tu empresa, solo tú los ves y se borran con la conversación o a los 90 días. Puedes desactivarlo allí.",
+                    "ar": "الإعدادات ← مراجعة المساعد: يُحفظ لك نحو دور من كل عشرة من محادثات فريقك مع المساعد (المحادثة على الويب وروبوتات تيليجرام/بله) — السؤال والإجابة والأدوات التي استخدمها والبطاقات التي أنشأها. ضع على كل منها «جيد» أو «يحتاج تحسينًا» مع ملاحظة، أو نزّلها كحالة اختبار. تبقى داخل شركتك، ولا يراها غيرك، وتُحذف مع المحادثة أو بعد 90 يومًا. يمكنك إيقافها من هناك.",
+                },
+            ),
+            Highlight(
+                key="ai-review-notice",
+                page="ai-accountant",
+                roles=("cfo", "accountant"),
+                title={
+                    "en": "Some conversations are kept for review",
+                    "fa": "برخی گفتگوها برای بازبینی نگه داشته می‌شوند",
+                    "es": "Algunas conversaciones se guardan para revisión",
+                    "ar": "تُحفظ بعض المحادثات للمراجعة",
+                },
+                body={
+                    "en": "To improve the assistant, about one in ten of your messages to it — with its answer — is kept for your company's owner to review. It stays inside your company and goes when you delete the conversation or after 90 days.",
+                    "fa": "برای بهتر شدن دستیار، حدود یکی از هر ده پیام شما به آن — همراه با پاسخش — برای بازبینی مالک شرکت نگه داشته می‌شود. درون شرکت شما می‌ماند و با حذف گفتگو یا پس از ۹۰ روز پاک می‌شود.",
+                    "es": "Para mejorar el asistente, aproximadamente uno de cada diez de tus mensajes —con su respuesta— se guarda para que lo revise el propietario de tu empresa. Se queda en tu empresa y se borra cuando eliminas la conversación o a los 90 días.",
+                    "ar": "لتحسين المساعد، تُحفظ نحو رسالة من كل عشر من رسائلك إليه — مع إجابته — ليراجعها مالك شركتك. تبقى داخل شركتك وتُحذف عند حذفك المحادثة أو بعد 90 يومًا.",
                 },
             ),
         ),

@@ -462,6 +462,22 @@
       padding-bottom: 0.45rem;
     }
     .fx-hint { color: var(--text-muted); font-size: 0.82rem; margin: 0 0 0.5rem 0; }
+    /* AI review queue (Settings, roadmap §5.5) */
+    .ai-rev-item { border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.85rem; margin: 0 0 0.6rem 0; background: var(--card-bg, transparent); }
+    .ai-rev-meta { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+    .ai-rev-q { font-weight: 600; margin: 0 0 0.35rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .ai-rev-a { margin: 0.3rem 0 0.4rem 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.88rem; }
+    .ai-rev-item details summary { cursor: pointer; font-size: 0.8rem; color: var(--text-muted); }
+    .ai-rev-tools { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.35rem 0; }
+    .ai-rev-chip { font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: var(--chip-bg, rgba(15, 118, 110, 0.1)); color: var(--primary, #0f766e); direction: ltr; }
+    .ai-rev-chip-bad { background: rgba(220, 38, 38, 0.12); color: #b91c1c; }
+    .ai-rev-muted { font-size: 0.78rem; color: var(--text-muted); }
+    .ai-rev-cards { margin: 0.2rem 0 0.4rem 1.1rem; padding: 0; font-size: 0.84rem; }
+    .ai-rev-verdict { font-size: 0.82rem; margin: 0.2rem 0 0.4rem 0; }
+    .ai-rev-good { color: #15803d; }
+    .ai-rev-bad { color: #b91c1c; }
+    .ai-rev-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .ai-rev-actions a.btn { text-decoration: none; }
     .msg-note { margin: 0 0 0.85rem; color: var(--text-muted); font-size: 0.88rem; line-height: 1.55; }
     .msg-platforms { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.6rem; }
     .msg-code { border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.8rem; margin-bottom: 0.8rem; font-size: 0.88rem; }

@@ -2634,6 +2634,19 @@
         <p id="ai-guard-approvers" style="font-size:0.82rem; color:var(--text-muted); margin:0.5rem 0 0;"></p>
       </div>
 
+      <div id="ai-review-section" style="display:none; margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;" data-i18n="aiRevTitle">AI review</h2>
+        <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="aiRevDesc">About one turn in ten of your team's conversations with the assistant is kept here, so you can see how it does with your books and mark each one good or needs work. They stay inside your company, only you can see them, and they go when the conversation is deleted or after 90 days.</p>
+        <label style="display:inline-flex; gap:0.45rem; align-items:center; font-size:0.88rem;"><input type="checkbox" id="ai-rev-enabled"> <span data-i18n="aiRevEnabled">Keep 1 in 10 turns for review</span></label>
+        <div id="ai-rev-tabs" style="display:flex; gap:0.4rem; flex-wrap:wrap; margin:0.7rem 0;">
+          <button type="button" class="btn btn-secondary btn-sm ai-rev-tab" data-status="new"></button>
+          <button type="button" class="btn btn-secondary btn-sm ai-rev-tab" data-status="bad"></button>
+          <button type="button" class="btn btn-secondary btn-sm ai-rev-tab" data-status="good"></button>
+          <button type="button" class="btn btn-secondary btn-sm ai-rev-tab" data-status="all"></button>
+        </div>
+        <div id="ai-rev-list"></div>
+      </div>
+
       <div id="msg-bots-card" style="display:none; margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
         <h2 style="margin-bottom:0.5rem;" data-i18n="msgBotsTitle">Messenger bots</h2>
         <p class="fx-hint" data-i18n="msgBotsIntro">Create a bot with @BotFather (Telegram) or @botfather in Bale, paste its token here and connect: the platform then sends the bot's messages to this server. Users link their own chats from the account menu.</p>
@@ -2810,6 +2823,7 @@
           <th data-i18n="companiesLoginUser">Login</th>
           <th data-i18n="companiesStatus">Status</th>
           <th data-i18n="companiesAi">AI · 24 h</th>
+          <th data-i18n="companiesAiReview">AI review</th>
           <th data-i18n="companiesActions">Actions</th>
         </tr></thead>
         <tbody id="companies-tbody"></tbody>

@@ -38,7 +38,7 @@ def test_jobs_run_per_active_company_and_daily_ones_only_once(two_companies, mon
 
     now = datetime(2026, 9, 24, 9, 0)  # after the default digest hour (8)
     ran = sched.run_pending_jobs(now)
-    assert ran == ["recurring_run_due", "notifications_refresh", "daily_digest", "recurring_invoices", "invoice_reminders"]
+    assert ran == ["recurring_run_due", "ai_review_purge", "notifications_refresh", "daily_digest", "recurring_invoices", "invoice_reminders"]
     for key in seen:
         assert set(seen[key]) >= {str(a.id), str(b.id)}, key
         assert str(s.id) not in seen[key], key  # suspended tenants are left alone

@@ -390,8 +390,20 @@ compares models (`scripts/model_eval.py` keeps the OCR bench). The first replay
 found the statement-review button's own message refusing its cards: the
 statement's UUID digits counted as "source amounts", so every row card was
 `amount_mismatch` — identifiers are no longer amounts, and a card that settles
-a statement row is checked against that row. Left in 5.5: sampling production
-turns into a review queue.
+a statement row is checked against that row.
+
+✅ 5.5, part 2 — the review queue (`app/services/ai_review.py`, migration 058):
+about one assistant turn in ten, web chat and the Telegram/Bale bots, is kept
+as a snapshot (question, answer, each tool call with its input and whether it
+worked, the cards, model, latency). Settings → AI review lists them for the
+owner (`Perm.AI_REVIEW`, owner-only): good / needs work with a note, back to the
+queue, discard, or download as a draft eval scenario (a good turn's trajectory
+becomes the replay; the format drops into `scenarios.json` after adapting names
+and ids). Privacy: samples never leave the company — the platform console shows
+counts per verdict and model, never text; a sample cascades with its
+conversation, the daily `ai_review_purge` job drops it after 90 days, the owner
+can switch sampling off, personal tenants are never sampled, and the users who
+chat are told (release note). §5.5 done.
 
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
@@ -547,7 +559,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 5.2 | **Anomaly detection as insights**: duplicate supplier payment, payment just under an approval threshold, new vendor + large first payment, round-amount weekend entries, expense category drift, entity with sudden reversal pattern | industry-standard agent capability; `insight_service` has the hook points |
 | 5.3 | **13-week cash forecast that learns**: recurring rules + open AR/AP + payroll dates + commitments → scenario ("what if the Mellat cheque bounces"); expose as a tool and on the dashboard | dashboard forecast today is a moving average |
 | 5.4 | **Correction memory**: when the user edits a proposed category/entity, store the (description pattern → account/entity) preference per company and feed it to `search_accounts`/`find_entity` and statement categorisation | QuickBooks-style learning; cuts repeat questions |
-| 5.5 | ✅ part 1 (2026-09-28) **Evaluation harness**: turn `scripts/model_eval.py` into a CI-able eval set (fa/en scenarios, expected tool trajectory + card contents), run nightly against the configured model, alert on regressions; sample 10 % of prod turns into an offline review queue (no PII beyond the tenant) | model/prompt changes are only checked by hand today |
+| 5.5 | ✅ (2026-09-28/29) **Evaluation harness**: turn `scripts/model_eval.py` into a CI-able eval set (fa/en scenarios, expected tool trajectory + card contents), run nightly against the configured model, alert on regressions; sample 10 % of prod turns into an offline review queue (no PII beyond the tenant) | model/prompt changes are only checked by hand today |
 | 5.6 | ✅ **Guardrails** (2026-09-28): max proposal amount vs source amounts already exists — add per-company confirm thresholds (two-person approval above X), refuse to post into closed periods from chat (server-side), tool-call budget per turn | agent safety |
 | 5.7 | **Voice notes** (Persian speech-to-text via Metis) into the chat; **WhatsApp/Telegram inbound bot** for personal tenants ("۵۰ هزار نان") | the daily-diary use case lives in messengers |
 

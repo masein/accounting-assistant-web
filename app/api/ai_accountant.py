@@ -16,11 +16,12 @@ separate module wired in via the orchestrator (next chunk of work).
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from uuid import UUID
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -429,6 +430,7 @@ async def chat(
             return _deterministic_turn(db, user, payload, stmt_turn.text, intake=stmt_turn.intake)
         ocr_context, ocr_amounts = await _build_ocr_context(db, ocr_ids)
     ocr_context = (ocr_context or "") + intake_context
+    turn_started = time.perf_counter()
     try:
         result = await run_chat_turn(
             db,
@@ -475,6 +477,12 @@ async def chat(
                 else "👉 Click Confirm on the card below to record this row (or Cancel to skip it)."
             )
             result.text = ((result.text or "").rstrip() + "\n\n" + hint).strip()
+    # about one turn in ten, for the owner's review queue (roadmap §5.5)
+    from app.services import ai_review
+    ai_review.maybe_sample(db, result, user_id=user.user_id, username=user.username, message=payload.message,
+                           lang=_user_language(db, user), channel="web",
+                           latency_ms=int((time.perf_counter() - turn_started) * 1000),
+                           personal=user.role == Role.PERSONAL)
     return ChatResponse(
         session_id=result.session_id,
         text=result.text,
@@ -751,6 +759,79 @@ def save_guardrails(payload: GuardrailsUpdate, db: Session = Depends(get_db),
                     detail=json.dumps({"from": before["approval_threshold"], "to": out["approval_threshold"]}))
     db.commit()
     return {**out, "approvers": guardrails.approvers(db)}
+
+
+# --- the review queue (roadmap §5.5): owner only ----------------------------------------------------------------
+
+class ReviewUpdate(BaseModel):
+    verdict: str | None = Field(default=None, description="good | bad | null (back to the queue)")
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class ReviewSettingsUpdate(BaseModel):
+    enabled: bool
+
+
+def _sample_or_404(db: Session, sample_id: str):
+    from app.services import ai_review
+    s = ai_review.get_sample(db, sample_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="Review sample not found.")
+    return s
+
+
+@router.get("/review-samples")
+def list_review_samples(status: str = Query("new", pattern="^(new|good|bad|all)$"),
+                        limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
+                        db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    from app.services import ai_review
+    return ai_review.list_samples(db, status=status, limit=limit, offset=offset)
+
+
+@router.patch("/review-samples/{sample_id}")
+def review_sample(sample_id: str, payload: ReviewUpdate, db: Session = Depends(get_db),
+                  user: SessionUser = Depends(get_current_user)) -> dict:
+    from app.services import ai_review
+    s = _sample_or_404(db, sample_id)
+    try:
+        ai_review.review(db, s, verdict=payload.verdict, note=payload.note, reviewer=user.username)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    db.commit()
+    return {"sample": ai_review.to_dict(s), "counts": ai_review.counts(db)}
+
+
+@router.delete("/review-samples/{sample_id}")
+def discard_review_sample(sample_id: str, db: Session = Depends(get_db),
+                          user: SessionUser = Depends(get_current_user)) -> dict:
+    from app.services import ai_review
+    db.delete(_sample_or_404(db, sample_id))
+    db.commit()
+    return {"deleted": True, "counts": ai_review.counts(db)}
+
+
+@router.get("/review-samples/{sample_id}/scenario")
+def review_sample_as_scenario(sample_id: str, db: Session = Depends(get_db),
+                              user: SessionUser = Depends(get_current_user)):
+    from fastapi.responses import JSONResponse
+
+    from app.services import ai_review
+    s = _sample_or_404(db, sample_id)
+    body = ai_review.as_scenario(s)
+    return JSONResponse(body, headers={"Content-Disposition": f'attachment; filename="{body["id"]}.json"'})
+
+
+@router.put("/review-settings")
+def save_review_settings(payload: ReviewSettingsUpdate, db: Session = Depends(get_db),
+                         user: SessionUser = Depends(get_current_user)) -> dict:
+    from app.services import ai_review
+    before = ai_review.get_settings(db)["enabled"]
+    out = ai_review.save_settings(db, enabled=payload.enabled)
+    log_audit_event(db, action="update", entity_type="ai_review", entity_id="enabled",
+                    user_id=user.user_id, username=user.username,
+                    detail=json.dumps({"from": before, "to": out["enabled"]}))
+    db.commit()
+    return out
 
 
 @router.get("/approvals")

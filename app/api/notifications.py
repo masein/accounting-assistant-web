@@ -235,8 +235,11 @@ def mark_read(
     db: Session = Depends(get_db),
     user: SessionUser = Depends(get_current_user),
 ) -> dict:
+    from app.services.notification_service import visible_to
     row = db.get(Notification, notification_id)
-    if row is None:
+    # only one the caller can see — an employee used to be able to mark an
+    # owner-only alert read, and read is shared, so it lost its badge for everyone
+    if row is None or not visible_to(row, user_id=user.user_id, role=(user.role or "owner").lower()):
         raise HTTPException(status_code=404, detail="Notification not found")
     row.read_at = _dt.now(_tz.utc)
     db.commit()

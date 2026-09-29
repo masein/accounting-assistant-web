@@ -455,6 +455,24 @@ negative, totals bold, the equity statement as its matrix. Two buttons on
 Manager reports; readers of the reports may export. `render_pdf(cover=,
 extra_html=)` and `month_range` are there for the close pack, the last of 4.9.
 
+✅ 4.9, part 3 — the monthly close pack (`app/services/reporting/close_pack.py`):
+`GET /manager-reports/close-pack?month=YYYY-MM[&format=zip|pdf|xlsx]` (the month
+in the company's calendar — `1405-06` is Shahrivar; default last month) is one
+ZIP: `close-pack-<month>.pdf` (a cover with the close checklist, the month's
+statements, the trial balance with opening / debit / credit / closing, AR and AP
+aging at month end by party and bucket, the bank reconciliation per statement
+and its unmatched lines, budget vs actual), the same as a workbook (the
+checklist first), and `journal-<month>.csv` (every line, with the Jalali date
+for an Iranian company). `GET …/close-pack/checklist` answers first: debits =
+credits, bank lines matched, no draft invoices, the pay run posted (or none
+while people are on payroll), depreciation run, no entry waiting for a rate,
+books locked — each done / needs attention / for information, in Persian or
+English. A panel at the foot of Manager reports shows it and downloads the pack.
+Found on the way: every PDF's `font-family` had been autoescaped (`&#39;`) and
+dropped, so invoices, payslips and statements printed in the fallback serif —
+now Noto Sans / Noto Naskh Arabic. The statement PDF prints wide tables (the
+equity matrix) landscape, and Persian labels' ISO dates in Jalali. **4.9 done.**
+
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
 hash; the runtime lock constrains the other two). The Dockerfile and every CI
@@ -596,7 +614,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 4.6 | **Multi-currency close**: unrealised FX revaluation exists; add realised gain/loss on settlement, rate feed (manual today, XE-style hourly for GBP/EUR/USD, a gold-price feed for personal holdings) — ✅ feeds + per-company rates 2026-09-28; realised gain/loss open | Xero parity; personal tenants hold gold/FX |
 | 4.7 | ✅ (2026-09-29) **Budgets**: edit route, Jalali months, per-project budgets, roll-forward | `budgets.py` has no PATCH |
 | 4.8 | ✅ (2026-09-29) **Purchase orders**: cancel/delete, partial receipts to bills, supplier price history | `purchase_orders.py` |
-| 4.9 | **Documents**: statements of account e-mailed to clients, payslips e-mailed to employees, PDF/XLSX export of financial statements (server side), a "monthly close pack" zip | mail service exists but sends nothing to parties |
+| 4.9 | ✅ (2026-09-29) **Documents**: statements of account e-mailed to clients, payslips e-mailed to employees, PDF/XLSX export of financial statements (server side), a "monthly close pack" zip | mail service exists but sends nothing to parties |
 | 4.10 | **Mobile**: PWA (manifest + offline shell), camera receipt capture straight into the chat, bell push via Web Push; later native | competitors all have apps; ours is responsive only |
 | 4.11 | **Migration importers**: Hesabfa/Holoo/Sepidar exports, Xero/QuickBooks CSV, historical transactions (not just opening balances) | switching cost is the main sales objection |
 | 4.12 | **Personal mode**: installment/loan schedules with reminders, shared household tenants, savings goals, gold/FX valuation from a feed, monthly report card | matches the Iranian personal-finance apps (بانک، محک، فانوس) |

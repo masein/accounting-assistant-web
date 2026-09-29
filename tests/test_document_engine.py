@@ -165,3 +165,52 @@ def test_invoice_pdf_bytes_render(Session):
     assert pdf[:5] == b"%PDF-"
     assert len(pdf) > 2000
     db.close()
+
+
+def _pdf_fonts(pdf: bytes) -> set[str]:
+    """The base font names a PDF embeds, without the subset prefix ("ABCDEF+")."""
+    import io
+
+    from pypdf import PdfReader
+    out = set()
+    for page in PdfReader(io.BytesIO(pdf)).pages:
+        fonts = (page.get("/Resources") or {}).get("/Font") or {}
+        for ref in fonts.values():
+            out.add(str(ref.get_object()["/BaseFont"]).lstrip("/").split("+")[-1])
+    return out
+
+
+def test_the_font_stack_reaches_the_css():
+    """Autoescaping turned the stack's quotes into &#39; — which a <style>
+    block doesn't decode — so WeasyPrint dropped every font-family rule and
+    every document fell back to its default serif."""
+    import re
+    from pathlib import Path
+
+    from app.services.documents.branding import _FONT_LTR, _FONT_RTL
+    from app.services.documents.engine import render_html
+    for tpl in Path("app/services/documents/templates").glob("*.html"):
+        src = tpl.read_text(encoding="utf-8")
+        assert not re.search(r"\{\{\s*font_family\s*\}\}", src), tpl.name          # always "| safe"
+    ctx = {"rtl": True, "dir": "rtl", "lang": "fa", "brand": {"issuer": {"name": "X", "logo": None}},
+           "brand_color": "#0f766e", "font_family": _FONT_RTL, "words": {"page": "صفحه"}, "cover": None,
+           "extra_html": "", "amounts_in": "", "prepared": "", "tables": []}
+    html = render_html(ctx, "statements.html")
+    assert f"font-family: {_FONT_RTL};" in html and "&#39;" not in html[:html.index("</style>")]
+    assert "'" in _FONT_LTR                                                         # the stack does quote names
+
+
+def test_invoices_are_set_in_the_brand_font(Session):
+    try:
+        import weasyprint  # noqa: F401
+    except Exception as e:  # noqa: BLE001
+        pytest.skip(f"weasyprint unavailable: {e}")
+    from app.services.documents import render_invoice_pdf
+    db = Session()
+    for locale, ccy, slug, family in (("uk", "GBP", "font-uk", "NotoSans"), ("ir", "IRR", "font-ir", "NotoNaskhArabic")):
+        company = _company(db, locale, ccy, slug)
+        inv, client = _seed_invoice(db, company)
+        with use_company(company.id):
+            fonts = _pdf_fonts(render_invoice_pdf(db, inv, client))
+        assert any(f.replace("-", "").startswith(family) for f in fonts), (locale, fonts)
+    db.close()

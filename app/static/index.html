@@ -1327,6 +1327,22 @@
       </div>
     </div>
 
+    <div class="card" data-page="manager" id="close-pack-card">
+      <h2 data-i18n="closePackTitle">Monthly close pack</h2>
+      <p class="close-pack-hint" data-i18n="closePackHint">One month's checklist, statements, trial balance, aging, bank reconciliation and budgets — a ZIP to keep or send to your accountant or auditor.</p>
+      <div class="close-pack-bar">
+        <div>
+          <label for="close-pack-month" data-i18n="closePackMonth">Month</label>
+          <select id="close-pack-month"></select>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="close-pack-zip" data-i18n="closePackZip">Download pack (ZIP)</button>
+        <button type="button" class="btn btn-secondary btn-sm close-pack-file" data-format="pdf" data-i18n="closePackPdf">PDF only</button>
+        <button type="button" class="btn btn-secondary btn-sm close-pack-file" data-format="xlsx" data-i18n="closePackXlsx">Excel only</button>
+      </div>
+      <p id="close-pack-summary" class="close-pack-summary" aria-live="polite"></p>
+      <ul id="close-pack-checklist" class="close-checklist"></ul>
+    </div>
+
     <div class="card" data-page="inventory">
       <h2 id="inventory-title" data-i18n="inventoryTitle">Inventory operations</h2>
       <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 1rem 0;">

@@ -19,7 +19,7 @@
       if (page === 'cfo') { loadCFOReport(); }
       if (page === 'ceo') { loadCEOReport(); }
       if (page === 'inventory') { loadPriceMgmtItems(); loadStockPanel(); loadManagerInventoryItems(); }
-      if (page === 'manager') { loadAccountDatalist(); loadProductEntityDatalist(); }
+      if (page === 'manager') { loadAccountDatalist(); loadProductEntityDatalist(); loadClosePack(); }
       if (page === 'products') { loadProductsCatalog(); }
       if (page === 'payroll') { loadPayroll(); }
       if (page === 'equity') { loadEquity(); }

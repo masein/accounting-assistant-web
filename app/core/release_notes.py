@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.4"
+CURRENT_RELEASE = "2026.09.29.5"
 
 
 @dataclass(frozen=True)
@@ -1205,6 +1205,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "در گزارش‌های مدیریتی دو دکمه تازه هست: «همه صورت‌ها (PDF)» و «همه صورت‌ها (اکسل)». مجموعه کامل — صورت وضعیت مالی، سود و زیان، سود و زیان جامع، تغییرات در حقوق مالکانه و جریان‌های نقدی — برای بازه و ارزی که انتخاب کرده‌اید، با سربرگ شرکت ساخته می‌شود؛ به فارسی و با تاریخ شمسی. در اکسل اعداد، عدد واقعی‌اند و قابل جمع زدن.",
                     "es": "Informes de gestión tiene dos botones nuevos: Todos los estados (PDF) y Todos los estados (Excel). Generan el juego completo —balance, cuenta de resultados, resultado integral, cambios en el patrimonio y flujos de efectivo— para las fechas y la moneda elegidas, con tu membrete. En Excel las cifras son números reales que puedes sumar.",
                     "ar": "في تقارير الإدارة زرّان جديدان: «كل القوائم (PDF)» و«كل القوائم (Excel)». يُنشئان المجموعة الكاملة — المركز المالي، والدخل، والدخل الشامل، والتغيرات في حقوق الملكية، والتدفقات النقدية — للفترة والعملة المختارتين، على ترويسة شركتك. وفي Excel تبقى الأرقام أرقامًا حقيقية يمكن جمعها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.5",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="close-pack",
+                page="manager",
+                roles=("owner", "cfo", "accountant", "viewer"),
+                title={
+                    "en": "The monthly close pack",
+                    "fa": "بسته بستن ماه",
+                    "es": "El paquete de cierre mensual",
+                    "ar": "حزمة إقفال الشهر",
+                },
+                body={
+                    "en": "At the bottom of Manager reports, pick a month to see what's still open — unmatched bank lines, draft invoices, a pay run not posted, depreciation not run, entries waiting for a rate. Then download the pack: one ZIP with a PDF and an Excel file (the checklist, the statements, trial balance, receivables and payables aging, bank reconciliation, budget vs actual) and the month's journal as CSV. Invoices and other PDFs are now set in the proper font, too.",
+                    "fa": "پایین صفحه گزارش‌های مدیریتی، ماهی را انتخاب کنید تا ببینید چه کارهایی مانده است — ردیف‌های بانکی تطبیق‌نشده، فاکتورهای پیش‌نویس، حقوقِ ثبت‌نشده، استهلاکِ اجرانشده، اسنادِ منتظر نرخ ارز. سپس بسته را دریافت کنید: یک فایل ZIP با PDF و اکسل (فهرست بررسی، صورت‌های مالی، تراز آزمایشی، سنی مطالبات و بدهی‌ها، مغایرت بانکی، بودجه و عملکرد) و دفتر روزنامه ماه به صورت CSV. فاکتورها و دیگر PDFها هم اکنون با قلم درست چاپ می‌شوند.",
+                    "es": "Al final de Informes de gestión, elige un mes para ver qué queda pendiente: líneas bancarias sin conciliar, facturas en borrador, una nómina sin registrar, amortización sin ejecutar, asientos sin tipo de cambio. Luego descarga el paquete: un ZIP con un PDF y un Excel (la lista, los estados, el balance de comprobación, la antigüedad de cobros y pagos, la conciliación bancaria, presupuesto frente a real) y el diario del mes en CSV. Las facturas y demás PDF ya usan la fuente correcta.",
+                    "ar": "في أسفل تقارير الإدارة، اختر شهرًا لترى ما بقي مفتوحًا — سطور بنكية غير مطابقة، فواتير مسودة، رواتب غير مرحّلة، إهلاك لم يُشغَّل، قيود تنتظر سعر صرف. ثم نزّل الحزمة: ملف ZIP فيه PDF وExcel (القائمة، والقوائم المالية، وميزان المراجعة، وأعمار الذمم المدينة والدائنة، والتسوية البنكية، والموازنة مقابل الفعلي) ودفتر يومية الشهر بصيغة CSV. وصارت الفواتير وسائر ملفات PDF تُطبع بالخط الصحيح أيضًا.",
                 },
             ),
         ),

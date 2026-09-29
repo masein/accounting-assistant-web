@@ -1478,6 +1478,13 @@
         entStatementEmailNotSent: "The statement wasn't delivered: {reason}",
         mgrStatementsPdf: "All statements (PDF)",
         mgrStatementsXlsx: "All statements (Excel)",
+        closePackTitle: "Monthly close pack",
+        closePackHint: "One month's checklist, statements, trial balance, aging, bank reconciliation and budgets — a ZIP to keep or send to your accountant or auditor.",
+        closePackMonth: "Month",
+        closePackZip: "Download pack (ZIP)",
+        closePackPdf: "PDF only",
+        closePackXlsx: "Excel only",
+        closePackFailed: "Couldn't load the close checklist.",
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",
@@ -2677,6 +2684,7 @@
         if (typeof window.aiRelocalize === 'function') window.aiRelocalize();
         // the manager report on screen: chart titles, legends, statement row labels
         if (typeof mgrRelocalize === 'function') mgrRelocalize();
+        if (typeof loadClosePack === 'function' && document.querySelector('#close-pack-checklist li')) loadClosePack();
         if (typeof applyCalendarMonthPickers === 'function') applyCalendarMonthPickers();   // month names
         if (typeof loadBudgets === 'function' && document.querySelector('#budget-wrap table, #budget-wrap .empty-state')) loadBudgets();
         if (typeof loadCommitments === 'function' && document.querySelector('#cm-rows tr')) loadCommitments();

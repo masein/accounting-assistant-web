@@ -1494,6 +1494,36 @@
         payrollYearEndRun: "Year end {year}",
         payrollYearEndLine: "Eidi {eidi} · Sanavat {sanavat} · {days} days",
         payrollYearEndFailed: "Couldn't calculate the year-end pay.",
+        rcTitle: "Monthly report card",
+        rcIncome: "Income",
+        rcSpending: "Spending",
+        rcSaved: "Saved",
+        rcRate: "Savings rate",
+        rcLastMonth: "last month {v}",
+        rcAverage: "3-month average {v}",
+        rcTopCategories: "Where it went",
+        rcBiggestRise: "{cat} rose the most: {v} on last month.",
+        rcNetWorth: "Net worth {v} this month, now {end}.",
+        rcFailed: "Couldn't load the report card.",
+        goalsTitle: "Savings goals",
+        goalsEmpty: "No goals yet — add one below.",
+        goalAdd: "Add a goal",
+        goalName: "Goal",
+        goalAccount: "Saved in",
+        goalTarget: "Target",
+        goalDate: "By (optional)",
+        goalSave: "Save goal",
+        goalSaved: "Goal saved.",
+        goalFailed: "Couldn't save the goal.",
+        goalMissing: "Name the goal, pick the account and set a target.",
+        goalDelete: "Delete goal",
+        goalDeleteConfirm: "Delete this goal? The money in the account stays where it is.",
+        goalReached: "Reached",
+        goalOnTrack: "On track",
+        goalBehind: "Behind",
+        goalProgress: "{v} of {target}",
+        goalNeeded: "{v} a month to reach it by {date}",
+        goalPace: "saving {v} a month lately",
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",
@@ -2694,6 +2724,8 @@
         // the manager report on screen: chart titles, legends, statement row labels
         if (typeof mgrRelocalize === 'function') mgrRelocalize();
         if (typeof loadClosePack === 'function' && document.querySelector('#close-pack-checklist li')) loadClosePack();
+        if (typeof loadReportCard === 'function' && document.querySelector('#rc-checks li')) loadReportCard();
+        if (typeof loadGoals === 'function' && document.querySelector('#goals-list .goal, #goals-list .empty-state')) loadGoals();
         if (typeof applyCalendarMonthPickers === 'function') applyCalendarMonthPickers();   // month names
         if (typeof loadBudgets === 'function' && document.querySelector('#budget-wrap table, #budget-wrap .empty-state')) loadBudgets();
         if (typeof loadCommitments === 'function' && document.querySelector('#cm-rows tr')) loadCommitments();

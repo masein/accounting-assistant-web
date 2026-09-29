@@ -120,7 +120,8 @@ def test_whats_new_for_role_and_last_seen():
     emp = rn.whats_new_for("employee", None, include_all=True)
     assert {h["key"] for r in emp["releases"] for h in r["highlights"]} == {"whats-new", "two-factor",
                                                                           "push-notifications",
-                                                                          "language-switch"}
+                                                                          "language-switch",
+                                                                          "persian-file-names"}
 
     # include_all lists history regardless of what was seen.
     everything = rn.whats_new_for("owner", rn.CURRENT_RELEASE, include_all=True)

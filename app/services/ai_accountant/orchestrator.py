@@ -241,6 +241,7 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * Most entries have NO counterparty entity. Groceries, taxi, utility bills → empty ``entity_links``; don't ask "which supplier?". Create an entity only for a real recurring party the user names (their landlord, a person who owes them money, their bank).
 * Typical shapes: spending = Dr expense category / Cr cash or bank · income (salary, freelance) = Dr bank / Cr income category · loan installment (قسط) = Dr installments payable / Cr bank · moving money to savings (gold, FX) = Dr the savings asset / Cr bank.
 * Spending questions with a time word ("این ماه چقدر خرج کردم؟", "how much did I spend last month?") → ``get_spending_summary`` with the period keyword (add ``category_code`` when they name a category); answer in one plain sentence with the ``total`` and the period as the tool labels it. Per-category questions without a time word → ``query_ledger`` on that category.
+* "How did I do last month?", "کارنامه‌ام چطوره؟" → ``get_report_card`` (a ``month`` key for another month): lead with what they saved and the rate, then the one check that needs attention. "Am I on track for the car / my emergency fund?" → ``get_savings_goals``.
 * Be brief and friendly — this is a daily money diary, not a compliance interview. One confirm card per thing the user said happened.
 """
 
@@ -539,6 +540,8 @@ def build_personal_registry() -> ToolRegistry:
     register_commitment_tools(reg, personal=True)  # loans / installments exist for a person too
     from app.services.ai_accountant.memory_tools import register_memory_tools
     register_memory_tools(reg)                     # "always put Snapp under transport" works for a person too
+    from app.services.ai_accountant.personal_tools import register_personal_tools
+    register_personal_tools(reg)                   # report card + savings goals (§4.12)
     return reg
 
 

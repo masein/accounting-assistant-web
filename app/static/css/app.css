@@ -142,6 +142,32 @@
       font-size: 0.82rem;
       font-weight: 500;
     }
+    .rc-head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .rc-head h3 { margin: 0; }
+    .rc-head select { width: auto; min-width: 10rem; margin: 0; }
+    .rc-note { color: #b45309; font-size: 0.85rem; margin: 0.4rem 0 0; }
+    .rc-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; margin: 0.75rem 0; }
+    .rc-fig { border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.7rem; background: #fff; }
+    .rc-fig .lbl { color: var(--text-muted); font-size: 0.78rem; font-weight: 600; }
+    .rc-fig .val { font-size: 1.15rem; font-weight: 700; margin-top: 0.15rem; }
+    .rc-fig .sub { color: var(--text-muted); font-size: 0.78rem; }
+    .rc-fig.good .val { color: var(--success); }
+    .rc-fig.bad .val { color: var(--danger); }
+    .rc-details { margin-top: 0.75rem; font-size: 0.88rem; }
+    .rc-details p { margin: 0.35rem 0; }
+    .goal { padding: 0.55rem 0; border-bottom: 1px solid var(--border); }
+    .goal:last-child { border-bottom: 0; }
+    .goal-top { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
+    .goal-name { font-weight: 600; }
+    .goal-bar { height: 8px; border-radius: 6px; background: #e2e8f0; overflow: hidden; margin: 0.35rem 0; }
+    .goal-bar > span { display: block; height: 100%; background: var(--primary); }
+    .goal.reached .goal-bar > span { background: var(--success); }
+    .goal-meta { color: var(--text-muted); font-size: 0.8rem; }
+    .goal-badge { font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px; background: #e2e8f0; }
+    .goal-badge.ok { background: var(--success-bg); color: var(--success); }
+    .goal-badge.warn { background: #fef3c7; color: #b45309; }
+    .goal-add { margin-top: 0.6rem; }
+    .goal-add summary { cursor: pointer; font-weight: 600; color: var(--primary); }
     .close-pack-hint { color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0; }
     .close-pack-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem; }
     .close-pack-bar select { min-width: 12rem; margin: 0; }

@@ -155,3 +155,105 @@ def net_worth(
         trend=[{"period": p, "value": v} for p, v in nw.trend],
         missing_rates=sorted(set(nw.missing_rates)),
     )
+
+
+# --- savings goals and the monthly report card (roadmap §4.12) ---------------------------------------------------
+
+class GoalCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+    account_code: str = Field(..., min_length=1, max_length=64, description="The asset account the money is saved in")
+    target_amount: int = Field(..., gt=0)
+    target_date: date | None = None
+
+
+class GoalUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=128)
+    account_code: str | None = Field(None, min_length=1, max_length=64)
+    target_amount: int | None = Field(None, gt=0)
+    target_date: date | None = None
+    clear_target_date: bool = False
+    archived: bool | None = None
+
+
+def _goal_or_404(db: Session, goal_id: UUID):
+    from app.models.savings_goal import SavingsGoal
+    g = db.get(SavingsGoal, goal_id)
+    if g is None:
+        raise HTTPException(status_code=404, detail="Goal not found.")
+    return g
+
+
+def _goal_read(db: Session, g) -> dict:
+    from app.services.personal_goals import progress
+    return progress(db, [g])[0]
+
+
+@router.get("/goals")
+def list_goals(include_archived: bool = Query(False), db: Session = Depends(get_db)) -> list[dict]:
+    """Each goal with its progress: saved so far, what's left, what each month still needs, on track or not."""
+    from app.services.personal_goals import list_goals as _list
+    return _list(db, include_archived=include_archived)
+
+
+@router.post("/goals", status_code=201)
+def create_goal(payload: GoalCreate, db: Session = Depends(get_db)) -> dict:
+    from app.models.savings_goal import SavingsGoal
+    from app.services.personal_goals import GoalError, check
+    try:
+        acc = check(db, name=payload.name, account_code=payload.account_code, target_amount=payload.target_amount)
+    except GoalError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    g = SavingsGoal(name=payload.name.strip(), account_code=acc.code, target_amount=payload.target_amount,
+                    target_date=payload.target_date)
+    db.add(g)
+    db.commit()
+    db.refresh(g)
+    return _goal_read(db, g)
+
+
+@router.patch("/goals/{goal_id}")
+def update_goal(goal_id: UUID, payload: GoalUpdate, db: Session = Depends(get_db)) -> dict:
+    from app.services.personal_goals import GoalError, check
+    g = _goal_or_404(db, goal_id)
+    name = payload.name if payload.name is not None else g.name
+    code = payload.account_code if payload.account_code is not None else g.account_code
+    target = payload.target_amount if payload.target_amount is not None else g.target_amount
+    try:
+        check(db, name=name, account_code=code, target_amount=target)       # before touching the row
+    except GoalError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    g.name, g.account_code, g.target_amount = name.strip(), code.strip(), target
+    if payload.clear_target_date:
+        g.target_date = None
+    elif payload.target_date is not None:
+        g.target_date = payload.target_date
+    if payload.archived is not None:
+        g.archived = payload.archived
+    db.commit()
+    db.refresh(g)
+    return _goal_read(db, g)
+
+
+@router.delete("/goals/{goal_id}", status_code=204)
+def delete_goal(goal_id: UUID, db: Session = Depends(get_db)) -> None:
+    g = _goal_or_404(db, goal_id)
+    db.delete(g)
+    db.commit()
+
+
+@router.get("/report-card")
+def report_card(
+    month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM in the company's calendar; default last month"),
+    lang: str | None = Query(None, pattern="^(fa|en)$"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """The month in a page: income, spending, saved, the checks, categories, budgets, net worth, goals."""
+    from app.services.calendar_periods import company_calendar, last_n_months
+    from app.services.report_card import report_card as _card
+    try:
+        out = _card(db, month, lang=lang)
+    except (ValueError, KeyError):
+        raise HTTPException(status_code=422, detail=f"'{month}' isn't a month (YYYY-MM).")
+    out["months"] = [{"key": p.key, "label": p.label}
+                     for p in reversed(last_n_months(date.today(), 12, company_calendar(db), out["lang"]))]
+    return out

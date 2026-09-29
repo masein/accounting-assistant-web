@@ -1021,9 +1021,33 @@
       <p data-i18n="pdSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Where your money went, month by month — categories, trends, and budgets.</p>
       <div id="pd-kpi-grid" class="kpi-grid"></div>
       <div class="dashboard-grid">
+        <div class="panel panel-wide" id="pd-report-card">
+          <div class="rc-head">
+            <h3 data-i18n="rcTitle">Monthly report card</h3>
+            <select id="rc-month" aria-label="Month" data-i18n-aria-label="labelMonth"></select>
+          </div>
+          <p id="rc-note" class="rc-note" hidden></p>
+          <div id="rc-figures" class="rc-figures"></div>
+          <ul id="rc-checks" class="close-checklist"></ul>
+          <div id="rc-details" class="rc-details"></div>
+        </div>
         <div class="panel">
           <h3 data-i18n="panelInsights">What changed</h3>
           <div id="pd-insights-wrap"></div>
+        </div>
+        <div class="panel" id="pd-goals">
+          <h3 data-i18n="goalsTitle">Savings goals</h3>
+          <div id="goals-list"></div>
+          <details id="goal-add" class="goal-add">
+            <summary data-i18n="goalAdd">Add a goal</summary>
+            <div class="row">
+              <div><label for="goal-name" data-i18n="goalName">Goal</label><input type="text" id="goal-name" maxlength="128"></div>
+              <div><label for="goal-account" data-i18n="goalAccount">Saved in</label><select id="goal-account"></select></div>
+              <div><label for="goal-target" data-i18n="goalTarget">Target</label><input type="number" id="goal-target" min="1" step="1"></div>
+              <div><label for="goal-date" data-i18n="goalDate">By (optional)</label><input type="date" id="goal-date"></div>
+              <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="goal-save" data-i18n="goalSave">Save goal</button></div>
+            </div>
+          </details>
         </div>
         <div class="panel">
           <h3 data-i18n="nwTitle">Net worth</h3>

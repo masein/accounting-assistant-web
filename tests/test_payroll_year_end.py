@@ -151,6 +151,13 @@ def test_post_pay_and_the_payslip(ir, monkeypatch):
         assert rows[1][1] and rows[2][1]                                           # with their amounts
 
 
+def test_rtl_documents_number_their_pages_in_persian():
+    for tpl in ("document.html", "statements.html"):
+        src = open(f"app/services/documents/templates/{tpl}", encoding="utf-8").read()
+        assert "counter(page{{ ', persian' if rtl else '' }})" in src, tpl
+        assert "counter(pages{{ ', persian' if rtl else '' }})" in src, tpl
+
+
 def test_what_a_year_end_run_refuses(ir):
     seed_payroll_rules(ir)
     emp = _profile(ir, "Ali", 200_000_000)

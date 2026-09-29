@@ -161,6 +161,15 @@ def _no_real_ai_calls(monkeypatch):
     monkeypatch.setattr(ai_suggest, "_post_lm_studio", _offline)
 
 
+@pytest.fixture(autouse=True)
+def _no_ai_review_sampling(monkeypatch):
+    """The review queue keeps ~1 chat turn in 10 (app/services/ai_review.py);
+    random samples would leak rows between tests. tests/test_ai_review.py
+    turns it on where it tests it."""
+    from app.services import ai_review
+    monkeypatch.setattr(ai_review, "SAMPLE_RATE", 0.0)
+
+
 @pytest.fixture()
 def db() -> Generator[Session, None, None]:
     session = _TestSession()

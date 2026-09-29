@@ -81,7 +81,7 @@ def test_whats_new_for_role_and_last_seen():
             "per-currency-views", "chat-periods-cash", "balance-sheet-check",
             "payroll-statutory-rules", "ai-invoices-cheques", "quotes", "invoice-email-reminders",
             "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes", "ai-usage",
-            "seasonal-tax-reports", "uk-mtd", "bank-sms", "anomaly-insights", "cash-forecast", "fixed-assets", "inventory-costing", "chart-of-accounts", "installable-app", "push-notifications", "journal-import", "fx-rates", "base-currency-values", "realised-fx", "base-currency-everywhere", "correction-memory", "voice-notes", "messenger-bot", "jalali-reports", "cheque-lifecycle", "cheque-print", "uk-frs102-statements", "ai-approvals", "language-switch", "dashboard-aging-order", "statement-review-cards"} <= all_keys
+            "seasonal-tax-reports", "uk-mtd", "bank-sms", "anomaly-insights", "cash-forecast", "fixed-assets", "inventory-costing", "chart-of-accounts", "installable-app", "push-notifications", "journal-import", "fx-rates", "base-currency-values", "realised-fx", "base-currency-everywhere", "correction-memory", "voice-notes", "messenger-bot", "jalali-reports", "cheque-lifecycle", "cheque-print", "uk-frs102-statements", "ai-approvals", "language-switch", "dashboard-aging-order", "statement-review-cards", "ai-review-queue"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -221,3 +221,13 @@ def test_mtd_note_is_for_uk_books_people():
     assert "uk-mtd" in _keys(rn.whats_new_for("owner", since, locale="uk"))
     assert "uk-mtd" not in _keys(rn.whats_new_for("owner", since, locale="ir"))
     assert "uk-mtd" not in _keys(rn.whats_new_for("employee", since, locale="uk"))
+
+
+def test_the_review_queue_is_announced_to_the_people_it_samples():
+    """The owner gets the feature; the others who chat are told their turns may be kept."""
+    def keys(role):
+        rels = rn.whats_new_for(role, None, include_all=True)["releases"]
+        return {h["key"] for r in rels if r["version"] == "2026.09.29" for h in r["highlights"]}
+    assert keys("owner") == {"ai-review-queue"}
+    assert keys("cfo") == keys("accountant") == {"ai-review-notice"}
+    assert keys("employee") == keys("viewer") == keys("personal") == set()      # not sampled / no chat

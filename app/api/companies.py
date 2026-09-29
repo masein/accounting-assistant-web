@@ -130,6 +130,14 @@ def companies_ai_usage(db: Session = Depends(get_db), _=Depends(require_superadm
     return platform_summary(db)
 
 
+@router.get("/ai-review")
+def companies_ai_review(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> list[dict]:
+    """The review queue per company (roadmap §5.5): turns kept, good, needs
+    work, by model. Counts only — the turns themselves stay with the company."""
+    from app.services.ai_review import platform_stats
+    return platform_stats(db)
+
+
 @router.put("/{company_id}/ai-budget")
 def set_company_ai_budget(company_id: UUID, payload: CompanyAIBudget, db: Session = Depends(get_db),
                           _=Depends(require_superadmin)) -> dict:

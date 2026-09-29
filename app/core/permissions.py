@@ -75,6 +75,9 @@ class Perm:
     # its own capability so the route table states the intent, rather than
     # leaving it to a require_admin stacked on top of a laxer mapping.
     AI_CONFIG = "ai:config"
+    # The AI review queue (roadmap §5.5): other users' chat turns, kept for
+    # review. Owner-only by construction, like AI_CONFIG.
+    AI_REVIEW = "ai:review"
     # Platform-level settings (AI providers, chat shape). Held by NO company
     # role — only the super-admin passes (user_can_access short-circuits on
     # is_superadmin). Excluded from ALL_PERMS below so the owner doesn't get it.
@@ -456,6 +459,12 @@ _add("DELETE", "/ai-accountant/preferences/{pref_id}", Perm.BOOKS_WRITE)
 _add("GET", "/ai-accountant/guardrails", Perm.SETTINGS_READ)
 _add("PUT", "/ai-accountant/guardrails", Perm.SETTINGS_WRITE)
 _add("GET", "/ai-accountant/approvals", Perm.APPROVALS_WRITE)
+_add("GET", "/ai-accountant/review-samples", Perm.AI_REVIEW)
+_add("PATCH", "/ai-accountant/review-samples/{sample_id}", Perm.AI_REVIEW)
+_add("DELETE", "/ai-accountant/review-samples/{sample_id}", Perm.AI_REVIEW)
+_add("GET", "/ai-accountant/review-samples/{sample_id}/scenario", Perm.AI_REVIEW)
+_add("PUT", "/ai-accountant/review-settings", Perm.AI_REVIEW)
+_add("GET", "/admin/companies/ai-review", Perm.PLATFORM_ADMIN)   # counts only, never text
 _add("POST", "/ai-accountant/approvals/{token}/approve", Perm.APPROVALS_WRITE)
 _add("POST", "/ai-accountant/approvals/{token}/reject", Perm.APPROVALS_WRITE)
 

@@ -47,6 +47,13 @@ MATRIX = [
     ("PATCH", "/admin/anthropic-config", set()),
     ("GET", "/admin/chat-provider-shape", set()),
     ("PUT", "/admin/chat-provider-shape", set()),
+    # The AI review queue: other users' chat turns — owner only; the platform sees counts
+    ("GET", "/ai-accountant/review-samples", {O}),
+    ("PATCH", "/ai-accountant/review-samples/00000000-0000-0000-0000-000000000000", {O}),
+    ("DELETE", "/ai-accountant/review-samples/00000000-0000-0000-0000-000000000000", {O}),
+    ("GET", "/ai-accountant/review-samples/00000000-0000-0000-0000-000000000000/scenario", {O}),
+    ("PUT", "/ai-accountant/review-settings", {O}),
+    ("GET", "/admin/companies/ai-review", set()),
     # User management (Owner only)
     ("GET", "/admin/users", {O}),
     ("POST", "/admin/users", {O}),

@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import re
 import secrets
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -498,6 +499,7 @@ async def _run_turn(db: Session, link: MessengerLink, text: str, lang: str, repl
         with _as_user(su):
             from app.services.ai_usage import guard_ai_request
             guard_ai_request(db)
+            started = time.perf_counter()
             result = await run_chat_turn(
                 db, user_id=su.user_id, username=su.username, user_message=text,
                 session_id=str(link.session_id) if link.session_id else None, lang=lang,
@@ -506,6 +508,11 @@ async def _run_turn(db: Session, link: MessengerLink, text: str, lang: str, repl
             link.session_id = uuid.UUID(str(result.session_id)) if result.session_id else link.session_id
             link.last_seen_at = datetime.now(timezone.utc)
             db.commit()
+            # the owner's review queue takes bot turns too (roadmap §5.5)
+            from app.services import ai_review
+            ai_review.maybe_sample(db, result, user_id=su.user_id, username=su.username, message=text, lang=lang,
+                                   channel=link.platform, latency_ms=int((time.perf_counter() - started) * 1000),
+                                   personal=su.role == "personal")
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         from app.services.ai_usage import AIBudgetExceeded, AIRateLimited

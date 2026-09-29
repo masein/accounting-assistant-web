@@ -58,6 +58,10 @@
         const aiRes = await fetch(API + '/admin/companies/ai-usage').catch(() => null);
         const aiRows = aiRes && aiRes.ok ? await aiRes.json().catch(() => []) : [];
         const ai = Object.fromEntries((Array.isArray(aiRows) ? aiRows : []).map(r => [r.company_id, r]));
+        // The review queue per company: counts only — the turns stay with the company.
+        const revRes = await fetch(API + '/admin/companies/ai-review').catch(() => null);
+        const revRows = revRes && revRes.ok ? await revRes.json().catch(() => []) : [];
+        const rev = Object.fromEntries((Array.isArray(revRows) ? revRows : []).map(r => [r.company_id, r]));
         tbody.innerHTML = data.map(c => {
           const suspended = c.status === 'suspended';
           const toggleLabel = suspended ? t('companiesReactivate') : t('companiesSuspend');
@@ -73,6 +77,7 @@
             <td>${escapeHtml(c.login_username || '-')}</td>
             <td>${escapeHtml(suspended ? t('companiesStatusSuspended') : t('companiesStatusActive'))}</td>
             <td dir="ltr">${ai[c.id] ? escapeHtml(aiTokens(ai[c.id].tokens_24h) + ' / ' + (ai[c.id].budget ? aiTokens(ai[c.id].budget) : '∞') + (ai[c.id].budget_is_default ? '' : ' *')) : '—'}</td>
+            <td>${rev[c.id] ? escapeHtml(tf('companiesAiReviewCell', { good: rev[c.id].good, bad: rev[c.id].bad, total: rev[c.id].samples })) : '—'}</td>
             <td>
               <button type="button" class="btn btn-secondary btn-sm co-ai" data-id="${escapeHtml(c.id)}" data-budget="${ai[c.id] && !ai[c.id].budget_is_default ? escapeHtml(String(ai[c.id].budget)) : ''}">${escapeHtml(t('companiesAiBudget'))}</button>
               <button type="button" class="btn btn-secondary btn-sm co-toggle" data-id="${escapeHtml(c.id)}" data-status="${nextStatus}">${escapeHtml(toggleLabel)}</button>

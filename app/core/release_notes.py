@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.1"
+CURRENT_RELEASE = "2026.09.29.2"
 
 
 @dataclass(frozen=True)
@@ -1135,6 +1135,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "«زمان ← پروژه‌ها و بودجه»: برای پروژه بودجه ساعت، حق‌الزحمه یا هر دو بگذارید و ببینید چقدرش مصرف شده — همه ساعت‌های ثبت‌شده و حق‌الزحمه آن‌ها به نرخ صورت‌حساب (یا نرخ امروز برای زمانی که هنوز صورت‌حساب نشده). زنگ اعلان در ۸۵٪ و هنگام عبور از بودجه خبر می‌دهد.",
                     "es": "Tiempo → Proyectos y presupuestos: da a un proyecto un presupuesto en horas, honorarios o ambos y mira cuánto se ha usado: cada hora registrada y los honorarios a la tarifa facturada (o a la de hoy si aún no se ha facturado). La campana avisa al 85 % y cuando un proyecto se pasa.",
                     "ar": "الوقت ← المشاريع والميزانيات: خصّص للمشروع ميزانية بالساعات أو الأتعاب أو كليهما، وشاهد المستخدم منها — كل ساعة مسجلة والأتعاب بسعر الفوترة (أو بسعر اليوم لما لم يُفوتر بعد). ينبّهك الجرس عند 85٪ وعند تجاوز المشروع ميزانيته.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.2",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="po-bills-prices",
+                page="purchase-orders",
+                roles=("owner", "cfo", "accountant"),
+                title={
+                    "en": "Bill a purchase order straight from its deliveries",
+                    "fa": "صدور صورت‌حساب خرید مستقیم از کالای رسیده",
+                    "es": "Factura un pedido de compra directamente desde lo recibido",
+                    "ar": "فوترة أمر الشراء مباشرة مما وصل",
+                },
+                body={
+                    "en": "On a purchase order, Bill what's arrived records the supplier's bill for the goods received and not billed yet — the payable included — and voiding that bill puts them back. Orders can now be issued, closed short when the rest won't come, cancelled if nothing arrived, and drafts deleted. And when you type an item on a new order, you see what you last paid for it, to whom, and the lowest price you've had.",
+                    "fa": "در سفارش خرید، «صدور صورت‌حساب برای رسیده‌ها» صورت‌حساب فروشنده را برای کالای رسیده‌ای که هنوز صورت‌حساب نشده — همراه با بدهی — ثبت می‌کند و ابطال آن صورت‌حساب، آن‌ها را برمی‌گرداند. سفارش‌ها اکنون صادر، در صورت نرسیدن باقی‌مانده بسته، اگر چیزی نرسیده لغو، و پیش‌نویس‌ها حذف می‌شوند. هنگام نوشتن کالا در سفارش تازه هم آخرین قیمت خرید، از چه کسی و کمترین قیمت آن را می‌بینید.",
+                    "es": "En un pedido de compra, Facturar lo recibido registra la factura del proveedor por lo que ha llegado y aún no se ha facturado —con la deuda incluida—, y anular esa factura lo devuelve. Los pedidos ahora se emiten, se cierran si el resto no llegará, se cancelan si no ha llegado nada y los borradores se eliminan. Y al escribir un artículo en un pedido nuevo ves lo último que pagaste, a quién y el precio más bajo que has tenido.",
+                    "ar": "في أمر الشراء، يسجّل «فوترة ما وصل» فاتورة المورّد للبضاعة الواردة غير المفوترة — مع المستحق — وإلغاء تلك الفاتورة يعيدها. يمكن الآن إصدار الأوامر، وإغلاقها إن لم يصل الباقي، وإلغاؤها إن لم يصل شيء، وحذف المسودات. وعند كتابة صنف في أمر جديد ترى آخر سعر دفعته ولمن وأدنى سعر حصلت عليه.",
                 },
             ),
         ),

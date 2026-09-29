@@ -956,9 +956,14 @@ def void_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead
     # (atomic with the reversal) — never orphan or double-bill.
     from app.services.time_billing_service import unbill_for_invoice
     reverted = unbill_for_invoice(db, inv.id)
+    # …and a bill made from a purchase order gives its quantities back (§4.8)
+    from app.services.purchase_billing import unbill_for_invoice as unbill_po
+    po_lines = unbill_po(db, inv.id)
     detail = f"Invoice {inv.number} voided"
     if reverted:
         detail += f"; {reverted} time entr{'y' if reverted == 1 else 'ies'} returned to unbilled"
+    if po_lines:
+        detail += f"; {po_lines} purchase-order line(s) back to unbilled"
     log_audit_event(db, action="update", entity_type="invoice", entity_id=str(inv.id),
                     detail=detail)
     db.commit()

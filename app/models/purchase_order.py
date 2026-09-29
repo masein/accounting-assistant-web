@@ -62,6 +62,9 @@ class PurchaseOrderLine(Base, TenantMixin):
     description: Mapped[str] = mapped_column(String(256))
     ordered_qty: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
     received_qty: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    # billed on a purchase invoice made from this order (roadmap §4.8); a
+    # voided bill gives it back
+    billed_qty: Mapped[float] = mapped_column(Numeric(18, 4), default=0, server_default="0")
     unit_price: Mapped[int] = mapped_column(BigInteger, default=0)  # whole currency units
     line_total: Mapped[int] = mapped_column(BigInteger, default=0)
 

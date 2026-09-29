@@ -59,6 +59,10 @@ MATRIX = [
     ("POST", "/budgets/roll-forward", {O, C, A, P}),
     ("PATCH", "/time/projects/p1", {O, C, A, P}),
     ("GET", "/time/project-budgets", {O, C, A, P}),
+    # Purchase orders (roadmap §4.8)
+    ("DELETE", "/purchase-orders/p1", {O, C, A, P}),
+    ("POST", "/purchase-orders/p1/bill", {O, C, A, P}),
+    ("GET", "/purchase-orders/price-history", {O, C, A, P}),
     # User management (Owner only)
     ("GET", "/admin/users", {O}),
     ("POST", "/admin/users", {O}),

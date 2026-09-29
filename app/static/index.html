@@ -1718,7 +1718,7 @@
         <table class="data-table">
           <thead><tr>
             <th data-i18n="poDescription">Description</th><th data-i18n="poOrderedQty">Ordered</th>
-            <th data-i18n="poReceivedQty">Received</th><th data-i18n="poUnitPrice">Unit price</th>
+            <th data-i18n="poReceivedQty">Received</th><th data-i18n="poBilledQty">Billed</th><th data-i18n="poUnitPrice">Unit price</th>
             <th data-i18n="poReceiveCol">Receive</th>
           </tr></thead>
           <tbody id="po-detail-lines"></tbody>
@@ -1726,7 +1726,14 @@
         <div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;">
           <div><label for="po-receive-date" data-i18n="poReceiptDate">Receipt date</label><input type="date" id="po-receive-date"></div>
           <button type="button" class="btn btn-primary" id="po-receive-btn" data-i18n="poReceiveBtn">Record receipt</button>
+          <button type="button" class="btn btn-secondary" id="po-bill-btn" data-i18n="poBillBtn">Bill what's arrived</button>
+          <span style="flex:1"></span>
+          <button type="button" class="btn btn-secondary" id="po-issue-btn" data-i18n="poIssueBtn">Issue</button>
+          <button type="button" class="btn btn-secondary" id="po-close-btn" data-i18n="poCloseBtn">Close order</button>
+          <button type="button" class="btn btn-secondary" id="po-cancel-btn" data-i18n="poCancelBtn">Cancel order</button>
+          <button type="button" class="btn btn-danger" id="po-delete-btn" data-i18n="poDeleteBtn">Delete draft</button>
         </div>
+        <div id="po-bills" style="margin-top:0.6rem;font-size:0.85rem;"></div>
         <div style="margin-top:0.75rem;display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;">
           <div><label for="po-match-bill" data-i18n="poMatchBill">Match a bill</label><select id="po-match-bill"></select></div>
           <button type="button" class="btn btn-primary" id="po-match-btn" data-i18n="poMatchBtn">3-way match</button>

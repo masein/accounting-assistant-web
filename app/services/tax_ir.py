@@ -465,6 +465,7 @@ def export_xlsx(db: Session, s: Season, *, include_moadian: bool = False) -> byt
     sheet("اطلاعات ناقص", ["نوع", "طرف معامله", "کمبود"],
           [["فروش" if r["kind"] == "sales" else "خرید", r["name"], "، ".join(r["missing_labels"])]
            for r in rep["incomplete"]])
+    from app.core.spreadsheet import no_formulas
     buf = io.BytesIO()
-    wb.save(buf)
+    no_formulas(wb).save(buf)
     return buf.getvalue()

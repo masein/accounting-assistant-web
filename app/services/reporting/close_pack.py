@@ -17,7 +17,6 @@ say what's still open before anyone downloads the pack.
 """
 from __future__ import annotations
 
-import csv
 import io
 import zipfile
 from dataclasses import dataclass
@@ -369,7 +368,8 @@ def journal_csv(db: Session, m: Month) -> bytes:
     from app.models.account import Account
     from app.models.transaction import Transaction, TransactionLine
     buf = io.StringIO()
-    w = csv.writer(buf)
+    from app.core.spreadsheet import csv_writer
+    w = csv_writer(buf)
     jalali = m.locale == "ir"
     w.writerow(["date"] + (["date_jalali"] if jalali else []) + [
         "reference", "description", "account_code", "account_name", "line_description",

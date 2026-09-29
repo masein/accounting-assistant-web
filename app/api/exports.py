@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import io
 import re
 import uuid
@@ -16,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.http_headers import content_disposition
+from app.core.spreadsheet import csv_writer, no_formulas
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.invoice import Invoice
@@ -40,13 +40,6 @@ def _snapshot_folder() -> Path:
     return folder
 
 
-def _csv_safe(value: str | None) -> str:
-    """Spreadsheets execute cells that start with = + - @ (CSV formula
-    injection); neutralise free text with a leading apostrophe."""
-    text = value or ""
-    return "'" + text if text[:1] in ("=", "+", "-", "@") else text
-
-
 def _rows(db: Session, currency: str | None = None) -> list[list[str]]:
     q = (
         select(Transaction)
@@ -62,13 +55,13 @@ def _rows(db: Session, currency: str | None = None) -> list[list[str]]:
             rows.append([
                 str(t.id),
                 t.date.isoformat(),
-                _csv_safe(t.reference),
-                _csv_safe(t.description),
+                t.reference or "",
+                t.description or "",
                 ln.account.code,
                 ln.account.name,
                 str(ln.debit),
                 str(ln.credit),
-                _csv_safe(ln.line_description),
+                ln.line_description or "",
                 getattr(t, "currency", "IRR"),
             ])
     return rows
@@ -80,7 +73,7 @@ def export_transactions_csv(
     db: Session = Depends(get_db),
 ) -> Response:
     out = io.StringIO()
-    w = csv.writer(out)
+    w = csv_writer(out)
     w.writerow(["transaction_id", "date", "reference", "description", "account_code", "account_name", "debit", "credit", "line_description", "currency"])
     for r in _rows(db, currency):
         w.writerow(r)
@@ -101,7 +94,7 @@ def export_transactions_xlsx(
     for r in _rows(db, currency):
         ws.append(r)
     bio = io.BytesIO()
-    wb.save(bio)
+    no_formulas(wb).save(bio)
     headers = {"Content-Disposition": content_disposition(f'transactions-{date.today().isoformat()}.xlsx')}
     return Response(
         content=bio.getvalue(),

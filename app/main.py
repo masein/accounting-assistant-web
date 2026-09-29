@@ -605,6 +605,11 @@ def _session_is_valid(user) -> bool:
                     return settings.app_env in ("dev", "test")
                 if not row.is_active or int(row.token_version) != int(user.token_version):
                     return False
+                # The token's company must still be the user's: nothing moves users
+                # between companies today, but a session must never outlive a move.
+                if not row.is_superadmin and row.company_id is not None \
+                        and str(row.company_id) != str(user.company_id or ""):
+                    return False
                 if row.company_id is not None:
                     company = sess.get(Company, row.company_id)
                     if company is not None and company.status != "active":

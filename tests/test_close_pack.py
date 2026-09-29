@@ -134,6 +134,16 @@ def _statement(db, cid, rows):
         return s.id
 
 
+def test_a_uk_company_reads_the_checklist_in_persian_but_its_pack_stays_english(company):
+    api, _ = company("uk", "GBP", UK)
+    fa = _checklist(api, "2026-08", lang="fa")
+    assert fa["lang"] == "fa" and fa["items"][0]["item"] == "برابری بدهکار و بستانکار"
+    assert "۴۹,۰۰۰" in fa["items"][0]["detail"]
+    assert "۲۰۲۶/۰۸/۳۱" in _detail(fa, "lock")                               # not "2026-08-31" inside Persian
+    wb = _xlsx(api.get(URL, params={"month": "2026-08", "format": "xlsx", "lang": "fa"}))
+    assert wb.sheetnames[0] == "Checklist" and wb.worksheets[0].sheet_view.rightToLeft is not True
+
+
 def test_a_clean_month_passes(company):
     api, _ = company("uk", "GBP", UK)
     data = _checklist(api, "2026-08")

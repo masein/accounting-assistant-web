@@ -144,15 +144,21 @@ class Month:
     lang: str
 
     def d(self, x) -> str:
+        if self.lang == "fa" and self.locale != "ir":
+            # a Gregorian date in Persian text: slashes keep the digits together (a hyphen splits them)
+            from app.services.documents.formatting import to_persian_digits
+            return to_persian_digits(x.strftime("%Y/%m/%d"))
         return _fmt_date(x, self.locale, self.lang)
 
 
-def resolve_month(db: Session, key: str | None, lang: str | None = None) -> Month:
-    """The month the pack is for: the key given, or last month in the company's calendar."""
+def resolve_month(db: Session, key: str | None, lang: str | None = None, *, documents: bool = True) -> Month:
+    """The month the pack is for: the key given, or last month in the company's calendar.
+    The documents of a UK company are English (its statements have no Persian
+    template); the checklist on screen can be read in Persian by anyone."""
     from app.services.calendar_periods import company_calendar, month_label, previous_month_key
     locale = _locale(db)
     lang = lang if lang in ("fa", "en") else ("fa" if locale == "ir" else "en")
-    if lang == "fa" and locale == "uk":
+    if lang == "fa" and locale == "uk" and documents:
         lang = "en"
     key = key or previous_month_key(date.today(), company_calendar(db))
     start, end = month_range(key)

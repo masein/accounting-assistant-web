@@ -368,10 +368,10 @@ def export_statements(
                     headers={"Content-Disposition": f'attachment; filename="{filename(meta, "financial-statements", format)}"'})
 
 
-def _close_month(db: Session, month: str | None, lang: str | None):
+def _close_month(db: Session, month: str | None, lang: str | None, *, documents: bool = True):
     from app.services.reporting.close_pack import ExportError, resolve_month
     try:
-        return resolve_month(db, month, lang)
+        return resolve_month(db, month, lang, documents=documents)
     except ExportError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -384,7 +384,7 @@ def close_pack_checklist(
 ) -> dict:
     """What the month-end close still needs, before the pack is downloaded (roadmap §4.9)."""
     from app.services.reporting.close_pack import checklist, recent_months, summary
-    m = _close_month(db, month, lang)
+    m = _close_month(db, month, lang, documents=False)
     items = checklist(db, m)
     return {"month": m.key, "label": m.label, "from_date": m.start.isoformat(), "to_date": m.end.isoformat(),
             "lang": m.lang, "items": items, "summary": summary(items, m.lang),

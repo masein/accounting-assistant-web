@@ -453,3 +453,52 @@ def test_the_job_reads_only_mailboxes_that_are_on(co, db, monkeypatch):
     with use_company(cid):
         assert sched.job_bank_mailbox(db, datetime.now(timezone.utc).date())["ok"] is True
     assert calls == [1]
+
+
+def _pdf(tag: str) -> bytes:
+    import io
+
+    from pypdf import PdfWriter
+    w = PdfWriter()
+    w.add_blank_page(200, 200)
+    w.add_metadata({"/Title": tag})                                  # distinct bytes: not a duplicate
+    buf = io.BytesIO()
+    w.write(buf)
+    return buf.getvalue()
+
+
+def test_a_daily_limit_keeps_the_ai_allowance_for_the_company(co, db, monkeypatch):
+    """PDFs and images are read by the AI model from the company's allowance: a
+    flood of forged "bank" mail must not use it up and stop the chat for the
+    day. Over the limit a message isn't logged — tomorrow's check reads it.
+    CSV and Excel files cost nothing and are never held back."""
+    from datetime import timedelta
+
+    import app.services.ocr_extract as ocr
+    from app.db.tenant import use_company
+    api, cid = co
+    _setup(api)
+    monkeypatch.setattr(mb, "MAX_AI_READS_PER_DAY", 2)
+    reads = []
+
+    async def rows(path, content_type):
+        reads.append(path)
+        return [{"date": "2026-09-20", "description": f"POS {len(reads)}", "amount": 1000 * len(reads),
+                 "balance": None, "direction": "debit"}]
+    monkeypatch.setattr(ocr, "extract_statement_rows", rows)
+    inbox = [_mail(MELLAT, f"PDF {i}", [(f"s{i}.pdf", _pdf(f"s{i}"), "application/pdf")]) for i in range(3)]
+    inbox.append(_mail(MELLAT, "CSV", [("s.csv", CSV_A, "text/csv")]))
+    _serve(monkeypatch, FakeIMAP(inbox))
+    day1 = datetime(2026, 9, 29, 9, 0, tzinfo=timezone.utc)
+    with use_company(cid):
+        out = mb.check_mailbox(db, now=day1)
+    assert (out["imported"], out["deferred"], out["ai_reads"], len(reads)) == (3, 1, 2, 2), out
+    with use_company(cid):                                             # later the same day: still waiting
+        out = mb.check_mailbox(db, now=day1 + timedelta(hours=2))
+    assert (out["imported"], out["deferred"], len(reads)) == (0, 1, 2), out
+    assert api().get("/bank-mailbox").json()["status"]["deferred"] == 1
+    with use_company(cid):                                             # tomorrow's allowance reads it
+        out = mb.check_mailbox(db, now=day1 + timedelta(days=1))
+    assert (out["imported"], out["deferred"], out["ai_reads"], len(reads)) == (1, 0, 1, 3), out
+    assert sorted(m["subject"] for m in api().get("/bank-mailbox/messages").json()["messages"]) == \
+        ["CSV", "PDF 0", "PDF 1", "PDF 2"]

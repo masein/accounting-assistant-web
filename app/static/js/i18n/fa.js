@@ -1597,6 +1597,7 @@ window.I18N_PACKS.fa = Object.assign({
         mailPdfPasswordForget: "فراموش کن",
         mailPdfPasswordForgotten: "رمز PDF پاک شد.",
         mailOutNeedsPassword: "قفل است — رمز PDF را اضافه کنید",
+        mailStateDeferred: "{n} پیامِ دارای PDF یا تصویر برای فردا ماند (سقف روزانه، سهمیهٔ هوش مصنوعی را برای شما نگه می‌دارد)",
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

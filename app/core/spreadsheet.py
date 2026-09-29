@@ -9,6 +9,8 @@ file.
 * CSV: a risky cell gets a leading apostrophe. Every CSV the app writes goes
   through ``csv_writer``, which applies ``csv_safe`` to each cell.
   A plain number such as ``-1500`` or ``1,250.50`` is left as it is.
+  ``csv_bytes`` adds the byte-order mark Excel needs to read Persian text
+  (every importer in the app reads it back as utf-8-sig).
 * XLSX: openpyxl stores any string that starts with ``=`` as a formula.
   ``no_formulas(wb)`` turns those cells back into text before the workbook is
   saved. The text is kept exactly as typed. The app never writes a formula on
@@ -55,6 +57,14 @@ def csv_writer(buf, **kwargs) -> _SafeWriter:
     """``csv.writer`` whose rows pass through ``csv_safe``."""
     import csv
     return _SafeWriter(csv.writer(buf, **kwargs))
+
+
+def csv_bytes(buf) -> bytes:
+    """The CSV text as UTF-8 with a BOM, so Excel shows Persian instead of mojibake."""
+    return ("\ufeff" + buf.getvalue()).encode("utf-8")
+
+
+CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 
 
 def no_formulas(wb) -> Any:

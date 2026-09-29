@@ -583,7 +583,7 @@ counterparts):
 9. `test_jalali_calendar_edges.py` — `1404/12/30` rejected, Esfand 29/30 periods, no-year dates near Nowruz with a frozen clock, Arabic-Indic digits, Excel Jalali dates.
 10. `test_time_billing_and_fees_http.py` — projects/rates CRUD, write-off, invoice preview saves nothing, fee basis points.
 
-Plus: `--cov --cov-fail-under=80` in CI; a Postgres CI job that runs `alembic upgrade head` and the suite; a 10-page Playwright smoke suite for the five JS files no test reads (`05-reports-manager`, `08-entities-invoices`, `11-time-expenses-payroll`, `12-ops`, `13-companies-products`); property tests for `balance_from_turnovers` / `resolve_period`; a nightly AI eval (5.5).
+Plus: `--cov --cov-fail-under=80` in CI; a Postgres CI job that runs `alembic upgrade head` and the suite; a 10-page Playwright smoke suite for the five JS files no test reads (`05-reports-manager`, `08-entities-invoices`, `11-time-expenses-payroll`, `12-ops`, `13-companies-products`); property tests for `balance_from_turnovers` / `resolve_period` (✅ 2026-09-29, `tests/test_properties.py`: seeded random inputs, thousands per property — balances flip and add, balanced journals over both seeded charts net to zero, every code has one nature, `convert_minor` = the exact product rounded half-up to 10^18, `to_base` keeps a balanced entry balanced with whole-unit nudges, report periods tile both calendars with no gap or overlap; no defects found); a nightly AI eval (5.5, ✅).
 
 Known defects found by the audits and **not yet fixed** (small, worth branches now):
 - ✅ logo/signature uploads trust the browser `content_type` — fixed in #139;

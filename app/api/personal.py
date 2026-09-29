@@ -22,6 +22,16 @@ from app.services.net_worth_service import compute_net_worth
 router = APIRouter(prefix="/personal", tags=["personal"])
 
 
+def _current_user():
+    """The signed-in user (the middleware already refused anyone else). Their
+    company may be missing — the household service answers that one."""
+    from app.core.request_context import get_current_actor
+    user = get_current_actor()
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user
+
+
 class HoldingUpsert(BaseModel):
     account_code: str = Field(..., min_length=1, max_length=64)
     # Capped at 16 to match exchange_rates.from_currency: a longer unit could
@@ -257,3 +267,67 @@ def report_card(
     out["months"] = [{"key": p.key, "label": p.label}
                      for p in reversed(last_n_months(date.today(), 12, company_calendar(db), out["lang"]))]
     return out
+
+
+# --- a shared household (roadmap §4.12) ---------------------------------------------------------------------------
+
+class InviteCreate(BaseModel):
+    name: str | None = Field(None, max_length=128, description="Who it's for — shown to you and to them")
+    email: str | None = Field(None, max_length=254, description="E-mail the link there (when this server can send mail)")
+
+
+def _household_error(e) -> HTTPException:
+    return HTTPException(status_code=e.status, detail=str(e))
+
+
+@router.get("/household")
+def household(db: Session = Depends(get_db), user=Depends(_current_user)) -> dict:
+    """Who shares these books, and the invitations still open."""
+    from app.services import household as hh
+    try:
+        return hh.overview(db, user.company_id, me=user.user_id)
+    except hh.HouseholdError as e:
+        raise _household_error(e)
+
+
+@router.post("/household/invites", status_code=201)
+def invite(payload: InviteCreate, db: Session = Depends(get_db), user=Depends(_current_user)) -> dict:
+    """A link someone signs up through to join these books — e-mailed when possible, shown once either way."""
+    from app.core.audit import audit_log
+    from app.services import household as hh
+    try:
+        inv, token = hh.create_invite(db, user.company_id, invited_by=user.user_id, name=payload.name,
+                                      email=payload.email)
+        emailed = hh.send_invite(db, inv, token, inviter=user.username)
+    except hh.HouseholdError as e:
+        db.rollback()
+        raise _household_error(e)
+    audit_log(db, action="create", entity_type="household_invite", entity_id=str(inv.id), user_id=user.user_id,
+              username=user.username, detail=f"invite for {inv.name or inv.email or 'someone'}"
+                                              + (" (e-mailed)" if emailed else ""))
+    db.commit()
+    return {"id": str(inv.id), "link": hh.link(token), "token": token, "emailed": emailed,
+            "expires_at": inv.expires_at.isoformat()}
+
+
+@router.delete("/household/invites/{invite_id}", status_code=204)
+def cancel_invite(invite_id: UUID, db: Session = Depends(get_db), user=Depends(_current_user)) -> None:
+    from app.services import household as hh
+    try:
+        hh.revoke(db, user.company_id, invite_id)
+    except hh.HouseholdError as e:
+        raise _household_error(e)
+    db.commit()
+
+
+@router.delete("/household/members/{user_id}", status_code=204)
+def remove_member(user_id: UUID, db: Session = Depends(get_db), user=Depends(_current_user)) -> None:
+    from app.core.audit import audit_log
+    from app.services import household as hh
+    try:
+        hh.remove_member(db, user.company_id, user_id, me=user.user_id)
+    except hh.HouseholdError as e:
+        raise _household_error(e)
+    audit_log(db, action="deactivate", entity_type="user", entity_id=str(user_id), user_id=user.user_id,
+              username=user.username, detail="removed from the household")
+    db.commit()

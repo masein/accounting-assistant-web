@@ -67,13 +67,25 @@ def test_locale_limited_highlights(monkeypatch):
     assert rn.whats_new_for("owner", None, locale="ir")["seen"] is False
 
 
+def _current_role() -> str:
+    """A role the newest release has a note for — not every release speaks to owners
+    (a personal-books release is for personal users only)."""
+    return next(r for r in ("owner", "personal", "cfo", "accountant", "employee")
+                if any(h.for_role(r) for h in rn.RELEASES[-1].highlights))
+
+
 def test_whats_new_for_role_and_last_seen():
     # Existing user (never seen anything) → exactly the current release.
-    out = rn.whats_new_for("owner", None)
+    role = _current_role()
+    out = rn.whats_new_for(role, None)
     assert out["seen"] is False
     assert [r["version"] for r in out["releases"]] == [rn.CURRENT_RELEASE]
     keys = {h["key"] for h in out["releases"][0]["highlights"]}
-    assert keys == {h.key for h in rn.RELEASES[-1].highlights if h.for_role("owner")}
+    assert keys == {h.key for h in rn.RELEASES[-1].highlights if h.for_role(role)}
+    # …and a role it has nothing for has nothing new: seen.
+    for other in ("owner", "cfo", "accountant", "manager", "employee", "viewer", "personal"):
+        if not any(h.for_role(other) for h in rn.RELEASES[-1].highlights):
+            assert rn.whats_new_for(other, None)["seen"] is True, other
     # Earlier releases stay in the full history.
     history = rn.whats_new_for("owner", None, include_all=True)
     all_keys = {h["key"] for r in history["releases"] for h in r["highlights"]}
@@ -132,11 +144,11 @@ def test_whats_new_for_role_and_last_seen():
 # API
 # ---------------------------------------------------------------------------
 
-def _make_user(db, **kw) -> User:
+def _make_user(db, role: str = "owner", **kw) -> User:
     from app.core.auth import hash_password
     h, salt = hash_password("Secret#12345")
     u = User(username=f"wn-{uuid.uuid4().hex[:8]}", password_hash=h, password_salt=salt,
-             is_admin=True, role="owner", is_active=True, **kw)
+             is_admin=role == "owner", role=role, is_active=True, **kw)
     db.add(u)
     db.commit()
     return u
@@ -155,7 +167,7 @@ def _client_for(client, user: User):
 
 
 def test_me_shows_the_tour_once_then_marks_it_seen(client, db):
-    user = _make_user(db)   # last_seen_release NULL = existing user
+    user = _make_user(db, role=_current_role())   # last_seen_release NULL = existing user
     c = _client_for(client, user)
 
     me = c.get("/auth/me").json()
@@ -194,6 +206,8 @@ def test_new_users_start_on_the_current_release(db):
     assert "last_seen_release=CURRENT_RELEASE" in inspect.getsource(company_service.provision_company)
     src = inspect.getsource(admin)
     assert "last_seen_release=CURRENT_RELEASE" in src
+    from app.services import household                         # joining by invitation too (§4.12)
+    assert "last_seen_release=CURRENT_RELEASE" in inspect.getsource(household.accept)
 
 
 def test_two_factor_note_reaches_every_role_and_key_scopes_only_owners():

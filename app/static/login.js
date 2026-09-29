@@ -56,6 +56,14 @@ const I18N = {
     required: 'Username and password are required.',
     failed: 'Login failed.',
     connectionError: 'Connection error',
+    joinTitle: "Join the household",
+    joinSub: "{who} invited you to share “{books}”. Choose a username and password.",
+    joinSubNoWho: "You're invited to share “{books}”. Choose a username and password.",
+    joinEmail: "E-mail (optional)",
+    joinBtn: "Join",
+    joining: "Joining…",
+    joinPending: "Account created. Check your e-mail to confirm your address, then sign in.",
+    joinInvalid: "This invitation can't be used.",
   },
   fa: {
     title: 'دستیار حسابداری',
@@ -90,6 +98,14 @@ const I18N = {
     required: 'نام کاربری و رمز عبور الزامی است.',
     failed: 'ورود ناموفق بود.',
     connectionError: 'خطای اتصال',
+    joinTitle: "پیوستن به خانواده",
+    joinSub: "{who} شما را به استفاده مشترک از «{books}» دعوت کرده است. نام کاربری و رمز عبور انتخاب کنید.",
+    joinSubNoWho: "به استفاده مشترک از «{books}» دعوت شده‌اید. نام کاربری و رمز عبور انتخاب کنید.",
+    joinEmail: "ایمیل (اختیاری)",
+    joinBtn: "پیوستن",
+    joining: "در حال پیوستن…",
+    joinPending: "حساب ساخته شد. ایمیل خود را تأیید کنید و سپس وارد شوید.",
+    joinInvalid: "این دعوت‌نامه قابل استفاده نیست.",
   },
   es: {
     title: 'Asistente Contable',
@@ -124,6 +140,14 @@ const I18N = {
     required: 'Usuario y contraseña son obligatorios.',
     failed: 'Error de inicio de sesión.',
     connectionError: 'Error de conexión',
+    joinTitle: "Unirse al hogar",
+    joinSub: "{who} te invitó a compartir «{books}». Elige un usuario y una contraseña.",
+    joinSubNoWho: "Te invitaron a compartir «{books}». Elige un usuario y una contraseña.",
+    joinEmail: "Correo (opcional)",
+    joinBtn: "Unirme",
+    joining: "Uniéndote…",
+    joinPending: "Cuenta creada. Confirma tu correo y luego inicia sesión.",
+    joinInvalid: "Esta invitación no se puede usar.",
   },
   ar: {
     title: 'مساعد المحاسبة',
@@ -158,6 +182,14 @@ const I18N = {
     required: 'اسم المستخدم وكلمة المرور مطلوبان.',
     failed: 'فشل تسجيل الدخول.',
     connectionError: 'خطأ في الاتصال',
+    joinTitle: "الانضمام إلى الأسرة",
+    joinSub: "دعاك {who} إلى مشاركة «{books}». اختر اسم مستخدم وكلمة مرور.",
+    joinSubNoWho: "أنت مدعو لمشاركة «{books}». اختر اسم مستخدم وكلمة مرور.",
+    joinEmail: "البريد الإلكتروني (اختياري)",
+    joinBtn: "انضمام",
+    joining: "جارٍ الانضمام…",
+    joinPending: "أُنشئ الحساب. أكّد بريدك الإلكتروني ثم سجّل الدخول.",
+    joinInvalid: "لا يمكن استخدام هذه الدعوة.",
   },
 };
 
@@ -190,6 +222,13 @@ function applyLanguage(lang, persist = true) {
   document.getElementById('tfa-title').textContent = t('tfaTitle');
   document.getElementById('tfa-btn').textContent = t('tfaVerify');
   document.getElementById('tfa-back').textContent = t('tfaBack');
+  document.getElementById('join-title').textContent = t('joinTitle');
+  document.getElementById('join-username-label').textContent = t('username');
+  document.getElementById('join-password-label').textContent = t('password');
+  document.getElementById('join-confirm-label').textContent = t('confirmPassword');
+  document.getElementById('join-email-label').textContent = t('joinEmail');
+  document.getElementById('join-btn').textContent = t('joinBtn');
+  renderJoinSub();
   renderTfaMode();
   const pwBtn = document.getElementById('pw-toggle');
   const pwInput = document.getElementById('password');
@@ -374,6 +413,68 @@ if (new URLSearchParams(location.search).get('change') === '1') {
   form.style.display = 'none';
   document.getElementById('change-form').style.display = '';
 }
+
+// ── Joining a household through an invitation link (roadmap §4.12) ──
+const invite = { token: new URLSearchParams(location.search).get('invite'), info: null };
+function renderJoinSub() {
+  const el = document.getElementById('join-sub');
+  if (!el || !invite.info) return;
+  const i = invite.info;
+  el.textContent = (i.invited_by ? t('joinSub') : t('joinSubNoWho'))
+    .replace('{who}', i.invited_by || '').replace('{books}', i.books || '');
+}
+async function startJoin() {
+  if (!invite.token) return;
+  form.style.display = 'none';
+  try {
+    const res = await fetch('/auth/invite/' + encodeURIComponent(invite.token));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { form.style.display = ''; setError(data.detail || t('joinInvalid')); return; }
+    invite.info = data;
+    document.getElementById('join-email').value = data.email || '';
+    document.getElementById('join-form').style.display = '';
+    renderJoinSub();
+  } catch (err) {
+    form.style.display = '';
+    setError(t('connectionError') + ': ' + err.message);
+  }
+}
+document.getElementById('join-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('join-error');
+  errEl.textContent = '';
+  const username = document.getElementById('join-username').value.trim();
+  const p1 = document.getElementById('join-password').value;
+  const p2 = document.getElementById('join-confirm').value;
+  if (!username || !p1) { errEl.textContent = t('required'); return; }
+  if (p1.length < 8) { errEl.textContent = t('passwordShort'); return; }
+  if (p1 !== p2) { errEl.textContent = t('passwordMismatch'); return; }
+  const btn = document.getElementById('join-btn');
+  btn.disabled = true;
+  btn.textContent = t('joining');
+  try {
+    const res = await fetch('/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invite: invite.token, username, password: p1,
+                             email: document.getElementById('join-email').value.trim() || null }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { errEl.textContent = data.detail || t('failed'); return; }
+    if (data.pending_verification) {
+      const done = document.getElementById('join-done');
+      done.textContent = data.message || t('joinPending');
+      done.style.display = '';
+      return;
+    }
+    window.location.href = '/';
+  } catch (err) {
+    errEl.textContent = t('connectionError') + ': ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('joinBtn');
+  }
+});
+startJoin();
 
 langPills.addEventListener('click', (e) => {
   const btn = e.target.closest('.lang-pill[data-lang]');

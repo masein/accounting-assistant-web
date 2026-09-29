@@ -189,6 +189,23 @@
     <div class="error" id="change-error"></div>
   </form>
 
+  <!-- Joining a shared household through an invitation link (roadmap §4.12) -->
+  <form class="card" id="join-form" style="display:none;">
+    <h1 id="join-title">Join the household</h1>
+    <p class="sub" id="join-sub"></p>
+    <label for="join-username" id="join-username-label">Username</label>
+    <input id="join-username" autocomplete="username" minlength="3" maxlength="64" required>
+    <label for="join-password" id="join-password-label">Password</label>
+    <input id="join-password" type="password" autocomplete="new-password" minlength="8" required>
+    <label for="join-confirm" id="join-confirm-label">Confirm password</label>
+    <input id="join-confirm" type="password" autocomplete="new-password" minlength="8" required>
+    <label for="join-email" id="join-email-label">E-mail (optional)</label>
+    <input id="join-email" type="email" autocomplete="email" maxlength="254" dir="ltr">
+    <button type="submit" id="join-btn">Join</button>
+    <div class="error" id="join-error"></div>
+    <p class="sub" id="join-done" style="display:none;"></p>
+  </form>
+
   <script src="/static/login.js"></script>
 </body>
 </html>

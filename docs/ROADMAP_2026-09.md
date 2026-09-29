@@ -530,6 +530,18 @@ average, inside the budgets; "no data" when there's nothing to judge) in
 Persian or English. Both on My finances; `get_report_card` / `get_savings_goals`
 in the personal chat. Left in 4.12: shared household tenants.
 
+✅ 4.12, part 2 — a shared household (`app/services/household.py`, migration 064
+`household_invites`): a member of personal books invites someone; the invite is
+a random token (only its SHA-256 stored) that works once, for 7 days, while the
+household has room (6). E-mailed when mail works (then clicking it proves the
+address), otherwise copied by the inviter. `GET /auth/invite/{token}` (public,
+rate-limited like sign-up) tells the sign-up page whose books they're joining;
+`POST /auth/signup` with `invite` creates another personal user of the same
+company — works with self-signup off; e-mail verification applies to a copied
+link when the server can send mail. Members remove each other (deactivated,
+sessions ended), never themselves; business companies are refused (403).
+My finances → Household panel; a join form on the login page. **4.12 done.**
+
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
 hash; the runtime lock constrains the other two). The Dockerfile and every CI
@@ -674,7 +686,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 4.9 | ✅ (2026-09-29) **Documents**: statements of account e-mailed to clients, payslips e-mailed to employees, PDF/XLSX export of financial statements (server side), a "monthly close pack" zip | mail service exists but sends nothing to parties |
 | 4.10 | **Mobile**: PWA (manifest + offline shell), camera receipt capture straight into the chat, bell push via Web Push; later native | competitors all have apps; ours is responsive only |
 | 4.11 | **Migration importers**: Hesabfa/Holoo/Sepidar exports, Xero/QuickBooks CSV, historical transactions (not just opening balances) | switching cost is the main sales objection |
-| 4.12 | **Personal mode**: installment/loan schedules with reminders, shared household tenants, savings goals, gold/FX valuation from a feed, monthly report card | matches the Iranian personal-finance apps (بانک، محک، فانوس) |
+| 4.12 | ✅ (2026-09-29) **Personal mode**: installment/loan schedules with reminders, shared household tenants, savings goals, gold/FX valuation from a feed, monthly report card | matches the Iranian personal-finance apps (بانک، محک، فانوس) |
 
 ## 5. AI accountant
 

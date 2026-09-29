@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.9"
+CURRENT_RELEASE = "2026.09.29.10"
 
 
 @dataclass(frozen=True)
@@ -1336,6 +1336,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "حسابدار هوشمند اکنون درباره سفارش‌های خرید، پرداخت‌های دوره‌ای، جدول سهامداران، نرخ ارز و تنخواه پاسخ می‌دهد و سابقه تغییرات را می‌خواند — «چه کسی فاکتور ۱۰۴۲ را حذف کرد؟». می‌تواند پرداخت دوره‌ای بسازد («اجاره ۸۰ میلیون اول هر ماه») و مالک می‌تواند از همین گفتگو دفاتر یک ماه را قفل کند. هر تغییر کارتی است که تأییدش می‌کنید.",
                     "es": "El contable IA ya responde sobre pedidos de compra, pagos periódicos, el reparto del capital, tipos de cambio y caja chica, y lee el registro de auditoría: «¿quién borró la factura 1042?». Puede crear un pago periódico («alquiler de 80 millones el día 1 de cada mes») y el propietario puede cerrar los libros de un mes desde el chat. Cada cambio es una tarjeta que confirmas.",
                     "ar": "صار المحاسب الذكي يجيب عن طلبات الشراء والمدفوعات الدورية وجدول المساهمين وأسعار الصرف والعهدة النقدية، ويقرأ سجل التدقيق — «من حذف الفاتورة ١٠٤٢؟». ويمكنه إنشاء دفعة دورية («إيجار ٨٠ مليونًا في أول كل شهر»)، ويستطيع المالك إقفال دفاتر شهر من المحادثة. كل تغيير بطاقة تؤكّدها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.10",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="household",
+                page="personal-dashboard",
+                roles=("personal",),
+                title={
+                    "en": "Share your books with your household",
+                    "fa": "دفتر خود را با خانواده شریک شوید",
+                    "es": "Comparte tus cuentas con tu hogar",
+                    "ar": "شارك دفاترك مع أسرتك",
+                },
+                body={
+                    "en": "On My finances, Household → Invite someone: send the link (or let us e-mail it) and they sign up with their own username and password onto the same books — the same money, budgets and goals, and the history shows who recorded what. Up to six people; remove someone any time.",
+                    "fa": "در «پول من»، بخش خانواده ← دعوت از یک نفر: پیوند را بفرستید (یا بگذارید ایمیل کنیم) تا با نام کاربری و رمز خودش در همین دفتر ثبت‌نام کند — همین پول، بودجه‌ها و اهداف؛ و سابقه نشان می‌دهد چه کسی چه چیزی ثبت کرده است. تا شش نفر؛ هر وقت خواستید کسی را حذف کنید.",
+                    "es": "En Mis finanzas, Hogar → Invitar a alguien: envía el enlace (o deja que lo mandemos por correo) y se registra con su propio usuario y contraseña en las mismas cuentas: el mismo dinero, presupuestos y metas, y el historial muestra quién registró qué. Hasta seis personas; puedes quitar a alguien cuando quieras.",
+                    "ar": "في «أموالي»، قسم الأسرة ← دعوة شخص: أرسل الرابط (أو دعنا نرسله بالبريد) فيسجّل باسم مستخدم وكلمة مرور خاصين به في الدفاتر نفسها — المال والموازنات والأهداف نفسها، ويُظهر السجل من سجّل ماذا. حتى ستة أشخاص؛ ويمكنك إزالة أي شخص في أي وقت.",
                 },
             ),
         ),

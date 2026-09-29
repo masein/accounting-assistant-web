@@ -338,6 +338,36 @@ def cash_flow_statement(
     return svc.statement(from_date=from_date, to_date=to_date, currency=currency)
 
 
+@router.get("/financial/export")
+def export_statements(
+    format: str = Query("pdf", pattern="^(pdf|xlsx)$"),
+    statements: str | None = Query(None, description="Comma-separated: balance_sheet,income_statement,comprehensive_income,changes_in_equity,cash_flow — default all the locale has"),
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    lang: str | None = Query(None, pattern="^(fa|en)$"),
+    db: Session = Depends(get_db),
+):
+    """The financial statements as a PDF (one per page, under the letterhead)
+    or an Excel workbook (a sheet each), made on the server (roadmap §4.9)."""
+    from fastapi.responses import Response
+
+    from app.services.documents.branding import build_brand
+    from app.services.reporting.statement_export import ExportError, filename, render_pdf, render_xlsx, tables
+    wanted = [s.strip() for s in statements.split(",") if s.strip()] if statements else None
+    try:
+        tabs, meta = tables(db, statements=wanted, from_date=from_date, to_date=to_date, currency=currency, lang=lang)
+    except ExportError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if format == "pdf":
+        body, media = render_pdf(db, tabs, meta), "application/pdf"
+    else:
+        body = render_xlsx(tabs, meta, company=build_brand(db)["issuer"]["name"])
+        media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return Response(content=body, media_type=media,
+                    headers={"Content-Disposition": f'attachment; filename="{filename(meta, "financial-statements", format)}"'})
+
+
 @router.get("/financial/cash-flow-periods")
 def cash_flow_periods(
     from_date: date | None = Query(None),

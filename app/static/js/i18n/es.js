@@ -1429,6 +1429,8 @@ window.I18N_PACKS.es = Object.assign({
         entStatementEmailFailed: "No se pudo enviar el extracto.",
         entStatementEmailSent: "Extracto enviado a {to}.",
         entStatementEmailNotSent: "El extracto no se entregó: {reason}",
+        mgrStatementsPdf: "Todos los estados (PDF)",
+        mgrStatementsXlsx: "Todos los estados (Excel)",
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

@@ -1429,6 +1429,8 @@ window.I18N_PACKS.ar = Object.assign({
         entStatementEmailFailed: "تعذّر إرسال الكشف.",
         entStatementEmailSent: "أُرسل الكشف إلى {to}.",
         entStatementEmailNotSent: "لم يُسلَّم الكشف: {reason}",
+        mgrStatementsPdf: "كل القوائم (PDF)",
+        mgrStatementsXlsx: "كل القوائم (إكسل)",
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

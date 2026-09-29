@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: A4;
+    margin: 16mm 14mm 18mm 14mm;
+    @bottom-center { content: "{{ words.page }} " counter(page{{ ', persian' if rtl else '' }}) " / " counter(pages{{ ', persian' if rtl else '' }}); font-family: {{ font_family }}; font-size: 8pt; color: #94a3b8; }
+    @bottom-{{ 'right' if rtl else 'left' }} { content: "{{ prepared }}"; font-family: {{ font_family }}; font-size: 7.5pt; color: #94a3b8; }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: {{ font_family }}; color: #0f172a; font-size: 9.5pt; line-height: 1.45; direction: {{ dir }}; margin: 0; }
+  .letterhead { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid {{ brand_color }}; padding-bottom: 8px; margin-bottom: 12px; }
+  .letterhead .name { font-size: 13pt; font-weight: 700; color: {{ brand_color }}; }
+  .letterhead .meta { font-size: 8pt; color: #64748b; }
+  .letterhead img { max-height: 42px; max-width: 140px; }
+  .statement { page-break-after: always; }
+  .statement:last-child { page-break-after: auto; }
+  h1 { font-size: 15pt; margin: 0 0 2px; }
+  .sub { color: #64748b; font-size: 9pt; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 8.5pt; color: #334155; background: #f1f5f9; padding: 5px 6px; border-bottom: 1px solid #cbd5e1; text-align: {{ 'left' if rtl else 'right' }}; }
+  th.lbl { text-align: {{ 'right' if rtl else 'left' }}; width: 46%; }
+  td { padding: 3px 6px; vertical-align: top; }
+  td.num { text-align: {{ 'left' if rtl else 'right' }}; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  tr.header td { font-weight: 700; padding-top: 8px; color: {{ brand_color }}; }
+  tr.subtotal td { font-weight: 700; border-top: 1px solid #cbd5e1; }
+  tr.total td { font-weight: 800; border-top: 1px solid #0f172a; border-bottom: 3px double #0f172a; }
+  tr.spacer td { height: 6px; }
+  .cover { page-break-after: always; }
+  .cover h1 { font-size: 22pt; margin-top: 40mm; color: {{ brand_color }}; }
+  .cover .period { font-size: 13pt; margin: 6px 0 24px; }
+  .cover table td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; }
+  .ok { color: #15803d; font-weight: 700; } .warn { color: #b45309; font-weight: 700; }
+  .section-note { font-size: 8.5pt; color: #475569; }
+</style>
+</head>
+<body>
+{% macro letterhead() %}
+  <div class="letterhead">
+    <div>
+      <div class="name">{{ brand.issuer.name }}</div>
+      <div class="meta">{{ amounts_in }}</div>
+    </div>
+    {% if brand.issuer.logo %}<img src="{{ brand.issuer.logo }}" alt="">{% endif %}
+  </div>
+{% endmacro %}
+
+{% if cover %}
+  <div class="cover">
+    {{ letterhead() }}
+    <h1>{{ cover.title }}</h1>
+    <div class="period">{{ cover.period }}</div>
+    {% if cover.checklist %}
+      <table>
+        {% for item in cover.checklist %}
+          <tr><td class="{{ 'ok' if item.ok else 'warn' }}">{{ '✓' if item.ok else '!' }}</td><td>{{ item.item }}</td><td class="section-note">{{ item.detail }}</td></tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+    {% if cover.contents %}
+      <p class="section-note" style="margin-top:16px;">{{ cover.contents }}</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% for t in tables %}
+  <section class="statement">
+    {{ letterhead() }}
+    <h1>{{ t.title }}</h1>
+    <div class="sub">{{ t.subtitle }}</div>
+    <table>
+      <thead><tr><th class="lbl"></th>{% for c in t.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for r in t.rows %}
+          <tr class="{{ r.style }}">
+            <td style="padding-{{ 'right' if rtl else 'left' }}: {{ 6 + r.indent * 12 }}px;">{{ r.label }}</td>
+            {% for c in r.cells %}<td class="num">{{ c }}</td>{% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endfor %}
+{{ extra_html | safe }}
+</body>
+</html>

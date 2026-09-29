@@ -1476,6 +1476,8 @@
         entStatementEmailFailed: "Couldn't e-mail the statement.",
         entStatementEmailSent: "Statement e-mailed to {to}.",
         entStatementEmailNotSent: "The statement wasn't delivered: {reason}",
+        mgrStatementsPdf: "All statements (PDF)",
+        mgrStatementsXlsx: "All statements (Excel)",
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

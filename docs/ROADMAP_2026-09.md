@@ -443,6 +443,18 @@ none; every attempt logged (`GET …/emails`), 503 without SMTP. The statement P
 is finally linked in the UI (entity statement toolbar). Left in 4.9: server-side
 PDF/XLSX of the financial statements and the monthly close pack.
 
+✅ 4.9, part 2 — the financial statements as PDF and Excel from the server
+(`app/services/reporting/statement_export.py`, template `statements.html`):
+`GET /manager-reports/financial/export?format=pdf|xlsx&statements=…&from_date=…&to_date=…&currency=…&lang=fa|en`
+builds the company's own set — the five Iranian statements (Persian, Jalali,
+RTL, Persian page numbers; English on request), the five FRS 102 statements
+for a UK company, the three generic trees otherwise — from the same services the
+page shows, so the figures match to the rial. Excel: one sheet per statement,
+right-to-left for Persian, real numbers in `#,##0;(#,##0);-` with deductions
+negative, totals bold, the equity statement as its matrix. Two buttons on
+Manager reports; readers of the reports may export. `render_pdf(cover=,
+extra_html=)` and `month_range` are there for the close pack, the last of 4.9.
+
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
 hash; the runtime lock constrains the other two). The Dockerfile and every CI

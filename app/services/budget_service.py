@@ -58,6 +58,7 @@ def budget_utilization(db: Session, month: str) -> list[dict]:
         actual = actual_by_cat.get(b.category, 0)
         util = (actual / b.limit_amount * 100.0) if b.limit_amount > 0 else 0.0
         rows.append({
+            "id": str(b.id),
             "month": b.month,
             "category": b.category,
             "limit_amount": b.limit_amount,
@@ -67,3 +68,48 @@ def budget_utilization(db: Session, month: str) -> list[dict]:
         })
     rows.sort(key=lambda x: x["utilization_pct"], reverse=True)
     return rows
+
+
+def _key_add(key: str, n: int) -> str:
+    """'1405-12' + 1 → '1406-01' — in whichever calendar the key is (§3.5)."""
+    from app.services.calendar_periods import shift
+    y, m = (int(x) for x in key.split("-"))
+    ny, nm = shift(y, m, n)
+    return f"{ny:04d}-{nm:02d}"
+
+
+def roll_forward(db: Session, *, from_month: str, months: int = 1, change_pct: float = 0.0,
+                 overwrite: bool = False) -> dict:
+    """Copy ``from_month``'s budgets into the next ``months`` months, each
+    changed by ``change_pct`` % of the source (not compounded), rounded half-up
+    to whole units. A category a month already has is kept unless
+    ``overwrite``. Returns what was created, updated and left alone."""
+    from decimal import ROUND_HALF_UP, Decimal
+    if not 1 <= int(months) <= 12:
+        raise ValueError("Roll forward 1 to 12 months at a time.")
+    if not -99 <= float(change_pct) <= 1000:
+        raise ValueError("The change must be between -99 % and +1000 %.")
+    source = db.execute(select(BudgetLimit).where(BudgetLimit.month == from_month)
+                        .order_by(BudgetLimit.category)).scalars().all()
+    if not source:
+        raise LookupError(f"There are no budgets in {from_month} to copy.")
+    factor = (Decimal(100) + Decimal(repr(float(change_pct)))) / Decimal(100)
+    created = updated = kept = 0
+    targets = [_key_add(from_month, i) for i in range(1, int(months) + 1)]
+    for key in targets:
+        have = {b.category.strip().lower(): b for b in
+                db.execute(select(BudgetLimit).where(BudgetLimit.month == key)).scalars()}
+        for src in source:
+            amount = max(1, int((Decimal(src.limit_amount) * factor).quantize(Decimal(1), rounding=ROUND_HALF_UP)))
+            row = have.get(src.category.strip().lower())
+            if row is None:
+                db.add(BudgetLimit(month=key, category=src.category, limit_amount=amount))
+                created += 1
+            elif overwrite and row.limit_amount != amount:
+                row.limit_amount = amount
+                updated += 1
+            else:
+                kept += 1
+    db.flush()
+    return {"from_month": from_month, "months": targets, "created": created, "updated": updated, "kept": kept}
+

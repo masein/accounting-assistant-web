@@ -20,7 +20,21 @@ class BudgetLimitRead(BudgetLimitCreate):
     model_config = {"from_attributes": True}
 
 
+class BudgetLimitUpdate(BaseModel):
+    month: str | None = Field(None, pattern=r"^\d{4}-\d{2}$")
+    category: str | None = Field(None, min_length=1)
+    limit_amount: int | None = Field(None, gt=0)
+
+
+class BudgetRollForward(BaseModel):
+    from_month: str = Field(..., pattern=r"^\d{4}-\d{2}$")
+    months: int = Field(1, ge=1, le=12)
+    change_pct: float = Field(0, ge=-99, le=1000, description="% of the source month, not compounded")
+    overwrite: bool = False
+
+
 class BudgetActualRow(BaseModel):
+    id: str | None = None
     month: str
     category: str
     limit_amount: int

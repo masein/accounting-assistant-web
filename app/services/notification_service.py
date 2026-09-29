@@ -462,6 +462,32 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
         # budget alerts must never break the whole feed refresh
         pass
 
+    # --- project budgets: hours or fees at >=85% (warning) / >=100% (high) --
+    try:
+        from app.models.time_billing import Project
+        from app.services.time_billing_service import project_budget_usage
+
+        projects = db.execute(select(Project).where(
+            Project.status == "active",
+            (Project.budget_hours.is_not(None)) | (Project.budget_amount.is_not(None)))).scalars().all()
+        usage = project_budget_usage(db, projects)
+        for p in projects:
+            u = usage[str(p.id)]
+            if u["status"] not in ("warning", "over"):
+                continue
+            parts = []
+            if u["hours_pct"] is not None:
+                parts.append(f"{u['hours_used']:g} of {u['budget_hours']:g} hours ({u['hours_pct']}%)")
+            if u["amount_pct"] is not None:
+                parts.append(f"{u['amount_used']:,} of {u['budget_amount']:,} {u['currency']} ({u['amount_pct']}%)")
+            over = u["status"] == "over"
+            _upsert(db, seen, dedupe_key=f"project-budget-{p.id}", kind="budget",
+                    level="high" if over else "warning",
+                    title=(f"Project over budget: {p.name}" if over else f"Project near its budget: {p.name}"),
+                    message=" · ".join(parts), link_page="time")
+    except Exception:
+        pass
+
     # --- proactive insights: payroll moves, expense spikes, statement due … --
     # Computed by insight_service (cached ~10 min per tenant, so the 90-second
     # bell poll doesn't rescan a year of ledger each time). Keys carry the

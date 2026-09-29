@@ -1138,7 +1138,8 @@
           <div><label for="budget-month" data-i18n="labelMonth">Month</label><input type="month" id="budget-month"></div>
           <div><label for="budget-category" data-i18n="labelCategory">Category</label><input type="text" id="budget-category" data-i18n-placeholder="placeholderExpenseCategory" placeholder="Expense account name"></div>
           <div><label for="budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="budget-limit" min="0" step="1" value="0"></div>
-          <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="budget-save" data-i18n="btnSaveBudget">Save budget</button></div>
+          <div style="display:flex; align-items:flex-end; gap:0.4rem; flex-wrap:wrap;"><button type="button" class="btn btn-primary" id="budget-save" data-i18n="btnSaveBudget" style="white-space:nowrap;">Save budget</button>
+            <button type="button" class="btn btn-secondary" id="budget-roll" data-i18n="budgetRollBtn" style="white-space:nowrap;">Copy to next month…</button></div>
         </div>
         <div id="budget-wrap"></div>
       </div>
@@ -1587,6 +1588,18 @@
         </tr></thead>
         <tbody id="tm-ready-body"></tbody>
       </table>
+
+      <div id="tm-budgets-section" style="display:none;margin-top:1.25rem;">
+        <h3 data-i18n="timeBudgetsTitle">Projects and budgets</h3>
+        <p class="fx-hint" data-i18n="timeBudgetsHint">Hours are everything logged on the project; fees are billable time at the rate billed, or today's rate for time not yet invoiced.</p>
+        <table class="data-table">
+          <thead><tr>
+            <th data-i18n="timeProject">Project</th><th data-i18n="timeClient">Client</th>
+            <th data-i18n="timeBudgetHours">Hours</th><th data-i18n="timeBudgetFees">Fees</th><th></th>
+          </tr></thead>
+          <tbody id="tm-budgets-body"></tbody>
+        </table>
+      </div>
 
       <div id="tm-preview" style="display:none;margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem;">
         <h3 data-i18n="timeInvoicePreview">Invoice preview</h3>

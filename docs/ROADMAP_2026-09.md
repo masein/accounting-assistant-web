@@ -405,6 +405,20 @@ conversation, the daily `ai_review_purge` job drops it after 90 days, the owner
 can switch sampling off, personal tenants are never sampled, and the users who
 chat are told (release note). §5.5 done.
 
+✅ 4.7 budgets: `PATCH /budgets/{id}` (amount, category, month; one per
+category per month, audited); `POST /budgets/roll-forward` copies a month's
+budgets into the next 1–12 months of the company's calendar (Jalali keys roll
+Esfand → Farvardin), changed by a percentage of the source (not compounded,
+half-up, never below 1), keeping categories a month already has unless
+`overwrite`; Edit / Delete on each dashboard row and "Copy to next month…".
+Per-project budgets (migration 059: `projects.budget_hours`, `budget_amount`):
+`PATCH /time/projects/{id}`; `GET /time/project-budgets` (books roles — the
+picker `/time/projects` stays open to employees) gives hours logged (work and
+travel) and fees — invoiced time at the rate billed, unbilled at today's rate,
+written-off none, other currencies or no rate as "unpriced" — in one query
+with rates resolved once per worker/client/project; Time → Projects and
+budgets; bell alerts at 85 % / over. Jalali months were done in §3.5.
+
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
 hash; the runtime lock constrains the other two). The Dockerfile and every CI
@@ -544,7 +558,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 4.4 | **Inventory costing** (weighted average / FIFO), stock valuation report, reorder alerts, barcode field; production/BOM light | Hesabfa/Holoo core; ours is movements + average price only |
 | 4.5 | **Chart-of-accounts management**: create / rename / deactivate accounts, تفصیلی groups, opening balances UI | accounts are only created implicitly today |
 | 4.6 | **Multi-currency close**: unrealised FX revaluation exists; add realised gain/loss on settlement, rate feed (manual today, XE-style hourly for GBP/EUR/USD, a gold-price feed for personal holdings) — ✅ feeds + per-company rates 2026-09-28; realised gain/loss open | Xero parity; personal tenants hold gold/FX |
-| 4.7 | **Budgets**: edit route, Jalali months, per-project budgets, roll-forward | `budgets.py` has no PATCH |
+| 4.7 | ✅ (2026-09-29) **Budgets**: edit route, Jalali months, per-project budgets, roll-forward | `budgets.py` has no PATCH |
 | 4.8 | **Purchase orders**: cancel/delete, partial receipts to bills, supplier price history | `purchase_orders.py` |
 | 4.9 | **Documents**: statements of account e-mailed to clients, payslips e-mailed to employees, PDF/XLSX export of financial statements (server side), a "monthly close pack" zip | mail service exists but sends nothing to parties |
 | 4.10 | **Mobile**: PWA (manifest + offline shell), camera receipt capture straight into the chat, bell push via Web Push; later native | competitors all have apps; ours is responsive only |

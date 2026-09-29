@@ -1266,6 +1266,22 @@
         loadBudgets();
       } catch (err) { showAlert('Connection error: ' + err.message, true); }
     });
+    // Copy this month's budgets into the next one, optionally changed by a percentage.
+    document.getElementById('budget-roll').addEventListener('click', async () => {
+      const from = document.getElementById('budget-month').value || currentMonthKey();
+      const pct = await uiPrompt({ title: t('budgetRollBtn'), message: t('budgetRollPrompt'), type: 'number', value: '0' });
+      if (pct === null) return;
+      const change = parseFloat(pct || '0');
+      if (!Number.isFinite(change) || change < -99 || change > 1000) { showAlert(t('budgetRollBad'), true); return; }
+      try {
+        const res = await fetch(API + '/budgets/roll-forward', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from_month: from, months: 1, change_pct: change }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('budgetSaveFailed'), true); return; }
+        showAlert(tf('budgetRolled', { n: d.created, month: (d.months || [])[0] || '', kept: d.kept }));
+      } catch (err) { showAlert(t('budgetSaveFailed'), true); }
+    });
     document.getElementById('snapshot-btn').addEventListener('click', async () => {
       try {
         const res = await fetch(API + '/exports/monthly-snapshot', { method: 'POST' });

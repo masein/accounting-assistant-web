@@ -12,6 +12,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -42,6 +43,9 @@ class Project(Base, TenantMixin):
     code: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(16), default="active", index=True)  # active | closed
     default_currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    # budget (roadmap §4.7): hours, and fees at the billable rates; null = none
+    budget_hours: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    budget_amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

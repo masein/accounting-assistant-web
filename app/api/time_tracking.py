@@ -38,6 +38,14 @@ class ProjectCreate(BaseModel):
     default_currency: str | None = None
 
 
+class ProjectUpdate(BaseModel):
+    """Only the fields sent change; send ``null`` to clear a budget."""
+    name: str | None = Field(None, min_length=1, max_length=256)
+    status: str | None = Field(None, pattern="^(active|closed)$")
+    budget_hours: float | None = Field(None, ge=0, le=1_000_000)
+    budget_amount: int | None = Field(None, ge=0)
+
+
 class RateOverrideCreate(BaseModel):
     employee_id: UUID
     rate: float = Field(..., ge=0)
@@ -158,6 +166,42 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> dic
     db.commit()
     db.refresh(p)
     return _project_read(p, db)
+
+
+@router.patch("/projects/{project_id}")
+def update_project(project_id: UUID, payload: ProjectUpdate, db: Session = Depends(get_db)) -> dict:
+    """Rename, close or budget a project (roadmap §4.7)."""
+    p = db.get(Project, project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found.")
+    sent = payload.model_fields_set
+    before = {"name": p.name, "status": p.status, "budget_hours": (float(p.budget_hours) if p.budget_hours is not None else None),
+              "budget_amount": p.budget_amount}
+    if "name" in sent and payload.name:
+        p.name = payload.name.strip()
+    if "status" in sent and payload.status:
+        p.status = payload.status
+    if "budget_hours" in sent:
+        p.budget_hours = payload.budget_hours or None
+    if "budget_amount" in sent:
+        p.budget_amount = payload.budget_amount or None
+    import json
+    log_audit_event(db, action="update", entity_type="project", entity_id=str(p.id),
+                    detail=json.dumps({"from": before, "to": {k: getattr(payload, k) for k in sent}}, default=str))
+    db.commit()
+    db.refresh(p)
+    return {**_project_read(p, db), **tbs.project_budget_usage(db, [p])[str(p.id)]}
+
+
+@router.get("/project-budgets")
+def project_budgets(include_closed: bool = False, db: Session = Depends(get_db)) -> list[dict]:
+    """Every project with its budget and what's been used — hours and fees."""
+    q = select(Project).order_by(Project.name)
+    if not include_closed:
+        q = q.where(Project.status == "active")
+    projects = db.execute(q).scalars().all()
+    usage = tbs.project_budget_usage(db, projects)
+    return [{**_project_read(p, db), **usage[str(p.id)]} for p in projects]
 
 
 # ---------------------------------------------------------------------------

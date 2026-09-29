@@ -588,6 +588,8 @@ for _m, _p in [("POST", "/fixed-assets"), ("PATCH", "/fixed-assets/{asset_id}"),
 _add("POST", "/personal/holdings", Perm.BOOKS_WRITE)
 _add("DELETE", "/personal/holdings/{holding_id}", Perm.BOOKS_WRITE)
 _add("POST", "/budgets", Perm.BOOKS_WRITE)
+_add("PATCH", "/budgets/{budget_id}", Perm.BOOKS_WRITE)
+_add("POST", "/budgets/roll-forward", Perm.BOOKS_WRITE)
 _add("DELETE", "/budgets/{budget_id}", Perm.BOOKS_WRITE)
 # Exports of the books/reports.
 _reads(["/exports/transactions.csv", "/exports/transactions.xlsx"], Perm.REPORTS_READ)
@@ -656,8 +658,10 @@ _add("GET", "/time/invoice/{invoice_id}/pdf", frozenset({Perm.TIME_OWN, Perm.BOO
 for _m, _p in [("POST", "/time/entries"), ("PATCH", "/time/entries/{entry_id}"),
                ("DELETE", "/time/entries/{entry_id}")]:
     _add(_m, _p, frozenset({Perm.TIME_OWN, Perm.BOOKS_WRITE}))
+# Budgets are what the business expects to earn: books people only.
+_add("GET", "/time/project-budgets", Perm.BOOKS_READ)
 # Billing/setup is a books activity.
-for _m, _p in [("POST", "/time/projects"), ("POST", "/time/rates"),
+for _m, _p in [("POST", "/time/projects"), ("PATCH", "/time/projects/{project_id}"), ("POST", "/time/rates"),
                ("POST", "/time/entries/{entry_id}/write-off"),
                ("POST", "/time/invoice-preview"), ("POST", "/time/invoice")]:
     _add(_m, _p, Perm.BOOKS_WRITE)

@@ -385,14 +385,16 @@
         }
         budgetWrap.innerHTML = `
           <table class="mini-table">
-            <thead><tr><th>${escapeHtml(t('labelCategory'))}</th><th>${escapeHtml(t('labelLimit'))}</th><th>${escapeHtml(t('budgetColActual'))}</th><th>${escapeHtml(t('budgetColVariance'))}</th><th>${escapeHtml(t('budgetColUsed'))}</th></tr></thead>
+            <thead><tr><th>${escapeHtml(t('labelCategory'))}</th><th>${escapeHtml(t('labelLimit'))}</th><th>${escapeHtml(t('budgetColActual'))}</th><th>${escapeHtml(t('budgetColVariance'))}</th><th>${escapeHtml(t('budgetColUsed'))}</th><th></th></tr></thead>
             <tbody>
-              ${rows.map(r => `<tr>
+              ${rows.map(r => `<tr data-id="${escapeHtml(r.id || '')}" data-limit="${escapeHtml(String(r.limit_amount))}" data-category="${escapeHtml(r.category)}">
                 <td>${escapeHtml(r.category)}</td>
                 <td>${formatNum(r.limit_amount)}</td>
                 <td>${formatNum(r.actual_amount)}</td>
                 <td>${formatNum(r.variance)}</td>
                 <td>${escapeHtml(r.utilization_pct)}%</td>
+                <td style="white-space:nowrap;">${r.id ? `<button type="button" class="btn btn-secondary btn-sm budget-edit">${escapeHtml(t('btnEdit'))}</button>
+                  <button type="button" class="btn btn-secondary btn-sm budget-del">${escapeHtml(t('btnDelete'))}</button>` : ''}</td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -401,6 +403,28 @@
         budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('budgetLoadError')) + '</p>';
       }
     }
+
+    // Edit / delete a budget line (roadmap §4.7); the table redraws on each load.
+    budgetWrap.addEventListener('click', async (e) => {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr || !tr.dataset.id) return;
+      const url = API + '/budgets/' + encodeURIComponent(tr.dataset.id);
+      if (e.target.closest('.budget-edit')) {
+        const v = await uiPrompt({ title: tr.dataset.category, message: t('budgetEditPrompt'), type: 'number', value: tr.dataset.limit });
+        if (v === null) return;
+        const n = parseInt(v, 10);
+        if (!Number.isFinite(n) || n <= 0) { showAlert(t('budgetEditBad'), true); return; }
+        const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit_amount: n }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('budgetSaveFailed'), true); return; }
+        loadBudgets();
+      } else if (e.target.closest('.budget-del')) {
+        if (!(await uiConfirm({ message: tf('budgetDeleteConfirm', { category: tr.dataset.category }), confirmLabel: t('btnDelete'), danger: true }))) return;
+        const res = await fetch(url, { method: 'DELETE' });
+        if (!res.ok) { showAlert(t('budgetSaveFailed'), true); return; }
+        loadBudgets();
+      }
+    });
 
     function setEntityDropdownsFromResponse(resolvedEntities, mentions) {
       const byRole = { client: 'entity-client', bank: 'entity-bank', payee: 'entity-payee', supplier: 'entity-supplier' };

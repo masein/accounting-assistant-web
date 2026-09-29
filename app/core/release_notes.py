@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29"
+CURRENT_RELEASE = "2026.09.29.1"
 
 
 @dataclass(frozen=True)
@@ -1095,6 +1095,46 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "برای بهتر شدن دستیار، حدود یکی از هر ده پیام شما به آن — همراه با پاسخش — برای بازبینی مالک شرکت نگه داشته می‌شود. درون شرکت شما می‌ماند و با حذف گفتگو یا پس از ۹۰ روز پاک می‌شود.",
                     "es": "Para mejorar el asistente, aproximadamente uno de cada diez de tus mensajes —con su respuesta— se guarda para que lo revise el propietario de tu empresa. Se queda en tu empresa y se borra cuando eliminas la conversación o a los 90 días.",
                     "ar": "لتحسين المساعد، تُحفظ نحو رسالة من كل عشر من رسائلك إليه — مع إجابته — ليراجعها مالك شركتك. تبقى داخل شركتك وتُحذف عند حذفك المحادثة أو بعد 90 يومًا.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.1",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="budgets-edit-roll",
+                page="dashboard",
+                roles=("owner", "cfo", "accountant"),
+                title={
+                    "en": "Budgets you can edit and carry forward",
+                    "fa": "بودجه‌هایی که ویرایش و به ماه بعد منتقل می‌شوند",
+                    "es": "Presupuestos que puedes editar y trasladar",
+                    "ar": "ميزانيات قابلة للتعديل والترحيل",
+                },
+                body={
+                    "en": "On the dashboard's Budget vs actual, each line now has Edit and Delete, and Copy to next month… carries the month's budgets forward — as they are or changed by a percentage — without touching categories next month already has. It follows your company's calendar, Jalali months included.",
+                    "fa": "در «بودجه در برابر واقعی» داشبورد، هر ردیف اکنون «ویرایش» و «حذف» دارد و «کپی به ماه بعد…» بودجه‌های ماه را — همان‌طور یا با درصدی تغییر — به ماه بعد می‌برد، بی‌آنکه به دسته‌هایی که ماه بعد از قبل دارد دست بزند. با تقویم شرکت شما، از جمله ماه‌های شمسی، کار می‌کند.",
+                    "es": "En Presupuesto frente a real del panel, cada línea tiene ahora Editar y Eliminar, y Copiar al mes siguiente… traslada los presupuestos del mes —tal cual o cambiados en un porcentaje— sin tocar las categorías que el mes siguiente ya tiene. Sigue el calendario de tu empresa, meses jalalíes incluidos.",
+                    "ar": "في «الميزانية مقابل الفعلي» على اللوحة، لكل بند الآن «تعديل» و«حذف»، و«نسخ إلى الشهر التالي…» ينقل ميزانيات الشهر — كما هي أو بتغيير نسبة — دون المساس بالبنود الموجودة في الشهر التالي. يتبع تقويم شركتك، بما في ذلك الأشهر الشمسية.",
+                },
+            ),
+            Highlight(
+                key="project-budgets",
+                page="time",
+                roles=("owner", "cfo", "accountant"),
+                title={
+                    "en": "A budget for each project",
+                    "fa": "بودجه برای هر پروژه",
+                    "es": "Un presupuesto por proyecto",
+                    "ar": "ميزانية لكل مشروع",
+                },
+                body={
+                    "en": "Time → Projects and budgets: give a project a budget in hours, fees, or both, and see how much is used — every hour logged, and the fees they come to at the rate billed (or today's rate for time not yet invoiced). The bell warns at 85 % and when a project goes over.",
+                    "fa": "«زمان ← پروژه‌ها و بودجه»: برای پروژه بودجه ساعت، حق‌الزحمه یا هر دو بگذارید و ببینید چقدرش مصرف شده — همه ساعت‌های ثبت‌شده و حق‌الزحمه آن‌ها به نرخ صورت‌حساب (یا نرخ امروز برای زمانی که هنوز صورت‌حساب نشده). زنگ اعلان در ۸۵٪ و هنگام عبور از بودجه خبر می‌دهد.",
+                    "es": "Tiempo → Proyectos y presupuestos: da a un proyecto un presupuesto en horas, honorarios o ambos y mira cuánto se ha usado: cada hora registrada y los honorarios a la tarifa facturada (o a la de hoy si aún no se ha facturado). La campana avisa al 85 % y cuando un proyecto se pasa.",
+                    "ar": "الوقت ← المشاريع والميزانيات: خصّص للمشروع ميزانية بالساعات أو الأتعاب أو كليهما، وشاهد المستخدم منها — كل ساعة مسجلة والأتعاب بسعر الفوترة (أو بسعر اليوم لما لم يُفوتر بعد). ينبّهك الجرس عند 85٪ وعند تجاوز المشروع ميزانيته.",
                 },
             ),
         ),

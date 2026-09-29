@@ -54,6 +54,11 @@ MATRIX = [
     ("GET", "/ai-accountant/review-samples/00000000-0000-0000-0000-000000000000/scenario", {O}),
     ("PUT", "/ai-accountant/review-settings", {O}),
     ("GET", "/admin/companies/ai-review", set()),
+    # Budgets and project budgets (roadmap §4.7): books people
+    ("PATCH", "/budgets/b1", {O, C, A, P}),
+    ("POST", "/budgets/roll-forward", {O, C, A, P}),
+    ("PATCH", "/time/projects/p1", {O, C, A, P}),
+    ("GET", "/time/project-budgets", {O, C, A, P}),
     # User management (Owner only)
     ("GET", "/admin/users", {O}),
     ("POST", "/admin/users", {O}),

@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.employee_pay import EmployeePayProfile
@@ -404,3 +404,68 @@ def payroll_hours_summary(
         "entry_ids": [e.id for e in entries],
         "entry_count": len(entries),
     }
+
+
+# ---------------------------------------------------------------------------
+# Project budgets (roadmap §4.7)
+# ---------------------------------------------------------------------------
+
+BUDGET_WARN_PCT = 85
+
+
+def project_budget_usage(db: Session, projects: list[Project]) -> dict[str, dict]:
+    """Per project: hours logged (work and travel, billable or not) and the
+    fees they come to — invoiced time at the rate billed, unbilled time at
+    today's rate, written-off time none — in the project's currency (else the
+    company's). Time priced in another currency, or with no rate, is counted
+    in ``unpriced_hours``. One query, rates resolved once per worker/client/project."""
+    if not projects:
+        return {}
+    company_cur = company_currency(db)
+    cur_of = {str(p.id): (p.default_currency or company_cur).upper() for p in projects}
+    out = {str(p.id): {"hours_used": 0.0, "hours_billed": 0.0, "amount_used": 0, "unpriced_hours": 0.0,
+                       "currency": cur_of[str(p.id)]} for p in projects}
+    rows = db.execute(
+        select(TimeEntry.project_id, TimeEntry.employee_id, TimeEntry.client_id, TimeEntry.status,
+               TimeEntry.billable, TimeEntry.rate_snapshot, TimeEntry.currency, func.sum(TimeEntry.hours))
+        .where(TimeEntry.project_id.in_([p.id for p in projects]), TimeEntry.entry_type.in_(("work", "travel")))
+        .group_by(TimeEntry.project_id, TimeEntry.employee_id, TimeEntry.client_id, TimeEntry.status,
+                  TimeEntry.billable, TimeEntry.rate_snapshot, TimeEntry.currency)
+    ).all()
+    rates: dict = {}
+    for pid, emp, client, status, billable, snapshot, ccy, hours in rows:
+        o, h = out[str(pid)], float(hours or 0)
+        o["hours_used"] += h
+        if status == "invoiced":
+            o["hours_billed"] += h
+        if not billable or status == "written_off":
+            continue
+        if status == "invoiced" and snapshot is not None:
+            rate, rate_cur = float(snapshot), (ccy or cur_of[str(pid)])
+        else:
+            key = (emp, client, pid)
+            if key not in rates:
+                rates[key] = resolve_billable_rate(db, emp, client, pid) if client else None
+            if rates[key] is None:
+                o["unpriced_hours"] += h
+                continue
+            rate, rate_cur = rates[key]["rate"], rates[key]["currency"]
+        if (rate_cur or "").upper() != cur_of[str(pid)]:
+            o["unpriced_hours"] += h
+            continue
+        o["amount_used"] += _round(h * rate)
+    for p in projects:
+        o = out[str(p.id)]
+        o["hours_used"] = round(o["hours_used"], 2)
+        o["hours_billed"] = round(o["hours_billed"], 2)
+        o["unpriced_hours"] = round(o["unpriced_hours"], 2)
+        bh = float(p.budget_hours) if p.budget_hours is not None else None
+        ba = int(p.budget_amount) if p.budget_amount is not None else None
+        o["budget_hours"], o["budget_amount"] = bh, ba
+        o["hours_pct"] = round(o["hours_used"] / bh * 100, 1) if bh else None
+        o["amount_pct"] = round(o["amount_used"] / ba * 100, 1) if ba else None
+        worst = max([x for x in (o["hours_pct"], o["amount_pct"]) if x is not None], default=None)
+        o["status"] = ("none" if worst is None else "over" if worst >= 100
+                       else "warning" if worst >= BUDGET_WARN_PCT else "ok")
+    return out
+

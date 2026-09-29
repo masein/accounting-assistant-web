@@ -98,7 +98,7 @@ def export_vat_return(period_end: date = Query(...), db: Session = Depends(get_d
     """The nine boxes as CSV, for bridging software or the records."""
     import io
 
-    from app.core.spreadsheet import csv_writer
+    from app.core.spreadsheet import CSV_MEDIA_TYPE, csv_bytes, csv_writer
     conf = S.get_settings(db)
     out = vat_return(db, _period(db, period_end), currency=_base_currency(db))
     buf = io.StringIO()
@@ -111,7 +111,7 @@ def export_vat_return(period_end: date = Query(...), db: Session = Depends(get_d
     for n in map(str, range(1, 10)):
         v = out["boxes"][n]
         w.writerow([n, _BOX_LABELS[n], f"{v:.2f}" if int(n) <= 5 else str(int(v))])
-    return Response(content=buf.getvalue(), media_type="text/csv",
+    return Response(content=csv_bytes(buf), media_type=CSV_MEDIA_TYPE,
                     headers={"Content-Disposition": content_disposition(f'vat-return-{out["period"]["end"]}.csv')})
 
 

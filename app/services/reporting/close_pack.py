@@ -368,7 +368,7 @@ def journal_csv(db: Session, m: Month) -> bytes:
     from app.models.account import Account
     from app.models.transaction import Transaction, TransactionLine
     buf = io.StringIO()
-    from app.core.spreadsheet import csv_writer
+    from app.core.spreadsheet import csv_bytes, csv_writer
     w = csv_writer(buf)
     jalali = m.locale == "ir"
     w.writerow(["date"] + (["date_jalali"] if jalali else []) + [
@@ -388,7 +388,7 @@ def journal_csv(db: Session, m: Month) -> bytes:
             t.reference or "", t.description or "", acc.code, acc.name, ln.line_description or "",
             int(ln.debit or 0), int(ln.credit or 0), t.currency or "",
             "" if ln.base_debit is None else int(ln.base_debit), "" if ln.base_credit is None else int(ln.base_credit)])
-    return ("﻿" + buf.getvalue()).encode("utf-8")          # the BOM lets Excel read Persian
+    return csv_bytes(buf)
 
 
 def summary(items: list[dict], lang: str) -> str:

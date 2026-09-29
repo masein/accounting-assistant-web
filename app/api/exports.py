@@ -11,11 +11,12 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from openpyxl import Workbook
+from openpyxl.styles import Font
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.http_headers import content_disposition
-from app.core.spreadsheet import csv_writer, no_formulas
+from app.core.spreadsheet import CSV_MEDIA_TYPE, csv_bytes, csv_writer, no_formulas
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.invoice import Invoice
@@ -49,18 +50,19 @@ def _rows(db: Session, currency: str | None = None) -> list[list[str]]:
     if currency:
         q = q.where(Transaction.currency == currency)
     txns = db.execute(q).scalars().all()
-    rows: list[list[str]] = []
+    # typed values: the workbook gets real dates and numbers, the CSV writer prints them as before
+    rows: list[list] = []
     for t in txns:
         for ln in t.lines:
             rows.append([
                 str(t.id),
-                t.date.isoformat(),
+                t.date,
                 t.reference or "",
                 t.description or "",
                 ln.account.code,
                 ln.account.name,
-                str(ln.debit),
-                str(ln.credit),
+                int(ln.debit or 0),
+                int(ln.credit or 0),
                 ln.line_description or "",
                 getattr(t, "currency", "IRR"),
             ])
@@ -77,9 +79,8 @@ def export_transactions_csv(
     w.writerow(["transaction_id", "date", "reference", "description", "account_code", "account_name", "debit", "credit", "line_description", "currency"])
     for r in _rows(db, currency):
         w.writerow(r)
-    csv_bytes = out.getvalue().encode("utf-8")
     headers = {"Content-Disposition": content_disposition(f'transactions-{date.today().isoformat()}.csv')}
-    return Response(content=csv_bytes, media_type="text/csv", headers=headers)
+    return Response(content=csv_bytes(out), media_type=CSV_MEDIA_TYPE, headers=headers)
 
 
 @router.get("/transactions.xlsx")
@@ -91,8 +92,16 @@ def export_transactions_xlsx(
     ws = wb.active
     ws.title = "Transactions"
     ws.append(["transaction_id", "date", "reference", "description", "account_code", "account_name", "debit", "credit", "line_description", "currency"])
+    for c in ws[1]:
+        c.font = Font(bold=True)
     for r in _rows(db, currency):
         ws.append(r)
+        ws.cell(ws.max_row, 2).number_format = "yyyy-mm-dd"
+        for col in (7, 8):
+            ws.cell(ws.max_row, col).number_format = "#,##0"
+    ws.freeze_panes = "A2"
+    for col, width in zip("ABCDEFGHIJ", (38, 12, 16, 40, 12, 28, 16, 16, 32, 10)):
+        ws.column_dimensions[col].width = width
     bio = io.BytesIO()
     no_formulas(wb).save(bio)
     headers = {"Content-Disposition": content_disposition(f'transactions-{date.today().isoformat()}.xlsx')}

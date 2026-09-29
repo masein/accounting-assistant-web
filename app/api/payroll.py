@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.http_headers import content_disposition
-from app.core.spreadsheet import csv_writer
+from app.core.spreadsheet import CSV_MEDIA_TYPE, csv_bytes, csv_writer
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.employee_pay import EmployeePayProfile
@@ -1017,9 +1017,7 @@ def _csv_response(rows: list[list], filename: str) -> Response:
     w = csv_writer(out)
     for r in rows:
         w.writerow(r)
-    # BOM so Excel opens Persian text correctly.
-    data = ("\ufeff" + out.getvalue()).encode("utf-8")
-    return Response(content=data, media_type="text/csv; charset=utf-8",
+    return Response(content=csv_bytes(out), media_type=CSV_MEDIA_TYPE,
                     headers={"Content-Disposition": content_disposition(filename)})
 
 

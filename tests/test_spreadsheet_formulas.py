@@ -72,7 +72,7 @@ def books(client, db):
 
 
 def _csv(body: bytes | str) -> list[dict]:
-    text = body.decode("utf-8-sig") if isinstance(body, bytes) else body
+    text = body.decode("utf-8-sig") if isinstance(body, bytes) else body.lstrip("\ufeff")
     return list(csv.DictReader(io.StringIO(text)))
 
 
@@ -132,4 +132,31 @@ def test_every_writer_uses_the_guard():
             bare.append(str(p.relative_to(app)))
         if "Workbook()" in src and "no_formulas(" not in src:
             unguarded.append(str(p.relative_to(app)))
+        if "csv_writer(" in src and "csv_bytes(" not in src:
+            unguarded.append(str(p.relative_to(app)) + " (no BOM)")
     assert bare == [] and unguarded == [], (bare, unguarded)
+
+
+def test_exports_open_cleanly_in_excel(books):
+    """Excel needs a BOM to read Persian in a CSV, and a workbook's dates and
+    amounts should be dates and numbers you can sort and add up — not text."""
+    from datetime import datetime
+    api, _ = books
+    aug = {"from_date": "2026-08-01", "to_date": "2026-08-31", "format": "csv"}
+    for url, params in (("/exports/transactions.csv", {}), ("/manager-reports/books/general-journal", aug),
+                        ("/manager-reports/books/general-ledger", aug), ("/manager-reports/books/trial-balance", aug),
+                        ("/tax/uk/vat/return/export", {"period_end": "2026-09-30"})):
+        r = api.get(url, params=params)
+        assert r.status_code == 200, (url, r.text[:200])
+        assert r.content.startswith("\ufeff".encode("utf-8")), url
+        assert r.headers["content-type"].startswith("text/csv") and "charset=utf-8" in r.headers["content-type"], url
+    # the CSV still prints ISO dates and plain amounts
+    row = next(r for r in _csv(api.get("/exports/transactions.csv").content) if r["account_code"] == "7100")
+    assert row["date"] == "2026-08-15" and row["debit"] == "9000" and row["credit"] == "0"
+    # the workbook has a real date and real numbers
+    ws = _load(api.get("/exports/transactions.xlsx").content)["Transactions"]
+    assert ws["A1"].value == "transaction_id" and ws["A1"].font.bold and ws.freeze_panes == "A2"
+    line = next(r for r in ws.iter_rows(min_row=2) if r[4].value == "7100")
+    assert isinstance(line[1].value, datetime) and line[1].value.date().isoformat() == "2026-08-15"
+    assert line[6].value == 9000 and line[6].data_type == "n" and line[6].number_format == "#,##0"
+    assert line[7].value == 0 and line[3].value == EVIL and line[3].data_type == "s"

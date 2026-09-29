@@ -1014,10 +1014,26 @@
       });
       document.getElementById('pr-post-btn').style.display = run.status === 'draft' ? '' : 'none';
       document.getElementById('pr-pay-btn').style.display = run.status === 'posted' ? '' : 'none';
+      document.getElementById('pr-email-btn').style.display = (run.status === 'posted' || run.status === 'paid') ? '' : 'none';
       const rid = encodeURIComponent(run.id);
       document.getElementById('pr-ins-csv').href = `${API}/payroll/runs/${rid}/insurance-list.csv`;
       document.getElementById('pr-tax-csv').href = `${API}/payroll/runs/${rid}/tax-list.csv`;
     }
+
+    // Each employee gets their own payslip at the address on their record (roadmap §4.9).
+    document.getElementById('pr-email-btn').addEventListener('click', async () => {
+      if (!prCurrentRunId) return;
+      if (!(await uiConfirm({ message: t('payrollEmailConfirm'), confirmLabel: t('payrollEmailPayslips') }))) return;
+      try {
+        const res = await fetch(API + '/payroll/runs/' + prCurrentRunId + '/payslips/email', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        const d = await readJsonSafe(res);
+        if (!res.ok) { showAlert((d && d.detail) ? d.detail : t('payrollEmailFailed'), true); return; }
+        let msg = tf('payrollEmailResult', { sent: d.sent.length, failed: d.failed.length, skipped: d.skipped.length });
+        if (d.skipped.length) msg += ' ' + tf('payrollEmailNoAddress', { names: d.skipped.map(x => x.name).join(', ') });
+        showAlert(msg, d.failed.length > 0 && !d.sent.length);
+      } catch (e) { showAlert(t('payrollEmailFailed'), true); }
+    });
 
     document.getElementById('pr-post-btn').addEventListener('click', async () => {
       if (!prCurrentRunId) return;

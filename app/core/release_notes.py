@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.2"
+CURRENT_RELEASE = "2026.09.29.3"
 
 
 @dataclass(frozen=True)
@@ -1158,6 +1158,30 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "در سفارش خرید، «صدور صورت‌حساب برای رسیده‌ها» صورت‌حساب فروشنده را برای کالای رسیده‌ای که هنوز صورت‌حساب نشده — همراه با بدهی — ثبت می‌کند و ابطال آن صورت‌حساب، آن‌ها را برمی‌گرداند. سفارش‌ها اکنون صادر، در صورت نرسیدن باقی‌مانده بسته، اگر چیزی نرسیده لغو، و پیش‌نویس‌ها حذف می‌شوند. هنگام نوشتن کالا در سفارش تازه هم آخرین قیمت خرید، از چه کسی و کمترین قیمت آن را می‌بینید.",
                     "es": "En un pedido de compra, Facturar lo recibido registra la factura del proveedor por lo que ha llegado y aún no se ha facturado —con la deuda incluida—, y anular esa factura lo devuelve. Los pedidos ahora se emiten, se cierran si el resto no llegará, se cancelan si no ha llegado nada y los borradores se eliminan. Y al escribir un artículo en un pedido nuevo ves lo último que pagaste, a quién y el precio más bajo que has tenido.",
                     "ar": "في أمر الشراء، يسجّل «فوترة ما وصل» فاتورة المورّد للبضاعة الواردة غير المفوترة — مع المستحق — وإلغاء تلك الفاتورة يعيدها. يمكن الآن إصدار الأوامر، وإغلاقها إن لم يصل الباقي، وإلغاؤها إن لم يصل شيء، وحذف المسودات. وعند كتابة صنف في أمر جديد ترى آخر سعر دفعته ولمن وأدنى سعر حصلت عليه.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.3",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="email-statements-payslips",
+                page="entities",
+                page_by_role={"cfo": "payroll"},
+                roles=("owner", "cfo", "accountant"),
+                title={
+                    "en": "E-mail statements and payslips",
+                    "fa": "ارسال صورت‌حساب و فیش حقوقی با ایمیل",
+                    "es": "Envía extractos y nóminas por correo",
+                    "ar": "إرسال كشوف الحساب وقسائم الرواتب بالبريد",
+                },
+                body={
+                    "en": "In a client's or supplier's transactions there's now a Statement PDF and E-mail statement… — this year so far, to the address on their record or one you type, with the balance in the message. On a posted pay run, E-mail payslips sends each employee their own payslip; anyone without an e-mail on file is listed so you can add it. Every e-mail is logged.",
+                    "fa": "در تراکنش‌های هر مشتری یا تأمین‌کننده اکنون «صورت‌حساب PDF» و «ارسال صورت‌حساب…» هست — امسال تا امروز، به ایمیل پرونده یا نشانی‌ای که وارد می‌کنید، با مانده در متن نامه. در دوره حقوقِ ثبت‌شده، «ارسال فیش‌ها با ایمیل» فیش هر کارمند را فقط برای خودش می‌فرستد و کسانی که ایمیل ندارند فهرست می‌شوند تا اضافه کنید. همه ارسال‌ها ثبت می‌شوند.",
+                    "es": "En los movimientos de un cliente o proveedor hay ahora Extracto en PDF y Enviar extracto…: este año hasta hoy, a la dirección de su ficha o la que escribas, con el saldo en el mensaje. En una nómina registrada, Enviar nóminas por correo manda a cada empleado la suya; quien no tenga correo aparece en la lista para que lo añadas. Cada envío queda registrado.",
+                    "ar": "في معاملات العميل أو المورّد يوجد الآن «كشف حساب PDF» و«إرسال الكشف…» — لهذا العام حتى الآن، إلى العنوان المسجّل أو عنوان تكتبه، مع الرصيد في الرسالة. وفي دورة رواتب مرحّلة، يرسل «إرسال قسائم الرواتب بالبريد» لكل موظف قسيمته فقط، ويُدرج من ليس لديه بريد لتضيفه. تُسجَّل كل رسالة.",
                 },
             ),
         ),

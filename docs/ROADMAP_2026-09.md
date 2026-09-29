@@ -433,6 +433,16 @@ orders and bills (cancelled orders, voided bills and bills made from orders
 left out), with last / lowest / highest per currency; the PO editor shows it
 under each line.
 
+✅ 4.9, part 1 — documents by e-mail (`app/services/document_mail.py`,
+migration 061 `document_emails`): `POST /entities/{id}/statement/email` sends
+the statement of account PDF (this year to date by default, to the party's
+address or a typed one, the balance in the message, Persian for an Iranian
+company); `POST /payroll/runs/{id}/payslips/email` sends each employee on a
+posted/paid run only their own payslip, to their own address, reporting who has
+none; every attempt logged (`GET …/emails`), 503 without SMTP. The statement PDF
+is finally linked in the UI (entity statement toolbar). Left in 4.9: server-side
+PDF/XLSX of the financial statements and the monthly close pack.
+
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
 hash; the runtime lock constrains the other two). The Dockerfile and every CI

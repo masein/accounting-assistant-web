@@ -1035,6 +1035,24 @@
           <h3 data-i18n="panelInsights">What changed</h3>
           <div id="pd-insights-wrap"></div>
         </div>
+        <div class="panel" id="pd-household">
+          <h3 data-i18n="hhTitle">Household</h3>
+          <p class="close-pack-hint" data-i18n="hhHint">Share these books with someone you live with — they get their own sign-in and see the same money, budgets and goals.</p>
+          <ul id="hh-members" class="hh-list"></ul>
+          <ul id="hh-invites" class="hh-list"></ul>
+          <details id="hh-add" class="goal-add">
+            <summary data-i18n="hhInvite">Invite someone</summary>
+            <div class="row">
+              <div><label for="hh-name" data-i18n="hhName">Name</label><input type="text" id="hh-name" maxlength="128"></div>
+              <div><label for="hh-email" data-i18n="hhEmail">E-mail (optional)</label><input type="email" id="hh-email" maxlength="254" dir="ltr"></div>
+              <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="hh-send" data-i18n="hhSend">Create invitation</button></div>
+            </div>
+          </details>
+          <div id="hh-link" class="hh-link" hidden>
+            <p id="hh-link-note"></p>
+            <div class="hh-link-row"><input type="text" id="hh-link-input" readonly dir="ltr"><button type="button" class="btn btn-secondary btn-sm" id="hh-copy" data-i18n="hhCopy">Copy</button></div>
+          </div>
+        </div>
         <div class="panel" id="pd-goals">
           <h3 data-i18n="goalsTitle">Savings goals</h3>
           <div id="goals-list"></div>

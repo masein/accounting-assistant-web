@@ -1637,7 +1637,65 @@
       loadNetWorth();
       loadReportCard();
       loadGoals();
+      loadHousehold();
     }
+
+    // ═══════ A shared household (personal, roadmap §4.12) ═══════
+    async function loadHousehold() {
+      const members = document.getElementById('hh-members');
+      if (!members) return;
+      let d;
+      try {
+        const res = await fetch(API + '/personal/household');
+        if (!res.ok) { document.getElementById('pd-household').hidden = true; return; }   // not personal books
+        d = await res.json();
+      } catch (_) { return; }
+      document.getElementById('pd-household').hidden = false;
+      members.innerHTML = d.members.filter(m => m.active).map(m => `<li><span>${rcName(m.username)}`
+        + `${m.you ? ` <span class="hh-meta">(${escapeHtml(t('hhYou'))})</span>` : ''}</span>`
+        + (m.you ? '' : `<button type="button" class="btn btn-secondary btn-sm hh-remove" data-id="${escapeHtml(m.id)}">${escapeHtml(t('hhRemove'))}</button>`)
+        + '</li>').join('');
+      document.getElementById('hh-invites').innerHTML = d.invites.map(i => `<li><span>${rcName(i.name || i.email || t('hhSomeone'))}`
+        + ` <span class="hh-meta">${escapeHtml(tf(i.emailed ? 'hhInvitedEmailed' : 'hhInvitedLink', { date: i.expires_at.slice(0, 10) }))}</span></span>`
+        + `<button type="button" class="btn btn-secondary btn-sm hh-cancel" data-id="${escapeHtml(i.id)}">${escapeHtml(t('hhCancel'))}</button></li>`).join('');
+      document.getElementById('hh-add').hidden = d.room <= 0;
+    }
+
+    document.getElementById('hh-send')?.addEventListener('click', async () => {
+      const name = document.getElementById('hh-name').value.trim() || null;
+      const email = document.getElementById('hh-email').value.trim() || null;
+      try {
+        const res = await fetch(API + '/personal/household/invites', { method: 'POST',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email }) });
+        const d = await readJsonSafe(res);
+        if (!res.ok) { showAlert((d && d.detail) ? d.detail : t('hhFailed'), true); return; }
+        const url = d.link.startsWith('http') ? d.link : (location.origin + d.link);
+        document.getElementById('hh-link-input').value = url;
+        document.getElementById('hh-link-note').textContent = t(d.emailed ? 'hhLinkEmailed' : 'hhLinkCopy');
+        document.getElementById('hh-link').hidden = false;
+        document.getElementById('hh-name').value = '';
+        document.getElementById('hh-email').value = '';
+        document.getElementById('hh-add').open = false;
+        await loadHousehold();
+      } catch (_) { showAlert(t('hhFailed'), true); }
+    });
+    document.getElementById('hh-copy')?.addEventListener('click', async () => {
+      const input = document.getElementById('hh-link-input');
+      try { await navigator.clipboard.writeText(input.value); showAlert(t('hhCopied')); }
+      catch (_) { input.select(); }
+    });
+    document.getElementById('pd-household')?.addEventListener('click', async (e) => {
+      const cancel = e.target.closest('.hh-cancel');
+      const remove = e.target.closest('.hh-remove');
+      if (!cancel && !remove) return;
+      if (remove && !(await uiConfirm({ message: t('hhRemoveConfirm'), confirmLabel: t('hhRemove'), danger: true }))) return;
+      const url = cancel ? '/personal/household/invites/' + cancel.dataset.id : '/personal/household/members/' + remove.dataset.id;
+      try {
+        const res = await fetch(API + url, { method: 'DELETE' });
+        if (!res.ok) { const d = await readJsonSafe(res); showAlert((d && d.detail) ? d.detail : t('hhFailed'), true); }
+        await loadHousehold();
+      } catch (_) { showAlert(t('hhFailed'), true); }
+    });
 
     // ═══════ Monthly report card + savings goals (personal, roadmap §4.12) ═══════
     function rcLang() { return currentLanguage === 'fa' ? 'fa' : 'en'; }

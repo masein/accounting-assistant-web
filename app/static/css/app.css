@@ -166,6 +166,15 @@
     .goal-badge { font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px; background: #e2e8f0; }
     .goal-badge.ok { background: var(--success-bg); color: var(--success); }
     .goal-badge.warn { background: #fef3c7; color: #b45309; }
+    .hh-list { list-style: none; margin: 0.25rem 0; padding: 0; }
+    .hh-list li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .hh-list li:last-child { border-bottom: 0; }
+    .hh-list .hh-meta { color: var(--text-muted); font-size: 0.8rem; }
+    .hh-link { margin-top: 0.6rem; padding: 0.6rem; border: 1px dashed var(--border); border-radius: 8px; background: #f8fafc; }
+    .hh-link p { margin: 0 0 0.4rem; font-size: 0.85rem; }
+    .hh-link-row { display: flex; gap: 0.4rem; }
+    .hh-link-row input { flex: 1; margin: 0; font-size: 0.8rem; }
     .goal-add { margin-top: 0.6rem; }
     .goal-add summary { cursor: pointer; font-weight: 600; color: var(--primary); }
     .close-pack-hint { color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0; }

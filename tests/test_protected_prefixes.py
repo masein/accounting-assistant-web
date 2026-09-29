@@ -11,7 +11,7 @@ from app.main import APP_SHELL_PATHS, PROTECTED_API_PREFIXES, app
 
 # /metrics is scraped by Prometheus, not a browser: it has its own bearer
 # token (METRICS_TOKEN) and answers 404 when none is configured.
-EXEMPT = ("/auth/login", "/auth/logout", "/auth/signup", "/auth/verify", "/auth/resend", "/api/v1/", "/health",
+EXEMPT = ("/auth/login", "/auth/logout", "/auth/signup", "/auth/verify", "/auth/resend", "/auth/invite/", "/api/v1/", "/health",
           "/docs", "/redoc", "/openapi.json", "/metrics")
 
 

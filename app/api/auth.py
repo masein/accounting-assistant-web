@@ -89,6 +89,9 @@ class SignupRequest(BaseModel):
     # What to call their books; defaults to the username.
     display_name: str | None = Field(default=None, max_length=256)
     locale: str = Field(default="default")
+    # A household invitation (roadmap §4.12): join an existing person's books
+    # instead of starting new ones. Works even with self-signup off.
+    invite: str | None = Field(default=None, max_length=128)
 
 
 # The password the seed gives the first admin. A login that presents it (for
@@ -317,6 +320,48 @@ def login_two_factor(payload: TwoFactorLoginRequest, request: Request, response:
     return body
 
 
+@router.get("/invite/{token}")
+def invite_info(token: str, request: Request, db: Session = Depends(get_db)) -> dict:
+    """What a household link is for — the books' name and who sent it — so the
+    sign-up page can say "Join Sara's books". Rate-limited like sign-up."""
+    from app.services import household as hh
+    ip = get_client_ip(request)
+    if not _signup_limiter.is_allowed(db, ip or "unknown"):
+        raise HTTPException(status_code=429, detail="Too many attempts. Try again later.")
+    try:
+        return hh.describe(db, token)
+    except hh.HouseholdError as e:
+        raise HTTPException(status_code=e.status, detail=str(e)) from e
+
+
+def _join_household(payload: "SignupRequest", request: Request, response: Response, db: Session, ip) -> dict:
+    """Sign-up through a household invitation: a personal user of the inviter's books."""
+    from app.services import household as hh
+    try:
+        user, inv = hh.accept(db, payload.invite, username=payload.username, password=payload.password,
+                              email=payload.email)
+    except hh.HouseholdError as e:
+        db.rollback()
+        raise HTTPException(status_code=e.status, detail=str(e)) from e
+    pending = verification_required() and user.email_verified_at is None
+    if pending and not user.email:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="A valid email address is required.")
+    if pending:
+        issue_token(user)
+    audit_log(db, action="signup", entity_type="user", entity_id=str(user.id), user_id=str(user.id),
+              username=user.username, detail=f"Joined the household by invitation {inv.id}", ip_address=ip)
+    db.commit()
+    if pending:
+        send_verification_email(user)
+        return {"ok": True, "pending_verification": True,
+                "message": f"Account created. Check {user.email} to confirm your address before signing in."}
+    _set_session_cookie(request, response, _session_token_for(user))
+    return {"ok": True, "joined": True,
+            "user": {"id": str(user.id), "username": user.username, "is_admin": False, "is_superadmin": False,
+                     "role": user.role}}
+
+
 @router.post("/signup", status_code=201)
 def signup(payload: SignupRequest, request: Request, response: Response,
            db: Session = Depends(get_db)) -> dict:
@@ -332,12 +377,14 @@ def signup(payload: SignupRequest, request: Request, response: Response,
     per-IP rate limit. Anyone exposing this to the open internet should add
     verification before doing so.
     """
-    if not settings.allow_self_signup:
+    if not settings.allow_self_signup and not payload.invite:
         raise HTTPException(status_code=403, detail="Self-signup is disabled on this server.")
 
     ip = get_client_ip(request)
     if not _signup_limiter.is_allowed(db, ip or "unknown"):
         raise HTTPException(status_code=429, detail="Too many sign-up attempts. Try again later.")
+    if payload.invite:
+        return _join_household(payload, request, response, db, ip)
 
     username = payload.username.strip()
     try:

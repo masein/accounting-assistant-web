@@ -147,8 +147,11 @@
       return _defaultCashCodePromise;
     }
 
+    // Not page-guarded: besides the voucher and invoice pickers, the journal
+    // editor in the entity statement (any page) builds its party dropdowns
+    // from entityOptions — empty options there dropped a journal's parties on
+    // save. Never called at boot.
     async function loadEntityOptions() {
-      if (!onPage('transactions', 'invoices')) return;   // the voucher and invoice party pickers
       try {
         const res = await fetch(API + '/entities');
         const list = await res.json();

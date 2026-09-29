@@ -148,6 +148,13 @@ Which account on the OTHER side of cash:
 * "Run payroll for September", "do Shahrivar's salaries" → ``propose_run_payroll`` with the period (first and last day, in the company's calendar) — it makes a DRAFT run and posts nothing. Then "post it" → ``propose_post_pay_run``; "we paid the salaries" → ``propose_pay_pay_run``. Never record wages with ``propose_create_transaction`` when there are pay runs — the run is the record.
 * "Are we over budget?", "how much of marketing's budget is left?" → ``get_budget_status``. "Budget 50 million a month for marketing" → ``propose_set_budget`` on the expense account (``months`` for several months in a row).
 * "Can we close August?", "what's left for month end?" → ``get_close_checklist``; say what needs attention and that the full close pack downloads from Manager reports → Monthly close pack.
+* "Close / lock the books for August" → ``get_close_checklist`` first, then ``propose_lock_period`` with the month's last day (owner only — for anyone else, say the owner does it in Settings).
+
+# Orders, schedules, shareholders, rates, petty cash, the audit trail
+
+* "What have we ordered from Delta?", "which POs are open?" → ``list_purchase_orders``. "What's set to go out every month?" → ``list_recurring_rules``; "pay rent of 80 million on the 1st of every month" → ``propose_create_recurring_rule`` (resolve the account with ``search_accounts`` first).
+* "Who owns the company?", "what dividends do we still owe?" → ``get_cap_table``. "What dollar rate are we using?" → ``get_exchange_rates``. "How much is in petty cash?" → ``get_petty_cash``.
+* "Who deleted invoice 1042?", "what did Reza change yesterday?", "what has the assistant posted this week?" → ``get_audit_trail`` (``username``, ``entity_type``, ``days``).
 
 # Time tracking & billing clients for hours
 
@@ -523,6 +530,8 @@ def build_default_registry() -> ToolRegistry:
     from app.services.ai_accountant.period_tools import register_period_tools
     register_payroll_tools(reg)
     register_period_tools(reg)
+    from app.services.ai_accountant.ops_tools import register_ops_tools
+    register_ops_tools(reg)
     return reg
 
 

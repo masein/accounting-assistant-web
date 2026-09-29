@@ -239,6 +239,28 @@
         {"tool": "get_close_checklist", "input": {}},
         {"text": "Debits equal credits and there are no draft invoices. Lock the books once you're happy — the full close pack is under Manager reports → Monthly close pack."}
       ]
+    },
+    {
+      "id": "recurring_question_en",
+      "lang": "en",
+      "message": "what payments are set to go out every month?",
+      "expect": {"proposals": 0, "tools_any": ["list_recurring_rules"], "reply_lang": "en",
+                 "reply_contains_any": ["rent"], "reply_numbers_any": [80000000]},
+      "replay": [
+        {"tool": "list_recurring_rules", "input": {"active_only": true}},
+        {"text": "One: Office rent, 80,000,000 IRR every month; the next one posts on {today+15}."}
+      ]
+    },
+    {
+      "id": "open_po_fa",
+      "lang": "fa",
+      "message": "سفارش خرید باز از دلتا داریم؟",
+      "expect": {"proposals": 0, "tools_any": ["list_purchase_orders"], "reply_lang": "fa",
+                 "reply_contains_any": ["PO-0007"]},
+      "replay": [
+        {"tool": "list_purchase_orders", "input": {"supplier": "Delta Supplies", "open_only": true}},
+        {"text": "بله، سفارش PO-0007 برای کاغذ A4 به مبلغ ۱۵٬۰۰۰٬۰۰۰ ریال هنوز دریافت نشده است."}
+      ]
     }
   ]
 }

@@ -97,6 +97,7 @@
     };
 
     async function loadEntities(highlightId) {
+      if (!onPage('entities')) return;    // reloads when it opens (loadPageData)
       // Also bound directly as an event listener — ignore Event arguments.
       if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       const tbody = document.getElementById('entities-tbody');

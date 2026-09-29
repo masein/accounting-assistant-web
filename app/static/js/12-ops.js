@@ -2,18 +2,23 @@
     // handler and hash navigation (hashchange / deep-link / back-forward), so
     // a page reached via the URL hash — not just a click — still fetches its
     // data (otherwise e.g. CFO/CEO cards render their empty "—" placeholders).
+    // Boot fetches nothing page-specific: this is the ONLY place a page's
+    // data loads from when it opens (tests/test_boot_page_data.py).
     function loadPageData(page) {
-      if (page === 'dashboard') { loadOwnerDashboard(); }
+      if (page === 'dashboard') { loadOwnerDashboard(); loadBudgets(); }
       if (page === 'personal-dashboard') { loadPersonalDashboard(); }
       if (page === 'commitments') { loadCommitments(); }
+      if (page === 'ai-accountant') { if (typeof aiChatInit === 'function') aiChatInit(); }
+      if (page === 'transactions') { loadEntityOptions(); }
       if (page === 'entities') { loadEntities(); }
-      if (page === 'invoices') { loadInvoices(); invInitBuilder(); }
-      if (page === 'recurring') { loadRecurringRules(); }
+      if (page === 'invoices') { loadInvoices(); invInitBuilder(); loadEntityOptions(); }
+      if (page === 'recurring') { loadRecurringRules(); recurringInitPage(); }
       if (page === 'bank-statements') { loadBankStatements(); }
+      if (page === 'ledger') { loadLedger(); }
       if (page === 'audit') { loadAuditLogs(); }
       if (page === 'cfo') { loadCFOReport(); }
       if (page === 'ceo') { loadCEOReport(); }
-      if (page === 'inventory') { loadPriceMgmtItems(); loadStockPanel(); }
+      if (page === 'inventory') { loadPriceMgmtItems(); loadStockPanel(); loadManagerInventoryItems(); }
       if (page === 'manager') { loadAccountDatalist(); loadProductEntityDatalist(); }
       if (page === 'products') { loadProductsCatalog(); }
       if (page === 'payroll') { loadPayroll(); }
@@ -21,13 +26,12 @@
       if (page === 'purchase-orders') { loadPurchaseOrders(); }
       if (page === 'expenses') { loadExpenses(); }
       if (page === 'time') { loadTimeTab(); }
-      if (page === 'settings') { loadClosedPeriod(); loadAdjustments(); loadCompanyProfile(); if (typeof loadGuardrails === 'function') loadGuardrails(); }
+      if (page === 'settings') { loadSettingsPage(); }
       if (page === 'companies') { loadCompanies(); }
       if (page === 'migration') { migrationInitPage(); }
       if (page === 'petty-cash') { pettyInitPage(); }
       if (page === 'fixed-assets') { loadFixedAssets(); }
       if (page === 'accounts') { loadChartOfAccounts(); }
-      if (page === 'recurring') { recurringInitPage(); }
     }
 
 
@@ -202,13 +206,8 @@
       const msg = t('migrationAiPrompt')
         .replaceAll('{type}', rec.entity_type).replaceAll('{name}', rec.entity_name)
         .replaceAll('{missing}', missing).replaceAll('{id}', rec.entity_id);
-      showPage('ai-accountant');
-      const input = document.getElementById('ai-acct-input');
-      if (input) {
-        input.value = msg;
-        const send = document.getElementById('ai-acct-send');
-        if (send) send.click();
-      }
+      // opens the chat (restoring its latest session first) and sends
+      if (typeof window.aiChatAsk === 'function') window.aiChatAsk(msg);
     }
 
 

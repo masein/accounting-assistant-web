@@ -148,6 +148,7 @@
     }
 
     async function loadEntityOptions() {
+      if (!onPage('transactions', 'invoices')) return;   // the voucher and invoice party pickers
       try {
         const res = await fetch(API + '/entities');
         const list = await res.json();
@@ -206,6 +207,7 @@
 
     let _invoicesCache = [];
     async function loadInvoices(highlightId) {
+      if (!onPage('invoices')) return;    // reloads when it opens (loadPageData)
       if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       loadTaxRates();
       try {
@@ -262,6 +264,7 @@
     }
 
     async function loadRecurringRules(highlightId) {
+      if (!onPage('recurring')) return;
       if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       try {
         const res = await fetch(API + '/recurring');
@@ -369,6 +372,7 @@
     }
 
     async function loadBudgets() {
+      if (!onPage('dashboard')) return;
       const monthVal = document.getElementById('budget-month').value || currentMonthKey();
       try {
         const res = await fetch(API + '/budgets/actual-vs-budget?month=' + encodeURIComponent(monthVal));

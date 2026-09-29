@@ -5,5 +5,10 @@
     {
       const initialPage = (location.hash || '#dashboard').slice(1);
       showPage(initialPage);
-      loadPageData(initialPage);
+      // The page's data loads once the user is known (userReady, from
+      // 10-forms-fx-bank.js): the role decides which page is shown — a
+      // manager deep-linked to #dashboard lands on Expenses — and the
+      // dashboard used to be fetched for roles that can't open it. Loaded
+      // once, for the page actually shown.
+      userReady.then(() => loadPageData(activePage() || initialPage));
     }

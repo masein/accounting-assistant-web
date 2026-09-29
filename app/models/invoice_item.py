@@ -21,6 +21,9 @@ class InvoiceItem(Base, TenantMixin):
         UUID(as_uuid=True), ForeignKey("invoices.id", ondelete="CASCADE"), index=True
     )
     product_name: Mapped[str] = mapped_column(String(256), index=True)
+    # the purchase-order line a bill line was made from (roadmap §4.8)
+    po_line_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("purchase_order_lines.id", ondelete="SET NULL"), nullable=True, index=True)
     quantity: Mapped[float] = mapped_column(Numeric(18, 4), default=1)
     unit_price: Mapped[int] = mapped_column(BigInteger, default=0)
     unit_cost: Mapped[int | None] = mapped_column(BigInteger, nullable=True)

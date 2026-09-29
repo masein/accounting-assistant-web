@@ -507,12 +507,13 @@
 
     // ═══════ Purchase Orders Module ═══════
     let poCurrentId = null;
+    let poCurrent = null;   // the order open in the detail panel
 
     function poCur() { return (window.__REPORTING_CURRENCY || 'IRR'); }
 
     function poAddLineRow(desc = '', qty = '', price = '') {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td><input type="text" class="po-l-desc" value="${escapeHtml(desc)}"></td>
+      tr.innerHTML = `<td><input type="text" class="po-l-desc" value="${escapeHtml(desc)}"><div class="po-l-hist fx-hint" style="margin:0.2rem 0 0;"></div></td>
         <td><input type="number" class="po-l-qty" min="0" step="0.01" value="${qty}" style="width:7rem;"></td>
         <td><input type="number" class="po-l-price" min="0" value="${price}" style="width:8rem;"></td>
         <td><button type="button" class="btn btn-secondary btn-sm po-l-del">✕</button></td>`;
@@ -535,6 +536,23 @@
     }
 
     document.getElementById('po-add-line').addEventListener('click', () => poAddLineRow());
+    // What this has cost before (roadmap §4.8): shown under the line as you type it.
+    document.getElementById('po-lines-body').addEventListener('change', async (e) => {
+      const inp = e.target.closest('.po-l-desc');
+      if (!inp) return;
+      const hint = inp.parentElement.querySelector('.po-l-hist');
+      const q = inp.value.trim();
+      hint.textContent = '';
+      if (q.length < 2) return;
+      try {
+        const res = await fetch(API + '/purchase-orders/price-history?limit=20&q=' + encodeURIComponent(q));
+        if (!res.ok) return;
+        const d = await res.json();
+        hint.textContent = Object.entries(d.by_currency || {}).map(([ccy, s]) => tf('poPriceHint', {
+          last: formatNum(s.last) + ' ' + ccy, who: s.last_supplier || '—', date: formatDisplayDate(s.last_date),
+          low: formatNum(s.lowest) + ' ' + ccy, lowWho: s.lowest_supplier || '—' })).join(' · ');
+      } catch (_) { /* a hint only */ }
+    });
     document.getElementById('po-lines-body').addEventListener('click', (e) => {
       if (e.target.closest('.po-l-del')) e.target.closest('tr').remove();
     });
@@ -606,14 +624,29 @@
           `${t('poDetail')} ${po.number} (${t('poStatus_' + po.status)})`;
         const body = document.getElementById('po-detail-lines');
         body.innerHTML = '';
+        poCurrent = po;
         po.lines.forEach(ln => {
           const outstanding = Math.max(0, ln.ordered_qty - ln.received_qty);
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(ln.description)}</td><td>${ln.ordered_qty}</td>
-            <td>${ln.received_qty}</td><td>${formatNum(ln.unit_price)} ${escapeHtml(po.currency)}</td>
+            <td>${ln.received_qty}</td><td>${ln.billed_qty}</td><td>${formatNum(ln.unit_price)} ${escapeHtml(po.currency)}</td>
             <td><input type="number" class="po-recv-qty" data-line="${ln.id}" min="0" max="${outstanding}" step="0.01" value="${outstanding}" style="width:7rem;"></td>`;
           body.appendChild(tr);
         });
+        // What can be done with it now: the lifecycle (§4.8).
+        const st = po.status;
+        const show = (id, on) => { const b = document.getElementById(id); if (b) b.style.display = on ? '' : 'none'; };
+        show('po-issue-btn', st === 'draft');
+        show('po-delete-btn', st === 'draft');
+        show('po-cancel-btn', st === 'draft' || (st === 'issued' && po.lines.every(l => !l.received_qty)));
+        show('po-close-btn', ['issued', 'partially_received', 'received'].includes(st));
+        show('po-bill-btn', po.lines.some(l => l.billable_qty > 0) && !['draft', 'cancelled'].includes(st));
+        show('po-receive-btn', !['draft', 'cancelled', 'closed', 'received'].includes(st));
+        const billsEl = document.getElementById('po-bills');
+        billsEl.innerHTML = (po.bills || []).length
+          ? escapeHtml(t('poBillsLabel')) + ' ' + po.bills.map(b => `<strong>${escapeHtml(b.number)}</strong> ${formatNum(b.amount)} ${escapeHtml(b.currency)}`
+              + (b.status === 'voided' ? ` (${escapeHtml(t('poBillVoided'))})` : '')).join(' · ')
+          : '';
         // Bills (purchase invoices) for the match dropdown.
         const billRes = await fetch(API + '/invoices?kind=purchase');
         const bills = billRes.ok ? await billRes.json() : [];
@@ -644,6 +677,42 @@
         await loadPOList();
         await openPODetail(poCurrentId);
       } catch (e) { showAlert(t('poReceiveFailed'), true); }
+    });
+
+    async function poSetStatus(status, confirmKey) {
+      if (!poCurrentId) return;
+      if (confirmKey && !(await uiConfirm({ message: t(confirmKey), confirmLabel: t('btnConfirm'), danger: status === 'cancelled' }))) return;
+      const res = await fetch(API + '/purchase-orders/' + poCurrentId, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+      const d = await readJsonSafe(res);
+      if (!res.ok) { showAlert((d && d.detail) ? d.detail : t('poUpdateFailed'), true); return; }
+      await loadPOList();
+      await openPODetail(poCurrentId);
+    }
+    document.getElementById('po-issue-btn').addEventListener('click', () => poSetStatus('issued'));
+    document.getElementById('po-close-btn').addEventListener('click', () => poSetStatus('closed', 'poCloseConfirm'));
+    document.getElementById('po-cancel-btn').addEventListener('click', () => poSetStatus('cancelled', 'poCancelConfirm'));
+    document.getElementById('po-delete-btn').addEventListener('click', async () => {
+      if (!poCurrentId || !(await uiConfirm({ message: t('poDeleteConfirm'), confirmLabel: t('btnDelete'), danger: true }))) return;
+      const res = await fetch(API + '/purchase-orders/' + poCurrentId, { method: 'DELETE' });
+      if (!res.ok) { const d = await readJsonSafe(res); showAlert((d && d.detail) ? d.detail : t('poUpdateFailed'), true); return; }
+      poCurrentId = null;
+      document.getElementById('po-detail').style.display = 'none';
+      await loadPOList();
+    });
+    document.getElementById('po-bill-btn').addEventListener('click', async () => {
+      if (!poCurrentId || !poCurrent) return;
+      const total = poCurrent.lines.reduce((a, l) => a + Math.round(l.billable_qty * l.unit_price), 0);
+      const number = await uiPrompt({ title: t('poBillBtn'), message: tf('poBillPrompt', { amount: formatNum(total) + ' ' + poCurrent.currency }) });
+      if (number === null) return;
+      const res = await fetch(API + '/purchase-orders/' + poCurrentId + '/bill', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: number.trim() || null }) });
+      const d = await readJsonSafe(res);
+      if (!res.ok) { showAlert((d && d.detail) ? d.detail : t('poBillFailed'), true); return; }
+      showAlert(tf('poBilled', { number: d.invoice_number, amount: formatNum(d.amount) + ' ' + d.currency }));
+      await loadPOList();
+      await openPODetail(poCurrentId);
     });
 
     document.getElementById('po-match-btn').addEventListener('click', async () => {

@@ -424,12 +424,14 @@ _reads(["/products/catalog", "/products/detail/{product_name}",
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 
 # --- Books: purchase orders -------------------------------------------------
-_reads(["/purchase-orders", "/purchase-orders/{po_id}", "/purchase-orders/{po_id}/pdf"],
-       Perm.BOOKS_READ)
+_reads(["/purchase-orders", "/purchase-orders/{po_id}", "/purchase-orders/{po_id}/pdf",
+        "/purchase-orders/price-history"], Perm.BOOKS_READ)
 for _m, _p in [
     ("POST", "/purchase-orders"), ("PATCH", "/purchase-orders/{po_id}"),
+    ("DELETE", "/purchase-orders/{po_id}"),
     ("POST", "/purchase-orders/{po_id}/receipts"),
     ("POST", "/purchase-orders/{po_id}/match"),
+    ("POST", "/purchase-orders/{po_id}/bill"),   # posts the payable: books write, like a bill
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 

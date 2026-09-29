@@ -419,6 +419,20 @@ written-off none, other currencies or no rate as "unpriced" — in one query
 with rates resolved once per worker/client/project; Time → Projects and
 budgets; bell alerts at 85 % / over. Jalali months were done in §3.5.
 
+✅ 4.8 purchase orders (`app/services/purchase_billing.py`, migration 060):
+the lifecycle is enforced — receipts set (partially) received, a person may
+issue a draft, cancel an order nothing arrived on, or close one (short-closing
+a partial delivery); closed and cancelled are final; only a draft is deleted.
+`POST /purchase-orders/{id}/bill` makes the supplier's bill for what arrived
+and isn't billed (all or chosen quantities, optional VAT %) through
+`insert_invoice`, so the payable posts; `purchase_order_lines.billed_qty`,
+`invoices.purchase_order_id` (use_alter: POs already point at invoices) and
+`invoice_items.po_line_id`; voiding the bill gives the quantities back.
+`GET /purchase-orders/price-history` lists what an item or description cost on
+orders and bills (cancelled orders, voided bills and bills made from orders
+left out), with last / lowest / highest per currency; the PO editor shows it
+under each line.
+
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
 hash; the runtime lock constrains the other two). The Dockerfile and every CI
@@ -559,7 +573,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 4.5 | **Chart-of-accounts management**: create / rename / deactivate accounts, تفصیلی groups, opening balances UI | accounts are only created implicitly today |
 | 4.6 | **Multi-currency close**: unrealised FX revaluation exists; add realised gain/loss on settlement, rate feed (manual today, XE-style hourly for GBP/EUR/USD, a gold-price feed for personal holdings) — ✅ feeds + per-company rates 2026-09-28; realised gain/loss open | Xero parity; personal tenants hold gold/FX |
 | 4.7 | ✅ (2026-09-29) **Budgets**: edit route, Jalali months, per-project budgets, roll-forward | `budgets.py` has no PATCH |
-| 4.8 | **Purchase orders**: cancel/delete, partial receipts to bills, supplier price history | `purchase_orders.py` |
+| 4.8 | ✅ (2026-09-29) **Purchase orders**: cancel/delete, partial receipts to bills, supplier price history | `purchase_orders.py` |
 | 4.9 | **Documents**: statements of account e-mailed to clients, payslips e-mailed to employees, PDF/XLSX export of financial statements (server side), a "monthly close pack" zip | mail service exists but sends nothing to parties |
 | 4.10 | **Mobile**: PWA (manifest + offline shell), camera receipt capture straight into the chat, bell push via Web Push; later native | competitors all have apps; ours is responsive only |
 | 4.11 | **Migration importers**: Hesabfa/Holoo/Sepidar exports, Xero/QuickBooks CSV, historical transactions (not just opening balances) | switching cost is the main sales objection |

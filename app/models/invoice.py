@@ -26,6 +26,12 @@ class Invoice(Base, TenantMixin):
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True, index=True)
+    # a bill made from a purchase order's receipts (roadmap §4.8)
+    # use_alter: purchase_orders.matched_invoice_id points back at invoices;
+    # the cycle is broken here so the tables still sort for create_all / purges
+    purchase_order_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("purchase_orders.id", ondelete="SET NULL", use_alter=True,
+                                       name="fk_invoices_purchase_order_id"), nullable=True, index=True)
     # The recognition journal entry posted when the invoice is issued
     # (DR AR / CR revenue for sales; DR expense / CR AP for purchases).
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(

@@ -21,7 +21,7 @@ from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
-from app.services import three_way_match
+from app.services import purchase_billing, three_way_match
 from app.services.audit_service import log_audit_event
 from app.services.fx_service import get_reporting_currency
 
@@ -61,6 +61,20 @@ class POPatch(BaseModel):
     description: str | None = None
 
 
+class BillLineInput(BaseModel):
+    po_line_id: UUID
+    quantity: float = Field(..., gt=0)
+
+
+class BillCreate(BaseModel):
+    """A bill for what has arrived; ``lines`` omitted = everything not billed yet."""
+    number: str | None = Field(None, max_length=128, description="The supplier's invoice number")
+    issue_date: _date | None = None
+    due_date: _date | None = None
+    tax_rate: float = Field(0, ge=0, le=100)
+    lines: list[BillLineInput] | None = None
+
+
 class ReceiptLineInput(BaseModel):
     po_line_id: UUID
     quantity: float = Field(..., gt=0)
@@ -89,12 +103,14 @@ def _line_read(ln: PurchaseOrderLine) -> dict:
         "description": ln.description,
         "ordered_qty": float(ln.ordered_qty or 0),
         "received_qty": float(ln.received_qty or 0),
+        "billed_qty": float(ln.billed_qty or 0),
+        "billable_qty": float(purchase_billing.billable(ln)),
         "unit_price": int(ln.unit_price or 0),
         "line_total": int(ln.line_total or 0),
     }
 
 
-def _po_read(po: PurchaseOrder, db: Session) -> dict:
+def _po_read(po: PurchaseOrder, db: Session, *, with_bills: bool = False) -> dict:
     name = None
     if po.entity_id:
         ent = db.get(Entity, po.entity_id)
@@ -111,7 +127,9 @@ def _po_read(po: PurchaseOrder, db: Session) -> dict:
         "description": po.description,
         "matched_invoice_id": str(po.matched_invoice_id) if po.matched_invoice_id else None,
         "total": sum(int(li.line_total or 0) for li in po.lines),
+        "billing_status": purchase_billing.billing_status(po),
         "lines": [_line_read(li) for li in po.lines],
+        **({"bills": purchase_billing.bills_for(db, po)} if with_bills else {}),
     }
 
 
@@ -174,12 +192,24 @@ def list_pos(db: Session = Depends(get_db)) -> list[dict]:
     return [_po_read(p, db) for p in pos]
 
 
+@router.get("/price-history")
+def po_price_history(inventory_item_id: UUID | None = None, q: str | None = None, entity_id: UUID | None = None,
+                     limit: int = 50, db: Session = Depends(get_db)) -> dict:
+    """What an item (or a description) has cost, on orders and bills."""
+    from app.services.purchase_billing import POError, price_history
+    try:
+        return price_history(db, inventory_item_id=inventory_item_id, q=q, entity_id=entity_id,
+                             limit=max(1, min(int(limit), 200)))
+    except POError as e:
+        raise HTTPException(status_code=e.status, detail=str(e))
+
+
 @router.get("/{po_id}")
 def get_po(po_id: UUID, db: Session = Depends(get_db)) -> dict:
     po = db.get(PurchaseOrder, po_id)
     if not po:
         raise HTTPException(status_code=404, detail="Purchase order not found.")
-    return _po_read(po, db)
+    return _po_read(po, db, with_bills=True)
 
 
 @router.get("/{po_id}/pdf")
@@ -207,6 +237,11 @@ def patch_po(po_id: UUID, payload: POPatch, db: Session = Depends(get_db)) -> di
     if payload.status is not None:
         if payload.status not in _VALID_STATUS:
             raise HTTPException(status_code=422, detail=f"Invalid status '{payload.status}'.")
+        from app.services.purchase_billing import POError, check_transition
+        try:
+            check_transition(po, payload.status)          # the lifecycle, not any status at all (§4.8)
+        except POError as e:
+            raise HTTPException(status_code=e.status, detail=str(e))
         po.status = payload.status
     if payload.expected_date is not None:
         po.expected_date = payload.expected_date
@@ -217,6 +252,43 @@ def patch_po(po_id: UUID, payload: POPatch, db: Session = Depends(get_db)) -> di
     db.commit()
     db.refresh(po)
     return _po_read(po, db)
+
+
+@router.delete("/{po_id}", status_code=204)
+def delete_po(po_id: UUID, db: Session = Depends(get_db)) -> None:
+    """Only a draft goes; an issued order is cancelled or closed and stays on record."""
+    po = db.get(PurchaseOrder, po_id)
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found.")
+    if po.status != "draft":
+        raise HTTPException(status_code=409, detail=f"Only a draft can be deleted; cancel or close a {po.status} order.")
+    log_audit_event(db, action="delete", entity_type="purchase_order", entity_id=str(po.id),
+                    detail=f"Draft PO {po.number} deleted")
+    db.delete(po)
+    db.commit()
+
+
+@router.post("/{po_id}/bill", status_code=201)
+def bill_po(po_id: UUID, payload: BillCreate, db: Session = Depends(get_db)) -> dict:
+    """Bill what has arrived (roadmap §4.8): a purchase invoice that recognises
+    the payable, for received quantities not yet billed."""
+    from app.services.purchase_billing import POError, bill_from_po
+    po = db.get(PurchaseOrder, po_id)
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found.")
+    try:
+        inv = bill_from_po(db, po, number=payload.number, issue_date=payload.issue_date, due_date=payload.due_date,
+                           tax_rate=payload.tax_rate,
+                           lines=[ln.model_dump() for ln in payload.lines] if payload.lines else None)
+    except POError as e:
+        db.rollback()
+        raise HTTPException(status_code=e.status, detail=str(e))
+    log_audit_event(db, action="bill", entity_type="purchase_order", entity_id=str(po.id),
+                    detail=f"Bill {inv.number} ({inv.amount:,} {inv.currency}) from PO {po.number}")
+    db.commit()
+    db.refresh(po)
+    return {"invoice_id": str(inv.id), "invoice_number": inv.number, "amount": int(inv.amount or 0),
+            "currency": inv.currency, "order": _po_read(po, db, with_bills=True)}
 
 
 # ---------------------------------------------------------------------------

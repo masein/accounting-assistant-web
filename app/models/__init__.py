@@ -28,6 +28,7 @@ from app.models.invoice_email import InvoiceEmail
 from app.models.document_email import DocumentEmail
 from app.models.savings_goal import SavingsGoal
 from app.models.household_invite import HouseholdInvite
+from app.models.statement_mail import StatementMailMessage
 from app.models.migration import MigrationBatch, MigrationPendingRecord
 from app.models.notification import Notification, Reminder
 from app.models.petty_cash import PettyCashAccount, PettyCashTransaction

@@ -13,7 +13,7 @@
       if (page === 'entities') { loadEntities(); }
       if (page === 'invoices') { loadInvoices(); invInitBuilder(); loadEntityOptions(); }
       if (page === 'recurring') { loadRecurringRules(); recurringInitPage(); }
-      if (page === 'bank-statements') { loadBankStatements(); }
+      if (page === 'bank-statements') { loadBankStatements(); loadMailbox(); }
       if (page === 'ledger') { loadLedger(); }
       if (page === 'audit') { loadAuditLogs(); }
       if (page === 'cfo') { loadCFOReport(); }

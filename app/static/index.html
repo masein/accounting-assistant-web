@@ -1578,6 +1578,45 @@
         </details>
       </details>
 
+      <!-- Bank statements by e-mail (roadmap §4.1, app/services/statement_mailbox.py) -->
+      <details id="mail-panel" style="margin:0 0 1rem;">
+        <summary style="cursor:pointer;font-weight:600;"><span data-i18n="mailTitle">Statements by e-mail</span> <span id="mail-summary-state" style="font-weight:400;font-size:0.8rem;color:var(--text-muted);"></span></summary>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="mailDesc">If your bank e-mails you statements, the app can read them for you. Every 30 minutes it checks this mailbox, looks only at messages from the senders below, and files each attached statement (CSV, Excel or PDF) here to review and approve. It never changes, moves or deletes your mail.</p>
+        <fieldset id="mail-form" style="border:0;padding:0;margin:0;">
+          <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
+            <div style="flex:2 1 14rem;"><label for="mail-host" data-i18n="mailHost">IMAP server</label>
+              <input type="text" id="mail-host" dir="ltr" placeholder="imap.example.com" autocomplete="off" spellcheck="false"></div>
+            <div style="flex:0 1 6rem;"><label for="mail-port" data-i18n="mailPort">Port</label>
+              <input type="number" id="mail-port" dir="ltr" value="993" min="1" max="65535"></div>
+            <div style="flex:2 1 14rem;"><label for="mail-user" data-i18n="mailUser">Username</label>
+              <input type="text" id="mail-user" dir="ltr" autocomplete="off" spellcheck="false"></div>
+            <div style="flex:2 1 12rem;"><label for="mail-password" data-i18n="mailPassword">Password</label>
+              <input type="password" id="mail-password" autocomplete="new-password"></div>
+            <div style="flex:1 1 8rem;"><label for="mail-folder" data-i18n="mailFolder">Folder</label>
+              <input type="text" id="mail-folder" dir="ltr" value="INBOX" spellcheck="false"></div>
+          </div>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin:0.25rem 0 0.5rem;" data-i18n="mailPasswordHint">Use an app password if your mail provider offers one; it's stored encrypted and never shown again.</p>
+          <label for="mail-senders" data-i18n="mailSenders">Bank senders</label>
+          <textarea id="mail-senders" rows="3" dir="ltr" style="width:100%;" spellcheck="false" placeholder="statements@bank.example, Bank name&#10;@bank.example, Bank name"></textarea>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin:0.2rem 0 0.5rem;" data-i18n="mailSendersHint">One per line: the address the statements come from (or @ and the bank's domain for any address there), a comma, and the bank's name.</p>
+          <label style="display:flex;gap:0.4rem;align-items:center;cursor:pointer;margin-bottom:0.5rem;">
+            <input type="checkbox" id="mail-enabled"> <span data-i18n="mailEnabled">Check this mailbox every 30 minutes</span></label>
+        </fieldset>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+          <button type="button" class="btn btn-primary btn-sm mail-manage" id="mail-save" data-i18n="mailSave">Save</button>
+          <button type="button" class="btn btn-secondary btn-sm mail-manage" id="mail-test" data-i18n="mailTest">Test connection</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="mail-check" data-i18n="mailCheck">Check now</button>
+          <span id="mail-view-only" style="display:none;font-size:0.8rem;color:var(--text-muted);" data-i18n="mailViewOnly">Only the owner can change the mailbox.</span>
+        </div>
+        <div id="mail-result" style="margin-top:0.5rem;"></div>
+        <div id="mail-log-wrap" style="display:none;margin-top:0.6rem;">
+          <h4 style="margin:0 0 0.3rem;" data-i18n="mailLogTitle">Messages read</h4>
+          <div style="overflow-x:auto;"><table class="results-table" id="mail-log-table"><thead><tr>
+            <th data-i18n="mailThReceived">Received</th><th data-i18n="mailThFrom">From</th><th data-i18n="mailThSubject">Subject</th><th data-i18n="mailThResult">Result</th>
+          </tr></thead><tbody id="mail-log-body"></tbody></table></div>
+        </div>
+      </details>
+
       <div id="bs-list-wrap">
         <h3 data-i18n="bsRecentStatements">Recent Statements</h3>
         <table class="results-table" id="bs-list-table"><thead><tr>

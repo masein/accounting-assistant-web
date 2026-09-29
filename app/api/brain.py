@@ -172,7 +172,7 @@ def list_bank_statements(
             source_type=s.source_type, source_filename=s.source_filename,
             currency=s.currency, from_date=s.from_date, to_date=s.to_date,
             status=s.status, total_rows=s.total_rows,
-            matched_rows=s.matched_rows, new_rows=s.new_rows,
+            matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin,
             rows=[BankStatementRowRead(
                 id=r.id, row_index=r.row_index, tx_date=r.tx_date,
                 description=r.description, reference=r.reference,
@@ -201,7 +201,7 @@ def get_bank_statement(statement_id: UUID, db: Session = Depends(get_db)) -> Ban
         source_type=s.source_type, source_filename=s.source_filename,
         currency=s.currency, from_date=s.from_date, to_date=s.to_date,
         status=s.status, total_rows=s.total_rows,
-        matched_rows=s.matched_rows, new_rows=s.new_rows,
+        matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin,
         rows=[BankStatementRowRead(
             id=r.id, row_index=r.row_index, tx_date=r.tx_date,
             description=r.description, reference=r.reference,

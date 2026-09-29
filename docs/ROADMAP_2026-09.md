@@ -118,8 +118,18 @@ resolved to the past, تومان → rials, OTP codes ignored); pasted batches s
 rows filed into monthly SMS-feed statements per bank/account so the usual
 review → approve pipeline applies; exact repeats skipped, balance gaps
 flagged; `POST /bank-sms` (+ preview) and `POST /api/v1/bank-sms` with the new
-`bank_sms:write` key scope for phone automations. Later: statement e-mail
-ingestion, open-banking balances. ✅ 4.3 fixed-asset register (#159):
+`bank_sms:write` key scope for phone automations. **2026-09-29:** ✅ statements
+by e-mail (#209): `app/services/statement_mailbox.py` + `/bank-mailbox` — the
+owner (or a personal user) saves an IMAP mailbox (TLS only, the password
+Fernet-encrypted and never returned, never sent to another server) and the
+bank senders (an address or `@domain`); every 30 minutes, or on "Check now",
+the folder is opened read-only, searched on the server for those senders, and
+each attached CSV/Excel/PDF statement goes through the upload's import
+(`origin="email"`, waiting for review); every message read is logged in
+`statement_mail_messages` (migration 065) so nothing is imported twice; the
+connection goes to the checked public address (`app/core/public_address.py`,
+shared with the rate feeds); failures are codes the page translates, and two in
+a row ring the bell. Later: open-banking balances. ✅ 4.3 fixed-asset register (#159):
 `app/services/fixed_assets.py` + `/fixed-assets` — asset cards (migration
 048), straight-line and declining-balance schedules in the company's calendar
 (Jalali months for Iran, starting the month after use; the 5 % rule), a
@@ -675,7 +685,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 
 | # | Item | Why / competitor reference |
 |---|---|---|
-| 4.1 | ◐ (#156 bank SMS — e-mailed statements and open banking later) **Bank feeds without a bank API**: parse bank SMS / push notifications forwarded by the user (Mahak does this on Android), plus scheduled statement e-mail ingestion; later Finnotech-style open-banking for balances/statements | Iranian banks have no Plaid; SMS capture is what personal-finance users expect |
+| 4.1 | ◐ (#156 bank SMS, #209 statements by e-mail — open banking waits for a provider) **Bank feeds without a bank API**: parse bank SMS / push notifications forwarded by the user (Mahak does this on Android), plus scheduled statement e-mail ingestion; later Finnotech-style open-banking for balances/statements | Iranian banks have no Plaid; SMS capture is what personal-finance users expect |
 | 4.2 | ◐ (#128–#130 — SMS waits for a provider) **Quotes / پیش‌فاکتور → invoice**, recurring invoices with auto-send, invoice e-mail/SMS with a "pay by card-to-card / payment link" line, **automatic overdue reminders** (Xero default: 3 reminders) | AR collection is the most-cited SME pain; nothing e-mails invoices today |
 | 4.3 | ✅ (#159) **Fixed-asset register**: asset cards, depreciation methods (straight-line exists as an adjustment), disposal, Iranian tax useful-life table | adjustments exist but there is no register or disposal |
 | 4.4 | ✅ (#161) **Inventory costing** (weighted average / FIFO), stock valuation report, reorder alerts, barcode field; production/BOM light | Hesabfa/Holoo core; ours is movements + average price only |

@@ -118,7 +118,61 @@
       await tmLoadProjects();
       await tmLoadEntries();
       await tmLoadReady();
+      tmLoadBudgets();
     }
+
+    // Projects and their budgets (roadmap §4.7) — books roles only: the API
+    // refuses the others and the section stays hidden.
+    async function tmLoadBudgets() {
+      const sec = document.getElementById('tm-budgets-section');
+      const body = document.getElementById('tm-budgets-body');
+      if (!sec || !body) return;
+      // employees log their own time here; budgets are for books roles (the API refuses them)
+      if (currentRole === 'employee') { sec.style.display = 'none'; return; }
+      try {
+        const res = await fetch(API + '/time/project-budgets');
+        if (!res.ok) { sec.style.display = 'none'; return; }
+        const rows = await res.json();
+        sec.style.display = '';
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="5" class="empty-state">${escapeHtml(t('timeBudgetsNone'))}</td></tr>`;
+          return;
+        }
+        const meter = (used, budget, pct, unit) => {
+          const u = unit === 'h' ? `${formatNum(used)} h` : `${formatNum(used)} ${escapeHtml(unit)}`;
+          if (budget == null) return `${u} <span class="fx-hint" style="display:inline;">· ${escapeHtml(t('timeBudgetNoLimit'))}</span>`;
+          const cls = pct >= 100 ? 'tm-bud-over' : (pct >= 85 ? 'tm-bud-warn' : 'tm-bud-ok');
+          const b = unit === 'h' ? `${formatNum(budget)} h` : formatNum(budget);
+          return `<span class="${cls}">${u} / ${b} (${pct}%)</span>`
+            + `<div class="tm-bud-bar"><span class="${cls}" style="width:${Math.min(100, pct || 0)}%"></span></div>`;
+        };
+        body.innerHTML = rows.map(p => `<tr data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name)}"
+            data-hours="${p.budget_hours == null ? '' : escapeHtml(String(p.budget_hours))}" data-amount="${p.budget_amount == null ? '' : escapeHtml(String(p.budget_amount))}">
+          <td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.client_name || '')}</td>
+          <td>${meter(p.hours_used, p.budget_hours, p.hours_pct, 'h')}</td>
+          <td>${meter(p.amount_used, p.budget_amount, p.amount_pct, p.currency)}${p.unpriced_hours ? `<div class="fx-hint">${escapeHtml(tf('timeBudgetUnpriced', { h: p.unpriced_hours }))}</div>` : ''}</td>
+          <td><button type="button" class="btn btn-secondary btn-sm tm-bud-set">${escapeHtml(t('timeBudgetSet'))}</button></td>
+        </tr>`).join('');
+      } catch (_) { sec.style.display = 'none'; }
+    }
+    document.getElementById('tm-budgets-body').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.tm-bud-set');
+      if (!btn) return;
+      const tr = btn.closest('tr[data-id]');
+      const hours = await uiPrompt({ title: tr.dataset.name, message: t('timeBudgetHoursPrompt'), type: 'number', value: tr.dataset.hours });
+      if (hours === null) return;
+      const amount = await uiPrompt({ title: tr.dataset.name, message: t('timeBudgetFeesPrompt'), type: 'number', value: tr.dataset.amount });
+      if (amount === null) return;
+      const h = hours.trim() === '' ? null : parseFloat(hours);
+      const a = amount.trim() === '' ? null : parseInt(amount, 10);
+      if ((h !== null && !(h >= 0)) || (a !== null && !(a >= 0))) { showAlert(t('budgetEditBad'), true); return; }
+      const res = await fetch(API + '/time/projects/' + encodeURIComponent(tr.dataset.id), {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget_hours: h, budget_amount: a }) });
+      if (!res.ok) { showAlert(t('budgetSaveFailed'), true); return; }
+      showAlert(t('timeBudgetSaved'));
+      tmLoadBudgets();
+    });
 
     document.getElementById('tm-client').addEventListener('change', tmLoadProjects);
     async function tmLoadProjects() {

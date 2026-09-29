@@ -462,6 +462,14 @@
       padding-bottom: 0.45rem;
     }
     .fx-hint { color: var(--text-muted); font-size: 0.82rem; margin: 0 0 0.5rem 0; }
+    /* project budgets (Time page, roadmap §4.7) */
+    #tm-budgets-section table { width: 100%; }
+    #tm-budgets-section th, #tm-budgets-section td { padding: 0.45rem 0.6rem; text-align: start; vertical-align: top; }
+    #tm-budgets-section tbody tr + tr td { border-top: 1px solid var(--border); }
+    .tm-bud-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 0.25rem; max-width: 12rem; overflow: hidden; }
+    .tm-bud-bar span { display: block; height: 100%; }
+    .tm-bud-bar .tm-bud-ok { background: #0f766e; } .tm-bud-bar .tm-bud-warn { background: #d97706; } .tm-bud-bar .tm-bud-over { background: #dc2626; }
+    span.tm-bud-warn { color: #b45309; } span.tm-bud-over { color: #b91c1c; font-weight: 600; }
     /* AI review queue (Settings, roadmap §5.5) */
     .ai-rev-item { border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.85rem; margin: 0 0 0.6rem 0; background: var(--card-bg, transparent); }
     .ai-rev-meta { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.3rem; }

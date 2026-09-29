@@ -266,6 +266,19 @@
       setTimeout(() => { w.print(); }, 350);
     }
 
+    // The financial statements from the server (roadmap §4.9): the page's
+    // period and currency, every statement the company's template has.
+    document.querySelectorAll('.mgr-statements-export').forEach((btn) => btn.addEventListener('click', () => {
+      const q = new URLSearchParams({ format: btn.dataset.format });
+      const from = document.getElementById('mgr-from-date').value;
+      const to = document.getElementById('mgr-to-date').value;
+      const ccy = document.getElementById('mgr-currency')?.value;
+      if (from) q.set('from_date', from);
+      if (to) q.set('to_date', to);
+      if (ccy) q.set('currency', ccy);
+      window.location.href = API + '/manager-reports/financial/export?' + q.toString();
+    }));
+
     function exportManagerReportJson() {
       if (!lastManagerReport) { showAlert(t('runReportFirst'), true); return; }
       const type = (lastManagerReport.report_type || 'report');

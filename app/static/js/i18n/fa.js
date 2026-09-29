@@ -1471,6 +1471,8 @@ window.I18N_PACKS.fa = Object.assign({
         entStatementEmailFailed: "صورت‌حساب ارسال نشد.",
         entStatementEmailSent: "صورت‌حساب به {to} فرستاده شد.",
         entStatementEmailNotSent: "صورت‌حساب تحویل نشد: {reason}",
+        mgrStatementsPdf: "همه صورت‌ها (PDF)",
+        mgrStatementsXlsx: "همه صورت‌ها (اکسل)",
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

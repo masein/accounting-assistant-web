@@ -47,9 +47,9 @@ TITLES = {
 }
 WORDS = {
     "fa": {"as_of": "در تاریخ", "period": "از {a} تا {b}", "total": "جمع", "item": "شرح", "prior": "دوره قبل",
-           "opening": "ابتدای دوره قبل", "page": "صفحه", "amounts": "مبالغ به {ccy}", "prepared": "تهیه شده در {d}"},
+           "opening": "ابتدای دوره قبل", "page": "صفحه", "amounts": "مبالغ به {ccy}", "amounts_all": "همه ارزها، به ارزش {ccy}", "prepared": "تهیه شده در {d}"},
     "en": {"as_of": "As at", "period": "{a} to {b}", "total": "Total", "item": "", "prior": "Prior period",
-           "opening": "Prior period opening", "page": "Page", "amounts": "Amounts in {ccy}", "prepared": "Prepared {d}"},
+           "opening": "Prior period opening", "page": "Page", "amounts": "Amounts in {ccy}", "amounts_all": "All currencies, at their value in {ccy}", "prepared": "Prepared {d}"},
 }
 STYLES = {"line", "subtotal", "total", "header", "spacer"}
 
@@ -218,9 +218,16 @@ def tables(db: Session, *, statements: list[str] | None = None, from_date: date 
         else:
             out.append(Table(key, title(key), period_cols[0], period_cols, _flat(r, lang, three=False)))
     from app.services.fx_service import get_reporting_currency
-    meta = {"locale": locale, "lang": lang, "from_date": from_date, "to_date": to_date,
-            "currency": (currency or get_reporting_currency(db) or "").upper()}
+    from app.services.reporting.repository import is_base_view
+    combined = is_base_view(currency)                   # "ALL": every currency at its base value
+    meta = {"locale": locale, "lang": lang, "from_date": from_date, "to_date": to_date, "combined": combined,
+            "currency": ((None if combined else currency) or get_reporting_currency(db) or "").upper()}
     return out, meta
+
+
+def amounts_in(meta: dict) -> str:
+    W = WORDS[meta["lang"]]
+    return W["amounts_all" if meta.get("combined") else "amounts"].format(ccy=meta.get("currency") or "")
 
 
 # --- PDF -----------------------------------------------------------------------------------------------------------
@@ -245,7 +252,7 @@ def render_pdf(db: Session, tabs: list[Table], meta: dict, *, cover: dict | None
     ctx = {
         "rtl": rtl, "dir": "rtl" if rtl else "ltr", "lang": lang, "brand": brand, "brand_color": brand["brand_color"],
         "font_family": brand["font_family"], "words": W, "cover": cover, "extra_html": extra_html,
-        "amounts_in": W["amounts"].format(ccy=meta.get("currency") or ""),
+        "amounts_in": amounts_in(meta),
         "prepared": W["prepared"].format(d=_fmt_date(date.today(), meta["locale"], lang)),
         "tables": [{"title": t.title, "subtitle": t.subtitle, "columns": t.columns,
                     "rows": [{**r, "cells": [_num(v, lang) for v in r["values"]]} for r in t.rows]} for t in tabs],
@@ -272,7 +279,7 @@ def render_xlsx(tabs: list[Table], meta: dict, *, company: str = "", extra_sheet
         ws.sheet_view.rightToLeft = rtl
         ws.append([company])
         ws.append([t.title])
-        ws.append([t.subtitle + "  ·  " + WORDS[meta["lang"]]["amounts"].format(ccy=meta.get("currency") or "")])
+        ws.append([t.subtitle + "  ·  " + amounts_in(meta)])
         ws.append([])
         ws["A1"].font = Font(bold=True, size=12)
         ws["A2"].font = Font(bold=True, size=14)

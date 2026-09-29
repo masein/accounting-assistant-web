@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.3"
+CURRENT_RELEASE = "2026.09.29.4"
 
 
 @dataclass(frozen=True)
@@ -1182,6 +1182,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "در تراکنش‌های هر مشتری یا تأمین‌کننده اکنون «صورت‌حساب PDF» و «ارسال صورت‌حساب…» هست — امسال تا امروز، به ایمیل پرونده یا نشانی‌ای که وارد می‌کنید، با مانده در متن نامه. در دوره حقوقِ ثبت‌شده، «ارسال فیش‌ها با ایمیل» فیش هر کارمند را فقط برای خودش می‌فرستد و کسانی که ایمیل ندارند فهرست می‌شوند تا اضافه کنید. همه ارسال‌ها ثبت می‌شوند.",
                     "es": "En los movimientos de un cliente o proveedor hay ahora Extracto en PDF y Enviar extracto…: este año hasta hoy, a la dirección de su ficha o la que escribas, con el saldo en el mensaje. En una nómina registrada, Enviar nóminas por correo manda a cada empleado la suya; quien no tenga correo aparece en la lista para que lo añadas. Cada envío queda registrado.",
                     "ar": "في معاملات العميل أو المورّد يوجد الآن «كشف حساب PDF» و«إرسال الكشف…» — لهذا العام حتى الآن، إلى العنوان المسجّل أو عنوان تكتبه، مع الرصيد في الرسالة. وفي دورة رواتب مرحّلة، يرسل «إرسال قسائم الرواتب بالبريد» لكل موظف قسيمته فقط، ويُدرج من ليس لديه بريد لتضيفه. تُسجَّل كل رسالة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.4",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="statements-export",
+                page="manager",
+                roles=("owner", "cfo", "accountant", "viewer"),
+                title={
+                    "en": "All your statements as PDF or Excel",
+                    "fa": "همه صورت‌های مالی در PDF یا اکسل",
+                    "es": "Todos tus estados en PDF o Excel",
+                    "ar": "كل القوائم المالية بصيغة PDF أو Excel",
+                },
+                body={
+                    "en": "Manager reports has two new buttons: All statements (PDF) and All statements (Excel). They make the full set — balance sheet, income statement, comprehensive income, changes in equity and cash flows — for the dates and currency you picked, on your letterhead. Iranian companies get them in Persian with Jalali dates; the Excel keeps real numbers you can add up.",
+                    "fa": "در گزارش‌های مدیریتی دو دکمه تازه هست: «همه صورت‌ها (PDF)» و «همه صورت‌ها (اکسل)». مجموعه کامل — صورت وضعیت مالی، سود و زیان، سود و زیان جامع، تغییرات در حقوق مالکانه و جریان‌های نقدی — برای بازه و ارزی که انتخاب کرده‌اید، با سربرگ شرکت ساخته می‌شود؛ به فارسی و با تاریخ شمسی. در اکسل اعداد، عدد واقعی‌اند و قابل جمع زدن.",
+                    "es": "Informes de gestión tiene dos botones nuevos: Todos los estados (PDF) y Todos los estados (Excel). Generan el juego completo —balance, cuenta de resultados, resultado integral, cambios en el patrimonio y flujos de efectivo— para las fechas y la moneda elegidas, con tu membrete. En Excel las cifras son números reales que puedes sumar.",
+                    "ar": "في تقارير الإدارة زرّان جديدان: «كل القوائم (PDF)» و«كل القوائم (Excel)». يُنشئان المجموعة الكاملة — المركز المالي، والدخل، والدخل الشامل، والتغيرات في حقوق الملكية، والتدفقات النقدية — للفترة والعملة المختارتين، على ترويسة شركتك. وفي Excel تبقى الأرقام أرقامًا حقيقية يمكن جمعها.",
                 },
             ),
         ),

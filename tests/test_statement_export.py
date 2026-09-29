@@ -162,6 +162,17 @@ def test_what_the_export_refuses(books):
     assert 'filename="financial-statements-2026-01-01-2026-09-30.xlsx"' in r.headers["content-disposition"]
 
 
+def test_all_currencies_is_labelled_with_the_base_currency(books):
+    api = books("uk", "GBP", UK)                                      # the page's default pick is "ALL"
+    url = "/manager-reports/financial/export"
+    wb = _xlsx(api.get(url, params={**P, "format": "xlsx", "currency": "ALL", "statements": "balance_sheet"}))
+    assert wb.active["A3"].value.endswith("All currencies, at their value in GBP")
+    _pages, text = _pdf_text(api.get(url, params={**P, "format": "pdf", "currency": "ALL", "statements": "balance_sheet"}))
+    assert "All currencies, at their value in GBP" in text and "ALL" not in text.replace("All", "")
+    one = _xlsx(api.get(url, params={**P, "format": "xlsx", "currency": "gbp", "statements": "balance_sheet"}))
+    assert one.active["A3"].value.endswith("Amounts in GBP")
+
+
 def test_who_may_export():
     from app.core.auth import SessionUser
     from app.core.permissions import user_can_access

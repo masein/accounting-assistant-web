@@ -72,6 +72,7 @@ class PayProfileUpsert(BaseModel):
     seniority_eligible: bool = Field(False, description="Gets the seniority base (statutory mode)")
     currency: str | None = None
     active: bool = True
+    hired_on: _date | None = Field(None, description="First day of employment — pro-rates عیدی and سنوات")
 
 
 class PayRunEmployeeInput(BaseModel):
@@ -145,6 +146,7 @@ def _profile_read(p: EmployeePayProfile, name: str | None = None) -> dict:
         "seniority_eligible": bool(p.seniority_eligible),
         "currency": p.currency,
         "active": bool(p.active),
+        "hired_on": p.hired_on.isoformat() if p.hired_on else None,
     }
 
 
@@ -166,6 +168,9 @@ def _line_read(ln: PayRunLine) -> dict:
         "allowances": int(getattr(ln, "allowances", 0) or 0),
         "insurable_wage": int(getattr(ln, "insurable_wage", 0) or 0),
         "employer_social": int(getattr(ln, "employer_social", 0) or 0),
+        "eidi": int(ln.eidi or 0),
+        "sanavat": int(ln.sanavat or 0),
+        "days_worked": int(ln.days_worked or 0),
         "paid_to": getattr(ln, "paid_to", None),
     }
 
@@ -178,6 +183,8 @@ def _run_read(run: PayRun) -> dict:
         "pay_date": run.pay_date.isoformat(),
         "currency": run.currency,
         "status": run.status,
+        "kind": run.kind or "regular",
+        "year_key": run.year_key,
         "total_gross": int(run.total_gross or 0),
         "total_tax": int(run.total_tax or 0),
         "total_social": int(run.total_social or 0),
@@ -276,6 +283,7 @@ def upsert_profile(payload: PayProfileUpsert, db: Session = Depends(get_db)) -> 
     prof.seniority_eligible = bool(payload.seniority_eligible)
     prof.currency = cur
     prof.active = bool(payload.active)
+    prof.hired_on = payload.hired_on
     db.commit()
     db.refresh(prof)
     return _profile_read(prof, ent.name)
@@ -336,6 +344,7 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
                 .where(
                     PayRunLine.entity_id.in_([p.entity_id for p in at_risk]),
                     PayRun.status != "voided",
+                    PayRun.kind != "year_end",          # عیدی/سنوات cover the year alongside the monthly runs
                     PayRun.period_start <= payload.period_end,
                     PayRun.period_end >= payload.period_start,
                 )
@@ -451,6 +460,34 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
     run.total_deductions = totals["ded"]
     run.total_net = totals["net"]
     run.total_employer_social = totals["employer"]
+    db.commit()
+    db.refresh(run)
+    return _run_read(run)
+
+
+class YearEndEmployee(BaseModel):
+    entity_id: UUID
+    days_worked: int | None = Field(None, ge=0, le=366, description="Days of the year to pro-rate on; default from hired_on")
+
+
+class YearEndCreate(BaseModel):
+    year: str | None = Field(None, pattern=r"^1[3-5]\d\d$", description="Jalali year, e.g. 1405; default this year")
+    pay_date: _date
+    employees: list[YearEndEmployee] | None = None
+
+
+@router.post("/runs/year-end", status_code=201)
+def create_year_end_run(payload: YearEndCreate, db: Session = Depends(get_db)) -> dict:
+    """A DRAFT year-end run for a Jalali year: each employee's عیدی و پاداش and
+    حق سنوات, pro-rated by the days worked, with the salary tax on the taxable
+    part of the عیدی (roadmap §3.3). Post and pay it like any run."""
+    from app.services import payroll_year_end as ye
+    try:
+        run = ye.create_year_end_run(db, year=payload.year, pay_date=payload.pay_date,
+                                     employees=[e.model_dump() for e in payload.employees] if payload.employees else None)
+    except ye.YearEndError as e:
+        db.rollback()
+        raise HTTPException(status_code=e.status, detail=str(e))
     db.commit()
     db.refresh(run)
     return _run_read(run)

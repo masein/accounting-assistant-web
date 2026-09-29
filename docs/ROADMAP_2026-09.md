@@ -487,6 +487,22 @@ Business registry only. Four eval scenarios (payroll question, draft run in
 Persian, budget question in Persian, close checklist); the eval company has
 Sara's pay profile and a paid run. Left in 5.1: recurring & reminders, petty
 cash, purchase orders, FX, cap table read, period lock, audit trail.
+✅ 3.3, year-end runs — عیدی و پاداش and حق سنوات (`app/services/payroll_year_end.py`,
+migration 062: `employee_pay_profiles.hired_on`, `pay_runs.kind`/`year_key`,
+`pay_run_lines.eidi`/`sanavat`/`days_worked`): `POST /payroll/runs/year-end`
+makes a DRAFT run for a Jalali year from the rule set in force at its end —
+عیدی = two months of the last wage (base + seniority base; hourly rate × monthly
+hours) capped at three months of the minimum wage, سنوات = a month's wage per
+year (`sanavat_days_per_year`, 30 by default where the set has عیدی), both
+pro-rated by the days worked from the hire date (or typed per person). No
+insurance on either; سنوات tax-free; عیدی exempt up to one month's exemption
+(`eid_exempt_monthly`, default the 0 % bracket) and the excess taxed on top of
+the latest regular month's taxable pay. Posted and paid with the ordinary run
+steps (wages / tax / net pay owed); regular runs' overlap check ignores year-end
+runs; one live year-end run per person per year (409); UK companies refused.
+Payslip titled فیش عیدی و سنوات with days, عیدی, سنوات. Payroll page: "Hired
+on" on the profile, an Iran-only Year end panel, year-end runs labelled. Left
+in 3.3: بیمه/مالیات portal file formats once a customer supplies templates.
 
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's

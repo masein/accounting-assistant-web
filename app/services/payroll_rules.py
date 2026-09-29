@@ -63,6 +63,11 @@ class RuleParams(BaseModel):
 
     eid_min_multiple: float = Field(0, ge=0)
     eid_max_multiple: float = Field(0, ge=0)
+    # Year-end (roadmap §3.3). None = the labour-law default: 30 days a year
+    # where the rule set has عیدی, none elsewhere; the عیدی exemption defaults
+    # to one month's (the first 0 % bracket).
+    sanavat_days_per_year: int | None = Field(None, ge=0, le=90)
+    eid_exempt_monthly: int | None = Field(None, ge=0)
 
     @field_validator("currency")
     @classmethod
@@ -130,8 +135,9 @@ IR_1405: dict = {
     "child_allowance_per_child": 3 * _IR_1405_MIN_WAGE_DAILY,  # حق اولاد = 3 days' wage
     "child_allowance_insurable": False,
     "seniority_daily": 166_667,               # پایه سنوات (5,000,000 / month)
-    "eid_min_multiple": 2,
-    "eid_max_multiple": 3,
+    "eid_min_multiple": 2,                    # عیدی: two months of the last wage…
+    "eid_max_multiple": 3,                    # …no more than three months of the minimum wage
+    "sanavat_days_per_year": 30,              # حق سنوات: a month's wage per year of service
 }
 
 # UK 2026/27 (6 Apr 2026 – 5 Apr 2027): personal allowance and bands frozen;
@@ -161,6 +167,7 @@ UK_2026: dict = {
     "seniority_daily": 0,
     "eid_min_multiple": 0,
     "eid_max_multiple": 0,
+    "sanavat_days_per_year": 0,
 }
 
 DEFAULT_RULE_SETS: tuple[dict, ...] = (

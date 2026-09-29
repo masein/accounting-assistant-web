@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,6 +25,9 @@ class PayRun(Base, TenantMixin):
     pay_date: Mapped[date] = mapped_column(Date, index=True)
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     status: Mapped[str] = mapped_column(String(16), default="draft", index=True)  # draft | posted | paid
+    # regular | year_end (عیدی و پاداش + حق سنوات for a Jalali year, roadmap §3.3)
+    kind: Mapped[str] = mapped_column(String(16), default="regular", server_default="regular", index=True)
+    year_key: Mapped[str | None] = mapped_column(String(8), nullable=True)   # "1405" on a year-end run
 
     # Batch totals (whole currency units), summed from the lines.
     total_gross: Mapped[int] = mapped_column(BigInteger, default=0)
@@ -87,6 +90,11 @@ class PayRunLine(Base, TenantMixin):
     allowances: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     insurable_wage: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     employer_social: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    # Year-end runs: the two statutory amounts in gross, and the days of the
+    # year they were pro-rated on.
+    eidi: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    sanavat: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    days_worked: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     net_pay: Mapped[int] = mapped_column(BigInteger, default=0)
     # Snapshot of WHERE the net pay was disbursed, taken at pay time from the
     # employee entity's bank fields (e.g. "Bank Melli · IR12…"). Kept on the

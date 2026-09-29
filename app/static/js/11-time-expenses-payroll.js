@@ -910,7 +910,8 @@
           const tr = document.createElement('tr');
           const statutory = p.tax_mode === 'statutory';
           const statutoryCell = `<span title="${t('payrollTaxModeStatutory')}">${t('payrollStatutoryShort')}${p.children ? ` · ${p.children} ${t('payrollChildrenShort')}` : ''}</span>`;
-          tr.innerHTML = `<td>${escapeHtml(p.employee_name || '')}</td><td>${t(p.pay_type === 'hourly' ? 'payrollHourly' : 'payrollSalaried')}</td>
+          const hired = p.hired_on ? `<div style="color:var(--text-muted);font-size:0.78rem;">${escapeHtml(tf('payrollHiredSince', { date: p.hired_on }))}</div>` : '';
+          tr.innerHTML = `<td>${escapeHtml(p.employee_name || '')}${hired}</td><td>${t(p.pay_type === 'hourly' ? 'payrollHourly' : 'payrollSalaried')}</td>
             <td>${pay}</td><td>${statutory ? statutoryCell : (p.income_tax_rate * 100).toFixed(1) + '%'}</td>
             <td>${statutory ? t('payrollStatutoryShort') : (p.social_security_rate * 100).toFixed(1) + '%'}</td><td>${(p.pension_rate * 100).toFixed(1)}%</td>`;
           body.appendChild(tr);
@@ -934,6 +935,7 @@
         tax_mode: document.getElementById('pr-taxmode').value,
         children: parseInt(document.getElementById('pr-children').value || '0', 10),
         seniority_eligible: document.getElementById('pr-seniority').checked,
+        hired_on: document.getElementById('pr-hired').value || null,
       };
       try {
         const res = await fetch(API + '/payroll/profiles', {
@@ -959,7 +961,9 @@
         }
         runs.forEach(r => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${r.period_start} – ${r.period_end}</td><td>${r.pay_date}</td>
+          const kind = r.kind === 'year_end'
+            ? `<div><span class="badge">${escapeHtml(tf('payrollYearEndRun', { year: r.year_key || '' }))}</span></div>` : '';
+          tr.innerHTML = `<td>${r.period_start} – ${r.period_end}${kind}</td><td>${r.pay_date}</td>
             <td>${formatNum(r.total_gross)} ${escapeHtml(r.currency)}</td><td>${formatNum(r.total_net)} ${escapeHtml(r.currency)}</td>
             <td><span class="badge ${r.status === 'paid' ? 'badge-ok' : ''}">${t('payrollStatus_' + r.status)}</span></td>
             <td><button class="btn btn-secondary btn-sm pr-view-run" data-id="${r.id}">${t('payrollViewBtn')}</button></td>`;
@@ -985,6 +989,23 @@
       } catch (e) { showAlert(t('payrollRunFailed'), true); }
     });
 
+    // Year end: عیدی و پاداش + حق سنوات for a Jalali year (roadmap §3.3).
+    document.getElementById('pr-ye-btn').addEventListener('click', async () => {
+      const pay_date = document.getElementById('pr-ye-paydate').value;
+      if (!pay_date) { showAlert(t('payrollNeedDates'), true); return; }
+      const year = (document.getElementById('pr-ye-year').value || '').trim() || null;
+      try {
+        const res = await fetch(API + '/payroll/runs/year-end', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ year, pay_date }),
+        });
+        const data = await readJsonSafe(res);
+        if (!res.ok) { showAlert((data && data.detail) ? data.detail : t('payrollYearEndFailed'), true); return; }
+        await loadPayRuns();
+        renderPayRunDetail(data);
+      } catch (e) { showAlert(t('payrollYearEndFailed'), true); }
+    });
+
     document.getElementById('pr-runs-body').addEventListener('click', async (e) => {
       const btn = e.target.closest('.pr-view-run');
       if (!btn) return;
@@ -998,13 +1019,16 @@
     function renderPayRunDetail(run) {
       prCurrentRunId = run.id;
       document.getElementById('pr-run-detail').style.display = 'block';
+      const yearEnd = run.kind === 'year_end';
       document.getElementById('pr-run-detail-title').textContent =
-        `${t('payrollRunDetail')} — ${run.period_start} – ${run.period_end} (${t('payrollStatus_' + run.status)})`;
+        `${yearEnd ? tf('payrollYearEndRun', { year: run.year_key || '' }) : t('payrollRunDetail')} — ${run.period_start} – ${run.period_end} (${t('payrollStatus_' + run.status)})`;
       const body = document.getElementById('pr-run-lines-body');
       body.innerHTML = '';
       (run.lines || []).forEach(ln => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(ln.employee_name)}</td><td>${formatNum(ln.gross)}</td>
+        const ye = yearEnd ? `<div style="color:var(--text-muted);font-size:0.78rem;">${escapeHtml(tf('payrollYearEndLine', {
+          eidi: formatNum(ln.eidi || 0), sanavat: formatNum(ln.sanavat || 0), days: ln.days_worked || 0 }))}</div>` : '';
+        tr.innerHTML = `<td>${escapeHtml(ln.employee_name)}${ye}</td><td>${formatNum(ln.gross)}</td>
           <td>${formatNum(ln.allowances || 0)}</td>
           <td>${formatNum(ln.income_tax)}</td><td>${formatNum(ln.social_security)}</td>
           <td>${formatNum(ln.employer_social || 0)}</td>
@@ -1017,6 +1041,7 @@
       document.getElementById('pr-email-btn').style.display = (run.status === 'posted' || run.status === 'paid') ? '' : 'none';
       const rid = encodeURIComponent(run.id);
       document.getElementById('pr-ins-csv').href = `${API}/payroll/runs/${rid}/insurance-list.csv`;
+      document.getElementById('pr-ins-csv').style.display = yearEnd ? 'none' : '';      // عیدی/سنوات carry no insurance
       document.getElementById('pr-tax-csv').href = `${API}/payroll/runs/${rid}/tax-list.csv`;
     }
 

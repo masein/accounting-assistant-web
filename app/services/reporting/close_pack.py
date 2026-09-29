@@ -404,9 +404,12 @@ def summary(items: list[dict], lang: str) -> str:
 
 
 def build(db: Session, m: Month) -> dict:
-    """Everything in the pack: the checklist, the statement tables, the extra tables, the metadata."""
+    """Everything in the pack: the checklist, the statement tables, the extra tables, the metadata.
+    The bank statement lines are bank:read data — a viewer's pack leaves them out."""
+    from app.core.redaction import may_see_identity
     statements, meta = tables(db, from_date=m.start, to_date=m.end, lang=m.lang)
-    extra = [trial_balance(db, m), aging(db, m, "sales"), aging(db, m, "purchase"), *bank(db, m), budgets(db, m)]
+    extra = [trial_balance(db, m), aging(db, m, "sales"), aging(db, m, "purchase"),
+             *(bank(db, m) if may_see_identity() else []), budgets(db, m)]
     return {"checklist": checklist(db, m), "statements": statements, "extra": extra, "meta": meta}
 
 

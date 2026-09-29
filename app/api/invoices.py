@@ -1103,7 +1103,8 @@ def invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Response:
     inv = db.execute(select(Invoice).where(Invoice.id == invoice_id).options(selectinload(Invoice.items))).scalars().one_or_none()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    party = db.get(Entity, inv.entity_id) if inv.entity_id else None
+    from app.core.redaction import redacted_entity
+    party = redacted_entity(db.get(Entity, inv.entity_id) if inv.entity_id else None)
 
     # Branded HTML→PDF engine (logo, brand colour, party cards, amount-in-words,
     # locale-aware RTL/LTR). Falls back to the legacy reportlab layout only if the

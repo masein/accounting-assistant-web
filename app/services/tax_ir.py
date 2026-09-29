@@ -202,6 +202,8 @@ def quarterly_report(db: Session, s: Season, *, include_moadian: bool = False) -
 
     other_currency: list[dict[str, Any]] = []
     excluded_moadian: dict[str, int] = {"count": 0, "base": 0, "vat": 0}
+    from app.core.redaction import may_see_identity
+    show_ids = may_see_identity()
     groups: dict[tuple[str, Any], dict[str, Any]] = {}
     details: list[dict[str, Any]] = []
 
@@ -212,7 +214,8 @@ def quarterly_report(db: Session, s: Season, *, include_moadian: bool = False) -
             groups[key] = {
                 "kind": kind, "entity_id": str(entity_id) if entity_id else None,
                 "person_type": person_type(ent),
-                "national_id": ascii_digits(ent.national_id) if ent else "",
+                # a person's national id is bank:read data (app.core.redaction); readiness still counts it
+                "national_id": ascii_digits(ent.national_id) if ent and show_ids else "",
                 "economic_code": ascii_digits(ent.economic_code) if ent else "",
                 "name": ((ent.legal_name or ent.name) if ent else "بدون طرف معامله"),
                 "postal_code": ascii_digits(ent.postal_code) if ent else "",

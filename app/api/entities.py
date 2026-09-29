@@ -63,21 +63,14 @@ def list_entities(
     return [_strip_for_actor(EntityRead.model_validate(e)) for e in entities]
 
 
-# Fields only roles with bank:read may see. Entities are readable with
-# reports:read so a viewer can label dashboards, but a viewer must not get
-# bank account numbers, IBANs or national ids (production QA 2026-09-24).
-_BANK_SENSITIVE_FIELDS = ("account_number", "iban", "sort_code", "account_holder", "national_id")
-
-
+# Entities are readable with reports:read so a viewer can label dashboards,
+# but a viewer must not get bank account numbers, IBANs or national ids
+# (production QA 2026-09-24) — the fields and the rule are app.core.redaction.
 def _strip_for_actor(read: EntityRead) -> EntityRead:
-    from app.core.permissions import Perm, role_can
-    from app.core.request_context import get_current_actor
-
-    actor = get_current_actor()
-    role = getattr(actor, "role", None) if actor is not None else None
-    if actor is None or getattr(actor, "is_superadmin", False) or role_can(role, Perm.BANK_READ):
+    from app.core.redaction import IDENTITY_FIELDS, may_see_identity
+    if may_see_identity():
         return read
-    for f in _BANK_SENSITIVE_FIELDS:
+    for f in IDENTITY_FIELDS:
         if getattr(read, f, None) is not None:
             setattr(read, f, None)
     return read
@@ -184,6 +177,7 @@ def entity_statement_pdf(
     payments (credit) with a running balance. Tenant-scoped → 404 cross-company."""
     from datetime import date
     from fastapi.responses import Response
+    from app.core.redaction import redacted_entity
     from app.services.documents import render_statement_pdf
 
     entity = db.get(Entity, entity_id)
@@ -201,7 +195,7 @@ def entity_statement_pdf(
 
     from app.services.document_mail import statement_events
     events, ccy = statement_events(db, entity, lo, hi)
-    pdf = render_statement_pdf(db, entity, events, (lo, hi), ccy or "")
+    pdf = render_statement_pdf(db, redacted_entity(entity), events, (lo, hi), ccy or "")
     return Response(
         content=pdf, media_type="application/pdf",
         headers={"Content-Disposition": content_disposition(f'statement-{entity.name.replace(" ", "_")}.pdf', inline=True)},

@@ -1502,7 +1502,7 @@
         rcLastMonth: "last month {v}",
         rcAverage: "3-month average {v}",
         rcTopCategories: "Where it went",
-        rcBiggestRise: "{cat} rose the most: +{v} on last month.",
+        rcBiggestRise: "{cat} rose the most: {v} on last month.",
         rcNetWorth: "Net worth {v} this month, now {end}.",
         rcFailed: "Couldn't load the report card.",
         goalsTitle: "Savings goals",

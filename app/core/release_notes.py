@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.7"
+CURRENT_RELEASE = "2026.09.29.8"
 
 
 @dataclass(frozen=True)
@@ -1275,6 +1275,44 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "در صفحه حقوق و دستمزد، بخش «پایان سال»: سال و تاریخ پرداخت را انتخاب کنید تا عیدی هر کارمند (دو ماه مزد، حداکثر سه ماه حداقل مزد) و حق سنوات (یک ماه مزد برای هر سال) به نسبت روزهای کارکرد از تاریخ استخدام محاسبه شود — تاریخ استخدام را در پرونده حقوقی وارد کنید. هیچ‌کدام بیمه ندارد؛ مازاد عیدی بر معافیت یک ماه، همراه حقوق مشمول مالیات است. لیست پیش‌نویس است: مثل هر لیست دیگر ثبت و پرداختش کنید؛ فیش هر دو را نشان می‌دهد.",
                     "es": "En Nóminas, Fin de año: elige el año persa y la fecha de pago, y se calculan el Eidi de cada empleado (dos meses de salario, con tope de tres meses del salario mínimo) y el Sanavat (un mes de salario por año), prorrateados desde la fecha de alta — añádela a su ficha. Ninguno cotiza; el Eidi por encima de un mes de exención tributa con el salario. Es un borrador: regístralo y págalo como cualquier otra nómina; el recibo muestra ambos.",
                     "ar": "في صفحة الرواتب، قسم «نهاية السنة»: اختر السنة وتاريخ الدفع فتُحتسب عيدية كل موظف (أجر شهرين بحدّ أقصى ثلاثة أشهر من الحد الأدنى للأجر) ومكافأة الخدمة (أجر شهر عن كل سنة) بالتناسب من تاريخ التعيين — أضفه إلى ملفه. لا تأمينات على أيٍّ منهما؛ وما يزيد من العيدية على إعفاء شهر واحد يُضرَّب مع الراتب. إنها دورة مسودة: رحّلها وادفعها كأي دورة، والقسيمة تُظهر الاثنين.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.8",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="persian-file-names",
+                title={
+                    "en": "Payslips and statements with Persian names download again",
+                    "fa": "فیش‌ها و صورت‌حساب‌های با نام فارسی دوباره دانلود می‌شوند",
+                    "es": "Las nóminas y extractos con nombres en persa vuelven a descargarse",
+                    "ar": "القسائم والكشوف ذات الأسماء الفارسية تُنزَّل من جديد",
+                },
+                body={
+                    "en": "A payslip, statement, invoice or attachment named in Persian — an employee called سارا, a client, an invoice numbered ۱۴۰۵-۱۲ — failed to download. They open again, under their real names, and PDFs set in Persian number their pages in Persian.",
+                    "fa": "فیش حقوقی، صورت‌حساب، فاکتور یا پیوستی که نامش فارسی بود — کارمندی به نام سارا، یک مشتری، فاکتوری با شماره ۱۴۰۵-۱۲ — دانلود نمی‌شد. اکنون با نام واقعی خود باز می‌شوند و شماره صفحه PDFهای فارسی هم فارسی است.",
+                    "es": "Una nómina, un extracto, una factura o un adjunto con nombre en persa —una empleada llamada سارا, un cliente, la factura ۱۴۰۵-۱۲— no se descargaba. Ya se abren, con su nombre real, y los PDF en persa numeran sus páginas en persa.",
+                    "ar": "كانت القسيمة أو الكشف أو الفاتورة أو المرفق الذي يحمل اسمًا فارسيًا — موظفة اسمها سارا، عميل، فاتورة رقمها ۱۴۰۵-۱۲ — لا يُنزَّل. صارت تُفتح الآن بأسمائها الحقيقية، وتُرقَّم صفحات ملفات PDF الفارسية بأرقام فارسية.",
+                },
+            ),
+            Highlight(
+                key="personal-report-card-goals",
+                page="personal-dashboard",
+                roles=("personal",),
+                title={
+                    "en": "Your monthly report card and savings goals",
+                    "fa": "کارنامه ماهانه و اهداف پس‌انداز",
+                    "es": "Tu informe del mes y tus metas de ahorro",
+                    "ar": "تقرير شهرك وأهداف الادخار",
+                },
+                body={
+                    "en": "My finances now opens with last month's report card: what came in, what went out, what you saved and your savings rate against the month before, where the money went, and three checks — saved a tenth, spent no more than usual, stayed inside your budgets. Add savings goals on an account (your bank, your gold) and see how far you are, what each month needs and whether you're on track. The assistant can answer \"how did I do last month?\" too.",
+                    "fa": "صفحه «پول من» اکنون با کارنامه ماه قبل شروع می‌شود: درآمد، هزینه، پس‌انداز و نرخ آن در برابر ماه قبل، اینکه پول کجا رفت، و سه بررسی — پس‌انداز یک‌دهم درآمد، خرج نه بیشتر از معمول، ماندن در بودجه‌ها. برای یک حساب (بانک، طلا) هدف پس‌انداز بگذارید و ببینید چقدر مانده، هر ماه چقدر لازم است و در مسیر هستید یا نه. از دستیار هم می‌توانید بپرسید «ماه پیش چطور بودم؟».",
+                    "es": "Mis finanzas empieza ahora con el informe del mes pasado: lo que entró, lo que salió, lo que ahorraste y tu tasa de ahorro frente al mes anterior, en qué se fue el dinero y tres comprobaciones: ahorraste una décima parte, no gastaste más de lo habitual, respetaste tus presupuestos. Añade metas de ahorro sobre una cuenta (tu banco, tu oro) y mira cuánto te falta, cuánto necesita cada mes y si vas bien. El asistente también responde a «¿cómo me fue el mes pasado?».",
+                    "ar": "تبدأ صفحة «أموالي» الآن بتقرير الشهر الماضي: ما دخل وما خرج وما ادّخرته ونسبته مقارنة بالشهر السابق، وأين ذهب المال، وثلاثة فحوص — ادّخرت عُشر الدخل، ولم تنفق أكثر من المعتاد، وبقيت ضمن موازناتك. أضف أهداف ادخار على حساب (بنكك، ذهبك) واعرف كم بقي وكم يحتاج كل شهر وهل أنت على المسار. ويجيب المساعد أيضًا عن «كيف كان شهري الماضي؟».",
                 },
             ),
         ),

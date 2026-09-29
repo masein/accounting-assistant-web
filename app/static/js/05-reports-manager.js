@@ -1641,6 +1641,12 @@
 
     // ═══════ Monthly report card + savings goals (personal, roadmap §4.12) ═══════
     function rcLang() { return currentLanguage === 'fa' ? 'fa' : 'en'; }
+    // Names from the chart can be Persian inside an English line (and the other
+    // way round); numbers with a sign flip in right-to-left text. Isolate both.
+    function rcName(text) { return `<bdi>${escapeHtml(text)}</bdi>`; }
+    function rcSigned(n, suffix = '') {
+      return '\u2066' + (n > 0 ? '+' : '') + formatNum(n) + suffix + '\u2069';
+    }
 
     async function loadReportCard() {
       const sel = document.getElementById('rc-month');
@@ -1685,14 +1691,16 @@
       const bits = [];
       if (d.categories.length) {
         bits.push(`<p><strong>${escapeHtml(t('rcTopCategories'))}:</strong> ` + d.categories.map(c =>
-          `${escapeHtml(c.category)} ${escapeHtml(formatNum(c.amount))}`
-          + (c.change_pct == null ? '' : ` <span class="goal-meta">(${c.change_pct > 0 ? '+' : ''}${escapeHtml(formatNum(c.change_pct))}%)</span>`)).join(' · ') + '</p>');
+          `${rcName(c.category)} <bdi dir="ltr">${escapeHtml(formatNum(c.amount))}</bdi>`
+          + (c.change_pct == null ? '' : ` <span class="goal-meta">(${escapeHtml(rcSigned(c.change_pct, '%'))})</span>`)).join(' · ') + '</p>');
       }
-      if (d.biggest_rise) bits.push(`<p>${escapeHtml(tf('rcBiggestRise', { cat: d.biggest_rise.category, v: formatNum(d.biggest_rise.increase) }))}</p>`);
+      if (d.biggest_rise) {
+        bits.push(`<p>${escapeHtml(tf('rcBiggestRise', { cat: '\u2068' + d.biggest_rise.category + '\u2069', v: rcSigned(d.biggest_rise.increase) }))}</p>`);
+      }
       const nw = d.net_worth || {};
-      bits.push(`<p>${escapeHtml(tf('rcNetWorth', { v: (nw.change > 0 ? '+' : '') + formatNum(nw.change || 0), end: formatNum(nw.end || 0) }))}</p>`);
+      bits.push(`<p>${escapeHtml(tf('rcNetWorth', { v: rcSigned(nw.change || 0), end: formatNum(nw.end || 0) }))}</p>`);
       if (d.goals.length) {
-        bits.push(`<p>${escapeHtml(t('goalsTitle'))}: ` + d.goals.map(g => `${escapeHtml(g.name)} ${escapeHtml(formatNum(g.percent))}%`).join(' · ') + '</p>');
+        bits.push(`<p>${escapeHtml(t('goalsTitle'))}: ` + d.goals.map(g => `${rcName(g.name)} <bdi dir="ltr">${escapeHtml(formatNum(g.percent))}%</bdi>`).join(' · ') + '</p>');
       }
       document.getElementById('rc-details').innerHTML = bits.join('');
     }
@@ -1731,10 +1739,10 @@
         if (!g.reached && g.needed_per_month != null) meta.push(tf('goalNeeded', { v: formatNum(g.needed_per_month), date: g.target_date }));
         if (!g.reached && g.pace_per_month > 0) meta.push(tf('goalPace', { v: formatNum(g.pace_per_month) }));
         return `<div class="goal${g.reached ? ' reached' : ''}" data-id="${escapeHtml(g.id)}">
-          <div class="goal-top"><span class="goal-name">${escapeHtml(g.name)}</span>
+          <div class="goal-top"><span class="goal-name">${rcName(g.name)}</span>
             <span>${badge} <button type="button" class="btn btn-secondary btn-sm goal-del" data-id="${escapeHtml(g.id)}" aria-label="${escapeHtml(t('goalDelete'))}">×</button></span></div>
           <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Number(g.percent)}"><span style="width:${Math.max(0, Math.min(100, Number(g.percent)))}%"></span></div>
-          <div class="goal-meta">${escapeHtml(formatNum(g.percent))}% · ${escapeHtml(g.account_name || g.account_code)} · ${meta.map(escapeHtml).join(' · ')}</div>
+          <div class="goal-meta"><bdi dir="ltr">${escapeHtml(formatNum(g.percent))}%</bdi> · ${rcName(g.account_name || g.account_code)} · ${meta.map(m => `<bdi>${escapeHtml(m)}</bdi>`).join(' · ')}</div>
         </div>`;
       }).join('');
     }

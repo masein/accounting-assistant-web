@@ -1455,7 +1455,7 @@ window.I18N_PACKS.es = Object.assign({
         rcLastMonth: "mes anterior {v}",
         rcAverage: "media de 3 meses {v}",
         rcTopCategories: "En qué se fue",
-        rcBiggestRise: "Lo que más subió: {cat}, +{v} sobre el mes anterior.",
+        rcBiggestRise: "Lo que más subió: {cat}, {v} sobre el mes anterior.",
         rcNetWorth: "Patrimonio {v} este mes; ahora {end}.",
         rcFailed: "No se pudo cargar el informe.",
         goalsTitle: "Metas de ahorro",

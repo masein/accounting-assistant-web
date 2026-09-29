@@ -504,6 +504,20 @@ Payslip titled فیش عیدی و سنوات with days, عیدی, سنوات. Pa
 on" on the profile, an Iran-only Year end panel, year-end runs labelled. Left
 in 3.3: بیمه/مالیات portal file formats once a customer supplies templates.
 
+✅ 4.12, part 1 — savings goals and the monthly report card for personal books.
+Goals (`app/services/personal_goals.py`, migration 063 `savings_goals`): a
+target on one asset account, progress = the account's value today (market value
+where gold/FX holdings revalue it), what each month still needs to the target
+date (months in the company calendar, this one included), the last three months'
+pace, on track or behind, months to go; archive or delete; `/personal/goals`.
+The report card (`app/services/report_card.py`, `GET /personal/report-card?month=`,
+last month by default): income, spending, saved, savings rate vs last month and
+the 3-month average, top categories with the change, the biggest rise, budgets
+kept, net worth change, goals, and three checks (saved ≥ 10 %, spent ≤ the
+average, inside the budgets; "no data" when there's nothing to judge) in
+Persian or English. Both on My finances; `get_report_card` / `get_savings_goals`
+in the personal chat. Left in 4.12: shared household tenants.
+
 ✅ 2.7 locked dependencies: `requirements.lock` / `requirements-dev.lock` /
 `requirements-e2e.lock` (uv, CPython 3.12 on linux x86-64, every file's
 hash; the runtime lock constrains the other two). The Dockerfile and every CI

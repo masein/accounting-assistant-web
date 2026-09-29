@@ -1455,7 +1455,7 @@ window.I18N_PACKS.ar = Object.assign({
         rcLastMonth: "الشهر الماضي {v}",
         rcAverage: "متوسط ٣ أشهر {v}",
         rcTopCategories: "أين ذهب المال",
-        rcBiggestRise: "الأكثر ارتفاعًا: {cat}، ‎+{v} عن الشهر الماضي.",
+        rcBiggestRise: "الأكثر ارتفاعًا: {cat}، {v} عن الشهر الماضي.",
         rcNetWorth: "تغيّر صافي الثروة هذا الشهر {v}؛ الآن {end}.",
         rcFailed: "تعذّر تحميل التقرير.",
         goalsTitle: "أهداف الادخار",

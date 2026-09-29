@@ -1497,7 +1497,7 @@ window.I18N_PACKS.fa = Object.assign({
         rcLastMonth: "ماه قبل {v}",
         rcAverage: "میانگین سه‌ماهه {v}",
         rcTopCategories: "پول کجا رفت",
-        rcBiggestRise: "بیشترین افزایش: {cat}، ‎+{v} نسبت به ماه قبل.",
+        rcBiggestRise: "بیشترین افزایش: {cat}، {v} نسبت به ماه قبل.",
         rcNetWorth: "تغییر خالص دارایی در این ماه {v}؛ اکنون {end}.",
         rcFailed: "کارنامه بارگیری نشد.",
         goalsTitle: "اهداف پس‌انداز",

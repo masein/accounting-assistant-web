@@ -40,6 +40,7 @@ _NON_POSTING = frozenset({
     "propose_create_entity", "propose_update_entity", "propose_create_project",
     "propose_set_billable_rate", "propose_log_time", "propose_remember_preference",
     "propose_run_payroll", "propose_set_budget",          # a draft run and a limit move no money
+    "propose_lock_period", "propose_create_recurring_rule",   # a setting; a schedule that posts later
 })
 
 

@@ -28,6 +28,8 @@ CASH_ON_HAND = 2_070_000_000
 OPEN_INVOICE = "INV-1001"
 OPEN_INVOICE_AMOUNT = 30_000_000
 CHEQUE_AMOUNT = 12_000_000
+RENT = 80_000_000                          # the monthly rent rule
+OPEN_PO = "PO-0007"                        # an order to Delta Supplies, not yet received
 SARA_PAY = 150_000_000                     # the PAY-1 wages, as Sara's pay run shows them
 BANK_FEE = 250_000
 
@@ -117,6 +119,17 @@ def seed_eval_company(db: Session, *, today: date | None = None, slug: str | Non
                             amount=CHEQUE_AMOUNT, due_date=today + timedelta(days=5), status=PENDING,
                             counterparty="Behsaz", entity_id=parties["Behsaz"].id, reference="CHQ-5501")
         db.add(cheque)
+        from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
+        from app.models.recurring import RecurringRule
+        db.add(RecurringRule(name="Office rent", direction="payment", frequency="monthly", amount=RENT,
+                             start_date=d(15), next_run_date=today + timedelta(days=15), counter_account_code="6112",
+                             bank_account_code="1110", auto_post=True, status="active"))
+        po = PurchaseOrder(id=uuid.uuid4(), number=OPEN_PO, entity_id=parties["Delta Supplies"].id, order_date=d(3),
+                           status="issued", currency="IRR", description="Paper for the office")
+        db.add(po)
+        db.flush()
+        db.add(PurchaseOrderLine(order_id=po.id, description="A4 paper", ordered_qty=10, unit_price=1_500_000,
+                                 line_total=15_000_000))
         stmt = BankStatement(bank_name="Test Bank", source_type="csv", source_filename="test-bank.csv",
                              currency="IRR", from_date=d(20), to_date=d(2), status="parsed", total_rows=2)
         db.add(stmt)

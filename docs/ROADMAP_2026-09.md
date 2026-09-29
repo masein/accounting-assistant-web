@@ -487,6 +487,18 @@ Business registry only. Four eval scenarios (payroll question, draft run in
 Persian, budget question in Persian, close checklist); the eval company has
 Sara's pay profile and a paid run. Left in 5.1: recurring & reminders, petty
 cash, purchase orders, FX, cap table read, period lock, audit trail.
+
+✅ 5.1, the rest — chat tools for the modules still out of reach
+(`ops_tools.py`, executed in `ops_execute.py`): reads `list_purchase_orders`
+(supplier / status / open only, received and billed per line),
+`list_recurring_rules`, `get_cap_table`, `get_exchange_rates` (the latest of
+each pair + entries waiting for a rate), `get_petty_cash`, `get_audit_trail`
+(who / what / action / days — the assistant's own actions show as
+ai-assistant); proposals `propose_create_recurring_rule` (accounts and party
+checked, via the Recurring route) and `propose_lock_period` (owner only —
+SETTINGS_WRITE — checked when proposed AND at Confirm; past dates only, never
+backwards). Neither moves money on Confirm (`_NON_POSTING`). Eval books gained a
+rent rule and an open PO, with two scenarios. **5.1 done.**
 ✅ 3.3, year-end runs — عیدی و پاداش and حق سنوات (`app/services/payroll_year_end.py`,
 migration 062: `employee_pay_profiles.hired_on`, `pay_runs.kind`/`year_key`,
 `pay_run_lines.eidi`/`sanavat`/`days_worked`): `POST /payroll/runs/year-end`

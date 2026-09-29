@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.8"
+CURRENT_RELEASE = "2026.09.29.9"
 
 
 @dataclass(frozen=True)
@@ -1313,6 +1313,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "صفحه «پول من» اکنون با کارنامه ماه قبل شروع می‌شود: درآمد، هزینه، پس‌انداز و نرخ آن در برابر ماه قبل، اینکه پول کجا رفت، و سه بررسی — پس‌انداز یک‌دهم درآمد، خرج نه بیشتر از معمول، ماندن در بودجه‌ها. برای یک حساب (بانک، طلا) هدف پس‌انداز بگذارید و ببینید چقدر مانده، هر ماه چقدر لازم است و در مسیر هستید یا نه. از دستیار هم می‌توانید بپرسید «ماه پیش چطور بودم؟».",
                     "es": "Mis finanzas empieza ahora con el informe del mes pasado: lo que entró, lo que salió, lo que ahorraste y tu tasa de ahorro frente al mes anterior, en qué se fue el dinero y tres comprobaciones: ahorraste una décima parte, no gastaste más de lo habitual, respetaste tus presupuestos. Añade metas de ahorro sobre una cuenta (tu banco, tu oro) y mira cuánto te falta, cuánto necesita cada mes y si vas bien. El asistente también responde a «¿cómo me fue el mes pasado?».",
                     "ar": "تبدأ صفحة «أموالي» الآن بتقرير الشهر الماضي: ما دخل وما خرج وما ادّخرته ونسبته مقارنة بالشهر السابق، وأين ذهب المال، وثلاثة فحوص — ادّخرت عُشر الدخل، ولم تنفق أكثر من المعتاد، وبقيت ضمن موازناتك. أضف أهداف ادخار على حساب (بنكك، ذهبك) واعرف كم بقي وكم يحتاج كل شهر وهل أنت على المسار. ويجيب المساعد أيضًا عن «كيف كان شهري الماضي؟».",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.9",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="chat-orders-audit-lock",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant"),
+                title={
+                    "en": "Ask the assistant about orders, schedules, shareholders and who changed what",
+                    "fa": "درباره سفارش‌ها، پرداخت‌های دوره‌ای، سهامداران و تغییرات از دستیار بپرسید",
+                    "es": "Pregunta al asistente por pedidos, pagos periódicos, socios y quién cambió qué",
+                    "ar": "اسأل المساعد عن الطلبات والمدفوعات الدورية والمساهمين ومن غيّر ماذا",
+                },
+                body={
+                    "en": "The AI accountant now answers about purchase orders, recurring payments, the cap table, exchange rates and petty cash, and reads the audit trail — \"who deleted invoice 1042?\". It can set up a recurring payment (\"rent of 80 million on the 1st of every month\"), and an owner can lock the books for a month from the chat. Each change is a card you confirm.",
+                    "fa": "حسابدار هوشمند اکنون درباره سفارش‌های خرید، پرداخت‌های دوره‌ای، جدول سهامداران، نرخ ارز و تنخواه پاسخ می‌دهد و سابقه تغییرات را می‌خواند — «چه کسی فاکتور ۱۰۴۲ را حذف کرد؟». می‌تواند پرداخت دوره‌ای بسازد («اجاره ۸۰ میلیون اول هر ماه») و مالک می‌تواند از همین گفتگو دفاتر یک ماه را قفل کند. هر تغییر کارتی است که تأییدش می‌کنید.",
+                    "es": "El contable IA ya responde sobre pedidos de compra, pagos periódicos, el reparto del capital, tipos de cambio y caja chica, y lee el registro de auditoría: «¿quién borró la factura 1042?». Puede crear un pago periódico («alquiler de 80 millones el día 1 de cada mes») y el propietario puede cerrar los libros de un mes desde el chat. Cada cambio es una tarjeta que confirmas.",
+                    "ar": "صار المحاسب الذكي يجيب عن طلبات الشراء والمدفوعات الدورية وجدول المساهمين وأسعار الصرف والعهدة النقدية، ويقرأ سجل التدقيق — «من حذف الفاتورة ١٠٤٢؟». ويمكنه إنشاء دفعة دورية («إيجار ٨٠ مليونًا في أول كل شهر»)، ويستطيع المالك إقفال دفاتر شهر من المحادثة. كل تغيير بطاقة تؤكّدها.",
                 },
             ),
         ),

@@ -536,6 +536,8 @@ class TestRegistry:
             "propose_cheque_step", "get_fixed_assets", "get_inventory", "propose_remember_preference",
             "get_payroll", "propose_run_payroll", "propose_post_pay_run", "propose_pay_pay_run",
             "get_budget_status", "propose_set_budget", "get_close_checklist",
+            "list_purchase_orders", "list_recurring_rules", "get_cap_table", "get_exchange_rates", "get_petty_cash",
+            "get_audit_trail", "propose_lock_period", "propose_create_recurring_rule",
         }
 
 

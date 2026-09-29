@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.commitment import NOTES, OPEN_STATUSES, PAY, PENDING, Commitment
 from app.services import cheque_print, cheques
@@ -211,7 +212,7 @@ class PrintRequest(BaseModel):
 
 def _pdf(data: bytes, name: str) -> Response:
     return Response(content=data, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="{name}"', "Cache-Control": "no-store"})
+                    headers={"Content-Disposition": content_disposition(name, inline=True), "Cache-Control": "no-store"})
 
 
 @router.get("/print-layout")

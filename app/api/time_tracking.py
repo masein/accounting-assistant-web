@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.invoice import Invoice
@@ -678,7 +679,7 @@ def time_invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Respons
         pdf = render_time_invoice_pdf(db, inv, client, group_list, period)
         return Response(
             content=pdf, media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="invoice-{inv.number}.pdf"'},
+            headers={"Content-Disposition": content_disposition(f'invoice-{inv.number}.pdf', inline=True)},
         )
     except Exception:  # pragma: no cover - defensive fallback
         import logging
@@ -809,7 +810,7 @@ def time_invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Respons
     buf.seek(0)
     return Response(
         content=buf.getvalue(), media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="invoice-{inv.number}.pdf"'},
+        headers={"Content-Disposition": content_disposition(f'invoice-{inv.number}.pdf')},
     )
 
 

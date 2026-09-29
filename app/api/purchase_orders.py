@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
@@ -225,7 +226,7 @@ def purchase_order_pdf(po_id: UUID, db: Session = Depends(get_db)):
     pdf = render_purchase_order_pdf(db, po, supplier)
     return Response(
         content=pdf, media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="po-{po.number}.pdf"'},
+        headers={"Content-Disposition": content_disposition(f'po-{po.number}.pdf', inline=True)},
     )
 
 

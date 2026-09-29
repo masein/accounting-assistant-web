@@ -16,6 +16,7 @@ import sqlalchemy as sa
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.entity import Entity, TransactionEntity
@@ -477,7 +478,7 @@ def download_attachment(attachment_id: UUID, db: Session = Depends(get_db)) -> F
         raise HTTPException(status_code=404, detail="Attachment file is missing")
     disposition = "inline" if att.content_type in _INLINE_TYPES else "attachment"
     return FileResponse(path, media_type=att.content_type,
-                        headers={"Content-Disposition": f'{disposition}; filename="{path.name}"',
+                        headers={"Content-Disposition": content_disposition(path.name, inline=disposition == "inline"),
                                  "X-Content-Type-Options": "nosniff"})
 
 

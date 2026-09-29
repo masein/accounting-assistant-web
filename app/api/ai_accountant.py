@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import SessionUser, get_current_user
 from app.core.permissions import Role
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
 from app.services.ai_accountant.anthropic_client import AIAccountantError
@@ -818,7 +819,7 @@ def review_sample_as_scenario(sample_id: str, db: Session = Depends(get_db),
     from app.services import ai_review
     s = _sample_or_404(db, sample_id)
     body = ai_review.as_scenario(s)
-    return JSONResponse(body, headers={"Content-Disposition": f'attachment; filename="{body["id"]}.json"'})
+    return JSONResponse(body, headers={"Content-Disposition": content_disposition(f'{body["id"]}.json')})
 
 
 @router.put("/review-settings")

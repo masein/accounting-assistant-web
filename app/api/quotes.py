@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.http_headers import content_disposition
 from app.api.invoices import (
     _build_invoice_items,
     _tax_breakdown,
@@ -345,4 +346,4 @@ def quote_pdf(quote_id: UUID, db: Session = Depends(get_db)) -> Response:
     party = db.get(Entity, q.entity_id) if q.entity_id else None
     pdf = render_quote_pdf(db, q, party)
     return Response(content=pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="quote-{q.number}.pdf"'})
+                    headers={"Content-Disposition": content_disposition(f'quote-{q.number}.pdf', inline=True)})

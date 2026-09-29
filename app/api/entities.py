@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.services.audit_service import log_audit_event
@@ -203,7 +204,7 @@ def entity_statement_pdf(
     pdf = render_statement_pdf(db, entity, events, (lo, hi), ccy or "")
     return Response(
         content=pdf, media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="statement-{entity.name.replace(" ", "_")}.pdf"'},
+        headers={"Content-Disposition": content_disposition(f'statement-{entity.name.replace(" ", "_")}.pdf', inline=True)},
     )
 
 

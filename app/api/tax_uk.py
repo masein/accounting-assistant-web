@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.services.audit_service import log_audit_event
 from app.services.uk_mtd import categories as C
@@ -110,7 +111,7 @@ def export_vat_return(period_end: date = Query(...), db: Session = Depends(get_d
         v = out["boxes"][n]
         w.writerow([n, _BOX_LABELS[n], f"{v:.2f}" if int(n) <= 5 else str(int(v))])
     return Response(content=buf.getvalue(), media_type="text/csv",
-                    headers={"Content-Disposition": f'attachment; filename="vat-return-{out["period"]["end"]}.csv"'})
+                    headers={"Content-Disposition": content_disposition(f'vat-return-{out["period"]["end"]}.csv')})
 
 
 # --- MTD for Income Tax (quarterly updates) -------------------------------------------------
@@ -229,4 +230,4 @@ def itsa_export(quarter: int = Query(..., ge=1, le=4), tax_year: str | None = No
     name = f"mtd-itsa-{q['tax_year']}-q{q['quarter']}.xlsx"
     return Response(content=buf.getvalue(),
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+                    headers={"Content-Disposition": content_disposition(name)})

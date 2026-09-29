@@ -15,6 +15,7 @@ in the workbook — so a column still adds up — and in parentheses in the PDF.
 from __future__ import annotations
 
 import io
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -60,7 +61,9 @@ class Table:
     title: str
     subtitle: str
     columns: list[str]
-    rows: list[dict] = field(default_factory=list)   # {label, indent, style, values: [int|None]}
+    rows: list[dict] = field(default_factory=list)   # {label, indent, style, values: [int|str|None]}
+    note: str = ""
+    flow: bool = False                                  # PDF: follow the table before on its page
 
 
 class ExportError(ValueError):
@@ -217,12 +220,25 @@ def tables(db: Session, *, statements: list[str] | None = None, from_date: date 
             out.append(Table(key, title(key), period_cols[0], cols, rows))
         else:
             out.append(Table(key, title(key), period_cols[0], period_cols, _flat(r, lang, three=False)))
+    if lang == "fa":                                     # "مانده در 2026-09-22" → "مانده در ۱۴۰۵/۰۷/۰۱"
+        for t in out:
+            t.columns = [_dates_in(c, d) for c in t.columns]
+            for r in t.rows:
+                r["label"] = _dates_in(r["label"], d)
     from app.services.fx_service import get_reporting_currency
     from app.services.reporting.repository import is_base_view
     combined = is_base_view(currency)                   # "ALL": every currency at its base value
     meta = {"locale": locale, "lang": lang, "from_date": from_date, "to_date": to_date, "combined": combined,
             "currency": ((None if combined else currency) or get_reporting_currency(db) or "").upper()}
     return out, meta
+
+
+_ISO_DATE = re.compile(r"(?<!\d)(\d{4}-\d{2}-\d{2})(?!\d)")
+
+
+def _dates_in(text: str, d) -> str:
+    """ISO dates the services put inside labels, in the document's own form."""
+    return _ISO_DATE.sub(lambda m: d(m.group(1)), text or "")
 
 
 def amounts_in(meta: dict) -> str:
@@ -236,6 +252,8 @@ def _num(v, lang: str) -> str:
     from app.services.documents.formatting import to_persian_digits
     if v is None:
         return ""
+    if isinstance(v, str):                              # a date, a percentage — printed as it is
+        return to_persian_digits(v) if lang == "fa" else v
     text = f"{abs(int(v)):,}"
     text = f"({text})" if int(v) < 0 else text
     return to_persian_digits(text) if lang == "fa" else text
@@ -254,7 +272,8 @@ def render_pdf(db: Session, tabs: list[Table], meta: dict, *, cover: dict | None
         "font_family": brand["font_family"], "words": W, "cover": cover, "extra_html": extra_html,
         "amounts_in": amounts_in(meta),
         "prepared": W["prepared"].format(d=_fmt_date(date.today(), meta["locale"], lang)),
-        "tables": [{"title": t.title, "subtitle": t.subtitle, "columns": t.columns,
+        "tables": [{"title": t.title, "subtitle": t.subtitle, "note": t.note, "columns": t.columns, "flow": t.flow,
+                    "wide": len(t.columns) > 5,
                     "rows": [{**r, "cells": [_num(v, lang) for v in r["values"]]} for r in t.rows]} for t in tabs],
     }
     return _render(ctx, "statements.html")
@@ -262,7 +281,8 @@ def render_pdf(db: Session, tabs: list[Table], meta: dict, *, cover: dict | None
 
 # --- Excel ---------------------------------------------------------------------------------------------------------
 
-def render_xlsx(tabs: list[Table], meta: dict, *, company: str = "", extra_sheets: list[tuple[str, list[list[Any]]]] | None = None) -> bytes:
+def render_xlsx(tabs: list[Table], meta: dict, *, company: str = "", extra_sheets: list[tuple[str, list[list[Any]]]] | None = None,
+                lead_sheets: list[tuple[str, list[list[Any]]]] | None = None) -> bytes:
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
@@ -272,6 +292,21 @@ def render_xlsx(tabs: list[Table], meta: dict, *, company: str = "", extra_sheet
     wb.remove(wb.active)
     money = "#,##0;(#,##0);-"
     thin = Side(style="thin", color="94A3B8")
+
+    def plain(name, rows):
+        ws = wb.create_sheet(name[:31])
+        ws.sheet_view.rightToLeft = rtl
+        for row in rows:
+            ws.append(row)
+        if rows:
+            for cell in ws[1]:
+                cell.font = Font(bold=True)
+        ws.column_dimensions["A"].width = 12
+        for c in range(2, max((len(r) for r in rows), default=1) + 1):
+            ws.column_dimensions[get_column_letter(c)].width = 40 if c == 2 else 60
+
+    for name, rows in lead_sheets or []:
+        plain(name, rows)
     for t in tabs:
         # Excel allows 31 characters; "Statement of …" sheets go by their subject
         name = t.title[len("Statement of "):].capitalize() if t.title.startswith("Statement of ") else t.title
@@ -296,7 +331,7 @@ def render_xlsx(tabs: list[Table], meta: dict, *, company: str = "", extra_sheet
             if r["style"] == "spacer":
                 ws.append([])
                 continue
-            ws.append([r["label"]] + [v for v in r["values"]])
+            ws.append([r["label"]] + list(r["values"]))
             row = ws.max_row
             label = ws.cell(row=row, column=1)
             label.alignment = Alignment(indent=min(int(r["indent"]) * 2, 15))
@@ -305,7 +340,7 @@ def render_xlsx(tabs: list[Table], meta: dict, *, company: str = "", extra_sheet
                 cell = ws.cell(row=row, column=c)
                 if bold:
                     cell.font = Font(bold=True)
-                if c > 1:
+                if c > 1 and not isinstance(cell.value, str):
                     cell.number_format = money
                 if r["style"] == "total":
                     cell.border = Border(top=thin, bottom=Side(style="double", color="0F172A"))
@@ -315,14 +350,12 @@ def render_xlsx(tabs: list[Table], meta: dict, *, company: str = "", extra_sheet
         for c in range(2, len(header) + 1):
             ws.column_dimensions[get_column_letter(c)].width = 20
         ws.freeze_panes = "B6"
+        if t.note:
+            ws.append([])
+            ws.append([t.note])
+            ws.cell(row=ws.max_row, column=1).font = Font(italic=True, color="64748B")
     for name, rows in extra_sheets or []:
-        ws = wb.create_sheet(name[:31])
-        ws.sheet_view.rightToLeft = rtl
-        for row in rows:
-            ws.append(row)
-        if rows:
-            for cell in ws[1]:
-                cell.font = Font(bold=True)
+        plain(name, rows)
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()

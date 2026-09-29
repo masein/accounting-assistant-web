@@ -62,7 +62,7 @@ def test_boot_runs_only_shell_calls():
 PAGE_LOADERS = {
     "loadOwnerDashboard": ("dashboard",), "loadBudgets": ("dashboard",), "loadLedger": ("ledger",),
     "loadEntities": ("entities",), "loadInvoices": ("invoices",), "loadRecurringRules": ("recurring",),
-    "loadManagerInventoryItems": ("inventory",),
+    "loadManagerInventoryItems": ("inventory",), "loadClosePack": ("manager",),
 }
 
 

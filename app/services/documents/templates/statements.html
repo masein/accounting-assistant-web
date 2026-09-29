@@ -6,17 +6,20 @@
   @page {
     size: A4;
     margin: 16mm 14mm 18mm 14mm;
-    @bottom-center { content: "{{ words.page }} " counter(page{{ ', persian' if rtl else '' }}) " / " counter(pages{{ ', persian' if rtl else '' }}); font-family: {{ font_family }}; font-size: 8pt; color: #94a3b8; }
-    @bottom-{{ 'right' if rtl else 'left' }} { content: "{{ prepared }}"; font-family: {{ font_family }}; font-size: 7.5pt; color: #94a3b8; }
+    @bottom-center { content: "{{ words.page }} " counter(page{{ ', persian' if rtl else '' }}) " / " counter(pages{{ ', persian' if rtl else '' }}); font-family: {{ font_family | safe }}; font-size: 8pt; color: #94a3b8; }
+    @bottom-{{ 'right' if rtl else 'left' }} { content: "{{ prepared }}"; font-family: {{ font_family | safe }}; font-size: 7.5pt; color: #94a3b8; }
   }
   * { box-sizing: border-box; }
-  body { font-family: {{ font_family }}; color: #0f172a; font-size: 9.5pt; line-height: 1.45; direction: {{ dir }}; margin: 0; }
+  body { font-family: {{ font_family | safe }}; color: #0f172a; font-size: 9.5pt; line-height: 1.45; direction: {{ dir }}; margin: 0; }
   .letterhead { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid {{ brand_color }}; padding-bottom: 8px; margin-bottom: 12px; }
   .letterhead .name { font-size: 13pt; font-weight: 700; color: {{ brand_color }}; }
   .letterhead .meta { font-size: 8pt; color: #64748b; }
   .letterhead img { max-height: 42px; max-width: 140px; }
-  .statement { page-break-after: always; }
-  .statement:last-child { page-break-after: auto; }
+  @page wide { size: A4 landscape; }
+  .statement:not(:first-child) { break-before: page; }
+  .statement.flow { break-before: auto; margin-top: 26px; }
+  .statement.wide { page: wide; }
+  .statement.wide th.lbl { width: 24%; }
   h1 { font-size: 15pt; margin: 0 0 2px; }
   .sub { color: #64748b; font-size: 9pt; margin-bottom: 10px; }
   table { width: 100%; border-collapse: collapse; }
@@ -32,7 +35,10 @@
   .cover h1 { font-size: 22pt; margin-top: 40mm; color: {{ brand_color }}; }
   .cover .period { font-size: 13pt; margin: 6px 0 24px; }
   .cover table td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; }
-  .ok { color: #15803d; font-weight: 700; } .warn { color: #b45309; font-weight: 700; }
+  .mark { width: 18px; text-align: center; font-weight: 700; }
+  .mark.ok { color: #15803d; } .mark.warn { color: #b45309; } .mark.info { color: #64748b; }
+  .cover td.item { font-weight: 600; width: 38%; }
+  .cover .summary { margin: 0 0 14px; font-size: 10pt; }
   .section-note { font-size: 8.5pt; color: #475569; }
 </style>
 </head>
@@ -52,10 +58,11 @@
     {{ letterhead() }}
     <h1>{{ cover.title }}</h1>
     <div class="period">{{ cover.period }}</div>
+    {% if cover.summary %}<p class="summary">{{ cover.summary }}</p>{% endif %}
     {% if cover.checklist %}
       <table>
         {% for item in cover.checklist %}
-          <tr><td class="{{ 'ok' if item.ok else 'warn' }}">{{ '✓' if item.ok else '!' }}</td><td>{{ item.item }}</td><td class="section-note">{{ item.detail }}</td></tr>
+          <tr class="check-{{ item.state }}"><td class="mark {{ item.state }}">{{ {'ok': '✓', 'warn': '!', 'info': '•'}[item.state] }}</td><td class="item">{{ item.item }}</td><td class="section-note">{{ item.detail }}</td></tr>
         {% endfor %}
       </table>
     {% endif %}
@@ -66,10 +73,11 @@
 {% endif %}
 
 {% for t in tables %}
-  <section class="statement">
-    {{ letterhead() }}
+  <section class="statement{{ ' flow' if t.flow }}{{ ' wide' if t.wide }}">
+    {% if not t.flow %}{{ letterhead() }}{% endif %}
     <h1>{{ t.title }}</h1>
     <div class="sub">{{ t.subtitle }}</div>
+    {% if t.note %}<p class="section-note">{{ t.note }}</p>{% endif %}
     <table>
       <thead><tr><th class="lbl"></th>{% for c in t.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
       <tbody>

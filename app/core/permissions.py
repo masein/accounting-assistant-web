@@ -616,6 +616,7 @@ _MR_READ = [
     "/manager-reports/financial/uk/comprehensive-income", "/manager-reports/financial/uk/changes-in-equity",
     "/manager-reports/financial/uk/cash-flow",
     "/manager-reports/financial/export",          # the same statements as a PDF / workbook (§4.9)
+    "/manager-reports/close-pack", "/manager-reports/close-pack/checklist",   # the monthly close pack (§4.9)
     "/manager-reports/accounts/list",
     "/manager-reports/books/general-journal", "/manager-reports/books/general-ledger",
     "/manager-reports/books/account-ledger/{account_code}", "/manager-reports/books/trial-balance",

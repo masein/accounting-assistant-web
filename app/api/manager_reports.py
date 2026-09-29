@@ -368,6 +368,53 @@ def export_statements(
                     headers={"Content-Disposition": f'attachment; filename="{filename(meta, "financial-statements", format)}"'})
 
 
+def _close_month(db: Session, month: str | None, lang: str | None):
+    from app.services.reporting.close_pack import ExportError, resolve_month
+    try:
+        return resolve_month(db, month, lang)
+    except ExportError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@router.get("/close-pack/checklist")
+def close_pack_checklist(
+    month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM in the company's calendar; default last month"),
+    lang: str | None = Query(None, pattern="^(fa|en)$"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """What the month-end close still needs, before the pack is downloaded (roadmap §4.9)."""
+    from app.services.reporting.close_pack import checklist, recent_months, summary
+    m = _close_month(db, month, lang)
+    items = checklist(db, m)
+    return {"month": m.key, "label": m.label, "from_date": m.start.isoformat(), "to_date": m.end.isoformat(),
+            "lang": m.lang, "items": items, "summary": summary(items, m.lang),
+            "open": sum(1 for i in items if i["state"] == "warn"), "months": recent_months(db, m.lang)}
+
+
+@router.get("/close-pack")
+def close_pack(
+    month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    format: str = Query("zip", pattern="^(zip|pdf|xlsx)$"),
+    lang: str | None = Query(None, pattern="^(fa|en)$"),
+    db: Session = Depends(get_db),
+):
+    """The monthly close pack: a ZIP of the PDF (checklist, statements, trial
+    balance, aging, bank reconciliation, budgets), the same as a workbook, and
+    the month's journal as CSV — or just the PDF or the workbook."""
+    from fastapi.responses import Response
+
+    from app.services.reporting import close_pack as cp
+    m = _close_month(db, month, lang)
+    if format == "zip":
+        body, media = cp.zip_pack(db, m), "application/zip"
+    elif format == "pdf":
+        body, media = cp.pdf(db, m), "application/pdf"
+    else:
+        body, media = cp.xlsx(db, m), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return Response(content=body, media_type=media,
+                    headers={"Content-Disposition": f'attachment; filename="close-pack-{m.key}.{format}"'})
+
+
 @router.get("/financial/cash-flow-periods")
 def cash_flow_periods(
     from_date: date | None = Query(None),

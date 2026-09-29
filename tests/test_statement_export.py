@@ -109,8 +109,20 @@ def test_an_iranian_company_gets_its_five_statements_in_persian(books):
     cells = [c for row in wb["صورت سود و زیان"].iter_rows(min_row=6) for c in row[1:2] if c.value is not None]
     assert all(isinstance(c.value, int) and c.number_format == "#,##0;(#,##0);-" for c in cells)
     assert any(row[0].font.bold for row in wb["صورت سود و زیان"].iter_rows(min_row=6) if row[0].value)
-    pages, _text = _pdf_text(api.get("/manager-reports/financial/export", params={**P, "format": "pdf"}))
+    # the services' ISO dates inside labels come out Jalali ("مانده در 2026-09-30" → "مانده در ۱۴۰۵/۰۷/۰۸")
+    import re
+    for ws in wb.worksheets:
+        for row in ws.iter_rows(min_row=5, values_only=True):
+            assert not any(isinstance(v, str) and re.search(r"\d{4}-\d{2}-\d{2}", v) for v in row), (ws.title, row)
+    equity = [str(r[0].value) for r in wb["صورت تغییرات در حقوق مالکانه"].iter_rows(min_row=6) if r[0].value]
+    assert any("۱۴۰۵/۰۷/۰۸" in label for label in equity), equity
+    r = api.get("/manager-reports/financial/export", params={**P, "format": "pdf"})
+    pages, _text = _pdf_text(r)
     assert pages >= 5                                                   # one statement a page (at least)
+    # the equity matrix (ten columns) is printed landscape; the rest portrait
+    from pypdf import PdfReader
+    shapes = ["L" if p.mediabox.width > p.mediabox.height else "P" for p in PdfReader(io.BytesIO(r.content)).pages]
+    assert shapes[0] == "P" and "L" in shapes and shapes[-1] == "P", shapes
 
 
 def test_english_labels_for_an_iranian_company_on_request(books):

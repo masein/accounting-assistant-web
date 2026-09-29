@@ -279,6 +279,54 @@
       window.location.href = API + '/manager-reports/financial/export?' + q.toString();
     }));
 
+    // ═══════ The monthly close pack (roadmap §4.9) ═══════
+    // The checklist is read in the UI's language (Persian or English); the
+    // pack itself is written in the company's document language.
+    async function loadClosePack() {
+      if (!onPage('manager')) return;
+      const sel = document.getElementById('close-pack-month');
+      const list = document.getElementById('close-pack-checklist');
+      const sum = document.getElementById('close-pack-summary');
+      if (!sel || !list || !sum) return;
+      const lang = currentLanguage === 'fa' ? 'fa' : 'en';
+      const q = new URLSearchParams({ lang });
+      if (sel.value) q.set('month', sel.value);
+      let data;
+      try {
+        const res = await fetch(API + '/manager-reports/close-pack/checklist?' + q.toString());
+        if (!res.ok) throw new Error(String(res.status));
+        data = await res.json();
+      } catch (e) {
+        sum.textContent = t('closePackFailed');
+        sum.className = 'close-pack-summary warn';
+        list.innerHTML = '';
+        return;
+      }
+      if (sel.dataset.lang !== data.lang || !sel.options.length) {
+        const picked = sel.value || data.month;
+        sel.innerHTML = data.months.map(m => `<option value="${escapeHtml(m.key)}">${escapeHtml(m.label)}</option>`).join('');
+        sel.value = [...sel.options].some(o => o.value === picked) ? picked : data.month;
+        sel.dataset.lang = data.lang;
+      }
+      sum.textContent = data.summary;
+      sum.className = 'close-pack-summary ' + (data.open ? 'warn' : 'ok');
+      const marks = { ok: '✓', warn: '!', info: '•' };
+      list.innerHTML = data.items.map(i => `<li class="${escapeHtml(i.state)}" data-key="${escapeHtml(i.key)}">`
+        + `<span class="mark" aria-hidden="true">${marks[i.state] || ''}</span>`
+        + `<span class="item">${escapeHtml(i.item)}</span><span class="detail">${escapeHtml(i.detail)}</span></li>`).join('');
+    }
+
+    function closePackDownload(format) {
+      const month = document.getElementById('close-pack-month')?.value;
+      const q = new URLSearchParams({ format });
+      if (month) q.set('month', month);
+      window.location.href = API + '/manager-reports/close-pack?' + q.toString();
+    }
+
+    document.getElementById('close-pack-month')?.addEventListener('change', loadClosePack);
+    document.getElementById('close-pack-zip')?.addEventListener('click', () => closePackDownload('zip'));
+    document.querySelectorAll('.close-pack-file').forEach((btn) => btn.addEventListener('click', () => closePackDownload(btn.dataset.format)));
+
     function exportManagerReportJson() {
       if (!lastManagerReport) { showAlert(t('runReportFirst'), true); return; }
       const type = (lastManagerReport.report_type || 'report');

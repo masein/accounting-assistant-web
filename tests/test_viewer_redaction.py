@@ -132,7 +132,48 @@ def test_the_rule_lives_in_one_place():
 
     from app.api import entities, invoices, quotes
     from app.services import tax_ir
+    from app.services.ai_accountant import read_tools
     from app.services.reporting import close_pack
-    for mod in (entities, invoices, quotes, tax_ir, close_pack):
+    for mod in (entities, invoices, quotes, tax_ir, close_pack, read_tools):
         src = inspect.getsource(mod)
         assert "app.core.redaction" in src, mod.__name__
+
+
+def _entity(**kw):
+    from types import SimpleNamespace
+    base = dict(phone="0912", email=None, address="Tehran", tax_id=None, economic_code="411111111111",
+                national_id="0012345678", contact_person=None, bank_name="Mellat", account_holder="Aria",
+                account_number="12345678", iban="IR820540102680020817909002", sort_code="20-20-15")
+    return SimpleNamespace(**{**base, **kw})
+
+
+@pytest.mark.parametrize("role, shown", [("owner", True), ("accountant", True), ("personal", True),
+                                         ("viewer", False), ("manager", False), ("employee", False)])
+def test_the_chat_tools_follow_the_same_rule(role, shown):
+    """find_entity / list_entities hand the model a party's details — the bank and
+    identity numbers only when the caller could read them on the page."""
+    from types import SimpleNamespace
+
+    from app.core.redaction import IDENTITY_FIELDS
+    from app.core.request_context import clear_current_user, set_current_user
+    from app.services.ai_accountant.read_tools import _entity_details
+    set_current_user(SimpleNamespace(user_id="u", username=role, role=role, entity_id=None, is_superadmin=False))
+    try:
+        out = _entity_details(_entity())
+    finally:
+        clear_current_user()
+    assert out["phone"] == "0912" and out["economic_code"] == "411111111111" and out["bank_name"] == "Mellat"
+    assert all((f in out) is shown for f in IDENTITY_FIELDS), out
+    assert _entity_details(_entity())["iban"].startswith("IR82")         # a job (no caller) keeps them
+
+
+def test_every_role_that_can_chat_can_read_bank_details():
+    """Today only roles with bank:read reach the assistant (web chat and the
+    messenger bot check the same route). If that ever changes, the chat tools
+    above already hide the numbers — this pins the assumption so it's a choice."""
+    from types import SimpleNamespace
+
+    from app.core.permissions import ROLE_PERMISSIONS, Perm, role_can, user_can_access
+    chat = sorted(r for r in ROLE_PERMISSIONS
+                  if user_can_access(SimpleNamespace(role=r, is_superadmin=False), "POST", "/ai-accountant/chat"))
+    assert chat and all(role_can(r, Perm.BANK_READ) for r in chat), chat

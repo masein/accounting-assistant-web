@@ -54,10 +54,13 @@ _ENTITY_DETAIL_FIELDS = (
 
 
 def _entity_details(e: Entity) -> dict[str, Any]:
+    # Bank and identity numbers follow the same rule as every other read.
+    from app.core.redaction import IDENTITY_FIELDS, may_see_identity
+    hidden = () if may_see_identity() else IDENTITY_FIELDS
     return {
         f: str(v).strip()
         for f in _ENTITY_DETAIL_FIELDS
-        if (v := getattr(e, f, None)) and str(v).strip()
+        if f not in hidden and (v := getattr(e, f, None)) and str(v).strip()
     }
 
 

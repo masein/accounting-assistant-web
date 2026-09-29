@@ -1555,6 +1555,7 @@ window.I18N_PACKS.ar = Object.assign({
         mailPdfPasswordForget: "انسَها",
         mailPdfPasswordForgotten: "أُزيلت كلمة مرور ملفات PDF.",
         mailOutNeedsPassword: "مقفل — أضف كلمة مرور PDF",
+        mailStateDeferred: "{n} تحتوي على PDF أو صور تنتظر إلى الغد (حد يومي يحفظ لك حصة الذكاء الاصطناعي)",
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

@@ -1283,6 +1283,7 @@
       else if (st.checked_at && st.ok === false) text = tf('mailStateError', { when: mailWhen(st.checked_at), error: mailError(st) });
       else if (st.checked_at) text = tf('mailStateOk', { when: mailWhen(st.checked_at), imported: st.imported || 0 });
       else text = cfg.enabled ? t('mailStateWaiting') : t('mailStatePaused');
+      if (st.deferred) text += ' · ' + tf('mailStateDeferred', { n: st.deferred });
       if (cfg.host && !cfg.enabled && st.checked_at) text += ' · ' + t('mailStatePaused');
       _mailEl('mail-summary-state').textContent = '— ' + text;
     }
@@ -1366,7 +1367,8 @@
         const d = await r.json().catch(() => ({}));
         if (r.status === 409) { _mailNote(t('mailNotSetUp')); return; }
         if (!r.ok) { _mailNote(typeof d.detail === 'string' ? d.detail : t('mailErrProtocol')); return; }
-        _mailNote(d.ok ? tf('mailCheckDone', { found: d.found, imported: d.imported }) : mailError(d), !!d.ok);
+        _mailNote(d.ok ? tf('mailCheckDone', { found: d.found, imported: d.imported })
+          + (d.deferred ? ' ' + tf('mailStateDeferred', { n: d.deferred }) : '') : mailError(d), !!d.ok);
         if (_mailCfg) { _mailCfg.status = d; renderMailState(_mailCfg); }
         loadMailLog();
         if (d.imported && typeof loadBankStatements === 'function') loadBankStatements();

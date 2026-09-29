@@ -58,6 +58,11 @@ MAX_MESSAGES = 25             # newest messages from allowed senders per check
 MAX_MESSAGE_BYTES = 25 * 1024 * 1024
 MAX_ATTACHMENTS = 5
 MAX_SENDERS = 20
+# PDFs and images are read by the AI model, from the company's AI allowance.
+# A flood of forged "bank" mail must not use it all up (and stop the chat for
+# the day): at most this many such files a day; the rest wait for tomorrow.
+MAX_AI_READS_PER_DAY = 20
+_AI_EXTS = (".pdf", ".jpg", ".jpeg", ".png", ".webp")
 TIMEOUT = 20
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _HOST_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$")
@@ -471,8 +476,10 @@ def check_mailbox(db: Session, *, now: datetime | None = None) -> dict[str, Any]
     status = load_status(db)
     if not (cfg["host"] and cfg["username"] and cfg["has_password"] and cfg["senders"]):
         raise MailboxError("auth", "the mailbox isn't set up")
+    today = now.date().isoformat()
     result = {"checked_at": now.isoformat(), "ok": True, "found": 0, "imported": 0,
-              "error_code": None, "error": None, "failures": 0}
+              "error_code": None, "error": None, "failures": 0, "deferred": 0, "ai_day": today,
+              "ai_reads": int(status.get("ai_reads") or 0) if status.get("ai_day") == today else 0}
     try:
         if not cfg["password"]:                          # saved, but no longer decrypts (AUTH_SECRET changed)
             raise MailboxError("auth", "the saved password can't be read any more — enter it again")
@@ -508,6 +515,13 @@ def check_mailbox(db: Session, *, now: datetime | None = None) -> dict[str, Any]
                 if not files:
                     _record(db, h, "too_large" if too_large else "no_attachment", [], None)
                     continue
+                need = sum(1 for name, _c, _b in files if Path(name).suffix.lower() in _AI_EXTS)
+                if need and result["ai_reads"] + need > MAX_AI_READS_PER_DAY:
+                    # not logged: a later check (tomorrow's allowance) reads it
+                    result["found"] -= 1
+                    result["deferred"] += 1
+                    continue
+                result["ai_reads"] += need
                 outcomes = [_import(db, name, ctype, content, h.display, cfg.get("pdf_password") or None)
                             for name, ctype, content in files]
                 ids = [sid for o, sid, _d in outcomes if o == "imported" and sid]

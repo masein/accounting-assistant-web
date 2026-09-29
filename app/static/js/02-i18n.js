@@ -1602,6 +1602,7 @@
         mailPdfPasswordForget: "Forget it",
         mailPdfPasswordForgotten: "The PDF password was removed.",
         mailOutNeedsPassword: "Locked — add the PDF password",
+        mailStateDeferred: "{n} with PDFs or images wait for tomorrow (a daily limit keeps the AI allowance for you)",
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

@@ -1555,6 +1555,7 @@ window.I18N_PACKS.es = Object.assign({
         mailPdfPasswordForget: "Olvidarla",
         mailPdfPasswordForgotten: "Se quitó la contraseña de los PDF.",
         mailOutNeedsPassword: "Bloqueado: añade la contraseña del PDF",
+        mailStateDeferred: "{n} con PDF o imágenes esperan a mañana (un límite diario reserva para ti la cuota de IA)",
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

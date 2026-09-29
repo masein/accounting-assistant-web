@@ -13,7 +13,9 @@ senders they come from. Every 30 minutes (or on "Check now") the server:
   (an address, or ``@domain``);
 * files each attached statement through the same import as an upload
   (``import_statement_bytes``: duplicate check, parsing, OCR for a PDF), and
-  marks it ``origin="email"``;
+  marks it ``origin="email"``; a PDF the bank locked is opened with the
+  saved PDF password (app/services/pdf_unlock.py), or logged
+  ``needs_password``;
 * records every message it read in ``statement_mail_messages``, so a message
   is never imported twice.
 
@@ -104,8 +106,10 @@ def load_settings(db: Session, *, reveal: bool = False) -> dict[str, Any]:
     raw = _read(db, SETTINGS_KEY)
     out = {**DEFAULTS, **{k: raw[k] for k in DEFAULTS if k in raw}}
     out["has_password"] = bool(raw.get("password"))
+    out["has_pdf_password"] = bool(raw.get("pdf_password"))
     if reveal:
         out["password"] = decrypt_secret(raw.get("password") or "") if raw.get("password") else ""
+        out["pdf_password"] = decrypt_secret(raw.get("pdf_password") or "") if raw.get("pdf_password") else ""
     return out
 
 
@@ -167,6 +171,17 @@ def save_settings(db: Session, data: dict[str, Any], *, resolver=None) -> dict[s
     if host != current.get("host") or username != current.get("username"):
         # a password belongs to its account: a new server or user needs it again
         stored = encrypt_secret(password) if password else None
+    # the password banks lock their PDF statements with: kept when left blank,
+    # independent of the mail account (it belongs to the statements)
+    pdf_stored = current.get("pdf_password")
+    pdf_password = data.get("pdf_password")
+    if data.get("clear_pdf_password"):
+        pdf_stored = None
+    elif pdf_password:
+        from app.services.pdf_unlock import MAX_PASSWORD
+        if len(pdf_password) > MAX_PASSWORD or any(c in pdf_password for c in "\r\n"):
+            raise ValueError("The PDF password isn't valid.")
+        pdf_stored = encrypt_secret(pdf_password)
     if enabled and not (host and username and stored and senders):
         raise ValueError("To check automatically, fill in the server, username, password and at least one sender.")
     if host:
@@ -175,7 +190,16 @@ def save_settings(db: Session, data: dict[str, Any], *, resolver=None) -> dict[s
         except NotPublic as exc:
             raise ValueError(str(exc)) from exc
     _write(db, SETTINGS_KEY, {"enabled": enabled, "host": host, "port": port, "username": username,
-                              "password": stored, "folder": folder, "senders": senders})
+                              "password": stored, "folder": folder, "senders": senders,
+                              "pdf_password": pdf_stored})
+    if pdf_password and not data.get("clear_pdf_password"):
+        # a new PDF password: the locked statements already seen get another go —
+        # forget them, and have the next check look back the full first window
+        from sqlalchemy import delete
+
+        from app.models.statement_mail import StatementMailMessage
+        db.execute(delete(StatementMailMessage).where(StatementMailMessage.status == "needs_password"))
+        _save_status(db, {**load_status(db), "rescan": True})
     return load_settings(db)
 
 
@@ -315,7 +339,7 @@ def sender_rule(address: str, senders: list[dict[str, str]]) -> dict[str, str] |
 
 def _since(status: dict[str, Any], today: date) -> date:
     last = status.get("checked_at")
-    if last:
+    if last and not status.get("rescan"):
         try:
             return datetime.fromisoformat(last).date() - timedelta(days=OVERLAP_DAYS)
         except ValueError:
@@ -394,7 +418,8 @@ def attachments(raw: bytes) -> tuple[list[tuple[str, str, bytes]], int]:
     return files[:MAX_ATTACHMENTS], too_large
 
 
-def _import(db: Session, name: str, ctype: str, content: bytes, bank: str) -> tuple[str, str | None, str | None]:
+def _import(db: Session, name: str, ctype: str, content: bytes, bank: str,
+            pdf_password: str | None = None) -> tuple[str, str | None, str | None]:
     """File one attachment: (outcome, statement id, detail)."""
     import asyncio
 
@@ -404,7 +429,7 @@ def _import(db: Session, name: str, ctype: str, content: bytes, bank: str) -> tu
     from app.services.statement_import import import_statement_bytes
     try:
         res = asyncio.run(import_statement_bytes(db, content=content, filename=name, content_type=ctype,
-                                                 bank_name=bank))
+                                                 bank_name=bank, pdf_password=pdf_password))
     except HTTPException as exc:
         db.rollback()
         return "failed", None, str(exc.detail)[:300]
@@ -414,6 +439,8 @@ def _import(db: Session, name: str, ctype: str, content: bytes, bank: str) -> tu
         return "failed", None, "the file couldn't be read"
     if res.status == "duplicate":
         return "duplicate", str(res.duplicate_of) if res.duplicate_of else None, None
+    if res.status == "needs_password":
+        return "needs_password", None, "; ".join(res.errors or [])[:300] or None
     if res.status == "needs_mapping" or not res.id:
         return "needs_mapping", None, "; ".join(res.errors or [])[:300] or None
     stmt = db.get(BankStatement, res.id)
@@ -432,7 +459,7 @@ def _record(db: Session, h: _Header, status: str, statement_ids: list[str], deta
     db.commit()
 
 
-_RANK = {"imported": 0, "needs_mapping": 1, "failed": 2, "too_large": 3, "duplicate": 4}
+_RANK = {"imported": 0, "needs_password": 1, "needs_mapping": 2, "failed": 3, "too_large": 4, "duplicate": 5}
 
 
 def check_mailbox(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
@@ -481,7 +508,8 @@ def check_mailbox(db: Session, *, now: datetime | None = None) -> dict[str, Any]
                 if not files:
                     _record(db, h, "too_large" if too_large else "no_attachment", [], None)
                     continue
-                outcomes = [_import(db, name, ctype, content, h.display) for name, ctype, content in files]
+                outcomes = [_import(db, name, ctype, content, h.display, cfg.get("pdf_password") or None)
+                            for name, ctype, content in files]
                 ids = [sid for o, sid, _d in outcomes if o == "imported" and sid]
                 result["imported"] += len(ids)
                 best = min((o for o, _s, _d in outcomes), key=lambda o: _RANK.get(o, 9))

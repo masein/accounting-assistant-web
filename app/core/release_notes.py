@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.13"
+CURRENT_RELEASE = "2026.09.29.14"
 
 
 @dataclass(frozen=True)
@@ -1428,6 +1428,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "اگر بانک صورت‌حساب را ایمیل می‌کند، صندوق ایمیل را در صورت‌حساب‌های بانکی ← صورت‌حساب از راه ایمیل ذخیره کنید. برنامه هر ۳۰ دقیقه فقط پیام‌های بانک‌هایتان را می‌خواند و هر صورت‌حساب CSV، اکسل یا PDFِ پیوست‌شده را برای بررسی شما ثبت می‌کند. هیچ ایمیلی را تغییر نمی‌دهد، هیچ پیامی را دو بار وارد نمی‌کند و رمز عبور رمزنگاری‌شده نگه داشته می‌شود.",
                     "es": "Si tu banco envía extractos por correo, guarda el buzón en Extractos bancarios → Extractos por correo. Cada 30 minutos la aplicación lee solo los mensajes de tus bancos y guarda cada extracto adjunto en CSV, Excel o PDF para que lo revises. Nunca cambia tu correo, nunca importa un mensaje dos veces y la contraseña se guarda cifrada.",
                     "ar": "إذا كان بنكك يرسل الكشوف بالبريد، احفظ صندوق البريد في كشوف الحساب البنكية ← كشوف الحساب عبر البريد. كل 30 دقيقة يقرأ التطبيق رسائل بنوكك فقط ويسجّل كل كشف مرفق بصيغة CSV أو Excel أو PDF لتراجعه. لا يغيّر بريدك أبدًا، ولا يستورد رسالة مرتين، وتُحفظ كلمة المرور مشفّرة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.09.29.14",
+        date="2026-09-29",
+        highlights=(
+            Highlight(
+                key="locked-pdf-statements",
+                page="bank-statements",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Password-protected PDF statements open too",
+                    "fa": "صورت‌حساب‌های PDF رمزدار هم باز می‌شوند",
+                    "es": "También se abren los extractos PDF con contraseña",
+                    "ar": "تُفتح كشوف PDF المحمية بكلمة مرور أيضًا",
+                },
+                body={
+                    "en": "If your bank locks its PDF statements (often with your national ID), uploading one now asks for the password and opens it. For statements that arrive by e-mail, save the PDF password once in Statements by e-mail; it's stored encrypted, and statements that were waiting for it are read again.",
+                    "fa": "اگر بانک صورت‌حساب PDF را قفل می‌کند (اغلب با کد ملی)، بارگذاری آن اکنون رمز را می‌پرسد و بازش می‌کند. برای صورت‌حساب‌هایی که با ایمیل می‌رسند، رمز PDF را یک بار در «صورت‌حساب از راه ایمیل» ذخیره کنید؛ رمزنگاری‌شده نگه داشته می‌شود و صورت‌حساب‌هایی که منتظرش بودند دوباره خوانده می‌شوند.",
+                    "es": "Si tu banco bloquea sus extractos en PDF (a menudo con tu número de identificación), al subir uno ahora se pide la contraseña y se abre. Para los extractos que llegan por correo, guarda la contraseña de los PDF una vez en Extractos por correo; se guarda cifrada y los extractos que la esperaban se vuelven a leer.",
+                    "ar": "إذا كان بنكك يقفل كشوفه بصيغة PDF (غالبًا برقم هويتك الوطنية)، فإن تحميل أحدها يطلب الآن كلمة المرور ويفتحه. وللكشوف التي تصل بالبريد، احفظ كلمة مرور ملفات PDF مرة واحدة في كشوف الحساب عبر البريد؛ تُحفظ مشفّرة وتُقرأ من جديد الكشوف التي كانت تنتظرها.",
                 },
             ),
         ),

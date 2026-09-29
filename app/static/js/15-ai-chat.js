@@ -641,6 +641,8 @@
         let html = '<div style="font-weight:600;margin-bottom:0.3rem;">' + escapeHtml(t('chatStmtTitle')) + ' — ' + escapeHtml(intake.bank_name || '') + '</div>';
         if (intake.status === 'duplicate') {
           html += '<div>' + escapeHtml(t('chatStmtDuplicateFile')) + '</div>';
+        } else if (intake.status === 'needs_password') {
+          html += '<div>' + escapeHtml(t('chatStmtNeedsPassword')) + '</div>';
         } else if (intake.status === 'failed' || intake.status === 'needs_mapping') {
           html += '<div style="color:var(--danger,#dc3545);">' + escapeHtml(intake.error || t('chatStmtNeedsMapping')) + '</div>';
         } else {
@@ -664,6 +666,16 @@
           if (intake.clean) html += '<div style="margin-top:0.3rem;color:var(--success,#059669);font-weight:600;">' + escapeHtml(t('chatStmtClean')) + '</div>';
         }
         card.innerHTML = html;
+        if (intake.status === 'needs_password') {
+          const go = document.createElement('button');
+          go.type = 'button';
+          go.className = 'btn btn-secondary btn-sm';
+          go.style.marginTop = '0.5rem';
+          go.textContent = t('chatStmtOpenUpload');
+          go.addEventListener('click', () => showPage('bank-statements'));
+          card.appendChild(go);
+          return;
+        }
         if (!intake.statement_id) return;
         const btnRow = document.createElement('div');
         btnRow.style.cssText = 'margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;';

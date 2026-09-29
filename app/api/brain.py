@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -134,6 +134,8 @@ async def upload_bank_statement(
     confirm_duplicate: bool = Query(
         False, description="Import even if an identical file was already uploaded."
     ),
+    # a form field, never the query string: a URL ends up in logs and history
+    pdf_password: str | None = Form(None, max_length=128, description="The password of a locked PDF statement."),
     db: Session = Depends(get_db),
 ) -> BankStatementUploadResponse:
     """Upload a CSV, Excel, or image/PDF bank statement for parsing and reconciliation."""
@@ -150,6 +152,7 @@ async def upload_bank_statement(
         bank_name=bank_name,
         column_map=column_map,
         confirm_duplicate=confirm_duplicate,
+        pdf_password=pdf_password or None,
     )
 
 

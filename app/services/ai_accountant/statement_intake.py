@@ -159,6 +159,25 @@ async def maybe_statement_intake(
         path = Path(att.file_path)
         if not path.exists():
             continue
+        if ctype == "application/pdf":
+            from app.services.pdf_unlock import is_locked
+            if is_locked(path.read_bytes()):
+                # Nothing in it can be read without the password — and a password
+                # doesn't belong in a chat message: the Bank statements page asks for it.
+                lang = _message_language(message, lang)
+                text_out = (
+                    "این PDF با رمز قفل شده و بدون رمز نمی‌توانم آن را بخوانم. اگر صورت‌حساب بانکی است، آن را در صفحهٔ "
+                    "«صورت‌حساب‌های بانکی» بارگذاری کنید تا رمزش را همان‌جا بپرسد (بسیاری از بانک‌ها کد ملی را رمز می‌گذارند)؛ "
+                    "وگرنه نسخهٔ بدون رمزش را پیوست کنید."
+                    if lang == "fa" else
+                    "This PDF is locked with a password, so I can't read it. If it's a bank statement, upload it on "
+                    "the Bank statements page and enter the password there (many banks use your national ID); "
+                    "otherwise attach an unlocked copy."
+                )
+                return StatementTurn(text=text_out, intake={
+                    "kind": "bank_statement", "status": "needs_password", "file_name": att.file_name,
+                    "bank_name": guess_bank_name(att.file_name or "", message or ""),
+                })
         text = _extract_pdf_text(path) if ctype == "application/pdf" else ""
         if not looks_like_bank_statement(filename=att.file_name or "", message=message or "", text=text):
             continue

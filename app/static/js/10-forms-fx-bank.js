@@ -810,13 +810,14 @@
       return map;
     }
 
-    async function doUploadStatement(file, bankName, { columnMap = null, confirmDuplicate = false } = {}) {
+    async function doUploadStatement(file, bankName, { columnMap = null, confirmDuplicate = false, pdfPassword = null } = {}) {
       const statusEl = document.getElementById('bs-upload-status');
       statusEl.style.display = 'block';
       statusEl.textContent = t('aiThinking') || 'Uploading and parsing...';
       statusEl.className = 'alert';
       const form = new FormData();
       form.append('file', file);
+      if (pdfPassword) form.append('pdf_password', pdfPassword);        // the body, never the URL
       let url = bsAPI + '/bank-statements/upload?bank_name=' + encodeURIComponent(bankName);
       if (columnMap) url += '&column_map=' + encodeURIComponent(JSON.stringify(columnMap));
       if (confirmDuplicate) url += '&confirm_duplicate=true';
@@ -828,17 +829,24 @@
           statusEl.className = 'alert alert-error';
           return;
         }
+        // A locked PDF → ask for its password, then send it again with it.
+        if (data.needs_password) {
+          const pw = await uiPrompt({ title: t('bsPdfPasswordTitle'), type: 'password',
+            message: data.password_wrong ? t('bsPdfPasswordWrong') : t('bsPdfPasswordPrompt') });
+          if (!pw) { statusEl.style.display = 'none'; return; }
+          return doUploadStatement(file, bankName, { columnMap, confirmDuplicate, pdfPassword: pw });
+        }
         // Unknown layout → ask the user to map columns, then re-upload.
         if (data.needs_mapping) {
           const map = await promptColumnMapping(data.headers, data.required_fields);
           if (!map) { statusEl.style.display = 'none'; return; }
-          return doUploadStatement(file, bankName, { columnMap: map, confirmDuplicate });
+          return doUploadStatement(file, bankName, { columnMap: map, confirmDuplicate, pdfPassword });
         }
         // Identical file already imported → confirm before re-importing.
         if (data.duplicate) {
           const ok = await uiConfirm({ title: t('bsDupTitle'), message: t('bsDupConfirmMsg') });
           if (!ok) { statusEl.style.display = 'none'; return; }
-          return doUploadStatement(file, bankName, { columnMap, confirmDuplicate: true });
+          return doUploadStatement(file, bankName, { columnMap, confirmDuplicate: true, pdfPassword });
         }
         let msg = tf('bsParsed', { rows: data.total_rows, bank: data.bank_name, type: data.source_type });
         if (data.skipped_rows) msg += ' ' + tf('bsSkipped', { n: data.skipped_rows });
@@ -1239,6 +1247,7 @@
     const MAIL_ERROR_KEYS = { resolve: 'mailErrResolve', private: 'mailErrPrivate', connect: 'mailErrConnect',
       timeout: 'mailErrTimeout', tls: 'mailErrTls', auth: 'mailErrAuth', folder: 'mailErrFolder', protocol: 'mailErrProtocol' };
     const MAIL_OUTCOME_KEYS = { imported: 'mailOutImported', duplicate: 'mailOutDuplicate', needs_mapping: 'mailOutNeedsMapping',
+      needs_password: 'mailOutNeedsPassword',
       failed: 'mailOutFailed', no_attachment: 'mailOutNoAttachment', too_large: 'mailOutTooLarge' };
     let _mailCfg = null;
     function _mailEl(id) { return document.getElementById(id); }
@@ -1247,7 +1256,7 @@
         host: _mailEl('mail-host').value.trim(), port: parseInt(_mailEl('mail-port').value, 10) || 993,
         username: _mailEl('mail-user').value.trim(), password: _mailEl('mail-password').value,
         folder: _mailEl('mail-folder').value.trim() || 'INBOX', senders: _mailEl('mail-senders').value,
-        enabled: _mailEl('mail-enabled').checked,
+        enabled: _mailEl('mail-enabled').checked, pdf_password: _mailEl('mail-pdf-password').value,
       };
     }
     function mailWhen(iso) {
@@ -1287,6 +1296,9 @@
       _mailEl('mail-folder').value = cfg.folder || 'INBOX';
       _mailEl('mail-senders').value = (cfg.senders || []).map(s => s.bank_name ? `${s.match}, ${s.bank_name}` : s.match).join('\n');
       _mailEl('mail-enabled').checked = !!cfg.enabled;
+      _mailEl('mail-pdf-password').value = '';
+      _mailEl('mail-pdf-password').placeholder = cfg.has_pdf_password ? t('mailPasswordSaved') : t('mailPdfPasswordNone');
+      _mailEl('mail-pdf-forget').style.display = cfg.has_pdf_password && cfg.can_manage ? '' : 'none';
       _mailEl('mail-form').disabled = !cfg.can_manage;
       document.querySelectorAll('#mail-panel .mail-manage').forEach(b => { b.style.display = cfg.can_manage ? '' : 'none'; });
       _mailEl('mail-view-only').style.display = cfg.can_manage ? 'none' : '';
@@ -1323,11 +1335,21 @@
       _mailEl('mail-save').addEventListener('click', (e) => busy(e.currentTarget, async () => {
         const body = _mailForm();
         if (!body.password) delete body.password;
+        if (!body.pdf_password) delete body.pdf_password;
         const r = await fetch(API + '/bank-mailbox', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) { _mailNote(typeof d.detail === 'string' ? d.detail : t('mailSaveFailed')); return; }
         renderMailbox(d);
         _mailNote(t('mailSaved'), true);
+      }));
+      _mailEl('mail-pdf-forget').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+        const body = { ..._mailForm(), clear_pdf_password: true };
+        delete body.password; delete body.pdf_password;
+        const r = await fetch(API + '/bank-mailbox', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { _mailNote(typeof d.detail === 'string' ? d.detail : t('mailSaveFailed')); return; }
+        renderMailbox(d);
+        _mailNote(t('mailPdfPasswordForgotten'), true);
       }));
       _mailEl('mail-test').addEventListener('click', (e) => busy(e.currentTarget, async () => {
         const f = _mailForm();

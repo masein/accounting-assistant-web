@@ -34,6 +34,10 @@ class BankStatementUploadResponse(BaseModel):
     # Rows that were individually recognised as already imported (overlapping
     # date ranges), flagged rather than posted a second time.
     duplicate_rows: int = 0
+    # A locked PDF (app/services/pdf_unlock.py): send it again with its password.
+    # `password_wrong` when one was sent and didn't open it.
+    needs_password: bool = False
+    password_wrong: bool = False
 
 
 class BankStatementRowRead(BaseModel):

@@ -33,6 +33,8 @@ class MailboxSettings(BaseModel):
     password: str | None = Field(None, max_length=256, description="Blank keeps the saved password.")
     folder: str = Field("INBOX", max_length=100)
     senders: list[SenderRule] | str = Field(default_factory=list)
+    pdf_password: str | None = Field(None, max_length=128, description="For PDF statements the bank locks; blank keeps it.")
+    clear_pdf_password: bool = False
 
 
 class MailboxTest(BaseModel):
@@ -70,7 +72,8 @@ def save_mailbox(payload: MailboxSettings, db: Session = Depends(get_db)) -> dic
     log_audit_event(db, "update", "bank_mailbox", entity_id=None,
                     detail=f"{'on' if payload.enabled else 'off'} · {payload.host or '—'} · "
                            f"{len(data['senders']) if isinstance(data['senders'], list) else 'senders'}"
-                           f"{' · password changed' if payload.password else ''}")
+                           f"{' · password changed' if payload.password else ''}"
+                           f"{' · PDF password changed' if payload.pdf_password or payload.clear_pdf_password else ''}")
     db.commit()
     return _view(db)
 

@@ -155,6 +155,7 @@ async def import_statement_bytes(
     bank_name: str = "Unknown",
     column_map: dict[str, int] | str | None = None,
     confirm_duplicate: bool = False,
+    pdf_password: str | None = None,
 ) -> BankStatementUploadResponse:
     """Parse and persist a bank statement. Raises HTTPException for the same
     conditions the upload endpoint always did (bad type, unreadable file,
@@ -195,6 +196,19 @@ async def import_statement_bytes(
                     f"This file was already imported on {existing.created_at:%Y-%m-%d} "
                     f"as '{existing.source_filename}'."
                 ],
+            )
+
+    # A locked PDF is unlocked in memory first (the duplicate check above used
+    # the file as it came); without the right password the caller asks for it.
+    if ext == ".pdf":
+        from app.services.pdf_unlock import PasswordNeeded, unlock
+        try:
+            content = unlock(content, pdf_password)
+        except PasswordNeeded as exc:
+            return BankStatementUploadResponse(
+                id=None, status="needs_password", total_rows=0, bank_name=bank_name, source_type="pdf",
+                needs_password=True, password_wrong=exc.wrong,
+                errors=["The PDF password isn't right." if exc.wrong else "This PDF is password-protected."],
             )
 
     parsed_column_map: dict[str, int] | None = None

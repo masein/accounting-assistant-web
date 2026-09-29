@@ -1599,6 +1599,12 @@
           <label for="mail-senders" data-i18n="mailSenders">Bank senders</label>
           <textarea id="mail-senders" rows="3" dir="ltr" style="width:100%;" spellcheck="false" placeholder="statements@bank.example, Bank name&#10;@bank.example, Bank name"></textarea>
           <p style="font-size:0.78rem;color:var(--text-muted);margin:0.2rem 0 0.5rem;" data-i18n="mailSendersHint">One per line: the address the statements come from (or @ and the bank's domain for any address there), a comma, and the bank's name.</p>
+          <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
+            <div style="flex:1 1 14rem;max-width:22rem;"><label for="mail-pdf-password" data-i18n="mailPdfPassword">PDF password (optional)</label>
+              <input type="password" id="mail-pdf-password" autocomplete="new-password"></div>
+            <div><button type="button" class="btn btn-secondary btn-sm" id="mail-pdf-forget" style="display:none;" data-i18n="mailPdfPasswordForget">Forget it</button></div>
+          </div>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin:0.2rem 0 0.5rem;" data-i18n="mailPdfPasswordHint">Some banks lock their PDF statements, often with your national ID. Save it here and those PDFs are opened for you; it's stored encrypted.</p>
           <label style="display:flex;gap:0.4rem;align-items:center;cursor:pointer;margin-bottom:0.5rem;">
             <input type="checkbox" id="mail-enabled"> <span data-i18n="mailEnabled">Check this mailbox every 30 minutes</span></label>
         </fieldset>

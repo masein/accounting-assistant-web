@@ -2,8 +2,8 @@
 
 One row per message from an allowed bank sender, whatever came of it:
 ``imported`` (the statements it filed are in ``statement_ids``),
-``duplicate``, ``needs_mapping``, ``failed``, ``no_attachment`` or
-``too_large``. ``message_key`` (the SHA-256 of the Message-ID) is what makes
+``duplicate``, ``needs_mapping``, ``needs_password``, ``failed``,
+``no_attachment`` or ``too_large``. ``message_key`` (the SHA-256 of the Message-ID) is what makes
 a check idempotent: the mailbox itself is opened read-only and never changed.
 """
 from __future__ import annotations

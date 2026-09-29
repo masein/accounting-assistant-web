@@ -661,6 +661,7 @@ for _m, _p in [
 _reads(["/expenses", "/expenses/{claim_id}"],
        frozenset({Perm.EXPENSES_OWN, Perm.APPROVALS_WRITE, Perm.BOOKS_READ}))
 _add("GET", "/expenses/settings", frozenset({Perm.BOOKS_READ, Perm.APPROVALS_WRITE}))
+_add("GET", "/expenses/pickers", frozenset({Perm.EXPENSES_OWN, Perm.APPROVALS_WRITE, Perm.BOOKS_READ}))
 _add("POST", "/expenses/settings", Perm.SETTINGS_WRITE)
 _add("POST", "/expenses/mileage", Perm.EXPENSES_OWN)
 _add("POST", "/expenses/{claim_id}/approve", Perm.APPROVALS_WRITE)
@@ -672,6 +673,7 @@ _add("POST", "/expenses/{claim_id}/reimburse", Perm.BOOKS_WRITE)
 _reads(["/time/projects", "/time/rates", "/time/entries", "/time/unbilled"],
        frozenset({Perm.TIME_OWN, Perm.BOOKS_READ}))
 _add("GET", "/time/invoice/{invoice_id}/pdf", frozenset({Perm.TIME_OWN, Perm.BOOKS_READ}))
+_add("GET", "/time/pickers", frozenset({Perm.TIME_OWN, Perm.BOOKS_READ}))       # workers + clients for the form
 # Logging own time.
 for _m, _p in [("POST", "/time/entries"), ("PATCH", "/time/entries/{entry_id}"),
                ("DELETE", "/time/entries/{entry_id}")]:

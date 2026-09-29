@@ -95,21 +95,24 @@
     }
 
     async function loadTimeTab() {
-      loadPendingTime();
       loadMyPay();
       try {
-        const [wr, cr] = await Promise.all([
-          fetch(API + '/entities?type=employee'), fetch(API + '/entities?type=supplier'),
-        ]);
-        const emps = wr.ok ? await wr.json() : [];
-        const sups = cr.ok ? await cr.json() : [];
-        const workers = [...emps, ...sups];
+        // Who the form can pick: everyone for books people; for an employee,
+        // themselves and the clients by name (the entity list is books-only).
+        const res = await fetch(API + '/time/pickers');
+        const pk = res.ok ? await res.json() : { workers: [], clients: [], books: false };
+        if (pk.books) loadPendingTime();                  // assigning pushed entries is a books job
+        // projects and billable rates are set up by the books people
+        ['tm-new-project-btn', 'tm-set-rate-btn'].forEach((id) => {
+          const b = document.getElementById(id);
+          if (b) b.style.display = pk.books ? '' : 'none';
+        });
+        const workers = pk.workers || [];
         const wsel = document.getElementById('tm-worker');
         wsel.innerHTML = workers.length
           ? workers.map(w => `<option value="${w.id}">${escapeHtml(w.name)}</option>`).join('')
-          : `<option value="">${t('timeNoWorkers')}</option>`;
-        const clRes = await fetch(API + '/entities?type=client');
-        const clients = clRes.ok ? await clRes.json() : [];
+          : `<option value="">${t(pk.restricted ? 'timeNotLinked' : 'timeNoWorkers')}</option>`;
+        const clients = pk.clients || [];
         const opts = clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
         document.getElementById('tm-client').innerHTML = clients.length ? opts : `<option value="">${t('timeNoClients')}</option>`;
         document.getElementById('tm-filter-client').innerHTML = `<option value="">${t('timeAllClients')}</option>` + opts;
@@ -354,23 +357,26 @@
     function expCur() { return (window.__REPORTING_CURRENCY || 'IRR'); }
 
     async function loadExpenses() {
+      // What this caller can do here: claim (for themselves only, unless they
+      // keep the books), change the settings, or just approve.
+      let pk = null;
       try {
-        const res = await fetch(API + '/expenses/settings');
-        if (res.ok) {
-          expSettings = await res.json();
-          document.getElementById('exp-rate').value = expSettings.mileage_rate;
-          document.getElementById('exp-unit').value = expSettings.mileage_unit;
-          document.getElementById('exp-threshold').value = expSettings.approval_threshold;
-        }
-      } catch (e) { /* ignore */ }
-      try {
-        const res = await fetch(API + '/entities?type=employee');
-        const emps = res.ok ? await res.json() : [];
-        const sel = document.getElementById('exp-emp');
-        sel.innerHTML = emps.length
-          ? emps.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')
-          : `<option value="">${t('expNoEmployees')}</option>`;
-      } catch (e) { /* ignore */ }
+        const res = await fetch(API + '/expenses/pickers');
+        pk = res.ok ? await res.json() : null;
+      } catch (e) { pk = null; }
+      document.getElementById('exp-settings-section').style.display = pk && pk.can_edit_settings ? '' : 'none';
+      document.getElementById('exp-claim-section').style.display = pk && pk.can_claim ? '' : 'none';
+      if (pk && pk.settings) {
+        expSettings = pk.settings;
+        document.getElementById('exp-rate').value = expSettings.mileage_rate;
+        document.getElementById('exp-unit').value = expSettings.mileage_unit;
+        document.getElementById('exp-threshold').value = expSettings.approval_threshold;
+      }
+      const emps = (pk && pk.employees) || [];
+      const sel = document.getElementById('exp-emp');
+      sel.innerHTML = emps.length
+        ? emps.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')
+        : `<option value="">${t(pk && pk.restricted ? 'timeNotLinked' : 'expNoEmployees')}</option>`;
       updateMileageCalc();
       await loadExpenseClaims();
     }

@@ -172,6 +172,17 @@ def create_mileage(payload: MileageCreate, db: Session = Depends(get_db)) -> dic
         raise HTTPException(status_code=422, detail="No mileage rate set — configure one in expense settings.")
 
     name = payload.employee_name
+    # A self-service caller claims for themselves only — their linked employee
+    # record, under its own name. (Anyone could claim for anyone, and below the
+    # threshold the claim posted straight away.)
+    restricted, own = _expense_own_scope()
+    if restricted:
+        if not own:
+            raise HTTPException(status_code=403, detail="Your account isn't linked to an employee record — "
+                                                        "ask the owner to link it before claiming.")
+        if payload.entity_id is not None and str(payload.entity_id) != str(own):
+            raise HTTPException(status_code=403, detail="You can only claim your own mileage.")
+        payload.entity_id, name = UUID(str(own)), None
     if payload.entity_id is not None:
         ent = db.get(Entity, payload.entity_id)
         if not ent:
@@ -209,6 +220,29 @@ def _expense_own_scope():
     from app.core.permissions import Perm, own_scope
     from app.core.request_context import get_current_actor
     return own_scope(get_current_actor(), Perm.BOOKS_READ)
+
+
+@router.get("/pickers")
+def expense_pickers(db: Session = Depends(get_db)) -> dict:
+    """What the expenses page offers this caller: whether they can claim, for
+    whom (themselves only, unless they keep the books), whether they can change
+    the settings, and the settings the claim form computes with."""
+    from app.core.permissions import Perm, role_can
+    from app.core.request_context import get_current_actor
+    actor = get_current_actor()
+    role = getattr(actor, "role", None)
+    superadmin = bool(getattr(actor, "is_superadmin", False))
+    restricted, own = _expense_own_scope()
+    if restricted:
+        me = db.get(Entity, UUID(str(own))) if own else None
+        people = [me] if me is not None and me.type == "employee" else []
+    else:
+        people = db.execute(select(Entity).where(Entity.type == "employee").order_by(Entity.name)).scalars().all()
+    return {"restricted": restricted, "self": str(own) if own else None,
+            "can_claim": superadmin or role_can(role, Perm.EXPENSES_OWN),
+            "can_edit_settings": superadmin or role_can(role, Perm.SETTINGS_WRITE),
+            "employees": [{"id": str(e.id), "name": e.name} for e in people],
+            "settings": get_expense_settings(db)}
 
 
 @router.get("")

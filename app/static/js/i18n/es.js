@@ -1495,6 +1495,7 @@ window.I18N_PACKS.es = Object.assign({
         hhLinkEmailed: "Enviamos este enlace por correo. También puedes mandarlo tú: sirve una vez, durante 7 días:",
         hhLinkCopy: "Envíale este enlace: sirve una vez, durante 7 días:",
         hhFailed: "No se pudo actualizar el hogar.",
+        timeNotLinked: "Tu cuenta aún no está vinculada a una ficha de empleado; pídeselo al propietario.",
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

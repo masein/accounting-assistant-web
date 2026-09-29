@@ -95,3 +95,36 @@ def test_superadmin_flag_is_reread_from_the_database(client, db):
     r = client.get("/admin/companies")
     assert r.status_code == 403
     assert client.get("/auth/me").json()["user"].get("is_superadmin") in (False, None)
+
+
+def test_a_session_ends_when_the_user_is_no_longer_in_its_company(client, db):
+    """Nothing moves users between companies today — but if one ever is (a
+    support fix, a future feature), the sessions opened in the old company
+    must not keep reaching its books."""
+    from app.models.company import Company
+    from tests.test_admin_audit import _purge_company
+    a, b = (Company(id=uuid.uuid4(), name=f"Sess {n}", slug=f"sess-{n}-{uuid.uuid4().hex[:6]}", locale="ir",
+                    base_currency="IRR", status="active", token_version=0) for n in "ab")
+    db.add_all([a, b]); db.commit()
+    u = None
+    try:
+        u = _user(db, company_id=a.id)
+        _login(client, u)
+        assert client.get("/entities").status_code == 200
+        u.company_id = b.id; db.commit()                       # moved, without touching token_version
+        assert client.get("/entities").status_code == 401
+        # a token naming a company the user isn't in is refused the same way
+        forged = create_session_token(user_id=str(u.id), username=u.username, is_admin=True, role="owner",
+                                      company_id=str(a.id), token_version=u.token_version)
+        client.cookies.clear()
+        client.cookies.set(settings.auth_cookie_name, forged)
+        assert client.get("/entities").status_code == 401
+        _login(client, u)                                        # a fresh login in the new company works
+        assert client.get("/entities").status_code == 200
+    finally:
+        client.cookies.clear()
+        if u is not None:
+            db.execute(User.__table__.delete().where(User.id == u.id))
+            db.commit()
+        for c in (a, b):
+            _purge_company(db, str(c.id))

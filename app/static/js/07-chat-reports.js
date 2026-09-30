@@ -41,9 +41,12 @@
       const p = (report && report.period) || {};
       const from = p.from || p.from_date;
       const to = p.to || p.to_date;
-      if (from && to) return `${from} → ${to}`;
-      if (to) return `${t('asOfDate')} ${to}`;
-      if (from) return `${t('labelFrom')} ${from}`;
+      // Isolated left-to-right runs: after Persian words "2026-09-30" would read
+      // "30-09-2026", and the range would run backwards.
+      const ltr = (x) => `\u2066${x}\u2069`;
+      if (from && to) return ltr(`${from} → ${to}`);
+      if (to) return `${t('asOfDate')} ${ltr(to)}`;
+      if (from) return `${t('labelFrom')} ${ltr(from)}`;
       return '';
     }
 
@@ -59,8 +62,18 @@
       });
     }
 
+    // The debtors/creditors report: one row per party, with its side and aging.
+    const DEBTOR_CREDITOR_FIELDS = ['entity_name', 'entity_type', 'current', 'days_31_60', 'days_61_90', 'days_90_plus', 'total'];
     function reportToTableData(report) {
       if (!report || typeof report !== 'object') return { headers: [], rows: [] };
+      if (report.report_type === 'debtor_creditor' && (Array.isArray(report.debtors) || Array.isArray(report.creditors))) {
+        const headers = ['role', ...DEBTOR_CREDITOR_FIELDS];
+        const rows = [
+          ...(report.debtors || []).map(r => ['debtor', ...DEBTOR_CREDITOR_FIELDS.map(k => r[k])]),
+          ...(report.creditors || []).map(r => ['creditor', ...DEBTOR_CREDITOR_FIELDS.map(k => r[k])]),
+        ];
+        return { headers, rows };
+      }
       if (Array.isArray(report.rows) && report.rows.length) {
         const first = report.rows[0];
         const headers = Object.keys(first);
@@ -621,6 +634,22 @@
       }
       if (rt === 'uk_changes_in_equity') {
         return renderUKEquityMatrix(report);
+      }
+      if (rt === 'debtor_creditor' && (Array.isArray(report.debtors) || Array.isArray(report.creditors))) {
+        const cols = DEBTOR_CREDITOR_FIELDS.filter(k => k !== 'entity_type');
+        const side = (title, list, total) => {
+          const body = (list || []).slice(0, 200).map(r => `<tr>${cols.map(k => `<td>${k === 'entity_name'
+            ? `<bdi>${escapeHtml(r[k] || t('labelUnknownEntity'))}</bdi>` : formatReportCell(r[k], k)}</td>`).join('')}</tr>`).join('');
+          return `<div class="panel" style="margin-bottom:0.45rem;">
+            <strong>${escapeHtml(title)}</strong>
+            <div style="font-size:0.92rem;margin-top:0.2rem;">${escapeHtml(t('tableTotal'))}: ${formatNum(total || 0)}</div>
+            ${body ? `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${cols.map(k => `<th>${escapeHtml(localizeReportFieldName(k))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`
+                   : `<div class="empty-state" style="padding:0.35rem;">${escapeHtml(t('noRowsInSection'))}</div>`}
+          </div>`;
+        };
+        const tot = report.totals || {};
+        return side(t('legendReceivablesDebtors'), report.debtors, tot.debtors)
+          + side(t('legendPayablesCreditors'), report.creditors, tot.creditors);
       }
       if (rt === 'uk_balance_sheet' || rt === 'uk_profit_and_loss'
           || rt === 'uk_comprehensive_income' || rt === 'uk_cash_flow') {

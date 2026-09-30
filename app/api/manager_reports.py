@@ -658,13 +658,16 @@ def person_running_balance(
 
 @router.get("/operational/cash-bank-statement", response_model=CashBankStatementResponse)
 def cash_bank_statement(
-    account_code: str = Query("1110"),
+    account_code: str | None = Query(None, description="Default: the chart's bank account"),
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
 ) -> CashBankStatementResponse:
+    if not account_code:
+        from app.services.account_resolver import resolve_account_code
+        account_code = resolve_account_code(db, "bank")
     svc = LedgerService(db)
     return svc.cash_bank_statement(account_code=account_code, from_date=from_date, to_date=to_date, page=page, page_size=page_size)
 

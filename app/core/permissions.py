@@ -251,7 +251,6 @@ for _m, _p in [
     ("POST", "/transactions/attachments"),
     ("DELETE", "/transactions/attachments/{attachment_id}"),
     ("POST", "/transactions/attachments/{attachment_id}/ocr"),
-    ("POST", "/transactions/chat"), ("POST", "/transactions/suggest"),
     ("PUT", "/transactions/fees"),
     ("POST", "/transactions/import"),
     ("POST", "/transactions/excel-import/preview"),

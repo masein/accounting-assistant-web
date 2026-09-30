@@ -882,7 +882,7 @@
     document.getElementById('lines-tbody').addEventListener('input', updateVoucherBalanceBar);
 
     // Old voucher-inline chat handler (POST /transactions/chat with form-fill)
-    // was removed. The "Open AI chat" button on the Vouchers page now
+    // was removed, and so were the endpoint and POST /transactions/suggest. The "Open AI chat" button on the Vouchers page now
     // navigates to the AI Chat page instead — see openAiChatInlineBtn wiring.
     // appendChatMessage / extractMessageText / appendChatReport helpers are
     // intentionally kept so nothing else that called them breaks at boot.

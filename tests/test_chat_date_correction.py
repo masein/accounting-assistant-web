@@ -1,8 +1,7 @@
-"""Tests for post-voucher date correction in chat.
-
-When a voucher has just been suggested, the user should be able to correct
-the date by saying things like 'the date was 4th of Esfand' or 'date is 1404/12/04'.
-"""
+"""Jalali date phrases the way people correct a date: 'the date was 4th of
+Esfand', 'date is 1404/12/04'. (The old voucher chat's endpoint that used
+them is gone; the parser is still what the AI accountant's date resolver
+reads.)"""
 from __future__ import annotations
 
 import pytest
@@ -38,43 +37,3 @@ class TestPostVoucherDateParsing:
     def test_date_in_sentence(self):
         result = try_parse_jalali("the date was 4th of Esfand")
         assert result is not None
-
-
-class TestChatDateCorrectionEndpoint:
-    """Test the chat endpoint's post-voucher date correction via API."""
-
-    def _send_chat(self, auth_client, messages):
-        resp = auth_client.post("/transactions/chat", json={
-            "messages": messages,
-        })
-        return resp
-
-    def test_date_correction_after_voucher(self, auth_client):
-        messages = [
-            {"role": "user", "content": "paid 5M from melli bank for rent"},
-            {
-                "role": "assistant",
-                "content": "Here's the voucher I prepared for you.",
-            },
-            {"role": "user", "content": "the date was 1404/12/04"},
-        ]
-        resp = self._send_chat(auth_client, messages)
-        assert resp.status_code == 200, resp.text
-        data = resp.json()
-        if data.get("form_updates") and data["form_updates"].get("date"):
-            assert "2026-02-23" in data["form_updates"]["date"]
-
-    def test_non_date_after_voucher_not_correction(self, auth_client):
-        messages = [
-            {"role": "user", "content": "paid 5M for rent"},
-            {
-                "role": "assistant",
-                "content": "Here's the voucher ready for recording.",
-            },
-            {"role": "user", "content": "the amount was actually 6M"},
-        ]
-        resp = self._send_chat(auth_client, messages)
-        assert resp.status_code == 200, resp.text
-        data = resp.json()
-        if data.get("form_updates"):
-            assert data["form_updates"].get("date") is None

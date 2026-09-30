@@ -72,37 +72,6 @@ def test_journal_reversal_dated_inside_the_lock_is_refused(auth_client):
         _lock(auth_client, None)
 
 
-def test_chat_undo_soft_deletes_with_audit_and_respects_the_lock(auth_client, db, monkeypatch):
-    tid = _post(auth_client, OUTSIDE, f"undo-me-{uuid.uuid4().hex[:6]}")
-    _make_latest(db, tid, hours=1)  # same-second created_at ties with other tests' rows otherwise
-    r = auth_client.post("/transactions/chat", json={"messages": [{"role": "user", "content": "undo"}]})
-    assert r.status_code == 200, r.text
-    assert "Deleted the last voucher" in r.json()["message"]
-    db.expire_all()
-    assert db.get(Transaction, uuid.UUID(tid)) is None      # undone journals are invisible…
-    from app.models.transaction import include_deleted_transactions
-    with include_deleted_transactions():                    # …but still there: soft, not hard
-        row = db.get(Transaction, uuid.UUID(tid))
-    assert row is not None and row.deleted_at is not None
-    actions = sorted(e.action for e in db.execute(select(AuditLog).where(AuditLog.entity_type == "transaction", AuditLog.entity_id == tid)).scalars().all())
-    assert actions == ["create", "delete"]
-    # a second "undo" never touches the already-deleted entry
-    before = db.execute(select(Transaction).where(Transaction.deleted_at.is_(None)).order_by(Transaction.created_at.desc()).limit(1)).scalar_one_or_none()
-    if before is not None:
-        assert before.id != row.id
-
-    locked_id = _post(auth_client, INSIDE, "locked-latest")
-    _make_latest(db, locked_id, hours=2)
-    _lock(auth_client, "2024-03-31")
-    try:
-        r = auth_client.post("/transactions/chat", json={"messages": [{"role": "user", "content": "undo"}]})
-        assert r.status_code == 422, r.text
-        db.expire_all()
-        assert db.get(Transaction, uuid.UUID(locked_id)).deleted_at is None
-    finally:
-        _lock(auth_client, None)
-
-
 def test_delete_twice_is_a_404(auth_client):
     tid = _post(auth_client, OUTSIDE, "twice")
     assert auth_client.delete(f"/transactions/{tid}").status_code == 204

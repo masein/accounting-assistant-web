@@ -246,6 +246,9 @@ async def test_the_real_openai_post_is_metered_with_its_purpose(db, company, as_
     """ai_suggest._post_lm_studio end to end against a mock provider."""
     uid = as_user()
     monkeypatch.setattr(ai_suggest, "_post_lm_studio", _REAL_POST)
+    # a paid provider, whatever the environment says (a local "lmstudio" is free;
+    # this test used to pass only after another test left a provider configured)
+    monkeypatch.setattr(ai_suggest, "resolve_active_ai_backend", lambda: {"provider": "openai-compatible"})
     real_client = httpx.AsyncClient
 
     def handler(request):
@@ -376,32 +379,20 @@ def test_endpoints_answer_429_with_a_reason(db, company, client):
     uid = str(uuid.uuid4())
     _event(db, company, user_id=uid, tokens=500)
     api = _client_as(client, company, role="accountant", user_id=uid)
-    r = api.post("/transactions/suggest", json={"user_message": "paid rent 500"})
+    r = api.post("/ai-accountant/chat", json={"message": "what is my cash?"})
     assert r.status_code == 429
     body = r.json()
     assert body["code"] == "ai_budget_exceeded" and body["scope"] == "user"
     assert "24 hours" in body["detail"] and r.headers["retry-after"]
-    r = api.post("/ai-accountant/chat", json={"message": "what is my cash?"})
-    assert r.status_code == 429 and r.json()["code"] == "ai_budget_exceeded"
 
 
-def test_the_classic_chat_explains_in_the_conversation(db, company, client):
+def test_rate_limit_answers_429(db, company, client):
     _set_limits(db, user_requests_per_minute=1)
     uid = str(uuid.uuid4())
     api = _client_as(client, company, role="accountant", user_id=uid)
     from app.core.shared_state import DbRateLimiter
     DbRateLimiter("ai_user", max_requests=1, window_seconds=60).hit(db, uid)
-    r = api.post("/transactions/chat", json={"messages": [{"role": "user", "content": "hi"}]})
-    assert r.status_code == 200 and "too quickly" in r.json()["message"]
-
-
-def test_rate_limit_answers_429_on_other_endpoints(db, company, client):
-    _set_limits(db, user_requests_per_minute=1)
-    uid = str(uuid.uuid4())
-    api = _client_as(client, company, role="accountant", user_id=uid)
-    from app.core.shared_state import DbRateLimiter
-    DbRateLimiter("ai_user", max_requests=1, window_seconds=60).hit(db, uid)
-    r = api.post("/transactions/suggest", json={"user_message": "paid rent"})
+    r = api.post("/ai-accountant/chat", json={"message": "paid rent"})
     assert r.status_code == 429 and r.json()["code"] == "ai_rate_limited"
 
 

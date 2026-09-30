@@ -164,67 +164,6 @@ class ImportTransactionsResponse(BaseModel):
     ids: list[UUID] = Field(..., description="Created transaction IDs")
 
 
-# ----- AI suggestion (fill form from plain language) -----
-class SuggestTransactionRequest(BaseModel):
-    user_message: str = Field(..., min_length=1, description="e.g. I paid 500,000 for rent")
-
-
-class SuggestTransactionResponse(BaseModel):
-    """Same shape as TransactionCreate so the UI can pre-fill the form."""
-    date: date
-    reference: Optional[str] = None
-    description: Optional[str] = None
-    lines: list[TransactionLineCreate]
-
-
-# ----- Chat (conversational: AI asks which client, which bank, what for, then fills transaction) -----
-class ChatMessage(BaseModel):
-    role: str = Field(..., pattern="^(user|assistant)$", max_length=16)
-    content: str = Field(..., min_length=1, max_length=4000)
-
-
-class ChatRequest(BaseModel):
-    messages: list[ChatMessage] = Field(..., min_length=1, max_length=100)
-    attachment_ids: list[UUID] = Field(default_factory=list, description="Uploaded attachments to consider in chat")
-
-
-class ResolvedEntityLink(BaseModel):
-    """Resolved mention: role and entity_id (from DB get-or-create). Use for dropdowns."""
-    role: str = Field(..., description="client, bank, payee, supplier")
-    entity_id: UUID = Field(..., description="Resolved entity id for linking")
-
-
-class ChatResponse(BaseModel):
-    message: str = Field(..., description="Assistant reply to show in chat")
-    transaction: Optional[SuggestTransactionResponse] = None
-    confidence: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="AI confidence in the suggested transaction (0.0-1.0). Shown to user when present.",
-    )
-    reasoning: Optional[str] = Field(
-        default=None,
-        description="Brief explanation of why these accounts were chosen (1-2 sentences).",
-    )
-    report: Optional[dict] = Field(
-        default=None,
-        description="Structured report payload for manager insights queries (balance sheet, ledger, inventory, etc.)",
-    )
-    entity_mentions: Optional[list[dict[str, str]]] = Field(
-        default=None,
-        description="When AI returns a transaction, parties to link: [{ role, name }] for get-or-create",
-    )
-    resolved_entities: Optional[list[ResolvedEntityLink]] = Field(
-        default=None,
-        description="Resolved entity ids (role + entity_id) from DB; prefer over entity_mentions for setting dropdowns",
-    )
-    form_updates: Optional[dict[str, str]] = Field(
-        default=None,
-        description="Partial form field updates (e.g. {date: '2026-02-23'}) to apply to the current voucher form",
-    )
-
-
 # ----- Excel journal import -----
 
 class ExcelAccountMapping(BaseModel):

@@ -465,7 +465,11 @@ def test_statement_predicates_prefer_the_banks_own_account(db):
     s = _stmt(db, [(date(2031, 12, 1), "x", 1, 0, None, "unmatched")], bank_name=bank.name)
     code, match, missing = statement_predicates(db, s)
     assert code == "1121"
-    assert match("1121") and match("1110") and not match("6112")   # lenient matching
+    # lenient matching: the generic cash account too — unless another bank owns it
+    # (this shared test database may hold such a bank from another test)
+    from app.models.entity import Entity
+    claimed = {e.code for e in db.execute(select(Entity).where(Entity.type == "bank")).scalars() if e.code} - {"1121"}
+    assert match("1121") and match("1110") == ("1110" not in claimed) and not match("6112")
     assert missing("1121") and not missing("1110")                   # strict "missing in bank"
 
     generic = _stmt(db, [(date(2031, 12, 2), "y", 1, 0, None, "unmatched")], bank_name="Unknown")

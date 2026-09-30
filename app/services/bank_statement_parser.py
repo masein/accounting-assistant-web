@@ -39,7 +39,9 @@ class ParseResult:
     rows: list[ParsedRow] = field(default_factory=list)
     bank_name: str = ""
     account_number: str | None = None
-    currency: str = "IRR"
+    # Only when the file itself says; otherwise the import uses the bank's
+    # currency, else the company's (it used to be "IRR" for every statement).
+    currency: str | None = None
     from_date: date | None = None
     to_date: date | None = None
     errors: list[str] = field(default_factory=list)

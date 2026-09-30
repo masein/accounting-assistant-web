@@ -135,7 +135,9 @@ work), the mailbox keeps one encrypted PDF password and re-reads what waited
 for it, and the chat points a locked PDF to the upload page. Each statement
 now says which bank account it belongs to and how that was decided (account
 number, name, the bank's name, or the default — #214/#215), and can be
-pointed at another before any row is posted. Later: open-banking balances. ✅ 4.3 fixed-asset register (#159):
+pointed at another before any row is posted. Statements are in their bank's
+currency, else the company's (every upload used to be IRR — #218), and are
+reconciled against their own bank only. Later: open-banking balances. ✅ 4.3 fixed-asset register (#159):
 `app/services/fixed_assets.py` + `/fixed-assets` — asset cards (migration
 048), straight-line and declining-balance schedules in the company's calendar
 (Jalali months for Iran, starting the month after use; the 5 % rule), a

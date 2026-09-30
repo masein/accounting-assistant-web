@@ -296,15 +296,16 @@ async def import_statement_bytes(
 
     stmt = BankStatement(
         bank_name=bank_name,
+        account_number=result.account_number,
         source_type=result.source_type,
         source_filename=filename,
         content_hash=content_hash,
-        currency=result.currency,
         from_date=result.from_date,
         to_date=result.to_date,
         status="parsed",
         total_rows=len(result.rows),
     )
+    stmt.currency = (result.currency or "").strip().upper() or statement_currency(db, stmt)
     db.add(stmt)
     db.flush()
 
@@ -498,6 +499,18 @@ def bank_account_for_statement(db: Session, stmt: BankStatement) -> str | None:
     return resolve_bank_account(db, stmt)[0]
 
 
+def statement_currency(db: Session, stmt: BankStatement) -> str:
+    """The currency a statement is in when the file doesn't say: its bank's
+    (a bank entity can hold a USD account), else the company's."""
+    from app.services.fx_base import base_currency
+    code, _source = resolve_bank_account(db, stmt)
+    if code:
+        for e in _bank_entities(db):
+            if e.code.strip() == code and (e.currency or "").strip():
+                return e.currency.strip().upper()
+    return base_currency(db)
+
+
 def statement_predicates(db: Session, stmt: BankStatement):
     """(bank_code, match_predicate, missing_predicate) for ``stmt``.
 
@@ -505,19 +518,26 @@ def statement_predicates(db: Session, stmt: BankStatement):
       cash/bank account, so entries a user keyed to the generic bank account
       before creating the bank entity still match;
     * "missing in bank" is strict: only entries on the statement bank's own
-      account count when the bank has one — otherwise every petty-cash
-      voucher would be reported as absent from the statement.
+      account count — otherwise every petty-cash voucher, and every other
+      bank's entry, would be reported as absent from the statement;
+    * another bank entity's own account never matches (on a UK chart they're
+      all cash codes).
     """
     from app.services.cash_service import cash_account_predicate
     from app.services.locale_service import get_reporting_locale
 
     cash = cash_account_predicate(get_reporting_locale(db))
     bank_code = bank_account_for_statement(db, stmt)
-    if bank_code and not cash(bank_code):
-        match = lambda c, _b=bank_code, _cash=cash: c == _b or _cash(c)  # noqa: E731
+    # Another bank's own account is never this statement's: on a UK chart they
+    # are all "cash" codes (120x), so a Barclays row matched an HSBC entry.
+    others = {e.code.strip() for e in _bank_entities(db)} - {bank_code}
+    match = lambda c, _b=bank_code, _cash=cash, _o=others: c == _b or (_cash(c) and c not in _o)  # noqa: E731
+    if bank_code:
+        # …and only this account's own entries can be missing from its statement
+        # (not petty cash, not the other banks).
         missing = lambda c, _b=bank_code: c == _b  # noqa: E731
     else:
-        match = missing = cash
+        missing = lambda c, _cash=cash, _o=others: _cash(c) and c not in _o  # noqa: E731
     return bank_code, match, missing
 
 

@@ -72,6 +72,11 @@ class BankStatementRead(BaseModel):
     matched_rows: int
     new_rows: int
     origin: str | None = None          # "email": read from the statements mailbox
+    # The ledger account it belongs to and how that was decided: "chosen" (by the
+    # user), "account_number", "name", "bank" (the bank's name), "default".
+    bank_account_code: str | None = None
+    bank_account_name: str | None = None
+    bank_account_source: str | None = None
     rows: list[BankStatementRowRead] = Field(default_factory=list)
 
 

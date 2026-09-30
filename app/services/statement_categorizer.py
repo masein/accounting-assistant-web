@@ -1,6 +1,6 @@
 """Suggest an account for a bank-statement row.
 
-Replaces the old keyword table in ``bank_statement_parser.classify_transaction``,
+Replaced the old keyword table (``bank_statement_parser.classify_transaction``, since removed),
 which mapped narrations to *hardcoded Iranian codes* — so a UK or personal chart
 got suggestions pointing at accounts it does not have.
 
@@ -58,8 +58,8 @@ class CategorySuggestion:
 
 
 # --- Narration → semantic category -----------------------------------------
-# Keys are internal category ids; values are substrings matched against the
-# normalized narration. Persian and English side by side because Iranian bank
+# Keys are internal category ids; values are keywords found in the normalized
+# narration (whole words for Latin ones — see _keyword_pattern). Persian and English side by side because Iranian bank
 # statements mix both, often with Latin merchant names inside Persian text.
 _MERCHANT_KEYWORDS: dict[str, tuple[str, ...]] = {
     "transport": (
@@ -240,13 +240,39 @@ def _learned_suggestion(db: Session, description: str | None) -> CategorySuggest
 
 
 # --- Signal 2: keywords -----------------------------------------------------
+def _keyword_pattern(keyword: str) -> tuple[int, re.Pattern] | None:
+    """How a keyword is found in a normalized narration. Normalized like the
+    narration (so "apple.com" and "top-up" can match at all). A Latin keyword
+    starts a word ("fee" isn't in "coffee", "gas" isn't in "vegas"), and a short
+    one also ends it, plurals aside ("bill" isn't "billboard", "rent" isn't
+    "rental"; "fees", "bills" are fine) — a longer one may run on ("electric"
+    → "electricity"). Persian keywords match inside compounds, except the
+    shortest ("آب" isn't in "آبان")."""
+    kw = " ".join(_PUNCT_RE.sub(" ", keyword.lower()).split())
+    if not kw:
+        return None
+    esc = re.escape(kw)
+    if kw.isascii():
+        tail = r"(?:e?s)?(?![a-z0-9])" if len(kw) <= 4 else ""
+        return len(kw), re.compile(rf"(?<![a-z0-9]){esc}{tail}")
+    if len(kw) <= 2:
+        return len(kw), re.compile(rf"(?<!\w){esc}(?!\w)")
+    return len(kw), re.compile(esc)
+
+
+_KEYWORD_PATTERNS: list[tuple[str, int, re.Pattern]] = [
+    (category, *found)
+    for category, keywords in _MERCHANT_KEYWORDS.items()
+    for found in (_keyword_pattern(kw) for kw in keywords) if found
+]
+
+
 def _match_category(narration: str) -> str | None:
     """Longest keyword wins, so 'اسنپ فود' beats 'اسنپ'."""
     best: tuple[int, str] | None = None
-    for category, keywords in _MERCHANT_KEYWORDS.items():
-        for kw in keywords:
-            if kw in narration and (best is None or len(kw) > best[0]):
-                best = (len(kw), category)
+    for category, length, pattern in _KEYWORD_PATTERNS:
+        if (best is None or length > best[0]) and pattern.search(narration):
+            best = (length, category)
     return best[1] if best else None
 
 

@@ -202,3 +202,26 @@ def test_who_may_see_and_choose(banks, client):
                                                    json={"code": made["بانک ملت"]}).status_code == 200
     assert _session(client, cid, "manager").put(f"/brain/bank-statements/{sid}/bank-account",
                                                 json={"code": made["بانک ملت"]}).status_code == 403
+
+
+def test_a_row_is_never_posted_to_its_own_bank_account(banks, db):
+    """"Transfer from …" used to be suggested as the bank account itself (the
+    old keyword table); posting it made a journal that moved nothing."""
+    from app.db.tenant import use_company
+    from app.models.transaction import Transaction
+    api, cid, made = banks
+    r = api.post("/brain/bank-statements/upload", params={"bank_name": "Saman"}, files={"file": (
+        "s.csv", b"Date,Description,Amount\n2026-09-20,Coffee House,-120000\n2026-09-21,Transfer from Aria,4500000\n",
+        "text/csv")})
+    assert r.status_code == 200, r.text
+    sid = r.json()["id"]
+    rows = api.get(f"/brain/bank-statements/{sid}").json()["rows"]
+    transfer = next(r for r in rows if "Transfer" in r["description"])
+    assert transfer["suggested_account_code"] != made["بانک سامان"]
+    with use_company(cid):
+        before = db.query(Transaction).count()
+    out = api.post(f"/brain/bank-statements/{sid}/approve", json={"approvals": [
+        {"row_id": transfer["id"], "action": "create", "account_code": made["بانک سامان"]}]}).json()
+    assert out["created"] == 0 and "own bank account" in " ".join(out["errors"])
+    with use_company(cid):
+        assert db.query(Transaction).count() == before

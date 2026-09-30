@@ -388,31 +388,3 @@ def parse_ocr_rows(ocr_text: str, bank_name: str = "") -> ParseResult:
         result.to_date = max(r.tx_date for r in result.rows)
 
     return result
-
-
-def classify_transaction(description: str) -> tuple[str | None, str | None]:
-    """
-    Classify a bank statement row description into a category and suggested account code.
-    Returns (category, suggested_account_code).
-    """
-    low = (description or "").lower()
-
-    rules: list[tuple[list[str], str, str]] = [
-        (["salary", "payroll", "حقوق", "دستمزد"], "salary", "6110"),
-        (["rent", "اجاره"], "rent", "6112"),
-        (["electricity", "gas", "water", "برق", "گاز", "آب", "قبض"], "utilities", "6190"),
-        (["insurance", "بیمه"], "insurance", "6140"),
-        (["tax", "مالیات", "ارزش افزوده", "vat"], "tax", "2120"),
-        (["loan", "وام", "تسهیلات"], "loan", "2110"),
-        (["purchase", "خرید", "buy"], "purchase", "5110"),
-        (["sale", "فروش", "revenue", "درآمد"], "revenue", "4110"),
-        (["transfer", "انتقال", "حواله"], "transfer", "1110"),
-        (["fee", "commission", "کارمزد", "wage"], "bank_fee", "6180"),
-        (["interest", "سود", "بهره"], "interest", "4120"),
-    ]
-
-    for keywords, category, code in rules:
-        if any(k in low for k in keywords):
-            return category, code
-
-    return None, None

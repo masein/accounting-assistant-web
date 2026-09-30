@@ -26,10 +26,9 @@ def _resolve_cash_predicate(db: Session) -> Callable[[str], bool]:
     Iran 1110). Reconciliation matches a bank row against the cash leg of a
     ledger transaction, so this must be locale-aware — hardcoding 1110 made
     the UK chart match nothing."""
-    from app.services.cash_service import cash_account_predicate
-    from app.services.locale_service import get_reporting_locale
+    from app.services.cash_service import company_cash_predicate
 
-    return cash_account_predicate(get_reporting_locale(db))
+    return company_cash_predicate(db)
 
 
 @dataclass

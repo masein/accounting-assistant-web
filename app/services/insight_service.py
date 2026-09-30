@@ -483,10 +483,9 @@ def detect_runway(db: Session, today: date) -> list[Insight]:
 
 
 def detect_vendor_outliers(db: Session, today: date) -> list[Insight]:
-    from app.services.cash_service import cash_account_predicate
-    from app.services.locale_service import get_reporting_locale
+    from app.services.cash_service import company_cash_predicate
 
-    is_cash = cash_account_predicate(get_reporting_locale(db))
+    is_cash = company_cash_predicate(db)
     since = today - timedelta(days=395)
     txns = db.execute(
         select(Transaction)
@@ -531,15 +530,14 @@ def detect_vendor_outliers(db: Session, today: date) -> list[Insight]:
 
 
 def detect_statement_due(db: Session, today: date) -> list[Insight]:
-    from app.services.cash_service import cash_account_predicate
-    from app.services.locale_service import get_reporting_locale
+    from app.services.cash_service import company_cash_predicate
 
     latest = db.execute(
         select(BankStatement).order_by(BankStatement.created_at.desc())
     ).scalars().first()
     m = _month_key(today)
     if latest is None:
-        is_cash = cash_account_predicate(get_reporting_locale(db))
+        is_cash = company_cash_predicate(db)
         since = today - timedelta(days=90)
         txns = _expense_rows(db, since, today)
         moves = sum(1 for t in txns if any(is_cash(ln.account.code or "") for ln in t.lines))

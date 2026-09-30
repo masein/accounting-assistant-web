@@ -371,9 +371,9 @@ def baseline(db: Session, today: date, currency: str, locale: str) -> dict[str, 
     from app.models.pay_run import PayRun
     from app.models.payment import Payment
     from app.models.transaction import Transaction, TransactionLine
-    from app.services.cash_service import cash_account_predicate
+    from app.services.cash_service import company_cash_predicate
 
-    is_cash = cash_account_predicate(locale)
+    is_cash = company_cash_predicate(db)
     end = _week_start(today)
     start = end - timedelta(weeks=HISTORY_WEEKS)
     cash_ids = [aid for aid, code in db.execute(select(Account.id, Account.code)) if is_cash(code or "")]

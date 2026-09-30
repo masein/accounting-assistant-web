@@ -62,9 +62,8 @@ class Payment:
 
 
 def _is_cash(db: Session):
-    from app.services.cash_service import cash_account_predicate
-    from app.services.locale_service import get_reporting_locale
-    return cash_account_predicate(get_reporting_locale(db))
+    from app.services.cash_service import company_cash_predicate
+    return company_cash_predicate(db)
 
 
 def supplier_payments(db: Session, since: date, until: date) -> list[Payment]:

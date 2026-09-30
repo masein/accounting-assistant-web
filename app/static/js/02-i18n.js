@@ -1621,6 +1621,8 @@
         apTotalPayable: "Total payable",
         apItems: "{n} invoices",
         optionStatusPartiallyPaid: "Partially paid",
+        fieldPurchaseAmount: "Purchase amount",
+        fieldCount: "Count",
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

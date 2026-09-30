@@ -1574,6 +1574,8 @@ window.I18N_PACKS.es = Object.assign({
         apTotalPayable: "Total por pagar",
         apItems: "{n} facturas",
         optionStatusPartiallyPaid: "Pagada en parte",
+        fieldPurchaseAmount: "Importe de compra",
+        fieldCount: "Cantidad",
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

@@ -1574,6 +1574,8 @@ window.I18N_PACKS.ar = Object.assign({
         apTotalPayable: "إجمالي المستحق الدفع",
         apItems: "{n} فاتورة",
         optionStatusPartiallyPaid: "مدفوعة جزئيًا",
+        fieldPurchaseAmount: "مبلغ الشراء",
+        fieldCount: "العدد",
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

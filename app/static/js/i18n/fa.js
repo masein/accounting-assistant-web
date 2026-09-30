@@ -1616,6 +1616,8 @@ window.I18N_PACKS.fa = Object.assign({
         apTotalPayable: "جمع پرداختنی",
         apItems: "{n} فاکتور",
         optionStatusPartiallyPaid: "بخشی پرداخت‌شده",
+        fieldPurchaseAmount: "مبلغ خرید",
+        fieldCount: "تعداد",
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

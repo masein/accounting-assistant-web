@@ -543,3 +543,70 @@ def test_row_cards_are_checked_against_the_row_not_the_message(db):
     plain = card(250_000).model_copy(update={"bank_statement_row_id": None})
     with pytest.raises(ToolError):
         asyncio.run(ProposeCreateTransaction().run(ctx, plain))
+
+
+def _saman(db):
+    """A second bank with its own ledger account, and a statement of it."""
+    from app.models.account import Account
+    from app.models.entity import Entity
+    code = "1117"
+    if db.execute(select(Account).where(Account.code == code)).scalar_one_or_none() is None:
+        db.add(Account(code=code, name="بانک سامان", level="DETAIL"))
+    db.add(Entity(type="bank", name=f"بانک سامان {uuid.uuid4().hex[:4]}", code=code))
+    db.commit()
+    return code
+
+
+def _row_payload(row, lines):
+    from app.services.ai_accountant.proposal_tools import ProposeCreateTransactionInput
+    return ProposeCreateTransactionInput(date="2026-06-27", description="x", currency="IRR", lines=lines,
+                                         bank_statement_row_id=str(row.id))
+
+
+def test_a_chat_proposal_for_a_row_posts_to_the_statements_own_bank(db):
+    """The model writes the lines and picked the chart's generic bank (1110):
+    in a company with several banks that put a Saman row on the wrong account."""
+    from app.models.ai_accountant import AIProposal
+    from app.services.ai_accountant.base import ToolContext
+    from app.services.ai_accountant.proposal_tools import ProposeCreateTransaction
+    saman = _saman(db)
+    s = _stmt(db, [(date(2026, 6, 27), "POS SNAPP", 120_000, 0, None, "unmatched"),
+                   (date(2026, 6, 28), "واریز آریا", 0, 900_000, None, "unmatched")])
+    s.bank_account_code = saman
+    db.commit()
+    out_row, in_row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)
+                                 .order_by(BankStatementRow.row_index)).scalars().all()
+    ctx = ToolContext(db=db, user_id=USER, username="tester", user_message="next")
+    for row, lines, bank_side in (
+        (out_row, [{"account_code": "6130", "debit": 120_000, "credit": 0},
+                   {"account_code": "1110", "debit": 0, "credit": 120_000}], "credit"),
+        (in_row, [{"account_code": "1110", "debit": 900_000, "credit": 0},
+                  {"account_code": "4110", "debit": 0, "credit": 900_000}], "debit"),
+    ):
+        out = asyncio.run(ProposeCreateTransaction().run(ctx, _row_payload(row, lines)))
+        prop = db.execute(select(AIProposal).where(
+            AIProposal.confirmation_token == uuid.UUID(out["confirmation_token"]))).scalar_one()
+        bank_lines = [ln for ln in prop.tool_input["lines"] if ln["account_code"] == saman]
+        assert len(bank_lines) == 1 and bank_lines[0][bank_side] == (row.debit or row.credit)
+        assert not [ln for ln in prop.tool_input["lines"] if ln["account_code"] == "1110"]
+
+
+def test_a_chat_proposal_for_a_row_needs_a_bank_leg(db):
+    from app.services.ai_accountant.base import ToolContext, ToolError
+    from app.services.ai_accountant.proposal_tools import ProposeCreateTransaction
+    saman = _saman(db)
+    s = _stmt(db, [(date(2026, 6, 27), "POS SNAPP", 120_000, 0, None, "unmatched")])
+    s.bank_account_code = saman
+    db.commit()
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalar_one()
+    ctx = ToolContext(db=db, user_id=USER, username="tester", user_message="next")
+    with pytest.raises(ToolError) as e:                     # no bank on the credit side at all
+        asyncio.run(ProposeCreateTransaction().run(ctx, _row_payload(row, [
+            {"account_code": "6130", "debit": 120_000, "credit": 0},
+            {"account_code": "2110", "debit": 0, "credit": 120_000}])))
+    assert e.value.code == "statement_row_bank_leg" and saman in str(e.value)
+    # already right: left alone
+    out = asyncio.run(ProposeCreateTransaction().run(ctx, _row_payload(row, [
+        {"account_code": "6130", "debit": 120_000, "credit": 0},
+        {"account_code": saman, "debit": 0, "credit": 120_000}])))
+    assert out["confirmation_token"]

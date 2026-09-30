@@ -79,6 +79,38 @@ def _mentions_scheduled(message: str | None) -> bool:
     return any(term in t for term in _SCHEDULED_TERMS)
 
 
+def _anchor_bank_leg(db, row, lines) -> None:
+    """A bank-statement row posts to its statement's own bank account (the one
+    the Bank statements page shows): money out credits it, money in debits it,
+    by the row's amount. The model writes the lines and may pick the chart's
+    generic bank, or another bank — a single bank/cash line on that side is
+    moved to the statement's account; with none, the proposal is refused."""
+    from app.models.bank_statement import BankStatement
+    from app.services.cash_service import cash_account_predicate
+    from app.services.locale_service import get_reporting_locale
+    from app.services.statement_import import bank_account_choices, bank_account_for_statement
+    stmt = db.get(BankStatement, row.statement_id)
+    bank = bank_account_for_statement(db, stmt) if stmt is not None else None
+    if not bank:
+        return
+    amount = int(row.debit or 0) or int(row.credit or 0)
+    money_out = int(row.debit or 0) > 0
+    on_side = [ln for ln in lines if int((ln.credit if money_out else ln.debit) or 0) == amount]
+    if any(ln.account_code == bank for ln in on_side):
+        return
+    cash = cash_account_predicate(get_reporting_locale(db))
+    banks = {c["code"] for c in bank_account_choices(db)}
+    wrong = [ln for ln in on_side if cash(ln.account_code) or ln.account_code in banks]
+    if len(wrong) == 1:
+        wrong[0].account_code = bank
+        return
+    raise ToolError(
+        f"This row is on the statement of bank account {bank}: {'credit' if money_out else 'debit'} {bank} "
+        f"with {amount:,} (money {'out' if money_out else 'in'}), and put the other side on what the money was for.",
+        code="statement_row_bank_leg",
+    )
+
+
 def _guard_amount(ctx: ToolContext, proposed_total: int, *, record_amount: int | None = None) -> None:
     """Block impossible or wildly-mismatched amounts before a proposal is
     registered. Raises ToolError (which the model surfaces to the user) so a
@@ -420,6 +452,8 @@ class ProposeCreateTransaction(BaseTool):
             # garble Persian text when copying it into the proposal.
             if (statement_row.description or "").strip():
                 args.description = statement_row.description.strip()[:1024]
+            # …and so is the bank account: the statement's own, not the chart's generic one.
+            _anchor_bank_leg(ctx.db, statement_row, args.lines)
         else:
             args.date = resolve_entry_date(
                 ctx.user_message, args.date,

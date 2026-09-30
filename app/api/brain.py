@@ -376,6 +376,11 @@ def batch_approve_rows(
             except AccountResolutionError as e:
                 errors.append(f"Row {row.row_index}: {e}")
                 continue
+            if acc_code == cash_code:
+                # money from the account to itself: a journal that does nothing
+                errors.append(f"Row {row.row_index}: that's this statement's own bank account — "
+                              "choose what the money was for.")
+                continue
 
             amount = row.debit if row.debit > 0 else row.credit
             # debit on the statement = money leaving the bank.

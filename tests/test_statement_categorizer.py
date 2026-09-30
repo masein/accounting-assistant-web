@@ -272,3 +272,32 @@ def test_unrelated_history_does_not_bleed_into_a_new_merchant(personal):
     hit = suggest_for_row(personal, "اسنپ سفر", is_debit=True)
     assert hit is not None
     assert hit.source == "keyword" and hit.account_code == "6130"
+
+
+# ---------------------------------------------------------------------------
+# Keywords are words, not substrings (2026-09-30)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("narration, category", [
+    # what used to be caught by a keyword inside another word
+    ("Vegas Hotel", None), ("Billboard Ads", None), ("Rental car", None), ("Sewage services", None),
+    ("Coffee House Tehran", "dining"),                      # "fee" isn't in "coffee"
+    ("Discharge fee hospital", "health"),
+    ("آبان اجاره", "rent"),                                 # "آب" (water) isn't in "آبان"
+    # what must still be found
+    ("Electricity bill", "utilities"), ("Bank fees", "bank_fee"), ("Water bills", "utilities"),
+    ("SNAPPFOOD order", "dining"), ("قبض برق", "utilities"), ("آبمیوه طبیعی", "groceries"),
+    ("کتابفروشی شهر", "education"), ("Taxi Maxim", "transport"), ("حقوق مهر", "salary"),
+    ("apple.com/bill", "subscriptions"),                    # punctuated keywords can match at all now
+])
+def test_keywords_are_words(narration, category):
+    from app.services.statement_categorizer import _match_category, normalize_narration
+    assert _match_category(normalize_narration(narration)) == category
+
+
+def test_the_old_fixed_code_table_is_gone():
+    """It matched "fee" in "coffee" and "tax" in "taxi", filed a payment to a
+    wholesaler as revenue, and a transfer to the bank account itself."""
+    import app.services.bank_statement_parser as parser
+    import app.services.statement_import as imp
+    assert not hasattr(parser, "classify_transaction")
+    assert "classify_transaction(" not in open(imp.__file__, encoding="utf-8").read()

@@ -165,7 +165,6 @@ async def import_statement_bytes(
     ext = Path(filename).suffix.lower()
 
     from app.services.bank_statement_parser import (
-        classify_transaction,
         parse_csv,
         parse_excel,
         parse_ocr_rows,
@@ -319,19 +318,14 @@ async def import_statement_bytes(
 
     unresolved: list[BankStatementRow] = []
     for i, row in enumerate(result.rows):
-        # Chart-aware suggestion first (history, then bilingual keywords
-        # resolved against this tenant's own accounts). The legacy keyword
-        # table only knows Iranian codes, so it's a last resort and its code is
-        # dropped unless that account actually exists here.
+        # Chart-aware suggestion (the user's corrections, history, bilingual
+        # keywords resolved against this tenant's own accounts). What it can't
+        # place goes to the model below, or stays blank for the user. (The old
+        # fixed-code keyword table is gone: it matched "fee" in "coffee" and
+        # "tax" in "taxi", filed a payment as revenue, and a transfer to the
+        # bank account itself.)
         hit = suggest_for_row(db, row.description, is_debit=row.debit > 0)
-        if hit is not None:
-            cat, code = hit.category, hit.account_code
-        else:
-            cat, code = classify_transaction(row.description)
-            if code and not db.execute(
-                select(Account).where(Account.code == code)
-            ).scalars().first():
-                code = None
+        cat, code = (hit.category, hit.account_code) if hit is not None else (None, None)
         db_row = BankStatementRow(
             statement_id=stmt.id,
             row_index=row.row_index,

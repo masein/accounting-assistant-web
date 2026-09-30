@@ -1175,13 +1175,15 @@
           if (!res.ok) { showAlert(data.detail || 'Failed', true); return; }
           lastManagerReport = data;
           const items = data.items || [];
-          let html = '<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>Invoice</th><th>Vendor</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Aging</th><th>Days Overdue</th></tr></thead><tbody>';
+          const heads = ['fieldInvoice', 'labelSupplier', 'fieldBalance', 'labelDueDate', 'usersStatus', 'fieldAging', 'fieldDaysOverdue'];
+          let html = `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${heads.map(k => `<th>${escapeHtml(t(k))}</th>`).join('')}</tr></thead><tbody>`;
           items.forEach(it => {
             const overColor = it.days_overdue > 60 ? '#c62828' : it.days_overdue > 30 ? '#f57f17' : 'var(--text)';
-            html += `<tr><td>${escapeHtml(it.invoice_number || '')}</td><td>${escapeHtml(it.vendor)}</td><td>${formatNum(it.amount)}</td><td>${it.due_date || '—'}</td><td><span class="badge">${it.status}</span></td><td>${it.aging_bucket}</td><td style="color:${overColor};font-weight:600;">${it.days_overdue}</td></tr>`;
+            const bucket = it.aging_bucket === 'current' ? t('fieldCurrent') : it.aging_bucket;
+            html += `<tr><td>${escapeHtml(it.invoice_number || '')}</td><td><bdi>${escapeHtml(it.vendor)}</bdi></td><td>${formatNum(it.balance_due != null ? it.balance_due : it.amount)}</td><td>${escapeHtml(it.due_date ? formatDisplayDate(it.due_date) : '—')}</td><td><span class="badge">${escapeHtml(({ issued: t('optionStatusIssued'), partially_paid: t('optionStatusPartiallyPaid') })[it.status] || it.status)}</span></td><td>${escapeHtml(bucket)}</td><td style="color:${overColor};font-weight:600;">${it.days_overdue}</td></tr>`;
           });
           html += '</tbody></table></div>';
-          html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>Total Payable:</strong> ${formatNum(data.total)} (${data.count} items)</div>`;
+          html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>${escapeHtml(t('apTotalPayable'))}:</strong> ${formatNum(data.total)} (${escapeHtml(tf('apItems', { n: data.count }))})</div>`;
           mgrReportPreviewEl.innerHTML = html;
           mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
           // AP chart by aging

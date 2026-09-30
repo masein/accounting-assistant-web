@@ -64,3 +64,46 @@ def test_both_sides_party_by_party(flow_page):
         os.makedirs(ARTIFACTS, exist_ok=True)
         page.screenshot(path=os.path.join(ARTIFACTS, "debtor-creditor.png"), full_page=True)
         raise
+
+
+JS_INVOICE = """async ([vendor, body]) => {
+  const e = await fetch('/entities', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'supplier', name: vendor }) });
+  if (e.status !== 201) return [e.status, await e.text()];
+  body.entity_id = (await e.json()).id;
+  const r = await fetch('/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return [r.status, await r.text()];
+}"""
+
+
+def test_accounts_payable_runs_from_the_run_button(flow_page):
+    """The Run button used to keep the unwrapped report runner, so "Accounts
+    payable" showed the balance sheet."""
+    page, watch = flow_page("e2e_reports")
+    vendor = f"Vendor {uuid.uuid4().hex[:6]}"
+    try:
+        page.locator('.nav-btn[data-page="manager"]').first.click()
+        page.wait_for_load_state("networkidle")
+        currency = page.evaluate("() => document.getElementById('mgr-currency').value")
+        body = {"number": f"B-{uuid.uuid4().hex[:6]}", "kind": "purchase", "status": "issued",
+                "issue_date": (date.today() - timedelta(days=40)).isoformat(),
+                "due_date": (date.today() - timedelta(days=10)).isoformat(), "amount": 750_000}
+        if currency and currency != "ALL":
+            body["currency"] = currency
+        status, text = page.evaluate(JS_INVOICE, [vendor, body])
+        assert status == 201, text
+        page.select_option("#mgr-report-type", "accounts_payable")
+        page.evaluate("(d) => { const el = document.getElementById('mgr-to-date'); el.value = d; el.dispatchEvent(new Event('change', { bubbles: true })); }",
+                      date.today().isoformat())
+        with page.expect_response(lambda r: "/manager-reports/operational/accounts-payable" in r.url):
+            page.click("#mgr-run-btn")
+        page.wait_for_selector("#mgr-report-preview table.mini-table")
+        preview = page.locator("#mgr-report-preview").inner_text()
+        assert vendor in preview and "Assets" not in preview, preview[:300]
+        row = page.locator("#mgr-report-preview tr", has_text=vendor)
+        assert "750,000" in row.inner_text() and "1-30" in row.inner_text()
+        assert watch.problems() == [], watch.problems()
+    except Exception:
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        page.screenshot(path=os.path.join(ARTIFACTS, "accounts-payable.png"), full_page=True)
+        raise

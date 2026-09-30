@@ -447,14 +447,16 @@ def build_cash_flow_statement(
     section_sums = {"operating": 0, "investing": 0, "financing": 0}
     line_buckets: dict[str, list[CashFlowLine]] = {"operating": [], "investing": [], "financing": []}
 
+    from app.services.cash_service import company_cash_predicate
+    is_cash = company_cash_predicate(db)   # not "1110" only: every bank, and the UK chart
     for txn in txns:
-        cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("1110")]
+        cash_lines = [ln for ln in txn.lines if is_cash(ln.account.code or "")]
         if not cash_lines:
             continue
         cash_delta = int(sum(line_net(ln, currency) for ln in cash_lines))
         if cash_delta == 0:
             continue
-        counter = [ln for ln in txn.lines if not (ln.account.code or "").startswith("1110")]
+        counter = [ln for ln in txn.lines if not is_cash(ln.account.code or "")]
         counter_codes = [ln.account.code for ln in counter]
         counter_types = [classify_account_code(ln.account.code) for ln in counter]
         bucket = classify_cash_flow_activity(counter_codes, counter_types)

@@ -41,6 +41,19 @@ def cash_account_predicate(locale: str | None) -> Callable[[str], bool]:
     return lambda c: c == "1110"
 
 
+def company_cash_predicate(db: Session) -> Callable[[str], bool]:
+    """The company's cash and bank accounts: the locale's (Iran 1110 cash and
+    bank, UK 1200–1229) and every bank entity's own ledger account — Mellat on
+    1111, Saman on 1112. The locale's alone left an Iranian company's other
+    banks out of its cash on hand, runway, forecast and cash-flow reports."""
+    from app.models.entity import Entity
+    from app.services.locale_service import get_reporting_locale
+    locale_cash = cash_account_predicate(get_reporting_locale(db))
+    banks = {(c or "").strip() for (c,) in db.execute(select(Entity.code).where(Entity.type == "bank")).all()
+             if (c or "").strip()}
+    return lambda code, _l=locale_cash, _b=banks: (code or "") in _b or _l(code or "")
+
+
 def cash_on_hand(
     db: Session,
     *,
@@ -55,7 +68,7 @@ def cash_on_hand(
 
     Returns 0 when the chart has no matching cash account.
     """
-    is_cash = cash_account_predicate(locale)
+    is_cash = company_cash_predicate(db)
     cash_account_ids = [
         a.id for a in db.execute(select(Account)).scalars().all() if is_cash(a.code or "")
     ]

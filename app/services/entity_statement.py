@@ -145,17 +145,12 @@ def build_entity_statement(
     must already be in statement order (date, then creation time, then id). Balance is the
     entity's natural balance: asset-side entities grow with "received",
     liability-side entities grow with "paid" (what they gave us)."""
-    from app.services.cash_service import cash_account_predicate
-    from app.services.locale_service import get_reporting_locale
+    from app.services.cash_service import company_cash_predicate
 
     spec = control_spec_for(db, entity)
-    locale_cash = cash_account_predicate(get_reporting_locale(db))
     # Every bank entity's own GL account is cash too — a supplier paid from
     # Mellat (1111) is as settled as one paid from petty cash (1110).
-    bank_codes = {
-        (c or "").strip() for (c,) in db.execute(select(Entity.code).where(Entity.type == "bank")).all() if c
-    }
-    is_cash = lambda code, _l=locale_cash, _b=bank_codes: code in _b or _l(code)  # noqa: E731
+    is_cash = company_cash_predicate(db)
     running = 0
     out: list[EntityMovement] = []
     for txn in transactions:

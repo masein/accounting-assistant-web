@@ -22,7 +22,9 @@ class CashFlowService:
         from app.services.reporting.repository import line_net, transactions_with_lines_between
 
         from app.services.calendar_periods import company_calendar, period_key
+        from app.services.cash_service import company_cash_predicate
         cal = company_calendar(self.db)
+        is_cash = company_cash_predicate(self.db)       # not "1110" only: every bank, and the UK chart
         period = default_period(from_date, to_date)
         txns = transactions_with_lines_between(self.db, period.from_date, period.to_date, currency=currency)
 
@@ -31,10 +33,12 @@ class CashFlowService:
         details: dict[str, list[dict]] = defaultdict(list)
 
         for txn in txns:
-            cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("1110")]
+            cash_lines = [ln for ln in txn.lines if is_cash(ln.account.code or "")]
             if not cash_lines:
                 continue
             cash_delta = sum(line_net(ln, currency) for ln in cash_lines)
+            if cash_delta == 0:
+                continue                          # between the company's own accounts: no cash flow
 
             key = period_key(txn.date, granularity, cal)        # the company's calendar (§3.5)
 
@@ -45,7 +49,7 @@ class CashFlowService:
 
             # Collect counterpart account names for description
             counterpart = ", ".join(
-                sorted({ln.account.name for ln in txn.lines if not (ln.account.code or "").startswith("1110") and ln.account.name})
+                sorted({ln.account.name for ln in txn.lines if not is_cash(ln.account.code or "") and ln.account.name})
             ) or "—"
             details[key].append({
                 "date": txn.date.isoformat(),

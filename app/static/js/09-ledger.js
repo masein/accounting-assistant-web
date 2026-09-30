@@ -276,7 +276,11 @@
         // would require a server call.
       });
     }
-    if (mgrRunBtn) mgrRunBtn.addEventListener('click', runManagerReport);
+    // Looked up when clicked: 13-companies-products.js wraps runManagerReport
+    // (accounts payable, the product filter) after this file has run — a
+    // reference taken here kept the unwrapped one, so "Accounts payable" ran
+    // the balance sheet and the product filter was ignored.
+    if (mgrRunBtn) mgrRunBtn.addEventListener('click', () => runManagerReport());
     if (mgrReportTypeEl) mgrReportTypeEl.addEventListener('change', syncManagerFilterLabels);
     if (mgrExportJsonBtn) mgrExportJsonBtn.addEventListener('click', exportManagerReportJson);
     if (mgrExportCsvBtn) mgrExportCsvBtn.addEventListener('click', exportManagerReportCsv);

@@ -166,18 +166,18 @@
       </details>
       <div class="row" style="margin-bottom: 0.75rem; gap: 0.5rem; align-items: flex-end;">
         <div>
-          <label for="entity-filter-type" style="font-size:0.8rem;color:var(--text-muted);">Filter by type</label>
+          <label for="entity-filter-type" style="font-size:0.8rem;color:var(--text-muted);" data-i18n="entFilterByType">Filter by type</label>
           <select id="entity-filter-type" style="min-width:120px;">
-            <option value="">All types</option>
-            <option value="client">Client</option>
-            <option value="bank">Bank</option>
-            <option value="employee">Employee</option>
-            <option value="supplier">Supplier</option>
+            <option value="" data-i18n="entAllTypes">All types</option>
+            <option value="client" data-i18n="labelClient">Client</option>
+            <option value="bank" data-i18n="labelBank">Bank</option>
+            <option value="employee" data-i18n="optionEmployee">Employee</option>
+            <option value="supplier" data-i18n="labelSupplier">Supplier</option>
           </select>
         </div>
         <div style="flex:1;">
-          <label for="entity-search" style="font-size:0.8rem;color:var(--text-muted);">Search by name</label>
-          <input type="text" id="entity-search" placeholder="Search entities..." style="width:100%;" aria-label="Search entities by name">
+          <label for="entity-search" style="font-size:0.8rem;color:var(--text-muted);" data-i18n="entSearchByName">Search by name</label>
+          <input type="text" id="entity-search" data-i18n-placeholder="entSearchPlaceholder" placeholder="Search entities..." style="width:100%;" aria-label="Search entities by name">
         </div>
       </div>
       <table class="results-table" id="entities-table">
@@ -1393,7 +1393,7 @@
 
       <!-- Inventory Items Section -->
       <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
-        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);">Add Inventory Item</h3>
+        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);" data-i18n="invAddItemTitle">Add Inventory Item</h3>
         <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;">
           <div>
             <label for="mgr-inv-item-name" data-i18n="labelInventoryItemName">Item name</label>
@@ -1425,7 +1425,7 @@
 
       <!-- Record Movement Section -->
       <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
-        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);">Record Movement</h3>
+        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);" data-i18n="invRecordMovementTitle">Record Movement</h3>
         <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr;">
           <div>
             <label for="mgr-mv-item" data-i18n="labelMovementItem">Item</label>
@@ -1499,19 +1499,19 @@
 
       <!-- Price Management Section -->
       <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
-        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);">Price Management</h3>
-        <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.5rem;">Edit list/selling prices for inventory items.</p>
+        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);" data-i18n="invPriceMgmtTitle">Price Management</h3>
+        <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.5rem;" data-i18n="invPriceMgmtDesc">Edit list/selling prices for inventory items.</p>
         <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr;">
           <div>
-            <label for="price-mgmt-item">Item</label>
-            <select id="price-mgmt-item"><option value="">Select item</option></select>
+            <label for="price-mgmt-item" data-i18n="invItem">Item</label>
+            <select id="price-mgmt-item"><option value="" data-i18n="optionSelectItem">Select item</option></select>
           </div>
           <div>
-            <label for="price-mgmt-value">List price</label>
+            <label for="price-mgmt-value" data-i18n="invListPrice">List price</label>
             <input type="number" id="price-mgmt-value" min="0" step="1000" value="0">
           </div>
           <div class="btn-cell">
-            <button type="button" class="btn btn-primary" id="price-mgmt-save-btn">Update Price</button>
+            <button type="button" class="btn btn-primary" id="price-mgmt-save-btn" data-i18n="invUpdatePrice">Update Price</button>
           </div>
         </div>
         <div id="price-mgmt-status" style="font-size:0.85rem;margin-top:0.5rem;"></div>
@@ -1519,7 +1519,7 @@
 
       <!-- Reports Section -->
       <div class="panel" style="padding:1rem 1.25rem;">
-        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);">Inventory Reports</h3>
+        <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--primary);" data-i18n="invReportsTitle">Inventory Reports</h3>
         <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom:0.75rem;">
           <div>
             <label for="inv-from-date" data-i18n="labelFrom">From</label>
@@ -2363,17 +2363,15 @@
 
     <!-- ═══════ Products & Relationships Hub ═══════ -->
     <div class="card" data-page="products">
-      <h2>Products & Relationships</h2>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">
-        Product catalog, client-product profitability, entity relationships, and revenue/cost analysis.
-      </p>
+      <h2 data-i18n="prodHubTitle">Products & Relationships</h2>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;" data-i18n="prodHubSubtitle">Product catalog, client-product profitability, entity relationships, and revenue/cost analysis.</p>
       <div class="prod-form-grid" style="margin-bottom:1rem;">
         <div>
           <label for="prod-entity-type" data-i18n="labelEntityType">Entity type</label>
           <select id="prod-entity-type">
-            <option value="">All</option>
-            <option value="client">Clients</option>
-            <option value="supplier">Suppliers</option>
+            <option value="" data-i18n="prodAll">All</option>
+            <option value="client" data-i18n="prodClients">Clients</option>
+            <option value="supplier" data-i18n="prodSuppliers">Suppliers</option>
           </select>
         </div>
         <div>
@@ -2386,20 +2384,20 @@
         </div>
         <div>
           <label for="prod-search" data-i18n="labelSearch">Search</label>
-          <input type="text" id="prod-search" placeholder="Product or entity name">
+          <input type="text" id="prod-search" data-i18n-placeholder="prodSearchPlaceholder" placeholder="Product or entity name">
         </div>
         <div class="prod-btn-cell">
           <button type="button" class="btn btn-primary" id="prod-load-btn" data-i18n="btnLoad">Load</button>
         </div>
       </div>
       <div style="display:flex;gap:0.25rem;border-bottom:2px solid var(--border);margin-bottom:1rem;">
-        <button type="button" class="btn btn-sm prod-tab active" data-tab="catalog" style="border-radius:8px 8px 0 0;">Catalog</button>
-        <button type="button" class="btn btn-sm prod-tab" data-tab="clients" style="border-radius:8px 8px 0 0;">Client Matrix</button>
-        <button type="button" class="btn btn-sm prod-tab" data-tab="suppliers" style="border-radius:8px 8px 0 0;">Supplier Matrix</button>
-        <button type="button" class="btn btn-sm prod-tab" data-tab="profitability" style="border-radius:8px 8px 0 0;">Profitability</button>
+        <button type="button" class="btn btn-sm prod-tab active" data-tab="catalog" style="border-radius:8px 8px 0 0;" data-i18n="prodTabCatalog">Catalog</button>
+        <button type="button" class="btn btn-sm prod-tab" data-tab="clients" style="border-radius:8px 8px 0 0;" data-i18n="prodTabClients">Client Matrix</button>
+        <button type="button" class="btn btn-sm prod-tab" data-tab="suppliers" style="border-radius:8px 8px 0 0;" data-i18n="prodTabSuppliers">Supplier Matrix</button>
+        <button type="button" class="btn btn-sm prod-tab" data-tab="profitability" style="border-radius:8px 8px 0 0;" data-i18n="prodTabProfitability">Profitability</button>
       </div>
       <div id="prod-content" style="min-height:120px;">
-        <p class="empty-state" style="padding:0.5rem;">Click "Load" to view product data.</p>
+        <p class="empty-state" style="padding:0.5rem;" data-i18n="prodEmpty">Click "Load" to view product data.</p>
       </div>
       <div class="panel" id="prod-chart-panel" style="display:none;margin-top:1rem;">
         <h3>Product Chart</h3>

@@ -389,22 +389,84 @@ async def import_statement_bytes(
 # Which GL account is this statement about?
 # ---------------------------------------------------------------------------
 
+_MASK = re.compile(r"[*xX•●]+")
+
+
+def _digits(text: str | None) -> str:
+    from app.services.bank_sms import normalize
+    return re.sub(r"\D", "", normalize(text or ""))
+
+
+def account_number_matches(seen: str | None, on_file: str | None) -> bool:
+    """A statement's account number against one on file. A masked number
+    ("01***789", "6037****1234") matches on its visible head and tail, with at
+    least 4 digits showing; a full one matches exactly, or as the end of the
+    other (an account number is the tail of its IBAN)."""
+    have = _digits(on_file)
+    if not seen or not have:
+        return False
+    parts = _MASK.split(seen, maxsplit=1)
+    if len(parts) == 2:
+        head, tail = _digits(parts[0]), _digits(parts[1])
+        return (len(head) + len(tail) >= 4 and len(have) >= len(head) + len(tail)
+                and have.startswith(head) and have.endswith(tail))
+    got = _digits(seen)
+    if len(got) < 6:
+        return False
+    short, long_ = sorted((got, have), key=len)
+    return got == have or (len(short) >= 8 and long_.endswith(short))
+
+
+def canonical_bank(name: str | None) -> str | None:
+    """Which bank a name means — "ملت", "Mellat", "بانک ملت", "Mellat (SMS
+    1405/07)" are all Mellat — using the SMS reader's spellings, whole words
+    only ("شهر" is Shahr, "شهریور" is not)."""
+    from app.services.bank_sms import BANKS, normalize
+    text = normalize(name or "").lower()
+    if not text:
+        return None
+    best: tuple[str, int] | None = None
+    for canon, spellings in BANKS.items():
+        for sp in (canon, *spellings):
+            sp = normalize(sp).lower()
+            if sp and re.search(rf"(?<!\w){re.escape(sp)}(?!\w)", text) and (best is None or len(sp) > best[1]):
+                best = (canon, len(sp))
+    return best[0] if best else None
+
+
 def bank_account_for_statement(db: Session, stmt: BankStatement) -> str | None:
-    """The GL account this statement's bank posts to: a bank entity named
-    like the statement with its own account wins, else the chart's bank."""
+    """The GL account this statement's bank posts to. In order: the bank whose
+    account number the statement shows; the bank named exactly like it; the
+    one bank of that name (ملت = Mellat = بانک ملت); else the chart's bank.
+    Two candidates at any step is not a guess — it falls through."""
     from app.models.entity import Entity
     from app.services.account_resolver import resolve_account_code
-    from sqlalchemy import func
 
+    banks = [e for e in db.execute(select(Entity).where(Entity.type == "bank")).scalars().all()
+             if (e.code or "").strip()]
+    codes = {c for (c,) in db.execute(select(Account.code).where(
+        Account.code.in_([e.code.strip() for e in banks]))).all()} if banks else set()
+    banks = [e for e in banks if e.code.strip() in codes]
+
+    def one(found: list) -> str | None:
+        found_codes = {e.code.strip() for e in found}
+        return found_codes.pop() if len(found_codes) == 1 else None
+
+    if stmt.account_number:
+        hit = one([e for e in banks if account_number_matches(stmt.account_number, e.account_number)
+                   or account_number_matches(stmt.account_number, e.iban)])
+        if hit:
+            return hit
     name = (stmt.bank_name or "").strip()
     if name and name.lower() != "unknown":
-        ent = db.execute(
-            select(Entity).where(Entity.type == "bank", func.lower(Entity.name) == name.lower())
-        ).scalars().first()
-        if ent is not None and (ent.code or "").strip():
-            code = ent.code.strip()
-            if db.execute(select(Account.id).where(Account.code == code)).first():
-                return code
+        hit = one([e for e in banks if (e.name or "").strip().lower() == name.lower()])
+        if hit:
+            return hit
+        canon = canonical_bank(name)
+        if canon:
+            hit = one([e for e in banks if canonical_bank(e.name) == canon])
+            if hit:
+                return hit
     try:
         return resolve_account_code(db, "bank")
     except Exception:

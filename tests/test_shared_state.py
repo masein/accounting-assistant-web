@@ -73,8 +73,8 @@ def test_chat_limit_is_shared(auth_client, db, monkeypatch):
     monkeypatch.setattr(ai_usage, "load_settings", lambda db=None: {**real(db), "user_requests_per_minute": 1})
     uid = parse_session_token(auth_client._client.cookies.get(settings.auth_cookie_name)).user_id
     ss.DbRateLimiter("ai_user", max_requests=1, window_seconds=60).hit(db, uid)  # another worker used the only slot
-    r = auth_client.post("/transactions/chat", json={"messages": [{"role": "user", "content": "hi"}]})
-    assert r.status_code == 200 and "too quickly" in r.json()["message"]
+    r = auth_client.post("/ai-accountant/chat", json={"message": "hi"})
+    assert r.status_code == 429 and r.json()["code"] == "ai_rate_limited"
 
 
 # ─── 2. Books version ──────────────────────────────────────────────────

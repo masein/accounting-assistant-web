@@ -314,6 +314,11 @@ async def chat(
         is_path_only_message,
     )
 
+    # Nothing to answer: refuse before any AI call (a blank turn still cost a
+    # model request).
+    if not (payload.message or "").strip() and not payload.attachment_ids:
+        raise HTTPException(status_code=422, detail="Type a message or attach a file.")
+
     # A bare "confirm" typed into the chat while a card is pending: the model
     # cannot execute proposals and (observed on gpt-4o-mini) re-creates an
     # IDENTICAL new card instead — which the user then also confirms →

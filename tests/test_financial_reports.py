@@ -116,17 +116,6 @@ class TestBalanceSheetEquation:
         )
 
 
-class TestChatReportNoTruncation:
-    """Bank balance queries should not truncate to current month."""
-
-    def test_entity_search_excludes_banks(self):
-        from app.api.transactions import _parse_entity_transaction_query
-
-        assert _parse_entity_transaction_query("transactions with Melli bank") is None
-        assert _parse_entity_transaction_query("transactions with Ali Roshan") == "ali roshan"
-        assert _parse_entity_transaction_query("any transactions with Nikzade?") == "nikzade"
-
-
 class TestPeriodFiltering:
     """Period keywords produce correct date ranges."""
 

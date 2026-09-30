@@ -183,7 +183,7 @@ def set_statement_bank_account(statement_id: UUID, payload: StatementBankAccount
     posted or approved: those went to the account it had. Matches the
     reconcile step found against the old account are cleared (reconcile again)."""
     from app.services.audit_service import log_audit_event
-    from app.services.statement_import import bank_account_choices, resolve_bank_account
+    from app.services.statement_import import bank_account_choices, resolve_bank_account, statement_currency
     s = db.get(BankStatement, statement_id)
     if not s:
         raise HTTPException(status_code=404, detail="Statement not found")
@@ -199,6 +199,7 @@ def set_statement_bank_account(statement_id: UUID, payload: StatementBankAccount
     before, _src = resolve_bank_account(db, s)
     s.bank_account_code = code
     after, _src = resolve_bank_account(db, s)
+    s.currency = statement_currency(db, s)            # a USD bank's statement is in USD
     if after != before:
         for r in rows:
             if r.recon_status in ("matched", "partial"):
@@ -359,6 +360,7 @@ def batch_approve_rows(
             from app.services.ledger_posting import create_transaction_from_payload as _create_transaction_from_payload
             from app.schemas.transaction import TransactionCreate, TransactionLineCreate
             from app.services.account_resolver import AccountResolutionError, resolve_account_code
+            from app.services.fx_base import base_currency
 
             try:
                 # Counter leg: the user's choice, else the import's guess, else
@@ -393,7 +395,7 @@ def batch_approve_rows(
                 date=row.tx_date,
                 reference=row.reference,
                 description=row.description or f"Bank statement row #{row.row_index}",
-                currency=s.currency or "IRR",
+                currency=s.currency or base_currency(db),
                 lines=[
                     TransactionLineCreate(account_code=code, debit=dr, credit=cr)
                     for code, dr, cr in legs

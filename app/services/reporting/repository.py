@@ -279,8 +279,13 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
     role: debtor | creditor
     delta positive means increase, negative decrease.
     """
+    from app.services.account_resolver import resolve_account_code
     dr, cr = amount_columns(currency)
-    # Receivable (1112): debit increases debtors, credit decreases.
+    # The chart's own receivable and payable accounts (UK 1100/2100, Iran
+    # 1112/2110) — the Iranian codes were written in, so a UK company's report
+    # was empty, and "21%" also took in deposits, VAT and payroll liabilities.
+    ar_code, ap_code = resolve_account_code(db, "ar"), resolve_account_code(db, "ap")
+    # Receivable: debit increases debtors, credit decreases.
     ar_q = (
         select(
             Transaction.date,
@@ -295,13 +300,13 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
             Transaction.date >= from_date,
             Transaction.date <= to_date,
             Transaction.deleted_at.is_(None),
-            TransactionLine.account_id == select(Account.id).where(Account.code == "1112").scalar_subquery(),
+            TransactionLine.account_id == select(Account.id).where(Account.code == ar_code).scalar_subquery(),
             TransactionEntity.role.in_(("client",)),
         )
         .group_by(Transaction.date, TransactionEntity.entity_id, Entity.name)
     )
     ar_q = _currency_filter(ar_q, currency)
-    # Payable (21xx): credit increases creditors, debit decreases.
+    # Payable: credit increases creditors, debit decreases.
     ap_q = (
         select(
             Transaction.date,
@@ -317,7 +322,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
             Transaction.date >= from_date,
             Transaction.date <= to_date,
             Transaction.deleted_at.is_(None),
-            Account.code.like("21%"),
+            Account.code == ap_code,
             TransactionEntity.role.in_(("supplier", "payee")),
         )
         .group_by(Transaction.date, TransactionEntity.entity_id, Entity.name)

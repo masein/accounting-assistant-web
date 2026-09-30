@@ -831,10 +831,12 @@
       }
 
       if (rt === 'debtor_creditor') {
-        // Debtors vs Creditors donut
-        const rows = report.rows || [];
-        const debtors = rows.filter(r => r.role === 'debtor');
-        const creditors = rows.filter(r => r.role === 'creditor');
+        // Debtors vs Creditors donut — the report lists each side with its aging
+        // and total (it used to be one "rows" list with a net_delta; the charts
+        // kept reading that and never drew).
+        const debtors = (report.debtors || []).map(r => ({ ...r, role: 'debtor', net_delta: r.total || 0 }));
+        const creditors = (report.creditors || []).map(r => ({ ...r, role: 'creditor', net_delta: -(r.total || 0) }));
+        const rows = [...debtors, ...creditors];
         const totalDebt = debtors.reduce((s, r) => s + Math.abs(r.net_delta || 0), 0);
         const totalCred = creditors.reduce((s, r) => s + Math.abs(r.net_delta || 0), 0);
         if (totalDebt || totalCred) {

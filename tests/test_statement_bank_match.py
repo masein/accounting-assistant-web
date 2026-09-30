@@ -117,3 +117,88 @@ def test_which_bank_a_name_means(name, canon):
 def test_account_numbers(seen, on_file, ok):
     from app.services.statement_import import account_number_matches
     assert account_number_matches(seen, on_file) is ok
+
+
+# ─── showing it, and choosing it ─────────────────────────────────────────────────
+
+CSV = b"Date,Description,Amount\n2026-09-20,POS SNAPP TEHRAN,-250000\n2026-09-21,Transfer from Aria,4500000\n"
+
+
+def _upload(api, bank="Unknown"):
+    r = api.post("/brain/bank-statements/upload", params={"bank_name": bank},
+                 files={"file": ("stmt.csv", CSV, "text/csv")})
+    assert r.status_code == 200 and r.json()["id"], r.text
+    return r.json()["id"]
+
+
+def test_a_statement_says_which_account_and_how(banks, db):
+    api, cid, made = banks
+    api.post("/bank-sms", json={"text": SAMAN})
+    sms = next(s for s in api.get("/brain/bank-statements").json() if s["bank_name"].startswith("Saman"))
+    assert (sms["bank_account_code"], sms["bank_account_source"]) == (made["بانک سامان"], "account_number")
+    assert sms["bank_account_name"]
+    got = api.get(f"/brain/bank-statements/{_upload(api)}").json()
+    assert got["bank_account_source"] == "default"
+    choices = api.get("/brain/bank-accounts").json()["accounts"]
+    assert {made[n] for n in made} <= {c["code"] for c in choices}
+    assert {c["bank"] for c in choices if c["code"] == made["بانک سامان"]} == {"بانک سامان"}
+
+
+def test_choosing_the_account_and_posting_to_it(banks, db):
+    from app.db.tenant import use_company
+    from app.models.audit_log import AuditLog
+    from app.models.transaction import TransactionLine
+    api, cid, made = banks
+    sid = _upload(api)
+    saman = made["بانک سامان"]
+    assert api.put(f"/brain/bank-statements/{sid}/bank-account", json={"code": "6130"}).status_code == 422
+    r = api.put(f"/brain/bank-statements/{sid}/bank-account", json={"code": saman})
+    assert r.status_code == 200, r.text
+    assert (r.json()["bank_account_code"], r.json()["bank_account_source"]) == (saman, "chosen")
+    # rows the reconcile step matched against the old account start over
+    with use_company(cid):
+        from app.models.bank_statement import BankStatementRow
+        import uuid as _uuid
+        row = db.query(BankStatementRow).filter(BankStatementRow.statement_id == _uuid.UUID(sid)).first()
+        row.recon_status = "matched"
+        db.commit()
+    tejarat = made["Bank Tejarat"]
+    assert api.put(f"/brain/bank-statements/{sid}/bank-account", json={"code": tejarat}).json()["bank_account_source"] == "chosen"
+    with use_company(cid):
+        db.expire_all()
+        assert db.get(BankStatementRow, row.id).recon_status == "unmatched"
+    assert api.put(f"/brain/bank-statements/{sid}/bank-account", json={"code": saman}).status_code == 200
+    # posting a row goes to the chosen bank
+    rows = api.get(f"/brain/bank-statements/{sid}").json()["rows"]
+    out = api.post(f"/brain/bank-statements/{sid}/approve",
+                   json={"approvals": [{"row_id": rows[0]["id"], "action": "create"}]})
+    assert out.status_code == 200 and out.json()["created"] == 1, out.text
+    with use_company(cid):
+        from app.models.account import Account
+        posted = db.query(TransactionLine).join(Account, Account.id == TransactionLine.account_id).filter(
+            Account.code == saman).count()
+        assert posted == 1
+        assert db.query(AuditLog).filter(AuditLog.entity_type == "bank_statement", AuditLog.entity_id == sid).count() >= 3
+    # …and then it can't move: that row is on Saman's books
+    locked = api.put(f"/brain/bank-statements/{sid}/bank-account", json={"code": tejarat})
+    assert locked.status_code == 409 and "undo" in locked.json()["detail"]
+
+
+def test_back_to_deciding_from_the_statement(banks):
+    api, _cid, made = banks
+    sid = _upload(api, bank="Saman")
+    assert api.get(f"/brain/bank-statements/{sid}").json()["bank_account_source"] == "bank"
+    api.put(f"/brain/bank-statements/{sid}/bank-account", json={"code": made["Bank Tejarat"]})
+    back = api.put(f"/brain/bank-statements/{sid}/bank-account", json={"code": None}).json()
+    assert (back["bank_account_code"], back["bank_account_source"]) == (made["بانک سامان"], "bank")
+
+
+def test_who_may_see_and_choose(banks, client):
+    from tests.test_bank_mailbox import _session
+    api, cid, made = banks
+    sid = _upload(api)
+    assert _session(client, cid, "viewer").get("/brain/bank-accounts").status_code == 403
+    assert _session(client, cid, "accountant").put(f"/brain/bank-statements/{sid}/bank-account",
+                                                   json={"code": made["بانک ملت"]}).status_code == 200
+    assert _session(client, cid, "manager").put(f"/brain/bank-statements/{sid}/bank-account",
+                                                json={"code": made["بانک ملت"]}).status_code == 403

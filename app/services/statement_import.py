@@ -434,19 +434,48 @@ def canonical_bank(name: str | None) -> str | None:
     return best[0] if best else None
 
 
-def bank_account_for_statement(db: Session, stmt: BankStatement) -> str | None:
-    """The GL account this statement's bank posts to. In order: the bank whose
-    account number the statement shows; the bank named exactly like it; the
-    one bank of that name (ملت = Mellat = بانک ملت); else the chart's bank.
-    Two candidates at any step is not a guess — it falls through."""
+def _bank_entities(db: Session) -> list:
+    """Bank entities whose ledger account exists."""
     from app.models.entity import Entity
-    from app.services.account_resolver import resolve_account_code
-
     banks = [e for e in db.execute(select(Entity).where(Entity.type == "bank")).scalars().all()
              if (e.code or "").strip()]
     codes = {c for (c,) in db.execute(select(Account.code).where(
         Account.code.in_([e.code.strip() for e in banks]))).all()} if banks else set()
-    banks = [e for e in banks if e.code.strip() in codes]
+    return [e for e in banks if e.code.strip() in codes]
+
+
+def _default_bank_code(db: Session) -> str | None:
+    from app.services.account_resolver import resolve_account_code
+    try:
+        return resolve_account_code(db, "bank")
+    except Exception:
+        return None
+
+
+def bank_account_choices(db: Session) -> list[dict]:
+    """The accounts a statement can belong to: every bank on file with its
+    own ledger account, and the chart's bank account."""
+    out: dict[str, dict] = {}
+    for e in _bank_entities(db):
+        out.setdefault(e.code.strip(), {"code": e.code.strip(), "bank": e.name})
+    default = _default_bank_code(db)
+    if default and default not in out:
+        out[default] = {"code": default, "bank": None}
+    names = dict(db.execute(select(Account.code, Account.name).where(Account.code.in_(list(out)))).all()) if out else {}
+    return [{**c, "name": names.get(c["code"]) or c["code"]} for c in out.values()]
+
+
+def resolve_bank_account(db: Session, stmt: BankStatement) -> tuple[str | None, str]:
+    """(the GL account this statement's bank posts to, how it was decided).
+    In order: the one the user chose ("chosen"); the bank whose account number
+    (or IBAN tail) the statement shows ("account_number"); the bank named
+    exactly like it ("name"); the one bank of that name — ملت = Mellat =
+    بانک ملت ("bank"); else the chart's bank ("default"). Two candidates at
+    any step is not a guess — it falls through."""
+    chosen = (stmt.bank_account_code or "").strip()
+    if chosen and db.execute(select(Account.id).where(Account.code == chosen)).first():
+        return chosen, "chosen"
+    banks = _bank_entities(db)
 
     def one(found: list) -> str | None:
         found_codes = {e.code.strip() for e in found}
@@ -456,21 +485,23 @@ def bank_account_for_statement(db: Session, stmt: BankStatement) -> str | None:
         hit = one([e for e in banks if account_number_matches(stmt.account_number, e.account_number)
                    or account_number_matches(stmt.account_number, e.iban)])
         if hit:
-            return hit
+            return hit, "account_number"
     name = (stmt.bank_name or "").strip()
     if name and name.lower() != "unknown":
         hit = one([e for e in banks if (e.name or "").strip().lower() == name.lower()])
         if hit:
-            return hit
+            return hit, "name"
         canon = canonical_bank(name)
         if canon:
             hit = one([e for e in banks if canonical_bank(e.name) == canon])
             if hit:
-                return hit
-    try:
-        return resolve_account_code(db, "bank")
-    except Exception:
-        return None
+                return hit, "bank"
+    return _default_bank_code(db), "default"
+
+
+def bank_account_for_statement(db: Session, stmt: BankStatement) -> str | None:
+    """The GL account this statement's bank posts to (see resolve_bank_account)."""
+    return resolve_bank_account(db, stmt)[0]
 
 
 def statement_predicates(db: Session, stmt: BankStatement):

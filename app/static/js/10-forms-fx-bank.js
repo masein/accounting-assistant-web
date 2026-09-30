@@ -912,6 +912,51 @@
              `<option value="">${escapeHtml(t('bsPickCategory'))}</option>${opts}</select>`;
     }
 
+    // Which bank account the statement belongs to, and how that was decided —
+    // choose it when nothing on the statement tells (statement_import.resolve_bank_account).
+    let _bsBankChoices = null;
+    const BS_ACCT_SOURCE_KEYS = { chosen: 'bsAcctChosen', account_number: 'bsAcctByNumber', name: 'bsAcctByName',
+      bank: 'bsAcctByBank', default: 'bsAcctDefault' };
+    async function bsBankChoices() {
+      if (_bsBankChoices) return _bsBankChoices;
+      try {
+        const r = await fetch(bsAPI + '/bank-accounts');
+        if (r.ok) _bsBankChoices = (await r.json()).accounts || [];
+      } catch (_) { /* the row just stays hidden */ }
+      return _bsBankChoices || [];
+    }
+    async function setStatementBankAccount(stmt, code) {
+      const r = await fetch(bsAPI + '/bank-statements/' + stmt.id + '/bank-account', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+      if (r.status === 409) { showAlert(t('bsAcctLocked'), true); renderStatementBankAccount(stmt); return; }
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        showAlert(typeof d.detail === 'string' ? d.detail : t('bsAcctFailed'), true);
+        renderStatementBankAccount(stmt);
+        return;
+      }
+      await loadStatementDetail(stmt.id);
+    }
+    async function renderStatementBankAccount(stmt) {
+      const el = document.getElementById('bs-bank-account-row');
+      if (!el) return;
+      const choices = await bsBankChoices();
+      if (!choices.length || !stmt.bank_account_code) { el.style.display = 'none'; return; }
+      const opts = choices.map(c => `<option value="${escapeHtml(c.code)}"${c.code === stmt.bank_account_code ? ' selected' : ''}>`
+        + `${escapeHtml(c.code)} — ${escapeHtml(c.bank || c.name)}</option>`).join('');
+      const unsure = stmt.bank_account_source === 'default' && choices.length > 1;
+      el.innerHTML = `<div style="display:flex;gap:0.45rem;align-items:center;flex-wrap:wrap;">
+          <label for="bs-bank-account" style="font-weight:600;margin:0;">${escapeHtml(t('bsBankAccount'))}</label>
+          <select id="bs-bank-account" style="width:auto;max-width:100%;margin:0;">${opts}</select>
+          <span style="color:${unsure ? '#b45309' : 'var(--text-muted)'};">${escapeHtml(t(BS_ACCT_SOURCE_KEYS[stmt.bank_account_source] || 'bsAcctDefault'))}</span>
+          ${stmt.bank_account_source === 'chosen' ? `<button type="button" class="btn btn-secondary btn-sm" id="bs-bank-account-auto">${escapeHtml(t('bsAcctAutomatic'))}</button>` : ''}
+        </div>`;
+      el.style.display = '';
+      el.querySelector('#bs-bank-account').addEventListener('change', (e) => setStatementBankAccount(stmt, e.target.value));
+      const auto = el.querySelector('#bs-bank-account-auto');
+      if (auto) auto.addEventListener('click', () => setStatementBankAccount(stmt, null));
+    }
+
     async function loadStatementDetail(id) {
       try {
         await bsLoadAccountOptions();
@@ -919,6 +964,7 @@
         if (!res.ok) return;
         const stmt = await res.json();
         document.getElementById('bs-detail-title').textContent = `${stmt.bank_name} — ${stmt.source_filename} (${stmt.total_rows} rows)`;
+        renderStatementBankAccount(stmt);
         const body = document.getElementById('bs-rows-body');
         body.innerHTML = '';
         stmt.rows.forEach(r => {

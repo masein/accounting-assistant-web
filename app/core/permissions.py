@@ -479,13 +479,14 @@ _add("POST", "/ai-accountant/approvals/{token}/reject", Perm.APPROVALS_WRITE)
 
 # --- Books: bank statements & reconcile (brain) ----------------------------
 # Reads expose bank account numbers -> BANK_READ.
-_reads(["/brain/bank-statements", "/brain/bank-statements/{statement_id}",
+_reads(["/brain/bank-statements", "/brain/bank-statements/{statement_id}", "/brain/bank-accounts",
         "/brain/ocr-health"], Perm.BANK_READ)
 for _m, _p in [
     ("POST", "/brain/bank-statements/upload"),
     ("POST", "/brain/bank-statements/{statement_id}/reconcile"),
     ("POST", "/brain/bank-statements/{statement_id}/review"),
     ("POST", "/brain/bank-statements/{statement_id}/approve"),
+    ("PUT", "/brain/bank-statements/{statement_id}/bank-account"),
     # bank SMS pasted into the SMS-feed statements (roadmap §4.1)
     ("POST", "/bank-sms"), ("POST", "/bank-sms/preview"),
     # the statements mailbox: checking now imports like an upload

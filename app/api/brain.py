@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -156,6 +157,59 @@ async def upload_bank_statement(
     )
 
 
+def _bank_account_fields(db: Session, s: BankStatement) -> dict:
+    from app.services.statement_import import resolve_bank_account
+    code, source = resolve_bank_account(db, s)
+    name = db.execute(select(Account.name).where(Account.code == code)).scalar() if code else None
+    return {"bank_account_code": code, "bank_account_name": name, "bank_account_source": source}
+
+
+@router.get("/bank-accounts")
+def statement_bank_accounts(db: Session = Depends(get_db)) -> dict:
+    """The accounts a statement can belong to (its banks and the chart's bank)."""
+    from app.services.statement_import import bank_account_choices
+    return {"accounts": bank_account_choices(db)}
+
+
+class StatementBankAccount(BaseModel):
+    code: str | None = Field(None, max_length=64, description="None: decide from the statement again.")
+
+
+@router.put("/bank-statements/{statement_id}/bank-account", response_model=BankStatementRead)
+def set_statement_bank_account(statement_id: UUID, payload: StatementBankAccount,
+                               db: Session = Depends(get_db)) -> BankStatementRead:
+    """Say which bank account a statement belongs to — when nothing on it (an
+    account number, the bank's name) tells. Only before any of its rows is
+    posted or approved: those went to the account it had. Matches the
+    reconcile step found against the old account are cleared (reconcile again)."""
+    from app.services.audit_service import log_audit_event
+    from app.services.statement_import import bank_account_choices, resolve_bank_account
+    s = db.get(BankStatement, statement_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    code = (payload.code or "").strip() or None
+    if code is not None and code not in {c["code"] for c in bank_account_choices(db)}:
+        raise HTTPException(status_code=422, detail="That isn't one of your bank accounts.")
+    rows = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalars().all()
+    settled = [r for r in rows if r.created_transaction_id is not None or r.user_approved]
+    if s.status == "approved" or settled:
+        raise HTTPException(status_code=409, detail=(
+            f"{len(settled) or 'Some'} of its rows are already on the books against the account it had — "
+            "undo them first."))
+    before, _src = resolve_bank_account(db, s)
+    s.bank_account_code = code
+    after, _src = resolve_bank_account(db, s)
+    if after != before:
+        for r in rows:
+            if r.recon_status in ("matched", "partial"):
+                r.recon_status, r.matched_transaction_id = "unmatched", None
+        s.matched_rows = 0
+    log_audit_event(db, "update", "bank_statement", entity_id=str(s.id),
+                    detail=f"bank account {before or '—'} → {after or '—'}{'' if code else ' (automatic)'}")
+    db.commit()
+    return get_bank_statement(s.id, db)
+
+
 @router.get("/bank-statements", response_model=list[BankStatementRead])
 def list_bank_statements(
     db: Session = Depends(get_db),
@@ -175,7 +229,7 @@ def list_bank_statements(
             source_type=s.source_type, source_filename=s.source_filename,
             currency=s.currency, from_date=s.from_date, to_date=s.to_date,
             status=s.status, total_rows=s.total_rows,
-            matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin,
+            matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin, **_bank_account_fields(db, s),
             rows=[BankStatementRowRead(
                 id=r.id, row_index=r.row_index, tx_date=r.tx_date,
                 description=r.description, reference=r.reference,
@@ -204,7 +258,7 @@ def get_bank_statement(statement_id: UUID, db: Session = Depends(get_db)) -> Ban
         source_type=s.source_type, source_filename=s.source_filename,
         currency=s.currency, from_date=s.from_date, to_date=s.to_date,
         status=s.status, total_rows=s.total_rows,
-        matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin,
+        matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin, **_bank_account_fields(db, s),
         rows=[BankStatementRowRead(
             id=r.id, row_index=r.row_index, tx_date=r.tx_date,
             description=r.description, reference=r.reference,

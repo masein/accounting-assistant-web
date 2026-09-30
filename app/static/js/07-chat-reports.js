@@ -76,8 +76,13 @@
       }
       if (Array.isArray(report.rows) && report.rows.length) {
         const first = report.rows[0];
-        const headers = Object.keys(first);
+        let headers = Object.keys(first);
+        // Purchase reports share the sales rows: their "sales_amount" is what
+        // was bought, and cost / profit / margin mean nothing for a purchase.
+        const purchase = String(report.report_type || '').startsWith('purchase_');
+        if (purchase) headers = headers.filter(k => !['estimated_cost', 'profit', 'margin_pct'].includes(k));
         const rows = report.rows.map(r => headers.map(k => r[k]));
+        if (purchase) headers = headers.map(k => (k === 'sales_amount' ? 'purchase_amount' : k));
         return { headers, rows };
       }
       if (Array.isArray(report.items) && report.items.length) {
@@ -686,8 +691,16 @@
       const tableData = reportToTableData(report);
       if (tableData.headers.length && tableData.rows.length) {
         const headers = tableData.headers;
-        const body = tableData.rows.slice(0, 80).map(r => `<tr>${headers.map((h, i) => `<td>${formatReportCell(r[i], h)}</td>`).join('')}</tr>`).join('');
-        const head = headers.map(h => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
+        // a report with no rows falls back to its totals as metric/value pairs:
+        // the metric is a field name, shown in the user's language
+        const STATUS = { draft: 'optionStatusDraft', issued: 'optionStatusIssued', paid: 'optionStatusPaid',
+          partially_paid: 'optionStatusPartiallyPaid', canceled: 'optionStatusCanceled', cancelled: 'optionStatusCanceled' };
+        const cell = (v, h) => (h === 'metric' ? escapeHtml(localizeReportFieldName(v))
+          : h === 'status' && STATUS[v] ? escapeHtml(t(STATUS[v])) : formatReportCell(v, h));
+        // an invoice's id is for the export, not the screen (it showed as "27b1e863…c099")
+        const shown = headers.map((h, i) => [h, i]).filter(([h]) => h !== 'invoice_id');
+        const body = tableData.rows.slice(0, 80).map(r => `<tr>${shown.map(([h, i]) => `<td>${cell(r[i], h)}</td>`).join('')}</tr>`).join('');
+        const head = shown.map(([h]) => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
         return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
       }
       if (report.totals && typeof report.totals === 'object') {

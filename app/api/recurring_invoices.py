@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.services.ledger_posting import default_currency
 from app.models.entity import Entity
 from app.models.invoice import Invoice
 from app.models.recurring_invoice import RecurringInvoice
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/recurring-invoices", tags=["recurring-invoices"])
 class RecurringInvoiceCreate(BaseModel):
     name: str | None = Field(None, max_length=256)
     entity_id: UUID
-    currency: str = "IRR"
+    currency: str | None = Field(None, max_length=8, description="Blank: the company's base currency")
     description: str | None = None
     amount: int = Field(0, ge=0)
     items: list[InvoiceItemCreate] = Field(default_factory=list)
@@ -133,7 +134,7 @@ def create_recurring_invoice(payload: RecurringInvoiceCreate, db: Session = Depe
         raise HTTPException(status_code=422, detail="Give a positive amount or at least one priced line.")
     t = RecurringInvoice(
         name=(payload.name or "").strip() or f"{ent.name} — {freq}", entity_id=payload.entity_id,
-        currency=(payload.currency or "IRR").strip().upper(), description=(payload.description or "").strip() or None,
+        currency=default_currency(db, payload.currency), description=(payload.description or "").strip() or None,
         amount=int(payload.amount or 0), items=_items_json(payload.items), frequency=freq, calendar=cal,
         start_date=payload.start_date, end_date=payload.end_date, max_occurrences=payload.max_occurrences,
         next_run_date=payload.start_date, occurrences=0, terms_days=payload.terms_days, issue_status=status,

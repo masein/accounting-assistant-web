@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.services.ledger_posting import default_currency
 from app.models.account import Account
 from app.models.entity import Entity
 from app.models.mileage_claim import MileageClaim
@@ -107,7 +108,7 @@ def _post(db: Session, *, on: date, reference: str, description: str, currency: 
     if total_dr != total_cr or total_dr <= 0:
         raise HTTPException(status_code=400, detail="Expense entry must be balanced and non-zero.")
     txn = Transaction(date=on, reference=reference[:128], description=description,
-                      currency=(currency or "IRR").strip().upper())
+                      currency=default_currency(db, currency))
     db.add(txn)
     db.flush()
     for code, debit, credit, line_desc in lines:

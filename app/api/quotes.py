@@ -28,6 +28,7 @@ from app.api.invoices import (
     suggest_number,
 )
 from app.db.session import get_db
+from app.services.ledger_posting import default_currency
 from app.models.company_profile import CompanyProfile
 from app.models.entity import Entity
 from app.models.invoice import Invoice
@@ -197,7 +198,7 @@ def create_quote(payload: QuoteCreate, db: Session = Depends(get_db)) -> QuoteRe
     _assert_number_free(db, number)
     q = Quote(
         number=number, status="draft", issue_date=payload.issue_date, valid_until=payload.valid_until,
-        amount=int(payload.amount or 0), currency=(payload.currency or "IRR").strip().upper(),
+        amount=int(payload.amount or 0), currency=default_currency(db, payload.currency),
         description=(payload.description or "").strip() or None, entity_id=payload.entity_id,
     )
     db.add(q)

@@ -13,7 +13,7 @@ class QuoteCreate(BaseModel):
     issue_date: date
     valid_until: date
     amount: int = Field(0, ge=0, description="Single-amount quotes; ignored when items are given")
-    currency: str = "IRR"
+    currency: str | None = Field(None, max_length=8, description="Blank: the company's base currency")
     description: str | None = None
     entity_id: UUID | None = None
     status: str = Field("draft", description="draft | sent")

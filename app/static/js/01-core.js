@@ -241,6 +241,10 @@
     const _origFetch = window.fetch;
     window.fetch = function(url, opts) {
       opts = opts || {};
+      // the page's language, so an error message comes back in it (app/core/messages.py)
+      const lang = (typeof currentLanguage !== 'undefined' && currentLanguage) || 'en';
+      if (opts.headers instanceof Headers) { if (!opts.headers.has('X-UI-Language')) opts.headers.set('X-UI-Language', lang); }
+      else opts.headers = { 'X-UI-Language': lang, ...(opts.headers || {}) };
       const method = (opts.method || 'GET').toUpperCase();
       if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
         opts.headers = opts.headers || {};

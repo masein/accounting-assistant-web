@@ -279,7 +279,9 @@ def login_two_factor(payload: TwoFactorLoginRequest, request: Request, response:
     import uuid as _uuid
 
     data = parse_challenge(payload.challenge)
-    expired = HTTPException(status_code=401, detail="Sign-in timed out. Enter your password again.")
+    # the code lets the page start over whatever language the message is in
+    expired = HTTPException(status_code=401, detail="Sign-in timed out. Enter your password again.",
+                            headers={"X-Error-Code": "signin_timed_out"})
     if data is None:
         raise expired
     uid = str(data["uid"])

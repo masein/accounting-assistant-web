@@ -1478,7 +1478,7 @@
         options.unshift({ id: currentId, name: currentName || currentId });
       }
       return `
-        <option value="">— None —</option>
+        <option value="">${escapeHtml(t('optionNone'))}</option>
         ${options.map(o => `<option value="${escapeHtml(String(o.id))}" ${String(o.id) === String(currentId || '') ? 'selected' : ''}>${escapeHtml(o.name || '')}</option>`).join('')}
       `;
     }

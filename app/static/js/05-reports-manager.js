@@ -77,7 +77,7 @@
         } else {
           alertsWrap.innerHTML = alerts.map(a => `
             <div style="border:1px solid var(--border); border-radius:10px; padding:0.55rem; margin-bottom:0.45rem;">
-              <span class="alert-chip ${escapeHtml(a.level)}">${escapeHtml((a.level || '').toUpperCase())}</span>
+              <span class="alert-chip ${escapeHtml(a.level)}">${escapeHtml(t({ high: 'alertLevelHigh', medium: 'alertLevelMedium', low: 'alertLevelLow' }[a.level] || 'alertLevelLow'))}</span>
               <strong style="display:block; margin-top:0.25rem;">${escapeHtml(localizeDynamicText(a.title))}</strong>
               <div style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(localizeDynamicText(a.message))}</div>
             </div>

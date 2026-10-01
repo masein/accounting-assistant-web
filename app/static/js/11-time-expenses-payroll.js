@@ -794,7 +794,7 @@
         b.upto == null ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%` : `${formatNum(b.upto)}: ${Math.round(b.rate * 100)}%`
       ).join(' · ');
       const item = (label, val) => `<div><span style="color:var(--text-muted);">${t(label)}:</span> ${val}</div>`;
-      return `<div style="font-weight:600;margin-bottom:0.3rem;">${escapeHtml(rs.name)} (${escapeHtml(rs.year)}) — ${rs.effective_from} → ${rs.effective_to || '…'}</div>
+      return `<div style="font-weight:600;margin-bottom:0.3rem;"><bdi>${escapeHtml(rs.name)}</bdi> (${escapeHtml(rs.year)}) — ${rs.effective_from} → ${rs.effective_to || '…'}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.25rem 1rem;">
           ${item('payrollRulesMinWage', `${formatNum(p.min_wage_daily || 0)} ${cur}`)}
           ${item('payrollRulesHousing', `${formatNum(p.housing_allowance || 0)} ${cur}`)}

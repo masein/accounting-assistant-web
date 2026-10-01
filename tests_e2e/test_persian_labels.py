@@ -11,6 +11,7 @@ CEO / CFO pages, which an accountant can't open — a CFO signs in for those."""
 from __future__ import annotations
 
 import os
+import re
 import uuid
 
 from tests_e2e.conftest import ARTIFACTS
@@ -48,6 +49,29 @@ CHART_TEXT = r"""(withLabels) => typeof Chart === 'undefined' ? [] : Object.valu
   .flatMap(c => [...c.data.datasets.map(d => d.label), c.options.plugins && c.options.plugins.title && c.options.plugins.title.text,
                  ...(withLabels ? c.data.labels || [] : [])])
   .filter(x => typeof x === 'string' && /[A-Za-z]{3,}/.test(x) && !/[\u0600-\u06FF]/.test(x))"""
+# any other visible text that is English: a running total ("Debit: 0"), a hint,
+# a currency's name — wherever it sits, not just in headings and buttons. Data
+# is left out: table cells, <bdi>-isolated names, records' chips.
+LEAF = r"""() => {
+  const out = new Set();
+  const inRecord = n => { for (; n && n !== document.body; n = n.parentElement)
+    if ([...n.attributes].some(a => /^data-[a-z-]*id$/.test(a.name))) return true; return false; };
+  for (const e of document.querySelectorAll('.card[data-page] *')) {
+    if (e.offsetParent === null || e.closest('td, pre, code, textarea, select, bdi, .chat-msg') || inRecord(e)) continue;
+    const own = [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ').replace(/\s+/g, ' ').trim();
+    if (/[A-Za-z]{3,}/.test(own) && !/[\u0600-\u06FF]/.test(own)) out.add(own.slice(0, 70));
+  }
+  for (const s of document.querySelectorAll('.card[data-page] select')) {
+    if (s.offsetParent === null) continue;
+    for (const o of s.options)
+      // a record (an id as its value) or an account ("111001 — Bank") is data
+      if (/[A-Za-z]{3,}/.test(o.text) && !/[\u0600-\u06FF]/.test(o.text) && !/^[0-9a-f]{8}-/.test(o.value) && !/^\d{3,} /.test(o.text)) out.add(o.text.slice(0, 50));
+  }
+  return [...out];
+}"""
+# what stays as written: currency codes (with a symbol), the languages' own
+# names, other products' names, a stock-keeping unit
+AS_WRITTEN = re.compile(r"^([A-Z]{3}( \(.\))?|English|Español|Xero|QuickBooks|SKU)$")
 # a placeholder in English ("Net 30", "Amount", "e.g. 500,000,000")
 PLACEHOLDERS = r"""() => [...document.querySelectorAll('.card[data-page] input[placeholder], .card[data-page] textarea[placeholder]')]
   .filter(e => e.offsetParent !== null && /[A-Za-z]{3,}/.test(e.placeholder) && !/[\u0600-\u06FF]/.test(e.placeholder))
@@ -99,7 +123,8 @@ def test_every_page_speaks_persian(flow_page):
             page.wait_for_timeout(300)
             if name == "audit":   # the journals posted above are in the trail
                 page.wait_for_selector("#audit-log-body tr", timeout=15_000)
-            seen = page.evaluate(SCAN) + page.evaluate(CHART_TEXT, False) + page.evaluate(PLACEHOLDERS) + page.evaluate(AUDIT_TRAIL)
+            seen = (page.evaluate(SCAN) + page.evaluate(CHART_TEXT, False) + page.evaluate(PLACEHOLDERS) + page.evaluate(AUDIT_TRAIL)
+                    + [x for x in page.evaluate(LEAF) if not AS_WRITTEN.match(x)])
             english = [x for x in seen if not any(w in x for w in ON_PURPOSE)]
             if english:
                 found[name] = english

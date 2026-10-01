@@ -15,7 +15,7 @@
     function renderAttachments() {
       attachmentGrid.innerHTML = '';
       if (!selectedAttachments.length) {
-        attachmentGrid.innerHTML = '<div class="attachment-help">No attachments uploaded yet.</div>';
+        attachmentGrid.innerHTML = '<div class="attachment-help" data-i18n="attachmentsNone">' + escapeHtml(t('attachmentsNone')) + '</div>';
         return;
       }
       selectedAttachments.forEach(att => {
@@ -164,7 +164,7 @@
           el.innerHTML = '';
           const none = document.createElement('option');
           none.value = '';
-          none.textContent = '— None —';
+          none.textContent = t('optionNone');
           el.appendChild(none);
           (arr || []).forEach(e => {
             const opt = document.createElement('option');
@@ -179,7 +179,7 @@
         sel('entity-supplier', entityOptions.supplier);
         const invSel = document.getElementById('inv-entity');
         if (invSel) {
-          invSel.innerHTML = '<option value="">— None —</option>';
+          invSel.innerHTML = '<option value="">' + escapeHtml(t('optionNone')) + '</option>';
           (list || []).filter(e => e.type === 'client' || e.type === 'supplier').forEach(e => {
             const opt = document.createElement('option');
             opt.value = e.id;

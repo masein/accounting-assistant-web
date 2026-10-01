@@ -25,7 +25,7 @@
       const btn = document.getElementById('excel-import-upload-btn');
 
       if (!fileInput.files || !fileInput.files.length) {
-        showAlert('Please select an Excel file', true);
+        showAlert(t('xiPickFile'), true);
         return;
       }
 
@@ -37,7 +37,7 @@
       if (year) url += '?jalali_year=' + encodeURIComponent(year);
 
       btn.disabled = true;
-      statusEl.innerHTML = '<span style="color:var(--primary);">Uploading and parsing...</span>';
+      statusEl.innerHTML = '<span style="color:var(--primary);">' + escapeHtml(t('xiUploading')) + '</span>';
 
       try {
         const res = await fetch(url, { method: 'POST', body: formData });
@@ -70,11 +70,11 @@
         const infoEl = document.getElementById('excel-import-preview-info');
         infoEl.innerHTML = `
           <div style="display:flex; gap:1.5rem; flex-wrap:wrap; font-size:0.85rem; padding:0.5rem; background:var(--bg-surface); border-radius:6px;">
-            <span><strong>Rows:</strong> ${data.total_rows}</span>
-            <span><strong>Vouchers:</strong> ${data.total_vouchers}</span>
-            <span><strong>Jalali Year:</strong> ${data.jalali_year}</span>
-            <span><strong>Unique Accounts:</strong> ${_excelImportAccounts.length}</span>
-            ${data.errors.length ? '<span style="color:var(--danger);"><strong>Warnings:</strong> ' + data.errors.length + '</span>' : '<span style="color:var(--success);">All vouchers balanced</span>'}
+            <span><strong>${escapeHtml(t('xiRows'))}:</strong> ${formatNum(data.total_rows)}</span>
+            <span><strong>${escapeHtml(t('xiVouchers'))}:</strong> ${formatNum(data.total_vouchers)}</span>
+            <span><strong>${escapeHtml(t('xiJalaliYear'))}:</strong> ${escapeHtml(String(data.jalali_year))}</span>
+            <span><strong>${escapeHtml(t('xiUniqueAccounts'))}:</strong> ${formatNum(_excelImportAccounts.length)}</span>
+            ${data.errors.length ? '<span style="color:var(--danger);"><strong>' + escapeHtml(t('xiWarnings')) + ':</strong> ' + formatNum(data.errors.length) + '</span>' : '<span style="color:var(--success);">' + escapeHtml(t('xiAllBalanced')) + '</span>'}
           </div>
         `;
         if (data.already_imported) {
@@ -118,10 +118,10 @@
       accounts.forEach((acct, idx) => {
         const tr = document.createElement('tr');
         const statusIcon = acct.exists_in_chart
-          ? '<span style="color:var(--success);" title="Account exists">&#10003;</span>'
+          ? '<span style="color:var(--success);" title="' + escapeHtml(t('xiAcctExists')) + '">&#10003;</span>'
           : (acct.suggested_code
-            ? '<span style="color:#f0ad4e;" title="Account exists but mapping is suggested">~</span>'
-            : '<span style="color:var(--danger);" title="No match found">&#10007;</span>');
+            ? '<span style="color:#f0ad4e;" title="' + escapeHtml(t('xiAcctSuggested')) + '">~</span>'
+            : '<span style="color:var(--danger);" title="' + escapeHtml(t('xiAcctNoMatch')) + '">&#10007;</span>');
         tr.innerHTML = `
           <td style="font-size:0.8rem;">${escapeHtml(acct.title1)}</td>
           <td style="font-size:0.8rem;">${escapeHtml(acct.title2)}</td>
@@ -157,23 +157,23 @@
       const container = document.getElementById('excel-import-vouchers-preview');
       let html = '';
       vouchers.forEach(v => {
-        const dateStr = v.gregorian_date || ('Day: ' + (v.date_code || '?'));
+        const dateStr = v.gregorian_date ? formatDisplayDate(v.gregorian_date) : tf('xiDayCode', { code: v.date_code || '?' });
         const balClass = v.is_balanced ? 'color:var(--success)' : 'color:var(--danger)';
         html += `<div style="border:1px solid var(--border);border-radius:6px;padding:0.5rem;margin-bottom:0.5rem;">
           <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.3rem;">
-            <strong>Voucher #${escapeHtml(String(v.voucher_number))}</strong>
-            <span>${escapeHtml(String(dateStr))}</span>
-            <span style="${balClass}">D: ${v.total_debit.toLocaleString()} | C: ${v.total_credit.toLocaleString()}</span>
+            <strong>${escapeHtml(tf('xiVoucherNo', { n: v.voucher_number }))}</strong>
+            <span><bdi>${escapeHtml(String(dateStr))}</bdi></span>
+            <span style="${balClass}">${escapeHtml(t('tableDebit'))} ${formatNum(v.total_debit)} · ${escapeHtml(t('tableCredit'))} ${formatNum(v.total_credit)}</span>
           </div>
           <table style="width:100%;font-size:0.75rem;border-collapse:collapse;">
-            <tr style="background:var(--bg-surface);"><th style="text-align:start;padding:2px 4px;">Account</th><th style="text-align:start;padding:2px 4px;">Description</th><th style="text-align:end;padding:2px 4px;">Debit</th><th style="text-align:end;padding:2px 4px;">Credit</th></tr>`;
+            <tr style="background:var(--bg-surface);"><th style="text-align:start;padding:2px 4px;">${escapeHtml(t('fieldAccount'))}</th><th style="text-align:start;padding:2px 4px;">${escapeHtml(t('labelDescription'))}</th><th style="text-align:end;padding:2px 4px;">${escapeHtml(t('tableDebit'))}</th><th style="text-align:end;padding:2px 4px;">${escapeHtml(t('tableCredit'))}</th></tr>`;
         v.lines.forEach(l => {
           const acctPath = [l.title1, l.title2, l.title3].filter(Boolean).join(' > ');
           html += `<tr>
             <td style="padding:2px 4px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(acctPath)}">${escapeHtml(acctPath)}</td>
             <td style="padding:2px 4px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.description)}">${escapeHtml(l.description)}</td>
-            <td style="padding:2px 4px;text-align:end;">${l.debit ? l.debit.toLocaleString() : ''}</td>
-            <td style="padding:2px 4px;text-align:end;">${l.credit ? l.credit.toLocaleString() : ''}</td>
+            <td style="padding:2px 4px;text-align:end;">${l.debit ? formatNum(l.debit) : ''}</td>
+            <td style="padding:2px 4px;text-align:end;">${l.credit ? formatNum(l.credit) : ''}</td>
           </tr>`;
         });
         html += '</table></div>';
@@ -211,16 +211,16 @@
       });
 
       if (hasEmpty) {
-        showAlert('Please fill in all account codes before confirming', true);
+        showAlert(t('xiFillCodes'), true);
         return;
       }
 
       btn.disabled = true;
-      statusEl.innerHTML = '<span style="color:var(--primary);">Importing...</span>';
+      statusEl.innerHTML = '<span style="color:var(--primary);">' + escapeHtml(t('xiImporting')) + '</span>';
 
       try {
         if (!_excelImportToken) {
-          throw new Error('No file token. Please re-upload the file.');
+          throw new Error(t('xiNoToken'));
         }
 
         const year = yearInput.value.trim();
@@ -267,14 +267,14 @@
         step3.style.display = 'block';
         step3.innerHTML = `
           <div style="background:var(--bg-success,#d4edda);border:1px solid var(--success,#28a745);border-radius:8px;padding:1rem;">
-            <h4 style="margin:0 0 0.5rem 0;color:var(--success,#28a745);">Import Successful!</h4>
+            <h4 style="margin:0 0 0.5rem 0;color:var(--success,#28a745);">${escapeHtml(t('xiDoneTitle'))}</h4>
             <p style="margin:0;font-size:0.9rem;">
-              <strong>${result.imported}</strong> vouchers imported as transactions.
-              ${result.accounts_created ? '<br>' + result.accounts_created + ' new accounts created.' : ''}
-              ${result.errors.length ? '<br><span style="color:var(--danger);">Warnings: ' + result.errors.length + '</span>' : ''}
+              ${escapeHtml(tf('xiImported', { n: formatNum(result.imported) }))}
+              ${result.accounts_created ? '<br>' + escapeHtml(tf('xiAccountsCreated', { n: formatNum(result.accounts_created) })) : ''}
+              ${result.errors.length ? '<br><span style="color:var(--danger);">' + escapeHtml(t('xiWarnings')) + ': ' + formatNum(result.errors.length) + '</span>' : ''}
             </p>
             ${result.errors.length ? '<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--danger);">' + result.errors.map(e => '<div>' + escapeHtml(e) + '</div>').join('') + '</div>' : ''}
-            <button type="button" class="btn btn-secondary btn-sm" style="margin-top:0.75rem;" data-action="excel-import-done">Done</button>
+            <button type="button" class="btn btn-secondary btn-sm" style="margin-top:0.75rem;" data-action="excel-import-done">${escapeHtml(t('btnDone'))}</button>
           </div>
         `;
 

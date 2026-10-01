@@ -182,7 +182,7 @@
       </div>
       <table class="results-table" id="entities-table">
         <thead><tr><th data-i18n="labelType">Type</th><th data-i18n="labelName">Name</th><th data-i18n="labelCodeOptional">Code</th><th data-i18n="usersActions">Actions</th><th></th></tr></thead>
-        <tbody id="entities-tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+        <tbody id="entities-tbody"><tr><td colspan="5" class="empty-state" data-i18n="loading">Loading…</td></tr></tbody>
       </table>
       <p style="margin-top: 1rem; font-size: 0.875rem;">
         <button type="button" class="btn btn-secondary btn-sm" id="reset-db-btn" data-i18n="btnResetDb">Reset database</button>
@@ -284,7 +284,7 @@
       </div>
       <table class="results-table" id="invoices-table">
         <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="labelType">Type</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="invPaid">Paid</th><th data-i18n="invBalanceDue">Balance</th><th data-i18n="labelDueDate">Due</th><th data-i18n="usersActions">Actions</th></tr></thead>
-        <tbody id="invoices-tbody"><tr><td colspan="8" class="empty-state">Loading…</td></tr></tbody>
+        <tbody id="invoices-tbody"><tr><td colspan="8" class="empty-state" data-i18n="loading">Loading…</td></tr></tbody>
       </table>
 
       <!-- Quotes (پیش‌فاکتور): offers that never post until converted -->
@@ -531,7 +531,7 @@
       </details>
       <table class="results-table" id="recurring-table">
         <thead><tr><th data-i18n="labelName">Name</th><th data-i18n="tableDirection">Direction</th><th data-i18n="tableFrequency">Frequency</th><th data-i18n="labelAmount">Amount</th><th data-i18n="recBankLabel">Bank account</th><th data-i18n="recCounterLabel">Expense / income account</th><th data-i18n="tableNextRun">Next run</th><th data-i18n="recAutoCol">Auto</th><th data-i18n="usersStatus">Status</th><th></th></tr></thead>
-        <tbody id="recurring-tbody"><tr><td colspan="10" class="empty-state">Loading…</td></tr></tbody>
+        <tbody id="recurring-tbody"><tr><td colspan="10" class="empty-state" data-i18n="loading">Loading…</td></tr></tbody>
       </table>
     </div>
 
@@ -624,45 +624,43 @@
       <p style="margin: 0 0 0.9rem 0; display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <button type="button" class="btn btn-secondary btn-sm" id="open-ai-chat-inline" data-i18n="openAiChat">Open AI chat</button>
         <button type="button" class="btn btn-secondary btn-sm" id="open-excel-import-btn" data-action="toggle" data-target="excel-import-section">
-          <span style="margin-inline-end:0.3em;">📥</span> Import from Excel
+          <span style="margin-inline-end:0.3em;">📥</span> <span data-i18n="xiOpen">Import from Excel</span>
         </button>
       </p>
 
       <!-- Excel Import Section -->
       <div id="excel-import-section" style="display:none; margin-bottom: 1.5rem; border: 2px dashed var(--border); border-radius: 8px; padding: 1rem;">
-        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Import Journal from Excel</h3>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0 0 0.75rem 0;">
-          Upload an Excel file (.xlsx) with double-entry journal data. The system will auto-detect columns and map accounts.
-        </p>
+        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;" data-i18n="xiTitle">Import journals from Excel</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0 0 0.75rem 0;" data-i18n="xiDesc">Upload an Excel file (.xlsx) with double-entry journal data. The system will auto-detect columns and map accounts.</p>
 
         <!-- Step 1: Upload -->
         <div id="excel-import-step1">
           <div class="form-grid" style="grid-template-columns: 1fr auto auto auto auto; align-items: end;">
             <div>
-              <label for="excel-import-file" style="font-size: 0.85rem;">Excel File</label>
+              <label for="excel-import-file" style="font-size: 0.85rem;" data-i18n="xiFile">Excel file</label>
               <input type="file" id="excel-import-file" accept=".xlsx,.xls">
             </div>
             <div>
-              <label for="excel-import-year" style="font-size: 0.85rem;">Jalali Year</label>
+              <label for="excel-import-year" style="font-size: 0.85rem;" data-i18n="xiJalaliYear">Jalali year</label>
               <input type="number" id="excel-import-year" placeholder="1404" style="width: 90px;">
             </div>
             <div>
-              <label for="excel-import-currency" style="font-size: 0.85rem;">Currency</label>
+              <label for="excel-import-currency" style="font-size: 0.85rem;" data-i18n="invoiceCurrencyLabel">Currency</label>
               <select id="excel-import-currency" data-change-action="excel-import-currency">
-                <option value="IRR">IRR (Rial)</option>
-                <option value="IRT">IRT (Toman)</option>
+                <option value="IRR" data-i18n="currencyOptIRR">IRR (Rial)</option>
+                <option value="IRT" data-i18n="currencyOptIRT">IRT (Toman)</option>
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
                 <option value="GBP">GBP (£)</option>
-                <option value="AED">AED (درهم)</option>
-                <option value="TRY">TRY (لیرا)</option>
-                <option value="OTHER">Other</option>
+                <option value="AED" data-i18n="currencyOptAED">AED (Dirham)</option>
+                <option value="TRY" data-i18n="currencyOptTRY">TRY (Lira)</option>
+                <option value="OTHER" data-i18n="xiCurrencyOther">Other</option>
               </select>
             </div>
             <div>
-              <label for="excel-import-multiplier" style="font-size: 0.85rem;">Multiplier</label>
+              <label for="excel-import-multiplier" style="font-size: 0.85rem;" data-i18n="xiMultiplier">Multiplier</label>
               <select id="excel-import-multiplier">
-                <option value="1" selected>1x (as-is)</option>
+                <option value="1" selected data-i18n="xiMultAsIs">1× (as is)</option>
                 <option value="10">10x</option>
                 <option value="1000">1,000x</option>
                 <option value="10000">10,000x</option>
@@ -670,9 +668,7 @@
               </select>
             </div>
             <div class="btn-cell">
-              <button type="button" class="btn btn-primary" id="excel-import-upload-btn" data-action="excel-import-upload">
-                Upload &amp; Preview
-              </button>
+              <button type="button" class="btn btn-primary" id="excel-import-upload-btn" data-action="excel-import-upload" data-i18n="xiUpload">Upload &amp; preview</button>
             </div>
           </div>
           <div id="excel-import-status" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
@@ -684,16 +680,16 @@
 
           <!-- Account Mapping Table -->
           <details open style="margin-bottom: 1rem;">
-            <summary style="cursor: pointer; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem;">Account Mappings</summary>
+            <summary style="cursor: pointer; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem;" data-i18n="xiMappings">Account mappings</summary>
             <div style="overflow-x: auto;">
               <table id="excel-import-mapping-table" class="data-table" style="font-size: 0.8rem;">
                 <thead>
                   <tr>
-                    <th>Title 1 (Category)</th>
-                    <th>Title 2 (Sub-category)</th>
-                    <th>Title 3 (Detail)</th>
-                    <th>Account Code</th>
-                    <th>Status</th>
+                    <th data-i18n="xiTitle1">Title 1 (category)</th>
+                    <th data-i18n="xiTitle2">Title 2 (sub-category)</th>
+                    <th data-i18n="xiTitle3">Title 3 (detail)</th>
+                    <th data-i18n="tableAccountCode">Account code</th>
+                    <th data-i18n="usersStatus">Status</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -703,7 +699,7 @@
 
           <!-- Vouchers Preview -->
           <details style="margin-bottom: 1rem;">
-            <summary style="cursor: pointer; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem;">Voucher Preview</summary>
+            <summary style="cursor: pointer; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem;" data-i18n="xiVoucherPreview">Voucher preview</summary>
             <div id="excel-import-vouchers-preview" style="max-height: 400px; overflow-y: auto;"></div>
           </details>
 
@@ -712,12 +708,8 @@
 
           <!-- Confirm -->
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <button type="button" class="btn btn-primary" id="excel-import-confirm-btn" data-action="excel-import-confirm">
-              Confirm Import
-            </button>
-            <button type="button" class="btn btn-secondary" data-action="hide" data-target="excel-import-step2" data-show="excel-import-step1">
-              Back
-            </button>
+            <button type="button" class="btn btn-primary" id="excel-import-confirm-btn" data-action="excel-import-confirm" data-i18n="xiConfirm">Confirm import</button>
+            <button type="button" class="btn btn-secondary" data-action="hide" data-target="excel-import-step2" data-show="excel-import-step1" data-i18n="bsBackBtn">Back</button>
             <span id="excel-import-confirm-status" style="font-size: 0.85rem;"></span>
           </div>
         </div>
@@ -749,15 +741,15 @@
           <div>
             <label for="txn-currency" data-i18n="invoiceCurrencyLabel">Currency</label>
             <select id="txn-currency" name="currency" title="Currency for this voucher. Defaults to your reporting currency.">
-              <option value="IRR">IRR (Rial)</option>
+              <option value="IRR" data-i18n="currencyOptIRR">IRR (Rial)</option>
               <option value="USD">USD ($)</option>
               <option value="EUR">EUR (€)</option>
               <option value="GBP">GBP (£)</option>
               <option value="AED">AED</option>
               <option value="TRY">TRY (₺)</option>
-              <option value="IRT">IRT (Toman)</option>
+              <option value="IRT" data-i18n="currencyOptIRT">IRT (Toman)</option>
             </select>
-            <span id="txn-currency-hint" style="font-size: 0.75rem; color: var(--text-muted);">All lines share this currency.</span>
+            <span id="txn-currency-hint" style="font-size: 0.75rem; color: var(--text-muted);" data-i18n="txnCurrencyHint">All lines share this currency.</span>
           </div>
           <div id="txn-rate-wrap" hidden>
             <label for="txn-fx-rate"><span data-i18n="voucherRateLabel">Rate</span> <bdi id="txn-fx-rate-pair" dir="ltr"></bdi></label>
@@ -1252,7 +1244,7 @@
             </tr>
           </thead>
           <tbody id="results-tbody">
-            <tr><td colspan="6" class="empty-state">Loading…</td></tr>
+            <tr><td colspan="6" class="empty-state" data-i18n="loading">Loading…</td></tr>
           </tbody>
           <tfoot id="results-foot" style="display: none;">
             <tr style="font-weight: 700; background: #f1f5f9;">
@@ -1322,25 +1314,25 @@
           <datalist id="mgr-product-entity-datalist"></datalist>
         </div>
         <div>
-          <label for="mgr-period-granularity">Period</label>
+          <label for="mgr-period-granularity" data-i18n="periodLabel">Period</label>
           <select id="mgr-period-granularity">
-            <option value="monthly">Monthly</option>
-            <option value="weekly">Weekly</option>
-            <option value="quarterly">Quarterly</option>
-            <option value="seasonal">Seasonal</option>
+            <option value="monthly" data-i18n="recFreqMonthly">Monthly</option>
+            <option value="weekly" data-i18n="recFreqWeekly">Weekly</option>
+            <option value="quarterly" data-i18n="recFreqQuarterly">Quarterly</option>
+            <option value="seasonal" data-i18n="granularitySeasonal">Seasonal</option>
           </select>
         </div>
         <div>
           <label for="mgr-currency" data-i18n="invoiceCurrencyLabel">Currency</label>
           <select id="mgr-currency">
             <option value="ALL" selected data-i18n="currencyAllInBaseShort">All currencies, in the base currency</option>
-            <option value="IRR">IRR (Rial)</option>
+            <option value="IRR" data-i18n="currencyOptIRR">IRR (Rial)</option>
             <option value="USD">USD ($)</option>
             <option value="EUR">EUR (€)</option>
             <option value="GBP">GBP (£)</option>
             <option value="AED">AED</option>
             <option value="TRY">TRY (₺)</option>
-            <option value="IRT">IRT (Toman)</option>
+            <option value="IRT" data-i18n="currencyOptIRT">IRT (Toman)</option>
           </select>
         </div>
         <div class="mgr-btn-cell">
@@ -1644,8 +1636,8 @@
         <div id="bs-recon-summary" style="display:none;padding:0.5rem;background:#e8f5e9;border-radius:6px;margin-bottom:0.75rem;font-size:0.85rem;"></div>
         <div style="overflow-x:auto;">
           <table class="results-table" id="bs-rows-table"><thead><tr>
-            <th>#</th><th>Date</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th>
-            <th>Category</th><th>Confidence</th><th>Status</th><th>Action</th>
+            <th>#</th><th data-i18n="labelDate">Date</th><th data-i18n="labelDescription">Description</th><th data-i18n="tableDebit">Debit</th><th data-i18n="tableCredit">Credit</th><th data-i18n="fieldBalance">Balance</th>
+            <th data-i18n="labelCategory">Category</th><th data-i18n="bsConfidence">Confidence</th><th data-i18n="usersStatus">Status</th><th data-i18n="thAction">Action</th>
           </tr></thead><tbody id="bs-rows-body"></tbody></table>
         </div>
       </div>
@@ -2238,13 +2230,13 @@
     <!-- Audit drill-down modal -->
     <div id="audit-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" data-overlay-close>
       <div style="background:white;max-width:600px;margin:5vh auto;border-radius:12px;padding:1.5rem;position:relative;">
-        <button type="button" data-action="hide" data-target="audit-drilldown-modal" aria-label="Close" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
-        <h3 id="audit-modal-title">Finding Details</h3>
+        <button type="button" data-action="hide" data-target="audit-drilldown-modal" data-i18n-aria-label="btnClose" aria-label="Close" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
+        <h3 id="audit-modal-title" data-i18n="auditFindingTitle">Finding details</h3>
         <div id="audit-modal-body"></div>
         <div style="margin-top:1rem;display:flex;gap:0.5rem;">
-          <button type="button" class="btn btn-primary btn-sm" id="audit-modal-verify-btn">Mark Verified</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="audit-modal-flag-btn">Flag for Review</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="audit-modal-dismiss-btn">Dismiss</button>
+          <button type="button" class="btn btn-primary btn-sm" id="audit-modal-verify-btn" data-i18n="auditMarkVerified">Mark verified</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="audit-modal-flag-btn" data-i18n="auditFlagReview">Flag for review</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="audit-modal-dismiss-btn" data-i18n="auditDismiss">Dismiss</button>
         </div>
         <div id="audit-modal-status" style="margin-top:0.5rem;font-size:0.85rem;"></div>
       </div>
@@ -2252,8 +2244,8 @@
     <!-- Chart drill-down modal -->
     <div id="chart-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" data-overlay-close>
       <div style="background:white;max-width:900px;margin:4vh auto;border-radius:12px;padding:1.5rem;position:relative;">
-        <button type="button" data-action="hide" data-target="chart-drilldown-modal" aria-label="Close" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
-        <h3 id="chart-modal-title">Chart Detail</h3>
+        <button type="button" data-action="hide" data-target="chart-drilldown-modal" data-i18n-aria-label="btnClose" aria-label="Close" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
+        <h3 id="chart-modal-title" data-i18n="chartDetailTitle">Chart detail</h3>
         <div id="chart-modal-body"></div>
         <div id="chart-modal-txn-area" style="display:none;">
           <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center;">
@@ -2400,13 +2392,13 @@
         <p class="empty-state" style="padding:0.5rem;" data-i18n="prodEmpty">Click "Load" to view product data.</p>
       </div>
       <div class="panel" id="prod-chart-panel" style="display:none;margin-top:1rem;">
-        <h3>Product Chart</h3>
+        <h3 data-i18n="prodChartTitle">Product chart</h3>
         <div style="position:relative;height:300px;"><canvas id="prod-chart"></canvas></div>
       </div>
       <div id="prod-detail-panel" style="display:none;margin-top:1rem;border:1px solid var(--border);border-radius:10px;padding:1rem;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-          <h3 id="prod-detail-title" style="margin:0;">Product Detail</h3>
-          <button type="button" class="btn btn-secondary btn-sm" data-action="hide" data-target="prod-detail-panel">Close</button>
+          <h3 id="prod-detail-title" style="margin:0;" data-i18n="prodDetailTitle">Product detail</h3>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="hide" data-target="prod-detail-panel" data-i18n="btnClose">Close</button>
         </div>
         <div id="prod-detail-body"></div>
       </div>
@@ -2486,9 +2478,9 @@
           <label for="ui-language-select" id="ui-language-label">Interface language</label>
           <select id="ui-language-select">
             <option value="en">English</option>
-            <option value="fa">Persian (فارسی)</option>
-            <option value="es">Spanish (Español)</option>
-            <option value="ar">Arabic (العربية)</option>
+            <option value="fa">فارسی</option>
+            <option value="es">Español</option>
+            <option value="ar">العربية</option>
           </select>
         </div>
         <div style="display:flex; align-items:flex-end;">
@@ -2568,8 +2560,8 @@
             <label for="ai-provider-select" data-i18n="aiProvider">AI provider</label>
             <select id="ai-provider-select">
               <option value="metis">MetisAI</option>
-              <option value="lmstudio">Local LM Studio</option>
-              <option value="custom">Custom</option>
+              <option value="lmstudio" data-i18n="aiProviderLocal">Local LM Studio</option>
+              <option value="custom" data-i18n="aiProviderCustom">Custom</option>
             </select>
           </div>
           <div>
@@ -2944,7 +2936,7 @@
       <div class="row" style="margin-bottom: 1rem; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
         <div><label for="co-name" data-i18n="companiesName">Company name</label><input type="text" id="co-name" placeholder="Acme Ltd"></div>
         <div><label for="co-locale" data-i18n="companiesLocale">Locale</label>
-          <select id="co-locale"><option value="uk">UK (GBP)</option><option value="ir">Iran (IRR)</option><option value="default">Default</option></select></div>
+          <select id="co-locale"><option value="uk" data-i18n="companiesLocaleUk">UK (GBP)</option><option value="ir" data-i18n="companiesLocaleIr">Iran (IRR)</option><option value="default" data-i18n="companiesLocaleDefault">Default</option></select></div>
         <div><label for="co-kind" data-i18n="companiesKind">Type</label>
           <select id="co-kind"><option value="business" data-i18n="companiesKindBusiness">Business</option><option value="personal" data-i18n="companiesKindPersonal">Personal</option></select></div>
         <div><label for="co-currency" data-i18n="companiesCurrency">Base currency</label><select id="co-currency" style="width:110px;">
@@ -3098,8 +3090,8 @@
       </div>
       <div id="ui-confirm-message" style="padding: 1rem 1.25rem; white-space: pre-line; overflow-y: auto;"></div>
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
-        <button type="button" class="btn btn-secondary" id="ui-confirm-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="ui-confirm-ok">Confirm</button>
+        <button type="button" class="btn btn-secondary" id="ui-confirm-cancel" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="ui-confirm-ok" data-i18n="btnConfirm">Confirm</button>
       </div>
     </div>
   </div>
@@ -3141,8 +3133,8 @@
         <input id="ui-prompt-input" type="text" style="width: 100%;">
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
-        <button type="button" class="btn btn-secondary" id="ui-prompt-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="ui-prompt-ok">Confirm</button>
+        <button type="button" class="btn btn-secondary" id="ui-prompt-cancel" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="ui-prompt-ok" data-i18n="btnConfirm">Confirm</button>
       </div>
     </div>
   </div>

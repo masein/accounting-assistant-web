@@ -317,7 +317,7 @@
             setTimeout(() => showAlert(tf('tfaRecoveryUsed', { n: left }), Number(left) <= 2), 600);
           }
         } catch (_) { /* storage blocked: nothing to show */ }
-        if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? t('usersAdmin') : t('usersUser');
+        if (settingsUserRoleEl) { settingsUserRoleEl.dataset.i18n = data.user.is_admin ? 'usersAdmin' : 'usersUser'; settingsUserRoleEl.textContent = t(settingsUserRoleEl.dataset.i18n); }
         const lang = (data.user.preferred_language || localStorage.getItem('aa_ui_language') || 'en').toLowerCase();
         // A language this browser hasn't saved yet (first sign-in on a device):
         // wait for its pack, so the first page's tables draw in it too.
@@ -326,7 +326,7 @@
           try { await loadLanguagePack(lang); } catch (_) { /* applyLanguage says so */ }
         }
         applyLanguage(lang, true);
-        if (settingsUserRoleEl) settingsUserRoleEl.textContent = data.user.is_admin ? t('usersAdmin') : t('usersUser');
+        if (settingsUserRoleEl) { settingsUserRoleEl.dataset.i18n = data.user.is_admin ? 'usersAdmin' : 'usersUser'; settingsUserRoleEl.textContent = t(settingsUserRoleEl.dataset.i18n); }
         // Show the current company name in the header.
         const badge = document.getElementById('company-badge');
         if (badge && data.company && data.company.name) {

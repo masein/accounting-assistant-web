@@ -291,7 +291,7 @@
           type: 'bar',
           title: isUK ? (t('chartProfitWaterfall') || 'Profit waterfall') : t('chartIncomeStatement'),
           data: {
-            labels: [t('labelGrossShort') || 'Gross', t('labelOperatingShort') || 'Operating', t('labelBeforeTaxShort') || 'Before tax', t('labelNetShort') || 'Net'],
+            labels: [t('labelGrossShort'), t('labelOperatingShort'), t('labelBeforeTaxShort'), t('labelNetShort')],
             datasets: [
               { label: t('labelCurrent') || 'Current', data: cur, backgroundColor: palette[0] },
               { label: t('labelPrior') || 'Prior', data: pri, backgroundColor: palette[1] },
@@ -332,7 +332,7 @@
           type: 'bar',
           title: t('chartNpOciTotal') || 'Comprehensive income',
           data: {
-            labels: [t('labelNetProfitShort') || 'Net profit', t('labelOciNetTax') || 'OCI (net of tax)', t('labelTotalComprehensive') || 'Total comprehensive'],
+            labels: [t('labelNetProfitShort'), t('labelOciNetTax'), t('labelTotalComprehensive')],
             datasets: [
               { label: t('labelCurrent') || 'Current', data: cur, backgroundColor: palette[0] },
               { label: t('labelPrior') || 'Prior', data: pri, backgroundColor: palette[1] },
@@ -908,20 +908,20 @@
       const dEl = document.getElementById('bal-debit');
       const cEl = document.getElementById('bal-credit');
       const diffEl = document.getElementById('bal-diff');
-      if (dEl) dEl.textContent = 'Debit: ' + totalDebit.toLocaleString();
-      if (cEl) cEl.textContent = 'Credit: ' + totalCredit.toLocaleString();
+      if (dEl) dEl.textContent = tf('voucherBarDebit', { amount: formatNum(totalDebit) });
+      if (cEl) cEl.textContent = tf('voucherBarCredit', { amount: formatNum(totalCredit) });
       if (diffEl) {
         const diff = totalDebit - totalCredit;
         if (diff === 0) {
-          diffEl.textContent = 'Balanced ✓';
+          diffEl.textContent = t('voucherBarBalanced');
           diffEl.className = 'balance-diff balanced';
         } else {
-          diffEl.textContent = 'Diff: ' + diff.toLocaleString();
+          diffEl.textContent = tf('voucherBarDiff', { amount: formatNum(diff) });
           diffEl.className = 'balance-diff unbalanced';
         }
       }
     }
-    document.getElementById('lines-tbody').addEventListener('input', updateVoucherBalanceBar);
+    document.getElementById('lines-tbody').addEventListener('input', updateVoucherBalanceBar);   // first drawn by applyLanguage
 
     // Old voucher-inline chat handler (POST /transactions/chat with form-fill)
     // was removed, and so were the endpoint and POST /transactions/suggest. The "Open AI chat" button on the Vouchers page now

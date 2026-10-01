@@ -31,6 +31,8 @@ JALALI_MONTHS_FA = ("فروردین", "اردیبهشت", "خرداد", "تیر"
 JALALI_MONTHS_EN = ("Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar",
                     "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand")
 GREGORIAN_MONTHS_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+# as the browser's fa-IR Gregorian dates name them, so a month reads the same in both
+GREGORIAN_MONTHS_FA = ("ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر")
 SEASONS_FA = ("بهار", "تابستان", "پاییز", "زمستان")
 SEASONS_EN = ("Spring", "Summer", "Autumn", "Winter")
 
@@ -167,12 +169,14 @@ def _fa_digits(text: str) -> str:
 
 
 def month_label(key: str, lang: str = "en") -> str:
-    """"مهر ۱۴۰۵" / "Mehr 1405" / "Oct 2026"."""
+    """"مهر ۱۴۰۵" / "Mehr 1405" / "Oct 2026" / "اکتبر ۲۰۲۶"."""
     y, m = int(key[:4]), int(key[5:7])
     if calendar_of_key(key) == JALALI:
         if lang == "fa":
             return f"{JALALI_MONTHS_FA[m - 1]} {_fa_digits(str(y))}"
         return f"{JALALI_MONTHS_EN[m - 1]} {y}"
+    if lang == "fa":
+        return f"{GREGORIAN_MONTHS_FA[m - 1]} {_fa_digits(str(y))}"
     return f"{GREGORIAN_MONTHS_EN[m - 1]} {y}"
 
 
@@ -180,7 +184,7 @@ def quarter_label(key: str, lang: str = "en") -> str:
     y, q = int(key[:4]), int(key[-1])
     if calendar_of_key(key) == JALALI:
         return (f"{SEASONS_FA[q - 1]} {_fa_digits(str(y))}" if lang == "fa" else f"{SEASONS_EN[q - 1]} {y}")
-    return f"Q{q} {y}"
+    return f"سه‌ماهه {_fa_digits(str(q))} {_fa_digits(str(y))}" if lang == "fa" else f"Q{q} {y}"
 
 
 # --- a report's buckets -------------------------------------------------------------------------------------

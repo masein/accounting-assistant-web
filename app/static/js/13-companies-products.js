@@ -1123,20 +1123,27 @@
       const modal = document.getElementById('audit-drilldown-modal');
       document.getElementById('audit-modal-title').textContent = finding.title;
       const body = document.getElementById('audit-modal-body');
-      const domainLabel = finding.domain === 'treasury' ? 'Treasury (خزانه‌داری)' : finding.domain === 'managerial' ? 'Managerial (حسابداری مدیریتی)' : 'Financial (حسابداری مالی)';
+      const domainLabel = t(finding.domain === 'treasury' ? 'auditDomainTreasury' : finding.domain === 'managerial' ? 'auditDomainManagerial' : 'auditDomainFinancial');
+      const sev = t(finding.severity === 'critical' ? 'auditSevCritical' : 'auditSevWarning');
       body.innerHTML = `
-        <div style="margin-bottom:0.5rem;"><span style="font-size:0.8rem;background:#e3f2fd;padding:0.15rem 0.5rem;border-radius:4px;">${domainLabel}</span></div>
-        <p><strong>Severity:</strong> <span style="color:${finding.severity === 'critical' ? '#c62828' : '#f57f17'}">${finding.severity.toUpperCase()}</span></p>
-        <p><strong>Category:</strong> ${escapeHtml(finding.category)}</p>
-        <p><strong>Detail:</strong> ${escapeHtml(finding.detail)}</p>
-        ${finding.amount ? `<p><strong>Amount:</strong> ${Number(finding.amount).toLocaleString()} ${currencyUnit()}</p>` : ''}
-        ${finding.entity_id ? `<p><strong>Entity ID:</strong> ${escapeHtml(finding.entity_id)}</p>` : ''}
+        <div style="margin-bottom:0.5rem;"><span style="font-size:0.8rem;background:#e3f2fd;padding:0.15rem 0.5rem;border-radius:4px;">${escapeHtml(domainLabel)}</span></div>
+        <p><strong>${escapeHtml(t('auditSeverity'))}:</strong> <span style="color:${finding.severity === 'critical' ? '#c62828' : '#f57f17'}">${escapeHtml(sev)}</span></p>
+        <p><strong>${escapeHtml(t('labelCategory'))}:</strong> ${escapeHtml(finding.category)}</p>
+        <p><strong>${escapeHtml(t('thDetail'))}:</strong> ${escapeHtml(finding.detail)}</p>
+        ${finding.amount ? `<p><strong>${escapeHtml(t('labelAmount'))}:</strong> ${formatNum(Number(finding.amount))} ${escapeHtml(currencyUnit())}</p>` : ''}
+        ${finding.entity_id ? `<p><strong>${escapeHtml(t('auditEntityId'))}:</strong> <bdi>${escapeHtml(finding.entity_id)}</bdi></p>` : ''}
       `;
       const statusEl = document.getElementById('audit-modal-status');
-      statusEl.textContent = finding._status ? `Status: ${finding._status}` : '';
-      document.getElementById('audit-modal-verify-btn').onclick = () => { finding._status = 'verified'; statusEl.textContent = 'Marked as Verified'; statusEl.style.color = '#2e7d32'; };
-      document.getElementById('audit-modal-flag-btn').onclick = () => { finding._status = 'flagged'; statusEl.textContent = 'Flagged for Review'; statusEl.style.color = '#f57f17'; };
-      document.getElementById('audit-modal-dismiss-btn').onclick = () => { finding._status = 'dismissed'; statusEl.textContent = 'Dismissed'; statusEl.style.color = 'var(--text-muted)'; };
+      const STATUS = { verified: ['auditStatusVerified', '#2e7d32'], flagged: ['auditStatusFlagged', '#f57f17'], dismissed: ['auditStatusDismissed', 'var(--text-muted)'] };
+      const showStatus = () => {
+        const s = STATUS[finding._status];
+        statusEl.textContent = s ? t(s[0]) : '';
+        statusEl.style.color = s ? s[1] : '';
+      };
+      showStatus();
+      document.getElementById('audit-modal-verify-btn').onclick = () => { finding._status = 'verified'; showStatus(); };
+      document.getElementById('audit-modal-flag-btn').onclick = () => { finding._status = 'flagged'; showStatus(); };
+      document.getElementById('audit-modal-dismiss-btn').onclick = () => { finding._status = 'dismissed'; showStatus(); };
       modal.style.display = 'block';
     }
 
@@ -1149,8 +1156,8 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key: 'liability_threshold', value: val })
         });
-        showAlert('Liability threshold saved.');
-      } catch (e) { showAlert('Failed to save threshold.', true); }
+        showAlert(t('auditThresholdSaved'));
+      } catch (e) { showAlert(t('auditThresholdFailed'), true); }
     });
 
     // ═══════ Enhanced Manager Report (product filter + cash flow periods + AP) ═══════

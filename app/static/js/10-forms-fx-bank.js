@@ -644,8 +644,8 @@
       const otherId = locale === 'ir' ? 'reset-demo-uk-btn' : 'reset-demo-ir-btn';
       const otherBtn = document.getElementById(otherId);
       const confirmMsg = locale === 'ir'
-        ? (t('confirmResetIranian') || 'Reset the database and load the Iranian demo? All current transactions will be deleted.')
-        : (t('confirmResetUk') || 'Reset the database and load the UK demo? All current transactions will be deleted.');
+        ? t('confirmResetIranian')
+        : t('confirmResetUk');
       if (!(await uiConfirm({ message: confirmMsg, confirmLabel: t('btnContinue'), danger: true }))) return;
       button.disabled = true;
       if (otherBtn) otherBtn.disabled = true;
@@ -820,7 +820,7 @@
     async function doUploadStatement(file, bankName, { columnMap = null, confirmDuplicate = false, pdfPassword = null } = {}) {
       const statusEl = document.getElementById('bs-upload-status');
       statusEl.style.display = 'block';
-      statusEl.textContent = t('aiThinking') || 'Uploading and parsing...';
+      statusEl.textContent = t('xiUploading');
       statusEl.className = 'alert';
       const form = new FormData();
       form.append('file', file);

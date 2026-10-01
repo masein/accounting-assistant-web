@@ -1215,7 +1215,7 @@
         // Render items list
         const listEl = document.getElementById('inv-items-list');
         if (listEl && rows.length) {
-          listEl.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.3rem;">${rows.length} items registered</div>
+          listEl.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.3rem;">${escapeHtml(tf('invItemsRegistered', { n: formatNum(rows.length) }))}</div>
           <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">${rows.map(i =>
             `<span data-item-id="${escapeHtml(String(i.id))}" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;background:#f1f5f9;border-radius:6px;font-size:0.8rem;border:1px solid var(--border);">
               <strong>${escapeHtml(i.name)}</strong>${i.sku ? ` <span style="color:var(--text-muted);">(${escapeHtml(i.sku)})</span>` : ''}${i.barcode ? ` <span style="color:var(--text-muted);" dir="ltr">▮ ${escapeHtml(i.barcode)}</span>` : ''}
@@ -1224,7 +1224,7 @@
           ).join('')}</div>`;
           if (highlightId) flashRow(listEl.querySelector('[data-item-id="' + CSS.escape(String(highlightId)) + '"]'));
         } else if (listEl) {
-          listEl.innerHTML = '<div style="font-size:0.82rem;color:var(--text-muted);">No items yet. Add one above.</div>';
+          listEl.innerHTML = '<div style="font-size:0.82rem;color:var(--text-muted);">' + escapeHtml(t('invNoItemsYet')) + '</div>';
         }
       } catch (_) {}
     }

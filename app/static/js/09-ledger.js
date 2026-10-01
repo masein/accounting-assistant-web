@@ -25,12 +25,12 @@
       // "1200 — Bank current account" instead of a bare account code.
       const acctLabel = (r) => r ? escapeHtml(r.account_code + (r.account_name ? ' — ' + r.account_name : '')) : '—';
       ledgerKpisEl.innerHTML = `
-        <div class="ledger-kpi"><div class="k">Accounts shown</div><div class="v">${formatNum(rows.length)}</div></div>
-        <div class="ledger-kpi"><div class="k">Active accounts</div><div class="v">${formatNum(active)}</div></div>
-        <div class="ledger-kpi"><div class="k">Total movement</div><div class="v">${formatNum(totalMovement)} ${escapeHtml(currencyUnit())}</div></div>
-        <div class="ledger-kpi"><div class="k">Net position</div><div class="v ${net >= 0 ? 'ledger-positive' : 'ledger-negative'}">${formatNum(Math.abs(net))} ${escapeHtml(currencyUnit())} ${net >= 0 ? 'DR' : 'CR'}</div></div>
-        <div class="ledger-kpi"><div class="k">Top debit</div><div class="v" style="font-size:0.95rem;">${acctLabel(topDebit)}</div></div>
-        <div class="ledger-kpi"><div class="k">Top credit</div><div class="v" style="font-size:0.95rem;">${acctLabel(topCredit)}</div></div>
+        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiShown'))}</div><div class="v">${formatNum(rows.length)}</div></div>
+        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiActive'))}</div><div class="v">${formatNum(active)}</div></div>
+        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiMovement'))}</div><div class="v">${formatNum(totalMovement)} ${escapeHtml(currencyUnit())}</div></div>
+        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiNet'))}</div><div class="v ${net >= 0 ? 'ledger-positive' : 'ledger-negative'}">${formatNum(Math.abs(net))} ${escapeHtml(currencyUnit())} ${escapeHtml(t(net >= 0 ? 'balanceDr' : 'balanceCr'))}</div></div>
+        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiTopDebit'))}</div><div class="v" style="font-size:0.95rem;">${acctLabel(topDebit)}</div></div>
+        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiTopCredit'))}</div><div class="v" style="font-size:0.95rem;">${acctLabel(topCredit)}</div></div>
       `;
     }
 
@@ -77,8 +77,8 @@
         data: {
           labels,
           datasets: [
-            { label: 'Debit turnover', data: chartRows.map(r => r.debit_turnover), backgroundColor: colors[0], borderRadius: 5, stack: 'turnover' },
-            { label: 'Credit turnover', data: chartRows.map(r => r.credit_turnover), backgroundColor: colors[1], borderRadius: 5, stack: 'turnover' }
+            { label: t('tableDebitTurnover'), data: chartRows.map(r => r.debit_turnover), backgroundColor: colors[0], borderRadius: 5, stack: 'turnover' },
+            { label: t('tableCreditTurnover'), data: chartRows.map(r => r.credit_turnover), backgroundColor: colors[1], borderRadius: 5, stack: 'turnover' }
           ]
         },
         options: {
@@ -101,7 +101,7 @@
         data: {
           labels: balanceLabels,
           datasets: [{
-            label: 'Net balance (debit − credit)',
+            label: t('legendNetBalance'),
             data: balanceData,
             borderColor: colors[2],
             backgroundColor: balanceData.map(v => v >= 0 ? 'rgba(5, 150, 105, 0.22)' : 'rgba(185, 28, 28, 0.22)'),

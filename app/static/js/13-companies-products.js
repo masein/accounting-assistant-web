@@ -355,7 +355,7 @@
         document.getElementById('ceo-grade').style.color = d.health_grade <= 'B' ? '#2e7d32' : d.health_grade <= 'C' ? '#f57f17' : '#c62828';
         document.getElementById('ceo-risk').textContent = d.risk_score + '/100';
         document.getElementById('ceo-risk').style.color = d.risk_score <= 30 ? '#2e7d32' : d.risk_score <= 60 ? '#f57f17' : '#c62828';
-        document.getElementById('ceo-runway').textContent = d.cash_runway_months + ' mo';
+        document.getElementById('ceo-runway').textContent = d.cash_runway_months + ' ' + t('monthsShort');
         document.getElementById('ceo-margin').textContent = d.profit_margin + '%';
         document.getElementById('ceo-margin').style.color = d.profit_margin >= 0 ? '#2e7d32' : '#c62828';
 
@@ -366,7 +366,7 @@
           { label: 'Total Revenue (12m)', value: d.revenue_total, unit: ccy, color: '#2e7d32' },
           { label: 'Net Profit (12m)', value: d.profit_total, unit: ccy, color: d.profit_total >= 0 ? '#2e7d32' : '#c62828' },
           { label: 'Cash Position', value: d.cash_position, unit: ccy, color: d.cash_position >= 0 ? '#0f766e' : '#c62828' },
-          { label: 'Burn Rate', value: d.burn_rate, unit: ccy + '/mo', color: 'var(--text)' },
+          { label: 'Burn Rate', value: d.burn_rate, unit: ccy + '/' + t('monthsShort'), color: 'var(--text)' },
           { label: 'Liability Ratio', value: (d.liability_ratio * 100).toFixed(1) + '%', unit: '', color: d.liability_ratio > 0.6 ? '#c62828' : 'var(--text)' },
         ];
         kpiItems.forEach(k => {
@@ -410,8 +410,8 @@
             type: 'bar', data: {
               labels: months,
               datasets: [
-                { label: 'Revenue', data: (d.monthly_revenue || []).map(m => m.amount), backgroundColor: '#0f766e' },
-                { label: 'Expenses', data: (d.monthly_expenses || []).map(m => m.amount), backgroundColor: '#c62828' }
+                { label: t('fieldRevenue'), data: (d.monthly_revenue || []).map(m => m.amount), backgroundColor: '#0f766e' },
+                { label: t('sectionExpenses'), data: (d.monthly_expenses || []).map(m => m.amount), backgroundColor: '#c62828' }
               ]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } },
               onClick: (e, els) => {
@@ -433,7 +433,7 @@
           ceoProfitChart = new Chart(document.getElementById('ceo-profit-chart'), {
             type: 'line', data: {
               labels: months,
-              datasets: [{ label: 'Net Profit', data: (d.monthly_profit || []).map(m => m.amount), borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.15)', fill: true, tension: 0.3 }]
+              datasets: [{ label: t('legendNetProfit'), data: (d.monthly_profit || []).map(m => m.amount), borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.15)', fill: true, tension: 0.3 }]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => formatNum(v) } } },
               onClick: (e, els) => { if (els.length) showTransactionDrilldown(t('fieldNetProfit') + ' — ' + months[els[0].index], { account_code_prefix: '41,42,43,51,52,53,61,62', month: months[els[0].index] }); }
             }
@@ -465,13 +465,13 @@
           const bsBreakdowns = [d.assets_breakdown || [], d.liabilities_breakdown || [], d.equity_breakdown || []];
           ceoBalanceChart = new Chart(document.getElementById('ceo-balance-chart'), {
             type: 'doughnut', data: {
-              labels: ['Assets', 'Liabilities', 'Equity'],
+              labels: [t('ceoAssets'), t('ceoLiabilities'), t('ceoEquity')],
               datasets: [{ data: [Math.abs(d.total_assets || 0), Math.abs(d.total_liabilities || 0), Math.abs(d.total_equity || 0)], backgroundColor: ['#0f766e', '#c62828', '#0ea5e9'] }]
             }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } },
               onClick: (e, els) => {
                 if (els.length) {
                   const idx = els[0].index;
-                  const label = ['Assets', 'Liabilities', 'Equity'][idx];
+                  const label = [t('ceoAssets'), t('ceoLiabilities'), t('ceoEquity')][idx];
                   const prefixes = [['11','12','13','14','15'], ['21','22','23','24'], ['31','32','33']][idx];
                   const breakdown = bsBreakdowns[idx];
                   if (breakdown && breakdown.length) {
@@ -1195,9 +1195,9 @@
             if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
             managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
               type: 'doughnut', data: {
-                labels: Object.keys(buckets),
-                datasets: [{ label: 'AP Aging', data: Object.values(buckets), backgroundColor: ['#0f766e', '#eab308', '#f57f17', '#c62828', '#8b5cf6'] }]
-              }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'AP by Aging Bucket' } },
+                labels: Object.keys(buckets).map(b => b === 'current' ? t('fieldCurrent') : b),
+                datasets: [{ label: t('panelAPAging'), data: Object.values(buckets), backgroundColor: ['#0f766e', '#eab308', '#f57f17', '#c62828', '#8b5cf6'] }]
+              }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: t('panelAPAging') } },
                 onClick: (e, els) => { if (els.length) { const key = Object.keys(buckets)[els[0].index]; showChartDrilldown('AP Aging', key, { bucket: key, amount: buckets[key] }); } }
               }
             });

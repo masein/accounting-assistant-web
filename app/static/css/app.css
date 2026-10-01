@@ -844,6 +844,10 @@
     html[dir="rtl"] #account-modal-body .detail-table th,
     html[dir="rtl"] #account-modal-body .detail-table td { text-align: right; }
     html[dir="rtl"] .chat-msg.user { align-self: flex-start; }
+    /* A chart draws its text in the canvas's direction: right-to-left turned
+       "-10,000,000" on an axis into "10,000,000-". Persian labels still read
+       right-to-left inside a left-to-right canvas. */
+    html[dir="rtl"] canvas { direction: ltr; }
     html[dir="rtl"] .chat-msg.assistant { align-self: flex-end; }
     #voucher-chat-inline {
       max-height: 0;

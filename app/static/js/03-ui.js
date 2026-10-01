@@ -508,6 +508,30 @@
       });
       return txt;
     }
+    // A control in a table cell takes its name from its column header: the line
+    // editors (journal lines, invoice lines, instalments, opening balances, PO
+    // lines…) build inputs without a <label>, which left a screen reader saying
+    // "edit text" forty times. Names this pass set are refreshed on the next one,
+    // so a language switch re-reads the translated header.
+    function nameTableControls(root) {
+      (root || document).querySelectorAll('td input, td select, td textarea').forEach((el) => {
+        if (el.type === 'hidden' || (el.labels && el.labels.length)) return;
+        if (el.hasAttribute('aria-label') && !el.dataset.autoName) return;      // named by its renderer
+        const td = el.closest('td');
+        const table = td && td.closest('table');
+        const head = table && table.tHead && table.tHead.rows[0];
+        const th = head && head.cells[td.cellIndex];
+        const name = th ? th.textContent.trim() : '';
+        if (name && el.getAttribute('aria-label') !== name) { el.setAttribute('aria-label', name); el.dataset.autoName = '1'; }
+      });
+    }
+    (function watchTableControls() {
+      let queued = false;
+      const run = () => { queued = false; try { nameTableControls(); } catch (_) {} };
+      new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(run); } })
+        .observe(document.body, { childList: true, subtree: true, characterData: true });
+    })();
+
     function localizeDynamicText(value) {
       if (value == null) return '';
       const s = String(value).trim();

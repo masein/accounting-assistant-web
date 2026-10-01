@@ -198,15 +198,19 @@ _REPEATS = {"none", "daily", "weekly", "monthly", "yearly"}
 
 @router.get("/feed", response_model=list[FeedItem])
 def notifications_feed(
+    request: Request,
     db: Session = Depends(get_db),
     user: SessionUser = Depends(get_current_user),
 ) -> list[FeedItem]:
     """Refresh + return the caller's visible notifications (undismissed,
     newest/most-urgent first). Personal rows (reminders, petty-cash decisions)
     are user-scoped; company rows are role-gated by kind."""
+    from app.core.messages import request_language
     from app.services.notification_service import refresh_notifications, visible_to
+    from app.services.notification_text import render
 
     refresh_notifications(db)
+    lang = request_language(request.headers)   # the page's language
     rows = db.execute(
         _select(Notification).where(Notification.dismissed_at.is_(None))
         .order_by(Notification.level.desc(), Notification.due_date.nulls_last(),
@@ -217,9 +221,10 @@ def notifications_feed(
     for row in rows:
         if not visible_to(row, user_id=user.user_id, role=role):
             continue
+        title, message = render(row.text_key, row.params, lang) or (row.title, row.message)
         out.append(FeedItem(
-            id=str(row.id), kind=row.kind, level=row.level, title=row.title,
-            message=row.message, link_page=row.link_page,
+            id=str(row.id), kind=row.kind, level=row.level, title=title,
+            message=message, link_page=row.link_page,
             due_date=row.due_date.isoformat() if row.due_date else None,
             read=row.read_at is not None,
             created_at=row.created_at.isoformat() if row.created_at else "",

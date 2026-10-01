@@ -375,3 +375,21 @@ def test_the_worker_shows_pushes_and_opens_the_page():
     assert "self.addEventListener('notificationclick'" in sw and "/^[a-z0-9-]{1,40}$/" in sw
     ui = (root / "js" / "03-ui.js").read_text(encoding="utf-8").split("// ═══════ Push notifications", 1)[1]
     assert "userVisibleOnly: true" in ui and "/notifications/push/subscriptions" in ui and "onclick" not in ui
+
+
+def test_a_push_speaks_each_recipients_language(db, co):
+    with tenant_bypass():
+        db.get(User, uuid.UUID(co["users"]["owner"])).preferred_language = "fa"
+        db.commit()
+    owner = _subscribe(db, co, "owner")
+    _alert(db, co, text_key="invoice_overdue",
+           params={"number": "7", "side": "receivable", "days": 12, "date": "2026-09-19"})
+    svc = PushService()
+    _deliver(db, co, svc)
+    got = _received(svc, owner)
+    assert got[0]["title"] == "فاکتور ⁨7⁩ سررسید گذشته" and "روز" in got[0]["body"]
+    for _ in range(5):
+        _alert(db, co, text_key="invoice_overdue", params={"number": "8", "side": "payable", "days": 1, "date": "2026-09-30"})
+    svc = PushService()
+    _deliver(db, co, svc)
+    assert _received(svc, owner)[0]["title"] == "5 هشدار تازه"

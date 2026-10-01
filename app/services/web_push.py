@@ -213,10 +213,20 @@ def send(db: Session, sub, message: dict[str, Any], *, client=None) -> str:
     return "sent"
 
 
-def _message(row) -> dict[str, Any]:
+_SUMMARY = {"en": "{n} new alerts", "fa": "{n} هشدار تازه", "es": "{n} avisos nuevos", "ar": "{n} تنبيهات جديدة"}
+
+
+def _said(row, lang: str) -> tuple[str, str]:
+    """A notification's title and message in the recipient's language."""
+    from app.services.notification_text import render
+    return render(getattr(row, "text_key", None), getattr(row, "params", None), lang) or (row.title or "", row.message or "")
+
+
+def _message(row, lang: str = "en") -> dict[str, Any]:
     import re
     page = row.link_page if row.link_page and re.fullmatch(r"[a-z0-9-]{1,40}", row.link_page) else None
-    return {"title": (row.title or "")[:120], "body": (row.message or "")[:300], "page": page,
+    title, body = _said(row, lang)
+    return {"title": title[:120], "body": body[:300], "page": page,
             "tag": (row.dedupe_key or str(row.id))[:64]}
 
 
@@ -240,22 +250,25 @@ def deliver_pending(db: Session, *, client=None) -> dict[str, int]:
     subs = db.execute(select(PushSubscription)).scalars().all()
     if subs and open_rows:
         cid = get_current_company()
-        users = db.execute(select(User.id, User.role).where(
+        users = db.execute(select(User.id, User.role, User.preferred_language).where(
             User.company_id == uuid.UUID(str(cid)), User.is_active.is_(True))).all() if cid else []
         by_user: dict[str, list] = {}
+        lang_of: dict[str, str] = {}
         for r in open_rows:
-            for uid, role in users:
+            for uid, role, pref in users:
+                lang_of[str(uid)] = (pref or "en").strip().lower()
                 if visible_to(r, user_id=str(uid), role=role or "owner"):
                     by_user.setdefault(str(uid), []).append(r)
         for uid, alerts in by_user.items():
             devices = [s for s in subs if s.user_id == uid]
             if not devices:
                 continue
+            lang = lang_of.get(uid, "en")
             if len(alerts) > MAX_PER_USER_EACH_TICK:
-                messages = [{"title": f"{len(alerts)} new alerts", "body": "; ".join(a.title for a in alerts[:3])[:300],
-                             "page": None, "tag": "summary"}]
+                messages = [{"title": _SUMMARY.get(lang, _SUMMARY["en"]).format(n=len(alerts)),
+                             "body": "; ".join(_said(a, lang)[0] for a in alerts[:3])[:300], "page": None, "tag": "summary"}]
             else:
-                messages = [_message(a) for a in alerts]
+                messages = [_message(a, lang) for a in alerts]
             for dev in devices:
                 for msg in messages:
                     outcome = send(db, dev, msg, client=client)

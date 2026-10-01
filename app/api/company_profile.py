@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -53,6 +53,14 @@ class CompanyProfilePut(BaseModel):
     default_payment_terms: str | None = Field(None, max_length=128)
     invoice_footer: str | None = None
     invoice_number_prefix: str | None = Field(None, max_length=32)
+
+    @field_validator("tax_id", "registration_number", "economic_code", "national_id", "postal_code", "bank_account_no",
+                     "iban", "phone", mode="before")
+    @classmethod
+    def _ascii_identifiers(cls, v):
+        """Typed on a Persian keyboard, stored in 0–9 (the invoice PDF and the Moadian export read these)."""
+        from app.utils.digits import ascii_digits
+        return ascii_digits(v)
 
 
 def _get_or_create(db: Session) -> CompanyProfile:

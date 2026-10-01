@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.utils.digits import ascii_digits
 from app.utils.iban import normalize_iban
 
 
@@ -37,12 +38,19 @@ class EntityBillingFields(BaseModel):
 class _IbanInput(BaseModel):
     """Input-side IBAN check (create/update only — reads render what is
     stored). Structure + mod-97 checksum; blanks become None. A wrong IBAN on
-    a payee means a failed payment later, so it is refused here (422)."""
+    a payee means a failed payment later, so it is refused here (422).
+    Identifiers typed on a Persian keyboard are stored in 0–9."""
+
+    @field_validator("phone", "tax_id", "economic_code", "national_id", "postal_code", "account_number", "sort_code",
+                     mode="before", check_fields=False)
+    @classmethod
+    def _ascii_identifiers(cls, v):
+        return ascii_digits(v)
 
     @field_validator("iban", check_fields=False)
     @classmethod
     def _valid_iban(cls, v: str | None) -> str | None:
-        return normalize_iban(v)
+        return normalize_iban(ascii_digits(v))
 
 
 class EntityBase(EntityBillingFields):

@@ -1125,37 +1125,7 @@
       } catch (err) { /* ignore */ }
     });
 
-    // ═══════ Audit Module ═══════
-    document.getElementById('audit-run-btn').addEventListener('click', async () => {
-      try {
-        document.getElementById('audit-run-btn').disabled = true;
-        const res = await fetch(bsAPI + '/audit/report');
-        const data = await res.json();
-        document.getElementById('audit-scores').style.display = 'flex';
-        document.getElementById('audit-integrity-score').textContent = data.integrity_score;
-        document.getElementById('audit-integrity-score').style.color = data.integrity_score >= 80 ? '#2e7d32' : data.integrity_score >= 50 ? '#f57f17' : '#c62828';
-        document.getElementById('audit-health-score').textContent = data.health_score;
-        document.getElementById('audit-health-score').style.color = data.health_score >= 80 ? '#2e7d32' : data.health_score >= 50 ? '#f57f17' : '#c62828';
-        document.getElementById('audit-checks-summary').textContent = `${data.checks_passed} passed / ${data.checks_failed} failed`;
-        const findingsWrap = document.getElementById('audit-findings-wrap');
-        const findingsList = document.getElementById('audit-findings-list');
-        findingsList.innerHTML = '';
-        if (data.findings.length) {
-          findingsWrap.style.display = 'block';
-          data.findings.forEach(f => {
-            const color = f.severity === 'critical' ? '#c62828' : f.severity === 'warning' ? '#f57f17' : '#1565c0';
-            const div = document.createElement('div');
-            div.style.cssText = `padding:0.5rem 0.75rem;margin-bottom:0.4rem;border-left:4px solid ${color};background:#fafafa;border-radius:4px;`;
-            div.innerHTML = `<strong style="color:${color}">${escapeHtml(f.severity.toUpperCase())}</strong> — <strong>${escapeHtml(f.title)}</strong><br><span style="font-size:0.85rem;color:var(--text-muted);">${escapeHtml(f.detail)}</span>`;
-            findingsList.appendChild(div);
-          });
-        } else {
-          findingsWrap.style.display = 'block';
-          findingsList.innerHTML = '<p style="color:#2e7d32;">All checks passed. No issues found.</p>';
-        }
-      } catch (e) { showAlert('Audit failed: ' + e.message, true); }
-      finally { document.getElementById('audit-run-btn').disabled = false; }
-    });
+    // ═══════ Audit Module ═══════   (the Run button's handler is in 13-companies-products.js)
 
     // "create" / "transaction" in the reader's language (auditAct_* / auditEnt_*
     // keys; tests/test_audit_labels.py keeps one for every value the server

@@ -32,6 +32,86 @@ class AuditFinding:
     entity_id: str | None = None
     amount: int | None = None
     domain: str = "financial"  # treasury, managerial, financial
+    # what the finding says, for the reader's language: a FINDING_TEXT key and
+    # its values (title/detail above stay the English wording)
+    key: str = ""
+    params: dict = field(default_factory=dict)
+
+    def localized(self, lang: str) -> tuple[str, str]:
+        """(title, detail) in ``lang`` — English for an unknown key or language."""
+        text = FINDING_TEXT.get(self.key)
+        if not text or lang not in text["title"]:
+            return self.title, self.detail
+        params = self.params
+        if lang in ("fa", "ar"):   # a name or a signed number keeps its own direction in a right-to-left line
+            params = {k: f"\u2068{v}\u2069" for k, v in params.items()}
+        return text["title"][lang].format(**params), text["detail"][lang].format(**params)
+
+
+# The findings' wording in each language the app speaks; {placeholders} are the
+# finding's params (tests/test_audit_service_i18n.py keeps the four in step).
+FINDING_TEXT: dict[str, dict[str, dict[str, str]]] = {
+    "equation_imbalance": {
+        "title": {"en": "Accounting equation imbalance", "fa": "عدم توازن معادله حسابداری",
+                  "es": "Desequilibrio de la ecuación contable", "ar": "اختلال معادلة المحاسبة"},
+        "detail": {"en": "Assets ({assets}) ≠ liabilities ({liabilities}) + equity ({equity}) + retained earnings ({retained}). Difference: {diff}",
+                   "fa": "دارایی‌ها ({assets}) ≠ بدهی‌ها ({liabilities}) + حقوق مالکانه ({equity}) + سود انباشته ({retained}). اختلاف: {diff}",
+                   "es": "Activos ({assets}) ≠ pasivos ({liabilities}) + patrimonio ({equity}) + resultados acumulados ({retained}). Diferencia: {diff}",
+                   "ar": "الأصول ({assets}) ≠ الالتزامات ({liabilities}) + حقوق الملكية ({equity}) + الأرباح المحتجزة ({retained}). الفرق: {diff}"},
+    },
+    "unbalanced_journal": {
+        "title": {"en": "Unbalanced journal", "fa": "سند ناتراز", "es": "Asiento descuadrado", "ar": "قيد غير متوازن"},
+        "detail": {"en": "Journal {ref}: debit {debit}, credit {credit}, difference {diff}",
+                   "fa": "سند {ref}: بدهکار {debit}، بستانکار {credit}، اختلاف {diff}",
+                   "es": "Asiento {ref}: debe {debit}, haber {credit}, diferencia {diff}",
+                   "ar": "القيد {ref}: مدين {debit}، دائن {credit}، الفرق {diff}"},
+    },
+    "duplicate_payment": {
+        "title": {"en": "Possible duplicate payment", "fa": "احتمال پرداخت تکراری", "es": "Posible pago duplicado",
+                  "ar": "دفعة مكررة محتملة"},
+        "detail": {"en": "Journals {a} and {b} on {date}: the same amount ({amount}), descriptions {similarity} alike",
+                   "fa": "اسناد {a} و {b} در تاریخ {date}: مبلغ یکسان ({amount})، شباهت شرح {similarity}",
+                   "es": "Asientos {a} y {b} del {date}: el mismo importe ({amount}), descripciones parecidas en un {similarity}",
+                   "ar": "القيدان {a} و{b} بتاريخ {date}: المبلغ نفسه ({amount})، وتشابه الوصف {similarity}"},
+    },
+    "expense_spike": {
+        "title": {"en": "Expense spike: {category}", "fa": "جهش هزینه: {category}", "es": "Pico de gasto: {category}",
+                  "ar": "ارتفاع حاد في المصروف: {category}"},
+        "detail": {"en": "{category} this month: {current} against an average of {average} (threshold {threshold})",
+                   "fa": "{category} در این ماه: {current} در برابر میانگین {average} (آستانه {threshold})",
+                   "es": "{category} este mes: {current} frente a una media de {average} (umbral {threshold})",
+                   "ar": "{category} هذا الشهر: {current} مقابل متوسط {average} (الحد {threshold})"},
+    },
+    "negative_asset": {
+        "title": {"en": "Negative asset balance: {name}", "fa": "مانده منفی دارایی: {name}",
+                  "es": "Saldo negativo de activo: {name}", "ar": "رصيد أصل سالب: {name}"},
+        "detail": {"en": "Account {code} ({name}) has a negative balance: {balance}",
+                   "fa": "حساب {code} ({name}) مانده منفی دارد: {balance}",
+                   "es": "La cuenta {code} ({name}) tiene saldo negativo: {balance}",
+                   "ar": "الحساب {code} ({name}) رصيده سالب: {balance}"},
+    },
+    "backdated": {
+        "title": {"en": "Backdated entry", "fa": "سند با تاریخ گذشته", "es": "Asiento con fecha atrasada", "ar": "قيد بتاريخ سابق"},
+        "detail": {"en": "Journal {ref} dated {date} was entered {days} days later, on {created}",
+                   "fa": "سند {ref} به تاریخ {date}، {days} روز بعد در {created} ثبت شد",
+                   "es": "El asiento {ref} con fecha {date} se registró {days} días después, el {created}",
+                   "ar": "القيد {ref} المؤرخ {date} أُدخل بعد {days} يوماً، في {created}"},
+    },
+    "liability_threshold": {
+        "title": {"en": "Liabilities exceed the threshold", "fa": "بدهی‌ها از آستانه بیشتر است",
+                  "es": "Los pasivos superan el umbral", "ar": "الالتزامات تتجاوز الحد"},
+        "detail": {"en": "Total liabilities ({total}) exceed the threshold ({threshold}) by {excess}",
+                   "fa": "جمع بدهی‌ها ({total}) به اندازه {excess} از آستانه ({threshold}) بیشتر است",
+                   "es": "El total de pasivos ({total}) supera el umbral ({threshold}) en {excess}",
+                   "ar": "إجمالي الالتزامات ({total}) يتجاوز الحد ({threshold}) بمقدار {excess}"},
+    },
+    "check_failed": {
+        "title": {"en": "Check failed: {name}", "fa": "بررسی انجام نشد: {name}", "es": "Falló la comprobación: {name}",
+                  "ar": "فشل الفحص: {name}"},
+        "detail": {"en": "The {name} check ran into an error", "fa": "بررسی {name} با خطا روبه‌رو شد",
+                   "es": "La comprobación {name} encontró un error", "ar": "واجه فحص {name} خطأً"},
+    },
+}
 
 
 @dataclass
@@ -87,6 +167,9 @@ def check_accounting_equation(db: Session) -> list[AuditFinding]:
             title="Accounting equation imbalance",
             detail=f"Assets ({assets:,}) ≠ Liabilities ({liabilities:,}) + Equity ({equity:,}) + Retained ({retained:,}). Diff: {diff:,}",
             amount=diff,
+            key="equation_imbalance",
+            params={"assets": f"{assets:,}", "liabilities": f"{liabilities:,}", "equity": f"{equity:,}",
+                    "retained": f"{retained:,}", "diff": f"{diff:,}"},
         ))
 
     return findings
@@ -114,6 +197,8 @@ def check_debit_credit_balance(db: Session) -> list[AuditFinding]:
             detail=f"Transaction {txn_id}: debit={td:,}, credit={tc:,}, diff={abs(td - tc):,}",
             entity_id=str(txn_id),
             amount=abs(td - tc),
+            key="unbalanced_journal",
+            params={"ref": str(txn_id)[:8], "debit": f"{td:,}", "credit": f"{tc:,}", "diff": f"{abs(td - tc):,}"},
         ))
 
     return findings
@@ -155,6 +240,9 @@ def detect_duplicate_payments(db: Session, lookback_days: int = 90) -> list[Audi
                         detail=f"Transactions {a.id} and {b.id} on {a.date}: same amount ({amt:,}), description similarity {sim:.0%}",
                         entity_id=str(a.id),
                         amount=amt,
+                        key="duplicate_payment",
+                        params={"a": str(a.id)[:8], "b": str(b.id)[:8], "date": str(a.date), "amount": f"{amt:,}",
+                                "similarity": f"{sim:.0%}"},
                     ))
 
     return findings
@@ -197,6 +285,9 @@ def detect_anomalies(db: Session, lookback_days: int = 180) -> list[AuditFinding
                 title=f"Expense spike: {category}",
                 detail=f"{category} this month: {current:,} vs average {avg:,.0f} (threshold {threshold:,.0f})",
                 amount=current,
+                key="expense_spike",
+                params={"category": str(category), "current": f"{current:,}", "average": f"{avg:,.0f}",
+                        "threshold": f"{threshold:,.0f}"},
             ))
 
     return findings
@@ -230,6 +321,8 @@ def detect_negative_balances(db: Session) -> list[AuditFinding]:
                     detail=f"Account {code} ({name}) has negative balance: {balance:,}",
                     entity_id=str(acc_id),
                     amount=balance,
+                    key="negative_asset",
+                    params={"code": str(code), "name": str(name), "balance": f"{balance:,}"},
                 ))
 
     return findings
@@ -256,6 +349,8 @@ def detect_backdated_entries(db: Session, days_threshold: int = 30) -> list[Audi
                 title="Backdated entry",
                 detail=f"Transaction {txn.id} dated {txn.date} was created {gap} days later on {created_date}",
                 entity_id=str(txn.id),
+                key="backdated",
+                params={"ref": str(txn.id)[:8], "date": str(txn.date), "days": str(gap), "created": str(created_date)},
             ))
 
     return findings
@@ -296,6 +391,9 @@ def check_liability_threshold(db: Session, threshold: int = 0) -> list[AuditFind
             title="Liabilities exceed threshold",
             detail=f"Total liabilities ({total_liabilities:,}) exceed the defined threshold ({threshold:,}). Excess: {total_liabilities - threshold:,}",
             amount=total_liabilities,
+            key="liability_threshold",
+            params={"total": f"{total_liabilities:,}", "threshold": f"{threshold:,}",
+                    "excess": f"{total_liabilities - threshold:,}"},
             domain="treasury",
         ))
 
@@ -341,6 +439,8 @@ def run_full_audit(db: Session) -> AuditReport:
                 category="system",
                 title=f"Check failed: {name}",
                 detail=f"The {name} check encountered an error",
+                key="check_failed",
+                params={"name": name},
             ))
 
     # Assign domains to findings

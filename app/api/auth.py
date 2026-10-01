@@ -345,6 +345,8 @@ def _join_household(payload: "SignupRequest", request: Request, response: Respon
     except hh.HouseholdError as e:
         db.rollback()
         raise HTTPException(status_code=e.status, detail=str(e)) from e
+    from app.core.messages import request_language
+    user.preferred_language = request_language(request.headers)   # the language they signed up in
     pending = verification_required() and user.email_verified_at is None
     if pending and not user.email:
         db.rollback()
@@ -419,6 +421,10 @@ def signup(payload: SignupRequest, request: Request, response: Response,
         db.rollback()
         # Covers the duplicate-username case; the message is the service's.
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+    # the language they signed up in, for the e-mails that follow and their first sign-in
+    from app.core.messages import request_language
+    user.preferred_language = request_language(request.headers)
 
     email = (payload.email or "").strip() or None
     pending_verification = verification_required()

@@ -229,3 +229,26 @@ def test_the_pages_are_wired():
               "hhRemoveConfirm", "hhCancel", "hhSomeone", "hhInvitedEmailed", "hhInvitedLink", "hhLinkEmailed",
               "hhLinkCopy", "hhFailed"):
         assert text.count(f"{k}:") == 4, k
+
+
+def test_an_invitation_is_written_in_the_inviters_language_and_escaped(home, db, monkeypatch):
+    from app.models.user import User
+    from app.services import mail_service
+    from tests.test_invoice_mail import _FakeSMTP
+    sent: list = []
+    monkeypatch.setattr(mail_service, "mail_configured", lambda: True)
+    monkeypatch.setattr(mail_service, "_connect", lambda: _FakeSMTP(sent))
+    with tenant_bypass():
+        db.get(User, uuid.UUID(home["uid"])).preferred_language = "fa"
+        db.commit()
+    inv = _invite(home["api"], name="<b>Reza</b>", email="reza@home.example")
+    assert inv["emailed"] is True
+    msg = sent[0]
+    assert "شما را به دفاتر خود دعوت کرده است" in msg["Subject"]
+    html = msg.get_body(preferencelist=("html",)).get_content()
+    assert "&lt;b&gt;Reza&lt;/b&gt;" in html and "<b>Reza" not in html and "dir='rtl'" in html
+    assert "«Our Money»" in msg.get_body(preferencelist=("plain",)).get_content()
+    # whoever joins keeps the language they signed up in
+    r2 = home["client"].post("/auth/signup", json={"invite": _invite(home["as_user"]())["token"], "username": "ana-es",
+                                                   "password": STRONG}, headers={"X-UI-Language": "es"})
+    assert r2.status_code == 201 and _user(db, "ana-es").preferred_language == "es"

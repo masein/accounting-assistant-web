@@ -466,7 +466,7 @@ document.getElementById('join-form').addEventListener('submit', async (e) => {
     if (!res.ok) { errEl.textContent = data.detail || t('failed'); return; }
     if (data.pending_verification) {
       const done = document.getElementById('join-done');
-      done.textContent = data.message || t('joinPending');
+      done.textContent = t('joinPending');   // the server's message is English
       done.style.display = '';
       return;
     }

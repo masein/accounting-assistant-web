@@ -22,6 +22,17 @@ from app.services.net_worth_service import compute_net_worth
 router = APIRouter(prefix="/personal", tags=["personal"])
 
 
+def _language_of(db: Session, user_id) -> str:
+    """A user's chosen language, for what is written on their behalf."""
+    from app.models.user import User
+    try:
+        row = db.get(User, UUID(str(user_id)))
+    except (ValueError, TypeError):
+        row = None
+    lang = ((row.preferred_language if row else None) or "en").strip().lower()
+    return lang if lang in ("en", "fa", "es", "ar") else "en"
+
+
 def _current_user():
     """The signed-in user (the middleware already refused anyone else). Their
     company may be missing — the household service answers that one."""
@@ -298,7 +309,7 @@ def invite(payload: InviteCreate, db: Session = Depends(get_db), user=Depends(_c
     try:
         inv, token = hh.create_invite(db, user.company_id, invited_by=user.user_id, name=payload.name,
                                       email=payload.email)
-        emailed = hh.send_invite(db, inv, token, inviter=user.username)
+        emailed = hh.send_invite(db, inv, token, inviter=user.username, lang=_language_of(db, user.user_id))
     except hh.HouseholdError as e:
         db.rollback()
         raise _household_error(e)

@@ -247,3 +247,15 @@ def test_a_provisioned_user_without_a_token_can_still_log_in(client, db, mail_on
     assert ev.awaiting_verification(_user(db, "provisioned")) is False
     assert client.post("/auth/login",
                        json={"username": "provisioned", "password": PW}).status_code == 200
+
+
+def test_signing_up_in_persian_sends_the_link_in_persian(client, db, signup_enabled, mail_on):
+    r = client.post("/auth/signup", json={"username": "farsi-newbie", "password": PW, "email": "fa@example.com"},
+                    headers={"X-UI-Language": "fa"})
+    assert r.status_code == 201, r.text
+    assert _user(db, "farsi-newbie").preferred_language == "fa"          # their first sign-in opens in Persian too
+    mail = mail_on[0]
+    assert mail["subject"] == "نشانی ایمیل خود را تأیید کنید"
+    assert mail["text"].startswith("سلام farsi-newbie،") and "dir='rtl'" in mail["html"]
+    client.post("/auth/signup", json={"username": "plain-newbie", "password": PW, "email": "en@example.com"})
+    assert _user(db, "plain-newbie").preferred_language == "en" and mail_on[1]["subject"] == "Confirm your email address"

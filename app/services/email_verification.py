@@ -42,25 +42,40 @@ def _verify_url(token: str) -> str:
     return f"{base}/auth/verify?token={token}"
 
 
+# in the language the person signed up in (en, fa, es, ar)
+_VERIFY = {
+    "en": {"subject": "Confirm your email address", "hello": "Hello {name},",
+           "ask": "Confirm your email address to finish setting up your account:", "button": "Confirm my email",
+           "note": "The link is valid for {hours} hours. If you did not create this account, you can ignore this message."},
+    "fa": {"subject": "نشانی ایمیل خود را تأیید کنید", "hello": "سلام {name}،",
+           "ask": "برای تکمیل ساخت حساب، نشانی ایمیل خود را تأیید کنید:", "button": "تأیید ایمیل",
+           "note": "این پیوند {hours} ساعت معتبر است. اگر این حساب را شما نساخته‌اید، این پیام را نادیده بگیرید."},
+    "es": {"subject": "Confirma tu dirección de correo", "hello": "Hola, {name}:",
+           "ask": "Confirma tu dirección de correo para terminar de configurar tu cuenta:", "button": "Confirmar mi correo",
+           "note": "El enlace es válido durante {hours} horas. Si no creaste esta cuenta, puedes ignorar este mensaje."},
+    "ar": {"subject": "أكّد عنوان بريدك الإلكتروني", "hello": "مرحباً {name}،",
+           "ask": "أكّد عنوان بريدك الإلكتروني لإكمال إعداد حسابك:", "button": "تأكيد بريدي",
+           "note": "الرابط صالح لمدة {hours} ساعة. إذا لم تنشئ هذا الحساب فتجاهل هذه الرسالة."},
+}
+
+
 def send_verification_email(user: User) -> bool:
+    from html import escape
+
     if not user.email or not user.verification_token:
         return False
+    lang = (user.preferred_language or "en").strip().lower()
+    T = _VERIFY.get(lang, _VERIFY["en"])
     link = _verify_url(user.verification_token)
-    text = (
-        f"Hello {user.username},\n\n"
-        "Confirm your email address to finish setting up your account:\n\n"
-        f"{link}\n\n"
-        f"The link is valid for {TOKEN_TTL_HOURS} hours. "
-        "If you did not create this account, you can ignore this message."
-    )
+    hello, note = T["hello"].format(name=user.username), T["note"].format(hours=TOKEN_TTL_HOURS)
+    text = f"{hello}\n\n{T['ask']}\n\n{link}\n\n{note}"
     html = (
-        f"<p>Hello {user.username},</p>"
-        "<p>Confirm your email address to finish setting up your account:</p>"
-        f'<p><a href="{link}">Confirm my email</a></p>'
-        f"<p style='color:#666;font-size:13px'>The link is valid for {TOKEN_TTL_HOURS} hours. "
-        "If you did not create this account, you can ignore this message.</p>"
+        f"<div dir='{'rtl' if lang in ('fa', 'ar') else 'ltr'}'>"
+        f"<p>{escape(hello)}</p><p>{escape(T['ask'])}</p>"
+        f'<p><a href="{escape(link, quote=True)}">{escape(T["button"])}</a></p>'
+        f"<p style='color:#666;font-size:13px'>{escape(note)}</p></div>"
     )
-    return send_email(to=user.email, subject="Confirm your email address", text=text, html=html)
+    return send_email(to=user.email, subject=T["subject"], text=text, html=html)
 
 
 def token_is_expired(user: User) -> bool:

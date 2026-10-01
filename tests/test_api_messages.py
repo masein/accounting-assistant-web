@@ -118,3 +118,15 @@ def test_payroll_time_users_and_quotes_read_in_the_language_too():
     hours = localize_detail("That would be 26 hours on 2026-10-01 (20 already logged); a day has 24.", "fa")
     assert hours.startswith("با این ثبت، ⁨2026-10-01⁩ به ⁨26⁩ ساعت")
     assert localize_detail("You cannot delete yourself", "fa") == "نمی‌توانید خودتان را حذف کنید"
+
+
+def test_the_books_cheques_parties_and_orders_read_in_the_language_too():
+    closed = localize_detail("Period is closed through 2026-06-30; cannot post or back-date an entry dated 2026-05-01. "
+                             "Reopen the period or use a later date.", "fa")
+    assert closed.startswith("دوره تا ⁨2026-06-30⁩ بسته است")
+    assert localize_detail("This cheque is bounced.", "es") == "Este cheque está rechazado."
+    assert localize_detail("A supplier named 'Paper Co' already exists (id 9). Use it, or send allow_duplicate=true "
+                           "to create another one on purpose.", "fa") == "یک ⁨تأمین‌کننده⁩ با نام «⁨Paper Co⁩» قبلاً وجود دارد. همان را به کار ببرید."
+    assert localize_detail("PO is closed; cannot receive against it.", "ar") == "أمر الشراء ⁨مغلق⁩؛ لا يمكن الاستلام عليه."
+    assert localize_detail("Account not found", "fa") == "حساب پیدا نشد"
+    assert localize_detail("You don't have permission to perform this action", "es") == "No tienes permiso para realizar esta acción"

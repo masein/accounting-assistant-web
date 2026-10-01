@@ -532,6 +532,44 @@
         .observe(document.body, { childList: true, subtree: true, characterData: true });
     })();
 
+    // Persian (۰–۹) and Arabic-Indic (٠–٩) digits in a number field: Chrome
+    // drops them, so an amount typed on a Persian keyboard simply vanished. They
+    // go in as 0–9 — typed, entered through an input method, or pasted (with
+    // its thousands separators dropped and ٫ as the decimal point).
+    function asciiDigits(text) {
+      return String(text)
+        .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+        .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+        .replace(/٫/g, '.').replace(/[٬,\s]/g, '');
+    }
+    (function acceptPersianDigits() {
+      const NON_ASCII = /[۰-۹٠-٩٫٬]/;
+      const numberField = (el) => el instanceof HTMLInputElement && el.type === 'number' && !el.readOnly && !el.disabled;
+      const put = (el, text) => {
+        if (!document.execCommand('insertText', false, text)) {      // the field takes it where the caret is
+          el.value = (el.value || '') + text;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      };
+      document.addEventListener('keydown', (e) => {
+        if (!numberField(e.target) || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || !NON_ASCII.test(e.key)) return;
+        e.preventDefault();
+        put(e.target, asciiDigits(e.key));
+      }, true);
+      document.addEventListener('beforeinput', (e) => {
+        if (!numberField(e.target) || !e.data || !NON_ASCII.test(e.data)) return;
+        e.preventDefault();
+        put(e.target, asciiDigits(e.data));
+      }, true);
+      document.addEventListener('paste', (e) => {
+        if (!numberField(e.target)) return;
+        const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
+        if (!NON_ASCII.test(text) && !/[,\s]/.test(text.trim())) return;
+        e.preventDefault();
+        put(e.target, asciiDigits(text));
+      }, true);
+    })();
+
     function localizeDynamicText(value) {
       if (value == null) return '';
       const s = String(value).trim();

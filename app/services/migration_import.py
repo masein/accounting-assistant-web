@@ -101,6 +101,8 @@ class MigrationParseError(ValueError):
 # Normalization helpers
 # ---------------------------------------------------------------------------
 
+from app.utils.text import fold_fa, fold_sql  # noqa: E402
+
 def normalize_fa(text: str | None) -> str:
     """Unify Arabic/Persian letterforms + digits, strip ZWNJ/BOM, collapse space."""
     if text is None:
@@ -485,7 +487,7 @@ def _find_imported_entity(db: Session, etype: str, name: str, account_number: st
         if found:
             return found
     return db.execute(
-        select(Entity).where(Entity.type == etype, Entity.name.ilike(name))
+        select(Entity).where(Entity.type == etype, fold_sql(Entity.name).ilike(fold_fa(name)))
     ).scalars().first()
 
 

@@ -21,6 +21,8 @@ from app.schemas.entity import (
     EntityUpdate,
 )
 
+from app.utils.text import fold_fa, fold_sql  # noqa: E402
+
 router = APIRouter(prefix="/entities", tags=["entities"])
 
 
@@ -35,7 +37,7 @@ def _get_or_create_entity(db: Session, role: str, name: str) -> Entity:
         db.execute(
             select(Entity).where(
                 Entity.type == entity_type,
-                Entity.name.ilike(name),
+                fold_sql(Entity.name).ilike(fold_fa(name)),
             )
         )
         .scalars().first()
@@ -58,7 +60,7 @@ def list_entities(
     if type:
         q = q.where(Entity.type == type.strip().lower())
     if search and search.strip():
-        q = q.where(Entity.name.ilike(f"%{search.strip()}%"))
+        q = q.where(fold_sql(Entity.name).ilike(f"%{fold_fa(search.strip())}%"))
     entities = db.execute(q).scalars().all()
     return [_strip_for_actor(EntityRead.model_validate(e)) for e in entities]
 
@@ -120,7 +122,7 @@ def create_entity(
     code = payload.code.strip() if payload.code else None
     if not payload.allow_duplicate:
         twin = db.execute(
-            select(Entity).where(Entity.type == typ, func.lower(Entity.name) == name.lower())
+            select(Entity).where(Entity.type == typ, func.lower(fold_sql(Entity.name)) == fold_fa(name).lower())
         ).scalars().first()
         if twin is not None:
             raise HTTPException(

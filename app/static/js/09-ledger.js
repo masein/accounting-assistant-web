@@ -50,12 +50,12 @@
 
     function filteredLedgerRows() {
       if (!ledgerData || !Array.isArray(ledgerData.rows)) return [];
-      const q = (ledgerSearchEl.value || '').trim().toLowerCase();
+      const q = foldFa((ledgerSearchEl.value || '').trim());
       const onlyNonZero = !!ledgerNonZeroEl.checked;
       let rows = ledgerData.rows.filter(r => {
         if (onlyNonZero && accountTurnover(r) === 0) return false;
         if (!q) return true;
-        return String(r.account_code || '').toLowerCase().includes(q) || String(r.account_name || '').toLowerCase().includes(q);
+        return String(r.account_code || '').toLowerCase().includes(q) || foldFa(r.account_name).includes(q);
       });
       rows = sortLedgerRows(rows);
       return rows;

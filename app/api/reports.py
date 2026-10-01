@@ -808,26 +808,28 @@ def search_transactions(
         q = q.where(Transaction.date <= to_date)
 
     if search:
-        term = f"%{search}%"
+        from app.utils.text import fold_fa, fold_sql
+        term = f"%{fold_fa(search)}%"
         q = q.where(
             or_(
-                Transaction.description.ilike(term),
+                fold_sql(Transaction.description).ilike(term),
                 Transaction.reference.ilike(term),
-                TransactionLine.line_description.ilike(term),
+                fold_sql(TransactionLine.line_description).ilike(term),
             )
         )
 
     # Entity name filter via subquery
+    from app.utils.text import fold_fa, fold_sql
     if entity_name:
         entity_sub = (
             select(TransactionEntity.transaction_id)
             .join(Entity, TransactionEntity.entity_id == Entity.id)
-            .where(Entity.name.ilike(f"%{entity_name}%"))
+            .where(fold_sql(Entity.name).ilike(f"%{fold_fa(entity_name)}%"))
         ).scalar_subquery()
         q = q.where(Transaction.id.in_(
             select(TransactionEntity.transaction_id)
             .join(Entity, TransactionEntity.entity_id == Entity.id)
-            .where(Entity.name.ilike(f"%{entity_name}%"))
+            .where(fold_sql(Entity.name).ilike(f"%{fold_fa(entity_name)}%"))
         ))
 
     # Count total before pagination

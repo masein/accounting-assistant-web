@@ -1418,8 +1418,8 @@
 
     function coaRender() {
       const box = document.getElementById('coa-tree');
-      const q = (document.getElementById('coa-filter').value || '').trim().toLowerCase();
-      const rows = coaFlatten(_coaTree, 0, []).filter((n) => !q || n.code.includes(q) || (n.name || '').toLowerCase().includes(q));
+      const q = foldFa((document.getElementById('coa-filter').value || '').trim());
+      const rows = coaFlatten(_coaTree, 0, []).filter((n) => !q || n.code.includes(q) || foldFa(n.name).includes(q));
       if (!rows.length) { box.innerHTML = '<p class="fc-note">' + escapeHtml(t('coaNone')) + '</p>'; return; }
       const head = ['coaCode', 'coaName', 'coaLevel', 'coaBalance', 'coaStatus', ''].map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
       box.innerHTML = '<table class="mini-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows.map((n) => {

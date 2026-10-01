@@ -571,6 +571,12 @@
       }, true);
     })();
 
+    // ي/ى and ی, ك and ک are the same letter to a reader (an Arabic keyboard,
+    // a bank's export): a search compares both sides folded. Stored text is kept.
+    function foldFa(text) {
+      return String(text || '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').toLowerCase();
+    }
+
     function localizeDynamicText(value) {
       if (value == null) return '';
       const s = String(value).trim();

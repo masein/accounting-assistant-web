@@ -368,7 +368,8 @@ def _find_or_create_party(db: Session, kind: str, name: str | None) -> UUID | No
     if not clean:
         return None
     typ = "client" if kind == "sales" else "supplier"
-    existing = db.execute(select(Entity).where(Entity.type == typ, Entity.name.ilike(clean))).scalars().first()
+    from app.utils.text import fold_fa, fold_sql
+    existing = db.execute(select(Entity).where(Entity.type == typ, fold_sql(Entity.name).ilike(fold_fa(clean)))).scalars().first()
     if existing:
         return existing.id
     row = Entity(type=typ, name=clean)

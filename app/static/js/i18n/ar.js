@@ -1614,6 +1614,8 @@ window.I18N_PACKS.ar = Object.assign({
         balanceDr: 'مدين',
         balanceCr: 'دائن',
         unassignedVendor: 'مورّد غير محدد',
+        invItemsRegistered: '{n} صنفاً مسجلاً',
+        invNoItemsYet: 'لا توجد أصناف بعد. أضف صنفاً أعلاه.',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

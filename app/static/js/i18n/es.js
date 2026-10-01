@@ -1614,6 +1614,8 @@ window.I18N_PACKS.es = Object.assign({
         balanceDr: 'D',
         balanceCr: 'H',
         unassignedVendor: 'Proveedor sin asignar',
+        invItemsRegistered: '{n} artículos registrados',
+        invNoItemsYet: 'Aún no hay artículos. Añade uno arriba.',
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

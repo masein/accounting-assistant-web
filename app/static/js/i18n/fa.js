@@ -1656,6 +1656,8 @@ window.I18N_PACKS.fa = Object.assign({
         balanceDr: 'بد',
         balanceCr: 'بس',
         unassignedVendor: 'تأمین‌کننده تخصیص‌نیافته',
+        invItemsRegistered: '{n} کالا ثبت شده',
+        invNoItemsYet: 'هنوز کالایی ثبت نشده است. از فرم بالا اضافه کنید.',
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

@@ -1661,6 +1661,8 @@
         balanceDr: 'DR',
         balanceCr: 'CR',
         unassignedVendor: 'Unassigned vendor',
+        invItemsRegistered: '{n} items registered',
+        invNoItemsYet: 'No items yet. Add one above.',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

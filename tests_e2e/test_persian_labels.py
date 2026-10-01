@@ -22,10 +22,14 @@ SCAN = r"""() => {
   const out = new Set();
   const sel = ['th', 'button', 'label', 'summary', 'h1', 'h2', 'h3', 'h4', 'legend', 'p', 'strong', '.badge', '.empty-state', '.report-meta', 'option:checked', '.ledger-kpi .k'];
   const shown = e => (e.tagName === 'OPTION' ? e.parentElement.offsetParent !== null : e.offsetParent !== null);
+  const inRecord = e => { for (let n = e; n && n !== document.body; n = n.parentElement) {
+    if ([...n.attributes].some(a => /^data-[a-z-]*id$/.test(a.name))) return true; } return false; };
   for (const e of document.querySelectorAll(sel.map(s => '.card[data-page] ' + s).join(', '))) {
     if (!shown(e) || e.closest('td') || e.closest('pre') || e.closest('code')) continue;
-    // a picked record ("Supplier bed332", an id as its value) is data, not a label
+    // a picked record ("Supplier bed332", an id as its value) or the name in a
+    // record's chip (an item list entry carries data-item-id) is data, not a label
     if (e.tagName === 'OPTION' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.value)) continue;
+    if (e.tagName === 'STRONG' && inRecord(e.parentElement)) continue;
     const own = [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ').trim();
     const txt = (own || (e.children.length ? '' : e.textContent)).trim();
     if (txt.length < 4) continue;

@@ -1157,6 +1157,21 @@
       finally { document.getElementById('audit-run-btn').disabled = false; }
     });
 
+    // "create" / "transaction" in the reader's language (auditAct_* / auditEnt_*
+    // keys; tests/test_audit_labels.py keeps one for every value the server
+    // writes), and a time in the user's calendar rather than the browser's.
+    function auditLabel(prefix, value) {
+      const v = String(value || '');
+      const s = t(prefix + v);
+      return s !== prefix + v ? s : v.replace(/_/g, ' ');
+    }
+    function auditWhen(ts) {
+      const d = new Date(ts);
+      if (!ts || isNaN(d.getTime())) return '';
+      const p = (n) => String(n).padStart(2, '0');
+      return formatDisplayDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+
     async function loadAuditLogs() {
       try {
         const res = await fetch(bsAPI + '/audit/logs?limit=30');
@@ -1166,11 +1181,11 @@
         body.innerHTML = '';
         logs.forEach(l => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td style="font-size:0.8rem;">${l.timestamp ? new Date(l.timestamp).toLocaleString() : ''}</td>
-            <td>${escapeHtml(l.action)}</td><td>${escapeHtml(l.entity_type)}</td>
+          tr.innerHTML = `<td style="font-size:0.8rem;white-space:nowrap;"><bdi>${escapeHtml(auditWhen(l.timestamp))}</bdi></td>
+            <td>${escapeHtml(auditLabel('auditAct_', l.action))}</td><td>${escapeHtml(auditLabel('auditEnt_', l.entity_type))}</td>
             <td style="font-size:0.8rem;">${escapeHtml((l.entity_id || '').substring(0, 8))}</td>
             <td>${escapeHtml(l.username || '—')}</td>
-            <td style="font-size:0.8rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml((l.detail || '').substring(0, 120))}</td>`;
+            <td style="font-size:0.8rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;"><bdi dir="ltr">${escapeHtml((l.detail || '').substring(0, 120))}</bdi></td>`;
           body.appendChild(tr);
         });
       } catch (e) { /* ignore */ }

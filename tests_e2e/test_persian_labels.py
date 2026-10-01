@@ -17,7 +17,7 @@ from tests_e2e.conftest import ARTIFACTS
 
 PAGES = ["dashboard", "ai-accountant", "transactions", "invoices", "time", "expenses", "purchase-orders", "recurring",
          "commitments", "entities", "products", "inventory", "payroll", "equity", "fixed-assets", "petty-cash",
-         "bank-statements", "ledger", "manager", "audit", "migration", "accounts"]
+         "bank-statements", "ledger", "manager", "audit", "migration", "accounts", "settings"]
 SCAN = r"""() => {
   const out = new Set();
   const sel = ['th', 'button', 'label', 'summary', 'h1', 'h2', 'h3', 'h4', 'legend', 'p', 'strong', '.badge', '.empty-state', '.report-meta', 'option:checked', '.ledger-kpi .k'];
@@ -48,6 +48,13 @@ CHART_TEXT = r"""(withLabels) => typeof Chart === 'undefined' ? [] : Object.valu
   .flatMap(c => [...c.data.datasets.map(d => d.label), c.options.plugins && c.options.plugins.title && c.options.plugins.title.text,
                  ...(withLabels ? c.data.labels || [] : [])])
   .filter(x => typeof x === 'string' && /[A-Za-z]{3,}/.test(x) && !/[\u0600-\u06FF]/.test(x))"""
+# a placeholder in English ("Net 30", "Amount", "e.g. 500,000,000")
+PLACEHOLDERS = r"""() => [...document.querySelectorAll('.card[data-page] input[placeholder], .card[data-page] textarea[placeholder]')]
+  .filter(e => e.offsetParent !== null && /[A-Za-z]{3,}/.test(e.placeholder) && !/[\u0600-\u06FF]/.test(e.placeholder))
+  .map(e => 'placeholder: ' + e.placeholder)"""
+# the Audit page's trail: what was done and to what ("create", "transaction")
+AUDIT_TRAIL = r"""() => [...document.querySelectorAll('#audit-log-body tr')].filter(tr => tr.offsetParent !== null).flatMap(tr => [tr.children[1], tr.children[2]])
+  .map(td => td && td.textContent.trim()).filter(x => x && !/[\u0600-\u06FF]/.test(x)).map(x => 'audit: ' + x)"""
 # "0 mo", "13,500,000 GBP/mo", "0 months" on the executive pages
 UNITS = r"""() => [...document.querySelectorAll('.card[data-page] *')]
   .filter(e => e.offsetParent !== null && !e.children.length && /\b(mo|months)\b/.test(e.textContent))
@@ -70,7 +77,7 @@ POST_JOURNALS = r"""async (ref) => {
   return out;
 }"""
 ON_PURPOSE = ("CSV", "Excel", "PDF", "JSON", "IMAP", "INBOX", "IBAN", "API", "SMS", "VAT", "MTD", "HMRC", "TTMS",
-              "GBP", "IRR", "USD", "EUR", "http", "@", "Telegram", "Bale", "Google", "Apple")
+              "GBP", "IRR", "USD", "EUR", "http", "@", "example.com", "Telegram", "Bale", "Google", "Apple")
 
 
 def test_every_page_speaks_persian(flow_page):
@@ -90,7 +97,10 @@ def test_every_page_speaks_persian(flow_page):
             btn.click()
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(300)
-            english = [x for x in page.evaluate(SCAN) + page.evaluate(CHART_TEXT, False) if not any(w in x for w in ON_PURPOSE)]
+            if name == "audit":   # the journals posted above are in the trail
+                page.wait_for_selector("#audit-log-body tr", timeout=15_000)
+            seen = page.evaluate(SCAN) + page.evaluate(CHART_TEXT, False) + page.evaluate(PLACEHOLDERS) + page.evaluate(AUDIT_TRAIL)
+            english = [x for x in seen if not any(w in x for w in ON_PURPOSE)]
             if english:
                 found[name] = english
         assert found == {}, found

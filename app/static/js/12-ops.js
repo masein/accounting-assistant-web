@@ -576,7 +576,14 @@
     async function loadEquity() {
       if (!document.getElementById('equity-captable-body')) return;
       _equityWire();
-      const today = new Date().toISOString().slice(0, 10);
+      // the unit amounts are in: the company's own currency (it said "the smallest unit, e.g. Rials",
+      // which to a UK company read as pence)
+      const hint = document.getElementById('equity-amount-hint');
+      if (hint) {
+        const ccy = baseCurrencyCode(), sym = currencySymbol(ccy);
+        hint.textContent = tf('equityAmountHint', { currency: sym && sym !== ccy ? ccy + ' (' + sym + ')' : ccy });
+      }
+      const today = localIsoDate(new Date());
       ['equity-contrib-date', 'equity-div-date', 'equity-ci-date', 'equity-ca-date', 'equity-pay-date'].forEach(id => {
         const el = document.getElementById(id); if (el && !el.value) el.value = today;
       });
@@ -1324,7 +1331,7 @@
         document.getElementById('asset-detail-close').addEventListener('click', () => { box.style.display = 'none'; box.innerHTML = ''; });
         if (a.status === 'active') {
           const onEl = document.getElementById('asset-dispose-on');
-          onEl.value = new Date().toISOString().slice(0, 10);
+          onEl.value = localIsoDate(new Date());
           const send = async (preview) => {
             const out = document.getElementById('asset-dispose-result');
             const body = { on: onEl.value, proceeds: Number(document.getElementById('asset-dispose-proceeds').value || 0) };

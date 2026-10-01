@@ -208,7 +208,7 @@ window.I18N_PACKS.ar = Object.assign({
         equityClassPreferred: 'ممتازة',
         equityBtnAddShareholder: 'إضافة',
         equityActions: 'معاملات حقوق الملكية',
-        equityAmountHint: 'المبالغ بأصغر وحدة عملة (مثل الريال).',
+        equityAmountHint: "المبالغ بـ{currency} ومن دون كسور، كما في كل الدفاتر.",
         equityContribution: 'مساهمة (آورده)',
         equityFieldAmount: 'المبلغ',
         equityFieldDate: 'التاريخ',

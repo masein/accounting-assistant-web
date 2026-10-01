@@ -872,7 +872,7 @@
     }
 
     function fillFormFromSuggestion(data) {
-      document.getElementById('date').value = data.date || new Date().toISOString().slice(0, 10);
+      document.getElementById('date').value = data.date || localIsoDate(new Date());
       if (typeof updateJalaliHint === 'function') updateJalaliHint();
       document.getElementById('reference').value = data.reference || '';
       document.getElementById('description').value = data.description || '';

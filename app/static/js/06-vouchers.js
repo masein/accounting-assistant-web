@@ -92,7 +92,7 @@
     });
 
     function resetVoucherForm() {
-      document.getElementById('date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('date').value = localIsoDate(new Date());
       document.getElementById('reference').value = '';
       document.getElementById('description').value = '';
       document.getElementById('entity-client').value = '';

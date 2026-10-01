@@ -208,7 +208,7 @@ window.I18N_PACKS.es = Object.assign({
         equityClassPreferred: 'Preferente',
         equityBtnAddShareholder: 'Añadir',
         equityActions: 'Transacciones de patrimonio',
-        equityAmountHint: 'Los importes están en la unidad mínima (p. ej. riales).',
+        equityAmountHint: "Los importes van en {currency}, sin decimales, como en todos los libros.",
         equityContribution: 'Aporte (آورده)',
         equityFieldAmount: 'Importe',
         equityFieldDate: 'Fecha',

@@ -21,6 +21,7 @@ SCRIPT_FILLED = {
     "page-title",          # updatePageTitle() names the open page
     "bal-debit", "bal-credit", "bal-diff",   # updateVoucherBalanceBar() at load and on every edit
     "ui-language-label",   # applyLanguage(): t('languageLabel')
+    "equity-amount-hint",  # loadEquity(): tf('equityAmountHint', {currency}) — the company's own
 }
 # the languages in their own names; currency codes (with a symbol); other
 # products' names, written in both scripts

@@ -700,8 +700,8 @@
         const m = (ent.payment_terms || '').match(/(\d+)/);
         if (m) {
           const issue = document.getElementById('inv-issue').value;
-          if (issue) { const d = new Date(issue + 'T00:00:00'); d.setDate(d.getDate() + parseInt(m[1], 10));
-            document.getElementById('inv-due').value = d.toISOString().slice(0, 10); }
+          // in whole days, not through UTC: local midnight read back in UTC was a day early east of Greenwich
+          if (issue) document.getElementById('inv-due').value = datePlusDays(issue, parseInt(m[1], 10));
         }
       } catch (_) {}
     });
@@ -1513,7 +1513,7 @@
         const ctx = currentEntityContext || {};
         const role = entityRoleForType(ctx.entityType);
         tx = {
-          date: new Date().toISOString().slice(0, 10),
+          date: localIsoDate(new Date()),
           reference: '', description: '',
           entity_links: role ? [{ role, entity_id: ctx.entityId }] : [],
           lines: [{ account_code: ctx.controlAccount || '' }, {}],

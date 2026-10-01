@@ -1302,7 +1302,7 @@
         const keep = product.value;
         product.innerHTML = opts;
         if (keep && _stockItems.some((i) => i.id === keep)) product.value = keep;
-        if (!document.getElementById('prod-date').value) document.getElementById('prod-date').value = new Date().toISOString().slice(0, 10);
+        if (!document.getElementById('prod-date').value) document.getElementById('prod-date').value = localIsoDate(new Date());
         await Promise.all([stockShowValuation(), bomLoad()]);
       } catch (_) {
         table.innerHTML = '<p class="fc-note">' + escapeHtml(t('stockLoadError')) + '</p>';

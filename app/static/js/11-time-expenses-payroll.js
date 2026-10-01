@@ -260,7 +260,7 @@
           tr.style.background = colors[e.status] || '';
           const rateTxt = e.rate != null ? `${formatNum(Math.round(e.rate))} ${escapeHtml(e.currency || tmCur())}` : '—';
           const actions = e.locked ? `🔒` :
-            `<button class="btn btn-secondary btn-sm tm-wo" data-id="${e.id}">${t('timeWriteOff')}</button> <button class="btn btn-secondary btn-sm tm-del" data-id="${e.id}">✕</button>`;
+            `<button class="btn btn-secondary btn-sm tm-wo" data-id="${e.id}">${t('timeWriteOff')}</button> <button class="btn btn-secondary btn-sm tm-del" data-id="${e.id}" aria-label="${escapeHtml(t('btnDelete'))}" title="${escapeHtml(t('btnDelete'))}">✕</button>`;
           tr.innerHTML = `<td>${e.work_date}</td><td>${escapeHtml(e.employee_name || '')}</td>
             <td>${escapeHtml(e.client_name || '')}</td><td>${escapeHtml(e.project_name || t('timeNoProject'))}</td>
             <td>${e.hours}</td><td>${rateTxt}</td>
@@ -528,7 +528,7 @@
       tr.innerHTML = `<td><input type="text" class="po-l-desc" value="${escapeHtml(desc)}"><div class="po-l-hist fx-hint" style="margin:0.2rem 0 0;"></div></td>
         <td><input type="number" class="po-l-qty" min="0" step="0.01" value="${qty}" style="width:7rem;"></td>
         <td><input type="number" class="po-l-price" min="0" value="${price}" style="width:8rem;"></td>
-        <td><button type="button" class="btn btn-secondary btn-sm po-l-del">✕</button></td>`;
+        <td><button type="button" class="btn btn-secondary btn-sm po-l-del" aria-label="${escapeHtml(t('ibRemoveLine'))}" title="${escapeHtml(t('ibRemoveLine'))}">✕</button></td>`;
       document.getElementById('po-lines-body').appendChild(tr);
     }
 

@@ -1067,3 +1067,9 @@
       const tr = e.target.closest('tr.ledger-row');
       if (tr && tr.dataset.accountCode) openAccountDetail(tr.dataset.accountCode);
     });
+    resultsTbody.addEventListener('keydown', (e) => {
+      const tr = e.target.closest('tr.ledger-row');
+      if (!tr || !tr.dataset.accountCode || (e.key !== 'Enter' && e.key !== ' ')) return;
+      e.preventDefault();
+      openAccountDetail(tr.dataset.accountCode);
+    });

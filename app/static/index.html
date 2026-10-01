@@ -2198,9 +2198,9 @@
       <p data-i18n="auditSubtitle" style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;">Self-auditing accounting integrity checks, anomaly detection, and audit trail across Treasury, Managerial, and Financial domains.</p>
       <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
         <button type="button" class="btn btn-primary" id="audit-run-btn" data-i18n="auditRunBtn">Run Full Audit</button>
-        <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
+        <div style="margin-left:auto;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
           <label for="audit-liability-threshold" data-i18n="auditLiabilityThreshold" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;margin:0;">Liability threshold:</label>
-          <input type="number" id="audit-liability-threshold" style="width:180px;margin:0;" placeholder="e.g. 500,000,000" min="0" step="1000000">
+          <input type="number" id="audit-liability-threshold" style="width:180px;max-width:100%;margin:0;" placeholder="e.g. 500,000,000" min="0" step="1000000">
           <button type="button" class="btn btn-primary btn-sm" id="audit-save-threshold-btn" data-i18n="auditSaveBtn" style="white-space:nowrap;">Save</button>
         </div>
       </div>
@@ -2390,7 +2390,7 @@
           <button type="button" class="btn btn-primary" id="prod-load-btn" data-i18n="btnLoad">Load</button>
         </div>
       </div>
-      <div style="display:flex;gap:0.25rem;border-bottom:2px solid var(--border);margin-bottom:1rem;">
+      <div style="display:flex;flex-wrap:wrap;gap:0.25rem;border-bottom:2px solid var(--border);margin-bottom:1rem;">
         <button type="button" class="btn btn-sm prod-tab active" data-tab="catalog" style="border-radius:8px 8px 0 0;" data-i18n="prodTabCatalog">Catalog</button>
         <button type="button" class="btn btn-sm prod-tab" data-tab="clients" style="border-radius:8px 8px 0 0;" data-i18n="prodTabClients">Client Matrix</button>
         <button type="button" class="btn btn-sm prod-tab" data-tab="suppliers" style="border-radius:8px 8px 0 0;" data-i18n="prodTabSuppliers">Supplier Matrix</button>

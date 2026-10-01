@@ -56,7 +56,72 @@ def _fmt(n: int | None) -> str:
     return f"{int(n):,}" if n is not None else "—"
 
 
+# What the assistant says about a statement, in the language the user wrote in
+# (en, fa, es, ar). {placeholders} are counts, dates, a bank's name, a reason.
+_T: dict[str, dict[str, str]] = {
+    "read": {"en": "I read your {bank} statement: {rows} rows", "fa": "صورتحساب {bank} را خواندم: {rows} ردیف",
+             "es": "Leí tu extracto de {bank}: {rows} filas", "ar": "قرأت كشف حساب {bank}: {rows} سطراً"},
+    "span": {"en": " ({start} to {end})", "fa": " ({start} تا {end})", "es": " (del {start} al {end})", "ar": " (من {start} إلى {end})"},
+    "checked": {"en": " and checked them against the books.", "fa": " و با دفاتر مقایسه کردم.",
+                "es": " y las comparé con los libros.", "ar": " وقارنتها بالدفاتر."},
+    "matched": {"en": "{n} already recorded", "fa": "{n} ردیف قبلاً در دفاتر ثبت شده", "es": "{n} ya registradas",
+                "ar": "{n} مسجّل بالفعل"},
+    "unrecorded": {"en": "{n} not in the books", "fa": "{n} ردیف در دفاتر نیست", "es": "{n} no están en los libros",
+                   "ar": "{n} غير موجود في الدفاتر"},
+    "confirm": {"en": "{n} probably the same entry with a different date or narration",
+                "fa": "{n} ردیف احتمالاً همان سند ثبت‌شده است (تاریخ یا شرح فرق دارد)",
+                "es": "{n} probablemente el mismo asiento con otra fecha o descripción",
+                "ar": "{n} على الأرجح القيد نفسه بتاريخ أو وصف مختلف"},
+    "mismatch": {"en": "{n} with a different amount than the books", "fa": "{n} ردیف با سند دفاتر در مبلغ اختلاف دارد",
+                 "es": "{n} con un importe distinto al de los libros", "ar": "{n} بمبلغ مختلف عن الدفاتر"},
+    "missing_one": {"en": "1 book entry the bank never shows", "fa": "۱ سند در دفاتر هست که در صورتحساب نیست",
+                    "es": "1 asiento de los libros que el banco no muestra", "ar": "قيد واحد في الدفاتر لا يظهر في البنك"},
+    "missing": {"en": "{n} book entries the bank never shows", "fa": "{n} سند در دفاتر هست که در صورتحساب نیست",
+                "es": "{n} asientos de los libros que el banco no muestra", "ar": "{n} قيد في الدفاتر لا تظهر في البنك"},
+    "duplicates": {"en": "{n} imported before", "fa": "{n} ردیف قبلاً از صورتحساب دیگری وارد شده", "es": "{n} importadas antes",
+                   "ar": "{n} مستورد سابقاً"},
+    "join": {"en": "; ", "fa": "؛ ", "es": "; ", "ar": "؛ "},
+    "gap": {"en": "The closing balance differs from the books by {gap}", "fa": "مانده پایانی صورتحساب با دفاتر {gap} اختلاف دارد",
+            "es": "El saldo final difiere de los libros en {gap}", "ar": "يختلف الرصيد الختامي عن الدفاتر بمقدار {gap}"},
+    "gap_explained": {"en": ", which posting the new rows would close.", "fa": " که با ثبت ردیف‌های جدید صفر می‌شود.",
+                      "es": ", que se cierra al registrar las filas nuevas.", "ar": "، ويُسدّ بترحيل السطور الجديدة."},
+    "clean": {"en": "Everything matches — nothing to do.", "fa": "همه‌چیز با دفاتر می‌خواند؛ کاری لازم نیست.",
+              "es": "Todo cuadra: no hay nada que hacer.", "ar": "كل شيء مطابق — لا شيء يلزم."},
+    "next": {"en": "Click \"Fix step by step\" (or say \"next\") and I'll take the differences one at a time; nothing is posted without your confirmation.",
+             "fa": "برای رفع قدم‌به‌قدم روی «رفع قدم‌به‌قدم» بزنید یا بگویید «بعدی»؛ چیزی بدون تأیید شما ثبت نمی‌شود.",
+             "es": "Pulsa «Corregir paso a paso» (o di «siguiente») y veremos las diferencias una a una; nada se registra sin tu confirmación.",
+             "ar": "اضغط «الإصلاح خطوة بخطوة» (أو قل «التالي») وسنعالج الفروق واحداً تلو الآخر؛ لا يُرحّل شيء دون تأكيدك."},
+    "duplicate_file": {"en": "This file was already imported. {note} Open it from the card below, or ask me to check it against the books.",
+                       "fa": "این فایل قبلاً وارد شده است. {note} می‌توانید همان صورتحساب را از کارت زیر باز کنید یا با دفاتر بررسی کنید.",
+                       "es": "Este archivo ya se importó. {note} Ábrelo desde la tarjeta de abajo o pídeme que lo compare con los libros.",
+                       "ar": "استُورد هذا الملف من قبل. {note} افتحه من البطاقة أدناه أو اطلب مني مقارنته بالدفاتر."},
+    "locked": {"en": "This PDF is locked with a password, so I can't read it. If it's a bank statement, upload it on the Bank statements page "
+                     "and enter the password there (many banks use your national ID); otherwise attach an unlocked copy.",
+               "fa": "این PDF با رمز قفل شده و بدون رمز نمی‌توانم آن را بخوانم. اگر صورت‌حساب بانکی است، آن را در صفحهٔ "
+                     "«صورت‌حساب‌های بانکی» بارگذاری کنید تا رمزش را همان‌جا بپرسد (بسیاری از بانک‌ها کد ملی را رمز می‌گذارند)؛ "
+                     "وگرنه نسخهٔ بدون رمزش را پیوست کنید.",
+               "es": "Este PDF está protegido con contraseña y no puedo leerlo. Si es un extracto bancario, súbelo en la página de "
+                     "extractos e introduce allí la contraseña (muchos bancos usan tu documento de identidad); si no, adjunta una copia sin bloquear.",
+               "ar": "ملف PDF هذا مقفل بكلمة مرور ولا أستطيع قراءته. إن كان كشف حساب بنكي فارفعه في صفحة كشوف الحسابات وأدخل كلمة "
+                     "المرور هناك (كثير من البنوك تستخدم رقم الهوية)؛ وإلا فأرفق نسخة غير مقفلة."},
+    "unreadable": {"en": "I recognised a bank statement but couldn't read its rows: {detail} Export it from the bank as CSV or Excel and attach that instead.",
+                   "fa": "صورتحساب را شناختم اما نتوانستم ردیف‌ها را بخوانم: {detail} آن را به‌صورت CSV یا Excel از بانک خروجی بگیرید و دوباره پیوست کنید.",
+                   "es": "Reconocí un extracto bancario pero no pude leer sus filas: {detail} Expórtalo del banco como CSV o Excel y adjúntalo.",
+                   "ar": "تعرّفت على كشف حساب بنكي لكن تعذّرت قراءة سطوره: {detail} صدّره من البنك بصيغة CSV أو Excel وأرفقه بدلاً منه."},
+    "needs_mapping": {"en": "I couldn't tell the statement's columns apart. Upload it on the Bank statements page to map the columns by hand.",
+                      "fa": "ستون‌های این صورتحساب را نشناختم. آن را در صفحهٔ «صورتحساب‌های بانکی» بارگذاری کنید تا ستون‌ها را دستی مشخص کنید.",
+                      "es": "No distinguí las columnas del extracto. Súbelo en la página de extractos para asignarlas a mano.",
+                      "ar": "لم أميّز أعمدة الكشف. ارفعه في صفحة كشوف الحسابات لتحديد الأعمدة يدوياً."},
+}
+_LANGS = ("en", "fa", "es", "ar")
+
+
+def _say(lang: str, key: str, **kw) -> str:
+    return _T[key][lang if lang in _LANGS else "en"].format(**kw)
+
+
 def _reply(lang: str, intake: dict[str, Any]) -> str:
+    lang = lang if lang in _LANGS else "en"
     c = intake.get("counts") or {}
     bank = intake.get("bank_name") or ""
     rows = intake.get("total_rows") or 0
@@ -66,69 +131,33 @@ def _reply(lang: str, intake: dict[str, Any]) -> str:
     )
     bal = intake.get("balance") or {}
     gap = bal.get("gap")
-    if lang == "fa":
-        parts = [f"صورتحساب {bank} را خواندم: {rows} ردیف"]
-        span = ""
-        if intake.get("from_date") and intake.get("to_date"):
-            span = f" ({intake['from_date']} تا {intake['to_date']})"
-        parts[0] += span + " و با دفاتر مقایسه کردم."
-        bits = []
-        if c.get("matched"):
-            bits.append(f"{c['matched']} ردیف قبلاً در دفاتر ثبت شده")
-        if unrec:
-            bits.append(f"{unrec} ردیف در دفاتر نیست")
-        if conf:
-            bits.append(f"{conf} ردیف احتمالاً همان سند ثبت‌شده است (تاریخ یا شرح فرق دارد)")
-        if mism:
-            bits.append(f"{mism} ردیف با سند دفاتر در مبلغ اختلاف دارد")
-        if miss:
-            bits.append(f"{miss} سند در دفاتر هست که در صورتحساب نیست")
-        if dup:
-            bits.append(f"{dup} ردیف قبلاً از صورتحساب دیگری وارد شده")
-        if bits:
-            parts.append("؛ ".join(bits) + ".")
-        if gap:
-            parts.append(f"مانده پایانی صورتحساب با دفاتر {_fmt(abs(gap))} اختلاف دارد"
-                         + (" که با ثبت ردیف‌های جدید صفر می‌شود." if bal.get("explained") else "."))
-        if intake.get("clean"):
-            parts.append("همه‌چیز با دفاتر می‌خواند؛ کاری لازم نیست.")
-        else:
-            parts.append("برای رفع قدم‌به‌قدم روی «رفع قدم‌به‌قدم» بزنید یا بگویید «بعدی»؛ چیزی بدون تأیید شما ثبت نمی‌شود.")
-        return " ".join(parts)
-    parts = [f"I read your {bank} statement: {rows} rows"]
+    first = _say(lang, "read", bank=bank, rows=rows)
     if intake.get("from_date") and intake.get("to_date"):
-        parts[0] += f" ({intake['from_date']} to {intake['to_date']})"
-    parts[0] += " and checked them against the books."
+        first += _say(lang, "span", start=intake["from_date"], end=intake["to_date"])
+    parts = [first + _say(lang, "checked")]
     bits = []
     if c.get("matched"):
-        bits.append(f"{c['matched']} already recorded")
+        bits.append(_say(lang, "matched", n=c["matched"]))
     if unrec:
-        bits.append(f"{unrec} not in the books")
+        bits.append(_say(lang, "unrecorded", n=unrec))
     if conf:
-        bits.append(f"{conf} probably the same entry with a different date or narration")
+        bits.append(_say(lang, "confirm", n=conf))
     if mism:
-        bits.append(f"{mism} with a different amount than the books")
+        bits.append(_say(lang, "mismatch", n=mism))
     if miss:
-        bits.append(f"{miss} book entr{'y' if miss == 1 else 'ies'} the bank never shows")
+        bits.append(_say(lang, "missing_one") if miss == 1 else _say(lang, "missing", n=miss))
     if dup:
-        bits.append(f"{dup} imported before")
+        bits.append(_say(lang, "duplicates", n=dup))
     if bits:
-        parts.append("; ".join(bits) + ".")
+        parts.append(_say(lang, "join").join(bits) + ".")
     if gap:
-        parts.append(f"The closing balance differs from the books by {_fmt(abs(gap))}"
-                     + (", which posting the new rows would close." if bal.get("explained") else "."))
-    if intake.get("clean"):
-        parts.append("Everything matches — nothing to do.")
-    else:
-        parts.append("Click \"Fix step by step\" (or say \"next\") and I'll take the differences one at a time; nothing is posted without your confirmation.")
+        parts.append(_say(lang, "gap", gap=_fmt(abs(gap))) + (_say(lang, "gap_explained") if bal.get("explained") else "."))
+    parts.append(_say(lang, "clean") if intake.get("clean") else _say(lang, "next"))
     return " ".join(parts)
 
 
 def _duplicate_reply(lang: str, errors: list[str]) -> str:
-    note = errors[0] if errors else ""
-    if lang == "fa":
-        return "این فایل قبلاً وارد شده است. " + note + " می‌توانید همان صورتحساب را از کارت زیر باز کنید یا با دفاتر بررسی کنید."
-    return "This file was already imported. " + note + " Open it from the card below, or ask me to check it against the books."
+    return _say(lang, "duplicate_file", note=errors[0] if errors else "")
 
 
 async def maybe_statement_intake(
@@ -165,15 +194,7 @@ async def maybe_statement_intake(
                 # Nothing in it can be read without the password — and a password
                 # doesn't belong in a chat message: the Bank statements page asks for it.
                 lang = _message_language(message, lang)
-                text_out = (
-                    "این PDF با رمز قفل شده و بدون رمز نمی‌توانم آن را بخوانم. اگر صورت‌حساب بانکی است، آن را در صفحهٔ "
-                    "«صورت‌حساب‌های بانکی» بارگذاری کنید تا رمزش را همان‌جا بپرسد (بسیاری از بانک‌ها کد ملی را رمز می‌گذارند)؛ "
-                    "وگرنه نسخهٔ بدون رمزش را پیوست کنید."
-                    if lang == "fa" else
-                    "This PDF is locked with a password, so I can't read it. If it's a bank statement, upload it on "
-                    "the Bank statements page and enter the password there (many banks use your national ID); "
-                    "otherwise attach an unlocked copy."
-                )
+                text_out = _say(lang, "locked")
                 return StatementTurn(text=text_out, intake={
                     "kind": "bank_statement", "status": "needs_password", "file_name": att.file_name,
                     "bank_name": guess_bank_name(att.file_name or "", message or ""),
@@ -195,13 +216,7 @@ async def maybe_statement_intake(
         except Exception as e:  # noqa: BLE001 — a parse failure is a soft outcome in chat
             detail = getattr(e, "detail", None) or str(e)
             logger.warning("chat statement import failed for %s: %s", att.file_name, detail)
-            text_out = (
-                f"صورتحساب را شناختم اما نتوانستم ردیف‌ها را بخوانم: {detail} "
-                "آن را به‌صورت CSV یا Excel از بانک خروجی بگیرید و دوباره پیوست کنید."
-                if lang == "fa" else
-                f"I recognised a bank statement but couldn't read its rows: {detail} "
-                "Export it from the bank as CSV or Excel and attach that instead."
-            )
+            text_out = _say(lang, "unreadable", detail=detail)
             return StatementTurn(text=text_out, intake={
                 "kind": "bank_statement", "status": "failed", "bank_name": bank_name,
                 "file_name": att.file_name, "error": str(detail),
@@ -215,11 +230,7 @@ async def maybe_statement_intake(
             }
             return StatementTurn(text=_duplicate_reply(lang, list(result.errors or [])), intake=intake)
         if result.status == "needs_mapping" or result.id is None:
-            text_out = (
-                "ستون‌های این صورتحساب را نشناختم. آن را در صفحهٔ «صورتحساب‌های بانکی» بارگذاری کنید تا ستون‌ها را دستی مشخص کنید."
-                if lang == "fa" else
-                "I couldn't tell the statement's columns apart. Upload it on the Bank statements page to map the columns by hand."
-            )
+            text_out = _say(lang, "needs_mapping")
             return StatementTurn(text=text_out, intake={
                 "kind": "bank_statement", "status": "needs_mapping", "bank_name": bank_name,
                 "file_name": att.file_name,

@@ -897,30 +897,30 @@
           </div>
 
           ${d.clients.length ? `
-            <h4 style="margin:0.75rem 0 0.3rem;">Clients (${d.clients.length})</h4>
-            <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldRevenue')}</th><th>Invoices</th></tr></thead><tbody>
+            <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(tf('prodClientsN', { n: d.clients.length }))}</h4>
+            <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldRevenue')}</th><th>${t('fieldInvoiceCount')}</th></tr></thead><tbody>
               ${d.clients.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${formatNum(c.revenue)}</td><td>${c.invoice_count}</td></tr>`).join('')}
             </tbody></table>
           ` : ''}
 
           ${d.suppliers.length ? `
-            <h4 style="margin:0.75rem 0 0.3rem;">Suppliers (${d.suppliers.length})</h4>
-            <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldCost')}</th><th>Invoices</th></tr></thead><tbody>
+            <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(tf('prodSuppliersN', { n: d.suppliers.length }))}</h4>
+            <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldCost')}</th><th>${t('fieldInvoiceCount')}</th></tr></thead><tbody>
               ${d.suppliers.map(s => `<tr><td>${escapeHtml(s.name)}</td><td>${formatNum(s.cost)}</td><td>${s.invoice_count}</td></tr>`).join('')}
             </tbody></table>
           ` : ''}
 
           ${d.monthly_series.length ? `
-            <h4 style="margin:0.75rem 0 0.3rem;">Monthly Trend</h4>
+            <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(t('prodMonthlyTrend'))}</h4>
             <table class="mini-table"><thead><tr><th>${t('fieldWeek')}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th></tr></thead><tbody>
               ${d.monthly_series.map(m => `<tr><td>${escapeHtml(m.month)}</td><td>${formatNum(m.revenue)}</td><td>${formatNum(m.cost)}</td></tr>`).join('')}
             </tbody></table>
           ` : ''}
 
           ${d.invoices.length ? `
-            <h4 style="margin:0.75rem 0 0.3rem;">Invoices (${d.invoices.length})</h4>
+            <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(tf('prodInvoicesN', { n: d.invoices.length }))}</h4>
             <div style="max-height:250px;overflow:auto;">
-            <table class="mini-table"><thead><tr><th>#</th><th>Type</th><th>${t('labelDate')}</th><th>Entity</th><th>Qty</th><th>Price</th><th>${t('tableTotal')}</th></tr></thead><tbody>
+            <table class="mini-table"><thead><tr><th>#</th><th>${t('labelType')}</th><th>${t('labelDate')}</th><th>${t('fieldEntityName')}</th><th>${t('labelQuantity')}</th><th>${t('prodPrice')}</th><th>${t('tableTotal')}</th></tr></thead><tbody>
               ${d.invoices.map(inv => `<tr>
                 <td>${escapeHtml(inv.number)}</td>
                 <td><span class="alert-chip ${inv.kind === 'sales' ? 'low' : 'medium'}">${escapeHtml(inv.kind)}</span></td>
@@ -969,7 +969,7 @@
         <div style="max-height:450px;overflow:auto;">
         <table class="mini-table">
           <thead><tr>
-            <th>${t('fieldEntityName')}</th><th>${t('labelEntityType')}</th><th>Products</th><th>${valLabel}</th>${isClient ? `<th>${t('fieldProfit')}</th>` : ''}
+            <th>${t('fieldEntityName')}</th><th>${t('labelEntityType')}</th><th>${t('prodProductsCol')}</th><th>${valLabel}</th>${isClient ? `<th>${t('fieldProfit')}</th>` : ''}
           </tr></thead>
           <tbody>${data.relationships.map(r => `
             <tr>
@@ -1415,7 +1415,7 @@
         const items = await res.json();
         const sel = document.getElementById('price-mgmt-item');
         if (!sel) return;
-        sel.innerHTML = '<option value="">Select item</option>';
+        sel.innerHTML = `<option value="">${escapeHtml(t('optionSelectItem'))}</option>`;
         (items || []).forEach(i => {
           const opt = document.createElement('option');
           opt.value = i.id;

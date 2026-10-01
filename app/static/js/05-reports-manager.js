@@ -1205,7 +1205,7 @@
       try {
         const res = await fetch(API + '/manager-reports/inventory/items');
         const rows = await res.json().catch(() => ([]));
-        mgrMvItemEl.innerHTML = '<option value="">Select item</option>';
+        mgrMvItemEl.innerHTML = `<option value="">${escapeHtml(t('optionSelectItem'))}</option>`;
         (rows || []).forEach(i => {
           const opt = document.createElement('option');
           opt.value = i.id;

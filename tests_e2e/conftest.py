@@ -48,6 +48,21 @@ def logged_in_state(browser):
 _flow_states: dict = {}
 
 
+def wait_until(page, expression: str, arg=None, timeout_ms: int = 5_000) -> None:
+    """Poll a page function until it is true. page.wait_for_function polls by
+    evaluating the string inside the page, which the strict CSP (no
+    'unsafe-eval') refuses as soon as the first check comes back false."""
+    import time
+
+    end = time.monotonic() + timeout_ms / 1000
+    while True:
+        if page.evaluate(f"(a) => !!(({expression})(a))", arg):
+            return
+        if time.monotonic() > end:
+            raise AssertionError(f"still false after {timeout_ms} ms: {expression}")
+        page.wait_for_timeout(100)
+
+
 def switch_language(page, lang: str) -> None:
     """Pick a language in the top bar and wait until it has landed: the page is
     in it (<html lang>) and the preference is saved. wait_for_load_state
@@ -57,7 +72,7 @@ def switch_language(page, lang: str) -> None:
     with page.expect_response(lambda r: "/auth/preferences" in r.url and r.request.method == "PATCH"):
         page.evaluate("""(l) => { const s = document.getElementById('topbar-language'); s.value = l;
             s.dispatchEvent(new Event('change', { bubbles: true })); }""", lang)
-    page.wait_for_function("(l) => document.documentElement.lang === l", arg=lang)
+    wait_until(page, "(l) => document.documentElement.lang === l", lang)
 
 
 class PageWatch:

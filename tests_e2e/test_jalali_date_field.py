@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 
-from tests_e2e.conftest import ARTIFACTS, switch_language
+from tests_e2e.conftest import ARTIFACTS, switch_language, wait_until
 from tests_e2e.test_jalali_dates import POST, _owner
 
 ROUND_TRIP = r"""() => { let bad = 0;
@@ -33,7 +33,7 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         page.reload()
         page.wait_for_load_state("networkidle")
         page.click('.nav-btn[data-page="transactions"]')
-        page.wait_for_function("() => document.getElementById('date').closest('.jdate')", timeout=5_000)
+        wait_until(page, "() => document.getElementById('date').closest('.jdate')")
         assert page.evaluate(ROUND_TRIP) == 0   # every day 1990–2050 there and back
         # the Jalali day once printed under the field is not said twice
         assert not page.locator("#date-jalali-hint").is_visible()
@@ -78,6 +78,18 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         page.keyboard.press("Enter")
         assert page.evaluate(FIELD) == {"text": "1405/02/13", "value": "2026-05-03", "invalid": None}
         assert page.evaluate("() => document.activeElement.classList.contains('jdate-text')")
+
+        # the browser's form message is said on the box, in Persian — empty, and (handed over
+        # from the out-of-sight native input) before the field's earliest day
+        _text(page).fill("")
+        assert page.evaluate("""() => { const f = document.getElementById('transaction-form'); f.checkValidity();
+            return document.getElementById('date').parentElement.querySelector('.jdate-text').validationMessage; }""") == "این خانه را پر کنید."
+        page.evaluate("""() => { const i = document.createElement('input'); i.type = 'date'; i.id = 'jdate-min-probe';
+            i.min = '2026-01-01'; i.value = '2025-06-01'; document.querySelector('.card[data-page="transactions"]').appendChild(i); }""")
+        wait_until(page, "() => document.getElementById('jdate-min-probe').closest('.jdate')")   # a frame later
+        assert page.evaluate("""() => { const i = document.getElementById('jdate-min-probe'); i.checkValidity();
+            const box = i.parentElement.querySelector('.jdate-text'), m = box.validationMessage; i.parentElement.remove(); return m; }""") \
+            == "نمی‌تواند کمتر از 1404/10/11 باشد."
 
         # a script setting the value, and a test filling the native field, repaint the box
         page.evaluate("() => { document.getElementById('date').value = '2026-10-01'; }")

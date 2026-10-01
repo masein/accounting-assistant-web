@@ -76,3 +76,15 @@ def test_the_audit_report_is_worded_for_the_user(auth_client, monkeypatch):
     f = auth_client.get("/brain/audit/report").json()["findings"][0]
     assert f["title"] == "Negative asset balance: Cash"
     assert f["detail"] == "Account 1110 (Cash) has a negative balance: -5,000"
+
+
+def test_every_category_has_a_label_in_every_language():
+    from tests.i18n_source import pack_keys
+
+    cats = {k.value.value for n in ast.walk(ast.parse(SOURCE.read_text(encoding="utf-8")))
+            if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "AuditFinding"
+            for k in n.keywords if k.arg == "category" and isinstance(k.value, ast.Constant)}
+    assert {"equation", "negative_balance", "backdated"} <= cats
+    wanted = {f"auditCat_{c}" for c in cats}
+    missing = {lang: sorted(wanted - keys) for lang, keys in pack_keys().items() if wanted - keys}
+    assert missing == {}, missing

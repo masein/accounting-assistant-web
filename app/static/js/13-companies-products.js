@@ -1129,9 +1129,9 @@
       body.innerHTML = `
         <div style="margin-bottom:0.5rem;"><span style="font-size:0.8rem;background:#e3f2fd;padding:0.15rem 0.5rem;border-radius:4px;">${escapeHtml(domainLabel)}</span></div>
         <p><strong>${escapeHtml(t('auditSeverity'))}:</strong> <span style="color:${finding.severity === 'critical' ? '#c62828' : '#f57f17'}">${escapeHtml(sev)}</span></p>
-        <p><strong>${escapeHtml(t('labelCategory'))}:</strong> ${escapeHtml(finding.category)}</p>
+        <p><strong>${escapeHtml(t('labelCategory'))}:</strong> ${escapeHtml(auditLabel('auditCat_', finding.category))}</p>
         <p><strong>${escapeHtml(t('thDetail'))}:</strong> ${escapeHtml(finding.detail)}</p>
-        ${finding.amount ? `<p><strong>${escapeHtml(t('labelAmount'))}:</strong> ${formatNum(Number(finding.amount))} ${escapeHtml(currencyUnit())}</p>` : ''}
+        ${finding.amount ? `<p><strong>${escapeHtml(t('labelAmount'))}:</strong> <bdi>${formatNum(Number(finding.amount))}</bdi> ${escapeHtml(currencyUnit())}</p>` : ''}
         ${finding.entity_id ? `<p><strong>${escapeHtml(t('auditEntityId'))}:</strong> <bdi>${escapeHtml(finding.entity_id)}</bdi></p>` : ''}
       `;
       const statusEl = document.getElementById('audit-modal-status');

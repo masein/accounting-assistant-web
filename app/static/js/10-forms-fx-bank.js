@@ -36,7 +36,7 @@
         if (body) {
           body.innerHTML = rates.length
             ? rates.map(r => `<tr><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.jurisdiction)}</td>
-                <td>${r.rate}%</td><td>${r.effective_from}</td><td>${r.effective_to || '—'}</td></tr>`).join('')
+                <td>${r.rate}%</td><td>${escapeHtml(formatDisplayDate(r.effective_from))}</td><td>${escapeHtml(formatDisplayDate(r.effective_to) || '—')}</td></tr>`).join('')
             : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:0.5rem;">${t('taxNoRates')}</td></tr>`;
         }
       } catch (e) { /* ignore */ }
@@ -280,7 +280,7 @@
             <td><span class="ccy-badge ccy-${escapeHtml((row.from_currency||'').toUpperCase())}">${escapeHtml(row.from_currency)}</span></td>
             <td><span class="ccy-badge ccy-${escapeHtml((row.to_currency||'').toUpperCase())}">${escapeHtml(row.to_currency)}</span></td>
             <td class="num">${escapeHtml(formatRate(row.rate))}</td>
-            <td>${escapeHtml(row.effective_date)}</td>
+            <td>${escapeHtml(formatDisplayDate(row.effective_date))}</td>
             <td>${row.shared ? '<span class="fx-shared">' + escapeHtml(row.source ? tf('fxSharedFrom', { source: row.source === 'ecb' ? 'ECB' : row.source }) : t('fxShared')) + '</span> ' : ''}${escapeHtml(row.source ? '' : (row.note || ''))}</td>
             <td>${canDelete(row) ? `<button class="btn btn-secondary btn-sm fx-del-rate" data-id="${escapeHtml(row.id)}">${escapeHtml(t('btnDelete'))}</button>` : ''}</td>
           </tr>`;
@@ -979,7 +979,7 @@
           const statusBg = r.recon_status === 'matched' ? '#e8f5e9' : r.recon_status === 'duplicate' ? '#fff3e0' : '';
           const tr = document.createElement('tr');
           tr.style.background = statusBg;
-          tr.innerHTML = `<td>${r.row_index}</td><td>${r.tx_date}</td><td dir="auto">${escapeHtml(r.description || '')}</td>
+          tr.innerHTML = `<td>${r.row_index}</td><td>${escapeHtml(formatDisplayDate(r.tx_date))}</td><td dir="auto">${escapeHtml(r.description || '')}</td>
             <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString() : ''}</td>
             <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString() : ''}</td>
             <td>${r.balance != null ? r.balance.toLocaleString() : ''}</td>
@@ -1030,7 +1030,7 @@
           const span = document.createElement('span');
           span.dir = 'auto';
           span.style.flex = '1';
-          span.textContent = `${s.tx_date} · ${s.description || ''} · ${formatNum(s.amount)} ${data.currency || currencyUnit()} → ${s.account_code} ${s.account_name}`;
+          span.textContent = `${escapeHtml(formatDisplayDate(s.tx_date))} · ${s.description || ''} · ${formatNum(s.amount)} ${data.currency || currencyUnit()} → ${s.account_code} ${s.account_name}`;
           const btn = document.createElement('button');
           btn.className = 'btn btn-secondary btn-sm';
           btn.textContent = t('bsRecordBtn');

@@ -665,7 +665,7 @@
             const creditCell = r.credit ? formatMoney(r.credit, ccy) : '—';
             const ccyCell = showCcyCol ? `<td><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>` : '';
             return `<tr>
-              <td>${escapeHtml(r.date)}</td>
+              <td>${escapeHtml(formatDisplayDate(r.date))}</td>
               <td>${escapeHtml(r.reference || '—')}</td>
               <td>${escapeHtml(r.description || r.line_description || '—')}</td>
               <td>${escapeHtml(r.account_code)}</td>
@@ -732,7 +732,7 @@
             <h2>${escapeHtml(title)}</h2>
             <p>${data.total_count} transactions | Debit: ${formatNum(data.total_debit)} | Credit: ${formatNum(data.total_credit)}</p>
             <table><thead><tr><th>Date</th><th>Ref</th><th>Description</th><th>Code</th><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th>Entities</th></tr></thead><tbody>
-            ${rows.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.reference||'')}</td><td>${escapeHtml(r.description||'')}</td><td>${escapeHtml(r.account_code)}</td><td>${escapeHtml(r.account_name||'')}</td><td class="num">${formatNum(r.debit||0)}</td><td class="num">${formatNum(r.credit||0)}</td><td>${(r.entity_names||[]).join(', ')}</td></tr>`).join('')}
+            ${rows.map(r=>`<tr><td>${escapeHtml(formatDisplayDate(r.date))}</td><td>${escapeHtml(r.reference||'')}</td><td>${escapeHtml(r.description||'')}</td><td>${escapeHtml(r.account_code)}</td><td>${escapeHtml(r.account_name||'')}</td><td class="num">${formatNum(r.debit||0)}</td><td class="num">${formatNum(r.credit||0)}</td><td>${(r.entity_names||[]).join(', ')}</td></tr>`).join('')}
             </tbody></table></body></html>`);
           w.document.close();
           setTimeout(() => w.print(), 300);
@@ -924,7 +924,7 @@
               ${d.invoices.map(inv => `<tr>
                 <td>${escapeHtml(inv.number)}</td>
                 <td><span class="alert-chip ${inv.kind === 'sales' ? 'low' : 'medium'}">${escapeHtml(inv.kind)}</span></td>
-                <td>${escapeHtml(inv.issue_date)}</td>
+                <td>${escapeHtml(formatDisplayDate(inv.issue_date))}</td>
                 <td>${escapeHtml(inv.entity_name || '—')}</td>
                 <td>${inv.quantity}</td>
                 <td>${formatNum(inv.unit_price)}</td>

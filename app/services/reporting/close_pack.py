@@ -141,8 +141,16 @@ class Month:
     label: str
     locale: str
     lang: str
+    calendar: str = "gregorian"     # the company's display calendar (Settings)
 
     def d(self, x) -> str:
+        if self.calendar == "jalali":
+            # the calendar the company chose, in the reader's digits ("1405/06/31")
+            import jdatetime
+            from app.services.documents.formatting import to_persian_digits
+            j = jdatetime.date.fromgregorian(date=x)
+            said = f"{j.year:04d}/{j.month:02d}/{j.day:02d}"
+            return to_persian_digits(said) if self.lang == "fa" else said
         if self.lang == "fa" and self.locale != "ir":
             # a Gregorian date in Persian text: slashes keep the digits together (a hyphen splits them)
             from app.services.documents.formatting import to_persian_digits
@@ -159,9 +167,10 @@ def resolve_month(db: Session, key: str | None, lang: str | None = None, *, docu
     lang = lang if lang in ("fa", "en") else ("fa" if locale == "ir" else "en")
     if lang == "fa" and locale == "uk" and documents:
         lang = "en"
-    key = key or previous_month_key(date.today(), company_calendar(db))
+    calendar = company_calendar(db)
+    key = key or previous_month_key(date.today(), calendar)
     start, end = month_range(key)
-    return Month(key, start, end, month_label(key, lang), locale, lang)
+    return Month(key, start, end, month_label(key, lang), locale, lang, calendar)
 
 
 def recent_months(db: Session, lang: str, n: int = 12) -> list[dict]:

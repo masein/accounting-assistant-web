@@ -49,6 +49,7 @@ def test_every_translation_is_for_a_message_the_code_raises():
     # each pattern matches some message the code builds (its run-time parts filled with a sample)
     samples = [s.replace("\x00", "x1") for s in shapes]
     samples += [s.replace("\x00", word, 1).replace("\x00", "x1") for s in shapes for word in ("Sales", "void")]
+    samples += [s.replace("\x00", "1") for s in shapes]
     for p in PATTERNS:
         assert any(p.regex.match(s) for s in samples), p.regex.pattern
         assert set(p.text) == set(LANGS), p.regex.pattern
@@ -105,3 +106,15 @@ def test_a_timed_out_second_step_says_so_in_a_code_not_just_words(client):
     assert r.status_code == 401
     assert r.headers.get("x-error-code") == "signin_timed_out"
     assert r.json()["detail"] == "مهلت ورود تمام شد. رمز عبور را دوباره وارد کنید."
+
+
+def test_payroll_time_users_and_quotes_read_in_the_language_too():
+    assert localize_detail("Pay run not found.", "fa") == "دوره حقوق پیدا نشد."
+    assert localize_detail("Run is draft; post it before paying.", "es") == "La nómina está en borrador; contabilízala antes de pagarla."
+    assert localize_detail("Run already paid; cannot post again.", "fa") == "این دوره حقوق قبلاً ⁨پرداخت‌شده⁩ است؛ دوباره ثبت نمی‌شود."
+    assert localize_detail("A uk rule set for 2027 already exists.", "ar") == "توجد بالفعل مجموعة قواعد ⁨المملكة المتحدة⁩ لسنة ⁨2027⁩."
+    assert localize_detail("A sent quote can't be edited; set it back to draft first.", "es") == \
+        "Un presupuesto enviado no se puede editar; vuelve a ponerlo en borrador primero."
+    hours = localize_detail("That would be 26 hours on 2026-10-01 (20 already logged); a day has 24.", "fa")
+    assert hours.startswith("با این ثبت، ⁨2026-10-01⁩ به ⁨26⁩ ساعت")
+    assert localize_detail("You cannot delete yourself", "fa") == "نمی‌توانید خودتان را حذف کنید"

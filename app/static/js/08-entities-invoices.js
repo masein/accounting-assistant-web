@@ -1528,7 +1528,7 @@
             <div>
               <label>${escapeHtml(t('labelDate'))}</label>
               <input type="date" id="edit-tx-date" value="${escapeHtml(tx.date || '')}" required>
-              <span style="font-size: 0.75rem; color: var(--text-muted);">${toJalali(tx.date)}</span>
+              <span class="jalali-hint" style="font-size: 0.75rem; color: var(--text-muted);">${toJalali(tx.date)}</span>
             </div>
             <div>
               <label>${escapeHtml(t('labelReference'))}</label>

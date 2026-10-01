@@ -1863,6 +1863,7 @@ window.I18N_PACKS.fa = Object.assign({
         auditCat_backdated: 'تاریخ گذشته',
         auditCat_liability_threshold: 'آستانه بدهی',
         auditCat_system: 'سیستم',
+        moPickInvoice: 'انتخاب فاکتور {number}',
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

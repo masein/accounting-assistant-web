@@ -1868,6 +1868,7 @@
         auditCat_backdated: 'Backdated entry',
         auditCat_liability_threshold: 'Liability threshold',
         auditCat_system: 'System',
+        moPickInvoice: 'Select invoice {number}',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

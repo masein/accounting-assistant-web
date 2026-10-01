@@ -1821,6 +1821,7 @@ window.I18N_PACKS.ar = Object.assign({
         auditCat_backdated: 'تاريخ سابق',
         auditCat_liability_threshold: 'حد الالتزامات',
         auditCat_system: 'النظام',
+        moPickInvoice: 'تحديد الفاتورة {number}',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

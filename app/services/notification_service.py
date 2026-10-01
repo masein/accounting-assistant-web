@@ -301,7 +301,23 @@ def _budget_link_page(db: Session) -> str:
 
 
 def refresh_notifications(db: Session, *, today: date | None = None) -> int:
-    """Recompute the feed. Returns the number of open notifications."""
+    """Recompute the feed. Returns the number of open notifications.
+
+    Two requests can refresh the same company's feed at once (the page and
+    its service worker on load): both find a notification missing, both add
+    it, and the second commit breaks the (company, dedupe_key) constraint —
+    a 500 on /notifications/feed. Then the work is done again over what the
+    first one wrote, which now finds those rows and updates them."""
+    from sqlalchemy.exc import IntegrityError, PendingRollbackError
+
+    try:
+        return _refresh_once(db, today=today)
+    except (IntegrityError, PendingRollbackError):   # the latter when a guarded section swallowed the flush error
+        db.rollback()
+        return _refresh_once(db, today=today)
+
+
+def _refresh_once(db: Session, *, today: date | None = None) -> int:
     today = today or date.today()
     soon = today + timedelta(days=DUE_SOON_DAYS)
     seen: set[str] = set()

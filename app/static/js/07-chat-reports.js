@@ -44,7 +44,7 @@
       // Isolated left-to-right runs: after Persian words "2026-09-30" would read
       // "30-09-2026", and the range would run backwards.
       const ltr = (x) => `\u2066${x}\u2069`;
-      if (from && to) return ltr(`${from} → ${to}`);
+      if (from && to) return formatDateRange(from, to);
       if (to) return `${t('asOfDate')} ${ltr(to)}`;
       if (from) return `${t('labelFrom')} ${ltr(from)}`;
       return '';

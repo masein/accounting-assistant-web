@@ -37,3 +37,21 @@ def test_the_native_input_stays_the_value():
 def test_only_the_jalali_calendar_dresses():
     assert "const jalali = (window.__DISPLAY_CALENDAR || 'gregorian') === 'jalali';" in UI
     assert "jalali ? paintDateField(input) : _undressDateField(input)" in UI
+
+
+def test_a_range_of_dates_is_one_left_to_right_run():
+    """"1405/01/17 → 1406/01/16" after Persian words ran backwards, its arrow
+    pointing at the start; the time-billing preview printed raw ISO dates."""
+    core = (JS / "01-core.js").read_text(encoding="utf-8")
+    assert "function formatDateRange(from, to)" in core
+    assert "'\\u2066' + a + ' → ' + b + '\\u2069'" in core
+    reports = (JS / "07-chat-reports.js").read_text(encoding="utf-8")
+    payroll = (JS / "11-time-expenses-payroll.js").read_text(encoding="utf-8")
+    assert "formatDateRange(from, to)" in reports
+    assert "formatDateRange(rs.effective_from, rs.effective_to)" in payroll
+    assert "formatDateRange(pv.period_from, pv.period_to)" in payroll
+
+
+def test_the_placeholder_is_the_form_not_a_day():
+    assert "text.placeholder = t('jdatePlaceholder');" in UI
+    assert "'1405/07/09'" not in UI

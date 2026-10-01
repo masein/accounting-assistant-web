@@ -2057,6 +2057,7 @@
         validityTooLong: "Use at most {n} characters.",
         msgNoneDelivered: "none",
         msgDocumentDefault: "document",
+        jdatePlaceholder: "yyyy/mm/dd",
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

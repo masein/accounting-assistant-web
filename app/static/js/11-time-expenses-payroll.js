@@ -324,7 +324,7 @@
     function tmRenderPreview(pv, clientId) {
       tmReadyPreview = { client_id: clientId };
       const cur = pv.currency;
-      let html = `<div><strong>${escapeHtml(pv.client_name)}</strong> · ${pv.period_from} → ${pv.period_to} · ${cur}</div>`;
+      let html = `<div><strong>${escapeHtml(pv.client_name)}</strong> · ${escapeHtml(formatDateRange(pv.period_from, pv.period_to))} · ${escapeHtml(cur)}</div>`;
       pv.groups.forEach(g => {
         html += `<div style="margin-top:0.4rem;font-weight:600;">${escapeHtml(g.project_name)}</div>`;
         g.lines.forEach(ln => {
@@ -794,7 +794,7 @@
         b.upto == null ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%` : `${formatNum(b.upto)}: ${Math.round(b.rate * 100)}%`
       ).join(' · ');
       const item = (label, val) => `<div><span style="color:var(--text-muted);">${t(label)}:</span> ${val}</div>`;
-      return `<div style="font-weight:600;margin-bottom:0.3rem;"><bdi>${escapeHtml(rs.name)}</bdi> (${escapeHtml(rs.year)}) — ${escapeHtml(formatDisplayDate(rs.effective_from))} → ${escapeHtml(formatDisplayDate(rs.effective_to) || '…')}</div>
+      return `<div style="font-weight:600;margin-bottom:0.3rem;"><bdi>${escapeHtml(rs.name)}</bdi> (${escapeHtml(rs.year)}) — ${escapeHtml(formatDateRange(rs.effective_from, rs.effective_to))}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.25rem 1rem;">
           ${item('payrollRulesMinWage', `${formatNum(p.min_wage_daily || 0)} ${cur}`)}
           ${item('payrollRulesHousing', `${formatNum(p.housing_allowance || 0)} ${cur}`)}

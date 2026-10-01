@@ -104,6 +104,14 @@
       return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     }
 
+    // A range of dates, in the company's calendar: "1405/07/01 → 1405/07/30" as one
+    // left-to-right run, so after Persian or Arabic words it neither reverses its
+    // dates nor points its arrow back at the start.
+    function formatDateRange(from, to) {
+      const a = formatDisplayDate(from), b = to ? formatDisplayDate(to) : '…';
+      return '\u2066' + a + ' → ' + b + '\u2069';
+    }
+
     // A period key from a report: "1405-07" (Jalali, year < 1700) → "مهر ۱۴۰۵" /
     // "Mehr 1405"; "2026-09" → "Sep 2026"; "1405-Q1" → "بهار ۱۴۰۵" (§3.5).
     const _J_MONTHS = { fa: ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'],

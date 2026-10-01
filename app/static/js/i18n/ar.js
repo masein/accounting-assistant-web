@@ -2010,6 +2010,7 @@ window.I18N_PACKS.ar = Object.assign({
         validityTooLong: "استخدم {n} أحرف على الأكثر.",
         msgNoneDelivered: "لا شيء",
         msgDocumentDefault: "مستند",
+        jdatePlaceholder: "سنة‎/‎شهر‎/‎يوم",
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

@@ -2010,6 +2010,7 @@ window.I18N_PACKS.es = Object.assign({
         validityTooLong: "Usa como mucho {n} caracteres.",
         msgNoneDelivered: "ninguno",
         msgDocumentDefault: "documento",
+        jdatePlaceholder: "aaaa/mm/dd",
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

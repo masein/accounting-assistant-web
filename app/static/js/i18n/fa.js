@@ -2052,6 +2052,7 @@ window.I18N_PACKS.fa = Object.assign({
         validityTooLong: "حداکثر {n} نویسه وارد کنید.",
         msgNoneDelivered: "هیچ",
         msgDocumentDefault: "فایل",
+        jdatePlaceholder: "سال‎/‎ماه‎/‎روز",
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

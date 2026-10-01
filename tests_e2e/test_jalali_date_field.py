@@ -35,6 +35,14 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         page.click('.nav-btn[data-page="transactions"]')
         wait_until(page, "() => document.getElementById('date').closest('.jdate')")
         assert page.evaluate(ROUND_TRIP) == 0   # every day 1990–2050 there and back
+        # an empty box shows the form it wants, not a day that looks already entered
+        hint = page.evaluate("() => { const i = document.createElement('input'); i.type = 'date';"
+                             " document.querySelector('.card[data-page=\"transactions\"]').appendChild(i); return t('jdatePlaceholder'); }")
+        wait_until(page, "() => [...document.querySelectorAll('.jdate-text')].some(x => !x.value)")
+        empty = page.evaluate("() => [...document.querySelectorAll('.jdate-text')].find(x => !x.value).placeholder")
+        assert empty == hint and not any(c.isdigit() for c in empty), empty
+        # a range reads in the calendar, left to right, start first
+        assert page.evaluate("() => formatDateRange('2026-10-01', '2026-10-31')") == "\u20661405/07/09 → 1405/08/09\u2069"
         # the Jalali day once printed under the field is not said twice
         assert not page.locator("#date-jalali-hint").is_visible()
 

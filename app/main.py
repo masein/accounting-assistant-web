@@ -420,8 +420,9 @@ from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
-# Global API rate limiter: 120 requests per minute per user/IP
-_api_limiter = RateLimiter(max_requests=120, window_seconds=60)
+# Global API rate limiter: requests per minute per user/IP (120 unless
+# API_RATE_LIMIT_PER_MINUTE says otherwise; never less than 1)
+_api_limiter = RateLimiter(max_requests=max(1, settings.api_rate_limit_per_minute), window_seconds=60)
 
 # No inline script of any kind (roadmap 2026-09 §1.13): an injected <script>
 # or on…= attribute never runs. The front end wires events through

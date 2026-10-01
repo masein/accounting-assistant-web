@@ -113,26 +113,27 @@ ON_PURPOSE = ("CSV", "Excel", "PDF", "JSON", "IMAP", "INBOX", "IBAN", "API", "SM
               "GBP", "IRR", "USD", "EUR", "http", "@", "example.com", "Telegram", "Bale", "Google", "Apple")
 
 
-def _every_page_speaks(flow_page, user, lang):
+def _sweep(flow_page, user, lang, pages, *, seed):
     page, watch = flow_page(user)
+    found = {}
     try:
         page.evaluate("""(l) => { const s = document.getElementById('topbar-language'); s.value = l;
             s.dispatchEvent(new Event('change', { bubbles: true })); }""", lang)
         page.wait_for_load_state("networkidle")
-        assert page.evaluate(POST_JOURNALS, f"FA-{uuid.uuid4().hex[:6]}") == [201, 201]
-        # a party, so the entities list has a row (and its Edit / Delete) to read
-        assert page.evaluate(ADD_ENTITY, f"Sweep {lang} {uuid.uuid4().hex[:6]}") in (200, 201)
+        if seed:
+            assert page.evaluate(POST_JOURNALS, f"FA-{uuid.uuid4().hex[:6]}") == [201, 201]
+            # a party, so the entities list has a row (and its Edit / Delete) to read
+            assert page.evaluate(ADD_ENTITY, f"Sweep {lang} {uuid.uuid4().hex[:6]}") in (200, 201)
         page.reload()   # the dashboard drew before there was anything to show
         page.wait_for_load_state("networkidle")
-        found = {}
-        for name in PAGES:
+        for name in pages:
             btn = page.locator(f'.nav-btn[data-page="{name}"]').first
             if not btn.count() or not btn.is_visible():
                 continue
             btn.click()
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(300)
-            if name == "audit":   # the journals posted above are in the trail; run the checks for findings
+            if name == "audit":   # the journals posted first are in the trail; run the checks for findings
                 page.wait_for_selector("#audit-log-body tr", timeout=15_000)
                 with page.expect_response(lambda r: "/audit/report" in r.url):
                     page.click("#audit-run-btn")
@@ -143,27 +144,37 @@ def _every_page_speaks(flow_page, user, lang):
             english = [x for x in seen if not any(w in x for w in ON_PURPOSE)]
             if english:
                 found[name] = english
-        assert found == {}, found
         assert watch.problems() == [], watch.problems()
+        return found
     except Exception:
         os.makedirs(ARTIFACTS, exist_ok=True)
         page.screenshot(path=os.path.join(ARTIFACTS, f"{lang}-labels.png"), full_page=True)
         # a page left empty is usually a failed fetch (a 429, a 500): say which
-        print(f"{lang} sweep: what the page saw go wrong:", watch.problems())
+        print(f"{lang} sweep ({user}): what the page saw go wrong:", watch.problems())
         raise
     finally:
         page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'en';
             s.dispatchEvent(new Event('change', { bubbles: true })); }""")
 
 
+def _every_page_speaks(flow_page, users, lang):
+    """The pages are split between two users. One sweep makes about a hundred
+    requests and a user may make 120 a minute: on a fast run the audit trail's
+    fetch got a 429 and the page stayed empty (the #249 CI flake)."""
+    half = PAGES.index("bank-statements")
+    found = _sweep(flow_page, users[0], lang, PAGES[:half], seed=True)
+    found |= _sweep(flow_page, users[1], lang, PAGES[half:], seed=False)
+    assert found == {}, found
+
+
 def test_every_page_speaks_persian(flow_page):
-    _every_page_speaks(flow_page, "e2e_persian", "fa")
+    _every_page_speaks(flow_page, ("e2e_persian", "e2e_persian_2"), "fa")
 
 
 def test_every_page_speaks_arabic(flow_page):
     """The same sweep in Arabic (the same script, its own words): the close
     pack's checklist was English here until it learnt Arabic."""
-    _every_page_speaks(flow_page, "e2e_arabic", "ar")
+    _every_page_speaks(flow_page, ("e2e_arabic", "e2e_arabic_2"), "ar")
 
 
 def test_the_executive_pages_speak_persian(flow_page):

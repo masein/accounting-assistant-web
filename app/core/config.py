@@ -149,6 +149,11 @@ class Settings(BaseSettings):
     # Bearer token a Prometheus scraper must send to GET /metrics. Empty =
     # the endpoint answers 404.
     metrics_token: str | None = None
+    # Requests a minute one user (or, signed out, one address) may make to the
+    # API. The browser suite's server raises it: a test that loads thirty pages
+    # in a row is not a user clicking, and past the budget it was checking
+    # pages whose data had been refused.
+    api_rate_limit_per_minute: int = 120
 
 
 settings = Settings()

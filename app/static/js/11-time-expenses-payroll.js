@@ -1186,11 +1186,11 @@
         document.getElementById('cfo-grade').style.color = data.health_grade <= 'B' ? '#2e7d32' : data.health_grade <= 'C' ? '#f57f17' : '#c62828';
         document.getElementById('cfo-risk').textContent = data.risk_score + '/100';
         document.getElementById('cfo-risk').style.color = data.risk_score <= 30 ? '#2e7d32' : data.risk_score <= 60 ? '#f57f17' : '#c62828';
-        document.getElementById('cfo-runway').textContent = data.runway_months + ' mo';
+        document.getElementById('cfo-runway').textContent = data.runway_months + ' ' + t('monthsShort');
         // Sync the global from the server's response so every other
         // widget on the page picks up the right currency too.
         if (data.currency) window.__REPORTING_CURRENCY = data.currency;
-        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString() + ' ' + currencyUnit() + '/mo';
+        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString() + ' ' + currencyUnit() + '/' + t('monthsShort');
 
         const kpiGrid = document.getElementById('cfo-kpis');
         kpiGrid.innerHTML = '';
@@ -1203,13 +1203,18 @@
           // Any non-% non-months unit is a currency code → format with thousands.
           const isCurrencyUnit = k.unit && k.unit !== '%' && k.unit !== 'months';
           const displayVal = isCurrencyUnit ? Number(k.value).toLocaleString() : k.value;
+          // "32.5%" not "32.5 %" (a space lets the sign drift to the far side in
+          // Persian), months in the reader's language, and <bdi> keeps a minus
+          // sign in front of its number in a right-to-left page.
+          const num = k.unit === '%' ? displayVal + '%' : String(displayVal);
+          const unit = k.unit === '%' ? '' : k.unit === 'months' ? t('monthsShort') : (k.unit || '');
           div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(localizeDynamicText(k.label))}</div>
-            <div style="font-size:1.1rem;font-weight:700;color:${riskColor};">${displayVal} ${k.unit || ''}</div>
+            <div style="font-size:1.1rem;font-weight:700;color:${riskColor};"><bdi>${escapeHtml(num)}</bdi>${unit ? ' ' + escapeHtml(unit) : ''}</div>
             ${trendIcon ? `<div style="font-size:0.75rem;color:${
               (k.key === 'expense_trend' || k.key === 'burn_rate')
                 ? (k.trend === 'up' ? '#c62828' : '#2e7d32')
                 : (k.trend === 'up' ? '#2e7d32' : '#c62828')
-            };">${trendIcon} ${k.trend_pct}%</div>` : ''}`;
+            };">${trendIcon} <bdi>${escapeHtml(String(k.trend_pct))}%</bdi></div>` : ''}`;
           kpiGrid.appendChild(div);
         });
 

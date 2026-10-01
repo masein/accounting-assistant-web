@@ -530,6 +530,7 @@
         'Expense attachments available': 'checkExpenseAttachmentsAvailable',
         'Line descriptions complete': 'checkLineDescriptionsComplete',
         'Unassigned client': 'unassignedClient',
+        'Unassigned vendor': 'unassignedVendor',
         // CFO / CEO KPI-card labels (returned by the backend or built in the
         // CEO renderer). Mapped here so both executive dashboards localise.
         'Total Revenue (12m)': 'cfoKpiTotalRevenue',
@@ -628,6 +629,9 @@
         top_client: 'fieldTopClient',
         name: 'labelName',
         code: 'tableCode',
+        client: 'labelClient',
+        vendor: 'labelSupplier',
+        category: 'labelCategory',
       };
       return map[key] ? t(map[key]) : String(name || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     }

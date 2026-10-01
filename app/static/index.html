@@ -155,7 +155,7 @@
           <div><label data-i18n="fldPostalCode">Postal code</label><input type="text" id="entity-postal_code"></div>
           <div><label data-i18n="entEmail">Email</label><input type="text" id="entity-email"></div>
           <div><label data-i18n="entPhone">Phone</label><input type="text" id="entity-phone"></div>
-          <div><label data-i18n="entTerms">Payment terms</label><input type="text" id="entity-payment_terms" placeholder="Net 30"></div>
+          <div><label data-i18n="entTerms">Payment terms</label><input type="text" id="entity-payment_terms" data-i18n-placeholder="placeholderPaymentTerms" placeholder="Net 30"></div>
           <div style="flex:1; min-width:200px;"><label data-i18n="entAddress">Address</label><input type="text" id="entity-address" style="width:100%;"></div>
           <div><label data-i18n="fldBankName">Bank name</label><input type="text" id="entity-bank_name"></div>
           <div><label data-i18n="fldAccountHolder">Account holder</label><input type="text" id="entity-account_holder"></div>
@@ -2200,7 +2200,7 @@
         <button type="button" class="btn btn-primary" id="audit-run-btn" data-i18n="auditRunBtn">Run Full Audit</button>
         <div style="margin-left:auto;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
           <label for="audit-liability-threshold" data-i18n="auditLiabilityThreshold" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;margin:0;">Liability threshold:</label>
-          <input type="number" id="audit-liability-threshold" style="width:180px;max-width:100%;margin:0;" placeholder="e.g. 500,000,000" min="0" step="1000000">
+          <input type="number" id="audit-liability-threshold" style="width:180px;max-width:100%;margin:0;" data-i18n-placeholder="auditThresholdPlaceholder" placeholder="e.g. 500,000,000" min="0" step="1000000">
           <button type="button" class="btn btn-primary btn-sm" id="audit-save-threshold-btn" data-i18n="auditSaveBtn" style="white-space:nowrap;">Save</button>
         </div>
       </div>
@@ -2470,7 +2470,7 @@
           <div style="flex:1; min-width:220px;"><label data-i18n="cpBank">Bank details (How to pay)</label><textarea id="cp-bank_details" rows="2" style="width:100%;"></textarea></div>
         </div>
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-start; margin-top:0.5rem;">
-          <div><label data-i18n="cpTerms">Default payment terms</label><input type="text" id="cp-default_payment_terms" placeholder="Net 30"></div>
+          <div><label data-i18n="cpTerms">Default payment terms</label><input type="text" id="cp-default_payment_terms" data-i18n-placeholder="placeholderPaymentTerms" placeholder="Net 30"></div>
           <div style="flex:1; min-width:220px;"><label data-i18n="cpFooter">Invoice footer</label><textarea id="cp-invoice_footer" rows="2" style="width:100%;"></textarea></div>
         </div>
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
@@ -2513,7 +2513,7 @@
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.75rem;">
           <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
             <strong data-i18n="adjAccrualTitle">Accrual</strong>
-            <div style="margin-top:0.4rem;"><input type="number" id="accr-amount" min="0" step="1" placeholder="Amount" style="width:100%;"></div>
+            <div style="margin-top:0.4rem;"><input type="number" id="accr-amount" min="0" step="1" data-i18n-placeholder="labelAmount" placeholder="Amount" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="date" id="accr-date" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="text" id="accr-desc" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
             <label style="display:block; margin-top:0.35rem; font-size:0.8rem;"><input type="checkbox" id="accr-reverse" checked> <span data-i18n="adjAutoReverse">Auto-reverse next period</span></label>
@@ -2521,7 +2521,7 @@
           </div>
           <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
             <strong data-i18n="adjPrepaymentTitle">Prepayment</strong>
-            <div style="margin-top:0.4rem;"><input type="number" id="prep-amount" min="0" step="1" placeholder="Total" style="width:100%;"></div>
+            <div style="margin-top:0.4rem;"><input type="number" id="prep-amount" min="0" step="1" data-i18n-placeholder="tableTotal" placeholder="Total" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="number" id="prep-periods" min="1" step="1" data-i18n-placeholder="adjPeriodsPlaceholder" placeholder="Periods" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="date" id="prep-date" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="text" id="prep-desc" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
@@ -2714,7 +2714,7 @@
         <div class="row" style="margin-bottom:0.5rem; align-items:flex-end;">
           <div>
             <label for="apikey-label" data-i18n="apiKeysLabel">Label</label>
-            <input type="text" id="apikey-label" placeholder="jira" maxlength="128">
+            <input type="text" id="apikey-label" data-i18n-placeholder="placeholderApiKeyLabel" placeholder="e.g. jira" maxlength="128">
           </div>
           <div>
             <label for="apikey-expiry" data-i18n="apiKeysExpiry">Expires</label>
@@ -2842,7 +2842,7 @@
           </div>
           <div class="fx-field">
             <label for="fx-note" data-i18n="fxNote">Note</label>
-            <input type="text" id="fx-note" placeholder="optional" maxlength="256">
+            <input type="text" id="fx-note" data-i18n-placeholder="placeholderOptional" placeholder="optional" maxlength="256">
           </div>
           <div class="fx-action">
             <button type="button" class="btn btn-primary" id="fx-add-rate-btn" data-i18n="fxAddRate">Add / update rate</button>

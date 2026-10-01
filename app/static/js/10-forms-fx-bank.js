@@ -576,8 +576,14 @@
         const loc = (data && data.locale) || 'default';
         window.__REPORTING_LOCALE = loc;
         if (selEl && [...selEl.options].some(o => o.value === loc)) selEl.value = loc;
-        if (statusEl) statusEl.textContent = 'Current: ' + loc;
+        if (statusEl) statusEl.textContent = tf('settingsCurrentValue', { value: optionLabel(selEl, loc) });
       } catch (_) {}
+    }
+
+    // "UK FRS 102 Section 1A" (the option as the user reads it), not "uk"
+    function optionLabel(sel, value) {
+      const o = sel && [...sel.options].find((x) => x.value === value);
+      return o ? o.textContent.trim() : String(value || '');
     }
 
     const reportingLocaleSaveBtn = document.getElementById('reporting-locale-save-btn');
@@ -594,10 +600,10 @@
         if (r.ok) {
           const data = await r.json();
           window.__REPORTING_LOCALE = data.locale;
-          if (status) status.textContent = 'Saved: ' + data.locale;
+          if (status) status.textContent = tf('settingsSavedValue', { value: optionLabel(sel, data.locale) });
         } else {
           const data = await r.json().catch(() => ({}));
-          if (status) status.textContent = (data.detail || 'Failed to save.');
+          if (status) status.textContent = (data.detail || t('settingsSaveFailed'));
         }
       });
     }
@@ -620,14 +626,14 @@
           if (r.ok) {
             const data = await r.json();
             window.__DISPLAY_CALENDAR = data.calendar;
-            if (status) status.textContent = 'Saved: ' + data.calendar;
+            if (status) status.textContent = tf('settingsSavedValue', { value: optionLabel(sel, data.calendar) });
             if (typeof applyCalendarMonthPickers === 'function') applyCalendarMonthPickers();
           } else {
             const data = await r.json().catch(() => ({}));
-            if (status) status.textContent = (data.detail || 'Failed to save.');
+            if (status) status.textContent = (data.detail || t('settingsSaveFailed'));
           }
         } catch (e) {
-          if (status) status.textContent = 'Error: ' + e.message;
+          if (status) status.textContent = tf('errorWithMessage', { message: e.message });
         }
       });
     }
@@ -644,28 +650,29 @@
       button.disabled = true;
       if (otherBtn) otherBtn.disabled = true;
       statusEl.style.color = 'var(--text-muted)';
-      statusEl.textContent = 'Resetting database and posting demo entries...';
+      statusEl.textContent = t('demoResetting');
       try {
         const url = API + '/admin/reset-db?locale=' + encodeURIComponent(locale) + '&with_demo_data=true';
         const res = await fetch(url, { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
           statusEl.style.color = '#2e7d32';
-          statusEl.textContent = `Loaded ${data.demo_entries || 0} entries (${data.accounts_created || 0} accounts) for locale "${data.locale}". Refreshing…`;
+          statusEl.textContent = tf('demoLoaded', { entries: data.demo_entries || 0, accounts: data.accounts_created || 0,
+            locale: optionLabel(document.getElementById('reporting-locale-select'), data.locale) });
           window.__REPORTING_LOCALE = data.locale;
           const sel = document.getElementById('reporting-locale-select');
           if (sel && [...sel.options].some(o => o.value === data.locale)) sel.value = data.locale;
           const localeStatus = document.getElementById('reporting-locale-status');
-          if (localeStatus) localeStatus.textContent = 'Current: ' + data.locale;
+          if (localeStatus) localeStatus.textContent = tf('settingsCurrentValue', { value: optionLabel(sel, data.locale) });
           // Give the user a moment to read, then reload so every panel re-fetches.
           setTimeout(() => window.location.reload(), 1500);
         } else {
           statusEl.style.color = '#c62828';
-          statusEl.textContent = data.detail || 'Reset failed.';
+          statusEl.textContent = data.detail || t('demoResetFailed');
         }
       } catch (e) {
         statusEl.style.color = '#c62828';
-        statusEl.textContent = 'Error: ' + e.message;
+        statusEl.textContent = tf('errorWithMessage', { message: e.message });
       } finally {
         button.disabled = false;
         if (otherBtn) otherBtn.disabled = false;
@@ -708,7 +715,7 @@
             setTimeout(() => window.location.reload(), 1200);
           } else {
             statusEl.style.color = '#b91c1c';
-            statusEl.textContent = data.detail || 'Reset failed.';
+            statusEl.textContent = data.detail || t('demoResetFailed');
           }
         } catch (e) {
           statusEl.style.color = '#b91c1c';

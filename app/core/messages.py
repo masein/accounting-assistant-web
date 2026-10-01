@@ -471,6 +471,14 @@ EXACT: dict[str, dict[str, str]] = {
     'File too small to validate signature': {"fa": 'فایل برای بررسی بیش از حد کوچک است', "es": 'El archivo es demasiado pequeño para comprobarlo', "ar": 'الملف أصغر من أن يُتحقق منه'},
     'Transaction must have non-zero amounts': {"fa": 'سند باید مبلغ غیرصفر داشته باشد', "es": 'El asiento debe tener importes distintos de cero', "ar": 'يجب أن يحتوي القيد على مبالغ غير صفرية'},
     'Required accounts not found. Seed chart of accounts first.': {"fa": 'حساب\u200cهای لازم پیدا نشد. ابتدا سرفصل حساب\u200cها را بسازید.', "es": 'Faltan cuentas necesarias. Crea primero el plan de cuentas.', "ar": 'الحسابات المطلوبة غير موجودة. أنشئ دليل الحسابات أولاً.'},
+    # payroll's reasons, said after the employee's name ("<name>: <reason>")
+    'Hours cannot be negative.': {"fa": 'ساعت نمی‌تواند منفی باشد.', "es": 'Las horas no pueden ser negativas.', "ar": 'لا يمكن أن تكون الساعات سالبة.'},
+    'period_end is before period_start.': {"fa": 'پایان دوره پیش از شروع آن است.', "es": 'El fin del periodo es anterior a su inicio.', "ar": 'نهاية الفترة قبل بدايتها.'},
+    'Gross cannot be negative.': {"fa": 'حقوق ناخالص نمی‌تواند منفی باشد.', "es": 'El bruto no puede ser negativo.', "ar": 'لا يمكن أن يكون الإجمالي سالباً.'},
+    'Hourly employees need an hours value.': {"fa": 'برای کارمند ساعتی باید ساعت کار وارد شود.', "es": 'Los empleados por horas necesitan un número de horas.', "ar": 'يحتاج الموظفون بالساعة إلى عدد ساعات.'},
+    'Hours must be greater than zero.': {"fa": 'ساعت باید بیشتر از صفر باشد.', "es": 'Las horas deben ser mayores que cero.', "ar": 'يجب أن تكون الساعات أكبر من الصفر.'},
+    'Proration cannot be negative.': {"fa": 'ضریب تناسب نمی‌تواند منفی باشد.', "es": 'El prorrateo no puede ser negativo.', "ar": 'لا يمكن أن تكون نسبة التناسب سالبة.'},
+    'Withholdings exceed gross pay — check the tax/deduction rates.': {"fa": 'کسورات از حقوق ناخالص بیشتر است؛ نرخ‌های مالیات و کسور را بررسی کنید.', "es": 'Las retenciones superan el bruto: revisa los tipos de impuestos y deducciones.', "ar": 'الاستقطاعات تتجاوز الأجر الإجمالي — راجع معدلات الضريبة والاستقطاع.'},
     'Every feed needs a name.': {"fa": 'هر منبع نرخ به نام نیاز دارد.', "es": 'Cada fuente necesita un nombre.', "ar": 'يحتاج كل مصدر إلى اسم.'},
     'The hour is 0–23.': {"fa": 'ساعت بین ۰ تا ۲۳ است.', "es": 'La hora va de 0 a 23.', "ar": 'الساعة من 0 إلى 23.'},
 }
@@ -525,13 +533,39 @@ _ENTITY_TYPE = {
     "ar": {"client": "عميل", "supplier": "مورّد", "bank": "بنك", "employee": "موظف", "shareholder": "مساهم", "payee": "مستفيد"},
 }
 
+_CHEQUE_SETTING = {
+    "fa": {"The width": "عرض", "The height": "ارتفاع", "The horizontal offset": "جابه‌جایی افقی",
+           "The vertical offset": "جابه‌جایی عمودی", "The font size": "اندازه قلم"},
+    "es": {"The width": "El ancho", "The height": "El alto", "The horizontal offset": "El desplazamiento horizontal",
+           "The vertical offset": "El desplazamiento vertical", "The font size": "El tamaño de letra"},
+    "ar": {"The width": "العرض", "The height": "الارتفاع", "The horizontal offset": "الإزاحة الأفقية",
+           "The vertical offset": "الإزاحة العمودية", "The font size": "حجم الخط"},
+}
+_CHEQUE_PART = {
+    "fa": {"width": "عرض کادر", "left edge": "لبه چپ کادر", "top": "لبه بالای کادر"},
+    "es": {"width": "El ancho del campo", "left edge": "El borde izquierdo del campo", "top": "El borde superior del campo"},
+    "ar": {"width": "عرض حقل", "left edge": "الحافة اليسرى لحقل", "top": "الحافة العليا لحقل"},
+}
+_CHEQUE_BOX = {
+    "fa": {"date": "تاریخ", "date_words": "تاریخ به حروف", "payee": "در وجه", "national_id": "کد ملی",
+           "amount_words": "مبلغ به حروف", "amount": "مبلغ"},
+    "es": {"date": "fecha", "date_words": "fecha en letras", "payee": "beneficiario", "national_id": "documento de identidad",
+           "amount_words": "importe en letras", "amount": "importe"},
+    "ar": {"date": "التاريخ", "date_words": "التاريخ كتابةً", "payee": "المستفيد", "national_id": "الرقم الوطني",
+           "amount_words": "المبلغ كتابةً", "amount": "المبلغ"},
+}
+
+
 class _Pattern:
     def __init__(self, regex: str, text: dict[str, str], *, values: Mapping[str, dict] | None = None,
-                 nested: tuple[str, ...] = ()):
+                 nested: tuple[str, ...] = (), example: str | None = None):
         self.regex = re.compile(regex, re.S)
         self.text = text
         self.values = values or {}      # group → {lang: {raw: said}}
         self.nested = nested            # groups that are messages themselves
+        # a message the code really builds, when its run-time parts are a fixed
+        # set (tests/test_api_messages.py checks it fits the raising f-string)
+        self.example = example
 
     def render(self, m: re.Match, lang: str) -> str:
         parts = {}
@@ -772,6 +806,49 @@ PATTERNS: list[_Pattern] = [
     _Pattern(r"^More than (?P<n>[\d,]+) vouchers — split the export\.$",
              {"fa": "بیش از {n} سند است؛ خروجی را تقسیم کنید.", "es": "Más de {n} asientos: divide la exportación.",
               "ar": "أكثر من {n} قيد — قسّم التصدير."}),
+    _Pattern(r"^(?P<name>[^:]+): paste the full URL again \(with its key\)\.$",
+             {"fa": "{name}: نشانی کامل را دوباره، همراه کلیدش، وارد کنید.", "es": "{name}: vuelve a pegar la URL completa (con su clave).",
+              "ar": "{name}: الصق العنوان الكامل مرة أخرى (مع مفتاحه)."}),
+    _Pattern(r"^(?P<name>[^:]+): a unit and the currency it's priced in, in capitals \(e\.g\. GOLDG → IRR\)\.$",
+             {"fa": "{name}: یک واحد و ارزی را که با آن قیمت می‌خورد با حروف بزرگ بنویسید (مثلاً GOLDG → IRR).",
+              "es": "{name}: indica una unidad y la moneda en que se cotiza, en mayúsculas (p. ej. GOLDG → IRR).",
+              "ar": "{name}: اكتب وحدة والعملة التي تُسعَّر بها، بأحرف كبيرة (مثلاً GOLDG → IRR)."}),
+    _Pattern(r"^(?P<name>[^:]+): say where the number is \(a JSON path\)\.$",
+             {"fa": "{name}: بگویید عدد کجای پاسخ است (یک مسیر JSON).", "es": "{name}: indica dónde está el número (una ruta JSON).",
+              "ar": "{name}: حدّد مكان الرقم (مسار JSON)."}),
+    _Pattern(r"^(?P<name>[^:]+): the multiplier must be above zero\.$",
+             {"fa": "{name}: ضریب باید بیشتر از صفر باشد.", "es": "{name}: el multiplicador debe ser mayor que cero.",
+              "ar": "{name}: يجب أن يكون المُضاعِف أكبر من الصفر."}),
+    # the cheque layout's checks (app/services/cheque_print.py): which setting, which box
+    _Pattern(r"^(?P<what>The width|The height|The horizontal offset|The vertical offset|The font size) must be a number\.$",
+             {"fa": "{what} باید عدد باشد.", "es": "{what} debe ser un número.", "ar": "يجب أن يكون {what} رقماً."},
+             values={"what": _CHEQUE_SETTING}, example="The font size must be a number."),
+    _Pattern(r"^(?P<what>The width|The height|The horizontal offset|The vertical offset|The font size) must be between (?P<lo>-?[\d.]+) and (?P<hi>-?[\d.]+)\.$",
+             {"fa": "{what} باید بین {lo} و {hi} باشد.", "es": "{what} debe estar entre {lo} y {hi}.", "ar": "يجب أن يكون {what} بين {lo} و{hi}."},
+             values={"what": _CHEQUE_SETTING}, example="The width must be between 100 and 250."),
+    _Pattern(r"^The (?P<part>width|left edge|top) of (?P<box>date_words|date|payee|national_id|amount_words|amount) must be a number\.$",
+             {"fa": "{part} «{box}» باید عدد باشد.", "es": "{part} «{box}» debe ser un número.", "ar": "يجب أن يكون {part} «{box}» رقماً."},
+             values={"part": _CHEQUE_PART, "box": _CHEQUE_BOX}, example="The width of payee must be a number."),
+    _Pattern(r"^The (?P<part>width|left edge|top) of (?P<box>date_words|date|payee|national_id|amount_words|amount) must be between (?P<lo>-?[\d.]+) and (?P<hi>-?[\d.]+)\.$",
+             {"fa": "{part} «{box}» باید بین {lo} و {hi} باشد.", "es": "{part} «{box}» debe estar entre {lo} y {hi}.",
+              "ar": "يجب أن يكون {part} «{box}» بين {lo} و{hi}."},
+             values={"part": _CHEQUE_PART, "box": _CHEQUE_BOX}, example="The left edge of amount must be between 0 and 140."),
+    _Pattern(r"^Bad model name (?P<model>.+)$",
+             {"fa": "نام مدل نامعتبر است: {model}", "es": "Nombre de modelo no válido: {model}", "ar": "اسم النموذج غير صالح: {model}"}),
+    _Pattern(r"^Price for (?P<name>.+) must be \[input, output\] or \[input, output, cached\], each 0–10000 USD per million tokens$",
+             {"fa": "قیمت {name} باید [ورودی، خروجی] یا [ورودی، خروجی، کش‌شده] باشد، هر کدام از ۰ تا ۱۰۰۰۰ دلار برای هر میلیون توکن.",
+              "es": "El precio de {name} debe ser [entrada, salida] o [entrada, salida, en caché], cada uno de 0 a 10000 USD por millón de tokens.",
+              "ar": "يجب أن يكون سعر {name} [إدخال، إخراج] أو [إدخال، إخراج، مخزَّن]، كلٌّ من 0 إلى 10000 دولار لكل مليون رمز."}),
+    _Pattern(r"^Reset wiped the data but re-seeding failed: (?P<reason>.+)$",
+             {"fa": "داده‌ها پاک شد اما داده‌های پایه دوباره ساخته نشد: {reason}",
+              "es": "Se borraron los datos, pero no se pudieron volver a crear los datos base: {reason}",
+              "ar": "مُسحت البيانات لكن تعذّرت إعادة إنشاء البيانات الأساسية: {reason}"}),
+    _Pattern(r"^Invalid entity name: (?P<name>.+)$",
+             {"fa": "نام طرف حساب نامعتبر است: {name}", "es": "Nombre de tercero no válido: {name}", "ar": "اسم الطرف غير صالح: {name}"}),
+    # payroll: "<employee>: <reason>", the reason one of the whole messages above
+    _Pattern(r"^(?P<name>[^:]+): (?P<reason>(?:Hours|Gross|Hourly employees|Proration|period_end|Withholdings) .+)$",
+             {"fa": "{name}: {reason}", "es": "{name}: {reason}", "ar": "{name}: {reason}"}, nested=("reason",),
+             example="Sara Ahmadi: Hours cannot be negative."),
     _Pattern(r"^(?P<name>[^:]+): the feed URL must be https\.$",
              {"fa": "{name}: نشانی منبع باید https باشد.", "es": "{name}: la URL de la fuente debe ser https.",
               "ar": "{name}: يجب أن يكون عنوان المصدر https."}),

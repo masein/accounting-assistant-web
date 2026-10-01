@@ -91,3 +91,28 @@ def test_settings_write_is_owner_only(db, client):
     assert _api(client, Role.OWNER, co).put("/notifications/digest-settings", json={"enabled": True}).status_code == 200
     # CFO can still READ settings
     assert _api(client, Role.CFO, co).get("/notifications/digest-settings").status_code == 200
+
+
+def test_the_digest_is_written_in_its_readers_language(db):
+    from app.models.user import User
+
+    co = _company(db)
+    with use_company(str(co.id)):
+        set_digest_settings(db, enabled=True, cash_threshold=1_000_000)
+        d = build_daily_digest(db)
+    fa = format_digest("آکمه", d, "fa")
+    assert fa.startswith("خلاصه روزانه — آکمه") and "نقدینگی کم (نقد کمتر از آستانه)" in fa and "موجودی نقد: 0" in fa
+    assert format_digest("Acme", d, "es").startswith("Resumen diario — Acme")
+    en = format_digest("Acme", d)
+    assert "LOW CASH (cash below the threshold)" in en and "Cash on hand: 0" in en
+    # the owner's language, else the company's
+    from app.services.digest_service import digest_language
+    with use_company(str(co.id)):
+        assert digest_language(db) == "en"                       # a UK company, no owner yet
+        owner = User(username=f"own-{uuid.uuid4().hex[:6]}", password_hash="x", password_salt="x", role="owner",
+                     is_active=True, company_id=co.id, preferred_language="fa")
+        db.add(owner)
+        db.flush()
+        assert digest_language(db) == "fa"
+    db.delete(owner)
+    db.flush()

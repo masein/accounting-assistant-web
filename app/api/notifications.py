@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.schemas.notification import NotificationCheckResponse, NotificationItem
 from app.services.digest_service import (
     build_daily_digest,
+    digest_language,
     format_digest,
     get_digest_settings,
     set_digest_settings,
@@ -124,7 +125,7 @@ async def send_daily_digest(deliver: bool = True, db: Session = Depends(get_db))
     scheduler with an Owner/CFO session. Skips delivery when disabled."""
     d = build_daily_digest(db)
     conf = d["settings"]
-    text = format_digest(_company_name(db), d)
+    text = format_digest(_company_name(db), d, digest_language(db))
     delivered: list[str] = []
     if deliver and conf["enabled"]:
         ch = conf["channel"]

@@ -141,13 +141,13 @@ def job_daily_digest(db, today: date) -> dict:
     /notifications/daily-digest endpoint uses. Skips silently when the
     company has the digest disabled."""
     from app.api.notifications import _company_name, _send_email, _send_slack, _send_telegram
-    from app.services.digest_service import build_daily_digest, format_digest
+    from app.services.digest_service import build_daily_digest, digest_language, format_digest
 
     d = build_daily_digest(db)
     conf = d["settings"]
     if not conf.get("enabled"):
         return {"delivered": [], "enabled": False}
-    text = format_digest(_company_name(db), d)
+    text = format_digest(_company_name(db), d, digest_language(db))
     delivered: list[str] = []
     ch = conf.get("channel")
 

@@ -1232,7 +1232,7 @@
     async function addManagerInventoryItem() {
       const name = (mgrInvItemNameEl.value || '').trim();
       if (!name) {
-        showAlert('Inventory item name is required.', true);
+        showAlert(t('msgInvItemNameRequired'), true);
         return;
       }
       try {
@@ -1251,17 +1251,17 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showAlert(data.detail || 'Failed to add inventory item.', true);
+          showAlert(data.detail || t('msgInvItemAddFailed'), true);
           return;
         }
         mgrInvItemNameEl.value = '';
         mgrInvItemSkuEl.value = '';
         ['mgr-inv-item-barcode', 'mgr-inv-item-reorder'].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
-        showAlert('Inventory item added.');
+        showAlert(t('msgInvItemAdded'));
         await loadManagerInventoryItems(data.id);
         if (typeof loadStockPanel === 'function') loadStockPanel();
       } catch (err) {
-        showAlert('Error adding inventory item: ' + err.message, true);
+        showAlert(t('msgInvItemAddError') + err.message, true);
       } finally {
         mgrAddItemBtn.disabled = false;
       }
@@ -1270,7 +1270,7 @@
     async function addManagerInventoryMovement() {
       const itemId = (mgrMvItemEl.value || '').trim();
       if (!itemId) {
-        showAlert('Select inventory item first.', true);
+        showAlert(t('msgInvSelectItem'), true);
         return;
       }
       try {
@@ -1293,13 +1293,13 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showAlert(data.detail || 'Failed to add inventory movement.', true);
+          showAlert(data.detail || t('msgInvMoveAddFailed'), true);
           return;
         }
-        showAlert('Inventory movement added.');
+        showAlert(t('msgInvMoveAdded'));
         if (typeof stockShowValuation === 'function') stockShowValuation().catch(() => {});
       } catch (err) {
-        showAlert('Error adding movement: ' + err.message, true);
+        showAlert(t('msgInvMoveAddError') + err.message, true);
       } finally {
         mgrAddMvBtn.disabled = false;
       }

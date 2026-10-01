@@ -553,7 +553,7 @@
         uk_changes_in_equity: 'Statement of Changes in Equity',
         uk_cash_flow: 'Statement of Cash Flows',
       };
-      const title = titleMap[report.report_type] || 'Report';
+      const title = titleMap[report.report_type] || t('reportWord');
       const isBalanceSheet = report.report_type === 'uk_balance_sheet';
       const datePrefix = isBalanceSheet ? 'As at' : 'Year ended';
       const curHeader = periodDate ? `${datePrefix} ${escapeHtml(formatDisplayDate(periodDate))}` : '';
@@ -990,13 +990,13 @@
         line_description: tr.querySelector('.line-desc').value.trim() || null
       })).filter(l => l.account_code);
       if (lines.length < 2) {
-        showAlert('Please add at least two lines with an account code.', true);
+        showAlert(t('msgTwoLinesNeeded'), true);
         return;
       }
       const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
       const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
       if (totalDebit !== totalCredit) {
-        showAlert('Total debits must equal total credits. (Debit: ' + formatNum(totalDebit) + ', Credit: ' + formatNum(totalCredit) + ')', true);
+        showAlert(tf('msgVoucherUnbalanced', { debit: formatNum(totalDebit), credit: formatNum(totalCredit) }), true);
         return;
       }
       // Warn if posting into a currency different from the reporting currency
@@ -1042,17 +1042,17 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showAlert(data.detail || 'Error saving voucher. ' + res.status, true);
+          showAlert(data.detail || t('msgVoucherSaveError') + res.status, true);
           return;
         }
         lastSavedTransactionId = data.id || null;
-        showAlert('Voucher saved. Ledger updated.');
+        showAlert(t('msgVoucherSaved'));
         loadLedger();
         loadEntities();
         loadOwnerDashboard();
         resetVoucherForm();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       } finally {
         submitBtn.disabled = false;
         document.getElementById('results-wrap').classList.remove('loading');

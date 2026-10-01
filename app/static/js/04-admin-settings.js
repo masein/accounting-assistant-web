@@ -69,14 +69,14 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(data.detail || 'Failed to save.') + '</span>';
+          if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(data.detail || t('settingsSaveFailed')) + '</span>';
           return;
         }
         if (statusEl) statusEl.innerHTML = '<span style="color:#059669;">Saved.</span>';
         keyEl.value = '';
         loadAnthropicConfig();
       } catch (err) {
-        if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml('Connection error: ' + err.message) + '</span>';
+        if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(t('msgConnectionError') + err.message) + '</span>';
       } finally {
         btn.disabled = false;
       }
@@ -130,13 +130,13 @@
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) {
-          if (hint) hint.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(data.detail || 'Failed to save.') + '</span>';
+          if (hint) hint.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(data.detail || t('settingsSaveFailed')) + '</span>';
           return;
         }
         _applyChatShapeVisibility(data.effective || 'anthropic');
         if (hint) hint.innerHTML = '<span style="color:#059669;">Saved.</span> Currently using <strong>' + escapeHtml(data.effective) + '</strong>.';
       } catch (err) {
-        if (hint) hint.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml('Connection error: ' + err.message) + '</span>';
+        if (hint) hint.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(t('msgConnectionError') + err.message) + '</span>';
       } finally {
         btn.disabled = false;
       }
@@ -160,12 +160,12 @@
           body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Failed to update AI settings.', true); return; }
-        showAlert('AI settings updated.');
+        if (!res.ok) { showAlert(data.detail || t('msgAiSettingsFailed'), true); return; }
+        showAlert(t('msgAiSettingsUpdated'));
         aiKeyInput.value = '';
         loadAIConfig();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       } finally {
         aiSaveBtn.disabled = false;
       }
@@ -240,7 +240,7 @@
     }
     function applyCompanyBranding(p) {
       p = p || {};
-      const name = (p.legal_name || (p.company && p.company.name) || _companyName || 'Company').trim();
+      const name = (p.legal_name || (p.company && p.company.name) || _companyName || t('msgCompanyDefault')).trim();
       _companyName = name || _companyName;
       const sideName = document.getElementById('sidebar-company-name');
       if (sideName) sideName.textContent = name;
@@ -432,7 +432,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showAlert(data.detail || 'Failed to create user.', true);
+          showAlert(data.detail || t('msgUserCreateFailed'), true);
           return;
         }
         showAlert(t('usersCreated'));
@@ -441,7 +441,7 @@
         if (newUserEntityEl) newUserEntityEl.value = '';
         loadUsers();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       } finally {
         createUserBtn.disabled = false;
       }
@@ -459,7 +459,7 @@
           showAlert(tf('tfaResetDone', { name: username }));
           loadUsers();
         } catch (err) {
-          showAlert('Connection error: ' + err.message, true);
+          showAlert(t('msgConnectionError') + err.message, true);
         }
         return;
       }
@@ -472,13 +472,13 @@
           const res = await fetch(API + '/admin/users/' + encodeURIComponent(id), { method: 'DELETE' });
           const data = await res.json().catch(() => ({}));
           if (!res.ok && res.status !== 204) {
-            showAlert(data.detail || 'Failed to delete user.', true);
+            showAlert(data.detail || t('msgUserDeleteFailed'), true);
             return;
           }
           showAlert(t('usersDeleted'));
           loadUsers();
         } catch (err) {
-          showAlert('Connection error: ' + err.message, true);
+          showAlert(t('msgConnectionError') + err.message, true);
         }
         return;
       }
@@ -495,13 +495,13 @@
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            showAlert(data.detail || 'Failed to update user.', true);
+            showAlert(data.detail || t('msgUserUpdateFailed'), true);
             return;
           }
           showAlert(t('usersRoleUpdated'));
           loadUsers();
         } catch (err) {
-          showAlert('Connection error: ' + err.message, true);
+          showAlert(t('msgConnectionError') + err.message, true);
         }
         return;
       }
@@ -523,12 +523,12 @@
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            showAlert(data.detail || 'Failed to reset password.', true);
+            showAlert(data.detail || t('msgPasswordResetFailed'), true);
             return;
           }
           showAlert(t('usersPasswordReset'));
         } catch (err) {
-          showAlert('Connection error: ' + err.message, true);
+          showAlert(t('msgConnectionError') + err.message, true);
         }
       }
     }

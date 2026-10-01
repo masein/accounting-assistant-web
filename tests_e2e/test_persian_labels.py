@@ -136,6 +136,8 @@ def _every_page_speaks(flow_page, user, lang):
     except Exception:
         os.makedirs(ARTIFACTS, exist_ok=True)
         page.screenshot(path=os.path.join(ARTIFACTS, f"{lang}-labels.png"), full_page=True)
+        # a page left empty is usually a failed fetch (a 429, a 500): say which
+        print(f"{lang} sweep: what the page saw go wrong:", watch.problems())
         raise
     finally:
         page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'en';

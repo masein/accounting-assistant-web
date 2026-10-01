@@ -139,7 +139,7 @@
           + `<strong>${escapeHtml(t('migrationApplied'))}</strong><br>`
           + `${created} ${escapeHtml(t('migrationAccountsCreated'))}, ${updated} ${escapeHtml(t('migrationAccountsUpdated'))}, `
           + `${entCreated} ${escapeHtml(t('migrationEntitiesCreated'))}.<br>`
-          + `${escapeHtml(t('migrationJournalPosted'))}: ${oj.opening_date || ''}`
+          + `${escapeHtml(t('migrationJournalPosted'))}: ${escapeHtml(formatDisplayDate(oj.opening_date) || '')}`
           + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString()})` : '')
           + (oj.replaced_previous ? ` ${escapeHtml(t('migrationJournalReplaced'))}` : '')
           + `</div>`;
@@ -338,7 +338,7 @@
         if (!list) return;
         list.innerHTML = rows.length ? rows.map(r => `
           <div style="display:flex; gap:0.4rem; align-items:center; padding:0.25rem 0.3rem; font-size:0.82rem;">
-            <span style="flex:1; ${r.status === 'paused' ? 'opacity:0.5;' : ''}">${escapeHtml(r.title)} · ${escapeHtml(r.due_date)}${r.repeat !== 'none' ? ' ↻' : ''}</span>
+            <span style="flex:1; ${r.status === 'paused' ? 'opacity:0.5;' : ''}">${escapeHtml(r.title)} · ${escapeHtml(formatDisplayDate(r.due_date))}${r.repeat !== 'none' ? ' ↻' : ''}</span>
             <button type="button" class="rem-toggle" data-id="${r.id}" data-status="${r.status}" style="border:none;background:none;cursor:pointer;">${r.status === 'paused' ? '▶' : '⏸'}</button>
             <button type="button" class="rem-del" data-id="${r.id}" style="border:none;background:none;cursor:pointer;">🗑</button>
           </div>`).join('')
@@ -697,7 +697,7 @@
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
         const rows = (data.rows || []).map(r => `
-          <tr><td>${escapeHtml(r.date || '')}</td><td>${escapeHtml(r.description || r.reference || '')}</td>
+          <tr><td>${escapeHtml(formatDisplayDate(r.date || ''))}</td><td>${escapeHtml(r.description || r.reference || '')}</td>
           <td class="num">${r.debit_effect ? formatNum(r.debit_effect) : ''}</td>
           <td class="num">${r.credit_effect ? formatNum(r.credit_effect) : ''}</td>
           <td class="num">${formatNum(r.running_balance)}</td></tr>`).join('');

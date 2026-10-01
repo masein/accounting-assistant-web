@@ -327,3 +327,17 @@ def test_the_close_pack_panel_is_wired():
     for k in ("closePackTitle", "closePackHint", "closePackMonth", "closePackZip", "closePackPdf", "closePackXlsx",
               "closePackFailed"):
         assert text.count(f"{k}:") == 4, k
+
+
+def test_the_checklist_dates_follow_the_chosen_calendar(company):
+    import jdatetime
+
+    api, _ = company("uk", "GBP", UK)
+    assert api.put("/admin/display-calendar", json={"calendar": "jalali"}).status_code == 200
+    j = jdatetime.date.fromgregorian(date=date(2026, 8, 31))
+    said = f"{j.year:04d}/{j.month:02d}/{j.day:02d}"                      # 1405/06/09
+    en = _checklist(api, "2026-08", lang="en")
+    assert said in _detail(en, "lock") and "2026-08-31" not in _detail(en, "lock")
+    fa = _checklist(api, "2026-08", lang="fa")
+    from app.services.documents.formatting import to_persian_digits
+    assert to_persian_digits(said) in _detail(fa, "lock")

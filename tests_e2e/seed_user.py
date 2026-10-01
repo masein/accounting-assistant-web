@@ -16,7 +16,7 @@ import os
 import sys
 
 FLOW_USERS = ("e2e_forecast", "e2e_assets", "e2e_stock", "e2e_chart", "e2e_reports", "e2e_persian", "e2e_mobile_en", "e2e_mobile_fa",
-              "e2e_tables", "e2e_a11y", "e2e_keyboard")
+              "e2e_tables", "e2e_a11y", "e2e_keyboard", "e2e_jalali")
 # one user per remaining company role, for checks that differ by role (what a
 # page load fetches, which pages a role lands on)
 ROLE_USERS = {"e2e_cfo": "cfo", "e2e_manager": "manager", "e2e_employee": "employee", "e2e_viewer": "viewer"}

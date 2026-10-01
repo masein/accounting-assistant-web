@@ -56,7 +56,7 @@
         <th>${t('labelDate')}</th><th>${t('labelReference')}</th><th>${t('labelDescription')}</th>
         <th class="num">${t('tableDebit')}</th><th class="num">${t('tableCredit')}</th><th>${t('tableLineDescription')}</th>
       </tr></thead><tbody>${lines.map(l => `<tr>
-        <td>${escapeHtml(l.transaction_date)}</td>
+        <td>${escapeHtml(formatDisplayDate(l.transaction_date))}</td>
         <td>${escapeHtml(l.reference || '—')}</td>
         <td>${escapeHtml(l.description || '—')}</td>
         <td class="num">${formatNum(l.debit)}</td>
@@ -82,7 +82,7 @@
           <p>Debit Turnover: ${formatNum(m.debit_turnover)} | Credit Turnover: ${formatNum(m.credit_turnover)}</p>
           <p>Debit Balance: ${formatNum(m.debit_balance)} | Credit Balance: ${formatNum(m.credit_balance)}</p>
           <table><thead><tr><th>Date</th><th>Reference</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th>Line Description</th></tr></thead><tbody>
-          ${lines.map(l=>`<tr><td>${escapeHtml(l.transaction_date)}</td><td>${escapeHtml(l.reference||'')}</td><td>${escapeHtml(l.description||'')}</td><td class="num">${formatNum(l.debit)}</td><td class="num">${formatNum(l.credit)}</td><td>${escapeHtml(l.line_description||'')}</td></tr>`).join('')}
+          ${lines.map(l=>`<tr><td>${escapeHtml(formatDisplayDate(l.transaction_date))}</td><td>${escapeHtml(l.reference||'')}</td><td>${escapeHtml(l.description||'')}</td><td class="num">${formatNum(l.debit)}</td><td class="num">${formatNum(l.credit)}</td><td>${escapeHtml(l.line_description||'')}</td></tr>`).join('')}
           </tbody></table></body></html>`);
         w.document.close();
         setTimeout(() => w.print(), 300);
@@ -808,8 +808,8 @@
         body.innerHTML = '';
         _moRows.forEach(r => {
           const late = r.moadian_status === null && r.days_left < 0;
-          const deadline = r.moadian_status ? escapeHtml(r.deadline)
-            : `<span style="color:${late ? 'var(--danger, #b91c1c)' : 'inherit'};">${escapeHtml(r.deadline)} · ${escapeHtml(t(late ? 'moDaysLate' : 'moDaysLeft').replace('{n}', Math.abs(r.days_left)))}</span>`;
+          const deadline = r.moadian_status ? escapeHtml(formatDisplayDate(r.deadline))
+            : `<span style="color:${late ? 'var(--danger, #b91c1c)' : 'inherit'};">${escapeHtml(formatDisplayDate(r.deadline))} · ${escapeHtml(t(late ? 'moDaysLate' : 'moDaysLeft').replace('{n}', Math.abs(r.days_left)))}</span>`;
           const status = t('moState_' + (r.moadian_status || 'pending'))
             + (r.reference ? `<div style="font-size:0.72rem;color:var(--text-muted);" dir="ltr">${escapeHtml(r.reference)}</div>` : '')
             + (r.error ? `<div style="font-size:0.72rem;color:var(--danger, #b91c1c);">${escapeHtml(r.error)}</div>` : '')
@@ -826,7 +826,7 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><input type="checkbox" class="mo-pick" data-id="${r.id}" aria-label="${escapeHtml(tf('moPickInvoice', { number: r.number }))}" ${canSelect ? '' : 'disabled'}></td>
-            <td>${escapeHtml(r.number)}</td><td>${escapeHtml(r.issue_date)}</td><td>${escapeHtml(r.customer || '—')}</td>
+            <td>${escapeHtml(r.number)}</td><td>${escapeHtml(formatDisplayDate(r.issue_date))}</td><td>${escapeHtml(r.customer || '—')}</td>
             <td>${formatMoney(r.amount, r.currency)}</td><td>${deadline}</td><td>${status}</td><td>${ready}</td><td>${actions}</td>`;
           body.appendChild(tr);
         });
@@ -961,7 +961,7 @@
           tr.innerHTML = `
             <td>${escapeHtml(r.entity_name || '—')}${mail}</td>
             <td>${escapeHtml(t('riFreq_' + r.frequency))}${r.calendar === 'jalali' ? ' · ' + escapeHtml(t('riCalendarJalali')) : ''}</td>
-            <td>${r.status === 'ended' ? '—' : escapeHtml(r.next_run_date)}</td>
+            <td>${r.status === 'ended' ? '—' : escapeHtml(formatDisplayDate(r.next_run_date))}</td>
             <td>${formatMoney(r.total, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
             <td>${escapeHtml(String(r.occurrences))}${r.last_invoice_number ? ' · ' + escapeHtml(r.last_invoice_number) : ''}</td>
             <td>${escapeHtml(t('riStatus_' + r.status))}${err}</td>
@@ -1105,7 +1105,7 @@
             <td>${escapeHtml(q.entity_name || '—')}</td>
             <td><span class="qt-status qt-status-${escapeHtml(st)}">${escapeHtml(t('qtStatus_' + st))}</span>${invoiced}</td>
             <td>${formatMoney(q.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
-            <td>${escapeHtml(q.valid_until)}</td>
+            <td>${escapeHtml(formatDisplayDate(q.valid_until))}</td>
             <td>${actions}</td>`;
           body.appendChild(tr);
         });
@@ -1804,7 +1804,7 @@
         const sel = document.getElementById('mtd-period');
         const periods = per.periods || [];
         const pick = periods.find(p => !p.open) || periods[0];
-        sel.innerHTML = periods.map(p => `<option value="${escapeHtml(p.end)}"${p === pick ? ' selected' : ''}>${escapeHtml(p.start)} – ${escapeHtml(p.end)}${p.open ? ' · ' + escapeHtml(t('mtdOpen')) : ''}</option>`).join('');
+        sel.innerHTML = periods.map(p => `<option value="${escapeHtml(p.end)}"${p === pick ? ' selected' : ''}>${escapeHtml(formatDisplayDate(p.start))} – ${escapeHtml(formatDisplayDate(p.end))}${p.open ? ' · ' + escapeHtml(t('mtdOpen')) : ''}</option>`).join('');
         _mtdLoaded = true;
         loadMtdReturn();
         loadMtdItsa();
@@ -1823,7 +1823,7 @@
         const fmt = (n, i) => i <= 5 ? formatMoney(n, d.currency) : formatMoney(Math.trunc(n), d.currency);
         const days = (() => { const ms = new Date(d.period.deadline) - new Date(new Date().toDateString()); return Math.round(ms / 86400000); })();
         box.innerHTML = `
-          <p style="font-size:0.84rem;margin:0 0 0.4rem;">${escapeHtml(tf('mtdDue', { date: d.period.deadline }))} · ${escapeHtml(days < 0 ? t('mtdPassed') : tf('mtdDaysLeft', { n: days }))} · ${escapeHtml(d.direction === 'payable' ? t('mtdPayable') : t('mtdRepayable'))}</p>
+          <p style="font-size:0.84rem;margin:0 0 0.4rem;">${escapeHtml(tf('mtdDue', { date: formatDisplayDate(d.period.deadline) }))} · ${escapeHtml(days < 0 ? t('mtdPassed') : tf('mtdDaysLeft', { n: days }))} · ${escapeHtml(d.direction === 'payable' ? t('mtdPayable') : t('mtdRepayable'))}</p>
           <table class="results-table" style="font-size:0.84rem;max-width:44rem;"><tbody>
             ${MTD_BOXES.map(n => `<tr${n === '5' ? ' style="font-weight:700;"' : ''}><td style="width:3rem;">${escapeHtml(t('mtdBox'))} ${n}</td><td>${escapeHtml(t('mtdBox' + n))}</td><td dir="ltr" style="text-align:end;">${fmt(d.boxes[n], Number(n))}</td></tr>`).join('')}
           </tbody></table>
@@ -1896,7 +1896,7 @@
         const qSel = document.getElementById('mtd-itsa-quarter');
         const keep = qSel.value;
         const pick = (qd.quarters.find(q => !q.open && q.days_left >= 0) || qd.quarters.find(q => q.open) || qd.quarters[0]).quarter;
-        qSel.innerHTML = qd.quarters.map(q => `<option value="${q.quarter}">Q${q.quarter} · ${escapeHtml(q.start)} – ${escapeHtml(q.end)} · ${escapeHtml(tf('mtdDue', { date: q.deadline }))}</option>`).join('');
+        qSel.innerHTML = qd.quarters.map(q => `<option value="${q.quarter}">Q${q.quarter} · ${escapeHtml(formatDisplayDate(q.start))} – ${escapeHtml(formatDisplayDate(q.end))} · ${escapeHtml(tf('mtdDue', { date: formatDisplayDate(q.deadline) }))}</option>`).join('');
         qSel.value = keep && qd.quarters.some(q => String(q.quarter) === keep) ? keep : String(pick);
         const m = qd.mandation;
         document.getElementById('mtd-itsa-mandation').innerHTML = m ? `<div class="tfa-note">${escapeHtml(m.required

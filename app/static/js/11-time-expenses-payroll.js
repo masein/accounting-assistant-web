@@ -29,7 +29,7 @@
               <tr>
                 <td>${escapeHtml(p.source)}<br><span style="color:var(--text-muted);font-size:0.76rem;">${escapeHtml(p.external_id)}</span></td>
                 <td>${escapeHtml(p.worker)}</td>
-                <td>${escapeHtml(p.work_date)}</td>
+                <td>${escapeHtml(formatDisplayDate(p.work_date))}</td>
                 <td>${p.hours}</td>
                 <td><select class="tm-pending-emp" data-id="${escapeHtml(p.id)}" style="font-size:0.8rem;padding:2px 4px;">${opts}</select></td>
                 <td>
@@ -83,10 +83,10 @@
         section.style.display = '';
         body.innerHTML = slips.map(s => `
           <tr>
-            <td>${escapeHtml(s.period_start)} – ${escapeHtml(s.period_end)}</td>
+            <td>${escapeHtml(formatDisplayDate(s.period_start))} – ${escapeHtml(formatDisplayDate(s.period_end))}</td>
             <td class="num">${formatNum(s.gross)} ${escapeHtml(s.currency || '')}</td>
             <td class="num"><strong>${formatNum(s.net_pay)}</strong> ${escapeHtml(s.currency || '')}</td>
-            <td>${escapeHtml(s.pay_date)}</td>
+            <td>${escapeHtml(formatDisplayDate(s.pay_date))}</td>
             <td>${s.status === 'paid' ? '<span style="color:#15803d;font-weight:600;">' + escapeHtml(t('myPayStatusPaid')) + '</span>' : escapeHtml(s.status)}</td>
             <td>${escapeHtml(s.paid_to || '—')}</td>
             <td><a class="btn btn-secondary btn-sm" target="_blank"
@@ -261,7 +261,7 @@
           const rateTxt = e.rate != null ? `${formatNum(Math.round(e.rate))} ${escapeHtml(e.currency || tmCur())}` : '—';
           const actions = e.locked ? `🔒` :
             `<button class="btn btn-secondary btn-sm tm-wo" data-id="${e.id}">${t('timeWriteOff')}</button> <button class="btn btn-secondary btn-sm tm-del" data-id="${e.id}" aria-label="${escapeHtml(t('btnDelete'))}" title="${escapeHtml(t('btnDelete'))}">✕</button>`;
-          tr.innerHTML = `<td>${e.work_date}</td><td>${escapeHtml(e.employee_name || '')}</td>
+          tr.innerHTML = `<td>${escapeHtml(formatDisplayDate(e.work_date))}</td><td>${escapeHtml(e.employee_name || '')}</td>
             <td>${escapeHtml(e.client_name || '')}</td><td>${escapeHtml(e.project_name || t('timeNoProject'))}</td>
             <td>${e.hours}</td><td>${rateTxt}</td>
             <td><span class="badge ${e.status === 'invoiced' ? 'badge-ok' : ''}">${t('timeStatus_' + e.status)}</span></td>
@@ -459,7 +459,7 @@
         }
         pending.forEach(c => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${escapeHtml(c.employee_name)}</td><td>${c.claim_date}</td>
+          tr.innerHTML = `<td>${escapeHtml(c.employee_name)}</td><td>${escapeHtml(formatDisplayDate(c.claim_date))}</td>
             <td>${c.distance} ${escapeHtml(c.unit)}</td><td>${formatNum(c.amount)} ${escapeHtml(c.currency)}</td>
             <td style="display:flex;gap:0.3rem;">
               <button class="btn btn-primary btn-sm exp-approve" data-id="${c.id}">${t('expApprove')}</button>
@@ -472,7 +472,7 @@
         claims.forEach(c => {
           const canPay = c.status === 'approved' && c.transaction_id && !c.reimbursement_transaction_id;
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${escapeHtml(c.employee_name)}</td><td>${c.claim_date}</td>
+          tr.innerHTML = `<td>${escapeHtml(c.employee_name)}</td><td>${escapeHtml(formatDisplayDate(c.claim_date))}</td>
             <td>${formatNum(c.amount)} ${escapeHtml(c.currency)}</td>
             <td><span class="badge ${c.status === 'reimbursed' ? 'badge-ok' : ''}">${t('expStatus_' + c.status)}</span></td>
             <td>${canPay ? `<button class="btn btn-secondary btn-sm exp-pay" data-id="${c.id}">${t('expReimburse')}</button>` : ''}</td>`;
@@ -610,7 +610,7 @@
         pos.forEach(p => {
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(p.number)}</td><td>${escapeHtml(p.supplier_name || '—')}</td>
-            <td>${p.order_date}</td><td>${formatNum(p.total)} ${escapeHtml(p.currency)}</td>
+            <td>${escapeHtml(formatDisplayDate(p.order_date))}</td><td>${formatNum(p.total)} ${escapeHtml(p.currency)}</td>
             <td><span class="badge ${p.status === 'received' ? 'badge-ok' : ''}">${t('poStatus_' + p.status)}</span></td>
             <td><button class="btn btn-secondary btn-sm po-view" data-id="${p.id}">${t('payrollViewBtn')}</button></td>`;
           body.appendChild(tr);
@@ -794,7 +794,7 @@
         b.upto == null ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%` : `${formatNum(b.upto)}: ${Math.round(b.rate * 100)}%`
       ).join(' · ');
       const item = (label, val) => `<div><span style="color:var(--text-muted);">${t(label)}:</span> ${val}</div>`;
-      return `<div style="font-weight:600;margin-bottom:0.3rem;"><bdi>${escapeHtml(rs.name)}</bdi> (${escapeHtml(rs.year)}) — ${rs.effective_from} → ${rs.effective_to || '…'}</div>
+      return `<div style="font-weight:600;margin-bottom:0.3rem;"><bdi>${escapeHtml(rs.name)}</bdi> (${escapeHtml(rs.year)}) — ${escapeHtml(formatDisplayDate(rs.effective_from))} → ${escapeHtml(formatDisplayDate(rs.effective_to) || '…')}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.25rem 1rem;">
           ${item('payrollRulesMinWage', `${formatNum(p.min_wage_daily || 0)} ${cur}`)}
           ${item('payrollRulesHousing', `${formatNum(p.housing_allowance || 0)} ${cur}`)}
@@ -975,7 +975,7 @@
           const tr = document.createElement('tr');
           const kind = r.kind === 'year_end'
             ? `<div><span class="badge">${escapeHtml(tf('payrollYearEndRun', { year: r.year_key || '' }))}</span></div>` : '';
-          tr.innerHTML = `<td>${r.period_start} – ${r.period_end}${kind}</td><td>${r.pay_date}</td>
+          tr.innerHTML = `<td>${escapeHtml(formatDisplayDate(r.period_start))} – ${escapeHtml(formatDisplayDate(r.period_end))}${kind}</td><td>${escapeHtml(formatDisplayDate(r.pay_date))}</td>
             <td>${formatNum(r.total_gross)} ${escapeHtml(r.currency)}</td><td>${formatNum(r.total_net)} ${escapeHtml(r.currency)}</td>
             <td><span class="badge ${r.status === 'paid' ? 'badge-ok' : ''}">${t('payrollStatus_' + r.status)}</span></td>
             <td><button class="btn btn-secondary btn-sm pr-view-run" data-id="${r.id}">${t('payrollViewBtn')}</button></td>`;
@@ -1033,7 +1033,7 @@
       document.getElementById('pr-run-detail').style.display = 'block';
       const yearEnd = run.kind === 'year_end';
       document.getElementById('pr-run-detail-title').textContent =
-        `${yearEnd ? tf('payrollYearEndRun', { year: run.year_key || '' }) : t('payrollRunDetail')} — ${run.period_start} – ${run.period_end} (${t('payrollStatus_' + run.status)})`;
+        `${yearEnd ? tf('payrollYearEndRun', { year: run.year_key || '' }) : t('payrollRunDetail')} — ${escapeHtml(formatDisplayDate(run.period_start))} – ${escapeHtml(formatDisplayDate(run.period_end))} (${t('payrollStatus_' + run.status)})`;
       const body = document.getElementById('pr-run-lines-body');
       body.innerHTML = '';
       (run.lines || []).forEach(ln => {
@@ -1113,7 +1113,7 @@
         if (!res.ok) return;
         const s = await res.json();
         const cur = s.currency || prCur();
-        const msg = `${s.employee_name} · ${s.period_start} – ${s.period_end}\n`
+        const msg = `${s.employee_name} · ${escapeHtml(formatDisplayDate(s.period_start))} – ${escapeHtml(formatDisplayDate(s.period_end))}\n`
           + `${t('payrollGross')}: ${formatNum(s.gross)} ${cur}\n`
           + `${t('payrollIncomeTax')}: ${formatNum(s.income_tax)} ${cur}\n`
           + `${t('payrollSocial')}: ${formatNum(s.social_security)} ${cur}\n`

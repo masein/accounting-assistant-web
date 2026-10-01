@@ -243,7 +243,7 @@
             <td>${formatMoney(i.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>${taxLine}</td>
             <td>${formatMoney(paid, ccy)}${Number(i.overpaid || 0) > 0 ? '<div style="font-size:0.72rem;color:var(--text-muted);">+' + formatMoney(Number(i.overpaid), ccy) + ' ' + escapeHtml(t('invOverpaidCredit')) + '</div>' : ''}</td>
             <td><strong>${formatMoney(balance, ccy)}</strong></td>
-            <td>${escapeHtml(i.due_date)}</td>
+            <td>${escapeHtml(formatDisplayDate(i.due_date))}</td>
             <td>
               <button type="button" class="btn btn-secondary btn-sm inv-edit" data-id="${i.id}" data-status="${escapeHtml(i.status)}">${escapeHtml(t('btnEdit') || 'Edit')}</button>
               <button type="button" class="btn btn-primary btn-sm inv-payment" data-id="${i.id}" style="margin-left:0.3rem;" ${settled ? 'disabled' : ''}>${escapeHtml(t('invAddPayment'))}</button>
@@ -288,7 +288,7 @@
             <td>${r.amount == null ? '—' : formatNum(r.amount)}</td>
             <td>${escapeHtml(r.bank_account_code || r.bank_name || '—')}</td>
             <td>${escapeHtml(r.counter_account_code || '—')}</td>
-            <td>${escapeHtml(r.next_run_date)}</td>
+            <td>${escapeHtml(formatDisplayDate(r.next_run_date))}</td>
             <td>${r.auto_post ? '✓' : '—'}</td>
             <td>${escapeHtml(r.status)}</td>
             <td>

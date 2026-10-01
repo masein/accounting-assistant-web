@@ -52,7 +52,7 @@
           'forecast-wrap',
           ['week_start', 'projected_inflow', 'projected_outflow', 'projected_net', 'projected_cash', 'risk'],
           (data.forecast_13_weeks || []).map(r => [
-            escapeHtml(r.week_start),
+            escapeHtml(formatDisplayDate(r.week_start)),
             formatNum(r.projected_inflow),
             formatNum(r.projected_outflow),
             formatNum(r.projected_net),
@@ -1043,7 +1043,7 @@
           <th class="num">Unit Cost</th><th class="num">Value</th><th>${t('labelReference')}</th><th>${t('labelDescription')}</th>
         </tr></thead>
           <tbody>${rows.map(r => `<tr>
-            <td>${escapeHtml(r.movement_date)}</td>
+            <td>${escapeHtml(formatDisplayDate(r.movement_date))}</td>
             <td><strong>${escapeHtml(r.item_name)}</strong></td>
             <td><span style="display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.78rem;font-weight:600;color:${typeColor(r.movement_type)};background:${typeBg(r.movement_type)};">${escapeHtml(r.movement_type)}</span></td>
             <td class="num">${r.quantity.toLocaleString()}</td>

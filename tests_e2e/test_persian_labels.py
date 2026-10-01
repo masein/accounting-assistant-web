@@ -34,12 +34,13 @@ SCAN = r"""() => {
   }
   return [...out];
 }"""
-# Text Chart.js draws on its canvas: dataset legends, the title, and category
-# labels that are words (not dates or account codes).
-CHART_TEXT = r"""() => typeof Chart === 'undefined' ? [] : Object.values(Chart.instances)
+# Text Chart.js draws on its canvas: dataset legends and the title — and, when
+# asked, the category labels (on most charts those are data: item names,
+# accounts, months; on CEO mode's they are the app's own words).
+CHART_TEXT = r"""(withLabels) => typeof Chart === 'undefined' ? [] : Object.values(Chart.instances)
   .filter(c => c.canvas.offsetParent !== null)
   .flatMap(c => [...c.data.datasets.map(d => d.label), c.options.plugins && c.options.plugins.title && c.options.plugins.title.text,
-                 ...(c.data.labels || [])])
+                 ...(withLabels ? c.data.labels || [] : [])])
   .filter(x => typeof x === 'string' && /[A-Za-z]{3,}/.test(x) && !/[\u0600-\u06FF]/.test(x))"""
 # "0 mo", "13,500,000 GBP/mo", "0 months" on the executive pages
 UNITS = r"""() => [...document.querySelectorAll('.card[data-page] *')]
@@ -83,7 +84,7 @@ def test_every_page_speaks_persian(flow_page):
             btn.click()
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(300)
-            english = [x for x in page.evaluate(SCAN) + page.evaluate(CHART_TEXT) if not any(w in x for w in ON_PURPOSE)]
+            english = [x for x in page.evaluate(SCAN) + page.evaluate(CHART_TEXT, False) if not any(w in x for w in ON_PURPOSE)]
             if english:
                 found[name] = english
         assert found == {}, found
@@ -112,7 +113,7 @@ def test_the_executive_pages_speak_persian(flow_page):
             page.wait_for_timeout(500)
             if name == "ceo":   # its four charts are drawn, so their text is checked
                 assert page.evaluate("() => Object.values(Chart.instances).filter(c => c.canvas.offsetParent !== null).length") == 4
-            english = [x for x in page.evaluate(SCAN) + page.evaluate(CHART_TEXT) + page.evaluate(UNITS)
+            english = [x for x in page.evaluate(SCAN) + page.evaluate(CHART_TEXT, True) + page.evaluate(UNITS)
                        if not any(w in x for w in ON_PURPOSE)]
             if english:
                 found[name] = english

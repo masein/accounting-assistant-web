@@ -5,7 +5,7 @@ dressed (dressFileInputs in js/03-ui.js) — and stay the real inputs: still
 what is clicked, what set_input_files fills, what a script clears."""
 from __future__ import annotations
 
-from tests_e2e.conftest import switch_language
+from tests_e2e.conftest import switch_language, wait_until
 
 
 def _pick(page, input_id):
@@ -22,7 +22,7 @@ def test_the_file_fields_speak_persian(flow_page):
     try:
         switch_language(page, "fa")
         page.click('.nav-btn[data-page="bank-statements"]')
-        page.wait_for_function("() => document.getElementById('bs-file-input').closest('.file-pick')", timeout=5_000)
+        wait_until(page, "() => document.getElementById('bs-file-input').closest('.file-pick')")
         assert _pick(page, "bs-file-input") == {"btn": "انتخاب فایل", "name": "فایلی انتخاب نشده", "onTop": True}
 
         page.set_input_files("#bs-file-input", files=[{"name": "mellat-mehr.csv", "mimeType": "text/csv", "buffer": b"date,amount\n"}])
@@ -31,7 +31,7 @@ def test_the_file_fields_speak_persian(flow_page):
         assert _pick(page, "bs-file-input")["name"] == "فایلی انتخاب نشده"
 
         page.click('.nav-btn[data-page="transactions"]')
-        page.wait_for_function("() => document.getElementById('attachment-input').closest('.file-pick')", timeout=5_000)
+        wait_until(page, "() => document.getElementById('attachment-input').closest('.file-pick')")
         receipts = [{"name": f"receipt-{i}.png", "mimeType": "image/png", "buffer": b"\x89PNG\r\n\x1a\n"} for i in (1, 2)]
         page.set_input_files("#attachment-input", files=receipts)
         assert _pick(page, "attachment-input") == {"btn": "انتخاب فایل‌ها", "name": "2 فایل", "onTop": True}

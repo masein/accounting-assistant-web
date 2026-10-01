@@ -8,7 +8,7 @@ import os
 import uuid
 from datetime import date, timedelta
 
-from tests_e2e.conftest import ARTIFACTS
+from tests_e2e.conftest import ARTIFACTS, wait_until
 
 JS_POST = """async ([day, lines, link, currency]) => {
   const body = { date: day, description: link.name, lines, entity_links: [link] };
@@ -55,7 +55,7 @@ def test_both_sides_party_by_party(flow_page):
         assert row.locator("td").last.inner_text().replace(",", "").strip() == "450"   # not 540
         assert page.locator("#mgr-report-preview th").first.inner_text().strip()          # headed columns
         # the charts draw again (the donut at least)
-        page.wait_for_function("() => document.querySelectorAll('#mgr-extra-charts canvas, .report-chart-panel canvas').length > 0")
+        wait_until(page, "() => document.querySelectorAll('#mgr-extra-charts canvas, .report-chart-panel canvas').length > 0")
         # the export's table has one row per party with its side
         headers, rows = page.evaluate("() => { const d = reportToTableData(lastManagerReport); return [d.headers, d.rows]; }")
         assert headers[0] == "role" and ["debtor", client] in [r[:2] for r in rows] and ["creditor", supplier] in [r[:2] for r in rows]

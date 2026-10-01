@@ -896,6 +896,61 @@
       }, true);
     })();
 
+    // The browser's form messages ("Please fill out this field.", "Value must be
+    // greater than or equal to 0.") come in the browser's language, not the
+    // page's. A field found invalid gets the message in the user's language,
+    // from whichever check failed; editing it clears that, so the browser checks
+    // afresh. A Jalali date field's hidden native input hands its message to the
+    // box the user sees.
+    function validityMessage(el) {
+      const v = el.validity, type = (el.type || '').toLowerCase();
+      const num = (x) => (type === 'date' && typeof formatDisplayDate === 'function') ? formatDisplayDate(x) : x;
+      if (v.valueMissing) {
+        if (el.tagName === 'SELECT') return t('validityChoose');
+        if (type === 'checkbox') return t('validityTick');
+        if (type === 'file') return t('validityFile');
+        return t('validityRequired');
+      }
+      if (v.typeMismatch) return t(type === 'email' ? 'validityEmail' : type === 'url' ? 'validityUrl' : 'validityFormat');
+      if (v.badInput) return t(type === 'number' ? 'validityNumber' : type === 'date' ? 'validityDate' : 'validityFormat');
+      if (v.rangeUnderflow) return tf('validityMin', { min: num(el.min) });
+      if (v.rangeOverflow) return tf('validityMax', { max: num(el.max) });
+      if (v.stepMismatch) return tf('validityStep', { step: el.step });
+      if (v.tooShort) return tf('validityTooShort', { n: el.minLength });
+      if (v.tooLong) return tf('validityTooLong', { n: el.maxLength });
+      if (v.patternMismatch) return el.title || t('validityFormat');
+      return '';
+    }
+    (function translateValidity() {
+      document.addEventListener('invalid', (e) => {
+        const el = e.target;
+        if (!el || typeof el.setCustomValidity !== 'function') return;
+        if (el.dataset.i18nValidity === 'handoff') { el.dataset.i18nValidity = '1'; return; }   // said for its native input, below
+        if (el.dataset.i18nValidity) el.setCustomValidity('');     // ours from last time: ask the browser again
+        if (el.validity.valid) return;
+        if (el.validity.customError && !el.dataset.i18nValidity) return;   // a script's own message stands
+        const msg = validityMessage(el);
+        if (!msg) return;
+        const box = el.classList.contains('jdate-native') && el.parentElement && el.parentElement.querySelector('.jdate-text');
+        if (box) {
+          // the native input is out of sight: say it on the box, and only there
+          e.preventDefault();
+          box.setCustomValidity(msg);
+          box.dataset.i18nValidity = 'handoff';
+          box.reportValidity();
+          return;
+        }
+        el.setCustomValidity(msg);
+        el.dataset.i18nValidity = '1';
+      }, true);
+      const clear = (e) => {
+        const el = e.target;
+        if (el && el.dataset && el.dataset.i18nValidity) { el.setCustomValidity(''); delete el.dataset.i18nValidity; }
+      };
+      document.addEventListener('input', clear, true);
+      document.addEventListener('change', clear, true);
+    })();
+
     // ي/ى and ی, ك and ک are the same letter to a reader (an Arabic keyboard,
     // a bank's export): a search compares both sides folded. Stored text is kept.
     function foldFa(text) {

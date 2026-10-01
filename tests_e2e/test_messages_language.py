@@ -3,7 +3,7 @@
 were English until 2026-10)."""
 from __future__ import annotations
 
-from tests_e2e.conftest import switch_language
+from tests_e2e.conftest import switch_language, wait_until
 
 import uuid
 
@@ -25,7 +25,7 @@ def test_the_entity_messages_are_persian(flow_page):
         with page.expect_response(lambda r: r.url.endswith("/entities") and r.request.method == "POST") as res:
             page.click("#entity-add")
         assert res.value.status in (200, 201)
-        page.wait_for_function("() => document.querySelector('#alert span')?.textContent === 'طرف حساب افزوده شد.'", timeout=5_000)
+        wait_until(page, "() => document.querySelector('#alert span')?.textContent === 'طرف حساب افزوده شد.'")
         assert watch.problems() == [], watch.problems()
     finally:
         page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'en';

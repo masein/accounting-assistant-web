@@ -260,10 +260,14 @@
     .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
     .alert-close { background: none; border: none; cursor: pointer; font-size: 1.25rem; color: inherit; opacity: 0.8; }
     .alert-close:hover { opacity: 1; }
-    .results-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    .results-table th, .results-table td { padding: 0.5rem 0.75rem; border: 1px solid var(--border); text-align: left; }
-    .results-table th { background: #f1f5f9; font-weight: 600; }
-    .results-table .num { font-variant-numeric: tabular-nums; }
+    /* .data-table (Time, Expenses, Purchase orders, Payroll, Equity, the
+       invoice tax rates…) had no rules of its own and drew a bare grid of
+       text; it looks like every other results table now. */
+    .results-table, .data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .results-table th, .results-table td,
+    .data-table th, .data-table td { padding: 0.5rem 0.75rem; border: 1px solid var(--border); text-align: left; }
+    .results-table th, .data-table th { background: #f1f5f9; font-weight: 600; }
+    .results-table .num, .data-table .num { font-variant-numeric: tabular-nums; }
     .empty-state { color: var(--text-muted); text-align: center; padding: 2rem; }
     .loading { opacity: 0.7; pointer-events: none; }
     .voucher-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 1rem; }
@@ -793,8 +797,8 @@
     .user-pop.open { display: block; }
     .user-pop label { margin-bottom: .2rem; }
     /* ── Global polish ───────────────────────────────────────────────── */
-    .results-table tbody tr:nth-child(even) td { background: rgba(2,6,23,.022); }
-    .results-table tbody tr:hover td { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+    .results-table tbody tr:nth-child(even) td, .data-table tbody tr:nth-child(even) td { background: rgba(2,6,23,.022); }
+    .results-table tbody tr:hover td, .data-table tbody tr:hover td { background: color-mix(in srgb, var(--primary) 7%, transparent); }
     .empty-state { color: var(--text-muted); text-align: center; padding: 1.25rem; font-size: .9rem; }
     :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
     @media (prefers-reduced-motion: reduce) {
@@ -839,6 +843,8 @@
     html[dir="rtl"] .lines-table td,
     html[dir="rtl"] .results-table th,
     html[dir="rtl"] .results-table td,
+    html[dir="rtl"] .data-table th,
+    html[dir="rtl"] .data-table td,
     html[dir="rtl"] .mini-table th,
     html[dir="rtl"] .mini-table td,
     html[dir="rtl"] #account-modal-body .detail-table th,

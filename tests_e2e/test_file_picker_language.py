@@ -5,6 +5,8 @@ dressed (dressFileInputs in js/03-ui.js) — and stay the real inputs: still
 what is clicked, what set_input_files fills, what a script clears."""
 from __future__ import annotations
 
+from tests_e2e.conftest import switch_language
+
 
 def _pick(page, input_id):
     return page.evaluate("""(id) => { const i = document.getElementById(id), w = i.closest('.file-pick');
@@ -15,16 +17,10 @@ def _pick(page, input_id):
                  onTop: top === i }; }""", input_id)
 
 
-def _language(page, lang):
-    page.evaluate("""(l) => { const s = document.getElementById('topbar-language'); s.value = l;
-        s.dispatchEvent(new Event('change', { bubbles: true })); }""", lang)
-    page.wait_for_load_state("networkidle")
-
-
 def test_the_file_fields_speak_persian(flow_page):
     page, watch = flow_page("e2e_files")
     try:
-        _language(page, "fa")
+        switch_language(page, "fa")
         page.click('.nav-btn[data-page="bank-statements"]')
         page.wait_for_function("() => document.getElementById('bs-file-input').closest('.file-pick')", timeout=5_000)
         assert _pick(page, "bs-file-input") == {"btn": "انتخاب فایل", "name": "فایلی انتخاب نشده", "onTop": True}
@@ -45,7 +41,7 @@ def test_the_file_fields_speak_persian(flow_page):
             .filter(i => !i.closest('.file-pick') && i.style.display !== 'none' && i.offsetParent !== null).map(i => i.id)""")
         assert bare == []
 
-        _language(page, "en")   # a switch repaints what is already on screen
+        switch_language(page, "en")   # a switch repaints what is already on screen
         # the observer repaints a frame later, and the sidebar slides across as the
         # layout turns left to right: wait until the chip is clear again
         for _ in range(50):
@@ -55,4 +51,7 @@ def test_the_file_fields_speak_persian(flow_page):
         assert _pick(page, "attachment-input") == {"btn": "Choose files", "name": "2 files", "onTop": True}
         assert watch.problems() == [], watch.problems()
     finally:
-        _language(page, "en")
+        try:
+            switch_language(page, "en")
+        except Exception:   # the failure above is the one to report
+            pass

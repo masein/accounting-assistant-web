@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from tests_e2e.conftest import ARTIFACTS
+from tests_e2e.conftest import ARTIFACTS, switch_language
 from tests_e2e.test_mobile_layout import PAGES
 
 NAMELESS = r"""() => [...document.querySelectorAll('.card[data-page] input, .card[data-page] select, .card[data-page] textarea')]
@@ -32,9 +32,7 @@ LINE_NAMES = r"""() => [...document.querySelectorAll('.card[data-page="transacti
 
 
 def _switch(page, lang):
-    page.evaluate("""(l) => { const s = document.getElementById('topbar-language'); s.value = l;
-        s.dispatchEvent(new Event('change', { bubbles: true })); }""", lang)
-    page.wait_for_load_state("networkidle")
+    switch_language(page, lang)
 
 
 def test_every_control_has_a_name(flow_page):

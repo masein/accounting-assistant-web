@@ -6,7 +6,7 @@ import os
 import uuid
 from datetime import date, timedelta
 
-from tests_e2e.conftest import ARTIFACTS
+from tests_e2e.conftest import ARTIFACTS, switch_language
 
 POST = r"""async (body) => { const r = await fetch('/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body) }); return [r.status, await r.text()]; }"""
@@ -20,9 +20,7 @@ def test_the_bell_speaks_persian(flow_page):
                                             "issue_date": (date.today() - timedelta(days=40)).isoformat(),
                                             "due_date": (date.today() - timedelta(days=10)).isoformat()})
         assert status == 201, body
-        page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'fa';
-            s.dispatchEvent(new Event('change', { bubbles: true })); }""")
-        page.wait_for_load_state("networkidle")
+        switch_language(page, "fa")
         with page.expect_response(lambda r: r.url.endswith("/notifications/feed")):
             page.click("#notify-bell-btn")
         item = page.locator("#notify-list .notify-item", has_text=number).first

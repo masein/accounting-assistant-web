@@ -14,7 +14,7 @@ import os
 import re
 import uuid
 
-from tests_e2e.conftest import ARTIFACTS
+from tests_e2e.conftest import ARTIFACTS, switch_language
 
 PAGES = ["dashboard", "ai-accountant", "transactions", "invoices", "time", "expenses", "purchase-orders", "recurring",
          "commitments", "entities", "products", "inventory", "payroll", "equity", "fixed-assets", "petty-cash",
@@ -117,9 +117,7 @@ def _sweep(flow_page, user, lang, pages, *, seed):
     page, watch = flow_page(user)
     found = {}
     try:
-        page.evaluate("""(l) => { const s = document.getElementById('topbar-language'); s.value = l;
-            s.dispatchEvent(new Event('change', { bubbles: true })); }""", lang)
-        page.wait_for_load_state("networkidle")
+        switch_language(page, lang)
         if seed:
             assert page.evaluate(POST_JOURNALS, f"FA-{uuid.uuid4().hex[:6]}") == [201, 201]
             # a party, so the entities list has a row (and its Edit / Delete) to read
@@ -181,9 +179,7 @@ def test_the_executive_pages_speak_persian(flow_page):
     """CEO and CFO mode: KPI cards, chart legends, months — in Persian."""
     page, watch = flow_page("e2e_cfo")
     try:
-        page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'fa';
-            s.dispatchEvent(new Event('change', { bubbles: true })); }""")
-        page.wait_for_load_state("networkidle")
+        switch_language(page, "fa")
         assert page.evaluate(POST_JOURNALS, f"FX-{uuid.uuid4().hex[:6]}") == [201, 201]
         found = {}
         for name in ("ceo", "cfo"):

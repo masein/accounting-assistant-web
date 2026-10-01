@@ -451,7 +451,8 @@ async def chat(
             mode="personal" if user.role == Role.PERSONAL else "default",
         )
     except AIAccountantError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        # the detail is for whoever configures the AI; the code lets the chat say it plainly
+        raise HTTPException(status_code=502, detail=str(e), headers={"X-Error-Code": "ai_unavailable"})
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 

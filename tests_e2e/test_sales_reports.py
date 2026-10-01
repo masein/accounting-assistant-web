@@ -25,8 +25,14 @@ def _run(page, rt, frm, to, product=""):
     page.evaluate("""(d) => { for (const [id, v] of [['mgr-from-date', d[0]], ['mgr-to-date', d[1]], ['mgr-product-filter', d[2]]]) {
         const el = document.getElementById(id); if (el) { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); } } }""",
                   [frm, to, product])
+    before = page.locator("#mgr-report-preview").inner_html()
     with page.expect_response(lambda r: "/manager-reports/" in r.url and "trend" not in r.url):
         page.click("#mgr-run-btn")
+    # the previous report's table is still there until this one draws: wait for the new one
+    for _ in range(50):
+        if page.locator("#mgr-report-preview").inner_html() != before:
+            break
+        page.wait_for_timeout(100)
     page.wait_for_selector("#mgr-report-preview table.mini-table")
     return ([h.strip() for h in page.locator("#mgr-report-preview th").all_inner_texts()],
             page.locator("#mgr-report-preview tbody").inner_text())

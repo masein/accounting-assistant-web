@@ -1098,20 +1098,21 @@
       const findingsList = document.getElementById('audit-findings-list');
       findingsList.innerHTML = '';
       if (!filtered.length) {
-        findingsList.innerHTML = '<p style="color:#2e7d32;">No findings in this domain.</p>';
+        findingsList.innerHTML = '<p style="color:#2e7d32;">' + escapeHtml(t('auditNoFindingsDomain')) + '</p>';
         return;
       }
       filtered.forEach((f, idx) => {
         const color = f.severity === 'critical' ? '#c62828' : f.severity === 'warning' ? '#f57f17' : '#1565c0';
-        const domainLabel = f.domain === 'treasury' ? 'Treasury' : f.domain === 'managerial' ? 'Managerial' : 'Financial';
+        const domainLabel = t(f.domain === 'treasury' ? 'auditDomainTreasury' : f.domain === 'managerial' ? 'auditDomainManagerial' : 'auditDomainFinancial');
+        const sev = t({ critical: 'auditSevCritical', warning: 'auditSevWarning' }[f.severity] || 'auditSevInfo');
         const div = document.createElement('div');
         div.style.cssText = `padding:0.5rem 0.75rem;margin-bottom:0.4rem;border-left:4px solid ${color};background:#fafafa;border-radius:4px;cursor:pointer;transition:background 0.15s;`;
         div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
-          <div><strong style="color:${color}">${escapeHtml(f.severity.toUpperCase())}</strong> <span style="font-size:0.75rem;background:#e3f2fd;padding:0.1rem 0.4rem;border-radius:4px;">${domainLabel}</span> — <strong>${escapeHtml(f.title)}</strong></div>
-          <span style="font-size:0.75rem;color:var(--text-muted);">Click to inspect</span>
+          <div><strong style="color:${color}">${escapeHtml(sev)}</strong> <span style="font-size:0.75rem;background:#e3f2fd;padding:0.1rem 0.4rem;border-radius:4px;">${escapeHtml(domainLabel)}</span> — <strong>${escapeHtml(f.title)}</strong></div>
+          <span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(t('auditClickToInspect'))}</span>
         </div>
         <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${escapeHtml(f.detail)}</div>
-        ${f.amount ? `<div style="font-size:0.8rem;margin-top:0.15rem;">Amount: <strong>${Number(f.amount).toLocaleString()} ${currencyUnit()}</strong></div>` : ''}`;
+        ${f.amount ? `<div style="font-size:0.8rem;margin-top:0.15rem;">${escapeHtml(t('labelAmount'))}: <strong><bdi>${formatNum(Number(f.amount))}</bdi> ${escapeHtml(currencyUnit())}</strong></div>` : ''}`;
         div.addEventListener('mouseenter', () => div.style.background = '#f0f4f8');
         div.addEventListener('mouseleave', () => div.style.background = '#fafafa');
         div.addEventListener('click', () => openAuditDrilldown(f, idx));
@@ -1128,9 +1129,9 @@
       body.innerHTML = `
         <div style="margin-bottom:0.5rem;"><span style="font-size:0.8rem;background:#e3f2fd;padding:0.15rem 0.5rem;border-radius:4px;">${escapeHtml(domainLabel)}</span></div>
         <p><strong>${escapeHtml(t('auditSeverity'))}:</strong> <span style="color:${finding.severity === 'critical' ? '#c62828' : '#f57f17'}">${escapeHtml(sev)}</span></p>
-        <p><strong>${escapeHtml(t('labelCategory'))}:</strong> ${escapeHtml(finding.category)}</p>
+        <p><strong>${escapeHtml(t('labelCategory'))}:</strong> ${escapeHtml(auditLabel('auditCat_', finding.category))}</p>
         <p><strong>${escapeHtml(t('thDetail'))}:</strong> ${escapeHtml(finding.detail)}</p>
-        ${finding.amount ? `<p><strong>${escapeHtml(t('labelAmount'))}:</strong> ${formatNum(Number(finding.amount))} ${escapeHtml(currencyUnit())}</p>` : ''}
+        ${finding.amount ? `<p><strong>${escapeHtml(t('labelAmount'))}:</strong> <bdi>${formatNum(Number(finding.amount))}</bdi> ${escapeHtml(currencyUnit())}</p>` : ''}
         ${finding.entity_id ? `<p><strong>${escapeHtml(t('auditEntityId'))}:</strong> <bdi>${escapeHtml(finding.entity_id)}</bdi></p>` : ''}
       `;
       const statusEl = document.getElementById('audit-modal-status');
@@ -1459,11 +1460,8 @@
       } catch (e) { statusEl.textContent = 'Error: ' + e.message; statusEl.style.color = '#c62828'; }
     });
 
-    // ═══════ Enhanced Audit (overwrite handler) ═══════
-    // Remove old handler and re-add with domain support
-    const auditRunBtn2 = document.getElementById('audit-run-btn');
-    const newAuditBtn = auditRunBtn2.cloneNode(true);
-    auditRunBtn2.parentNode.replaceChild(newAuditBtn, auditRunBtn2);
+    // ═══════ Audit: run every check, list the findings by domain ═══════
+    const newAuditBtn = document.getElementById('audit-run-btn');
     newAuditBtn.addEventListener('click', async () => {
       try {
         newAuditBtn.disabled = true;
@@ -1474,7 +1472,7 @@
         document.getElementById('audit-integrity-score').style.color = data.integrity_score >= 80 ? '#2e7d32' : data.integrity_score >= 50 ? '#f57f17' : '#c62828';
         document.getElementById('audit-health-score').textContent = data.health_score;
         document.getElementById('audit-health-score').style.color = data.health_score >= 80 ? '#2e7d32' : data.health_score >= 50 ? '#f57f17' : '#c62828';
-        document.getElementById('audit-checks-summary').textContent = `${data.checks_passed} passed / ${data.checks_failed} failed`;
+        document.getElementById('audit-checks-summary').textContent = tf('auditChecksSummary', { passed: data.checks_passed, failed: data.checks_failed });
 
         auditFindings = (data.findings || []).map(f => ({
           ...f,
@@ -1490,7 +1488,7 @@
         document.querySelector('.audit-domain-tab[data-domain="all"]').classList.add('active');
 
         renderAuditFindings('all');
-      } catch (e) { showAlert('Audit failed: ' + e.message, true); }
+      } catch (e) { showAlert(tf('auditFailed', { message: e.message }), true); }
       finally { newAuditBtn.disabled = false; }
     });
 

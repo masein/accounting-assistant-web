@@ -46,8 +46,11 @@ def test_every_control_has_a_name(flow_page):
         english = page.evaluate(LINE_NAMES)
         assert english and all(english), english
         _switch(page, "fa")
-        page.wait_for_timeout(300)
-        persian = page.evaluate(LINE_NAMES)
+        for _ in range(25):   # the names follow the headers on the next animation frame
+            persian = page.evaluate(LINE_NAMES)
+            if persian != english:
+                break
+            page.wait_for_timeout(200)
         assert persian != english and all(any("؀" <= c <= "ۿ" for c in n) for n in persian if n), persian
         assert watch.problems() == [], watch.problems()
     except Exception:

@@ -434,19 +434,22 @@ def batch_approve_rows(
 # ─── Audit Endpoints ───────────────────────────────────────────────
 
 @router.get("/audit/report", response_model=AuditReportResponse)
-def get_audit_report(db: Session = Depends(get_db)) -> AuditReportResponse:
-    """Run a full self-audit and return the report."""
+def get_audit_report(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> AuditReportResponse:
+    """Run a full self-audit and return the report, worded in the user's language."""
     from app.services.audit_service import run_full_audit
     report = run_full_audit(db)
+    lang = _preferred_report_language(db, user)
+    findings = []
+    for f in report.findings:
+        title, detail = f.localized(lang)
+        findings.append(AuditFindingRead(
+            severity=f.severity, category=f.category, title=title, detail=detail,
+            entity_id=f.entity_id, amount=f.amount, domain=f.domain, key=f.key or None,
+        ))
     return AuditReportResponse(
         integrity_score=report.integrity_score,
         health_score=report.health_score,
-        findings=[AuditFindingRead(
-            severity=f.severity, category=f.category,
-            title=f.title, detail=f.detail,
-            entity_id=f.entity_id, amount=f.amount,
-            domain=f.domain,
-        ) for f in report.findings],
+        findings=findings,
         checks_passed=report.checks_passed,
         checks_failed=report.checks_failed,
         total_transactions=report.total_transactions,

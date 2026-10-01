@@ -196,6 +196,7 @@ class AuditFindingRead(BaseModel):
     amount: int | None = None
     domain: str = "financial"
     verification_status: str = "pending"
+    key: str | None = None   # what kind of finding (audit_service.FINDING_TEXT), for a client's own wording
 
 
 class AuditReportResponse(BaseModel):

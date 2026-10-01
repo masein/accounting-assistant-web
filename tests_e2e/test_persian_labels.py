@@ -121,8 +121,11 @@ def test_every_page_speaks_persian(flow_page):
             btn.click()
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(300)
-            if name == "audit":   # the journals posted above are in the trail
+            if name == "audit":   # the journals posted above are in the trail; run the checks for findings
                 page.wait_for_selector("#audit-log-body tr", timeout=15_000)
+                with page.expect_response(lambda r: "/audit/report" in r.url):
+                    page.click("#audit-run-btn")
+                page.wait_for_selector("#audit-findings-list > *", timeout=15_000)
             seen = (page.evaluate(SCAN) + page.evaluate(CHART_TEXT, False) + page.evaluate(PLACEHOLDERS) + page.evaluate(AUDIT_TRAIL)
                     + [x for x in page.evaluate(LEAF) if not AS_WRITTEN.match(x)])
             english = [x for x in seen if not any(w in x for w in ON_PURPOSE)]

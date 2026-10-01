@@ -1049,7 +1049,11 @@
           });
           const data = await readJsonSafe(r);
           hideTypingIndicator(typingEl);
-          if (!r.ok || data._nonJson) throw new Error((data && data.detail) || 'Chat failed');
+          if (!r.ok || data._nonJson) {
+            const err = new Error((data && typeof data.detail === 'string' && data.detail) || t('aiChatFailed'));
+            err.aiUnavailable = r.headers.get('X-Error-Code') === 'ai_unavailable';
+            throw err;
+          }
           sessionId = data.session_id;
           if (data.text) appendBubble('assistant', data.text, { at: new Date().toISOString() });
           for (const proposal of (data.proposals || [])) {
@@ -1060,7 +1064,8 @@
           loadSessions(sessionSearchEl ? sessionSearchEl.value.trim() : '');
         } catch (e) {
           hideTypingIndicator(typingEl);
-          appendBubble('assistant', '[error] ' + e.message);
+          // the provider's own words are technical (and English): say it plainly, keep them for whoever fixes it
+          appendBubble('assistant', e.aiUnavailable ? t('aiUnavailable') + '\n\n(' + e.message + ')' : tf('aiChatError', { message: e.message }));
           statusEl.textContent = '';
         } finally {
           sendBtn.disabled = false;

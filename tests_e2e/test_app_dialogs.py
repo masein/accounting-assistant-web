@@ -5,7 +5,7 @@ digits — "۵۰۰٬۰۰۰" — was read as nothing and silently dropped, and pe
 cash wrote every amount in rials whatever the company's currency."""
 from __future__ import annotations
 
-from tests_e2e.conftest import switch_language
+from tests_e2e.conftest import switch_language, wait_until
 
 API = r"""async ([method, path, body]) => { const r = await fetch(path, { method,
   headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
@@ -41,9 +41,9 @@ def test_a_petty_cash_deposit_asks_in_the_app_and_takes_persian_digits(flow_page
         assert res.value.status in (200, 201), res.value.text()
         after = page.evaluate(API, ["GET", f"/petty-cash/accounts/{body['id']}", None])[1]["balance"]
         assert after - before == 500_000
-        page.wait_for_selector(f'.petty-deposit[data-id="{body["id"]}"]')
-        row = page.locator(f'#petty-admin-tbody tr:has(.petty-deposit[data-id="{body["id"]}"])')
-        assert page.evaluate("(n) => formatMoney(n, baseCurrencyCode())", after) in row.inner_text()
+        # the list redraws after the deposit; the old row (with its button) is there until it does
+        wait_until(page, """([id, n]) => { const b = document.querySelector('.petty-deposit[data-id="' + id + '"]');
+            return b && b.closest('tr').innerText.includes(formatMoney(n, baseCurrencyCode())); }""", [body["id"], after])
         assert native == []
         assert watch.problems() == [], watch.problems()
     finally:

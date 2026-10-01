@@ -1872,6 +1872,107 @@
         aiUnavailable: "The assistant can't answer right now. Try again in a moment — if it keeps happening, the owner can check Settings → AI providers.",
         aiChatError: "Something went wrong: {message}",
         aiChatFailed: "The message couldn't be sent.",
+        msgConnectionError: "Connection error: ",
+        msgRevokeKeyFailed: "Failed to revoke key.",
+        msgAuthRequired: "Authentication required",
+        msgLanguageLoadFailed: "Could not load that language — check the connection and try again.",
+        msgLanguageUpdateFailed: "Failed to update language.",
+        msgAiSettingsFailed: "Failed to update AI settings.",
+        msgAiSettingsUpdated: "AI settings updated.",
+        msgCompanyDefault: "Company",
+        msgUserCreateFailed: "Failed to create user.",
+        msgUserDeleteFailed: "Failed to delete user.",
+        msgUserUpdateFailed: "Failed to update user.",
+        msgPasswordResetFailed: "Failed to reset password.",
+        msgInvItemNameRequired: "Inventory item name is required.",
+        msgInvItemAddFailed: "Failed to add inventory item.",
+        msgInvItemAdded: "Inventory item added.",
+        msgInvItemAddError: "Error adding inventory item: ",
+        msgInvSelectItem: "Select inventory item first.",
+        msgInvMoveAddFailed: "Failed to add inventory movement.",
+        msgInvMoveAdded: "Inventory movement added.",
+        msgInvMoveAddError: "Error adding movement: ",
+        msgChooseFile: "Choose at least one file.",
+        msgAttachmentsUploaded: "Attachments uploaded.",
+        msgAttachmentUploadFailed: "Attachment upload failed: ",
+        msgAttachmentRemoveFailed: "Could not remove attachment.",
+        msgAttachmentRemoveError: "Could not remove attachment: ",
+        msgTxnReadFailed: "Cannot read transaction",
+        msgTwoLinesNeeded: "Please add at least two lines with an account code.",
+        msgVoucherSaveError: "Error saving voucher. ",
+        msgVoucherSaved: "Voucher saved. Ledger updated.",
+        msgTimelineFailed: "Cannot load timeline.",
+        msgInvoiceDeleteError: "Error deleting invoice.",
+        msgInvoiceDeleted: "Invoice deleted.",
+        msgInvoiceEditError: "Error editing invoice.",
+        msgInvoiceHeaderRequired: "Invoice number, issue date, and due date are required.",
+        msgInvoiceUpdated: "Invoice updated.",
+        msgRecurringDeleteError: "Error deleting recurring rule.",
+        msgRecurringDeleted: "Recurring rule deleted.",
+        msgEntityNameRequired: "Enter a name for the entity.",
+        msgEntityUpdateError: "Error updating entity.",
+        msgEntityUpdated: "Entity updated.",
+        msgEntityDeleteError: "Error deleting entity.",
+        msgEntityDeleted: "Entity deleted.",
+        msgDbResetDone: "Database reset. Chart of accounts re-seeded.",
+        msgEntityAddError: "Error adding entity.",
+        msgEntityAdded: "Entity added.",
+        msgInvoiceCreateError: "Error creating invoice.",
+        msgInvoiceCreated: "Invoice created.",
+        msgChooseInvoiceFile: "Choose an invoice image/PDF first.",
+        msgScanningInvoice: "Scanning invoice...",
+        msgInvoiceScannedCreated: "Invoice scanned and created.",
+        msgInvoiceScannedFilled: "Invoice scanned and form filled.",
+        msgRecurringTextRequired: "Write a recurring instruction first.",
+        msgRecurringCreateError: "Error creating recurring rule.",
+        msgRecurringSaved: "Recurring rule saved.",
+        msgBudgetFieldsRequired: "Month and category are required.",
+        msgBudgetSaveFailed: "Failed to save budget.",
+        msgBudgetSaved: "Budget saved.",
+        msgSnapshotFailed: "Snapshot failed.",
+        msgSnapshotCreated: "Snapshot created: ",
+        msgAlertsCheckFailed: "Notification check failed.",
+        msgAlertsChecked: "Alerts checked. Delivered: ",
+        msgChooseImageFiles: "Choose image/PDF files first.",
+        msgAttachLinkFailed: "Failed linking attachments to transaction.",
+        msgAttachOcrDone: "Attachments uploaded. OCR extraction completed.",
+        msgAttachLinked: "Attachments uploaded and linked.",
+        msgUploadFailed: "Upload failed: ",
+        msgReferenceEmpty: "Reference cannot be empty.",
+        msgReferenceSaveError: "Error saving reference.",
+        msgReferenceUpdated: "Reference updated.",
+        msgTxnTwoLines: "A transaction needs at least two lines.",
+        msgKeepTwoLines: "Please keep at least two lines with account code.",
+        msgDebitsEqualCredits: "Debits and credits must be equal.",
+        msgTxnDeleteError: "Error deleting transaction.",
+        msgTxnDeleted: "Transaction deleted.",
+        msgRoleUpdateFailed: "Failed to update role.",
+        msgCurrently: "Currently: ",
+        msgSavedPrefix: "Saved: ",
+        msgFxRateFields: "Fill in from, to, a positive rate and an effective date.",
+        msgFxRateSaveFailed: "Failed to save rate.",
+        msgSelectFile: "Select a file first.",
+        msgStatementLoadFailed: "Failed to load statement: ",
+        msgRecordFailed: "Record failed: ",
+        msgReconcileFailed: "Reconciliation failed: ",
+        msgNoRowsToApprove: "No rows to approve.",
+        msgApprovalFailed: "Approval failed: ",
+        msgPostFailed: "Post failed: ",
+        msgCreateFailed: "Create failed: ",
+        msgApproveFailed: "Approve failed.",
+        msgFailedDot: "Failed.",
+        msgThinking: "Thinking...",
+        msgFailed: "Failed",
+        msgBalanceSheet: "Balance Sheet",
+        msgSelectItem: "Select an item first.",
+        msgPriceUpdateFailed: "Failed to update price.",
+        msgNetworkError: "Network error",
+        msgVoucherUnbalanced: "Total debits must equal total credits. (Debit: {debit}, Credit: {credit})",
+        msgTotalAmount: "Total: {amount} {unit}",
+        msgViewAllTransactions: "View all {label} transactions",
+        msgPriceUpdated: "Price updated: {name} — {old} -> {new} {unit}",
+        msgUploadFileFailed: "Could not upload {name}.",
+        msgExecuteFailed: "Could not carry it out (HTTP {status}).",
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",
@@ -2804,7 +2905,7 @@
         // its strings aren't here yet: fetch them, then switch (the page stays
         // in its current language meanwhile)
         loadLanguagePack(normalized).then(() => applyLanguage(normalized, persist), () => {
-          if (typeof showAlert === 'function') showAlert('Could not load that language — check the connection and try again.', true);
+          if (typeof showAlert === 'function') showAlert(t('msgLanguageLoadFailed'), true);
           if (uiLanguageSelectEl) uiLanguageSelectEl.value = currentLanguage;
           const tb = document.getElementById('topbar-language');
           if (tb) tb.value = currentLanguage;
@@ -3116,7 +3217,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showAlert(data.detail || 'Failed to update language.', true);
+          showAlert(data.detail || t('msgLanguageUpdateFailed'), true);
           return;
         }
         // Persist, then reload so every dynamically-rendered surface
@@ -3126,7 +3227,7 @@
         localStorage.setItem('aa_ui_language', lang);
         location.reload();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       } finally {
         if (saveLanguageBtn) saveLanguageBtn.disabled = false;
       }

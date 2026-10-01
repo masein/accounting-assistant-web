@@ -29,3 +29,26 @@ def pack_keys() -> dict[str, set[str]]:
     for lang in ("fa", "es", "ar"):
         out[lang] = set(_KEY.findall(PACKS[lang].read_text(encoding="utf-8")))
     return out
+
+
+_VALUE = re.compile(r"""^        ([A-Za-z_][A-Za-z0-9_]*)\s*:\s*("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')\s*,?\s*$""", re.M)
+
+
+def pack_values() -> dict[str, dict[str, str]]:
+    """Each language's key → text (only the one-line string values)."""
+    import json
+
+    def read(text: str) -> dict[str, str]:
+        out = {}
+        for key, raw in _VALUE.findall(text):
+            if raw[0] == "'":
+                raw = '"' + raw[1:-1].replace("\\'", "'").replace('"', '\\"') + '"'
+            out[key] = json.loads(raw)
+        return out
+
+    en = PACKS["en"].read_text(encoding="utf-8")
+    blocks = "\n".join(m.group(1) for m in re.finditer(r"^      en: \{\n(.*?)^      \},?$", en, re.M | re.S))
+    values = {"en": read(blocks)}
+    for lang in ("fa", "es", "ar"):
+        values[lang] = read(PACKS[lang].read_text(encoding="utf-8"))
+    return values

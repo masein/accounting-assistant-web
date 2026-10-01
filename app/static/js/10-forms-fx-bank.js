@@ -199,7 +199,7 @@
           if (selEl && data.currency && [...selEl.options].some(o => o.value === data.currency)) {
             selEl.value = data.currency;
           }
-          if (statusEl) statusEl.textContent = 'Currently: ' + (data.currency || 'IRR');
+          if (statusEl) statusEl.textContent = t('msgCurrently') + (data.currency || 'IRR');
         }
       } catch (_) {}
       loadFxRates();
@@ -518,14 +518,14 @@
         });
         if (r.ok) {
           const data = await r.json();
-          if (status) status.textContent = 'Saved: ' + data.currency;
+          if (status) status.textContent = t('msgSavedPrefix') + data.currency;
           // the cached reporting currency (loadReportingCurrency) and metadata
           // follow, so labels and dropdowns reflect the new default
           if (data.currency) window.__REPORTING_CURRENCY = data.currency;
           applyDefaultFormCurrency();
           await loadFxMetadata(true);
         } else {
-          if (status) status.textContent = 'Failed to save.';
+          if (status) status.textContent = t('settingsSaveFailed');
         }
       });
     }
@@ -538,7 +538,7 @@
         const eff = document.getElementById('fx-effective').value;
         const note = document.getElementById('fx-note').value.trim() || null;
         if (!from || !to || !(rate > 0) || !eff) {
-          showAlert('Fill in from, to, a positive rate and an effective date.', true);
+          showAlert(t('msgFxRateFields'), true);
           return;
         }
         const r = await fetch(API + '/fx/rates', {
@@ -555,7 +555,7 @@
           loadFxRates();
         } else {
           const data = await r.json().catch(() => ({}));
-          showAlert(data.detail || 'Failed to save rate.', true);
+          showAlert(data.detail || t('msgFxRateSaveFailed'), true);
         }
       });
     }
@@ -719,7 +719,7 @@
           }
         } catch (e) {
           statusEl.style.color = '#b91c1c';
-          statusEl.textContent = 'Connection error: ' + e.message;
+          statusEl.textContent = t('msgConnectionError') + e.message;
         } finally {
           resetEmptyBtn.disabled = false;
           if (resetIrBtn) resetIrBtn.disabled = false;
@@ -867,7 +867,7 @@
     document.getElementById('bs-upload-btn').addEventListener('click', async () => {
       const fileInput = document.getElementById('bs-file-input');
       const bankName = document.getElementById('bs-bank-name').value.trim() || 'Unknown';
-      if (!fileInput.files.length) { showAlert('Select a file first.', true); return; }
+      if (!fileInput.files.length) { showAlert(t('msgSelectFile'), true); return; }
       await doUploadStatement(fileInput.files[0], bankName);
     });
 
@@ -991,7 +991,7 @@
         });
         document.getElementById('bs-list-wrap').style.display = 'none';
         document.getElementById('bs-detail-wrap').style.display = 'block';
-      } catch (e) { showAlert('Failed to load statement: ' + e.message, true); }
+      } catch (e) { showAlert(t('msgStatementLoadFailed') + e.message, true); }
     }
 
     document.getElementById('bs-back-btn').addEventListener('click', () => {
@@ -1060,7 +1060,7 @@
         const rr = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/reconcile', { method: 'POST' });
         renderReconSummary(await rr.json());
         await loadStatementDetail(currentStatementId);
-      } catch (e) { showAlert('Record failed: ' + e.message, true); }
+      } catch (e) { showAlert(t('msgRecordFailed') + e.message, true); }
     }
 
     document.getElementById('bs-reconcile-btn').addEventListener('click', async () => {
@@ -1069,7 +1069,7 @@
         const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/reconcile', { method: 'POST' });
         renderReconSummary(await res.json());
         await loadStatementDetail(currentStatementId);
-      } catch (e) { showAlert('Reconciliation failed: ' + e.message, true); }
+      } catch (e) { showAlert(t('msgReconcileFailed') + e.message, true); }
     });
 
     // ─── Check against the books: contradictions + one-click fixes ───
@@ -1189,7 +1189,7 @@
       if (!currentStatementId) return;
       const btns = document.querySelectorAll('.bs-approve-btn');
       const approvals = Array.from(btns).map(b => ({ row_id: b.dataset.rowId, action: 'approve' }));
-      if (!approvals.length) { showAlert('No rows to approve.'); return; }
+      if (!approvals.length) { showAlert(t('msgNoRowsToApprove')); return; }
       try {
         const res = await fetch(bsAPI + '/bank-statements/' + currentStatementId + '/approve', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1198,7 +1198,7 @@
         const data = await res.json();
         showAlert(`Approved: ${data.approved}, Created: ${data.created}. ${data.errors.join('; ')}`);
         await loadStatementDetail(currentStatementId);
-      } catch (e) { showAlert('Approval failed: ' + e.message, true); }
+      } catch (e) { showAlert(t('msgApprovalFailed') + e.message, true); }
     });
 
     // Bulk-post: create a ledger entry for every unmatched row that has a
@@ -1220,7 +1220,7 @@
         showAlert(tf('bsPostedCount', { n: data.created }) + (data.errors.length ? ' — ' + data.errors.join('; ') : ''),
                   data.errors.length > 0);
         await loadStatementDetail(currentStatementId);
-      } catch (e) { showAlert('Post failed: ' + e.message, true); }
+      } catch (e) { showAlert(t('msgPostFailed') + e.message, true); }
     });
 
     document.getElementById('bs-rows-body').addEventListener('click', async (e) => {
@@ -1240,7 +1240,7 @@
           const data = await res.json();
           showAlert(`Created: ${data.created}. ${data.errors.join('; ')}`);
           await loadStatementDetail(currentStatementId);
-        } catch (e) { showAlert('Create failed: ' + e.message, true); }
+        } catch (e) { showAlert(t('msgCreateFailed') + e.message, true); }
       }
       if (approveBtn) {
         try {
@@ -1249,7 +1249,7 @@
             body: JSON.stringify({ approvals: [{ row_id: approveBtn.dataset.rowId, action: 'approve' }] })
           });
           await loadStatementDetail(currentStatementId);
-        } catch (e) { showAlert('Approve failed.', true); }
+        } catch (e) { showAlert(t('msgApproveFailed'), true); }
       }
     });
 

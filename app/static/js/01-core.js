@@ -407,7 +407,7 @@
         showAlert(t('digestSaved'));
         loadDigestSettings();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       } finally { if (btn) btn.disabled = false; }
     }
 
@@ -422,7 +422,7 @@
         if (!res.ok) { showAlert(data.detail || t('digestPreviewError'), true); return; }
         if (out) { out.textContent = data.body || ''; out.style.display = 'block'; }
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       }
     }
 
@@ -484,7 +484,7 @@
         document.getElementById('apikey-label').value = '';
         loadApiKeys();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       } finally { if (btn) btn.disabled = false; }
     }
 
@@ -503,12 +503,12 @@
         const res = await fetch(API + '/admin/api-keys/' + encodeURIComponent(rev.dataset.id), { method: 'DELETE' });
         if (!res.ok && res.status !== 204) {
           const data = await res.json().catch(() => ({}));
-          showAlert(data.detail || 'Failed to revoke key.', true);
+          showAlert(data.detail || t('msgRevokeKeyFailed'), true);
           return;
         }
         showAlert(t('apiKeysRevokedMsg'));
         loadApiKeys();
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
     const createUserBtn = document.getElementById('create-user-btn');
     const usersWrapEl = document.getElementById('users-wrap');
@@ -587,7 +587,7 @@
       const res = await rawFetch(...args);
       if (res.status === 401) {
         window.location.href = '/login';
-        throw new Error('Authentication required');
+        throw new Error(t('msgAuthRequired'));
       }
       if (res.status === 429) _noticeRateLimit(res);
       return res;

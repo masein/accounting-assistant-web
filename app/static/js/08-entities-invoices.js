@@ -184,10 +184,10 @@
         try {
           const res = await fetch(API + '/invoices/' + encodeURIComponent(tlBtn.dataset.id) + '/timeline');
           const data = await res.json().catch(() => ([]));
-          if (!res.ok) { showAlert('Cannot load timeline.', true); return; }
+          if (!res.ok) { showAlert(t('msgTimelineFailed'), true); return; }
           const lines = (data || []).map(x => `${x.at} - ${x.event}${x.detail ? ': ' + x.detail : ''}`).join('\n');
           await uiConfirm({ title: t('invoiceTimelineTitle'), message: lines || t('noTimelineEvents'), confirmLabel: t('btnClose'), hideCancel: true });
-        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
       }
       const editBtn = e.target.closest('.inv-edit');
       if (editBtn) {
@@ -222,7 +222,7 @@
           loadInvoices(id);
           loadLedger();
           loadOwnerDashboard();
-        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
         return;
       }
       const cnBtn = e.target.closest('.inv-credit-note');
@@ -252,7 +252,7 @@
           loadInvoices(id);
           loadLedger();
           loadOwnerDashboard();
-        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
         return;
       }
       const voidBtn = e.target.closest('.inv-void');
@@ -267,7 +267,7 @@
           loadInvoices(id);
           loadLedger();
           loadOwnerDashboard();
-        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
         return;
       }
       const delBtn = e.target.closest('.inv-del');
@@ -277,13 +277,13 @@
           const res = await fetch(API + '/invoices/' + encodeURIComponent(delBtn.dataset.id), { method: 'DELETE' });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            showAlert(data.detail || 'Error deleting invoice.', true);
+            showAlert(data.detail || t('msgInvoiceDeleteError'), true);
             return;
           }
-          showAlert('Invoice deleted.');
+          showAlert(t('msgInvoiceDeleted'));
           loadInvoices();
           loadOwnerDashboard();
-        } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
       }
     });
 
@@ -291,7 +291,7 @@
     let _editingInvoiceId = null;
     function openInvoiceEditModal(id) {
       const inv = _invoicesCache.find((x) => String(x.id) === String(id));
-      if (!inv) { showAlert('Error editing invoice.', true); return; }
+      if (!inv) { showAlert(t('msgInvoiceEditError'), true); return; }
       _editingInvoiceId = inv.id;
       document.getElementById('invoice-edit-number').value = inv.number || '';
       document.getElementById('invoice-edit-status').value = String(inv.status || 'issued').toLowerCase();
@@ -312,7 +312,7 @@
       const issue_date = document.getElementById('invoice-edit-issue').value;
       const due_date = document.getElementById('invoice-edit-due').value;
       if (!number || !issue_date || !due_date) {
-        showAlert('Invoice number, issue date, and due date are required.', true);
+        showAlert(t('msgInvoiceHeaderRequired'), true);
         return;
       }
       const payload = {
@@ -334,13 +334,13 @@
           body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Error editing invoice.', true); return; }
+        if (!res.ok) { showAlert(data.detail || t('msgInvoiceEditError'), true); return; }
         document.getElementById('invoice-edit-modal').style.display = 'none';
-        showAlert('Invoice updated.');
+        showAlert(t('msgInvoiceUpdated'));
         loadInvoices();
         loadOwnerDashboard();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       } finally {
         saveBtn.disabled = false;
       }
@@ -364,12 +364,12 @@
         const res = await fetch(API + '/recurring/' + encodeURIComponent(delBtn.dataset.id), { method: 'DELETE' });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          showAlert(data.detail || 'Error deleting recurring rule.', true);
+          showAlert(data.detail || t('msgRecurringDeleteError'), true);
           return;
         }
-        showAlert('Recurring rule deleted.');
+        showAlert(t('msgRecurringDeleted'));
         loadRecurringRules();
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
 
     // Entity edit: load the record into the modal form (no chained prompts).
@@ -404,7 +404,7 @@
       const name = document.getElementById('entity-edit-name').value.trim();
       const type = document.getElementById('entity-edit-type').value;
       const code = document.getElementById('entity-edit-code').value.trim();
-      if (!name) { showAlert('Enter a name for the entity.', true); return; }
+      if (!name) { showAlert(t('msgEntityNameRequired'), true); return; }
       const payload = { name, type, code };
       _ENT_BILLING.forEach(f => {
         const el = document.getElementById('entity-edit-' + f);
@@ -420,15 +420,15 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showAlert(data.detail || 'Error updating entity.', true);
+          showAlert(data.detail || t('msgEntityUpdateError'), true);
           return;
         }
         document.getElementById('entity-edit-modal').style.display = 'none';
-        showAlert('Entity updated.');
+        showAlert(t('msgEntityUpdated'));
         loadEntities(_editingEntityId);
         loadEntityOptions();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       } finally {
         saveBtn.disabled = false;
       }
@@ -452,14 +452,14 @@
         const res = await fetch(API + '/entities/' + encodeURIComponent(id), { method: 'DELETE' });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          showAlert(data.detail || 'Error deleting entity.', true);
+          showAlert(data.detail || t('msgEntityDeleteError'), true);
           return;
         }
-        showAlert('Entity deleted.');
+        showAlert(t('msgEntityDeleted'));
         loadEntities();
         loadEntityOptions();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       }
     }
     document.getElementById('reset-db-btn').addEventListener('click', async () => {
@@ -467,8 +467,8 @@
       try {
         const res = await fetch(API + '/admin/reset-db', { method: 'POST' });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Reset failed.', true); return; }
-        showAlert('Database reset. Chart of accounts re-seeded.');
+        if (!res.ok) { showAlert(data.detail || t('demoResetFailed'), true); return; }
+        showAlert(t('msgDbResetDone'));
         loadLedger();
         loadEntities();
         loadInvoices();
@@ -477,14 +477,14 @@
         loadBudgets();
         lastEntityMentions = null;
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       }
     });
     document.getElementById('entity-add').addEventListener('click', async () => {
       const type = document.getElementById('entity-type').value;
       const name = document.getElementById('entity-name').value.trim();
       const code = document.getElementById('entity-code').value.trim() || null;
-      if (!name) { showAlert('Enter a name for the entity.', true); return; }
+      if (!name) { showAlert(t('msgEntityNameRequired'), true); return; }
       const billing = {};
       ['legal_name','tax_id','economic_code','national_id','province','city','postal_code','email','phone','payment_terms','address','bank_name','account_holder','account_number','iban','sort_code'].forEach(f => {
         const el = document.getElementById('entity-' + f);
@@ -497,8 +497,8 @@
           body: JSON.stringify({ type, name, code, ...billing })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Error adding entity.', true); return; }
-        showAlert('Entity added.');
+        if (!res.ok) { showAlert(data.detail || t('msgEntityAddError'), true); return; }
+        showAlert(t('msgEntityAdded'));
         document.getElementById('entity-name').value = '';
         document.getElementById('entity-code').value = '';
         ['legal_name','tax_id','economic_code','national_id','province','city','postal_code','email','phone','payment_terms','address','bank_name','account_holder','account_number','iban','sort_code'].forEach(f => {
@@ -507,7 +507,7 @@
         loadEntities(data.id);
         loadEntityOptions();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       }
     });
     // ═══════ Multi-line invoice builder ═══════
@@ -603,7 +603,7 @@
         if (!desc && qty <= 0) return;
         const rate = parseFloat(tr.querySelector('.il-rate').value) || 0;
         items.push({
-          product_name: desc || 'Item',
+          product_name: desc || t('itemWord'),
           quantity: qty > 0 ? qty : 1,
           unit_price: price,
           line_total: Math.max(0, Math.round((qty > 0 ? qty : 1) * price)),
@@ -766,8 +766,8 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Error creating invoice.', true); return; }
-        showAlert('Invoice created.');
+        if (!res.ok) { showAlert(data.detail || t('msgInvoiceCreateError'), true); return; }
+        showAlert(t('msgInvoiceCreated'));
         // Offer the branded PDF for the just-created invoice.
         const dl = document.getElementById('inv-download');
         if (dl && data.id) { dl.href = API + '/invoices/' + data.id + '/pdf'; dl.style.display = ''; }
@@ -783,7 +783,7 @@
         applyDefaultFormCurrency();
         loadInvoices(data.id);
         loadOwnerDashboard();
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
 
     // ═══════ سامانه مودیان export ═══════
@@ -1175,7 +1175,7 @@
       const btnScan = document.getElementById('inv-ocr-scan');
       const btnCreate = document.getElementById('inv-ocr-create');
       const file = (fileInput && fileInput.files && fileInput.files[0]) ? fileInput.files[0] : null;
-      if (!file) { showAlert('Choose an invoice image/PDF first.', true); return; }
+      if (!file) { showAlert(t('msgChooseInvoiceFile'), true); return; }
       const fd = new FormData();
       fd.append('file', file);
       fd.append('kind', document.getElementById('inv-kind').value || 'sales');
@@ -1184,7 +1184,7 @@
       if (entityId) fd.append('entity_id', entityId);
       const desc = (document.getElementById('inv-desc').value || '').trim();
       if (desc) fd.append('description', desc);
-      if (statusEl) statusEl.textContent = 'Scanning invoice...';
+      if (statusEl) statusEl.textContent = t('msgScanningInvoice');
       btnScan.disabled = true;
       btnCreate.disabled = true;
       try {
@@ -1216,14 +1216,14 @@
         const vendor = data.vendor_name ? `vendor: ${data.vendor_name}` : 'vendor: unknown';
         if (statusEl) statusEl.textContent = `${vendor}, ${conf}`;
         if (data.created_invoice && createDirect) {
-          showAlert('Invoice scanned and created.');
+          showAlert(t('msgInvoiceScannedCreated'));
           loadInvoices();
           loadOwnerDashboard();
         } else {
-          showAlert('Invoice scanned and form filled.');
+          showAlert(t('msgInvoiceScannedFilled'));
         }
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
         if (statusEl) statusEl.textContent = '';
       } finally {
         btnScan.disabled = false;
@@ -1235,7 +1235,7 @@
     document.getElementById('inv-ocr-create').addEventListener('click', () => runInvoiceOCRImport(true));
     document.getElementById('recurring-create').addEventListener('click', async () => {
       const text = document.getElementById('recurring-text').value.trim();
-      if (!text) { showAlert('Write a recurring instruction first.', true); return; }
+      if (!text) { showAlert(t('msgRecurringTextRequired'), true); return; }
       try {
         const res = await fetch(API + '/recurring/from-text', {
           method: 'POST',
@@ -1243,17 +1243,17 @@
           body: JSON.stringify({ text })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Error creating recurring rule.', true); return; }
-        showAlert('Recurring rule saved.');
+        if (!res.ok) { showAlert(data.detail || t('msgRecurringCreateError'), true); return; }
+        showAlert(t('msgRecurringSaved'));
         document.getElementById('recurring-text').value = '';
         loadRecurringRules(data.id);
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
     document.getElementById('budget-save').addEventListener('click', async () => {
       const month = document.getElementById('budget-month').value;
       const category = document.getElementById('budget-category').value.trim();
       const limit_amount = parseInt(document.getElementById('budget-limit').value, 10) || 0;
-      if (!month || !category) { showAlert('Month and category are required.', true); return; }
+      if (!month || !category) { showAlert(t('msgBudgetFieldsRequired'), true); return; }
       try {
         const res = await fetch(API + '/budgets', {
           method: 'POST',
@@ -1261,10 +1261,10 @@
           body: JSON.stringify({ month, category, limit_amount })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Failed to save budget.', true); return; }
-        showAlert('Budget saved.');
+        if (!res.ok) { showAlert(data.detail || t('msgBudgetSaveFailed'), true); return; }
+        showAlert(t('msgBudgetSaved'));
         loadBudgets();
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
     // Copy this month's budgets into the next one, optionally changed by a percentage.
     document.getElementById('budget-roll').addEventListener('click', async () => {
@@ -1286,19 +1286,19 @@
       try {
         const res = await fetch(API + '/exports/monthly-snapshot', { method: 'POST' });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Snapshot failed.', true); return; }
-        showAlert('Snapshot created: ' + (data.snapshot_file || 'ok'));
+        if (!res.ok) { showAlert(data.detail || t('msgSnapshotFailed'), true); return; }
+        showAlert(t('msgSnapshotCreated') + (data.snapshot_file || 'ok'));
         // Served only to this company's signed-in users (never from /uploads).
         if (data.snapshot_file) window.open(API + data.snapshot_file, '_blank');
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
     document.getElementById('notify-btn').addEventListener('click', async () => {
       try {
         const res = await fetch(API + '/notifications/check', { method: 'POST' });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Notification check failed.', true); return; }
-        showAlert('Alerts checked. Delivered: ' + ((data.delivered || []).join(', ') || 'none'));
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+        if (!res.ok) { showAlert(data.detail || t('msgAlertsCheckFailed'), true); return; }
+        showAlert(t('msgAlertsChecked') + ((data.delivered || []).join(', ') || 'none'));
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
 
     document.getElementById('missing-refs-wrap').addEventListener('click', async (e) => {
@@ -1308,7 +1308,7 @@
         const fileInput = document.querySelector('.missing-ref-file[data-id="' + id + '"]');
         const files = Array.from((fileInput && fileInput.files) || []);
         if (!files.length) {
-          showAlert('Choose image/PDF files first.', true);
+          showAlert(t('msgChooseImageFiles'), true);
           return;
         }
         try {
@@ -1323,7 +1323,7 @@
           });
           const patchData = await patchRes.json().catch(() => ({}));
           if (!patchRes.ok) {
-            showAlert(patchData.detail || 'Failed linking attachments to transaction.', true);
+            showAlert(patchData.detail || t('msgAttachLinkFailed'), true);
             return;
           }
           if (uploaded.length) {
@@ -1333,17 +1333,17 @@
               if (refInput && !refInput.value.trim() && ocr.invoice_or_receipt_no) {
                 refInput.value = ocr.invoice_or_receipt_no;
               }
-              showAlert('Attachments uploaded. OCR extraction completed.');
+              showAlert(t('msgAttachOcrDone'));
             } catch (_) {
-              showAlert('Attachments uploaded and linked.');
+              showAlert(t('msgAttachLinked'));
             }
           } else {
-            showAlert('Attachments uploaded and linked.');
+            showAlert(t('msgAttachLinked'));
           }
           if (fileInput) fileInput.value = '';
           loadOwnerDashboard();
         } catch (err) {
-          showAlert('Upload failed: ' + err.message, true);
+          showAlert(t('msgUploadFailed') + err.message, true);
         } finally {
           upBtn.disabled = false;
         }
@@ -1354,7 +1354,7 @@
       const id = btn.dataset.id;
       const input = document.querySelector('.missing-ref-input[data-id="' + id + '"]');
       const reference = (input && input.value || '').trim();
-      if (!reference) { showAlert('Reference cannot be empty.', true); return; }
+      if (!reference) { showAlert(t('msgReferenceEmpty'), true); return; }
       try {
         const res = await fetch(API + '/transactions/' + encodeURIComponent(id), {
           method: 'PATCH',
@@ -1362,11 +1362,11 @@
           body: JSON.stringify({ reference })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Error saving reference.', true); return; }
-        showAlert('Reference updated.');
+        if (!res.ok) { showAlert(data.detail || t('msgReferenceSaveError'), true); return; }
+        showAlert(t('msgReferenceUpdated'));
         loadMissingReferences();
         loadOwnerDashboard();
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
 
     // Maps an entity type to the voucher link role it is saved under.
@@ -1589,7 +1589,7 @@
           if (!rm) return;
           const rows = linesBodyEl.querySelectorAll('.edit-tx-line-row');
           if (rows.length <= 2) {
-            showAlert('A transaction needs at least two lines.', true);
+            showAlert(t('msgTxnTwoLines'), true);
             return;
           }
           const tr = rm.closest('.edit-tx-line-row');
@@ -1608,13 +1608,13 @@
             line_description: (tr.querySelector('.edit-tx-line-desc').value || '').trim() || null,
           })).filter((l) => l.account_code);
           if (lines.length < 2) {
-            showAlert('Please keep at least two lines with account code.', true);
+            showAlert(t('msgKeepTwoLines'), true);
             return;
           }
           const totalDebit = lines.reduce((s, l) => s + (l.debit || 0), 0);
           const totalCredit = lines.reduce((s, l) => s + (l.credit || 0), 0);
           if (totalDebit !== totalCredit) {
-            showAlert('Debits and credits must be equal.', true);
+            showAlert(t('msgDebitsEqualCredits'), true);
             return;
           }
           const entity_links = [];
@@ -1649,7 +1649,7 @@
             loadOwnerDashboard();
             loadLedger();
           } catch (err) {
-            showAlert('Connection error: ' + err.message, true);
+            showAlert(t('msgConnectionError') + err.message, true);
           }
         };
       }
@@ -1693,15 +1693,15 @@
         const res = await fetch(API + '/transactions/' + encodeURIComponent(delBtn.dataset.txId), { method: 'DELETE' });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          showAlert(data.detail || 'Error deleting transaction.', true);
+          showAlert(data.detail || t('msgTxnDeleteError'), true);
           return;
         }
-        showAlert('Transaction deleted.');
+        showAlert(t('msgTxnDeleted'));
         if (currentEntityContext) openEntityTransactions(currentEntityContext.entityId, currentEntityContext.entityName);
         loadOwnerDashboard();
         loadLedger();
       } catch (err) {
-        showAlert('Connection error: ' + err.message, true);
+        showAlert(t('msgConnectionError') + err.message, true);
       }
     });
 

@@ -63,11 +63,11 @@
           });
         }
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Failed.', true); return; }
+        if (!res.ok) { showAlert(data.detail || t('msgFailedDot'), true); return; }
         showAlert(rbtn ? t('timePendingResolved') : t('timePendingRejected'));
         loadPendingTime();
         if (typeof tmLoadEntries === 'function') tmLoadEntries();
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
 
     async function loadMyPay() {
@@ -1226,7 +1226,7 @@
       if (!q) return;
       const answerEl = document.getElementById('cfo-answer');
       answerEl.style.display = 'block';
-      answerEl.textContent = 'Thinking...';
+      answerEl.textContent = t('msgThinking');
       try {
         const res = await fetch(bsAPI + '/cfo/ask', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1234,7 +1234,7 @@
         });
         const data = await res.json();
         answerEl.innerHTML = `<strong>Q:</strong> ${escapeHtml(data.question)}<br><br><strong>A:</strong> ${escapeHtml(data.answer)}<br><br><span style="font-size:0.8rem;color:var(--text-muted);">Health: ${data.health_grade} | Risk: ${data.risk_score}/100</span>`;
-      } catch (e) { answerEl.textContent = 'Error: ' + e.message; }
+      } catch (e) { answerEl.textContent = tf('errorWithMessage', { message: e.message }); }
     });
     document.getElementById('cfo-question-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('cfo-ask-btn').click(); });
 

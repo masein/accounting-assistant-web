@@ -900,12 +900,12 @@
               signal: aborter.signal,
             });
           } catch (netErr) {
-            throw new Error(aborter.signal.aborted ? t('aiConfirmTimeout') : (netErr.message || 'Network error'));
+            throw new Error(aborter.signal.aborted ? t('aiConfirmTimeout') : (netErr.message || t('msgNetworkError')));
           } finally {
             clearTimeout(killer);
           }
           const data = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(data.detail || ('Execute failed (HTTP ' + r.status + ')'));
+          if (!r.ok) throw new Error(data.detail || tf('msgExecuteFailed', { status: r.status }));
           if (confirmBtn) confirmBtn.textContent = confirmLabel;
           if (r.status === 202 && data.status === 'awaiting_approval') {
             // above the approval limit: not recorded yet, waiting for someone else
@@ -963,7 +963,7 @@
         } catch (e) {
           const err = document.createElement('div');
           err.style.cssText = 'margin-top:0.4rem; color:#b91c1c; font-size:0.82rem;';
-          err.textContent = 'Error: ' + e.message;
+          err.textContent = tf('errorWithMessage', { message: e.message });
           cardEl.appendChild(err);
           showAlert(e.message, true);
           if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = confirmLabel; }

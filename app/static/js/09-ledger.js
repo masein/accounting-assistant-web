@@ -318,10 +318,10 @@
           body: JSON.stringify({ role: sel.value }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || 'Failed to update role.', true); loadUsers(); return; }
+        if (!res.ok) { showAlert(data.detail || t('msgRoleUpdateFailed'), true); loadUsers(); return; }
         showAlert(t('usersRoleUpdated'));
         loadUsers();
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
     if (openAiChatInlineBtn) {
       openAiChatInlineBtn.addEventListener('click', () => {

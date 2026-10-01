@@ -39,7 +39,7 @@
     async function uploadAttachments() {
       const files = Array.from(attachmentInput.files || []);
       if (!files.length) {
-        showAlert('Choose at least one file.', true);
+        showAlert(t('msgChooseFile'), true);
         return;
       }
       attachmentUploadBtn.disabled = true;
@@ -50,16 +50,16 @@
           const res = await fetch(API + '/transactions/attachments', { method: 'POST', body: fd });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            showAlert(data.detail || ('Failed to upload ' + f.name), true);
+            showAlert(data.detail || tf('msgUploadFileFailed', { name: f.name }), true);
             continue;
           }
           selectedAttachments.push(data);
         }
         attachmentInput.value = '';
         renderAttachments();
-        showAlert('Attachments uploaded.');
+        showAlert(t('msgAttachmentsUploaded'));
       } catch (err) {
-        showAlert('Attachment upload failed: ' + err.message, true);
+        showAlert(t('msgAttachmentUploadFailed') + err.message, true);
       } finally {
         attachmentUploadBtn.disabled = false;
       }
@@ -70,13 +70,13 @@
         const res = await fetch(API + '/transactions/attachments/' + encodeURIComponent(id), { method: 'DELETE' });
         if (!res.ok && res.status !== 204) {
           const data = await res.json().catch(() => ({}));
-          showAlert(data.detail || 'Could not remove attachment.', true);
+          showAlert(data.detail || t('msgAttachmentRemoveFailed'), true);
           return;
         }
         selectedAttachments = selectedAttachments.filter(a => a.id !== id);
         renderAttachments();
       } catch (err) {
-        showAlert('Could not remove attachment: ' + err.message, true);
+        showAlert(t('msgAttachmentRemoveError') + err.message, true);
       }
     }
 
@@ -354,7 +354,7 @@
         fd.append('file', f);
         const res = await fetch(API + '/transactions/attachments', { method: 'POST', body: fd });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || ('Failed upload: ' + f.name));
+        if (!res.ok) throw new Error(data.detail || tf('msgUploadFileFailed', { name: f.name }));
         uploaded.push(data);
       }
       return uploaded;
@@ -363,7 +363,7 @@
     async function getTransactionAttachmentIds(txId) {
       const res = await fetch(API + '/transactions/' + encodeURIComponent(txId));
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || 'Cannot read transaction');
+      if (!res.ok) throw new Error(data.detail || t('msgTxnReadFailed'));
       return (data.attachments || []).map(a => a.id);
     }
 

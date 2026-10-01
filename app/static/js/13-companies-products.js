@@ -203,7 +203,7 @@
         if (!r.ok) { showAlert(d.detail || t('periodLockError'), true); return; }
         showAlert(t('periodLockSaved'));
         loadClosedPeriod();
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     }
     document.getElementById('closed-period-save')?.addEventListener('click', () => {
       _saveClosedPeriod(document.getElementById('closed-period-input').value || '');
@@ -239,7 +239,7 @@
         if (!r.ok) { showAlert(d.detail || t('adjReleaseError'), true); return; }
         showAlert(t('adjReleased'));
         loadAdjustments(); loadLedger();
-      } catch (err) { showAlert('Connection error: ' + err.message, true); }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
     async function _postAdjustment(url, body) {
       try {
@@ -249,7 +249,7 @@
         showAlert(t('adjRecorded'));
         loadAdjustments(); loadLedger(); loadOwnerDashboard();
         return true;
-      } catch (err) { showAlert('Connection error: ' + err.message, true); return false; }
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); return false; }
     }
     document.getElementById('accr-save')?.addEventListener('click', () => {
       const amount = parseInt(document.getElementById('accr-amount').value, 10);
@@ -528,7 +528,7 @@
             const total = item.reduce((s, r) => s + (r[numKey] || 0), 0);
             const totalDiv = document.createElement('div');
             totalDiv.style.cssText = 'margin-top:0.4rem;font-size:0.9rem;font-weight:600;';
-            totalDiv.textContent = `Total: ${total.toLocaleString()} ${currencyUnit()}`;
+            totalDiv.textContent = tf('msgTotalAmount', { amount: total.toLocaleString(), unit: currencyUnit() });
             body.appendChild(tbl);
             body.appendChild(totalDiv);
           } else {
@@ -569,7 +569,7 @@
         const viewBtn = document.createElement('button');
         viewBtn.className = 'btn btn-primary btn-sm';
         viewBtn.style.cssText = 'margin-top:0.75rem;';
-        viewBtn.textContent = 'View all ' + label + ' transactions';
+        viewBtn.textContent = tf('msgViewAllTransactions', { label });
         viewBtn.onclick = () => showTransactionDrilldown(title + ' — ' + label, { account_code_prefix: _bsSectionPrefixes[label] });
         body.appendChild(viewBtn);
       }
@@ -1180,7 +1180,7 @@
           mgrRunBtn.disabled = true;
           const res = await fetch(API + '/manager-reports/operational/accounts-payable?' + q.toString());
           const data = await res.json();
-          if (!res.ok) { showAlert(data.detail || 'Failed', true); return; }
+          if (!res.ok) { showAlert(data.detail || t('msgFailed'), true); return; }
           lastManagerReport = data;
           const items = data.items || [];
           const heads = ['fieldInvoice', 'labelSupplier', 'fieldBalance', 'labelDueDate', 'usersStatus', 'fieldAging', 'fieldDaysOverdue'];
@@ -1212,7 +1212,7 @@
           }
           if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
           if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
-        } catch (err) { showAlert('Error: ' + err.message, true); }
+        } catch (err) { showAlert(tf('errorWithMessage', { message: err.message }), true); }
         finally { mgrRunBtn.disabled = false; }
         return;
       }
@@ -1265,7 +1265,7 @@
               || bsPrefixMap[Object.keys(bsPrefixMap).find(k => t('section' + k).toLowerCase() === sectionLabel.toLowerCase())]
               || ['11,12,13,14,15', '21,22,23,24', '31,32,33'][idx]
               || '';
-            if (prefix) showTransactionDrilldown(sectionLabel || 'Balance Sheet', { account_code_prefix: prefix, to_date: _toDate });
+            if (prefix) showTransactionDrilldown(sectionLabel || t('msgBalanceSheet'), { account_code_prefix: prefix, to_date: _toDate });
             else showChartDrilldown(rt, label, matchRow || {});
           } else if (rt.includes('income')) {
             // Map each bar to its specific account prefix
@@ -1445,19 +1445,19 @@
       const itemId = document.getElementById('price-mgmt-item').value;
       const price = document.getElementById('price-mgmt-value').value;
       const statusEl = document.getElementById('price-mgmt-status');
-      if (!itemId) { statusEl.textContent = 'Select an item first.'; statusEl.style.color = '#c62828'; return; }
+      if (!itemId) { statusEl.textContent = t('msgSelectItem'); statusEl.style.color = '#c62828'; return; }
       try {
         const res = await fetch(API + '/manager-reports/inventory/items/' + itemId + '/price?list_price=' + price, { method: 'PATCH' });
         const data = await res.json();
         if (res.ok) {
-          statusEl.textContent = `Price updated: ${data.name} — ${data.old_price.toLocaleString()} -> ${data.new_price.toLocaleString()} ${currencyUnit()}`;
+          statusEl.textContent = tf('msgPriceUpdated', { name: data.name, old: data.old_price.toLocaleString(), new: data.new_price.toLocaleString(), unit: currencyUnit() });
           statusEl.style.color = '#2e7d32';
           loadPriceMgmtItems();
         } else {
-          statusEl.textContent = data.detail || 'Failed to update price.';
+          statusEl.textContent = data.detail || t('msgPriceUpdateFailed');
           statusEl.style.color = '#c62828';
         }
-      } catch (e) { statusEl.textContent = 'Error: ' + e.message; statusEl.style.color = '#c62828'; }
+      } catch (e) { statusEl.textContent = tf('errorWithMessage', { message: e.message }); statusEl.style.color = '#c62828'; }
     });
 
     // ═══════ Audit: run every check, list the findings by domain ═══════

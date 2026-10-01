@@ -161,6 +161,7 @@
           const tr = document.createElement('tr');
           tr.className = 'ledger-row';
           tr.dataset.accountCode = r.account_code;
+          tr.tabIndex = 0;   // opened from the keyboard too (Enter / Space), not only by a click
           tr.innerHTML = `
             <td style="${grouped && g.code ? 'padding-inline-start:1.4rem;' : ''}">${r.account_code}</td>
             <td>${r.account_name}</td>

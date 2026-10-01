@@ -1891,7 +1891,7 @@
           <tr>
             <td>${escapeHtml(r.account_name || r.account_code)}</td>
             <td>${escapeHtml(String(r.quantity))} ${escapeHtml(r.unit)}</td>
-            <td style="text-align:end;"><button class="btn btn-secondary btn-sm nw-h-del" data-id="${escapeHtml(r.id)}">×</button></td>
+            <td style="text-align:end;"><button class="btn btn-secondary btn-sm nw-h-del" data-id="${escapeHtml(r.id)}" aria-label="${escapeHtml(t('btnDelete'))}" title="${escapeHtml(t('btnDelete'))}">×</button></td>
           </tr>`).join('')}</tbody></table>`;
       } catch (_) {
         wrap.innerHTML = '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('nwNoHoldings')) + '</p>';

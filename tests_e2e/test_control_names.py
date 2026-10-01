@@ -15,6 +15,18 @@ NAMELESS = r"""() => [...document.querySelectorAll('.card[data-page] input, .car
   .filter(e => e.offsetParent !== null && !['hidden', 'button', 'submit'].includes(e.type))
   .filter(e => !(e.labels && e.labels.length) && !(e.getAttribute('aria-label') || '').trim() && !e.getAttribute('aria-labelledby') && !e.title)
   .map(e => (e.id || e.name || e.tagName.toLowerCase()) + (e.placeholder ? ' (' + e.placeholder + ')' : ''))"""
+# a button a screen reader can only call "button" ("✕", "×", an icon)
+NAMELESS_BUTTONS = r"""() => [...document.querySelectorAll('.card[data-page] button')]
+  .filter(b => b.offsetParent !== null)
+  .filter(b => ((((b.getAttribute('aria-label') || '') + ' ' + (b.title || '') + ' ' + b.textContent).match(/[\p{L}\p{N}]/gu)) || []).length < 2)
+  .map(b => 'button ' + (b.className || b.id) + ' «' + b.textContent.trim() + '»')"""
+# something that opens on a click (a pointer cursor) but can't be reached with the keyboard
+MOUSE_ONLY = r"""() => [...document.querySelectorAll('.card[data-page] *')]
+  .filter(e => e.offsetParent !== null && !['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'SUMMARY', 'OPTION'].includes(e.tagName))
+  .filter(e => !e.closest('button, a, label, summary') && getComputedStyle(e).cursor === 'pointer')
+  .filter(e => !e.hasAttribute('tabindex') && !e.getAttribute('role'))
+  .filter(e => !(e.parentElement && getComputedStyle(e.parentElement).cursor === 'pointer'))
+  .map(e => e.tagName.toLowerCase() + '.' + String(e.className).split(' ')[0])"""
 LINE_NAMES = r"""() => [...document.querySelectorAll('.card[data-page="transactions"] td input')]
   .filter(e => e.offsetParent !== null).map(e => e.getAttribute('aria-label') || '')"""
 
@@ -34,7 +46,7 @@ def test_every_control_has_a_name(flow_page):
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(300)
             page.evaluate("() => document.querySelectorAll('.card[data-page] details').forEach(d => { d.open = true; })")
-            found = page.evaluate(NAMELESS)
+            found = page.evaluate(NAMELESS) + page.evaluate(NAMELESS_BUTTONS) + page.evaluate(MOUSE_ONLY)
             if found:
                 nameless[name] = found
         assert nameless == {}, nameless
@@ -59,3 +71,23 @@ def test_every_control_has_a_name(flow_page):
         raise
     finally:
         _switch(page, "en")
+
+
+def test_a_ledger_row_opens_from_the_keyboard(flow_page):
+    page, watch = flow_page("e2e_keyboard")   # its own request budget: the sweep above spends e2e_a11y's
+    posted = page.evaluate("""async () => {
+        const accs = await (await fetch('/accounts')).json();
+        const codes = accs.filter(a => a.code.length === 4).map(a => a.code).slice(0, 2);
+        const r = await fetch('/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: new Date().toISOString().slice(0, 10), description: 'keyboard', reference: 'KB-1',
+                lines: [{ account_code: codes[0], debit: 1000, credit: 0 }, { account_code: codes[1], debit: 0, credit: 1000 }] }) });
+        return r.status; }""")
+    assert posted == 201
+    page.evaluate("() => { location.hash = 'ledger'; }")
+    page.wait_for_load_state("networkidle")
+    row = page.locator("tr.ledger-row").first
+    row.wait_for(timeout=15_000)
+    row.focus()
+    page.keyboard.press("Enter")
+    page.wait_for_selector("#account-modal", state="visible", timeout=10_000)
+    assert watch.problems() == [], watch.problems()

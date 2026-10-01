@@ -192,6 +192,10 @@ jobs:
       APP_DB_PASSWORD: ci-only-app-role-password-0123456789
       E2E_BASE_URL: http://127.0.0.1:8000
       E2E_USERNAME: e2e_owner
+      # thirty page loads in a row as one user is not a person clicking; past
+      # 120 a minute the smoke checks were reading pages whose data got a 429
+      # (the watcher now fails on any 429, so a test that runs out says so)
+      API_RATE_LIMIT_PER_MINUTE: "1000"
     steps:
       - name: Check out code
         uses: actions/checkout@v4

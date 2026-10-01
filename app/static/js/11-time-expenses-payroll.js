@@ -1131,9 +1131,7 @@
     // keys; tests/test_audit_labels.py keeps one for every value the server
     // writes), and a time in the user's calendar rather than the browser's.
     function auditLabel(prefix, value) {
-      const v = String(value || '');
-      const s = t(prefix + v);
-      return s !== prefix + v ? s : v.replace(/_/g, ' ');
+      return enumLabel(prefix, value || '');
     }
     function auditWhen(ts) {
       const d = new Date(ts);
@@ -1233,7 +1231,7 @@
           body: JSON.stringify({ question: q })
         });
         const data = await res.json();
-        answerEl.innerHTML = `<strong>Q:</strong> ${escapeHtml(data.question)}<br><br><strong>A:</strong> ${escapeHtml(data.answer)}<br><br><span style="font-size:0.8rem;color:var(--text-muted);">Health: ${data.health_grade} | Risk: ${data.risk_score}/100</span>`;
+        answerEl.innerHTML = `<strong>${escapeHtml(t('cfoAskQ'))}</strong> ${escapeHtml(data.question)}<br><br><strong>${escapeHtml(t('cfoAskA'))}</strong> ${escapeHtml(data.answer)}<br><br><span style="font-size:0.8rem;color:var(--text-muted);">${escapeHtml(tf('cfoAskHealth', { grade: data.health_grade, score: data.risk_score }))}</span>`;
       } catch (e) { answerEl.textContent = tf('errorWithMessage', { message: e.message }); }
     });
     document.getElementById('cfo-question-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('cfo-ask-btn').click(); });

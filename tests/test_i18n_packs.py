@@ -72,3 +72,23 @@ def test_the_top_bar_switch_sticks_and_redraws():
     assert "await loadLanguagePack(lang)" in switch
     assert "'/auth/preferences'" in switch and "method: 'PATCH'" in switch      # the account's preference
     assert "loadPageData(page)" in switch                                       # script-drawn content redrawn
+
+
+def test_no_key_is_written_twice_in_a_pack():
+    """In an object literal the later of two same-named keys wins, silently:
+    the invoice-reminder setting's "Automatic reminders" retitled the
+    notifications panel's "Reminders", and a "Failed" added for one alert
+    replaced the messenger's "That did not work — try again." everywhere."""
+    from collections import Counter
+
+    from tests.i18n_source import PACKS
+
+    repeated = {}
+    for lang, path in PACKS.items():
+        text = path.read_text(encoding="utf-8")
+        blocks = [m.group(1) for m in re.finditer(r"^      en: \{\n(.*?)^      \},?$", text, re.M | re.S)] if lang == "en" else [text]
+        for block in blocks:
+            counts = Counter(re.findall(r"^        ([A-Za-z_][A-Za-z0-9_]*)\s*:", block, re.M))
+            if dup := sorted(k for k, n in counts.items() if n > 1):
+                repeated.setdefault(lang, []).extend(dup)
+    assert repeated == {}

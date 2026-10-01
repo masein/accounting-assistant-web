@@ -45,7 +45,7 @@
           ));
         };
       } catch (err) {
-        body.innerHTML = '<p class="empty-state">Error loading account details.</p>';
+        body.innerHTML = '<p class="empty-state">' + escapeHtml(t('acctDetailLoadError')) + '</p>';
       }
     }
 
@@ -77,11 +77,11 @@
       } else {
         const w = window.open('', '_blank');
         if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
-        w.document.write(`<html><head><title>Account ${escapeHtml(m.code)}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}.num{text-align:right}h2{margin:0 0 4px}p{margin:2px 0;font-size:13px}</style></head><body>
+        w.document.write(`<html lang="${document.documentElement.lang}" dir="${document.documentElement.dir || 'ltr'}"><head><title>${escapeHtml(tf('printAccountTitle', { code: m.code }))}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:start}.num{text-align:end}h2{margin:0 0 4px}p{margin:2px 0;font-size:13px}</style></head><body>
           <h2>${escapeHtml(m.code)} — ${escapeHtml(m.name)}</h2>
-          <p>Debit Turnover: ${formatNum(m.debit_turnover)} | Credit Turnover: ${formatNum(m.credit_turnover)}</p>
-          <p>Debit Balance: ${formatNum(m.debit_balance)} | Credit Balance: ${formatNum(m.credit_balance)}</p>
-          <table><thead><tr><th>Date</th><th>Reference</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th>Line Description</th></tr></thead><tbody>
+          <p>${escapeHtml(t('fieldTotalDebit'))}: ${formatNum(m.debit_turnover)} | ${escapeHtml(t('fieldTotalCredit'))}: ${formatNum(m.credit_turnover)}</p>
+          <p>${escapeHtml(t('fieldDebitBalance'))}: ${formatNum(m.debit_balance)} | ${escapeHtml(t('fieldCreditBalance'))}: ${formatNum(m.credit_balance)}</p>
+          <table><thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th class="num">${escapeHtml(t('tableDebit'))}</th><th class="num">${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('tableLineDescription'))}</th></tr></thead><tbody>
           ${lines.map(l=>`<tr><td>${escapeHtml(formatDisplayDate(l.transaction_date))}</td><td>${escapeHtml(l.reference||'')}</td><td>${escapeHtml(l.description||'')}</td><td class="num">${formatNum(l.debit)}</td><td class="num">${formatNum(l.credit)}</td><td>${escapeHtml(l.line_description||'')}</td></tr>`).join('')}
           </tbody></table></body></html>`);
         w.document.close();
@@ -112,19 +112,19 @@
         const list = await res.json();
         tbody.innerHTML = '';
         if (!list.length) {
-          tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No entities yet. Add a client, bank, or employee above.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" class="empty-state">' + escapeHtml(t('entitiesEmpty')) + '</td></tr>';
           return;
         }
         list.forEach(e => {
           const tr = document.createElement('tr');
           tr.dataset.entityId = e.id;
           tr.innerHTML = `
-            <td>${escapeHtml(e.type)}</td>
+            <td>${escapeHtml(enumLabel('entType_', e.type))}</td>
             <td>${escapeHtml(e.name)}</td>
             <td>${escapeHtml(e.code || '—')}</td>
             <td>
-              <button type="button" class="btn btn-secondary btn-sm edit-entity" data-entity-id="${e.id}" data-entity-type="${escapeHtml(e.type)}" data-entity-name="${escapeHtml(e.name)}" data-entity-code="${escapeHtml(e.code || '')}">Edit</button>
-              <button type="button" class="btn btn-danger btn-sm delete-entity" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}" style="margin-left:0.35rem;">Delete</button>
+              <button type="button" class="btn btn-secondary btn-sm edit-entity" data-entity-id="${e.id}" data-entity-type="${escapeHtml(e.type)}" data-entity-name="${escapeHtml(e.name)}" data-entity-code="${escapeHtml(e.code || '')}">${escapeHtml(t('btnEdit'))}</button>
+              <button type="button" class="btn btn-danger btn-sm delete-entity" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}" style="margin-left:0.35rem;">${escapeHtml(t('btnDelete'))}</button>
             </td>
             <td><button type="button" class="btn btn-secondary btn-sm view-entity-txns" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}" data-entity-type="${escapeHtml(e.type || '')}">${escapeHtml(t('entTxViewBtn'))}</button></td>
           `;
@@ -132,7 +132,7 @@
         });
         if (highlightId) flashRow(tbody.querySelector('tr[data-entity-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Error loading entities.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">' + escapeHtml(t('entitiesLoadError')) + '</td></tr>';
       }
     }
     // Entity filter and search
@@ -1496,7 +1496,7 @@
           <td><input type="number" class="edit-tx-line-debit" min="0" step="1" value="${Number(l.debit || 0)}"></td>
           <td><input type="number" class="edit-tx-line-credit" min="0" step="1" value="${Number(l.credit || 0)}"></td>
           <td><input type="text" class="edit-tx-line-desc" value="${escapeHtml(l.line_description || '')}"></td>
-          <td><button type="button" class="btn btn-secondary btn-sm edit-tx-line-remove">Remove</button></td>
+          <td><button type="button" class="btn btn-secondary btn-sm edit-tx-line-remove">${escapeHtml(t('btnRemove'))}</button></td>
         </tr>
       `;
     }
@@ -1526,38 +1526,38 @@
         <form id="entity-tx-edit-form">
           <div class="form-grid">
             <div>
-              <label>Date</label>
+              <label>${escapeHtml(t('labelDate'))}</label>
               <input type="date" id="edit-tx-date" value="${escapeHtml(tx.date || '')}" required>
               <span style="font-size: 0.75rem; color: var(--text-muted);">${toJalali(tx.date)}</span>
             </div>
             <div>
-              <label>Reference</label>
-              <input type="text" id="edit-tx-reference" value="${escapeHtml(tx.reference || '')}" placeholder="e.g. INV-001">
+              <label>${escapeHtml(t('labelReference'))}</label>
+              <input type="text" id="edit-tx-reference" value="${escapeHtml(tx.reference || '')}" placeholder="${escapeHtml(t('placeholderEntityCode'))}">
             </div>
             <div style="grid-column:1 / -1;">
-              <label>Description</label>
+              <label>${escapeHtml(t('labelDescription'))}</label>
               <textarea id="edit-tx-description" rows="2">${escapeHtml(tx.description || '')}</textarea>
             </div>
             <div>
-              <label>Client</label>
+              <label>${escapeHtml(t('labelClient'))}</label>
               <select id="edit-tx-client">${roleSelectHtml('client', selectedEntityIdForRole(tx, 'client'), linkedNameForRole(tx, 'client'))}</select>
             </div>
             <div>
-              <label>Bank</label>
+              <label>${escapeHtml(t('labelBank'))}</label>
               <select id="edit-tx-bank">${roleSelectHtml('bank', selectedEntityIdForRole(tx, 'bank'), linkedNameForRole(tx, 'bank'))}</select>
             </div>
             <div>
-              <label>Payee</label>
+              <label>${escapeHtml(t('labelPayee'))}</label>
               <select id="edit-tx-payee">${roleSelectHtml('payee', selectedEntityIdForRole(tx, 'payee'), linkedNameForRole(tx, 'payee'))}</select>
             </div>
             <div>
-              <label>Supplier</label>
+              <label>${escapeHtml(t('labelSupplier'))}</label>
               <select id="edit-tx-supplier">${roleSelectHtml('supplier', selectedEntityIdForRole(tx, 'supplier'), linkedNameForRole(tx, 'supplier'))}</select>
             </div>
             <div style="grid-column:1 / -1;">
-              <label>Lines (debit/credit)</label>
+              <label>${escapeHtml(t('entTxLines'))}</label>
               <table class="detail-table" style="margin-top:0.35rem;">
-                <thead><tr><th>Account code</th><th>Debit</th><th>Credit</th><th>Line description</th><th></th></tr></thead>
+                <thead><tr><th>${escapeHtml(t('tableAccountCode'))}</th><th>${escapeHtml(t('tableDebit'))}</th><th>${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('tableLineDescription'))}</th><th></th></tr></thead>
                 <tbody id="edit-tx-lines-body">
                   ${(tx.lines || []).map(txLineRowHtml).join('')}
                 </tbody>

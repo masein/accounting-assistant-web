@@ -547,29 +547,29 @@
       }).join('');
 
       const titleMap = {
-        uk_balance_sheet: 'Statement of Financial Position (FRS 102 1A)',
-        uk_profit_and_loss: 'Profit and Loss Account (FRS 102 1A)',
-        uk_comprehensive_income: 'Statement of Comprehensive Income',
-        uk_changes_in_equity: 'Statement of Changes in Equity',
-        uk_cash_flow: 'Statement of Cash Flows',
+        uk_balance_sheet: t('ukTitleBalanceSheet'),
+        uk_profit_and_loss: t('ukTitleProfitAndLoss'),
+        uk_comprehensive_income: t('reportComprehensiveIncome'),
+        uk_changes_in_equity: t('reportChangesInEquity'),
+        uk_cash_flow: t('ukTitleCashFlow'),
       };
       const title = titleMap[report.report_type] || t('reportWord');
       const isBalanceSheet = report.report_type === 'uk_balance_sheet';
-      const datePrefix = isBalanceSheet ? 'As at' : 'Year ended';
-      const curHeader = periodDate ? `${datePrefix} ${escapeHtml(formatDisplayDate(periodDate))}` : '';
-      const priorHeader = priorDate ? `${datePrefix} ${escapeHtml(formatDisplayDate(priorDate))}` : '';
+      const dateKey = isBalanceSheet ? 'ukAsAt' : 'ukYearEnded';
+      const curHeader = periodDate ? escapeHtml(tf(dateKey, { date: formatDisplayDate(periodDate) })) : '';
+      const priorHeader = priorDate ? escapeHtml(tf(dateKey, { date: formatDisplayDate(priorDate) })) : '';
 
       return `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
           <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.4rem;">
             <h3 style="margin:0;">${escapeHtml(title)}</h3>
-            <span style="font-size:0.82rem; color:var(--text-muted);">All amounts in £</span>
+            <span style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(t('ukAllAmountsGbp'))}</span>
           </div>
           <div class="report-preview-wrap">
             <table class="mini-table" style="width:100%; border-collapse:collapse;">
               <thead>
                 <tr style="background:#f1f5f9;">
-                  <th style="padding:8px; text-align:left;">Description</th>
+                  <th style="padding:8px; text-align:left;">${escapeHtml(t('labelDescription'))}</th>
                   <th style="padding:8px; text-align:right; min-width:140px;">${curHeader || '-'}</th>
                   <th style="padding:8px; text-align:right; min-width:140px;">${priorHeader || '-'}</th>
                 </tr>
@@ -592,9 +592,9 @@
       };
       const header = `
         <tr style="background:#f1f5f9;">
-          <th style="padding:8px; text-align:left; min-width:240px;">Description</th>
+          <th style="padding:8px; text-align:left; min-width:240px;">${escapeHtml(t('labelDescription'))}</th>
           ${components.map(c => `<th style="padding:8px; text-align:right; font-size:0.82rem; min-width:90px;">${escapeHtml(c.label || c.key)}</th>`).join('')}
-          <th style="padding:8px; text-align:right; min-width:100px; background:#e8f0fe;">Total</th>
+          <th style="padding:8px; text-align:right; min-width:100px; background:#e8f0fe;">${escapeHtml(t('tableTotal'))}</th>
         </tr>
       `;
       const body = rows.map(r => {
@@ -616,7 +616,7 @@
 
       return `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-          <h3 style="margin:0 0 0.4rem;">Statement of Changes in Equity</h3>
+          <h3 style="margin:0 0 0.4rem;">${escapeHtml(t('reportChangesInEquity'))}</h3>
           <div class="report-preview-wrap" style="overflow-x:auto;">
             <table class="mini-table" style="width:100%; border-collapse:collapse;">
               <thead>${header}</thead>
@@ -791,7 +791,7 @@
         ${quickSummary ? `<div style="font-size:0.88rem;color:var(--text-muted);margin:0.25rem 0;">${escapeHtml(quickSummary)}</div>` : ''}
         ${analysisHtml}
         <details id="${detailId}">
-          <summary style="cursor:pointer;font-size:0.85rem;color:var(--primary);margin:0.3rem 0;">Show full report</summary>
+          <summary style="cursor:pointer;font-size:0.85rem;color:var(--primary);margin:0.3rem 0;">${escapeHtml(t('showFullReport'))}</summary>
           <div>${renderReportPreviewHtml(report)}</div>
           <div class="panel report-chart-panel" style="display:none;">
             <h3>${escapeHtml(t('chartWord'))}</h3>
@@ -887,7 +887,7 @@
           <td><input type="number" class="line-debit" min="0" value="${ln.debit || 0}" step="1"></td>
           <td><input type="number" class="line-credit" min="0" value="${ln.credit || 0}" step="1"></td>
           <td><input type="text" class="line-desc" value="${(ln.line_description || '').replace(/"/g, '&quot;')}"></td>
-          <td><button type="button" class="btn btn-secondary remove-line">Remove</button></td>
+          <td><button type="button" class="btn btn-secondary remove-line">${escapeHtml(t('btnRemove'))}</button></td>
         `;
         linesTbody.appendChild(tr);
       }

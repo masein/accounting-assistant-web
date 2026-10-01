@@ -336,10 +336,12 @@
     .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); padding: 0.25rem; line-height: 1; }
     .modal-close:hover { color: var(--text); }
     #account-modal-body { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
-    #account-modal-body .detail-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-    #account-modal-body .detail-table th, #account-modal-body .detail-table td { padding: 0.5rem 0.75rem; border: 1px solid var(--border); text-align: left; }
-    #account-modal-body .detail-table th { background: #f1f5f9; }
-    #account-modal-body .detail-table .num { font-variant-numeric: tabular-nums; }
+    /* every detail table, not just the account modal's: the inventory reports and
+       the shareholder ledger drew theirs with no padding or borders */
+    .detail-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .detail-table th, .detail-table td { padding: 0.5rem 0.75rem; border: 1px solid var(--border); text-align: start; }
+    .detail-table th { background: #f1f5f9; }
+    .detail-table .num { text-align: end; font-variant-numeric: tabular-nums; }
     .detail-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
     .detail-summary span { font-size: 0.875rem; color: var(--text-muted); }
     .detail-summary strong { display: block; font-size: 1rem; color: var(--text); }
@@ -847,9 +849,7 @@
     html[dir="rtl"] .data-table th,
     html[dir="rtl"] .data-table td,
     html[dir="rtl"] .mini-table th,
-    html[dir="rtl"] .mini-table td,
-    html[dir="rtl"] #account-modal-body .detail-table th,
-    html[dir="rtl"] #account-modal-body .detail-table td { text-align: right; }
+    html[dir="rtl"] .mini-table td { text-align: right; }
     html[dir="rtl"] .chat-msg.user { align-self: flex-start; }
     /* A chart draws its text in the canvas's direction: right-to-left turned
        "-10,000,000" on an axis into "10,000,000-". Persian labels still read

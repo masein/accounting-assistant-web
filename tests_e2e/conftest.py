@@ -49,7 +49,7 @@ _flow_states: dict = {}
 
 
 class PageWatch:
-    """Collects JS exceptions, console errors and 5xx responses for one page."""
+    """Collects JS exceptions, console errors and 5xx / 429 responses for one page."""
 
     def __init__(self, page):
         self.js_errors: list[str] = []
@@ -58,7 +58,9 @@ class PageWatch:
         self.csp_violations: list[str] = []
         page.on("pageerror", lambda e: self.js_errors.append(str(e)))
         page.on("console", self._console)
-        page.on("response", lambda r: self.server_errors.append(f"{r.status} {r.url}") if r.status >= 500 else None)
+        # a 429 too: a test past its user's budget sees pages fail to load and
+        # mistakes that for something else (an empty audit trail, #249)
+        page.on("response", lambda r: self.server_errors.append(f"{r.status} {r.url}") if r.status >= 500 or r.status == 429 else None)
 
     def _console(self, m) -> None:
         if m.type != "error":
@@ -71,7 +73,7 @@ class PageWatch:
 
     def problems(self) -> list[str]:
         # A 4xx fetch logs "Failed to load resource" in the console; those are
-        # expected for role-gated endpoints. Exceptions, 5xx and CSP refusals
+        # expected for role-gated endpoints. Exceptions, 5xx, 429 and CSP refusals
         # are never fine.
         return self.js_errors + self.server_errors + self.csp_violations
 

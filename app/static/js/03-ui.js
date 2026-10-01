@@ -158,7 +158,7 @@
       const close = document.createElement('button');
       close.className = 'alert-close';
       close.setAttribute('type', 'button');
-      close.setAttribute('aria-label', 'Close');
+      close.setAttribute('aria-label', t('btnClose'));
       close.textContent = '×';
       const dismiss = () => { alertEl.style.display = 'none'; if (_alertTimer) { clearTimeout(_alertTimer); _alertTimer = null; } };
       close.onclick = dismiss;
@@ -181,6 +181,14 @@
         el.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }
       setTimeout(() => el.classList.remove('row-flash'), 2600);
+    }
+
+    // An enum value's label: t(prefix + value) when the pack has it, else the
+    // value itself (underscores as spaces) — never the bare key.
+    function enumLabel(prefix, value) {
+      const v = String(value == null ? '' : value);
+      const s = t(prefix + v);
+      return s !== prefix + v ? s : v.replace(/_/g, ' ');
     }
 
     // t() with {token} substitution: tf('confirmDeleteUser', {name: 'bob'}).

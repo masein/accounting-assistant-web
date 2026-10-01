@@ -160,7 +160,7 @@ def job_daily_digest(db, today: date) -> dict:
     asyncio.run(_push())
     if ch in ("all", "email"):
         try:
-            if _send_email(text):
+            if _send_email(text, subject=text.split("\n", 1)[0]):   # "Daily digest — …" in its language
                 delivered.append("email")
         except Exception:  # mail is best-effort; the digest itself succeeded
             log.warning("digest_email_failed", exc_info=True)

@@ -116,3 +116,25 @@ def test_the_digest_is_written_in_its_readers_language(db):
         assert digest_language(db) == "fa"
     db.delete(owner)
     db.flush()
+
+
+def test_the_digest_email_is_titled_in_its_language(db, client, monkeypatch):
+    from app.models.user import User
+    from app.services import mail_service
+
+    co = _company(db)
+    owner = User(username=f"own-{uuid.uuid4().hex[:6]}", password_hash="x", password_salt="x", role="owner",
+                 is_active=True, company_id=co.id, preferred_language="fa")
+    db.add(owner)
+    db.commit()
+    with use_company(str(co.id)):
+        set_digest_settings(db, enabled=True, channel="email")
+        db.commit()
+    sent = []
+    monkeypatch.setattr(settings, "smtp_to", "ops@example.com", raising=False)
+    monkeypatch.setattr(mail_service, "send_email", lambda **kw: sent.append(kw) or True)
+    r = _api(client, Role.OWNER, co).post("/notifications/daily-digest", json={})
+    assert r.status_code == 200 and "email" in r.json()["delivered"], r.text
+    assert sent[0]["subject"] == "خلاصه روزانه — Acme" and sent[0]["text"].startswith("خلاصه روزانه")
+    db.delete(owner)
+    db.commit()

@@ -45,13 +45,13 @@ async def _send_telegram(text: str) -> bool:
         return r.status_code < 300
 
 
-def _send_email(text: str) -> bool:
+def _send_email(text: str, subject: str | None = None) -> bool:
     """Operator alert channel: one fixed recipient, set by SMTP_TO."""
     from app.services.mail_service import send_email
 
     if not settings.smtp_to:
         return False
-    return send_email(to=settings.smtp_to, subject="Accounting Assistant Alerts", text=text)
+    return send_email(to=settings.smtp_to, subject=subject or "Accounting Assistant Alerts", text=text)
 
 
 @router.post("/check", response_model=NotificationCheckResponse)
@@ -135,7 +135,7 @@ async def send_daily_digest(deliver: bool = True, db: Session = Depends(get_db))
             delivered.append("telegram")
         if ch in ("all", "email"):
             try:
-                if _send_email(text):
+                if _send_email(text, subject=text.split("\n", 1)[0]):   # "Daily digest — …" in its language
                     delivered.append("email")
             except Exception:
                 pass

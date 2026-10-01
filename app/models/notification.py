@@ -14,13 +14,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from typing import Any
 
-from sqlalchemy import Date, DateTime, Integer, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import JSON, Date, DateTime, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+
+_JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 
 class Notification(Base, TenantMixin):
@@ -42,6 +45,11 @@ class Notification(Base, TenantMixin):
     dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # When the alert went to the devices of the people who see it (web push).
     pushed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # What it says, for each reader's language (app/services/notification_text.py):
+    # a text key and its values. title/message above are the English wording,
+    # kept for rows written before these existed and as the fallback.
+    text_key: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    params: Mapped[dict[str, Any] | None] = mapped_column(_JSONType, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -1868,6 +1868,7 @@
         auditCat_backdated: 'Backdated entry',
         auditCat_liability_threshold: 'Liability threshold',
         auditCat_system: 'System',
+        moPickInvoice: 'Select invoice {number}',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",
@@ -3073,6 +3074,8 @@
         if (typeof applyCalendarMonthPickers === 'function') applyCalendarMonthPickers();   // month names
         if (typeof loadBudgets === 'function' && document.querySelector('#budget-wrap table, #budget-wrap .empty-state')) loadBudgets();
         if (typeof loadCommitments === 'function' && document.querySelector('#cm-rows tr')) loadCommitments();
+        // the bell's alerts are worded by the server for the page's language
+        if (typeof notifyRefresh === 'function' && document.getElementById('notify-list')?.children.length) notifyRefresh();
         // the journal editor's running totals (drawn by script, not data-i18n)
         if (typeof updateVoucherBalanceBar === 'function') updateVoucherBalanceBar();
         // Settings' "Current: …" line under the reporting template

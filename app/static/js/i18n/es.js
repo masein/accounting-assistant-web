@@ -1821,6 +1821,7 @@ window.I18N_PACKS.es = Object.assign({
         auditCat_backdated: 'Fecha atrasada',
         auditCat_liability_threshold: 'Umbral de pasivos',
         auditCat_system: 'Sistema',
+        moPickInvoice: 'Seleccionar la factura {number}',
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

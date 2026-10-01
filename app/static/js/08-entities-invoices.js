@@ -825,7 +825,7 @@
           ].join('');
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td><input type="checkbox" class="mo-pick" data-id="${r.id}" ${canSelect ? '' : 'disabled'}></td>
+            <td><input type="checkbox" class="mo-pick" data-id="${r.id}" aria-label="${escapeHtml(tf('moPickInvoice', { number: r.number }))}" ${canSelect ? '' : 'disabled'}></td>
             <td>${escapeHtml(r.number)}</td><td>${escapeHtml(r.issue_date)}</td><td>${escapeHtml(r.customer || '—')}</td>
             <td>${formatMoney(r.amount, r.currency)}</td><td>${deadline}</td><td>${status}</td><td>${ready}</td><td>${actions}</td>`;
           body.appendChild(tr);

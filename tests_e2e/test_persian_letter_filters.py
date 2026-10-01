@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 def test_the_filters_ignore_the_letterform(flow_page):
-    page, watch = flow_page("e2e_persian")
+    page, watch = flow_page("e2e_letters")   # its own request budget: the Persian sweep runs just before
     posted = page.evaluate("""async () => {
         const r = await fetch('/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ date: new Date().toISOString().slice(0, 10), description: 'letters', reference: 'LF-1',

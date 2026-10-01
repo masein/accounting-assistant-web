@@ -478,10 +478,11 @@
       return jy + '/' + String(jm).padStart(2, '0') + '/' + String(jd).padStart(2, '0');
     }
 
+    // Once "2026-09-28 (1405/07/06)" whatever the company chose: a Jalali
+    // company read the Gregorian date first, a UK one got a Jalali date it
+    // never asked for. A date now follows Settings → display calendar.
     function formatDateDual(isoDate) {
-      if (!isoDate) return '';
-      const jalali = toJalali(isoDate);
-      return jalali ? `${isoDate} (${jalali})` : isoDate;
+      return formatDisplayDate(isoDate);
     }
 
     function formatKpiValue(v, unit) {

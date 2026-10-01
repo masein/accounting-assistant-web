@@ -1314,7 +1314,7 @@
       const asOf = document.getElementById('stock-asof').value;
       const res = await fetch(API + '/manager-reports/inventory/valuation' + (asOf ? '?as_of=' + encodeURIComponent(asOf) : ''));
       const v = await res.json();
-      if (!res.ok) throw new Error(v.detail || 'valuation');
+      if (!res.ok) throw new Error(v.detail || t('msgFailed'));
       document.getElementById('stock-summary').textContent = tf('stockSummary', {
         value: formatNum(v.totals.value), method: t('stockMethod_' + v.method),
         other: formatNum(v.other_method.value), otherMethod: t('stockMethod_' + v.other_method.method),

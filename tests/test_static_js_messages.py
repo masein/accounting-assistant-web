@@ -52,6 +52,49 @@ def test_the_scripts_write_no_english_messages():
     assert _english_messages() == []
 
 
+# a lowercase word as the fallback of a message or an element's text ("failed",
+# "error", "none" — the petty-cash and stock pages said "failed" in English)
+_LOWER_FALLBACK = re.compile(r"""(?:\|\||\?[^:;]*:)\s*(['"])([a-z][a-z]+(?: [a-z]+)*)\1\s*[,)]""")
+_SHOWN = re.compile(r"showAlert\(|\.textContent\s*=|new Error\(")
+
+
+def _lower_fallbacks(files=None) -> list[str]:
+    found = []
+    for path in files or sorted(JS.glob("*.js")):
+        if path.name == "02-i18n.js":
+            continue
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if _SHOWN.search(line):
+                found += [f"{path.name}:{n} {m.group(2)!r}" for m in _LOWER_FALLBACK.finditer(line) if len(m.group(2)) > 3]
+    return found
+
+
+def test_no_lowercase_english_fallback():
+    assert _lower_fallbacks() == []
+
+
+def test_the_lowercase_scan_sees_them(tmp_path):
+    js = tmp_path / "99-sample.js"
+    js.write_text("showAlert(d.detail || 'failed', true);\n"
+                  "el.textContent = ok ? t('done') : (typeof d.detail === 'string' ? d.detail : 'error');\n"
+                  "showAlert(d.detail || t('msgFailed'), true);\n"
+                  "el.style.display = ok ? 'none' : 'block';\n", encoding="utf-8")
+    assert [f.split(" ", 1)[1] for f in _lower_fallbacks([js])] == ["'failed'", "'error'"]
+
+
+# The browser's own dialogs label their buttons in the browser's language and
+# stop the page; the app has uiConfirm / uiPrompt / showAlert (js/03-ui.js).
+_NATIVE_DIALOG = re.compile(r"(?<![\w.$])(?:window\.)?(alert|confirm|prompt)\(")
+
+
+def test_no_native_dialog():
+    found = [f"{p.name}:{n} {m.group(1)}()" for p in sorted(JS.glob("*.js"))
+             for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
+             if not line.lstrip().startswith("//")
+             for m in _NATIVE_DIALOG.finditer(line)]
+    assert found == []
+
+
 def test_the_scan_sees_each_shape(tmp_path):
     js = tmp_path / "99-sample.js"
     js.write_text(

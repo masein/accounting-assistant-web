@@ -26,7 +26,7 @@
         const url = API + '/reports/owner-dashboard' + (dashCcy ? ('?currency=' + encodeURIComponent(dashCcy)) : '');
         const res = await fetch(url);
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'owner dashboard error');
+        if (!res.ok) throw new Error(data.detail || t('msgFailed'));
         // Other currencies in the books are offered as separate views, never
         // folded into these figures.
         renderCurrencyViewNote(document.getElementById('dash-currency-note'), data, (c) => loadOwnerDashboard(c));
@@ -1336,7 +1336,7 @@
       try {
         const res = await fetch(API + '/budgets/actual-vs-budget?month=' + encodeURIComponent(monthVal));
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'budget error');
+        if (!res.ok) throw new Error(data.detail || t('msgFailed'));
         const rows = data.rows || [];
         if (!rows.length) {
           wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('pdNoBudgets')) + '</p>';
@@ -1545,7 +1545,7 @@
       try {
         const res = await fetch(API + '/reports/cash-forecast' + (ccy ? '?currency=' + encodeURIComponent(ccy) : ''));
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'cash forecast error');
+        if (!res.ok) throw new Error(data.detail || t('msgFailed'));
         body.innerHTML = forecastLearnedHtml(data) + forecastWeeksHtml(data.weeks || []) + forecastWhatIfHtml(data);
         const form = body.querySelector('#fc-whatif');
         const out = form.querySelector('#fc-result');
@@ -1560,7 +1560,7 @@
               method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
             });
             const result = await r.json();
-            if (!r.ok) throw new Error(result.detail || 'scenario error');
+            if (!r.ok) throw new Error(result.detail || t('msgFailed'));
             out.innerHTML = forecastScenarioHtml(result);
           } catch (_) {
             out.innerHTML = '<p class="fc-note">' + escapeHtml(t('forecastError')) + '</p>';
@@ -1580,7 +1580,7 @@
         await loadReportingCurrency();
         const res = await fetch(API + '/reports/owner-dashboard');
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'dashboard error');
+        if (!res.ok) throw new Error(data.detail || t('msgFailed'));
         const kpis = data.kpis || [];
         const kv = (key) => kpis.find(k => k.key === key) || {};
         // "Spent this month" = the current month's actual from the expense
@@ -1850,7 +1850,7 @@
             body: JSON.stringify({ month, category, limit_amount: limit }),
           });
           if (res.ok) { showAlert(t('btnSaveBudget') + ' ✓'); pdLoadBudgets(); }
-          else { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'error', true); }
+          else { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('msgFailed'), true); }
         } catch (_) { showAlert('error', true); }
       });
     })();
@@ -1960,7 +1960,7 @@
           });
           if (!res.ok) {
             const d = await res.json().catch(() => ({}));
-            showAlert(d.detail || 'error', true);
+            showAlert(d.detail || t('msgFailed'), true);
             return;
           }
           showAlert(t('nwHoldingSaved'));

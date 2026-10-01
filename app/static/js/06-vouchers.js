@@ -380,7 +380,7 @@
       try {
         const res = await fetch(API + '/budgets/actual-vs-budget?month=' + encodeURIComponent(monthVal));
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'budget error');
+        if (!res.ok) throw new Error(data.detail || t('msgFailed'));
         const rows = data.rows || [];
         if (!rows.length) {
           budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('budgetNoRows')) + '</p>';

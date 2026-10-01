@@ -121,6 +121,11 @@ def test_the_report_card_route(me):
     body = r.json()
     assert body["saved"] == 25_000_000 and len(body["months"]) == 12 and body["lang"] == "fa"
     assert api.get("/personal/report-card", params={"month": "1405-06", "lang": "en"}).json()["label"] == "Shahrivar 1405"
+    # Spanish and Arabic readers get their own words, not the English
+    es = api.get("/personal/report-card", params={"month": "1405-06", "lang": "es"}).json()
+    assert es["lang"] == "es" and es["checks"][0]["item"].startswith("Ahorraste al menos")
+    ar = api.get("/personal/report-card", params={"month": "1405-06", "lang": "ar"}).json()
+    assert ar["label"] == "شهريور 1405" and ar["checks"][0]["item"].startswith("ادخرت")
     assert api.get("/personal/report-card").status_code == 200                        # last month by default
     for bad in ("1405-13", "1405-6", "abc"):
         assert api.get("/personal/report-card", params={"month": bad}).status_code == 422, bad

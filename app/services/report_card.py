@@ -48,6 +48,32 @@ T = {
         "budgets_none": "برای این ماه بودجه‌ای تعیین نشده است.",
         "in_progress": "این ماه هنوز تمام نشده است — ارقام تا امروز است.",
     },
+    "es": {
+        "saved": "Ahorraste al menos el {pct} % de los ingresos",
+        "saved_detail": "Guardaste el {rate} % de lo que entró.",
+        "saved_none": "No se registraron ingresos este mes.",
+        "spending": "No gastaste más de lo habitual",
+        "spending_detail": "{spent} frente a una media de tres meses de {avg}.",
+        "spending_none": "Aún no hay historial suficiente para comparar.",
+        "budgets": "Te mantuviste dentro de los presupuestos",
+        "budgets_detail": "{kept} de {set} presupuestos cumplidos.",
+        "budgets_over": "Superados: {names}.",
+        "budgets_none": "No hay presupuestos para este mes.",
+        "in_progress": "Este mes aún no ha terminado: las cifras son hasta hoy.",
+    },
+    "ar": {
+        "saved": "ادخرت {pct}٪ على الأقل من الدخل",
+        "saved_detail": "احتفظت بـ {rate}٪ مما دخل.",
+        "saved_none": "لم يُسجّل دخل هذا الشهر.",
+        "spending": "لم تنفق أكثر من المعتاد",
+        "spending_detail": "{spent} مقابل متوسط ثلاثة أشهر قدره {avg}.",
+        "spending_none": "لا يوجد سجل كافٍ للمقارنة بعد.",
+        "budgets": "بقيت ضمن الميزانيات",
+        "budgets_detail": "التُزم بـ {kept} من {set} ميزانية.",
+        "budgets_over": "تجاوزت: {names}.",
+        "budgets_none": "لا ميزانيات لهذا الشهر.",
+        "in_progress": "لم ينتهِ هذا الشهر بعد — الأرقام حتى اليوم.",
+    },
 }
 
 
@@ -92,7 +118,7 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
 
     today = today or date.today()
     cal = company_calendar(db)
-    lang = lang if lang in ("fa", "en") else ("fa" if cal == "jalali" else "en")
+    lang = lang if lang in T else ("fa" if cal == "jalali" else "en")
     W = T[lang]
     key = month or previous_month_key(today, cal)
     start, end = key_bounds(key)                       # raises ValueError on a bad key
@@ -130,7 +156,7 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
         {"key": "budgets", "ok": None if not budgets else not over, "item": W["budgets"],
          "detail": W["budgets_none"] if not budgets else (
              W["budgets_detail"].format(kept=_fmt(len(budgets) - len(over), lang), set=_fmt(len(budgets), lang))
-             + (" " + W["budgets_over"].format(names="، ".join(over) if lang == "fa" else ", ".join(over)) if over else ""))},
+             + (" " + W["budgets_over"].format(names="، ".join(over) if lang in ("fa", "ar") else ", ".join(over)) if over else ""))},
     ]
     return {
         "month": key, "label": month_label(key, lang), "from_date": start.isoformat(), "to_date": end.isoformat(),

@@ -35,6 +35,12 @@ GREGORIAN_MONTHS_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "
 GREGORIAN_MONTHS_FA = ("ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر")
 SEASONS_FA = ("بهار", "تابستان", "پاییز", "زمستان")
 SEASONS_EN = ("Spring", "Summer", "Autumn", "Winter")
+# Spanish and Arabic readers (the browser's own short month names, so a label reads the same)
+GREGORIAN_MONTHS_ES = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic")
+GREGORIAN_MONTHS_AR = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر")
+JALALI_MONTHS_AR = ("فروردين", "أرديبهشت", "خرداد", "تير", "مرداد", "شهريور", "مهر", "آبان", "آذر", "دي", "بهمن", "إسفند")
+SEASONS_ES = ("Primavera", "Verano", "Otoño", "Invierno")
+SEASONS_AR = ("الربيع", "الصيف", "الخريف", "الشتاء")
 
 
 def company_calendar(db) -> str:
@@ -174,17 +180,27 @@ def month_label(key: str, lang: str = "en") -> str:
     if calendar_of_key(key) == JALALI:
         if lang == "fa":
             return f"{JALALI_MONTHS_FA[m - 1]} {_fa_digits(str(y))}"
+        if lang == "ar":
+            return f"{JALALI_MONTHS_AR[m - 1]} {y}"
         return f"{JALALI_MONTHS_EN[m - 1]} {y}"
     if lang == "fa":
         return f"{GREGORIAN_MONTHS_FA[m - 1]} {_fa_digits(str(y))}"
+    if lang == "es":
+        return f"{GREGORIAN_MONTHS_ES[m - 1]} {y}"
+    if lang == "ar":
+        return f"{GREGORIAN_MONTHS_AR[m - 1]} {y}"
     return f"{GREGORIAN_MONTHS_EN[m - 1]} {y}"
 
 
 def quarter_label(key: str, lang: str = "en") -> str:
     y, q = int(key[:4]), int(key[-1])
     if calendar_of_key(key) == JALALI:
-        return (f"{SEASONS_FA[q - 1]} {_fa_digits(str(y))}" if lang == "fa" else f"{SEASONS_EN[q - 1]} {y}")
-    return f"سه‌ماهه {_fa_digits(str(q))} {_fa_digits(str(y))}" if lang == "fa" else f"Q{q} {y}"
+        if lang == "fa":
+            return f"{SEASONS_FA[q - 1]} {_fa_digits(str(y))}"
+        return f"{({'es': SEASONS_ES, 'ar': SEASONS_AR}.get(lang, SEASONS_EN))[q - 1]} {y}"
+    if lang == "fa":
+        return f"سه‌ماهه {_fa_digits(str(q))} {_fa_digits(str(y))}"
+    return {"es": f"T{q} {y}", "ar": f"الربع {q} {y}"}.get(lang, f"Q{q} {y}")
 
 
 # --- a report's buckets -------------------------------------------------------------------------------------

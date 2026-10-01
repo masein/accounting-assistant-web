@@ -104,11 +104,11 @@ ON_PURPOSE = ("CSV", "Excel", "PDF", "JSON", "IMAP", "INBOX", "IBAN", "API", "SM
               "GBP", "IRR", "USD", "EUR", "http", "@", "example.com", "Telegram", "Bale", "Google", "Apple")
 
 
-def test_every_page_speaks_persian(flow_page):
-    page, watch = flow_page("e2e_persian")
+def _every_page_speaks(flow_page, user, lang):
+    page, watch = flow_page(user)
     try:
-        page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'fa';
-            s.dispatchEvent(new Event('change', { bubbles: true })); }""")
+        page.evaluate("""(l) => { const s = document.getElementById('topbar-language'); s.value = l;
+            s.dispatchEvent(new Event('change', { bubbles: true })); }""", lang)
         page.wait_for_load_state("networkidle")
         assert page.evaluate(POST_JOURNALS, f"FA-{uuid.uuid4().hex[:6]}") == [201, 201]
         page.reload()   # the dashboard drew before there was anything to show
@@ -135,11 +135,21 @@ def test_every_page_speaks_persian(flow_page):
         assert watch.problems() == [], watch.problems()
     except Exception:
         os.makedirs(ARTIFACTS, exist_ok=True)
-        page.screenshot(path=os.path.join(ARTIFACTS, "persian-labels.png"), full_page=True)
+        page.screenshot(path=os.path.join(ARTIFACTS, f"{lang}-labels.png"), full_page=True)
         raise
     finally:
         page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'en';
             s.dispatchEvent(new Event('change', { bubbles: true })); }""")
+
+
+def test_every_page_speaks_persian(flow_page):
+    _every_page_speaks(flow_page, "e2e_persian", "fa")
+
+
+def test_every_page_speaks_arabic(flow_page):
+    """The same sweep in Arabic (the same script, its own words): the close
+    pack's checklist was English here until it learnt Arabic."""
+    _every_page_speaks(flow_page, "e2e_arabic", "ar")
 
 
 def test_the_executive_pages_speak_persian(flow_page):

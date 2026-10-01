@@ -146,22 +146,22 @@
       <details style="margin-bottom:0.85rem;">
         <summary style="cursor:pointer; font-size:0.85rem; color:var(--primary);" data-i18n="entBillingDetails">Billing details (for documents) — optional</summary>
         <div class="row" style="gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
-          <div><label data-i18n="entLegalName">Legal name</label><input type="text" id="entity-legal_name"></div>
-          <div><label data-i18n="entTaxId">Tax ID / VAT</label><input type="text" id="entity-tax_id"></div>
-          <div><label data-i18n="fldEconomicCode">Economic code</label><input type="text" id="entity-economic_code"></div>
-          <div><label data-i18n="fldNationalId">National ID</label><input type="text" id="entity-national_id"></div>
-          <div><label data-i18n="fldProvince">Province / County</label><input type="text" id="entity-province"></div>
-          <div><label data-i18n="fldCity">City</label><input type="text" id="entity-city"></div>
-          <div><label data-i18n="fldPostalCode">Postal code</label><input type="text" id="entity-postal_code"></div>
-          <div><label data-i18n="entEmail">Email</label><input type="text" id="entity-email"></div>
-          <div><label data-i18n="entPhone">Phone</label><input type="text" id="entity-phone"></div>
-          <div><label data-i18n="entTerms">Payment terms</label><input type="text" id="entity-payment_terms" data-i18n-placeholder="placeholderPaymentTerms" placeholder="Net 30"></div>
-          <div style="flex:1; min-width:200px;"><label data-i18n="entAddress">Address</label><input type="text" id="entity-address" style="width:100%;"></div>
-          <div><label data-i18n="fldBankName">Bank name</label><input type="text" id="entity-bank_name"></div>
-          <div><label data-i18n="fldAccountHolder">Account holder</label><input type="text" id="entity-account_holder"></div>
-          <div><label data-i18n="fldAccountNumber">Account number</label><input type="text" id="entity-account_number"></div>
-          <div style="min-width:220px;"><label data-i18n="cpIban">IBAN / شبا</label><input type="text" id="entity-iban" dir="ltr"></div>
-          <div><label data-i18n="fldSortCode">Sort code</label><input type="text" id="entity-sort_code"></div>
+          <div><label for="entity-legal_name" data-i18n="entLegalName">Legal name</label><input type="text" id="entity-legal_name"></div>
+          <div><label for="entity-tax_id" data-i18n="entTaxId">Tax ID / VAT</label><input type="text" id="entity-tax_id"></div>
+          <div><label for="entity-economic_code" data-i18n="fldEconomicCode">Economic code</label><input type="text" id="entity-economic_code"></div>
+          <div><label for="entity-national_id" data-i18n="fldNationalId">National ID</label><input type="text" id="entity-national_id"></div>
+          <div><label for="entity-province" data-i18n="fldProvince">Province / County</label><input type="text" id="entity-province"></div>
+          <div><label for="entity-city" data-i18n="fldCity">City</label><input type="text" id="entity-city"></div>
+          <div><label for="entity-postal_code" data-i18n="fldPostalCode">Postal code</label><input type="text" id="entity-postal_code"></div>
+          <div><label for="entity-email" data-i18n="entEmail">Email</label><input type="text" id="entity-email"></div>
+          <div><label for="entity-phone" data-i18n="entPhone">Phone</label><input type="text" id="entity-phone"></div>
+          <div><label for="entity-payment_terms" data-i18n="entTerms">Payment terms</label><input type="text" id="entity-payment_terms" data-i18n-placeholder="placeholderPaymentTerms" placeholder="Net 30"></div>
+          <div style="flex:1; min-width:200px;"><label for="entity-address" data-i18n="entAddress">Address</label><input type="text" id="entity-address" style="width:100%;"></div>
+          <div><label for="entity-bank_name" data-i18n="fldBankName">Bank name</label><input type="text" id="entity-bank_name"></div>
+          <div><label for="entity-account_holder" data-i18n="fldAccountHolder">Account holder</label><input type="text" id="entity-account_holder"></div>
+          <div><label for="entity-account_number" data-i18n="fldAccountNumber">Account number</label><input type="text" id="entity-account_number"></div>
+          <div style="min-width:220px;"><label for="entity-iban" data-i18n="cpIban">IBAN / شبا</label><input type="text" id="entity-iban" dir="ltr"></div>
+          <div><label for="entity-sort_code" data-i18n="fldSortCode">Sort code</label><input type="text" id="entity-sort_code"></div>
         </div>
       </details>
       <div class="row" style="margin-bottom: 0.75rem; gap: 0.5rem; align-items: flex-end;">
@@ -524,7 +524,7 @@
         <summary data-i18n="recurringInputLabel" style="cursor:pointer; font-size:0.85rem; color:var(--text-muted);">Tell AI your recurring payment/receipt</summary>
         <div class="row" style="margin-top:0.5rem;">
           <div style="flex: 3 1 420px;">
-            <input type="text" id="recurring-text" data-i18n-placeholder="placeholderRecurring" placeholder="e.g. I pay 2,500 office rent every month from HSBC bank">
+            <input type="text" id="recurring-text" data-i18n-aria-label="recurringInputLabel" aria-label="Tell AI your recurring payment/receipt" data-i18n-placeholder="placeholderRecurring" placeholder="e.g. I pay 2,500 office rent every month from HSBC bank">
           </div>
           <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-secondary" id="recurring-create" data-i18n="btnSaveRecurring">Save recurring rule</button></div>
         </div>
@@ -548,7 +548,7 @@
       <div class="ai-acct-layout">
         <aside id="ai-acct-sidebar" class="ai-sidebar">
           <button type="button" class="btn btn-primary btn-sm ai-new-chat" id="ai-acct-new-chat" data-i18n="chatNewBtn">+ New chat</button>
-          <input type="search" id="ai-acct-session-search" class="ai-session-search" data-i18n-placeholder="chatSearchPlaceholder" placeholder="Search chats…" autocomplete="off">
+          <input type="search" id="ai-acct-session-search" data-i18n-aria-label="chatSearchPlaceholder" aria-label="Search chats…" class="ai-session-search" data-i18n-placeholder="chatSearchPlaceholder" placeholder="Search chats…" autocomplete="off">
           <div id="ai-acct-session-list" class="ai-session-list" role="list"></div>
           <details id="ai-approvals" class="ai-prefs" hidden open>
             <summary><span data-i18n="aiApprovalsTitle">Waiting for approval</span><span id="ai-approvals-count"></span></summary>
@@ -836,7 +836,7 @@
 
       <div class="panel" style="margin-bottom:1rem;">
         <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center; margin-bottom:0.5rem;">
-          <input type="search" id="coa-filter" data-i18n-placeholder="coaFilter" placeholder="Find by code or name" style="flex:1; min-width:12rem; margin:0;">
+          <input type="search" id="coa-filter" data-i18n-aria-label="coaFilter" aria-label="Find by code or name" data-i18n-placeholder="coaFilter" placeholder="Find by code or name" style="flex:1; min-width:12rem; margin:0;">
           <label style="display:flex; gap:0.35rem; align-items:center; margin:0;"><input type="checkbox" id="coa-show-inactive"> <span data-i18n="coaShowInactive">Show inactive accounts</span></label>
         </div>
         <div id="coa-tree" style="overflow-x:auto;"></div>
@@ -1555,8 +1555,8 @@
       <h2 data-i18n="bsTitle">Bank Statement Import</h2>
       <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.75rem;"><span data-i18n="bsSubtitle">Upload CSV or Excel bank statements. The system will parse, classify, and reconcile transactions automatically.</span> <span id="bs-ocr-note" data-i18n="bsOcrNote" style="color:#f57f17;font-size:0.8rem;">(PDF/image OCR requires an AI model to be configured in Settings.)</span></p>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
-        <input type="file" id="bs-file-input" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;margin-bottom:0;">
-        <input type="text" id="bs-bank-name" data-i18n-placeholder="bsBankNamePlaceholder" placeholder="Bank name (e.g. HSBC)" style="width:180px;margin-bottom:0;">
+        <input type="file" id="bs-file-input" data-i18n-aria-label="bsTitle" aria-label="Bank Statement Import" accept=".csv,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.pdf" style="flex:1;margin-bottom:0;">
+        <input type="text" id="bs-bank-name" data-i18n-aria-label="bsBankNamePlaceholder" aria-label="Bank name (e.g. HSBC)" data-i18n-placeholder="bsBankNamePlaceholder" placeholder="Bank name (e.g. HSBC)" style="width:180px;margin-bottom:0;">
         <button type="button" class="btn btn-primary" id="bs-upload-btn" data-i18n="bsUploadBtn">Upload & Parse</button>
       </div>
       <div id="bs-upload-status" style="display:none;margin-bottom:1rem;" class="alert"></div>
@@ -1565,7 +1565,7 @@
       <details id="sms-panel" style="margin:0 0 1rem;">
         <summary style="cursor:pointer;font-weight:600;" data-i18n="smsTitle">Paste bank SMS</summary>
         <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="smsDesc">Paste the text messages your bank sends — one or many at once. Each becomes a row of that bank's monthly SMS statement below, ready to review and approve like any statement. Messages already filed are skipped.</p>
-        <textarea id="sms-text" rows="6" style="width:100%;" data-i18n-placeholder="smsPlaceholder" placeholder="بانک ملت&#10;برداشت:125,000&#10;حساب:123456789&#10;مانده:1,234,567&#10;0703-13:45"></textarea>
+        <textarea id="sms-text" data-i18n-aria-label="smsTitle" aria-label="Paste bank SMS" rows="6" style="width:100%;" data-i18n-placeholder="smsPlaceholder" placeholder="بانک ملت&#10;برداشت:125,000&#10;حساب:123456789&#10;مانده:1,234,567&#10;0703-13:45"></textarea>
         <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.4rem;">
           <button type="button" class="btn btn-primary btn-sm" id="sms-add" data-i18n="smsAdd">Add to statements</button>
           <span id="sms-preview-note" style="font-size:0.8rem;color:var(--text-muted);"></span>
@@ -1664,7 +1664,7 @@
         <div><label for="tm-date" data-i18n="expDate">Date</label><input type="date" id="tm-date"></div>
         <div><label for="tm-hours" data-i18n="timeHours">Hours</label><input type="number" id="tm-hours" min="0" step="0.25" style="width:6rem;"></div>
         <div><label for="tm-desc" data-i18n="poDescription">Description</label><input type="text" id="tm-desc"></div>
-        <div><label style="display:block;" data-i18n="timeBillable">Billable</label><input type="checkbox" id="tm-billable" checked></div>
+        <div><label for="tm-billable" style="display:block;" data-i18n="timeBillable">Billable</label><input type="checkbox" id="tm-billable" checked></div>
         <div><button type="button" class="btn btn-primary" id="tm-add" data-i18n="timeLogBtn">Log time</button></div>
       </div>
       <div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;">
@@ -2299,7 +2299,7 @@
       <div style="margin-top:1rem;">
         <h3 data-i18n="cfoAskTitle">Ask the CFO AI</h3>
         <div style="display:flex;gap:0.5rem;">
-          <input type="text" id="cfo-question-input" data-i18n-placeholder="cfoAskPlaceholder" placeholder="e.g. Are we financially healthy? Can we survive 6 months?" style="flex:1;">
+          <input type="text" id="cfo-question-input" data-i18n-aria-label="cfoAskTitle" aria-label="Ask the CFO AI" data-i18n-placeholder="cfoAskPlaceholder" placeholder="e.g. Are we financially healthy? Can we survive 6 months?" style="flex:1;">
           <button type="button" class="btn btn-primary" id="cfo-ask-btn" data-i18n="cfoAskBtn">Ask</button>
         </div>
         <div id="cfo-answer" style="display:none;margin-top:0.75rem;padding:0.75rem;background:#e3f2fd;border-radius:8px;font-size:0.9rem;"></div>
@@ -2442,40 +2442,40 @@
         </div>
 
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
-          <div><label data-i18n="cpLegalName">Legal name</label><input type="text" id="cp-legal_name"></div>
-          <div><label data-i18n="cpBrandColor">Brand colour</label><input type="color" id="cp-brand_color" value="#0f766e" style="height:38px; width:60px; padding:2px;"></div>
-          <div><label data-i18n="cpTaxId">Tax ID / VAT</label><input type="text" id="cp-tax_id"></div>
-          <div><label data-i18n="cpRegNo">Reg. number</label><input type="text" id="cp-registration_number"></div>
+          <div><label for="cp-legal_name" data-i18n="cpLegalName">Legal name</label><input type="text" id="cp-legal_name"></div>
+          <div><label for="cp-brand_color" data-i18n="cpBrandColor">Brand colour</label><input type="color" id="cp-brand_color" value="#0f766e" style="height:38px; width:60px; padding:2px;"></div>
+          <div><label for="cp-tax_id" data-i18n="cpTaxId">Tax ID / VAT</label><input type="text" id="cp-tax_id"></div>
+          <div><label for="cp-registration_number" data-i18n="cpRegNo">Reg. number</label><input type="text" id="cp-registration_number"></div>
         </div>
         <!-- Official-invoice identity (فاکتور رسمی): required on Iranian tax invoices. -->
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
-          <div><label data-i18n="fldEconomicCode">Economic code</label><input type="text" id="cp-economic_code"></div>
-          <div><label data-i18n="fldNationalId">National ID</label><input type="text" id="cp-national_id"></div>
-          <div><label data-i18n="fldProvince">Province / County</label><input type="text" id="cp-province"></div>
-          <div><label data-i18n="fldCity">City</label><input type="text" id="cp-city"></div>
-          <div><label data-i18n="fldPostalCode">Postal code</label><input type="text" id="cp-postal_code"></div>
+          <div><label for="cp-economic_code" data-i18n="fldEconomicCode">Economic code</label><input type="text" id="cp-economic_code"></div>
+          <div><label for="cp-national_id" data-i18n="fldNationalId">National ID</label><input type="text" id="cp-national_id"></div>
+          <div><label for="cp-province" data-i18n="fldProvince">Province / County</label><input type="text" id="cp-province"></div>
+          <div><label for="cp-city" data-i18n="fldCity">City</label><input type="text" id="cp-city"></div>
+          <div><label for="cp-postal_code" data-i18n="fldPostalCode">Postal code</label><input type="text" id="cp-postal_code"></div>
         </div>
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
-          <div><label data-i18n="cpBankAccountNo">Bank account no.</label><input type="text" id="cp-bank_account_no"></div>
-          <div style="min-width:280px;"><label data-i18n="cpIban">IBAN / شبا</label><input type="text" id="cp-iban" style="width:100%;" dir="ltr"></div>
+          <div><label for="cp-bank_account_no" data-i18n="cpBankAccountNo">Bank account no.</label><input type="text" id="cp-bank_account_no"></div>
+          <div style="min-width:280px;"><label for="cp-iban" data-i18n="cpIban">IBAN / شبا</label><input type="text" id="cp-iban" style="width:100%;" dir="ltr"></div>
         </div>
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
-          <div><label data-i18n="cpEmail">Email</label><input type="text" id="cp-email"></div>
-          <div><label data-i18n="cpPhone">Phone</label><input type="text" id="cp-phone"></div>
-          <div><label data-i18n="cpWebsite">Website</label><input type="text" id="cp-website"></div>
-          <div><label data-i18n="cpPrefix">Invoice prefix</label><input type="text" id="cp-invoice_number_prefix" style="width:110px;"></div>
+          <div><label for="cp-email" data-i18n="cpEmail">Email</label><input type="text" id="cp-email"></div>
+          <div><label for="cp-phone" data-i18n="cpPhone">Phone</label><input type="text" id="cp-phone"></div>
+          <div><label for="cp-website" data-i18n="cpWebsite">Website</label><input type="text" id="cp-website"></div>
+          <div><label for="cp-invoice_number_prefix" data-i18n="cpPrefix">Invoice prefix</label><input type="text" id="cp-invoice_number_prefix" style="width:110px;"></div>
         </div>
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-start; margin-top:0.5rem;">
-          <div style="flex:1; min-width:220px;"><label data-i18n="cpAddress">Address</label><textarea id="cp-address" rows="2" style="width:100%;"></textarea></div>
-          <div style="flex:1; min-width:220px;"><label data-i18n="cpBank">Bank details (How to pay)</label><textarea id="cp-bank_details" rows="2" style="width:100%;"></textarea></div>
+          <div style="flex:1; min-width:220px;"><label for="cp-address" data-i18n="cpAddress">Address</label><textarea id="cp-address" rows="2" style="width:100%;"></textarea></div>
+          <div style="flex:1; min-width:220px;"><label for="cp-bank_details" data-i18n="cpBank">Bank details (How to pay)</label><textarea id="cp-bank_details" rows="2" style="width:100%;"></textarea></div>
         </div>
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-start; margin-top:0.5rem;">
-          <div><label data-i18n="cpTerms">Default payment terms</label><input type="text" id="cp-default_payment_terms" data-i18n-placeholder="placeholderPaymentTerms" placeholder="Net 30"></div>
-          <div style="flex:1; min-width:220px;"><label data-i18n="cpFooter">Invoice footer</label><textarea id="cp-invoice_footer" rows="2" style="width:100%;"></textarea></div>
+          <div><label for="cp-default_payment_terms" data-i18n="cpTerms">Default payment terms</label><input type="text" id="cp-default_payment_terms" data-i18n-placeholder="placeholderPaymentTerms" placeholder="Net 30"></div>
+          <div style="flex:1; min-width:220px;"><label for="cp-invoice_footer" data-i18n="cpFooter">Invoice footer</label><textarea id="cp-invoice_footer" rows="2" style="width:100%;"></textarea></div>
         </div>
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.5rem;">
-          <div><label data-i18n="cpLogo">Logo</label><input type="file" id="cp-logo-file" accept="image/png,image/jpeg,image/gif,image/webp"></div>
-          <div><label data-i18n="cpSignature">Signature / stamp</label><input type="file" id="cp-signature-file" accept="image/png,image/jpeg,image/gif,image/webp"></div>
+          <div><label for="cp-logo-file" data-i18n="cpLogo">Logo</label><input type="file" id="cp-logo-file" accept="image/png,image/jpeg,image/gif,image/webp"></div>
+          <div><label for="cp-signature-file" data-i18n="cpSignature">Signature / stamp</label><input type="file" id="cp-signature-file" accept="image/png,image/jpeg,image/gif,image/webp"></div>
           <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="cp-save" data-i18n="cpSave">Save profile</button></div>
           <div id="cp-status" style="font-size:0.8rem; color:var(--text-muted); align-self:center;"></div>
         </div>
@@ -2513,26 +2513,26 @@
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.75rem;">
           <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
             <strong data-i18n="adjAccrualTitle">Accrual</strong>
-            <div style="margin-top:0.4rem;"><input type="number" id="accr-amount" min="0" step="1" data-i18n-placeholder="labelAmount" placeholder="Amount" style="width:100%;"></div>
-            <div style="margin-top:0.35rem;"><input type="date" id="accr-date" style="width:100%;"></div>
-            <div style="margin-top:0.35rem;"><input type="text" id="accr-desc" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
+            <div style="margin-top:0.4rem;"><input type="number" id="accr-amount" data-i18n-aria-label="labelAmount" aria-label="Amount" min="0" step="1" data-i18n-placeholder="labelAmount" placeholder="Amount" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="date" id="accr-date" data-i18n-aria-label="labelDate" aria-label="Date" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="text" id="accr-desc" data-i18n-aria-label="adjDescPlaceholder" aria-label="Description" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
             <label style="display:block; margin-top:0.35rem; font-size:0.8rem;"><input type="checkbox" id="accr-reverse" checked> <span data-i18n="adjAutoReverse">Auto-reverse next period</span></label>
             <button type="button" class="btn btn-primary btn-sm" id="accr-save" style="margin-top:0.45rem;" data-i18n="adjRecord">Record</button>
           </div>
           <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
             <strong data-i18n="adjPrepaymentTitle">Prepayment</strong>
-            <div style="margin-top:0.4rem;"><input type="number" id="prep-amount" min="0" step="1" data-i18n-placeholder="tableTotal" placeholder="Total" style="width:100%;"></div>
-            <div style="margin-top:0.35rem;"><input type="number" id="prep-periods" min="1" step="1" data-i18n-placeholder="adjPeriodsPlaceholder" placeholder="Periods" style="width:100%;"></div>
-            <div style="margin-top:0.35rem;"><input type="date" id="prep-date" style="width:100%;"></div>
-            <div style="margin-top:0.35rem;"><input type="text" id="prep-desc" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
+            <div style="margin-top:0.4rem;"><input type="number" id="prep-amount" data-i18n-aria-label="tableTotal" aria-label="Total" min="0" step="1" data-i18n-placeholder="tableTotal" placeholder="Total" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="number" id="prep-periods" data-i18n-aria-label="adjPeriodsPlaceholder" aria-label="Periods" min="1" step="1" data-i18n-placeholder="adjPeriodsPlaceholder" placeholder="Periods" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="date" id="prep-date" data-i18n-aria-label="labelDate" aria-label="Date" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="text" id="prep-desc" data-i18n-aria-label="adjDescPlaceholder" aria-label="Description" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
             <button type="button" class="btn btn-primary btn-sm" id="prep-save" style="margin-top:0.45rem;" data-i18n="adjRecord">Record</button>
           </div>
           <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
             <strong data-i18n="adjDepreciationTitle">Depreciation</strong>
-            <div style="margin-top:0.4rem;"><input type="number" id="dep-cost" min="0" step="1" data-i18n-placeholder="adjCostPlaceholder" placeholder="Cost" style="width:100%;"></div>
-            <div style="margin-top:0.35rem;"><input type="number" id="dep-life" min="1" step="1" data-i18n-placeholder="adjLifePlaceholder" placeholder="Life (periods)" style="width:100%;"></div>
-            <div style="margin-top:0.35rem;"><input type="number" id="dep-residual" min="0" step="1" data-i18n-placeholder="adjResidualPlaceholder" placeholder="Residual" style="width:100%;"></div>
-            <div style="margin-top:0.35rem;"><input type="date" id="dep-date" style="width:100%;"></div>
+            <div style="margin-top:0.4rem;"><input type="number" id="dep-cost" data-i18n-aria-label="adjCostPlaceholder" aria-label="Cost" min="0" step="1" data-i18n-placeholder="adjCostPlaceholder" placeholder="Cost" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="number" id="dep-life" data-i18n-aria-label="adjLifePlaceholder" aria-label="Life (periods)" min="1" step="1" data-i18n-placeholder="adjLifePlaceholder" placeholder="Life (periods)" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="number" id="dep-residual" data-i18n-aria-label="adjResidualPlaceholder" aria-label="Residual" min="0" step="1" data-i18n-placeholder="adjResidualPlaceholder" placeholder="Residual" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="date" id="dep-date" data-i18n-aria-label="labelDate" aria-label="Date" style="width:100%;"></div>
             <button type="button" class="btn btn-primary btn-sm" id="dep-save" style="margin-top:0.45rem;" data-i18n="adjCreate">Create schedule</button>
           </div>
         </div>
@@ -3177,22 +3177,22 @@
         <details style="margin-top:0.6rem;">
           <summary style="cursor:pointer; font-size:0.85rem; color:var(--primary);" data-i18n="entBillingDetails">Billing details (for documents) — optional</summary>
           <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.5rem; margin-top:0.5rem;">
-            <div><label data-i18n="entLegalName">Legal name</label><input type="text" id="entity-edit-legal_name" style="width:100%;"></div>
-            <div><label data-i18n="entTaxId">Tax ID / VAT</label><input type="text" id="entity-edit-tax_id" style="width:100%;"></div>
-            <div><label data-i18n="fldEconomicCode">Economic code</label><input type="text" id="entity-edit-economic_code" style="width:100%;"></div>
-            <div><label data-i18n="fldNationalId">National ID</label><input type="text" id="entity-edit-national_id" style="width:100%;"></div>
-            <div><label data-i18n="fldProvince">Province / County</label><input type="text" id="entity-edit-province" style="width:100%;"></div>
-            <div><label data-i18n="fldCity">City</label><input type="text" id="entity-edit-city" style="width:100%;"></div>
-            <div><label data-i18n="fldPostalCode">Postal code</label><input type="text" id="entity-edit-postal_code" style="width:100%;"></div>
-            <div><label data-i18n="entEmail">Email</label><input type="text" id="entity-edit-email" style="width:100%;"></div>
-            <div><label data-i18n="entPhone">Phone</label><input type="text" id="entity-edit-phone" style="width:100%;"></div>
-            <div><label data-i18n="entTerms">Payment terms</label><input type="text" id="entity-edit-payment_terms" style="width:100%;"></div>
-            <div><label data-i18n="fldBankName">Bank name</label><input type="text" id="entity-edit-bank_name" style="width:100%;"></div>
-            <div><label data-i18n="fldAccountHolder">Account holder</label><input type="text" id="entity-edit-account_holder" style="width:100%;"></div>
-            <div><label data-i18n="fldAccountNumber">Account number</label><input type="text" id="entity-edit-account_number" style="width:100%;"></div>
-            <div><label data-i18n="cpIban">IBAN / شبا</label><input type="text" id="entity-edit-iban" style="width:100%;" dir="ltr"></div>
-            <div><label data-i18n="fldSortCode">Sort code</label><input type="text" id="entity-edit-sort_code" style="width:100%;"></div>
-            <div style="grid-column:1/-1;"><label data-i18n="entAddress">Address</label><input type="text" id="entity-edit-address" style="width:100%;"></div>
+            <div><label for="entity-edit-legal_name" data-i18n="entLegalName">Legal name</label><input type="text" id="entity-edit-legal_name" style="width:100%;"></div>
+            <div><label for="entity-edit-tax_id" data-i18n="entTaxId">Tax ID / VAT</label><input type="text" id="entity-edit-tax_id" style="width:100%;"></div>
+            <div><label for="entity-edit-economic_code" data-i18n="fldEconomicCode">Economic code</label><input type="text" id="entity-edit-economic_code" style="width:100%;"></div>
+            <div><label for="entity-edit-national_id" data-i18n="fldNationalId">National ID</label><input type="text" id="entity-edit-national_id" style="width:100%;"></div>
+            <div><label for="entity-edit-province" data-i18n="fldProvince">Province / County</label><input type="text" id="entity-edit-province" style="width:100%;"></div>
+            <div><label for="entity-edit-city" data-i18n="fldCity">City</label><input type="text" id="entity-edit-city" style="width:100%;"></div>
+            <div><label for="entity-edit-postal_code" data-i18n="fldPostalCode">Postal code</label><input type="text" id="entity-edit-postal_code" style="width:100%;"></div>
+            <div><label for="entity-edit-email" data-i18n="entEmail">Email</label><input type="text" id="entity-edit-email" style="width:100%;"></div>
+            <div><label for="entity-edit-phone" data-i18n="entPhone">Phone</label><input type="text" id="entity-edit-phone" style="width:100%;"></div>
+            <div><label for="entity-edit-payment_terms" data-i18n="entTerms">Payment terms</label><input type="text" id="entity-edit-payment_terms" style="width:100%;"></div>
+            <div><label for="entity-edit-bank_name" data-i18n="fldBankName">Bank name</label><input type="text" id="entity-edit-bank_name" style="width:100%;"></div>
+            <div><label for="entity-edit-account_holder" data-i18n="fldAccountHolder">Account holder</label><input type="text" id="entity-edit-account_holder" style="width:100%;"></div>
+            <div><label for="entity-edit-account_number" data-i18n="fldAccountNumber">Account number</label><input type="text" id="entity-edit-account_number" style="width:100%;"></div>
+            <div><label for="entity-edit-iban" data-i18n="cpIban">IBAN / شبا</label><input type="text" id="entity-edit-iban" style="width:100%;" dir="ltr"></div>
+            <div><label for="entity-edit-sort_code" data-i18n="fldSortCode">Sort code</label><input type="text" id="entity-edit-sort_code" style="width:100%;"></div>
+            <div style="grid-column:1/-1;"><label for="entity-edit-address" data-i18n="entAddress">Address</label><input type="text" id="entity-edit-address" style="width:100%;"></div>
           </div>
         </details>
       </div>

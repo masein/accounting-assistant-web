@@ -38,6 +38,17 @@ def _no_cache():
     svc.invalidate_insights_cache()
 
 
+@pytest.fixture(autouse=True)
+def _only_these_detectors(monkeypatch):
+    """Run just insight_service.DETECTORS (which a test may replace): the
+    anomaly and inventory detectors join them in all_detectors() and, on an
+    endpoint that reads today's date, find whatever other tests left in the
+    shared database — "31 round-amount entries dated on a weekend" pushed a
+    test's own insight out of first place once September's dated journals
+    fell inside their window. They have their own tests."""
+    monkeypatch.setattr(svc, "all_detectors", lambda: svc.DETECTORS)
+
+
 def _employee(db, name):
     e = Entity(type="employee", name=name)
     db.add(e)

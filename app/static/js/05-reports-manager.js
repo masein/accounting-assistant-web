@@ -288,7 +288,7 @@
       const list = document.getElementById('close-pack-checklist');
       const sum = document.getElementById('close-pack-summary');
       if (!sel || !list || !sum) return;
-      const lang = currentLanguage === 'fa' ? 'fa' : 'en';
+      const lang = ['fa', 'en', 'es', 'ar'].includes(currentLanguage) ? currentLanguage : 'en';
       const q = new URLSearchParams({ lang });
       if (sel.value) q.set('month', sel.value);
       let data;
@@ -1700,7 +1700,7 @@
     });
 
     // ═══════ Monthly report card + savings goals (personal, roadmap §4.12) ═══════
-    function rcLang() { return currentLanguage === 'fa' ? 'fa' : 'en'; }
+    function rcLang() { return ['fa', 'en', 'es', 'ar'].includes(currentLanguage) ? currentLanguage : 'en'; }
     // Names from the chart can be Persian inside an English line (and the other
     // way round); numbers with a sign flip in right-to-left text. Isolate both.
     function rcName(text) { return `<bdi>${escapeHtml(text)}</bdi>`; }

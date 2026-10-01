@@ -380,7 +380,7 @@ def _close_month(db: Session, month: str | None, lang: str | None, *, documents:
 @router.get("/close-pack/checklist")
 def close_pack_checklist(
     month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM in the company's calendar; default last month"),
-    lang: str | None = Query(None, pattern="^(fa|en)$"),
+    lang: str | None = Query(None, pattern="^(fa|en|es|ar)$"),
     db: Session = Depends(get_db),
 ) -> dict:
     """What the month-end close still needs, before the pack is downloaded (roadmap §4.9)."""
@@ -396,7 +396,7 @@ def close_pack_checklist(
 def close_pack(
     month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
     format: str = Query("zip", pattern="^(zip|pdf|xlsx)$"),
-    lang: str | None = Query(None, pattern="^(fa|en)$"),
+    lang: str | None = Query(None, pattern="^(fa|en|es|ar)$"),
     db: Session = Depends(get_db),
 ):
     """The monthly close pack: a ZIP of the PDF (checklist, statements, trial

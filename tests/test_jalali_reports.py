@@ -44,6 +44,10 @@ def test_seasons_are_jalali_quarters_and_weeks_start_on_saturday():
     # a Gregorian month or quarter in Persian is Persian too (the close-pack picker read "Oct 2026")
     assert cp.month_label("2026-10", "fa") == "اکتبر ۲۰۲۶" and cp.month_label("2026-05", "fa") == "مه ۲۰۲۶"
     assert cp.quarter_label("2026-Q3", "fa") == "سه‌ماهه ۳ ۲۰۲۶"
+    # Spanish and Arabic name their months too
+    assert cp.month_label("2026-10", "es") == "oct 2026" and cp.month_label("2026-10", "ar") == "أكتوبر 2026"
+    assert cp.month_label("1405-07", "ar") == "مهر 1405" and cp.month_label("1405-12", "ar") == "إسفند 1405"
+    assert cp.quarter_label("1405-Q1", "es") == "Primavera 1405" and cp.quarter_label("2026-Q3", "ar") == "الربع 3 2026"
     wed = date(2026, 9, 30)
     assert cp.week_start(wed, cp.JALALI) == date(2026, 9, 26) and cp.week_start(wed, cp.GREGORIAN) == date(2026, 9, 28)
     assert cp.week_key(wed, cp.JALALI) == "1405-07-04" and cp.week_key(wed, cp.GREGORIAN) == "2026-W39"

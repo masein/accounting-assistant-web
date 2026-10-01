@@ -341,3 +341,15 @@ def test_the_checklist_dates_follow_the_chosen_calendar(company):
     fa = _checklist(api, "2026-08", lang="fa")
     from app.services.documents.formatting import to_persian_digits
     assert to_persian_digits(said) in _detail(fa, "lock")
+
+
+def test_the_checklist_in_spanish_or_arabic_while_the_documents_stay_english(company):
+    api, _ = company("uk", "GBP", UK)
+    es = _checklist(api, "2026-08", lang="es")
+    assert es["lang"] == "es" and es["label"] == "ago 2026" and es["items"][0]["item"] == "El debe es igual al haber"
+    ar = _checklist(api, "2026-08", lang="ar")
+    assert ar["label"] == "أغسطس 2026" and ar["items"][0]["item"] == "المدين يساوي الدائن"
+    assert ar["months"][0]["label"].split()[0] in ("سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر", "يناير", "فبراير", "مارس",
+                                                     "أبريل", "مايو", "يونيو", "يوليو", "أغسطس")
+    wb = _xlsx(api.get(URL, params={"month": "2026-08", "format": "xlsx", "lang": "es"}))
+    assert wb.sheetnames[0] == "Checklist"                                    # the pack itself: English

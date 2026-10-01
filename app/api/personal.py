@@ -265,7 +265,7 @@ def delete_goal(goal_id: UUID, db: Session = Depends(get_db)) -> None:
 @router.get("/report-card")
 def report_card(
     month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM in the company's calendar; default last month"),
-    lang: str | None = Query(None, pattern="^(fa|en)$"),
+    lang: str | None = Query(None, pattern="^(fa|en|es|ar)$"),
     db: Session = Depends(get_db),
 ) -> dict:
     """The month in a page: income, spending, saved, the checks, categories, budgets, net worth, goals."""

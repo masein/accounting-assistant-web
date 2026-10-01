@@ -704,9 +704,9 @@
         body.innerHTML = `
           <p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('equityLedgerHint'))} · ${escapeHtml(t('equityColOutstandingClaim'))}: <strong>${formatNum(data.closing_balance)}</strong></p>
           <div style="max-height:400px;overflow:auto;"><table class="detail-table"><thead><tr>
-            <th data-i18n="colDate">Date</th><th data-i18n="colDescription">Description</th>
-            <th class="num" data-i18n="equityColDebit">Debit</th><th class="num" data-i18n="equityColCredit">Credit</th>
-            <th class="num" data-i18n="equityColBalance">Balance</th></tr></thead>
+            <th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelDescription'))}</th>
+            <th class="num">${escapeHtml(t('equityColDebit'))}</th><th class="num">${escapeHtml(t('equityColCredit'))}</th>
+            <th class="num">${escapeHtml(t('equityColBalance'))}</th></tr></thead>
             <tbody>${rows || '<tr><td colspan="5" class="empty-state">' + escapeHtml(t('equityLedgerEmpty')) + '</td></tr>'}</tbody></table></div>`;
       } catch (err) {
         body.innerHTML = '<p class="empty-state">' + escapeHtml(t('equityLoadError')) + '</p>';

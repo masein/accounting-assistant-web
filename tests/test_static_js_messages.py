@@ -134,3 +134,98 @@ def test_a_persian_check_reads_its_numbers():
         assert {"done", "total"} <= _placeholders(fa[key]), key
     for key in ("alertOverdueArMessage", "alertOverdueApMessage"):
         assert _placeholders(fa[key]) == {"amount"}, key
+
+
+# ---------------------------------------------------------------------------
+# HTML the scripts build: table headers, buttons, labels, empty states
+# ---------------------------------------------------------------------------
+
+# Words that stay as written: file formats, protocols, currency codes, and the
+# sample values shown in the rate-feed form (a URL, a JSON path, a unit code).
+AS_WRITTEN = re.compile(r"^(CSV|PDF|XLSX|Excel|JSON|HTTPS?|IBAN|API|SMS|IMAP|GBP|IRR|USD|EUR|Navasan|GOLDG"
+                        r"|123456:ABC…|https://…\?api_key=…|data\.gold18\.price)$")
+_HTML_TEXT = re.compile(r">([^<>]*?[A-Za-z]{2,}[^<>]*?)<")
+_HTML_ATTR = re.compile(r"\b(placeholder|title|aria-label|alt)=\\?\"([^\"\x00]*[A-Za-z]{2,}[^\"\x00]*)\\?\"")
+_SET_ATTR = re.compile(r"setAttribute\(\s*'(aria-label|title|placeholder|alt)'\s*,\s*(['\"])([^'\"]*[A-Za-z]{2,}[^'\"]*)\2")
+_CODE = re.compile(r"\w\(|=>|&&|\|\||[{}=]|;\s*\w|\w\.\w+_")
+
+
+def _literal_parts(line: str, nested: list[str]) -> str:
+    """The line with every ${ … } replaced by a marker; a template literal
+    written inside one of those expressions is collected into `nested`."""
+    out, i, depth = [], 0, 0
+    while i < len(line):
+        if line.startswith("${", i):
+            if not depth:
+                out.append("\x00")
+            depth, i = depth + 1, i + 2
+            continue
+        if depth:
+            if line[i] == "`":
+                j = line.find("`", i + 1)
+                while j != -1 and line.count("${", i, j) > line.count("}", i, j):
+                    j = line.find("`", j + 1)
+                j = len(line) if j == -1 else j
+                nested.append(_literal_parts(line[i + 1:j], nested))
+                i = j + 1
+                continue
+            depth += {"{": 1, "}": -1}.get(line[i], 0)
+            i += 1
+            continue
+        out.append(line[i])
+        i += 1
+    return "".join(out)
+
+
+def _english_in_html(files=None) -> list[str]:
+    found = []
+    for path in files or sorted(JS.glob("*.js")):
+        if path.name == "02-i18n.js":
+            continue
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("//"):
+                continue
+            nested: list[str] = []
+            parts = [_literal_parts(line, nested)] + nested
+            for part in parts:
+                for m in _HTML_TEXT.finditer(part):
+                    text = " ".join(m.group(1).replace("\x00", " ").split())
+                    if text.startswith(("'", '"', "+", ")")) or AS_WRITTEN.match(text) or _CODE.search(re.sub(r"&#?\w+;", "", text)):
+                        continue
+                    if re.search(r"[A-Za-z]{2,}", text):
+                        found.append(f"{path.name}:{n} {text!r}")
+                for m in _HTML_ATTR.finditer(part):
+                    value = m.group(2).strip()
+                    if not (AS_WRITTEN.match(value) or "' +" in value or "+ '" in value):
+                        found.append(f"{path.name}:{n} {m.group(1)}={value!r}")
+            for m in _SET_ATTR.finditer(line):
+                found.append(f"{path.name}:{n} {m.group(1)}={m.group(3)!r}")
+    return found
+
+
+def test_the_html_the_scripts_build_has_no_english():
+    assert _english_in_html() == []
+
+
+def test_the_html_scan_sees_each_shape(tmp_path):
+    js = tmp_path / "99-sample.js"
+    js.write_text(
+        "tr.innerHTML = `<td>${escapeHtml(e.name)}</td><td><button>Edit</button></td>`;\n"
+        "tbody.innerHTML = '<tr><td colspan=\"5\" class=\"empty-state\">No entities yet.</td></tr>';\n"
+        "          <th>Item</th><th class=\"num\">On Hand</th>\n"
+        "  <input type=\"text\" placeholder=\"Search movements...\">\n"
+        "  <td>${ok ? `<button class=\"x\">Approve</button>` : '✓'}</td>\n"
+        "close.setAttribute('aria-label', 'Close');\n"
+        "<a href=\"#\">Next &#8594;</a>\n"
+        "<button data-delta=\"-1\">&#8592; Prev</button>\n"
+        # translated, or written as is on purpose: none of these may be reported
+        "tr.innerHTML = `<td>${escapeHtml(t('btnEdit'))}</td><th>${t('labelDate')}</th>`;\n"
+        "body.innerHTML = '<p>' + escapeHtml(t('noDataYet')) + '</p>';\n"
+        "<button data-format=\"csv\">CSV</button><button>PDF</button>\n"
+        "<span title=\"' + escapeHtml(t('aiRevToolFailed')) + '\">!</span>\n"
+        "// <b>Old comment</b>\n",
+        encoding="utf-8",
+    )
+    got = [f.split(" ", 1)[1] for f in _english_in_html([js])]
+    assert got == ["'Edit'", "'No entities yet.'", "'Item'", "'On Hand'", "placeholder='Search movements...'",
+                   "'Approve'", "aria-label='Close'", "'Next &#8594;'", "'&#8592; Prev'"]

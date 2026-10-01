@@ -85,7 +85,11 @@ def test_every_key_the_code_asks_for_exists():
     for path in JS.glob("*.js"):
         # a whole key: the call closes (or takes params) right after it; t('adj_' + kind) is a prefix
         used |= set(re.findall(r"\bt[fr]?\('([A-Za-z_][A-Za-z0-9_]*)'\s*[,)]", path.read_text(encoding="utf-8")))
-    used |= set(re.findall(r'data-i18n(?:-placeholder|-title|-aria-label)?="([A-Za-z_][A-Za-z0-9_]*)"', INDEX.read_text(encoding="utf-8")))
+    # data-i18n names a key too — in index.html and in the HTML the scripts build
+    # (the shareholder ledger asked for colDate/colDescription, which never existed)
+    attr = re.compile(r'data-i18n(?:-placeholder|-title|-aria-label)?=\\?"([A-Za-z_][A-Za-z0-9_]*)\\?"')
+    for text in [INDEX.read_text(encoding="utf-8")] + [p.read_text(encoding="utf-8") for p in JS.glob("*.js")]:
+        used |= set(attr.findall(text))
     assert used, "the scan found no keys"
     missing = {lang: sorted(used - keys) for lang, keys in pack_keys().items() if used - keys}
     assert missing == {}, missing

@@ -72,7 +72,7 @@
           if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(data.detail || t('settingsSaveFailed')) + '</span>';
           return;
         }
-        if (statusEl) statusEl.innerHTML = '<span style="color:#059669;">Saved.</span>';
+        if (statusEl) statusEl.innerHTML = '<span style="color:#059669;">' + escapeHtml(t('statusSaved')) + '</span>';
         keyEl.value = '';
         loadAnthropicConfig();
       } catch (err) {
@@ -134,7 +134,7 @@
           return;
         }
         _applyChatShapeVisibility(data.effective || 'anthropic');
-        if (hint) hint.innerHTML = '<span style="color:#059669;">Saved.</span> Currently using <strong>' + escapeHtml(data.effective) + '</strong>.';
+        if (hint) hint.innerHTML = '<span style="color:#059669;">' + escapeHtml(t('statusSaved')) + '</span> ' + escapeHtml(t('aiCurrentlyUsing')).replace('{model}', '<strong>' + escapeHtml(data.effective) + '</strong>');
       } catch (err) {
         if (hint) hint.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(t('msgConnectionError') + err.message) + '</span>';
       } finally {

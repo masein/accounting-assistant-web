@@ -257,7 +257,7 @@
             <h1>${escapeHtml(localizeDynamicText(report.report_type || t('reportWord')))}</h1>
             <div class="meta">${period ? (escapeHtml(t('periodLabel')) + ': ' + escapeHtml(period)) : ''}</div>
             ${preview}
-            ${chartImg ? `<img src="${chartImg}" alt="report chart">` : ''}
+            ${chartImg ? `<img src="${chartImg}" alt="${escapeHtml(t('reportChartAlt'))}">` : ''}
           </body>
         </html>
       `);
@@ -936,10 +936,10 @@
       invReportPreviewEl.innerHTML = `
         ${period ? `<div class="report-meta" style="margin-bottom:0.75rem;">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
         <div class="detail-summary" style="margin-bottom:1rem;">
-          <div><span>Total Items</span><strong>${rows.length}</strong></div>
-          <div><span>Total On-Hand</span><strong>${totalQty.toLocaleString()}</strong></div>
-          <div><span>Inventory Value</span><strong>${formatNum(totalValue)} ${currencyUnit()}</strong></div>
-          <div><span>Total COGS</span><strong>${formatNum(totalCOGS)} ${currencyUnit()}</strong></div>
+          <div><span>${escapeHtml(t('invTotalItems'))}</span><strong>${rows.length}</strong></div>
+          <div><span>${escapeHtml(t('invTotalOnHand'))}</span><strong>${totalQty.toLocaleString()}</strong></div>
+          <div><span>${escapeHtml(t('fieldInventoryValue'))}</span><strong>${formatNum(totalValue)} ${currencyUnit()}</strong></div>
+          <div><span>${escapeHtml(t('invTotalCogs'))}</span><strong>${formatNum(totalCOGS)} ${currencyUnit()}</strong></div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
           <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="inv-report-preview" data-name="Inventory_Balance" data-format="csv">CSV</button>
@@ -948,15 +948,15 @@
         <div style="max-height:400px;overflow:auto;">
         <table class="detail-table">
           <thead><tr>
-            <th>Item</th><th>SKU</th><th>Unit</th><th class="num">In</th><th class="num">Out</th>
-            <th class="num">On Hand</th><th class="num">Avg Cost</th><th class="num">Value</th><th class="num">COGS</th>
+            <th>${escapeHtml(t('stockColItem'))}</th><th>${escapeHtml(t('labelSKU'))}</th><th>${escapeHtml(t('labelUnit'))}</th><th class="num">${escapeHtml(t('invColIn'))}</th><th class="num">${escapeHtml(t('invColOut'))}</th>
+            <th class="num">${escapeHtml(t('stockColOnHand'))}</th><th class="num">${escapeHtml(t('invColAvgCost'))}</th><th class="num">${escapeHtml(t('stockColValue'))}</th><th class="num">${escapeHtml(t('fieldCOGS'))}</th>
           </tr></thead>
           <tbody>${rows.map(r => {
             const valPct = totalValue > 0 ? Math.round(r.inventory_value / totalValue * 100) : 0;
             return `<tr>
               <td><strong>${escapeHtml(r.item_name)}</strong></td>
               <td>${escapeHtml(r.sku || '—')}</td>
-              <td>${escapeHtml(r.unit || 'unit')}</td>
+              <td>${escapeHtml(r.unit || t('invUnitDefault'))}</td>
               <td class="num">${r.qty_in.toLocaleString()}</td>
               <td class="num">${r.qty_out.toLocaleString()}</td>
               <td class="num" style="font-weight:600;">${r.on_hand_qty.toLocaleString()}</td>
@@ -973,7 +973,7 @@
             </tr>`;
           }).join('')}</tbody>
           <tfoot><tr style="font-weight:700;background:#f1f5f9;">
-            <td colspan="3">Total</td>
+            <td colspan="3">${escapeHtml(t('tableTotal'))}</td>
             <td class="num">${rows.reduce((s,r)=>s+r.qty_in,0).toLocaleString()}</td>
             <td class="num">${rows.reduce((s,r)=>s+r.qty_out,0).toLocaleString()}</td>
             <td class="num">${totalQty.toLocaleString()}</td>
@@ -1011,41 +1011,41 @@
       invReportPreviewEl.innerHTML = `
         ${period ? `<div class="report-meta" style="margin-bottom:0.75rem;">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
         <div class="detail-summary" style="margin-bottom:1rem;">
-          <div><span>Total Movements</span><strong>${rows.length}</strong></div>
-          <div><span>Qty In</span><strong style="color:#2e7d32;">+${qtyIn.toLocaleString()}</strong></div>
-          <div><span>Qty Out</span><strong style="color:#c62828;">-${qtyOut.toLocaleString()}</strong></div>
-          <div><span>Value In</span><strong style="color:#2e7d32;">${formatNum(totalIn)}</strong></div>
-          <div><span>Value Out</span><strong style="color:#c62828;">${formatNum(totalOut)}</strong></div>
+          <div><span>${escapeHtml(t('invTotalMovements'))}</span><strong>${rows.length}</strong></div>
+          <div><span>${escapeHtml(t('invQtyIn'))}</span><strong style="color:#2e7d32;"><bdi dir="ltr">+${qtyIn.toLocaleString()}</bdi></strong></div>
+          <div><span>${escapeHtml(t('invQtyOut'))}</span><strong style="color:#c62828;"><bdi dir="ltr">-${qtyOut.toLocaleString()}</bdi></strong></div>
+          <div><span>${escapeHtml(t('invValueIn'))}</span><strong style="color:#2e7d32;">${formatNum(totalIn)}</strong></div>
+          <div><span>${escapeHtml(t('invValueOut'))}</span><strong style="color:#c62828;">${formatNum(totalOut)}</strong></div>
         </div>
 
-        <h4 style="margin:0.75rem 0 0.3rem;font-size:0.9rem;">Summary by Item</h4>
+        <h4 style="margin:0.75rem 0 0.3rem;font-size:0.9rem;">${escapeHtml(t('invSummaryByItem'))}</h4>
         <div style="max-height:180px;overflow:auto;margin-bottom:1rem;">
-        <table class="mini-table"><thead><tr><th>Item</th><th class="num">In</th><th class="num">Out</th><th class="num">Adj</th><th class="num">Net Value</th></tr></thead>
+        <table class="mini-table"><thead><tr><th>${escapeHtml(t('stockColItem'))}</th><th class="num">${escapeHtml(t('invColIn'))}</th><th class="num">${escapeHtml(t('invColOut'))}</th><th class="num">${escapeHtml(t('invColAdj'))}</th><th class="num">${escapeHtml(t('invColNetValue'))}</th></tr></thead>
           <tbody>${Object.entries(byItem).map(([name, v]) => `<tr>
             <td><strong>${escapeHtml(name)}</strong></td>
-            <td class="num" style="color:#2e7d32;">+${v.in.toLocaleString()}</td>
-            <td class="num" style="color:#c62828;">-${v.out.toLocaleString()}</td>
+            <td class="num" style="color:#2e7d32;"><bdi dir="ltr">+${v.in.toLocaleString()}</bdi></td>
+            <td class="num" style="color:#c62828;"><bdi dir="ltr">-${v.out.toLocaleString()}</bdi></td>
             <td class="num">${v.adj.toLocaleString()}</td>
             <td class="num" style="font-weight:600;">${formatNum(v.value)}</td>
           </tr>`).join('')}</tbody>
         </table>
         </div>
 
-        <h4 style="margin:0.75rem 0 0.3rem;font-size:0.9rem;">Movement Log</h4>
+        <h4 style="margin:0.75rem 0 0.3rem;font-size:0.9rem;">${escapeHtml(t('invMovementLog'))}</h4>
         <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
-          <input type="text" id="inv-mv-search" placeholder="Search movements..." style="width:200px;padding:0.35rem 0.6rem;font-size:0.85rem;margin:0;">
+          <input type="text" id="inv-mv-search" placeholder="${escapeHtml(t('invSearchMovements'))}" style="width:200px;padding:0.35rem 0.6rem;font-size:0.85rem;margin:0;">
           <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="inv-report-preview" data-name="Inventory_Movements" data-format="csv">CSV</button>
           <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="inv-report-preview" data-name="Inventory_Movements" data-format="pdf">PDF</button>
         </div>
         <div id="inv-mv-table-wrap" style="max-height:350px;overflow:auto;">
         <table class="detail-table"><thead><tr>
-          <th>${t('labelDate')}</th><th>Item</th><th>Type</th><th class="num">${t('labelQuantity')}</th>
-          <th class="num">Unit Cost</th><th class="num">Value</th><th>${t('labelReference')}</th><th>${t('labelDescription')}</th>
+          <th>${t('labelDate')}</th><th>${escapeHtml(t('stockColItem'))}</th><th>${escapeHtml(t('labelType'))}</th><th class="num">${t('labelQuantity')}</th>
+          <th class="num">${escapeHtml(t('stockColUnitCost'))}</th><th class="num">${escapeHtml(t('stockColValue'))}</th><th>${t('labelReference')}</th><th>${t('labelDescription')}</th>
         </tr></thead>
           <tbody>${rows.map(r => `<tr>
             <td>${escapeHtml(formatDisplayDate(r.movement_date))}</td>
             <td><strong>${escapeHtml(r.item_name)}</strong></td>
-            <td><span style="display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.78rem;font-weight:600;color:${typeColor(r.movement_type)};background:${typeBg(r.movement_type)};">${escapeHtml(r.movement_type)}</span></td>
+            <td><span style="display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.78rem;font-weight:600;color:${typeColor(r.movement_type)};background:${typeBg(r.movement_type)};">${escapeHtml(({ IN: t('movementIn'), OUT: t('movementOut'), ADJUSTMENT: t('movementAdjustment') })[r.movement_type] || r.movement_type)}</span></td>
             <td class="num">${r.quantity.toLocaleString()}</td>
             <td class="num">${formatNum(r.unit_cost)}</td>
             <td class="num" style="font-weight:600;">${formatNum(r.movement_value)}</td>
@@ -1163,7 +1163,7 @@
         const meta = window.__FX_META;
         const used = (meta && Array.isArray(meta.used_currencies)) ? meta.used_currencies : [];
         if (used.length > 1) {
-          const buttons = used.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}"><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span> only</button>`).join(' ');
+          const buttons = used.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('mgrCcyOnly')).replace('{ccy}', `<span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>`)}</button>`).join(' ');
           mixWarning = `<div style="background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:0.55rem 0.75rem;border-radius:8px;margin-bottom:0.6rem;font-size:0.85rem;">
             ⚠️ No currency filter selected. Numbers below sum ${used.join(', ')} as raw integers, which is not meaningful. Pick a currency:
             <div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>

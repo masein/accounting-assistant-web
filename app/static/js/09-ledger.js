@@ -129,7 +129,7 @@
     function renderLedgerTable(rows) {
       resultsTbody.innerHTML = '';
       if (!rows.length) {
-        resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">No ledger rows match your filters.</td></tr>';
+        resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">' + escapeHtml(t('ledgerNoMatch')) + '</td></tr>';
         resultsFoot.style.display = 'none';
         document.getElementById('charts-row').style.display = 'none';
         ledgerKpisEl.innerHTML = '';
@@ -238,7 +238,7 @@
         ledgerData = data;
         syncLedgerCurrencyControls(data);
         if (!data.rows || data.rows.length === 0) {
-          resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">No transactions yet. Use the form above to add a voucher.</td></tr>';
+          resultsTbody.innerHTML = '<tr><td colspan="6" class="empty-state">' + escapeHtml(t('ledgerEmpty')) + '</td></tr>';
           resultsFoot.style.display = 'none';
           document.getElementById('charts-row').style.display = 'none';
           ledgerKpisEl.innerHTML = '';

@@ -3,11 +3,11 @@
       const tr = document.createElement('tr');
       tr.className = 'line-row';
       tr.innerHTML = `
-        <td><input type="text" class="line-code" placeholder="Account code"></td>
+        <td><input type="text" class="line-code" placeholder="${escapeHtml(t('tableAccountCode'))}"></td>
         <td><input type="number" class="line-debit" min="0" value="0" step="1"></td>
         <td><input type="number" class="line-credit" min="0" value="0" step="1"></td>
         <td><input type="text" class="line-desc"></td>
-        <td><button type="button" class="btn btn-secondary remove-line">Remove</button></td>
+        <td><button type="button" class="btn btn-secondary remove-line">${escapeHtml(t('btnRemove'))}</button></td>
       `;
       linesTbody.appendChild(tr);
     }
@@ -26,10 +26,10 @@
         div.innerHTML = `
           ${thumb}
           <div class="attachment-name">${escapeHtml(att.file_name)}</div>
-          <div class="attachment-meta">${escapeHtml(att.content_type)} · ${formatNum(att.size_bytes || 0)} bytes</div>
+          <div class="attachment-meta">${escapeHtml(att.content_type)} · ${formatNum(att.size_bytes || 0)} ${escapeHtml(t('unitBytes'))}</div>
           <div style="display:flex; gap:0.35rem;">
-            <a class="btn btn-secondary btn-sm" href="${escapeHtml(att.url)}" target="_blank" rel="noreferrer" style="text-decoration:none;">Open</a>
-            <button type="button" class="btn btn-danger btn-sm remove-attachment" data-id="${att.id}">Remove</button>
+            <a class="btn btn-secondary btn-sm" href="${escapeHtml(att.url)}" target="_blank" rel="noreferrer" style="text-decoration:none;">${escapeHtml(t('btnOpen'))}</a>
+            <button type="button" class="btn btn-danger btn-sm remove-attachment" data-id="${att.id}">${escapeHtml(t('btnRemove'))}</button>
           </div>
         `;
         attachmentGrid.appendChild(div);
@@ -259,7 +259,7 @@
         });
         if (highlightId) flashRow(invoicesTbody.querySelector('tr[data-invoice-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
-        invoicesTbody.innerHTML = '<tr><td colspan="8" class="empty-state">Error loading invoices.</td></tr>';
+        invoicesTbody.innerHTML = '<tr><td colspan="8" class="empty-state">' + escapeHtml(t('invLoadError')) + '</td></tr>';
       }
       // Quotes live on the same page (08-entities-invoices.js defines it).
       if (!highlightId && typeof loadQuotes === 'function') loadQuotes();
@@ -274,7 +274,7 @@
         const list = await res.json();
         recurringTbody.innerHTML = '';
         if (!list.length) {
-          recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">No recurring rules yet.</td></tr>';
+          recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">' + escapeHtml(t('recurringEmpty')) + '</td></tr>';
           return;
         }
         list.forEach(r => {
@@ -283,17 +283,17 @@
           const paused = r.status === 'paused';
           tr.innerHTML = `
             <td>${escapeHtml(r.name)}</td>
-            <td>${escapeHtml(r.direction)}</td>
-            <td>${escapeHtml(r.frequency)}</td>
+            <td>${escapeHtml(({ payment: t('recDirPayment'), receipt: t('recDirReceipt') })[r.direction] || r.direction)}</td>
+            <td>${escapeHtml(enumLabel('freq_', r.frequency))}</td>
             <td>${r.amount == null ? '—' : formatNum(r.amount)}</td>
             <td>${escapeHtml(r.bank_account_code || r.bank_name || '—')}</td>
             <td>${escapeHtml(r.counter_account_code || '—')}</td>
             <td>${escapeHtml(formatDisplayDate(r.next_run_date))}</td>
             <td>${r.auto_post ? '✓' : '—'}</td>
-            <td>${escapeHtml(r.status)}</td>
+            <td>${escapeHtml(enumLabel('riStatus_', r.status))}</td>
             <td>
               <button type="button" class="btn btn-secondary btn-sm recurring-pause" data-id="${r.id}" data-paused="${paused ? '1' : ''}">${paused ? '▶' : '⏸'}</button>
-              <button type="button" class="btn btn-danger btn-sm recurring-del" data-id="${r.id}">Delete</button>
+              <button type="button" class="btn btn-danger btn-sm recurring-del" data-id="${r.id}">${escapeHtml(t('btnDelete'))}</button>
             </td>
           `;
           recurringTbody.appendChild(tr);
@@ -307,7 +307,7 @@
         }));
         if (highlightId) flashRow(recurringTbody.querySelector('tr[data-rule-id="' + CSS.escape(String(highlightId)) + '"]'));
       } catch (err) {
-        recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">Error loading recurring rules.</td></tr>';
+        recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">' + escapeHtml(t('recurringLoadError')) + '</td></tr>';
       }
     }
 

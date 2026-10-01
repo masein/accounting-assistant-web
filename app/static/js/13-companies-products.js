@@ -561,7 +561,7 @@
         }
       });
       if (!body.children.length) {
-        body.innerHTML = '<p style="color:var(--text-muted);">No detailed data available.</p>';
+        body.innerHTML = '<p style="color:var(--text-muted);">' + escapeHtml(t('noDetailData')) + '</p>';
       }
       // Always add a "View all transactions" link if we can infer account codes
       const _bsSectionPrefixes = { 'Assets': '11,12,13,14,15', 'Liabilities': '21,22,23,24', 'Equity': '31,32,33' };
@@ -615,7 +615,7 @@
       const wrap = document.getElementById('drilldown-table-wrap');
       const summaryEl = document.getElementById('drilldown-summary');
       const pagEl = document.getElementById('drilldown-pagination');
-      wrap.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">Loading...</p>';
+      wrap.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">' + escapeHtml(t('loading')) + '</p>';
 
       const q = new URLSearchParams();
       if (_drilldownParams.account_code) q.set('account_code', _drilldownParams.account_code);
@@ -640,7 +640,7 @@
       try {
         const res = await fetch(API + '/reports/transactions/search?' + q.toString());
         const data = await res.json();
-        if (!res.ok) { wrap.innerHTML = '<p style="color:#c62828;">Error loading transactions.</p>'; return; }
+        if (!res.ok) { wrap.innerHTML = '<p style="color:#c62828;">' + escapeHtml(t('entTxLoadError')) + '</p>'; return; }
 
         summaryEl.textContent = `${data.total_count} transaction${data.total_count !== 1 ? 's' : ''} | ${t('fieldTotalDebit')}: ${formatNum(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatNum(data.total_credit)}`;
 
@@ -686,9 +686,9 @@
         const totalPages = Math.ceil(data.total_count / data.page_size);
         if (totalPages > 1) {
           pagEl.innerHTML = `
-            <button class="btn btn-secondary btn-sm" ${_drilldownPage <= 1 ? 'disabled' : ''} data-action="drilldown-page" data-delta="-1">&#8592; Prev</button>
+            <button class="btn btn-secondary btn-sm" ${_drilldownPage <= 1 ? 'disabled' : ''} data-action="drilldown-page" data-delta="-1">${escapeHtml(t('pagePrev'))}</button>
             <span style="font-size:0.85rem;">${data.page} / ${totalPages}</span>
-            <button class="btn btn-secondary btn-sm" ${_drilldownPage >= totalPages ? 'disabled' : ''} data-action="drilldown-page" data-delta="1">Next &#8594;</button>
+            <button class="btn btn-secondary btn-sm" ${_drilldownPage >= totalPages ? 'disabled' : ''} data-action="drilldown-page" data-delta="1">${escapeHtml(t('pageNext'))}</button>
           `;
         } else {
           pagEl.innerHTML = '';
@@ -728,10 +728,10 @@
         } else {
           const w = window.open('', '_blank');
           if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
-          w.document.write(`<html><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}.num{text-align:right}h2{margin:0 0 8px}</style></head><body>
+          w.document.write(`<html lang="${document.documentElement.lang}" dir="${document.documentElement.dir || 'ltr'}"><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:start}.num{text-align:end}h2{margin:0 0 8px}</style></head><body>
             <h2>${escapeHtml(title)}</h2>
-            <p>${data.total_count} transactions | Debit: ${formatNum(data.total_debit)} | Credit: ${formatNum(data.total_credit)}</p>
-            <table><thead><tr><th>Date</th><th>Ref</th><th>Description</th><th>Code</th><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th>Entities</th></tr></thead><tbody>
+            <p>${escapeHtml(tf('drillPrintSummary', { count: data.total_count, debit: formatNum(data.total_debit), credit: formatNum(data.total_credit) }))}</p>
+            <table><thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th>${escapeHtml(t('tableCode'))}</th><th>${escapeHtml(t('fieldAccount'))}</th><th class="num">${escapeHtml(t('tableDebit'))}</th><th class="num">${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('fieldEntities'))}</th></tr></thead><tbody>
             ${rows.map(r=>`<tr><td>${escapeHtml(formatDisplayDate(r.date))}</td><td>${escapeHtml(r.reference||'')}</td><td>${escapeHtml(r.description||'')}</td><td>${escapeHtml(r.account_code)}</td><td>${escapeHtml(r.account_name||'')}</td><td class="num">${formatNum(r.debit||0)}</td><td class="num">${formatNum(r.credit||0)}</td><td>${(r.entity_names||[]).join(', ')}</td></tr>`).join('')}
             </tbody></table></body></html>`);
           w.document.close();
@@ -753,7 +753,7 @@
       } else {
         const w = window.open('', '_blank');
         if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
-        w.document.write(`<html><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}h2{margin:0 0 8px}</style></head><body>
+        w.document.write(`<html lang="${document.documentElement.lang}" dir="${document.documentElement.dir || 'ltr'}"><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px 7px;text-align:start}h2{margin:0 0 8px}</style></head><body>
           <h2>${escapeHtml(title)}</h2>
           <table><thead><tr>${headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>
           ${rows.map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}
@@ -806,7 +806,7 @@
       const detailPanel = document.getElementById('prod-detail-panel');
       detailPanel.style.display = 'none';
       chartPanel.style.display = 'none';
-      content.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">Loading...</p>';
+      content.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">' + escapeHtml(t('loading')) + '</p>';
 
       try {
         if (_prodTab === 'catalog') await _renderCatalog(content, chartPanel);
@@ -842,7 +842,7 @@
         <div style="max-height:400px;overflow:auto;">
         <table class="mini-table">
           <thead><tr>
-            <th>${t('fieldProduct')}</th><th>SKU</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th><th>${t('fieldMarginPct')}</th><th>${t('fieldClientCount')}</th><th>${t('fieldSupplierCount')}</th>
+            <th>${t('fieldProduct')}</th><th>${escapeHtml(t('labelSKU'))}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th><th>${t('fieldMarginPct')}</th><th>${t('fieldClientCount')}</th><th>${t('fieldSupplierCount')}</th>
           </tr></thead>
           <tbody>${data.items.map(p => `
             <tr style="cursor:pointer;" data-product="${escapeHtml(p.product_name)}">
@@ -880,7 +880,7 @@
       const panel = document.getElementById('prod-detail-panel');
       const body = document.getElementById('prod-detail-body');
       document.getElementById('prod-detail-title').textContent = productName;
-      body.innerHTML = '<p style="color:var(--text-muted);">Loading...</p>';
+      body.innerHTML = '<p style="color:var(--text-muted);">' + escapeHtml(t('loading')) + '</p>';
       panel.style.display = 'block';
 
       try {
@@ -1017,10 +1017,10 @@
             <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="prod-content" data-name="Profitability" data-format="pdf">PDF</button>
           </span>
         </div>
-        <h4 style="margin:0.5rem 0 0.3rem;">By Product</h4>
+        <h4 style="margin:0.5rem 0 0.3rem;">${escapeHtml(t('prodByProduct'))}</h4>
         <div style="max-height:300px;overflow:auto;">
         <table class="mini-table">
-          <thead><tr><th>Product</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th><th>${t('fieldMarginPct')}</th><th>Top Client</th></tr></thead>
+          <thead><tr><th>${escapeHtml(t('fieldProduct'))}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th><th>${t('fieldMarginPct')}</th><th>${escapeHtml(t('fieldTopClient'))}</th></tr></thead>
           <tbody>${data.by_product.map(p => `
             <tr>
               <td><strong>${escapeHtml(p.product_name)}</strong></td>
@@ -1035,10 +1035,10 @@
         </div>
 
         ${data.by_client_product.length ? `
-          <h4 style="margin:0.75rem 0 0.3rem;">By Client × Product</h4>
+          <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(t('prodByClientProduct'))}</h4>
           <div style="max-height:250px;overflow:auto;">
           <table class="mini-table">
-            <thead><tr><th>Client</th><th>Product</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th></tr></thead>
+            <thead><tr><th>${escapeHtml(t('labelClient'))}</th><th>${escapeHtml(t('fieldProduct'))}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th></tr></thead>
             <tbody>${data.by_client_product.slice(0, 50).map(cp => `
               <tr>
                 <td>${escapeHtml(cp.client_name)}</td>

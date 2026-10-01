@@ -779,7 +779,7 @@
         body.innerHTML = '';
         if (!stmts.length) {
           const tr = document.createElement('tr');
-          tr.innerHTML = '<td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No bank statements uploaded yet. Upload a CSV, Excel, or scanned PDF above.</td>';
+          tr.innerHTML = '<td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">' + escapeHtml(t('bsEmpty')) + '</td>';
           body.appendChild(tr);
           return;
         }
@@ -788,7 +788,7 @@
           tr.innerHTML = `<td>${escapeHtml(s.bank_name)}</td><td>${escapeHtml(s.source_filename)}</td>
             <td>${escapeHtml(s.source_type)}${s.origin === 'email' ? ` <span class="badge" title="${escapeHtml(t('bsViaEmailTitle'))}">${escapeHtml(t('bsViaEmail'))}</span>` : ''}</td><td>${s.total_rows}</td><td>${s.matched_rows || 0}</td>
             <td><span class="badge ${s.status === 'approved' ? 'badge-ok' : ''}">${s.status}</span></td>
-            <td><button class="btn btn-secondary btn-sm bs-view-btn" data-id="${s.id}">View</button></td>`;
+            <td><button class="btn btn-secondary btn-sm bs-view-btn" data-id="${s.id}">${escapeHtml(t('btnView'))}</button></td>`;
           body.appendChild(tr);
         });
       } catch (e) { console.warn('Failed to load bank statements:', e); }
@@ -985,8 +985,8 @@
             <td>${r.balance != null ? r.balance.toLocaleString() : ''}</td>
             <td>${bsCategoryCell(r)}</td>
             <td style="color:${confColor}">${(r.confidence * 100).toFixed(0)}%</td>
-            <td>${r.recon_status}</td>
-            <td>${r.recon_status === 'unmatched' ? `<button class="btn btn-secondary btn-sm bs-create-btn" data-row-id="${r.id}" data-code="${r.suggested_account_code || ''}">Create</button>` : r.user_approved ? '✓' : `<button class="btn btn-secondary btn-sm bs-approve-btn" data-row-id="${r.id}">Approve</button>`}</td>`;
+            <td>${escapeHtml(enumLabel('bsRecon_', r.recon_status))}</td>
+            <td>${r.recon_status === 'unmatched' ? `<button class="btn btn-secondary btn-sm bs-create-btn" data-row-id="${r.id}" data-code="${r.suggested_account_code || ''}">${escapeHtml(t('bsCreateBtn'))}</button>` : r.user_approved ? '✓' : `<button class="btn btn-secondary btn-sm bs-approve-btn" data-row-id="${r.id}">${escapeHtml(t('btnApprove'))}</button>`}</td>`;
           body.appendChild(tr);
         });
         document.getElementById('bs-list-wrap').style.display = 'none';

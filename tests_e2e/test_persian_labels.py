@@ -69,6 +69,13 @@ LEAF = r"""() => {
   }
   return [...out];
 }"""
+# a row's own controls: the cells are data, but "Edit" / "Delete" / "View" on
+# each row are the app's words (SCAN and LEAF skip table cells, so the entities
+# and bank-statement lists said "Edit" to a Persian user unnoticed)
+ROW_BUTTONS = r"""() => [...new Set([...document.querySelectorAll('.card[data-page] td button, .card[data-page] td a.btn')]
+  .filter(b => b.offsetParent !== null)
+  .map(b => b.textContent.replace(/\s+/g, ' ').trim())
+  .filter(x => /[A-Za-z]{3,}/.test(x) && !/[\u0600-\u06FF]/.test(x)))]"""
 # what stays as written: currency codes (with a symbol), the languages' own
 # names, other products' names, a stock-keeping unit
 AS_WRITTEN = re.compile(r"^([A-Z]{3}( \(.\))?|English|Español|Xero|QuickBooks|SKU)$")
@@ -100,6 +107,8 @@ POST_JOURNALS = r"""async (ref) => {
   }
   return out;
 }"""
+ADD_ENTITY = r"""async (name) => (await fetch('/entities', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ type: 'client', name }) })).status"""
 ON_PURPOSE = ("CSV", "Excel", "PDF", "JSON", "IMAP", "INBOX", "IBAN", "API", "SMS", "VAT", "MTD", "HMRC", "TTMS",
               "GBP", "IRR", "USD", "EUR", "http", "@", "example.com", "Telegram", "Bale", "Google", "Apple")
 
@@ -111,6 +120,8 @@ def _every_page_speaks(flow_page, user, lang):
             s.dispatchEvent(new Event('change', { bubbles: true })); }""", lang)
         page.wait_for_load_state("networkidle")
         assert page.evaluate(POST_JOURNALS, f"FA-{uuid.uuid4().hex[:6]}") == [201, 201]
+        # a party, so the entities list has a row (and its Edit / Delete) to read
+        assert page.evaluate(ADD_ENTITY, f"Sweep {lang} {uuid.uuid4().hex[:6]}") in (200, 201)
         page.reload()   # the dashboard drew before there was anything to show
         page.wait_for_load_state("networkidle")
         found = {}
@@ -127,6 +138,7 @@ def _every_page_speaks(flow_page, user, lang):
                     page.click("#audit-run-btn")
                 page.wait_for_selector("#audit-findings-list > *", timeout=15_000)
             seen = (page.evaluate(SCAN) + page.evaluate(CHART_TEXT, False) + page.evaluate(PLACEHOLDERS) + page.evaluate(AUDIT_TRAIL)
+                    + page.evaluate(ROW_BUTTONS)
                     + [x for x in page.evaluate(LEAF) if not AS_WRITTEN.match(x)])
             english = [x for x in seen if not any(w in x for w in ON_PURPOSE)]
             if english:

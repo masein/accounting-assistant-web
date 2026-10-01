@@ -48,6 +48,18 @@ def logged_in_state(browser):
 _flow_states: dict = {}
 
 
+def switch_language(page, lang: str) -> None:
+    """Pick a language in the top bar and wait until it has landed: the page is
+    in it (<html lang>) and the preference is saved. wait_for_load_state
+    ("networkidle") does not wait for this — the page was idle once already, so
+    it returns at once — and a reload right after a switch could beat the PATCH
+    and come back in the old language (the Persian sweep's second user, #252 CI)."""
+    with page.expect_response(lambda r: "/auth/preferences" in r.url and r.request.method == "PATCH"):
+        page.evaluate("""(l) => { const s = document.getElementById('topbar-language'); s.value = l;
+            s.dispatchEvent(new Event('change', { bubbles: true })); }""", lang)
+    page.wait_for_function("(l) => document.documentElement.lang === l", arg=lang)
+
+
 class PageWatch:
     """Collects JS exceptions, console errors and 5xx / 429 responses for one page."""
 

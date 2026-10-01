@@ -3,6 +3,8 @@
 were English until 2026-10)."""
 from __future__ import annotations
 
+from tests_e2e.conftest import switch_language
+
 import uuid
 
 
@@ -14,9 +16,7 @@ def _alert(page) -> str:
 def test_the_entity_messages_are_persian(flow_page):
     page, watch = flow_page("e2e_messages")
     try:
-        page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'fa';
-            s.dispatchEvent(new Event('change', { bubbles: true })); }""")
-        page.wait_for_load_state("networkidle")
+        switch_language(page, "fa")
         page.click('.nav-btn[data-page="entities"]')
         page.fill("#entity-name", "")
         page.click("#entity-add")

@@ -3,13 +3,13 @@ chat answers in the user's language — not "[error] OpenAI-shape provider
 unreachable after 3 attempts"."""
 from __future__ import annotations
 
+from tests_e2e.conftest import switch_language
+
 
 def test_the_chat_says_the_assistant_is_unavailable_in_persian(flow_page):
     page, watch = flow_page("e2e_chat")
     try:
-        page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'fa';
-            s.dispatchEvent(new Event('change', { bubbles: true })); }""")
-        page.wait_for_load_state("networkidle")
+        switch_language(page, "fa")
         page.evaluate("() => { location.hash = 'ai-accountant'; }")
         page.wait_for_load_state("networkidle")
         page.fill("#ai-acct-input", "موجودی نقد چقدر است؟")

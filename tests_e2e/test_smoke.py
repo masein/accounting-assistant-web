@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from tests_e2e.conftest import ARTIFACTS, BASE_URL, PageWatch
+from tests_e2e.conftest import ARTIFACTS, BASE_URL, PageWatch, switch_language
 
 PAGES = [
     "dashboard", "ai-accountant", "transactions", "ledger", "invoices", "entities", "time", "expenses",
@@ -52,9 +52,7 @@ def test_persian_is_right_to_left_and_invoices_render(app_page):
     page, watch = app_page
     # The top-bar language picker (inside the closed user menu): set it and
     # fire its change handler, as choosing an option does.
-    page.evaluate("""() => { const s = document.getElementById('topbar-language');
-        s.value = 'fa'; s.dispatchEvent(new Event('change', { bubbles: true })); }""")
-    page.wait_for_load_state("networkidle")
+    switch_language(page, "fa")
     page.locator('.nav-btn[data-page="invoices"]').first.click()
     page.wait_for_load_state("networkidle")
     direction = page.evaluate("document.documentElement.dir || getComputedStyle(document.body).direction")

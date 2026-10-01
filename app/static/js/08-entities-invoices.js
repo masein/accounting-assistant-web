@@ -1297,7 +1297,7 @@
         const res = await fetch(API + '/notifications/check', { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || t('msgAlertsCheckFailed'), true); return; }
-        showAlert(t('msgAlertsChecked') + ((data.delivered || []).join(', ') || 'none'));
+        showAlert(t('msgAlertsChecked') + ((data.delivered || []).join(', ') || t('msgNoneDelivered')));
       } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
 

@@ -190,7 +190,7 @@
           const err = await res.json().catch(() => ({}));
           const d = err.detail;
           const missing = d && d.missing_fields ? d.missing_fields.map(_migFieldLabel).join('، ') : '';
-          alert((d && d.message ? d.message : t('migrationMissing')) + (missing ? ': ' + missing : ''));
+          showAlert((d && d.message ? d.message : t('migrationMissing')) + (missing ? ': ' + missing : ''), true);
         }
       } catch (_) {}
       migrationLoadPending();
@@ -425,13 +425,13 @@
         const res = await fetch(API + '/petty-cash/accounts/' + _pettyOwnAccount.id);
         if (!res.ok) return;
         const acc = await res.json();
-        document.getElementById('petty-own-balance').textContent = formatMoney(acc.balance, 'IRR');
+        document.getElementById('petty-own-balance').textContent = formatMoney(acc.balance, baseCurrencyCode());
         const kinds = { deposit: t('pettyKindDeposit'), expense: t('pettyKindExpense'), adjustment: t('pettyKindAdjust') };
         const stats = { pending: t('pettyStPending'), approved: t('pettyStApproved'), rejected: t('pettyStRejected') };
         document.getElementById('petty-own-tbody').innerHTML = (acc.transactions || []).map(x => `
           <tr><td>${escapeHtml((x.created_at || '').slice(0, 10))}</td>
               <td>${escapeHtml(kinds[x.kind] || x.kind)}</td>
-              <td class="num">${formatMoney(x.signed_amount, 'IRR')}</td>
+              <td class="num">${formatMoney(x.signed_amount, baseCurrencyCode())}</td>
               <td>${escapeHtml(x.description || '')}</td>
               <td>${escapeHtml(stats[x.status] || x.status)}</td></tr>`).join('')
           || `<tr><td colspan="5" class="empty-state">—</td></tr>`;
@@ -441,7 +441,7 @@
       const tbody = document.getElementById('petty-admin-tbody');
       tbody.innerHTML = accounts.map(a => `
         <tr><td>${escapeHtml(a.holder_name)}</td>
-            <td class="num">${formatMoney(a.balance, 'IRR')}</td>
+            <td class="num">${formatMoney(a.balance, baseCurrencyCode())}</td>
             <td class="num">${a.pending_expenses || 0}</td>
             <td>
               <button type="button" class="btn btn-secondary btn-sm petty-deposit" data-id="${a.id}" data-name="${escapeHtml(a.holder_name)}">${escapeHtml(t('pettyDepositBtn'))}</button>
@@ -449,28 +449,32 @@
             </td></tr>`).join('')
         || `<tr><td colspan="4" class="empty-state">—</td></tr>`;
       tbody.querySelectorAll('.petty-deposit').forEach(b => b.addEventListener('click', async () => {
-        const amount = parseInt(window.prompt(t('pettyDepositPrompt') + ' — ' + b.dataset.name) || '', 10);
+        // the app's own dialogs (the browser's speak its language, not the page's); Persian digits count
+        const typed = await uiPrompt({ title: t('pettyDepositBtn'), message: tf('pettyDepositPrompt', { currency: currencySymbol(baseCurrencyCode()) }) + ' — ' + b.dataset.name });
+        const amount = parseInt(asciiDigits(typed || ''), 10);
         if (!amount || amount <= 0) return;
-        const bank = window.prompt(t('pettyDepositBankPrompt'), document.getElementById('rec-bank')?.value || '1110');
+        const bank = await uiPrompt({ title: t('pettyDepositBtn'), message: t('pettyDepositBankPrompt'),
+                                      value: document.getElementById('rec-bank')?.value || '1110' });
         if (!bank) return;
         const res = await fetch(API + '/petty-cash/accounts/' + b.dataset.id + '/deposit', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount, bank_account_code: bank.trim() }),
+          body: JSON.stringify({ amount, bank_account_code: asciiDigits(bank) }),
         });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'failed', true); }
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('msgFailed'), true); }
         pettyInitPage();
       }));
       tbody.querySelectorAll('.petty-adjust').forEach(b => b.addEventListener('click', async () => {
-        const signed = parseInt(window.prompt(t('pettyAdjustPrompt') + ' — ' + b.dataset.name) || '', 10);
+        const typed = await uiPrompt({ title: t('pettyAdjustBtn'), message: tf('pettyAdjustPrompt', { currency: currencySymbol(baseCurrencyCode()) }) + ' — ' + b.dataset.name });
+        const signed = parseInt(asciiDigits(typed || ''), 10);
         if (!signed) return;
-        const counter = window.prompt(t('pettyDepositBankPrompt'), '1110');
+        const counter = await uiPrompt({ title: t('pettyAdjustBtn'), message: t('pettyDepositBankPrompt'), value: '1110' });
         if (!counter) return;
         const res = await fetch(API + '/petty-cash/accounts/' + b.dataset.id + '/adjust', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ signed_amount: signed, counter_account_code: counter.trim(),
+          body: JSON.stringify({ signed_amount: signed, counter_account_code: asciiDigits(counter),
                                  description: t('pettyAdjustBtn') }),
         });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'failed', true); }
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('msgFailed'), true); }
         pettyInitPage();
       }));
       // pending approvals list
@@ -485,7 +489,7 @@
         <strong style="font-size:0.9rem;">${escapeHtml(t('pettyPendingTitle'))}</strong>
         ${pend.map(x => `
           <div style="display:flex; gap:0.6rem; align-items:center; border:1px solid var(--border); border-radius:6px; padding:0.4rem 0.6rem; margin-top:0.3rem; font-size:0.85rem;">
-            <span style="flex:1;">${escapeHtml(x.holder)} — ${formatMoney(x.amount, 'IRR')} · ${escapeHtml(x.description || '')}</span>
+            <span style="flex:1;">${escapeHtml(x.holder)} — ${formatMoney(x.amount, baseCurrencyCode())} · ${escapeHtml(x.description || '')}</span>
             <button type="button" class="btn btn-primary btn-sm petty-approve" data-id="${x.id}">${escapeHtml(t('pettyApproveBtn'))}</button>
             <button type="button" class="btn btn-danger btn-sm petty-reject" data-id="${x.id}">${escapeHtml(t('pettyRejectBtn'))}</button>
           </div>`).join('')}` : '';
@@ -510,7 +514,7 @@
             holder_name: document.getElementById('petty-new-holder').value.trim() || null }),
         });
         const d = await res.json().catch(() => ({}));
-        st.textContent = res.ok ? t('pettyCreated') : (typeof d.detail === 'string' ? d.detail : 'failed');
+        st.textContent = res.ok ? t('pettyCreated') : (typeof d.detail === 'string' ? d.detail : t('msgFailed'));
         if (res.ok) { document.getElementById('petty-new-username').value = ''; pettyInitPage(); }
       });
       const attachBtn = document.getElementById('petty-exp-attach');
@@ -550,7 +554,7 @@
           _pettyRenderOwn(); pettyInitPage();
         } else {
           const d = await res.json().catch(() => ({}));
-          showAlert(typeof d.detail === 'string' ? d.detail : 'failed', true);
+          showAlert(typeof d.detail === 'string' ? d.detail : t('msgFailed'), true);
         }
       });
     })();
@@ -1049,7 +1053,7 @@
         try {
           const res = await fetch(API + '/commitments/installments', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-          if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || 'error', true); return; }
+          if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('msgFailed'), true); return; }
           showAlert(tf('cmPlanCreated', { n: body.count }));
           document.getElementById('cm-p-title').value = '';
           await loadCommitments();
@@ -1083,7 +1087,7 @@
         try {
           const res = await fetch(API + '/commitments/cheques', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-          if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(typeof d.detail === 'string' ? d.detail : 'error', true); return; }
+          if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(typeof d.detail === 'string' ? d.detail : t('msgFailed'), true); return; }
           showAlert(t('cmChequeAdded'));
           ['cm-c-title', 'cm-c-amount', 'cm-c-ref', 'cm-c-sayad'].forEach(id => { document.getElementById(id).value = ''; });
           document.getElementById('cm-c-inv').value = '';
@@ -1163,7 +1167,7 @@
           const res = await fetch(API + '/recurring', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body) });
-          if (!res.ok) { const j = await res.json().catch(() => ({})); showAlert(j.detail || 'error', true); return; }
+          if (!res.ok) { const j = await res.json().catch(() => ({})); showAlert(j.detail || t('msgFailed'), true); return; }
           showAlert(t('rdRuleCreated'));
           await loadRecurringRules();
           await loadDetectedRecurring();
@@ -1251,7 +1255,7 @@
       try {
         const res = await fetch(API + '/fixed-assets');
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'assets');
+        if (!res.ok) throw new Error(data.detail || t('msgFailed'));
         document.getElementById('asset-summary').innerHTML = [
           ['assetKpiCost', assetMoneyByCurrency(data.totals, 'cost')],
           ['assetKpiAccumulated', assetMoneyByCurrency(data.totals, 'accumulated')],
@@ -1296,7 +1300,7 @@
       try {
         const res = await fetch(API + '/fixed-assets/' + encodeURIComponent(id));
         const a = await res.json();
-        if (!res.ok) throw new Error(a.detail || 'asset');
+        if (!res.ok) throw new Error(a.detail || t('msgFailed'));
         const sched = (a.schedule || []).map((m) => '<tr><td>' + escapeHtml(m.label) + '</td><td>' + escapeHtml(formatNum(m.amount))
           + '</td><td>' + escapeHtml(formatNum(m.closing_nbv)) + '</td><td>' + (m.posted ? '✓' : '') + '</td></tr>').join('');
         const dispose = a.status === 'active'
@@ -1330,7 +1334,7 @@
               const r = await fetch(API + '/fixed-assets/' + encodeURIComponent(a.id) + '/dispose' + (preview ? '/preview' : ''), {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
               const d = await r.json();
-              if (!r.ok) throw new Error(d.detail || 'dispose');
+              if (!r.ok) throw new Error(d.detail || t('msgFailed'));
               out.innerHTML = '<p class="fc-note">' + escapeHtml(tf(d.gain ? 'assetDisposeGain' : 'assetDisposeLoss', {
                 nbv: formatNum(d.net_book_value), proceeds: formatNum(d.proceeds), amount: formatNum(d.gain || d.loss) })) + '</p>';
               if (!preview) { loadFixedAssets(); assetShowDetail(a.id); }
@@ -1446,7 +1450,7 @@
         const inactive = document.getElementById('coa-show-inactive').checked;
         const res = await fetch(API + '/accounts/tree?include_inactive=' + (inactive ? 'true' : 'false'));
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'tree');
+        if (!res.ok) throw new Error(data.detail || t('msgFailed'));
         _coaTree = data.accounts || [];
         coaRender();
         coaLoadOpening();

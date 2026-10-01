@@ -214,7 +214,7 @@
           del.setAttribute('aria-label', t('chatDelete'));
           del.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (!window.confirm(t('chatDeleteConfirm'))) return;
+            if (!(await uiConfirm({ title: t('chatDelete'), message: t('chatDeleteConfirm'), confirmLabel: t('chatDelete'), danger: true }))) return;
             await fetch(API + '/ai-accountant/sessions/' + encodeURIComponent(sess.id), { method: 'DELETE' });
             if (sess.id === sessionId) { sessionId = null; messagesEl.innerHTML = ''; setChatTitle(''); renderEmptyState(); }
             loadSessions(sessionSearchEl ? sessionSearchEl.value.trim() : '');
@@ -397,7 +397,7 @@
           const name = document.createElement('span');
           name.className = 'name';
           const size = _fmtSize(att.size_bytes);
-          name.textContent = (isImg ? '🖼 ' : (isSheet ? '📊 ' : '📄 ')) + (att.file_name || 'document') + (size ? ' · ' + size : '');
+          name.textContent = (isImg ? '🖼 ' : (isSheet ? '📊 ' : '📄 ')) + (att.file_name || t('msgDocumentDefault')) + (size ? ' · ' + size : '');
           chip.appendChild(name);
           const rm = document.createElement('button');
           rm.type = 'button';
@@ -768,7 +768,7 @@
                 body: JSON.stringify({ token: intake.token, opening_date: intake.default_opening_date || undefined }),
               });
               data = await res.json().catch(() => ({}));
-              if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : ((data.detail || {}).message || 'failed'));
+              if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : ((data.detail || {}).message || t('msgFailed')));
               const r = data.result || {};
               const chart = r.chart || {};
               const created = ['group', 'kol', 'moein'].reduce((a, k) => a + ((chart[k] || {}).created || 0), 0);
@@ -788,7 +788,7 @@
                 }),
               });
               data = await res.json().catch(() => ({}));
-              if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'failed');
+              if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : t('msgFailed'));
               appendBubble('assistant', t('chatIntakeApplied') + ' — ' + (data.imported || 0) + ' ' + t('chatIntakeVouchers')
                 + ((data.errors || []).length ? ' · ' + data.errors.slice(0, 3).join(' | ') : ''));
             }
@@ -1017,7 +1017,7 @@
             attachments.forEach((att) => {
               const tag = document.createElement('span');
               const isImg = (att.content_type || '').startsWith('image/');
-              tag.textContent = (isImg ? '🖼 ' : '📄 ') + (att.file_name || 'document');
+              tag.textContent = (isImg ? '🖼 ' : '📄 ') + (att.file_name || t('msgDocumentDefault'));
               strip.appendChild(tag);
             });
             bubble.appendChild(strip);

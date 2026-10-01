@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.schemas.notification import NotificationCheckResponse, NotificationItem
 from app.services.digest_service import (
     build_daily_digest,
+    digest_language,
     format_digest,
     get_digest_settings,
     set_digest_settings,
@@ -44,13 +45,13 @@ async def _send_telegram(text: str) -> bool:
         return r.status_code < 300
 
 
-def _send_email(text: str) -> bool:
+def _send_email(text: str, subject: str | None = None) -> bool:
     """Operator alert channel: one fixed recipient, set by SMTP_TO."""
     from app.services.mail_service import send_email
 
     if not settings.smtp_to:
         return False
-    return send_email(to=settings.smtp_to, subject="Accounting Assistant Alerts", text=text)
+    return send_email(to=settings.smtp_to, subject=subject or "Accounting Assistant Alerts", text=text)
 
 
 @router.post("/check", response_model=NotificationCheckResponse)
@@ -124,7 +125,7 @@ async def send_daily_digest(deliver: bool = True, db: Session = Depends(get_db))
     scheduler with an Owner/CFO session. Skips delivery when disabled."""
     d = build_daily_digest(db)
     conf = d["settings"]
-    text = format_digest(_company_name(db), d)
+    text = format_digest(_company_name(db), d, digest_language(db))
     delivered: list[str] = []
     if deliver and conf["enabled"]:
         ch = conf["channel"]
@@ -134,7 +135,7 @@ async def send_daily_digest(deliver: bool = True, db: Session = Depends(get_db))
             delivered.append("telegram")
         if ch in ("all", "email"):
             try:
-                if _send_email(text):
+                if _send_email(text, subject=text.split("\n", 1)[0]):   # "Daily digest — …" in its language
                     delivered.append("email")
             except Exception:
                 pass

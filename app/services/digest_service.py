@@ -113,17 +113,57 @@ def build_daily_digest(db: Session) -> dict:
     }
 
 
-def format_digest(company_name: str, d: dict) -> str:
+# the digest in the language its readers use (en, fa, es, ar)
+_TEXT = {
+    "head": {"en": "Daily digest — {company}", "fa": "خلاصه روزانه — {company}", "es": "Resumen diario — {company}",
+             "ar": "الملخص اليومي — {company}"},
+    "low": {"en": "⚠️ LOW CASH ({why})", "fa": "⚠️ نقدینگی کم ({why})", "es": "⚠️ POCA CAJA ({why})", "ar": "⚠️ نقد منخفض ({why})"},
+    "cash_below_threshold": {"en": "cash below the threshold", "fa": "نقد کمتر از آستانه", "es": "caja por debajo del umbral",
+                             "ar": "النقد أقل من الحد"},
+    "runway_short": {"en": "short runway", "fa": "دوام نقدینگی کوتاه", "es": "autonomía corta", "ar": "مدة تغطية قصيرة"},
+    "cash": {"en": "Cash on hand: {amount} {cur}", "fa": "موجودی نقد: {amount} {cur}", "es": "Caja disponible: {amount} {cur}",
+             "ar": "النقد المتاح: {amount} {cur}"},
+    "runway": {"en": "Runway: {months} months", "fa": "دوام نقدینگی: {months} ماه", "es": "Autonomía: {months} meses",
+               "ar": "مدة التغطية: {months} شهر"},
+    "na": {"en": "N/A", "fa": "نامشخص", "es": "N/D", "ar": "غير متاح"},
+    "ar": {"en": "AR outstanding: {amount} {cur} (overdue {overdue})", "fa": "مطالبات باز: {amount} {cur} (سررسیدگذشته {overdue})",
+           "es": "Cuentas por cobrar: {amount} {cur} (vencido {overdue})", "ar": "الذمم المدينة: {amount} {cur} (متأخر {overdue})"},
+    "ap": {"en": "AP outstanding: {amount} {cur} (overdue {overdue})", "fa": "بدهی‌های باز: {amount} {cur} (سررسیدگذشته {overdue})",
+           "es": "Cuentas por pagar: {amount} {cur} (vencido {overdue})", "ar": "الذمم الدائنة: {amount} {cur} (متأخر {overdue})"},
+}
+LANGS = ("en", "fa", "es", "ar")
+
+
+def digest_language(db: Session) -> str:
+    """The digest goes to the company's channels, so it is written once: in its
+    owner's language, else the company's (Persian for an Iranian chart)."""
+    from sqlalchemy import select
+
+    from app.models.user import User
+    cid = _company_id(db)
+    if cid is not None:
+        pref = db.execute(select(User.preferred_language).where(
+            User.company_id == cid, User.role == "owner", User.is_active.is_(True)).order_by(User.created_at)).scalars().first()
+        if pref and pref.strip().lower() in LANGS:
+            return pref.strip().lower()
+    from app.services.insight_service import insight_language
+    return insight_language(db)
+
+
+def format_digest(company_name: str, d: dict, lang: str = "en") -> str:
     """Plain-text digest body. Cash/AR/AP only — no salary or bank detail."""
+    lang = lang if lang in LANGS else "en"
+    say = lambda key, **kw: _TEXT[key][lang].format(**kw)  # noqa: E731
     cur = d["currency"]
-    lines = [f"Daily digest — {company_name}"]
+    lines = [say("head", company=company_name)]
     if d["low_cash"]:
-        why = ", ".join(d["low_cash_reasons"])
-        lines.append(f"⚠️ LOW CASH ({why})")
+        why = "، ".join if lang in ("fa", "ar") else ", ".join
+        lines.append(say("low", why=why(_TEXT[r][lang] if r in _TEXT else r for r in d["low_cash_reasons"])))
+    months = d["runway_months"] if d["runway_months"] is not None else _TEXT["na"][lang]
     lines += [
-        f"Cash on hand: {d['cash_on_hand']:,} {cur}",
-        f"Runway: {d['runway_months'] if d['runway_months'] is not None else 'N/A'} months",
-        f"AR outstanding: {d['ar_outstanding']:,} {cur} (overdue {d['ar_overdue']:,})",
-        f"AP outstanding: {d['ap_outstanding']:,} {cur} (overdue {d['ap_overdue']:,})",
+        say("cash", amount=f"{d['cash_on_hand']:,}", cur=cur),
+        say("runway", months=months),
+        say("ar", amount=f"{d['ar_outstanding']:,}", cur=cur, overdue=f"{d['ar_overdue']:,}"),
+        say("ap", amount=f"{d['ap_outstanding']:,}", cur=cur, overdue=f"{d['ap_overdue']:,}"),
     ]
     return "\n".join(lines)

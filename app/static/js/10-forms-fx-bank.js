@@ -628,6 +628,7 @@
             window.__DISPLAY_CALENDAR = data.calendar;
             if (status) status.textContent = tf('settingsSavedValue', { value: optionLabel(sel, data.calendar) });
             if (typeof applyCalendarMonthPickers === 'function') applyCalendarMonthPickers();
+            if (typeof dressDateInputs === 'function') dressDateInputs();
           } else {
             const data = await r.json().catch(() => ({}));
             if (status) status.textContent = (data.detail || t('settingsSaveFailed'));

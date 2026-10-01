@@ -581,9 +581,279 @@
         paintFilePick(input);
       });
     }
+    // ─── A date field in the company's calendar ──────────────────────
+    // With the Jalali calendar chosen, a date was still typed and picked in the
+    // browser's Gregorian field ("mm/dd/yyyy"), the Jalali day printed under
+    // some of them. Each date field gets a Jalali text box (year/month/day,
+    // Persian digits welcome) and a month grid that starts on Saturday. The
+    // native input stays, out of sight, as the value: scripts and tests read
+    // and set it in ISO as before, and setting it repaints the box.
+    function jalaliToGregorian(jy, jm, jd) {
+      jy += 1595;
+      let days = -355668 + (365 * jy) + (Math.floor(jy / 33) * 8) + Math.floor(((jy % 33) + 3) / 4) + jd
+        + (jm < 7 ? (jm - 1) * 31 : ((jm - 7) * 30) + 186);
+      let gy = 400 * Math.floor(days / 146097);
+      days %= 146097;
+      if (days > 36524) {
+        gy += 100 * Math.floor(--days / 36524);
+        days %= 36524;
+        if (days >= 365) days++;
+      }
+      gy += 4 * Math.floor(days / 1461);
+      days %= 1461;
+      if (days > 365) {
+        gy += Math.floor((days - 1) / 365);
+        days = (days - 1) % 365;
+      }
+      let gd = days + 1, gm = 0;
+      const len = [0, 31, ((gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      for (gm = 0; gm < 13 && gd > len[gm]; gm++) gd -= len[gm];
+      return { gy, gm, gd };
+    }
+    const _pad2 = (n) => String(n).padStart(2, '0');
+    function jalaliMonthLength(jy, jm) {
+      if (jm <= 6) return 31;
+      if (jm <= 11) return 30;
+      const g = jalaliToGregorian(jy, 12, 30), back = gregorianToJalali(g.gy, g.gm, g.gd);
+      return back.jm === 12 && back.jd === 30 ? 30 : 29;
+    }
+    function isoToJalaliText(iso) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+      if (!m) return '';
+      const j = gregorianToJalali(+m[1], +m[2], +m[3]);
+      return j.jy + '/' + _pad2(j.jm) + '/' + _pad2(j.jd);
+    }
+    // "1405/7/9", "۱۴۰۵-۰۷-۰۹", "1405.07.09" → "2026-10-01"; null when it is not a day
+    function jalaliTextToIso(text) {
+      const s = String(text || '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+        .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
+      const m = /^(\d{4})\s*[\/\-.\s]\s*(\d{1,2})\s*[\/\-.\s]\s*(\d{1,2})$/.exec(s);
+      if (!m) return null;
+      const jy = +m[1], jm = +m[2], jd = +m[3];
+      if (jy < 1200 || jy > 1600 || jm < 1 || jm > 12 || jd < 1 || jd > jalaliMonthLength(jy, jm)) return null;
+      const g = jalaliToGregorian(jy, jm, jd);
+      return g.gy + '-' + _pad2(g.gm) + '-' + _pad2(g.gd);
+    }
+    const _J_WEEKDAYS = { fa: ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'], ar: ['س', 'ح', 'ن', 'ث', 'ر', 'خ', 'ج'],
+      es: ['Sá', 'Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi'], en: ['Sa', 'Su', 'Mo', 'Tu', 'We', 'Th', 'Fr'] };
+    const _dateInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+
+    function _jdateSetNative(input, iso) {
+      if (_dateInputValue.get.call(input) === iso) return;
+      _dateInputValue.set.call(input, iso);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    function paintDateField(input) {
+      const wrap = input.parentElement;
+      if (!wrap || !wrap.classList.contains('jdate')) return;
+      const text = wrap.querySelector('.jdate-text'), btn = wrap.querySelector('.jdate-btn');
+      const iso = _dateInputValue.get.call(input);
+      // only when the value moved: never under the hands of someone typing
+      if (input.dataset.jdateIso !== iso) {
+        input.dataset.jdateIso = iso;
+        text.value = isoToJalaliText(iso);
+        text.removeAttribute('aria-invalid');
+      }
+      const name = input.getAttribute('aria-label') || (input.labels && input.labels[0] ? input.labels[0].textContent.trim() : '');
+      if (name && text.getAttribute('aria-label') !== name) text.setAttribute('aria-label', name);
+      const pick = t('jdatePick');
+      if (btn.getAttribute('aria-label') !== pick) { btn.setAttribute('aria-label', pick); btn.title = pick; }
+      if (text.disabled !== input.disabled) { text.disabled = input.disabled; btn.disabled = input.disabled; }
+      if (text.required !== input.required) text.required = input.required;
+    }
+    function _undressDateField(input) {
+      const wrap = input.parentElement;
+      wrap.parentNode.insertBefore(input, wrap);
+      wrap.remove();
+      input.style.cssText = input.dataset.jdateStyle || '';
+      delete input.value;            // the prototype's again
+      delete input.dataset.jdate;
+      delete input.dataset.jdateStyle;
+      delete input.dataset.jdateIso;
+    }
+    function dressDateInputs() {
+      const jalali = (window.__DISPLAY_CALENDAR || 'gregorian') === 'jalali';
+      document.querySelectorAll('input[type="date"]').forEach((input) => {
+        if (input.dataset.jdate) { jalali ? paintDateField(input) : _undressDateField(input); return; }
+        if (!jalali || input.style.display === 'none' || input.hidden) return;
+        input.dataset.jdate = '1';
+        input.dataset.jdateStyle = input.style.cssText;
+        const wrap = document.createElement('span');
+        wrap.className = 'jdate';
+        wrap.style.cssText = input.style.cssText;   // its layout (width, flex, margin) moves to the box
+        input.style.cssText = '';
+        const text = document.createElement('input');
+        text.type = 'text';
+        text.className = 'jdate-text';
+        text.inputMode = 'numeric';
+        text.autocomplete = 'off';
+        text.dir = 'ltr';
+        text.placeholder = '1405/07/09';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'jdate-btn';
+        btn.setAttribute('aria-haspopup', 'dialog');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
+        input.parentNode.insertBefore(wrap, input);
+        input.classList.add('jdate-native');
+        input.tabIndex = -1;
+        wrap.append(text, btn, input);
+        text.addEventListener('input', () => {
+          const iso = text.value.trim() ? jalaliTextToIso(text.value) : '';
+          if (iso !== null) { input.dataset.jdateIso = iso; _jdateSetNative(input, iso); text.removeAttribute('aria-invalid'); }
+        });
+        text.addEventListener('change', () => {
+          const iso = text.value.trim() ? jalaliTextToIso(text.value) : '';
+          if (iso === null) { text.setAttribute('aria-invalid', 'true'); text.title = t('jdateInvalid'); return; }
+          text.removeAttribute('aria-invalid');
+          text.title = '';
+          text.value = isoToJalaliText(iso);       // 1405/7/9 → 1405/07/09
+        });
+        text.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown' && e.altKey) { e.preventDefault(); openDatePicker(input); } });
+        btn.addEventListener('click', () => openDatePicker(input));
+        input.addEventListener('focus', () => text.focus());       // its <label for=…> still lands here
+        input.addEventListener('input', () => paintDateField(input));
+        input.addEventListener('change', () => paintDateField(input));
+        Object.defineProperty(input, 'value', {
+          configurable: true,
+          get() { return _dateInputValue.get.call(this); },
+          set(v) { _dateInputValue.set.call(this, v); paintDateField(this); },
+        });
+        paintDateField(input);
+      });
+    }
+
+    // The month grid: one for the page, under the field that opened it.
+    let _jdatePop = null, _jdateFor = null, _jdateView = null;
+    function _closeDatePicker(focusBack) {
+      if (!_jdatePop || _jdatePop.hidden) return;
+      _jdatePop.hidden = true;
+      const field = _jdateFor && _jdateFor.parentElement && _jdateFor.parentElement.querySelector('.jdate-text');
+      _jdateFor = null;
+      if (focusBack && field) field.focus();
+    }
+    function _placeDatePicker() {
+      const r = _jdateFor.parentElement.getBoundingClientRect(), w = _jdatePop.offsetWidth, h = _jdatePop.offsetHeight;
+      if (r.bottom < 0 || r.top > window.innerHeight) { _closeDatePicker(false); return; }
+      const rtl = document.documentElement.dir === 'rtl';
+      const left = Math.max(8, Math.min(rtl ? r.right - w : r.left, window.innerWidth - w - 8));
+      const top = (r.bottom + 4 + h > window.innerHeight && r.top - 4 - h > 0) ? r.top - 4 - h : r.bottom + 4;
+      _jdatePop.style.left = left + 'px';
+      _jdatePop.style.top = top + 'px';
+    }
+    function _renderDatePicker() {
+      const lang = (typeof currentLanguage !== 'undefined' && _J_WEEKDAYS[currentLanguage]) ? currentLanguage : 'en';
+      const months = _J_MONTHS[lang] || _J_MONTHS.en;
+      const { jy, jm } = _jdateView;
+      const first = jalaliToGregorian(jy, jm, 1);
+      const lead = (new Date(first.gy, first.gm - 1, first.gd).getDay() + 1) % 7;   // Saturday = 0
+      const days = jalaliMonthLength(jy, jm);
+      const now = new Date(), today = gregorianToJalali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      const chosen = isoToJalaliText(_dateInputValue.get.call(_jdateFor));
+      const min = _jdateFor.min || '', max = _jdateFor.max || '';
+      let cells = '';
+      for (let i = 0; i < lead; i++) cells += '<span></span>';
+      for (let d = 1; d <= days; d++) {
+        const label = jy + '/' + _pad2(jm) + '/' + _pad2(d);
+        const iso = jalaliTextToIso(label);
+        const off = (min && iso < min) || (max && iso > max);
+        const isToday = today.jy === jy && today.jm === jm && today.jd === d;
+        cells += `<button type="button" class="jdate-day${isToday ? ' is-today' : ''}" data-iso="${iso}" aria-label="${escapeHtml(d + ' ' + months[jm - 1] + ' ' + jy)}"`
+          + ` aria-pressed="${chosen === label}"${off ? ' disabled' : ''}>${d}</button>`;
+      }
+      _jdatePop.innerHTML = `
+        <div class="jdate-head">
+          <button type="button" class="jdate-nav jdate-prev" data-step="-1" aria-label="${escapeHtml(t('jdatePrevMonth'))}">‹</button>
+          <span class="jdate-title" aria-live="polite">${escapeHtml(months[jm - 1] + ' ' + jy)}</span>
+          <button type="button" class="jdate-nav jdate-next" data-step="1" aria-label="${escapeHtml(t('jdateNextMonth'))}">›</button>
+        </div>
+        <div class="jdate-grid">${_J_WEEKDAYS[lang].map((w) => `<span class="jdate-wd" aria-hidden="true">${escapeHtml(w)}</span>`).join('')}${cells}</div>
+        <div class="jdate-foot">
+          <button type="button" class="btn btn-secondary btn-sm jdate-today">${escapeHtml(t('jdateToday'))}</button>
+          <button type="button" class="btn btn-secondary btn-sm jdate-clear">${escapeHtml(t('jdateClear'))}</button>
+        </div>`;
+    }
+    function _pickDate(iso) {
+      const input = _jdateFor;
+      if (!input) return;
+      input.dataset.jdateIso = '';                 // repaint the box from the value
+      _jdateSetNative(input, iso);
+      paintDateField(input);
+      _closeDatePicker(true);
+    }
+    function openDatePicker(input) {
+      if (!_jdatePop) {
+        _jdatePop = document.createElement('div');
+        _jdatePop.id = 'jdate-pop';
+        _jdatePop.setAttribute('role', 'dialog');
+        _jdatePop.hidden = true;
+        document.body.appendChild(_jdatePop);
+        _jdatePop.addEventListener('click', (e) => {
+          const nav = e.target.closest('.jdate-nav');
+          if (nav) {
+            let { jy, jm } = _jdateView;
+            jm += +nav.dataset.step;
+            if (jm < 1) { jm = 12; jy -= 1; } else if (jm > 12) { jm = 1; jy += 1; }
+            _jdateView = { jy, jm };
+            _renderDatePicker();
+            _jdatePop.querySelector('.jdate-' + (+nav.dataset.step < 0 ? 'prev' : 'next')).focus();
+            return;
+          }
+          const day = e.target.closest('.jdate-day');
+          if (day && !day.disabled) { _pickDate(day.dataset.iso); return; }
+          if (e.target.closest('.jdate-today')) {
+            const n = new Date();
+            _pickDate(n.getFullYear() + '-' + _pad2(n.getMonth() + 1) + '-' + _pad2(n.getDate()));
+            return;
+          }
+          if (e.target.closest('.jdate-clear')) _pickDate('');
+        });
+        _jdatePop.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') { e.preventDefault(); _closeDatePicker(true); return; }
+          // arrows walk the days (mirrored right to left), into the next or previous month
+          const day = e.target.closest('.jdate-day');
+          const rtl = document.documentElement.dir === 'rtl';
+          const step = day && { ArrowUp: -7, ArrowDown: 7, ArrowLeft: rtl ? 1 : -1, ArrowRight: rtl ? -1 : 1 }[e.key];
+          if (!step) return;
+          e.preventDefault();
+          const d = new Date(day.dataset.iso + 'T00:00:00Z');
+          d.setUTCDate(d.getUTCDate() + step);
+          const iso = d.toISOString().slice(0, 10);
+          let next = _jdatePop.querySelector('.jdate-day[data-iso="' + iso + '"]');
+          if (!next) {
+            const j = gregorianToJalali(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+            _jdateView = { jy: j.jy, jm: j.jm };
+            _renderDatePicker();
+            next = _jdatePop.querySelector('.jdate-day[data-iso="' + iso + '"]');
+          }
+          if (next) next.focus();
+        });
+        document.addEventListener('mousedown', (e) => {
+          if (_jdatePop.hidden || _jdatePop.contains(e.target) || (_jdateFor && _jdateFor.parentElement.contains(e.target))) return;
+          _closeDatePicker(false);
+        });
+        // the grid follows its field while the page scrolls; it closes once the field is off screen
+        window.addEventListener('scroll', () => { if (!_jdatePop.hidden) _placeDatePicker(); }, true);
+        window.addEventListener('resize', () => { if (!_jdatePop.hidden) _placeDatePicker(); });
+      }
+      if (_jdateFor === input && !_jdatePop.hidden) { _closeDatePicker(true); return; }
+      _jdateFor = input;
+      const iso = _dateInputValue.get.call(input), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+      const n = new Date();
+      const j = m ? gregorianToJalali(+m[1], +m[2], +m[3]) : gregorianToJalali(n.getFullYear(), n.getMonth() + 1, n.getDate());
+      _jdateView = { jy: j.jy, jm: j.jm };
+      _jdatePop.setAttribute('aria-label', t('jdateDialog'));
+      _renderDatePicker();
+      _jdatePop.hidden = false;
+      _placeDatePicker();
+      (_jdatePop.querySelector('.jdate-day[aria-pressed="true"]') || _jdatePop.querySelector('.jdate-day.is-today')
+        || _jdatePop.querySelector('.jdate-day')).focus();
+    }
+
     (function watchTableControls() {
       let queued = false;
-      const run = () => { queued = false; try { nameTableControls(); } catch (_) {} try { dressFileInputs(); } catch (_) {} };
+      const run = () => { queued = false; try { nameTableControls(); } catch (_) {} try { dressFileInputs(); } catch (_) {} try { dressDateInputs(); } catch (_) {} };
       new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(run); } })
         .observe(document.body, { childList: true, subtree: true, characterData: true });
     })();

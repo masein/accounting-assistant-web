@@ -212,6 +212,7 @@
         if (sel) sel.value = window.__DISPLAY_CALENDAR;
       } catch (_) {}
       applyCalendarMonthPickers();
+      if (typeof dressDateInputs === 'function') dressDateInputs();   // date fields in the calendar too
       // report ranges still on their default start from this month of the calendar
       ['mgr-from-date', 'inv-from-date'].forEach((id) => {
         const el = document.getElementById(id);

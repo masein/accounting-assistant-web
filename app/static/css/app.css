@@ -78,6 +78,39 @@
     .file-pick:focus-within { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2); }
     .file-pick:has(input:disabled) { opacity: 0.6; }
     .file-pick:has(input:disabled) input { cursor: not-allowed; }
+    /* a date field in the Jalali calendar (dressDateInputs in 03-ui.js): a text box,
+       a button for the month grid; the native input stays, out of sight, as the value */
+    .jdate { position: relative; display: flex; align-items: center; width: 100%; min-width: 0; margin-bottom: 0.75rem; }
+    /* the box is left to right (the digits' order) inside a page that may not be: the room for
+       the button goes on the side the button is, which is the page's inline end */
+    .jdate .jdate-text { flex: 1; min-width: 0; margin: 0; padding-right: 2.4rem; font-variant-numeric: tabular-nums; }
+    html[dir="rtl"] .jdate .jdate-text { padding-right: 0.75rem; padding-left: 2.4rem; text-align: right; }
+    .jdate .jdate-text[aria-invalid="true"] { border-color: #dc2626; box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15); }
+    .jdate-btn { position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px;
+      display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 5px; background: transparent;
+      color: var(--text-muted); cursor: pointer; padding: 0; }
+    .jdate-btn:hover:not(:disabled) { background: #f1f5f9; color: var(--text); }
+    .jdate .jdate-native { position: absolute; inset-inline-start: 0; bottom: 0; width: 1px; height: 1px; min-width: 0; margin: 0;
+      padding: 0; border: 0; opacity: 0; pointer-events: none; }
+    #jdate-pop { position: fixed; z-index: 400; width: 17.5rem; max-width: calc(100vw - 16px); box-sizing: border-box; padding: 0.55rem;
+      background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.3); }
+    #jdate-pop[hidden] { display: none; }
+    .jdate-head { display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.9rem; }
+    .jdate-nav { width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; font-size: 1.25rem; line-height: 1; cursor: pointer; color: var(--text); }
+    .jdate-nav:hover { background: #f1f5f9; }
+    html[dir="rtl"] .jdate-nav { transform: scaleX(-1); }
+    .jdate-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .jdate-wd { padding: 0.2rem 0; text-align: center; font-size: 0.72rem; color: var(--text-muted); }
+    .jdate-day { height: 2.1rem; border: 0; border-radius: 6px; background: transparent; cursor: pointer; font-size: 0.85rem;
+      font-variant-numeric: tabular-nums; color: var(--text); }
+    .jdate-day:hover:not(:disabled) { background: #f1f5f9; }
+    .jdate-day.is-today { box-shadow: inset 0 0 0 1px var(--primary); }
+    .jdate-day[aria-pressed="true"] { background: var(--primary); color: #fff; }
+    .jdate-day:disabled { opacity: 0.35; cursor: not-allowed; }
+    .jdate-day:focus-visible, .jdate-nav:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+    .jdate-foot { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.45rem; }
+    /* the Jalali day printed under a Gregorian field says nothing a Jalali field doesn't */
+    .jdate + .jalali-hint { display: none; }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
     .row > * { flex: 1 1 180px; min-width: 0; }
     /* Kill the global 0.75rem margin-bottom on inputs/selects inside any flex/grid

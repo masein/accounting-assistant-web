@@ -10,6 +10,10 @@ const langPills = document.getElementById('lang-pills');
 const SUPPORTED_UI_LANGUAGES = ['en', 'fa', 'es', 'ar'];
 const RTL_LANGUAGES = new Set(['fa', 'ar']);
 let currentLanguage = 'en';
+// Every call says which language this page is in, so an error comes back in it
+// (app/core/messages.py) — before anyone has signed in, too.
+const _rawFetch = window.fetch.bind(window);
+window.fetch = (url, opts = {}) => _rawFetch(url, { ...opts, headers: { 'X-UI-Language': currentLanguage, ...(opts.headers || {}) } });
 let loginPassword = '';  // set after a default-password login (see below)
 // Second step of a sign-in with two-factor on: the server returned a
 // short-lived challenge instead of a session.
@@ -371,7 +375,7 @@ document.getElementById('tfa-form').addEventListener('submit', async (e) => {
     if (!res.ok) {
       setTfaError(data.detail || t('failed'));
       // The challenge is gone (timed out, password changed): start over.
-      if (res.status === 401 && /timed out/i.test(String(data.detail || ''))) setTimeout(backToPassword, 1500);
+      if (res.status === 401 && res.headers.get('X-Error-Code') === 'signin_timed_out') setTimeout(backToPassword, 1500);
       return;
     }
     afterSignIn(data, loginPassword);

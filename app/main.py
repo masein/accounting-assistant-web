@@ -890,6 +890,24 @@ def _request_id_of(request: Request) -> str | None:
     return getattr(request.state, "request_id", None) or current_request_id()
 
 
+from fastapi.exception_handlers import http_exception_handler as _default_http_exception_handler  # noqa: E402
+from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
+
+from app.core.messages import localize_detail, request_language  # noqa: E402
+
+
+@app.exception_handler(StarletteHTTPException)
+async def localized_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """An endpoint's error message in the reader's language (app/core/messages.py);
+    status, headers and anything that isn't a plain message are untouched."""
+    lang = request_language(request.headers)
+    if lang != "en" and isinstance(exc.detail, str):
+        said = localize_detail(exc.detail, lang)
+        if said != exc.detail:
+            exc = StarletteHTTPException(status_code=exc.status_code, detail=said, headers=getattr(exc, "headers", None))
+    return await _default_http_exception_handler(request, exc)
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Return structured error responses for validation failures."""
@@ -897,7 +915,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={
             "code": "VALIDATION_ERROR",
-            "detail": "Request validation failed",
+            "detail": localize_detail("Request validation failed", request_language(request.headers)),
             "errors": _sanitize_errors(exc.errors()),
             "request_id": _request_id_of(request),
         },
@@ -947,7 +965,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         pass
     return JSONResponse(
         status_code=500,
-        content={"code": "INTERNAL_ERROR", "detail": "Internal server error", "request_id": rid},
+        content={"code": "INTERNAL_ERROR", "detail": localize_detail("Internal server error", request_language(request.headers)),
+                 "request_id": rid},
         headers={"x-request-id": rid or ""},
     )
 

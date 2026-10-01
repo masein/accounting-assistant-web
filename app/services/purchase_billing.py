@@ -160,9 +160,10 @@ def price_history(db: Session, *, inventory_item_id=None, q: str | None = None, 
         po_cond.append(PurchaseOrderLine.inventory_item_id == inventory_item_id)
         bill_cond.append(InvoiceItem.inventory_item_id == inventory_item_id)
     else:
-        like = f"%{q.strip()}%"
-        po_cond.append(PurchaseOrderLine.description.ilike(like))
-        bill_cond.append(or_(InvoiceItem.product_name.ilike(like), InvoiceItem.description.ilike(like)))
+        from app.utils.text import fold_fa, fold_sql
+        like = f"%{fold_fa(q.strip())}%"
+        po_cond.append(fold_sql(PurchaseOrderLine.description).ilike(like))
+        bill_cond.append(or_(fold_sql(InvoiceItem.product_name).ilike(like), fold_sql(InvoiceItem.description).ilike(like)))
     if entity_id is not None:
         po_cond.append(PurchaseOrder.entity_id == entity_id)
         bill_cond.append(Invoice.entity_id == entity_id)

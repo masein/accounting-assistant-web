@@ -57,7 +57,8 @@ def _find_or_create_entity(db: Session, name: str | None, direction: str) -> UUI
     if not clean:
         return None
     typ = "client" if direction == "receipt" else "supplier"
-    row = db.execute(select(Entity).where(Entity.type == typ, Entity.name.ilike(clean))).scalars().first()
+    from app.utils.text import fold_fa, fold_sql
+    row = db.execute(select(Entity).where(Entity.type == typ, fold_sql(Entity.name).ilike(fold_fa(clean)))).scalars().first()
     if row:
         return row.id
     row = Entity(type=typ, name=clean)

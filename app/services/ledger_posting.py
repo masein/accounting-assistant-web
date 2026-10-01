@@ -24,6 +24,7 @@ from app.models.account import Account
 from app.models.entity import Entity, TransactionEntity
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
 from app.schemas.transaction import TransactionCreate
+from app.utils.text import fold_fa, fold_sql
 
 
 def default_currency(db: Session, currency: str | None) -> str:
@@ -98,7 +99,7 @@ def get_or_create_entity(db: Session, role: str, name: str) -> Entity:
         db.execute(
             select(Entity).where(
                 Entity.type == entity_type,
-                Entity.name.ilike(name),
+                fold_sql(Entity.name).ilike(fold_fa(name)),
             )
         )
         .scalars().first()

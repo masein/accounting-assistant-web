@@ -109,20 +109,41 @@ def link(token: str) -> str:
     return f"{(settings.app_public_url or '').rstrip('/')}/login?invite={token}"
 
 
-def send_invite(db: Session, inv: HouseholdInvite, token: str, *, inviter: str) -> bool:
+# in the inviter's language (en, fa, es, ar): they know who they are inviting
+_INVITE = {
+    "en": {"subject": "{inviter} invited you to share their books", "hello": "Hello{name},",
+           "body": "{inviter} invited you to share the books “{books}”.", "join": "Join here (the link works once, for 7 days):",
+           "button": "Join the household", "note": "If you weren't expecting this, you can ignore it.", "default": "the household"},
+    "fa": {"subject": "{inviter} شما را به دفاتر خود دعوت کرده است", "hello": "سلام{name}،",
+           "body": "{inviter} شما را به دفاتر «{books}» دعوت کرده است.", "join": "از این پیوند وارد شوید (یک بار و تا ۷ روز کار می‌کند):",
+           "button": "پیوستن به خانوار", "note": "اگر منتظر این پیام نبودید، آن را نادیده بگیرید.", "default": "خانوار"},
+    "es": {"subject": "{inviter} te invitó a compartir sus libros", "hello": "Hola{name}:",
+           "body": "{inviter} te invitó a compartir los libros «{books}».", "join": "Únete aquí (el enlace funciona una vez, durante 7 días):",
+           "button": "Unirme al hogar", "note": "Si no lo esperabas, puedes ignorarlo.", "default": "el hogar"},
+    "ar": {"subject": "دعاك {inviter} لمشاركة دفاتره", "hello": "مرحباً{name}،",
+           "body": "دعاك {inviter} لمشاركة دفاتر «{books}».", "join": "انضم من هنا (الرابط يعمل مرة واحدة لمدة 7 أيام):",
+           "button": "الانضمام إلى الأسرة", "note": "إذا لم تكن تتوقع هذا فتجاهله.", "default": "الأسرة"},
+}
+
+
+def send_invite(db: Session, inv: HouseholdInvite, token: str, *, inviter: str, lang: str = "en") -> bool:
     """E-mail the link when the server can send mail and there's an address."""
+    from html import escape
+
     from app.services.mail_service import mail_configured, send_email
     if not inv.email or not mail_configured():
         return False
-    books = (_company(db, inv.company_id).name if _company(db, inv.company_id) else "") or "the household"
+    lang = lang if lang in _INVITE else "en"
+    T = _INVITE[lang]
+    books = (_company(db, inv.company_id).name if _company(db, inv.company_id) else "") or T["default"]
     url = link(token)
-    text = (f"Hello{(' ' + inv.name) if inv.name else ''},\n\n{inviter} invited you to share the books "
-            f"\"{books}\".\n\nJoin here (the link works once, for 7 days):\n\n{url}\n\n"
-            "If you weren't expecting this, you can ignore it.")
-    html = (f"<p>Hello{(' ' + inv.name) if inv.name else ''},</p><p>{inviter} invited you to share the books "
-            f"&ldquo;{books}&rdquo;.</p><p><a href=\"{url}\">Join the household</a> — the link works once, for 7 days.</p>"
-            "<p style='color:#666;font-size:13px'>If you weren't expecting this, you can ignore it.</p>")
-    ok = send_email(to=inv.email, subject=f"{inviter} invited you to share their books", text=text, html=html)
+    hello = T["hello"].format(name=(" " + inv.name) if inv.name else "")
+    body = T["body"].format(inviter=inviter, books=books)
+    text = f"{hello}\n\n{body}\n\n{T['join']}\n\n{url}\n\n{T['note']}"
+    html = (f"<div dir='{'rtl' if lang in ('fa', 'ar') else 'ltr'}'><p>{escape(hello)}</p><p>{escape(body)}</p>"
+            f"<p><a href=\"{escape(url, quote=True)}\">{escape(T['button'])}</a></p>"
+            f"<p style='color:#666;font-size:13px'>{escape(T['note'])}</p></div>")
+    ok = send_email(to=inv.email, subject=T["subject"].format(inviter=inviter), text=text, html=html)
     if ok:
         inv.emailed_at = _now()
     return bool(ok)

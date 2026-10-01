@@ -24,6 +24,8 @@ SCAN = r"""() => {
   const shown = e => (e.tagName === 'OPTION' ? e.parentElement.offsetParent !== null : e.offsetParent !== null);
   for (const e of document.querySelectorAll(sel.map(s => '.card[data-page] ' + s).join(', '))) {
     if (!shown(e) || e.closest('td') || e.closest('pre') || e.closest('code')) continue;
+    // a picked record ("Supplier bed332", an id as its value) is data, not a label
+    if (e.tagName === 'OPTION' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.value)) continue;
     const own = [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ').trim();
     const txt = (own || (e.children.length ? '' : e.textContent)).trim();
     if (txt.length < 4) continue;

@@ -11,6 +11,8 @@ from pathlib import Path
 from app.core.messages import EXACT, LANGS, PATTERNS, localize_detail, request_language
 
 APP = Path(__file__).resolve().parents[1] / "app"
+# exceptions whose text an endpoint puts in its detail ("<employee>: <reason>")
+REASONS = {"PayrollInputError"}
 
 
 def _raised_details() -> tuple[set[str], list[str]]:
@@ -30,13 +32,82 @@ def _raised_details() -> tuple[set[str], list[str]]:
 
     for path in APP.rglob("*.py"):
         for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(n, ast.Call) and getattr(n.func, "id", getattr(n.func, "attr", None)) == "HTTPException":
+            name = getattr(n.func, "id", getattr(n.func, "attr", None)) if isinstance(n, ast.Call) else None
+            if name in REASONS and n.args:      # its text becomes part of a detail
+                reason = text(n.args[0])
+                if reason is not None and "\x00" not in reason:
+                    literal.add(reason)
+            if name == "HTTPException":
                 d = next((k.value for k in n.keywords if k.arg == "detail"), n.args[1] if len(n.args) > 1 else None)
                 s = text(d) if d is not None else None
                 if s is None:
                     continue
                 (shapes.append(s) if "\x00" in s else literal.add(s))
     return literal, shapes
+
+
+def _samples(shapes):
+    out = [s.replace("\x00", "x1") for s in shapes]
+    out += [s.replace("\x00", word, 1).replace("\x00", "x1") for s in shapes for word in ("Sales", "void")]
+    out += [s.replace("\x00", "1") for s in shapes]
+    return out
+
+
+def _shape_rx(shape: str) -> re.Pattern:
+    return re.compile("^" + "(.+)".join(re.escape(part) for part in shape.split("\x00")) + "$", re.S)
+
+
+# Built at run time and never reached from the app's pages: a value the page
+# only offers from a list, or a check on what the server itself stored.
+API_ONLY = {
+    "Costing method must be one of \x00.": "a select on the stock page",
+    "Invalid entity type \x00.": "the AI's own proposal, checked before it runs",
+    "Stored proposal payload is malformed: \x00": "a stored proposal the server wrote",
+    "Unknown acquisition: \x00": "a select on the fixed-asset form",
+    "Unknown equity tool \x00": "the AI's own tool call",
+    "Unknown field: \x00": "the journal import's column map, from a select",
+    "Unknown method: \x00": "a select on the fixed-asset form",
+    "Unknown preset: \x00": "the journal import's presets, from a select",
+    "Unsupported shape \x00. Supported: \x00 or '' (auto).": "a select in the AI settings",
+    "entry_type must be one of \x00.": "a select on the time page",
+    "repeat must be one of \x00": "a select on the reminders form",
+    "state must be one of \x00": "the Moadian status, set by the integration",
+    "status must be one of \x00; use convert to invoice it.": "the quote's status buttons",
+    "\x00 must be one of \x00.": "the recurring-invoice form's selects",
+}
+
+
+def test_every_message_built_at_run_time_has_a_translation():
+    """An f-string detail a page can reach reads in the page's language: the
+    rate feeds' and the cheque layout's checks, payroll's reasons, a bad
+    entity name all came back in English."""
+    literal, shapes = _raised_details()
+    samples = _samples(shapes)
+    missing = []
+    for shape in sorted(set(shapes)):
+        if shape in API_ONLY:
+            continue
+        own = [x for x in samples if _shape_rx(shape).match(x)]
+        if any(p.regex.match(x) for p in PATTERNS for x in own):
+            continue
+        if any(p.example is not None and _shape_rx(shape).match(p.example) for p in PATTERNS):
+            continue
+        missing.append(shape.replace("\x00", "{}"))
+    assert missing == [], missing
+    assert all(k in set(shapes) for k in API_ONLY), "API_ONLY lists a message the code no longer builds"
+
+
+def test_a_payroll_reason_reads_in_the_language_after_the_name():
+    said = localize_detail("Sara Ahmadi: Withholdings exceed gross pay — check the tax/deduction rates.", "fa")
+    assert said.startswith("\u2068Sara Ahmadi\u2069: ") and "کسورات" in said
+    # a reason no one translated stays as it was, name and all
+    assert localize_detail("Sara: Hours of something new.", "es") == "Sara: Hours of something new."
+
+
+def test_the_cheque_layout_says_which_box():
+    assert localize_detail("The top of national_id must be between 0 and 75.", "es") == \
+        "El borde superior del campo «documento de identidad» debe estar entre 0 y 75."
+    assert localize_detail("The height must be a number.", "ar") == "يجب أن يكون \u2068الارتفاع\u2069 رقماً."
 
 
 def test_every_translation_is_for_a_message_the_code_raises():
@@ -47,11 +118,14 @@ def test_every_translation_is_for_a_message_the_code_raises():
     for key, said in EXACT.items():
         assert set(said) == set(LANGS), key
     # each pattern matches some message the code builds (its run-time parts filled with a sample)
-    samples = [s.replace("\x00", "x1") for s in shapes]
-    samples += [s.replace("\x00", word, 1).replace("\x00", "x1") for s in shapes for word in ("Sales", "void")]
-    samples += [s.replace("\x00", "1") for s in shapes]
+    samples = _samples(shapes)
     for p in PATTERNS:
-        assert any(p.regex.match(s) for s in samples), p.regex.pattern
+        if p.example is not None:
+            # a fixed set of run-time parts: the example is one the code builds
+            assert p.regex.match(p.example), p.regex.pattern
+            assert any(_shape_rx(s).match(p.example) for s in shapes), p.example
+        else:
+            assert any(p.regex.match(s) for s in samples), p.regex.pattern
         assert set(p.text) == set(LANGS), p.regex.pattern
         fields = set(p.regex.groupindex)
         for lang, t in p.text.items():

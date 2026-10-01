@@ -64,6 +64,20 @@
     input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input[type="number"] { -moz-appearance: textfield; }
     input[type="file"] { padding: 0.35rem 0.5rem; font-size: 0.8rem; line-height: 1.4; }
+    /* a file field in the user's language (dressFileInputs in 03-ui.js): the box
+       looks like any other field; the real input lies over it, transparent */
+    .file-pick { position: relative; display: flex; align-items: center; gap: 0.5rem; width: 100%; min-width: 0; height: 38px;
+      padding: 0 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: #fff; margin-bottom: 0.75rem;
+      box-sizing: border-box; font-size: 0.8rem; }
+    .file-pick input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; max-width: none; margin: 0;
+      padding: 0; border: 0; opacity: 0; cursor: pointer; }
+    .file-pick-btn { flex: none; padding: 0.25rem 0.65rem; border-radius: 5px; background: #e2e8f0; color: var(--text); font-weight: 600; white-space: nowrap; }
+    .file-pick-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+    .file-pick.has-files .file-pick-name { color: var(--text); }
+    .file-pick:hover .file-pick-btn { background: #cbd5e1; }
+    .file-pick:focus-within { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2); }
+    .file-pick:has(input:disabled) { opacity: 0.6; }
+    .file-pick:has(input:disabled) input { cursor: not-allowed; }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
     .row > * { flex: 1 1 180px; min-width: 0; }
     /* Kill the global 0.75rem margin-bottom on inputs/selects inside any flex/grid
@@ -707,7 +721,7 @@
     .missing-ref-date { white-space: nowrap; min-width: 96px; }
     .missing-ref-actions { display: inline-flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
     .missing-ref-actions .btn { min-width: 88px; white-space: nowrap; }
-    .missing-ref-file { margin: 0; min-width: 230px; max-width: 360px; }
+    .missing-ref-file, .file-pick:has(> .missing-ref-file) { margin: 0; min-width: 230px; max-width: 360px; }
     .missing-ref-input { margin: 0; min-width: 150px; }
     .missing-ref-table th:last-child, .missing-ref-table td:last-child { min-width: 108px; text-align: center; }
     .alert-chip { border-radius: 999px; padding: 0.2rem 0.5rem; font-size: 0.74rem; font-weight: 700; display: inline-block; }
@@ -924,7 +938,7 @@
       .mini-table thead, .mini-table tbody, .mini-table tr {
         white-space: nowrap;
       }
-      .missing-ref-file { min-width: 180px; max-width: 260px; }
+      .missing-ref-file, .file-pick:has(> .missing-ref-file) { min-width: 180px; max-width: 260px; }
       .missing-ref-actions .btn { min-width: 78px; }
     }
 

@@ -534,9 +534,56 @@
         if (name && el.getAttribute('aria-label') !== name) { el.setAttribute('aria-label', name); el.dataset.autoName = '1'; }
       });
     }
+    // A file field speaks the browser's language, not the page's: Chrome writes
+    // "Choose Files" / "No file chosen" on it whatever lang and dir say, so a
+    // Persian user met English beside every upload. Each visible file input is
+    // dressed in a chip and the chosen names in the user's language; the input
+    // stays where it was, transparent and on top, so it is still what is
+    // clicked, focused, dropped on, and read by scripts and tests. (One a script
+    // opens from its own button carries display:none and is left alone.)
+    const _fileInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    function paintFilePick(input) {
+      const wrap = input.parentElement;
+      if (!wrap || !wrap.classList.contains('file-pick')) return;
+      const n = input.files ? input.files.length : 0;
+      const label = t(input.multiple ? 'fileChooseMany' : 'fileChooseOne');
+      const chosen = !n ? t('fileNoneChosen') : n === 1 ? input.files[0].name : tf('fileManyChosen', { count: n });
+      // only on a change: the observer that calls this watches text too
+      const btn = wrap.querySelector('.file-pick-btn'), name = wrap.querySelector('.file-pick-name');
+      if (btn.textContent !== label) btn.textContent = label;
+      if (name.textContent !== chosen) { name.textContent = chosen; name.title = n > 1 ? [...input.files].map((f) => f.name).join('\n') : ''; }
+      wrap.classList.toggle('has-files', n > 0);
+    }
+    function dressFileInputs() {
+      document.querySelectorAll('input[type="file"]').forEach((input) => {
+        if (input.dataset.filePick) { paintFilePick(input); return; }   // a language switch repaints
+        if (input.style.display === 'none' || input.hidden) return;
+        input.dataset.filePick = '1';
+        const wrap = document.createElement('span');
+        wrap.className = 'file-pick';
+        wrap.style.cssText = input.style.cssText;   // its layout (max-width, flex, margin) moves to the box
+        input.style.cssText = '';
+        const btn = document.createElement('span');
+        btn.className = 'file-pick-btn';
+        const name = document.createElement('span');
+        name.className = 'file-pick-name';
+        btn.setAttribute('aria-hidden', 'true');
+        name.setAttribute('aria-hidden', 'true');
+        input.parentNode.insertBefore(wrap, input);
+        wrap.append(input, btn, name);
+        input.addEventListener('change', () => paintFilePick(input));
+        // a script clearing the field (input.value = '') fires no event
+        Object.defineProperty(input, 'value', {
+          configurable: true,
+          get() { return _fileInputValue.get.call(this); },
+          set(v) { _fileInputValue.set.call(this, v); paintFilePick(this); },
+        });
+        paintFilePick(input);
+      });
+    }
     (function watchTableControls() {
       let queued = false;
-      const run = () => { queued = false; try { nameTableControls(); } catch (_) {} };
+      const run = () => { queued = false; try { nameTableControls(); } catch (_) {} try { dressFileInputs(); } catch (_) {} };
       new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(run); } })
         .observe(document.body, { childList: true, subtree: true, characterData: true });
     })();

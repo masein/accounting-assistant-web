@@ -15,10 +15,10 @@ Severity:
 | 4 | P1 | Super-admin | `GET /admin/company-profile` → 500 (no company context: tries to insert a profile with `company_id NULL`). `get_logo` with no company could serve another tenant's logo | A1 | not an app bug: the QA seed made a super-admin with no company (the real seed gives it the default company) |
 | 5 | P3 | Companies console | One logo request per row → a 404 for every company without a logo | A1 | open |
 | 6 | P2 | Companies console | Region column shows raw `uk` / `ir`; no column for the kind (business / personal); the header "هوش مصنوعی · ۲۴ ساعت" reads as "240 hours" (the middle dot looks like the Persian zero) | A1 | open |
-| 7 | P3 | Sidebar | Section labels are 10.24 px, small for Persian script | all | open |
+| 7 | P3 | Sidebar | Section labels are 10.24 px, small for Persian script | all | fixed #270 |
 | 8 | P1 | Parties | A party code typed in Persian digits is stored as «۱۰۱» (not 0–9), so lookups and exports by code miss it. #246 didn't cover `entities.code` | B3 | fixed #263 |
 | 9 | P1 | Inventory | A barcode typed in Persian digits is stored as «۶۲۹۱…»; a scanner sends 0–9, so a scan never matches | B4 | fixed #263 |
-| 10 | P2 | Parties form | About 15 inputs in "billing details" have no accessible name (labels not tied to their inputs) | B3 | open |
+| 10 | P2 | Parties form | About 15 inputs in "billing details" have no accessible name (labels not tied to their inputs) | B3 | not reproduced: every billing input has its label (checked on main by labels and by text); my QA check misread it |
 | 11 | P1 | Parties page | **"Reset database" button** under the parties list (all roles see it; owner-only on the server). It deletes every transaction after one confirm, and sends no locale, so `/admin/reset-db` defaults to **`ir`**: a UK company reset from here would get the Iranian chart | B3 | fixed #259 |
 | 12 | P3 | Chart of accounts | 3–4 action buttons on every row (noisy); the opening-balance grid is cramped in a half-width panel, with names wrapping | B1 | open |
 | 13 | P2 | Voucher save | The confirmation is English ("Date: … Currency: … Debit entries: … Total:"), the date is Gregorian in a Jalali company, it shows codes without names, and its digits follow the browser locale (`toLocaleString`) | C1 | fixed #261 |
@@ -48,8 +48,8 @@ Severity:
 | 37 | P2 | Dashboard forecast | The week column cuts dates ("1405/07/0"); in en/ar they wrap | I | open |
 | 38 | P2 | Owner pack | Shown as a monospace text block with a Gregorian date "(2026-10-02)" in a Jalali company | I | fixed #267 |
 | 39 | P3 | Ledger (tablet) | The page scrolls sideways at 768 px | I | open |
-| 40 | P3 | Jalali date field | The hidden native input is exposed to screen readers (no name, not `aria-hidden`) | I | open |
-| 41 | P3 | Phone | Tap targets under 28 px: checkboxes, the chat's quick chips, the CFO check buttons, the invoice line "×", PDF, the password eye | I | open |
+| 40 | P3 | Jalali date field | The hidden native input is exposed to screen readers (no name, not `aria-hidden`) | I | fixed #270 |
+| 41 | P3 | Phone | Tap targets under 28 px: checkboxes, the chat's quick chips, the CFO check buttons, the invoice line "×", PDF, the password eye | I | fixed #270 |
 | 42 | P3 | Gregorian date fields | In es/ar the native date and month fields show the browser's "mm/dd/yyyy" | I | open |
 | 43 | P2 | AI chat | A CSV/XLSX bank statement attached in the chat goes to the AI (and fails with none set up). The no-AI statement path only runs for PDFs and images, which need AI to read anyway | E2 | fixed #268 |
 | 44 | P3? | Credit notes | Disabled on a fully paid invoice (a refund case). After a credit note an invoice reads "partially paid". **Design question for the user** | C7 | *question* |

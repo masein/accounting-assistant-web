@@ -237,22 +237,27 @@
           const tr = document.createElement('tr');
           tr.dataset.invoiceId = i.id;
           tr.innerHTML = `
-            <td>${escapeHtml(i.number)}</td>
+            <td class="nowrap"><bdi>${escapeHtml(i.number)}</bdi></td>
             <td>${escapeHtml(t(i.kind === 'purchase' ? 'optionPurchase' : 'optionSales'))}</td>
             <td>${escapeHtml(invoiceStatusLabel(i.status))}</td>
-            <td>${formatMoney(i.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>${taxLine}</td>
+            <td>${formatMoney(i.amount, ccy)}${String(ccy).toUpperCase() !== String(baseCurrencyCode() || '').toUpperCase() ? ` <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>` : ''}${taxLine}</td>
             <td>${formatMoney(paid, ccy)}${Number(i.overpaid || 0) > 0 ? '<div style="font-size:0.72rem;color:var(--text-muted);">+' + formatMoney(Number(i.overpaid), ccy) + ' ' + escapeHtml(t('invOverpaidCredit')) + '</div>' : ''}</td>
             <td><strong>${formatMoney(balance, ccy)}</strong></td>
             <td>${escapeHtml(formatDisplayDate(i.due_date))}</td>
-            <td>
+            <td class="row-actions">
+              <button type="button" class="btn btn-primary btn-sm inv-payment" data-id="${i.id}" ${settled ? 'disabled' : ''}>${escapeHtml(t('invAddPayment'))}</button>
               <button type="button" class="btn btn-secondary btn-sm inv-edit" data-id="${i.id}" data-status="${escapeHtml(i.status)}">${escapeHtml(t('btnEdit') || 'Edit')}</button>
-              <button type="button" class="btn btn-primary btn-sm inv-payment" data-id="${i.id}" style="margin-left:0.3rem;" ${settled ? 'disabled' : ''}>${escapeHtml(t('invAddPayment'))}</button>
-              <button type="button" class="btn btn-secondary btn-sm inv-credit-note" data-id="${i.id}" style="margin-left:0.3rem;" ${settled ? 'disabled' : ''}>${escapeHtml(t('invCreditNote'))}</button>
-              <a class="btn btn-secondary btn-sm" href="${escapeHtml(i.pdf_url || ('/invoices/' + i.id + '/pdf'))}" target="_blank" style="margin-left:0.3rem; text-decoration:none;">PDF</a>
-              <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}" style="margin-left:0.3rem;">${escapeHtml(t('invHistory'))}</button>
-              ${(i.kind === 'sales' && ['issued', 'partially_paid', 'paid'].includes(status)) ? `<button type="button" class="btn btn-secondary btn-sm inv-email" data-id="${i.id}" data-number="${escapeHtml(i.number)}" data-entity="${escapeHtml(i.entity_id || '')}" style="margin-left:0.3rem;">${escapeHtml(t('invEmail'))}</button>` : ''}
-              <button type="button" class="btn btn-danger btn-sm inv-void" data-id="${i.id}" data-number="${escapeHtml(i.number)}" style="margin-left:0.3rem;" ${(i.status === 'voided' || i.status === 'canceled') ? 'disabled' : ''}>${escapeHtml(t('invVoid'))}</button>
-              <button type="button" class="btn btn-danger btn-sm inv-del" data-id="${i.id}" style="margin-left:0.3rem;">${escapeHtml(t('btnDelete') || 'Delete')}</button>
+              <a class="btn btn-secondary btn-sm" href="${escapeHtml(i.pdf_url || ('/invoices/' + i.id + '/pdf'))}" target="_blank" style="text-decoration:none;">PDF</a>
+              <details class="row-menu">
+                <summary class="btn btn-secondary btn-sm" aria-label="${escapeHtml(t('moreActions'))}" title="${escapeHtml(t('moreActions'))}">⋯</summary>
+                <div class="row-menu-list">
+                  <button type="button" class="btn btn-secondary btn-sm inv-credit-note" data-id="${i.id}" ${settled ? 'disabled' : ''}>${escapeHtml(t('invCreditNote'))}</button>
+                  <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}">${escapeHtml(t('invHistory'))}</button>
+                  ${(i.kind === 'sales' && ['issued', 'partially_paid', 'paid'].includes(status)) ? `<button type="button" class="btn btn-secondary btn-sm inv-email" data-id="${i.id}" data-number="${escapeHtml(i.number)}" data-entity="${escapeHtml(i.entity_id || '')}">${escapeHtml(t('invEmail'))}</button>` : ''}
+                  <button type="button" class="btn btn-danger btn-sm inv-void" data-id="${i.id}" data-number="${escapeHtml(i.number)}" ${(i.status === 'voided' || i.status === 'canceled') ? 'disabled' : ''}>${escapeHtml(t('invVoid'))}</button>
+                  <button type="button" class="btn btn-danger btn-sm inv-del" data-id="${i.id}">${escapeHtml(t('btnDelete') || 'Delete')}</button>
+                </div>
+              </details>
             </td>
           `;
           invoicesTbody.appendChild(tr);

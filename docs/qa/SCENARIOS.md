@@ -83,7 +83,7 @@ terms: what they see, in their language and calendar.
 | C4 | Payments on it | Record a partial payment (typed «۲۰٬۰۰۰٬۰۰۰»), then the rest | Partially paid → paid, shown in Persian in the list (kind and status) [#261]; AR aging and the client's statement agree |
 | C5 | Purchase bill and payment | Bill from پخش البرز, pay it | AP up then down; the supplier's statement agrees |
 | C6 | Quote → invoice | Quote, mark sent and accepted, convert | The invoice carries the quote's lines; the quote shows "converted" |
-| C7 | Credit note and void | Credit note on C3; void another invoice | Postings reversed; statuses in Persian |
+| C7 | Credit note and void | Credit note on C3; void another invoice | Postings reversed; statuses in Persian; each invoice row keeps payment, edit and PDF on the row and the rest under «⋯» (one line, the number unbroken); the menu opens on screen even for the last row of a long list, follows the page as it scrolls, its actions work and Escape closes it [#277] |
 | C8 | Recurring invoice | Monthly, Jalali calendar, auto-issue | Next date is Jalali; run due → invoice issued once, not twice |
 | C9 | Cheques | Received cheque (Sayad ID) → deposit → clear; issued cheque → print preview; one bounces | Each step posts its entry; a bounced cheque is not settled; every refusal in Persian: a duplicate Sayad ID, depositing an issued cheque, returning one at the bank [#261]; cheque layout errors in Persian |
 | C10 | Instalments | Loan of 12 instalments | Schedule with Jalali dates; the reminder appears in the bell |

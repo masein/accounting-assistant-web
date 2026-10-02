@@ -27,7 +27,7 @@ Severity:
 | 16 | P2 | Invoices list | Type and status shown as raw `sales` / `issued` / `paid` | C3–C7 | fixed #261 |
 | 17 | P2 | Invoice form | Party dropdown shows "client: شرکت پارس‌افزار" | C6 | fixed #261 |
 | 18 | P3 | Invoice form | Totals use Persian digits ("IRR ۰") while the list uses 0–9; the tax-code select is cut off | C6 | open |
-| 19 | P3 | Invoices list | Number wraps ("ARM-" / "1002"); the amount cell shows both an `IRR` badge and "ریال"; up to 8 action buttons per row, on 3 lines | C6 | open |
+| 19 | P3 | Invoices list | Number wraps ("ARM-" / "1002"); the amount cell shows both an `IRR` badge and "ریال"; up to 8 action buttons per row, on 3 lines | C6 | fixed #277 |
 | 20 | P2 | Invoices page | An Iranian company sees the UK MTD/VAT sections (and presumably a UK company sees Moadian/TTMS) | C3 | fixed #266 |
 | 21 | P2 | Cheques | "A cheque with Sayad id … is already recorded." is English | C9 | fixed #261 |
 | 22 | P2 | Bank party | Creating a bank party auto-creates an account named "bank account — بانک ملت" (English in the stored name) and silently replaces the code the user typed (۳۰۱ → 1111) | C1, C11 | name fixed #262; the code: open |

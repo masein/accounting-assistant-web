@@ -890,6 +890,47 @@
     // drops them, so an amount typed on a Persian keyboard simply vanished. They
     // go in as 0–9 — typed, entered through an input method, or pasted (with
     // its thousands separators dropped and ٫ as the decimal point).
+    // a row's "⋯" menu: one open at a time; a click elsewhere, a choice in it, or Escape closes it
+    (function rowMenus() {
+      const closeAll = (except) => document.querySelectorAll('details.row-menu[open]').forEach(d => { if (d !== except) d.open = false; });
+      document.addEventListener('click', (e) => {
+        const menu = e.target.closest('details.row-menu');
+        if (menu && e.target.closest('.row-menu-list .btn')) { setTimeout(() => { menu.open = false; }, 0); return; }
+        closeAll(menu);
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const open = document.querySelector('details.row-menu[open]');
+        if (open) { open.open = false; open.querySelector('summary')?.focus(); }
+      });
+      // placed beside its button on the screen, not inside the table's scroll box
+      // (which cut the last row's menu off); above the button when there's no
+      // room below; it follows the button as the page scrolls
+      const place = (menu) => {
+        const list = menu.querySelector('.row-menu-list'), r = menu.querySelector('summary').getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) { menu.open = false; return; }
+        list.style.position = 'fixed';
+        list.style.insetInlineEnd = 'auto';
+        list.style.left = '0px';
+        list.style.top = '0px';
+        // a transformed ancestor (a card's animation) makes itself the frame of
+        // "fixed": measure where that frame starts and place from there
+        const origin = list.getBoundingClientRect();
+        const w = list.offsetWidth, h = list.offsetHeight, rtl = getComputedStyle(menu).direction === 'rtl';
+        const left = Math.max(8, Math.min(rtl ? r.left : r.right - w, window.innerWidth - w - 8));
+        const top = r.bottom + 4 + h > window.innerHeight ? Math.max(8, r.top - 4 - h) : r.bottom + 4;
+        list.style.left = (left - origin.left) + 'px';
+        list.style.top = (top - origin.top) + 'px';
+      };
+      document.addEventListener('toggle', (e) => {
+        const menu = e.target;
+        if (menu instanceof HTMLDetailsElement && menu.classList.contains('row-menu') && menu.open) place(menu);
+      }, true);
+      const follow = () => document.querySelectorAll('details.row-menu[open]').forEach(place);
+      window.addEventListener('scroll', follow, true);
+      window.addEventListener('resize', follow);
+    })();
+
     function asciiDigits(text) {
       return String(text)
         .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))

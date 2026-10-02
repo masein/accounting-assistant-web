@@ -2073,6 +2073,7 @@ window.I18N_PACKS.fa = Object.assign({
         payrollRulesFloor: 'حداقل درآمد مشمول بیمه (ماهانه)',
         bsDetailTitle: '{bank} — {file} ({n} ردیف)',
         bsDetailTitleNoBank: '{file} ({n} ردیف)',
+        moreActions: 'کارهای بیشتر',
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

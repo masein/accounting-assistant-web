@@ -2078,6 +2078,7 @@
         payrollRulesFloor: 'Insurance threshold (monthly)',
         bsDetailTitle: '{bank} — {file} ({n} rows)',
         bsDetailTitleNoBank: '{file} ({n} rows)',
+        moreActions: 'More actions',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

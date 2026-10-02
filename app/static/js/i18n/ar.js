@@ -2031,6 +2031,7 @@ window.I18N_PACKS.ar = Object.assign({
         payrollRulesFloor: 'حد الاشتراك التأميني (شهري)',
         bsDetailTitle: '{bank} — {file} ({n} صفوف)',
         bsDetailTitleNoBank: '{file} ({n} صفوف)',
+        moreActions: 'إجراءات أخرى',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

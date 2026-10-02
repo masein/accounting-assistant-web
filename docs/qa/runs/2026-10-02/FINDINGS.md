@@ -20,7 +20,7 @@ Severity:
 | 9 | P1 | Inventory | A barcode typed in Persian digits is stored as «۶۲۹۱…»; a scanner sends 0–9, so a scan never matches | B4 | fixed #263 |
 | 10 | P2 | Parties form | About 15 inputs in "billing details" have no accessible name (labels not tied to their inputs) | B3 | not reproduced: every billing input has its label (checked on main by labels and by text); my QA check misread it |
 | 11 | P1 | Parties page | **"Reset database" button** under the parties list (all roles see it; owner-only on the server). It deletes every transaction after one confirm, and sends no locale, so `/admin/reset-db` defaults to **`ir`**: a UK company reset from here would get the Iranian chart | B3 | fixed #259 |
-| 12 | P3 | Chart of accounts | 3–4 action buttons on every row (noisy); the opening-balance grid is cramped in a half-width panel, with names wrapping | B1 | open |
+| 12 | P3 | Chart of accounts | 3–4 action buttons on every row (noisy); the opening-balance grid is cramped in a half-width panel, with names wrapping | B1 | rows fixed #277 (add sub-account on the row, the rest under ⋯); the opening grid's width stays |
 | 13 | P2 | Voucher save | The confirmation is English ("Date: … Currency: … Debit entries: … Total:"), the date is Gregorian in a Jalali company, it shows codes without names, and its digits follow the browser locale (`toLocaleString`) | C1 | fixed #261 |
 | 14 | P1 | Invoices | Due date from a client's terms is a day early in Tehran (fixed by #258) | C3 | fixed #258 |
 | 15 | P1? | VAT rates | The Iranian standard VAT in the rate table is 9%; it was raised to 10% from 1 Farvardin 1403 (budget law). **Needs the user's confirmation** | C3 | *question* |
@@ -33,7 +33,7 @@ Severity:
 | 22 | P2 | Bank party | Creating a bank party auto-creates an account named "bank account — بانک ملت" (English in the stored name) and silently replaces the code the user typed (۳۰۱ → 1111) | C1, C11 | name fixed #262; the code: open |
 | 23 | P2 | Recurring rules | The bank list only offers bank-party accounts. A bank account made in the chart (111001) can't be chosen | C11 | fixed #269 |
 | 24 | P2 | Ledger summary | "IRR 0 بد": "بد" means "bad"; it should read بدهکار | C1 | fixed #261 |
-| 25 | P3 | Ledger summary | 1110 takes postings and also has a sub-account, so it shows twice; the charts' axes show bare codes without names | C1 | open |
+| 25 | P3 | Ledger summary | 1110 takes postings and also has a sub-account, so it shows twice; the charts' axes show bare codes without names | C1 | axis names fixed #277; 1110 beside its sub-account is right (it has postings of its own) |
 | 26 | P2 | Bank statements | The list's status column shows raw `parsed` | C12 | fixed #261 |
 | 27 | P3 | Bank statements | After an upload the rows aren't opened; the user has to find "View" | C12 | fixed #274 |
 | 28 | P3 | Budgets | The category is a typed code; the table shows only the code (6112), not the account name | C21 | fixed #274 |

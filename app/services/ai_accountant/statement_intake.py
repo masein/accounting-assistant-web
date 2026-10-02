@@ -62,6 +62,9 @@ def _fmt(n: int | None) -> str:
 _T: dict[str, dict[str, str]] = {
     "read": {"en": "I read your {bank} statement: {rows} rows", "fa": "صورتحساب {bank} را خواندم: {rows} ردیف",
              "es": "Leí tu extracto de {bank}: {rows} filas", "ar": "قرأت كشف حساب {bank}: {rows} سطراً"},
+    # no bank in the file's name, the message or its header ("I read your Unknown statement")
+    "read_unnamed": {"en": "I read your statement: {rows} rows", "fa": "صورتحساب را خواندم: {rows} ردیف",
+                     "es": "Leí tu extracto: {rows} filas", "ar": "قرأت كشف الحساب: {rows} سطراً"},
     "span": {"en": " ({start} to {end})", "fa": " ({start} تا {end})", "es": " (del {start} al {end})", "ar": " (من {start} إلى {end})"},
     "checked": {"en": " and checked them against the books.", "fa": " و با دفاتر مقایسه کردم.",
                 "es": " y las comparé con los libros.", "ar": " وقارنتها بالدفاتر."},
@@ -121,7 +124,18 @@ def _say(lang: str, key: str, **kw) -> str:
     return _T[key][lang if lang in _LANGS else "en"].format(**kw)
 
 
-def _reply(lang: str, intake: dict[str, Any]) -> str:
+def _jalali_day(iso: str) -> str:
+    from datetime import date
+
+    from app.utils.jalali import format_jalali
+    try:
+        return format_jalali(date.fromisoformat(str(iso)[:10]))
+    except ValueError:
+        return str(iso)
+
+
+def _reply(lang: str, intake: dict[str, Any], *, jalali: bool = False) -> str:
+    """The summary; ``jalali``: the company shows the Jalali calendar."""
     lang = lang if lang in _LANGS else "en"
     c = intake.get("counts") or {}
     bank = intake.get("bank_name") or ""
@@ -132,9 +146,10 @@ def _reply(lang: str, intake: dict[str, Any]) -> str:
     )
     bal = intake.get("balance") or {}
     gap = bal.get("gap")
-    first = _say(lang, "read", bank=bank, rows=rows)
+    first = _say(lang, "read", bank=bank, rows=rows) if bank and bank != "Unknown" else _say(lang, "read_unnamed", rows=rows)
     if intake.get("from_date") and intake.get("to_date"):
-        first += _say(lang, "span", start=intake["from_date"], end=intake["to_date"])
+        day = (lambda d: _jalali_day(d)) if jalali else (lambda d: d)
+        first += _say(lang, "span", start=day(intake["from_date"]), end=day(intake["to_date"]))
     parts = [first + _say(lang, "checked")]
     bits = []
     if c.get("matched"):
@@ -161,6 +176,16 @@ def _duplicate_reply(lang: str, errors: list[str]) -> str:
     return _say(lang, "duplicate_file", note=errors[0] if errors else "")
 
 
+def _sheet_text(att: TransactionAttachment, path: Path, max_rows: int = 60) -> str:
+    """A spreadsheet's first rows as text, for the statement detector."""
+    from app.services.ai_accountant.file_intake import _raw_rows
+    try:
+        rows = _raw_rows(att.file_name or path.name, path.read_bytes())
+    except Exception:  # noqa: BLE001 — unreadable: not a statement we can take
+        return ""
+    return "\n".join(" | ".join("" if c is None else str(c) for c in row) for row in rows[:max_rows])
+
+
 async def maybe_statement_intake(
     db: Session,
     *,
@@ -177,14 +202,18 @@ async def maybe_statement_intake(
         guess_bank_name,
         import_statement_bytes,
         looks_like_bank_statement,
+        statement_text_score,
     )
 
     if not role_can(user_role, Perm.BOOKS_WRITE):
         return None
 
+    from app.api.transactions import SPREADSHEET_ATTACHMENT_TYPES
+
     for att in attachments:
         ctype = (att.content_type or "").lower()
-        if ctype not in ("application/pdf", "image/jpeg", "image/png", "image/webp"):
+        sheet = ctype in SPREADSHEET_ATTACHMENT_TYPES
+        if not sheet and ctype not in ("application/pdf", "image/jpeg", "image/png", "image/webp"):
             continue
         path = Path(att.file_path)
         if not path.exists():
@@ -200,8 +229,20 @@ async def maybe_statement_intake(
                     "kind": "bank_statement", "status": "needs_password", "file_name": att.file_name,
                     "bank_name": guess_bank_name(att.file_name or "", message or ""),
                 })
-        text = _extract_pdf_text(path) if ctype == "application/pdf" else ""
-        if not looks_like_bank_statement(filename=att.file_name or "", message=message or "", text=text):
+        # A CSV or Excel statement is read as it is — no AI needed (it went to
+        # the model, and failed with none set up: deep browser test, 2026-10-02).
+        text = _extract_pdf_text(path) if ctype == "application/pdf" else (_sheet_text(att, path) if sheet else "")
+        if sheet:
+            # A sheet's amounts are bare numbers (no thousands separators), so
+            # its test is its header words and dated rows — and a running
+            # balance, which a journal export (debit/credit too) doesn't have.
+            dates, headers = statement_text_score(text)
+            has_balance = any(w in text.lower() for w in ("balance", "مانده", "saldo", "الرصيد"))
+            found = (looks_like_bank_statement(filename=att.file_name or "", message=message or "")
+                     or (dates >= 3 and headers >= 2 and has_balance))
+        else:
+            found = looks_like_bank_statement(filename=att.file_name or "", message=message or "", text=text)
+        if not found:
             continue
 
         bank_name = guess_bank_name(att.file_name or "", message or "", document_text=text)
@@ -258,7 +299,8 @@ async def maybe_statement_intake(
             "clean": review.clean,
             "findings_preview": (rv.get("findings") or [])[:3],
         }
-        return StatementTurn(text=_reply(lang, intake), intake=intake)
+        from app.services.locale_service import get_display_calendar
+        return StatementTurn(text=_reply(lang, intake, jalali=get_display_calendar(db) == "jalali"), intake=intake)
     return None
 
 

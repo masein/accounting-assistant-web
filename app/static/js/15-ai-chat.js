@@ -638,7 +638,9 @@
       // ─── Bank statement card: imported + checked against the books ───
       function appendStatementCard(card, intake, fmt) {
         const c = intake.counts || {};
-        let html = '<div style="font-weight:600;margin-bottom:0.3rem;">' + escapeHtml(t('chatStmtTitle')) + ' — ' + escapeHtml(intake.bank_name || '') + '</div>';
+        // no bank found in the file or the message: no "— Unknown" after the title
+        const bank = intake.bank_name && intake.bank_name !== 'Unknown' ? ' — ' + intake.bank_name : '';
+        let html = '<div style="font-weight:600;margin-bottom:0.3rem;">' + escapeHtml(t('chatStmtTitle') + bank) + '</div>';
         if (intake.status === 'duplicate') {
           html += '<div>' + escapeHtml(t('chatStmtDuplicateFile')) + '</div>';
         } else if (intake.status === 'needs_password') {

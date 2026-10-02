@@ -38,7 +38,7 @@ Severity:
 | 27 | P3 | Bank statements | After an upload the rows aren't opened; the user has to find "View" | C12 | open |
 | 28 | P3 | Budgets | The category is a typed code; the table shows only the code (6112), not the account name | C21 | open |
 | 29 | P2 | Reports | General ledger and trial balance previews: "Debit Turnover / Credit Turnover / Debit Balance / Credit Balance" in English | D2 | fixed #261 |
-| 30 | P2 | Trial balance | Asked with only `to_date` (everything up to a date), it returns **0 rows** | D2 | open |
+| 30 | P2 | Trial balance | Asked with only `to_date` (everything up to a date), it returns **0 rows** | D2 | fixed #265 |
 | 31 | P2 | Dates in messages | The lock status ("قفل تا 2026-09-22") and the server's refusal ("دوره تا 2026-09-22 بسته است…") show Gregorian dates in a Jalali company | D6 | open |
 | 32 | P2? | AI chat | A CSV statement attached in the chat fails with "AI unavailable"; parsing a CSV doesn't need AI (to check: is the deterministic intake bypassed?) | E2 | open |
 | 33 | P1 | (confirms #11) | A UK owner's "Reset database" on the parties page gave the company the **Iranian chart** (36 Persian-named accounts) | G0 | fixed #259 |

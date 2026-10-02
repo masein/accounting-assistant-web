@@ -33,6 +33,8 @@
       if (Array.isArray(v)) return escapeHtml(v.map(String).join(', '));
       if (typeof v === 'object') return escapeHtml(Object.entries(v).map(([k2, v2]) => `${k2}: ${v2}`).join(', '));
       const s = String(v);
+      // a date in the user's calendar: the general journal printed 2026-09-30 in a Jalali company
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return escapeHtml(formatDisplayDate(s));
       if ((key || '').toLowerCase().includes('id')) return escapeHtml(shortenUuid(s));
       return escapeHtml(localizeDynamicText(s));
     }
@@ -45,8 +47,8 @@
       // "30-09-2026", and the range would run backwards.
       const ltr = (x) => `\u2066${x}\u2069`;
       if (from && to) return formatDateRange(from, to);
-      if (to) return `${t('asOfDate')} ${ltr(to)}`;
-      if (from) return `${t('labelFrom')} ${ltr(from)}`;
+      if (to) return `${t('asOfDate')} ${ltr(formatDisplayDate(to))}`;
+      if (from) return `${t('labelFrom')} ${ltr(formatDisplayDate(from))}`;
       return '';
     }
 

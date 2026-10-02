@@ -2027,6 +2027,7 @@ window.I18N_PACKS.es = Object.assign({
         typeToConfirm: "Para confirmar, escribe el nombre de la empresa: «{name}»",
         typeToConfirmMismatch: "El nombre no coincide; no se ha borrado nada.",
         resetDoneChart: "Base de datos restablecida. Plan: {n} cuentas. Recargando…",
+        mgrNoCurrencyWarning: 'No has elegido moneda. Las cifras de abajo suman {list} como números sin más, lo que no tiene sentido. Elige una moneda:',
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

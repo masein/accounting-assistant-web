@@ -2069,6 +2069,7 @@ window.I18N_PACKS.fa = Object.assign({
         typeToConfirm: "برای تأیید، نام شرکت را بنویسید: «{name}»",
         typeToConfirmMismatch: "نام مطابقت نداشت؛ چیزی پاک نشد.",
         resetDoneChart: "پایگاه داده بازنشانی شد. سرفصل: {n} حساب. در حال بارگذاری دوباره…",
+        mgrNoCurrencyWarning: 'ارزی انتخاب نشده است. اعداد زیر {list} را بدون تبدیل با هم جمع کرده‌اند و معنایی ندارند. یک ارز انتخاب کنید:',
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

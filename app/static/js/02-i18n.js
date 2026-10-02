@@ -2074,6 +2074,7 @@
         typeToConfirm: "To confirm, type the company's name: «{name}»",
         typeToConfirmMismatch: "The name didn't match — nothing was deleted.",
         resetDoneChart: "Database reset. Chart: {n} accounts. Reloading…",
+        mgrNoCurrencyWarning: 'No currency filter selected. The numbers below add up {list} as plain numbers, which means nothing. Pick a currency:',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

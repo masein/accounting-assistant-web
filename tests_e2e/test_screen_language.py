@@ -68,6 +68,23 @@ def test_invoices_parties_and_the_voucher_check_read_in_persian(browser, flow_pa
             page.screenshot(path=os.path.join(ARTIFACTS, "voucher-confirm-fa.png"))
         finally:
             page.click("#ui-confirm-cancel")
+
+        # the general journal's dates are in the calendar too (it printed 2026-09-30)
+        status, body = page.evaluate(POST, ["/transactions", {"date": today.isoformat(), "description": "آزمون دفتر روزنامه",
+                                                              "lines": [{"account_code": dr_code, "debit": 700, "credit": 0},
+                                                                        {"account_code": cr_code, "debit": 0, "credit": 700}]}])
+        assert status in (200, 201), body
+        page.click('.nav-btn[data-page="manager"]')
+        page.select_option("#mgr-report-type", "general_journal")
+        page.evaluate("""([a, b]) => { for (const [id, v] of [['mgr-from-date', a], ['mgr-to-date', b]]) {
+            const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); } }""",
+                      [(today - timedelta(days=7)).isoformat(), today.isoformat()])
+        with page.expect_response(lambda r: "/general-journal" in r.url):
+            page.click("#mgr-run-btn")
+        wait_until(page, "() => document.querySelector('#mgr-report-preview table')")
+        journal = page.inner_text("#mgr-report-preview")
+        assert "آزمون دفتر روزنامه" in journal and shown_date.strip("\u2066\u2069") in journal, journal[:400]
+        assert not re.search(r"\b20\d\d-\d\d-\d\d\b", journal), journal[:400]
         assert watch.problems() == [], watch.problems()
     finally:
         if page is not None:

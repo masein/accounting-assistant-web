@@ -53,3 +53,5 @@ Severity:
 | 42 | P3 | Gregorian date fields | In es/ar the native date and month fields show the browser's "mm/dd/yyyy" | I | open |
 | 43 | P2 | AI chat | A CSV/XLSX bank statement attached in the chat goes to the AI (and fails with none set up). The no-AI statement path only runs for PDFs and images, which need AI to read anyway | E2 | open |
 | 44 | P3? | Credit notes | Disabled on a fully paid invoice (a refund case). After a credit note an invoice reads "partially paid". **Design question for the user** | C7 | *question* |
+| 45 | P2 | Report previews | The general journal (and every table preview) printed its dates as 2026-09-30 in a Jalali company; a report with only an end date showed it raw too | journal, while fixing #35 | fixed #261 |
+| 46 | P3 | Manager reports | The "No currency filter selected… Pick a currency" banner was English (multi-line template text the static scan doesn't see) | code reading | fixed #261 |

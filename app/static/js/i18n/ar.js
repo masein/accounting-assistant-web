@@ -2027,6 +2027,7 @@ window.I18N_PACKS.ar = Object.assign({
         typeToConfirm: "للتأكيد، اكتب اسم الشركة: «{name}»",
         typeToConfirmMismatch: "لم يتطابق الاسم — لم يُحذف شيء.",
         resetDoneChart: "أُعيد تعيين قاعدة البيانات. الدليل: {n} حساب. جارٍ إعادة التحميل…",
+        mgrNoCurrencyWarning: 'لم تُختر عملة. الأرقام أدناه تجمع {list} كأرقام مجردة، وهذا بلا معنى. اختر عملة:',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

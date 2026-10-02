@@ -12,6 +12,94 @@
       el.innerHTML = `<table class="mini-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
     }
 
+    // Dashboard tabs (deep browser test, 2026-10-02, #36: twelve sections ran
+    // to 4,400 px). The KPIs, smart alerts and what changed stay on top; one
+    // section opens under them. A section's own fetches (the budgets, the
+    // missing references, the forecast details) run when its tab is open, or
+    // the next time it opens after a change.
+    const DASH_TABS = ['cash', 'arap', 'spend', 'books'];
+    const DASH_TAB_KEY = 'aa_dashboard_tab';
+    const dashTabLoaders = {
+      cash: () => { const ex = document.getElementById('forecast-explorer'); if (ex && ex.open) loadForecastExplorer(); },
+      spend: () => loadBudgets(),
+      books: () => loadMissingReferences(),
+    };
+    const dashTabStale = new Set(Object.keys(dashTabLoaders));
+    function dashTabCurrent() {
+      const on = document.querySelector('#dash-tabs [role="tab"][aria-selected="true"]');
+      return on ? on.dataset.tab : 'cash';
+    }
+    function dashTabRefresh(tab) {
+      if (!dashTabLoaders[tab]) return;
+      if (onPage('dashboard') && dashTabCurrent() === tab) { dashTabStale.delete(tab); dashTabLoaders[tab](); }
+      else dashTabStale.add(tab);
+    }
+    // a phone's bar scrolls sideways to the chosen tab — never the page up or down
+    function dashTabReveal(b) {
+      const bar = b.parentElement;
+      const br = bar.getBoundingClientRect(), tr = b.getBoundingClientRect();
+      if (!br.width) return;
+      if (tr.left < br.left) bar.scrollLeft -= br.left - tr.left + 16;
+      else if (tr.right > br.right) bar.scrollLeft += tr.right - br.right + 16;
+    }
+    function selectDashTab(tab, { focus = false, remember = true, load = true } = {}) {
+      if (!DASH_TABS.includes(tab)) tab = 'cash';
+      document.querySelectorAll('#dash-tabs [role="tab"]').forEach((b) => {
+        const on = b.dataset.tab === tab;
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+        if (on && focus) b.focus();
+        if (on) dashTabReveal(b);
+      });
+      DASH_TABS.forEach((k) => {
+        const panel = document.getElementById('dash-panel-' + k);
+        if (panel) panel.hidden = k !== tab;
+      });
+      if (remember) { try { localStorage.setItem(DASH_TAB_KEY, tab); } catch (_) { /* storage blocked */ } }
+      if (load && dashTabStale.has(tab) && onPage('dashboard')) { dashTabStale.delete(tab); dashTabLoaders[tab](); }
+    }
+    function initDashTabs() {
+      const bar = document.getElementById('dash-tabs');
+      if (!bar || bar.dataset.bound) return;
+      bar.dataset.bound = '1';
+      bar.addEventListener('click', (e) => {
+        const b = e.target.closest('[role="tab"]');
+        if (b) selectDashTab(b.dataset.tab);
+      });
+      // ←/→ move along the bar (mirrored in RTL), Home/End to the ends
+      bar.addEventListener('keydown', (e) => {
+        const tabs = [...bar.querySelectorAll('[role="tab"]')];
+        const i = tabs.indexOf(document.activeElement);
+        if (i < 0) return;
+        const rtl = getComputedStyle(bar).direction === 'rtl';
+        const step = { ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1 }[e.key];
+        let j = null;
+        if (step) j = (i + step + tabs.length) % tabs.length;
+        else if (e.key === 'Home') j = 0;
+        else if (e.key === 'End') j = tabs.length - 1;
+        if (j === null) return;
+        e.preventDefault();
+        selectDashTab(tabs[j].dataset.tab, { focus: true });
+      });
+      // which ends have tabs past them (scrollLeft runs negative in RTL)
+      const edges = () => {
+        const max = bar.scrollWidth - bar.clientWidth;
+        const pos = Math.abs(bar.scrollLeft);
+        bar.classList.toggle('more-before', max > 1 && pos > 1);
+        bar.classList.toggle('more-after', max > 1 && max - pos > 1);
+      };
+      bar.addEventListener('scroll', edges, { passive: true });
+      if (typeof ResizeObserver === 'function') {
+        const ro = new ResizeObserver(edges);           // the bar, and each label as the language changes
+        ro.observe(bar);
+        bar.querySelectorAll('[role="tab"]').forEach((b) => ro.observe(b));
+      }
+      let saved = null;
+      try { saved = localStorage.getItem(DASH_TAB_KEY); } catch (_) { /* storage blocked */ }
+      selectDashTab(saved || 'cash', { remember: false, load: false });
+      edges();
+    }
+
     async function loadOwnerDashboard(pickedCurrency) {
       if (!onPage('dashboard')) return;   // reloads when it opens (loadPageData)
       try {
@@ -69,7 +157,7 @@
           explorer.dataset.bound = '1';
           explorer.addEventListener('toggle', () => { if (explorer.open) loadForecastExplorer(); });
         }
-        if (explorer && explorer.open) loadForecastExplorer();
+        dashTabRefresh('cash');
 
         loadInsightsPanel('insights-wrap');
         const alertsWrap = document.getElementById('alerts-wrap');
@@ -148,7 +236,7 @@
           `<ul>${facts.map(([k, v]) => `<li><span>${escapeHtml(k)}</span> <strong>${escapeHtml(v)}</strong></li>`).join('')}</ul>` +
           `<div class="owner-pack-actions">${escapeHtml(t('ownerPriorityActions'))}</div>` +
           `<ol>${['ownerAction1', 'ownerAction2', 'ownerAction3'].map((k) => `<li>${escapeHtml(t(k))}</li>`).join('')}</ol>`;
-        loadMissingReferences();
+        dashTabRefresh('books');
       } catch (err) {
         document.getElementById('kpi-grid').innerHTML = '<p class="empty-state">' + escapeHtml(t('errorLoadingOwnerDashboard')) + '</p>';
         document.getElementById('missing-refs-wrap').innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('errorLoadingMissingReferences')) + '</p>';

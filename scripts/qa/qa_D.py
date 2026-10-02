@@ -115,6 +115,19 @@ def d3_d4_dashboards(browser):
         c3.ok(s == 200, f"owner dashboard → {s}")
         txt = page.inner_text('.card[data-page="dashboard"]')
         c3.ok("NaN" not in txt and "undefined" not in txt, "no broken numbers")
+        # one section at a time under the top (#36): each tab, its own look
+        tabs = page.evaluate("() => [...document.querySelectorAll('#dash-tabs [role=tab]')].map(b => b.dataset.tab)")
+        c3.ok(tabs == ["cash", "arap", "spend", "books"], f"dashboard tabs {tabs}")
+        for tab in tabs:
+            page.click(f"#dash-tab-{tab}")
+            page.wait_for_load_state("networkidle"); page.wait_for_timeout(400)
+            c3.shots.append(shot(page, "D3", f"dashboard-{tab}"))
+            ux(page, "D3", f"dashboard / {tab}", lang="fa", shot_name=f"D3-dashboard-{tab}.png")
+            t3 = page.inner_text(f"#dash-panel-{tab}")
+            c3.ok("NaN" not in t3 and "undefined" not in t3, f"{tab}: no broken numbers")
+        h = page.evaluate("() => document.querySelector('.card[data-page=\"dashboard\"]').getBoundingClientRect().height")
+        c3.ok(h < 3000, f"dashboard height {round(h)} px (was about 4,400)")
+        page.click("#dash-tab-cash")
         for name in ("ceo", "cfo"):
             go(page, name)
             page.wait_for_timeout(1500)
@@ -213,6 +226,8 @@ def d8_forecast(browser):
         page.wait_for_timeout(800)
         if not page.locator("#forecast-wrap").is_visible():
             go(page, "dashboard"); page.wait_for_timeout(800)
+            if page.locator("#dash-tab-cash").count():
+                page.click("#dash-tab-cash")                 # the forecast is under Cash (#36)
         vis = page.locator("#forecast-summary").is_visible()
         c.ok(vis, "cash forecast shown")
         if vis:

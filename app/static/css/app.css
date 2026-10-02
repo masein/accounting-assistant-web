@@ -494,6 +494,22 @@
     .panel h3 { margin: 0 0 0.5rem 0; font-size: 0.95rem; color: var(--text-muted); }
     /* 13-week cash forecast: summary line, week details, what-if (roadmap §5.3) */
     .panel-wide { grid-column: 1 / -1; }
+    /* Dashboard tabs (deep browser test, 2026-10-02, #36): the top stays, one
+       section opens under it. The bar scrolls sideways on a phone, not the page. */
+    .dash-top { margin-bottom: 1rem; }
+    .dash-tabs { display: flex; gap: 0.25rem; margin: 0 0 1rem; border-bottom: 1px solid var(--border); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+    .dash-tab { flex: 0 0 auto; min-height: 44px; padding: 0.5rem 0.95rem; margin-bottom: -1px; background: none; border: 0; border-bottom: 3px solid transparent; border-radius: 8px 8px 0 0; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; cursor: pointer; }
+    .dash-tab:hover { color: var(--text); background: #eef4f7; }
+    .dash-tab[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); }
+    .dash-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
+    .dash-tabpanel:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 12px; }
+    /* a fade on the side with more tabs past it (a phone showed three of four, no hint) */
+    .dash-tabs.more-after { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); }
+    .dash-tabs.more-before { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent); }
+    .dash-tabs.more-before.more-after { -webkit-mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent); }
+    html[dir="rtl"] .dash-tabs.more-after { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent); }
+    html[dir="rtl"] .dash-tabs.more-before:not(.more-after) { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); }
+    @media (max-width: 600px) { .dash-tabs { gap: 0; } .dash-tab { padding: 0.5rem 0.7rem; font-size: 0.875rem; } }
     .forecast-summary { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--text-muted); }
     .forecast-summary.forecast-risk, .fc-risk-text { color: var(--danger); font-weight: 600; }
     #forecast-explorer > summary { cursor: pointer; font-weight: 600; font-size: 0.95rem; color: var(--text-muted); }

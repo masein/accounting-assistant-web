@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.09.29.14"
+CURRENT_RELEASE = "2026.10.02"
 
 
 @dataclass(frozen=True)
@@ -1451,6 +1451,99 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "اگر بانک صورت‌حساب PDF را قفل می‌کند (اغلب با کد ملی)، بارگذاری آن اکنون رمز را می‌پرسد و بازش می‌کند. برای صورت‌حساب‌هایی که با ایمیل می‌رسند، رمز PDF را یک بار در «صورت‌حساب از راه ایمیل» ذخیره کنید؛ رمزنگاری‌شده نگه داشته می‌شود و صورت‌حساب‌هایی که منتظرش بودند دوباره خوانده می‌شوند.",
                     "es": "Si tu banco bloquea sus extractos en PDF (a menudo con tu número de identificación), al subir uno ahora se pide la contraseña y se abre. Para los extractos que llegan por correo, guarda la contraseña de los PDF una vez en Extractos por correo; se guarda cifrada y los extractos que la esperaban se vuelven a leer.",
                     "ar": "إذا كان بنكك يقفل كشوفه بصيغة PDF (غالبًا برقم هويتك الوطنية)، فإن تحميل أحدها يطلب الآن كلمة المرور ويفتحه. وللكشوف التي تصل بالبريد، احفظ كلمة مرور ملفات PDF مرة واحدة في كشوف الحساب عبر البريد؛ تُحفظ مشفّرة وتُقرأ من جديد الكشوف التي كانت تنتظرها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.02",
+        date="2026-10-02",
+        highlights=(
+            Highlight(
+                key="dashboard-tabs",
+                page="dashboard",
+                roles=("owner", "cfo", "accountant", "viewer"),
+                title={
+                    "en": "The dashboard, one section at a time",
+                    "fa": "داشبورد، هر بار یک بخش",
+                    "es": "El panel, una sección a la vez",
+                    "ar": "لوحة التحكم، قسمًا تلو الآخر",
+                },
+                body={
+                    "en": "Your key figures, smart alerts and what changed stay at the top. Under them, pick a tab — Cash, Receivables & payables, Spending & profit or Books — instead of scrolling through every section. The dashboard remembers the tab you were on.",
+                    "fa": "شاخص‌های کلیدی، هشدارهای هوشمند و «چه چیزی تغییر کرده» همیشه بالای صفحه می‌مانند. زیر آن‌ها به جای پیمایش همهٔ بخش‌ها یکی از زبانه‌ها را باز کنید — نقدینگی، مطالبات و بدهی‌ها، هزینه و سود یا دفاتر. داشبورد زبانه‌ای را که باز کرده بودید به خاطر می‌سپارد.",
+                    "es": "Tus cifras clave, las alertas inteligentes y lo que ha cambiado siguen arriba. Debajo, elige una pestaña —Caja, Cobros y pagos, Gastos y rentabilidad o Contabilidad— en lugar de recorrer todas las secciones. El panel recuerda la pestaña en la que estabas.",
+                    "ar": "تبقى أرقامك الرئيسية والتنبيهات الذكية وما الذي تغيّر في الأعلى. وتحتها اختر تبويبًا — النقدية، المدينون والدائنون، المصروفات والربحية أو الدفاتر — بدلًا من التمرير عبر كل الأقسام. وتتذكّر لوحة التحكم التبويب الذي كنت فيه.",
+                },
+            ),
+            Highlight(
+                key="credit-notes-paid",
+                page="invoices",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Credit notes on paid invoices, refunds and customer credit",
+                    "fa": "برگ بستانکار برای فاکتور پرداخت‌شده، بازپرداخت و اعتبار مشتری",
+                    "es": "Notas de crédito en facturas pagadas, reembolsos y saldo a favor",
+                    "ar": "إشعارات دائنة على الفواتير المدفوعة، واسترداد ورصيد للعميل",
+                },
+                body={
+                    "en": "A credit note can now go against a paid invoice too. It takes its share of the VAT back, settles what is still owed first, and the rest becomes the customer's credit: refund it now or later, or use it on their next invoice. A fully credited invoice reads \"Credited\". Supplier bills work the same way.",
+                    "fa": "اکنون برای فاکتور پرداخت‌شده هم می‌توان برگ بستانکار صادر کرد. سهم مالیات بر ارزش افزوده‌اش برمی‌گردد، اول ماندهٔ فاکتور تسویه می‌شود و باقی آن اعتبار مشتری می‌شود: همین حالا یا بعداً بازپرداختش کنید، یا در فاکتور بعدی همان مشتری به کار ببرید. فاکتوری که کامل برگشت خورده «برگشت‌شده» نمایش داده می‌شود. صورتحساب‌های تأمین‌کننده هم همین‌طورند.",
+                    "es": "Ahora también puedes emitir una nota de crédito sobre una factura pagada. Devuelve su parte del IVA, liquida primero lo que aún se debe y el resto queda como saldo a favor del cliente: reembólsalo ahora o más tarde, o úsalo en su próxima factura. Una factura abonada por completo aparece como «Abonada». Las facturas de proveedores funcionan igual.",
+                    "ar": "يمكن الآن إصدار إشعار دائن على فاتورة مدفوعة أيضًا. يُعيد حصته من ضريبة القيمة المضافة، ويسوّي أولًا ما بقي مستحقًا، ويصبح الباقي رصيدًا للعميل: استرده الآن أو لاحقًا، أو استخدمه في فاتورته التالية. وتظهر الفاتورة المُرتجعة بالكامل بحالة «مُرتجعة». وتعمل فواتير الموردين بالطريقة نفسها.",
+                },
+            ),
+            Highlight(
+                key="ir-vat-10",
+                page="invoices",
+                roles=_SME_BOOKS,
+                locales=("ir",),
+                title={
+                    "en": "Iran's VAT at 10%",
+                    "fa": "مالیات بر ارزش افزودهٔ ۱۰٪",
+                    "es": "IVA de Irán al 10 %",
+                    "ar": "ضريبة القيمة المضافة في إيران 10%",
+                },
+                body={
+                    "en": "Invoices dated from 1 Farvardin 1403 use the 10% standard VAT rate; earlier invoices keep 9%. A rate you set yourself is left as it is.",
+                    "fa": "فاکتورهای از ۱ فروردین ۱۴۰۳ به بعد با نرخ استاندارد ۱۰٪ حساب می‌شوند و فاکتورهای پیش از آن ۹٪ می‌مانند. نرخی که خودتان تعیین کرده‌اید دست نمی‌خورد.",
+                    "es": "Las facturas con fecha desde el 1 de farvardín de 1403 usan el tipo general del 10 %; las anteriores mantienen el 9 %. Un tipo que hayas definido tú se queda como está.",
+                    "ar": "تستخدم الفواتير المؤرخة من 1 فروردين 1403 النسبة القياسية 10%، وتبقى الفواتير السابقة على 9%. أما النسبة التي حددتها بنفسك فتبقى كما هي.",
+                },
+            ),
+            Highlight(
+                key="books-in-persian",
+                page="ledger",
+                roles=_SME_BOOKS,
+                locales=("ir",),
+                title={
+                    "en": "Your books in Persian",
+                    "fa": "دفاتر به فارسی",
+                    "es": "Tus libros en persa",
+                    "ar": "دفاترك بالفارسية",
+                },
+                body={
+                    "en": "The descriptions the app writes in your books — invoices, payments, credit notes, payroll, depreciation and more — are now in Persian with Jalali dates, whatever language you use on screen. Entries already posted aren't rewritten.",
+                    "fa": "شرح‌هایی که برنامه در دفاتر می‌نویسد — فاکتور، دریافت و پرداخت، برگ بستانکار، حقوق، استهلاک و غیره — اکنون به فارسی و با تاریخ شمسی است، به هر زبانی که صفحه را ببینید. سندهایی که پیش‌تر ثبت شده‌اند بازنویسی نمی‌شوند.",
+                    "es": "Las descripciones que la aplicación escribe en tus libros —facturas, pagos, notas de crédito, nóminas, amortizaciones y más— ahora van en persa con fechas jalalíes, sea cual sea el idioma de la pantalla. Los asientos ya registrados no se reescriben.",
+                    "ar": "الأوصاف التي يكتبها التطبيق في دفاترك — الفواتير والمدفوعات والإشعارات الدائنة والرواتب والاستهلاك وغيرها — صارت بالفارسية وبالتاريخ الهجري الشمسي، أيًّا كانت لغة الشاشة. ولا تُعاد كتابة القيود المسجّلة من قبل.",
+                },
+            ),
+            Highlight(
+                key="row-menus",
+                page="invoices",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Tidier invoice rows",
+                    "fa": "ردیف‌های مرتب‌تر فاکتور",
+                    "es": "Filas de factura más ordenadas",
+                    "ar": "صفوف فواتير أكثر ترتيبًا",
+                },
+                body={
+                    "en": "Each invoice row keeps its everyday actions in view, and the rest are under ⋯. The chart of accounts works the same way.",
+                    "fa": "هر ردیف فاکتور کارهای روزمره‌اش را در دسترس نگه می‌دارد و بقیه زیر ⋯ است. جدول حساب‌ها هم همین‌طور است.",
+                    "es": "Cada fila de factura mantiene a la vista sus acciones habituales y el resto está bajo ⋯. El plan de cuentas funciona igual.",
+                    "ar": "يُبقي كل صف فاتورة إجراءاته اليومية ظاهرة، والباقي تحت ⋯. ويعمل دليل الحسابات بالطريقة نفسها.",
                 },
             ),
         ),

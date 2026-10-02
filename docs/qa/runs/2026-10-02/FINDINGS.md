@@ -23,7 +23,7 @@ Severity:
 | 12 | P3 | Chart of accounts | 3–4 action buttons on every row (noisy); the opening-balance grid is cramped in a half-width panel, with names wrapping | B1 | rows fixed #277 (add sub-account on the row, the rest under ⋯); the opening grid's width stays |
 | 13 | P2 | Voucher save | The confirmation is English ("Date: … Currency: … Debit entries: … Total:"), the date is Gregorian in a Jalali company, it shows codes without names, and its digits follow the browser locale (`toLocaleString`) | C1 | fixed #261 |
 | 14 | P1 | Invoices | Due date from a client's terms is a day early in Tehran (fixed by #258) | C3 | fixed #258 |
-| 15 | P1? | VAT rates | The Iranian standard VAT in the rate table is 9%; it was raised to 10% from 1 Farvardin 1403 (budget law). **Needs the user's confirmation** | C3 | *question* |
+| 15 | P1? | VAT rates | The Iranian standard VAT in the rate table is 9%; it was raised to 10% from 1 Farvardin 1403 (budget law). **Needs the user's confirmation** | C3 | fixed #279 (owner confirmed 10%) |
 | 16 | P2 | Invoices list | Type and status shown as raw `sales` / `issued` / `paid` | C3–C7 | fixed #261 |
 | 17 | P2 | Invoice form | Party dropdown shows "client: شرکت پارس‌افزار" | C6 | fixed #261 |
 | 18 | P3 | Invoice form | Totals use Persian digits ("IRR ۰") while the list uses 0–9; the tax-code select is cut off | C6 | fixed #273 |

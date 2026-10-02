@@ -103,6 +103,38 @@ def test_uk_rate_resolver_across_change_date(uk):
 def test_ir_rate_resolver_across_change_date(ir):
     assert tax_rate_for(ir, "IR_VAT_STANDARD", date(2018, 1, 1)) == 8.0
     assert tax_rate_for(ir, "IR_VAT_STANDARD", date(2019, 3, 21)) == 9.0
+    # 10% from 1 Farvardin 1403 (2024-03-20); 9% through 1402/12/29 (deep browser test, 2026-10-02, #15)
+    assert tax_rate_for(ir, "IR_VAT_STANDARD", date(2024, 3, 19)) == 9.0
+    assert tax_rate_for(ir, "IR_VAT_STANDARD", date(2024, 3, 20)) == 10.0
+    assert tax_rate_for(ir, "IR_VAT_STANDARD", date(2026, 10, 2)) == 10.0
+
+
+def test_a_1405_invoice_charges_ten_percent(ir):
+    inv = create_invoice(InvoiceCreate(
+        number="IR-1405", kind="sales", issue_date=date(2026, 9, 23), due_date=date(2026, 10, 23),
+        amount=0, currency="IRR", items=[_item(price=1_000_000, tax_code="IR_VAT_STANDARD")],
+    ), ir)
+    assert float(inv.items[0].tax_rate) == 10.0
+    assert inv.amount == 1_100_000
+
+
+def test_the_seed_closes_the_old_open_rate_once_and_leaves_a_companys_own_alone(ir):
+    """A database seeded before the 10% had 9% open-ended: the next start closes
+    it on 1402/12/29 and adds 10%; a second start changes nothing. A rate the
+    company edited itself isn't touched."""
+    from app.models.tax_rate import TaxRate
+    nine = ir.execute(select(TaxRate).where(TaxRate.code == "IR_VAT_STANDARD", TaxRate.rate == 9.0)).scalars().one()
+    ten = ir.execute(select(TaxRate).where(TaxRate.code == "IR_VAT_STANDARD", TaxRate.rate == 10.0)).scalars().one()
+    nine.effective_to = None                        # as the old seed left it
+    ir.delete(ten)
+    ir.commit()
+    assert seed_tax_rates(ir) == 2                  # closed one, added one
+    assert nine.effective_to == date(2024, 3, 19)
+    assert seed_tax_rates(ir) == 0
+    nine.effective_to, nine.rate = None, 9.5        # the company's own edit
+    ir.commit()
+    seed_tax_rates(ir)
+    assert nine.effective_to is None and float(nine.rate) == 9.5
 
 
 def test_invoice_before_change_uses_old_rate(uk):

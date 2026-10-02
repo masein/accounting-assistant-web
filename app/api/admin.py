@@ -542,7 +542,7 @@ def patch_anthropic_config(payload: AnthropicConfigPatch, db: Session = Depends(
 @router.post("/reset-db")
 def reset_db(
     db: Session = Depends(get_db),
-    locale: str = "ir",
+    locale: str | None = None,
     with_demo_data: bool = False,
     _=Depends(require_admin),
 ) -> dict:
@@ -551,14 +551,22 @@ def reset_db(
     and trial balances are cleared.
 
     Optional query parameters:
-    - ``locale`` — ``"ir"`` (default, Iranian standard chart) or ``"uk"``
-      (Sage-style FRS 102 1A chart). Also updates the reporting-locale
-      AppSetting so reports default to the matching template.
+    - ``locale`` — ``"ir"`` (Iranian standard chart) or ``"uk"`` (Sage-style
+      FRS 102 1A chart). Left out, the company's own locale: it used to
+      default to ``"ir"``, so a UK company reset without naming one was given
+      the Iranian chart. Also updates the reporting-locale AppSetting so
+      reports default to the matching template.
     - ``with_demo_data`` — when ``true``, posts a curated set of journal
       entries spanning two fiscal years so the user can demo populated
       statements immediately.
     """
-    locale_norm = (locale or "ir").strip().lower()
+    if not (locale or "").strip():
+        from app.db.tenant import get_current_company
+        from app.models.company import Company
+        cid = get_current_company()
+        company = db.get(Company, UUID(str(cid))) if cid else None
+        locale = company.locale if company and company.locale in SUPPORTED_LOCALES else "ir"
+    locale_norm = locale.strip().lower()
     if locale_norm not in SUPPORTED_LOCALES:
         raise HTTPException(status_code=400, detail=f"Unsupported locale '{locale}'. Supported: {sorted(SUPPORTED_LOCALES)}")
 

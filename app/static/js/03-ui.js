@@ -251,6 +251,18 @@
       });
     }
 
+    // Wiping the books asks for the company's name typed back, not one click:
+    // the reset used to sit under the parties list behind a single confirm.
+    async function uiConfirmTyped(opts) {
+      const want = String(opts.expect || '').trim();
+      const typed = await uiPrompt({ title: opts.title || t('dangerConfirmTitle'),
+        message: opts.message + ' ' + tf('typeToConfirm', { name: want }), confirmLabel: opts.confirmLabel });
+      if (typed == null) return false;
+      const norm = (x) => foldFa(String(x)).trim().replace(/\s+/g, ' ');
+      if (!want || norm(typed) !== norm(want)) { showAlert(t('typeToConfirmMismatch'), true); return false; }
+      return true;
+    }
+
     function uiPrompt(opts) {
       const o = opts || {};
       return new Promise((resolve) => {

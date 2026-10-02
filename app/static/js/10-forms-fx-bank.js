@@ -647,7 +647,7 @@
       const confirmMsg = locale === 'ir'
         ? t('confirmResetIranian')
         : t('confirmResetUk');
-      if (!(await uiConfirm({ message: confirmMsg, confirmLabel: t('btnContinue'), danger: true }))) return;
+      if (!(await uiConfirmTyped({ message: confirmMsg, confirmLabel: t('btnContinue'), expect: companyNameForConfirm() }))) return;
       button.disabled = true;
       if (otherBtn) otherBtn.disabled = true;
       statusEl.style.color = 'var(--text-muted)';
@@ -680,6 +680,10 @@
       }
     }
 
+    function companyNameForConfirm() {
+      const badge = document.getElementById('company-badge');
+      return (badge && badge.textContent.trim()) || '';
+    }
     const resetIrBtn = document.getElementById('reset-demo-ir-btn');
     const resetUkBtn = document.getElementById('reset-demo-uk-btn');
     const resetEmptyBtn = document.getElementById('reset-empty-btn');
@@ -693,16 +697,12 @@
         const locale = localeSel && (localeSel.value === 'uk' || localeSel.value === 'ir')
           ? localeSel.value
           : 'ir';
-        const msg = t('confirmResetEmpty') ||
-          'Wipe ALL business data — every transaction, invoice, entity, ' +
-          'inventory item, AI proposal, audit log. Chart of accounts and ' +
-          'the admin user will be preserved. This is irreversible. Continue?';
-        if (!(await uiConfirm({ message: msg, confirmLabel: t('btnContinue'), danger: true }))) return;
+        if (!(await uiConfirmTyped({ message: t('confirmResetEmpty'), confirmLabel: t('btnContinue'), expect: companyNameForConfirm() }))) return;
         resetEmptyBtn.disabled = true;
         if (resetIrBtn) resetIrBtn.disabled = true;
         if (resetUkBtn) resetUkBtn.disabled = true;
         statusEl.style.color = 'var(--text-muted)';
-        statusEl.textContent = (t('statusResetting') || 'Resetting database…');
+        statusEl.textContent = t('statusResetting');
         try {
           // with_demo_data defaults to false → empty start, chart only.
           const url = API + '/admin/reset-db?locale=' + encodeURIComponent(locale) +
@@ -711,8 +711,7 @@
           const data = await r.json().catch(() => ({}));
           if (r.ok) {
             statusEl.style.color = '#059669';
-            statusEl.textContent = (t('statusResetDone') || 'Database reset.') +
-              ` Chart: ${data.accounts_created || 0} accounts. Reloading…`;
+            statusEl.textContent = tf('resetDoneChart', { n: data.accounts_created || 0 });
             setTimeout(() => window.location.reload(), 1200);
           } else {
             statusEl.style.color = '#b91c1c';

@@ -137,6 +137,8 @@ def create_entity(
         from app.services.ai_accountant.entity_create import (
             EntityCreateError, _resolve_bank_account,
         )
+        if code:
+            _check_bank_code(db, code)
         try:
             code, _created = _resolve_bank_account(db, name, code, None)
         except EntityCreateError as e:
@@ -155,6 +157,26 @@ def create_entity(
     db.commit()
     db.refresh(entity)
     return EntityRead.model_validate(entity)
+
+
+def _check_bank_code(db: Session, code: str) -> None:
+    """A bank party's code is its ledger account. One typed in must be a cash
+    or bank account: «۳۰۱» was silently replaced with a new 1111 (deep browser
+    test, 2026-10-02, finding #22), and an existing non-bank account (capital,
+    say) would have been taken as the bank's."""
+    from app.models.account import Account
+    from app.services.account_resolver import resolve_account_code
+    from app.services.statement_import import bank_account_choices
+    code = code.strip()
+    if db.execute(select(Account.id).where(Account.code == code)).first() is None:
+        raise HTTPException(status_code=422, detail=f"There is no account {code}. Leave the code empty to open a bank account for this bank.")
+    roots = {c["code"] for c in bank_account_choices(db)}
+    try:
+        roots.add(resolve_account_code(db, "cash"))
+    except Exception:  # noqa: BLE001 — no cash account in this chart
+        pass
+    if not any(code == r or code.startswith(r) for r in roots if r):
+        raise HTTPException(status_code=422, detail=f"Account {code} isn't a bank or cash account. Leave the code empty to open one for this bank.")
 
 
 @router.get("/{entity_id}", response_model=EntityRead)

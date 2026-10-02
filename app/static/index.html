@@ -140,7 +140,7 @@
       <div class="row" style="margin-bottom: 1rem;">
         <div><label for="entity-type" data-i18n="labelType">Type</label><select id="entity-type"><option value="client" data-i18n="labelClient">Client</option><option value="bank" data-i18n="labelBank">Bank</option><option value="employee" data-i18n="optionEmployee">Employee</option><option value="supplier" data-i18n="labelSupplier">Supplier</option><option value="shareholder" data-i18n="labelShareholder">Shareholder</option></select></div>
         <div><label for="entity-name" data-i18n="labelName">Name</label><input type="text" id="entity-name" data-i18n-placeholder="placeholderEntityName" placeholder="e.g. Acme Ltd, HSBC"></div>
-        <div><label for="entity-code" data-i18n="labelCodeOptional">Code (optional)</label><input type="text" id="entity-code" data-i18n-placeholder="placeholderEntityCode" placeholder="e.g. INV-001"></div>
+        <div><label for="entity-code" data-i18n="labelCodeOptional">Code (optional)</label><input type="text" id="entity-code" data-i18n-placeholder="placeholderEntityCode" placeholder="e.g. INV-001" aria-describedby="entity-code-hint"><div id="entity-code-hint" class="field-hint" data-i18n="entBankCodeHint" hidden>A bank's code is its ledger account: leave it empty to open one.</div></div>
         <div style="display: flex; align-items: flex-end;"><button type="button" class="btn btn-primary" id="entity-add" data-i18n="btnAddEntity">Add entity</button></div>
       </div>
       <details style="margin-bottom:0.85rem;">

@@ -406,6 +406,22 @@ async def chat(
             )
         if intake is not None:
             intake_context = "\n\n" + intake.context_text if intake.context_text else ""
+        # Not a chart or a journal: a bank statement is imported as it is,
+        # before (and without) the AI.
+        from app.services.ai_accountant.statement_intake import maybe_statement_intake
+        sheet_turn = await maybe_statement_intake(
+            db, user_role=user.role, attachments=sheet_atts,
+            message=payload.message, lang=_user_language(db, user),
+        )
+        if sheet_turn is not None:
+            log_audit_event(
+                db, "bank_statement_import", "bank_statement",
+                entity_id=str(sheet_turn.intake.get("statement_id") or ""),
+                detail=json.dumps({"via": "chat", "file": sheet_turn.intake.get("file_name"),
+                                   "status": sheet_turn.intake.get("status")}, ensure_ascii=False),
+            )
+            db.commit()
+            return _deterministic_turn(db, user, payload, sheet_turn.text, intake=sheet_turn.intake)
 
     # From here on the turn uses the AI (OCR, statement vision, the model
     # loop): per-user / per-company limits and the 24-hour token budget.

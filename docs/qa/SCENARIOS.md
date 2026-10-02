@@ -119,7 +119,7 @@ terms: what they see, in their language and calendar.
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
 | E1 | Chat without a provider | Ask a question | "The assistant can't answer right now" in Persian; nothing breaks |
-| E2 | Statement intake in the chat | Attach the C12 CSV in the chat | The deterministic intake proposes rows without AI, or says what it needs |
+| E2 | Statement intake in the chat | Attach the C12 CSV in the chat | The deterministic intake proposes rows without AI, or says what it needs; a CSV or Excel statement is imported and reviewed with no AI at all, even when its name and the message don't say "statement" (its header and dated rows do); a journal export (no running balance) is not taken for one; with no bank named, the reply and card don't say "Unknown" [#268] |
 | E3 | Migration | Opening chart and balances from a Sepidar-style Excel; journal import CSV | Preview, map, confirm; balances agree; the closed period is respected |
 
 ## F. Roles

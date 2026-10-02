@@ -102,6 +102,55 @@ def test_same_statement_dropped_again_points_at_the_earlier_import(auth_client, 
     assert "already imported" in second["text"].lower()
 
 
+STATEMENT_CSV = ("Date,Description,Debit,Credit,Balance\n"
+                 "2031-02-01,Opening transfer,0,9000000,9000000\n"
+                 "2031-02-03,Office rent,2500000,0,6500000\n"
+                 "2031-02-05,Customer payment,0,1200000,7700000\n"
+                 "2031-02-08,Card purchase,480000,0,7220000\n"
+                 "2031-02-11,Bank fee,12000,0,7208000\n"
+                 "2031-02-14,Supplier payment,900000,0,6308000\n").encode()
+
+
+def test_a_csv_statement_in_chat_is_imported_without_the_ai(auth_client, db, no_llm):
+    """A CSV or Excel statement went to the model (and failed with none set
+    up); parsing it needs no AI (deep browser test, 2026-10-02, finding #43).
+    Neither the name nor the message says "statement": its rows do."""
+    att = _upload(auth_client, f"export-{uuid.uuid4().hex[:6]}.csv", STATEMENT_CSV, "text/csv")
+    resp = _chat(auth_client, "add these", attachment_ids=[att["id"]])
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    intake = body["intake"]
+    assert intake["kind"] == "bank_statement" and intake["status"] == "imported", intake
+    assert intake["total_rows"] == 6 and body["stop_reason"] == "intake"
+    # no "Unknown" bank; the span's calendar follows the company (tested below)
+    assert body["text"].startswith("I read your statement: 6 rows ("), body["text"]
+    stmt = db.get(BankStatement, uuid.UUID(intake["statement_id"]))
+    assert stmt is not None and stmt.source_type == "csv"
+
+
+def test_the_summary_dates_follow_the_companys_calendar():
+    from app.services.ai_accountant.statement_intake import _reply
+    intake = {"bank_name": "Mellat", "total_rows": 3, "from_date": "2026-09-23", "to_date": "2026-10-01", "counts": {}}
+    assert _reply("fa", intake, jalali=True).startswith("صورتحساب Mellat را خواندم: 3 ردیف (1405/07/01 تا 1405/07/09)")
+    assert "(2026-09-23 to 2026-10-01)" in _reply("en", intake)
+
+
+def test_a_spreadsheet_that_is_not_a_statement_still_goes_to_the_assistant(db, tmp_path):
+    from app.services.ai_accountant.statement_intake import maybe_statement_intake
+    path = tmp_path / "prices.csv"
+    path.write_text("Product,Price\nPaper,250000\nToner,1200000\n", encoding="utf-8")
+    att = TransactionAttachment(file_name="prices.csv", file_path=str(path), content_type="text/csv")
+    assert asyncio.run(maybe_statement_intake(db, user_role="owner", attachments=[att],
+                                              message="what is the dearest?", lang="en")) is None
+    # a journal export has debits and credits on dated rows, but no running balance
+    path2 = tmp_path / "journal.csv"
+    path2.write_text("Date,Account,Debit,Credit\n" + "".join(f"2031-02-0{d},6112,{d}000,0\n" for d in range(1, 6)),
+                     encoding="utf-8")
+    att2 = TransactionAttachment(file_name="journal.csv", file_path=str(path2), content_type="text/csv")
+    assert asyncio.run(maybe_statement_intake(db, user_role="owner", attachments=[att2],
+                                              message="check these", lang="en")) is None
+
+
 def test_receipt_pdf_still_takes_the_ocr_path(auth_client, db, monkeypatch):
     """A receipt is not a statement: no BankStatement is created and the
     ordinary OCR-context turn runs."""

@@ -210,7 +210,7 @@
         equityClassPreferred: 'Preferred',
         equityBtnAddShareholder: 'Add',
         equityActions: 'Equity transactions',
-        equityAmountHint: 'Amounts are in the smallest currency unit (e.g. Rials).',
+        equityAmountHint: "Amounts are whole {currency}, as everywhere in the books.",
         equityContribution: 'Contribution (آورده)',
         equityFieldAmount: 'Amount',
         equityFieldDate: 'Date',

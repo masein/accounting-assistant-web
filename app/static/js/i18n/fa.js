@@ -208,7 +208,7 @@ window.I18N_PACKS.fa = Object.assign({
         equityClassPreferred: 'ممتاز',
         equityBtnAddShareholder: 'افزودن',
         equityActions: 'تراکنش‌های حقوق مالکانه',
-        equityAmountHint: 'مبالغ به کوچک‌ترین واحد پول (مثلاً ریال) هستند.',
+        equityAmountHint: "مبالغ به {currency} و بدون اعشار است، مثل همه جای دفاتر.",
         equityContribution: 'آورده',
         equityFieldAmount: 'مبلغ',
         equityFieldDate: 'تاریخ',

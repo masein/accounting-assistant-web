@@ -128,7 +128,7 @@
           ? `${localizeDynamicText(topProfit.client)} (${formatNum(topProfit.profit || 0)} ${currencyUnit()})`
           : t('na');
         document.getElementById('owner-pack').textContent =
-          `${t('ownerPackTitle')} (${new Date().toISOString().slice(0, 10)})\n\n` +
+          `${t('ownerPackTitle')} (${localIsoDate(new Date())})\n\n` +
           `- ${t('kpiCashOnHand')}: ${formatNum((data.kpis || []).find((k) => k.key === 'cash_on_hand')?.value || 0)} ${currencyUnit()}\n` +
           `- ${t('ownerNetProfitMonth')}: ${formatNum((data.kpis || []).find((k) => k.key === 'monthly_net_profit')?.value || 0)} ${currencyUnit()}\n` +
           `- ${t('kpiMonthlyBurnRate')}: ${formatNum((data.kpis || []).find((k) => k.key === 'burn_rate')?.value || 0)} ${currencyUnit()}/${t('monthWord')}\n` +
@@ -1280,7 +1280,7 @@
           movement_date: (
             (invToDateEl && invToDateEl.value)
             || (mgrToDateEl && mgrToDateEl.value)
-            || new Date().toISOString().slice(0, 10)
+            || localIsoDate(new Date())
           ),
           movement_type: (mgrMvTypeEl.value || 'IN'),
           quantity: parseFloat(mgrMvQtyEl.value || '0'),

@@ -119,7 +119,7 @@
         document.getElementById('tm-client').innerHTML = clients.length ? opts : `<option value="">${t('timeNoClients')}</option>`;
         document.getElementById('tm-filter-client').innerHTML = `<option value="">${t('timeAllClients')}</option>` + opts;
       } catch (e) { /* ignore */ }
-      if (!document.getElementById('tm-date').value) document.getElementById('tm-date').value = new Date().toISOString().slice(0, 10);
+      if (!document.getElementById('tm-date').value) document.getElementById('tm-date').value = localIsoDate(new Date());
       await tmLoadProjects();
       await tmLoadEntries();
       await tmLoadReady();
@@ -533,6 +533,9 @@
     }
 
     async function loadPurchaseOrders() {
+      // the order date is required: today, until the user picks another (as the time and equity forms do)
+      const od = document.getElementById('po-order-date');
+      if (od && !od.value) od.value = localIsoDate(new Date());
       // Supplier dropdown.
       try {
         const res = await fetch(API + '/entities?type=supplier');
@@ -671,7 +674,7 @@
 
     document.getElementById('po-receive-btn').addEventListener('click', async () => {
       if (!poCurrentId) return;
-      const receipt_date = document.getElementById('po-receive-date').value || new Date().toISOString().slice(0, 10);
+      const receipt_date = document.getElementById('po-receive-date').value || localIsoDate(new Date());
       const lines = [];
       document.querySelectorAll('#po-detail-lines .po-recv-qty').forEach(inp => {
         const q = parseFloat(inp.value || '0');

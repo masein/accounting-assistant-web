@@ -293,7 +293,7 @@
       // no model call — and persisted in the session, so it reads like any
       // other assistant message.
       async function maybeBriefing() {
-        const key = 'aa_ai_briefing_' + new Date().toISOString().slice(0, 10);
+        const key = 'aa_ai_briefing_' + localIsoDate(new Date());
         try { if (localStorage.getItem(key)) return; } catch (_) { /* storage blocked */ }
         try {
           const r = await fetch(API + '/ai-accountant/briefing', {

@@ -34,9 +34,16 @@ class CreditNote(Base, TenantMixin):
     amount: Mapped[int] = mapped_column(BigInteger)  # whole currency units, > 0
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # 'reduction' = reduces the invoice's open balance; 'credit' = available
-    # entity credit (e.g. overpayment) that can offset future invoices.
+    # 'reduction' = reduces the invoice (its revenue/expense and VAT);
+    # 'credit'    = the party's available credit (an overpayment, or the part of
+    #               a credit note beyond what was still owed);
+    # 'refund'    = some of a credit paid back in cash;
+    # 'applied'   = some of a credit used to settle another invoice.
+    # A refund or an application names the credit it draws on (credit_id).
     note_type: Mapped[str] = mapped_column(String(16), default="reduction", index=True)
+    credit_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("credit_notes.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True, index=True
     )

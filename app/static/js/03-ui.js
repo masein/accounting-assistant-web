@@ -193,7 +193,8 @@
 
     // An invoice's status by name — the list showed 'issued', 'partially_paid', 'voided'.
     const INVOICE_STATUS_KEYS = { draft: 'optionStatusDraft', issued: 'optionStatusIssued', paid: 'optionStatusPaid',
-      partially_paid: 'optionStatusPartiallyPaid', canceled: 'optionStatusCanceled', voided: 'optionStatusVoided', overdue: 'optionStatusOverdue' };
+      partially_paid: 'optionStatusPartiallyPaid', canceled: 'optionStatusCanceled', voided: 'optionStatusVoided', overdue: 'optionStatusOverdue',
+      credited: 'optionStatusCredited' };
     function invoiceStatusLabel(status) {
       const key = INVOICE_STATUS_KEYS[String(status || '').toLowerCase()];
       return key ? t(key) : String(status || '').replace(/_/g, ' ');

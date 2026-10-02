@@ -185,7 +185,7 @@
           const res = await fetch(API + '/invoices/' + encodeURIComponent(tlBtn.dataset.id) + '/timeline');
           const data = await res.json().catch(() => ([]));
           if (!res.ok) { showAlert(t('msgTimelineFailed'), true); return; }
-          const lines = (data || []).map(x => `${x.at} - ${x.event}${x.detail ? ': ' + x.detail : ''}`).join('\n');
+          const lines = (data || []).map(x => invTimelineLine(x)).join('\n');
           await uiConfirm({ title: t('invoiceTimelineTitle'), message: lines || t('noTimelineEvents'), confirmLabel: t('btnClose'), hideCancel: true });
         } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
       }
@@ -197,7 +197,22 @@
       if (payBtn && !payBtn.disabled) {
         const id = payBtn.dataset.id;
         const inv = _invoicesCache.find((x) => String(x.id) === String(id)) || {};
-        const balance = (inv.balance_due != null) ? inv.balance_due : inv.amount;
+        let balance = (inv.balance_due != null) ? inv.balance_due : inv.amount;
+        // the customer's (or supplier's) credit settles first, if they want — no money moves
+        if (Number(inv.party_credit || 0) > 0 && balance > 0) {
+          const use = await uiConfirm({
+            title: t('invAddPayment'),
+            message: tf(inv.kind === 'purchase' ? 'invUseSupplierCreditAsk' : 'invUseCustomerCreditAsk',
+                        { amount: formatMoney(Math.min(inv.party_credit, balance), inv.currency) }),
+            confirmLabel: t('invUseCreditBtn'), cancelLabel: t('invPayWithMoney'),
+          });
+          if (use) {
+            const used = await invApplyCredit(id);
+            if (!used) return;
+            balance = Math.max(0, balance - Number(used.amount || 0));
+            if (balance <= 0) return;
+          }
+        }
         const raw = await uiPrompt({
           title: t('invAddPayment'),
           message: tf('invPaymentAmountPrompt', { balance: formatNum(balance || 0), currency: (inv.currency || '') }),
@@ -240,19 +255,64 @@
         if (!amount || amount <= 0) { showAlert(t('invAmountInvalid'), true); return; }
         const reason = await uiPrompt({ title: t('invCreditNote'), message: t('invCreditNoteReasonPrompt'), type: 'text', value: '' });
         if (reason == null) return;
+        // on a paid invoice the credit goes beyond what is still owed: that part
+        // is the customer's credit (or what the supplier owes us)
+        const owed = Number(inv.balance_due != null ? inv.balance_due : inv.amount) || 0;
+        const excess = Math.max(0, amount - owed);
+        let refund = false;
+        if (excess > 0) {
+          refund = await uiConfirm({
+            title: t('invCreditNote'),
+            message: tf(inv.kind === 'purchase' ? 'invSupplierCreditAsk' : 'invCustomerCreditAsk',
+                        { amount: formatMoney(excess, inv.currency) }),
+            confirmLabel: t('invRefundNow'), cancelLabel: t('invKeepAsCredit'),
+          });
+        }
         try {
           const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/credit-notes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, reason: reason || null }),
+            body: JSON.stringify({ amount, reason: reason || null, refund }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) { showAlert(data.detail || t('invCreditNoteError'), true); return; }
-          showAlert(t('invCreditNoteRecorded'));
+          showAlert(excess > 0
+            ? tf(refund ? 'invCreditNoteRefunded' : 'invCreditNoteKept', { amount: formatMoney(excess, inv.currency) })
+            : t('invCreditNoteRecorded'));
           loadInvoices(id);
           loadLedger();
           loadOwnerDashboard();
         } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
+        return;
+      }
+      const refundBtn = e.target.closest('.inv-refund-credit');
+      if (refundBtn) {
+        const id = refundBtn.dataset.id;
+        const inv = _invoicesCache.find((x) => String(x.id) === String(id)) || {};
+        const left = Number(inv.credit_available || 0);
+        const raw = await uiPrompt({
+          title: t('invRefundCredit'),
+          message: tf(inv.kind === 'purchase' ? 'invRefundSupplierPrompt' : 'invRefundCustomerPrompt', { amount: formatMoney(left, inv.currency) }),
+          type: 'number', value: String(left), confirmLabel: t('invRefundCredit'),
+        });
+        if (raw == null) return;
+        const amount = parseInt(raw, 10);
+        if (!amount || amount <= 0) { showAlert(t('invAmountInvalid'), true); return; }
+        try {
+          const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/refund-credit', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { showAlert(data.detail || t('invRefundFailed'), true); return; }
+          showAlert(tf('invRefundDone', { amount: formatMoney(amount, inv.currency) }));
+          loadInvoices(id);
+          loadLedger();
+        } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
+        return;
+      }
+      const useBtn = e.target.closest('.inv-use-credit');
+      if (useBtn) {
+        if (await invApplyCredit(useBtn.dataset.id)) return;
         return;
       }
       const voidBtn = e.target.closest('.inv-void');
@@ -294,7 +354,18 @@
       if (!inv) { showAlert(t('msgInvoiceEditError'), true); return; }
       _editingInvoiceId = inv.id;
       document.getElementById('invoice-edit-number').value = inv.number || '';
-      document.getElementById('invoice-edit-status').value = String(inv.status || 'issued').toLowerCase();
+      // a status the money sets (partly paid, credited) shows as it is but isn't a
+      // choice: the select had no such option, read "", and saving sent status ""
+      const stSel = document.getElementById('invoice-edit-status');
+      const st = String(inv.status || 'issued').toLowerCase();
+      stSel.querySelectorAll('option[data-derived]').forEach(o => o.remove());
+      if (![...stSel.options].some(o => o.value === st)) {
+        const o = document.createElement('option');
+        o.value = st; o.textContent = invoiceStatusLabel(st); o.dataset.derived = '1'; o.disabled = true;
+        stSel.appendChild(o);
+      }
+      stSel.value = st;
+      stSel.dataset.original = st;
       document.getElementById('invoice-edit-amount').value = inv.amount != null ? String(inv.amount) : '0';
       const ccySel = document.getElementById('invoice-edit-currency');
       const ccy = String(inv.currency || 'IRR').toUpperCase();
@@ -317,7 +388,9 @@
       }
       const payload = {
         number,
-        status: document.getElementById('invoice-edit-status').value,
+        // only when the user chose another (JSON drops undefined)
+        status: (() => { const sel = document.getElementById('invoice-edit-status');
+                         return sel.value && sel.value !== sel.dataset.original ? sel.value : undefined; })(),
         amount: parseInt(document.getElementById('invoice-edit-amount').value, 10) || 0,
         currency: document.getElementById('invoice-edit-currency').value,
         issue_date,
@@ -509,6 +582,50 @@
 
     // as the list shows money: 0–9 and the currency's symbol ("£3,600"), not the
     // browser's digits and code ("IRR ۰", "3,600 GBP")
+    // settle an invoice from the party's credit; the payment it made, or null
+    async function invApplyCredit(id) {
+      const inv = _invoicesCache.find((x) => String(x.id) === String(id)) || {};
+      try {
+        const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/apply-credit', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(data.detail || t('invPaymentError'), true); return null; }
+        showAlert(tf('invCreditUsed', { amount: formatMoney(Number(data.amount || 0), inv.currency) }));
+        loadInvoices(id);
+        loadLedger();
+        loadOwnerDashboard();
+        return data;
+      } catch (err) { showAlert(t('msgConnectionError') + err.message, true); return null; }
+    }
+
+    // one history line: when (in the company's calendar) and what, in the reader's
+    // language — it was "2026-10-02T09:12:03 - credit_note: Credit note 600 GBP."
+    function invTimelineLine(x) {
+      const p = x.params || {};
+      // the user's own day and time (the server's are UTC)
+      const d = new Date(x.at);
+      const when = isNaN(d.getTime()) ? '' : formatDisplayDate(localIsoDate(d)) + ' '
+        + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      const money = p.amount != null ? formatMoney(Number(p.amount), p.currency) : '';
+      const reason = p.reason ? ' — ' + p.reason : '';
+      let what;
+      switch (x.event) {
+        case 'created': what = t('tlCreated'); break;
+        case 'quote': what = tf('tlQuote', { number: p.number || '', date: formatDisplayDate(p.date) }); break;
+        case 'issued': what = t(p.kind === 'purchase' ? 'tlIssuedBill' : 'tlIssued'); break;
+        case 'payment': what = tf(p.method === 'credit' ? 'tlPaymentCredit' : (p.direction === 'out' ? 'tlPaymentOut' : 'tlPaymentIn'), { amount: money }); break;
+        case 'email': what = tf(p.kind === 'reminder' ? 'tlEmailReminder' : 'tlEmailInvoice', { to: p.to || '' }); break;
+        case 'email_failed': what = tf('tlEmailFailed', { to: p.to || '' }); break;
+        case 'credit_note': what = tf('tlCreditNote', { amount: money }) + reason; break;
+        case 'credit': what = tf(p.kind === 'purchase' ? 'tlCreditSupplier' : 'tlCreditCustomer', { amount: money }); break;
+        case 'refund': what = tf('tlRefund', { amount: money }); break;
+        case 'credit_used': what = tf('tlCreditUsed', { amount: money, number: p.number || '' }); break;
+        default: what = x.event;
+      }
+      return when + ' — ' + what;
+    }
+
     function invFmt(n) { return formatMoney(Number(n) || 0, invCurrency()); }
 
     function invTaxCodeOptions(selected) {

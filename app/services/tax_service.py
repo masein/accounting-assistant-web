@@ -68,7 +68,7 @@ def compute_tax_summary(
         .where(
             Invoice.issue_date >= from_date,
             Invoice.issue_date <= to_date,
-            Invoice.status.in_(["issued", "partially_paid", "paid"]),
+            Invoice.status.in_(["issued", "partially_paid", "paid", "credited"]),
         )
         .options(selectinload(Invoice.items))
     )

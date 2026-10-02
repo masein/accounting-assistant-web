@@ -289,7 +289,7 @@ def _moadian_deadlines(db: Session, seen: set[str], today: date) -> None:
     days = int(get_settings(db)["deadline_days"])
     horizon = today - timedelta(days=days - WARN_DAYS_BEFORE)
     rows = db.execute(select(Invoice).where(
-        Invoice.kind == "sales", Invoice.status.in_(("issued", "partially_paid", "paid")),
+        Invoice.kind == "sales", Invoice.status.in_(("issued", "partially_paid", "paid", "credited")),
         Invoice.moadian_status.is_(None), Invoice.issue_date <= horizon,
     )).scalars().all()
     for inv in rows:

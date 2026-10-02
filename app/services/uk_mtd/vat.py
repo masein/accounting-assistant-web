@@ -26,7 +26,7 @@ from app.services.tax_ir import _share
 from app.services.tax_service import _line_tax, _notional_tax
 from app.services.uk_mtd.periods import VatPeriod
 
-RECOGNISED = ("issued", "partially_paid", "paid")
+RECOGNISED = ("issued", "partially_paid", "paid", "credited")
 
 
 def _split(inv: Invoice) -> dict[str, int]:

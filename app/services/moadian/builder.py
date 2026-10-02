@@ -25,7 +25,7 @@ from app.services.moadian.settings import get_settings
 from app.services.moadian.taxid import generate_taxid, valid_memory_id
 
 TEHRAN = timezone(timedelta(hours=3, minutes=30))
-SENDABLE = ("issued", "partially_paid", "paid")
+SENDABLE = ("issued", "partially_paid", "paid", "credited")
 
 
 @dataclass

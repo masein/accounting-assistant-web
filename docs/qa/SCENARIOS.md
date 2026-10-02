@@ -59,7 +59,7 @@ terms: what they see, in their language and calendar.
 | A1 | Super-admin creates the three tenants | Sign in as super-admin → Companies → create Arman (ir, IRR, business), Thames (uk, GBP), Sara (personal) with their owners | All three listed with locale, currency and kind; each owner can sign in; no English labels in Persian; validation in the user's language |
 | A2 | First sign-in of a Persian owner | `arman_owner` signs in on a Persian browser | UI in Persian, right-to-left, Jalali calendar on by default; lands on the dashboard; the "what's new" tour (if shown) closes cleanly; no console errors |
 | A3 | Company profile | Settings → profile: legal name, national ID, economic code, address and phone (Persian digits), logo PNG, signature PNG | Saved; logo shown in the sidebar and on documents; digits stored as 0–9; a wrong file type is refused in Persian |
-| A4 | Team | Settings → users: add accountant, CFO, manager, employee and viewer | Each signs in and lands on their role's home; the nav shows exactly that role's pages (PAGE_ROLES); an invalid username or weak password is refused in Persian |
+| A4 | Team | Settings → users: add accountant, CFO, manager, employee and viewer | Each signs in and lands on their role's home; the nav shows exactly that role's pages (PAGE_ROLES); an invalid username or a weak password is refused in Persian, for each of the four password rules [#261] |
 | A5 | Tenant isolation | A Thames user reads Arman data by URL and API ids | 404 or empty everywhere; never Arman's data |
 | A6 | Sign-in errors and sign-out | Wrong password, then right; sign out; back button | Persian error; no account enumeration; after sign-out the app is unreachable without signing in again |
 | A7 | Wiping the books [#259] | Parties page: no reset button. Settings → wipe (demo or empty): type a wrong name, then the company's name | Only the owner sees it, in Settings; a wrong name sends nothing and says «چیزی پاک نشد»; the right name wipes and the company keeps its own chart (a UK company gets the UK chart) |
@@ -77,20 +77,20 @@ terms: what they see, in their language and calendar.
 
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
-| C1 | Manual voucher | Pick the date from the Jalali grid; rent 45,000,000 Dr 6xxx / Cr 1110-01 with a description; attach a receipt image; save | Unbalanced → Persian message; balanced → "voucher saved"; it appears in the ledger with its Jalali date and attachment |
+| C1 | Manual voucher | Pick the date from the Jalali grid; rent 45,000,000 Dr 6xxx / Cr 1110-01 with a description; attach a receipt image; save | Unbalanced → Persian message; the save confirmation is Persian, with the Jalali date, each account's code and name, and amounts in the company's currency [#261]; balanced → "voucher saved"; it appears in the ledger with its Jalali date and attachment |
 | C2 | Voucher edit / delete | Link client and bank, edit the amount, then delete | Ledger and balances follow; the audit trail records each step in Persian |
-| C3 | Sales invoice | Itemised, 2 lines, VAT, Jalali issue and due dates, client on «Net 30»; also in the evening, Tehran time [#258] | Due = issue + 30 on the user's own calendar day; totals right; it posts; Persian PDF (Jalali, Persian digits, amount in words) |
-| C4 | Payments on it | Record a partial payment (typed «۲۰٬۰۰۰٬۰۰۰»), then the rest | Partially paid → paid; AR aging and the client's statement agree |
+| C3 | Sales invoice | Itemised, 2 lines, VAT, Jalali issue and due dates, client on «Net 30»; also in the evening, Tehran time [#258] | Due = issue + 30 on the user's own calendar day; the party list reads «name — مشتری» [#261]; totals right; it posts; Persian PDF (Jalali, Persian digits, amount in words) |
+| C4 | Payments on it | Record a partial payment (typed «۲۰٬۰۰۰٬۰۰۰»), then the rest | Partially paid → paid, shown in Persian in the list (kind and status) [#261]; AR aging and the client's statement agree |
 | C5 | Purchase bill and payment | Bill from پخش البرز, pay it | AP up then down; the supplier's statement agrees |
 | C6 | Quote → invoice | Quote, mark sent and accepted, convert | The invoice carries the quote's lines; the quote shows "converted" |
 | C7 | Credit note and void | Credit note on C3; void another invoice | Postings reversed; statuses in Persian |
 | C8 | Recurring invoice | Monthly, Jalali calendar, auto-issue | Next date is Jalali; run due → invoice issued once, not twice |
-| C9 | Cheques | Received cheque (Sayad ID) → deposit → clear; issued cheque → print preview; one bounces | Each step posts its entry; a bounced cheque is not settled; cheque layout errors in Persian |
+| C9 | Cheques | Received cheque (Sayad ID) → deposit → clear; issued cheque → print preview; one bounces | Each step posts its entry; a bounced cheque is not settled; every refusal in Persian: a duplicate Sayad ID, depositing an issued cheque, returning one at the bank [#261]; cheque layout errors in Persian |
 | C10 | Instalments | Loan of 12 instalments | Schedule with Jalali dates; the reminder appears in the bell |
 | C11 | Recurring payment rule | Monthly rent, auto-post, run due | One voucher; next run date moves forward |
-| C12 | Bank statement import | Upload a 15-row CSV → map columns → categorise → approve; re-upload it | Rows posted; reconciliation matches the existing rent voucher; the re-upload is flagged as a duplicate |
+| C12 | Bank statement import | Upload a 15-row CSV → map columns → categorise → approve; re-upload it | Rows posted; the list shows the status in Persian and the type in capitals; a row that can't post says why in Persian ("ردیف ۳: …"), and so does the summary after approving [#261]; reconciliation matches the existing rent voucher; the re-upload is flagged as a duplicate |
 | C13 | Bank SMS | Paste 3 Persian SMS from Mellat | Parsed amount, date, type; posted or proposed |
-| C14 | Petty cash | Float for علی; deposit «۵۰۰٬۰۰۰٬۰۰۰»; علی records an expense with a receipt; manager approves | Balance follows; app dialogs only; amounts in IRR |
+| C14 | Petty cash | Float for علی; deposit «۵۰۰٬۰۰۰٬۰۰۰»; علی records an expense with a receipt; manager approves | Balance follows; app dialogs only; amounts in IRR; an expense over the float is refused in Persian [#261] |
 | C15 | Expenses and mileage | Employee files a mileage claim → manager approves → reimbursed | Statuses in Persian; posting on approval and on reimbursement |
 | C16 | Time | Project, rate, 3 billable entries → ready to invoice → invoice | The time is invoiced once; the preview range is Jalali |
 | C17 | Purchase order | PO of 2 lines → partial receipt → bill → 3-way match | The order date defaults to today; a short receipt is flagged |
@@ -105,7 +105,7 @@ terms: what they see, in their language and calendar.
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
 | D1 | Ledger search | Filter by Jalali range, account, party; text search with Arabic letterforms | Results right; totals right; export works |
-| D2 | Financial statements | Trial balance, balance sheet, P&L, cash flow (Iranian formats); PDF and XLSX | TB balances; A = L + E; P&L agrees with the vouchers; Persian documents |
+| D2 | Financial statements | Trial balance, balance sheet, P&L, cash flow (Iranian formats); PDF and XLSX | TB balances; A = L + E; P&L agrees with the vouchers; preview columns (turnover, balance) and every date in a preview (the general journal's too) in Persian and Jalali [#261]; Persian documents |
 | D3 | Dashboard and manager reports | Dashboard KPIs and charts; sales by product and client; aging; inventory | Figures agree with C1–C22; charts labelled in Persian; Jalali months |
 | D4 | CEO / CFO | Both pages | KPIs, grade, runway; nothing English |
 | D5 | Audit | Trail plus full audit | Every action of the run is in the trail; findings in Persian |

@@ -1165,7 +1165,7 @@
         if (used.length > 1) {
           const buttons = used.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('mgrCcyOnly')).replace('{ccy}', `<span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>`)}</button>`).join(' ');
           mixWarning = `<div style="background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:0.55rem 0.75rem;border-radius:8px;margin-bottom:0.6rem;font-size:0.85rem;">
-            ⚠️ No currency filter selected. Numbers below sum ${used.join(', ')} as raw integers, which is not meaningful. Pick a currency:
+            ⚠️ ${escapeHtml(tf('mgrNoCurrencyWarning', { list: used.join(', ') }))}
             <div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>
           </div>`;
         }

@@ -183,7 +183,7 @@
           (list || []).filter(e => e.type === 'client' || e.type === 'supplier').forEach(e => {
             const opt = document.createElement('option');
             opt.value = e.id;
-            opt.textContent = e.type + ': ' + e.name;
+            opt.textContent = e.name + ' — ' + enumLabel('entType_', e.type);
             invSel.appendChild(opt);
           });
         }
@@ -238,8 +238,8 @@
           tr.dataset.invoiceId = i.id;
           tr.innerHTML = `
             <td>${escapeHtml(i.number)}</td>
-            <td>${escapeHtml(i.kind)}</td>
-            <td>${escapeHtml(localizeDynamicText(i.status))}</td>
+            <td>${escapeHtml(t(i.kind === 'purchase' ? 'optionPurchase' : 'optionSales'))}</td>
+            <td>${escapeHtml(invoiceStatusLabel(i.status))}</td>
             <td>${formatMoney(i.amount, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>${taxLine}</td>
             <td>${formatMoney(paid, ccy)}${Number(i.overpaid || 0) > 0 ? '<div style="font-size:0.72rem;color:var(--text-muted);">+' + formatMoney(Number(i.overpaid), ccy) + ' ' + escapeHtml(t('invOverpaidCredit')) + '</div>' : ''}</td>
             <td><strong>${formatMoney(balance, ccy)}</strong></td>

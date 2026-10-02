@@ -79,7 +79,7 @@ terms: what they see, in their language and calendar.
 |---|---|---|---|
 | C1 | Manual voucher | Pick the date from the Jalali grid; rent 45,000,000 Dr 6xxx / Cr 1110-01 with a description; attach a receipt image; save | Unbalanced → Persian message; the save confirmation is Persian, with the Jalali date, each account's code and name, and amounts in the company's currency [#261]; balanced → "voucher saved"; it appears in the ledger with its Jalali date and attachment; an account code typed «۶۱۱۲» posts to 6112 and the confirmation names it [#263] |
 | C2 | Voucher edit / delete | Link client and bank, edit the amount, then delete | Ledger and balances follow; the audit trail records each step in Persian |
-| C3 | Sales invoice | Itemised, 2 lines, VAT, Jalali issue and due dates, client on «Net 30»; also in the evening, Tehran time [#258] | Due = issue + 30 on the user's own calendar day; the party list reads «name — مشتری» [#261]; totals right; it posts; Persian PDF (Jalali, Persian digits, amount in words) |
+| C3 | Sales invoice | Itemised, 2 lines, VAT, Jalali issue and due dates, client on «Net 30»; also in the evening, Tehran time [#258] | Due = issue + 30 on the user's own calendar day; the party list reads «name — مشتری» [#261]; totals right; it posts; Persian PDF (Jalali, Persian digits, amount in words); the tax-code list offers only Iran's codes (no UK_VAT_…) and the rate form suggests IR_VAT_STANDARD [#266] |
 | C4 | Payments on it | Record a partial payment (typed «۲۰٬۰۰۰٬۰۰۰»), then the rest | Partially paid → paid, shown in Persian in the list (kind and status) [#261]; AR aging and the client's statement agree |
 | C5 | Purchase bill and payment | Bill from پخش البرز, pay it | AP up then down; the supplier's statement agrees |
 | C6 | Quote → invoice | Quote, mark sent and accepted, convert | The invoice carries the quote's lines; the quote shows "converted" |
@@ -134,7 +134,7 @@ terms: what they see, in their language and calendar.
 
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
-| G1 | UK bookkeeping | Opening balances; VAT 20% invoice; bill; VAT return boxes 1–9; FRS 102 statements; MTD ITSA quarter export | Box figures agree with the invoices; English PDFs; £ everywhere |
+| G1 | UK bookkeeping | Opening balances; VAT 20% invoice; bill; VAT return boxes 1–9; FRS 102 statements; MTD ITSA quarter export | Box figures agree with the invoices; English PDFs; £ everywhere; nothing Iranian on its pages: no Moadian or TTMS panel, no Sayad id on cheques, only UK tax codes in the rate list and the invoice line, and the payroll rules show only the UK's figures [#266] |
 | G2 | Spanish | Switch Thames to Spanish; walk every page | No English left; numbers and dates right |
 | G3 | Arabic | Switch to Arabic | Right-to-left mirrored; no English; Gregorian dates |
 

@@ -310,6 +310,8 @@
         companyLocale = coLocale;
         document.querySelectorAll('.ir-only').forEach((el) => { el.style.display = coLocale === 'ir' ? '' : 'none'; });
         document.querySelectorAll('.uk-only').forEach((el) => { el.style.display = coLocale === 'uk' ? '' : 'none'; });
+        // Iran's cheque registry (Sayad) and the like: everywhere but a UK company
+        document.querySelectorAll('.not-uk').forEach((el) => { el.style.display = coLocale === 'uk' ? 'none' : ''; });
         // Signed in with a recovery code (login page) → say how many are left.
         try {
           const left = sessionStorage.getItem('aa_tfa_recovery_left');

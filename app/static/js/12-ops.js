@@ -788,7 +788,7 @@
         deposited: ['clear', 'bounce'],
         bounced: rec ? ['redeposit', 'clear', 'return'] : ['clear', 'return'],
       }[r.status] || [];
-      if (['pending', 'deposited'].includes(r.status) && !r.sayad_registered_on) steps.push('sayad');
+      if (['pending', 'deposited'].includes(r.status) && !r.sayad_registered_on && companyLocale !== 'uk') steps.push('sayad');
       if (!rec && ['pending', 'bounced'].includes(r.status)) steps.unshift('print');   // we write the ones we issue
       return steps;
     }

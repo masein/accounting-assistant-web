@@ -42,6 +42,9 @@ def test_each_country_sees_its_own_tax_and_payroll(browser, flow_page):
                 assert rules and " 0 GBP" not in rules and "Housing" not in rules, rules
             else:
                 assert "Housing" in rules, rules
+            _visit(page, "commitments")
+            sayad = page.evaluate("() => getComputedStyle(document.getElementById('cm-c-sayad').closest('div')).display !== 'none'")
+            assert sayad == (locale != "uk"), "the Sayad id is Iran's cheque registry"
             assert watch.problems() == [], watch.problems()
     finally:
         owner.evaluate(PUT, ["/admin/reporting-locale", {"locale": before}])

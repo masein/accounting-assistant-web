@@ -144,6 +144,26 @@ def test_a_statement_says_which_account_and_how(banks, db):
     assert {c["bank"] for c in choices if c["code"] == made["بانک سامان"]} == {"بانک سامان"}
 
 
+def test_a_bank_account_opened_in_the_chart_is_a_choice_too(banks):
+    """A recurring rule (and a statement) couldn't take a bank account made in
+    the chart — 111001 «بانک ملت جاری» under 1110 — only bank parties' own
+    accounts (deep browser test, 2026-10-02, finding #23)."""
+    api, cid, made = banks
+    r = api.post("/accounts", json={"name": "بانک ملت جاری", "parent_code": "1110"})
+    assert r.status_code == 201, r.text
+    sub = r.json()["code"]
+    choices = {c["code"]: c for c in api.get("/brain/bank-accounts").json()["accounts"]}
+    assert sub in choices and choices[sub]["name"] == "بانک ملت جاری"
+    assert {made[n] for n in made} <= set(choices) and "1110" in choices
+    sid = _upload(api)
+    assert api.put(f"/brain/bank-statements/{sid}/bank-account", json={"code": sub}).status_code == 200
+    # a retired one is not offered
+    old = api.post("/accounts", json={"name": "حساب قدیمی", "parent_code": "1110"}).json()
+    r = api.patch(f"/accounts/{old['id']}", json={"is_active": False})
+    assert r.status_code == 200, r.text
+    assert old["code"] not in {c["code"] for c in api.get("/brain/bank-accounts").json()["accounts"]}
+
+
 def test_choosing_the_account_and_posting_to_it(banks, db):
     from app.db.tenant import use_company
     from app.models.audit_log import AuditLog

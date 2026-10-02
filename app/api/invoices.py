@@ -26,8 +26,10 @@ from app.models.invoice_item import InvoiceItem
 from app.models.payment import Payment
 from app.models.transaction import Transaction, TransactionLine
 from app.schemas.invoice import (
+    CreditApply,
     CreditNoteCreate,
     CreditNoteRead,
+    CreditRefund,
     InvoiceCreate,
     InvoiceOCRResult,
     InvoiceRead,
@@ -130,15 +132,18 @@ def _invoice_totals(db: Session, inv: Invoice) -> tuple[int, int, int]:
 
 
 def _recompute_status(inv: Invoice, paid: int, credited: int, balance_due: int) -> None:
-    """issued → partially_paid → paid based on the open balance. Leaves
-    draft/canceled untouched."""
-    if inv.status in ("draft", "canceled"):
+    """issued → partially_paid → paid from what settled it. A credit note is
+    not a payment: an invoice credited in part and paid nothing is still
+    issued (with its credit shown), and one credited in full with nothing paid
+    is ``credited`` (it read "partially paid": deep browser test, 2026-10-02,
+    finding #44). Leaves draft/canceled/voided untouched."""
+    if inv.status in ("draft", "canceled", "voided"):
         return
     if int(inv.amount or 0) <= 0:
         return
     if balance_due <= 0:
-        inv.status = "paid"
-    elif (paid + credited) > 0:
+        inv.status = "paid" if paid > 0 else "credited"
+    elif paid > 0:
         inv.status = "partially_paid"
     else:
         inv.status = "issued"
@@ -166,6 +171,9 @@ def _to_read(row: Invoice) -> InvoiceRead:
         data.credited = credited
         data.balance_due = balance_due
         data.overpaid = _overpayment(db, row)
+        from app.services import credits
+        data.credit_available = credits.total(credits.for_invoice(db, row.id))
+        data.party_credit = credits.total(credits.for_party(db, row.entity_id, row.kind, row.currency))
     return data
 
 
@@ -571,7 +579,7 @@ def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     db.flush()
     # Recognise AR/AP at issue: DR debtors / CR revenue (sales) or
     # DR expense / CR creditors (purchase). Posts once, links the txn.
-    if row.status in ("issued", "partially_paid", "paid"):
+    if row.status in ("issued", "partially_paid", "paid", "credited"):
         _recognize_invoice(db, row)
     return row
 
@@ -673,7 +681,7 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
         db.flush()
     # If this update brings the invoice into an issued state and it hasn't
     # been recognised yet, post the AR/AP recognition entry now.
-    if row.status in ("issued", "partially_paid", "paid"):
+    if row.status in ("issued", "partially_paid", "paid", "credited"):
         _recognize_invoice(db, row)
     db.commit()
     db.refresh(row)
@@ -764,7 +772,7 @@ def _apply_payment(
     credit: CreditNote | None = None
     if excess > 0:
         credit = CreditNote(
-            invoice_id=None, entity_id=inv.entity_id, kind=inv.kind, date=on,
+            invoice_id=inv.id, entity_id=inv.entity_id, kind=inv.kind, date=on,
             amount=int(excess), currency=inv.currency,
             reason=f"Overpayment on invoice {inv.number}", note_type="credit",
             transaction_id=txn.id,
@@ -817,37 +825,66 @@ def list_payments(invoice_id: UUID, db: Session = Depends(get_db)) -> list[Payme
     return [_payment_read(db, r) for r in rows]
 
 
+def _vat_share(inv: Invoice, gross: int) -> int:
+    """The VAT inside ``gross`` of this invoice, in its own proportion (the VAT
+    return and TTMS split a credit note the same way)."""
+    _subtotal, tax_total, grand_total = _tax_breakdown(inv)
+    if tax_total <= 0 or grand_total <= 0:
+        return 0
+    return int(round(tax_total * gross / grand_total))
+
+
 @router.post("/{invoice_id}/credit-notes", response_model=CreditNoteRead, status_code=201)
 def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = Depends(get_db)) -> CreditNoteRead:
+    """A credit note against an invoice — paid or not (a return after payment
+    is the common case). It reverses its share of the revenue or expense and
+    of the VAT; first it settles what the invoice still owes, and any part
+    beyond that becomes the party's credit (what we owe the customer, or the
+    supplier owes us), to refund now (``refund``) or later, or to use on
+    another invoice."""
     inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.status in ("draft", "canceled", "voided"):
+        raise HTTPException(status_code=409, detail=f"Cannot credit a {inv.status} invoice.")
     if payload.currency and payload.currency.strip().upper() != (inv.currency or "").upper():
         raise HTTPException(status_code=400, detail=f"Credit note currency must match the invoice ({inv.currency}).")
     amount = int(payload.amount)
     _recognize_invoice(db, inv)
     db.flush()
-    _paid, _credited, balance_due = _invoice_totals(db, inv)
-    if amount > balance_due:
+    _paid, credited, balance_due = _invoice_totals(db, inv)
+    creditable = max(0, int(inv.amount or 0) - credited)
+    if amount > creditable:
         raise HTTPException(
             status_code=400,
-            detail=f"Credit note ({amount}) exceeds the open balance ({balance_due}).",
+            detail=f"Credit note ({amount}) exceeds what is left to credit ({creditable}).",
         )
     on = payload.date or date.today()
-    # Sales credit note: DR sales returns (contra-revenue) / CR trade debtors.
-    # Purchase credit note: DR trade creditors / CR purchases (expense).
+    to_balance = min(amount, balance_due)
+    excess = amount - to_balance
+    vat = _vat_share(inv, amount)
+    # Sales: DR sales returns (contra-revenue) + DR output VAT / CR trade
+    # debtors (what was still owed) + CR customer credit (the rest).
+    # Purchase: DR trade creditors + DR supplier advance / CR purchases + CR input VAT.
     try:
         if inv.kind == "sales":
-            lines = [
-                (resolve_account_code(db, "sales_returns"), amount, 0, bt(db, "credit_note_sales", number=inv.number)),
-                (resolve_account_code(db, "ar"), 0, amount, bt(db, "credit_note_ar", number=inv.number)),
-            ]
+            lines = [(resolve_account_code(db, "sales_returns"), amount - vat, 0, bt(db, "credit_note_sales", number=inv.number))]
+            if vat:
+                lines.append((resolve_account_code(db, "vat_output"), vat, 0, bt(db, "cn_vat_out", number=inv.number)))
+            if to_balance:
+                lines.append((resolve_account_code(db, "ar"), 0, to_balance, bt(db, "credit_note_ar", number=inv.number)))
+            if excess:
+                lines.append((resolve_account_code(db, "customer_credit"), 0, excess, bt(db, "cn_customer_credit", number=inv.number)))
             role = "client"
         else:
-            lines = [
-                (resolve_account_code(db, "ap"), amount, 0, bt(db, "credit_note_ap", number=inv.number)),
-                (resolve_account_code(db, "expense"), 0, amount, bt(db, "credit_note_purchase", number=inv.number)),
-            ]
+            lines = []
+            if to_balance:
+                lines.append((resolve_account_code(db, "ap"), to_balance, 0, bt(db, "credit_note_ap", number=inv.number)))
+            if excess:
+                lines.append((resolve_account_code(db, "supplier_advance"), excess, 0, bt(db, "cn_supplier_credit", number=inv.number)))
+            lines.append((resolve_account_code(db, "expense"), 0, amount - vat, bt(db, "credit_note_purchase", number=inv.number)))
+            if vat:
+                lines.append((resolve_account_code(db, "vat_input"), 0, vat, bt(db, "cn_vat_in", number=inv.number)))
             role = "supplier"
         txn = _post_entry(
             db, on=on, reference=inv.number,
@@ -865,14 +902,145 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
         note_type="reduction", transaction_id=txn.id,
     )
     db.add(note)
+    credit = None
+    if excess:
+        credit = CreditNote(
+            invoice_id=inv.id, entity_id=inv.entity_id, kind=inv.kind, date=on,
+            amount=excess, currency=inv.currency, reason=payload.reason,
+            note_type="credit", transaction_id=txn.id,
+        )
+        db.add(credit)
     db.flush()
     from app.services.fx_settlement import settle
     settle(db, txn, inv)
     paid2, credited2, balance2 = _invoice_totals(db, inv)
     _recompute_status(inv, paid2, credited2, balance2)
+    if credit is not None and payload.refund:
+        _refund_credits(db, inv, [(credit, excess)], excess, on=on, bank_code=payload.bank_account_code)
     db.commit()
     db.refresh(note)
     return CreditNoteRead.model_validate(note)
+
+
+def _refund_credits(db: Session, inv: Invoice, pairs: list, amount: int, *, on: date,
+                    bank_code: str | None) -> Transaction:
+    """Pay back ``amount`` of these credits (oldest first) in one entry. Sales:
+    DR customer credit / CR bank. Purchase: DR bank / CR supplier advance."""
+    bank = _resolve_bank_code(db, bank_code)
+    if inv.kind == "sales":
+        lines = [(resolve_account_code(db, "customer_credit"), amount, 0, bt(db, "credit_refund_credit", number=inv.number)),
+                 (bank, 0, amount, bt(db, "credit_refund_bank_out", number=inv.number))]
+        role = "client"
+    else:
+        lines = [(bank, amount, 0, bt(db, "credit_refund_bank_in", number=inv.number)),
+                 (resolve_account_code(db, "supplier_advance"), 0, amount, bt(db, "credit_refund_advance", number=inv.number))]
+        role = "supplier"
+    txn = _post_entry(
+        db, on=on, reference=inv.number, description=bt(db, "credit_refund", number=inv.number),
+        currency=inv.currency, lines=lines,
+        entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
+        audit_detail=f"Refund {amount} {inv.currency} of the credit on invoice {inv.number}",
+    )
+    left = amount
+    for credit, avail in pairs:
+        take = min(left, avail)
+        if take <= 0:
+            break
+        db.add(CreditNote(
+            invoice_id=credit.invoice_id, entity_id=credit.entity_id, kind=credit.kind, date=on,
+            amount=take, currency=credit.currency, note_type="refund", credit_id=credit.id,
+            transaction_id=txn.id,
+        ))
+        left -= take
+    db.flush()
+    return txn
+
+
+@router.post("/{invoice_id}/refund-credit", response_model=InvoiceRead)
+def refund_credit(invoice_id: UUID, payload: CreditRefund, db: Session = Depends(get_db)) -> InvoiceRead:
+    """Pay back the credit this invoice gave rise to (a credit note beyond what
+    it owed, or an overpayment): all of what is left, or ``amount`` of it."""
+    from app.services import credits
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    pairs = credits.for_invoice(db, inv.id)
+    available = credits.total(pairs)
+    if available <= 0:
+        raise HTTPException(status_code=409, detail="There is no credit to refund on this invoice.")
+    amount = int(payload.amount or available)
+    if amount > available:
+        raise HTTPException(status_code=400, detail=f"Refund ({amount}) exceeds the credit left ({available}).")
+    try:
+        _refund_credits(db, inv, pairs, amount, on=payload.date or date.today(), bank_code=payload.bank_account_code)
+    except AccountResolutionError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=f"Could not post the refund — {e}") from e
+    db.commit()
+    db.refresh(inv)
+    return _to_read(inv)
+
+
+@router.post("/{invoice_id}/apply-credit", response_model=PaymentRead, status_code=201)
+def apply_credit(invoice_id: UUID, payload: CreditApply, db: Session = Depends(get_db)) -> PaymentRead:
+    """Settle this invoice from the party's available credit (oldest first): a
+    customer's credit pays a sales invoice, a supplier's credit a bill. Posts
+    DR customer credit / CR trade debtors (or DR trade creditors / CR supplier
+    advance) — no money moves — and records it as a payment by credit."""
+    from app.services import credits
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.status in ("draft", "canceled", "voided"):
+        raise HTTPException(status_code=409, detail=f"Cannot pay a {inv.status} invoice.")
+    _recognize_invoice(db, inv)
+    db.flush()
+    _paid, _credited, balance_due = _invoice_totals(db, inv)
+    if balance_due <= 0:
+        raise HTTPException(status_code=409, detail="Nothing is still owed on this invoice.")
+    pairs = credits.for_party(db, inv.entity_id, inv.kind, inv.currency)
+    available = credits.total(pairs)
+    if available <= 0:
+        raise HTTPException(status_code=409, detail="There is no credit to use for this invoice.")
+    amount = min(int(payload.amount or available), available, balance_due)
+    on = payload.date or date.today()
+    try:
+        if inv.kind == "sales":
+            lines = [(resolve_account_code(db, "customer_credit"), amount, 0, bt(db, "credit_applied_credit", number=inv.number)),
+                     (resolve_account_code(db, "ar"), 0, amount, bt(db, "credit_applied_ar", number=inv.number))]
+            direction, role = "in", "client"
+        else:
+            lines = [(resolve_account_code(db, "ap"), amount, 0, bt(db, "credit_applied_ap", number=inv.number)),
+                     (resolve_account_code(db, "supplier_advance"), 0, amount, bt(db, "credit_applied_advance", number=inv.number))]
+            direction, role = "out", "supplier"
+        txn = _post_entry(
+            db, on=on, reference=inv.number, description=bt(db, "credit_applied", number=inv.number),
+            currency=inv.currency, lines=lines,
+            entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
+            audit_detail=f"Credit {amount} {inv.currency} applied to invoice {inv.number}",
+        )
+    except AccountResolutionError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=f"Could not post the payment — {e}") from e
+    payment = Payment(invoice_id=inv.id, date=on, amount=amount, currency=inv.currency,
+                      method="credit", direction=direction, transaction_id=txn.id)
+    db.add(payment)
+    left = amount
+    for credit, avail in pairs:
+        take = min(left, avail)
+        if take <= 0:
+            break
+        db.add(CreditNote(
+            invoice_id=inv.id, entity_id=credit.entity_id, kind=credit.kind, date=on, amount=take,
+            currency=credit.currency, note_type="applied", credit_id=credit.id, transaction_id=txn.id,
+        ))
+        left -= take
+    db.flush()
+    paid2, credited2, balance2 = _invoice_totals(db, inv)
+    _recompute_status(inv, paid2, credited2, balance2)
+    db.commit()
+    db.refresh(payment)
+    return _payment_read(db, payment)
 
 
 @router.get("/{invoice_id}/credit-notes", response_model=list[CreditNoteRead])
@@ -1065,8 +1233,11 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
     inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    # each event carries its values (params): the page says it in the reader's
+    # language — the English ``detail`` reached a Persian user as it was
     events = [
-        InvoiceTimelineEvent(at=inv.created_at, event="created", detail=f"Invoice {inv.number} created with status {inv.status}."),
+        InvoiceTimelineEvent(at=inv.created_at, event="created", detail=f"Invoice {inv.number} created with status {inv.status}.",
+                             params={"number": inv.number}),   # (its status then isn't kept: not the current one)
     ]
     from app.models.quote import Quote
     source = db.execute(select(Quote).where(Quote.converted_invoice_id == inv.id)).scalars().first()
@@ -1074,15 +1245,18 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
         events.append(InvoiceTimelineEvent(
             at=source.created_at, event="quote",
             detail=f"Created from quote {source.number} (issued {source.issue_date.isoformat()}).",
+            params={"number": source.number, "date": source.issue_date.isoformat()},
         ))
     if inv.transaction_id:
         txn = db.get(Transaction, inv.transaction_id)
         if txn:
-            events.append(InvoiceTimelineEvent(at=txn.created_at, event="issued", detail=f"AR/AP recognised via transaction {txn.id}."))
+            events.append(InvoiceTimelineEvent(at=txn.created_at, event="issued", detail=f"AR/AP recognised via transaction {txn.id}.",
+                                               params={"kind": inv.kind}))
     for p in db.execute(select(Payment).where(Payment.invoice_id == invoice_id)).scalars().all():
         events.append(InvoiceTimelineEvent(
             at=p.created_at, event="payment",
             detail=f"{p.amount:,} {p.currency} {'received' if p.direction == 'in' else 'paid'} ({p.method}).",
+            params={"amount": int(p.amount), "currency": p.currency, "direction": p.direction, "method": p.method},
         ))
     from app.models.invoice_email import InvoiceEmail
     for m in db.execute(select(InvoiceEmail).where(InvoiceEmail.invoice_id == invoice_id)).scalars().all():
@@ -1090,12 +1264,33 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
         events.append(InvoiceTimelineEvent(
             at=m.created_at, event="email" if m.status == "sent" else "email_failed",
             detail=f"{what} e-mailed to {m.to_address}" + ("." if m.status == "sent" else f" — failed: {m.error}"),
+            params={"kind": m.kind, "to": m.to_address, "error": m.error},
         ))
-    for n in db.execute(select(CreditNote).where(CreditNote.invoice_id == invoice_id)).scalars().all():
-        events.append(InvoiceTimelineEvent(
-            at=n.created_at, event="credit_note",
-            detail=f"Credit note {n.amount:,} {n.currency}" + (f": {n.reason}" if n.reason else "."),
-        ))
+    notes = db.execute(select(CreditNote).where(CreditNote.invoice_id == invoice_id)).scalars().all()
+    used_by = {}
+    credit_ids = [n.id for n in notes if n.note_type == "credit"]
+    if credit_ids:
+        for child in db.execute(select(CreditNote).where(CreditNote.credit_id.in_(credit_ids),
+                                                         CreditNote.note_type == "applied")).scalars().all():
+            used_by.setdefault(child.credit_id, []).append(child)
+    for n in notes:
+        if n.note_type == "applied":
+            continue                                   # its payment row says it on this invoice
+        params = {"amount": int(n.amount), "currency": n.currency, "reason": n.reason, "kind": n.kind}
+        if n.note_type == "reduction":
+            event, detail = "credit_note", f"Credit note {n.amount:,} {n.currency}" + (f": {n.reason}" if n.reason else ".")
+        elif n.note_type == "credit":
+            event, detail = "credit", f"{n.amount:,} {n.currency} credit to the {'customer' if n.kind == 'sales' else 'company'}."
+        else:
+            event, detail = "refund", f"{n.amount:,} {n.currency} of the credit refunded."
+        events.append(InvoiceTimelineEvent(at=n.created_at, event=event, detail=detail, params=params))
+        for child in used_by.get(n.id, []):
+            target = db.get(Invoice, child.invoice_id) if child.invoice_id else None
+            events.append(InvoiceTimelineEvent(
+                at=child.created_at, event="credit_used",
+                detail=f"{child.amount:,} {child.currency} of the credit used on invoice {target.number if target else ''}.",
+                params={"amount": int(child.amount), "currency": child.currency, "number": target.number if target else ""},
+            ))
     events.sort(key=lambda e: e.at)
     return events
 

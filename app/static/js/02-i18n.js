@@ -2058,6 +2058,10 @@
         msgNoneDelivered: "none",
         msgDocumentDefault: "document",
         jdatePlaceholder: "yyyy/mm/dd",
+        dangerConfirmTitle: "This can't be undone",
+        typeToConfirm: "To confirm, type the company's name: «{name}»",
+        typeToConfirmMismatch: "The name didn't match — nothing was deleted.",
+        resetDoneChart: "Database reset. Chart: {n} accounts. Reloading…",
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",
@@ -3048,7 +3052,6 @@
       setLabel('entity-name', 'labelName');
       setLabel('entity-code', 'labelCodeOptional');
       setText('entity-add', 'btnAddEntity');
-      setText('reset-db-btn', 'btnResetDb');
       // ── Settings panel: reporting locale + display calendar + demo data ──
       setText('reporting-locale-heading', 'settingsReportingLocale');
       setText('reporting-locale-desc', 'settingsReportingLocaleDesc');

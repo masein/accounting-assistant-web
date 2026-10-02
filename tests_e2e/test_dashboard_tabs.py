@@ -13,7 +13,18 @@ SHOWN = "() => [...document.querySelectorAll('.dash-tabpanel')].filter(p => !p.h
 def _open_dashboard(page):
     page.evaluate("() => { location.hash = 'dashboard'; }")
     page.wait_for_load_state("networkidle")
+    wait_until(page, "() => activePage() === 'dashboard'")
     page.wait_for_selector("#kpi-grid .kpi-card")
+
+
+def _settle(page, calls, want):
+    """Wait until the fetches in ``want`` have gone out (networkidle returns at
+    once after a hash change), then a moment more for any that shouldn't."""
+    import time
+    end = time.monotonic() + 5
+    while not all(w in calls for w in want) and time.monotonic() < end:
+        page.wait_for_timeout(100)
+    page.wait_for_timeout(300)
 
 
 def _calls(page):
@@ -70,10 +81,11 @@ def test_one_section_at_a_time_under_the_top(flow_page):
     # back after another page: the open tab's section loads again, the rest when opened
     calls = _calls(page)
     page.evaluate("() => { location.hash = 'invoices'; }")
+    wait_until(page, "() => activePage() === 'invoices'")
     page.wait_for_load_state("networkidle")
     calls.clear()
     _open_dashboard(page)
-    page.wait_for_timeout(300)
+    _settle(page, calls, ["missing-references"])
     assert calls == ["missing-references"], calls
     with page.expect_response(lambda r: "/budgets/actual-vs-budget" in r.url):
         page.click("#dash-tab-spend")
@@ -138,7 +150,8 @@ def test_on_a_phone_the_bar_scrolls_and_the_page_does_not(flow_page):
         inside = """(id) => { const b = document.getElementById('dash-tabs').getBoundingClientRect();
             const t = document.getElementById(id).getBoundingClientRect(); return t.left >= b.left - 1 && t.right <= b.right + 1; }"""
         wait_until(page, inside, "dash-tab-books")
-        assert page.evaluate("() => document.getElementById('dash-tabs').classList.contains('more-before')")
+        # the fade follows the bar's scroll event, which fires on the next frame
+        wait_until(page, "() => document.getElementById('dash-tabs').classList.contains('more-before')")
         page.keyboard.press("Home")
         wait_until(page, inside, "dash-tab-cash")
         for tab in TABS:

@@ -117,6 +117,17 @@ def test_a_converted_quote_and_a_bank_fee_read_in_persian_too(books, db):
         ["Transaction fee - Card-to-Card via HSBC", "Bank fee deduction - HSBC"]
 
 
+def test_a_bank_partys_own_account_is_named_in_persian(books, db):
+    """Adding «بانک ملت» opened the account "بانک ملت — bank account" (finding #22)."""
+    from app.models.account import Account
+    api, cid = books("ir")
+    with use_company(cid):
+        r = api.post("/entities", json={"type": "bank", "name": "بانک ملت"})
+        assert r.status_code in (200, 201), r.text
+        names = [a.name for a in db.execute(select(Account)).scalars() if "ملت" in (a.name or "")]
+    assert names == ["حساب بانکی بانک ملت"], names
+
+
 def test_every_text_has_both_languages_and_the_same_placeholders():
     for key, said in book_text.TEXT.items():
         assert set(said) == {"en", "fa"}, key

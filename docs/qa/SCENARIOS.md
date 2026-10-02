@@ -111,7 +111,7 @@ terms: what they see, in their language and calendar.
 | D5 | Audit | Trail plus full audit | Every action of the run is in the trail; findings in Persian |
 | D6 | Period lock | Lock through the end of Shahrivar; try a back-dated voucher | Refused, in Persian, naming the lock date; both dates in the refusal and the lock status itself («قفل تا 1405/06/31») are Jalali, in Persian and in English; a Gregorian company's stay Gregorian [#267] |
 | D7 | Tax | TTMS season export; Moadian export of C3 | Files download; amounts agree with the invoices |
-| D8 | Forecast and insights | 13-week forecast plus a what-if; insights after a duplicate payment | Forecast weeks in Jalali; the duplicate is flagged |
+| D8 | Forecast and insights | 13-week forecast plus a what-if; insights after a duplicate payment | Forecast weeks in Jalali; the duplicate is flagged; on the dashboard each week's date stays on one line (it broke as «2026-09-» / «28») [#272] |
 | D9 | The books' language [#262] | After C1–C22, open the general journal, an account's ledger and a party's statement; then do the same in Thames | Every description the app wrote itself (invoice, payment, bill, credit note, void, opening balance, equity, payroll, mileage, time billing, depreciation, petty cash, recurring, FX, fees, statement rows) reads in Persian in Arman, with Jalali dates inside the text; in Thames the same entries read in English; nothing already posted is rewritten |
 
 ## E. AI accountant and migration (no AI provider)

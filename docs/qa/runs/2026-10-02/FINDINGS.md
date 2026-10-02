@@ -45,7 +45,7 @@ Severity:
 | 34 | P3 | UK invoice form | Totals show "3,600 GBP" rather than "£3,600" (the list uses the symbol) | G1 | open |
 | 35 | **P1** | **Book language** | Every system-generated journal description is English in an Iranian company's books: "Invoice ARM-1805 issued / — revenue / — output VAT", "Payment for invoice …", "Opening balance", "Dividend declared — …", "Mileage claim — …", "Time billing — … (2026-10-01 → …)" (with Gregorian dates). About 246 English f-strings across the services. These are stored text that shows in the journal, ledger, statements and PDFs | dashboard, journal | fixed #262 |
 | 36 | P2 | Dashboard | Overloaded: about 12 sections over 4,400 px (KPIs, a 13-week table, a 13-row explorer repeating it, what-if, aging ×2, spending ×2, profitability, health, owner pack, missing references, budgets, exports) | I | open |
-| 37 | P2 | Dashboard forecast | The week column cuts dates ("1405/07/0"); in en/ar they wrap | I | open |
+| 37 | P2 | Dashboard forecast | The week column cuts dates ("1405/07/0"); in en/ar they wrap | I | fixed #272 |
 | 38 | P2 | Owner pack | Shown as a monospace text block with a Gregorian date "(2026-10-02)" in a Jalali company | I | fixed #267 |
 | 39 | P3 | Ledger (tablet) | The page scrolls sideways at 768 px | I | open |
 | 40 | P3 | Jalali date field | The hidden native input is exposed to screen readers (no name, not `aria-hidden`) | I | open |

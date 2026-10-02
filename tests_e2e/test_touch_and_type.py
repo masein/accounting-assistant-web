@@ -17,6 +17,9 @@ SMALL = r"""() => [...document.querySelectorAll('.card[data-page] .chip, .card[d
 def test_thumb_sized_controls_readable_labels_and_one_date_field(browser, flow_page):
     octx, owner = _owner(browser)
     try:
+        # an invoice, so the list has its row buttons and PDF link (alone, the list was empty)
+        owner.evaluate(POST, ["/invoices", {"number": "TOUCH-1", "kind": "sales", "status": "issued", "amount": 1000,
+                                            "issue_date": "2026-09-01", "due_date": "2026-10-01"}])
         assert owner.evaluate(POST, ["/admin/display-calendar", {"calendar": "jalali"}])[0] == 200
         page, watch = flow_page("e2e_touch")
         page.set_viewport_size({"width": 390, "height": 844})

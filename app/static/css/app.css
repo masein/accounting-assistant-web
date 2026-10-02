@@ -1140,6 +1140,9 @@
 /* Phones: every control a thumb can hit (deep browser test, 2026-10-02:
    checkboxes, the chat's quick chips, small buttons and the line "×" were
    under 28 px) */
+/* A link styled as a button sizes like one (inline, it ignored height and
+   min-height: the invoice list's PDF link was 31 px tall next to 32 px buttons) */
+a.btn { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
 @media (max-width: 640px) {
   .card[data-page] input[type="checkbox"], .card[data-page] input[type="radio"] { width: 20px; height: 20px; }
   .card[data-page] label:has(> input[type="checkbox"]), .card[data-page] label:has(> input[type="radio"]) { min-height: 32px; display: inline-flex; align-items: center; gap: .4rem; }

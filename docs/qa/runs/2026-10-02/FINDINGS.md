@@ -35,8 +35,8 @@ Severity:
 | 24 | P2 | Ledger summary | "IRR 0 بد": "بد" means "bad"; it should read بدهکار | C1 | fixed #261 |
 | 25 | P3 | Ledger summary | 1110 takes postings and also has a sub-account, so it shows twice; the charts' axes show bare codes without names | C1 | open |
 | 26 | P2 | Bank statements | The list's status column shows raw `parsed` | C12 | fixed #261 |
-| 27 | P3 | Bank statements | After an upload the rows aren't opened; the user has to find "View" | C12 | open |
-| 28 | P3 | Budgets | The category is a typed code; the table shows only the code (6112), not the account name | C21 | open |
+| 27 | P3 | Bank statements | After an upload the rows aren't opened; the user has to find "View" | C12 | fixed #274 |
+| 28 | P3 | Budgets | The category is a typed code; the table shows only the code (6112), not the account name | C21 | fixed #274 |
 | 29 | P2 | Reports | General ledger and trial balance previews: "Debit Turnover / Credit Turnover / Debit Balance / Credit Balance" in English | D2 | fixed #261 |
 | 30 | P2 | Trial balance | Asked with only `to_date` (everything up to a date), it returns **0 rows** | D2 | fixed #265 |
 | 31 | P2 | Dates in messages | The lock status ("قفل تا 2026-09-22") and the server's refusal ("دوره تا 2026-09-22 بسته است…") show Gregorian dates in a Jalali company | D6 | fixed #267 |
@@ -55,3 +55,4 @@ Severity:
 | 44 | P3? | Credit notes | Disabled on a fully paid invoice (a refund case). After a credit note an invoice reads "partially paid". **Design question for the user** | C7 | *question* |
 | 45 | P2 | Report previews | The general journal (and every table preview) printed its dates as 2026-09-30 in a Jalali company; a report with only an end date showed it raw too | journal, while fixing #35 | fixed #261 |
 | 46 | P3 | Manager reports | The "No currency filter selected… Pick a currency" banner was English (multi-line template text the static scan doesn't see) | code reading | fixed #261 |
+| 47 | P2 | Bank statements | The statement detail's title was "Unknown — file.csv (12 rows)": English "rows", and "Unknown" for an unnamed bank | while fixing #27 | fixed #274 |

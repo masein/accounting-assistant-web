@@ -2029,6 +2029,8 @@ window.I18N_PACKS.ar = Object.assign({
         resetDoneChart: "أُعيد تعيين قاعدة البيانات. الدليل: {n} حساب. جارٍ إعادة التحميل…",
         mgrNoCurrencyWarning: 'لم تُختر عملة. الأرقام أدناه تجمع {list} كأرقام مجردة، وهذا بلا معنى. اختر عملة:',
         payrollRulesFloor: 'حد الاشتراك التأميني (شهري)',
+        bsDetailTitle: '{bank} — {file} ({n} صفوف)',
+        bsDetailTitleNoBank: '{file} ({n} صفوف)',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

@@ -894,7 +894,27 @@ def _request_id_of(request: Request) -> str | None:
 from fastapi.exception_handlers import http_exception_handler as _default_http_exception_handler  # noqa: E402
 from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
 
-from app.core.messages import localize_detail, request_language  # noqa: E402
+from app.core.messages import has_date, localize_detail, request_language  # noqa: E402
+
+
+def _shows_jalali() -> bool:
+    """Does the current company show the Jalali calendar? Asked only for a
+    message with a date in it; any trouble reading it leaves the date as it is."""
+    from app.db.tenant import get_current_company
+    if not get_current_company():
+        return False
+    sess = gen = None
+    try:
+        sess, gen = _resolve_validation_session()
+        from app.services.locale_service import get_display_calendar
+        return get_display_calendar(sess) == "jalali"
+    except Exception:
+        return False
+    finally:
+        if gen is not None:
+            gen.close()
+        elif sess is not None:
+            sess.close()
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -902,8 +922,9 @@ async def localized_http_exception_handler(request: Request, exc: StarletteHTTPE
     """An endpoint's error message in the reader's language (app/core/messages.py);
     status, headers and anything that isn't a plain message are untouched."""
     lang = request_language(request.headers)
-    if lang != "en" and isinstance(exc.detail, str):
-        said = localize_detail(exc.detail, lang)
+    jalali = has_date(exc.detail) and await run_in_threadpool(_shows_jalali)
+    if (lang != "en" or jalali) and isinstance(exc.detail, str):
+        said = localize_detail(exc.detail, lang, jalali=jalali)
         if said != exc.detail:
             exc = StarletteHTTPException(status_code=exc.status_code, detail=said, headers=getattr(exc, "headers", None))
     return await _default_http_exception_handler(request, exc)

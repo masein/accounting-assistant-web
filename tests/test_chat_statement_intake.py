@@ -122,7 +122,8 @@ def test_a_csv_statement_in_chat_is_imported_without_the_ai(auth_client, db, no_
     intake = body["intake"]
     assert intake["kind"] == "bank_statement" and intake["status"] == "imported", intake
     assert intake["total_rows"] == 6 and body["stop_reason"] == "intake"
-    assert body["text"].startswith("I read your statement: 6 rows (2031-02-01 to 2031-02-14)"), body["text"]
+    # no "Unknown" bank; the span's calendar follows the company (tested below)
+    assert body["text"].startswith("I read your statement: 6 rows ("), body["text"]
     stmt = db.get(BankStatement, uuid.UUID(intake["statement_id"]))
     assert stmt is not None and stmt.source_type == "csv"
 

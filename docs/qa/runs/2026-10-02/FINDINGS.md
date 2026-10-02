@@ -40,7 +40,7 @@ Severity:
 | 29 | P2 | Reports | General ledger and trial balance previews: "Debit Turnover / Credit Turnover / Debit Balance / Credit Balance" in English | D2 | fixed #261 |
 | 30 | P2 | Trial balance | Asked with only `to_date` (everything up to a date), it returns **0 rows** | D2 | fixed #265 |
 | 31 | P2 | Dates in messages | The lock status ("قفل تا 2026-09-22") and the server's refusal ("دوره تا 2026-09-22 بسته است…") show Gregorian dates in a Jalali company | D6 | fixed #267 |
-| 32 | P2? | AI chat | A CSV statement attached in the chat fails with "AI unavailable"; parsing a CSV doesn't need AI (to check: is the deterministic intake bypassed?) | E2 | open |
+| 32 | P2? | AI chat | A CSV statement attached in the chat fails with "AI unavailable"; parsing a CSV doesn't need AI (to check: is the deterministic intake bypassed?) | E2 | fixed #268 |
 | 33 | P1 | (confirms #11) | A UK owner's "Reset database" on the parties page gave the company the **Iranian chart** (36 Persian-named accounts) | G0 | fixed #259 |
 | 34 | P3 | UK invoice form | Totals show "3,600 GBP" rather than "£3,600" (the list uses the symbol) | G1 | open |
 | 35 | **P1** | **Book language** | Every system-generated journal description is English in an Iranian company's books: "Invoice ARM-1805 issued / — revenue / — output VAT", "Payment for invoice …", "Opening balance", "Dividend declared — …", "Mileage claim — …", "Time billing — … (2026-10-01 → …)" (with Gregorian dates). About 246 English f-strings across the services. These are stored text that shows in the journal, ledger, statements and PDFs | dashboard, journal | fixed #262 |
@@ -51,7 +51,7 @@ Severity:
 | 40 | P3 | Jalali date field | The hidden native input is exposed to screen readers (no name, not `aria-hidden`) | I | open |
 | 41 | P3 | Phone | Tap targets under 28 px: checkboxes, the chat's quick chips, the CFO check buttons, the invoice line "×", PDF, the password eye | I | open |
 | 42 | P3 | Gregorian date fields | In es/ar the native date and month fields show the browser's "mm/dd/yyyy" | I | open |
-| 43 | P2 | AI chat | A CSV/XLSX bank statement attached in the chat goes to the AI (and fails with none set up). The no-AI statement path only runs for PDFs and images, which need AI to read anyway | E2 | open |
+| 43 | P2 | AI chat | A CSV/XLSX bank statement attached in the chat goes to the AI (and fails with none set up). The no-AI statement path only runs for PDFs and images, which need AI to read anyway | E2 | fixed #268 |
 | 44 | P3? | Credit notes | Disabled on a fully paid invoice (a refund case). After a credit note an invoice reads "partially paid". **Design question for the user** | C7 | *question* |
 | 45 | P2 | Report previews | The general journal (and every table preview) printed its dates as 2026-09-30 in a Jalali company; a report with only an end date showed it raw too | journal, while fixing #35 | fixed #261 |
 | 46 | P3 | Manager reports | The "No currency filter selected… Pick a currency" banner was English (multi-line template text the static scan doesn't see) | code reading | fixed #261 |

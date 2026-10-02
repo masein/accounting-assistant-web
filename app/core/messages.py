@@ -916,18 +916,46 @@ PATTERNS: list[_Pattern] = [
 ]
 
 
-def localize_detail(detail, lang: str):
-    """``detail`` in ``lang`` when there is a translation; anything else as it was."""
-    if not isinstance(detail, str) or lang not in LANGS:
+_ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+
+
+def has_date(detail) -> bool:
+    return isinstance(detail, str) and bool(_ISO_DATE.search(detail))
+
+
+def _jalali_dates(text: str) -> str:
+    """Every ISO date in ``text`` as the Jalali calendar writes it (1405/06/31)."""
+    from datetime import date
+
+    from app.utils.jalali import format_jalali
+
+    def one(m):
+        try:
+            return format_jalali(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+        except ValueError:
+            return m.group(0)
+    return _ISO_DATE.sub(one, text)
+
+
+def localize_detail(detail, lang: str, *, jalali: bool = False):
+    """``detail`` in ``lang`` when there is a translation; anything else as it was.
+    ``jalali``: the company shows the Jalali calendar, so a date in the message
+    is written that way too ("the period is closed through 2026-09-22" read
+    Gregorian in a Jalali company: deep browser test, 2026-10-02, finding #31)."""
+    if not isinstance(detail, str):
         return detail
-    hit = EXACT.get(detail)
-    if hit:
-        return hit[lang]
-    for p in PATTERNS:
-        m = p.regex.match(detail)
-        if m:
-            return p.render(m, lang)
-    return detail
+    said = detail
+    if lang in LANGS:
+        hit = EXACT.get(detail)
+        if hit:
+            said = hit[lang]
+        else:
+            for p in PATTERNS:
+                m = p.regex.match(detail)
+                if m:
+                    said = p.render(m, lang)
+                    break
+    return _jalali_dates(said) if jalali else said
 
 
 def request_language(headers: Mapping[str, str]) -> str:

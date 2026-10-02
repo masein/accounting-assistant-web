@@ -190,7 +190,7 @@
         if (!r.ok) return;
         const d = await r.json();
         inp.value = d.closed_period || '';
-        if (status) status.textContent = d.closed_period ? tf('periodLockedThrough', { date: d.closed_period }) : t('periodOpen');
+        if (status) status.textContent = d.closed_period ? tf('periodLockedThrough', { date: formatDisplayDate(d.closed_period) }) : t('periodOpen');
       } catch (_) {}
     }
     async function _saveClosedPeriod(value) {

@@ -22,6 +22,8 @@ under test. Each step takes a screenshot. A scenario passes only if every
 expected result holds, and failures are recorded with their evidence. UI/UX
 findings are logged separately, by severity.
 
+**Running it.** The Playwright scripts for these scenarios are in `scripts/qa/` (see its README): `sh scripts/qa/qa_all.sh` builds the throwaway server and runs every group.
+
 **Adding a scenario.** Give it the next ID in its section (C23, D9, …), write
 the steps as a user would do them and the expected result as something a
 screenshot or a read-back can prove. Note the PR in brackets when a scenario

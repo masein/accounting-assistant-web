@@ -91,3 +91,19 @@ def test_health_reports_schema_versions(client):
     assert "image_schema" in d and "db_schema" in d
     # The build must know its own migration head (stale-image detection).
     assert isinstance(d["image_schema"], str) and d["image_schema"] not in ("", "unknown")
+
+
+@pytest.mark.parametrize("locale", ["uk", "ir"])
+def test_a_reset_that_names_no_locale_keeps_the_companys_own(db, client, company, locale):
+    """The parties page's reset sent no locale and the endpoint defaulted to
+    "ir": a UK company was given the Iranian chart (deep test G0, 2026-10-02)."""
+    _purge_settings(db, "reporting_locale", "reporting_currency")
+    company.locale = locale
+    db.commit()
+    r = _api(client, company).post("/admin/reset-db")
+    assert r.status_code == 200, r.text
+    assert r.json()["locale"] == locale
+    from app.models.account import Account
+    names = [a.name for a in db.execute(select(Account)).scalars()]
+    persian = sum(any("؀" <= ch <= "ۿ" for ch in n) for n in names)
+    assert (persian == 0) if locale == "uk" else (persian > len(names) // 2)

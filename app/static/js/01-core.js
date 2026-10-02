@@ -305,6 +305,11 @@
     const ROLE_KEYS = { owner: 'roleOwner', cfo: 'roleCfo', accountant: 'roleAccountant', manager: 'roleManager', employee: 'roleEmployee', viewer: 'roleViewer', personal: 'rolePersonal' };
     function roleLabel(r) { return t(ROLE_KEYS[r] || 'roleEmployee'); }
     let currentRole = 'owner';
+    // the company's locale (ir / uk / default), from /auth/me: what applies to
+    // it — tax codes, tax panels, payroll rules — is all an Iranian or a UK
+    // company sees, not the other country's
+    let companyLocale = '';
+    function ownJurisdiction() { return companyLocale === 'ir' ? 'IR' : companyLocale === 'uk' ? 'UK' : ''; }
     // Which roles may SEE each page (nav + client-side gate). The server still
     // enforces — this is cosmetic. Keep in sync with app/core/permissions.py.
     const PAGE_ROLES = {

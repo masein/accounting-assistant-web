@@ -15,8 +15,16 @@
       try {
         const res = await fetch(API + '/reports/tax-rates');
         if (!res.ok) return;
-        const rates = await res.json();
+        // The other country's rates stay out of an Iranian or a UK company's
+        // lists (an Iranian invoice offered UK_VAT_STANDARD); a jurisdiction
+        // the company added itself still shows.
+        const own = ownJurisdiction();
+        const other = own === 'IR' ? 'UK' : own === 'UK' ? 'IR' : null;
+        const rates = (await res.json()).filter(r => !other || String(r.jurisdiction || '').toUpperCase() !== other);
         _taxRateCodes = [...new Set(rates.map(r => r.code))];
+        const trCode = document.getElementById('tr-code'), trJuris = document.getElementById('tr-juris');
+        if (trCode && own) trCode.placeholder = own + '_VAT_STANDARD';
+        if (trJuris && own) trJuris.placeholder = own;
         // Populate the invoice tax-code dropdown.
         const sel = document.getElementById('inv-tax-code');
         if (sel) {

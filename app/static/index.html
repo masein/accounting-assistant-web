@@ -304,7 +304,7 @@
       </table>
 
       <!-- سامانه مودیان export -->
-      <details id="moadian-panel" style="margin-top:1.25rem;">
+      <details id="moadian-panel" class="ir-only" style="margin-top:1.25rem;">
         <summary style="cursor:pointer;font-weight:600;" data-i18n="moTitle">سامانه مودیان (e-invoicing)</summary>
         <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="moSubtitle">Prepare sales invoices for the tax organisation: each one gets its 22-character tax number and is exported in the official JSON structure for your trusted provider (شرکت معتمد). Record the provider's answer here. Invoices must reach the system within the deadline after issue.</p>
         <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
@@ -954,7 +954,7 @@
             <div><label for="cm-c-amount" data-i18n="cmFieldAmount">Amount</label><input type="number" id="cm-c-amount" min="1" step="1"></div>
             <div><label for="cm-c-due" data-i18n="cmFieldDue">Due date</label><input type="date" id="cm-c-due"></div>
             <div><label for="cm-c-ref" data-i18n="cmFieldChequeNo">Cheque no.</label><input type="text" id="cm-c-ref"></div>
-            <div><label for="cm-c-sayad" data-i18n="cmFieldSayad">Sayad id</label><input type="text" id="cm-c-sayad" inputmode="numeric" maxlength="19" dir="ltr" data-i18n-placeholder="cmSayadPlaceholder" placeholder="16 digits"></div>
+            <div class="not-uk"><label for="cm-c-sayad" data-i18n="cmFieldSayad">Sayad id</label><input type="text" id="cm-c-sayad" inputmode="numeric" maxlength="19" dir="ltr" data-i18n-placeholder="cmSayadPlaceholder" placeholder="16 digits"></div>
             <div><label for="cm-c-bank" data-i18n="cmFieldBank">Bank</label><input type="text" id="cm-c-bank"></div>
             <div><label for="cm-c-dir" data-i18n="cmFieldDirection">Direction</label>
               <select id="cm-c-dir"><option value="pay" data-i18n="cmDirPay">I pay</option><option value="receive" data-i18n="cmDirReceive">I receive</option></select></div>

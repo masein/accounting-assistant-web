@@ -9,13 +9,14 @@ import uuid
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import SessionUser, get_current_user
 from app.core.config import settings
+from app.core.messages import localize_detail, request_language
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.audit_log import AuditLog, IntegrityCheck, TransactionVersion
@@ -307,10 +308,17 @@ from app.services.statement_import import account_name as _account_name  # noqa:
 from app.services.statement_import import classify_fee_row as _classify_fee_row  # noqa: E402,F401
 
 
+def _row_error(row_index, reason: str) -> str:
+    """One row's problem in a batch, said in the page's language on the way out
+    (app/core/messages.py: "Row {n}: {reason}", the reason from the catalogue)."""
+    return f"Row {row_index}: {reason}"
+
+
 @router.post("/bank-statements/{statement_id}/approve", response_model=BatchApprovalResponse)
 def batch_approve_rows(
     statement_id: UUID,
     payload: BatchApprovalRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> BatchApprovalResponse:
     """Approve, reject, or create transactions from bank statement rows."""
@@ -324,7 +332,7 @@ def batch_approve_rows(
     for approval in payload.approvals:
         row = db.get(BankStatementRow, approval.row_id)
         if not row or row.statement_id != s.id:
-            errors.append(f"Row {approval.row_id} not found in this statement")
+            errors.append(_row_error(approval.row_id, "not in this statement."))
             continue
 
         if approval.action == "approve":
@@ -348,9 +356,7 @@ def batch_approve_rows(
             # bad enough to guard at the API too; a genuine one-off can still be
             # keyed as a normal voucher.
             if row.recon_status == "duplicate":
-                errors.append(
-                    f"Row {row.row_index}: already imported previously — not posted again"
-                )
+                errors.append(_row_error(row.row_index, "already imported previously — not posted again."))
                 continue
 
             # Post through the canonical builder so a statement row gets the
@@ -376,12 +382,12 @@ def batch_approve_rows(
                 from app.services.statement_import import bank_account_for_statement
                 cash_code = bank_account_for_statement(db, s) or resolve_account_code(db, "bank")
             except AccountResolutionError as e:
-                errors.append(f"Row {row.row_index}: {e}")
+                errors.append(_row_error(row.row_index, str(e)))
                 continue
             if acc_code == cash_code:
                 # money from the account to itself: a journal that does nothing
-                errors.append(f"Row {row.row_index}: that's this statement's own bank account — "
-                              "choose what the money was for.")
+                errors.append(_row_error(row.row_index, "that's this statement's own bank account — "
+                                                        "choose what the money was for."))
                 continue
 
             amount = row.debit if row.debit > 0 else row.credit
@@ -405,7 +411,7 @@ def batch_approve_rows(
                 txn = _create_transaction_from_payload(db, payload)
             except HTTPException as e:
                 # One unpostable row must not sink the whole batch.
-                errors.append(f"Row {row.row_index}: {e.detail}")
+                errors.append(_row_error(row.row_index, str(e.detail)))
                 continue
 
             row.created_transaction_id = txn.id
@@ -425,9 +431,10 @@ def batch_approve_rows(
     ) else "reviewing"
 
     db.commit()
+    lang = request_language(request.headers)
     return BatchApprovalResponse(
         approved=approved, rejected=rejected, skipped=skipped,
-        created=created, errors=errors,
+        created=created, errors=[localize_detail(e, lang) for e in errors],
     )
 
 

@@ -191,6 +191,14 @@
       return s !== prefix + v ? s : v.replace(/_/g, ' ');
     }
 
+    // An invoice's status by name — the list showed 'issued', 'partially_paid', 'voided'.
+    const INVOICE_STATUS_KEYS = { draft: 'optionStatusDraft', issued: 'optionStatusIssued', paid: 'optionStatusPaid',
+      partially_paid: 'optionStatusPartiallyPaid', canceled: 'optionStatusCanceled', voided: 'optionStatusVoided', overdue: 'optionStatusOverdue' };
+    function invoiceStatusLabel(status) {
+      const key = INVOICE_STATUS_KEYS[String(status || '').toLowerCase()];
+      return key ? t(key) : String(status || '').replace(/_/g, ' ');
+    }
+
     // t() with {token} substitution: tf('confirmDeleteUser', {name: 'bob'}).
     function tf(key, params) {
       let s = t(key);
@@ -1073,6 +1081,10 @@
         risk: 'fieldRisk',
         estimated_cost: 'fieldEstimatedCost',
         entity_names: 'fieldEntities',
+        debit_turnover: 'tableDebitTurnover',
+        credit_turnover: 'tableCreditTurnover',
+        debit_balance: 'fieldDebitBalance',
+        credit_balance: 'fieldCreditBalance',
         entity_name: 'fieldEntityName',
         invoice_count: 'fieldInvoiceCount',
         client_count: 'fieldClientCount',

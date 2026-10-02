@@ -931,18 +931,26 @@
 
     let lastSavedTransactionId = null;
 
-    function buildConfirmationSummary(date, description, lines, currency) {
-      const debitLines = lines.filter(l => l.debit > 0);
-      const creditLines = lines.filter(l => l.credit > 0);
-      const ccyLabel = currency ? ` ${currency}` : '';
-      let summary = `Date: ${date}\n`;
-      if (currency) summary += `Currency: ${currency}\n`;
-      if (description) summary += `Description: ${description}\n`;
-      summary += '\nDebit entries:\n';
-      debitLines.forEach(l => { summary += `  ${l.account_code}: ${l.debit.toLocaleString()}${ccyLabel} ${l.line_description ? '(' + l.line_description + ')' : ''}\n`; });
-      summary += '\nCredit entries:\n';
-      creditLines.forEach(l => { summary += `  ${l.account_code}: ${l.credit.toLocaleString()}${ccyLabel} ${l.line_description ? '(' + l.line_description + ')' : ''}\n`; });
-      summary += `\nTotal: ${lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}${ccyLabel}\n`;
+    // The names of the chart's accounts, for a confirmation that says more than codes.
+    async function accountNamesByCode() {
+      try {
+        const r = await fetch(API + '/accounts');
+        const list = r.ok ? await r.json() : [];
+        return Object.fromEntries((Array.isArray(list) ? list : []).map(a => [a.code, a.name]));
+      } catch (_) { return {}; }
+    }
+
+    function buildConfirmationSummary(date, description, lines, currency, names = {}) {
+      // in the user's words and calendar, each account by its name too — it was
+      // "Date: 2026-09-29 … Debit entries: 6112: 1,000 IRR" in a Persian, Jalali company
+      const acct = (code) => code + (names[code] ? ' ' + names[code] : '');
+      const money = (n) => currency ? formatMoney(n, currency) : formatNum(n);
+      const row = (l, amount) => '  ' + acct(l.account_code) + ': ' + money(amount) + (l.line_description ? ' (' + l.line_description + ')' : '');
+      let summary = tf('voucherConfirmDate', { date: formatDisplayDate(date) }) + '\n';
+      if (description) summary += tf('voucherConfirmDescription', { text: description }) + '\n';
+      summary += '\n' + t('voucherConfirmDebits') + '\n' + lines.filter(l => l.debit > 0).map(l => row(l, l.debit)).join('\n') + '\n';
+      summary += '\n' + t('voucherConfirmCredits') + '\n' + lines.filter(l => l.credit > 0).map(l => row(l, l.credit)).join('\n') + '\n';
+      summary += '\n' + tf('voucherConfirmTotal', { amount: money(lines.reduce((s, l) => s + l.debit, 0)) });
       return summary;
     }
 
@@ -1010,7 +1018,7 @@
         if (!proceed) return;
       }
       // Pre-save confirmation
-      const confirmMsg = buildConfirmationSummary(date, description, lines, currency);
+      const confirmMsg = buildConfirmationSummary(date, description, lines, currency, await accountNamesByCode());
       if (!(await uiConfirm({ title: t('confirmSaveVoucherTitle'), message: confirmMsg, confirmLabel: t('saveVoucher') }))) return;
 
       submitBtn.disabled = true;

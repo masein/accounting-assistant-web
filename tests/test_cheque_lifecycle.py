@@ -302,6 +302,25 @@ def test_sayad_ids_are_16_digits_and_unique(ir):
     assert dup.status_code == 409
 
 
+def test_a_refused_cheque_step_reads_in_the_page_language(ir):
+    """Cheques are an Iranian flow; their refusals came back in English (deep
+    browser test, 2026-10-02): they go through cheques._refuse, which the
+    catalogue's guard didn't follow."""
+    fa = {"X-UI-Language": "fa"}
+    ir.cheque(sayad_id=SAYAD)
+    dup = ir.api.post("/commitments/cheques", headers=fa, json={"title": "y", "amount": 1, "due_date": "2026-09-20",
+                                                                "sayad_id": SAYAD})
+    assert dup.status_code == 409 and dup.json()["detail"] == f"چکی با شناسه صیادی \u2068{SAYAD}\u2069 قبلاً ثبت شده است."
+    issued = ir.cheque(direction="pay", title="Supplier cheque", amount=100)
+    r = ir.api.post(f"/commitments/{issued['id']}/deposit", headers=fa, json={"on": "2026-09-10"})
+    assert r.status_code == 400 and r.json()["detail"].startswith("فقط چک دریافتی به بانک سپرده می‌شود")
+    c = ir.cheque(counter_account_code="1112")
+    ir.step(c, "deposit", on="2026-09-10")
+    r = ir.api.post(f"/commitments/{c['id']}/return", headers={"X-UI-Language": "es"}, json={})
+    assert r.status_code == 409
+    assert r.json()["detail"] == "Un cheque en cobro no se puede devolver. Está en el banco: se cobrará o será rechazado."
+
+
 def test_an_unregistered_cheque_nags_until_it_is_registered(ir):
     soon = (date.today() + timedelta(days=10)).isoformat()
     far = (date.today() + timedelta(days=90)).isoformat()

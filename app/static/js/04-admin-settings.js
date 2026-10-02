@@ -109,7 +109,7 @@
         if (hint) {
           const baseHint = t('chatShapeHint') || hint.textContent;
           const note = data.shape === ''
-            ? ` Currently: ${data.effective} (auto).`
+            ? ' ' + tf('chatShapeCurrently', { provider: data.effective })
             : '';
           hint.textContent = baseHint + note;
         }

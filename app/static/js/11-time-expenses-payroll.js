@@ -797,16 +797,20 @@
         b.upto == null ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%` : `${formatNum(b.upto)}: ${Math.round(b.rate * 100)}%`
       ).join(' · ');
       const item = (label, val) => `<div><span style="color:var(--text-muted);">${t(label)}:</span> ${val}</div>`;
+      // A figure only where the rule set has one: a UK set leaves Iran's
+      // allowances at 0, and showed "Housing allowance: 0 GBP".
+      const money = (label, n) => (Number(n) > 0 ? item(label, `${formatNum(n)} ${cur}`) : '');
       return `<div style="font-weight:600;margin-bottom:0.3rem;"><bdi>${escapeHtml(rs.name)}</bdi> (${escapeHtml(rs.year)}) — ${escapeHtml(formatDateRange(rs.effective_from, rs.effective_to))}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.25rem 1rem;">
-          ${item('payrollRulesMinWage', `${formatNum(p.min_wage_daily || 0)} ${cur}`)}
-          ${item('payrollRulesHousing', `${formatNum(p.housing_allowance || 0)} ${cur}`)}
-          ${item('payrollRulesGrocery', `${formatNum(p.grocery_allowance || 0)} ${cur}`)}
-          ${item('payrollRulesChild', `${formatNum(p.child_allowance_per_child || 0)} ${cur}`)}
-          ${item('payrollRulesSeniority', `${formatNum(p.seniority_daily || 0)} ${cur}`)}
+          ${money('payrollRulesMinWage', p.min_wage_daily)}
+          ${money('payrollRulesHousing', p.housing_allowance)}
+          ${money('payrollRulesGrocery', p.grocery_allowance)}
+          ${money('payrollRulesChild', p.child_allowance_per_child)}
+          ${money('payrollRulesSeniority', p.seniority_daily)}
           ${item('payrollRulesInsurance', `${Math.round((p.insurance_employee_rate || 0) * 100)}% / ${Math.round((p.insurance_employer_rate || 0) * 100)}%`)}
+          ${money('payrollRulesFloor', p.insurance_floor)}
           ${item('payrollRulesCeiling', p.insurance_ceiling == null ? '—' : `${formatNum(p.insurance_ceiling)} ${cur}`)}
-          ${item('payrollRulesOvertime', `× ${p.overtime_multiplier || 1}`)}
+          ${Number(p.overtime_multiplier) > 1 ? item('payrollRulesOvertime', `× ${p.overtime_multiplier}`) : ''}
         </div>
         <div style="margin-top:0.3rem;"><span style="color:var(--text-muted);">${t('payrollRulesBrackets')}:</span> ${brackets || '—'}</div>`;
     }

@@ -2028,6 +2028,7 @@ window.I18N_PACKS.ar = Object.assign({
         typeToConfirmMismatch: "لم يتطابق الاسم — لم يُحذف شيء.",
         resetDoneChart: "أُعيد تعيين قاعدة البيانات. الدليل: {n} حساب. جارٍ إعادة التحميل…",
         mgrNoCurrencyWarning: 'لم تُختر عملة. الأرقام أدناه تجمع {list} كأرقام مجردة، وهذا بلا معنى. اختر عملة:',
+        payrollRulesFloor: 'حد الاشتراك التأميني (شهري)',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

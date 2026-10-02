@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction
+from app.services.book_text import bt
 
 MAX_CATCHUP_OCCURRENCES = 12  # per rule per run
 
@@ -129,7 +130,7 @@ def materialize_due_rules(db: Session, *, today: date | None = None) -> dict:
                     payload = TransactionCreate(
                         date=run_date,
                         reference=ref,
-                        description=f"{rule.name} (recurring)",
+                        description=bt(db, "recurring", name=rule.name),
                         lines=lines,
                         entity_links=(
                             [{"entity_id": rule.entity_id,

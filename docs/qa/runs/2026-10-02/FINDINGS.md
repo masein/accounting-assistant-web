@@ -30,7 +30,7 @@ Severity:
 | 19 | P3 | Invoices list | Number wraps ("ARM-" / "1002"); the amount cell shows both an `IRR` badge and "ریال"; up to 8 action buttons per row, on 3 lines | C6 | open |
 | 20 | P2 | Invoices page | An Iranian company sees the UK MTD/VAT sections (and presumably a UK company sees Moadian/TTMS) | C3 | open |
 | 21 | P2 | Cheques | "A cheque with Sayad id … is already recorded." is English | C9 | fixed #261 |
-| 22 | P2 | Bank party | Creating a bank party auto-creates an account named "bank account — بانک ملت" (English in the stored name) and silently replaces the code the user typed (۳۰۱ → 1111) | C1, C11 | open |
+| 22 | P2 | Bank party | Creating a bank party auto-creates an account named "bank account — بانک ملت" (English in the stored name) and silently replaces the code the user typed (۳۰۱ → 1111) | C1, C11 | name fixed #262; the code: open |
 | 23 | P2 | Recurring rules | The bank list only offers bank-party accounts. A bank account made in the chart (111001) can't be chosen | C11 | open |
 | 24 | P2 | Ledger summary | "IRR 0 بد": "بد" means "bad"; it should read بدهکار | C1 | fixed #261 |
 | 25 | P3 | Ledger summary | 1110 takes postings and also has a sub-account, so it shows twice; the charts' axes show bare codes without names | C1 | open |
@@ -43,7 +43,7 @@ Severity:
 | 32 | P2? | AI chat | A CSV statement attached in the chat fails with "AI unavailable"; parsing a CSV doesn't need AI (to check: is the deterministic intake bypassed?) | E2 | open |
 | 33 | P1 | (confirms #11) | A UK owner's "Reset database" on the parties page gave the company the **Iranian chart** (36 Persian-named accounts) | G0 | fixed #259 |
 | 34 | P3 | UK invoice form | Totals show "3,600 GBP" rather than "£3,600" (the list uses the symbol) | G1 | open |
-| 35 | **P1** | **Book language** | Every system-generated journal description is English in an Iranian company's books: "Invoice ARM-1805 issued / — revenue / — output VAT", "Payment for invoice …", "Opening balance", "Dividend declared — …", "Mileage claim — …", "Time billing — … (2026-10-01 → …)" (with Gregorian dates). About 246 English f-strings across the services. These are stored text that shows in the journal, ledger, statements and PDFs | dashboard, journal | open |
+| 35 | **P1** | **Book language** | Every system-generated journal description is English in an Iranian company's books: "Invoice ARM-1805 issued / — revenue / — output VAT", "Payment for invoice …", "Opening balance", "Dividend declared — …", "Mileage claim — …", "Time billing — … (2026-10-01 → …)" (with Gregorian dates). About 246 English f-strings across the services. These are stored text that shows in the journal, ledger, statements and PDFs | dashboard, journal | fixed #262 |
 | 36 | P2 | Dashboard | Overloaded: about 12 sections over 4,400 px (KPIs, a 13-week table, a 13-row explorer repeating it, what-if, aging ×2, spending ×2, profitability, health, owner pack, missing references, budgets, exports) | I | open |
 | 37 | P2 | Dashboard forecast | The week column cuts dates ("1405/07/0"); in en/ar they wrap | I | open |
 | 38 | P2 | Owner pack | Shown as a monospace text block with a Gregorian date "(2026-10-02)" in a Jalali company | I | open |

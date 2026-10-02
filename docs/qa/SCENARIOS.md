@@ -70,7 +70,7 @@ terms: what they see, in their language and calendar.
 |---|---|---|---|
 | B1 | Chart of accounts | Add 1110-01 «بانک ملت جاری» under 1110, rename it, try to delete a used account, deactivate an unused one | Tree updates; the code is suggested from its parent; deleting a used account is refused with the reason; inactive accounts leave the pickers |
 | B2 | Opening balances | Enter cash 500,000,000; bank 1,200,000,000; capital 1,700,000,000 on the opening date (Jalali) | An unbalanced entry is refused; the balanced one posts; the trial balance shows them |
-| B3 | Parties | Add 3 clients, 2 suppliers, a bank, 2 employees and 2 shareholders (codes and phones in Persian digits); edit one; delete an unused one | Lists show each type in Persian; search for «كافه» finds «کافه نارنج»; a duplicate name warns; Edit/Delete work |
+| B3 | Parties | Add 3 clients, 2 suppliers, a bank, 2 employees and 2 shareholders (codes and phones in Persian digits); edit one; delete an unused one | Lists show each type in Persian; search for «كافه» finds «کافه نارنج»; a duplicate name warns; Edit/Delete work; the bank's own account is named «حساب بانکی بانک ملت» [#262] |
 | B4 | Products and stock | 3 products with SKU, unit and price; opening stock (IN) for 2 items; a barcode | Products page and inventory balance agree; valuation report in Persian; tables styled |
 
 ## C. Daily bookkeeping
@@ -112,6 +112,7 @@ terms: what they see, in their language and calendar.
 | D6 | Period lock | Lock through the end of Shahrivar; try a back-dated voucher | Refused, in Persian, naming the lock date |
 | D7 | Tax | TTMS season export; Moadian export of C3 | Files download; amounts agree with the invoices |
 | D8 | Forecast and insights | 13-week forecast plus a what-if; insights after a duplicate payment | Forecast weeks in Jalali; the duplicate is flagged |
+| D9 | The books' language [#262] | After C1–C22, open the general journal, an account's ledger and a party's statement; then do the same in Thames | Every description the app wrote itself (invoice, payment, bill, credit note, void, opening balance, equity, payroll, mileage, time billing, depreciation, petty cash, recurring, FX, fees, statement rows) reads in Persian in Arman, with Jalali dates inside the text; in Thames the same entries read in English; nothing already posted is rewritten |
 
 ## E. AI accountant and migration (no AI provider)
 

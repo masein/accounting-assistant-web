@@ -304,13 +304,13 @@ def produce(db: Session, product: InventoryItem, quantity, *, on: date, referenc
         # cost 0: the engine values the component when it leaves, under either method
         out_rows.append(InventoryMovement(item_id=cid, movement_date=on, movement_type=InventoryMovementType.OUT,
                                           quantity=float(need), unit_cost=0, reference=ref,
-                                          description=f"Used to make {_f(qty)} × {product.name}"))
+                                          description=bt(db, "inv_used_to_make", qty=_f(qty), name=product.name)))
         total += cost
     unit_cost = _money(Decimal(total) / qty)
     db.add_all(out_rows)
     db.add(InventoryMovement(item_id=product.id, movement_date=on, movement_type=InventoryMovementType.IN,
                              quantity=float(qty), unit_cost=unit_cost, reference=ref,
-                             description=f"Produced from {len(bom)} component(s)"))
+                             description=bt(db, "inv_produced_from", n=len(bom))))
     db.flush()
     return {"product_id": str(product.id), "quantity": _f(qty), "on": on.isoformat(), "reference": ref,
             "components_cost": total, "unit_cost": unit_cost, "short": short, "method": method}
@@ -335,6 +335,7 @@ def detect_low_stock(db: Session, today: date) -> list:
 DETECTORS = (("low_stock", detect_low_stock),)
 
 from app.services.insight_service import _TEMPLATES  # noqa: E402 — wording lives with the detector
+from app.services.book_text import bt
 
 _TEMPLATES.update({
     "low_stock": {

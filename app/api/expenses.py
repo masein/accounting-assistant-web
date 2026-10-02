@@ -40,6 +40,7 @@ from app.services.expense_settings import (
 )
 from app.services.fx_service import get_reporting_currency
 from app.services.period_service import assert_period_open
+from app.services.book_text import book_value, bt
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -127,11 +128,11 @@ def _post_claim_accrual(db: Session, claim: MileageClaim) -> None:
     """DR mileage_expense / CR expenses_payable — the reimbursable accrual."""
     txn = _post(
         db, on=claim.claim_date, reference=f"MILEAGE-{claim.claim_date.isoformat()}",
-        description=f"Mileage claim — {claim.employee_name} ({claim.distance} {claim.unit})",
+        description=bt(db, "mileage_claim", name=claim.employee_name, distance=claim.distance, unit=book_value(db, claim.unit)),
         currency=claim.currency,
         lines=[
-            (resolve_account_code(db, "mileage_expense"), claim.amount, 0, "Mileage expense"),
-            (resolve_account_code(db, "expenses_payable"), 0, claim.amount, "Employee expenses payable"),
+            (resolve_account_code(db, "mileage_expense"), claim.amount, 0, bt(db, "mileage_expense")),
+            (resolve_account_code(db, "expenses_payable"), 0, claim.amount, bt(db, "expenses_payable")),
         ],
     )
     claim.transaction_id = txn.id
@@ -324,11 +325,11 @@ def reimburse_expense(claim_id: UUID, bank_account_code: str | None = None,
         bank = resolve_account_code(db, "bank")
     txn = _post(
         db, on=c.claim_date, reference=f"MILEAGE-PAY-{c.claim_date.isoformat()}",
-        description=f"Reimburse mileage — {c.employee_name}",
+        description=bt(db, "exp_reimburse", name=c.employee_name),
         currency=c.currency,
         lines=[
-            (resolve_account_code(db, "expenses_payable"), c.amount, 0, "Clear employee payable"),
-            (bank, 0, c.amount, "Mileage reimbursed from bank"),
+            (resolve_account_code(db, "expenses_payable"), c.amount, 0, bt(db, "exp_clear_payable")),
+            (bank, 0, c.amount, bt(db, "exp_reimbursed")),
         ],
     )
     c.reimbursement_transaction_id = txn.id

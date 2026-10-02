@@ -39,6 +39,7 @@ from sqlalchemy.orm import Session
 from app.models.fixed_asset import (
     ACTIVE, DECLINING_BALANCE, DISPOSED, METHODS, STRAIGHT_LINE, FixedAsset, FixedAssetDepreciation,
 )
+from app.services.book_text import bt
 
 LOW_VALUE_SHARE_BPS = 500          # 5 % of cost: below it, the rest goes in one year (art. 9(b))
 MAX_LIFE_MONTHS = 100 * 12
@@ -369,7 +370,7 @@ def _post_acquisition(db: Session, asset: FixedAsset, how: str, bank_code: str |
         raise HTTPException(status_code=422, detail=f"Unknown acquisition: {how}")
     if not _account_exists(db, credit):
         raise HTTPException(status_code=422, detail=f"Account not found: {credit}")
-    return _post(db, on=asset.acquired_on, reference=f"{asset.number}-ACQ", description=f"Acquisition: {asset.name}",
+    return _post(db, on=asset.acquired_on, reference=f"{asset.number}-ACQ", description=bt(db, "fa_acquisition", name=asset.name),
                  currency=asset.currency, entity_links=links,
                  lines=[(asset.asset_account_code, asset.cost, 0, f"{asset.number} {asset.name}"),
                         (credit, 0, asset.cost, f"{asset.number} {asset.name}")])
@@ -443,7 +444,7 @@ def run(db: Session, through: date | None = None, *, preview: bool = False, asse
             for a, m in rows:
                 desc = f"{a.number} {a.name} — {month_label(m.period_start, cal)}"
                 lines += [(a.expense_account_code, m.amount, 0, desc), (a.accumulated_account_code, 0, m.amount, desc)]
-            txn = _post(db, on=on, reference=f"DEP-{label}"[:128], description=f"Depreciation {label}",
+            txn = _post(db, on=on, reference=f"DEP-{label}"[:128], description=bt(db, "fa_depreciation", label=label),
                         currency=currency, lines=lines)
             for a, m in rows:
                 db.add(FixedAssetDepreciation(asset_id=a.id, period_start=m.period_start, amount=m.amount,
@@ -506,10 +507,10 @@ def dispose(db: Session, asset: FixedAsset, *, on: date, proceeds: int = 0, bank
     lines = [(bank, proceeds, 0, desc)] if proceeds else []
     lines += [(asset.accumulated_account_code, acc, 0, desc), (asset.asset_account_code, 0, int(asset.cost), desc)]
     if result > 0:
-        lines.append((_gain_loss_account(db, locale, "gain"), 0, result, f"Gain on disposal — {desc}"))
+        lines.append((_gain_loss_account(db, locale, "gain"), 0, result, bt(db, "fa_gain", text=desc)))
     elif result < 0:
-        lines.append((_gain_loss_account(db, locale, "loss"), -result, 0, f"Loss on disposal — {desc}"))
-    txn = _post(db, on=on, reference=f"{asset.number}-DISPOSAL", description=f"Disposal: {asset.name}",
+        lines.append((_gain_loss_account(db, locale, "loss"), -result, 0, bt(db, "fa_loss", text=desc)))
+    txn = _post(db, on=on, reference=f"{asset.number}-DISPOSAL", description=bt(db, "fa_disposal", name=asset.name),
                 currency=asset.currency, lines=lines)
     asset.status, asset.disposed_on, asset.disposal_proceeds = DISPOSED, on, proceeds
     asset.disposal_transaction_id = txn.id

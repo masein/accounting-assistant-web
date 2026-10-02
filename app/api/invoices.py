@@ -41,6 +41,7 @@ from app.services.account_resolver import AccountResolutionError, resolve_accoun
 from app.services.audit_service import log_audit_event
 from app.services.ledger_posting import default_currency
 from app.services.ocr_extract import OCRExtractError, extract_from_attachment
+from app.services.book_text import bt
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 OCR_UPLOAD_DIR = Path(__file__).resolve().parents[1] / "uploads" / "invoice_imports"
@@ -238,25 +239,25 @@ def _recognize_invoice(db: Session, inv: Invoice) -> None:
         ar = resolve_account_code(db, "ar")
         rev = resolve_account_code(db, "revenue")
         lines = [
-            (ar, grand_total, 0, f"Invoice {inv.number} — receivable"),
-            (rev, 0, subtotal, f"Invoice {inv.number} — revenue"),
+            (ar, grand_total, 0, bt(db, "inv_receivable", number=inv.number)),
+            (rev, 0, subtotal, bt(db, "inv_revenue", number=inv.number)),
         ]
         if tax_total > 0:
-            lines.append((resolve_account_code(db, "vat_output"), 0, tax_total, f"Invoice {inv.number} — output VAT"))
+            lines.append((resolve_account_code(db, "vat_output"), 0, tax_total, bt(db, "inv_vat_out", number=inv.number)))
         role = "client"
     else:
         exp = resolve_account_code(db, "expense")
         ap = resolve_account_code(db, "ap")
         lines = [
-            (exp, subtotal, 0, f"Bill {inv.number} — expense"),
-            (ap, 0, grand_total, f"Bill {inv.number} — payable"),
+            (exp, subtotal, 0, bt(db, "bill_expense", number=inv.number)),
+            (ap, 0, grand_total, bt(db, "bill_payable", number=inv.number)),
         ]
         if tax_total > 0:
-            lines.append((resolve_account_code(db, "vat_input"), tax_total, 0, f"Bill {inv.number} — input VAT"))
+            lines.append((resolve_account_code(db, "vat_input"), tax_total, 0, bt(db, "bill_vat_in", number=inv.number)))
         role = "supplier"
     txn = _post_entry(
         db, on=inv.issue_date, reference=inv.number,
-        description=(inv.description or f"Invoice {inv.number} issued"),
+        description=(inv.description or bt(db, "inv_issued" if inv.kind == "sales" else "bill_issued", number=inv.number)),
         currency=inv.currency,
         lines=lines,
         entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
@@ -732,25 +733,25 @@ def _apply_payment(
 
     if inv.kind == "sales":
         ar = resolve_account_code(db, "ar")
-        lines: list[tuple[str, int, int, str | None]] = [(bank, amount, 0, f"Invoice {inv.number} receipt")]
+        lines: list[tuple[str, int, int, str | None]] = [(bank, amount, 0, bt(db, "inv_receipt", number=inv.number))]
         if applied > 0:
-            lines.append((ar, 0, applied, f"Invoice {inv.number} — settle receivable"))
+            lines.append((ar, 0, applied, bt(db, "inv_settle_ar", number=inv.number)))
         if excess > 0:
-            lines.append((resolve_account_code(db, "customer_credit"), 0, excess, f"Overpayment credit — {inv.number}"))
+            lines.append((resolve_account_code(db, "customer_credit"), 0, excess, bt(db, "overpay_credit", number=inv.number)))
         direction, role = "in", "client"
     else:
         ap = resolve_account_code(db, "ap")
         lines = []
         if applied > 0:
-            lines.append((ap, applied, 0, f"Bill {inv.number} — settle payable"))
+            lines.append((ap, applied, 0, bt(db, "bill_settle_ap", number=inv.number)))
         if excess > 0:
-            lines.append((resolve_account_code(db, "supplier_advance"), excess, 0, f"Overpayment advance — {inv.number}"))
-        lines.append((bank, 0, amount, f"Bill {inv.number} payment"))
+            lines.append((resolve_account_code(db, "supplier_advance"), excess, 0, bt(db, "overpay_advance", number=inv.number)))
+        lines.append((bank, 0, amount, bt(db, "bill_payment", number=inv.number)))
         direction, role = "out", "supplier"
 
     txn = _post_entry(
         db, on=on, reference=(reference or inv.number),
-        description=(description or f"Payment for invoice {inv.number}"),
+        description=(description or bt(db, "inv_payment" if inv.kind == "sales" else "bill_payment_desc", number=inv.number)),
         currency=inv.currency, lines=lines,
         entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
         audit_detail=f"Payment {amount} {inv.currency} on invoice {inv.number}",
@@ -838,19 +839,19 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
     try:
         if inv.kind == "sales":
             lines = [
-                (resolve_account_code(db, "sales_returns"), amount, 0, f"Credit note — {inv.number}"),
-                (resolve_account_code(db, "ar"), 0, amount, f"Credit note reduces receivable — {inv.number}"),
+                (resolve_account_code(db, "sales_returns"), amount, 0, bt(db, "credit_note_sales", number=inv.number)),
+                (resolve_account_code(db, "ar"), 0, amount, bt(db, "credit_note_ar", number=inv.number)),
             ]
             role = "client"
         else:
             lines = [
-                (resolve_account_code(db, "ap"), amount, 0, f"Credit note reduces payable — {inv.number}"),
-                (resolve_account_code(db, "expense"), 0, amount, f"Credit note — {inv.number}"),
+                (resolve_account_code(db, "ap"), amount, 0, bt(db, "credit_note_ap", number=inv.number)),
+                (resolve_account_code(db, "expense"), 0, amount, bt(db, "credit_note_purchase", number=inv.number)),
             ]
             role = "supplier"
         txn = _post_entry(
             db, on=on, reference=inv.number,
-            description=(payload.reason or f"Credit note against invoice {inv.number}"),
+            description=(payload.reason or bt(db, "credit_note", number=inv.number)),
             currency=inv.currency, lines=lines,
             entity_links=[(inv.entity_id, role)] if inv.entity_id else [],
             audit_detail=f"Credit note {amount} {inv.currency} against invoice {inv.number}",
@@ -950,9 +951,9 @@ def void_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead
             "A cheque paid this invoice. Mark it bounced or returned under Installments & cheques first."))
     for p in payments:
         _reverse_txn(db, p.transaction_id, reference=f"VOID-PAY-{inv.number}",
-                     description=f"Void payment on invoice {inv.number}")
+                     description=bt(db, "void_payment", number=inv.number))
     _reverse_txn(db, inv.transaction_id, reference=f"VOID-{inv.number}",
-                 description=f"Void invoice {inv.number}")
+                 description=bt(db, "void_invoice", number=inv.number))
     inv.status = "voided"
     # Un-bill any time entries billed on this invoice so they can be re-invoiced
     # (atomic with the reversal) — never orphan or double-bill.
@@ -986,7 +987,7 @@ def reverse_payment(invoice_id: UUID, payment_id: UUID, db: Session = Depends(ge
         raise HTTPException(status_code=404, detail="Payment not found on this invoice")
     _refuse_if_cheque(db, payment)
     _reverse_txn(db, payment.transaction_id, reference=f"CHGBK-{inv.number}",
-                 description=f"Reversed payment on invoice {inv.number}")
+                 description=bt(db, "reversed_payment", number=inv.number))
     detach_payment(db, inv, payment)
     log_audit_event(db, action="update", entity_type="invoice", entity_id=str(inv.id),
                     detail=f"Payment reversed on invoice {inv.number}")

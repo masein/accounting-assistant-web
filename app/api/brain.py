@@ -367,6 +367,7 @@ def batch_approve_rows(
             from app.schemas.transaction import TransactionCreate, TransactionLineCreate
             from app.services.account_resolver import AccountResolutionError, resolve_account_code
             from app.services.fx_base import base_currency
+            from app.services.book_text import bt
 
             try:
                 # Counter leg: the user's choice, else the import's guess, else
@@ -400,7 +401,7 @@ def batch_approve_rows(
             payload = TransactionCreate(
                 date=row.tx_date,
                 reference=row.reference,
-                description=row.description or f"Bank statement row #{row.row_index}",
+                description=row.description or bt(db, "stmt_row", n=row.row_index),
                 currency=s.currency or base_currency(db),
                 lines=[
                     TransactionLineCreate(account_code=code, debit=dr, credit=cr)

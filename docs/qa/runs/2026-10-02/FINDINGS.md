@@ -31,7 +31,7 @@ Severity:
 | 20 | P2 | Invoices page | An Iranian company sees the UK MTD/VAT sections (and presumably a UK company sees Moadian/TTMS) | C3 | fixed #266 |
 | 21 | P2 | Cheques | "A cheque with Sayad id … is already recorded." is English | C9 | fixed #261 |
 | 22 | P2 | Bank party | Creating a bank party auto-creates an account named "bank account — بانک ملت" (English in the stored name) and silently replaces the code the user typed (۳۰۱ → 1111) | C1, C11 | name fixed #262; the code: open |
-| 23 | P2 | Recurring rules | The bank list only offers bank-party accounts. A bank account made in the chart (111001) can't be chosen | C11 | open |
+| 23 | P2 | Recurring rules | The bank list only offers bank-party accounts. A bank account made in the chart (111001) can't be chosen | C11 | fixed #269 |
 | 24 | P2 | Ledger summary | "IRR 0 بد": "بد" means "bad"; it should read بدهکار | C1 | fixed #261 |
 | 25 | P3 | Ledger summary | 1110 takes postings and also has a sub-account, so it shows twice; the charts' axes show bare codes without names | C1 | open |
 | 26 | P2 | Bank statements | The list's status column shows raw `parsed` | C12 | fixed #261 |

@@ -5,13 +5,14 @@ from uuid import UUID
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.account import Account
 from app.schemas.account import AccountRead
+from app.utils.digits import ascii_digits
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -38,6 +39,12 @@ class AccountCreate(BaseModel):
     code: str | None = Field(None, max_length=16)
     detail_type: str | None = Field(None, max_length=128)
 
+    @field_validator("parent_code", "code", mode="before")
+    @classmethod
+    def _ascii(cls, v):
+        """A code typed on a Persian keyboard is stored in 0–9, like every other."""
+        return ascii_digits(v)
+
 
 class AccountUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=512)
@@ -49,6 +56,11 @@ class OpeningLine(BaseModel):
     account_code: str = Field(..., max_length=16)
     debit: int = Field(0, ge=0, le=10**15)
     credit: int = Field(0, ge=0, le=10**15)
+
+    @field_validator("account_code", mode="before")
+    @classmethod
+    def _ascii(cls, v):
+        return ascii_digits(v)
 
 
 class OpeningIn(BaseModel):
@@ -71,7 +83,7 @@ def account_tree(include_inactive: bool = True, db: Session = Depends(get_db)) -
 @router.get("/suggest-code/{parent_code}")
 def suggest_child_code(parent_code: str, db: Session = Depends(get_db)) -> dict:
     from app.services.chart_service import suggest_code
-    parent = db.execute(select(Account).where(Account.code == parent_code.strip())).scalars().one_or_none()
+    parent = db.execute(select(Account).where(Account.code == ascii_digits(parent_code).strip())).scalars().one_or_none()
     if parent is None:
         raise HTTPException(status_code=404, detail="Account not found")
     return {"parent_code": parent.code, "code": suggest_code(db, parent)}
@@ -108,7 +120,7 @@ def get_account_by_code(
     code: str,
     db: Session = Depends(get_db),
 ) -> AccountRead:
-    acc = db.execute(select(Account).where(Account.code == code.strip())).scalars().one_or_none()
+    acc = db.execute(select(Account).where(Account.code == ascii_digits(code).strip())).scalars().one_or_none()
     if not acc:
         raise HTTPException(status_code=404, detail="Account not found")
     return AccountRead.model_validate(acc)

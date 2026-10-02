@@ -12,12 +12,12 @@ Severity:
 | 1 | P2 | Sign-in page | A Persian browser gets the English sign-in page. With nothing saved it falls back to `en` instead of the browser's language, so the error "Invalid username or password" is English too | A6 | open |
 | 2 | P2 | First sign-in | An owner created by the super-admin has `preferred_language = en`, even for an `ir` company, so a new Iranian owner lands in English | A2 | open |
 | 3 | P2 | Password rules | "Password must be at least 8 characters" (and the other three rules) are English: `ValueError` text is passed through and never reaches the catalogue | A4 | open |
-| 4 | P1 | Super-admin | `GET /admin/company-profile` → 500 (no company context: tries to insert a profile with `company_id NULL`). `get_logo` with no company could serve another tenant's logo | A1 | open |
+| 4 | P1 | Super-admin | `GET /admin/company-profile` → 500 (no company context: tries to insert a profile with `company_id NULL`). `get_logo` with no company could serve another tenant's logo | A1 | not an app bug: the QA seed made a super-admin with no company (the real seed gives it the default company) |
 | 5 | P3 | Companies console | One logo request per row → a 404 for every company without a logo | A1 | open |
 | 6 | P2 | Companies console | Region column shows raw `uk` / `ir`; no column for the kind (business / personal); the header "هوش مصنوعی · ۲۴ ساعت" reads as "240 hours" (the middle dot looks like the Persian zero) | A1 | open |
 | 7 | P3 | Sidebar | Section labels are 10.24 px, small for Persian script | all | open |
-| 8 | P1 | Parties | A party code typed in Persian digits is stored as «۱۰۱» (not 0–9), so lookups and exports by code miss it. #246 didn't cover `entities.code` | B3 | open |
-| 9 | P1 | Inventory | A barcode typed in Persian digits is stored as «۶۲۹۱…»; a scanner sends 0–9, so a scan never matches | B4 | open |
+| 8 | P1 | Parties | A party code typed in Persian digits is stored as «۱۰۱» (not 0–9), so lookups and exports by code miss it. #246 didn't cover `entities.code` | B3 | fixed #263 |
+| 9 | P1 | Inventory | A barcode typed in Persian digits is stored as «۶۲۹۱…»; a scanner sends 0–9, so a scan never matches | B4 | fixed #263 |
 | 10 | P2 | Parties form | About 15 inputs in "billing details" have no accessible name (labels not tied to their inputs) | B3 | open |
 | 11 | P1 | Parties page | **"Reset database" button** under the parties list (all roles see it; owner-only on the server). It deletes every transaction after one confirm, and sends no locale, so `/admin/reset-db` defaults to **`ir`**: a UK company reset from here would get the Iranian chart | B3 | fixed #259 |
 | 12 | P3 | Chart of accounts | 3–4 action buttons on every row (noisy); the opening-balance grid is cramped in a half-width panel, with names wrapping | B1 | open |

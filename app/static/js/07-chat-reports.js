@@ -984,7 +984,7 @@
       const currency = (document.getElementById('txn-currency')?.value || preferredFormCurrency());
       const rows = Array.from(linesTbody.querySelectorAll('.line-row'));
       const lines = rows.map(tr => ({
-        account_code: tr.querySelector('.line-code').value.trim(),
+        account_code: asciiDigits(tr.querySelector('.line-code').value).trim(),   // «۶۱۱۲» is 6112
         debit: parseInt(tr.querySelector('.line-debit').value, 10) || 0,
         credit: parseInt(tr.querySelector('.line-credit').value, 10) || 0,
         line_description: tr.querySelector('.line-desc').value.trim() || null

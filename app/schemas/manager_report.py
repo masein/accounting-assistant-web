@@ -3,7 +3,9 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.utils.digits import ascii_digits
 
 
 class ReportPeriod(BaseModel):
@@ -220,7 +222,17 @@ class CashBankStatementResponse(BaseModel):
     rows: list[CashBankStatementRow]
 
 
-class InventoryItemCreate(BaseModel):
+class _LatinCodes(BaseModel):
+    """A SKU or barcode typed on a Persian keyboard is stored in 0–9: a
+    scanner sends 0–9, so «۶۲۹۱…» never matched a scan."""
+
+    @field_validator("sku", "barcode", mode="before", check_fields=False)
+    @classmethod
+    def _ascii(cls, v):
+        return ascii_digits(v)
+
+
+class InventoryItemCreate(_LatinCodes):
     sku: str | None = None
     name: str = Field(..., min_length=1)
     unit: str = "unit"
@@ -230,7 +242,7 @@ class InventoryItemCreate(BaseModel):
     reorder_qty: float | None = Field(None, gt=0)
 
 
-class InventoryItemUpdate(BaseModel):
+class InventoryItemUpdate(_LatinCodes):
     name: str | None = Field(None, min_length=1, max_length=256)
     sku: str | None = Field(None, max_length=64)
     unit: str | None = Field(None, min_length=1, max_length=32)

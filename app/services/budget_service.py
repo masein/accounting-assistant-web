@@ -14,6 +14,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.account import Account
 from app.models.budget import BudgetLimit
 from app.models.transaction import Transaction, TransactionLine
 from app.services.reporting.common import EXPENSE, classify_account_code
@@ -27,40 +28,77 @@ def month_bounds(month: str) -> tuple[date, date]:
     return key_bounds(month)
 
 
-def expense_actuals_by_category(db: Session, month: str) -> dict[str, int]:
-    """Net expense per account NAME (budget categories are account names)
-    for the given month, on expense-nature accounts of any locale chart."""
+def expense_by_account(db: Session, month: str) -> dict[str, tuple[str, int]]:
+    """Net expense per expense-nature account in the month, by code:
+    {code: (name, amount)}, at base value (a budget is in the company's
+    currency — roadmap §4.6)."""
     start, end = month_bounds(month)
     txns = db.execute(
         select(Transaction)
         .where(Transaction.date >= start, Transaction.date <= end, Transaction.deleted_at.is_(None))
         .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
     ).scalars().all()
-    actual_by_cat: dict[str, int] = {}
+    out: dict[str, tuple[str, int]] = {}
     for t in txns:
         for ln in t.lines:
             if classify_account_code(ln.account.code) == EXPENSE:
-                cat = ln.account.name
-                # base value: a budget is in the company's currency (roadmap §4.6)
-                actual_by_cat[cat] = actual_by_cat.get(cat, 0) + max(0, (ln.base_debit or 0) - (ln.base_credit or 0))
-    return actual_by_cat
+                name, amount = out.get(ln.account.code, (ln.account.name, 0))
+                out[ln.account.code] = (name, amount + max(0, (ln.base_debit or 0) - (ln.base_credit or 0)))
+    return out
+
+
+def expense_actuals_by_category(db: Session, month: str) -> dict[str, int]:
+    """Net expense per account NAME for the given month, on expense-nature
+    accounts of any locale chart."""
+    out: dict[str, int] = {}
+    for name, amount in expense_by_account(db, month).values():
+        out[name] = out.get(name, 0) + amount
+    return out
+
+
+# Persian and Arabic-Indic digits, for a code typed as «۶۱۱۰»
+_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+
+
+def _as_code(category: str | None) -> str | None:
+    """The category as an account code (ASCII digits), or None for a name."""
+    c = (category or "").strip().translate(_DIGITS)
+    return c if c.isascii() and c.isdigit() else None
+
+
+def actual_for(category: str, by_account: dict[str, tuple[str, int]]) -> int:
+    """What a budget's category spent. A category is an account's name (any
+    case) or its code; a code counts its sub-accounts too ("61" → 6110, 6112…).
+    The category field offers the chart's codes (#274), and a budget set by
+    code read 0 spent — its overspend alert never fired (2026-10-02, #50)."""
+    from app.utils.text import fold_fa
+    c = _as_code(category)
+    if c:
+        return sum(amount for code, (_n, amount) in by_account.items() if code.startswith(c))
+    key = fold_fa(" ".join((category or "").split())).casefold()
+    return sum(amount for name, amount in by_account.values() if fold_fa(" ".join((name or "").split())).casefold() == key)
 
 
 def budget_utilization(db: Session, month: str) -> list[dict]:
-    """Rows of {category, limit_amount, actual_amount, variance,
+    """Rows of {category, label, limit_amount, actual_amount, variance,
     utilization_pct} for every budget limit set in ``month``."""
     limits = db.execute(select(BudgetLimit).where(BudgetLimit.month == month)).scalars().all()
     if not limits:
         return []
-    actual_by_cat = expense_actuals_by_category(db, month)
+    by_account = expense_by_account(db, month)
+    # a code reads with its account's name, as the dashboard shows it ("6110 — Salaries")
+    codes = {c for c in (_as_code(b.category) for b in limits) if c}
+    names = dict(db.execute(select(Account.code, Account.name).where(Account.code.in_(codes))).all()) if codes else {}
     rows = []
     for b in limits:
-        actual = actual_by_cat.get(b.category, 0)
+        actual = actual_for(b.category, by_account)
+        code = _as_code(b.category)
         util = (actual / b.limit_amount * 100.0) if b.limit_amount > 0 else 0.0
         rows.append({
             "id": str(b.id),
             "month": b.month,
             "category": b.category,
+            "label": f"{code} — {names[code]}" if code in names else b.category,
             "limit_amount": b.limit_amount,
             "actual_amount": actual,
             "variance": b.limit_amount - actual,

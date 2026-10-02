@@ -37,6 +37,7 @@ class BudgetActualRow(BaseModel):
     id: str | None = None
     month: str
     category: str
+    label: str | None = None                 # "6110 — Salaries" for a budget set by code
     limit_amount: int
     actual_amount: int
     variance: int

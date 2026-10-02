@@ -551,16 +551,18 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
             if pct < 85:
                 continue
             over = pct >= 100
+            label = row.get("label") or row["category"]
             _upsert(db, seen, dedupe_key=f"budget-{month}-{row['category']}",
                     kind="budget", level="high" if over else "warning",
-                    title=(f"Budget exceeded: {row['category']}" if over
-                           else f"Budget at {int(pct)}%: {row['category']}"),
+                    title=(f"Budget exceeded: {label}" if over
+                           else f"Budget at {int(pct)}%: {label}"),
                     message=(f"{row['actual_amount']:,} of {row['limit_amount']:,} "
-                             f"spent in {month} ({row['utilization_pct']}%)"),
+                             f"spent in {month} ({row['utilization_pct']:g}%)"),
                     link_page=_budget_link_page(db),
                     text_key="budget_over" if over else "budget_near",
-                    params={"category": row["category"], "pct": int(pct), "actual": f"{row['actual_amount']:,}",
-                            "limit": f"{row['limit_amount']:,}", "month": month, "spent": row["utilization_pct"]})
+                    params={"category": label, "pct": int(pct), "actual": f"{row['actual_amount']:,}",
+                            "limit": f"{row['limit_amount']:,}", "month": month,
+                            "spent": f"{row['utilization_pct']:g}"})          # 120, not 120.0
     except Exception:
         # budget alerts must never break the whole feed refresh
         pass

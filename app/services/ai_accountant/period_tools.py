@@ -87,7 +87,7 @@ class GetBudgetStatus(BaseTool):
             top = sorted(actual.items(), key=lambda kv: -kv[1])[:8]
             return {**out, "budgets": [], "note": "No budgets are set for this month.",
                     "top_expenses": [{"category": k, "actual": v} for k, v in top if v]}
-        budgets = [{"category": r["category"], "budget": r["limit_amount"], "actual": r["actual_amount"],
+        budgets = [{"category": r["label"], "budget": r["limit_amount"], "actual": r["actual_amount"],
                     "left": r["variance"], "used_pct": r["utilization_pct"],
                     "state": "over" if r["utilization_pct"] > 100 else "near" if r["utilization_pct"] >= 80 else "ok"}
                    for r in rows]

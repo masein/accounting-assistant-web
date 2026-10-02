@@ -33,6 +33,7 @@ def test_an_upload_opens_its_rows_and_a_budget_names_its_account(flow_page):
         assert status in (200, 201), body
         page.evaluate("() => { location.hash = 'dashboard'; }")
         page.wait_for_load_state("networkidle")
+        page.click("#dash-tab-spend")                     # the budgets are under Spending & profit (#36)
         wait_until(page, "(c) => [...document.querySelectorAll('#budget-wrap td')].some(td => td.textContent.startsWith(c + ' — '))", code)
         assert page.evaluate("(c) => [...document.querySelectorAll('#budget-category-list option')].some(o => o.value === c)", code)
         assert watch.problems() == [], watch.problems()

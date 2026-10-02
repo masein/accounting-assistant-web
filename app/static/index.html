@@ -1108,81 +1108,105 @@
       <p id="dashboard-subtitle" data-i18n="dashboardSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Business-focused KPIs, forecasts, aging, profitability, data quality checks, and actionable alerts.</p>
       <div id="kpi-grid" class="kpi-grid"></div>
       <p id="dash-currency-note" class="currency-view-note" style="display:none;color:var(--text-muted);font-size:0.85rem;margin:0.25rem 0 0.75rem 0;"></p>
-      <div class="dashboard-grid">
-        <div class="panel">
-          <h3 data-i18n="panelCashForecast">13-week cash forecast</h3>
-          <div id="forecast-wrap"></div>
-          <p id="forecast-summary" class="forecast-summary"></p>
-        </div>
-        <div class="panel">
-          <h3 data-i18n="panelInsights">What changed</h3>
-          <div id="insights-wrap"></div>
-        </div>
-        <div class="panel panel-wide">
-          <details id="forecast-explorer">
-            <summary data-i18n="forecastExplorerTitle">Forecast details and what-if</summary>
-            <p class="fc-note" data-i18n="forecastEstimate">An estimate from your books — it gets better as more invoices are paid.</p>
-            <div id="forecast-explorer-body"></div>
-          </details>
-        </div>
+      <div class="dashboard-grid dash-top">
         <div class="panel">
           <h3 data-i18n="panelSmartAlerts">Smart alerts</h3>
           <div id="alerts-wrap"></div>
         </div>
         <div class="panel">
-          <h3 data-i18n="panelARAging">AR aging</h3>
-          <div id="ar-aging-wrap"></div>
-        </div>
-        <div class="panel">
-          <h3 data-i18n="panelAPAging">AP aging</h3>
-          <div id="ap-aging-wrap"></div>
-        </div>
-        <div class="panel">
-          <h3 data-i18n="panelExpenseByCategory">Expense by category</h3>
-          <div id="expense-category-wrap"></div>
-        </div>
-        <div class="panel">
-          <h3 data-i18n="panelSpendByVendor">Spend by vendor</h3>
-          <div id="vendor-spend-wrap"></div>
-        </div>
-        <div class="panel">
-          <h3 data-i18n="panelProfitabilityByClient">Profitability by client</h3>
-          <div id="profitability-wrap"></div>
-        </div>
-        <div class="panel">
-          <h3 data-i18n="panelBooksHealth">Books health</h3>
-          <div id="health-wrap"></div>
-          <h3 data-i18n="panelMonthEndChecklist" style="margin-top:0.75rem;">Month-end checklist</h3>
-          <div id="checklist-wrap"></div>
+          <h3 data-i18n="panelInsights">What changed</h3>
+          <div id="insights-wrap"></div>
         </div>
       </div>
-      <div class="panel" style="margin-top:1rem;">
-        <h3 data-i18n="panelOwnerReportPack">Owner report pack (auto summary)</h3>
-        <div id="owner-pack" class="owner-pack"></div>
+      <!-- One section at a time under the always-on top (deep browser test,
+           2026-10-02, #36: twelve sections ran to 4,400 px). -->
+      <div class="dash-tabs" role="tablist" id="dash-tabs" data-i18n-aria-label="dashTabsLabel" aria-label="Dashboard sections">
+        <button type="button" role="tab" class="dash-tab" id="dash-tab-cash" data-tab="cash" aria-controls="dash-panel-cash" aria-selected="true" data-i18n="dashTabCash">Cash</button>
+        <button type="button" role="tab" class="dash-tab" id="dash-tab-arap" data-tab="arap" aria-controls="dash-panel-arap" aria-selected="false" tabindex="-1" data-i18n="dashTabArAp">Receivables &amp; payables</button>
+        <button type="button" role="tab" class="dash-tab" id="dash-tab-spend" data-tab="spend" aria-controls="dash-panel-spend" aria-selected="false" tabindex="-1" data-i18n="dashTabSpend">Spending &amp; profit</button>
+        <button type="button" role="tab" class="dash-tab" id="dash-tab-books" data-tab="books" aria-controls="dash-panel-books" aria-selected="false" tabindex="-1" data-i18n="dashTabBooks">Books</button>
       </div>
-      <div class="panel" style="margin-top:1rem;">
-        <h3 data-i18n="panelFixMissingReferences">Fix missing references</h3>
-        <div id="missing-refs-wrap"></div>
-      </div>
-      <div class="panel" style="margin-top:1rem;">
-        <h3 data-i18n="panelBudgetVsActual">Budget vs actual (monthly)</h3>
-        <div class="row" style="margin-bottom:0.5rem;">
-          <div><label for="budget-month" data-i18n="labelMonth">Month</label><input type="month" id="budget-month"></div>
-          <div><label for="budget-category" data-i18n="labelCategory">Category</label><input type="text" id="budget-category" list="budget-category-list" autocomplete="off" data-i18n-placeholder="placeholderExpenseCategory" placeholder="Expense account name"><datalist id="budget-category-list"></datalist></div>
-          <div><label for="budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="budget-limit" min="0" step="1" value="0"></div>
-          <div style="display:flex; align-items:flex-end; gap:0.4rem; flex-wrap:wrap;"><button type="button" class="btn btn-primary" id="budget-save" data-i18n="btnSaveBudget" style="white-space:nowrap;">Save budget</button>
-            <button type="button" class="btn btn-secondary" id="budget-roll" data-i18n="budgetRollBtn" style="white-space:nowrap;">Copy to next month…</button></div>
+      <div class="dash-tabpanel" role="tabpanel" id="dash-panel-cash" aria-labelledby="dash-tab-cash" tabindex="0">
+        <div class="dashboard-grid">
+          <div class="panel panel-wide">
+            <h3 data-i18n="panelCashForecast">13-week cash forecast</h3>
+            <div id="forecast-wrap"></div>
+            <p id="forecast-summary" class="forecast-summary"></p>
+          </div>
+          <div class="panel panel-wide">
+            <details id="forecast-explorer">
+              <summary data-i18n="forecastExplorerTitle">Forecast details and what-if</summary>
+              <p class="fc-note" data-i18n="forecastEstimate">An estimate from your books — it gets better as more invoices are paid.</p>
+              <div id="forecast-explorer-body"></div>
+            </details>
+          </div>
         </div>
-        <div id="budget-wrap"></div>
       </div>
-      <div class="panel" style="margin-top:1rem;">
-        <h3 data-i18n="panelExportNotifications">Export & notifications</h3>
-        <div class="row">
-          <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
-            <a class="btn btn-secondary" href="/exports/transactions.csv" target="_blank" data-i18n="btnExportCsv">Export CSV</a>
-            <a class="btn btn-secondary" href="/exports/transactions.xlsx" target="_blank" data-i18n="btnExportExcel">Export Excel</a>
-            <button type="button" class="btn btn-secondary" id="snapshot-btn" data-i18n="btnCreateSnapshot">Create monthly snapshot</button>
-            <button type="button" class="btn btn-secondary" id="notify-btn" data-i18n="btnSendAlerts">Send alerts</button>
+      <div class="dash-tabpanel" role="tabpanel" id="dash-panel-arap" aria-labelledby="dash-tab-arap" tabindex="0" hidden>
+        <div class="dashboard-grid">
+          <div class="panel">
+            <h3 data-i18n="panelARAging">AR aging</h3>
+            <div id="ar-aging-wrap"></div>
+          </div>
+          <div class="panel">
+            <h3 data-i18n="panelAPAging">AP aging</h3>
+            <div id="ap-aging-wrap"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dash-tabpanel" role="tabpanel" id="dash-panel-spend" aria-labelledby="dash-tab-spend" tabindex="0" hidden>
+        <div class="dashboard-grid">
+          <div class="panel">
+            <h3 data-i18n="panelExpenseByCategory">Expense by category</h3>
+            <div id="expense-category-wrap"></div>
+          </div>
+          <div class="panel">
+            <h3 data-i18n="panelSpendByVendor">Spend by vendor</h3>
+            <div id="vendor-spend-wrap"></div>
+          </div>
+          <div class="panel panel-wide">
+            <h3 data-i18n="panelProfitabilityByClient">Profitability by client</h3>
+            <div id="profitability-wrap"></div>
+          </div>
+          <div class="panel panel-wide">
+            <h3 data-i18n="panelBudgetVsActual">Budget vs actual (monthly)</h3>
+            <div class="row" style="margin-bottom:0.5rem;">
+              <div><label for="budget-month" data-i18n="labelMonth">Month</label><input type="month" id="budget-month"></div>
+              <div><label for="budget-category" data-i18n="labelCategory">Category</label><input type="text" id="budget-category" list="budget-category-list" autocomplete="off" data-i18n-placeholder="placeholderExpenseCategory" placeholder="Expense account name"><datalist id="budget-category-list"></datalist></div>
+              <div><label for="budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="budget-limit" min="0" step="1" value="0"></div>
+              <div style="display:flex; align-items:flex-end; gap:0.4rem; flex-wrap:wrap;"><button type="button" class="btn btn-primary" id="budget-save" data-i18n="btnSaveBudget" style="white-space:nowrap;">Save budget</button>
+                <button type="button" class="btn btn-secondary" id="budget-roll" data-i18n="budgetRollBtn" style="white-space:nowrap;">Copy to next month…</button></div>
+            </div>
+            <div id="budget-wrap"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dash-tabpanel" role="tabpanel" id="dash-panel-books" aria-labelledby="dash-tab-books" tabindex="0" hidden>
+        <div class="dashboard-grid">
+          <div class="panel">
+            <h3 data-i18n="panelBooksHealth">Books health</h3>
+            <div id="health-wrap"></div>
+            <h3 data-i18n="panelMonthEndChecklist" style="margin-top:0.75rem;">Month-end checklist</h3>
+            <div id="checklist-wrap"></div>
+          </div>
+          <div class="panel">
+            <h3 data-i18n="panelOwnerReportPack">Owner report pack (auto summary)</h3>
+            <div id="owner-pack" class="owner-pack"></div>
+          </div>
+          <div class="panel panel-wide">
+            <h3 data-i18n="panelFixMissingReferences">Fix missing references</h3>
+            <div id="missing-refs-wrap"></div>
+          </div>
+          <div class="panel panel-wide">
+            <h3 data-i18n="panelExportNotifications">Export & notifications</h3>
+            <div class="row">
+              <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+                <a class="btn btn-secondary" href="/exports/transactions.csv" target="_blank" data-i18n="btnExportCsv">Export CSV</a>
+                <a class="btn btn-secondary" href="/exports/transactions.xlsx" target="_blank" data-i18n="btnExportExcel">Export Excel</a>
+                <button type="button" class="btn btn-secondary" id="snapshot-btn" data-i18n="btnCreateSnapshot">Create monthly snapshot</button>
+                <button type="button" class="btn btn-secondary" id="notify-btn" data-i18n="btnSendAlerts">Send alerts</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -130,6 +130,21 @@ def test_cash_bank_statement_and_person_running_balance(books):
                    params={**P, "entity_id": str(uuid.uuid4()), "role": "client"}).status_code == 404
 
 
+def test_a_trial_balance_as_at_a_date_takes_everything_up_to_it(books):
+    """Asked with only an end date, it started on the 1st of that month: as at a
+    date two months on, the trial balance was empty (finding #30)."""
+    api = books["api"]
+    later = (TODAY + timedelta(days=62)).isoformat()
+    tb = api.get("/manager-reports/books/trial-balance", params={"to_date": later}).json()
+    bank = next(r for r in tb["rows"] if r["account_code"] == "1110")
+    assert int(bank["debit_balance"]) - int(bank["credit_balance"]) == 13_800_000
+    assert tb["period"]["from"] == _d(20) and tb["period"]["to"] == later
+    assert tb["totals"]["debit_balance"] == tb["totals"]["credit_balance"]
+    # with both dates given it is the period's, as before
+    month = api.get("/manager-reports/books/trial-balance", params={"from_date": later, "to_date": later}).json()
+    assert month["rows"] == []
+
+
 def test_trial_balance_by_currency_keeps_currencies_apart(books):
     api = books["api"]
     _txn(api, _d(2), [_l("1110", dr=300), _l("4110", cr=300)], "usd sale", currency="USD")

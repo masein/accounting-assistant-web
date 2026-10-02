@@ -39,10 +39,11 @@ class _IbanInput(BaseModel):
     """Input-side IBAN check (create/update only — reads render what is
     stored). Structure + mod-97 checksum; blanks become None. A wrong IBAN on
     a payee means a failed payment later, so it is refused here (422).
-    Identifiers typed on a Persian keyboard are stored in 0–9."""
+    Identifiers typed on a Persian keyboard are stored in 0–9 — the party's
+    code too: «۱۰۱» never matched a lookup or an export by 101."""
 
-    @field_validator("phone", "tax_id", "economic_code", "national_id", "postal_code", "account_number", "sort_code",
-                     mode="before", check_fields=False)
+    @field_validator("code", "phone", "tax_id", "economic_code", "national_id", "postal_code", "account_number",
+                     "sort_code", mode="before", check_fields=False)
     @classmethod
     def _ascii_identifiers(cls, v):
         return ascii_digits(v)

@@ -106,6 +106,10 @@ def provision_company(
             company_id=company.id,
             is_active=True,
             role=Role.PERSONAL if kind == "personal" else Role.OWNER,
+            # The company's language until they choose: an Iranian company's
+            # owner landed in English (deep browser test, 2026-10-02). A
+            # self-serve sign-up keeps the language it signed up in (auth.py).
+            preferred_language="fa" if locale == "ir" else "en",
             # A brand-new user's first login shouldn't open with a changelog.
             last_seen_release=CURRENT_RELEASE,
         )

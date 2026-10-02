@@ -5,9 +5,10 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.entity import EntityLink
+from app.utils.digits import ascii_digits
 
 # Maximum amount per line: 100 trillion Rials (10^14) — well above any realistic transaction
 MAX_LINE_AMOUNT = 100_000_000_000_000
@@ -19,6 +20,12 @@ class TransactionLineBase(BaseModel):
     debit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Debit amount (smallest unit, e.g. Rials)")
     credit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Credit amount (smallest unit)")
     line_description: Optional[str] = Field(None, max_length=512)
+
+    @field_validator("account_code", mode="before")
+    @classmethod
+    def _ascii_code(cls, v):
+        """«۶۱۱۲» typed on a Persian keyboard is account 6112."""
+        return ascii_digits(v).strip() if isinstance(v, str) else v
 
     @model_validator(mode="after")
     def debit_xor_credit(self):

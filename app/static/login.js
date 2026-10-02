@@ -485,7 +485,19 @@ langPills.addEventListener('click', (e) => {
   if (!btn) return;
   applyLanguage(btn.dataset.lang, true);
 });
-applyLanguage(localStorage.getItem('aa_ui_language') || 'en', false);
+// Nothing chosen on this device yet: the browser's language, when the app
+// speaks it. A Persian browser met the English page and its English error.
+function browserLanguage() {
+  const tags = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ''];
+  for (const tag of tags) {
+    const base = String(tag || '').toLowerCase().split('-')[0];
+    if (SUPPORTED_UI_LANGUAGES.includes(base)) return base;
+  }
+  return 'en';
+}
+let saved = null;
+try { saved = localStorage.getItem('aa_ui_language'); } catch (_) {}
+applyLanguage(saved || browserLanguage(), false);
 
 // Web fonts load without blocking render (media="print" until now).
 document.querySelectorAll('link[data-async-css]').forEach((l) => { l.media = 'all'; });

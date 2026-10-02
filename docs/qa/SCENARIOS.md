@@ -57,11 +57,11 @@ terms: what they see, in their language and calendar.
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
 | A1 | Super-admin creates the three tenants | Sign in as super-admin → Companies → create Arman (ir, IRR, business), Thames (uk, GBP), Sara (personal) with their owners | All three listed with locale, currency and kind; each owner can sign in; no English labels in Persian; validation in the user's language |
-| A2 | First sign-in of a Persian owner | `arman_owner` signs in on a Persian browser | UI in Persian, right-to-left, Jalali calendar on by default; lands on the dashboard; the "what's new" tour (if shown) closes cleanly; no console errors |
+| A2 | First sign-in of a Persian owner | `arman_owner` signs in on a Persian browser | UI in Persian, right-to-left, Jalali calendar on by default; lands on the dashboard; the "what's new" tour (if shown) closes cleanly; no console errors; an owner the super-admin created for an `ir` company starts in Persian, a `uk` one in English [#264] |
 | A3 | Company profile | Settings → profile: legal name, national ID, economic code, address and phone (Persian digits), logo PNG, signature PNG | Saved; logo shown in the sidebar and on documents; digits stored as 0–9; a wrong file type is refused in Persian |
 | A4 | Team | Settings → users: add accountant, CFO, manager, employee and viewer | Each signs in and lands on their role's home; the nav shows exactly that role's pages (PAGE_ROLES); an invalid username or a weak password is refused in Persian, for each of the four password rules [#261] |
 | A5 | Tenant isolation | A Thames user reads Arman data by URL and API ids | 404 or empty everywhere; never Arman's data |
-| A6 | Sign-in errors and sign-out | Wrong password, then right; sign out; back button | Persian error; no account enumeration; after sign-out the app is unreachable without signing in again |
+| A6 | Sign-in errors and sign-out | Wrong password, then right; sign out; back button | Persian error; no account enumeration; after sign-out the app is unreachable without signing in again; on a device that never chose a language, the page follows the browser (Persian browser → Persian page and errors; an unsupported language → English); a language picked earlier still wins [#264] |
 | A7 | Wiping the books [#259] | Parties page: no reset button. Settings → wipe (demo or empty): type a wrong name, then the company's name | Only the owner sees it, in Settings; a wrong name sends nothing and says «چیزی پاک نشد»; the right name wipes and the company keeps its own chart (a UK company gets the UK chart) |
 
 ## B. Master data (Arman, Persian)
@@ -70,14 +70,14 @@ terms: what they see, in their language and calendar.
 |---|---|---|---|
 | B1 | Chart of accounts | Add 1110-01 «بانک ملت جاری» under 1110, rename it, try to delete a used account, deactivate an unused one | Tree updates; the code is suggested from its parent; deleting a used account is refused with the reason; inactive accounts leave the pickers |
 | B2 | Opening balances | Enter cash 500,000,000; bank 1,200,000,000; capital 1,700,000,000 on the opening date (Jalali) | An unbalanced entry is refused; the balanced one posts; the trial balance shows them |
-| B3 | Parties | Add 3 clients, 2 suppliers, a bank, 2 employees and 2 shareholders (codes and phones in Persian digits); edit one; delete an unused one | Lists show each type in Persian; search for «كافه» finds «کافه نارنج»; a duplicate name warns; Edit/Delete work; the bank's own account is named «حساب بانکی بانک ملت» [#262] |
-| B4 | Products and stock | 3 products with SKU, unit and price; opening stock (IN) for 2 items; a barcode | Products page and inventory balance agree; valuation report in Persian; tables styled |
+| B3 | Parties | Add 3 clients, 2 suppliers, a bank, 2 employees and 2 shareholders (codes and phones in Persian digits); edit one; delete an unused one | Lists show each type in Persian; search for «كافه» finds «کافه نارنج»; a duplicate name warns; Edit/Delete work; the bank's own account is named «حساب بانکی بانک ملت» [#262]; a code typed «۱۰۱» is stored and found as 101 [#263] |
+| B4 | Products and stock | 3 products with SKU, unit and price; opening stock (IN) for 2 items; a barcode | Products page and inventory balance agree; valuation report in Persian; tables styled; a barcode or SKU typed in Persian digits is stored in 0–9 and a scan (0–9) finds the item [#263] |
 
 ## C. Daily bookkeeping
 
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
-| C1 | Manual voucher | Pick the date from the Jalali grid; rent 45,000,000 Dr 6xxx / Cr 1110-01 with a description; attach a receipt image; save | Unbalanced → Persian message; the save confirmation is Persian, with the Jalali date, each account's code and name, and amounts in the company's currency [#261]; balanced → "voucher saved"; it appears in the ledger with its Jalali date and attachment |
+| C1 | Manual voucher | Pick the date from the Jalali grid; rent 45,000,000 Dr 6xxx / Cr 1110-01 with a description; attach a receipt image; save | Unbalanced → Persian message; the save confirmation is Persian, with the Jalali date, each account's code and name, and amounts in the company's currency [#261]; balanced → "voucher saved"; it appears in the ledger with its Jalali date and attachment; an account code typed «۶۱۱۲» posts to 6112 and the confirmation names it [#263] |
 | C2 | Voucher edit / delete | Link client and bank, edit the amount, then delete | Ledger and balances follow; the audit trail records each step in Persian |
 | C3 | Sales invoice | Itemised, 2 lines, VAT, Jalali issue and due dates, client on «Net 30»; also in the evening, Tehran time [#258] | Due = issue + 30 on the user's own calendar day; the party list reads «name — مشتری» [#261]; totals right; it posts; Persian PDF (Jalali, Persian digits, amount in words) |
 | C4 | Payments on it | Record a partial payment (typed «۲۰٬۰۰۰٬۰۰۰»), then the rest | Partially paid → paid, shown in Persian in the list (kind and status) [#261]; AR aging and the client's statement agree |
@@ -105,7 +105,7 @@ terms: what they see, in their language and calendar.
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
 | D1 | Ledger search | Filter by Jalali range, account, party; text search with Arabic letterforms | Results right; totals right; export works |
-| D2 | Financial statements | Trial balance, balance sheet, P&L, cash flow (Iranian formats); PDF and XLSX | TB balances; A = L + E; P&L agrees with the vouchers; preview columns (turnover, balance) and every date in a preview (the general journal's too) in Persian and Jalali [#261]; Persian documents |
+| D2 | Financial statements | Trial balance, balance sheet, P&L, cash flow (Iranian formats); PDF and XLSX | TB balances; A = L + E; P&L agrees with the vouchers; preview columns (turnover, balance) and every date in a preview (the general journal's too) in Persian and Jalali [#261]; Persian documents; a trial balance (or general ledger) asked with only an end date takes every posting up to it [#265] |
 | D3 | Dashboard and manager reports | Dashboard KPIs and charts; sales by product and client; aging; inventory | Figures agree with C1–C22; charts labelled in Persian; Jalali months |
 | D4 | CEO / CFO | Both pages | KPIs, grade, runway; nothing English |
 | D5 | Audit | Trail plus full audit | Every action of the run is in the trail; findings in Persian |

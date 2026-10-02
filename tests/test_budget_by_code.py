@@ -96,3 +96,4 @@ def test_an_overspent_code_budget_rings_the_bell_by_its_name(co, db):
         n = db.execute(select(Notification).where(Notification.dedupe_key == f"budget-2026-09-{a['code']}")).scalars().one()
     assert n.level == "high" and n.title == f"Budget exceeded: {a['code']} — {a['name']}"
     assert n.params["category"] == f"{a['code']} — {a['name']}"
+    assert n.params["spent"] == "120" and n.message.endswith("(120%)")    # not "120.0"

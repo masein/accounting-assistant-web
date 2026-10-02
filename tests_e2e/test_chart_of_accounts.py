@@ -26,6 +26,8 @@ def test_add_and_deactivate_an_account(flow_page):
         page.click("#coa-new-save")
         page.wait_for_selector(f"#coa-tree td:has-text('{name}')")
         row = page.locator("#coa-tree tr", has_text=name)
+        assert row.locator("button[data-coa='off']").is_hidden()        # under ⋯, not on the row (#12)
+        row.locator("details.row-menu summary").click()
         row.locator("button[data-coa='off']").click()
         page.wait_for_selector(f"#coa-tree td:has-text('{name}')", state="detached")   # hidden once inactive
         page.check("#coa-show-inactive")

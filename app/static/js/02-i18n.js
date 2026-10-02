@@ -2079,6 +2079,7 @@
         bsDetailTitle: '{bank} — {file} ({n} rows)',
         bsDetailTitleNoBank: '{file} ({n} rows)',
         entBankCodeHint: "A bank's code is its ledger account: leave it empty to open one.",
+        moreActions: 'More actions',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

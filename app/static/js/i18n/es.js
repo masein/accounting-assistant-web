@@ -2032,6 +2032,7 @@ window.I18N_PACKS.es = Object.assign({
         bsDetailTitle: '{bank} — {file} ({n} filas)',
         bsDetailTitleNoBank: '{file} ({n} filas)',
         entBankCodeHint: 'El código de un banco es su cuenta contable: déjalo vacío para abrir una.',
+        moreActions: 'Más acciones',
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

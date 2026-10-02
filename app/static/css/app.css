@@ -1158,3 +1158,20 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 
 /* a line of help under a field */
 .field-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; max-width: 18rem; line-height: 1.35; }
+/* A row's actions: the everyday ones on the row, the rest under "⋯" (an
+   invoice row carried up to 8 buttons on 3 lines) */
+.nowrap { white-space: nowrap; }
+.row-actions { white-space: nowrap; }
+.row-actions > .btn, .row-actions > .row-menu { margin-inline-end: 0.3rem; }
+.row-menu { position: relative; display: inline-block; vertical-align: middle; }
+.row-menu > summary { list-style: none; cursor: pointer; }
+.row-menu > summary::-webkit-details-marker { display: none; }
+.row-menu-list { position: absolute; inset-inline-end: 0; top: calc(100% + 4px); z-index: 30; min-width: 11rem;
+  display: flex; flex-direction: column; gap: 0.3rem; padding: 0.4rem; background: var(--surface, #fff);
+  border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); }
+.row-menu-list .btn { width: 100%; justify-content: flex-start; text-align: start; }
+/* hidden until placed beside its button (it would flash inside the table first) */
+.row-menu-list:not([data-placed]) { visibility: hidden; }
+
+/* a wide table scrolls inside its own box rather than the page */
+.table-scroll { max-width: 100%; overflow-x: auto; }

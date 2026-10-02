@@ -94,7 +94,8 @@
           }
         }
       });
-      const balanceLabels = chartRows.map(r => r.account_code);
+      // each bar says which account, as the turnover chart's do (a bare code said little)
+      const balanceLabels = chartRows.map(r => r.account_code + ' ' + (r.account_name || '').slice(0, 16));
       const balanceData = chartRows.map(r => accountNet(r));
       chartBalance = new Chart(document.getElementById('chart-balance'), {
         type: 'line',

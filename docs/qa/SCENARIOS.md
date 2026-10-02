@@ -68,7 +68,7 @@ terms: what they see, in their language and calendar.
 
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
-| B1 | Chart of accounts | Add 1110-01 «بانک ملت جاری» under 1110, rename it, try to delete a used account, deactivate an unused one | Tree updates; the code is suggested from its parent; deleting a used account is refused with the reason; inactive accounts leave the pickers |
+| B1 | Chart of accounts | Add 1110-01 «بانک ملت جاری» under 1110, rename it, try to delete a used account, deactivate an unused one | Tree updates; the code is suggested from its parent; deleting a used account is refused with the reason; inactive accounts leave the pickers; each row keeps «زیرحساب» and puts rename, retire and delete under «⋯» [#277] |
 | B2 | Opening balances | Enter cash 500,000,000; bank 1,200,000,000; capital 1,700,000,000 on the opening date (Jalali) | An unbalanced entry is refused; the balanced one posts; the trial balance shows them |
 | B3 | Parties | Add 3 clients, 2 suppliers, a bank, 2 employees and 2 shareholders (codes and phones in Persian digits); edit one; delete an unused one | Lists show each type in Persian; search for «كافه» finds «کافه نارنج»; a duplicate name warns; Edit/Delete work; the bank's own account is named «حساب بانکی بانک ملت» [#262]; a code typed «۱۰۱» is stored and found as 101 [#263]; for a bank the code field says it is the bank's ledger account; a typed code that isn't a cash or bank account is refused in Persian (not replaced), a bank sub-account is taken, and an empty code opens one [#276] |
 | B4 | Products and stock | 3 products with SKU, unit and price; opening stock (IN) for 2 items; a barcode | Products page and inventory balance agree; valuation report in Persian; tables styled; a barcode or SKU typed in Persian digits is stored in 0–9 and a scan (0–9) finds the item [#263] |
@@ -83,7 +83,7 @@ terms: what they see, in their language and calendar.
 | C4 | Payments on it | Record a partial payment (typed «۲۰٬۰۰۰٬۰۰۰»), then the rest | Partially paid → paid, shown in Persian in the list (kind and status) [#261]; AR aging and the client's statement agree |
 | C5 | Purchase bill and payment | Bill from پخش البرز, pay it | AP up then down; the supplier's statement agrees |
 | C6 | Quote → invoice | Quote, mark sent and accepted, convert | The invoice carries the quote's lines; the quote shows "converted" |
-| C7 | Credit note and void | Credit note on C3; void another invoice | Postings reversed; statuses in Persian |
+| C7 | Credit note and void | Credit note on C3; void another invoice | Postings reversed; statuses in Persian; each invoice row keeps payment, edit and PDF on the row and the rest under «⋯» (one line, the number unbroken); the menu opens on screen even for the last row of a long list, follows the page as it scrolls, its actions work and Escape closes it [#277] |
 | C8 | Recurring invoice | Monthly, Jalali calendar, auto-issue | Next date is Jalali; run due → invoice issued once, not twice |
 | C9 | Cheques | Received cheque (Sayad ID) → deposit → clear; issued cheque → print preview; one bounces | Each step posts its entry; a bounced cheque is not settled; every refusal in Persian: a duplicate Sayad ID, depositing an issued cheque, returning one at the bank [#261]; cheque layout errors in Persian |
 | C10 | Instalments | Loan of 12 instalments | Schedule with Jalali dates; the reminder appears in the bell |

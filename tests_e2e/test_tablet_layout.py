@@ -22,6 +22,12 @@ def test_no_page_scrolls_sideways_on_a_tablet(flow_page):
                     lines: [{ account_code: codes[0], debit: 12500000, credit: 0 }, { account_code: codes[1], debit: 0, credit: 12500000 }] }) });
             return r.status; }""", ref)
         assert posted == 201, posted
+        # invoices too: their rows are the page's widest (in Persian they overflowed by 150 px)
+        for n in range(3):
+            st = page.evaluate("""async (n) => (await fetch('/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ number: n, kind: 'sales', status: 'issued', amount: 123456789,
+                    issue_date: '2026-09-01', due_date: '2026-10-01' }) })).status""", f"{ref}-INVOICE-{n}")
+            assert st == 201, st
         wide = {}
         for lang in ("en", "fa"):
             switch_language(page, lang)

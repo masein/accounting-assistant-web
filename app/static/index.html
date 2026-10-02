@@ -278,10 +278,12 @@
           <div id="inv-ocr-status" style="font-size:0.82rem; color:var(--text-muted);"></div>
         </div>
       </div>
+      <div class="table-scroll">  <!-- a wide list scrolls in its own box, not the page (tablets) -->
       <table class="results-table" id="invoices-table">
         <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="labelType">Type</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="invPaid">Paid</th><th data-i18n="invBalanceDue">Balance</th><th data-i18n="labelDueDate">Due</th><th data-i18n="usersActions">Actions</th></tr></thead>
         <tbody id="invoices-tbody"><tr><td colspan="8" class="empty-state" data-i18n="loading">Loading…</td></tr></tbody>
       </table>
+      </div>
 
       <!-- Quotes (پیش‌فاکتور): offers that never post until converted -->
       <h3 style="margin-top:1.25rem;" data-i18n="qtTitle">Quotes</h3>

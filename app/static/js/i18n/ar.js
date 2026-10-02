@@ -2032,6 +2032,7 @@ window.I18N_PACKS.ar = Object.assign({
         bsDetailTitle: '{bank} — {file} ({n} صفوف)',
         bsDetailTitleNoBank: '{file} ({n} صفوف)',
         entBankCodeHint: 'رمز البنك هو حسابه في الدفاتر: اتركه فارغاً لفتح حساب له.',
+        moreActions: 'إجراءات أخرى',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

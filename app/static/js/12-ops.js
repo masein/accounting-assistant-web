@@ -1437,18 +1437,21 @@
       const head = ['coaCode', 'coaName', 'coaLevel', 'coaBalance', 'coaStatus', ''].map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
       box.innerHTML = '<table class="mini-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows.map((n) => {
         const act = (name, label, cls) => '<button type="button" class="btn btn-' + (cls || 'secondary') + ' btn-sm" data-coa="' + name + '" data-id="' + escapeHtml(n.id) + '">' + escapeHtml(t(label)) + '</button>';
-        const actions = [
-          n.level !== 'DETAIL' && n.is_active ? act('child', 'coaAddChild') : '',
+        // the everyday action on the row, the rest under ⋯ (3–4 buttons on every row were noise)
+        const more = [
           act('rename', 'coaRename'),
           n.protected ? '' : (n.is_active ? act('off', 'coaDeactivate') : act('on', 'coaReactivate')),
           n.protected ? '' : act('delete', 'coaDelete', 'danger'),
-        ].join(' ');
+        ].join('');
+        const actions = (n.level !== 'DETAIL' && n.is_active ? act('child', 'coaAddChild') + ' ' : '')
+          + '<details class="row-menu"><summary class="btn btn-secondary btn-sm" aria-label="' + escapeHtml(t('moreActions')) + '" title="'
+          + escapeHtml(t('moreActions')) + '">⋯</summary><div class="row-menu-list">' + more + '</div></details>';
         return '<tr' + (n.is_active ? '' : ' style="opacity:0.55;"') + '><td dir="ltr" style="padding-inline-start:' + (0.4 + n.depth * 1.1) + 'rem;">' + escapeHtml(n.code) + '</td>'
           + '<td dir="auto">' + escapeHtml(n.name) + '</td><td>' + escapeHtml(t('coaLevel_' + n.level)) + '</td>'
           + '<td>' + escapeHtml(formatNum(n.total)) + '</td>'
           + '<td>' + (n.is_active ? '' : '<span class="alert-chip low">' + escapeHtml(t('coaInactive')) + '</span>')
           + (n.protected ? ' <span class="fc-note">' + escapeHtml(t('coaProtected')) + '</span>' : '') + '</td>'
-          + '<td style="white-space:nowrap;">' + actions + '</td></tr>';
+          + '<td class="row-actions">' + actions + '</td></tr>';
       }).join('') + '</tbody></table>';
     }
 

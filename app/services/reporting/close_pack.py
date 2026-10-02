@@ -464,7 +464,7 @@ def budgets(db: Session, m: Month) -> Table:
     W = T[m.lang]
     rows, tot = [], [0, 0, 0]
     for b in sorted(budget_utilization(db, m.key), key=lambda b: b["category"]):
-        rows.append(_line(b["category"], [b["limit_amount"], b["actual_amount"], b["variance"],
+        rows.append(_line(b["label"], [b["limit_amount"], b["actual_amount"], b["variance"],
                                           f"{round(b['utilization_pct'])}%"]))
         tot = [tot[0] + b["limit_amount"], tot[1] + b["actual_amount"], tot[2] + b["variance"]]
     if rows:

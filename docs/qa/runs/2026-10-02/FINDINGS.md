@@ -58,3 +58,4 @@ Severity:
 | 47 | P2 | Bank statements | The statement detail's title was "Unknown — file.csv (12 rows)": English "rows", and "Unknown" for an unnamed bank | while fixing #27 | fixed #274 |
 | 48 | P2 | Invoice history | The history showed a raw ISO timestamp in UTC and English sentences ("Credit note 600 GBP.", "Payment in") in every language | while fixing #44 | fixed #280 |
 | 49 | P2 | Invoice edit | Saving a partly paid invoice sent an empty status (the select had no "partially paid" option), and the save was refused | while fixing #44 | fixed #280 |
+| 50 | P2 | Budgets | A budget saved by account code (as the category field offers since #274) read 0 spent, and its overspend alert never fired: actuals were matched by account name only | screenshots for #36 | fixed #282 |

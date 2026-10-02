@@ -140,7 +140,7 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     biggest_rise = {"category": rises[0][0], "increase": rises[0][1]} if rises and rises[0][1] > 0 else None
 
     budgets = budget_utilization(db, key)
-    over = [b["category"] for b in budgets if b["actual_amount"] > b["limit_amount"]]
+    over = [b["label"] for b in budgets if b["actual_amount"] > b["limit_amount"]]
 
     nw_end = compute_net_worth(db, as_of=upto, with_trend=False)
     nw_start = compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False)

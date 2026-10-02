@@ -462,24 +462,6 @@
         showAlert(t('msgConnectionError') + err.message, true);
       }
     }
-    document.getElementById('reset-db-btn').addEventListener('click', async () => {
-      if (!(await uiConfirm({ message: t('confirmResetDb'), confirmLabel: t('btnResetDb'), danger: true }))) return;
-      try {
-        const res = await fetch(API + '/admin/reset-db', { method: 'POST' });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(data.detail || t('demoResetFailed'), true); return; }
-        showAlert(t('msgDbResetDone'));
-        loadLedger();
-        loadEntities();
-        loadInvoices();
-        loadRecurringRules();
-        loadOwnerDashboard();
-        loadBudgets();
-        lastEntityMentions = null;
-      } catch (err) {
-        showAlert(t('msgConnectionError') + err.message, true);
-      }
-    });
     document.getElementById('entity-add').addEventListener('click', async () => {
       const type = document.getElementById('entity-type').value;
       const name = document.getElementById('entity-name').value.trim();

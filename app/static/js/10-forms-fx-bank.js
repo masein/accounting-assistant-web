@@ -868,7 +868,12 @@
         if (data.duplicate_rows) msg += ' ' + tf('bsAlreadyImported', { n: data.duplicate_rows });
         statusEl.textContent = msg;
         statusEl.className = 'alert';
-        loadBankStatements();
+        await loadBankStatements();
+        // its rows, open: the user had to find "View" in the list after every upload
+        if (data.id) {
+          await loadStatementDetail(data.id);
+          document.getElementById('bs-detail-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       } catch (e) { statusEl.textContent = t('bsParseFailed'); statusEl.className = 'alert alert-error'; }
     }
 
@@ -978,7 +983,11 @@
         const res = await fetch(bsAPI + '/bank-statements/' + id);
         if (!res.ok) return;
         const stmt = await res.json();
-        document.getElementById('bs-detail-title').textContent = `${stmt.bank_name} — ${stmt.source_filename} (${stmt.total_rows} rows)`;
+        // "(12 rows)" was English; an unnamed bank is left out, not "Unknown"
+        const named = stmt.bank_name && stmt.bank_name !== 'Unknown';
+        document.getElementById('bs-detail-title').textContent = named
+          ? tf('bsDetailTitle', { bank: stmt.bank_name, file: stmt.source_filename, n: formatNum(stmt.total_rows) })
+          : tf('bsDetailTitleNoBank', { file: stmt.source_filename, n: formatNum(stmt.total_rows) });
         renderStatementBankAccount(stmt);
         const body = document.getElementById('bs-rows-body');
         body.innerHTML = '';

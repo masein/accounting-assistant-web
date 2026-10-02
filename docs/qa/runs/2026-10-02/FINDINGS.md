@@ -13,8 +13,8 @@ Severity:
 | 2 | P2 | First sign-in | An owner created by the super-admin has `preferred_language = en`, even for an `ir` company, so a new Iranian owner lands in English | A2 | fixed #264 |
 | 3 | P2 | Password rules | "Password must be at least 8 characters" (and the other three rules) are English: `ValueError` text is passed through and never reaches the catalogue | A4 | fixed #261 |
 | 4 | P1 | Super-admin | `GET /admin/company-profile` → 500 (no company context: tries to insert a profile with `company_id NULL`). `get_logo` with no company could serve another tenant's logo | A1 | not an app bug: the QA seed made a super-admin with no company (the real seed gives it the default company) |
-| 5 | P3 | Companies console | One logo request per row → a 404 for every company without a logo | A1 | open |
-| 6 | P2 | Companies console | Region column shows raw `uk` / `ir`; no column for the kind (business / personal); the header "هوش مصنوعی · ۲۴ ساعت" reads as "240 hours" (the middle dot looks like the Persian zero) | A1 | open |
+| 5 | P3 | Companies console | One logo request per row → a 404 for every company without a logo | A1 | fixed #271 |
+| 6 | P2 | Companies console | Region column shows raw `uk` / `ir`; no column for the kind (business / personal); the header "هوش مصنوعی · ۲۴ ساعت" reads as "240 hours" (the middle dot looks like the Persian zero) | A1 | fixed #271 |
 | 7 | P3 | Sidebar | Section labels are 10.24 px, small for Persian script | all | fixed #270 |
 | 8 | P1 | Parties | A party code typed in Persian digits is stored as «۱۰۱» (not 0–9), so lookups and exports by code miss it. #246 didn't cover `entities.code` | B3 | fixed #263 |
 | 9 | P1 | Inventory | A barcode typed in Persian digits is stored as «۶۲۹۱…»; a scanner sends 0–9, so a scan never matches | B4 | fixed #263 |
@@ -35,8 +35,8 @@ Severity:
 | 24 | P2 | Ledger summary | "IRR 0 بد": "بد" means "bad"; it should read بدهکار | C1 | fixed #261 |
 | 25 | P3 | Ledger summary | 1110 takes postings and also has a sub-account, so it shows twice; the charts' axes show bare codes without names | C1 | open |
 | 26 | P2 | Bank statements | The list's status column shows raw `parsed` | C12 | fixed #261 |
-| 27 | P3 | Bank statements | After an upload the rows aren't opened; the user has to find "View" | C12 | open |
-| 28 | P3 | Budgets | The category is a typed code; the table shows only the code (6112), not the account name | C21 | open |
+| 27 | P3 | Bank statements | After an upload the rows aren't opened; the user has to find "View" | C12 | fixed #274 |
+| 28 | P3 | Budgets | The category is a typed code; the table shows only the code (6112), not the account name | C21 | fixed #274 |
 | 29 | P2 | Reports | General ledger and trial balance previews: "Debit Turnover / Credit Turnover / Debit Balance / Credit Balance" in English | D2 | fixed #261 |
 | 30 | P2 | Trial balance | Asked with only `to_date` (everything up to a date), it returns **0 rows** | D2 | fixed #265 |
 | 31 | P2 | Dates in messages | The lock status ("قفل تا 2026-09-22") and the server's refusal ("دوره تا 2026-09-22 بسته است…") show Gregorian dates in a Jalali company | D6 | fixed #267 |
@@ -45,7 +45,7 @@ Severity:
 | 34 | P3 | UK invoice form | Totals show "3,600 GBP" rather than "£3,600" (the list uses the symbol) | G1 | fixed #273 |
 | 35 | **P1** | **Book language** | Every system-generated journal description is English in an Iranian company's books: "Invoice ARM-1805 issued / — revenue / — output VAT", "Payment for invoice …", "Opening balance", "Dividend declared — …", "Mileage claim — …", "Time billing — … (2026-10-01 → …)" (with Gregorian dates). About 246 English f-strings across the services. These are stored text that shows in the journal, ledger, statements and PDFs | dashboard, journal | fixed #262 |
 | 36 | P2 | Dashboard | Overloaded: about 12 sections over 4,400 px (KPIs, a 13-week table, a 13-row explorer repeating it, what-if, aging ×2, spending ×2, profitability, health, owner pack, missing references, budgets, exports) | I | open |
-| 37 | P2 | Dashboard forecast | The week column cuts dates ("1405/07/0"); in en/ar they wrap | I | open |
+| 37 | P2 | Dashboard forecast | The week column cuts dates ("1405/07/0"); in en/ar they wrap | I | fixed #272 |
 | 38 | P2 | Owner pack | Shown as a monospace text block with a Gregorian date "(2026-10-02)" in a Jalali company | I | fixed #267 |
 | 39 | P3 | Ledger (tablet) | The page scrolls sideways at 768 px | I | open |
 | 40 | P3 | Jalali date field | The hidden native input is exposed to screen readers (no name, not `aria-hidden`) | I | fixed #270 |
@@ -55,3 +55,4 @@ Severity:
 | 44 | P3? | Credit notes | Disabled on a fully paid invoice (a refund case). After a credit note an invoice reads "partially paid". **Design question for the user** | C7 | *question* |
 | 45 | P2 | Report previews | The general journal (and every table preview) printed its dates as 2026-09-30 in a Jalali company; a report with only an end date showed it raw too | journal, while fixing #35 | fixed #261 |
 | 46 | P3 | Manager reports | The "No currency filter selected… Pick a currency" banner was English (multi-line template text the static scan doesn't see) | code reading | fixed #261 |
+| 47 | P2 | Bank statements | The statement detail's title was "Unknown — file.csv (12 rows)": English "rows", and "Unknown" for an unnamed bank | while fixing #27 | fixed #274 |

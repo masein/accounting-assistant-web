@@ -382,6 +382,16 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || t('msgFailed'));
         const rows = data.rows || [];
+        // the chart's expense accounts, offered as the category is typed; a
+        // category given as a code reads with its name ("6112" alone did)
+        const names = await accountNamesByCode();
+        const list = document.getElementById('budget-category-list');
+        if (list && !list.options.length) {
+          list.innerHTML = Object.entries(names)
+            .filter(([code]) => '56789'.includes(code[0]) && !code.startsWith('91'))
+            .map(([code, name]) => `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`).join('');
+        }
+        const category = (c) => names[c] ? c + ' — ' + names[c] : c;
         if (!rows.length) {
           budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('budgetNoRows')) + '</p>';
           return;
@@ -391,7 +401,7 @@
             <thead><tr><th>${escapeHtml(t('labelCategory'))}</th><th>${escapeHtml(t('labelLimit'))}</th><th>${escapeHtml(t('budgetColActual'))}</th><th>${escapeHtml(t('budgetColVariance'))}</th><th>${escapeHtml(t('budgetColUsed'))}</th><th></th></tr></thead>
             <tbody>
               ${rows.map(r => `<tr data-id="${escapeHtml(r.id || '')}" data-limit="${escapeHtml(String(r.limit_amount))}" data-category="${escapeHtml(r.category)}">
-                <td>${escapeHtml(r.category)}</td>
+                <td>${escapeHtml(category(r.category))}</td>
                 <td>${formatNum(r.limit_amount)}</td>
                 <td>${formatNum(r.actual_amount)}</td>
                 <td>${formatNum(r.variance)}</td>

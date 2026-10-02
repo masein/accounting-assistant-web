@@ -40,3 +40,16 @@ def test_forecast_explorer_runs_a_scenario(flow_page):
         os.makedirs(ARTIFACTS, exist_ok=True)
         page.screenshot(path=os.path.join(ARTIFACTS, "cash-forecast.png"), full_page=True)
         raise
+
+
+def test_the_forecast_weeks_stay_on_one_line(flow_page):
+    """The week column broke its dates in two ("2026-09-" / "28"; in Persian
+    the end was cut: "1405/07/0") — deep browser test, 2026-10-02, #37."""
+    page, watch = flow_page("e2e_forecast")
+    page.evaluate("() => { location.hash = 'dashboard'; }")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_selector("#forecast-wrap td.date-cell")
+    lines = page.evaluate("""() => [...document.querySelectorAll('#forecast-wrap td.date-cell')].map(td => {
+        const s = getComputedStyle(td);
+        return Math.round((td.clientHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom)) / parseFloat(s.lineHeight || 16)); })""")
+    assert len(lines) == 13 and set(lines) == {1}, lines

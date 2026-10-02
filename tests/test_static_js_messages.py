@@ -26,6 +26,8 @@ SHAPES = {
     # a labelled value in a template literal: `Date: ${date}\n` (the voucher
     # confirmation was built this way, all of it English)
     "label": re.compile(r"(`)[^`]*?(?:(?<![\w$-])|(?<=\\n))([A-Z][a-z]+(?: [a-z]+)*:) \$\{"),
+    # a unit after a value in a template literal: `(${n} rows)` (the statement title)
+    "unit": re.compile(r"(`)[^`]*?\$\{[^}]+\} ([a-z]{3,})(?=[)\s.,`])"),
 }
 # `t('key') || 'English'` never falls back (t returns the key), so it isn't shown.
 _AFTER_T = re.compile(r"\bt[fr]?\([^()]*\)\s*\|\|\s*\(?\s*$")
@@ -108,6 +110,7 @@ def test_the_scan_sees_each_shape(tmp_path):
         "showAlert('Connection error: ' + err.message, true);\n"
         "msg.textContent = `Total: ${n}`;\n"
         "let summary = `Date: ${date}\\n`; summary += `\\nDebit entries: ${n}`;\n"
+        "title.textContent = `${bank} — ${file} (${n} rows)`;\n"
         "if (!r.ok) throw new Error(data.detail || ('Failed upload: ' + f.name));\n"
         # not shown, or not English: none of these may be reported
         "showAlert(t('msgInvoiceCreated'));\n"
@@ -129,6 +132,7 @@ def test_the_scan_sees_each_shape(tmp_path):
         "[label] 'Total:'",
         "[label] 'Date:'",
         "[label] 'Debit entries:'",
+        "[unit] 'rows'",
         "[fallback] 'Failed upload: '",
         "[sentence] 'Failed upload: '",
     ]

@@ -56,7 +56,7 @@ terms: what they see, in their language and calendar.
 
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
-| A1 | Super-admin creates the three tenants | Sign in as super-admin → Companies → create Arman (ir, IRR, business), Thames (uk, GBP), Sara (personal) with their owners | All three listed with locale, currency and kind; each owner can sign in; no English labels in Persian; validation in the user's language |
+| A1 | Super-admin creates the three tenants | Sign in as super-admin → Companies → create Arman (ir, IRR, business), Thames (uk, GBP), Sara (personal) with their owners | All three listed with locale, currency and kind; each owner can sign in; no English labels in Persian; validation in the user's language; the list names each region (not uk/ir), has a column for the kind (business/personal), shows a logo only where one was uploaded (no 404s), and its AI header reads «هوش مصنوعی (۲۴ ساعت گذشته)» [#271] |
 | A2 | First sign-in of a Persian owner | `arman_owner` signs in on a Persian browser | UI in Persian, right-to-left, Jalali calendar on by default; lands on the dashboard; the "what's new" tour (if shown) closes cleanly; no console errors; an owner the super-admin created for an `ir` company starts in Persian, a `uk` one in English [#264] |
 | A3 | Company profile | Settings → profile: legal name, national ID, economic code, address and phone (Persian digits), logo PNG, signature PNG | Saved; logo shown in the sidebar and on documents; digits stored as 0–9; a wrong file type is refused in Persian |
 | A4 | Team | Settings → users: add accountant, CFO, manager, employee and viewer | Each signs in and lands on their role's home; the nav shows exactly that role's pages (PAGE_ROLES); an invalid username or a weak password is refused in Persian, for each of the four password rules [#261] |
@@ -88,7 +88,7 @@ terms: what they see, in their language and calendar.
 | C9 | Cheques | Received cheque (Sayad ID) → deposit → clear; issued cheque → print preview; one bounces | Each step posts its entry; a bounced cheque is not settled; every refusal in Persian: a duplicate Sayad ID, depositing an issued cheque, returning one at the bank [#261]; cheque layout errors in Persian |
 | C10 | Instalments | Loan of 12 instalments | Schedule with Jalali dates; the reminder appears in the bell |
 | C11 | Recurring payment rule | Monthly rent, auto-post, run due | One voucher; next run date moves forward; the bank list offers every bank account: the banks' own accounts, the chart's bank account and the ones opened under it (111001), not a retired one [#269] |
-| C12 | Bank statement import | Upload a 15-row CSV → map columns → categorise → approve; re-upload it | Rows posted; the list shows the status in Persian and the type in capitals; a row that can't post says why in Persian ("ردیف ۳: …"), and so does the summary after approving [#261]; reconciliation matches the existing rent voucher; the re-upload is flagged as a duplicate |
+| C12 | Bank statement import | Upload a 15-row CSV → map columns → categorise → approve; re-upload it | Rows posted; the list shows the status in Persian and the type in capitals; a row that can't post says why in Persian ("ردیف ۳: …"), and so does the summary after approving [#261]; reconciliation matches the existing rent voucher; the re-upload is flagged as a duplicate; after an upload its rows open at once, titled in the user's words («بانک ملت — file.csv (2 ردیف)»; no "Unknown" when no bank is named) [#274] |
 | C13 | Bank SMS | Paste 3 Persian SMS from Mellat | Parsed amount, date, type; posted or proposed |
 | C14 | Petty cash | Float for علی; deposit «۵۰۰٬۰۰۰٬۰۰۰»; علی records an expense with a receipt; manager approves | Balance follows; app dialogs only; amounts in IRR; an expense over the float is refused in Persian [#261] |
 | C15 | Expenses and mileage | Employee files a mileage claim → manager approves → reimbursed | Statuses in Persian; posting on approval and on reimbursement |
@@ -97,7 +97,7 @@ terms: what they see, in their language and calendar.
 | C18 | Payroll | Profiles for علی (monthly) and مریم (hourly), 1405 rules; run Mehr → review → post → pay; payslip | Net = gross − withholdings; posting balanced; payslip in Persian |
 | C19 | Fixed assets | Laptop and van; month-end depreciation; dispose of the laptop | Book value falls; disposal posts gain or loss |
 | C20 | Equity | Cap table 60/40; contribution; declare and pay a dividend | Cap table 100%; the hint names IRR; statements show the movements |
-| C21 | Budgets | Budgets for 3 expense accounts in Jalali months; overspend one | The alert fires; budget vs actual right |
+| C21 | Budgets | Budgets for 3 expense accounts in Jalali months; overspend one | The alert fires; budget vs actual right; the category field suggests the chart's expense accounts, and a category given as a code reads with its account's name («6112 — سایر هزینه‌های عملیاتی») [#274] |
 | C22 | Multi-currency | USD rate; a USD bill; revaluation preview | Base values in IRR; realised gain or loss on payment |
 
 ## D. Reports, control and compliance
@@ -111,7 +111,7 @@ terms: what they see, in their language and calendar.
 | D5 | Audit | Trail plus full audit | Every action of the run is in the trail; findings in Persian |
 | D6 | Period lock | Lock through the end of Shahrivar; try a back-dated voucher | Refused, in Persian, naming the lock date; both dates in the refusal and the lock status itself («قفل تا 1405/06/31») are Jalali, in Persian and in English; a Gregorian company's stay Gregorian [#267] |
 | D7 | Tax | TTMS season export; Moadian export of C3 | Files download; amounts agree with the invoices |
-| D8 | Forecast and insights | 13-week forecast plus a what-if; insights after a duplicate payment | Forecast weeks in Jalali; the duplicate is flagged |
+| D8 | Forecast and insights | 13-week forecast plus a what-if; insights after a duplicate payment | Forecast weeks in Jalali; the duplicate is flagged; on the dashboard each week's date stays on one line (it broke as «2026-09-» / «28») [#272] |
 | D9 | The books' language [#262] | After C1–C22, open the general journal, an account's ledger and a party's statement; then do the same in Thames | Every description the app wrote itself (invoice, payment, bill, credit note, void, opening balance, equity, payroll, mileage, time billing, depreciation, petty cash, recurring, FX, fees, statement rows) reads in Persian in Arman, with Jalali dates inside the text; in Thames the same entries read in English; nothing already posted is rewritten |
 
 ## E. AI accountant and migration (no AI provider)

@@ -2029,6 +2029,8 @@ window.I18N_PACKS.es = Object.assign({
         resetDoneChart: "Base de datos restablecida. Plan: {n} cuentas. Recargando…",
         mgrNoCurrencyWarning: 'No has elegido moneda. Las cifras de abajo suman {list} como números sin más, lo que no tiene sentido. Elige una moneda:',
         payrollRulesFloor: 'Umbral de cotización (mensual)',
+        bsDetailTitle: '{bank} — {file} ({n} filas)',
+        bsDetailTitleNoBank: '{file} ({n} filas)',
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

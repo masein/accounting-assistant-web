@@ -69,10 +69,16 @@
           // Plain <img>; the monogram fallback is wired via JS below (an inline
           // onerror string can leak stray text — see _setBrandLogo).
           const letter = escapeHtml((c.name || 'C')[0].toUpperCase());
-          const logo = `<img class="co-logo" data-letter="${letter}" src="${API}/admin/companies/${escapeHtml(c.id)}/logo" alt="" style="width:26px;height:26px;border-radius:6px;object-fit:contain;flex:0 0 26px;">`;
+          // a logo only where one was uploaded (each other row was a 404), else its letter
+          const logo = c.has_logo
+            ? `<img class="co-logo" data-letter="${letter}" src="${API}/admin/companies/${escapeHtml(c.id)}/logo" alt="" style="width:26px;height:26px;border-radius:6px;object-fit:contain;flex:0 0 26px;">`
+            : `<span class="brand-monogram" style="width:26px;height:26px;flex:0 0 26px;font-size:12px">${letter}</span>`;
+          // the region by name (it showed uk / ir), without the currency: that has its own column
+          const region = { uk: 'companiesLocaleUk', ir: 'companiesLocaleIr', default: 'companiesLocaleDefault' }[c.locale];
           return `<tr>
             <td><span style="display:inline-flex; align-items:center; gap:0.5rem;">${logo}${escapeHtml(c.name)}</span></td>
-            <td>${escapeHtml(c.locale)}</td>
+            <td>${escapeHtml(region ? t(region).replace(/\s*\([A-Z]{3}\)$/, '') : c.locale)}</td>
+            <td>${escapeHtml(t(c.kind === 'personal' ? 'companiesKindPersonal' : 'companiesKindBusiness'))}</td>
             <td>${escapeHtml(c.base_currency)}</td>
             <td>${escapeHtml(c.login_username || '-')}</td>
             <td>${escapeHtml(suspended ? t('companiesStatusSuspended') : t('companiesStatusActive'))}</td>

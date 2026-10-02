@@ -65,6 +65,9 @@ PAGE_LOADERS = {
     "loadManagerInventoryItems": ("inventory",), "loadClosePack": ("manager",),
 }
 
+# a loader for one dashboard tab (#36): loadPageData marks the tab for loading
+DASH_TAB_LOADERS = {"loadBudgets": "spend"}
+
 
 def _page_data_lines() -> dict[str, str]:
     body = _function(_js("12-ops.js"), "loadPageData")
@@ -81,6 +84,11 @@ def test_every_page_loader_is_reached_from_load_page_data_and_skips_hidden_pages
         want = "if (!onPage(" + ", ".join(f"'{p}'" for p in pages) + ")) return;"
         assert first.strip().startswith(want), (loader, first)
         for p in pages:
+            if loader in DASH_TAB_LOADERS:      # the dashboard's tab runs it when it opens
+                tab = DASH_TAB_LOADERS[loader]
+                assert f"dashTabRefresh('{tab}')" in lines[p], (loader, p, lines.get(p))
+                assert f"{tab}: () => {loader}()," in _js("05-reports-manager.js"), loader
+                continue
             assert loader + "(" in lines[p], (loader, p, lines.get(p))
     # the pages that relied on the preload have their own entries now
     assert "loadLedger()" in lines["ledger"] and "loadEntityOptions()" in lines["transactions"]

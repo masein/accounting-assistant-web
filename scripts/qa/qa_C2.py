@@ -347,6 +347,8 @@ def c21_budgets(browser):
     ctx, page, watch = new_session(browser, "arman_acc", lang="fa")
     try:
         go(page, "dashboard")
+        if page.locator("#dash-tab-spend").count():
+            page.click("#dash-tab-spend"); page.wait_for_load_state("networkidle")   # budgets: Spending & profit (#36)
         mopts = opts(page, "#budget-month-jalali") if page.locator("#budget-month-jalali").count() else []
         c.note(f"month picker: {[l for _, l in mopts][:4]}")
         c.ok(any("مهر" in l for _, l in mopts), "budget months are Jalali, by name")

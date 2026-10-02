@@ -5,7 +5,7 @@
     // Boot fetches nothing page-specific: this is the ONLY place a page's
     // data loads from when it opens (tests/test_boot_page_data.py).
     function loadPageData(page) {
-      if (page === 'dashboard') { loadOwnerDashboard(); loadBudgets(); }
+      if (page === 'dashboard') { initDashTabs(); loadOwnerDashboard(); dashTabRefresh('spend'); }
       if (page === 'personal-dashboard') { loadPersonalDashboard(); }
       if (page === 'commitments') { loadCommitments(); }
       if (page === 'ai-accountant') { if (typeof aiChatInit === 'function') aiChatInit(); }

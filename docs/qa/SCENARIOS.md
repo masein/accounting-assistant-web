@@ -154,8 +154,8 @@ Each page is checked in Persian and English, at desktop 1280, tablet 768 and pho
 | I1 | No horizontal page overflow; nothing clipped or overlapping; tables scroll inside their box on a phone |
 | I2 | Right-to-left mirrors correctly (icons, arrows, alignment, number and date runs); English stays left-to-right |
 | I3 | No untranslated text, raw keys (`msgFoo`) or `{placeholders}`; consistent terms between pages |
-| I4 | Every input and button has an accessible name; focus is visible; Tab order follows the reading order; dialogs close on Escape |
-| I5 | Tap targets at least 32 px on a phone; the font is never under 11 px |
+| I4 | Every input and button has an accessible name; focus is visible; Tab order follows the reading order; dialogs close on Escape; a Jalali date field is one field to a screen reader (its hidden native input is aria-hidden) [#270] |
+| I5 | Tap targets at least 32 px on a phone; the font is never under 11 px; checked in the browser suite on a phone in Persian: chips, small buttons, the invoice line's ×, checkboxes; the sidebar's section labels are at least 12 px, with no letter-spacing in Persian or Arabic [#270] |
 | I6 | Every action gives feedback (success, error, loading); destructive actions confirm; disabled states are clear |
 | I7 | Empty states say what to do next; loading states don't flash English or raw data |
 | I8 | Money and dates follow the company's currency and calendar everywhere; Persian digit input works in every number field |

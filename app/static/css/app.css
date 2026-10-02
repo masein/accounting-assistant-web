@@ -797,9 +797,12 @@
     .side-nav { padding: .4rem .5rem 1.5rem; display: flex; flex-direction: column; gap: .08rem; }
     .nav-section { margin-top: .45rem; }
     .nav-section-h {
-      font-size: .64rem; text-transform: uppercase; letter-spacing: .07em;
+      font-size: .7rem; text-transform: uppercase; letter-spacing: .06em;
       color: var(--text-muted); font-weight: 700; padding: .55rem .75rem .25rem; user-select: none;
     }
+    /* Persian and Arabic: no capitals to make, and spaced-out letters break
+       their joins — a readable size instead (they were 10.24 px) */
+    html[lang="fa"] .nav-section-h, html[lang="ar"] .nav-section-h { font-size: .78rem; letter-spacing: 0; text-transform: none; }
     .nav-btn {
       display: flex; align-items: center; gap: .6rem; width: 100%; text-align: start;
       border: none; background: transparent; color: var(--text); border-radius: 9px;
@@ -1134,3 +1137,16 @@
 .owner-pack ul li span { color: var(--text-muted); }
 .owner-pack-actions { font-weight: 600; margin-bottom: 0.2rem; }
 .owner-pack ol { margin: 0; padding-inline-start: 1.25rem; }
+
+/* Phones: every control a thumb can hit (deep browser test, 2026-10-02:
+   checkboxes, the chat's quick chips, small buttons and the line "×" were
+   under 28 px) */
+/* A link styled as a button sizes like one (inline, it ignored height and
+   min-height: the invoice list's PDF link was 31 px tall next to 32 px buttons) */
+a.btn { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+@media (max-width: 640px) {
+  .card[data-page] input[type="checkbox"], .card[data-page] input[type="radio"] { width: 20px; height: 20px; }
+  .card[data-page] label:has(> input[type="checkbox"]), .card[data-page] label:has(> input[type="radio"]) { min-height: 32px; display: inline-flex; align-items: center; gap: .4rem; }
+  .chip, .btn-sm, .il-del, .modal-close { min-height: 32px; min-width: 32px; }
+  .chip { display: inline-flex; align-items: center; }
+}

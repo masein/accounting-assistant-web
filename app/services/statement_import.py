@@ -448,14 +448,21 @@ def _default_bank_code(db: Session) -> str | None:
 
 
 def bank_account_choices(db: Session) -> list[dict]:
-    """The accounts a statement can belong to: every bank on file with its
-    own ledger account, and the chart's bank account."""
+    """The accounts money can sit in at a bank: every bank on file with its own
+    ledger account, the chart's bank account, and the accounts opened under it
+    in the chart (111001 «بانک ملت جاری» under 1110 — a recurring rule couldn't
+    choose one: deep browser test, 2026-10-02, finding #23)."""
     out: dict[str, dict] = {}
     for e in _bank_entities(db):
         out.setdefault(e.code.strip(), {"code": e.code.strip(), "bank": e.name})
     default = _default_bank_code(db)
     if default and default not in out:
         out[default] = {"code": default, "bank": None}
+    if default:
+        subs = db.execute(select(Account.code).where(Account.code.like(f"{default}%"), Account.code != default,
+                                                     Account.is_active.is_(True)).order_by(Account.code)).scalars()
+        for code in subs:
+            out.setdefault(code, {"code": code, "bank": None})
     names = dict(db.execute(select(Account.code, Account.name).where(Account.code.in_(list(out)))).all()) if out else {}
     return [{**c, "name": names.get(c["code"]) or c["code"]} for c in out.values()]
 

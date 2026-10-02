@@ -214,15 +214,17 @@
     // ═══════ Recurring: manual form + run-due ═══════
     async function _recLoadSelectors() {
       try {
+        // every account money sits in at a bank: the banks on file, the chart's
+        // bank account and the ones opened under it (a chart-made 111001 was missing)
         const [banksRes, acctsRes] = await Promise.all([
-          fetch(API + '/entities?type=bank'), fetch(API + '/accounts'),
+          fetch(API + '/brain/bank-accounts'), fetch(API + '/accounts'),
         ]);
-        const banks = banksRes.ok ? await banksRes.json() : [];
+        const banks = banksRes.ok ? ((await banksRes.json()).accounts || []) : [];
         const accts = acctsRes.ok ? await acctsRes.json() : [];
         const bankSel = document.getElementById('rec-bank');
         if (bankSel) {
-          bankSel.innerHTML = banks.filter(b => b.code)
-            .map(b => `<option value="${escapeHtml(b.code)}">${escapeHtml(b.name)} (${escapeHtml(b.code)})</option>`).join('')
+          const label = (b) => (b.bank && !String(b.name).includes(b.bank) ? b.bank + ' — ' : '') + b.name + ' (' + b.code + ')';
+          bankSel.innerHTML = banks.map(b => `<option value="${escapeHtml(b.code)}">${escapeHtml(label(b))}</option>`).join('')
             || `<option value="">${escapeHtml(t('recNoBanks'))}</option>`;
         }
         const counterSel = document.getElementById('rec-counter');

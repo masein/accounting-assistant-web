@@ -87,7 +87,7 @@ terms: what they see, in their language and calendar.
 | C8 | Recurring invoice | Monthly, Jalali calendar, auto-issue | Next date is Jalali; run due → invoice issued once, not twice |
 | C9 | Cheques | Received cheque (Sayad ID) → deposit → clear; issued cheque → print preview; one bounces | Each step posts its entry; a bounced cheque is not settled; every refusal in Persian: a duplicate Sayad ID, depositing an issued cheque, returning one at the bank [#261]; cheque layout errors in Persian |
 | C10 | Instalments | Loan of 12 instalments | Schedule with Jalali dates; the reminder appears in the bell |
-| C11 | Recurring payment rule | Monthly rent, auto-post, run due | One voucher; next run date moves forward |
+| C11 | Recurring payment rule | Monthly rent, auto-post, run due | One voucher; next run date moves forward; the bank list offers every bank account: the banks' own accounts, the chart's bank account and the ones opened under it (111001), not a retired one [#269] |
 | C12 | Bank statement import | Upload a 15-row CSV → map columns → categorise → approve; re-upload it | Rows posted; the list shows the status in Persian and the type in capitals; a row that can't post says why in Persian ("ردیف ۳: …"), and so does the summary after approving [#261]; reconciliation matches the existing rent voucher; the re-upload is flagged as a duplicate |
 | C13 | Bank SMS | Paste 3 Persian SMS from Mellat | Parsed amount, date, type; posted or proposed |
 | C14 | Petty cash | Float for علی; deposit «۵۰۰٬۰۰۰٬۰۰۰»; علی records an expense with a receipt; manager approves | Balance follows; app dialogs only; amounts in IRR; an expense over the float is refused in Persian [#261] |

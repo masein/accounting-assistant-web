@@ -1170,6 +1170,8 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
   display: flex; flex-direction: column; gap: 0.3rem; padding: 0.4rem; background: var(--surface, #fff);
   border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); }
 .row-menu-list .btn { width: 100%; justify-content: flex-start; text-align: start; }
+/* hidden until placed beside its button (it would flash inside the table first) */
+.row-menu-list:not([data-placed]) { visibility: hidden; }
 
 /* a wide table scrolls inside its own box rather than the page */
 .table-scroll { max-width: 100%; overflow-x: auto; }

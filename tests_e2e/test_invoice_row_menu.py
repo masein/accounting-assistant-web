@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import uuid
 
+from tests_e2e.conftest import wait_until
+
 POST = r"""async ([path, body]) => { const r = await fetch(path, { method: 'POST',
   headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.status; }"""
 
@@ -25,10 +27,10 @@ def test_the_row_menu_opens_on_screen_and_its_actions_work(flow_page):
     assert row.locator("td bdi").first.evaluate("b => b.getClientRects().length") == 1   # the number on one line
     last = page.locator("#invoices-tbody tr").last
     last.locator("details.row-menu summary").click()
-    on_screen = page.evaluate("""() => { const l = document.querySelector('details.row-menu[open] .row-menu-list');
-        const r = l.getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    # it is placed when the browser says it opened (a moment after the click)
+    wait_until(page, """() => { const l = document.querySelector('details.row-menu[open] .row-menu-list[data-placed]');
+        if (!l) return false; const r = l.getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         return r.top >= 0 && r.bottom <= window.innerHeight && !!el && l.contains(el); }""")
-    assert on_screen
     page.keyboard.press("Escape")
     assert page.evaluate("() => !document.querySelector('details.row-menu[open]')")
     row.locator("details.row-menu summary").click()

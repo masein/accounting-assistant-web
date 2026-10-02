@@ -921,10 +921,12 @@
         const top = r.bottom + 4 + h > window.innerHeight ? Math.max(8, r.top - 4 - h) : r.bottom + 4;
         list.style.left = (left - origin.left) + 'px';
         list.style.top = (top - origin.top) + 'px';
+        list.dataset.placed = '1';            // shown only once it is where it belongs
       };
       document.addEventListener('toggle', (e) => {
         const menu = e.target;
-        if (menu instanceof HTMLDetailsElement && menu.classList.contains('row-menu') && menu.open) place(menu);
+        if (!(menu instanceof HTMLDetailsElement) || !menu.classList.contains('row-menu')) return;
+        if (menu.open) place(menu); else delete menu.querySelector('.row-menu-list').dataset.placed;
       }, true);
       const follow = () => document.querySelectorAll('details.row-menu[open]').forEach(place);
       window.addEventListener('scroll', follow, true);

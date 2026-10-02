@@ -526,6 +526,9 @@
     .mini-table th, .mini-table td { border: 1px solid var(--border); padding: 0.35rem 0.45rem; text-align: left; }
     .mini-table th { background: #f8fafc; }
     .mini-table td.date-cell { white-space: nowrap; }
+    /* Iran-only columns (the Moadian goods/service id) — rows are added later, so CSS, not a one-time hide */
+    body[data-locale="uk"] .ir-col { display: none; }
+    #inv-items-table .il-code, #inv-items-table .il-treat { width: 100%; }
     .ccy-badge {
       display: inline-block;
       padding: 0.05rem 0.4rem;

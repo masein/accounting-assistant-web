@@ -308,6 +308,7 @@
         // Iranian-only panels (seasonal TTMS / VAT return) follow the company's locale.
         const coLocale = ((data.company && data.company.locale) || '').toLowerCase();
         companyLocale = coLocale;
+        document.body.dataset.locale = coLocale;          // CSS: .ir-col (the Moadian columns) and the like
         document.querySelectorAll('.ir-only').forEach((el) => { el.style.display = coLocale === 'ir' ? '' : 'none'; });
         document.querySelectorAll('.uk-only').forEach((el) => { el.style.display = coLocale === 'uk' ? '' : 'none'; });
         // Iran's cheque registry (Sayad) and the like: everywhere but a UK company

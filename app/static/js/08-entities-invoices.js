@@ -498,7 +498,9 @@
     const _invProductPrice = {};       // product_name(lower) -> last unit price
 
     function invCurrency() { return document.getElementById('inv-currency')?.value || preferredFormCurrency(); }
-    function invFmt(n) { return (Number(n) || 0).toLocaleString() + ' ' + invCurrency(); }
+    // as the list shows money: 0–9 and the currency's symbol ("£3,600"), not the
+    // browser's digits and code ("IRR ۰", "3,600 GBP")
+    function invFmt(n) { return formatMoney(Number(n) || 0, invCurrency()); }
 
     function invTaxCodeOptions(selected) {
       const codes = (typeof _taxRateCodes !== 'undefined' && _taxRateCodes) || [];
@@ -519,7 +521,7 @@
       tr.className = 'inv-line';
       tr.innerHTML =
         `<td><input type="text" class="il-desc" list="inv-products-datalist" value="${escapeHtml(p.description || '')}" placeholder="${escapeHtml(t('ibDescription'))}"></td>` +
-        `<td><input type="text" class="il-sstid" maxlength="13" inputmode="numeric" dir="ltr" value="${escapeHtml(p.sstid || '')}" placeholder="${escapeHtml(t('ibGoodsIdPh'))}"></td>` +
+        `<td class="ir-col"><input type="text" class="il-sstid" maxlength="13" inputmode="numeric" dir="ltr" value="${escapeHtml(p.sstid || '')}" placeholder="${escapeHtml(t('ibGoodsIdPh'))}"></td>` +
         `<td><input type="number" class="il-qty" min="0" step="0.01" value="${p.quantity != null ? p.quantity : 1}" style="text-align:end;"></td>` +
         `<td><input type="number" class="il-price" min="0" step="1" value="${p.unit_price != null ? p.unit_price : 0}" style="text-align:end;"></td>` +
         `<td><select class="il-code">${invTaxCodeOptions(p.tax_code || '')}</select></td>` +

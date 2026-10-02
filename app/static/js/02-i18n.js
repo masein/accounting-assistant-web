@@ -2076,6 +2076,8 @@
         resetDoneChart: "Database reset. Chart: {n} accounts. Reloading…",
         mgrNoCurrencyWarning: 'No currency filter selected. The numbers below add up {list} as plain numbers, which means nothing. Pick a currency:',
         payrollRulesFloor: 'Insurance threshold (monthly)',
+        bsDetailTitle: '{bank} — {file} ({n} rows)',
+        bsDetailTitleNoBank: '{file} ({n} rows)',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

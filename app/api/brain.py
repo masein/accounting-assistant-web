@@ -318,8 +318,8 @@ def _row_error(row_index, reason: str) -> str:
 def batch_approve_rows(
     statement_id: UUID,
     payload: BatchApprovalRequest,
-    request: Request,
     db: Session = Depends(get_db),
+    request: Request = None,     # the page's language for the errors (None when called directly)
 ) -> BatchApprovalResponse:
     """Approve, reject, or create transactions from bank statement rows."""
     s = db.get(BankStatement, statement_id)
@@ -431,7 +431,7 @@ def batch_approve_rows(
     ) else "reviewing"
 
     db.commit()
-    lang = request_language(request.headers)
+    lang = request_language(request.headers) if request is not None else "en"
     return BatchApprovalResponse(
         approved=approved, rejected=rejected, skipped=skipped,
         created=created, errors=[localize_detail(e, lang) for e in errors],

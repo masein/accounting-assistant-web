@@ -254,6 +254,24 @@ def test_review_endpoint(auth_client, db):
     assert auth_client.post(f"/brain/bank-statements/{uuid.uuid4()}/review").status_code == 404
 
 
+def test_a_rows_problem_reads_in_the_page_language(auth_client, db):
+    """The approval's per-row errors went to the page as English ("Row 3:
+    already imported previously — not posted again"), and the page added an
+    English "Approved: … Created: …" (deep browser test, 2026-10-02)."""
+    s = _stmt(db, [(date(2026, 9, 1), "seen before", 5_000, 0, None, "duplicate")])
+    row = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == s.id)).scalars().one()
+    ghost = uuid.uuid4()
+    r = auth_client.post(f"/brain/bank-statements/{s.id}/approve", headers={"X-UI-Language": "fa"}, json={"approvals": [
+        {"row_id": str(row.id), "action": "create", "account_code": "6112"},
+        {"row_id": str(ghost), "action": "approve"}]})
+    assert r.status_code == 200, r.text
+    assert r.json()["errors"] == ["ردیف \u20681\u2069: \u2068پیش‌تر وارد شده است؛ دوباره ثبت نشد.\u2069",
+                                  f"ردیف \u2068{ghost}\u2069: \u2068در این صورت‌حساب نیست.\u2069"]
+    r = auth_client.post(f"/brain/bank-statements/{s.id}/approve", json={"approvals": [
+        {"row_id": str(row.id), "action": "create", "account_code": "6112"}]})
+    assert r.json()["errors"] == ["Row 1: already imported previously — not posted again."]
+
+
 def test_review_tool_defaults_to_latest_statement_and_explains_fixes(db):
     from app.services.ai_accountant.base import ToolContext, ToolError
     from app.services.ai_accountant.statement_tools import ReviewBankStatement, ReviewBankStatementInput

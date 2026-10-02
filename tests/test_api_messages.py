@@ -11,38 +11,50 @@ from pathlib import Path
 from app.core.messages import EXACT, LANGS, PATTERNS, localize_detail, request_language
 
 APP = Path(__file__).resolve().parents[1] / "app"
-# exceptions whose text an endpoint puts in its detail ("<employee>: <reason>")
-REASONS = {"PayrollInputError"}
+# exceptions whose text an endpoint puts in its detail ("<employee>: <reason>",
+# a password rule)
+REASONS = {"PayrollInputError", "PasswordPolicyError"}
+# wrappers that raise an HTTPException with their first argument as the detail
+REFUSERS = {"_refuse"}
+# a statement row's problem, "Row {n}: {reason}" (app/api/brain.py): the reason
+# is the second argument, and is a message itself
+ROW_ERRORS = {"_row_error"}
 
 
 def _raised_details() -> tuple[set[str], list[str]]:
     """Every HTTPException detail in the code: whole strings, and the f-strings'
-    shapes (each run-time part as a placeholder)."""
+    shapes (each run-time part as a placeholder). A detail chosen by ``a if …
+    else b`` counts as both."""
     literal, shapes = set(), []
 
-    def text(node):
+    def texts(node) -> list[str]:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            return node.value
+            return [node.value]
         if isinstance(node, ast.JoinedStr):
-            return "".join(v.value if isinstance(v, ast.Constant) else "\x00" for v in node.values)
+            return ["".join(v.value if isinstance(v, ast.Constant) else "\x00" for v in node.values)]
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-            left, right = text(node.left), text(node.right)
-            return None if left is None or right is None else left + right
-        return None
+            return [a + b for a in texts(node.left) for b in texts(node.right)]
+        if isinstance(node, ast.IfExp):
+            return texts(node.body) + texts(node.orelse)
+        return []
+
+    def keep(node):
+        for s in texts(node):
+            (shapes.append(s) if "\x00" in s else literal.add(s))
 
     for path in APP.rglob("*.py"):
         for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             name = getattr(n.func, "id", getattr(n.func, "attr", None)) if isinstance(n, ast.Call) else None
-            if name in REASONS and n.args:      # its text becomes part of a detail
-                reason = text(n.args[0])
-                if reason is not None and "\x00" not in reason:
-                    literal.add(reason)
+            if name in REASONS | REFUSERS and n.args:     # its text becomes (part of) a detail
+                keep(n.args[0])
+            if name in ROW_ERRORS and len(n.args) > 1:
+                reasons = texts(n.args[1])
+                literal.update(r for r in reasons if "\x00" not in r)
+                shapes.extend("Row \x00: " + r for r in (reasons or ["\x00"]))
             if name == "HTTPException":
                 d = next((k.value for k in n.keywords if k.arg == "detail"), n.args[1] if len(n.args) > 1 else None)
-                s = text(d) if d is not None else None
-                if s is None:
-                    continue
-                (shapes.append(s) if "\x00" in s else literal.add(s))
+                if d is not None:
+                    keep(d)
     return literal, shapes
 
 
@@ -95,6 +107,46 @@ def test_every_message_built_at_run_time_has_a_translation():
         missing.append(shape.replace("\x00", "{}"))
     assert missing == [], missing
     assert all(k in set(shapes) for k in API_ONLY), "API_ONLY lists a message the code no longer builds"
+
+
+# Whole-string details no page shows: a chat bot's webhook, ids the page sends itself.
+API_ONLY_LITERAL = {
+    "Not Found": "the chat bots' webhook, and the API's own 404 for an unknown path",
+    "Not JSON": "the chat bots' webhook",
+    "Not an update": "the chat bots' webhook",
+    "Invalid session_id": "the chat page sends its own session id",
+    "Invalid confirmation_token format": "the chat page sends the token it was given",
+}
+
+
+def test_every_whole_message_the_code_raises_has_a_translation():
+    """The cheque steps' refusals and the password rules reached the page in
+    English: one went through a wrapper, the other through a ValueError."""
+    literal, _ = _raised_details()
+    missing = sorted(s for s in literal
+                     if s not in EXACT and s not in API_ONLY_LITERAL and not any(p.regex.match(s) for p in PATTERNS))
+    assert missing == [], missing
+    assert set(API_ONLY_LITERAL) <= literal, "API_ONLY_LITERAL lists a message the code no longer raises"
+
+
+def test_a_password_rule_reads_in_the_page_language(auth_client):
+    r = auth_client.post("/admin/users", headers={"X-UI-Language": "fa"},
+                         json={"username": f"short-{uuid.uuid4().hex[:6]}", "password": "abc1", "role": "viewer"})
+    assert r.status_code == 400 and r.json()["detail"] == "رمز عبور باید دست‌کم \u20688\u2069 نویسه باشد"
+    r = auth_client.post("/admin/users", headers={"X-UI-Language": "es"},
+                         json={"username": f"alpha-{uuid.uuid4().hex[:6]}", "password": "onlyletters", "role": "viewer"})
+    assert r.status_code == 400 and r.json()["detail"] == "La contraseña debe tener al menos un número o un símbolo"
+    assert localize_detail("Password cannot be all digits", "ar") == "لا يمكن أن تتكون كلمة المرور من أرقام فقط"
+
+
+def test_a_message_chosen_by_a_condition_is_translated_both_ways():
+    """The guard follows ``a if … else b``: petty cash's overdraw message has a
+    tail only when expenses are pending, and neither form was translated."""
+    assert localize_detail("Expense 900,000 exceeds the petty cash available (500,000). Top up the float first.", "fa") == \
+        "هزینه \u2068900,000\u2069 از موجودی تنخواه (\u2068500,000\u2069) بیشتر است. ابتدا تنخواه را شارژ کنید."
+    assert localize_detail("Expense 900,000 exceeds the petty cash available (500,000 after 200,000 pending). "
+                           "Top up the float first.", "es") == \
+        "El gasto de 900,000 supera el saldo de la caja chica (500,000 tras 200,000 pendientes). Repón el fondo primero."
 
 
 def test_a_payroll_reason_reads_in_the_language_after_the_name():

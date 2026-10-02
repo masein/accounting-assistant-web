@@ -49,17 +49,22 @@ def _b64url_decode(token: str) -> bytes:
 MIN_PASSWORD_LENGTH = 8
 
 
+class PasswordPolicyError(ValueError):
+    """A new password breaks a rule; its text is the detail the endpoint sends
+    (and app/core/messages.py says it in the page's language)."""
+
+
 def validate_password_strength(password: str) -> None:
     """Enforce minimum password complexity for new passwords."""
     password = (password or "").strip()
     if not password:
-        raise ValueError("Password cannot be empty")
+        raise PasswordPolicyError("Password cannot be empty")
     if len(password) < MIN_PASSWORD_LENGTH:
-        raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
+        raise PasswordPolicyError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
     if password.isdigit():
-        raise ValueError("Password cannot be all digits")
+        raise PasswordPolicyError("Password cannot be all digits")
     if password.isalpha():
-        raise ValueError("Password must contain at least one digit or special character")
+        raise PasswordPolicyError("Password must contain at least one digit or special character")
 
 
 # Stored hashes carry their own work factor: "pbkdf2_sha256$<iterations>$<hex>".

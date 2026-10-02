@@ -23,6 +23,9 @@ SHAPES = {
     "text": re.compile(r"\.(?:textContent|innerText|placeholder|title)\s*=\s*(['\"`])([A-Z][a-z][^'\"`]{3,}?)\1"),
     "error": re.compile(r"new Error\(\s*(['\"`])([A-Z][a-z][^'\"`]{3,}?)\1"),
     "sentence": re.compile(r"(['\"])([A-Z][a-z]+(?: [a-z]+)+[:.]? ?)\1\s*\+"),
+    # a labelled value in a template literal: `Date: ${date}\n` (the voucher
+    # confirmation was built this way, all of it English)
+    "label": re.compile(r"(`)[^`]*?(?:(?<![\w$-])|(?<=\\n))([A-Z][a-z]+(?: [a-z]+)*:) \$\{"),
 }
 # `t('key') || 'English'` never falls back (t returns the key), so it isn't shown.
 _AFTER_T = re.compile(r"\bt[fr]?\([^()]*\)\s*\|\|\s*\(?\s*$")
@@ -104,6 +107,7 @@ def test_the_scan_sees_each_shape(tmp_path):
         "throw new Error('Authentication required');\n"
         "showAlert('Connection error: ' + err.message, true);\n"
         "msg.textContent = `Total: ${n}`;\n"
+        "let summary = `Date: ${date}\\n`; summary += `\\nDebit entries: ${n}`;\n"
         "if (!r.ok) throw new Error(data.detail || ('Failed upload: ' + f.name));\n"
         # not shown, or not English: none of these may be reported
         "showAlert(t('msgInvoiceCreated'));\n"
@@ -122,6 +126,9 @@ def test_the_scan_sees_each_shape(tmp_path):
         "[message] 'Connection error: '",
         "[sentence] 'Connection error: '",
         "[text] 'Total: ${n}'",
+        "[label] 'Total:'",
+        "[label] 'Date:'",
+        "[label] 'Debit entries:'",
         "[fallback] 'Failed upload: '",
         "[sentence] 'Failed upload: '",
     ]

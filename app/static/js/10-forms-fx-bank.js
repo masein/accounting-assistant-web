@@ -786,8 +786,8 @@
         stmts.forEach(s => {
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(s.bank_name)}</td><td>${escapeHtml(s.source_filename)}</td>
-            <td>${escapeHtml(s.source_type)}${s.origin === 'email' ? ` <span class="badge" title="${escapeHtml(t('bsViaEmailTitle'))}">${escapeHtml(t('bsViaEmail'))}</span>` : ''}</td><td>${s.total_rows}</td><td>${s.matched_rows || 0}</td>
-            <td><span class="badge ${s.status === 'approved' ? 'badge-ok' : ''}">${s.status}</span></td>
+            <td>${escapeHtml(String(s.source_type || '').toUpperCase())}${s.origin === 'email' ? ` <span class="badge" title="${escapeHtml(t('bsViaEmailTitle'))}">${escapeHtml(t('bsViaEmail'))}</span>` : ''}</td><td>${s.total_rows}</td><td>${s.matched_rows || 0}</td>
+            <td><span class="badge ${s.status === 'approved' ? 'badge-ok' : ''}">${escapeHtml(enumLabel('bsStatus_', s.status))}</span></td>
             <td><button class="btn btn-secondary btn-sm bs-view-btn" data-id="${s.id}">${escapeHtml(t('btnView'))}</button></td>`;
           body.appendChild(tr);
         });
@@ -855,7 +855,7 @@
           if (!ok) { statusEl.style.display = 'none'; return; }
           return doUploadStatement(file, bankName, { columnMap, confirmDuplicate: true, pdfPassword });
         }
-        let msg = tf('bsParsed', { rows: data.total_rows, bank: data.bank_name, type: data.source_type });
+        let msg = tf('bsParsed', { rows: data.total_rows, bank: data.bank_name, type: String(data.source_type || '').toUpperCase() });
         if (data.skipped_rows) msg += ' ' + tf('bsSkipped', { n: data.skipped_rows });
         if (data.duplicate_rows) msg += ' ' + tf('bsAlreadyImported', { n: data.duplicate_rows });
         statusEl.textContent = msg;
@@ -1196,7 +1196,8 @@
           body: JSON.stringify({ approvals })
         });
         const data = await res.json();
-        showAlert(`Approved: ${data.approved}, Created: ${data.created}. ${data.errors.join('; ')}`);
+        showAlert(tf('bsApprovedResult', { approved: data.approved, created: data.created }) +
+                  (data.errors.length ? ' — ' + data.errors.join('; ') : ''), data.errors.length > 0);
         await loadStatementDetail(currentStatementId);
       } catch (e) { showAlert(t('msgApprovalFailed') + e.message, true); }
     });
@@ -1238,7 +1239,8 @@
             body: JSON.stringify({ approvals: [{ row_id: rowId, action: 'create', account_code: code }] })
           });
           const data = await res.json();
-          showAlert(`Created: ${data.created}. ${data.errors.join('; ')}`);
+          showAlert(tf('bsPostedCount', { n: data.created }) + (data.errors.length ? ' — ' + data.errors.join('; ') : ''),
+                    data.errors.length > 0);
           await loadStatementDetail(currentStatementId);
         } catch (e) { showAlert(t('msgCreateFailed') + e.message, true); }
       }

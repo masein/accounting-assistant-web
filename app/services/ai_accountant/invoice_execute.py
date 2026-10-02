@@ -26,7 +26,7 @@ def execute_invoice_proposal(
         read = add_payment(UUID(p["invoice_id"]), PaymentCreate(
             amount=int(p["amount"]), date=date.fromisoformat(p["date"]), method=p.get("method") or "bank",
             bank_account_code=p.get("bank_account_code"), reference=p.get("reference"),
-            description=f"Payment for invoice {p.get('invoice_number')}",
+            description=None,      # the payment writes its own, in the book language
         ), db)
         txn_id = str(read.transaction_id) if getattr(read, "transaction_id", None) else None
         audit_id = _audit(db, proposal, entity_type="payment", entity_id=str(read.id),

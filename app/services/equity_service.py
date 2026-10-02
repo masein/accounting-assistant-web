@@ -23,6 +23,7 @@ from app.models.transaction import Transaction
 from app.schemas.entity import EntityLink
 from app.schemas.transaction import TransactionCreate, TransactionLineCreate
 from app.services.account_resolver import resolve_account_code
+from app.services.book_text import book_value, bt
 
 
 class EquityError(Exception):
@@ -203,23 +204,23 @@ def contribution(
     debit_code = (asset_account_code or "").strip() or resolve_account_code(db, "bank")
     if to_capital:
         credit_code = resolve_account_code(db, "share_capital")
-        credit_desc = f"Capital contribution — {ent.name}"
+        credit_desc = bt(db, "eq_capital_contribution", name=ent.name)
     else:
         credit_code = resolve_account_code(db, "shareholder_current")
-        credit_desc = f"Shareholder contribution (uncapitalised) — {ent.name}"
+        credit_desc = bt(db, "eq_contribution_uncap", name=ent.name)
 
     txn = _post(
         db, txn_date=txn_date, reference=reference,
-        description=f"Shareholder contribution — {ent.name}",
+        description=bt(db, "eq_shareholder_contribution", name=ent.name),
         lines=[
-            (debit_code, amount, 0, f"Contribution received — {ent.name}"),
+            (debit_code, amount, 0, bt(db, "eq_contribution_received", name=ent.name)),
             (credit_code, 0, amount, credit_desc),
         ],
         shareholder_id=ent.id,
     )
     ev = _tag(db, event_type="contribution", txn_date=txn_date, amount=amount,
               transaction=txn, entity_id=ent.id, funded_from="cash",
-              description=f"Contribution — {ent.name}")
+              description=bt(db, "eq_contribution", name=ent.name))
     reg = _bump_registered_capital(db, amount) if to_capital else None
     return EquityPostingResult(
         transaction_ids=[str(txn.id)], event_ids=[str(ev.id)],
@@ -249,29 +250,29 @@ def capital_increase(
     capital_code = resolve_account_code(db, "share_capital")
     if source == "cash":
         debit_code = resolve_account_code(db, "bank")
-        debit_desc = "Cash for capital increase"
+        debit_desc = bt(db, "eq_cash_for_increase")
     elif source == "revaluation_surplus":
         # revaluation reserve → share capital (uk 3020, ir 3150 — was a
         # hard-coded 3020, which doesn't exist on the Iranian chart)
         debit_code = resolve_account_code(db, "revaluation_reserve")
-        debit_desc = "Revaluation surplus capitalised"
+        debit_desc = bt(db, "eq_revaluation_capitalised")
     else:
         debit_code = resolve_account_code(db, "retained_earnings")
-        debit_desc = "Retained earnings capitalised"
+        debit_desc = bt(db, "eq_retained_capitalised")
 
     ent = _require_entity(db, entity_id, want_shareholder=True) if entity_id else None
     txn = _post(
         db, txn_date=txn_date, reference=reference,
-        description="Capital increase",
+        description=bt(db, "eq_capital_increase"),
         lines=[
             (debit_code, amount, 0, debit_desc),
-            (capital_code, 0, amount, "Increase in share capital"),
+            (capital_code, 0, amount, bt(db, "eq_increase_capital_line")),
         ],
         shareholder_id=(ent.id if ent else None),
     )
     ev = _tag(db, event_type="capital_increase", txn_date=txn_date, amount=amount,
               transaction=txn, entity_id=(ent.id if ent else None), funded_from=source,
-              description=f"Capital increase from {source}")
+              description=bt(db, "eq_capital_increase_from", source=book_value(db, source)))
     reg = _bump_registered_capital(db, amount)
     return EquityPostingResult(
         transaction_ids=[str(txn.id)], event_ids=[str(ev.id)],
@@ -312,16 +313,16 @@ def declare_dividend(
         ent = _require_entity(db, eid, want_shareholder=True)
         txn = _post(
             db, txn_date=txn_date, reference=group_ref,
-            description=f"Dividend declared — {ent.name}",
+            description=bt(db, "eq_dividend_declared", name=ent.name),
             lines=[
-                (retained_code, amt, 0, f"Dividend to {ent.name}"),
-                (payable_code, 0, amt, f"Dividend payable — {ent.name}"),
+                (retained_code, amt, 0, bt(db, "eq_dividend_to", name=ent.name)),
+                (payable_code, 0, amt, bt(db, "eq_dividend_payable", name=ent.name)),
             ],
             shareholder_id=ent.id,
         )
         ev = _tag(db, event_type="dividend_declared", txn_date=txn_date, amount=amt,
                   transaction=txn, entity_id=ent.id, group_ref=group_ref,
-                  description=f"Dividend declared — {ent.name}")
+                  description=bt(db, "eq_dividend_declared", name=ent.name))
         result.transaction_ids.append(str(txn.id))
         result.event_ids.append(str(ev.id))
         result.allocations.append({"entity_id": str(ent.id), "entity_name": ent.name, "amount": amt})
@@ -371,15 +372,15 @@ def pay_dividend(
     bank_code = (bank_account_code or "").strip() or resolve_account_code(db, "bank")
     txn = _post(
         db, txn_date=txn_date, reference=reference,
-        description=f"Dividend paid — {ent.name}",
+        description=bt(db, "eq_dividend_paid", name=ent.name),
         lines=[
-            (payable_code, amount, 0, f"Dividend settled — {ent.name}"),
-            (bank_code, 0, amount, f"Dividend paid — {ent.name}"),
+            (payable_code, amount, 0, bt(db, "eq_dividend_settled", name=ent.name)),
+            (bank_code, 0, amount, bt(db, "eq_dividend_paid", name=ent.name)),
         ],
         shareholder_id=ent.id,
     )
     ev = _tag(db, event_type="dividend_paid", txn_date=txn_date, amount=amount,
-              transaction=txn, entity_id=ent.id, description=f"Dividend paid — {ent.name}")
+              transaction=txn, entity_id=ent.id, description=bt(db, "eq_dividend_paid", name=ent.name))
     return EquityPostingResult(
         transaction_ids=[str(txn.id)], event_ids=[str(ev.id)],
         summary_lines=[f"DR {payable_code} {amount:,}", f"CR {bank_code} {amount:,}"],
@@ -408,23 +409,23 @@ def shareholder_current_account(
     bank_code = (bank_account_code or "").strip() or resolve_account_code(db, "bank")
     if direction == "in":  # shareholder lends → DR bank / CR current account
         lines = [
-            (bank_code, amount, 0, f"Loan from {ent.name}"),
-            (current_code, 0, amount, f"Owed to {ent.name} (current account)"),
+            (bank_code, amount, 0, bt(db, "eq_loan_from", name=ent.name)),
+            (current_code, 0, amount, bt(db, "eq_owed_to", name=ent.name)),
         ]
         event_type = "current_account_in"
     else:  # shareholder withdraws → DR current account / CR bank
         lines = [
-            (current_code, amount, 0, f"Withdrawal by {ent.name} (current account)"),
-            (bank_code, 0, amount, f"Paid to {ent.name}"),
+            (current_code, amount, 0, bt(db, "eq_withdrawal_by", name=ent.name)),
+            (bank_code, 0, amount, bt(db, "eq_paid_to", name=ent.name)),
         ]
         event_type = "current_account_out"
     txn = _post(
         db, txn_date=txn_date, reference=reference,
-        description=f"Shareholder current account ({direction}) — {ent.name}",
+        description=bt(db, "eq_current_account", direction=book_value(db, direction), name=ent.name),
         lines=lines, shareholder_id=ent.id,
     )
     ev = _tag(db, event_type=event_type, txn_date=txn_date, amount=amount,
-              transaction=txn, entity_id=ent.id, description=f"Current account {direction} — {ent.name}")
+              transaction=txn, entity_id=ent.id, description=bt(db, "eq_current_event", direction=book_value(db, direction), name=ent.name))
     return EquityPostingResult(
         transaction_ids=[str(txn.id)], event_ids=[str(ev.id)],
         summary_lines=[f"DR {lines[0][0]} {amount:,}", f"CR {lines[1][0]} {amount:,}"],

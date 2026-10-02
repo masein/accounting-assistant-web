@@ -35,6 +35,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.services.book_text import bt
+
 MAX_ROWS = 50_000
 MAX_VOUCHERS = 10_000
 MAP_KEY = "journal_import_account_map"          # company app_settings row: source account → chart code
@@ -551,7 +553,7 @@ def apply(db: Session, parsed: dict[str, Any], *, account_map: dict[str, str], c
         ccy = next((ln.currency for ln in v.lines if ln.currency), None) or default_ccy
         create_transaction_from_payload(db, TransactionCreate(
             date=v.on, reference=_reference(parsed["preset"], v),
-            description=(v.lines[0].description or f"Imported voucher {v.number}")[:2000], currency=ccy,
+            description=(v.lines[0].description or bt(db, "imported_voucher", number=v.number))[:2000], currency=ccy,
             lines=[TransactionLineCreate(account_code=mapped[ln.account_key], debit=ln.debit, credit=ln.credit,
                                          line_description=(ln.description or ln.account_name or None) and
                                          (ln.description or ln.account_name)[:512]) for ln in v.lines],

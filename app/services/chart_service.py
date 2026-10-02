@@ -25,6 +25,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.account import Account, AccountLevel
+from app.services.book_text import bt
 
 OPENING_REFERENCE = "OPENING-BALANCES"
 ADJUSTMENT_CODE = "3999"
@@ -259,8 +260,8 @@ def set_opening(db: Session, *, on, lines: list[dict[str, Any]], currency: str |
         _ensure_account(db, ADJUSTMENT_CODE, ADJUSTMENT_NAMES.get(loc, ADJUSTMENT_NAMES["default"]), loc)
         entries.append((ADJUSTMENT_CODE, -diff))
     txn = create_transaction_from_payload(db, TransactionCreate(
-        date=on, reference=OPENING_REFERENCE, description="Opening balances / تراز افتتاحیه",
+        date=on, reference=OPENING_REFERENCE, description=bt(db, "opening"),
         currency=(currency or get_reporting_currency(db) or "IRR"),
         lines=[TransactionLineCreate(account_code=code, debit=max(net, 0), credit=max(-net, 0),
-                                     line_description="Opening balance") for code, net in entries]))
+                                     line_description=bt(db, "opening_line")) for code, net in entries]))
     return {"date": on.isoformat(), "transaction_id": str(txn.id), "adjustment": diff, "lines": len(entries)}

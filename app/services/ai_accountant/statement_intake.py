@@ -31,6 +31,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.transaction import TransactionAttachment
+from app.services.book_text import bt
 
 logger = logging.getLogger(__name__)
 _DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
@@ -393,7 +394,7 @@ async def ensure_statement_row_proposal(
     try:
         payload = ProposeCreateTransactionInput(
             date=finding.tx_date,
-            description=(finding.description or f"Bank statement row #{finding.row_index}")[:1024],
+            description=(finding.description or bt(db, "stmt_row", n=finding.row_index))[:1024],
             currency=stmt.currency or "IRR",
             lines=lines,
             bank_statement_row_id=str(finding.row_id),

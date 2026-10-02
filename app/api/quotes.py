@@ -36,6 +36,7 @@ from app.models.quote import Quote, QuoteItem
 from app.schemas.invoice import InvoiceCreate, InvoiceItemCreate, InvoiceRead
 from app.schemas.quote import QuoteConvert, QuoteCreate, QuoteRead, QuoteUpdate
 from app.services.audit_service import log_audit_event
+from app.services.book_text import bt
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
@@ -319,7 +320,7 @@ def convert_quote(quote_id: UUID, payload: QuoteConvert | None = None, db: Sessi
         inv = insert_invoice(db, InvoiceCreate(
             number=number, kind="sales", status=status, issue_date=issue, due_date=due,
             amount=int(q.amount or 0), currency=q.currency,
-            description=q.description or f"Quote {q.number}", entity_id=q.entity_id, items=items,
+            description=q.description or bt(db, "quote_invoice", number=q.number), entity_id=q.entity_id, items=items,
         ))
         q.converted_invoice_id = inv.id
         if q.decided_at is None:

@@ -23,6 +23,7 @@ from app.services.audit_service import log_audit_event
 from app.services.ledger_posting import default_currency
 from app.services.period_service import assert_period_open
 from app.services.reporting.ledger_service import LedgerService
+from app.services.book_text import bt
 
 router = APIRouter(prefix="/adjustments", tags=["adjustments"])
 
@@ -155,17 +156,17 @@ def create_accrual(payload: AccrualCreate, db: Session = Depends(get_db)) -> dic
     period so it nets to zero across the two periods."""
     amount = int(payload.amount)
     cur = default_currency(db, payload.currency)
-    desc = payload.description or "Accrual"
+    desc = payload.description or bt(db, "adj_accrual")
     ref = f"ACCR-{payload.date.isoformat()}"
     if payload.direction == "income":
         lines = [
-            (resolve_account_code(db, "accrued_income"), amount, 0, "Accrued income"),
+            (resolve_account_code(db, "accrued_income"), amount, 0, bt(db, "adj_accrued_income")),
             (resolve_account_code(db, "revenue"), 0, amount, desc),
         ]
     else:
         lines = [
             (resolve_account_code(db, "expense"), amount, 0, desc),
-            (resolve_account_code(db, "accrued_liability"), 0, amount, "Accrued liability"),
+            (resolve_account_code(db, "accrued_liability"), 0, amount, bt(db, "adj_accrued_liability")),
         ]
     txn = _post(db, on=payload.date, reference=ref, description=desc, currency=cur, lines=lines)
 
@@ -184,7 +185,7 @@ def create_accrual(payload: AccrualCreate, db: Session = Depends(get_db)) -> dic
         assert_period_open(db, reverse_on)
         rev = LedgerService(db).reverse_journal_entry(
             transaction_id=txn.id, reverse_date=reverse_on,
-            reference=f"REV-{ref}", description=f"Reversal of accrual {desc}",
+            reference=f"REV-{ref}", description=bt(db, "adj_accrual_reversal", text=desc),
         )
         adj.reversal_transaction_id = uuid.UUID(str(rev.transaction_id))
 
@@ -199,7 +200,7 @@ def create_prepayment(payload: PrepaymentCreate, db: Session = Depends(get_db)) 
     amortization schedule released via /release."""
     amount = int(payload.amount)
     cur = default_currency(db, payload.currency)
-    desc = payload.description or "Prepayment"
+    desc = payload.description or bt(db, "adj_prepayment")
     bank = payload.bank_account_code
     if not (bank and db.execute(select(Account.id).where(Account.code == bank)).first()):
         bank = resolve_account_code(db, "bank")
@@ -208,7 +209,7 @@ def create_prepayment(payload: PrepaymentCreate, db: Session = Depends(get_db)) 
         description=desc, currency=cur,
         lines=[
             (resolve_account_code(db, "prepaid_expense"), amount, 0, desc),
-            (bank, 0, amount, "Prepayment paid"),
+            (bank, 0, amount, bt(db, "adj_prepayment_paid")),
         ],
     )
     adj = Adjustment(
@@ -230,7 +231,7 @@ def create_depreciation(payload: DepreciationCreate, db: Session = Depends(get_d
     if payload.residual >= payload.cost:
         raise HTTPException(status_code=400, detail="Residual must be less than cost.")
     adj = Adjustment(
-        kind="depreciation", description=(payload.description or "Depreciation"),
+        kind="depreciation", description=(payload.description or bt(db, "adj_depreciation")),
         currency=default_currency(db, payload.currency), amount=int(payload.cost),
         residual=int(payload.residual), periods=payload.periods,
         period_months=payload.period_months, start_date=payload.start_date,
@@ -259,14 +260,14 @@ def release_period(adjustment_id: UUID, db: Session = Depends(get_db)) -> dict:
     on = _add_months(adj.start_date, idx * adj.period_months)
     if adj.kind == "prepayment":
         lines = [
-            (resolve_account_code(db, "expense"), amount, 0, f"Prepayment release {idx + 1}/{adj.periods}"),
-            (resolve_account_code(db, "prepaid_expense"), 0, amount, "Release prepaid asset"),
+            (resolve_account_code(db, "expense"), amount, 0, bt(db, "adj_prepayment_release", i=idx + 1, n=adj.periods)),
+            (resolve_account_code(db, "prepaid_expense"), 0, amount, bt(db, "adj_release_prepaid")),
         ]
         ref = f"PREPAY-REL-{on.isoformat()}"
     else:
         lines = [
-            (resolve_account_code(db, "depreciation_expense"), amount, 0, f"Depreciation {idx + 1}/{adj.periods}"),
-            (resolve_account_code(db, "accumulated_depreciation"), 0, amount, "Accumulated depreciation"),
+            (resolve_account_code(db, "depreciation_expense"), amount, 0, bt(db, "adj_depreciation_n", i=idx + 1, n=adj.periods)),
+            (resolve_account_code(db, "accumulated_depreciation"), 0, amount, bt(db, "adj_accumulated_dep")),
         ]
         ref = f"DEPR-{on.isoformat()}"
     _post(db, on=on, reference=ref, description=(adj.description or adj.kind), currency=adj.currency, lines=lines)

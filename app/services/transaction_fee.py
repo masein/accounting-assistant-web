@@ -405,11 +405,14 @@ def resolve_fee_rule(
     return method, bank, get_active_fee_rule(db, method.id, bank.id, as_of=as_of)
 
 
-def build_fee_line_items(fee_amount: int, method_name: str, bank_name: str) -> list[dict[str, Any]]:
+def build_fee_line_items(fee_amount: int, method_name: str, bank_name: str, *, lang: str = "en") -> list[dict[str, Any]]:
+    """The fee's two lines, worded in the books' language (book_text.book_language)."""
+    from app.services.book_text import book_value, said
     fee = max(0, int(fee_amount or 0))
     if fee <= 0:
         return []
-    note = f"Transaction fee - {canonical_method_name(method_name)} via {_normalize_whitespace(bank_name)}"
+    method = book_value(None, canonical_method_name(method_name), lang)
+    note = said(lang, "fee_note", method=method, bank=_normalize_whitespace(bank_name))
     return [
         {
             "account_code": FEE_EXPENSE_ACCOUNT_CODE,
@@ -421,7 +424,7 @@ def build_fee_line_items(fee_amount: int, method_name: str, bank_name: str) -> l
             "account_code": BANK_ACCOUNT_CODE,
             "debit": 0,
             "credit": fee,
-            "line_description": f"Bank fee deduction - {_normalize_whitespace(bank_name)}",
+            "line_description": said(lang, "fee_deduction", bank=_normalize_whitespace(bank_name)),
         },
     ]
 
@@ -808,6 +811,7 @@ def apply_fee_to_transaction_lines(
     bank_name: str,
     rule: TransactionFee,
     amount_mode: str = "net",
+    lang: str = "en",
 ) -> tuple[dict[str, Any], FeeComputation | None]:
     lines = transaction.get("lines")
     if not isinstance(lines, list) or not lines:
@@ -899,9 +903,10 @@ def apply_fee_to_transaction_lines(
         )
         bank_line["credit"] = non_fee_debit + fee
 
-    bank_desc = (bank_line.get("line_description") or "Payment from bank").strip()
-    if "incl. fee" not in bank_desc.lower():
-        bank_line["line_description"] = f"{bank_desc} (incl. fee)"
+    from app.services.book_text import said
+    bank_desc = (bank_line.get("line_description") or said(lang, "payment_from_bank")).strip()
+    if said(lang, "incl_fee", text="").strip() not in bank_desc:
+        bank_line["line_description"] = said(lang, "incl_fee", text=bank_desc)
     else:
         bank_line["line_description"] = bank_desc
 

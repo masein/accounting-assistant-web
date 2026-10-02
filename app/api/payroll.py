@@ -45,6 +45,7 @@ from app.services.payroll_rules import (
 )
 from app.services.payroll_service import PayrollInputError
 from app.services.period_service import assert_period_open
+from app.services.book_text import book_date, bt
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
 
@@ -528,26 +529,26 @@ def post_run(run_id: UUID, db: Session = Depends(get_db)) -> dict:
     net_pay = resolve_account_code(db, "net_pay_payable")
 
     lines: list[tuple[str, int, int, str]] = [
-        (wages, run.total_gross, 0, "Gross wages")
+        (wages, run.total_gross, 0, bt(db, "pr_gross"))
     ]
     if run.total_tax > 0:
-        lines.append((paye, 0, run.total_tax, "Income tax withheld"))
+        lines.append((paye, 0, run.total_tax, bt(db, "pr_income_tax")))
     if run.total_social > 0:
-        lines.append((social, 0, run.total_social, "Social insurance withheld"))
+        lines.append((social, 0, run.total_social, bt(db, "pr_social")))
     if run.total_deductions > 0:
-        lines.append((deductions, 0, run.total_deductions, "Pre-tax deductions withheld"))
-    lines.append((net_pay, 0, run.total_net, "Net pay payable"))
+        lines.append((deductions, 0, run.total_deductions, bt(db, "pr_deductions")))
+    lines.append((net_pay, 0, run.total_net, bt(db, "pr_net_payable")))
     employer = int(getattr(run, "total_employer_social", 0) or 0)
     if employer > 0:
         # The employer's insurance share is a cost of employing, not part of
         # gross: DR employer insurance expense / CR the same insurance payable.
         lines.append((resolve_account_code(db, "employer_social_expense"), employer, 0,
                       "Employer social insurance"))
-        lines.append((social, 0, employer, "Employer social insurance payable"))
+        lines.append((social, 0, employer, bt(db, "pr_employer_social")))
 
     txn = _post_balanced(
         db, on=run.pay_date, reference=f"PAYROLL-{run.pay_date.isoformat()}",
-        description=f"Payroll {run.period_start.isoformat()}–{run.period_end.isoformat()}",
+        description=bt(db, "pr_run", start=book_date(db, run.period_start), end=book_date(db, run.period_end)),
         currency=run.currency, lines=lines,
     )
     run.post_transaction_id = txn.id
@@ -585,12 +586,12 @@ def void_run(run_id: UUID, db: Session = Depends(get_db)) -> dict:
         acc_codes = {a.id: a.code for a in db.execute(select(Account)).scalars().all()}
         rev = [
             (acc_codes[l.account_id], int(l.credit or 0), int(l.debit or 0),
-             f"Reversal — {l.line_description or ''}".strip())
+             bt(db, "reversal_line", text=l.line_description or "").strip())
             for l in orig_lines
         ]
         _post_balanced(
             db, on=run.pay_date, reference=f"PAYROLL-VOID-{run.pay_date.isoformat()}",
-            description=f"Void payroll {run.period_start.isoformat()}–{run.period_end.isoformat()}",
+            description=bt(db, "pr_void", start=book_date(db, run.period_start), end=book_date(db, run.period_end)),
             currency=run.currency, lines=rev,
         )
 
@@ -675,11 +676,11 @@ def pay_run(run_id: UUID, bank_account_code: str | None = None, db: Session = De
 
     txn = _post_balanced(
         db, on=run.pay_date, reference=f"PAYRUN-PAY-{run.pay_date.isoformat()}",
-        description=f"Net pay settled for payroll {run.period_start.isoformat()}–{run.period_end.isoformat()}",
+        description=bt(db, "pr_net_settled", start=book_date(db, run.period_start), end=book_date(db, run.period_end)),
         currency=run.currency,
         lines=[
-            (net_pay, run.total_net, 0, "Clear net pay payable"),
-            (bank, 0, run.total_net, "Net pay paid from bank"),
+            (net_pay, run.total_net, 0, bt(db, "pr_clear_net")),
+            (bank, 0, run.total_net, bt(db, "pr_net_paid")),
         ],
     )
     run.pay_transaction_id = txn.id

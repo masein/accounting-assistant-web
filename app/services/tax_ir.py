@@ -37,7 +37,7 @@ from app.services.tax_service import _line_tax
 SEASONS = {1: "بهار", 2: "تابستان", 3: "پاییز", 4: "زمستان"}
 TTMS_DAYS = 45
 VAT_DAYS = 15
-RECOGNISED = ("issued", "partially_paid", "paid")
+RECOGNISED = ("issued", "partially_paid", "paid", "credited")
 REPORT_CURRENCY = "IRR"
 # What TTMS needs from every counterparty before the file is accepted.
 REQUIRED_PARTY_FIELDS = ("national_id", "economic_code", "postal_code", "address", "phone")

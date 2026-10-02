@@ -225,7 +225,12 @@
         list.forEach(i => {
           const status = String(i.status || '').toLowerCase();
           const isPaid = status === 'paid';
-          const settled = isPaid || status === 'canceled';
+          const settled = isPaid || status === 'canceled' || status === 'credited';
+          // a credit note may go against a paid invoice too (a return after payment),
+          // up to what is left to credit; never a draft, void or cancelled one
+          const credited = Number(i.credited || 0);
+          const canCredit = !['draft', 'canceled', 'voided'].includes(status) && credited < Number(i.amount || 0);
+          const ownCredit = Number(i.credit_available || 0), partyCredit = Number(i.party_credit || 0);
           const ccy = (i.currency || 'IRR').toUpperCase();
           const paid = Number(i.amount_paid || 0);
           const balance = (i.balance_due != null) ? Number(i.balance_due) : Number(i.amount || 0);
@@ -240,18 +245,20 @@
             <td class="nowrap"><bdi>${escapeHtml(i.number)}</bdi></td>
             <td>${escapeHtml(t(i.kind === 'purchase' ? 'optionPurchase' : 'optionSales'))}</td>
             <td>${escapeHtml(invoiceStatusLabel(i.status))}</td>
-            <td>${formatMoney(i.amount, ccy)}${String(ccy).toUpperCase() !== String(baseCurrencyCode() || '').toUpperCase() ? ` <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>` : ''}${taxLine}</td>
-            <td>${formatMoney(paid, ccy)}${Number(i.overpaid || 0) > 0 ? '<div style="font-size:0.72rem;color:var(--text-muted);">+' + formatMoney(Number(i.overpaid), ccy) + ' ' + escapeHtml(t('invOverpaidCredit')) + '</div>' : ''}</td>
+            <td>${formatMoney(i.amount, ccy)}${String(ccy).toUpperCase() !== String(baseCurrencyCode() || '').toUpperCase() ? ` <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>` : ''}${taxLine}${credited > 0 ? `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(tf('invCreditedLine', { amount: formatMoney(credited, ccy) }))}</div>` : ''}</td>
+            <td>${formatMoney(paid, ccy)}${ownCredit > 0 ? '<div style="font-size:0.72rem;color:var(--text-muted);">' + escapeHtml(tf(i.kind === 'purchase' ? 'invCreditFromSupplier' : 'invCreditToCustomer', { amount: formatMoney(ownCredit, ccy) })) + '</div>' : ''}</td>
             <td><strong>${formatMoney(balance, ccy)}</strong></td>
             <td>${escapeHtml(formatDisplayDate(i.due_date))}</td>
             <td class="row-actions">
-              <button type="button" class="btn btn-primary btn-sm inv-payment" data-id="${i.id}" ${settled ? 'disabled' : ''}>${escapeHtml(t('invAddPayment'))}</button>
+              <button type="button" class="btn btn-primary btn-sm inv-payment" data-id="${i.id}" ${settled || balance <= 0 ? 'disabled' : ''}>${escapeHtml(t('invAddPayment'))}</button>
               <button type="button" class="btn btn-secondary btn-sm inv-edit" data-id="${i.id}" data-status="${escapeHtml(i.status)}">${escapeHtml(t('btnEdit') || 'Edit')}</button>
               <a class="btn btn-secondary btn-sm" href="${escapeHtml(i.pdf_url || ('/invoices/' + i.id + '/pdf'))}" target="_blank" style="text-decoration:none;">PDF</a>
               <details class="row-menu">
                 <summary class="btn btn-secondary btn-sm" aria-label="${escapeHtml(t('moreActions'))}" title="${escapeHtml(t('moreActions'))}">⋯</summary>
                 <div class="row-menu-list">
-                  <button type="button" class="btn btn-secondary btn-sm inv-credit-note" data-id="${i.id}" ${settled ? 'disabled' : ''}>${escapeHtml(t('invCreditNote'))}</button>
+                  <button type="button" class="btn btn-secondary btn-sm inv-credit-note" data-id="${i.id}" ${canCredit ? '' : 'disabled'}>${escapeHtml(t('invCreditNote'))}</button>
+                  ${ownCredit > 0 ? `<button type="button" class="btn btn-secondary btn-sm inv-refund-credit" data-id="${i.id}">${escapeHtml(t('invRefundCredit'))}</button>` : ''}
+                  ${partyCredit > 0 && balance > 0 && !settled ? `<button type="button" class="btn btn-secondary btn-sm inv-use-credit" data-id="${i.id}">${escapeHtml(tf('invUseCredit', { amount: formatMoney(partyCredit, ccy) }))}</button>` : ''}
                   <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}">${escapeHtml(t('invHistory'))}</button>
                   ${(i.kind === 'sales' && ['issued', 'partially_paid', 'paid'].includes(status)) ? `<button type="button" class="btn btn-secondary btn-sm inv-email" data-id="${i.id}" data-number="${escapeHtml(i.number)}" data-entity="${escapeHtml(i.entity_id || '')}">${escapeHtml(t('invEmail'))}</button>` : ''}
                   <button type="button" class="btn btn-danger btn-sm inv-void" data-id="${i.id}" data-number="${escapeHtml(i.number)}" ${(i.status === 'voided' || i.status === 'canceled') ? 'disabled' : ''}>${escapeHtml(t('invVoid'))}</button>

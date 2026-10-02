@@ -28,21 +28,29 @@ _SEED_RATES: list[tuple[str, str, str, float, str, str | None]] = [
     ("UK_VAT_REDUCED", "UK", "UK VAT reduced rate", 5.0, "2008-12-01", None),
     ("UK_VAT_ZERO", "UK", "UK VAT zero rate", 0.0, "2008-12-01", None),
     ("IR_VAT_STANDARD", "IR", "Iran VAT standard rate", 8.0, "2015-03-21", "2019-03-20"),
-    ("IR_VAT_STANDARD", "IR", "Iran VAT standard rate", 9.0, "2019-03-21", None),
+    ("IR_VAT_STANDARD", "IR", "Iran VAT standard rate", 9.0, "2019-03-21", "2024-03-19"),
+    # 10% from 1 Farvardin 1403 (2024-03-20), the budget law's rate
+    ("IR_VAT_STANDARD", "IR", "Iran VAT standard rate", 10.0, "2024-03-20", None),
     ("IR_VAT_ZERO", "IR", "Iran VAT zero rate", 0.0, "2015-03-21", None),
 ]
 
 
 def seed_tax_rates(db: Session) -> int:
     """Insert the standard rate rows that don't already exist (idempotent by
-    code + effective_from). Returns the number inserted."""
+    code + effective_from), and close a seeded rate the code has since ended:
+    Iran's 9% was open-ended until the 10% of 1403 was added. A row the
+    company changed (another rate, or an end date of its own) is left alone.
+    Returns the number of rows inserted or closed."""
     inserted = 0
     for code, juris, desc, rate, eff_from, eff_to in _SEED_RATES:
         ef = date.fromisoformat(eff_from)
-        exists = db.execute(
-            select(TaxRate.id).where(TaxRate.code == code, TaxRate.effective_from == ef)
-        ).first()
-        if exists:
+        existing = db.execute(
+            select(TaxRate).where(TaxRate.code == code, TaxRate.effective_from == ef)
+        ).scalars().first()
+        if existing is not None:
+            if eff_to and existing.effective_to is None and float(existing.rate) == rate:
+                existing.effective_to = date.fromisoformat(eff_to)
+                inserted += 1
             continue
         db.add(TaxRate(
             code=code, jurisdiction=juris, description=desc, rate=rate,

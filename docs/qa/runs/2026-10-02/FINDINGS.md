@@ -23,7 +23,7 @@ Severity:
 | 12 | P3 | Chart of accounts | 3–4 action buttons on every row (noisy); the opening-balance grid is cramped in a half-width panel, with names wrapping | B1 | rows fixed #277 (add sub-account on the row, the rest under ⋯); the opening grid's width stays |
 | 13 | P2 | Voucher save | The confirmation is English ("Date: … Currency: … Debit entries: … Total:"), the date is Gregorian in a Jalali company, it shows codes without names, and its digits follow the browser locale (`toLocaleString`) | C1 | fixed #261 |
 | 14 | P1 | Invoices | Due date from a client's terms is a day early in Tehran (fixed by #258) | C3 | fixed #258 |
-| 15 | P1? | VAT rates | The Iranian standard VAT in the rate table is 9%; it was raised to 10% from 1 Farvardin 1403 (budget law). **Needs the user's confirmation** | C3 | *question* |
+| 15 | P1? | VAT rates | The Iranian standard VAT in the rate table is 9%; it was raised to 10% from 1 Farvardin 1403 (budget law). **Needs the user's confirmation** | C3 | fixed #279 (owner confirmed 10%) |
 | 16 | P2 | Invoices list | Type and status shown as raw `sales` / `issued` / `paid` | C3–C7 | fixed #261 |
 | 17 | P2 | Invoice form | Party dropdown shows "client: شرکت پارس‌افزار" | C6 | fixed #261 |
 | 18 | P3 | Invoice form | Totals use Persian digits ("IRR ۰") while the list uses 0–9; the tax-code select is cut off | C6 | fixed #273 |
@@ -52,7 +52,9 @@ Severity:
 | 41 | P3 | Phone | Tap targets under 28 px: checkboxes, the chat's quick chips, the CFO check buttons, the invoice line "×", PDF, the password eye | I | fixed #270 |
 | 42 | P3 | Gregorian date fields | In es/ar the native date and month fields show the browser's "mm/dd/yyyy" | I | not a bug: a native date field follows the browser's own locale (a Spanish browser shows dd/mm/aaaa); the QA browser was en-US |
 | 43 | P2 | AI chat | A CSV/XLSX bank statement attached in the chat goes to the AI (and fails with none set up). The no-AI statement path only runs for PDFs and images, which need AI to read anyway | E2 | fixed #268 |
-| 44 | P3? | Credit notes | Disabled on a fully paid invoice (a refund case). After a credit note an invoice reads "partially paid". **Design question for the user** | C7 | *question* |
+| 44 | P3? | Credit notes | Disabled on a fully paid invoice (a refund case). After a credit note an invoice reads "partially paid". **Design question for the user** | C7 | fixed #280 (owner: best practice — a credit note goes against any issued invoice up to what is left to credit; its excess becomes the party's credit, refunded or used; a fully credited invoice reads "credited") |
 | 45 | P2 | Report previews | The general journal (and every table preview) printed its dates as 2026-09-30 in a Jalali company; a report with only an end date showed it raw too | journal, while fixing #35 | fixed #261 |
 | 46 | P3 | Manager reports | The "No currency filter selected… Pick a currency" banner was English (multi-line template text the static scan doesn't see) | code reading | fixed #261 |
 | 47 | P2 | Bank statements | The statement detail's title was "Unknown — file.csv (12 rows)": English "rows", and "Unknown" for an unnamed bank | while fixing #27 | fixed #274 |
+| 48 | P2 | Invoice history | The history showed a raw ISO timestamp in UTC and English sentences ("Credit note 600 GBP.", "Payment in") in every language | while fixing #44 | fixed #280 |
+| 49 | P2 | Invoice edit | Saving a partly paid invoice sent an empty status (the select had no "partially paid" option), and the save was refused | while fixing #44 | fixed #280 |

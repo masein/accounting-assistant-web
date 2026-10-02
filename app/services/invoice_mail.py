@@ -34,7 +34,7 @@ DEFAULT_REMINDER_DAYS = (3, 10, 20)
 MAX_STAGES = 5
 MAX_RECIPIENTS = 3
 MAX_REMINDERS_PER_RUN = 100
-SENDABLE_STATUSES = ("issued", "partially_paid", "paid")
+SENDABLE_STATUSES = ("issued", "partially_paid", "paid", "credited")
 REMINDER_STATUSES = ("issued", "partially_paid")
 
 _EMAIL_RE = re.compile(r"^[^@\s,;<>\"']+@[^@\s,;<>\"']+\.[^@\s,;<>\"']{2,}$")

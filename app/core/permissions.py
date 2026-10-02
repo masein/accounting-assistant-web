@@ -329,6 +329,8 @@ for _m, _p in [
     ("DELETE", "/invoices/{invoice_id}"),
     ("POST", "/invoices/{invoice_id}/payments"),
     ("POST", "/invoices/{invoice_id}/credit-notes"),
+    ("POST", "/invoices/{invoice_id}/refund-credit"),
+    ("POST", "/invoices/{invoice_id}/apply-credit"),
     ("POST", "/invoices/{invoice_id}/void"),
     ("POST", "/invoices/{invoice_id}/payments/{payment_id}/reverse"),
     ("POST", "/invoices/{invoice_id}/mark-paid"),

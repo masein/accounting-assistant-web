@@ -118,6 +118,23 @@ class CreditNoteCreate(BaseModel):
     date: _date | None = None
     currency: str | None = None
     reason: str | None = None
+    # the part beyond what the invoice still owes becomes the party's credit:
+    # pay it back now (to this bank account, else the default one) or keep it
+    refund: bool = False
+    bank_account_code: str | None = Field(None, max_length=16)
+
+
+class CreditRefund(BaseModel):
+    """Pay back the credit an invoice gave rise to: all of it unless ``amount``."""
+    amount: int | None = Field(None, gt=0)
+    date: _date | None = None
+    bank_account_code: str | None = Field(None, max_length=16)
+
+
+class CreditApply(BaseModel):
+    """Settle an invoice from the party's credit: as much as it can unless ``amount``."""
+    amount: int | None = Field(None, gt=0)
+    date: _date | None = None
 
 
 class CreditNoteRead(BaseModel):
@@ -130,6 +147,7 @@ class CreditNoteRead(BaseModel):
     currency: str
     reason: str | None = None
     note_type: str
+    credit_id: UUID | None = None
     transaction_id: UUID | None = None
     created_at: datetime
 
@@ -151,6 +169,10 @@ class InvoiceRead(InvoiceBase):
     balance_due: int = 0
     # Paid beyond the invoice: customer credit / supplier advance, not "paid".
     overpaid: int = 0
+    # what is left of the credit this invoice gave rise to (an overpayment, or a
+    # credit note beyond what it owed), and the party's credit available to it
+    credit_available: int = 0
+    party_credit: int = 0
     # سامانه مودیان
     moadian_status: str | None = None
     moadian_taxid: str | None = None
@@ -166,7 +188,8 @@ class InvoiceRead(InvoiceBase):
 class InvoiceTimelineEvent(BaseModel):
     at: datetime
     event: str
-    detail: str | None = None
+    detail: str | None = None          # English, for API readers
+    params: dict = {}                  # the values the page words in the reader's language
 
 
 class InvoiceOCRResult(BaseModel):

@@ -1150,3 +1150,6 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
   .chip, .btn-sm, .il-del, .modal-close { min-height: 32px; min-width: 32px; }
   .chip { display: inline-flex; align-items: center; }
 }
+
+/* a line of help under a field */
+.field-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; max-width: 18rem; line-height: 1.35; }

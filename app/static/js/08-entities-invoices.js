@@ -498,6 +498,15 @@
     const _invProductPrice = {};       // product_name(lower) -> last unit price
 
     function invCurrency() { return document.getElementById('inv-currency')?.value || preferredFormCurrency(); }
+    // a bank's code is its ledger account (a typed «301» was replaced by a new 1111)
+    (function wireBankCodeHint() {
+      const sel = document.getElementById('entity-type'), hint = document.getElementById('entity-code-hint');
+      if (!sel || !hint) return;
+      const sync = () => { hint.hidden = sel.value !== 'bank'; };
+      sel.addEventListener('change', sync);
+      sync();
+    })();
+
     function invFmt(n) { return (Number(n) || 0).toLocaleString() + ' ' + invCurrency(); }
 
     function invTaxCodeOptions(selected) {

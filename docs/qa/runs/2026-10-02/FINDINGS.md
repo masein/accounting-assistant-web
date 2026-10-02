@@ -30,7 +30,7 @@ Severity:
 | 19 | P3 | Invoices list | Number wraps ("ARM-" / "1002"); the amount cell shows both an `IRR` badge and "ریال"; up to 8 action buttons per row, on 3 lines | C6 | open |
 | 20 | P2 | Invoices page | An Iranian company sees the UK MTD/VAT sections (and presumably a UK company sees Moadian/TTMS) | C3 | fixed #266 |
 | 21 | P2 | Cheques | "A cheque with Sayad id … is already recorded." is English | C9 | fixed #261 |
-| 22 | P2 | Bank party | Creating a bank party auto-creates an account named "bank account — بانک ملت" (English in the stored name) and silently replaces the code the user typed (۳۰۱ → 1111) | C1, C11 | name fixed #262; the code: open |
+| 22 | P2 | Bank party | Creating a bank party auto-creates an account named "bank account — بانک ملت" (English in the stored name) and silently replaces the code the user typed (۳۰۱ → 1111) | C1, C11 | name fixed #262; the code fixed #276 |
 | 23 | P2 | Recurring rules | The bank list only offers bank-party accounts. A bank account made in the chart (111001) can't be chosen | C11 | fixed #269 |
 | 24 | P2 | Ledger summary | "IRR 0 بد": "بد" means "bad"; it should read بدهکار | C1 | fixed #261 |
 | 25 | P3 | Ledger summary | 1110 takes postings and also has a sub-account, so it shows twice; the charts' axes show bare codes without names | C1 | open |
@@ -50,7 +50,7 @@ Severity:
 | 39 | P3 | Ledger (tablet) | The page scrolls sideways at 768 px | I | open |
 | 40 | P3 | Jalali date field | The hidden native input is exposed to screen readers (no name, not `aria-hidden`) | I | fixed #270 |
 | 41 | P3 | Phone | Tap targets under 28 px: checkboxes, the chat's quick chips, the CFO check buttons, the invoice line "×", PDF, the password eye | I | fixed #270 |
-| 42 | P3 | Gregorian date fields | In es/ar the native date and month fields show the browser's "mm/dd/yyyy" | I | open |
+| 42 | P3 | Gregorian date fields | In es/ar the native date and month fields show the browser's "mm/dd/yyyy" | I | not a bug: a native date field follows the browser's own locale (a Spanish browser shows dd/mm/aaaa); the QA browser was en-US |
 | 43 | P2 | AI chat | A CSV/XLSX bank statement attached in the chat goes to the AI (and fails with none set up). The no-AI statement path only runs for PDFs and images, which need AI to read anyway | E2 | fixed #268 |
 | 44 | P3? | Credit notes | Disabled on a fully paid invoice (a refund case). After a credit note an invoice reads "partially paid". **Design question for the user** | C7 | *question* |
 | 45 | P2 | Report previews | The general journal (and every table preview) printed its dates as 2026-09-30 in a Jalali company; a report with only an end date showed it raw too | journal, while fixing #35 | fixed #261 |

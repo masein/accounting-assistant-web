@@ -56,6 +56,11 @@ def _company_login(db: Session, company_id) -> User | None:
         ).scalars().first()
 
 
+def _logo_file(company_id) -> Path | None:
+    brand_dir = _UPLOADS_DIR / "branding" / str(company_id)
+    return next((brand_dir / f"logo{ext}" for ext in _LOGO_EXTS if (brand_dir / f"logo{ext}").is_file()), None)
+
+
 def _serialize(db: Session, c: Company) -> dict:
     login = _company_login(db, c.id)
     return {
@@ -68,6 +73,9 @@ def _serialize(db: Session, c: Company) -> dict:
         "status": c.status,
         "login_username": login.username if login else None,
         "created_at": c.created_at.isoformat() if c.created_at else None,
+        # the console asks for a logo only when there is one (every company
+        # without one was a 404: deep browser test, 2026-10-02, finding #5)
+        "has_logo": _logo_file(c.id) is not None,
     }
 
 
@@ -83,12 +91,10 @@ def company_logo(company_id: UUID, _=Depends(require_superadmin)) -> FileRespons
     """A tenant's logo by id, for the Companies console thumbnail. Super-admin
     only; the path is built from a validated UUID, so it can't escape the
     branding dir. 404 when the company hasn't uploaded one."""
-    brand_dir = _UPLOADS_DIR / "branding" / str(company_id)
-    for ext in _LOGO_EXTS:
-        candidate = brand_dir / f"logo{ext}"
-        if candidate.is_file():
-            return FileResponse(candidate)
-    raise HTTPException(status_code=404, detail="No logo")
+    found = _logo_file(company_id)
+    if found is None:
+        raise HTTPException(status_code=404, detail="No logo")
+    return FileResponse(found)
 
 
 @router.post("", status_code=201)

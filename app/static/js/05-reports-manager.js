@@ -6,7 +6,9 @@
         return;
       }
       const th = headers.map(h => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
-      const tr = rows.map(r => `<tr>${r.map(c => `<td>${c && c.__html ? c.__html : (typeof c === 'string' ? escapeHtml(localizeDynamicText(c)) : c)}</td>`).join('')}</tr>`).join('');
+      // a date stays on one line (the forecast's weeks broke as "2026-09-" / "28")
+      const isDate = (c) => typeof c === 'string' && /^[\u2066-\u2069]?\d{4}[-/]\d{2}[-/]\d{2}[\u2066-\u2069]?$/.test(c);
+      const tr = rows.map(r => `<tr>${r.map(c => `<td${isDate(c) ? ' class="date-cell"' : ''}>${c && c.__html ? c.__html : (typeof c === 'string' ? escapeHtml(localizeDynamicText(c)) : c)}</td>`).join('')}</tr>`).join('');
       el.innerHTML = `<table class="mini-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
     }
 

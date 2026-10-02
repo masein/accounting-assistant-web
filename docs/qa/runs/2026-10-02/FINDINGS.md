@@ -9,8 +9,8 @@ Severity:
 
 | # | Sev | Where | Finding | Seen in | Status |
 |---|---|---|---|---|---|
-| 1 | P2 | Sign-in page | A Persian browser gets the English sign-in page. With nothing saved it falls back to `en` instead of the browser's language, so the error "Invalid username or password" is English too | A6 | open |
-| 2 | P2 | First sign-in | An owner created by the super-admin has `preferred_language = en`, even for an `ir` company, so a new Iranian owner lands in English | A2 | open |
+| 1 | P2 | Sign-in page | A Persian browser gets the English sign-in page. With nothing saved it falls back to `en` instead of the browser's language, so the error "Invalid username or password" is English too | A6 | fixed #264 |
+| 2 | P2 | First sign-in | An owner created by the super-admin has `preferred_language = en`, even for an `ir` company, so a new Iranian owner lands in English | A2 | fixed #264 |
 | 3 | P2 | Password rules | "Password must be at least 8 characters" (and the other three rules) are English: `ValueError` text is passed through and never reaches the catalogue | A4 | fixed #261 |
 | 4 | P1 | Super-admin | `GET /admin/company-profile` → 500 (no company context: tries to insert a profile with `company_id NULL`). `get_logo` with no company could serve another tenant's logo | A1 | not an app bug: the QA seed made a super-admin with no company (the real seed gives it the default company) |
 | 5 | P3 | Companies console | One logo request per row → a 404 for every company without a logo | A1 | open |

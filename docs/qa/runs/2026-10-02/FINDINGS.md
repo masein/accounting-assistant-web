@@ -26,7 +26,7 @@ Severity:
 | 15 | P1? | VAT rates | The Iranian standard VAT in the rate table is 9%; it was raised to 10% from 1 Farvardin 1403 (budget law). **Needs the user's confirmation** | C3 | *question* |
 | 16 | P2 | Invoices list | Type and status shown as raw `sales` / `issued` / `paid` | C3–C7 | fixed #261 |
 | 17 | P2 | Invoice form | Party dropdown shows "client: شرکت پارس‌افزار" | C6 | fixed #261 |
-| 18 | P3 | Invoice form | Totals use Persian digits ("IRR ۰") while the list uses 0–9; the tax-code select is cut off | C6 | open |
+| 18 | P3 | Invoice form | Totals use Persian digits ("IRR ۰") while the list uses 0–9; the tax-code select is cut off | C6 | fixed #273 |
 | 19 | P3 | Invoices list | Number wraps ("ARM-" / "1002"); the amount cell shows both an `IRR` badge and "ریال"; up to 8 action buttons per row, on 3 lines | C6 | open |
 | 20 | P2 | Invoices page | An Iranian company sees the UK MTD/VAT sections (and presumably a UK company sees Moadian/TTMS) | C3 | fixed #266 |
 | 21 | P2 | Cheques | "A cheque with Sayad id … is already recorded." is English | C9 | fixed #261 |
@@ -42,7 +42,7 @@ Severity:
 | 31 | P2 | Dates in messages | The lock status ("قفل تا 2026-09-22") and the server's refusal ("دوره تا 2026-09-22 بسته است…") show Gregorian dates in a Jalali company | D6 | fixed #267 |
 | 32 | P2? | AI chat | A CSV statement attached in the chat fails with "AI unavailable"; parsing a CSV doesn't need AI (to check: is the deterministic intake bypassed?) | E2 | fixed #268 |
 | 33 | P1 | (confirms #11) | A UK owner's "Reset database" on the parties page gave the company the **Iranian chart** (36 Persian-named accounts) | G0 | fixed #259 |
-| 34 | P3 | UK invoice form | Totals show "3,600 GBP" rather than "£3,600" (the list uses the symbol) | G1 | open |
+| 34 | P3 | UK invoice form | Totals show "3,600 GBP" rather than "£3,600" (the list uses the symbol) | G1 | fixed #273 |
 | 35 | **P1** | **Book language** | Every system-generated journal description is English in an Iranian company's books: "Invoice ARM-1805 issued / — revenue / — output VAT", "Payment for invoice …", "Opening balance", "Dividend declared — …", "Mileage claim — …", "Time billing — … (2026-10-01 → …)" (with Gregorian dates). About 246 English f-strings across the services. These are stored text that shows in the journal, ledger, statements and PDFs | dashboard, journal | fixed #262 |
 | 36 | P2 | Dashboard | Overloaded: about 12 sections over 4,400 px (KPIs, a 13-week table, a 13-row explorer repeating it, what-if, aging ×2, spending ×2, profitability, health, owner pack, missing references, budgets, exports) | I | open |
 | 37 | P2 | Dashboard forecast | The week column cuts dates ("1405/07/0"); in en/ar they wrap | I | open |

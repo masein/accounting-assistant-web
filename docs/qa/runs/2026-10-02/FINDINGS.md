@@ -13,8 +13,8 @@ Severity:
 | 2 | P2 | First sign-in | An owner created by the super-admin has `preferred_language = en`, even for an `ir` company, so a new Iranian owner lands in English | A2 | fixed #264 |
 | 3 | P2 | Password rules | "Password must be at least 8 characters" (and the other three rules) are English: `ValueError` text is passed through and never reaches the catalogue | A4 | fixed #261 |
 | 4 | P1 | Super-admin | `GET /admin/company-profile` → 500 (no company context: tries to insert a profile with `company_id NULL`). `get_logo` with no company could serve another tenant's logo | A1 | not an app bug: the QA seed made a super-admin with no company (the real seed gives it the default company) |
-| 5 | P3 | Companies console | One logo request per row → a 404 for every company without a logo | A1 | open |
-| 6 | P2 | Companies console | Region column shows raw `uk` / `ir`; no column for the kind (business / personal); the header "هوش مصنوعی · ۲۴ ساعت" reads as "240 hours" (the middle dot looks like the Persian zero) | A1 | open |
+| 5 | P3 | Companies console | One logo request per row → a 404 for every company without a logo | A1 | fixed #271 |
+| 6 | P2 | Companies console | Region column shows raw `uk` / `ir`; no column for the kind (business / personal); the header "هوش مصنوعی · ۲۴ ساعت" reads as "240 hours" (the middle dot looks like the Persian zero) | A1 | fixed #271 |
 | 7 | P3 | Sidebar | Section labels are 10.24 px, small for Persian script | all | open |
 | 8 | P1 | Parties | A party code typed in Persian digits is stored as «۱۰۱» (not 0–9), so lookups and exports by code miss it. #246 didn't cover `entities.code` | B3 | fixed #263 |
 | 9 | P1 | Inventory | A barcode typed in Persian digits is stored as «۶۲۹۱…»; a scanner sends 0–9, so a scan never matches | B4 | fixed #263 |

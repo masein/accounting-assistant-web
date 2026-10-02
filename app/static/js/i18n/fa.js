@@ -689,7 +689,7 @@ window.I18N_PACKS.fa = Object.assign({
         aiLimitsCompanyRpm: "درخواست هر شرکت / دقیقه",
         aiLimitsPricing: "قیمت‌ها (دلار برای هر میلیون توکن: ورودی، خروجی، ورودی کش‌شده)",
         aiLimitsBadJson: "قیمت‌ها JSON معتبر نیستند.",
-        companiesAi: "هوش مصنوعی · ۲۴ ساعت",
+        companiesAi: "هوش مصنوعی (۲۴ ساعت گذشته)",
         companiesAiBudget: "سقف هوش مصنوعی",
         companiesAiBudgetPrompt: "تعداد توکنی که این شرکت در هر ۲۴ ساعت می‌تواند مصرف کند. خالی = پیش‌فرض سامانه؛ ۰ = نامحدود.",
         aiUsageBadNumber: "یک عدد صحیح توکن وارد کنید (۰ = نامحدود)، یا برای پیش‌فرض خالی بگذارید.",

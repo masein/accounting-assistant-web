@@ -675,7 +675,7 @@ window.I18N_PACKS.ar = Object.assign({
         aiLimitsCompanyRpm: "الطلبات لكل شركة / دقيقة",
         aiLimitsPricing: "الأسعار (دولار لكل مليون رمز: المدخلات، المخرجات، المدخلات المخزنة)",
         aiLimitsBadJson: "الأسعار ليست JSON صالحًا.",
-        companiesAi: "الذكاء الاصطناعي · 24 ساعة",
+        companiesAi: "الذكاء الاصطناعي (آخر 24 ساعة)",
         companiesAiBudget: "ميزانية الذكاء الاصطناعي",
         companiesAiBudgetPrompt: "عدد الرموز المسموح لهذه الشركة خلال 24 ساعة. اتركه فارغًا لقيمة المنصة؛ 0 = بلا حد.",
         aiUsageBadNumber: "أدخل عددًا صحيحًا من الرموز (0 = بلا حد)، أو اتركه فارغًا للقيمة الافتراضية.",

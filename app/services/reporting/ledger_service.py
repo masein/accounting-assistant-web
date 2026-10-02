@@ -133,6 +133,14 @@ class LedgerService:
         report_type: str = "trial_balance",
         currency: str | None = None,
     ) -> TrialBalanceResponse:
+        if from_date is None and to_date is not None:
+            # "As at" a date: every posting up to it. It used to start on the
+            # 1st of that month, so a trial balance as at 31 December showed
+            # only December — empty when nothing was posted then (deep browser
+            # test, 2026-10-02, finding #30).
+            from sqlalchemy import func
+            first = self.db.execute(select(func.min(Transaction.date)).where(Transaction.deleted_at.is_(None))).scalar()
+            from_date = min(first, to_date) if first else to_date
         period = default_period(from_date, to_date)
         # Single-currency view: the reporting currency unless asked otherwise;
         # other currencies in the period are listed, never summed in.

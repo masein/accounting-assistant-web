@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.models.account import Account
 from app.models.entity import Entity
+from app.services.book_text import bt
 
 _VALID_TYPES = ("client", "supplier", "employee", "bank", "shareholder")
 _TYPE_ALIASES = {
@@ -262,7 +263,7 @@ def _resolve_bank_account(
             return acc.code, False
     from app.services.account_resolver import _ensure_account
     code = _next_bank_account_code(db, loc)
-    _ensure_account(db, code, f"{name} — bank account", loc)
+    _ensure_account(db, code, bt(db, "bank_account_name", name=name), loc)
     return code, True
 
 

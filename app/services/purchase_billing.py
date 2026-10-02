@@ -25,6 +25,7 @@ from app.models.entity import Entity
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
+from app.services.book_text import bt
 
 # who may set which status by hand (receipts set the received ones)
 MANUAL_TRANSITIONS = {
@@ -112,7 +113,7 @@ def bill_from_po(db: Session, po: PurchaseOrder, *, number: str | None = None, i
         number=(number or "").strip() or suggest_number(db, Invoice, "BILL-", kind="purchase"),
         kind="purchase", status="issued", issue_date=issue, due_date=due_date or issue + timedelta(days=30),
         amount=0, currency=po.currency, entity_id=po.entity_id,
-        description=f"Purchase order {po.number}" + (f" — {po.description}" if po.description else ""),
+        description=bt(db, "purchase_order", number=po.number) + (f" — {po.description}" if po.description else ""),
         items=[InvoiceItemCreate(product_name=li.description[:256], quantity=float(qty), unit_price=int(li.unit_price or 0),
                                  inventory_item_id=li.inventory_item_id, tax_rate=float(tax_rate or 0))
                for li, qty in wanted],

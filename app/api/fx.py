@@ -37,6 +37,7 @@ from app.services.fx_service import (
     visible_rates,
 )
 from app.services.reporting.repository import distinct_currencies, most_common_currency
+from app.services.book_text import book_date, bt
 
 router = APIRouter(prefix="/fx", tags=["fx"])
 
@@ -395,7 +396,7 @@ def revalue_foreign_currency_balances(
                 date=on,
                 reference=(payload.reference or f"FX-REVAL-{on.isoformat()}")[:120] + f"-{fc}",
                 description=(payload.description
-                             or f"Unrealised FX on {fc} balances at {rate:g} {base} as of {on.isoformat()}"),
+                             or bt(db, "fx_reval", ccy=fc, rate=f"{rate:g}", base=base, on=book_date(db, on))),
                 currency=fc, fx_rate=rate, fx_role="revaluation",
             )
             db.add(txn)
@@ -406,13 +407,13 @@ def revalue_foreign_currency_balances(
                 db.add(TransactionLine(
                     transaction_id=txn.id, account_id=by_code[ln.account_code].id, debit=0, credit=0,
                     base_debit=max(ln.adjustment, 0), base_credit=max(-ln.adjustment, 0),
-                    line_description=f"Revalued {fc} {ln.source_balance:,} at {rate:g}",
+                    line_description=bt(db, "fx_revalued_line", ccy=fc, amount=f"{ln.source_balance:,}", rate=f"{rate:g}"),
                 ))
             if net:
                 db.add(TransactionLine(
                     transaction_id=txn.id, account_id=(gain_acc if net > 0 else loss_acc).id, debit=0, credit=0,
                     base_debit=max(-net, 0), base_credit=max(net, 0),
-                    line_description=f"Unrealised FX {'gain' if net > 0 else 'loss'} on {fc}",
+                    line_description=bt(db, "fx_gain_line" if net > 0 else "fx_loss_line", ccy=fc),
                 ))
             log_audit_event(db, action="create", entity_type="fx_revaluation", entity_id=str(txn.id),
                             detail=f"{fc} as of {on.isoformat()} at {rate:g}: net {net}")

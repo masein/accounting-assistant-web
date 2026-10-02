@@ -32,6 +32,7 @@ from app.models.transaction import TransactionAttachment
 from app.models.user import User
 from app.services.account_resolver import resolve_account_code
 from app.services.audit_service import log_audit_event
+from app.services.book_text import bt
 
 router = APIRouter(prefix="/petty-cash", tags=["petty-cash"])
 
@@ -215,7 +216,7 @@ def deposit(
     """Admin charges the float: DR petty_cash / CR bank — approved immediately."""
     acc = _get_account(db, account_id, user, manage=True)
     petty_code = resolve_account_code(db, "petty_cash")
-    desc = payload.description or f"Petty cash deposit — {acc.holder_name}"
+    desc = payload.description or bt(db, "petty_deposit", name=acc.holder_name)
     txn = _post_gl(db, debit_code=petty_code, credit_code=payload.bank_account_code.strip(),
                    amount=payload.amount, description=desc)
     row = PettyCashTransaction(
@@ -345,7 +346,7 @@ def approve_expense(
     category = row.counter_account_code or resolve_account_code(db, "expense")
     txn = _post_gl(db, debit_code=category, credit_code=petty_code,
                    amount=row.amount,
-                   description=f"Petty cash: {row.description}")
+                   description=bt(db, "petty_expense", text=row.description))
     if row.attachment_id is not None:
         att = db.get(TransactionAttachment, row.attachment_id)
         if att is not None and att.transaction_id is None:

@@ -553,7 +553,8 @@ def calculate_transaction_fee(
             detail=f"No fee rule mapped for {canonical_method_name(method.name)} via {bank.name}.",
         )
     calc = calculate_total_with_fee(payload.amount, rule, amount_mode=payload.amount_mode)
-    line_items = build_fee_line_items(calc.fee_amount, method.name, bank.name)
+    from app.services.book_text import book_language
+    line_items = build_fee_line_items(calc.fee_amount, method.name, bank.name, lang=book_language(db))
     if payload.track_pending:
         tx_id = payload.transaction_id
         if tx_id is not None:

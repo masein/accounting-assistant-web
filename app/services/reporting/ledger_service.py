@@ -30,6 +30,7 @@ from app.services.reporting.repository import (
     trial_balance_rows,
 )
 from app.services.reporting.repository import line_dr_cr, resolve_currency_view
+from app.services.book_text import bt
 
 
 def _to_journal_item(txn: Transaction, currency: str | None = None) -> JournalEntryRead:
@@ -231,7 +232,7 @@ class LedgerService:
         rev = Transaction(
             date=rev_date,
             reference=(reference or (f"REV-{src.reference}" if src.reference else f"REV-{src.id.hex[:8]}"))[:128],
-            description=(description or f"Reversal of {src.id}"),
+            description=(description or bt(self.db, "reversal_of", ref=src.reference or str(src.id)[:8])),
             currency=src.currency,
             fx_rate=src.fx_rate,
             fx_role=src.fx_role,
@@ -247,7 +248,7 @@ class LedgerService:
                     credit=int(line.debit or 0),
                     base_debit=line.base_credit,
                     base_credit=line.base_debit,
-                    line_description=(line.line_description or "Reversal"),
+                    line_description=(line.line_description or bt(self.db, "reversal")),
                 )
             )
         self.db.commit()

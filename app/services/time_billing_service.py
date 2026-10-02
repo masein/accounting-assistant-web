@@ -20,6 +20,7 @@ from app.models.invoice import Invoice
 from app.models.time_billing import BillingRateOverride, Project, TimeEntry
 from app.services.fx_service import get_reporting_currency
 from app.services.locale_service import get_reporting_locale
+from app.services.book_text import book_date, bt
 
 
 class TimeBillingError(ValueError):
@@ -317,7 +318,7 @@ def create_invoice_from_time(db: Session, *, client_id, project_id=None, date_fr
         issue_date=date.fromisoformat(preview["invoice_date"]),
         due_date=date.fromisoformat(preview["due_date"]),
         amount=0, currency=preview["currency"],
-        description=f"Time billing — {preview['client_name']} ({preview['period_from']} → {preview['period_to']})",
+        description=bt(db, "time_billing", client=preview['client_name'], start=book_date(db, preview['period_from']), end=book_date(db, preview['period_to'])),
         entity_id=client_id, items=items,
     ))
     # Stamp the contributing entries as invoiced (locked) with their rate.

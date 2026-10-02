@@ -138,8 +138,8 @@
         if (aiBtn) {
           const raw = await uiPrompt({ title: t('companiesAiBudget'), message: t('companiesAiBudgetPrompt'), value: aiBtn.dataset.budget || '' });
           if (raw === null) return;
-          const trimmed = String(raw).trim();
-          const daily = trimmed === '' ? null : Number(trimmed.replace(/[,\s]/g, ''));
+          const trimmed = asciiDigits(String(raw)).trim();
+          const daily = trimmed === '' ? null : Number(trimmed);
           if (daily !== null && (!Number.isFinite(daily) || daily < 0)) { showAlert(t('aiUsageBadNumber'), true); return; }
           try {
             const res = await fetch(API + '/admin/companies/' + aiBtn.dataset.id + '/ai-budget', {

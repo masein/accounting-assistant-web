@@ -657,6 +657,8 @@
       }
       const name = input.getAttribute('aria-label') || (input.labels && input.labels[0] ? input.labels[0].textContent.trim() : '');
       if (name && text.getAttribute('aria-label') !== name) text.setAttribute('aria-label', name);
+      const hint = t('jdatePlaceholder');
+      if (text.placeholder !== hint) text.placeholder = hint;
       const pick = t('jdatePick');
       if (btn.getAttribute('aria-label') !== pick) { btn.setAttribute('aria-label', pick); btn.title = pick; }
       if (text.disabled !== input.disabled) { text.disabled = input.disabled; btn.disabled = input.disabled; }
@@ -689,7 +691,7 @@
         text.inputMode = 'numeric';
         text.autocomplete = 'off';
         text.dir = 'ltr';
-        text.placeholder = '1405/07/09';
+        text.placeholder = t('jdatePlaceholder');   // the form, not a day that looks entered
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'jdate-btn';

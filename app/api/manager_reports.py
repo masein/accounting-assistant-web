@@ -798,7 +798,8 @@ def inventory_low_stock(db: Session = Depends(get_db)) -> dict:
 @router.get("/inventory/items/by-barcode/{barcode}", response_model=InventoryItemRead)
 def inventory_item_by_barcode(barcode: str, db: Session = Depends(get_db)) -> InventoryItemRead:
     from app.models.inventory import InventoryItem
-    item = db.execute(select(InventoryItem).where(InventoryItem.barcode == barcode.strip())).scalars().first()
+    from app.utils.digits import ascii_digits
+    item = db.execute(select(InventoryItem).where(InventoryItem.barcode == ascii_digits(barcode).strip())).scalars().first()
     if not item:
         raise HTTPException(status_code=404, detail="No item has this barcode")
     return InventoryItemRead.model_validate(item)

@@ -689,6 +689,9 @@
       wrap.parentNode.insertBefore(input, wrap);
       wrap.remove();
       input.style.cssText = input.dataset.jdateStyle || '';
+      input.removeAttribute('aria-hidden');
+      input.removeAttribute('tabindex');
+      input.classList.remove('jdate-native');
       delete input.value;            // the prototype's again
       delete input.dataset.jdate;
       delete input.dataset.jdateStyle;
@@ -720,6 +723,9 @@
         input.parentNode.insertBefore(wrap, input);
         input.classList.add('jdate-native');
         input.tabIndex = -1;
+        // the box beside it carries its name and value; a screen reader met a
+        // second, unnamed date field here
+        input.setAttribute('aria-hidden', 'true');
         wrap.append(text, btn, input);
         text.addEventListener('input', () => {
           const iso = text.value.trim() ? jalaliTextToIso(text.value) : '';

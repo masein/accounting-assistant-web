@@ -106,10 +106,10 @@ terms: what they see, in their language and calendar.
 |---|---|---|---|
 | D1 | Ledger search | Filter by Jalali range, account, party; text search with Arabic letterforms | Results right; totals right; export works |
 | D2 | Financial statements | Trial balance, balance sheet, P&L, cash flow (Iranian formats); PDF and XLSX | TB balances; A = L + E; P&L agrees with the vouchers; preview columns (turnover, balance) and every date in a preview (the general journal's too) in Persian and Jalali [#261]; Persian documents; a trial balance (or general ledger) asked with only an end date takes every posting up to it [#265] |
-| D3 | Dashboard and manager reports | Dashboard KPIs and charts; sales by product and client; aging; inventory | Figures agree with C1–C22; charts labelled in Persian; Jalali months |
+| D3 | Dashboard and manager reports | Dashboard KPIs and charts; sales by product and client; aging; inventory | Figures agree with C1–C22; charts labelled in Persian; Jalali months; the owner pack is a readable list (not monospace text) dated in the company's calendar [#267] |
 | D4 | CEO / CFO | Both pages | KPIs, grade, runway; nothing English |
 | D5 | Audit | Trail plus full audit | Every action of the run is in the trail; findings in Persian |
-| D6 | Period lock | Lock through the end of Shahrivar; try a back-dated voucher | Refused, in Persian, naming the lock date |
+| D6 | Period lock | Lock through the end of Shahrivar; try a back-dated voucher | Refused, in Persian, naming the lock date; both dates in the refusal and the lock status itself («قفل تا 1405/06/31») are Jalali, in Persian and in English; a Gregorian company's stay Gregorian [#267] |
 | D7 | Tax | TTMS season export; Moadian export of C3 | Files download; amounts agree with the invoices |
 | D8 | Forecast and insights | 13-week forecast plus a what-if; insights after a duplicate payment | Forecast weeks in Jalali; the duplicate is flagged |
 | D9 | The books' language [#262] | After C1–C22, open the general journal, an account's ledger and a party's statement; then do the same in Thames | Every description the app wrote itself (invoice, payment, bill, credit note, void, opening balance, equity, payroll, mileage, time billing, depreciation, petty cash, recurring, FX, fees, statement rows) reads in Persian in Arman, with Jalali dates inside the text; in Thames the same entries read in English; nothing already posted is rewritten |

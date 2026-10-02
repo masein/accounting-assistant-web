@@ -127,20 +127,25 @@
         const topProfitText = topProfit
           ? `${localizeDynamicText(topProfit.client)} (${formatNum(topProfit.profit || 0)} ${currencyUnit()})`
           : t('na');
-        document.getElementById('owner-pack').textContent =
-          `${t('ownerPackTitle')} (${localIsoDate(new Date())})\n\n` +
-          `- ${t('kpiCashOnHand')}: ${formatNum((data.kpis || []).find((k) => k.key === 'cash_on_hand')?.value || 0)} ${currencyUnit()}\n` +
-          `- ${t('ownerNetProfitMonth')}: ${formatNum((data.kpis || []).find((k) => k.key === 'monthly_net_profit')?.value || 0)} ${currencyUnit()}\n` +
-          `- ${t('kpiMonthlyBurnRate')}: ${formatNum((data.kpis || []).find((k) => k.key === 'burn_rate')?.value || 0)} ${currencyUnit()}/${t('monthWord')}\n` +
-          `- ${t('kpiRunway')}: ${formatKpiValue((data.kpis || []).find((k) => k.key === 'runway_months')?.value, 'months')}\n` +
-          `- ${t('ownerOverdueAR')}: ${formatNum((data.ar_aging || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0))} ${currencyUnit()}\n` +
-          `- ${t('ownerOverdueAP')}: ${formatNum((data.ap_aging || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0))} ${currencyUnit()}\n` +
-          `- ${t('ownerDataHealth')}: ${data.health_score || 0}/100\n` +
-          `- ${t('ownerMostProfitableClient')}: ${topProfitText}\n\n` +
-          `${t('ownerPriorityActions')}\n` +
-          `1. ${t('ownerAction1')}\n` +
-          `2. ${t('ownerAction2')}\n` +
-          `3. ${t('ownerAction3')}\n`;
+        // A list in the page's own type, dated in the company's calendar — it
+        // was a monospace block dated "(2026-10-02)" in a Jalali company.
+        const kpi = (key) => (data.kpis || []).find((k) => k.key === key)?.value;
+        const overdue = (rows) => (rows || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0);
+        const facts = [
+          [t('kpiCashOnHand'), `${formatNum(kpi('cash_on_hand') || 0)} ${currencyUnit()}`],
+          [t('ownerNetProfitMonth'), `${formatNum(kpi('monthly_net_profit') || 0)} ${currencyUnit()}`],
+          [t('kpiMonthlyBurnRate'), `${formatNum(kpi('burn_rate') || 0)} ${currencyUnit()}/${t('monthWord')}`],
+          [t('kpiRunway'), formatKpiValue(kpi('runway_months'), 'months')],
+          [t('ownerOverdueAR'), `${formatNum(overdue(data.ar_aging))} ${currencyUnit()}`],
+          [t('ownerOverdueAP'), `${formatNum(overdue(data.ap_aging))} ${currencyUnit()}`],
+          [t('ownerDataHealth'), `${data.health_score || 0}/100`],
+          [t('ownerMostProfitableClient'), topProfitText],
+        ];
+        document.getElementById('owner-pack').innerHTML =
+          `<div class="owner-pack-date">${escapeHtml(t('ownerPackTitle'))} · ${escapeHtml(formatDisplayDate(localIsoDate(new Date())))}</div>` +
+          `<ul>${facts.map(([k, v]) => `<li><span>${escapeHtml(k)}</span> <strong>${escapeHtml(v)}</strong></li>`).join('')}</ul>` +
+          `<div class="owner-pack-actions">${escapeHtml(t('ownerPriorityActions'))}</div>` +
+          `<ol>${['ownerAction1', 'ownerAction2', 'ownerAction3'].map((k) => `<li>${escapeHtml(t(k))}</li>`).join('')}</ol>`;
         loadMissingReferences();
       } catch (err) {
         document.getElementById('kpi-grid').innerHTML = '<p class="empty-state">' + escapeHtml(t('errorLoadingOwnerDashboard')) + '</p>';

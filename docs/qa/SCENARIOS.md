@@ -151,7 +151,7 @@ Each page is checked in Persian and English, at desktop 1280, tablet 768 and pho
 
 | ID | Check |
 |---|---|
-| I1 | No horizontal page overflow; nothing clipped or overlapping; tables scroll inside their box on a phone |
+| I1 | No horizontal page overflow; nothing clipped or overlapping; tables scroll inside their box on a phone; the browser suite checks every page at 768 px too, in English and Persian (the Ledger's toolbar was 49 px too wide) [#275] |
 | I2 | Right-to-left mirrors correctly (icons, arrows, alignment, number and date runs); English stays left-to-right |
 | I3 | No untranslated text, raw keys (`msgFoo`) or `{placeholders}`; consistent terms between pages |
 | I4 | Every input and button has an accessible name; focus is visible; Tab order follows the reading order; dialogs close on Escape; a Jalali date field is one field to a screen reader (its hidden native input is aria-hidden) [#270] |

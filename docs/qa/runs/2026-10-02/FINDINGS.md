@@ -47,7 +47,7 @@ Severity:
 | 36 | P2 | Dashboard | Overloaded: about 12 sections over 4,400 px (KPIs, a 13-week table, a 13-row explorer repeating it, what-if, aging ×2, spending ×2, profitability, health, owner pack, missing references, budgets, exports) | I | open |
 | 37 | P2 | Dashboard forecast | The week column cuts dates ("1405/07/0"); in en/ar they wrap | I | fixed #272 |
 | 38 | P2 | Owner pack | Shown as a monospace text block with a Gregorian date "(2026-10-02)" in a Jalali company | I | fixed #267 |
-| 39 | P3 | Ledger (tablet) | The page scrolls sideways at 768 px | I | open |
+| 39 | P3 | Ledger (tablet) | The page scrolls sideways at 768 px | I | fixed #275 |
 | 40 | P3 | Jalali date field | The hidden native input is exposed to screen readers (no name, not `aria-hidden`) | I | fixed #270 |
 | 41 | P3 | Phone | Tap targets under 28 px: checkboxes, the chat's quick chips, the CFO check buttons, the invoice line "×", PDF, the password eye | I | fixed #270 |
 | 42 | P3 | Gregorian date fields | In es/ar the native date and month fields show the browser's "mm/dd/yyyy" | I | not a bug: a native date field follows the browser's own locale (a Spanish browser shows dd/mm/aaaa); the QA browser was en-US |

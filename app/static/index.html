@@ -1166,7 +1166,7 @@
         <h3 data-i18n="panelBudgetVsActual">Budget vs actual (monthly)</h3>
         <div class="row" style="margin-bottom:0.5rem;">
           <div><label for="budget-month" data-i18n="labelMonth">Month</label><input type="month" id="budget-month"></div>
-          <div><label for="budget-category" data-i18n="labelCategory">Category</label><input type="text" id="budget-category" data-i18n-placeholder="placeholderExpenseCategory" placeholder="Expense account name"></div>
+          <div><label for="budget-category" data-i18n="labelCategory">Category</label><input type="text" id="budget-category" list="budget-category-list" autocomplete="off" data-i18n-placeholder="placeholderExpenseCategory" placeholder="Expense account name"><datalist id="budget-category-list"></datalist></div>
           <div><label for="budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="budget-limit" min="0" step="1" value="0"></div>
           <div style="display:flex; align-items:flex-end; gap:0.4rem; flex-wrap:wrap;"><button type="button" class="btn btn-primary" id="budget-save" data-i18n="btnSaveBudget" style="white-space:nowrap;">Save budget</button>
             <button type="button" class="btn btn-secondary" id="budget-roll" data-i18n="budgetRollBtn" style="white-space:nowrap;">Copy to next month…</button></div>

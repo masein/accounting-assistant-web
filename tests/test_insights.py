@@ -17,6 +17,7 @@ from app.models.entity import Entity, TransactionEntity
 from app.models.notification import Notification
 from app.models.pay_run import PayRun, PayRunLine
 from app.services import insight_service as svc
+from app.utils.jalali import format_jalali
 from app.services.insight_service import (
     Insight,
     briefing_text,
@@ -340,7 +341,19 @@ def test_briefing_text_and_endpoint(auth_client, db, monkeypatch):
 
     svc.invalidate_insights_cache()
     monkeypatch.setattr(svc, "DETECTORS", (("one", lambda db_, today: [ins]),))
-    r = auth_client.post("/ai-accountant/briefing", json={"session_id": None})
+    before = auth_client.get("/admin/display-calendar").json()["calendar"]
+    try:
+        # the date in the company's calendar (#54), whatever an earlier test left set
+        assert auth_client.put("/admin/display-calendar", json={"calendar": "jalali"}).status_code == 200
+        svc.invalidate_insights_cache()
+        r = auth_client.post("/ai-accountant/briefing", json={"session_id": None})
+        assert r.status_code == 200 and format_jalali(date(2056, 1, 31)) in r.json()["text"]
+        assert ins.params["last"] == "2056-01-31"                          # the detector's own object untouched
+        assert auth_client.put("/admin/display-calendar", json={"calendar": "gregorian"}).status_code == 200
+        svc.invalidate_insights_cache()
+        r = auth_client.post("/ai-accountant/briefing", json={"session_id": None})
+    finally:
+        auth_client.put("/admin/display-calendar", json={"calendar": before})
     body = r.json()
     assert r.status_code == 200 and body["count"] == 1 and "2056-01-31" in body["text"]
     msgs = auth_client.get(f"/ai-accountant/sessions/{body['session_id']}/messages").json()

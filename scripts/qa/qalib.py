@@ -178,6 +178,15 @@ UX_JS = r"""(opts) => {
   // I1: page overflow
   if (document.documentElement.scrollWidth > window.innerWidth + 1)
     out.push(['I1', 'page scrolls sideways: ' + document.documentElement.scrollWidth + ' > ' + window.innerWidth]);
+  // I1: a phone zooms out when the layout is wider than its screen; innerWidth grows with it, so the
+  // check above can't see it (Settings at 640 px on a 375 px phone, 2026-10-06)
+  if (opts.mobile && window.innerWidth > screen.width + 1) {
+    const wide = [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect();
+        return r.width > 0 && r.right > screen.width + 2 && !e.closest('.sidebar') && getComputedStyle(e).position !== 'fixed'; })
+      .filter((e, _, all) => !all.some(o => o !== e && o.contains(e)))
+      .slice(0, 4).map(e => '<' + e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.split(' ')[0] : '') + '> ' + Math.round(e.getBoundingClientRect().right));
+    out.push(['I1', 'phone zooms out: a ' + window.innerWidth + ' px layout on a ' + screen.width + ' px screen ' + wide.join(', ')]);
+  }
   // I1: elements wider than the viewport that are not inside a scroller
   const scroller = (e) => { for (let n = e.parentElement; n; n = n.parentElement) { const o = getComputedStyle(n).overflowX; if (o === 'auto' || o === 'scroll') return true; } return false; };
   [...card.querySelectorAll('*')].filter(vis).forEach(e => {

@@ -1213,3 +1213,6 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 
 /* a wide table scrolls inside its own box rather than the page */
 .table-scroll { max-width: 100%; overflow-x: auto; }
+/* whatever holds a results table scrolls it sideways in place: on a phone the users table (584 px)
+   and the AI usage table (489 px) made Settings zoom out to 451 px (open-state scan, 2026-10-06) */
+:has(> table.results-table) { max-width: 100%; overflow-x: auto; }

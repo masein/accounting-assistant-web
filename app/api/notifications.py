@@ -210,8 +210,11 @@ def notifications_feed(
     from app.services.notification_service import refresh_notifications, visible_to
     from app.services.notification_text import render
 
+    from app.services.calendar_periods import company_calendar
+
     refresh_notifications(db)
     lang = request_language(request.headers)   # the page's language
+    cal = company_calendar(db)                 # and the company's calendar for its dates
     rows = db.execute(
         _select(Notification).where(Notification.dismissed_at.is_(None))
         .order_by(Notification.level.desc(), Notification.due_date.nulls_last(),
@@ -222,7 +225,7 @@ def notifications_feed(
     for row in rows:
         if not visible_to(row, user_id=user.user_id, role=role):
             continue
-        title, message = render(row.text_key, row.params, lang) or (row.title, row.message)
+        title, message = render(row.text_key, row.params, lang, cal) or (row.title, row.message)
         out.append(FeedItem(
             id=str(row.id), kind=row.kind, level=row.level, title=title,
             message=message, link_page=row.link_page,

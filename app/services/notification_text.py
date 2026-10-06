@@ -288,12 +288,31 @@ def _fa_digits(text: str) -> str:
     return text.translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
 
 
-def _value(name: str, value: Any, lang: str) -> str:
+_DATES = {"date", "start", "end"}     # ISO days (2026-09-08), written in the company's calendar
+
+
+def _day(value: str, calendar: str) -> str:
+    """A day as the company writes it: 1405/06/17 in a Jalali company. The
+    bell said "2026-09-08" while every page beside it was Jalali."""
+    if calendar == "jalali" and len(value) == 10 and value[4] == "-" and value[7] == "-":
+        try:
+            from datetime import date as _date
+
+            from app.utils.jalali import format_jalali
+            return format_jalali(_date.fromisoformat(value))
+        except ValueError:
+            pass
+    return value
+
+
+def _value(name: str, value: Any, lang: str, calendar: str = "gregorian") -> str:
     if isinstance(value, dict) and "key" in value:
         phrase = PHRASES[value["key"]][lang]
-        return phrase.format(**{k: _value(k, v, lang) for k, v in (value.get("params") or {}).items()})
+        return phrase.format(**{k: _value(k, v, lang, calendar) for k, v in (value.get("params") or {}).items()})
     if isinstance(value, list):
-        return " · ".join(_value(name, v, lang) for v in value)
+        return " · ".join(_value(name, v, lang, calendar) for v in value)
+    if name in _DATES and value is not None:
+        return _day(str(value), calendar)
     if name in ENUMS:
         return ENUMS[name][lang].get(str(value), str(value))
     if name in ("month", "start_month", "end_month"):
@@ -305,9 +324,11 @@ def _value(name: str, value: Any, lang: str) -> str:
     return "" if value is None else str(value)
 
 
-def render(key: str | None, params: dict[str, Any] | None, lang: str) -> tuple[str, str] | None:
+def render(key: str | None, params: dict[str, Any] | None, lang: str,
+           calendar: str = "gregorian") -> tuple[str, str] | None:
     """(title, message) for ``lang``, or None when the row has no text key (an
-    older row: show its stored English)."""
+    older row: show its stored English). ``calendar``: the company's
+    (calendar_periods.company_calendar); dates follow it."""
     if not key:
         return None
     lang = lang if lang in LANGS else "en"
@@ -321,7 +342,7 @@ def render(key: str | None, params: dict[str, Any] | None, lang: str) -> tuple[s
         return None
     vals = {}
     for k, v in params.items():
-        said = _value(k, v, lang)
+        said = _value(k, v, lang, calendar)
         vals[k] = f"⁨{said}⁩" if lang in _RTL and said and k not in _UNISOLATED else said
     try:
         return text["title"][lang].format(**vals), text["message"][lang].format(**vals)

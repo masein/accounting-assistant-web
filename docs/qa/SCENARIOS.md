@@ -185,4 +185,19 @@ Each page is checked in Persian and English, at desktop 1280, tablet 768 and pho
 | K1 | A busy year [#290] | `scripts/perf_bench.py` on a scratch database: 20,000 journals, 2,500 sales invoices and 800 bills over 12 months, most paid, some part-paid, some credited, 100 parties | Every list and page fetch under 1 s, every report under 2 s (median of 3, warm). The month-end close pack, a download of a PDF, a workbook and the journal as CSV, under 4 s: most of it is laying out the PDF |
 | K2 | No query per row [#290] | `tests/test_list_performance.py` and `tests/test_report_performance.py`: count each endpoint's SQL statements on small books, then on five times the invoices (or four times the journals) | No endpoint's statement count grows with the books; the batched figures equal the one-invoice-at-a-time ones |
 
-**Run order:** A → B → C → D → E → F → G → H → J; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+## L. CFO and CEO receivables and payables (2026-10-06)
+
+Receivables are what customers owe: trade receivables and, in Iranian books, cheques received and not yet cleared. Payables are what the company owes its suppliers: trade payables and cheques issued and not yet cleared. VAT, prepayments, payroll and accruals are other balances. Each scenario reads CFO Mode, CEO Mode and `/brain/cfo/report`.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| L1 | An issued invoice counts once [#291] | Issue a sale of 11,000,000 and a bill of 5,500,000 | Receivables 11,000,000 and payables 5,500,000, the same as the trial balance's trade receivable and payable accounts. They were 22,000,000 and 11,000,000: each invoice was added to the ledger it had already posted to |
+| L2 | Part payments and credit notes [#291] | Pay 4,000,000 of the sale; credit 1,000,000 of it | Receivables 6,000,000 |
+| L3 | Drafts are not owed [#291] | Save a draft invoice of 3,000,000 | Receivables unchanged |
+| L4 | Books kept on a cash basis [#291] | An issued invoice that never posted its receivable (an older invoice), part-paid | Its open balance counts; once paid it drops out |
+| L5 | Older than a year [#291] | A sale issued 14 months ago, still unpaid | It counts. The 12-month window used to drop it |
+| L6 | One currency at a time [#291] | An IRR company with an unpaid USD 1,000 invoice | The IRR view leaves it out, the USD view shows 1,000, and the combined view counts its rial value. The USD amount used to be added to the rials as a raw number |
+| L7 | Only trade balances [#291] | VAT on a sale, a prepaid expense, a month's payroll liabilities; in Iranian books, a customer's cheque in hand and one at the bank, and a cheque issued to a supplier | VAT, the prepayment and payroll don't move either figure. The received cheques stay in receivables until they clear, and the issued cheque stays in payables |
+| L8 | Every place says the same [#291] | Read CFO Mode, CEO Mode, the CFO's answer to "cash leaks", and the receivables-growth insight | The same receivables and payables in all three; the insight measures the same accounts. Reading a report adds no accounts to the chart |
+
+**Run order:** A → B → C → D → E → F → G → H → J → L; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.

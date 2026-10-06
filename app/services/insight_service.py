@@ -647,26 +647,13 @@ def detect_statement_due(db: Session, today: date) -> list[Insight]:
 
 
 def detect_receivables_growth(db: Session, today: date) -> list[Insight]:
-    from app.services.cfo_intelligence import _resolve_code_map
+    # the same accounts as the CFO report's receivables (trade_codes), at base value
+    from app.services.cfo_intelligence import ledger_balance, trade_codes
 
-    ar_prefixes = _resolve_code_map(db)["ar"]
-
-    from sqlalchemy import or_
-
-    from app.models.account import Account
+    codes = trade_codes(db)["ar"]
 
     def balance(as_of: date) -> int:
-        # summed by the database: it read every line of the books into Python, twice
-        if not ar_prefixes:
-            return 0
-        return int(db.execute(
-            select(func.coalesce(func.sum(func.coalesce(TransactionLine.base_debit, 0)
-                                          - func.coalesce(TransactionLine.base_credit, 0)), 0))
-            .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-            .join(Account, Account.id == TransactionLine.account_id)
-            .where(Transaction.date <= as_of, Transaction.deleted_at.is_(None),
-                   or_(*[Account.code.like(f"{p}%") for p in ar_prefixes]))
-        ).scalar() or 0)
+        return ledger_balance(db, codes, None, as_of)
 
     now = balance(today)
     then = balance(today - timedelta(days=30))

@@ -221,27 +221,14 @@ def _month_key(d: date, cal: str = "gregorian") -> str:
     return month_key(d, cal)
 
 
-# Locale-specific account-code prefixes for the three "live" buckets the
-# CFO intelligence engine measures (cash on hand, AR for receivables risk,
-# AP for payables risk). Without this map every UK-locale install would
-# read £0 across the board because the Iranian default codes (1110,
-# 1112, 21xx) don't exist in the UK chart.
+# Locale-specific account-code prefixes for the monthly cash in / out the CFO
+# engine measures. Without this map every UK-locale install would read £0
+# because the Iranian default codes (1110) don't exist in the UK chart.
+# Receivables and payables come from the posting accounts (trade_codes).
 _CODE_MAP_BY_LOCALE: dict[str, dict[str, tuple[str, ...]]] = {
-    "ir": {
-        "cash": ("1110",),                  # موجودی نقد و بانک
-        "ar":   ("1112",),                  # دریافتنی‌های تجاری
-        "ap":   ("21",),                    # all 21xx current liabilities
-    },
-    "uk": {
-        "cash": ("1200", "1210", "1220"),   # bank current / deposit / petty cash
-        "ar":   ("1100", "1300", "1400"),   # trade debtors + prepayments + VAT receivable
-        "ap":   ("21",),                    # all 21xx creditors
-    },
-    "default": {
-        "cash": ("1110", "1200"),           # accept both common cash codes
-        "ar":   ("1100", "1112"),
-        "ap":   ("21",),
-    },
+    "ir": {"cash": ("1110",)},                  # موجودی نقد و بانک
+    "uk": {"cash": ("1200", "1210", "1220")},   # bank current / deposit / petty cash
+    "default": {"cash": ("1110", "1200")},      # accept both common cash codes
 }
 
 
@@ -268,6 +255,66 @@ def _resolve_currency_unit(db: Session, requested: str | None) -> str:
         return "IRR"
 
 
+def trade_codes(db: Session) -> dict[str, tuple[str, ...]]:
+    """The accounts behind Accounts Receivable and Payable: the trade accounts
+    invoices post to and, in Iranian books, cheques received or issued and not
+    yet cleared (§3.4) — owed until they clear. VAT, prepayments, payroll and
+    accruals are other balances (a UK company's receivables used to include its
+    prepayments and VAT, and every 21xx liability counted as payables)."""
+    from app.services.account_resolver import find_account_code
+
+    def pick(*categories: str) -> tuple[str, ...]:
+        return tuple(c for cat in categories if (c := find_account_code(db, cat)))
+    return {"ar": pick("ar", "notes_receivable", "cheques_in_collection"),
+            "ap": pick("ap", "notes_payable")}
+
+
+def ledger_balance(db: Session, codes: tuple[str, ...], currency: str | None, as_of: date) -> int:
+    """Debit − credit of ``codes`` and their sub-accounts up to ``as_of``: a
+    named currency's own amounts, else every currency at its base value."""
+    from sqlalchemy import or_
+
+    from app.models.account import Account
+    from app.services.reporting.repository import amount_columns, sums_base
+    if not codes:
+        return 0
+    dr, cr = amount_columns(currency)
+    q = (select(func.coalesce(func.sum(func.coalesce(dr, 0) - func.coalesce(cr, 0)), 0))
+         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+         .join(Account, Account.id == TransactionLine.account_id)
+         .where(Transaction.deleted_at.is_(None), Transaction.date <= as_of,
+                or_(*[Account.code.like(f"{c}%") for c in codes])))
+    if not sums_base(currency):
+        q = q.where(Transaction.currency == currency)
+    return int(db.execute(q).scalar() or 0)
+
+
+def _unposted_open(db: Session, kind: str, currency: str | None, as_of: date) -> int:
+    """What issued invoices that never posted their receivable or payable
+    still have open — books kept on a cash basis, invoices from before
+    recognition. The ledger doesn't hold them; recognised invoices are in it
+    already and used to be added a second time. Invoices carry no base value,
+    so the combined view takes the base currency's own."""
+    from app.api.invoices import totals_for
+    from app.services.fx_base import base_currency
+    from app.services.reporting.repository import sums_base
+    ccy = base_currency(db) if sums_base(currency) else currency.strip().upper()
+    rows = list(db.execute(select(Invoice).where(
+        Invoice.kind == kind, Invoice.transaction_id.is_(None), Invoice.currency == ccy,
+        Invoice.status.in_(("issued", "partially_paid")), Invoice.issue_date <= as_of)).scalars())
+    return sum(due for _paid, _credited, due in totals_for(db, rows).values())
+
+
+def trade_balances(db: Session, currency: str | None = None, as_of: date | None = None) -> tuple[int, int]:
+    """(receivables, payables) as of a date — the whole history, not the
+    report's 12-month window, so an old unpaid invoice still counts."""
+    as_of = as_of or date.today()
+    codes = trade_codes(db)
+    receivable = ledger_balance(db, codes["ar"], currency, as_of) + _unposted_open(db, "sales", currency, as_of)
+    payable = -ledger_balance(db, codes["ap"], currency, as_of) + _unposted_open(db, "purchase", currency, as_of)
+    return receivable, payable
+
+
 def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None = None) -> dict:
     cutoff = date.today() - timedelta(days=months_back * 31)
     # plain rows, not ORM objects: building 200,000 of them took ~5 s on a year
@@ -290,8 +337,6 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
     cash_prefixes = code_map["cash"]
     from app.services.calendar_periods import company_calendar
     cal = company_calendar(db)
-    ar_prefixes = code_map["ar"]
-    ap_prefixes = code_map["ap"]
 
     monthly_revenue: dict[str, int] = defaultdict(int)
     monthly_expense: dict[str, int] = defaultdict(int)
@@ -301,8 +346,6 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
     expense_code_by_cat: dict[str, str] = {}
     revenue_by_client: dict[str, int] = defaultdict(int)
     total_cash = 0
-    total_receivable_ledger = 0
-    total_payable_ledger = 0
 
     seen: set = set()
     months: dict = {}
@@ -330,27 +373,7 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
             else:
                 monthly_cash_out[month] += abs(delta)
 
-        if any(code.startswith(p) for p in ar_prefixes):
-            total_receivable_ledger += d - c
-        if any(code.startswith(p) for p in ap_prefixes):
-            total_payable_ledger += c - d
-
-    # Fold outstanding invoices into AR/AP. Without this an SME running
-    # cash-basis bookkeeping (sales recorded as cash receipts, not via
-    # AR) shows zero receivables even when they have a stack of unpaid
-    # invoices sitting in the invoices table. Cancelled and paid
-    # invoices are excluded.
-    outstanding_ar = db.execute(
-        select(func.coalesce(func.sum(Invoice.amount), 0))
-        .where(Invoice.kind == "sales", Invoice.status.in_(["issued", "draft"]))
-    ).scalar() or 0
-    outstanding_ap = db.execute(
-        select(func.coalesce(func.sum(Invoice.amount), 0))
-        .where(Invoice.kind == "purchase", Invoice.status.in_(["issued", "draft"]))
-    ).scalar() or 0
-
-    total_receivable = total_receivable_ledger + int(outstanding_ar)
-    total_payable = total_payable_ledger + int(outstanding_ap)
+    total_receivable, total_payable = trade_balances(db, currency)
 
     return {
         "monthly_revenue": monthly_revenue,

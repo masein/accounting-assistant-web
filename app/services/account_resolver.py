@@ -258,6 +258,20 @@ def resolve_account_code(db: Session, category: str, *, locale: str | None = Non
     )
 
 
+def find_account_code(db: Session, category: str, *, locale: str | None = None) -> str | None:
+    """resolve_account_code for readers: the code a posting of ``category``
+    would use (the locale's own, then the other locales'), or None when the
+    chart has none of them or the locale has no such category. Creates
+    nothing — a report must not add accounts to the chart."""
+    cat = category.strip().lower()
+    loc = (locale or get_reporting_locale(db) or "default").strip().lower()
+    table = POSTING_CODES.get(loc, POSTING_CODES["default"])
+    if cat not in table:
+        return None
+    candidates = [table[cat]] + [c for fb in _FALLBACK_ORDER if (c := POSTING_CODES[fb].get(cat)) and c != table[cat]]
+    return next((code for code in candidates if _code_exists(db, code)), None)
+
+
 def resolve_posting_accounts(db: Session, *, locale: str | None = None) -> dict[str, str]:
     """All posting categories resolved to codes for the active locale. Skips
     categories whose account isn't in the chart rather than raising, so a

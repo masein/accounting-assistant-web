@@ -20,7 +20,7 @@
       <span class="brand-logo" id="sidebar-brand-logo" aria-hidden="true">
         <span class="brand-monogram" id="sidebar-brand-monogram">C</span>
       </span>
-      <span class="brand-name" id="sidebar-company-name">—</span>
+      <bdi class="brand-name" id="sidebar-company-name">—</bdi>
       <button type="button" class="icon-btn sidebar-collapse" id="sidebar-collapse" aria-label="Collapse sidebar" style="width:30px;height:30px;border:none;background:transparent;">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
@@ -79,7 +79,7 @@
       </button>
       <h1 class="page-title" id="page-title">Dashboard</h1>
       <div class="topbar-right">
-        <span id="company-badge" style="display:none; font-size:0.8rem; font-weight:600; padding:0.2rem 0.7rem; border-radius:999px; background:var(--primary); color:#fff;"></span>
+        <bdi id="company-badge" style="display:none; font-size:0.8rem; font-weight:600; padding:0.2rem 0.7rem; border-radius:999px; background:var(--primary); color:#fff;"></bdi>
         <div class="user-menu notify-menu">
           <button type="button" class="icon-btn" id="notify-bell-btn" data-i18n-title="notifyBellTitle" title="Notifications" aria-label="Notifications" style="position:relative;">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
@@ -97,8 +97,8 @@
             </div>
             <div style="display:grid; grid-template-columns: 1fr 145px; gap:0.35rem; margin-bottom:0.35rem;">
               <input type="text" id="rem-new-title" data-i18n-placeholder="remNewPlaceholder" placeholder="New reminder…" style="font-size:0.85rem;">
-              <input type="date" id="rem-new-date" style="font-size:0.8rem;">
-              <select id="rem-new-repeat" style="font-size:0.8rem;">
+              <input type="date" id="rem-new-date" data-i18n-aria-label="remDateLabel" aria-label="Reminder date" style="font-size:0.8rem;">
+              <select id="rem-new-repeat" data-i18n-aria-label="remRepeatLabel" aria-label="Repeat" style="font-size:0.8rem;">
                 <option value="none" data-i18n="remRepeatNone">No repeat</option>
                 <option value="daily" data-i18n="remRepeatDaily">Daily</option>
                 <option value="weekly" data-i18n="remRepeatWeekly">Weekly</option>
@@ -115,7 +115,7 @@
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
           </button>
           <div class="user-pop" id="user-pop">
-            <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;"><span data-i18n="signedInAs">Signed in as</span> <strong id="topbar-user-name">—</strong></div>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;"><span data-i18n="signedInAs">Signed in as</span> <bdi><strong id="topbar-user-name">—</strong></bdi></div>
             <label for="topbar-language" data-i18n="languageLabel" style="font-size:0.78rem;">Language</label>
             <select id="topbar-language" style="margin-bottom:0.5rem;">
               <option value="en">English</option><option value="fa">فارسی</option>
@@ -2433,7 +2433,7 @@
       </p>
       <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom:0.85rem; flex-wrap:wrap;">
         <div style="font-size:0.9rem; color:var(--text-muted);">
-          <span id="settings-signed-prefix" data-i18n="signedInAs">Signed in as</span> <strong id="settings-user-name">-</strong>
+          <span id="settings-signed-prefix" data-i18n="signedInAs">Signed in as</span> <bdi><strong id="settings-user-name">-</strong></bdi>
           <span id="settings-user-role" style="margin-left:0.35rem; font-size:0.78rem; color:var(--primary);"></span>
           <button type="button" class="btn btn-secondary btn-sm" id="settings-whats-new-btn" data-i18n="btnWhatsNew" style="margin-inline-start:0.6rem;">What's new</button>
         </div>
@@ -2448,7 +2448,7 @@
         <div style="display:flex; gap:0.9rem; align-items:center; padding:0.8rem 1rem; margin-bottom:1rem; background:var(--primary); background:color-mix(in srgb, var(--primary) 6%, transparent); border:1px solid var(--border); border-radius:10px;">
           <span class="brand-logo" id="cp-sum-logo" aria-hidden="true"><span class="brand-monogram">C</span></span>
           <div style="min-width:0;">
-            <div id="cp-sum-name" style="font-weight:700; font-size:1.02rem;">—</div>
+            <div style="font-weight:700; font-size:1.02rem;"><bdi id="cp-sum-name">—</bdi></div>
             <div id="cp-sum-address" style="font-size:0.83rem; color:var(--text-muted);">—</div>
             <div id="cp-sum-taxid" style="font-size:0.82rem; color:var(--text-muted);"></div>
             <div id="cp-sum-contact" style="font-size:0.82rem; color:var(--text-muted);"></div>

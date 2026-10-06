@@ -1181,6 +1181,9 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 @media (max-width: 640px) {
   .card[data-page] input[type="checkbox"], .card[data-page] input[type="radio"] { width: 20px; height: 20px; }
   .card[data-page] label:has(> input[type="checkbox"]), .card[data-page] label:has(> input[type="radio"]) { min-height: 32px; display: inline-flex; align-items: center; gap: .4rem; }
+  /* a checkbox with no label row around it (a table row's pick, a field's box under its label) is the
+     whole target itself: 20 px was too small (open-state scan, 2026-10-06) */
+  .card[data-page] input[type="checkbox"]:not(label > input) { width: 28px; height: 28px; }
   .chip, .btn-sm, .il-del, .modal-close { min-height: 32px; min-width: 32px; }
   .chip { display: inline-flex; align-items: center; }
   /* the chat's session rename/delete, the password eye and a reminder's delete
@@ -1210,3 +1213,6 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 
 /* a wide table scrolls inside its own box rather than the page */
 .table-scroll { max-width: 100%; overflow-x: auto; }
+/* whatever holds a results table scrolls it sideways in place: on a phone the users table (584 px)
+   and the AI usage table (489 px) made Settings zoom out to 451 px (open-state scan, 2026-10-06) */
+:has(> table.results-table) { max-width: 100%; overflow-x: auto; }

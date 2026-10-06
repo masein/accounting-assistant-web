@@ -16,7 +16,7 @@ from tests_e2e.conftest import ARTIFACTS, switch_language
 
 PAGES = ["dashboard", "ai-accountant", "transactions", "invoices", "time", "expenses", "purchase-orders", "recurring",
          "commitments", "entities", "products", "inventory", "payroll", "equity", "fixed-assets", "petty-cash",
-         "bank-statements", "ledger", "manager", "audit", "migration", "accounts"]
+         "bank-statements", "ledger", "manager", "audit", "migration", "accounts", "settings"]
 
 
 @pytest.mark.parametrize("lang", ["en", "fa"])

@@ -250,8 +250,16 @@
       set('cp-sum-name', name);
       set('cp-sum-address', p.address);
       set('cp-sum-taxid', p.tax_id ? (t('cpTaxId') + ': ' + p.tax_id) : '');
-      const contact = [p.email, p.phone, p.website].filter(Boolean).join(' · ');
-      set('cp-sum-contact', contact);
+      // each one whole and in its own direction: a phone number broke as «021-» / «88776655»
+      const contactEl = document.getElementById('cp-sum-contact');
+      if (contactEl) {
+        const parts = [p.email, p.phone, p.website].filter(Boolean);
+        contactEl.replaceChildren(...parts.flatMap((v, i) => {
+          const b = document.createElement('bdi'); b.className = 'nowrap'; b.textContent = v;
+          return i ? [document.createTextNode(' · '), b] : [b];
+        }));
+        if (!parts.length) contactEl.textContent = '—';
+      }
       _setBrandLogo(document.getElementById('cp-sum-logo'), p.has_logo, name[0], p.brand_color);
     }
     async function loadCompanyBranding() {

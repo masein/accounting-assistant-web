@@ -33,9 +33,12 @@ python3 scripts/qa/results_md.py scripts/qa/out/results.jsonl > /tmp/results.md 
   | `qa_C.py`, `qa_C2.py` | C, bookkeeping |
   | `qa_D.py` | D, reports, plus E chat and migration |
   | `qa_G.py` | G (UK), H (personal) |
-  | `qa_I.py` | I, every page × language × size |
+  | `qa_I.py` | I, every page × language × size, with its sections open; I11, the bell's panel and the account menu open |
 
   Later groups read the ids that earlier ones saved in `out/state.json`, so run them in order.
+- A page's sections fetch what they show when they open: `settle(page)` waits for the page's own requests in flight
+  (counted by an init script), since `networkidle` returns at once once a page has been idle. `ux(..., scope="#id")`
+  scans one open popup instead of the whole screen again.
 - Output goes to `scripts/qa/out/` (git-ignored):
   - `results.jsonl`: one line per scenario, PASS or FAIL with notes;
   - `findings.jsonl`: the automated UI checks (I1–I9);

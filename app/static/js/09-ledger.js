@@ -23,7 +23,8 @@
       const topDebit = [...rows].sort((a, b) => (b.debit_turnover || 0) - (a.debit_turnover || 0))[0];
       const topCredit = [...rows].sort((a, b) => (b.credit_turnover || 0) - (a.credit_turnover || 0))[0];
       // "1200 — Bank current account" instead of a bare account code.
-      const acctLabel = (r) => r ? escapeHtml(r.account_code + (r.account_name ? ' — ' + r.account_name : '')) : '—';
+      // isolated: a code and a Latin name keep their order in RTL text
+      const acctLabel = (r) => r ? '<bdi>' + escapeHtml(r.account_code + (r.account_name ? ' — ' + r.account_name : '')) + '</bdi>' : '—';
       ledgerKpisEl.innerHTML = `
         <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiShown'))}</div><div class="v">${formatNum(rows.length)}</div></div>
         <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiActive'))}</div><div class="v">${formatNum(active)}</div></div>

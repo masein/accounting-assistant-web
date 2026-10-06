@@ -2074,6 +2074,8 @@ window.I18N_PACKS.es = Object.assign({
         tlCreditSupplier: 'El proveedor nos debe: {amount}',
         tlRefund: 'Saldo reembolsado: {amount}',
         tlCreditUsed: 'Saldo usado en la factura {number}: {amount}',
+        remPause: 'Pausar recordatorio',
+        remResume: 'Reanudar recordatorio',
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

@@ -6,11 +6,12 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.messages import said
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.invoice import Invoice
@@ -85,6 +86,7 @@ def write_settings(payload: SettingsUpdate, db: Session = Depends(get_db)) -> di
 def list_invoices(
     state: str = Query("pending", description="pending | exported | confirmed | rejected | all"),
     date_from: date | None = None, date_to: date | None = None,
+    request: Request = None,
     db: Session = Depends(get_db),
 ) -> dict:
     if state not in STATES:
@@ -101,24 +103,24 @@ def list_invoices(
         q = q.where(Invoice.issue_date <= date_to)
     today = date.today()
     rows = [_row(db, inv, today) for inv in db.execute(q).scalars().all()]
-    return {"settings": get_settings(db), "invoices": rows,
-            "overdue": sum(1 for r in rows if r["moadian_status"] is None and r["days_left"] < 0)}
+    return said({"settings": get_settings(db), "invoices": rows,
+                 "overdue": sum(1 for r in rows if r["moadian_status"] is None and r["days_left"] < 0)}, request)
 
 
 @router.get("/invoices/{invoice_id}/preview")
-def preview(invoice_id: UUID, db: Session = Depends(get_db)) -> dict:
+def preview(invoice_id: UUID, request: Request = None, db: Session = Depends(get_db)) -> dict:
     """The packet as it would be exported. An invoice that was exported
     before shows its real tax number; otherwise the number is provisional."""
     inv = _load(db, invoice_id)
     serial = inv.moadian_serial or builder.next_serial(db)
     b = builder.build(db, inv, serial=serial)
-    return {"packet": {k: v for k, v in (b.packet or {}).items() if k != "_meta"},
-            "provisional": inv.moadian_serial is None, "ready": b.ready,
-            "problems": b.problems, "warnings": b.warnings}
+    return said({"packet": {k: v for k, v in (b.packet or {}).items() if k != "_meta"},
+                 "provisional": inv.moadian_serial is None, "ready": b.ready,
+                 "problems": b.problems, "warnings": b.warnings}, request)
 
 
 @router.post("/export")
-def export(payload: ExportRequest, db: Session = Depends(get_db)) -> dict:
+def export(payload: ExportRequest, request: Request = None, db: Session = Depends(get_db)) -> dict:
     """Build the packets for the chosen invoices. Each exported invoice gets
     its serial (once, for good) and 22-char tax number and is marked
     ``exported``. Invoices with problems, or already confirmed, are skipped
@@ -154,11 +156,11 @@ def export(payload: ExportRequest, db: Session = Depends(get_db)) -> dict:
                         detail=f"{len(index)} invoice(s) exported for سامانه مودیان: "
                                + ", ".join(x["number"] for x in index)[:900])
     db.commit()
-    return {
+    return said({
         "file_name": f"moadian-{now.strftime('%Y%m%d-%H%M%S')}.json",
         "generated_at": now.isoformat(), "count": len(packets),
         "packets": packets, "invoices": index, "skipped": skipped,
-    }
+    }, request)
 
 
 @router.patch("/invoices/{invoice_id}")

@@ -15,12 +15,13 @@ import json
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.messages import request_language, say_all
 from app.core.http_headers import content_disposition
 from app.core.spreadsheet import CSV_MEDIA_TYPE, csv_bytes, csv_writer
 from app.db.session import get_db
@@ -659,7 +660,8 @@ def hours_summary(
 
 
 @router.post("/runs/{run_id}/pay")
-def pay_run(run_id: UUID, bank_account_code: str | None = None, db: Session = Depends(get_db)) -> dict:
+def pay_run(run_id: UUID, bank_account_code: str | None = None, db: Session = Depends(get_db),
+            request: Request = None) -> dict:
     """Settle net pay from the bank (separate confirm). DR net-pay payable / CR bank."""
     run = db.get(PayRun, run_id)
     if not run:
@@ -713,7 +715,7 @@ def pay_run(run_id: UUID, bank_account_code: str | None = None, db: Session = De
     db.commit()
     db.refresh(run)
     out = _run_read(run)
-    out["warnings"] = warnings
+    out["warnings"] = say_all(warnings, request_language(request.headers) if request is not None else "en")
     return out
 
 

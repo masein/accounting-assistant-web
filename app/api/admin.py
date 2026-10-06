@@ -1,7 +1,7 @@
 """Admin endpoints: AI settings, reset database, user management."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from uuid import UUID
 from sqlalchemy import delete
@@ -17,6 +17,7 @@ from app.core.auth import (
     validate_password_strength,
     require_superadmin,
 )
+from app.core.messages import said
 from app.core.permissions import ALL_ROLES, Role
 from app.services.audit_service import log_audit_event
 import json as _json
@@ -195,10 +196,10 @@ def _rate_feeds_read(db: Session) -> dict:
 
 
 @router.get("/rate-feeds")
-def get_rate_feeds(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+def get_rate_feeds(request: Request, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
     """The daily rate sources (feed URLs shown with their keys hidden) and the
     last run."""
-    return _rate_feeds_read(db)
+    return said(_rate_feeds_read(db), request)
 
 
 @router.put("/rate-feeds")
@@ -214,14 +215,14 @@ def put_rate_feeds(payload: RateFeedsPayload, db: Session = Depends(get_db),
 
 
 @router.post("/rate-feeds/run")
-def run_rate_feeds(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+def run_rate_feeds(request: Request, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
     """Fetch every configured source now, even while the daily run is off."""
     from app.services import rate_feeds
     status = rate_feeds.run_all(db, force=True)
     db.commit()
     from app.services.fx_base import fill_pending_all_companies
     status["base_amounts"] = fill_pending_all_companies(db)
-    return status
+    return said(status, request)                 # a feed's errors in the page's language (#53)
 
 
 @router.post("/rate-feeds/test")

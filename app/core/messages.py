@@ -508,6 +508,34 @@ EXACT: dict[str, dict[str, str]] = {
     'Withholdings exceed gross pay — check the tax/deduction rates.': {"fa": 'کسورات از حقوق ناخالص بیشتر است؛ نرخ‌های مالیات و کسور را بررسی کنید.', "es": 'Las retenciones superan el bruto: revisa los tipos de impuestos y deducciones.', "ar": 'الاستقطاعات تتجاوز الأجر الإجمالي — راجع معدلات الضريبة والاستقطاع.'},
     'Every feed needs a name.': {"fa": 'هر منبع نرخ به نام نیاز دارد.', "es": 'Cada fuente necesita un nombre.', "ar": 'يحتاج كل مصدر إلى اسم.'},
     'The hour is 0–23.': {"fa": 'ساعت بین ۰ تا ۲۳ است.', "es": 'La hora va de 0 a 23.', "ar": 'الساعة من 0 إلى 23.'},
+    # lists a page shows as they come (retest 2, 2026-10-02, #53): an invoice's
+    # Moadian problems, a bank SMS it couldn't read, a statement's analysis,
+    # an import's errors
+    'No transaction rows could be read from this statement.': {"fa": 'هیچ ردیف تراکنشی از این صورتحساب خوانده نشد.', "es": 'No se pudo leer ninguna fila de movimientos de este extracto.', "ar": 'تعذّرت قراءة أي صف معاملات من هذا الكشف.'},
+    "The PDF password isn't right.": {"fa": 'رمز PDF درست نیست.', "es": 'La contraseña del PDF no es correcta.', "ar": 'كلمة مرور ملف PDF غير صحيحة.'},
+    'This PDF is password-protected.': {"fa": 'این PDF رمز دارد.', "es": 'Este PDF está protegido con contraseña.', "ar": 'ملف PDF هذا محمي بكلمة مرور.'},
+    'File is empty': {"fa": 'فایل خالی است', "es": 'El archivo está vacío', "ar": 'الملف فارغ'},
+    'No active sheet found': {"fa": 'هیچ برگهٔ فعالی در فایل نیست', "es": 'No se encontró ninguna hoja activa', "ar": 'لم يُعثر على ورقة نشطة'},
+    'Import has blocking errors': {"fa": 'ورود اطلاعات خطاهای مانع دارد', "es": 'La importación tiene errores que la bloquean', "ar": 'في الاستيراد أخطاء تمنعه'},
+    'Invoice not found.': {"fa": 'فاکتور پیدا نشد.', "es": 'Factura no encontrada.', "ar": 'الفاتورة غير موجودة.'},
+    'Already confirmed by سامانه مودیان; send a corrective invoice instead.': {"fa": 'سامانه مودیان این فاکتور را تأیید کرده است؛ به جای آن صورتحساب اصلاحی بفرستید.', "es": 'Ya confirmada por el sistema Moadian (سامانه مودیان); envía una factura rectificativa.', "ar": 'أكّدها نظام مؤديان (سامانه مودیان) بالفعل؛ أرسل فاتورة تصحيحية بدلًا منها.'},
+    'Only sales invoices go to سامانه مودیان.': {"fa": 'فقط فاکتورهای فروش به سامانه مودیان ارسال می‌شوند.', "es": 'Solo las facturas de venta se envían al sistema Moadian (سامانه مودیان).', "ar": 'تُرسل فواتير المبيعات فقط إلى نظام مؤديان (سامانه مودیان).'},
+    "Enter the company's tax memory id (شناسه یکتای حافظه مالیاتی) in the مودیان settings.": {"fa": 'شناسه یکتای حافظه مالیاتی شرکت را در تنظیمات مودیان وارد کنید.', "es": 'Introduce el identificador de memoria fiscal de la empresa (شناسه یکتای حافظه مالیاتی) en los ajustes de Moadian.', "ar": 'أدخل معرّف الذاكرة الضريبية للشركة (شناسه یکتای حافظه مالیاتی) في إعدادات مؤديان.'},
+    "Add the company's economic code (شماره اقتصادی) or national id to the company profile.": {"fa": 'کد اقتصادی یا شناسه ملی شرکت را در مشخصات شرکت وارد کنید.', "es": 'Añade el código económico (شماره اقتصادی) o el identificador nacional en el perfil de la empresa.', "ar": 'أضف الرمز الاقتصادي للشركة (شماره اقتصادی) أو معرّفها الوطني إلى ملف الشركة.'},
+    'The customer has no national id or economic code, so this goes as نوع دوم (type 2).': {"fa": 'مشتری شناسه ملی یا کد اقتصادی ندارد؛ این فاکتور از نوع دوم ارسال می‌شود.', "es": 'El cliente no tiene identificador nacional ni código económico, así que se envía como tipo 2 (نوع دوم).', "ar": 'ليس للعميل معرّف وطني ولا رمز اقتصادي، لذا تُرسل هذه الفاتورة من النوع الثاني (نوع دوم).'},
+    "The customer's national id must be 10 digits (person) or 11 digits (company).": {"fa": 'شناسه ملی مشتری باید ۱۰ رقم (شخص حقیقی) یا ۱۱ رقم (شخص حقوقی) باشد.', "es": 'El identificador nacional del cliente debe tener 10 dígitos (persona) u 11 (empresa).', "ar": 'يجب أن يتكون المعرّف الوطني للعميل من 10 أرقام (فرد) أو 11 رقمًا (شركة).'},
+    "The customer's postal code must be 10 digits.": {"fa": 'کد پستی مشتری باید ۱۰ رقم باشد.', "es": 'El código postal del cliente debe tener 10 dígitos.', "ar": 'يجب أن يتكون الرمز البريدي للعميل من 10 أرقام.'},
+    'The customer has no postal code.': {"fa": 'مشتری کد پستی ندارد.', "es": 'El cliente no tiene código postal.', "ar": 'ليس للعميل رمز بريدي.'},
+    'This invoice has credit notes; send them as return invoices (برگشت از فروش) separately.': {"fa": 'این فاکتور برگ بستانکار دارد؛ آن‌ها را جداگانه به‌صورت صورتحساب برگشت از فروش ارسال کنید.', "es": 'Esta factura tiene notas de crédito; envíalas por separado como facturas de devolución (برگشت از فروش).', "ar": 'لهذه الفاتورة إشعارات دائنة؛ أرسلها منفصلة كفواتير مرتجعات مبيعات (برگشت از فروش).'},
+    'empty message': {"fa": 'پیام خالی است', "es": 'mensaje vacío', "ar": 'رسالة فارغة'},
+    'no amount found': {"fa": 'مبلغی پیدا نشد', "es": 'no se encontró ningún importe', "ar": 'لم يُعثر على مبلغ'},
+    'could not tell money in from money out': {"fa": 'معلوم نشد واریز است یا برداشت', "es": 'no se pudo saber si es un ingreso o un cargo', "ar": 'تعذّر معرفة ما إذا كان إيداعًا أم سحبًا'},
+    'no date found': {"fa": 'تاریخی پیدا نشد', "es": 'no se encontró ninguna fecha', "ar": 'لم يُعثر على تاريخ'},
+    'Could not detect required columns (date and amount)': {"fa": 'ستون‌های لازم (تاریخ و مبلغ) پیدا نشد', "es": 'No se encontraron las columnas necesarias (fecha e importe)', "ar": 'تعذّر العثور على الأعمدة المطلوبة (التاريخ والمبلغ)'},
+    'openpyxl not installed — cannot parse Excel files': {"fa": 'خواندن فایل اکسل روی این سرور ممکن نیست (openpyxl نصب نیست)', "es": 'No se pueden leer archivos de Excel en este servidor (openpyxl no está instalado)', "ar": 'لا يمكن قراءة ملفات Excel على هذا الخادم (openpyxl غير مثبّت)'},
+    'No recognizable chart files uploaded': {"fa": 'هیچ فایل سرفصل حساب قابل‌تشخیصی بارگذاری نشد', "es": 'No se subió ningún archivo de plan de cuentas reconocible', "ar": 'لم يُرفع أي ملف دليل حسابات يمكن التعرّف عليه'},
+    'These exact files were already imported — confirming again re-applies as an update (no duplicates).': {"fa": 'همین فایل‌ها قبلاً وارد شده‌اند؛ تأیید دوباره آن‌ها را به‌روز می‌کند و چیزی تکراری نمی‌شود.', "es": 'Estos mismos archivos ya se importaron; confirmar de nuevo los aplica como actualización (sin duplicados).', "ar": 'سبق استيراد هذه الملفات نفسها؛ التأكيد مرة أخرى يطبّقها كتحديث (دون تكرار).'},
+    'Negative operating cash flow — the business is consuming cash from operations.': {"fa": 'جریان نقد عملیاتی منفی است؛ کسب‌وکار از محل عملیات نقد مصرف می‌کند.', "es": 'Flujo de caja operativo negativo: el negocio consume efectivo en sus operaciones.', "ar": 'التدفق النقدي التشغيلي سالب؛ النشاط يستهلك النقد من عملياته.'},
 }
 
 # an invoice's status / kind as a reader says it
@@ -519,6 +547,9 @@ _INVOICE_STATUS = {
     "ar": {"draft": "مسودة", "issued": "صادرة", "partially_paid": "مدفوعة جزئياً", "paid": "مدفوعة", "void": "ملغاة",
            "voided": "ملغاة", "canceled": "ملغاة", "credited": "مُرتجعة"},
 }
+_CHART_TIER = {"fa": {"group": "گروه", "kol": "کل", "moein": "معین", "tafsili": "تفصیلی"},
+               "es": {"group": "grupo", "kol": "mayor (کل)", "moein": "subcuenta (معین)", "tafsili": "detalle (تفصیلی)"},
+               "ar": {"group": "مجموعة", "kol": "الأستاذ (کل)", "moein": "المساعد (معین)", "tafsili": "التفصيلي (تفصیلی)"}}
 _INVOICE_KIND = {"fa": {"Sales": "فروش", "Purchase": "خرید"}, "es": {"Sales": "venta", "Purchase": "compra"},
                  "ar": {"Sales": "مبيعات", "Purchase": "مشتريات"}}
 
@@ -602,6 +633,8 @@ class _Pattern:
         for name, raw in m.groupdict().items():
             if name in self.nested:
                 said = localize_detail(raw, lang)
+                if said == raw and "; " in raw:      # several messages, joined
+                    said = "; ".join(localize_detail(part, lang) for part in raw.split("; "))
             else:
                 said = self.values.get(name, {}).get(lang, {}).get(raw, raw)
             parts[name] = _iso(said, lang)
@@ -938,6 +971,89 @@ PATTERNS: list[_Pattern] = [
     _Pattern(r"^(?P<name>[^:]+): the feed URL must be https\.$",
              {"fa": "{name}: نشانی منبع باید https باشد.", "es": "{name}: la URL de la fuente debe ser https.",
               "ar": "{name}: يجب أن يكون عنوان المصدر https."}),
+    _Pattern(r"^No transaction rows could be read from this statement\. (?P<why>.+)$",
+             {"fa": "هیچ ردیف تراکنشی از این صورتحساب خوانده نشد. {why}", "es": "No se pudo leer ninguna fila de movimientos de este extracto. {why}",
+              "ar": "تعذّرت قراءة أي صف معاملات من هذا الكشف. {why}"}, nested=("why",)),
+    _Pattern(r"^This file was already imported on (?P<on>\S+) as '(?P<name>.*)'\.$",
+             {"fa": "این فایل در {on} با نام «{name}» وارد شده است.", "es": "Este archivo ya se importó el {on} como «{name}».",
+              "ar": "سبق استيراد هذا الملف في {on} باسم «{name}»."}),
+    # lists a page shows as they come (retest 2, 2026-10-02, #53)
+    _Pattern(r"^A (?P<status>\w+) invoice can't be sent; issue it first\.$",
+             {"fa": "فاکتور {status} قابل ارسال نیست؛ ابتدا آن را صادر کنید.", "es": "Una factura {status} no se puede enviar; emítela primero.",
+              "ar": "لا يمكن إرسال فاتورة {status}؛ أصدِرها أولًا."}, values={"status": _INVOICE_STATUS}),
+    _Pattern(r"^A (?P<status>\w+) invoice can't be sent\.$",
+             {"fa": "فاکتور {status} قابل ارسال نیست.", "es": "Una factura {status} no se puede enviar.", "ar": "لا يمكن إرسال فاتورة {status}."},
+             values={"status": _INVOICE_STATUS}),
+    _Pattern(r"^Only rial invoices are supported in this export \(this one is (?P<cur>[^)]*)\)\.$",
+             {"fa": "در این خروجی فقط فاکتورهای ریالی پشتیبانی می‌شوند (این فاکتور {cur} است).",
+              "es": "Esta exportación solo admite facturas en riales (esta es en {cur}).", "ar": "يدعم هذا التصدير الفواتير بالريال فقط (هذه بعملة {cur})."}),
+    _Pattern(r"^Line (?P<n>\d+) \((?P<title>.*)\): no 13-digit goods/service id \(شناسه کالا/خدمت\) and no default set\.$",
+             {"fa": "ردیف {n} ({title}): شناسه ۱۳ رقمی کالا/خدمت ندارد و پیش‌فرضی هم تعیین نشده است.",
+              "es": "Línea {n} ({title}): sin identificador de bien/servicio de 13 dígitos (شناسه کالا/خدمت) ni uno predeterminado.",
+              "ar": "السطر {n} ({title}): لا يوجد معرّف سلعة/خدمة من 13 رقمًا (شناسه کالا/خدمت) ولا قيمة افتراضية."}),
+    _Pattern(r"^Line (?P<n>\d+) \((?P<title>.*)\): no measurement-unit code and no default set\.$",
+             {"fa": "ردیف {n} ({title}): کد واحد اندازه‌گیری ندارد و پیش‌فرضی هم تعیین نشده است.",
+              "es": "Línea {n} ({title}): sin código de unidad de medida ni uno predeterminado.",
+              "ar": "السطر {n} ({title}): لا يوجد رمز لوحدة القياس ولا قيمة افتراضية."}),
+    _Pattern(r"^Line (?P<n>\d+) \((?P<title>.*)\): quantity × unit price \((?P<a>[^)]*)\) differs from the line total \((?P<b>[^)]*)\)\.$",
+             {"fa": "ردیف {n} ({title}): مقدار × قیمت واحد ({a}) با جمع ردیف ({b}) برابر نیست.",
+              "es": "Línea {n} ({title}): cantidad × precio unitario ({a}) no coincide con el total de la línea ({b}).",
+              "ar": "السطر {n} ({title}): الكمية × سعر الوحدة ({a}) لا تساوي مجموع السطر ({b})."}),
+    _Pattern(r"^Line totals \((?P<a>[^)]*)\) do not add up to the invoice amount \((?P<b>[^)]*)\)\.$",
+             {"fa": "جمع ردیف‌ها ({a}) با مبلغ فاکتور ({b}) برابر نیست.", "es": "La suma de las líneas ({a}) no coincide con el importe de la factura ({b}).",
+              "ar": "مجموع السطور ({a}) لا يساوي مبلغ الفاتورة ({b})."}),
+    _Pattern(r"^Duplicate tier '(?P<kind>[^']*)': (?P<file>.+)$",
+             {"fa": "سطح تکراری «{kind}»: {file}", "es": "Nivel repetido «{kind}»: {file}", "ar": "مستوى مكرر «{kind}»: {file}"},
+             values={"kind": _CHART_TIER}),
+    _Pattern(r"^Duplicate code (?P<code>\S+) in (?P<kind>\w+) file$",
+             {"fa": "کد تکراری {code} در فایل {kind}", "es": "Código repetido {code} en el archivo de {kind}", "ar": "رمز مكرر {code} في ملف {kind}"},
+             values={"kind": _CHART_TIER}),
+    _Pattern(r"^(?P<n>\d+) counterparties have no معین link — defaulting to client, flagged for review$",
+             {"fa": "{n} طرف حساب به معین وصل نیستند؛ مشتری فرض شدند و برای بررسی علامت خوردند",
+              "es": "{n} contrapartes no tienen vínculo con un معین: se toman como clientes y quedan marcadas para revisión",
+              "ar": "{n} من الأطراف بلا ربط بحساب معين (معین)؛ اعتُبرت عملاء ووُضعت عليها علامة للمراجعة"}),
+    _Pattern(r"^Opening balances are out of balance by (?P<d>\S+) — the difference will post to the suspense account (?P<code>\S+) \((?P<name>.*)\)$",
+             {"fa": "مانده‌های افتتاحیه {d} با هم تراز نیستند؛ اختلاف به حساب معلق {code} ({name}) ثبت می‌شود",
+              "es": "Los saldos de apertura están descuadrados en {d}; la diferencia irá a la cuenta transitoria {code} ({name})",
+              "ar": "الأرصدة الافتتاحية غير متوازنة بمقدار {d}؛ سيُرحّل الفرق إلى الحساب المعلّق {code} ({name})"}),
+    _Pattern(r"^Voucher (?P<v>\S+): could not determine date \(day code: (?P<c>[^)]*)\)$",
+             {"fa": "سند {v}: تاریخ مشخص نشد (کد روز: {c})", "es": "Asiento {v}: no se pudo determinar la fecha (código de día: {c})",
+              "ar": "القيد {v}: تعذّر تحديد التاريخ (رمز اليوم: {c})"}),
+    _Pattern(r"^Voucher (?P<v>\S+): unbalanced \(debit=(?P<d>[^,]*), credit=(?P<c>[^)]*)\)$",
+             {"fa": "سند {v}: تراز نیست (بدهکار {d}، بستانکار {c})", "es": "Asiento {v}: descuadrado (debe {d}, haber {c})",
+              "ar": "القيد {v}: غير متوازن (مدين {d}، دائن {c})"}),
+    _Pattern(r"^Voucher (?P<v>[^,]+), row (?P<r>\S+): no account mapping for \[(?P<path>.*)\]$",
+             {"fa": "سند {v}، ردیف {r}: برای [{path}] حسابی نگاشت نشده است", "es": "Asiento {v}, fila {r}: sin cuenta asignada para [{path}]",
+              "ar": "القيد {v}، الصف {r}: لا يوجد حساب مقابل لـ [{path}]"}),
+    _Pattern(r"^(?P<code>\S+): (?P<n>\d+) (?P<fc>[A-Z]{3}) entr(?:y has|ies have) no rate yet — add a (?P<fc2>[A-Z]{3})→(?P<base>[A-Z]{3}) rate for (?:its|their) date first$",
+             {"fa": "{code}: {n} ردیف {fc} هنوز نرخ ندارد؛ اول برای تاریخش نرخ {fc2}→{base} را وارد کنید",
+              "es": "{code}: {n} movimiento(s) en {fc} aún sin tipo de cambio; añade primero un tipo {fc2}→{base} para su fecha",
+              "ar": "{code}: {n} من قيود {fc} بلا سعر صرف بعد؛ أضف أولًا سعر {fc2}→{base} لتاريخها"},
+             example="1210: 2 USD entries have no rate yet — add a USD→IRR rate for their date first"),
+    _Pattern(r"^Missing rate (?P<fc>\S+)->(?P<base>\S+) on/before (?P<on>\S+) for account (?P<code>\S+)$",
+             {"fa": "نرخ {fc}→{base} تا تاریخ {on} برای حساب {code} موجود نیست", "es": "Falta el tipo {fc}->{base} en o antes del {on} para la cuenta {code}",
+              "ar": "لا يوجد سعر {fc}->{base} في {on} أو قبله للحساب {code}"}),
+    _Pattern(r"^(?P<name>.+): no bank account on file — add their bank details on the entity so payslips show the destination\.$",
+             {"fa": "{name}: حساب بانکی ثبت نشده است؛ مشخصات بانکی را در پروندهٔ شخص وارد کنید تا مقصد در فیش حقوقی بیاید.",
+              "es": "{name}: no hay cuenta bancaria registrada; añade sus datos bancarios en la ficha para que la nómina muestre el destino.",
+              "ar": "{name}: لا يوجد حساب بنكي مسجّل؛ أضف بياناته البنكية في ملفه ليظهر الحساب في قسيمة الراتب."}),
+    _Pattern(r"^(?P<unit>[^:]+): nothing at (?P<path>.+)$",
+             {"fa": "{unit}: در مسیر {path} چیزی نیست", "es": "{unit}: no hay nada en {path}", "ar": "{unit}: لا شيء في {path}"}),
+    _Pattern(r"^Asset concentration: (?P<name>.*) \((?P<code>[^)]*)\) represents (?P<pct>\S+) of total assets\.$",
+             {"fa": "تمرکز دارایی: {name} ({code}) {pct} از کل دارایی‌هاست.", "es": "Concentración de activos: {name} ({code}) representa el {pct} del total de activos.",
+              "ar": "تركّز الأصول: {name} ({code}) يمثّل {pct} من إجمالي الأصول."}),
+    _Pattern(r"^Low liquidity: current ratio is (?P<r>\S+) \(below 1\.0\)\.$",
+             {"fa": "نقدشوندگی پایین: نسبت جاری {r} است (کمتر از ۱).", "es": "Liquidez baja: la razón corriente es {r} (por debajo de 1,0).",
+              "ar": "سيولة منخفضة: النسبة الجارية {r} (أقل من 1.0)."}),
+    _Pattern(r"^High leverage: debt-to-equity ratio is (?P<r>\S+)\.$",
+             {"fa": "اهرم مالی بالا: نسبت بدهی به حقوق صاحبان سهام {r} است.", "es": "Apalancamiento alto: la razón deuda/patrimonio es {r}.",
+              "ar": "رافعة مالية مرتفعة: نسبة الدين إلى حقوق الملكية {r}."}),
+    _Pattern(r"^Net loss: margin is (?P<m>\S+)%\.$",
+             {"fa": "زیان خالص: حاشیه {m}٪ است.", "es": "Pérdida neta: el margen es {m} %.", "ar": "خسارة صافية: الهامش {m}٪."}),
+    _Pattern(r"^Low gross margin at (?P<m>\S+)%\.$",
+             {"fa": "حاشیه سود ناخالص پایین: {m}٪.", "es": "Margen bruto bajo: {m} %.", "ar": "هامش ربح إجمالي منخفض: {m}٪."}),
+    _Pattern(r"^Net cash decreased by (?P<n>\S+)\.$",
+             {"fa": "وجه نقد خالص {n} کاهش یافت.", "es": "El efectivo neto disminuyó en {n}.", "ar": "انخفض صافي النقد بمقدار {n}."}),
 ]
 
 
@@ -981,6 +1097,52 @@ def localize_detail(detail, lang: str, *, jalali: bool = False):
                     said = p.render(m, lang)
                     break
     return _jalali_dates(said) if jalali else said
+
+
+# A page shows these lists as they come: an invoice's Moadian problems, a bank
+# SMS it couldn't read, a statement's analysis, an import's errors (they reached
+# Persian pages in English — retest 2, 2026-10-02, #53).
+SHOWN_LISTS = ("problems", "warnings", "errors")
+
+
+def say_all(items, lang: str, *, jalali: bool = False) -> list:
+    """Each message of a list in ``lang``; anything not a message as it is."""
+    return [localize_detail(x, lang, jalali=jalali) for x in (items or [])]
+
+
+def localize_lists(value, lang: str, *, jalali: bool = False):
+    """``value`` with every ``problems`` / ``warnings`` / ``errors`` list in it
+    said in ``lang``, however deep (an export's skipped invoices carry their
+    own problems); everything else as it is."""
+    if lang == "en" and not jalali:
+        return value
+    if isinstance(value, dict):
+        return {k: (say_all(v, lang, jalali=jalali) if k in SHOWN_LISTS and isinstance(v, list)
+                    else localize_lists(v, lang, jalali=jalali)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [localize_lists(v, lang, jalali=jalali) for v in value]
+    return value
+
+
+def said(value, request, db=None):
+    """A response with its shown lists in the request's language (a dict, a
+    Pydantic model or a plain list of messages); with ``db``, a date in them is
+    written in the company's calendar."""
+    lang = request_language(request.headers) if request is not None else "en"
+    jalali = False
+    if db is not None and _ISO_DATE.search(str(value.model_dump() if hasattr(value, "model_dump") else value)):
+        try:
+            from app.services.locale_service import get_display_calendar
+            jalali = get_display_calendar(db) == "jalali"
+        except Exception:  # noqa: BLE001 — a message never fails over the calendar
+            jalali = False
+    if lang == "en" and not jalali:
+        return value
+    if hasattr(value, "model_dump"):
+        return type(value).model_validate(localize_lists(value.model_dump(), lang, jalali=jalali))
+    if isinstance(value, list):
+        return say_all(value, lang, jalali=jalali)
+    return localize_lists(value, lang, jalali=jalali)
 
 
 def request_language(headers: Mapping[str, str]) -> str:

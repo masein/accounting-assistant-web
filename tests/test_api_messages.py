@@ -19,6 +19,23 @@ REFUSERS = {"_refuse"}
 # a statement row's problem, "Row {n}: {reason}" (app/api/brain.py): the reason
 # is the second argument, and is a message itself
 ROW_ERRORS = {"_row_error"}
+# lists of messages a page shows as they come: an invoice's Moadian problems, a
+# bank SMS it couldn't read, a statement's warnings, an import's errors — they
+# reached Persian pages in English (retest 2, 2026-10-02, #53)
+SHOWN_LISTS = {"problems", "warnings", "errors"}
+NOT_SHOWN = ("ai_eval",)          # the AI eval's report, for developers
+
+
+def _list_name(func) -> str | None:
+    """``problems`` in ``problems.append``, ``b.problems.append`` or ``out["problems"].append``."""
+    v = func.value
+    if isinstance(v, ast.Name):
+        return v.id
+    if isinstance(v, ast.Attribute):
+        return v.attr
+    if isinstance(v, ast.Subscript) and isinstance(v.slice, ast.Constant):
+        return v.slice.value
+    return None
 
 
 def _raised_details() -> tuple[set[str], list[str]]:
@@ -43,8 +60,25 @@ def _raised_details() -> tuple[set[str], list[str]]:
             (shapes.append(s) if "\x00" in s else literal.add(s))
 
     for path in APP.rglob("*.py"):
+        shown = not any(part in path.parts for part in NOT_SHOWN)
         for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             name = getattr(n.func, "id", getattr(n.func, "attr", None)) if isinstance(n, ast.Call) else None
+            if name == "append" and shown and n.args and _list_name(n.func) in SHOWN_LISTS:
+                keep(n.args[0])
+            if name == "localize_detail" and n.args:          # said in place: localize_detail("Import has …", lang)
+                keep(n.args[0])
+            # errors=["This PDF is password-protected."]: a list passed in place
+            if isinstance(n, ast.Call) and shown:
+                for kw in n.keywords:
+                    if kw.arg in SHOWN_LISTS and isinstance(kw.value, ast.List):
+                        for item in kw.value.elts:
+                            keep(item)
+            # {"problems": ["Invoice not found."]}: a list written out in place
+            if isinstance(n, ast.Dict) and shown:
+                for k, v in zip(n.keys, n.values):
+                    if isinstance(k, ast.Constant) and k.value in SHOWN_LISTS and isinstance(v, ast.List):
+                        for item in v.elts:
+                            keep(item)
             if name in REASONS | REFUSERS and n.args:     # its text becomes (part of) a detail
                 keep(n.args[0])
             if name in ROW_ERRORS and len(n.args) > 1:

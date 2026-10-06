@@ -400,9 +400,11 @@ async def chat(
                                       ensure_ascii=False),
                 )
             db.commit()
+            from app.core.messages import localize_lists
+            # the summary's errors and warnings in the user's language (#53)
             return _deterministic_turn(
                 db, user, payload, intake.detected,
-                intake={"kind": intake.kind, **intake.payload},
+                intake=localize_lists({"kind": intake.kind, **intake.payload}, _user_language(db, user)),
             )
         if intake is not None:
             intake_context = "\n\n" + intake.context_text if intake.context_text else ""
@@ -421,7 +423,9 @@ async def chat(
                                    "status": sheet_turn.intake.get("status")}, ensure_ascii=False),
             )
             db.commit()
-            return _deterministic_turn(db, user, payload, sheet_turn.text, intake=sheet_turn.intake)
+            from app.core.messages import localize_lists
+            return _deterministic_turn(db, user, payload, sheet_turn.text,
+                                       intake=localize_lists(sheet_turn.intake, _user_language(db, user)))
 
     # From here on the turn uses the AI (OCR, statement vision, the model
     # loop): per-user / per-company limits and the 24-hour token budget.

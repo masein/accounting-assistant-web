@@ -2118,6 +2118,8 @@ window.I18N_PACKS.fa = Object.assign({
         tlCreditUsed: 'بستانکاری صرف فاکتور {number} شد: {amount}',
         remPause: 'توقف یادآور',
         remResume: 'ادامهٔ یادآور',
+        remDateLabel: 'تاریخ یادآور',
+        remRepeatLabel: 'تکرار',
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

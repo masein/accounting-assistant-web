@@ -2,7 +2,8 @@
 chat's session rename/delete (20×17 px, and hidden until hover — a touch
 screen has none), the password eye (24×24), the daily-digest checkbox
 (13×20) and a reminder's pause/delete (unnamed, 21×17); and the bell's
-panel, which ran off the screen (#52)."""
+panel, which ran off the screen (#52); later the reminder's unnamed date and
+repeat (#55) and the 20 px checkboxes no label row surrounds."""
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -45,8 +46,17 @@ def test_the_small_controls_are_thumb_sized_on_a_phone(browser):
         assert all(o == "1" for _w, _h, o, _l in acts), acts                 # shown without a hover
         assert all(label for *_x, label in acts), acts
 
+        # a checkbox with no label row around it is the whole target: 28 px (open-state scan, 2026-10-06)
+        page.evaluate("() => { location.hash = 'time'; }")
+        wait_until(page, "() => document.getElementById('tm-billable') && document.getElementById('tm-billable').offsetParent !== null")
+        box = page.evaluate(SIZE, "#tm-billable")
+        assert box and box[0][0] >= 28 and box[0][1] >= 28, box
+
         page.click("#notify-bell-btn")
         wait_until(page, "() => document.querySelectorAll('#rem-list .rem-del').length > 0")
+        # the new reminder's date and repeat have names (#55)
+        names = page.evaluate("() => ['rem-new-date', 'rem-new-repeat'].map(id => document.getElementById(id).getAttribute('aria-label'))")
+        assert names == ["تاریخ یادآور", "تکرار"], names
         rem = page.evaluate(SIZE, "#rem-list .rem-toggle, #rem-list .rem-del")
         assert rem and all(w >= 32 and h >= 32 for w, h, *_ in rem), rem
         assert [label for *_x, label in rem][:2] == ["توقف یادآور", "حذف"], rem

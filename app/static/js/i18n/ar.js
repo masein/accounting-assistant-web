@@ -2076,6 +2076,8 @@ window.I18N_PACKS.ar = Object.assign({
         tlCreditUsed: 'استُخدم الرصيد في الفاتورة {number}: {amount}',
         remPause: 'إيقاف التذكير مؤقتًا',
         remResume: 'استئناف التذكير',
+        remDateLabel: 'تاريخ التذكير',
+        remRepeatLabel: 'التكرار',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

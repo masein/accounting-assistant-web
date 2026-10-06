@@ -74,6 +74,10 @@ def new_session(browser, username: str, *, lang: str | None = None, mobile: bool
     vp = {"width": 375, "height": 812} if mobile else ({"width": 768, "height": 1024} if tablet else {"width": 1280, "height": 900})
     ctx = browser.new_context(viewport=vp, timezone_id=timezone, locale=locale or ("fa-IR" if lang == "fa" else "en-GB"),
                               is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
+    # the page's requests in flight, to wait for what a section fetches when it opens
+    # (networkidle returns at once once the page has been idle)
+    ctx.add_init_script("""(() => { window.__inflight = 0; const f = window.fetch;
+        window.fetch = (...a) => { window.__inflight++; return f(...a).finally(() => { window.__inflight--; }); }; })()""")
     page = ctx.new_page()
     watch = Watch(page)
     page.goto(f"{BASE}/login")
@@ -95,6 +99,13 @@ def set_language(page, lang: str) -> None:
             s.dispatchEvent(new Event('change', { bubbles: true })); }""", lang)
     wait_until(page, "(l) => document.documentElement.lang === l", lang)
     page.wait_for_load_state("networkidle")
+
+
+def settle(page, min_ms: int = 300, timeout_ms: int = 8_000) -> None:
+    """Wait until the page's fetches are done (and what they render has had a moment)."""
+    page.wait_for_timeout(min_ms)
+    wait_until(page, "() => (window.__inflight || 0) === 0", timeout_ms=timeout_ms)
+    page.wait_for_timeout(150)
 
 
 def wait_until(page, expression: str, arg=None, timeout_ms: int = 8_000) -> bool:
@@ -194,6 +205,20 @@ UX_JS = r"""(opts) => {
           && (t.match(/[A-Za-z]{3,}/g) || []).length >= 1 && t.length < 160) seen.add('English in ' + opts.lang + ': «' + t.slice(0, 60) + '»');
     }
   }
+  // I3: an English sentence among Persian words (a server message: «Enter the company's tax memory id
+  // (شناسه یکتای حافظه مالیاتی) in the مودیان settings.» got past the check above for its Persian).
+  // Persian runs only: their tenants' data is Persian, while in es/ar the UK tenant's English is data.
+  if (opts.lang === 'fa') {
+    const w2 = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+    let m;
+    while ((m = w2.nextNode())) {
+      const t = m.textContent.trim(); const p = m.parentElement;
+      if (!t || !p || !vis(p) || p.closest('script, style, textarea, pre, code, input, option, [dir="ltr"]')) continue;
+      const words = t.match(/[A-Za-z][A-Za-z']*/g) || [];
+      if (words.length >= 5 && /\b(the|to|of|is|are|no|not|and|for|on|with|be|can't|must|has|have|this|was|could|should|from)\b/i.test(t))
+        seen.add('English sentence in fa: «' + t.slice(0, 90) + '»');
+    }
+  }
   seen.forEach(s => out.push(['I3', s]));
   // I4: inputs / buttons without a name
   [...card.querySelectorAll('input, select, textarea, button')].filter(vis).forEach(e => {
@@ -206,10 +231,14 @@ UX_JS = r"""(opts) => {
   if (opts.mobile) {
     [...card.querySelectorAll('button, a.btn, input[type=checkbox], select')].filter(vis).forEach(e => {
       const r = e.getBoundingClientRect();
+      // a checkbox's tap target is its label row (20 px box in a 32 px row, #270)
+      const lab = e.type === 'checkbox' ? (e.closest('label') || (e.labels && e.labels[0])) : null;
+      if (lab && lab.getBoundingClientRect().height >= 28) return;
       if ((r.height < 28 || r.width < 28) && !e.closest('.jdate-grid')) out.push(['I5', 'small tap target ' + Math.round(r.width) + '×' + Math.round(r.height) + ': «' + (e.innerText || e.getAttribute('aria-label') || e.id || e.className).toString().trim().slice(0, 30) + '»']);
     });
   }
   [...card.querySelectorAll('*')].filter(vis).forEach(e => {
+    if (e.id === 'notify-badge') return;            // the bell's count: small by design
     if ([...e.childNodes].some(c => c.nodeType === 3 && c.textContent.trim()) && parseFloat(getComputedStyle(e).fontSize) < 11)
       out.push(['I5', 'tiny text ' + getComputedStyle(e).fontSize + ': «' + e.innerText.trim().slice(0, 30) + '»']);
   });
@@ -223,8 +252,10 @@ AS_WRITTEN = ["CSV", "PDF", "Excel", "JSON", "XLSX", "IBAN", "API", "SMS", "VAT"
 
 
 def ux(page, sid: str, page_name: str, *, lang: str, mobile: bool = False, root: str = ".card[data-page]:not([style*='display: none'])",
-       shot_name: str = "") -> list:
-    hits = page.evaluate(UX_JS, {"root": "body", "lang": lang, "mobile": mobile, "asWritten": AS_WRITTEN})
+       shot_name: str = "", scope: str | None = None) -> list:
+    """The checks on the whole screen, or, with ``scope``, on one open popup
+    (the page's own findings aren't counted again)."""
+    hits = page.evaluate(UX_JS, {"root": scope or "body", "lang": lang, "mobile": mobile, "asWritten": AS_WRITTEN})
     for check, text in hits:
         finding(sid, check, page_name, text, shot_name)
     return hits

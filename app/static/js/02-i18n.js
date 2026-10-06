@@ -2123,6 +2123,8 @@
         tlCreditUsed: 'Credit used on invoice {number}: {amount}',
         remPause: 'Pause reminder',
         remResume: 'Resume reminder',
+        remDateLabel: 'Reminder date',
+        remRepeatLabel: 'Repeat',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

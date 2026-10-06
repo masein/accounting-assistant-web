@@ -2076,6 +2076,8 @@ window.I18N_PACKS.es = Object.assign({
         tlCreditUsed: 'Saldo usado en la factura {number}: {amount}',
         remPause: 'Pausar recordatorio',
         remResume: 'Reanudar recordatorio',
+        remDateLabel: 'Fecha del recordatorio',
+        remRepeatLabel: 'Repetir',
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

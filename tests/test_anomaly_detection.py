@@ -204,6 +204,28 @@ def test_weekend_follows_the_locale(db, books):
     assert ins.params["count"] == 1 and ins.data["entries"][0]["date"] == SATURDAY.isoformat()
 
 
+def test_an_insight_names_its_dates_in_the_company_calendar(db, books):
+    """A weekend round amount said "on 2026-09-18" in a Jalali company (retest
+    2, 2026-10-03, #54: the browser suite failed on a Saturday); the AI's data
+    keeps the ISO date, and a Gregorian company keeps its own."""
+    from app.services.locale_service import set_display_calendar
+    _activity(db, books)
+    _journal(db, books, FRIDAY, 50_000_000)
+    with use_company(books["company"].id):
+        feed = compute_insights(db, today=TODAY, use_cache=False)
+    ins = next(i for i in feed if i.kind == "round_weekend")
+    for lang in ("en", "fa", "es", "ar"):
+        msg = ins.as_dict(lang)["message"]
+        assert "1405/06/27" in msg and "2026-09-18" not in msg, (lang, msg)
+    assert ins.data["entries"][0]["date"] == "2026-09-18"
+    with use_company(books["company"].id):
+        set_display_calendar(db, "gregorian")
+        db.commit()
+        feed = compute_insights(db, today=TODAY, use_cache=False)
+    ins = next(i for i in feed if i.kind == "round_weekend")
+    assert "2026-09-18" in ins.as_dict("en")["message"]
+
+
 # --- category drift -----------------------------------------------------------------------------------------
 
 def test_an_account_taking_over_spending(db, books):

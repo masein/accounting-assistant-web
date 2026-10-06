@@ -2121,6 +2121,8 @@
         tlCreditSupplier: 'Supplier owes us: {amount}',
         tlRefund: 'Credit refunded: {amount}',
         tlCreditUsed: 'Credit used on invoice {number}: {amount}',
+        remPause: 'Pause reminder',
+        remResume: 'Resume reminder',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

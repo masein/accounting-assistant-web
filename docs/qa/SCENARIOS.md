@@ -155,11 +155,11 @@ Each page is checked in Persian and English, at desktop 1280, tablet 768 and pho
 
 | ID | Check |
 |---|---|
-| I1 | No horizontal page overflow; nothing clipped or overlapping; tables scroll inside their box on a phone; the browser suite checks every page at 768 px too, in English and Persian (the Ledger's toolbar was 49 px too wide) [#275] |
+| I1 | No horizontal page overflow; nothing clipped or overlapping; tables scroll inside their box on a phone; the browser suite checks every page at 768 px too, in English and Persian (the Ledger's toolbar was 49 px too wide) [#275]; the bell's panel fits a phone in Persian and English (it ran 30 px off one side) [#283] |
 | I2 | Right-to-left mirrors correctly (icons, arrows, alignment, number and date runs); English stays left-to-right |
 | I3 | No untranslated text, raw keys (`msgFoo`) or `{placeholders}`; consistent terms between pages; the lists the server builds read in the page's language too — an invoice's Moadian problems, a bank SMS it couldn't read, a statement's analysis, an upload's or an import's errors, a pay run's warnings (they were English sentences on Persian pages) [#285] |
 | I4 | Every input and button has an accessible name; focus is visible; Tab order follows the reading order; dialogs close on Escape; a Jalali date field is one field to a screen reader (its hidden native input is aria-hidden) [#270] |
-| I5 | Tap targets at least 32 px on a phone; the font is never under 11 px; checked in the browser suite on a phone in Persian: chips, small buttons, the invoice line's ×, checkboxes; the sidebar's section labels are at least 12 px, with no letter-spacing in Persian or Arabic [#270] |
+| I5 | Tap targets at least 32 px on a phone; the font is never under 11 px; checked in the browser suite on a phone in Persian: chips, small buttons, the invoice line's ×, checkboxes; the sidebar's section labels are at least 12 px, with no letter-spacing in Persian or Arabic [#270]; the chat's session rename and delete (shown without hover on a touch screen), the password eye, the daily-digest checkbox and a reminder's delete as well (they were 20×17, 24×24 and 13×20 px) [#283] |
 | I6 | Every action gives feedback (success, error, loading); destructive actions confirm; disabled states are clear |
 | I7 | Empty states say what to do next; loading states don't flash English or raw data |
 | I8 | Money and dates follow the company's currency and calendar everywhere; Persian digit input works in every number field |

@@ -341,8 +341,10 @@
         list.innerHTML = rows.length ? rows.map(r => `
           <div style="display:flex; gap:0.4rem; align-items:center; padding:0.25rem 0.3rem; font-size:0.82rem;">
             <span style="flex:1; ${r.status === 'paused' ? 'opacity:0.5;' : ''}">${escapeHtml(r.title)} · ${escapeHtml(formatDisplayDate(r.due_date))}${r.repeat !== 'none' ? ' ↻' : ''}</span>
-            <button type="button" class="rem-toggle" data-id="${r.id}" data-status="${r.status}" style="border:none;background:none;cursor:pointer;">${r.status === 'paused' ? '▶' : '⏸'}</button>
-            <button type="button" class="rem-del" data-id="${r.id}" style="border:none;background:none;cursor:pointer;">🗑</button>
+            <button type="button" class="rem-toggle" data-id="${r.id}" data-status="${r.status}" style="border:none;background:none;cursor:pointer;"
+              title="${escapeHtml(t(r.status === 'paused' ? 'remResume' : 'remPause'))}" aria-label="${escapeHtml(t(r.status === 'paused' ? 'remResume' : 'remPause'))}">${r.status === 'paused' ? '▶' : '⏸'}</button>
+            <button type="button" class="rem-del" data-id="${r.id}" style="border:none;background:none;cursor:pointer;"
+              title="${escapeHtml(t('btnDelete'))}" aria-label="${escapeHtml(t('btnDelete'))}">🗑</button>
           </div>`).join('')
           : `<div style="font-size:0.78rem; color:var(--text-muted);">${escapeHtml(t('remEmpty'))}</div>`;
         list.querySelectorAll('.rem-toggle').forEach(b => b.addEventListener('click', async () => {

@@ -2078,6 +2078,7 @@ window.I18N_PACKS.ar = Object.assign({
         remResume: 'استئناف التذكير',
         remDateLabel: 'تاريخ التذكير',
         remRepeatLabel: 'التكرار',
+        tlCreditWithdrawn: 'استُعيد الرصيد: {amount} (ارتد الشيك أو أُعيد)',
         forecastExplorerTitle: "تفاصيل التوقع وماذا لو",
         forecastLowest: "أدنى نقطة: {amount} في أسبوع {week}",
         forecastNegative: "يصبح النقد سالبًا في أسبوع {week}",

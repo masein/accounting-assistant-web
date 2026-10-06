@@ -695,6 +695,7 @@ def _perform_reversal(
         reverse_date=None,
         reference=f"REVERSAL of {original.reference or original.id}",
         description=f"AI reversal — reverses {original.description or original.id}",
+        mark_undo=False,                       # the undo row below carries the actor
     )
 
     undo_audit = AuditLog(

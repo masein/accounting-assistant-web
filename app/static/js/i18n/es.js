@@ -2078,6 +2078,7 @@ window.I18N_PACKS.es = Object.assign({
         remResume: 'Reanudar recordatorio',
         remDateLabel: 'Fecha del recordatorio',
         remRepeatLabel: 'Repetir',
+        tlCreditWithdrawn: 'Saldo a favor retirado: {amount} (el cheque fue devuelto)',
         forecastExplorerTitle: "Detalle del pronóstico y ¿y si…?",
         forecastLowest: "Punto más bajo: {amount} en la semana del {week}",
         forecastNegative: "La caja queda en negativo la semana del {week}",

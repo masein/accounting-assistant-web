@@ -517,6 +517,10 @@ EXACT: dict[str, dict[str, str]] = {
     'File is empty': {"fa": 'فایل خالی است', "es": 'El archivo está vacío', "ar": 'الملف فارغ'},
     'No active sheet found': {"fa": 'هیچ برگهٔ فعالی در فایل نیست', "es": 'No se encontró ninguna hoja activa', "ar": 'لم يُعثر على ورقة نشطة'},
     'Import has blocking errors': {"fa": 'ورود اطلاعات خطاهای مانع دارد', "es": 'La importación tiene errores que la bloquean', "ar": 'في الاستيراد أخطاء تمنعه'},
+    # integrity of money movements (security review, 2026-10-06)
+    'This entry has already been reversed.': {"fa": 'این سند پیش‌تر برگشت خورده است.', "es": 'Este asiento ya se ha revertido.', "ar": 'سبق عكس هذا القيد.'},
+    'The extra this cheque paid was refunded or used on another invoice. Reverse that first.': {"fa": 'مازاد این چک بازپرداخت شده یا در فاکتور دیگری به کار رفته است. اول آن را برگشت بزنید.', "es": 'El excedente que pagó este cheque se reembolsó o se usó en otra factura. Revierte eso primero.', "ar": 'الفائض الذي دفعه هذا الشيك استُرد أو استُخدم في فاتورة أخرى. اعكس ذلك أولًا.'},
+    "This invoice's credit was refunded or used on another invoice. Reverse those first, then void it.": {"fa": 'اعتبار این فاکتور بازپرداخت شده یا در فاکتور دیگری به کار رفته است. اول آن‌ها را برگشت بزنید، سپس فاکتور را باطل کنید.', "es": 'El saldo a favor de esta factura se reembolsó o se usó en otra factura. Revierte eso primero y luego anúlala.', "ar": 'رصيد هذه الفاتورة استُرد أو استُخدم في فاتورة أخرى. اعكس ذلك أولًا، ثم ألغِها.'},
     'Invoice not found.': {"fa": 'فاکتور پیدا نشد.', "es": 'Factura no encontrada.', "ar": 'الفاتورة غير موجودة.'},
     'Already confirmed by سامانه مودیان; send a corrective invoice instead.': {"fa": 'سامانه مودیان این فاکتور را تأیید کرده است؛ به جای آن صورتحساب اصلاحی بفرستید.', "es": 'Ya confirmada por el sistema Moadian (سامانه مودیان); envía una factura rectificativa.', "ar": 'أكّدها نظام مؤديان (سامانه مودیان) بالفعل؛ أرسل فاتورة تصحيحية بدلًا منها.'},
     'Only sales invoices go to سامانه مودیان.': {"fa": 'فقط فاکتورهای فروش به سامانه مودیان ارسال می‌شوند.', "es": 'Solo las facturas de venta se envían al sistema Moadian (سامانه مودیان).', "ar": 'تُرسل فواتير المبيعات فقط إلى نظام مؤديان (سامانه مودیان).'},
@@ -977,6 +981,9 @@ PATTERNS: list[_Pattern] = [
     _Pattern(r"^This file was already imported on (?P<on>\S+) as '(?P<name>.*)'\.$",
              {"fa": "این فایل در {on} با نام «{name}» وارد شده است.", "es": "Este archivo ya se importó el {on} como «{name}».",
               "ar": "سبق استيراد هذا الملف في {on} باسم «{name}»."}),
+    _Pattern(r"^Account (?P<code>\S+) isn't a bank, cash or cheque account\.$",
+             {"fa": "حساب {code} حساب بانک، صندوق یا اسناد نیست.", "es": "La cuenta {code} no es una cuenta de banco, de caja ni de cheques.",
+              "ar": "الحساب {code} ليس حساب بنك أو صندوق أو شيكات."}),
     # lists a page shows as they come (retest 2, 2026-10-02, #53)
     _Pattern(r"^A (?P<status>\w+) invoice can't be sent; issue it first\.$",
              {"fa": "فاکتور {status} قابل ارسال نیست؛ ابتدا آن را صادر کنید.", "es": "Una factura {status} no se puede enviar; emítela primero.",

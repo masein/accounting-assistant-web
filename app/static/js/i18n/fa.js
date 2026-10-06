@@ -2120,6 +2120,7 @@ window.I18N_PACKS.fa = Object.assign({
         remResume: 'ادامهٔ یادآور',
         remDateLabel: 'تاریخ یادآور',
         remRepeatLabel: 'تکرار',
+        tlCreditWithdrawn: 'اعتبار پس گرفته شد: {amount} (چک برگشت خورد یا عودت شد)',
         forecastExplorerTitle: "جزئیات پیش‌بینی و «اگر…»",
         forecastLowest: "پایین‌ترین نقطه: {amount} در هفتهٔ {week}",
         forecastNegative: "موجودی نقد در هفتهٔ {week} منفی می‌شود",

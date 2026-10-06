@@ -621,6 +621,7 @@
         case 'credit': what = tf(p.kind === 'purchase' ? 'tlCreditSupplier' : 'tlCreditCustomer', { amount: money }); break;
         case 'refund': what = tf('tlRefund', { amount: money }); break;
         case 'credit_used': what = tf('tlCreditUsed', { amount: money, number: p.number || '' }); break;
+        case 'credit_withdrawn': what = tf('tlCreditWithdrawn', { amount: money }); break;
         default: what = x.event;
       }
       return when + ' — ' + what;

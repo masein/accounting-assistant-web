@@ -275,12 +275,27 @@ def _recognize_invoice(db: Session, inv: Invoice) -> None:
 
 
 def _resolve_bank_code(db: Session, code: str | None) -> str:
-    """The bank/cash account for a payment: an explicit valid code, else the
-    locale's bank account."""
+    """The bank/cash account for a payment or a refund: the locale's bank account,
+    or one named, which must be a bank or cash account. Any account was taken,
+    so a refund could be posted against capital or an expense, and a code that
+    didn't exist fell back to the bank in silence (security review, 2026-10-06)."""
     c = (code or "").strip()
-    if c and db.execute(select(Account.id).where(Account.code == c)).first():
-        return c
-    return resolve_account_code(db, "bank")
+    if not c:
+        return resolve_account_code(db, "bank")
+    if db.execute(select(Account.id).where(Account.code == c)).first() is None:
+        raise HTTPException(status_code=422, detail=f"There is no account {c}.")
+    from app.services.statement_import import bank_account_choices
+    roots = {b["code"] for b in bank_account_choices(db)}
+    # where money or a cheque can land: a bank or cash account, petty cash, or the
+    # cheque accounts (a received cheque pays an invoice into اسناد دریافتنی)
+    for role in ("bank", "cash", "petty_cash", "notes_receivable", "cheques_in_collection", "notes_payable"):
+        try:
+            roots.add(resolve_account_code(db, role))
+        except AccountResolutionError:
+            pass
+    if not any(r and (c == r or c.startswith(r)) for r in roots):
+        raise HTTPException(status_code=422, detail=f"Account {c} isn't a bank, cash or cheque account.")
+    return c
 
 
 def _build_invoice_items(
@@ -790,7 +805,7 @@ def _apply_payment(
 
 @router.post("/{invoice_id}/payments", response_model=PaymentRead, status_code=201)
 def add_payment(invoice_id: UUID, payload: PaymentCreate, db: Session = Depends(get_db)) -> PaymentRead:
-    inv = db.get(Invoice, invoice_id)
+    inv = db.get(Invoice, invoice_id, with_for_update=True)      # one money movement on an invoice at a time
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     if inv.status in ("canceled", "voided"):
@@ -842,7 +857,8 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
     beyond that becomes the party's credit (what we owe the customer, or the
     supplier owes us), to refund now (``refund``) or later, or to use on
     another invoice."""
-    inv = db.get(Invoice, invoice_id)
+    # locked: two credit notes at once could each pass the "left to credit" check
+    inv = db.get(Invoice, invoice_id, with_for_update=True)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     if inv.status in ("draft", "canceled", "voided"):
@@ -961,10 +977,11 @@ def refund_credit(invoice_id: UUID, payload: CreditRefund, db: Session = Depends
     """Pay back the credit this invoice gave rise to (a credit note beyond what
     it owed, or an overpayment): all of what is left, or ``amount`` of it."""
     from app.services import credits
-    inv = db.get(Invoice, invoice_id)
+    inv = db.get(Invoice, invoice_id, with_for_update=True)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    pairs = credits.for_invoice(db, inv.id)
+    # locked: two refunds at once paid the same credit out twice (security review, 2026-10-06)
+    pairs = credits.for_invoice(db, inv.id, lock=True)
     available = credits.total(pairs)
     if available <= 0:
         raise HTTPException(status_code=409, detail="There is no credit to refund on this invoice.")
@@ -988,7 +1005,7 @@ def apply_credit(invoice_id: UUID, payload: CreditApply, db: Session = Depends(g
     DR customer credit / CR trade debtors (or DR trade creditors / CR supplier
     advance) — no money moves — and records it as a payment by credit."""
     from app.services import credits
-    inv = db.get(Invoice, invoice_id)
+    inv = db.get(Invoice, invoice_id, with_for_update=True)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     if inv.status in ("draft", "canceled", "voided"):
@@ -998,7 +1015,7 @@ def apply_credit(invoice_id: UUID, payload: CreditApply, db: Session = Depends(g
     _paid, _credited, balance_due = _invoice_totals(db, inv)
     if balance_due <= 0:
         raise HTTPException(status_code=409, detail="Nothing is still owed on this invoice.")
-    pairs = credits.for_party(db, inv.entity_id, inv.kind, inv.currency)
+    pairs = credits.for_party(db, inv.entity_id, inv.kind, inv.currency, lock=True)
     available = credits.total(pairs)
     if available <= 0:
         raise HTTPException(status_code=409, detail="There is no credit to use for this invoice.")
@@ -1065,7 +1082,7 @@ def _reverse_txn(db: Session, transaction_id, *, reference: str, description: st
         return
     LedgerService(db).reverse_journal_entry(
         transaction_id=transaction_id, reverse_date=date.today(),
-        reference=reference, description=description,
+        reference=reference, description=description, mark_undo=False,
     )
     # Mark the reversal in the audit trail so it isn't double-reversed.
     log_audit_event(
@@ -1106,11 +1123,17 @@ def void_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead
     """Void an invoice: reverse its recognition entry and every payment via
     the reversal machinery, set status 'voided', and keep the audit trail
     (rows are never hard-deleted)."""
-    inv = db.get(Invoice, invoice_id)
+    from app.services import credits
+    inv = db.get(Invoice, invoice_id, with_for_update=True)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     if inv.status == "voided":
         return _to_read(inv)
+    # Its credit, refunded or used on another invoice, is money that really
+    # moved: that is reversed first (security review, 2026-10-06).
+    if credits.consumed(db, inv.id) > 0:
+        raise HTTPException(status_code=409, detail=(
+            "This invoice's credit was refunded or used on another invoice. Reverse those first, then void it."))
 
     # Reverse each payment first (reopen cash), then the recognition entry.
     payments = db.execute(select(Payment).where(Payment.invoice_id == inv.id)).scalars().all()
@@ -1120,6 +1143,12 @@ def void_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead
     for p in payments:
         _reverse_txn(db, p.transaction_id, reference=f"VOID-PAY-{inv.number}",
                      description=bt(db, "void_payment", number=inv.number))
+    # …and its credit notes: their returns, VAT and customer credit stayed on
+    # the books after a void (security review, 2026-10-06)
+    note_txns = dict.fromkeys(t for t in db.execute(select(CreditNote.transaction_id).where(
+        CreditNote.invoice_id == inv.id, CreditNote.note_type.in_(("reduction", "credit")))).scalars() if t)
+    for t in note_txns:
+        _reverse_txn(db, t, reference=f"VOID-CN-{inv.number}", description=bt(db, "void_invoice", number=inv.number))
     _reverse_txn(db, inv.transaction_id, reference=f"VOID-{inv.number}",
                  description=bt(db, "void_invoice", number=inv.number))
     inv.status = "voided"
@@ -1281,6 +1310,8 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
             event, detail = "credit_note", f"Credit note {n.amount:,} {n.currency}" + (f": {n.reason}" if n.reason else ".")
         elif n.note_type == "credit":
             event, detail = "credit", f"{n.amount:,} {n.currency} credit to the {'customer' if n.kind == 'sales' else 'company'}."
+        elif n.note_type == "withdrawn":
+            event, detail = "credit_withdrawn", f"{n.amount:,} {n.currency} of the credit taken back: the cheque that paid it bounced or was returned."
         else:
             event, detail = "refund", f"{n.amount:,} {n.currency} of the credit refunded."
         events.append(InvoiceTimelineEvent(at=n.created_at, event=event, detail=detail, params=params))

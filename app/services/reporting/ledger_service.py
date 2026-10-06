@@ -57,6 +57,15 @@ def _to_journal_item(txn: Transaction, currency: str | None = None) -> JournalEn
     )
 
 
+
+def reversed_already(db: Session, transaction_id) -> bool:
+    """True when an entry has been reversed (or undone) already: an "undo" audit
+    row names it. Every reversal path writes one."""
+    from app.models.audit_log import AuditLog
+    return db.execute(select(AuditLog.id).where(
+        AuditLog.action == "undo", AuditLog.entity_type == "transaction",
+        AuditLog.entity_id == str(transaction_id))).first() is not None
+
 class LedgerService:
     def __init__(self, db: Session):
         self.db = db
@@ -224,7 +233,16 @@ class LedgerService:
         reverse_date: date | None = None,
         reference: str | None = None,
         description: str | None = None,
+        *,
+        mark_undo: bool = True,
     ) -> JournalEntryRead:
+        """Post the opposite of an entry. One reversal per entry: a second one is
+        refused. The ledger's reverse route posted another each time it was called,
+        and a void afterwards reversed the entry yet again (security review,
+        2026-10-06). The "undo" audit row is the mark every reversal path checks;
+        ``mark_undo=False`` is for callers that write their own, with more detail."""
+        if reversed_already(self.db, transaction_id):
+            raise HTTPException(status_code=409, detail="This entry has already been reversed.")
         src = self.db.execute(
             select(Transaction)
             .where(Transaction.id == transaction_id)
@@ -259,6 +277,10 @@ class LedgerService:
                     line_description=(line.line_description or bt(self.db, "reversal")),
                 )
             )
+        if mark_undo:
+            from app.services.audit_service import log_audit_event
+            log_audit_event(self.db, action="undo", entity_type="transaction", entity_id=str(transaction_id),
+                            detail=f"Reversed by {rev.reference}")
         self.db.commit()
         self.db.refresh(rev)
         loaded = self.db.execute(

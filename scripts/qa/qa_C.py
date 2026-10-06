@@ -1,5 +1,6 @@
 """Group C (part 1) — daily bookkeeping for Arman, in Persian (SCENARIOS.md C1–C11)."""
 import json
+import re
 import sys
 
 sys.path.insert(0, "/qa")
@@ -258,8 +259,8 @@ def c6_c7_quote_credit_void(browser):
         res2 = _create_invoice(page, c7, kind="sales", number="ARM-2" + RUN, entity=P["كافه نارنج"], issue="2026-10-06", amount=8_000_000)
         inv2 = res2.json() if res2.status in (200, 201) else {}
         clear_alert(page)
-        # a paid invoice takes no credit note here (its button is disabled): credit the unpaid one
-        c7.ok(page.locator(f'.inv-credit-note[data-id="{inv1}"]').is_disabled(), "credit note disabled on a fully paid invoice (noted for review)")
+        # a paid invoice takes a credit note too (#280; C23 follows it through)
+        c7.ok(page.locator(f'.inv-credit-note[data-id="{inv1}"]').is_enabled(), "credit note offered on a fully paid invoice (#280)")
         res3 = _create_invoice(page, c7, kind="sales", number="ARM-3" + RUN, entity=P["شرکت پارس‌افزار"], issue="2026-10-06", amount=5_000_000)
         inv3 = res3.json() if res3.status in (200, 201) else {}
         clear_alert(page)
@@ -282,6 +283,8 @@ def c6_c7_quote_credit_void(browser):
         v = inv_get(page, inv3.get("id"))
         cn = inv_get(page, inv2.get("id"))
         c7.note(f"after the credit note: {cn.get('status')} balance {cn.get('balance_due', cn.get('balance'))}")
+        c7.ok(cn.get("status") == "issued" and cn.get("balance_due") == 7_000_000,
+              f"a credit note is not a payment: issued, 7,000,000 owed ({cn.get('status')}, {cn.get('balance_due')})")
         c7.ok((v or {}).get("status") == "voided", f"voided ({(v or {}).get('status')})")
         rows = page.inner_text("#invoices-tbody")
         c7.ok("voided" not in rows and "partially_paid" not in rows, "statuses in Persian")
@@ -289,6 +292,117 @@ def c6_c7_quote_credit_void(browser):
     finally:
         ctx.close()
     c6.done(); c7.done()
+
+
+def _digits(text):
+    return "".join(ch for ch in (text or "").translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")) if ch.isdigit())
+
+
+def _row_action(page, sel, iid):
+    """A row action under its ⋯ menu (#277), or on the row itself."""
+    btn = page.locator(f'{sel}[data-id="{iid}"]').first
+    menu = btn.locator("xpath=ancestor::details[1]")
+    if menu.count() and menu.get_attribute("open") is None:
+        menu.locator("summary").click()
+    btn.click()
+
+
+def c23_credit_paid(browser):
+    """C23 — a credit note on a paid invoice (#280): kept as the customer's credit,
+    used on their next invoice, the rest refunded; a fully credited invoice reads
+    «برگشت‌شده»; more than is left is refused; the VAT goes back once."""
+    c = Check("C23")
+    ctx, page, watch = new_session(browser, "arman_acc", lang="fa")
+    try:
+        go(page, "invoices")
+        inv1 = json.load(open(STATE)).get("inv1")
+        before = inv_get(page, inv1)
+        c.note(f"ARM-1: {before.get('status')} total {before.get('amount')} VAT {before.get('tax_total')}")
+        c.ok(before.get("status") == "paid", f"ARM-1 is paid ({before.get('status')})")
+        # 1. a credit note on the paid invoice, kept as the customer's credit
+        _row_action(page, ".inv-credit-note", inv1)
+        page.fill("#ui-prompt-input", ""); page.locator("#ui-prompt-input").press_sequentially("۲۲۰۰۰۰۰")
+        page.click("#ui-prompt-ok"); page.wait_for_timeout(300)
+        page.fill("#ui-prompt-input", "مرجوعی دو بسته کاغذ"); page.click("#ui-prompt-ok")
+        c.ok(confirm_shown(page), "asks: refund now, or keep as the customer's credit")
+        ask = page.inner_text("#ui-confirm-message")
+        keep, now = page.inner_text("#ui-confirm-cancel"), page.inner_text("#ui-confirm-ok")
+        c.ok(FA(ask) and "2200000" in _digits(ask) and FA(keep) and FA(now), f"in Persian, naming 2,200,000: «{ask}» [{now} | {keep}]")
+        c.shots.append(shot(page, "C23", "refund-or-keep", full=False))
+        with page.expect_response(lambda r: r.url.endswith("/credit-notes") and r.request.method == "POST") as res:
+            page.click("#ui-confirm-cancel")
+        c.ok(res.value.status == 201, f"credit note recorded ({res.value.status} {res.value.text()[:150]})")
+        note = res.value.json() if res.value.status == 201 else {}
+        m = alert_text(page); clear_alert(page)
+        c.ok(FA(m), f"message Persian «{m}»")
+        a = inv_get(page, inv1)
+        c.ok(a.get("status") == "paid" and a.get("credited") == 2_200_000 and a.get("credit_available") == 2_200_000,
+             f"still paid, 2,200,000 credited and held as credit ({a.get('status')}, {a.get('credited')}, {a.get('credit_available')})")
+        s, txn = api(page, "GET", f"/transactions/{note.get('transaction_id')}", None)
+        vat_back = sum(ln.get("debit", 0) for ln in (txn or {}).get("lines", []) if ln.get("account_code") == "2130")
+        want = round((before.get("tax_total") or 0) * 2_200_000 / max(1, before.get("amount") or 1))
+        c.ok(want == 200_000 and vat_back == want, f"output VAT 2130 back by its share, once: {vat_back} (want {want})")
+        row = page.inner_text(f'#invoices-tbody tr:has([data-id="{inv1}"])')
+        c.ok(FA(row) and "2200000" in _digits(row), f"the row shows the credit «{' '.join(row.split())[:160]}»")
+        c.shots.append(shot(page, "C23", "credit-kept"))
+        # 2. the credit pays the customer's next invoice, no money moving
+        res = _create_invoice(page, c, kind="sales", number="ARM-23" + RUN, entity=P["فروشگاه مهرگان"], issue="2026-10-07", amount=1_500_000)
+        nxt = res.json() if res.status in (200, 201) else {}
+        clear_alert(page); page.wait_for_timeout(600)
+        page.locator(f'.inv-payment[data-id="{nxt.get("id")}"]').click()
+        c.ok(confirm_shown(page), "the payment offers the customer's credit first")
+        offer = page.inner_text("#ui-confirm-message")
+        c.ok(FA(offer) and "1500000" in _digits(offer), f"«{offer}»")
+        with page.expect_response(lambda r: "/apply-credit" in r.url) as res:
+            page.click("#ui-confirm-ok")
+        c.ok(res.value.status in (200, 201), f"credit used ({res.value.status} {res.value.text()[:150]})")
+        page.wait_for_timeout(800)
+        c.ok(not page.locator("#ui-prompt-modal").is_visible(), "nothing left to pay: no money asked for")
+        clear_alert(page)
+        n2, a = inv_get(page, nxt.get("id")), inv_get(page, inv1)
+        c.ok(n2.get("status") == "paid" and a.get("credit_available") == 700_000,
+             f"ARM-23 paid by the credit; 700,000 left on ARM-1 ({n2.get('status')}, {a.get('credit_available')})")
+        # 3. the rest refunded from the bank
+        _row_action(page, ".inv-refund-credit", inv1)
+        c.ok(page.locator("#ui-prompt-modal").is_visible() and page.input_value("#ui-prompt-input") == "700000",
+             f"refund offers the 700,000 left ({page.input_value('#ui-prompt-input') if page.locator('#ui-prompt-input').count() else ''})")
+        with page.expect_response(lambda r: "/refund-credit" in r.url) as res:
+            page.click("#ui-prompt-ok")
+        c.ok(res.value.status in (200, 201), f"refunded ({res.value.status} {res.value.text()[:150]})")
+        m = alert_text(page); clear_alert(page)
+        c.ok(FA(m), f"refund message Persian «{m}»")
+        c.ok(inv_get(page, inv1).get("credit_available") == 0, "no credit left on ARM-1")
+        # 4. a fully credited invoice reads «برگشت‌شده»; more than is left is refused
+        res = _create_invoice(page, c, kind="sales", number="ARM-24" + RUN, entity=P["شرکت پارس‌افزار"], issue="2026-10-07", amount=2_000_000)
+        full = res.json() if res.status in (200, 201) else {}
+        clear_alert(page); page.wait_for_timeout(600)
+        _row_action(page, ".inv-credit-note", full.get("id"))
+        page.fill("#ui-prompt-input", "2000000"); page.click("#ui-prompt-ok"); page.wait_for_timeout(300)
+        page.fill("#ui-prompt-input", "لغو سفارش"); page.click("#ui-prompt-ok")
+        page.wait_for_timeout(900); clear_alert(page)
+        f2 = inv_get(page, full.get("id"))
+        c.ok(f2.get("status") == "credited" and f2.get("balance_due") == 0, f"credited, nothing owed ({f2.get('status')}, {f2.get('balance_due')})")
+        frow = page.inner_text(f'#invoices-tbody tr:has([data-id="{full.get("id")}"])')
+        c.ok("برگشت‌شده" in frow and "credited" not in frow, f"the row reads «برگشت‌شده» «{' '.join(frow.split())[:120]}»")
+        s, body = api(page, "POST", f"/invoices/{full.get('id')}/credit-notes", {"amount": 1000})
+        detail = (body or {}).get("detail", "") if isinstance(body, dict) else ""
+        c.ok(s == 400 and FA(detail), f"a further credit note is refused, in Persian ({s} «{detail}»)")
+        # 5. the history names each step, in Persian, in the company's calendar
+        _row_action(page, ".inv-timeline", inv1)          # under ⋯ (#277)
+        c.ok(confirm_shown(page), "the history opens")
+        hist = page.inner_text("#ui-confirm-message")
+        raw = re.search(r"\d{4}-\d{2}-\d{2}T|credit_note|Credit note", hist)
+        c.ok(FA(hist) and "1405/" in hist and not raw, f"history in Persian, Jalali, no raw timestamps or keys «{' | '.join(hist.splitlines())[:300]}»")
+        c.shots.append(shot(page, "C23", "history", full=False))
+        page.click("#ui-confirm-ok")
+        c.shots.append(shot(page, "C23", "after"))
+        ux(page, "C23", "invoices after credit", lang="fa", shot_name="C23-after.png")
+        # the one 400 is the refusal asked for above
+        refused = (r"^403 ", r"^404 GET /favicon", rf"^400 POST /invoices/{full.get('id')}/credit-notes$")
+        c.ok(watch.problems(allow=refused) == [], f"problems {watch.problems(allow=refused)}")
+    finally:
+        ctx.close()
+    c.done()
 
 
 def c9_c10_cheques(browser):
@@ -391,7 +505,7 @@ if __name__ == "__main__":
     only = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else ""
     with sync_playwright() as pw:
         b = pw.chromium.launch()
-        for fn in (c1_voucher, c3_c4_sales_invoice, c5_bill, c6_c7_quote_credit_void, c9_c10_cheques, c11_recurring_rule):
+        for fn in (c1_voucher, c3_c4_sales_invoice, c5_bill, c6_c7_quote_credit_void, c23_credit_paid, c9_c10_cheques, c11_recurring_rule):
             if only and not fn.__name__.startswith(only):
                 continue
             try:

@@ -115,19 +115,6 @@ def d3_d4_dashboards(browser):
         c3.ok(s == 200, f"owner dashboard → {s}")
         txt = page.inner_text('.card[data-page="dashboard"]')
         c3.ok("NaN" not in txt and "undefined" not in txt, "no broken numbers")
-        # one section at a time under the top (#36): each tab, its own look
-        tabs = page.evaluate("() => [...document.querySelectorAll('#dash-tabs [role=tab]')].map(b => b.dataset.tab)")
-        c3.ok(tabs == ["cash", "arap", "spend", "books"], f"dashboard tabs {tabs}")
-        for tab in tabs:
-            page.click(f"#dash-tab-{tab}")
-            page.wait_for_load_state("networkidle"); page.wait_for_timeout(400)
-            c3.shots.append(shot(page, "D3", f"dashboard-{tab}"))
-            ux(page, "D3", f"dashboard / {tab}", lang="fa", shot_name=f"D3-dashboard-{tab}.png")
-            t3 = page.inner_text(f"#dash-panel-{tab}")
-            c3.ok("NaN" not in t3 and "undefined" not in t3, f"{tab}: no broken numbers")
-        h = page.evaluate("() => document.querySelector('.card[data-page=\"dashboard\"]').getBoundingClientRect().height")
-        c3.ok(h < 3000, f"dashboard height {round(h)} px (was about 4,400)")
-        page.click("#dash-tab-cash")
         for name in ("ceo", "cfo"):
             go(page, name)
             page.wait_for_timeout(1500)
@@ -140,6 +127,71 @@ def d3_d4_dashboards(browser):
     finally:
         ctx.close()
     c3.done(); c4.done()
+
+
+def d10_dashboard_tabs(browser):
+    """D10 — the dashboard in tabs (#36, #281): the top always there, one
+    section at a time, a real tablist in RTL, the tab kept after a reload, the
+    budgets fetched only when their tab opens, and a phone that never scrolls
+    sideways."""
+    c = Check("D10")
+    ctx, page, watch = new_session(browser, "arman_acc", lang="fa")
+    try:
+        seen = []
+        page.on("request", lambda r: seen.append("budgets") if "/budgets/actual-vs-budget" in r.url else None)
+        go(page, "dashboard")
+        page.wait_for_timeout(1200)
+        tabs = page.evaluate("() => [...document.querySelectorAll('#dash-tabs [role=tab]')].map(b => [b.dataset.tab, b.innerText.trim()])")
+        c.ok([t for t, _ in tabs] == ["cash", "arap", "spend", "books"] and all(FA(l) for _, l in tabs),
+             f"four tabs, in Persian {[l for _, l in tabs]}")
+        for sel in ("#kpi-grid", "#alerts-wrap", "#insights-wrap"):
+            c.ok(page.locator(sel).is_visible(), f"{sel} on top")
+        selected = "() => document.querySelector('#dash-tabs [aria-selected=\"true\"]').dataset.tab"
+        c.ok(page.evaluate(selected) == "cash", f"opens on Cash ({page.evaluate(selected)})")
+        c.ok("budgets" not in seen, "the budgets wait for their tab")
+        heights = {}
+        for tab, _label in tabs:
+            page.click(f"#dash-tab-{tab}")
+            page.wait_for_load_state("networkidle"); page.wait_for_timeout(500)
+            shown = page.evaluate("() => [...document.querySelectorAll('.dash-tabpanel')].filter(p => !p.hidden).map(p => p.id)")
+            c.ok(shown == [f"dash-panel-{tab}"], f"{tab}: only its section shown {shown}")
+            heights[tab] = round(page.evaluate("() => document.querySelector('.card[data-page=\"dashboard\"]').getBoundingClientRect().height"))
+            text = page.inner_text(f"#dash-panel-{tab}")
+            c.ok(FA(text) and "NaN" not in text and "undefined" not in text, f"{tab}: Persian, no broken numbers")
+            c.shots.append(shot(page, "D10", f"tab-{tab}"))
+            ux(page, "D10", f"dashboard / {tab}", lang="fa", shot_name=f"D10-tab-{tab}.png")
+        c.ok("budgets" in seen, "the budgets load when Spending & profit opens")
+        c.ok(max(heights.values()) < 2600, f"each tab well under the old 4,400 px {heights}")
+        # the keyboard, mirrored in RTL: ← is the next tab
+        page.focus("#dash-tab-cash"); page.click("#dash-tab-cash")
+        page.keyboard.press("ArrowLeft")
+        c.ok(page.evaluate(selected) == "arap", f"← moves to the next tab in RTL ({page.evaluate(selected)})")
+        page.keyboard.press("End")
+        c.ok(page.evaluate(selected) == "books" and page.evaluate("() => document.activeElement.id") == "dash-tab-books", "End: the last tab, focused")
+        page.reload(); page.wait_for_load_state("networkidle"); page.wait_for_timeout(1200)
+        c.ok(page.evaluate(selected) == "books", f"the tab is kept after a reload ({page.evaluate(selected)})")
+        c.ok(watch.problems() == [], f"problems {watch.problems()}")
+    finally:
+        ctx.close()
+    # a phone: the bar scrolls, the page does not
+    ctx, page, watch = new_session(browser, "arman_acc", lang="fa", mobile=True)
+    try:
+        # on a phone the nav sits in the closed drawer: open the page by its address
+        page.evaluate("() => { location.hash = 'dashboard'; }")
+        wait_until(page, "() => activePage() === 'dashboard'"); page.wait_for_timeout(1200)
+        page.locator("#dash-tabs").scroll_into_view_if_needed()
+        c.ok(page.evaluate("() => document.getElementById('dash-tabs').classList.contains('more-after') || document.getElementById('dash-tabs').scrollWidth <= document.getElementById('dash-tabs').clientWidth"),
+             "the bar fades where more tabs are hidden")
+        c.shots.append(shot(page, "D10", "phone-bar"))
+        for tab in ("cash", "arap", "spend", "books"):
+            page.locator(f"#dash-tab-{tab}").click(); page.wait_for_load_state("networkidle"); page.wait_for_timeout(400)
+            wide = page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth")
+            c.ok(wide <= 0, f"phone, {tab}: no sideways scroll ({wide})")
+        c.shots.append(shot(page, "D10", "phone-books"))
+        c.ok(watch.problems() == [], f"phone problems {watch.problems()}")
+    finally:
+        ctx.close()
+    c.done()
 
 
 def d5_audit(browser):
@@ -332,7 +384,7 @@ if __name__ == "__main__":
     only = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else ""
     with sync_playwright() as pw:
         b = pw.chromium.launch()
-        for fn in (d1_search, d2_statements, d3_d4_dashboards, d5_audit, d7_tax, d8_forecast, e1_e2_chat, e3_migration, f_roles, d6_lock):
+        for fn in (d1_search, d2_statements, d3_d4_dashboards, d10_dashboard_tabs, d5_audit, d7_tax, d8_forecast, e1_e2_chat, e3_migration, f_roles, d6_lock):
             if only and not fn.__name__.startswith(only):
                 continue
             try:

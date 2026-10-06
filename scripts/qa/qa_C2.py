@@ -361,6 +361,24 @@ def c21_budgets(browser):
         page.wait_for_timeout(800)
         wrap = page.inner_text("#budget-wrap")
         c.ok(FA(wrap), f"budget table Persian «{wrap[:160]}»")
+        # a budget set by code counts that account's spending, a group code its
+        # sub-accounts' (#282: both read 0 spent, and no alert ever fired)
+        month = page.input_value("#budget-month")
+        s, out = api(page, "GET", f"/budgets/actual-vs-budget?month={month}", None)
+        rows = {r["category"]: r for r in (out or {}).get("rows", [])}
+        rent = rows.get("6112", {})
+        c.note(f"{month}: 6112 actual {rent.get('actual_amount')} of {rent.get('limit_amount')}")
+        c.ok((rent.get("actual_amount") or 0) > 0 and str(rent.get("label", "")).startswith("6112 — "),
+             f"6112 counts its spending and reads with its name ({rent.get('actual_amount')}, «{rent.get('label')}»)")
+        s, _b = api(page, "POST", "/budgets", {"month": month, "category": "61", "limit_amount": 1_000_000})
+        s, out = api(page, "GET", f"/budgets/actual-vs-budget?month={month}", None)
+        grp = {r["category"]: r for r in (out or {}).get("rows", [])}.get("61", {})
+        c.ok((grp.get("actual_amount") or 0) >= (rent.get("actual_amount") or 0) > 0 and (grp.get("utilization_pct") or 0) > 100,
+             f"the group 61 counts 6112 among its sub-accounts and is over ({grp.get('actual_amount')}, {grp.get('utilization_pct')}%)")
+        s, feed = api(page, "GET", "/notifications/feed", None)
+        over = [n for n in (feed or []) if n.get("kind") == "budget" and "61" in (n.get("title") or "")]
+        c.ok(bool(over) and all(FA(n.get("title")) for n in over), f"the overspend alert fires, in Persian {[n.get('title') for n in over][:2]}")
+        page.evaluate("() => loadBudgets()"); page.wait_for_timeout(800)
         c.shots.append(shot(page, "C21", "budget", full=False, selector="#budget-wrap"))
     finally:
         ctx.close()

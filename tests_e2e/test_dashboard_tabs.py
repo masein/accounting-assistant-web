@@ -145,11 +145,21 @@ def test_on_a_phone_the_bar_scrolls_and_the_page_does_not(flow_page):
         page.evaluate("() => document.getElementById('dash-tabs').scrollIntoView()")
         # four tabs don't fit: the far side fades, and the keyboard brings the last one in
         wait_until(page, "() => document.getElementById('dash-tabs').classList.contains('more-after')")
-        page.focus("#dash-tab-cash")
+        # a click gives the tab the focus the keys need (focus() alone lost it
+        # once in the full suite, and End then scrolled the page instead)
+        page.click("#dash-tab-cash")
+        wait_until(page, "() => document.activeElement && document.activeElement.id === 'dash-tab-cash'")
         page.keyboard.press("End")
+        wait_until(page, "() => (" + SELECTED + ")() === 'books'")
         inside = """(id) => { const b = document.getElementById('dash-tabs').getBoundingClientRect();
             const t = document.getElementById(id).getBoundingClientRect(); return t.left >= b.left - 1 && t.right <= b.right + 1; }"""
-        wait_until(page, inside, "dash-tab-books")
+        try:
+            wait_until(page, inside, "dash-tab-books")
+        except AssertionError:
+            where = page.evaluate("""() => { const b = document.getElementById('dash-tabs');
+                return [b.getBoundingClientRect().toJSON(), b.scrollLeft, b.scrollWidth, b.clientWidth,
+                        document.getElementById('dash-tab-books').getBoundingClientRect().toJSON(), document.activeElement.id]; }""")
+            raise AssertionError(f"the last tab is not in the bar's view: {where}") from None
         # the fade follows the bar's scroll event, which fires on the next frame
         wait_until(page, "() => document.getElementById('dash-tabs').classList.contains('more-before')")
         page.keyboard.press("Home")

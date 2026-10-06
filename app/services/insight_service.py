@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 from statistics import median
 from typing import Any, Callable
@@ -249,6 +249,19 @@ def _fmt(n: int | float | None) -> str:
 from contextvars import ContextVar  # noqa: E402
 
 _CALENDAR: ContextVar[str] = ContextVar("insight_calendar", default="gregorian")
+
+
+def _jalali_day(value: Any) -> Any:
+    """A date an insight names ("2026-10-03") as a Jalali company writes it
+    (1405/07/11); anything else as it is. The insights said "on 2026-10-03" in
+    a Jalali company (retest 2, 2026-10-03, #54); ``data`` keeps ISO dates."""
+    if isinstance(value, str) and len(value) == 10 and value[4] == "-" and value[7] == "-":
+        try:
+            from app.utils.jalali import format_jalali
+            return format_jalali(date.fromisoformat(value))
+        except ValueError:
+            return value
+    return value
 
 
 def _month_key(d: date) -> str:
@@ -672,6 +685,8 @@ def _compute_insights(db: Session, *, today: date, use_cache: bool) -> list[Insi
                 pass
     out.sort(key=lambda i: (_SEVERITY_ORDER.get(i.severity, 9), -(i.amount or 0)))
     out = out[:MAX_INSIGHTS]
+    if _CALENDAR.get() == "jalali":            # copies: a detector's own objects stay as they were
+        out = [replace(ins, params={k: _jalali_day(v) for k, v in ins.params.items()}) for ins in out]
     if use_cache:
         _cache[ckey] = (time.monotonic(), today, list(out))
     return out

@@ -37,6 +37,8 @@ def test_each_country_sees_its_own_tax_and_payroll(browser, flow_page):
             assert seen["codes"] and all(not c.startswith(other) for c in seen["codes"]), seen
             assert any(c.startswith(own) for c in seen["codes"]) and seen["placeholder"].startswith(own), seen
             _visit(page, "payroll")
+            # networkidle returns at once after a hash change: wait for the rules
+            wait_until(page, "() => document.getElementById('pr-rules-summary').innerText.trim().length > 0")
             rules = page.inner_text("#pr-rules-summary")
             if locale == "uk":
                 assert rules and " 0 GBP" not in rules and "Housing" not in rules, rules

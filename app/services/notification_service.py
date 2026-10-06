@@ -60,24 +60,48 @@ def _upsert(db: Session, seen: set[str], *, dedupe_key: str, kind: str, level: s
         import json
         params = json.loads(json.dumps(params, default=str))
     seen.add(dedupe_key)
-    row = db.execute(
-        select(Notification).where(Notification.dedupe_key == dedupe_key)
-    ).scalars().first()
-    if row is None:
-        db.add(Notification(
-            dedupe_key=dedupe_key, kind=kind, level=level, title=title,
-            message=message, link_page=link_page, due_date=due_date, user_id=user_id,
-            text_key=text_key, params=params,
-        ))
-    else:
+    fields = dict(kind=kind, level=level, title=title, message=message, link_page=link_page,
+                  due_date=due_date, user_id=user_id, text_key=text_key, params=params)
+    pending = getattr(seen, "pending", None)
+    if pending is not None:            # a refresh writes them all at once (_store)
+        pending[dedupe_key] = fields
+        return
+    _store(db, {dedupe_key: fields})
+
+
+class _Seen(set):
+    """The keys a refresh saw, and what it found for each — written in a few
+    queries at the end rather than one lookup per notification. A year of
+    books with 500 open invoices took 514 queries per bell poll (performance
+    pass, 2026-10-06)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.pending: dict[str, dict] = {}
+
+
+_CHUNK = 5000  # keys per IN list
+
+
+def _store(db: Session, pending: dict[str, dict]) -> None:
+    keys = list(pending)
+    existing: dict[str, Notification] = {}
+    for i in range(0, len(keys), _CHUNK):
+        existing.update((r.dedupe_key, r) for r in db.execute(
+            select(Notification).where(Notification.dedupe_key.in_(keys[i:i + _CHUNK]))).scalars())
+    for key, f in pending.items():
+        row = existing.get(key)
+        if row is None:
+            db.add(Notification(dedupe_key=key, **f))
+            continue
         # refresh content; a previously dismissed row stays dismissed
-        row.level = level
-        row.title = title
-        row.message = message
-        row.due_date = due_date
-        row.link_page = link_page
-        row.text_key = text_key
-        row.params = params
+        row.level = f["level"]
+        row.title = f["title"]
+        row.message = f["message"]
+        row.due_date = f["due_date"]
+        row.link_page = f["link_page"]
+        row.text_key = f["text_key"]
+        row.params = f["params"]
 
 
 API_KEY_WARN_DAYS = 14
@@ -344,7 +368,7 @@ def refresh_notifications(db: Session, *, today: date | None = None) -> int:
 def _refresh_once(db: Session, *, today: date | None = None) -> int:
     today = today or date.today()
     soon = today + timedelta(days=DUE_SOON_DAYS)
-    seen: set[str] = set()
+    seen = _Seen()
 
     # --- invoices: due soon / overdue -------------------------------------
     invoices = db.execute(
@@ -493,11 +517,13 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
         due_rows = db.execute(
             select(Commitment).where(Commitment.status.in_(OPEN_STATUSES))
         ).scalars().all()
+        from app.services.cheques import _locale
+        locale = _locale(db) if due_rows else None
         for c in due_rows:
             # سامانه صیاد: an issued cheque not registered, or a received one
             # not confirmed, is refused when presented — nudge in the month
             # before it falls due, until it is (§3.4).
-            if needs_sayad(db, c) and (c.due_date - today).days <= 30:
+            if needs_sayad(db, c, locale=locale) and (c.due_date - today).days <= 30:
                 _upsert(db, seen, dedupe_key=f"cheque-sayad-{c.id}", kind="commitment", level="warning",
                         title=(f"Register cheque in Sayad: {c.title}" if c.direction == "pay"
                                else f"Confirm cheque in Sayad: {c.title}"),
@@ -616,6 +642,8 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
     except Exception:
         # insights must never break the whole feed refresh
         pass
+
+    _store(db, seen.pending)
 
     # --- resolve rows whose source condition cleared -----------------------
     open_rows = db.execute(

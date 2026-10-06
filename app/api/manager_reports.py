@@ -568,7 +568,7 @@ def _open_invoice_aging(db: Session, kind: str, from_date, to_date) -> dict:
     invoices with a positive open balance appear."""
     from app.models.invoice import Invoice
     from app.models.entity import Entity
-    from app.api.invoices import _invoice_totals
+    from app.api.invoices import totals_for
 
     # Aging is a snapshot AS OF a date: every open invoice issued on or before
     # it, however old. (It used to default to invoices issued this month, so
@@ -596,8 +596,12 @@ def _open_invoice_aging(db: Session, kind: str, from_date, to_date) -> dict:
     party_key = "vendor" if kind == "purchase" else "customer"
     items = []
     total = 0
+    # Every invoice's payments and reductions in two grouped queries — row by
+    # row the close pack's two aging tables took ~2,000 queries on a year of
+    # books (performance pass, 2026-10-06).
+    sums = totals_for(db, list(invoices))
     for inv in invoices:
-        paid, credited, balance_due = _invoice_totals(db, inv)
+        paid, credited, balance_due = sums[inv.id]
         if balance_due <= 0:
             continue
         total += balance_due

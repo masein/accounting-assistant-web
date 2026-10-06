@@ -234,8 +234,12 @@ def fill_pending(db: Session) -> dict:
     """Convert every entry of the current company that had no rate, now that
     one may exist. Commits nothing; returns counts."""
     done = left = 0
+    # the base currency once, not once per entry: every boot runs this, and
+    # entries in a currency with no rate yet stay pending and come back each
+    # time (performance pass, 2026-10-06)
+    base = base_currency(db)
     for txn in pending(db):
-        if convert_transaction(db, txn):
+        if convert_transaction(db, txn, base=base):
             done += 1
         else:
             left += 1

@@ -178,4 +178,11 @@ Each page is checked in Persian and English, at desktop 1280, tablet 768 and pho
 | J5 | Refunds and payments go to a bank, cash or cheque account [#289] | Refund a credit naming a capital or expense account as the bank; pay an invoice with a received cheque | The first is refused in the user's language; the cheque lands in cheques receivable as before |
 | J6 | A cheque that overpaid, bounced [#289] | Take a customer's cheque of 12,000,000 for an invoice of 10,000,000; bounce it; deposit it again; then a second one that overpays, whose extra is refunded, and bounce it | After the bounce: the invoice owes 10,000,000 again, no customer credit is left in the app or the books, and the receivable is 10,000,000 (it was 12,000,000). After the deposit: paid, with one credit of 2,000,000 (it became two). The second bounce is refused until the refund is reversed. The same holds for an issued cheque that overpaid a bill, and for an unused cheque handed back |
 
-**Run order:** A → B → C → D → E → F → G → H → J; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+## K. Performance on a year of books (2026-10-06)
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| K1 | A busy year [#290] | `scripts/perf_bench.py` on a scratch database: 20,000 journals, 2,500 sales invoices and 800 bills over 12 months, most paid, some part-paid, some credited, 100 parties | Every list and page fetch under 1 s, every report under 2 s (median of 3, warm). The month-end close pack, a download of a PDF, a workbook and the journal as CSV, under 4 s: most of it is laying out the PDF |
+| K2 | No query per row [#290] | `tests/test_list_performance.py` and `tests/test_report_performance.py`: count each endpoint's SQL statements on small books, then on five times the invoices (or four times the journals) | No endpoint's statement count grows with the books; the batched figures equal the one-invoice-at-a-time ones |
+
+**Run order:** A → B → C → D → E → F → G → H → J; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.

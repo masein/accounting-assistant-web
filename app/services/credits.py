@@ -101,5 +101,34 @@ def consumed(db: Session, invoice_id: UUID) -> int:
     return sum(used(db, rows, kinds=MOVED).values())
 
 
+def by_invoice(db: Session, invoice_ids) -> dict[UUID, int]:
+    """for_invoice for many invoices at once: invoice id → its credit left."""
+    ids = list(invoice_ids)
+    rows: list[CreditNote] = []
+    for i in range(0, len(ids), 5000):   # psycopg caps a statement at 65,535 parameters
+        rows += db.execute(select(CreditNote).where(
+            CreditNote.invoice_id.in_(ids[i:i + 5000]), CreditNote.note_type == "credit")).scalars()
+    if not rows:
+        return {}
+    out: dict[UUID, int] = {}
+    for c, left in remaining(db, rows):
+        out[c.invoice_id] = out.get(c.invoice_id, 0) + left
+    return out
+
+
+def by_party(db: Session, entity_ids) -> dict[tuple, int]:
+    """for_party for many parties at once: (entity id, kind, CURRENCY) → credit left."""
+    ids = list(entity_ids)
+    if not ids:
+        return {}
+    rows = list(db.execute(select(CreditNote).where(
+        CreditNote.entity_id.in_(ids), CreditNote.note_type == "credit")).scalars())
+    out: dict[tuple, int] = {}
+    for c, left in remaining(db, rows):
+        key = (c.entity_id, c.kind, (c.currency or "").upper())
+        out[key] = out.get(key, 0) + left
+    return out
+
+
 def total(pairs: list[tuple[CreditNote, int]]) -> int:
     return sum(left for _c, left in pairs)

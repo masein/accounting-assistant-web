@@ -98,7 +98,6 @@ def _invoice_totals(db: Session, inv: Invoice) -> tuple[int, int, int]:
     'reduction'), not standalone overpayment credits. balance_due is clamped
     to >= 0 (overpayment surfaces as a separate entity credit, never a
     negative due)."""
-    amount = int(inv.amount or 0)
     paid = int(
         db.execute(
             select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.invoice_id == inv.id)
@@ -113,6 +112,14 @@ def _invoice_totals(db: Session, inv: Invoice) -> tuple[int, int, int]:
         ).scalar()
         or 0
     )
+    return _totals_from(inv, paid, credited)
+
+
+def _totals_from(inv: Invoice, paid: int, credited: int) -> tuple[int, int, int]:
+    """(amount_paid, credited, balance_due) from the invoice's payment and
+    reduction sums — the arithmetic of _invoice_totals, for one invoice or a
+    whole list read in a few grouped queries."""
+    amount = int(inv.amount or 0)
     balance_due = max(0, amount - paid - credited)
     # amount_paid is what settled THIS invoice; anything above it is the
     # customer's credit / supplier advance (booked separately at payment time)
@@ -157,13 +164,22 @@ def _overpayment(db: Session, inv: Invoice) -> int:
     return max(0, raw - max(0, int(inv.amount or 0) - credited))
 
 
-def _to_read(row: Invoice) -> InvoiceRead:
+def _to_read(row: Invoice, pre: dict | None = None) -> InvoiceRead:
+    """An invoice for the API. ``pre`` carries its sums and credits when a list
+    read them for every row at once (_to_read_many)."""
     data = InvoiceRead.model_validate(row)
     data.pdf_url = f"/invoices/{row.id}/pdf"
     subtotal, tax_total, grand_total = _tax_breakdown(row)
     data.subtotal = subtotal
     data.tax_total = tax_total
     data.grand_total = grand_total
+    if pre is not None:
+        paid, credited, balance_due = _totals_from(row, pre["paid"], pre["credited"])
+        data.amount_paid, data.credited, data.balance_due = paid, credited, balance_due
+        data.overpaid = max(0, pre["paid"] - max(0, int(row.amount or 0) - pre["credited"]))
+        data.credit_available = pre["credit_available"]
+        data.party_credit = pre["party_credit"]
+        return data
     db = object_session(row)
     if db is not None:
         paid, credited, balance_due = _invoice_totals(db, row)
@@ -175,6 +191,50 @@ def _to_read(row: Invoice) -> InvoiceRead:
         data.credit_available = credits.total(credits.for_invoice(db, row.id))
         data.party_credit = credits.total(credits.for_party(db, row.entity_id, row.kind, row.currency))
     return data
+
+
+_CHUNK = 5000  # ids per IN list — psycopg caps a statement at 65,535 parameters
+
+
+def _sums_for(db: Session, ids: list) -> tuple[dict, dict]:
+    """Payment and reduction sums of many invoices: id → paid, id → credited."""
+    paid: dict = {}
+    reduced: dict = {}
+    for i in range(0, len(ids), _CHUNK):
+        part = ids[i:i + _CHUNK]
+        paid.update(db.execute(select(Payment.invoice_id, func.coalesce(func.sum(Payment.amount), 0))
+                               .where(Payment.invoice_id.in_(part)).group_by(Payment.invoice_id)).all())
+        reduced.update(db.execute(select(CreditNote.invoice_id, func.coalesce(func.sum(CreditNote.amount), 0))
+                                  .where(CreditNote.invoice_id.in_(part), CreditNote.note_type == "reduction")
+                                  .group_by(CreditNote.invoice_id)).all())
+    return paid, reduced
+
+
+def totals_for(db: Session, rows: list[Invoice]) -> dict:
+    """(amount_paid, credited, balance_due) of many invoices in two queries."""
+    if not rows:
+        return {}
+    paid, reduced = _sums_for(db, [r.id for r in rows])
+    return {r.id: _totals_from(r, int(paid.get(r.id, 0) or 0), int(reduced.get(r.id, 0) or 0)) for r in rows}
+
+
+def _to_read_many(db: Session, rows: list[Invoice]) -> list[InvoiceRead]:
+    """Every invoice of a list at once: its payment and reduction sums, the
+    credit it gave rise to and its party's credit, in a few grouped queries.
+    Row by row it was about eight queries each — the Invoices page took 12.7 s
+    and 25,171 queries on a year of books (performance pass, 2026-10-06)."""
+    from app.services import credits
+    ids = [r.id for r in rows]
+    if not ids:
+        return []
+    paid, reduced = _sums_for(db, ids)
+    own = credits.by_invoice(db, ids)
+    party = credits.by_party(db, {r.entity_id for r in rows if r.entity_id})
+    return [_to_read(r, {
+        "paid": int(paid.get(r.id, 0) or 0), "credited": int(reduced.get(r.id, 0) or 0),
+        "credit_available": own.get(r.id, 0),
+        "party_credit": party.get((r.entity_id, r.kind, (r.currency or "").upper()), 0) if r.entity_id else 0,
+    }) for r in rows]
 
 
 def _post_entry(
@@ -414,7 +474,7 @@ def list_invoices(
     if kind:
         q = q.where(Invoice.kind == kind.strip().lower())
     rows = db.execute(q).scalars().all()
-    return [_to_read(r) for r in rows]
+    return _to_read_many(db, list(rows))
 
 
 @router.post("/ocr-import", response_model=InvoiceOCRResult)

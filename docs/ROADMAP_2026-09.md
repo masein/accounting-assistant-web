@@ -90,6 +90,17 @@ the old line-by-line folds as references and checks them on random books. Fixed
 on the way: aging read journals in no set order, so a receipt entered before
 the sale it settles was dropped and the sale stayed overdue. §2.6 done.
 
+**§2.6 again — 2026-10-06 (#290):** the pages since then, on a year of books
+with invoices (`scripts/perf_bench.py` now seeds 2,500 sales invoices and 800
+bills the app's own way; `--only` picks endpoints). Invoices 12.7 s → 0.6 s
+(25,171 → 17 queries), مودیان list 5.9 s → 0.4 s (17,508 → 12), receivables
+aging 1,495 → 5 queries, the bell's feed 514 → 35, insights ~10.6 s → ~2.5 s
+cold (one shared window instead of each detector reading the ledger), CFO
+report 3.6 → 0.5 s and CEO 5.6 → 0.5 s (plain rows instead of 200,000 ORM
+objects; output identical). Every list and page fetch is under 1 s and every
+report under 2 s; the close pack (PDF + workbook + CSV) takes ~3 s, mostly
+WeasyPrint's layout. `tests/test_list_performance.py` pins the query counts.
+
 **§3 continued — 2026-09-26:** ✅ 3.2 seasonal filings (#153): per Jalali
 season the TTMS figures per counterparty (identity fields in Latin digits,
 person type, returns netted with their VAT share, sales accepted in مودیان

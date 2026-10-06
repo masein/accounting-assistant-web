@@ -142,6 +142,23 @@ def _post(db: Session, row: Commitment, what: str, on: date, debit: str, credit:
     return create_transaction_from_payload(db, payload)
 
 
+def _post_lines(db: Session, row: Commitment, what: str, on: date, lines: list):
+    """Like _post, with several lines: (account, debit, credit); empty ones dropped."""
+    from app.schemas.entity import EntityLink
+    from app.schemas.transaction import TransactionCreate, TransactionLineCreate
+    from app.services.ledger_posting import create_transaction_from_payload
+    links = []
+    if row.entity_id:
+        links = [EntityLink(entity_id=row.entity_id, role="client" if row.direction == RECEIVE else "supplier")]
+    payload = TransactionCreate(
+        date=on, reference=(row.reference or row.sayad_id or None), description=_label(db, row, what),
+        lines=[TransactionLineCreate(account_code=code, debit=int(dr), credit=int(cr))
+               for code, dr, cr in lines if code and (dr or cr)],
+        entity_links=links,
+    )
+    return create_transaction_from_payload(db, payload)
+
+
 def _event(db: Session, row: Commitment, action: str, on: date, txn=None, note: str | None = None) -> None:
     # stamped here: the database's now() is one instant for a whole transaction
     db.add(CommitmentEvent(commitment_id=row.id, action=action, happened_on=on,
@@ -356,17 +373,57 @@ def clear(db: Session, row: Commitment, *, on: date | None = None, post: bool = 
     return row
 
 
+def _payment_extra(db: Session, row: Commitment) -> tuple[int, list]:
+    """What the cheque paid beyond its invoice: the credit its payment left (the
+    customer's credit, or what the supplier owes us), with what is left of it.
+    Refused when some of it was refunded or used on another invoice — that money
+    moved, and it is reversed first."""
+    if not row.payment_id:
+        return 0, []
+    from app.models.credit_note import CreditNote
+    from app.models.payment import Payment
+    from app.services import credits
+    payment = db.get(Payment, row.payment_id)
+    if payment is None or payment.transaction_id is None:
+        return 0, []
+    rows = list(db.execute(select(CreditNote).where(
+        CreditNote.note_type == "credit", CreditNote.transaction_id == payment.transaction_id).with_for_update()).scalars())
+    if not rows:
+        return 0, []
+    if sum(credits.used(db, [c.id for c in rows], kinds=credits.MOVED).values()) > 0:
+        _refuse("The extra this cheque paid was refunded or used on another invoice. Reverse that first.")
+    pairs = credits.remaining(db, rows)
+    return credits.total(pairs), pairs
+
+
 def _back_to_party(db: Session, row: Commitment, action: str, when: date):
     """The cheque no longer pays: the customer owes it (or we owe the
     supplier) again, and an invoice it paid reopens. A bounce moves the claim
-    to the party; handing back an unused cheque undoes its receipt/issue."""
+    to the party; handing back an unused cheque undoes its receipt/issue.
+
+    A cheque that paid more than its invoice left the extra as the party's
+    credit. That extra goes back out of the credit, not onto the receivable: it
+    stayed refundable after a bounce, the receivable came out too high, and
+    depositing the cheque again made a second credit (security review,
+    2026-10-06)."""
     if row.ledger_mode != NOTES or not row.holding_account_code:
         return None
     party = _party(db, row) if action == BOUNCE else _counter(db, row)
+    extra, pairs = _payment_extra(db, row)
     if row.direction == RECEIVE:
-        txn = _post(db, row, action, when, party, row.holding_account_code)
+        lines = [(party, row.amount - extra, 0), (_code(db, "customer_credit") if extra else None, extra, 0),
+                 (row.holding_account_code, 0, row.amount)]
     else:
-        txn = _post(db, row, action, when, row.holding_account_code, party)
+        lines = [(row.holding_account_code, row.amount, 0), (party, 0, row.amount - extra),
+                 (_code(db, "supplier_advance") if extra else None, 0, extra)]
+    txn = _post_lines(db, row, action, when, lines)
+    if pairs:
+        from app.models.credit_note import CreditNote
+        for credit, left in pairs:
+            db.add(CreditNote(invoice_id=credit.invoice_id, entity_id=credit.entity_id, kind=credit.kind, date=when,
+                              amount=left, currency=credit.currency, note_type="withdrawn", credit_id=credit.id,
+                              transaction_id=txn.id))
+        db.flush()
     row.holding_account_code = None
     _unpay_invoice(db, row)
     return txn

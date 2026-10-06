@@ -2125,6 +2125,7 @@
         remResume: 'Resume reminder',
         remDateLabel: 'Reminder date',
         remRepeatLabel: 'Repeat',
+        tlCreditWithdrawn: 'Credit taken back: {amount} (the cheque bounced or was returned)',
         forecastExplorerTitle: "Forecast details and what-if",
         forecastLowest: "Lowest point: {amount} in the week of {week}",
         forecastNegative: "Cash goes negative in the week of {week}",

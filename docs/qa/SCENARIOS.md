@@ -167,4 +167,15 @@ Each page is checked in Persian and English, at desktop 1280, tablet 768 and pho
 | I10 | Visual consistency: one style for buttons, cards, tables and badges; spacing rhythm; heading hierarchy |
 | I11 | Open states [#288]: on every page, each collapsible section opened and given time to load what it fetches, the first row's ⋯ menu open; once per language and size, the bell's panel and the account menu open — each scanned like a page (I1–I5) and screenshotted. The page scans ran with these closed, which is how the bell's panel running off a phone (#52) and the Moadian panel's English (#53) got past them |
 
-**Run order:** A → B → C → D → E → F → G → H; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+## J. Integrity of money movements (security review, 2026-10-06)
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| J1 | One reversal per entry [#289] | Reverse a journal entry from the ledger; reverse it again; then void the invoice it belonged to | The second reversal is refused in the user's language; the void doesn't reverse it a third time; the books show the entry reversed once |
+| J2 | Voiding an invoice with a credit note [#289] | Credit a paid invoice, keep the credit, void the invoice; on another, refund its credit and try to void it | The first void reverses the credit note too: no customer credit, receivable or VAT left over. The second is refused until the refund is reversed |
+| J3 | A reversed credit use or refund gives the credit back [#289] | Use a customer's credit on their next invoice, then reverse that payment; reverse an overpayment | The credit is available again after the first; the overpayment's credit is gone after the second; the app and the customer-credit account agree |
+| J4 | A credit can't be spent twice [#289] | Two refunds of the same credit at the same moment (or a double-click) | One succeeds, the other is refused or waits and then finds nothing left; never two refunds of one credit |
+| J5 | Refunds and payments go to a bank, cash or cheque account [#289] | Refund a credit naming a capital or expense account as the bank; pay an invoice with a received cheque | The first is refused in the user's language; the cheque lands in cheques receivable as before |
+| J6 | A cheque that overpaid, bounced [#289] | Take a customer's cheque of 12,000,000 for an invoice of 10,000,000; bounce it; deposit it again; then a second one that overpays, whose extra is refunded, and bounce it | After the bounce: the invoice owes 10,000,000 again, no customer credit is left in the app or the books, and the receivable is 10,000,000 (it was 12,000,000). After the deposit: paid, with one credit of 2,000,000 (it became two). The second bounce is refused until the refund is reversed. The same holds for an issued cheque that overpaid a bill, and for an unused cheque handed back |
+
+**Run order:** A → B → C → D → E → F → G → H → J; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.

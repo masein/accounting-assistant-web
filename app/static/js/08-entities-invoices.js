@@ -919,7 +919,7 @@
         _moRows.forEach(r => {
           const late = r.moadian_status === null && r.days_left < 0;
           const deadline = r.moadian_status ? escapeHtml(formatDisplayDate(r.deadline))
-            : `<span style="color:${late ? 'var(--danger, #b91c1c)' : 'inherit'};">${escapeHtml(formatDisplayDate(r.deadline))} · ${escapeHtml(t(late ? 'moDaysLate' : 'moDaysLeft').replace('{n}', Math.abs(r.days_left)))}</span>`;
+            : `<span style="color:${late ? 'var(--danger, #b91c1c)' : 'inherit'};"><span class="nowrap">${escapeHtml(formatDisplayDate(r.deadline))}</span> · <span class="nowrap">${escapeHtml(t(late ? 'moDaysLate' : 'moDaysLeft').replace('{n}', Math.abs(r.days_left)))}</span></span>`;
           const status = t('moState_' + (r.moadian_status || 'pending'))
             + (r.reference ? `<div style="font-size:0.72rem;color:var(--text-muted);" dir="ltr">${escapeHtml(r.reference)}</div>` : '')
             + (r.error ? `<div style="font-size:0.72rem;color:var(--danger, #b91c1c);">${escapeHtml(r.error)}</div>` : '')
@@ -936,8 +936,8 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><input type="checkbox" class="mo-pick" data-id="${r.id}" aria-label="${escapeHtml(tf('moPickInvoice', { number: r.number }))}" ${canSelect ? '' : 'disabled'}></td>
-            <td>${escapeHtml(r.number)}</td><td>${escapeHtml(formatDisplayDate(r.issue_date))}</td><td>${escapeHtml(r.customer || '—')}</td>
-            <td>${formatMoney(r.amount, r.currency)}</td><td>${deadline}</td><td>${status}</td><td>${ready}</td><td>${actions}</td>`;
+            <td class="nowrap" dir="ltr">${escapeHtml(r.number)}</td><td class="nowrap">${escapeHtml(formatDisplayDate(r.issue_date))}</td><td>${escapeHtml(r.customer || '—')}</td>
+            <td class="nowrap">${formatMoney(r.amount, r.currency)}</td><td>${deadline}</td><td>${status}</td><td>${ready}</td><td>${actions}</td>`;
           body.appendChild(tr);
         });
       } catch (_) {

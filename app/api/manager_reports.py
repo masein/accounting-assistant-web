@@ -4,13 +4,14 @@ import io
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.http_headers import content_disposition
+from app.core.messages import said
 from app.core.spreadsheet import CSV_MEDIA_TYPE, csv_bytes, csv_writer
 from app.api.transactions import _create_transaction_from_payload
 from app.db.session import get_db
@@ -87,10 +88,12 @@ def balance_sheet(
     to_date: date | None = Query(None),
     comparative_to_date: date | None = Query(None),
     currency: str | None = Query(None, description="Filter by currency (IRR, USD, etc.)"),
+    request: Request = None,
     db: Session = Depends(get_db),
 ) -> BalanceSheetResponse:
     svc = FinancialStatementService(db)
-    return svc.balance_sheet(to_date=to_date, comparative_to_date=comparative_to_date, currency=currency)
+    # the analysis's warnings in the page's language (#53)
+    return said(svc.balance_sheet(to_date=to_date, comparative_to_date=comparative_to_date, currency=currency), request)
 
 
 @router.get("/financial/income-statement", response_model=IncomeStatementResponse)
@@ -98,10 +101,11 @@ def income_statement(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     currency: str | None = Query(None),
+    request: Request = None,
     db: Session = Depends(get_db),
 ) -> IncomeStatementResponse:
     svc = FinancialStatementService(db)
-    return svc.income_statement(from_date=from_date, to_date=to_date, currency=currency)
+    return said(svc.income_statement(from_date=from_date, to_date=to_date, currency=currency), request)
 
 
 @router.get("/financial/iran/income-statement", response_model=IranIncomeStatementResponse)
@@ -333,10 +337,11 @@ def cash_flow_statement(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     currency: str | None = Query(None),
+    request: Request = None,
     db: Session = Depends(get_db),
 ) -> CashFlowResponse:
     svc = CashFlowService(db)
-    return svc.statement(from_date=from_date, to_date=to_date, currency=currency)
+    return said(svc.statement(from_date=from_date, to_date=to_date, currency=currency), request)
 
 
 @router.get("/financial/export")

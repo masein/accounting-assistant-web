@@ -289,10 +289,9 @@ async def import_statement_bytes(
     # soft failure for the user — tell them clearly instead of saving an
     # empty statement that looks like success.
     if not result.rows:
-        detail = "No transaction rows could be read from this statement."
-        if result.errors:
-            detail += " " + "; ".join(result.errors[:3])
-        raise HTTPException(status_code=422, detail=detail)
+        raise HTTPException(status_code=422, detail=(
+            f"No transaction rows could be read from this statement. {'; '.join(result.errors[:3])}" if result.errors
+            else "No transaction rows could be read from this statement."))
 
     stmt = BankStatement(
         bank_name=bank_name,

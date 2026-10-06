@@ -8,13 +8,14 @@ from datetime import date
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 import sqlalchemy as sa
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.http_headers import content_disposition
+from app.core.messages import said
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.entity import Entity, TransactionEntity
@@ -908,6 +909,7 @@ def _record_excel_import(db: Session, file_path: str, file_token: str, imported:
 def excel_import_preview(
     file: UploadFile = File(...),
     jalali_year: int | None = Query(None, description="Jalali year for date conversion (e.g. 1403)"),
+    request: Request = None,
     db: Session = Depends(get_db),
 ):
     """Upload an Excel file and preview the parsed journal entries."""
@@ -994,7 +996,7 @@ def excel_import_preview(
         jalali_year=result.jalali_year or 1403,
         total_rows=result.total_rows,
         total_vouchers=result.total_vouchers,
-        errors=result.errors,
+        errors=said(result.errors, request),       # in the page's language (#53)
         raw_preview=raw_preview,
     )
 
@@ -1002,6 +1004,7 @@ def excel_import_preview(
 @router.post("/excel-import/confirm", response_model=ExcelImportConfirmResponse)
 def excel_import_confirm(
     payload: ExcelImportConfirmRequest,
+    request: Request = None,
     db: Session = Depends(get_db),
 ):
     """Confirm and import the previewed Excel journal entries."""
@@ -1166,5 +1169,5 @@ def excel_import_confirm(
         imported=len(transaction_ids),
         transaction_ids=transaction_ids,
         accounts_created=accounts_created,
-        errors=errors,
+        errors=said(errors, request),
     )

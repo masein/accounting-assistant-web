@@ -7,12 +7,13 @@ from collections import defaultdict
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.auth import SessionUser, get_current_user
+from app.core.messages import said
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.exchange_rate import ExchangeRate
@@ -297,6 +298,7 @@ def _non_monetary_codes() -> set[str]:
 @router.post("/revalue", response_model=FXRevalueResponse)
 def revalue_foreign_currency_balances(
     payload: FXRevalueRequest,
+    request: Request = None,
     db: Session = Depends(get_db),
 ) -> FXRevalueResponse:
     """Period-end revaluation of foreign-currency balances (roadmap §4.6).
@@ -427,5 +429,5 @@ def revalue_foreign_currency_balances(
         total_adjustment=total_adjustment,
         posted_transaction_id=posted[0] if posted else None,
         posted_transaction_ids=posted,
-        errors=errors,
+        errors=said(errors, request, db),          # the page's language, the company's calendar (#53)
     )

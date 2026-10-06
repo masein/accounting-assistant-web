@@ -138,15 +138,19 @@ async def upload_bank_statement(
     ),
     # a form field, never the query string: a URL ends up in logs and history
     pdf_password: str | None = Form(None, max_length=128, description="The password of a locked PDF statement."),
+    request: Request = None,
     db: Session = Depends(get_db),
 ) -> BankStatementUploadResponse:
     """Upload a CSV, Excel, or image/PDF bank statement for parsing and reconciliation."""
+    from starlette.concurrency import run_in_threadpool
+
+    from app.core.messages import said
     from app.services.statement_import import import_statement_bytes
 
     content = await file.read()
     if len(content) > MAX_STATEMENT_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Statement file too large (max 20 MB).")
-    return await import_statement_bytes(
+    out = await import_statement_bytes(
         db,
         content=content,
         filename=file.filename or "unknown",
@@ -156,6 +160,8 @@ async def upload_bank_statement(
         confirm_duplicate=confirm_duplicate,
         pdf_password=pdf_password or None,
     )
+    # its errors in the page's language, a date in the company's calendar (#53)
+    return await run_in_threadpool(said, out, request, db)
 
 
 def _bank_account_fields(db: Session, s: BankStatement) -> dict:

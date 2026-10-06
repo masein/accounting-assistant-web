@@ -18,11 +18,12 @@ import json
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.messages import localize_detail, request_language, said, say_all
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.migration import MigrationBatch, MigrationPendingRecord
@@ -47,6 +48,7 @@ _ALLOWED_EXTENSIONS = (".xls", ".xlsx", ".csv", ".xml")
 @router.post("/import/preview", response_model=MigrationPreviewResponse)
 def migration_import_preview(
     files: list[UploadFile] = File(...),
+    request: Request = None,
     db: Session = Depends(get_db),
 ) -> MigrationPreviewResponse:
     if not files:
@@ -83,7 +85,7 @@ def migration_import_preview(
     return MigrationPreviewResponse(
         token=token,
         batch_id=batch.id,
-        summary=summary,
+        summary=said(summary, request),           # its errors and warnings in the page's language (#53)
         default_opening_date=mig.default_opening_date(db),
         already_applied=already_applied,
     )
@@ -92,6 +94,7 @@ def migration_import_preview(
 @router.post("/import/confirm", response_model=MigrationConfirmResponse)
 def migration_import_confirm(
     payload: MigrationConfirmRequest,
+    request: Request = None,
     db: Session = Depends(get_db),
 ) -> MigrationConfirmResponse:
     batch = db.execute(
@@ -106,7 +109,9 @@ def migration_import_confirm(
 
     errors = ((batch.summary or {}).get("validation") or {}).get("errors") or []
     if errors:
-        raise HTTPException(status_code=400, detail={"message": "Import has blocking errors", "errors": errors})
+        lang = request_language(request.headers) if request is not None else "en"
+        raise HTTPException(status_code=400, detail={"message": localize_detail("Import has blocking errors", lang),
+                                                     "errors": say_all(errors, lang)})
 
     opening_date = payload.opening_date or mig.default_opening_date(db)
     if opening_date > date.today():

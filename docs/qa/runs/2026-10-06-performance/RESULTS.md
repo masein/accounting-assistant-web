@@ -61,4 +61,4 @@ The CFO and CEO reports' receivables and payables look wrong, separately from pe
 - invoices in every currency are added as raw numbers: in the screenshots, a GBP company's 11,000,000-rial invoice showed as "Accounts Receivable 11,000,000 GBP";
 - the ledger part covers 12 months, not the balance to date.
 
-The addition exists for cash-basis books, which never post a receivable. It needs its own look and tests.
+The addition exists for cash-basis books, which never post a receivable. Fixed separately in #291 (scenarios L1–L8).

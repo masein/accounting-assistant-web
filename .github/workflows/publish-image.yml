@@ -11,6 +11,11 @@ name: Publish image
 #  - push a tag `v1.2.3` → tags `1.2.3`, `1.2`, `1` (and `latest`)
 #  - manual run          → tags `latest` (+ sha)
 #
+# The mirror sits behind token auth (2026-10-05): it needs the repo secrets
+# REGISTRY_USERNAME / REGISTRY_PASSWORD (an account that may push
+# accounting-assistant-api). Without them the mirror step is refused and
+# skipped with a warning; the GHCR publish is unaffected.
+#
 # Optional repo variable IMAGE_NAME overrides the mirror image path. To turn the
 # mirror off entirely, set the repo variable MIRROR_ENABLED to "false".
 
@@ -66,18 +71,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Log in to the legacy mirror only when credentials are configured (it
-      # accepts anonymous push today, so this no-ops by default).
-      - name: Log in to the mirror registry (if credentials are set)
+      # The mirror requires a login (token auth since 2026-10-05). Best-effort
+      # like the mirror push itself: a missing secret or an unreachable
+      # registry warns here and never fails the publish.
+      - name: Log in to the mirror registry
+        if: ${{ vars.MIRROR_ENABLED != 'false' }}
         env:
           REG_USER: ${{ secrets.REGISTRY_USERNAME }}
           REG_PASS: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          if [ -n "$REG_USER" ]; then
-            echo "$REG_PASS" | docker login "$MIRROR_REGISTRY" -u "$REG_USER" --password-stdin
-          else
-            echo "No REGISTRY_USERNAME configured — mirror push is anonymous."
+          if [ -z "$REG_USER" ]; then
+            echo "::warning::REGISTRY_USERNAME is not set — the mirror will refuse the push."
+            exit 0
           fi
+          for attempt in 1 2 3; do
+            if printf '%s' "$REG_PASS" | docker login "$MIRROR_REGISTRY" -u "$REG_USER" --password-stdin; then
+              exit 0
+            fi
+            echo "mirror login attempt $attempt failed; retrying in 10s…"; sleep 10
+          done
+          echo "::warning::could not log in to $MIRROR_REGISTRY — the mirror step will be skipped."
 
       - name: Derive image tags & labels (ghcr)
         id: meta
@@ -152,7 +165,7 @@ jobs:
               fi
               echo "mirror attempt $attempt failed; retrying in 20s…"; sleep 20
             done
-            echo "::warning::mirror to $MIRROR_REGISTRY skipped (registry unavailable)"
+            echo "::warning::mirror to $MIRROR_REGISTRY skipped (registry unavailable, or the login above failed)"
           fi
 
       - name: Summary

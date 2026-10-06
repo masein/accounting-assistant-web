@@ -20,8 +20,10 @@ Optional **Variables** (Settings → Secrets and variables → Actions → Varia
 | `MIRROR_ENABLED` | set to `false` to skip the `docker.netixsystem.com` mirror entirely |
 | `IMAGE_NAME` | override the mirror image path (e.g. Harbor project) |
 
-Optional **Secrets** — only if the mirror registry is behind auth:
-`REGISTRY_USERNAME` / `REGISTRY_PASSWORD`.
+**Secrets** for the mirror — it sits behind token auth since 2026-10-05:
+`REGISTRY_USERNAME` / `REGISTRY_PASSWORD`, an account that may push
+`accounting-assistant-api`. Without them the mirror step is skipped with a
+warning; the GHCR publish, and therefore the deploy, does not depend on it.
 
 ## 2. Publish an image
 

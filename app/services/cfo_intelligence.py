@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from statistics import mean
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.models.account import Account
 from app.models.transaction import Transaction, TransactionLine
@@ -270,16 +270,21 @@ def _resolve_currency_unit(db: Session, requested: str | None) -> str:
 
 def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None = None) -> dict:
     cutoff = date.today() - timedelta(days=months_back * 31)
+    # plain rows, not ORM objects: building 200,000 of them took ~5 s on a year
+    # of books, and the CEO report did it twice (performance pass, 2026-10-06)
+    from app.models.account import Account
+    from app.services.reporting.repository import sums_base
+    base_view = sums_base(currency)
     q = (
-        select(Transaction)
+        select(Transaction.id, Transaction.date, Account.code, Account.name, TransactionLine.debit,
+               TransactionLine.credit, TransactionLine.base_debit, TransactionLine.base_credit)
+        .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+        .join(Account, Account.id == TransactionLine.account_id)
         .where(Transaction.date >= cutoff)
         .where(Transaction.deleted_at.is_(None))
-        .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
     )
-    from app.services.reporting.repository import line_dr_cr, sums_base
-    if not sums_base(currency):
+    if not base_view:
         q = q.where(Transaction.currency == currency)
-    txns = db.execute(q).scalars().unique().all()
 
     code_map = _resolve_code_map(db)
     cash_prefixes = code_map["cash"]
@@ -299,32 +304,36 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
     total_receivable_ledger = 0
     total_payable_ledger = 0
 
-    for txn in txns:
-        month = _month_key(txn.date, cal)
-        for ln in txn.lines:
-            code = ln.account.code or ""
-            # one currency's own amounts, else every currency at base value (roadmap §4.6)
-            d, c = line_dr_cr(ln, currency)
-            acc_type = classify_account_code(code)
-            if acc_type == REVENUE:
-                monthly_revenue[month] += c - d
-            elif acc_type == EXPENSE:
-                monthly_expense[month] += d - c
-                expense_by_cat[ln.account.name] += d - c
-                expense_code_by_cat[ln.account.name] = code
+    seen: set = set()
+    months: dict = {}
+    for tid, tdate, code, name, dr, cr, bdr, bcr in db.execute(q):
+        seen.add(tid)
+        month = months.get(tdate)
+        if month is None:
+            month = months[tdate] = _month_key(tdate, cal)
+        code = code or ""
+        # one currency's own amounts, else every currency at base value (roadmap §4.6)
+        d, c = (int(bdr or 0), int(bcr or 0)) if base_view else (int(dr or 0), int(cr or 0))
+        acc_type = classify_account_code(code)
+        if acc_type == REVENUE:
+            monthly_revenue[month] += c - d
+        elif acc_type == EXPENSE:
+            monthly_expense[month] += d - c
+            expense_by_cat[name] += d - c
+            expense_code_by_cat[name] = code
 
-            if any(code.startswith(p) for p in cash_prefixes):
-                delta = d - c
-                total_cash += delta
-                if delta > 0:
-                    monthly_cash_in[month] += delta
-                else:
-                    monthly_cash_out[month] += abs(delta)
+        if any(code.startswith(p) for p in cash_prefixes):
+            delta = d - c
+            total_cash += delta
+            if delta > 0:
+                monthly_cash_in[month] += delta
+            else:
+                monthly_cash_out[month] += abs(delta)
 
-            if any(code.startswith(p) for p in ar_prefixes):
-                total_receivable_ledger += d - c
-            if any(code.startswith(p) for p in ap_prefixes):
-                total_payable_ledger += c - d
+        if any(code.startswith(p) for p in ar_prefixes):
+            total_receivable_ledger += d - c
+        if any(code.startswith(p) for p in ap_prefixes):
+            total_payable_ledger += c - d
 
     # Fold outstanding invoices into AR/AP. Without this an SME running
     # cash-basis bookkeeping (sales recorded as cash receipts, not via
@@ -353,14 +362,17 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
         "total_cash": total_cash,
         "total_receivable": total_receivable,
         "total_payable": total_payable,
-        "transaction_count": len(txns),
+        "transaction_count": len(seen),
     }
 
 
-def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en") -> CFOReport:
+def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en", *,
+                     data: dict | None = None) -> CFOReport:
+    """``data``: _load_monthly_data's result when the caller has it already
+    (the CEO report); this report changes its own copy."""
     lang = _normalize_report_language(lang)
     report = CFOReport()
-    data = _load_monthly_data(db, months_back=12, currency=currency)
+    data = dict(data) if data is not None else _load_monthly_data(db, months_back=12, currency=currency)
     # Cash on hand must match the owner dashboard exactly: the true all-time
     # net balance of cash/bank accounts as of today, not the 12-month
     # windowed sum _load_monthly_data accumulates for burn/trend (AI-6).
@@ -657,8 +669,8 @@ class CEOReport:
 def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en") -> CEOReport:
     """Build a high-level CEO executive summary report. Alerts inherit the
     localized insight text from the CFO report."""
-    cfo = build_cfo_report(db, currency=currency, lang=lang)
     data = _load_monthly_data(db, months_back=12, currency=currency)
+    cfo = build_cfo_report(db, currency=currency, lang=lang, data=data)        # loaded once, not twice
 
     report = CEOReport()
 

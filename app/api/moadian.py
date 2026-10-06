@@ -48,10 +48,11 @@ def _load(db: Session, invoice_id: UUID) -> Invoice:
     return inv
 
 
-def _row(db: Session, inv: Invoice, today: date) -> dict:
-    b = builder.build(db, inv)
-    party = db.get(Entity, inv.entity_id) if inv.entity_id else None
-    due = builder.deadline(db, inv)
+def _row(db: Session, inv: Invoice, today: date, shared: "builder.Shared | None" = None) -> dict:
+    b = builder.build(db, inv, shared=shared)
+    party = ((shared.parties.get(inv.entity_id) if shared else db.get(Entity, inv.entity_id))
+             if inv.entity_id else None)
+    due = builder.deadline(db, inv, shared.conf if shared else None)
     return {
         "id": str(inv.id), "number": inv.number, "issue_date": inv.issue_date.isoformat(),
         "customer": party.name if party else None, "amount": int(inv.amount or 0), "currency": inv.currency,
@@ -102,8 +103,10 @@ def list_invoices(
     if date_to:
         q = q.where(Invoice.issue_date <= date_to)
     today = date.today()
-    rows = [_row(db, inv, today) for inv in db.execute(q).scalars().all()]
-    return said({"settings": get_settings(db), "invoices": rows,
+    invoices = list(db.execute(q).scalars().all())
+    shared = builder.shared_for(db, invoices)              # read once for the whole list
+    rows = [_row(db, inv, today, shared) for inv in invoices]
+    return said({"settings": shared.conf, "invoices": rows,
                  "overdue": sum(1 for r in rows if r["moadian_status"] is None and r["days_left"] < 0)}, request)
 
 

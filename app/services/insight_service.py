@@ -249,6 +249,75 @@ def _fmt(n: int | float | None) -> str:
 from contextvars import ContextVar  # noqa: E402
 
 _CALENDAR: ContextVar[str] = ContextVar("insight_calendar", default="gregorian")
+# The entries of the last WINDOW days, loaded once per insights run and shared by
+# the detectors: each loaded its own overlapping window, and the first insights of
+# a day took 10.6 s on a year of books (performance pass, 2026-10-06).
+WINDOW_DAYS = 400
+_ROWS: ContextVar[dict | None] = ContextVar("insight_rows", default=None)
+
+
+class _Ref:
+    """A read-only stand-in for an ORM row the detectors only read: the shared
+    window is two plain queries, not 26,000 entries built as ORM objects (4 s)."""
+    __slots__ = ("__dict__",)
+
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+def _window_rows(db: Session) -> list | None:
+    """This run's shared entries — id, date, currency, description, lines (with
+    their account's code and name) and party links — or None outside a run."""
+    from app.models.account import Account
+    memo = _ROWS.get()
+    if memo is None:
+        return None
+    if "rows" not in memo:
+        since = memo["today"] - timedelta(days=WINDOW_DAYS)
+        live = (Transaction.date >= since, Transaction.deleted_at.is_(None))
+        txns: dict = {}
+        accounts: dict = {}
+        for tid, d, ccy, desc, acc_id, code, name, dr, cr, bdr, bcr in db.execute(
+            select(Transaction.id, Transaction.date, Transaction.currency, Transaction.description,
+                   TransactionLine.account_id, Account.code, Account.name, TransactionLine.debit, TransactionLine.credit,
+                   TransactionLine.base_debit, TransactionLine.base_credit)
+            .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+            .join(Account, Account.id == TransactionLine.account_id)
+            .where(*live).order_by(Transaction.date, Transaction.id, TransactionLine.id)
+        ):
+            t = txns.get(tid)
+            if t is None:
+                t = txns[tid] = _Ref(id=tid, date=d, currency=ccy, description=desc, lines=[], entity_links=[])
+            acc = accounts.get(acc_id)
+            if acc is None:
+                acc = accounts[acc_id] = _Ref(id=acc_id, code=code, name=name)
+            t.lines.append(_Ref(account=acc, account_id=acc_id, debit=dr or 0, credit=cr or 0,
+                                base_debit=bdr, base_credit=bcr))
+        entities: dict = {}
+        for tid, role, eid, ename, etype in db.execute(
+            select(TransactionEntity.transaction_id, TransactionEntity.role, TransactionEntity.entity_id,
+                   Entity.name, Entity.type)
+            .join(Transaction, Transaction.id == TransactionEntity.transaction_id)
+            .join(Entity, Entity.id == TransactionEntity.entity_id)
+            .where(*live)
+        ):
+            t = txns.get(tid)
+            if t is None:
+                continue
+            ent = entities.get(eid)
+            if ent is None:
+                ent = entities[eid] = _Ref(id=eid, name=ename, type=etype)
+            t.entity_links.append(_Ref(role=role, entity_id=eid, entity=ent))
+        memo["rows"] = list(txns.values())
+    return memo["rows"]
+
+
+def _within(db: Session, since: date) -> list[Transaction] | None:
+    """The shared entries when they reach back to ``since``, else None."""
+    memo = _ROWS.get()
+    if memo is None or since < memo["today"] - timedelta(days=WINDOW_DAYS):
+        return None
+    return _window_rows(db)
 
 
 def _jalali_day(value: Any) -> Any:
@@ -371,6 +440,9 @@ def detect_payroll(db: Session, today: date) -> list[Insight]:
 
 
 def _expense_rows(db: Session, since: date, until: date) -> list[Transaction]:
+    shared = _within(db, since)
+    if shared is not None:
+        return [t for t in shared if since <= t.date <= until]
     return db.execute(
         select(Transaction)
         .where(Transaction.date >= since, Transaction.date <= until, Transaction.deleted_at.is_(None))
@@ -500,14 +572,19 @@ def detect_vendor_outliers(db: Session, today: date) -> list[Insight]:
 
     is_cash = company_cash_predicate(db)
     since = today - timedelta(days=395)
-    txns = db.execute(
-        select(Transaction)
-        .join(TransactionEntity, TransactionEntity.transaction_id == Transaction.id)
-        .where(Transaction.date >= since, Transaction.date <= today, Transaction.deleted_at.is_(None),
-               TransactionEntity.role.in_(["supplier", "payee"]))
-        .options(selectinload(Transaction.lines).selectinload(TransactionLine.account),
-                 selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity))
-    ).scalars().unique().all()
+    shared = _within(db, since)
+    if shared is not None:
+        txns = [t for t in shared if since <= t.date <= today
+                and any(link.role in ("supplier", "payee") for link in t.entity_links)]
+    else:
+        txns = db.execute(
+            select(Transaction)
+            .join(TransactionEntity, TransactionEntity.transaction_id == Transaction.id)
+            .where(Transaction.date >= since, Transaction.date <= today, Transaction.deleted_at.is_(None),
+                   TransactionEntity.role.in_(["supplier", "payee"]))
+            .options(selectinload(Transaction.lines).selectinload(TransactionLine.account),
+                     selectinload(Transaction.entity_links).selectinload(TransactionEntity.entity))
+        ).scalars().unique().all()
     # (entity_id) -> [(date, amount, txn)]
     payments: dict = defaultdict(list)
     for t in txns:
@@ -574,21 +651,22 @@ def detect_receivables_growth(db: Session, today: date) -> list[Insight]:
 
     ar_prefixes = _resolve_code_map(db)["ar"]
 
+    from sqlalchemy import or_
+
+    from app.models.account import Account
+
     def balance(as_of: date) -> int:
-        total = 0
-        rows = db.execute(
-            select(TransactionLine.base_debit, TransactionLine.base_credit, TransactionLine.account_id)
+        # summed by the database: it read every line of the books into Python, twice
+        if not ar_prefixes:
+            return 0
+        return int(db.execute(
+            select(func.coalesce(func.sum(func.coalesce(TransactionLine.base_debit, 0)
+                                          - func.coalesce(TransactionLine.base_credit, 0)), 0))
             .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-            .where(Transaction.date <= as_of, Transaction.deleted_at.is_(None))
-        ).all()
-        # Resolve account codes once.
-        from app.models.account import Account
-        codes = {a.id: (a.code or "") for a in db.execute(select(Account)).scalars().all()}
-        for debit, credit, acc_id in rows:
-            code = codes.get(acc_id, "")
-            if any(code.startswith(p) for p in ar_prefixes):
-                total += int(debit or 0) - int(credit or 0)
-        return total
+            .join(Account, Account.id == TransactionLine.account_id)
+            .where(Transaction.date <= as_of, Transaction.deleted_at.is_(None),
+                   or_(*[Account.code.like(f"{p}%") for p in ar_prefixes]))
+        ).scalar() or 0)
 
     now = balance(today)
     then = balance(today - timedelta(days=30))
@@ -603,10 +681,11 @@ def detect_receivables_growth(db: Session, today: date) -> list[Insight]:
 
 
 def detect_recurring_missed(db: Session, today: date) -> list[Insight]:
-    from app.services.recurring_detection import detect_recurring
+    from app.services.recurring_detection import LOOKBACK_DAYS, detect_recurring
 
     out: list[Insight] = []
-    for c in detect_recurring(db, today=today):
+    # the shared window when it reaches back far enough, else its own read
+    for c in detect_recurring(db, today=today, txns=_within(db, today - timedelta(days=LOOKBACK_DAYS))):
         if c.direction != "payment":
             continue
         if (today - c.next_expected).days < 7:
@@ -658,9 +737,11 @@ def compute_insights(db: Session, *, today: date | None = None, use_cache: bool 
     today = today or date.today()
     from app.services.calendar_periods import company_calendar
     cal_token = _CALENDAR.set(company_calendar(db))
+    rows_token = _ROWS.set({"today": today})
     try:
         return _compute_insights(db, today=today, use_cache=use_cache)
     finally:
+        _ROWS.reset(rows_token)
         _CALENDAR.reset(cal_token)
 
 

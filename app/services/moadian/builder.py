@@ -65,10 +65,30 @@ def _buyer(ent: Entity | None) -> tuple[int | None, str | None, str | None, str 
     return tob, (nid or None), (econ or None), (_digits(ent.postal_code) or None)
 
 
-def build(db: Session, inv: Invoice, *, serial: int | None = None) -> Built:
+@dataclass
+class Shared:
+    """What every invoice of a list shares or can read at once: the settings,
+    the company's ids, the customers and the invoices' totals. Built one by
+    one, the مودیان list took 5.9 s and 17,508 queries on a year of books
+    (performance pass, 2026-10-06)."""
+    conf: dict
+    company_ids: tuple
+    parties: dict = field(default_factory=dict)
+    totals: dict = field(default_factory=dict)
+
+
+def shared_for(db: Session, invoices: list[Invoice]) -> Shared:
+    from app.api.invoices import totals_for
+    ids = {i.entity_id for i in invoices if i.entity_id}
+    parties = {e.id: e for e in db.execute(select(Entity).where(Entity.id.in_(ids))).scalars()} if ids else {}
+    return Shared(conf=get_settings(db), company_ids=_company_ids(db), parties=parties,
+                  totals=totals_for(db, invoices))
+
+
+def build(db: Session, inv: Invoice, *, serial: int | None = None, shared: Shared | None = None) -> Built:
     from app.api.invoices import _invoice_totals
 
-    conf = get_settings(db)
+    conf = shared.conf if shared else get_settings(db)
     b = Built(packet=None)
     if inv.kind != "sales":
         b.problems.append("Only sales invoices go to سامانه مودیان.")
@@ -79,12 +99,13 @@ def build(db: Session, inv: Invoice, *, serial: int | None = None) -> Built:
         b.problems.append(f"Only rial invoices are supported in this export (this one is {inv.currency}).")
     if not valid_memory_id(conf["memory_id"]):
         b.problems.append("Enter the company's tax memory id (شناسه یکتای حافظه مالیاتی) in the مودیان settings.")
-    econ, nid = _company_ids(db)
+    econ, nid = shared.company_ids if shared else _company_ids(db)
     tins = econ or nid
     if not tins:
         b.problems.append("Add the company's economic code (شماره اقتصادی) or national id to the company profile.")
 
-    party = db.get(Entity, inv.entity_id) if inv.entity_id else None
+    party = ((shared.parties.get(inv.entity_id) if shared else db.get(Entity, inv.entity_id))
+             if inv.entity_id else None)
     tob, bid, tinb, bpc = _buyer(party)
     inty = 1 if (bid or tinb) else 2
     if inty == 2:
@@ -129,7 +150,7 @@ def build(db: Session, inv: Invoice, *, serial: int | None = None) -> Built:
     tbill = tprdis + tvam
     if tbill != int(inv.amount or 0):
         b.problems.append(f"Line totals ({tbill:,}) do not add up to the invoice amount ({int(inv.amount or 0):,}).")
-    paid, credited, _balance = _invoice_totals(db, inv)
+    paid, credited, _balance = shared.totals[inv.id] if shared else _invoice_totals(db, inv)
     if credited:
         b.warnings.append("This invoice has credit notes; send them as return invoices (برگشت از فروش) separately.")
     cash = min(paid, tbill)
@@ -156,5 +177,5 @@ def next_serial(db: Session) -> int:
     return int(top or 0) + 1
 
 
-def deadline(db: Session, inv: Invoice) -> date:
-    return inv.issue_date + timedelta(days=int(get_settings(db)["deadline_days"]))
+def deadline(db: Session, inv: Invoice, conf: dict | None = None) -> date:
+    return inv.issue_date + timedelta(days=int((conf or get_settings(db))["deadline_days"]))

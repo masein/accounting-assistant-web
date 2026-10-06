@@ -524,8 +524,9 @@ def history(db: Session, row: Commitment) -> list[dict]:
              "transaction_id": str(e.transaction_id) if e.transaction_id else None} for e in rows]
 
 
-def needs_sayad(db: Session, row: Commitment) -> bool:
+def needs_sayad(db: Session, row: Commitment, *, locale: str | None = None) -> bool:
     """An Iranian cheque still in play but not registered (issuer) or
-    confirmed (receiver) in Sayad."""
+    confirmed (receiver) in Sayad. ``locale``: the company's, when the caller
+    checks many cheques and has read it once."""
     return (row.kind == CHEQUE and row.status in (PENDING, DEPOSITED) and row.sayad_registered_on is None
-            and _locale(db) in ("ir", "default"))
+            and (locale or _locale(db)) in ("ir", "default"))

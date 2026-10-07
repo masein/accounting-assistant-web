@@ -106,7 +106,7 @@ Found in this round's screenshots before the run, and already merged: the CFO re
 
 ## Rerun after the fixes (#296–#300)
 
-The whole harness ran again on `main` with #296–#300: **52 of 52 pass**, and the automated UI checks found **0 findings and 0 page errors** in 181 page views. The screenshots reviewed for this round:
+The whole harness ran again on `main` with #296–#300, plus a new check: **L9**, CEO Mode's balance sheet balances, with the period's result as its own equity line. **53 of 53 pass**, and the automated UI checks found **0 findings and 0 page errors** in 181 page views. The screenshots reviewed for this round:
 
 | Page | What it shows |
 |---|---|

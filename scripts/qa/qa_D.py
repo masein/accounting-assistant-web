@@ -431,7 +431,7 @@ def l_cfo_owed(browser):
     """L1, L8: CFO and CEO receivables and payables — each invoice once, to
     date, the trade accounts (with cheques not yet cleared) — the same as the
     ledger and the same on both pages."""
-    c1, c8 = Check("L1"), Check("L8")
+    c1, c8, c9 = Check("L1"), Check("L8"), Check("L9")
     ctx, page, watch = new_session(browser, "arman_cfo", lang="fa")
     try:
         s1, cfo = api(page, "GET", "/brain/cfo/report?currency=IRR", None)
@@ -447,6 +447,10 @@ def l_cfo_owed(browser):
         c1.ok(k["accounts_payable"] == ap, f"payables = the ledger's trade payables and issued cheques ({k['accounts_payable']:,} vs {ap:,})")
         c8.ok((ceo["accounts_receivable"], ceo["accounts_payable"]) == (k["accounts_receivable"], k["accounts_payable"]),
               f"CEO says the same ({ceo['accounts_receivable']:,} / {ceo['accounts_payable']:,})")
+        # L9: the balance-sheet summary balances, the period's result in equity (#297)
+        a, l_, e = ceo["total_assets"], ceo["total_liabilities"], ceo["total_equity"]
+        c9.ok(a == l_ + e, f"assets {a:,} = liabilities {l_:,} + equity {e:,}")
+        c9.ok(any(not x.get("code") for x in ceo.get("equity_breakdown", [])), "the period's result is its own equity line")
         for name in ("cfo", "ceo"):
             go(page, name)
             settle(page)
@@ -462,7 +466,7 @@ def l_cfo_owed(browser):
         c8.ok(watch.problems() == [], f"problems {watch.problems()}")
     finally:
         ctx.close()
-    c1.done(); c8.done()
+    c1.done(); c8.done(); c9.done()
 
 
 if __name__ == "__main__":

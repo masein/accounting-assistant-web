@@ -103,3 +103,17 @@ Found in this round's screenshots before the run, and already merged: the CFO re
 | H1 | ✅ | personal home: ai-accountant |
 | L1 | ✅ | CFO receivables 63,225,000, payables 0; ledger 63,225,000 / 0 |
 | L8 | ✅ |  |
+
+## Rerun after the fixes (#296–#300)
+
+The whole harness ran again on `main` with #296–#300, plus a new check: **L9**, CEO Mode's balance sheet balances, with the period's result as its own equity line. **53 of 53 pass**, and the automated UI checks found **0 findings and 0 page errors** in 181 page views. The screenshots reviewed for this round:
+
+| Page | What it shows |
+|---|---|
+| Arman, CEO Mode (L8) | All four charts drawn with Arman's figures; receivables 63,225,000, the same as CFO Mode |
+| Thames, CEO Mode | The balance sheet balances: assets 3,600 = liabilities 600 (VAT owed) + equity 3,000 (the period's result). Receivables 3,600 GBP. "Top Expenses" says "No data yet." |
+| Thames, CFO Mode | The cost-change tile reads 0% with no "↓ 0%" line, and there is no "revenue down 100%" alarm at the start of the month |
+| Thames, dashboard | Figures in GBP; the forecast expects invoice TS-0001's 3,600 in the week of 2026-10-12, its due date |
+| Sara (personal), phone | The personal dashboard and the monthly report card read cleanly |
+
+Fixed since the first run: empty charts and a new company's currency (#296), CEO Mode's balance sheet, trends, burn rate and drill-down (#297), numbers on every browser plus release notes 2026.10.07 (#298), report failures shown (#299), and CFO Mode's months (#300).

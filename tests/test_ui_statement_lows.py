@@ -109,6 +109,43 @@ def test_cfo_reports_overdrawn_instead_of_negative_runway(db, make_transaction):
     assert any("منفی" in i.title for i in fa.insights)
 
 
+def test_cfo_with_no_cash_recorded_says_so_not_overdrawn(db, make_transaction):
+    """Exactly zero is no runway, but not overdrawn: usually the bank's opening
+    balance isn't recorded yet (D4). Expenses here go on account, no cash moves."""
+    from app.services.cfo_intelligence import answer_cfo_question, build_cfo_report
+
+    ccy = _ccy("Z")
+    today = date.today()
+    last_month = today.replace(day=1) - timedelta(days=1)
+    for day in (today, last_month):
+        _post(db, make_transaction, ccy, [(EXPENSE, 1_500_000, 0), ("2110", 0, 1_500_000)], day)
+    db.commit()
+
+    report = build_cfo_report(db, currency=ccy, lang="en")
+    assert next(k for k in report.kpis if k.key == "cash_on_hand").value == 0
+    assert report.runway_months == 0
+    (alert,) = [i for i in report.insights if i.category == "cash"]
+    assert alert.title == "No cash on hand: no runway" and "opening balance" in alert.body
+    assert "overdrawn" not in report.narrative and "No cash on hand is recorded" in report.narrative
+    answer = answer_cfo_question(db, "how long can we survive?", currency=ccy, lang="en")
+    assert "overdrawn" not in answer and "no runway" in answer
+    for lang, word in (("fa", "صفر"), ("es", "Sin caja"), ("ar", "لا نقد")):
+        assert any(word in i.title for i in build_cfo_report(db, currency=ccy, lang=lang).insights), lang
+
+
+def test_cfo_strings_read_in_every_language_with_the_same_values():
+    import string
+    from app.services.cfo_intelligence import _CFO_STRINGS, SUPPORTED_REPORT_LANGUAGES
+
+    def fields(text):
+        return {f for _, f, _, _ in string.Formatter().parse(text) if f}
+    assert set(_CFO_STRINGS) == set(SUPPORTED_REPORT_LANGUAGES)
+    for key, en in _CFO_STRINGS["en"].items():
+        for lang in SUPPORTED_REPORT_LANGUAGES:
+            assert key in _CFO_STRINGS[lang], (lang, key)
+            assert fields(_CFO_STRINGS[lang][key]) == fields(en), (lang, key)
+
+
 # ---------------------------------------------------------------------------
 # 3.2 over-payment display
 # ---------------------------------------------------------------------------

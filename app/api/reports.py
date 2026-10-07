@@ -403,10 +403,14 @@ def get_owner_dashboard(
     base_view = is_base_view(currency)
     live = (Transaction.date >= cutoff, Transaction.deleted_at.is_(None),
             *(() if base_view else (Transaction.currency == currency,)))
+    # what is still owed from before the window: the aging and the liabilities
+    # are balances to date, not the year's movements
+    before = (Transaction.date < cutoff, Transaction.deleted_at.is_(None),
+              *(() if base_view else (Transaction.currency == currency,)))
     dr_col, cr_col = amount_columns(currency)
     # Summed in the database, one row per day / account / party (§2.6); only
     # the journals that move a receivable or a liability come back one by one.
-    folds = fold_dashboard(db, live=live, dr_col=dr_col, cr_col=cr_col,
+    folds = fold_dashboard(db, live=live, before=before, dr_col=dr_col, cr_col=cr_col,
                            is_receivable=_is_receivable, is_current_liability=_is_current_liab,
                            month_of=lambda d: month_key(d, cal), today=today)
     monthly_revenue, monthly_expense = folds.monthly_revenue, folds.monthly_expense

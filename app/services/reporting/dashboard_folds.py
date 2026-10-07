@@ -110,9 +110,14 @@ def fold_dashboard(
     is_current_liability: Callable[[str], bool],
     month_of: Callable[[date], str],
     today: date,
+    before: tuple | None = None,
 ) -> DashboardFolds:
     """``live`` is the dashboard's window filter on Transaction; ``dr_col`` /
-    ``cr_col`` the line columns it sums (own currency or base value)."""
+    ``cr_col`` the line columns it sums (own currency or base value).
+    ``before``: the journals before the window (same currency, not undone).
+    What they leave owed starts each party's aging in its oldest bucket and
+    counts in the liabilities: the aging and the liabilities used to be the
+    window's movements, so a receivable over a year old vanished from them."""
     out = DashboardFolds()
     # Every query below reaches lines, links and files through a journal in
     # ``live``, which leaves out undone journals itself; the global filter's
@@ -260,6 +265,55 @@ def fold_dashboard(
             p = out.profitability[name]
             p["revenue"] += int(rev_p or 0)
             p["cost"] += int(exp_p or 0)
+
+    # Before the window: per journal, what it moves in receivables and current
+    # liabilities and whom it names; summed per party, a balance still owed is
+    # over a year old, so it starts in the oldest bucket. Journals of no party
+    # are the unassigned client's / vendor's, as in the walk below.
+    if before is not None:
+        before = (*before, Transaction.deleted_at.is_(None))
+        pre = (
+            select(TL.transaction_id.label("tid"),
+                   func.sum(case((TL.account_id.in_(recv_ids), dr - cr), else_=0)).label("recv"),
+                   func.sum(case((TL.account_id.in_(liab_ids), cr - dr), else_=0)).label("liab"))
+            .join(Transaction, TL.transaction_id == Transaction.id)
+            .where(*before)
+            .group_by(TL.transaction_id)
+            .subquery("pre")
+        )
+        old_ar: dict[str, int] = defaultdict(int)
+        old_ap: dict[str, int] = defaultdict(int)
+        seen: dict = {}
+        for tid, recv, liab, link_role, link_name, has_link in run(
+            select(pre.c.tid, pre.c.recv, pre.c.liab, TransactionEntity.role, Entity.name,
+                   TransactionEntity.id.is_not(None))
+            .select_from(pre)
+            .outerjoin(TransactionEntity, TransactionEntity.transaction_id == pre.c.tid)
+            .outerjoin(Entity, TransactionEntity.entity_id == Entity.id)
+            .where(or_(pre.c.recv != 0, pre.c.liab != 0))
+        ):
+            j = seen.get(tid)
+            if j is None:
+                j = seen[tid] = [int(recv or 0), int(liab or 0), [], []]
+            if has_link:
+                r = (link_role or "").lower()
+                n = link_name if link_name is not None else UNKNOWN_PARTY
+                if r == "client":
+                    j[2].append(n)
+                elif r in VENDOR_ROLES:
+                    j[3].append(n)
+        for recv, liab, clients, vendors in seen.values():
+            out.tax_and_liability_payable += liab
+            for c in clients or [UNASSIGNED_CLIENT]:
+                old_ar[c] += recv
+            for v in vendors or [UNASSIGNED_VENDOR]:
+                old_ap[v] += liab
+        for c, owed in old_ar.items():
+            if owed > 0:
+                out.ar_buckets[c]["days_60_plus"] += owed
+        for v, owed in old_ap.items():
+            if owed > 0:
+                out.ap_buckets[v]["days_60_plus"] += owed
 
     # Aging: journals that move a receivable or a current liability, in date
     # order, with their links (one row per link, one with NULLs if none).

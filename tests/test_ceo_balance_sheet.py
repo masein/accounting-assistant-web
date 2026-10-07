@@ -62,6 +62,8 @@ def test_the_report_sends_the_lines_behind_the_totals(co, db):
     assert [(e["code"], e["balance"]) for e in d["assets_breakdown"]] == [(bank, 600)]
     assert sorted((e["code"], e["balance"]) for e in d["equity_breakdown"]) == [("", -400), (capital, 1_000)]
     assert d["total_assets"] == d["total_liabilities"] + d["total_equity"] == 600
+    # numbers, not text: PostgreSQL sums are decimals, and "1000" + "-400" made the drill-down's total "01000-400"
+    assert all(isinstance(e["balance"], int) for k in ("assets_breakdown", "equity_breakdown") for e in d[k])
 
 
 

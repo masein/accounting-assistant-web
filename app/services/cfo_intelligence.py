@@ -782,24 +782,24 @@ def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en")
             continue
         acc_type = classify_account_code(acc.code)
         if acc_type == ASSET:
-            bal = (td or 0) - (tc or 0)
+            bal = int((td or 0) - (tc or 0))     # whole numbers: PostgreSQL sums come back as decimals
             report.total_assets += bal
             if bal != 0:
                 assets_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type == LIABILITY:
-            bal = (tc or 0) - (td or 0)
+            bal = int((tc or 0) - (td or 0))
             report.total_liabilities += bal
             if bal != 0:
                 liabilities_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type == EQUITY:
-            bal = (tc or 0) - (td or 0)
+            bal = int((tc or 0) - (td or 0))
             report.total_equity += bal
             if bal != 0:
                 equity_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type in (REVENUE, EXPENSE):
             # the period's result belongs to equity until the year is closed
             # into retained earnings; left out, the summary didn't balance
-            period_result += (tc or 0) - (td or 0)
+            period_result += int((tc or 0) - (td or 0))
     if period_result:
         report.total_equity += period_result
         equity_map["period_result"] = {"code": "", "name": _s(lang, "bs_period_result"), "balance": period_result}

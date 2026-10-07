@@ -490,7 +490,9 @@
       if (sel.dataset.defaulted) return;
       sel.dataset.defaulted = '1';
       const used = Array.isArray(meta.used_currencies) ? meta.used_currencies : [];
-      const want = used.length > 1 ? 'ALL' : (meta.most_common_currency || pref);
+      // nothing booked yet → the company's own currency: the server's "most
+      // common" falls back to IRR, and a new UK company's dashboard said 0 IRR
+      const want = used.length > 1 ? 'ALL' : (used.length ? (meta.most_common_currency || used[0]) : pref);
       if ([...sel.options].some(o => o.value === want)) sel.value = want;
     }
 

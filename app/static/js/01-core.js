@@ -53,6 +53,37 @@
       }
     } catch (_) { /* fall through — charts still render without zoom */ }
 
+    // A chart with nothing to show says so: a new company's CEO Mode and
+    // dashboard drew blank boxes that looked broken (2026-10-07). Every
+    // dataset empty or all zero → «No data yet» in the middle of the plot.
+    // chart.$empty tells the browser suite what was drawn.
+    try {
+      if (typeof Chart !== 'undefined') {
+        Chart.register({
+          id: 'aaEmptyState',
+          afterDraw(chart) {
+            const num = (v) => Number(v && typeof v === 'object' ? (v.y ?? v.r ?? v.x) : v);
+            chart.$empty = !(chart.data.datasets || []).some((s) => (s.data || []).some((v) => {
+              const n = num(v);
+              return Number.isFinite(n) && n !== 0;
+            }));
+            if (!chart.$empty) return;
+            const { ctx, width, height } = chart;
+            const a = chart.chartArea || { left: 0, right: width, top: 0, bottom: height };
+            const root = getComputedStyle(document.documentElement);
+            ctx.save();
+            ctx.direction = root.direction === 'rtl' ? 'rtl' : 'ltr';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = root.getPropertyValue('--text-muted').trim() || '#64748b';
+            ctx.font = '500 14px ' + getComputedStyle(document.body).fontFamily;
+            ctx.fillText(t('noDataYet'), (a.left + a.right) / 2, (a.top + a.bottom) / 2);
+            ctx.restore();
+          },
+        });
+      }
+    } catch (_) { /* charts still render without it */ }
+
     // ─── Display calendar (Gregorian / Jalali) ────────────────────────
     // Stored in AppSetting; loaded once on session start. All dates are
     // persisted as Gregorian (per ISO-8601). Conversion happens only at

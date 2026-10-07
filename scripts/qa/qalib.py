@@ -133,6 +133,18 @@ def shot(page, sid: str, name: str, *, full: bool = True, selector: str | None =
     try:
         if selector:
             page.locator(selector).first.screenshot(path=path)
+        elif full and page.locator("canvas:visible").count():
+            # A full-page capture resizes the window, which clears every chart's
+            # canvas; the shot then caught them blank or half redrawn (CEO Mode
+            # looked chartless in retest 3). Grow the window to the page, let the
+            # charts redraw, take it as it stands, and put the window back.
+            vp = page.viewport_size
+            height = page.evaluate("() => document.documentElement.scrollHeight")
+            page.set_viewport_size({"width": vp["width"], "height": max(vp["height"], height)})
+            page.wait_for_timeout(1200)
+            page.screenshot(path=path)
+            page.set_viewport_size(vp)
+            page.wait_for_timeout(300)
         else:
             page.screenshot(path=path, full_page=full)
     except Exception as e:   # a screenshot must not end the scenario

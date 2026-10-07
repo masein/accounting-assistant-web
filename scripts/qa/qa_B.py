@@ -145,8 +145,15 @@ def b2_opening(browser):
         msg = page.inner_text("#coa-opening-msg")
         c.ok(res.value.status in (200, 201), f"balanced posts ({res.value.status} {res.value.text()[:150]})")
         c.ok(FA(msg), f"saved message Persian «{msg}»")
-        s, tb = api(page, "GET", "/reports/trial-balance?to_date=2026-03-31", None)
-        c.note(f"trial balance → {s}")
+        # the trial balance shows them (it called /reports/trial-balance, a 404 the check only noted)
+        s, tb = api(page, "GET", "/manager-reports/books/trial-balance?to_date=2026-03-31&page_size=1000", None)
+        rows = {r["account_code"]: r for r in tb.get("rows", [])} if s == 200 else {}
+        got = {k: (rows.get(st[k], {}).get("debit_balance"), rows.get(st[k], {}).get("credit_balance"))
+               for k in ("cash_code", "bank_code", "capital_code")}
+        c.ok(s == 200 and got == {"cash_code": (500_000_000, 0), "bank_code": (1_200_000_000, 0),
+                                  "capital_code": (0, 1_700_000_000)}, f"trial balance → {s} {got}")
+        c.ok(sum(r["debit_balance"] for r in rows.values()) == sum(r["credit_balance"] for r in rows.values()),
+             "the trial balance balances")
         c.shots.append(shot(page, "B2", "saved"))
     finally:
         ctx.close()

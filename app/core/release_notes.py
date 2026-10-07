@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.07.1"
+CURRENT_RELEASE = "2026.10.07.2"
 
 
 @dataclass(frozen=True)
@@ -1640,6 +1640,46 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "میانگین درآمد ماهانه و نرخ مصرف حالا همهٔ ماه‌ها را حساب می‌کنند و ماه‌های بی‌فعالیت را صفر می‌گیرند، و مقایسهٔ ماه‌به‌ماه دو ماه کامل اخیر را می‌سنجد — دیگر اول هر ماه «کاهش 100٪ درآمد» نمی‌بینید.",
                     "es": "El ingreso medio mensual y el ritmo de gasto cuentan ahora todos los meses, los tranquilos como cero, y la comparación mensual usa los dos últimos meses completos: se acabó el «ingresos −100%» al empezar cada mes.",
                     "ar": "يحتسب متوسط الإيراد الشهري ومعدل الإنفاق الآن كل الأشهر، والهادئة منها صفرًا، وتقارن المقارنة الشهرية آخر شهرين مكتملين — لا مزيد من «انخفاض الإيرادات 100٪» في بداية كل شهر.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.07.2",
+        date="2026-10-07",
+        highlights=(
+            Highlight(
+                key="import-years",
+                page="migration",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Years of history import cleanly",
+                    "fa": "سال‌های قبل درست وارد می‌شوند",
+                    "es": "Los años anteriores se importan bien",
+                    "ar": "السنوات السابقة تُستورد بشكل صحيح",
+                },
+                body={
+                    "en": "Importing journals from Sepidar, Holoo or Hesabfa, a year's closing vouchers are left out (the app keeps the year's result in equity itself), and the next year's opening voucher doesn't double the balances. Vouchers numbered from 1 again each year no longer look already imported. Import the oldest year first.",
+                    "fa": "در ورود اسناد از سپیدار، هلو یا حسابفا، سندهای اختتامیه و بستن حساب‌ها کنار گذاشته می‌شوند (برنامه نتیجهٔ سال را خودش در حقوق مالکانه نگه می‌دارد) و سند افتتاحیهٔ سال بعد مانده‌ها را دو برابر نمی‌کند. سندهایی که شماره‌شان هر سال از ۱ شروع می‌شود دیگر «قبلاً واردشده» به حساب نمی‌آیند. سال قدیمی‌تر را اول وارد کنید.",
+                    "es": "Al importar asientos de Sepidar, Holoo o Hesabfa, los cierres de ejercicio se omiten (la app mantiene el resultado del año en el patrimonio) y el asiento de apertura del año siguiente no duplica los saldos. Los asientos que vuelven a numerarse desde 1 cada año ya no parecen importados. Importa primero el año más antiguo.",
+                    "ar": "عند استيراد القيود من سپیدار أو هلو أو حسابفا تُستبعد قيود إقفال السنة (يحتفظ التطبيق بنتيجة السنة في حقوق الملكية بنفسه)، ولا يضاعف القيد الافتتاحي للسنة التالية الأرصدة. ولم تعد القيود التي يبدأ ترقيمها من 1 كل سنة تبدو مستوردة سابقًا. استورد السنة الأقدم أولًا.",
+                },
+            ),
+            Highlight(
+                key="dashboard-old-balances",
+                page="dashboard",
+                roles=("owner", "cfo", "accountant", "viewer"),
+                title={
+                    "en": "Old balances stay on the dashboard",
+                    "fa": "مانده‌های قدیمی در داشبورد می‌مانند",
+                    "es": "Los saldos antiguos siguen en el panel",
+                    "ar": "الأرصدة القديمة تبقى في لوحة التحكم",
+                },
+                body={
+                    "en": "A customer who has owed you for over a year, or a supplier you've owed as long, now shows in the dashboard's aging (60+ days), its overdue alerts and \"Liabilities payable\" — they only counted the last twelve months.",
+                    "fa": "مشتری‌ای که بیش از یک سال به شما بدهکار است، یا تأمین‌کننده‌ای که همین‌قدر طلبکار است، حالا در گزارش سنی داشبورد (بیش از ۶۰ روز)، هشدارهای سررسیدگذشته و «بدهی‌های پرداختنی» دیده می‌شود — این‌ها فقط دوازده ماه اخیر را می‌شمردند.",
+                    "es": "Un cliente que te debe desde hace más de un año, o un proveedor al que debes desde entonces, aparece ahora en la antigüedad del panel (más de 60 días), sus alertas de vencidos y en «Pasivos por pagar»; solo contaban los últimos doce meses.",
+                    "ar": "العميل المدين لك منذ أكثر من سنة، أو المورد الدائن منذ المدة نفسها، يظهر الآن في أعمار الذمم في لوحة التحكم (أكثر من 60 يومًا) وتنبيهات التأخر و«الالتزامات المستحقة» — كانت تحتسب آخر اثني عشر شهرًا فقط.",
                 },
             ),
         ),

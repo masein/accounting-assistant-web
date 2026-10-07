@@ -1170,7 +1170,7 @@
     async function loadCFOReport() {
       try {
         const res = await fetch(bsAPI + '/cfo/report');
-        if (!res.ok) return;
+        if (!res.ok) { await reportLoadFailed(res); return; }
         const data = await res.json();
         document.getElementById('cfo-grade').textContent = data.health_grade;
         document.getElementById('cfo-grade').style.color = data.health_grade <= 'B' ? '#2e7d32' : data.health_grade <= 'C' ? '#f57f17' : '#c62828';
@@ -1223,7 +1223,7 @@
           div.innerHTML = `<strong style="color:${color}">${escapeHtml(i.title)}</strong><br><span style="font-size:0.85rem;">${escapeHtml(i.body)}</span>`;
           insightsEl.appendChild(div);
         });
-      } catch (e) { console.warn('CFO report load failed:', e); }
+      } catch (e) { reportLoadFailed(null, e); }
     }
 
     document.getElementById('cfo-ask-btn').addEventListener('click', async () => {

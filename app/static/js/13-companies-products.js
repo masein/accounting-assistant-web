@@ -349,7 +349,7 @@
     async function loadCEOReport() {
       try {
         const res = await fetch(bsAPI + '/ceo/report');
-        if (!res.ok) return;
+        if (!res.ok) { await reportLoadFailed(res); return; }
         const d = await res.json();
         // Sync the global currency from the server's response (auto-detects
         // GBP for UK locale, IRR for Iran, etc.) before formatting any
@@ -490,7 +490,7 @@
             }
           });
         }
-      } catch (e) { console.warn('CEO report load failed:', e); }
+      } catch (e) { reportLoadFailed(null, e); }
     }
 
     // ═══════ Chart Drill-Down ═══════

@@ -102,6 +102,12 @@ def read_rows(filename: str, data: bytes) -> list[list[str | None]]:
     return rows
 
 
+# A group-level code names the account only roughly: an Iranian export lists
+# «کد کل» (11) before «کد معین» (1112), and the first column used to win, so
+# every line went to the group account. A more specific column takes over.
+_GENERAL_HEADERS = {"کد کل", "کد گروه", "نام کل", "نام گروه"}
+
+
 def _match_field(header: str) -> str | None:
     h = _norm(header).rstrip(":").strip()
     if not h:
@@ -118,10 +124,17 @@ def detect_columns(rows: list[list]) -> tuple[int, dict[str, int], list[str]]:
     best = (-1, {}, [], 0)
     for i, row in enumerate(rows[:30]):
         found: dict[str, int] = {}
+        weak: set[str] = set()
         for j, cell in enumerate(row or []):
             fld = _match_field(cell) if cell is not None else None
-            if fld and fld not in found:
+            if not fld:
+                continue
+            general = _norm(cell).rstrip(":").strip() in _GENERAL_HEADERS
+            if fld not in found or (fld in weak and not general):
                 found[fld] = j
+                weak.discard(fld)
+                if general:
+                    weak.add(fld)
         score = len(found) + (2 if ("debit" in found and "credit" in found) or "amount" in found else 0)
         if found and score > best[3]:
             best = (i, found, [str(c) if c is not None else "" for c in row], score)

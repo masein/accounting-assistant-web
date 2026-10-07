@@ -358,6 +358,24 @@ def test_an_opening_voucher_after_the_migrated_opening_balances_is_left_out(db, 
     assert counts == {"ready": 1, "year_end_closing": 2, "opening_repeat": 1}
 
 
+def test_the_subsidiary_code_wins_over_the_group_code():
+    """«کد کل» comes before «کد معین» in an Iranian export; the first column
+    used to win, posting every line to the group account (11, not 1112)."""
+    data = _xlsx([
+        ["شماره سند", "تاریخ سند", "کد کل", "کد معین", "نام معین", "کد تفصیلی", "شرح", "بدهکار", "بستانکار"],
+        ["۱", _jalali(D1), "11", "1110", "موجودی نقد و بانک", "", "فروش", "۵۰۰", ""],
+        ["", "", "41", "4110", "فروش", "", "فروش", "", "۵۰۰"],
+    ])
+    p = _parse("sepidar.xlsx", data)
+    assert [ln.account_code for v in p["vouchers"] for ln in v.lines] == ["1110", "4110"]
+    flipped = _xlsx([
+        ["شماره سند", "تاریخ سند", "کد معین", "کد کل", "شرح", "بدهکار", "بستانکار"],
+        ["۱", _jalali(D1), "1110", "11", "فروش", "۵۰۰", ""],
+        ["", "", "4110", "41", "فروش", "", "۵۰۰"],
+    ])
+    assert [ln.account_code for v in _parse("s.xlsx", flipped)["vouchers"] for ln in v.lines] == ["1110", "4110"]
+
+
 def test_english_year_end_wording_is_recognised():
     v = ji.Voucher(key="1", number="1", on=D1, reference=None,
                    lines=[ji.Line(row=1, account_code="", account_name="", description="Closing entry FY2025", debit=1, credit=0)])

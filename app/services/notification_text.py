@@ -63,6 +63,13 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
          "ar": "الفاتورة {number} متأخرة"},
         {"en": "{side} — {days} day(s) past due ({date})", "fa": "{side} — {days} روز از سررسید گذشته ({date})",
          "es": "{side} — {days} día(s) de retraso ({date})", "ar": "{side} — متأخرة {days} يوماً ({date})"}),
+    "invoice_overdue_part": _both(
+        {"en": "Invoice {number} overdue", "fa": "فاکتور {number} سررسید گذشته", "es": "Factura {number} vencida",
+         "ar": "الفاتورة {number} متأخرة"},
+        {"en": "{side} — {days} day(s) past due ({date}); {amount} {currency} still open",
+         "fa": "{side} — {days} روز از سررسید گذشته ({date})؛ مانده {amount} {currency}",
+         "es": "{side} — {days} día(s) de retraso ({date}); quedan {amount} {currency} pendientes",
+         "ar": "{side} — متأخرة {days} يوماً ({date})؛ المتبقي {amount} {currency}"}),
     "invoice_due": _both(
         {"en": "Invoice {number} due {date}", "fa": "سررسید فاکتور {number}: {date}", "es": "La factura {number} vence el {date}",
          "ar": "تستحق الفاتورة {number} في {date}"},
@@ -278,6 +285,8 @@ ENUMS: dict[str, dict[str, dict[str, str]]] = {
              "es": {"cheque": "Cheque", "installment": "Cuota"}, "ar": {"cheque": "شيك", "installment": "قسط"}},
     "verb": {"en": {"pay": "to pay", "receive": "to receive"}, "fa": {"pay": "پرداختنی", "receive": "دریافتنی"},
              "es": {"pay": "a pagar", "receive": "a cobrar"}, "ar": {"pay": "للدفع", "receive": "للتحصيل"}},
+    # the rial by its name on a Persian or Arabic page; other codes as they are
+    "currency": {"en": {"IRR": "IRR"}, "fa": {"IRR": "ریال"}, "es": {"IRR": "IRR"}, "ar": {"IRR": "ريال"}},
 }
 _SEASONS = {"en": ("Spring", "Summer", "Autumn", "Winter"), "fa": ("بهار", "تابستان", "پاییز", "زمستان"),
             "es": ("Primavera", "Verano", "Otoño", "Invierno"), "ar": ("الربيع", "الصيف", "الخريف", "الشتاء")}

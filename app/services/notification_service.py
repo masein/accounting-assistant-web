@@ -371,10 +371,18 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
     seen = _Seen()
 
     # --- invoices: due soon / overdue -------------------------------------
+    # Part-paid ones too: a part payment used to take an overdue invoice out of
+    # the bell, although the e-mail reminders kept going (invoice_mail).
+    from app.api.invoices import totals_for
     invoices = db.execute(
-        select(Invoice).where(Invoice.status == "issued", Invoice.due_date.is_not(None))
+        select(Invoice).where(Invoice.status.in_(("issued", "partially_paid")), Invoice.due_date.is_not(None))
     ).scalars().all()
+    open_left = {i: due for i, (_paid, _credited, due) in totals_for(db, list(invoices)).items()}
     for inv in invoices:
+        left = open_left.get(inv.id, 0)
+        if left <= 0:
+            continue                       # settled by payments and credit notes
+        part = inv.status == "partially_paid"
         label = "دریافت از مشتری / receivable" if inv.kind == "sales" else "پرداخت به تأمین‌کننده / payable"
         side = "receivable" if inv.kind == "sales" else "payable"
         number = inv.number or str(inv.id)[:8]
@@ -382,10 +390,12 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
             days = (today - inv.due_date).days
             _upsert(db, seen, dedupe_key=f"inv-{inv.id}-overdue", kind="invoice_overdue",
                     level="high", title=f"Invoice {number} overdue",
-                    message=f"{label} — {days} day(s) past due ({inv.due_date.isoformat()})",
+                    message=f"{label} — {days} day(s) past due ({inv.due_date.isoformat()})"
+                            + (f"; {left:,} {inv.currency} still open" if part else ""),
                     link_page="invoices", due_date=inv.due_date,
-                    text_key="invoice_overdue",
-                    params={"number": number, "side": side, "days": days, "date": inv.due_date.isoformat()})
+                    text_key="invoice_overdue_part" if part else "invoice_overdue",
+                    params={"number": number, "side": side, "days": days, "date": inv.due_date.isoformat(),
+                            **({"amount": f"{left:,}", "currency": inv.currency} if part else {})})
         elif inv.due_date <= soon:
             _upsert(db, seen, dedupe_key=f"inv-{inv.id}-due", kind="invoice_due",
                     level="warning", title=f"Invoice {number} due {inv.due_date.isoformat()}",

@@ -465,11 +465,47 @@ def _party_role(code: str) -> str | None:
 
 
 def _reference(preset: str, v: Voucher) -> str:
+    """The posted journal's reference, which also marks it imported. With its
+    date: an Iranian system numbers vouchers from 1 again every fiscal year, so
+    voucher 2 of the second year was taken for the first year's voucher 2 and
+    never posted. ISO, so the company's display calendar can't change it."""
+    return f"IMPORT-{preset}-{v.number}-{v.on.isoformat() if v.on else ''}"[:128]
+
+
+def _legacy_reference(preset: str, v: Voucher) -> str:
+    """Before the date was added (2026-10-07): still "already imported", but
+    only on the same day."""
     return f"IMPORT-{preset}-{v.number}"[:128]
+
+
+# An Iranian system closes each fiscal year in its own books: the temporary
+# accounts into retained earnings, then every account to zero (سند اختتامیه),
+# and opens the next year with the same balances (سند افتتاحیه). Posted here
+# they would wipe out the year — its income statement read zero revenue and its
+# balance sheet zeros — and an opening voucher after a year already in the
+# books doubled every balance. The app never closes a year (its statements
+# carry the unclosed result in equity), so a closing is left out, and an
+# opening is kept only for the first year brought in.
+_CLOSING_WORDS = ("اختتامیه", "بستن حساب", "سند بستن", "closing entry", "closing entries", "closing voucher",
+                  "year-end closing", "year end closing", "close the year", "closing of temporary accounts")
+_OPENING_WORDS = ("افتتاحیه", "نقل از سال قبل", "مانده اول دوره", "مانده ابتدای دوره", "opening balance",
+                  "opening entry", "opening voucher", "brought forward")
+
+
+def _year_end_kind(v: "Voucher") -> str | None:
+    """"closing" or "opening" when the voucher says it is one, else None."""
+    text = " ".join(_norm(t) for t in (v.reference, *(ln.description for ln in v.lines)) if t)
+    if any(_norm(w) in text for w in _CLOSING_WORDS):
+        return "closing"
+    if any(_norm(w) in text for w in _OPENING_WORDS):
+        return "opening"
+    return None
 
 
 def _assess(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | None):
     """(accounts, voucher key → problem or None) for every voucher."""
+    from sqlalchemy import func
+
     from app.models.transaction import Transaction
     from app.services.period_service import get_closed_period
 
@@ -482,16 +518,31 @@ def _assess(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | Non
     for i in range(0, len(refs), 500):
         existing |= set(db.execute(select(Transaction.reference)
                                    .where(Transaction.reference.in_(refs[i:i + 500]))).scalars())
+    legacy = sorted({_legacy_reference(parsed["preset"], v) for v in vouchers})
+    legacy_on: set = set()
+    for i in range(0, len(legacy), 500):
+        legacy_on |= {(r, d) for r, d in db.execute(select(Transaction.reference, Transaction.date)
+                                                   .where(Transaction.reference.in_(legacy[i:i + 500])))}
     today = date.today()
+    kinds = {v.key: _year_end_kind(v) for v in vouchers}
+    # what an opening voucher would repeat: anything earlier in the books, or in the file
+    in_books = db.execute(select(func.min(Transaction.date))).scalar()
+    in_file = min((v.on for v in vouchers if v.on and kinds[v.key] is None), default=None)
+    earliest = min((d for d in (in_books, in_file) if d), default=None)
     problems: dict[str, str | None] = {}
     for v in vouchers:
         if v.debit != v.credit:
             problems[v.key] = "unbalanced"
         elif v.on > today:
             problems[v.key] = "future"
+        elif kinds[v.key] == "closing":
+            problems[v.key] = "year_end_closing"
+        elif kinds[v.key] == "opening" and earliest is not None and earliest < v.on:
+            problems[v.key] = "opening_repeat"
         elif closed is not None and v.on <= closed:
             problems[v.key] = "closed_period"
-        elif _reference(parsed["preset"], v) in existing:
+        elif (_reference(parsed["preset"], v) in existing
+              or (_legacy_reference(parsed["preset"], v), v.on) in legacy_on):
             problems[v.key] = "already_imported"
         elif any(mapped.get(ln.account_key) is None for ln in v.lines):
             problems[v.key] = "unmapped_account"

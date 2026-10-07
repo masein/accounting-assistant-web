@@ -42,7 +42,7 @@ TODAY = date.today()
 
 # --- the references: the folds as they were, line by line in Python -----------------------------
 
-def _reference_folds(db, *, live, dr_col, cr_col, is_receivable, is_current_liability, month_of, today):
+def _reference_folds(db, *, live, dr_col, cr_col, is_receivable, is_current_liability, month_of, today, before=None):
     txns = db.execute(select(Transaction.id, Transaction.date, Transaction.reference).where(*live)
                       .order_by(Transaction.date, Transaction.created_at, Transaction.id)).all()
     lines_by_txn = defaultdict(list)
@@ -75,6 +75,41 @@ def _reference_folds(db, *, live, dr_col, cr_col, is_receivable, is_current_liab
     n = dict.fromkeys(("receivable_due_this_week", "payable_due_this_week", "tax_and_liability_payable",
                        "expense_txn_count", "expense_txn_with_attachment", "line_count", "missing_line_desc",
                        "missing_reference", "unlinked_entities"), 0)
+    if before is not None:
+        # what the journals before the window leave owed, per party, starts in the oldest bucket
+        old_lines, old_links = defaultdict(list), defaultdict(list)
+        for tid, debit, credit, code in db.execute(
+            select(TransactionLine.transaction_id, dr_col, cr_col, Account.code)
+            .join(Transaction, TransactionLine.transaction_id == Transaction.id)
+            .join(Account, TransactionLine.account_id == Account.id)
+            .where(*before)
+        ):
+            old_lines[tid].append((int(debit or 0), int(credit or 0), code))
+        for tid, role, entity_name in db.execute(
+            select(TransactionEntity.transaction_id, TransactionEntity.role, Entity.name)
+            .join(Transaction, TransactionEntity.transaction_id == Transaction.id)
+            .outerjoin(Entity, TransactionEntity.entity_id == Entity.id)
+            .where(*before)
+        ):
+            old_links[tid].append((role, entity_name))
+        old_ar, old_ap = defaultdict(int), defaultdict(int)
+        for tid, t_lines in old_lines.items():
+            recv = sum(d - c for d, c, code in t_lines if is_receivable(code))
+            liab = sum(c - d for d, c, code in t_lines if is_current_liability(code))
+            n["tax_and_liability_payable"] += liab
+            roles = defaultdict(list)
+            for role, entity_name in old_links.get(tid, ()):
+                roles[(role or "").lower()].append(entity_name if entity_name is not None else "Unknown")
+            for c in roles.get("client", []) or ["Unassigned client"]:
+                old_ar[c] += recv
+            for v in (roles.get("payee", []) + roles.get("supplier", [])) or ["Unassigned vendor"]:
+                old_ap[v] += liab
+        for c, owed in old_ar.items():
+            if owed > 0:
+                r["ar_buckets"][c]["days_60_plus"] += owed
+        for v, owed in old_ap.items():
+            if owed > 0:
+                r["ap_buckets"][v]["days_60_plus"] += owed
     for t_id, t_date, t_reference in txns:
         t_lines = lines_by_txn.get(t_id, ())
         t_links = links_by_txn.get(t_id, ())
@@ -274,6 +309,12 @@ def _live(currency, months_back=12):
             *(() if is_base_view(currency) else (Transaction.currency == currency,)))
 
 
+def _before(currency, months_back=12):
+    cutoff = TODAY - timedelta(days=months_back * 31)
+    return (Transaction.date < cutoff, Transaction.deleted_at.is_(None),
+            *(() if is_base_view(currency) else (Transaction.currency == currency,)))
+
+
 def _predicates(locale):
     from app.api.reports import _current_liability_predicate, _receivable_predicate
     return _receivable_predicate(locale), _current_liability_predicate(locale)
@@ -294,8 +335,9 @@ def test_sql_folds_match_the_line_by_line_fold(db, two_companies, locale, curren
     cal = JALALI if locale == "ir" else GREGORIAN
     dr_col, cr_col = amount_columns(currency)
     for months_back in (12, 3):
-        kw = dict(live=_live(currency, months_back), dr_col=dr_col, cr_col=cr_col, is_receivable=is_recv,
-                  is_current_liability=is_liab, month_of=lambda d: month_key(d, cal), today=TODAY)
+        kw = dict(live=_live(currency, months_back), before=_before(currency, months_back), dr_col=dr_col,
+                  cr_col=cr_col, is_receivable=is_recv, is_current_liability=is_liab,
+                  month_of=lambda d: month_key(d, cal), today=TODAY)
         with use_company(company.id):
             want = _reference_folds(db, **kw)
             got = _as_dict(fold_dashboard(db, **kw))
@@ -303,7 +345,7 @@ def test_sql_folds_match_the_line_by_line_fold(db, two_companies, locale, curren
         assert got["txn_count"] > 0 and got["line_count"] > 0          # the books aren't trivially empty
     # and the second company's own figures are its own
     with use_company(other.id):
-        kw["live"] = _live(currency)
+        kw["live"], kw["before"] = _live(currency), _before(currency)
         assert _as_dict(fold_dashboard(db, **kw)) == _reference_folds(db, **kw)
 
 
@@ -374,6 +416,23 @@ def test_a_receipt_entered_before_its_invoice_still_clears_it(db, owner):
     # a second, unpaid sale stays in its bucket
     _post(db, owner, days_ago=40, lines=[("1112", 200_000, 0), (rev, 0, 200_000)], entity=owner["aria"])
     assert [(r["name"], r["days_31_60"], r["total"]) for r in _dashboard(owner)["ar_aging"]] == [("Aria", 200_000, 200_000)]
+
+
+def test_what_is_owed_from_over_a_year_ago_stays_on_the_dashboard(db, owner):
+    """D15: the aging and "Liabilities payable" were the 12-month window's
+    movements, so an unpaid sale over a year old vanished from them — exactly
+    what the oldest bucket is for — and so did an old liability."""
+    rev = sorted(c for c in owner["acc"] if c.startswith("41") and len(c) >= 4)[0]
+    _post(db, owner, days_ago=420, lines=[("1112", 700_000, 0), (rev, 0, 700_000)], entity=owner["aria"])
+    _post(db, owner, days_ago=420, lines=[("1110", 300_000, 0), ("2110", 0, 300_000)])    # owed to a supplier since
+    d = _dashboard(owner)
+    assert [(r["name"], r["days_60_plus"], r["total"]) for r in d["ar_aging"]] == [("Aria", 700_000, 700_000)]
+    kpis = {k["key"]: k["value"] for k in d["kpis"]}
+    assert kpis["tax_and_liability_payable"] == 300_000
+    assert [(r["name"], r["days_60_plus"]) for r in d["ap_aging"]] == [("Unassigned vendor", 300_000)]
+    # paid inside the window: it leaves the aging, and nothing negative is left behind
+    _post(db, owner, days_ago=20, lines=[("1110", 700_000, 0), ("1112", 0, 700_000)], entity=owner["aria"])
+    assert _dashboard(owner)["ar_aging"] == []
 
 
 def test_whitespace_only_descriptions_and_references_count_as_missing(db, owner):

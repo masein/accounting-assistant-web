@@ -379,7 +379,7 @@
           const div = document.createElement('div');
           div.className = 'panel';
           div.style.cssText = 'padding:0.6rem;text-align:center;';
-          const displayVal = typeof k.value === 'number' ? k.value.toLocaleString() : k.value;
+          const displayVal = typeof k.value === 'number' ? k.value.toLocaleString('en-US') : k.value;
           div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(localizeDynamicText(k.label))}</div>
             <div style="font-size:1.1rem;font-weight:700;color:${k.color};">${displayVal} ${k.unit}</div>`;
           kpiGrid.appendChild(div);
@@ -397,13 +397,13 @@
         });
 
         // AR/AP
-        document.getElementById('ceo-ar').textContent = (d.accounts_receivable || 0).toLocaleString() + ' ' + ccy;
-        document.getElementById('ceo-ap').textContent = (d.accounts_payable || 0).toLocaleString() + ' ' + ccy;
+        document.getElementById('ceo-ar').textContent = (d.accounts_receivable || 0).toLocaleString('en-US') + ' ' + ccy;
+        document.getElementById('ceo-ap').textContent = (d.accounts_payable || 0).toLocaleString('en-US') + ' ' + ccy;
 
         // Balance sheet summary
-        document.getElementById('ceo-assets').textContent = (d.total_assets || 0).toLocaleString();
-        document.getElementById('ceo-liabilities').textContent = (d.total_liabilities || 0).toLocaleString();
-        document.getElementById('ceo-equity').textContent = (d.total_equity || 0).toLocaleString();
+        document.getElementById('ceo-assets').textContent = (d.total_assets || 0).toLocaleString('en-US');
+        document.getElementById('ceo-liabilities').textContent = (d.total_liabilities || 0).toLocaleString('en-US');
+        document.getElementById('ceo-equity').textContent = (d.total_equity || 0).toLocaleString('en-US');
 
         // Charts
         if (typeof Chart !== 'undefined') {
@@ -514,7 +514,7 @@
               const code = row.code || row.account_code || '';
               return `<tr style="${hasCode ? 'cursor:pointer;' : ''}" ${hasCode ? `data-account-code="${escapeHtml(code)}" data-account-name="${escapeHtml(row.name || row.account_name || '')}"` : ''}>` + keys.map(k => {
                 const v = row[k];
-                return `<td>${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? '—'))}</td>`;
+                return `<td>${typeof v === 'number' ? v.toLocaleString('en-US') : escapeHtml(String(v ?? '—'))}</td>`;
               }).join('') + '</tr>';
             }).join('')
             + '</tbody></table>';
@@ -535,7 +535,7 @@
             const total = item.reduce((s, r) => s + (r[numKey] || 0), 0);
             const totalDiv = document.createElement('div');
             totalDiv.style.cssText = 'margin-top:0.4rem;font-size:0.9rem;font-weight:600;';
-            totalDiv.textContent = tf('msgTotalAmount', { amount: total.toLocaleString(), unit: currencyUnit() });
+            totalDiv.textContent = tf('msgTotalAmount', { amount: total.toLocaleString('en-US'), unit: currencyUnit() });
             body.appendChild(tbl);
             body.appendChild(totalDiv);
           } else {
@@ -551,9 +551,9 @@
             const isClickable = (k === 'metric' || k === 'category') && item._drillParams;
             const drillKey = v === 'Revenue' ? 'revenue' : v === 'Expenses' ? 'expense' : null;
             if (isClickable && drillKey && item._drillParams[drillKey]) {
-              return `<td style="cursor:pointer;color:var(--primary);text-decoration:underline;" data-drill-key="${drillKey}">${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? ''))}</td>`;
+              return `<td style="cursor:pointer;color:var(--primary);text-decoration:underline;" data-drill-key="${drillKey}">${typeof v === 'number' ? v.toLocaleString('en-US') : escapeHtml(String(v ?? ''))}</td>`;
             }
-            return `<td>${typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v ?? ''))}</td>`;
+            return `<td>${typeof v === 'number' ? v.toLocaleString('en-US') : escapeHtml(String(v ?? ''))}</td>`;
           }).join('') + '</tr></tbody>';
           if (item._drillParams) {
             tbl.addEventListener('click', (e) => {
@@ -1434,7 +1434,7 @@
         (items || []).forEach(i => {
           const opt = document.createElement('option');
           opt.value = i.id;
-          opt.textContent = (i.sku ? i.sku + ' - ' : '') + i.name + (i.list_price ? ' (current: ' + i.list_price.toLocaleString() + ' ' + currencyUnit() + ')' : '');
+          opt.textContent = (i.sku ? i.sku + ' - ' : '') + i.name + (i.list_price ? ' (current: ' + i.list_price.toLocaleString('en-US') + ' ' + currencyUnit() + ')' : '');
           opt.dataset.price = i.list_price || 0;
           sel.appendChild(opt);
         });
@@ -1457,7 +1457,7 @@
         const res = await fetch(API + '/manager-reports/inventory/items/' + itemId + '/price?list_price=' + price, { method: 'PATCH' });
         const data = await res.json();
         if (res.ok) {
-          statusEl.textContent = tf('msgPriceUpdated', { name: data.name, old: data.old_price.toLocaleString(), new: data.new_price.toLocaleString(), unit: currencyUnit() });
+          statusEl.textContent = tf('msgPriceUpdated', { name: data.name, old: data.old_price.toLocaleString('en-US'), new: data.new_price.toLocaleString('en-US'), unit: currencyUnit() });
           statusEl.style.color = '#2e7d32';
           loadPriceMgmtItems();
         } else {

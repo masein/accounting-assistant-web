@@ -79,7 +79,7 @@
       const split = s.tafsili_split || {};
       const opening = s.opening || {};
       const v = s.validation || {};
-      const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : n);
+      const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n);
       const tierLabels = { group: t('migrationTierGroups'), kol: t('migrationTierKol'), moein: t('migrationTierMoein'), tafsili: t('migrationTierTafsili') };
       let html = '<div style="display:flex;gap:1.5rem;flex-wrap:wrap;font-size:0.9rem;">';
       Object.keys(tiers).forEach((k) => {
@@ -140,7 +140,7 @@
           + `${created} ${escapeHtml(t('migrationAccountsCreated'))}, ${updated} ${escapeHtml(t('migrationAccountsUpdated'))}, `
           + `${entCreated} ${escapeHtml(t('migrationEntitiesCreated'))}.<br>`
           + `${escapeHtml(t('migrationJournalPosted'))}: ${escapeHtml(formatDisplayDate(oj.opening_date) || '')}`
-          + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString()})` : '')
+          + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString('en-US')})` : '')
           + (oj.replaced_previous ? ` ${escapeHtml(t('migrationJournalReplaced'))}` : '')
           + `</div>`;
         const resEl = document.getElementById('migration-result');

@@ -170,6 +170,20 @@
       }, 5000);
     }
 
+    // A page whose report didn't load says so (CEO and CFO Mode stayed blank
+    // and only wrote a console warning, which no test saw — 2026-10-07): the
+    // server's own words when it sent some, else "That did not work". An
+    // exception is reported as uncaught too, so the browser suites catch it.
+    async function reportLoadFailed(res, err) {
+      let said = '';
+      if (res) {
+        const body = await res.json().catch(() => null);
+        said = body && typeof body.detail === 'string' ? body.detail : '';
+      }
+      showAlert(said || t('msgFailed'), true);
+      if (err && typeof reportError === 'function') reportError(err);
+    }
+
     // Briefly highlight a freshly inserted row/element and scroll it into
     // view so the user can confirm the save landed.
     function flashRow(el) {

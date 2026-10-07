@@ -609,6 +609,11 @@ def get_ceo_report(
         total_assets=report.total_assets,
         total_liabilities=report.total_liabilities,
         total_equity=report.total_equity,
+        # the donut's drill-down lists these lines; never sent, it always fell
+        # back to a transaction list by code prefix
+        assets_breakdown=report.assets_breakdown,
+        liabilities_breakdown=report.liabilities_breakdown,
+        equity_breakdown=report.equity_breakdown,
         monthly_revenue=report.monthly_revenue,
         monthly_expenses=report.monthly_expenses,
         monthly_profit=report.monthly_profit,

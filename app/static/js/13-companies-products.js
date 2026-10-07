@@ -521,7 +521,8 @@
           // Click handler for rows with account codes → drill into transactions
           if (hasCode) {
             tbl.addEventListener('click', (e) => {
-              const tr = e.target.closest('tr[data-account-code]');
+              // a line with no account (the period's result) has nothing to open
+              const tr = e.target.closest('tr[data-account-code]:not([data-account-code=""])');
               if (tr) {
                 const code = tr.dataset.accountCode;
                 const name = tr.dataset.accountName;

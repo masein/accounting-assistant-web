@@ -212,3 +212,31 @@ def _txn_count(db, cid):
     from app.db.tenant import use_company
     with use_company(cid):
         return int(db.execute(select(func.count(Transaction.id))).scalar() or 0)
+
+
+def test_an_update_changes_only_what_it_sends(co, db):
+    """Scenario M7: a save that names one field leaves the rest of the profile
+    alone. The salary, the statutory mode, the monthly hours, "inactive", the
+    currency and the hire date stood only when the request repeated them."""
+    from app.db.tenant import use_company
+    from app.services.payroll_rules import seed_payroll_rules
+    session, cid = co
+    with use_company(cid):
+        seed_payroll_rules(db)
+        db.commit()
+    api = session()
+    ent = api.post("/entities", json={"type": "employee", "name": "Ali", "iban": "IR820540102680020817909002",
+                                      "bank_name": "Bank Melli"}).json()
+    full = {"entity_id": ent["id"], "pay_type": "salaried", "base_salary": 150_000_000, "tax_mode": "statutory",
+            "children": 2, "seniority_eligible": True, "monthly_standard_hours": 176, "active": False,
+            "hired_on": "2025-04-04"}
+    assert api.post("/payroll/profiles", json=full).status_code == 201
+    r = api.post("/payroll/profiles", json={"entity_id": ent["id"], "children": 3})
+    assert r.status_code == 201, r.text
+    p = r.json()
+    assert p["children"] == 3
+    assert (p["base_salary"], p["tax_mode"], p["seniority_eligible"], p["monthly_standard_hours"],
+            p["active"], p["currency"], p["hired_on"]) == (150_000_000, "statutory", True, 176.0, False, "IRR", "2025-04-04")
+    # a field sent is a field changed, back to its default included
+    p = api.post("/payroll/profiles", json={"entity_id": ent["id"], "tax_mode": "flat", "active": True}).json()
+    assert (p["tax_mode"], p["active"], p["base_salary"]) == ("flat", True, 150_000_000)

@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.07.2"
+CURRENT_RELEASE = "2026.10.07.3"
 
 
 @dataclass(frozen=True)
@@ -1680,6 +1680,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "مشتری‌ای که بیش از یک سال به شما بدهکار است، یا تأمین‌کننده‌ای که همین‌قدر طلبکار است، حالا در گزارش سنی داشبورد (بیش از ۶۰ روز)، هشدارهای سررسیدگذشته و «بدهی‌های پرداختنی» دیده می‌شود — این‌ها فقط دوازده ماه اخیر را می‌شمردند.",
                     "es": "Un cliente que te debe desde hace más de un año, o un proveedor al que debes desde entonces, aparece ahora en la antigüedad del panel (más de 60 días), sus alertas de vencidos y en «Pasivos por pagar»; solo contaban los últimos doce meses.",
                     "ar": "العميل المدين لك منذ أكثر من سنة، أو المورد الدائن منذ المدة نفسها، يظهر الآن في أعمار الذمم في لوحة التحكم (أكثر من 60 يومًا) وتنبيهات التأخر و«الالتزامات المستحقة» — كانت تحتسب آخر اثني عشر شهرًا فقط.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.07.3",
+        date="2026-10-07",
+        highlights=(
+            Highlight(
+                key="payroll-profile-form",
+                page="payroll",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Pay profiles keep what you didn't change",
+                    "fa": "پروفایل حقوق چیزی را که تغییر ندادید نگه می‌دارد",
+                    "es": "Los perfiles de pago conservan lo que no cambias",
+                    "ar": "ملفات الرواتب تحتفظ بما لم تغيّره",
+                },
+                body={
+                    "en": "Picking an employee on the payroll page fills the form with their profile, so changing one thing and saving keeps the rest — the blank form used to be saved over it. A new profile starts on \"Statutory rules\" when they're in force, so insurance and income tax are worked out, not left at flat rates of 0%.",
+                    "fa": "با انتخاب کارمند در صفحهٔ حقوق و دستمزد، فرم با پروفایل او پر می‌شود؛ پس اگر یک مورد را عوض کنید و ذخیره کنید، بقیه سر جایش می‌ماند — پیش‌تر فرم خالی روی آن ذخیره می‌شد. پروفایل تازه هم وقتی قوانین سال جاری ثبت شده باشد با «قوانین رسمی» شروع می‌شود تا بیمه و مالیات حساب شود، نه با نرخ‌های ثابت صفر درصد.",
+                    "es": "Al elegir un empleado en la página de nómina, el formulario se llena con su perfil, así que cambiar una cosa y guardar conserva el resto; antes se guardaba el formulario vacío encima. Un perfil nuevo empieza en «Reglas legales» cuando están vigentes, de modo que se calculan el seguro y el impuesto, en lugar de tasas fijas del 0%.",
+                    "ar": "عند اختيار موظف في صفحة الرواتب يمتلئ النموذج بملفه، فإذا غيّرت شيئًا واحدًا وحفظت يبقى الباقي كما هو — كان النموذج الفارغ يُحفظ فوقه. ويبدأ الملف الجديد على «القواعد النظامية» متى كانت سارية، فيُحتسب التأمين وضريبة الدخل بدل النسب الثابتة عند 0%.",
                 },
             ),
         ),

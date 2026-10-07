@@ -248,7 +248,8 @@ def list_profiles(db: Session = Depends(get_db)) -> list[dict]:
 
 @router.post("/profiles", status_code=201)
 def upsert_profile(payload: PayProfileUpsert, db: Session = Depends(get_db)) -> dict:
-    """Create or update an employee's pay profile (one per employee entity)."""
+    """Create or update an employee's pay profile (one per employee entity).
+    An update changes only the fields it sends."""
     ent = db.get(Entity, payload.entity_id)
     if not ent:
         raise HTTPException(status_code=404, detail="Employee entity not found.")
@@ -258,36 +259,58 @@ def upsert_profile(payload: PayProfileUpsert, db: Session = Depends(get_db)) -> 
         raise HTTPException(status_code=422, detail="pay_type must be 'salaried' or 'hourly'.")
     if payload.tax_mode not in ("flat", "statutory"):
         raise HTTPException(status_code=422, detail="tax_mode must be 'flat' or 'statutory'.")
-    if payload.tax_mode == "statutory" and rules_in_force(db, get_reporting_locale(db), _date.today()) is None:
+    prof = db.execute(
+        select(EmployeePayProfile).where(EmployeePayProfile.entity_id == payload.entity_id)
+    ).scalars().one_or_none()
+    creating = prof is None
+    # An update changes only the fields it sends: a save that doesn't mention
+    # the monthly hours, the currency or "active" must not reset them.
+    sent = payload.model_fields_set
+
+    def given(field: str) -> bool:
+        return creating or field in sent
+
+    if given("tax_mode") and payload.tax_mode == "statutory" \
+            and rules_in_force(db, get_reporting_locale(db), _date.today()) is None:
         raise HTTPException(
             status_code=422,
             detail="No statutory payroll rule set covers today for this locale; ask the platform admin to add one.",
         )
-
-    prof = db.execute(
-        select(EmployeePayProfile).where(EmployeePayProfile.entity_id == payload.entity_id)
-    ).scalars().one_or_none()
-    cur = (payload.currency or get_reporting_currency(db) or "IRR").upper()
-    if prof is None:
+    if creating:
         prof = EmployeePayProfile(entity_id=payload.entity_id)
         db.add(prof)
-    prof.pay_type = payload.pay_type
-    prof.base_salary = int(payload.base_salary)
-    prof.hourly_rate = int(payload.hourly_rate)
-    prof.standard_hours = float(payload.standard_hours)
-    prof.monthly_standard_hours = (
-        float(payload.monthly_standard_hours) if payload.monthly_standard_hours is not None else None
-    )
-    prof.overtime_multiplier = float(payload.overtime_multiplier)
-    prof.income_tax_rate = float(payload.income_tax_rate)
-    prof.social_security_rate = float(payload.social_security_rate)
-    prof.pension_rate = float(payload.pension_rate)
-    prof.tax_mode = payload.tax_mode
-    prof.children = int(payload.children)
-    prof.seniority_eligible = bool(payload.seniority_eligible)
-    prof.currency = cur
-    prof.active = bool(payload.active)
-    prof.hired_on = payload.hired_on
+    if given("pay_type"):
+        prof.pay_type = payload.pay_type
+    if given("base_salary"):
+        prof.base_salary = int(payload.base_salary)
+    if given("hourly_rate"):
+        prof.hourly_rate = int(payload.hourly_rate)
+    if given("standard_hours"):
+        prof.standard_hours = float(payload.standard_hours)
+    if given("monthly_standard_hours"):
+        prof.monthly_standard_hours = (
+            float(payload.monthly_standard_hours) if payload.monthly_standard_hours is not None else None
+        )
+    if given("overtime_multiplier"):
+        prof.overtime_multiplier = float(payload.overtime_multiplier)
+    if given("income_tax_rate"):
+        prof.income_tax_rate = float(payload.income_tax_rate)
+    if given("social_security_rate"):
+        prof.social_security_rate = float(payload.social_security_rate)
+    if given("pension_rate"):
+        prof.pension_rate = float(payload.pension_rate)
+    if given("tax_mode"):
+        prof.tax_mode = payload.tax_mode
+    if given("children"):
+        prof.children = int(payload.children)
+    if given("seniority_eligible"):
+        prof.seniority_eligible = bool(payload.seniority_eligible)
+    if creating or payload.currency:
+        prof.currency = (payload.currency or get_reporting_currency(db) or "IRR").upper()
+    if given("active"):
+        prof.active = bool(payload.active)
+    if given("hired_on"):
+        prof.hired_on = payload.hired_on
     db.commit()
     db.refresh(prof)
     return _profile_read(prof, ent.name)

@@ -1,12 +1,14 @@
 """Groups D (reports, control, compliance), E (AI chat, migration), F (roles) — Arman, Persian."""
 import json
 import random
+import re
 import sys
+from datetime import date, timedelta
 
 sys.path.insert(0, "/qa")
 from playwright.sync_api import sync_playwright
 
-from qalib import BASE, OUT, Check, alert_text, api, clear_alert, go, new_session, shot, ux, wait_until, confirm_shown
+from qalib import BASE, OUT, Check, alert_text, api, clear_alert, go, new_session, settle, shot, ux, wait_until, confirm_shown
 
 FA = lambda s: any("؀" <= ch <= "ۿ" for ch in (s or ""))
 st = json.load(open(f"{OUT}/state.json"))
@@ -380,11 +382,95 @@ def f_roles(browser):
     c1.done(); c2.done(); c3.done()
 
 
+ISO_DAY = re.compile(r"\b20\d\d-\d\d-\d\d\b")
+JALALI_DAY = re.compile(r"\b14\d\d/\d\d/\d\d\b")
+LATIN = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+
+
+def d11_d12_bell(browser):
+    """D11: the bell writes days in the company's calendar. D12: a part-paid
+    invoice stays overdue there and says what is still open."""
+    c11, c12 = Check("D11"), Check("D12")
+    number = "ARM-8" + RUN
+    for lang in ("fa", "en"):
+        ctx, page, watch = new_session(browser, "arman_owner", lang=lang)
+        try:
+            if lang == "fa":
+                today = date.today()
+                s, inv = api(page, "POST", "/invoices", {
+                    "number": number, "kind": "sales", "status": "issued", "currency": "IRR", "amount": 0,
+                    "issue_date": (today - timedelta(days=40)).isoformat(), "due_date": (today - timedelta(days=10)).isoformat(),
+                    "entity_id": st["parties"]["فروشگاه مهرگان"],
+                    "items": [{"product_name": "خدمات پشتیبانی", "quantity": 1, "unit_price": 10_000_000, "tax_rate": 10}]})
+                c12.ok(s == 201, f"an invoice of 11,000,000 due 10 days ago → {s}")
+                s, _ = api(page, "POST", f"/invoices/{inv['id']}/payments", {"amount": 4_000_000, "date": today.isoformat()})
+                c12.ok(s == 201, f"4,000,000 paid → {s}")
+                page.reload()
+                settle(page)
+            page.click("#notify-bell-btn")
+            settle(page)
+            page.wait_for_timeout(500)
+            c11.shots.append(shot(page, "D11", f"bell-{lang}", selector="#notify-pop"))
+            text = page.inner_text("#notify-list")
+            c11.ok(not ISO_DAY.search(text), f"{lang}: no Gregorian day in the bell ({(ISO_DAY.search(text) or [''])[0]})")
+            c11.ok(bool(JALALI_DAY.search(text)), f"{lang}: days read as Arman writes them (1405/…)")
+            at = text.find(number)
+            item = text[at:at + 260].translate(LATIN) if at >= 0 else ""
+            c12.ok(at >= 0, f"{lang}: the part-paid invoice is still in the bell")
+            if lang == "fa":
+                c12.ok("مانده" in item and "7,000,000" in item and "ریال" in item, f"fa: says what is open: {item[:160]!r}")
+            else:
+                c12.ok("7,000,000 IRR still open" in item, f"en: says what is open: {item[:160]!r}")
+            c11.ok(watch.problems() == [], f"problems {watch.problems()}")
+        finally:
+            ctx.close()
+    c11.done(); c12.done()
+
+
+def l_cfo_owed(browser):
+    """L1, L8: CFO and CEO receivables and payables — each invoice once, to
+    date, the trade accounts (with cheques not yet cleared) — the same as the
+    ledger and the same on both pages."""
+    c1, c8 = Check("L1"), Check("L8")
+    ctx, page, watch = new_session(browser, "arman_cfo", lang="fa")
+    try:
+        s1, cfo = api(page, "GET", "/brain/cfo/report?currency=IRR", None)
+        s2, ceo = api(page, "GET", "/brain/ceo/report?currency=IRR", None)
+        s3, ls = api(page, "GET", "/reports/ledger-summary?currency=IRR", None)
+        c1.ok((s1, s2, s3) == (200, 200, 200), f"reports → {s1} {s2} {s3}")
+        k = {x["key"]: x["value"] for x in cfo["kpis"]}
+        rows = ls["rows"]
+        ar = sum(r["debit_balance"] - r["credit_balance"] for r in rows if r["account_code"].startswith(("1112", "1113", "1114")))
+        ap = sum(r["credit_balance"] - r["debit_balance"] for r in rows if r["account_code"].startswith(("2110", "2111")))
+        c1.note(f"CFO receivables {k['accounts_receivable']:,}, payables {k['accounts_payable']:,}; ledger {ar:,} / {ap:,}")
+        c1.ok(k["accounts_receivable"] == ar, f"receivables = the ledger's trade receivables and cheques ({k['accounts_receivable']:,} vs {ar:,})")
+        c1.ok(k["accounts_payable"] == ap, f"payables = the ledger's trade payables and issued cheques ({k['accounts_payable']:,} vs {ap:,})")
+        c8.ok((ceo["accounts_receivable"], ceo["accounts_payable"]) == (k["accounts_receivable"], k["accounts_payable"]),
+              f"CEO says the same ({ceo['accounts_receivable']:,} / {ceo['accounts_payable']:,})")
+        for name in ("cfo", "ceo"):
+            go(page, name)
+            settle(page)
+            if name == "ceo":   # its charts draw after the report arrives, then animate: shoot them drawn
+                wait_until(page, "() => typeof Chart !== 'undefined' && !!Chart.getChart(document.getElementById('ceo-trend-chart'))",
+                           timeout_ms=8000)
+                page.wait_for_timeout(1500)
+            else:
+                page.wait_for_timeout(800)
+            c8.shots.append(shot(page, "L8", name))
+            shown = re.sub(r"[,٬]", "", page.inner_text(f'.card[data-page="{name}"]').translate(LATIN))
+            c8.ok(str(k["accounts_receivable"]) in shown, f"{name} page shows receivables {k['accounts_receivable']:,}")
+        c8.ok(watch.problems() == [], f"problems {watch.problems()}")
+    finally:
+        ctx.close()
+    c1.done(); c8.done()
+
+
 if __name__ == "__main__":
     only = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else ""
     with sync_playwright() as pw:
         b = pw.chromium.launch()
-        for fn in (d1_search, d2_statements, d3_d4_dashboards, d10_dashboard_tabs, d5_audit, d7_tax, d8_forecast, e1_e2_chat, e3_migration, f_roles, d6_lock):
+        for fn in (d1_search, d2_statements, d3_d4_dashboards, d10_dashboard_tabs, d5_audit, d7_tax, d8_forecast,
+                   d11_d12_bell, l_cfo_owed, e1_e2_chat, e3_migration, f_roles, d6_lock):
             if only and not fn.__name__.startswith(only):
                 continue
             try:

@@ -11,6 +11,8 @@ import uuid
 from datetime import date, timedelta
 from pathlib import Path
 
+from sqlalchemy import select
+
 from app.services import notification_service
 from app.services.notification_text import ENUMS, LANGS, PHRASES, TEXT, render
 
@@ -125,3 +127,51 @@ def test_the_bell_speaks_the_page_language(auth_client, db):
     finally:
         inv.status = "paid"
         db.commit()
+
+
+def test_dates_are_written_in_the_company_calendar():
+    """The bell said "2026-09-19" in a Jalali company while every page beside
+    it was Jalali (D11)."""
+    overdue = {"number": "INV-7", "side": "receivable", "days": 12, "date": "2026-09-19"}
+    for lang in LANGS:
+        message = render("invoice_overdue", overdue, lang, "jalali")[1]
+        assert "1405/06/28" in message and "2026-09-19" not in message, (lang, message)
+    assert render("invoice_overdue", overdue, "en")[1].endswith("(2026-09-19)")            # Gregorian: as it was
+    assert render("invoice_overdue", overdue, "en", "gregorian")[1].endswith("(2026-09-19)")
+    # inside a phrase, and a pay run's period
+    cheque = {"noun": "cheque", "seq": "", "title": "Rent", "amount": "5,000", "verb": "receive",
+              "when": {"key": "commitment_due", "params": {"date": "2026-09-01"}}}
+    assert render("commitment", cheque, "en", "jalali")[1] == "5,000 to receive — due 1405/06/10"
+    payday = {"date": "2026-09-23", "start": "2026-08-23", "end": "2026-09-22", "status": "approved"}
+    title, message = render("payday_passed", payday, "en", "jalali")
+    assert "1405/07/01" in title and "1405/06/01" in message and "1405/06/31" in message
+    # only dates: an invoice numbered like one keeps its number
+    assert "2026-09-19" in render("invoice_overdue", {**overdue, "number": "2026-09-19"}, "en", "jalali")[0]
+
+
+def test_the_bell_and_the_push_use_the_company_calendar(auth_client, db):
+    from app.models.invoice import Invoice
+    from app.models.notification import Notification
+    from app.services import web_push
+    from app.utils.jalali import format_jalali
+
+    # the company's setting, set the way the app sets it (the request's own company)
+    before = auth_client.get("/admin/display-calendar").json()["calendar"]
+    assert auth_client.put("/admin/display-calendar", json={"calendar": "jalali"}).status_code == 200
+    due = date.today() - timedelta(days=10)
+    inv = Invoice(number=f"JC-{uuid.uuid4().hex[:6]}", kind="sales", status="issued",
+                  issue_date=due - timedelta(days=30), due_date=due, amount=1000)
+    db.add(inv)
+    db.commit()
+    try:
+        for lang in ("en", "fa"):
+            feed = auth_client.get("/notifications/feed", headers={"X-UI-Language": lang}).json()
+            hit = next(i for i in feed if i["kind"] == "invoice_overdue" and inv.number in i["title"])
+            assert format_jalali(due) in hit["message"] and due.isoformat() not in hit["message"], hit
+        row = db.execute(select(Notification).where(Notification.dedupe_key == f"inv-{inv.id}-overdue")).scalar_one()
+        assert format_jalali(due) in web_push._message(row, "fa", "jalali")["body"]
+        assert due.isoformat() in web_push._message(row, "en")["body"]           # a Gregorian company's push
+    finally:
+        inv.status = "paid"
+        db.commit()
+        auth_client.put("/admin/display-calendar", json={"calendar": before})

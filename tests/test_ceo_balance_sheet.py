@@ -51,3 +51,14 @@ def test_no_activity_no_result_line(co, db):
     with use_company(co["cid"]):
         r = build_ceo_report(db)
     assert r.total_equity == 1_000 and all(e["code"] for e in r.equity_breakdown)
+
+
+def test_the_report_sends_the_lines_behind_the_totals(co, db):
+    """The donut's drill-down lists them; the endpoint never sent them."""
+    bank, capital, expense = _code(db, co, "bank"), _code(db, co, "share_capital"), _code(db, co, "expense")
+    _journal(db, co, (bank, 1_000, 0), (capital, 0, 1_000))
+    _journal(db, co, (expense, 400, 0), (bank, 0, 400))
+    d = co["api"].get("/brain/ceo/report").json()
+    assert [(e["code"], e["balance"]) for e in d["assets_breakdown"]] == [(bank, 600)]
+    assert sorted((e["code"], e["balance"]) for e in d["equity_breakdown"]) == [("", -400), (capital, 1_000)]
+    assert d["total_assets"] == d["total_liabilities"] + d["total_equity"] == 600

@@ -343,6 +343,21 @@ def test_a_voucher_imported_before_the_date_was_in_the_reference_is_still_recogn
         assert ji.review(db, other_day)["counts"] == {"ready": 1}
 
 
+def test_an_opening_voucher_after_the_migrated_opening_balances_is_left_out(db, co):
+    """The chart migration posts opening balances (MIGRATION-OPENING), usually
+    on the year's first day; the journal's own opening voucher on that same day
+    would have doubled them."""
+    from app.services.migration_import import OPENING_REFERENCE
+    first = date.today() - timedelta(days=200)
+    p = _parse("1404.xlsx", _year(first, first + timedelta(days=150), 3_000_000, opening_cash=40_000_000))
+    with use_company(co["cid"]):
+        db.add(Transaction(id=uuid.uuid4(), date=first, reference=OPENING_REFERENCE,
+                           description="opening balances", currency="IRR"))
+        db.commit()
+        counts = ji.review(db, p)["counts"]
+    assert counts == {"ready": 1, "year_end_closing": 2, "opening_repeat": 1}
+
+
 def test_english_year_end_wording_is_recognised():
     v = ji.Voucher(key="1", number="1", on=D1, reference=None,
                    lines=[ji.Line(row=1, account_code="", account_name="", description="Closing entry FY2025", debit=1, credit=0)])

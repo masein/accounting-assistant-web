@@ -525,10 +525,14 @@ def _assess(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | Non
                                                    .where(Transaction.reference.in_(legacy[i:i + 500])))}
     today = date.today()
     kinds = {v.key: _year_end_kind(v) for v in vouchers}
-    # what an opening voucher would repeat: anything earlier in the books, or in the file
+    # what an opening voucher would repeat: anything earlier in the books or in
+    # the file, or opening balances the chart migration posted that day or before
+    from app.services.migration_import import OPENING_REFERENCE
     in_books = db.execute(select(func.min(Transaction.date))).scalar()
     in_file = min((v.on for v in vouchers if v.on and kinds[v.key] is None), default=None)
     earliest = min((d for d in (in_books, in_file) if d), default=None)
+    migrated_opening = db.execute(select(func.min(Transaction.date))
+                                  .where(Transaction.reference == OPENING_REFERENCE)).scalar()
     problems: dict[str, str | None] = {}
     for v in vouchers:
         if v.debit != v.credit:
@@ -537,7 +541,8 @@ def _assess(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | Non
             problems[v.key] = "future"
         elif kinds[v.key] == "closing":
             problems[v.key] = "year_end_closing"
-        elif kinds[v.key] == "opening" and earliest is not None and earliest < v.on:
+        elif kinds[v.key] == "opening" and ((earliest is not None and earliest < v.on)
+                                             or (migrated_opening is not None and migrated_opening <= v.on)):
             problems[v.key] = "opening_repeat"
         elif closed is not None and v.on <= closed:
             problems[v.key] = "closed_period"

@@ -1608,7 +1608,8 @@
     // ═══════ Historical journals from another system (roadmap §4.11) ═══════
     let _ji = null;                 // the last preview: token, preset, columns, accounts…
     let _jiChart = null;
-    const JI_STATUS = ['ready', 'unmapped_account', 'unbalanced', 'closed_period', 'future', 'already_imported'];
+    const JI_STATUS = ['ready', 'unmapped_account', 'unbalanced', 'closed_period', 'future', 'already_imported',
+      'year_end_closing', 'opening_repeat'];
 
     async function jiChart() {
       if (_jiChart) return _jiChart;

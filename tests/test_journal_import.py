@@ -277,6 +277,115 @@ def test_problem_vouchers_are_reported_not_posted(db, co):
                                                       "unmapped_account": 1}
 
 
+def _year(first, last, sale, *, opening_cash):
+    """One fiscal year as Sepidar exports it: the opening voucher, a sale, the
+    closing of the temporary accounts and the اختتامیه."""
+    j1, jz = _jalali(first), _jalali(last)
+    return _xlsx([
+        ["گزارش دفتر روزنامه"],
+        ["شماره سند", "تاریخ سند", "کد حساب", "نام حساب", "کد تفصیلی", "شرح", "بدهکار", "بستانکار"],
+        ["۱", j1, "1110", "موجودی نقد و بانک", "", "سند افتتاحیه", f"{opening_cash}", ""],
+        ["", "", "3110", "سرمایه", "", "سند افتتاحیه", "", f"{opening_cash}"],
+        ["۲", j1, "1112", "حساب‌ها و اسناد دریافتنی تجاری", "شرکت آریا", "فروش خدمات", f"{sale}", ""],
+        ["", "", "4110", "فروش", "", "فروش خدمات", "", f"{sale}"],
+        ["۳", jz, "4110", "فروش", "", "بستن حساب‌های موقت", f"{sale}", ""],
+        ["", "", "3300", "سود (زیان) انباشته", "", "بستن حساب‌های موقت", "", f"{sale}"],
+        ["۴", jz, "3110", "سرمایه", "", "سند اختتامیه", f"{opening_cash}", ""],
+        ["", "", "3300", "سود (زیان) انباشته", "", "سند اختتامیه", f"{sale}", ""],
+        ["", "", "1110", "موجودی نقد و بانک", "", "سند اختتامیه", "", f"{opening_cash}"],
+        ["", "", "1112", "حساب‌ها و اسناد دریافتنی تجاری", "", "سند اختتامیه", "", f"{sale}"],
+    ])
+
+
+def test_a_years_closing_is_left_out_and_its_opening_posts_once(db, co):
+    """E4: posted as they come, a year's closing vouchers wiped it out — its
+    revenue read zero and its balance sheet zeros — and the next year's
+    opening voucher doubled every balance the year before had made."""
+    from app.models.account import Account
+    from app.services.cfo_intelligence import ledger_balance
+    y1 = (date.today() - timedelta(days=700), date.today() - timedelta(days=400))
+    y2 = (date.today() - timedelta(days=399), date.today() - timedelta(days=30))
+    p1 = _parse("1402.xlsx", _year(*y1, 5_000_000, opening_cash=100_000_000))
+    with use_company(co["cid"]):
+        rev = ji.review(db, p1)
+        assert rev["counts"] == {"ready": 2, "year_end_closing": 2}           # the first year's opening posts
+        ji.apply(db, p1, account_map={a["key"]: a["mapped_to"] or "3300" for a in rev["accounts"]})
+        db.commit()
+
+        def bal(code):
+            return ledger_balance(db, (code,), None, date.today())
+        assert bal("4110") == -5_000_000                                      # the year's sales stand (it was 0)
+        assert (bal("1110"), bal("1112"), bal("3110")) == (100_000_000, 5_000_000, -100_000_000)   # not wiped
+
+        p2 = _parse("1403.xlsx", _year(*y2, 7_000_000, opening_cash=100_000_000))
+        rev2 = ji.review(db, p2)
+        assert rev2["counts"] == {"ready": 1, "year_end_closing": 2, "opening_repeat": 1}
+        ji.apply(db, p2, account_map={a["key"]: a["mapped_to"] or "3300" for a in rev2["accounts"]})
+        db.commit()
+        assert bal("1110") == 100_000_000                                     # not doubled to 200,000,000
+        assert (bal("4110"), bal("1112")) == (-12_000_000, 12_000_000)
+
+
+def test_a_voucher_imported_before_the_date_was_in_the_reference_is_still_recognised(db, co):
+    """References carry the voucher's date now (numbers restart each fiscal
+    year); one imported under the old form counts as already imported on its
+    own day only — the same number on another day is another voucher."""
+    def one(day, amount):
+        return _parse("old.csv", _csv([["Journal Number", "Date", "Account Code", "Account", "Debit", "Credit"],
+                                       ["2", day.isoformat(), "1110", "Cash", str(amount), ""],
+                                       ["2", day.isoformat(), "4110", "Sales", "", str(amount)]]))
+    same_day, other_day = one(D1, 10), one(D2, 5)
+    with use_company(co["cid"]):
+        db.add(Transaction(id=uuid.uuid4(), date=D1, reference=f"IMPORT-{same_day['preset']}-2",
+                           description="imported before 2026-10-07", currency="IRR"))
+        db.commit()
+        assert ji.review(db, same_day)["counts"] == {"already_imported": 1}
+        assert ji.review(db, other_day)["counts"] == {"ready": 1}
+
+
+def test_an_opening_voucher_after_the_migrated_opening_balances_is_left_out(db, co):
+    """The chart migration posts opening balances (MIGRATION-OPENING), usually
+    on the year's first day; the journal's own opening voucher on that same day
+    would have doubled them."""
+    from app.services.migration_import import OPENING_REFERENCE
+    first = date.today() - timedelta(days=200)
+    p = _parse("1404.xlsx", _year(first, first + timedelta(days=150), 3_000_000, opening_cash=40_000_000))
+    with use_company(co["cid"]):
+        db.add(Transaction(id=uuid.uuid4(), date=first, reference=OPENING_REFERENCE,
+                           description="opening balances", currency="IRR"))
+        db.commit()
+        counts = ji.review(db, p)["counts"]
+    assert counts == {"ready": 1, "year_end_closing": 2, "opening_repeat": 1}
+
+
+def test_the_subsidiary_code_wins_over_the_group_code():
+    """«کد کل» comes before «کد معین» in an Iranian export; the first column
+    used to win, posting every line to the group account (11, not 1112)."""
+    data = _xlsx([
+        ["شماره سند", "تاریخ سند", "کد کل", "کد معین", "نام معین", "کد تفصیلی", "شرح", "بدهکار", "بستانکار"],
+        ["۱", _jalali(D1), "11", "1110", "موجودی نقد و بانک", "", "فروش", "۵۰۰", ""],
+        ["", "", "41", "4110", "فروش", "", "فروش", "", "۵۰۰"],
+    ])
+    p = _parse("sepidar.xlsx", data)
+    assert [ln.account_code for v in p["vouchers"] for ln in v.lines] == ["1110", "4110"]
+    flipped = _xlsx([
+        ["شماره سند", "تاریخ سند", "کد معین", "کد کل", "شرح", "بدهکار", "بستانکار"],
+        ["۱", _jalali(D1), "1110", "11", "فروش", "۵۰۰", ""],
+        ["", "", "4110", "41", "فروش", "", "۵۰۰"],
+    ])
+    assert [ln.account_code for v in _parse("s.xlsx", flipped)["vouchers"] for ln in v.lines] == ["1110", "4110"]
+
+
+def test_english_year_end_wording_is_recognised():
+    v = ji.Voucher(key="1", number="1", on=D1, reference=None,
+                   lines=[ji.Line(row=1, account_code="", account_name="", description="Closing entry FY2025", debit=1, credit=0)])
+    assert ji._year_end_kind(v) == "closing"
+    v.lines[0].description = "Opening balances brought forward"
+    assert ji._year_end_kind(v) == "opening"
+    v.lines[0].description = "Office supplies"
+    assert ji._year_end_kind(v) is None
+
+
 # --- HTTP ---------------------------------------------------------------------------------------------------------
 
 def test_the_routes(db, co):

@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.07"
+CURRENT_RELEASE = "2026.10.07.1"
 
 
 @dataclass(frozen=True)
@@ -1617,6 +1617,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "نموداری که هنوز داده‌ای ندارد همین را می‌گوید، گزارش‌های شرکت تازه با ارز خود شرکت شروع می‌شوند و مبالغ در هر مرورگری یک‌جور نوشته می‌شوند.",
                     "es": "Un gráfico que aún no tiene datos lo indica, los informes de una empresa nueva empiezan en su propia moneda y los importes se escriben igual en cualquier navegador.",
                     "ar": "الرسم البياني الذي لا بيانات فيه بعد يقول ذلك، وتبدأ تقارير الشركة الجديدة بعملتها، وتُكتب المبالغ بالطريقة نفسها في أي متصفح.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.07.1",
+        date="2026-10-07",
+        highlights=(
+            Highlight(
+                key="cfo-months",
+                page="cfo",
+                roles=("owner", "cfo"),
+                title={
+                    "en": "CFO Mode reads the months as they are",
+                    "fa": "حالت مدیر مالی ماه‌ها را همان‌طور که هستند می‌خواند",
+                    "es": "El modo CFO lee los meses tal como son",
+                    "ar": "وضع المدير المالي يقرأ الأشهر كما هي",
+                },
+                body={
+                    "en": "Average monthly revenue and the burn rate now count every month, quiet ones as zero, and month-over-month compares the last two complete months — no more \"revenue down 100%\" at the start of each month.",
+                    "fa": "میانگین درآمد ماهانه و نرخ مصرف حالا همهٔ ماه‌ها را حساب می‌کنند و ماه‌های بی‌فعالیت را صفر می‌گیرند، و مقایسهٔ ماه‌به‌ماه دو ماه کامل اخیر را می‌سنجد — دیگر اول هر ماه «کاهش 100٪ درآمد» نمی‌بینید.",
+                    "es": "El ingreso medio mensual y el ritmo de gasto cuentan ahora todos los meses, los tranquilos como cero, y la comparación mensual usa los dos últimos meses completos: se acabó el «ingresos −100%» al empezar cada mes.",
+                    "ar": "يحتسب متوسط الإيراد الشهري ومعدل الإنفاق الآن كل الأشهر، والهادئة منها صفرًا، وتقارن المقارنة الشهرية آخر شهرين مكتملين — لا مزيد من «انخفاض الإيرادات 100٪» في بداية كل شهر.",
                 },
             ),
         ),

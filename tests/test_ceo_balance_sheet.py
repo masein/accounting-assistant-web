@@ -100,3 +100,74 @@ def test_the_burn_rate_is_the_latest_three_months(co, db):
     with use_company(co["cid"]):
         r = build_cfo_report(db)
     assert r.burn_rate == 100                                                    # was 200: 100, 100, 400
+
+
+
+def _gregorian(db, co):
+    """Month keys in the Gregorian calendar, so the months below don't depend
+    on where today falls in a Jalali month."""
+    from app.services.locale_service import set_display_calendar
+    with use_company(co["cid"]):
+        set_display_calendar(db, "gregorian")
+        db.commit()
+
+
+def test_the_average_revenue_counts_the_quiet_months(co, db):
+    from app.services.cfo_intelligence import build_cfo_report
+    _gregorian(db, co)
+    bank, revenue = _code(db, co, "bank"), _code(db, co, "revenue")
+    for months_ago in (3, 1):                                                  # nothing two months ago, nothing yet this month
+        _on(db, co, _month_start(months_ago), (bank, 1_000, 0), (revenue, 0, 1_000))
+    with use_company(co["cid"]):
+        k = {x.key: x.value for x in build_cfo_report(db).kpis}
+    assert k["avg_monthly_revenue"] == 500                                     # 2,000 over four months; it was 1,000
+    assert k["total_revenue"] == 2_000
+
+
+def test_the_burn_counts_the_quiet_months(co, db):
+    from app.services.cfo_intelligence import build_cfo_report
+    _gregorian(db, co)
+    bank, expense = _code(db, co, "bank"), _code(db, co, "expense")
+    _on(db, co, _month_start(5), (expense, 900, 0), (bank, 0, 900))
+    _on(db, co, _month_start(2), (expense, 300, 0), (bank, 0, 300))           # none last month, none this month
+    with use_company(co["cid"]):
+        r = build_cfo_report(db)
+    assert r.burn_rate == 100                                                  # (300 + 0 + 0) / 3; it was (900 + 300) / 2
+
+
+
+def _month_name(months_ago: int) -> str:
+    from app.services.calendar_periods import month_key, month_label
+    return month_label(month_key(_month_start(months_ago), "gregorian"), "en")
+
+
+def test_the_month_under_way_raises_no_alarm(co, db):
+    from app.services.cfo_intelligence import build_cfo_report
+    _gregorian(db, co)
+    bank, revenue = _code(db, co, "bank"), _code(db, co, "revenue")
+    _on(db, co, _month_start(2), (bank, 10_000, 0), (revenue, 0, 10_000))
+    _on(db, co, _month_start(1), (bank, 12_000, 0), (revenue, 0, 12_000))     # nothing yet this month
+    with use_company(co["cid"]):
+        r = build_cfo_report(db, lang="en")
+    k = {x.key: x for x in r.kpis}
+    assert (k["total_revenue"].trend, k["total_revenue"].trend_pct) == ("up", 20.0)   # was down 100%
+    assert not any("declined" in i.title for i in r.insights)
+
+
+def test_a_real_fall_names_both_months(co, db):
+    from app.services.cfo_intelligence import build_cfo_report
+    _gregorian(db, co)
+    bank, revenue, expense = _code(db, co, "bank"), _code(db, co, "revenue"), _code(db, co, "expense")
+    _on(db, co, _month_start(2), (bank, 10_000, 0), (revenue, 0, 10_000))
+    _on(db, co, _month_start(1), (bank, 5_000, 0), (revenue, 0, 5_000))
+    _on(db, co, _month_start(2), (expense, 10_000, 0), (bank, 0, 10_000))
+    _on(db, co, _month_start(1), (expense, 14_000, 0), (bank, 0, 14_000))
+    with use_company(co["cid"]):
+        r = build_cfo_report(db, lang="en")
+    fell = next(i for i in r.insights if i.title == "Revenue declined 50% month-over-month")
+    assert fell.body == f"{_month_name(1)}: 5,000 vs {_month_name(2)}: 10,000."
+    tile = next(x for x in r.kpis if x.key == "expense_trend")
+    assert (tile.value, tile.trend) == (40.0, "flat")                          # no "↓ 0%" line under it
+    rose = next(i for i in r.insights if i.title.startswith("Expenses rose 40% in"))
+    assert rose.title == f"Expenses rose 40% in {_month_name(1)}"
+    assert rose.body == f"{_month_name(1)}: 14,000 vs {_month_name(2)}: 10,000."

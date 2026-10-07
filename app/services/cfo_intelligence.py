@@ -47,9 +47,9 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "qa_runway_empty": "With no cash on hand recorded the business has no runway; the burn rate is {burn:,} {money}/month.",
         "bs_period_result": "Current period profit (loss)",
         "ins_revenue_declined_title": "Revenue declined {pct:.0f}% month-over-month",
-        "ins_revenue_declined_body": "This month: {current:,} vs last month: {previous:,}.",
-        "ins_expense_spike_title": "Expenses spiked {pct:.0f}% this month",
-        "ins_expense_spike_body": "This month: {current:,} vs last month: {previous:,}.",
+        "ins_revenue_declined_body": "{month}: {current:,} vs {prev_month}: {previous:,}.",
+        "ins_expense_spike_title": "Expenses rose {pct:.0f}% in {month}",
+        "ins_expense_spike_body": "{month}: {current:,} vs {prev_month}: {previous:,}.",
         "ins_top_cost_title": "Top cost driver: {category}",
         "ins_top_cost_body": "{category} accounts for {pct:.0f}% of total expenses ({amount:,} {money}).",
         "ins_high_receivables_title": "High receivables",
@@ -87,9 +87,9 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "qa_runway_empty": "بدون موجودی نقد ثبت‌شده کسب‌وکار دوامی ندارد؛ نرخ سوخت {burn:,} {money} در ماه است.",
         "bs_period_result": "سود (زیان) دوره جاری",
         "ins_revenue_declined_title": "درآمد نسبت به ماه قبل {pct:.0f}٪ کاهش یافت",
-        "ins_revenue_declined_body": "این ماه: {current:,} در مقابل ماه قبل: {previous:,}.",
-        "ins_expense_spike_title": "هزینه‌ها این ماه {pct:.0f}٪ جهش داشت",
-        "ins_expense_spike_body": "این ماه: {current:,} در مقابل ماه قبل: {previous:,}.",
+        "ins_revenue_declined_body": "{month}: {current:,} در مقابل {prev_month}: {previous:,}.",
+        "ins_expense_spike_title": "هزینه‌ها در {month} {pct:.0f}٪ جهش داشت",
+        "ins_expense_spike_body": "{month}: {current:,} در مقابل {prev_month}: {previous:,}.",
         "ins_top_cost_title": "بزرگ‌ترین محرک هزینه: {category}",
         "ins_top_cost_body": "{category} معادل {pct:.0f}٪ از کل هزینه‌ها است ({amount:,} {money}).",
         "ins_high_receivables_title": "مطالبات بالا",
@@ -127,9 +127,9 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "qa_runway_empty": "Sin caja registrada el negocio no tiene margen; el consumo es {burn:,} {money}/mes.",
         "bs_period_result": "Resultado del periodo en curso",
         "ins_revenue_declined_title": "Los ingresos cayeron {pct:.0f}% intermensual",
-        "ins_revenue_declined_body": "Este mes: {current:,} frente al mes pasado: {previous:,}.",
-        "ins_expense_spike_title": "Los gastos subieron {pct:.0f}% este mes",
-        "ins_expense_spike_body": "Este mes: {current:,} frente al mes pasado: {previous:,}.",
+        "ins_revenue_declined_body": "{month}: {current:,} frente a {prev_month}: {previous:,}.",
+        "ins_expense_spike_title": "Los gastos subieron {pct:.0f}% en {month}",
+        "ins_expense_spike_body": "{month}: {current:,} frente a {prev_month}: {previous:,}.",
         "ins_top_cost_title": "Mayor generador de costes: {category}",
         "ins_top_cost_body": "{category} representa el {pct:.0f}% de los gastos totales ({amount:,} {money}).",
         "ins_high_receivables_title": "Cuentas por cobrar elevadas",
@@ -167,9 +167,9 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "qa_runway_empty": "بلا نقد مسجّل لا يملك العمل أي مدى؛ معدل الاستهلاك {burn:,} {money}/شهر.",
         "bs_period_result": "ربح (خسارة) الفترة الحالية",
         "ins_revenue_declined_title": "انخفضت الإيرادات {pct:.0f}٪ مقارنة بالشهر السابق",
-        "ins_revenue_declined_body": "هذا الشهر: {current:,} مقابل الشهر الماضي: {previous:,}.",
-        "ins_expense_spike_title": "قفزت المصروفات {pct:.0f}٪ هذا الشهر",
-        "ins_expense_spike_body": "هذا الشهر: {current:,} مقابل الشهر الماضي: {previous:,}.",
+        "ins_revenue_declined_body": "{month}: {current:,} مقابل {prev_month}: {previous:,}.",
+        "ins_expense_spike_title": "قفزت المصروفات {pct:.0f}٪ في {month}",
+        "ins_expense_spike_body": "{month}: {current:,} مقابل {prev_month}: {previous:,}.",
         "ins_top_cost_title": "أكبر بند تكلفة: {category}",
         "ins_top_cost_body": "{category} يمثل {pct:.0f}٪ من إجمالي المصروفات ({amount:,} {money}).",
         "ins_high_receivables_title": "ذمم مدينة مرتفعة",
@@ -438,13 +438,26 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
 
     from app.services.calendar_periods import company_calendar, previous_month_key
     cal = company_calendar(db)
-    current_month = _month_key(date.today(), cal)
+    # every calendar month from the first with revenue or costs to this one, a
+    # quiet month counting as 0: the average revenue and the burn rate used to
+    # describe only the months that had some (2 busy months out of 7 doubled it)
+    from app.services.calendar_periods import key_bounds, months_between
+    active = sorted(set(data["monthly_revenue"]) | set(data["monthly_expense"]))
+    span = [p.key for p in months_between(key_bounds(active[0])[0], date.today(), cal)] if active else []
     prev_month = previous_month_key(date.today(), cal)
 
-    cur_rev = data["monthly_revenue"].get(current_month, 0)
-    prev_rev = data["monthly_revenue"].get(prev_month, 0)
-    cur_exp = data["monthly_expense"].get(current_month, 0)
-    prev_exp = data["monthly_expense"].get(prev_month, 0)
+    # month over month = the last complete month against the one before: the
+    # month under way, compared whole, read "revenue down 100%" (and raised the
+    # risk score) at the start of every month until the first sale
+    from app.services.calendar_periods import month_label, shift
+    ly, lm = (int(x) for x in prev_month.split("-"))
+    by, bm = shift(ly, lm, -1)
+    before_month = f"{by:04d}-{bm:02d}"
+    mo_said = {"month": month_label(prev_month, lang), "prev_month": month_label(before_month, lang)}
+    cur_rev = data["monthly_revenue"].get(prev_month, 0)
+    prev_rev = data["monthly_revenue"].get(before_month, 0)
+    cur_exp = data["monthly_expense"].get(prev_month, 0)
+    prev_exp = data["monthly_expense"].get(before_month, 0)
 
     # KPI: Total Revenue
     total_rev = sum(rev_vals) if rev_vals else 0
@@ -456,7 +469,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     ))
 
     # KPI: Monthly Avg Revenue
-    avg_rev = int(mean(rev_vals)) if rev_vals else 0
+    avg_rev = int(mean([data["monthly_revenue"].get(k, 0) for k in span])) if span else 0
     report.kpis.append(KPI(key="avg_monthly_revenue", label="Avg Monthly Revenue", value=avg_rev, unit=money))
 
     # KPI: Net Profit
@@ -476,7 +489,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     ))
 
     # KPI: Burn Rate
-    recent_exp = exp_vals[-3:] if len(exp_vals) >= 3 else exp_vals
+    recent_exp = [data["monthly_expense"].get(k, 0) for k in span[-3:]]      # the latest three months
     burn_rate = int(mean(recent_exp)) if recent_exp else 0
     report.burn_rate = burn_rate
     report.kpis.append(KPI(key="burn_rate", label="Monthly Burn Rate", value=burn_rate, unit=money))
@@ -506,8 +519,10 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     # Expense trend
     exp_trend = ((cur_exp - prev_exp) / prev_exp * 100) if prev_exp else 0
     report.kpis.append(KPI(
+        # the value is the change itself: no second "↓ 0%" line under it (a flat
+        # month showed a down arrow)
         key="expense_trend", label="Expense MoM Change", value=round(exp_trend, 1),
-        unit="%", trend="up" if exp_trend > 0 else "down",
+        unit="%", trend="flat",
         risk_level="caution" if exp_trend > 20 else "normal",
     ))
 
@@ -551,15 +566,15 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
         report.insights.append(Insight(
             priority=priority, category="revenue", severity="warning",
             title=_s(lang, "ins_revenue_declined_title").format(pct=abs(rev_trend)),
-            body=_s(lang, "ins_revenue_declined_body").format(current=cur_rev, previous=prev_rev),
+            body=_s(lang, "ins_revenue_declined_body").format(current=cur_rev, previous=prev_rev, **mo_said),
         ))
         priority += 1
 
     if exp_trend > 30 and prev_exp > 0:
         report.insights.append(Insight(
             priority=priority, category="expense", severity="warning",
-            title=_s(lang, "ins_expense_spike_title").format(pct=exp_trend),
-            body=_s(lang, "ins_expense_spike_body").format(current=cur_exp, previous=prev_exp),
+            title=_s(lang, "ins_expense_spike_title").format(pct=exp_trend, **mo_said),
+            body=_s(lang, "ins_expense_spike_body").format(current=cur_exp, previous=prev_exp, **mo_said),
         ))
         priority += 1
 

@@ -713,7 +713,7 @@ owner pages and the Persian invoices page; any JS exception or 5xx fails.
 | 4.7 | ✅ (2026-09-29) **Budgets**: edit route, Jalali months, per-project budgets, roll-forward | `budgets.py` has no PATCH |
 | 4.8 | ✅ (2026-09-29) **Purchase orders**: cancel/delete, partial receipts to bills, supplier price history | `purchase_orders.py` |
 | 4.9 | ✅ (2026-09-29) **Documents**: statements of account e-mailed to clients, payslips e-mailed to employees, PDF/XLSX export of financial statements (server side), a "monthly close pack" zip | mail service exists but sends nothing to parties |
-| 4.10 | ✅ (#163, #164) **Mobile**: PWA (manifest + offline shell), camera receipt capture straight into the chat, bell push via Web Push; later native | competitors all have apps; ours is responsive only |
+| 4.10 | ✅ (#163, #164) **Mobile**: PWA (manifest + offline shell), camera receipt capture straight into the chat, bell push via Web Push; later native — planned as a chat-only Android app in `ROADMAP_ANDROID_CHAT.md` (2026-10-07) | competitors all have apps; ours is responsive only |
 | 4.11 | ✅ (#166) **Migration importers**: Hesabfa/Holoo/Sepidar exports, Xero/QuickBooks CSV, historical transactions (not just opening balances) | switching cost is the main sales objection |
 | 4.12 | ✅ (2026-09-29) **Personal mode**: installment/loan schedules with reminders, shared household tenants, savings goals, gold/FX valuation from a feed, monthly report card | matches the Iranian personal-finance apps (بانک، محک، فانوس) |
 

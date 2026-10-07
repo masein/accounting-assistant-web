@@ -211,4 +211,17 @@ Receivables are what customers owe: trade receivables and, in Iranian books, che
 | L11 | Quiet months count [#300] | Sales in two of the last four months; costs three months ago and six months ago, none since | Average monthly revenue spreads the sales over all four months (it averaged the two busy ones only), and the burn rate is the last three months' costs, quiet ones as 0 — not the last three months that had any |
 | L12 | Month over month, complete months [#300] | Early in a month, before its first sale: sales of 10,000 two months ago and 12,000 last month; then a fall to 5,000, and costs up 40% | No alarm while the month is under way — CFO and CEO Mode compared it, unfinished, with last month and said «revenue declined 100%», raising the risk score, at the start of every month. A real fall between the last two complete months is flagged, naming both months; a cost rise names its month |
 
-**Run order:** A → B → C → D → E → F → G → H → J → L; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+## M. Each module against the books and the reports (2026-10-07)
+
+Each module runs a realistic month through the API, then its own figures, the ledger, the statements and the dashboard must agree with numbers worked out by hand (`tests/test_module_crosscheck.py`).
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| M1 | A month of Iranian payroll [#304] | Two employees under the 1405 rules: 200,000,000 and no children; 500,000,000 and one child. Run Shahrivar, post, pay | Payslips: 252,000,000 gross / 17,640,000 insurance / 57,960,000 employer / no tax / 234,360,000 net, and 568,625,550 / 38,640,000 / 126,960,000 / 12,998,555 / 516,986,995. The ledger, the insurance and tax lists, the year summary, the income statement's SG&A (1,005,545,550) and the dashboard's liabilities (254,198,555) all say the same; nothing is left in net pay owed |
+| M2 | Inventory costing [#304] | In 10 at 100, in 10 at 200, out 15; switch between weighted average and FIFO | Weighted average: COGS 2,250, 5 left worth 750; FIFO: COGS 2,000, worth 1,000 — on the balance page and the valuation, each showing the other method too. Stock movements don't post to the ledger (no cost of sales on the income statement): a known gap, roadmap §4.4's next step |
+| M3 | A fixed asset bought, depreciated and sold [#304] | A computer of 36,000,000 over 36 months and desks of 6,000,000 over 60, bought by bank months ago; run depreciation twice; sell the desks today for 5,000,000 | 1,000,000 and 100,000 a month; the second run posts nothing; the register, the ledger (1210, 1219, 6120) and the balance sheet agree before and after the sale, which takes the months before it first and books the gain or loss |
+| M4 | A UK VAT quarter [#304] | July–September 2026: a sale of 1,000 + 20%, a zero-rated sale of 300, a purchase of 400 + 20%, a 120 credit note on the first sale | Boxes 1 = 180, 3 = 180, 4 = 80, 5 = 100 payable, 6 = 1,200, 7 = 400 — and the ledger's VAT accounts (2200, 1400) say the same |
+| M5 | The income tax update for that quarter [#304] | Self-employment, 2026-27 quarter 2 | Income 1,200, expenses 400, profit 800 — the same as the profit and loss for those dates |
+| M6 | A personal month [#304] | Shahrivar 1405: salary 120,000,000; food, rent and transport 90,000,000; 20,000,000 of gold (10 g, 2,500,000 a gram at month end) | Report card: income 120,000,000, spending 90,000,000, saved 30,000,000 (25%), categories adding up to the spending; net worth 35,000,000 with 5,000,000 unrealised on the gold, the same on the report card |
+
+**Run order:** A → B → C → D → E → F → G → H → J → L → M; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.

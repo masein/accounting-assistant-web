@@ -997,9 +997,9 @@
           const tr = document.createElement('tr');
           tr.style.background = statusBg;
           tr.innerHTML = `<td>${r.row_index}</td><td>${escapeHtml(formatDisplayDate(r.tx_date))}</td><td dir="auto">${escapeHtml(r.description || '')}</td>
-            <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString() : ''}</td>
-            <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString() : ''}</td>
-            <td>${r.balance != null ? r.balance.toLocaleString() : ''}</td>
+            <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString('en-US') : ''}</td>
+            <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString('en-US') : ''}</td>
+            <td>${r.balance != null ? r.balance.toLocaleString('en-US') : ''}</td>
             <td>${bsCategoryCell(r)}</td>
             <td style="color:${confColor}">${(r.confidence * 100).toFixed(0)}%</td>
             <td>${escapeHtml(enumLabel('bsRecon_', r.recon_status))}</td>

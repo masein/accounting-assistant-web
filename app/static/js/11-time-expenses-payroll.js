@@ -1180,7 +1180,7 @@
         // Sync the global from the server's response so every other
         // widget on the page picks up the right currency too.
         if (data.currency) window.__REPORTING_CURRENCY = data.currency;
-        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString() + ' ' + currencyUnit() + '/' + t('monthsShort');
+        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString('en-US') + ' ' + currencyUnit() + '/' + t('monthsShort');
 
         const kpiGrid = document.getElementById('cfo-kpis');
         kpiGrid.innerHTML = '';
@@ -1192,7 +1192,7 @@
           div.style.cssText = 'padding:0.6rem;';
           // Any non-% non-months unit is a currency code → format with thousands.
           const isCurrencyUnit = k.unit && k.unit !== '%' && k.unit !== 'months';
-          const displayVal = isCurrencyUnit ? Number(k.value).toLocaleString() : k.value;
+          const displayVal = isCurrencyUnit ? Number(k.value).toLocaleString('en-US') : k.value;
           // "32.5%" not "32.5 %" (a space lets the sign drift to the far side in
           // Persian), months in the reader's language, and <bdi> keeps a minus
           // sign in front of its number in a right-to-left page.

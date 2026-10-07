@@ -707,7 +707,7 @@
         card.className = 'ai-card message-in';
         card.setAttribute('dir', 'auto');
         card.style.cssText = 'background:#f0fdfa; font-size:0.88rem;';
-        const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : n);
+        const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n);
         let html = '';
         if (intake.kind === 'bank_statement') {
           appendStatementCard(card, intake, fmt);

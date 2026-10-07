@@ -6,10 +6,13 @@ set -e
 Q=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$Q/../.." && pwd)
 WT=${WT:-$REPO}
-# the running compose stack's database (found by its labels, so this works from a worktree too)
-PROJECT=${QA_PROJECT:-$(docker ps --filter label=com.docker.compose.service=db --format '{{.Label "com.docker.compose.project"}}' | head -1)}
+# the running compose stack's database, found by its labels (so this works from a worktree too).
+# This app's compose project, by name: "the first running db" picked another
+# project's Postgres once (2026-10-07), where the run would have dropped and
+# created its scratch database. QA_PROJECT overrides it.
+PROJECT=${QA_PROJECT:-accounting-assistant}
 DB=$(docker ps -q --filter label=com.docker.compose.project="$PROJECT" --filter label=com.docker.compose.service=db | head -1)
-[ -n "$DB" ] || { echo "no running compose db (start the stack: docker compose up -d db)"; exit 1; }
+[ -n "$DB" ] || { echo "no running db for compose project '$PROJECT' (set QA_PROJECT, or: docker compose up -d db)"; exit 1; }
 NETWORK=${QA_NETWORK:-${PROJECT}_default}
 # the run's password: generated once, kept in scripts/qa/.env (git-ignored, mode 600), never printed
 if [ ! -f "$Q/.env" ]; then

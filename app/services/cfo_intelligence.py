@@ -429,10 +429,12 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     # once so the entire report is internally consistent.
     money = _resolve_currency_unit(db, currency)
 
-    rev_vals = list(data["monthly_revenue"].values())
-    exp_vals = list(data["monthly_expense"].values())
-    cash_in_vals = list(data["monthly_cash_in"].values())
-    cash_out_vals = list(data["monthly_cash_out"].values())
+    # in month order: the rows come back in no set order, and the burn rate is
+    # the mean of the LAST three months (a back-dated entry used to count as recent)
+    rev_vals = [v for _m, v in sorted(data["monthly_revenue"].items())]
+    exp_vals = [v for _m, v in sorted(data["monthly_expense"].items())]
+    cash_in_vals = [v for _m, v in sorted(data["monthly_cash_in"].items())]
+    cash_out_vals = [v for _m, v in sorted(data["monthly_cash_out"].items())]
 
     from app.services.calendar_periods import company_calendar, previous_month_key
     cal = company_calendar(db)
@@ -739,7 +741,9 @@ def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en")
     report.revenue_trend = float(rev_trend_kpi.trend_pct) if rev_trend_kpi else 0.0
 
     # Monthly series
-    months_sorted = sorted(data["monthly_revenue"].keys())
+    # every month with revenue or expenses: a month of costs only used to vanish
+    # from the trends, and with it the loss
+    months_sorted = sorted(set(data["monthly_revenue"]) | set(data["monthly_expense"]))
     for m in months_sorted:
         rev = data["monthly_revenue"].get(m, 0)
         exp = data["monthly_expense"].get(m, 0)

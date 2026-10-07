@@ -62,3 +62,39 @@ def test_the_report_sends_the_lines_behind_the_totals(co, db):
     assert [(e["code"], e["balance"]) for e in d["assets_breakdown"]] == [(bank, 600)]
     assert sorted((e["code"], e["balance"]) for e in d["equity_breakdown"]) == [("", -400), (capital, 1_000)]
     assert d["total_assets"] == d["total_liabilities"] + d["total_equity"] == 600
+
+
+
+def _month_start(months_ago: int):
+    from datetime import date
+    d = date.today().replace(day=1)
+    for _ in range(months_ago):
+        d = (d.replace(day=1) - __import__("datetime").timedelta(days=1)).replace(day=1)
+    return d
+
+
+def _on(db, co, day, *lines):
+    from datetime import date
+    _journal(db, co, *lines, days_ago=(date.today() - day).days)
+
+
+def test_a_month_of_costs_only_shows_in_the_trends(co, db):
+    from app.services.cfo_intelligence import build_ceo_report
+    bank, revenue, expense = _code(db, co, "bank"), _code(db, co, "revenue"), _code(db, co, "expense")
+    _on(db, co, _month_start(2), (bank, 1_000, 0), (revenue, 0, 1_000))       # revenue only
+    _on(db, co, _month_start(1), (expense, 1_500, 0), (bank, 0, 1_500))      # costs only: a loss
+    with use_company(co["cid"]):
+        r = build_ceo_report(db)
+    assert [m["amount"] for m in r.monthly_revenue] == [1_000, 0]
+    assert [m["amount"] for m in r.monthly_expenses] == [0, 1_500]
+    assert [m["amount"] for m in r.monthly_profit] == [1_000, -1_500]           # the loss month was missing
+
+
+def test_the_burn_rate_is_the_latest_three_months(co, db):
+    from app.services.cfo_intelligence import build_cfo_report
+    bank, expense = _code(db, co, "bank"), _code(db, co, "expense")
+    for months_ago, amount in ((2, 100), (1, 100), (0, 100), (3, 400)):           # the oldest entered last
+        _on(db, co, _month_start(months_ago), (expense, amount, 0), (bank, 0, amount))
+    with use_company(co["cid"]):
+        r = build_cfo_report(db)
+    assert r.burn_rate == 100                                                    # was 200: 100, 100, 400

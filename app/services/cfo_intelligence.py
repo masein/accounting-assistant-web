@@ -45,6 +45,7 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "ins_runway_empty_body": "No cash or bank balance is recorded, while spending runs at {burn:,}/month. If the business has money in the bank, record its opening balance; otherwise fund the account before anything else.",
         "narr_cash_empty": "No cash on hand is recorded; there is no runway at the current burn rate of {burn:,}/month.",
         "qa_runway_empty": "With no cash on hand recorded the business has no runway; the burn rate is {burn:,} {money}/month.",
+        "bs_period_result": "Current period profit (loss)",
         "ins_revenue_declined_title": "Revenue declined {pct:.0f}% month-over-month",
         "ins_revenue_declined_body": "This month: {current:,} vs last month: {previous:,}.",
         "ins_expense_spike_title": "Expenses spiked {pct:.0f}% this month",
@@ -84,6 +85,7 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "ins_runway_empty_body": "هیچ موجودی نقد یا بانکی ثبت نشده، در حالی که خرج ماهانه {burn:,} است. اگر کسب‌وکار در بانک پول دارد مانده افتتاحیه آن را ثبت کنید؛ وگرنه پیش از هر چیز حساب را تأمین کنید.",
         "narr_cash_empty": "موجودی نقدی ثبت نشده است؛ با نرخ سوخت {burn:,} در ماه دوامی باقی نمانده.",
         "qa_runway_empty": "بدون موجودی نقد ثبت‌شده کسب‌وکار دوامی ندارد؛ نرخ سوخت {burn:,} {money} در ماه است.",
+        "bs_period_result": "سود (زیان) دوره جاری",
         "ins_revenue_declined_title": "درآمد نسبت به ماه قبل {pct:.0f}٪ کاهش یافت",
         "ins_revenue_declined_body": "این ماه: {current:,} در مقابل ماه قبل: {previous:,}.",
         "ins_expense_spike_title": "هزینه‌ها این ماه {pct:.0f}٪ جهش داشت",
@@ -123,6 +125,7 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "ins_runway_empty_body": "No hay saldo de caja ni de banco registrado, mientras el gasto es de {burn:,}/mes. Si el negocio tiene dinero en el banco, registra su saldo inicial; si no, aporta fondos antes que nada.",
         "narr_cash_empty": "No hay caja registrada; no hay margen al consumo actual de {burn:,}/mes.",
         "qa_runway_empty": "Sin caja registrada el negocio no tiene margen; el consumo es {burn:,} {money}/mes.",
+        "bs_period_result": "Resultado del periodo en curso",
         "ins_revenue_declined_title": "Los ingresos cayeron {pct:.0f}% intermensual",
         "ins_revenue_declined_body": "Este mes: {current:,} frente al mes pasado: {previous:,}.",
         "ins_expense_spike_title": "Los gastos subieron {pct:.0f}% este mes",
@@ -162,6 +165,7 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "ins_runway_empty_body": "لا يوجد رصيد نقدي أو مصرفي مسجّل، بينما الإنفاق {burn:,}/شهر. إن كان لدى العمل مال في البنك فسجّل رصيده الافتتاحي؛ وإلا فموّل الحساب قبل أي شيء.",
         "narr_cash_empty": "لا يوجد نقد مسجّل؛ لا مدى متبقٍ بمعدل استهلاك {burn:,}/شهر.",
         "qa_runway_empty": "بلا نقد مسجّل لا يملك العمل أي مدى؛ معدل الاستهلاك {burn:,} {money}/شهر.",
+        "bs_period_result": "ربح (خسارة) الفترة الحالية",
         "ins_revenue_declined_title": "انخفضت الإيرادات {pct:.0f}٪ مقارنة بالشهر السابق",
         "ins_revenue_declined_body": "هذا الشهر: {current:,} مقابل الشهر الماضي: {previous:,}.",
         "ins_expense_spike_title": "قفزت المصروفات {pct:.0f}٪ هذا الشهر",
@@ -753,6 +757,7 @@ def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en")
     from app.models.account import Account as AccountModel
     from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY
     accounts = db.execute(select(AccountModel)).scalars().all()
+    period_result = 0
     from app.services.reporting.repository import amount_columns, sums_base
     dr_col, cr_col = amount_columns(currency)
     lines_q = select(
@@ -787,6 +792,13 @@ def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en")
             report.total_equity += bal
             if bal != 0:
                 equity_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
+        elif acc_type in (REVENUE, EXPENSE):
+            # the period's result belongs to equity until the year is closed
+            # into retained earnings; left out, the summary didn't balance
+            period_result += (tc or 0) - (td or 0)
+    if period_result:
+        report.total_equity += period_result
+        equity_map["period_result"] = {"code": "", "name": _s(lang, "bs_period_result"), "balance": period_result}
 
     report.assets_breakdown = sorted(assets_map.values(), key=lambda x: abs(x["balance"]), reverse=True)
     report.liabilities_breakdown = sorted(liabilities_map.values(), key=lambda x: abs(x["balance"]), reverse=True)

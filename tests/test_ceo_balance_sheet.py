@@ -166,6 +166,8 @@ def test_a_real_fall_names_both_months(co, db):
         r = build_cfo_report(db, lang="en")
     fell = next(i for i in r.insights if i.title == "Revenue declined 50% month-over-month")
     assert fell.body == f"{_month_name(1)}: 5,000 vs {_month_name(2)}: 10,000."
+    tile = next(x for x in r.kpis if x.key == "expense_trend")
+    assert (tile.value, tile.trend) == (40.0, "flat")                          # no "↓ 0%" line under it
     rose = next(i for i in r.insights if i.title.startswith("Expenses rose 40% in"))
     assert rose.title == f"Expenses rose 40% in {_month_name(1)}"
     assert rose.body == f"{_month_name(1)}: 14,000 vs {_month_name(2)}: 10,000."

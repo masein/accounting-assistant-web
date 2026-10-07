@@ -519,8 +519,10 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     # Expense trend
     exp_trend = ((cur_exp - prev_exp) / prev_exp * 100) if prev_exp else 0
     report.kpis.append(KPI(
+        # the value is the change itself: no second "↓ 0%" line under it (a flat
+        # month showed a down arrow)
         key="expense_trend", label="Expense MoM Change", value=round(exp_trend, 1),
-        unit="%", trend="up" if exp_trend > 0 else "down",
+        unit="%", trend="flat",
         risk_level="caution" if exp_trend > 20 else "normal",
     ))
 

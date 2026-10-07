@@ -439,6 +439,12 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     from app.services.calendar_periods import company_calendar, previous_month_key
     cal = company_calendar(db)
     current_month = _month_key(date.today(), cal)
+    # every calendar month from the first with revenue or costs to this one, a
+    # quiet month counting as 0: the average revenue and the burn rate used to
+    # describe only the months that had some (2 busy months out of 7 doubled it)
+    from app.services.calendar_periods import key_bounds, months_between
+    active = sorted(set(data["monthly_revenue"]) | set(data["monthly_expense"]))
+    span = [p.key for p in months_between(key_bounds(active[0])[0], date.today(), cal)] if active else []
     prev_month = previous_month_key(date.today(), cal)
 
     cur_rev = data["monthly_revenue"].get(current_month, 0)
@@ -456,7 +462,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     ))
 
     # KPI: Monthly Avg Revenue
-    avg_rev = int(mean(rev_vals)) if rev_vals else 0
+    avg_rev = int(mean([data["monthly_revenue"].get(k, 0) for k in span])) if span else 0
     report.kpis.append(KPI(key="avg_monthly_revenue", label="Avg Monthly Revenue", value=avg_rev, unit=money))
 
     # KPI: Net Profit
@@ -476,7 +482,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     ))
 
     # KPI: Burn Rate
-    recent_exp = exp_vals[-3:] if len(exp_vals) >= 3 else exp_vals
+    recent_exp = [data["monthly_expense"].get(k, 0) for k in span[-3:]]      # the latest three months
     burn_rate = int(mean(recent_exp)) if recent_exp else 0
     report.burn_rate = burn_rate
     report.kpis.append(KPI(key="burn_rate", label="Monthly Burn Rate", value=burn_rate, unit=money))

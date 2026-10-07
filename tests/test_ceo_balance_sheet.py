@@ -100,3 +100,36 @@ def test_the_burn_rate_is_the_latest_three_months(co, db):
     with use_company(co["cid"]):
         r = build_cfo_report(db)
     assert r.burn_rate == 100                                                    # was 200: 100, 100, 400
+
+
+
+def _gregorian(db, co):
+    """Month keys in the Gregorian calendar, so the months below don't depend
+    on where today falls in a Jalali month."""
+    from app.services.locale_service import set_display_calendar
+    with use_company(co["cid"]):
+        set_display_calendar(db, "gregorian")
+        db.commit()
+
+
+def test_the_average_revenue_counts_the_quiet_months(co, db):
+    from app.services.cfo_intelligence import build_cfo_report
+    _gregorian(db, co)
+    bank, revenue = _code(db, co, "bank"), _code(db, co, "revenue")
+    for months_ago in (3, 1):                                                  # nothing two months ago, nothing yet this month
+        _on(db, co, _month_start(months_ago), (bank, 1_000, 0), (revenue, 0, 1_000))
+    with use_company(co["cid"]):
+        k = {x.key: x.value for x in build_cfo_report(db).kpis}
+    assert k["avg_monthly_revenue"] == 500                                     # 2,000 over four months; it was 1,000
+    assert k["total_revenue"] == 2_000
+
+
+def test_the_burn_counts_the_quiet_months(co, db):
+    from app.services.cfo_intelligence import build_cfo_report
+    _gregorian(db, co)
+    bank, expense = _code(db, co, "bank"), _code(db, co, "expense")
+    _on(db, co, _month_start(5), (expense, 900, 0), (bank, 0, 900))
+    _on(db, co, _month_start(2), (expense, 300, 0), (bank, 0, 300))           # none last month, none this month
+    with use_company(co["cid"]):
+        r = build_cfo_report(db)
+    assert r.burn_rate == 100                                                  # (300 + 0 + 0) / 3; it was (900 + 300) / 2

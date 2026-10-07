@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.02"
+CURRENT_RELEASE = "2026.10.07"
 
 
 @dataclass(frozen=True)
@@ -1544,6 +1544,79 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "هر ردیف فاکتور کارهای روزمره‌اش را در دسترس نگه می‌دارد و بقیه زیر ⋯ است. جدول حساب‌ها هم همین‌طور است.",
                     "es": "Cada fila de factura mantiene a la vista sus acciones habituales y el resto está bajo ⋯. El plan de cuentas funciona igual.",
                     "ar": "يُبقي كل صف فاتورة إجراءاته اليومية ظاهرة، والباقي تحت ⋯. ويعمل دليل الحسابات بالطريقة نفسها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.07",
+        date="2026-10-07",
+        highlights=(
+            Highlight(
+                key="busy-books-fast",
+                page="invoices",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Busy books open fast",
+                    "fa": "دفاتر پرکار سریع باز می‌شوند",
+                    "es": "Los libros con mucho movimiento abren rápido",
+                    "ar": "الدفاتر المزدحمة تفتح بسرعة",
+                },
+                body={
+                    "en": "On a year of books, the invoice list, the e-invoicing (Moadian) list, receivables aging and the notification bell took seconds. They now open in under a second, and CFO and CEO Mode in about half a second.",
+                    "fa": "روی دفاتر یک سال، فهرست فاکتورها، فهرست سامانه مودیان، گزارش سنی مطالبات و اعلان‌ها چند ثانیه طول می‌کشید. حالا زیر یک ثانیه باز می‌شوند و حالت مدیر مالی و مدیرعامل در حدود نیم ثانیه.",
+                    "es": "Con un año de libros, la lista de facturas, la de facturación electrónica (Moadian), la antigüedad de saldos y las notificaciones tardaban segundos. Ahora abren en menos de un segundo, y los modos CFO y CEO en medio segundo.",
+                    "ar": "مع دفاتر سنة كاملة كانت قائمة الفواتير وقائمة الفوترة الإلكترونية (مؤديان) وأعمار الذمم والتنبيهات تستغرق ثوانيَ. والآن تفتح في أقل من ثانية، ووضعا المدير المالي والمدير التنفيذي في نحو نصف ثانية.",
+                },
+            ),
+            Highlight(
+                key="cfo-ceo-figures",
+                page="cfo",
+                roles=("owner", "cfo"),
+                title={
+                    "en": "More accurate figures in CFO and CEO Mode",
+                    "fa": "ارقام دقیق‌تر در حالت مدیر مالی و مدیرعامل",
+                    "es": "Cifras más exactas en los modos CFO y CEO",
+                    "ar": "أرقام أدق في وضعي المدير المالي والمدير التنفيذي",
+                },
+                body={
+                    "en": "Receivables and payables count each invoice once, to date and in the report's currency — an issued invoice used to be counted twice. CEO Mode's balance sheet now includes the period's result and balances, its trends show months with costs only, and the burn rate uses the latest three months.",
+                    "fa": "حساب‌های دریافتنی و پرداختنی هر فاکتور را یک بار، تا امروز و به ارز گزارش حساب می‌کنند — فاکتور صادرشده قبلاً دو بار شمرده می‌شد. خلاصهٔ ترازنامه در حالت مدیرعامل حالا سود (زیان) دوره را دارد و تراز است، روندها ماه‌هایی را که فقط هزینه دارند نشان می‌دهند و نرخ مصرف بر پایهٔ سه ماه اخیر است.",
+                    "es": "Las cuentas por cobrar y por pagar cuentan cada factura una sola vez, a la fecha y en la moneda del informe: una factura emitida se contaba dos veces. El balance del modo CEO incluye ahora el resultado del periodo y cuadra, las tendencias muestran los meses con solo gastos y el ritmo de gasto usa los tres últimos meses.",
+                    "ar": "تحسب الذمم المدينة والدائنة كل فاتورة مرة واحدة، حتى اليوم وبعملة التقرير — كانت الفاتورة الصادرة تُحتسب مرتين. ويتضمن ملخص الميزانية في وضع المدير التنفيذي الآن نتيجة الفترة فيتوازن، وتُظهر الاتجاهات الأشهر التي فيها مصروفات فقط، ويعتمد معدل الإنفاق على آخر ثلاثة أشهر.",
+                },
+            ),
+            Highlight(
+                key="bell-calendar-open",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "The bell, in your calendar and with what is still owed",
+                    "fa": "اعلان‌ها با تقویم شما و ماندهٔ باز",
+                    "es": "Las notificaciones, en tu calendario y con lo pendiente",
+                    "ar": "التنبيهات بتقويمك ومع ما بقي مستحقًا",
+                },
+                body={
+                    "en": "Notifications write dates in your company's calendar (1405/07/04 in an Iranian company). An overdue invoice that was paid in part stays there and says how much is still open.",
+                    "fa": "اعلان‌ها تاریخ‌ها را به تقویم شرکت می‌نویسند (مثلاً 1405/07/04). فاکتور سررسیدگذشته‌ای که بخشی از آن پرداخت شده در اعلان‌ها می‌ماند و مانده‌اش را می‌گوید.",
+                    "es": "Las notificaciones escriben las fechas en el calendario de tu empresa (1405/07/04 en una empresa iraní). Una factura vencida pagada en parte sigue en ellas e indica cuánto queda pendiente.",
+                    "ar": "تكتب التنبيهات التواريخ بتقويم شركتك (1405/07/04 في شركة إيرانية). وتبقى الفاتورة المتأخرة المدفوعة جزئيًا فيها مع بيان ما بقي مستحقًا.",
+                },
+            ),
+            Highlight(
+                key="charts-numbers",
+                page="dashboard",
+                roles=("owner", "cfo", "accountant", "viewer"),
+                title={
+                    "en": "Clearer charts and numbers",
+                    "fa": "نمودارها و ارقام روشن‌تر",
+                    "es": "Gráficos y cifras más claros",
+                    "ar": "رسوم بيانية وأرقام أوضح",
+                },
+                body={
+                    "en": "A chart with nothing to show yet says so, a new company's reports start in its own currency, and amounts are written the same way on every browser.",
+                    "fa": "نموداری که هنوز داده‌ای ندارد همین را می‌گوید، گزارش‌های شرکت تازه با ارز خود شرکت شروع می‌شوند و مبالغ در هر مرورگری یک‌جور نوشته می‌شوند.",
+                    "es": "Un gráfico que aún no tiene datos lo indica, los informes de una empresa nueva empiezan en su propia moneda y los importes se escriben igual en cualquier navegador.",
+                    "ar": "الرسم البياني الذي لا بيانات فيه بعد يقول ذلك، وتبدأ تقارير الشركة الجديدة بعملتها، وتُكتب المبالغ بالطريقة نفسها في أي متصفح.",
                 },
             ),
         ),

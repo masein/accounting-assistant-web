@@ -170,6 +170,7 @@ Each page is checked in Persian and English, at desktop 1280, tablet 768 and pho
 | I9 | No console errors, failed requests (4xx except expected 403) or slow pages (> 3 s to idle) |
 | I10 | Visual consistency: one style for buttons, cards, tables and badges; spacing rhythm; heading hierarchy |
 | I11 | Open states [#288]: on every page, each collapsible section opened and given time to load what it fetches, the first row's ⋯ menu open; once per language and size, the bell's panel and the account menu open — each scanned like a page (I1–I5) and screenshotted. The page scans ran with these closed, which is how the bell's panel running off a phone (#52) and the Moadian panel's English (#53) got past them |
+| I12 | Numbers read the same everywhere [#298] | Open CEO Mode, CFO Mode, inventory, the chat's report cards and a bank statement with the browser set to Persian, then Spanish | Every amount has Latin digits and comma groups (74,250,000), as the rest of the app does. 47 places followed the browser's locale instead: Persian digits beside Latin ones on one page, «74.250.000» with dots on a Spanish browser |
 
 ## J. Integrity of money movements (security review, 2026-10-06)
 

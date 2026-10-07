@@ -385,13 +385,13 @@
       const fmtParens = (amount, forceParens) => {
         if (amount == null) return '-';
         if (amount === 0) return '·';
-        const n = Math.abs(amount).toLocaleString();
+        const n = Math.abs(amount).toLocaleString('en-US');
         return (amount < 0 || forceParens) ? '(' + n + ')' : n;
       };
       const fmtPct = (v) => {
         if (v == null) return '-';
         if (v === 0) return '·';
-        const n = Math.abs(Math.round(v)).toLocaleString();
+        const n = Math.abs(Math.round(v)).toLocaleString('en-US');
         return v < 0 ? '(' + n + ')' : n;
       };
       const bodyRows = rows.map(r => {
@@ -474,7 +474,7 @@
       const fmtParens = (n) => {
         if (n == null) return '-';
         if (n === 0) return '·';
-        const s = Math.abs(n).toLocaleString();
+        const s = Math.abs(n).toLocaleString('en-US');
         return n < 0 ? '(' + s + ')' : s;
       };
 
@@ -527,7 +527,7 @@
       const fmtParens = (amount, forceParens) => {
         if (amount == null) return '-';
         if (amount === 0) return '·';
-        const n = Math.abs(amount).toLocaleString();
+        const n = Math.abs(amount).toLocaleString('en-US');
         return (amount < 0 || forceParens) ? '(' + n + ')' : n;
       };
       const bodyRows = rows.map(r => {
@@ -589,7 +589,7 @@
       const fmtParens = (n) => {
         if (n == null) return '-';
         if (n === 0) return '·';
-        const s = Math.abs(n).toLocaleString();
+        const s = Math.abs(n).toLocaleString('en-US');
         return n < 0 ? '(' + s + ')' : s;
       };
       const header = `
@@ -742,15 +742,15 @@
       const t = report.totals;
       const parts = [];
       if (report.report_type === 'balance_sheet') {
-        if (t.assets != null) parts.push('Assets: ' + (t.assets || 0).toLocaleString());
-        if (t.liabilities != null) parts.push('Liabilities: ' + (t.liabilities || 0).toLocaleString());
-        if (t.equity != null) parts.push('Equity: ' + (t.equity || 0).toLocaleString());
+        if (t.assets != null) parts.push('Assets: ' + (t.assets || 0).toLocaleString('en-US'));
+        if (t.liabilities != null) parts.push('Liabilities: ' + (t.liabilities || 0).toLocaleString('en-US'));
+        if (t.equity != null) parts.push('Equity: ' + (t.equity || 0).toLocaleString('en-US'));
       } else if (report.report_type === 'income_statement') {
-        if (t.revenue != null) parts.push('Revenue: ' + (t.revenue || 0).toLocaleString());
-        if (t.net_profit != null) parts.push('Net Profit: ' + (t.net_profit || 0).toLocaleString());
+        if (t.revenue != null) parts.push('Revenue: ' + (t.revenue || 0).toLocaleString('en-US'));
+        if (t.net_profit != null) parts.push('Net Profit: ' + (t.net_profit || 0).toLocaleString('en-US'));
       } else if (report.report_type === 'cash_flow_statement') {
-        if (t.operating != null) parts.push('Operating: ' + (t.operating || 0).toLocaleString());
-        if (t.net_cash_change != null) parts.push('Net Change: ' + (t.net_cash_change || 0).toLocaleString());
+        if (t.operating != null) parts.push('Operating: ' + (t.operating || 0).toLocaleString('en-US'));
+        if (t.net_cash_change != null) parts.push('Net Change: ' + (t.net_cash_change || 0).toLocaleString('en-US'));
       }
       return parts.join(' · ');
     }
@@ -767,7 +767,7 @@
       if (a.ratios && Object.keys(a.ratios).length) {
         const chips = Object.entries(a.ratios).filter(([,v]) => v != null).map(([k,v]) => {
           const label = k.replace(/_/g, ' ').replace(/\bpct\b/, '%');
-          const val = typeof v === 'number' ? (Math.abs(v) > 100 ? v.toLocaleString() : v.toFixed(2)) : v;
+          const val = typeof v === 'number' ? (Math.abs(v) > 100 ? v.toLocaleString('en-US') : v.toFixed(2)) : v;
           return `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:12px;background:#e3f2fd;font-size:0.78rem;">${escapeHtml(label)}: ${val}</span>`;
         });
         html += `<div style="margin:0.3rem 0;">${chips.join('')}</div>`;

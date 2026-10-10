@@ -97,4 +97,65 @@
     <string name="reject_reason">السبب (اختياري)</string>
     <string name="crash_title">إرسال تقارير الأعطال</string>
     <string name="crash_hint">موضع العطل فقط، وليس رسائلك أو أرقامك أبداً.</string>
+    <string name="statement_title">كشف حساب بنكي</string>
+    <string name="statement_gap">يختلف الرصيد عن الدفاتر بمقدار %1$s</string>
+    <string name="statement_clean">كل شيء يطابق الدفاتر.</string>
+    <string name="statement_fix">إصلاح خطوة بخطوة</string>
+    <string name="statement_next">الفرق التالي</string>
+    <plurals name="statement_rows">
+        <item quantity="zero">%d أسطر</item>
+        <item quantity="one">%d أسطر</item>
+        <item quantity="two">%d أسطر</item>
+        <item quantity="few">%d أسطر</item>
+        <item quantity="many">%d أسطر</item>
+        <item quantity="other">%d أسطر</item>
+    </plurals>
+    <plurals name="statement_matched">
+        <item quantity="zero">%d متطابقة</item>
+        <item quantity="one">%d متطابقة</item>
+        <item quantity="two">%d متطابقة</item>
+        <item quantity="few">%d متطابقة</item>
+        <item quantity="many">%d متطابقة</item>
+        <item quantity="other">%d متطابقة</item>
+    </plurals>
+    <plurals name="statement_unrecorded">
+        <item quantity="zero">%d غير مسجلة</item>
+        <item quantity="one">%d غير مسجلة</item>
+        <item quantity="two">%d غير مسجلة</item>
+        <item quantity="few">%d غير مسجلة</item>
+        <item quantity="many">%d غير مسجلة</item>
+        <item quantity="other">%d غير مسجلة</item>
+    </plurals>
+    <plurals name="statement_confirm">
+        <item quantity="zero">%d بحاجة إلى تأكيد</item>
+        <item quantity="one">%d بحاجة إلى تأكيد</item>
+        <item quantity="two">%d بحاجة إلى تأكيد</item>
+        <item quantity="few">%d بحاجة إلى تأكيد</item>
+        <item quantity="many">%d بحاجة إلى تأكيد</item>
+        <item quantity="other">%d بحاجة إلى تأكيد</item>
+    </plurals>
+    <plurals name="statement_mismatch">
+        <item quantity="zero">%d مبالغ مختلفة</item>
+        <item quantity="one">%d مبالغ مختلفة</item>
+        <item quantity="two">%d مبالغ مختلفة</item>
+        <item quantity="few">%d مبالغ مختلفة</item>
+        <item quantity="many">%d مبالغ مختلفة</item>
+        <item quantity="other">%d مبالغ مختلفة</item>
+    </plurals>
+    <plurals name="statement_missing">
+        <item quantity="zero">%d ليست في البنك</item>
+        <item quantity="one">%d ليست في البنك</item>
+        <item quantity="two">%d ليست في البنك</item>
+        <item quantity="few">%d ليست في البنك</item>
+        <item quantity="many">%d ليست في البنك</item>
+        <item quantity="other">%d ليست في البنك</item>
+    </plurals>
+    <plurals name="statement_duplicates">
+        <item quantity="zero">%d مكررة</item>
+        <item quantity="one">%d مكررة</item>
+        <item quantity="two">%d مكررة</item>
+        <item quantity="few">%d مكررة</item>
+        <item quantity="many">%d مكررة</item>
+        <item quantity="other">%d مكررة</item>
+    </plurals>
 </resources>

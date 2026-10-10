@@ -214,6 +214,10 @@ class ApiClient(
     suspend fun transcribe(bytes: ByteArray, fileName: String, contentType: String): TranscribeReply =
         callBody("POST", "/transcribe", { multipart(bytes, fileName, contentType) }, serializer())
 
+    /** A bank statement's next row the books don't have, as a voucher to confirm (no model call). */
+    suspend fun statementNext(statementId: String, threadId: String?): ChatReply =
+        call("POST", "/statements/$statementId/next", BriefingRequest(threadId), serializer())
+
     /** What needs attention today, said first when the app opens. */
     suspend fun briefing(threadId: String?): BriefingReply =
         call("POST", "/briefing", BriefingRequest(threadId), serializer())

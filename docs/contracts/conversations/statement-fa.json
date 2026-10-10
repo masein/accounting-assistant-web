@@ -1,0 +1,40 @@
+{
+  "conversation": "statement-fa",
+  "blocks": [
+    {
+      "type": "intake",
+      "id": "intake:bank_statement:5e6f7a8b-0000-4000-8000-000000000003",
+      "kind": "bank_statement",
+      "status": "imported",
+      "statement_id": "5e6f7a8b-0000-4000-8000-000000000003",
+      "bank_name": "Mellat",
+      "bank_label": "ملت",
+      "file_name": "mellat-1405-06.xlsx",
+      "total_rows": 12,
+      "from_date": "2026-08-23",
+      "to_date": "2026-09-22",
+      "currency": "IRR",
+      "counts": {
+        "matched": 8,
+        "unrecorded": 2,
+        "needs_confirmation": 1,
+        "amount_mismatch": 1,
+        "missing_in_bank": 0,
+        "duplicates": 0
+      },
+      "balance": {
+        "gap": 90000,
+        "explained": false
+      },
+      "clean": false,
+      "findings_preview": [],
+      "fallback_text": "صورتحساب ملت خوانده شد: ۱۲ ردیف."
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "صورتحساب ملت خوانده شد: ۱۲ ردیف.",
+      "fallback_text": "صورتحساب ملت خوانده شد: ۱۲ ردیف."
+    }
+  ]
+}

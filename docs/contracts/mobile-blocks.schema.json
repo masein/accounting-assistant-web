@@ -25,7 +25,8 @@
     "text": {
       "type": "object", "required": ["type", "id", "text", "fallback_text"],
       "properties": {"type": {"const": "text"}, "id": {"type": "string"}, "text": {"type": "string"},
-                     "kind": {"enum": ["briefing"]}, "fallback_text": {"type": "string"}}
+                     "kind": {"enum": ["briefing", "statement_next"]}, "statement_id": {"type": "string"},
+                     "fallback_text": {"type": "string"}}
     },
     "figure": {
       "type": "object", "required": ["type", "id", "label", "value", "currency", "fallback_text"],
@@ -92,6 +93,10 @@
     "intake": {
       "type": "object", "required": ["type", "id", "kind", "fallback_text"],
       "properties": {"type": {"const": "intake"}, "id": {"type": "string"}, "kind": {"type": "string"},
+                     "status": {"type": "string"}, "statement_id": {"type": "string"}, "bank_name": {"type": ["string", "null"]}, "bank_label": {"type": ["string", "null"]},
+                     "total_rows": {"type": "integer"}, "from_date": {"type": ["string", "null"]}, "to_date": {"type": ["string", "null"]},
+                     "currency": {"type": ["string", "null"]}, "counts": {"type": "object"},
+                     "balance": {"type": ["object", "null"]}, "clean": {"type": "boolean"},
                      "fallback_text": {"type": "string"}}
     }
   }

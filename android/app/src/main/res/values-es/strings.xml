@@ -97,4 +97,37 @@
     <string name="reject_reason">Motivo (opcional)</string>
     <string name="crash_title">Enviar informes de fallos</string>
     <string name="crash_hint">Dónde falló la app, nunca tus mensajes ni tus cifras.</string>
+    <string name="statement_title">Extracto bancario</string>
+    <string name="statement_gap">El saldo difiere de los libros en %1$s</string>
+    <string name="statement_clean">Todo cuadra con los libros.</string>
+    <string name="statement_fix">Corregir paso a paso</string>
+    <string name="statement_next">Siguiente diferencia</string>
+    <plurals name="statement_rows">
+        <item quantity="one">%d fila</item>
+        <item quantity="other">%d filas</item>
+    </plurals>
+    <plurals name="statement_matched">
+        <item quantity="one">%d coincide</item>
+        <item quantity="other">%d coinciden</item>
+    </plurals>
+    <plurals name="statement_unrecorded">
+        <item quantity="one">%d sin registrar</item>
+        <item quantity="other">%d sin registrar</item>
+    </plurals>
+    <plurals name="statement_confirm">
+        <item quantity="one">%d por confirmar</item>
+        <item quantity="other">%d por confirmar</item>
+    </plurals>
+    <plurals name="statement_mismatch">
+        <item quantity="one">%d importe distinto</item>
+        <item quantity="other">%d importes distintos</item>
+    </plurals>
+    <plurals name="statement_missing">
+        <item quantity="one">%d no está en el banco</item>
+        <item quantity="other">%d no están en el banco</item>
+    </plurals>
+    <plurals name="statement_duplicates">
+        <item quantity="one">%d duplicada</item>
+        <item quantity="other">%d duplicadas</item>
+    </plurals>
 </resources>

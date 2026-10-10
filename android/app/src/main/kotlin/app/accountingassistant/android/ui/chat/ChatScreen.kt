@@ -97,6 +97,7 @@ fun ChatScreen(
     onApprove: (String) -> Unit = {},
     onReject: (String, String?) -> Unit = { _, _ -> },
     onEdit: (String, EditRequest, (String?) -> Unit) -> Unit = { _, _, _ -> },
+    onStatementNext: (String) -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -156,7 +157,12 @@ fun ChatScreen(
                                      modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
                             }
                         }
-                        is ChatItem.Words -> AssistantText(item.text)
+                        is ChatItem.Words -> if (item.nextStatement == null) AssistantText(item.text)
+                            else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                AssistantText(item.text)
+                                NextDifferenceChip(onClick = { onStatementNext(item.nextStatement) })
+                            }
+                        is ChatItem.Statement -> StatementCard(item, lang, onFix = { onStatementNext(item.statementId) })
                         is ChatItem.Thinking -> ThinkingRow(item.text ?: stringResource(R.string.thinking))
                         is ChatItem.Suggestions -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             AssistantText(stringResource(R.string.suggestions_intro))

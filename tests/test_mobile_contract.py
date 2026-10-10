@@ -146,6 +146,13 @@ def _conversations(db) -> dict[str, list[dict]]:
         "draft-fa": turn(text="پیش‌نویس سند آماده است.", proposals=[proposal]),
         "intake-en": turn(lang="en", calendar="gregorian", text="12 rows read from the statement; 10 match.",
                           intake={"kind": "transactions", "batch_id": "batch-7", "rows": 12, "matched": 10}),
+        "statement-fa": turn(text="صورتحساب ملت خوانده شد: ۱۲ ردیف.", intake={
+            "kind": "bank_statement", "status": "imported", "statement_id": "5e6f7a8b-0000-4000-8000-000000000003",
+            "bank_name": "Mellat", "bank_label": "ملت", "file_name": "mellat-1405-06.xlsx", "total_rows": 12, "from_date": "2026-08-23",
+            "to_date": "2026-09-22", "currency": "IRR",
+            "counts": {"matched": 8, "unrecorded": 2, "needs_confirmation": 1, "amount_mismatch": 1, "missing_in_bank": 0,
+                       "duplicates": 0},
+            "balance": {"gap": 90_000, "explained": False}, "clean": False, "findings_preview": []}),
         "posted-fa": [B.posted_block(token=TOKEN, transaction_id="3f1e2d4c-0000-4000-8000-000000000001",
                                      audit_log_id="9a8b7c6d-0000-4000-8000-000000000002", voucher="1042",
                                      date_iso="2026-10-10", calendar="jalali", lang="fa", undo_seconds=120,
@@ -237,6 +244,7 @@ MOBILE_ROUTES = {
     ("POST", "/api/mobile/v1/proposals/{token}/confirm"): BOOKS,
     ("POST", "/api/mobile/v1/proposals/{token}/cancel"): BOOKS,
     ("POST", "/api/mobile/v1/proposals/{token}/edit"): BOOKS,
+    ("POST", "/api/mobile/v1/statements/{statement_id}/next"): BOOKS,
     ("POST", "/api/mobile/v1/postings/{audit_log_id}/undo"): BOOKS,
     # a document from the books: whoever reads the books or the reports
     ("GET", "/api/mobile/v1/documents/invoices/{invoice_id}"): frozenset({"owner", "cfo", "accountant", "viewer", "personal"}),

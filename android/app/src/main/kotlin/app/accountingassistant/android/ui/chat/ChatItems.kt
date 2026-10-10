@@ -16,7 +16,21 @@ sealed interface ChatItem {
     /** What the user sent; [clientId] is the phone's id for it (its outbox entry while it waits). */
     data class User(override val id: String, val text: String, val files: List<String> = emptyList(),
                     val clientId: String? = null) : ChatItem
-    data class Words(override val id: String, val text: String) : ChatItem
+    /** The accountant's words; [nextStatement] offers the statement's next difference under them. */
+    data class Words(override val id: String, val text: String, val nextStatement: String? = null) : ChatItem
+    /** A bank statement read and checked against the books: what matched, what differs, the balance. */
+    data class Statement(
+        override val id: String,
+        val statementId: String,
+        val bank: String?,
+        val from: String?,
+        val to: String?,
+        val rows: Int,
+        val counts: Map<String, Int>,
+        val gap: Long?,
+        val currency: String?,
+        val clean: Boolean,
+    ) : ChatItem
     data class Proposal(
         override val id: String,
         val token: String,
@@ -74,7 +88,17 @@ private fun JsonElement?.array(): List<JsonObject> = (this as? JsonArray)?.mapNo
 fun parseBlock(b: JsonObject): ChatItem {
     val id = b.str("id") ?: b.hashCode().toString()
     return when (b.str("type")) {
-        "text" -> ChatItem.Words(id, b.str("text").orEmpty())
+        "text" -> ChatItem.Words(id, b.str("text").orEmpty(),
+                                 nextStatement = b.str("statement_id").takeIf { b.str("kind") == "statement_next" })
+        "intake" -> if (b.str("kind") == "bank_statement" && b.str("status") == "imported" && b.str("statement_id") != null)
+            ChatItem.Statement(
+                id = id, statementId = b.str("statement_id")!!,
+                bank = b.str("bank_label") ?: b.str("bank_name")?.takeIf { it != "Unknown" },     // «ملت» in Persian
+                from = b.str("from_date"), to = b.str("to_date"), rows = b.long("total_rows")?.toInt() ?: 0,
+                counts = b.obj("counts")?.mapNotNull { (k, v) -> (v as? JsonPrimitive)?.longOrNull?.let { k to it.toInt() } }?.toMap().orEmpty(),
+                gap = b.obj("balance")?.long("gap")?.takeIf { it != 0L }, currency = b.str("currency"), clean = b.bool("clean"),
+            )
+        else ChatItem.Fallback(id, b.str("fallback_text").orEmpty())
         "proposal", "approval" -> ChatItem.Proposal(
             id = id,
             token = b.str("token").orEmpty(),

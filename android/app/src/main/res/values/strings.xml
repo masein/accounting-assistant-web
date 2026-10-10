@@ -97,4 +97,37 @@
     <string name="reject_reason">Reason (optional)</string>
     <string name="crash_title">Send crash reports</string>
     <string name="crash_hint">Where the app went wrong, never your messages or figures.</string>
+    <string name="statement_title">Bank statement</string>
+    <string name="statement_gap">The balance differs from the books by %1$s</string>
+    <string name="statement_clean">Everything matches the books.</string>
+    <string name="statement_fix">Fix step by step</string>
+    <string name="statement_next">Next difference</string>
+    <plurals name="statement_rows">
+        <item quantity="one">%d row</item>
+        <item quantity="other">%d rows</item>
+    </plurals>
+    <plurals name="statement_matched">
+        <item quantity="one">%d matched</item>
+        <item quantity="other">%d matched</item>
+    </plurals>
+    <plurals name="statement_unrecorded">
+        <item quantity="one">%d not in the books</item>
+        <item quantity="other">%d not in the books</item>
+    </plurals>
+    <plurals name="statement_confirm">
+        <item quantity="one">%d to confirm</item>
+        <item quantity="other">%d to confirm</item>
+    </plurals>
+    <plurals name="statement_mismatch">
+        <item quantity="one">%d amount differs</item>
+        <item quantity="other">%d amounts differ</item>
+    </plurals>
+    <plurals name="statement_missing">
+        <item quantity="one">%d not in the bank</item>
+        <item quantity="other">%d not in the bank</item>
+    </plurals>
+    <plurals name="statement_duplicates">
+        <item quantity="one">%d duplicate</item>
+        <item quantity="other">%d duplicates</item>
+    </plurals>
 </resources>

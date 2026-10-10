@@ -34,7 +34,7 @@ class ChatScreenScreenshotTest {
             date = if (fa) "۱۸ مهر ۱۴۰۵" else "10 Oct 2026",
             lines = listOf(VoucherLine(if (fa) "6112" else "7100", if (fa) "اجاره" else "Rent", debit = if (fa) 80_000_000 else 800),
                            VoucherLine(if (fa) "1110" else "1200", if (fa) "بانک ملت" else "Barclays", credit = if (fa) 80_000_000 else 800)),
-            needsApproval = false,
+            needsApproval = false, editable = true,
         ),
         ChatItem.Words("w1", if (fa) "موجودی و پیش‌نویس سند اجاره آماده است. برای ثبت، «ثبت» را بزنید." else "Here's the balance, and the rent ready to post."),
     )

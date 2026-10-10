@@ -67,6 +67,9 @@ def _account_names(db: Session, codes: Iterable[str]) -> dict[str, str]:
 
 # --- proposals ------------------------------------------------------------------------
 
+_EDITABLE = {"propose_create_transaction"}           # kept in step with proposal_edit.EDITABLE (a test checks)
+
+
 def proposal_block(db: Session, p: Any, *, calendar: str, lang: str, names: dict[str, str] | None = None) -> dict:
     """A voucher to confirm: what, how much, which accounts, when."""
     preview = _get(p, "preview") or {}
@@ -113,7 +116,8 @@ def proposal_block(db: Session, p: Any, *, calendar: str, lang: str, names: dict
         "needs_approval": needs_approval,
         "approval_threshold": _get(p, "approval_threshold"),
         "expires_at": _get(p, "expires_at"),
-        "actions": ["confirm", "cancel"],
+        # Edit only where the phone can change it (proposal_edit.EDITABLE)
+        "actions": ["confirm", "edit", "cancel"] if _get(p, "tool_name") in _EDITABLE else ["confirm", "cancel"],
         "fallback_text": summary or title,
     }
 

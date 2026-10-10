@@ -1,0 +1,36 @@
+{
+  "conversation": "spending-fa",
+  "blocks": [
+    {
+      "type": "table",
+      "kind": "spending",
+      "rows": [
+        {
+          "label": "اجاره",
+          "sub": "6112",
+          "value": 80000000,
+          "currency": "IRR"
+        },
+        {
+          "label": "سفر و ایاب‌وذهاب",
+          "sub": "6130",
+          "value": 40000000,
+          "currency": "IRR"
+        }
+      ],
+      "totals": {
+        "total": 120000000,
+        "currency": "IRR"
+      },
+      "fallback_text": "اجاره 80,000,000; سفر و ایاب‌وذهاب 40,000,000",
+      "id": "get_spending_summary:call_0",
+      "tool": "get_spending_summary"
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "این ماه بیشتر خرج اجاره شد.",
+      "fallback_text": "این ماه بیشتر خرج اجاره شد."
+    }
+  ]
+}

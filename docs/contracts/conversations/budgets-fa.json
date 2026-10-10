@@ -1,0 +1,38 @@
+{
+  "conversation": "budgets-fa",
+  "blocks": [
+    {
+      "type": "table",
+      "kind": "budgets",
+      "rows": [
+        {
+          "label": "اجاره",
+          "value": 80000000,
+          "limit": 80000000,
+          "used_pct": 100,
+          "state": "over"
+        },
+        {
+          "label": "سفر",
+          "value": 15000000,
+          "limit": 20000000,
+          "used_pct": 75,
+          "state": "ok"
+        }
+      ],
+      "totals": {
+        "budget": 100000000,
+        "actual": 95000000
+      },
+      "fallback_text": "اجاره 100%; سفر 75%",
+      "id": "get_budget_status:call_0",
+      "tool": "get_budget_status"
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "بودجهٔ اجاره پر شده است.",
+      "fallback_text": "بودجهٔ اجاره پر شده است."
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "conversation": "cash-fa",
+  "blocks": [
+    {
+      "type": "figure",
+      "label": "موجودی نقد و بانک",
+      "value": 1240000000,
+      "currency": "IRR",
+      "as_of": "2026-10-10",
+      "breakdown": [
+        {
+          "label": "بانک ملت",
+          "value": 1000000000
+        },
+        {
+          "label": "صندوق",
+          "value": 240000000
+        }
+      ],
+      "fallback_text": "موجودی نقد و بانک: 1,240,000,000 IRR",
+      "id": "get_cash_position:call_0",
+      "tool": "get_cash_position"
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "موجودی نقد و بانک امروز: ۱٬۲۴۰٬۰۰۰٬۰۰۰ ریال.",
+      "fallback_text": "موجودی نقد و بانک امروز: ۱٬۲۴۰٬۰۰۰٬۰۰۰ ریال."
+    }
+  ]
+}

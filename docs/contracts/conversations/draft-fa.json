@@ -1,0 +1,51 @@
+{
+  "conversation": "draft-fa",
+  "blocks": [
+    {
+      "type": "proposal",
+      "id": "proposal:0b6f2b8e-7a51-4c2e-9d3e-5f1a2b3c4d5e",
+      "token": "0b6f2b8e-7a51-4c2e-9d3e-5f1a2b3c4d5e",
+      "tool": "propose_create_transaction",
+      "title": "اجارهٔ دفتر، مهر",
+      "summary": "Proposed journal entry on 2026-10-10 (IRR):\n  اجارهٔ دفتر، مهر",
+      "amount": {
+        "value": 80000000,
+        "currency": "IRR"
+      },
+      "date": {
+        "iso": "2026-10-10",
+        "display": "۱۸ مهر ۱۴۰۵"
+      },
+      "lines": [
+        {
+          "account": "6112",
+          "name": "سایر هزینه‌های عملیاتی",
+          "debit": 80000000,
+          "credit": 0
+        },
+        {
+          "account": "1110",
+          "name": "موجودی نقد و بانک",
+          "debit": 0,
+          "credit": 80000000
+        }
+      ],
+      "new_entities": [],
+      "needs_approval": false,
+      "approval_threshold": null,
+      "expires_at": "2026-10-10T10:10:00+00:00",
+      "actions": [
+        "confirm",
+        "edit",
+        "cancel"
+      ],
+      "fallback_text": "Proposed journal entry on 2026-10-10 (IRR):\n  اجارهٔ دفتر، مهر"
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "پیش‌نویس سند آماده است.",
+      "fallback_text": "پیش‌نویس سند آماده است."
+    }
+  ]
+}

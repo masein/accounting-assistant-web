@@ -1,15 +1,16 @@
 # The Android app (android/): unit tests (the client against a mock server,
 # block parsing, number formatting), screenshot tests rendered with
-# Robolectric and Roborazzi (no emulator), and a debug build. Runs only when
-# the app or this workflow changes.
+# Robolectric and Roborazzi (no emulator), the contract test against the
+# server's recorded replies, and a debug build. Runs when the app, the
+# contract (docs/contracts) or this workflow changes.
 name: Android
 
 on:
   push:
     branches: [main]
-    paths: ["android/**", ".github/workflows/android.yml"]
+    paths: ["android/**", "docs/contracts/**", ".github/workflows/android.yml"]
   pull_request:
-    paths: ["android/**", ".github/workflows/android.yml"]
+    paths: ["android/**", "docs/contracts/**", ".github/workflows/android.yml"]
 
 permissions:
   contents: read

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://accounting-assistant/contracts/mobile-blocks.schema.json",
+  "title": "Reply blocks of /api/mobile/v1",
+  "description": "The typed blocks a chat reply is made of (app/services/ai_accountant/blocks.py), as the phone, the web chat and the bots read them. Every block has a type, an id unique in its thread, and a fallback_text: a client that can't draw a type shows that sentence. Fields may be added; a client ignores what it doesn't know. Checked by tests/test_mobile_contract.py against the recorded conversations in conversations/, which the Android tests also parse.",
+  "oneOf": [
+    {"$ref": "#/$defs/text"}, {"$ref": "#/$defs/figure"}, {"$ref": "#/$defs/table"}, {"$ref": "#/$defs/proposal"},
+    {"$ref": "#/$defs/approval"}, {"$ref": "#/$defs/posted"}, {"$ref": "#/$defs/file"}, {"$ref": "#/$defs/intake"}
+  ],
+  "discriminator": {
+    "propertyName": "type",
+    "mapping": {
+      "text": "#/$defs/text", "figure": "#/$defs/figure", "table": "#/$defs/table", "proposal": "#/$defs/proposal",
+      "approval": "#/$defs/approval", "posted": "#/$defs/posted", "file": "#/$defs/file", "intake": "#/$defs/intake"
+    }
+  },
+  "$defs": {
+    "money": {"type": ["object", "null"], "required": ["value", "currency"],
+              "properties": {"value": {"type": ["integer", "null"]}, "currency": {"type": ["string", "null"]}}},
+    "date": {"type": ["object", "null"], "required": ["iso", "display"],
+             "properties": {"iso": {"type": ["string", "null"]}, "display": {"type": ["string", "null"]}}},
+    "line": {"type": "object", "required": ["account", "name", "debit", "credit"],
+             "properties": {"account": {"type": "string"}, "name": {"type": "string"},
+                            "debit": {"type": "integer"}, "credit": {"type": "integer"}}},
+    "text": {
+      "type": "object", "required": ["type", "id", "text", "fallback_text"],
+      "properties": {"type": {"const": "text"}, "id": {"type": "string"}, "text": {"type": "string"},
+                     "kind": {"enum": ["briefing"]}, "fallback_text": {"type": "string"}}
+    },
+    "figure": {
+      "type": "object", "required": ["type", "id", "label", "value", "currency", "fallback_text"],
+      "properties": {"type": {"const": "figure"}, "id": {"type": "string"}, "tool": {"type": "string"},
+                     "label": {"type": "string"}, "value": {"type": "integer"}, "currency": {"type": ["string", "null"]},
+                     "as_of": {"type": ["string", "null"]},
+                     "breakdown": {"type": "array", "items": {"type": "object", "required": ["label", "value"],
+                                   "properties": {"label": {"type": ["string", "null"]}, "value": {"type": "integer"}}}},
+                     "fallback_text": {"type": "string"}}
+    },
+    "table": {
+      "type": "object", "required": ["type", "id", "kind", "rows", "fallback_text"],
+      "properties": {"type": {"const": "table"}, "id": {"type": "string"}, "tool": {"type": "string"},
+                     "kind": {"enum": ["spending", "invoices", "budgets"]},
+                     "rows": {"type": "array", "items": {"type": "object", "required": ["label", "value"],
+                              "properties": {"label": {"type": ["string", "null"]}, "sub": {"type": ["string", "null"]},
+                                             "value": {"type": "integer"}, "currency": {"type": ["string", "null"]}}}},
+                     "totals": {"type": "object"}, "count": {"type": "integer"}, "fallback_text": {"type": "string"}}
+    },
+    "proposal": {
+      "type": "object",
+      "required": ["type", "id", "token", "tool", "title", "summary", "amount", "date", "lines", "new_entities",
+                   "needs_approval", "actions", "fallback_text"],
+      "properties": {"type": {"const": "proposal"}, "id": {"type": "string"}, "token": {"type": "string"},
+                     "tool": {"type": "string"}, "title": {"type": "string"}, "summary": {"type": "string"},
+                     "amount": {"$ref": "#/$defs/money"}, "date": {"$ref": "#/$defs/date"},
+                     "lines": {"type": "array", "items": {"$ref": "#/$defs/line"}},
+                     "new_entities": {"type": "array"}, "needs_approval": {"type": "boolean"},
+                     "approval_threshold": {"type": ["integer", "null"]}, "expires_at": {"type": ["string", "null"]},
+                     "actions": {"type": "array", "items": {"enum": ["confirm", "edit", "cancel"]}},
+                     "state": {"enum": ["pending", "executed", "cancelled", "expired", "replaced"]},
+                     "approval_status": {"type": ["string", "null"]}, "replaces": {"type": "string"},
+                     "fallback_text": {"type": "string"}}
+    },
+    "approval": {
+      "type": "object",
+      "required": ["type", "id", "token", "tool", "title", "amount", "date", "lines", "requested_by", "mine",
+                   "actions", "fallback_text"],
+      "properties": {"type": {"const": "approval"}, "id": {"type": "string"}, "token": {"type": "string"},
+                     "tool": {"type": "string"}, "title": {"type": "string"}, "summary": {"type": "string"},
+                     "amount": {"$ref": "#/$defs/money"}, "date": {"$ref": "#/$defs/date"},
+                     "lines": {"type": "array", "items": {"$ref": "#/$defs/line"}},
+                     "requested_by": {"type": "string"}, "mine": {"type": "boolean"},
+                     "requested_at": {"$ref": "#/$defs/date"}, "user_message": {"type": ["string", "null"]},
+                     "actions": {"type": "array", "items": {"enum": ["approve", "reject", "cancel"]}},
+                     "state": {"enum": ["pending", "executed", "cancelled", "expired"]},
+                     "approval_status": {"type": ["string", "null"]}, "fallback_text": {"type": "string"}}
+    },
+    "posted": {
+      "type": "object", "required": ["type", "id", "token", "audit_log_id", "voucher", "date", "undo_seconds", "actions", "fallback_text"],
+      "properties": {"type": {"const": "posted"}, "id": {"type": "string"}, "token": {"type": "string"},
+                     "transaction_id": {"type": ["string", "null"]}, "audit_log_id": {"type": "string"},
+                     "voucher": {"type": ["string", "null"]}, "date": {"$ref": "#/$defs/date"},
+                     "undo_seconds": {"type": "integer"},
+                     "actions": {"type": "array", "items": {"enum": ["undo", "reverse"]}},
+                     "file": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/file"}]}, "fallback_text": {"type": "string"}}
+    },
+    "file": {
+      "type": "object", "required": ["type", "id", "name", "mime", "path", "fallback_text"],
+      "properties": {"type": {"const": "file"}, "id": {"type": "string"}, "tool": {"type": "string"},
+                     "name": {"type": "string"}, "mime": {"type": "string"},
+                     "path": {"type": "string", "pattern": "^/api/mobile/v1/"}, "fallback_text": {"type": "string"}}
+    },
+    "intake": {
+      "type": "object", "required": ["type", "id", "kind", "fallback_text"],
+      "properties": {"type": {"const": "intake"}, "id": {"type": "string"}, "kind": {"type": "string"},
+                     "fallback_text": {"type": "string"}}
+    }
+  }
+}

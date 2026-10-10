@@ -1,0 +1,40 @@
+{
+  "conversation": "invoices-en",
+  "blocks": [
+    {
+      "type": "table",
+      "kind": "invoices",
+      "rows": [
+        {
+          "label": "Aria Co",
+          "sub": "INV-1042",
+          "value": 60000000,
+          "currency": "IRR",
+          "due_date": "2026-10-01",
+          "state": "overdue"
+        },
+        {
+          "label": "Sepehr",
+          "sub": "INV-1043",
+          "value": 30000000,
+          "currency": "IRR",
+          "due_date": "2026-10-20",
+          "state": "sent"
+        }
+      ],
+      "count": 2,
+      "totals": {
+        "IRR": 90000000
+      },
+      "fallback_text": "Aria Co 60,000,000; Sepehr 30,000,000",
+      "id": "list_invoices:call_0",
+      "tool": "list_invoices"
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "Two invoices are unpaid.",
+      "fallback_text": "Two invoices are unpaid."
+    }
+  ]
+}

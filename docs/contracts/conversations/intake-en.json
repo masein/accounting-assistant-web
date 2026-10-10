@@ -1,0 +1,20 @@
+{
+  "conversation": "intake-en",
+  "blocks": [
+    {
+      "type": "intake",
+      "id": "intake:transactions:batch-7",
+      "kind": "transactions",
+      "batch_id": "batch-7",
+      "rows": 12,
+      "matched": 10,
+      "fallback_text": "12 rows read from the statement; 10 match."
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "12 rows read from the statement; 10 match.",
+      "fallback_text": "12 rows read from the statement; 10 match."
+    }
+  ]
+}

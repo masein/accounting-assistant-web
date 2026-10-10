@@ -74,7 +74,7 @@ def test_n6_a_reply_is_cards_first_then_the_words(client, db, co, phone, scripte
     assert [(ln["account"], ln["debit"], ln["credit"]) for ln in voucher["lines"]] == [
         ("6112", 80_000_000, 0), ("1110", 0, 80_000_000)]
     assert all(ln["name"] and ln["name"] != ln["account"] for ln in voucher["lines"])   # names from the chart
-    assert voucher["actions"] == ["confirm", "cancel"] and voucher["fallback_text"]
+    assert voucher["actions"] == ["confirm", "edit", "cancel"] and voucher["fallback_text"]
     assert text["text"] == "Here is the balance, and the rent to confirm."
     # the blocks are kept on the thread's message
     msgs = client.get(f"{API}/threads/{body['thread_id']}/messages", headers=phone).json()

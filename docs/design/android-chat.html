@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Accounting Assistant Android</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400..700&family=Vazirmatn:wght@300..800&family=Roboto+Flex:opsz,wght@8..144,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+</head>
+<body>
+<style>
+:root {
+  /* Layout: a design board. The thesis beside a live phone, then a wall of screens, then the system sheet. */
+  --paper: #edf2f3; --surface: #ffffff; --ink: #14243b; --muted: #55697d; --line: #d2dce2;
+  --firouzeh: #006d77; --saffron: #b8700c; --anar: #b23a26; --lapis: #2f4a9a;
+  --tile: rgba(0, 109, 119, 0.07); --device: #1a2330; --shadow: rgba(20, 36, 59, 0.16);
+  --f-display: 'Reem Kufi', 'Vazirmatn', system-ui, sans-serif;
+  --f-body: 'Vazirmatn', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --f-android: 'Roboto Flex', 'Roboto', system-ui, sans-serif;
+  /* the app's own palettes: fixed, so the phones show both app themes whatever the page theme */
+  --al-bg: #f1f5f6; --al-surface: #ffffff; --al-surface2: #e7eef0; --al-ink: #14243b; --al-muted: #5b6b7c;
+  --al-line: #dbe4e8; --al-accent: #006d77; --al-accent-ink: #ffffff; --al-accent-soft: #d5ebeb;
+  --al-saffron: #a9650a; --al-saffron-soft: #fbecd2; --al-anar: #b23a26; --al-lapis: #2f4a9a;
+  --al-bubble: #14243b; --al-bubble-ink: #f3f7f9; --al-seal: #006d77;
+  --ad-bg: #09121c; --ad-surface: #121d2a; --ad-surface2: #1a2737; --ad-ink: #e7eef3; --ad-muted: #8fa1b3;
+  --ad-line: #243548; --ad-accent: #5fc9cd; --ad-accent-ink: #03272b; --ad-accent-soft: #11383d;
+  --ad-saffron: #f0b45a; --ad-saffron-soft: #3b2a10; --ad-anar: #f17d68; --ad-lapis: #93a8f2;
+  --ad-bubble: #24405a; --ad-bubble-ink: #eef4f8; --ad-seal: #5fc9cd;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0a1119; --surface: #111b27; --ink: #e4ebf1; --muted: #93a4b6; --line: #22313f;
+    --firouzeh: #5fc9cd; --saffron: #f0b45a; --anar: #f17d68; --lapis: #93a8f2;
+    --tile: rgba(95, 201, 205, 0.05); --device: #000000; --shadow: rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0a1119; --surface: #111b27; --ink: #e4ebf1; --muted: #93a4b6; --line: #22313f;
+  --firouzeh: #5fc9cd; --saffron: #f0b45a; --anar: #f17d68; --lapis: #93a8f2;
+  --tile: rgba(95, 201, 205, 0.05); --device: #000000; --shadow: rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; }
+a { color: var(--firouzeh); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--firouzeh); outline-offset: 3px; border-radius: 6px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+section { margin-top: 72px; display: grid; gap: 24px; }
+.sec-head { display: grid; gap: 8px; max-width: 68ch; }
+.sec-head h2 { font-family: var(--f-display); font-weight: 600; font-size: clamp(28px, 3.4vw, 38px); line-height: 1.15; }
+.sec-head p { color: var(--muted); }
+
+/* ── hero ─────────────────────────────────────────── */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 48px; align-items: center; margin-top: 8px;
+  padding: 36px; border-radius: 28px; border: 1px solid var(--line);
+  background:
+    linear-gradient(var(--paper), transparent 30%),
+    repeating-linear-gradient(0deg, var(--tile) 0 2px, transparent 2px 22px),
+    repeating-linear-gradient(90deg, var(--tile) 0 2px, transparent 2px 22px),
+    var(--surface); }
+.hero-text { display: grid; gap: 20px; min-width: 0; }
+.hero h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(40px, 6vw, 72px); line-height: 1.08; color: var(--ink); }
+.hero h1 .fa { display: block; color: var(--firouzeh); }
+.hero .lede { font-size: 18px; max-width: 46ch; color: var(--ink); }
+.hero .lede-fa { font-size: 16px; color: var(--muted); max-width: 46ch; }
+.try { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.try b { color: var(--ink); font-weight: 600; }
+.ghost { font: 500 14px var(--f-body); color: var(--firouzeh); background: transparent; border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.ghost:hover { border-color: var(--firouzeh); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 18px; font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+
+/* ── trends ───────────────────────────────────────── */
+.trends { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.trend { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px 18px 16px; display: grid; gap: 8px; align-content: start; }
+.trend .src { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.04em; color: var(--muted); }
+.trend h3 { font-size: 17px; font-weight: 700; line-height: 1.35; }
+.trend p { font-size: 14px; color: var(--muted); line-height: 1.55; }
+.trend .ours { color: var(--ink); }
+.trend .ours::before { content: "Ours: "; font-weight: 700; color: var(--firouzeh); }
+
+/* ── screens wall ─────────────────────────────────── */
+.wall { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px 24px; justify-items: center; }
+figure.screen { margin: 0; display: grid; gap: 14px; justify-items: center; max-width: 320px; }
+figcaption { display: grid; gap: 6px; width: 300px; max-width: 100%; }
+figcaption h3 { font-size: 16px; font-weight: 700; }
+figcaption p { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.blocks { display: flex; flex-wrap: wrap; gap: 6px; }
+.blocks span { font-family: var(--f-mono); font-size: 11px; color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; background: var(--surface); }
+
+/* ── the phone ────────────────────────────────────── */
+.phone { width: 300px; max-width: 100%; height: 640px; border-radius: 44px; padding: 9px; background: var(--device);
+  box-shadow: 0 30px 60px -20px var(--shadow), 0 0 0 1px rgba(255,255,255,0.06) inset; flex: none; }
+.app { position: relative; height: 100%; border-radius: 36px; overflow: hidden; background: var(--x-bg); color: var(--x-ink);
+  font-family: var(--f-body); font-size: 13px; line-height: 1.55; display: flex; flex-direction: column; }
+.app.light { --x-bg: var(--al-bg); --x-surface: var(--al-surface); --x-surface2: var(--al-surface2); --x-ink: var(--al-ink);
+  --x-muted: var(--al-muted); --x-line: var(--al-line); --x-accent: var(--al-accent); --x-accent-ink: var(--al-accent-ink);
+  --x-accent-soft: var(--al-accent-soft); --x-saffron: var(--al-saffron); --x-saffron-soft: var(--al-saffron-soft);
+  --x-anar: var(--al-anar); --x-lapis: var(--al-lapis); --x-bubble: var(--al-bubble); --x-bubble-ink: var(--al-bubble-ink); --x-seal: var(--al-seal);
+  --x-glass: rgba(255, 255, 255, 0.72); --x-glass-line: rgba(20, 36, 59, 0.1); }
+.app.dark { --x-bg: var(--ad-bg); --x-surface: var(--ad-surface); --x-surface2: var(--ad-surface2); --x-ink: var(--ad-ink);
+  --x-muted: var(--ad-muted); --x-line: var(--ad-line); --x-accent: var(--ad-accent); --x-accent-ink: var(--ad-accent-ink);
+  --x-accent-soft: var(--ad-accent-soft); --x-saffron: var(--ad-saffron); --x-saffron-soft: var(--ad-saffron-soft);
+  --x-anar: var(--ad-anar); --x-lapis: var(--ad-lapis); --x-bubble: var(--ad-bubble); --x-bubble-ink: var(--ad-bubble-ink); --x-seal: var(--ad-seal);
+  --x-glass: rgba(26, 39, 55, 0.74); --x-glass-line: rgba(231, 238, 243, 0.1); }
+.app.en { font-family: var(--f-android); }
+.status { display: flex; justify-content: space-between; align-items: center; padding: 12px 22px 4px; font-size: 12px; font-weight: 600; direction: ltr; }
+.status .icons { display: flex; gap: 5px; align-items: center; }
+.status .icons i { display: block; background: var(--x-ink); border-radius: 2px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 14px 10px; gap: 8px; }
+.books { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 9px; border-radius: 999px; background: var(--x-surface);
+  border: 1px solid var(--x-line); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+.books .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--book); }
+.books .chev { color: var(--x-muted); font-size: 10px; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--x-surface2); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: var(--x-muted); }
+.chat { flex: 1; overflow: hidden; padding: 4px 12px 96px; display: flex; flex-direction: column; gap: 10px; }
+.day { align-self: center; font-size: 11px; color: var(--x-muted); background: var(--x-surface2); padding: 1px 10px; border-radius: 999px; }
+.msg-user { align-self: flex-end; max-width: 82%; background: var(--x-bubble); color: var(--x-bubble-ink); padding: 8px 12px; border-radius: 18px 18px 6px 18px; }
+[dir="rtl"] .msg-user { align-self: flex-start; border-radius: 18px 18px 18px 6px; }
+.msg-user .from { display: block; font-size: 10.5px; opacity: 0.7; margin-bottom: 2px; }
+.sms { white-space: pre-line; font-variant-numeric: tabular-nums; }
+.msg-ai { max-width: 92%; color: var(--x-ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 12px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--x-line); background: var(--x-surface); color: var(--x-ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--x-accent-soft); border-color: var(--x-accent); color: var(--x-ink); font-weight: 600; }
+.chip.ask { color: var(--x-accent); }
+.card { background: var(--x-surface); border: 1px solid var(--x-line); border-radius: 20px; padding: 12px 14px; display: grid; gap: 8px; }
+.card .label { font-size: 11px; color: var(--x-muted); display: flex; justify-content: space-between; gap: 8px; }
+.fresh { display: inline-flex; align-items: center; gap: 4px; }
+.fresh::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--x-accent); }
+.big { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.big small { font-size: 12px; font-weight: 600; color: var(--x-muted); }
+.delta-down { color: var(--x-anar); font-size: 11.5px; font-weight: 600; }
+.rows { display: grid; gap: 0; font-variant-numeric: tabular-nums; }
+.rows .r { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--x-line); font-size: 12px; }
+.rows .r:first-child { border-top: 0; }
+.rows .r .sub { color: var(--x-muted); font-size: 11px; }
+.rows .r b { font-weight: 700; }
+.link { color: var(--x-accent); font-size: 12px; font-weight: 600; }
+.btn { font: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 14px; border-radius: 999px; border: 0; cursor: pointer; }
+.btn.primary { background: var(--x-accent); color: var(--x-accent-ink); }
+.btn.tonal { background: var(--x-accent-soft); color: var(--x-ink); }
+.btn.quiet { background: transparent; color: var(--x-muted); }
+.btn.danger { background: transparent; color: var(--x-anar); border: 1px solid var(--x-line); }
+.group { display: flex; gap: 3px; }
+.group .btn { border-radius: 8px; }
+.group .btn:first-child { border-start-start-radius: 999px; border-end-start-radius: 999px; }
+.group .btn:last-child { border-start-end-radius: 999px; border-end-end-radius: 999px; }
+
+/* the voucher: a draft سند with a perforated fold above its actions */
+.voucher { --cut: 9px; position: relative; background: var(--x-surface); border: 1px solid var(--x-line); border-radius: 20px; display: grid; }
+.voucher .v-top { padding: 12px 14px 10px; display: grid; gap: 6px; }
+.voucher .v-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--x-muted); }
+.voucher .v-book { display: inline-flex; gap: 5px; align-items: center; font-weight: 600; color: var(--x-ink); }
+.voucher .v-book i { width: 7px; height: 7px; border-radius: 50%; background: var(--book); display: block; }
+.voucher .v-sum { font-size: 11.5px; color: var(--x-muted); }
+.voucher .lines { display: grid; font-size: 11.5px; font-variant-numeric: tabular-nums; border-radius: 10px; background: var(--x-surface2); padding: 4px 10px; }
+.voucher .lines div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding: 3px 0; }
+.voucher .lines .code { color: var(--x-muted); font-family: var(--f-mono); font-size: 10.5px; }
+.voucher .fold { position: relative; height: 0; border-top: 1.5px dashed var(--x-line); margin: 0 14px; }
+.voucher .fold::before, .voucher .fold::after { content: ""; position: absolute; top: calc(-1 * var(--cut) - 1px); width: calc(var(--cut) * 2); height: calc(var(--cut) * 2);
+  border-radius: 50%; background: var(--x-bg); border: 1px solid var(--x-line); }
+.voucher .fold::before { inset-inline-start: calc(-14px - var(--cut) - 1px); clip-path: inset(0 0 0 50%); }
+.voucher .fold::after { inset-inline-end: calc(-14px - var(--cut) - 1px); clip-path: inset(0 50% 0 0); }
+[dir="rtl"] .voucher .fold::before { clip-path: inset(0 50% 0 0); }
+[dir="rtl"] .voucher .fold::after { clip-path: inset(0 0 0 50%); }
+.voucher .v-act { padding: 10px 12px 12px; display: flex; gap: 6px; align-items: center; }
+.voucher .v-done { display: none; padding: 10px 12px 12px; padding-inline-end: 90px; gap: 12px; align-items: center; }
+.voucher .v-done .budget { flex: 1; }
+.voucher.posted .v-act { display: none; }
+.voucher.posted .v-done { display: flex; }
+.undo { display: inline-flex; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; }
+.ring { width: 26px; height: 26px; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 3; }
+.ring .track { stroke: var(--x-line); }
+.ring .left { stroke: var(--x-accent); stroke-dasharray: 69.1; stroke-dashoffset: 0; stroke-linecap: round; }
+.budget { display: grid; gap: 3px; font-size: 11px; color: var(--x-muted); min-width: 0; }
+.bar { height: 5px; border-radius: 999px; background: var(--x-surface2); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 60%; background: var(--x-saffron); border-radius: inherit; }
+
+/* the seal: the company stamp (مهر) every Iranian office presses on a finished document */
+.seal { position: absolute; inset-inline-end: 14px; bottom: 9px; width: 66px; height: 66px; border-radius: 50%;
+  border: 2.5px solid var(--x-seal); box-shadow: 0 0 0 3px var(--x-surface), 0 0 0 4.5px var(--x-seal);
+  color: var(--x-seal); display: grid; place-items: center; align-content: center; gap: 0; text-align: center;
+  transform: rotate(-12deg) scale(1); opacity: 0; pointer-events: none; mix-blend-mode: normal; }
+.seal b { font-size: 12.5px; font-weight: 800; line-height: 1.1; }
+.seal span { font-size: 8px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.voucher.posted .seal { opacity: 0.92; animation: stamp 520ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.voucher.posted .v-top { animation: press 520ms ease-out; }
+@keyframes stamp { 0% { opacity: 0; transform: rotate(-24deg) scale(1.9); } 55% { opacity: 1; transform: rotate(-10deg) scale(0.94); } 100% { opacity: 0.92; transform: rotate(-12deg) scale(1); } }
+@keyframes press { 0%, 40% { transform: none; } 55% { transform: translateY(1.5px) scale(0.995); } 100% { transform: none; } }
+
+/* composer: the one floating, translucent thing */
+.composer { position: absolute; inset-inline: 10px; bottom: 26px; display: flex; align-items: center; gap: 6px; padding: 6px;
+  border-radius: 999px; background: var(--x-glass); border: 1px solid var(--x-glass-line);
+  backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); box-shadow: 0 10px 24px -12px rgba(0,0,0,0.35); }
+.composer .ph { flex: 1; color: var(--x-muted); font-size: 12.5px; padding-inline: 4px; white-space: nowrap; overflow: hidden; }
+.cbtn { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--x-surface2); color: var(--x-ink); flex: none; }
+.cbtn.mic { background: var(--x-accent); color: var(--x-accent-ink); }
+.cbtn svg { width: 17px; height: 17px; }
+.gesture { position: absolute; bottom: 9px; left: 50%; transform: translateX(-50%); width: 96px; height: 4px; border-radius: 999px; background: var(--x-ink); opacity: 0.55; }
+
+/* thinking: a shape that morphs while the tools run (M3 Expressive loading indicator) */
+.thinking { display: flex; gap: 8px; align-items: center; font-size: 11.5px; color: var(--x-muted); }
+.morph { width: 16px; height: 16px; background: var(--x-accent); animation: morph 2.4s ease-in-out infinite; flex: none; }
+@keyframes morph {
+  0% { border-radius: 50%; transform: rotate(0); }
+  33% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; transform: rotate(120deg) scale(0.9); }
+  66% { border-radius: 22%; transform: rotate(240deg); }
+  100% { border-radius: 50%; transform: rotate(360deg); }
+}
+.done-tick { width: 16px; height: 16px; border-radius: 50%; background: var(--x-accent-soft); color: var(--x-accent); display: grid; place-items: center; font-size: 10px; font-weight: 800; flex: none; }
+
+/* table card */
+.tcard { padding: 12px 0 8px; }
+.tcard > .label, .tcard > .foot, .tcard > .title { padding-inline: 14px; }
+.tcard .title { font-weight: 700; font-size: 13px; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.tbl th { font-weight: 600; color: var(--x-muted); font-size: 10.5px; text-align: start; padding: 4px 14px; }
+.tbl td { padding: 6px 14px; border-top: 1px solid var(--x-line); }
+.tbl td.n, .tbl th.n { text-align: end; }
+.tbl tfoot td { font-weight: 700; }
+.foot { font-size: 11px; color: var(--x-muted); display: grid; gap: 2px; }
+
+/* file block */
+.file { display: flex; align-items: center; gap: 10px; background: var(--x-surface); border: 1px solid var(--x-line); border-radius: 16px; padding: 9px 10px; }
+.file .doc { width: 34px; height: 40px; border-radius: 6px; background: var(--x-anar); color: #fff; display: grid; place-items: end center; font: 700 8px var(--f-mono); padding-bottom: 5px; flex: none; }
+.file .meta { flex: 1; min-width: 0; display: grid; }
+.file .meta b { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file .meta span { font-size: 10.5px; color: var(--x-muted); }
+.file .acts { display: flex; gap: 4px; }
+.file .acts i { width: 28px; height: 28px; border-radius: 50%; background: var(--x-surface2); display: grid; place-items: center; font-style: normal; color: var(--x-ink); }
+.file .acts svg { width: 14px; height: 14px; }
+
+/* approval */
+.approval { border-inline-start: 3px solid var(--x-saffron); }
+.approval .who { display: flex; gap: 8px; align-items: center; }
+.approval .who .avatar { width: 26px; height: 26px; font-size: 11px; }
+
+/* sparkline */
+.spark { width: 100%; height: 46px; display: block; }
+.spark .area { fill: var(--x-accent-soft); }
+.spark .line { fill: none; stroke: var(--x-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark .grid { stroke: var(--x-line); stroke-width: 1; stroke-dasharray: 2 3; }
+.spark .end { fill: var(--x-accent); stroke: var(--x-surface); stroke-width: 2; }
+.spark text { fill: var(--x-muted); font-size: 8px; font-family: var(--f-body); }
+
+/* voice */
+.voice { position: absolute; inset-inline: 10px; bottom: 24px; border-radius: 30px; padding: 14px 16px 12px; display: grid; gap: 10px; justify-items: center;
+  background: var(--x-glass); border: 1px solid var(--x-glass-line); backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3); }
+.wave { display: flex; gap: 3px; align-items: center; height: 34px; }
+.wave i { width: 4px; height: 100%; border-radius: 999px; background: var(--x-accent); transform-origin: center; animation: wave 1.1s ease-in-out infinite; }
+@keyframes wave { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
+.voice .vrow { display: flex; gap: 10px; align-items: center; width: 100%; justify-content: space-between; font-size: 12px; color: var(--x-muted); }
+.voice .stop { width: 38px; height: 38px; border-radius: 50%; background: var(--x-anar); display: grid; place-items: center; }
+.voice .stop i { width: 12px; height: 12px; border-radius: 3px; background: #fff; display: block; }
+.live { font-style: italic; }
+
+/* sheet */
+.scrim { position: absolute; inset: 0; background: rgba(9, 18, 28, 0.42); }
+.sheet { position: absolute; inset-inline: 0; bottom: 0; background: var(--x-surface); border-radius: 28px 28px 0 0; padding: 10px 16px 28px; display: grid; gap: 12px; }
+.handle { width: 36px; height: 4px; border-radius: 999px; background: var(--x-line); justify-self: center; }
+.sheet h4 { margin: 0; font-size: 15px; font-weight: 800; }
+.book-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 16px; border: 1px solid var(--x-line); }
+.book-row.on { border-color: var(--x-accent); background: var(--x-accent-soft); }
+.book-row .sw { width: 30px; height: 30px; border-radius: 10px; background: var(--book); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 13px; }
+.book-row b { display: block; font-size: 13px; }
+.book-row span { font-size: 11px; color: var(--x-muted); }
+.book-row .tick { color: var(--x-accent); font-weight: 800; }
+.sheet .note { font-size: 11.5px; color: var(--x-muted); }
+
+/* ── system sheet ─────────────────────────────────── */
+.system { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 22px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.panel h3 { font-size: 18px; font-weight: 700; }
+.panel .k { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.sw-card { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); display: grid; }
+.sw-card .chipc { height: 56px; display: grid; grid-template-columns: 1fr 1fr; }
+.sw-card .chipc i { display: block; }
+.sw-card .nm { padding: 8px 10px; display: grid; gap: 1px; font-size: 12.5px; }
+.sw-card .nm b { font-weight: 700; }
+.sw-card .nm span { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); }
+.spec { display: grid; gap: 10px; }
+.spec .row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; align-items: baseline; border-top: 1px solid var(--line); padding-top: 10px; }
+.spec .row:first-child { border-top: 0; padding-top: 0; }
+.spec .row .k { line-height: 1.4; }
+.ex-display { font-family: var(--f-display); font-size: 30px; font-weight: 700; line-height: 1.2; color: var(--firouzeh); }
+.ex-title { font-size: 20px; font-weight: 800; }
+.ex-body { font-size: 15px; }
+.ex-num { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ex-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.motion { display: grid; gap: 12px; }
+.mrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; border-top: 1px solid var(--line); padding-top: 12px; }
+.mrow:first-child { border-top: 0; padding-top: 0; }
+.mrow b { font-size: 14px; }
+.mrow p { font-size: 13px; color: var(--muted); }
+.mrow code { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink); background: var(--paper); padding: 1px 6px; border-radius: 6px; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0; border-top: 1px solid var(--line); }
+.rule { padding: 18px 18px 18px 0; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.rule h3 { font-size: 16px; font-weight: 700; }
+.rule p { font-size: 14px; color: var(--muted); }
+.next { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 22px; display: grid; gap: 10px; }
+.next ol { margin: 0; padding-inline-start: 20px; display: grid; gap: 6px; }
+.next li { padding-inline-start: 4px; }
+.sources { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+.sources a { word-break: break-word; }
+
+@media (max-width: 820px) {
+  .hero { grid-template-columns: minmax(0, 1fr); padding: 24px 18px; justify-items: center; }
+  .hero-text { justify-self: stretch; }
+}
+@media (max-width: 420px) {
+  .wrap { padding-inline: 16px; }
+  .phone { width: 100%; max-width: 300px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .morph, .wave i { animation: none; }
+  .wave i { transform: scaleY(0.6); }
+  .voucher.posted .seal, .voucher.posted .v-top { animation: none; }
+}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Accounting Assistant · Android · design direction · October 2026</p>
+
+  <header class="hero">
+    <div class="hero-text">
+      <h1>One conversation keeps the books <span class="fa" lang="fa" dir="rtl">دفترت را با یک گفتگو نگه دار</span></h1>
+      <p class="lede">A phone app with a single screen: you talk to your accountant, and it answers with the books themselves. Figures, tables and charts come straight from the ledger, and nothing posts until you press “ثبت”. When you do, the voucher gets the company stamp, as every finished document does in an Iranian office.</p>
+      <p class="lede-fa" lang="fa" dir="rtl">یک صفحه، یک گفتگو. هر عدد از خود دفاتر می‌آید و هیچ سندی بی‌تأیید شما ثبت نمی‌شود.</p>
+      <div class="try"><b>Try it:</b> pick a category, then tap “ثبت” in the phone. <button class="ghost" id="replay" type="button">Reset the example</button></div>
+      <div class="facts"><span>Persian first · RTL · Jalali</span><span>Material 3 Expressive</span><span>Light and dark</span></div>
+    </div>
+
+    <div class="phone" aria-label="Example screen: a bank SMS becomes a voucher you confirm">
+      <div class="app light" dir="rtl" lang="fa" style="--book: var(--al-saffron)">
+        <div class="status"><span>۱۲:۳۱</span><span class="icons"><i style="width:14px;height:8px"></i><i style="width:10px;height:8px"></i><i style="width:18px;height:9px;border-radius:3px"></i></span></div>
+        <div class="topbar">
+          <span class="books"><span class="dot"></span>دفتر شخصی<span class="chev">▾</span></span>
+          <span class="avatar">س</span>
+        </div>
+        <div class="chat">
+          <span class="day">امروز · ۱۸ مهر</span>
+          <div class="msg-user"><span class="from">پیامک · بانک ملت</span><span class="sms">برداشت: ۲٬۵۰۰٬۰۰۰
+مانده: ۴۱٬۲۰۰٬۰۰۰
+۱۴۰۵/۰۷/۱۸ - ۱۲:۳۰</span></div>
+          <div class="msg-ai">یک برداشت از کارت ملت. خرجِ چه بود؟</div>
+          <div class="chips" id="cats" role="group" aria-label="دسته">
+            <button class="chip" type="button" aria-pressed="true" data-cat="خوراک و خواربار">خوراک</button>
+            <button class="chip" type="button" aria-pressed="false" data-cat="رستوران">رستوران</button>
+            <button class="chip" type="button" aria-pressed="false" data-cat="حمل‌ونقل">حمل‌ونقل</button>
+            <button class="chip" type="button" aria-pressed="false" data-cat="سایر هزینه‌ها">سایر</button>
+          </div>
+          <div class="voucher" id="voucher">
+            <div class="v-top">
+              <div class="v-head"><span>پیش‌نویس سند</span><span class="v-book"><i></i>دفتر شخصی</span></div>
+              <div class="big">۲٬۵۰۰٬۰۰۰ <small>ریال</small></div>
+              <div class="v-sum" id="vsum">هزینهٔ خوراک و خواربار · کارت ملت · ۱۸ مهر ۱۴۰۵</div>
+              <div class="lines">
+                <div><span><span class="code">۶۱۱۰ </span><span id="vline">خوراک و خواربار</span></span><span>بد ۲٬۵۰۰٬۰۰۰</span></div>
+                <div><span><span class="code">۱۱۱۰ </span>بانک ملت</span><span>بس ۲٬۵۰۰٬۰۰۰</span></div>
+              </div>
+            </div>
+            <div class="fold" aria-hidden="true"></div>
+            <div class="v-act">
+              <button class="btn primary" id="confirm" type="button">ثبت</button>
+              <button class="btn tonal" type="button">ویرایش</button>
+              <button class="btn quiet" type="button">لغو</button>
+            </div>
+            <div class="v-done">
+              <span class="undo"><svg class="ring" viewBox="0 0 26 26" aria-hidden="true"><circle class="track" cx="13" cy="13" r="11"/><circle class="left" id="ring" cx="13" cy="13" r="11"/></svg>
+                <button class="btn tonal" id="undo" type="button">برگرداندن <span id="clock">۲:۰۰</span></button></span>
+              <span class="budget"><span>بودجهٔ خوراک · ۶۰٪</span><span class="bar"><i></i></span></span>
+            </div>
+            <div class="seal" aria-hidden="true"><span>سند ۲۱۷</span><b>ثبت شد</b><span>۱۴۰۵/۰۷/۱۸</span></div>
+          </div>
+        </div>
+        <div class="composer">
+          <span class="cbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          <span class="ph">بنویس، عکس بفرست یا بگو…</span>
+          <span class="cbtn mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+        </div>
+        <span class="gesture"></span>
+      </div>
+    </div>
+  </header>
+
+  <section aria-labelledby="t-trends">
+    <div class="sec-head">
+      <p class="eyebrow">What 2026 is doing, and what we take from it</p>
+      <h2 id="t-trends">Eight decisions from this year’s best work</h2>
+      <p>Each card names a pattern that the strongest apps of 2025–26 share, then the decision it leads to here. Sources are listed at the end.</p>
+    </div>
+    <div class="trends">
+      <article class="trend"><span class="src">Google · Material 3 Expressive</span><h3>Springs and shapes, with restraint</h3><p>Android now moves on spring physics and morphing shapes. Google’s own rule is “expressive by default, restrained when necessary”.</p><p class="ours">Springs move the cards. A morphing shape shows the accountant is working. The only theatrical moment is the stamp.</p></article>
+      <article class="trend"><span class="src">Gemini · Neural Expressive, May 2026</span><h3>The composer floats</h3><p>Gemini’s redesign lifted the input into a floating pill. Reviewers liked the look but missed the suggestion chips it removed.</p><p class="ours">A floating pill composer, with chips kept for the next likely step.</p></article>
+      <article class="trend"><span class="src">OpenAI · Apps in ChatGPT guidelines</span><h3>Cards before words</h3><p>Inline UI appears before the model’s text, and only when it makes the task faster.</p><p class="ours">Every reply opens with its block (figure, voucher, table, file), then one short sentence. No carousels for money.</p></article>
+      <article class="trend"><span class="src">Agentic UX · Smashing, Feb 2026</span><h3>Plan, confirm, receipt, undo</h3><p>Agent launches this year all pause before spending or deleting, show what changed, and let you take it back.</p><p class="ours">Reading is free. Posting is a voucher you confirm, then a stamped receipt with a two-minute undo.</p></article>
+      <article class="trend"><span class="src">Apple · Liquid Glass</span><h3>Glass only where it floats</h3><p>The guidance keeps a clear line between content and controls, and warns against glass over scrolling lists.</p><p class="ours">Only the composer, the voice pill and sheets are translucent. Cards stay solid so figures stay legible.</p></article>
+      <article class="trend"><span class="src">“Dark mode 2.0”</span><h3>Dark is designed, not inverted</h3><p>Teams now design a separate dark palette with its own contrast, rather than flipping the light one.</p><p class="ours">A lapis night with lifted turquoise and warmer saffron, tuned for OLED and checked for contrast.</p></article>
+      <article class="trend"><span class="src">Copilot Money · finance UX</span><h3>Calm money, fresh numbers</h3><p>The best-reviewed finance apps feel calm, not clinical, and say how fresh every number is.</p><p class="ours">Every figure carries a freshness dot (“به‌روز ۹:۳۰”) and a comparison. Totals open to show their lines.</p></article>
+      <article class="trend"><span class="src">Apple Design Awards 2026</span><h3>Charts are craft</h3><p>This year’s Visuals and Graphics app winner is a tide chart. A clear chart still wins on its own.</p><p class="ours">Chart blocks drawn to scale, with an area fill, a faint grid and the latest point marked.</p></article>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-screens">
+    <div class="sec-head">
+      <p class="eyebrow">The screens</p>
+      <h2 id="t-screens">The same chat for a family, a company and a UK sole trader</h2>
+      <p>There’s one layout throughout. What changes is the books badge, the blocks in the replies, and the theme the person picked.</p>
+    </div>
+    <div class="wall">
+
+      <figure class="screen">
+        <div class="phone" aria-label="Owner's morning briefing in dark mode">
+          <div class="app dark" dir="rtl" lang="fa" style="--book: var(--ad-accent)">
+            <div class="status"><span>۹:۳۱</span><span class="icons"><i style="width:14px;height:8px"></i><i style="width:10px;height:8px"></i><i style="width:18px;height:9px;border-radius:3px"></i></span></div>
+            <div class="topbar"><span class="books"><span class="dot"></span>بازرگانی آرمان<span class="chev">▾</span></span><span class="avatar">م</span></div>
+            <div class="chat">
+              <div class="msg-ai">صبح بخیر مریم. خلاصهٔ امروز:</div>
+              <div class="card">
+                <div class="label"><span>موجودی نقد</span><span class="fresh">به‌روز ۹:۳۰</span></div>
+                <div class="big">۱٫۲ <small>میلیارد ریال</small></div>
+                <span class="delta-down">▼ ۸٪ نسبت به شهریور</span>
+                <svg class="spark" viewBox="0 0 240 46" preserveAspectRatio="none" aria-hidden="true">
+                  <line class="grid" x1="0" y1="8" x2="240" y2="8"/><line class="grid" x1="0" y1="38" x2="240" y2="38"/>
+                  <path class="area" d="M0 15.5 L34.3 19 L68.6 12 L102.9 17.5 L137.1 20 L171.4 23 L205.7 22.5 L240 28 L240 46 L0 46 Z"/>
+                  <polyline class="line" points="0,15.5 34.3,19 68.6,12 102.9,17.5 137.1,20 171.4,23 205.7,22.5 240,28"/>
+                  <circle class="end" cx="236" cy="28" r="3.5"/>
+                </svg>
+              </div>
+              <div class="card tcard" style="gap:4px">
+                <div class="label"><span>سررسیدگذشته · ۳ فاکتور</span><span>۴۲۰٬۰۰۰٬۰۰۰</span></div>
+                <div class="rows" style="padding-inline:14px">
+                  <div class="r"><span>شرکت آریا<br><span class="sub">۱۸ روز گذشته</span></span><b>۲۴۰٬۰۰۰٬۰۰۰</b></div>
+                  <div class="r"><span>فروشگاه نیک<br><span class="sub">۹ روز گذشته</span></span><b>۱۲۰٬۰۰۰٬۰۰۰</b></div>
+                  <div class="r"><span>کافه سپید<br><span class="sub">۴ روز گذشته</span></span><b>۶۰٬۰۰۰٬۰۰۰</b></div>
+                </div>
+                <div class="foot"><span class="link">گزارش کامل · PDF</span></div>
+              </div>
+              <div class="card approval">
+                <div class="who"><span class="avatar">ر</span><span><b>رضا</b> · هزینهٔ سوخت<br><span style="color:var(--x-muted);font-size:11px">۴٬۲۰۰٬۰۰۰ ریال · بیش از سقف تأیید</span></span></div>
+                <div style="display:flex;gap:6px"><button class="btn primary" type="button">تأیید</button><button class="btn danger" type="button">رد</button></div>
+              </div>
+            </div>
+            <div class="composer">
+              <span class="cbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+              <span class="ph">کی بهم بدهکاره؟</span>
+              <span class="cbtn mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+            </div>
+            <span class="gesture"></span>
+          </div>
+        </div>
+        <figcaption><h3>The owner’s morning</h3><p>The briefing arrives before the owner asks: cash with its trend, who is late paying, and an approval waiting. The push notification says only “your briefing is ready”.</p><div class="blocks"><span>text</span><span>figure</span><span>chart</span><span>table</span><span>approval</span></div></figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="phone" aria-label="Payroll preview for Mehr">
+          <div class="app light" dir="rtl" lang="fa" style="--book: var(--al-accent)">
+            <div class="status"><span>۱۶:۰۸</span><span class="icons"><i style="width:14px;height:8px"></i><i style="width:10px;height:8px"></i><i style="width:18px;height:9px;border-radius:3px"></i></span></div>
+            <div class="topbar"><span class="books"><span class="dot"></span>بازرگانی آرمان<span class="chev">▾</span></span><span class="avatar">م</span></div>
+            <div class="chat">
+              <div class="msg-user">حقوق مهر رو حساب کن</div>
+              <div class="thinking"><span class="done-tick">✓</span>با قانون کار و بودجهٔ ۱۴۰۵ محاسبه شد</div>
+              <div class="card tcard">
+                <div class="title">پیش‌نویس حقوق مهر ۱۴۰۵</div>
+                <table class="tbl">
+                  <thead><tr><th>کارمند</th><th class="n">ناخالص</th><th class="n">خالص</th></tr></thead>
+                  <tbody>
+                    <tr><td>علی رضایی</td><td class="n">۲۵۲٬۰۰۰٬۰۰۰</td><td class="n">۲۳۴٬۳۶۰٬۰۰۰</td></tr>
+                    <tr><td>مریم کاظمی</td><td class="n">۵۶۸٬۶۲۵٬۵۵۰</td><td class="n">۵۱۶٬۹۸۶٬۹۹۵</td></tr>
+                  </tbody>
+                </table>
+                <div class="foot" style="border-top:1px solid var(--x-line);padding-top:8px;margin-top:2px">
+                  <span>بیمهٔ سهم کارفرما ۱۸۴٬۹۲۰٬۰۰۰ · مالیات ۱۲٬۹۹۸٬۵۵۵</span>
+                  <span style="color:var(--x-ink);font-weight:700;font-size:12px">هزینهٔ کل ماه ۱٬۰۰۵٬۵۴۵٬۵۵۰ ریال</span>
+                </div>
+                <div style="padding:8px 14px 2px"><div class="group"><button class="btn primary" type="button">ثبت در دفاتر</button><button class="btn tonal" type="button">فیش‌ها</button><button class="btn tonal" type="button">جزئیات</button></div></div>
+              </div>
+              <div class="file">
+                <span class="doc">PDF</span>
+                <span class="meta"><b>فیش‌های حقوق مهر ۱۴۰۵.pdf</b><span>۲ صفحه · ۱۸۴ KB</span></span>
+                <span class="acts"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></i></span>
+              </div>
+            </div>
+            <div class="composer">
+              <span class="cbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+              <span class="ph">بنویس یا بگو…</span>
+              <span class="cbtn mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+            </div>
+            <span class="gesture"></span>
+          </div>
+        </div>
+        <figcaption><h3>Payroll in one sentence</h3><p>“Work out Mehr’s payroll” returns each payslip worked out on the 1405 rules, the month’s total cost, and one button group: post, payslips, details. The payslips come back as a file to share.</p><div class="blocks"><span>progress</span><span>table</span><span>button group</span><span>file</span></div></figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="phone" aria-label="UK sole trader asking about VAT by voice, dark mode">
+          <div class="app dark en" dir="ltr" lang="en" style="--book: var(--ad-lapis)">
+            <div class="status"><span>10:42</span><span class="icons"><i style="width:14px;height:8px"></i><i style="width:10px;height:8px"></i><i style="width:18px;height:9px;border-radius:3px"></i></span></div>
+            <div class="topbar"><span class="books"><span class="dot"></span>Thames Studio Ltd<span class="chev">▾</span></span><span class="avatar">J</span></div>
+            <div class="chat">
+              <div class="msg-user">How much VAT do I owe this quarter?</div>
+              <div class="card">
+                <div class="label"><span>VAT return · Jul–Sep 2026</span><span class="fresh">Up to date</span></div>
+                <div class="big">£100.00 <small>to pay by 7 Nov</small></div>
+                <div class="rows">
+                  <div class="r"><span>Box 1 · VAT on sales</span><b>£180.00</b></div>
+                  <div class="r"><span>Box 4 · VAT reclaimed</span><b>£80.00</b></div>
+                  <div class="r"><span>Box 6 · Sales ex VAT</span><b>£1,200</b></div>
+                  <div class="r"><span>Box 7 · Purchases ex VAT</span><b>£400</b></div>
+                </div>
+              </div>
+              <div class="chips"><span class="chip ask">Get the return as PDF</span><span class="chip ask">What changed since Q1?</span></div>
+            </div>
+            <div class="voice" aria-label="Listening">
+              <div class="wave" aria-hidden="true">
+                <i style="animation-delay:-0.9s"></i><i style="animation-delay:-0.2s"></i><i style="animation-delay:-0.6s"></i><i style="animation-delay:-0.1s"></i><i style="animation-delay:-0.75s"></i><i style="animation-delay:-0.4s"></i><i style="animation-delay:-1s"></i><i style="animation-delay:-0.3s"></i><i style="animation-delay:-0.55s"></i><i style="animation-delay:-0.15s"></i><i style="animation-delay:-0.85s"></i><i style="animation-delay:-0.45s"></i><i style="animation-delay:-0.65s"></i><i style="animation-delay:-0.05s"></i><i style="animation-delay:-0.95s"></i>
+              </div>
+              <div class="vrow"><span class="live">“…and file it when it’s ready”</span><span class="stop" aria-label="Stop"><i></i></span></div>
+            </div>
+            <span class="gesture"></span>
+          </div>
+        </div>
+        <figcaption><h3>Hands-free, in English</h3><p>The voice pill floats over the answer, so the boxes stay readable while you talk. It’s set in Roboto Flex for English, with pounds and Gregorian dates for a UK company.</p><div class="blocks"><span>figure</span><span>rows</span><span>chips</span><span>voice</span></div></figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="phone" aria-label="Choosing which books to work in">
+          <div class="app light" dir="rtl" lang="fa" style="--book: var(--al-accent)">
+            <div class="status"><span>۱۸:۲۰</span><span class="icons"><i style="width:14px;height:8px"></i><i style="width:10px;height:8px"></i><i style="width:18px;height:9px;border-radius:3px"></i></span></div>
+            <div class="topbar"><span class="books"><span class="dot"></span>بازرگانی آرمان<span class="chev">▾</span></span><span class="avatar">م</span></div>
+            <div class="chat">
+              <div class="msg-user">برو تو دفتر شخصی</div>
+              <div class="msg-ai">کدام دفتر؟ هر کارت نام و رنگ دفترش را دارد.</div>
+            </div>
+            <div class="scrim"></div>
+            <div class="sheet">
+              <span class="handle"></span>
+              <h4>دفترها</h4>
+              <div class="book-row" style="--book: var(--al-saffron)"><span class="sw">ش</span><span><b>دفتر شخصی</b><span>شخصی · با همسر مشترک</span></span><span></span></div>
+              <div class="book-row on" style="--book: var(--al-accent)"><span class="sw">آ</span><span><b>شرکت بازرگانی آرمان</b><span>مالک · ریال · تقویم شمسی</span></span><span class="tick">✓</span></div>
+              <div class="book-row" style="--book: var(--al-lapis)"><span class="sw">T</span><span><b>Thames Studio Ltd</b><span>حسابدار · پوند · VAT</span></span><span></span></div>
+              <p class="note">نخستین ثبت پس از تغییر دفتر یک بار دیگر پرسیده می‌شود.</p>
+            </div>
+            <span class="gesture"></span>
+          </div>
+        </div>
+        <figcaption><h3>Which books, always</h3><p>One login can reach several books. Each book has a colour that follows it onto the badge, every card and the stamp, so nothing gets posted to the wrong books.</p><div class="blocks"><span>sheet</span><span>books badge</span><span>choices</span></div></figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <section aria-labelledby="t-system">
+    <div class="sec-head">
+      <p class="eyebrow">The system</p>
+      <h2 id="t-system">Persian tilework colours, a ledger’s typography</h2>
+      <p>The palette extends the web app’s turquoise, saffron and navy ink into the colours of Iranian tiles: firouzeh turquoise, lapis, saffron and pomegranate. Each colour has one job.</p>
+    </div>
+    <div class="system">
+      <div class="panel">
+        <h3>Colour</h3>
+        <p class="k">Each swatch: light theme | dark theme</p>
+        <div class="swatches">
+          <div class="sw-card"><div class="chipc"><i style="background:var(--al-accent)"></i><i style="background:var(--ad-accent)"></i></div><div class="nm"><b>Firouzeh</b><span>actions, focus, the seal</span></div></div>
+          <div class="sw-card"><div class="chipc"><i style="background:var(--al-ink)"></i><i style="background:var(--ad-bg)"></i></div><div class="nm"><b>Lapis</b><span>ink by day, night by night</span></div></div>
+          <div class="sw-card"><div class="chipc"><i style="background:var(--al-saffron)"></i><i style="background:var(--ad-saffron)"></i></div><div class="nm"><b>Saffron</b><span>personal books, budgets, approvals</span></div></div>
+          <div class="sw-card"><div class="chipc"><i style="background:var(--al-anar)"></i><i style="background:var(--ad-anar)"></i></div><div class="nm"><b>Pomegranate</b><span>money leaving, overdue, reject</span></div></div>
+          <div class="sw-card"><div class="chipc"><i style="background:var(--al-bg)"></i><i style="background:var(--ad-surface)"></i></div><div class="nm"><b>Paper</b><span>the ground, faintly blue</span></div></div>
+          <div class="sw-card"><div class="chipc"><i style="background:var(--al-lapis)"></i><i style="background:var(--ad-lapis)"></i></div><div class="nm"><b>Indigo</b><span>a third set of books</span></div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Type</h3>
+        <div class="spec">
+          <div class="row"><span class="k">Display · Reem Kufi</span><span class="ex-display" lang="fa" dir="rtl">دفتر روشن، دل روشن</span></div>
+          <div class="row"><span class="k">Title · Vazirmatn 800 · 20/28</span><span class="ex-title" lang="fa" dir="rtl">پیش‌نویس حقوق مهر</span></div>
+          <div class="row"><span class="k">Body · Vazirmatn 400 · 15/24</span><span class="ex-body" lang="fa" dir="rtl">یک برداشت از کارت ملت. خرجِ چه بود؟</span></div>
+          <div class="row"><span class="k">Figures · tabular</span><span class="ex-num" lang="fa" dir="rtl">۱٬۰۰۵٬۵۴۵٬۵۵۰ ریال</span></div>
+          <div class="row"><span class="k">Label · 600 · 12/16</span><span class="ex-label" lang="fa" dir="rtl">به‌روز ۹:۳۰ · ۱۸ مهر ۱۴۰۵</span></div>
+          <div class="row"><span class="k">English · Roboto Flex</span><span class="ex-body" style="font-family:var(--f-android)">£100.00 to pay by 7 November</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Shape, motion, touch</h3>
+        <div class="motion">
+          <div class="mrow"><div><b>The voucher</b><p>A draft is a سند with a perforated fold above its buttons. Tearing it off is the decision.</p></div><code>radius 20 · notch 9</code></div>
+          <div class="mrow"><div><b>The stamp</b><p>Confirming presses a round seal onto the voucher: the number, the date, “ثبت شد”. Undo lifts it off.</p></div><code>spring · 520 ms</code></div>
+          <div class="mrow"><div><b>Thinking</b><p>A shape morphs while tools run, with words saying what is being read. Nothing else loops.</p></div><code>LoadingIndicator</code></div>
+          <div class="mrow"><div><b>Haptics</b><p>A confirm tick on posting, a reject buzz on refusal, a soft tick on chip selection.</p></div><code>CONFIRM · REJECT</code></div>
+          <div class="mrow"><div><b>Reduced motion</b><p>The seal simply appears, the wave stands still, and the morph becomes a static dot.</p></div><code>system setting</code></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-rules">
+    <div class="sec-head">
+      <p class="eyebrow">Rules the design keeps</p>
+      <h2 id="t-rules">Six rules for every screen</h2>
+    </div>
+    <div class="rules">
+      <div class="rule"><h3>The books are always named</h3><p>Badge, card and seal carry the books’ name and colour. After a switch, the first posting asks once more.</p></div>
+      <div class="rule"><h3>Numbers in full where money moves</h3><p>Vouchers show the full rial amount in tabular figures. Short forms like “۱٫۲ میلیارد” appear only in figures, and tap to the exact sum.</p></div>
+      <div class="rule"><h3>One accent per job</h3><p>Turquoise means you can act. Saffron is personal books and attention. Pomegranate is money leaving or something late. Nothing else is coloured.</p></div>
+      <div class="rule"><h3>Motion means something happened</h3><p>Springs follow your finger. The stamp marks a posting. Only listening and thinking animate on their own.</p></div>
+      <div class="rule"><h3>Persian first</h3><p>The layout mirrors, the conversation runs right to left, digits are Persian, dates are Jalali. English screens switch every one of these.</p></div>
+      <div class="rule"><h3>Private on the lock screen</h3><p>Notifications never show amounts unless you turn that on. The app locks with a fingerprint or PIN.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-next">
+    <div class="next">
+      <p class="eyebrow">Next</p>
+      <h2 id="t-next" style="font-family:var(--f-display);font-weight:600;font-size:26px">From direction to prototype</h2>
+      <ol>
+        <li>Agree this direction, and the roadmap’s eight open decisions.</li>
+        <li>Build the phase 1 screens as a clickable Compose prototype on Material 3 Expressive.</li>
+        <li>Test with five personal users in Tehran and three company owners: capture, confirm, undo, switching books.</li>
+        <li>Fold what they stumble on back into the blocks before any server work ships.</li>
+      </ol>
+    </div>
+    <div class="sources">
+      <p class="eyebrow">Sources</p>
+      <a href="https://blog.google/products-and-platforms/platforms/android/material-3-expressive-android-wearos-launch/">Google: Material 3 Expressive launch</a>
+      <a href="https://www.androidauthority.com/google-material-3-expressive-features-changes-availability-supported-devices-3556392/">Android Authority: Material 3 Expressive deep dive</a>
+      <a href="https://www.androidauthority.com/gemini-neural-expressive-android-app-hands-on-3668985/">Android Authority: Gemini “Neural Expressive” hands-on (May 2026)</a>
+      <a href="https://www.androidcentral.com/apps-software/ai/i-barely-use-chatbot-after-trying-new-gemini-live">Android Central: the new Gemini Live interface</a>
+      <a href="https://developers.openai.com/plugins/concepts/ui-guidelines">OpenAI: UI guidelines for apps in ChatGPT</a>
+      <a href="https://smashingmagazine.com/2026/02/designing-agentic-ai-practical-ux-patterns/">Smashing Magazine: designing for agentic AI (Feb 2026)</a>
+      <a href="https://en.wikipedia.org/wiki/Liquid_Glass">Wikipedia: Liquid Glass</a>
+      <a href="https://www.designstudiouiux.com/blog/mobile-app-ui-ux-design-trends/">Design Studio: mobile UI/UX trends 2026</a>
+      <a href="https://9to5mac.com/2026/01/01/copilot-money-brings-clarity-to-your-finances-now-on-the-web/">9to5Mac: Copilot Money</a>
+      <a href="https://www.theskinsfactory.com/uiux-design-blog/fintech-ui-ux-design">The Skins Factory: fintech UI/UX in 2026</a>
+      <a href="https://www.apple.com/newsroom/2026/06/apple-reveals-winners-of-the-2026-apple-design-awards/">Apple: 2026 Apple Design Awards winners</a>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const fa = (n) => String(n).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  const voucher = document.getElementById('voucher');
+  const ring = document.getElementById('ring');
+  const clock = document.getElementById('clock');
+  const sum = document.getElementById('vsum');
+  const line = document.getElementById('vline');
+  const CIRC = 69.1, WINDOW = 120;
+  let timer = null, left = WINDOW;
+
+  function paint() {
+    const m = Math.floor(left / 60), s = left % 60;
+    clock.textContent = fa(m + ':' + String(s).padStart(2, '0'));
+    ring.style.strokeDashoffset = String(CIRC * (1 - left / WINDOW));
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+  function reset() {
+    stop(); left = WINDOW; paint();
+    voucher.classList.remove('posted');
+    document.querySelectorAll('#cats .chip').forEach((c) => c.disabled = false);
+  }
+  document.getElementById('confirm').addEventListener('click', () => {
+    voucher.classList.remove('posted'); void voucher.offsetWidth;   // replay the stamp
+    voucher.classList.add('posted');
+    document.querySelectorAll('#cats .chip').forEach((c) => c.disabled = true);
+    left = WINDOW; paint(); stop();
+    timer = setInterval(() => { left -= 1; paint(); if (left <= 0) stop(); }, 1000);
+    if (navigator.vibrate) { try { navigator.vibrate(18); } catch (e) {} }
+  });
+  document.getElementById('undo').addEventListener('click', reset);
+  document.getElementById('replay').addEventListener('click', reset);
+  document.querySelectorAll('#cats .chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#cats .chip').forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
+      const cat = chip.dataset.cat;
+      line.textContent = cat;
+      sum.textContent = 'هزینهٔ ' + cat + ' · کارت ملت · ۱۸ مهر ۱۴۰۵';
+    });
+  });
+  paint();
+})();
+</script>
+
+</body>
+</html>

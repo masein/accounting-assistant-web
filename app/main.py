@@ -35,6 +35,7 @@ from app.api.invoices import router as invoices_router
 from app.api.invoice_mail import router as invoice_mail_router
 from app.api.quotes import router as quotes_router
 from app.api.moadian import router as moadian_router
+from app.api.mobile import auth_router as mobile_auth_router, router as mobile_router
 from app.api.recurring_invoices import router as recurring_invoices_router
 from app.api.manager_reports import router as manager_reports_router
 from app.api.migration import router as migration_router
@@ -448,6 +449,10 @@ PUBLIC_PATHS = {
     "/auth/login",
     "/auth/login/2fa",
     "/auth/logout",
+    # the phone's sign-in steps (app/api/mobile.py): no session yet
+    "/api/mobile/v1/auth/login",
+    "/api/mobile/v1/auth/2fa",
+    "/api/mobile/v1/auth/refresh",
 }
 
 # Self-service auth endpoints that need a session (+ CSRF on writes). The
@@ -562,8 +567,19 @@ async def auth_middleware(request: Request, call_next):
             clear_current_company()
             clear_current_user()
 
-    token = request.cookies.get(settings.auth_cookie_name)
-    user = parse_session_token(token)
+    # The phone app sends its session as a bearer token (app/api/mobile.py).
+    # Only a token issued to a device is accepted that way: a web session
+    # token is not, so a copied cookie can't be replayed without its CSRF
+    # check. A bearer is never sent by a browser on its own, so a bearer
+    # request skips CSRF (request.state.bearer, see _dispatch).
+    bearer = _bearer_token(request) if path.startswith(PROTECTED_API_PREFIXES) else None
+    if bearer is not None:
+        user = parse_session_token(bearer)
+        if user is not None and not user.device_id:
+            user = None
+        request.state.bearer = True
+    else:
+        user = parse_session_token(request.cookies.get(settings.auth_cookie_name))
     # Session validation hits the database: keep it off the event loop so one
     # slow query cannot stall every other request (review M5).
     if user is not None and not await run_in_threadpool(_session_is_valid, user):
@@ -581,6 +597,13 @@ async def auth_middleware(request: Request, call_next):
     finally:
         clear_current_company()
         clear_current_user()
+
+
+def _bearer_token(request: Request) -> str | None:
+    value = request.headers.get("authorization") or ""
+    if value[:7].lower() != "bearer ":
+        return None
+    return value[7:].strip() or None
 
 
 def _session_is_valid(user) -> bool:
@@ -614,6 +637,12 @@ def _session_is_valid(user) -> bool:
                 if row.company_id is not None:
                     company = sess.get(Company, row.company_id)
                     if company is not None and company.status != "active":
+                        return False
+                # A phone's token is good only while its device is signed in
+                # (revoked from the device list, or signed out: N4).
+                if getattr(user, "device_id", None):
+                    from app.services.mobile_sessions import device_is_live
+                    if not device_is_live(sess, user.device_id, row.id):
                         return False
                 # Refresh RBAC + privilege fields from the DB so a role change,
                 # entity link or revoked super-admin flag takes effect on the
@@ -732,10 +761,16 @@ async def _dispatch(request: Request, call_next, path: str, user):
         return await call_next(request)
 
     if path.startswith(PROTECTED_API_PREFIXES):
+        bearer = getattr(request.state, "bearer", False)
         if not user:
-            return JSONResponse(status_code=401, content={"detail": "Authentication required"})
-        # CSRF check: state-changing methods must include a matching token
-        if request.method not in _CSRF_SAFE_METHODS:
+            # a phone learns from the code that its access token needs a refresh (N2)
+            content = {"detail": "Authentication required"}
+            if bearer:
+                content["code"] = "session_expired"
+            return JSONResponse(status_code=401, content=content)
+        # CSRF check: state-changing methods must include a matching token.
+        # Not for a bearer: the app sets it, a browser never sends it unasked.
+        if request.method not in _CSRF_SAFE_METHODS and not bearer:
             if not validate_csrf(request):
                 return JSONResponse(status_code=403, content={"detail": "CSRF token missing or invalid"})
         return await call_next(request)
@@ -960,6 +995,15 @@ async def ai_budget_handler(request: Request, exc: AIBudgetExceeded):
     )
 
 
+from app.api.mobile import UpgradeRequired, upgrade_required_response  # noqa: E402
+
+
+@app.exception_handler(UpgradeRequired)
+async def mobile_upgrade_handler(request: Request, exc: UpgradeRequired):
+    """An app older than settings.mobile_min_app_version (N5)."""
+    return upgrade_required_response()
+
+
 @app.exception_handler(AIRateLimited)
 async def ai_rate_handler(request: Request, exc: AIRateLimited):
     return JSONResponse(
@@ -1038,6 +1082,10 @@ app.include_router(bank_mailbox_router, dependencies=_rbac)
 # Telegram / Bale post their updates here: no session, the path's secret is
 # the guard (app/api/bots.py). Deliberately outside _GUARDED_PREFIXES.
 app.include_router(bots_router)
+# The phone app (app/api/mobile.py): the sign-in steps are public; the rest
+# is guarded like any business router.
+app.include_router(mobile_auth_router)
+app.include_router(mobile_router, dependencies=_rbac)
 app.include_router(tax_uk_router, dependencies=_rbac)
 app.include_router(time_tracking_router, dependencies=_rbac)
 app.include_router(transactions_router, dependencies=_rbac)
@@ -1055,7 +1103,7 @@ _GUARDED_PREFIXES = tuple(sorted({
         migration_router, moadian_router, notifications_router, payroll_router, personal_router, insights_router,
         commitments_router, fixed_assets_router, petty_cash_router, products_router, purchase_orders_router,
         quotes_router, recurring_router, recurring_invoices_router, reports_router, tax_ir_router, tax_uk_router,
-        bank_sms_router, bank_mailbox_router,
+        bank_sms_router, bank_mailbox_router, mobile_router,
         time_tracking_router, transactions_router,
     ) if r.prefix
 }))

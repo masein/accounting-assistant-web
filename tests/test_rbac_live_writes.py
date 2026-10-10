@@ -17,7 +17,7 @@ from app.main import app
 from tests.test_rbac_permissions import _role_client, _user
 
 # Not part of the RBAC table (own guards) or not routes at all.
-EXEMPT_PREFIXES = ("/auth/", "/api/v1/", "/docs", "/redoc", "/openapi.json", "/static/", "/favicon")
+EXEMPT_PREFIXES = ("/auth/", "/api/v1/", "/api/mobile/v1/auth/", "/docs", "/redoc", "/openapi.json", "/static/", "/favicon")
 EXEMPT_EXACT = {"/", "/login", "/health"}
 # Allowed for the owner and would wreck the shared test database or send mail.
 DESTRUCTIVE = {("POST", "/admin/reset-db"), ("POST", "/brain/cfo/seed-sample-data"), ("POST", "/admin/test-email")}

@@ -35,6 +35,9 @@ class SessionUser:
     must_change_password: bool = False
     # Integration keys only: the scopes the key was granted (roadmap §1.13).
     api_scopes: frozenset = frozenset()
+    # Phone sessions only: the device the bearer token was issued to. A token
+    # without one is a web session and is never accepted as a bearer.
+    device_id: str | None = None
 
 
 def _b64url_encode(raw: bytes) -> str:
@@ -137,9 +140,11 @@ def create_session_token(
     role: str = "owner",
     entity_id: str | None = None,
     must_change_password: bool = False,
+    ttl_seconds: int | None = None,
+    device_id: str | None = None,
 ) -> str:
     now = int(time.time())
-    exp = now + int(settings.auth_session_hours * 3600)
+    exp = now + int(ttl_seconds if ttl_seconds is not None else settings.auth_session_hours * 3600)
     payload = {
         "uid": user_id,
         "usr": username,
@@ -150,6 +155,7 @@ def create_session_token(
         "rol": role or "owner",
         "ent": str(entity_id) if entity_id else None,
         "pwc": bool(must_change_password),
+        "did": str(device_id) if device_id else None,
         "iat": now,
         "exp": exp,
     }
@@ -184,6 +190,7 @@ def parse_session_token(token: str | None) -> SessionUser | None:
         return None
     cid = payload.get("cid")
     ent = payload.get("ent")
+    did = payload.get("did")
     return SessionUser(
         user_id=uid,
         username=usr,
@@ -194,6 +201,7 @@ def parse_session_token(token: str | None) -> SessionUser | None:
         role=str(payload.get("rol") or "owner"),
         entity_id=str(ent) if ent else None,
         must_change_password=bool(payload.get("pwc", False)),
+        device_id=str(did) if did else None,
     )
 
 

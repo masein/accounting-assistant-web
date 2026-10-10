@@ -140,16 +140,20 @@ class PreferencesPatchRequest(BaseModel):
     language: str = Field(min_length=2, max_length=8)
 
 
-@router.post("/login")
-def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
-    username = payload.username.strip()
+def password_step(username: str, password: str, request: Request, db: Session):
+    """The password half of a sign-in, shared by the web (cookie) and the phone
+    (bearer) sign-ins: limits, verification, the suspended-company check and
+    the default-password lock. Returns ``(user, company, must_change,
+    challenge)``; ``challenge`` is set when the account has two-factor on and
+    the session must wait for the code."""
+    username = username.strip()
     ip_key = f"ip:{get_client_ip(request) or 'unknown'}"
     if not _login_limiter.would_allow(db, username) or not _login_ip_limiter.would_allow(db, ip_key):
         raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
     user = db.execute(select(User).where(User.username == username)).scalars().first()
     if user is None:
-        verify_password(payload.password, _DUMMY_HASH, _DUMMY_SALT)  # constant-time-ish: same work as a real check
-    if not user or not user.is_active or not verify_password(payload.password, user.password_hash, user.password_salt):
+        verify_password(password, _DUMMY_HASH, _DUMMY_SALT)  # constant-time-ish: same work as a real check
+    if not user or not user.is_active or not verify_password(password, user.password_hash, user.password_salt):
         _login_limiter.hit(db, username)
         _login_ip_limiter.hit(db, ip_key)
         audit_log(db, action="login_failed", entity_type="user", detail=f"Failed login for '{username}'", ip_address=get_client_ip(request))
@@ -168,7 +172,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     # problem, and the old hash still verifies fine.
     try:
         if needs_rehash(user.password_hash):
-            user.password_hash, user.password_salt = hash_password(payload.password)
+            user.password_hash, user.password_salt = hash_password(password)
             db.commit()
     except Exception:  # pragma: no cover - defensive
         db.rollback()
@@ -180,7 +184,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     # The seeded default password gets a locked session: nothing but the
     # change-password screen works until a real password is set (production
     # QA 2026-09-24 found admin/admin still active on a live server).
-    must_change = hmac.compare_digest(payload.password, DEFAULT_SEED_PASSWORD)
+    must_change = hmac.compare_digest(password, DEFAULT_SEED_PASSWORD)
     _login_limiter.reset(db, username)  # a correct password clears the failed-attempt count
 
     if two_factor_on(user):
@@ -190,13 +194,16 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         audit_log(db, action="login_2fa_challenge", entity_type="user", entity_id=str(user.id),
                   user_id=str(user.id), username=user.username, ip_address=get_client_ip(request))
         db.commit()
-        return {
-            "ok": False,
-            "two_factor_required": True,
-            "challenge": issue_challenge(user_id=str(user.id), token_version=int(user.token_version or 0),
-                                         must_change_password=must_change),
-        }
+        return user, company, must_change, issue_challenge(
+            user_id=str(user.id), token_version=int(user.token_version or 0), must_change_password=must_change)
+    return user, company, must_change, None
 
+
+@router.post("/login")
+def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
+    user, company, must_change, challenge = password_step(payload.username, payload.password, request, db)
+    if challenge:
+        return {"ok": False, "two_factor_required": True, "challenge": challenge}
     audit_log(db, action="login", entity_type="user", entity_id=str(user.id), user_id=str(user.id), username=user.username,
               detail=("default password — change required" if must_change else None), ip_address=get_client_ip(request))
     db.commit()  # the successful sign-in used to be flushed and then rolled back with the session
@@ -272,13 +279,12 @@ class TwoFactorLoginRequest(BaseModel):
     code: str = Field(min_length=1, max_length=32)
 
 
-@router.post("/login/2fa")
-def login_two_factor(payload: TwoFactorLoginRequest, request: Request, response: Response,
-                     db: Session = Depends(get_db)) -> dict:
-    """Second step of a sign-in: the password was right, now the code."""
+def second_factor_step(challenge: str, code: str, request: Request, db: Session, *, via: str | None = None):
+    """The code half of a sign-in (web and phone alike). Returns ``(user,
+    company, must_change, method, recovery_codes_left)``."""
     import uuid as _uuid
 
-    data = parse_challenge(payload.challenge)
+    data = parse_challenge(challenge)
     # the code lets the page start over whatever language the message is in
     expired = HTTPException(status_code=401, detail="Sign-in timed out. Enter your password again.",
                             headers={"X-Error-Code": "signin_timed_out"})
@@ -297,13 +303,13 @@ def login_two_factor(payload: TwoFactorLoginRequest, request: Request, response:
             or int(user.token_version or 0) != int(data.get("tv", -1))):
         raise expired
     company = _active_company_or_refuse(db, user, request)
-    method = _check_second_factor(user, payload.code)
+    method = _check_second_factor(user, code)
     if method is None:
         _two_factor_limiter.hit(db, uid)
         audit_log(db, action="login_2fa_failed", entity_type="user", entity_id=uid, user_id=uid,
                   username=user.username, ip_address=get_client_ip(request))
         db.commit()
-        if was_already_used(decrypt_secret(user.totp_secret), payload.code, last_step=user.totp_last_step):
+        if was_already_used(decrypt_secret(user.totp_secret), code, last_step=user.totp_last_step):
             raise HTTPException(status_code=401, detail="That code was already used. Wait for the next one.")
         raise HTTPException(status_code=401, detail="That code is not right. Check the time on your phone and try again.")
     _two_factor_limiter.reset(db, uid)
@@ -312,9 +318,18 @@ def login_two_factor(payload: TwoFactorLoginRequest, request: Request, response:
     audit_log(db, action="login", entity_type="user", entity_id=uid, user_id=uid, username=user.username,
               detail=("two-factor: authenticator code" if method == "totp"
                       else f"two-factor: recovery code ({left} left)")
-                     + ("; default password — change required" if must_change else ""),
+                     + ("; default password — change required" if must_change else "")
+                     + (f"; {via}" if via else ""),
               ip_address=get_client_ip(request))
     db.commit()
+    return user, company, must_change, method, left
+
+
+@router.post("/login/2fa")
+def login_two_factor(payload: TwoFactorLoginRequest, request: Request, response: Response,
+                     db: Session = Depends(get_db)) -> dict:
+    """Second step of a sign-in: the password was right, now the code."""
+    user, company, must_change, method, left = second_factor_step(payload.challenge, payload.code, request, db)
     _set_session_cookie(request, response, _session_token_for(user, must_change_password=must_change))
     body = _login_body(user, company, must_change)
     body["two_factor_method"] = method
@@ -807,7 +822,7 @@ def two_factor_new_recovery_codes(payload: TwoFactorCodeRequest, request: Reques
 
 @router.patch("/preferences")
 def update_preferences(payload: PreferencesPatchRequest, db: Session = Depends(get_db), current=Depends(get_current_user)) -> dict:
-    user = db.get(User, current.user_id)
+    user = _load_user(db, current)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     lang = (payload.language or "").strip().lower()

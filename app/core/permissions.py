@@ -190,6 +190,14 @@ def _reads(paths, perm):
         _add("GET", p, perm)
 
 
+# --- The phone app (app/api/mobile.py) --------------------------------------
+# Every role signs in on a phone and manages its own devices; what each role
+# may then do is decided by the business routes the app calls.
+_add("GET", "/api/mobile/v1/me", ANY_ROLE)
+_add("DELETE", "/api/mobile/v1/session", ANY_ROLE)
+_add("GET", "/api/mobile/v1/devices", ANY_ROLE)
+_add("DELETE", "/api/mobile/v1/devices/{device_id}", ANY_ROLE)
+
 # --- Company settings & branding -------------------------------------------
 _add("GET", "/admin/company-profile", Perm.SETTINGS_READ)
 _add("GET", "/admin/company-profile/logo", ANY_ROLE)  # logo is shown in every header

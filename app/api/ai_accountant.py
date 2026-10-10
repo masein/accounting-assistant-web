@@ -261,6 +261,7 @@ def _deterministic_turn(
     assistant_text: str,
     *,
     intake: dict | None,
+    tool_calls: list[dict] | None = None,
 ) -> ChatResponse:
     """Persist a server-decided turn (path guard / smart-intake detection)
     into the session history — no LLM call, nothing written to the books."""
@@ -286,7 +287,7 @@ def _deterministic_turn(
         session_id=str(session.id),
         text=assistant_text,
         proposals=[],
-        tool_calls=[],
+        tool_calls=tool_calls or [],
         stop_reason="intake",
         turns=0,
         intake=intake,
@@ -428,6 +429,17 @@ async def chat(
             from app.core.messages import localize_lists
             return _deterministic_turn(db, user, payload, sheet_turn.text,
                                        intake=localize_lists(sheet_turn.intake, _user_language(db, user)))
+
+    # A common question the books answer directly ("how much cash?", "who owes
+    # us?"): the read tool runs without the model — exact, instant, no tokens,
+    # and it works when the AI is down (roadmap ROADMAP_ANDROID_CHAT P0.6).
+    if not payload.attachment_ids:
+        from app.services.ai_accountant import fast_paths
+        fast = await fast_paths.answer(db, payload.message, user_id=user.user_id, username=user.username,
+                                       lang=_user_language(db, user),
+                                       mode="personal" if user.role == Role.PERSONAL else "default")
+        if fast is not None:
+            return _deterministic_turn(db, user, payload, fast.text, intake=None, tool_calls=fast.tool_calls)
 
     # From here on the turn uses the AI (OCR, statement vision, the model
     # loop): per-user / per-company limits and the 24-hour token budget.

@@ -159,3 +159,6 @@ data class DeviceDto(
     @SerialName("last_seen_at") val lastSeenAt: String? = null,
     @SerialName("this_device") val thisDevice: Boolean = false,
 )
+
+@Serializable
+data class CrashBatch(val reports: List<app.accountingassistant.android.util.CrashReport>)

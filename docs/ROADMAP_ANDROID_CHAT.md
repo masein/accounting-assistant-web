@@ -46,7 +46,7 @@ The build started on 2026-10-10.
 - ✅ The approvers' half of P2.6 (#318): a voucher above the approval limit reaches the owner, CFO or manager as a card to approve or reject. Staff submitting claims by chat waits for the owner's decision (§11.7).
 - **Still to do:**
   - P1.6: push;
-  - P1.8: crash reporting and the store listings;
+  - P1.8: the store listings, the privacy policy and the Play data-safety form (crash reports without message content are done, #321, sent to our own server);
   - P1.9: signing and the store channels.
 
 ---

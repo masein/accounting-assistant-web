@@ -95,4 +95,6 @@
     <string name="dialog_back">رجوع</string>
     <string name="reject_title">رفض هذا القيد؟</string>
     <string name="reject_reason">السبب (اختياري)</string>
+    <string name="crash_title">إرسال تقارير الأعطال</string>
+    <string name="crash_hint">موضع العطل فقط، وليس رسائلك أو أرقامك أبداً.</string>
 </resources>

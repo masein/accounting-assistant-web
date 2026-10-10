@@ -95,4 +95,6 @@
     <string name="dialog_back">بازگشت</string>
     <string name="reject_title">این سند رد شود؟</string>
     <string name="reject_reason">دلیل (اختیاری)</string>
+    <string name="crash_title">فرستادن گزارش خرابی</string>
+    <string name="crash_hint">فقط جایی که برنامه خراب شد؛ هرگز پیام‌ها یا رقم‌های شما.</string>
 </resources>

@@ -95,4 +95,6 @@
     <string name="dialog_back">Back</string>
     <string name="reject_title">Reject this voucher?</string>
     <string name="reject_reason">Reason (optional)</string>
+    <string name="crash_title">Send crash reports</string>
+    <string name="crash_hint">Where the app went wrong, never your messages or figures.</string>
 </resources>

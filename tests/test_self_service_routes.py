@@ -58,6 +58,7 @@ REVIEWED = {
     ("DELETE", "/api/mobile/v1/session"): "signs out the device the bearer token was issued to",
     ("GET", "/api/mobile/v1/devices"): "devices_of: the session user's own phones",
     ("DELETE", "/api/mobile/v1/devices/{device_id}"): "_own_device: another user's phone is 404",
+    ("POST", "/api/mobile/v1/crashes"): "the app's own stack frames, logged; reads and writes nothing in the books",
     # payroll — own payslips
     ("GET", "/payroll/my-payslips"): "the caller's linked employee only",
     ("GET", "/payroll/runs/{run_id}/payslip/{entity_id}"): "_enforce_own_payslip: another's is 404",

@@ -2,6 +2,7 @@ package app.accountingassistant.android
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
+import app.accountingassistant.android.data.Queued
 import app.accountingassistant.android.ui.chat.ChatItem
 import app.accountingassistant.android.ui.chat.ChatScreen
 import app.accountingassistant.android.ui.chat.ChatUiState
@@ -94,4 +95,32 @@ class ChatScreenScreenshotTest {
         compose.mainClock.advanceTimeBy(600)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-listening.png")
     }
+
+    private fun outbox(fa: Boolean, name: String, dark: Boolean) {
+        val waiting = Queued("m2", if (fa) "۱۲۰ هزار تومان چای و قند برای دفتر" else "Tea and sugar for the office, 12.00",
+                             threadId = "t1", queuedAt = 1)
+        val refused = Queued("m3", if (fa) "فاکتور آریا را هم بزن" else "And invoice Aria", threadId = "t1", queuedAt = 2,
+                             failure = "ai_unavailable", detail = "provider unreachable")
+        compose.setContent {
+            AccountantTheme(dark = dark) {
+                ChatScreen(
+                    state = ChatUiState(
+                        items = listOf(ChatItem.Earlier()) + items(fa).take(2) +
+                                listOf(ChatItem.User("m2", waiting.text, clientId = "m2"), ChatItem.User("m3", refused.text, clientId = "m3")),
+                        queued = mapOf("m2" to waiting, "m3" to refused), notice = ChatUiState.Notice.Offline),
+                    lang = if (fa) "fa" else "en", booksName = if (fa) "شرکت بازرگانی آرمان" else "Arman Trading Ltd",
+                    personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
+    }
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianOfflineOutbox() = outbox(fa = true, name = "chat-fa-outbox", dark = false)
+
+    @Test @Config(qualifiers = "+en")
+    fun englishOfflineOutboxDark() = outbox(fa = false, name = "chat-en-outbox-dark", dark = true)
 }

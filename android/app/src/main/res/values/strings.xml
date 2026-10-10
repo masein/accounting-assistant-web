@@ -74,4 +74,9 @@
     <string name="threads_none">No conversations yet.</string>
     <string name="threads_untitled">Untitled</string>
     <string name="threads_messages">%1$s messages</string>
+    <string name="outbox_waiting">Waiting for the network. It sends itself.</string>
+    <string name="outbox_retry">Try again</string>
+    <string name="outbox_discard">Don\'t send</string>
+    <string name="earlier">Earlier messages</string>
+    <string name="error_generic">Something went wrong. Try again.</string>
 </resources>

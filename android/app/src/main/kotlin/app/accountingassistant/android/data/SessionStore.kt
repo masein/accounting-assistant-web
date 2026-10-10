@@ -24,11 +24,7 @@ interface SessionStore {
 
 private val Context.sessionData by preferencesDataStore(name = "session")
 
-/**
- * The session sealed with an AES-GCM key that lives in the Android Keystore:
- * the key never leaves the secure hardware, so a copied data folder is
- * useless on another phone.
- */
+/** The session sealed with a Keystore key ([KeystoreSealer]). */
 class KeystoreSessionStore(private val context: Context, private val json: Json) : SessionStore {
     private val slot = stringPreferencesKey("sealed")
 
@@ -46,11 +42,26 @@ class KeystoreSessionStore(private val context: Context, private val json: Json)
         context.sessionData.edit { it.remove(slot) }
     }
 
+    private fun seal(plain: String): String = Base64.encodeToString(sealer.seal(plain.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
+
+    private fun open(sealed: String): String = String(sealer.open(Base64.decode(sealed, Base64.NO_WRAP)), Charsets.UTF_8)
+
+    private companion object {
+        val sealer = KeystoreSealer("aa.session.v1")
+    }
+}
+
+/**
+ * AES-GCM with a key that lives in the Android Keystore: the key never leaves
+ * the secure hardware, so a copied data folder is useless on another phone.
+ * Sealed bytes are the 12-byte IV followed by the ciphertext and its tag.
+ */
+class KeystoreSealer(private val alias: String) {
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (store.getEntry(ALIAS, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }
+        (store.getEntry(alias, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }
         val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        gen.init(KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+        gen.init(KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(256)
@@ -58,21 +69,18 @@ class KeystoreSessionStore(private val context: Context, private val json: Json)
         return gen.generateKey()
     }
 
-    private fun seal(plain: String): String {
+    fun seal(plain: ByteArray): ByteArray {
         val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key()) }
-        val out = cipher.iv + cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
-        return Base64.encodeToString(out, Base64.NO_WRAP)
+        return cipher.iv + cipher.doFinal(plain)
     }
 
-    private fun open(sealed: String): String {
-        val raw = Base64.decode(sealed, Base64.NO_WRAP)
+    fun open(sealed: ByteArray): ByteArray {
         val cipher = Cipher.getInstance(TRANSFORM)
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, raw, 0, IV_BYTES))
-        return String(cipher.doFinal(raw, IV_BYTES, raw.size - IV_BYTES), Charsets.UTF_8)
+        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, sealed, 0, IV_BYTES))
+        return cipher.doFinal(sealed, IV_BYTES, sealed.size - IV_BYTES)
     }
 
     private companion object {
-        const val ALIAS = "aa.session.v1"
         const val TRANSFORM = "AES/GCM/NoPadding"
         const val IV_BYTES = 12
     }

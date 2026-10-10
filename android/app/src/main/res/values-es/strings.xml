@@ -95,4 +95,6 @@
     <string name="dialog_back">Volver</string>
     <string name="reject_title">¿Rechazar este asiento?</string>
     <string name="reject_reason">Motivo (opcional)</string>
+    <string name="crash_title">Enviar informes de fallos</string>
+    <string name="crash_hint">Dónde falló la app, nunca tus mensajes ni tus cifras.</string>
 </resources>

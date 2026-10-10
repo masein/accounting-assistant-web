@@ -198,6 +198,7 @@ _add("PUT", "/api/mobile/v1/me/language", ANY_ROLE)
 _add("DELETE", "/api/mobile/v1/session", ANY_ROLE)
 _add("GET", "/api/mobile/v1/devices", ANY_ROLE)
 _add("DELETE", "/api/mobile/v1/devices/{device_id}", ANY_ROLE)
+_add("POST", "/api/mobile/v1/crashes", ANY_ROLE)                 # the app's own crash reports, no data from the books
 
 # --- Company settings & branding -------------------------------------------
 _add("GET", "/admin/company-profile", Perm.SETTINGS_READ)

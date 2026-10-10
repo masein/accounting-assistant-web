@@ -175,6 +175,11 @@ class ApiClient(
         @Suppress("UNREACHABLE_CODE") error("unreachable")
     }
 
+    /** The app's crashes since it last sent them: where, never what (util/Crashes.kt). */
+    suspend fun sendCrashes(reports: List<app.accountingassistant.android.util.CrashReport>) {
+        call<CrashBatch, JsonObject>("POST", "/crashes", CrashBatch(reports), serializer())
+    }
+
     /** The phone's language becomes the account's, so replies come in it. */
     suspend fun setLanguage(lang: String) {
         call<LanguageRequest, JsonObject>("PUT", "/me/language", LanguageRequest(lang), serializer())

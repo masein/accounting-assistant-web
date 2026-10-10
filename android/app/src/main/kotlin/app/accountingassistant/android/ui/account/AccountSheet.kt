@@ -49,11 +49,14 @@ fun AccountSheet(
     onRevoke: (String) -> Unit,
     onSignOut: () -> Unit,
     onDismiss: () -> Unit,
+    crashesOn: Boolean = true,
+    onCrashes: (Boolean) -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded)),
                      containerColor = c.surface) {
-        AccountSheetContent(username, booksName, role, devices, lockAvailable, lockOn, onLock, onRevoke, onSignOut)
+        AccountSheetContent(username, booksName, role, devices, lockAvailable, lockOn, onLock, onRevoke, onSignOut,
+                            crashesOn, onCrashes)
     }
 }
 
@@ -61,6 +64,7 @@ fun AccountSheet(
 fun AccountSheetContent(
     username: String, booksName: String, role: String, devices: List<DeviceDto>?,
     lockAvailable: Boolean, lockOn: Boolean, onLock: (Boolean) -> Unit, onRevoke: (String) -> Unit, onSignOut: () -> Unit,
+    crashesOn: Boolean = true, onCrashes: (Boolean) -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 16.dp),
@@ -78,6 +82,15 @@ fun AccountSheetContent(
             }
             Spacer(Modifier.width(12.dp))
             Switch(checked = lockOn && lockAvailable, onCheckedChange = onLock, enabled = lockAvailable,
+                   colors = SwitchDefaults.colors(checkedTrackColor = c.firouzeh, checkedThumbColor = c.onFirouzeh))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.crash_title), color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700))
+                Text(stringResource(R.string.crash_hint), color = c.muted, fontSize = 12.5.sp)
+            }
+            Spacer(Modifier.width(12.dp))
+            Switch(checked = crashesOn, onCheckedChange = onCrashes,
                    colors = SwitchDefaults.colors(checkedTrackColor = c.firouzeh, checkedThumbColor = c.onFirouzeh))
         }
         HorizontalDivider(color = c.line)

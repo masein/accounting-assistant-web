@@ -7,6 +7,7 @@ import app.accountingassistant.android.data.KeystoreSessionStore
 import app.accountingassistant.android.data.Outbox
 import app.accountingassistant.android.data.OutboxWorker
 import app.accountingassistant.android.data.SealedOutboxStore
+import app.accountingassistant.android.util.Crashes
 import kotlinx.serialization.json.Json
 
 class AccountantApp : Application() {
@@ -30,6 +31,14 @@ class AccountantApp : Application() {
     suspend fun forgetOutbox() {
         OutboxWorker.cancel(this)
         outbox.clear()
+    }
+
+    /** Crashes kept for the next launch: where, never what. */
+    val crashes: Crashes by lazy { Crashes(this, BuildConfig.VERSION_NAME, deviceName, json) }
+
+    override fun onCreate() {
+        super.onCreate()
+        crashes.install()
     }
 
     /** What the device list shows: "Google Pixel 8". */

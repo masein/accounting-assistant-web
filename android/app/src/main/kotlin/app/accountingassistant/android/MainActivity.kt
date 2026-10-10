@@ -72,6 +72,9 @@ class MainActivity : ComponentActivity() {
                     restored = true
                 }
                 LaunchedEffect(Unit) { app.api.signedOut.collect { signedIn = false; app.forgetOutbox() } }
+                // last time's crashes, if any, once there is a session to send them with
+                LaunchedEffect(signedIn) { if (signedIn) runCatching { app.crashes.send(app.api) } }
+                var crashesOn by remember { mutableStateOf(app.crashes.enabled) }
                 // back from the background after a while: ask again
                 val owner = LocalLifecycleOwner.current
                 DisposableEffect(owner) {
@@ -189,6 +192,7 @@ class MainActivity : ComponentActivity() {
                             username = session.user.username, booksName = company?.name ?: "", role = session.user.role,
                             devices = devices, lockAvailable = lock.available, lockOn = lockOn,
                             onLock = { on -> lockOn = on; scope.launch { lock.setEnabled(on) } },
+                            crashesOn = crashesOn, onCrashes = { on -> crashesOn = on; app.crashes.enabled = on },
                             onRevoke = { id ->
                                 scope.launch {
                                     runCatching { app.api.revokeDevice(id) }

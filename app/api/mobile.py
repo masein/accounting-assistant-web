@@ -12,6 +12,7 @@ Two routers: ``auth_router`` holds the public sign-in steps (no session yet);
 """
 from __future__ import annotations
 
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -256,3 +257,57 @@ def mobile_revoke_device(device_id: str, request: Request, current=Depends(get_c
               ip_address=get_client_ip(request))
     db.commit()
     return {"ok": True}
+
+
+# --- crash reports (roadmap ROADMAP_ANDROID_CHAT P1.8) --------------------------------------
+
+class CrashReport(BaseModel):
+    """What the app kept of a crash: where it happened, never what it said.
+    No exception messages (they can hold amounts and typed words), no screen
+    content; class names and stack frames, the app and phone versions."""
+    at: str = Field(max_length=40)
+    app_version: str = Field(max_length=32)
+    android: int = Field(ge=1, le=99)
+    device: str = Field(default="", max_length=80)
+    thread: str = Field(default="", max_length=60)
+    exception: str = Field(max_length=200)
+    causes: list[str] = Field(default=[], max_length=8)
+    frames: list[str] = Field(default=[], max_length=60)
+
+
+class CrashBatch(BaseModel):
+    reports: list[CrashReport] = Field(min_length=1, max_length=5)
+
+
+_FRAME = re.compile(r"^[\w$.<>\-]+\([\w$.\- ]*(:\d+)?\)$", re.ASCII)   # class and file names, never words
+
+
+@router.post("/crashes")
+def mobile_crashes(payload: CrashBatch, current=Depends(get_current_user)) -> dict:
+    """The app's crashes since it last sent them: logged, and passed to
+    Sentry or GlitchTip when one is set (SENTRY_DSN), grouped by the
+    exception and its first frame of our own code."""
+    import logging
+    log = logging.getLogger("app.mobile.crash")
+    from app.core.observability import _sentry_on
+    for r in payload.reports:
+        frames = [f[:200] for f in r.frames if _FRAME.match(f[:200])][:40]
+        ours = next((f for f in frames if f.startswith("app.accountingassistant.")), frames[0] if frames else "")
+        log.warning("mobile_crash", extra={"crash": {
+            "at": r.at, "app_version": r.app_version, "android": r.android, "device": r.device, "thread": r.thread,
+            "exception": r.exception, "causes": r.causes[:8], "where": ours, "frames": frames,
+            "user": getattr(current, "username", None), "device_id": getattr(current, "device_id", None)}})
+        if _sentry_on:
+            try:
+                import sentry_sdk
+                with sentry_sdk.new_scope() as scope:
+                    scope.set_tag("source", "android")
+                    scope.set_tag("app_version", r.app_version)
+                    scope.set_tag("android", str(r.android))
+                    scope.set_context("crash", {"device": r.device, "thread": r.thread, "causes": r.causes[:8],
+                                                "frames": frames})
+                    scope.fingerprint = ["android", r.exception, ours]
+                    sentry_sdk.capture_message(f"Android: {r.exception} at {ours}", level="error")
+            except Exception:  # monitoring must never fail the request
+                log.warning("crash report not passed to Sentry", exc_info=True)
+    return {"received": len(payload.reports)}

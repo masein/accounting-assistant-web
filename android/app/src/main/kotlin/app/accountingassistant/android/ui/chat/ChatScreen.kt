@@ -18,8 +18,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
+import app.accountingassistant.android.util.Picked
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +73,12 @@ fun ChatScreen(
     onUndo: (String) -> Unit,
     onBooks: () -> Unit,
     onSuggestion: (String) -> Unit = {},
+    onPicked: (Picked) -> Unit = {},
+    onDetach: (String) -> Unit = {},
+    onSpeakStart: () -> Unit = {},
+    onSpeakEnd: () -> Unit = {},
+    userInitial: String = "",
+    onAccount: () -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -78,6 +93,15 @@ fun ChatScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 BooksBadge(name = booksName, color = booksColor, onClick = onBooks)
+                if (userInitial.isNotEmpty()) {
+                    val account = stringResource(R.string.account)
+                    Surface(onClick = onAccount, shape = CircleShape, color = c.surface2,
+                            modifier = Modifier.size(34.dp).semantics { contentDescription = account }) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(userInitial, color = c.muted, fontWeight = FontWeight(700), fontSize = 14.sp)
+                        }
+                    }
+                }
             }
             LazyColumn(
                 state = list,
@@ -87,7 +111,7 @@ fun ChatScreen(
             ) {
                 items(state.items, key = { it.id }) { item ->
                     when (item) {
-                        is ChatItem.User -> UserBubble(item.text)
+                        is ChatItem.User -> UserBubble(item.text, files = item.files)
                         is ChatItem.Words -> AssistantText(item.text)
                         is ChatItem.Thinking -> ThinkingRow(stringResource(R.string.thinking))
                         is ChatItem.Suggestions -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -128,13 +152,48 @@ fun ChatScreen(
         }
         Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding().padding(10.dp),
                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (state.notice == ChatUiState.Notice.Offline) {
+            val notice = when (state.notice) {
+                ChatUiState.Notice.Offline -> R.string.error_network
+                ChatUiState.Notice.UploadFailed -> R.string.error_upload
+                ChatUiState.Notice.VoiceFailed -> R.string.error_voice
+                else -> null
+            }
+            if (notice != null) {
                 Surface(shape = RoundedCornerShape(14.dp), color = c.saffronSoft) {
-                    Text(stringResource(R.string.error_network), color = c.ink, fontSize = 12.5.sp,
+                    Text(stringResource(notice), color = c.ink, fontSize = 12.5.sp,
                          modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                 }
             }
-            Composer(value = state.draft, onValueChange = onDraft, onSend = onSend, onAttach = {}, onSpeak = {})
+            if (state.uploading || state.transcribing) {
+                ThinkingRow(stringResource(if (state.uploading) R.string.uploading else R.string.transcribing),
+                            Modifier.padding(start = 8.dp))
+            }
+            if (state.attachments.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    state.attachments.forEach { a ->
+                        Surface(onClick = { onDetach(a.id) }, shape = RoundedCornerShape(50), color = c.surface,
+                                border = BorderStroke(1.dp, c.line)) {
+                            Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(a.name, color = c.ink, fontSize = 12.sp, maxLines = 1)
+                                Text("  ✕", color = c.muted, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+            Box {
+                var menu by remember { mutableStateOf(false) }
+                val capture = rememberCapture(onPicked = onPicked)
+                Composer(value = state.draft, onValueChange = onDraft, onSend = onSend, onAttach = { menu = true },
+                         onSpeakStart = { capture.speak(onSpeakStart) }, onSpeakEnd = onSpeakEnd,
+                         listening = state.listening,
+                         canSend = state.draft.isNotBlank() || state.attachments.isNotEmpty())
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.attach_camera)) }, onClick = { menu = false; capture.camera() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.attach_photo)) }, onClick = { menu = false; capture.photo() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.attach_file)) }, onClick = { menu = false; capture.file() })
+                }
+            }
         }
     }
 }

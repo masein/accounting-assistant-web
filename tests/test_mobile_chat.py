@@ -89,7 +89,8 @@ def test_n7_confirm_twice_then_undo(client, db, co, phone, scripted):
     assert r.status_code == 200, r.text
     posted = r.json()
     assert posted["state"] == "posted" and posted["block"]["undo_seconds"] == 120
-    assert posted["block"]["voucher"] and posted["block"]["date"]["iso"] == date.today().isoformat()
+    assert "voucher" in posted["block"] and posted["block"]["date"]["iso"] == date.today().isoformat()
+    assert not (posted["block"]["voucher"] or "").startswith(posted["block"]["transaction_id"][:8])   # never an id
     again = client.post(f"{API}/proposals/{token}/confirm", headers=phone).json()
     assert again["state"] == "posted" and again["block"]["undo_seconds"] == 0
     assert again["block"]["audit_log_id"] == posted["block"]["audit_log_id"]       # the same posting

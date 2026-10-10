@@ -17,6 +17,32 @@ The money rules never change: the AI proposes, a person confirms, every posting 
 
 Items are numbered by phase (`P0.3` is phase 0, item 3) so each can become a branch. The **Where** column names the file(s) involved today. **This is a plan for a later build; nothing here is scheduled.**
 
+
+## Progress
+
+The build started on 2026-10-10.
+
+**Server (Phase 0):**
+- ✅ **P0.1, P0.2** (#308): phone sessions and `/api/mobile/v1`.
+- ✅ **P0.3, P0.4** (#309): typed blocks; confirm, cancel and undo; threads that redraw their cards.
+- ✅ **P0.6** (#310): fast paths.
+- ◐ **P0.7** (#312): uploads, voice notes and the briefing are done; file blocks with signed links are not.
+- **Still to do:** P0.5 streaming, P0.8 push (it needs a Firebase project, or Pushe, from the owner), P0.9 cursor sync, P0.10 contract tests beyond the route tests.
+
+**App (`android/`, Phase 1):**
+- ✅ P1.1 (#311, #313): sign-in, two-factor, the app lock and the device list.
+- ✅ P1.2: the chat with its blocks.
+- ✅ P1.3: confirm, cancel, undo and the stamp.
+- ✅ P1.4 (#313): the briefing and the fast-path suggestions.
+- ✅ P1.7: RTL, Jalali and Persian digits, in both themes.
+- ✅ Photos, files and voice notes (#313).
+- ✅ The Phase 2 share target (#313): a bank SMS, a statement or a receipt shared in from another app.
+- **Still to do:**
+  - P1.5: a full offline outbox; today the typed message is kept in the composer when offline;
+  - P1.6: push;
+  - P1.8: crash reporting and the store listings;
+  - P1.9: signing and the store channels.
+
 ---
 
 ## 0. Where we start

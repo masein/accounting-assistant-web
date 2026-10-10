@@ -109,3 +109,32 @@ data class ThreadMessageDto(
     val text: String? = null,
     val blocks: List<JsonObject> = emptyList(),
 )
+
+@Serializable
+data class UploadReply(
+    val id: String,
+    @SerialName("file_name") val fileName: String = "",
+    @SerialName("content_type") val contentType: String = "",
+    @SerialName("size_bytes") val sizeBytes: Long = 0,
+)
+
+@Serializable
+data class TranscribeReply(val text: String = "")
+
+@Serializable
+data class BriefingReply(
+    @SerialName("thread_id") val threadId: String? = null,
+    val blocks: List<JsonObject> = emptyList(),
+)
+
+@Serializable
+data class BriefingRequest(@SerialName("thread_id") val threadId: String? = null)
+
+@Serializable
+data class DeviceDto(
+    val id: String,
+    val name: String,
+    val platform: String = "android",
+    @SerialName("last_seen_at") val lastSeenAt: String? = null,
+    @SerialName("this_device") val thisDevice: Boolean = false,
+)

@@ -37,4 +37,30 @@
         <item>به کی بدهکاریم؟</item>
         <item>این ماه چقدر خرج کردم؟</item>
     </string-array>
+    <string name="listening">در حال شنیدن… رها کن تا تمام شود</string>
+    <string name="attach_camera">عکس بگیر</string>
+    <string name="attach_photo">انتخاب عکس</string>
+    <string name="attach_file">انتخاب فایل (PDF، اکسل)</string>
+    <string name="uploading">در حال بارگذاری…</string>
+    <string name="transcribing">در حال نوشتن حرف‌هایت…</string>
+    <string name="error_upload">فایل بارگذاری نشد. اتصال را بررسی کن و دوباره بفرست.</string>
+    <string name="error_voice">پیام صوتی فهمیده نشد. دوباره بگو یا بنویس.</string>
+    <string name="lock_title">قفل برنامه</string>
+    <string name="lock_hint">هنگام باز شدن برنامه و پس از دو دقیقه دوری، اثر انگشت، چهره یا رمز گوشی خواسته شود.</string>
+    <string name="lock_unavailable">برای قفل کردن برنامه، اول روی گوشی قفل صفحه بگذار.</string>
+    <string name="lock_locked">دفاترت قفل است</string>
+    <string name="lock_unlock">باز کردن</string>
+    <string name="devices_title">گوشی‌های واردشده</string>
+    <string name="device_this">همین گوشی</string>
+    <string name="device_other">گوشی دیگر</string>
+    <string name="device_sign_out">خروج</string>
+    <string name="sign_out">خروج از این گوشی</string>
+    <string name="account">حساب کاربری</string>
+    <string name="role_owner">مالک</string>
+    <string name="role_cfo">مدیر مالی</string>
+    <string name="role_accountant">حسابدار</string>
+    <string name="role_manager">مدیر</string>
+    <string name="role_employee">کارمند</string>
+    <string name="role_viewer">بیننده</string>
+    <string name="role_personal">شخصی</string>
 </resources>

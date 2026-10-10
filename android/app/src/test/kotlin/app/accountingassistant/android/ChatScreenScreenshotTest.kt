@@ -58,4 +58,20 @@ class ChatScreenScreenshotTest {
 
     @Test @Config(qualifiers = "+en")
     fun englishLight() = shot("chat-en-light", fa = false, dark = false)
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianListeningWithAFile() {
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = items(true).take(2), listening = true,
+                                        attachments = listOf(ChatUiState.Attachment("a1", "رسید-نانوایی.jpg"))),
+                    lang = "fa", booksName = "دفتر شخصی", personalBooks = true,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-listening.png")
+    }
 }

@@ -112,7 +112,8 @@ fun ChatShowcase(lang: String, startPosted: Boolean = false, fixedUndoSeconds: I
         }
         var draft by remember { mutableStateOf("") }
         Composer(
-            value = draft, onValueChange = { draft = it }, onSend = { draft = "" }, onAttach = {}, onSpeak = {},
+            value = draft, onValueChange = { draft = it }, onSend = { draft = "" }, onAttach = {},
+            onSpeakStart = {}, onSpeakEnd = {},
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding()
                 .padding(horizontal = 10.dp, vertical = 10.dp),
         )

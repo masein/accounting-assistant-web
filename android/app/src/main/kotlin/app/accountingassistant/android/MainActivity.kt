@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.accountingassistant.android.ui.chat.ChatScreen
 import app.accountingassistant.android.ui.chat.ChatViewModel
+import app.accountingassistant.android.ui.chat.ThreadsSheet
 import app.accountingassistant.android.ui.signin.SignInScreen
 import app.accountingassistant.android.ui.signin.SignInViewModel
 import app.accountingassistant.android.ui.theme.AccountantTheme
@@ -135,6 +136,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     var account by remember { mutableStateOf(false) }
+                    var threadsOpen by remember { mutableStateOf(false) }
+                    val threads by vm.threads.collectAsState()
                     var devices by remember { mutableStateOf<List<DeviceDto>?>(null) }
                     ChatScreen(
                         state = s, lang = lang,
@@ -155,6 +158,7 @@ class MainActivity : ComponentActivity() {
                                     .onFailure { Toast.makeText(this@MainActivity, R.string.file_failed, Toast.LENGTH_LONG).show() }
                             }
                         },
+                        onThreads = { threadsOpen = true; vm.loadThreads() },
                         userInitial = session?.user?.username?.take(1)?.uppercase() ?: "",
                         onAccount = {
                             account = true
@@ -162,6 +166,12 @@ class MainActivity : ComponentActivity() {
                             scope.launch { devices = runCatching { app.api.devices() }.getOrDefault(emptyList()) }
                         },
                     )
+                    if (threadsOpen) {
+                        ThreadsSheet(threads = threads, current = s.threadId, lang = lang,
+                                     onOpen = { vm.open(it); threadsOpen = false },
+                                     onNew = { vm.startNew(); threadsOpen = false },
+                                     onDismiss = { threadsOpen = false })
+                    }
                     if (account && session != null) {
                         AccountSheet(
                             username = session.user.username, booksName = company?.name ?: "", role = session.user.role,

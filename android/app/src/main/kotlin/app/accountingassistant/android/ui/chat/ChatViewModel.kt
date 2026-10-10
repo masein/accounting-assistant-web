@@ -3,6 +3,7 @@ package app.accountingassistant.android.ui.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.accountingassistant.android.data.ApiClient
+import app.accountingassistant.android.data.ThreadDto
 import app.accountingassistant.android.data.ApiError
 import app.accountingassistant.android.data.NetworkError
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,6 +94,33 @@ class ChatViewModel(
                 .onSuccess { r -> _state.update { it.copy(transcribing = false, draft = (it.draft + " " + r.text).trim()) } }
                 .onFailure { _state.update { it.copy(transcribing = false, notice = ChatUiState.Notice.VoiceFailed) } }
         }
+    }
+
+    /** The conversations, most recent first (null while loading). */
+    private val _threads = MutableStateFlow<List<ThreadDto>?>(null)
+    val threads: StateFlow<List<ThreadDto>?> = _threads
+
+    fun loadThreads() {
+        _threads.value = null
+        viewModelScope.launch { _threads.value = runCatching { api.threads() }.getOrDefault(emptyList()) }
+    }
+
+    /** Another conversation, its cards redrawn. */
+    fun open(threadId: String) {
+        if (threadId == _state.value.threadId) return
+        _state.update { it.copy(items = listOf(ChatItem.Thinking()), threadId = threadId, notice = null) }
+        viewModelScope.launch {
+            val items = runCatching { api.messages(threadId) }.getOrNull()?.flatMap { m ->
+                if (m.role == "user") listOf(ChatItem.User(m.id, m.text.orEmpty())) else m.blocks.map(::parseBlock)
+            }
+            _state.update { it.copy(items = items ?: emptyList(), notice = if (items == null) ChatUiState.Notice.Offline else null) }
+        }
+    }
+
+    /** A fresh conversation: the suggestions again, a new thread on the first message. */
+    fun startNew() = _state.update {
+        it.copy(items = if (suggestions.isEmpty()) emptyList() else listOf(ChatItem.Suggestions(options = suggestions)),
+                threadId = null, draft = "", attachments = emptyList(), notice = null)
     }
 
     /** A suggestion chip: sent as if typed. */

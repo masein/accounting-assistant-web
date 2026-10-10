@@ -69,4 +69,9 @@
     <string name="file_open">Tap to open</string>
     <string name="file_share">Share</string>
     <string name="file_failed">The document didn\'t download. Check the connection and try again.</string>
+    <string name="threads_title">Conversations</string>
+    <string name="threads_new">New conversation</string>
+    <string name="threads_none">No conversations yet.</string>
+    <string name="threads_untitled">Untitled</string>
+    <string name="threads_messages">%1$s messages</string>
 </resources>

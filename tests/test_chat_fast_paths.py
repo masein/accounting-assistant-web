@@ -22,6 +22,14 @@ from tests.test_ai_guardrails import D, _login, co  # noqa: F401  (fixture)
     ("این ماه چقدر خرج کردم؟", "spending"),
     ("بودجه چقدر مونده؟", "budget"),
     ("how's my budget looking?", "budget"),
+    ("¿Cuánto dinero tenemos?", "cash"),
+    ("¿Quién nos debe?", "receivables"),
+    ("¿Qué debemos?", "payables"),
+    ("¿Cuánto gastamos este mes?", "spending"),
+    ("كم لدينا من المال؟", "cash"),
+    ("من يدين لنا؟", "receivables"),
+    ("ماذا علينا؟", "payables"),
+    ("كم أنفقنا هذا الشهر؟", "spending"),
 ])
 def test_n10_these_questions_are_answered_from_the_books(message, intent):
     assert match(message) == intent
@@ -36,6 +44,9 @@ def test_n10_these_questions_are_answered_from_the_books(message, intent):
     "invoice Aria for consulting",
     "bank balance, and record the rent",                  # two requests
     "موجودی رو ببین و اجاره رو ثبت کن",
+    "registra el alquiler y dime cuánto dinero tenemos",
+    "¿cuánto dinero tendremos el mes que viene?",
+    "سجّل الإيجار من الرصيد النقدي",
     "",
 ])
 def test_n11_nothing_else_is_taken_from_the_model(message):

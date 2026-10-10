@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">محاسب</string>
+    <string name="signin_title">دفاترك في محادثة واحدة</string>
+    <string name="signin_username">اسم المستخدم</string>
+    <string name="signin_password">كلمة المرور</string>
+    <string name="signin_button">تسجيل الدخول</string>
+    <string name="signin_code">الرمز من تطبيق المصادقة</string>
+    <string name="signin_code_button">متابعة</string>
+    <string name="composer_hint">اكتب أو أرسل صورة أو تحدّث…</string>
+    <string name="voucher_draft">مسودة قيد</string>
+    <string name="voucher_post">ترحيل</string>
+    <string name="voucher_edit">تعديل</string>
+    <string name="voucher_cancel">إلغاء</string>
+    <string name="voucher_undo">تراجع %1$s</string>
+    <string name="voucher_posted">رُحّل</string>
+    <string name="voucher_number">قيد %1$s</string>
+    <string name="voucher_waits">بانتظار موافقة ثانية</string>
+    <string name="debit_short">مدين</string>
+    <string name="credit_short">دائن</string>
+    <string name="fresh_as_of">محدّث %1$s</string>
+    <string name="thinking">يعمل على ذلك…</string>
+    <string name="books_switch">أيّ دفاتر؟</string>
+    <string name="error_network">لا يوجد اتصال. رسالتك محفوظة وستُرسل عند عودة الاتصال.</string>
+    <string name="error_session">انتهت جلستك على هذا الهاتف. سجّل الدخول مرة أخرى.</string>
+    <string name="error_update">هذه النسخة من التطبيق قديمة. حدّثها للمتابعة.</string>
+    <string name="attach">إرفاق</string>
+    <string name="speak">تحدّث</string>
+    <string name="send">إرسال</string>
+    <string name="voucher_undone">تم التراجع؛ الدفاتر كما كانت</string>
+    <string name="voucher_cancelled">أُلغي</string>
+    <string name="voucher_title">قيد</string>
+    <string name="suggestions_intro">اسأل عن دفاترك أو أخبرني بما أسجّله. هذه تُجاب فورًا:</string>
+    <string name="listening">أستمع… اترك للإيقاف</string>
+    <string name="attach_camera">التقط صورة</string>
+    <string name="attach_photo">اختر صورة</string>
+    <string name="attach_file">اختر ملفًا (PDF، Excel)</string>
+    <string name="uploading">جارٍ الرفع…</string>
+    <string name="transcribing">أكتب ما قلته…</string>
+    <string name="error_upload">لم يُرفع الملف. تحقق من الاتصال وحاول مرة أخرى.</string>
+    <string name="error_voice">تعذّر فهم الرسالة الصوتية. حاول مرة أخرى أو اكتبها.</string>
+    <string name="lock_title">قفل التطبيق</string>
+    <string name="lock_hint">اطلب البصمة أو الوجه أو رمز الهاتف عند فتح التطبيق وبعد دقيقتين من الغياب.</string>
+    <string name="lock_unavailable">اضبط قفل الشاشة على هذا الهاتف لتقفل التطبيق به.</string>
+    <string name="lock_locked">دفاترك مقفلة</string>
+    <string name="lock_unlock">فتح</string>
+    <string name="devices_title">الهواتف المسجّلة</string>
+    <string name="device_this">هذا الهاتف</string>
+    <string name="device_other">هاتف آخر</string>
+    <string name="device_sign_out">تسجيل الخروج</string>
+    <string name="sign_out">تسجيل الخروج من هذا الهاتف</string>
+    <string name="account">الحساب</string>
+    <string name="role_owner">المالك</string>
+    <string name="role_cfo">المدير المالي</string>
+    <string name="role_accountant">محاسب</string>
+    <string name="role_manager">مدير</string>
+    <string name="role_employee">موظف</string>
+    <string name="role_viewer">مشاهد</string>
+    <string name="role_personal">شخصي</string>
+    <string name="problem_ai_unavailable">لا يستطيع المحاسب الإجابة الآن. ما زالت الأسئلة عن دفاترك تُجاب؛ جرّب الباقي بعد دقائق.</string>
+    <string name="problem_ai_budget">نفدت حصة الذكاء الاصطناعي لليوم وتتجدد خلال يوم؛ ما زالت الأسئلة عن دفاترك تُجاب.</string>
+    <string name="problem_rate_limited">رسائل كثيرة دفعة واحدة. حاول بعد دقيقة.</string>
+    <string name="file_open">اضغط للفتح</string>
+    <string name="file_share">مشاركة</string>
+    <string name="file_failed">لم يُنزَّل المستند. تحقق من الاتصال وحاول مرة أخرى.</string>
+    <string name="threads_title">المحادثات</string>
+    <string name="threads_new">محادثة جديدة</string>
+    <string name="threads_none">لا توجد محادثات بعد.</string>
+    <string name="threads_untitled">بلا عنوان</string>
+    <string name="threads_messages">%1$s رسائل</string>
+    <string-array name="suggestions">
+        <item>كم لدينا من المال؟</item>
+        <item>من يدين لنا؟</item>
+        <item>ماذا علينا؟</item>
+        <item>كم أنفقنا هذا الشهر؟</item>
+    </string-array>
+</resources>

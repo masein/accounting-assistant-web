@@ -67,6 +67,12 @@ class ApiClient(
         return r
     }
 
+    /** The phones signed in to this account, this one marked. */
+    suspend fun devices(): List<DeviceDto> = call<Unit, List<DeviceDto>>("GET", "/devices", null, serializer())
+
+    /** Sign another phone out: a lost one, an old one. */
+    suspend fun revokeDevice(id: String) { call<Unit, JsonObject>("DELETE", "/devices/$id", null, serializer()) }
+
     suspend fun signOut() {
         runCatching { call<Unit, JsonObject>("DELETE", "/session", null, serializer()) }
         store.clear()

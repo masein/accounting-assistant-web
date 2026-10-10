@@ -129,3 +129,12 @@ data class BriefingReply(
 
 @Serializable
 data class BriefingRequest(@SerialName("thread_id") val threadId: String? = null)
+
+@Serializable
+data class DeviceDto(
+    val id: String,
+    val name: String,
+    val platform: String = "android",
+    @SerialName("last_seen_at") val lastSeenAt: String? = null,
+    @SerialName("this_device") val thisDevice: Boolean = false,
+)

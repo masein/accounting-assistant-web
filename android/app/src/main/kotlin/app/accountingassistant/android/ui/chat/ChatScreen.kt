@@ -18,6 +18,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import app.accountingassistant.android.util.Picked
@@ -74,6 +77,8 @@ fun ChatScreen(
     onDetach: (String) -> Unit = {},
     onSpeakStart: () -> Unit = {},
     onSpeakEnd: () -> Unit = {},
+    userInitial: String = "",
+    onAccount: () -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -88,6 +93,15 @@ fun ChatScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 BooksBadge(name = booksName, color = booksColor, onClick = onBooks)
+                if (userInitial.isNotEmpty()) {
+                    val account = stringResource(R.string.account)
+                    Surface(onClick = onAccount, shape = CircleShape, color = c.surface2,
+                            modifier = Modifier.size(34.dp).semantics { contentDescription = account }) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(userInitial, color = c.muted, fontWeight = FontWeight(700), fontSize = 14.sp)
+                        }
+                    }
+                }
             }
             LazyColumn(
                 state = list,

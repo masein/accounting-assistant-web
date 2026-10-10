@@ -45,4 +45,22 @@
     <string name="transcribing">Writing down what you said…</string>
     <string name="error_upload">The file didn\'t upload. Check the connection and try again.</string>
     <string name="error_voice">Couldn\'t make out the voice note. Try again, or type it.</string>
+    <string name="lock_title">App lock</string>
+    <string name="lock_hint">Ask for your fingerprint, face or PIN when the app opens and after two minutes away.</string>
+    <string name="lock_unavailable">Set a screen lock on this phone to lock the app with it.</string>
+    <string name="lock_locked">Your books are locked</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="devices_title">Phones signed in</string>
+    <string name="device_this">This phone</string>
+    <string name="device_other">Another phone</string>
+    <string name="device_sign_out">Sign out</string>
+    <string name="sign_out">Sign out of this phone</string>
+    <string name="account">Account</string>
+    <string name="role_owner">Owner</string>
+    <string name="role_cfo">CFO</string>
+    <string name="role_accountant">Accountant</string>
+    <string name="role_manager">Manager</string>
+    <string name="role_employee">Employee</string>
+    <string name="role_viewer">Viewer</string>
+    <string name="role_personal">Personal</string>
 </resources>

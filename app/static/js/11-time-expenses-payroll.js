@@ -784,6 +784,7 @@
       await loadPayProfiles();
       await loadPayRuns();
       await loadPayrollRules();
+      prFillProfileForm();
     }
 
     // ── Statutory rule sets (read for everyone on this page; edit = super-admin) ──
@@ -828,10 +829,11 @@
       if (!summary) return;
       try {
         const res = await fetch(API + '/payroll/rules/active');
-        if (!res.ok) { summary.innerHTML = ''; return; }
+        if (!res.ok) { summary.innerHTML = ''; prRulesInForce = false; return; }
         const data = await res.json();
+        prRulesInForce = !!data.rule_set;
         summary.innerHTML = prRuleSummary(data.rule_set);
-      } catch (e) { summary.innerHTML = ''; }
+      } catch (e) { summary.innerHTML = ''; prRulesInForce = false; }
       const admin = document.getElementById('pr-rules-admin');
       if (!isSuperadmin) { admin.style.display = 'none'; return; }
       admin.style.display = '';
@@ -911,11 +913,39 @@
     }
     document.getElementById('pr-taxmode').addEventListener('change', prToggleTaxMode);
 
+    // The profiles as loaded, by employee. Picking an employee fills the form
+    // with theirs, so a save changes what was edited and nothing else (a blank
+    // form was saved over the profile). A new profile starts on the statutory
+    // rules when a rule set is in force for the company's locale.
+    let prProfiles = {};
+    let prRulesInForce = false;
+
+    function prFillProfileForm() {
+      const p = prProfiles[document.getElementById('pr-emp').value];
+      const val = (id, v) => { document.getElementById(id).value = v; };
+      const pct = (r) => +(r * 100).toFixed(2);
+      val('pr-type', p ? p.pay_type : 'salaried');
+      val('pr-base', p ? p.base_salary : 0);
+      val('pr-rate', p ? p.hourly_rate : 0);
+      val('pr-std', p ? p.standard_hours : 0);
+      val('pr-otm', p ? p.overtime_multiplier : 1.5);
+      val('pr-tax', p ? pct(p.income_tax_rate) : 0);
+      val('pr-ss', p ? pct(p.social_security_rate) : 0);
+      val('pr-pension', p ? pct(p.pension_rate) : 0);
+      val('pr-taxmode', p ? p.tax_mode : (prRulesInForce ? 'statutory' : 'flat'));
+      val('pr-children', p ? p.children : 0);
+      document.getElementById('pr-seniority').checked = !!(p && p.seniority_eligible);
+      val('pr-hired', (p && p.hired_on) || '');
+      prToggleTaxMode();
+    }
+    document.getElementById('pr-emp').addEventListener('change', prFillProfileForm);
+
     async function loadPayProfiles() {
       try {
         const res = await fetch(API + '/payroll/profiles');
         if (!res.ok) return;
         const rows = await res.json();
+        prProfiles = Object.fromEntries(rows.map(p => [p.entity_id, p]));
         const body = document.getElementById('pr-profiles-body');
         body.innerHTML = '';
         if (!rows.length) {
@@ -929,7 +959,7 @@
           const tr = document.createElement('tr');
           const statutory = p.tax_mode === 'statutory';
           const statutoryCell = `<span title="${t('payrollTaxModeStatutory')}">${t('payrollStatutoryShort')}${p.children ? ` · ${p.children} ${t('payrollChildrenShort')}` : ''}</span>`;
-          const hired = p.hired_on ? `<div style="color:var(--text-muted);font-size:0.78rem;">${escapeHtml(tf('payrollHiredSince', { date: p.hired_on }))}</div>` : '';
+          const hired = p.hired_on ? `<div style="color:var(--text-muted);font-size:0.78rem;">${escapeHtml(tf('payrollHiredSince', { date: '\u2066' + formatDisplayDate(p.hired_on) + '\u2069' }))}</div>` : '';
           tr.innerHTML = `<td>${escapeHtml(p.employee_name || '')}${hired}</td><td>${t(p.pay_type === 'hourly' ? 'payrollHourly' : 'payrollSalaried')}</td>
             <td>${pay}</td><td>${statutory ? statutoryCell : (p.income_tax_rate * 100).toFixed(1) + '%'}</td>
             <td>${statutory ? t('payrollStatutoryShort') : (p.social_security_rate * 100).toFixed(1) + '%'}</td><td>${(p.pension_rate * 100).toFixed(1)}%</td>`;
@@ -964,6 +994,7 @@
         if (!res.ok) { showAlert((data && data.detail) ? data.detail : t('payrollSaveFailed'), true); return; }
         showAlert(t('payrollProfileSaved'));
         await loadPayProfiles();
+        prFillProfileForm();
       } catch (e) { showAlert(t('payrollSaveFailed'), true); }
     });
 

@@ -19,7 +19,7 @@ FLOW_USERS = ("e2e_forecast", "e2e_assets", "e2e_stock", "e2e_chart", "e2e_repor
               "e2e_tables", "e2e_a11y", "e2e_keyboard", "e2e_jalali",
               "e2e_letters", "e2e_arabic", "e2e_chat", "e2e_messages",
               "e2e_persian_2", "e2e_arabic_2", "e2e_files", "e2e_jdate", "e2e_valid", "e2e_petty",
-              "e2e_units", "e2e_units_2", "e2e_screen", "e2e_locale", "e2e_chat_csv", "e2e_banks", "e2e_touch", "e2e_ux", "e2e_invform", "e2e_tablet", "e2e_bankcode", "e2e_rows", "e2e_credits", "e2e_dash_tabs", "e2e_taps")
+              "e2e_units", "e2e_units_2", "e2e_screen", "e2e_locale", "e2e_chat_csv", "e2e_banks", "e2e_touch", "e2e_ux", "e2e_invform", "e2e_tablet", "e2e_bankcode", "e2e_rows", "e2e_credits", "e2e_dash_tabs", "e2e_taps", "e2e_payroll")
 # one user per remaining company role, for checks that differ by role (what a
 # page load fetches, which pages a role lands on)
 ROLE_USERS = {"e2e_cfo": "cfo", "e2e_manager": "manager", "e2e_employee": "employee", "e2e_viewer": "viewer"}

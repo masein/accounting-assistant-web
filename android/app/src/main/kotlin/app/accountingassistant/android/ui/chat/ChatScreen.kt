@@ -296,7 +296,13 @@ private fun TableCard(item: ChatItem.Table, lang: String) {
                         Text(row.label, color = c.ink, fontSize = 13.sp)
                         row.sub?.let { Text(Numbers.digits(it, lang), color = c.muted, fontSize = 11.sp) }
                     }
-                    Text(Numbers.amount(row.value, lang), color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(700))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(Numbers.amount(row.value, lang), color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(700))
+                        row.gain?.let { g ->
+                            Text(Numbers.signed(g, lang), color = if (g > 0) c.firouzeh else c.pomegranate,
+                                 fontSize = 11.sp)
+                        }
+                    }
                 }
             }
         }

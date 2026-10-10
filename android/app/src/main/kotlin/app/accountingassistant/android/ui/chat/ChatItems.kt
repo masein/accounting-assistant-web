@@ -77,7 +77,8 @@ sealed interface ChatItem {
     /** A document from the books: open it, or share it to another app. */
     data class File(override val id: String, val name: String, val path: String, val mime: String) : ChatItem
     data class Table(override val id: String, val kind: String, val rows: List<Row>, val title: String? = null) : ChatItem {
-        data class Row(val label: String, val sub: String?, val value: Long, val currency: String?)
+        /** [gain]: what today's rate adds to a holding (gold, currency). */
+        data class Row(val label: String, val sub: String?, val value: Long, val currency: String?, val gain: Long? = null)
     }
     /** The turn failed: a known [code] is said in the user's language, else [detail]. */
     data class Problem(override val id: String, val code: String?, val detail: String) : ChatItem
@@ -148,7 +149,8 @@ fun parseBlock(b: JsonObject): ChatItem {
         "figure" -> ChatItem.Figure(id, b.str("label").orEmpty(), b.long("value") ?: 0, b.str("currency"))
         "file" -> fileOf(b) ?: ChatItem.Fallback(id, b.str("fallback_text").orEmpty())
         "table" -> ChatItem.Table(id, b.str("kind").orEmpty(), b["rows"].array().map {
-            ChatItem.Table.Row(it.str("label").orEmpty(), it.str("sub"), it.long("value") ?: 0, it.str("currency"))
+            ChatItem.Table.Row(it.str("label").orEmpty(), it.str("sub"), it.long("value") ?: 0, it.str("currency"),
+                               gain = it.long("gain")?.takeIf { g -> g != 0L })
         }, title = b.str("title"))
         else -> ChatItem.Fallback(id, b.str("fallback_text").orEmpty())
     }

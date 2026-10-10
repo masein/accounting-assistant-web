@@ -239,7 +239,8 @@
             "invoices",
             "budgets",
             "payroll_runs",
-            "pay_history"
+            "pay_history",
+            "holdings"
           ]
         },
         "title": {
@@ -700,7 +701,8 @@
         },
         "kind": {
           "enum": [
-            "cash_forecast"
+            "cash_forecast",
+            "net_worth"
           ]
         },
         "style": {

@@ -26,4 +26,10 @@ class NumbersTest {
         assertEquals("2.5", Numbers.normalise("۲٫۵"))
         assertEquals("120", Numbers.normalise("١٢٠"))
     }
+
+    @Test fun aChangeKeepsItsSignInFrontInEveryDirection() {
+        assertEquals("\u2066+۱۸۰٬۰۰۰٬۰۰۰\u2069", Numbers.signed(180_000_000, "fa"))
+        assertEquals("\u2066−2,500\u2069", Numbers.signed(-2_500, "en"))
+        assertEquals("\u20660\u2069", Numbers.signed(0, "en"))
+    }
 }

@@ -60,6 +60,11 @@ _INTENTS: list[tuple[str, re.Pattern]] = [
         r"|خرج(ِ)? این ماه|این ماه چقدر خرج|چقدر خرج کرد(م|یم)|هزینه[‌ ]?(ها|های)? این ماه"
         r"|cu[aá]nto (gastamos|gast[eé]|hemos gastado) este mes|gastos de este mes|كم (أنفقنا|أنفقت|صرفنا|صرفت) هذا الشهر|مصاريف هذا الشهر",
         re.IGNORECASE)),
+    ("net_worth", re.compile(
+        r"\bnet worth\b|\bhow much am i worth\b|\bwhat am i worth\b"
+        r"|دارایی خالص|ارزش خالص|کل دارایی ?(ها)?(م| من)|چقدر می[‌ ]?ارزم"
+        r"|patrimonio neto|cu[aá]nto valgo|صافي (الثروة|القيمة)|كم أملك",
+        re.IGNORECASE)),
     ("cash", re.compile(
         r"\bhow much (cash|money) (do|have) (we|i)\b|\bcash (balance|position|on hand)\b|\bbank balance\b"
         r"|\bwhat'?s in the bank\b|\bhow much is in the bank\b"
@@ -144,6 +149,12 @@ _T = {
                  "ar": "النقد في الأسابيع الـ{weeks} القادمة، تقديرًا: من {opening} إلى {closing} {cur}؛ الأدنى، {lowest}، في أسبوع {low_week}."},
     "forecast_negative": {"en": " It goes below zero in the week of {week}.", "fa": " در هفتهٔ {week} منفی می‌شود.",
                           "es": " Baja de cero la semana del {week}.", "ar": " ينخفض تحت الصفر في أسبوع {week}."},
+    "net_worth": {"en": "Your net worth today: {net} {cur}: {assets} owned, {owed} owed.",
+                  "fa": "دارایی خالص شما امروز: {net} {cur}؛ {assets} دارایی، {owed} بدهی.",
+                  "es": "Tu patrimonio neto hoy: {net} {cur}: {assets} en activos, {owed} en deudas.",
+                  "ar": "صافي ثروتك اليوم: {net} {cur}: {assets} أصول، {owed} ديون."},
+    "net_worth_gain": {"en": " Gold and currency at today's rates add {gain}.", "fa": " طلا و ارز به نرخ امروز {gain} بیشتر می‌ارزند.",
+                       "es": " El oro y las divisas a precio de hoy suman {gain}.", "ar": " الذهب والعملات بسعر اليوم تضيف {gain}."},
     "budget_none": {"en": "No budgets are set for this month.", "fa": "برای این ماه بودجه‌ای تعیین نشده است.",
                     "es": "No hay presupuestos para este mes.", "ar": "لا توجد ميزانيات لهذا الشهر."},
 }
@@ -189,6 +200,16 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
         from app.services.ai_accountant.spending_tools import GetSpendingSummary, GetSpendingSummaryInput
         r = await run(GetSpendingSummary(), GetSpendingSummaryInput(period="this_month"))
         text = _say("spending", lang, total=_money(r.get("total") or 0, lang), cur=_cur(r.get("currency"), lang))
+    elif intent == "net_worth":
+        if mode != "personal":
+            return None                     # a company's worth is its equity: the model answers that
+        from app.services.ai_accountant.personal_tools import GetNetWorth, GetNetWorthInput
+        r = await run(GetNetWorth(), GetNetWorthInput())
+        cur = _cur(r.get("currency"), lang)
+        text = _say("net_worth", lang, net=_money(r["net_worth"], lang), cur=cur, assets=_money(r["total_assets"], lang),
+                    owed=_money(r["total_liabilities"], lang))
+        if r.get("unrealized_gain"):
+            text += _say("net_worth_gain", lang, gain=_money(r["unrealized_gain"], lang))
     elif intent == "forecast":
         from app.services.ai_accountant.blocks import display_date
         from app.services.ai_accountant.cash_tools import GetCashForecast, GetCashForecastInput

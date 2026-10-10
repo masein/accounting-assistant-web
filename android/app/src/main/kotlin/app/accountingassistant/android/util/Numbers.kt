@@ -24,6 +24,13 @@ object Numbers {
         return digits((if (value < 0) "−" else "") + grouped, lang)
     }
 
+    /**
+     * A change with its sign, kept left to right as one unit: «+۱۸۰٬۰۰۰٬۰۰۰»
+     * inside Persian words would otherwise put the plus after the number.
+     */
+    fun signed(value: Long, lang: String): String =
+        "\u2066" + (if (value > 0) "+" else if (value < 0) "−" else "") + amount(kotlin.math.abs(value), lang) + "\u2069"
+
     /** Persian and Arabic digits typed by the user, back to Western ones. */
     fun normalise(text: String): String = text.map {
         val p = PERSIAN.indexOf(it)

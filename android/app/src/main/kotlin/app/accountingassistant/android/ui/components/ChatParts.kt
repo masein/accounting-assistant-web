@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -96,8 +97,9 @@ fun UserBubble(text: String, from: String? = null, modifier: Modifier = Modifier
                         Text(name, color = c.onBubble.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 1)
                     }
                 }
+                // each message in its own direction: "will we have enough cash?" keeps its question mark at the end
                 if (text.isNotEmpty()) Text(text, color = c.onBubble, fontSize = 14.sp, lineHeight = 21.sp,
-                     style = TextStyle(fontFeatureSettings = "tnum"))
+                     style = TextStyle(fontFeatureSettings = "tnum", textDirection = TextDirection.Content))
             }
         }
     }
@@ -107,7 +109,8 @@ fun UserBubble(text: String, from: String? = null, modifier: Modifier = Modifier
 @Composable
 fun AssistantText(text: String, modifier: Modifier = Modifier) {
     val c = LocalAccountantColors.current
-    Text(text, color = c.ink, fontSize = 14.sp, lineHeight = 22.sp, modifier = modifier.fillMaxWidth())
+    Text(text, color = c.ink, fontSize = 14.sp, lineHeight = 22.sp, modifier = modifier.fillMaxWidth(),
+         style = TextStyle(textDirection = TextDirection.Content))
 }
 
 /** One question's likely answers as chips; the picked one is tinted firouzeh. */

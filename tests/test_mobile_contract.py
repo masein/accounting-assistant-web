@@ -143,6 +143,17 @@ def _conversations(db) -> dict[str, list[dict]]:
                         {"category": "سفر", "actual": 15_000_000, "budget": 20_000_000, "used_pct": 75, "state": "ok"}]})]),
         "invoice-pdf-en": turn(lang="en", calendar="gregorian", text="Here is INV-1042.", calls=[("get_invoice", {
             "id": "7d0c9a40-1f6b-4b7e-8a3c-2b9d6e5f4a31", "number": "INV-1042"})]),
+        "forecast-fa": turn(text="نقدینگی ۱۳ هفتهٔ آینده، به تخمین.", calls=[("get_cash_forecast", {
+            "currency": "IRR", "as_of": "2026-10-10", "opening_cash": 1_240_000_000, "closing_cash": 610_000_000,
+            "lowest": {"week_start": "2026-11-30", "closing": -120_000_000}, "first_negative_week": "2026-11-30",
+            "weeks": [{"week_start": week, "inflow": 0, "outflow": 0, "closing": c, "risk": c < 0,
+                       "main_items": [], "other_items": 0}
+                      for week, c in zip(["2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02", "2026-11-09", "2026-11-16",
+                                          "2026-11-23", "2026-11-30", "2026-12-07", "2026-12-14", "2026-12-21", "2026-12-28",
+                                          "2027-01-04"],
+                                           [1_100_000_000, 980_000_000, 860_000_000, 640_000_000, 420_000_000, 180_000_000,
+                                            40_000_000, -120_000_000, 90_000_000, 260_000_000, 380_000_000, 500_000_000,
+                                            610_000_000])]})]),
         "draft-fa": turn(text="پیش‌نویس سند آماده است.", proposals=[proposal]),
         "intake-en": turn(lang="en", calendar="gregorian", text="12 rows read from the statement; 10 match.",
                           intake={"kind": "transactions", "batch_id": "batch-7", "rows": 12, "matched": 10}),

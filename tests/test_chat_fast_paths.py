@@ -30,6 +30,13 @@ from tests.test_ai_guardrails import D, _login, co  # noqa: F401  (fixture)
     ("من يدين لنا؟", "receivables"),
     ("ماذا علينا؟", "payables"),
     ("كم أنفقنا هذا الشهر؟", "spending"),
+    # the forecast is about the future by nature; the books answer it too
+    ("پیش‌بینی نقدینگی ماه بعد", "forecast"),
+    ("will we have enough cash?", "forecast"),
+    ("cash forecast", "forecast"),
+    ("کی پول کم میاریم؟", "forecast"),
+    ("previsión de caja", "forecast"),
+    ("توقعات السيولة", "forecast"),
 ])
 def test_n10_these_questions_are_answered_from_the_books(message, intent):
     assert match(message) == intent
@@ -39,7 +46,8 @@ def test_n10_these_questions_are_answered_from_the_books(message, intent):
     "record 500 cash for lunch",                          # an amount: recording
     "۲۵۰ هزار تومن ناهار از موجودی کارت",                  # Persian digits too
     "how much cash will we have next month?",            # the future: the forecast
-    "پیش‌بینی نقدینگی ماه بعد",
+    "what if the Mellat cheque bounces? cash forecast",   # a what-if: the model runs the scenario
+    "اگه چک ملت برگشت بخوره پیش‌بینی نقدینگی چی میشه؟",
     "I moved some money between the bank accounts yesterday and want to check that the bank balance is right",
     "invoice Aria for consulting",
     "bank balance, and record the rent",                  # two requests
@@ -131,3 +139,27 @@ def test_n11_a_recording_still_goes_to_the_model(client, db, co, monkeypatch):
     web = _login(client, co["cid"], co["owner"])
     web.post("/ai-accountant/chat", json={"message": "record 500 cash for lunch"})
     assert seen == ["record 500 cash for lunch"]
+
+
+def test_n32_the_forecast_comes_back_as_a_chart_with_no_model(client, db, co, no_model):
+    """Scenario N32: «پیش‌بینی نقدینگی» on the phone is a chart of the coming weeks and one sentence."""
+    from tests.test_mobile_contract import contract_errors
+    web = _login(client, co["cid"], co["owner"])
+    _seed(web)
+    web.put("/api/mobile/v1/me/language", json={"language": "fa"})
+    r = web.post("/api/mobile/v1/chat", json={"message": "پیش‌بینی نقدینگی"})
+    assert r.status_code == 200, r.text
+    chart, words = r.json()["blocks"]
+    assert chart["type"] == "chart" and chart["kind"] == "cash_forecast" and len(chart["points"]) == 13
+    assert chart["start"]["value"] == 49_600_000                       # today's cash: 50m in, the taxi out
+    assert contract_errors(chart) == []
+    assert words["text"].startswith("نقدینگی ۱۳ هفتهٔ آینده، به تخمین: از ۴۹٬۶۰۰٬۰۰۰")
+
+
+def test_n32_a_gregorian_company_dates_in_the_readers_language():
+    from app.services.ai_accountant.blocks import display_date
+    assert display_date("2026-10-05", "gregorian", "fa") == "۵ اکتبر ۲۰۲۶"
+    assert display_date("2026-10-05", "gregorian", "ar") == "5 أكتوبر 2026"
+    assert display_date("2026-10-05", "gregorian", "es") == "5 oct 2026"
+    assert display_date("2026-10-05", "gregorian", "en") == "5 Oct 2026"
+    assert display_date("2026-10-10", "jalali", "fa") == "۱۸ مهر ۱۴۰۵"

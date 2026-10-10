@@ -70,4 +70,13 @@ class ChatItemsTest {
         val several = p.copy(lines = p.lines + p.lines)
         assertEquals(EditRequest(description = "Rent"), editChange(several, "en", "2026-10-10", "Rent", "1"))
     }
+
+    @Test fun theChartIsDrawnToScaleWithZeroInIt() {
+        val y = app.accountingassistant.android.ui.chat.chartScale(listOf(100L, -50L, 250L))
+        assertEquals(0f, y(-50L))                                          // the bottom is the lowest value…
+        assertEquals(1f, y(250L))                                          // …the top the highest
+        assertEquals(50f / 300f, y(0L), 1e-6f)                             // and zero sits where it is
+        val allAbove = app.accountingassistant.android.ui.chat.chartScale(listOf(400L, 800L))
+        assertEquals(0f, allAbove(0L))                                     // a chart of money always shows zero
+    }
 }

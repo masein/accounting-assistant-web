@@ -130,4 +130,10 @@
         <item quantity="one">%d duplicada</item>
         <item quantity="other">%d duplicadas</item>
     </plurals>
+    <string name="chart_estimate">Una estimación</string>
+    <string name="chart_today">Hoy</string>
+    <string name="chart_lowest">Mínimo: %1$s, la semana del %2$s</string>
+    <string name="chart_negative">Bajo cero desde la semana del %1$s</string>
+    <string name="chart_after">dentro de %1$d semanas</string>
+    <string name="chart_flat">Aún no se conoce ningún cobro ni pago en estas semanas.</string>
 </resources>

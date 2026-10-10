@@ -182,4 +182,50 @@ class ChatScreenScreenshotTest {
         compose.mainClock.advanceTimeBy(1500)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-statement.png")
     }
+
+    private fun forecast(name: String, fa: Boolean, dark: Boolean) {
+        val weeks = listOf("2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02", "2026-11-09", "2026-11-16", "2026-11-23",
+                           "2026-11-30", "2026-12-07", "2026-12-14", "2026-12-21", "2026-12-28", "2027-01-04")
+        val closing = listOf(1_100L, 980, 860, 640, 420, 180, 40, -120, 90, 260, 380, 500, 610).map { it * 1_000_000 }
+        val chart = ChatItem.Chart("c1", "cash_forecast", if (fa) "نقدینگی هفته‌های آینده" else "Cash, the coming weeks", "IRR",
+                                   listOf(ChatItem.Chart.Point("2026-10-10", 1_240_000_000)) + weeks.zip(closing) { w, v -> ChatItem.Chart.Point(w, v) },
+                                   ChatItem.Chart.Point("2026-11-30", -120_000_000), "2026-11-30")
+        compose.setContent {
+            AccountantTheme(dark = dark) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(
+                        ChatItem.User("u1", if (fa) "پیش‌بینی نقدینگی" else "Will we have enough cash?"), chart,
+                        ChatItem.Words("w1", if (fa) "نقدینگی ۱۳ هفتهٔ آینده، به تخمین: از ۱٬۲۴۰٬۰۰۰٬۰۰۰ به ۶۱۰٬۰۰۰٬۰۰۰ ریال؛ کمترین، −۱۲۰٬۰۰۰٬۰۰۰، در هفتهٔ ۹ آذر ۱۴۰۵. در هفتهٔ ۹ آذر ۱۴۰۵ منفی می‌شود."
+                                             else "Cash over the next 13 weeks, an estimate: from 1,240,000,000 to 610,000,000 IRR; the lowest, −120,000,000, in the week of 30 Nov 2026. It goes below zero in the week of 30 Nov 2026."))),
+                    lang = if (fa) "fa" else "en", booksName = if (fa) "شرکت بازرگانی آرمان" else "Arman Trading Ltd", personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
+    }
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianForecastChart() = forecast("chat-fa-forecast", fa = true, dark = false)
+
+    @Test @Config(qualifiers = "+en-night")
+    fun englishForecastChartDark() = forecast("chat-en-forecast-dark", fa = false, dark = true)
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianFlatForecastUnderAnEnglishQuestion() {
+        val flat = ChatItem.Chart("c2", "cash_forecast", "نقدینگی هفته‌های آینده", "IRR",
+                                  (0..13).map { ChatItem.Chart.Point("2026-10-${10 + it}", 0) }, ChatItem.Chart.Point("2026-10-12", 0), null)
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(ChatItem.User("u1", "will we have enough cash?"), flat)),
+                    lang = "fa", booksName = "دفتر شخصی", personalBooks = true,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-forecast-flat.png")
+    }
 }

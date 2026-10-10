@@ -18,6 +18,19 @@ sealed interface ChatItem {
                     val clientId: String? = null) : ChatItem
     /** The accountant's words; [nextStatement] offers the statement's next difference under them. */
     data class Words(override val id: String, val text: String, val nextStatement: String? = null) : ChatItem
+    /** A chart from the books, drawn to scale: the cash forecast, week by week from today. */
+    data class Chart(
+        override val id: String,
+        val kind: String,
+        val title: String,
+        val currency: String?,
+        val points: List<Point>,
+        val lowest: Point?,
+        val firstNegative: String?,
+    ) : ChatItem {
+        /** [x] is an ISO date; the first point is today's balance when the server sends it. */
+        data class Point(val x: String?, val value: Long)
+    }
     /** A bank statement read and checked against the books: what matched, what differs, the balance. */
     data class Statement(
         override val id: String,
@@ -125,6 +138,13 @@ fun parseBlock(b: JsonObject): ChatItem {
             dateIso = b.obj("date")?.str("iso"),
             editable = (b["actions"] as? JsonArray)?.any { (it as? JsonPrimitive)?.contentOrNull == "edit" } == true,
         )
+        "chart" -> {
+            fun point(o: JsonObject?) = o?.long("value")?.let { ChatItem.Chart.Point(o.str("x"), it) }
+            val points = listOfNotNull(point(b.obj("start"))) + b["points"].array().mapNotNull { point(it) }
+            if (points.size < 2) ChatItem.Fallback(id, b.str("fallback_text").orEmpty())
+            else ChatItem.Chart(id, b.str("kind").orEmpty(), b.str("title").orEmpty(), b.str("currency"), points,
+                                point(b.obj("lowest")), b.str("first_negative"))
+        }
         "figure" -> ChatItem.Figure(id, b.str("label").orEmpty(), b.long("value") ?: 0, b.str("currency"))
         "file" -> fileOf(b) ?: ChatItem.Fallback(id, b.str("fallback_text").orEmpty())
         "table" -> ChatItem.Table(id, b.str("kind").orEmpty(), b["rows"].array().map {

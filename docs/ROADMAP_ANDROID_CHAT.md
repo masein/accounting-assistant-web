@@ -504,6 +504,108 @@ TalkBack labels on every block (from `fallback_text`), font scaling up to 200%, 
 3. **Then:** Phase 2, with P2.1 several books first, since everything after it assumes it, and SMS and statements next.
 4. **Later:** Phase 3, then Phase 4 as HMRC and Moadian access arrive, then Phase 5.
 
+The design direction for all of it is §13.
+
+
+---
+
+## 13. Design direction (2026-10-10)
+
+The board, with five screens in Persian and English and a live "confirm and stamp" example, is [`docs/design/android-chat.html`](design/android-chat.html). Open it in a browser.
+
+### What 2026's best work does, and what we take from it
+
+| Pattern | Seen in | Our decision |
+|---|---|---|
+| **Spring motion and morphing shapes**, "expressive by default, restrained when necessary" | Material 3 Expressive (Android 16; Google's apps moved over by Dec 2025) | Springs move the cards; a morphing `LoadingIndicator` shows the tools running; the one theatrical moment is the stamp |
+| **A floating pill composer** | Gemini "Neural Expressive" (May 2026). Reviewers missed the suggestion chips it dropped | A floating translucent composer, and chips kept for the next likely step |
+| **Inline UI before the model's words**, only when it makes the task faster | OpenAI's guidelines for apps in ChatGPT | Each reply opens with its block, then one short sentence; no carousels for money |
+| **Plan → confirm → receipt → undo**, with friction matched to risk | 2026 agent launches; Smashing Magazine, Feb 2026 | Reading is free; posting is a voucher to confirm, then a stamped receipt with the two-minute undo |
+| **Glass only on controls that float** over content | Apple Liquid Glass guidance | Translucency for the composer, the voice pill and sheets only; cards stay solid so figures stay legible |
+| **A dark palette designed on its own**, not an inversion | "Dark mode 2.0" | A lapis night with lifted turquoise and warmer saffron, contrast-checked, kind to OLED |
+| **Calm money and fresh numbers** | Copilot Money; fintech UX guides | Every figure carries a freshness dot and a comparison; totals open to show their lines |
+| **Charts are craft** | Apple Design Awards 2026: Tide Guide won Visuals and Graphics | Charts drawn to scale, with an area fill, a faint grid and the latest point marked |
+
+### Identity
+
+**Colour.** The palette extends the web app's turquoise `#006d77`, saffron and navy ink into Persian tile colours. Each colour has one job:
+
+| Token | Light | Dark | Job |
+|---|---|---|---|
+| Firouzeh | `#006d77` | `#5fc9cd` | actions, focus, the seal |
+| Lapis | `#14243b` (ink) | `#09121c` (ground) | text by day, background by night |
+| Saffron | `#a9650a` | `#f0b45a` | personal books, budgets, things waiting for you |
+| Pomegranate | `#b23a26` | `#f17d68` | money leaving, overdue, reject |
+| Paper | `#f1f5f6` | `#121d2a` (surface) | the ground, faintly blue |
+| Indigo | `#2f4a9a` | `#93a8f2` | a third set of books |
+
+Each set of books gets one of these colours. It appears on the books badge, every card and the stamp.
+
+**Type:**
+- **Vazirmatn** (OFL, variable) for Persian UI. Title 800 at 20/28; body 400 at 15/24; label 600 at 12/16; figures in tabular digits.
+- **Roboto Flex** for English screens.
+- **Reem Kufi**, a Kufic face echoing bannai tile lettering, for display moments only (onboarding, empty states, the store listing).
+- Check that the shipped font builds space Persian digits evenly. Reem Kufi stretches the ZWNJ, so keep it to words without one.
+
+**Shape:**
+- **The voucher:** a draft is a سند card with a perforated fold above its buttons. Radius 20, notch 9.
+- **Pills** for the composer, chips and button groups.
+- **The round seal.**
+
+### The signature: the stamp
+
+Confirming a voucher presses a round seal onto it, the way an Iranian office stamps a finished document:
+- **What it shows:** «ثبت شد», the voucher number and the date.
+- **Where it sits:** straddling the tear line, never over a figure.
+- **Undo** lifts it off.
+
+Mechanics:
+- **Motion:** a spring scale-and-rotate of about 520 ms, with the card pressed down a pixel.
+- **Haptics:** `HapticFeedbackConstants.CONFIRM` (API 30+) on posting, `REJECT` on a refusal, a soft tick on chip selection.
+- **Reduced motion:** with that system setting on, the seal simply appears.
+
+### Rules every screen keeps
+
+1. **The books are always named:** badge, card and seal. After a switch, the first posting asks once more.
+2. **Money moves in full figures:**
+   - vouchers show the whole rial amount in tabular digits;
+   - short forms («۱٫۲ میلیارد») appear only in figures and tap to the exact sum.
+3. **One accent per job:**
+   - turquoise means you can act;
+   - saffron means personal books or attention;
+   - pomegranate means money leaving or something late;
+   - nothing else is coloured.
+4. **Motion means something happened:**
+   - springs follow your finger, and the stamp marks a posting;
+   - only listening and thinking animate on their own.
+5. **Persian first:**
+   - mirrored layout, right-to-left conversation, Persian digits, Jalali dates;
+   - English screens switch every one of these.
+6. **Private on the lock screen:**
+   - no amounts in notifications unless the user turns that on;
+   - fingerprint or PIN app lock.
+
+### Building it
+
+- **Compose and theme:**
+  - Compose with `MaterialExpressiveTheme`, the expressive motion scheme and our colour scheme;
+  - dynamic colour off, because books colours carry meaning;
+  - the expressive components (`ButtonGroup`, `LoadingIndicator`, floating toolbar, FAB menu) are in the `material3` 1.5 alpha line behind `@OptIn(ExperimentalMaterial3ExpressiveApi::class)`, so pin the version.
+- **Blur:** composer and sheet translucency uses `Modifier.blur`/`RenderEffect` on API 31+, with a solid surface below that.
+- **Next steps:**
+  - a clickable Compose prototype of the phase 1 screens;
+  - five personal users in Tehran and three company owners try capture, confirm, undo and switching books;
+  - what they stumble on goes back into the blocks before the server work ships.
+
+**Sources:**
+- [Material 3 Expressive launch](https://blog.google/products-and-platforms/platforms/android/material-3-expressive-android-wearos-launch/)
+- [Gemini Neural Expressive hands-on](https://www.androidauthority.com/gemini-neural-expressive-android-app-hands-on-3668985/)
+- [OpenAI UI guidelines](https://developers.openai.com/plugins/concepts/ui-guidelines)
+- [Designing for agentic AI](https://smashingmagazine.com/2026/02/designing-agentic-ai-practical-ux-patterns/)
+- [Liquid Glass](https://en.wikipedia.org/wiki/Liquid_Glass)
+- [Copilot Money](https://9to5mac.com/2026/01/01/copilot-money-brings-clarity-to-your-finances-now-on-the-web/)
+- [Fintech UI/UX 2026](https://www.theskinsfactory.com/uiux-design-blog/fintech-ui-ux-design)
+- [Apple Design Awards 2026](https://www.apple.com/newsroom/2026/06/apple-reveals-winners-of-the-2026-apple-design-awards/)
 ---
 
 ## Appendix A: five conversations

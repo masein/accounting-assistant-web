@@ -44,6 +44,15 @@ object AppIcons {
         }
     }
 
+    val Clip: ImageVector = icon("Clip") {
+        stroke {
+            moveTo(21f, 11.5f); lineTo(12.5f, 20f); curveTo(10.3f, 22.2f, 6.7f, 22.2f, 4.5f, 20f)
+            curveTo(2.3f, 17.8f, 2.3f, 14.2f, 4.5f, 12f); lineTo(13f, 3.5f); curveTo(14.5f, 2f, 16.9f, 2f, 18.4f, 3.5f)
+            curveTo(19.9f, 5f, 19.9f, 7.4f, 18.4f, 8.9f); lineTo(10f, 17.3f); curveTo(9.2f, 18.1f, 8f, 18.1f, 7.2f, 17.3f)
+            curveTo(6.4f, 16.5f, 6.4f, 15.3f, 7.2f, 14.5f); lineTo(15f, 6.7f)
+        }
+    }
+
     val ChevronDown: ImageVector = icon("ChevronDown") {
         stroke { moveTo(7f, 10f); lineTo(12f, 15f); lineTo(17f, 10f) }
     }

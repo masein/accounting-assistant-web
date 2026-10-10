@@ -13,8 +13,10 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.serializer
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -81,6 +83,23 @@ class ApiClient(
     suspend fun messages(threadId: String): List<ThreadMessageDto> =
         call<Unit, List<ThreadMessageDto>>("GET", "/threads/$threadId/messages", null, serializer())
 
+    /** A photo, a PDF, a statement: its id then goes with the chat message. */
+    suspend fun upload(bytes: ByteArray, fileName: String, contentType: String): UploadReply =
+        callBody("POST", "/uploads", { multipart(bytes, fileName, contentType) }, serializer())
+
+    /** A voice note's words, for the user to check before sending. */
+    suspend fun transcribe(bytes: ByteArray, fileName: String, contentType: String): TranscribeReply =
+        callBody("POST", "/transcribe", { multipart(bytes, fileName, contentType) }, serializer())
+
+    /** What needs attention today, said first when the app opens. */
+    suspend fun briefing(threadId: String?): BriefingReply =
+        call("POST", "/briefing", BriefingRequest(threadId), serializer())
+
+    private fun multipart(bytes: ByteArray, fileName: String, contentType: String): RequestBody =
+        MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("file", fileName, bytes.toRequestBody(contentType.toMediaType()))
+            .build()
+
     suspend fun confirm(token: String): ConfirmReply = call<Unit, ConfirmReply>("POST", "/proposals/$token/confirm", null, serializer())
 
     suspend fun cancel(token: String): StateReply = call<Unit, StateReply>("POST", "/proposals/$token/cancel", null, serializer())
@@ -91,11 +110,15 @@ class ApiClient(
 
     private suspend inline fun <reified B, R> call(
         method: String, path: String, body: B?, out: KSerializer<R>, auth: Boolean = true,
+    ): R = callBody(method, path, { body?.let { json.encodeToString(serializer<B>(), it).toRequestBody(JSON_TYPE) } }, out, auth)
+
+    private suspend fun <R> callBody(
+        method: String, path: String, body: () -> RequestBody?, out: KSerializer<R>, auth: Boolean = true,
     ): R {
-        val first = send(method, path, body?.let { json.encodeToString(serializer<B>(), it) }, auth)
+        val first = send(method, path, body(), auth)
         val result = if (first.status == 401 && auth && session != null) {
             val refusal = refresh(first.usedToken)
-            if (refusal == null) send(method, path, body?.let { json.encodeToString(serializer<B>(), it) }, auth)
+            if (refusal == null) send(method, path, body(), auth)
             else throw refusal.also { endSession(it) }
         } else first
         if (result.status !in 200..299) {
@@ -115,7 +138,7 @@ class ApiClient(
         }
     }
 
-    private suspend fun send(method: String, path: String, body: String?, auth: Boolean): Answer = withContext(Dispatchers.IO) {
+    private suspend fun send(method: String, path: String, body: RequestBody?, auth: Boolean): Answer = withContext(Dispatchers.IO) {
         val token = if (auth) session?.accessToken else null
         val req = Request.Builder()
             .url(base.trimEnd('/') + PREFIX + path)
@@ -123,7 +146,7 @@ class ApiClient(
             .header("X-UI-Language", language())
             .header("Accept", "application/json")
             .apply { if (token != null) header("Authorization", "Bearer $token") }
-            .method(method, body?.toRequestBody(JSON_TYPE) ?: if (method == "POST") "".toRequestBody(JSON_TYPE) else null)
+            .method(method, body ?: if (method == "POST") "".toRequestBody(JSON_TYPE) else null)
             .build()
         try {
             http.newCall(req).execute().use { r ->
@@ -143,7 +166,8 @@ class ApiClient(
         val current = session ?: return ended
         if (current.accessToken != staleToken) return null            // another call already refreshed
         val answer = send("POST", "/auth/refresh",
-                          json.encodeToString(RefreshRequest.serializer(), RefreshRequest(current.refreshToken, appVersion)),
+                          json.encodeToString(RefreshRequest.serializer(), RefreshRequest(current.refreshToken, appVersion))
+                              .toRequestBody(JSON_TYPE),
                           auth = false)
         if (answer.status != 200) return answer.error()
         val r = json.decodeFromString(SessionResponse.serializer(), answer.body)

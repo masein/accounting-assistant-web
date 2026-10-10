@@ -1,6 +1,20 @@
 package app.accountingassistant.android.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.background
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,14 +82,21 @@ fun BooksBadge(name: String, color: Color, onClick: () -> Unit, modifier: Modifi
 
 /** What the person sent: a dark bubble on the right, in Persian and English alike. */
 @Composable
-fun UserBubble(text: String, from: String? = null, modifier: Modifier = Modifier) {
+fun UserBubble(text: String, from: String? = null, modifier: Modifier = Modifier, files: List<String> = emptyList()) {
     val c = LocalAccountantColors.current
     Box(modifier.fillMaxWidth(), contentAlignment = AbsoluteAlignment.CenterRight) {
         Surface(color = c.bubble, shape = AbsoluteRoundedCornerShape(18.dp, 18.dp, 6.dp, 18.dp),
                 modifier = Modifier.widthIn(max = 280.dp)) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 if (from != null) Text(from, color = c.onBubble.copy(alpha = 0.7f), fontSize = 10.5.sp)
-                Text(text, color = c.onBubble, fontSize = 14.sp, lineHeight = 21.sp,
+                files.forEach { name ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(AppIcons.Clip, contentDescription = null, tint = c.onBubble.copy(alpha = 0.8f), modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(name, color = c.onBubble.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 1)
+                    }
+                }
+                if (text.isNotEmpty()) Text(text, color = c.onBubble, fontSize = 14.sp, lineHeight = 21.sp,
                      style = TextStyle(fontFeatureSettings = "tnum"))
             }
         }
@@ -187,35 +208,83 @@ fun ThinkingRow(text: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * The floating composer: attach, type, then speak or send. The one
- * translucent thing on the screen.
+ * The floating composer: attach, type, then hold to speak or send. The one
+ * translucent thing on the screen. While the mic is held it listens.
  */
 @Composable
 fun Composer(
-    value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, onAttach: () -> Unit, onSpeak: () -> Unit,
+    value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, onAttach: () -> Unit,
+    onSpeakStart: () -> Unit, onSpeakEnd: () -> Unit,
     modifier: Modifier = Modifier,
+    listening: Boolean = false,
+    canSend: Boolean = value.isNotBlank(),
 ) {
     val c = LocalAccountantColors.current
     Surface(shape = CircleShape, color = c.glass, border = BorderStroke(1.dp, c.line.copy(alpha = 0.6f)),
             shadowElevation = 6.dp, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onAttach, colors = IconButtonDefaults.iconButtonColors(containerColor = c.surface2, contentColor = c.ink),
+            IconButton(onClick = onAttach, enabled = !listening,
+                       colors = IconButtonDefaults.iconButtonColors(containerColor = c.surface2, contentColor = c.ink),
                        modifier = Modifier.size(38.dp)) {
                 Icon(AppIcons.Plus, contentDescription = stringResource(R.string.attach), modifier = Modifier.size(18.dp))
             }
             Box(Modifier.weight(1f).padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
-                if (value.isEmpty()) Text(stringResource(R.string.composer_hint), color = c.muted, fontSize = 14.sp, maxLines = 1)
-                BasicTextField(value = value, onValueChange = onValueChange, cursorBrush = SolidColor(c.firouzeh),
-                    textStyle = TextStyle(color = c.ink, fontSize = 14.sp, fontFamily = Vazirmatn), maxLines = 4,
-                    modifier = Modifier.fillMaxWidth())
+                if (listening) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        VoiceBars(Modifier.size(width = 54.dp, height = 22.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.listening), color = c.muted, fontSize = 13.sp, maxLines = 1)
+                    }
+                } else {
+                    if (value.isEmpty()) Text(stringResource(R.string.composer_hint), color = c.muted, fontSize = 14.sp, maxLines = 1)
+                    BasicTextField(value = value, onValueChange = onValueChange, cursorBrush = SolidColor(c.firouzeh),
+                        textStyle = TextStyle(color = c.ink, fontSize = 14.sp, fontFamily = Vazirmatn), maxLines = 4,
+                        modifier = Modifier.fillMaxWidth())
+                }
             }
-            val sending = value.isNotBlank()
-            IconButton(onClick = if (sending) onSend else onSpeak,
-                       colors = IconButtonDefaults.iconButtonColors(containerColor = c.firouzeh, contentColor = c.onFirouzeh),
-                       modifier = Modifier.size(38.dp)) {
-                Icon(if (sending) AppIcons.Send else AppIcons.Mic,
-                     contentDescription = stringResource(if (sending) R.string.send else R.string.speak), modifier = Modifier.size(18.dp))
+            if (canSend && !listening) {
+                IconButton(onClick = onSend,
+                           colors = IconButtonDefaults.iconButtonColors(containerColor = c.firouzeh, contentColor = c.onFirouzeh),
+                           modifier = Modifier.size(38.dp)) {
+                    Icon(AppIcons.Send, contentDescription = stringResource(R.string.send), modifier = Modifier.size(18.dp))
+                }
+            } else {
+                val speak = stringResource(R.string.speak)
+                Box(
+                    Modifier.size(if (listening) 44.dp else 38.dp).clip(CircleShape)
+                        .background(if (listening) c.pomegranate else c.firouzeh)
+                        .semantics { contentDescription = speak; role = Role.Button }
+                        .pointerInput(Unit) {
+                            detectTapGestures(onPress = {
+                                onSpeakStart()
+                                tryAwaitRelease()
+                                onSpeakEnd()
+                            })
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(AppIcons.Mic, contentDescription = null, tint = c.onFirouzeh, modifier = Modifier.size(18.dp))
+                }
             }
+        }
+    }
+}
+
+/** Listening: bars that rise and fall; still, when animations are off. */
+@Composable
+fun VoiceBars(modifier: Modifier = Modifier) {
+    val c = LocalAccountantColors.current
+    val t = rememberInfiniteTransition(label = "voice")
+    val phase by t.animateFloat(0f, (2 * Math.PI).toFloat(),
+        infiniteRepeatable(tween(1100, easing = LinearEasing)), label = "voice-phase")
+    Canvas(modifier) {
+        val n = 9
+        val w = size.width / (n * 2 - 1)
+        for (i in 0 until n) {
+            val h = size.height * (0.3f + 0.7f * kotlin.math.abs(kotlin.math.sin(phase + i * 0.7f)))
+            drawRoundRect(c.firouzeh, topLeft = Offset(i * 2 * w, (size.height - h) / 2),
+                          size = androidx.compose.ui.geometry.Size(w, h),
+                          cornerRadius = androidx.compose.ui.geometry.CornerRadius(w / 2))
         }
     }
 }

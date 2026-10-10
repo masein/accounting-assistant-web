@@ -18,6 +18,7 @@ import app.accountingassistant.android.ui.chat.ChatViewModel
 import app.accountingassistant.android.ui.signin.SignInScreen
 import app.accountingassistant.android.ui.signin.SignInViewModel
 import app.accountingassistant.android.ui.theme.AccountantTheme
+import app.accountingassistant.android.util.VoiceRecorder
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +49,7 @@ class MainActivity : ComponentActivity() {
                         initializer { ChatViewModel(app.api, suggestions) }
                     })
                     val s by vm.state.collectAsState()
+                    val recorder = remember { VoiceRecorder(this@MainActivity) }
                     val company = app.api.session?.company
                     ChatScreen(
                         state = s, lang = lang,
@@ -55,6 +57,12 @@ class MainActivity : ComponentActivity() {
                         personalBooks = company?.kind == "personal",
                         onDraft = vm::edit, onSend = vm::send, onConfirm = vm::confirm,
                         onCancel = vm::cancel, onUndo = vm::undo, onBooks = {}, onSuggestion = vm::ask,
+                        onPicked = { vm.attach(it.bytes, it.name, it.mime) }, onDetach = vm::detach,
+                        onSpeakStart = { if (runCatching { recorder.start() }.isSuccess) vm.listening(true) },
+                        onSpeakEnd = {
+                            vm.listening(false)
+                            recorder.stop()?.let { vm.heard(it.bytes, it.name, it.mime) }
+                        },
                     )
                 }
             }

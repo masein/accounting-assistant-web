@@ -19,8 +19,14 @@ data class ChatUiState(
     val sending: Boolean = false,
     val threadId: String? = null,
     val notice: Notice? = null,
+    /** Files uploaded and waiting to go with the next message. */
+    val attachments: List<Attachment> = emptyList(),
+    val uploading: Boolean = false,
+    val listening: Boolean = false,
+    val transcribing: Boolean = false,
 ) {
-    enum class Notice { Offline, Failed }
+    enum class Notice { Offline, Failed, UploadFailed, VoiceFailed }
+    data class Attachment(val id: String, val name: String)
 }
 
 /**
@@ -41,7 +47,10 @@ class ChatViewModel(
         if (restore) viewModelScope.launch { reopen() }
     }
 
-    /** Back to the latest conversation, its cards redrawn; a first run gets suggestions. */
+    /**
+     * Back to the latest conversation, its cards redrawn; a first run gets
+     * suggestions. Then the accountant says what needs attention today.
+     */
     private suspend fun reopen() {
         val latest = runCatching { api.threads().firstOrNull() }.getOrNull()
         val items = latest?.let { t ->
@@ -53,6 +62,35 @@ class ChatViewModel(
             if (it.items.isNotEmpty()) it
             else if (items.isEmpty()) it.copy(items = if (suggestions.isEmpty()) emptyList() else listOf(ChatItem.Suggestions(options = suggestions)))
             else it.copy(items = items, threadId = latest?.id)
+        }
+        runCatching { api.briefing(_state.value.threadId) }.getOrNull()?.let { b ->
+            if (b.blocks.isNotEmpty()) _state.update {
+                it.copy(items = it.items + b.blocks.map(::parseBlock), threadId = b.threadId ?: it.threadId)
+            }
+        }
+    }
+
+    /** A photo or a document: uploaded now, sent with the next message. */
+    fun attach(bytes: ByteArray, name: String, mime: String) {
+        _state.update { it.copy(uploading = true, notice = null) }
+        viewModelScope.launch {
+            runCatching { api.upload(bytes, name, mime) }
+                .onSuccess { r -> _state.update { it.copy(uploading = false, attachments = it.attachments + ChatUiState.Attachment(r.id, name)) } }
+                .onFailure { _state.update { it.copy(uploading = false, notice = ChatUiState.Notice.UploadFailed) } }
+        }
+    }
+
+    fun detach(id: String) = _state.update { it.copy(attachments = it.attachments.filterNot { a -> a.id == id }) }
+
+    fun listening(on: Boolean) = _state.update { it.copy(listening = on) }
+
+    /** A voice note's words go into the composer, to check before sending. */
+    fun heard(bytes: ByteArray, name: String, mime: String) {
+        _state.update { it.copy(listening = false, transcribing = true, notice = null) }
+        viewModelScope.launch {
+            runCatching { api.transcribe(bytes, name, mime) }
+                .onSuccess { r -> _state.update { it.copy(transcribing = false, draft = (it.draft + " " + r.text).trim()) } }
+                .onFailure { _state.update { it.copy(transcribing = false, notice = ChatUiState.Notice.VoiceFailed) } }
         }
     }
 
@@ -66,15 +104,16 @@ class ChatViewModel(
 
     fun send() {
         val text = _state.value.draft.trim()
-        if (text.isEmpty() || _state.value.sending) return
+        val files = _state.value.attachments
+        if ((text.isEmpty() && files.isEmpty()) || _state.value.sending || _state.value.uploading) return
         _state.update {
-            it.copy(draft = "", sending = true, notice = null,
+            it.copy(draft = "", sending = true, notice = null, attachments = emptyList(),
                     items = it.items.filterNot { item -> item is ChatItem.Suggestions } +
-                            ChatItem.User("u${now()}", text) + ChatItem.Thinking())
+                            ChatItem.User("u${now()}", text, files.map { f -> f.name }) + ChatItem.Thinking())
         }
         viewModelScope.launch {
             try {
-                val reply = api.chat(text, _state.value.threadId)
+                val reply = api.chat(text, _state.value.threadId, files.map { it.id })
                 _state.update { s ->
                     s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + reply.blocks.map(::parseBlock),
                            threadId = reply.threadId, sending = false)
@@ -82,7 +121,7 @@ class ChatViewModel(
             } catch (e: NetworkError) {
                 // keep the words in the box so nothing typed is lost
                 _state.update { s -> s.copy(items = s.items.dropLastWhile { it is ChatItem.Thinking || (it is ChatItem.User && it.text == text) },
-                                            draft = text, sending = false, notice = ChatUiState.Notice.Offline) }
+                                            draft = text, attachments = files, sending = false, notice = ChatUiState.Notice.Offline) }
             } catch (e: ApiError) {
                 _state.update { s -> s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + ChatItem.Fallback("e${now()}", e.message),
                                             sending = false, notice = ChatUiState.Notice.Failed) }

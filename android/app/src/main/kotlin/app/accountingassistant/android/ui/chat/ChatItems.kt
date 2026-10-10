@@ -13,7 +13,7 @@ import kotlinx.serialization.json.longOrNull
 sealed interface ChatItem {
     val id: String
 
-    data class User(override val id: String, val text: String) : ChatItem
+    data class User(override val id: String, val text: String, val files: List<String> = emptyList()) : ChatItem
     data class Words(override val id: String, val text: String) : ChatItem
     data class Proposal(
         override val id: String,

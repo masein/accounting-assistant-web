@@ -121,6 +121,12 @@ class Settings(BaseSettings):
     statement_llm_categorization: bool = True
     auth_cookie_name: str = "aa_session"
     auth_session_hours: int = 24
+    # Phone app sessions (/api/mobile/v1, roadmap ROADMAP_ANDROID_CHAT P0.1): a
+    # short bearer access token per device, renewed with a rotating refresh
+    # token. An app older than the minimum version is asked to update (426).
+    mobile_access_minutes: int = 15
+    mobile_refresh_days: int = 60
+    mobile_min_app_version: str = "0.1.0"
     # Whether the session cookie carries the `Secure` flag. Unset (None) →
     # follow the request scheme (Secure only over HTTPS), so plain-HTTP access
     # (e.g. http://SERVER_IP:8000 before a TLS proxy is in front) still works.

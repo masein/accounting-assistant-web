@@ -226,4 +226,16 @@ Each module runs a realistic month through the API, then its own figures, the le
 | M7 | Picking an employee loads their pay profile [#306] | Ali's profile: salaried, 150,000,000, statutory rules, 2 children, seniority, hired 1404/01/15. On the payroll page, pick Ali, change the children to 3, save | Picking Ali fills the form with his profile. After saving, only the children changed: salary, mode, seniority and hire date stand (a blank form was saved over them: salary 0, flat rates at 0%). Picking an employee with no profile resets the form to the defaults. The table gives the hire date in the company's calendar, «از 1404/01/15» (it read «از 04-04-2025», the ISO date reversed by the Persian around it). Through the API, an update changes only the fields it sends (`monthly_standard_hours`, `active` and the currency are no longer reset by a save that doesn't mention them) |
 | M8 | A new profile follows the rules in force [#306] | An Iranian company (the 1405 rules) and a UK one (2026/27): add a profile without touching "Tax & insurance" | The form starts on "Statutory rules", so insurance and income tax are computed (it started on flat rates at 0%: gross = net, nobody on the insurance list). With no rule set covering today, it starts on flat rates, as before |
 
-**Run order:** A → B → C → D → E → F → G → H → J → L → M; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+## N. The Android app's server (roadmap `ROADMAP_ANDROID_CHAT.md`, 2026-10-10)
+
+The phone talks to `/api/mobile/v1` with bearer tokens issued per device (`tests/test_mobile_sessions.py`).
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| N1 | Sign in from a phone [#308] | Sign in with a username, password and the device's name; then as a user with two-factor; then with the seeded default password; then into a suspended company | An access token (15 minutes), a refresh token and a device row named after the phone. With two-factor, a challenge first and the tokens after the code. The default password is refused («password_change_required»: change it on the web first); a suspended company is refused. A wrong password counts towards the same limits as the web sign-in |
+| N2 | Bearer requests [#308] | Call the API with the access token, without a CSRF header; put a web session token in the `Authorization` header; let the access token expire | The request is served: a bearer token is not ambient, so CSRF does not apply. A web cookie token is refused as a bearer (no device), and an expired one returns 401 with `session_expired`, so the app knows to refresh |
+| N3 | Refresh rotates [#308] | Refresh; then present the old refresh token again | A new pair, and the old refresh token stops working. Presenting a used refresh token again (a stolen copy) revokes the device: its access and refresh tokens both stop |
+| N4 | Devices [#308] | List my devices; revoke one; sign out on the phone; change the password on the web | The list marks this phone. A revoked device's access token is refused on its next request and its refresh fails. Signing out revokes this device only. A password change ends every device's session |
+| N5 | An app too old to talk to the server [#308] | Send `X-App-Version` below the server's minimum | 426 with `upgrade_required` and the minimum version, so the app can ask for an update |
+
+**Run order:** A → B → C → D → E → F → G → H → J → L → M → N; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.

@@ -49,6 +49,11 @@ REVIEWED = {
     ("POST", "/notifications/push/subscriptions"): "the device becomes the session user's",
     ("DELETE", "/notifications/push/subscriptions"): "only the user's own endpoint",
     ("POST", "/notifications/push/test"): "only the user's own devices",
+    # the phone app's session: every role signs in on a phone (app/api/mobile.py)
+    ("GET", "/api/mobile/v1/me"): "the session user's own profile and books",
+    ("DELETE", "/api/mobile/v1/session"): "signs out the device the bearer token was issued to",
+    ("GET", "/api/mobile/v1/devices"): "devices_of: the session user's own phones",
+    ("DELETE", "/api/mobile/v1/devices/{device_id}"): "_own_device: another user's phone is 404",
     # payroll — own payslips
     ("GET", "/payroll/my-payslips"): "the caller's linked employee only",
     ("GET", "/payroll/runs/{run_id}/payslip/{entity_id}"): "_enforce_own_payslip: another's is 404",

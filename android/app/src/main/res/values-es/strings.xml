@@ -79,4 +79,20 @@
     <string name="outbox_discard">No enviar</string>
     <string name="earlier">Mensajes anteriores</string>
     <string name="error_generic">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="voucher_asked_by">Espera tu aprobación · lo pidió %1$s</string>
+    <string name="voucher_approve">Aprobar</string>
+    <string name="voucher_reject">Rechazar</string>
+    <string name="voucher_withdraw">Retirar</string>
+    <string name="voucher_rejected">Rechazado</string>
+    <string name="voucher_replaced">Cambiado. El nuevo asiento va a continuación.</string>
+    <string name="edit_title">Cambiar el asiento</string>
+    <string name="edit_description">Descripción</string>
+    <string name="edit_amount">Importe</string>
+    <string name="edit_amount_locked">Este asiento tiene varias líneas. Dile al contador los nuevos importes.</string>
+    <string name="edit_date">Fecha</string>
+    <string name="edit_date_hint">Como 2026-10-10</string>
+    <string name="edit_save">Guardar cambios</string>
+    <string name="dialog_back">Volver</string>
+    <string name="reject_title">¿Rechazar este asiento?</string>
+    <string name="reject_reason">Motivo (opcional)</string>
 </resources>

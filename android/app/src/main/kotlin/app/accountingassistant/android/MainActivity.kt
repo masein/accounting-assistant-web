@@ -170,6 +170,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onThreads = { threadsOpen = true; vm.loadThreads() },
                         onRetry = vm::retry, onDiscard = vm::discard, onEarlier = vm::earlier,
+                        onApprove = vm::approve, onReject = vm::reject, onEdit = vm::edit,
                         userInitial = session?.user?.username?.take(1)?.uppercase() ?: "",
                         onAccount = {
                             account = true

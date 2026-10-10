@@ -79,4 +79,20 @@
     <string name="outbox_discard">نفرست</string>
     <string name="earlier">پیام‌های قبلی</string>
     <string name="error_generic">مشکلی پیش آمد. دوباره امتحان کنید.</string>
+    <string name="voucher_asked_by">منتظر تأیید شما · درخواست %1$s</string>
+    <string name="voucher_approve">تأیید</string>
+    <string name="voucher_reject">رد</string>
+    <string name="voucher_withdraw">پس گرفتن</string>
+    <string name="voucher_rejected">رد شد</string>
+    <string name="voucher_replaced">تغییر کرد؛ سند تازه پایین‌تر است.</string>
+    <string name="edit_title">تغییر سند</string>
+    <string name="edit_description">شرح</string>
+    <string name="edit_amount">مبلغ</string>
+    <string name="edit_amount_locked">این سند چند ردیف دارد. مبلغ‌های تازه را به حسابدار بگو.</string>
+    <string name="edit_date">تاریخ</string>
+    <string name="edit_date_hint">مثل ۱۴۰۵/۰۷/۱۸</string>
+    <string name="edit_save">ذخیرهٔ تغییرها</string>
+    <string name="dialog_back">بازگشت</string>
+    <string name="reject_title">این سند رد شود؟</string>
+    <string name="reject_reason">دلیل (اختیاری)</string>
 </resources>

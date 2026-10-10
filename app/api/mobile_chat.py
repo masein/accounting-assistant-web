@@ -285,13 +285,17 @@ def mobile_thread_messages(thread_id: str, response: Response,
         else:
             item["blocks"] = content.get("blocks") or [{"type": "text", "id": f"text:{m.id}", "text": content.get("text") or "",
                                                         "fallback_text": content.get("text") or ""}]
-            tokens += [b["token"] for b in item["blocks"] if b.get("type") == "proposal" and b.get("token")]
+            tokens += [b["token"] for b in item["blocks"] if b.get("type") in ("proposal", "approval") and b.get("token")]
         out.append(item)
     states = _proposal_states(db, tokens)
+    replaced = {b["replaces"] for item in out for b in item.get("blocks") or [] if b.get("replaces")}
     for item in out:
         for b in item.get("blocks") or []:
-            if b.get("type") == "proposal" and b.get("token") in states:
+            if b.get("type") in ("proposal", "approval") and b.get("token") in states:
                 b["state"] = states[b["token"]].status
+                b["approval_status"] = states[b["token"]].approval_status
+                if b["state"] == "cancelled" and b["token"] in replaced:
+                    b["state"] = "replaced"
     return out
 
 
@@ -319,6 +323,11 @@ def mobile_confirm(token: str, db: Session = Depends(get_db), user: SessionUser 
         return {"state": "waiting_for_approval", "approval": e.info}
     except (ProposalNotFound, ProposalExpired, ProposalCancelled, PermissionDenied) as e:
         raise _execute_errors(e)
+    return _posted(db, user, token, result)
+
+
+def _posted(db: Session, user: SessionUser, token: str, result) -> dict:
+    """The stamped receipt for a posting: its reference, date, undo window and document."""
     voucher = date_iso = None
     if result.transaction_id:
         from app.models.transaction import Transaction
@@ -373,6 +382,108 @@ def mobile_cancel(token: str, db: Session = Depends(get_db), user: SessionUser =
     return {"state": "cancelled"}
 
 
+class EditPayload(BaseModel):
+    date: str | None = Field(default=None, max_length=40)
+    description: str | None = Field(default=None, max_length=1024)
+    amount: int | None = Field(default=None, gt=0)
+
+
+@router.post("/proposals/{token}/edit")
+async def mobile_edit(token: str, payload: EditPayload, db: Session = Depends(get_db),
+                      user: SessionUser = Depends(get_current_user)) -> dict:
+    """Change a draft from its card: the date, the description or, for a
+    two-line voucher, the amount. The draft is proposed again through the
+    same checks; the old card is withdrawn and the new one comes back (and
+    is kept in the thread, after the old)."""
+    from app.services.ai_accountant.proposal_edit import EditRefused, edit_proposal
+    try:
+        result = await edit_proposal(db, token=token, user=user, date=payload.date,
+                                     description=payload.description, amount=payload.amount)
+    except EditRefused as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except (ProposalNotFound, ProposalCancelled, PermissionDenied) as e:
+        raise _execute_errors(e)
+    block = B.proposal_block(db, result, calendar=_calendar(db), lang=_user_language(db, user))
+    block["replaces"] = token                       # so the thread redraws the old card as changed, not cancelled
+    old = db.execute(select(AIProposal).where(AIProposal.confirmation_token == uuid.UUID(token))).scalars().first()
+    if old is not None and old.session_id is not None:
+        db.add(AIChatMessage(session_id=uuid.UUID(str(old.session_id)), role="assistant",
+                             content={"role": "assistant", "text": block["fallback_text"], "blocks": [block]}))
+        db.commit()
+    return {"replaces": token, "block": block}
+
+
+def _approval_block(db: Session, p: AIProposal, user: SessionUser, *, calendar: str, lang: str) -> dict:
+    """A voucher waiting for a second person, drawn for the person who can
+    decide: who asked and when, with Approve and Reject (or, for the one who
+    asked, only withdraw)."""
+    from app.services.ai_accountant import guardrails
+    d = guardrails.describe(db, p)
+    b = B.proposal_block(db, {"confirmation_token": p.confirmation_token, "tool_name": p.tool_name,
+                              "summary": p.summary or "", "preview": p.tool_input or {}, "needs_approval": True},
+                         calendar=calendar, lang=lang)
+    mine = str(d["requested_by_id"]) == str(user.user_id)
+    requested = d["requested_at"]
+    b.update({
+        "type": "approval", "id": f"approval:{d['confirmation_token']}",
+        "requested_by": str(d["requested_by"]), "mine": mine,
+        "requested_at": {"iso": requested, "display": B.display_date((requested or "")[:10] or None, calendar, lang)}
+        if requested else None,
+        "user_message": d["user_message"],
+        "actions": ["cancel"] if mine else ["approve", "reject"],
+        "fallback_text": f"{b['title']} ({d['requested_by']})",
+    })
+    return b
+
+
+def _waiting_for(db: Session, user: SessionUser) -> list[AIProposal]:
+    """What waits for this person's decision: someone else's, if they may approve."""
+    from app.core.permissions import Perm, role_can
+    from app.services.ai_accountant import guardrails
+    if not role_can(user.role, Perm.APPROVALS_WRITE):
+        return []
+    return [p for p in guardrails.waiting(db) if str(p.user_id) != str(user.user_id)]
+
+
+@router.get("/approvals")
+def mobile_approvals(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> list[dict]:
+    """Vouchers waiting for a second person, as cards to approve or reject
+    (the ones you asked for are listed too, to withdraw)."""
+    from app.services.ai_accountant import guardrails
+    calendar, lang = _calendar(db), _user_language(db, user)
+    return [_approval_block(db, p, user, calendar=calendar, lang=lang) for p in guardrails.waiting(db)]
+
+
+@router.post("/approvals/{token}/approve")
+def mobile_approve(token: str, db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    """The second person posts it: the stamped receipt comes back, with the
+    undo window, as when the asker confirms one below the threshold."""
+    from app.services.ai_accountant.execute_service import approve_proposal
+    try:
+        result = approve_proposal(db, confirmation_token=token, approver_user_id=user.user_id,
+                                  approver_username=user.username)
+    except (ProposalNotFound, ProposalExpired, ProposalCancelled, PermissionDenied) as e:
+        raise _execute_errors(e)
+    return _posted(db, user, token, result)
+
+
+class RejectPayload(BaseModel):
+    note: str | None = Field(default=None, max_length=1000)
+
+
+@router.post("/approvals/{token}/reject")
+def mobile_reject(token: str, payload: RejectPayload, db: Session = Depends(get_db),
+                  user: SessionUser = Depends(get_current_user)) -> dict:
+    """Turn it down, with a reason for the person who asked."""
+    from app.services.ai_accountant.execute_service import reject_proposal
+    try:
+        reject_proposal(db, confirmation_token=token, approver_user_id=user.user_id,
+                        approver_username=user.username, note=payload.note)
+    except (ProposalNotFound, ProposalCancelled, PermissionDenied) as e:
+        raise _execute_errors(e)
+    return {"state": "rejected"}
+
+
 @router.post("/postings/{audit_log_id}/undo")
 def mobile_undo(audit_log_id: str, db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
     """Take a posting back within its two minutes: the books look as if it
@@ -411,17 +522,69 @@ class BriefingPayload(BaseModel):
     thread_id: str | None = None
 
 
+_APPROVALS_LINE = {
+    "en": lambda n: f"{n} voucher{'s' if n != 1 else ''} wait{'s' if n == 1 else ''} for your approval.",
+    "fa": lambda n: f"{n} سند منتظر تأیید شماست.",
+    "es": lambda n: f"{n} asiento{'s' if n != 1 else ''} espera{'n' if n != 1 else ''} tu aprobación.",
+    "ar": lambda n: f"{n} من القيود بانتظار موافقتك." if n != 1 else "قيد واحد بانتظار موافقتك.",
+}
+
+
+def _said_today(db: Session, session_id, blocks: list[dict]) -> bool:
+    """The same briefing was already given in this thread today."""
+    since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = db.execute(
+        select(AIChatMessage).where(AIChatMessage.session_id == session_id, AIChatMessage.role == "assistant",
+                                    AIChatMessage.created_at >= since)
+        .order_by(AIChatMessage.created_at.desc()).limit(50)
+    ).scalars().all()
+    want = [(b.get("type"), b.get("text") or b.get("token")) for b in blocks]
+    return any((m.content or {}).get("briefing") and
+               [(b.get("type"), b.get("text") or b.get("token")) for b in (m.content or {}).get("blocks") or []] == want
+               for m in rows)
+
+
 @router.post("/briefing")
 def mobile_briefing(payload: BriefingPayload, db: Session = Depends(get_db),
                     user: SessionUser = Depends(get_current_user)) -> dict:
     """The accountant speaks first when the app opens: what needs attention
-    today, without a model call. No blocks when there is nothing to say."""
-    from app.api.ai_accountant import BriefingPayload as WebBriefing, briefing
-    r = briefing(WebBriefing(session_id=payload.thread_id), db=db, user=user)
-    if not r.text:
+    today, without a model call, and the vouchers waiting for this person's
+    approval, as cards to decide on. Said once a day in a thread, unless it
+    changed. No blocks when there is nothing (new) to say."""
+    from app.services.ai_accountant.orchestrator import _get_or_create_session
+    from app.services.documents.formatting import to_persian_digits
+    from app.services.insight_service import briefing_text, compute_insights
+    lang = _user_language(db, user)
+    calendar = _calendar(db)
+    text = briefing_text(compute_insights(db), lang)
+    waiting = _waiting_for(db, user)
+    if not text and not waiting:
         return {"thread_id": payload.thread_id, "blocks": []}
-    blocks = [{"type": "text", "id": f"briefing:{r.session_id}", "kind": "briefing", "text": r.text,
-               "fallback_text": r.text}]
-    _store_blocks(db, r.session_id, blocks)
-    return {"thread_id": r.session_id, "blocks": blocks}
+    try:
+        session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.thread_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    # ids unique to this message: a thread holds a briefing a day, and the
+    # phone keys its list by block id
+    mid = uuid.uuid4()
+    blocks = []
+    if text:
+        blocks.append({"type": "text", "id": f"briefing:{mid}", "kind": "briefing", "text": text,
+                       "fallback_text": text})
+    if waiting:
+        line = _APPROVALS_LINE.get(lang, _APPROVALS_LINE["en"])(len(waiting))
+        line = to_persian_digits(line) if lang == "fa" else line
+        blocks.append({"type": "text", "id": f"approvals:{mid}", "kind": "briefing", "text": line,
+                       "fallback_text": line})
+        for p in waiting:
+            card = _approval_block(db, p, user, calendar=calendar, lang=lang)
+            card["id"] = f"approval:{card['token']}:{mid}"
+            blocks.append(card)
+    if _said_today(db, session.id, blocks):
+        return {"thread_id": str(session.id), "blocks": []}
+    db.add(AIChatMessage(id=mid, session_id=session.id, role="assistant",
+                         content={"role": "assistant", "text": "\n".join(b["text"] for b in blocks if b["type"] == "text"),
+                                  "briefing": True, "blocks": blocks}))
+    db.commit()
+    return {"thread_id": str(session.id), "blocks": blocks}
 

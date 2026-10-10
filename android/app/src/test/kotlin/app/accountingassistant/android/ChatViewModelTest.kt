@@ -1,6 +1,7 @@
 package app.accountingassistant.android
 
 import app.accountingassistant.android.data.ApiClient
+import app.accountingassistant.android.data.EditRequest
 import app.accountingassistant.android.data.MemoryOutboxStore
 import app.accountingassistant.android.data.Outbox
 import app.accountingassistant.android.data.Queued
@@ -211,5 +212,58 @@ class ChatViewModelTest {
         assertEquals("/api/mobile/v1/threads/t3/messages", server.takeRequest().url.encodedPath)
         assertEquals(listOf("موجودی چقدره؟", "نان و میوه"), vm.state.value.items.filterIsInstance<ChatItem.User>().map { it.text })
         assertEquals(1, vm.state.value.items.count { it is ChatItem.Words })
+    }
+
+    private fun draft(vm: ChatViewModel, token: String = "t1", type: String = "proposal", extra: String = "") {
+        reply("event: reply\ndata: {\"thread_id\":\"t1\",\"blocks\":[{\"type\":\"$type\",\"id\":\"$type:$token\",\"token\":\"$token\"," +
+              "\"title\":\"Office rent\",\"amount\":{\"value\":80000000,\"currency\":\"IRR\"},\"lines\":[]$extra}]}\n\n")
+        vm.edit("record the rent")
+        vm.send()
+    }
+
+    @Test fun anEditedDraftIsFollowedByItsNewVoucher() = runBlocking {
+        val vm = ChatViewModel(api, restore = false)
+        draft(vm)
+        until { vm.state.value.items.any { it is ChatItem.Proposal } }
+        server.takeRequest()
+        reply("""{"replaces":"t1","block":{"type":"proposal","id":"proposal:t2","token":"t2","title":"Office rent, Shahrivar",""" +
+              """"amount":{"value":85000000,"currency":"IRR"},"lines":[]}}""")
+        var said: String? = "pending"
+        vm.edit("proposal:t1", EditRequest(amount = 85_000_000)) { said = it }
+        until { said != "pending" }
+        assertEquals(null, said)
+        val cards = vm.state.value.items.filterIsInstance<ChatItem.Proposal>()
+        assertEquals(listOf("t1" to ChatItem.Proposal.Phase.Replaced, "t2" to ChatItem.Proposal.Phase.Draft), cards.map { it.token to it.phase })
+        val sent = server.takeRequest()
+        assertEquals("/api/mobile/v1/proposals/t1/edit", sent.url.encodedPath)
+        assertEquals("""{"amount":85000000}""", sent.body!!.utf8())
+        // a refusal is said in the sheet, and the card stays as it was
+        reply("""{"detail":"این تاریخ خوانده نشد."}""", code = 422)
+        vm.edit("proposal:t2", EditRequest(date = "someday")) { said = it }
+        until { said != null }
+        assertEquals("این تاریخ خوانده نشد.", said)
+        assertEquals(ChatItem.Proposal.Phase.Draft, vm.state.value.items.filterIsInstance<ChatItem.Proposal>().last().phase)
+    }
+
+    @Test fun anApproverApprovesOneAndRejectsAnother() = runBlocking {
+        val vm = ChatViewModel(api, restore = false)
+        draft(vm, token = "t7", type = "approval", extra = ",\"requested_by\":\"maryam\",\"mine\":false")
+        until { vm.state.value.items.any { it is ChatItem.Proposal } }
+        server.takeRequest()
+        reply("""{"state":"posted","block":{"type":"posted","voucher":"1042","undo_seconds":120,"audit_log_id":"a1",""" +
+              """"date":{"iso":"2026-10-10","display":"۱۸ مهر ۱۴۰۵"}}}""")
+        vm.approve("approval:t7")
+        until { vm.state.value.items.filterIsInstance<ChatItem.Proposal>().single().phase == ChatItem.Proposal.Phase.Posted }
+        assertEquals("/api/mobile/v1/approvals/t7/approve", server.takeRequest().url.encodedPath)
+        assertEquals("1042", vm.state.value.items.filterIsInstance<ChatItem.Proposal>().single().voucher)
+        draft(vm, token = "t8", type = "approval", extra = ",\"requested_by\":\"maryam\",\"mine\":false")
+        until { vm.state.value.items.count { it is ChatItem.Proposal } == 2 }
+        server.takeRequest()
+        reply("""{"state":"rejected"}""")
+        vm.reject("approval:t8", "Wrong month")
+        until { vm.state.value.items.filterIsInstance<ChatItem.Proposal>().last().phase == ChatItem.Proposal.Phase.Rejected }
+        val r = server.takeRequest()
+        assertEquals("/api/mobile/v1/approvals/t8/reject", r.url.encodedPath)
+        assertEquals("""{"note":"Wrong month"}""", r.body!!.utf8())
     }
 }

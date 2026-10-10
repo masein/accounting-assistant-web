@@ -151,4 +151,10 @@
     <string name="widget_locked">Open the app to see</string>
     <string name="widget_loading">Updating…</string>
     <string name="ask_cash">How much cash do we have?</string>
+    <string name="feed_title">Notifications</string>
+    <string name="feed_hint">Approvals waiting for you and what the books warn about, checked every hour.</string>
+    <string name="feed_channel">Your books</string>
+    <string name="feed_channel_hint">Approvals and warnings from the accountant</string>
+    <string name="feed_locked_title">Accountant</string>
+    <string name="feed_locked_body">Something in your books needs attention.</string>
 </resources>

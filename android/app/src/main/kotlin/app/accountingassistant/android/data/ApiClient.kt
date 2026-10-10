@@ -218,6 +218,9 @@ class ApiClient(
     suspend fun statementNext(statementId: String, threadId: String?): ChatReply =
         call("POST", "/statements/$statementId/next", BriefingRequest(threadId), serializer())
 
+    /** What to notify: approvals waiting, the books' warnings (notify/Feed.kt). */
+    suspend fun feed(): FeedReply = call<Unit, FeedReply>("GET", "/feed", null, serializer())
+
     /** Cash today and this month's budget left: the home-screen widget. */
     suspend fun summary(): SummaryReply = call<Unit, SummaryReply>("GET", "/summary", null, serializer())
 

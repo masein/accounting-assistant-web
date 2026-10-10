@@ -1,6 +1,10 @@
 package app.accountingassistant.android
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import app.accountingassistant.android.notify.FeedNotifier
 import android.widget.Toast
 import app.accountingassistant.android.util.Documents
 import android.content.Intent
@@ -85,6 +89,7 @@ class MainActivity : ComponentActivity() {
                         app.forgetOutbox()
                         Shortcuts.remove(this@MainActivity)
                         WidgetRefresh.forget(this@MainActivity)
+                        FeedNotifier(this@MainActivity).forget()
                     }
                 }
                 // signed in: the shortcuts, and the widget brought up to date
@@ -97,6 +102,17 @@ class MainActivity : ComponentActivity() {
                 // last time's crashes, if any, once there is a session to send them with
                 LaunchedEffect(signedIn) { if (signedIn) runCatching { app.crashes.send(app.api) } }
                 var crashesOn by remember { mutableStateOf(app.crashes.enabled) }
+                val feed = remember { FeedNotifier(this@MainActivity) }
+                var notifyOn by remember { mutableStateOf(feed.enabled) }
+                fun notifications(on: Boolean) {
+                    notifyOn = on
+                    feed.enabled = on
+                    if (on) FeedNotifier.schedule(this@MainActivity) else FeedNotifier.cancel(this@MainActivity)
+                }
+                // Android 13 and later ask first; turned on only if allowed
+                val askToNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                    notifications(granted)
+                }
                 // back from the background after a while: ask again
                 val owner = LocalLifecycleOwner.current
                 DisposableEffect(owner) {
@@ -218,6 +234,13 @@ class MainActivity : ComponentActivity() {
                             devices = devices, lockAvailable = lock.available, lockOn = lockOn,
                             onLock = { on -> lockOn = on; scope.launch { lock.setEnabled(on) } },
                             crashesOn = crashesOn, onCrashes = { on -> crashesOn = on; app.crashes.enabled = on },
+                            notifyOn = notifyOn,
+                            onNotify = { on ->
+                                if (on && Build.VERSION.SDK_INT >= 33 &&
+                                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                    askToNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else notifications(on)
+                            },
                             onRevoke = { id ->
                                 scope.launch {
                                     runCatching { app.api.revokeDevice(id) }
@@ -231,6 +254,7 @@ class MainActivity : ComponentActivity() {
                                     app.forgetOutbox()
                                     Shortcuts.remove(this@MainActivity)
                                     WidgetRefresh.forget(this@MainActivity)
+                                    feed.forget()
                                     signedIn = false
                                 }
                             },

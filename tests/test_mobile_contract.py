@@ -256,6 +256,8 @@ MOBILE_ROUTES = {
     ("GET", "/api/mobile/v1/devices"): ALL,
     ("DELETE", "/api/mobile/v1/devices/{device_id}"): ALL,
     ("POST", "/api/mobile/v1/crashes"): ALL,
+    ("GET", "/api/mobile/v1/feed"): ALL,                  # what it holds follows the role
+
     # the chat: the web chat's rights (books:write; reading needs books:read). Managers,
     # employees and viewers wait for the owner's decision on staff chat (roadmap §11.7)
     ("GET", "/api/mobile/v1/threads"): BOOKS,

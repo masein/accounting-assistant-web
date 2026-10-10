@@ -179,4 +179,10 @@
     <string name="widget_locked">افتح التطبيق لترى</string>
     <string name="widget_loading">جارٍ التحديث…</string>
     <string name="ask_cash">كم لدينا من المال؟</string>
+    <string name="feed_title">الإشعارات</string>
+    <string name="feed_hint">القيود التي تنتظر موافقتك وتنبيهات الدفاتر، كل ساعة.</string>
+    <string name="feed_channel">دفاترك</string>
+    <string name="feed_channel_hint">الموافقات وتنبيهات المحاسب</string>
+    <string name="feed_locked_title">المحاسب</string>
+    <string name="feed_locked_body">شيء في دفاترك يحتاج إلى انتباهك.</string>
 </resources>

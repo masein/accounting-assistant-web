@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- hold to talk: asked for the first time the mic is pressed -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- approvals and the books' warnings, asked for when turned on in the account sheet -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".AccountantApp"

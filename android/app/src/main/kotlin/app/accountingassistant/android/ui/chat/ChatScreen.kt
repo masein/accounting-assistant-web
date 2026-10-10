@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.foundation.layout.widthIn
 import app.accountingassistant.android.data.EditRequest
+import app.accountingassistant.android.util.Shortcuts
+import androidx.compose.ui.focus.FocusRequester
 import app.accountingassistant.android.data.Queued
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -98,6 +100,9 @@ fun ChatScreen(
     onReject: (String, String?) -> Unit = { _, _ -> },
     onEdit: (String, EditRequest, (String?) -> Unit) -> Unit = { _, _, _ -> },
     onStatementNext: (String) -> Unit = {},
+    /** A home-screen shortcut to carry out once (util/Shortcuts.kt). */
+    action: String? = null,
+    onActionDone: () -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -247,7 +252,18 @@ fun ChatScreen(
             Box {
                 var menu by remember { mutableStateOf(false) }
                 val capture = rememberCapture(onPicked = onPicked)
-                Composer(value = state.draft, onValueChange = onDraft, onSend = onSend, onAttach = { menu = true },
+                val focus = remember { FocusRequester() }
+                val askCash = stringResource(R.string.ask_cash)
+                LaunchedEffect(action) {
+                    when (action) {
+                        Shortcuts.PHOTO_RECEIPT -> capture.camera()
+                        Shortcuts.RECORD_SPENDING -> runCatching { focus.requestFocus() }
+                        Shortcuts.ASK_CASH -> onSuggestion(askCash)
+                        else -> return@LaunchedEffect
+                    }
+                    onActionDone()
+                }
+                Composer(value = state.draft, onValueChange = onDraft, onSend = onSend, onAttach = { menu = true }, focus = focus,
                          onSpeakStart = { capture.speak(onSpeakStart) }, onSpeakEnd = onSpeakEnd,
                          listening = state.listening,
                          canSend = state.draft.isNotBlank() || state.attachments.isNotEmpty())

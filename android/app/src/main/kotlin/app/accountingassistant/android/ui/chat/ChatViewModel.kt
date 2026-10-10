@@ -59,6 +59,8 @@ class ChatViewModel(
     private val now: () -> Long = System::currentTimeMillis,
     restore: Boolean = true,
     private val outbox: Outbox = Outbox(MemoryOutboxStore(), api),
+    /** The books changed (a posting, an undo): the home-screen widget refreshes. */
+    private val booksChanged: () -> Unit = {},
 ) : ViewModel() {
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state
@@ -358,6 +360,7 @@ class ChatViewModel(
 
     /** The posted block's stamp: its reference and date, the undo window, the document it made. */
     private fun stamp(id: String, b: JsonObject?) {
+        booksChanged()
         val st = stampOf(b)
         updateProposal(id) {
             it.copy(phase = ChatItem.Proposal.Phase.Posted, voucher = st.voucher, postedDate = st.date,
@@ -432,7 +435,7 @@ class ChatViewModel(
         val audit = p.auditLogId ?: return
         viewModelScope.launch {
             runCatching { api.undo(audit) }
-                .onSuccess { updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Undone, undoUntil = 0) } }
+                .onSuccess { booksChanged(); updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Undone, undoUntil = 0) } }
                 .onFailure { e -> updateProposal(id) { it.copy(error = e.message) } }
         }
     }

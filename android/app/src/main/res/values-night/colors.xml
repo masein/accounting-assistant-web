@@ -2,4 +2,8 @@
 <resources>
     <color name="paper">#FF09121C</color>
     <color name="firouzeh">#FF5FC9CD</color>
+    <color name="widget_surface">#FF111C27</color>
+    <color name="widget_ink">#FFE8EEF2</color>
+    <color name="widget_muted">#FF8A9AA8</color>
+    <color name="widget_line">#FF233140</color>
 </resources>

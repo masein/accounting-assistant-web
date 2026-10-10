@@ -164,4 +164,19 @@
     <string name="chart_negative">تحت الصفر من أسبوع %1$s</string>
     <string name="chart_after">بعد %1$d أسبوعًا</string>
     <string name="chart_flat">لا يُعرف بعد أي دخل أو صرف في هذه الأسابيع.</string>
+    <string name="shortcut_receipt">إيصال</string>
+    <string name="shortcut_receipt_long">صوّر إيصالًا</string>
+    <string name="shortcut_spending">إنفاق</string>
+    <string name="shortcut_spending_long">سجّل إنفاقًا</string>
+    <string name="shortcut_cash">النقد</string>
+    <string name="shortcut_cash_long">النقد في البنك</string>
+    <string name="widget_title">المحاسب</string>
+    <string name="widget_description">النقد والبنوك والميزانية المتبقية لهذا الشهر</string>
+    <string name="widget_cash">النقد والبنوك</string>
+    <string name="widget_budget_left">الميزانية المتبقية: %1$s</string>
+    <string name="widget_as_of">حتى %1$s</string>
+    <string name="widget_signed_out">سجّل الدخول لترى دفاترك</string>
+    <string name="widget_locked">افتح التطبيق لترى</string>
+    <string name="widget_loading">جارٍ التحديث…</string>
+    <string name="ask_cash">كم لدينا من المال؟</string>
 </resources>

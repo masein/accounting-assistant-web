@@ -178,7 +178,8 @@ def mobile_confirm(token: str, db: Session = Depends(get_db), user: SessionUser 
         except (ValueError, TypeError):
             txn = None
         if txn is not None:
-            voucher = txn.reference or str(txn.id)[:8]
+            # the entry's own reference; a database id is no number to stamp
+            voucher = txn.reference or None
             date_iso = txn.date.isoformat() if txn.date else None
     undo = 0 if result.idempotent else int(UNDO_WINDOW.total_seconds())
     return {"state": "posted", "block": B.posted_block(

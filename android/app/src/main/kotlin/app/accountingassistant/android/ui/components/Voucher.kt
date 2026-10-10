@@ -241,7 +241,7 @@ fun Seal(number: String, date: String, lang: String, modifier: Modifier = Modifi
     Box(
         modifier.size(80.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale; rotationZ = -12f; this.alpha = alpha }
-            .semantics { contentDescription = "$posted, $numberText" },
+            .semantics { contentDescription = if (number.isBlank()) posted else "$posted, $numberText" },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.matchParentSize()) {
@@ -250,8 +250,8 @@ fun Seal(number: String, date: String, lang: String, modifier: Modifier = Modifi
             drawCircle(c.firouzeh, radius = outer - 5.5.dp.toPx(), style = Stroke(2.5.dp.toPx()))
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(numberText, color = c.firouzeh, fontSize = 8.5.sp, lineHeight = 10.sp, fontWeight = FontWeight(600),
-                 textAlign = TextAlign.Center)
+            if (number.isNotBlank()) Text(numberText, color = c.firouzeh, fontSize = 8.5.sp, lineHeight = 10.sp,
+                 fontWeight = FontWeight(600), textAlign = TextAlign.Center)
             Text(posted, color = c.firouzeh, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight(800),
                  textAlign = TextAlign.Center)
             Text(Numbers.digits(date, lang), color = c.firouzeh, fontSize = 8.sp, lineHeight = 10.sp,

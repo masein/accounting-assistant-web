@@ -808,7 +808,10 @@ async def run_chat_turn(
     stop_reason: str | None = None
     pause_attempts = 0
 
+    from app.services.ai_accountant import progress
+
     for turn in range(1, MAX_TURNS + 1):
+        progress.emit("thinking", lang=lang)
         try:
             response = await client.chat(
                 system_prompt=system_prompt,
@@ -913,6 +916,7 @@ async def run_chat_turn(
                 ))
                 continue
 
+            progress.emit("tool", tool=call.name, lang=lang)
             try:
                 result = await tool.run(tool_ctx, args)
             except ToolError as e:

@@ -88,4 +88,28 @@ class ApiClientTest {
         assertTrue(err.updateNeeded)
         assertEquals("upgrade_required", err.code)
     }
+
+    @Test fun aStreamedTurnSaysEachStepThenReplies() = runBlocking {
+        store.save(StoredSession("A1", "R1", "d1", UserDto("u1", "maryam")))
+        api.restore()
+        reply(200, "event: status\ndata: {\"stage\":\"thinking\",\"text\":\"در حال فکر کردن…\"}\n\n" +
+                   "event: status\ndata: {\"stage\":\"tool\",\"tool\":\"get_account_balance\",\"text\":\"در حال بررسی دفاتر…\"}\n\n" +
+                   "event: reply\ndata: {\"thread_id\":\"t1\",\"blocks\":[]}\n\n" +
+                   "event: done\ndata: {}\n\n")
+        val steps = mutableListOf<String>()
+        val r = api.chatStream("موجودی؟", null, emptyList(), "c-1") { steps += it }
+        assertEquals(listOf("در حال فکر کردن…", "در حال بررسی دفاتر…"), steps)
+        assertEquals("t1", r.threadId)
+        assertEquals("text/event-stream", server.takeRequest().headers["Accept"])
+    }
+
+    @Test fun anErrorInTheStreamIsAnApiError() = runBlocking {
+        store.save(StoredSession("A1", "R1", "d1", UserDto("u1", "maryam")))
+        api.restore()
+        reply(200, "event: error\ndata: {\"status\":502,\"code\":\"ai_unavailable\",\"detail\":\"دستیار الان نمی‌تواند پاسخ دهد.\"}\n\n" +
+                   "event: done\ndata: {}\n\n")
+        val err = runCatching { api.chatStream("x", null, emptyList(), "c-2") {} }.exceptionOrNull() as ApiError
+        assertEquals(502, err.status)
+        assertEquals("ai_unavailable", err.code)
+    }
 }

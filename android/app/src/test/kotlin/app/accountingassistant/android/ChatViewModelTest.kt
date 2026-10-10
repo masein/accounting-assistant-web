@@ -62,12 +62,15 @@ class ChatViewModelTest {
         vm.attach(byteArrayOf(1, 2, 3), "receipt.jpg", "image/jpeg")
         until { vm.state.value.attachments.isNotEmpty() }
         assertTrue(server.takeRequest().body!!.utf8().contains("filename=\"receipt.jpg\""))
-        reply("""{"thread_id":"t9","blocks":[{"type":"text","id":"w","text":"رسید خوانده شد."}]}""")
+        reply("event: status\ndata: {\"stage\":\"reading_files\",\"text\":\"در حال خواندن پیوست…\"}\n\n" +
+              "event: reply\ndata: {\"thread_id\":\"t9\",\"blocks\":[{\"type\":\"text\",\"id\":\"w\",\"text\":\"رسید خوانده شد.\"}]}\n\n" +
+              "event: done\ndata: {}\n\n")
         vm.send()
         until { !vm.state.value.sending }
         val sent = server.takeRequest()
-        assertEquals("/api/mobile/v1/chat", sent.url.encodedPath)
+        assertEquals("/api/mobile/v1/chat/stream", sent.url.encodedPath)
         assertTrue(sent.body!!.utf8().contains("\"attachment_ids\":[\"att-1\"]"))
+        assertTrue(sent.body!!.utf8().contains("\"client_message_id\":"))
         assertEquals(listOf("receipt.jpg"), (vm.state.value.items.first() as ChatItem.User).files)
         assertTrue(vm.state.value.attachments.isEmpty())
     }
@@ -79,5 +82,32 @@ class ChatViewModelTest {
         until { !vm.state.value.transcribing }
         assertEquals("اجارهٔ مهر را ثبت کن", vm.state.value.draft)
         assertEquals("/api/mobile/v1/transcribe", server.takeRequest().url.encodedPath)
+    }
+
+    @Test fun aDroppedStreamIsRetriedOnceWithTheSameId() = runBlocking {
+        val vm = ChatViewModel(api, restore = false)
+        // the stream breaks before its reply, then the plain chat answers
+        reply("event: status\ndata: {\"stage\":\"thinking\",\"text\":\"در حال فکر کردن…\"}\n\n")
+        reply("""{"thread_id":"t1","blocks":[{"type":"text","id":"w","text":"سلام"}],"stop_reason":"repeat"}""")
+        vm.edit("سلام")
+        vm.send()
+        until { !vm.state.value.sending }
+        val streamed = server.takeRequest().body!!.utf8()
+        val retried = server.takeRequest()
+        assertEquals("/api/mobile/v1/chat", retried.url.encodedPath)
+        val id = Regex("\"client_message_id\":\"([^\"]+)\"").find(streamed)!!.groupValues[1]
+        assertTrue(retried.body!!.utf8().contains(id))
+        assertEquals("سلام", (vm.state.value.items.last() as ChatItem.Words).text)
+    }
+
+    @Test fun aFailedTurnKeepsItsCodeToBeSaidInTheUsersLanguage() = runBlocking {
+        val vm = ChatViewModel(api, restore = false)
+        reply("event: error\ndata: {\"status\":502,\"code\":\"ai_unavailable\",\"detail\":\"provider unreachable\"}\n\n" +
+              "event: done\ndata: {}\n\n")
+        vm.edit("record the tea")
+        vm.send()
+        until { !vm.state.value.sending }
+        val problem = vm.state.value.items.last() as ChatItem.Problem
+        assertEquals("ai_unavailable", problem.code)                 // the screen says it, not the raw detail
     }
 }

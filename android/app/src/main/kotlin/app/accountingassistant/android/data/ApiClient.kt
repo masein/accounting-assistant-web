@@ -81,8 +81,77 @@ class ApiClient(
 
     // --- the chat ----------------------------------------------------------------------------
 
-    suspend fun chat(message: String, threadId: String?, attachmentIds: List<String> = emptyList()): ChatReply =
-        call("POST", "/chat", ChatRequest(message, threadId, attachmentIds), serializer())
+    suspend fun chat(message: String, threadId: String?, attachmentIds: List<String> = emptyList(),
+                     clientMessageId: String? = null): ChatReply =
+        call("POST", "/chat", ChatRequest(message, threadId, attachmentIds, clientMessageId), serializer())
+
+    /**
+     * The same turn, streamed: [onStatus] hears each step as it happens
+     * («در حال بررسی دفاتر…»), then the reply comes back. A dropped
+     * connection is a [NetworkError]; retry with the same [clientMessageId].
+     */
+    suspend fun chatStream(message: String, threadId: String?, attachmentIds: List<String>, clientMessageId: String,
+                           onStatus: (String) -> Unit): ChatReply = withContext(Dispatchers.IO) {
+        val payload = json.encodeToString(ChatRequest.serializer(), ChatRequest(message, threadId, attachmentIds, clientMessageId))
+        var renewed = false
+        while (true) {
+            val token = session?.accessToken
+            val req = Request.Builder()
+                .url(base.trimEnd('/') + PREFIX + "/chat/stream")
+                .header("X-App-Version", appVersion).header("X-UI-Language", language())
+                .header("Accept", "text/event-stream")
+                .apply { if (token != null) header("Authorization", "Bearer $token") }
+                .post(payload.toRequestBody(JSON_TYPE))
+                .build()
+            val response = try { http.newCall(req).execute() } catch (e: IOException) { throw NetworkError(e) }
+            try {
+                if (response.code == 401 && !renewed && session != null) {
+                    renewed = true
+                    val refusal = refresh(token)
+                    if (refusal != null) { endSession(refusal); throw refusal }
+                    continue
+                }
+                if (!response.isSuccessful) {
+                    throw Answer(response.code, response.body.string(), response.header("X-Error-Code"), token).error()
+                }
+                return@withContext readStream(response.body.source(), onStatus)
+            } finally {
+                response.close()
+            }
+        }
+        @Suppress("UNREACHABLE_CODE") error("unreachable")
+    }
+
+    private fun readStream(source: okio.BufferedSource, onStatus: (String) -> Unit): ChatReply {
+        var event: String? = null
+        var reply: ChatReply? = null
+        while (true) {
+            val line = try { source.readUtf8Line() } catch (e: IOException) { throw NetworkError(e) } ?: break
+            when {
+                line.startsWith("event: ") -> event = line.removePrefix("event: ")
+                line.startsWith("data: ") -> {
+                    val data = line.removePrefix("data: ")
+                    when (event) {
+                        "status" -> runCatching { (json.parseToJsonElement(data) as JsonObject)["text"]?.jsonPrimitive?.contentOrNull }
+                            .getOrNull()?.let(onStatus)
+                        "reply" -> reply = json.decodeFromString(ChatReply.serializer(), data)
+                        "error" -> {
+                            val o = json.parseToJsonElement(data) as JsonObject
+                            throw ApiError(o["status"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 500,
+                                           o["code"]?.jsonPrimitive?.contentOrNull,
+                                           o["detail"]?.jsonPrimitive?.contentOrNull ?: "")
+                        }
+                    }
+                }
+            }
+        }
+        return reply ?: throw NetworkError(IOException("the stream ended without a reply"))
+    }
+
+    /** The phone's language becomes the account's, so replies come in it. */
+    suspend fun setLanguage(lang: String) {
+        call<LanguageRequest, JsonObject>("PUT", "/me/language", LanguageRequest(lang), serializer())
+    }
 
     suspend fun threads(): List<ThreadDto> = call<Unit, List<ThreadDto>>("GET", "/threads", null, serializer())
 

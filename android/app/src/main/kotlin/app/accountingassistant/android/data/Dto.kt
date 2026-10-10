@@ -65,7 +65,12 @@ data class ChatRequest(
     val message: String,
     @SerialName("thread_id") val threadId: String? = null,
     @SerialName("attachment_ids") val attachmentIds: List<String> = emptyList(),
+    /** The phone's own id for the message: a retry gets the reply it already had. */
+    @SerialName("client_message_id") val clientMessageId: String? = null,
 )
+
+@Serializable
+data class LanguageRequest(val language: String)
 
 @Serializable
 data class ChatReply(

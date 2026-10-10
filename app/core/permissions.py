@@ -194,6 +194,7 @@ def _reads(paths, perm):
 # Every role signs in on a phone and manages its own devices; what each role
 # may then do is decided by the business routes the app calls.
 _add("GET", "/api/mobile/v1/me", ANY_ROLE)
+_add("PUT", "/api/mobile/v1/me/language", ANY_ROLE)
 _add("DELETE", "/api/mobile/v1/session", ANY_ROLE)
 _add("GET", "/api/mobile/v1/devices", ANY_ROLE)
 _add("DELETE", "/api/mobile/v1/devices/{device_id}", ANY_ROLE)
@@ -463,7 +464,8 @@ for _m, _p in [
 # The phone's chat (app/api/mobile_chat.py): the same rights as the web chat.
 _reads(["/api/mobile/v1/threads", "/api/mobile/v1/threads/{thread_id}/messages"], Perm.BOOKS_READ)
 for _m, _p in [
-    ("POST", "/api/mobile/v1/chat"), ("POST", "/api/mobile/v1/proposals/{token}/confirm"),
+    ("POST", "/api/mobile/v1/chat"), ("POST", "/api/mobile/v1/chat/stream"),
+    ("POST", "/api/mobile/v1/proposals/{token}/confirm"),
     ("POST", "/api/mobile/v1/proposals/{token}/cancel"), ("POST", "/api/mobile/v1/postings/{audit_log_id}/undo"),
     ("POST", "/api/mobile/v1/uploads"), ("POST", "/api/mobile/v1/transcribe"), ("POST", "/api/mobile/v1/briefing"),
 ]:

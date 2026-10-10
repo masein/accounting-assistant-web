@@ -7,9 +7,13 @@ with its cards, not only its words.
 """
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -21,6 +25,8 @@ from app.core.auth import SessionUser, get_current_user
 from app.db.session import get_db
 from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
 from app.services.ai_accountant import blocks as B
+from app.services.ai_accountant import progress
+from app.services.ai_usage import AIBudgetExceeded, AIRateLimited
 from app.services.ai_accountant.execute_service import (
     UNDO_WINDOW,
     ApprovalRequired,
@@ -36,12 +42,16 @@ from app.services.ai_accountant.execute_service import (
 )
 
 router = APIRouter(prefix=PREFIX, tags=["mobile"], dependencies=[Depends(check_app_version)])
+logger = logging.getLogger(__name__)
 
 
 class MobileChatPayload(BaseModel):
     message: str = Field(default="", max_length=8000)
     thread_id: str | None = None
     attachment_ids: list[str] = []
+    # The phone's own id for this message: a retry after a dropped connection
+    # gets the reply it already had instead of a second turn (P0.5).
+    client_message_id: str | None = Field(default=None, max_length=64)
 
 
 def _calendar(db: Session) -> str:
@@ -67,17 +77,107 @@ def _store_blocks(db: Session, thread_id: str, blocks: list[dict]) -> None:
         db.commit()
 
 
+def _already_answered(db: Session, thread_id: str | None, client_message_id: str | None) -> dict | None:
+    """The reply a message with this client id already got in this thread."""
+    if not (thread_id and client_message_id):
+        return None
+    try:
+        sid = uuid.UUID(str(thread_id))
+    except (ValueError, TypeError):
+        return None
+    rows = db.execute(
+        select(AIChatMessage).where(AIChatMessage.session_id == sid, AIChatMessage.role.in_(("user", "assistant")))
+        .order_by(AIChatMessage.created_at.desc(), AIChatMessage.id.desc()).limit(20)
+    ).scalars().all()
+    rows = list(reversed(rows))
+    for i, m in enumerate(rows):
+        if m.role == "user" and (m.content or {}).get("client_message_id") == client_message_id:
+            reply = next((r for r in rows[i + 1:] if r.role == "assistant" and (r.content or {}).get("blocks")), None)
+            if reply is not None:
+                return {"thread_id": str(sid), "blocks": reply.content["blocks"], "stop_reason": "repeat"}
+    return None
+
+
+def _mark_client_message(db: Session, thread_id: str, client_message_id: str | None) -> None:
+    """Note the phone's id on the user's message just answered."""
+    if not client_message_id:
+        return
+    try:
+        sid = uuid.UUID(str(thread_id))
+    except (ValueError, TypeError):
+        return
+    row = db.execute(
+        select(AIChatMessage).where(AIChatMessage.session_id == sid, AIChatMessage.role == "user")
+        .order_by(AIChatMessage.created_at.desc(), AIChatMessage.id.desc()).limit(1)
+    ).scalars().first()
+    if row is not None:
+        row.content = {**(row.content or {}), "client_message_id": client_message_id}
+        db.commit()
+
+
 @router.post("/chat")
 async def mobile_chat(payload: MobileChatPayload, db: Session = Depends(get_db),
                       user: SessionUser = Depends(get_current_user)) -> dict:
     """One message to the accountant; the reply as blocks, cards first."""
+    repeat = _already_answered(db, payload.thread_id, payload.client_message_id)
+    if repeat is not None:
+        return repeat
     resp = await web_chat(ChatPayload(message=payload.message, session_id=payload.thread_id,
                                       attachment_ids=payload.attachment_ids), db=db, user=user)
     lang = _user_language(db, user)
     blocks = B.build_blocks(db, text=resp.text, proposals=resp.proposals, tool_calls=resp.tool_calls,
                             intake=resp.intake, lang=lang, calendar=_calendar(db))
     _store_blocks(db, resp.session_id, blocks)
+    _mark_client_message(db, resp.session_id, payload.client_message_id)
     return {"thread_id": resp.session_id, "blocks": blocks, "stop_reason": resp.stop_reason}
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+
+
+@router.post("/chat/stream")
+async def mobile_chat_stream(payload: MobileChatPayload, db: Session = Depends(get_db),
+                             user: SessionUser = Depends(get_current_user)) -> StreamingResponse:
+    """The same turn as ``/chat``, streamed as server-sent events: a
+    ``status`` for each step (thinking, a tool, reading the files) as it
+    happens, then the ``reply`` with its blocks — or an ``error`` with the
+    status and code ``/chat`` would have answered — then ``done``. The phone
+    shows what the accountant is doing instead of nine silent seconds."""
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def run() -> None:
+        token = progress.listen(lambda event: queue.put_nowait(("status", event)))
+        try:
+            await queue.put(("reply", await mobile_chat(payload, db=db, user=user)))
+        except HTTPException as e:
+            from app.core.messages import localize_detail
+            detail = localize_detail(e.detail, _user_language(db, user)) if isinstance(e.detail, str) else e.detail
+            await queue.put(("error", {"status": e.status_code, "detail": detail,
+                                       "code": (e.headers or {}).get("X-Error-Code")}))
+        except (AIBudgetExceeded, AIRateLimited) as e:
+            code = "ai_budget_exceeded" if isinstance(e, AIBudgetExceeded) else "ai_rate_limited"
+            await queue.put(("error", {"status": 429, "detail": str(e), "code": code}))
+        except Exception:  # noqa: BLE001 — the stream must end with an answer
+            logger.exception("mobile chat stream failed")
+            await queue.put(("error", {"status": 500, "detail": "Something went wrong. Try again.", "code": None}))
+        finally:
+            progress.stop(token)
+            await queue.put(None)
+
+    task = asyncio.create_task(run())
+
+    async def events():
+        try:
+            while (item := await queue.get()) is not None:
+                yield _sse(*item)
+            yield _sse("done", {})
+        finally:
+            if not task.done():                  # the phone hung up: let the turn finish on its own
+                await asyncio.shield(task)
+
+    return StreamingResponse(events(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.get("/threads")

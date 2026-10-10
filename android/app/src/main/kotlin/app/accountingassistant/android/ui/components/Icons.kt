@@ -53,6 +53,12 @@ object AppIcons {
         }
     }
 
+    val Threads: ImageVector = icon("Threads") {
+        stroke {
+            moveTo(4f, 6f); lineTo(20f, 6f); moveTo(4f, 12f); lineTo(20f, 12f); moveTo(4f, 18f); lineTo(14f, 18f)
+        }
+    }
+
     val ChevronDown: ImageVector = icon("ChevronDown") {
         stroke { moveTo(7f, 10f); lineTo(12f, 15f); lineTo(17f, 10f) }
     }

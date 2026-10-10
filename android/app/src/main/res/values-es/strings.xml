@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Contable</string>
+    <string name="signin_title">Tus libros, en una conversación</string>
+    <string name="signin_username">Usuario</string>
+    <string name="signin_password">Contraseña</string>
+    <string name="signin_button">Entrar</string>
+    <string name="signin_code">Código de tu app de autenticación</string>
+    <string name="signin_code_button">Continuar</string>
+    <string name="composer_hint">Escribe, envía una foto o habla…</string>
+    <string name="voucher_draft">Borrador de asiento</string>
+    <string name="voucher_post">Registrar</string>
+    <string name="voucher_edit">Editar</string>
+    <string name="voucher_cancel">Cancelar</string>
+    <string name="voucher_undo">Deshacer %1$s</string>
+    <string name="voucher_posted">Registrado</string>
+    <string name="voucher_number">Asiento %1$s</string>
+    <string name="voucher_waits">Esperando una segunda aprobación</string>
+    <string name="debit_short">D</string>
+    <string name="credit_short">H</string>
+    <string name="fresh_as_of">Actualizado %1$s</string>
+    <string name="thinking">Trabajando en ello…</string>
+    <string name="books_switch">¿Qué libros?</string>
+    <string name="error_network">Sin conexión. Tu mensaje se guarda y se enviará cuando vuelvas a estar en línea.</string>
+    <string name="error_session">Tu sesión en este teléfono ha terminado. Vuelve a entrar.</string>
+    <string name="error_update">Esta versión de la app es demasiado antigua. Actualízala para seguir.</string>
+    <string name="attach">Adjuntar</string>
+    <string name="speak">Hablar</string>
+    <string name="send">Enviar</string>
+    <string name="voucher_undone">Deshecho: los libros quedan como estaban</string>
+    <string name="voucher_cancelled">Cancelado</string>
+    <string name="voucher_title">Asiento</string>
+    <string name="suggestions_intro">Pregunta por tus libros o dime qué registrar. Estas se responden al instante:</string>
+    <string name="listening">Escuchando… suelta para terminar</string>
+    <string name="attach_camera">Hacer una foto</string>
+    <string name="attach_photo">Elegir una foto</string>
+    <string name="attach_file">Elegir un archivo (PDF, Excel)</string>
+    <string name="uploading">Subiendo…</string>
+    <string name="transcribing">Escribiendo lo que dijiste…</string>
+    <string name="error_upload">El archivo no se subió. Revisa la conexión y vuelve a intentarlo.</string>
+    <string name="error_voice">No se entendió la nota de voz. Inténtalo de nuevo o escríbelo.</string>
+    <string name="lock_title">Bloqueo de la app</string>
+    <string name="lock_hint">Pide tu huella, cara o PIN al abrir la app y tras dos minutos fuera.</string>
+    <string name="lock_unavailable">Pon un bloqueo de pantalla en este teléfono para bloquear la app con él.</string>
+    <string name="lock_locked">Tus libros están bloqueados</string>
+    <string name="lock_unlock">Desbloquear</string>
+    <string name="devices_title">Teléfonos con sesión iniciada</string>
+    <string name="device_this">Este teléfono</string>
+    <string name="device_other">Otro teléfono</string>
+    <string name="device_sign_out">Cerrar sesión</string>
+    <string name="sign_out">Cerrar sesión en este teléfono</string>
+    <string name="account">Cuenta</string>
+    <string name="role_owner">Propietario</string>
+    <string name="role_cfo">Director financiero</string>
+    <string name="role_accountant">Contable</string>
+    <string name="role_manager">Gerente</string>
+    <string name="role_employee">Empleado</string>
+    <string name="role_viewer">Observador</string>
+    <string name="role_personal">Personal</string>
+    <string name="problem_ai_unavailable">El contable no puede responder ahora. Las preguntas sobre tus libros siguen teniendo respuesta; prueba lo demás en unos minutos.</string>
+    <string name="problem_ai_budget">Se agotó la cuota de IA de hoy; se renueva en un día. Las preguntas sobre tus libros siguen teniendo respuesta.</string>
+    <string name="problem_rate_limited">Demasiados mensajes seguidos. Inténtalo en un minuto.</string>
+    <string name="file_open">Toca para abrir</string>
+    <string name="file_share">Compartir</string>
+    <string name="file_failed">El documento no se descargó. Revisa la conexión y vuelve a intentarlo.</string>
+    <string name="threads_title">Conversaciones</string>
+    <string name="threads_new">Nueva conversación</string>
+    <string name="threads_none">Aún no hay conversaciones.</string>
+    <string name="threads_untitled">Sin título</string>
+    <string name="threads_messages">%1$s mensajes</string>
+    <string-array name="suggestions">
+        <item>¿Cuánto dinero tenemos?</item>
+        <item>¿Quién nos debe?</item>
+        <item>¿Qué debemos?</item>
+        <item>¿Cuánto gastamos este mes?</item>
+    </string-array>
+</resources>

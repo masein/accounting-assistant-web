@@ -69,4 +69,9 @@
     <string name="file_open">برای باز کردن بزن</string>
     <string name="file_share">ارسال</string>
     <string name="file_failed">سند دریافت نشد. اتصال را بررسی کن و دوباره امتحان کن.</string>
+    <string name="threads_title">گفتگوها</string>
+    <string name="threads_new">گفتگوی تازه</string>
+    <string name="threads_none">هنوز گفتگویی نیست.</string>
+    <string name="threads_untitled">بی‌نام</string>
+    <string name="threads_messages">%1$s پیام</string>
 </resources>

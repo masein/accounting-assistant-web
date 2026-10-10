@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -82,6 +84,7 @@ fun ChatScreen(
     userInitial: String = "",
     onAccount: () -> Unit = {},
     onFile: (ChatItem.File, Boolean) -> Unit = { _, _ -> },
+    onThreads: (() -> Unit)? = null,
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -94,8 +97,19 @@ fun ChatScreen(
     Box(Modifier.fillMaxSize().background(c.ground)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                verticalAlignment = Alignment.CenterVertically) {
                 BooksBadge(name = booksName, color = booksColor, onClick = onBooks)
+                Spacer(Modifier.weight(1f))
+                if (onThreads != null) {
+                    val label = stringResource(R.string.threads_title)
+                    Surface(onClick = onThreads, shape = CircleShape, color = c.surface2,
+                            modifier = Modifier.size(34.dp).semantics { contentDescription = label }) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(AppIcons.Threads, contentDescription = null, tint = c.muted, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
                 if (userInitial.isNotEmpty()) {
                     val account = stringResource(R.string.account)
                     Surface(onClick = onAccount, shape = CircleShape, color = c.surface2,

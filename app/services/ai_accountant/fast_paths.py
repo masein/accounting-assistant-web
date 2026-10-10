@@ -25,7 +25,8 @@ MAX_LENGTH = 80
 _DIGITS = re.compile(r"[0-9۰-۹٠-٩]")
 _FUTURE = re.compile(
     r"\b(next|will|forecast|tomorrow|predict|projection|end of (the )?(month|year))\b"
-    r"|آینده|پیش[‌ ]?بینی|فردا|ماه بعد|هفته بعد|خواهیم|خواهد|آخر ماه|آخر سال",
+    r"|آینده|پیش[‌ ]?بینی|فردا|ماه بعد|هفته بعد|خواهیم|خواهد|آخر ماه|آخر سال"
+    r"|pr[oó]xim|pron[oó]stico|previsi[oó]n|ma[nñ]ana|el mes que viene|القادم|توقع|غدا|غدًا",
     re.IGNORECASE,
 )
 
@@ -33,7 +34,8 @@ _FUTURE = re.compile(
 # "bank balance, and record the rent" is two requests, not one question.
 _ACTIONS = re.compile(
     r"\b(record|post|book|enter|add|create|pay|paid|invoice|bill (them|him|her)|transfer|send|move|delete|undo|and)\b"
-    r"|ثبت|بزن|پرداخت کن|پرداخت شد|بفرست|اضافه کن|بساز|واریز|منتقل|حذف|برگردون",
+    r"|ثبت|بزن|پرداخت کن|پرداخت شد|بفرست|اضافه کن|بساز|واریز|منتقل|حذف|برگردون"
+    r"|\b(registra|anota|apunta|paga|factura|transfiere|env[ií]a|borra|y)\b|سجّل|سجل|ادفع|حوّل|أرسل|احذف",
     re.IGNORECASE,
 )
 
@@ -41,24 +43,29 @@ _ACTIONS = re.compile(
 _INTENTS: list[tuple[str, re.Pattern]] = [
     ("payables", re.compile(
         r"\bwhat do (we|i) owe\b|\bpayables?\b|\bbills? (due|to pay)\b|\bwho do (we|i) owe\b"
-        r"|به کی بدهکار|بستانکارا?ن|بدهی[‌ ]?(ها|های) ?(ما|مون|من)|چقدر بدهکاری?م",
+        r"|به کی بدهکار|بستانکارا?ن|بدهی[‌ ]?(ها|های) ?(ما|مون|من)|چقدر بدهکاری?م"
+        r"|qu[eé] (debemos|debo)\b|a qui[eé]n (le )?(debemos|debo)|cuentas por pagar|ماذا علينا|ماذا ندين|لمن ندين|الذمم الدائنة",
         re.IGNORECASE)),
     ("receivables", re.compile(
         r"\bwho owes (me|us)\b|\breceivables?\b|\bunpaid (sales )?invoices\b|\boverdue invoices\b"
-        r"|(?<!به )کی (به ?من |بهم |به ?ما )?بدهکار|بدهکارا?ن(م|مان)?\b|مطالبات|طلب[‌ ]?(ها|های)?(م|مون|مان)? ?(چقدر|کجاست)|فاکتورهای (پرداخت[‌ ]?نشده|باز|سررسید[‌ ]?گذشته)",
+        r"|(?<!به )کی (به ?من |بهم |به ?ما )?بدهکار|بدهکارا?ن(م|مان)?\b|مطالبات|طلب[‌ ]?(ها|های)?(م|مون|مان)? ?(چقدر|کجاست)|فاکتورهای (پرداخت[‌ ]?نشده|باز|سررسید[‌ ]?گذشته)"
+        r"|qui[eé]n (nos|me) debe|cuentas por cobrar|facturas (pendientes|impagadas|vencidas)|من (يدين|مدين) (لنا|لي)|الذمم المدينة|الفواتير غير المدفوعة",
         re.IGNORECASE)),
     ("budget", re.compile(
         r"\bbudgets?\b.*\b(left|status|look|going|remaining|used)\b|\bhow('?s| is| are) (my|our|the) budgets?\b"
-        r"|بودجه",
+        r"|بودجه|presupuesto|الميزانية",
         re.IGNORECASE)),
     ("spending", re.compile(
         r"\bhow much (did|have) (i|we) spen[dt]\b|\bspending this month\b|\bwhat did (i|we) spend\b"
-        r"|خرج(ِ)? این ماه|این ماه چقدر خرج|چقدر خرج کرد(م|یم)|هزینه[‌ ]?(ها|های)? این ماه",
+        r"|خرج(ِ)? این ماه|این ماه چقدر خرج|چقدر خرج کرد(م|یم)|هزینه[‌ ]?(ها|های)? این ماه"
+        r"|cu[aá]nto (gastamos|gast[eé]|hemos gastado) este mes|gastos de este mes|كم (أنفقنا|أنفقت|صرفنا|صرفت) هذا الشهر|مصاريف هذا الشهر",
         re.IGNORECASE)),
     ("cash", re.compile(
         r"\bhow much (cash|money) (do|have) (we|i)\b|\bcash (balance|position|on hand)\b|\bbank balance\b"
         r"|\bwhat'?s in the bank\b|\bhow much is in the bank\b"
-        r"|موجودی (نقد|بانک|حساب|حساب[‌ ]?ها|کل)?|نقدینگی|چقدر پول (داریم|دارم|مونده)|پول نقد",
+        r"|موجودی (نقد|بانک|حساب|حساب[‌ ]?ها|کل)?|نقدینگی|چقدر پول (داریم|دارم|مونده)|پول نقد"
+        r"|cu[aá]nto dinero (tenemos|tengo|hay)|saldo (de caja|del banco|en el banco)|efectivo disponible"
+        r"|كم (لدينا|عندنا) من (المال|النقود)|الرصيد النقدي|رصيد (البنك|الصندوق)",
         re.IGNORECASE)),
 ]
 

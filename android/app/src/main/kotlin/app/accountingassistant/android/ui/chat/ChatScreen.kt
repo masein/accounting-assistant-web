@@ -195,7 +195,7 @@ fun ChatScreen(
                                     ChatItem.Proposal.Phase.Cancelled -> VoucherState.Cancelled
                                     ChatItem.Proposal.Phase.Undone -> VoucherState.Undone
                                 },
-                                onConfirm = { onConfirm(item.id) }, onEdit = { editing = item }, onCancel = { onCancel(item.id) },
+                                onConfirm = { onConfirm(item.id) }, onEdit = if (item.editable) ({ editing = item }) else null, onCancel = { onCancel(item.id) },
                                 onUndo = { onUndo(item.id) },
                                 onApprove = { onApprove(item.id) }, onReject = { rejecting = item.id },
                             )

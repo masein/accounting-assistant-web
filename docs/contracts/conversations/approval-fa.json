@@ -1,0 +1,51 @@
+{
+  "conversation": "approval-fa",
+  "blocks": [
+    {
+      "type": "approval",
+      "id": "approval:0b6f2b8e-7a51-4c2e-9d3e-5f1a2b3c4d5e",
+      "token": "0b6f2b8e-7a51-4c2e-9d3e-5f1a2b3c4d5e",
+      "tool": "propose_create_transaction",
+      "title": "اجارهٔ دفتر، مهر",
+      "summary": "Proposed journal entry on 2026-10-10 (IRR):\n  اجارهٔ دفتر، مهر",
+      "amount": {
+        "value": 80000000,
+        "currency": "IRR"
+      },
+      "date": {
+        "iso": "2026-10-10",
+        "display": "۱۸ مهر ۱۴۰۵"
+      },
+      "lines": [
+        {
+          "account": "6112",
+          "name": "سایر هزینه‌های عملیاتی",
+          "debit": 80000000,
+          "credit": 0
+        },
+        {
+          "account": "1110",
+          "name": "موجودی نقد و بانک",
+          "debit": 0,
+          "credit": 80000000
+        }
+      ],
+      "new_entities": [],
+      "needs_approval": true,
+      "approval_threshold": null,
+      "expires_at": null,
+      "actions": [
+        "approve",
+        "reject"
+      ],
+      "fallback_text": "اجارهٔ دفتر، مهر (maryam)",
+      "requested_by": "maryam",
+      "mine": false,
+      "requested_at": {
+        "iso": "2026-10-10T08:30:00+00:00",
+        "display": "۱۸ مهر ۱۴۰۵"
+      },
+      "user_message": "اجارهٔ مهر را ثبت کن"
+    }
+  ]
+}

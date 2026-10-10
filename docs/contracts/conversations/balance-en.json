@@ -1,0 +1,21 @@
+{
+  "conversation": "balance-en",
+  "blocks": [
+    {
+      "type": "figure",
+      "label": "1110 Bank Mellat",
+      "value": 1000000000,
+      "currency": "IRR",
+      "as_of": "2026-10-10",
+      "fallback_text": "Bank Mellat: 1,000,000,000 IRR",
+      "id": "get_account_balance:call_0",
+      "tool": "get_account_balance"
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "Bank Mellat holds 1,000,000,000 IRR.",
+      "fallback_text": "Bank Mellat holds 1,000,000,000 IRR."
+    }
+  ]
+}

@@ -38,6 +38,8 @@ sealed interface ChatItem {
         val approval: Approval? = null,
         /** The entry date as the server keeps it (Gregorian ISO), for Edit. */
         val dateIso: String? = null,
+        /** The server offers Edit for this card (its tool can be changed from the phone). */
+        val editable: Boolean = false,
     ) : ChatItem {
         enum class Phase { Draft, Posting, Posted, Waiting, Cancelled, Undone, Rejected, Replaced }
         data class Approval(val askedBy: String, val mine: Boolean)
@@ -97,6 +99,7 @@ fun parseBlock(b: JsonObject): ChatItem {
             approval = if (b.str("type") == "approval")
                 ChatItem.Proposal.Approval(b.str("requested_by").orEmpty(), b.bool("mine")) else null,
             dateIso = b.obj("date")?.str("iso"),
+            editable = (b["actions"] as? JsonArray)?.any { (it as? JsonPrimitive)?.contentOrNull == "edit" } == true,
         )
         "figure" -> ChatItem.Figure(id, b.str("label").orEmpty(), b.long("value") ?: 0, b.str("currency"))
         "file" -> fileOf(b) ?: ChatItem.Fallback(id, b.str("fallback_text").orEmpty())
@@ -113,3 +116,14 @@ fun fileOf(b: JsonObject?): ChatItem.File? {
     val path = b.str("path") ?: return null
     return ChatItem.File(b.str("id") ?: path, b.str("name") ?: "document", path, b.str("mime") ?: "application/octet-stream")
 }
+
+/** A posted block (the answer to Confirm or Approve): the stamp's number and date, the undo window, the document. */
+data class Stamp(val voucher: String?, val date: String?, val auditLogId: String?, val undoSeconds: Int, val document: ChatItem.File?)
+
+fun stampOf(b: JsonObject?): Stamp = Stamp(
+    voucher = b?.str("voucher"),
+    date = b?.obj("date")?.str("display"),
+    auditLogId = b?.str("audit_log_id"),
+    undoSeconds = (b?.get("undo_seconds") as? JsonPrimitive)?.longOrNull?.toInt() ?: 0,
+    document = fileOf(b?.obj("file")),
+)

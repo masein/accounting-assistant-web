@@ -84,7 +84,8 @@ fun Voucher(
     booksColor: androidx.compose.ui.graphics.Color,
     state: VoucherState,
     onConfirm: () -> Unit,
-    onEdit: () -> Unit,
+    /** Null when the card can't be changed from the phone: no Edit button. */
+    onEdit: (() -> Unit)?,
     onCancel: () -> Unit,
     onUndo: () -> Unit,
     modifier: Modifier = Modifier,
@@ -186,7 +187,7 @@ fun Voucher(
                             colors = ButtonDefaults.buttonColors(containerColor = c.firouzeh, contentColor = c.onFirouzeh)) {
                             Text(stringResource(R.string.voucher_post), fontWeight = FontWeight(700))
                         }
-                        FilledTonalButton(onClick = onEdit, enabled = state == VoucherState.Draft,
+                        if (onEdit != null) FilledTonalButton(onClick = onEdit, enabled = state == VoucherState.Draft,
                             colors = ButtonDefaults.filledTonalButtonColors(containerColor = c.firouzehSoft, contentColor = c.ink)) {
                             Text(stringResource(R.string.voucher_edit))
                         }

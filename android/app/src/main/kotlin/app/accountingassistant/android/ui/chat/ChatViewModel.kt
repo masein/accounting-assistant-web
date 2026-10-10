@@ -338,14 +338,11 @@ class ChatViewModel(
 
     /** The posted block's stamp: its reference and date, the undo window, the document it made. */
     private fun stamp(id: String, b: JsonObject?) {
-        val undo = (b?.get("undo_seconds") as? JsonPrimitive)?.intOrNull ?: 0
+        val st = stampOf(b)
         updateProposal(id) {
-            it.copy(phase = ChatItem.Proposal.Phase.Posted,
-                    voucher = (b?.get("voucher") as? JsonPrimitive)?.contentOrNull,
-                    postedDate = (b?.get("date") as? JsonObject)?.get("display")?.let { d -> (d as? JsonPrimitive)?.contentOrNull },
-                    auditLogId = (b?.get("audit_log_id") as? JsonPrimitive)?.contentOrNull,
-                    document = fileOf(b?.get("file") as? JsonObject),
-                    undoUntil = now() + undo * 1000L, error = null)
+            it.copy(phase = ChatItem.Proposal.Phase.Posted, voucher = st.voucher, postedDate = st.date,
+                    auditLogId = st.auditLogId, document = st.document,
+                    undoUntil = now() + st.undoSeconds * 1000L, error = null)
         }
     }
 

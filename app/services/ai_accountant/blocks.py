@@ -53,7 +53,20 @@ def display_date(iso: str | None, calendar: str, lang: str) -> str | None:
             return format_jalali_long(d)
         y, m, day = gregorian_to_jalali(d)
         return f"{day} {JALALI_MONTH_NAMES_EN[m - 1]} {y}"
+    # a Gregorian company, said in the reader's language: «۵ اکتبر ۲۰۲۶», not "5 Oct 2026" inside Persian words
+    if lang == "fa":
+        from app.services.calendar_periods import GREGORIAN_MONTHS_FA
+        from app.utils.jalali import to_persian_digits
+        return to_persian_digits(f"{d.day} {GREGORIAN_MONTHS_FA[d.month - 1]} {d.year}")
+    if lang in _GREGORIAN_MONTHS:
+        return f"{d.day} {_GREGORIAN_MONTHS[lang][d.month - 1]} {d.year}"
     return f"{d.day} {d.strftime('%b %Y')}"
+
+
+_GREGORIAN_MONTHS = {
+    "es": ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"),
+    "ar": ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"),
+}
 
 
 def _account_names(db: Session, codes: Iterable[str]) -> dict[str, str]:
@@ -199,7 +212,26 @@ def _invoice_file(result: dict, **_) -> dict | None:
     return invoice_file(result["id"], result.get("number"))
 
 
+def _forecast_chart(result: dict, lang: str = "en", **_) -> dict | None:
+    """get_cash_forecast (no what-if): cash week by week for the next weeks,
+    from today's balance, the lowest week and the first below zero marked."""
+    weeks = result.get("weeks")
+    if not isinstance(weeks, list) or not weeks or "opening_cash" not in result:
+        return None
+    title = {"fa": "نقدینگی هفته‌های آینده", "es": "Caja en las próximas semanas",
+             "ar": "النقد في الأسابيع القادمة"}.get(lang, "Cash, the coming weeks")
+    lowest = result.get("lowest") or {}
+    cur = result.get("currency")
+    return {"type": "chart", "kind": "cash_forecast", "style": "line", "title": title, "currency": cur,
+            "start": {"x": result.get("as_of"), "value": int(result["opening_cash"])},
+            "points": [{"x": w["week_start"], "value": int(w["closing"])} for w in weeks],
+            "lowest": {"x": lowest.get("week_start"), "value": int(lowest.get("closing") or 0)} if lowest else None,
+            "first_negative": result.get("first_negative_week"),
+            "fallback_text": f"{title}: {int(result['opening_cash']):,} → {int(result.get('closing_cash') or 0):,} {cur or ''}".strip()}
+
+
 RENDERERS = {
+    "get_cash_forecast": _forecast_chart,
     "get_account_balance": _balance_figure,
     "get_cash_position": _cash_figure,
     "list_invoices": _invoice_table,

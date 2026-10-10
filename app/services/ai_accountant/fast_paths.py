@@ -70,11 +70,25 @@ _INTENTS: list[tuple[str, re.Pattern]] = [
 ]
 
 
+# The forecast is about the future by nature, so it is matched before the
+# future words send a question to the model; a what-if stays with the model.
+_FORECAST = re.compile(
+    r"\bcash ?flow forecast\b|\bcash forecast\b|\bwill (we|i) have enough (cash|money)\b|\bwhen (do|will) (we|i) run (short|out)\b"
+    r"|پیش[‌ ]?بینی (نقدینگی|جریان نقد|نقد|پول)|کی پول کم میاری?م|پول(مون)? کم میاد"
+    r"|previsi[oó]n de (caja|tesorer[ií]a|efectivo)|pron[oó]stico de (caja|efectivo)|tendremos (suficiente )?(dinero|efectivo)"
+    r"|توقعات? (النقد|السيولة)|التدفق النقدي المتوقع|هل سيكفينا (المال|النقد)",
+    re.IGNORECASE)
+_WHAT_IF = re.compile(r"\bwhat if\b|\bif\b|اگه|اگر|qu[eé] pasa si|\bsi\b|ماذا لو|إذا", re.IGNORECASE)
+
+
 def match(message: str) -> str | None:
     """The intent of a short question the books can answer directly, or None."""
     text = (message or "").strip()
-    if (not text or len(text) > MAX_LENGTH or _DIGITS.search(text) or _FUTURE.search(text)
-            or _ACTIONS.search(text)):
+    if not text or len(text) > MAX_LENGTH or _DIGITS.search(text) or _ACTIONS.search(text):
+        return None
+    if _FORECAST.search(text):
+        return None if _WHAT_IF.search(text) else "forecast"
+    if _FUTURE.search(text):
         return None
     for name, pattern in _INTENTS:
         if pattern.search(text):
@@ -124,6 +138,12 @@ _T = {
                "fa": "این ماه: {actual} از {budget} {cur} خرج شده، {left} مانده.",
                "es": "Este mes: {actual} de {budget} {cur} gastados, quedan {left}.",
                "ar": "هذا الشهر: أُنفق {actual} من {budget} {cur}، وتبقّى {left}."},
+    "forecast": {"en": "Cash over the next {weeks} weeks, an estimate: from {opening} to {closing} {cur}; the lowest, {lowest}, in the week of {low_week}.",
+                 "fa": "نقدینگی {weeks} هفتهٔ آینده، به تخمین: از {opening} به {closing} {cur}؛ کمترین، {lowest}، در هفتهٔ {low_week}.",
+                 "es": "Caja en las próximas {weeks} semanas, una estimación: de {opening} a {closing} {cur}; el mínimo, {lowest}, la semana del {low_week}.",
+                 "ar": "النقد في الأسابيع الـ{weeks} القادمة، تقديرًا: من {opening} إلى {closing} {cur}؛ الأدنى، {lowest}، في أسبوع {low_week}."},
+    "forecast_negative": {"en": " It goes below zero in the week of {week}.", "fa": " در هفتهٔ {week} منفی می‌شود.",
+                          "es": " Baja de cero la semana del {week}.", "ar": " ينخفض تحت الصفر في أسبوع {week}."},
     "budget_none": {"en": "No budgets are set for this month.", "fa": "برای این ماه بودجه‌ای تعیین نشده است.",
                     "es": "No hay presupuestos para este mes.", "ar": "لا توجد ميزانيات لهذا الشهر."},
 }
@@ -169,6 +189,20 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
         from app.services.ai_accountant.spending_tools import GetSpendingSummary, GetSpendingSummaryInput
         r = await run(GetSpendingSummary(), GetSpendingSummaryInput(period="this_month"))
         text = _say("spending", lang, total=_money(r.get("total") or 0, lang), cur=_cur(r.get("currency"), lang))
+    elif intent == "forecast":
+        from app.services.ai_accountant.blocks import display_date
+        from app.services.ai_accountant.cash_tools import GetCashForecast, GetCashForecastInput
+        from app.services.locale_service import get_display_calendar
+        r = await run(GetCashForecast(), GetCashForecastInput())
+        calendar = get_display_calendar(db)
+        day = lambda iso: display_date(iso, calendar, lang) or iso  # noqa: E731
+        cur = _cur(r.get("currency"), lang)
+        low = r.get("lowest") or {}
+        text = _say("forecast", lang, weeks=_money(len(r.get("weeks") or []), lang), opening=_money(r["opening_cash"], lang),
+                    closing=_money(r.get("closing_cash") or 0, lang), cur=cur, lowest=_money(low.get("closing") or 0, lang),
+                    low_week=day(low.get("week_start")))
+        if r.get("first_negative_week"):
+            text += _say("forecast_negative", lang, week=day(r["first_negative_week"]))
     else:  # budget
         from app.services.ai_accountant.period_tools import GetBudgetStatus, GetBudgetStatusInput
         r = await run(GetBudgetStatus(), GetBudgetStatusInput())

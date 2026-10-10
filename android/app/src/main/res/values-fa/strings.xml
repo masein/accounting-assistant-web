@@ -130,4 +130,10 @@
         <item quantity="one">%d تکراری</item>
         <item quantity="other">%d تکراری</item>
     </plurals>
+    <string name="chart_estimate">تخمینی</string>
+    <string name="chart_today">امروز</string>
+    <string name="chart_lowest">کمترین: %1$s، هفتهٔ %2$s</string>
+    <string name="chart_negative">از هفتهٔ %1$s منفی می‌شود</string>
+    <string name="chart_after">پس از %1$d هفته</string>
+    <string name="chart_flat">هنوز دریافت یا پرداختی برای این هفته‌ها معلوم نیست.</string>
 </resources>

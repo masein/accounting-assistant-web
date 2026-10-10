@@ -33,7 +33,7 @@ class ContractTest {
 
     @Test fun everyRecordedConversationIsHere() {
         assertTrue("run tests/test_mobile_contract.py to record them", dir.isDirectory)
-        assertEquals(setOf("approval-fa", "balance-en", "budgets-fa", "cash-fa", "draft-fa", "intake-en",
+        assertEquals(setOf("approval-fa", "balance-en", "budgets-fa", "cash-fa", "draft-fa", "forecast-fa", "intake-en",
                            "invoice-pdf-en", "invoices-en", "posted-fa", "spending-fa", "statement-fa"), recordings().keys)
     }
 
@@ -46,6 +46,7 @@ class ContractTest {
             val expected = when (type) {
                 "text" -> ChatItem.Words::class
                 "figure" -> ChatItem.Figure::class
+                "chart" -> ChatItem.Chart::class
                 "table" -> ChatItem.Table::class
                 "proposal", "approval" -> ChatItem.Proposal::class
                 "file" -> ChatItem.File::class
@@ -58,7 +59,7 @@ class ContractTest {
             if (item is ChatItem.Fallback) assertTrue("$name: $type has a sentence to show", item.text.isNotBlank())
             drawn += type
         }
-        assertEquals(setOf("text", "figure", "table", "proposal", "approval", "file", "intake"), drawn)
+        assertEquals(setOf("text", "figure", "chart", "table", "proposal", "approval", "file", "intake"), drawn)
     }
 
     @Test fun theFieldsArriveWhereTheScreenReadsThem() {
@@ -91,6 +92,15 @@ class ContractTest {
         assertEquals(2, st.counts["unrecorded"])
         assertEquals(90_000L, st.gap)
         assertFalse(st.clean)
+    }
+
+    @Test fun theForecastStartsTodayAndKnowsItsLowWeek() {
+        val chart = parseBlock(recordings().getValue("forecast-fa").first()) as ChatItem.Chart
+        assertEquals(14, chart.points.size)                              // today, then thirteen weeks
+        assertEquals(1_240_000_000L, chart.points.first().value)
+        assertEquals("2027-01-04", chart.points.last().x)
+        assertEquals(ChatItem.Chart.Point("2026-11-30", -120_000_000), chart.lowest)
+        assertEquals("2026-11-30", chart.firstNegative)
     }
 
     @Test fun aPostedBlockStampsTheVoucher() {

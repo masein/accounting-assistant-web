@@ -158,4 +158,10 @@
         <item quantity="many">%d مكررة</item>
         <item quantity="other">%d مكررة</item>
     </plurals>
+    <string name="chart_estimate">تقديري</string>
+    <string name="chart_today">اليوم</string>
+    <string name="chart_lowest">الأدنى: %1$s، أسبوع %2$s</string>
+    <string name="chart_negative">تحت الصفر من أسبوع %1$s</string>
+    <string name="chart_after">بعد %1$d أسبوعًا</string>
+    <string name="chart_flat">لا يُعرف بعد أي دخل أو صرف في هذه الأسابيع.</string>
 </resources>

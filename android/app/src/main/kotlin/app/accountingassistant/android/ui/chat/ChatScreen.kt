@@ -162,6 +162,7 @@ fun ChatScreen(
                                 AssistantText(item.text)
                                 NextDifferenceChip(onClick = { onStatementNext(item.nextStatement) })
                             }
+                        is ChatItem.Chart -> ChartCard(item, lang)
                         is ChatItem.Statement -> StatementCard(item, lang, onFix = { onStatementNext(item.statementId) })
                         is ChatItem.Thinking -> ThinkingRow(item.text ?: stringResource(R.string.thinking))
                         is ChatItem.Suggestions -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

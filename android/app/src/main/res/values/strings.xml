@@ -130,4 +130,10 @@
         <item quantity="one">%d duplicate</item>
         <item quantity="other">%d duplicates</item>
     </plurals>
+    <string name="chart_estimate">An estimate</string>
+    <string name="chart_today">Today</string>
+    <string name="chart_lowest">Lowest: %1$s, the week of %2$s</string>
+    <string name="chart_negative">Below zero from the week of %1$s</string>
+    <string name="chart_after">after %1$d weeks</string>
+    <string name="chart_flat">Nothing is known yet to come in or go out in these weeks.</string>
 </resources>

@@ -28,4 +28,11 @@ class ChatItemsTest {
         assertTrue(item is ChatItem.Fallback)
         assertEquals("A chart of spending", (item as ChatItem.Fallback).text)
     }
+
+    @Test fun aFileBlockIsADocumentToOpenOrShare() {
+        val item = parseBlock(block("""{"type":"file","id":"file:invoice:1","name":"invoice-INV-1042.pdf",
+            "mime":"application/pdf","path":"/api/mobile/v1/documents/invoices/1","fallback_text":"Invoice INV-1042 (PDF)"}""")) as ChatItem.File
+        assertEquals("invoice-INV-1042.pdf", item.name)
+        assertEquals("/api/mobile/v1/documents/invoices/1", item.path)
+    }
 }

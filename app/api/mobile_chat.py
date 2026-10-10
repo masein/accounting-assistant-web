@@ -284,7 +284,34 @@ def mobile_confirm(token: str, db: Session = Depends(get_db), user: SessionUser 
     undo = 0 if result.idempotent else int(UNDO_WINDOW.total_seconds())
     return {"state": "posted", "block": B.posted_block(
         token=token, transaction_id=result.transaction_id, audit_log_id=result.audit_log_id, voucher=voucher,
-        date_iso=date_iso, calendar=_calendar(db), lang=_user_language(db, user), undo_seconds=undo)}
+        date_iso=date_iso, calendar=_calendar(db), lang=_user_language(db, user), undo_seconds=undo,
+        file=_made_document(db, result.audit_log_id))}
+
+
+def _made_document(db: Session, audit_log_id: str | None) -> dict | None:
+    """The document a posting made, for the phone to open or share: an
+    invoice's PDF (its audit row names the invoice)."""
+    from app.models.audit_log import AuditLog
+    from app.models.invoice import Invoice
+    try:
+        row = db.get(AuditLog, uuid.UUID(str(audit_log_id)))
+    except (ValueError, TypeError):
+        return None
+    if row is None or row.entity_type != "invoice" or not row.entity_id:
+        return None
+    try:
+        inv = db.get(Invoice, uuid.UUID(str(row.entity_id)))
+    except (ValueError, TypeError):
+        return None
+    return B.invoice_file(inv.id, inv.number) if inv is not None else None
+
+
+@router.get("/documents/invoices/{invoice_id}")
+def mobile_invoice_pdf(invoice_id: uuid.UUID, db: Session = Depends(get_db)):
+    """An invoice's PDF, to open on the phone or share to Telegram, WhatsApp,
+    Eitaa or e-mail: the same document the web prints."""
+    from app.api.invoices import invoice_pdf
+    return invoice_pdf(invoice_id=invoice_id, db=db)
 
 
 @router.post("/proposals/{token}/cancel")

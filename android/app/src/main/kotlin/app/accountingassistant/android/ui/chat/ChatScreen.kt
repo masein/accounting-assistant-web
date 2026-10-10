@@ -23,6 +23,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
+import app.accountingassistant.android.ui.components.AppIcons
+import androidx.compose.material3.Icon
 import app.accountingassistant.android.util.Picked
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -79,6 +81,7 @@ fun ChatScreen(
     onSpeakEnd: () -> Unit = {},
     userInitial: String = "",
     onAccount: () -> Unit = {},
+    onFile: (ChatItem.File, Boolean) -> Unit = { _, _ -> },
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -136,6 +139,7 @@ fun ChatScreen(
                             delta = null, deltaIsBad = false,
                             freshness = null, series = emptyList())
                         is ChatItem.Table -> TableCard(item, lang)
+                        is ChatItem.File -> FileCard(item, onOpen = { onFile(item, false) }, onShare = { onFile(item, true) })
                         is ChatItem.Proposal -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Voucher(
                                 lang = lang, amount = item.amount ?: 0, currency = item.currency ?: "",
@@ -146,7 +150,7 @@ fun ChatScreen(
                                     ChatItem.Proposal.Phase.Posting -> VoucherState.Posting
                                     ChatItem.Proposal.Phase.Posted -> VoucherState.Posted(
                                         item.voucher.orEmpty(), item.postedDate.orEmpty(),
-                                        ((item.undoUntil - nowMs) / 1000).toInt().coerceAtLeast(0))
+                                        ((item.undoUntil - nowMs) / 1000).coerceIn(0, 120).toInt())
                                     ChatItem.Proposal.Phase.Waiting -> VoucherState.WaitingForApproval
                                     ChatItem.Proposal.Phase.Cancelled -> VoucherState.Cancelled
                                     ChatItem.Proposal.Phase.Undone -> VoucherState.Undone
@@ -154,6 +158,7 @@ fun ChatScreen(
                                 onConfirm = { onConfirm(item.id) }, onEdit = {}, onCancel = { onCancel(item.id) },
                                 onUndo = { onUndo(item.id) },
                             )
+                            item.document?.let { doc -> FileCard(doc, onOpen = { onFile(doc, false) }, onShare = { onFile(doc, true) }) }
                             item.error?.let { Text(it, color = c.pomegranate, fontSize = 12.sp) }
                         }
                     }
@@ -221,6 +226,32 @@ private fun TableCard(item: ChatItem.Table, lang: String) {
                         row.sub?.let { Text(Numbers.digits(it, lang), color = c.muted, fontSize = 11.sp) }
                     }
                     Text(Numbers.amount(row.value, lang), color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(700))
+                }
+            }
+        }
+    }
+}
+
+/** A document from the books: a PDF tile, its name, Open and Share. */
+@Composable
+fun FileCard(file: ChatItem.File, onOpen: () -> Unit, onShare: () -> Unit) {
+    val c = LocalAccountantColors.current
+    Surface(onClick = onOpen, color = c.surface, shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, c.line)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = c.pomegranate, shape = RoundedCornerShape(6.dp), modifier = Modifier.size(width = 34.dp, height = 40.dp)) {
+                Box(contentAlignment = Alignment.BottomCenter) {
+                    Text(if (file.mime == "application/pdf") "PDF" else "FILE", color = c.surface, fontSize = 8.sp,
+                         fontWeight = FontWeight(700), modifier = Modifier.padding(bottom = 5.dp))
+                }
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                Text(file.name, color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(600), maxLines = 1)
+                Text(stringResource(R.string.file_open), color = c.muted, fontSize = 11.sp)
+            }
+            val share = stringResource(R.string.file_share)
+            Surface(onClick = onShare, shape = CircleShape, color = c.surface2, modifier = Modifier.size(34.dp).semantics { contentDescription = share }) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(AppIcons.Share, contentDescription = null, tint = c.ink, modifier = Modifier.size(16.dp))
                 }
             }
         }

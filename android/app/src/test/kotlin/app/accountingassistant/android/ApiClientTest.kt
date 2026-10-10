@@ -112,4 +112,16 @@ class ApiClientTest {
         assertEquals(502, err.status)
         assertEquals("ai_unavailable", err.code)
     }
+
+    @Test fun aDocumentDownloadsWithTheBearerAndRenewsOnce() = runBlocking {
+        store.save(StoredSession("OLD", "R1", "d1", UserDto("u1", "maryam")))
+        api.restore()
+        reply(401, """{"detail":"Authentication required","code":"session_expired"}""")
+        reply(200, """{"ok":true,"access_token":"NEW","refresh_token":"R2","device_id":"d1"}""")
+        server.enqueue(MockResponse.Builder().code(200).body("%PDF-1.7 test").build())
+        val bytes = api.download("/api/mobile/v1/documents/invoices/1")
+        assertEquals("%PDF-1.7 test", String(bytes))
+        server.takeRequest(); server.takeRequest()
+        assertEquals("Bearer NEW", server.takeRequest().headers["Authorization"])
+    }
 }

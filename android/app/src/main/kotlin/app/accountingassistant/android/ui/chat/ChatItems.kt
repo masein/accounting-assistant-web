@@ -30,10 +30,14 @@ sealed interface ChatItem {
         val auditLogId: String? = null,
         val undoUntil: Long = 0L,
         val error: String? = null,
+        /** The document the posting made (an invoice's PDF). */
+        val document: File? = null,
     ) : ChatItem {
         enum class Phase { Draft, Posting, Posted, Waiting, Cancelled, Undone }
     }
     data class Figure(override val id: String, val label: String, val value: Long, val currency: String?) : ChatItem
+    /** A document from the books: open it, or share it to another app. */
+    data class File(override val id: String, val name: String, val path: String, val mime: String) : ChatItem
     data class Table(override val id: String, val kind: String, val rows: List<Row>) : ChatItem {
         data class Row(val label: String, val sub: String?, val value: Long, val currency: String?)
     }
@@ -76,9 +80,17 @@ fun parseBlock(b: JsonObject): ChatItem {
             },
         )
         "figure" -> ChatItem.Figure(id, b.str("label").orEmpty(), b.long("value") ?: 0, b.str("currency"))
+        "file" -> fileOf(b) ?: ChatItem.Fallback(id, b.str("fallback_text").orEmpty())
         "table" -> ChatItem.Table(id, b.str("kind").orEmpty(), b["rows"].array().map {
             ChatItem.Table.Row(it.str("label").orEmpty(), it.str("sub"), it.long("value") ?: 0, it.str("currency"))
         })
         else -> ChatItem.Fallback(id, b.str("fallback_text").orEmpty())
     }
+}
+
+/** A file block (or a posted block's "file"), when it names a phone document. */
+fun fileOf(b: JsonObject?): ChatItem.File? {
+    b ?: return null
+    val path = b.str("path") ?: return null
+    return ChatItem.File(b.str("id") ?: path, b.str("name") ?: "document", path, b.str("mime") ?: "application/octet-stream")
 }

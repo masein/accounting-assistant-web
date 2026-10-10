@@ -1,6 +1,8 @@
 package app.accountingassistant.android
 
 import android.os.Bundle
+import android.widget.Toast
+import app.accountingassistant.android.util.Documents
 import android.content.Intent
 import app.accountingassistant.android.util.Capture
 import app.accountingassistant.android.util.Shared
@@ -145,6 +147,13 @@ class MainActivity : ComponentActivity() {
                         onSpeakEnd = {
                             vm.listening(false)
                             recorder.stop()?.let { vm.heard(it.bytes, it.name, it.mime) }
+                        },
+                        onFile = { file, share ->
+                            scope.launch {
+                                runCatching { app.api.download(file.path) }
+                                    .onSuccess { bytes -> Documents.hand(this@MainActivity, bytes, file.name, file.mime, share) }
+                                    .onFailure { Toast.makeText(this@MainActivity, R.string.file_failed, Toast.LENGTH_LONG).show() }
+                            }
                         },
                         userInitial = session?.user?.username?.take(1)?.uppercase() ?: "",
                         onAccount = {

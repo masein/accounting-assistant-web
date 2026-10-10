@@ -141,7 +141,7 @@ fun Voucher(
                     }
                 }
                 Text(summary, color = c.muted, fontSize = 12.sp)
-                Column(
+                if (lines.isNotEmpty()) Column(
                     Modifier.fillMaxWidth().padding(top = 2.dp)
                         .drawWithCache {
                             onDrawBehind { drawRoundRect(c.surface2, cornerRadius = CornerRadius(10.dp.toPx())) }
@@ -237,7 +237,9 @@ fun Seal(number: String, date: String, lang: String, modifier: Modifier = Modifi
         label = "seal-alpha")
     androidx.compose.runtime.LaunchedEffect(Unit) { landed = 1f }
     val posted = stringResource(R.string.voucher_posted)
-    val numberText = stringResource(R.string.voucher_number, Numbers.digits(number, lang))
+    // a reference with Latin letters (INV-1042) keeps its own digits
+    val numberText = stringResource(R.string.voucher_number,
+        if (number.any { it in 'A'..'Z' || it in 'a'..'z' }) number else Numbers.digits(number, lang))
     Box(
         modifier.size(80.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale; rotationZ = -12f; this.alpha = alpha }

@@ -161,6 +161,7 @@ class ChatViewModel(
                                 postedDate = (b?.get("date") as? kotlinx.serialization.json.JsonObject)
                                     ?.get("display")?.let { d -> (d as? JsonPrimitive)?.contentOrNull },
                                 auditLogId = (b?.get("audit_log_id") as? JsonPrimitive)?.contentOrNull,
+                                document = fileOf(b?.get("file") as? kotlinx.serialization.json.JsonObject),
                                 undoUntil = now() + undo * 1000L)
                     }
                 }

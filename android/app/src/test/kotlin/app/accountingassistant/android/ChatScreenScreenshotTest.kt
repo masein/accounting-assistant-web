@@ -60,6 +60,26 @@ class ChatScreenScreenshotTest {
     fun englishLight() = shot("chat-en-light", fa = false, dark = false)
 
     @Test @Config(qualifiers = "+fa")
+    fun persianPostedInvoiceWithItsPdf() {
+        val invoice = ChatItem.Proposal(
+            id = "p2", token = "t2", title = "فاکتور فروش INV-1042 · شرکت آریا", amount = 60_000_000, currency = "IRR",
+            date = "۱۸ مهر ۱۴۰۵", lines = emptyList(), needsApproval = false, phase = ChatItem.Proposal.Phase.Posted,
+            voucher = "INV-1042", postedDate = "1405/07/18", undoUntil = Long.MAX_VALUE,
+            document = ChatItem.File("f1", "invoice-INV-1042.pdf", "/api/mobile/v1/documents/invoices/1", "application/pdf"))
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(ChatItem.User("u1", "برای آریا فاکتور بزن: ۳ ساعت مشاوره، ساعتی ۲۰ میلیون ریال"), invoice)),
+                    lang = "fa", booksName = "شرکت بازرگانی آرمان", personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-invoice-pdf.png")
+    }
+
+    @Test @Config(qualifiers = "+fa")
     fun persianListeningWithAFile() {
         compose.setContent {
             AccountantTheme(dark = false) {

@@ -1,6 +1,12 @@
 package app.accountingassistant.android
 
 import android.os.Bundle
+import android.content.Intent
+import app.accountingassistant.android.util.Capture
+import app.accountingassistant.android.util.Shared
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -35,12 +41,20 @@ import app.accountingassistant.android.util.VoiceRecorder
 
 class MainActivity : ComponentActivity() {
     private var stoppedAt = 0L
+    /** What another app shared in, waiting for the chat (after sign-in and unlock). */
+    private val shared = MutableStateFlow<Shared?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Shared.from(intent)?.let { shared.value = it }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val app = application as AccountantApp
         val lock = AppLock(this)
+        if (savedInstanceState == null) Shared.from(intent)?.let { shared.value = it }
         setContent {
             AccountantTheme {
                 val scope = rememberCoroutineScope()
@@ -96,6 +110,22 @@ class MainActivity : ComponentActivity() {
                     val recorder = remember { VoiceRecorder(this@MainActivity) }
                     val session = app.api.session
                     val company = session?.company
+                    // a share lands in the chat: words in the composer, files as attachments
+                    val incoming by shared.collectAsState()
+                    LaunchedEffect(incoming) {
+                        val got = incoming ?: return@LaunchedEffect
+                        shared.value = null
+                        got.text?.let { vm.edit((s.draft + "\n" + it).trim()) }
+                        got.files.forEach { uri ->
+                            val mime = contentResolver.getType(uri).orEmpty()
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    if (mime.startsWith("image/")) Capture.photo(this@MainActivity, uri)
+                                    else Capture.document(this@MainActivity, uri)
+                                }
+                            }.onSuccess { vm.attach(it.bytes, it.name, it.mime) }
+                        }
+                    }
                     var account by remember { mutableStateOf(false) }
                     var devices by remember { mutableStateOf<List<DeviceDto>?>(null) }
                     ChatScreen(

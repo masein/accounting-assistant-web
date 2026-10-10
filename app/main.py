@@ -36,6 +36,7 @@ from app.api.invoice_mail import router as invoice_mail_router
 from app.api.quotes import router as quotes_router
 from app.api.moadian import router as moadian_router
 from app.api.mobile import auth_router as mobile_auth_router, router as mobile_router
+from app.api.mobile_chat import router as mobile_chat_router
 from app.api.recurring_invoices import router as recurring_invoices_router
 from app.api.manager_reports import router as manager_reports_router
 from app.api.migration import router as migration_router
@@ -1086,6 +1087,7 @@ app.include_router(bots_router)
 # is guarded like any business router.
 app.include_router(mobile_auth_router)
 app.include_router(mobile_router, dependencies=_rbac)
+app.include_router(mobile_chat_router, dependencies=_rbac)
 app.include_router(tax_uk_router, dependencies=_rbac)
 app.include_router(time_tracking_router, dependencies=_rbac)
 app.include_router(transactions_router, dependencies=_rbac)
@@ -1103,7 +1105,7 @@ _GUARDED_PREFIXES = tuple(sorted({
         migration_router, moadian_router, notifications_router, payroll_router, personal_router, insights_router,
         commitments_router, fixed_assets_router, petty_cash_router, products_router, purchase_orders_router,
         quotes_router, recurring_router, recurring_invoices_router, reports_router, tax_ir_router, tax_uk_router,
-        bank_sms_router, bank_mailbox_router, mobile_router,
+        bank_sms_router, bank_mailbox_router, mobile_router, mobile_chat_router,
         time_tracking_router, transactions_router,
     ) if r.prefix
 }))

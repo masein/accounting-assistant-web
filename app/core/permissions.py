@@ -457,7 +457,14 @@ _reads(["/ai-accountant/sessions", "/ai-accountant/sessions/{session_id}/message
 for _m, _p in [
     ("POST", "/ai-accountant/chat"), ("POST", "/ai-accountant/execute"),
     ("POST", "/ai-accountant/undo"), ("POST", "/ai-accountant/reverse"),
-    ("POST", "/ai-accountant/briefing"),
+    ("POST", "/ai-accountant/briefing"), ("POST", "/ai-accountant/proposals/{token}/cancel"),
+]:
+    _add(_m, _p, Perm.BOOKS_WRITE)
+# The phone's chat (app/api/mobile_chat.py): the same rights as the web chat.
+_reads(["/api/mobile/v1/threads", "/api/mobile/v1/threads/{thread_id}/messages"], Perm.BOOKS_READ)
+for _m, _p in [
+    ("POST", "/api/mobile/v1/chat"), ("POST", "/api/mobile/v1/proposals/{token}/confirm"),
+    ("POST", "/api/mobile/v1/proposals/{token}/cancel"), ("POST", "/api/mobile/v1/postings/{audit_log_id}/undo"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 # What the assistant learned from corrections (roadmap §5.4).

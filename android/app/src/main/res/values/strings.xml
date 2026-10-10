@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Accountant</string>
+    <string name="signin_title">Your books, in one conversation</string>
+    <string name="signin_username">Username</string>
+    <string name="signin_password">Password</string>
+    <string name="signin_button">Sign in</string>
+    <string name="signin_code">Code from your authenticator app</string>
+    <string name="signin_code_button">Continue</string>
+    <string name="composer_hint">Type, send a photo or speak…</string>
+    <string name="voucher_draft">Draft voucher</string>
+    <string name="voucher_post">Post</string>
+    <string name="voucher_edit">Edit</string>
+    <string name="voucher_cancel">Cancel</string>
+    <string name="voucher_undo">Undo %1$s</string>
+    <string name="voucher_posted">Posted</string>
+    <string name="voucher_number">Voucher %1$s</string>
+    <string name="voucher_waits">Waiting for a second approval</string>
+    <string name="debit_short">Dr</string>
+    <string name="credit_short">Cr</string>
+    <string name="fresh_as_of">Up to date %1$s</string>
+    <string name="thinking">Working on it…</string>
+    <string name="books_switch">Which books?</string>
+    <string name="error_network">No connection. Your message is kept and will be sent when you\'re back online.</string>
+    <string name="error_session">Your session on this phone has ended. Sign in again.</string>
+    <string name="error_update">This version of the app is too old. Update it to keep going.</string>
+    <string name="attach">Attach</string>
+    <string name="speak">Speak</string>
+    <string name="send">Send</string>
+    <string name="voucher_undone">Undone — the books are as they were</string>
+    <string name="voucher_cancelled">Cancelled</string>
+    <string name="voucher_title">Voucher</string>
+</resources>

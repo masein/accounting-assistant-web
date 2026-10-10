@@ -1,0 +1,47 @@
+# The Android app (android/): unit tests (the client against a mock server,
+# block parsing, number formatting), screenshot tests rendered with
+# Robolectric and Roborazzi (no emulator), and a debug build. Runs only when
+# the app or this workflow changes.
+name: Android
+
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android.yml"]
+  pull_request:
+    paths: ["android/**", ".github/workflows/android.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Android app
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit and screenshot tests
+        # runs every unit test, with the screenshot tests writing their images
+        run: ./gradlew --no-daemon :app:recordRoborazziDebug
+      - name: Debug build
+        run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-screenshots
+          path: android/app/build/outputs/roborazzi
+          if-no-files-found: ignore

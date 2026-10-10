@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">حسابدار</string>
+    <string name="signin_title">دفترت را با یک گفتگو نگه دار</string>
+    <string name="signin_username">نام کاربری</string>
+    <string name="signin_password">گذرواژه</string>
+    <string name="signin_button">ورود</string>
+    <string name="signin_code">کد برنامهٔ احراز هویت</string>
+    <string name="signin_code_button">ادامه</string>
+    <string name="composer_hint">بنویس، عکس بفرست یا بگو…</string>
+    <string name="voucher_draft">پیش‌نویس سند</string>
+    <string name="voucher_post">ثبت</string>
+    <string name="voucher_edit">ویرایش</string>
+    <string name="voucher_cancel">لغو</string>
+    <string name="voucher_undo">برگرداندن %1$s</string>
+    <string name="voucher_posted">ثبت شد</string>
+    <string name="voucher_number">سند %1$s</string>
+    <string name="voucher_waits">در انتظار تأیید دوم</string>
+    <string name="debit_short">بد</string>
+    <string name="credit_short">بس</string>
+    <string name="fresh_as_of">به‌روز %1$s</string>
+    <string name="thinking">در حال کار…</string>
+    <string name="books_switch">کدام دفتر؟</string>
+    <string name="error_network">اتصال برقرار نیست. پیامت نگه داشته می‌شود و وقتی آنلاین شدی فرستاده می‌شود.</string>
+    <string name="error_session">نشست شما روی این گوشی تمام شده است. دوباره وارد شوید.</string>
+    <string name="error_update">این نسخهٔ برنامه قدیمی است. برای ادامه به‌روزش کنید.</string>
+    <string name="attach">پیوست</string>
+    <string name="speak">گفتن</string>
+    <string name="send">فرستادن</string>
+    <string name="voucher_undone">برگردانده شد؛ دفاتر مثل قبل است</string>
+    <string name="voucher_cancelled">لغو شد</string>
+    <string name="voucher_title">سند</string>
+    <string name="suggestions_intro">از دفاترت بپرس یا بگو چه ثبت کنم. این‌ها فوری جواب می‌گیرند:</string>
+    <string-array name="suggestions">
+        <item>موجودی چقدره؟</item>
+        <item>کی بهم بدهکاره؟</item>
+        <item>به کی بدهکاریم؟</item>
+        <item>این ماه چقدر خرج کردم؟</item>
+    </string-array>
+</resources>

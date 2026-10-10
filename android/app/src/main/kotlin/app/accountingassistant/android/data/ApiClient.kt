@@ -224,6 +224,16 @@ class ApiClient(
 
     suspend fun undo(auditLogId: String): StateReply = call<Unit, StateReply>("POST", "/postings/$auditLogId/undo", null, serializer())
 
+    /** Change a draft: the date, the description, or (one debit, one credit) the amount. */
+    suspend fun editProposal(token: String, change: EditRequest): EditReply =
+        call("POST", "/proposals/$token/edit", change, serializer())
+
+    /** Someone else's voucher, posted by this person's approval: the stamped receipt. */
+    suspend fun approve(token: String): ConfirmReply = call<Unit, ConfirmReply>("POST", "/approvals/$token/approve", null, serializer())
+
+    suspend fun reject(token: String, note: String?): StateReply =
+        call("POST", "/approvals/$token/reject", RejectRequest(note?.takeIf { it.isNotBlank() }), serializer())
+
     // --- plumbing ------------------------------------------------------------------------------
 
     private suspend inline fun <reified B, R> call(

@@ -13,7 +13,9 @@ from app.core.messages import EXACT, LANGS, PATTERNS, localize_detail, request_l
 APP = Path(__file__).resolve().parents[1] / "app"
 # exceptions whose text an endpoint puts in its detail ("<employee>: <reason>",
 # a password rule)
-REASONS = {"PayrollInputError", "PasswordPolicyError"}
+REASONS = {"PayrollInputError", "PasswordPolicyError",
+           # a proposal refused on the phone (app/api/mobile_chat.py says str(e))
+           "EditRefused", "ProposalCancelled", "PermissionDenied", "ProposalExpired", "ProposalNotFound"}
 # wrappers that raise an HTTPException with their first argument as the detail
 REFUSERS = {"_refuse"}
 # a statement row's problem, "Row {n}: {reason}" (app/api/brain.py): the reason

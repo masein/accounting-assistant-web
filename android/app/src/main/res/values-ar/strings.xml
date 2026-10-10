@@ -79,4 +79,20 @@
     <string name="outbox_discard">لا ترسل</string>
     <string name="earlier">رسائل سابقة</string>
     <string name="error_generic">حدث خطأ ما. حاول مرة أخرى.</string>
+    <string name="voucher_asked_by">بانتظار موافقتك · طلبه %1$s</string>
+    <string name="voucher_approve">موافقة</string>
+    <string name="voucher_reject">رفض</string>
+    <string name="voucher_withdraw">سحب</string>
+    <string name="voucher_rejected">مرفوض</string>
+    <string name="voucher_replaced">تم التعديل؛ القيد الجديد بعده.</string>
+    <string name="edit_title">تعديل القيد</string>
+    <string name="edit_description">الوصف</string>
+    <string name="edit_amount">المبلغ</string>
+    <string name="edit_amount_locked">لهذا القيد عدة أسطر. أخبر المحاسب بالمبالغ الجديدة.</string>
+    <string name="edit_date">التاريخ</string>
+    <string name="edit_date_hint">مثل 2026-10-10</string>
+    <string name="edit_save">حفظ التغييرات</string>
+    <string name="dialog_back">رجوع</string>
+    <string name="reject_title">رفض هذا القيد؟</string>
+    <string name="reject_reason">السبب (اختياري)</string>
 </resources>

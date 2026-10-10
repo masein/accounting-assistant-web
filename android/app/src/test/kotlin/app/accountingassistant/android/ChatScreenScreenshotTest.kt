@@ -9,6 +9,8 @@ import app.accountingassistant.android.ui.chat.ChatUiState
 import app.accountingassistant.android.ui.components.VoucherLine
 import app.accountingassistant.android.ui.theme.AccountantTheme
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.github.takahirom.roborazzi.captureScreenRoboImage
+import app.accountingassistant.android.ui.chat.EditVoucherSheet
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -123,4 +125,41 @@ class ChatScreenScreenshotTest {
 
     @Test @Config(qualifiers = "+en")
     fun englishOfflineOutboxDark() = outbox(fa = false, name = "chat-en-outbox-dark", dark = true)
+
+    private fun voucherFor(fa: Boolean, approval: ChatItem.Proposal.Approval?) = ChatItem.Proposal(
+        id = "p9", token = "t9", title = if (fa) "اجارهٔ دفتر، مهر" else "Office rent, October", amount = 80_000_000,
+        currency = "IRR", date = if (fa) "۱۸ مهر ۱۴۰۵" else "10 Oct 2026",
+        lines = listOf(VoucherLine("6112", if (fa) "هزینهٔ اجاره" else "Rent", debit = 80_000_000),
+                       VoucherLine("1110", if (fa) "بانک ملت" else "Bank Mellat", credit = 80_000_000)),
+        needsApproval = true, approval = approval, dateIso = "2026-10-10")
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianApprovalCard() {
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(
+                        ChatItem.Words("w1", "۱ سند منتظر تأیید شماست."),
+                        voucherFor(true, ChatItem.Proposal.Approval("maryam", mine = false)),
+                        voucherFor(true, null).copy(id = "p8", phase = ChatItem.Proposal.Phase.Rejected,
+                                                    approval = ChatItem.Proposal.Approval("ali", mine = false)))),
+                    lang = "fa", booksName = "شرکت بازرگانی آرمان", personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-approval.png")
+    }
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianEditSheet() {
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                EditVoucherSheet(voucherFor(true, null), "fa", onSave = { _, _ -> }, onDismiss = {})
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        captureScreenRoboImage("build/outputs/roborazzi/chat-fa-edit-sheet.png")
+    }
 }

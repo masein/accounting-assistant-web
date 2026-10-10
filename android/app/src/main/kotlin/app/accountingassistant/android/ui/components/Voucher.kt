@@ -61,6 +61,11 @@ sealed interface VoucherState {
     data object WaitingForApproval : VoucherState
     data object Cancelled : VoucherState
     data object Undone : VoucherState
+    /** Someone else's voucher waiting for this person's decision; [mine] when they asked for it. */
+    data class ForApproval(val askedBy: String, val mine: Boolean, val busy: Boolean = false) : VoucherState
+    data object Rejected : VoucherState
+    /** Edited: a new draft follows it. */
+    data object Replaced : VoucherState
 }
 
 /**
@@ -84,6 +89,8 @@ fun Voucher(
     onUndo: () -> Unit,
     modifier: Modifier = Modifier,
     footer: @Composable (() -> Unit)? = null,
+    onApprove: () -> Unit = {},
+    onReject: () -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     val view = LocalView.current
@@ -123,8 +130,12 @@ fun Voucher(
                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(if (state is VoucherState.Draft || state is VoucherState.Posting) R.string.voucher_draft else R.string.voucher_title),
-                         color = c.muted, fontSize = 11.sp)
+                    Text(when (state) {
+                             is VoucherState.ForApproval -> stringResource(R.string.voucher_asked_by, state.askedBy)
+                             VoucherState.Draft, VoucherState.Posting -> stringResource(R.string.voucher_draft)
+                             else -> stringResource(R.string.voucher_title)
+                         }, color = if (state is VoucherState.ForApproval) c.saffron else c.muted, fontSize = 11.sp,
+                         fontWeight = if (state is VoucherState.ForApproval) FontWeight(600) else FontWeight(400))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Canvas(Modifier.size(7.dp)) { drawCircle(booksColor) }
                         Spacer(Modifier.width(5.dp))
@@ -200,6 +211,27 @@ fun Voucher(
                                                           fontWeight = FontWeight(600), fontSize = 13.sp)
                     VoucherState.Cancelled -> Text(stringResource(R.string.voucher_cancelled), color = c.muted, fontSize = 13.sp)
                     VoucherState.Undone -> Text(stringResource(R.string.voucher_undone), color = c.muted, fontSize = 13.sp)
+                    VoucherState.Rejected -> Text(stringResource(R.string.voucher_rejected), color = c.pomegranate,
+                                                  fontWeight = FontWeight(600), fontSize = 13.sp)
+                    VoucherState.Replaced -> Text(stringResource(R.string.voucher_replaced), color = c.muted, fontSize = 13.sp)
+                    is VoucherState.ForApproval -> if (state.mine) {
+                        Text(stringResource(R.string.voucher_waits), color = c.saffron, fontWeight = FontWeight(600),
+                             fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        TextButton(onClick = onCancel, enabled = !state.busy) {
+                            Text(stringResource(R.string.voucher_withdraw), color = c.muted)
+                        }
+                    } else {
+                        Button(onClick = {
+                            if (Build.VERSION.SDK_INT >= 30) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                            onApprove()
+                        }, enabled = !state.busy,
+                            colors = ButtonDefaults.buttonColors(containerColor = c.firouzeh, contentColor = c.onFirouzeh)) {
+                            Text(stringResource(R.string.voucher_approve), fontWeight = FontWeight(700))
+                        }
+                        TextButton(onClick = onReject, enabled = !state.busy) {
+                            Text(stringResource(R.string.voucher_reject), color = c.pomegranate)
+                        }
+                    }
                 }
             }
         }

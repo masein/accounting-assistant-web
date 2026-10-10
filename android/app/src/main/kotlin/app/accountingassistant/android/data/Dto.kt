@@ -89,6 +89,17 @@ data class ConfirmReply(
 @Serializable
 data class StateReply(val state: String, val mode: String? = null)
 
+/** Only the fields that change are sent. */
+@Serializable
+data class EditRequest(val date: String? = null, val description: String? = null, val amount: Long? = null)
+
+/** The new draft, and the token it replaces. */
+@Serializable
+data class EditReply(val replaces: String, val block: JsonObject)
+
+@Serializable
+data class RejectRequest(val note: String? = null)
+
 /** What the phone keeps between launches. */
 @Serializable
 data class StoredSession(

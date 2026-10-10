@@ -34,8 +34,15 @@ sealed interface ChatItem {
         val error: String? = null,
         /** The document the posting made (an invoice's PDF). */
         val document: File? = null,
+        /** Someone else's voucher waiting for this person's decision (or their own, to withdraw). */
+        val approval: Approval? = null,
+        /** The entry date as the server keeps it (Gregorian ISO), for Edit. */
+        val dateIso: String? = null,
     ) : ChatItem {
-        enum class Phase { Draft, Posting, Posted, Waiting, Cancelled, Undone }
+        enum class Phase { Draft, Posting, Posted, Waiting, Cancelled, Undone, Rejected, Replaced }
+        data class Approval(val askedBy: String, val mine: Boolean)
+        /** Edit can change the amount only when one line is debited and one credited. */
+        val amountEditable: Boolean get() = lines.count { it.debit > 0 } == 1 && lines.count { it.credit > 0 } == 1
     }
     data class Figure(override val id: String, val label: String, val value: Long, val currency: String?) : ChatItem
     /** A document from the books: open it, or share it to another app. */
@@ -66,7 +73,7 @@ fun parseBlock(b: JsonObject): ChatItem {
     val id = b.str("id") ?: b.hashCode().toString()
     return when (b.str("type")) {
         "text" -> ChatItem.Words(id, b.str("text").orEmpty())
-        "proposal" -> ChatItem.Proposal(
+        "proposal", "approval" -> ChatItem.Proposal(
             id = id,
             token = b.str("token").orEmpty(),
             title = b.str("title").orEmpty(),
@@ -79,9 +86,17 @@ fun parseBlock(b: JsonObject): ChatItem {
             needsApproval = b.bool("needs_approval"),
             phase = when (b.str("state")) {
                 "executed" -> ChatItem.Proposal.Phase.Posted
-                "cancelled", "expired" -> ChatItem.Proposal.Phase.Cancelled
-                else -> ChatItem.Proposal.Phase.Draft
+                "cancelled" -> if (b.str("approval_status") == "rejected") ChatItem.Proposal.Phase.Rejected
+                               else ChatItem.Proposal.Phase.Cancelled
+                "expired" -> ChatItem.Proposal.Phase.Cancelled
+                "replaced" -> ChatItem.Proposal.Phase.Replaced
+                // the asker's own card, sent for approval: it waits
+                else -> if (b.str("type") == "proposal" && b.str("approval_status") == "requested") ChatItem.Proposal.Phase.Waiting
+                        else ChatItem.Proposal.Phase.Draft
             },
+            approval = if (b.str("type") == "approval")
+                ChatItem.Proposal.Approval(b.str("requested_by").orEmpty(), b.bool("mine")) else null,
+            dateIso = b.obj("date")?.str("iso"),
         )
         "figure" -> ChatItem.Figure(id, b.str("label").orEmpty(), b.long("value") ?: 0, b.str("currency"))
         "file" -> fileOf(b) ?: ChatItem.Fallback(id, b.str("fallback_text").orEmpty())

@@ -4,6 +4,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.foundation.layout.widthIn
+import app.accountingassistant.android.data.EditRequest
 import app.accountingassistant.android.data.Queued
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -93,10 +94,15 @@ fun ChatScreen(
     onRetry: (String) -> Unit = {},
     onDiscard: (String) -> Unit = {},
     onEarlier: () -> Unit = {},
+    onApprove: (String) -> Unit = {},
+    onReject: (String, String?) -> Unit = { _, _ -> },
+    onEdit: (String, EditRequest, (String?) -> Unit) -> Unit = { _, _, _ -> },
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
     val list = rememberLazyListState()
+    var editing by remember { mutableStateOf<ChatItem.Proposal?>(null) }
+    var rejecting by remember { mutableStateOf<String?>(null) }
     val nowMs by produceState(System.currentTimeMillis()) {
         while (true) { delay(1000); value = System.currentTimeMillis() }
     }
@@ -135,7 +141,8 @@ fun ChatScreen(
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 104.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(state.items, key = { it.id }) { item ->
+                // keyed by block id; a repeated id must never crash the list
+                items(state.items.distinctBy { it.id }, key = { it.id }) { item ->
                     when (item) {
                         is ChatItem.User -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             UserBubble(item.text, files = item.files)
@@ -171,11 +178,16 @@ fun ChatScreen(
                         is ChatItem.Proposal -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Voucher(
                                 lang = lang, amount = item.amount ?: 0, currency = item.currency ?: "",
-                                summary = listOfNotNull(item.title, item.date).joinToString(" · "),
+                                // the date in its own direction: "10 Oct 2026" inside Persian words stays in order
+                                summary = listOfNotNull(item.title, item.date?.let { "\u2068$it\u2069" }).joinToString(" · "),
                                 lines = item.lines, booksName = booksName, booksColor = booksColor,
                                 state = when (item.phase) {
-                                    ChatItem.Proposal.Phase.Draft -> VoucherState.Draft
-                                    ChatItem.Proposal.Phase.Posting -> VoucherState.Posting
+                                    ChatItem.Proposal.Phase.Draft -> item.approval?.let { VoucherState.ForApproval(it.askedBy, it.mine) }
+                                        ?: VoucherState.Draft
+                                    ChatItem.Proposal.Phase.Posting -> item.approval?.let { VoucherState.ForApproval(it.askedBy, it.mine, busy = true) }
+                                        ?: VoucherState.Posting
+                                    ChatItem.Proposal.Phase.Rejected -> VoucherState.Rejected
+                                    ChatItem.Proposal.Phase.Replaced -> VoucherState.Replaced
                                     ChatItem.Proposal.Phase.Posted -> VoucherState.Posted(
                                         item.voucher.orEmpty(), item.postedDate.orEmpty(),
                                         ((item.undoUntil - nowMs) / 1000).coerceIn(0, 120).toInt())
@@ -183,8 +195,9 @@ fun ChatScreen(
                                     ChatItem.Proposal.Phase.Cancelled -> VoucherState.Cancelled
                                     ChatItem.Proposal.Phase.Undone -> VoucherState.Undone
                                 },
-                                onConfirm = { onConfirm(item.id) }, onEdit = {}, onCancel = { onCancel(item.id) },
+                                onConfirm = { onConfirm(item.id) }, onEdit = { editing = item }, onCancel = { onCancel(item.id) },
                                 onUndo = { onUndo(item.id) },
+                                onApprove = { onApprove(item.id) }, onReject = { rejecting = item.id },
                             )
                             item.document?.let { doc -> FileCard(doc, onOpen = { onFile(doc, false) }, onShare = { onFile(doc, true) }) }
                             item.error?.let { Text(it, color = c.pomegranate, fontSize = 12.sp) }
@@ -237,6 +250,12 @@ fun ChatScreen(
                     DropdownMenuItem(text = { Text(stringResource(R.string.attach_file)) }, onClick = { menu = false; capture.file() })
                 }
             }
+        }
+        editing?.let { p ->
+            EditVoucherSheet(p, lang, onSave = { change, done -> onEdit(p.id, change, done) }, onDismiss = { editing = null })
+        }
+        rejecting?.let { id ->
+            RejectDialog(onReject = { note -> rejecting = null; onReject(id, note) }, onDismiss = { rejecting = null })
         }
     }
 }

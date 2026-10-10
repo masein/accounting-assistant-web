@@ -3,6 +3,7 @@ package app.accountingassistant.android.ui.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.accountingassistant.android.data.ApiClient
+import app.accountingassistant.android.data.EditRequest
 import app.accountingassistant.android.data.MemoryOutboxStore
 import app.accountingassistant.android.data.Outbox
 import app.accountingassistant.android.data.Queued
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -326,20 +328,74 @@ class ChatViewModel(
                 if (r.state == "waiting_for_approval") {
                     updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Waiting) }
                 } else {
-                    val b = r.block
-                    val undo = (b?.get("undo_seconds") as? JsonPrimitive)?.intOrNull ?: 0
-                    updateProposal(id) {
-                        it.copy(phase = ChatItem.Proposal.Phase.Posted,
-                                voucher = (b?.get("voucher") as? JsonPrimitive)?.contentOrNull,
-                                postedDate = (b?.get("date") as? kotlinx.serialization.json.JsonObject)
-                                    ?.get("display")?.let { d -> (d as? JsonPrimitive)?.contentOrNull },
-                                auditLogId = (b?.get("audit_log_id") as? JsonPrimitive)?.contentOrNull,
-                                document = fileOf(b?.get("file") as? kotlinx.serialization.json.JsonObject),
-                                undoUntil = now() + undo * 1000L)
-                    }
+                    stamp(id, r.block)
                 }
             } catch (e: Exception) {
                 updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Draft, error = e.message) }
+            }
+        }
+    }
+
+    /** The posted block's stamp: its reference and date, the undo window, the document it made. */
+    private fun stamp(id: String, b: JsonObject?) {
+        val undo = (b?.get("undo_seconds") as? JsonPrimitive)?.intOrNull ?: 0
+        updateProposal(id) {
+            it.copy(phase = ChatItem.Proposal.Phase.Posted,
+                    voucher = (b?.get("voucher") as? JsonPrimitive)?.contentOrNull,
+                    postedDate = (b?.get("date") as? JsonObject)?.get("display")?.let { d -> (d as? JsonPrimitive)?.contentOrNull },
+                    auditLogId = (b?.get("audit_log_id") as? JsonPrimitive)?.contentOrNull,
+                    document = fileOf(b?.get("file") as? JsonObject),
+                    undoUntil = now() + undo * 1000L, error = null)
+        }
+    }
+
+    /** Someone else's voucher, approved: posted now, stamped, with the undo window. */
+    fun approve(id: String) {
+        val p = _state.value.items.filterIsInstance<ChatItem.Proposal>().firstOrNull { it.id == id } ?: return
+        updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Posting, error = null) }
+        viewModelScope.launch {
+            try {
+                stamp(id, api.approve(p.token).block)
+            } catch (e: Exception) {
+                updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Draft, error = e.message) }
+            }
+        }
+    }
+
+    /** Turned down, with a reason for the one who asked. */
+    fun reject(id: String, note: String?) {
+        val p = _state.value.items.filterIsInstance<ChatItem.Proposal>().firstOrNull { it.id == id } ?: return
+        updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Posting, error = null) }
+        viewModelScope.launch {
+            try {
+                api.reject(p.token, note)
+                updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Rejected) }
+            } catch (e: Exception) {
+                updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Draft, error = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Change a draft. The server proposes it again through the same checks:
+     * the old card says it was changed and the new one follows it. [done]
+     * hears null when it worked, else why not (the sheet stays open).
+     */
+    fun edit(id: String, change: EditRequest, done: (String?) -> Unit) {
+        val p = _state.value.items.filterIsInstance<ChatItem.Proposal>().firstOrNull { it.id == id } ?: return
+        viewModelScope.launch {
+            try {
+                val r = api.editProposal(p.token, change)
+                val fresh = parseBlock(r.block)
+                _state.update { s ->
+                    s.copy(items = s.items.flatMap { item ->
+                        if (item is ChatItem.Proposal && item.id == id) listOf(item.copy(phase = ChatItem.Proposal.Phase.Replaced), fresh)
+                        else listOf(item)
+                    }.distinctBy { it.id })
+                }
+                done(null)
+            } catch (e: Exception) {
+                done(e.message ?: "")
             }
         }
     }

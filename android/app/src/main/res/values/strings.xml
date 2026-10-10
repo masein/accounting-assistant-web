@@ -79,4 +79,20 @@
     <string name="outbox_discard">Don\'t send</string>
     <string name="earlier">Earlier messages</string>
     <string name="error_generic">Something went wrong. Try again.</string>
+    <string name="voucher_asked_by">Waiting for your approval · asked by %1$s</string>
+    <string name="voucher_approve">Approve</string>
+    <string name="voucher_reject">Reject</string>
+    <string name="voucher_withdraw">Withdraw</string>
+    <string name="voucher_rejected">Rejected</string>
+    <string name="voucher_replaced">Changed. The new voucher follows.</string>
+    <string name="edit_title">Change the voucher</string>
+    <string name="edit_description">Description</string>
+    <string name="edit_amount">Amount</string>
+    <string name="edit_amount_locked">This voucher has several lines. Tell the accountant the new amounts.</string>
+    <string name="edit_date">Date</string>
+    <string name="edit_date_hint">Like 2026-10-10</string>
+    <string name="edit_save">Save changes</string>
+    <string name="dialog_back">Back</string>
+    <string name="reject_title">Reject this voucher?</string>
+    <string name="reject_reason">Reason (optional)</string>
 </resources>

@@ -468,6 +468,7 @@ for _m, _p in [
     ("POST", "/api/mobile/v1/chat"), ("POST", "/api/mobile/v1/chat/stream"),
     ("POST", "/api/mobile/v1/proposals/{token}/confirm"),
     ("POST", "/api/mobile/v1/proposals/{token}/cancel"), ("POST", "/api/mobile/v1/postings/{audit_log_id}/undo"),
+    ("POST", "/api/mobile/v1/proposals/{token}/edit"),
     ("POST", "/api/mobile/v1/uploads"), ("POST", "/api/mobile/v1/transcribe"), ("POST", "/api/mobile/v1/briefing"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
@@ -496,6 +497,10 @@ _add("PUT", "/ai-accountant/review-settings", Perm.AI_REVIEW)
 _add("GET", "/admin/companies/ai-review", Perm.PLATFORM_ADMIN)   # counts only, never text
 _add("POST", "/ai-accountant/approvals/{token}/approve", Perm.APPROVALS_WRITE)
 _add("POST", "/ai-accountant/approvals/{token}/reject", Perm.APPROVALS_WRITE)
+# …and from the phone, as cards in the chat.
+_add("GET", "/api/mobile/v1/approvals", Perm.APPROVALS_WRITE)
+_add("POST", "/api/mobile/v1/approvals/{token}/approve", Perm.APPROVALS_WRITE)
+_add("POST", "/api/mobile/v1/approvals/{token}/reject", Perm.APPROVALS_WRITE)
 
 # --- Books: bank statements & reconcile (brain) ----------------------------
 # Reads expose bank account numbers -> BANK_READ.

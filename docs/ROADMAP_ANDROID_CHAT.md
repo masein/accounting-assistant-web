@@ -24,7 +24,7 @@ The build started on 2026-10-10.
 
 **Server (Phase 0):**
 - ✅ **P0.1, P0.2** (#308): phone sessions and `/api/mobile/v1`.
-- ✅ **P0.3, P0.4** (#309): typed blocks; confirm, cancel and undo; threads that redraw their cards.
+- ✅ **P0.3, P0.4** (#309, #318): typed blocks; confirm, cancel and undo; threads that redraw their cards; Edit (the draft proposed again through the same checks, the old token withdrawn); approvals as cards, in the approver's briefing.
 - ✅ **P0.5** (#314): streamed turns with their steps; `client_message_id` so a retry never asks twice.
 - ✅ **P0.6** (#310, #316): fast paths, in Persian, English, Spanish and Arabic.
 - ✅ **P0.7** (#312, #315): uploads, voice notes and the briefing; file blocks (an invoice's PDF), served to the phone's bearer session rather than by signed link. Resumable chunked uploads are not done: a photo is scaled to 1600 px (a few hundred KB) and the outbox uploads it once.
@@ -34,7 +34,7 @@ The build started on 2026-10-10.
 **App (`android/`, Phase 1):**
 - ✅ P1.1 (#311, #313): sign-in, two-factor, the app lock and the device list.
 - ✅ P1.2: the chat with its blocks.
-- ✅ P1.3: confirm, cancel, undo and the stamp.
+- ✅ P1.3 (#311, #318): confirm, edit, cancel, undo and the stamp.
 - ✅ P1.4 (#313): the briefing and the fast-path suggestions.
 - ✅ P1.7: RTL, Jalali and Persian digits, in both themes.
 - ✅ Photos, files and voice notes (#313).
@@ -42,6 +42,7 @@ The build started on 2026-10-10.
 - ✅ P1.5 (#317): the offline outbox. Every message is kept (sealed with a Keystore key) before it is sent, waits under its bubble while offline, and sends itself when the network is back, from the app or from WorkManager with the app closed. A refused one offers Try again or Don't send.
 - ✅ Part of P2.7 (#316, #317): the conversations sheet, paged history, catching up when the app comes back.
 - ✅ P2.8, the languages (#316): the app in Arabic and Spanish.
+- ✅ The approvers' half of P2.6 (#318): a voucher above the approval limit reaches the owner, CFO or manager as a card to approve or reject. Staff submitting claims by chat waits for the owner's decision (§11.7).
 - **Still to do:**
   - P1.6: push;
   - P1.8: crash reporting and the store listings;

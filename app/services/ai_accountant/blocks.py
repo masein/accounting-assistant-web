@@ -197,6 +197,50 @@ def _budget_table(result: dict, **_) -> dict | None:
             "fallback_text": "; ".join(f"{r['label']} {r['used_pct']}%" for r in out)}
 
 
+_PAY_STATUS = {
+    "fa": {"draft": "پیش‌نویس", "posted": "ثبت‌شده", "paid": "پرداخت‌شده"},
+    "es": {"draft": "borrador", "posted": "registrada", "paid": "pagada"},
+    "ar": {"draft": "مسودة", "posted": "مسجّلة", "paid": "مدفوعة"},
+}
+
+
+def _pay_month(iso: str, calendar: str, lang: str) -> str:
+    from app.services.calendar_periods import month_key, month_label
+    return month_label(month_key(date.fromisoformat(iso), calendar), lang)
+
+
+def payslip_file(run_id, entity_id, employee: str | None, month: str | None) -> dict:
+    """An employee's payslip for a pay run, as a file the phone can open or share."""
+    name = f"payslip-{(employee or 'employee').replace(' ', '_')}.pdf"
+    return {"type": "file", "id": f"file:payslip:{run_id}:{entity_id}", "name": name, "mime": "application/pdf",
+            "path": f"/api/mobile/v1/documents/payslips/{run_id}/{entity_id}",
+            "fallback_text": f"Payslip {employee or ''} {month or ''} (PDF)".replace("  ", " ")}
+
+
+def _payroll(result: dict, lang: str = "en", calendar: str = "gregorian", **_) -> list[dict] | None:
+    """get_payroll: the recent pay runs, net by month; or an employee's pay,
+    month by month, with their latest payslip as a file."""
+    words = _PAY_STATUS.get(lang, {})
+    if isinstance(result.get("runs"), list) and result["runs"]:
+        rows = [{"label": _pay_month(r["period_end"], calendar, lang), "sub": words.get(r["status"], r["status"]),
+                 "value": int(r.get("total_net") or 0), "currency": r.get("currency"), "state": r["status"]}
+                for r in result["runs"][:8]]
+        return [{"type": "table", "kind": "payroll_runs", "rows": rows,
+                 "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in rows)}]
+    history = result.get("history")
+    if not isinstance(history, list) or not history:
+        return None
+    rows = [{"label": _pay_month(h["period_end"], calendar, lang), "sub": words.get(h["status"], h["status"]),
+             "value": int(h.get("net_pay") or 0), "currency": h.get("currency"), "state": h["status"]}
+            for h in history[:8]]
+    out = [{"type": "table", "kind": "pay_history", "title": result.get("employee"), "rows": rows,
+            "fallback_text": f"{result.get('employee')}: " + "; ".join(f"{r['label']} {r['value']:,}" for r in rows)}]
+    latest = history[0]
+    if latest.get("run_id") and result.get("entity_id"):
+        out.append(payslip_file(latest["run_id"], result["entity_id"], result.get("employee"), rows[0]["label"]))
+    return out
+
+
 def invoice_file(invoice_id, number) -> dict:
     """An invoice as a file the phone can open or share."""
     name = f"invoice-{number or str(invoice_id)[:8]}.pdf"
@@ -232,6 +276,7 @@ def _forecast_chart(result: dict, lang: str = "en", **_) -> dict | None:
 
 RENDERERS = {
     "get_cash_forecast": _forecast_chart,
+    "get_payroll": _payroll,
     "get_account_balance": _balance_figure,
     "get_cash_position": _cash_figure,
     "list_invoices": _invoice_table,
@@ -241,7 +286,7 @@ RENDERERS = {
 }
 
 
-def data_blocks(tool_calls: list[dict] | None, lang: str = "en") -> list[dict]:
+def data_blocks(tool_calls: list[dict] | None, lang: str = "en", calendar: str = "gregorian") -> list[dict]:
     """The last successful call of each drawable read tool, in call order."""
     latest: dict[str, tuple[int, dict]] = {}
     for i, call in enumerate(tool_calls or []):
@@ -252,9 +297,10 @@ def data_blocks(tool_calls: list[dict] | None, lang: str = "en") -> list[dict]:
     picked = sorted(latest.values(), key=lambda t: t[0])[-MAX_DATA_BLOCKS:]
     out = []
     for _i, call in picked:
-        block = RENDERERS[call["name"]](call["result"], lang=lang)
-        if block is not None:
-            block.setdefault("id", f"{call['name']}:{call.get('tool_use_id') or uuid.uuid4().hex[:8]}")
+        made = RENDERERS[call["name"]](call["result"], lang=lang, calendar=calendar)
+        # a renderer gives a block, or several (a table and its document)
+        for n, block in enumerate(made if isinstance(made, list) else [made] if made else []):
+            block.setdefault("id", f"{call['name']}:{call.get('tool_use_id') or uuid.uuid4().hex[:8]}" + (f":{n}" if n else ""))
             block["tool"] = call["name"]
             out.append(block)
     return out
@@ -268,7 +314,7 @@ def build_blocks(db: Session, *, text: str | None, proposals: list | None, tool_
     if calendar is None:
         from app.services.locale_service import get_display_calendar
         calendar = get_display_calendar(db)
-    blocks = data_blocks(tool_calls, lang=lang)
+    blocks = data_blocks(tool_calls, lang=lang, calendar=calendar)
     if intake:
         blocks.append({"type": "intake", "id": f"intake:{intake.get('kind')}:{intake.get('statement_id') or intake.get('batch_id') or ''}",
                        **intake, "fallback_text": text or ""})

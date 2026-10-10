@@ -1,0 +1,44 @@
+{
+  "conversation": "pay-history-fa",
+  "blocks": [
+    {
+      "type": "table",
+      "kind": "pay_history",
+      "title": "Sara Ahmadi",
+      "rows": [
+        {
+          "label": "مهر ۱۴۰۵",
+          "sub": "ثبت‌شده",
+          "value": 84000000,
+          "currency": "IRR",
+          "state": "posted"
+        },
+        {
+          "label": "شهریور ۱۴۰۵",
+          "sub": "پرداخت‌شده",
+          "value": 84000000,
+          "currency": "IRR",
+          "state": "paid"
+        }
+      ],
+      "fallback_text": "Sara Ahmadi: مهر ۱۴۰۵ 84,000,000; شهریور ۱۴۰۵ 84,000,000",
+      "id": "get_payroll:call_0",
+      "tool": "get_payroll"
+    },
+    {
+      "type": "file",
+      "id": "file:payslip:6a7b8c9d-0000-4000-8000-000000000005:4c1d2e3f-0000-4000-8000-000000000004",
+      "name": "payslip-Sara_Ahmadi.pdf",
+      "mime": "application/pdf",
+      "path": "/api/mobile/v1/documents/payslips/6a7b8c9d-0000-4000-8000-000000000005/4c1d2e3f-0000-4000-8000-000000000004",
+      "fallback_text": "Payslip Sara Ahmadi مهر ۱۴۰۵ (PDF)",
+      "tool": "get_payroll"
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "سارا در دو ماه گذشته حقوق گرفته است.",
+      "fallback_text": "سارا در دو ماه گذشته حقوق گرفته است."
+    }
+  ]
+}

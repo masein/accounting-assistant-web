@@ -1,0 +1,34 @@
+{
+  "conversation": "payroll-runs-fa",
+  "blocks": [
+    {
+      "type": "table",
+      "kind": "payroll_runs",
+      "rows": [
+        {
+          "label": "مهر ۱۴۰۵",
+          "sub": "ثبت‌شده",
+          "value": 151200000,
+          "currency": "IRR",
+          "state": "posted"
+        },
+        {
+          "label": "شهریور ۱۴۰۵",
+          "sub": "پرداخت‌شده",
+          "value": 151200000,
+          "currency": "IRR",
+          "state": "paid"
+        }
+      ],
+      "fallback_text": "مهر ۱۴۰۵ 151,200,000; شهریور ۱۴۰۵ 151,200,000",
+      "id": "get_payroll:call_0",
+      "tool": "get_payroll"
+    },
+    {
+      "type": "text",
+      "id": "text:0",
+      "text": "دو حقوق آخر ثبت شده‌اند.",
+      "fallback_text": "دو حقوق آخر ثبت شده‌اند."
+    }
+  ]
+}

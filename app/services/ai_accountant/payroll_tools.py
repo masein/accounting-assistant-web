@@ -123,6 +123,7 @@ class GetPayroll(BaseTool):
         history, totals = [], {}
         for ln, run in rows:
             history.append({
+                "run_id": str(run.id),
                 "period_start": run.period_start.isoformat(), "period_end": run.period_end.isoformat(),
                 "pay_date": run.pay_date.isoformat(), "status": run.status, "currency": run.currency,
                 "gross": int(ln.gross or 0), "income_tax": int(ln.income_tax or 0),
@@ -137,7 +138,8 @@ class GetPayroll(BaseTool):
         profile = None if prof is None else {
             "pay_type": prof.pay_type, "base_salary": int(prof.base_salary or 0), "hourly_rate": int(prof.hourly_rate or 0),
             "currency": prof.currency, "active": bool(prof.active), "tax_mode": prof.tax_mode}
-        return {"employee": ent.name, "profile": profile, "history": history, "totals_by_currency": totals}
+        return {"employee": ent.name, "entity_id": str(ent.id), "profile": profile, "history": history,
+                "totals_by_currency": totals}
 
 
 # ---------------------------------------------------------------------------

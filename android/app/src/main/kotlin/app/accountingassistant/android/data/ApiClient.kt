@@ -76,6 +76,11 @@ class ApiClient(
     suspend fun chat(message: String, threadId: String?, attachmentIds: List<String> = emptyList()): ChatReply =
         call("POST", "/chat", ChatRequest(message, threadId, attachmentIds), serializer())
 
+    suspend fun threads(): List<ThreadDto> = call<Unit, List<ThreadDto>>("GET", "/threads", null, serializer())
+
+    suspend fun messages(threadId: String): List<ThreadMessageDto> =
+        call<Unit, List<ThreadMessageDto>>("GET", "/threads/$threadId/messages", null, serializer())
+
     suspend fun confirm(token: String): ConfirmReply = call<Unit, ConfirmReply>("POST", "/proposals/$token/confirm", null, serializer())
 
     suspend fun cancel(token: String): StateReply = call<Unit, StateReply>("POST", "/proposals/$token/cancel", null, serializer())

@@ -30,4 +30,11 @@
     <string name="voucher_undone">برگردانده شد؛ دفاتر مثل قبل است</string>
     <string name="voucher_cancelled">لغو شد</string>
     <string name="voucher_title">سند</string>
+    <string name="suggestions_intro">از دفاترت بپرس یا بگو چه ثبت کنم. این‌ها فوری جواب می‌گیرند:</string>
+    <string-array name="suggestions">
+        <item>موجودی چقدره؟</item>
+        <item>کی بهم بدهکاره؟</item>
+        <item>به کی بدهکاریم؟</item>
+        <item>این ماه چقدر خرج کردم؟</item>
+    </string-array>
 </resources>

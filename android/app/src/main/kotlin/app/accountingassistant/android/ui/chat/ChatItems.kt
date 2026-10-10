@@ -40,6 +40,8 @@ sealed interface ChatItem {
     /** A block this version of the app can't draw: its sentence instead. */
     data class Fallback(override val id: String, val text: String) : ChatItem
     data class Thinking(override val id: String = "thinking") : ChatItem
+    /** A first-run hint: questions the books can answer at once. */
+    data class Suggestions(override val id: String = "suggestions", val options: List<String>) : ChatItem
 }
 
 private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull

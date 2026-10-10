@@ -30,4 +30,11 @@
     <string name="voucher_undone">Undone — the books are as they were</string>
     <string name="voucher_cancelled">Cancelled</string>
     <string name="voucher_title">Voucher</string>
+    <string name="suggestions_intro">Ask about your books, or tell me what to record. These answer at once:</string>
+    <string-array name="suggestions">
+        <item>How much cash do we have?</item>
+        <item>Who owes us?</item>
+        <item>What do we owe?</item>
+        <item>How much did we spend this month?</item>
+    </string-array>
 </resources>

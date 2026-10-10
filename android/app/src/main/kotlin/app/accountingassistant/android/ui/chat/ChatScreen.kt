@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import app.accountingassistant.android.R
 import app.accountingassistant.android.ui.components.AssistantText
 import app.accountingassistant.android.ui.components.BooksBadge
+import app.accountingassistant.android.ui.components.Choices
 import app.accountingassistant.android.ui.components.Composer
 import app.accountingassistant.android.ui.components.FigureCard
 import app.accountingassistant.android.ui.components.ThinkingRow
@@ -62,6 +63,7 @@ fun ChatScreen(
     onCancel: (String) -> Unit,
     onUndo: (String) -> Unit,
     onBooks: () -> Unit,
+    onSuggestion: (String) -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -88,6 +90,10 @@ fun ChatScreen(
                         is ChatItem.User -> UserBubble(item.text)
                         is ChatItem.Words -> AssistantText(item.text)
                         is ChatItem.Thinking -> ThinkingRow(stringResource(R.string.thinking))
+                        is ChatItem.Suggestions -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            AssistantText(stringResource(R.string.suggestions_intro))
+                            Choices(options = item.options, selected = null, onPick = { onSuggestion(item.options[it]) })
+                        }
                         is ChatItem.Fallback -> AssistantText(item.text)
                         is ChatItem.Figure -> FigureCard(
                             label = item.label,

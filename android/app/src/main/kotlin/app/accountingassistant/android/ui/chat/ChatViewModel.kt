@@ -28,9 +28,39 @@ data class ChatUiState(
  * life of each voucher (draft → posting → posted with an undo window, or
  * cancelled, or waiting for a second person).
  */
-class ChatViewModel(private val api: ApiClient, private val now: () -> Long = System::currentTimeMillis) : ViewModel() {
+class ChatViewModel(
+    private val api: ApiClient,
+    private val suggestions: List<String> = emptyList(),
+    private val now: () -> Long = System::currentTimeMillis,
+    restore: Boolean = true,
+) : ViewModel() {
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state
+
+    init {
+        if (restore) viewModelScope.launch { reopen() }
+    }
+
+    /** Back to the latest conversation, its cards redrawn; a first run gets suggestions. */
+    private suspend fun reopen() {
+        val latest = runCatching { api.threads().firstOrNull() }.getOrNull()
+        val items = latest?.let { t ->
+            runCatching { api.messages(t.id) }.getOrNull()?.flatMap { m ->
+                if (m.role == "user") listOf(ChatItem.User(m.id, m.text.orEmpty())) else m.blocks.map(::parseBlock)
+            }
+        }.orEmpty()
+        _state.update {
+            if (it.items.isNotEmpty()) it
+            else if (items.isEmpty()) it.copy(items = if (suggestions.isEmpty()) emptyList() else listOf(ChatItem.Suggestions(options = suggestions)))
+            else it.copy(items = items, threadId = latest?.id)
+        }
+    }
+
+    /** A suggestion chip: sent as if typed. */
+    fun ask(text: String) {
+        _state.update { it.copy(draft = text) }
+        send()
+    }
 
     fun edit(text: String) = _state.update { it.copy(draft = text) }
 
@@ -39,7 +69,8 @@ class ChatViewModel(private val api: ApiClient, private val now: () -> Long = Sy
         if (text.isEmpty() || _state.value.sending) return
         _state.update {
             it.copy(draft = "", sending = true, notice = null,
-                    items = it.items + ChatItem.User("u${now()}", text) + ChatItem.Thinking())
+                    items = it.items.filterNot { item -> item is ChatItem.Suggestions } +
+                            ChatItem.User("u${now()}", text) + ChatItem.Thinking())
         }
         viewModelScope.launch {
             try {

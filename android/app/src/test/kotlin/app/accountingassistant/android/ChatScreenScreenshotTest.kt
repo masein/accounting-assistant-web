@@ -1,6 +1,6 @@
 package app.accountingassistant.android
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import app.accountingassistant.android.ui.chat.ChatItem
 import app.accountingassistant.android.ui.chat.ChatScreen

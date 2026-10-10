@@ -43,7 +43,10 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(s.signedIn) { if (s.signedIn) signedIn = true }
                     SignInScreen(s, vm::username, vm::password, vm::code, vm::submit)
                 } else {
-                    val vm: ChatViewModel = viewModel(factory = viewModelFactory { initializer { ChatViewModel(app.api) } })
+                    val suggestions = resources.getStringArray(R.array.suggestions).toList()
+                    val vm: ChatViewModel = viewModel(factory = viewModelFactory {
+                        initializer { ChatViewModel(app.api, suggestions) }
+                    })
                     val s by vm.state.collectAsState()
                     val company = app.api.session?.company
                     ChatScreen(
@@ -51,7 +54,7 @@ class MainActivity : ComponentActivity() {
                         booksName = company?.name ?: "",
                         personalBooks = company?.kind == "personal",
                         onDraft = vm::edit, onSend = vm::send, onConfirm = vm::confirm,
-                        onCancel = vm::cancel, onUndo = vm::undo, onBooks = {},
+                        onCancel = vm::cancel, onUndo = vm::undo, onBooks = {}, onSuggestion = vm::ask,
                     )
                 }
             }

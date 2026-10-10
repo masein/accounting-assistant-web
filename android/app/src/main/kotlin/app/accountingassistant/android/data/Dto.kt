@@ -93,3 +93,19 @@ data class StoredSession(
     val user: UserDto,
     val company: CompanyDto? = null,
 )
+
+@Serializable
+data class ThreadDto(
+    val id: String,
+    val title: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+    @SerialName("message_count") val messageCount: Int = 0,
+)
+
+@Serializable
+data class ThreadMessageDto(
+    val id: String,
+    val role: String,
+    val text: String? = null,
+    val blocks: List<JsonObject> = emptyList(),
+)

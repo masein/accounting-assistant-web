@@ -116,6 +116,8 @@ class ChatProposal(BaseModel):
     needs_approval: bool = False
     approval_threshold: int | None = None
     amount_in_base: int | None = None
+    # parties the card will create on Confirm ("Will create client: Aria")
+    new_entities: list[dict] = []
 
 
 class ChatResponse(BaseModel):
@@ -165,7 +167,7 @@ def _user_language(db: Session, user: SessionUser) -> str:
     from app.models.user import User
 
     try:
-        row = db.get(User, user.user_id)
+        row = db.get(User, uuid.UUID(str(user.user_id)))
         lang = (row.preferred_language or "en") if row else "en"
     except Exception:
         lang = "en"
@@ -523,6 +525,7 @@ async def chat(
                 needs_approval=bool(p.get("needs_approval")),
                 approval_threshold=p.get("approval_threshold"),
                 amount_in_base=p.get("amount_in_base"),
+                new_entities=list(p.get("new_entities") or []),
             )
             for p in result.proposals
         ],
@@ -944,6 +947,22 @@ def briefing(
                          created_at=datetime.now(timezone.utc)))
     db.commit()
     return BriefingResponse(session_id=str(session.id), text=text, count=len(insights))
+
+
+@router.post("/proposals/{token}/cancel")
+def cancel(token: str, db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    """Discard a card the user asked for: it stops being pending on the server
+    too, so nothing can confirm it later (roadmap ROADMAP_ANDROID_CHAT P0.4)."""
+    from app.services.ai_accountant.execute_service import cancel_proposal
+    try:
+        cancel_proposal(db, confirmation_token=token, actor_user_id=user.user_id)
+    except ProposalNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ProposalCancelled as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return {"ok": True, "status": "cancelled"}
 
 
 @router.post("/undo", response_model=UndoResponse)

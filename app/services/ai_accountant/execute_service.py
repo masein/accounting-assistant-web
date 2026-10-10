@@ -245,6 +245,24 @@ def approve_proposal(db: Session, *, confirmation_token: str, approver_user_id: 
                            idempotent=False)
 
 
+def cancel_proposal(db: Session, *, confirmation_token: str, actor_user_id: str) -> AIProposal:
+    """The person who asked discards a card (roadmap ROADMAP_ANDROID_CHAT
+    P0.4). Only a pending proposal is cancelled; cancelling twice is fine; a
+    confirmed one can't be (undo or reverse it instead)."""
+    proposal = _resolve_proposal(db, confirmation_token)
+    if str(proposal.user_id) != str(actor_user_id):
+        raise PermissionDenied("This proposal belongs to a different user.")
+    if proposal.status == "cancelled":
+        return proposal
+    if proposal.status != "pending":
+        raise ProposalCancelled("This proposal was already confirmed — undo or reverse it instead.")
+    proposal.status = "cancelled"
+    if proposal.approval_status == "requested":
+        proposal.approval_status = "withdrawn"
+    db.commit()
+    return proposal
+
+
 def reject_proposal(db: Session, *, confirmation_token: str, approver_user_id: str,
                     approver_username: str | None = None, note: str | None = None) -> AIProposal:
     from app.services.audit_service import log_audit_event

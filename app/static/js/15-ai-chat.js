@@ -869,6 +869,9 @@
           card.classList.add('is-cancelled');
           confirmBtn.disabled = true;
           cancelBtn.disabled = true;
+          // the server forgets it too, so nothing can confirm it later
+          fetch(API + '/ai-accountant/proposals/' + encodeURIComponent(proposal.confirmation_token) + '/cancel',
+                { method: 'POST' }).catch(() => {});
           const cancelled = document.createElement('div');
           cancelled.style.cssText = 'font-size:0.8rem;color:var(--text-muted);margin-top:0.4rem;';
           cancelled.textContent = t('aiChatCancelled');

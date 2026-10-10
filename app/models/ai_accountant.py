@@ -131,8 +131,11 @@ class AIChatMessage(Base, TenantMixin):
     )
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     content: Mapped[dict[str, Any]] = mapped_column(_JSONType, nullable=False)
+    # Stamped here to the microsecond (the database's now() is per second on
+    # SQLite, and a message and its reply tied and came back in either order).
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now(),
+        nullable=False,
     )
 
     session: Mapped["AIChatSession"] = relationship("AIChatSession", back_populates="messages")

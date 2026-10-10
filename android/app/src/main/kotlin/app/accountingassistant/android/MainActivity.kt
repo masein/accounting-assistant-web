@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
                     locked = signedIn && lockOn                       // a cold start asks first
                     restored = true
                 }
-                LaunchedEffect(Unit) { app.api.signedOut.collect { signedIn = false } }
+                LaunchedEffect(Unit) { app.api.signedOut.collect { signedIn = false; app.forgetOutbox() } }
                 // back from the background after a while: ask again
                 val owner = LocalLifecycleOwner.current
                 DisposableEffect(owner) {
@@ -113,9 +113,19 @@ class MainActivity : ComponentActivity() {
                 } else {
                     val suggestions = resources.getStringArray(R.array.suggestions).toList()
                     val vm: ChatViewModel = viewModel(factory = viewModelFactory {
-                        initializer { ChatViewModel(app.api, suggestions) }
+                        initializer { ChatViewModel(app.api, suggestions, outbox = app.outbox) }
                     })
                     val s by vm.state.collectAsState()
+                    // back in the app: what was added meanwhile (the web chat, the background sender)
+                    val chatOwner = LocalLifecycleOwner.current
+                    DisposableEffect(chatOwner) {
+                        var started = false
+                        val back = LifecycleEventObserver { _, event ->
+                            if (event == Lifecycle.Event.ON_START) { if (started) vm.catchUp(); started = true }
+                        }
+                        chatOwner.lifecycle.addObserver(back)
+                        onDispose { chatOwner.lifecycle.removeObserver(back) }
+                    }
                     val recorder = remember { VoiceRecorder(this@MainActivity) }
                     val session = app.api.session
                     val company = session?.company
@@ -159,6 +169,7 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onThreads = { threadsOpen = true; vm.loadThreads() },
+                        onRetry = vm::retry, onDiscard = vm::discard, onEarlier = vm::earlier,
                         userInitial = session?.user?.username?.take(1)?.uppercase() ?: "",
                         onAccount = {
                             account = true
@@ -183,7 +194,7 @@ class MainActivity : ComponentActivity() {
                                     devices = runCatching { app.api.devices() }.getOrDefault(devices.orEmpty())
                                 }
                             },
-                            onSignOut = { account = false; scope.launch { app.api.signOut(); signedIn = false } },
+                            onSignOut = { account = false; scope.launch { app.api.signOut(); app.forgetOutbox(); signedIn = false } },
                             onDismiss = { account = false },
                         )
                     }

@@ -74,4 +74,9 @@
         <item>ماذا علينا؟</item>
         <item>كم أنفقنا هذا الشهر؟</item>
     </string-array>
+    <string name="outbox_waiting">بانتظار الشبكة؛ ستُرسل تلقائياً.</string>
+    <string name="outbox_retry">أعد الإرسال</string>
+    <string name="outbox_discard">لا ترسل</string>
+    <string name="earlier">رسائل سابقة</string>
+    <string name="error_generic">حدث خطأ ما. حاول مرة أخرى.</string>
 </resources>

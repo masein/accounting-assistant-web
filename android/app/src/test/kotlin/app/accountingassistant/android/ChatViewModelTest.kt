@@ -1,6 +1,10 @@
 package app.accountingassistant.android
 
 import app.accountingassistant.android.data.ApiClient
+import app.accountingassistant.android.data.MemoryOutboxStore
+import app.accountingassistant.android.data.Outbox
+import app.accountingassistant.android.data.Queued
+import app.accountingassistant.android.ui.chat.ChatUiState
 import app.accountingassistant.android.data.MemorySessionStore
 import app.accountingassistant.android.data.StoredSession
 import app.accountingassistant.android.data.UserDto
@@ -20,18 +24,25 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import okhttp3.OkHttpClient
+import java.io.IOException
 
 /** The conversation's life against a scripted server: first run, a photo, a voice note. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModelTest {
     private val server = MockWebServer()
     private lateinit var api: ApiClient
+    private var offline = false
 
     @Before fun start() {
         Dispatchers.setMain(Dispatchers.Unconfined)
         server.start()
         val store = MemorySessionStore(StoredSession("A1", "R1", "d1", UserDto("u1", "maryam")))
-        api = ApiClient(base = server.url("/").toString(), store = store, appVersion = "0.1.0", language = { "fa" })
+        val http = OkHttpClient.Builder().addInterceptor { chain ->
+            if (offline) throw IOException("no network")
+            chain.proceed(chain.request())
+        }.build()
+        api = ApiClient(base = server.url("/").toString(), store = store, appVersion = "0.1.0", language = { "fa" }, http = http)
         runBlocking { api.restore() }
     }
 
@@ -100,14 +111,105 @@ class ChatViewModelTest {
         assertEquals("سلام", (vm.state.value.items.last() as ChatItem.Words).text)
     }
 
-    @Test fun aFailedTurnKeepsItsCodeToBeSaidInTheUsersLanguage() = runBlocking {
+    @Test fun aRefusedTurnWaitsUnderItsBubbleWithItsCode() = runBlocking {
         val vm = ChatViewModel(api, restore = false)
         reply("event: error\ndata: {\"status\":502,\"code\":\"ai_unavailable\",\"detail\":\"provider unreachable\"}\n\n" +
               "event: done\ndata: {}\n\n")
         vm.edit("record the tea")
         vm.send()
+        until { vm.state.value.queued.values.any { it.failure != null } }
+        val bubble = vm.state.value.items.last() as ChatItem.User
+        assertEquals("ai_unavailable", vm.state.value.queued.getValue(bubble.clientId!!).failure)   // said in the user's language
+        // Try again: the same message, the same id, now answered
+        reply("event: reply\ndata: {\"thread_id\":\"t1\",\"blocks\":[{\"type\":\"text\",\"id\":\"w\",\"text\":\"ثبت شد\"}]}\n\n")
+        vm.retry(bubble.clientId!!)
+        until { vm.state.value.queued.isEmpty() && vm.state.value.items.last() is ChatItem.Words }
+        val ids = (1..2).map { Regex("\"client_message_id\":\"([^\"]+)\"").find(server.takeRequest().body!!.utf8())!!.groupValues[1] }
+        assertEquals(ids[0], ids[1])
+        assertEquals("t1", vm.state.value.threadId)
+    }
+
+    @Test fun offlineTheMessageWaitsThenSendsItselfWhenTheNetworkIsBack() = runBlocking {
+        var woken = 0
+        val outbox = Outbox(MemoryOutboxStore(), api, wake = { woken++ })
+        val vm = ChatViewModel(api, restore = false, outbox = outbox)
+        offline = true
+        vm.edit("۱۲۰ هزار تومان چای")
+        vm.send()
         until { !vm.state.value.sending }
-        val problem = vm.state.value.items.last() as ChatItem.Problem
-        assertEquals("ai_unavailable", problem.code)                 // the screen says it, not the raw detail
+        val bubble = vm.state.value.items.single() as ChatItem.User
+        assertEquals("", vm.state.value.draft)                                   // nothing typed is lost: it waits in the outbox
+        assertTrue(bubble.clientId in vm.state.value.queued)
+        assertEquals(ChatUiState.Notice.Offline, vm.state.value.notice)
+        assertEquals(1, woken)
+        // the network is back: the background sender (here, called directly) sends it; the answer lands in the chat
+        offline = false
+        reply("event: reply\ndata: {\"thread_id\":\"t5\",\"blocks\":[{\"type\":\"text\",\"id\":\"w\",\"text\":\"پیش‌نویس آماده است\"}]}\n\n")
+        assertEquals(Outbox.Result.Done, outbox.flush())
+        until { vm.state.value.items.last() is ChatItem.Words }
+        assertTrue(vm.state.value.queued.isEmpty())
+        assertEquals("t5", vm.state.value.threadId)
+    }
+
+    @Test fun reopeningShowsWhatStillWaitsAfterTheConversation() = runBlocking {
+        val outbox = Outbox(MemoryOutboxStore(), api)
+        outbox.add(Queued("m9", "و قبض برق", threadId = "t1", queuedAt = 1, userId = "u1"))
+        reply("""[{"id":"t1","title":"اجاره","message_count":2}]""")
+        reply("""[{"id":"s1","role":"user","text":"اجاره را ثبت کن","client_message_id":"m1"},""" +
+              """{"id":"s2","role":"assistant","blocks":[{"type":"text","id":"b1","text":"ثبت شد"}]}]""")
+        reply("""{"thread_id":"t1","blocks":[]}""")                             // no briefing today
+        offline = false
+        reply("event: reply\ndata: {\"thread_id\":\"t1\",\"blocks\":[{\"type\":\"text\",\"id\":\"b2\",\"text\":\"قبض هم ثبت شد\"}]}\n\n")
+        val vm = ChatViewModel(api, outbox = outbox)
+        until { vm.state.value.items.lastOrNull() is ChatItem.Words && (vm.state.value.items.last() as ChatItem.Words).text == "قبض هم ثبت شد" }
+        val users = vm.state.value.items.filterIsInstance<ChatItem.User>()
+        assertEquals(listOf("اجاره را ثبت کن", "و قبض برق"), users.map { it.text })
+        assertTrue(outbox.entries.value.isEmpty())
+    }
+
+    @Test fun olderMessagesComeAPageAtATimeAndCatchingUpSkipsWhatIsDrawn() = runBlocking {
+        reply("""[{"id":"t1","message_count":200}]""")
+        server.enqueue(MockResponse.Builder().addHeader("X-More-Before", "true").body(
+            """[{"id":"s9","role":"user","text":"آخری","client_message_id":"m9"},""" +
+            """{"id":"s10","role":"assistant","blocks":[{"type":"text","id":"b10","text":"باشه"}]}]""").build())
+        reply("""{"thread_id":"t1","blocks":[]}""")
+        val vm = ChatViewModel(api)
+        until { vm.state.value.items.size == 3 }
+        assertTrue(vm.state.value.items.first() is ChatItem.Earlier)
+        server.takeRequest(); val firstPage = server.takeRequest(); server.takeRequest()
+        assertEquals("60", firstPage.url.queryParameter("limit"))
+        server.enqueue(MockResponse.Builder().addHeader("X-More-Before", "false").body(
+            """[{"id":"s1","role":"user","text":"اولی"}]""").build())
+        vm.earlier()
+        until { vm.state.value.items.first() is ChatItem.User }
+        assertEquals("s9", server.takeRequest().url.queryParameter("before"))
+        assertEquals(listOf("اولی", "آخری"), vm.state.value.items.filterIsInstance<ChatItem.User>().map { it.text })
+        // back in the app: the web chat added a turn; the phone's own message isn't drawn twice
+        reply("""[{"id":"s10b","role":"user","text":"آخری","client_message_id":"m9"},""" +
+              """{"id":"s11","role":"user","text":"از وب"},{"id":"s12","role":"assistant","blocks":[{"type":"text","id":"b12","text":"دیدم"}]}]""")
+        vm.catchUp()
+        until { (vm.state.value.items.last() as? ChatItem.Words)?.text == "دیدم" }
+        assertEquals("s10", server.takeRequest().url.queryParameter("after"))
+        assertEquals(listOf("اولی", "آخری", "از وب"), vm.state.value.items.filterIsInstance<ChatItem.User>().map { it.text })
+    }
+
+    @Test fun aConversationBegunHereCatchesUpToo() = runBlocking {
+        val vm = ChatViewModel(api, restore = false)
+        reply("event: reply\ndata: {\"thread_id\":\"t3\",\"blocks\":[{\"type\":\"text\",\"id\":\"b1\",\"text\":\"صفر\"}]}\n\n")
+        vm.edit("موجودی چقدره؟")
+        vm.send()
+        until { vm.state.value.items.lastOrNull() is ChatItem.Words }
+        val clientId = (vm.state.value.items.first() as ChatItem.User).clientId
+        server.takeRequest()
+        // meanwhile the web chat drafted a voucher in this thread
+        reply("""[{"id":"s1","role":"user","text":"موجودی چقدره؟","client_message_id":"$clientId"},""" +
+              """{"id":"s2","role":"assistant","blocks":[{"type":"text","id":"b1","text":"صفر"}]},""" +
+              """{"id":"s3","role":"user","text":"نان و میوه"},""" +
+              """{"id":"s4","role":"assistant","blocks":[{"type":"proposal","id":"proposal:t5","token":"t5","title":"نان","lines":[]}]}]""")
+        vm.catchUp()
+        until { vm.state.value.items.lastOrNull() is ChatItem.Proposal }
+        assertEquals("/api/mobile/v1/threads/t3/messages", server.takeRequest().url.encodedPath)
+        assertEquals(listOf("موجودی چقدره؟", "نان و میوه"), vm.state.value.items.filterIsInstance<ChatItem.User>().map { it.text })
+        assertEquals(1, vm.state.value.items.count { it is ChatItem.Words })
     }
 }

@@ -19,7 +19,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint, event, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -180,4 +180,15 @@ class AIReviewSample(Base, TenantMixin):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
         default=lambda: datetime.now(timezone.utc),
+    )
+
+
+@event.listens_for(AIChatMessage, "after_insert")
+def _touch_session(mapper, connection, message: AIChatMessage) -> None:
+    """A new message makes its conversation the most recent one: the lists
+    sort by ``updated_at`` and the phone catches up with ``?since=`` (P0.9)."""
+    connection.execute(
+        AIChatSession.__table__.update()
+        .where(AIChatSession.__table__.c.id == message.session_id)
+        .values(updated_at=message.created_at or datetime.now(timezone.utc))
     )

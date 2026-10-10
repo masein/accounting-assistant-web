@@ -13,7 +13,9 @@ import kotlinx.serialization.json.longOrNull
 sealed interface ChatItem {
     val id: String
 
-    data class User(override val id: String, val text: String, val files: List<String> = emptyList()) : ChatItem
+    /** What the user sent; [clientId] is the phone's id for it (its outbox entry while it waits). */
+    data class User(override val id: String, val text: String, val files: List<String> = emptyList(),
+                    val clientId: String? = null) : ChatItem
     data class Words(override val id: String, val text: String) : ChatItem
     data class Proposal(
         override val id: String,
@@ -47,6 +49,8 @@ sealed interface ChatItem {
     data class Fallback(override val id: String, val text: String) : ChatItem
     /** The turn under way; [text] is the step the server says it is on. */
     data class Thinking(override val id: String = "thinking", val text: String? = null) : ChatItem
+    /** Older messages wait on the server: tap to bring the page before. */
+    data class Earlier(override val id: String = "earlier") : ChatItem
     /** A first-run hint: questions the books can answer at once. */
     data class Suggestions(override val id: String = "suggestions", val options: List<String>) : ChatItem
 }

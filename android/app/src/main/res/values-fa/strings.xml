@@ -74,4 +74,9 @@
     <string name="threads_none">هنوز گفتگویی نیست.</string>
     <string name="threads_untitled">بی‌نام</string>
     <string name="threads_messages">%1$s پیام</string>
+    <string name="outbox_waiting">در انتظار اینترنت؛ خودش فرستاده می‌شود.</string>
+    <string name="outbox_retry">دوباره بفرست</string>
+    <string name="outbox_discard">نفرست</string>
+    <string name="earlier">پیام‌های قبلی</string>
+    <string name="error_generic">مشکلی پیش آمد. دوباره امتحان کنید.</string>
 </resources>

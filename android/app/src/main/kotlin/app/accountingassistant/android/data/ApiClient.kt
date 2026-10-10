@@ -7,6 +7,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -19,6 +20,7 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /**
@@ -178,10 +180,26 @@ class ApiClient(
         call<LanguageRequest, JsonObject>("PUT", "/me/language", LanguageRequest(lang), serializer())
     }
 
-    suspend fun threads(): List<ThreadDto> = call<Unit, List<ThreadDto>>("GET", "/threads", null, serializer())
+    /** The conversations, most recent first; with [since], only those changed after it. */
+    suspend fun threads(since: String? = null): List<ThreadDto> =
+        call<Unit, List<ThreadDto>>("GET", "/threads" + query("since" to since), null, serializer())
 
-    suspend fun messages(threadId: String): List<ThreadMessageDto> =
-        call<Unit, List<ThreadMessageDto>>("GET", "/threads/$threadId/messages", null, serializer())
+    suspend fun messages(threadId: String): List<ThreadMessageDto> = messagesPage(threadId).messages
+
+    /**
+     * A page of a conversation, oldest first: the latest [limit]; the page
+     * [before] a message id; or what came [after] one (catching up).
+     */
+    suspend fun messagesPage(threadId: String, before: String? = null, after: String? = null, limit: Int? = null): MessagesPage {
+        val a = exchange("GET", "/threads/$threadId/messages" +
+                         query("before" to before, "after" to after, "limit" to limit?.toString()), { null })
+        return MessagesPage(json.decodeFromString(ListSerializer(ThreadMessageDto.serializer()), a.body.ifBlank { "[]" }),
+                            moreBefore = a.moreBefore)
+    }
+
+    private fun query(vararg pairs: Pair<String, String?>): String =
+        pairs.filter { it.second != null }.joinToString("&") { (k, v) -> k + "=" + URLEncoder.encode(v, "UTF-8") }
+            .let { if (it.isEmpty()) "" else "?$it" }
 
     /** A photo, a PDF, a statement: its id then goes with the chat message. */
     suspend fun upload(bytes: ByteArray, fileName: String, contentType: String): UploadReply =
@@ -214,7 +232,10 @@ class ApiClient(
 
     private suspend fun <R> callBody(
         method: String, path: String, body: () -> RequestBody?, out: KSerializer<R>, auth: Boolean = true,
-    ): R {
+    ): R = json.decodeFromString(out, exchange(method, path, body, auth).body.ifBlank { "{}" })
+
+    /** One call, renewing an expired token once; a refusal is thrown as [ApiError]. */
+    private suspend fun exchange(method: String, path: String, body: () -> RequestBody?, auth: Boolean = true): Answer {
         val first = send(method, path, body(), auth)
         val result = if (first.status == 401 && auth && session != null) {
             val refusal = refresh(first.usedToken)
@@ -226,10 +247,11 @@ class ApiClient(
             if (auth && err.sessionOver) endSession(err)
             throw err
         }
-        return json.decodeFromString(out, result.body.ifBlank { "{}" })
+        return result
     }
 
-    private class Answer(val status: Int, val body: String, val code: String?, val usedToken: String?) {
+    private class Answer(val status: Int, val body: String, val code: String?, val usedToken: String?,
+                         val moreBefore: Boolean = false) {
         fun error(): ApiError {
             val parsed = runCatching { Json.parseToJsonElement(body) as? JsonObject }.getOrNull()
             val detail = parsed?.get("detail")?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
@@ -250,7 +272,7 @@ class ApiClient(
             .build()
         try {
             http.newCall(req).execute().use { r ->
-                Answer(r.code, r.body.string(), r.header("X-Error-Code"), token)
+                Answer(r.code, r.body.string(), r.header("X-Error-Code"), token, r.header("X-More-Before") == "true")
             }
         } catch (e: IOException) {
             throw NetworkError(e)

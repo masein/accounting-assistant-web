@@ -74,4 +74,9 @@
         <item>¿Qué debemos?</item>
         <item>¿Cuánto gastamos este mes?</item>
     </string-array>
+    <string name="outbox_waiting">Esperando la red. Se enviará sola.</string>
+    <string name="outbox_retry">Reintentar</string>
+    <string name="outbox_discard">No enviar</string>
+    <string name="earlier">Mensajes anteriores</string>
+    <string name="error_generic">Algo salió mal. Inténtalo de nuevo.</string>
 </resources>

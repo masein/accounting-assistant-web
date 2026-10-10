@@ -11,11 +11,12 @@ import asyncio
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.ai_accountant import ChatPayload, _user_language
@@ -26,6 +27,7 @@ from app.db.session import get_db
 from app.models.ai_accountant import AIChatMessage, AIChatSession, AIProposal
 from app.services.ai_accountant import blocks as B
 from app.services.ai_accountant import progress
+from app.services import mobile_turns as turns
 from app.services.ai_usage import AIBudgetExceeded, AIRateLimited
 from app.services.ai_accountant.execute_service import (
     UNDO_WINDOW,
@@ -77,27 +79,6 @@ def _store_blocks(db: Session, thread_id: str, blocks: list[dict]) -> None:
         db.commit()
 
 
-def _already_answered(db: Session, thread_id: str | None, client_message_id: str | None) -> dict | None:
-    """The reply a message with this client id already got in this thread."""
-    if not (thread_id and client_message_id):
-        return None
-    try:
-        sid = uuid.UUID(str(thread_id))
-    except (ValueError, TypeError):
-        return None
-    rows = db.execute(
-        select(AIChatMessage).where(AIChatMessage.session_id == sid, AIChatMessage.role.in_(("user", "assistant")))
-        .order_by(AIChatMessage.created_at.desc(), AIChatMessage.id.desc()).limit(20)
-    ).scalars().all()
-    rows = list(reversed(rows))
-    for i, m in enumerate(rows):
-        if m.role == "user" and (m.content or {}).get("client_message_id") == client_message_id:
-            reply = next((r for r in rows[i + 1:] if r.role == "assistant" and (r.content or {}).get("blocks")), None)
-            if reply is not None:
-                return {"thread_id": str(sid), "blocks": reply.content["blocks"], "stop_reason": "repeat"}
-    return None
-
-
 def _mark_client_message(db: Session, thread_id: str, client_message_id: str | None) -> None:
     """Note the phone's id on the user's message just answered."""
     if not client_message_id:
@@ -118,18 +99,32 @@ def _mark_client_message(db: Session, thread_id: str, client_message_id: str | N
 @router.post("/chat")
 async def mobile_chat(payload: MobileChatPayload, db: Session = Depends(get_db),
                       user: SessionUser = Depends(get_current_user)) -> dict:
-    """One message to the accountant; the reply as blocks, cards first."""
-    repeat = _already_answered(db, payload.thread_id, payload.client_message_id)
+    """One message to the accountant; the reply as blocks, cards first.
+
+    A message the phone sends again (its outbox retries until answered) is
+    answered once: a repeat waits for the first try and gets its reply."""
+    cid = payload.client_message_id
+    try:
+        repeat = await turns.begin(db, user.user_id, cid, waiting=lambda: progress.emit("working"))
+    except turns.TurnInProgress:
+        raise HTTPException(status_code=409, detail="Still working on this message. It will be answered shortly.",
+                            headers={"X-Error-Code": "turn_in_progress"})
     if repeat is not None:
         return repeat
-    resp = await web_chat(ChatPayload(message=payload.message, session_id=payload.thread_id,
-                                      attachment_ids=payload.attachment_ids), db=db, user=user)
-    lang = _user_language(db, user)
-    blocks = B.build_blocks(db, text=resp.text, proposals=resp.proposals, tool_calls=resp.tool_calls,
-                            intake=resp.intake, lang=lang, calendar=_calendar(db))
-    _store_blocks(db, resp.session_id, blocks)
-    _mark_client_message(db, resp.session_id, payload.client_message_id)
-    return {"thread_id": resp.session_id, "blocks": blocks, "stop_reason": resp.stop_reason}
+    try:
+        resp = await web_chat(ChatPayload(message=payload.message, session_id=payload.thread_id,
+                                          attachment_ids=payload.attachment_ids), db=db, user=user)
+        lang = _user_language(db, user)
+        blocks = B.build_blocks(db, text=resp.text, proposals=resp.proposals, tool_calls=resp.tool_calls,
+                                intake=resp.intake, lang=lang, calendar=_calendar(db))
+        _store_blocks(db, resp.session_id, blocks)
+        _mark_client_message(db, resp.session_id, cid)
+    except BaseException:
+        turns.fail(db, user.user_id, cid)
+        raise
+    reply = {"thread_id": resp.session_id, "blocks": blocks, "stop_reason": resp.stop_reason}
+    turns.finish(db, user.user_id, cid, reply)
+    return reply
 
 
 def _sse(event: str, data: dict) -> str:
@@ -180,17 +175,30 @@ async def mobile_chat_stream(payload: MobileChatPayload, db: Session = Depends(g
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+def _since(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="since must be an ISO date and time")
+    return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+
+
 @router.get("/threads")
-def mobile_threads(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> list[dict]:
-    """The user's conversations, most recent first."""
+def mobile_threads(since: str | None = Query(default=None, max_length=40), db: Session = Depends(get_db),
+                   user: SessionUser = Depends(get_current_user)) -> list[dict]:
+    """The user's conversations, most recent first; with ``since`` (an
+    ``updated_at`` the phone already has), only those changed after it."""
     counts = (select(AIChatMessage.session_id, func.count(AIChatMessage.id).label("n"))
               .where(AIChatMessage.role.in_(("user", "assistant"))).group_by(AIChatMessage.session_id).subquery())
-    rows = db.execute(
-        select(AIChatSession, func.coalesce(counts.c.n, 0))
-        .outerjoin(counts, counts.c.session_id == AIChatSession.id)
-        .where(AIChatSession.user_id == user.user_id)
-        .order_by(AIChatSession.updated_at.desc()).limit(100)
-    ).all()
+    q = (select(AIChatSession, func.coalesce(counts.c.n, 0))
+         .outerjoin(counts, counts.c.session_id == AIChatSession.id)
+         .where(AIChatSession.user_id == user.user_id))
+    cursor = _since(since)
+    if cursor is not None:
+        q = q.where(AIChatSession.updated_at > cursor)
+    rows = db.execute(q.order_by(AIChatSession.updated_at.desc()).limit(100)).all()
     return [{"id": str(s.id), "title": s.title, "updated_at": s.updated_at.isoformat() if s.updated_at else None,
              "message_count": int(n)} for s, n in rows]
 
@@ -208,11 +216,32 @@ def _proposal_states(db: Session, tokens: list[str]) -> dict[str, AIProposal]:
     return {str(r.confirmation_token): r for r in rows}
 
 
+def _message_cursor(db: Session, sid: uuid.UUID, message_id: str | None) -> AIChatMessage | None:
+    if not message_id:
+        return None
+    try:
+        row = db.get(AIChatMessage, uuid.UUID(message_id))
+    except (ValueError, TypeError):
+        row = None
+    if row is None or row.session_id != sid:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return row
+
+
 @router.get("/threads/{thread_id}/messages")
-def mobile_thread_messages(thread_id: str, db: Session = Depends(get_db),
+def mobile_thread_messages(thread_id: str, response: Response,
+                           after: str | None = Query(default=None, max_length=64),
+                           before: str | None = Query(default=None, max_length=64),
+                           limit: int = Query(default=100, ge=1, le=200),
+                           db: Session = Depends(get_db),
                            user: SessionUser = Depends(get_current_user)) -> list[dict]:
     """A thread as the phone draws it: the user's words and the replies'
-    blocks, each voucher with where it stands now (pending, posted, cancelled)."""
+    blocks, each voucher with where it stands now (pending, posted, cancelled).
+
+    Paged by message id, oldest first (P0.9): the latest ``limit`` messages;
+    ``before`` an id, the page older than it (``X-More-Before`` says whether
+    there is another); ``after`` an id, what came since, to catch up when the
+    app comes back (the web chat, or the outbox, may have added to it)."""
     try:
         sid = uuid.UUID(thread_id)
     except (ValueError, TypeError):
@@ -220,10 +249,28 @@ def mobile_thread_messages(thread_id: str, db: Session = Depends(get_db),
     session = db.get(AIChatSession, sid)
     if session is None or str(session.user_id) != str(user.user_id):
         raise HTTPException(status_code=404, detail="Session not found")
-    rows = db.execute(
-        select(AIChatMessage).where(AIChatMessage.session_id == sid, AIChatMessage.role.in_(("user", "assistant")))
-        .order_by(AIChatMessage.created_at, AIChatMessage.id)
-    ).scalars().all()
+    shown = (AIChatMessage.session_id == sid, AIChatMessage.role.in_(("user", "assistant")))
+
+    def later(m: AIChatMessage):
+        return or_(AIChatMessage.created_at > m.created_at,
+                   and_(AIChatMessage.created_at == m.created_at, AIChatMessage.id > m.id))
+
+    def earlier(m: AIChatMessage):
+        return or_(AIChatMessage.created_at < m.created_at,
+                   and_(AIChatMessage.created_at == m.created_at, AIChatMessage.id < m.id))
+
+    after_row, before_row = _message_cursor(db, sid, after), _message_cursor(db, sid, before)
+    if after_row is not None:
+        rows = db.execute(select(AIChatMessage).where(*shown, later(after_row))
+                          .order_by(AIChatMessage.created_at, AIChatMessage.id).limit(limit)).scalars().all()
+    else:
+        q = select(AIChatMessage).where(*shown)
+        if before_row is not None:
+            q = q.where(earlier(before_row))
+        rows = list(reversed(db.execute(q.order_by(AIChatMessage.created_at.desc(), AIChatMessage.id.desc())
+                                        .limit(limit)).scalars().all()))
+        more = bool(rows) and db.execute(select(AIChatMessage.id).where(*shown, earlier(rows[0])).limit(1)).first() is not None
+        response.headers["X-More-Before"] = "true" if more else "false"
     out = []
     tokens = []
     for m in rows:
@@ -233,6 +280,8 @@ def mobile_thread_messages(thread_id: str, db: Session = Depends(get_db),
         item = {"id": str(m.id), "role": m.role, "created_at": m.created_at.isoformat() if m.created_at else None}
         if m.role == "user":
             item["text"] = content.get("text") or ""
+            if content.get("client_message_id"):
+                item["client_message_id"] = content["client_message_id"]
         else:
             item["blocks"] = content.get("blocks") or [{"type": "text", "id": f"text:{m.id}", "text": content.get("text") or "",
                                                         "fallback_text": content.get("text") or ""}]

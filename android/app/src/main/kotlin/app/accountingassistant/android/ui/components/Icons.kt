@@ -59,6 +59,24 @@ object AppIcons {
         }
     }
 
+    /** A message waiting for the network. */
+    val Clock: ImageVector = icon("Clock") {
+        stroke {
+            moveTo(12f, 3f); curveTo(7f, 3f, 3f, 7f, 3f, 12f); curveTo(3f, 17f, 7f, 21f, 12f, 21f)
+            curveTo(17f, 21f, 21f, 17f, 21f, 12f); curveTo(21f, 7f, 17f, 3f, 12f, 3f); close()
+            moveTo(12f, 7f); lineTo(12f, 12f); lineTo(15.5f, 14f)
+        }
+    }
+
+    /** A message the server refused. */
+    val Alert: ImageVector = icon("Alert") {
+        stroke {
+            moveTo(12f, 3f); curveTo(7f, 3f, 3f, 7f, 3f, 12f); curveTo(3f, 17f, 7f, 21f, 12f, 21f)
+            curveTo(17f, 21f, 21f, 17f, 21f, 12f); curveTo(21f, 7f, 17f, 3f, 12f, 3f); close()
+            moveTo(12f, 7.5f); lineTo(12f, 12.5f); moveTo(12f, 16.2f); lineTo(12f, 16.3f)
+        }
+    }
+
     val ChevronDown: ImageVector = icon("ChevronDown") {
         stroke { moveTo(7f, 10f); lineTo(12f, 15f); lineTo(17f, 10f) }
     }

@@ -1,5 +1,10 @@
 package app.accountingassistant.android.ui.chat
 
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.AbsoluteAlignment
+import androidx.compose.foundation.layout.widthIn
+import app.accountingassistant.android.data.Queued
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -85,6 +90,9 @@ fun ChatScreen(
     onAccount: () -> Unit = {},
     onFile: (ChatItem.File, Boolean) -> Unit = { _, _ -> },
     onThreads: (() -> Unit)? = null,
+    onRetry: (String) -> Unit = {},
+    onDiscard: (String) -> Unit = {},
+    onEarlier: () -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -92,7 +100,8 @@ fun ChatScreen(
     val nowMs by produceState(System.currentTimeMillis()) {
         while (true) { delay(1000); value = System.currentTimeMillis() }
     }
-    LaunchedEffect(state.items.size) { if (state.items.isNotEmpty()) list.animateScrollToItem(state.items.lastIndex) }
+    // follow the newest item; an older page prepended keeps the place
+    LaunchedEffect(state.items.lastOrNull()?.id) { if (state.items.isNotEmpty()) list.animateScrollToItem(state.items.lastIndex) }
 
     Box(Modifier.fillMaxSize().background(c.ground)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -128,7 +137,18 @@ fun ChatScreen(
             ) {
                 items(state.items, key = { it.id }) { item ->
                     when (item) {
-                        is ChatItem.User -> UserBubble(item.text, files = item.files)
+                        is ChatItem.User -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            UserBubble(item.text, files = item.files)
+                            item.clientId?.let { state.queued[it] }?.let { q ->
+                                Queue(q, onRetry = { onRetry(q.clientId) }, onDiscard = { onDiscard(q.clientId) })
+                            }
+                        }
+                        is ChatItem.Earlier -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Surface(onClick = onEarlier, shape = RoundedCornerShape(50), color = c.surface2) {
+                                Text(stringResource(R.string.earlier), color = c.muted, fontSize = 12.5.sp,
+                                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+                            }
+                        }
                         is ChatItem.Words -> AssistantText(item.text)
                         is ChatItem.Thinking -> ThinkingRow(item.text ?: stringResource(R.string.thinking))
                         is ChatItem.Suggestions -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -137,13 +157,7 @@ fun ChatScreen(
                         }
                         is ChatItem.Fallback -> AssistantText(item.text)
                         is ChatItem.Problem -> Surface(shape = RoundedCornerShape(16.dp), color = c.saffronSoft) {
-                            val said = when (item.code) {
-                                "ai_unavailable" -> stringResource(R.string.problem_ai_unavailable)
-                                "ai_budget_exceeded" -> stringResource(R.string.problem_ai_budget)
-                                "ai_rate_limited", "rate_limited" -> stringResource(R.string.problem_rate_limited)
-                                else -> item.detail
-                            }
-                            Text(said, color = c.ink, fontSize = 13.5.sp, lineHeight = 21.sp,
+                            Text(problemText(item.code, item.detail), color = c.ink, fontSize = 13.5.sp, lineHeight = 21.sp,
                                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
                         }
                         is ChatItem.Figure -> FigureCard(
@@ -268,6 +282,46 @@ fun FileCard(file: ChatItem.File, onOpen: () -> Unit, onShare: () -> Unit) {
                     Icon(AppIcons.Share, contentDescription = null, tint = c.ink, modifier = Modifier.size(16.dp))
                 }
             }
+        }
+    }
+}
+
+/** A failed turn said in the user's language when its code is known, else the server's words. */
+@Composable
+private fun problemText(code: String?, detail: String?): String = when (code) {
+    "ai_unavailable" -> stringResource(R.string.problem_ai_unavailable)
+    "ai_budget_exceeded" -> stringResource(R.string.problem_ai_budget)
+    "ai_rate_limited", "rate_limited" -> stringResource(R.string.problem_rate_limited)
+    else -> detail?.takeIf { it.isNotBlank() } ?: stringResource(R.string.error_generic)
+}
+
+/**
+ * Under a message still in the outbox: waiting for the network (it sends
+ * itself), or refused by the server, with Try again and Don't send.
+ */
+@Composable
+private fun Queue(q: Queued, onRetry: () -> Unit, onDiscard: () -> Unit) {
+    val c = LocalAccountantColors.current
+    val failed = q.failure != null
+    val small = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+    @Composable fun discard() = TextButton(onClick = onDiscard, contentPadding = small) {
+        Text(stringResource(R.string.outbox_discard), color = c.muted, fontSize = 12.sp)
+    }
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = AbsoluteAlignment.Right) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (failed) AppIcons.Alert else AppIcons.Clock, contentDescription = null,
+                 tint = if (failed) c.pomegranate else c.muted, modifier = Modifier.size(13.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(if (failed) problemText(q.failure, q.detail) else stringResource(R.string.outbox_waiting),
+                 color = if (failed) c.pomegranate else c.muted, fontSize = 11.5.sp, lineHeight = 16.sp,
+                 modifier = Modifier.widthIn(max = if (failed) 280.dp else 220.dp))
+            if (!failed) discard()                                  // waiting: one line, its one action beside it
+        }
+        if (failed) Row(Modifier.offset(y = (-6).dp)) {
+            TextButton(onClick = onRetry, contentPadding = small) {
+                Text(stringResource(R.string.outbox_retry), color = c.firouzeh, fontSize = 12.sp, fontWeight = FontWeight(600))
+            }
+            discard()
         }
     }
 }

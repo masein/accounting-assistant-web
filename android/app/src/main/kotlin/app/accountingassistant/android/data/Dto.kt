@@ -113,7 +113,12 @@ data class ThreadMessageDto(
     val role: String,
     val text: String? = null,
     val blocks: List<JsonObject> = emptyList(),
+    /** The phone's id for a message it sent: an outbox entry already on the server. */
+    @SerialName("client_message_id") val clientMessageId: String? = null,
 )
+
+/** A page of a conversation, oldest first; [moreBefore] when older ones remain. */
+data class MessagesPage(val messages: List<ThreadMessageDto>, val moreBefore: Boolean)
 
 @Serializable
 data class UploadReply(

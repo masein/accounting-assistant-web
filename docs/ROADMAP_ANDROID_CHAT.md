@@ -25,9 +25,11 @@ The build started on 2026-10-10.
 **Server (Phase 0):**
 - ✅ **P0.1, P0.2** (#308): phone sessions and `/api/mobile/v1`.
 - ✅ **P0.3, P0.4** (#309): typed blocks; confirm, cancel and undo; threads that redraw their cards.
-- ✅ **P0.6** (#310): fast paths.
-- ◐ **P0.7** (#312): uploads, voice notes and the briefing are done; file blocks with signed links are not.
-- **Still to do:** P0.5 streaming, P0.8 push (it needs a Firebase project, or Pushe, from the owner), P0.9 cursor sync, P0.10 contract tests beyond the route tests.
+- ✅ **P0.5** (#314): streamed turns with their steps; `client_message_id` so a retry never asks twice.
+- ✅ **P0.6** (#310, #316): fast paths, in Persian, English, Spanish and Arabic.
+- ✅ **P0.7** (#312, #315): uploads, voice notes and the briefing; file blocks (an invoice's PDF), served to the phone's bearer session rather than by signed link. Resumable chunked uploads are not done: a photo is scaled to 1600 px (a few hundred KB) and the outbox uploads it once.
+- ✅ **P0.9** (#317): threads `?since=`, messages paged by id (`before`, `after`, `X-More-Before`), and a message answered once however often the outbox sends it (`mobile_turns`, across server workers).
+- **Still to do:** P0.8 push (it needs a Firebase project, or Pushe, from the owner), P0.10 contract tests beyond the route tests.
 
 **App (`android/`, Phase 1):**
 - ✅ P1.1 (#311, #313): sign-in, two-factor, the app lock and the device list.
@@ -37,8 +39,10 @@ The build started on 2026-10-10.
 - ✅ P1.7: RTL, Jalali and Persian digits, in both themes.
 - ✅ Photos, files and voice notes (#313).
 - ✅ The Phase 2 share target (#313): a bank SMS, a statement or a receipt shared in from another app.
+- ✅ P1.5 (#317): the offline outbox. Every message is kept (sealed with a Keystore key) before it is sent, waits under its bubble while offline, and sends itself when the network is back, from the app or from WorkManager with the app closed. A refused one offers Try again or Don't send.
+- ✅ Part of P2.7 (#316, #317): the conversations sheet, paged history, catching up when the app comes back.
+- ✅ P2.8, the languages (#316): the app in Arabic and Spanish.
 - **Still to do:**
-  - P1.5: a full offline outbox; today the typed message is kept in the composer when offline;
   - P1.6: push;
   - P1.8: crash reporting and the store listings;
   - P1.9: signing and the store channels.

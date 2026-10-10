@@ -51,6 +51,7 @@ REVIEWED = {
     ("POST", "/notifications/push/test"): "only the user's own devices",
     # the phone app's session: every role signs in on a phone (app/api/mobile.py)
     ("GET", "/api/mobile/v1/me"): "the session user's own profile and books",
+    ("PUT", "/api/mobile/v1/me/language"): "the session user's own language",
     ("DELETE", "/api/mobile/v1/session"): "signs out the device the bearer token was issued to",
     ("GET", "/api/mobile/v1/devices"): "devices_of: the session user's own phones",
     ("DELETE", "/api/mobile/v1/devices/{device_id}"): "_own_device: another user's phone is 404",

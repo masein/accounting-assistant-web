@@ -386,6 +386,9 @@ async def chat(
             ocr_ids.append(att_id)
 
     intake_context = ""
+    if sheet_atts or ocr_ids:
+        from app.services.ai_accountant import progress
+        progress.emit("reading_files", lang=_user_language(db, user))
     if sheet_atts:
         from app.core.permissions import Perm, role_can
 

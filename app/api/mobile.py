@@ -176,6 +176,26 @@ def mobile_me(current=Depends(get_current_user), db: Session = Depends(get_db)) 
     return body
 
 
+class LanguageRequest(BaseModel):
+    language: str = Field(min_length=2, max_length=8)
+
+
+@router.put("/me/language")
+def mobile_language(payload: LanguageRequest, current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    """The phone's language becomes the account's: the accountant answers,
+    and says what it is doing, in it."""
+    from app.api.auth import SUPPORTED_LANGUAGES
+    lang = payload.language.strip().lower()[:2]
+    if lang not in SUPPORTED_LANGUAGES:
+        raise HTTPException(status_code=400, detail="Unsupported language")
+    user = _load_user(db, current)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user.preferred_language = lang
+    db.commit()
+    return {"language": lang}
+
+
 @router.delete("/session")
 def mobile_sign_out(request: Request, current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     """Sign this phone out (N4). The web and other phones stay signed in."""

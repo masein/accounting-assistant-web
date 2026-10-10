@@ -99,7 +99,13 @@ class MainActivity : ComponentActivity() {
                         initializer { SignInViewModel(app.api, app.deviceName) }
                     })
                     val s by vm.state.collectAsState()
-                    LaunchedEffect(s.signedIn) { if (s.signedIn) signedIn = true }
+                    LaunchedEffect(s.signedIn) {
+                        if (s.signedIn) {
+                            // the accountant answers in the phone's language
+                            if (app.api.session?.user?.language != lang) runCatching { app.api.setLanguage(lang) }
+                            signedIn = true
+                        }
+                    }
                     SignInScreen(s, vm::username, vm::password, vm::code, vm::submit)
                 } else {
                     val suggestions = resources.getStringArray(R.array.suggestions).toList()

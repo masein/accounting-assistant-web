@@ -37,9 +37,12 @@ sealed interface ChatItem {
     data class Table(override val id: String, val kind: String, val rows: List<Row>) : ChatItem {
         data class Row(val label: String, val sub: String?, val value: Long, val currency: String?)
     }
+    /** The turn failed: a known [code] is said in the user's language, else [detail]. */
+    data class Problem(override val id: String, val code: String?, val detail: String) : ChatItem
     /** A block this version of the app can't draw: its sentence instead. */
     data class Fallback(override val id: String, val text: String) : ChatItem
-    data class Thinking(override val id: String = "thinking") : ChatItem
+    /** The turn under way; [text] is the step the server says it is on. */
+    data class Thinking(override val id: String = "thinking", val text: String? = null) : ChatItem
     /** A first-run hint: questions the books can answer at once. */
     data class Suggestions(override val id: String = "suggestions", val options: List<String>) : ChatItem
 }

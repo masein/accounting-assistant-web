@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -112,8 +113,18 @@ class ChatViewModel(
                             ChatItem.User("u${now()}", text, files.map { f -> f.name }) + ChatItem.Thinking())
         }
         viewModelScope.launch {
+            val clientId = UUID.randomUUID().toString()
             try {
-                val reply = api.chat(text, _state.value.threadId, files.map { it.id })
+                val thread = _state.value.threadId
+                val ids = files.map { it.id }
+                val reply = try {
+                    api.chatStream(text, thread, ids, clientId) { step ->
+                        _state.update { st -> st.copy(items = st.items.map { if (it is ChatItem.Thinking) it.copy(text = step) else it }) }
+                    }
+                } catch (e: NetworkError) {
+                    // one quiet retry: the server knows the message by its id and never answers it twice
+                    api.chat(text, thread, ids, clientId)
+                }
                 _state.update { s ->
                     s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + reply.blocks.map(::parseBlock),
                            threadId = reply.threadId, sending = false)
@@ -123,7 +134,7 @@ class ChatViewModel(
                 _state.update { s -> s.copy(items = s.items.dropLastWhile { it is ChatItem.Thinking || (it is ChatItem.User && it.text == text) },
                                             draft = text, attachments = files, sending = false, notice = ChatUiState.Notice.Offline) }
             } catch (e: ApiError) {
-                _state.update { s -> s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + ChatItem.Fallback("e${now()}", e.message),
+                _state.update { s -> s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + ChatItem.Problem("e${now()}", e.code, e.message),
                                             sending = false, notice = ChatUiState.Notice.Failed) }
             }
         }

@@ -113,12 +113,22 @@ fun ChatScreen(
                     when (item) {
                         is ChatItem.User -> UserBubble(item.text, files = item.files)
                         is ChatItem.Words -> AssistantText(item.text)
-                        is ChatItem.Thinking -> ThinkingRow(stringResource(R.string.thinking))
+                        is ChatItem.Thinking -> ThinkingRow(item.text ?: stringResource(R.string.thinking))
                         is ChatItem.Suggestions -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             AssistantText(stringResource(R.string.suggestions_intro))
                             Choices(options = item.options, selected = null, onPick = { onSuggestion(item.options[it]) })
                         }
                         is ChatItem.Fallback -> AssistantText(item.text)
+                        is ChatItem.Problem -> Surface(shape = RoundedCornerShape(16.dp), color = c.saffronSoft) {
+                            val said = when (item.code) {
+                                "ai_unavailable" -> stringResource(R.string.problem_ai_unavailable)
+                                "ai_budget_exceeded" -> stringResource(R.string.problem_ai_budget)
+                                "ai_rate_limited", "rate_limited" -> stringResource(R.string.problem_rate_limited)
+                                else -> item.detail
+                            }
+                            Text(said, color = c.ink, fontSize = 13.5.sp, lineHeight = 21.sp,
+                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+                        }
                         is ChatItem.Figure -> FigureCard(
                             label = item.label,
                             value = (item.currency?.let { currencySymbol(it) } ?: "") + Numbers.amount(item.value, lang),

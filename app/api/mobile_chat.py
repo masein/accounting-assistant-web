@@ -522,6 +522,81 @@ class BriefingPayload(BaseModel):
     thread_id: str | None = None
 
 
+# --- a bank statement, one difference at a time (roadmap ROADMAP_ANDROID_CHAT P2.3) ----------
+
+_STATEMENT_LINES = {
+    "left": {"en": lambda n: f"{n} more to record after this one." if n else "This is the last one to record.",
+             "fa": lambda n: f"پس از این، {n} ردیف دیگر مانده." if n else "این آخرین ردیفی است که باید ثبت شود.",
+             "es": lambda n: f"Quedan {n} por registrar después de esta." if n else "Es la última por registrar.",
+             "ar": lambda n: f"يبقى {n} بعد هذا." if n else "هذا آخر ما يجب تسجيله."},
+    "done": {"en": "Every row of this statement is in the books, or on a card above waiting for you.",
+             "fa": "همهٔ ردیف‌های این صورتحساب در دفاتر است، یا روی کارتی بالاتر منتظر شماست.",
+             "es": "Todas las filas de este extracto están en los libros, o en una tarjeta arriba esperándote.",
+             "ar": "كل أسطر هذا الكشف في الدفاتر، أو على بطاقة أعلاه بانتظارك."},
+}
+
+
+class StatementNextPayload(BaseModel):
+    thread_id: str | None = None
+
+
+@router.post("/statements/{statement_id}/next")
+async def mobile_statement_next(statement_id: str, payload: StatementNextPayload, db: Session = Depends(get_db),
+                                user: SessionUser = Depends(get_current_user)) -> dict:
+    """The next row of a bank statement the books don't have yet, as a voucher
+    to confirm, without a model call: the bank's date and words, the bank's
+    account, the suggested counter-account, through the same proposal tool
+    and checks as the accountant's. Rows already on a card in this thread are
+    skipped, so tapping again moves on. When none is left, it says so."""
+    from app.models.bank_statement import BankStatement
+    from app.services.ai_accountant import guardrails
+    from app.services.ai_accountant.orchestrator import _get_or_create_session
+    from app.services.ai_accountant.statement_intake import _pending_row_ids, ensure_statement_row_proposal
+    from app.services.statement_review import build_statement_review
+    try:
+        stmt = db.get(BankStatement, uuid.UUID(statement_id))
+    except (ValueError, TypeError):
+        stmt = None
+    if stmt is None:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    try:
+        session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.thread_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    lang, calendar = _user_language(db, user), _calendar(db)
+    result = await ensure_statement_row_proposal(
+        db, user_id=str(user.user_id), username=user.username, session_id=str(session.id), user_message="next",
+        tool_calls=[{"name": "review_bank_statement", "input": {"statement_id": str(stmt.id)}}])
+    mid = uuid.uuid4()
+    blocks: list[dict] = []
+    if result is not None:
+        try:
+            result.update(guardrails.review(db, result))
+            blocks.append(B.proposal_block(db, result, calendar=calendar, lang=lang))
+        except guardrails.ProposalRefused as e:
+            from app.core.messages import localize_detail
+            said = localize_detail(str(e), lang)
+            blocks.append({"type": "text", "id": f"text:{mid}", "text": said, "fallback_text": said})
+    if blocks and blocks[0]["type"] == "proposal":
+        pending = _pending_row_ids(db, str(user.user_id), str(session.id))
+        left = sum(1 for f in build_statement_review(db, stmt).findings
+                   if f.kind == "unrecorded" and f.suggested_fix == "post_row" and f.row_id and str(f.row_id) not in pending)
+        said = _STATEMENT_LINES["left"].get(lang, _STATEMENT_LINES["left"]["en"])(left)
+        if lang == "fa":
+            from app.services.documents.formatting import to_persian_digits
+            said = to_persian_digits(said)
+        # the phone offers the next one under these words while any is left
+        blocks.append({"type": "text", "id": f"text:{mid}", "text": said, "fallback_text": said,
+                       **({"kind": "statement_next", "statement_id": str(stmt.id)} if left else {})})
+    elif not blocks:
+        said = _STATEMENT_LINES["done"].get(lang, _STATEMENT_LINES["done"]["en"])
+        blocks.append({"type": "text", "id": f"text:{mid}", "text": said, "fallback_text": said})
+    db.add(AIChatMessage(id=mid, session_id=session.id, role="assistant",
+                         content={"role": "assistant", "text": blocks[-1]["text"], "blocks": blocks}))
+    db.commit()
+    return {"thread_id": str(session.id), "blocks": blocks}
+
+
 _APPROVALS_LINE = {
     "en": lambda n: f"{n} voucher{'s' if n != 1 else ''} wait{'s' if n == 1 else ''} for your approval.",
     "fa": lambda n: f"{n} سند منتظر تأیید شماست.",

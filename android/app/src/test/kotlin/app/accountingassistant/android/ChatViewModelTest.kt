@@ -266,4 +266,21 @@ class ChatViewModelTest {
         assertEquals("/api/mobile/v1/approvals/t8/reject", r.url.encodedPath)
         assertEquals("""{"note":"Wrong month"}""", r.body!!.utf8())
     }
+
+    @Test fun theNextDifferenceComesAsAVoucherWithTheNextOneOffered() = runBlocking {
+        val vm = ChatViewModel(api, restore = false)
+        reply("""{"thread_id":"t4","blocks":[{"type":"proposal","id":"proposal:r1","token":"r1","title":"کارمزد بانکی",""" +
+              """"amount":{"value":90000,"currency":"IRR"},"lines":[],"actions":["confirm","edit","cancel"]},""" +
+              """{"type":"text","id":"text:m1","text":"پس از این، ۱ ردیف دیگر مانده.","kind":"statement_next","statement_id":"s9"}]}""")
+        vm.nextDifference("s9")
+        until { vm.state.value.items.lastOrNull() is ChatItem.Words }
+        val sent = server.takeRequest()
+        assertEquals("/api/mobile/v1/statements/s9/next", sent.url.encodedPath)
+        assertEquals("s9", (vm.state.value.items.last() as ChatItem.Words).nextStatement)
+        assertEquals("t4", vm.state.value.threadId)
+        reply("""{"thread_id":"t4","blocks":[{"type":"text","id":"text:m2","text":"همهٔ ردیف‌ها در دفاتر است."}]}""")
+        vm.nextDifference("s9")
+        until { (vm.state.value.items.last() as? ChatItem.Words)?.text == "همهٔ ردیف‌ها در دفاتر است." }
+        assertTrue(server.takeRequest().body!!.utf8().contains("\"thread_id\":\"t4\""))
+    }
 }

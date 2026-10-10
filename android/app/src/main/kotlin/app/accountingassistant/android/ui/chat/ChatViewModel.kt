@@ -300,6 +300,26 @@ class ChatViewModel(
         }
     }
 
+    /** A statement's next difference: a voucher for the next row the books don't have, or "all done". */
+    fun nextDifference(statementId: String) {
+        if (_state.value.items.any { it is ChatItem.Thinking }) return
+        _state.update { it.copy(items = it.items + ChatItem.Thinking(), notice = null) }
+        viewModelScope.launch {
+            try {
+                val r = api.statementNext(statementId, _state.value.threadId)
+                _state.update { s ->
+                    val have = s.items.map { it.id }.toSet()
+                    s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + r.blocks.map(::parseBlock).filterNot { it.id in have },
+                           threadId = s.threadId ?: r.threadId)
+                }
+            } catch (e: NetworkError) {
+                _state.update { s -> s.copy(items = s.items.filterNot { it is ChatItem.Thinking }, notice = ChatUiState.Notice.Offline) }
+            } catch (e: Exception) {
+                _state.update { s -> s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + ChatItem.Problem("e${now()}", null, e.message ?: "")) }
+            }
+        }
+    }
+
     /** A refused message, sent again. */
     fun retry(clientId: String) {
         _state.update { it.copy(notice = null) }

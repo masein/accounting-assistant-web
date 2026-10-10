@@ -97,4 +97,37 @@
     <string name="reject_reason">دلیل (اختیاری)</string>
     <string name="crash_title">فرستادن گزارش خرابی</string>
     <string name="crash_hint">فقط جایی که برنامه خراب شد؛ هرگز پیام‌ها یا رقم‌های شما.</string>
+    <string name="statement_title">صورتحساب بانک</string>
+    <string name="statement_gap">مانده با دفاتر %1$s فرق دارد</string>
+    <string name="statement_clean">همه‌چیز با دفاتر می‌خواند.</string>
+    <string name="statement_fix">رفع قدم‌به‌قدم</string>
+    <string name="statement_next">مغایرت بعدی</string>
+    <plurals name="statement_rows">
+        <item quantity="one">%d ردیف</item>
+        <item quantity="other">%d ردیف</item>
+    </plurals>
+    <plurals name="statement_matched">
+        <item quantity="one">%d همخوان</item>
+        <item quantity="other">%d همخوان</item>
+    </plurals>
+    <plurals name="statement_unrecorded">
+        <item quantity="one">%d ثبت‌نشده</item>
+        <item quantity="other">%d ثبت‌نشده</item>
+    </plurals>
+    <plurals name="statement_confirm">
+        <item quantity="one">%d نیاز به تأیید</item>
+        <item quantity="other">%d نیاز به تأیید</item>
+    </plurals>
+    <plurals name="statement_mismatch">
+        <item quantity="one">%d مبلغ متفاوت</item>
+        <item quantity="other">%d مبلغ متفاوت</item>
+    </plurals>
+    <plurals name="statement_missing">
+        <item quantity="one">%d نه در بانک</item>
+        <item quantity="other">%d نه در بانک</item>
+    </plurals>
+    <plurals name="statement_duplicates">
+        <item quantity="one">%d تکراری</item>
+        <item quantity="other">%d تکراری</item>
+    </plurals>
 </resources>

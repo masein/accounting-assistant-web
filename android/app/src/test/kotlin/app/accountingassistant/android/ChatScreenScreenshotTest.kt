@@ -162,4 +162,24 @@ class ChatScreenScreenshotTest {
         compose.mainClock.advanceTimeBy(1500)
         captureScreenRoboImage("build/outputs/roborazzi/chat-fa-edit-sheet.png")
     }
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianStatementCard() {
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(
+                        ChatItem.User("u1", "صورتحساب ملت شهریور", files = listOf("mellat-1405-06.xlsx")),
+                        ChatItem.Statement("st1", "s9", "ملت", "2026-08-23", "2026-09-21", 12,
+                                           mapOf("matched" to 8, "unrecorded" to 2, "needs_confirmation" to 1, "amount_mismatch" to 1),
+                                           gap = 90_000, currency = "IRR", clean = false),
+                        ChatItem.Words("w1", "پس از این، ۱ ردیف دیگر مانده.", nextStatement = "s9"))),
+                    lang = "fa", booksName = "شرکت بازرگانی آرمان", personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-statement.png")
+    }
 }

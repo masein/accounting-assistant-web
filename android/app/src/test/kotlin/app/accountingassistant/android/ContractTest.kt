@@ -34,7 +34,7 @@ class ContractTest {
     @Test fun everyRecordedConversationIsHere() {
         assertTrue("run tests/test_mobile_contract.py to record them", dir.isDirectory)
         assertEquals(setOf("approval-fa", "balance-en", "budgets-fa", "cash-fa", "draft-fa", "intake-en",
-                           "invoice-pdf-en", "invoices-en", "posted-fa", "spending-fa"), recordings().keys)
+                           "invoice-pdf-en", "invoices-en", "posted-fa", "spending-fa", "statement-fa"), recordings().keys)
     }
 
     @Test fun everyBlockBecomesTheItemItShould() {
@@ -49,7 +49,9 @@ class ContractTest {
                 "table" -> ChatItem.Table::class
                 "proposal", "approval" -> ChatItem.Proposal::class
                 "file" -> ChatItem.File::class
-                else -> ChatItem.Fallback::class               // drawn as its sentence (intake, for now)
+                // a bank statement is drawn as its card; other intakes as their sentence, for now
+                "intake" -> if (b.str("kind") == "bank_statement") ChatItem.Statement::class else ChatItem.Fallback::class
+                else -> ChatItem.Fallback::class
             }
             assertEquals("$name: $type", expected, item::class)
             assertEquals("$name: $type keeps its id", b.str("id"), item.id)
@@ -79,6 +81,16 @@ class ContractTest {
         val pdf = parseBlock(r.getValue("invoice-pdf-en").first()) as ChatItem.File
         assertTrue(pdf.path.startsWith("/api/mobile/v1/"))
         assertEquals("application/pdf", pdf.mime)
+    }
+
+    @Test fun aStatementBringsItsCountsAndGap() {
+        val st = parseBlock(recordings().getValue("statement-fa").first()) as ChatItem.Statement
+        assertEquals("ملت", st.bank)                                     // the bank as the reader writes it
+        assertEquals(12, st.rows)
+        assertEquals(8, st.counts["matched"])
+        assertEquals(2, st.counts["unrecorded"])
+        assertEquals(90_000L, st.gap)
+        assertFalse(st.clean)
     }
 
     @Test fun aPostedBlockStampsTheVoucher() {

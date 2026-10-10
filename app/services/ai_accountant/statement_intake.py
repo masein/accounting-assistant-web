@@ -134,11 +134,22 @@ def _jalali_day(iso: str) -> str:
         return str(iso)
 
 
+def bank_label(name: str | None, lang: str) -> str | None:
+    """A bank as the reader writes it: «ملت» in Persian, "Mellat" otherwise."""
+    if not name or name == "Unknown":
+        return None
+    if lang == "fa":
+        from app.services.bank_sms import BANKS
+        return (BANKS.get(name) or (name,))[0]
+    return name
+
+
 def _reply(lang: str, intake: dict[str, Any], *, jalali: bool = False) -> str:
     """The summary; ``jalali``: the company shows the Jalali calendar."""
     lang = lang if lang in _LANGS else "en"
     c = intake.get("counts") or {}
-    bank = intake.get("bank_name") or ""
+    raw = intake.get("bank_name") or ""
+    bank = bank_label(raw, lang) or raw
     rows = intake.get("total_rows") or 0
     unrec, conf, mism, miss, dup = (
         c.get("unrecorded", 0), c.get("needs_confirmation", 0),
@@ -289,6 +300,7 @@ async def maybe_statement_intake(
             "status": "imported",
             "statement_id": str(result.id),
             "bank_name": bank_name,
+            "bank_label": bank_label(bank_name, lang),
             "file_name": att.file_name,
             "total_rows": review.total_rows,
             "from_date": rv.get("from_date"),

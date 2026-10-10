@@ -43,6 +43,7 @@ The build started on 2026-10-10.
 - ✅ P1.5 (#317): the offline outbox. Every message is kept (sealed with a Keystore key) before it is sent, waits under its bubble while offline, and sends itself when the network is back, from the app or from WorkManager with the app closed. A refused one offers Try again or Don't send.
 - ✅ Part of P2.7 (#316, #317): the conversations sheet, paged history, catching up when the app comes back.
 - ✅ P2.8, the languages (#316): the app in Arabic and Spanish.
+- ✅ The phone's half of P2.3 (#322): a shared statement's card (counts, the balance gap) and its differences one voucher at a time, with no model call.
 - ✅ The approvers' half of P2.6 (#318): a voucher above the approval limit reaches the owner, CFO or manager as a card to approve or reject. Staff submitting claims by chat waits for the owner's decision (§11.7).
 - **Still to do:**
   - P1.6: push;

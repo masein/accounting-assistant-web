@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -209,3 +209,42 @@ def mobile_undo(audit_log_id: str, db: Session = Depends(get_db), user: SessionU
     except PermissionDenied as e:
         raise HTTPException(status_code=403, detail=str(e))
     return {"state": "undone", "mode": result.mode}
+
+
+# --- files, voice and the briefing (roadmap ROADMAP_ANDROID_CHAT P0.7) ------------------
+
+@router.post("/uploads", status_code=201)
+def mobile_upload(file: UploadFile = File(...), db: Session = Depends(get_db)) -> dict:
+    """A photo of a receipt, a PDF, a statement: stored like the web's
+    attachments (types checked by their bytes, 8 MB), its id then sent with
+    the chat message."""
+    from app.api.transactions import upload_attachment
+    a = upload_attachment(file=file, db=db)
+    return {"id": str(a.id), "file_name": a.file_name, "content_type": a.content_type, "size_bytes": a.size_bytes}
+
+
+@router.post("/transcribe")
+async def mobile_transcribe(file: UploadFile = File(...), db: Session = Depends(get_db)) -> dict:
+    """A voice note's words, for the user to check before sending."""
+    from app.api.ai_accountant import transcribe_voice_note
+    return await transcribe_voice_note(file=file, db=db)
+
+
+class BriefingPayload(BaseModel):
+    thread_id: str | None = None
+
+
+@router.post("/briefing")
+def mobile_briefing(payload: BriefingPayload, db: Session = Depends(get_db),
+                    user: SessionUser = Depends(get_current_user)) -> dict:
+    """The accountant speaks first when the app opens: what needs attention
+    today, without a model call. No blocks when there is nothing to say."""
+    from app.api.ai_accountant import BriefingPayload as WebBriefing, briefing
+    r = briefing(WebBriefing(session_id=payload.thread_id), db=db, user=user)
+    if not r.text:
+        return {"thread_id": payload.thread_id, "blocks": []}
+    blocks = [{"type": "text", "id": f"briefing:{r.session_id}", "kind": "briefing", "text": r.text,
+               "fallback_text": r.text}]
+    _store_blocks(db, r.session_id, blocks)
+    return {"thread_id": r.session_id, "blocks": blocks}
+

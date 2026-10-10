@@ -465,6 +465,7 @@ _reads(["/api/mobile/v1/threads", "/api/mobile/v1/threads/{thread_id}/messages"]
 for _m, _p in [
     ("POST", "/api/mobile/v1/chat"), ("POST", "/api/mobile/v1/proposals/{token}/confirm"),
     ("POST", "/api/mobile/v1/proposals/{token}/cancel"), ("POST", "/api/mobile/v1/postings/{audit_log_id}/undo"),
+    ("POST", "/api/mobile/v1/uploads"), ("POST", "/api/mobile/v1/transcribe"), ("POST", "/api/mobile/v1/briefing"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 # What the assistant learned from corrections (roadmap §5.4).

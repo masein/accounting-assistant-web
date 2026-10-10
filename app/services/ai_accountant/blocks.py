@@ -180,12 +180,28 @@ def _budget_table(result: dict, **_) -> dict | None:
             "fallback_text": "; ".join(f"{r['label']} {r['used_pct']}%" for r in out)}
 
 
+def invoice_file(invoice_id, number) -> dict:
+    """An invoice as a file the phone can open or share."""
+    name = f"invoice-{number or str(invoice_id)[:8]}.pdf"
+    return {"type": "file", "id": f"file:invoice:{invoice_id}", "name": name, "mime": "application/pdf",
+            "path": f"/api/mobile/v1/documents/invoices/{invoice_id}",
+            "fallback_text": f"Invoice {number} (PDF)" if number else "Invoice (PDF)"}
+
+
+def _invoice_file(result: dict, **_) -> dict | None:
+    """get_invoice: the invoice itself, as its PDF."""
+    if not result.get("id"):
+        return None
+    return invoice_file(result["id"], result.get("number"))
+
+
 RENDERERS = {
     "get_account_balance": _balance_figure,
     "get_cash_position": _cash_figure,
     "list_invoices": _invoice_table,
     "get_budget_status": _budget_table,
     "get_spending_summary": _spending_table,
+    "get_invoice": _invoice_file,
 }
 
 
@@ -202,7 +218,7 @@ def data_blocks(tool_calls: list[dict] | None, lang: str = "en") -> list[dict]:
     for _i, call in picked:
         block = RENDERERS[call["name"]](call["result"], lang=lang)
         if block is not None:
-            block["id"] = f"{call['name']}:{call.get('tool_use_id') or uuid.uuid4().hex[:8]}"
+            block.setdefault("id", f"{call['name']}:{call.get('tool_use_id') or uuid.uuid4().hex[:8]}")
             block["tool"] = call["name"]
             out.append(block)
     return out
@@ -232,9 +248,11 @@ def build_blocks(db: Session, *, text: str | None, proposals: list | None, tool_
 
 
 def posted_block(*, token: str, transaction_id: str | None, audit_log_id: str, voucher: str | None,
-                 date_iso: str | None, calendar: str, lang: str, undo_seconds: int) -> dict:
-    """What a confirmed voucher becomes: stamped, with the undo window."""
+                 date_iso: str | None, calendar: str, lang: str, undo_seconds: int, file: dict | None = None) -> dict:
+    """What a confirmed voucher becomes: stamped, with the undo window, and
+    the document it made (an invoice's PDF) when there is one."""
     return {
+        "file": file,
         "type": "posted", "id": f"posted:{token}", "token": token,
         "transaction_id": transaction_id, "audit_log_id": audit_log_id,
         "voucher": voucher, "date": {"iso": date_iso, "display": display_date(date_iso, calendar, lang)} if date_iso else None,

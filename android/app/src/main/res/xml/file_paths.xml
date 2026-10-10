@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="captures" path="captures/" />
+    <!-- documents from the books (an invoice's PDF), shared or opened from here -->
+    <cache-path name="shared" path="shared/" />
 </paths>

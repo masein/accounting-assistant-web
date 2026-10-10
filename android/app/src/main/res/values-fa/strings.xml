@@ -66,4 +66,7 @@
     <string name="problem_ai_unavailable">دستیار الان نمی‌تواند پاسخ دهد. پرسش‌های ساده دربارهٔ دفاترت همچنان جواب می‌گیرند؛ بقیه را چند دقیقهٔ دیگر امتحان کن.</string>
     <string name="problem_ai_budget">سهمیهٔ هوش مصنوعی امروز تمام شده و تا یک روز دیگر تازه می‌شود؛ پرسش‌های ساده دربارهٔ دفاترت همچنان جواب می‌گیرند.</string>
     <string name="problem_rate_limited">پیام‌ها پشت سر هم زیاد شد. یک دقیقهٔ دیگر دوباره امتحان کن.</string>
+    <string name="file_open">برای باز کردن بزن</string>
+    <string name="file_share">ارسال</string>
+    <string name="file_failed">سند دریافت نشد. اتصال را بررسی کن و دوباره امتحان کن.</string>
 </resources>

@@ -148,6 +148,31 @@ class ApiClient(
         return reply ?: throw NetworkError(IOException("the stream ended without a reply"))
     }
 
+    /** A document from the books (a file block's path, e.g. an invoice's PDF). */
+    suspend fun download(path: String): ByteArray = withContext(Dispatchers.IO) {
+        require(path.startsWith(PREFIX + "/")) { "not a phone document: $path" }
+        var renewed = false
+        while (true) {
+            val token = session?.accessToken
+            val req = Request.Builder().url(base.trimEnd('/') + path)
+                .header("X-App-Version", appVersion).header("X-UI-Language", language())
+                .apply { if (token != null) header("Authorization", "Bearer $token") }
+                .get().build()
+            val response = try { http.newCall(req).execute() } catch (e: IOException) { throw NetworkError(e) }
+            response.use { r ->
+                if (r.code == 401 && !renewed && session != null) {
+                    renewed = true
+                    refresh(token)?.let { endSession(it); throw it }
+                } else if (!r.isSuccessful) {
+                    throw Answer(r.code, r.body.string(), r.header("X-Error-Code"), token).error()
+                } else {
+                    return@withContext r.body.bytes()
+                }
+            }
+        }
+        @Suppress("UNREACHABLE_CODE") error("unreachable")
+    }
+
     /** The phone's language becomes the account's, so replies come in it. */
     suspend fun setLanguage(lang: String) {
         call<LanguageRequest, JsonObject>("PUT", "/me/language", LanguageRequest(lang), serializer())

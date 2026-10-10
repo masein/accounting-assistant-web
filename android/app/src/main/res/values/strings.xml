@@ -66,4 +66,7 @@
     <string name="problem_ai_unavailable">The accountant can\'t answer right now. Questions about your books still get an answer; try the rest again in a few minutes.</string>
     <string name="problem_ai_budget">Today\'s AI allowance is used up. It renews within a day; questions about your books still get an answer.</string>
     <string name="problem_rate_limited">Too many messages at once. Try again in a minute.</string>
+    <string name="file_open">Tap to open</string>
+    <string name="file_share">Share</string>
+    <string name="file_failed">The document didn\'t download. Check the connection and try again.</string>
 </resources>

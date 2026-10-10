@@ -12,7 +12,9 @@ def test_the_chat_says_the_assistant_is_unavailable_in_persian(flow_page):
         switch_language(page, "fa")
         page.evaluate("() => { location.hash = 'ai-accountant'; }")
         page.wait_for_load_state("networkidle")
-        page.fill("#ai-acct-input", "موجودی نقد چقدر است؟")
+        # a request only the model can handle: "how much cash?" is answered from the
+        # books without it now (fast paths, #310)
+        page.fill("#ai-acct-input", "هزینهٔ ناهار تیم را از صندوق ثبت کن")
         with page.expect_response(lambda r: r.url.endswith("/ai-accountant/chat")) as res:
             page.click("#ai-acct-send")
         assert res.value.status == 502 and res.value.headers.get("x-error-code") == "ai_unavailable"

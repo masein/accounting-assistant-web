@@ -129,12 +129,29 @@ def _balance_figure(result: dict, **_) -> dict | None:
             "fallback_text": f"{result.get('account_name', '')}: {int(result['balance']):,} {result.get('currency') or ''}".strip()}
 
 
-def _cash_figure(result: dict, **_) -> dict | None:
-    if "closing_cash" not in result and "opening_cash" not in result:
+def _cash_figure(result: dict, lang: str = "en", **_) -> dict | None:
+    """get_cash_position: every cash and bank account together, with each one."""
+    if "total" not in result:
         return None
-    value = int(result.get("opening_cash") or 0)
-    return {"type": "figure", "label": "cash", "value": value, "currency": result.get("currency"),
-            "fallback_text": f"Cash: {value:,}"}
+    value = int(result["total"])
+    label = {"fa": "موجودی نقد و بانک", "es": "Efectivo y bancos", "ar": "النقد والبنوك"}.get(lang, "Cash and bank")
+    return {"type": "figure", "label": label, "value": value, "currency": result.get("currency"),
+            "as_of": result.get("as_of"),
+            "breakdown": [{"label": a.get("account_name") or a.get("account_code"), "value": int(a.get("balance") or 0)}
+                          for a in result.get("accounts") or []],
+            "fallback_text": f"{label}: {value:,} {result.get('currency') or ''}".strip()}
+
+
+def _spending_table(result: dict, **_) -> dict | None:
+    """get_spending_summary: the period's total and its biggest categories."""
+    rows = result.get("by_category")
+    if not isinstance(rows, list) or not rows:
+        return None
+    out = [{"label": r.get("category_name") or r.get("category_code"), "sub": r.get("category_code"),
+            "value": int(r.get("amount") or 0), "currency": result.get("currency")} for r in rows[:8]]
+    return {"type": "table", "kind": "spending", "rows": out,
+            "totals": {"total": result.get("total"), "currency": result.get("currency")},
+            "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in out)}
 
 
 def _invoice_table(result: dict, **_) -> dict | None:
@@ -168,10 +185,11 @@ RENDERERS = {
     "get_cash_position": _cash_figure,
     "list_invoices": _invoice_table,
     "get_budget_status": _budget_table,
+    "get_spending_summary": _spending_table,
 }
 
 
-def data_blocks(tool_calls: list[dict] | None) -> list[dict]:
+def data_blocks(tool_calls: list[dict] | None, lang: str = "en") -> list[dict]:
     """The last successful call of each drawable read tool, in call order."""
     latest: dict[str, tuple[int, dict]] = {}
     for i, call in enumerate(tool_calls or []):
@@ -182,7 +200,7 @@ def data_blocks(tool_calls: list[dict] | None) -> list[dict]:
     picked = sorted(latest.values(), key=lambda t: t[0])[-MAX_DATA_BLOCKS:]
     out = []
     for _i, call in picked:
-        block = RENDERERS[call["name"]](call["result"])
+        block = RENDERERS[call["name"]](call["result"], lang=lang)
         if block is not None:
             block["id"] = f"{call['name']}:{call.get('tool_use_id') or uuid.uuid4().hex[:8]}"
             block["tool"] = call["name"]
@@ -198,7 +216,7 @@ def build_blocks(db: Session, *, text: str | None, proposals: list | None, tool_
     if calendar is None:
         from app.services.locale_service import get_display_calendar
         calendar = get_display_calendar(db)
-    blocks = data_blocks(tool_calls)
+    blocks = data_blocks(tool_calls, lang=lang)
     if intake:
         blocks.append({"type": "intake", "id": f"intake:{intake.get('kind')}:{intake.get('statement_id') or intake.get('batch_id') or ''}",
                        **intake, "fallback_text": text or ""})

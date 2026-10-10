@@ -772,19 +772,20 @@
     function prCur() { return (window.__REPORTING_CURRENCY || 'IRR'); }
 
     async function loadPayroll() {
-      // Populate the employee dropdown from employee entities.
-      try {
-        const res = await fetch(API + '/entities?type=employee');
-        const emps = res.ok ? await res.json() : [];
-        const sel = document.getElementById('pr-emp');
-        sel.innerHTML = emps.length
-          ? emps.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')
-          : `<option value="">${t('payrollNoEmployees')}</option>`;
-      } catch (e) { /* ignore */ }
-      await loadPayProfiles();
-      await loadPayRuns();
-      await loadPayrollRules();
+      // The employees, their profiles and the rules in force together, and only
+      // then the dropdown: an employee picked before the profiles arrived got
+      // the blank defaults, and the late refill overwrote what was typed since.
+      const [emps] = await Promise.all([
+        fetch(API + '/entities?type=employee').then(r => (r.ok ? r.json() : [])).catch(() => []),
+        loadPayProfiles(),
+        loadPayrollRules(),
+      ]);
+      const sel = document.getElementById('pr-emp');
+      sel.innerHTML = emps.length
+        ? emps.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')
+        : `<option value="">${t('payrollNoEmployees')}</option>`;
       prFillProfileForm();
+      await loadPayRuns();
     }
 
     // ── Statutory rule sets (read for everyone on this page; edit = super-admin) ──

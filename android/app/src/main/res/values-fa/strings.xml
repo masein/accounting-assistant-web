@@ -136,4 +136,19 @@
     <string name="chart_negative">از هفتهٔ %1$s منفی می‌شود</string>
     <string name="chart_after">پس از %1$d هفته</string>
     <string name="chart_flat">هنوز دریافت یا پرداختی برای این هفته‌ها معلوم نیست.</string>
+    <string name="shortcut_receipt">رسید</string>
+    <string name="shortcut_receipt_long">عکس رسید</string>
+    <string name="shortcut_spending">خرج</string>
+    <string name="shortcut_spending_long">ثبت خرج</string>
+    <string name="shortcut_cash">موجودی</string>
+    <string name="shortcut_cash_long">موجودی نقد و بانک</string>
+    <string name="widget_title">حسابدار</string>
+    <string name="widget_description">موجودی نقد و بانک و بودجهٔ ماندهٔ این ماه</string>
+    <string name="widget_cash">موجودی نقد و بانک</string>
+    <string name="widget_budget_left">بودجهٔ مانده: %1$s</string>
+    <string name="widget_as_of">تا %1$s</string>
+    <string name="widget_signed_out">برای دیدن دفاتر وارد شوید</string>
+    <string name="widget_locked">برای دیدن، برنامه را باز کنید</string>
+    <string name="widget_loading">در حال به‌روزرسانی…</string>
+    <string name="ask_cash">موجودی چقدره؟</string>
 </resources>

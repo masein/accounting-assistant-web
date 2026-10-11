@@ -51,6 +51,13 @@ class MainActivity : ComponentActivity() {
     /** A home-screen shortcut, waiting for the chat the same way. */
     private val shortcut = MutableStateFlow<String?>(null)
 
+    /**
+     * Signed out: the chat and the sign-in form belong to the activity and
+     * outlive the person, so the next one to sign in would see the last one's
+     * conversation (and its Undo). They go with the session.
+     */
+    private fun forgetThePerson() = viewModelStore.clear()
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Shared.from(intent)?.let { shared.value = it }
@@ -81,6 +88,7 @@ class MainActivity : ComponentActivity() {
                 }
                 LaunchedEffect(Unit) {
                     app.api.signedOut.collect {
+                        forgetThePerson()
                         signedIn = false
                         app.forgetOutbox()
                         Shortcuts.remove(this@MainActivity)
@@ -137,7 +145,8 @@ class MainActivity : ComponentActivity() {
                     SignInScreen(s, vm::username, vm::password, vm::code, vm::submit)
                 } else {
                     val suggestions = resources.getStringArray(R.array.suggestions).toList()
-                    val vm: ChatViewModel = viewModel(factory = viewModelFactory {
+                    // one conversation per person: keyed by who is signed in
+                    val vm: ChatViewModel = viewModel(key = "chat:${app.api.session?.user?.id}", factory = viewModelFactory {
                         initializer { ChatViewModel(app.api, suggestions, outbox = app.outbox,
                                                     booksChanged = { WidgetRefresh.now(app) }) }   // the app, not the activity: a view model outlives it
                     })
@@ -228,6 +237,7 @@ class MainActivity : ComponentActivity() {
                                 account = false
                                 scope.launch {
                                     app.api.signOut()
+                                    forgetThePerson()
                                     app.forgetOutbox()
                                     Shortcuts.remove(this@MainActivity)
                                     WidgetRefresh.forget(this@MainActivity)

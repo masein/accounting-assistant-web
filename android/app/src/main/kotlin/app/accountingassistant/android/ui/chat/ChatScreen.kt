@@ -152,7 +152,8 @@ fun ChatScreen(
                     when (item) {
                         is ChatItem.User -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             UserBubble(item.text, files = item.files)
-                            item.clientId?.let { state.queued[it] }?.let { q ->
+                            // on its way now: the row below says what is happening, not "waiting for the network"
+                            item.clientId?.takeIf { it != state.sendingId }?.let { state.queued[it] }?.let { q ->
                                 Queue(q, onRetry = { onRetry(q.clientId) }, onDiscard = { onDiscard(q.clientId) })
                             }
                         }

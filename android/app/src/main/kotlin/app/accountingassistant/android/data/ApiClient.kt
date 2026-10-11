@@ -210,7 +210,9 @@ class ApiClient(
      * A photo, a PDF, a statement, sent in pieces (P0.7); its id then goes
      * with the chat message. After a dropped connection the next call goes on
      * from what the server kept (it finds the upload by the file's hash), and
-     * a file the server already has isn't sent again. [progress] runs from 0 to 1.
+     * a file the server already has isn't sent again. Pieces start small and
+     * follow the line ([nextPiece]), so progress moves every few seconds even
+     * on EDGE. [progress] runs from 0 to 1.
      */
     suspend fun upload(bytes: ByteArray, fileName: String, contentType: String,
                        progress: (Float) -> Unit = {}): UploadReply {
@@ -218,11 +220,13 @@ class ApiClient(
         var state = call("POST", "/uploads/begin", begin, serializer<UploadState>())
         var restarted = false
         var still = 0
+        var piece = minOf(FIRST_PIECE, state.maxChunk)
         while (true) {
             state.attachment?.let { progress(1f); return it }
             progress(state.received.toFloat() / bytes.size)
             val from = state.received.toInt()
-            val count = minOf(state.chunkSize, bytes.size - from)
+            val count = minOf(piece, bytes.size - from)
+            val started = System.nanoTime()
             val next = try {
                 callBody("PUT", "/uploads/${state.id}?offset=$from",
                          { bytes.toRequestBody(OCTET_TYPE, from, count) }, serializer<UploadState>())
@@ -232,6 +236,7 @@ class ApiClient(
                 restarted = true
                 call("POST", "/uploads/begin", begin, serializer<UploadState>())
             }
+            piece = nextPiece(piece, (System.nanoTime() - started) / 1e9, state.maxChunk)
             still = if (next.received <= state.received && next.attachment == null) still + 1 else 0
             if (still > 2) throw NetworkError(IOException("the upload stopped advancing"))
             state = next
@@ -365,6 +370,20 @@ class ApiClient(
 
     companion object {
         const val PREFIX = "/api/mobile/v1"
+
+        /** An upload's first piece: a few seconds on EDGE. */
+        const val FIRST_PIECE = 64 * 1024
+
+        /**
+         * The next piece from how long the last one took: twice as large on a
+         * fast line (few requests), half on a slow one (progress that moves, and
+         * little to send again after a drop); never above the server's [max].
+         */
+        fun nextPiece(piece: Int, seconds: Double, max: Int): Int = when {
+            seconds < 1.0 -> minOf(piece * 2, max)
+            seconds > 4.0 -> maxOf(piece / 2, minOf(FIRST_PIECE, max))
+            else -> piece
+        }
         private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
         private val OCTET_TYPE = "application/octet-stream".toMediaType()
     }

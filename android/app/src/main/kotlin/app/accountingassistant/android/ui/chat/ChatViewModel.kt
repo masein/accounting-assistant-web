@@ -37,6 +37,8 @@ data class ChatUiState(
     val transcribing: Boolean = false,
     /** The outbox by client id: messages waiting for the network, or refused. */
     val queued: Map<String, Queued> = emptyMap(),
+    /** The outbox message on its way now: it no longer waits for the network. */
+    val sendingId: String? = null,
 ) {
     enum class Notice { Offline, Failed, UploadFailed, VoiceFailed }
     /** [uploadedId] once on the server; [path] where the outbox keeps it when the upload waits. */
@@ -85,11 +87,17 @@ class ChatViewModel(
 
     private fun ChatUiState.has(clientId: String) = items.any { it is ChatItem.User && it.clientId == clientId }
 
-    /** The step the server is on shows under the message being sent, if it is this conversation's. */
+    /**
+     * The step the server is on shows under the message being sent, if it is
+     * this conversation's. Something on its way means the network is back:
+     * "no connection" no longer holds.
+     */
     private fun onSending(s: Outbox.Sending?) = _state.update { st ->
         val rest = st.items.filterNot { it is ChatItem.Thinking }
-        if (s != null && st.has(s.clientId)) st.copy(items = rest + ChatItem.Thinking(text = s.step, upload = s.upload), sending = true)
-        else st.copy(items = rest, sending = s != null && st.sending)
+        val online = if (s != null && st.notice == ChatUiState.Notice.Offline) st.copy(notice = null) else st
+        if (s != null && st.has(s.clientId))
+            online.copy(items = rest + ChatItem.Thinking(text = s.step, upload = s.upload), sending = true, sendingId = s.clientId)
+        else online.copy(items = rest, sending = s != null && st.sending, sendingId = s?.clientId)
     }
 
     private fun onDelivery(d: Outbox.Delivery) = _state.update { st ->
@@ -99,7 +107,8 @@ class ChatViewModel(
             is Outbox.Delivery.Answered -> {
                 val have = rest.map { it.id }.toSet()
                 st.copy(items = rest + d.reply.blocks.map(::parseBlock).filterNot { it.id in have },
-                        threadId = st.threadId ?: d.reply.threadId)
+                        threadId = st.threadId ?: d.reply.threadId,
+                        notice = st.notice.takeUnless { it == ChatUiState.Notice.Offline })
             }
             is Outbox.Delivery.Refused -> st.copy(items = rest, notice = ChatUiState.Notice.Failed)
         }

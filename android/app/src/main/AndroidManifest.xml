@@ -35,7 +35,13 @@
                 <data android:mimeType="text/plain" />
                 <data android:mimeType="image/*" />
                 <data android:mimeType="application/pdf" />
+                <!-- a CSV goes by several names (util/Capture.kt DOCUMENT_TYPES) -->
                 <data android:mimeType="text/csv" />
+                <data android:mimeType="text/comma-separated-values" />
+                <data android:mimeType="application/csv" />
+                <data android:mimeType="text/x-csv" />
+                <data android:mimeType="application/x-csv" />
+                <data android:mimeType="text/tab-separated-values" />
                 <data android:mimeType="application/vnd.ms-excel" />
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
             </intent-filter>

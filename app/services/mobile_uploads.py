@@ -3,7 +3,8 @@
 The phone used to send a file in one request, and a statement on mobile data
 in Iran often never got there: the connection dropped halfway and the next
 try started from nothing. Now the phone asks to begin with the file's hash
-and size, sends 256 KB pieces at the offset the server gives it, and after a
+and size, sends pieces at the offset the server gives it (64 KB on a slow
+line, growing to 1 MB on a fast one), and after a
 drop simply begins again: the same hash finds the same upload and the reply
 says how much is already here.
 
@@ -33,8 +34,7 @@ from app.api.transactions import MAX_ATTACHMENT_SIZE_BYTES, UPLOADS_DIR, attachm
 from app.models.mobile_upload import MobileUpload
 from app.models.transaction import TransactionAttachment
 
-CHUNK_SIZE = 256 * 1024          # one piece: about ten seconds on EDGE, so a drop costs little
-MAX_CHUNK = 1024 * 1024
+MAX_CHUNK = 1024 * 1024          # the phone sizes its pieces up to this: small on a slow line, large on a fast one
 UNFINISHED_FOR = timedelta(days=1)
 FINISHED_FOR = timedelta(days=30)
 PARTS_DIR = UPLOADS_DIR.parent / "partial"

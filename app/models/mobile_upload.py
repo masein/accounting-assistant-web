@@ -14,13 +14,13 @@ from app.db.tenant import TenantMixin
 class MobileUpload(Base, TenantMixin):
     """A file the phone sends in pieces (roadmap ROADMAP_ANDROID_CHAT P0.7).
 
-    Mobile data drops halfway through a statement, so the phone sends 256 KB
-    at a time and, after a drop, asks again with the file's hash: the row says
-    how much is already here and the phone goes on from there. When the last
-    piece lands and the bytes match the hash, the file becomes an ordinary
-    attachment. A finished row also lets the same file, sent again before it
-    belongs to a voucher, be attached without sending its bytes twice.
-    Unfinished uploads are forgotten after a day."""
+    Mobile data drops halfway through a statement, so the phone sends it a
+    piece at a time (small on a slow line) and, after a drop, asks again with
+    the file's hash: the row says how much is already here and the phone goes
+    on from there. When the last piece lands and the bytes match the hash,
+    the file becomes an ordinary attachment. A finished row also lets the
+    same file, sent again before it belongs to a voucher, be attached without
+    sending its bytes twice. Unfinished uploads are forgotten after a day."""
 
     __tablename__ = "mobile_uploads"
     __table_args__ = (Index("ix_mobile_uploads_user_sha256", "user_id", "sha256"),)

@@ -153,7 +153,8 @@ data class UploadState(
     val id: String,
     val received: Long = 0,
     @SerialName("size_bytes") val sizeBytes: Long = 0,
-    @SerialName("chunk_size") val chunkSize: Int = 256 * 1024,
+    /** The largest piece the server takes. */
+    @SerialName("max_chunk") val maxChunk: Int = 1024 * 1024,
     val done: Boolean = false,
     val attachment: UploadReply? = null,
 )

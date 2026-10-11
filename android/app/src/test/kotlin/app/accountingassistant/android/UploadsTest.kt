@@ -23,8 +23,9 @@ import java.io.IOException
 
 /** A file in pieces (scenario N37): from where the server stands, after a drop, never twice. */
 class UploadsTest {
-    /** The server's side of an upload, 100 bytes a piece. */
-    private class Pieces(val size: Int, var received: Int = 0, var has: Boolean = false, var damage: Int = 0) : Dispatcher() {
+    /** The server's side of an upload, taking at most 100 bytes a piece. */
+    private class Pieces(val size: Int, var received: Int = 0, var has: Boolean = false, var damage: Int = 0,
+                         val max: Int = 100) : Dispatcher() {
         val kept = ByteArrayOutputStream()
         val offsets = mutableListOf<Int>()
         var begins = 0
@@ -48,9 +49,9 @@ class UploadsTest {
         }
 
         fun state(): MockResponse = MockResponse.Builder().body(
-            if (has) """{"id":"up1","received":$size,"size_bytes":$size,"chunk_size":100,"done":true,
+            if (has) """{"id":"up1","received":$size,"size_bytes":$size,"max_chunk":$max,"done":true,
                          "attachment":{"id":"att-1","file_name":"statement.pdf","content_type":"application/pdf","size_bytes":$size}}"""
-            else """{"id":"up1","received":$received,"size_bytes":$size,"chunk_size":100,"done":false}""").build()
+            else """{"id":"up1","received":$received,"size_bytes":$size,"max_chunk":$max,"done":false}""").build()
     }
 
     private val server = MockWebServer()
@@ -116,5 +117,22 @@ class UploadsTest {
         val err = runCatching { api.upload(file, "statement.pdf", "application/pdf") }.exceptionOrNull() as ApiError
         assertEquals("upload_corrupt", err.code)
         assertEquals(2, twice.begins)
+    }
+
+    @Test fun piecesGrowOnAFastLineAndShrinkOnASlowOne() {
+        assertEquals(128 * 1024, ApiClient.nextPiece(64 * 1024, 0.2, 1024 * 1024))
+        assertEquals(1024 * 1024, ApiClient.nextPiece(1024 * 1024, 0.2, 1024 * 1024))     // never past the server's limit
+        assertEquals(256 * 1024, ApiClient.nextPiece(256 * 1024, 2.5, 1024 * 1024))       // steady
+        assertEquals(128 * 1024, ApiClient.nextPiece(256 * 1024, 9.0, 1024 * 1024))
+        assertEquals(64 * 1024, ApiClient.nextPiece(64 * 1024, 30.0, 1024 * 1024))        // never below the first piece
+        assertEquals(100, ApiClient.nextPiece(100, 30.0, 100))
+    }
+
+    @Test fun onAFastLineTheFirstPieceIsSmallAndTheNextOnesGrow() = runBlocking {
+        val big = ByteArray(300 * 1024) { it.toByte() }
+        val s = serve(Pieces(big.size, max = 1024 * 1024))
+        api.upload(big, "statement.pdf", "application/pdf")
+        assertEquals(listOf(0, 64 * 1024, 192 * 1024), s.offsets)
+        assertArrayEquals(big, s.kept.toByteArray())
     }
 }

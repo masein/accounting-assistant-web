@@ -530,7 +530,7 @@ def _upload_state(db: Session, row) -> dict:
     from app.services import mobile_uploads as uploads
     a = uploads.attachment_of(db, row)
     return {"id": str(row.id), "received": row.received, "size_bytes": row.size_bytes,
-            "chunk_size": uploads.CHUNK_SIZE, "done": a is not None,
+            "max_chunk": uploads.MAX_CHUNK, "done": a is not None,
             "attachment": None if a is None else {"id": str(a.id), "file_name": a.file_name,
                                                   "content_type": a.content_type, "size_bytes": a.size_bytes}}
 

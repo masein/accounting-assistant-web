@@ -21,7 +21,7 @@ from tests.test_mobile_chat import phone, scripted  # noqa: F401  (fixtures)
 from tests.test_mobile_edit_approvals import _phone_for
 
 API = "/api/mobile/v1"
-PIECE = uploads.CHUNK_SIZE
+PIECE = 256 * 1024
 
 
 def _pdf(size: int) -> bytes:
@@ -48,7 +48,7 @@ def _send(client, headers, data: bytes, state: dict) -> dict:
     """What the phone does: each piece from where the server says it stands."""
     while not state["done"]:
         at = state["received"]
-        r = _put(client, headers, state["id"], at, data[at:at + state["chunk_size"]])
+        r = _put(client, headers, state["id"], at, data[at:at + PIECE])
         assert r.status_code == 200, r.text
         state = r.json()
     return state
@@ -63,7 +63,7 @@ def _row(db, co, upload_id) -> MobileUpload | None:
 def test_n37_pieces_make_one_attachment_and_a_drop_goes_on_where_it_stopped(client, db, co, phone):
     data = _pdf(2 * PIECE + 75_000)
     first = _begin(client, phone, data).json()
-    assert (first["received"], first["chunk_size"], first["done"], first["attachment"]) == (0, PIECE, False, None)
+    assert (first["received"], first["max_chunk"], first["done"], first["attachment"]) == (0, uploads.MAX_CHUNK, False, None)
     r = _put(client, phone, first["id"], 0, data[:PIECE])
     assert r.status_code == 200 and r.json()["received"] == PIECE
     # the line drops; the phone begins again with the same hash and goes on from what arrived
@@ -177,3 +177,14 @@ def test_n37_nothing_unfinished_is_kept_after_a_day(client, db, co, phone):
     assert fresh["id"] != old["id"] and fresh["received"] == 0
     with use_company(co["cid"]):
         assert db.execute(select(MobileUpload).where(MobileUpload.sha256 == hashlib.sha256(data).hexdigest())).scalars().all()
+
+
+def test_n37_a_csv_under_androids_own_name_is_a_csv(client, db, co, phone):
+    # Android's files in Downloads call a CSV text/comma-separated-values; the name may have no extension
+    data = "Date,Description,Debit,Credit,Balance\n2026-09-01,کارمزد بانکی,90000,0,9910000\n".encode()
+    state = _begin(client, phone, data, name="statement", kind="text/comma-separated-values").json()
+    att = _send(client, phone, data, state)["attachment"]
+    assert (att["content_type"], att["file_name"]) == ("text/csv", "statement")
+    r = client.post(f"{API}/uploads", headers=phone,
+                    files={"file": ("mellat.csv", data, "text/comma-separated-values; charset=utf-8")})
+    assert r.status_code == 201 and r.json()["content_type"] == "text/csv"

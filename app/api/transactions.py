@@ -304,11 +304,20 @@ def _transaction_fee_to_read(rule: TransactionFee) -> TransactionFeeRead:
     )
 
 
+# Other names for the same files: Android's own files in Downloads call a CSV
+# text/comma-separated-values, and some apps use the x- forms.
+_TYPE_ALIASES = {
+    "text/comma-separated-values": "text/csv", "text/x-csv": "text/csv", "application/x-csv": "text/csv",
+    "text/x-comma-separated-values": "text/csv",
+}
+
+
 def attachment_type(declared: str | None, file_name: str | None) -> str:
     """The content type an attachment is kept as: the declared one when it is
-    allowed, else the one its name implies (browsers send blank or generic
-    types for spreadsheets). Anything else is refused."""
-    content_type = (declared or "").strip().lower()
+    allowed (under its usual name), else the one its name implies (browsers
+    send blank or generic types for spreadsheets). Anything else is refused."""
+    content_type = (declared or "").strip().lower().split(";")[0].strip()
+    content_type = _TYPE_ALIASES.get(content_type, content_type)
     if content_type in ALLOWED_ATTACHMENT_TYPES:
         return content_type
     inferred = _EXTENSION_CONTENT_TYPES.get(Path(file_name or "").suffix.lower())

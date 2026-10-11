@@ -44,8 +44,7 @@ fun rememberCapture(onPicked: (Picked) -> Unit): CaptureLaunchers {
         CaptureLaunchers(
             camera = { shot[0] = newPhotoUri(context); camera.launch(shot[0]!!) },
             photo = { photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-            file = { file.launch(arrayOf("application/pdf", "image/*", "text/csv", "application/vnd.ms-excel",
-                                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) },
+            file = { file.launch(Capture.DOCUMENT_TYPES) },
             speak = { start ->
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) start()
                 else mic.launch(Manifest.permission.RECORD_AUDIO)

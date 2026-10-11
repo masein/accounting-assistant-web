@@ -80,7 +80,7 @@ class OutboxTest {
     @Test fun aPhotoIsUploadedOnceEvenWhenTheMessageWaits() = runBlocking {
         val kept = outbox.keep(byteArrayOf(7, 7, 7))
         outbox.add(q("m1", "", thread = "t1", files = listOf(QueuedFile("receipt.jpg", "image/jpeg", path = kept))))
-        reply("""{"id":"up1","received":0,"size_bytes":3,"chunk_size":262144,"done":false}""")
+        reply("""{"id":"up1","received":0,"size_bytes":3,"max_chunk":1048576,"done":false}""")
         reply("""{"id":"up1","received":3,"size_bytes":3,"done":true,"attachment":{"id":"att-9","file_name":"receipt.jpg"}}""")
         unreachable = { it.contains("/chat") }                         // the upload gets through, the message doesn't
         assertEquals(Outbox.Result.Offline, outbox.flush())

@@ -33,7 +33,7 @@ The build started on 2026-10-10.
 - ✅ Most of P3.7 (#324): app shortcuts (photo a receipt, record spending, cash) and a home-screen widget (cash and the budget left) that hides its figures behind the app lock.
 - ✅ The `chart` block (#323): the 13-week cash forecast drawn natively, and a fast path for "will we have enough cash?" in four languages (a what-if stays with the model).
 - ✅ **P0.10** (#320): `docs/contracts/`, the block schema and recorded conversations, checked by the server and parsed by the Android tests; every mobile route in a table with its roles.
-- **Still to do:** P0.8 push (it needs a Firebase project, or Pushe, from the owner).
+- ◐ **P0.8** (#327): the fallback is done: `GET /api/mobile/v1/feed` with stable keys, read every hour by WorkManager and told as local notifications. **Still to do:** the push providers (a Firebase project, or Pushe, from the owner), which only have to wake the same sync sooner.
 
 **App (`android/`, Phase 1):**
 - ✅ P1.1 (#311, #313): sign-in, two-factor, the app lock and the device list.
@@ -49,7 +49,7 @@ The build started on 2026-10-10.
 - ✅ The phone's half of P2.3 (#322): a shared statement's card (counts, the balance gap) and its differences one voucher at a time, with no model call.
 - ✅ The approvers' half of P2.6 (#318): a voucher above the approval limit reaches the owner, CFO or manager as a card to approve or reject. Staff submitting claims by chat waits for the owner's decision (§11.7).
 - **Still to do:**
-  - P1.6: push;
+  - P1.6: push through a provider (the hourly feed already notifies approvals and the books' warnings, #327);
   - P1.8: the store listings, the privacy policy and the Play data-safety form (crash reports without message content are done, #321, sent to our own server);
   - P1.9: signing and the store channels.
 

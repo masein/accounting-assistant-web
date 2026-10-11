@@ -530,6 +530,49 @@ class BriefingPayload(BaseModel):
     thread_id: str | None = None
 
 
+# --- notifications without a push provider (roadmap ROADMAP_ANDROID_CHAT P0.8, P1.6) ---------
+
+_FEED_APPROVAL = {
+    "en": ("A voucher waits for your approval", "{title}: {amount} {cur}, asked by {who}"),
+    "fa": ("سندی منتظر تأیید شماست", "{title}: {amount} {cur}، درخواست {who}"),
+    "es": ("Un asiento espera tu aprobación", "{title}: {amount} {cur}, lo pidió {who}"),
+    "ar": ("قيد بانتظار موافقتك", "{title}: {amount} {cur}، طلبه {who}"),
+}
+
+
+@router.get("/feed")
+def mobile_feed(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    """What deserves a notification now, each with a stable key: the phone's
+    background sync (WorkManager) shows the ones it hasn't seen. Vouchers
+    waiting for this person's approval; the briefing's warnings for those who
+    read the books. No push provider is needed for this; one only makes the
+    sync come sooner."""
+    from app.core.permissions import Perm, role_can
+    lang = _user_language(db, user)
+    items: list[dict] = []
+    title_t, body_t = _FEED_APPROVAL.get(lang, _FEED_APPROVAL["en"])
+    from app.services.ai_accountant import guardrails
+    for p in _waiting_for(db, user):
+        d = guardrails.describe(db, p)
+        payload = p.tool_input or {}
+        amount = sum(int(ln.get("debit") or 0) for ln in payload.get("lines") or []) or int(p.amount or 0)
+        cur = payload.get("currency") or ""
+        body = body_t.format(title=payload.get("description") or d["summary"].splitlines()[0], amount=f"{amount:,}",
+                             cur=cur, who=d["requested_by"])
+        if lang == "fa":
+            from app.services.documents.formatting import to_persian_digits
+            body = to_persian_digits(body).replace(",", "٬")
+        items.append({"key": f"approval:{d['confirmation_token']}", "kind": "approval", "title": title_t, "body": body})
+    if role_can(user.role, Perm.BOOKS_READ):
+        from app.services.insight_service import compute_insights
+        for ins in compute_insights(db):
+            if ins.severity not in ("warning", "high"):
+                continue
+            loc = ins.localize(lang)
+            items.append({"key": f"insight:{ins.key}", "kind": "insight", "title": loc["title"], "body": loc["message"]})
+    return {"items": items[:20]}
+
+
 # --- the home-screen widget (roadmap ROADMAP_ANDROID_CHAT P3.7) ------------------------------
 
 @router.get("/summary")

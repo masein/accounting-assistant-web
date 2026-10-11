@@ -151,4 +151,10 @@
     <string name="widget_locked">برای دیدن، برنامه را باز کنید</string>
     <string name="widget_loading">در حال به‌روزرسانی…</string>
     <string name="ask_cash">موجودی چقدره؟</string>
+    <string name="feed_title">اعلان‌ها</string>
+    <string name="feed_hint">سندهای منتظر تأیید شما و هشدارهای دفاتر، هر ساعت.</string>
+    <string name="feed_channel">دفاتر شما</string>
+    <string name="feed_channel_hint">تأییدها و هشدارهای حسابدار</string>
+    <string name="feed_locked_title">حسابدار</string>
+    <string name="feed_locked_body">چیزی در دفاترتان نیاز به توجه دارد.</string>
 </resources>

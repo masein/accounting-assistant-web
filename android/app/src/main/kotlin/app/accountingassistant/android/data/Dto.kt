@@ -176,3 +176,10 @@ data class SummaryCash(val total: Long, val currency: String? = null)
 
 @Serializable
 data class SummaryBudget(val left: Long, val total: Long, val currency: String? = null)
+
+/** What deserves a notification now (GET /feed); [key] is stable, so each is told once. */
+@Serializable
+data class FeedItem(val key: String, val kind: String = "", val title: String, val body: String = "")
+
+@Serializable
+data class FeedReply(val items: List<FeedItem> = emptyList())

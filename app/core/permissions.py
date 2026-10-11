@@ -199,6 +199,7 @@ _add("DELETE", "/api/mobile/v1/session", ANY_ROLE)
 _add("GET", "/api/mobile/v1/devices", ANY_ROLE)
 _add("DELETE", "/api/mobile/v1/devices/{device_id}", ANY_ROLE)
 _add("POST", "/api/mobile/v1/crashes", ANY_ROLE)                 # the app's own crash reports, no data from the books
+_add("GET", "/api/mobile/v1/feed", ANY_ROLE)                     # what to notify; each part checks its own right
 
 # --- Company settings & branding -------------------------------------------
 _add("GET", "/admin/company-profile", Perm.SETTINGS_READ)

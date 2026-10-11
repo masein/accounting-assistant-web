@@ -151,4 +151,10 @@
     <string name="widget_locked">Abre la app para verlo</string>
     <string name="widget_loading">Actualizando…</string>
     <string name="ask_cash">¿Cuánto dinero tenemos?</string>
+    <string name="feed_title">Notificaciones</string>
+    <string name="feed_hint">Asientos que esperan tu aprobación y lo que advierten los libros, cada hora.</string>
+    <string name="feed_channel">Tus libros</string>
+    <string name="feed_channel_hint">Aprobaciones y avisos del contador</string>
+    <string name="feed_locked_title">Contador</string>
+    <string name="feed_locked_body">Algo en tus libros necesita tu atención.</string>
 </resources>

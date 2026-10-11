@@ -36,6 +36,7 @@ import app.accountingassistant.android.R
 import app.accountingassistant.android.ui.components.currencyName
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
 import app.accountingassistant.android.util.Dates
+import app.accountingassistant.android.util.LocalCalendar
 import app.accountingassistant.android.util.Numbers
 
 /** Where a value sits between the chart's bottom and top, from 0 (bottom) to 1. */
@@ -62,7 +63,7 @@ fun ChartCard(item: ChatItem.Chart, lang: String) {
     val lowest = item.lowest ?: item.points.minBy { it.value }
     val lowIndex = item.points.indexOfLast { it.x == lowest.x && it.value == lowest.value }.takeIf { it >= 0 }
         ?: values.indexOf(values.min())
-    val said = stringResource(R.string.chart_lowest, Numbers.amount(lowest.value, lang) + unit, Dates.short(lowest.x, lang))
+    val said = stringResource(R.string.chart_lowest, Numbers.amount(lowest.value, lang) + unit, Dates.short(lowest.x, lang, LocalCalendar.current))
     Surface(color = c.surface, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, c.line), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val history = item.kind == "net_worth"            // the past up to today, not a forecast
@@ -129,10 +130,10 @@ fun ChartCard(item: ChatItem.Chart, lang: String) {
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(if (history) Dates.short(item.points.first().x, lang) else stringResource(R.string.chart_today),
+                Text(if (history) Dates.short(item.points.first().x, lang, LocalCalendar.current) else stringResource(R.string.chart_today),
                      color = c.muted, fontSize = 10.5.sp)
-                Text(Dates.short(item.points[item.points.size / 2].x, lang), color = c.muted, fontSize = 10.5.sp)
-                Text(if (history) stringResource(R.string.chart_today) else Dates.short(item.points.last().x, lang),
+                Text(Dates.short(item.points[item.points.size / 2].x, lang, LocalCalendar.current), color = c.muted, fontSize = 10.5.sp)
+                Text(if (history) stringResource(R.string.chart_today) else Dates.short(item.points.last().x, lang, LocalCalendar.current),
                      color = c.muted, fontSize = 10.5.sp)
             }
             if (!history) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -141,7 +142,7 @@ fun ChartCard(item: ChatItem.Chart, lang: String) {
                 Text(said, color = c.ink, fontSize = 12.5.sp)
             }
             item.firstNegative?.let {
-                Text(stringResource(R.string.chart_negative, Dates.short(it, lang)), color = c.pomegranate, fontSize = 12.5.sp,
+                Text(stringResource(R.string.chart_negative, Dates.short(it, lang, LocalCalendar.current)), color = c.pomegranate, fontSize = 12.5.sp,
                      fontWeight = FontWeight(600))
             }
         }

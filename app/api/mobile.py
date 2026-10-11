@@ -25,7 +25,7 @@ from app.core.audit import audit_log, get_client_ip
 from app.core.auth import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
-from app.db.tenant import tenant_bypass
+from app.db.tenant import tenant_bypass, use_company
 from app.models.mobile_device import MobileDevice
 from app.services import mobile_sessions as ms
 
@@ -91,8 +91,24 @@ def _session_body(db: Session, user, device: MobileDevice, refresh: str, company
         "refresh_token": refresh,
         "device_id": str(device.id),
         "user": _user_dict(user),
-        "company": _company_dict(company),
+        "company": _phone_company(db, company),
     }
+
+
+def _phone_company(db: Session, company) -> dict | None:
+    """The books as the phone shows them: their kind (personal books are
+    saffron) and the calendar their dates are written in, the same one the
+    replies use. Sign-in and refresh used to leave both out, and the phone
+    never asks /me, so personal books looked like a company's and every
+    Persian date was Jalali even for a Gregorian company."""
+    body = _company_dict(company)
+    if body is None:
+        return None
+    from app.services.locale_service import get_display_calendar
+    with use_company(company.id):
+        body["calendar"] = get_display_calendar(db)
+    body["kind"] = getattr(company, "kind", None) or "business"
+    return body
 
 
 def _user_dict(user) -> dict:
@@ -170,11 +186,8 @@ def mobile_me(current=Depends(get_current_user), db: Session = Depends(get_db)) 
         from app.models.company import Company
         with tenant_bypass():
             company = db.get(Company, user.company_id)
-    body = {"user": _user_dict(user), "company": _company_dict(company),
+    return {"user": _user_dict(user), "company": _phone_company(db, company),
             "device_id": getattr(current, "device_id", None)}
-    if company is not None:
-        body["company"]["kind"] = getattr(company, "kind", None) or "business"
-    return body
 
 
 class LanguageRequest(BaseModel):

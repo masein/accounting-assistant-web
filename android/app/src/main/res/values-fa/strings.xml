@@ -44,6 +44,7 @@
     <string name="uploading">در حال بارگذاری…</string>
     <string name="transcribing">در حال نوشتن حرف‌هایت…</string>
     <string name="error_upload">فایل بارگذاری نشد. اتصال را بررسی کن و دوباره بفرست.</string>
+    <string name="error_unreadable">این فایل باز نشد. دوباره بفرستش یا با + پیوستش کن.</string>
     <string name="error_voice">پیام صوتی فهمیده نشد. دوباره بگو یا بنویس.</string>
     <string name="lock_title">قفل برنامه</string>
     <string name="lock_hint">هنگام باز شدن برنامه و پس از دو دقیقه دوری، اثر انگشت، چهره یا رمز گوشی خواسته شود.</string>

@@ -15,9 +15,22 @@ class DatesTest {
 
     @Test fun shortDatesInEachLanguage() {
         val today = LocalDate.of(2026, 10, 10)
-        assertEquals("۱۸ مهر", Dates.short("2026-10-10T09:30:00+00:00", "fa", today))
-        assertEquals("۲۹ اسفند ۱۴۰۴", Dates.short("2026-03-20", "fa", today))
-        assertEquals("10 Oct", Dates.short("2026-10-10", "en", today))
-        assertEquals("20 Mar 2025", Dates.short("2025-03-20", "en", today))
+        assertEquals("۱۸ مهر", Dates.short("2026-10-10T09:30:00+00:00", "fa", today = today))
+        assertEquals("۲۹ اسفند ۱۴۰۴", Dates.short("2026-03-20", "fa", today = today))
+        assertEquals("10 Oct", Dates.short("2026-10-10", "en", today = today))
+        assertEquals("20 Mar 2025", Dates.short("2025-03-20", "en", today = today))
+        assertEquals("10 oct", Dates.short("2026-10-10", "es", today = today))
+        assertEquals("١٠ أكتوبر", Dates.short("2026-10-10", "ar", today = today))
+    }
+
+    /** Scenario N38: the books' calendar, written as each language writes it, the same words as the replies. */
+    @Test fun theBooksCalendarDecidesNotTheLanguage() {
+        val today = LocalDate.of(2026, 10, 10)
+        assertEquals("۱۰ اکتبر", Dates.short("2026-10-10", "fa", "gregorian", today))        // a Gregorian company, read in Persian
+        assertEquals("۲۳ سپتامبر", Dates.short("2026-09-23", "fa", "gregorian", today))
+        assertEquals("18 Mehr", Dates.short("2026-10-10", "en", "jalali", today))            // a Jalali company, read in English
+        assertEquals("۱۸ مهر", Dates.short("2026-10-10", "fa", "jalali", today))
+        assertEquals("١٨ مهر", Dates.short("2026-10-10", "ar", "jalali", today))
+        assertEquals("1 dic 2025", Dates.short("2025-12-01", "es", "gregorian", today))
     }
 }

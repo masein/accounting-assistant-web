@@ -36,6 +36,8 @@ class WidgetTest {
         assertEquals("۴۹٬۶۰۰٬۰۰۰ ریال", t.amount)
         assertEquals("بودجهٔ مانده: ۹٬۶۰۰٬۰۰۰", t.line)
         assertEquals("تا ۱۸ مهر", t.note)
+        // a Gregorian company: the date in its calendar, in Persian words (scenario N38)
+        assertEquals("تا ۱۰ اکتبر", widgetText(books.copy(calendar = "gregorian"), "fa", words, formatted).note)
     }
 
     @Test fun lockedOrSignedOutItShowsNoFigures() {

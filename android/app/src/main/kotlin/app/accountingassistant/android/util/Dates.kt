@@ -1,17 +1,30 @@
 package app.accountingassistant.android.util
 
+import androidx.compose.runtime.staticCompositionLocalOf
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
+/** The books' calendar ("jalali" or "gregorian"), from the session; null: decide by language. */
+val LocalCalendar = staticCompositionLocalOf<String?> { null }
+
 /**
- * Dates as each language writes them: Jalali months in Persian («۱۸ مهر»),
- * Gregorian elsewhere ("10 Oct"). The server sends ISO dates.
+ * Dates in the books' calendar, as each language writes it: «۱۸ مهر» or
+ * «۵ اکتبر» in Persian, "5 oct" in Spanish, «٥ أكتوبر» in Arabic, "5 Oct".
+ * The server sends ISO dates and writes its replies in the same calendar.
  */
 object Dates {
     private val FA_MONTHS = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
                                    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
     private val EN_MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    private val JALALI_LATIN = listOf("Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar",
+                                      "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand")
+    /** The server's names (calendar_periods, blocks), so a date reads the same in the card and the reply. */
+    private val GREGORIAN = mapOf(
+        "fa" to listOf("ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"),
+        "es" to listOf("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"),
+        "ar" to listOf("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"),
+    )
 
     /** Gregorian → Jalali (the arithmetic algorithm, exact for 1300–1500 AP). */
     fun toJalali(date: LocalDate): Triple<Int, Int, Int> {
@@ -32,16 +45,22 @@ object Dates {
         return Triple(jy, jm, jd)
     }
 
-    /** "۱۸ مهر" / "10 Oct"; the year too when it isn't this year. */
-    fun short(iso: String?, lang: String, today: LocalDate = LocalDate.now()): String {
+    /**
+     * «۱۸ مهر» / "10 Oct"; the year too when it isn't this year. [calendar]
+     * is the books' (LocalCalendar); without one, Persian is Jalali.
+     */
+    fun short(iso: String?, lang: String, calendar: String? = null, today: LocalDate = LocalDate.now()): String {
         val d = parse(iso) ?: return ""
-        return if (lang == "fa") {
+        val jalali = calendar?.let { it == "jalali" } ?: (lang == "fa")
+        val text = if (jalali) {
             val (jy, jm, jd) = toJalali(d)
-            val thisYear = toJalali(today).first
-            Numbers.digits("$jd ${FA_MONTHS[jm - 1]}" + if (jy != thisYear) " $jy" else "", lang)
+            val months = if (lang == "fa" || lang == "ar") FA_MONTHS else JALALI_LATIN
+            "$jd ${months[jm - 1]}" + if (jy != toJalali(today).first) " $jy" else ""
         } else {
-            "${d.dayOfMonth} ${EN_MONTHS[d.monthValue - 1]}" + if (d.year != today.year) " ${d.year}" else ""
+            val months = GREGORIAN[lang] ?: EN_MONTHS
+            "${d.dayOfMonth} ${months[d.monthValue - 1]}" + if (d.year != today.year) " ${d.year}" else ""
         }
+        return Numbers.digits(text, lang)
     }
 
     private fun parse(iso: String?): LocalDate? = iso?.let {

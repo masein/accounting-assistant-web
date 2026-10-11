@@ -38,6 +38,7 @@
     <string name="uploading">Subiendo…</string>
     <string name="transcribing">Escribiendo lo que dijiste…</string>
     <string name="error_upload">El archivo no se subió. Revisa la conexión y vuelve a intentarlo.</string>
+    <string name="error_unreadable">No se pudo abrir ese archivo. Compártelo de nuevo o adjúntalo con +.</string>
     <string name="error_voice">No se entendió la nota de voz. Inténtalo de nuevo o escríbelo.</string>
     <string name="lock_title">Bloqueo de la app</string>
     <string name="lock_hint">Pide tu huella, cara o PIN al abrir la app y tras dos minutos fuera.</string>

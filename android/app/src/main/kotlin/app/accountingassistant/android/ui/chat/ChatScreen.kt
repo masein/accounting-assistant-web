@@ -227,6 +227,7 @@ fun ChatScreen(
             val notice = when (state.notice) {
                 ChatUiState.Notice.Offline -> R.string.error_network
                 ChatUiState.Notice.UploadFailed -> R.string.error_upload
+                ChatUiState.Notice.Unreadable -> R.string.error_unreadable
                 ChatUiState.Notice.VoiceFailed -> R.string.error_voice
                 else -> null
             }

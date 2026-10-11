@@ -40,6 +40,8 @@ data class WidgetState(
     val budgetLeft: Long? = null,
     val budgetCurrency: String? = null,
     val asOf: String? = null,
+    /** The books' calendar, for the "as of" date. */
+    val calendar: String? = null,
 )
 
 /** The widget's lines, worked out away from Android's views so they can be tested. */
@@ -55,7 +57,7 @@ fun widgetText(state: WidgetState, lang: String, words: (Int) -> String, formatt
             title = title,
             amount = Numbers.amount(state.cash, lang) + (state.cashCurrency?.let { " " + currencyName(it, lang) } ?: ""),
             line = state.budgetLeft?.let { formatted(R.string.widget_budget_left, Numbers.amount(it, lang)) },
-            note = state.asOf?.let { formatted(R.string.widget_as_of, Dates.short(it, lang)) },
+            note = state.asOf?.let { formatted(R.string.widget_as_of, Dates.short(it, lang, state.calendar)) },
         )
     }
 }
@@ -136,7 +138,8 @@ class WidgetRefreshWorker(context: Context, params: WorkerParameters) : Coroutin
         else {
             val s = runCatching { app.api.summary() }.getOrNull() ?: return Result.retry()
             WidgetState(signedIn = true, books = session.company?.name.orEmpty(), cash = s.cash.total, cashCurrency = s.cash.currency,
-                        budgetLeft = s.budget?.left, budgetCurrency = s.budget?.currency, asOf = s.asOf)
+                        budgetLeft = s.budget?.left, budgetCurrency = s.budget?.currency, asOf = s.asOf,
+                        calendar = session.company?.calendar)
         }
         CashWidget.save(applicationContext, state)
         CashWidget.renderAll(applicationContext)

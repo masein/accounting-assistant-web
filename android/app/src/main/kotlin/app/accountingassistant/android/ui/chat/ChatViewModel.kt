@@ -40,7 +40,7 @@ data class ChatUiState(
     /** The outbox message on its way now: it no longer waits for the network. */
     val sendingId: String? = null,
 ) {
-    enum class Notice { Offline, Failed, UploadFailed, VoiceFailed }
+    enum class Notice { Offline, Failed, UploadFailed, VoiceFailed, Unreadable }
     /** [uploadedId] once on the server; [path] where the outbox keeps it when the upload waits. */
     data class Attachment(val id: String, val name: String, val mime: String = "",
                           val uploadedId: String? = id, val path: String? = null)
@@ -230,6 +230,9 @@ class ChatViewModel(
             }
         }
     }
+
+    /** A file shared in from another app that couldn't be read: say so, rather than nothing at all. */
+    fun unreadable() = _state.update { it.copy(notice = ChatUiState.Notice.Unreadable) }
 
     fun detach(id: String) {
         val gone = _state.value.attachments.firstOrNull { it.id == id }

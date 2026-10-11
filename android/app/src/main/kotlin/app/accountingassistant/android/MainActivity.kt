@@ -6,6 +6,8 @@ import app.accountingassistant.android.util.Documents
 import android.content.Intent
 import app.accountingassistant.android.util.Capture
 import app.accountingassistant.android.util.Shared
+import app.accountingassistant.android.util.Shortcuts
+import app.accountingassistant.android.widget.WidgetRefresh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
@@ -46,10 +48,13 @@ class MainActivity : ComponentActivity() {
     private var stoppedAt = 0L
     /** What another app shared in, waiting for the chat (after sign-in and unlock). */
     private val shared = MutableStateFlow<Shared?>(null)
+    /** A home-screen shortcut, waiting for the chat the same way. */
+    private val shortcut = MutableStateFlow<String?>(null)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Shared.from(intent)?.let { shared.value = it }
+        Shortcuts.actionOf(intent)?.let { shortcut.value = it }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,7 +62,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as AccountantApp
         val lock = AppLock(this)
-        if (savedInstanceState == null) Shared.from(intent)?.let { shared.value = it }
+        if (savedInstanceState == null) {
+            Shared.from(intent)?.let { shared.value = it }
+            Shortcuts.actionOf(intent)?.let { shortcut.value = it }
+        }
         setContent {
             AccountantTheme {
                 val scope = rememberCoroutineScope()
@@ -71,7 +79,21 @@ class MainActivity : ComponentActivity() {
                     locked = signedIn && lockOn                       // a cold start asks first
                     restored = true
                 }
-                LaunchedEffect(Unit) { app.api.signedOut.collect { signedIn = false; app.forgetOutbox() } }
+                LaunchedEffect(Unit) {
+                    app.api.signedOut.collect {
+                        signedIn = false
+                        app.forgetOutbox()
+                        Shortcuts.remove(this@MainActivity)
+                        WidgetRefresh.forget(this@MainActivity)
+                    }
+                }
+                // signed in: the shortcuts, and the widget brought up to date
+                LaunchedEffect(signedIn) {
+                    if (signedIn) {
+                        Shortcuts.publish(this@MainActivity)
+                        WidgetRefresh.now(this@MainActivity)
+                    }
+                }
                 // last time's crashes, if any, once there is a session to send them with
                 LaunchedEffect(signedIn) { if (signedIn) runCatching { app.crashes.send(app.api) } }
                 var crashesOn by remember { mutableStateOf(app.crashes.enabled) }
@@ -116,7 +138,8 @@ class MainActivity : ComponentActivity() {
                 } else {
                     val suggestions = resources.getStringArray(R.array.suggestions).toList()
                     val vm: ChatViewModel = viewModel(factory = viewModelFactory {
-                        initializer { ChatViewModel(app.api, suggestions, outbox = app.outbox) }
+                        initializer { ChatViewModel(app.api, suggestions, outbox = app.outbox,
+                                                    booksChanged = { WidgetRefresh.now(app) }) }   // the app, not the activity: a view model outlives it
                     })
                     val s by vm.state.collectAsState()
                     // back in the app: what was added meanwhile (the web chat, the background sender)
@@ -134,6 +157,7 @@ class MainActivity : ComponentActivity() {
                     val company = session?.company
                     // a share lands in the chat: words in the composer, files as attachments
                     val incoming by shared.collectAsState()
+                    val pendingShortcut by shortcut.collectAsState()
                     LaunchedEffect(incoming) {
                         val got = incoming ?: return@LaunchedEffect
                         shared.value = null
@@ -174,6 +198,7 @@ class MainActivity : ComponentActivity() {
                         onThreads = { threadsOpen = true; vm.loadThreads() },
                         onRetry = vm::retry, onDiscard = vm::discard, onEarlier = vm::earlier,
                         onApprove = vm::approve, onReject = vm::reject, onEdit = vm::edit, onStatementNext = vm::nextDifference,
+                        action = pendingShortcut, onActionDone = { shortcut.value = null },
                         userInitial = session?.user?.username?.take(1)?.uppercase() ?: "",
                         onAccount = {
                             account = true
@@ -199,7 +224,16 @@ class MainActivity : ComponentActivity() {
                                     devices = runCatching { app.api.devices() }.getOrDefault(devices.orEmpty())
                                 }
                             },
-                            onSignOut = { account = false; scope.launch { app.api.signOut(); app.forgetOutbox(); signedIn = false } },
+                            onSignOut = {
+                                account = false
+                                scope.launch {
+                                    app.api.signOut()
+                                    app.forgetOutbox()
+                                    Shortcuts.remove(this@MainActivity)
+                                    WidgetRefresh.forget(this@MainActivity)
+                                    signedIn = false
+                                }
+                            },
                             onDismiss = { account = false },
                         )
                     }

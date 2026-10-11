@@ -44,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -218,6 +219,7 @@ fun ThinkingRow(text: String, modifier: Modifier = Modifier) {
 fun Composer(
     value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, onAttach: () -> Unit,
     onSpeakStart: () -> Unit, onSpeakEnd: () -> Unit,
+    focus: androidx.compose.ui.focus.FocusRequester? = null,
     modifier: Modifier = Modifier,
     listening: Boolean = false,
     canSend: Boolean = value.isNotBlank(),
@@ -242,7 +244,7 @@ fun Composer(
                     if (value.isEmpty()) Text(stringResource(R.string.composer_hint), color = c.muted, fontSize = 14.sp, maxLines = 1)
                     BasicTextField(value = value, onValueChange = onValueChange, cursorBrush = SolidColor(c.firouzeh),
                         textStyle = TextStyle(color = c.ink, fontSize = 14.sp, fontFamily = Vazirmatn), maxLines = 4,
-                        modifier = Modifier.fillMaxWidth())
+                        modifier = Modifier.fillMaxWidth().let { m -> focus?.let { m.focusRequester(it) } ?: m })
                 }
             }
             if (canSend && !listening) {

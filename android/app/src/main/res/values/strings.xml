@@ -136,4 +136,19 @@
     <string name="chart_negative">Below zero from the week of %1$s</string>
     <string name="chart_after">after %1$d weeks</string>
     <string name="chart_flat">Nothing is known yet to come in or go out in these weeks.</string>
+    <string name="shortcut_receipt">Receipt</string>
+    <string name="shortcut_receipt_long">Photo a receipt</string>
+    <string name="shortcut_spending">Spending</string>
+    <string name="shortcut_spending_long">Record spending</string>
+    <string name="shortcut_cash">Cash</string>
+    <string name="shortcut_cash_long">Cash in the bank</string>
+    <string name="widget_title">Accountant</string>
+    <string name="widget_description">Cash and bank, and this month\'s budget left</string>
+    <string name="widget_cash">Cash and bank</string>
+    <string name="widget_budget_left">Budget left: %1$s</string>
+    <string name="widget_as_of">As of %1$s</string>
+    <string name="widget_signed_out">Sign in to see your books</string>
+    <string name="widget_locked">Open the app to see</string>
+    <string name="widget_loading">Updating…</string>
+    <string name="ask_cash">How much cash do we have?</string>
 </resources>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home-screen widget: the books, cash and bank, the budget left. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:gravity="center_vertical"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="10dp">
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/widget_muted"
+        android:textSize="11sp"
+        android:fontFamily="@font/vazirmatn"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/widget_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/widget_cash"
+        android:textColor="@color/widget_muted"
+        android:textSize="12sp"
+        android:fontFamily="@font/vazirmatn"
+        android:includeFontPadding="false" />
+
+    <TextView
+        android:id="@+id/widget_amount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/widget_ink"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:fontFamily="@font/vazirmatn"
+        android:includeFontPadding="false"
+        android:maxLines="2" />
+
+    <TextView
+        android:id="@+id/widget_line"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="@color/firouzeh"
+        android:textSize="12sp"
+        android:fontFamily="@font/vazirmatn"
+        android:includeFontPadding="false"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/widget_note"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="@color/widget_muted"
+        android:textSize="10sp"
+        android:fontFamily="@font/vazirmatn"
+        android:includeFontPadding="false"
+        android:maxLines="1" />
+</LinearLayout>

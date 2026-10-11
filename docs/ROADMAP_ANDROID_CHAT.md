@@ -29,6 +29,7 @@ The build started on 2026-10-10.
 - ✅ **P0.6** (#310, #316): fast paths, in Persian, English, Spanish and Arabic.
 - ✅ **P0.7** (#312, #315): uploads, voice notes and the briefing; file blocks (an invoice's PDF), served to the phone's bearer session rather than by signed link. Resumable chunked uploads are not done: a photo is scaled to 1600 px (a few hundred KB) and the outbox uploads it once.
 - ✅ **P0.9** (#317): threads `?since=`, messages paged by id (`before`, `after`, `X-More-Before`), and a message answered once however often the outbox sends it (`mobile_turns`, across server workers).
+- ✅ Most of P3.7 (#324): app shortcuts (photo a receipt, record spending, cash) and a home-screen widget (cash and the budget left) that hides its figures behind the app lock.
 - ✅ The `chart` block (#323): the 13-week cash forecast drawn natively, and a fast path for "will we have enough cash?" in four languages (a what-if stays with the model).
 - ✅ **P0.10** (#320): `docs/contracts/`, the block schema and recorded conversations, checked by the server and parsed by the Android tests; every mobile route in a table with its roles.
 - **Still to do:** P0.8 push (it needs a Firebase project, or Pushe, from the owner).

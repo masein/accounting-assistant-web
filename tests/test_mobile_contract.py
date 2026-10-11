@@ -247,6 +247,7 @@ MOBILE_ROUTES = {
     # employees and viewers wait for the owner's decision on staff chat (roadmap §11.7)
     ("GET", "/api/mobile/v1/threads"): BOOKS,
     ("GET", "/api/mobile/v1/threads/{thread_id}/messages"): BOOKS,
+    ("GET", "/api/mobile/v1/summary"): BOOKS,
     ("POST", "/api/mobile/v1/chat"): BOOKS,
     ("POST", "/api/mobile/v1/chat/stream"): BOOKS,
     ("POST", "/api/mobile/v1/briefing"): BOOKS,

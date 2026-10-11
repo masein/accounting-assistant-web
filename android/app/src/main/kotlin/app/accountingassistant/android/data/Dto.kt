@@ -162,3 +162,17 @@ data class DeviceDto(
 
 @Serializable
 data class CrashBatch(val reports: List<app.accountingassistant.android.util.CrashReport>)
+
+/** The widget's two numbers (GET /summary). */
+@Serializable
+data class SummaryReply(
+    @SerialName("as_of") val asOf: String? = null,
+    val cash: SummaryCash,
+    val budget: SummaryBudget? = null,
+)
+
+@Serializable
+data class SummaryCash(val total: Long, val currency: String? = null)
+
+@Serializable
+data class SummaryBudget(val left: Long, val total: Long, val currency: String? = null)

@@ -522,6 +522,26 @@ class BriefingPayload(BaseModel):
     thread_id: str | None = None
 
 
+# --- the home-screen widget (roadmap ROADMAP_ANDROID_CHAT P3.7) ------------------------------
+
+@router.get("/summary")
+async def mobile_summary(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    """The widget's two numbers, read like the chat reads them: cash and bank
+    today, and this month's budget left (null when no budgets are set)."""
+    from app.services.ai_accountant.base import ToolContext
+    from app.services.ai_accountant.cash_tools import GetCashPosition, GetCashPositionInput
+    from app.services.ai_accountant.period_tools import GetBudgetStatus, GetBudgetStatusInput
+    ctx = ToolContext(db=db, user_id=str(user.user_id), username=user.username)
+    cash = await GetCashPosition().run(ctx, GetCashPositionInput())
+    budget = await GetBudgetStatus().run(ctx, GetBudgetStatusInput())
+    return {
+        "as_of": cash.get("as_of"),
+        "cash": {"total": int(cash.get("total") or 0), "currency": cash.get("currency")},
+        "budget": {"left": int(budget["total_left"]), "total": int(budget["total_budget"]), "currency": budget.get("currency")}
+        if budget.get("budgets") else None,
+    }
+
+
 # --- a bank statement, one difference at a time (roadmap ROADMAP_ANDROID_CHAT P2.3) ----------
 
 _STATEMENT_LINES = {

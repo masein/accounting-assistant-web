@@ -183,6 +183,7 @@ class ApiClient(
     /** The phone's language becomes the account's, so replies come in it. */
     suspend fun setLanguage(lang: String) {
         call<LanguageRequest, JsonObject>("PUT", "/me/language", LanguageRequest(lang), serializer())
+        session?.let { s -> s.copy(user = s.user.copy(language = lang)).also { store.save(it); session = it } }
     }
 
     /** The conversations, most recent first; with [since], only those changed after it. */

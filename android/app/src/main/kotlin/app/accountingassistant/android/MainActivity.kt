@@ -163,6 +163,10 @@ class MainActivity : ComponentActivity() {
                     SignInScreen(s, vm::username, vm::password, vm::code, vm::submit)
                 } else {
                     val suggestions = resources.getStringArray(R.array.suggestions).toList()
+                    // the phone's language changed since sign-in: the accountant answers in the new one
+                    LaunchedEffect(lang) {
+                        if (app.api.session?.user?.language != lang) runCatching { app.api.setLanguage(lang) }
+                    }
                     // one conversation per person: keyed by who is signed in
                     val vm: ChatViewModel = viewModel(key = "chat:${app.api.session?.user?.id}", factory = viewModelFactory {
                         initializer { ChatViewModel(app.api, suggestions, outbox = app.outbox,

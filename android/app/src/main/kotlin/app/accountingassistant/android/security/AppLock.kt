@@ -35,10 +35,11 @@ class AppLock(private val context: Context) {
 
     /**
      * Ask for the fingerprint, face or PIN. [fallback] starts the device's
-     * own credential screen on Android 8, which has no biometric prompt here.
+     * own credential screen on Android 9, whose biometric prompt can't fall
+     * back to the PIN (and has no setDeviceCredentialAllowed).
      */
     fun prompt(activity: Activity, title: String, onUnlocked: () -> Unit, fallback: (Intent) -> Unit) {
-        if (Build.VERSION.SDK_INT >= 28) {
+        if (Build.VERSION.SDK_INT >= 29) {
             val builder = BiometricPrompt.Builder(activity).setTitle(title)
             if (Build.VERSION.SDK_INT >= 30) {
                 builder.setAllowedAuthenticators(

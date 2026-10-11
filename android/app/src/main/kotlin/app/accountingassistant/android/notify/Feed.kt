@@ -1,12 +1,16 @@
 package app.accountingassistant.android.notify
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -53,6 +57,9 @@ class FeedNotifier(private val context: Context) {
         channel()
         val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return 0
+        // allowed in the account sheet, but it can be taken back in Android's settings at any time
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return 0
         val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_IMMUTABLE)
         fresh.forEach { item ->
@@ -70,7 +77,7 @@ class FeedNotifier(private val context: Context) {
                     .setContentTitle(context.getString(R.string.feed_locked_title))
                     .setContentText(context.getString(R.string.feed_locked_body)).build())
                 .build()
-            runCatching { manager.notify(item.key.hashCode(), n) }        // SecurityException without the permission
+            runCatching { manager.notify(item.key.hashCode(), n) }        // taken back between the check and now
         }
         return fresh.size
     }

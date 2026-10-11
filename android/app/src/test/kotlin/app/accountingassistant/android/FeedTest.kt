@@ -1,5 +1,6 @@
 package app.accountingassistant.android
 
+import android.Manifest
 import android.app.NotificationManager
 import app.accountingassistant.android.data.FeedItem
 import app.accountingassistant.android.notify.FeedNotifier
@@ -23,7 +24,17 @@ class FeedTest {
     private val approval = FeedItem("approval:t1", "approval", "سندی منتظر تأیید شماست", "اجارهٔ دفتر: ۸۰٬۰۰۰٬۰۰۰ IRR، درخواست maryam")
     private val payroll = FeedItem("insight:payroll-1405-07", "insight", "حقوق ۱۲٪ بالا رفت", "۱ در برابر ۲ ماه قبل.")
 
-    @Before fun fresh() = notifier.forget()
+    @Before fun fresh() {
+        notifier.forget()
+        shadowOf(context).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)    // "Allow" in the account sheet
+    }
+
+    @Test fun takenBackInAndroidsSettingsNothingIsPosted() {
+        notifier.deliver(emptyList(), locked = false)
+        shadowOf(context).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        assertEquals(0, notifier.deliver(listOf(approval), locked = false))
+        assertEquals(0, shade.allNotifications.size)
+    }
 
     @Test fun theFirstSyncIsSilentThenEachThingIsToldOnce() {
         assertEquals(0, notifier.deliver(listOf(payroll), locked = false))        // what was already there: no flood

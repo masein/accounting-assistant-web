@@ -45,7 +45,7 @@ fun StatementCard(item: ChatItem.Statement, lang: String, onFix: () -> Unit) {
                 item.bank?.let { Text(it, color = c.ink, fontSize = 12.sp, fontWeight = FontWeight(600)) }
             }
             Text(listOfNotNull(
-                     if (item.from != null && item.to != null) "⁨${Dates.short(item.from, lang)} – ${Dates.short(item.to, lang)}⁩" else null,
+                     if (item.from != null && item.to != null) "\u2068${Dates.short(item.from, lang)} – ${Dates.short(item.to, lang)}\u2069" else null,
                      Numbers.digits(pluralStringResource(R.plurals.statement_rows, item.rows, item.rows), lang),
                  ).joinToString(" · "),
                  color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700))

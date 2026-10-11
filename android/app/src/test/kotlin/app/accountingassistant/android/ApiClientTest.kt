@@ -124,4 +124,18 @@ class ApiClientTest {
         server.takeRequest(); server.takeRequest()
         assertEquals("Bearer NEW", server.takeRequest().headers["Authorization"])
     }
+
+    /** Run 2026-10-11: the phone's language changed after sign-in; the accountant kept answering in the old one. */
+    @Test fun aNewLanguageBecomesTheAccountsAndIsRemembered() = runBlocking {
+        store.save(StoredSession("A1", "R1", "d1", UserDto("u1", "maryam", language = "fa")))
+        api.restore()
+        reply(200, """{"language":"es"}""")
+        api.setLanguage("es")
+        val req = server.takeRequest()
+        assertEquals("PUT", req.method)
+        assertEquals("/api/mobile/v1/me/language", req.url.encodedPath)
+        assertTrue(req.body!!.utf8().contains("\"language\":\"es\""))
+        assertEquals("es", store.load()!!.user.language)
+        assertEquals("es", api.session!!.user.language)
+    }
 }

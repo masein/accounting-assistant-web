@@ -75,6 +75,7 @@ def test_n31_someone_elses_or_no_statement(client, db, co, phone):
 def test_n31_the_bank_is_named_in_the_readers_language():
     from app.services.ai_accountant.statement_intake import _reply, bank_label
     assert bank_label("Mellat", "fa") == "ملت" and bank_label("Mellat", "en") == "Mellat"
+    assert bank_label("Mellat", "ar") == "ملت"                      # one script: the 2026-10-11 pass
     assert bank_label("Unknown", "fa") is None and bank_label("Some Bank", "fa") == "Some Bank"
     said = _reply("fa", {"bank_name": "Mellat", "total_rows": 12, "counts": {"unrecorded": 2}, "clean": False})
     assert said.startswith("صورتحساب ملت را خواندم") and "Mellat" not in said

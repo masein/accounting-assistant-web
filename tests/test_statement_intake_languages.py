@@ -32,10 +32,11 @@ def test_the_summary_in_each_language():
     es = si._reply("es", INTAKE)
     assert es.startswith("Leí tu extracto de Mellat: 12 filas (del 1 sept 2026 al 30 sept 2026)") and "3 no están en los libros" in es
     ar = si._reply("ar", INTAKE)
-    assert ar.startswith("قرأت كشف حساب Mellat: ١٢ سطراً (من ١ سبتمبر ٢٠٢٦ إلى ٣٠ سبتمبر ٢٠٢٦)") and "؛ " in ar
+    assert ar.startswith("قرأت كشف حساب ملت: ١٢ سطراً (من ١ سبتمبر ٢٠٢٦ إلى ٣٠ سبتمبر ٢٠٢٦)") and "؛ " in ar and "«إصلاح خطوة بخطوة»" in ar
     assert si._reply("fa", {**INTAKE, "clean": True}).endswith("همه‌چیز با دفاتر می‌خواند؛ کاری لازم نیست.")
     assert si._reply("de", INTAKE) == si._reply("en", INTAKE)               # an unknown language: English
-    assert si._duplicate_reply("es", ["Same file."]).startswith("Este archivo ya se importó. Same file.")
+    assert si._duplicate_reply("es", []) == ("Este archivo ya se importó. Puedes seguir con él desde su tarjeta "
+                                             "o pedirme que lo compare con los libros.")
 
 
 def test_persian_and_arabic_write_their_own_digits_and_dates():
@@ -47,6 +48,30 @@ def test_persian_and_arabic_write_their_own_digits_and_dates():
     assert si._reply("fa", big, jalali=True).startswith("صورتحساب ملت را خواندم: ۳٬۵۰۰ ردیف (۱۰ شهریور ۱۴۰۵ تا ۸ مهر ۱۴۰۵)")
     ar = si._reply("ar", big)
     assert "٣٬٥٠٠" in ar and not any(ch in "0123456789" for ch in ar)
+
+
+def test_a_file_imported_before_is_said_in_the_readers_words():
+    # the Spanish and Arabic pass (2026-10-11): «Este archivo ya se importó. This file was already imported on 2026-10-11 as…»
+    note = ["This file was already imported on 2026-10-11 as 'mellat.csv'."]
+    assert si._duplicate_reply("es", note) == ("Este archivo ya se importó el 11 oct 2026 como «mellat.csv». "
+                                               "Puedes seguir con él desde su tarjeta o pedirme que lo compare con los libros.")
+    assert si._duplicate_reply("fa", note, jalali=True).startswith("این فایل در ۱۹ مهر ۱۴۰۵ با نام «mellat.csv» وارد شده است.")
+    ar = si._duplicate_reply("ar", note)
+    assert "١١ أكتوبر ٢٠٢٦" in ar and "already" not in ar
+    assert si._duplicate_reply("en", note).startswith("This file was already imported on 11 Oct 2026 as “mellat.csv”.")
+
+
+def test_an_intake_card_does_not_carry_the_words_a_second_time(db):
+    from app.services.ai_accountant.blocks import build_blocks
+    blocks = build_blocks(db, text="I read your statement.", proposals=None, tool_calls=None,
+                          intake={"kind": "bank_statement", "status": "duplicate"}, lang="en", calendar="gregorian")
+    assert [(b["type"], b["fallback_text"]) for b in blocks] == [("intake", ""), ("text", "I read your statement.")]
+    # sent again, the card comes again: an id of its own, or the phone keeps only the first
+    again = build_blocks(db, text="x", proposals=None, tool_calls=None, lang="en", calendar="gregorian",
+                         intake={"kind": "bank_statement", "status": "duplicate", "statement_id": "s1"})
+    twice = build_blocks(db, text="x", proposals=None, tool_calls=None, lang="en", calendar="gregorian",
+                         intake={"kind": "bank_statement", "status": "duplicate", "statement_id": "s1"})
+    assert again[0]["id"].startswith("intake:bank_statement:s1:") and again[0]["id"] != twice[0]["id"]
 
 
 def test_the_language_follows_the_message_then_the_interface():

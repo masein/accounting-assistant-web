@@ -5,6 +5,7 @@ import app.accountingassistant.android.data.EditRequest
 import app.accountingassistant.android.ui.chat.editChange
 import app.accountingassistant.android.ui.chat.editableDate
 import app.accountingassistant.android.ui.chat.parseBlock
+import app.accountingassistant.android.ui.chat.parseBlocks
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -78,5 +79,23 @@ class ChatItemsTest {
         assertEquals(50f / 300f, y(0L), 1e-6f)                             // and zero sits where it is
         val allAbove = app.accountingassistant.android.ui.chat.chartScale(listOf(400L, 800L))
         assertEquals(0f, allAbove(0L))                                     // a chart of money always shows zero
+    }
+
+    /** The Spanish and Arabic pass (2026-10-11): a statement sent again came back as the same sentence twice. */
+    @Test fun aStatementSentAgainIsItsCardAndItsWordsOnce() {
+        val words = "Este archivo ya se importó el 11 oct 2026 como «mellat.csv»."
+        val reply = listOf(
+            block("""{"type":"intake","id":"i1","kind":"bank_statement","status":"duplicate","statement_id":"s1",
+                      "total_rows":24,"from_date":"2026-10-01","to_date":"2026-10-08","counts":{"unrecorded":24},"fallback_text":""}"""),
+            block("""{"type":"text","id":"t1","text":"$words"}"""))
+        val items = parseBlocks(reply)
+        assertEquals(2, items.size)
+        assertEquals(24, (items[0] as ChatItem.Statement).rows)
+        assertEquals(words, (items[1] as ChatItem.Words).text)
+        // replies stored before the fix: a card the app can't draw, whose fallback repeats the words
+        val old = listOf(block("""{"type":"intake","id":"i2","kind":"bank_statement","status":"duplicate","statement_id":"s1",
+                                   "fallback_text":"$words"}"""),
+                         block("""{"type":"text","id":"t2","text":"$words"}"""))
+        assertEquals(listOf("t2"), parseBlocks(old).map { it.id })
     }
 }

@@ -188,3 +188,17 @@ def test_n37_a_csv_under_androids_own_name_is_a_csv(client, db, co, phone):
     r = client.post(f"{API}/uploads", headers=phone,
                     files={"file": ("mellat.csv", data, "text/comma-separated-values; charset=utf-8")})
     assert r.status_code == 201 and r.json()["content_type"] == "text/csv"
+
+
+def test_n37_a_file_the_server_lost_is_sent_again_not_pointed_at(client, db, co, phone):
+    # the 2026-10-11 pass: the attachment's file was gone, the same file "sent" again pointed at it, and the
+    # statement never reached the intake
+    data = _pdf(PIECE + 10)
+    done = _send(client, phone, data, _begin(client, phone, data).json())
+    with use_company(co["cid"]):
+        Path(db.get(TransactionAttachment, uuid.UUID(done["attachment"]["id"])).file_path).unlink()
+    again = _begin(client, phone, data).json()
+    assert (again["done"], again["received"]) == (False, 0) and again["id"] != done["id"]
+    fresh = _send(client, phone, data, again)
+    with use_company(co["cid"]):
+        assert Path(db.get(TransactionAttachment, uuid.UUID(fresh["attachment"]["id"])).file_path).read_bytes() == data

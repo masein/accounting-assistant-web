@@ -82,7 +82,10 @@ def begin(db: Session, user_id: str | uuid.UUID, *, file_name: str, content_type
                TransactionAttachment.transaction_id.is_(None))
         .order_by(MobileUpload.updated_at.desc()).limit(1)).scalar_one_or_none()
     if done is not None:
-        return done
+        att = db.get(TransactionAttachment, done.attachment_id)
+        if att is not None and Path(att.file_path).exists():
+            return done
+        # its file is gone (another disk, a restore): pointing at it would hand the chat nothing; send it again
     going = db.execute(
         select(MobileUpload)
         .where(MobileUpload.user_id == uid, MobileUpload.sha256 == sha256, MobileUpload.attachment_id.is_(None),

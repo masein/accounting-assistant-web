@@ -107,11 +107,16 @@ _T: dict[str, dict[str, str]] = {
     "next": {"en": "Click \"Fix step by step\" (or say \"next\") and I'll take the differences one at a time; nothing is posted without your confirmation.",
              "fa": "برای رفع قدم‌به‌قدم روی «رفع قدم‌به‌قدم» بزنید یا بگویید «بعدی»؛ چیزی بدون تأیید شما ثبت نمی‌شود.",
              "es": "Pulsa «Corregir paso a paso» (o di «siguiente») y veremos las diferencias una a una; nada se registra sin tu confirmación.",
-             "ar": "اضغط «الإصلاح خطوة بخطوة» (أو قل «التالي») وسنعالج الفروق واحداً تلو الآخر؛ لا يُرحّل شيء دون تأكيدك."},
-    "duplicate_file": {"en": "This file was already imported. {note} Open it from the card below, or ask me to check it against the books.",
-                       "fa": "این فایل قبلاً وارد شده است. {note} می‌توانید همان صورتحساب را از کارت زیر باز کنید یا با دفاتر بررسی کنید.",
-                       "es": "Este archivo ya se importó. {note} Ábrelo desde la tarjeta de abajo o pídeme que lo compare con los libros.",
-                       "ar": "استُورد هذا الملف من قبل. {note} افتحه من البطاقة أدناه أو اطلب مني مقارنته بالدفاتر."},
+             "ar": "اضغط «إصلاح خطوة بخطوة» (أو قل «التالي») وسنعالج الفروق واحداً تلو الآخر؛ لا يُرحّل شيء دون تأكيدك."},
+    # where the card is differs (the web puts it after the words, the phone before): say "its card"
+    "duplicate_file": {"en": "{note} You can carry on with it from its card, or ask me to check it against the books.",
+                       "fa": "{note} می‌توانید از کارتش ادامه دهید یا بخواهید با دفاتر بررسی‌اش کنم.",
+                       "es": "{note} Puedes seguir con él desde su tarjeta o pedirme que lo compare con los libros.",
+                       "ar": "{note} يمكنك متابعته من بطاقته أو أن تطلب مني مقارنته بالدفاتر."},
+    "duplicate_note": {"en": "This file was already imported.", "fa": "این فایل قبلاً وارد شده است.",
+                       "es": "Este archivo ya se importó.", "ar": "استُورد هذا الملف من قبل."},
+    "duplicate_on": {"en": "This file was already imported on {on} as “{name}”.", "fa": "این فایل در {on} با نام «{name}» وارد شده است.",
+                     "es": "Este archivo ya se importó el {on} como «{name}».", "ar": "سبق استيراد هذا الملف في {on} باسم «{name}»."},
     "locked": {"en": "This PDF is locked with a password, so I can't read it. If it's a bank statement, upload it on the Bank statements page "
                      "and enter the password there (many banks use your national ID); otherwise attach an unlocked copy.",
                "fa": "این PDF با رمز قفل شده و بدون رمز نمی‌توانم آن را بخوانم. اگر صورت‌حساب بانکی است، آن را در صفحهٔ "
@@ -150,10 +155,10 @@ def _day(iso: str, lang: str, jalali: bool) -> str:
 
 
 def bank_label(name: str | None, lang: str) -> str | None:
-    """A bank as the reader writes it: «ملت» in Persian, "Mellat" otherwise."""
+    """A bank as the reader writes it: «ملت» in Persian and Arabic (one script), "Mellat" otherwise."""
     if not name or name == "Unknown":
         return None
-    if lang == "fa":
+    if lang in ("fa", "ar"):
         from app.services.bank_sms import BANKS
         return (BANKS.get(name) or (name,))[0]
     return name
@@ -199,8 +204,43 @@ def _reply(lang: str, intake: dict[str, Any], *, jalali: bool = False) -> str:
     return " ".join(parts)
 
 
-def _duplicate_reply(lang: str, errors: list[str]) -> str:
-    return _say(lang, "duplicate_file", note=errors[0] if errors else "")
+_ALREADY = re.compile(r"^This file was already imported on (\S+) as '(.*)'\.$")
+
+
+def _review_fields(db, statement_id) -> dict[str, Any]:
+    """Where a statement stands against the books, as its card shows it."""
+    from app.models.bank_statement import BankStatement
+    from app.services.statement_review import build_statement_review
+    stmt = db.get(BankStatement, statement_id)
+    if stmt is None:
+        return {}
+    review = build_statement_review(db, stmt)
+    rv = review.model_dump(mode="json")
+    return {
+        "total_rows": review.total_rows,
+        "from_date": rv.get("from_date"),
+        "to_date": rv.get("to_date"),
+        "currency": review.currency,
+        "counts": rv.get("counts") or {},
+        "balance": rv.get("balance"),
+        "clean": review.clean,
+        "findings_preview": (rv.get("findings") or [])[:3],
+    }
+
+
+def _duplicate_reply(lang: str, errors: list[str], *, jalali: bool = False) -> str:
+    """The importer's English note («This file was already imported on
+    2026-10-11 as '…'») used to sit untranslated in the middle of the reply."""
+    lang = lang if lang in _LANGS else "en"
+    seen = _ALREADY.match(errors[0]) if errors else None
+    if seen:
+        note = _say(lang, "duplicate_on", on=_day(seen.group(1), lang, jalali), name=seen.group(2))
+    elif errors:
+        from app.core.messages import localize_detail
+        note = localize_detail(errors[0], lang)
+    else:
+        note = _say(lang, "duplicate_note")
+    return _say(lang, "duplicate_file", note=note)
 
 
 def _sheet_text(att: TransactionAttachment, path: Path, max_rows: int = 60) -> str:
@@ -285,19 +325,25 @@ async def maybe_statement_intake(
         except Exception as e:  # noqa: BLE001 — a parse failure is a soft outcome in chat
             detail = getattr(e, "detail", None) or str(e)
             logger.warning("chat statement import failed for %s: %s", att.file_name, detail)
-            text_out = _say(lang, "unreadable", detail=detail)
+            from app.core.messages import localize_detail
+            text_out = _say(lang, "unreadable", detail=localize_detail(str(detail), lang))   # the importer says it in English
             return StatementTurn(text=text_out, intake={
                 "kind": "bank_statement", "status": "failed", "bank_name": bank_name,
                 "file_name": att.file_name, "error": str(detail),
             })
 
+        from app.services.locale_service import get_display_calendar
+        jalali = get_display_calendar(db) == "jalali"
         if result.status == "duplicate" and result.duplicate_of:
+            # the statement already here, with where it stands: the phone draws its card again
             intake = {
                 "kind": "bank_statement", "status": "duplicate",
                 "statement_id": str(result.duplicate_of), "bank_name": bank_name,
+                "bank_label": bank_label(bank_name, lang),
                 "file_name": att.file_name, "errors": list(result.errors or []),
+                **_review_fields(db, result.duplicate_of),
             }
-            return StatementTurn(text=_duplicate_reply(lang, list(result.errors or [])), intake=intake)
+            return StatementTurn(text=_duplicate_reply(lang, list(result.errors or []), jalali=jalali), intake=intake)
         if result.status == "needs_mapping" or result.id is None:
             text_out = _say(lang, "needs_mapping")
             return StatementTurn(text=text_out, intake={
@@ -305,12 +351,6 @@ async def maybe_statement_intake(
                 "file_name": att.file_name,
             })
 
-        from app.models.bank_statement import BankStatement
-        from app.services.statement_review import build_statement_review
-
-        stmt = db.get(BankStatement, result.id)
-        review = build_statement_review(db, stmt)
-        rv = review.model_dump(mode="json")
         intake = {
             "kind": "bank_statement",
             "status": "imported",
@@ -318,17 +358,9 @@ async def maybe_statement_intake(
             "bank_name": bank_name,
             "bank_label": bank_label(bank_name, lang),
             "file_name": att.file_name,
-            "total_rows": review.total_rows,
-            "from_date": rv.get("from_date"),
-            "to_date": rv.get("to_date"),
-            "currency": review.currency,
-            "counts": rv.get("counts") or {},
-            "balance": rv.get("balance"),
-            "clean": review.clean,
-            "findings_preview": (rv.get("findings") or [])[:3],
+            **_review_fields(db, result.id),
         }
-        from app.services.locale_service import get_display_calendar
-        return StatementTurn(text=_reply(lang, intake, jalali=get_display_calendar(db) == "jalali"), intake=intake)
+        return StatementTurn(text=_reply(lang, intake, jalali=jalali), intake=intake)
     return None
 
 

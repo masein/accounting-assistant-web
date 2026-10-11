@@ -53,8 +53,21 @@ def _message_language(message: str | None, fallback: str) -> str:
     return fallback
 
 
-def _fmt(n: int | None) -> str:
-    return f"{int(n):,}" if n is not None else "—"
+_ARABIC_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+
+
+def _n(n: int | None, lang: str) -> str:
+    """A count or an amount as the reader writes it: «۳٬۵۰۰» (fa), «٣٬٥٠٠» (ar),
+    "3,500" — "3500" in Western digits sat oddly inside Persian words."""
+    if n is None:
+        return "—"
+    text = f"{int(n):,}"
+    if lang == "fa":
+        from app.utils.jalali import to_persian_digits
+        return to_persian_digits(text).replace(",", "٬")
+    if lang == "ar":
+        return text.translate(_ARABIC_DIGITS).replace(",", "٬")
+    return text
 
 
 # What the assistant says about a statement, in the language the user wrote in
@@ -124,14 +137,16 @@ def _say(lang: str, key: str, **kw) -> str:
     return _T[key][lang if lang in _LANGS else "en"].format(**kw)
 
 
-def _jalali_day(iso: str) -> str:
-    from datetime import date
-
-    from app.utils.jalali import format_jalali
+def _day(iso: str, lang: str, jalali: bool) -> str:
+    """A statement's first or last day as the company's calendar writes it, in
+    the reader's language: «۱ مهر ۱۴۰۵», «۲۳ اوت ۲۰۲۶», "23 Aug 2026". An ISO
+    date inside Persian words used to turn round («21-09-2026»)."""
+    from app.services.ai_accountant.blocks import display_date
     try:
-        return format_jalali(date.fromisoformat(str(iso)[:10]))
+        day = display_date(str(iso)[:10], "jalali" if jalali else "gregorian", lang) or str(iso)
     except ValueError:
         return str(iso)
+    return day.translate(_ARABIC_DIGITS) if lang == "ar" else day        # one kind of digit in a sentence
 
 
 def bank_label(name: str | None, lang: str) -> str | None:
@@ -157,28 +172,29 @@ def _reply(lang: str, intake: dict[str, Any], *, jalali: bool = False) -> str:
     )
     bal = intake.get("balance") or {}
     gap = bal.get("gap")
+    rows = _n(rows, lang)
     first = _say(lang, "read", bank=bank, rows=rows) if bank and bank != "Unknown" else _say(lang, "read_unnamed", rows=rows)
     if intake.get("from_date") and intake.get("to_date"):
-        day = (lambda d: _jalali_day(d)) if jalali else (lambda d: d)
-        first += _say(lang, "span", start=day(intake["from_date"]), end=day(intake["to_date"]))
+        first += _say(lang, "span", start=_day(intake["from_date"], lang, jalali),
+                      end=_day(intake["to_date"], lang, jalali))
     parts = [first + _say(lang, "checked")]
     bits = []
     if c.get("matched"):
-        bits.append(_say(lang, "matched", n=c["matched"]))
+        bits.append(_say(lang, "matched", n=_n(c["matched"], lang)))
     if unrec:
-        bits.append(_say(lang, "unrecorded", n=unrec))
+        bits.append(_say(lang, "unrecorded", n=_n(unrec, lang)))
     if conf:
-        bits.append(_say(lang, "confirm", n=conf))
+        bits.append(_say(lang, "confirm", n=_n(conf, lang)))
     if mism:
-        bits.append(_say(lang, "mismatch", n=mism))
+        bits.append(_say(lang, "mismatch", n=_n(mism, lang)))
     if miss:
-        bits.append(_say(lang, "missing_one") if miss == 1 else _say(lang, "missing", n=miss))
+        bits.append(_say(lang, "missing_one") if miss == 1 else _say(lang, "missing", n=_n(miss, lang)))
     if dup:
-        bits.append(_say(lang, "duplicates", n=dup))
+        bits.append(_say(lang, "duplicates", n=_n(dup, lang)))
     if bits:
         parts.append(_say(lang, "join").join(bits) + ".")
     if gap:
-        parts.append(_say(lang, "gap", gap=_fmt(abs(gap))) + (_say(lang, "gap_explained") if bal.get("explained") else "."))
+        parts.append(_say(lang, "gap", gap=_n(abs(gap), lang)) + (_say(lang, "gap_explained") if bal.get("explained") else "."))
     parts.append(_say(lang, "clean") if intake.get("clean") else _say(lang, "next"))
     return " ".join(parts)
 

@@ -131,8 +131,9 @@ def test_a_csv_statement_in_chat_is_imported_without_the_ai(auth_client, db, no_
 def test_the_summary_dates_follow_the_companys_calendar():
     from app.services.ai_accountant.statement_intake import _reply
     intake = {"bank_name": "Mellat", "total_rows": 3, "from_date": "2026-09-23", "to_date": "2026-10-01", "counts": {}}
-    assert _reply("fa", intake, jalali=True).startswith("صورتحساب ملت را خواندم: 3 ردیف (1405/07/01 تا 1405/07/09)")
-    assert "(2026-09-23 to 2026-10-01)" in _reply("en", intake)
+    assert _reply("fa", intake, jalali=True).startswith("صورتحساب ملت را خواندم: ۳ ردیف (۱ مهر ۱۴۰۵ تا ۹ مهر ۱۴۰۵)")
+    assert "(23 Sep 2026 to 1 Oct 2026)" in _reply("en", intake)
+    assert "(1 Mehr 1405 to 9 Mehr 1405)" in _reply("en", intake, jalali=True)
 
 
 def test_a_spreadsheet_that_is_not_a_statement_still_goes_to_the_assistant(db, tmp_path):

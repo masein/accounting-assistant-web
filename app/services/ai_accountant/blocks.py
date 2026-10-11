@@ -368,7 +368,10 @@ def build_blocks(db: Session, *, text: str | None, proposals: list | None, tool_
     blocks = data_blocks(tool_calls, lang=lang, calendar=calendar)
     if intake:
         # the words follow in their own block: a client that can't draw the card mustn't say them twice
-        blocks.append({"type": "intake", "id": f"intake:{intake.get('kind')}:{intake.get('statement_id') or intake.get('batch_id') or ''}",
+        # a statement sent again shows its card again: its own id, or the list keeps only the first
+        again = f":{uuid.uuid4().hex[:6]}" if intake.get("status") == "duplicate" else ""
+        blocks.append({"type": "intake",
+                       "id": f"intake:{intake.get('kind')}:{intake.get('statement_id') or intake.get('batch_id') or ''}{again}",
                        **intake, "fallback_text": "" if (text and text.strip()) else (text or "")})
     all_lines = [ln for p in (proposals or []) for ln in ((_get(p, "preview") or {}).get("lines") or [])
                  if isinstance(ln, dict)]

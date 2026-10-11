@@ -66,6 +66,12 @@ def test_an_intake_card_does_not_carry_the_words_a_second_time(db):
     blocks = build_blocks(db, text="I read your statement.", proposals=None, tool_calls=None,
                           intake={"kind": "bank_statement", "status": "duplicate"}, lang="en", calendar="gregorian")
     assert [(b["type"], b["fallback_text"]) for b in blocks] == [("intake", ""), ("text", "I read your statement.")]
+    # sent again, the card comes again: an id of its own, or the phone keeps only the first
+    again = build_blocks(db, text="x", proposals=None, tool_calls=None, lang="en", calendar="gregorian",
+                         intake={"kind": "bank_statement", "status": "duplicate", "statement_id": "s1"})
+    twice = build_blocks(db, text="x", proposals=None, tool_calls=None, lang="en", calendar="gregorian",
+                         intake={"kind": "bank_statement", "status": "duplicate", "statement_id": "s1"})
+    assert again[0]["id"].startswith("intake:bank_statement:s1:") and again[0]["id"] != twice[0]["id"]
 
 
 def test_the_language_follows_the_message_then_the_interface():

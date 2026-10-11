@@ -148,3 +148,13 @@ def test_n26_threads_since_returns_only_what_changed(client, co, phone, monkeypa
     changed = client.get(f"{API}/threads", headers=phone, params={"since": stamp}).json()
     assert [t["id"] for t in changed] == [a] and changed[0]["message_count"] == 4   # two questions, two answers
     assert client.get(f"{API}/threads", headers=phone, params={"since": "yesterday"}).status_code == 422
+
+
+def test_a_turn_that_fails_still_marks_its_message_with_the_phones_id(client, co, phone):
+    # the 2026-10-11 pass: the model was down, the message was kept without the phone's id, and catching up
+    # drew it a second time beside the bubble offering Try again
+    r = client.post(f"{API}/chat", headers=phone, json={"message": "record the office rent for Mehr", "client_message_id": "m-down"})
+    assert r.status_code >= 500, r.text
+    thread = client.get(f"{API}/threads", headers=phone).json()[0]["id"]
+    mine = [m for m in client.get(f"{API}/threads/{thread}/messages", headers=phone).json() if m["role"] == "user"]
+    assert mine[-1]["client_message_id"] == "m-down"

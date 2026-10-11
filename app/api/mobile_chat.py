@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
@@ -96,6 +96,27 @@ def _mark_client_message(db: Session, thread_id: str, client_message_id: str | N
         db.commit()
 
 
+def _mark_failed_turn(db: Session, user_id: str, thread_id: str | None, client_message_id: str | None,
+                      since: datetime) -> None:
+    """A turn that failed after the user's message was kept (the model was
+    down): the message still gets the phone's id, or catching up would draw
+    it a second time beside the bubble that offers Try again."""
+    if not client_message_id:
+        return
+    db.rollback()
+    q = (select(AIChatMessage).join(AIChatSession, AIChatSession.id == AIChatMessage.session_id)
+         .where(AIChatSession.user_id == str(user_id), AIChatMessage.role == "user", AIChatMessage.created_at >= since))
+    if thread_id:
+        try:
+            q = q.where(AIChatMessage.session_id == uuid.UUID(str(thread_id)))
+        except (ValueError, TypeError):
+            return
+    row = db.execute(q.order_by(AIChatMessage.created_at.desc(), AIChatMessage.id.desc()).limit(1)).scalars().first()
+    if row is not None and not (row.content or {}).get("client_message_id"):
+        row.content = {**(row.content or {}), "client_message_id": client_message_id}
+        db.commit()
+
+
 @router.post("/chat")
 async def mobile_chat(payload: MobileChatPayload, db: Session = Depends(get_db),
                       user: SessionUser = Depends(get_current_user)) -> dict:
@@ -111,6 +132,7 @@ async def mobile_chat(payload: MobileChatPayload, db: Session = Depends(get_db),
                             headers={"X-Error-Code": "turn_in_progress"})
     if repeat is not None:
         return repeat
+    started = datetime.now(timezone.utc) - timedelta(seconds=1)
     try:
         resp = await web_chat(ChatPayload(message=payload.message, session_id=payload.thread_id,
                                           attachment_ids=payload.attachment_ids), db=db, user=user)
@@ -120,6 +142,10 @@ async def mobile_chat(payload: MobileChatPayload, db: Session = Depends(get_db),
         _store_blocks(db, resp.session_id, blocks)
         _mark_client_message(db, resp.session_id, cid)
     except BaseException:
+        try:
+            _mark_failed_turn(db, user.user_id, payload.thread_id, cid, started)
+        except Exception:  # noqa: BLE001 — the turn's own error is the one to report
+            logger.exception("could not mark a failed turn's message")
         turns.fail(db, user.user_id, cid)
         raise
     reply = {"thread_id": resp.session_id, "blocks": blocks, "stop_reason": resp.stop_reason}

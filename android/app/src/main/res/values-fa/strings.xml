@@ -33,9 +33,16 @@
     <string name="suggestions_intro">از دفاترت بپرس یا بگو چه ثبت کنم. این‌ها فوری جواب می‌گیرند:</string>
     <string-array name="suggestions">
         <item>موجودی چقدره؟</item>
-        <item>کی بهم بدهکاره؟</item>
+        <item>کی به ما بدهکاره؟</item>
         <item>به کی بدهکاریم؟</item>
+        <item>این ماه چقدر خرج کردیم؟</item>
+    </string-array>
+    <!-- personal books: a person's questions, in the first person (the 2026-10-11 pass) -->
+    <string-array name="suggestions_personal">
+        <item>چقدر پول دارم؟</item>
         <item>این ماه چقدر خرج کردم؟</item>
+        <item>بودجه‌ام چقدر مونده؟</item>
+        <item>دارایی خالص من چقدره؟</item>
     </string-array>
     <string name="listening">در حال شنیدن… رها کن تا تمام شود</string>
     <string name="attach_camera">عکس بگیر</string>

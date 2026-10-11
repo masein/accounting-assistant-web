@@ -162,7 +162,9 @@ class MainActivity : ComponentActivity() {
                     }
                     SignInScreen(s, vm::username, vm::password, vm::code, vm::submit)
                 } else {
-                    val suggestions = resources.getStringArray(R.array.suggestions).toList()
+                    // a person's books ask a person's questions: no "who owes us?" answered with sales invoices
+                    val personal = app.api.session?.company?.kind == "personal"
+                    val suggestions = resources.getStringArray(if (personal) R.array.suggestions_personal else R.array.suggestions).toList()
                     // the phone's language changed since sign-in: the accountant answers in the new one
                     LaunchedEffect(lang) {
                         if (app.api.session?.user?.language != lang) runCatching { app.api.setLanguage(lang) }
@@ -172,7 +174,7 @@ class MainActivity : ComponentActivity() {
                         initializer { ChatViewModel(app.api, suggestions, outbox = app.outbox,
                                                     booksChanged = { WidgetRefresh.now(app) }) }   // the app, not the activity: a view model outlives it
                     })
-                    LaunchedEffect(lang) { vm.useSuggestions(suggestions) }           // the questions in the new language too
+                    LaunchedEffect(lang, personal) { vm.useSuggestions(suggestions) } // the questions in the new language too
                     val s by vm.state.collectAsState()
                     // back in the app: what was added meanwhile (the web chat, the background sender)
                     val chatOwner = LocalLifecycleOwner.current

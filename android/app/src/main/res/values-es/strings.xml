@@ -75,6 +75,13 @@
         <item>¿Qué debemos?</item>
         <item>¿Cuánto gastamos este mes?</item>
     </string-array>
+    <!-- personal books: a person's questions, in the first person (the 2026-10-11 pass) -->
+    <string-array name="suggestions_personal">
+        <item>¿Cuánto dinero tengo?</item>
+        <item>¿Cuánto gasté este mes?</item>
+        <item>¿Cómo va mi presupuesto?</item>
+        <item>¿Cuál es mi patrimonio neto?</item>
+    </string-array>
     <string name="outbox_waiting">Esperando la red. Se enviará sola.</string>
     <string name="outbox_retry">Reintentar</string>
     <string name="outbox_discard">No enviar</string>

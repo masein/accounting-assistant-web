@@ -37,6 +37,13 @@
         <item>What do we owe?</item>
         <item>How much did we spend this month?</item>
     </string-array>
+    <!-- personal books: a person's questions, in the first person (the 2026-10-11 pass) -->
+    <string-array name="suggestions_personal">
+        <item>How much money do I have?</item>
+        <item>How much did I spend this month?</item>
+        <item>How\'s my budget?</item>
+        <item>What\'s my net worth?</item>
+    </string-array>
     <string name="listening">Listening… let go to stop</string>
     <string name="attach_camera">Take a photo</string>
     <string name="attach_photo">Choose a photo</string>

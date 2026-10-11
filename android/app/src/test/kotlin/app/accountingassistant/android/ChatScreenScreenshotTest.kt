@@ -300,4 +300,25 @@ class ChatScreenScreenshotTest {
         compose.mainClock.advanceTimeBy(1500)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
     }
+
+    /** Arabic in Western digits everywhere (the owner's call, 2026-10-11): figure, card, dates and reply. */
+    @Test @Config(qualifiers = "+ar")
+    fun arabicFiguresInWesternDigits() {
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(
+                        ChatItem.User("u1", "كم لدينا من المال؟"),
+                        ChatItem.Figure("f1", "النقد والبنوك", 49_600_000, "IRR"),
+                        ChatItem.Statement("st1", "s9", "ملت", "2026-10-02", "2026-10-10", 18,
+                                           mapOf("matched" to 12, "unrecorded" to 6), gap = 100_400_000, currency = "IRR", clean = false),
+                        ChatItem.Words("w1", "قرأت كشف حساب ملت: 18 سطراً (من 2 أكتوبر 2026 إلى 10 أكتوبر 2026) وقارنتها بالدفاتر."))),
+                    lang = "ar", booksName = "شركة آرمان", personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-ar-western-digits.png")
+    }
 }

@@ -43,7 +43,7 @@ All six checks pass in both languages after the fixes below. They run left to ri
 6. **The first-run questions stayed in the old language.** Switched from Spanish to Arabic, the intro was Arabic but the questions under it were still Spanish, because the chat's view model outlives the activity. They now follow the app's language, those on screen included.
 7. **Arabic named the wrong button and kept the bank in Latin letters.** The summary said «اضغط «الإصلاح خطوة بخطوة»» under a button reading «إصلاح خطوة بخطوة» (the app's and the web's label), and named the bank «Mellat». It now matches the button, and gets «ملت» as Persian does: one script.
 
-**An open question for the owner: digits in Arabic.** The phone writes Arabic-Indic digits for Arabic (since #316), while the web and most server sentences write Western ones. #331 made the statement summary Arabic-Indic, to match the card above it. So an Arabic screen can mix «£٠» with «0 GBP» («النقد والبنوك اليوم: 0 GBP.»). One style should be chosen for Arabic everywhere.
+**An open question for the owner: digits in Arabic.** The phone writes Arabic-Indic digits for Arabic (since #316), while the web and most server sentences write Western ones. #331 made the statement summary Arabic-Indic, to match the card above it. So an Arabic screen can mix «£٠» with «0 GBP» («النقد والبنوك اليوم: 0 GBP.»). One style should be chosen for Arabic everywhere. *Answered the same day: Western digits everywhere (#336).*
 
 **Seen and left as they are:**
 - **Account names** are the company's own chart: the Default test company is a UK company on the Iranian chart, so its accounts read in Persian in any language, on the web too.

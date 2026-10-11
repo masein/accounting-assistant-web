@@ -228,4 +228,26 @@ class ChatScreenScreenshotTest {
         compose.mainClock.advanceTimeBy(1500)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-forecast-flat.png")
     }
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianPayHistoryWithThePayslip() {
+        val table = ChatItem.Table("t1", "pay_history", listOf(
+            ChatItem.Table.Row("آبان ۱۴۰۵", "ثبت‌شده", 84_000_000, "IRR"),
+            ChatItem.Table.Row("مهر ۱۴۰۵", "پرداخت‌شده", 84_000_000, "IRR"),
+            ChatItem.Table.Row("شهریور ۱۴۰۵", "پرداخت‌شده", 82_500_000, "IRR")), title = "سارا احمدی")
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(
+                        ChatItem.User("u1", "فیش حقوقی سارا"), table,
+                        ChatItem.File("f1", "payslip-Sara_Ahmadi.pdf", "/api/mobile/v1/documents/payslips/r/e", "application/pdf"),
+                        ChatItem.Words("w1", "سارا در سه ماه گذشته حقوق گرفته؛ فیش آبان پیوست است."))),
+                    lang = "fa", booksName = "شرکت بازرگانی آرمان", personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-payslip.png")
+    }
 }

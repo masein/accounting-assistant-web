@@ -465,6 +465,7 @@ for _m, _p in [
 # The phone's chat (app/api/mobile_chat.py): the same rights as the web chat.
 _reads(["/api/mobile/v1/threads", "/api/mobile/v1/threads/{thread_id}/messages", "/api/mobile/v1/summary"], Perm.BOOKS_READ)
 _reads(["/api/mobile/v1/documents/invoices/{invoice_id}"], frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
+_reads(["/api/mobile/v1/documents/payslips/{run_id}/{entity_id}"], Perm.PAYROLL_READ)
 for _m, _p in [
     ("POST", "/api/mobile/v1/chat"), ("POST", "/api/mobile/v1/chat/stream"),
     ("POST", "/api/mobile/v1/proposals/{token}/confirm"),

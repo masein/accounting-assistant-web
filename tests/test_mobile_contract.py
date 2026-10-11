@@ -154,6 +154,19 @@ def _conversations(db) -> dict[str, list[dict]]:
                                            [1_100_000_000, 980_000_000, 860_000_000, 640_000_000, 420_000_000, 180_000_000,
                                             40_000_000, -120_000_000, 90_000_000, 260_000_000, 380_000_000, 500_000_000,
                                             610_000_000])]})]),
+        "payroll-runs-fa": turn(text="دو حقوق آخر ثبت شده‌اند.", calls=[("get_payroll", {
+            "runs": [{"id": "r2", "period_start": "2026-09-23", "period_end": "2026-10-22", "pay_date": "2026-10-22",
+                      "status": "posted", "currency": "IRR", "employees": 2, "total_gross": 180_000_000, "total_net": 151_200_000},
+                     {"id": "r1", "period_start": "2026-08-23", "period_end": "2026-09-22", "pay_date": "2026-09-22",
+                      "status": "paid", "currency": "IRR", "employees": 2, "total_gross": 180_000_000, "total_net": 151_200_000}],
+            "drafts_waiting": []})]),
+        "pay-history-fa": turn(text="سارا در دو ماه گذشته حقوق گرفته است.", calls=[("get_payroll", {
+            "employee": "Sara Ahmadi", "entity_id": "4c1d2e3f-0000-4000-8000-000000000004", "profile": None,
+            "history": [{"run_id": "6a7b8c9d-0000-4000-8000-000000000005", "period_start": "2026-09-23", "period_end": "2026-10-22",
+                         "pay_date": "2026-10-22", "status": "posted", "currency": "IRR", "gross": 100_000_000, "net_pay": 84_000_000},
+                        {"run_id": "6a7b8c9d-0000-4000-8000-000000000006", "period_start": "2026-08-23", "period_end": "2026-09-22",
+                         "pay_date": "2026-09-22", "status": "paid", "currency": "IRR", "gross": 100_000_000, "net_pay": 84_000_000}],
+            "totals_by_currency": {}})]),
         "draft-fa": turn(text="پیش‌نویس سند آماده است.", proposals=[proposal]),
         "intake-en": turn(lang="en", calendar="gregorian", text="12 rows read from the statement; 10 match.",
                           intake={"kind": "transactions", "batch_id": "batch-7", "rows": 12, "matched": 10}),
@@ -260,6 +273,8 @@ MOBILE_ROUTES = {
     ("POST", "/api/mobile/v1/postings/{audit_log_id}/undo"): BOOKS,
     # a document from the books: whoever reads the books or the reports
     ("GET", "/api/mobile/v1/documents/invoices/{invoice_id}"): frozenset({"owner", "cfo", "accountant", "viewer", "personal"}),
+    # a payslip: whoever reads the payroll
+    ("GET", "/api/mobile/v1/documents/payslips/{run_id}/{entity_id}"): frozenset({"owner", "cfo", "accountant"}),
     # the second person
     ("GET", "/api/mobile/v1/approvals"): frozenset({"owner", "cfo", "manager"}),
     ("POST", "/api/mobile/v1/approvals/{token}/approve"): frozenset({"owner", "cfo", "manager"}),

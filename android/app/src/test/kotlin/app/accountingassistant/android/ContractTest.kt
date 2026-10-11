@@ -34,7 +34,8 @@ class ContractTest {
     @Test fun everyRecordedConversationIsHere() {
         assertTrue("run tests/test_mobile_contract.py to record them", dir.isDirectory)
         assertEquals(setOf("approval-fa", "balance-en", "budgets-fa", "cash-fa", "draft-fa", "forecast-fa", "intake-en",
-                           "invoice-pdf-en", "invoices-en", "posted-fa", "spending-fa", "statement-fa"), recordings().keys)
+                           "invoice-pdf-en", "invoices-en", "pay-history-fa", "payroll-runs-fa", "posted-fa", "spending-fa",
+                           "statement-fa"), recordings().keys)
     }
 
     @Test fun everyBlockBecomesTheItemItShould() {
@@ -101,6 +102,15 @@ class ContractTest {
         assertEquals("2027-01-04", chart.points.last().x)
         assertEquals(ChatItem.Chart.Point("2026-11-30", -120_000_000), chart.lowest)
         assertEquals("2026-11-30", chart.firstNegative)
+    }
+
+    @Test fun anEmployeesPayComesWithTheirPayslip() {
+        val (table, payslip) = recordings().getValue("pay-history-fa").take(2).map(::parseBlock)
+        table as ChatItem.Table
+        assertEquals("Sara Ahmadi", table.title)
+        assertEquals(listOf("مهر ۱۴۰۵" to 84_000_000L, "شهریور ۱۴۰۵" to 84_000_000L), table.rows.map { it.label to it.value })   // by the month a period ends in
+        payslip as ChatItem.File
+        assertTrue(payslip.path.startsWith("/api/mobile/v1/documents/payslips/"))
     }
 
     @Test fun aPostedBlockStampsTheVoucher() {

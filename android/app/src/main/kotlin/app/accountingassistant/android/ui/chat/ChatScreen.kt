@@ -288,6 +288,7 @@ private fun TableCard(item: ChatItem.Table, lang: String) {
     val c = LocalAccountantColors.current
     Surface(color = c.surface, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, c.line)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
+            item.title?.let { Text(it, color = c.muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) }
             item.rows.forEachIndexed { i, row ->
                 if (i > 0) HorizontalDivider(color = c.line, thickness = 1.dp)
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {

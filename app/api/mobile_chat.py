@@ -372,6 +372,14 @@ def mobile_invoice_pdf(invoice_id: uuid.UUID, db: Session = Depends(get_db)):
     return invoice_pdf(invoice_id=invoice_id, db=db)
 
 
+@router.get("/documents/payslips/{run_id}/{entity_id}")
+def mobile_payslip_pdf(run_id: uuid.UUID, entity_id: uuid.UUID, db: Session = Depends(get_db)):
+    """An employee's payslip for a pay run, as the web prints it: to open, or
+    to share with the employee."""
+    from app.api.payroll import payslip_pdf
+    return payslip_pdf(run_id=run_id, entity_id=entity_id, db=db)
+
+
 @router.post("/proposals/{token}/cancel")
 def mobile_cancel(token: str, db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
     """Discard the card; a confirmed one is undone or reversed instead."""

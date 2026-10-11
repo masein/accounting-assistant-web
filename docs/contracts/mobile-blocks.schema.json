@@ -237,7 +237,15 @@
           "enum": [
             "spending",
             "invoices",
-            "budgets"
+            "budgets",
+            "payroll_runs",
+            "pay_history"
+          ]
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
           ]
         },
         "rows": {

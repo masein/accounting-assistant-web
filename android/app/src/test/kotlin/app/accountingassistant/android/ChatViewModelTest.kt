@@ -93,6 +93,12 @@ class ChatViewModelTest {
         assertTrue(vm.state.value.attachments.isEmpty())
     }
 
+    @Test fun aSharedFileThatCannotBeReadSaysSo() = runBlocking {
+        val vm = ChatViewModel(api, restore = false)
+        vm.unreadable()
+        assertEquals(ChatUiState.Notice.Unreadable, vm.state.value.notice)
+    }
+
     @Test fun aVoiceNotesWordsLandInTheComposer() = runBlocking {
         val vm = ChatViewModel(api, restore = false)
         reply("""{"text":"اجارهٔ مهر را ثبت کن"}""")

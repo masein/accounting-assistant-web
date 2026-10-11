@@ -38,6 +38,7 @@
     <string name="uploading">جارٍ الرفع…</string>
     <string name="transcribing">أكتب ما قلته…</string>
     <string name="error_upload">لم يُرفع الملف. تحقق من الاتصال وحاول مرة أخرى.</string>
+    <string name="error_unreadable">تعذّر فتح هذا الملف. شاركه مرة أخرى أو أرفقه بزر +.</string>
     <string name="error_voice">تعذّر فهم الرسالة الصوتية. حاول مرة أخرى أو اكتبها.</string>
     <string name="lock_title">قفل التطبيق</string>
     <string name="lock_hint">اطلب البصمة أو الوجه أو رمز الهاتف عند فتح التطبيق وبعد دقيقتين من الغياب.</string>

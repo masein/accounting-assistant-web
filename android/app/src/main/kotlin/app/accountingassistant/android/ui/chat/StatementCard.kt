@@ -27,6 +27,7 @@ import app.accountingassistant.android.R
 import app.accountingassistant.android.ui.components.currencyName
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
 import app.accountingassistant.android.util.Dates
+import app.accountingassistant.android.util.LocalCalendar
 import app.accountingassistant.android.util.Numbers
 
 /**
@@ -45,7 +46,7 @@ fun StatementCard(item: ChatItem.Statement, lang: String, onFix: () -> Unit) {
                 item.bank?.let { Text(it, color = c.ink, fontSize = 12.sp, fontWeight = FontWeight(600)) }
             }
             Text(listOfNotNull(
-                     if (item.from != null && item.to != null) "\u2068${Dates.short(item.from, lang)} – ${Dates.short(item.to, lang)}\u2069" else null,
+                     if (item.from != null && item.to != null) "\u2068${Dates.short(item.from, lang, LocalCalendar.current)} – ${Dates.short(item.to, lang, LocalCalendar.current)}\u2069" else null,
                      Numbers.digits(pluralStringResource(R.plurals.statement_rows, item.rows, item.rows), lang),
                  ).joinToString(" · "),
                  color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700))

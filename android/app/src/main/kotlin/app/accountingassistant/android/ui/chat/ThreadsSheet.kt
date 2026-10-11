@@ -31,6 +31,7 @@ import app.accountingassistant.android.data.ThreadDto
 import app.accountingassistant.android.ui.components.ThinkingRow
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
 import app.accountingassistant.android.util.Dates
+import app.accountingassistant.android.util.LocalCalendar
 import app.accountingassistant.android.util.Numbers
 
 /** The conversations: open one with its cards, or start afresh. */
@@ -72,7 +73,7 @@ fun ThreadsContent(threads: List<ThreadDto>?, current: String?, lang: String, on
                                 Text(stringResource(R.string.threads_messages, Numbers.digits(t.messageCount.toString(), lang)),
                                      color = c.muted, fontSize = 12.sp)
                             }
-                            Text(Dates.short(t.updatedAt, lang), color = c.muted, fontSize = 12.sp)
+                            Text(Dates.short(t.updatedAt, lang, LocalCalendar.current), color = c.muted, fontSize = 12.sp)
                         }
                     }
                 }

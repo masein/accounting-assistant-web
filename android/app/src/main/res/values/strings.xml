@@ -44,6 +44,7 @@
     <string name="uploading">Uploading…</string>
     <string name="transcribing">Writing down what you said…</string>
     <string name="error_upload">The file didn\'t upload. Check the connection and try again.</string>
+    <string name="error_unreadable">Couldn\'t open that file. Share it again, or attach it with +.</string>
     <string name="error_voice">Couldn\'t make out the voice note. Try again, or type it.</string>
     <string name="lock_title">App lock</string>
     <string name="lock_hint">Ask for your fingerprint, face or PIN when the app opens and after two minutes away.</string>

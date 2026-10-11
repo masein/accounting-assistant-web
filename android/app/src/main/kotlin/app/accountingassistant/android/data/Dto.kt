@@ -45,6 +45,8 @@ data class CompanyDto(
     val locale: String? = null,
     @SerialName("base_currency") val baseCurrency: String? = null,
     val kind: String? = null,
+    /** "jalali" or "gregorian": the calendar the books write dates in, the same as the replies. */
+    val calendar: String? = null,
 )
 
 @Serializable

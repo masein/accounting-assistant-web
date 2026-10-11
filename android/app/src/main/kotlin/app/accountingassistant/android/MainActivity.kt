@@ -11,6 +11,7 @@ import android.content.Intent
 import app.accountingassistant.android.util.Capture
 import app.accountingassistant.android.util.Shared
 import app.accountingassistant.android.util.Shortcuts
+import app.accountingassistant.android.util.LocalCalendar
 import app.accountingassistant.android.widget.WidgetRefresh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ import app.accountingassistant.android.security.AppLock
 import app.accountingassistant.android.ui.account.AccountSheet
 import app.accountingassistant.android.ui.account.LockScreen
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -195,12 +197,15 @@ class MainActivity : ComponentActivity() {
                                     else Capture.document(this@MainActivity, uri)
                                 }
                             }.onSuccess { vm.attach(it.bytes, it.name, it.mime) }
+                                .onFailure { vm.unreadable() }                    // not a silent nothing
                         }
                     }
                     var account by remember { mutableStateOf(false) }
                     var threadsOpen by remember { mutableStateOf(false) }
                     val threads by vm.threads.collectAsState()
                     var devices by remember { mutableStateOf<List<DeviceDto>?>(null) }
+                    // dates in the books' calendar, as the replies write them
+                    CompositionLocalProvider(LocalCalendar provides company?.calendar) {
                     ChatScreen(
                         state = s, lang = lang,
                         booksName = company?.name ?: "",
@@ -236,6 +241,7 @@ class MainActivity : ComponentActivity() {
                                      onOpen = { vm.open(it); threadsOpen = false },
                                      onNew = { vm.startNew(); threadsOpen = false },
                                      onDismiss = { threadsOpen = false })
+                    }
                     }
                     if (account && session != null) {
                         AccountSheet(

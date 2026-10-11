@@ -53,7 +53,7 @@ _INTENTS: list[tuple[str, re.Pattern]] = [
         re.IGNORECASE)),
     ("budget", re.compile(
         r"\bbudgets?\b.*\b(left|status|look|going|remaining|used)\b|\bhow('?s| is| are) (my|our|the) budgets?\b"
-        r"|بودجه|presupuesto|الميزانية",
+        r"|بودجه|presupuesto|الميزانية|ميزانيت(ي|نا)",
         re.IGNORECASE)),
     ("spending", re.compile(
         r"\bhow much (did|have) (i|we) spen[dt]\b|\bspending this month\b|\bwhat did (i|we) spend\b"
@@ -70,7 +70,7 @@ _INTENTS: list[tuple[str, re.Pattern]] = [
         r"|\bwhat'?s in the bank\b|\bhow much is in the bank\b"
         r"|موجودی (نقد|بانک|حساب|حساب[‌ ]?ها|کل)?|نقدینگی|چقدر پول (داریم|دارم|مونده)|پول نقد"
         r"|cu[aá]nto dinero (tenemos|tengo|hay)|saldo (de caja|del banco|en el banco)|efectivo disponible"
-        r"|كم (لدينا|عندنا) من (المال|النقود)|الرصيد النقدي|رصيد (البنك|الصندوق)",
+        r"|كم (لدينا|عندنا|لدي|لديّ|عندي) من (المال|النقود)|الرصيد النقدي|رصيد (البنك|الصندوق)",
         re.IGNORECASE)),
 ]
 

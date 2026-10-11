@@ -75,6 +75,13 @@
         <item>ماذا علينا؟</item>
         <item>كم أنفقنا هذا الشهر؟</item>
     </string-array>
+    <!-- personal books: a person's questions, in the first person (the 2026-10-11 pass) -->
+    <string-array name="suggestions_personal">
+        <item>كم لدي من المال؟</item>
+        <item>كم أنفقت هذا الشهر؟</item>
+        <item>ما وضع ميزانيتي؟</item>
+        <item>كم أملك؟</item>
+    </string-array>
     <string name="outbox_waiting">بانتظار الشبكة؛ ستُرسل تلقائياً.</string>
     <string name="outbox_retry">أعد الإرسال</string>
     <string name="outbox_discard">لا ترسل</string>

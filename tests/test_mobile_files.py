@@ -49,3 +49,42 @@ def test_n16_nothing_to_say_is_said_with_nothing(client, co, phone, monkeypatch)
     monkeypatch.setattr(insight_service, "briefing_text", lambda insights, lang: None)
     r = client.post(f"{API}/briefing", headers=phone, json={})
     assert r.status_code == 200 and r.json() == {"thread_id": None, "blocks": []}
+
+
+def test_n39_a_file_only_message_comes_back_as_its_files_not_the_models_prompt(client, db, co, phone, monkeypatch):
+    # opened again, a receipt's message used to read "Attached document OCR (attachment_id=…" — the
+    # prompt written for the model — and a statement's an empty bubble
+    from functools import partial
+
+    from app.api import ai_accountant as api_mod
+    from app.services import ocr_extract
+    from tests.test_ai_guardrails import _FakeClient, _text
+
+    async def unread(path, content_type):
+        return {}
+    monkeypatch.setattr(ocr_extract, "extract_from_attachment", unread)
+    monkeypatch.setattr(api_mod, "run_chat_turn", partial(api_mod.run_chat_turn, client=_FakeClient([_text("I couldn't read it.")])))
+    att = client.post(f"{API}/uploads", headers=phone, files={"file": ("receipt.png", PNG, "image/png")}).json()["id"]
+    r = client.post(f"{API}/chat", headers=phone, json={"message": "", "attachment_ids": [att], "client_message_id": "m-77"})
+    assert r.status_code == 200, r.text
+    thread = r.json()["thread_id"]
+    mine = [m for m in client.get(f"{API}/threads/{thread}/messages", headers=phone).json() if m["role"] == "user"]
+    assert (mine[-1]["text"], mine[-1]["client_message_id"]) == ("", "m-77")
+    assert mine[-1]["files"] == [{"name": "receipt.png", "content_type": "image/png"}]
+    # the model still sees the document when the conversation goes on
+    import uuid as _uuid
+
+    from app.db.tenant import use_company
+    from app.services.ai_accountant.orchestrator import _replay_history
+    with use_company(co["cid"]):
+        replay = _replay_history(db, _uuid.UUID(thread))
+    assert any("Attached document OCR" in (m.text or "") for m in replay if m.role == "user")
+
+
+def test_n39_a_statement_sent_alone_keeps_its_name(client, co, phone):
+    from tests.test_chat_statement_intake import STATEMENT_CSV
+    att = client.post(f"{API}/uploads", headers=phone, files={"file": ("mellat-mehr.csv", STATEMENT_CSV, "text/csv")}).json()["id"]
+    r = client.post(f"{API}/chat", headers=phone, json={"message": "", "attachment_ids": [att]})
+    assert r.status_code == 200, r.text
+    mine = [m for m in client.get(f"{API}/threads/{r.json()['thread_id']}/messages", headers=phone).json() if m["role"] == "user"]
+    assert mine[-1]["files"] == [{"name": "mellat-mehr.csv", "content_type": "text/csv"}]

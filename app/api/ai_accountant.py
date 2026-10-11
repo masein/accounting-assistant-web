@@ -270,14 +270,17 @@ def _deterministic_turn(
     from app.services.ai_accountant.orchestrator import (
         _get_or_create_session,
         maybe_autotitle_session,
+        sent_files,
     )
 
     session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.session_id)
     # Explicit microsecond timestamps: both rows land in the same DB second and
     # server_default now() has second precision on SQLite — ordering must hold.
     now = datetime.now(timezone.utc)
-    db.add(AIChatMessage(session_id=session.id, role="user",
-                         content={"role": "user", "text": payload.message}, created_at=now))
+    said = {"role": "user", "text": payload.message}
+    if payload.attachment_ids:
+        said["files"] = sent_files(db, payload.attachment_ids)
+    db.add(AIChatMessage(session_id=session.id, role="user", content=said, created_at=now))
     db.add(AIChatMessage(session_id=session.id, role="assistant",
                          content={"role": "assistant", "text": assistant_text},
                          created_at=now + timedelta(milliseconds=1)))

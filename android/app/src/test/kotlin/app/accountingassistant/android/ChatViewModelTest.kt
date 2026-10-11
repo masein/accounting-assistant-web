@@ -185,6 +185,18 @@ class ChatViewModelTest {
         assertTrue(outbox.entries.value.isEmpty())
     }
 
+    /** Scenario N39: a message that carried only a statement comes back with its name, not as an empty bubble. */
+    @Test fun reopeningShowsTheFilesAMessageCarried() = runBlocking {
+        reply("""[{"id":"t1","title":"صورتحساب","message_count":2}]""")
+        reply("""[{"id":"s1","role":"user","text":"","files":[{"name":"mellat-mehr.csv","content_type":"text/csv"}]},""" +
+              """{"id":"s2","role":"assistant","blocks":[{"type":"text","id":"b1","text":"خواندم"}]}]""")
+        reply("""{"thread_id":"t1","blocks":[]}""")
+        val vm = ChatViewModel(api)
+        until { vm.state.value.items.any { it is ChatItem.Words } }
+        val user = vm.state.value.items.filterIsInstance<ChatItem.User>().single()
+        assertEquals("" to listOf("mellat-mehr.csv"), user.text to user.files)
+    }
+
     @Test fun olderMessagesComeAPageAtATimeAndCatchingUpSkipsWhatIsDrawn() = runBlocking {
         reply("""[{"id":"t1","message_count":200}]""")
         server.enqueue(MockResponse.Builder().addHeader("X-More-Before", "true").body(

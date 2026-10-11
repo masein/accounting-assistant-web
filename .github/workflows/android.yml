@@ -39,6 +39,10 @@ jobs:
         run: ./gradlew --no-daemon :app:recordRoborazziDebug
       - name: Debug build
         run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Lint
+        # errors fail the build: it caught the app lock throwing on a locked phone (USE_BIOMETRIC) and an
+        # Android 10 call reached on Android 9, which the emulator and the tests never did
+        run: ./gradlew --no-daemon :app:lintDebug
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -80,14 +80,16 @@ class OutboxTest {
     @Test fun aPhotoIsUploadedOnceEvenWhenTheMessageWaits() = runBlocking {
         val kept = outbox.keep(byteArrayOf(7, 7, 7))
         outbox.add(q("m1", "", thread = "t1", files = listOf(QueuedFile("receipt.jpg", "image/jpeg", path = kept))))
-        reply("""{"id":"att-9","file_name":"receipt.jpg"}""")
+        reply("""{"id":"up1","received":0,"size_bytes":3,"chunk_size":262144,"done":false}""")
+        reply("""{"id":"up1","received":3,"size_bytes":3,"done":true,"attachment":{"id":"att-9","file_name":"receipt.jpg"}}""")
         unreachable = { it.contains("/chat") }                         // the upload gets through, the message doesn't
         assertEquals(Outbox.Result.Offline, outbox.flush())
         assertEquals("att-9", outbox.entries.value.single().files.single().uploadedId)
         offline = false
         answer("t1", "خوانده شد")
         assertEquals(Outbox.Result.Done, outbox.flush())
-        assertEquals("/api/mobile/v1/uploads", server.takeRequest().url.encodedPath)
+        assertEquals("/api/mobile/v1/uploads/begin", server.takeRequest().url.encodedPath)
+        assertEquals("/api/mobile/v1/uploads/up1", server.takeRequest().url.encodedPath)
         val sent = server.takeRequest()
         assertEquals("/api/mobile/v1/chat/stream", sent.url.encodedPath)   // no second upload
         assertTrue(sent.body!!.utf8().contains("\"attachment_ids\":[\"att-9\"]"))

@@ -474,6 +474,7 @@ for _m, _p in [
     ("POST", "/api/mobile/v1/proposals/{token}/edit"),
     ("POST", "/api/mobile/v1/statements/{statement_id}/next"),
     ("POST", "/api/mobile/v1/uploads"), ("POST", "/api/mobile/v1/transcribe"), ("POST", "/api/mobile/v1/briefing"),
+    ("POST", "/api/mobile/v1/uploads/begin"), ("PUT", "/api/mobile/v1/uploads/{upload_id}"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 # What the assistant learned from corrections (roadmap §5.4).

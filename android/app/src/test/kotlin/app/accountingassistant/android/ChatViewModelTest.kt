@@ -70,10 +70,14 @@ class ChatViewModelTest {
 
     @Test fun aPhotoGoesWithTheNextMessage() = runBlocking {
         val vm = ChatViewModel(api, restore = false)
-        reply("""{"id":"att-1","file_name":"receipt.jpg","content_type":"image/jpeg","size_bytes":3}""")
+        reply("""{"id":"up1","received":0,"size_bytes":3,"chunk_size":262144,"done":false}""")
+        reply("""{"id":"up1","received":3,"size_bytes":3,"done":true,
+                  "attachment":{"id":"att-1","file_name":"receipt.jpg","content_type":"image/jpeg","size_bytes":3}}""")
         vm.attach(byteArrayOf(1, 2, 3), "receipt.jpg", "image/jpeg")
         until { vm.state.value.attachments.isNotEmpty() }
-        assertTrue(server.takeRequest().body!!.utf8().contains("filename=\"receipt.jpg\""))
+        assertTrue(server.takeRequest().body!!.utf8().contains("\"file_name\":\"receipt.jpg\""))
+        assertEquals("/api/mobile/v1/uploads/up1", server.takeRequest().url.encodedPath)
+        assertEquals(null, vm.state.value.uploadProgress)
         reply("event: status\ndata: {\"stage\":\"reading_files\",\"text\":\"در حال خواندن پیوست…\"}\n\n" +
               "event: reply\ndata: {\"thread_id\":\"t9\",\"blocks\":[{\"type\":\"text\",\"id\":\"w\",\"text\":\"رسید خوانده شد.\"}]}\n\n" +
               "event: done\ndata: {}\n\n")

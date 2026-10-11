@@ -169,7 +169,10 @@ fun ChatScreen(
                             }
                         is ChatItem.Chart -> ChartCard(item, lang)
                         is ChatItem.Statement -> StatementCard(item, lang, onFix = { onStatementNext(item.statementId) })
-                        is ChatItem.Thinking -> ThinkingRow(item.text ?: stringResource(R.string.thinking))
+                        is ChatItem.Thinking -> ThinkingRow(
+                            item.upload?.let { stringResource(R.string.uploading) + " " + Numbers.percent(it, lang) }
+                                ?: item.text ?: stringResource(R.string.thinking),
+                            progress = item.upload)
                         is ChatItem.Suggestions -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             AssistantText(stringResource(R.string.suggestions_intro))
                             Choices(options = item.options, selected = null, onPick = { onSuggestion(item.options[it]) })
@@ -233,8 +236,10 @@ fun ChatScreen(
                 }
             }
             if (state.uploading || state.transcribing) {
-                ThinkingRow(stringResource(if (state.uploading) R.string.uploading else R.string.transcribing),
-                            Modifier.padding(start = 8.dp))
+                val gone = state.uploadProgress.takeIf { state.uploading }
+                ThinkingRow(stringResource(if (state.uploading) R.string.uploading else R.string.transcribing) +
+                                (gone?.let { " " + Numbers.percent(it, lang) } ?: ""),
+                            Modifier.padding(start = 8.dp), progress = gone)
             }
             if (state.attachments.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -84,8 +84,8 @@ sealed interface ChatItem {
     data class Problem(override val id: String, val code: String?, val detail: String) : ChatItem
     /** A block this version of the app can't draw: its sentence instead. */
     data class Fallback(override val id: String, val text: String) : ChatItem
-    /** The turn under way; [text] is the step the server says it is on. */
-    data class Thinking(override val id: String = "thinking", val text: String? = null) : ChatItem
+    /** The turn under way; [text] is the step the server says it is on, [upload] how much of its file has gone. */
+    data class Thinking(override val id: String = "thinking", val text: String? = null, val upload: Float? = null) : ChatItem
     /** Older messages wait on the server: tap to bring the page before. */
     data class Earlier(override val id: String = "earlier") : ChatItem
     /** A first-run hint: questions the books can answer at once. */

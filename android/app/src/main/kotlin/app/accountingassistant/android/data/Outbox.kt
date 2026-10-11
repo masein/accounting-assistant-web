@@ -130,8 +130,8 @@ class Outbox(
 ) {
     enum class Result { Done, Offline, Busy }
 
-    /** The message on its way, and the step the server says it is on. */
-    data class Sending(val clientId: String, val step: String? = null)
+    /** The message on its way: the step the server says it is on, or how much of its file has gone (0–1). */
+    data class Sending(val clientId: String, val step: String? = null, val upload: Float? = null)
 
     sealed interface Delivery {
         val entry: Queued
@@ -220,7 +220,9 @@ class Outbox(
                 try {
                     val ids = mutableListOf<String>()
                     for ((i, f) in q.files.withIndex()) {
-                        val id = f.uploadedId ?: api.upload(store.readFile(f.path ?: continue), f.name, f.mime).id.also { up ->
+                        val id = f.uploadedId ?: api.upload(store.readFile(f.path ?: continue), f.name, f.mime) { p ->
+                            _sending.value = Sending(q.clientId, upload = p)
+                        }.id.also { up ->
                             q = q.copy(files = q.files.toMutableList().also { it[i] = f.copy(uploadedId = up) })
                             val kept = q
                             change { list -> list.map { if (it.clientId == kept.clientId) kept else it } }

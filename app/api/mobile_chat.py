@@ -13,7 +13,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
@@ -517,6 +517,52 @@ def mobile_upload(file: UploadFile = File(...), db: Session = Depends(get_db)) -
     from app.api.transactions import upload_attachment
     a = upload_attachment(file=file, db=db)
     return {"id": str(a.id), "file_name": a.file_name, "content_type": a.content_type, "size_bytes": a.size_bytes}
+
+
+class UploadBegin(BaseModel):
+    file_name: str = Field(min_length=1, max_length=256)
+    content_type: str = Field(default="", max_length=128)
+    size_bytes: int = Field(gt=0)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+def _upload_state(db: Session, row) -> dict:
+    from app.services import mobile_uploads as uploads
+    a = uploads.attachment_of(db, row)
+    return {"id": str(row.id), "received": row.received, "size_bytes": row.size_bytes,
+            "chunk_size": uploads.CHUNK_SIZE, "done": a is not None,
+            "attachment": None if a is None else {"id": str(a.id), "file_name": a.file_name,
+                                                  "content_type": a.content_type, "size_bytes": a.size_bytes}}
+
+
+@router.post("/uploads/begin")
+def mobile_upload_begin(payload: UploadBegin, db: Session = Depends(get_db),
+                        user: SessionUser = Depends(get_current_user)) -> dict:
+    """Begin sending a file in pieces, or find how far it got (by its hash):
+    after a dropped connection the phone asks again and goes on from
+    ``received``. A file already here, not yet part of a voucher, comes back
+    ``done`` with its attachment, and nothing needs sending."""
+    from app.services import mobile_uploads as uploads
+    row = uploads.begin(db, user.user_id, file_name=payload.file_name, content_type=payload.content_type,
+                        size_bytes=payload.size_bytes, sha256=payload.sha256)
+    return _upload_state(db, row)
+
+
+@router.put("/uploads/{upload_id}")
+async def mobile_upload_piece(upload_id: str, request: Request, offset: int = Query(ge=0),
+                              db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
+    """One piece (the raw bytes) at ``offset``. A piece anywhere but where the
+    upload stands writes nothing, and the reply says where to go on; the
+    last one makes the file an attachment."""
+    from app.services import mobile_uploads as uploads
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > uploads.MAX_CHUNK:
+        raise HTTPException(status_code=413, detail="A piece may be at most 1 MB.")
+    data = await request.body()
+    if len(data) > uploads.MAX_CHUNK:
+        raise HTTPException(status_code=413, detail="A piece may be at most 1 MB.")
+    row = uploads.add_piece(db, user.user_id, upload_id, offset, data)
+    return _upload_state(db, row)
 
 
 @router.post("/transcribe")

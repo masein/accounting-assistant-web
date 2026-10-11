@@ -31,6 +31,8 @@ data class ChatUiState(
     /** Files uploaded (or kept, offline) and waiting to go with the next message. */
     val attachments: List<Attachment> = emptyList(),
     val uploading: Boolean = false,
+    /** How much of the file being attached has gone, 0–1, while [uploading]. */
+    val uploadProgress: Float? = null,
     val listening: Boolean = false,
     val transcribing: Boolean = false,
     /** The outbox by client id: messages waiting for the network, or refused. */
@@ -86,7 +88,7 @@ class ChatViewModel(
     /** The step the server is on shows under the message being sent, if it is this conversation's. */
     private fun onSending(s: Outbox.Sending?) = _state.update { st ->
         val rest = st.items.filterNot { it is ChatItem.Thinking }
-        if (s != null && st.has(s.clientId)) st.copy(items = rest + ChatItem.Thinking(text = s.step), sending = true)
+        if (s != null && st.has(s.clientId)) st.copy(items = rest + ChatItem.Thinking(text = s.step, upload = s.upload), sending = true)
         else st.copy(items = rest, sending = s != null && st.sending)
     }
 
@@ -201,20 +203,21 @@ class ChatViewModel(
 
     /** A photo or a document: uploaded now, sent with the next message; offline, kept until it can go. */
     fun attach(bytes: ByteArray, name: String, mime: String) {
-        _state.update { it.copy(uploading = true, notice = null) }
+        _state.update { it.copy(uploading = true, uploadProgress = null, notice = null) }
         viewModelScope.launch {
             try {
-                val r = api.upload(bytes, name, mime)
-                _state.update { it.copy(uploading = false, attachments = it.attachments + ChatUiState.Attachment(r.id, name, mime)) }
+                val r = api.upload(bytes, name, mime) { p -> _state.update { it.copy(uploadProgress = p) } }
+                _state.update { it.copy(uploading = false, uploadProgress = null,
+                                        attachments = it.attachments + ChatUiState.Attachment(r.id, name, mime)) }
             } catch (e: NetworkError) {
                 val kept = runCatching { outbox.keep(bytes) }.getOrNull()
                 _state.update {
-                    if (kept == null) it.copy(uploading = false, notice = ChatUiState.Notice.UploadFailed)
-                    else it.copy(uploading = false, notice = ChatUiState.Notice.Offline,
+                    if (kept == null) it.copy(uploading = false, uploadProgress = null, notice = ChatUiState.Notice.UploadFailed)
+                    else it.copy(uploading = false, uploadProgress = null, notice = ChatUiState.Notice.Offline,
                                  attachments = it.attachments + ChatUiState.Attachment("kept-$kept", name, mime, uploadedId = null, path = kept))
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(uploading = false, notice = ChatUiState.Notice.UploadFailed) }
+                _state.update { it.copy(uploading = false, uploadProgress = null, notice = ChatUiState.Notice.UploadFailed) }
             }
         }
     }

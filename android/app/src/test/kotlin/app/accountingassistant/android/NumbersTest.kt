@@ -32,4 +32,12 @@ class NumbersTest {
         assertEquals("\u2066−2,500\u2069", Numbers.signed(-2_500, "en"))
         assertEquals("\u20660\u2069", Numbers.signed(0, "en"))
     }
+
+    @Test fun aShareIsWrittenTheWayEachLanguageWritesIt() {
+        assertEquals("۴۰٪", Numbers.percent(0.4f, "fa"))
+        assertEquals("٤٠٪", Numbers.percent(0.4f, "ar"))
+        assertEquals("40\u00A0%", Numbers.percent(0.4f, "es"))
+        assertEquals("100%", Numbers.percent(1.3f, "en"))
+        assertEquals("0%", Numbers.percent(0f, "en"))
+    }
 }

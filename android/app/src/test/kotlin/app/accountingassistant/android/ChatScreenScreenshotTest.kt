@@ -276,4 +276,28 @@ class ChatScreenScreenshotTest {
         compose.mainClock.advanceTimeBy(1500)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-net-worth.png")
     }
+
+    /** Scenario N37: a statement going in pieces on a poor line, and a photo being attached. */
+    @Test @Config(qualifiers = "+fa")
+    fun persianAStatementGoingInPieces() = pieces("chat-fa-upload", dark = false, lang = "fa",
+        ChatItem.User("u1", "صورتحساب مهر", files = listOf("صورتحساب-ملت-مهر.pdf")))
+
+    @Test @Config(qualifiers = "+en-night")
+    fun englishAStatementGoingInPiecesDark() = pieces("chat-en-upload-dark", dark = true, lang = "en",
+        ChatItem.User("u1", "October's statement", files = listOf("mellat-october.pdf")))
+
+    private fun pieces(name: String, dark: Boolean, lang: String, user: ChatItem.User) {
+        compose.setContent {
+            AccountantTheme(dark = dark) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(user, ChatItem.Thinking(upload = 0.4f)),
+                                        uploading = true, uploadProgress = 0.62f),
+                    lang = lang, booksName = if (lang == "fa") "شرکت بازرگانی آرمان" else "Arman Trading", personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
+    }
 }

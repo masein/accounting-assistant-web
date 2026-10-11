@@ -206,9 +206,40 @@ class ApiClient(
         pairs.filter { it.second != null }.joinToString("&") { (k, v) -> k + "=" + URLEncoder.encode(v, "UTF-8") }
             .let { if (it.isEmpty()) "" else "?$it" }
 
-    /** A photo, a PDF, a statement: its id then goes with the chat message. */
-    suspend fun upload(bytes: ByteArray, fileName: String, contentType: String): UploadReply =
-        callBody("POST", "/uploads", { multipart(bytes, fileName, contentType) }, serializer())
+    /**
+     * A photo, a PDF, a statement, sent in pieces (P0.7); its id then goes
+     * with the chat message. After a dropped connection the next call goes on
+     * from what the server kept (it finds the upload by the file's hash), and
+     * a file the server already has isn't sent again. [progress] runs from 0 to 1.
+     */
+    suspend fun upload(bytes: ByteArray, fileName: String, contentType: String,
+                       progress: (Float) -> Unit = {}): UploadReply {
+        val begin = UploadBegin(fileName, contentType, bytes.size.toLong(), sha256(bytes))
+        var state = call("POST", "/uploads/begin", begin, serializer<UploadState>())
+        var restarted = false
+        var still = 0
+        while (true) {
+            state.attachment?.let { progress(1f); return it }
+            progress(state.received.toFloat() / bytes.size)
+            val from = state.received.toInt()
+            val count = minOf(state.chunkSize, bytes.size - from)
+            val next = try {
+                callBody("PUT", "/uploads/${state.id}?offset=$from",
+                         { bytes.toRequestBody(OCTET_TYPE, from, count) }, serializer<UploadState>())
+            } catch (e: ApiError) {
+                // damaged on the way, or forgotten: once more from what the server has
+                if (restarted || (e.code != "upload_corrupt" && e.status != 404)) throw e
+                restarted = true
+                call("POST", "/uploads/begin", begin, serializer<UploadState>())
+            }
+            still = if (next.received <= state.received && next.attachment == null) still + 1 else 0
+            if (still > 2) throw NetworkError(IOException("the upload stopped advancing"))
+            state = next
+        }
+    }
+
+    private fun sha256(bytes: ByteArray): String =
+        java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     /** A voice note's words, for the user to check before sending. */
     suspend fun transcribe(bytes: ByteArray, fileName: String, contentType: String): TranscribeReply =
@@ -335,5 +366,6 @@ class ApiClient(
     companion object {
         const val PREFIX = "/api/mobile/v1"
         private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
+        private val OCTET_TYPE = "application/octet-stream".toMediaType()
     }
 }

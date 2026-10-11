@@ -100,6 +100,8 @@ def test_same_statement_dropped_again_points_at_the_earlier_import(auth_client, 
     assert second["intake"]["status"] == "duplicate"
     assert second["intake"]["statement_id"] == first["statement_id"]
     assert "already imported" in second["text"].lower()
+    # where the earlier import stands comes with it, so the phone draws its card again
+    assert second["intake"]["total_rows"] == first["total_rows"] and second["intake"]["counts"] == first["counts"]
 
 
 STATEMENT_CSV = ("Date,Description,Debit,Credit,Balance\n"

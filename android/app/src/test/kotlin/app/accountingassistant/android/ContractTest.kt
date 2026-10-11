@@ -57,7 +57,9 @@ class ContractTest {
             }
             assertEquals("$name: $type", expected, item::class)
             assertEquals("$name: $type keeps its id", b.str("id"), item.id)
-            if (item is ChatItem.Fallback) assertTrue("$name: $type has a sentence to show", item.text.isNotBlank())
+            // a card's fallback is empty when the reply's words follow in their own block (parseBlocks leaves it out)
+            val wordsFollow = blocks.any { it.str("type") == "text" && !it.str("text").isNullOrBlank() }
+            if (item is ChatItem.Fallback) assertTrue("$name: $type has a sentence to show", item.text.isNotBlank() || wordsFollow)
             drawn += type
         }
         assertEquals(setOf("text", "figure", "chart", "table", "proposal", "approval", "file", "intake"), drawn)

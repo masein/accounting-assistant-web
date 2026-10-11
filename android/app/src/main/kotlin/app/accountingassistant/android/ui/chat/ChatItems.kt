@@ -98,13 +98,26 @@ private fun JsonObject.bool(key: String): Boolean = (this[key] as? JsonPrimitive
 private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
 private fun JsonElement?.array(): List<JsonObject> = (this as? JsonArray)?.mapNotNull { it as? JsonObject } ?: emptyList()
 
+/**
+ * A reply's blocks as chat items. A fallback that says nothing, or repeats
+ * the reply's own words, is left out: the card of a statement imported
+ * before used to bring the whole reply a second time.
+ */
+fun parseBlocks(blocks: List<JsonObject>): List<ChatItem> {
+    val items = blocks.map(::parseBlock)
+    val said = items.filterIsInstance<ChatItem.Words>().map { it.text.trim() }.toSet()
+    return items.filterNot { it is ChatItem.Fallback && (it.text.isBlank() || it.text.trim() in said) }
+}
+
 /** The server's blocks (app/services/ai_accountant/blocks.py) as chat items. */
 fun parseBlock(b: JsonObject): ChatItem {
     val id = b.str("id") ?: b.hashCode().toString()
     return when (b.str("type")) {
         "text" -> ChatItem.Words(id, b.str("text").orEmpty(),
                                  nextStatement = b.str("statement_id").takeIf { b.str("kind") == "statement_next" })
-        "intake" -> if (b.str("kind") == "bank_statement" && b.str("status") == "imported" && b.str("statement_id") != null)
+        // imported now, or before (then the card is the earlier import, as it stands)
+        "intake" -> if (b.str("kind") == "bank_statement" && b.str("statement_id") != null &&
+                        (b.str("status") == "imported" || (b.str("status") == "duplicate" && b.long("total_rows") != null)))
             ChatItem.Statement(
                 id = id, statementId = b.str("statement_id")!!,
                 bank = b.str("bank_label") ?: b.str("bank_name")?.takeIf { it != "Unknown" },     // «ملت» in Persian

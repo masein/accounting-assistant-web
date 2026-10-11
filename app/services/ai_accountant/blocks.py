@@ -367,8 +367,9 @@ def build_blocks(db: Session, *, text: str | None, proposals: list | None, tool_
         calendar = get_display_calendar(db)
     blocks = data_blocks(tool_calls, lang=lang, calendar=calendar)
     if intake:
+        # the words follow in their own block: a client that can't draw the card mustn't say them twice
         blocks.append({"type": "intake", "id": f"intake:{intake.get('kind')}:{intake.get('statement_id') or intake.get('batch_id') or ''}",
-                       **intake, "fallback_text": text or ""})
+                       **intake, "fallback_text": "" if (text and text.strip()) else (text or "")})
     all_lines = [ln for p in (proposals or []) for ln in ((_get(p, "preview") or {}).get("lines") or [])
                  if isinstance(ln, dict)]
     names = _account_names(db, (ln.get("account_code") for ln in all_lines))

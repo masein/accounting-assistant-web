@@ -106,7 +106,7 @@ class ChatViewModel(
         when (d) {
             is Outbox.Delivery.Answered -> {
                 val have = rest.map { it.id }.toSet()
-                st.copy(items = rest + d.reply.blocks.map(::parseBlock).filterNot { it.id in have },
+                st.copy(items = rest + parseBlocks(d.reply.blocks).filterNot { it.id in have },
                         threadId = st.threadId ?: d.reply.threadId,
                         notice = st.notice.takeUnless { it == ChatUiState.Notice.Offline })
             }
@@ -127,7 +127,7 @@ class ChatViewModel(
 
     private fun itemsOf(m: ThreadMessageDto): List<ChatItem> =
         if (m.role == "user") listOf(ChatItem.User(m.id, m.text.orEmpty(), m.files.map { it.name }, clientId = m.clientMessageId))
-        else m.blocks.map(::parseBlock)
+        else parseBlocks(m.blocks)
 
     /** A conversation's latest page with its cards redrawn, and what still waits to go to it. */
     private suspend fun page(threadId: String): List<ChatItem>? {
@@ -168,7 +168,7 @@ class ChatViewModel(
         }
         runCatching { api.briefing(_state.value.threadId) }.getOrNull()?.let { b ->
             if (b.blocks.isNotEmpty()) _state.update {
-                it.copy(items = it.items + b.blocks.map(::parseBlock), threadId = b.threadId ?: it.threadId)
+                it.copy(items = it.items + parseBlocks(b.blocks), threadId = b.threadId ?: it.threadId)
             }
         }
     }
@@ -326,7 +326,7 @@ class ChatViewModel(
                 val r = api.statementNext(statementId, _state.value.threadId)
                 _state.update { s ->
                     val have = s.items.map { it.id }.toSet()
-                    s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + r.blocks.map(::parseBlock).filterNot { it.id in have },
+                    s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + parseBlocks(r.blocks).filterNot { it.id in have },
                            threadId = s.threadId ?: r.threadId)
                 }
             } catch (e: NetworkError) {

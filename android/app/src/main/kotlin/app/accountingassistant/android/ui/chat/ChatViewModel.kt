@@ -126,7 +126,7 @@ class ChatViewModel(
     private fun bubble(q: Queued) = ChatItem.User(q.clientId, q.text, q.files.map { it.name }, clientId = q.clientId)
 
     private fun itemsOf(m: ThreadMessageDto): List<ChatItem> =
-        if (m.role == "user") listOf(ChatItem.User(m.id, m.text.orEmpty(), clientId = m.clientMessageId))
+        if (m.role == "user") listOf(ChatItem.User(m.id, m.text.orEmpty(), m.files.map { it.name }, clientId = m.clientMessageId))
         else m.blocks.map(::parseBlock)
 
     /** A conversation's latest page with its cards redrawn, and what still waits to go to it. */

@@ -264,12 +264,19 @@
         messagesEl.innerHTML = '';
         msgs.forEach((m) => {
           const c = m.content || {};
+          if (m.role === 'user') {
+            // what the user said and sent; "text" may also carry a document's OCR, written for the model
+            const said = typeof c.said === 'string' ? c.said
+              : (typeof c.text === 'string' ? c.text : (typeof c.content === 'string' ? c.content : ''));  // legacy shape
+            const files = (Array.isArray(c.files) ? c.files : []).map((f) => ({ file_name: f.name, content_type: f.content_type }));
+            if (said.trim() || files.length) appendUserTurn(said, files, m.created_at, false);
+            return;
+          }
           const text = (typeof c.text === 'string' && c.text.trim())
             ? c.text
             : (typeof c.content === 'string' ? c.content : null);  // legacy shape
           if (!text) return;  // skip tool turns / empty tool-call turns
-          if (m.role === 'user') appendBubble('user', text, { at: m.created_at, animate: false });
-          else if (m.role === 'assistant') appendBubble('assistant', text, { at: m.created_at, animate: false });
+          if (m.role === 'assistant') appendBubble('assistant', text, { at: m.created_at, animate: false });
         });
         renderEmptyState();
         scrollToBottom(true);
@@ -1012,8 +1019,8 @@
 
       // Render the user's turn, showing any attached document names as
       // chips beneath the text so the upload is visible in the transcript.
-      function appendUserTurn(text, attachments) {
-        const wrap = appendBubble('user', text || '', { at: new Date().toISOString() });
+      function appendUserTurn(text, attachments, at, animate) {
+        const wrap = appendBubble('user', text || '', { at: at || new Date().toISOString(), animate });
         if (attachments && attachments.length) {
           const bubble = wrap.querySelector('.msg');
           if (bubble) {

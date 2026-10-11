@@ -614,6 +614,20 @@ def _get_or_create_session(
     return row
 
 
+def sent_files(db: Session, attachment_ids: list[str]) -> list[dict[str, Any]]:
+    """The files a message carried, as a conversation shows them again: name and type."""
+    from app.models.transaction import TransactionAttachment
+    out = []
+    for raw in attachment_ids:
+        try:
+            att = db.get(TransactionAttachment, uuid.UUID(str(raw)))
+        except (ValueError, TypeError):
+            att = None
+        if att is not None:
+            out.append({"name": att.file_name, "content_type": att.content_type})
+    return out
+
+
 def _persist_message(db: Session, *, session_id: uuid.UUID, role: str, content: dict[str, Any]) -> None:
     db.add(AIChatMessage(session_id=session_id, role=role, content=content))
     db.commit()
@@ -778,7 +792,12 @@ async def run_chat_turn(
         turn_text += ocr_context
     user_turn = ChatMessage(role="user", text=turn_text)
     history.append(user_turn)
-    _persist_message(db, session_id=chat_session.id, role="user", content=user_turn.to_dict())
+    stored = user_turn.to_dict()
+    if ocr_context:
+        stored["said"] = user_message or ""         # what the user typed: "text" also carries the document, for the model
+    if attachment_ids:
+        stored["files"] = sent_files(db, attachment_ids)
+    _persist_message(db, session_id=chat_session.id, role="user", content=stored)
     maybe_autotitle_session(db, chat_session, user_message)
 
     tool_ctx = ToolContext(

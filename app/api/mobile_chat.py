@@ -279,9 +279,12 @@ def mobile_thread_messages(thread_id: str, response: Response,
             continue                                   # a tool-calling step with nothing to show
         item = {"id": str(m.id), "role": m.role, "created_at": m.created_at.isoformat() if m.created_at else None}
         if m.role == "user":
-            item["text"] = content.get("text") or ""
+            # what the user said: "text" may also carry a document's OCR, written for the model
+            item["text"] = content["said"] if "said" in content else (content.get("text") or "")
             if content.get("client_message_id"):
                 item["client_message_id"] = content["client_message_id"]
+            if content.get("files"):
+                item["files"] = content["files"]
         else:
             item["blocks"] = content.get("blocks") or [{"type": "text", "id": f"text:{m.id}", "text": content.get("text") or "",
                                                         "fallback_text": content.get("text") or ""}]

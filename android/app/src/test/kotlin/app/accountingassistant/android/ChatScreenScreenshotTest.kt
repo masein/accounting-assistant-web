@@ -250,4 +250,30 @@ class ChatScreenScreenshotTest {
         compose.mainClock.advanceTimeBy(1500)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-payslip.png")
     }
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianNetWorth() {
+        val months = listOf("2025-11-30", "2025-12-31", "2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31",
+                            "2026-06-30", "2026-07-31", "2026-08-31", "2026-09-30", "2026-10-10")
+        val values = listOf(610L, 640, 655, 690, 700, 735, 760, 790, 820, 870, 910, 950).map { it * 1_000_000 }
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(
+                        ChatItem.User("u1", "دارایی خالص من چقدره؟"),
+                        ChatItem.Figure("f1", "دارایی خالص", 950_000_000, "IRR"),
+                        ChatItem.Chart("c1", "net_worth", "دارایی خالص، دوازده ماه گذشته", "IRR",
+                                       months.zip(values) { m, v -> ChatItem.Chart.Point(m, v) }, null, null),
+                        ChatItem.Table("t1", "holdings", listOf(
+                            ChatItem.Table.Row("طلا", "۲۵٫۵ گرم طلا", 600_000_000, "IRR", gain = 180_000_000),
+                            ChatItem.Table.Row("ارز", "۴۰۰ دلار", 240_000_000, "IRR", gain = 35_000_000))),
+                        ChatItem.Words("w1", "دارایی خالص شما امروز: ۹۵۰٬۰۰۰٬۰۰۰ ریال؛ طلا و ارز به نرخ امروز ۲۱۵٬۰۰۰٬۰۰۰ بیشتر می‌ارزند."))),
+                    lang = "fa", booksName = "دفتر شخصی", personalBooks = true,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-net-worth.png")
+    }
 }

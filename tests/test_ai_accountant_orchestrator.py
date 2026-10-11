@@ -556,7 +556,7 @@ class TestPersonalMode:
             "propose_create_transaction",
             "propose_create_entity", "propose_update_entity", "propose_reverse_transaction",
             "list_commitments", "propose_settle_commitment", "propose_remember_preference",
-            "get_report_card", "get_savings_goals",
+            "get_report_card", "get_savings_goals", "get_net_worth",
         }
 
     def test_personal_mode_prompt_and_tools(self, db: Session) -> None:

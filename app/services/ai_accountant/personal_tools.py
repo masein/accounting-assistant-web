@@ -55,6 +55,44 @@ class GetSavingsGoals(BaseTool):
                 "note": None if goals else "No savings goals yet — they're added on the My finances page."}
 
 
+class GetNetWorthInput(BaseModel):
+    pass
+
+
+class GetNetWorth(BaseTool):
+    name = "get_net_worth"
+    category = "read"
+    description = (
+        "The user's net worth today: what they own minus what they owe, with gold and foreign currency restated at "
+        "today's rates (and what that revaluation gained), each holding with its quantity, and the month-end trend "
+        "over the last twelve months. Use for 'how much am I worth?', 'دارایی خالص من چقدره؟', 'how much is my gold "
+        "worth now?'. Holdings and rates are kept on the My finances page. Pure read."
+    )
+    InputSchema = GetNetWorthInput
+
+    async def run(self, ctx: ToolContext, args: GetNetWorthInput) -> dict[str, Any]:
+        from datetime import date as _date, timedelta
+        from app.services.net_worth_service import compute_net_worth
+        nw = compute_net_worth(ctx.db)
+
+        def month_end(key: str) -> str:
+            y, m = int(key[:4]), int(key[5:7])
+            first_next = _date(y + (m == 12), m % 12 + 1, 1)
+            return min(first_next - timedelta(days=1), nw.as_of).isoformat()
+
+        def line(item) -> dict[str, Any]:
+            return {"account_code": item.account_code, "account_name": item.account_name, "book_value": item.book_value,
+                    "market_value": item.market_value, "unrealized_gain": item.unrealized_gain, "revalued": item.revalued,
+                    "unit": item.unit, "quantity": item.quantity, "rate": item.rate}
+        return {"as_of": nw.as_of.isoformat(), "currency": nw.currency, "net_worth": nw.net_worth,
+                "total_assets": nw.total_assets, "total_liabilities": nw.total_liabilities,
+                "unrealized_gain": nw.unrealized_gain, "assets": [line(x) for x in nw.assets],
+                "liabilities": [line(x) for x in nw.liabilities],
+                "trend": [{"period": p, "date": month_end(p), "value": v} for p, v in nw.trend],
+                "missing_rates": sorted(set(nw.missing_rates))}
+
+
 def register_personal_tools(registry) -> None:
     registry.register(GetReportCard())
     registry.register(GetSavingsGoals())
+    registry.register(GetNetWorth())

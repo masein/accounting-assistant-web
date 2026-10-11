@@ -29,6 +29,7 @@ The build started on 2026-10-10.
 - ✅ **P0.6** (#310, #316): fast paths, in Persian, English, Spanish and Arabic.
 - ✅ **P0.7** (#312, #315): uploads, voice notes and the briefing; file blocks (an invoice's PDF), served to the phone's bearer session rather than by signed link. Resumable chunked uploads are not done: a photo is scaled to 1600 px (a few hundred KB) and the outbox uploads it once.
 - ✅ **P0.9** (#317): threads `?since=`, messages paged by id (`before`, `after`, `X-More-Before`), and a message answered once however often the outbox sends it (`mobile_turns`, across server workers).
+- ✅ Most of P3.5 (#328): net worth in the chat (a `get_net_worth` tool for personal books, a fast path, the figure, twelve months as a line, the holdings at today's rates). Savings goals and the report card were already tools; household invites wait for the owner (they are users and roles).
 - ✅ The reading half of P3.3 (#325): the pay runs and an employee's pay as tables, their payslip as a file to open or share. Running, posting and paying payroll from the phone use the existing proposal cards.
 - ✅ Most of P3.7 (#324): app shortcuts (photo a receipt, record spending, cash) and a home-screen widget (cash and the budget left) that hides its figures behind the app lock.
 - ✅ The `chart` block (#323): the 13-week cash forecast drawn natively, and a fast path for "will we have enough cash?" in four languages (a what-if stays with the model).

@@ -274,7 +274,58 @@ def _forecast_chart(result: dict, lang: str = "en", **_) -> dict | None:
             "fallback_text": f"{title}: {int(result['opening_cash']):,} → {int(result.get('closing_cash') or 0):,} {cur or ''}".strip()}
 
 
+_UNITS = {
+    "fa": {"GOLD_GRAM": "گرم طلا", "GOLD_COIN": "سکه", "USD": "دلار", "EUR": "یورو", "GBP": "پوند", "AED": "درهم"},
+    "es": {"GOLD_GRAM": "g de oro", "GOLD_COIN": "monedas de oro"},
+    "ar": {"GOLD_GRAM": "غرام ذهب", "GOLD_COIN": "عملة ذهبية", "USD": "دولار", "EUR": "يورو"},
+    "en": {"GOLD_GRAM": "g of gold", "GOLD_COIN": "gold coins"},
+}
+
+
+def _quantity(q: float | None, unit: str | None, lang: str) -> str | None:
+    if q is None or not unit:
+        return None
+    n = f"{q:,.3f}".rstrip("0").rstrip(".")
+    words = _UNITS.get(lang, {}).get(unit) or _UNITS["en"].get(unit) or unit
+    if lang == "fa":
+        from app.utils.jalali import to_persian_digits
+        n = to_persian_digits(n).replace(",", "٬").replace(".", "٫")
+    return f"{n} {words}"
+
+
+def _net_worth(result: dict, lang: str = "en", **_) -> list[dict] | None:
+    """get_net_worth: the figure, its twelve months as a line, and what is
+    held in gold and currency at today's rates."""
+    if "net_worth" not in result:
+        return None
+    cur = result.get("currency")
+    label = {"fa": "دارایی خالص", "es": "Patrimonio neto", "ar": "صافي الثروة"}.get(lang, "Net worth")
+    out = [{"type": "figure", "label": label, "value": int(result["net_worth"]), "currency": cur,
+            "as_of": result.get("as_of"),
+            "breakdown": [{"label": {"fa": "دارایی‌ها", "es": "Activos", "ar": "الأصول"}.get(lang, "Assets"),
+                           "value": int(result.get("total_assets") or 0)},
+                          {"label": {"fa": "بدهی‌ها", "es": "Deudas", "ar": "الديون"}.get(lang, "Liabilities"),
+                           "value": int(result.get("total_liabilities") or 0)}],
+            "fallback_text": f"{label}: {int(result['net_worth']):,} {cur or ''}".strip()}]
+    trend = [t for t in result.get("trend") or [] if t.get("date")]
+    if len(trend) >= 2:
+        title = {"fa": "دارایی خالص، دوازده ماه گذشته", "es": "Patrimonio neto, los últimos doce meses",
+                 "ar": "صافي الثروة، آخر اثني عشر شهرًا"}.get(lang, "Net worth, the last twelve months")
+        out.append({"type": "chart", "kind": "net_worth", "style": "line", "title": title, "currency": cur,
+                    "points": [{"x": t["date"], "value": int(t["value"])} for t in trend],
+                    "fallback_text": f"{title}: {int(trend[0]['value']):,} → {int(trend[-1]['value']):,} {cur or ''}".strip()})
+    held = [a for a in result.get("assets") or [] if a.get("revalued")]
+    if held:
+        rows = [{"label": a.get("account_name") or a.get("account_code"), "sub": _quantity(a.get("quantity"), a.get("unit"), lang),
+                 "value": int(a.get("market_value") or 0), "currency": cur, "gain": int(a.get("unrealized_gain") or 0)}
+                for a in held[:8]]
+        out.append({"type": "table", "kind": "holdings", "rows": rows,
+                    "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in rows)})
+    return out
+
+
 RENDERERS = {
+    "get_net_worth": _net_worth,
     "get_cash_forecast": _forecast_chart,
     "get_payroll": _payroll,
     "get_account_balance": _balance_figure,

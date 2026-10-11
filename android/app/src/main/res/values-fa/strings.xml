@@ -157,4 +157,5 @@
     <string name="feed_channel_hint">تأییدها و هشدارهای حسابدار</string>
     <string name="feed_locked_title">حسابدار</string>
     <string name="feed_locked_body">چیزی در دفاترتان نیاز به توجه دارد.</string>
+    <string name="chart_change">%1$s در %2$d ماه</string>
 </resources>

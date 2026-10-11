@@ -65,17 +65,25 @@ fun ChartCard(item: ChatItem.Chart, lang: String) {
     val said = stringResource(R.string.chart_lowest, Numbers.amount(lowest.value, lang) + unit, Dates.short(lowest.x, lang))
     Surface(color = c.surface, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, c.line), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val history = item.kind == "net_worth"            // the past up to today, not a forecast
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(item.title, color = c.muted, fontSize = 11.sp)
-                Text(stringResource(R.string.chart_estimate), color = c.muted, fontSize = 11.sp)
+                if (!history) Text(stringResource(R.string.chart_estimate), color = c.muted, fontSize = 11.sp)
             }
-            // the balance at the end, said as such: "after 13 weeks"
+            // the last value, said as what it is: "after 13 weeks", or today's with the change over the months
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(Numbers.amount(values.last(), lang) + unit, color = if (values.last() < 0) c.pomegranate else c.ink,
                      fontSize = 22.sp, fontWeight = FontWeight(800))
                 Spacer(Modifier.width(8.dp))
-                Text(Numbers.digits(stringResource(R.string.chart_after, item.points.size - 1), lang), color = c.muted,
-                     fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
+                if (history) {
+                    val change = values.last() - values.first()
+                    Text(Numbers.digits(stringResource(R.string.chart_change, Numbers.signed(change, lang), item.points.size), lang),
+                         color = if (change >= 0) c.firouzeh else c.pomegranate, fontSize = 12.sp,
+                         modifier = Modifier.padding(bottom = 4.dp))
+                } else {
+                    Text(Numbers.digits(stringResource(R.string.chart_after, item.points.size - 1), lang), color = c.muted,
+                         fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
+                }
             }
             // nothing known to come in or go out: a flat line says less than a sentence
             if (values.distinct().size == 1) {
@@ -111,19 +119,23 @@ fun ChartCard(item: ChatItem.Chart, lang: String) {
                 }
                 drawLine(c.line, Offset(pad, zeroY), Offset(size.width - pad, zeroY), strokeWidth = 1.dp.toPx(),
                          pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())))
-                drawCircle(c.ink, 3.5.dp.toPx(), at(0))                                       // today
-                val low = at(lowIndex)
-                val lowColor = if (values[lowIndex] < 0) c.pomegranate else c.saffron
-                drawCircle(c.surface, 6.dp.toPx(), low)
-                drawCircle(lowColor, 6.dp.toPx(), low, style = Stroke(2.dp.toPx()))
-                drawCircle(lowColor, 2.5.dp.toPx(), low)
+                drawCircle(c.ink, 3.5.dp.toPx(), at(if (history) n - 1 else 0))                // today
+                if (!history) {
+                    val low = at(lowIndex)
+                    val lowColor = if (values[lowIndex] < 0) c.pomegranate else c.saffron
+                    drawCircle(c.surface, 6.dp.toPx(), low)
+                    drawCircle(lowColor, 6.dp.toPx(), low, style = Stroke(2.dp.toPx()))
+                    drawCircle(lowColor, 2.5.dp.toPx(), low)
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.chart_today), color = c.muted, fontSize = 10.5.sp)
+                Text(if (history) Dates.short(item.points.first().x, lang) else stringResource(R.string.chart_today),
+                     color = c.muted, fontSize = 10.5.sp)
                 Text(Dates.short(item.points[item.points.size / 2].x, lang), color = c.muted, fontSize = 10.5.sp)
-                Text(Dates.short(item.points.last().x, lang), color = c.muted, fontSize = 10.5.sp)
+                Text(if (history) stringResource(R.string.chart_today) else Dates.short(item.points.last().x, lang),
+                     color = c.muted, fontSize = 10.5.sp)
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            if (!history) Row(verticalAlignment = Alignment.CenterVertically) {
                 Canvas(Modifier.size(8.dp)) { drawCircle(if (lowest.value < 0) c.pomegranate else c.saffron) }
                 Spacer(Modifier.width(6.dp))
                 Text(said, color = c.ink, fontSize = 12.5.sp)

@@ -32,7 +32,7 @@ def test_the_summary_in_each_language():
     es = si._reply("es", INTAKE)
     assert es.startswith("Leí tu extracto de Mellat: 12 filas (del 1 sept 2026 al 30 sept 2026)") and "3 no están en los libros" in es
     ar = si._reply("ar", INTAKE)
-    assert ar.startswith("قرأت كشف حساب Mellat: ١٢ سطراً (من ١ سبتمبر ٢٠٢٦ إلى ٣٠ سبتمبر ٢٠٢٦)") and "؛ " in ar
+    assert ar.startswith("قرأت كشف حساب ملت: ١٢ سطراً (من ١ سبتمبر ٢٠٢٦ إلى ٣٠ سبتمبر ٢٠٢٦)") and "؛ " in ar and "«إصلاح خطوة بخطوة»" in ar
     assert si._reply("fa", {**INTAKE, "clean": True}).endswith("همه‌چیز با دفاتر می‌خواند؛ کاری لازم نیست.")
     assert si._reply("de", INTAKE) == si._reply("en", INTAKE)               # an unknown language: English
     assert si._duplicate_reply("es", []) == ("Este archivo ya se importó. Puedes seguir con él desde su tarjeta "

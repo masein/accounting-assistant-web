@@ -107,7 +107,7 @@ _T: dict[str, dict[str, str]] = {
     "next": {"en": "Click \"Fix step by step\" (or say \"next\") and I'll take the differences one at a time; nothing is posted without your confirmation.",
              "fa": "برای رفع قدم‌به‌قدم روی «رفع قدم‌به‌قدم» بزنید یا بگویید «بعدی»؛ چیزی بدون تأیید شما ثبت نمی‌شود.",
              "es": "Pulsa «Corregir paso a paso» (o di «siguiente») y veremos las diferencias una a una; nada se registra sin tu confirmación.",
-             "ar": "اضغط «الإصلاح خطوة بخطوة» (أو قل «التالي») وسنعالج الفروق واحداً تلو الآخر؛ لا يُرحّل شيء دون تأكيدك."},
+             "ar": "اضغط «إصلاح خطوة بخطوة» (أو قل «التالي») وسنعالج الفروق واحداً تلو الآخر؛ لا يُرحّل شيء دون تأكيدك."},
     # where the card is differs (the web puts it after the words, the phone before): say "its card"
     "duplicate_file": {"en": "{note} You can carry on with it from its card, or ask me to check it against the books.",
                        "fa": "{note} می‌توانید از کارتش ادامه دهید یا بخواهید با دفاتر بررسی‌اش کنم.",
@@ -155,10 +155,10 @@ def _day(iso: str, lang: str, jalali: bool) -> str:
 
 
 def bank_label(name: str | None, lang: str) -> str | None:
-    """A bank as the reader writes it: «ملت» in Persian, "Mellat" otherwise."""
+    """A bank as the reader writes it: «ملت» in Persian and Arabic (one script), "Mellat" otherwise."""
     if not name or name == "Unknown":
         return None
-    if lang == "fa":
+    if lang in ("fa", "ar"):
         from app.services.bank_sms import BANKS
         return (BANKS.get(name) or (name,))[0]
     return name

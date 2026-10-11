@@ -172,6 +172,7 @@ class MainActivity : ComponentActivity() {
                         initializer { ChatViewModel(app.api, suggestions, outbox = app.outbox,
                                                     booksChanged = { WidgetRefresh.now(app) }) }   // the app, not the activity: a view model outlives it
                     })
+                    LaunchedEffect(lang) { vm.useSuggestions(suggestions) }           // the questions in the new language too
                     val s by vm.state.collectAsState()
                     // back in the app: what was added meanwhile (the web chat, the background sender)
                     val chatOwner = LocalLifecycleOwner.current

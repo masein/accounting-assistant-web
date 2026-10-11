@@ -59,13 +59,26 @@ private const val PAGE = 60
 
 class ChatViewModel(
     private val api: ApiClient,
-    private val suggestions: List<String> = emptyList(),
+    suggestions: List<String> = emptyList(),
     private val now: () -> Long = System::currentTimeMillis,
     restore: Boolean = true,
     private val outbox: Outbox = Outbox(MemoryOutboxStore(), api),
     /** The books changed (a posting, an undo): the home-screen widget refreshes. */
     private val booksChanged: () -> Unit = {},
 ) : ViewModel() {
+    /** The first-run questions, in the app's language (useSuggestions when it changes). */
+    private var suggestions: List<String> = suggestions
+
+    /**
+     * The app's language changed while this view model lived on (it outlives
+     * the activity): the first-run questions follow it, including those on screen.
+     */
+    fun useSuggestions(options: List<String>) {
+        if (options == suggestions) return
+        suggestions = options
+        _state.update { st -> st.copy(items = st.items.map { if (it is ChatItem.Suggestions) it.copy(options = options) else it }) }
+    }
+
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state
 

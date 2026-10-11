@@ -70,6 +70,18 @@ class ChatViewModelTest {
         assertEquals("t1", vm.state.value.threadId)
     }
 
+    /** The 2026-10-11 pass: switched from Spanish to Arabic, the first-run questions stayed Spanish. */
+    @Test fun theFirstRunQuestionsFollowTheAppsLanguage() = runBlocking {
+        reply("[]")
+        reply("""{"thread_id":null,"blocks":[]}""")
+        val vm = ChatViewModel(api, suggestions = listOf("¿Cuánto dinero tenemos?"))
+        until { vm.state.value.items.firstOrNull() is ChatItem.Suggestions }
+        vm.useSuggestions(listOf("كم لدينا من المال؟"))
+        assertEquals(listOf("كم لدينا من المال؟"), (vm.state.value.items.first() as ChatItem.Suggestions).options)
+        vm.startNew()
+        assertEquals(listOf("كم لدينا من المال؟"), (vm.state.value.items.first() as ChatItem.Suggestions).options)
+    }
+
     @Test fun aPhotoGoesWithTheNextMessage() = runBlocking {
         val vm = ChatViewModel(api, restore = false)
         reply("""{"id":"up1","received":0,"size_bytes":3,"max_chunk":1048576,"done":false}""")

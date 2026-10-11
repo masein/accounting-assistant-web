@@ -140,6 +140,26 @@ data class UploadReply(
 )
 
 @Serializable
+data class UploadBegin(
+    @SerialName("file_name") val fileName: String,
+    @SerialName("content_type") val contentType: String,
+    @SerialName("size_bytes") val sizeBytes: Long,
+    val sha256: String,
+)
+
+/** How far an upload in pieces has got; [attachment] once it is whole. */
+@Serializable
+data class UploadState(
+    val id: String,
+    val received: Long = 0,
+    @SerialName("size_bytes") val sizeBytes: Long = 0,
+    /** The largest piece the server takes. */
+    @SerialName("max_chunk") val maxChunk: Int = 1024 * 1024,
+    val done: Boolean = false,
+    val attachment: UploadReply? = null,
+)
+
+@Serializable
 data class TranscribeReply(val text: String = "")
 
 @Serializable

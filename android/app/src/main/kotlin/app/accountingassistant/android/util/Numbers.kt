@@ -31,6 +31,19 @@ object Numbers {
     fun signed(value: Long, lang: String): String =
         "\u2066" + (if (value > 0) "+" else if (value < 0) "−" else "") + amount(kotlin.math.abs(value), lang) + "\u2069"
 
+    /**
+     * How much of something, as each language writes it: «۴۰٪» (fa), «٤٠٪»
+     * (ar), "40 %" (es, with its space), "40%" (en). [fraction] is 0–1.
+     */
+    fun percent(fraction: Float, lang: String): String {
+        val n = (fraction.coerceIn(0f, 1f) * 100).toInt().toString()
+        return when (lang) {
+            "fa", "ar" -> digits(n, lang) + "٪"
+            "es" -> "$n\u00A0%"
+            else -> "$n%"
+        }
+    }
+
     /** Persian and Arabic digits typed by the user, back to Western ones. */
     fun normalise(text: String): String = text.map {
         val p = PERSIAN.indexOf(it)

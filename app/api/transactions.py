@@ -304,25 +304,36 @@ def _transaction_fee_to_read(rule: TransactionFee) -> TransactionFeeRead:
     )
 
 
-@router.post("/attachments", response_model=AttachmentRead, status_code=201)
-def upload_attachment(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-) -> AttachmentRead:
+# Other names for the same files: Android's own files in Downloads call a CSV
+# text/comma-separated-values, and some apps use the x- forms.
+_TYPE_ALIASES = {
+    "text/comma-separated-values": "text/csv", "text/x-csv": "text/csv", "application/x-csv": "text/csv",
+    "text/x-comma-separated-values": "text/csv",
+}
+
+
+def attachment_type(declared: str | None, file_name: str | None) -> str:
+    """The content type an attachment is kept as: the declared one when it is
+    allowed (under its usual name), else the one its name implies (browsers
+    send blank or generic types for spreadsheets). Anything else is refused."""
+    content_type = (declared or "").strip().lower().split(";")[0].strip()
+    content_type = _TYPE_ALIASES.get(content_type, content_type)
+    if content_type in ALLOWED_ATTACHMENT_TYPES:
+        return content_type
+    inferred = _EXTENSION_CONTENT_TYPES.get(Path(file_name or "").suffix.lower())
+    if inferred:
+        return inferred
+    raise HTTPException(
+        status_code=400,
+        detail="Unsupported file type. Use JPG, PNG, WEBP, PDF, CSV, TSV, XLS, or XLSX.",
+    )
+
+
+def store_attachment(db: Session, raw: bytes, file_name: str | None, content_type: str) -> TransactionAttachment:
+    """Check an attachment's bytes (not empty, what they claim to be, 8 MB at
+    most), write them and add the row; the caller commits."""
     from app.core.file_validation import validate_file_magic
 
-    content_type = (file.content_type or "").strip().lower()
-    if content_type not in ALLOWED_ATTACHMENT_TYPES:
-        # Browsers send blank/generic types for spreadsheets — infer from name.
-        inferred = _EXTENSION_CONTENT_TYPES.get(Path(file.filename or "").suffix.lower())
-        if inferred:
-            content_type = inferred
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Unsupported file type. Use JPG, PNG, WEBP, PDF, CSV, TSV, XLS, or XLSX.",
-            )
-    raw = file.file.read()
     if not raw:
         raise HTTPException(status_code=400, detail="Attachment is empty.")
     validate_file_magic(raw, content_type)
@@ -337,12 +348,23 @@ def upload_attachment(
     path = UPLOADS_DIR / stored_name
     path.write_bytes(raw)
     row = TransactionAttachment(
-        file_name=(file.filename or stored_name).strip()[:256],
+        file_name=(file_name or stored_name).strip()[:256],
         file_path=str(path),
         content_type=content_type,
         size_bytes=len(raw),
     )
     db.add(row)
+    db.flush()
+    return row
+
+
+@router.post("/attachments", response_model=AttachmentRead, status_code=201)
+def upload_attachment(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> AttachmentRead:
+    content_type = attachment_type(file.content_type, file.filename)
+    row = store_attachment(db, file.file.read(), file.filename, content_type)
     db.commit()
     db.refresh(row)
     return _attachment_to_read(row)

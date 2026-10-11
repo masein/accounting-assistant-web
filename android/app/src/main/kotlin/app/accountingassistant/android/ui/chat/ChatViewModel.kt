@@ -31,10 +31,14 @@ data class ChatUiState(
     /** Files uploaded (or kept, offline) and waiting to go with the next message. */
     val attachments: List<Attachment> = emptyList(),
     val uploading: Boolean = false,
+    /** How much of the file being attached has gone, 0–1, while [uploading]. */
+    val uploadProgress: Float? = null,
     val listening: Boolean = false,
     val transcribing: Boolean = false,
     /** The outbox by client id: messages waiting for the network, or refused. */
     val queued: Map<String, Queued> = emptyMap(),
+    /** The outbox message on its way now: it no longer waits for the network. */
+    val sendingId: String? = null,
 ) {
     enum class Notice { Offline, Failed, UploadFailed, VoiceFailed }
     /** [uploadedId] once on the server; [path] where the outbox keeps it when the upload waits. */
@@ -83,11 +87,17 @@ class ChatViewModel(
 
     private fun ChatUiState.has(clientId: String) = items.any { it is ChatItem.User && it.clientId == clientId }
 
-    /** The step the server is on shows under the message being sent, if it is this conversation's. */
+    /**
+     * The step the server is on shows under the message being sent, if it is
+     * this conversation's. Something on its way means the network is back:
+     * "no connection" no longer holds.
+     */
     private fun onSending(s: Outbox.Sending?) = _state.update { st ->
         val rest = st.items.filterNot { it is ChatItem.Thinking }
-        if (s != null && st.has(s.clientId)) st.copy(items = rest + ChatItem.Thinking(text = s.step), sending = true)
-        else st.copy(items = rest, sending = s != null && st.sending)
+        val online = if (s != null && st.notice == ChatUiState.Notice.Offline) st.copy(notice = null) else st
+        if (s != null && st.has(s.clientId))
+            online.copy(items = rest + ChatItem.Thinking(text = s.step, upload = s.upload), sending = true, sendingId = s.clientId)
+        else online.copy(items = rest, sending = s != null && st.sending, sendingId = s?.clientId)
     }
 
     private fun onDelivery(d: Outbox.Delivery) = _state.update { st ->
@@ -97,7 +107,8 @@ class ChatViewModel(
             is Outbox.Delivery.Answered -> {
                 val have = rest.map { it.id }.toSet()
                 st.copy(items = rest + d.reply.blocks.map(::parseBlock).filterNot { it.id in have },
-                        threadId = st.threadId ?: d.reply.threadId)
+                        threadId = st.threadId ?: d.reply.threadId,
+                        notice = st.notice.takeUnless { it == ChatUiState.Notice.Offline })
             }
             is Outbox.Delivery.Refused -> st.copy(items = rest, notice = ChatUiState.Notice.Failed)
         }
@@ -201,20 +212,21 @@ class ChatViewModel(
 
     /** A photo or a document: uploaded now, sent with the next message; offline, kept until it can go. */
     fun attach(bytes: ByteArray, name: String, mime: String) {
-        _state.update { it.copy(uploading = true, notice = null) }
+        _state.update { it.copy(uploading = true, uploadProgress = null, notice = null) }
         viewModelScope.launch {
             try {
-                val r = api.upload(bytes, name, mime)
-                _state.update { it.copy(uploading = false, attachments = it.attachments + ChatUiState.Attachment(r.id, name, mime)) }
+                val r = api.upload(bytes, name, mime) { p -> _state.update { it.copy(uploadProgress = p) } }
+                _state.update { it.copy(uploading = false, uploadProgress = null,
+                                        attachments = it.attachments + ChatUiState.Attachment(r.id, name, mime)) }
             } catch (e: NetworkError) {
                 val kept = runCatching { outbox.keep(bytes) }.getOrNull()
                 _state.update {
-                    if (kept == null) it.copy(uploading = false, notice = ChatUiState.Notice.UploadFailed)
-                    else it.copy(uploading = false, notice = ChatUiState.Notice.Offline,
+                    if (kept == null) it.copy(uploading = false, uploadProgress = null, notice = ChatUiState.Notice.UploadFailed)
+                    else it.copy(uploading = false, uploadProgress = null, notice = ChatUiState.Notice.Offline,
                                  attachments = it.attachments + ChatUiState.Attachment("kept-$kept", name, mime, uploadedId = null, path = kept))
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(uploading = false, notice = ChatUiState.Notice.UploadFailed) }
+                _state.update { it.copy(uploading = false, uploadProgress = null, notice = ChatUiState.Notice.UploadFailed) }
             }
         }
     }

@@ -280,6 +280,8 @@ MOBILE_ROUTES = {
     ("POST", "/api/mobile/v1/chat/stream"): BOOKS,
     ("POST", "/api/mobile/v1/briefing"): BOOKS,
     ("POST", "/api/mobile/v1/uploads"): BOOKS,
+    ("POST", "/api/mobile/v1/uploads/begin"): BOOKS,
+    ("PUT", "/api/mobile/v1/uploads/{upload_id}"): BOOKS,
     ("POST", "/api/mobile/v1/transcribe"): BOOKS,
     ("POST", "/api/mobile/v1/proposals/{token}/confirm"): BOOKS,
     ("POST", "/api/mobile/v1/proposals/{token}/cancel"): BOOKS,

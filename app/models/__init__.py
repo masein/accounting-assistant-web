@@ -22,6 +22,7 @@ from app.models.learned_preference import LearnedPreference
 from app.models.messenger import MessengerLink, MessengerUpdate
 from app.models.mobile_device import MobileDevice
 from app.models.mobile_turn import MobileTurn
+from app.models.mobile_upload import MobileUpload
 from app.models.fixed_asset import FixedAsset, FixedAssetDepreciation
 from app.models.goods_receipt import GoodsReceipt, GoodsReceiptLine
 from app.models.invoice import Invoice
@@ -80,6 +81,7 @@ __all__ = [
     "MessengerLink",
     "MobileDevice",
     "MobileTurn",
+    "MobileUpload",
     "MessengerUpdate",
     "GoodsReceipt",
     "GoodsReceiptLine",

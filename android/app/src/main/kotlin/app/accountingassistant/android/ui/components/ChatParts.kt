@@ -14,6 +14,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,6 +55,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -199,13 +202,24 @@ private fun Sparkline(series: List<Float>, modifier: Modifier) {
     }
 }
 
-/** While the tools run: Material's morphing shape and words saying what is being read. */
+/**
+ * While the tools run: Material's morphing shape and words saying what is
+ * being read. While a file goes, a wavy ring fills with how much has gone.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ThinkingRow(text: String, modifier: Modifier = Modifier) {
+fun ThinkingRow(text: String, modifier: Modifier = Modifier, progress: Float? = null) {
     val c = LocalAccountantColors.current
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        LoadingIndicator(Modifier.size(22.dp), color = c.firouzeh)
+        if (progress != null) {
+            val shown by animateFloatAsState(progress, label = "upload")
+            // Material's ring is drawn for 48 dp; at 22 dp a shorter, gentler wave and thinner strokes keep it a ring
+            val stroke = Stroke(with(LocalDensity.current) { 2.5.dp.toPx() }, cap = StrokeCap.Round)
+            CircularWavyProgressIndicator(progress = { shown }, modifier = Modifier.size(22.dp),
+                                          color = c.firouzeh, trackColor = c.line, stroke = stroke, trackStroke = stroke,
+                                          gapSize = 3.dp, amplitude = { if (it <= 0f || it >= 1f) 0f else 0.45f },
+                                          wavelength = 7.dp)
+        } else LoadingIndicator(Modifier.size(22.dp), color = c.firouzeh)
         Spacer(Modifier.width(8.dp))
         Text(text, color = c.muted, fontSize = 12.sp)
     }

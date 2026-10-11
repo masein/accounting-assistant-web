@@ -12,6 +12,7 @@ import app.accountingassistant.android.data.UserDto
 import app.accountingassistant.android.ui.chat.ChatItem
 import app.accountingassistant.android.ui.chat.ChatViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
@@ -25,6 +26,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import java.io.IOException
 
@@ -70,10 +72,14 @@ class ChatViewModelTest {
 
     @Test fun aPhotoGoesWithTheNextMessage() = runBlocking {
         val vm = ChatViewModel(api, restore = false)
-        reply("""{"id":"att-1","file_name":"receipt.jpg","content_type":"image/jpeg","size_bytes":3}""")
+        reply("""{"id":"up1","received":0,"size_bytes":3,"max_chunk":1048576,"done":false}""")
+        reply("""{"id":"up1","received":3,"size_bytes":3,"done":true,
+                  "attachment":{"id":"att-1","file_name":"receipt.jpg","content_type":"image/jpeg","size_bytes":3}}""")
         vm.attach(byteArrayOf(1, 2, 3), "receipt.jpg", "image/jpeg")
         until { vm.state.value.attachments.isNotEmpty() }
-        assertTrue(server.takeRequest().body!!.utf8().contains("filename=\"receipt.jpg\""))
+        assertTrue(server.takeRequest().body!!.utf8().contains("\"file_name\":\"receipt.jpg\""))
+        assertEquals("/api/mobile/v1/uploads/up1", server.takeRequest().url.encodedPath)
+        assertEquals(null, vm.state.value.uploadProgress)
         reply("event: status\ndata: {\"stage\":\"reading_files\",\"text\":\"در حال خواندن پیوست…\"}\n\n" +
               "event: reply\ndata: {\"thread_id\":\"t9\",\"blocks\":[{\"type\":\"text\",\"id\":\"w\",\"text\":\"رسید خوانده شد.\"}]}\n\n" +
               "event: done\ndata: {}\n\n")
@@ -145,11 +151,16 @@ class ChatViewModelTest {
         assertEquals(1, woken)
         // the network is back: the background sender (here, called directly) sends it; the answer lands in the chat
         offline = false
-        reply("event: reply\ndata: {\"thread_id\":\"t5\",\"blocks\":[{\"type\":\"text\",\"id\":\"w\",\"text\":\"پیش‌نویس آماده است\"}]}\n\n")
-        assertEquals(Outbox.Result.Done, outbox.flush())
+        server.enqueue(MockResponse.Builder().headersDelay(600, TimeUnit.MILLISECONDS).body(
+            "event: reply\ndata: {\"thread_id\":\"t5\",\"blocks\":[{\"type\":\"text\",\"id\":\"w\",\"text\":\"پیش‌نویس آماده است\"}]}\n\n").build())
+        val flushing = async(Dispatchers.Default) { outbox.flush() }
+        until { vm.state.value.sendingId == bubble.clientId }      // on its way: its bubble no longer says "waiting"
+        assertEquals(null, vm.state.value.notice)                  // and "no connection" is gone
+        assertEquals(Outbox.Result.Done, flushing.await())
         until { vm.state.value.items.last() is ChatItem.Words }
         assertTrue(vm.state.value.queued.isEmpty())
         assertEquals("t5", vm.state.value.threadId)
+        assertEquals(null, vm.state.value.sendingId)
     }
 
     @Test fun reopeningShowsWhatStillWaitsAfterTheConversation() = runBlocking {

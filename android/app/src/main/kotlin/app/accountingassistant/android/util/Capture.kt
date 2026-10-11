@@ -18,6 +18,19 @@ object Capture {
     /** The longest side of a photo sent for reading: enough for a receipt, light on mobile data. */
     const val MAX_SIDE = 1600
 
+    /**
+     * What the file picker offers: statements, receipts and invoices. A CSV
+     * has several names: Android's own files in Downloads call it
+     * text/comma-separated-values, and the picker matches names exactly, so
+     * with text/csv alone a CSV statement could not be chosen at all.
+     */
+    val DOCUMENT_TYPES = arrayOf(
+        "application/pdf", "image/*",
+        "text/csv", "text/comma-separated-values", "application/csv", "text/x-csv", "application/x-csv",
+        "text/tab-separated-values",
+        "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
     /** A photo of a receipt, turned upright, scaled down and saved as JPEG. */
     fun photo(context: Context, uri: Uri): Picked {
         val bitmap: Bitmap = if (Build.VERSION.SDK_INT >= 28) {

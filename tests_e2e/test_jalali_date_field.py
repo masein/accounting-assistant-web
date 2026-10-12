@@ -42,7 +42,7 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         empty = page.evaluate("() => [...document.querySelectorAll('.jdate-text')].find(x => !x.value).placeholder")
         assert empty == hint and not any(c.isdigit() for c in empty), empty
         # a range reads in the calendar, left to right, start first
-        assert page.evaluate("() => formatDateRange('2026-10-01', '2026-10-31')") == "\u20661405/07/09 → 1405/08/09\u2069"
+        assert page.evaluate("() => formatDateRange('2026-10-01', '2026-10-31')") == "\u2066۱۴۰۵/۰۷/۰۹ → ۱۴۰۵/۰۸/۰۹\u2069"   # Persian digits on a Persian page (#338)
         # the Jalali day once printed under the field is not said twice
         assert not page.locator("#date-jalali-hint").is_visible()
 
@@ -58,18 +58,18 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         page.click("#date >> xpath=.. >> .jdate-btn")
         pop = page.locator("#jdate-pop")
         assert pop.is_visible()
-        assert pop.locator(".jdate-title").inner_text() == "فروردین 1405"
+        assert pop.locator(".jdate-title").inner_text() == "فروردین ۱۴۰۵"
         assert pop.locator(".jdate-wd").first.inner_text() == "ش"
         # 1 Farvardin 1405 is a Saturday: no blank cells before it
         assert page.evaluate("() => document.querySelector('#jdate-pop .jdate-grid').children[7].className") == "jdate-day"
         pop.locator('.jdate-day[data-iso="2026-04-04"]').click()   # 15 Farvardin
         assert not pop.is_visible()
-        assert page.evaluate(FIELD) == {"text": "1405/01/15", "value": "2026-04-04", "invalid": None}
+        assert page.evaluate(FIELD) == {"text": "۱۴۰۵/۰۱/۱۵", "value": "2026-04-04", "invalid": None}
 
         # the next month, then Escape: closed, the value as it was
         page.click("#date >> xpath=.. >> .jdate-btn")
         pop.locator(".jdate-next").click()
-        assert pop.locator(".jdate-title").inner_text() == "اردیبهشت 1405"
+        assert pop.locator(".jdate-title").inner_text() == "اردیبهشت ۱۴۰۵"
         page.keyboard.press("Escape")
         assert not pop.is_visible() and page.evaluate(FIELD)["value"] == "2026-04-04"
 
@@ -82,9 +82,9 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         assert page.evaluate("() => document.activeElement.dataset.iso") == "2026-04-05"
         for _ in range(4):
             page.keyboard.press("ArrowDown")      # 4 weeks on: 13 Ordibehesht
-        assert pop.locator(".jdate-title").inner_text() == "اردیبهشت 1405"
+        assert pop.locator(".jdate-title").inner_text() == "اردیبهشت ۱۴۰۵"
         page.keyboard.press("Enter")
-        assert page.evaluate(FIELD) == {"text": "1405/02/13", "value": "2026-05-03", "invalid": None}
+        assert page.evaluate(FIELD) == {"text": "۱۴۰۵/۰۲/۱۳", "value": "2026-05-03", "invalid": None}
         assert page.evaluate("() => document.activeElement.classList.contains('jdate-text')")
 
         # the browser's form message is said on the box, in Persian — empty, and (handed over
@@ -97,13 +97,13 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         wait_until(page, "() => document.getElementById('jdate-min-probe').closest('.jdate')")   # a frame later
         assert page.evaluate("""() => { const i = document.getElementById('jdate-min-probe'); i.checkValidity();
             const box = i.parentElement.querySelector('.jdate-text'), m = box.validationMessage; i.parentElement.remove(); return m; }""") \
-            == "نمی‌تواند کمتر از 1404/10/11 باشد."
+            == "نمی‌تواند کمتر از ۱۴۰۴/۱۰/۱۱ باشد."
 
         # a script setting the value, and a test filling the native field, repaint the box
         page.evaluate("() => { document.getElementById('date').value = '2026-10-01'; }")
-        assert page.evaluate(FIELD)["text"] == "1405/07/09"
+        assert page.evaluate(FIELD)["text"] == "۱۴۰۵/۰۷/۰۹"
         page.fill("#date", "2026-09-22")
-        assert page.evaluate(FIELD)["text"] == "1405/06/31"
+        assert page.evaluate(FIELD)["text"] == "۱۴۰۵/۰۶/۳۱"
 
         # back to Gregorian: the browser's own field again
         assert owner.evaluate(POST, ["/admin/display-calendar", {"calendar": "gregorian"}])[0] == 200
@@ -113,7 +113,7 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         assert page.evaluate("() => document.querySelectorAll('.jdate').length") == 0
         assert page.locator("#date").is_visible()
         page.fill("#date", "2026-10-01")
-        assert page.locator("#date-jalali-hint").inner_text() == "1405/07/09"   # under a Gregorian field, it helps
+        assert page.locator("#date-jalali-hint").inner_text() == "۱۴۰۵/۰۷/۰۹"   # under a Gregorian field, it helps
         assert watch.problems() == [], watch.problems()
     except Exception:
         if page is not None:

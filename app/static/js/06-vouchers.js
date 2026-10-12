@@ -417,7 +417,7 @@
                 <td>${formatNum(r.limit_amount)}</td>
                 <td>${formatNum(r.actual_amount)}</td>
                 <td>${formatNum(r.variance)}</td>
-                <td>${escapeHtml(r.utilization_pct)}%</td>
+                <td>${escapeHtml(localDigits(r.utilization_pct + '%'))}</td>
                 <td style="white-space:nowrap;">${r.id ? `<button type="button" class="btn btn-secondary btn-sm budget-edit">${escapeHtml(t('btnEdit'))}</button>
                   <button type="button" class="btn btn-secondary btn-sm budget-del">${escapeHtml(t('btnDelete'))}</button>` : ''}</td>
               </tr>`).join('')}

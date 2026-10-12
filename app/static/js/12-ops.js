@@ -79,7 +79,7 @@
       const split = s.tafsili_split || {};
       const opening = s.opening || {};
       const v = s.validation || {};
-      const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n);
+      const fmt = (n) => (typeof n === 'number' ? n.toLocaleString(numLocale()) : n);
       const tierLabels = { group: t('migrationTierGroups'), kol: t('migrationTierKol'), moein: t('migrationTierMoein'), tafsili: t('migrationTierTafsili') };
       let html = '<div style="display:flex;gap:1.5rem;flex-wrap:wrap;font-size:0.9rem;">';
       Object.keys(tiers).forEach((k) => {
@@ -140,7 +140,7 @@
           + `${created} ${escapeHtml(t('migrationAccountsCreated'))}, ${updated} ${escapeHtml(t('migrationAccountsUpdated'))}, `
           + `${entCreated} ${escapeHtml(t('migrationEntitiesCreated'))}.<br>`
           + `${escapeHtml(t('migrationJournalPosted'))}: ${escapeHtml(formatDisplayDate(oj.opening_date) || '')}`
-          + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString('en-US')})` : '')
+          + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString(numLocale())})` : '')
           + (oj.replaced_previous ? ` ${escapeHtml(t('migrationJournalReplaced'))}` : '')
           + `</div>`;
         const resEl = document.getElementById('migration-result');
@@ -599,7 +599,7 @@
         _equityCurrency = data.currency || '';
         document.getElementById('equity-registered-capital').textContent = _eqFmt(data.registered_capital || 0);
         document.getElementById('equity-total-paidin').textContent = _eqFmt(data.total_paid_in || 0);
-        document.getElementById('equity-total-percent').textContent = (data.total_percent || 0) + '%';
+        document.getElementById('equity-total-percent').textContent = localDigits((data.total_percent || 0) + '%');
         const body = document.getElementById('equity-captable-body');
         if (!data.rows || !data.rows.length) {
           body.innerHTML = '<tr><td colspan="7" class="empty-state">' + escapeHtml(t('equityNoShareholders')) + '</td></tr>';
@@ -608,7 +608,7 @@
         body.innerHTML = data.rows.map(r => `
           <tr class="equity-row" data-entity-id="${escapeHtml(r.entity_id)}" data-name="${escapeHtml(r.entity_name || '')}" style="cursor:pointer;">
             <td>${escapeHtml(r.entity_name || '—')}</td>
-            <td class="num">${r.percent != null ? r.percent + '%' : '—'}</td>
+            <td class="num">${r.percent != null ? localDigits(r.percent + '%') : '—'}</td>
             <td class="num">${r.shares != null ? formatNum(r.shares) : '—'}</td>
             <td class="num">${formatNum(r.paid_in)}</td>
             <td class="num">${formatNum(r.dividends_declared)}</td>
@@ -800,7 +800,7 @@
       bounce: 'cmActBounce', return: 'cmActReturn', endorse: 'cmActEndorse', sayad: 'cmActSayad', print: 'cmActPrint' };
 
     function cmRowHtml(r) {
-      const seq = (r.sequence && r.plan_total) ? ` (${r.sequence}/${r.plan_total})` : '';
+      const seq = (r.sequence && r.plan_total) ? ` (${localDigits(r.sequence + '/' + r.plan_total)})` : '';
       const who = r.direction === 'pay' ? t('cmDirPay') : t('cmDirReceive');
       const meta = [];
       if (r.reference) meta.push('#' + r.reference);

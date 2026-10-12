@@ -218,7 +218,7 @@
     function tf(key, params) {
       let s = t(key);
       Object.entries(params || {}).forEach(([k, v]) => {
-        s = s.split('{' + k + '}').join(String(v));
+        s = s.split('{' + k + '}').join(typeof v === 'number' ? localDigits(v) : String(v));
       });
       return s;
     }
@@ -327,21 +327,22 @@
     }
 
     function formatNum(n) {
-      if (n === 0) return '0';
+      if (n === 0) return localDigits('0');
       // Group the whole part only: 1.4224 used to come out as "1.4,224".
       const s = String(n);
       const dot = s.indexOf('.');
       const head = dot < 0 ? s : s.slice(0, dot);
-      return head.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (dot < 0 ? '' : s.slice(dot));
+      // in Persian «۱٬۲۳۴٬۵۶۷», as the chat and the phone write it (localDigits)
+      return localDigits(head.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (dot < 0 ? '' : s.slice(dot)));
     }
     // An exchange rate: every digit of a large one (a gold coin in rials), six
     // significant ones of a tiny one (rials into dollars), never 1e-7.
     function formatRate(n) {
       const v = Number(n);
       if (!isFinite(v)) return String(n);
-      return Math.abs(v) >= 1
+      return localDigits(Math.abs(v) >= 1
         ? v.toLocaleString('en-US', { maximumFractionDigits: 6 })
-        : v.toLocaleString('en-US', { maximumSignificantDigits: 6 });
+        : v.toLocaleString('en-US', { maximumSignificantDigits: 6 }));
     }
 
     // Active reporting-currency label. Loaded once on page boot from
@@ -520,7 +521,7 @@
       // breaking every consumer that destructured { jy, jm, jd } — including
       // formatDisplayDate, which then rendered "undefined/undefined/undefined".)
       const { jy, jm, jd } = gregorianToJalali(+parts[0], +parts[1], +parts[2]);
-      return jy + '/' + String(jm).padStart(2, '0') + '/' + String(jd).padStart(2, '0');
+      return localDigits(jy + '/' + String(jm).padStart(2, '0') + '/' + String(jd).padStart(2, '0'));   // a hint: display only
     }
 
     // Once "2026-09-28 (1405/07/06)" whatever the company chose: a Jalali
@@ -533,14 +534,14 @@
     function formatKpiValue(v, unit) {
       if (v == null) return t('na');
       if (unit === 'months' && Number(v) < 0) return t('na');
-      if (unit === 'months') return v + ' ' + t('monthsShort');
-      if (unit === '%') return String(v) + '%';
+      if (unit === 'months') return localDigits(v) + ' ' + t('monthsShort');
+      if (unit === '%') return localDigits(String(v)) + (_uiIsPersian() ? '٪' : '%');
       // Everything else with a unit is a currency code (IRR, GBP, USD,
       // EUR, …). Display the formatted amount followed by the code.
       if (unit && String(unit).length > 0 && unit !== '%') {
         return formatNum(v) + ' ' + unit;
       }
-      return String(v);
+      return localDigits(String(v));
     }
     function escapeHtml(s) {
       if (s == null) return '';
@@ -550,7 +551,7 @@
     function trf(key, vars = {}) {
       let txt = t(key);
       Object.keys(vars).forEach((k) => {
-        txt = txt.replace(new RegExp('\\{' + k + '\\}', 'g'), String(vars[k]));
+        txt = txt.replace(new RegExp('\\{' + k + '\\}', 'g'), typeof vars[k] === 'number' ? localDigits(vars[k]) : String(vars[k]));
       });
       return txt;
     }
@@ -689,7 +690,7 @@
       // only when the value moved: never under the hands of someone typing
       if (input.dataset.jdateIso !== iso) {
         input.dataset.jdateIso = iso;
-        text.value = isoToJalaliText(iso);
+        text.value = localDigits(isoToJalaliText(iso));     // read back by jalaliTextToIso, which takes both
         text.removeAttribute('aria-invalid');
       }
       const name = input.getAttribute('aria-label') || (input.labels && input.labels[0] ? input.labels[0].textContent.trim() : '');
@@ -753,7 +754,7 @@
           if (iso === null) { text.setAttribute('aria-invalid', 'true'); text.title = t('jdateInvalid'); return; }
           text.removeAttribute('aria-invalid');
           text.title = '';
-          text.value = isoToJalaliText(iso);       // 1405/7/9 → 1405/07/09
+          text.value = localDigits(isoToJalaliText(iso));       // 1405/7/9 → 1405/07/09
         });
         text.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown' && e.altKey) { e.preventDefault(); openDatePicker(input); } });
         btn.addEventListener('click', () => openDatePicker(input));
@@ -804,13 +805,13 @@
         const iso = jalaliTextToIso(label);
         const off = (min && iso < min) || (max && iso > max);
         const isToday = today.jy === jy && today.jm === jm && today.jd === d;
-        cells += `<button type="button" class="jdate-day${isToday ? ' is-today' : ''}" data-iso="${iso}" aria-label="${escapeHtml(d + ' ' + months[jm - 1] + ' ' + jy)}"`
-          + ` aria-pressed="${chosen === label}"${off ? ' disabled' : ''}>${d}</button>`;
+        cells += `<button type="button" class="jdate-day${isToday ? ' is-today' : ''}" data-iso="${iso}" aria-label="${escapeHtml(localDigits(d) + ' ' + months[jm - 1] + ' ' + localDigits(jy))}"`
+          + ` aria-pressed="${chosen === label}"${off ? ' disabled' : ''}>${localDigits(d)}</button>`;
       }
       _jdatePop.innerHTML = `
         <div class="jdate-head">
           <button type="button" class="jdate-nav jdate-prev" data-step="-1" aria-label="${escapeHtml(t('jdatePrevMonth'))}">‹</button>
-          <span class="jdate-title" aria-live="polite">${escapeHtml(months[jm - 1] + ' ' + jy)}</span>
+          <span class="jdate-title" aria-live="polite">${escapeHtml(months[jm - 1] + ' ' + localDigits(jy))}</span>
           <button type="button" class="jdate-nav jdate-next" data-step="1" aria-label="${escapeHtml(t('jdateNextMonth'))}">›</button>
         </div>
         <div class="jdate-grid">${_J_WEEKDAYS[lang].map((w) => `<span class="jdate-wd" aria-hidden="true">${escapeHtml(w)}</span>`).join('')}${cells}</div>
@@ -992,7 +993,7 @@
     // box the user sees.
     function validityMessage(el) {
       const v = el.validity, type = (el.type || '').toLowerCase();
-      const num = (x) => (type === 'date' && typeof formatDisplayDate === 'function') ? formatDisplayDate(x) : x;
+      const num = (x) => (type === 'date' && typeof formatDisplayDate === 'function') ? formatDisplayDate(x) : localDigits(x);
       if (v.valueMissing) {
         if (el.tagName === 'SELECT') return t('validityChoose');
         if (type === 'checkbox') return t('validityTick');
@@ -1003,7 +1004,7 @@
       if (v.badInput) return t(type === 'number' ? 'validityNumber' : type === 'date' ? 'validityDate' : 'validityFormat');
       if (v.rangeUnderflow) return tf('validityMin', { min: num(el.min) });
       if (v.rangeOverflow) return tf('validityMax', { max: num(el.max) });
-      if (v.stepMismatch) return tf('validityStep', { step: el.step });
+      if (v.stepMismatch) return tf('validityStep', { step: localDigits(el.step) });
       if (v.tooShort) return tf('validityTooShort', { n: el.minLength });
       if (v.tooLong) return tf('validityTooLong', { n: el.maxLength });
       if (v.patternMismatch) return el.title || t('validityFormat');

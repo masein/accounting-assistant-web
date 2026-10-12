@@ -58,7 +58,7 @@ def test_invoices_parties_and_the_voucher_check_read_in_persian(browser, flow_pa
         said = page.inner_text("#ui-confirm-message")
         shown_date = page.evaluate("() => formatDisplayDate(document.getElementById('date').value)")
         try:
-            assert re.fullmatch(r"\u2066?1[34]\d\d/\d\d/\d\d\u2069?", shown_date), shown_date
+            assert re.fullmatch(r"\u2066?[۱][۳۴][۰-۹]{2}/[۰-۹]{2}/[۰-۹]{2}\u2069?", shown_date), shown_date   # Persian digits (#338)
             assert said.startswith("تاریخ: " + shown_date), said
             assert "بدهکار:" in said and "بستانکار:" in said and "جمع:" in said, said
             assert f"{dr_code} {dr_name}" in said and f"{cr_code} {cr_name}" in said, said

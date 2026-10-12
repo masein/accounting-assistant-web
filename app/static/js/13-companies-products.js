@@ -359,10 +359,10 @@
 
         document.getElementById('ceo-grade').textContent = d.health_grade;
         document.getElementById('ceo-grade').style.color = d.health_grade <= 'B' ? '#2e7d32' : d.health_grade <= 'C' ? '#f57f17' : '#c62828';
-        document.getElementById('ceo-risk').textContent = d.risk_score + '/100';
+        document.getElementById('ceo-risk').textContent = localDigits(d.risk_score + '/100');
         document.getElementById('ceo-risk').style.color = d.risk_score <= 30 ? '#2e7d32' : d.risk_score <= 60 ? '#f57f17' : '#c62828';
         document.getElementById('ceo-runway').textContent = d.cash_runway_months + ' ' + t('monthsShort');
-        document.getElementById('ceo-margin').textContent = d.profit_margin + '%';
+        document.getElementById('ceo-margin').textContent = localDigits(d.profit_margin + '%');
         document.getElementById('ceo-margin').style.color = d.profit_margin >= 0 ? '#2e7d32' : '#c62828';
 
         // KPI cards
@@ -373,13 +373,13 @@
           { label: 'Net Profit (12m)', value: d.profit_total, unit: ccy, color: d.profit_total >= 0 ? '#2e7d32' : '#c62828' },
           { label: 'Cash Position', value: d.cash_position, unit: ccy, color: d.cash_position >= 0 ? '#0f766e' : '#c62828' },
           { label: 'Burn Rate', value: d.burn_rate, unit: ccy + '/' + t('monthsShort'), color: 'var(--text)' },
-          { label: 'Liability Ratio', value: (d.liability_ratio * 100).toFixed(1) + '%', unit: '', color: d.liability_ratio > 0.6 ? '#c62828' : 'var(--text)' },
+          { label: 'Liability Ratio', value: localDigits((d.liability_ratio * 100).toFixed(1) + '%'), unit: '', color: d.liability_ratio > 0.6 ? '#c62828' : 'var(--text)' },
         ];
         kpiItems.forEach(k => {
           const div = document.createElement('div');
           div.className = 'panel';
           div.style.cssText = 'padding:0.6rem;text-align:center;';
-          const displayVal = typeof k.value === 'number' ? k.value.toLocaleString('en-US') : k.value;
+          const displayVal = typeof k.value === 'number' ? k.value.toLocaleString(numLocale()) : k.value;
           div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(localizeDynamicText(k.label))}</div>
             <div style="font-size:1.1rem;font-weight:700;color:${k.color};">${displayVal} ${k.unit}</div>`;
           kpiGrid.appendChild(div);
@@ -397,13 +397,13 @@
         });
 
         // AR/AP
-        document.getElementById('ceo-ar').textContent = (d.accounts_receivable || 0).toLocaleString('en-US') + ' ' + ccy;
-        document.getElementById('ceo-ap').textContent = (d.accounts_payable || 0).toLocaleString('en-US') + ' ' + ccy;
+        document.getElementById('ceo-ar').textContent = (d.accounts_receivable || 0).toLocaleString(numLocale()) + ' ' + ccy;
+        document.getElementById('ceo-ap').textContent = (d.accounts_payable || 0).toLocaleString(numLocale()) + ' ' + ccy;
 
         // Balance sheet summary
-        document.getElementById('ceo-assets').textContent = (d.total_assets || 0).toLocaleString('en-US');
-        document.getElementById('ceo-liabilities').textContent = (d.total_liabilities || 0).toLocaleString('en-US');
-        document.getElementById('ceo-equity').textContent = (d.total_equity || 0).toLocaleString('en-US');
+        document.getElementById('ceo-assets').textContent = (d.total_assets || 0).toLocaleString(numLocale());
+        document.getElementById('ceo-liabilities').textContent = (d.total_liabilities || 0).toLocaleString(numLocale());
+        document.getElementById('ceo-equity').textContent = (d.total_equity || 0).toLocaleString(numLocale());
 
         // Charts
         if (typeof Chart !== 'undefined') {
@@ -514,7 +514,7 @@
               const code = row.code || row.account_code || '';
               return `<tr style="${hasCode ? 'cursor:pointer;' : ''}" ${hasCode ? `data-account-code="${escapeHtml(code)}" data-account-name="${escapeHtml(row.name || row.account_name || '')}"` : ''}>` + keys.map(k => {
                 const v = row[k];
-                return `<td>${typeof v === 'number' ? v.toLocaleString('en-US') : escapeHtml(String(v ?? '—'))}</td>`;
+                return `<td>${typeof v === 'number' ? v.toLocaleString(numLocale()) : escapeHtml(String(v ?? '—'))}</td>`;
               }).join('') + '</tr>';
             }).join('')
             + '</tbody></table>';
@@ -535,7 +535,7 @@
             const total = item.reduce((s, r) => s + (r[numKey] || 0), 0);
             const totalDiv = document.createElement('div');
             totalDiv.style.cssText = 'margin-top:0.4rem;font-size:0.9rem;font-weight:600;';
-            totalDiv.textContent = tf('msgTotalAmount', { amount: total.toLocaleString('en-US'), unit: currencyUnit() });
+            totalDiv.textContent = tf('msgTotalAmount', { amount: total.toLocaleString(numLocale()), unit: currencyUnit() });
             body.appendChild(tbl);
             body.appendChild(totalDiv);
           } else {
@@ -551,9 +551,9 @@
             const isClickable = (k === 'metric' || k === 'category') && item._drillParams;
             const drillKey = v === 'Revenue' ? 'revenue' : v === 'Expenses' ? 'expense' : null;
             if (isClickable && drillKey && item._drillParams[drillKey]) {
-              return `<td style="cursor:pointer;color:var(--primary);text-decoration:underline;" data-drill-key="${drillKey}">${typeof v === 'number' ? v.toLocaleString('en-US') : escapeHtml(String(v ?? ''))}</td>`;
+              return `<td style="cursor:pointer;color:var(--primary);text-decoration:underline;" data-drill-key="${drillKey}">${typeof v === 'number' ? v.toLocaleString(numLocale()) : escapeHtml(String(v ?? ''))}</td>`;
             }
-            return `<td>${typeof v === 'number' ? v.toLocaleString('en-US') : escapeHtml(String(v ?? ''))}</td>`;
+            return `<td>${typeof v === 'number' ? v.toLocaleString(numLocale()) : escapeHtml(String(v ?? ''))}</td>`;
           }).join('') + '</tr></tbody>';
           if (item._drillParams) {
             tbl.addEventListener('click', (e) => {
@@ -694,7 +694,7 @@
         if (totalPages > 1) {
           pagEl.innerHTML = `
             <button class="btn btn-secondary btn-sm" ${_drilldownPage <= 1 ? 'disabled' : ''} data-action="drilldown-page" data-delta="-1">${escapeHtml(t('pagePrev'))}</button>
-            <span style="font-size:0.85rem;">${data.page} / ${totalPages}</span>
+            <span style="font-size:0.85rem;">${localDigits(data.page + ' / ' + totalPages)}</span>
             <button class="btn btn-secondary btn-sm" ${_drilldownPage >= totalPages ? 'disabled' : ''} data-action="drilldown-page" data-delta="1">${escapeHtml(t('pageNext'))}</button>
           `;
         } else {
@@ -754,8 +754,9 @@
       const headers = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
       const rows = [...table.querySelectorAll('tbody tr')].map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.trim()));
       if (format === 'csv') {
+        // the screen writes Persian digits in Persian; a CSV is read by other programs, so Latin ones
         let csv = headers.join(',') + '\n';
-        rows.forEach(r => { csv += r.map(c => `"${c.replace(/"/g,'""')}"`).join(',') + '\n'; });
+        rows.forEach(r => { csv += r.map(c => `"${latinDigits(c).replace(/"/g,'""')}"`).join(',') + '\n'; });
         downloadTextFile((title||'export').replace(/\s+/g, '_') + '.csv', csv, 'text/csv');
       } else {
         const w = window.open('', '_blank');
@@ -858,9 +859,9 @@
               <td>${formatNum(p.total_sales_revenue)}</td>
               <td>${formatNum(p.total_purchase_cost)}</td>
               <td style="color:${p.gross_profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(p.gross_profit)}</td>
-              <td>${p.margin_pct != null ? p.margin_pct + '%' : '—'}</td>
-              <td>${p.client_count}</td>
-              <td>${p.supplier_count}</td>
+              <td>${p.margin_pct != null ? localDigits(p.margin_pct + '%') : '—'}</td>
+              <td>${localDigits(p.client_count)}</td>
+              <td>${localDigits(p.supplier_count)}</td>
             </tr>
           `).join('')}</tbody>
         </table>
@@ -900,7 +901,7 @@
             <div class="kpi-card"><div class="label">${t('fieldRevenue')}</div><div class="value">${formatNum(d.total_revenue)}</div></div>
             <div class="kpi-card"><div class="label">${t('fieldCost')}</div><div class="value">${formatNum(d.total_cost)}</div></div>
             <div class="kpi-card"><div class="label">${t('fieldProfit')}</div><div class="value" style="color:${d.gross_profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(d.gross_profit)}</div></div>
-            <div class="kpi-card"><div class="label">${t('fieldMarginPct')}</div><div class="value">${d.margin_pct != null ? d.margin_pct + '%' : '—'}</div></div>
+            <div class="kpi-card"><div class="label">${t('fieldMarginPct')}</div><div class="value">${d.margin_pct != null ? localDigits(d.margin_pct + '%') : '—'}</div></div>
           </div>
 
           ${d.clients.length ? `
@@ -933,7 +934,7 @@
                 <td><span class="alert-chip ${inv.kind === 'sales' ? 'low' : 'medium'}">${escapeHtml(inv.kind)}</span></td>
                 <td>${escapeHtml(formatDisplayDate(inv.issue_date))}</td>
                 <td>${escapeHtml(inv.entity_name || '—')}</td>
-                <td>${inv.quantity}</td>
+                <td>${localDigits(inv.quantity)}</td>
                 <td>${formatNum(inv.unit_price)}</td>
                 <td>${formatNum(inv.line_total)}</td>
               </tr>`).join('')}
@@ -1434,7 +1435,7 @@
         (items || []).forEach(i => {
           const opt = document.createElement('option');
           opt.value = i.id;
-          opt.textContent = (i.sku ? i.sku + ' - ' : '') + i.name + (i.list_price ? ' (current: ' + i.list_price.toLocaleString('en-US') + ' ' + currencyUnit() + ')' : '');
+          opt.textContent = (i.sku ? i.sku + ' - ' : '') + i.name + (i.list_price ? ' (current: ' + i.list_price.toLocaleString(numLocale()) + ' ' + currencyUnit() + ')' : '');
           opt.dataset.price = i.list_price || 0;
           sel.appendChild(opt);
         });
@@ -1457,7 +1458,7 @@
         const res = await fetch(API + '/manager-reports/inventory/items/' + itemId + '/price?list_price=' + price, { method: 'PATCH' });
         const data = await res.json();
         if (res.ok) {
-          statusEl.textContent = tf('msgPriceUpdated', { name: data.name, old: data.old_price.toLocaleString('en-US'), new: data.new_price.toLocaleString('en-US'), unit: currencyUnit() });
+          statusEl.textContent = tf('msgPriceUpdated', { name: data.name, old: data.old_price.toLocaleString(numLocale()), new: data.new_price.toLocaleString(numLocale()), unit: currencyUnit() });
           statusEl.style.color = '#2e7d32';
           loadPriceMgmtItems();
         } else {

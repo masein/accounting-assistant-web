@@ -44,7 +44,7 @@
         if (body) {
           body.innerHTML = rates.length
             ? rates.map(r => `<tr><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.jurisdiction)}</td>
-                <td>${r.rate}%</td><td>${escapeHtml(formatDisplayDate(r.effective_from))}</td><td>${escapeHtml(formatDisplayDate(r.effective_to) || '—')}</td></tr>`).join('')
+                <td>${localDigits(r.rate + '%')}</td><td>${escapeHtml(formatDisplayDate(r.effective_from))}</td><td>${escapeHtml(formatDisplayDate(r.effective_to) || '—')}</td></tr>`).join('')
             : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:0.5rem;">${t('taxNoRates')}</td></tr>`;
         }
       } catch (e) { /* ignore */ }
@@ -354,7 +354,7 @@
     // their order inside a Persian or Arabic sentence.
     function tfBdi(key, vars) {
       return escapeHtml(t(key)).replace(/\{(\w+)\}/g, (m, k) =>
-        (k in vars) ? '<bdi dir="ltr">' + escapeHtml(String(vars[k])) + '</bdi>' : m);
+        (k in vars) ? '<bdi dir="ltr">' + escapeHtml(typeof vars[k] === 'number' ? localDigits(vars[k]) : String(vars[k])) + '</bdi>' : m);
     }
 
     function renderRateFeedStatus(st) {
@@ -997,11 +997,11 @@
           const tr = document.createElement('tr');
           tr.style.background = statusBg;
           tr.innerHTML = `<td>${r.row_index}</td><td>${escapeHtml(formatDisplayDate(r.tx_date))}</td><td dir="auto">${escapeHtml(r.description || '')}</td>
-            <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString('en-US') : ''}</td>
-            <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString('en-US') : ''}</td>
-            <td>${r.balance != null ? r.balance.toLocaleString('en-US') : ''}</td>
+            <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString(numLocale()) : ''}</td>
+            <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString(numLocale()) : ''}</td>
+            <td>${r.balance != null ? r.balance.toLocaleString(numLocale()) : ''}</td>
             <td>${bsCategoryCell(r)}</td>
-            <td style="color:${confColor}">${(r.confidence * 100).toFixed(0)}%</td>
+            <td style="color:${confColor}">${localDigits((r.confidence * 100).toFixed(0) + '%')}</td>
             <td>${escapeHtml(enumLabel('bsRecon_', r.recon_status))}</td>
             <td>${r.recon_status === 'unmatched' ? `<button class="btn btn-secondary btn-sm bs-create-btn" data-row-id="${r.id}" data-code="${r.suggested_account_code || ''}">${escapeHtml(t('bsCreateBtn'))}</button>` : r.user_approved ? '✓' : `<button class="btn btn-secondary btn-sm bs-approve-btn" data-row-id="${r.id}">${escapeHtml(t('btnApprove'))}</button>`}</td>`;
           body.appendChild(tr);

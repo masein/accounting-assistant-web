@@ -34,7 +34,7 @@ def test_the_file_fields_speak_persian(flow_page):
         wait_until(page, "() => document.getElementById('attachment-input').closest('.file-pick')")
         receipts = [{"name": f"receipt-{i}.png", "mimeType": "image/png", "buffer": b"\x89PNG\r\n\x1a\n"} for i in (1, 2)]
         page.set_input_files("#attachment-input", files=receipts)
-        assert _pick(page, "attachment-input") == {"btn": "انتخاب فایل‌ها", "name": "2 فایل", "onTop": True}
+        assert _pick(page, "attachment-input") == {"btn": "انتخاب فایل‌ها", "name": "۲ فایل", "onTop": True}
 
         # every file field on screen is dressed, unless a script opens it from its own button
         bare = page.evaluate("""() => [...document.querySelectorAll('input[type=file]')]

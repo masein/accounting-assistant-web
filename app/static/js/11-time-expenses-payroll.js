@@ -30,7 +30,7 @@
                 <td>${escapeHtml(p.source)}<br><span style="color:var(--text-muted);font-size:0.76rem;">${escapeHtml(p.external_id)}</span></td>
                 <td>${escapeHtml(p.worker)}</td>
                 <td>${escapeHtml(formatDisplayDate(p.work_date))}</td>
-                <td>${p.hours}</td>
+                <td>${localDigits(p.hours)}</td>
                 <td><select class="tm-pending-emp" data-id="${escapeHtml(p.id)}" style="font-size:0.8rem;padding:2px 4px;">${opts}</select></td>
                 <td>
                   <button type="button" class="btn btn-primary btn-sm tm-pending-resolve" data-id="${escapeHtml(p.id)}">${escapeHtml(t('timePendingResolve'))}</button>
@@ -263,7 +263,7 @@
             `<button class="btn btn-secondary btn-sm tm-wo" data-id="${e.id}">${t('timeWriteOff')}</button> <button class="btn btn-secondary btn-sm tm-del" data-id="${e.id}" aria-label="${escapeHtml(t('btnDelete'))}" title="${escapeHtml(t('btnDelete'))}">✕</button>`;
           tr.innerHTML = `<td>${escapeHtml(formatDisplayDate(e.work_date))}</td><td>${escapeHtml(e.employee_name || '')}</td>
             <td>${escapeHtml(e.client_name || '')}</td><td>${escapeHtml(e.project_name || t('timeNoProject'))}</td>
-            <td>${e.hours}</td><td>${rateTxt}</td>
+            <td>${localDigits(e.hours)}</td><td>${rateTxt}</td>
             <td><span class="badge ${e.status === 'invoiced' ? 'badge-ok' : ''}">${t('timeStatus_' + e.status)}</span></td>
             <td>${actions}</td>`;
           body.appendChild(tr);
@@ -302,7 +302,7 @@
         body.innerHTML = data.clients.length ? '' : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:1rem;">${t('timeNothingReady')}</td></tr>`;
         data.clients.forEach(c => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${escapeHtml(c.client_name)}</td><td>${c.hours}</td>
+          tr.innerHTML = `<td>${escapeHtml(c.client_name)}</td><td>${localDigits(c.hours)}</td>
             <td>${formatNum(c.value)} ${escapeHtml(c.currency)}</td><td>${c.oldest}</td>
             <td><button class="btn btn-primary btn-sm tm-make-inv" data-id="${c.client_id}">${t('timeCreateInvoice')}</button></td>`;
           body.appendChild(tr);
@@ -643,7 +643,7 @@
         po.lines.forEach(ln => {
           const outstanding = Math.max(0, ln.ordered_qty - ln.received_qty);
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${escapeHtml(ln.description)}</td><td>${ln.ordered_qty}</td>
+          tr.innerHTML = `<td>${escapeHtml(ln.description)}</td><td>${localDigits(ln.ordered_qty)}</td>
             <td>${ln.received_qty}</td><td>${ln.billed_qty}</td><td>${formatNum(ln.unit_price)} ${escapeHtml(po.currency)}</td>
             <td><input type="number" class="po-recv-qty" data-line="${ln.id}" min="0" max="${outstanding}" step="0.01" value="${outstanding}" style="width:7rem;"></td>`;
           body.appendChild(tr);
@@ -798,23 +798,24 @@
       const brackets = (p.tax_brackets || []).map(b =>
         b.upto == null ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%` : `${formatNum(b.upto)}: ${Math.round(b.rate * 100)}%`
       ).join(' · ');
+      const shown = (s) => localDigits(s);                  // rates and shares in the page's digits
       const item = (label, val) => `<div><span style="color:var(--text-muted);">${t(label)}:</span> ${val}</div>`;
       // A figure only where the rule set has one: a UK set leaves Iran's
       // allowances at 0, and showed "Housing allowance: 0 GBP".
       const money = (label, n) => (Number(n) > 0 ? item(label, `${formatNum(n)} ${cur}`) : '');
-      return `<div style="font-weight:600;margin-bottom:0.3rem;"><bdi>${escapeHtml(rs.name)}</bdi> (${escapeHtml(rs.year)}) — ${escapeHtml(formatDateRange(rs.effective_from, rs.effective_to))}</div>
+      return `<div style="font-weight:600;margin-bottom:0.3rem;"><bdi>${escapeHtml(rs.name)}</bdi> (${escapeHtml(localDigits(rs.year))}) — ${escapeHtml(formatDateRange(rs.effective_from, rs.effective_to))}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.25rem 1rem;">
           ${money('payrollRulesMinWage', p.min_wage_daily)}
           ${money('payrollRulesHousing', p.housing_allowance)}
           ${money('payrollRulesGrocery', p.grocery_allowance)}
           ${money('payrollRulesChild', p.child_allowance_per_child)}
           ${money('payrollRulesSeniority', p.seniority_daily)}
-          ${item('payrollRulesInsurance', `${Math.round((p.insurance_employee_rate || 0) * 100)}% / ${Math.round((p.insurance_employer_rate || 0) * 100)}%`)}
+          ${item('payrollRulesInsurance', shown(`${Math.round((p.insurance_employee_rate || 0) * 100)}% / ${Math.round((p.insurance_employer_rate || 0) * 100)}%`))}
           ${money('payrollRulesFloor', p.insurance_floor)}
           ${item('payrollRulesCeiling', p.insurance_ceiling == null ? '—' : `${formatNum(p.insurance_ceiling)} ${cur}`)}
-          ${Number(p.overtime_multiplier) > 1 ? item('payrollRulesOvertime', `× ${p.overtime_multiplier}`) : ''}
+          ${Number(p.overtime_multiplier) > 1 ? item('payrollRulesOvertime', shown(`× ${p.overtime_multiplier}`)) : ''}
         </div>
-        <div style="margin-top:0.3rem;"><span style="color:var(--text-muted);">${t('payrollRulesBrackets')}:</span> ${brackets || '—'}</div>`;
+        <div style="margin-top:0.3rem;"><span style="color:var(--text-muted);">${t('payrollRulesBrackets')}:</span> ${shown(brackets) || '—'}</div>`;
     }
 
     function prFillRuleEditor(rs) {
@@ -962,8 +963,8 @@
           const statutoryCell = `<span title="${t('payrollTaxModeStatutory')}">${t('payrollStatutoryShort')}${p.children ? ` · ${p.children} ${t('payrollChildrenShort')}` : ''}</span>`;
           const hired = p.hired_on ? `<div style="color:var(--text-muted);font-size:0.78rem;">${escapeHtml(tf('payrollHiredSince', { date: '\u2066' + formatDisplayDate(p.hired_on) + '\u2069' }))}</div>` : '';
           tr.innerHTML = `<td>${escapeHtml(p.employee_name || '')}${hired}</td><td>${t(p.pay_type === 'hourly' ? 'payrollHourly' : 'payrollSalaried')}</td>
-            <td>${pay}</td><td>${statutory ? statutoryCell : (p.income_tax_rate * 100).toFixed(1) + '%'}</td>
-            <td>${statutory ? t('payrollStatutoryShort') : (p.social_security_rate * 100).toFixed(1) + '%'}</td><td>${(p.pension_rate * 100).toFixed(1)}%</td>`;
+            <td>${pay}</td><td>${statutory ? statutoryCell : localDigits((p.income_tax_rate * 100).toFixed(1) + '%')}</td>
+            <td>${statutory ? t('payrollStatutoryShort') : localDigits((p.social_security_rate * 100).toFixed(1) + '%')}</td><td>${localDigits((p.pension_rate * 100).toFixed(1) + '%')}</td>`;
           body.appendChild(tr);
         });
       } catch (e) { /* ignore */ }
@@ -1206,13 +1207,13 @@
         const data = await res.json();
         document.getElementById('cfo-grade').textContent = data.health_grade;
         document.getElementById('cfo-grade').style.color = data.health_grade <= 'B' ? '#2e7d32' : data.health_grade <= 'C' ? '#f57f17' : '#c62828';
-        document.getElementById('cfo-risk').textContent = data.risk_score + '/100';
+        document.getElementById('cfo-risk').textContent = localDigits(data.risk_score + '/100');
         document.getElementById('cfo-risk').style.color = data.risk_score <= 30 ? '#2e7d32' : data.risk_score <= 60 ? '#f57f17' : '#c62828';
-        document.getElementById('cfo-runway').textContent = data.runway_months + ' ' + t('monthsShort');
+        document.getElementById('cfo-runway').textContent = localDigits(data.runway_months) + ' ' + t('monthsShort');
         // Sync the global from the server's response so every other
         // widget on the page picks up the right currency too.
         if (data.currency) window.__REPORTING_CURRENCY = data.currency;
-        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString('en-US') + ' ' + currencyUnit() + '/' + t('monthsShort');
+        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString(numLocale()) + ' ' + currencyUnit() + '/' + t('monthsShort');
 
         const kpiGrid = document.getElementById('cfo-kpis');
         kpiGrid.innerHTML = '';
@@ -1224,11 +1225,11 @@
           div.style.cssText = 'padding:0.6rem;';
           // Any non-% non-months unit is a currency code → format with thousands.
           const isCurrencyUnit = k.unit && k.unit !== '%' && k.unit !== 'months';
-          const displayVal = isCurrencyUnit ? Number(k.value).toLocaleString('en-US') : k.value;
+          const displayVal = isCurrencyUnit ? Number(k.value).toLocaleString(numLocale()) : k.value;
           // "32.5%" not "32.5 %" (a space lets the sign drift to the far side in
           // Persian), months in the reader's language, and <bdi> keeps a minus
           // sign in front of its number in a right-to-left page.
-          const num = k.unit === '%' ? displayVal + '%' : String(displayVal);
+          const num = localDigits(k.unit === '%' ? displayVal + '%' : String(displayVal));
           const unit = k.unit === '%' ? '' : k.unit === 'months' ? t('monthsShort') : (k.unit || '');
           div.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(localizeDynamicText(k.label))}</div>
             <div style="font-size:1.1rem;font-weight:700;color:${riskColor};"><bdi>${escapeHtml(num)}</bdi>${unit ? ' ' + escapeHtml(unit) : ''}</div>
@@ -1236,7 +1237,7 @@
               (k.key === 'expense_trend' || k.key === 'burn_rate')
                 ? (k.trend === 'up' ? '#c62828' : '#2e7d32')
                 : (k.trend === 'up' ? '#2e7d32' : '#c62828')
-            };">${trendIcon} <bdi>${escapeHtml(String(k.trend_pct))}%</bdi></div>` : ''}`;
+            };">${trendIcon} <bdi>${escapeHtml(localDigits(k.trend_pct + '%'))}</bdi></div>` : ''}`;
           kpiGrid.appendChild(div);
         });
 

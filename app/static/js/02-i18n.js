@@ -3070,6 +3070,10 @@
         return;
       }
       currentLanguage = normalized;
+      // charts' own numbers (doughnut tooltips and the rest without a callback) in the page's digits
+      if (window.Chart && window.Chart.defaults) window.Chart.defaults.locale = normalized === 'fa' ? 'fa-IR' : 'en-US';
+      // drawn before the language landed (at boot, or before a switch): the voucher form's Jalali hint
+      if (typeof updateJalaliHint === 'function') updateJalaliHint();
       if (persist) {
         localStorage.setItem('aa_ui_language', normalized);
       }

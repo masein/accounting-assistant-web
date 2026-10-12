@@ -757,8 +757,17 @@ class SearchAccounts(BaseTool):
             party = next((e for e in ctx.db.execute(select(Entity)).scalars()
                           if q_words and q_words <= _party_words(fold_fa((e.name or "").lower()))), None)
             if party is not None:
+                # …and the account its money moves through: a client's receipt credits receivables,
+                # not «وام کارکنان» (AI QA on migrated books, 2026-10-12)
+                from app.services.account_resolver import find_account_code
+                role = {"client": "ar", "customer": "ar", "supplier": "ap", "employee": "net_pay_payable",
+                        "shareholder": "shareholder_current"}.get(party.type)
+                code = find_account_code(ctx.db, role) if role else None
+                via = (f" Money received from or paid to it goes through {code} "
+                       f"({'receivables' if role == 'ar' else 'its ledger account'}), linked to the party." if code else "")
                 out["party_note"] = (f"No account is named {args.query!r}, but {party.name!r} is a {party.type}: its "
-                                     f"balance is get_party_balances(party=...), its entries query_ledger(entity_id='{party.id}').")
+                                     f"balance is get_party_balances(party=...), its entries query_ledger(entity_id='{party.id}')."
+                                     + via)
         return out
 
 

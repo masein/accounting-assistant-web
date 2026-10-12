@@ -54,7 +54,13 @@ The first pass ran on the wrong model (below). Three passes ran on `gpt-4.1-mini
 11. **Persian digits in a code found nothing:** «۱۱۱۰۰۵۰۰۱». Codes, queries and references are now normalised to ASCII digits.
 12. **"How many months of money?" read the 13 weeks** ("enough for 3 months") beside a 0.4-month runway. The forecast tool now returns the dashboard's runway and burn.
 13. **An English question got a Persian answer.** The reader's saved language won over the message's. A message plainly in the other script is now answered in that script's language.
-14. **Smaller fixes:**
+14. **Figures were miscopied even from the ready-written twins.**
+    - 21,721,200,283 came out as «۲۱٬۷۱۲٬۱۰۰٬۲۸۳», and 1,017,516,253 as «۱٬۰۱۷٬۵۱۷٬۲۵۳».
+    - Before a reply goes out, a long grouped figure no tool returned, a few digits off (or reordered) from exactly one figure a tool did, is replaced by that figure. A sum the model worked out is left alone.
+15. **A refused card was reported as ready.** The toman guard refused a 50-million-toman invoice carded at 50,000,000 rials; the model then said the invoice was ready. A refusal that names its own fix now goes back to the model once, and the false reply is never shown. A closed period or a future date is final and is not retried.
+16. **A party's id was passed as its name** to `get_party_balances`, which found nothing. It now takes either.
+17. **Tomans carded as rials.** «قسط وام ۲۰ میلیون تومان» was carded at 20,000,000 rials. A rial book's voucher or invoice whose amount is a figure the user wrote in tomans is now refused, with the rial amount to use.
+18. **Smaller fixes:**
     - an invoice card dated 2026-07-01 for «پشتیبانی مهر»: the prompt now says to leave `issue_date` out unless the user names a date;
     - the AI budget message read "You have used its AI allowance";
     - a party named where an account was expected now says where its balance is;

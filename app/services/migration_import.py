@@ -35,6 +35,7 @@ from app.models.entity import Entity
 from app.models.migration import MigrationBatch, MigrationPendingRecord
 from app.models.transaction import Transaction, TransactionLine
 from app.services.book_text import bt
+from app.services.reporting.statement_lines import infer as infer_statement_line
 
 _SS_NS = {"ss": "urn:schemas-microsoft-com:office:spreadsheet"}
 
@@ -516,10 +517,13 @@ def _merge_chart(db: Session, payload: dict) -> dict:
             if row["code"] in blocked:
                 continue
             acc = _get(row["code"])
+            line = infer_statement_line(row["code"], row["title"])
             if acc is not None:
                 if row["title"] and normalize_fa(acc.name) != row["title"]:
                     acc.name = row["title"]
                     stats[tier]["updated"] += 1
+                if line:
+                    acc.statement_line = line
                 continue
             parent = None
             for pt in _PARENT_CHAIN.get(tier, ()):
@@ -531,6 +535,7 @@ def _merge_chart(db: Session, payload: dict) -> dict:
             acc = Account(
                 code=row["code"], name=row["title"],
                 level=_TIER_LEVEL[tier], parent_id=(parent.id if parent else None),
+                statement_line=line,
             )
             db.add(acc)
             db.flush()

@@ -504,16 +504,20 @@ def _match_prefix_bucket(code: str, table: list[tuple[str, str]]) -> str | None:
     return None
 
 
-def _bs_bucket_for_code(code: str) -> tuple[str, str] | None:
+def _bs_bucket_for_code(code: str, lines: dict[str, tuple[str, str]] | None = None) -> tuple[str, str] | None:
     """Map an account code to (section_key, bucket_key) for the balance sheet.
 
     section_key ∈ {current_assets, non_current_assets, current_liabilities,
                    non_current_liabilities, equity}
+    ``lines``: the company's own lines (``statement_lines.line_map``: a
+    migrated chart's, a bank's account), which win over the code prefixes.
     Returns None if the account is not a balance-sheet line.
     """
     c = (code or "").strip()
     if not c:
         return None
+    if lines and c in lines:
+        return lines[c]
     bucket = _match_prefix_bucket(c, _BS_CURRENT_ASSET_MAP)
     if bucket:
         return ("current_assets", bucket)
@@ -581,13 +585,16 @@ def _balance_sheet_buckets(
     been closed into account 33xx; this lets the Balance Sheet balance even
     when no formal closing entries have been posted.
     """
+    from app.services.reporting.statement_lines import line_map
+
     turnovers = {
         account_id: (debit, credit)
         for account_id, debit, credit in account_turnovers_upto(db, as_of, currency=currency)
     }
+    lines = line_map(db)
     buckets: dict[tuple[str, str], int] = {}
     for acc in accounts:
-        key = _bs_bucket_for_code(acc.code)
+        key = _bs_bucket_for_code(acc.code, lines)
         if not key:
             continue
         debit, credit = turnovers.get(acc.id, (0, 0))
@@ -1243,10 +1250,11 @@ def _cf_bucket_directional(code: str, cash_delta: int) -> tuple[str, str]:
     return (section, category + suffix)
 
 
-def _is_cash_code(code: str | None) -> bool:
+def _is_cash_code(code: str | None, lines: dict[str, tuple[str, str]] | None = None) -> bool:
     """Cash for the flows is what the balance sheet calls cash (1110, petty
-    cash 1160, sub-accounts), so opening + flows = closing by construction."""
-    return _bs_bucket_for_code(code or "") == ("current_assets", "ca_cash")
+    cash 1160, sub-accounts, a migrated chart's own cash lines), so opening +
+    flows = closing by construction."""
+    return _bs_bucket_for_code(code or "", lines) == ("current_assets", "ca_cash")
 
 
 def _cash_flow_buckets(
@@ -1254,16 +1262,19 @@ def _cash_flow_buckets(
 ) -> dict[tuple[str, str], int]:
     from app.services.reporting.repository import line_net, transactions_with_lines_between
 
+    from app.services.reporting.statement_lines import line_map
+
     txns = transactions_with_lines_between(db, from_d, to_d, currency=currency)
+    lines = line_map(db)
     buckets: dict[tuple[str, str], int] = {}
     for txn in txns:
-        cash_lines = [ln for ln in txn.lines if _is_cash_code(ln.account.code)]
+        cash_lines = [ln for ln in txn.lines if _is_cash_code(ln.account.code, lines)]
         if not cash_lines:
             continue
         cash_delta = int(sum(line_net(ln, currency) for ln in cash_lines))
         if cash_delta == 0:
             continue
-        counters = [ln for ln in txn.lines if not _is_cash_code(ln.account.code)]
+        counters = [ln for ln in txn.lines if not _is_cash_code(ln.account.code, lines)]
         if not counters:
             key = ("operating", "op_other")
         else:

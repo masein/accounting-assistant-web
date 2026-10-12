@@ -32,14 +32,14 @@ _RULES: list[tuple[str, str, tuple[tuple[str, ...], ...], tuple[str, ...]]] = [
     ("petty_cash", "1", (("تنخواه",),), ()),
     ("ar", "1", (("دریافتنی", "تجاری"),), ("اسناد",)),
     ("supplier_advance", "1", (("پیشپرداخت", "خرید"),), ("خدمات",)),
-    ("prepaid_expense", "1", (("پیشپرداخت", "هزینه"),), ()),
-    ("vat_input", "1", (("ارزشافزوده",),), ()),
+    ("prepaid_expense", "1", (("پیشپرداخت", "هزینه"),), ("سود", "وام", "بیمه")),
+    ("vat_input", "1", (("ارزشافزوده",),), ("عوارض",)),
     ("ap", "2", (("پرداختنی", "تجاری"),), ("اسناد",)),
     ("customer_credit", "2", (("پیشدریافت",),), ()),
-    ("vat_output", "2", (("ارزشافزوده",),), ()),
-    ("net_pay_payable", "2", (("حقوق", "پرداختنی"),), ("مالیات", "بیمه")),
+    ("vat_output", "2", (("ارزشافزوده",),), ("عوارض",)),
+    ("net_pay_payable", "2", (("حقوق", "پرداختنی"),), ("مالیات", "بیمه", "تسویه")),
     ("paye_payable", "2", (("مالیات", "حقوق"),), ()),
-    ("social_security_payable", "2", (("بیمه", "پرداختنی"),), ()),
+    ("social_security_payable", "2", (("بیمه", "پرداختنی"),), ("ثالث", "عمر")),
     ("shareholder_current", "2", (("جاری", "شرکا"), ("جاری", "سهامدار")), ()),
     ("share_capital", "3", (("سرمایه",),), ("افزایش", "گذاری")),
     ("retained_earnings", "3", (("انباشته",),), ()),
@@ -47,7 +47,7 @@ _RULES: list[tuple[str, str, tuple[tuple[str, ...], ...], tuple[str, ...]]] = [
     ("wages_expense", "6", (("حقوق",),), ("بیمه", "مالیات")),
     ("employer_social_expense", "6", (("بیمه", "کارفرما"),), ()),
     ("expense", "6", (("متفرقه",),), ()),
-    ("bank_fee", "6", (("کارمزد",),), ()),
+    ("bank_fee", "6", (("کارمزد",),), ("وام",)),
     ("depreciation_expense", "6", (("استهلاک",),), ()),
 ]
 CATEGORIES = tuple(r[0] for r in _RULES)
@@ -111,22 +111,52 @@ def save(db: Session, changes: dict[str, str | None], *, source: str) -> dict[st
     return data
 
 
+def _pick(hits: list[tuple[str, str]], activity: dict[str, int]) -> str | None:
+    """The one sub-ledger among those a rule fits: a full Sepidar chart keeps
+    twins (rial and foreign-currency petty cash, bank, ...) and catch-alls
+    («سایر پیش دریافت‌ها»). The rial one, then the specific one, then the one
+    the books use most, then the plainest title; still a tie: None."""
+    from app.services.reporting.statement_lines import _squash
+
+    pool = [h for h in hits if "ارزی" not in _squash(h[1])] or hits
+    pool = [h for h in pool if not _squash(h[1]).startswith("سایر")] or pool
+    if len(pool) > 1 and any(activity.get(c) for c, _n in pool):
+        top = max(activity.get(c, 0) for c, _n in pool)
+        pool = [h for h in pool if activity.get(h[0], 0) == top]
+    if len(pool) > 1:
+        shortest = min(len(_squash(n)) for _c, n in pool)
+        pool = [h for h in pool if len(_squash(h[1])) == shortest]
+    return pool[0][0] if len(pool) == 1 else None
+
+
 def suggest(db: Session) -> dict[str, str]:
-    """category → the one migrated sub-ledger (معین) whose title names it; a
-    category two sub-ledgers fit is left for the owner."""
+    """category → the migrated sub-ledger (معین) whose title names it
+    (``_pick`` when several do); a category nothing settles is left for the
+    owner."""
+    from sqlalchemy import func
+
+    from app.models.transaction import TransactionLine
     from app.services.reporting.statement_lines import _squash
 
     subs = db.execute(
-        select(Account.code, Account.name).where(Account.level == AccountLevel.SUB, Account.is_active.is_(True))
+        select(Account.id, Account.code, Account.name).where(Account.level == AccountLevel.SUB, Account.is_active.is_(True))
     ).all()
+    if not subs:
+        return {}
+    used = dict(db.execute(
+        select(TransactionLine.account_id, func.count()).where(TransactionLine.account_id.in_([s.id for s in subs]))
+        .group_by(TransactionLine.account_id)
+    ).all())
+    activity = {s.code: used.get(s.id, 0) for s in subs}
     out: dict[str, str] = {}
     for cat, head, alternatives, never in _RULES:
-        hits = [code for code, name in subs
+        hits = [(code, name) for _id, code, name in subs
                 if code.startswith(head)
                 and any(all(w in _squash(name) for w in words) for words in alternatives)
                 and not any(w in _squash(name) for w in never)]
-        if len(hits) == 1:
-            out[cat] = hits[0]
+        picked = _pick(hits, activity) if hits else None
+        if picked:
+            out[cat] = picked
     # one VAT account for both sides (Sepidar's «مالیات ارزش افزوده»): input VAT
     # posted to it nets the liability, as it does in Sepidar
     if "vat_output" in out and "vat_input" not in out:

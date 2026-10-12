@@ -606,30 +606,108 @@ def apply(db: Session, parsed: dict[str, Any], *, account_map: dict[str, str], c
     accounts, problems = _assess(db, parsed, account_map)
     mapped = {a["key"]: a["mapped_to"] for a in accounts}
     default_ccy = (currency or get_reporting_currency(db) or "IRR").strip().upper()
-    posted, skipped = 0, defaultdict(int)
+    parties = _Parties(db)
+    posted, skipped, to_banks = 0, defaultdict(int), 0
     for v in parsed["vouchers"]:
         if problems[v.key]:
             skipped[problems[v.key]] += 1
             continue
-        links, seen = [], set()
+        codes = []
+        for ln in v.lines:
+            code = mapped[ln.account_key]
+            own = parties.bank_account(ln.party, code)
+            to_banks += own is not None
+            codes.append(own or code)
+        # each party once, with its own share of the voucher (debit: owes us),
+        # as Sepidar keeps a detail account's balance across every sub-ledger
+        shares: dict[str, int] = {}
         if link_parties:
             for ln in v.lines:
-                if ln.party and ln.party not in seen and len(ln.party) <= 200:
-                    role = _party_role(mapped[ln.account_key])
-                    if role:
-                        links.append(EntityLink(role=role, name=ln.party))
-                        seen.add(ln.party)
+                if ln.party and len(ln.party) <= 200:
+                    shares[ln.party] = shares.get(ln.party, 0) + ln.debit - ln.credit
+        links, amounts = [], []
+        for name, share in shares.items():
+            line = next(ln for ln in v.lines if ln.party == name)
+            entity = parties.entity(name, _party_role(mapped[line.account_key]) or ("client" if share >= 0 else "supplier"))
+            links.append(EntityLink(role=entity.type, entity_id=entity.id))
+            amounts.append((entity.id, share))
         ccy = next((ln.currency for ln in v.lines if ln.currency), None) or default_ccy
-        create_transaction_from_payload(db, TransactionCreate(
+        txn = create_transaction_from_payload(db, TransactionCreate(
             date=v.on, reference=_reference(parsed["preset"], v),
             description=(v.lines[0].description or bt(db, "imported_voucher", number=v.number))[:2000], currency=ccy,
-            lines=[TransactionLineCreate(account_code=mapped[ln.account_key], debit=ln.debit, credit=ln.credit,
+            lines=[TransactionLineCreate(account_code=code, debit=ln.debit, credit=ln.credit,
                                          line_description=(ln.description or ln.account_name or None) and
-                                         (ln.description or ln.account_name)[:512]) for ln in v.lines],
+                                         (ln.description or ln.account_name)[:512]) for ln, code in zip(v.lines, codes)],
             entity_links=links))
+        if amounts:
+            db.flush()
+            share_of = dict(amounts)
+            for link in txn.entity_links or []:
+                if link.entity_id in share_of:
+                    link.amount = share_of[link.entity_id]
         posted += 1
     save_map(db, {a["key"]: a["mapped_to"] for a in accounts if a["mapped_to"] and a["how"] != "code"})
     db.flush()
+    # the books now say which twin sub-ledger is in use (rial or foreign-currency
+    # petty cash, ...): suggest again where new entries post
+    from app.services import posting_roles
+    roles = posting_roles.apply_suggestions(db)
     from app.api.reports import invalidate_dashboard_cache
     invalidate_dashboard_cache()
-    return {"posted": posted, "skipped": dict(skipped), "voucher_count": len(parsed["vouchers"])}
+    return {"posted": posted, "skipped": dict(skipped), "voucher_count": len(parsed["vouchers"]),
+            "bank_lines": to_banks, "posting_roles": roles}
+
+
+class _Parties:
+    """An imported line's party as the company knows it. A party is matched by
+    name whatever its type (the chart migration made Sepidar's تفصیلی rows
+    clients, employees and banks; a voucher line saying only «a supplier» used
+    to create a second one), a bank also by the account number in its title
+    («آینده جردن 0101790457004»); a stranger is created."""
+
+    def __init__(self, db: Session):
+        from app.models.account import Account
+        from app.models.entity import Entity
+        from app.services import migration_import as mig
+        self.db, self.mig = db, mig
+        self.by_name: dict[str, Any] = {}
+        self.by_number: dict[str, Any] = {}
+        for e in db.execute(select(Entity)).scalars():
+            self.by_name.setdefault(_norm(e.name), e)
+            if e.type == "bank" and e.account_number:
+                self.by_number.setdefault(e.account_number.strip(), e)
+        rows = db.execute(select(Account.id, Account.code, Account.parent_id)).all()
+        self.parent = {r.code: r.parent_id for r in rows}
+        self.code_of = {r.id: r.code for r in rows}
+
+    def _find(self, name: str):
+        number = self.mig.bank_account_number(name)
+        if number and number in self.by_number:
+            return self.by_number[number]
+        return self.by_name.get(_norm(name)) or self.by_name.get(_norm(self.mig.strip_account_number(name)))
+
+    def entity(self, name: str, role: str):
+        found = self._find(name)
+        if found is not None:
+            return found
+        from app.services.ledger_posting import get_or_create_entity
+        made = get_or_create_entity(self.db, role, name)
+        self.by_name[_norm(name)] = made
+        return made
+
+    def bank_account(self, party: str | None, code: str) -> str | None:
+        """A line on a bank sub-ledger (111005) naming one of the company's
+        banks goes to that bank's own account (111005001): Sepidar keeps a
+        bank's balance as a detail account, and the banks' own accounts stayed
+        at 0 with everything on the sub-ledger (2026-10-12)."""
+        if not party:
+            return None
+        bank = self._find(party)
+        if bank is None or bank.type != "bank" or not bank.code or bank.code == code:
+            return None
+        cur, hops = self.parent.get(bank.code), 0
+        while cur is not None and hops < 12:
+            if self.code_of.get(cur) == code:
+                return bank.code
+            cur, hops = self.parent.get(self.code_of.get(cur)), hops + 1
+        return None

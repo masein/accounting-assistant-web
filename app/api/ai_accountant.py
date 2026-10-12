@@ -494,8 +494,13 @@ async def chat(
             mode="personal" if user.role == Role.PERSONAL else "default",
         )
     except AIAccountantError as e:
-        # the detail is for whoever configures the AI; the code lets the chat say it plainly
-        raise HTTPException(status_code=502, detail=str(e), headers={"X-Error-Code": "ai_unavailable"})
+        # the detail is for whoever configures the AI; the code lets the chat say it plainly.
+        # An empty provider account isn't "try again in a moment" (Metis 402 "Insufficient
+        # credit, please top up", model benchmark 2026-10-12): the reason says so.
+        low = str(e).lower()
+        reason = {"X-Error-Reason": "out_of_credit"} if any(
+            w in low for w in ("402", "insufficient credit", "payment required", "insufficient_quota", "top up")) else {}
+        raise HTTPException(status_code=502, detail=str(e), headers={"X-Error-Code": "ai_unavailable", **reason})
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 

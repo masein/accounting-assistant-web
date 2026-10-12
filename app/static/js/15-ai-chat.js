@@ -1078,6 +1078,7 @@
           if (!r.ok || data._nonJson) {
             const err = new Error((data && typeof data.detail === 'string' && data.detail) || t('aiChatFailed'));
             err.aiUnavailable = r.headers.get('X-Error-Code') === 'ai_unavailable';
+            err.outOfCredit = r.headers.get('X-Error-Reason') === 'out_of_credit';
             throw err;
           }
           sessionId = data.session_id;
@@ -1091,7 +1092,8 @@
         } catch (e) {
           hideTypingIndicator(typingEl);
           // the provider's own words are technical (and English): say it plainly, keep them for whoever fixes it
-          appendBubble('assistant', e.aiUnavailable ? t('aiUnavailable') + '\n\n(' + e.message + ')' : tf('aiChatError', { message: e.message }));
+          appendBubble('assistant', e.outOfCredit ? t('aiOutOfCredit') + '\n\n(' + e.message + ')'
+            : e.aiUnavailable ? t('aiUnavailable') + '\n\n(' + e.message + ')' : tf('aiChatError', { message: e.message }));
           statusEl.textContent = '';
         } finally {
           sendBtn.disabled = false;

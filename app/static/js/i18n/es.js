@@ -1884,6 +1884,7 @@ window.I18N_PACKS.es = Object.assign({
         auditCat_system: 'Sistema',
         moPickInvoice: 'Seleccionar la factura {number}',
         aiUnavailable: "El asistente no puede responder ahora. Inténtalo de nuevo en un momento; si sigue pasando, el propietario puede revisar Ajustes → Proveedores de IA.",
+        aiOutOfCredit: 'Se ha agotado el saldo del proveedor de IA, así que el asistente no puede responder. El propietario puede recargar la cuenta del proveedor (Ajustes → Proveedores de IA indica cuál).',
         aiChatError: "Algo salió mal: {message}",
         aiChatFailed: "No se pudo enviar el mensaje.",
         msgConnectionError: "Error de conexión: ",

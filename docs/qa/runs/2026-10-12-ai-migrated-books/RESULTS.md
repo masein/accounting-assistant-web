@@ -60,11 +60,41 @@ The first pass ran on the wrong model (below). Three passes ran on `gpt-4.1-mini
 15. **A refused card was reported as ready.** The toman guard refused a 50-million-toman invoice carded at 50,000,000 rials; the model then said the invoice was ready. A refusal that names its own fix now goes back to the model once, and the false reply is never shown. A closed period or a future date is final and is not retried.
 16. **A party's id was passed as its name** to `get_party_balances`, which found nothing. It now takes either.
 17. **Tomans carded as rials.** «قسط وام ۲۰ میلیون تومان» was carded at 20,000,000 rials. A rial book's voucher or invoice whose amount is a figure the user wrote in tomans is now refused, with the rial amount to use.
-18. **Smaller fixes:**
+18. **Choosing gpt-5.4 or 5.5 broke the chat.**
+    - gpt-5.4-mini, gpt-5.4-nano and gpt-5.5 refuse function tools unless `reasoning_effort` is "none", and the app sent "low".
+    - gpt-5, gpt-5-mini and gpt-5-nano refuse "none".
+    - The rule now follows the version: "none" from 5.4 on, "low" before it.
+19. **Choosing Claude Haiku 4.5 broke the chat.** It refuses adaptive thinking. A request is now sent again without the option the provider names (thinking or effort).
+20. **A seed default the books never used.** Even gpt-4.1 credited the seed's 2120 «پیش‌دریافت از مشتریان» where the company keeps customer advances on its own account. A card on a seed default the books never used, when the company keeps that posting role on its own used account, is refused with the account to use, and the model gets one retry.
+21. **"Whom do we owe" didn't net debit balances.** It totalled only the liability accounts that owe (23,672,063,635); the balance sheet nets one in debit (23,495,300,037). It now totals them as the balance sheet does.
+22. **Smaller fixes:**
     - an invoice card dated 2026-07-01 for «پشتیبانی مهر»: the prompt now says to leave `issue_date` out unless the user names a date;
     - the AI budget message read "You have used its AI allowance";
     - a party named where an account was expected now says where its balance is;
     - petty cash, loans and shared costs are found in a migrated chart (the prompt).
+
+## Which model
+
+All on the same final code, each on its own copy of the books, the 52 scenarios scored automatically:
+- a figure must equal the report's;
+- a card must use the right accounts and amount;
+- a refused card must not exist.
+
+Cost uses list prices (USD per million tokens) where they are known here; the others need Metis's price list.
+
+| Model | Passed | Median turn | Tokens in / out per question | $ per 1,000 questions |
+|---|---|---|---|---|
+| claude-sonnet-5-5 | 51/52 (98%) | 12.1 s | 84,077 / 676 | ≈ 44 at Sonnet 4.x prices |
+| gpt-4.1 | 50/52 (96%) | 9.0 s | 47,646 / 167 | 27.67 |
+| gpt-5.6-luna | 47/52 (90%) | 11.5 s | 53,200 / 189 | not known here |
+| gpt-4.1-mini (today's) | 43/52 (82%) | 8.2 s | 49,350 / 145 | 5.75 |
+| gpt-5.4-mini | 43/52 (82%) | 10.1 s | 59,259 / 164 | not known here |
+| gpt-5-mini | 42/52 (80%) | 14.1 s | 57,675 / 719 | 3.43 |
+| gpt-5.4-nano | 40/52 (76%) | 8.8 s | 59,928 / 205 | not known here |
+| claude-haiku-4-5 | 38/52 (73%) | 18.5 s | 62,220 / 427 | 11.46 |
+| gpt-4.1-nano | 19/52 (36%) | 6.2 s | 42,474 / 87 | 1.29 |
+
+About 95% of the input tokens are cached prompt (the system prompt and tool list), billed at the cached rate. claude-haiku-5-5 is listed by Metis but not enabled for this key. Gemini isn't on Metis's OpenAI-compatible path, so it would need its own chat adapter.
 
 ## Costs and limits
 

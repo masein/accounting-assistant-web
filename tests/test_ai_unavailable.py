@@ -23,3 +23,20 @@ def test_the_chat_says_it_plainly():
     from pathlib import Path
     js = (Path(__file__).resolve().parents[1] / "app" / "static" / "js" / "15-ai-chat.js").read_text(encoding="utf-8")
     assert "'[error] '" not in js and "t('aiUnavailable')" in js and "X-Error-Code" in js
+
+
+def test_an_empty_provider_account_is_named_as_such(auth_client, monkeypatch):
+    """Metis answered 402 "Insufficient credit, please top up": the page said
+    "try again in a moment", which can't help (model benchmark, 2026-10-12)."""
+    from app.api import ai_accountant
+
+    async def broke(*a, **k):
+        raise AIAccountantError('OpenAI-shape error 402: {"error":"Payment Required","message":"Insufficient credit, please top up"}')
+
+    monkeypatch.setattr(ai_accountant, "run_chat_turn", broke)
+    r = auth_client.post("/ai-accountant/chat", json={"message": "record the rent please"})
+    assert r.status_code == 502 and r.headers.get("x-error-code") == "ai_unavailable"     # the phone reads this as before
+    assert r.headers.get("x-error-reason") == "out_of_credit"
+    from pathlib import Path
+    js = (Path(__file__).resolve().parents[1] / "app" / "static" / "js" / "15-ai-chat.js").read_text(encoding="utf-8")
+    assert "t('aiOutOfCredit')" in js and "X-Error-Reason" in js

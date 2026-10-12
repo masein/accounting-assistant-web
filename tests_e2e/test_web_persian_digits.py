@@ -31,7 +31,7 @@ def test_a_persian_page_writes_persian_digits_and_keeps_latin_where_it_must(flow
     assert hint and not any(c in "0123456789" for c in hint), hint     # redrawn when the language changed
     shown = page.evaluate("""() => [formatNum(1234567), formatMoney(2500, 'GBP'), formatNum(-12.5),
                                     formatKpiValue(40, '%'), window.Chart && Chart.defaults.locale]""")
-    assert shown == ["۱٬۲۳۴٬۵۶۷", "£۲٬۵۰۰", "-۱۲٫۵", "۴۰٪", "fa-IR"], shown
+    assert shown == ["۱٬۲۳۴٬۵۶۷", "£۲٬۵۰۰", "-۱۲٫۵۰", "۴۰٪", "fa-IR"], shown     # pence as pence: ۱۲٫۵۰
     page.evaluate("() => { location.hash = 'accounts'; }")              # account codes read in Persian too
     wait_until(page, "() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '۱۱۱۰')")
     assert page.evaluate("() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '1110')") is False

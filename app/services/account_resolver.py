@@ -57,6 +57,10 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         # --- Foreign exchange (roadmap §4.6): realised on settlement ---
         "fx_gain": "4210",                  # Foreign exchange gains
         "fx_loss": "7950",                  # Foreign exchange losses
+        # --- Stock in the books (docs/PLAN_INVENTORY_GL.md) ---
+        "inventory": "1000",                # Stocks — asset
+        "cogs": "5010",                     # Cost of goods sold (cost of sales)
+        "stock_adjustment": "5900",         # Stock movement adjustment (cost of sales)
     },
     "ir": {
         "ar": "1112",
@@ -103,6 +107,12 @@ POSTING_CODES: dict[str, dict[str, str]] = {
         "notes_receivable": "1113",         # اسناد دریافتنی
         "cheques_in_collection": "1114",    # اسناد در جریان وصول
         "notes_payable": "2111",            # اسناد پرداختنی
+        # موجودی کالا (docs/PLAN_INVENTORY_GL.md): 1145, not 1140, which the seed
+        # uses for accrued income; 114x reads as inventories on the balance sheet,
+        # 51xx as cost of sales on the income statement
+        "inventory": "1145",                # موجودی مواد و کالا — asset
+        "cogs": "5110",                     # بهای تمام‌شده کالای فروش‌رفته
+        "stock_adjustment": "5190",         # تعدیل و ضایعات موجودی کالا
     },
 }
 # default chart tries Iranian codes first (the historical default), then UK.
@@ -147,6 +157,9 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "revaluation_reserve": "Revaluation reserve",
         "fx_gain": "Foreign exchange gains",
         "fx_loss": "Foreign exchange losses",
+        "inventory": "Stocks",
+        "cogs": "Cost of goods sold",
+        "stock_adjustment": "Stock movement adjustment",
     },
     "ir": {
         "ar": "حساب‌ها و اسناد دریافتنی تجاری",
@@ -186,9 +199,18 @@ POSTING_NAMES: dict[str, dict[str, str]] = {
         "notes_receivable": "اسناد دریافتنی",
         "cheques_in_collection": "اسناد در جریان وصول",
         "notes_payable": "اسناد پرداختنی",
+        "inventory": "موجودی مواد و کالا",
+        "cogs": "بهای تمام‌شده کالای فروش‌رفته",
+        "stock_adjustment": "تعدیل و ضایعات موجودی کالا",
     },
 }
 POSTING_NAMES["default"] = dict(POSTING_NAMES["ir"])
+
+# Groups a posting account may need that a seeded chart lacks: the Iranian
+# seed has no cost-of-sales group (docs/PLAN_INVENTORY_GL.md).
+_GROUP_NAMES: dict[str, dict[str, str]] = {
+    "ir": {"51": "بهای تمام‌شده درآمدهای عملیاتی"},
+}
 
 # Order in which to fall back when the active locale lacks an account.
 _FALLBACK_ORDER = ("ir", "uk")
@@ -218,6 +240,11 @@ def _ensure_account(db: Session, code: str, name: str, locale: str) -> str:
         if parent_code
         else None
     )
+    group_name = _GROUP_NAMES.get("uk" if locale == "uk" else "ir", {}).get(parent_code or "")
+    if parent is None and group_name:          # a group the seeded chart lacks (Iran's 51)
+        parent = Account(code=parent_code, name=group_name, level=AccountLevel.GROUP)
+        db.add(parent)
+        db.flush()
     db.add(Account(code=code, name=name, level=AccountLevel.GENERAL,
                    parent_id=(parent.id if parent else None)))
     db.flush()

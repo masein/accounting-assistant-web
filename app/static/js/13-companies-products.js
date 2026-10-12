@@ -1311,7 +1311,7 @@
         product.innerHTML = opts;
         if (keep && _stockItems.some((i) => i.id === keep)) product.value = keep;
         if (!document.getElementById('prod-date').value) document.getElementById('prod-date').value = localIsoDate(new Date());
-        await Promise.all([stockShowValuation(), bomLoad()]);
+        await Promise.all([stockShowValuation(), bomLoad(), stockLedgerLoad()]);
       } catch (_) {
         table.innerHTML = '<p class="fc-note">' + escapeHtml(t('stockLoadError')) + '</p>';
       }
@@ -1402,6 +1402,52 @@
       if (!res.ok) { out.textContent = typeof d.detail === 'string' ? d.detail : t('stockLoadError'); return; }
       out.textContent = tf('prodDone', { qty: formatNum(d.quantity), cost: formatAmount(d.components_cost), unit: formatAmount(d.unit_cost) });
       stockShowValuation().catch(() => {});
+      stockLedgerLoad().catch(() => {});
+    }
+
+    // Stock in the books (docs/PLAN_INVENTORY_GL.md): the switch, its date and
+    // the stock account beside the valuation
+    async function stockLedgerLoad() {
+      const res = await fetch(API + '/manager-reports/inventory/ledger');
+      const s = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      stockLedgerShow(s);
+    }
+    function stockLedgerShow(s) {
+      const on = document.getElementById('stock-ledger-on');
+      const from = document.getElementById('stock-ledger-from');
+      on.checked = !!s.enabled;
+      from.value = s.from || from.value || localIsoDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+      from.disabled = !!s.from;                       // the start can't move once stock has posted
+      document.getElementById('stock-ledger-sync').disabled = !s.enabled;
+      const status = document.getElementById('stock-ledger-status');
+      if (!s.enabled) {
+        status.textContent = s.from ? tf('stockLedgerPaused', { from: formatDisplayDate(s.from) }) : t('stockLedgerOff');
+        return;
+      }
+      let text = tf('stockLedgerStatus', { from: formatDisplayDate(s.from), books: formatMoney(s.books_value, currencyUnit()),
+        valuation: formatMoney(s.valuation, currencyUnit()) });
+      if (s.difference) text += ' ' + tf('stockLedgerDiff', { diff: formatMoney(s.difference, currencyUnit()) });
+      status.textContent = text;
+    }
+    async function stockLedgerSave() {
+      const enabled = document.getElementById('stock-ledger-on').checked;
+      const from = document.getElementById('stock-ledger-from');
+      if (enabled && !from.disabled
+          && !(await uiConfirm({ message: tf('stockLedgerConfirm', { date: formatDisplayDate(from.value) }), confirmLabel: t('stockLedgerSave') }))) return;
+      const res = await fetch(API + '/manager-reports/inventory/ledger', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(enabled ? { enabled, from: from.value || null } : { enabled }) });
+      const s = await res.json().catch(() => ({}));
+      if (!res.ok) { showAlert(s.detail || t('msgFailed'), true); stockLedgerLoad().catch(() => {}); return; }
+      stockLedgerShow(s);
+    }
+    async function stockLedgerSync() {
+      const res = await fetch(API + '/manager-reports/inventory/ledger/sync', { method: 'POST' });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) { showAlert(out.detail || t('msgFailed'), true); return; }
+      stockLedgerShow(out.status || {});
+      showAlert(out.posted && out.posted.length ? tf('stockLedgerPosted', { n: out.posted.length }) : t('stockLedgerNothing'));
     }
 
     (function wireStockPanel() {
@@ -1413,8 +1459,10 @@
         if (!(await uiConfirm({ message: tf('stockMethodConfirm', { method: t('stockMethod_' + method) }), confirmLabel: t('stockMethodSave') }))) return;
         const res = await fetch(API + '/manager-reports/inventory/settings', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method }) });
-        if (res.ok) stockShowValuation().catch(() => {});
+        if (res.ok) { stockShowValuation().catch(() => {}); stockLedgerLoad().catch(() => {}); }
       });
+      document.getElementById('stock-ledger-save').addEventListener('click', () => stockLedgerSave().catch(() => {}));
+      document.getElementById('stock-ledger-sync').addEventListener('click', () => stockLedgerSync().catch(() => {}));
       document.getElementById('bom-product').addEventListener('change', () => bomLoad().catch(() => {}));
       document.getElementById('bom-add-line').addEventListener('click', () => {
         document.getElementById('bom-lines').appendChild(bomLineRow(null));

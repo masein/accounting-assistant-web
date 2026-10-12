@@ -375,4 +375,22 @@ The chat with a real model (Metis, `gpt-4.1-mini`) on the two migrated companies
 | S2 | The voucher form after saving | Enter a two-line voucher of £7.50, save it | The form clears and its totals bar reads 0 again, not the last voucher's £7.50 |
 | S3 | A KPI card in a narrow column | The dashboard at desktop width and at 1024 px, a UK company with pence | «21,875.49 GBP» stays on one line in each card (the code moves under the figure only when the card is too narrow for both) |
 
-**Run order:** A → B → C → D → E → F → G → H → J → L → M → N → O → P → Q → R → S; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+## T. Stock in the books (2026-10-13, `docs/PLAN_INVENTORY_GL.md`)
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| T1 | Switching it on | A UK company with 20 units of stock worth £1,500 by the movements; switch on stock posting from the first of this month | One opening entry: stock (1000) £1,500 debit, stock adjustment (5900) credit; the balance sheet shows Stocks £1,500; switching on again posts nothing more |
+| T2 | Off by default | A company that never switched it on records movements | Nothing reaches the ledger, exactly as before |
+| T3 | A write-off | Issue 2 damaged units by hand (OUT) | The sync posts the cost of 2 units: stock adjustment debit, stock credit; the books' stock equals the valuation |
+| T4 | Stock found | Receive 5 units by hand at £12.50 | Stock £62.50 debit, stock adjustment credit |
+| T5 | Production | Build 3 finished items from their components | Nothing posts: components out and the finished item in at their total; stock's value in the books unchanged and equal to the valuation |
+| T6 | A back-dated purchase | After T3, record an IN dated earlier this month at a higher cost | The sync posts only the difference in the month's cost; the books equal the valuation again |
+| T7 | Changing the method | Switch weighted average → FIFO with stock posting on | The difference is posted in the first open month, described as a method change; the books equal the FIFO valuation |
+| T8 | A closed month | Close last month, then try a movement dated in it | Refused: the period is closed; the sync never touches a closed month |
+| T9 | Running the sync twice | Run it from the page twice | The second run posts nothing |
+| T10 | An Iranian company | Switch on in an Iranian company | Accounts 1145 and 5110/5190 are created under their groups (51 created if missing); the balance sheet's «موجودی مواد و کالا» and the income statement's «بهای تمام شده» carry the figures |
+| T11 | Buying stock on an invoice [G2] | A purchase invoice with two stock lines (10 at £100) and a service line | The stock lines debit Stocks, the service line Purchases; one IN movement per stock line at its net cost |
+| T12 | Selling stock [G2] | A sales invoice for 15 of the item after buying 10 at £100 and 10 at £200 | Revenue as before; an OUT of 15; cost of sales £2,250 (weighted average) or £2,000 (FIFO); stock £750 or £1,000 in the books and the valuation |
+| T13 | Voiding [G2] | Void the sales invoice of T12 | Its OUT movement goes; the sync takes the cost of sales back; stock returns to £3,000 |
+
+**Run order:** A → B → C → D → E → F → G → H → J → L → M → N → O → P → Q → R → S → T; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.

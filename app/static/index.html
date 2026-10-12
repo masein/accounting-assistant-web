@@ -1481,6 +1481,21 @@
         </div>
         <div id="stock-summary" class="fc-note"></div>
         <div id="stock-table" style="overflow-x:auto;"></div>
+        <!-- Stock in the books (docs/PLAN_INVENTORY_GL.md) -->
+        <div style="margin-top:0.9rem;border-top:1px solid var(--border);padding-top:0.75rem;">
+          <h4 style="margin:0 0 0.35rem;font-size:0.92rem;" data-i18n="stockLedgerTitle">Stock in the books</h4>
+          <p class="fc-note" data-i18n="stockLedgerHint">From the date you pick, stock movements post to the ledger.</p>
+          <label style="display:flex;gap:0.35rem;align-items:center;font-size:0.85rem;margin:0.25rem 0 0.4rem;"><input type="checkbox" id="stock-ledger-on"> <span data-i18n="stockLedgerOn">Post stock to the books</span></label>
+          <div class="form-grid" style="grid-template-columns: 1fr auto auto;align-items:end;">
+            <div>
+              <label for="stock-ledger-from" data-i18n="stockLedgerFrom">From</label>
+              <input type="date" id="stock-ledger-from">
+            </div>
+            <div class="btn-cell"><button type="button" class="btn btn-secondary" id="stock-ledger-save" data-i18n="stockLedgerSave">Save</button></div>
+            <div class="btn-cell"><button type="button" class="btn btn-secondary" id="stock-ledger-sync" data-i18n="stockLedgerSync">Post now</button></div>
+          </div>
+          <div id="stock-ledger-status" class="fc-note" role="status"></div>
+        </div>
       </div>
 
       <!-- Recipes (bill of materials) and production (roadmap §4.4) -->

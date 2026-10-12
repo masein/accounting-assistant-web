@@ -78,11 +78,15 @@ def test_the_migration_converts_every_money_column():
 
     import app.models  # noqa: F401
     from app.db.base import Base
-    path = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions" / "075_money_keeps_pence.py"
-    spec = importlib.util.spec_from_file_location("m075", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    listed = {(t, c) for t, cols in mod.MONEY.items() for c in cols}
+    listed = set()
+    versions = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions"
+    for path in sorted(versions.glob("*.py")):
+        if path.name < "075":
+            continue
+        spec = importlib.util.spec_from_file_location(f"m{path.stem}", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        listed |= {(t, c) for t, cols in getattr(mod, "MONEY", {}).items() for c in cols}
     models = {(t.name, c.name) for t in Base.metadata.tables.values() for c in t.columns if isinstance(c.type, MoneyType)}
     assert listed == models
 

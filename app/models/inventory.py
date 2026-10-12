@@ -61,6 +61,10 @@ class InventoryMovement(Base, TenantMixin):
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True, index=True
     )
+    # What the invoice that made this movement posted to stock, in the base
+    # currency (docs/PLAN_INVENTORY_GL.md): the sync posts any difference from
+    # the costing engine's value. None for a movement entered by hand.
+    ledger_value: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
     # Set in Python (microseconds): SQLite's CURRENT_TIMESTAMP has one-second
     # resolution, so same-second movements sorted randomly by id.
     created_at: Mapped[datetime] = mapped_column(
@@ -85,4 +89,23 @@ class InventoryBomLine(Base, TenantMixin):
         UUID(as_uuid=True), ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True
     )
     quantity: Mapped[float] = mapped_column(Numeric(18, 4))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class InventoryPosting(Base, TenantMixin):
+    """What the stock sync has posted for one month and kind
+    (docs/PLAN_INVENTORY_GL.md): ``cogs``, the cost of what was sold, or
+    ``adjust``, movements entered by hand and catch-ups. ``amount`` is signed:
+    what stock went down by for ``cogs``, what it went up by for ``adjust``.
+    A month's total is the sum of its rows; each re-run adds the difference."""
+
+    __tablename__ = "inventory_postings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    month: Mapped[str] = mapped_column(String(7), index=True)          # "2026-10", Gregorian
+    kind: Mapped[str] = mapped_column(String(16))
+    amount: Mapped[int] = mapped_column(MoneyType())
+    transaction_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -68,6 +68,8 @@ class InventoryReportService:
         item = self.db.get(InventoryItem, payload.item_id)
         if not item:
             raise HTTPException(status_code=404, detail="Inventory item not found")
+        from app.services import inventory_ledger
+        inventory_ledger.guard(self.db, payload.movement_date)
         typ = (payload.movement_type or "").strip().upper()
         if typ not in (InventoryMovementType.IN.value, InventoryMovementType.OUT.value, InventoryMovementType.ADJUSTMENT.value):
             raise HTTPException(status_code=400, detail="movement_type must be IN, OUT, or ADJUSTMENT")
@@ -83,6 +85,8 @@ class InventoryReportService:
             transaction_id=payload.transaction_id,
         )
         self.db.add(row)
+        self.db.flush()
+        inventory_ledger.sync(self.db)                  # stock in the books follows (docs/PLAN_INVENTORY_GL.md)
         self.db.commit()
         self.db.refresh(row)
         return InventoryMovementRead(

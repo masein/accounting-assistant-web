@@ -28,6 +28,15 @@ def _iso(value: str, lang: str) -> str:
 
 
 EXACT: dict[str, dict[str, str]] = {
+    # stock in the books (docs/PLAN_INVENTORY_GL.md)
+    "Pick the date stock starts posting from.": {
+        "fa": "تاریخ شروع ثبت موجودی در دفاتر را انتخاب کنید.",
+        "es": "Elija la fecha desde la que se contabilizan las existencias.",
+        "ar": "اختر التاريخ الذي يبدأ منه ترحيل المخزون."},
+    "The start date can't be in the future.": {
+        "fa": "تاریخ شروع نمی‌تواند در آینده باشد.",
+        "es": "La fecha de inicio no puede ser futura.",
+        "ar": "لا يمكن أن يكون تاريخ البدء في المستقبل."},
     # ── shared ──
     "Request validation failed": {"fa": "درخواست نامعتبر است", "es": "La solicitud no es válida", "ar": "الطلب غير صالح"},
     "Internal server error": {"fa": "خطای داخلی سرور", "es": "Error interno del servidor", "ar": "خطأ داخلي في الخادم"},
@@ -711,6 +720,11 @@ PATTERNS: list[_Pattern] = [
              {"fa": "برای {method} از طریق {bank} قاعده کارمزدی تعریف نشده است.",
               "es": "No hay regla de comisión para {method} con {bank}.",
               "ar": "لا توجد قاعدة رسوم لـ {method} عبر {bank}."}),
+    _Pattern(r"^Stock has posted from (?P<d>[0-9-]+); that date can't move\. Switch it back on from the same date\.$",
+             {"fa": "موجودی از {d} در دفاتر ثبت شده و این تاریخ تغییر نمی‌کند. از همان تاریخ دوباره روشنش کنید.",
+              "es": "Las existencias se contabilizan desde {d}; esa fecha no puede cambiar. Vuelva a activarlo desde la misma fecha.",
+              "ar": "رُحِّل المخزون منذ {d}، ولا يمكن تغيير هذا التاريخ. أعد تشغيله من التاريخ نفسه."},
+             example="Stock has posted from 2026-10-01; that date can't move. Switch it back on from the same date."),
     _Pattern(r"^The amount can have at most (?P<n>\d+) decimal places in (?P<cur>.+)\.$",
              {"fa": "مبلغ به {cur} حداکثر {n} رقم اعشار دارد.",
               "es": "El importe puede tener como máximo {n} decimales en {cur}.",

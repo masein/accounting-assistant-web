@@ -27,13 +27,14 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.account import Account, AccountLevel
 from app.models.entity import Entity
 from app.models.migration import MigrationBatch, MigrationPendingRecord
-from app.models.transaction import Transaction
+from app.models.transaction import Transaction, TransactionLine
+from app.services.book_text import bt
 
 _SS_NS = {"ss": "urn:schemas-microsoft-com:office:spreadsheet"}
 
@@ -412,6 +413,25 @@ def stage_preview_batch(
         summary["validation"]["warnings"].append(
             "These exact files were already imported — confirming again re-applies as an update (no duplicates)."
         )
+    summary["conflicts"] = bank_code_conflicts(db, payload)
+    summary["validation"]["warnings"].extend(bank_conflict_warning(c) for c in summary["conflicts"])
+    existing = live_opening(db)
+    if existing is not None:
+        total = opening_total(db, existing)
+        new_total = max(summary["opening"]["total_debit"], summary["opening"]["total_credit"])
+        same = (batch is not None and batch.opening_transaction_id == existing.id) or total == new_total
+        summary["opening"]["existing"] = {"date": existing.date.isoformat(), "total": total}
+        summary["opening"]["suggested"] = "replace" if same else "keep"
+        if not same:
+            summary["validation"]["warnings"].append(
+                f"The books already hold opening balances of {total:,} dated {existing.date.isoformat()}; "
+                f"this file's are {new_total:,}. Unless you choose to replace them, they stay as they are "
+                "and only the chart and contacts are imported"
+            )
+    else:
+        summary["opening"]["suggested"] = "replace"
+
+    if already_applied:
         batch.status = "pending"
         batch.payload = payload
         batch.summary = summary
@@ -436,11 +456,50 @@ def stage_preview_batch(
 _TIER_LEVEL = {"group": AccountLevel.GROUP, "kol": AccountLevel.GENERAL, "moein": AccountLevel.SUB}
 
 
+def _bank_accounts(db: Session) -> dict[str, str]:
+    """The banks' own GL accounts: code → bank name."""
+    return {
+        e.code: e.name
+        for e in db.execute(select(Entity).where(Entity.type == "bank", Entity.code.isnot(None))).scalars()
+    }
+
+
+def bank_code_conflicts(db: Session, payload: dict) -> list[dict]:
+    """Chart rows whose code is already a bank's own account under another
+    name. An import before 2026-10-12 gave each bank the next free 111x code,
+    which is a ledger (کل) in Sepidar's numbering: a later year's chart with
+    ledger 1113 «سایر حساب‌ها و اسناد دریافتنی» renamed the bank's account
+    after it, with the bank's money still in it."""
+    banks = _bank_accounts(db)
+    out: list[dict] = []
+    for tier in ("group", "kol", "moein"):
+        for row in payload.get(tier, []):
+            if row["code"] not in banks:
+                continue
+            acc = db.execute(select(Account).where(Account.code == row["code"])).scalars().first()
+            if acc is not None and normalize_fa(acc.name) != row["title"]:
+                out.append({"code": row["code"], "title": row["title"], "tier": tier,
+                            "account": acc.name, "bank": banks[row["code"]]})
+    return out
+
+
+def bank_conflict_warning(c: dict) -> str:
+    return (f"Code {c['code']} is the account of the bank «{c['bank']}» — the file's «{c['title']}» "
+            "is left out of the chart, and the accounts under it go under the level above")
+
+
+_PARENT_CHAIN = {"kol": ("group",), "moein": ("kol", "group")}
+
+
 def _merge_chart(db: Session, payload: dict) -> dict:
     """Create/merge گروه→کل→معین by code. Idempotent: existing codes update
-    their name, never duplicate. Returns per-tier created/updated counts."""
+    their name, never duplicate. A code that is a bank's own account is never
+    renamed (``bank_code_conflicts``); what would sit under it goes under the
+    level above. Returns per-tier created/updated counts, and the conflicts."""
     stats = {t: {"created": 0, "updated": 0} for t in ("group", "kol", "moein")}
     by_code: dict[str, Account] = {}
+    conflicts = bank_code_conflicts(db, payload)
+    blocked = {c["code"] for c in conflicts}
 
     def _get(code: str) -> Account | None:
         if code in by_code:
@@ -452,10 +511,11 @@ def _merge_chart(db: Session, payload: dict) -> dict:
 
     # Parent prefix length per tier, derived from the actual codes uploaded.
     tier_codes = {t: [r["code"] for r in payload.get(t, [])] for t in ("group", "kol", "moein")}
-    parent_tier = {"kol": "group", "moein": "kol"}
 
     for tier in ("group", "kol", "moein"):
         for row in payload.get(tier, []):
+            if row["code"] in blocked:
+                continue
             acc = _get(row["code"])
             if acc is not None:
                 if row["title"] and normalize_fa(acc.name) != row["title"]:
@@ -463,11 +523,12 @@ def _merge_chart(db: Session, payload: dict) -> dict:
                     stats[tier]["updated"] += 1
                 continue
             parent = None
-            pt = parent_tier.get(tier)
-            if pt:
+            for pt in _PARENT_CHAIN.get(tier, ()):
                 plen = max((len(c) for c in tier_codes.get(pt, [])), default=0)
-                if plen and len(row["code"]) > plen:
+                if plen and len(row["code"]) > plen and row["code"][:plen] not in blocked:
                     parent = _get(row["code"][:plen])
+                    if parent is not None:
+                        break
             acc = Account(
                 code=row["code"], name=row["title"],
                 level=_TIER_LEVEL[tier], parent_id=(parent.id if parent else None),
@@ -476,7 +537,7 @@ def _merge_chart(db: Session, payload: dict) -> dict:
             db.flush()
             by_code[row["code"]] = acc
             stats[tier]["created"] += 1
-    return stats
+    return {**stats, "conflicts": conflicts}
 
 
 def _find_imported_entity(db: Session, etype: str, name: str, account_number: str | None) -> Entity | None:
@@ -491,17 +552,62 @@ def _find_imported_entity(db: Session, etype: str, name: str, account_number: st
     ).scalars().first()
 
 
+def _bank_parent_row(payload: dict) -> dict | None:
+    """The chart row the banks' own accounts go under: the sub-ledger the
+    opening voucher splits into them, else any sub-ledger or ledger for cash
+    at the bank (موجودی نقد و بانک)."""
+    bank_total = sum(r["balance_debit"] - r["balance_credit"]
+                     for r in payload.get("tafsili", []) if is_bank_row(r))
+    target = _bank_cash_moein(payload, max(bank_total, 0))
+    if target is not None:
+        return target
+    for tier in ("moein", "kol"):
+        rows = [r for r in payload.get(tier, []) if "بانک" in r["title"]]
+        rows = [r for r in rows if "موجودی" in r["title"]] or rows
+        if rows:
+            return rows[0]
+    return None
+
+
+def _new_bank_account(db: Session, parent: Account | None, detail_code: str, name: str, locale: str) -> str:
+    """A bank's own GL account: a detail account under the bank sub-ledger,
+    coded sub-ledger + the bank's detail code (111005 + 001 → 111005001). Such
+    a code never meets the old system's 2-, 4- and 6-digit codes, in this
+    year's chart or another's (the next free 111x did: 1113 is a ledger in
+    Sepidar's numbering). Without a bank row in the file, the usual bank
+    account."""
+    from app.services.ai_accountant.entity_create import _resolve_bank_account
+
+    def taken(code: str) -> bool:
+        return db.execute(select(Account.id).where(Account.code == code)).first() is not None
+
+    if parent is not None:
+        candidates = ([parent.code + detail_code] if detail_code.isdigit() else []) \
+            + [f"{parent.code}{n:03d}" for n in range(1, 1000)]
+        code = next((c for c in candidates if not taken(c)), None)
+        if code is not None:
+            db.add(Account(code=code, name=bt(db, "bank_account_name", name=name),
+                           level=AccountLevel.DETAIL, parent_id=parent.id))
+            db.flush()
+            return code
+    code, _created = _resolve_bank_account(db, name, None, locale)
+    return code
+
+
 def _import_entities(db: Session, payload: dict, locale: str) -> tuple[dict, list[dict]]:
-    """تفصيلي rows → entities. Banks get (or reuse) a GL cash account via the
-    same auto-link used everywhere else. Idempotent by type+name (banks also by
-    account number). Returns (stats, entity_records) where entity_records feed
-    the completion queue."""
-    from app.services.ai_accountant.entity_create import _apply_details, _resolve_bank_account
+    """تفصيلي rows → entities. A new bank gets its own GL account under the
+    bank sub-ledger (``_new_bank_account``). Idempotent by type+name (banks
+    also by account number). Returns (stats, entity_records) where
+    entity_records feed the completion queue."""
+    from app.services.ai_accountant.entity_create import _apply_details
 
     stats = {"banks_created": 0, "banks_reused": 0,
              "counterparties_created": 0, "counterparties_reused": 0}
     records: list[dict] = []
     moein_by_code = {r["code"]: r for r in payload.get("moein", [])}
+    parent_row = _bank_parent_row(payload)
+    bank_parent = (db.execute(select(Account).where(Account.code == parent_row["code"])).scalars().first()
+                   if parent_row is not None else None)
 
     for row in payload.get("tafsili", []):
         if is_bank_row(row):
@@ -511,13 +617,11 @@ def _import_entities(db: Session, payload: dict, locale: str) -> tuple[dict, lis
             if entity is None:
                 entity = Entity(type="bank", name=name)
                 db.add(entity)
-                code, _created = _resolve_bank_account(db, name, None, locale)
-                entity.code = code
+                entity.code = _new_bank_account(db, bank_parent, row["code"], name, locale)
                 stats["banks_created"] += 1
             else:
                 if not entity.code:
-                    code, _created = _resolve_bank_account(db, name, None, locale)
-                    entity.code = code
+                    entity.code = _new_bank_account(db, bank_parent, row["code"], name, locale)
                 stats["banks_reused"] += 1
             _apply_details(entity, {"account_number": acct_no, "bank_name": name}, only_blank=True)
             db.flush()
@@ -607,8 +711,10 @@ def _bank_cash_moein(payload: dict, bank_total: int) -> dict | None:
     ]
     if not candidates:
         return None
-    # prefer the tightest fit (usually the exact aggregate account)
-    return min(candidates, key=lambda r: (r["balance_debit"] - r["balance_credit"]) - bank_total)
+    # cash at the bank (موجودی بانک‌ها) before deposits held at banks
+    # (سپرده‌های نزد بانک‌ها), then the tightest fit (usually the exact aggregate)
+    return min(candidates, key=lambda r: ("موجودی" not in r["title"],
+                                          (r["balance_debit"] - r["balance_credit"]) - bank_total))
 
 
 def _build_opening_lines(db: Session, payload: dict, bank_records: list[dict]) -> tuple[list[dict], dict]:
@@ -709,6 +815,37 @@ def _post_opening_journal(db: Session, lines: list[dict], opening_date: date, lo
     return txn, replaced
 
 
+def live_opening(db: Session) -> Transaction | None:
+    """The opening voucher a migration posted and nothing has replaced."""
+    return db.execute(
+        select(Transaction).where(
+            Transaction.reference == OPENING_REFERENCE, Transaction.deleted_at.is_(None),
+        ).order_by(Transaction.created_at.desc())
+    ).scalars().first()
+
+
+def opening_total(db: Session, txn: Transaction) -> int:
+    debit, credit = db.execute(
+        select(func.coalesce(func.sum(TransactionLine.debit), 0), func.coalesce(func.sum(TransactionLine.credit), 0))
+        .where(TransactionLine.transaction_id == txn.id)
+    ).one()
+    return int(max(debit, credit))
+
+
+def suggested_opening(db: Session, batch: MigrationBatch) -> str:
+    """"replace" or "keep" the books' opening voucher, when the page doesn't
+    say: replace when there is none, when it is this batch's own, or when the
+    totals agree; keep when they differ. Importing last year's chart to add
+    its accounts put last year's balances over this year's without a word
+    (2026-10-12)."""
+    existing = live_opening(db)
+    if existing is None or batch.opening_transaction_id == existing.id:
+        return "replace"
+    o = (batch.summary or {}).get("opening") or {}
+    new_total = max(o.get("total_debit") or 0, o.get("total_credit") or 0)
+    return "replace" if opening_total(db, existing) == new_total else "keep"
+
+
 def default_opening_date(db: Session) -> date:
     """Start of the current fiscal period: Farvardin 1 when the display
     calendar is Jalali, else January 1 — nudged past a closed period."""
@@ -729,19 +866,29 @@ def default_opening_date(db: Session) -> date:
     return min(start, today)
 
 
-def apply_batch(db: Session, batch: MigrationBatch, opening_date: date) -> dict:
+def apply_batch(db: Session, batch: MigrationBatch, opening_date: date, opening: str | None = None) -> dict:
     """Apply a previewed batch: chart merge → entities → opening journal →
-    completion queue. Flushes; the caller commits + audits."""
+    completion queue. ``opening``: "replace" the books' opening voucher with
+    this batch's balances, or "keep" it and import only the chart and the
+    contacts; unsaid, ``suggested_opening``. Flushes; the caller commits +
+    audits."""
     from app.services.locale_service import get_reporting_locale
 
     locale = (get_reporting_locale(db) or "default").strip().lower()
     payload = batch.payload or {}
+    existing = live_opening(db)
+    keep = existing is not None and (opening or suggested_opening(db, batch)) == "keep"
 
     chart_stats = _merge_chart(db, payload)
     entity_stats, records = _import_entities(db, payload, locale)
     bank_records = [r for r in records if r["is_bank"]]
-    lines, journal_info = _build_opening_lines(db, payload, bank_records)
-    txn, replaced = _post_opening_journal(db, lines, opening_date, locale)
+    if keep:
+        txn, replaced, lines = None, False, []
+        journal_info = {"kept": True, "transaction_id": str(existing.id),
+                        "opening_date": existing.date.isoformat(), "total_debit": opening_total(db, existing)}
+    else:
+        lines, journal_info = _build_opening_lines(db, payload, bank_records)
+        txn, replaced = _post_opening_journal(db, lines, opening_date, locale)
     if txn is not None:
         # Link every migrated party with an opening balance to the journal, so
         # entity-level activity, AR/AP and "who are our clients" views see the
@@ -763,13 +910,13 @@ def apply_batch(db: Session, batch: MigrationBatch, opening_date: date) -> dict:
     pending_count = _queue_pending_records(db, batch, records)
 
     batch.status = "applied"
-    batch.opening_date = opening_date
+    batch.opening_date = None if keep else opening_date
     batch.opening_transaction_id = txn.id if txn is not None else None
     batch.applied_at = datetime.now(timezone.utc)
     result = {
         "chart": chart_stats,
         "entities": entity_stats,
-        "opening_journal": {
+        "opening_journal": journal_info if keep else {
             **journal_info,
             "transaction_id": str(txn.id) if txn is not None else None,
             "opening_date": opening_date.isoformat(),

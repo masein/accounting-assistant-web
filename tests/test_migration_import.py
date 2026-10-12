@@ -173,7 +173,7 @@ def test_confirm_applies_chart_entities_and_journal(auth_client, db):
     resp = auth_client.post("/migration/import/preview", files=_sample_uploads())
     token = resp.json()["token"]
 
-    resp = auth_client.post("/migration/import/confirm", json={"token": token})
+    resp = auth_client.post("/migration/import/confirm", json={"token": token, "opening": "replace"})
     assert resp.status_code == 200, resp.text
     result = resp.json()["result"]
 
@@ -249,7 +249,7 @@ def test_confirm_applies_chart_entities_and_journal(auth_client, db):
 def test_reimport_is_idempotent(auth_client, db):
     files = _sample_uploads()
     r1 = auth_client.post("/migration/import/preview", files=files)
-    auth_client.post("/migration/import/confirm", json={"token": r1.json()["token"]})
+    auth_client.post("/migration/import/confirm", json={"token": r1.json()["token"], "opening": "replace"})
 
     counts_before = {
         "accounts": len(db.execute(select(Account)).scalars().all()),
@@ -265,7 +265,7 @@ def test_reimport_is_idempotent(auth_client, db):
 
     r2 = auth_client.post("/migration/import/preview", files=_sample_uploads())
     assert r2.json()["already_applied"] is True
-    r3 = auth_client.post("/migration/import/confirm", json={"token": r2.json()["token"]})
+    r3 = auth_client.post("/migration/import/confirm", json={"token": r2.json()["token"], "opening": "replace"})
     assert r3.status_code == 200
     assert r3.json()["result"]["opening_journal"]["replaced_previous"] is True
 
@@ -286,8 +286,8 @@ def test_reimport_is_idempotent(auth_client, db):
 def test_confirm_twice_same_batch_is_idempotent(auth_client):
     r1 = auth_client.post("/migration/import/preview", files=_sample_uploads())
     token = r1.json()["token"]
-    c1 = auth_client.post("/migration/import/confirm", json={"token": token})
-    c2 = auth_client.post("/migration/import/confirm", json={"token": token})
+    c1 = auth_client.post("/migration/import/confirm", json={"token": token, "opening": "replace"})
+    c2 = auth_client.post("/migration/import/confirm", json={"token": token, "opening": "replace"})
     assert c2.status_code == 200
     assert c2.json()["idempotent"] is True
     assert c2.json()["result"] == c1.json()["result"]
@@ -306,7 +306,7 @@ def test_unbalanced_source_routes_to_suspense(auth_client, db):
     assert s["opening"]["suspense_needed"] is True
     assert s["opening"]["difference"] == 700
 
-    c = auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+    c = auth_client.post("/migration/import/confirm", json={"token": r.json()["token"], "opening": "replace"})
     assert c.status_code == 200, c.text
     oj = c.json()["result"]["opening_journal"]
     assert oj["suspense_amount"] == 700
@@ -325,7 +325,7 @@ def test_preview_with_blocking_error_cannot_confirm(auth_client):
     r = auth_client.post("/migration/import/preview", files=_upload([("kol.xls", dup)]))
     assert r.status_code == 200
     assert r.json()["summary"]["validation"]["errors"]
-    c = auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+    c = auth_client.post("/migration/import/confirm", json={"token": r.json()["token"], "opening": "replace"})
     assert c.status_code == 400
 
 
@@ -343,7 +343,7 @@ def test_pending_resolve_requires_fields_filled(auth_client, db):
         "/migration/import/preview",
         files=_upload([("tafsili.xls", tafsili), ("kol.xls", kol_file)]),
     )
-    auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+    auth_client.post("/migration/import/confirm", json={"token": r.json()["token"], "opening": "replace"})
 
     pending = auth_client.get("/migration/pending").json()
     rec = next(p for p in pending if p["entity_name"] == "مشتری نمونه رزولو")
@@ -381,7 +381,7 @@ def test_pending_dismiss(auth_client):
         "/migration/import/preview",
         files=_upload([("tafsili.xls", tafsili), ("kol.xls", kol_file)]),
     )
-    auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+    auth_client.post("/migration/import/confirm", json={"token": r.json()["token"], "opening": "replace"})
     pending = auth_client.get("/migration/pending").json()
     rec = next(p for p in pending if p["entity_name"] == "مشتری نمونه دیسمیس")
     resp = auth_client.post(f"/migration/pending/{rec['id']}/dismiss")
@@ -390,7 +390,7 @@ def test_pending_dismiss(auth_client):
 
 
 def test_unknown_token_404(auth_client):
-    resp = auth_client.post("/migration/import/confirm", json={"token": "nope"})
+    resp = auth_client.post("/migration/import/confirm", json={"token": "nope", "opening": "replace"})
     assert resp.status_code == 404
 
 
@@ -432,7 +432,7 @@ def test_synthetic_full_flow_chart_bank_split_and_hierarchy(auth_client, db):
     assert s["tafsili_split"] == {"bank_accounts": 1, "counterparties": 1}
     assert s["opening"]["balanced"] is True
 
-    c = auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+    c = auth_client.post("/migration/import/confirm", json={"token": r.json()["token"], "opening": "replace"})
     assert c.status_code == 200, c.text
     result = c.json()["result"]
 
@@ -483,7 +483,7 @@ def test_reimport_retypes_previously_misclassified_counterparty(auth_client, db)
 
     r = auth_client.post("/migration/import/preview",
                          files=_upload([("tafsili.xls", tafsili), ("kol.xls", kol_file)]))
-    c = auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+    c = auth_client.post("/migration/import/confirm", json={"token": r.json()["token"], "opening": "replace"})
     assert c.status_code == 200, c.text
     assert c.json()["result"]["entities"]["counterparties_reused"] == 1
     assert c.json()["result"]["entities"]["counterparties_created"] == 0
@@ -500,7 +500,7 @@ def test_reimport_entity_view_shows_single_journal_with_share(auth_client, db):
     entity's own share, not just the aggregate total."""
     for _ in range(2):  # import + idempotent re-import (replaces the journal)
         r = auth_client.post("/migration/import/preview", files=_sample_uploads())
-        auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+        auth_client.post("/migration/import/confirm", json={"token": r.json()["token"], "opening": "replace"})
 
     ent = db.execute(
         select(Entity).where(Entity.name == "گستره هزاره فناوری ایده نوین")

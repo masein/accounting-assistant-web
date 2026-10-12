@@ -744,6 +744,64 @@ def _message_language(message: str | None, lang: str) -> str:
     return lang
 
 
+# Refusals that name their own fix: a reply that ends the turn without the fixed
+# card gets the refusal once more. A closed period or a future date is final.
+_CORRECTABLE_REFUSALS = {"toman_not_converted"}
+
+
+_FIGURE = re.compile(r"[0-9۰-۹]{1,3}(?:[,٬،][0-9۰-۹]{3}){2,}")
+_FA_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
+
+
+def _tool_figures(value, out: set[int]) -> set[int]:
+    if isinstance(value, dict):
+        for v in value.values():
+            _tool_figures(v, out)
+    elif isinstance(value, list):
+        for v in value:
+            _tool_figures(v, out)
+    elif isinstance(value, (int, Decimal)) and not isinstance(value, bool) and abs(value) >= 1_000_000:
+        if value == int(value):
+            out.add(abs(int(value)))
+    return out
+
+
+def _true_figures(text: str, tool_call_log: list[dict]) -> str:
+    """The reply's long figures as the tools gave them. Copying 21,721,200,283
+    the model wrote «۲۱٬۷۱۲٬۱۰۰٬۲۸۳», and 1,017,516,253 as «۱٬۰۱۷٬۵۱۷٬۲۵۳» (AI
+    QA on migrated books, 2026-10-12). A grouped figure no tool returned, a few
+    digits off (or reordered) from exactly one figure a tool did, is that
+    figure, written as the reply wrote it (three digits for one of ten digits
+    or more). Anything else is left alone: a sum the model worked out is not
+    near a single tool figure."""
+    figures: set[int] = set()
+    for entry in tool_call_log or []:
+        _tool_figures(entry.get("result"), figures)
+    if not figures or not text:
+        return text
+
+    def fix(m):
+        token = m.group(0)
+        digits = re.sub(r"[,٬،]", "", token).translate(_FA_DIGITS)
+        n = int(digits)
+        if n in figures:
+            return token
+        slips = 3 if len(digits) >= 10 else 2           # «۲۱٬۷۱۲٬۱۰۰٬۲۸۳» is three digits off 21,721,200,283
+        near = [f for f in figures if len(str(f)) == len(digits)
+                and (sorted(str(f)) == sorted(digits) or sum(a != b for a, b in zip(str(f), digits)) <= slips)]
+        if len(near) != 1:
+            return token
+        sep = "٬" if "٬" in token else ("،" if "،" in token else ",")
+        right = f"{near[0]:,}".replace(",", sep)
+        if any("۰" <= ch <= "۹" for ch in token):
+            from app.utils.jalali import to_persian_digits
+            right = to_persian_digits(right)
+        logger.warning("ai-accountant: corrected a figure the model miscopied: %s → %s", token, right)
+        return right
+
+    return _FIGURE.sub(fix, text)
+
+
 def _withdraw_replaced(db: Session, replaces: str | None, *, user_id: str, session_id: str | None,
                        tool_name: str, new_token: str) -> str | None:
     """Withdraw the card a corrected one replaces: this user's, in this
@@ -908,6 +966,8 @@ async def run_chat_turn(
     # The language rule sits far up the prompt and lost to the Persian books:
     # "What was our biggest expense last month?" was answered in Persian (AI QA, 2026-10-12).
     system_prompt += f"\n\nThis turn: the user's message is in {_LANG_NAMES[lang]} — answer it in {_LANG_NAMES[lang]}."
+    if lang != "fa":
+        system_prompt += " Write figures with Latin digits and the currency code (843,110,379 IRR), and translate account names carefully (حقوق پایه is base salary)."
 
     shape = "anthropic"
     if client is None:
@@ -965,6 +1025,8 @@ async def run_chat_turn(
     final_text = ""
     stop_reason: str | None = None
     pause_attempts = 0
+    refused_cards: list[str] = []
+    retried_refusal = False
 
     from app.services.ai_accountant import progress
 
@@ -981,6 +1043,18 @@ async def run_chat_turn(
 
         stop_reason = response.stop_reason
         assistant_msg = response.message
+        if (stop_reason == "end_turn" or not assistant_msg.tool_calls) and refused_cards and not proposals \
+                and not retried_refusal:
+            # A card was refused and the model ended the turn without one, telling
+            # the user it was ready (AI QA on migrated books, 2026-10-12: «۵۰ میلیون
+            # تومان» refused as tomans, then "the invoice is ready"). Hand it the
+            # refusal once more; this reply is neither kept nor shown.
+            retried_refusal = True
+            history.append(assistant_msg)
+            history.append(ChatMessage(role="user", text=(
+                "[The card you drafted was refused: " + " ".join(refused_cards[-3:]) + " Draft the corrected card "
+                "now, or tell the user plainly why you can't. Never say a card is ready when there is none.]")))
+            continue
         history.append(assistant_msg)
         _persist_message(
             db, session_id=chat_session.id, role="assistant",
@@ -1011,7 +1085,7 @@ async def run_chat_turn(
             )
 
         if stop_reason == "end_turn" or not assistant_msg.tool_calls:
-            final_text = assistant_msg.text or ""
+            final_text = _true_figures(assistant_msg.text or "", tool_call_log)
             # Final one-card pass over EVERY proposal raised this chat turn (the
             # standalone create and the transaction/time action are often in
             # different LLM turns), so a redundant standalone create is dropped.
@@ -1082,6 +1156,8 @@ async def run_chat_turn(
                     role="tool", tool_call_id=call.id,
                     text=f"Tool error ({e.code}): {e.message}", is_error=True,
                 ))
+                if tool.category == "proposal" and e.code in _CORRECTABLE_REFUSALS:
+                    refused_cards.append(e.message)
                 continue
             except Exception as e:
                 logger.exception("ai-accountant: tool %s crashed", call.name)

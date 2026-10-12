@@ -633,3 +633,30 @@ class TestCorrectedCardReplacesTheOld:
         assert "replaces" not in new
         status = {str(p.confirmation_token): p.status for p in db.execute(select(AIProposal)).scalars()}
         assert status[old] == "pending"                 # a separate entry stays a separate card
+
+
+class TestTheModelsSlips:
+    """AI QA on migrated books (2026-10-12): figures miscopied from the tools,
+    and a refused card reported as ready."""
+
+    def test_a_miscopied_figure_is_the_tools(self) -> None:
+        from app.services.ai_accountant.orchestrator import _true_figures
+        log = [{"result": {"total": 21_721_200_283, "rows": [{"amount": 1_017_516_253}, {"amount": 843_110_379}]}}]
+        text = "هزینه‌ها ۲۱٬۷۱۲٬۱۰۰٬۲۸۳ ریال؛ تسهیلات ۱٬۰۱۷٬۵۱۷٬۲۵۳؛ حقوق 843,110,379؛ جمع 1,860,626,632"
+        assert _true_figures(text, log) == \
+            "هزینه‌ها ۲۱٬۷۲۱٬۲۰۰٬۲۸۳ ریال؛ تسهیلات ۱٬۰۱۷٬۵۱۶٬۲۵۳؛ حقوق 843,110,379؛ جمع 1,860,626,632"
+
+    def test_a_refused_card_is_tried_once_more(self, db: Session) -> None:
+        def rent(amount):
+            return _assistant_tool_call("propose_create_transaction", {
+                "date": "2026-05-20", "description": "اجاره", "currency": "IRR",
+                "lines": [{"account_code": "6112", "debit": amount, "credit": 0},
+                          {"account_code": "1110", "debit": 0, "credit": amount}]})
+        client = _FakeClient([rent(20_000_000), _assistant_text("کارت آماده است."),
+                              rent(200_000_000), _assistant_text("کارت ۲۰۰ میلیون ریالی آماده است.")])
+        result = asyncio.run(run_chat_turn(db, user_id="u1", user_message="۲۰ میلیون تومان اجاره دادیم",
+                                           client=client))
+        assert [sum(l["debit"] for l in p["preview"]["lines"]) for p in result.proposals] == [200_000_000]
+        assert any("refused" in (m.text or "") for m in client.sent[2] if m.role == "user")      # the model was told
+        kept = [m.content.get("text") for m in db.execute(select(AIChatMessage)).scalars() if m.role == "assistant"]
+        assert "کارت آماده است." not in kept                     # the false reply is never shown

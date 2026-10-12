@@ -302,6 +302,12 @@ class GetPartyBalances(BaseTool):
         if args.party:
             from app.utils.text import fold_fa
             needle = fold_fa(args.party.strip()).lower()
+            try:                                   # the model passed find_entity's id (AI QA, 2026-10-12)
+                ent = ctx.db.get(Entity, uuid.UUID(args.party.strip()))
+                if ent is not None:
+                    needle = fold_fa(ent.name).lower()
+            except ValueError:
+                pass
         out: dict[str, Any] = {"as_of": _date.today().isoformat(), "currency": cur}
         for name in ("debtors", "creditors"):
             if name not in want:

@@ -342,7 +342,7 @@
               ${items.map(it => `
                 <tr>
                   <td class="missing-ref-date">${escapeHtml(formatDateDual(it.date))}</td>
-                  <td>${escapeHtml((it.description || '').slice(0, 60))}</td>
+                  <td dir="auto" class="ent-tx-desc">${escapeHtml(it.description || '')}</td>
                   <td><input type="text" class="missing-ref-input" data-id="${it.transaction_id}" value="${escapeHtml(it.suggested_reference || '')}"></td>
                   <td>
                     <div class="missing-ref-actions">

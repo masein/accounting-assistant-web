@@ -1558,7 +1558,7 @@
                   <td>${escapeHtml(formatDateDual(t0.date))}</td>
                   <td>${escapeHtml(t0.reference || '—')}</td>
                   <td><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
-                  <td>${escapeHtml((t0.description || '—').slice(0, 50))}${(t0.description && t0.description.length > 50) ? '…' : ''}</td>
+                  <td dir="auto" class="ent-tx-desc">${escapeHtml(t0.description || '—')}</td>
                   <td>${attHtml}</td>
                   <td class="num">${paid}</td>
                   <td class="num">${received}</td>

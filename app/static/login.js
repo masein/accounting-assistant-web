@@ -386,6 +386,14 @@ document.getElementById('tfa-form').addEventListener('submit', async (e) => {
   }
 });
 
+// The anti-forgery token every write carries (the app's pages add it to all of
+// theirs): the server sets the cookie with this page and checks it against the
+// header. Without it a new password was always refused (production, 2026-10-13).
+function csrfHeader() {
+  const m = document.cookie.match(/(?:^|;\s*)aa_csrf=([^;]+)/);
+  return m ? { 'X-CSRF-Token': decodeURIComponent(m[1]) } : {};
+}
+
 document.getElementById('change-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errEl = document.getElementById('change-error');
@@ -401,7 +409,7 @@ document.getElementById('change-form').addEventListener('submit', async (e) => {
   try {
     const res = await fetch('/auth/change-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...csrfHeader() },
       body: JSON.stringify({ current_password: cur, password: p1 }),
     });
     const data = await res.json().catch(() => ({}));

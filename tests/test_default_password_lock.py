@@ -92,3 +92,38 @@ def test_token_round_trips_the_lock_flag():
     assert parse_session_token(tok).must_change_password is True
     tok2 = create_session_token(user_id="u1", username="x", is_admin=True)
     assert parse_session_token(tok2).must_change_password is False
+
+
+def test_a_fresh_browser_can_set_its_first_password(client, db):
+    """No anti-forgery cookie beforehand, as in a new browser: the sign-in page
+    sets it, and the change form's request carries it. The test above set the
+    cookie by hand, so it never saw that a locked session — sent to the sign-in
+    page before the app page that set the cookie — could never change its
+    password (production, 2026-10-13)."""
+    from app.core.auth import CSRF_COOKIE
+
+    u = _user(db, "admin")
+    client.cookies.clear()
+    assert client.get("/login").status_code == 200
+    token = client.cookies.get(CSRF_COOKIE)
+    assert token                                              # set with the page
+    r = client.post("/auth/login", json={"username": u.username, "password": "admin"})
+    assert r.status_code == 200 and r.json()["must_change_password"] is True
+    assert client.get("/", follow_redirects=False).headers["location"] == "/login?change=1"
+    assert client.get("/login?change=1").status_code == 200
+    assert client.cookies.get(CSRF_COOKIE) == token           # kept, not replaced
+    r = client.post("/auth/change-password", json={"current_password": "admin", "password": "Strong#Pass2026"},
+                    headers={"X-CSRF-Token": token})
+    assert r.status_code == 200, r.text
+    assert client.get("/entities").status_code == 200
+    # still refused without the header: the protection is unchanged
+    client.cookies.clear()
+    r = client.post("/auth/login", json={"username": u.username, "password": "Strong#Pass2026"})
+    assert client.post("/auth/change-password", json={"current_password": "Strong#Pass2026",
+                                                     "password": "Another#Pass2026"}).status_code == 403
+
+
+def test_the_change_form_sends_the_anti_forgery_header():
+    js = (Path(__file__).resolve().parents[1] / "app" / "static" / "login.js").read_text(encoding="utf-8")
+    start = js.index("fetch('/auth/change-password'")
+    assert "csrfHeader()" in js[start:start + 300]

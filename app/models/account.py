@@ -33,6 +33,10 @@ class Account(Base, TenantMixin):
     # A deactivated account keeps its history but takes no new postings and
     # leaves the pickers (roadmap §4.5).
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    # The balance-sheet line a migrated chart names for this account from its
+    # title («پیش پرداخت‌ها» → prepayments), inherited by the accounts under
+    # it; empty: the code prefixes decide (app/services/reporting/statement_lines.py).
+    statement_line: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

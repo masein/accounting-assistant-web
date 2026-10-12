@@ -42,15 +42,27 @@ def cash_account_predicate(locale: str | None) -> Callable[[str], bool]:
 
 
 def company_cash_predicate(db: Session) -> Callable[[str], bool]:
-    """The company's cash and bank accounts: the locale's (Iran 1110 cash and
-    bank, UK 1200–1229) and every bank entity's own ledger account — Mellat on
-    1111, Saman on 1112. The locale's alone left an Iranian company's other
-    banks out of its cash on hand, runway, forecast and cash-flow reports."""
+    """The company's cash and bank accounts: every bank entity's own ledger
+    account (Mellat on 1111, Saman on 1112), and the locale's — UK 1200–1229;
+    elsewhere what the balance sheet calls cash (1110 and its sub-accounts,
+    petty cash 1160, a migrated chart's own cash lines). The locale's alone
+    left an Iranian company's other banks out of its cash on hand, runway,
+    forecast and cash-flow reports; "1110" alone left a migrated company's
+    petty cash (111003) out, so the dashboard, the balance sheet and Sepidar
+    gave three cash figures (2026-10-12)."""
     from app.models.entity import Entity
     from app.services.locale_service import get_reporting_locale
-    locale_cash = cash_account_predicate(get_reporting_locale(db))
+    locale = get_reporting_locale(db)
     banks = {(c or "").strip() for (c,) in db.execute(select(Entity.code).where(Entity.type == "bank")).all()
              if (c or "").strip()}
+    if (locale or "").strip().lower() == "uk":
+        locale_cash = cash_account_predicate(locale)
+    else:
+        from app.services.reporting.iran_statement_service import _bs_bucket_for_code
+        from app.services.reporting.statement_lines import line_map
+        lines = line_map(db)
+        def locale_cash(code: str, _lines=lines) -> bool:
+            return code == "1110" or _bs_bucket_for_code(code, _lines) == ("current_assets", "ca_cash")
     return lambda code, _l=locale_cash, _b=banks: (code or "") in _b or _l(code or "")
 
 

@@ -389,6 +389,8 @@
     .detail-table th, .detail-table td { padding: 0.5rem 0.75rem; border: 1px solid var(--border); text-align: start; }
     .detail-table th { background: #f1f5f9; }
     .detail-table .num { text-align: end; font-variant-numeric: tabular-nums; }
+    /* a party's statement shows each description whole (it was cut at 50 characters, «…» and nothing more) */
+    .detail-table .ent-tx-desc, .missing-ref-table .ent-tx-desc { min-width: 14rem; max-width: 32rem; white-space: normal; overflow-wrap: anywhere; }
     .detail-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
     .detail-summary span { font-size: 0.875rem; color: var(--text-muted); }
     .detail-summary strong { display: block; font-size: 1rem; color: var(--text); }

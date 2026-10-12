@@ -733,6 +733,17 @@ def _resolve_api_key_actor(request: Request):
 _PASSWORD_CHANGE_ALLOWED = {"/auth/change-password", "/auth/logout", "/auth/me", "/login"}
 
 
+def _with_csrf_cookie(request: Request, response):
+    """The anti-forgery cookie the page's script copies into a header on every
+    write (double submit), set with the HTML page when the browser lacks it."""
+    if not request.cookies.get(CSRF_COOKIE):
+        response.set_cookie(
+            CSRF_COOKIE, generate_csrf_token(),
+            httponly=False, samesite="strict", secure=request.url.scheme == "https",
+        )
+    return response
+
+
 async def _dispatch(request: Request, call_next, path: str, user):
     if user is not None and getattr(user, "must_change_password", False) and path not in _PASSWORD_CHANGE_ALLOWED:
         # Locked session: the seeded default password was used. Send the app
@@ -749,19 +760,16 @@ async def _dispatch(request: Request, call_next, path: str, user):
     if path == "/":
         if not user:
             return RedirectResponse(url="/login", status_code=302)
-        response = await call_next(request)
-        # Set CSRF cookie on every HTML page load so the frontend can read it
-        if not request.cookies.get(CSRF_COOKIE):
-            response.set_cookie(
-                CSRF_COOKIE, generate_csrf_token(),
-                httponly=False, samesite="strict", secure=request.url.scheme == "https",
-            )
-        return response
+        return _with_csrf_cookie(request, await call_next(request))
 
     if path == "/login":
         if user and not getattr(user, "must_change_password", False):
             return RedirectResponse(url="/", status_code=302)
-        return await call_next(request)
+        # the sign-in page needs it too: a session opened with the default
+        # password is sent here before the app page ever loads, and its new
+        # password is a write like any other (production, 2026-10-13: every
+        # «Save password» was refused, «CSRF token missing or invalid»)
+        return _with_csrf_cookie(request, await call_next(request))
 
     if path.startswith(PROTECTED_API_PREFIXES):
         bearer = getattr(request.state, "bearer", False)

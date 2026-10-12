@@ -45,7 +45,7 @@ def execute_invoice_proposal(
         from app.schemas.invoice import PaymentCreate
         row = _statement_row(db, p.get("bank_statement_row_id"))
         read = add_payment(UUID(p["invoice_id"]), PaymentCreate(
-            amount=int(p["amount"]), date=date.fromisoformat(p["date"]), method=p.get("method") or "bank",
+            amount=plain(p["amount"]), date=date.fromisoformat(p["date"]), method=p.get("method") or "bank",
             bank_account_code=p.get("bank_account_code"), reference=p.get("reference"),
             description=None,      # the payment writes its own, in the book language
         ), db)
@@ -76,7 +76,7 @@ def execute_invoice_proposal(
         from app.models.commitment import Commitment
         from app.services import commitment_service as cs
         if name == "propose_create_cheque":
-            row = cs.create_cheque(db, title=p["title"], amount=int(p["amount"]), due_date=date.fromisoformat(p["due_date"]),
+            row = cs.create_cheque(db, title=p["title"], amount=plain(p["amount"]), due_date=date.fromisoformat(p["due_date"]),
                                    direction=p["direction"], reference=p.get("reference"), bank_name=p.get("bank_name"),
                                    counterparty=p.get("counterparty"), counter_account_code=p.get("counter_account_code"),
                                    sayad_id=p.get("sayad_id"),

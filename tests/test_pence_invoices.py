@@ -135,6 +135,30 @@ def test_the_accountants_invoice_card_adds_up_as_the_invoice_will(uk, db):
         (Decimal("59.97"), Decimal("11.99"), Decimal("71.96"))
 
 
+def test_q7_a_payment_confirmed_in_the_chat_keeps_its_pence(uk, db):
+    """The accountant's payment card posted int(amount): £30.50 went in as £30."""
+    import asyncio
+    api, cid = uk
+    aria = _entity(api, "client", "Aria Design Ltd")
+    inv = _invoice(api, "sales", aria, [{"product_name": "Widget", "quantity": 3, "unit_price": 19.99, "tax_rate": 20}],
+                   number="INV-AI1")
+    from app.db.tenant import use_company
+    from app.services.ai_accountant.base import ToolContext
+    from app.services.ai_accountant.execute_service import execute_proposal
+    from app.services.ai_accountant.invoice_tools import (
+        GetInvoice, GetInvoiceInput, ProposeRecordInvoicePayment, ProposeRecordInvoicePaymentInput,
+    )
+    with use_company(cid):
+        ctx = ToolContext(db=db, user_id="u1", username="t", user_message="Aria paid £30.50")
+        card = asyncio.run(ProposeRecordInvoicePayment().run(ctx, ProposeRecordInvoicePaymentInput(
+            invoice="INV-AI1", amount="30.50", date=date(2026, 5, 20))))
+        execute_proposal(db, confirmation_token=card["confirmation_token"], actor_user_id="u1", actor_username="t")
+        db.commit()
+        got = asyncio.run(GetInvoice().run(ctx, GetInvoiceInput(invoice="INV-AI1")))
+    assert (got["amount"], got["amount_paid"], got["balance_due"]) == (Decimal("71.96"), Decimal("30.5"), Decimal("41.46"))
+    assert got["payments"][0]["amount"] == Decimal("30.5")
+
+
 INVOICE_PAGES = [
     "/invoices", "/quotes", "/recurring-invoices", "/purchase-orders", "/tax/uk/vat/periods",
     "/tax/uk/vat/return?end=2026-06-30", "/tax/uk/vat/return/export?end=2026-06-30", "/tax/uk/itsa/update",

@@ -20,7 +20,7 @@ from app.models.invoice import Invoice
 
 from .base import BaseTool, ToolContext, ToolError
 from .time_tools import _find_entity, _register
-from app.core.money import Money, round_amount, to_decimal
+from app.core.money import Money, plain, round_amount, to_decimal
 
 
 def _totals(ctx: ToolContext, inv: Invoice) -> tuple[int, int, int, int]:
@@ -35,7 +35,7 @@ def _read(ctx: ToolContext, inv: Invoice, today: _date) -> dict[str, Any]:
     return {
         "id": str(inv.id), "number": inv.number, "kind": inv.kind, "status": inv.status,
         "party": ent.name if ent else None, "issue_date": inv.issue_date.isoformat(),
-        "due_date": inv.due_date.isoformat(), "amount": int(inv.amount or 0), "currency": inv.currency,
+        "due_date": inv.due_date.isoformat(), "amount": plain(inv.amount or 0), "currency": inv.currency,
         "amount_paid": paid, "credited": credited, "balance_due": balance, "overpaid": overpaid,
         "overdue_days": max(0, (today - inv.due_date).days) if balance > 0 and inv.status not in ("draft", "voided", "canceled") else 0,
     }
@@ -128,7 +128,7 @@ class GetInvoice(BaseTool):
         inv = find_invoice(ctx, args.invoice)
         r = _read(ctx, inv, _date.today())
         pays = ctx.db.execute(select(Payment).where(Payment.invoice_id == inv.id).order_by(Payment.date)).scalars().all()
-        r["payments"] = [{"id": str(p.id), "date": p.date.isoformat(), "amount": int(p.amount or 0),
+        r["payments"] = [{"id": str(p.id), "date": p.date.isoformat(), "amount": plain(p.amount or 0),
                           "method": getattr(p, "method", None), "reference": getattr(p, "reference", None)} for p in pays]
         return r
 

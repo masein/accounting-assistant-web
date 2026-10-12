@@ -34,11 +34,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.payroll_rules import PayrollRuleSet
-from app.core.money import json_dumps
+from app.core.money import Money, json_dumps
 
 
 class TaxBracket(BaseModel):
-    upto: int | None = Field(None, ge=0, description="Monthly taxable income up to which this rate applies; null = no cap")
+    upto: Money | None = Field(None, ge=0, description="Monthly taxable income up to which this rate applies (pence allowed); null = no cap")
     rate: float = Field(..., ge=0, le=1)
 
 
@@ -47,20 +47,20 @@ class RuleParams(BaseModel):
     working_days_month: int = Field(30, ge=1, le=31)
     monthly_hours: float = Field(220, gt=0, description="Divisor for an hourly rate from a monthly wage")
     overtime_multiplier: float = Field(1.4, ge=1)
-    min_wage_daily: int = Field(0, ge=0)
+    min_wage_daily: Money = Field(0, ge=0)
 
     tax_brackets: list[TaxBracket] = Field(default_factory=list)
     insurance_employee_rate: float = Field(0, ge=0, le=1)
     insurance_employer_rate: float = Field(0, ge=0, le=1)
-    insurance_floor: int = Field(0, ge=0, description="Monthly wage below which no insurance is due")
-    insurance_ceiling: int | None = Field(None, ge=0, description="Monthly insurable-wage cap; null = none")
+    insurance_floor: Money = Field(0, ge=0, description="Monthly wage below which no insurance is due")
+    insurance_ceiling: Money | None = Field(None, ge=0, description="Monthly insurable-wage cap; null = none")
     insurance_reduces_taxable: bool = False
 
-    housing_allowance: int = Field(0, ge=0)
-    grocery_allowance: int = Field(0, ge=0)
-    child_allowance_per_child: int = Field(0, ge=0)
+    housing_allowance: Money = Field(0, ge=0)
+    grocery_allowance: Money = Field(0, ge=0)
+    child_allowance_per_child: Money = Field(0, ge=0)
     child_allowance_insurable: bool = False
-    seniority_daily: int = Field(0, ge=0)
+    seniority_daily: Money = Field(0, ge=0)
 
     eid_min_multiple: float = Field(0, ge=0)
     eid_max_multiple: float = Field(0, ge=0)
@@ -68,7 +68,7 @@ class RuleParams(BaseModel):
     # where the rule set has عیدی, none elsewhere; the عیدی exemption defaults
     # to one month's (the first 0 % bracket).
     sanavat_days_per_year: int | None = Field(None, ge=0, le=90)
-    eid_exempt_monthly: int | None = Field(None, ge=0)
+    eid_exempt_monthly: Money | None = Field(None, ge=0)
 
     @field_validator("currency")
     @classmethod

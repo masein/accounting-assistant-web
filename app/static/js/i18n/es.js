@@ -2474,6 +2474,8 @@ window.I18N_PACKS.es = Object.assign({
         placeholderChatInput: 'Pregunta lo que quieras (p. ej. muéstrame el balance del mes pasado)',
         placeholderDescription: 'Descripción del evento',
         placeholderEntityCode: 'p. ej. INV-001',
+        cmPlanTitlePlaceholder: 'p. ej. Préstamo de la furgoneta',
+        cmChequeTitlePlaceholder: 'p. ej. Cheque del alquiler',
         placeholderEntityName: 'p. ej. Acme S.L., BBVA',
         placeholderFilterByName: 'Filtrar por nombre',
         placeholderInvItem: 'p. ej. Producto A',

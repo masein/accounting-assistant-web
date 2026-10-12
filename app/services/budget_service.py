@@ -120,7 +120,7 @@ def roll_forward(db: Session, *, from_month: str, months: int = 1, change_pct: f
                  overwrite: bool = False) -> dict:
     """Copy ``from_month``'s budgets into the next ``months`` months, each
     changed by ``change_pct`` % of the source (not compounded), rounded half-up
-    to whole units. A category a month already has is kept unless
+    to the base currency's places (whole rials, or pence). A category a month already has is kept unless
     ``overwrite``. Returns what was created, updated and left alone."""
     from decimal import ROUND_HALF_UP, Decimal
     if not 1 <= int(months) <= 12:
@@ -132,13 +132,16 @@ def roll_forward(db: Session, *, from_month: str, months: int = 1, change_pct: f
     if not source:
         raise LookupError(f"There are no budgets in {from_month} to copy.")
     factor = (Decimal(100) + Decimal(repr(float(change_pct)))) / Decimal(100)
+    from app.core.money import exponent, plain
+    from app.services.fx_base import base_currency
+    unit = Decimal(1).scaleb(-exponent(base_currency(db)))      # 1 rial, or 1p
     created = updated = kept = 0
     targets = [_key_add(from_month, i) for i in range(1, int(months) + 1)]
     for key in targets:
         have = {b.category.strip().lower(): b for b in
                 db.execute(select(BudgetLimit).where(BudgetLimit.month == key)).scalars()}
         for src in source:
-            amount = max(1, int((Decimal(src.limit_amount) * factor).quantize(Decimal(1), rounding=ROUND_HALF_UP)))
+            amount = plain(max(unit, (Decimal(src.limit_amount) * factor).quantize(unit, rounding=ROUND_HALF_UP)))
             row = have.get(src.category.strip().lower())
             if row is None:
                 db.add(BudgetLimit(month=key, category=src.category, limit_amount=amount))

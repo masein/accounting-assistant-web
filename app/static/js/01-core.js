@@ -469,7 +469,7 @@
       const btn = document.getElementById('digest-save-btn');
       const body = {
         enabled: document.getElementById('digest-enabled').checked,
-        cash_threshold: parseInt(document.getElementById('digest-threshold').value || '0', 10),
+        cash_threshold: parseMoney(document.getElementById('digest-threshold').value || '0'),
         runway_months: parseFloat(document.getElementById('digest-runway').value || '3'),
         channel: document.getElementById('digest-channel').value,
       };

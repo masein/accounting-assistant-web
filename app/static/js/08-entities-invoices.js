@@ -1365,7 +1365,7 @@
     document.getElementById('budget-save').addEventListener('click', async () => {
       const month = document.getElementById('budget-month').value;
       const category = document.getElementById('budget-category').value.trim();
-      const limit_amount = parseInt(document.getElementById('budget-limit').value, 10) || 0;
+      const limit_amount = parseMoney(document.getElementById('budget-limit').value);
       if (!month || !category) { showAlert(t('msgBudgetFieldsRequired'), true); return; }
       try {
         const res = await fetch(API + '/budgets', {

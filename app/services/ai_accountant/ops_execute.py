@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.money import plain
 from app.models.ai_accountant import AIProposal
 from app.services.ai_accountant.time_execute import _audit
 
@@ -42,7 +43,7 @@ def execute_ops_proposal(
         from app.schemas.recurring import RecurringRuleCreate
         start = date.fromisoformat(p["start_date"])
         rule = create_rule(RecurringRuleCreate(
-            name=p["name"], direction=p["direction"], frequency=p["frequency"], amount=int(p["amount"]),
+            name=p["name"], direction=p["direction"], frequency=p["frequency"], amount=plain(p["amount"]),
             start_date=start, next_run_date=start, end_date=date.fromisoformat(p["end_date"]) if p.get("end_date") else None,
             entity_id=UUID(p["entity_id"]) if p.get("entity_id") else None, bank_account_code=p.get("bank_account_code"),
             counter_account_code=p["counter_account_code"], auto_post=True, note="Set up from the chat",

@@ -184,14 +184,14 @@ def net_worth(
 class GoalCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     account_code: str = Field(..., min_length=1, max_length=64, description="The asset account the money is saved in")
-    target_amount: int = Field(..., gt=0)
+    target_amount: Money = Field(..., gt=0)
     target_date: date | None = None
 
 
 class GoalUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=128)
     account_code: str | None = Field(None, min_length=1, max_length=64)
-    target_amount: int | None = Field(None, gt=0)
+    target_amount: Money | None = Field(None, gt=0)
     target_date: date | None = None
     clear_target_date: bool = False
     archived: bool | None = None

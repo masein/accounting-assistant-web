@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
@@ -121,6 +122,20 @@ def test_fresh_pay_profile_predicts_the_monthly_delta(db):
     assert "55,000,000" in ins.localize("en")["message"]
     # A month later it is old news.
     assert [i for i in detect_payroll(db, date(2043, 7, 1)) if i.kind == "new_employee"] == []
+
+
+def test_a_new_hourly_employee_is_priced_at_rate_times_hours(db):
+    """It read the salary only: a new hourly employee raised payroll "by about 0"."""
+    today = date(2043, 8, 10)
+    sam = _employee(db, "Sam Hourly")
+    p = EmployeePayProfile(entity_id=sam.id, pay_type="hourly", hourly_rate=Decimal("12.21"), standard_hours=162.5,
+                           currency="GBP", active=True)
+    db.add(p)
+    db.flush()
+    p.created_at = datetime(2043, 8, 3, tzinfo=timezone.utc)
+    db.commit()
+    (ins,) = [i for i in detect_payroll(db, today) if i.kind == "new_employee" and "Sam Hourly" in i.data["names"]]
+    assert ins.data["monthly_delta"] == Decimal("1984.13")
 
 
 # ---------------------------------------------------------------------------

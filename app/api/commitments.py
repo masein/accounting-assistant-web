@@ -24,7 +24,7 @@ router = APIRouter(prefix="/commitments", tags=["commitments"])
 
 class InstallmentPlanCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=256)
-    total_amount: int = Field(..., gt=0)
+    total_amount: Money = Field(..., gt=0)
     count: int = Field(..., ge=1, le=600)
     first_due: date
     direction: str = Field(default=PAY, pattern="^(pay|receive)$")
@@ -35,7 +35,7 @@ class InstallmentPlanCreate(BaseModel):
 
 class ChequeCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=256)
-    amount: int = Field(..., gt=0)
+    amount: Money = Field(..., gt=0)
     due_date: date
     direction: str = Field(default=PAY, pattern="^(pay|receive)$")
     reference: str | None = Field(default=None, max_length=64)

@@ -5,7 +5,8 @@ EquityEvent (so the changes-in-equity statement shows real movements), links the
 shareholder via a role="shareholder" TransactionEntity (the تفضیلی sub-ledger),
 and keeps the company's registered capital in step.
 
-All amounts are integer minor units. Account codes are resolved per active
+Amounts are in the base currency's own unit, with its pence (docs/PLAN_PENCE.md).
+Account codes are resolved per active
 locale via ``account_resolver`` (Iran + UK), never hardcoded.
 """
 from __future__ import annotations
@@ -14,8 +15,12 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import date as date_type
 
+from decimal import Decimal
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.core.money import exponent, plain
 
 from app.models.entity import Entity
 from app.models.equity import EquityEvent, Shareholding
@@ -110,7 +115,7 @@ def _tag(
     ev = EquityEvent(
         event_type=event_type,
         date=txn_date,
-        amount=int(amount),
+        amount=plain(amount),
         entity_id=entity_id,
         transaction_id=(transaction.id if transaction is not None else None),
         funded_from=funded_from,
@@ -126,13 +131,13 @@ def _bump_registered_capital(db: Session, delta: int) -> int | None:
     company = _company_row(db)
     if company is None:
         return None
-    company.registered_capital = int(company.registered_capital or 0) + int(delta)
+    company.registered_capital = plain((company.registered_capital or 0) + plain(delta))
     db.flush()
     return company.registered_capital
 
 
-def _positive(amount: int, what: str = "Amount") -> int:
-    amount = int(amount or 0)
+def _positive(amount, what: str = "Amount"):
+    amount = plain(amount or 0)
     if amount <= 0:
         raise EquityError(f"{what} must be a positive number.")
     return amount
@@ -144,10 +149,14 @@ def _positive(amount: int, what: str = "Amount") -> int:
 def allocate_by_cap_table(db: Session, total: int) -> list[tuple[uuid.UUID, int]]:
     """Split ``total`` across shareholders by ownership (percent, else shares).
 
-    Rounds to whole minor units; the largest holder absorbs the rounding
-    remainder so the allocation sums to exactly ``total``.
+    Rounds to the base currency's smallest unit (whole rials, or pence); the
+    largest holder absorbs the rounding remainder so the allocation sums to
+    exactly ``total``.
     """
     total = _positive(total, "Dividend total")
+    from app.services.fx_base import base_currency
+    scale = 10 ** exponent(base_currency(db))
+    units = int(Decimal(total) * scale)
     holdings = db.execute(select(Shareholding)).scalars().all()
     # Percentages and share counts are different units: a 60 % holder next to
     # a 1,000-share holder must not be weighed 60 : 1,000.
@@ -173,11 +182,11 @@ def allocate_by_cap_table(db: Session, total: int) -> list[tuple[uuid.UUID, int]
     allocated = 0
     for i, (eid, w) in enumerate(weights):
         if i == len(weights) - 1:
-            amt = total - allocated
+            amt = units - allocated
         else:
-            amt = int(round(total * w / tw))
+            amt = int(round(units * w / tw))
             allocated += amt
-        allocs.append((eid, amt))
+        allocs.append((eid, plain(Decimal(amt) / scale)))
     return allocs
 
 
@@ -296,7 +305,7 @@ def declare_dividend(
     """
     total_amount = _positive(total_amount, "Dividend total")
     if allocations:
-        allocs = [(uuid.UUID(str(e)) if not isinstance(e, uuid.UUID) else e, int(a)) for e, a in allocations]
+        allocs = [(uuid.UUID(str(e)) if not isinstance(e, uuid.UUID) else e, plain(a)) for e, a in allocations]
         if sum(a for _, a in allocs) != total_amount:
             raise EquityError("Explicit dividend allocations must sum to the declared total.")
     else:
@@ -340,8 +349,8 @@ def dividend_outstanding(db: Session, entity_id) -> int:
     from sqlalchemy import func
     eid = entity_id if isinstance(entity_id, uuid.UUID) else uuid.UUID(str(entity_id))
 
-    def _sum(kind: str) -> int:
-        return int(db.execute(select(func.coalesce(func.sum(EquityEvent.amount), 0)).where(
+    def _sum(kind: str):
+        return plain(db.execute(select(func.coalesce(func.sum(EquityEvent.amount), 0)).where(
             EquityEvent.entity_id == eid, EquityEvent.event_type == kind)).scalar() or 0)
 
     return _sum("dividend_declared") - _sum("dividend_paid")

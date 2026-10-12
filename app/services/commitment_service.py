@@ -6,6 +6,8 @@ voucher — balanced legs, no future date, no posting into a closed period.
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 import uuid
 from datetime import date
 from typing import Iterable
@@ -24,6 +26,7 @@ from app.models.commitment import (
     SETTLED,
     Commitment,
 )
+from app.core.money import exponent, plain, to_decimal
 
 
 def add_months(d: date, months: int) -> date:
@@ -40,25 +43,29 @@ def add_months(d: date, months: int) -> date:
     raise ValueError("unreachable")
 
 
-def split_amount(total: int, count: int) -> list[int]:
-    """Divide a total into ``count`` whole units, putting the rounding
-    remainder on the FIRST installment.
+def split_amount(total, count: int, places: int = 0) -> list:
+    """Divide a total into ``count`` installments of the currency's smallest
+    unit (whole rials, or pence for pounds), putting the rounding remainder on
+    the FIRST installment.
 
     Front-loading matters: the schedule must sum to exactly the amount owed, and
     a lender's first payment absorbing the odd rial is the familiar convention.
+    £100 over 3 is £33.34, £33.33, £33.33 (docs/PLAN_PENCE.md).
     """
     if count <= 0:
         raise ValueError("count must be positive")
-    base = total // count
-    remainder = total - base * count
-    return [base + remainder] + [base] * (count - 1)
+    scale = 10 ** places
+    units = int(to_decimal(total) * scale)
+    base = units // count
+    remainder = units - base * count
+    return [plain(Decimal(u) / scale) for u in [base + remainder] + [base] * (count - 1)]
 
 
 def create_installment_plan(
     db: Session,
     *,
     title: str,
-    total_amount: int,
+    total_amount,
     count: int,
     first_due: date,
     direction: str = PAY,
@@ -74,7 +81,11 @@ def create_installment_plan(
 
     plan_id = uuid.uuid4()
     rows: list[Commitment] = []
-    for i, amount in enumerate(split_amount(total_amount, count)):
+    from app.services.fx_base import base_currency
+    cur = base_currency(db)
+    from app.services.ledger_posting import assert_amount_places
+    assert_amount_places(cur, [total_amount])
+    for i, amount in enumerate(split_amount(total_amount, count, exponent(cur))):
         row = Commitment(
             kind=INSTALLMENT, direction=direction, title=title, amount=amount,
             due_date=add_months(first_due, i), status=PENDING,

@@ -1379,7 +1379,7 @@
           ),
           movement_type: (mgrMvTypeEl.value || 'IN'),
           quantity: parseFloat(mgrMvQtyEl.value || '0'),
-          unit_cost: parseInt(mgrMvCostEl.value || '0', 10) || 0
+          unit_cost: parseMoney(mgrMvCostEl.value || '0')
         };
         const res = await fetch(API + '/manager-reports/inventory/movements', {
           method: 'POST',
@@ -1599,7 +1599,7 @@
       const entity = form.elements.delay_entity.value;
       const days = parseInt(form.elements.delay_days.value, 10);
       if (entity && days) payload.delays.push({ entity_id: entity, days });
-      const amount = parseInt(form.elements.oneoff_amount.value, 10);
+      const amount = parseMoney(form.elements.oneoff_amount.value);
       const on = form.elements.oneoff_date.value;
       if (amount > 0 && on) {
         payload.one_offs.push({ on, amount: amount * parseInt(form.elements.oneoff_sign.value, 10),
@@ -1906,7 +1906,7 @@
     document.getElementById('goal-save')?.addEventListener('click', async () => {
       const name = document.getElementById('goal-name').value.trim();
       const account_code = document.getElementById('goal-account').value;
-      const target_amount = parseInt(document.getElementById('goal-target').value || '0', 10);
+      const target_amount = parseMoney(document.getElementById('goal-target').value || '0');
       const target_date = document.getElementById('goal-date').value || null;
       if (!name || !account_code || !(target_amount > 0)) { showAlert(t('goalMissing'), true); return; }
       try {

@@ -389,8 +389,8 @@ def detect_payroll(db: Session, today: date) -> list[Insight]:
         # Stale payroll (last run months ago) is not news.
         latest_pay = max(r.pay_date for r in by_month[cur_m])
         if (today - latest_pay).days <= 45:
-            cur = sum(int(r.total_gross or 0) for r in by_month[cur_m])
-            prev = sum(int(r.total_gross or 0) for r in by_month[prev_m])
+            cur = sum(plain(r.total_gross or 0) for r in by_month[cur_m])
+            prev = sum(plain(r.total_gross or 0) for r in by_month[prev_m])
             cur_ids = {l.entity_id for r in by_month[cur_m] for l in r.lines}
             prev_ids = {l.entity_id for r in by_month[prev_m] for l in r.lines}
             joiners = _entity_names(db, cur_ids - prev_ids)
@@ -431,7 +431,7 @@ def detect_payroll(db: Session, today: date) -> list[Insight]:
             fresh.append(p)
     if fresh:
         names = _entity_names(db, {p.entity_id for p in fresh})
-        delta = sum(int(p.base_salary or 0) for p in fresh)
+        delta = sum(_monthly_pay(p) for p in fresh)
         out.append(Insight(
             key=f"new-employee-{_month_key(today)}-{len(fresh)}", kind="new_employee",
             severity="info", page="payroll",
@@ -439,6 +439,17 @@ def detect_payroll(db: Session, today: date) -> list[Insight]:
             data={"names": names, "monthly_delta": delta},
         ))
     return out
+
+
+def _monthly_pay(p: EmployeePayProfile):
+    """What a profile adds to a month's payroll: the salary, or for hourly
+    staff the rate times their monthly hours (it read the salary only, so a
+    new hourly employee raised payroll "by about 0")."""
+    if (p.pay_type or "").lower() == "hourly":
+        from app.core.money import quantize, to_decimal
+        hours = p.monthly_standard_hours or p.standard_hours or 0
+        return quantize(to_decimal(p.hourly_rate or 0) * to_decimal(repr(float(hours))), p.currency)
+    return plain(p.base_salary or 0)
 
 
 def _expense_rows(db: Session, since: date, until: date) -> list[Transaction]:

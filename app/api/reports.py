@@ -54,7 +54,7 @@ from app.schemas.transaction import (
     TransactionLineRead,
     TransactionRead,
 )
-from app.core.money import plain
+from app.core.money import Money, plain
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -598,7 +598,7 @@ class _ForecastDelay(BaseModel):
 
 class _ForecastOneOff(BaseModel):
     on: date
-    amount: int = Field(..., ge=-10**15, le=10**15)
+    amount: Money = Field(..., ge=-10**15, le=10**15)
     label: str | None = Field(None, max_length=120)
 
 

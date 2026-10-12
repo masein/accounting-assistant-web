@@ -14,6 +14,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.money import plain
 from app.models.account import Account
 from app.models.transaction import Transaction, TransactionLine
 from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
@@ -91,9 +92,9 @@ def _flows(db: Session, start: date, end: date) -> tuple[int, int, dict[str, int
     for code, name, dr, cr in rows:
         kind = classify_account_code(code)
         if kind == REVENUE:
-            income += int(cr) - int(dr)
+            income += plain(cr) - plain(dr)
         elif kind == EXPENSE:
-            amount = int(dr) - int(cr)
+            amount = plain(dr) - plain(cr)
             spending += amount
             if amount:
                 cats[name] = cats.get(name, 0) + amount
@@ -101,7 +102,7 @@ def _flows(db: Session, start: date, end: date) -> tuple[int, int, dict[str, int
 
 
 def _rate(income: int, spending: int) -> float | None:
-    return round((income - spending) / income * 100, 1) if income > 0 else None
+    return round(float((income - spending) / income * 100), 1) if income > 0 else None
 
 
 def _fmt(n: int, lang: str) -> str:
@@ -168,8 +169,8 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
         "average_spending_3m": avg3,
         "categories": categories, "biggest_rise": biggest_rise,
         "budgets": {"set": len(budgets), "kept": len(budgets) - len(over), "over": over},
-        "net_worth": {"start": int(nw_start.net_worth), "end": int(nw_end.net_worth),
-                      "change": int(nw_end.net_worth) - int(nw_start.net_worth)},
+        "net_worth": {"start": plain(nw_start.net_worth), "end": plain(nw_end.net_worth),
+                      "change": plain(nw_end.net_worth) - plain(nw_start.net_worth)},
         "goals": [{"name": g["name"], "percent": g["percent"], "on_track": g["on_track"], "reached": g["reached"]}
                   for g in list_goals(db, today=upto)],
         "checks": checks, "passed": sum(1 for c in checks if c["ok"]),

@@ -948,6 +948,8 @@
         aiHint: 'Metis and LM Studio profiles are preconfigured. For custom provider you can set base URL and key here.',
         placeholderEntityName: 'e.g. Acme Ltd, HSBC',
         placeholderEntityCode: 'e.g. INV-001',
+        cmPlanTitlePlaceholder: 'e.g. Van loan',
+        cmChequeTitlePlaceholder: 'e.g. Rent cheque',
         placeholderInvoiceNo: 'e.g. INV-1001',
         placeholderInvoiceDesc: 'e.g. Software development',
         placeholderRecurring: 'e.g. I pay 2,500 office rent every month from HSBC bank',

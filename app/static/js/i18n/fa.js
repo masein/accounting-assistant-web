@@ -943,6 +943,8 @@ window.I18N_PACKS.fa = Object.assign({
         aiHint: 'پروفایل‌های Metis و LM Studio آماده‌اند. برای حالت سفارشی آدرس و کلید را تنظیم کنید.',
         placeholderEntityName: 'مثال: Innotech، Melli',
         placeholderEntityCode: 'مثال: INV-001',
+        cmPlanTitlePlaceholder: 'مثال: وام خودرو',
+        cmChequeTitlePlaceholder: 'مثال: چک اجاره',
         placeholderInvoiceNo: 'مثال: INV-1001',
         placeholderInvoiceDesc: 'مثال: توسعه نرم‌افزار',
         placeholderRecurring: 'مثال: هر ماه 25M اجاره دفتر از ملت پرداخت می‌کنم',

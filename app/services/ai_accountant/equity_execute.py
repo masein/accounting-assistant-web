@@ -8,13 +8,13 @@ references the first voucher and records the full set in ``detail``.
 """
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import date as _date
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.money import json_dumps, plain
 from app.models.ai_accountant import AIProposal
 from app.models.audit_log import AuditLog
 from app.services import equity_service as eq
@@ -44,24 +44,24 @@ def execute_equity_proposal(
     try:
         if name == "propose_shareholder_contribution":
             res = eq.contribution(
-                db, entity_id=uuid.UUID(p["entity_id"]), amount=int(p["amount"]),
+                db, entity_id=uuid.UUID(p["entity_id"]), amount=plain(p["amount"]),
                 txn_date=txn_date, to_capital=bool(p.get("to_capital", True)),
             )
         elif name == "propose_capital_increase":
             res = eq.capital_increase(
-                db, amount=int(p["amount"]), txn_date=txn_date,
+                db, amount=plain(p["amount"]), txn_date=txn_date,
                 source=p.get("source", "retained_earnings"),
             )
         elif name == "propose_declare_dividend":
             allocations = None
             if p.get("allocations"):
-                allocations = [(uuid.UUID(a["entity_id"]), int(a["amount"])) for a in p["allocations"]]
+                allocations = [(uuid.UUID(a["entity_id"]), plain(a["amount"])) for a in p["allocations"]]
             res = eq.declare_dividend(
-                db, total_amount=int(p["total_amount"]), txn_date=txn_date, allocations=allocations,
+                db, total_amount=plain(p["total_amount"]), txn_date=txn_date, allocations=allocations,
             )
         elif name == "propose_shareholder_current_account":
             res = eq.shareholder_current_account(
-                db, entity_id=uuid.UUID(p["entity_id"]), amount=int(p["amount"]),
+                db, entity_id=uuid.UUID(p["entity_id"]), amount=plain(p["amount"]),
                 txn_date=txn_date, direction=p.get("direction", "out"),
             )
         else:  # pragma: no cover - dispatch guarded by caller
@@ -82,7 +82,7 @@ def execute_equity_proposal(
         tool_name=proposal.tool_name,
         confirmation_token=proposal.confirmation_token,
         user_message=proposal.user_message,
-        detail=json.dumps(
+        detail=json_dumps(
             {
                 "equity_event": name,
                 "transaction_ids": res.transaction_ids,
@@ -92,7 +92,7 @@ def execute_equity_proposal(
                 "registered_capital": res.registered_capital,
                 "tool_input": p,
             },
-            default=str,
+            fallback=str,
         ),
     )
     db.add(audit)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -29,6 +30,16 @@ from app.core.money import plain
 class InventoryReportService:
     def __init__(self, db: Session):
         self.db = db
+
+    def _value(self, quantity, unit_cost):
+        """A movement's value: whole rials exactly as before; pence for pounds."""
+        if not hasattr(self, "_base_places"):
+            from app.services.inventory_costing import _places
+            self._base_places = _places(self.db)
+        if self._base_places == 0:
+            return int(round(float(quantity) * int(unit_cost or 0)))
+        from app.services.inventory_costing import _money
+        return _money(Decimal(str(quantity or 0)) * Decimal(str(unit_cost or 0)), self._base_places)
 
     def create_item(self, payload: InventoryItemCreate) -> InventoryItemRead:
         # list_price was accepted but never stored, so every new item read back 0.
@@ -82,7 +93,7 @@ class InventoryReportService:
             movement_type=row.movement_type.value,
             quantity=float(row.quantity),
             unit_cost=plain(row.unit_cost or 0),
-            movement_value=int(round(float(row.quantity) * int(row.unit_cost or 0))),
+            movement_value=self._value(row.quantity, row.unit_cost),
             reference=row.reference,
             description=row.description,
         )
@@ -106,7 +117,7 @@ class InventoryReportService:
                 movement_type=mv.movement_type.value,
                 quantity=float(mv.quantity),
                 unit_cost=plain(mv.unit_cost or 0),
-                movement_value=int(round(float(mv.quantity) * int(mv.unit_cost or 0))),
+                movement_value=self._value(mv.quantity, mv.unit_cost),
                 reference=mv.reference,
                 description=mv.description,
             )
@@ -128,7 +139,8 @@ class InventoryReportService:
         rows = inventory_movements_for_balance(self.db, period.to_date)
         item_map: dict[UUID, dict] = {item.id: {"name": item.name, "sku": item.sku, "unit": item.unit}
                                       for _mv, item in rows}
-        states, _ = run_costing([mv for mv, _item in rows], method or get_method(self.db))
+        from app.services.inventory_costing import _places
+        states, _ = run_costing([mv for mv, _item in rows], method or get_method(self.db), _places(self.db))
 
         out: list[InventoryBalanceRow] = []
         total_value = 0

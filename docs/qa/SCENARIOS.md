@@ -327,6 +327,7 @@ The books kept whole units, so a £7.50 bank fee went in as £7. Pounds, dollars
 | Q8 | VAT boxes to the penny [P3] | The quarter with Q7 and a £12.50 + VAT bill | Box 1 £11.99, box 4 £2.50, box 5 £9.49 (boxes 1–5 to the penny); box 6 £59 and box 7 £12 (boxes 6–9 in whole pounds, pence dropped, as HMRC asks) |
 | Q9 | A payslip to the penny [P4] | An hourly employee at £12.21 for 37.5 hours a week, a month's run | The gross is £1,984.13; tax and NI to the penny; the payslip and the posting agree |
 | Q10 | Mileage at 45p [P4] | Claim 123 miles at 45p | £55.35, not £55 |
+| Q10a | Splits and settings to the penny [P4] | A £100 loan in 3 installments; a £1,000.01 dividend across three holders of a third each; a £1,000 laptop over 36 months; a £99.99 budget rolled forward +10%; a £499.99 approval threshold and a £120.50 cheque; opening balances of £1,250.75 typed on the chart page | £33.34 + £33.33 + £33.33; £333.33 + £333.34 + £333.34; months of £27.78 and £27.77 adding to £1,000.00; £109.99; the threshold and cheque are kept to the penny, £120.505 is refused; the opening balance posts £1,250.75 |
 | Q11 | Words and files [P5] | Ask «how much cash do we have?», export the journal to Excel, print a cheque for £1,234.56 | «£23,915.50» in the answer; `#,##0.00` cells holding 7.5; the cheque reads «£1,234.56» and «one thousand two hundred and thirty-four pounds and fifty-six pence» |
 | Q12 | The phone [P2, P5] | Q4 and Q6 on the phone; the widget | «£7.50» on the cards, «£23,915.50» on the widget; nothing is cut to whole pounds |
 

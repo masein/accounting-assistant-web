@@ -503,7 +503,7 @@
               <option value="quarterly" data-i18n="recFreqQuarterly">Quarterly</option>
               <option value="yearly" data-i18n="recFreqYearly">Yearly</option>
             </select></div>
-          <div><label for="rec-amount" data-i18n="labelAmount">Amount</label><input type="number" id="rec-amount" min="0"></div>
+          <div><label for="rec-amount" data-i18n="labelAmount">Amount</label><input type="number" step="any" id="rec-amount" min="0"></div>
           <div><label for="rec-start" data-i18n="recStartDate">Start date</label><input type="date" id="rec-start"></div>
           <div><label for="rec-end" data-i18n="recEndDate">End date (optional)</label><input type="date" id="rec-end"></div>
           <div><label for="rec-bank" data-i18n="recBankLabel">Bank account</label><select id="rec-bank"></select></div>
@@ -882,8 +882,8 @@
           </div>
           <p id="asset-category-hint" class="fc-note"></p>
           <div class="row">
-            <div><label for="asset-cost" data-i18n="assetFieldCost">Cost</label><input type="number" id="asset-cost" min="1" step="1"></div>
-            <div><label for="asset-residual" data-i18n="assetFieldResidual">Residual value</label><input type="number" id="asset-residual" min="0" step="1" value="0"></div>
+            <div><label for="asset-cost" data-i18n="assetFieldCost">Cost</label><input type="number" id="asset-cost" min="1" step="any"></div>
+            <div><label for="asset-residual" data-i18n="assetFieldResidual">Residual value</label><input type="number" id="asset-residual" min="0" step="any" value="0"></div>
           </div>
           <div class="row">
             <div><label for="asset-acquired" data-i18n="assetFieldAcquired">Acquired on</label><input type="date" id="asset-acquired"></div>
@@ -907,7 +907,7 @@
           <details class="asset-opening">
             <summary data-i18n="assetOpeningTitle">Bringing over an asset that already has depreciation</summary>
             <div class="row">
-              <div><label for="asset-opening" data-i18n="assetFieldOpening">Depreciation so far</label><input type="number" id="asset-opening" min="0" step="1" value="0"></div>
+              <div><label for="asset-opening" data-i18n="assetFieldOpening">Depreciation so far</label><input type="number" id="asset-opening" min="0" step="any" value="0"></div>
               <div><label for="asset-opening-date" data-i18n="assetFieldOpeningDate">Up to</label><input type="date" id="asset-opening-date"></div>
             </div>
           </details>
@@ -938,8 +938,8 @@
         <div class="panel">
           <h3 data-i18n="cmNewPlan">New installment plan</h3>
           <div class="row">
-            <div><label for="cm-p-title" data-i18n="cmFieldTitle">Title</label><input type="text" id="cm-p-title" placeholder="وام خودرو"></div>
-            <div><label for="cm-p-total" data-i18n="cmFieldTotal">Total amount</label><input type="number" id="cm-p-total" min="1" step="1"></div>
+            <div><label for="cm-p-title" data-i18n="cmFieldTitle">Title</label><input type="text" id="cm-p-title" data-i18n-placeholder="cmPlanTitlePlaceholder" placeholder="e.g. Van loan"></div>
+            <div><label for="cm-p-total" data-i18n="cmFieldTotal">Total amount</label><input type="number" id="cm-p-total" min="1" step="any"></div>
             <div><label for="cm-p-count" data-i18n="cmFieldCount">Installments</label><input type="number" id="cm-p-count" min="1" max="600" value="12"></div>
             <div><label for="cm-p-first" data-i18n="cmFieldFirstDue">First due</label><input type="date" id="cm-p-first"></div>
             <div><label for="cm-p-dir" data-i18n="cmFieldDirection">Direction</label>
@@ -952,8 +952,8 @@
         <div class="panel">
           <h3 data-i18n="cmNewCheque">New cheque</h3>
           <div class="row">
-            <div><label for="cm-c-title" data-i18n="cmFieldTitle">Title</label><input type="text" id="cm-c-title" placeholder="چک اجاره"></div>
-            <div><label for="cm-c-amount" data-i18n="cmFieldAmount">Amount</label><input type="number" id="cm-c-amount" min="1" step="1"></div>
+            <div><label for="cm-c-title" data-i18n="cmFieldTitle">Title</label><input type="text" id="cm-c-title" data-i18n-placeholder="cmChequeTitlePlaceholder" placeholder="e.g. Rent cheque"></div>
+            <div><label for="cm-c-amount" data-i18n="cmFieldAmount">Amount</label><input type="number" id="cm-c-amount" min="1" step="any"></div>
             <div><label for="cm-c-due" data-i18n="cmFieldDue">Due date</label><input type="date" id="cm-c-due"></div>
             <div><label for="cm-c-ref" data-i18n="cmFieldChequeNo">Cheque no.</label><input type="text" id="cm-c-ref"></div>
             <div class="not-uk"><label for="cm-c-sayad" data-i18n="cmFieldSayad">Sayad id</label><input type="text" id="cm-c-sayad" inputmode="numeric" maxlength="19" dir="ltr" data-i18n-placeholder="cmSayadPlaceholder" placeholder="16 digits"></div>
@@ -1051,7 +1051,7 @@
             <div class="row">
               <div><label for="goal-name" data-i18n="goalName">Goal</label><input type="text" id="goal-name" maxlength="128"></div>
               <div><label for="goal-account" data-i18n="goalAccount">Saved in</label><select id="goal-account"></select></div>
-              <div><label for="goal-target" data-i18n="goalTarget">Target</label><input type="number" id="goal-target" min="1" step="1"></div>
+              <div><label for="goal-target" data-i18n="goalTarget">Target</label><input type="number" id="goal-target" min="1" step="any"></div>
               <div><label for="goal-date" data-i18n="goalDate">By (optional)</label><input type="date" id="goal-date"></div>
               <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="goal-save" data-i18n="goalSave">Save goal</button></div>
             </div>
@@ -1095,7 +1095,7 @@
           <div class="row" style="margin-bottom:0.5rem;">
             <div><label for="pd-budget-month" data-i18n="labelMonth">Month</label><input type="month" id="pd-budget-month"></div>
             <div><label for="pd-budget-category" data-i18n="labelCategory">Category</label><select id="pd-budget-category"></select></div>
-            <div><label for="pd-budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="pd-budget-limit" min="0" step="1" value="0"></div>
+            <div><label for="pd-budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="pd-budget-limit" min="0" step="any" value="0"></div>
             <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-primary" id="pd-budget-save" data-i18n="btnSaveBudget">Save budget</button></div>
           </div>
           <div id="pd-budget-wrap"></div>
@@ -1173,7 +1173,7 @@
             <div class="row" style="margin-bottom:0.5rem;">
               <div><label for="budget-month" data-i18n="labelMonth">Month</label><input type="month" id="budget-month"></div>
               <div><label for="budget-category" data-i18n="labelCategory">Category</label><input type="text" id="budget-category" list="budget-category-list" autocomplete="off" data-i18n-placeholder="placeholderExpenseCategory" placeholder="Expense account name"><datalist id="budget-category-list"></datalist></div>
-              <div><label for="budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="budget-limit" min="0" step="1" value="0"></div>
+              <div><label for="budget-limit" data-i18n="labelLimit">Limit</label><input type="number" id="budget-limit" min="0" step="any" value="0"></div>
               <div style="display:flex; align-items:flex-end; gap:0.4rem; flex-wrap:wrap;"><button type="button" class="btn btn-primary" id="budget-save" data-i18n="btnSaveBudget" style="white-space:nowrap;">Save budget</button>
                 <button type="button" class="btn btn-secondary" id="budget-roll" data-i18n="budgetRollBtn" style="white-space:nowrap;">Copy to next month…</button></div>
             </div>
@@ -1455,7 +1455,7 @@
           </div>
           <div>
             <label for="mgr-mv-cost" data-i18n="labelUnitCost">Unit cost</label>
-            <input type="number" id="mgr-mv-cost" min="0" step="1" value="0">
+            <input type="number" id="mgr-mv-cost" min="0" step="any" value="0">
           </div>
           <div class="btn-cell">
             <button type="button" class="btn btn-primary" id="mgr-add-mv-btn" data-i18n="btnAddMovement">Add movement</button>
@@ -1522,7 +1522,7 @@
           </div>
           <div>
             <label for="price-mgmt-value" data-i18n="invListPrice">List price</label>
-            <input type="number" id="price-mgmt-value" min="0" step="1000" value="0">
+            <input type="number" id="price-mgmt-value" min="0" step="any" value="0">
           </div>
           <div class="btn-cell">
             <button type="button" class="btn btn-primary" id="price-mgmt-save-btn" data-i18n="invUpdatePrice">Update Price</button>
@@ -1770,7 +1770,7 @@
         <div><label for="exp-rate" data-i18n="expRate">Mileage rate</label><input type="number" id="exp-rate" min="0" step="0.01"></div>
         <div><label for="exp-unit" data-i18n="expUnit">Unit</label>
           <select id="exp-unit"><option value="mile" data-i18n="expUnitMile">per mile</option><option value="km" data-i18n="expUnitKm">per km</option></select></div>
-        <div><label for="exp-threshold" data-i18n="expThreshold">Approval threshold</label><input type="number" id="exp-threshold" min="0"></div>
+        <div><label for="exp-threshold" data-i18n="expThreshold">Approval threshold</label><input type="number" step="any" id="exp-threshold" min="0"></div>
         <div><button type="button" class="btn btn-secondary" id="exp-save-settings" data-i18n="expSaveSettings">Save settings</button></div>
       </div>
       </div>
@@ -1884,9 +1884,9 @@
             <option value="hourly" data-i18n="payrollHourly">Hourly</option>
           </select></div>
         <div><label for="pr-base" data-i18n="payrollBaseSalary">Base salary / period</label>
-          <input type="number" id="pr-base" min="0" value="0"></div>
+          <input type="number" step="any" id="pr-base" min="0" value="0"></div>
         <div><label for="pr-rate" data-i18n="payrollHourlyRate">Hourly rate</label>
-          <input type="number" id="pr-rate" min="0" value="0"></div>
+          <input type="number" step="any" id="pr-rate" min="0" value="0"></div>
         <div><label for="pr-std" data-i18n="payrollStandardHours">Standard hours</label>
           <input type="number" id="pr-std" min="0" value="0"></div>
         <div><label for="pr-otm" data-i18n="payrollOvertimeMult">Overtime ×</label>
@@ -2061,7 +2061,7 @@
         <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
           <h4 data-i18n="equityContribution">Contribution (آورده)</h4>
           <label><span data-i18n="equityFieldShareholder">Shareholder</span><select id="equity-contrib-entity"></select></label>
-          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-contrib-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-contrib-amount" min="1" step="any"></label>
           <label><span data-i18n="equityFieldDate">Date</span><input type="date" id="equity-contrib-date"></label>
           <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;"><input type="checkbox" id="equity-contrib-tocapital" checked><span data-i18n="equityToCapital">Credit to share capital</span></label>
           <button type="button" class="btn btn-primary btn-sm" id="equity-contrib-post" data-i18n="equityBtnPost">Post</button>
@@ -2069,7 +2069,7 @@
 
         <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
           <h4 data-i18n="equityDividend">Declare dividend (سود سهام)</h4>
-          <label><span data-i18n="equityFieldTotal">Total amount</span><input type="number" id="equity-div-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldTotal">Total amount</span><input type="number" id="equity-div-amount" min="1" step="any"></label>
           <label><span data-i18n="equityFieldDate">Date</span><input type="date" id="equity-div-date"></label>
           <p class="muted" style="font-size:0.8rem;" data-i18n="equityDivHint">Allocated across shareholders by ownership %.</p>
           <button type="button" class="btn btn-primary btn-sm" id="equity-div-post" data-i18n="equityBtnDeclare">Declare</button>
@@ -2077,7 +2077,7 @@
 
         <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
           <h4 data-i18n="equityCapitalIncrease">Capital increase (افزایش سرمایه)</h4>
-          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-ci-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-ci-amount" min="1" step="any"></label>
           <label><span data-i18n="equityFieldSource">Funded from</span>
             <select id="equity-ci-source">
               <option value="retained_earnings" data-i18n="equitySourceRetained">Retained earnings</option>
@@ -2091,7 +2091,7 @@
         <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
           <h4 data-i18n="equityCurrentAccount">Current account (حساب جاری)</h4>
           <label><span data-i18n="equityFieldShareholder">Shareholder</span><select id="equity-ca-entity"></select></label>
-          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-ca-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-ca-amount" min="1" step="any"></label>
           <label><span data-i18n="equityFieldDirection">Direction</span>
             <select id="equity-ca-direction">
               <option value="out" data-i18n="equityDirOut">Withdrawal (out)</option>
@@ -2104,7 +2104,7 @@
         <div class="sub-card" style="border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
           <h4 data-i18n="equityPayDividend">Pay dividend</h4>
           <label><span data-i18n="equityFieldShareholder">Shareholder</span><select id="equity-pay-entity"></select></label>
-          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-pay-amount" min="1" step="1"></label>
+          <label><span data-i18n="equityFieldAmount">Amount</span><input type="number" id="equity-pay-amount" min="1" step="any"></label>
           <label><span data-i18n="equityFieldDate">Date</span><input type="date" id="equity-pay-date"></label>
           <button type="button" class="btn btn-primary btn-sm" id="equity-pay-post" data-i18n="equityBtnPay">Pay</button>
         </div>
@@ -2139,7 +2139,7 @@
             <div style="font-size:1.05rem;"><span data-i18n="pettyBalance">Balance</span>: <strong id="petty-own-balance">—</strong></div>
           </div>
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:0.7rem; border:1px dashed var(--border); border-radius:8px; padding:0.6rem;">
-            <div><label for="petty-exp-amount" data-i18n="labelAmount">Amount</label><input type="number" id="petty-exp-amount" min="1" style="width:140px;"></div>
+            <div><label for="petty-exp-amount" data-i18n="labelAmount">Amount</label><input type="number" step="any" id="petty-exp-amount" min="1" style="width:140px;"></div>
             <div style="flex:1; min-width:180px;"><label for="petty-exp-desc" data-i18n="pettyExpDesc">What was it for?</label><input type="text" id="petty-exp-desc"></div>
             <div><label for="petty-exp-cat" data-i18n="recCounterLabel">Expense / income account</label><select id="petty-exp-cat"></select></div>
             <div>
@@ -2218,7 +2218,7 @@
         <button type="button" class="btn btn-primary" id="audit-run-btn" data-i18n="auditRunBtn">Run Full Audit</button>
         <div style="margin-left:auto;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
           <label for="audit-liability-threshold" data-i18n="auditLiabilityThreshold" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;margin:0;">Liability threshold:</label>
-          <input type="number" id="audit-liability-threshold" style="width:180px;max-width:100%;margin:0;" data-i18n-placeholder="auditThresholdPlaceholder" placeholder="e.g. 500,000,000" min="0" step="1000000">
+          <input type="number" id="audit-liability-threshold" style="width:180px;max-width:100%;margin:0;" data-i18n-placeholder="auditThresholdPlaceholder" placeholder="e.g. 500,000,000" min="0" step="any">
           <button type="button" class="btn btn-primary btn-sm" id="audit-save-threshold-btn" data-i18n="auditSaveBtn" style="white-space:nowrap;">Save</button>
         </div>
       </div>
@@ -2531,7 +2531,7 @@
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.75rem;">
           <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
             <strong data-i18n="adjAccrualTitle">Accrual</strong>
-            <div style="margin-top:0.4rem;"><input type="number" id="accr-amount" data-i18n-aria-label="labelAmount" aria-label="Amount" min="0" step="1" data-i18n-placeholder="labelAmount" placeholder="Amount" style="width:100%;"></div>
+            <div style="margin-top:0.4rem;"><input type="number" id="accr-amount" data-i18n-aria-label="labelAmount" aria-label="Amount" min="0" step="any" data-i18n-placeholder="labelAmount" placeholder="Amount" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="date" id="accr-date" data-i18n-aria-label="labelDate" aria-label="Date" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="text" id="accr-desc" data-i18n-aria-label="adjDescPlaceholder" aria-label="Description" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
             <label style="display:block; margin-top:0.35rem; font-size:0.8rem;"><input type="checkbox" id="accr-reverse" checked> <span data-i18n="adjAutoReverse">Auto-reverse next period</span></label>
@@ -2539,7 +2539,7 @@
           </div>
           <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
             <strong data-i18n="adjPrepaymentTitle">Prepayment</strong>
-            <div style="margin-top:0.4rem;"><input type="number" id="prep-amount" data-i18n-aria-label="tableTotal" aria-label="Total" min="0" step="1" data-i18n-placeholder="tableTotal" placeholder="Total" style="width:100%;"></div>
+            <div style="margin-top:0.4rem;"><input type="number" id="prep-amount" data-i18n-aria-label="tableTotal" aria-label="Total" min="0" step="any" data-i18n-placeholder="tableTotal" placeholder="Total" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="number" id="prep-periods" data-i18n-aria-label="adjPeriodsPlaceholder" aria-label="Periods" min="1" step="1" data-i18n-placeholder="adjPeriodsPlaceholder" placeholder="Periods" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="date" id="prep-date" data-i18n-aria-label="labelDate" aria-label="Date" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="text" id="prep-desc" data-i18n-aria-label="adjDescPlaceholder" aria-label="Description" data-i18n-placeholder="adjDescPlaceholder" placeholder="Description" style="width:100%;"></div>
@@ -2547,9 +2547,9 @@
           </div>
           <div style="border:1px solid var(--border); border-radius:6px; padding:0.6rem;">
             <strong data-i18n="adjDepreciationTitle">Depreciation</strong>
-            <div style="margin-top:0.4rem;"><input type="number" id="dep-cost" data-i18n-aria-label="adjCostPlaceholder" aria-label="Cost" min="0" step="1" data-i18n-placeholder="adjCostPlaceholder" placeholder="Cost" style="width:100%;"></div>
+            <div style="margin-top:0.4rem;"><input type="number" id="dep-cost" data-i18n-aria-label="adjCostPlaceholder" aria-label="Cost" min="0" step="any" data-i18n-placeholder="adjCostPlaceholder" placeholder="Cost" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="number" id="dep-life" data-i18n-aria-label="adjLifePlaceholder" aria-label="Life (periods)" min="1" step="1" data-i18n-placeholder="adjLifePlaceholder" placeholder="Life (periods)" style="width:100%;"></div>
-            <div style="margin-top:0.35rem;"><input type="number" id="dep-residual" data-i18n-aria-label="adjResidualPlaceholder" aria-label="Residual" min="0" step="1" data-i18n-placeholder="adjResidualPlaceholder" placeholder="Residual" style="width:100%;"></div>
+            <div style="margin-top:0.35rem;"><input type="number" id="dep-residual" data-i18n-aria-label="adjResidualPlaceholder" aria-label="Residual" min="0" step="any" data-i18n-placeholder="adjResidualPlaceholder" placeholder="Residual" style="width:100%;"></div>
             <div style="margin-top:0.35rem;"><input type="date" id="dep-date" data-i18n-aria-label="labelDate" aria-label="Date" style="width:100%;"></div>
             <button type="button" class="btn btn-primary btn-sm" id="dep-save" style="margin-top:0.45rem;" data-i18n="adjCreate">Create schedule</button>
           </div>
@@ -2701,7 +2701,7 @@
           </div>
           <div>
             <label for="digest-threshold" data-i18n="digestThreshold">Low-cash threshold</label>
-            <input type="number" id="digest-threshold" min="0" step="1" placeholder="0">
+            <input type="number" id="digest-threshold" min="0" step="any" placeholder="0">
           </div>
           <div>
             <label for="digest-runway" data-i18n="digestRunway">Min runway (months)</label>
@@ -2790,7 +2790,7 @@
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="aiGuardDesc">Anything the assistant drafts at or above this amount (in the base currency) is recorded only after a second person — an owner, CFO or manager other than the one who asked — approves it. Leave empty for no limit.</p>
         <div class="row" style="gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
           <div><label for="ai-guard-threshold" data-i18n="aiGuardThreshold">Approval needed from</label>
-            <input type="number" id="ai-guard-threshold" min="0" step="1" style="width:12rem;" dir="ltr"></div>
+            <input type="number" id="ai-guard-threshold" min="0" step="any" style="width:12rem;" dir="ltr"></div>
           <div style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-secondary" id="ai-guard-save" data-i18n="aiSave">Save</button></div>
         </div>
         <p id="ai-guard-approvers" style="font-size:0.82rem; color:var(--text-muted); margin:0.5rem 0 0;"></p>

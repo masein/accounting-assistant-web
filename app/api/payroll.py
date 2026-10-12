@@ -47,7 +47,7 @@ from app.services.payroll_rules import (
 from app.services.payroll_service import PayrollInputError
 from app.services.period_service import assert_period_open
 from app.services.book_text import book_date, bt
-from app.core.money import json_dumps
+from app.core.money import Money, exponent, json_dumps, plain
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
 
@@ -62,8 +62,8 @@ _date = date  # alias for schema fields named `date`
 class PayProfileUpsert(BaseModel):
     entity_id: UUID
     pay_type: str = Field("salaried", description="salaried | hourly")
-    base_salary: int = Field(0, ge=0, description="Per-period gross for salaried staff")
-    hourly_rate: int = Field(0, ge=0)
+    base_salary: Money = Field(0, ge=0, description="Per-period gross for salaried staff, pence included")
+    hourly_rate: Money = Field(0, ge=0, description="£12.21 is 12.21")
     standard_hours: float = Field(0, ge=0, description="Hours per period; overtime threshold")
     monthly_standard_hours: float | None = Field(
         None, ge=0, description="Required hours per MONTH for hours-derived pay; null → standard_hours"
@@ -84,7 +84,7 @@ class PayRunEmployeeInput(BaseModel):
     entity_id: UUID
     hours: float | None = Field(None, description="Total hours worked (hourly staff)")
     proration: float = Field(1.0, ge=0, le=1, description="Fraction of period worked (salaried)")
-    gross_override: int | None = Field(
+    gross_override: Money | None = Field(
         None, ge=0, description="Use a pre-computed gross (e.g. a day-weighted mid-period raise)"
     )
 
@@ -121,8 +121,8 @@ class ProrateRaiseRequest(BaseModel):
     period_start: _date
     period_end: _date
     change_date: _date
-    old_amount: int = Field(..., ge=0)
-    new_amount: int = Field(..., ge=0)
+    old_amount: Money = Field(..., ge=0)
+    new_amount: Money = Field(..., ge=0)
 
 
 # ---------------------------------------------------------------------------
@@ -136,8 +136,8 @@ def _profile_read(p: EmployeePayProfile, name: str | None = None) -> dict:
         "entity_id": str(p.entity_id),
         "employee_name": name,
         "pay_type": p.pay_type,
-        "base_salary": int(p.base_salary or 0),
-        "hourly_rate": int(p.hourly_rate or 0),
+        "base_salary": plain(p.base_salary or 0),
+        "hourly_rate": plain(p.hourly_rate or 0),
         "standard_hours": float(p.standard_hours or 0),
         "monthly_standard_hours": (
             float(p.monthly_standard_hours) if p.monthly_standard_hours is not None else None
@@ -164,17 +164,17 @@ def _line_read(ln: PayRunLine) -> dict:
         "overtime_hours": float(ln.overtime_hours or 0),
         "leave_hours": float(getattr(ln, "leave_hours", 0) or 0),
         "proration": float(ln.proration or 1),
-        "gross": int(ln.gross or 0),
-        "pre_tax_deductions": int(ln.pre_tax_deductions or 0),
-        "taxable_base": int(ln.taxable_base or 0),
-        "income_tax": int(ln.income_tax or 0),
-        "social_security": int(ln.social_security or 0),
-        "net_pay": int(ln.net_pay or 0),
-        "allowances": int(getattr(ln, "allowances", 0) or 0),
-        "insurable_wage": int(getattr(ln, "insurable_wage", 0) or 0),
-        "employer_social": int(getattr(ln, "employer_social", 0) or 0),
-        "eidi": int(ln.eidi or 0),
-        "sanavat": int(ln.sanavat or 0),
+        "gross": plain(ln.gross or 0),
+        "pre_tax_deductions": plain(ln.pre_tax_deductions or 0),
+        "taxable_base": plain(ln.taxable_base or 0),
+        "income_tax": plain(ln.income_tax or 0),
+        "social_security": plain(ln.social_security or 0),
+        "net_pay": plain(ln.net_pay or 0),
+        "allowances": plain(getattr(ln, "allowances", 0) or 0),
+        "insurable_wage": plain(getattr(ln, "insurable_wage", 0) or 0),
+        "employer_social": plain(getattr(ln, "employer_social", 0) or 0),
+        "eidi": plain(ln.eidi or 0),
+        "sanavat": plain(ln.sanavat or 0),
         "days_worked": int(ln.days_worked or 0),
         "paid_to": getattr(ln, "paid_to", None),
     }
@@ -190,12 +190,12 @@ def _run_read(run: PayRun) -> dict:
         "status": run.status,
         "kind": run.kind or "regular",
         "year_key": run.year_key,
-        "total_gross": int(run.total_gross or 0),
-        "total_tax": int(run.total_tax or 0),
-        "total_social": int(run.total_social or 0),
-        "total_deductions": int(run.total_deductions or 0),
-        "total_net": int(run.total_net or 0),
-        "total_employer_social": int(getattr(run, "total_employer_social", 0) or 0),
+        "total_gross": plain(run.total_gross or 0),
+        "total_tax": plain(run.total_tax or 0),
+        "total_social": plain(run.total_social or 0),
+        "total_deductions": plain(run.total_deductions or 0),
+        "total_net": plain(run.total_net or 0),
+        "total_employer_social": plain(getattr(run, "total_employer_social", 0) or 0),
         "post_transaction_id": str(run.post_transaction_id) if run.post_transaction_id else None,
         "pay_transaction_id": str(run.pay_transaction_id) if run.pay_transaction_id else None,
         "lines": [_line_read(ln) for ln in run.lines],
@@ -223,7 +223,7 @@ def _post_balanced(db: Session, *, on: date, reference: str, description: str,
         if not acc:
             raise HTTPException(status_code=422, detail=f"Account not found: {code}")
         db.add(TransactionLine(transaction_id=txn.id, account_id=acc.id,
-                               debit=int(debit), credit=int(credit), line_description=line_desc))
+                               debit=plain(debit), credit=plain(credit), line_description=line_desc))
     db.flush()
     log_audit_event(db, action="create", entity_type="transaction", entity_id=str(txn.id),
                     detail=description)
@@ -277,15 +277,21 @@ def upsert_profile(payload: PayProfileUpsert, db: Session = Depends(get_db)) -> 
             status_code=422,
             detail="No statutory payroll rule set covers today for this locale; ask the platform admin to add one.",
         )
+    if given("base_salary"):
+        # a salary is an amount in its currency (pence for pounds, whole rials); an
+        # hourly rate is a price and may go to 4 places, the gross is what rounds
+        from app.services.ledger_posting import assert_amount_places
+        cur = (payload.currency or (prof.currency if prof else None) or get_reporting_currency(db) or "IRR").upper()
+        assert_amount_places(cur, [payload.base_salary])
     if creating:
         prof = EmployeePayProfile(entity_id=payload.entity_id)
         db.add(prof)
     if given("pay_type"):
         prof.pay_type = payload.pay_type
     if given("base_salary"):
-        prof.base_salary = int(payload.base_salary)
+        prof.base_salary = plain(payload.base_salary)
     if given("hourly_rate"):
-        prof.hourly_rate = int(payload.hourly_rate)
+        prof.hourly_rate = plain(payload.hourly_rate)
     if given("standard_hours"):
         prof.standard_hours = float(payload.standard_hours)
     if given("monthly_standard_hours"):
@@ -432,8 +438,8 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
         try:
             comp = payroll_service.calculate(
                 pay_type=prof.pay_type,
-                base_salary=int(prof.base_salary or 0),
-                hourly_rate=int(prof.hourly_rate or 0),
+                base_salary=plain(prof.base_salary or 0),
+                hourly_rate=plain(prof.hourly_rate or 0),
                 standard_hours=(required if derived is not None else float(prof.standard_hours or 0)),
                 overtime_multiplier=float(prof.overtime_multiplier or 1),
                 income_tax_rate=float(prof.income_tax_rate or 0),
@@ -446,6 +452,7 @@ def create_run(payload: PayRunCreate, db: Session = Depends(get_db)) -> dict:
                 rules=(rules.params if (rules is not None and (prof.tax_mode or "flat") == "statutory") else None),
                 children=int(prof.children or 0),
                 seniority_eligible=bool(prof.seniority_eligible),
+                places=exponent(cur),                   # pence for pounds, whole rials (docs/PLAN_PENCE.md)
             )
         except PayrollInputError as e:
             raise HTTPException(status_code=422, detail=f"{_employee_name(db, prof.entity_id)}: {e}") from e
@@ -563,7 +570,7 @@ def post_run(run_id: UUID, db: Session = Depends(get_db)) -> dict:
     if run.total_deductions > 0:
         lines.append((deductions, 0, run.total_deductions, bt(db, "pr_deductions")))
     lines.append((net_pay, 0, run.total_net, bt(db, "pr_net_payable")))
-    employer = int(getattr(run, "total_employer_social", 0) or 0)
+    employer = plain(getattr(run, "total_employer_social", 0) or 0)
     if employer > 0:
         # The employer's insurance share is a cost of employing, not part of
         # gross: DR employer insurance expense / CR the same insurance payable.
@@ -610,7 +617,7 @@ def void_run(run_id: UUID, db: Session = Depends(get_db)) -> dict:
         ).scalars().all()
         acc_codes = {a.id: a.code for a in db.execute(select(Account)).scalars().all()}
         rev = [
-            (acc_codes[l.account_id], int(l.credit or 0), int(l.debit or 0),
+            (acc_codes[l.account_id], plain(l.credit or 0), plain(l.debit or 0),
              bt(db, "reversal_line", text=l.line_description or "").strip())
             for l in orig_lines
         ]
@@ -661,8 +668,10 @@ def hours_summary(
         regular = min(worked, required) if required > 0 else worked
         overtime = max(0.0, worked - required) if required > 0 else 0.0
         undertime = max(0.0, required - worked) if required > 0 else 0.0
-        rate = int(prof.hourly_rate or 0)
+        rate = plain(prof.hourly_rate or 0)
         mult = float(prof.overtime_multiplier or 1)
+        from app.services.payroll_service import _d as _pay_d, _round as _pay_round
+        _pl = exponent(prof.currency or get_reporting_currency(db) or "IRR")
         out.append({
             "entity_id": str(prof.entity_id),
             "employee_name": _employee_name(db, prof.entity_id),
@@ -674,10 +683,12 @@ def hours_summary(
             "undertime_hours": round(undertime, 2),
             "entry_count": s["entry_count"],
             "hourly_rate": rate,
-            "projected_regular_pay": int(regular * rate + 0.5),
-            "projected_overtime_pay": int(overtime * rate * mult + 0.5),
-            "projected_leave_pay": int(leave * rate + 0.5),
-            "projected_gross": int(regular * rate + overtime * rate * mult + leave * rate + 0.5),
+            # exact, to the employee currency's places (£12.21 × 37.5 h is £457.88)
+            "projected_regular_pay": _pay_round(_pay_d(regular) * _pay_d(rate), _pl),
+            "projected_overtime_pay": _pay_round(_pay_d(overtime) * _pay_d(rate) * _pay_d(mult), _pl),
+            "projected_leave_pay": _pay_round(_pay_d(leave) * _pay_d(rate), _pl),
+            "projected_gross": _pay_round(_pay_d(regular) * _pay_d(rate) + _pay_d(overtime) * _pay_d(rate) * _pay_d(mult)
+                                          + _pay_d(leave) * _pay_d(rate), _pl),
             "currency": prof.currency,
         })
     return out
@@ -873,8 +884,8 @@ def my_payslips(db: Session = Depends(get_db)) -> dict:
                 "pay_date": run.pay_date.isoformat(),
                 "currency": run.currency,
                 "status": run.status,  # draft | posted | paid — paid ⇒ money sent on pay_date
-                "gross": int(ln.gross or 0),
-                "net_pay": int(ln.net_pay or 0),
+                "gross": plain(ln.gross or 0),
+                "net_pay": plain(ln.net_pay or 0),
                 "paid_to": getattr(ln, "paid_to", None),
                 "entity_id": str(ln.entity_id),
             }
@@ -912,12 +923,12 @@ def year_summary(year: int | None = None, entity_id: UUID | None = None, db: Ses
             "gross": 0, "pre_tax_deductions": 0, "income_tax": 0,
             "social_security": 0, "net_pay": 0, "employer_social": 0, "runs": 0,
         })
-        agg["gross"] += int(line.gross or 0)
-        agg["pre_tax_deductions"] += int(line.pre_tax_deductions or 0)
-        agg["income_tax"] += int(line.income_tax or 0)
-        agg["social_security"] += int(line.social_security or 0)
-        agg["net_pay"] += int(line.net_pay or 0)
-        agg["employer_social"] += int(getattr(line, "employer_social", 0) or 0)
+        agg["gross"] += plain(line.gross or 0)
+        agg["pre_tax_deductions"] += plain(line.pre_tax_deductions or 0)
+        agg["income_tax"] += plain(line.income_tax or 0)
+        agg["social_security"] += plain(line.social_security or 0)
+        agg["net_pay"] += plain(line.net_pay or 0)
+        agg["employer_social"] += plain(getattr(line, "employer_social", 0) or 0)
         agg["runs"] += 1
 
     return {"year": year, "employees": list(by_emp.values())}
@@ -930,7 +941,7 @@ def compute_prorate_raise(payload: ProrateRaiseRequest, db: Session = Depends(ge
     try:
         gross = payroll_service.prorate_raise(
             payload.period_start, payload.period_end, payload.change_date,
-            payload.old_amount, payload.new_amount,
+            payload.old_amount, payload.new_amount, exponent(get_reporting_currency(db) or "IRR"),
         )
     except PayrollInputError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
@@ -1066,19 +1077,19 @@ def insurance_list_csv(run_id: UUID, db: Session = Depends(get_db)) -> Response:
     for ln in run.lines:
         e = employees.get(ln.entity_id)
         days = round(30 * float(ln.proration or 1)) if (ln.proration or 1) != 1 else 30
-        base = int(ln.gross or 0) - int(ln.allowances or 0)
+        base = plain(ln.gross or 0) - plain(ln.allowances or 0)
         rows.append([
             ln.employee_name, e.national_id if e else "",
-            e.code if e else "", days, base, int(ln.allowances or 0),
-            int(ln.insurable_wage or 0), int(ln.social_security or 0),
-            int(ln.employer_social or 0), int(ln.social_security or 0) + int(ln.employer_social or 0),
+            e.code if e else "", days, base, plain(ln.allowances or 0),
+            plain(ln.insurable_wage or 0), plain(ln.social_security or 0),
+            plain(ln.employer_social or 0), plain(ln.social_security or 0) + plain(ln.employer_social or 0),
             run.currency,
         ])
         tot["base"] += base
-        tot["allow"] += int(ln.allowances or 0)
-        tot["ins"] += int(ln.insurable_wage or 0)
-        tot["emp"] += int(ln.social_security or 0)
-        tot["er"] += int(ln.employer_social or 0)
+        tot["allow"] += plain(ln.allowances or 0)
+        tot["ins"] += plain(ln.insurable_wage or 0)
+        tot["emp"] += plain(ln.social_security or 0)
+        tot["er"] += plain(ln.employer_social or 0)
     rows.append(["TOTAL", "", "", "", tot["base"], tot["allow"], tot["ins"], tot["emp"], tot["er"],
                  tot["emp"] + tot["er"], run.currency])
     return _csv_response(rows, f"insurance-list-{run.period_start.isoformat()}.csv")
@@ -1101,14 +1112,14 @@ def tax_list_csv(run_id: UUID, db: Session = Depends(get_db)) -> Response:
         e = employees.get(ln.entity_id)
         rows.append([
             ln.employee_name, e.national_id if e else "",
-            int(ln.gross or 0), int(ln.allowances or 0), int(ln.pre_tax_deductions or 0),
-            int(ln.social_security or 0), int(ln.taxable_base or 0), int(ln.income_tax or 0),
-            int(ln.net_pay or 0), run.currency,
+            plain(ln.gross or 0), plain(ln.allowances or 0), plain(ln.pre_tax_deductions or 0),
+            plain(ln.social_security or 0), plain(ln.taxable_base or 0), plain(ln.income_tax or 0),
+            plain(ln.net_pay or 0), run.currency,
         ])
-        tot["gross"] += int(ln.gross or 0); tot["allow"] += int(ln.allowances or 0)
-        tot["ded"] += int(ln.pre_tax_deductions or 0); tot["soc"] += int(ln.social_security or 0)
-        tot["tax_base"] += int(ln.taxable_base or 0); tot["tax"] += int(ln.income_tax or 0)
-        tot["net"] += int(ln.net_pay or 0)
+        tot["gross"] += plain(ln.gross or 0); tot["allow"] += plain(ln.allowances or 0)
+        tot["ded"] += plain(ln.pre_tax_deductions or 0); tot["soc"] += plain(ln.social_security or 0)
+        tot["tax_base"] += plain(ln.taxable_base or 0); tot["tax"] += plain(ln.income_tax or 0)
+        tot["net"] += plain(ln.net_pay or 0)
     rows.append(["TOTAL", "", tot["gross"], tot["allow"], tot["ded"], tot["soc"], tot["tax_base"],
                  tot["tax"], tot["net"], run.currency])
     return _csv_response(rows, f"salary-tax-list-{run.period_start.isoformat()}.csv")

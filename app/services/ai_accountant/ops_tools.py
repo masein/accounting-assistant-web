@@ -14,6 +14,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.core.money import Money, plain
+
 from .base import BaseTool, ToolContext, ToolError
 from .time_tools import _find_entity, _register
 
@@ -93,7 +95,7 @@ class ListRecurringRules(BaseTool):
         if args.active_only:
             q = q.where(RecurringRule.status == "active")
         rules = [{"id": str(r.id), "name": r.name, "direction": r.direction, "frequency": r.frequency,
-                  "amount": int(r.amount) if r.amount is not None else None,
+                  "amount": plain(r.amount) if r.amount is not None else None,
                   "next_run_date": r.next_run_date.isoformat() if r.next_run_date else None,
                   "end_date": r.end_date.isoformat() if r.end_date else None, "status": r.status,
                   "counter_account_code": r.counter_account_code, "bank_account_code": r.bank_account_code,
@@ -238,7 +240,7 @@ class ProposeCreateRecurringRuleInput(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     direction: str = Field("payment", description="payment (money out) or receipt (money in)")
     frequency: str = Field("monthly", description="daily | weekly | monthly | quarterly | yearly")
-    amount: int = Field(..., gt=0)
+    amount: Money = Field(..., gt=0, description="Each time, in the base currency, pence included: £600.50 is 600.50 (never ×100).")
     start_date: _date = Field(..., description="The first date it posts.")
     end_date: _date | None = None
     account_code: str = Field(..., description="The expense (payment) or income (receipt) account.")
@@ -267,6 +269,12 @@ class ProposeCreateRecurringRule(BaseTool):
             raise ToolError("frequency is daily, weekly, monthly, quarterly or yearly", code="bad_frequency")
         if args.end_date and args.end_date < args.start_date:
             raise ToolError("It ends before it starts.", code="bad_dates")
+        from app.core.money import check_places
+        from app.services.fx_base import base_currency
+        try:
+            check_places(args.amount, base_currency(ctx.db))
+        except ValueError as e:
+            raise ToolError(str(e), code="invalid_amount") from e
         codes = {args.account_code} | ({args.bank_account_code} if args.bank_account_code else set())
         have = {c for (c,) in ctx.db.execute(select(Account.code).where(Account.code.in_(codes))).all()}
         missing = sorted(codes - have)

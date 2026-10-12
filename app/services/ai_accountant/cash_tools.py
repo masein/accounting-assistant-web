@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
+from app.core.money import Money
 from app.models.account import Account
 from app.models.entity import Entity
 from app.models.transaction import Transaction, TransactionLine
@@ -104,7 +105,7 @@ class ForecastDelay(BaseModel):
 
 class ForecastOneOff(BaseModel):
     on: date = Field(..., description="Date of the one-off flow.")
-    amount: int = Field(..., description="Positive = money in, negative = money out.")
+    amount: Money = Field(..., description="Positive = money in, negative = money out; pence included: £600.50 is 600.50 (never ×100).")
     label: str | None = Field(None, max_length=120)
 
 

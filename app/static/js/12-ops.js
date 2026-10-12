@@ -328,7 +328,7 @@
       btn.addEventListener('click', async () => {
         const st = document.getElementById('rec-form-status');
         const name = document.getElementById('rec-name').value.trim();
-        const amount = parseInt(document.getElementById('rec-amount').value, 10);
+        const amount = parseMoney(document.getElementById('rec-amount').value);
         const start = document.getElementById('rec-start').value;
         if (!name || !amount || !start) { st.textContent = t('recFormMissing'); return; }
         const payload = {
@@ -527,7 +527,7 @@
       tbody.querySelectorAll('.petty-deposit').forEach(b => b.addEventListener('click', async () => {
         // the app's own dialogs (the browser's speak its language, not the page's); Persian digits count
         const typed = await uiPrompt({ title: t('pettyDepositBtn'), message: tf('pettyDepositPrompt', { currency: currencySymbol(baseCurrencyCode()) }) + ' — ' + b.dataset.name });
-        const amount = parseInt(asciiDigits(typed || ''), 10);
+        const amount = parseMoney(asciiDigits(typed || ''));
         if (!amount || amount <= 0) return;
         const bank = await uiPrompt({ title: t('pettyDepositBtn'), message: t('pettyDepositBankPrompt'),
                                       value: document.getElementById('rec-bank')?.value || '1110' });
@@ -541,7 +541,7 @@
       }));
       tbody.querySelectorAll('.petty-adjust').forEach(b => b.addEventListener('click', async () => {
         const typed = await uiPrompt({ title: t('pettyAdjustBtn'), message: tf('pettyAdjustPrompt', { currency: currencySymbol(baseCurrencyCode()) }) + ' — ' + b.dataset.name });
-        const signed = parseInt(asciiDigits(typed || ''), 10);
+        const signed = parseMoney(asciiDigits(typed || ''));
         if (!signed) return;
         const counter = await uiPrompt({ title: t('pettyAdjustBtn'), message: t('pettyDepositBankPrompt'), value: '1110' });
         if (!counter) return;
@@ -613,7 +613,7 @@
       const submitBtn = document.getElementById('petty-exp-submit');
       if (submitBtn) submitBtn.addEventListener('click', async () => {
         if (!_pettyOwnAccount) return;
-        const amount = parseInt(document.getElementById('petty-exp-amount').value, 10);
+        const amount = parseMoney(document.getElementById('petty-exp-amount').value);
         const desc = document.getElementById('petty-exp-desc').value.trim();
         if (!amount || !desc) { showAlert(t('recFormMissing'), true); return; }
         const res = await fetch(API + '/petty-cash/accounts/' + _pettyOwnAccount.id + '/expenses', {
@@ -719,20 +719,20 @@
         const entity_id = document.getElementById('equity-contrib-entity').value;
         if (!entity_id) { showAlert(t('equitySelectShareholder'), true); return; }
         _equityPost('/equity/contribution', {
-          entity_id, amount: parseInt(document.getElementById('equity-contrib-amount').value) || 0,
+          entity_id, amount: parseMoney(document.getElementById('equity-contrib-amount').value),
           date: document.getElementById('equity-contrib-date').value,
           to_capital: document.getElementById('equity-contrib-tocapital').checked,
         }, 'equityPostedContribution');
       });
       document.getElementById('equity-div-post').addEventListener('click', () => {
         _equityPost('/equity/dividend/declare', {
-          total_amount: parseInt(document.getElementById('equity-div-amount').value) || 0,
+          total_amount: parseMoney(document.getElementById('equity-div-amount').value),
           date: document.getElementById('equity-div-date').value,
         }, 'equityPostedDividend');
       });
       document.getElementById('equity-ci-post').addEventListener('click', () => {
         _equityPost('/equity/capital-increase', {
-          amount: parseInt(document.getElementById('equity-ci-amount').value) || 0,
+          amount: parseMoney(document.getElementById('equity-ci-amount').value),
           source: document.getElementById('equity-ci-source').value,
           date: document.getElementById('equity-ci-date').value,
         }, 'equityPostedCapital');
@@ -741,7 +741,7 @@
         const entity_id = document.getElementById('equity-ca-entity').value;
         if (!entity_id) { showAlert(t('equitySelectShareholder'), true); return; }
         _equityPost('/equity/current-account', {
-          entity_id, amount: parseInt(document.getElementById('equity-ca-amount').value) || 0,
+          entity_id, amount: parseMoney(document.getElementById('equity-ca-amount').value),
           direction: document.getElementById('equity-ca-direction').value,
           date: document.getElementById('equity-ca-date').value,
         }, 'equityPostedCurrentAccount');
@@ -750,7 +750,7 @@
         const entity_id = document.getElementById('equity-pay-entity').value;
         if (!entity_id) { showAlert(t('equitySelectShareholder'), true); return; }
         _equityPost('/equity/dividend/pay', {
-          entity_id, amount: parseInt(document.getElementById('equity-pay-amount').value) || 0,
+          entity_id, amount: parseMoney(document.getElementById('equity-pay-amount').value),
           date: document.getElementById('equity-pay-date').value,
         }, 'equityPostedPayment');
       });
@@ -1623,8 +1623,8 @@
           + postable.map((n) => {
             const ln = have[n.code] || {};
             return '<tr><td dir="ltr">' + escapeHtml(localCode(n.code)) + '</td><td dir="auto">' + escapeHtml(n.name) + '</td>'
-              + '<td><input type="number" min="0" step="1" class="coa-dr" data-code="' + escapeHtml(n.code) + '" value="' + (ln.debit || '') + '" style="width:8rem;"></td>'
-              + '<td><input type="number" min="0" step="1" class="coa-cr" data-code="' + escapeHtml(n.code) + '" value="' + (ln.credit || '') + '" style="width:8rem;"></td></tr>';
+              + '<td><input type="number" min="0" step="any" class="coa-dr" data-code="' + escapeHtml(n.code) + '" value="' + (ln.debit || '') + '" style="width:8rem;"></td>'
+              + '<td><input type="number" min="0" step="any" class="coa-cr" data-code="' + escapeHtml(n.code) + '" value="' + (ln.credit || '') + '" style="width:8rem;"></td></tr>';
           }).join('') + '</tbody></table>';
         grid.querySelectorAll('input').forEach((inp) => inp.addEventListener('input', coaOpeningTotals));
         coaOpeningTotals();
@@ -1635,10 +1635,11 @@
     function coaOpeningLines() {
       const byCode = {};
       document.querySelectorAll('#coa-opening-grid input').forEach((inp) => {
-        const v = Math.round(Number(inp.value || 0));
+        const v = parseMoney(inp.value || 0);
         if (!v) return;
         const row = byCode[inp.dataset.code] || (byCode[inp.dataset.code] = { account_code: inp.dataset.code, debit: 0, credit: 0 });
-        row[inp.classList.contains('coa-dr') ? 'debit' : 'credit'] += v;
+        const side = inp.classList.contains('coa-dr') ? 'debit' : 'credit';
+        row[side] = addMoney(row[side], v);
       });
       return Object.values(byCode);
     }

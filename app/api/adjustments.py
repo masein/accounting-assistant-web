@@ -5,6 +5,8 @@ Reversals reuse the shared ledger reversal machinery.
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 import uuid
 from datetime import date
 from uuid import UUID
@@ -20,10 +22,11 @@ from app.models.adjustment import Adjustment
 from app.models.transaction import Transaction, TransactionLine
 from app.services.account_resolver import resolve_account_code
 from app.services.audit_service import log_audit_event
-from app.services.ledger_posting import default_currency
+from app.services.ledger_posting import assert_amount_places, default_currency
 from app.services.period_service import assert_period_open
 from app.services.reporting.ledger_service import LedgerService
 from app.services.book_text import bt
+from app.core.money import Money, exponent, plain, to_decimal
 
 router = APIRouter(prefix="/adjustments", tags=["adjustments"])
 
@@ -59,24 +62,27 @@ def _post(db: Session, *, on: date, reference: str, description: str, currency: 
         if not acc:
             raise HTTPException(status_code=422, detail=f"Account not found: {code}")
         db.add(TransactionLine(transaction_id=txn.id, account_id=acc.id,
-                               debit=int(debit), credit=int(credit), line_description=line_desc))
+                               debit=plain(debit), credit=plain(credit), line_description=line_desc))
     db.flush()
     log_audit_event(db, action="create", entity_type="transaction", entity_id=str(txn.id),
                     detail=description)
     return txn
 
 
-def _period_amount(adj: Adjustment, index: int) -> int:
+def _period_amount(adj: Adjustment, index: int):
     """Amount released in period ``index`` (0-based). Even split with the
-    remainder on the final period so the total reconciles exactly."""
-    total = int(adj.amount or 0)
+    remainder on the final period so the total reconciles exactly — in the
+    currency's smallest unit, so pounds keep their pence: £100.00 over 3 is
+    £33.33, £33.33, £33.34 (whole rials as before; docs/PLAN_PENCE.md)."""
+    total = to_decimal(adj.amount or 0)
     if adj.kind == "depreciation":
-        total = int(adj.amount or 0) - int(adj.residual or 0)
+        total = to_decimal(adj.amount or 0) - to_decimal(adj.residual or 0)
+    scale = 10 ** exponent(adj.currency or "IRR")
+    units = int(total * scale)
     periods = max(1, int(adj.periods or 1))
-    base = total // periods
-    if index >= periods - 1:
-        return total - base * (periods - 1)
-    return base
+    base = units // periods
+    part = units - base * (periods - 1) if index >= periods - 1 else base
+    return plain(Decimal(part) / scale)
 
 
 def _released_to_date(adj: Adjustment) -> int:
@@ -84,8 +90,8 @@ def _released_to_date(adj: Adjustment) -> int:
 
 
 def _to_read(adj: Adjustment) -> dict:
-    total = int(adj.amount or 0)
-    depreciable = total - int(adj.residual or 0) if adj.kind == "depreciation" else total
+    total = plain(adj.amount or 0)
+    depreciable = total - plain(adj.residual or 0) if adj.kind == "depreciation" else total
     released = _released_to_date(adj)
     return {
         "id": str(adj.id),
@@ -93,7 +99,7 @@ def _to_read(adj: Adjustment) -> dict:
         "description": adj.description,
         "currency": adj.currency,
         "amount": total,
-        "residual": int(adj.residual or 0),
+        "residual": plain(adj.residual or 0),
         "periods": int(adj.periods or 1),
         "period_months": int(adj.period_months or 1),
         "start_date": adj.start_date.isoformat() if adj.start_date else None,
@@ -116,7 +122,7 @@ def _to_read(adj: Adjustment) -> dict:
 
 
 class AccrualCreate(BaseModel):
-    amount: int = Field(..., gt=0)
+    amount: Money = Field(..., gt=0)
     date: _date
     description: str | None = None
     currency: str | None = None          # None: the company's base currency
@@ -126,7 +132,7 @@ class AccrualCreate(BaseModel):
 
 
 class PrepaymentCreate(BaseModel):
-    amount: int = Field(..., gt=0, description="Total prepaid amount to amortize")
+    amount: Money = Field(..., gt=0, description="Total prepaid amount to amortize")
     periods: int = Field(..., ge=1)
     start_date: _date
     period_months: int = Field(1, ge=1)
@@ -136,10 +142,10 @@ class PrepaymentCreate(BaseModel):
 
 
 class DepreciationCreate(BaseModel):
-    cost: int = Field(..., gt=0)
+    cost: Money = Field(..., gt=0)
     periods: int = Field(..., ge=1, description="Useful life in periods")
     start_date: _date
-    residual: int = Field(0, ge=0)
+    residual: Money = Field(0, ge=0)
     period_months: int = Field(1, ge=1)
     description: str | None = None
     currency: str | None = None          # None: the company's base currency
@@ -154,8 +160,9 @@ class DepreciationCreate(BaseModel):
 def create_accrual(payload: AccrualCreate, db: Session = Depends(get_db)) -> dict:
     """Record an accrual; optionally auto-reverse on the first day of the next
     period so it nets to zero across the two periods."""
-    amount = int(payload.amount)
+    amount = plain(payload.amount)
     cur = default_currency(db, payload.currency)
+    assert_amount_places(cur, [amount])
     desc = payload.description or bt(db, "adj_accrual")
     ref = f"ACCR-{payload.date.isoformat()}"
     if payload.direction == "income":
@@ -198,8 +205,9 @@ def create_accrual(payload: AccrualCreate, db: Session = Depends(get_db)) -> dic
 def create_prepayment(payload: PrepaymentCreate, db: Session = Depends(get_db)) -> dict:
     """Record a prepayment (DR prepaid asset / CR bank) and set up an even
     amortization schedule released via /release."""
-    amount = int(payload.amount)
+    amount = plain(payload.amount)
     cur = default_currency(db, payload.currency)
+    assert_amount_places(cur, [amount])
     desc = payload.description or bt(db, "adj_prepayment")
     bank = payload.bank_account_code
     if not (bank and db.execute(select(Account.id).where(Account.code == bank)).first()):
@@ -230,10 +238,11 @@ def create_depreciation(payload: DepreciationCreate, db: Session = Depends(get_d
     post DR depreciation-expense / CR accumulated-depreciation each period."""
     if payload.residual >= payload.cost:
         raise HTTPException(status_code=400, detail="Residual must be less than cost.")
+    assert_amount_places(default_currency(db, payload.currency), [payload.cost, payload.residual])
     adj = Adjustment(
         kind="depreciation", description=(payload.description or bt(db, "adj_depreciation")),
-        currency=default_currency(db, payload.currency), amount=int(payload.cost),
-        residual=int(payload.residual), periods=payload.periods,
+        currency=default_currency(db, payload.currency), amount=plain(payload.cost),
+        residual=plain(payload.residual), periods=payload.periods,
         period_months=payload.period_months, start_date=payload.start_date,
         periods_posted=0, status="active",
     )

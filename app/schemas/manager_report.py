@@ -237,7 +237,7 @@ class InventoryItemCreate(_LatinCodes):
     sku: str | None = None
     name: str = Field(..., min_length=1)
     unit: str = "unit"
-    list_price: int = Field(0, ge=0)
+    list_price: Money = Field(0, ge=0)
     barcode: str | None = Field(None, max_length=64)
     reorder_level: float | None = Field(None, ge=0)
     reorder_qty: float | None = Field(None, gt=0)
@@ -272,7 +272,7 @@ class InventoryMovementCreate(BaseModel):
     movement_date: date
     movement_type: str = Field(..., description="IN | OUT | ADJUSTMENT")
     quantity: float = Field(..., gt=0)
-    unit_cost: int = Field(default=0, ge=0)
+    unit_cost: Money = Field(default=0, ge=0)
     reference: str | None = None
     description: str | None = None
     invoice_id: UUID | None = None

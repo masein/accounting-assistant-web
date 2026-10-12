@@ -24,6 +24,7 @@ plus DR employer insurance expense = CR social payable for the employer share.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from datetime import date
 from typing import TYPE_CHECKING
 
@@ -35,9 +36,20 @@ class PayrollInputError(ValueError):
     """Invalid pay input (e.g. zero/negative hours for an hourly employee)."""
 
 
-def _round(x: float) -> int:
-    """Half-up rounding to whole currency units (amounts are non-negative)."""
-    return int(x + 0.5)
+def _round(x, places: int = 0):
+    """Half-up rounding to the currency's places (amounts are non-negative):
+    whole rials as ``int(x + 0.5)`` always gave, pence for pounds
+    (docs/PLAN_PENCE.md). Exact: a float goes through its repr."""
+    from decimal import ROUND_HALF_UP
+    from app.core.money import plain, to_decimal
+    return plain(to_decimal(x).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
+
+
+def _d(x) -> Decimal:
+    """A money figure or a rate as an exact Decimal (a float through its repr),
+    so pay is worked out exactly: 12.21 × 162.5 is 1984.125, not 1984.1249999…"""
+    from app.core.money import to_decimal
+    return to_decimal(x or 0)
 
 
 @dataclass
@@ -58,41 +70,42 @@ class PayComponents:
     employer_social: int = 0      # employer's insurance share (a cost, not a deduction)
 
 
-def progressive_tax(taxable: int, brackets) -> int:
+def progressive_tax(taxable, brackets, places: int = 0):
     """Tax on a MONTHLY taxable amount over ascending brackets: each slice up
     to ``upto`` is taxed at that bracket's ``rate``; an uncapped last bracket
     takes the remainder. Rounded once, half-up, at the end."""
     if taxable <= 0 or not brackets:
         return 0
-    tax = 0.0
-    lower = 0
+    taxable = _d(taxable)
+    tax = Decimal(0)
+    lower = Decimal(0)
     for b in brackets:
         upto = b.upto if hasattr(b, "upto") else b.get("upto")
-        rate = float(b.rate if hasattr(b, "rate") else b.get("rate", 0))
+        rate = _d(b.rate if hasattr(b, "rate") else b.get("rate", 0))
         if upto is None:
             tax += (taxable - lower) * rate
             lower = taxable
             break
-        slice_top = min(taxable, int(upto))
+        slice_top = min(taxable, _d(upto))
         if slice_top > lower:
             tax += (slice_top - lower) * rate
             lower = slice_top
-        if taxable <= int(upto):
+        if taxable <= _d(upto):
             break
-    return _round(tax)
+    return _round(tax, places)
 
 
 def statutory_allowances(rules: "RuleParams", *, children: int = 0,
-                         seniority_eligible: bool = False, proration: float = 1.0) -> tuple[int, int]:
+                         seniority_eligible: bool = False, proration: float = 1.0, places: int = 0) -> tuple:
     """(total allowances, non-insurable part) for one month, prorated like the
     base pay. Child allowance is exempt from insurance unless the rule set
     says otherwise."""
-    pr = max(0.0, float(proration or 0))
+    pr = _d(max(0.0, float(proration or 0)))
     kids = max(0, int(children or 0))
-    child = rules.child_allowance_per_child * kids
-    seniority = rules.seniority_daily * rules.working_days_month if seniority_eligible else 0
-    total = _round((rules.housing_allowance + rules.grocery_allowance + child + seniority) * pr)
-    non_insurable = 0 if rules.child_allowance_insurable else _round(child * pr)
+    child = _d(rules.child_allowance_per_child) * kids
+    seniority = _d(rules.seniority_daily) * rules.working_days_month if seniority_eligible else 0
+    total = _round((_d(rules.housing_allowance) + _d(rules.grocery_allowance) + child + seniority) * pr, places)
+    non_insurable = 0 if rules.child_allowance_insurable else _round(child * pr, places)
     return total, non_insurable
 
 
@@ -111,8 +124,8 @@ def split_hours(total_hours: float, standard_hours: float) -> tuple[float, float
 
 def prorate_raise(
     period_start: date, period_end: date, change_date: date,
-    old_amount: int, new_amount: int,
-) -> int:
+    old_amount, new_amount, places: int = 0,
+):
     """Day-weighted gross across a mid-period salary change: ``old_amount`` for
     days before ``change_date`` and ``new_amount`` from ``change_date`` onward
     (period end inclusive). If the change is outside the period, returns the
@@ -120,13 +133,14 @@ def prorate_raise(
     if period_end < period_start:
         raise PayrollInputError("period_end is before period_start.")
     total_days = (period_end - period_start).days + 1
+    from app.core.money import plain
     if change_date <= period_start:
-        return int(new_amount)
+        return plain(new_amount)
     if change_date > period_end:
-        return int(old_amount)
+        return plain(old_amount)
     days_old = (change_date - period_start).days
     days_new = total_days - days_old
-    return _round(old_amount * days_old / total_days + new_amount * days_new / total_days)
+    return _round(_d(old_amount) * days_old / total_days + _d(new_amount) * days_new / total_days, places)
 
 
 def calculate(
@@ -146,6 +160,7 @@ def calculate(
     rules: "RuleParams | None" = None,
     children: int = 0,
     seniority_eligible: bool = False,
+    places: int = 0,
 ) -> PayComponents:
     """Compute one employee's pay breakdown.
 
@@ -170,7 +185,7 @@ def calculate(
     if gross_override is not None:
         if gross_override < 0:
             raise PayrollInputError("Gross cannot be negative.")
-        gross = int(gross_override)
+        gross = _round(gross_override, places)
         proration = float(proration)
         leave = 0.0
     elif (pay_type or "").lower() == "hourly":
@@ -182,39 +197,41 @@ def calculate(
         if worked <= 0 and leave <= 0:
             raise PayrollInputError("Hours must be greater than zero.")
         reg, ot = split_hours(worked, standard_hours)
+        rate = _d(hourly_rate)
         gross = _round(
-            reg * hourly_rate
-            + ot * hourly_rate * float(overtime_multiplier or 1)
-            + leave * hourly_rate
+            _d(reg) * rate
+            + _d(ot) * rate * _d(float(overtime_multiplier or 1))
+            + _d(leave) * rate, places
         )
     else:  # salaried
         if proration < 0:
             raise PayrollInputError("Proration cannot be negative.")
         leave = 0.0
-        gross = _round(float(base_salary) * float(proration))
+        gross = _round(_d(base_salary) * _d(float(proration)), places)
 
     allowances = insurable = employer_social = 0
     if rules is not None:
         allowances, non_insurable = statutory_allowances(
             rules, children=children, seniority_eligible=seniority_eligible,
             proration=(float(proration) if gross_override is None and pay_type != "hourly" else 1.0),
+            places=places,
         )
         gross += allowances
-        pre_tax = _round(gross * pension_rate)
+        pre_tax = _round(_d(gross) * _d(pension_rate), places)
         insurable = max(0, gross - non_insurable)
         if rules.insurance_ceiling is not None:
-            insurable = min(insurable, int(rules.insurance_ceiling))
-        if insurable < int(rules.insurance_floor or 0):
+            insurable = min(insurable, _round(rules.insurance_ceiling, places))
+        if insurable < _d(rules.insurance_floor or 0):
             insurable = 0
-        social_security = _round(insurable * rules.insurance_employee_rate)
-        employer_social = _round(insurable * rules.insurance_employer_rate)
+        social_security = _round(_d(insurable) * _d(rules.insurance_employee_rate), places)
+        employer_social = _round(_d(insurable) * _d(rules.insurance_employer_rate), places)
         taxable_base = gross - pre_tax - (social_security if rules.insurance_reduces_taxable else 0)
-        income_tax = progressive_tax(max(0, taxable_base), rules.tax_brackets)
+        income_tax = progressive_tax(max(0, taxable_base), rules.tax_brackets, places)
     else:
-        pre_tax = _round(gross * pension_rate)
+        pre_tax = _round(_d(gross) * _d(pension_rate), places)
         taxable_base = gross - pre_tax
-        income_tax = _round(taxable_base * income_tax_rate)
-        social_security = _round(gross * social_security_rate)
+        income_tax = _round(_d(taxable_base) * _d(income_tax_rate), places)
+        social_security = _round(_d(gross) * _d(social_security_rate), places)
     net_pay = gross - pre_tax - income_tax - social_security
     if net_pay < 0:
         raise PayrollInputError(

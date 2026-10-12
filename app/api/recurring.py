@@ -21,18 +21,20 @@ from app.schemas.recurring import (
 router = APIRouter(prefix="/recurring", tags=["recurring"])
 
 
-def _parse_amount(text: str) -> int | None:
+def _parse_amount(text: str):
+    """The amount in a sentence: "12.50" keeps its pence, "2.5m" is 2,500,000."""
+    from decimal import Decimal
+    from app.core.money import plain
     t = (text or "").lower().replace(",", "")
     unit_matches = re.findall(r"(\d+(?:\.\d+)?)\s*([mk])\b", t)
     if unit_matches:
-        total = 0
+        total = Decimal(0)
         for n_str, unit in unit_matches:
-            n = float(n_str)
-            total += int(n * (1_000 if unit == "k" else 1_000_000))
-        return total
-    m = re.search(r"\b(\d+)\b", t)
+            total += (Decimal(n_str) * (1_000 if unit == "k" else 1_000_000)).to_integral_value(rounding="ROUND_DOWN")
+        return plain(total)
+    m = re.search(r"\b(\d+(?:\.\d+)?)\b", t)
     if m:
-        return int(m.group(1))
+        return plain(m.group(1))
     return None
 
 
@@ -95,8 +97,16 @@ def list_rules(db: Session = Depends(get_db)) -> list[RecurringRuleRead]:
     return [RecurringRuleRead.model_validate(r) for r in rows]
 
 
+def _check_places(db: Session, amount) -> None:
+    """A rule posts in the base currency: pence for pounds, whole rials."""
+    from app.services.fx_base import base_currency
+    from app.services.ledger_posting import assert_amount_places
+    assert_amount_places(base_currency(db), [amount])
+
+
 @router.post("", response_model=RecurringRuleRead, status_code=201)
 def create_rule(payload: RecurringRuleCreate, db: Session = Depends(get_db)) -> RecurringRuleRead:
+    _check_places(db, payload.amount)
     row = RecurringRule(
         name=payload.name.strip(),
         direction=payload.direction.strip().lower(),
@@ -128,6 +138,7 @@ def create_rule_from_text(payload: RecurringFromTextRequest, db: Session = Depen
     freq = _normalize_frequency(text)
     direction = _direction(text)
     amount = _parse_amount(text)
+    _check_places(db, amount)
     bank = None
     m_bank = re.search(r"\bfrom\s+([A-Za-z][A-Za-z0-9\s]{1,20})\s+bank\b", text, re.IGNORECASE)
     if m_bank:
@@ -160,6 +171,7 @@ def update_rule(rule_id: UUID, payload: RecurringRuleUpdate, db: Session = Depen
     row = db.get(RecurringRule, rule_id)
     if not row:
         raise HTTPException(status_code=404, detail="Recurring rule not found")
+    _check_places(db, payload.amount)
     for field in (
         "name", "direction", "frequency", "amount", "start_date", "next_run_date",
         "entity_id", "bank_name", "reference_prefix", "note", "status"

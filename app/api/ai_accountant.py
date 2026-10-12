@@ -789,7 +789,7 @@ def execute(
 # --- Guardrails: two-person approval (roadmap §5.6) -------------------------------------------------
 
 class GuardrailsUpdate(BaseModel):
-    approval_threshold: int | None = Field(default=None, ge=0, description="Base-currency amount; empty = off")
+    approval_threshold: Money | None = Field(default=None, ge=0, description="Base-currency amount; empty = off")
 
 
 @router.get("/guardrails")

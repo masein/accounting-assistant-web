@@ -18,6 +18,13 @@ from app.core.money import json_dumps
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
 
+def _check_places(db: Session, amount) -> None:
+    """A budget is in the base currency: pence for pounds, whole rials."""
+    from app.services.fx_base import base_currency
+    from app.services.ledger_posting import assert_amount_places
+    assert_amount_places(base_currency(db), [amount])
+
+
 @router.get("", response_model=list[BudgetLimitRead])
 def list_budgets(
     db: Session = Depends(get_db),
@@ -32,6 +39,7 @@ def list_budgets(
 
 @router.post("", response_model=BudgetLimitRead, status_code=201)
 def upsert_budget(payload: BudgetLimitCreate, db: Session = Depends(get_db)) -> BudgetLimitRead:
+    _check_places(db, payload.limit_amount)
     row = db.execute(
         select(BudgetLimit).where(BudgetLimit.month == payload.month, BudgetLimit.category.ilike(payload.category.strip()))
     ).scalars().first()
@@ -60,8 +68,8 @@ def update_budget(budget_id: UUID, payload: BudgetLimitUpdate, db: Session = Dep
     before = {"month": row.month, "category": row.category, "limit_amount": row.limit_amount}
     row.month, row.category = month, category
     if payload.limit_amount is not None:
+        _check_places(db, payload.limit_amount)
         row.limit_amount = payload.limit_amount
-    import json
     log_audit_event(db, action="update", entity_type="budget", entity_id=str(row.id),
                     detail=json_dumps({"from": before, "to": {"month": row.month, "category": row.category,
                                                               "limit_amount": row.limit_amount}}, ensure_ascii=False))

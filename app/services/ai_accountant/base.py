@@ -32,8 +32,22 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+
+
+class Replaceable(BaseModel):
+    """A card that can correct an earlier one: «مبلغش رو ۲.۵ میلیون کن» drew a
+    new card and left the old one confirmable, so both could post (AI QA on
+    migrated books, 2026-10-12)."""
+    replaces: str | None = Field(
+        None,
+        description=('When this card CORRECTS one you proposed earlier in this conversation (a different amount, '
+                     'account, date, party or wording): "previous" for your last card of this kind, or that card\'s '
+                     'confirmation_token. The old card is withdrawn, so only the corrected one can be confirmed. '
+                     'Omit it for a new, separate entry.'),
+        max_length=64,
+    )
 
 
 @dataclass

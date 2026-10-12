@@ -2971,6 +2971,7 @@ window.I18N_PACKS.es = Object.assign({
         entType_bank: 'banco',
         entType_shareholder: 'accionista',
         aiChatCancelled: '— cancelado —',
+        aiChatReplaced: '— cambiada: la tarjeta corregida está debajo —',
         aiChatNewStarted: 'Nueva conversación.',
         aiUndoRecorded: 'Registrado.',
         aiUndoAlreadyCommitted: '(ya confirmado)',

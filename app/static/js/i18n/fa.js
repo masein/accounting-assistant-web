@@ -2985,6 +2985,7 @@ window.I18N_PACKS.fa = Object.assign({
         entType_bank: 'بانک',
         entType_shareholder: 'سهامدار',
         aiChatCancelled: '— لغو شد —',
+        aiChatReplaced: '— تغییر کرد؛ کارت اصلاح‌شده پایین‌تر است —',
         aiChatNewStarted: 'گفتگوی جدید.',
         aiUndoRecorded: 'ثبت شد.',
         aiUndoAlreadyCommitted: '(قبلاً ثبت شده)',

@@ -77,10 +77,10 @@ class AIBudgetExceeded(RuntimeError):
         self.used = used
         self.limit = limit
         self.retry_after_seconds = retry_after_seconds
-        who = "Your company has" if scope == "company" else "You have"
+        who = "Your company has used its" if scope == "company" else "You have used your"
         hours = max(1, math.ceil(retry_after_seconds / 3600))
         super().__init__(
-            f"{who} used its AI allowance for the last 24 hours ({used:,} of {limit:,} tokens). "
+            f"{who} AI allowance for the last 24 hours ({used:,} of {limit:,} tokens). "
             f"It frees up gradually; try again in about {hours} hour(s), or ask "
             + ("the platform administrator to raise the company budget." if scope == "company"
                else "the company owner to raise your daily AI budget (Settings → AI usage).")

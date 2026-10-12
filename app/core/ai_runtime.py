@@ -336,3 +336,53 @@ def resolve_anthropic_config() -> dict[str, str]:
             "model": str(cfg.get("model") or "claude-opus-4-6").strip(),
             "api_key": str(cfg.get("api_key") or "").strip(),
         }
+
+
+# --- the chat's request shape (Anthropic messages or OpenAI chat-completions) ----------------------------
+
+CHAT_SHAPE_KEY = "ai_chat_provider_shape"
+CHAT_SHAPES = ("anthropic", "openai")
+
+
+def stored_chat_shape(db) -> str:
+    """The platform's choice of chat shape: "anthropic", "openai", or "" for
+    auto. One for every company, like the AI config: it was saved under the
+    super-admin's own company, so every other company auto-detected, and
+    chatted through Anthropic whenever a key was set, whatever Settings showed
+    (AI QA on migrated books, 2026-10-12). A choice saved that way is still
+    honoured until it is saved again."""
+    from sqlalchemy import select
+
+    from app.db.tenant import tenant_bypass
+    from app.models.app_setting import AppSetting
+    with tenant_bypass():
+        rows = db.execute(select(AppSetting).where(AppSetting.key == CHAT_SHAPE_KEY)).scalars().all()
+    row = next((r for r in rows if r.company_id is None), None) or (rows[0] if rows else None)
+    value = (row.value or "").strip().lower() if row else ""
+    return value if value in CHAT_SHAPES else ""
+
+
+def save_chat_shape(db, value: str) -> None:
+    """Store the platform's chat shape (``""`` = auto), replacing any copy a
+    company held. The caller commits."""
+    from sqlalchemy import select
+
+    from app.db.tenant import tenant_bypass
+    from app.models.app_setting import AppSetting
+    with tenant_bypass():
+        rows = db.execute(select(AppSetting).where(AppSetting.key == CHAT_SHAPE_KEY)).scalars().all()
+        platform = next((r for r in rows if r.company_id is None), None)
+        for r in rows:
+            if r.company_id is not None:
+                db.delete(r)
+        if platform is not None:
+            platform.value = value
+        else:
+            db.add(AppSetting(key=CHAT_SHAPE_KEY, value=value, company_id=None))
+        db.flush()
+
+
+def effective_chat_shape(db) -> str:
+    """The shape the chat uses: the stored choice, else Anthropic when an
+    Anthropic key is configured (legacy behaviour), else OpenAI."""
+    return stored_chat_shape(db) or ("anthropic" if resolve_anthropic_config().get("api_key") else "openai")

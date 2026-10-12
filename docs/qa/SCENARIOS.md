@@ -331,4 +331,34 @@ The books kept whole units, so a £7.50 bank fee went in as £7. Pounds, dollars
 | Q11 | Words and files [P5] | Ask «how much cash do we have?», export the journal to Excel, print a cheque for £1,234.56 | «£23,915.50» in the answer; `#,##0.00` cells holding 7.5; the cheque reads «£1,234.56» and «one thousand two hundred and thirty-four pounds and fifty-six pence» |
 | Q12 | The phone [P2, P5] | Q4 and Q6 on the phone; the widget | «£7.50» on the cards, «£23,915.50» on the widget; nothing is cut to whole pounds |
 
-**Run order:** A → B → C → D → E → F → G → H → J → L → M → N → O → P → Q; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+## R. The accountant on migrated books, AI on (2026-10-12)
+
+The chat with a real model (Metis, `gpt-4.1-mini`) on the two migrated companies of O and P: a Sepidar company with three years of history (1403–1405, the last year's vouchers provisional) and the two schools' hand-kept books, whose codes follow no standard. Every figure the accountant gives is checked against the page that shows it; every card is checked for the accounts it would post to, and the ones confirmed are undone. The real books stay outside the repo; made-up books with the same shape reproduce any finding.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| R1 | A bank's balance | Ask «موجودی بانک ملت چقدره؟» (a bank the books have), then the balance of the bank account by its code | The figure equals the ledger's balance of that bank's own account (not its parent sub-ledger), in rials with Persian digits, as of today |
+| R2 | All the cash | «کل موجودی نقد و بانک چقدره؟» | The total equals the dashboard's cash and the balance sheet's cash, petty cash included, and names each account |
+| R3 | A year's result | «سود و زیان امسال چقدر بوده؟», then «درآمد و هزینه سال ۱۴۰۴» | Revenue, expenses and the result equal the income statement for 1405 to date and for 1404; the year is the company's Jalali year |
+| R4 | Where the money went | «بیشترین هزینه‌های شهریور چی بوده؟» | The categories and amounts equal the ledger for Shahrivar 1405 (the company's month), largest first |
+| R5 | One month against another | «هزینه‌های مرداد رو با تیر مقایسه کن» | Both months' totals match the ledger; the change is computed from them, not guessed |
+| R6 | Who owes us, whom we owe | «کی به ما بدهکاره؟», «به کی بدهکاریم؟» | The parties and balances equal the debtors and creditors report (filled from the imported years' detail accounts, O10) |
+| R7 | An account's movement | «گردش حساب ۱۱۱۰۰۵ در شهریور» (an imported sub-ledger code), and the same for a school's ledger code | Debits, credits and the closing balance equal the general ledger for that account and month |
+| R8 | One party | «حساب [a supplier or employee the books name] چقدر مونده؟» | The party's balance equals its row in the debtors and creditors report |
+| R9 | Find an entry | «آخرین پرداخت اجاره کی بوده و چقدر؟» | The voucher it names exists, with that date and amount |
+| R10 | An expense in tomans | «۲ میلیون تومان لوازم التحریر از بانک [a bank the books have] خریدیم» | One card: 20,000,000 rials, debit an expense account from the imported chart (a school's own supplies or general expense code, never a seed code the company doesn't use), credit that bank's own account; the date today in the company's calendar. Confirmed, it posts those lines; undone, the books are as before |
+| R11 | Tuition received (school) | «شهریه ۱۵ میلیون تومانی از اولیای [a student] به حساب [bank] واریز شد» | Credit the school's tuition revenue account (its own code), debit that bank; 150,000,000 rials |
+| R12 | Salary paid | «حقوق مهر [an employee the books name] رو ۸۰ میلیون ریال از بانک پرداخت کردیم» | Debit the imported salaries payable or salary expense the books use for that person, credit the bank; the employee linked |
+| R13 | Bank to bank | «۵۰ میلیون از بانک [A] به [B] منتقل شد» | Debit B's own account, credit A's; nothing else |
+| R14 | Not enough to go on | «یه پرداخت ثبت کن» | One question back (how much, to whom, from which bank); no card |
+| R15 | A date it can't take | Ask for an entry dated next month; then one in a closed year, if any | Refused in the user's language with the reason; no card that can't post |
+| R16 | Before the books began | «درآمد سال ۱۳۹۹ چقدر بود؟» | Says the books start in 1403 (or have nothing then); no figure invented |
+| R17 | A follow-up | After R4, «ماه قبلش چی؟» | Answers for Mordad 1405 from the books, keeping the topic |
+| R18 | Change a draft | After R10's card, «مبلغش رو ۲.۵ میلیون تومن کن» | A new card at 25,000,000 rials; the old one can no longer be posted |
+| R19 | The balance sheet in a sentence | «وضعیت ترازنامه رو خلاصه بگو» | Total assets, liabilities and equity equal the balance sheet; assets equal liabilities plus equity |
+| R20 | Cash runway | «با این روند چند ماه پول داریم؟» | The cash and the monthly burn it uses are the dashboard's; it says what it assumed |
+| R21 | English on a Persian company | "What was our biggest expense last month?" | Answered in English with the same figures, the month named in the company's calendar |
+| R22 | Persian number words | «دو میلیارد و صد میلیون ریال وام از بانک گرفتیم» | 2,100,000,000 rials on the card; a loan liability from the imported chart |
+| R23 | Speed and cost | All of the above | Each turn answers within 30 s; the run's AI cost is recorded |
+
+**Run order:** A → B → C → D → E → F → G → H → J → L → M → N → O → P → Q → R; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.

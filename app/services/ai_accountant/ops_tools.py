@@ -16,7 +16,7 @@ from sqlalchemy import select
 
 from app.core.money import Money, plain
 
-from .base import BaseTool, ToolContext, ToolError
+from .base import BaseTool, ToolContext, ToolError, Replaceable
 from .time_tools import _find_entity, _register
 
 
@@ -236,7 +236,7 @@ class ProposeLockPeriod(BaseTool):
         return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": payload}
 
 
-class ProposeCreateRecurringRuleInput(BaseModel):
+class ProposeCreateRecurringRuleInput(Replaceable):
     name: str = Field(..., min_length=1, max_length=128)
     direction: str = Field("payment", description="payment (money out) or receipt (money in)")
     frequency: str = Field("monthly", description="daily | weekly | monthly | quarterly | yearly")

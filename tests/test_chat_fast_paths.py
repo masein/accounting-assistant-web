@@ -123,7 +123,7 @@ def test_n10_open_invoices_per_currency(client, db, co, no_model):
     r = web.post("/ai-accountant/chat", json={"message": "who owes us?"})
     assert r.json()["text"] == "2 sales invoices are still open: 5,000,000 IRR to collect."
     r = web.post("/ai-accountant/chat", json={"message": "what do we owe?"})
-    assert r.json()["text"] == "No supplier bill is waiting to be paid."
+    assert r.json()["text"] == "We owe nobody anything: no open supplier bill and no creditor in the books."
 
 
 def test_n11_a_recording_still_goes_to_the_model(client, db, co, monkeypatch):

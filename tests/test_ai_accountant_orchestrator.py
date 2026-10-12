@@ -531,7 +531,7 @@ class TestRegistry:
             "propose_create_invoice_from_time",
             "propose_shareholder_contribution", "propose_capital_increase",
             "propose_declare_dividend", "propose_shareholder_current_account",
-            "list_invoices", "get_invoice", "propose_record_invoice_payment", "propose_create_invoice",
+            "list_invoices", "get_invoice", "get_party_balances", "propose_record_invoice_payment", "propose_create_invoice",
             "list_commitments", "propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque",
             "propose_cheque_step", "get_fixed_assets", "get_inventory", "propose_remember_preference",
             "get_payroll", "propose_run_payroll", "propose_post_pay_run", "propose_pay_pay_run",
@@ -596,3 +596,40 @@ class TestPersonalMode:
         ))
         assert "PERSONAL-FINANCE MODE" not in captured["system_prompt"]
         assert "propose_declare_dividend" in {t["name"] for t in captured["tools"]}
+
+
+class TestCorrectedCardReplacesTheOld:
+    """R18 (AI QA on migrated books, 2026-10-12): «مبلغش رو ۲.۵ میلیون تومن کن»
+    drew a new card and left the first confirmable; confirming both posted twice."""
+
+    @staticmethod
+    def _voucher(amount: int, **extra) -> dict:
+        return {"date": "2026-05-20", "description": "لوازم التحریر", "currency": "IRR",
+                "lines": [{"account_code": "6112", "debit": amount, "credit": 0},
+                          {"account_code": "1110", "debit": 0, "credit": amount}], **extra}
+
+    def _turns(self, db: Session, second: dict) -> tuple:
+        first = asyncio.run(run_chat_turn(
+            db, user_id="u1", user_message="۲ میلیون تومان لوازم التحریر از بانک خریدیم",
+            client=_FakeClient([_assistant_tool_call("propose_create_transaction", self._voucher(20_000_000)),
+                                _assistant_text("پیش‌نویس آماده است.")])))
+        again = asyncio.run(run_chat_turn(
+            db, user_id="u1", user_message="مبلغش رو ۲.۵ میلیون تومن کن", session_id=first.session_id,
+            client=_FakeClient([_assistant_tool_call("propose_create_transaction", second),
+                                _assistant_text("اصلاح شد.")])))
+        return first.proposals[0]["confirmation_token"], again.proposals[0]
+
+    def test_previous_withdraws_the_last_card(self, db: Session) -> None:
+        old, new = self._turns(db, self._voucher(25_000_000, replaces="previous"))
+        assert new["replaces"] == old
+        status = {str(p.confirmation_token): p.status for p in db.execute(select(AIProposal)).scalars()}
+        assert status == {old: "cancelled", new["confirmation_token"]: "pending"}
+        from app.services.ai_accountant.execute_service import ProposalCancelled, execute_proposal
+        with pytest.raises(ProposalCancelled):
+            execute_proposal(db, confirmation_token=old, actor_user_id="u1", actor_username="t")
+
+    def test_a_token_from_elsewhere_withdraws_nothing(self, db: Session) -> None:
+        old, new = self._turns(db, self._voucher(25_000_000, replaces=str(uuid.uuid4())))
+        assert "replaces" not in new
+        status = {str(p.confirmation_token): p.status for p in db.execute(select(AIProposal)).scalars()}
+        assert status[old] == "pending"                 # a separate entry stays a separate card

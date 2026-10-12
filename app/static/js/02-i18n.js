@@ -2993,6 +2993,7 @@
         entType_bank: 'bank',
         entType_shareholder: 'shareholder',
         aiChatCancelled: '— cancelled —',
+        aiChatReplaced: '— changed: the corrected card is below —',
         aiChatNewStarted: 'New conversation.',
         aiUndoRecorded: 'Recorded.',
         aiUndoAlreadyCommitted: '(already committed)',

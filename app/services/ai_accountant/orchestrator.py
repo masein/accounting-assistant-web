@@ -39,6 +39,8 @@ from __future__ import annotations
 import logging
 import re
 import uuid
+from datetime import date as _date_cls
+from decimal import Decimal
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -137,9 +139,9 @@ Which account on the OTHER side of cash:
 
 # Invoices, cheques and installments
 
-* Questions — "which invoices are overdue?", "what does Acme owe us?", "how much do we owe suppliers?", "show invoice 1042" → ``list_invoices`` / ``get_invoice``. "Which cheques are due this month?", "any installment this week?", "چک‌های این ماه" → ``list_commitments``. Report balances per currency, never summed across currencies.
+* Questions — "which invoices are overdue?", "show invoice 1042" → ``list_invoices`` / ``get_invoice``. "Who owes us?", "whom do we owe?", "what does Acme owe us?", «حساب X چقدر مونده؟» → ``get_party_balances`` (each party's balance from the ledger; a migrated company has balances and few invoices), plus ``list_invoices`` for the open invoices. "Which cheques are due this month?", "any installment this week?", "چک‌های این ماه" → ``list_commitments``. Report balances per currency, never summed across currencies.
 * A payment that names an invoice ("Acme paid invoice 1042", "paid the paper supplier's bill 77") → ``propose_record_invoice_payment`` — NOT ``propose_create_transaction``. It clears the receivable/payable itself and books any excess as credit. Only use a plain transaction when there is no invoice.
-* "Invoice Acme 3 million for consulting", "record the supplier's bill" → ``propose_create_invoice`` with line items (the party must already exist — resolve it with ``find_entity`` first).
+* "Invoice Acme 3 million for consulting", "record the supplier's bill" → ``propose_create_invoice`` with line items (the party must already exist — resolve it with ``find_entity`` first). Leave ``issue_date`` out (it is today) unless the user names the date: «پشتیبانی مهر» names what is billed, not when. Say the card is ready to confirm, never that the invoice "was issued".
 * "The June installment was paid", "cheque 1234 cleared", "قسط این ماه رو دادم" → ``propose_settle_commitment``; "the cheque bounced / برگشت خورد" → ``propose_bounce_cheque``; "we gave a cheque for … due …" → ``propose_create_cheque`` (with the Sayad id and the invoice it pays when given); "deposited the cheque / چک رو خوابوندم", "returned it / عودت", "gave the customer's cheque to the supplier / خرج کردم" → ``propose_cheque_step``.
 
 # Payroll, budgets and month end
@@ -198,11 +200,13 @@ To undo or reverse an entry that is already recorded ("undo the last transaction
 
 # Confirmation is a BUTTON, not a message
 
-A proposal is recorded only when the user clicks Confirm on its card. If the user types "confirm" / "تایید کن" in chat, or asks why a proposed entry isn't showing: tell them to click Confirm (or Cancel) on the pending card — do NOT call the proposal tool again; an identical second card double-posts when both get confirmed. Never re-propose something that is already pending.
+A proposal is recorded only when the user clicks Confirm on its card. If the user types "confirm" / "تایید کن" in chat, or asks why a proposed entry isn't showing: tell them to click Confirm (or Cancel) on the pending card — do NOT call the proposal tool again; an identical second card double-posts when both get confirmed. Never re-propose something that is already pending. When the user CORRECTS a pending card ("make it 2.5 million", «مبلغش رو … کن», "no, from the other bank", "change the date") propose the corrected card with ``replaces="previous"`` (or the old card's confirmation_token): the old card is withdrawn for them. Never tell the user to cancel the old card themselves.
 
 # When the user asks a pure question (read-only)
 
 Answer with ``query_ledger`` / ``get_account_balance`` / ``list_entities``. No proposal needed. No confirmation needed.
+
+A migrated company keeps its petty cash, loans and shared costs as accounts in its chart: «تنخواه خانم X چقدر مونده؟», «سهم هزینه مشترک با … تا حالا چقدره؟», «وام بانک ملت چقدر مونده؟» → ``search_accounts`` with those words, then ``get_account_balance`` of the account it finds (``get_petty_cash`` only knows the petty-cash module; when it finds nothing, look in the chart).
 
 "How much cash / money do we have?" ("چقدر پول داریم؟", "موجودی نقدمون چقدره؟", "what's in the bank?") → ``get_cash_position``: it adds up EVERY cash and bank account (the cash box, each bank account, in personal mode the card and the cash on hand) and lists them. Never answer that question from one account's ``get_account_balance`` — a negative cash box next to a healthy bank account is not "an overdraft".
 
@@ -216,7 +220,7 @@ Time words follow the company's calendar: for an Iranian (Jalali-calendar) compa
 
 # Dates in replies
 
-Copy dates. The current date is given above in both calendars — when you mention today or a period in Persian, use the Jalali string from that line or from a tool result (``today_jalali_long``, ``period.label_fa``) verbatim. Never convert a Gregorian date to Jalali (or back) yourself: 2026-09-24 is ۲ مهر ۱۴۰۵, not «۲۴ مهر».
+Copy dates. The current date is given above in both calendars — when you mention today or a period in Persian, use the Jalali string from that line or from a tool result (``today_jalali_long``, ``period.label_fa``) verbatim. Quote amounts exactly as the tool gives them, grouped («۱۹٬۶۸۱٬۸۸۲٬۴۵۳ ریال»); in Persian copy each one from its ``…_fa`` twin in the tool result (``total_fa``, ``balance_fa``), never rewrite the digits yourself. Don't restate them in میلیون / میلیارد or "billion" yourself: 19,681,882,453 is about ۱۹٫۷ میلیارد, and «۱۹٬۶۸۱ میلیارد» is a thousand times too much. Never convert a Gregorian date to Jalali (or back) yourself: 2026-09-24 is ۲ مهر ۱۴۰۵, not «۲۴ مهر». In a Jalali company every date in a tool result comes with its words beside it (``date_jalali``, ``from_date_jalali``…): quote those. For a named month or "the month before" pass ``month`` ("1405-05" is Mordad 1405) to ``get_spending_summary`` or ``get_financial_statement``, and for «امسال», «سال ۱۴۰۴» or any named year pass ``year`` ("1405") — a year before the books began has nothing: say so, never answer with another year. «گردش حساب X در <month>» is ``search_accounts`` (when X is a name) then ``query_ledger`` for that account and month; «آخرین پرداخت X کی بوده؟» is ``search_accounts`` for X then ``query_ledger`` of that account (newest first) — not the recurring rules — never work out a Jalali month's first and last day yourself (Tir has 31 days: 2026-06-22 to 2026-07-22). A tool date may be written in Jalali as YYYY-MM-DD (1405-01-01); it is converted.
 
 # Style
 
@@ -563,20 +567,12 @@ def _resolve_chat_shape(db: Session) -> str:
     """Read the active chat-provider shape. Defaults to 'anthropic' when an
     Anthropic key is configured (legacy behaviour), 'openai' otherwise.
 
-    Persisted in ``app_settings`` under ``ai_chat_provider_shape`` once the
-    user explicitly picks one via the Settings UI — until then this
-    auto-detect rule applies.
+    Persisted platform-wide in ``app_settings`` under ``ai_chat_provider_shape``
+    once the super-admin picks one in Settings — until then this auto-detect
+    rule applies (``ai_runtime.effective_chat_shape``).
     """
-    from sqlalchemy import select as _sel
-    from app.core.ai_runtime import resolve_anthropic_config
-    from app.models.app_setting import AppSetting
-
-    row = db.execute(
-        _sel(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
-    ).scalar_one_or_none()
-    if row and (row.value or "").strip().lower() in ("anthropic", "openai"):
-        return row.value.strip().lower()
-    return "anthropic" if resolve_anthropic_config().get("api_key") else "openai"
+    from app.core.ai_runtime import effective_chat_shape
+    return effective_chat_shape(db)
 
 
 def _get_chat_client(shape: str) -> LLMClient:
@@ -643,6 +639,144 @@ def maybe_autotitle_session(db: Session, session: AIChatSession, user_message: s
     if title:
         session.title = title
         db.commit()
+
+
+_JALALI_ISO = re.compile(r"^\s*(1[34]\d\d)[-/](\d{1,2})[-/](\d{1,2})\s*$")
+
+
+_DATE_KEY = re.compile(r"date|^(on|as_of|day|due|start|end)$", re.IGNORECASE)
+
+
+_CODE_KEY = re.compile(r"code|query|reference|number|invoice|cheque", re.IGNORECASE)
+
+
+def _ascii_digits(value, key: str = ""):
+    """Persian and Arabic digits in codes and searches as ASCII: «۱۱۱۰۰۵۰۰۱»
+    found no account (AI QA on migrated books, 2026-10-12)."""
+    if isinstance(value, dict):
+        return {k: _ascii_digits(v, str(k)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_ascii_digits(v, key) for v in value]
+    if isinstance(value, str) and _CODE_KEY.search(key):
+        from app.utils.jalali import _to_ascii
+        return _to_ascii(value).translate(_ARABIC_DIGITS)
+    return value
+
+
+_ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+
+
+def _gregorian_dates(value, key: str = ""):
+    """A tool's input with Jalali dates written as ISO ("1405-01-01") turned
+    Gregorian, in the fields that hold dates. The model sent this year's
+    Jalali bounds and the statement read them as the year 1405 AD: «سود و زیان
+    امسال» came back zero (AI QA on migrated books, 2026-10-12); a card would
+    have been dated 1405 AD."""
+    if isinstance(value, dict):
+        return {k: _gregorian_dates(v, str(k)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_gregorian_dates(v, key) for v in value]
+    if isinstance(value, str) and _DATE_KEY.search(key):
+        from app.utils.jalali import _to_ascii, jalali_to_gregorian
+        m = _JALALI_ISO.match(_to_ascii(value))
+        if m:
+            try:
+                return jalali_to_gregorian(int(m.group(1)), int(m.group(2)), int(m.group(3))).isoformat()
+            except ValueError:
+                return value
+    return value
+
+
+_ISO_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+_MONEY_KEY = re.compile(r"amount|total|balance|debit|credit|revenue|income|expense|profit|cash|burn|net|gross|"
+                        r"value|paid|due|owed|tax|price|cost|limit|actual|spent|left", re.IGNORECASE)
+
+
+def _for_the_model(value, key: str = "", *, jalali: bool = False, persian: bool = False):
+    """A tool result as the model reads it. In a Jalali company every ISO day
+    in a date field gets its Jalali words beside it («date_jalali»: «۶ مرداد
+    ۱۴۰۵»): left to convert 2026-07-28 itself, the model wrote «۷ مرداد». For a
+    Persian reader every amount gets its Persian digits (``total_fa``:
+    «۲۱٬۷۲۱٬۲۰۰٬۲۸۳»): rewriting 21,721,200,283 digit by digit it wrote
+    «۲۱٬۷۱۲٬۱۰۰٬۲۸۳» (AI QA on migrated books, 2026-10-12). The prompt has it
+    copy these."""
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            k = str(k)
+            out[k] = _for_the_model(v, k, jalali=jalali, persian=persian)
+            if jalali and isinstance(v, str) and _DATE_KEY.search(k) and _ISO_DAY.match(v):
+                from app.utils.jalali import format_jalali_long
+                try:
+                    out[f"{k}_jalali"] = format_jalali_long(_date_cls.fromisoformat(v))
+                except ValueError:
+                    pass
+            if (persian and _MONEY_KEY.search(k) and not isinstance(v, bool) and isinstance(v, (int, float, Decimal))
+                    and abs(v) >= 1000):
+                from app.utils.jalali import to_persian_digits
+                out[f"{k}_fa"] = to_persian_digits(f"{v:,}").replace(",", "٬")
+        return out
+    if isinstance(value, list):
+        return [_for_the_model(v, key, jalali=jalali, persian=persian) for v in value]
+    return value
+
+
+def _with_jalali_labels(value, key: str = ""):
+    return _for_the_model(value, key, jalali=True)
+
+
+_ARABIC_SCRIPT = re.compile(r"[\u0600-\u06FF]")
+_LATIN_WORD = re.compile(r"[A-Za-z]{2,}")
+
+
+def _message_language(message: str | None, lang: str) -> str:
+    """The language to answer in: the reader's, unless the message is plainly
+    in the other script — "What was our biggest expense last month?" from a
+    Persian reader was answered in Persian (AI QA, 2026-10-12)."""
+    text = message or ""
+    latin = len(_LATIN_WORD.findall(text))
+    if lang in ("fa", "ar") and latin >= 3 and not _ARABIC_SCRIPT.search(text):
+        return "en"
+    if lang in ("en", "es") and _ARABIC_SCRIPT.search(text) and latin == 0:
+        return "fa"
+    return lang
+
+
+def _withdraw_replaced(db: Session, replaces: str | None, *, user_id: str, session_id: str | None,
+                       tool_name: str, new_token: str) -> str | None:
+    """Withdraw the card a corrected one replaces: this user's, in this
+    conversation, still pending. ``"previous"`` is the latest of the same kind.
+    The token it withdrew, or None (nothing pending matched: a made-up token
+    is ignored, never someone else's card)."""
+    if not replaces or not session_id:
+        return None
+    from app.models.ai_accountant import AIProposal
+    q = (select(AIProposal)
+         .where(AIProposal.user_id == user_id, AIProposal.session_id == session_id, AIProposal.status == "pending",
+                AIProposal.confirmation_token != uuid.UUID(str(new_token))))
+    if replaces.strip().lower() == "previous":
+        old = db.execute(q.where(AIProposal.tool_name == tool_name)
+                         .order_by(AIProposal.created_at.desc())).scalars().first()
+    else:
+        try:
+            token = uuid.UUID(replaces.strip())
+        except ValueError:
+            return None
+        old = db.execute(q.where(AIProposal.confirmation_token == token)).scalars().first()
+    if old is None:
+        return None
+    old.status = "cancelled"
+    if old.approval_status == "requested":
+        old.approval_status = "withdrawn"
+    from app.core.money import json_dumps
+    from app.services.audit_service import log_audit_event
+    log_audit_event(db, action="update", entity_type="ai_proposal", entity_id=str(old.id),
+                    detail=json_dumps({"tool": old.tool_name, "replaced_by": str(new_token), "via": "chat"}),
+                    user_id=str(user_id))
+    db.flush()
+    return str(old.confirmation_token)
 
 
 def _replay_history(db: Session, session_id: uuid.UUID) -> list[ChatMessage]:
@@ -730,7 +864,7 @@ async def run_chat_turn(
     ``mode="personal"`` (personal-finance tenants) selects the trimmed
     personal tool registry and appends the personal-mode prompt addendum.
     """
-    lang = lang if lang in _LANG_NAMES else "en"
+    lang = _message_language(user_message, lang if lang in _LANG_NAMES else "en")
     attachment_ids = list(attachment_ids or [])
     # Source amounts for the proposal sanity guard: OCR'd document totals
     # passed in by the caller, plus any numbers in the user's own message.
@@ -750,8 +884,10 @@ async def run_chat_turn(
 
     today = _date.today()
     today_str = today.isoformat()
+    jalali_books = False
     try:
         if get_display_calendar(db) == "jalali":
+            jalali_books = True
             from app.utils.jalali import format_jalali
 
             from app.utils.jalali import format_jalali_long
@@ -769,6 +905,9 @@ async def run_chat_turn(
         system_prompt += prompt_block(db)
     except Exception:  # noqa: BLE001 — never lose a chat turn over a hint
         logger.warning("learned preferences unavailable for the prompt", exc_info=True)
+    # The language rule sits far up the prompt and lost to the Persian books:
+    # "What was our biggest expense last month?" was answered in Persian (AI QA, 2026-10-12).
+    system_prompt += f"\n\nThis turn: the user's message is in {_LANG_NAMES[lang]} — answer it in {_LANG_NAMES[lang]}."
 
     shape = "anthropic"
     if client is None:
@@ -927,7 +1066,7 @@ async def run_chat_turn(
                 continue
 
             try:
-                args = tool.InputSchema.model_validate(call.input)
+                args = tool.InputSchema.model_validate(_ascii_digits(_gregorian_dates(call.input)))
             except ValidationError as e:
                 tool_result_messages.append(ChatMessage(
                     role="tool", tool_call_id=call.id,
@@ -965,10 +1104,15 @@ async def run_chat_turn(
             import json as _json
             tool_result_messages.append(ChatMessage(
                 role="tool", tool_call_id=call.id,
-                text=_json.dumps(result, default=str),
+                text=_json.dumps(_for_the_model(result, jalali=jalali_books, persian=lang == "fa"), default=str),
             ))
             log_entry["result"] = result
             if tool.category == "proposal" and isinstance(result, dict) and "confirmation_token" in result:
+                replaced = _withdraw_replaced(db, getattr(args, "replaces", None), user_id=user_id,
+                                              session_id=tool_ctx.chat_session_id, tool_name=call.name,
+                                              new_token=result["confirmation_token"])
+                if replaced:
+                    result["replaces"] = replaced        # the client marks the old card as changed
                 proposals.append(result)
             # Remember entity candidates so we can offer a "pick one" partial
             # if the model never converges before MAX_TURNS (AI-1).

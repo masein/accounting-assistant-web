@@ -27,6 +27,8 @@ Currently implemented:
 """
 from __future__ import annotations
 
+import re
+
 import logging
 import uuid
 from datetime import date as _date, datetime, timedelta, timezone
@@ -40,7 +42,7 @@ from app.models.account import Account
 from app.models.ai_accountant import AIProposal
 from app.models.entity import Entity
 
-from .base import BaseTool, ToolContext, ToolError
+from .base import BaseTool, ToolContext, ToolError, Replaceable
 from .date_resolver import resolve_entry_date
 from .entity_create import (
     EntityCreateError,
@@ -75,8 +77,16 @@ _SCHEDULED_TERMS = (
 )
 
 
-def _mentions_scheduled(message: str | None) -> bool:
-    t = (message or "").lower()
+def _mentions_scheduled(message: str | None, bank_names: tuple[str, ...] = ()) -> bool:
+    """Whether the user said the entry is scheduled. A bank's name isn't the
+    word: «آینده» is Bank Ayandeh, and «از بانک آینده» let a future-dated rent
+    through as "scheduled" (AI QA on migrated books, 2026-10-12)."""
+    from app.utils.text import fold_fa
+    t = fold_fa((message or "").lower())
+    t = re.sub(r"بانک[\s\u200c]*آینده", " ", t)
+    for name in bank_names:
+        if name:
+            t = t.replace(fold_fa(name.lower()), " ")
     return any(term in t for term in _SCHEDULED_TERMS)
 
 
@@ -111,6 +121,38 @@ def _anchor_bank_leg(db, row, lines) -> None:
         f"with {amount:,} (money {'out' if money_out else 'in'}), and put the other side on what the money was for.",
         code="statement_row_bank_leg",
     )
+
+
+_TOMAN_AMOUNT = re.compile(r"([\d۰-۹٬,\.]+)\s*(هزار|میلیون|ملیون|میلیارد)?\s*(?:تومان|تومن)")
+_MAGNITUDE = {"هزار": 1_000, "میلیون": 1_000_000, "ملیون": 1_000_000, "میلیارد": 1_000_000_000}
+
+
+def _toman_amounts(message: str | None) -> set:
+    """The amounts the user wrote in tomans («۲۰ میلیون تومان» → 20,000,000)."""
+    from app.services.ocr_extract import coerce_amount
+    out = set()
+    for m in _TOMAN_AMOUNT.finditer(message or ""):
+        n = coerce_amount(m.group(1))
+        if n:
+            out.add(n * _MAGNITUDE.get(m.group(2) or "", 1))
+    return out
+
+
+def _guard_toman(ctx: ToolContext, proposed_total) -> None:
+    """A rial book's card for an amount the user gave in tomans must be ten
+    times it: «قسط وام ۲۰ میلیون تومان» was carded at 20,000,000 rials (AI QA on
+    migrated books, 2026-10-12). The amount guard let it through (both figures
+    are "in the message")."""
+    from app.services.fx_base import base_currency
+    if base_currency(ctx.db) not in ("IRR",):
+        return
+    tomans = _toman_amounts(getattr(ctx, "user_message", None))
+    if proposed_total in tomans and proposed_total * 10 not in tomans:
+        from app.core.money import plain
+        rials = plain(proposed_total * 10)
+        raise ToolError(
+            f"The user gave {proposed_total:,} tomans, which is {rials:,} rials — the books are in rials. "
+            f"Propose {rials:,}.", code="toman_not_converted")
 
 
 def _guard_amount(ctx: ToolContext, proposed_total, *, record_amount=None) -> None:
@@ -314,7 +356,7 @@ class ProposedNewEntity(BaseModel):
     )
 
 
-class ProposeCreateTransactionInput(BaseModel):
+class ProposeCreateTransactionInput(Replaceable):
     date: _date = Field(..., description="Transaction date (ISO YYYY-MM-DD). Defaults to today if unstated.")
     description: str = Field(
         ...,
@@ -415,12 +457,15 @@ class ProposeCreateTransaction(BaseTool):
         total = sum(ln.debit for ln in args.lines)
         if not args.bank_statement_row_id:
             _guard_amount(ctx, total)
+            _guard_toman(ctx, total)
 
         # Anchor the entry date to reality. The model is unreliable at "today"
         # (it dated a "…today" expense 2023-10-18 and mid-session copied an
         # earlier invoice's date), so resolve relative/missing dates from the
         # server's clock. OCR/document turns keep the document's own date.
-        scheduled = _mentions_scheduled(ctx.user_message)
+        from app.models.entity import Entity as _Entity
+        banks = tuple(n for (n,) in ctx.db.execute(select(_Entity.name).where(_Entity.type == "bank")).all())
+        scheduled = _mentions_scheduled(ctx.user_message, banks)
         statement_row = None
         if args.bank_statement_row_id:
             # Posting a bank-statement row: the bank's date is the truth — not

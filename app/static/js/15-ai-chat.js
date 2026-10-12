@@ -821,6 +821,18 @@
         card.className = 'ai-card message-in';
         card.setAttribute('dir', 'auto');
         card.dataset.token = proposal.confirmation_token;
+        if (proposal.replaces) {
+          // the accountant corrected an earlier card: that one can no longer be confirmed
+          const old = messagesEl.querySelector('.ai-card[data-token="' + CSS.escape(proposal.replaces) + '"]');
+          if (old && !old.classList.contains('is-cancelled')) {
+            old.classList.add('is-cancelled');
+            old.querySelectorAll('.ai-card-actions button').forEach((b) => { b.disabled = true; });
+            const note = document.createElement('div');
+            note.style.cssText = 'font-size:0.8rem;color:var(--text-muted);margin-top:0.4rem;';
+            note.textContent = t('aiChatReplaced');
+            old.appendChild(note);
+          }
+        }
 
         const title = document.createElement('div');
         title.className = 'ai-card-head';

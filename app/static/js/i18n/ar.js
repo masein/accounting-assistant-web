@@ -2971,6 +2971,7 @@ window.I18N_PACKS.ar = Object.assign({
         entType_bank: 'بنك',
         entType_shareholder: 'مساهم',
         aiChatCancelled: '— أُلغي —',
+        aiChatReplaced: '— تم تغييرها: البطاقة المصححة بالأسفل —',
         aiChatNewStarted: 'محادثة جديدة.',
         aiUndoRecorded: 'تم التسجيل.',
         aiUndoAlreadyCommitted: '(مُسجّل مسبقاً)',

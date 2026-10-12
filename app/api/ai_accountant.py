@@ -443,8 +443,9 @@ async def chat(
     # and it works when the AI is down (roadmap ROADMAP_ANDROID_CHAT P0.6).
     if not payload.attachment_ids:
         from app.services.ai_accountant import fast_paths
+        from app.services.ai_accountant.orchestrator import _message_language
         fast = await fast_paths.answer(db, payload.message, user_id=user.user_id, username=user.username,
-                                       lang=_user_language(db, user),
+                                       lang=_message_language(payload.message, _user_language(db, user)),
                                        mode="personal" if user.role == Role.PERSONAL else "default")
         if fast is not None:
             return _deterministic_turn(db, user, payload, fast.text, intake=None, tool_calls=fast.tool_calls)

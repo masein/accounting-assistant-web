@@ -174,6 +174,18 @@ class GetSpendingSummaryInput(BaseModel):
     )
     from_date: date | None = Field(None, description="Only with period='custom'.")
     to_date: date | None = Field(None, description="Only with period='custom'.")
+    month: str | None = Field(
+        None, pattern=r"^\d{4}-\d{2}$",
+        description=("One whole month in the company's calendar, YYYY-MM: '1405-05' for Mordad 1405, '2026-09' for "
+                     "September 2026. Use it for a named month («شهریور», 'August') and for 'the month before that'; "
+                     "it overrides period."),
+    )
+    year: str | None = Field(
+        None, pattern=r"^\d{4}$",
+        description=("One whole year: '1404' (Jalali) or '2025'. Use it for a named year («سال ۱۴۰۴», «۱۳۹۹»); "
+                     "it overrides period. A year before the books began comes back empty — say so, never "
+                     "answer with another year."),
+    )
     kind: Literal["spending", "income"] = Field(
         "spending", description="spending = expense categories; income = revenue categories."
     )
@@ -202,7 +214,26 @@ class GetSpendingSummary(BaseTool):
 
         today = date.today()
         cal = get_display_calendar(ctx.db)
-        period = resolve_period(args.period, today, cal, args.from_date, args.to_date)
+        if args.year:
+            # «درآمد سال ۱۳۹۹» was answered with last year's figure, labelled «۱۳۹۹ (۱۴۰۴)» (AI QA, 2026-10-12)
+            from app.utils.jalali import jalali_to_gregorian
+            y = int(args.year)
+            if y < 1700:
+                first, last = jalali_to_gregorian(y, 1, 1), jalali_to_gregorian(y + 1, 1, 1) - timedelta(days=1)
+            else:
+                first, last = date(y, 1, 1), date(y, 12, 31)
+            period = resolve_period("custom", today, cal, first, last)
+        elif args.month:
+            # «ماه قبلش چی؟» after Shahrivar: the model had only this_month/last_month/this_year
+            # and answered Mordad with the whole year's figures (AI QA, 2026-10-12)
+            from app.services.calendar_periods import key_bounds
+            try:
+                first, last = key_bounds(args.month)
+            except ValueError as e:
+                raise ToolError(f"Not a month: {args.month!r} (YYYY-MM).", code="bad_month") from e
+            period = resolve_period("custom", today, cal, first, last)
+        else:
+            period = resolve_period(args.period, today, cal, args.from_date, args.to_date)
         wanted = EXPENSE if args.kind == "spending" else REVENUE
 
         stmt = (

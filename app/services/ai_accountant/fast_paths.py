@@ -228,9 +228,11 @@ def _named_bank(message: str) -> str | None:
     return None
 
 
-def _liabilities(db) -> list[tuple[str, str, Any]]:
-    """The liability accounts that owe something today, largest first:
-    (code, name, balance) at base value."""
+def _liabilities(db) -> tuple[Any, list[tuple[str, str, Any]]]:
+    """(the balance sheet's liabilities total, the accounts that owe something,
+    largest first as (code, name, balance)), at base value. The total nets a
+    liability account in debit, as the balance sheet does: adding up only the
+    ones that owe gave 23,672,063,635 beside its 23,495,300,037 (AI QA, 2026-10-12)."""
     from datetime import date as _d
     from sqlalchemy import func, select as _select
     from app.models.account import Account
@@ -243,8 +245,9 @@ def _liabilities(db) -> list[tuple[str, str, Any]]:
         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(Transaction.deleted_at.is_(None), Transaction.date <= _d.today())
         .group_by(Account.code, Account.name)).all()
-    owed = [(c, n, plain(b)) for c, n, b in rows if classify_account_code(c or "") == LIABILITY and b and b > 0]
-    return sorted(owed, key=lambda r: -r[2])
+    liab = [(c, n, plain(b)) for c, n, b in rows if classify_account_code(c or "") == LIABILITY and b]
+    total = plain(sum((b for _c, _n, b in liab), 0))
+    return total, sorted((r for r in liab if r[2] > 0), key=lambda r: -r[2])
 
 
 def _who(n: int, lang: str) -> str:
@@ -329,12 +332,11 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
         if not parts_text and intent == "payables":
             # a school owes its bank loan and its sister school, with no party on the books:
             # «به کی بدهکاریم؟» said "nobody" (AI QA on migrated books, 2026-10-12)
-            owed = _liabilities(db)
-            if owed:
+            total, owed = _liabilities(db)
+            if owed and total > 0:
                 sep = "، " if lang in ("fa", "ar") else ", "
                 cur = p.get("currency")
                 top = sep.join(f"{name} ({_priced(bal, cur, lang)})" for _c, name, bal in owed[:3])
-                total = sum(b for _c, _n, b in owed)
                 parts_text.append(_say("payables_liabilities", lang, total=_money(total, lang), cur=_cur(cur, lang),
                                        total_p=_priced(total, cur, lang), top=top))
         text = " ".join(parts_text) if parts_text else _say(f"{intent}_nobody", lang)

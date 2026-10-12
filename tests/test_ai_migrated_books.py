@@ -256,3 +256,33 @@ def test_a_model_without_adaptive_thinking_still_chats():
     out = asyncio.run(_create(Client(), {"model": "claude-haiku-4-5", "thinking": {"type": "adaptive"},
                                          "output_config": {"effort": "low"}}))
     assert out == "ok" and "thinking" in sent[0] and "thinking" not in sent[1] and "output_config" in sent[1]
+
+
+def test_a_card_on_an_unused_seed_default_names_the_companys_own(ir, db):
+    """«۷۵ میلیون از ابر اروان واریز شد» credited the seed's never-used 2120
+    while the company keeps customer advances on its own account."""
+    api, cid = ir
+    r = api.post("/accounts", json={"name": "پیش دریافت فروش خدمات", "parent_code": "2110", "code": "211099"})
+    assert r.status_code == 201, r.text
+    for i in range(16):                                            # a company with history
+        _post(api, "1110", "211099", 1_000_000, f"پیش دریافت {i}")
+        _post(api, "6112", "1110", 100_000, f"هزینه {i}")
+    from app.db.tenant import use_company
+    from app.services.ai_accountant.base import ToolContext, ToolError
+    from app.services.ai_accountant.proposal_tools import ProposeCreateTransaction, ProposeCreateTransactionInput
+    from app.services import posting_roles
+    with use_company(cid):
+        posting_roles.save(db, {"customer_credit": "211099"}, source="test")
+        db.commit()
+
+    def card(code):
+        args = ProposeCreateTransactionInput(date="2026-08-10", description="واریز ابر اروان", currency="IRR", lines=[
+            {"account_code": "1110", "debit": 75_000_000, "credit": 0},
+            {"account_code": code, "debit": 0, "credit": 75_000_000}])
+        with use_company(cid):
+            ctx = ToolContext(db=db, user_id="u", user_message="۷۵ میلیون ریال از ابر اروان واریز شد")
+            return asyncio.run(ProposeCreateTransaction().run(ctx, args))
+    with pytest.raises(ToolError) as e:
+        card("2120")
+    assert e.value.code == "unused_seed_account" and "211099" in e.value.message
+    assert card("211099")["confirmation_token"]

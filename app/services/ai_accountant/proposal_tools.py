@@ -155,6 +155,41 @@ def _guard_toman(ctx: ToolContext, proposed_total) -> None:
             f"Propose {rials:,}.", code="toman_not_converted")
 
 
+def _guard_seed_accounts(ctx: ToolContext, lines) -> None:
+    """A card on a seed-chart default the books never used, where the company
+    keeps that role on its own account, is refused with the account to use.
+    A migrated company keeps the seed chart beside its own: «۷۵ میلیون از ابر
+    اروان واریز شد» credited the never-used seed 2120 «پیش‌دریافت از مشتریان»,
+    not the company's 211201 (model benchmark, 2026-10-12). Books with no
+    history yet go to the defaults as always."""
+    from sqlalchemy import func
+    from app.models.account import Account
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.account_resolver import POSTING_CODES, find_account_code
+    from app.services.locale_service import get_reporting_locale
+    used = dict(ctx.db.execute(
+        select(TransactionLine.account_id, func.count())
+        .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+        .where(Transaction.deleted_at.is_(None)).group_by(TransactionLine.account_id)).all())
+    if sum(used.values()) < 30:
+        return
+    defaults = {code: role for role, code in
+                POSTING_CODES.get((get_reporting_locale(ctx.db) or "default").lower(), POSTING_CODES["default"]).items()}
+    accounts = {a.code: a for a in ctx.db.execute(select(Account)).scalars()}
+    for ln in lines:
+        acc = accounts.get(ln.account_code)
+        role = defaults.get(ln.account_code)
+        if acc is None or role is None or used.get(acc.id):
+            continue
+        own = find_account_code(ctx.db, role)
+        mine = accounts.get(own) if own else None
+        if mine is not None and own != ln.account_code and used.get(mine.id):
+            raise ToolError(
+                f"{acc.code} «{acc.name}» has never been used in these books; this company keeps that on "
+                f"{mine.code} «{mine.name}». Propose with {mine.code} (or tell the user why {acc.code}).",
+                code="unused_seed_account")
+
+
 def _guard_amount(ctx: ToolContext, proposed_total, *, record_amount=None) -> None:
     """Block impossible or wildly-mismatched amounts before a proposal is
     registered. Raises ToolError (which the model surfaces to the user) so a
@@ -458,6 +493,7 @@ class ProposeCreateTransaction(BaseTool):
         if not args.bank_statement_row_id:
             _guard_amount(ctx, total)
             _guard_toman(ctx, total)
+            _guard_seed_accounts(ctx, args.lines)
 
         # Anchor the entry date to reality. The model is unreliable at "today"
         # (it dated a "…today" expense 2023-10-18 and mid-session copied an

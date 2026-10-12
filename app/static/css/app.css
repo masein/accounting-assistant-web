@@ -484,6 +484,8 @@
     .kpi-card { border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem; background: #fff; }
     .kpi-card .label { font-size: 0.78rem; color: var(--text-muted); }
     .kpi-card .value { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+    .kpi-card .value .kpi-num { white-space: nowrap; }
+    .kpi-card .value .kpi-unit { font-size: 0.72em; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
     /* minmax(0, …) + min-width:0: a wide table inside a panel scrolls within the
        panel instead of stretching the grid column and the whole page (the
        13-week forecast overflowed phones — QA 2026-09-24). */

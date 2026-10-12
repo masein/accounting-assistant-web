@@ -113,6 +113,8 @@
       selectedAttachments = [];
       attachmentInput.value = '';
       renderAttachments();
+      // the totals bar follows the empty lines: it kept the saved voucher's figures (scenario S2)
+      if (typeof updateVoucherBalanceBar === 'function') updateVoucherBalanceBar();
     }
 
     // Primary cash/bank account of the seeded chart, used as the default

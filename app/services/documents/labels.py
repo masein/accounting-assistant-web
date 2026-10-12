@@ -144,3 +144,36 @@ FA = {
 
 def labels_for(locale: str | None) -> dict:
     return FA if (locale or "").lower() == "ir" else EN
+
+
+# A document's status in words, as the pages name it (02-i18n.js / i18n/fa.js):
+# the PDF printed «partially_paid» (scenario S1).
+STATUS = {
+    "draft": ("Draft", "پیش‌نویس"),
+    "issued": ("Issued", "صادرشده"),
+    "sent": ("Sent", "ارسال‌شده"),
+    "partially_paid": ("Partially paid", "بخشی پرداخت‌شده"),
+    "paid": ("Paid", "پرداخت‌شده"),
+    "overdue": ("Overdue", "سررسیدگذشته"),
+    "credited": ("Credited", "برگشت‌شده"),
+    "canceled": ("Canceled", "لغوشده"),
+    "cancelled": ("Cancelled", "لغوشده"),
+    "voided": ("Voided", "باطل‌شده"),
+    "accepted": ("Accepted", "پذیرفته‌شده"),
+    "declined": ("Declined", "ردشده"),
+    "expired": ("Expired", "منقضی"),
+    "converted": ("Invoiced", "فاکتور شده"),
+    "partially_received": ("Partially received", "دریافت جزئی"),
+    "received": ("Received", "دریافت‌شده"),
+    "closed": ("Closed", "بسته‌شده"),
+}
+
+
+def status_label(status: str | None, locale: str | None) -> str:
+    """«Partially paid» for ``partially_paid``; a status not listed reads as
+    words too («On hold»), never with its underscore."""
+    key = (status or "").strip().lower()
+    words = STATUS.get(key)
+    if words:
+        return words[1] if (locale or "").lower() == "ir" else words[0]
+    return key.replace("_", " ").capitalize()

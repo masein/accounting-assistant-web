@@ -140,7 +140,7 @@ def test_pending_resolve_patches_fields_in_place(auth_client, db):
     ])
     r = auth_client.post("/migration/import/preview",
                          files=_upload([("tafsili.xls", tafsili), ("kol.xls", kol_file)]))
-    auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+    auth_client.post("/migration/import/confirm", json={"token": r.json()["token"], "opening": "replace"})
     rec = next(p for p in auth_client.get("/migration/pending").json()
                if p["entity_name"] == "مشتری ریزولوفیلد")
 
@@ -173,7 +173,7 @@ def test_pending_resolve_rejects_unknown_fields(auth_client, db):
     ])
     r = auth_client.post("/migration/import/preview",
                          files=_upload([("tafsili.xls", tafsili), ("kol.xls", kol_file)]))
-    auth_client.post("/migration/import/confirm", json={"token": r.json()["token"]})
+    auth_client.post("/migration/import/confirm", json={"token": r.json()["token"], "opening": "replace"})
     rec = next(p for p in auth_client.get("/migration/pending").json()
                if p["entity_name"] == "مشتری بدفیلد")
     resp = auth_client.post(f"/migration/pending/{rec['id']}/resolve",

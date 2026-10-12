@@ -85,7 +85,7 @@ def migration_import_preview(
     return MigrationPreviewResponse(
         token=token,
         batch_id=batch.id,
-        summary=said(summary, request),           # its errors and warnings in the page's language (#53)
+        summary=said(summary, request, db),       # its errors and warnings in the page's language (#53), dates in its calendar
         default_opening_date=mig.default_opening_date(db),
         already_applied=already_applied,
     )
@@ -117,7 +117,7 @@ def migration_import_confirm(
     if opening_date > date.today():
         raise HTTPException(status_code=400, detail="Opening date cannot be in the future")
 
-    result = mig.apply_batch(db, batch, opening_date)
+    result = mig.apply_batch(db, batch, opening_date, payload.opening)
     log_audit_event(
         db, "migration_import_apply", "migration_batch", entity_id=str(batch.id),
         detail=json.dumps(result, ensure_ascii=False),

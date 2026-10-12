@@ -785,7 +785,8 @@
               const ents = r.entities || {};
               appendBubble('assistant', t('chatIntakeApplied') + ' — ' + created + ' ' + t('migrationAccountsCreated')
                 + ', ' + ((ents.banks_created || 0) + (ents.counterparties_created || 0)) + ' ' + t('migrationEntitiesCreated')
-                + '. ' + t('migrationJournalPosted') + ': ' + ((r.opening_journal || {}).opening_date || ''));
+                + '. ' + t((r.opening_journal || {}).kept ? 'migrationOpeningKept' : 'migrationJournalPosted')
+                + ': ' + formatDisplayDate((r.opening_journal || {}).opening_date || ''));
             } else {
               res = await fetch(API + '/transactions/excel-import/confirm', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },

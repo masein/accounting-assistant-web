@@ -70,7 +70,7 @@
     function _cpTypesLabel(types) {
       if (!types) return '';
       const map = { client: 'migCpTypeClient', supplier: 'migCpTypeSupplier', employee: 'migCpTypeEmployee' };
-      const parts = Object.keys(types).map((k) => types[k] + ' ' + t(map[k] || k));
+      const parts = Object.keys(types).map((k) => localDigits(types[k]) + ' ' + t(map[k] || k));
       return parts.length ? ' (' + parts.join(' · ') + ')' : '';
     }
     function _migrationRenderPreview(body) {
@@ -95,14 +95,27 @@
             ? `<span style="color:${okColor};">${escapeHtml(t('migrationBalancedYes'))}</span>`
             : `<span style="color:${badColor};">${escapeHtml(t('migrationBalancedNo'))} (${fmt(Math.abs(opening.difference || 0))})</span>`)
         + '</div>';
+      // opening balances already in the books: keep them (the default when they
+      // differ) or replace them; last year's chart replaced this year's balances
+      // without a word (2026-10-12)
+      if (opening.existing) {
+        const pick = opening.suggested === 'replace' ? 'replace' : 'keep';
+        const radio = (val, label) => `<label style="display:flex;gap:0.4rem;align-items:center;margin:0.2rem 0;">`
+          + `<input type="radio" name="migration-opening" value="${val}"${val === pick ? ' checked' : ''}> ${escapeHtml(label)}</label>`;
+        html += `<fieldset id="migration-opening-choice" style="margin-top:0.6rem;border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.9rem;">`
+          + `<legend style="padding:0 0.3rem;">${escapeHtml(tf('migrationOpeningExisting', { total: fmt(opening.existing.total), date: '\u2066' + formatDisplayDate(opening.existing.date) + '\u2069' }))}</legend>`
+          + radio('keep', t('migrationOpeningKeep'))
+          + radio('replace', tf('migrationOpeningReplace', { total: fmt(Math.max(opening.total_debit || 0, opening.total_credit || 0)) }))
+          + '</fieldset>';
+      }
       let issues = '';
       if ((v.errors || []).length) {
         issues += `<div style="color:${badColor};font-size:0.85rem;"><strong>${escapeHtml(t('migrationErrorsLabel'))}:</strong><ul style="margin:0.25rem 0 0 1.25rem;">`
-          + v.errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('') + '</ul></div>';
+          + v.errors.map((e) => `<li>${escapeHtml(localDigits(e))}</li>`).join('') + '</ul></div>';
       }
       if ((v.warnings || []).length) {
         issues += `<div style="color:var(--text-muted);font-size:0.85rem;margin-top:0.25rem;"><strong>${escapeHtml(t('migrationWarningsLabel'))}:</strong><ul style="margin:0.25rem 0 0 1.25rem;">`
-          + v.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('') + '</ul></div>';
+          + v.warnings.map((w) => `<li>${escapeHtml(localDigits(w))}</li>`).join('') + '</ul></div>';
       }
       document.getElementById('migration-preview-summary').innerHTML = html;
       document.getElementById('migration-preview-issues').innerHTML = issues;
@@ -119,6 +132,8 @@
         const payload = { token: _migrationToken };
         const dateVal = document.getElementById('migration-opening-date').value;
         if (dateVal) payload.opening_date = dateVal;
+        const openingPick = document.querySelector('input[name="migration-opening"]:checked');
+        if (openingPick) payload.opening = openingPick.value;
         const res = await fetch(API + '/migration/import/confirm', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         });
@@ -137,11 +152,16 @@
         const entCreated = (ents.banks_created || 0) + (ents.counterparties_created || 0);
         let html = `<div style="background:var(--bg-success,#d4edda);border:1px solid var(--success,#28a745);border-radius:8px;padding:1rem;font-size:0.9rem;">`
           + `<strong>${escapeHtml(t('migrationApplied'))}</strong><br>`
-          + `${created} ${escapeHtml(t('migrationAccountsCreated'))}, ${updated} ${escapeHtml(t('migrationAccountsUpdated'))}, `
-          + `${entCreated} ${escapeHtml(t('migrationEntitiesCreated'))}.<br>`
-          + `${escapeHtml(t('migrationJournalPosted'))}: ${escapeHtml(formatDisplayDate(oj.opening_date) || '')}`
-          + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString(numLocale())})` : '')
-          + (oj.replaced_previous ? ` ${escapeHtml(t('migrationJournalReplaced'))}` : '')
+          + `${localDigits(created)} ${escapeHtml(t('migrationAccountsCreated'))} · ${localDigits(updated)} ${escapeHtml(t('migrationAccountsUpdated'))} · `
+          + `${localDigits(entCreated)} ${escapeHtml(t('migrationEntitiesCreated'))}<br>`
+          + (oj.kept
+            ? `${escapeHtml(t('migrationOpeningKept'))}: <bdi dir="ltr">${escapeHtml(formatDisplayDate(oj.opening_date) || '')}</bdi>`
+            : `${escapeHtml(t('migrationJournalPosted'))}: <bdi dir="ltr">${escapeHtml(formatDisplayDate(oj.opening_date) || '')}</bdi>`
+              + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString(numLocale())})` : '')
+              + (oj.replaced_previous ? ` ${escapeHtml(t('migrationJournalReplaced'))}` : ''))
+          + ((chart.conflicts || []).length
+            ? `<br>${escapeHtml(t('migrationConflictsLabel'))}: ` + chart.conflicts.map((c) => `<bdi>${escapeHtml(localCode(c.code))} «${escapeHtml(c.title)}»</bdi>`).join(' · ')
+            : '')
           + `</div>`;
         const resEl = document.getElementById('migration-result');
         resEl.innerHTML = html;

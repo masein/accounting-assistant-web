@@ -116,7 +116,7 @@ def test_chart_export_drop_routes_to_migration_preview(auth_client):
     assert body["session_id"]
 
     # Confirm through the normal gated endpoint — idempotent migration apply.
-    c = auth_client.post("/migration/import/confirm", json={"token": intake["token"]})
+    c = auth_client.post("/migration/import/confirm", json={"token": intake["token"], "opening": "replace"})
     assert c.status_code == 200, c.text
     assert c.json()["result"]["entities"]["banks_created"] == 1
 
@@ -129,7 +129,7 @@ def test_chart_export_drop_routes_to_migration_preview(auth_client):
     intake2 = resp2.json()["intake"]
     assert intake2["token"] == intake["token"]
     assert intake2["already_applied"] is True
-    c2 = auth_client.post("/migration/import/confirm", json={"token": intake2["token"]})
+    c2 = auth_client.post("/migration/import/confirm", json={"token": intake2["token"], "opening": "replace"})
     assert c2.json()["result"]["entities"]["banks_created"] == 0
     assert c2.json()["result"]["entities"]["banks_reused"] == 1
 

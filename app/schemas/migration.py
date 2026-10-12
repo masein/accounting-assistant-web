@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -18,6 +18,10 @@ class MigrationPreviewResponse(BaseModel):
 class MigrationConfirmRequest(BaseModel):
     token: str = Field(..., max_length=80)
     opening_date: Optional[date] = None
+    # The books' opening voucher, when there is one: replace it with this
+    # import's balances, or keep it and import only the chart and contacts.
+    # Unsaid: replace when the totals agree, keep when they differ.
+    opening: Optional[Literal["replace", "keep"]] = None
 
 
 class MigrationConfirmResponse(BaseModel):

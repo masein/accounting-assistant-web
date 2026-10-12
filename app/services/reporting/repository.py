@@ -272,8 +272,15 @@ def trial_balance_rows(db: Session, from_date: date, to_date: date, currency: st
     return [(code, name, int(d or 0), int(c or 0)) for code, name, d, c in db.execute(q).all()]
 
 
-_OPENING = "MIGRATION-OPENING"      # migration_import.OPENING_REFERENCE
-_not_opening = func.coalesce(Transaction.reference, "") != _OPENING
+# A migration's opening voucher and an imported journal carry each party's own
+# share on its link (TransactionEntity.amount: debit, the party owes us; credit,
+# we owe it), as Sepidar keeps a detail account's balance across every
+# sub-ledger — salaries, other receivables, other payables, not just the
+# receivable and payable accounts. Nothing else writes a link amount.
+def _party_amounts():
+    from sqlalchemy import exists
+    te = TransactionEntity.__table__.alias("te_amount")
+    return exists().where(te.c.transaction_id == Transaction.id, te.c.amount.isnot(None))
 
 
 def debtor_creditor_movements(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[date, str, UUID | None, str, int]]:
@@ -306,7 +313,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
             Transaction.deleted_at.is_(None),
             TransactionLine.account_id == select(Account.id).where(Account.code == ar_code).scalar_subquery(),
             TransactionEntity.role.in_(("client",)),
-            _not_opening,
+            ~_party_amounts(),
         )
         .group_by(Transaction.date, TransactionEntity.entity_id, Entity.name)
     )
@@ -329,7 +336,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
             Transaction.deleted_at.is_(None),
             Account.code == ap_code,
             TransactionEntity.role.in_(("supplier", "payee")),
-            _not_opening,
+            ~_party_amounts(),
         )
         .group_by(Transaction.date, TransactionEntity.entity_id, Entity.name)
     )
@@ -339,26 +346,36 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
         out.append((d, "debtor", eid, name or "Unassigned", int(delta or 0)))
     for d, eid, name, delta in db.execute(ap_q).all():
         out.append((d, "creditor", eid, name or "Unassigned", int(delta or 0)))
-    # A migration's opening voucher carries each party's own balance on its link
-    # (debit: owes us, credit: we owe), not on the receivable and payable lines,
-    # which hold every party's total at once: they showed no one (2026-10-12).
-    if currency is None or sums_base(currency) or currency == "IRR":
-        opening_q = (
-            select(Transaction.date, TransactionEntity.entity_id, Entity.name, TransactionEntity.amount)
-            .join(TransactionEntity, TransactionEntity.transaction_id == Transaction.id)
-            .join(Entity, Entity.id == TransactionEntity.entity_id)
-            .where(
-                Transaction.date >= from_date,
-                Transaction.date <= to_date,
-                Transaction.deleted_at.is_(None),
-                Transaction.reference == _OPENING,
-                Entity.type != "bank",
-                TransactionEntity.amount.isnot(None),
-                TransactionEntity.amount != 0,
-            )
+    # Those parties' shares, not the receivable and payable lines, which hold every
+    # party's total at once (the report showed no one after a migration, 2026-10-12).
+    shares_q = (
+        select(Transaction.date, TransactionEntity.entity_id, Entity.name, TransactionEntity.amount)
+        .join(TransactionEntity, TransactionEntity.transaction_id == Transaction.id)
+        .join(Entity, Entity.id == TransactionEntity.entity_id)
+        .where(
+            Transaction.date >= from_date,
+            Transaction.date <= to_date,
+            Transaction.deleted_at.is_(None),
+            Entity.type != "bank",
+            TransactionEntity.amount.isnot(None),
+            TransactionEntity.amount != 0,
         )
-        for d, eid, name, amount in db.execute(opening_q).all():
-            out.append((d, "debtor" if amount > 0 else "creditor", eid, name or "Unassigned", abs(int(amount))))
+    )
+    if not (currency is None or sums_base(currency)):
+        shares_q = shares_q.where(Transaction.currency == currency)
+    # One side per party for the period: a party paid in full nets to nothing,
+    # a debtor this month and a creditor next is one or the other.
+    net: dict = {}
+    for d, eid, name, amount in db.execute(shares_q).all():
+        cur = net.setdefault(eid, [name, []])
+        cur[1].append((d, int(amount)))
+    for eid, (name, moves) in net.items():
+        total = sum(a for _d, a in moves)
+        if total == 0:
+            continue
+        role = "debtor" if total > 0 else "creditor"
+        for d, a in moves:
+            out.append((d, role, eid, name or "Unassigned", a if total > 0 else -a))
     return out
 
 

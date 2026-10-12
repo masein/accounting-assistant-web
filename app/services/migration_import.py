@@ -715,9 +715,9 @@ def _bank_cash_moein(payload: dict, bank_total: int) -> dict | None:
     ]
     if not candidates:
         return None
-    # cash at the bank (موجودی بانک‌ها) before deposits held at banks
+    # cash at the bank (موجودی بانک‌ها) before deposits held at banks, the rial one before the foreign-currency twin
     # (سپرده‌های نزد بانک‌ها), then the tightest fit (usually the exact aggregate)
-    return min(candidates, key=lambda r: ("موجودی" not in r["title"],
+    return min(candidates, key=lambda r: ("موجودی" not in r["title"], "ارزی" in r["title"],
                                           (r["balance_debit"] - r["balance_credit"]) - bank_total))
 
 

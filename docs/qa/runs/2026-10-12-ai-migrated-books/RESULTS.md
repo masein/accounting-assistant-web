@@ -8,17 +8,19 @@ There were 52 scenarios across the three companies. Each figure was checked agai
 
 ## Results
 
-The first pass ran on the wrong model (below). Three passes ran on `gpt-4.1-mini`: before the fixes, with most of them, and with all of them.
+The first pass ran on the wrong model (finding 1). On `gpt-4.1-mini`, the scenarios scored automatically went:
+- **36%** before the fixes;
+- **60%** with the first half of them;
+- **82%** with all of them.
 
-**The read answers:**
-- Balances, cash, a year's revenue and expenses, a named month and its follow-up, month against month, debtors and creditors are now exact.
-- The model still garbles a Persian account name now and then when it retypes one («زیراسخت» for «زیرساخت»). The figures come from the tools and are copied, not retyped.
-
-**The cards:**
-- Stationery, a school's supplies and a loan instalment post to the company's own accounts.
+**What now holds for every model:**
+- Balances, cash, a year or a month, debtors and creditors come from the tools and are copied, not retyped.
+- A miscopied figure is corrected before it is shown.
+- Cards post to the company's own accounts.
 - A corrected card withdraws the old one.
+- Tomans are converted, and a refused card is never reported as ready.
 
-**What stays with the model:** gpt-4.1-mini sometimes asks before drafting a card it has everything for (a transfer between two banks, a salary). A stronger model does this less often; see the recommendation at the end.
+**What stays with the model:** a weaker one asks before drafting a card it has everything for, picks among similar accounts less well, and retypes a Persian name now and then. Which model is a cost decision; see "Which model".
 
 ## Findings, fixed on this branch
 
@@ -67,7 +69,8 @@ The first pass ran on the wrong model (below). Three passes ran on `gpt-4.1-mini
 19. **Choosing Claude Haiku 4.5 broke the chat.** It refuses adaptive thinking. A request is now sent again without the option the provider names (thinking or effort).
 20. **A seed default the books never used.** Even gpt-4.1 credited the seed's 2120 «پیش‌دریافت از مشتریان» where the company keeps customer advances on its own account. A card on a seed default the books never used, when the company keeps that posting role on its own used account, is refused with the account to use, and the model gets one retry.
 21. **"Whom do we owe" didn't net debit balances.** It totalled only the liability accounts that owe (23,672,063,635); the balance sheet nets one in debit (23,495,300,037). It now totals them as the balance sheet does.
-22. **Smaller fixes:**
+22. **An empty provider account read as "try again in a moment".** The chat now says the AI provider's credit has run out and the owner can top it up, in all four languages. The phone reads the same code as before.
+23. **Smaller fixes:**
     - an invoice card dated 2026-07-01 for «پشتیبانی مهر»: the prompt now says to leave `issue_date` out unless the user names a date;
     - the AI budget message read "You have used its AI allowance";
     - a party named where an account was expected now says where its balance is;
@@ -104,4 +107,12 @@ About 95% of the input tokens are cached prompt (the system prompt and tool list
 
 ## Recommendation
 
-`gpt-4.1-mini` is fast (6–10 s) and cheap, but on real books it often asks before acting and occasionally retypes names. The tools now carry the exact figures and dates, and a stronger chat model (`gpt-4.1`) would close most of what remains. It can be switched in Settings → AI providers, one choice for every company after finding 1.
+- **gpt-4.1-mini (today) passes 82% on these books.** Its misses are the hard ones: drafting a card it has everything for, choosing among similar accounts, retyping a name.
+- **gpt-5.6-luna passes 90%** for a price the September benchmark put at about half of gpt-4.1-mini's per turn. It is a little slower (11.5 s median). It is the candidate to switch to once its Metis price is confirmed.
+- **gpt-4.1 (96%) and claude-sonnet-5-5 (98%) are the most accurate,** at roughly 5–8× today's cost.
+- **No cheaper model beats today's on accuracy.** gpt-5-mini is slightly cheaper but slower and no better; the nanos and Haiku are weaker.
+
+Switch in Settings → AI providers (model) and Settings → chat provider shape, one choice for every company after finding 1.
+
+A last confirmation run on the final code could not run: the benchmark used up the Metis credit (402, «Insufficient credit»). The table above is the full run on the code before findings 20 and 21. Those two are deterministic: they help every model alike and change no comparison. Finding 22 makes that situation plain to users.
+

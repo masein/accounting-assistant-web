@@ -36,6 +36,8 @@ def test_a_persian_page_writes_persian_digits_and_keeps_latin_where_it_must(flow
     wait_until(page, "() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '۱۱۱۰')")
     assert page.evaluate("() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '1110')") is False
     assert page.evaluate("() => localCode('1110')") == "۱۱۱۰"
+    mult = "() => document.querySelector('#excel-import-multiplier option[value=\"1000\"]').textContent"
+    assert page.evaluate(mult) == "۱٬۰۰۰×"                              # bare figures in the markup too
     with page.expect_download() as dl:                       # a CSV is read by other programs: Latin
         page.evaluate(TABLE)
     assert '"1,234,567"' in open(dl.value.path(), encoding="utf-8").read()
@@ -43,4 +45,5 @@ def test_a_persian_page_writes_persian_digits_and_keeps_latin_where_it_must(flow
     page.screenshot(path=os.path.join(ARTIFACTS, "web-persian-digits.png"))
     switch_language(page, "en")                               # English pages are unchanged
     assert page.evaluate("() => [formatNum(1234567), Chart.defaults.locale, localCode('1110')]") == ["1,234,567", "en-US", "1110"]
+    assert page.evaluate(mult) == "1,000×"
     assert watch.problems() == [], watch.problems()

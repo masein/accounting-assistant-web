@@ -57,20 +57,19 @@ def normalize_digits(text: str) -> str:
     return text.translate(_PERSIAN_DIGITS).translate(_ARABIC_DIGITS)
 
 
-def coerce_amount(value: Any) -> int | None:
+def coerce_amount(value: Any):
     """Coerce a model-provided amount (int, float, or a string possibly
     carrying Persian digits / thousands separators / a currency word) into a
-    sane integer. Returns None for unparseable or insane magnitudes."""
+    sane amount, pence kept: "21.60" is 21.6, "3,690,720" is 3690720 (it was
+    rounded to whole units, so a £7.50 fee read off a statement became £8).
+    Returns None for unparseable or insane magnitudes."""
     if value is None:
         return None
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        try:
-            n = int(round(float(value)))
-        except (ValueError, OverflowError):
-            return None
-        return n if 0 <= n <= MAX_SANE_AMOUNT else None
+        n = _exact(value)
+        return n if n is not None and 0 <= n <= MAX_SANE_AMOUNT else None
 
     s = normalize_digits(str(value)).strip()
     if not s:
@@ -102,11 +101,18 @@ def coerce_amount(value: Any) -> int | None:
             s = s.replace(".", "")
     if not s or s == ".":
         return None
+    n = _exact(s)
+    return n if n is not None and 0 <= n <= MAX_SANE_AMOUNT else None
+
+
+def _exact(value: Any):
+    """An amount as written, to at most 4 places (a column's limit)."""
+    from decimal import ROUND_HALF_UP, Decimal
+    from app.core.money import MAX_PLACES, plain, to_decimal
     try:
-        n = int(round(float(s)))
-    except (ValueError, OverflowError):
+        return plain(to_decimal(value).quantize(Decimal(1).scaleb(-MAX_PLACES), rounding=ROUND_HALF_UP))
+    except (ValueError, ArithmeticError):
         return None
-    return n if 0 <= n <= MAX_SANE_AMOUNT else None
 
 
 _MONTHS = {

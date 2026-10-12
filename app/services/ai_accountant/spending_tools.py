@@ -20,6 +20,7 @@ import jdatetime
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.core.money import plain
 from app.models.account import Account
 from app.models.transaction import Transaction, TransactionLine
 from app.services.ai_accountant.base import BaseTool, ToolContext, ToolError
@@ -223,7 +224,7 @@ class GetSpendingSummary(BaseTool):
             if classify_account_code(acc.code) != wanted:
                 continue
             # base value: every currency in one total (roadmap §4.6)
-            d, c = int(line.base_debit or 0), int(line.base_credit or 0)
+            d, c = plain(line.base_debit or 0), plain(line.base_credit or 0)
             amount = (d - c) if wanted == EXPENSE else (c - d)
             slot = by_code.setdefault(acc.code, {"category_code": acc.code, "category_name": acc.name, "amount": 0, "count": 0})
             slot["amount"] += amount

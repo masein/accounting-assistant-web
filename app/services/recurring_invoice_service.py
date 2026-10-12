@@ -102,7 +102,7 @@ def _issue_one(db: Session, t: RecurringInvoice, run_date: date):
         number=suggest_number(db, Invoice, invoice_number_prefix(db), kind="sales"),
         kind="sales", status=t.issue_status or "issued", issue_date=run_date,
         due_date=run_date + timedelta(days=max(0, int(t.terms_days or 0))),
-        amount=int(t.amount or 0), currency=t.currency,
+        amount=plain(t.amount or 0), currency=t.currency,
         description=t.description or t.name, entity_id=t.entity_id,
         items=[InvoiceItemCreate(**it) for it in template_items(t)],
     ))

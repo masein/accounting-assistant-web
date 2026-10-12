@@ -28,7 +28,7 @@ from app.models.company_profile import CompanyProfile
 from app.models.entity import Entity
 from app.models.invoice import Invoice
 from app.models.invoice_email import InvoiceEmail
-from app.core.money import json_dumps
+from app.core.money import json_dumps, plain
 
 SETTINGS_KEY = "invoice_mail"
 DEFAULT_REMINDER_DAYS = (3, 10, 20)
@@ -218,7 +218,7 @@ def compose(db: Session, inv: Invoice, *, kind: str, stage: int | None = None,
     how = (conf.get("payment_instructions") or "").strip() or bits["bank_details"]
     link = (conf.get("payment_link") or "").strip()
     paras: list[str] = [T["greeting"].format(**vals), intro.format(**vals)]
-    if balance != int(inv.amount or 0):
+    if balance != plain(inv.amount or 0):
         paras.append(T["balance"].format(**vals))
     note = (message or "").strip()
     if note:

@@ -725,7 +725,7 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
         # Block only real changes: the edit dialog re-sends unchanged fields.
         sent = payload.model_dump(exclude_unset=True)
         current = {"number": row.number, "kind": row.kind, "issue_date": row.issue_date,
-                   "amount": int(row.amount or 0), "entity_id": row.entity_id,
+                   "amount": plain(row.amount or 0), "entity_id": row.entity_id,
                    "currency": (row.currency or "").upper()}
         touched = set()
         for key, now_val in current.items():
@@ -1372,7 +1372,7 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
         events.append(InvoiceTimelineEvent(
             at=p.created_at, event="payment",
             detail=f"{p.amount:,} {p.currency} {'received' if p.direction == 'in' else 'paid'} ({p.method}).",
-            params={"amount": int(p.amount), "currency": p.currency, "direction": p.direction, "method": p.method},
+            params={"amount": plain(p.amount), "currency": p.currency, "direction": p.direction, "method": p.method},
         ))
     from app.models.invoice_email import InvoiceEmail
     for m in db.execute(select(InvoiceEmail).where(InvoiceEmail.invoice_id == invoice_id)).scalars().all():
@@ -1392,7 +1392,7 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
     for n in notes:
         if n.note_type == "applied":
             continue                                   # its payment row says it on this invoice
-        params = {"amount": int(n.amount), "currency": n.currency, "reason": n.reason, "kind": n.kind}
+        params = {"amount": plain(n.amount), "currency": n.currency, "reason": n.reason, "kind": n.kind}
         if n.note_type == "reduction":
             event, detail = "credit_note", f"Credit note {n.amount:,} {n.currency}" + (f": {n.reason}" if n.reason else ".")
         elif n.note_type == "credit":
@@ -1407,7 +1407,7 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
             events.append(InvoiceTimelineEvent(
                 at=child.created_at, event="credit_used",
                 detail=f"{child.amount:,} {child.currency} of the credit used on invoice {target.number if target else ''}.",
-                params={"amount": int(child.amount), "currency": child.currency, "number": target.number if target else ""},
+                params={"amount": plain(child.amount), "currency": child.currency, "number": target.number if target else ""},
             ))
     events.sort(key=lambda e: e.at)
     return events

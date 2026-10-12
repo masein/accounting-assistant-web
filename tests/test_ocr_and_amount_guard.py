@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import delete
@@ -59,18 +60,18 @@ class TestCoerceAmount:
         assert coerce_amount("abc") is None
 
     def test_decimal_pence_not_inflated(self):
-        # Bug 1: a decimal point is the pence/cents separator — round to whole
-        # stored units, never multiply by 100.
-        assert coerce_amount("21.60") == 22       # cafe receipt £21.60
-        assert coerce_amount("18.86") == 19       # grocery £18.86
-        assert coerce_amount("3,600.00") == 3_600  # service invoice
-        assert coerce_amount("£21.60") == 22
-        assert coerce_amount(21.60) == 22
-        assert coerce_amount("0.49") == 0
+        # Bug 1: a decimal point is the pence/cents separator — never multiply
+        # by 100. Pence are kept (docs/PLAN_PENCE.md); they were rounded away.
+        assert coerce_amount("21.60") == Decimal("21.6")       # cafe receipt £21.60
+        assert coerce_amount("18.86") == Decimal("18.86")      # grocery £18.86
+        assert coerce_amount("3,600.00") == 3_600              # service invoice
+        assert coerce_amount("£21.60") == Decimal("21.6")
+        assert coerce_amount(21.60) == Decimal("21.6")
+        assert coerce_amount("0.49") == Decimal("0.49")
 
     def test_european_decimal_comma(self):
         # "1.234.567,89" — dots are thousands, comma is the decimal.
-        assert coerce_amount("1.234.567,89") == 1_234_568
+        assert coerce_amount("1.234.567,89") == Decimal("1234567.89")
         assert coerce_amount("1.234.567") == 1_234_567  # dots = thousands only
 
     def test_rial_grouped_unchanged(self):

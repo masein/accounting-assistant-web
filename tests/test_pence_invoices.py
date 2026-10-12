@@ -159,6 +159,27 @@ def test_q7_a_payment_confirmed_in_the_chat_keeps_its_pence(uk, db):
     assert got["payments"][0]["amount"] == Decimal("30.5")
 
 
+def test_quotes_matching_and_reading_documents_keep_pence(uk):
+    api, _ = uk
+    aria = _entity(api, "client", "Aria Design Ltd")
+    q = api.post("/quotes", json={"number": "Q-P1", "issue_date": "2026-05-10", "valid_until": "2026-06-10",
+                                  "entity_id": aria, "amount": 0,
+                                  "items": [{"product_name": "Design", "quantity": 1, "unit_price": "99.99", "tax_rate": 0}]})
+    assert q.status_code in (200, 201), q.text
+    item = q.json()["items"][0]
+    assert item["unit_price"] == 99.99 and item["line_total"] == 99.99            # they read 99
+    from app.services import three_way_match
+    po = [{"key": "1", "description": "Paper", "ordered_qty": 10, "received_qty": 10, "unit_price": Decimal("12.49")}]
+    ok = three_way_match.match(po, [{"key": "1", "description": "Paper", "quantity": 10, "unit_price": Decimal("12.50")}])
+    assert ok.matched                                                              # within 1 % (it raised)
+    over = three_way_match.match(po, [{"key": "1", "description": "Paper", "quantity": 10, "unit_price": Decimal("12.75")}])
+    assert [d["type"] for d in over.discrepancies] == ["over_price"]
+    from app.services.ocr_extract import coerce_amount
+    assert coerce_amount("7.50") == Decimal("7.5") and coerce_amount("£1,234.56") == Decimal("1234.56")
+    assert coerce_amount(21.6) == Decimal("21.6") and coerce_amount("۳٬۶۹۰٬۷۲۰ ریال") == 3_690_720
+    assert coerce_amount("3,690,720.00") == 3_690_720 and type(coerce_amount("950.00")) is int
+
+
 INVOICE_PAGES = [
     "/invoices", "/quotes", "/recurring-invoices", "/purchase-orders", "/tax/uk/vat/periods",
     "/tax/uk/vat/return?end=2026-06-30", "/tax/uk/vat/return/export?end=2026-06-30", "/tax/uk/itsa/update",

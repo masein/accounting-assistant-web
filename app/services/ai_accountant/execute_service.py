@@ -46,7 +46,7 @@ from app.models.transaction import Transaction
 from app.schemas.entity import EntityLink
 from app.schemas.transaction import TransactionCreate, TransactionLineCreate
 from app.services.reporting.ledger_service import LedgerService
-from app.core.money import json_dumps
+from app.core.money import json_dumps, plain
 
 PROPOSAL_TTL = timedelta(minutes=10)
 # The quick one-click undo window in the chat. Lengthened from 30s to 120s so
@@ -407,8 +407,8 @@ def _execute_create_transaction(
             lines=[
                 TransactionLineCreate(
                     account_code=ln["account_code"],
-                    debit=int(ln.get("debit", 0)),
-                    credit=int(ln.get("credit", 0)),
+                    debit=plain(ln.get("debit", 0)),
+                    credit=plain(ln.get("credit", 0)),
                     line_description=ln.get("line_description"),
                 )
                 for ln in payload_dict.get("lines", [])

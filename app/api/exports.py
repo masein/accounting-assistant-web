@@ -21,7 +21,7 @@ from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.invoice import Invoice
 from app.models.transaction import Transaction, TransactionLine
-from app.core.money import json_dumps
+from app.core.money import json_dumps, plain
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
@@ -62,8 +62,8 @@ def _rows(db: Session, currency: str | None = None) -> list[list[str]]:
                 t.description or "",
                 ln.account.code,
                 ln.account.name,
-                int(ln.debit or 0),
-                int(ln.credit or 0),
+                plain(ln.debit or 0),
+                plain(ln.credit or 0),
                 ln.line_description or "",
                 getattr(t, "currency", "IRR"),
             ])

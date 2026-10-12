@@ -290,7 +290,7 @@ def bill_po(po_id: UUID, payload: BillCreate, db: Session = Depends(get_db)) -> 
                     detail=f"Bill {inv.number} ({inv.amount:,} {inv.currency}) from PO {po.number}")
     db.commit()
     db.refresh(po)
-    return {"invoice_id": str(inv.id), "invoice_number": inv.number, "amount": int(inv.amount or 0),
+    return {"invoice_id": str(inv.id), "invoice_number": inv.number, "amount": plain(inv.amount or 0),
             "currency": inv.currency, "order": _po_read(po, db, with_bills=True)}
 
 

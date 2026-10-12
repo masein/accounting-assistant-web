@@ -20,6 +20,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.money import plain
 from app.models.document_email import DocumentEmail
 from app.models.entity import Entity
 from app.models.invoice import Invoice
@@ -89,12 +90,12 @@ def statement_events(db: Session, entity: Entity, start: date, end: date) -> tup
     for inv in invoices:
         if inv.issue_date and start <= inv.issue_date <= end and (inv.status or "") not in ("voided", "canceled"):
             events.append({"date": inv.issue_date, "description": f"Invoice {inv.number}",
-                           "debit": int(inv.amount or 0), "credit": 0})
+                           "debit": plain(inv.amount or 0), "credit": 0})
             ccy = ccy or inv.currency
         for pay in db.execute(select(Payment).where(Payment.invoice_id == inv.id)).scalars().all():
             if pay.date and start <= pay.date <= end and pay.direction == "in":
                 events.append({"date": pay.date, "description": f"Payment — {inv.number}",
-                               "debit": 0, "credit": int(pay.amount or 0)})
+                               "debit": 0, "credit": plain(pay.amount or 0)})
     events.sort(key=lambda e: e["date"])
     return events, ccy or ""
 
@@ -183,7 +184,7 @@ def send_payslips(db: Session, run, *, entity_ids: list | None = None, actor: st
             continue
         vals = {"company": bits["name"], "party": ln.employee_name, "start": fmt_date(run.period_start, loc),
                 "end": fmt_date(run.period_end, loc), "paid": fmt_date(run.pay_date, loc),
-                "net": fmt_money(int(ln.net_pay or 0), run.currency, loc)}
+                "net": fmt_money(plain(ln.net_pay or 0), run.currency, loc)}
         mail = _compose(bits, T["payslip_subject"].format(**vals), [
             T["greeting"].format(**vals), T["payslip_intro"].format(**vals), T["payslip_net"].format(**vals),
             T["questions"], T["signoff"].format(**vals)])

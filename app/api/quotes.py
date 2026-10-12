@@ -72,8 +72,8 @@ def _read(db: Session, q: Quote) -> QuoteRead:
         sent_at=q.sent_at, decided_at=q.decided_at, pdf_url=f"/quotes/{q.id}/pdf",
         items=[{
             "id": it.id, "position": it.position, "product_name": it.product_name,
-            "quantity": float(it.quantity or 0), "unit_price": int(it.unit_price or 0),
-            "unit_cost": it.unit_cost, "line_total": int(it.line_total or 0),
+            "quantity": float(it.quantity or 0), "unit_price": plain(it.unit_price or 0),
+            "unit_cost": it.unit_cost, "line_total": plain(it.line_total or 0),
             "tax_rate": float(it.tax_rate or 0), "taxable": bool(it.taxable),
             "tax_code": it.tax_code, "tax_treatment": it.tax_treatment or "standard",
             "description": it.description, "inventory_item_id": it.inventory_item_id,

@@ -1791,6 +1791,7 @@
         auditEnt_moadian: 'Moadian invoice',
         auditEnt_moadian_settings: 'Moadian settings',
         auditEnt_opening_balances: 'Opening balances',
+        auditEnt_posting_roles: 'Where entries post',
         auditEnt_pay_run: 'Pay run',
         auditEnt_payment: 'Payment',
         auditEnt_payroll_rule_set: 'Payroll rules',

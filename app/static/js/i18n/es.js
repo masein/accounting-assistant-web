@@ -1744,6 +1744,7 @@ window.I18N_PACKS.es = Object.assign({
         auditEnt_moadian: 'Factura Moadian',
         auditEnt_moadian_settings: 'Ajustes de Moadian',
         auditEnt_opening_balances: 'Saldos de apertura',
+        auditEnt_posting_roles: 'Dónde se registran los asientos',
         auditEnt_pay_run: 'Nómina',
         auditEnt_payment: 'Pago',
         auditEnt_payroll_rule_set: 'Reglas de nómina',

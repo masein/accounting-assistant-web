@@ -1786,6 +1786,7 @@ window.I18N_PACKS.fa = Object.assign({
         auditEnt_moadian: 'صورتحساب مودیان',
         auditEnt_moadian_settings: 'تنظیمات مودیان',
         auditEnt_opening_balances: 'مانده‌های افتتاحیه',
+        auditEnt_posting_roles: 'محل ثبت‌ها',
         auditEnt_pay_run: 'دوره حقوق',
         auditEnt_payment: 'پرداخت',
         auditEnt_payroll_rule_set: 'قواعد حقوق و دستمزد',

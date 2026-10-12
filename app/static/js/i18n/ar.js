@@ -1744,6 +1744,7 @@ window.I18N_PACKS.ar = Object.assign({
         auditEnt_moadian: 'فاتورة مودیان',
         auditEnt_moadian_settings: 'إعدادات مودیان',
         auditEnt_opening_balances: 'الأرصدة الافتتاحية',
+        auditEnt_posting_roles: 'أماكن ترحيل القيود',
         auditEnt_pay_run: 'دورة الرواتب',
         auditEnt_payment: 'دفعة',
         auditEnt_payroll_rule_set: 'قواعد الرواتب',

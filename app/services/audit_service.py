@@ -19,7 +19,7 @@ from app.models.audit_log import AuditLog, IntegrityCheck
 from app.models.transaction import Transaction, TransactionLine
 from app.models.account import Account
 from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
-from app.core.money import json_dumps
+from app.core.money import json_dumps, plain
 
 logger = logging.getLogger(__name__)
 
@@ -368,7 +368,7 @@ def check_liability_threshold(db: Session, threshold: int = 0) -> list[AuditFind
         ).scalar_one_or_none()
         if setting:
             try:
-                threshold = int(setting.value)
+                threshold = plain(setting.value)       # int("499.99") raised, and switched the check off
             except (ValueError, TypeError):
                 threshold = 0
 
@@ -383,7 +383,7 @@ def check_liability_threshold(db: Session, threshold: int = 0) -> list[AuditFind
         .join(Account, Account.id == TransactionLine.account_id)
         .where(Account.code.like("2%"))
     ).one()
-    total_liabilities = int((balances[0] or 0) - (balances[1] or 0))
+    total_liabilities = plain((balances[0] or 0) - (balances[1] or 0))
 
     if total_liabilities > threshold:
         findings.append(AuditFinding(

@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.models.ai_accountant import AIProposal
 from app.models.app_setting import AppSetting
-from app.core.money import json_dumps
+from app.core.money import json_dumps, plain
 
 SETTINGS_KEY = "ai_guardrails"
 APPROVAL_TTL = timedelta(days=7)
@@ -64,12 +64,12 @@ def get_settings(db: Session) -> dict:
         except ValueError:
             saved = {}
         t = saved.get("approval_threshold")
-        out["approval_threshold"] = int(t) if isinstance(t, (int, float)) and t > 0 else None
+        out["approval_threshold"] = plain(t) if isinstance(t, (int, float)) and not isinstance(t, bool) and t > 0 else None
     return out
 
 
-def save_settings(db: Session, *, approval_threshold: int | None) -> dict:
-    value = int(approval_threshold) if approval_threshold else None
+def save_settings(db: Session, *, approval_threshold) -> dict:
+    value = plain(approval_threshold) if approval_threshold else None
     if value is not None and value < 0:
         raise ValueError("The threshold can't be negative.")
     row = _row(db)

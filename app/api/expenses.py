@@ -41,6 +41,7 @@ from app.services.expense_settings import (
 from app.services.fx_service import get_reporting_currency
 from app.services.period_service import assert_period_open
 from app.services.book_text import book_value, bt
+from app.core.money import Money, plain, quantize, to_decimal
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -55,7 +56,11 @@ _date = date
 class ExpenseSettingsPayload(BaseModel):
     mileage_rate: float | None = Field(None, ge=0)
     mileage_unit: str | None = None
-    approval_threshold: int | None = Field(None, ge=0)
+    approval_threshold: Money | None = Field(None, ge=0)
+
+
+_UNITS = {"mile": "mile", "miles": "mile", "mi": "mile", "km": "km", "kms": "km", "kilometre": "km",
+          "kilometres": "km", "kilometer": "km", "kilometers": "km"}
 
 
 class MileageCreate(BaseModel):
@@ -75,10 +80,6 @@ class MileageCreate(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _round(x: float) -> int:
-    return int(x + 0.5)
-
-
 def _claim_read(c: MileageClaim) -> dict:
     return {
         "id": str(c.id),
@@ -88,7 +89,7 @@ def _claim_read(c: MileageClaim) -> dict:
         "distance": float(c.distance or 0),
         "unit": c.unit,
         "rate": float(c.rate or 0),
-        "amount": int(c.amount or 0),
+        "amount": plain(c.amount or 0),
         "currency": c.currency,
         "purpose": c.purpose,
         "status": c.status,
@@ -117,7 +118,7 @@ def _post(db: Session, *, on: date, reference: str, description: str, currency: 
         if not acc:
             raise HTTPException(status_code=422, detail=f"Account not found: {code}")
         db.add(TransactionLine(transaction_id=txn.id, account_id=acc.id,
-                               debit=int(debit), credit=int(credit), line_description=line_desc))
+                               debit=plain(debit), credit=plain(credit), line_description=line_desc))
     db.flush()
     log_audit_event(db, action="create", entity_type="transaction", entity_id=str(txn.id),
                     detail=description)
@@ -150,8 +151,14 @@ def read_settings(db: Session = Depends(get_db)) -> dict:
 
 @router.post("/settings")
 def write_settings(payload: ExpenseSettingsPayload, db: Session = Depends(get_db)) -> dict:
+    unit = payload.mileage_unit
+    if unit is not None:
+        # the page offers "mile" and "km"; "mi" was saved as is and the page showed no unit
+        unit = _UNITS.get(unit.strip().lower())
+        if unit is None:
+            raise HTTPException(status_code=422, detail="The mileage unit is mile or km.")
     return set_expense_settings(
-        db, mileage_rate=payload.mileage_rate, mileage_unit=payload.mileage_unit,
+        db, mileage_rate=payload.mileage_rate, mileage_unit=unit,
         approval_threshold=payload.approval_threshold,
     )
 
@@ -194,8 +201,9 @@ def create_mileage(payload: MileageCreate, db: Session = Depends(get_db)) -> dic
     if not name:
         raise HTTPException(status_code=422, detail="An employee name (or entity) is required.")
 
-    amount = _round(payload.distance * rate)
-    threshold = int(settings["approval_threshold"])
+    # to the claim currency's places: 123 miles at 45p is £55.35, not £55 (docs/PLAN_PENCE.md)
+    amount = quantize(to_decimal(repr(float(payload.distance))) * to_decimal(rate), cur)   # half-up, as it always was
+    threshold = plain(settings["approval_threshold"])
     needs_approval = threshold > 0 and amount > threshold
 
     claim = MileageClaim(

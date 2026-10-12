@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.http_headers import content_disposition
+from app.core.money import Money, plain
 from app.core.messages import said
 from app.core.spreadsheet import CSV_MEDIA_TYPE, csv_bytes, csv_writer
 from app.api.transactions import _create_transaction_from_payload
@@ -610,7 +611,7 @@ def _open_invoice_aging(db: Session, kind: str, from_date, to_date) -> dict:
             "invoice_id": str(inv.id),
             "invoice_number": inv.number,
             party_key: entities.get(inv.entity_id).name if inv.entity_id and entities.get(inv.entity_id) else "Unknown",
-            "amount": int(inv.amount or 0),
+            "amount": plain(inv.amount or 0),
             "amount_paid": paid,
             "credited": credited,
             "balance_due": balance_due,
@@ -724,7 +725,7 @@ def inventory_balance_report(
 @router.patch("/inventory/items/{item_id}/price")
 def update_inventory_price(
     item_id: UUID,
-    list_price: int = Query(..., ge=0),
+    list_price: Money = Query(..., ge=0),
     db: Session = Depends(get_db),
 ) -> dict:
     """Update the list price for an inventory item."""
@@ -960,7 +961,7 @@ def sales_trend(
         key = period_key(inv.issue_date, granularity, cal)       # the company's calendar (§3.5)
 
         by_period[key]["quantity"] += float(item.quantity or 0)
-        by_period[key]["sales_amount"] += int(item.line_total or 0)
+        by_period[key]["sales_amount"] += plain(item.line_total or 0)
         if inv.id not in seen_invoices[key]:
             seen_invoices[key].add(inv.id)
             by_period[key]["invoice_count"] += 1
@@ -1183,10 +1184,10 @@ def trial_balance_by_currency(
             traceback.print_exc(file=sys.stderr); sys.stderr.flush()
             raise
         totals = rep.totals or {}
-        total_debit_turnover = int(totals.get("debit_turnover", 0) or 0)
-        total_credit_turnover = int(totals.get("credit_turnover", 0) or 0)
-        total_debit_balance = int(totals.get("debit_balance", 0) or 0)
-        total_credit_balance = int(totals.get("credit_balance", 0) or 0)
+        total_debit_turnover = plain(totals.get("debit_turnover", 0) or 0)
+        total_credit_turnover = plain(totals.get("credit_turnover", 0) or 0)
+        total_debit_balance = plain(totals.get("debit_balance", 0) or 0)
+        total_credit_balance = plain(totals.get("credit_balance", 0) or 0)
         block = {
             "currency": ccy,
             "rows": [r.model_dump() if hasattr(r, "model_dump") else r for r in rep.rows],

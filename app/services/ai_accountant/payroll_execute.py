@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models.ai_accountant import AIProposal
 from app.services.ai_accountant.time_execute import _audit
+from app.core.money import plain
 
 
 def execute_payroll_proposal(
@@ -55,10 +56,10 @@ def execute_payroll_proposal(
             row = db.execute(select(BudgetLimit).where(BudgetLimit.month == key,
                                                        BudgetLimit.category.ilike(p["category"]))).scalars().first()
             if row is None:
-                row = BudgetLimit(month=key, category=p["category"], limit_amount=int(p["amount"]))
+                row = BudgetLimit(month=key, category=p["category"], limit_amount=plain(p["amount"]))
                 db.add(row)
             else:
-                row.limit_amount = int(p["amount"])
+                row.limit_amount = plain(p["amount"])
             db.flush()
             ids.append(str(row.id))
         audit_id = _audit(db, proposal, entity_type="budget", entity_id=ids[0],

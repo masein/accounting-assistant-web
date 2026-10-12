@@ -45,6 +45,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.money import plain
 from app.models.commitment import (
     BOUNCED,
     CHEQUE,
@@ -152,7 +153,7 @@ def _post_lines(db: Session, row: Commitment, what: str, on: date, lines: list):
         links = [EntityLink(entity_id=row.entity_id, role="client" if row.direction == RECEIVE else "supplier")]
     payload = TransactionCreate(
         date=on, reference=(row.reference or row.sayad_id or None), description=_label(db, row, what),
-        lines=[TransactionLineCreate(account_code=code, debit=int(dr), credit=int(cr))
+        lines=[TransactionLineCreate(account_code=code, debit=plain(dr), credit=plain(cr))
                for code, dr, cr in lines if code and (dr or cr)],
         entity_links=links,
     )
@@ -189,7 +190,7 @@ def _invoice(db: Session, invoice_id, direction: str):
 def _pay_invoice(db: Session, row: Commitment, inv, on: date, account: str, action: str):
     """The invoice's payment by this cheque, into (or out of) ``account``."""
     from app.api.invoices import _apply_payment
-    payment, _credit = _apply_payment(db, inv, amount=int(row.amount), on=on, method="cheque",
+    payment, _credit = _apply_payment(db, inv, amount=plain(row.amount), on=on, method="cheque",
                                       bank_code=account, reference=row.reference or row.sayad_id or inv.number,
                                       description=_label(db, row, action))
     db.flush()
@@ -263,8 +264,11 @@ def record(db: Session, *, title: str, amount: int, due_date: date, direction: s
     sayad = validate_sayad(sayad_id)
     _unique_sayad(db, sayad)
     inv = _invoice(db, invoice_id, direction) if invoice_id else None
+    from app.services.fx_base import base_currency
+    from app.services.ledger_posting import assert_amount_places
+    assert_amount_places(getattr(inv, "currency", None) or base_currency(db), [amount])   # pence, not a third place
     row = Commitment(
-        kind=CHEQUE, direction=direction, title=title, amount=int(amount), due_date=due_date, status=PENDING,
+        kind=CHEQUE, direction=direction, title=title, amount=plain(amount), due_date=due_date, status=PENDING,
         reference=reference or None, bank_name=bank_name or None, counterparty=counterparty or None,
         counter_account_code=counter_account_code or None, note=note, sayad_id=sayad,
         sayad_registered_on=sayad_registered_on, invoice_id=getattr(inv, "id", None),

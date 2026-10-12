@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.http_headers import content_disposition
+from app.core.money import Money, plain
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.invoice import Invoice
@@ -44,7 +45,7 @@ class ProjectUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=256)
     status: str | None = Field(None, pattern="^(active|closed)$")
     budget_hours: float | None = Field(None, ge=0, le=1_000_000)
-    budget_amount: int | None = Field(None, ge=0)
+    budget_amount: Money | None = Field(None, ge=0)
 
 
 class RateOverrideCreate(BaseModel):
@@ -656,7 +657,7 @@ def create_time_invoice(payload: InvoiceFromTimeRequest, db: Session = Depends(g
     except TimeBillingError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     return {
-        "invoice_id": str(inv.id), "number": inv.number, "amount": int(inv.amount or 0),
+        "invoice_id": str(inv.id), "number": inv.number, "amount": plain(inv.amount or 0),
         "currency": inv.currency, "status": inv.status, "preview": preview,
         "pdf_url": f"/time/invoice/{inv.id}/pdf",
     }
@@ -688,8 +689,9 @@ def time_invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Respons
     # Rebuild the grouped view from the billed entries (project → employee).
     cur = inv.currency or tbs.company_currency(db)
 
-    def money(n: int) -> str:
-        return f"{int(n):,} {cur}"
+    def money(n) -> str:
+        from app.services.documents.formatting import fmt_amount
+        return f"{fmt_amount(n, cur)} {cur}"
 
     groups: dict = {}
     for e in entries:

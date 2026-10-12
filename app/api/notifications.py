@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.api.reports import get_owner_dashboard
 from app.core.config import settings
+from app.core.money import Money
 from app.db.session import get_db
 from app.schemas.notification import NotificationCheckResponse, NotificationItem
 from app.services.digest_service import (
@@ -81,7 +82,7 @@ async def check_notifications(
 # ---------------------------------------------------------------------------
 class DigestSettingsPayload(BaseModel):
     enabled: bool | None = None
-    cash_threshold: int | None = None
+    cash_threshold: Money | None = None
     runway_months: float | None = None
     channel: str | None = None
 

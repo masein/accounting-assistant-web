@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.models.fixed_asset import FixedAsset
 from app.services import fixed_assets as svc
 from app.services.audit_service import log_audit_event
+from app.core.money import Money, plain
 
 router = APIRouter(prefix="/fixed-assets", tags=["fixed-assets"])
 
@@ -22,15 +23,15 @@ _MAX = 10**15
 class AssetCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=256)
     category: str = Field("other", max_length=48)
-    cost: int = Field(..., gt=0, le=_MAX)
-    residual: int = Field(0, ge=0, le=_MAX)
+    cost: Money = Field(..., gt=0, le=_MAX)
+    residual: Money = Field(0, ge=0, le=_MAX)
     acquired_on: date
     in_service_on: date | None = None
     depreciation_start: date | None = None
     method: str | None = Field(None, pattern="^(straight_line|declining_balance)$")
     life_months: int | None = Field(None, ge=1, le=1200)
     rate_bps: int | None = Field(None, ge=1, le=10_000)
-    opening_accumulated: int = Field(0, ge=0, le=_MAX)
+    opening_accumulated: Money = Field(0, ge=0, le=_MAX)
     opening_date: date | None = None
     currency: str | None = Field(None, max_length=8)
     entity_id: UUID | None = None
@@ -52,7 +53,7 @@ class AssetUpdate(BaseModel):
     location: str | None = Field(None, max_length=128)
     description: str | None = Field(None, max_length=2000)
     entity_id: UUID | None = None
-    residual: int | None = Field(None, ge=0, le=_MAX)
+    residual: Money | None = Field(None, ge=0, le=_MAX)
     method: str | None = Field(None, pattern="^(straight_line|declining_balance)$")
     life_months: int | None = Field(None, ge=1, le=1200)
     rate_bps: int | None = Field(None, ge=1, le=10_000)
@@ -65,7 +66,7 @@ class RunRequest(BaseModel):
 
 class DisposeRequest(BaseModel):
     on: date
-    proceeds: int = Field(0, ge=0, le=_MAX)
+    proceeds: Money = Field(0, ge=0, le=_MAX)
     bank_account_code: str | None = Field(None, max_length=16)
 
 
@@ -149,8 +150,8 @@ def update_asset(asset_id: UUID, body: AssetUpdate, db: Session = Depends(get_db
         else:
             life = None
         # validate before touching the row: the session is shared on a 4xx
-        svc.validate_terms(method, life, rate, int(a.cost), int(changes.get("residual", a.residual) or 0),
-                           int(a.opening_accumulated or 0))
+        svc.validate_terms(method, life, rate, plain(a.cost), plain(changes.get("residual", a.residual) or 0),
+                           plain(a.opening_accumulated or 0))
     if "name" in changes and not (changes["name"] or "").strip():
         raise HTTPException(status_code=422, detail="An asset needs a name.")
     for key in ("name", "serial_number", "location", "description", "entity_id"):

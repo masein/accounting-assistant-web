@@ -23,6 +23,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.core.money import plain
 from app.models.employee_pay import EmployeePayProfile
 from app.models.pay_run import PayRun, PayRunLine
 
@@ -37,9 +38,9 @@ def _run_row(run: PayRun) -> dict[str, Any]:
         "id": str(run.id), "period_start": run.period_start.isoformat(), "period_end": run.period_end.isoformat(),
         "pay_date": run.pay_date.isoformat(), "status": run.status, "currency": run.currency,
         "kind": run.kind or "regular", "year_key": run.year_key,             # year_end = عیدی و سنوات
-        "employees": len(run.lines), "total_gross": int(run.total_gross or 0), "total_tax": int(run.total_tax or 0),
-        "total_social": int(run.total_social or 0), "total_deductions": int(run.total_deductions or 0),
-        "total_net": int(run.total_net or 0), "employer_social": int(run.total_employer_social or 0),
+        "employees": len(run.lines), "total_gross": plain(run.total_gross or 0), "total_tax": plain(run.total_tax or 0),
+        "total_social": plain(run.total_social or 0), "total_deductions": plain(run.total_deductions or 0),
+        "total_net": plain(run.total_net or 0), "employer_social": plain(run.total_employer_social or 0),
     }
 
 
@@ -126,9 +127,9 @@ class GetPayroll(BaseTool):
                 "run_id": str(run.id),
                 "period_start": run.period_start.isoformat(), "period_end": run.period_end.isoformat(),
                 "pay_date": run.pay_date.isoformat(), "status": run.status, "currency": run.currency,
-                "gross": int(ln.gross or 0), "income_tax": int(ln.income_tax or 0),
-                "social_security": int(ln.social_security or 0), "deductions": int(ln.pre_tax_deductions or 0),
-                "net_pay": int(ln.net_pay or 0), "hours": float(ln.hours or 0), "overtime_hours": float(ln.overtime_hours or 0),
+                "gross": plain(ln.gross or 0), "income_tax": plain(ln.income_tax or 0),
+                "social_security": plain(ln.social_security or 0), "deductions": plain(ln.pre_tax_deductions or 0),
+                "net_pay": plain(ln.net_pay or 0), "hours": float(ln.hours or 0), "overtime_hours": float(ln.overtime_hours or 0),
             })
             t = totals.setdefault(run.currency, {"gross": 0, "income_tax": 0, "social_security": 0, "net_pay": 0, "runs": 0})
             for k in ("gross", "income_tax", "social_security", "net_pay"):
@@ -136,7 +137,7 @@ class GetPayroll(BaseTool):
             t["runs"] += 1
         prof = ctx.db.execute(select(EmployeePayProfile).where(EmployeePayProfile.entity_id == ent.id)).scalars().first()
         profile = None if prof is None else {
-            "pay_type": prof.pay_type, "base_salary": int(prof.base_salary or 0), "hourly_rate": int(prof.hourly_rate or 0),
+            "pay_type": prof.pay_type, "base_salary": plain(prof.base_salary or 0), "hourly_rate": plain(prof.hourly_rate or 0),
             "currency": prof.currency, "active": bool(prof.active), "tax_mode": prof.tax_mode}
         return {"employee": ent.name, "entity_id": str(ent.id), "profile": profile, "history": history,
                 "totals_by_currency": totals}
@@ -200,7 +201,7 @@ class ProposeRunPayroll(BaseTool):
                 f"{n} ({a}–{b}, {s})" for n, a, b, s in clashes[:6]) + ". Void that run first, or use it.",
                 code="pay_run_overlap")
         people = [{"entity_id": str(e.id), "name": e.name, "pay_type": p.pay_type,
-                   "base_salary": int(p.base_salary or 0), "hourly_rate": int(p.hourly_rate or 0),
+                   "base_salary": plain(p.base_salary or 0), "hourly_rate": plain(p.hourly_rate or 0),
                    "currency": p.currency} for e, p in sorted(chosen, key=lambda ep: ep[0].name)]
         payload = {"period_start": args.period_start.isoformat(), "period_end": args.period_end.isoformat(),
                    "pay_date": pay_date.isoformat(), "entity_ids": [p["entity_id"] for p in people] if args.employees else None,
@@ -233,7 +234,7 @@ class ProposePostPayRun(BaseTool):
         run = find_run(ctx, args.run, status=None if args.run else "draft")
         if run.status != "draft":
             raise ToolError(f"The {run.period_start}–{run.period_end} run is already {run.status}.", code="pay_run_not_draft")
-        if not run.lines or int(run.total_gross or 0) <= 0:
+        if not run.lines or (run.total_gross or 0) <= 0:
             raise ToolError("That run has nothing to post.", code="pay_run_empty")
         r = _run_row(run)
         payload = {"run_id": r["id"], "period_start": r["period_start"], "period_end": r["period_end"],
@@ -244,8 +245,8 @@ class ProposePostPayRun(BaseTool):
                    f"{r['total_social']:,}, deductions {r['total_deductions']:,}; net pay owed {r['total_net']:,}"
                    + (f"; employer insurance {r['employer_social']:,}" if r["employer_social"] else "") + ".")
         return {"confirmation_token": str(token), "status": "pending", "summary": summary,
-                "preview": {**payload, **r, "lines": [{"name": ln.employee_name, "gross": int(ln.gross or 0),
-                                                       "net_pay": int(ln.net_pay or 0)} for ln in run.lines]}}
+                "preview": {**payload, **r, "lines": [{"name": ln.employee_name, "gross": plain(ln.gross or 0),
+                                                       "net_pay": plain(ln.net_pay or 0)} for ln in run.lines]}}
 
 
 class ProposePayPayRunInput(PayRunRefInput):

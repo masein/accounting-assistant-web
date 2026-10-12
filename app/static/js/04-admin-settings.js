@@ -662,7 +662,7 @@
         try {
           const res = await fetch(API + '/ai-accountant/guardrails', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ approval_threshold: v === null ? null : Math.round(v) }) });
+            body: JSON.stringify({ approval_threshold: v === null ? null : parseMoney(v) }) });
           const d = await res.json().catch(() => ({}));
           if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('aiUsageSaveFailed'), true); return; }
           renderGuardrails(d);

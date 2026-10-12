@@ -24,7 +24,7 @@
    - Kuwaiti, Bahraini and Omani dinars have 3.
    - `app/core/money.exponent()` is the only table.
 2. **An amount never has more places than its currency.** £7.505 and 2,500,000.5 rials are refused with a sentence a person can act on.
-   - A unit price may go to 4 places (£0.1250).
+   - A unit price may go to 4 places (£0.1250). So may an hourly rate; a salary is an amount and has its currency's places.
    - A line's total is rounded to the currency's places.
 3. **Rounding is half-up, at the point a figure is made:** VAT on a line, a payslip's tax, a base amount, a depreciation charge. It never happens when an amount is read.
 4. **Display:**
@@ -32,6 +32,9 @@
    - Rials show none.
    - Chart axes and compact figures («£23.9k») stay compact.
 5. **JSON:** whole amounts are integers and others are numbers with their places (`7.5`). Every client already reads integers.
+   - That holds for every response, including routes that return a plain dict: pydantic writes a `Decimal` it finds in a dict as a string («"1250.75"»), so `money.install_json_numbers()` sends every amount through `for_json` first.
+6. **Splits put the odd penny in one place.** An installment plan front-loads it (£100 in 3 is £33.34, £33.33, £33.33). A dividend gives it to the last holder in the allocation. Depreciation schedules and accrual periods add up to the exact total.
+7. **Rials round as they always did.** Payroll and mileage were half-up, so they stay half-up; invoice lines kept Python's `round()`. The Iranian year-end (eidi, sanavat) is rials only and is unchanged.
 
 ## Phases (one PR each)
 
@@ -41,7 +44,7 @@
 | **P2, the ledger and statements** | Journal lines (API, web forms, imports) take pence and are refused past their currency's places; base amounts, FX conversions and realised FX in the base currency's places; every report that reads the ledger keeps pence (no `int()` on sums; response fields `Money`); the statement reader keeps pence (CSV, Excel, OCR, vision) and the import rounds to the statement's currency; statement review reconciles to the penny; JSON columns and the phone's stream write amounts with pence; the chat's voucher tool and its prompt; the phone reads and edits pence (exact amounts, «£7.50»); the web shows «7.50» where it showed «7.5» | A Barclays statement with a £7.50 fee posts £7.50 and the balance check closes at 0 |
 | **P3, sales and purchases** | Invoices, items, VAT per line, payments, credit notes, quotes, recurring invoices, purchase orders; their forms, PDFs (pence in words: «… pounds and fifty pence»), AR/AP and aging; HMRC VAT boxes 1–5 to the penny | A £19.99 + 20% VAT invoice is £23.99, paid in two parts to £0.00 |
 | **P4, the other modules** | Payroll (UK rates, thresholds and rounding to the penny), expenses and mileage (45p a mile), petty cash, fixed assets, inventory, equity, budgets, commitments, recurring rules, savings goals, thresholds in settings | A £12.21 hourly rate and a payslip agree with HMRC's calculator to the penny |
-| **P5, words and files** | The accountant's words (every tool's figures, the quick answers), notifications and digests, CSV and Excel exports (`#,##0.00`), cheque printing, close pack and report card; the web shows every amount in a currency with places with them («£950.00»), not only those with pence; averages and runway to the penny; the bots | Every sentence and file says £7.50 where the books hold 7.50 |
+| **P5, words and files** | The accountant's words (every tool's figures, the quick answers), notifications and digests, CSV and Excel exports (`#,##0.00`), cheque printing, close pack and report card; the web shows every amount in a currency with places with them («£950.00»), not only those with pence; averages and runway to the penny (subscription medians, goal pace, burn rate), the chat's chart blocks; the bots | Every sentence and file says £7.50 where the books hold 7.50 |
 Imports (Sepidar, journals, Excel, SMS) take pence from P2 for statements and from P3/P4 for their module. Sepidar and bank SMS stay rial-only.
 
 ## Risks and how each is caught

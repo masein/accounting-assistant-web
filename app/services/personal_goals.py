@@ -14,6 +14,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.money import plain
 from app.models.account import Account
 from app.models.savings_goal import SavingsGoal
 from app.services.reporting.common import ASSET, classify_account_code
@@ -29,7 +30,7 @@ def _values(db: Session, on: date) -> dict[str, int]:
     """Each asset account's value on a date — market value where holdings revalue it."""
     from app.services.net_worth_service import compute_net_worth
     nw = compute_net_worth(db, as_of=on, with_trend=False)
-    return {ln.account_code: int(ln.market_value) for ln in nw.assets}
+    return {ln.account_code: plain(ln.market_value) for ln in nw.assets}
 
 
 def months_left(today: date, target: date, cal: str) -> int:
@@ -43,7 +44,7 @@ def months_left(today: date, target: date, cal: str) -> int:
 def check(db: Session, *, name: str, account_code: str, target_amount: int) -> Account:
     if not (name or "").strip():
         raise GoalError("Give the goal a name.")
-    if int(target_amount or 0) <= 0:
+    if plain(target_amount or 0) <= 0:
         raise GoalError("The target must be more than zero.")
     acc = db.execute(select(Account).where(Account.code == (account_code or "").strip())).scalars().first()
     if acc is None:
@@ -67,7 +68,7 @@ def progress(db: Session, goals: list[SavingsGoal], *, today: date | None = None
     out = []
     for g in goals:
         current = now.get(g.account_code, 0)
-        target = int(g.target_amount)
+        target = plain(g.target_amount)
         remaining = max(0, target - current)
         pace = (current - before.get(g.account_code, 0)) / PACE_MONTHS
         left = months_left(today, g.target_date, cal) if g.target_date else None

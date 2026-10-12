@@ -8,6 +8,8 @@ balances. Voiding an invoice un-bills its entries (handled in the void path).
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 from datetime import date, timedelta
 from uuid import UUID
 
@@ -21,14 +23,18 @@ from app.models.time_billing import BillingRateOverride, Project, TimeEntry
 from app.services.fx_service import get_reporting_currency
 from app.services.locale_service import get_reporting_locale
 from app.services.book_text import book_date, bt
+from app.core.money import exponent, plain, to_decimal
 
 
 class TimeBillingError(ValueError):
     """Invalid time-billing request (no rate, mixed currency, nothing to bill…)."""
 
 
-def _round(x: float) -> int:
-    return int(x + 0.5) if x >= 0 else -int(-x + 0.5)
+def _round(x, places: int = 0):
+    """Half-up, away from zero, to the currency's places (whole rials as
+    before, pence for pounds); exact — a float goes through its repr."""
+    from decimal import ROUND_HALF_UP
+    return plain(to_decimal(x).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
 
 
 def company_currency(db: Session) -> str:
@@ -190,6 +196,7 @@ def build_preview(db: Session, *, client_id, project_id=None, date_from=None, da
             f"({', '.join(sorted(currencies))}). Invoice each currency separately."
         )
     currency = (next(iter(currencies)) if currencies else company_currency(db))
+    places = exponent(currency)                 # pence for pounds, whole rials (docs/PLAN_PENCE.md)
 
     # Order groups by project name, then employee.
     proj_names: dict = {}
@@ -204,7 +211,7 @@ def build_preview(db: Session, *, client_id, project_id=None, date_from=None, da
 
     by_project: dict = {}
     for (pid, _eid), g in groups.items():
-        amount = _round(g["hours"] * g["rate"])
+        amount = _round(to_decimal(g["hours"]) * to_decimal(g["rate"]), places)
         line = {
             "employee_id": g["employee_id"], "employee_name": g["employee_name"],
             "hours": round(g["hours"], 2), "rate": g["rate"], "amount": amount,
@@ -224,7 +231,7 @@ def build_preview(db: Session, *, client_id, project_id=None, date_from=None, da
 
     manual = []
     for m in (manual_lines or []):
-        amt = int(m.get("amount") or 0)
+        amt = plain(m.get("amount") or 0)
         if amt:
             manual.append({"description": (m.get("description") or "Manual line"), "amount": amt})
 
@@ -233,9 +240,9 @@ def build_preview(db: Session, *, client_id, project_id=None, date_from=None, da
     if vat_rate > 0:
         for b in groups_out:
             for ln in b["lines"]:
-                tax += _round(ln["amount"] * vat_rate / 100.0)
+                tax += _round(to_decimal(ln["amount"]) * to_decimal(vat_rate) / 100, places)
         for m in manual:
-            tax += _round(m["amount"] * vat_rate / 100.0)
+            tax += _round(to_decimal(m["amount"]) * to_decimal(vat_rate) / 100, places)
     total = subtotal + tax
 
     dates = [e.work_date for e in entries]
@@ -298,7 +305,7 @@ def create_invoice_from_time(db: Session, *, client_id, project_id=None, date_fr
                 label = f"{label}: {ln['description']}"
             items.append(InvoiceItemCreate(
                 product_name=label[:256], quantity=float(ln["hours"]),
-                unit_price=_round(ln["rate"]), line_total=ln["amount"],
+                unit_price=_round(ln["rate"], exponent(preview.get("currency"))), line_total=ln["amount"],
                 tax_code=vat_code, tax_treatment=treatment,
             ))
             entry_ids.extend(ln["entry_ids"])
@@ -454,14 +461,14 @@ def project_budget_usage(db: Session, projects: list[Project]) -> dict[str, dict
         if (rate_cur or "").upper() != cur_of[str(pid)]:
             o["unpriced_hours"] += h
             continue
-        o["amount_used"] += _round(h * rate)
+        o["amount_used"] += _round(to_decimal(h) * to_decimal(rate), exponent(cur_of[str(pid)]))
     for p in projects:
         o = out[str(p.id)]
         o["hours_used"] = round(o["hours_used"], 2)
         o["hours_billed"] = round(o["hours_billed"], 2)
         o["unpriced_hours"] = round(o["unpriced_hours"], 2)
         bh = float(p.budget_hours) if p.budget_hours is not None else None
-        ba = int(p.budget_amount) if p.budget_amount is not None else None
+        ba = plain(p.budget_amount) if p.budget_amount is not None else None
         o["budget_hours"], o["budget_amount"] = bh, ba
         o["hours_pct"] = round(o["hours_used"] / bh * 100, 1) if bh else None
         o["amount_pct"] = round(o["amount_used"] / ba * 100, 1) if ba else None

@@ -6,12 +6,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.core.money import Money
+
 
 class RecurringRuleBase(BaseModel):
     name: str = Field(..., min_length=1)
     direction: str = Field(default="payment", description="payment|receipt")
     frequency: str = Field(default="monthly", description="daily|weekly|monthly|quarterly|yearly")
-    amount: int | None = Field(default=None, ge=0)
+    amount: Money | None = Field(default=None, ge=0)
     start_date: date
     next_run_date: date
     end_date: date | None = None
@@ -35,7 +37,7 @@ class RecurringRuleUpdate(BaseModel):
     name: str | None = None
     direction: str | None = None
     frequency: str | None = None
-    amount: int | None = Field(default=None, ge=0)
+    amount: Money | None = Field(default=None, ge=0)
     start_date: date | None = None
     next_run_date: date | None = None
     end_date: date | None = None

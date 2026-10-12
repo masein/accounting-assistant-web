@@ -442,6 +442,7 @@ EXACT: dict[str, dict[str, str]] = {
     'No mileage rate set — configure one in expense settings.': {"fa": 'نرخ ایاب و ذهاب تعیین نشده است؛ در تنظیمات هزینه یکی تعریف کنید.', "es": 'No hay tarifa de kilometraje: configura una en los ajustes de gastos.', "ar": 'لم يُحدد سعر للمسافة — اضبطه في إعدادات المصروفات.'},
     'Only an approved, posted claim can be reimbursed.': {"fa": 'فقط درخواستِ تأییدشده و ثبت\u200cشده بازپرداخت می\u200cشود.', "es": 'Solo se reembolsa una solicitud aprobada y contabilizada.', "ar": 'لا تُسدّد إلا المطالبة المعتمدة والمرحّلة.'},
     'You can only claim your own mileage.': {"fa": 'فقط می\u200cتوانید ایاب و ذهاب خودتان را درخواست کنید.', "es": 'Solo puedes reclamar tu propio kilometraje.', "ar": 'يمكنك المطالبة بمسافتك فقط.'},
+    'The mileage unit is mile or km.': {"fa": 'واحد مسافت مایل یا کیلومتر است.', "es": 'La unidad de distancia es milla o km.', "ar": 'وحدة المسافة هي الميل أو الكيلومتر.'},
     "Your account isn't linked to an employee record — ask the owner to link it before claiming.": {"fa": 'حساب شما به پرونده کارمندی متصل نیست؛ از مالک بخواهید پیش از درخواست، آن را متصل کند.', "es": 'Tu cuenta no está vinculada a un empleado: pide al propietario que la vincule antes de reclamar.', "ar": 'حسابك غير مرتبط بسجل موظف — اطلب من المالك ربطه قبل المطالبة.'},
     'Snapshot not found': {"fa": 'نسخه پیدا نشد', "es": 'Instantánea no encontrada', "ar": 'اللقطة غير موجودة'},
     'An asset needs a name.': {"fa": 'دارایی به نام نیاز دارد.', "es": 'Un activo necesita un nombre.', "ar": 'يحتاج الأصل إلى اسم.'},

@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.core.money import Money, plain
 from app.models.commitment import OPEN_STATUSES, Commitment
 
 from .base import BaseTool, ToolContext, ToolError
@@ -22,7 +23,7 @@ from .time_tools import _register
 
 def _row(c: Commitment, today: _date) -> dict[str, Any]:
     return {
-        "id": str(c.id), "kind": c.kind, "direction": c.direction, "title": c.title, "amount": int(c.amount or 0),
+        "id": str(c.id), "kind": c.kind, "direction": c.direction, "title": c.title, "amount": plain(c.amount or 0),
         "due_date": c.due_date.isoformat(), "status": c.status, "reference": c.reference, "bank_name": c.bank_name,
         "counterparty": c.counterparty, "sequence": c.sequence, "plan_total": c.plan_total,
         "sayad_id": c.sayad_id, "sayad_registered": c.sayad_registered_on is not None,
@@ -109,7 +110,7 @@ class ProposeSettleCommitment(BaseTool):
         if c.status in ("returned", "endorsed", "cancelled"):
             raise ToolError(f"{c.title} is {c.status}; it cannot clear.", code="not_open")
         when = args.date or _date.today()
-        payload = {"commitment_id": str(c.id), "title": c.title, "amount": int(c.amount or 0), "date": when.isoformat(),
+        payload = {"commitment_id": str(c.id), "title": c.title, "amount": plain(c.amount or 0), "date": when.isoformat(),
                    "direction": c.direction, "kind": c.kind}
         token = _register(ctx, self.name, payload)
         verb = "paid" if c.direction == "pay" else "received"
@@ -138,7 +139,7 @@ class ProposeBounceCheque(BaseTool):
         if c.status not in ("pending", "deposited") or (c.direction == "pay" and c.status != "pending"):
             raise ToolError(f"'{c.title}' is {c.status}; only a cheque in hand, deposited or issued can bounce.",
                             code="cannot_bounce")
-        payload = {"commitment_id": str(c.id), "title": c.title, "amount": int(c.amount or 0)}
+        payload = {"commitment_id": str(c.id), "title": c.title, "amount": plain(c.amount or 0)}
         token = _register(ctx, self.name, payload)
         return {"confirmation_token": str(token), "status": "pending",
                 "summary": f"Cheque '{c.title}' ({c.amount:,}, due {c.due_date.isoformat()}) marked bounced — still owed.", "preview": payload}
@@ -146,7 +147,7 @@ class ProposeBounceCheque(BaseTool):
 
 class ProposeCreateChequeInput(BaseModel):
     title: str = Field(..., min_length=1, description="What the cheque is for / who it is with.")
-    amount: int = Field(..., gt=0)
+    amount: Money = Field(..., gt=0, description="In the cheque's currency, pence included: £600.50 is 600.50 (never ×100).")
     due_date: _date
     direction: str = Field("pay", description="pay = a cheque we issued; receive = a cheque we hold from a customer.")
     reference: str | None = Field(None, description="Cheque number (serial).")
@@ -224,7 +225,7 @@ class ProposeChequeStep(BaseTool):
         if c.status not in allowed or (action in ("deposit", "endorse") and c.direction != "receive"):
             raise ToolError(f"'{c.title}' ({c.direction}, {c.status}) cannot be {action}ed.", code="bad_step")
         when = args.date or _date.today()
-        payload = {"commitment_id": str(c.id), "title": c.title, "amount": int(c.amount or 0), "action": action,
+        payload = {"commitment_id": str(c.id), "title": c.title, "amount": plain(c.amount or 0), "action": action,
                    "date": when.isoformat(), "to": args.to, "account_code": args.account_code}
         if action == "endorse":
             if args.bill:

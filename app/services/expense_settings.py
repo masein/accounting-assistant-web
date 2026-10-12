@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.app_setting import AppSetting
 from app.services.locale_service import get_reporting_locale
+from app.core.money import plain
 
 _RATE_KEY = "expense_mileage_rate"
 _UNIT_KEY = "expense_mileage_unit"
@@ -47,7 +48,7 @@ def get_expense_settings(db: Session) -> dict:
     except ValueError:
         rate = d["rate"]
     try:
-        threshold = int(float(thr_raw)) if thr_raw not in (None, "") else 0
+        threshold = plain(thr_raw) if thr_raw not in (None, "") else 0      # pence kept
     except ValueError:
         threshold = 0
     return {
@@ -59,18 +60,18 @@ def get_expense_settings(db: Session) -> dict:
 
 def set_expense_settings(
     db: Session, *, mileage_rate: float | None = None,
-    mileage_unit: str | None = None, approval_threshold: int | None = None,
+    mileage_unit: str | None = None, approval_threshold=None,
 ) -> dict:
     if mileage_rate is not None:
         _set(db, _RATE_KEY, str(float(mileage_rate)))
     if mileage_unit is not None:
         _set(db, _UNIT_KEY, mileage_unit.strip())
     if approval_threshold is not None:
-        _set(db, _THRESHOLD_KEY, str(int(approval_threshold)))
+        _set(db, _THRESHOLD_KEY, str(plain(approval_threshold)))
     db.commit()
     return get_expense_settings(db)
 
 
-def get_approval_threshold(db: Session) -> int:
+def get_approval_threshold(db: Session):
     """The amount above which an expense must be routed for approval (0 = off)."""
-    return int(get_expense_settings(db)["approval_threshold"])
+    return plain(get_expense_settings(db)["approval_threshold"])

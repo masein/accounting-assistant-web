@@ -13,6 +13,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.core.money import Money
 from app.models.ai_accountant import AIProposal
 from app.models.entity import Entity
 
@@ -31,10 +32,17 @@ def _resolve_date(raw: str | None) -> str:
         raise ToolError(f"Invalid date {raw!r} — use YYYY-MM-DD.", code="invalid_date") from e
 
 
-def _check_amount(amount: int, what: str = "Amount") -> int:
-    amount = int(amount or 0)
+def _check_amount(amount, what: str = "Amount", db=None):
+    from app.core.money import check_places, plain
+    amount = plain(amount or 0)
     if amount <= 0:
-        raise ToolError(f"{what} must be a positive number of minor units.", code="invalid_amount")
+        raise ToolError(f"{what} must be a positive amount.", code="invalid_amount")
+    if db is not None:
+        from app.services.fx_base import base_currency
+        try:
+            check_places(amount, base_currency(db))
+        except ValueError as e:
+            raise ToolError(str(e), code="invalid_amount") from e
     if amount > _MAX_AMOUNT:
         raise ToolError(f"{what} {amount} is implausibly large — check the figure.", code="amount_too_large")
     return amount
@@ -92,7 +100,7 @@ def _envelope(token: str, tool_name: str, summary: str, payload: dict) -> dict[s
 class ProposeContributionInput(BaseModel):
     shareholder_name: str = Field(..., min_length=2, max_length=120,
                                   description="The shareholder who is contributing (must already be a shareholder).")
-    amount: int = Field(..., gt=0, description="Amount contributed, in minor units (e.g. 500000000 for 500m).")
+    amount: Money = Field(..., gt=0, description="Amount contributed, in the base currency, pence included: £600.50 is 600.50 (never ×100); 500m rials is 500000000.")
     date: str | None = Field(None, description="Entry date YYYY-MM-DD; defaults to today.")
     to_capital: bool = Field(True, description="True → credit share capital (raises registered capital); "
                                                "False → credit the shareholder's current account (not yet capitalised).")
@@ -111,7 +119,7 @@ class ProposeContribution(BaseTool):
     InputSchema = ProposeContributionInput
 
     async def run(self, ctx: ToolContext, args: ProposeContributionInput) -> dict[str, Any]:
-        amount = _check_amount(args.amount, "Contribution")
+        amount = _check_amount(args.amount, "Contribution", db=ctx.db)
         ent = _resolve_shareholder(ctx.db, args.shareholder_name)
         txn_date = _resolve_date(args.date)
         payload = {"entity_id": str(ent.id), "entity_name": ent.name, "amount": amount,
@@ -126,7 +134,7 @@ class ProposeContribution(BaseTool):
 # 2. Capital increase (افزایش سرمایه)
 # --------------------------------------------------------------------------- #
 class ProposeCapitalIncreaseInput(BaseModel):
-    amount: int = Field(..., gt=0, description="Amount to raise registered capital by, in minor units.")
+    amount: Money = Field(..., gt=0, description="Amount to raise registered capital by, in the base currency, pence included: £600.50 is 600.50 (never ×100).")
     source: Literal["retained_earnings", "cash", "revaluation_surplus"] = Field(
         "retained_earnings", description="Where the increase is funded from.")
     date: str | None = Field(None, description="Entry date YYYY-MM-DD; defaults to today.")
@@ -144,7 +152,7 @@ class ProposeCapitalIncrease(BaseTool):
     InputSchema = ProposeCapitalIncreaseInput
 
     async def run(self, ctx: ToolContext, args: ProposeCapitalIncreaseInput) -> dict[str, Any]:
-        amount = _check_amount(args.amount, "Capital increase")
+        amount = _check_amount(args.amount, "Capital increase", db=ctx.db)
         txn_date = _resolve_date(args.date)
         payload = {"amount": amount, "source": args.source, "date": txn_date}
         src = {"retained_earnings": "retained earnings", "cash": "new cash",
@@ -158,7 +166,7 @@ class ProposeCapitalIncrease(BaseTool):
 # 3. Dividend declaration (سود سهام) — allocated by cap table
 # --------------------------------------------------------------------------- #
 class ProposeDeclareDividendInput(BaseModel):
-    total_amount: int = Field(..., gt=0, description="Total dividend to declare, in minor units.")
+    total_amount: Money = Field(..., gt=0, description="Total dividend to declare, in the base currency, pence included: £600.50 is 600.50 (never ×100).")
     date: str | None = Field(None, description="Declaration date YYYY-MM-DD; defaults to today.")
 
 
@@ -176,7 +184,7 @@ class ProposeDeclareDividend(BaseTool):
     async def run(self, ctx: ToolContext, args: ProposeDeclareDividendInput) -> dict[str, Any]:
         from app.services import equity_service as eq
 
-        amount = _check_amount(args.total_amount, "Dividend")
+        amount = _check_amount(args.total_amount, "Dividend", db=ctx.db)
         txn_date = _resolve_date(args.date)
         try:
             allocs = eq.allocate_by_cap_table(ctx.db, amount)
@@ -199,7 +207,7 @@ class ProposeDeclareDividend(BaseTool):
 class ProposeCurrentAccountInput(BaseModel):
     shareholder_name: str = Field(..., min_length=2, max_length=120,
                                   description="The shareholder whose current account moves.")
-    amount: int = Field(..., gt=0, description="Amount, in minor units.")
+    amount: Money = Field(..., gt=0, description="Amount, in the base currency, pence included: £600.50 is 600.50 (never ×100).")
     direction: Literal["in", "out"] = Field(
         ..., description="'in' = shareholder lends to / is owed by the company; "
                          "'out' = shareholder withdraws from the company.")
@@ -218,7 +226,7 @@ class ProposeCurrentAccount(BaseTool):
     InputSchema = ProposeCurrentAccountInput
 
     async def run(self, ctx: ToolContext, args: ProposeCurrentAccountInput) -> dict[str, Any]:
-        amount = _check_amount(args.amount, "Current-account amount")
+        amount = _check_amount(args.amount, "Current-account amount", db=ctx.db)
         ent = _resolve_shareholder(ctx.db, args.shareholder_name)
         txn_date = _resolve_date(args.date)
         payload = {"entity_id": str(ent.id), "entity_name": ent.name, "amount": amount,

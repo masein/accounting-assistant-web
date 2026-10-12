@@ -26,6 +26,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from statistics import median
 from typing import Any
 
@@ -43,7 +44,7 @@ RECENT_DAYS = 30
 DUPLICATE_WINDOW_DAYS = 7
 NEW_VENDOR_MULTIPLE = 3
 MIN_BASELINE_PAYMENTS = 10
-THRESHOLD_BAND = 0.9          # within 10 % under the approval threshold
+THRESHOLD_BAND = Decimal("0.9")  # within 10 % under the approval threshold
 ROUND_BAND = 0.95             # within 5 % under a round number
 DRIFT_POINTS = 10.0           # percentage points
 DRIFT_MIN_SHARE = 20.0
@@ -143,7 +144,7 @@ def _round_ceiling(amount: int) -> int | None:
     just under, if any."""
     if amount <= 0:
         return None
-    magnitude = 10 ** (len(str(amount)) - 1)
+    magnitude = 10 ** (len(str(int(amount))) - 1)          # £99.50 sits under £100
     for step in (1, 2, 5, 10):
         r = step * magnitude
         if ROUND_BAND * r <= amount < r:
@@ -171,9 +172,9 @@ def detect_just_under_threshold(db: Session, today: date) -> list[Insight]:
             select(MileageClaim.entity_id, MileageClaim.employee_name, MileageClaim.claim_date, MileageClaim.amount)
             .where(MileageClaim.claim_date >= since, MileageClaim.claim_date <= today)
         ):
-            if THRESHOLD_BAND * threshold <= int(amount or 0) < threshold:
+            if THRESHOLD_BAND * threshold <= plain(amount or 0) < threshold:
                 who = f"employee:{eid or name}"
-                groups[(who, threshold)].append((d, int(amount), "claim"))
+                groups[(who, threshold)].append((d, plain(amount), "claim"))
                 names[who] = name or ""
     out: list[Insight] = []
     for (who, limit), items in groups.items():
@@ -233,7 +234,7 @@ def _is_round(amount: int) -> bool:
     """One significant digit: 5,000,000 or 20,000 — not 5,250,000."""
     if amount < 10:
         return False
-    magnitude = 10 ** (len(str(amount)) - 1)
+    magnitude = 10 ** (len(str(int(amount))) - 1)          # £99.50 sits under £100
     return amount % magnitude == 0
 
 

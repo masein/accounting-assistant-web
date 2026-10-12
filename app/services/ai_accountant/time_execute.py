@@ -13,6 +13,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.money import plain
 from app.models.ai_accountant import AIProposal
 from app.models.audit_log import AuditLog
 from app.models.entity import Entity
@@ -115,7 +116,7 @@ def execute_time_proposal(
             created_by=actor_username,
         )
         audit_id = _audit(db, proposal, entity_type="invoice", entity_id=str(inv.id),
-                          detail={"number": inv.number, "amount": int(inv.amount or 0),
+                          detail={"number": inv.number, "amount": plain(inv.amount or 0),
                                   "currency": inv.currency, "entry_count": preview["entry_count"],
                                   "pdf_url": f"/time/invoice/{inv.id}/pdf"},
                           actor_user_id=actor_user_id, actor_username=actor_username, ip_address=ip_address)

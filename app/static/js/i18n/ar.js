@@ -2474,6 +2474,8 @@ window.I18N_PACKS.ar = Object.assign({
         placeholderChatInput: 'اسأل أي شيء (مثلاً: اعرض الميزانية للشهر الماضي)',
         placeholderDescription: 'وصف الحدث',
         placeholderEntityCode: 'مثال: INV-001',
+        cmPlanTitlePlaceholder: 'مثال: قرض الشاحنة',
+        cmChequeTitlePlaceholder: 'مثال: شيك الإيجار',
         placeholderEntityName: 'مثال: شركة أكمي، بنك HSBC',
         placeholderFilterByName: 'تصفية حسب الاسم',
         placeholderInvItem: 'مثال: المنتج A',

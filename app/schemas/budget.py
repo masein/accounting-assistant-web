@@ -10,7 +10,7 @@ from app.core.money import Money
 class BudgetLimitCreate(BaseModel):
     month: str = Field(..., pattern=r"^\d{4}-\d{2}$")
     category: str = Field(..., min_length=1)
-    limit_amount: int = Field(..., gt=0, description="A budget of 0 is meaningless — delete the budget instead.")
+    limit_amount: Money = Field(..., gt=0, description="A budget of 0 is meaningless — delete the budget instead.")
 
 
 class BudgetLimitRead(BudgetLimitCreate):
@@ -24,7 +24,7 @@ class BudgetLimitRead(BudgetLimitCreate):
 class BudgetLimitUpdate(BaseModel):
     month: str | None = Field(None, pattern=r"^\d{4}-\d{2}$")
     category: str | None = Field(None, min_length=1)
-    limit_amount: int | None = Field(None, gt=0)
+    limit_amount: Money | None = Field(None, gt=0)
 
 
 class BudgetRollForward(BaseModel):

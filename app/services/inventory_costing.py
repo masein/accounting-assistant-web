@@ -25,6 +25,8 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
+
+from app.core.money import plain
 from typing import Any
 
 from fastapi import HTTPException
@@ -42,8 +44,17 @@ IN, OUT, ADJ = (InventoryMovementType.IN.value, InventoryMovementType.OUT.value,
 Q = Decimal("0.0001")
 
 
-def _money(v: Decimal) -> int:
-    return int(v.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+def _money(v: Decimal, places: int = 0):
+    """Half-up to the base currency's places: whole rials as always, pence for
+    pounds (docs/PLAN_PENCE.md)."""
+    from app.core.money import plain
+    return plain(Decimal(v).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
+
+
+def _places(db: Session) -> int:
+    from app.core.money import exponent
+    from app.services.fx_base import base_currency
+    return exponent(base_currency(db))
 
 
 def _qty(v) -> Decimal:
@@ -88,10 +99,11 @@ class ItemState:
     last_cost: int = 0
     shortfall: Decimal = Decimal(0)                     # FIFO: sold but never received
     layers: deque = field(default_factory=deque)         # FIFO: [qty, unit_cost]
+    places: int = 0                                      # the base currency's (pence for pounds)
 
     @property
     def unit_cost(self) -> int:
-        return _money(Decimal(self.value) / self.on_hand) if self.on_hand > 0 else 0
+        return _money(Decimal(self.value) / self.on_hand, self.places) if self.on_hand > 0 else 0
 
 
 def _apply_weighted(st: ItemState, typ: str, qty: Decimal, cost: int) -> int:
@@ -99,14 +111,14 @@ def _apply_weighted(st: ItemState, typ: str, qty: Decimal, cost: int) -> int:
     if typ == OUT:
         st.qty_out += qty
         use = cost if cost > 0 else st.unit_cost
-        cogs = _money(qty * use)
+        cogs = _money(qty * use, st.places)
         st.cogs += cogs
         st.on_hand -= qty
         st.value = max(0, st.value - cogs) if st.on_hand > 0 else 0
         return cogs
     st.qty_in += qty
     st.on_hand += qty
-    added = _money(qty * cost)
+    added = _money(qty * cost, st.places)
     st.value += added
     st.last_cost = cost or st.last_cost
     return added
@@ -119,17 +131,17 @@ def _apply_fifo(st: ItemState, typ: str, qty: Decimal, cost: int) -> int:
         while need > 0 and st.layers:
             layer = st.layers[0]
             take = min(need, layer[0])
-            cogs += _money(take * layer[1])
+            cogs += _money(take * layer[1], st.places)
             layer[0] -= take
             need -= take
             if layer[0] <= 0:
                 st.layers.popleft()
         if need > 0:                                     # oversold: at the last cost known
-            cogs += _money(need * st.last_cost)
+            cogs += _money(need * st.last_cost, st.places)
             st.shortfall += need
         st.cogs += cogs
         st.on_hand -= qty
-        st.value = sum(_money(q * c) for q, c in st.layers)
+        st.value = sum(_money(q * c, st.places) for q, c in st.layers)
         return cogs
     st.qty_in += qty
     st.on_hand += qty
@@ -141,13 +153,14 @@ def _apply_fifo(st: ItemState, typ: str, qty: Decimal, cost: int) -> int:
         remaining -= covered
     if remaining > 0:
         st.layers.append([remaining, cost])
-    st.value = sum(_money(q * c) for q, c in st.layers)
-    return _money(qty * cost)
+    st.value = sum(_money(q * c, st.places) for q, c in st.layers)
+    return _money(qty * cost, st.places)
 
 
-def run_costing(movements, method: str) -> tuple[dict, dict]:
-    """(item id → ItemState, movement id → cost) for movements in date order."""
-    states: dict = defaultdict(ItemState)
+def run_costing(movements, method: str, places: int = 0) -> tuple[dict, dict]:
+    """(item id → ItemState, movement id → cost) for movements in date order,
+    rounded to ``places`` (the base currency's)."""
+    states: dict = defaultdict(lambda: ItemState(places=places))
     costs: dict = {}
     apply = _apply_fifo if method == FIFO else _apply_weighted
     for mv in movements:
@@ -155,7 +168,7 @@ def run_costing(movements, method: str) -> tuple[dict, dict]:
         if qty <= 0:
             continue
         typ = mv.movement_type.value if hasattr(mv.movement_type, "value") else str(mv.movement_type)
-        costs[mv.id] = apply(states[mv.item_id], typ, qty, int(mv.unit_cost or 0))
+        costs[mv.id] = apply(states[mv.item_id], typ, qty, Decimal(str(mv.unit_cost or 0)))
     return states, costs
 
 
@@ -181,9 +194,9 @@ def valuation(db: Session, *, as_of: date | None = None, method: str | None = No
     if method not in METHODS:
         raise HTTPException(status_code=422, detail=f"Costing method must be one of {', '.join(METHODS)}.")
     movements = _movements(db, as_of)
-    states, _ = run_costing(movements, method)
+    states, _ = run_costing(movements, method, _places(db))
     other = FIFO if method == WEIGHTED_AVERAGE else WEIGHTED_AVERAGE
-    other_states, _ = run_costing(movements, other)
+    other_states, _ = run_costing(movements, other, _places(db))
     items = db.execute(select(InventoryItem).order_by(InventoryItem.name)).scalars().all()
     rows = []
     for it in items:
@@ -196,7 +209,7 @@ def valuation(db: Session, *, as_of: date | None = None, method: str | None = No
             "item_id": str(it.id), "name": it.name, "sku": it.sku, "barcode": it.barcode, "unit": it.unit,
             "is_active": it.is_active, "qty_in": _f(st.qty_in), "qty_out": _f(st.qty_out),
             "on_hand": _f(st.on_hand), "unit_cost": st.unit_cost, "value": st.value, "cogs": st.cogs,
-            "list_price": int(it.list_price or 0),
+            "list_price": plain(it.list_price or 0),
             "reorder_level": _f(level) if level is not None else None,
             "reorder_qty": _f(_qty(it.reorder_qty)) if it.reorder_qty is not None else None,
             "below_reorder": level is not None and it.is_active and st.on_hand <= level,
@@ -219,14 +232,14 @@ def low_stock(db: Session, *, as_of: date | None = None) -> list[dict[str, Any]]
 
 
 def unit_cost_on(db: Session, item_id, on: date) -> int:
-    states, _ = run_costing(_movements(db, on, [item_id]), get_method(db))
+    states, _ = run_costing(_movements(db, on, [item_id]), get_method(db), _places(db))
     st = states.get(item_id)
     return st.unit_cost if st else 0
 
 
 def movement_costs(db: Session, *, to_date: date | None = None) -> dict:
     """movement id → its cost under the company's method (the value an OUT left at)."""
-    return run_costing(_movements(db, to_date), get_method(db))[1]
+    return run_costing(_movements(db, to_date), get_method(db), _places(db))[1]
 
 
 # --- bill of materials and production ---------------------------------------------------------------------------
@@ -282,7 +295,7 @@ def produce(db: Session, product: InventoryItem, quantity, *, on: date, referenc
         raise HTTPException(status_code=422, detail="This item has no bill of materials.")
     method = get_method(db)
     comp_ids = [b.component_id for b in bom]
-    states, _ = run_costing(_movements(db, on, comp_ids), method)
+    states, _ = run_costing(_movements(db, on, comp_ids), method, _places(db))
     needs, short = [], []
     for b in bom:
         need = (_qty(b.quantity) * qty).quantize(Q)
@@ -299,14 +312,14 @@ def produce(db: Session, product: InventoryItem, quantity, *, on: date, referenc
     for cid, need in needs:
         probe = InventoryMovement(id=uuid.uuid4(), item_id=cid, movement_date=on,
                                   movement_type=InventoryMovementType.OUT, quantity=float(need), unit_cost=0)
-        _, costs = run_costing([*_movements(db, on, [cid]), probe], method)
+        _, costs = run_costing([*_movements(db, on, [cid]), probe], method, _places(db))
         cost = costs.get(probe.id, 0)
         # cost 0: the engine values the component when it leaves, under either method
         out_rows.append(InventoryMovement(item_id=cid, movement_date=on, movement_type=InventoryMovementType.OUT,
                                           quantity=float(need), unit_cost=0, reference=ref,
                                           description=bt(db, "inv_used_to_make", qty=_f(qty), name=product.name)))
         total += cost
-    unit_cost = _money(Decimal(total) / qty)
+    unit_cost = _money(Decimal(total) / qty, _places(db))
     db.add_all(out_rows)
     db.add(InventoryMovement(item_id=product.id, movement_date=on, movement_type=InventoryMovementType.IN,
                              quantity=float(qty), unit_cost=unit_cost, reference=ref,

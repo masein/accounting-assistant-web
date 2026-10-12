@@ -258,7 +258,7 @@
       } catch (err) { showAlert(t('msgConnectionError') + err.message, true); return false; }
     }
     document.getElementById('accr-save')?.addEventListener('click', () => {
-      const amount = parseInt(document.getElementById('accr-amount').value, 10);
+      const amount = parseMoney(document.getElementById('accr-amount').value);
       const d = document.getElementById('accr-date').value;
       if (!amount || amount <= 0 || !d) { showAlert(t('invAmountInvalid'), true); return; }
       _postAdjustment('/adjustments/accrual', {
@@ -267,7 +267,7 @@
       });
     });
     document.getElementById('prep-save')?.addEventListener('click', () => {
-      const amount = parseInt(document.getElementById('prep-amount').value, 10);
+      const amount = parseMoney(document.getElementById('prep-amount').value);
       const periods = parseInt(document.getElementById('prep-periods').value, 10);
       const d = document.getElementById('prep-date').value;
       if (!amount || amount <= 0 || !periods || periods < 1 || !d) { showAlert(t('invAmountInvalid'), true); return; }
@@ -276,9 +276,9 @@
       });
     });
     document.getElementById('dep-save')?.addEventListener('click', () => {
-      const cost = parseInt(document.getElementById('dep-cost').value, 10);
+      const cost = parseMoney(document.getElementById('dep-cost').value);
       const periods = parseInt(document.getElementById('dep-life').value, 10);
-      const residual = parseInt(document.getElementById('dep-residual').value, 10) || 0;
+      const residual = parseMoney(document.getElementById('dep-residual').value);
       const d = document.getElementById('dep-date').value;
       if (!cost || cost <= 0 || !periods || periods < 1 || !d) { showAlert(t('invAmountInvalid'), true); return; }
       _postAdjustment('/adjustments/depreciation', {

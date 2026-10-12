@@ -25,6 +25,8 @@ loss on disposal (art. 14: the loss is the book value less the proceeds).
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
@@ -40,6 +42,7 @@ from app.models.fixed_asset import (
     ACTIVE, DECLINING_BALANCE, DISPOSED, METHODS, STRAIGHT_LINE, FixedAsset, FixedAssetDepreciation,
 )
 from app.services.book_text import bt
+from app.core.money import plain
 
 LOW_VALUE_SHARE_BPS = 500          # 5 % of cost: below it, the rest goes in one year (art. 9(b))
 MAX_LIFE_MONTHS = 100 * 12
@@ -183,9 +186,33 @@ def _first_posting_month(asset, cal: str) -> date:
 
 def schedule(asset, cal: str) -> list[Month]:
     """Every month the asset depreciates in, from the first one not covered by
-    depreciation brought over, to the end of its life (or its disposal)."""
-    cost, residual = int(asset.cost), int(asset.residual or 0)
-    opening = int(asset.opening_accumulated or 0)
+    depreciation brought over, to the end of its life (or its disposal).
+
+    Worked in the currency's smallest unit — pence for pounds, rials as they
+    are — so the whole-unit arithmetic below (an even spread with the rounding
+    carried, half-up years) keeps the pence: £1,000.50 over 12 months is
+    £83.37 or £83.38 a month, summing to £1,000.50 (docs/PLAN_PENCE.md)."""
+    from app.core.money import exponent
+    scale = 10 ** exponent(getattr(asset, "currency", None) or "IRR")
+    if scale == 1:
+        return _schedule_units(asset, cal, 1)
+    return [Month(m.period_start, _from_units(m.amount, scale), _from_units(m.closing_nbv, scale))
+            for m in _schedule_units(asset, cal, scale)]
+
+
+def _units(value, scale: int) -> int:
+    from app.core.money import to_decimal
+    return int(to_decimal(value or 0) * scale)
+
+
+def _from_units(n: int, scale: int):
+    from app.core.money import plain
+    return plain(Decimal(n) / scale)
+
+
+def _schedule_units(asset, cal: str, scale: int) -> list[Month]:
+    cost, residual = _units(asset.cost, scale), _units(asset.residual, scale)
+    opening = _units(asset.opening_accumulated, scale)
     first = _first_posting_month(asset, cal)
     stop = month_start(asset.disposed_on, cal) if asset.disposed_on else None
     out: list[Month] = []
@@ -307,8 +334,11 @@ def create_asset(db: Session, data: dict[str, Any]) -> FixedAsset:
         rate = None
     else:
         life = None
-    cost, residual = int(data["cost"]), int(data.get("residual") or 0)
-    opening = int(data.get("opening_accumulated") or 0)
+    cost, residual = plain(data["cost"]), plain(data.get("residual") or 0)
+    opening = plain(data.get("opening_accumulated") or 0)
+    from app.services.ledger_posting import assert_amount_places
+    assert_amount_places((data.get("currency") or get_reporting_currency(db) or "IRR").strip().upper(),
+                         (cost, residual, opening))                 # £1,000.505 or half a rial: refused
     validate_terms(method, life, rate, cost, residual, opening)
     in_service = data.get("in_service_on") or data["acquired_on"]
     if in_service < data["acquired_on"]:
@@ -390,7 +420,7 @@ def _posted(db: Session, asset_ids) -> dict:
     for aid, ms, amount in db.execute(select(FixedAssetDepreciation.asset_id, FixedAssetDepreciation.period_start,
                                              FixedAssetDepreciation.amount)
                                       .where(FixedAssetDepreciation.asset_id.in_(list(asset_ids)))):
-        out[aid][ms] = int(amount)
+        out[aid][ms] = plain(amount)
     return out
 
 
@@ -469,7 +499,7 @@ def accumulated(db: Session, asset: FixedAsset, *, as_of: date | None = None) ->
         FixedAssetDepreciation.asset_id == asset.id)
     if as_of is not None:
         q = q.where(FixedAssetDepreciation.period_start <= as_of)
-    return int(asset.opening_accumulated or 0) + int(db.execute(q).scalar() or 0)
+    return plain(asset.opening_accumulated or 0) + plain(db.execute(q).scalar() or 0)
 
 
 def dispose(db: Session, asset: FixedAsset, *, on: date, proceeds: int = 0, bank_account_code: str | None = None,
@@ -496,16 +526,16 @@ def dispose(db: Session, asset: FixedAsset, *, on: date, proceeds: int = 0, bank
     acc = accumulated(db, asset)
     if preview and catch_up:
         acc += sum(j["amount"] for j in catch_up["journals"])
-    nbv = int(asset.cost) - acc
+    nbv = plain(asset.cost) - acc
     result = proceeds - nbv
-    out = {"asset_id": str(asset.id), "on": on.isoformat(), "cost": int(asset.cost), "accumulated": acc,
+    out = {"asset_id": str(asset.id), "on": on.isoformat(), "cost": plain(asset.cost), "accumulated": acc,
            "net_book_value": nbv, "proceeds": proceeds, "gain": max(0, result), "loss": max(0, -result),
            "depreciation_posted_first": catch_up["journals"] if catch_up else [], "transaction_id": None}
     if preview:
         return out
     desc = f"{asset.number} {asset.name}"
     lines = [(bank, proceeds, 0, desc)] if proceeds else []
-    lines += [(asset.accumulated_account_code, acc, 0, desc), (asset.asset_account_code, 0, int(asset.cost), desc)]
+    lines += [(asset.accumulated_account_code, acc, 0, desc), (asset.asset_account_code, 0, plain(asset.cost), desc)]
     if result > 0:
         lines.append((_gain_loss_account(db, locale, "gain"), 0, result, bt(db, "fa_gain", text=desc)))
     elif result < 0:
@@ -526,7 +556,7 @@ def dispose(db: Session, asset: FixedAsset, *, on: date, proceeds: int = 0, bank
 def asset_row(db: Session, a: FixedAsset, cal: str, *, as_of: date, posted: dict | None = None,
               entity_names: dict | None = None) -> dict[str, Any]:
     months = posted if posted is not None else _posted(db, [a.id]).get(a.id, {})
-    acc = int(a.opening_accumulated or 0) + sum(v for ms, v in months.items() if ms <= as_of)
+    acc = plain(a.opening_accumulated or 0) + sum(v for ms, v in months.items() if ms <= as_of)
     sched = schedule(a, cal)
     remaining = [m for m in sched if m.period_start not in months]
     this_month = month_start(as_of, cal)
@@ -534,10 +564,10 @@ def asset_row(db: Session, a: FixedAsset, cal: str, *, as_of: date, posted: dict
         "id": str(a.id), "number": a.number, "name": a.name, "category": a.category, "status": a.status,
         "currency": a.currency, "acquired_on": a.acquired_on.isoformat(), "in_service_on": a.in_service_on.isoformat(),
         "depreciation_start": a.depreciation_start.isoformat(), "method": a.method, "life_months": a.life_months,
-        "rate_bps": a.rate_bps, "cost": int(a.cost), "residual": int(a.residual or 0),
-        "opening_accumulated": int(a.opening_accumulated or 0),
+        "rate_bps": a.rate_bps, "cost": plain(a.cost), "residual": plain(a.residual or 0),
+        "opening_accumulated": plain(a.opening_accumulated or 0),
         "opening_date": a.opening_date.isoformat() if a.opening_date else None,
-        "accumulated": acc, "net_book_value": int(a.cost) - acc if a.status == ACTIVE else 0,
+        "accumulated": acc, "net_book_value": plain(a.cost) - acc if a.status == ACTIVE else 0,
         "monthly_charge": next((m.amount for m in sched if m.period_start == this_month), 0) if a.status == ACTIVE else 0,
         "fully_depreciated": a.status == ACTIVE and not remaining,
         "last_depreciation_month": month_label(sched[-1].period_start, cal) if sched else None,

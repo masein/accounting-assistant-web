@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.money import plain
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.equity import EquityEvent, Shareholding
@@ -69,13 +70,13 @@ def _event_totals(db: Session) -> dict:
         if e.entity_id is None:
             continue
         if e.event_type == "contribution":
-            paid_in[e.entity_id] = paid_in.get(e.entity_id, 0) + int(e.amount or 0)
+            paid_in[e.entity_id] = paid_in.get(e.entity_id, 0) + plain(e.amount or 0)
         elif e.event_type == "capital_increase":
-            paid_in[e.entity_id] = paid_in.get(e.entity_id, 0) + int(e.amount or 0)
+            paid_in[e.entity_id] = paid_in.get(e.entity_id, 0) + plain(e.amount or 0)
         elif e.event_type == "dividend_declared":
-            div_decl[e.entity_id] = div_decl.get(e.entity_id, 0) + int(e.amount or 0)
+            div_decl[e.entity_id] = div_decl.get(e.entity_id, 0) + plain(e.amount or 0)
         elif e.event_type == "dividend_paid":
-            div_paid[e.entity_id] = div_paid.get(e.entity_id, 0) + int(e.amount or 0)
+            div_paid[e.entity_id] = div_paid.get(e.entity_id, 0) + plain(e.amount or 0)
     return {"paid_in": paid_in, "div_decl": div_decl, "div_paid": div_paid}
 
 
@@ -105,7 +106,7 @@ def cap_table(db: Session = Depends(get_db)) -> CapTableResponse:
     rows.sort(key=lambda r: (r.percent or 0), reverse=True)
     company = eq._company_row(db)
     return CapTableResponse(
-        registered_capital=(int(company.registered_capital or 0) if company else 0),
+        registered_capital=(plain(company.registered_capital or 0) if company else 0),
         currency=eq._reporting_currency(db),
         total_percent=round(total_percent, 4),
         total_paid_in=total_paid_in,

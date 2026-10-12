@@ -16,6 +16,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.core.money import Money, plain
+
 from .base import BaseTool, ToolContext, ToolError
 from .time_tools import _register
 
@@ -131,7 +133,7 @@ class GetCloseChecklist(BaseTool):
 
 class ProposeSetBudgetInput(BaseModel):
     category: str = Field(..., description="The expense account (name or code) the limit is for.")
-    amount: int = Field(..., gt=0, description="The monthly limit, whole units of the base currency.")
+    amount: Money = Field(..., gt=0, description="The monthly limit in the base currency, pence included: £600.50 is 600.50 (never ×100).")
     month: str | None = Field(None, pattern=MONTH, description="First month (YYYY-MM, company calendar); default this month.")
     months: int = Field(1, ge=1, le=24, description="How many consecutive months to set (e.g. 12 for the year).")
 
@@ -151,10 +153,15 @@ class ProposeSetBudget(BaseTool):
         from app.services.budget_service import _key_add
         from app.services.fx_base import base_currency
         acc = expense_category(ctx, args.category)
+        from app.core.money import check_places
+        try:
+            check_places(args.amount, base_currency(ctx.db))
+        except ValueError as e:
+            raise ToolError(str(e), code="invalid_amount") from e
         first = args.month or _this_month(ctx)
         _check_month(first)
         keys = [first] + [_key_add(first, i) for i in range(1, args.months)]
-        existing = {b.month: int(b.limit_amount) for b in ctx.db.execute(
+        existing = {b.month: plain(b.limit_amount) for b in ctx.db.execute(
             select(BudgetLimit).where(BudgetLimit.month.in_(keys), BudgetLimit.category.ilike(acc.name))).scalars()}
         changes = [{"month": k, "before": existing.get(k), "after": args.amount} for k in keys]
         payload = {"category": acc.name, "account_code": acc.code, "amount": args.amount, "months": keys,

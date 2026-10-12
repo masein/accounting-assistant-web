@@ -169,7 +169,7 @@
       const amount = await uiPrompt({ title: tr.dataset.name, message: t('timeBudgetFeesPrompt'), type: 'number', value: tr.dataset.amount });
       if (amount === null) return;
       const h = hours.trim() === '' ? null : parseFloat(hours);
-      const a = amount.trim() === '' ? null : parseInt(amount, 10);
+      const a = amount.trim() === '' ? null : parseMoney(amount);
       if ((h !== null && !(h >= 0)) || (a !== null && !(a >= 0))) { showAlert(t('budgetEditBad'), true); return; }
       const res = await fetch(API + '/time/projects/' + encodeURIComponent(tr.dataset.id), {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -258,7 +258,7 @@
           const colors = { unbilled: '', invoiced: '#e8f5e9', written_off: '#f3f4f6' };
           const tr = document.createElement('tr');
           tr.style.background = colors[e.status] || '';
-          const rateTxt = e.rate != null ? `${formatNum(Math.round(e.rate))} ${escapeHtml(e.currency || tmCur())}` : '—';
+          const rateTxt = e.rate != null ? `${formatNum(e.rate)} ${escapeHtml(e.currency || tmCur())}` : '—';
           const actions = e.locked ? `🔒` :
             `<button class="btn btn-secondary btn-sm tm-wo" data-id="${e.id}">${t('timeWriteOff')}</button> <button class="btn btn-secondary btn-sm tm-del" data-id="${e.id}" aria-label="${escapeHtml(t('btnDelete'))}" title="${escapeHtml(t('btnDelete'))}">✕</button>`;
           tr.innerHTML = `<td>${escapeHtml(formatDisplayDate(e.work_date))}</td><td>${escapeHtml(e.employee_name || '')}</td>
@@ -390,7 +390,7 @@
     function updateMileageCalc() {
       const dist = parseFloat(document.getElementById('exp-distance').value || '0');
       const rate = parseFloat(expSettings.mileage_rate || 0);
-      const amount = Math.round(dist * rate);
+      const amount = roundMoney(dist * rate, baseCurrencyCode());
       const el = document.getElementById('exp-calc');
       if (dist > 0 && rate > 0) {
         let msg = tf('expCalc', { distance: dist, unit: expSettings.mileage_unit, rate, amount: formatNum(amount), currency: expCur() });
@@ -408,7 +408,7 @@
       const payload = {
         mileage_rate: parseFloat(document.getElementById('exp-rate').value || '0'),
         mileage_unit: document.getElementById('exp-unit').value,
-        approval_threshold: parseInt(document.getElementById('exp-threshold').value || '0', 10),
+        approval_threshold: parseMoney(document.getElementById('exp-threshold').value || '0'),
       };
       try {
         const res = await fetch(API + '/expenses/settings', {
@@ -976,8 +976,8 @@
       const payload = {
         entity_id,
         pay_type: document.getElementById('pr-type').value,
-        base_salary: parseInt(document.getElementById('pr-base').value || '0', 10),
-        hourly_rate: parseInt(document.getElementById('pr-rate').value || '0', 10),
+        base_salary: parseMoney(document.getElementById('pr-base').value || '0'),
+        hourly_rate: parseMoney(document.getElementById('pr-rate').value || '0'),
         standard_hours: parseFloat(document.getElementById('pr-std').value || '0'),
         overtime_multiplier: parseFloat(document.getElementById('pr-otm').value || '1.5'),
         income_tax_rate: parseFloat(document.getElementById('pr-tax').value || '0') / 100,

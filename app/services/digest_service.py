@@ -45,7 +45,7 @@ def get_digest_settings(db: Session) -> dict:
         return dict(_DEFAULTS)
     return {
         "enabled": bool(row.enabled),
-        "cash_threshold": int(row.cash_threshold),
+        "cash_threshold": plain(row.cash_threshold),
         "runway_months": float(row.runway_months),
         "channel": row.channel or "all",
     }
@@ -56,7 +56,7 @@ def set_digest_settings(db: Session, *, enabled=None, cash_threshold=None,
     cid = _company_id(db)
     if cid is None:
         raise ValueError("No company in context")
-    if cash_threshold is not None and int(cash_threshold) < 0:
+    if cash_threshold is not None and plain(cash_threshold) < 0:
         raise ValueError("cash_threshold must be >= 0")
     if runway_months is not None and float(runway_months) < 0:
         raise ValueError("runway_months must be >= 0")
@@ -70,7 +70,7 @@ def set_digest_settings(db: Session, *, enabled=None, cash_threshold=None,
     if enabled is not None:
         row.enabled = bool(enabled)
     if cash_threshold is not None:
-        row.cash_threshold = int(cash_threshold)
+        row.cash_threshold = plain(cash_threshold)
     if runway_months is not None:
         row.runway_months = float(runway_months)
     if channel is not None:

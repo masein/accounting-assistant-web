@@ -13,7 +13,7 @@ class ShareholdingCreate(BaseModel):
     entity_id: UUID
     shares: int | None = Field(None, ge=0)
     percent: float | None = Field(None, ge=0, le=100)
-    par_value: int | None = Field(None, ge=0)
+    par_value: Money | None = Field(None, ge=0)
     since: date | None = None
     share_class: str = "ordinary"
     notes: str | None = Field(None, max_length=512)
@@ -22,7 +22,7 @@ class ShareholdingCreate(BaseModel):
 class ShareholdingUpdate(BaseModel):
     shares: int | None = Field(None, ge=0)
     percent: float | None = Field(None, ge=0, le=100)
-    par_value: int | None = Field(None, ge=0)
+    par_value: Money | None = Field(None, ge=0)
     since: date | None = None
     share_class: str | None = None
     notes: str | None = Field(None, max_length=512)
@@ -55,7 +55,7 @@ class CapTableResponse(BaseModel):
 # --- equity transactions ----------------------------------------------------
 class ContributionRequest(BaseModel):
     entity_id: UUID
-    amount: int = Field(..., gt=0)
+    amount: Money = Field(..., gt=0)
     date: date
     to_capital: bool = True
     asset_account_code: str | None = None
@@ -63,7 +63,7 @@ class ContributionRequest(BaseModel):
 
 
 class CapitalIncreaseRequest(BaseModel):
-    amount: int = Field(..., gt=0)
+    amount: Money = Field(..., gt=0)
     date: date
     source: str = "retained_earnings"  # retained_earnings | cash | revaluation_surplus
     entity_id: UUID | None = None
@@ -76,7 +76,7 @@ class DividendAllocation(BaseModel):
 
 
 class DividendDeclareRequest(BaseModel):
-    total_amount: int = Field(..., gt=0)
+    total_amount: Money = Field(..., gt=0)
     date: date
     allocations: list[DividendAllocation] | None = None
     reference: str | None = Field(None, max_length=128)
@@ -84,7 +84,7 @@ class DividendDeclareRequest(BaseModel):
 
 class DividendPayRequest(BaseModel):
     entity_id: UUID
-    amount: int = Field(..., gt=0)
+    amount: Money = Field(..., gt=0)
     date: date
     bank_account_code: str | None = None
     reference: str | None = Field(None, max_length=128)
@@ -92,7 +92,7 @@ class DividendPayRequest(BaseModel):
 
 class CurrentAccountRequest(BaseModel):
     entity_id: UUID
-    amount: int = Field(..., gt=0)
+    amount: Money = Field(..., gt=0)
     date: date
     direction: str  # "in" (lends) | "out" (withdraws)
     bank_account_code: str | None = None

@@ -33,6 +33,7 @@ from app.models.user import User
 from app.services.account_resolver import resolve_account_code
 from app.services.audit_service import log_audit_event
 from app.services.book_text import bt
+from app.core.money import Money, plain
 
 router = APIRouter(prefix="/petty-cash", tags=["petty-cash"])
 
@@ -46,7 +47,7 @@ class AccountCreate(BaseModel):
 
 
 class ExpenseCreate(BaseModel):
-    amount: int = Field(..., gt=0, le=MAX_AMOUNT)
+    amount: Money = Field(..., gt=0, le=MAX_AMOUNT)
     description: str = Field(..., min_length=1, max_length=512)
     category_account_code: str | None = Field(None, max_length=16)
     attachment_id: uuid.UUID | None = None
@@ -54,13 +55,13 @@ class ExpenseCreate(BaseModel):
 
 
 class DepositCreate(BaseModel):
-    amount: int = Field(..., gt=0, le=MAX_AMOUNT)
+    amount: Money = Field(..., gt=0, le=MAX_AMOUNT)
     bank_account_code: str = Field(..., max_length=16)
     description: str = Field("", max_length=512)
 
 
 class AdjustCreate(BaseModel):
-    signed_amount: int = Field(..., description="+ adds to the float, − takes from it")
+    signed_amount: Money = Field(..., description="+ adds to the float, − takes from it")
     counter_account_code: str = Field(..., max_length=16)
     description: str = Field(..., min_length=1, max_length=512)
 
@@ -76,7 +77,7 @@ def _balance(db: Session, account_id: uuid.UUID) -> int:
             PettyCashTransaction.status == "approved",
         )
     ).scalar()
-    return int(total or 0)
+    return plain(total or 0)
 
 
 def _txn_read(t: PettyCashTransaction) -> dict:
@@ -284,6 +285,9 @@ def record_expense(
     acc = _get_account(db, account_id, user)  # own or admin
     if payload.attachment_id is not None and db.get(TransactionAttachment, payload.attachment_id) is None:
         raise HTTPException(status_code=404, detail="Attachment not found")
+    from app.services.fx_base import base_currency
+    from app.services.ledger_posting import assert_amount_places
+    assert_amount_places(base_currency(db), [payload.amount])     # it posts on approval; refuse £7.505 now
     _assert_within_float(db, acc.id, payload.amount)
     row = PettyCashTransaction(
         account_id=acc.id, kind="expense", amount=payload.amount,
@@ -305,7 +309,7 @@ def _assert_within_float(db: Session, account_id: uuid.UUID, amount: int) -> Non
     """A petty-cash spend cannot exceed what is in the tin. Pending expenses
     count too, so two holders cannot both spend the same float."""
     balance = _balance(db, account_id)
-    pending = int(db.execute(
+    pending = plain(db.execute(
         select(func.coalesce(func.sum(PettyCashTransaction.amount), 0)).where(
             PettyCashTransaction.account_id == account_id,
             PettyCashTransaction.kind == "expense",

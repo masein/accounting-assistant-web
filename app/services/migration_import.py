@@ -414,7 +414,11 @@ def stage_preview_batch(
             "These exact files were already imported — confirming again re-applies as an update (no duplicates)."
         )
     summary["conflicts"] = bank_code_conflicts(db, payload)
-    summary["validation"]["warnings"].extend(bank_conflict_warning(c) for c in summary["conflicts"])
+    for c in summary["conflicts"]:
+        summary["validation"]["warnings"].append(
+            f"Code {c['code']} is the account of the bank «{c['bank']}» — the file's «{c['title']}» "
+            "is left out of the chart, and the accounts under it go under the level above"
+        )
     existing = live_opening(db)
     if existing is not None:
         total = opening_total(db, existing)
@@ -481,11 +485,6 @@ def bank_code_conflicts(db: Session, payload: dict) -> list[dict]:
                 out.append({"code": row["code"], "title": row["title"], "tier": tier,
                             "account": acc.name, "bank": banks[row["code"]]})
     return out
-
-
-def bank_conflict_warning(c: dict) -> str:
-    return (f"Code {c['code']} is the account of the bank «{c['bank']}» — the file's «{c['title']}» "
-            "is left out of the chart, and the accounts under it go under the level above")
 
 
 _PARENT_CHAIN = {"kol": ("group",), "moein": ("kol", "group")}

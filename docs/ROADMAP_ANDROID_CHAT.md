@@ -532,6 +532,16 @@ TalkBack labels on every block (from `fallback_text`), font scaling up to 200%, 
 7. **Staff chat:** may employees submit claims by chat? With what limits, and who approves?
 8. **What stays on the web on purpose:** the proposed list is chart of accounts, company setup, users and roles, branding and journal import. Anything to add or remove?
 
+**The owner's answers (2026-10-13):**
+1. Native Kotlin (built that way since 2026-10-10).
+2. One app (no change).
+3. **Two logins for now.** P2.1, several books per login, waits.
+4. **No push provider for now.** The hourly feed (#327) stays the way the phone hears of approvals and warnings.
+5. **Both.** Apply for Play's exception, and ship automatic SMS reading in the builds outside Play (`direct`, Bazaar if it allows it). Sharing an SMS into the app stays in every build.
+6. Open: what store billing would mean was asked; nothing is sold in the app yet.
+7. **No staff claims by chat for now.**
+8. **Not decided:** watch how people use the app first.
+
 ---
 
 ## 12. Suggested order of work

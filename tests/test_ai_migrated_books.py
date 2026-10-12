@@ -230,3 +230,29 @@ def test_tomans_carded_as_rials_are_refused(ir, db):
         card(20_000_000)
     assert e.value.code == "toman_not_converted" and "200,000,000" in e.value.message
     assert card(200_000_000)["confirmation_token"]
+
+
+def test_a_model_without_adaptive_thinking_still_chats():
+    """claude-haiku-4-5 refused every chat: "adaptive thinking is not supported
+    on this model" (model benchmark, 2026-10-12)."""
+    import anthropic
+    import httpx
+    from app.services.ai_accountant.anthropic_client import _create
+
+    sent = []
+
+    class Messages:
+        async def create(self, **kw):
+            sent.append(dict(kw))
+            if "thinking" in kw:
+                raise anthropic.BadRequestError(
+                    "adaptive thinking is not supported on this model",
+                    response=httpx.Response(400, request=httpx.Request("POST", "https://example.invalid")), body=None)
+            return "ok"
+
+    class Client:
+        messages = Messages()
+
+    out = asyncio.run(_create(Client(), {"model": "claude-haiku-4-5", "thinking": {"type": "adaptive"},
+                                         "output_config": {"effort": "low"}}))
+    assert out == "ok" and "thinking" in sent[0] and "thinking" not in sent[1] and "output_config" in sent[1]

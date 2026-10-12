@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
+import re
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 from statistics import median
@@ -769,6 +770,31 @@ def insights_payload(db: Session, lang: str, *, today: date | None = None) -> di
     }
 
 
+_MONTH_KEY = re.compile(r"^\d{4}-\d{2}$")
+_FIGURE = re.compile(r"^[\d.,/%+\-−]+$")
+
+
+def _said(value: Any, lang: str) -> Any:
+    """An insight's parameter as the chat says it: a month key as the month
+    («شهریور ۱۴۰۵», "Shahrivar 1405"), and in Persian a figure in Persian
+    digits, as the chat's other sentences write them. «درآمد در 1405-06 100٪
+    کم شد» came out of a right-to-left bubble as «100 06-1405٪» (the
+    personal-books pass, 2026-10-12)."""
+    if isinstance(value, str) and _MONTH_KEY.match(value):
+        from app.services.calendar_periods import month_label
+        return month_label(value, lang)
+    if lang == "fa" and isinstance(value, str) and _FIGURE.match(value):
+        from app.utils.jalali import to_persian_digits
+        return to_persian_digits(value).replace(",", "٬")
+    return value
+
+
+def chat_wording(ins: Insight, lang: str) -> dict[str, str]:
+    """An insight's title and message as the chat and the phone's
+    notifications say them (the pages keep their own figures)."""
+    return replace(ins, params={k: _said(v, lang) for k, v in ins.params.items()}).localize(lang)
+
+
 def briefing_text(insights: list[Insight], lang: str, *, limit: int = 4) -> str | None:
     """A short assistant-voice briefing for the chat — deterministic."""
     if not insights:
@@ -788,7 +814,7 @@ def briefing_text(insights: list[Insight], lang: str, *, limit: int = 4) -> str 
     }[lang]
     lines = []
     for ins in insights[:limit]:
-        loc = ins.localize(lang)
+        loc = chat_wording(ins, lang)
         lines.append(f"• {loc['title']} — {loc['message']}")
     return head + "\n" + "\n".join(lines) + "\n" + tail
 

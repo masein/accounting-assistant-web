@@ -1682,8 +1682,9 @@
     // ═══════ Historical journals from another system (roadmap §4.11) ═══════
     let _ji = null;                 // the last preview: token, preset, columns, accounts…
     let _jiChart = null;
-    const JI_STATUS = ['ready', 'unmapped_account', 'unbalanced', 'closed_period', 'future', 'already_imported',
+    const JI_STATUS = ['ready', 'unmapped_account', 'out_of_year', 'unbalanced', 'closed_period', 'future', 'already_imported',
       'year_end_closing', 'opening_repeat'];
+    let _jiSheet = null, _jiYears = null, _jiSheetChanged = false;
 
     async function jiChart() {
       if (_jiChart) return _jiChart;
@@ -1704,8 +1705,27 @@
         + '<option value="-1">—</option>' + (r.headers || []).map((h, i) => opt(i, h, r.columns[field] === i)).join('') + '</select></label>';
       const counts = JI_STATUS.filter((k) => r.counts && r.counts[k]).map((k) =>
         '<span class="alert-chip ' + (k === 'ready' ? 'low' : 'medium') + '">' + escapeHtml(tf('jiStatus_' + k, { n: r.counts[k] })) + '</span>').join(' ');
-      let html = '<p class="fc-note">' + escapeHtml(tf('jiSummary', { vouchers: formatNum(r.voucher_count), lines: formatNum(r.line_count),
+      let html = '';
+      // a workbook's sheets: the journal-like one is read, any other can be
+      // (a hand-kept workbook's first sheet was a bank statement, 2026-10-12)
+      if ((r.sheets || []).length > 1) {
+        html += '<label class="ji-col" style="max-width:28rem;"><span>' + escapeHtml(t('jiSheet')) + '</span><select id="ji-sheet">'
+          + r.sheets.map((sh) => '<option value="' + escapeHtml(sh.name) + '"' + (sh.name === r.sheet ? ' selected' : '') + '>'
+            + escapeHtml(tf('jiSheetRows', { name: sh.name, n: formatNum(sh.rows) })) + '</option>').join('') + '</select></label>';
+      }
+      html += '<p class="fc-note">' + escapeHtml(tf('jiSummary', { vouchers: formatNum(r.voucher_count), lines: formatNum(r.line_count),
         from: r.from ? formatDisplayDate(r.from) : '—', to: r.to ? formatDisplayDate(r.to) : '—', preset: jiPresetName(r.preset) })) + '</p>';
+      // vouchers typed in another year (1400/11/29 in a 1404 journal): move them or keep them
+      if (r.stray_years) {
+        const year = localDigits(r.file_year);
+        html += '<div class="fc-note" style="margin:0.3rem 0;">' + (r.years_mode
+          ? escapeHtml(r.years_mode === 'fix' ? tf('jiYearsFixed', { n: formatNum(r.stray_years), year }) : tf('jiYearsKept', { n: formatNum(r.stray_years) }))
+            + ' <button type="button" class="btn btn-secondary btn-sm" data-ji-years="">' + escapeHtml(t('jiYearsUndo')) + '</button>'
+          : '<span class="fc-risk-text">' + escapeHtml(tf('jiYearsTitle', { n: formatNum(r.stray_years), year })) + '</span> '
+            + '<button type="button" class="btn btn-primary btn-sm" data-ji-years="fix">' + escapeHtml(tf('jiYearsFix', { year })) + '</button> '
+            + '<button type="button" class="btn btn-secondary btn-sm" data-ji-years="keep">' + escapeHtml(t('jiYearsKeep')) + '</button>')
+          + '</div>';
+      }
       if (counts) html += '<div style="display:flex; gap:0.35rem; flex-wrap:wrap; margin:0.3rem 0;">' + counts + '</div>';
       if (r.rounded_lines) html += '<p class="fc-note">' + escapeHtml(tf('jiRounded', { n: r.rounded_lines })) + '</p>';
       if ((r.skipped_rows || []).length) html += '<p class="fc-note">' + escapeHtml(tf('jiSkippedRows', { n: r.skipped_rows.length })) + '</p>';
@@ -1718,11 +1738,28 @@
           + escapeHtml(t('jiSourceAccount')) + '</th><th>' + escapeHtml(t('coaDebit')) + '</th><th>' + escapeHtml(t('coaCredit')) + '</th><th>'
           + escapeHtml(t('jiMapsTo')) + '</th></tr></thead><tbody>' + r.accounts.map((a) => {
             const pick = a.mapped_to || (a.suggestions[0] && a.suggestions[0].code) || '';
-            const options = '<option value="">' + escapeHtml(t('jiChoose')) + '</option>' + (_jiChart || []).map((c) =>
-              '<option value="' + escapeHtml(c.code) + '"' + (c.code === pick ? ' selected' : '') + '>' + escapeHtml(localCode(c.code) + ' — ' + c.name) + '</option>').join('');
+            // accounts the chart lacks: create them, under the parent the name points to or any group
+            const parentName = (target) => {
+              if (target === 'new:bank') return t('jiNewBank');
+              const code = target.slice(4);
+              const g = (r.create_groups || []).find((x) => x.code === code) || (_jiChart || []).find((x) => x.code === code);
+              return g ? localCode(code) + ' — ' + g.name : localCode(code);
+            };
+            const creates = [];
+            if (a.create && a.create.startsWith('new:')) creates.push(a.create);
+            (r.create_groups || []).forEach((g) => { if (!creates.includes(g.target)) creates.push(g.target); });
+            if (!creates.includes('new:bank')) creates.push('new:bank');
+            const createOpt = (target) => '<option value="' + escapeHtml(target) + '"' + (target === pick ? ' selected' : '') + '>'
+              + escapeHtml(target === 'new:bank' ? tf('jiCreateBank', { name: a.name || a.code || '' })
+                : tf('jiCreateUnder', { name: a.name || a.code || '', parent: parentName(target) })) + '</option>';
+            const options = '<option value="">' + escapeHtml(t('jiChoose')) + '</option>'
+              + (a.create && a.create.startsWith('new:') ? createOpt(a.create) : '')
+              + (_jiChart || []).map((c) =>
+                '<option value="' + escapeHtml(c.code) + '"' + (c.code === pick ? ' selected' : '') + '>' + escapeHtml(localCode(c.code) + ' — ' + c.name) + '</option>').join('')
+              + creates.filter((x) => x !== a.create).map(createOpt).join('');
             return '<tr><td dir="auto">' + escapeHtml([localCode(a.code || ''), a.name].filter(Boolean).join(' — ')) + (a.how ? ' <span class="fc-note">(' + escapeHtml(t('jiHow_' + a.how)) + ')</span>' : '') + '</td>'
               + '<td>' + escapeHtml(formatNum(a.debit)) + '</td><td>' + escapeHtml(formatNum(a.credit)) + '</td>'
-              + '<td><select data-ji-account="' + escapeHtml(a.key) + '">' + options + '</select></td></tr>';
+              + '<td><select data-ji-account="' + escapeHtml(a.key) + '" aria-label="' + escapeHtml(t('jiMapsTo') + ' — ' + (a.name || a.code || '')) + '">' + options + '</select></td></tr>';
           }).join('') + '</tbody></table></div>';
       }
       const problems = (r.vouchers || []).filter((v) => v.problem).slice(0, 30);
@@ -1736,6 +1773,9 @@
         + escapeHtml(tf('jiApply', { n: (r.counts && r.counts.ready) || 0 })) + '</button></div><p id="ji-msg" class="fc-note"></p>';
       box.innerHTML = html;
       document.getElementById('ji-reread').addEventListener('click', () => jiReview());
+      const sheetSel = document.getElementById('ji-sheet');
+      if (sheetSel) sheetSel.addEventListener('change', () => { _jiSheet = sheetSel.value; _jiSheetChanged = true; jiReview(); });
+      box.querySelectorAll('[data-ji-years]').forEach((b) => b.addEventListener('click', () => { _jiYears = b.dataset.jiYears || null; jiReview(); }));
       document.getElementById('ji-recheck').addEventListener('click', () => jiReview());
       document.getElementById('ji-apply').addEventListener('click', jiApply);
     }
@@ -1748,7 +1788,12 @@
       });
       const account_map = {};
       document.querySelectorAll('#ji-result select[data-ji-account]').forEach((s) => { if (s.value) account_map[s.dataset.jiAccount] = s.value; });
-      return { token: _ji.token, preset: document.getElementById('ji-preset').value, columns, account_map };
+      // another sheet starts from its own columns, not the last sheet's
+      const body = { token: _ji.token, preset: document.getElementById('ji-preset').value, columns: _jiSheetChanged ? {} : columns, account_map };
+      if (_jiSheet) body.sheet = _jiSheet;
+      if (_jiYears) body.years = _jiYears;
+      _jiSheetChanged = false;
+      return body;
     }
 
     async function jiSend(url, body, isForm) {
@@ -1769,7 +1814,9 @@
         const fd = new FormData();
         fd.append('file', file);
         fd.append('preset', document.getElementById('ji-preset').value);
+        _jiSheet = null; _jiYears = null; _jiSheetChanged = false;
         _ji = await jiSend('/migration/journals/preview', fd, true);
+        _jiSheet = _ji.sheet || null;
         jiRender(_ji);
       } catch (err) { box.innerHTML = '<p class="fc-risk-text">' + escapeHtml(err.message) + '</p>'; }
     }
@@ -1791,7 +1838,8 @@
       try {
         const out = await jiSend('/migration/journals/apply', body);
         document.getElementById('ji-result').innerHTML = '<p class="fc-note">' + escapeHtml(tf('jiDone', { n: formatNum(out.posted),
-          skipped: formatNum(Object.values(out.skipped || {}).reduce((a, b) => a + b, 0)) })) + '</p>';
+          skipped: formatNum(Object.values(out.skipped || {}).reduce((a, b) => a + b, 0)) }))
+          + (out.accounts_created ? ' ' + escapeHtml(tf('jiCreatedAccounts', { n: formatNum(out.accounts_created) })) : '') + '</p>';
         _ji = null;
       } catch (err) { document.getElementById('ji-msg').textContent = err.message; }
     }

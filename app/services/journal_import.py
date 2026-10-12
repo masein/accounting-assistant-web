@@ -23,9 +23,10 @@ versions and languages — instead:
 from __future__ import annotations
 
 import difflib
+import io
 import json
 import re
-from collections import OrderedDict, defaultdict
+from collections import Counter, OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -39,23 +40,25 @@ from app.services.book_text import bt
 
 MAX_ROWS = 50_000
 MAX_VOUCHERS = 10_000
+ROUNDING_LIMIT = 10                              # whole units (and at most 0.001%) a voucher may be out and still balance
 MAP_KEY = "journal_import_account_map"          # company app_settings row: source account → chart code
 PRESETS = ("auto", "generic", "quickbooks", "xero", "hesabfa", "sepidar", "holoo")
 IRANIAN = ("hesabfa", "sepidar", "holoo")
-FIELDS = ("date", "voucher", "reference", "account_code", "account_name", "description", "debit", "credit",
-          "amount", "party", "currency")
+FIELDS = ("date", "voucher", "reference", "account_code", "account_name", "account_code_general",
+          "account_name_general", "description", "debit", "credit", "amount", "party", "currency")
 
 _SYNONYMS: dict[str, tuple[str, ...]] = {
     "date": ("date", "transaction date", "journal date", "entry date", "posting date", "تاریخ", "تاریخ سند",
              "تاریخ ثبت"),
     "voucher": ("journal number", "journal no", "journal no.", "journal #", "journal", "entry no", "entry number",
                 "num", "no", "no.", "voucher", "voucher no", "voucher number", "شماره سند", "ش سند", "ش.سند",
-                "شماره", "سند", "شماره سند حسابداری"),
+                "شماره", "سند", "شماره سند حسابداری", "ردیف"),
     "reference": ("reference", "ref", "ref no", "reference number", "مرجع", "شماره عطف", "عطف", "شماره مرجع"),
     "account_code": ("account code", "acct code", "account no", "account number", "code", "gl code", "کد حساب",
-                     "کد", "کد معین", "کد کل", "شماره حساب"),
+                     "کد", "کد معین", "کد کل", "شماره حساب", "کد حساب معین", "کد حساب کل"),
     "account_name": ("account", "account name", "gl account", "نام حساب", "شرح حساب", "حساب", "عنوان حساب",
-                     "نام معین", "معین"),
+                     "نام معین", "معین", "عنوان حساب معین", "عنوان معین", "نام حساب معین", "عنوان حساب کل",
+                     "عنوان کل", "نام حساب کل", "نام کل"),
     "description": ("description", "memo/description", "memo", "narration", "details", "line description", "شرح",
                     "شرح سند", "توضیحات", "شرح آرتیکل", "شرح ردیف", "توضیح"),
     "debit": ("debit", "debits", "debit amount", "dr", "debit (gbp)", "debit (usd)", "بدهکار", "بدهكار", "بدهی",
@@ -102,14 +105,76 @@ def read_rows(filename: str, data: bytes) -> list[list[str | None]]:
     return rows
 
 
-# A group-level code names the account only roughly: an Iranian export lists
+def read_book(filename: str, data: bytes) -> list[tuple[str, list[list[str | None]]]]:
+    """Every sheet of a workbook as (name, rows); another file is one unnamed sheet."""
+    if data[:2] != b"PK":
+        return [("", read_rows(filename, data))]
+    from openpyxl import load_workbook
+    try:
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception as exc:  # noqa: BLE001 — a corrupt workbook
+        raise HTTPException(status_code=422, detail=f"Could not read the file: {exc}") from exc
+    try:
+        book = []
+        for ws in wb.worksheets:
+            rows = [[(str(c) if c is not None else None) for c in row] for row in ws.iter_rows(values_only=True)]
+            if len(rows) > MAX_ROWS:
+                raise HTTPException(status_code=422, detail=f"More than {MAX_ROWS:,} rows — split the export by year.")
+            book.append((ws.title, rows))
+        return book
+    finally:
+        wb.close()
+
+
+def _journal_score(rows: list[list]) -> int:
+    try:
+        _i, found, _h = detect_columns(rows)
+    except HTTPException:
+        return 0
+    if not (("debit" in found and "credit" in found) or "amount" in found):
+        return 0
+    return len(found) + (3 if "account_code" in found or "account_name" in found else 0)
+
+
+def _first_date(rows: list[list]) -> date | None:
+    try:
+        i, found, _h = detect_columns(rows)
+    except HTTPException:
+        return None
+    col = found.get("date")
+    if col is None:
+        return None
+    seen = [parse_date(r[col]) for r in rows[i + 1:i + 200] if r and col < len(r) and r[col] not in (None, "")]
+    seen = sorted(d for d in seen if d is not None)
+    return seen[len(seen) // 2] if seen else None           # the median: a typed year doesn't decide
+
+
+def pick_sheet(book: list[tuple[str, list[list]]], wanted: str | None = None) -> tuple[str, list[list], list[dict]]:
+    """The sheet to read — the one asked for, else the one that looks most like
+    a journal (a hand-kept workbook keeps its bank statements, chart and trial
+    balance beside the journal, and the first sheet was read: a bank
+    statement, 2026-10-12) — with every sheet for the page to offer."""
+    sheets = [{"name": n, "rows": sum(1 for r in rows if any(c not in (None, "") for c in r)),
+               "score": _journal_score(rows)} for n, rows in book]
+    if wanted is not None:
+        for n, rows in book:
+            if n == wanted:
+                return n, rows, sheets
+        raise HTTPException(status_code=422, detail=f"No sheet named «{wanted}» in the file.")
+    # two journals alike (a year's halves, two years): the earlier first, as they go in oldest first
+    firsts = [_first_date(rows) if sheets[i]["score"] else None for i, (_n, rows) in enumerate(book)]
+    best = max(range(len(book)), key=lambda i: (sheets[i]["score"], -(firsts[i].toordinal() if firsts[i] else 10 ** 7), -i))
+    return book[best][0], book[best][1], sheets
+
+
+# A group-level code names the account only roughly# A group-level code names the account only roughly: an Iranian export lists
 # «کد کل» (11) before «کد معین» (1112), and the first column used to win, so
 # every line went to the group account. A more specific column takes over.
-_GENERAL_HEADERS = {"کد کل", "کد گروه", "نام کل", "نام گروه"}
+_GENERAL_HEADERS = {"کد کل", "کد گروه", "نام کل", "نام گروه", "کد حساب کل", "عنوان حساب کل", "عنوان کل", "نام حساب کل"}
 
 
 def _match_field(header: str) -> str | None:
-    h = _norm(header).rstrip(":").strip()
+    h = re.sub(r"\([^)]*\)", "", _norm(header)).rstrip(":").strip()
     if not h:
         return None
     for fld, words in _SYNONYMS.items():
@@ -125,16 +190,25 @@ def detect_columns(rows: list[list]) -> tuple[int, dict[str, int], list[str]]:
     for i, row in enumerate(rows[:30]):
         found: dict[str, int] = {}
         weak: set[str] = set()
+        general_col: dict[str, int] = {}
         for j, cell in enumerate(row or []):
             fld = _match_field(cell) if cell is not None else None
             if not fld:
                 continue
             general = _norm(cell).rstrip(":").strip() in _GENERAL_HEADERS
+            if general:
+                general_col.setdefault(fld, j)
             if fld not in found or (fld in weak and not general):
                 found[fld] = j
                 weak.discard(fld)
                 if general:
                     weak.add(fld)
+        # «کد حساب کل» beside «کد حساب معین»: a line with no sub-ledger takes its ledger
+        for fld in ("account_code", "account_name"):
+            if fld in general_col and found.get(fld) != general_col[fld]:
+                found[f"{fld}_general"] = general_col[fld]
+        if found:
+            _sniff(rows[i + 1:i + 61], row, found)
         score = len(found) + (2 if ("debit" in found and "credit" in found) or "amount" in found else 0)
         if found and score > best[3]:
             best = (i, found, [str(c) if c is not None else "" for c in row], score)
@@ -146,9 +220,44 @@ def detect_columns(rows: list[list]) -> tuple[int, dict[str, int], list[str]]:
     return best[0], best[1], best[2]
 
 
+_DATE_LIKE = re.compile(r"^\s*(1[3-4]\d\d|20\d\d|19\d\d)[/\-.]\d{1,2}[/\-.]\d{1,2}")
+
+
+def _sniff(sample: list[list], header: list, found: dict[str, int]) -> None:
+    """A column whose header cell is blank, found by what it holds: dates, or
+    voucher numbers (small whole numbers repeating over a voucher's lines). A
+    hand-kept journal's second-half sheet labelled neither (2026-10-12)."""
+    blank = [j for j in range(max((len(r) for r in sample), default=0))
+             if j >= len(header) or header[j] in (None, "") or not str(header[j]).strip()]
+    values = {j: [r[j] for r in sample if j < len(r) and r[j] not in (None, "") and str(r[j]).strip()] for j in blank}
+    if "date" not in found:
+        for j in blank:
+            vs = values[j]
+            if len(vs) >= 3 and sum(1 for v in vs if _DATE_LIKE.match(_ascii(v))) >= 0.8 * len(vs):
+                found["date"] = j
+                break
+    if "voucher" not in found:
+        filled = sum(1 for r in sample if any(c not in (None, "") for c in r))
+        for j in blank:
+            if j == found.get("date"):
+                continue
+            vs = [_ascii(v) for v in values[j]]
+            nums = [v[:-2] if v.endswith(".0") else v for v in vs]
+            if len(nums) < 3 or not all(n.isdigit() and len(n) <= 7 for n in nums):
+                continue
+            ints = [int(n) for n in nums]
+            rising = all(a <= b for a, b in zip(ints, ints[1:]))
+            # repeating over a voucher's lines, or written on its first line only
+            if rising and (len(set(nums)) < len(nums) or len(nums) < 0.9 * filled):
+                found["voucher"] = j
+                break
+
+
 def guess_preset(headers: list[str]) -> str:
     joined = " | ".join(_norm(h) for h in headers)
     if re.search(r"[؀-ۿ]", joined):
+        if "کد حساب کل" in joined and "کد حساب معین" in joined:
+            return "generic"                 # a hand-kept journal: ledger and sub-ledger side by side
         return "sepidar" if "کد تفصیلی" in joined or "کد معین" in joined else "hesabfa"
     if "transaction type" in joined or "memo/description" in joined:
         return "quickbooks"
@@ -248,6 +357,7 @@ class Line:
     party: str | None = None
     currency: str | None = None
     exact: Decimal = Decimal(0)
+    ledger: str = ""                     # the line's ledger (کل) title, when a sub-ledger named it
 
     @property
     def account_key(self) -> str:
@@ -293,6 +403,14 @@ def _round_voucher(v: "Voucher") -> int:
             -int((-ln.exact).quantize(Decimal(1), rounding=ROUND_HALF_UP))
         fractional += ln.exact != n
         ln.debit, ln.credit = max(n, 0), max(-n, 0)
+    off = sum(ln.exact for ln in v.lines)
+    total = sum(ln.exact for ln in v.lines if ln.exact > 0)
+    if off != 0 and abs(off) <= ROUNDING_LIMIT and abs(off) * 100_000 <= total:
+        # a hand-kept journal a rial or two out (an opening voucher among them):
+        # the difference goes on the largest line, as the decimals' rounding does
+        biggest = max(v.lines, key=lambda ln: abs(ln.exact))
+        biggest.exact -= off
+        fractional += 1
     if sum(ln.exact for ln in v.lines) == 0:
         # Take each surplus unit back from the line whose rounding added the
         # most on the heavy side, so the totals stay the true (rounded) totals.
@@ -320,6 +438,22 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
             cols.pop(fld, None)
         elif isinstance(col, int) and col < len(headers):
             cols[fld] = col
+    # «ردیف» numbers a voucher when it repeats over the voucher's lines; one per
+    # line, it only counts rows (a bank statement's): then the date groups them
+    if "voucher" in cols and "voucher" not in (columns or {}) \
+            and _norm(headers[cols["voucher"]] if cols["voucher"] < len(headers) else "") == "ردیف":
+        filled = [r for r in rows[header_idx + 1:] if r and any(c not in (None, "") for c in r)]
+        seen_numbers = [_ascii(r[cols["voucher"]]) for r in filled
+                        if cols["voucher"] < len(r) and r[cols["voucher"]] not in (None, "")]
+        # blank on a voucher's later lines (merged cells) is a voucher number carried down
+        if seen_numbers and len(set(seen_numbers)) == len(seen_numbers) and len(seen_numbers) >= 0.9 * len(filled):
+            cols.pop("voucher")
+    # a number column with nothing in it numbers nothing (a 1405 sheet left «ردیف» empty
+    # and its 121 lines read as one voucher, 2026-10-12)
+    if "voucher" in cols and "voucher" not in (columns or {}) and not any(
+            r and cols["voucher"] < len(r) and r[cols["voucher"]] not in (None, "") and str(r[cols["voucher"]]).strip()
+            for r in rows[header_idx + 1:]):
+        cols.pop("voucher")
     needs = []
     if not (("debit" in cols and "credit" in cols) or "amount" in cols):
         needs.append("amounts")
@@ -340,6 +474,8 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
     skipped: list[dict[str, Any]] = []
     no_account = 0
     block, cur_number, cur_date, cur_ref = 0, None, None, None
+    day_block, running = 0, Decimal(0)              # by date: a voucher ends where its lines balance
+    jalali_dates = 0                                # dates written in the Jalali calendar (1404/03/31)
     for i, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
         row = list(row or [])
         texts = [_norm(c) for c in row if c is not None and str(c).strip()]
@@ -354,6 +490,8 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
         if raw_date is not None and on is None:
             skipped.append({"row": i, "reason": "unreadable date", "value": str(raw_date)[:40]})
             continue
+        if on is not None and re.match(r"^\s*1[34]\d\d\b", _ascii(raw_date)):
+            jalali_dates += 1
         if grouping == "block":
             if on is not None:
                 block, cur_date, cur_number, cur_ref = block + 1, on, (_ascii(number) if number is not None else None), ref
@@ -365,13 +503,21 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
                 cur_date = on
             key = f"n{cur_number}"
         else:
-            if on is not None:
-                cur_date = on
-            key = f"d{cur_date}|{ref if ref is not None else cur_ref}"
+            if on is not None and on != cur_date:
+                cur_date, day_block, running = on, day_block + 1, Decimal(0)
+            key = f"d{cur_date}|{ref if ref is not None else cur_ref}|{day_block}"
         if ref is not None:
             cur_ref = str(ref).strip()
         code = re.sub(r"\.0$", "", _ascii(_cell(row, cols.get("account_code")) or ""))
         name = str(_cell(row, cols.get("account_name")) or "").strip()
+        ledger = str(_cell(row, cols.get("account_name_general")) or "").strip()
+        if code and not name and ledger:
+            name = ledger                    # a sub-ledger code with no title: its ledger's («—» was created)
+        if not code and not name:
+            # no sub-ledger on this line: its ledger (a hand-kept journal fills
+            # «کد حساب معین» only where the ledger has sub-ledgers)
+            code = re.sub(r"\.0$", "", _ascii(_cell(row, cols.get("account_code_general")) or ""))
+            name, ledger = ledger, ""
         if "amount" in cols and not ("debit" in cols and "credit" in cols):
             amt = parse_amount(_cell(row, cols["amount"]))
             debit, credit = (amt, Decimal(0)) if amt >= 0 else (Decimal(0), -amt)
@@ -393,15 +539,20 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
             label = str(cur_number).strip() if cur_number not in (None, "") else f"{cur_date.isoformat()}-{len(vouchers) + 1}"
             v = vouchers[key] = Voucher(key=key, number=label, on=cur_date, reference=cur_ref)
         party = _cell(row, cols.get("party"))
-        v.lines.append(Line(row=i, account_code=code, account_name=name,
+        v.lines.append(Line(row=i, account_code=code, account_name=name, ledger=ledger,
                             description=str(_cell(row, cols.get("description")) or "").strip(),
                             debit=0, credit=0, exact=exact,
                             party=str(party).strip() if party is not None else None,
                             currency=str(_cell(row, cols.get("currency")) or "").strip().upper() or None))
+        if grouping == "date":
+            running += exact
+            if running == 0:
+                day_block, running = day_block + 1, Decimal(0)
     rounded = sum(_round_voucher(v) for v in vouchers.values())
     return {"preset": preset, "grouping": grouping, "header_row": header_idx + 1, "headers": headers,
             "columns": cols, "vouchers": list(vouchers.values()), "skipped": skipped,
-            "rows_without_account": no_account, "needs": [], "rounded_lines": rounded}
+            "rows_without_account": no_account, "needs": [], "rounded_lines": rounded,
+            "jalali_dates": jalali_dates > 0}
 
 
 # --- accounts ------------------------------------------------------------------------------------------
@@ -426,6 +577,115 @@ def save_map(db: Session, mapping: dict[str, str]) -> None:
     db.flush()
 
 
+# An account a hand-kept journal names that the chart doesn't have: where to
+# create it, from its title (any of the words, none of the others). «map»
+# takes the chart's own account for the category instead of a new one.
+_CREATE_RULES: list[tuple[tuple[str, ...], tuple[str, ...], tuple[str, str]]] = [
+    (("سود و زیان انباشته", "سود وزیان انباشته", "زیان انباشته", "سود انباشته", "سود و زیان", "سود وزیان"),
+     ("هزینه", "درآمد", "فروش"), ("map", "retained_earnings")),
+    (("سرمایه",), ("گذاری", "افزایش", "هزینه"), ("map", "share_capital")),
+    (("تنخواه",), (), ("role", "petty_cash")),
+    (("وام", "تسهیلات"), ("هزینه", "سود", "کارمزد", "بهره"), ("group", "21")),
+    (("بانک",), ("کارمزد", "هزینه", "وام", "تسهیلات", "سپرده", "سود", "بهره"), ("bank", "")),
+    (("کارمزد", "بهره", "جریمه دیرکرد"), (), ("group", "62")),
+    (("درآمد", "شهریه", "فروش"), ("هزینه", "پیش"), ("group", "41")),
+    (("بستانکاران", "پرداختنی", "ذخیره", "ذخایر", "حساب جاری", "جاری شرکا"), (), ("group", "21")),
+    (("بدهکاران", "دریافتنی", "ودیعه", "پیش پرداخت", "علی الحساب", "مساعده"), (), ("group", "11")),
+    (("استهلاک انباشته",), (), ("group", "12")),
+    (("دارایی ثابت", "دارایی های ثابت", "داراییهای ثابت", "اثاثیه", "تجهیزات", "ساختمان", "وسایط", "نرم افزار"),
+     ("هزینه",), ("group", "12")),
+    (("هزینه", "مخارج", "اجاره", "قبوض", "ملزومات", "پذیرایی", "تعمیرات", "حقوق", "دستمزد", "پرسنل", "بیمه",
+      "اردو", "آموزش", "استهلاک", "عیدی", "پاداش"), (), ("group", "61")),
+]
+CREATE_GROUPS = ("11", "12", "21", "41", "61", "62")
+
+
+def _create_plan(db: Session, name: str, chart_codes: set[str]) -> str | None:
+    """The target for an account the chart lacks: an existing code («map»),
+    "new:bank", or "new:<parent code>"; None when the title says nothing."""
+    from app.services.account_resolver import find_account_code
+    title = _norm(name)
+    for words, never, (kind, arg) in _CREATE_RULES:
+        if any(_norm(w) in title for w in words) and not any(_norm(w) in title for w in never):
+            if kind == "map":
+                return find_account_code(db, arg)
+            if kind == "bank":
+                return "new:bank"
+            if kind == "role":
+                code = find_account_code(db, arg)
+                return f"new:{code}" if code else ("new:11" if "11" in chart_codes else None)
+            return f"new:{arg}" if arg in chart_codes else None
+    return None
+
+
+def _names_agree(a: str, b: str) -> bool:
+    """Whether a file's account and the chart's under the same code are one. In
+    two languages (an English export, a Persian chart) only the code can say."""
+    a, b = _norm(a), _norm(b)
+    persian = re.compile(r"[؀-ۿ]")
+    if not a or not b or bool(persian.search(a)) != bool(persian.search(b)):
+        return True
+    return a in b or b in a or difflib.SequenceMatcher(None, a, b).ratio() >= 0.5
+
+
+def create_account_for(db: Session, name: str, target: str, ledger: str = "") -> str:
+    """Create (or find) the account a "new:…" choice names; returns its code.
+    A bank is a bank as the contacts page makes one. Under a group, the line's
+    own ledger (کل, «بستانکاران») is created first and the sub-ledger (معین,
+    «تامین اجتماعی») under it, as the source keeps them — every account
+    straight under the group used up its four-digit codes (2196–2199 for one
+    school's liabilities, 2026-10-12). Each takes its balance-sheet line from
+    its title (a petty cash at 1151 would otherwise read by its code)."""
+    from app.models.account import Account
+    from app.models.entity import Entity
+    from app.services.chart_service import create_account
+    from app.services.reporting.statement_lines import infer
+    title = (name or "").strip()[:512] or "—"
+    if target == "new:bank":
+        found = db.execute(select(Entity).where(Entity.type == "bank", Entity.code.isnot(None))).scalars().all()
+        for e in found:
+            if _norm(e.name) == _norm(title):
+                return e.code
+        from app.services import migration_import as mig
+        from app.services.ai_accountant.entity_create import _resolve_bank_account
+        # «بانک دی حساب 0105222028000»: the bank «بانک دی», its account number kept
+        number = mig.bank_account_number(title)
+        bank_name = re.sub(r"\s*(حساب|شماره حساب|ش\.?ح)\s*$", "", mig.strip_account_number(title)).strip() or title
+        for e in found:
+            if number and (e.account_number or "").strip() == number:
+                return e.code
+        code, _created = _resolve_bank_account(db, bank_name, None, None)
+        db.add(Entity(type="bank", name=bank_name, code=code, account_number=number))
+        db.flush()
+        return code
+    from app.models.account import AccountLevel
+
+    def child_named(parent: Account | None, wanted: str) -> Account | None:
+        if parent is None:
+            return None
+        for child in db.execute(select(Account).where(Account.parent_id == parent.id)).scalars():
+            if _norm(child.name) == _norm(wanted):
+                return child
+        return None
+
+    def make(parent_code: str, wanted: str) -> Account:
+        acc = create_account(db, name=wanted, parent_code=parent_code)
+        line = infer(acc.code, wanted)
+        if line:
+            acc.statement_line = line
+            db.flush()
+        return acc
+
+    parent = db.execute(select(Account).where(Account.code == target.split(":", 1)[1])).scalars().first()
+    if parent is None:
+        raise HTTPException(status_code=422, detail=f"Account not found: {target.split(':', 1)[1]}")
+    ledger = (ledger or "").strip()[:512]
+    if ledger and parent.level == AccountLevel.GROUP and _norm(ledger) != _norm(title):
+        parent = child_named(parent, ledger) or make(parent.code, ledger)
+    found = child_named(parent, title)
+    return found.code if found is not None else make(parent.code, title).code
+
+
 def match_accounts(db: Session, vouchers: list[Voucher], overrides: dict[str, str] | None = None) -> list[dict[str, Any]]:
     """One entry per distinct account in the file: how it maps to the chart."""
     from app.models.account import Account, AccountLevel
@@ -442,23 +702,36 @@ def match_accounts(db: Session, vouchers: list[Voucher], overrides: dict[str, st
             k = ln.account_key
             entry = seen.get(k)
             if entry is None:
-                entry = seen[k] = {"key": k, "code": ln.account_code, "name": ln.account_name, "lines": 0,
-                                   "debit": 0, "credit": 0, "mapped_to": None, "how": None, "suggestions": []}
+                entry = seen[k] = {"key": k, "code": ln.account_code, "name": ln.account_name, "ledger": ln.ledger,
+                                   "lines": 0, "debit": 0, "credit": 0, "mapped_to": None, "how": None, "suggestions": []}
             entry["lines"] += 1
             entry["debit"] += ln.debit
             entry["credit"] += ln.credit
     names = list(by_name)
+    chart_codes = {a.code for a in chart}
     for k, e in seen.items():
         target = remembered.get(k)
-        if target and target in by_code:
-            e["mapped_to"], e["how"] = target, "chosen"
-        elif e["code"] and e["code"] in by_code:
+        # a sub-ledger named after a person or a school («دبستان فرهنگ نو») says
+        # where it belongs through its ledger («بستانکاران»)
+        plan = (_create_plan(db, e["name"], chart_codes) if e["name"] else None) \
+            or (_create_plan(db, e["ledger"], chart_codes) if e.get("ledger") else None)
+        if target and (target in by_code or target.startswith("new:")):
+            e["mapped_to"], e["how"] = target, ("create" if target.startswith("new:") else "chosen")
+        elif e["code"] and e["code"] in by_code and _names_agree(e["name"], by_code[e["code"]].name):
+            # the same code under another name is another account: a hand-kept
+            # chart's 1110 «تنخواه گردان» is not the seeded 1110 «موجودی نقد و بانک»
             e["mapped_to"], e["how"] = e["code"], "code"
         elif e["name"] and _norm(e["name"]) in by_name:
             e["mapped_to"], e["how"] = by_name[_norm(e["name"])].code, "name"
-        if e["mapped_to"] is None:
+        elif plan:
+            e["mapped_to"], e["how"] = plan, ("create" if plan.startswith("new:") else "role")
+        if plan:
+            e["create"] = plan
+        if e["mapped_to"] is None or e["how"] == "create":
             close = difflib.get_close_matches(_norm(e["name"] or e["code"]), names, n=3, cutoff=0.5)
             e["suggestions"] = [{"code": by_name[n].code, "name": by_name[n].name} for n in close]
+            if e["code"] and e["code"] in by_code and not _names_agree(e["name"], by_code[e["code"]].name):
+                e["suggestions"].insert(0, {"code": e["code"], "name": by_code[e["code"]].name})
     return list(seen.values())
 
 
@@ -499,10 +772,85 @@ def _legacy_reference(preset: str, v: Voucher) -> str:
 # books doubled every balance. The app never closes a year (its statements
 # carry the unclosed result in equity), so a closing is left out, and an
 # opening is kept only for the first year brought in.
-_CLOSING_WORDS = ("اختتامیه", "بستن حساب", "سند بستن", "closing entry", "closing entries", "closing voucher",
-                  "year-end closing", "year end closing", "close the year", "closing of temporary accounts")
+# Year-end closing, not «بستن حساب بانک سپه» (closing a bank account, a real
+# entry a hand-kept journal recorded and the bare «بستن حساب» dropped).
+_CLOSING_WORDS = ("اختتامیه", "بستن حسابهای موقت", "بستن حساب های موقت", "بستن حسابهای دائم", "بستن حساب های دائم",
+                  "بستن حساب سود و زیان", "بستن حسابهای درآمد", "بستن حساب های درآمد", "بستن حسابهای سود و زیان",
+                  "سند بستن", "closing entry", "closing entries", "closing voucher", "year-end closing",
+                  "year end closing", "close the year", "closing of temporary accounts")
 _OPENING_WORDS = ("افتتاحیه", "نقل از سال قبل", "مانده اول دوره", "مانده ابتدای دوره", "opening balance",
                   "opening entry", "opening voucher", "brought forward")
+
+
+def _jalali_books(db: Session) -> bool:
+    from app.services.locale_service import get_display_calendar
+    try:
+        return get_display_calendar(db) == "jalali"
+    except Exception:  # noqa: BLE001 — a calendar never fails an import
+        return False
+
+
+def _year_start(on: date, jalali: bool) -> date:
+    """The first day of ``on``'s year in the books' calendar (1 Farvardin)."""
+    if not jalali:
+        return date(on.year, 1, 1)
+    from app.utils.jalali import gregorian_to_jalali, jalali_to_gregorian
+    jy, _m, _d = gregorian_to_jalali(on)
+    return jalali_to_gregorian(jy, 1, 1)
+
+
+def _year_of(on: date, jalali: bool) -> int:
+    if not jalali:
+        return on.year
+    from app.utils.jalali import gregorian_to_jalali
+    return gregorian_to_jalali(on)[0]
+
+
+def _in_year(on: date, year: int, jalali: bool) -> date:
+    """The same day and month in ``year`` (Esfand 30 / Feb 29 the last day there is)."""
+    if not jalali:
+        try:
+            return on.replace(year=year)
+        except ValueError:
+            return on.replace(year=year, day=28)
+    from app.utils.jalali import gregorian_to_jalali, jalali_to_gregorian
+    _y, m, d = gregorian_to_jalali(on)
+    for day in range(d, 0, -1):            # Esfand 30 in a year that has 29
+        try:
+            return jalali_to_gregorian(year, m, day)
+        except ValueError:
+            continue
+    return jalali_to_gregorian(year, m, 1)
+
+
+def stray_years(db: Session, parsed: dict[str, Any]) -> tuple[int | None, set[str]]:
+    """(the file's year, the vouchers typed in another): a year's file where a
+    few vouchers — under a tenth — say 1400, 1401 or 1403 among 1404's, as a
+    hand-kept journal did (2026-10-12). A file that really spans years has more
+    than a few in each and is left alone."""
+    jalali = parsed.get("jalali_dates") or _jalali_books(db)        # a Jalali file's years, whatever the books show
+    vouchers: list[Voucher] = parsed["vouchers"]
+    years = Counter(_year_of(v.on, jalali) for v in vouchers if v.on)
+    if len(years) < 2:
+        return (next(iter(years)) if years else None), set()
+    main, count = years.most_common(1)[0]
+    stray = {v.key for v in vouchers if v.on and _year_of(v.on, jalali) != main}
+    if len(stray) * 10 > len(vouchers):
+        return main, set()
+    return main, stray
+
+
+def settle_years(db: Session, parsed: dict[str, Any], mode: str | None) -> dict[str, Any]:
+    """«fix»: move the stray vouchers into the file's year (same day and month);
+    «keep»: post them as written; unsaid: they are held back for the owner."""
+    main, stray = stray_years(db, parsed)
+    parsed["file_year"], parsed["stray_years"], parsed["years_mode"] = main, stray, mode
+    if mode == "fix" and stray:
+        jalali = parsed.get("jalali_dates") or _jalali_books(db)
+        for v in parsed["vouchers"]:
+            if v.key in stray:
+                v.on = _in_year(v.on, main, jalali)
+    return parsed
 
 
 def _year_end_kind(v: "Voucher") -> str | None:
@@ -538,23 +886,32 @@ def _assess(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | Non
                                                    .where(Transaction.reference.in_(legacy[i:i + 500])))}
     today = date.today()
     kinds = {v.key: _year_end_kind(v) for v in vouchers}
-    # what an opening voucher would repeat: anything earlier in the books or in
-    # the file, or opening balances the chart migration posted that day or before
+    # What an opening voucher would repeat: an earlier year's books (whose closing
+    # carried these balances), an earlier opening, or the opening balances the
+    # chart migration posted that day or before. Not the year's own first
+    # months: a hand-kept journal entered its opening on 1404/03/31, after a
+    # quarter of vouchers, and lost it as a repeat (2026-10-12).
     from app.services.migration_import import OPENING_REFERENCE
     in_books = db.execute(select(func.min(Transaction.date))).scalar()
     in_file = min((v.on for v in vouchers if v.on and kinds[v.key] is None), default=None)
     earliest = min((d for d in (in_books, in_file) if d), default=None)
+    openings = sorted(v.on for v in vouchers if kinds[v.key] == "opening")
     migrated_opening = db.execute(select(func.min(Transaction.date))
                                   .where(Transaction.reference == OPENING_REFERENCE)).scalar()
+    jalali = parsed.get("jalali_dates") or _jalali_books(db)
     problems: dict[str, str | None] = {}
+    held_years = parsed.get("stray_years") if parsed.get("years_mode") is None else set()
     for v in vouchers:
         if v.debit != v.credit:
             problems[v.key] = "unbalanced"
+        elif held_years and v.key in held_years:
+            problems[v.key] = "out_of_year"
         elif v.on > today:
             problems[v.key] = "future"
         elif kinds[v.key] == "closing":
             problems[v.key] = "year_end_closing"
-        elif kinds[v.key] == "opening" and ((earliest is not None and earliest < v.on)
+        elif kinds[v.key] == "opening" and ((earliest is not None and earliest < _year_start(v.on, jalali))
+                                             or openings[0] < v.on
                                              or (migrated_opening is not None and migrated_opening <= v.on)):
             problems[v.key] = "opening_repeat"
         elif closed is not None and v.on <= closed:
@@ -567,6 +924,12 @@ def _assess(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | Non
         else:
             problems[v.key] = None
     return accounts, problems
+
+
+def _group_labels(db: Session) -> list[dict[str, str]]:
+    from app.models.account import Account
+    rows = db.execute(select(Account.code, Account.name).where(Account.code.in_(CREATE_GROUPS))).all()
+    return [{"target": f"new:{c}", "code": c, "name": n} for c, n in sorted(rows)]
 
 
 def review(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | None = None) -> dict[str, Any]:
@@ -589,6 +952,8 @@ def review(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | None
         "rows_without_account": parsed["rows_without_account"], "needs": parsed["needs"],
         "rounded_lines": parsed["rounded_lines"],
         "from": min(dates).isoformat() if dates else None, "to": max(dates).isoformat() if dates else None,
+        "file_year": parsed.get("file_year"), "stray_years": len(parsed.get("stray_years") or ()),
+        "years_mode": parsed.get("years_mode"), "create_groups": _group_labels(db),
         "debit_total": sum(v.debit for v in vouchers), "credit_total": sum(v.credit for v in vouchers),
     }
 
@@ -604,6 +969,12 @@ def apply(db: Session, parsed: dict[str, Any], *, account_map: dict[str, str], c
     if parsed["needs"]:
         raise HTTPException(status_code=422, detail="Choose the columns first: " + ", ".join(parsed["needs"]))
     accounts, problems = _assess(db, parsed, account_map)
+    created = 0
+    for a in accounts:
+        if a["mapped_to"] and a["mapped_to"].startswith("new:") and any(
+                problems[v.key] is None and any(ln.account_key == a["key"] for ln in v.lines) for v in parsed["vouchers"]):
+            a["mapped_to"], a["how"] = create_account_for(db, a["name"], a["mapped_to"], a.get("ledger") or ""), "created"
+            created += 1
     mapped = {a["key"]: a["mapped_to"] for a in accounts}
     default_ccy = (currency or get_reporting_currency(db) or "IRR").strip().upper()
     parties = _Parties(db)
@@ -646,7 +1017,8 @@ def apply(db: Session, parsed: dict[str, Any], *, account_map: dict[str, str], c
                 if link.entity_id in share_of:
                     link.amount = share_of[link.entity_id]
         posted += 1
-    save_map(db, {a["key"]: a["mapped_to"] for a in accounts if a["mapped_to"] and a["how"] != "code"})
+    save_map(db, {a["key"]: a["mapped_to"] for a in accounts
+                  if a["mapped_to"] and a["how"] != "code" and not a["mapped_to"].startswith("new:")})
     db.flush()
     # the books now say which twin sub-ledger is in use (rial or foreign-currency
     # petty cash, ...): suggest again where new entries post
@@ -655,7 +1027,7 @@ def apply(db: Session, parsed: dict[str, Any], *, account_map: dict[str, str], c
     from app.api.reports import invalidate_dashboard_cache
     invalidate_dashboard_cache()
     return {"posted": posted, "skipped": dict(skipped), "voucher_count": len(parsed["vouchers"]),
-            "bank_lines": to_banks, "posting_roles": roles}
+            "bank_lines": to_banks, "posting_roles": roles, "accounts_created": created}
 
 
 class _Parties:

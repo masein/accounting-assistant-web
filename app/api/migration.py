@@ -19,6 +19,8 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from typing import Literal
+
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -257,6 +259,8 @@ _JOURNAL_EXTENSIONS = (".xlsx", ".xls", ".xml", ".csv", ".tsv", ".txt")
 class JournalReviewIn(BaseModel):
     token: str = Field(..., min_length=8, max_length=64)
     preset: str = Field("auto", max_length=16)
+    sheet: str | None = Field(None, max_length=200)          # a workbook's sheet; unsaid: the journal-like one
+    years: Literal["fix", "keep"] | None = None              # vouchers typed in another year: move them or post as written
     columns: dict[str, int | None] = Field(default_factory=dict)
     account_map: dict[str, str] = Field(default_factory=dict)
 
@@ -277,18 +281,20 @@ def _journal_path(token: str):
     return folder / f"{token}.bin"
 
 
-def _journal_parse(db: Session, token: str, preset: str, columns: dict):
+def _journal_parse(db: Session, token: str, preset: str, columns: dict, sheet: str | None = None):
     from app.core.shared_state import find_upload
     from app.services import journal_import as ji
     stored = find_upload(db, _JOURNAL_KIND, token)
     path = _journal_path(token)
     if not stored or not path.exists():
         raise HTTPException(status_code=410, detail="The upload has expired — choose the file again.")
-    return ji.parse_file(ji.read_rows(path.name, path.read_bytes()), preset=preset, columns=columns)
+    sheet_name, rows, sheets = ji.pick_sheet(ji.read_book(path.name, path.read_bytes()), sheet or None)
+    # a sheet chosen anew starts from its own columns, not the last sheet's
+    return ji.parse_file(rows, preset=preset, columns=columns), sheet_name, sheets
 
 
 @router.post("/journals/preview")
-def journal_import_preview(file: UploadFile = File(...), preset: str = Form("auto"),
+def journal_import_preview(file: UploadFile = File(...), preset: str = Form("auto"), sheet: str | None = Form(None),
                            db: Session = Depends(get_db)) -> dict:
     """Read an exported journal and show what would be posted — nothing is yet."""
     from app.core.shared_state import store_upload
@@ -302,11 +308,13 @@ def journal_import_preview(file: UploadFile = File(...), preset: str = Form("aut
     if len(content) > _MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="File too large (20 MB at most).")
     token = hashlib.sha256(content).hexdigest()[:32]
-    parsed = ji.parse_file(ji.read_rows(name, content), preset=preset)
+    sheet_name, rows, sheets = ji.pick_sheet(ji.read_book(name, content), sheet or None)
+    parsed = ji.settle_years(db, ji.parse_file(rows, preset=preset), None)
     _journal_path(token).write_bytes(content)
     store_upload(db, _JOURNAL_KIND, token, str(_journal_path(token)))
     out = ji.review(db, parsed)
-    out.update({"token": token, "filename": name[:120], "presets": list(ji.PRESETS), "fields": list(ji.FIELDS)})
+    out.update({"token": token, "filename": name[:120], "presets": list(ji.PRESETS), "fields": list(ji.FIELDS),
+                "sheet": sheet_name, "sheets": sheets})
     return out
 
 
@@ -314,9 +322,10 @@ def journal_import_preview(file: UploadFile = File(...), preset: str = Form("aut
 def journal_import_review(body: JournalReviewIn, db: Session = Depends(get_db)) -> dict:
     """The same file again with corrected columns, preset or account choices."""
     from app.services import journal_import as ji
-    parsed = _journal_parse(db, body.token, body.preset, body.columns)
-    out = ji.review(db, parsed, body.account_map)
-    out.update({"token": body.token, "presets": list(ji.PRESETS), "fields": list(ji.FIELDS)})
+    parsed, sheet_name, sheets = _journal_parse(db, body.token, body.preset, body.columns, body.sheet)
+    out = ji.review(db, ji.settle_years(db, parsed, body.years), body.account_map)
+    out.update({"token": body.token, "presets": list(ji.PRESETS), "fields": list(ji.FIELDS),
+                "sheet": sheet_name, "sheets": sheets})
     return out
 
 
@@ -324,8 +333,9 @@ def journal_import_review(body: JournalReviewIn, db: Session = Depends(get_db)) 
 def journal_import_apply(body: JournalApplyIn, db: Session = Depends(get_db)) -> dict:
     from app.core.shared_state import drop_upload
     from app.services import journal_import as ji
-    parsed = _journal_parse(db, body.token, body.preset, body.columns)
-    out = ji.apply(db, parsed, account_map=body.account_map, currency=body.currency, link_parties=body.link_parties)
+    parsed, _sheet, _sheets = _journal_parse(db, body.token, body.preset, body.columns, body.sheet)
+    out = ji.apply(db, ji.settle_years(db, parsed, body.years), account_map=body.account_map,
+                   currency=body.currency, link_parties=body.link_parties)
     log_audit_event(db, "journal_import", "migration", entity_id=body.token,
                     detail=json.dumps({"preset": parsed["preset"], **out}, ensure_ascii=False))
     drop_upload(db, _JOURNAL_KIND, body.token)

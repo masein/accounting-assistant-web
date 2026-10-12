@@ -23,5 +23,7 @@ def test_persian_digits_go_into_a_number_field(flow_page):
     debit.click()
     page.evaluate(PASTE, "۱٬۲۵۰٬۰۰۰")                     # pasted with its thousands separators
     assert debit.input_value() == "1250000"
-    assert "1,250,000" in page.inner_text("#bal-debit")    # the field's own listeners saw it
+    # the field's own listeners saw it; written in the page's digits (an earlier test may leave this user in Persian)
+    shown = page.inner_text("#bal-debit").translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٬", "0123456789,"))
+    assert "1,250,000" in shown, shown
     assert watch.problems() == [], watch.problems()

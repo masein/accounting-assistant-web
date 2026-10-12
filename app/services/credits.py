@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditLog
 from app.models.credit_note import CreditNote
+from app.core.money import plain
 
 CONSUMING = ("refund", "applied", "withdrawn")
 # what moved money or settled another invoice: a "withdrawn" row is the credit
@@ -51,7 +52,7 @@ def used(db: Session, credit_ids: list[UUID], *, kinds=CONSUMING) -> dict[UUID, 
     for cid, txn, total_ in rows:
         if txn is not None and str(txn) in gone:
             continue
-        out[cid] = out.get(cid, 0) + int(total_ or 0)
+        out[cid] = out.get(cid, 0) + plain(total_ or 0)
     return out
 
 
@@ -62,7 +63,7 @@ def remaining(db: Session, credits: list[CreditNote]) -> list[tuple[CreditNote, 
     spent = used(db, [c.id for c in live])
     out = []
     for c in live:
-        left = int(c.amount or 0) - spent.get(c.id, 0)
+        left = plain(c.amount or 0) - spent.get(c.id, 0)
         if left > 0:
             out.append((c, left))
     return out

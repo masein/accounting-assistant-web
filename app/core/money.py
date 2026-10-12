@@ -78,6 +78,16 @@ def quantize(value: Any, currency: str | None) -> int | Decimal:
     return plain(d)
 
 
+def round_amount(value: Any, currency: str | None) -> int | Decimal:
+    """A figure the app makes — a line's total, its VAT, a share of tax — to
+    ``currency``'s places: half-up to the penny for pounds. A currency without
+    places keeps Python's ``round()`` (half to even) exactly as rial invoices
+    always were, so a rial invoice comes out as before (scenario Q1)."""
+    if exponent(currency) == 0:
+        return int(round(float(to_decimal(value))))
+    return quantize(value, currency)
+
+
 def places_of(value: Any) -> int:
     """How many decimal places ``value`` is written with (7.50 → 1: 7.5)."""
     d = to_decimal(value).normalize()

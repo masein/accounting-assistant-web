@@ -20,6 +20,7 @@ from app.schemas.invoice import InvoiceItemCreate
 from app.services import recurring_invoice_service as svc
 from app.services.audit_service import log_audit_event
 from app.core.money import json_dumps
+from app.core.money import Money, plain
 
 router = APIRouter(prefix="/recurring-invoices", tags=["recurring-invoices"])
 
@@ -29,7 +30,7 @@ class RecurringInvoiceCreate(BaseModel):
     entity_id: UUID
     currency: str | None = Field(None, max_length=8, description="Blank: the company's base currency")
     description: str | None = None
-    amount: int = Field(0, ge=0)
+    amount: Money = Field(0, ge=0)
     items: list[InvoiceItemCreate] = Field(default_factory=list)
     frequency: str = Field("monthly", description="weekly | monthly | quarterly | yearly")
     calendar: str | None = Field(None, description="gregorian | jalali; default by company locale")
@@ -45,7 +46,7 @@ class RecurringInvoiceCreate(BaseModel):
 class RecurringInvoiceUpdate(BaseModel):
     name: str | None = Field(None, max_length=256)
     description: str | None = None
-    amount: int | None = Field(None, ge=0)
+    amount: Money | None = Field(None, ge=0)
     items: list[InvoiceItemCreate] | None = None
     frequency: str | None = None
     calendar: str | None = None
@@ -64,7 +65,7 @@ def _read(db: Session, t: RecurringInvoice) -> dict:
     return {
         "id": str(t.id), "name": t.name, "entity_id": str(t.entity_id), "entity_name": ent.name if ent else None,
         "entity_email": (ent.email if ent else None), "currency": t.currency, "description": t.description,
-        "amount": int(t.amount or 0), "items": svc.template_items(t),
+        "amount": plain(t.amount or 0), "items": svc.template_items(t),
         "total": svc.template_total(db, t, t.next_run_date),
         "frequency": t.frequency, "calendar": t.calendar, "start_date": t.start_date.isoformat(),
         "end_date": t.end_date.isoformat() if t.end_date else None, "max_occurrences": t.max_occurrences,
@@ -118,7 +119,7 @@ def recurring_invoice_history(template_id: UUID, db: Session = Depends(get_db)) 
     rows = db.execute(select(Invoice).where(Invoice.recurring_invoice_id == template_id)
                       .order_by(Invoice.issue_date)).scalars().all()
     return [{"id": str(i.id), "number": i.number, "issue_date": i.issue_date.isoformat(),
-             "due_date": i.due_date.isoformat(), "amount": int(i.amount or 0), "status": i.status} for i in rows]
+             "due_date": i.due_date.isoformat(), "amount": plain(i.amount or 0), "status": i.status} for i in rows]
 
 
 @router.post("", status_code=201)
@@ -131,12 +132,12 @@ def create_recurring_invoice(payload: RecurringInvoiceCreate, db: Session = Depe
         raise HTTPException(status_code=422, detail="Customer entity not found.")
     if payload.end_date is not None and payload.end_date < payload.start_date:
         raise HTTPException(status_code=422, detail="end_date is before start_date.")
-    if not payload.items and int(payload.amount or 0) <= 0:
+    if not payload.items and (payload.amount or 0) <= 0:
         raise HTTPException(status_code=422, detail="Give a positive amount or at least one priced line.")
     t = RecurringInvoice(
         name=(payload.name or "").strip() or f"{ent.name} — {freq}", entity_id=payload.entity_id,
         currency=default_currency(db, payload.currency), description=(payload.description or "").strip() or None,
-        amount=int(payload.amount or 0), items=_items_json(payload.items), frequency=freq, calendar=cal,
+        amount=plain(payload.amount or 0), items=_items_json(payload.items), frequency=freq, calendar=cal,
         start_date=payload.start_date, end_date=payload.end_date, max_occurrences=payload.max_occurrences,
         next_run_date=payload.start_date, occurrences=0, terms_days=payload.terms_days, issue_status=status,
         auto_send=bool(payload.auto_send), status="active",
@@ -179,7 +180,7 @@ def update_recurring_invoice(template_id: UUID, payload: RecurringInvoiceUpdate,
     if payload.description is not None:
         t.description = payload.description.strip() or None
     if payload.amount is not None:
-        t.amount = int(payload.amount)
+        t.amount = plain(payload.amount)
     if payload.items is not None:
         t.items = _items_json(payload.items)
     if freq:

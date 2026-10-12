@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.ai_accountant import AIProposal
 from app.services.ai_accountant.time_execute import _audit
+from app.core.money import plain
 
 
 def _statement_row(db: Session, row_id: str | None):
@@ -59,7 +60,7 @@ def execute_invoice_proposal(
     if name == "propose_create_invoice":
         from app.api.invoices import create_invoice
         from app.schemas.invoice import InvoiceCreate, InvoiceItemCreate
-        items = [InvoiceItemCreate(product_name=l["description"], quantity=l["quantity"], unit_price=int(l["unit_price"]),
+        items = [InvoiceItemCreate(product_name=l["description"], quantity=l["quantity"], unit_price=plain(l["unit_price"]),
                                    tax_rate=float(l.get("tax_rate") or 0), description=l.get("description")) for l in p["lines"]]
         read = create_invoice(InvoiceCreate(
             number=p["number"], kind=p["kind"], status="issued", issue_date=date.fromisoformat(p["issue_date"]),

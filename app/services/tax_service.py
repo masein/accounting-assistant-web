@@ -8,6 +8,8 @@ always attached and must always be surfaced to the user.
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 from datetime import date
 from typing import Any
 
@@ -15,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.invoice import Invoice
+from app.core.money import exponent, plain, quantize, to_decimal
 
 # Returned with every summary and surfaced to the user verbatim, even when the
 # user asks to "just give me the number" (§17.6).
@@ -26,13 +29,17 @@ TAX_CAVEAT = (
 )
 
 
-def _line_tax(line_total: int, tax_rate, taxable: bool) -> int:
+def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None):
+    """A line's VAT to its currency's places, half-up (the penny for pounds);
+    without a currency, and in rials, whole units as before (app.api.invoices)."""
     if not taxable:
         return 0
     rate = float(tax_rate or 0)
     if rate <= 0:
         return 0
-    return int(round(int(line_total or 0) * rate / 100.0))
+    if currency is None or exponent(currency) == 0:
+        return int(round(int(line_total or 0) * rate / 100.0))
+    return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
 
 
 def _invoice_tax(inv: Invoice) -> tuple[int, set[float]]:
@@ -40,16 +47,20 @@ def _invoice_tax(inv: Invoice) -> tuple[int, set[float]]:
     total = 0
     rates: set[float] = set()
     for it in inv.items or []:
-        t = _line_tax(it.line_total, it.tax_rate, it.taxable)
+        t = _line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency)
         if t and it.taxable and float(it.tax_rate or 0) > 0:
             rates.add(float(it.tax_rate))
         total += t
     return total, rates
 
 
-def _notional_tax(line_total: int, tax_rate) -> int:
+def _notional_tax(line_total, tax_rate, currency: str | None = None):
     rate = float(tax_rate or 0)
-    return int(round(int(line_total or 0) * rate / 100.0)) if rate > 0 else 0
+    if rate <= 0:
+        return 0
+    if currency is None or exponent(currency) == 0:
+        return int(round(int(line_total or 0) * rate / 100.0))
+    return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
 
 
 def compute_tax_summary(
@@ -107,16 +118,16 @@ def compute_tax_summary(
             code = getattr(it, "tax_code", None)
             if code and "_" in code:
                 jurisdictions.add(code.split("_", 1)[0])
-            base = int(it.line_total or 0)
+            base = plain(it.line_total or 0)
             _bucket(by_treatment, treatment, "base", base)
             if treatment == "standard" and it.taxable:
-                t = _line_tax(it.line_total, it.tax_rate, it.taxable)
+                t = _line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency)
                 _bucket(by_treatment, treatment, side, t)
                 _bucket(by_rate, f"{float(it.tax_rate or 0):g}", side, t)
             elif treatment == "reverse_charge":
                 # Cross-border B2B: customer self-accounts. Notional output AND
                 # input that net to zero — recorded/labelled, never added to net.
-                notional = _notional_tax(it.line_total, it.tax_rate)
+                notional = _notional_tax(it.line_total, it.tax_rate, inv.currency)
                 _bucket(by_treatment, treatment, "output", notional)
                 _bucket(by_treatment, treatment, "input", notional)
                 reverse_charge_notional += notional

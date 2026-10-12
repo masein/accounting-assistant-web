@@ -19,6 +19,27 @@ _CCY_WORD_EN = {
 }
 # Currency words for Persian amount-in-words.
 _CCY_WORD_FA = {"IRR": "ریال", "USD": "دلار", "EUR": "یورو", "GBP": "پوند"}
+# The hundredth of each, for an amount with pence (docs/PLAN_PENCE.md).
+_MINOR_WORD_EN = {"GBP": "pence", "USD": "cents", "EUR": "cents", "AED": "fils", "TRY": "kuruş"}
+_MINOR_WORD_FA = {"GBP": "پنس", "USD": "سنت", "EUR": "سنت"}
+
+
+def fmt_amount(amount, currency: str | None, locale: str | None = None) -> str:
+    """A grouped amount with its currency's places, no symbol: «1,234.56»,
+    «۲,۵۰۰,۰۰۰» (rials have none). It was int(round()): pence went."""
+    from app.core.money import exponent, quantize, to_decimal
+    try:
+        v = to_decimal(amount or 0)
+    except ValueError:
+        v = to_decimal(0)
+    places = exponent(currency) if currency else 0
+    q = quantize(v, currency) if currency else int(round(float(v)))
+    text = f"{q:,.{places}f}" if places else f"{int(q):,}"
+    if is_rtl(locale):
+        # the grouping comma as Persian documents have always printed it; the
+        # Persian decimal mark only where there are pence
+        text = to_persian_digits(text.replace(".", "٫"))
+    return text
 
 
 def is_rtl(locale: str | None) -> bool:
@@ -34,21 +55,18 @@ def fmt_digits(text: str, locale: str | None) -> str:
 
 
 def fmt_money(amount, currency: str | None, locale: str | None) -> str:
-    """Thousands-grouped amount with the currency symbol; Persian digits for ir."""
-    try:
-        n = int(round(float(amount or 0)))
-    except (TypeError, ValueError):
-        n = 0
+    """Thousands-grouped amount with the currency symbol and the currency's
+    places («£1,234.56»); Persian digits for ir."""
     ccy = (currency or "").upper()
-    grouped = f"{n:,}"
+    grouped = fmt_amount(amount, ccy or None, locale)
     symbol = CURRENCY_SYMBOL.get(ccy, ccy)
     if is_rtl(locale):
-        grouped = to_persian_digits(grouped)
         # symbol trails the number in RTL
         return f"{grouped} {symbol}".strip()
     # symbol leads for £/$/€, trails for ISO codes
     if symbol and symbol != ccy:
-        return f"{symbol}{grouped}"
+        neg = grouped.startswith("-")
+        return ("-" if neg else "") + f"{symbol}{grouped.lstrip('-')}"
     return f"{grouped} {ccy}".strip()
 
 
@@ -75,23 +93,35 @@ def fmt_date(d, locale: str | None) -> str:
 
 
 def amount_in_words(amount, currency: str | None, locale: str | None) -> str:
-    try:
-        n = int(round(float(amount or 0)))
-    except (TypeError, ValueError):
-        n = 0
+    """«One hundred and twenty pounds and fifty pence»: the pence in words
+    too (they were rounded away), none for a currency without places."""
+    from app.core.money import exponent, quantize, to_decimal
     ccy = (currency or "").upper()
+    try:
+        v = quantize(to_decimal(amount or 0), ccy) if ccy else to_decimal(int(round(float(amount or 0))))
+    except (TypeError, ValueError):
+        v = to_decimal(0)
+    n = int(v)
+    places = exponent(ccy) if ccy else 0
+    minor = int(round((to_decimal(v) - n) * (10 ** places))) if places else 0
     if is_rtl(locale):
         try:
             from num2fawords import words
             w = words(n)
+            unit = _CCY_WORD_FA.get(ccy, ccy)
+            out = f"{w} {unit}".strip()
+            if minor:
+                out += f" و {words(minor)} {_MINOR_WORD_FA.get(ccy, '')}".rstrip()
+            return out
         except Exception:
             return to_persian_digits(f"{n:,}")
-        unit = _CCY_WORD_FA.get(ccy, ccy)
-        return f"{w} {unit}".strip()
     try:
         from num2words import num2words
         w = num2words(n, lang="en")
+        unit = _CCY_WORD_EN.get(ccy, ccy.lower())
+        out = f"{w} {unit}".strip()
+        if minor:
+            out += f" and {num2words(minor, lang='en')} {_MINOR_WORD_EN.get(ccy, 'cents')}"
+        return out.capitalize()
     except Exception:
         return f"{n:,}"
-    unit = _CCY_WORD_EN.get(ccy, ccy.lower())
-    return f"{w} {unit}".strip().capitalize()

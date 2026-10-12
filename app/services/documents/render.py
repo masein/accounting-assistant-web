@@ -13,6 +13,7 @@ from app.services.documents.formatting import (
     fmt_money,
 )
 from app.services.documents.labels import labels_for
+from app.core.money import plain
 
 
 def _ctx(db: Session) -> tuple[dict, dict, str]:
@@ -93,7 +94,7 @@ def _render_invoice_like(db: Session, inv, party, *, kind: str = "invoice") -> b
     ]
     rows, subtotal = [], 0
     if not items:
-        amt = int(inv.amount or 0)
+        amt = plain(inv.amount or 0)
         rows.append({"cells": [
             {"value": inv.description or "Service / Product"},
             {"value": fmt_digits("1", loc), "num": True},
@@ -103,7 +104,7 @@ def _render_invoice_like(db: Session, inv, party, *, kind: str = "invoice") -> b
         ]})
         subtotal = amt
     for it in items:
-        lt = int(it.line_total or 0)
+        lt = plain(it.line_total or 0)
         subtotal += lt
         qty = f"{float(it.quantity or 1):g}"
         taxr = f"{float(getattr(it, 'tax_rate', 0) or 0):g}%"
@@ -114,7 +115,7 @@ def _render_invoice_like(db: Session, inv, party, *, kind: str = "invoice") -> b
             {"value": fmt_digits(taxr, loc), "num": True},
             {"value": _money(lt, ccy, loc), "num": True},
         ]})
-    total = int(inv.amount or subtotal)
+    total = plain(inv.amount or subtotal)
     tax_total = max(0, total - subtotal)
     totals = [{"label": L["subtotal"], "value": _money(subtotal, ccy, loc)}]
     if tax_total:
@@ -158,7 +159,7 @@ def render_time_invoice_pdf(db: Session, inv, party, groups: list[dict], period:
         if g["project"] != last_proj:
             rows.append({"group": g["project"]})
             last_proj = g["project"]
-        amt = int(g["amount"])
+        amt = plain(g["amount"])
         total += amt
         rows.append({"cells": [
             {"value": g["worker"]},
@@ -166,7 +167,7 @@ def render_time_invoice_pdf(db: Session, inv, party, groups: list[dict], period:
             {"value": fmt_digits(f"{float(g['rate']):g}", loc), "num": True},
             {"value": _money(amt, ccy, loc), "num": True},
         ]})
-    total = int(inv.amount or total)
+    total = plain(inv.amount or total)
     meta = [
         {"label": L["number"], "value": fmt_digits(inv.number, loc)},
         {"label": L["issue_date"], "value": fmt_date(inv.issue_date, loc)},
@@ -192,7 +193,7 @@ def render_time_invoice_pdf(db: Session, inv, party, groups: list[dict], period:
 def render_receipt_pdf(db: Session, payment, inv, party, balance_after: int) -> bytes:
     brand, L, loc = _ctx(db)
     ccy = payment.currency or brand["base_currency"]
-    amt = int(payment.amount or 0)
+    amt = plain(payment.amount or 0)
     desc = f"{L['invoice']} {inv.number}" if inv else L["received_with_thanks"]
     ctx = {
         **brand, "title": L["receipt"], "labels": L,
@@ -227,7 +228,7 @@ def render_statement_pdf(db: Session, party, events: list[dict], period: tuple, 
     ]
     rows, balance = [], 0
     for e in events:
-        balance += int(e.get("debit", 0)) - int(e.get("credit", 0))
+        balance += plain(e.get("debit", 0)) - plain(e.get("credit", 0))
         rows.append({"cells": [
             {"value": fmt_date(e["date"], loc)},
             {"value": e.get("description", "")},
@@ -260,7 +261,7 @@ def render_purchase_order_pdf(db: Session, po, supplier) -> bytes:
     ]
     rows, total = [], 0
     for ln in (po.lines or []):
-        lt = int(ln.line_total or 0)
+        lt = plain(ln.line_total or 0)
         total += lt
         rows.append({"cells": [
             {"value": ln.description or "Item"},
@@ -326,7 +327,7 @@ def render_payslip_pdf(db: Session, run, line, employee) -> bytes:
         rows.append({"cells": [{"value": f"{L['days_worked']}: {to_persian_digits(days) if loc == 'ir' else days}"},
                                {"value": "", "num": True}]})
         for key in ("eidi", "sanavat"):
-            if int(getattr(line, key, 0) or 0):
+            if plain(getattr(line, key, 0) or 0):
                 rows.append({"cells": [{"value": L[key]}, {"value": _money(getattr(line, key), ccy, loc), "num": True}]})
     rows.append(
         {"cells": [{"value": L["gross_pay"]}, {"value": _money(line.gross or 0, ccy, loc), "num": True}]},
@@ -337,11 +338,11 @@ def render_payslip_pdf(db: Session, run, line, employee) -> bytes:
     ]
     total_ded = 0
     for key, val in deductions:
-        v = int(val or 0)
+        v = plain(val or 0)
         if v:
             total_ded += v
             rows.append({"cells": [{"value": L.get(key, key)}, {"value": "-" + _money(v, ccy, loc), "num": True}]})
-    net = int(line.net_pay or 0)
+    net = plain(line.net_pay or 0)
     ctx = {
         **brand, "title": L["year_end_payslip"] if year_end else L["payslip"], "labels": L,
         "meta": [

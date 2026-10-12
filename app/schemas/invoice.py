@@ -12,9 +12,9 @@ from app.core.money import Money
 class InvoiceItemBase(BaseModel):
     product_name: str = Field(..., min_length=1)
     quantity: float = Field(default=1, gt=0)
-    unit_price: int = Field(default=0, ge=0)
-    unit_cost: int | None = Field(default=None, ge=0)
-    line_total: int | None = Field(default=None, ge=0)
+    unit_price: Money = Field(default=0, ge=0)
+    unit_cost: Money | None = Field(default=None, ge=0)
+    line_total: Money | None = Field(default=None, ge=0)
     tax_rate: float = Field(default=0, ge=0, le=100, description="VAT/sales-tax percent, e.g. 20")
     taxable: bool = Field(default=True, description="Exempt lines (False) contribute to subtotal but not tax")
     tax_code: str | None = Field(default=None, description="Effective-dated tax code, e.g. UK_VAT_STANDARD; rate auto-derived as of the invoice date when no explicit rate is given")
@@ -51,7 +51,7 @@ class InvoiceBase(BaseModel):
     kind: str = Field(..., description="sales or purchase")
     issue_date: date
     due_date: date
-    amount: int = Field(..., ge=0)
+    amount: Money = Field(..., ge=0)
     # None: the company's base currency (it was a literal "IRR")
     currency: Optional[str] = Field(default=None, max_length=8)
     description: Optional[str] = None
@@ -69,7 +69,7 @@ class InvoiceUpdate(BaseModel):
     status: str | None = None
     issue_date: date | None = None
     due_date: date | None = None
-    amount: int | None = Field(default=None, ge=0)
+    amount: Money | None = Field(default=None, ge=0)
     currency: str | None = None
     description: str | None = None
     entity_id: UUID | None = None
@@ -87,7 +87,7 @@ class MarkInvoicePaidRequest(BaseModel):
 
 
 class PaymentCreate(BaseModel):
-    amount: int = Field(..., gt=0, description="Whole currency units, > 0")
+    amount: Money = Field(..., gt=0, description="In the currency's own unit, > 0 (7.50 is £7.50)")
     date: _date | None = None
     currency: str | None = None
     method: str = Field(default="bank", description="cash|bank|transfer")
@@ -115,7 +115,7 @@ class PaymentRead(BaseModel):
 
 
 class CreditNoteCreate(BaseModel):
-    amount: int = Field(..., gt=0, description="Whole currency units, > 0")
+    amount: Money = Field(..., gt=0, description="In the currency's own unit, > 0 (7.50 is £7.50)")
     date: _date | None = None
     currency: str | None = None
     reason: str | None = None

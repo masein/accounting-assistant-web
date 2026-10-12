@@ -37,6 +37,7 @@ from app.schemas.invoice import InvoiceCreate, InvoiceItemCreate, InvoiceRead
 from app.schemas.quote import QuoteConvert, QuoteCreate, QuoteRead, QuoteUpdate
 from app.services.audit_service import log_audit_event
 from app.services.book_text import bt
+from app.core.money import plain
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
@@ -63,7 +64,7 @@ def _read(db: Session, q: Quote) -> QuoteRead:
     inv = db.get(Invoice, q.converted_invoice_id) if q.converted_invoice_id else None
     return QuoteRead(
         id=q.id, number=q.number, status=q.status, effective_status=_effective_status(q),
-        issue_date=q.issue_date, valid_until=q.valid_until, amount=int(q.amount or 0),
+        issue_date=q.issue_date, valid_until=q.valid_until, amount=plain(q.amount or 0),
         subtotal=subtotal, tax_total=tax_total, currency=q.currency, description=q.description,
         entity_id=q.entity_id, entity_name=(party.name if party else None),
         converted_invoice_id=q.converted_invoice_id,
@@ -115,7 +116,7 @@ def _set_items(db: Session, q: Quote, items: list[InvoiceItemCreate]) -> None:
     for old in list(q.items or []):
         db.delete(old)
     q.items.clear()
-    built, grand_total = _build_invoice_items(items, None, db, q.issue_date)
+    built, grand_total = _build_invoice_items(items, None, db, q.issue_date, q.currency)
     for pos, b in enumerate(built):
         q.items.append(QuoteItem(
             position=pos, product_name=b.product_name, quantity=b.quantity, unit_price=b.unit_price,
@@ -199,14 +200,14 @@ def create_quote(payload: QuoteCreate, db: Session = Depends(get_db)) -> QuoteRe
     _assert_number_free(db, number)
     q = Quote(
         number=number, status="draft", issue_date=payload.issue_date, valid_until=payload.valid_until,
-        amount=int(payload.amount or 0), currency=default_currency(db, payload.currency),
+        amount=plain(payload.amount or 0), currency=default_currency(db, payload.currency),
         description=(payload.description or "").strip() or None, entity_id=payload.entity_id,
     )
     db.add(q)
     try:
         db.flush()
         _set_items(db, q, payload.items)
-        if int(q.amount or 0) <= 0:
+        if plain(q.amount or 0) <= 0:
             raise HTTPException(status_code=422, detail="A quote needs a positive amount or at least one priced line.")
         _mark_status(q, status)
         db.flush()
@@ -264,12 +265,12 @@ def update_quote(quote_id: UUID, payload: QuoteUpdate, db: Session = Depends(get
     if "entity_id" in content:
         q.entity_id = payload.entity_id
     if payload.amount is not None and not q.items:
-        q.amount = int(payload.amount)
+        q.amount = plain(payload.amount)
     if payload.items is not None:
         _set_items(db, q, payload.items)
         if not q.items and payload.amount is not None:
-            q.amount = int(payload.amount)
-    if int(q.amount or 0) <= 0:
+            q.amount = plain(payload.amount)
+    if plain(q.amount or 0) <= 0:
         db.rollback()
         raise HTTPException(status_code=422, detail="A quote needs a positive amount or at least one priced line.")
     if new_status is not None:
@@ -311,15 +312,15 @@ def convert_quote(quote_id: UUID, payload: QuoteConvert | None = None, db: Sessi
     number = (payload.number or "").strip() or suggest_number(db, Invoice, invoice_number_prefix(db), kind="sales")
 
     items = [InvoiceItemCreate(
-        product_name=it.product_name, quantity=float(it.quantity or 0), unit_price=int(it.unit_price or 0),
-        unit_cost=it.unit_cost, line_total=int(it.line_total or 0), tax_rate=float(it.tax_rate or 0),
+        product_name=it.product_name, quantity=float(it.quantity or 0), unit_price=plain(it.unit_price or 0),
+        unit_cost=it.unit_cost, line_total=plain(it.line_total or 0), tax_rate=float(it.tax_rate or 0),
         taxable=bool(it.taxable), tax_code=it.tax_code, tax_treatment=it.tax_treatment or "standard",
         description=it.description, inventory_item_id=it.inventory_item_id, sstid=it.sstid, mu=it.mu,
     ) for it in (q.items or [])]
     try:
         inv = insert_invoice(db, InvoiceCreate(
             number=number, kind="sales", status=status, issue_date=issue, due_date=due,
-            amount=int(q.amount or 0), currency=q.currency,
+            amount=plain(q.amount or 0), currency=q.currency,
             description=q.description or bt(db, "quote_invoice", number=q.number), entity_id=q.entity_id, items=items,
         ))
         q.converted_invoice_id = inv.id

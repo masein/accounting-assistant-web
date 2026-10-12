@@ -219,7 +219,7 @@
 
       <!-- Single-amount mode -->
       <div id="inv-simple-fields" class="row" style="display:none; margin-bottom:1rem;">
-        <div><label for="inv-amount" data-i18n="labelAmountNet">Amount (net)</label><input type="number" id="inv-amount" min="0" step="1" value="0"></div>
+        <div><label for="inv-amount" data-i18n="labelAmountNet">Amount (net)</label><input type="number" id="inv-amount" min="0" step="any" value="0"></div>
         <div><label for="inv-tax-code" data-i18n="taxCodeLabel">Tax code</label><select id="inv-tax-code"><option value="" data-i18n="taxCodeNone">— Manual rate —</option></select></div>
         <div><label for="inv-tax-treatment" data-i18n="taxTreatmentLabel">Treatment</label><select id="inv-tax-treatment">
           <option value="standard" data-i18n="taxTreatStandard">Standard</option>
@@ -3244,7 +3244,7 @@
         </div>
         <div>
           <label for="invoice-edit-amount" data-i18n="labelAmount">Amount</label>
-          <input type="number" id="invoice-edit-amount" min="0" step="1" style="width: 100%;">
+          <input type="number" id="invoice-edit-amount" min="0" step="any" style="width: 100%;">
         </div>
         <div>
           <label for="invoice-edit-currency" data-i18n="invoiceCurrencyLabel">Currency</label>

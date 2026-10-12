@@ -25,6 +25,7 @@ from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.services import purchase_billing, three_way_match
 from app.services.audit_service import log_audit_event
 from app.services.fx_service import get_reporting_currency
+from app.core.money import Money, plain, round_amount, to_decimal
 
 router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders"])
 
@@ -41,7 +42,7 @@ _VALID_STATUS = {"draft", "issued", "partially_received", "received", "closed", 
 class POLineInput(BaseModel):
     description: str
     ordered_qty: float = Field(..., gt=0)
-    unit_price: int = Field(..., ge=0)
+    unit_price: Money = Field(..., ge=0)
     inventory_item_id: UUID | None = None
 
 
@@ -106,8 +107,8 @@ def _line_read(ln: PurchaseOrderLine) -> dict:
         "received_qty": float(ln.received_qty or 0),
         "billed_qty": float(ln.billed_qty or 0),
         "billable_qty": float(purchase_billing.billable(ln)),
-        "unit_price": int(ln.unit_price or 0),
-        "line_total": int(ln.line_total or 0),
+        "unit_price": plain(ln.unit_price or 0),
+        "line_total": plain(ln.line_total or 0),
     }
 
 
@@ -127,7 +128,7 @@ def _po_read(po: PurchaseOrder, db: Session, *, with_bills: bool = False) -> dic
         "currency": po.currency,
         "description": po.description,
         "matched_invoice_id": str(po.matched_invoice_id) if po.matched_invoice_id else None,
-        "total": sum(int(li.line_total or 0) for li in po.lines),
+        "total": sum(plain(li.line_total or 0) for li in po.lines),
         "billing_status": purchase_billing.billing_status(po),
         "lines": [_line_read(li) for li in po.lines],
         **({"bills": purchase_billing.bills_for(db, po)} if with_bills else {}),
@@ -178,7 +179,8 @@ def create_po(payload: POCreate, db: Session = Depends(get_db)) -> dict:
         db.add(PurchaseOrderLine(
             order_id=po.id, inventory_item_id=li.inventory_item_id,
             description=li.description, ordered_qty=li.ordered_qty, received_qty=0,
-            unit_price=int(li.unit_price), line_total=int(round(li.ordered_qty * li.unit_price)),
+            # to the order currency's places: 3 × £19.99 is £59.97 (whole rials as before)
+            unit_price=plain(li.unit_price), line_total=round_amount(to_decimal(repr(float(li.ordered_qty))) * to_decimal(li.unit_price), cur),
         ))
     log_audit_event(db, action="create", entity_type="purchase_order", entity_id=str(po.id),
                     detail=f"PO {number}")
@@ -359,7 +361,7 @@ def match_po(po_id: UUID, payload: MatchRequest, db: Session = Depends(get_db)) 
             "description": li.description,
             "ordered_qty": float(li.ordered_qty or 0),
             "received_qty": float(li.received_qty or 0),
-            "unit_price": int(li.unit_price or 0),
+            "unit_price": plain(li.unit_price or 0),
         }
         for li in po.lines
     ]
@@ -371,7 +373,7 @@ def match_po(po_id: UUID, payload: MatchRequest, db: Session = Depends(get_db)) 
             "key": str(it.inventory_item_id) if it.inventory_item_id else None,
             "description": it.product_name,
             "quantity": float(it.quantity or 0),
-            "unit_price": int(it.unit_price or 0),
+            "unit_price": plain(it.unit_price or 0),
         }
         for it in items
     ]

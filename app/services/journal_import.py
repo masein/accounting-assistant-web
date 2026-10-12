@@ -256,6 +256,8 @@ def _sniff(sample: list[list], header: list, found: dict[str, int]) -> None:
 def guess_preset(headers: list[str]) -> str:
     joined = " | ".join(_norm(h) for h in headers)
     if re.search(r"[؀-ۿ]", joined):
+        if "کد حساب کل" in joined and "کد حساب معین" in joined:
+            return "generic"                 # a hand-kept journal: ledger and sub-ledger side by side
         return "sepidar" if "کد تفصیلی" in joined or "کد معین" in joined else "hesabfa"
     if "transaction type" in joined or "memo/description" in joined:
         return "quickbooks"
@@ -473,6 +475,7 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
     no_account = 0
     block, cur_number, cur_date, cur_ref = 0, None, None, None
     day_block, running = 0, Decimal(0)              # by date: a voucher ends where its lines balance
+    jalali_dates = 0                                # dates written in the Jalali calendar (1404/03/31)
     for i, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
         row = list(row or [])
         texts = [_norm(c) for c in row if c is not None and str(c).strip()]
@@ -487,6 +490,8 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
         if raw_date is not None and on is None:
             skipped.append({"row": i, "reason": "unreadable date", "value": str(raw_date)[:40]})
             continue
+        if on is not None and re.match(r"^\s*1[34]\d\d\b", _ascii(raw_date)):
+            jalali_dates += 1
         if grouping == "block":
             if on is not None:
                 block, cur_date, cur_number, cur_ref = block + 1, on, (_ascii(number) if number is not None else None), ref
@@ -546,7 +551,8 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
     rounded = sum(_round_voucher(v) for v in vouchers.values())
     return {"preset": preset, "grouping": grouping, "header_row": header_idx + 1, "headers": headers,
             "columns": cols, "vouchers": list(vouchers.values()), "skipped": skipped,
-            "rows_without_account": no_account, "needs": [], "rounded_lines": rounded}
+            "rows_without_account": no_account, "needs": [], "rounded_lines": rounded,
+            "jalali_dates": jalali_dates > 0}
 
 
 # --- accounts ------------------------------------------------------------------------------------------
@@ -822,7 +828,7 @@ def stray_years(db: Session, parsed: dict[str, Any]) -> tuple[int | None, set[st
     few vouchers — under a tenth — say 1400, 1401 or 1403 among 1404's, as a
     hand-kept journal did (2026-10-12). A file that really spans years has more
     than a few in each and is left alone."""
-    jalali = _jalali_books(db)
+    jalali = parsed.get("jalali_dates") or _jalali_books(db)        # a Jalali file's years, whatever the books show
     vouchers: list[Voucher] = parsed["vouchers"]
     years = Counter(_year_of(v.on, jalali) for v in vouchers if v.on)
     if len(years) < 2:
@@ -840,7 +846,7 @@ def settle_years(db: Session, parsed: dict[str, Any], mode: str | None) -> dict[
     main, stray = stray_years(db, parsed)
     parsed["file_year"], parsed["stray_years"], parsed["years_mode"] = main, stray, mode
     if mode == "fix" and stray:
-        jalali = _jalali_books(db)
+        jalali = parsed.get("jalali_dates") or _jalali_books(db)
         for v in parsed["vouchers"]:
             if v.key in stray:
                 v.on = _in_year(v.on, main, jalali)
@@ -892,7 +898,7 @@ def _assess(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | Non
     openings = sorted(v.on for v in vouchers if kinds[v.key] == "opening")
     migrated_opening = db.execute(select(func.min(Transaction.date))
                                   .where(Transaction.reference == OPENING_REFERENCE)).scalar()
-    jalali = _jalali_books(db)
+    jalali = parsed.get("jalali_dates") or _jalali_books(db)
     problems: dict[str, str | None] = {}
     held_years = parsed.get("stray_years") if parsed.get("years_mode") is None else set()
     for v in vouchers:

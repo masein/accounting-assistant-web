@@ -108,6 +108,7 @@ def _balance(db, code):
 def test_p1_p2_p3_the_journal_sheet_and_its_columns_read_themselves(co):
     p = _preview(co["api"], _workbook(_journal_rows()))
     assert p["sheet"] == "دفتر روزنامه 1404"                                  # not the bank statement first
+    assert p["preset"] == "generic"                                           # a hand-kept journal, not Hesabfa
     assert [s["name"] for s in p["sheets"]] == ["صورتحساب بانک", "کدینگ حسابها", "تراز", "دفتر روزنامه 1404"]
     assert p["needs"] == [] and p["columns"] == {
         "voucher": 0, "date": 1, "account_code": 4, "account_name": 5, "account_code_general": 2,

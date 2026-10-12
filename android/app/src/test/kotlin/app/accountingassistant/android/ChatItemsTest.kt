@@ -27,6 +27,18 @@ class ChatItemsTest {
         assertEquals(ChatItem.Proposal.Phase.Posted, item.phase)          // redrawn from history
     }
 
+    /** Opened again, a seal came back blank and an undone voucher came back posted (phone QA, 2026-10-12). */
+    @Test fun aPostedCardOpenedAgainKeepsItsSealOrSaysItWasUndone() {
+        fun card(undone: Boolean) = parseBlock(block("""{"type":"proposal","id":"proposal:t2","token":"t2","title":"Printer",
+            "amount":{"value":240,"currency":"GBP"},"lines":[],"needs_approval":false,"state":"executed",
+            "posted":{"voucher":"INV-1001","date":{"iso":"2026-10-11","display":"11 Oct 2026"},"undone":$undone}}""")) as ChatItem.Proposal
+        val posted = card(false)
+        assertEquals(ChatItem.Proposal.Phase.Posted, posted.phase)
+        assertEquals("INV-1001", posted.voucher)
+        assertEquals("11 Oct 2026", posted.postedDate)
+        assertEquals(ChatItem.Proposal.Phase.Undone, card(true).phase)
+    }
+
     @Test fun anUnknownBlockFallsBackToItsSentence() {
         val item = parseBlock(block("""{"type":"hologram","id":"h1","fallback_text":"A chart of spending"}"""))
         assertTrue(item is ChatItem.Fallback)

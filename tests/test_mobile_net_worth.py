@@ -31,3 +31,14 @@ def test_n36_net_worth_with_the_gold_at_todays_rate(db):
 
 def test_n36_a_companys_worth_is_left_to_the_model(db):
     assert asyncio.run(answer(db, "what's our net worth?", user_id="u1", username="t", lang="en", mode="default")) is None
+
+
+def test_the_same_question_twice_keeps_both_answers(db):
+    """The phone keeps one card per block id: asked twice in a thread, an
+    answer's table had the first one's id and didn't show (phone QA, 2026-10-12)."""
+    _post(db, BANK, INCOME, 100_000_000)
+    ids = []
+    for _ in range(2):
+        ans = asyncio.run(answer(db, "how much cash do we have?", user_id="u1", username="t", lang="en"))
+        ids.append([b["id"] for b in B.data_blocks(ans.tool_calls, lang="en", calendar="gregorian")])
+    assert ids[0] and len(ids[0]) == len(ids[1]) and not set(ids[0]) & set(ids[1])

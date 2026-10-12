@@ -84,7 +84,8 @@ def test_n6_a_reply_is_cards_first_then_the_words(client, db, co, phone, scripte
 # --- N7: confirm, cancel, undo --------------------------------------------------------------
 
 def test_n7_confirm_twice_then_undo(client, db, co, phone, scripted):
-    token = _draft(client, phone, scripted)["blocks"][0]["token"]
+    drafted = _draft(client, phone, scripted)
+    token = drafted["blocks"][0]["token"]
     r = client.post(f"{API}/proposals/{token}/confirm", headers=phone)
     assert r.status_code == 200, r.text
     posted = r.json()
@@ -94,8 +95,14 @@ def test_n7_confirm_twice_then_undo(client, db, co, phone, scripted):
     again = client.post(f"{API}/proposals/{token}/confirm", headers=phone).json()
     assert again["state"] == "posted" and again["block"]["undo_seconds"] == 0
     assert again["block"]["audit_log_id"] == posted["block"]["audit_log_id"]       # the same posting
+    def seal():
+        msgs = client.get(f"{API}/threads/{drafted['thread_id']}/messages", headers=phone).json()
+        return next(b for m in msgs for b in m.get("blocks") or [] if b.get("token") == token)["posted"]
+    # opened again: the seal keeps its date (it came back blank)…
+    assert seal() == {"voucher": posted["block"]["voucher"], "date": posted["block"]["date"], "undone": False}
     r = client.post(f"{API}/postings/{posted['block']['audit_log_id']}/undo", headers=phone)
     assert r.status_code == 200 and r.json()["state"] == "undone"
+    assert seal()["undone"] is True                     # …and an undone voucher doesn't come back posted
 
 
 def test_n7_a_cancelled_card_cannot_be_confirmed(client, db, co, phone, scripted):

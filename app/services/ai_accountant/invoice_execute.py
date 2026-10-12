@@ -12,6 +12,25 @@ from app.models.ai_accountant import AIProposal
 from app.services.ai_accountant.time_execute import _audit
 
 
+def _statement_row(db: Session, row_id: str | None):
+    """The bank statement row a payment posts, refused when it is already in
+    the books (the same gate as a voucher's, execute_service)."""
+    if not row_id:
+        return None
+    from fastapi import HTTPException
+
+    from app.models.bank_statement import BankStatementRow
+    try:
+        row = db.get(BankStatementRow, UUID(str(row_id)))
+    except (ValueError, TypeError):
+        return None
+    if row is not None and row.created_transaction_id is not None:
+        raise HTTPException(status_code=409, detail="This bank statement row has already been posted to the books.")
+    if row is not None and row.recon_status == "duplicate":
+        raise HTTPException(status_code=409, detail="This bank statement row was imported earlier and must not be posted again.")
+    return row
+
+
 def execute_invoice_proposal(
     db: Session, proposal: AIProposal, *, actor_user_id: str,
     actor_username: str | None, ip_address: str | None,
@@ -23,12 +42,16 @@ def execute_invoice_proposal(
     if name == "propose_record_invoice_payment":
         from app.api.invoices import add_payment
         from app.schemas.invoice import PaymentCreate
+        row = _statement_row(db, p.get("bank_statement_row_id"))
         read = add_payment(UUID(p["invoice_id"]), PaymentCreate(
             amount=int(p["amount"]), date=date.fromisoformat(p["date"]), method=p.get("method") or "bank",
             bank_account_code=p.get("bank_account_code"), reference=p.get("reference"),
             description=None,      # the payment writes its own, in the book language
         ), db)
         txn_id = str(read.transaction_id) if getattr(read, "transaction_id", None) else None
+        if row is not None and txn_id:
+            # the statement row this payment is (the step-by-step walk) — posted, never offered again
+            row.created_transaction_id, row.recon_status, row.user_approved = UUID(txn_id), "matched", True
         audit_id = _audit(db, proposal, entity_type="payment", entity_id=str(read.id),
                           detail={"invoice": p.get("invoice_number"), "amount": p["amount"], "transaction_id": txn_id}, **common)
         return txn_id, audit_id

@@ -15,6 +15,7 @@ else goes to the model as before.
 from __future__ import annotations
 
 import re
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -122,9 +123,31 @@ def _cur(code: str | None, lang: str) -> str:
     return code or ""
 
 
+_SYMBOLS = {"GBP": "£", "USD": "$", "EUR": "€"}
+
+
+def _priced(n: int, code: str | None, lang: str) -> str:
+    """An amount with its currency as the reader writes it: «£23,923» in
+    English, Spanish and Arabic for a currency with a symbol (it read
+    «23,923 GBP» beside a card saying «£23,923», 2026-10-12); otherwise the
+    number then the code, «۲۳٬۹۲۳ ریال»."""
+    code = (code or "").upper()
+    if lang != "fa" and code in _SYMBOLS:
+        return ("-" if n < 0 else "") + _SYMBOLS[code] + _money(abs(int(n)), lang)
+    return f"{_money(n, lang)} {_cur(code, lang)}".strip()
+
+
 _T = {
-    "cash": {"en": "Cash and bank today: {total} {cur}.", "fa": "موجودی نقد و بانک امروز: {total} {cur}.",
-             "es": "Efectivo y bancos hoy: {total} {cur}.", "ar": "النقد والبنوك اليوم: {total} {cur}."},
+    "cash": {"en": "Cash and bank today: {total_p}.", "fa": "موجودی نقد و بانک امروز: {total} {cur}.",
+             "es": "Efectivo y bancos hoy: {total_p}.", "ar": "النقد والبنوك اليوم: {total_p}."},
+    "receivables_one": {"en": "1 sales invoice is still open: {amounts} to collect.",
+                        "fa": "۱ فاکتور فروش هنوز باز است: {amounts} طلب.",
+                        "es": "1 factura de venta sigue abierta: {amounts} por cobrar.",
+                        "ar": "فاتورة مبيعات واحدة ما زالت مفتوحة: {amounts} للتحصيل."},
+    "payables_one": {"en": "1 supplier bill is still open: {amounts} to pay.",
+                     "fa": "۱ فاکتور خرید هنوز باز است: {amounts} بدهی.",
+                     "es": "1 factura de proveedor sigue abierta: {amounts} por pagar.",
+                     "ar": "فاتورة مورد واحدة ما زالت مفتوحة: {amounts} للدفع."},
     "receivables": {"en": "{n} sales invoices are still open: {amounts} to collect.",
                     "fa": "{n} فاکتور فروش هنوز باز است: {amounts} طلب.",
                     "es": "{n} facturas de venta siguen abiertas: {amounts} por cobrar.",
@@ -137,24 +160,24 @@ _T = {
                  "ar": "{n} فواتير موردين ما زالت مفتوحة: {amounts} للدفع."},
     "payables_none": {"en": "No supplier bill is waiting to be paid.", "fa": "هیچ فاکتور خریدی منتظر پرداخت نیست.",
                       "es": "Ninguna factura de proveedor espera pago.", "ar": "لا توجد فاتورة مورد بانتظار الدفع."},
-    "spending": {"en": "This month's spending so far: {total} {cur}.", "fa": "خرج این ماه تا امروز: {total} {cur}.",
-                 "es": "Gasto de este mes hasta hoy: {total} {cur}.", "ar": "إنفاق هذا الشهر حتى اليوم: {total} {cur}."},
-    "budget": {"en": "This month: {actual} of {budget} {cur} spent, {left} left.",
+    "spending": {"en": "This month's spending so far: {total_p}.", "fa": "خرج این ماه تا امروز: {total} {cur}.",
+                 "es": "Gasto de este mes hasta hoy: {total_p}.", "ar": "إنفاق هذا الشهر حتى اليوم: {total_p}."},
+    "budget": {"en": "This month: {actual_p} of {budget_p} spent, {left_p} left.",
                "fa": "این ماه: {actual} از {budget} {cur} خرج شده، {left} مانده.",
-               "es": "Este mes: {actual} de {budget} {cur} gastados, quedan {left}.",
-               "ar": "هذا الشهر: أُنفق {actual} من {budget} {cur}، وتبقّى {left}."},
-    "forecast": {"en": "Cash over the next {weeks} weeks, an estimate: from {opening} to {closing} {cur}; the lowest, {lowest}, in the week of {low_week}.",
+               "es": "Este mes: {actual_p} de {budget_p} gastados, quedan {left_p}.",
+               "ar": "هذا الشهر: أُنفق {actual_p} من {budget_p}، وتبقّى {left_p}."},
+    "forecast": {"en": "Cash over the next {weeks} weeks, an estimate: from {opening_p} to {closing_p}; the lowest, {lowest_p}, in the week of {low_week}.",
                  "fa": "نقدینگی {weeks} هفتهٔ آینده، به تخمین: از {opening} به {closing} {cur}؛ کمترین، {lowest}، در هفتهٔ {low_week}.",
-                 "es": "Caja en las próximas {weeks} semanas, una estimación: de {opening} a {closing} {cur}; el mínimo, {lowest}, la semana del {low_week}.",
-                 "ar": "النقد في الأسابيع الـ{weeks} القادمة، تقديرًا: من {opening} إلى {closing} {cur}؛ الأدنى، {lowest}، في أسبوع {low_week}."},
+                 "es": "Caja en las próximas {weeks} semanas, una estimación: de {opening_p} a {closing_p}; el mínimo, {lowest_p}, la semana del {low_week}.",
+                 "ar": "النقد في الأسابيع الـ{weeks} القادمة، تقديرًا: من {opening_p} إلى {closing_p}؛ الأدنى، {lowest_p}، في أسبوع {low_week}."},
     "forecast_negative": {"en": " It goes below zero in the week of {week}.", "fa": " در هفتهٔ {week} منفی می‌شود.",
                           "es": " Baja de cero la semana del {week}.", "ar": " ينخفض تحت الصفر في أسبوع {week}."},
-    "net_worth": {"en": "Your net worth today: {net} {cur}: {assets} owned, {owed} owed.",
+    "net_worth": {"en": "Your net worth today: {net_p}: {assets_p} owned, {owed_p} owed.",
                   "fa": "دارایی خالص شما امروز: {net} {cur}؛ {assets} دارایی، {owed} بدهی.",
-                  "es": "Tu patrimonio neto hoy: {net} {cur}: {assets} en activos, {owed} en deudas.",
-                  "ar": "صافي ثروتك اليوم: {net} {cur}: {assets} أصول، {owed} ديون."},
-    "net_worth_gain": {"en": " Gold and currency at today's rates add {gain}.", "fa": " طلا و ارز به نرخ امروز {gain} بیشتر می‌ارزند.",
-                       "es": " El oro y las divisas a precio de hoy suman {gain}.", "ar": " الذهب والعملات بسعر اليوم تضيف {gain}."},
+                  "es": "Tu patrimonio neto hoy: {net_p}: {assets_p} en activos, {owed_p} en deudas.",
+                  "ar": "صافي ثروتك اليوم: {net_p}: {assets_p} أصول، {owed_p} ديون."},
+    "net_worth_gain": {"en": " Gold and currency at today's rates add {gain_p}.", "fa": " طلا و ارز به نرخ امروز {gain} بیشتر می‌ارزند.",
+                       "es": " El oro y las divisas a precio de hoy suman {gain_p}.", "ar": " الذهب والعملات بسعر اليوم تضيف {gain_p}."},
     "budget_none": {"en": "No budgets are set for this month.", "fa": "برای این ماه بودجه‌ای تعیین نشده است.",
                     "es": "No hay presupuestos para este mes.", "ar": "لا توجد ميزانيات لهذا الشهر."},
 }
@@ -175,7 +198,10 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
 
     async def run(tool, args) -> dict[str, Any]:
         result = await tool.run(ctx, args)
-        calls.append({"tool_use_id": f"fast-{intent}", "name": tool.name, "input": args.model_dump(mode="json"),
+        # one id per answer: the phone keeps one card per block id, so the same question asked
+        # twice in a thread lost its second table (phone QA, 2026-10-12)
+        calls.append({"tool_use_id": f"fast-{intent}-{uuid.uuid4().hex[:8]}", "name": tool.name,
+                      "input": args.model_dump(mode="json"),
                       "result": result})
         return result
 
@@ -183,7 +209,8 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
     if intent == "cash":
         from app.services.ai_accountant.cash_tools import GetCashPosition, GetCashPositionInput
         r = await run(GetCashPosition(), GetCashPositionInput())
-        text = _say("cash", lang, total=_money(r["total"], lang), cur=_cur(r.get("currency"), lang))
+        text = _say("cash", lang, total=_money(r["total"], lang), cur=_cur(r.get("currency"), lang),
+                    total_p=_priced(r["total"], r.get("currency"), lang))
     elif intent in ("receivables", "payables"):
         from app.services.ai_accountant.invoice_tools import ListInvoices, ListInvoicesInput
         kind = "sales" if intent == "receivables" else "purchase"
@@ -193,23 +220,27 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
             text = _say(f"{intent}_none", lang)
         else:
             # per currency, never added together
-            parts = [f"{_money(t['balance_due'], lang)} {_cur(c, lang)}".strip()
+            parts = [_priced(int(t["balance_due"] or 0), c, lang)
                      for c, t in sorted(totals.items(), key=lambda kv: -int(kv[1].get("balance_due") or 0))]
-            text = _say(intent, lang, n=_money(r["count"], lang), amounts=" + ".join(parts))
+            key = f"{intent}_one" if r["count"] == 1 else intent       # «1 sales invoice is», not «1 … are»
+            text = _say(key, lang, n=_money(r["count"], lang), amounts=" + ".join(parts))
     elif intent == "spending":
         from app.services.ai_accountant.spending_tools import GetSpendingSummary, GetSpendingSummaryInput
         r = await run(GetSpendingSummary(), GetSpendingSummaryInput(period="this_month"))
-        text = _say("spending", lang, total=_money(r.get("total") or 0, lang), cur=_cur(r.get("currency"), lang))
+        text = _say("spending", lang, total=_money(r.get("total") or 0, lang), cur=_cur(r.get("currency"), lang),
+                    total_p=_priced(r.get("total") or 0, r.get("currency"), lang))
     elif intent == "net_worth":
         if mode != "personal":
             return None                     # a company's worth is its equity: the model answers that
         from app.services.ai_accountant.personal_tools import GetNetWorth, GetNetWorthInput
         r = await run(GetNetWorth(), GetNetWorthInput())
-        cur = _cur(r.get("currency"), lang)
+        cur, code = _cur(r.get("currency"), lang), r.get("currency")
         text = _say("net_worth", lang, net=_money(r["net_worth"], lang), cur=cur, assets=_money(r["total_assets"], lang),
-                    owed=_money(r["total_liabilities"], lang))
+                    owed=_money(r["total_liabilities"], lang), net_p=_priced(r["net_worth"], code, lang),
+                    assets_p=_priced(r["total_assets"], code, lang), owed_p=_priced(r["total_liabilities"], code, lang))
         if r.get("unrealized_gain"):
-            text += _say("net_worth_gain", lang, gain=_money(r["unrealized_gain"], lang))
+            text += _say("net_worth_gain", lang, gain=_money(r["unrealized_gain"], lang),
+                         gain_p=_priced(r["unrealized_gain"], code, lang))
     elif intent == "forecast":
         from app.services.ai_accountant.blocks import display_date
         from app.services.ai_accountant.cash_tools import GetCashForecast, GetCashForecastInput
@@ -217,11 +248,12 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
         r = await run(GetCashForecast(), GetCashForecastInput())
         calendar = get_display_calendar(db)
         day = lambda iso: display_date(iso, calendar, lang) or iso  # noqa: E731
-        cur = _cur(r.get("currency"), lang)
+        cur, code = _cur(r.get("currency"), lang), r.get("currency")
         low = r.get("lowest") or {}
         text = _say("forecast", lang, weeks=_money(len(r.get("weeks") or []), lang), opening=_money(r["opening_cash"], lang),
                     closing=_money(r.get("closing_cash") or 0, lang), cur=cur, lowest=_money(low.get("closing") or 0, lang),
-                    low_week=day(low.get("week_start")))
+                    low_week=day(low.get("week_start")), opening_p=_priced(r["opening_cash"], code, lang),
+                    closing_p=_priced(r.get("closing_cash") or 0, code, lang), lowest_p=_priced(low.get("closing") or 0, code, lang))
         if r.get("first_negative_week"):
             text += _say("forecast_negative", lang, week=day(r["first_negative_week"]))
     else:  # budget
@@ -230,7 +262,10 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
         if not r.get("budgets"):
             text = _say("budget_none", lang)
         else:
-            cur = _cur(r.get("currency"), lang)
+            cur, code = _cur(r.get("currency"), lang), r.get("currency")
             text = _say("budget", lang, actual=_money(r.get("total_actual") or 0, lang),
-                        budget=_money(r.get("total_budget") or 0, lang), left=_money(r.get("total_left") or 0, lang), cur=cur)
+                        budget=_money(r.get("total_budget") or 0, lang), left=_money(r.get("total_left") or 0, lang), cur=cur,
+                        actual_p=_priced(r.get("total_actual") or 0, code, lang),
+                        budget_p=_priced(r.get("total_budget") or 0, code, lang),
+                        left_p=_priced(r.get("total_left") or 0, code, lang))
     return FastAnswer(intent=intent, text=text, tool_calls=calls)

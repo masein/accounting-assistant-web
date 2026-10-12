@@ -103,14 +103,17 @@ def _parse_date(raw: str) -> date | None:
     return None
 
 
+# UK banks write «Money out / Money in» (Barclays, Lloyds), «Paid out / Paid in»
+# (HSBC, NatWest), «Details» or «Narrative»: a Barclays export read as
+# «couldn't tell the columns apart» on the phone (2026-10-12).
 _HEADER_PATTERNS = {
     "date": re.compile(r"(date|تاریخ|tarikh)", re.IGNORECASE),
-    "description": re.compile(r"(description|شرح|توضیح|بابت|desc)", re.IGNORECASE),
-    "debit": re.compile(r"(debit|بدهکار|withdraw|برداشت|مبلغ بدهکار)", re.IGNORECASE),
-    "credit": re.compile(r"(credit|بستانکار|deposit|واریز|مبلغ بستانکار)", re.IGNORECASE),
+    "description": re.compile(r"(description|شرح|توضیح|بابت|desc|details|narrative|particulars|memo|payee|^\s*name\s*$)", re.IGNORECASE),
+    "debit": re.compile(r"(debit|بدهکار|withdraw|برداشت|مبلغ بدهکار|money out|paid out|\bpayments?\b|\bout\b)", re.IGNORECASE),
+    "credit": re.compile(r"(credit|بستانکار|deposit|واریز|مبلغ بستانکار|money in|paid in|\breceipts?\b|\bin\b)", re.IGNORECASE),
     "balance": re.compile(r"(balance|مانده|موجودی)", re.IGNORECASE),
     "reference": re.compile(r"(ref|reference|شماره پیگیری|tracking|شناسه)", re.IGNORECASE),
-    "amount": re.compile(r"(amount|مبلغ|مقدار)(?!.*(?:بدهکار|بستانکار|debit|credit))", re.IGNORECASE),
+    "amount": re.compile(r"(amount|مبلغ|مقدار|^\s*value\s*$)(?!.*(?:بدهکار|بستانکار|debit|credit))", re.IGNORECASE),
 }
 
 

@@ -47,7 +47,7 @@
     <string name="listening">Listening… let go to stop</string>
     <string name="attach_camera">Take a photo</string>
     <string name="attach_photo">Choose a photo</string>
-    <string name="attach_file">Choose a file (PDF, Excel)</string>
+    <string name="attach_file">Choose a file (PDF, Excel, CSV)</string>
     <string name="uploading">Uploading…</string>
     <string name="transcribing">Writing down what you said…</string>
     <string name="error_upload">The file didn\'t upload. Check the connection and try again.</string>

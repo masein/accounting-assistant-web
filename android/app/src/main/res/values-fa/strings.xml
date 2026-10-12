@@ -47,7 +47,7 @@
     <string name="listening">در حال شنیدن… رها کن تا تمام شود</string>
     <string name="attach_camera">عکس بگیر</string>
     <string name="attach_photo">انتخاب عکس</string>
-    <string name="attach_file">انتخاب فایل (PDF، اکسل)</string>
+    <string name="attach_file">انتخاب فایل (PDF، اکسل، CSV)</string>
     <string name="uploading">در حال بارگذاری…</string>
     <string name="transcribing">در حال نوشتن حرف‌هایت…</string>
     <string name="error_upload">فایل بارگذاری نشد. اتصال را بررسی کن و دوباره بفرست.</string>

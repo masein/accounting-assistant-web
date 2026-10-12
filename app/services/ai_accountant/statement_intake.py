@@ -370,7 +370,8 @@ def _pending_row_ids(db: Session, user_id: str, session_id: str | None) -> set[s
     from app.services.ai_accountant.proposal_tools import PROPOSAL_TTL
 
     q = select(AIProposal).where(AIProposal.status == "pending",
-                                 AIProposal.tool_name == "propose_create_transaction",
+                                 AIProposal.tool_name.in_(("propose_create_transaction",
+                                                           "propose_record_invoice_payment")),
                                  AIProposal.user_id == str(user_id),
                                  # a card past its TTL can't be confirmed any more
                                  AIProposal.created_at >= datetime.now(timezone.utc) - PROPOSAL_TTL)
@@ -382,6 +383,49 @@ def _pending_row_ids(db: Session, user_id: str, session_id: str | None) -> set[s
         if rid:
             out.add(str(rid))
     return out
+
+
+_COMPANY_WORDS = re.compile(r"[\s,.]+(ltd|limited|plc|llp|llc|inc|co|gmbh|s\.?a|s\.?l)\.?$", re.IGNORECASE)
+
+
+def open_invoice_for_row(db: Session, description: str | None, direction: str | None,
+                         currency: str | None):
+    """The open invoice a statement row settles: one whose number is in the
+    row's text («ARIA DESIGN LTD INV-1001»), else the one open invoice of the
+    party the text names («ARIA DESIGN»). Money in settles a sales invoice,
+    money out a supplier's. Two candidates is not a guess: None."""
+    from app.api.invoices import _invoice_totals
+    from app.models.entity import Entity
+    from app.models.invoice import Invoice
+
+    text = (description or "").strip().lower()
+    if not text or direction not in ("in", "out"):
+        return None
+    q = select(Invoice).where(Invoice.kind == ("sales" if direction == "in" else "purchase"),
+                              Invoice.status.notin_(("draft", "voided", "canceled", "paid")))
+    if currency:
+        q = q.where(Invoice.currency == currency.strip().upper())
+    invoices = db.execute(q).scalars().all()
+
+    def said(name: str | None) -> bool:
+        name = (name or "").strip().lower()
+        return len(name) >= 3 and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) is not None
+
+    def still_open(rows: list) -> list:
+        return [inv for inv in rows if _invoice_totals(db, inv)[2] > 0]
+
+    by_number = still_open([inv for inv in invoices if said(inv.number)])
+    if by_number:
+        return by_number[0] if len(by_number) == 1 else None
+    parties = {inv.entity_id for inv in invoices if inv.entity_id}
+    if not parties:
+        return None
+    named = [e.id for e in db.execute(select(Entity).where(Entity.id.in_(parties))).scalars()
+             if said(e.name) or said(_COMPANY_WORDS.sub("", (e.name or "").strip()))]
+    if len(named) != 1:
+        return None
+    theirs = still_open([inv for inv in invoices if inv.entity_id == named[0]])
+    return theirs[0] if len(theirs) == 1 else None
 
 
 async def ensure_statement_row_proposal(
@@ -472,6 +516,25 @@ async def ensure_statement_row_proposal(
         if others:
             return None
         finding = candidates[0]
+    ctx = ToolContext(db=db, user_id=user_id, username=username,
+                      chat_session_id=str(session_id) if session_id else None,
+                      user_message=user_message)
+    inv = open_invoice_for_row(db, finding.description, finding.direction, stmt.currency)
+    if inv is not None and int(finding.amount or 0) > 0:
+        # Money from a customer against their invoice clears the receivable;
+        # as a voucher it went to Sales and counted the sale twice (phone QA,
+        # 2026-10-12: «ARIA DESIGN LTD INV-1001» was offered as 4000 Sales).
+        from app.services.ai_accountant.invoice_tools import (
+            ProposeRecordInvoicePayment,
+            ProposeRecordInvoicePaymentInput,
+        )
+        try:
+            return await ProposeRecordInvoicePayment().run(ctx, ProposeRecordInvoicePaymentInput(
+                invoice=str(inv.id), amount=int(finding.amount), date=finding.tx_date, method="bank",
+                bank_account_code=review.bank_account_code, reference=inv.number,
+                bank_statement_row_id=str(finding.row_id), description=finding.description))
+        except (ToolError, ValueError) as e:
+            logger.info("statement row payment proposal skipped: %s", e)
     try:
         bank_code = review.bank_account_code or resolve_account_code(db, "bank")
         counter = finding.suggested_account_code or resolve_account_code(
@@ -496,9 +559,6 @@ async def ensure_statement_row_proposal(
             lines=lines,
             bank_statement_row_id=str(finding.row_id),
         )
-        ctx = ToolContext(db=db, user_id=user_id, username=username,
-                          chat_session_id=str(session_id) if session_id else None,
-                          user_message=user_message)
         return await ProposeCreateTransaction().run(ctx, payload)
     except (ToolError, ValueError) as e:  # closed period, bad account … — leave it to the model
         logger.info("statement row proposal safety net skipped: %s", e)

@@ -24,7 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.accountingassistant.android.R
-import app.accountingassistant.android.ui.components.currencyName
+import app.accountingassistant.android.ui.components.priced
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
 import app.accountingassistant.android.util.Dates
 import app.accountingassistant.android.util.LocalCalendar
@@ -62,9 +62,11 @@ fun StatementCard(item: ChatItem.Statement, lang: String, onFix: () -> Unit) {
                 chips.forEach { (n, res, tint) -> Chip(Numbers.digits(pluralStringResource(res, n, n), lang), tint) }
             }
             item.gap?.let { gap ->
+                // while rows are still to record the gap is expected to move (the server calls it
+                // info): an alarm only once they're in and it's still there
                 Text(stringResource(R.string.statement_gap,
-                                    Numbers.amount(kotlin.math.abs(gap), lang) + (item.currency?.let { " " + currencyName(it, lang) } ?: "")),
-                     color = c.pomegranate, fontSize = 13.sp)
+                                    priced(kotlin.math.abs(gap), item.currency, lang)),
+                     color = if ((item.counts["unrecorded"] ?: 0) > 0) c.muted else c.pomegranate, fontSize = 13.sp)
             }
             if (item.clean) Text(stringResource(R.string.statement_clean), color = c.firouzeh, fontSize = 13.sp, fontWeight = FontWeight(600))
             else Button(onClick = onFix, colors = ButtonDefaults.buttonColors(containerColor = c.firouzeh, contentColor = c.onFirouzeh)) {

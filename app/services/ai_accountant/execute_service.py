@@ -657,6 +657,8 @@ def _resolve_undoable_audit(db: Session, audit_log_id: str, actor_user_id: str) 
         raise UndoNotApplicable(
             "Reverse is only supported for AI-initiated writes (actor_source='ai-assistant')."
         )
+    if audit.entity_type == "payment" and audit.action == "create":
+        return audit                           # a payment on an invoice (_perform_payment_undo)
     if audit.entity_type != "transaction" or audit.action != "create":
         raise UndoNotApplicable(
             f"Reverse is only implemented for transaction creates (got "
@@ -866,6 +868,9 @@ def undo_action(
             f"Reverse the entry via the Reverse action instead."
         )
 
+    if audit.entity_type == "payment":
+        return _perform_payment_undo(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
+                                     ip_address=ip_address, tool_name="undo_action", delete=True)
     if _entry_in_closed_period(db, audit):
         return _perform_reversal(
             db, audit,
@@ -912,10 +917,94 @@ def reverse_action(
     twice.
     """
     audit = _resolve_undoable_audit(db, audit_log_id, actor_user_id)
+    if audit.entity_type == "payment":
+        return _perform_payment_undo(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
+                                     ip_address=ip_address, tool_name="reverse_action", delete=False)
     return _perform_reversal(
         db, audit,
         actor_user_id=actor_user_id,
         actor_username=actor_username,
         ip_address=ip_address,
         tool_name="reverse_action",
+    )
+
+
+def _perform_payment_undo(
+    db: Session,
+    audit: AuditLog,
+    *,
+    actor_user_id: str,
+    actor_username: str | None,
+    ip_address: str | None,
+    tool_name: str,
+    delete: bool,
+) -> UndoResult:
+    """Undo a payment the assistant recorded on an invoice: its entry goes
+    (soft-deleted inside the undo window and an open period, else a
+    compensating entry), the payment comes off the invoice so its balance
+    reopens, and a statement row it posted is offered again. Undo only knew
+    vouchers, so the phone's Undo under a payment card failed (phone QA,
+    2026-10-12)."""
+    from app.api.invoices import _refuse_if_cheque, detach_payment
+    from app.models.invoice import Invoice
+    from app.models.payment import Payment
+    from app.services.book_text import bt
+    from app.services.statement_import import release_statement_rows
+
+    try:
+        payment = db.get(Payment, uuid.UUID(str(audit.entity_id)))
+    except (ValueError, TypeError):
+        payment = None
+    if payment is None or payment.transaction_id is None:
+        raise UndoNotApplicable("This payment has already been undone or reversed.")
+    txn_id = payment.transaction_id
+    if _already_reversed(db, str(txn_id)):
+        raise UndoNotApplicable("This entry has already been undone or reversed.")
+    try:
+        _refuse_if_cheque(db, payment)
+    except HTTPException as e:
+        raise UndoNotApplicable(str(e.detail)) from e
+    inv = db.get(Invoice, payment.invoice_id, with_for_update=True)
+    original = db.get(Transaction, txn_id)
+    if inv is None or original is None or original.deleted_at is not None:
+        raise UndoNotApplicable("Original transaction no longer exists (already undone?).")
+
+    from app.services.period_service import get_closed_period
+    locked = get_closed_period(db)
+    delete = delete and not (locked is not None and original.date <= locked)
+    release_statement_rows(db, txn_id)
+    reversal_id = None
+    if delete:
+        original.deleted_at = datetime.now(timezone.utc)
+    else:
+        reversal_id = LedgerService(db).reverse_journal_entry(
+            transaction_id=txn_id, reverse_date=None,
+            reference=f"REVERSAL of {original.reference or txn_id}",
+            description=bt(db, "reversed_payment", number=inv.number),
+            mark_undo=False,                   # the undo row below carries the actor
+        ).transaction_id
+    detach_payment(db, inv, payment)
+    undo_audit = AuditLog(
+        action="undo", entity_type="transaction", entity_id=str(txn_id),
+        user_id=actor_user_id, username=actor_username, ip_address=ip_address,
+        actor_source="ai-assistant", session_id=audit.session_id, tool_name=tool_name,
+        confirmation_token=audit.confirmation_token, user_message=audit.user_message,
+        detail=json.dumps({"mode": "deleted" if delete else "reversed", "undone_audit_id": str(audit.id),
+                           "payment_id": str(audit.entity_id), "invoice": inv.number,
+                           "transaction_id": str(txn_id)}, default=str),
+    )
+    db.add(undo_audit)
+    db.commit()
+    db.refresh(undo_audit)
+    try:
+        from app.api.reports import invalidate_dashboard_cache
+
+        invalidate_dashboard_cache()
+    except Exception:  # pragma: no cover - cache is best effort
+        pass
+    return UndoResult(
+        original_transaction_id=str(txn_id),
+        reversal_transaction_id=str(reversal_id) if reversal_id else None,
+        audit_log_id=str(undo_audit.id),
+        mode="deleted" if delete else "reversed",
     )

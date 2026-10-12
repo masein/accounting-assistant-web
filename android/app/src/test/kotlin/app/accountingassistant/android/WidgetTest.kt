@@ -40,6 +40,12 @@ class WidgetTest {
         assertEquals("تا ۱۰ اکتبر", widgetText(books.copy(calendar = "gregorian"), "fa", words, formatted).note)
     }
 
+    @Test fun poundsWithTheirSign() {
+        val uk = WidgetState(signedIn = true, books = "Hartley & Co Ltd", cash = 23_923, cashCurrency = "GBP", asOf = "2026-10-12",
+                             calendar = "gregorian")
+        assertEquals("£23,923", widgetText(uk, "en", words, formatted).amount)
+    }
+
     @Test fun lockedOrSignedOutItShowsNoFigures() {
         val locked = widgetText(books.copy(locked = true), "en", words, formatted)
         assertNull(locked.amount)

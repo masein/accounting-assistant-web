@@ -84,8 +84,8 @@
         body.innerHTML = slips.map(s => `
           <tr>
             <td>${escapeHtml(formatDisplayDate(s.period_start))} – ${escapeHtml(formatDisplayDate(s.period_end))}</td>
-            <td class="num">${formatNum(s.gross)} ${escapeHtml(s.currency || '')}</td>
-            <td class="num"><strong>${formatNum(s.net_pay)}</strong> ${escapeHtml(s.currency || '')}</td>
+            <td class="num">${formatAmount(s.gross, s.currency)} ${escapeHtml(s.currency || '')}</td>
+            <td class="num"><strong>${formatAmount(s.net_pay)}</strong> ${escapeHtml(s.currency || '')}</td>
             <td>${escapeHtml(formatDisplayDate(s.pay_date))}</td>
             <td>${s.status === 'paid' ? '<span style="color:#15803d;font-weight:600;">' + escapeHtml(t('myPayStatusPaid')) + '</span>' : escapeHtml(s.status)}</td>
             <td>${escapeHtml(s.paid_to || '—')}</td>
@@ -144,10 +144,10 @@
           return;
         }
         const meter = (used, budget, pct, unit) => {
-          const u = unit === 'h' ? `${formatNum(used)} h` : `${formatNum(used)} ${escapeHtml(unit)}`;
+          const u = unit === 'h' ? `${formatNum(used)} h` : `${formatAmount(used, unit)} ${escapeHtml(unit)}`;
           if (budget == null) return `${u} <span class="fx-hint" style="display:inline;">· ${escapeHtml(t('timeBudgetNoLimit'))}</span>`;
           const cls = pct >= 100 ? 'tm-bud-over' : (pct >= 85 ? 'tm-bud-warn' : 'tm-bud-ok');
-          const b = unit === 'h' ? `${formatNum(budget)} h` : formatNum(budget);
+          const b = unit === 'h' ? `${formatNum(budget)} h` : formatAmount(budget, unit);
           return `<span class="${cls}">${u} / ${b} (${pct}%)</span>`
             + `<div class="tm-bud-bar"><span class="${cls}" style="width:${Math.min(100, pct || 0)}%"></span></div>`;
         };
@@ -258,7 +258,7 @@
           const colors = { unbilled: '', invoiced: '#e8f5e9', written_off: '#f3f4f6' };
           const tr = document.createElement('tr');
           tr.style.background = colors[e.status] || '';
-          const rateTxt = e.rate != null ? `${formatNum(e.rate)} ${escapeHtml(e.currency || tmCur())}` : '—';
+          const rateTxt = e.rate != null ? `${formatAmount(e.rate, e.currency || tmCur())} ${escapeHtml(e.currency || tmCur())}` : '—';
           const actions = e.locked ? `🔒` :
             `<button class="btn btn-secondary btn-sm tm-wo" data-id="${e.id}">${t('timeWriteOff')}</button> <button class="btn btn-secondary btn-sm tm-del" data-id="${e.id}" aria-label="${escapeHtml(t('btnDelete'))}" title="${escapeHtml(t('btnDelete'))}">✕</button>`;
           tr.innerHTML = `<td>${escapeHtml(formatDisplayDate(e.work_date))}</td><td>${escapeHtml(e.employee_name || '')}</td>
@@ -303,7 +303,7 @@
         data.clients.forEach(c => {
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(c.client_name)}</td><td>${localDigits(c.hours)}</td>
-            <td>${formatNum(c.value)} ${escapeHtml(c.currency)}</td><td>${c.oldest}</td>
+            <td>${formatAmount(c.value, c.currency)} ${escapeHtml(c.currency)}</td><td>${c.oldest}</td>
             <td><button class="btn btn-primary btn-sm tm-make-inv" data-id="${c.client_id}">${t('timeCreateInvoice')}</button></td>`;
           body.appendChild(tr);
         });
@@ -328,12 +328,12 @@
       pv.groups.forEach(g => {
         html += `<div style="margin-top:0.4rem;font-weight:600;">${escapeHtml(g.project_name)}</div>`;
         g.lines.forEach(ln => {
-          html += `<div style="margin-inline-start:1rem;">${escapeHtml(ln.employee_name)} — ${ln.hours} × ${ln.rate} = ${formatNum(ln.amount)} ${cur} <span style="color:var(--text-muted);font-size:0.78rem;">(${ln.rate_source})</span></div>`;
+          html += `<div style="margin-inline-start:1rem;">${escapeHtml(ln.employee_name)} — ${ln.hours} × ${ln.rate} = ${formatAmount(ln.amount, cur)} ${cur} <span style="color:var(--text-muted);font-size:0.78rem;">(${ln.rate_source})</span></div>`;
         });
-        html += `<div style="margin-inline-start:1rem;color:var(--text-muted);">${t('timeSubtotal')}: ${formatNum(g.subtotal)} ${cur}</div>`;
+        html += `<div style="margin-inline-start:1rem;color:var(--text-muted);">${t('timeSubtotal')}: ${formatAmount(g.subtotal, cur)} ${cur}</div>`;
       });
-      html += `<div style="margin-top:0.5rem;">${t('timeSubtotal')}: ${formatNum(pv.subtotal)} ${cur} · ${t('timeVat')}: ${formatNum(pv.tax)} ${cur} · <strong>${t('poTotal')}: ${formatNum(pv.total)} ${cur}</strong></div>`;
-      html += `<div style="color:var(--text-muted);font-size:0.8rem;margin-top:0.3rem;">${tf('timeIncludesN', { n: pv.entry_count, hours: pv.total_hours, value: formatNum(pv.total), currency: cur })}</div>`;
+      html += `<div style="margin-top:0.5rem;">${t('timeSubtotal')}: ${formatAmount(pv.subtotal, cur)} ${cur} · ${t('timeVat')}: ${formatAmount(pv.tax, cur)} ${cur} · <strong>${t('poTotal')}: ${formatAmount(pv.total, cur)} ${cur}</strong></div>`;
+      html += `<div style="color:var(--text-muted);font-size:0.8rem;margin-top:0.3rem;">${tf('timeIncludesN', { n: pv.entry_count, hours: pv.total_hours, value: formatAmount(pv.total), currency: cur })}</div>`;
       document.getElementById('tm-preview-body').innerHTML = html;
       document.getElementById('tm-preview').style.display = 'block';
       document.getElementById('tm-preview').scrollIntoView({ behavior: 'smooth' });
@@ -393,7 +393,7 @@
       const amount = roundMoney(dist * rate, baseCurrencyCode());
       const el = document.getElementById('exp-calc');
       if (dist > 0 && rate > 0) {
-        let msg = tf('expCalc', { distance: dist, unit: expSettings.mileage_unit, rate, amount: formatNum(amount), currency: expCur() });
+        let msg = tf('expCalc', { distance: dist, unit: expSettings.mileage_unit, rate, amount: formatAmount(amount), currency: expCur() });
         if (expSettings.approval_threshold > 0 && amount > expSettings.approval_threshold) {
           msg += ' — ' + t('expNeedsApproval');
         }
@@ -460,7 +460,7 @@
         pending.forEach(c => {
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(c.employee_name)}</td><td>${escapeHtml(formatDisplayDate(c.claim_date))}</td>
-            <td>${c.distance} ${escapeHtml(c.unit)}</td><td>${formatNum(c.amount)} ${escapeHtml(c.currency)}</td>
+            <td>${c.distance} ${escapeHtml(c.unit)}</td><td>${formatAmount(c.amount, c.currency)} ${escapeHtml(c.currency)}</td>
             <td style="display:flex;gap:0.3rem;">
               <button class="btn btn-primary btn-sm exp-approve" data-id="${c.id}">${t('expApprove')}</button>
               <button class="btn btn-secondary btn-sm exp-reject" data-id="${c.id}">${t('expReject')}</button></td>`;
@@ -473,7 +473,7 @@
           const canPay = c.status === 'approved' && c.transaction_id && !c.reimbursement_transaction_id;
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(c.employee_name)}</td><td>${escapeHtml(formatDisplayDate(c.claim_date))}</td>
-            <td>${formatNum(c.amount)} ${escapeHtml(c.currency)}</td>
+            <td>${formatAmount(c.amount, c.currency)} ${escapeHtml(c.currency)}</td>
             <td><span class="badge ${c.status === 'reimbursed' ? 'badge-ok' : ''}">${t('expStatus_' + c.status)}</span></td>
             <td>${canPay ? `<button class="btn btn-secondary btn-sm exp-pay" data-id="${c.id}">${t('expReimburse')}</button>` : ''}</td>`;
           all.appendChild(tr);
@@ -564,8 +564,8 @@
         if (!res.ok) return;
         const d = await res.json();
         hint.textContent = Object.entries(d.by_currency || {}).map(([ccy, s]) => tf('poPriceHint', {
-          last: formatNum(s.last) + ' ' + ccy, who: s.last_supplier || '—', date: formatDisplayDate(s.last_date),
-          low: formatNum(s.lowest) + ' ' + ccy, lowWho: s.lowest_supplier || '—' })).join(' · ');
+          last: formatAmount(s.last, ccy) + ' ' + ccy, who: s.last_supplier || '—', date: formatDisplayDate(s.last_date),
+          low: formatAmount(s.lowest, ccy) + ' ' + ccy, lowWho: s.lowest_supplier || '—' })).join(' · ');
       } catch (_) { /* a hint only */ }
     });
     document.getElementById('po-lines-body').addEventListener('click', (e) => {
@@ -613,7 +613,7 @@
         pos.forEach(p => {
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(p.number)}</td><td>${escapeHtml(p.supplier_name || '—')}</td>
-            <td>${escapeHtml(formatDisplayDate(p.order_date))}</td><td>${formatNum(p.total)} ${escapeHtml(p.currency)}</td>
+            <td>${escapeHtml(formatDisplayDate(p.order_date))}</td><td>${formatAmount(p.total, p.currency)} ${escapeHtml(p.currency)}</td>
             <td><span class="badge ${p.status === 'received' ? 'badge-ok' : ''}">${t('poStatus_' + p.status)}</span></td>
             <td><button class="btn btn-secondary btn-sm po-view" data-id="${p.id}">${t('payrollViewBtn')}</button></td>`;
           body.appendChild(tr);
@@ -644,7 +644,7 @@
           const outstanding = Math.max(0, ln.ordered_qty - ln.received_qty);
           const tr = document.createElement('tr');
           tr.innerHTML = `<td>${escapeHtml(ln.description)}</td><td>${localDigits(ln.ordered_qty)}</td>
-            <td>${ln.received_qty}</td><td>${ln.billed_qty}</td><td>${formatNum(ln.unit_price)} ${escapeHtml(po.currency)}</td>
+            <td>${ln.received_qty}</td><td>${ln.billed_qty}</td><td>${formatAmount(ln.unit_price, po.currency)} ${escapeHtml(po.currency)}</td>
             <td><input type="number" class="po-recv-qty" data-line="${ln.id}" min="0" max="${outstanding}" step="0.01" value="${outstanding}" style="width:7rem;"></td>`;
           body.appendChild(tr);
         });
@@ -659,7 +659,7 @@
         show('po-receive-btn', !['draft', 'cancelled', 'closed', 'received'].includes(st));
         const billsEl = document.getElementById('po-bills');
         billsEl.innerHTML = (po.bills || []).length
-          ? escapeHtml(t('poBillsLabel')) + ' ' + po.bills.map(b => `<strong>${escapeHtml(b.number)}</strong> ${formatNum(b.amount)} ${escapeHtml(b.currency)}`
+          ? escapeHtml(t('poBillsLabel')) + ' ' + po.bills.map(b => `<strong>${escapeHtml(b.number)}</strong> ${formatAmount(b.amount, b.currency)} ${escapeHtml(b.currency)}`
               + (b.status === 'voided' ? ` (${escapeHtml(t('poBillVoided'))})` : '')).join(' · ')
           : '';
         // Bills (purchase invoices) for the match dropdown.
@@ -667,7 +667,7 @@
         const bills = billRes.ok ? await billRes.json() : [];
         const sel = document.getElementById('po-match-bill');
         sel.innerHTML = bills.length
-          ? bills.map(b => `<option value="${b.id}">${escapeHtml(b.number)} — ${formatNum(b.amount)} ${escapeHtml(b.currency)}</option>`).join('')
+          ? bills.map(b => `<option value="${b.id}">${escapeHtml(b.number)} — ${formatAmount(b.amount, b.currency)} ${escapeHtml(b.currency)}</option>`).join('')
           : `<option value="">${t('poNoBills')}</option>`;
       } catch (e) { showAlert(t('poLoadFailed'), true); }
     }
@@ -718,14 +718,14 @@
     document.getElementById('po-bill-btn').addEventListener('click', async () => {
       if (!poCurrentId || !poCurrent) return;
       const total = poCurrent.lines.reduce((a, l) => addMoney(a, roundMoney(l.billable_qty * l.unit_price, poCurrent.currency)), 0);
-      const number = await uiPrompt({ title: t('poBillBtn'), message: tf('poBillPrompt', { amount: formatNum(total) + ' ' + poCurrent.currency }) });
+      const number = await uiPrompt({ title: t('poBillBtn'), message: tf('poBillPrompt', { amount: formatAmount(total, poCurrent.currency) + ' ' + poCurrent.currency }) });
       if (number === null) return;
       const res = await fetch(API + '/purchase-orders/' + poCurrentId + '/bill', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ number: number.trim() || null }) });
       const d = await readJsonSafe(res);
       if (!res.ok) { showAlert((d && d.detail) ? d.detail : t('poBillFailed'), true); return; }
-      showAlert(tf('poBilled', { number: d.invoice_number, amount: formatNum(d.amount) + ' ' + d.currency }));
+      showAlert(tf('poBilled', { number: d.invoice_number, amount: formatAmount(d.amount, d.currency) + ' ' + d.currency }));
       await loadPOList();
       await openPODetail(poCurrentId);
     });
@@ -796,13 +796,13 @@
       const p = rs.params || {};
       const cur = p.currency || prCur();
       const brackets = (p.tax_brackets || []).map(b =>
-        b.upto == null ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%` : `${formatNum(b.upto)}: ${Math.round(b.rate * 100)}%`
+        b.upto == null ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%` : `${formatAmount(b.upto)}: ${Math.round(b.rate * 100)}%`
       ).join(' · ');
       const shown = (s) => localDigits(s);                  // rates and shares in the page's digits
       const item = (label, val) => `<div><span style="color:var(--text-muted);">${t(label)}:</span> ${val}</div>`;
       // A figure only where the rule set has one: a UK set leaves Iran's
       // allowances at 0, and showed "Housing allowance: 0 GBP".
-      const money = (label, n) => (Number(n) > 0 ? item(label, `${formatNum(n)} ${cur}`) : '');
+      const money = (label, n) => (Number(n) > 0 ? item(label, `${formatAmount(n, cur)} ${cur}`) : '');
       return `<div style="font-weight:600;margin-bottom:0.3rem;"><bdi>${escapeHtml(rs.name)}</bdi> (${escapeHtml(localDigits(rs.year))}) — ${escapeHtml(formatDateRange(rs.effective_from, rs.effective_to))}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.25rem 1rem;">
           ${money('payrollRulesMinWage', p.min_wage_daily)}
@@ -812,7 +812,7 @@
           ${money('payrollRulesSeniority', p.seniority_daily)}
           ${item('payrollRulesInsurance', shown(`${Math.round((p.insurance_employee_rate || 0) * 100)}% / ${Math.round((p.insurance_employer_rate || 0) * 100)}%`))}
           ${money('payrollRulesFloor', p.insurance_floor)}
-          ${item('payrollRulesCeiling', p.insurance_ceiling == null ? '—' : `${formatNum(p.insurance_ceiling)} ${cur}`)}
+          ${item('payrollRulesCeiling', p.insurance_ceiling == null ? '—' : `${formatAmount(p.insurance_ceiling, cur)} ${cur}`)}
           ${Number(p.overtime_multiplier) > 1 ? item('payrollRulesOvertime', shown(`× ${p.overtime_multiplier}`)) : ''}
         </div>
         <div style="margin-top:0.3rem;"><span style="color:var(--text-muted);">${t('payrollRulesBrackets')}:</span> ${shown(brackets) || '—'}</div>`;
@@ -956,8 +956,8 @@
         }
         rows.forEach(p => {
           const pay = p.pay_type === 'hourly'
-            ? `${formatNum(p.hourly_rate)} ${prCur()}/h · ${p.standard_hours}h`
-            : `${formatNum(p.base_salary)} ${prCur()}`;
+            ? `${formatAmount(p.hourly_rate, prCur())} ${prCur()}/h · ${p.standard_hours}h`
+            : `${formatAmount(p.base_salary)} ${prCur()}`;
           const tr = document.createElement('tr');
           const statutory = p.tax_mode === 'statutory';
           const statutoryCell = `<span title="${t('payrollTaxModeStatutory')}">${t('payrollStatutoryShort')}${p.children ? ` · ${p.children} ${t('payrollChildrenShort')}` : ''}</span>`;
@@ -1016,7 +1016,7 @@
           const kind = r.kind === 'year_end'
             ? `<div><span class="badge">${escapeHtml(tf('payrollYearEndRun', { year: r.year_key || '' }))}</span></div>` : '';
           tr.innerHTML = `<td>${escapeHtml(formatDisplayDate(r.period_start))} – ${escapeHtml(formatDisplayDate(r.period_end))}${kind}</td><td>${escapeHtml(formatDisplayDate(r.pay_date))}</td>
-            <td>${formatNum(r.total_gross)} ${escapeHtml(r.currency)}</td><td>${formatNum(r.total_net)} ${escapeHtml(r.currency)}</td>
+            <td>${formatAmount(r.total_gross, r.currency)} ${escapeHtml(r.currency)}</td><td>${formatAmount(r.total_net, r.currency)} ${escapeHtml(r.currency)}</td>
             <td><span class="badge ${r.status === 'paid' ? 'badge-ok' : ''}">${t('payrollStatus_' + r.status)}</span></td>
             <td><button class="btn btn-secondary btn-sm pr-view-run" data-id="${r.id}">${t('payrollViewBtn')}</button></td>`;
           body.appendChild(tr);
@@ -1079,12 +1079,12 @@
       (run.lines || []).forEach(ln => {
         const tr = document.createElement('tr');
         const ye = yearEnd ? `<div style="color:var(--text-muted);font-size:0.78rem;">${escapeHtml(tf('payrollYearEndLine', {
-          eidi: formatNum(ln.eidi || 0), sanavat: formatNum(ln.sanavat || 0), days: ln.days_worked || 0 }))}</div>` : '';
-        tr.innerHTML = `<td>${escapeHtml(ln.employee_name)}${ye}</td><td>${formatNum(ln.gross)}</td>
-          <td>${formatNum(ln.allowances || 0)}</td>
-          <td>${formatNum(ln.income_tax)}</td><td>${formatNum(ln.social_security)}</td>
-          <td>${formatNum(ln.employer_social || 0)}</td>
-          <td>${formatNum(ln.pre_tax_deductions)}</td><td>${formatNum(ln.net_pay)}</td>
+          eidi: formatAmount(ln.eidi || 0), sanavat: formatAmount(ln.sanavat || 0), days: ln.days_worked || 0 }))}</div>` : '';
+        tr.innerHTML = `<td>${escapeHtml(ln.employee_name)}${ye}</td><td>${formatAmount(ln.gross)}</td>
+          <td>${formatAmount(ln.allowances || 0)}</td>
+          <td>${formatAmount(ln.income_tax)}</td><td>${formatAmount(ln.social_security)}</td>
+          <td>${formatAmount(ln.employer_social || 0)}</td>
+          <td>${formatAmount(ln.pre_tax_deductions)}</td><td>${formatAmount(ln.net_pay)}</td>
           <td><button class="btn btn-secondary btn-sm pr-payslip" data-rid="${run.id}" data-eid="${ln.entity_id}">${t('payrollPayslip')}</button></td>`;
         body.appendChild(tr);
       });
@@ -1154,13 +1154,13 @@
         const s = await res.json();
         const cur = s.currency || prCur();
         const msg = `${s.employee_name} · ${escapeHtml(formatDisplayDate(s.period_start))} – ${escapeHtml(formatDisplayDate(s.period_end))}\n`
-          + `${t('payrollGross')}: ${formatNum(s.gross)} ${cur}\n`
-          + `${t('payrollIncomeTax')}: ${formatNum(s.income_tax)} ${cur}\n`
-          + `${t('payrollSocial')}: ${formatNum(s.social_security)} ${cur}\n`
-          + `${t('payrollDeductions')}: ${formatNum(s.pre_tax_deductions)} ${cur}\n`
-          + (s.allowances ? `${t('payrollAllowances')}: ${formatNum(s.allowances)} ${cur}\n` : '')
-          + (s.employer_social ? `${t('payrollEmployerShare')}: ${formatNum(s.employer_social)} ${cur}\n` : '')
-          + `${t('payrollNet')}: ${formatNum(s.net_pay)} ${cur}`;
+          + `${t('payrollGross')}: ${formatAmount(s.gross, cur)} ${cur}\n`
+          + `${t('payrollIncomeTax')}: ${formatAmount(s.income_tax, cur)} ${cur}\n`
+          + `${t('payrollSocial')}: ${formatAmount(s.social_security, cur)} ${cur}\n`
+          + `${t('payrollDeductions')}: ${formatAmount(s.pre_tax_deductions, cur)} ${cur}\n`
+          + (s.allowances ? `${t('payrollAllowances')}: ${formatAmount(s.allowances, cur)} ${cur}\n` : '')
+          + (s.employer_social ? `${t('payrollEmployerShare')}: ${formatAmount(s.employer_social, cur)} ${cur}\n` : '')
+          + `${t('payrollNet')}: ${formatAmount(s.net_pay, cur)} ${cur}`;
         await uiConfirm({ title: t('payrollPayslip') + ' — ' + s.employee_name, message: msg, hideCancel: true });
       } catch (err) { /* ignore */ }
     });
@@ -1213,7 +1213,7 @@
         // Sync the global from the server's response so every other
         // widget on the page picks up the right currency too.
         if (data.currency) window.__REPORTING_CURRENCY = data.currency;
-        document.getElementById('cfo-burn').textContent = data.burn_rate.toLocaleString(numLocale()) + ' ' + currencyUnit() + '/' + t('monthsShort');
+        document.getElementById('cfo-burn').textContent = formatAmount(data.burn_rate) + ' ' + currencyUnit() + '/' + t('monthsShort');
 
         const kpiGrid = document.getElementById('cfo-kpis');
         kpiGrid.innerHTML = '';
@@ -1225,7 +1225,7 @@
           div.style.cssText = 'padding:0.6rem;';
           // Any non-% non-months unit is a currency code → format with thousands.
           const isCurrencyUnit = k.unit && k.unit !== '%' && k.unit !== 'months';
-          const displayVal = isCurrencyUnit ? Number(k.value).toLocaleString(numLocale()) : k.value;
+          const displayVal = isCurrencyUnit ? formatAmount(k.value, k.unit) : k.value;
           // "32.5%" not "32.5 %" (a space lets the sign drift to the far side in
           // Persian), months in the reader's language, and <bdi> keeps a minus
           // sign in front of its number in a right-to-left page.

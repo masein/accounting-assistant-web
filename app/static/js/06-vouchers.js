@@ -297,7 +297,7 @@
             <td>${escapeHtml(r.name)}</td>
             <td>${escapeHtml(({ payment: t('recDirPayment'), receipt: t('recDirReceipt') })[r.direction] || r.direction)}</td>
             <td>${escapeHtml(enumLabel('freq_', r.frequency))}</td>
-            <td>${r.amount == null ? '—' : formatNum(r.amount)}</td>
+            <td>${r.amount == null ? '—' : formatAmount(r.amount)}</td>
             <td>${escapeHtml(r.bank_account_code ? localCode(r.bank_account_code) : (r.bank_name || '—'))}</td>
             <td>${escapeHtml(r.counter_account_code ? localCode(r.counter_account_code) : '—')}</td>
             <td>${escapeHtml(formatDisplayDate(r.next_run_date))}</td>
@@ -414,9 +414,9 @@
             <tbody>
               ${rows.map(r => `<tr data-id="${escapeHtml(r.id || '')}" data-limit="${escapeHtml(String(r.limit_amount))}" data-category="${escapeHtml(r.category)}">
                 <td>${escapeHtml(category(r.category))}</td>
-                <td>${formatNum(r.limit_amount)}</td>
-                <td>${formatNum(r.actual_amount)}</td>
-                <td>${formatNum(r.variance)}</td>
+                <td>${formatAmount(r.limit_amount)}</td>
+                <td>${formatAmount(r.actual_amount)}</td>
+                <td>${formatAmount(r.variance)}</td>
                 <td>${escapeHtml(localDigits(r.utilization_pct + '%'))}</td>
                 <td style="white-space:nowrap;">${r.id ? `<button type="button" class="btn btn-secondary btn-sm budget-edit">${escapeHtml(t('btnEdit'))}</button>
                   <button type="button" class="btn btn-secondary btn-sm budget-del">${escapeHtml(t('btnDelete'))}</button>` : ''}</td>

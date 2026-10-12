@@ -16,7 +16,7 @@
       if (!obj || typeof obj !== 'object') return '';
       const keys = Object.keys(obj);
       if (!keys.length) return '';
-      const rows = keys.map(k => `<tr><td>${escapeHtml(localizeReportFieldName(k))}</td><td>${escapeHtml(formatNum(obj[k] ?? 0))}</td></tr>`).join('');
+      const rows = keys.map(k => `<tr><td>${escapeHtml(localizeReportFieldName(k))}</td><td>${escapeHtml(formatReportNumber(obj[k] ?? 0, k))}</td></tr>`).join('');
       return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>${escapeHtml(t('fieldNameLabel'))}</th><th>${escapeHtml(t('fieldValue'))}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
@@ -26,9 +26,19 @@
       return s;
     }
 
+    // A report column that holds money, by its key: amounts get their currency's places
+    // («950.00»), counts, rates and percentages don't (docs/PLAN_PENCE.md, P5).
+    const _AMOUNT_KEY = /(amount|total|balance|debit|credit|turnover|revenue|cost|profit|loss|price|value|paid|due|owed|outstanding|overdue|tax|vat|net|gross|cash|inflow|outflow|receivable|payable|assets|liabilit|equity|capital|income|expense|spend|budget|actual|limit|fee|salary|wage|deduction|current|days_|over_\d|burn|closing|opening|movement)/i;
+    const _NOT_AMOUNT_KEY = /(count|pct|percent|ratio|rate|qty|quantity|days$|hours|months|code|number|year|score|margin|share)/i;
+    function isAmountKey(key) {
+      const k = String(key || '');
+      return _AMOUNT_KEY.test(k) && !_NOT_AMOUNT_KEY.test(k);
+    }
+    function formatReportNumber(v, key) { return isAmountKey(key) ? formatAmount(v) : formatNum(v); }
+
     function formatReportCell(v, key) {
       if (v == null) return '—';
-      if (typeof v === 'number') return formatNum(v);
+      if (typeof v === 'number') return formatReportNumber(v, key);
       if (typeof v === 'boolean') return v ? t('yes') : t('no');
       if (Array.isArray(v)) return escapeHtml(v.map(String).join(', '));
       if (typeof v === 'object') return escapeHtml(Object.entries(v).map(([k2, v2]) => `${k2}: ${v2}`).join(', '));
@@ -386,7 +396,7 @@
       const fmtParens = (amount, forceParens) => {
         if (amount == null) return '-';
         if (amount === 0) return '·';
-        const n = formatNum(Math.abs(amount));
+        const n = formatAmount(Math.abs(amount), report.currency);
         return (amount < 0 || forceParens) ? '(' + n + ')' : n;
       };
       const fmtPct = (v) => {
@@ -475,7 +485,7 @@
       const fmtParens = (n) => {
         if (n == null) return '-';
         if (n === 0) return '·';
-        const s = formatNum(Math.abs(n));
+        const s = formatAmount(Math.abs(n), report.currency);
         return n < 0 ? '(' + s + ')' : s;
       };
 
@@ -528,7 +538,7 @@
       const fmtParens = (amount, forceParens) => {
         if (amount == null) return '-';
         if (amount === 0) return '·';
-        const n = formatNum(Math.abs(amount));
+        const n = formatAmount(Math.abs(amount), report.currency);
         return (amount < 0 || forceParens) ? '(' + n + ')' : n;
       };
       const bodyRows = rows.map(r => {
@@ -590,7 +600,7 @@
       const fmtParens = (n) => {
         if (n == null) return '-';
         if (n === 0) return '·';
-        const s = formatNum(Math.abs(n));
+        const s = formatAmount(Math.abs(n), report.currency);
         return n < 0 ? '(' + s + ')' : s;
       };
       const header = `
@@ -650,7 +660,7 @@
             ? `<bdi>${escapeHtml(r[k] || t('labelUnknownEntity'))}</bdi>` : formatReportCell(r[k], k)}</td>`).join('')}</tr>`).join('');
           return `<div class="panel" style="margin-bottom:0.45rem;">
             <strong>${escapeHtml(title)}</strong>
-            <div style="font-size:0.92rem;margin-top:0.2rem;">${escapeHtml(t('tableTotal'))}: ${formatNum(total || 0)}</div>
+            <div style="font-size:0.92rem;margin-top:0.2rem;">${escapeHtml(t('tableTotal'))}: ${formatAmount(total || 0)}</div>
             ${body ? `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${cols.map(k => `<th>${escapeHtml(localizeReportFieldName(k))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`
                    : `<div class="empty-state" style="padding:0.35rem;">${escapeHtml(t('noRowsInSection'))}</div>`}
           </div>`;
@@ -674,7 +684,7 @@
           return `<div class="panel" style="margin-bottom:0.45rem;">
             <strong>${escapeHtml(sectionNameMap[k] ? t(sectionNameMap[k]) : (sec.label || k))}</strong>
             <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(sec.label_fa || '')}</div>
-            <div style="font-size:0.92rem; margin-top:0.2rem;">${escapeHtml(t('tableTotal'))}: ${formatNum(sec.total || sec.net || 0)}</div>
+            <div style="font-size:0.92rem; margin-top:0.2rem;">${escapeHtml(t('tableTotal'))}: ${formatAmount(sec.total || sec.net || 0)}</div>
             ${table}
           </div>`;
         }).join('');
@@ -685,8 +695,8 @@
           const diff = (bt.assets || 0) - (bt.liabilities_and_equity || 0);
           const ok = diff === 0;
           check = `<div class="report-meta" style="margin-bottom:0.45rem;${ok ? '' : 'color:#b91c1c;'}">
-            ${escapeHtml(t('sectionAssets'))}: ${formatNum(bt.assets || 0)} · ${escapeHtml(t('bsLiabilitiesAndEquity'))}: ${formatNum(bt.liabilities_and_equity || 0)} ·
-            ${escapeHtml(ok ? t('bsBalanced') : t('bsNotBalanced').replace('{diff}', formatNum(diff)))}
+            ${escapeHtml(t('sectionAssets'))}: ${formatAmount(bt.assets || 0)} · ${escapeHtml(t('bsLiabilitiesAndEquity'))}: ${formatAmount(bt.liabilities_and_equity || 0)} ·
+            ${escapeHtml(ok ? t('bsBalanced') : t('bsNotBalanced').replace('{diff}', formatAmount(diff)))}
           </div>`;
         }
         return (check + cards) || '<p class="empty-state">' + escapeHtml(t('noSectionRows')) + '</p>';
@@ -715,7 +725,7 @@
         const rows = entries.map(([k, v]) => {
           let display;
           if (typeof v === 'object' && !Array.isArray(v)) {
-            display = Object.entries(v).filter(([, sv]) => sv != null).map(([sk, sv]) => `<div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="color:var(--text-muted);font-size:0.82rem;">${escapeHtml(localizeReportFieldName(sk))}</span><span>${escapeHtml(typeof sv === 'number' ? formatNum(sv) : String(sv))}</span></div>`).join('');
+            display = Object.entries(v).filter(([, sv]) => sv != null).map(([sk, sv]) => `<div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="color:var(--text-muted);font-size:0.82rem;">${escapeHtml(localizeReportFieldName(sk))}</span><span>${escapeHtml(typeof sv === 'number' ? formatReportNumber(sv, sk) : String(sv))}</span></div>`).join('');
             return `<tr><td style="vertical-align:top;font-weight:600;">${escapeHtml(localizeReportFieldName(k))}</td><td>${display || '—'}</td></tr>`;
           }
           if (Array.isArray(v)) {
@@ -730,7 +740,7 @@
             }
             return `<tr><td style="vertical-align:top;font-weight:600;">${escapeHtml(localizeReportFieldName(k))}</td><td>${display}</td></tr>`;
           }
-          display = typeof v === 'number' ? formatNum(v) : escapeHtml(String(v));
+          display = typeof v === 'number' ? formatReportNumber(v, k) : escapeHtml(String(v));
           return `<tr><td style="font-weight:600;">${escapeHtml(localizeReportFieldName(k))}</td><td>${display}</td></tr>`;
         }).filter(Boolean).join('');
         return `<div class="report-preview-wrap"><table class="mini-table"><tbody>${rows}</tbody></table></div>`;
@@ -743,7 +753,7 @@
       // "tot", not "t": the totals used to shadow t(), so these labels were English in every language
       const tot = report.totals;
       const parts = [];
-      const add = (key, v) => parts.push(t(key) + ': ' + formatNum(v || 0));
+      const add = (key, v) => parts.push(t(key) + ': ' + formatAmount(v || 0, report.currency));
       if (report.report_type === 'balance_sheet') {
         if (tot.assets != null) add('sectionAssets', tot.assets);
         if (tot.liabilities != null) add('sectionLiabilities', tot.liabilities);
@@ -913,15 +923,15 @@
       const dEl = document.getElementById('bal-debit');
       const cEl = document.getElementById('bal-credit');
       const diffEl = document.getElementById('bal-diff');
-      if (dEl) dEl.textContent = tf('voucherBarDebit', { amount: formatNum(totalDebit) });
-      if (cEl) cEl.textContent = tf('voucherBarCredit', { amount: formatNum(totalCredit) });
+      if (dEl) dEl.textContent = tf('voucherBarDebit', { amount: formatAmount(totalDebit) });
+      if (cEl) cEl.textContent = tf('voucherBarCredit', { amount: formatAmount(totalCredit) });
       if (diffEl) {
         const diff = totalDebit - totalCredit;
         if (diff === 0) {
           diffEl.textContent = t('voucherBarBalanced');
           diffEl.className = 'balance-diff balanced';
         } else {
-          diffEl.textContent = tf('voucherBarDiff', { amount: formatNum(diff) });
+          diffEl.textContent = tf('voucherBarDiff', { amount: formatAmount(diff) });
           diffEl.className = 'balance-diff unbalanced';
         }
       }
@@ -949,7 +959,7 @@
       // in the user's words and calendar, each account by its name too — it was
       // "Date: 2026-09-29 … Debit entries: 6112: 1,000 IRR" in a Persian, Jalali company
       const acct = (code) => code + (names[code] ? ' ' + names[code] : '');
-      const money = (n) => currency ? formatMoney(n, currency) : formatNum(n);
+      const money = (n) => currency ? formatMoney(n, currency) : formatAmount(n);
       const row = (l, amount) => '  ' + acct(l.account_code) + ': ' + money(amount) + (l.line_description ? ' (' + l.line_description + ')' : '');
       let summary = tf('voucherConfirmDate', { date: formatDisplayDate(date) }) + '\n';
       if (description) summary += tf('voucherConfirmDescription', { text: description }) + '\n';
@@ -1009,7 +1019,7 @@
       const totalDebit = lines.reduce((s, l) => addMoney(s, l.debit), 0);
       const totalCredit = lines.reduce((s, l) => addMoney(s, l.credit), 0);
       if (totalDebit !== totalCredit) {
-        showAlert(tf('msgVoucherUnbalanced', { debit: formatNum(totalDebit), credit: formatNum(totalCredit) }), true);
+        showAlert(tf('msgVoucherUnbalanced', { debit: formatAmount(totalDebit), credit: formatAmount(totalCredit) }), true);
         return;
       }
       // Warn if posting into a currency different from the reporting currency

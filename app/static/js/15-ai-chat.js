@@ -134,7 +134,7 @@
         document.getElementById('ai-approvals-count').textContent = items.length ? ' (' + items.length + ')' : '';
         list.innerHTML = items.map(it => `<div class="ai-pref ai-approval" data-token="${escapeHtml(it.confirmation_token)}">
             <div class="ai-pref-text"><bdi dir="auto">${escapeHtml(it.summary || it.tool_name)}</bdi>
-              <span class="ai-pref-meta">${escapeHtml(tf('aiApprovalMeta', { who: it.requested_by }))}${it.amount != null ? ' · ' + escapeHtml(formatNum(it.amount)) + ' ' + escapeHtml(currencyUnit()) : ''}</span>
+              <span class="ai-pref-meta">${escapeHtml(tf('aiApprovalMeta', { who: it.requested_by }))}${it.amount != null ? ' · ' + escapeHtml(formatAmount(it.amount)) + ' ' + escapeHtml(currencyUnit()) : ''}</span>
               ${it.mine ? `<span class="ai-pref-meta">${escapeHtml(t('aiApprovalMine'))}</span>` : `<span class="ai-approval-actions">
                 <button type="button" class="btn btn-primary btn-sm ai-approve">${escapeHtml(t('aiApprove'))}</button>
                 <button type="button" class="btn btn-secondary btn-sm ai-reject">${escapeHtml(t('aiReject'))}</button></span>`}
@@ -670,7 +670,7 @@
           const b = intake.balance;
           if (b && b.gap) {
             html += '<div style="margin-top:0.3rem;font-weight:600;color:' + (b.explained ? '#b45309' : 'var(--danger,#dc3545)') + ';">'
-              + escapeHtml(tf('chatStmtGap', { gap: fmt(Math.abs(b.gap)), ccy: intake.currency || '' }))
+              + escapeHtml(tf('chatStmtGap', { gap: formatAmount(Math.abs(b.gap), intake.currency), ccy: intake.currency || '' }))
               + (b.explained ? ' · ' + escapeHtml(t('chatStmtGapExplained')) : '') + '</div>';
           }
           if (intake.clean) html += '<div style="margin-top:0.3rem;color:var(--success,#059669);font-weight:600;">' + escapeHtml(t('chatStmtClean')) + '</div>';
@@ -869,7 +869,7 @@
         if (proposal.needs_approval) {
           const note = document.createElement('div');
           note.className = 'ai-card-note ai-card-approval';
-          note.textContent = '⚖ ' + tf('aiNeedsApproval', { limit: formatNum(proposal.approval_threshold || 0) + ' ' + currencyUnit() });
+          note.textContent = '⚖ ' + tf('aiNeedsApproval', { limit: formatAmount(proposal.approval_threshold || 0) + ' ' + currencyUnit() });
           card.appendChild(note);
         }
 

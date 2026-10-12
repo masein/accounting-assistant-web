@@ -997,9 +997,9 @@
           const tr = document.createElement('tr');
           tr.style.background = statusBg;
           tr.innerHTML = `<td>${r.row_index}</td><td>${escapeHtml(formatDisplayDate(r.tx_date))}</td><td dir="auto">${escapeHtml(r.description || '')}</td>
-            <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString(numLocale()) : ''}</td>
-            <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString(numLocale()) : ''}</td>
-            <td>${r.balance != null ? r.balance.toLocaleString(numLocale()) : ''}</td>
+            <td style="color:#1565c0;">${r.debit ? formatAmount(r.debit, stmt.currency) : ''}</td>
+            <td style="color:#2e7d32;">${r.credit ? formatAmount(r.credit, stmt.currency) : ''}</td>
+            <td>${r.balance != null ? formatAmount(r.balance, stmt.currency) : ''}</td>
             <td>${bsCategoryCell(r)}</td>
             <td style="color:${confColor}">${localDigits((r.confidence * 100).toFixed(0) + '%')}</td>
             <td>${escapeHtml(enumLabel('bsRecon_', r.recon_status))}</td>
@@ -1031,7 +1031,7 @@
       const diff = data.unreconciled_difference || 0;
       const diffEl = document.createElement('div');
       diffEl.style.cssText = 'margin-top:0.35rem;font-weight:600;color:' + (diff === 0 ? '#2e7d32' : '#c62828') + ';';
-      diffEl.textContent = t('bsUnreconciledDiff') + ': ' + formatNum(diff) + ' ' + (data.currency || currencyUnit());
+      diffEl.textContent = t('bsUnreconciledDiff') + ': ' + formatAmount(diff) + ' ' + (data.currency || currencyUnit());
       el.appendChild(diffEl);
 
       // Bank-fee / interest suggestions — confirm-gated "Record" buttons.
@@ -1047,7 +1047,7 @@
           const span = document.createElement('span');
           span.dir = 'auto';
           span.style.flex = '1';
-          span.textContent = `${escapeHtml(formatDisplayDate(s.tx_date))} · ${s.description || ''} · ${formatNum(s.amount)} ${data.currency || currencyUnit()} → ${s.account_code} ${s.account_name}`;
+          span.textContent = `${escapeHtml(formatDisplayDate(s.tx_date))} · ${s.description || ''} · ${formatAmount(s.amount, data.currency)} ${data.currency || currencyUnit()} → ${s.account_code} ${s.account_name}`;
           const btn = document.createElement('button');
           btn.className = 'btn btn-secondary btn-sm';
           btn.textContent = t('bsRecordBtn');
@@ -1130,7 +1130,7 @@
         const bl = document.createElement('div');
         bl.style.cssText = 'margin-top:0.3rem;font-weight:600;color:' + (b.gap === 0 ? '#2e7d32' : '#c62828') + ';';
         bl.textContent = tf('bsReviewBalance', {
-          bank: formatNum(b.statement_closing), books: formatNum(b.book_balance), gap: formatNum(b.gap), ccy,
+          bank: formatAmount(b.statement_closing), books: formatAmount(b.book_balance), gap: formatAmount(b.gap), ccy,
         }) + (b.gap !== 0 && b.explained ? ' — ' + t('bsReviewGapExplained') : '');
         el.appendChild(bl);
       }
@@ -1153,9 +1153,9 @@
         const span = document.createElement('span');
         span.dir = 'auto';
         span.style.flex = '1';
-        let txt = (f.tx_date || '') + ' · ' + (f.description || '') + ' · ' + formatNum(f.amount) + ' ' + ccy;
+        let txt = (f.tx_date || '') + ' · ' + (f.description || '') + ' · ' + formatAmount(f.amount, ccy) + ' ' + ccy;
         if (f.kind === 'amount_mismatch' && f.matched_amount != null) {
-          txt += ' — ' + t('bsFindBook') + ': ' + formatNum(f.matched_amount) + ' (' + (f.matched_date || '') + ')';
+          txt += ' — ' + t('bsFindBook') + ': ' + formatAmount(f.matched_amount) + ' (' + (f.matched_date || '') + ')';
         } else if (f.kind === 'needs_confirmation' && f.matched_date) {
           txt += ' — ' + t('bsFindBook') + ': ' + (f.matched_date || '') + ' ' + (f.matched_description || '');
         } else if (f.kind === 'unrecorded' && f.suggested_account_code) {

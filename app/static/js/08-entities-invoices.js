@@ -21,10 +21,10 @@
         body.innerHTML = `
           ${kolLine}
           <div class="detail-summary">
-            <div><span>${t('fieldTotalDebit')}</span><strong>${formatNum(data.debit_turnover)}</strong></div>
-            <div><span>${t('fieldTotalCredit')}</span><strong>${formatNum(data.credit_turnover)}</strong></div>
-            <div><span>${t('fieldDebitBalance')}</span><strong>${formatNum(data.debit_balance)}</strong></div>
-            <div><span>${t('fieldCreditBalance')}</span><strong>${formatNum(data.credit_balance)}</strong></div>
+            <div><span>${t('fieldTotalDebit')}</span><strong>${formatAmount(data.debit_turnover)}</strong></div>
+            <div><span>${t('fieldTotalCredit')}</span><strong>${formatAmount(data.credit_turnover)}</strong></div>
+            <div><span>${t('fieldDebitBalance')}</span><strong>${formatAmount(data.debit_balance)}</strong></div>
+            <div><span>${t('fieldCreditBalance')}</span><strong>${formatAmount(data.credit_balance)}</strong></div>
           </div>
           <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center;">
             <input type="text" id="acct-detail-search" placeholder="${t('placeholderSearchCodeName')}" style="flex:1;min-width:180px;padding:0.4rem 0.6rem;font-size:0.85rem;">
@@ -59,8 +59,8 @@
         <td>${escapeHtml(formatDisplayDate(l.transaction_date))}</td>
         <td>${escapeHtml(l.reference || '—')}</td>
         <td>${escapeHtml(l.description || '—')}</td>
-        <td class="num">${formatNum(l.debit)}</td>
-        <td class="num">${formatNum(l.credit)}</td>
+        <td class="num">${formatAmount(l.debit)}</td>
+        <td class="num">${formatAmount(l.credit)}</td>
         <td>${escapeHtml(l.line_description || '—')}</td>
       </tr>`).join('')}</tbody></table>`;
     }
@@ -79,10 +79,10 @@
         if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
         w.document.write(`<html lang="${document.documentElement.lang}" dir="${document.documentElement.dir || 'ltr'}"><head><title>${escapeHtml(tf('printAccountTitle', { code: localCode(m.code) }))}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:start}.num{text-align:end}h2{margin:0 0 4px}p{margin:2px 0;font-size:13px}</style></head><body>
           <h2>${escapeHtml(localCode(m.code))} — ${escapeHtml(m.name)}</h2>
-          <p>${escapeHtml(t('fieldTotalDebit'))}: ${formatNum(m.debit_turnover)} | ${escapeHtml(t('fieldTotalCredit'))}: ${formatNum(m.credit_turnover)}</p>
-          <p>${escapeHtml(t('fieldDebitBalance'))}: ${formatNum(m.debit_balance)} | ${escapeHtml(t('fieldCreditBalance'))}: ${formatNum(m.credit_balance)}</p>
+          <p>${escapeHtml(t('fieldTotalDebit'))}: ${formatAmount(m.debit_turnover)} | ${escapeHtml(t('fieldTotalCredit'))}: ${formatAmount(m.credit_turnover)}</p>
+          <p>${escapeHtml(t('fieldDebitBalance'))}: ${formatAmount(m.debit_balance)} | ${escapeHtml(t('fieldCreditBalance'))}: ${formatAmount(m.credit_balance)}</p>
           <table><thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th class="num">${escapeHtml(t('tableDebit'))}</th><th class="num">${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('tableLineDescription'))}</th></tr></thead><tbody>
-          ${lines.map(l=>`<tr><td>${escapeHtml(formatDisplayDate(l.transaction_date))}</td><td>${escapeHtml(l.reference||'')}</td><td>${escapeHtml(l.description||'')}</td><td class="num">${formatNum(l.debit)}</td><td class="num">${formatNum(l.credit)}</td><td>${escapeHtml(l.line_description||'')}</td></tr>`).join('')}
+          ${lines.map(l=>`<tr><td>${escapeHtml(formatDisplayDate(l.transaction_date))}</td><td>${escapeHtml(l.reference||'')}</td><td>${escapeHtml(l.description||'')}</td><td class="num">${formatAmount(l.debit)}</td><td class="num">${formatAmount(l.credit)}</td><td>${escapeHtml(l.line_description||'')}</td></tr>`).join('')}
           </tbody></table></body></html>`);
         w.document.close();
         setTimeout(() => w.print(), 300);
@@ -215,7 +215,7 @@
         }
         const raw = await uiPrompt({
           title: t('invAddPayment'),
-          message: tf('invPaymentAmountPrompt', { balance: formatNum(balance || 0), currency: (inv.currency || '') }),
+          message: tf('invPaymentAmountPrompt', { balance: formatAmount(balance || 0), currency: (inv.currency || '') }),
           type: 'number',
           value: String(balance || ''),
         });
@@ -233,7 +233,7 @@
           // a foreign invoice paid at another rate than it was booked at (roadmap §4.6)
           const fx = Number(data.realised_fx || 0);
           showAlert(fx ? t('invPaymentRecorded') + ' ' + tf(fx > 0 ? 'invRealisedGain' : 'invRealisedLoss',
-            { amount: formatNum(Math.abs(fx)), currency: data.base_currency || '' }) : t('invPaymentRecorded'));
+            { amount: formatAmount(Math.abs(fx)), currency: data.base_currency || '' }) : t('invPaymentRecorded'));
           loadInvoices(id);
           loadLedger();
           loadOwnerDashboard();

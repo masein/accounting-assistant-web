@@ -129,16 +129,18 @@ def infer(code: str, title: str) -> str | None:
     return None
 
 
-def line_map(db: Session) -> dict[str, tuple[str, str]]:
-    """code → (section, line) for every account with a line of its own or an
-    ancestor's, and every bank's own account (cash). Accounts without one are
-    left to the code prefixes."""
+def lines_and_banks(db: Session) -> tuple[dict[str, tuple[str, str]], set[str]]:
+    """``line_map`` and the banks' own account codes, in one query (the cash
+    predicate needs both, and the reports that call it count their queries)."""
     from app.models.account import Account
     from app.models.entity import Entity
 
-    rows = db.execute(select(Account.id, Account.code, Account.parent_id, Account.statement_line)).all()
+    rows = db.execute(
+        select(Account.id, Account.code, Account.parent_id, Account.statement_line, Entity.id.label("bank_id"))
+        .outerjoin(Entity, (Entity.code == Account.code) & (Entity.type == "bank"))
+    ).all()
     by_id = {r.id: r for r in rows}
-    banks = {(c or "").strip() for (c,) in db.execute(select(Entity.code).where(Entity.type == "bank")).all()}
+    banks = {r.code for r in rows if r.bank_id is not None}
     out: dict[str, tuple[str, str]] = {}
     for r in rows:
         line, cur, hops = None, r, 0
@@ -153,4 +155,11 @@ def line_map(db: Session) -> dict[str, tuple[str, str]]:
         section = section_of(line) if line else None
         if section:
             out[r.code] = (section, line)
-    return out
+    return out, banks
+
+
+def line_map(db: Session) -> dict[str, tuple[str, str]]:
+    """code → (section, line) for every account with a line of its own or an
+    ancestor's, and every bank's own account (cash). Accounts without one are
+    left to the code prefixes."""
+    return lines_and_banks(db)[0]

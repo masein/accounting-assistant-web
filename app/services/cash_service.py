@@ -53,14 +53,15 @@ def company_cash_predicate(db: Session) -> Callable[[str], bool]:
     from app.models.entity import Entity
     from app.services.locale_service import get_reporting_locale
     locale = get_reporting_locale(db)
-    banks = {(c or "").strip() for (c,) in db.execute(select(Entity.code).where(Entity.type == "bank")).all()
-             if (c or "").strip()}
     if (locale or "").strip().lower() == "uk":
         locale_cash = cash_account_predicate(locale)
+        banks = {(c or "").strip() for (c,) in db.execute(select(Entity.code).where(Entity.type == "bank")).all()
+                 if (c or "").strip()}
     else:
         from app.services.reporting.iran_statement_service import _bs_bucket_for_code
-        from app.services.reporting.statement_lines import line_map
-        lines = line_map(db)
+        from app.services.reporting.statement_lines import lines_and_banks
+        lines, banks = lines_and_banks(db)
+
         def locale_cash(code: str, _lines=lines) -> bool:
             return code == "1110" or _bs_bucket_for_code(code, _lines) == ("current_assets", "ca_cash")
     return lambda code, _l=locale_cash, _b=banks: (code or "") in _b or _l(code or "")

@@ -272,6 +272,10 @@ def trial_balance_rows(db: Session, from_date: date, to_date: date, currency: st
     return [(code, name, int(d or 0), int(c or 0)) for code, name, d, c in db.execute(q).all()]
 
 
+_OPENING = "MIGRATION-OPENING"      # migration_import.OPENING_REFERENCE
+_not_opening = func.coalesce(Transaction.reference, "") != _OPENING
+
+
 def debtor_creditor_movements(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[date, str, UUID | None, str, int]]:
     """
     Return tuple:
@@ -302,6 +306,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
             Transaction.deleted_at.is_(None),
             TransactionLine.account_id == select(Account.id).where(Account.code == ar_code).scalar_subquery(),
             TransactionEntity.role.in_(("client",)),
+            _not_opening,
         )
         .group_by(Transaction.date, TransactionEntity.entity_id, Entity.name)
     )
@@ -324,6 +329,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
             Transaction.deleted_at.is_(None),
             Account.code == ap_code,
             TransactionEntity.role.in_(("supplier", "payee")),
+            _not_opening,
         )
         .group_by(Transaction.date, TransactionEntity.entity_id, Entity.name)
     )
@@ -333,6 +339,26 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
         out.append((d, "debtor", eid, name or "Unassigned", int(delta or 0)))
     for d, eid, name, delta in db.execute(ap_q).all():
         out.append((d, "creditor", eid, name or "Unassigned", int(delta or 0)))
+    # A migration's opening voucher carries each party's own balance on its link
+    # (debit: owes us, credit: we owe), not on the receivable and payable lines,
+    # which hold every party's total at once: they showed no one (2026-10-12).
+    if currency is None or sums_base(currency) or currency == "IRR":
+        opening_q = (
+            select(Transaction.date, TransactionEntity.entity_id, Entity.name, TransactionEntity.amount)
+            .join(TransactionEntity, TransactionEntity.transaction_id == Transaction.id)
+            .join(Entity, Entity.id == TransactionEntity.entity_id)
+            .where(
+                Transaction.date >= from_date,
+                Transaction.date <= to_date,
+                Transaction.deleted_at.is_(None),
+                Transaction.reference == _OPENING,
+                Entity.type != "bank",
+                TransactionEntity.amount.isnot(None),
+                TransactionEntity.amount != 0,
+            )
+        )
+        for d, eid, name, amount in db.execute(opening_q).all():
+            out.append((d, "debtor" if amount > 0 else "creditor", eid, name or "Unassigned", abs(int(amount))))
     return out
 
 

@@ -224,6 +224,11 @@ def _ensure_account(db: Session, code: str, name: str, locale: str) -> str:
     return code
 
 
+def _company_account(db: Session, category: str) -> str | None:
+    from app.services.posting_roles import override_code
+    return override_code(db, category)
+
+
 def resolve_account_code(db: Session, category: str, *, locale: str | None = None) -> str:
     """Return the chart code for a posting ``category`` in the active locale.
 
@@ -237,6 +242,9 @@ def resolve_account_code(db: Session, category: str, *, locale: str | None = Non
     table = POSTING_CODES.get(loc, POSTING_CODES["default"])
     if cat not in table:
         raise AccountResolutionError(f"Unknown posting category: {category!r}")
+    own = _company_account(db, cat)      # a migrated chart's own account (posting_roles)
+    if own:
+        return own
 
     # Preferred code for this locale, then cross-locale fallbacks.
     candidates: list[str] = [table[cat]]
@@ -258,7 +266,7 @@ def resolve_account_code(db: Session, category: str, *, locale: str | None = Non
     )
 
 
-def find_account_code(db: Session, category: str, *, locale: str | None = None) -> str | None:
+def find_account_code(db: Session, category: str, *, locale: str | None = None, own: bool = True) -> str | None:
     """resolve_account_code for readers: the code a posting of ``category``
     would use (the locale's own, then the other locales'), or None when the
     chart has none of them or the locale has no such category. Creates
@@ -268,6 +276,9 @@ def find_account_code(db: Session, category: str, *, locale: str | None = None) 
     table = POSTING_CODES.get(loc, POSTING_CODES["default"])
     if cat not in table:
         return None
+    mine = _company_account(db, cat) if own else None     # own=False: the chart's default
+    if mine:
+        return mine
     candidates = [table[cat]] + [c for fb in _FALLBACK_ORDER if (c := POSTING_CODES[fb].get(cat)) and c != table[cat]]
     return next((code for code in candidates if _code_exists(db, code)), None)
 

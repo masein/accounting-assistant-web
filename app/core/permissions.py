@@ -243,11 +243,11 @@ _add("DELETE", "/admin/users/{user_id}", Perm.USERS_MANAGE)
 
 # --- Books: chart of accounts (read-only lookups) --------------------------
 _reads(["/accounts", "/accounts/by-code/{code}", "/accounts/{account_id}", "/accounts/tree",
-        "/accounts/suggest-code/{parent_code}", "/accounts/opening-balances"],
+        "/accounts/suggest-code/{parent_code}", "/accounts/opening-balances", "/accounts/posting-roles"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 # Chart management (roadmap §4.5): changing the chart is a books write.
 for _m, _p in [("POST", "/accounts"), ("PATCH", "/accounts/{account_id}"), ("DELETE", "/accounts/{account_id}"),
-               ("PUT", "/accounts/opening-balances")]:
+               ("PUT", "/accounts/opening-balances"), ("PUT", "/accounts/posting-roles")]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 
 # --- Books: transactions ----------------------------------------------------

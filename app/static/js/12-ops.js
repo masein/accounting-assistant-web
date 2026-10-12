@@ -42,7 +42,55 @@
       const map = { address: 'migFieldAddress', phone: 'migFieldPhone', iban: 'migFieldIban', account_number: 'migFieldAccountNumber', email: 'migFieldEmail' };
       return map[f] ? t(map[f]) : f;
     }
-    function migrationInitPage() { migrationLoadPending(); }
+    function migrationInitPage() { migrationLoadPending(); migrationLoadRoles(); }
+
+    // Where each kind of entry posts: a migrated chart's own sub-ledgers
+    // (111201 receivables, 211101 salaries payable, ...) or the chart's
+    // defaults, changeable here (2026-10-12: they all went to the seed's codes).
+    let _migrationRoles = [];
+    async function migrationLoadRoles() {
+      const el = document.getElementById('migration-roles');
+      if (!el) return;
+      try {
+        const [rr, ra] = await Promise.all([fetch(API + '/accounts/posting-roles'), fetch(API + '/accounts?limit=500')]);
+        if (!rr.ok || !ra.ok) { el.innerHTML = ''; return; }
+        _migrationRoles = await rr.json();
+        const accounts = (await ra.json()).slice().sort((a, b) => String(a.code).localeCompare(String(b.code)));
+        const opts = (r) => `<option value="">${escapeHtml(t('postingRolesDefault'))}${r.default_code ? ' (' + escapeHtml(localCode(r.default_code)) + ')' : ''}</option>`
+          + accounts.map((a) => `<option value="${escapeHtml(a.code)}"${r.source && a.code === r.code ? ' selected' : ''}>${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
+        const chip = (r) => r.source === 'migration' ? t('postingRolesFromMigration') : (r.source === 'owner' && r.code !== r.default_code ? t('postingRolesByOwner') : '');
+        el.innerHTML = '<div style="overflow-x:auto;"><table class="mini-table"><tbody>' + _migrationRoles.map((r) =>
+          `<tr><td>${escapeHtml(t('postingRole_' + r.category))}</td>`
+          + `<td><select data-role="${escapeHtml(r.category)}" aria-label="${escapeHtml(t('postingRole_' + r.category))}" style="width:100%;max-width:24rem;">${opts(r)}</select></td>`
+          + `<td class="fc-note">${escapeHtml(chip(r))}</td></tr>`).join('') + '</tbody></table></div>'
+          + `<button type="button" class="btn btn-secondary btn-sm" data-action="migration-roles-save" style="margin-top:0.5rem;">${escapeHtml(t('postingRolesSave'))}</button>`
+          + ' <span id="migration-roles-status" class="fc-note"></span>';
+      } catch (_) { el.innerHTML = ''; }
+    }
+    async function migrationSaveRoles() {
+      const status = document.getElementById('migration-roles-status');
+      const roles = {};
+      document.querySelectorAll('#migration-roles select[data-role]').forEach((sel) => {
+        const was = _migrationRoles.find((r) => r.category === sel.dataset.role) || {};
+        const before = was.source ? (was.code || '') : '';
+        if (sel.value !== before) roles[sel.dataset.role] = sel.value || null;
+      });
+      if (!Object.keys(roles).length) { if (status) status.textContent = t('postingRolesSaved'); return; }
+      try {
+        const res = await fetch(API + '/accounts/posting-roles', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roles }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(typeof err.detail === 'string' ? err.detail : res.statusText);
+        }
+        await migrationLoadRoles();
+        const st = document.getElementById('migration-roles-status');
+        if (st) st.textContent = t('postingRolesSaved');
+      } catch (e) {
+        if (status) status.textContent = e.message || String(e);
+      }
+    }
     async function migrationUpload() {
       const filesEl = document.getElementById('migration-files');
       const statusEl = document.getElementById('migration-status');
@@ -159,6 +207,9 @@
             : `${escapeHtml(t('migrationJournalPosted'))}: <bdi dir="ltr">${escapeHtml(formatDisplayDate(oj.opening_date) || '')}</bdi>`
               + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString(numLocale())})` : '')
               + (oj.replaced_previous ? ` ${escapeHtml(t('migrationJournalReplaced'))}` : ''))
+          + (Object.keys(r.posting_roles || {}).length
+            ? `<br>${escapeHtml(tf('migrationRolesSet', { n: Object.keys(r.posting_roles).length }))}`
+            : '')
           + ((chart.conflicts || []).length
             ? `<br>${escapeHtml(t('migrationConflictsLabel'))}: ` + chart.conflicts.map((c) => `<bdi>${escapeHtml(localCode(c.code))} «${escapeHtml(c.title)}»</bdi>`).join(' · ')
             : '')
@@ -169,6 +220,7 @@
         document.getElementById('migration-preview').style.display = 'none';
         statusEl.textContent = '';
         migrationLoadPending();
+        migrationLoadRoles();
       } catch (e) {
         statusEl.textContent = e.message || String(e);
         btn.disabled = false;
@@ -1208,6 +1260,7 @@
 
     registerAction('migration-upload', () => migrationUpload());
     registerAction('migration-confirm', () => migrationConfirm());
+    registerAction('migration-roles-save', () => migrationSaveRoles());
     registerAction('migration-ask-ai', (el) => migrationAskAI(el.dataset.id));
     registerAction('migration-resolve', (el) => migrationResolve(el.dataset.id));
     registerAction('migration-dismiss', (el) => migrationDismiss(el.dataset.id));

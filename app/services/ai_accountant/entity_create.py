@@ -262,6 +262,14 @@ def _resolve_bank_account(
         if acc:
             return acc.code, False
     from app.services.account_resolver import _ensure_account
+    from app.services.posting_roles import override_code
+    parent_code = override_code(db, "bank")
+    if parent_code:
+        # a migrated chart's bank sub-ledger (111005): the new bank goes under it
+        # (111005003), not on the next free 111x, a ledger code in Sepidar's numbering
+        from app.services.migration_import import _new_bank_account
+        parent = db.execute(select(Account).where(Account.code == parent_code)).scalars().first()
+        return _new_bank_account(db, parent, "", name, loc), True
     code = _next_bank_account_code(db, loc)
     _ensure_account(db, code, bt(db, "bank_account_name", name=name), loc)
     return code, True

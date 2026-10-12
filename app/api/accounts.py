@@ -115,6 +115,42 @@ def put_opening_balances(body: OpeningIn, db: Session = Depends(get_db)) -> dict
     return out
 
 
+class PostingRolesUpdate(BaseModel):
+    # category → the account a posting of it goes to; null puts it back on the chart's default
+    roles: dict[str, str | None] = Field(default_factory=dict)
+
+
+@router.get("/posting-roles")
+def get_posting_roles(db: Session = Depends(get_db)) -> list[dict]:
+    """Where each kind of entry posts: a migrated chart's own sub-ledger, or the
+    chart's default (app/services/posting_roles.py)."""
+    from app.services import posting_roles
+    return posting_roles.view(db)
+
+
+@router.put("/posting-roles")
+def put_posting_roles(payload: PostingRolesUpdate, db: Session = Depends(get_db)) -> list[dict]:
+    from app.services import posting_roles
+    changes: dict[str, str | None] = {}
+    for cat, code in payload.roles.items():
+        if cat not in posting_roles.CATEGORIES:
+            raise HTTPException(status_code=422, detail=f"Unknown posting category: {cat}")
+        if code:
+            code = ascii_digits(code).strip()
+            acc = db.execute(select(Account).where(Account.code == code)).scalars().first()
+            if acc is None:
+                raise HTTPException(status_code=422, detail=f"Account not found: {code}")
+            if not acc.is_active:
+                raise HTTPException(status_code=422, detail=f"Account {code} is inactive.")
+        changes[cat] = code or None
+    posting_roles.save(db, changes, source="owner")
+    from app.services.audit_service import log_audit_event
+    log_audit_event(db, action="update", entity_type="posting_roles", entity_id="posting_roles",
+                    detail=", ".join(f"{c}={v or 'default'}" for c, v in changes.items()) or "none")
+    db.commit()
+    return posting_roles.view(db)
+
+
 @router.get("/by-code/{code}", response_model=AccountRead)
 def get_account_by_code(
     code: str,

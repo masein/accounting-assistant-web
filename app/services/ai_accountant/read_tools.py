@@ -95,6 +95,16 @@ class FindEntityInput(BaseModel):
     )
 
 
+# Words that name a kind of party, not the party: «بانک», "Ltd", «آقای».
+_GENERIC_PARTY_WORDS = {"بانک", "bank", "شرکت", "company", "co", "co.", "ltd", "ltd.", "limited", "inc", "plc",
+                        "موسسه", "مؤسسه", "آقای", "آقا", "خانم", "جناب", "سرکار", "mr", "mrs", "ms", "dr"}
+
+
+def _party_words(text: str) -> set[str]:
+    words = {w.strip(".,،()-«»\"'") for w in text.replace("\u200c", " ").split()}
+    return {w for w in words if w and w not in _GENERIC_PARTY_WORDS}
+
+
 class FindEntity(BaseTool):
     name = "find_entity"
     category = "read"
@@ -114,26 +124,38 @@ class FindEntity(BaseTool):
         if not q:
             raise ToolError("query must be non-empty")
 
-        stmt = select(Entity)
-        if args.type:
-            stmt = stmt.where(Entity.type == args.type)
-
         # Pull all candidates the user could plausibly mean, then score
         # client-side. SQLite (used in tests) doesn't have trigram support;
-        # difflib is portable and fast for small entity tables.
-        all_rows = ctx.db.execute(stmt).scalars().all()
+        # difflib is portable and fast for small entity tables. The type is a
+        # preference, not a filter: «ابر اروان» asked for as a supplier is the
+        # client of that name, not "no such party" (AI QA, 2026-10-12).
+        all_rows = ctx.db.execute(select(Entity)).scalars().all()
         scored: list[tuple[float, Entity]] = []
-        q_lower = q.lower()
+        from app.utils.text import fold_fa
+        q_lower = fold_fa(q.lower())
+        q_words = _party_words(q_lower)
         for row in all_rows:
-            ratio = difflib.SequenceMatcher(None, q_lower, row.name.lower()).ratio()
+            name = fold_fa(row.name.lower())
+            ratio = difflib.SequenceMatcher(None, q_lower, name).ratio()
             # Boost prefix matches — typing "Kim" should rank "Kim Nguyen"
             # above "Joachim".
-            if row.name.lower().startswith(q_lower):
+            if name.startswith(q_lower):
                 ratio = min(1.0, ratio + 0.15)
-            if q_lower in row.name.lower():
+            if q_lower in name:
                 ratio = min(1.0, ratio + 0.05)
+            # Every distinctive word of the query in the name, in any order:
+            # «بانک آینده» is «آینده جردن» (it ranked «بانک دی فرمانیه» first on
+            # the shared «بانک»), «علیرضا حیدری» is «حیدری علیرضا» (AI QA, 2026-10-12).
+            n_words = _party_words(name)
+            if q_words and n_words and q_words <= n_words:
+                ratio = max(ratio, 0.9 + 0.1 * len(q_words) / len(n_words))
             scored.append((ratio, row))
 
+        if args.type:
+            # the asked-for type narrows; another type only when none of it matches and the name clearly does
+            typed_best = max((sc for sc, e in scored if e.type == args.type), default=0.0)
+            scored = [(sc if e.type == args.type else (sc - 0.1 if typed_best < 0.6 and sc >= 0.9 else 0.0), e)
+                      for sc, e in scored]
         scored.sort(key=lambda pair: pair[0], reverse=True)
         # The party the user chose before for this wording (roadmap §5.4).
         from app.services.learned_preferences import lookup, mark_used
@@ -273,7 +295,7 @@ class QueryLedger(BaseTool):
 
     async def run(self, ctx: ToolContext, args: QueryLedgerInput) -> dict[str, Any]:
         today = date.today()
-        from_d = args.from_date or date(today.year, 1, 1)
+        from_d = args.from_date or _year_bounds(ctx.db, of=today)[0]
         to_d = args.to_date or today
 
         # Build the line-level query joined to its transaction.
@@ -543,6 +565,44 @@ def _normal_balance(acc_type: str) -> str:
     return "debit" if acc_type in (ASSET, EXPENSE) else "credit"
 
 
+# Words for the same thing in a chart's account names: «لوازم التحریر» is the
+# stationery account «هزینه ملزومات و نوشت افزار» in a Sepidar chart, and no
+# fuzzy ratio sees it (AI QA on migrated books, 2026-10-12). A query naming one
+# member matches an account named with another member of the same group.
+_SYNONYM_GROUPS: tuple[tuple[str, ...], ...] = (
+    ("لوازم التحریر", "لوازم تحریر", "نوشت افزار", "نوشت‌افزار", "نوشتافزار", "ملزومات", "لوازم اداری", "stationery",
+     "office supplies"),
+    ("اجاره", "کرایه", "rent"),
+    ("حقوق", "دستمزد", "salary", "wages", "payroll"),
+    ("بیمه", "insurance"),
+    ("اینترنت", "سرور", "هاست", "زیرساخت", "internet", "hosting", "server"),
+    ("پذیرایی", "آبدارخانه", "نظافت", "cleaning", "refreshments"),
+    ("ایاب و ذهاب", "حمل و نقل", "آژانس", "اسنپ", "تاکسی", "کرایه ماشین", "transport", "taxi"),
+    ("تعمیر", "نگهداری", "repairs", "maintenance"),
+    ("کارمزد", "bank charges", "bank fee"),
+    ("شهریه", "tuition"),
+    ("وام", "تسهیلات", "loan"),
+    ("بانک", "bank"),
+    ("درآمد", "فروش", "revenue", "income", "sales"),
+    ("تلفن", "موبایل", "phone", "telephone"),
+    ("آب و برق", "برق", "گاز", "قبض", "utilities", "electricity"),
+)
+
+# The posting role an alias category stands for: a migrated chart answers with
+# its own account (its "expense" is 611299, not the seed's 6112).
+_ALIAS_ROLES = {"cash / bank": "bank", "operating expense": "expense", "wages / salary": "wages_expense",
+                "sales / revenue": "revenue", "receivable": "ar", "payable": "ap", "financial expense": "bank_fee",
+                "capital / equity": "share_capital"}
+
+# Fewer postings than this and the books have no history to prefer: a new
+# company's first entries go to the chart's defaults as before.
+_ESTABLISHED_LINES = 30
+
+
+def _synonym_match(q: str, name: str) -> bool:
+    return any(any(w in q for w in group) and any(w in name for w in group) for group in _SYNONYM_GROUPS)
+
+
 class SearchAccountsInput(BaseModel):
     query: str = Field(
         ...,
@@ -597,22 +657,38 @@ class SearchAccounts(BaseTool):
         # the name match cross-contaminates (e.g. "bank charges" would pull in
         # "petty cash"). Match is one-directional (synonym ⊂ query) so "sales"
         # doesn't fire the "cost of sales" synonym.
+        from app.utils.text import fold_fa
+        q = fold_fa(q)
         preferred_codes: set[str] = set()
-        for _label, (synonyms, codes) in aliases.items():
+        for label, (synonyms, codes) in aliases.items():
             if any(s in q for s in synonyms):
                 preferred_codes.update(codes)
+                role = _ALIAS_ROLES.get(label) if alias_key != "personal" else None
+                if role:
+                    from app.services.account_resolver import find_account_code
+                    if (own := find_account_code(ctx.db, role)):
+                        preferred_codes.add(own)
 
         from app.models.account import AccountLevel
 
         # Deactivated accounts take no postings (roadmap §4.5): never propose one.
         rows = ctx.db.execute(select(Account).where(Account.is_active.is_(True))).scalars().all()
+        # What the books actually use: a migrated company keeps the seed chart's
+        # accounts beside its own, and «اجاره» went to the seed's never-used
+        # 6112 over the company's 611228 «هزینه اجاره» (AI QA, 2026-10-12).
+        used = dict(ctx.db.execute(
+            select(TransactionLine.account_id, func.count())
+            .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+            .where(Transaction.deleted_at.is_(None))
+            .group_by(TransactionLine.account_id)).all())
+        established = sum(used.values()) >= _ESTABLISHED_LINES
         scored: list[tuple[float, Account, str]] = []
         for acc in rows:
             # Only postable (leaf) accounts — group/header accounts can't take
             # a journal line, so they'd be useless to propose against.
             if getattr(acc, "level", None) == AccountLevel.GROUP:
                 continue
-            name_l = (acc.name or "").lower()
+            name_l = fold_fa((acc.name or "").lower())
             code_l = (acc.code or "").lower()
             acc_type = classify_account_code(acc.code or "")
             if args.account_type and acc_type != args.account_type:
@@ -623,12 +699,27 @@ class SearchAccounts(BaseTool):
                 score = max(score, 0.85)
             if q == code_l or q in code_l:
                 score = max(score, 0.9)
-            # Strong boost when the chart actually has an alias's preferred code.
+            if _synonym_match(q, name_l):
+                score = max(score, 0.88)
+            by_name = q in name_l or q in code_l or _synonym_match(q, name_l)
+            in_use = bool(used.get(acc.id))
+            # Strong boost when the chart actually has an alias's preferred code —
+            # one the books use, or any in books with no history yet; an unused
+            # seed account in established books stays a fallback.
             if (acc.code or "") in preferred_codes:
-                score = max(score, 0.97)
+                score = max(score, 0.97 if (in_use or not established) else 0.55)
+            if in_use and score >= 0.45:
+                score = min(0.99, score + 0.05)
+            elif established:
+                score = min(score, 0.84)            # an exact name the books never use («فروش» 4110) stays below one they do
             if score >= 0.45:
-                scored.append((score, acc, acc_type))
+                scored.append((score, acc, acc_type, by_name))
 
+        # An account named for what was asked beats one only an alias points to:
+        # «اجاره» is the rent account, not the company's general expense.
+        if any(by_name and sc >= 0.85 for sc, _a, _t, by_name in scored):
+            scored = [(sc if by_name else min(sc, 0.84), a, t, by_name) for sc, a, t, by_name in scored]
+        scored = [(sc, a, t) for sc, a, t, _b in scored]
         scored.sort(key=lambda t: t[0], reverse=True)
         # The user's own earlier choice for this wording goes first (roadmap §5.4).
         from app.services.learned_preferences import lookup, mark_used
@@ -659,6 +750,24 @@ class SearchAccounts(BaseTool):
         if learned_acc is not None:
             out["learned_note"] = (f"The user chose {learned_acc.code} ({learned_acc.name}) before for "
                                    f"\"{learned.preference.label}\" — use it unless they say otherwise now.")
+        if not any(sc >= 0.85 for sc, _a, _t in top):
+            # «حساب تولیدی آرد روشن تهران چقدر مونده؟» names a party, not an account: the
+            # model read a cash account's 0 as its balance (AI QA on migrated books, 2026-10-12)
+            q_words = _party_words(q)
+            party = next((e for e in ctx.db.execute(select(Entity)).scalars()
+                          if q_words and q_words <= _party_words(fold_fa((e.name or "").lower()))), None)
+            if party is not None:
+                # …and the account its money moves through: a client's receipt credits receivables,
+                # not «وام کارکنان» (AI QA on migrated books, 2026-10-12)
+                from app.services.account_resolver import find_account_code
+                role = {"client": "ar", "customer": "ar", "supplier": "ap", "employee": "net_pay_payable",
+                        "shareholder": "shareholder_current"}.get(party.type)
+                code = find_account_code(ctx.db, role) if role else None
+                via = (f" Money received from or paid to it goes through {code} "
+                       f"({'receivables' if role == 'ar' else 'its ledger account'}), linked to the party." if code else "")
+                out["party_note"] = (f"No account is named {args.query!r}, but {party.name!r} is a {party.type}: its "
+                                     f"balance is get_party_balances(party=...), its entries query_ledger(entity_id='{party.id}')."
+                                     + via)
         return out
 
 
@@ -679,6 +788,28 @@ class GetFinancialStatementInput(BaseModel):
     )
     to_date: date | None = Field(None, description="As-of / period end. Defaults to today.")
     currency: str | None = Field(None, description="Filter by currency; defaults to the reporting currency.")
+    year: str | None = Field(
+        None, pattern=r"^\d{4}$",
+        description="A whole year instead of dates: '1405' (Jalali, «امسال» in a Jalali company) or '2026'.")
+    month: str | None = Field(
+        None, pattern=r"^\d{4}-\d{2}$",
+        description="A whole month instead of dates, in the company's calendar: '1405-05' is Mordad 1405.")
+
+
+def _year_bounds(db: Session, year: str | None = None, *, of: date | None = None) -> tuple[date, date]:
+    """A year's first and last day in the company's calendar: «امسال» in a
+    Jalali company starts on 1 Farvardin, not 1 January (AI QA, 2026-10-12)."""
+    from app.services.calendar_periods import company_calendar
+    from app.utils.jalali import gregorian_to_jalali, jalali_to_gregorian
+    if year is not None:
+        y = int(year)
+        jalali = y < 1700
+    else:
+        jalali = company_calendar(db) == "jalali"
+        y = gregorian_to_jalali(of or date.today())[0] if jalali else (of or date.today()).year
+    if jalali:
+        return jalali_to_gregorian(y, 1, 1), jalali_to_gregorian(y + 1, 1, 1) - timedelta(days=1)
+    return date(y, 1, 1), date(y, 12, 31)
 
 
 class GetFinancialStatement(BaseTool):
@@ -700,6 +831,14 @@ class GetFinancialStatement(BaseTool):
 
         to_date = args.to_date or date.today()
         currency = args.currency  # None → all currencies (repository handles)
+        if args.year or args.month:
+            if args.year:
+                first, last = _year_bounds(ctx.db, args.year)
+            else:
+                from app.services.calendar_periods import key_bounds
+                first, last = key_bounds(args.month)
+            args = args.model_copy(update={"from_date": first, "to_date": min(last, date.today())})
+            to_date = args.to_date
 
         def _balances(from_date: date) -> list[tuple[str, str, str, int]]:
             """(code, name, type, signed_balance) over [from_date, to_date]."""
@@ -730,7 +869,7 @@ class GetFinancialStatement(BaseTool):
             }
 
         if args.statement in ("income_statement", "cash_flow"):
-            from_date = args.from_date or date(to_date.year, 1, 1)
+            from_date = args.from_date or _year_bounds(ctx.db, of=to_date)[0]
 
         if args.statement == "income_statement":
             rows = _balances(from_date)

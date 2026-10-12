@@ -83,6 +83,28 @@ def _client() -> anthropic.AsyncAnthropic:
     )
 
 
+async def _create(client, request_kwargs: dict[str, Any]):
+    """``messages.create``, without what the model doesn't take: Claude Haiku
+    4.5 refuses adaptive thinking ("adaptive thinking is not supported on
+    this model"), so choosing it in Settings failed every chat (model
+    benchmark, 2026-10-12). The option the error names is dropped and the
+    request sent again; any other refusal is raised as it was."""
+    try:
+        return await client.messages.create(**request_kwargs)
+    except anthropic.BadRequestError as e:
+        msg = (getattr(e, "message", "") or str(e)).lower()
+        trimmed = dict(request_kwargs)
+        if "thinking" in msg and "thinking" in trimmed:
+            trimmed.pop("thinking")
+        elif "effort" in msg and "output_config" in trimmed:
+            trimmed.pop("output_config")
+        else:
+            raise
+        logger.info("ai-accountant: %s doesn't take %s; sending without it",
+                    request_kwargs.get("model"), "thinking" if "thinking" in msg else "effort")
+        return await _create(client, trimmed)
+
+
 def _system_blocks(system_prompt: str) -> list[dict[str, Any]]:
     """Wrap the system prompt as a list of cacheable text blocks. The
     single block carries ``cache_control: {type: "ephemeral"}`` so the
@@ -149,7 +171,7 @@ async def chat_once(
     client = _client()
     try:
         async with metered_llm("anthropic", chosen_model, "chat") as meter:
-            response = await client.messages.create(**request_kwargs)
+            response = await _create(client, request_kwargs)
             meter.ok(usage_from_anthropic(getattr(response, "usage", None)), prompt=messages,
                      output=getattr(response, "content", None))
     except anthropic.AuthenticationError as e:

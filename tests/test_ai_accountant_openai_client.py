@@ -377,7 +377,9 @@ def test_reasoning_effort_by_model_family():
     assert reasoning_effort_param("gpt-4o-mini") is None
     assert reasoning_effort_param("gpt-4.1-mini") is None
     assert reasoning_effort_param("qwen/qwen3-4b") is None
-    assert reasoning_effort_param("gpt-5.6-luna") == "none"
-    assert reasoning_effort_param("gpt-6-astra") == "none"
-    for m in ("gpt-5-mini", "gpt-5-nano", "gpt-5.4-nano", "o4-mini"):
+    # tools need "none" from 5.4 on (measured on Metis 2026-10-12: 5.4-mini sent "low" failed every chat)
+    for m in ("gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.5", "gpt-5.6-luna", "gpt-6-astra"):
+        assert reasoning_effort_param(m) == "none", m
+    # …and the first gpt-5s refuse "none"
+    for m in ("gpt-5-mini", "gpt-5-nano", "gpt-5.1", "gpt-5.2", "o4-mini"):
         assert reasoning_effort_param(m) == "low", m

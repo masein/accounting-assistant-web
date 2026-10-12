@@ -29,7 +29,9 @@ def _isolate(db: Session):
     # Snapshot the current Anthropic API key so we can restore it.
     original_key = ai_runtime._state["anthropic"].get("api_key", "")
     yield
-    db.execute(delete(AppSetting).where(AppSetting.key == "ai_chat_provider_shape"))
+    from app.db.tenant import tenant_bypass
+    with tenant_bypass():
+        db.execute(delete(AppSetting).where(AppSetting.key == "ai_chat_provider_shape"))
     db.commit()
     ai_runtime._state["anthropic"]["api_key"] = original_key
 
@@ -66,11 +68,37 @@ class TestPut:
         body = r.json()
         assert body["shape"] == "openai"
         assert body["effective"] == "openai"  # explicit choice wins
-        # Verify it actually persisted.
-        row = db.execute(
-            select(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
-        ).scalar_one()
-        assert row.value == "openai"
+        # Verify it actually persisted, once, for the whole platform.
+        from app.db.tenant import tenant_bypass
+        with tenant_bypass():
+            row = db.execute(
+                select(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
+            ).scalar_one()
+        assert row.value == "openai" and row.company_id is None
+
+    def test_the_choice_holds_for_every_company(self, superadmin_client, db: Session) -> None:
+        """It was saved under the super-admin's own company: every other
+        company auto-detected and chatted through Anthropic whenever a key
+        was set, whatever Settings said (AI QA, 2026-10-12)."""
+        import uuid
+
+        from app.db.tenant import use_company
+        _set_anthropic_key()
+        assert superadmin_client.put("/admin/chat-provider-shape", json={"shape": "openai"}).status_code == 200
+        with use_company(uuid.uuid4()):
+            assert _resolve_chat_shape(db) == "openai"
+
+    def test_a_choice_saved_per_company_before_still_holds(self, db: Session) -> None:
+        import uuid
+
+        from app.db.tenant import tenant_bypass, use_company
+        from app.db.seed import DEFAULT_COMPANY_ID
+        _set_anthropic_key()
+        with tenant_bypass():
+            db.add(AppSetting(key="ai_chat_provider_shape", value="openai", company_id=uuid.UUID(DEFAULT_COMPANY_ID)))
+            db.flush()
+        with use_company(uuid.uuid4()):
+            assert _resolve_chat_shape(db) == "openai"
 
     def test_put_anthropic_persists(self, superadmin_client, db: Session) -> None:
         _clear_anthropic_key()  # auto-detect would say openai

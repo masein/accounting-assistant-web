@@ -17,7 +17,7 @@ from sqlalchemy import select
 from app.core.money import Money, plain
 from app.models.commitment import OPEN_STATUSES, Commitment
 
-from .base import BaseTool, ToolContext, ToolError
+from .base import BaseTool, ToolContext, ToolError, Replaceable
 from .time_tools import _register
 
 
@@ -145,7 +145,7 @@ class ProposeBounceCheque(BaseTool):
                 "summary": f"Cheque '{c.title}' ({c.amount:,}, due {c.due_date.isoformat()}) marked bounced — still owed.", "preview": payload}
 
 
-class ProposeCreateChequeInput(BaseModel):
+class ProposeCreateChequeInput(Replaceable):
     title: str = Field(..., min_length=1, description="What the cheque is for / who it is with.")
     amount: Money = Field(..., gt=0, description="In the cheque's currency, pence included: £600.50 is 600.50 (never ×100).")
     due_date: _date

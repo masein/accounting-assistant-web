@@ -132,6 +132,8 @@ def proposal_block(db: Session, p: Any, *, calendar: str, lang: str, names: dict
         "expires_at": _get(p, "expires_at"),
         # Edit only where the phone can change it (proposal_edit.EDITABLE)
         "actions": ["confirm", "edit", "cancel"] if _get(p, "tool_name") in _EDITABLE else ["confirm", "cancel"],
+        # a card corrected in the chat names the one it withdrew, so the thread redraws that as changed
+        **({"replaces": str(_get(p, "replaces"))} if _get(p, "replaces") else {}),
         "fallback_text": summary or title,
     }
 

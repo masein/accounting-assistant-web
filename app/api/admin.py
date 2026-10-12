@@ -390,30 +390,15 @@ class ChatShapeUpdate(BaseModel):
 
 def _resolve_effective_shape(db: Session) -> str:
     """Mirror of ``orchestrator._resolve_chat_shape`` for the admin GET."""
-    from sqlalchemy import select as _sel
-    from app.core.ai_runtime import resolve_anthropic_config
-    from app.models.app_setting import AppSetting
-
-    row = db.execute(
-        _sel(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
-    ).scalar_one_or_none()
-    if row and (row.value or "").strip().lower() in SUPPORTED_CHAT_SHAPES:
-        return row.value.strip().lower()
-    return "anthropic" if resolve_anthropic_config().get("api_key") else "openai"
+    from app.core.ai_runtime import effective_chat_shape
+    return effective_chat_shape(db)
 
 
 @router.get("/chat-provider-shape", response_model=ChatShapeRead)
 def read_chat_provider_shape(db: Session = Depends(get_db), _=Depends(require_superadmin)) -> ChatShapeRead:
     """Return the AI Chat provider-shape selector for the Settings UI."""
-    from sqlalchemy import select as _sel
-    from app.models.app_setting import AppSetting
-
-    row = db.execute(
-        _sel(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
-    ).scalar_one_or_none()
-    stored = (row.value or "").strip().lower() if row else ""
-    if stored not in SUPPORTED_CHAT_SHAPES:
-        stored = ""
+    from app.core.ai_runtime import stored_chat_shape
+    stored = stored_chat_shape(db)
     return ChatShapeRead(
         shape=stored,
         effective=_resolve_effective_shape(db),
@@ -428,23 +413,16 @@ def update_chat_provider_shape(
     _=Depends(require_superadmin),
 ) -> ChatShapeRead:
     """Persist the user's explicit chat-shape choice (or clear it to
-    re-enable auto-detection by sending an empty string)."""
-    from sqlalchemy import select as _sel
-    from app.models.app_setting import AppSetting
-
+    re-enable auto-detection by sending an empty string). One choice for
+    the whole platform, like the AI config."""
     value = (payload.shape or "").strip().lower()
     if value and value not in SUPPORTED_CHAT_SHAPES:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported shape {value!r}. Supported: {list(SUPPORTED_CHAT_SHAPES)} or '' (auto).",
         )
-    row = db.execute(
-        _sel(AppSetting).where(AppSetting.key == "ai_chat_provider_shape")
-    ).scalar_one_or_none()
-    if row:
-        row.value = value
-    else:
-        db.add(AppSetting(key="ai_chat_provider_shape", value=value))
+    from app.core.ai_runtime import save_chat_shape
+    save_chat_shape(db, value)
     log_audit_event(db, action="update", entity_type="setting", entity_id="ai_chat_provider_shape", detail=value or "auto")
     db.commit()
     return read_chat_provider_shape(db)

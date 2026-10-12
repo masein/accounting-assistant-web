@@ -13,20 +13,23 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
-from app.core.money import Money
+from app.core.money import Money, plain
 from app.models.account import Account
 from app.models.entity import Entity
 from app.models.transaction import Transaction, TransactionLine
 from app.services.ai_accountant.base import BaseTool, ToolContext
-from app.services.cash_service import cash_account_predicate
+from app.services.cash_service import cash_account_predicate, company_cash_predicate
 from app.services.locale_service import get_reporting_locale
 
 
 def cash_account_codes(db, *, locale: str | None, mode: str = "default") -> list[str]:
-    """Codes of every account that holds money: the locale's cash/bank
-    accounts, each bank entity's own GL account, and in personal mode the
-    bank/card (1110) and cash-on-hand (1120) accounts."""
-    is_cash = cash_account_predicate(locale)
+    """Codes of every account that holds money: the company's cash and bank
+    accounts as the dashboard and the balance sheet count them (petty cash and
+    a migrated chart's own cash lines included), each bank entity's own GL
+    account, and in personal mode the bank/card (1110) and cash-on-hand (1120)
+    accounts. The locale's 1110 alone answered a migrated company's "how much
+    cash?" without its petty cash, a figure no page shows (AI QA 2026-10-12)."""
+    is_cash = cash_account_predicate(locale) if mode == "personal" else company_cash_predicate(db)
     codes: set[str] = set()
     for acc in db.execute(select(Account)).scalars().all():
         code = acc.code or ""
@@ -72,7 +75,7 @@ class GetCashPosition(BaseTool):
             .where(Account.code.in_(codes), Transaction.deleted_at.is_(None), Transaction.date <= as_of)
             .group_by(Account.code, Account.name)
         ).all()
-        by_code = {code: (name, int(d or 0) - int(c or 0)) for code, name, d, c in rows}
+        by_code = {code: (name, plain(d or 0) - plain(c or 0)) for code, name, d, c in rows}
         names = {a.code: a.name for a in ctx.db.execute(select(Account).where(Account.code.in_(codes))).scalars().all()}
         accounts = [
             {"account_code": code, "account_name": by_code.get(code, (names.get(code, ""), 0))[0] or names.get(code, ""),
@@ -153,7 +156,9 @@ class GetCashForecast(BaseTool):
         "main items each week. Pass a scenario to ask 'what if': a cheque bounces (bounce_matching='Mellat' "
         "or ids), an invoice isn't paid, a customer pays 30 days late, a one-off loan or purchase — the "
         "result then compares base vs scenario. Use it for 'will we have enough cash', 'when do we run "
-        "short', 'پیش‌بینی نقدینگی', 'اگه چک ملت برگشت بخوره'. Pure read, changes nothing."
+        "short', 'پیش‌بینی نقدینگی', 'اگه چک ملت برگشت بخوره'. For 'how many months of money do we have' / "
+        "runway / «چند ماه پول داریم» quote ``runway.months`` (the dashboard's runway, with its burn), not the 13 "
+        "weeks. Pure read, changes nothing."
     )
     InputSchema = GetCashForecastInput
 
@@ -184,6 +189,19 @@ class GetCashForecast(BaseTool):
                    "notes": c["base"]["notes"]}
         if notes:
             out["scenario_notes"] = notes
+        # "How many months of money do we have?" is the dashboard's runway: the
+        # 13 weeks alone said "enough for 3 months" beside a 0.4-month runway
+        # (AI QA on migrated books, 2026-10-12).
+        try:
+            from app.api.reports import get_owner_dashboard
+            kpis = {k.key: k.value for k in get_owner_dashboard(currency=None, db=ctx.db).kpis}
+            months = kpis.get("runway_months")
+            out["runway"] = {"cash_on_hand": kpis.get("cash_on_hand"), "monthly_burn": kpis.get("burn_rate"),
+                             "months": months if isinstance(months, (int, float)) and months >= 0 else None,
+                             "basis": "the dashboard's: cash on hand over the average monthly expenses of this "
+                                      "month and the two before it"}
+        except Exception:  # noqa: BLE001 — the forecast stands without it
+            pass
         return out
 
 

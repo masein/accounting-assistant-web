@@ -443,8 +443,9 @@ async def chat(
     # and it works when the AI is down (roadmap ROADMAP_ANDROID_CHAT P0.6).
     if not payload.attachment_ids:
         from app.services.ai_accountant import fast_paths
+        from app.services.ai_accountant.orchestrator import _message_language
         fast = await fast_paths.answer(db, payload.message, user_id=user.user_id, username=user.username,
-                                       lang=_user_language(db, user),
+                                       lang=_message_language(payload.message, _user_language(db, user)),
                                        mode="personal" if user.role == Role.PERSONAL else "default")
         if fast is not None:
             return _deterministic_turn(db, user, payload, fast.text, intake=None, tool_calls=fast.tool_calls)
@@ -493,8 +494,13 @@ async def chat(
             mode="personal" if user.role == Role.PERSONAL else "default",
         )
     except AIAccountantError as e:
-        # the detail is for whoever configures the AI; the code lets the chat say it plainly
-        raise HTTPException(status_code=502, detail=str(e), headers={"X-Error-Code": "ai_unavailable"})
+        # the detail is for whoever configures the AI; the code lets the chat say it plainly.
+        # An empty provider account isn't "try again in a moment" (Metis 402 "Insufficient
+        # credit, please top up", model benchmark 2026-10-12): the reason says so.
+        low = str(e).lower()
+        reason = {"X-Error-Reason": "out_of_credit"} if any(
+            w in low for w in ("402", "insufficient credit", "payment required", "insufficient_quota", "top up")) else {}
+        raise HTTPException(status_code=502, detail=str(e), headers={"X-Error-Code": "ai_unavailable", **reason})
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
 

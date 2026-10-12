@@ -27,6 +27,8 @@ hallucinate calls with malformed arguments.
 """
 from __future__ import annotations
 
+import re
+
 import json
 import logging
 from typing import Any
@@ -188,16 +190,20 @@ def output_limit_param(model: str) -> str:
 def reasoning_effort_param(model: str) -> str | None:
     """Reasoning effort to send, by model family, or None to omit it.
 
-    * gpt-5.6-* / gpt-6-* on the chat-completions endpoint refuse function
-      tools unless ``reasoning_effort`` is explicitly ``"none"`` (measured on
-      Metis, 2026-09-24: 400 "Function tools with reasoning_effort are not
-      supported" without it, tool calls work with it).
-    * gpt-5 / 5.1 / 5.4 (-mini/-nano) and the o-series are reasoning models;
-      ``"low"`` keeps a bookkeeping turn from spending 40+ seconds thinking.
+    * gpt-5.4 and later (5.4, 5.5, 5.6 and their -mini/-nano, gpt-6) on the
+      chat-completions endpoint refuse function tools unless
+      ``reasoning_effort`` is explicitly ``"none"``: 400 "Function tools with
+      reasoning_effort are not supported" (Metis, measured 2026-09-24 for 5.6
+      and 2026-10-12 for 5.4 and 5.5; 5.4-mini was sent "low" and every
+      chat failed).
+    * gpt-5 / -mini / -nano refuse "none" ("does not support 'none' with this
+      model"); they, 5.1, 5.2 and the o-series take ``"low"``, which keeps a
+      bookkeeping turn from spending 40+ seconds thinking.
     * Everything else (gpt-4o, gpt-4.1, LM Studio models) does not take it.
     """
     m = (model or "").lower()
-    if m.startswith(("gpt-5.6", "gpt-6")):
+    v = re.match(r"gpt-(\d+)(?:\.(\d+))?", m)
+    if v and (int(v.group(1)) >= 6 or (int(v.group(1)) == 5 and int(v.group(2) or 0) >= 4)):
         return "none"
     if m.startswith(("gpt-5", "o1", "o3", "o4")):
         return "low"

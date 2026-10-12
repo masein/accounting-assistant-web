@@ -2,7 +2,7 @@
 touched invoices before, so "which invoices are overdue?" and "record Acme's
 payment of invoice 1042" were invisible to the assistant).
 
-Read: list_invoices, get_invoice. Proposals (confirm-gated, executed in
+Read: list_invoices, get_invoice, get_party_balances (who owes whom, by the books). Proposals (confirm-gated, executed in
 invoice_execute.py through the same invoice code the UI uses):
 propose_record_invoice_payment, propose_create_invoice.
 """
@@ -18,7 +18,7 @@ from sqlalchemy import select
 from app.models.entity import Entity
 from app.models.invoice import Invoice
 
-from .base import BaseTool, ToolContext, ToolError
+from .base import BaseTool, ToolContext, ToolError, Replaceable
 from .time_tools import _find_entity, _register
 from app.core.money import Money, plain, round_amount, to_decimal
 
@@ -137,7 +137,7 @@ class GetInvoice(BaseTool):
 # PROPOSALS
 # ---------------------------------------------------------------------------
 
-class ProposeRecordInvoicePaymentInput(BaseModel):
+class ProposeRecordInvoicePaymentInput(Replaceable):
     invoice: str = Field(..., description="Invoice number or id being paid.")
     amount: Money = Field(..., gt=0, description="In the invoice's currency, pence included: £600.50 is 600.50 (never ×100).")
     date: _date | None = Field(None, description="Payment date (defaults to today).")
@@ -219,7 +219,7 @@ class InvoiceLineIn(BaseModel):
     tax_rate: float = Field(0, ge=0, le=100)
 
 
-class ProposeCreateInvoiceInput(BaseModel):
+class ProposeCreateInvoiceInput(Replaceable):
     kind: str = Field("sales", description="sales (we bill a customer) or purchase (a supplier bills us).")
     party: str = Field(..., description="Customer (sales) or supplier (purchase) name — must already exist.")
     lines: list[InvoiceLineIn] = Field(..., min_length=1)
@@ -259,6 +259,9 @@ class ProposeCreateInvoice(BaseTool):
         totals = [round_amount(to_decimal(repr(float(l["quantity"]))) * to_decimal(l["unit_price"]), currency) for l in lines]
         subtotal = sum(totals)
         tax = sum(_line_tax(t, l["tax_rate"], True, currency) for t, l in zip(totals, lines))
+        if (currency or "").upper() == "IRR":
+            from .proposal_tools import _guard_toman
+            _guard_toman(ctx, subtotal)       # «۵۰ میلیون تومان» is 500,000,000 rials
         payload = {"kind": kind, "entity_id": str(ent.id), "party": ent.name, "number": number,
                    "issue_date": issue.isoformat(), "due_date": due.isoformat(), "currency": currency,
                    "lines": lines, "description": args.description}
@@ -270,8 +273,61 @@ class ProposeCreateInvoice(BaseTool):
                 "preview": {**payload, "subtotal": subtotal, "tax": tax, "total": subtotal + tax}}
 
 
+class GetPartyBalancesInput(BaseModel):
+    side: str = Field("both", description="debtors (who owes us), creditors (whom we owe) or both.")
+    party: str | None = Field(None, description="One party's name (customer, supplier, employee, partner) to filter by.")
+    limit: int = Field(10, ge=1, le=100)
+
+
+class GetPartyBalances(BaseTool):
+    name = "get_party_balances"
+    category = "read"
+    description = (
+        "Who owes us and whom we owe, by the books: each party's balance from the ledger "
+        "(receivables, payables, customer advances, salaries owed, partners' current accounts), "
+        "the debtors and creditors report. Use for 'who owes us?', 'whom do we owe?', «کی به ما بدهکاره؟», "
+        "«به کی بدهکاریم؟», 'what is X's balance?'. Open invoices are list_invoices; a migrated or "
+        "hand-kept company has balances but few or no invoices. Amounts in the base currency. Pure read."
+    )
+    InputSchema = GetPartyBalancesInput
+
+    async def run(self, ctx: ToolContext, args: GetPartyBalancesInput) -> dict[str, Any]:
+        from app.services.fx_base import base_currency
+        from app.services.reporting.operations_report_service import OperationsReportService
+        cur = base_currency(ctx.db)
+        rep = OperationsReportService(ctx.db).debtor_creditor(_date(1900, 1, 1), _date.today(), currency=cur)
+        side = (args.side or "both").strip().lower()
+        want = {"debtors", "creditors"} if side not in ("debtors", "creditors") else {side}
+        needle = None
+        if args.party:
+            from app.utils.text import fold_fa
+            needle = fold_fa(args.party.strip()).lower()
+            try:                                   # the model passed find_entity's id (AI QA, 2026-10-12)
+                ent = ctx.db.get(Entity, uuid.UUID(args.party.strip()))
+                if ent is not None:
+                    needle = fold_fa(ent.name).lower()
+            except ValueError:
+                pass
+        out: dict[str, Any] = {"as_of": _date.today().isoformat(), "currency": cur}
+        for name in ("debtors", "creditors"):
+            if name not in want:
+                continue
+            rows = [{"party": r.entity_name, "type": r.entity_type, "balance": plain(r.total),
+                     "over_90_days": plain(r.days_90_plus)} for r in getattr(rep, name)]
+            if needle:
+                from app.utils.text import fold_fa
+                rows = [r for r in rows if needle in fold_fa(r["party"] or "").lower()]
+            out[name] = rows[: args.limit]
+            out[f"{name}_count"] = len(rows)
+            out[f"{name}_total"] = plain(sum((r["balance"] for r in rows), 0))
+        if needle and not any(out.get(f"{n}_count") for n in want):
+            out["note"] = f"No balance for {args.party!r} in the books: either settled or not a party the ledger names."
+        return out
+
+
 def register_invoice_tools(registry) -> None:
     registry.register(ListInvoices())
+    registry.register(GetPartyBalances())
     registry.register(GetInvoice())
     registry.register(ProposeRecordInvoicePayment())
     registry.register(ProposeCreateInvoice())

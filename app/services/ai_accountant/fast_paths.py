@@ -153,14 +153,10 @@ _T = {
                     "fa": "{n} فاکتور فروش هنوز باز است: {amounts} طلب.",
                     "es": "{n} facturas de venta siguen abiertas: {amounts} por cobrar.",
                     "ar": "{n} فواتير مبيعات ما زالت مفتوحة: {amounts} للتحصيل."},
-    "receivables_none": {"en": "No sales invoice is waiting to be paid.", "fa": "هیچ فاکتور فروشی منتظر پرداخت نیست.",
-                         "es": "Ninguna factura de venta espera pago.", "ar": "لا توجد فاتورة مبيعات بانتظار الدفع."},
     "payables": {"en": "{n} supplier bills are still open: {amounts} to pay.",
                  "fa": "{n} فاکتور خرید هنوز باز است: {amounts} بدهی.",
                  "es": "{n} facturas de proveedores siguen abiertas: {amounts} por pagar.",
                  "ar": "{n} فواتير موردين ما زالت مفتوحة: {amounts} للدفع."},
-    "payables_none": {"en": "No supplier bill is waiting to be paid.", "fa": "هیچ فاکتور خریدی منتظر پرداخت نیست.",
-                      "es": "Ninguna factura de proveedor espera pago.", "ar": "لا توجد فاتورة مورد بانتظار الدفع."},
     "spending": {"en": "This month's spending so far: {total_p}.", "fa": "خرج این ماه تا امروز: {total} {cur}.",
                  "es": "Gasto de este mes hasta hoy: {total_p}.", "ar": "إنفاق هذا الشهر حتى اليوم: {total_p}."},
     "budget": {"en": "This month: {actual_p} of {budget_p} spent, {left_p} left.",
@@ -179,6 +175,28 @@ _T = {
                   "ar": "صافي ثروتك اليوم: {net_p}: {assets_p} أصول، {owed_p} ديون."},
     "net_worth_gain": {"en": " Gold and currency at today's rates add {gain_p}.", "fa": " طلا و ارز به نرخ امروز {gain} بیشتر می‌ارزند.",
                        "es": " El oro y las divisas a precio de hoy suman {gain_p}.", "ar": " الذهب والعملات بسعر اليوم تضيف {gain_p}."},
+    "bank_one": {"en": "{name} today: {amount_p}.", "fa": "موجودی {name} امروز: {amount} {cur}.",
+                 "es": "{name} hoy: {amount_p}.", "ar": "{name} اليوم: {amount_p}."},
+    "receivables_parties": {"en": "By the books, {who} {verb} us {total_p} in all; the most: {top}.",
+                            "fa": "طبق دفاتر، {who} روی هم {total} {cur} به ما بدهکارند؛ بیشترین: {top}.",
+                            "es": "Según los libros, {who} nos {verb} {total_p} en total; los que más: {top}.",
+                            "ar": "حسب الدفاتر، {who} مدينون لنا بمجموع {total_p}؛ أكثرهم: {top}."},
+    "payables_parties": {"en": "By the books, we owe {who} {total_p} in all; the most: {top}.",
+                         "fa": "طبق دفاتر، روی هم {total} {cur} به {who} بدهکاریم؛ بیشترین: {top}.",
+                         "es": "Según los libros, debemos {total_p} a {who} en total; a quienes más: {top}.",
+                         "ar": "حسب الدفاتر، ندين لـ{who} بمجموع {total_p}؛ أكثرهم: {top}."},
+    "payables_liabilities": {"en": "No supplier or party is owed anything in the books; the balance sheet's liabilities come to {total_p}: {top}.",
+                             "fa": "به هیچ تأمین‌کننده یا طرف حسابی در دفاتر بدهکار نیستیم؛ بدهی‌های ترازنامه روی هم {total} {cur} است: {top}.",
+                             "es": "No debemos nada a proveedores ni terceros en los libros; los pasivos del balance suman {total_p}: {top}.",
+                             "ar": "لا ندين لأي مورد أو طرف في الدفاتر؛ مطلوبات الميزانية مجموعها {total_p}: {top}."},
+    "receivables_nobody": {"en": "Nobody owes us anything: no open sales invoice and no debtor in the books.",
+                           "fa": "هیچ‌کس به ما بدهکار نیست: نه فاکتور فروش بازی هست و نه بدهکاری در دفاتر.",
+                           "es": "Nadie nos debe nada: ninguna factura de venta abierta y ningún deudor en los libros.",
+                           "ar": "لا أحد مدين لنا: لا فاتورة مبيعات مفتوحة ولا مدين في الدفاتر."},
+    "payables_nobody": {"en": "We owe nobody anything: no open supplier bill and no creditor in the books.",
+                        "fa": "به کسی بدهکار نیستیم: نه فاکتور خرید بازی هست و نه بستانکاری در دفاتر.",
+                        "es": "No debemos nada a nadie: ninguna factura de proveedor abierta y ningún acreedor en los libros.",
+                        "ar": "لا ندين لأحد: لا فاتورة مورد مفتوحة ولا دائن في الدفاتر."},
     "budget_none": {"en": "No budgets are set for this month.", "fa": "برای این ماه بودجه‌ای تعیین نشده است.",
                     "es": "No hay presupuestos para este mes.", "ar": "لا توجد ميزانيات لهذا الشهر."},
 }
@@ -187,6 +205,59 @@ _T = {
 def _say(key: str, lang: str, **kw) -> str:
     table = _T[key]
     return (table.get(lang) or table["en"]).format(**kw)
+
+
+# A bank named in a cash question: «موجودی بانک ملت», "Barclays bank balance".
+# The words that follow «بانک» in a question about all of them aren't names.
+_BANK_AFTER = re.compile(r"(?:بانک|\bbank)\s+([^\s؟?!.,،]+)", re.IGNORECASE)
+_BANK_BEFORE = re.compile(r"([^\s؟?!.,،]+)\s+bank\b", re.IGNORECASE)
+_NOT_A_NAME = {"چقدره", "چقدر", "چه", "چند", "الان", "امروز", "داریم", "دارم", "ما", "مون", "ها", "های", "هامون",
+               "چیه", "است", "هست", "رو", "را", "balance", "balances", "account", "accounts", "is", "the", "our", "my",
+               "what", "whats", "what's", "how", "in", "at"}
+
+
+def _named_bank(message: str) -> str | None:
+    """The bank a cash question names, folded, or None for "all the money"."""
+    from app.utils.text import fold_fa
+    text = fold_fa(message or "")
+    for pattern in (_BANK_AFTER, _BANK_BEFORE):
+        for m in pattern.finditer(text):
+            word = m.group(1).strip().lower()
+            if word and word not in _NOT_A_NAME:
+                return word
+    return None
+
+
+def _liabilities(db) -> tuple[Any, list[tuple[str, str, Any]]]:
+    """(the balance sheet's liabilities total, the accounts that owe something,
+    largest first as (code, name, balance)), at base value. The total nets a
+    liability account in debit, as the balance sheet does: adding up only the
+    ones that owe gave 23,672,063,635 beside its 23,495,300,037 (AI QA, 2026-10-12)."""
+    from datetime import date as _d
+    from sqlalchemy import func, select as _select
+    from app.models.account import Account
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.reporting.common import LIABILITY, classify_account_code
+    rows = db.execute(
+        _select(Account.code, Account.name,
+                func.coalesce(func.sum(TransactionLine.base_credit), 0) - func.coalesce(func.sum(TransactionLine.base_debit), 0))
+        .join(TransactionLine, TransactionLine.account_id == Account.id)
+        .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+        .where(Transaction.deleted_at.is_(None), Transaction.date <= _d.today())
+        .group_by(Account.code, Account.name)).all()
+    liab = [(c, n, plain(b)) for c, n, b in rows if classify_account_code(c or "") == LIABILITY and b]
+    total = plain(sum((b for _c, _n, b in liab), 0))
+    return total, sorted((r for r in liab if r[2] > 0), key=lambda r: -r[2])
+
+
+def _who(n: int, lang: str) -> str:
+    if lang == "fa":
+        return f"{_money(n, lang)} طرف حساب"
+    if lang == "es":
+        return f"{n} tercero" if n == 1 else f"{n} terceros"
+    if lang == "ar":
+        return f"{n} طرف" if n == 1 else f"{n} أطراف"
+    return f"{n} party" if n == 1 else f"{n} parties"
 
 
 async def answer(db, message: str, *, user_id: str, username: str | None, lang: str,
@@ -209,6 +280,26 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
     calls: list[dict[str, Any]] = []
     if intent == "cash":
         from app.services.ai_accountant.cash_tools import GetCashPosition, GetCashPositionInput
+        named = _named_bank(message)
+        if named:
+            # «موجودی بانک ملت» is one bank's balance, not all the money (AI QA, 2026-10-12)
+            from app.utils.text import fold_fa
+            r = await GetCashPosition().run(ctx, GetCashPositionInput())
+            hits = [a for a in r["accounts"] if named in fold_fa(a.get("account_name") or "").lower().split()]
+            if len(hits) > 1:
+                # a petty-cash account named after the bank («تنخواه گردان حساب … بانک ملت») is not the bank
+                from sqlalchemy import select as _select
+                from app.models.entity import Entity
+                banks = {(c or "").strip() for (c,) in db.execute(_select(Entity.code).where(Entity.type == "bank")).all()}
+                hits = [a for a in hits if a["account_code"] in banks] or hits
+            if len(hits) != 1:
+                return None                 # a bank the books don't have, or several: the model asks or says so
+            from app.services.ai_accountant.read_tools import GetAccountBalance, GetAccountBalanceInput
+            b = await run(GetAccountBalance(), GetAccountBalanceInput(account_code=hits[0]["account_code"]))
+            name = b.get("account_name") or hits[0]["account_name"]
+            text = _say("bank_one", lang, name=name, amount=_money(b["balance"], lang), cur=_cur(b.get("currency"), lang),
+                        amount_p=_priced(b["balance"], b.get("currency"), lang))
+            return FastAnswer(intent=intent, text=text, tool_calls=calls)
         r = await run(GetCashPosition(), GetCashPositionInput())
         text = _say("cash", lang, total=_money(r["total"], lang), cur=_cur(r.get("currency"), lang),
                     total_p=_priced(r["total"], r.get("currency"), lang))
@@ -217,14 +308,38 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
         kind = "sales" if intent == "receivables" else "purchase"
         r = await run(ListInvoices(), ListInvoicesInput(kind=kind, open_only=True, limit=25))
         totals = r.get("totals_by_currency") or {}
-        if not r.get("count"):
-            text = _say(f"{intent}_none", lang)
-        else:
+        # What the ledger says each party owes or is owed: a migrated company has
+        # balances and no invoices, and was told nobody owed it anything (AI QA, 2026-10-12)
+        from app.services.ai_accountant.invoice_tools import GetPartyBalances, GetPartyBalancesInput
+        side = "debtors" if intent == "receivables" else "creditors"
+        p = await run(GetPartyBalances(), GetPartyBalancesInput(side=side, limit=10))
+        parts_text = []
+        if r.get("count"):
             # per currency, never added together
             parts = [_priced(plain(t["balance_due"] or 0), c, lang)
                      for c, t in sorted(totals.items(), key=lambda kv: -plain(kv[1].get("balance_due") or 0))]
             key = f"{intent}_one" if r["count"] == 1 else intent       # «1 sales invoice is», not «1 … are»
-            text = _say(key, lang, n=_money(r["count"], lang), amounts=" + ".join(parts))
+            parts_text.append(_say(key, lang, n=_money(r["count"], lang), amounts=" + ".join(parts)))
+        base_invoiced = plain((totals.get(p.get("currency")) or {}).get("balance_due") or 0)
+        if p.get(f"{side}_count") and p[f"{side}_total"] > base_invoiced:     # more is owed than the invoices show
+            sep = "، " if lang in ("fa", "ar") else ", "
+            one = p[f"{side}_count"] == 1
+            verb = {"en": "owes" if one else "owe", "es": "debe" if one else "deben"}.get(lang, "")
+            top = sep.join(f"{x['party']} ({_priced(x['balance'], p.get('currency'), lang)})" for x in p[side][:3])
+            parts_text.append(_say(f"{intent}_parties", lang, who=_who(p[f"{side}_count"], lang),
+                                   total=_money(p[f"{side}_total"], lang), cur=_cur(p.get("currency"), lang),
+                                   total_p=_priced(p[f"{side}_total"], p.get("currency"), lang), top=top, verb=verb))
+        if not parts_text and intent == "payables":
+            # a school owes its bank loan and its sister school, with no party on the books:
+            # «به کی بدهکاریم؟» said "nobody" (AI QA on migrated books, 2026-10-12)
+            total, owed = _liabilities(db)
+            if owed and total > 0:
+                sep = "، " if lang in ("fa", "ar") else ", "
+                cur = p.get("currency")
+                top = sep.join(f"{name} ({_priced(bal, cur, lang)})" for _c, name, bal in owed[:3])
+                parts_text.append(_say("payables_liabilities", lang, total=_money(total, lang), cur=_cur(cur, lang),
+                                       total_p=_priced(total, cur, lang), top=top))
+        text = " ".join(parts_text) if parts_text else _say(f"{intent}_nobody", lang)
     elif intent == "spending":
         from app.services.ai_accountant.spending_tools import GetSpendingSummary, GetSpendingSummaryInput
         r = await run(GetSpendingSummary(), GetSpendingSummaryInput(period="this_month"))

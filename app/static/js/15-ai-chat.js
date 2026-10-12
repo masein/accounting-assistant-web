@@ -821,6 +821,18 @@
         card.className = 'ai-card message-in';
         card.setAttribute('dir', 'auto');
         card.dataset.token = proposal.confirmation_token;
+        if (proposal.replaces) {
+          // the accountant corrected an earlier card: that one can no longer be confirmed
+          const old = messagesEl.querySelector('.ai-card[data-token="' + CSS.escape(proposal.replaces) + '"]');
+          if (old && !old.classList.contains('is-cancelled')) {
+            old.classList.add('is-cancelled');
+            old.querySelectorAll('.ai-card-actions button').forEach((b) => { b.disabled = true; });
+            const note = document.createElement('div');
+            note.style.cssText = 'font-size:0.8rem;color:var(--text-muted);margin-top:0.4rem;';
+            note.textContent = t('aiChatReplaced');
+            old.appendChild(note);
+          }
+        }
 
         const title = document.createElement('div');
         title.className = 'ai-card-head';
@@ -1066,6 +1078,7 @@
           if (!r.ok || data._nonJson) {
             const err = new Error((data && typeof data.detail === 'string' && data.detail) || t('aiChatFailed'));
             err.aiUnavailable = r.headers.get('X-Error-Code') === 'ai_unavailable';
+            err.outOfCredit = r.headers.get('X-Error-Reason') === 'out_of_credit';
             throw err;
           }
           sessionId = data.session_id;
@@ -1079,7 +1092,8 @@
         } catch (e) {
           hideTypingIndicator(typingEl);
           // the provider's own words are technical (and English): say it plainly, keep them for whoever fixes it
-          appendBubble('assistant', e.aiUnavailable ? t('aiUnavailable') + '\n\n(' + e.message + ')' : tf('aiChatError', { message: e.message }));
+          appendBubble('assistant', e.outOfCredit ? t('aiOutOfCredit') + '\n\n(' + e.message + ')'
+            : e.aiUnavailable ? t('aiUnavailable') + '\n\n(' + e.message + ')' : tf('aiChatError', { message: e.message }));
           statusEl.textContent = '';
         } finally {
           sendBtn.disabled = false;

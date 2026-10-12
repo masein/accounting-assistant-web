@@ -15,11 +15,13 @@ def test_the_migration_page_shows_and_saves_where_entries_post(flow_page):
     switch_language(page, "fa")
     page.evaluate("() => { location.hash = 'migration'; }")
     page.wait_for_load_state("networkidle")
-    wait_until(page, "() => document.querySelectorAll('#migration-roles select[data-role]').length === 21", timeout_ms=8000)
+    # 21 roles, plus stock, cost of goods sold and stock adjustments (docs/PLAN_INVENTORY_GL.md)
+    wait_until(page, "() => document.querySelectorAll('#migration-roles select[data-role]').length === 24", timeout_ms=8000)
     rows = page.evaluate("""() => [...document.querySelectorAll('#migration-roles tr')].map(tr =>
         [tr.querySelector('td').innerText.trim(), tr.querySelector('select').value])""")
     labels = dict(rows)
     assert "حساب‌های دریافتنی" in labels and "حقوق پرداختنی" in labels and "تنخواه گردان" in labels, rows
+    assert "موجودی کالا" in labels and "بهای تمام‌شده کالای فروش‌رفته" in labels, rows
     assert labels["حساب‌های دریافتنی"] == ""                       # the seeded chart: its default, nothing chosen
     first = page.inner_text("#migration-roles select[data-role=ar] option:first-child")
     default = page.evaluate("async () => localCode((await (await fetch('/accounts/posting-roles')).json()).find(r => r.category === 'ar').default_code)")

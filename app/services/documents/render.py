@@ -12,7 +12,7 @@ from app.services.documents.formatting import (
     fmt_digits,
     fmt_money,
 )
-from app.services.documents.labels import labels_for
+from app.services.documents.labels import labels_for, status_label
 from app.core.money import plain
 
 
@@ -130,7 +130,7 @@ def _render_invoice_like(db: Session, inv, party, *, kind: str = "invoice") -> b
             {"label": L["issue_date"], "value": fmt_date(inv.issue_date, loc)},
             ({"label": L["valid_until"], "value": fmt_date(inv.valid_until, loc)} if is_quote
              else {"label": L["due_date"], "value": fmt_date(inv.due_date, loc)}),
-            {"label": L["status"], "value": (inv.status or "issued")},
+            {"label": L["status"], "value": status_label(inv.status or "issued", loc)},
         ],
         "parties": [_issuer_party(brand, L), _recipient_party(build_recipient(party), L, L["bill_to"])],
         "columns": columns, "rows": rows, "totals": totals,
@@ -274,7 +274,7 @@ def render_purchase_order_pdf(db: Session, po, supplier) -> bytes:
         "meta": [
             {"label": L["number"], "value": fmt_digits(po.number, loc)},
             {"label": L["date"], "value": fmt_date(po.order_date, loc)},
-            {"label": L["status"], "value": (po.status or "draft")},
+            {"label": L["status"], "value": status_label(po.status or "draft", loc)},
         ],
         "parties": [_issuer_party(brand, L), _recipient_party(build_recipient(supplier), L, L["supplier"])],
         "columns": columns, "rows": rows,

@@ -367,4 +367,12 @@ The chat with a real model (Metis, `gpt-4.1-mini`) on the two migrated companies
 | R22 | Persian number words | «دو میلیارد و صد میلیون ریال وام از بانک گرفتیم» | 2,100,000,000 rials on the card; a loan liability from the imported chart |
 | R23 | Speed and cost | All of the above | Each turn answers within 30 s; the run's AI cost is recorded |
 
-**Run order:** A → B → C → D → E → F → G → H → J → L → M → N → O → P → Q → R; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+## S. Small fixes from the pence pass (2026-10-12)
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| S1 | A status in words on a PDF | Download the PDF of a partly paid invoice, a sent quote and a partly received purchase order, in an English and a Persian company | The status reads «Partially paid», «Sent», «Partially received» (Persian «بخشی پرداخت‌شده», «ارسال‌شده», «دریافت جزئی»), never «partially_paid» |
+| S2 | The voucher form after saving | Enter a two-line voucher of £7.50, save it | The form clears and its totals bar reads 0 again, not the last voucher's £7.50 |
+| S3 | A KPI card in a narrow column | The dashboard at desktop width and at 1024 px, a UK company with pence | «21,875.49 GBP» stays on one line in each card (the code moves under the figure only when the card is too narrow for both) |
+
+**Run order:** A → B → C → D → E → F → G → H → J → L → M → N → O → P → Q → R → S; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.

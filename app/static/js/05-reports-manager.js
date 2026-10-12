@@ -131,10 +131,17 @@
           ap_due_week: 'kpiApDueWeek',
           tax_and_liability_payable: 'kpiLiabilitiesPayable',
         };
+        // the figure and its currency code apart, the code smaller: «21,875.49 GBP» put
+        // its code on a second line in a narrow card (scenario S3)
+        const kpiValueHtml = (k) => {
+          const unit = String(k.unit || '');
+          if (k.value == null || !/^[A-Z]{3}$/.test(unit)) return escapeHtml(formatKpiValue(k.value, k.unit));
+          return `<span class="kpi-num">${escapeHtml(formatAmount(k.value, unit))}</span> <span class="kpi-unit">${escapeHtml(unit)}</span>`;
+        };
         kpiGrid.innerHTML = (data.kpis || []).map(k => `
           <div class="kpi-card">
             <div class="label">${escapeHtml(kpiLabelMap[k.key] ? t(kpiLabelMap[k.key]) : localizeDynamicText(k.label))}</div>
-            <div class="value">${escapeHtml(formatKpiValue(k.value, k.unit))}</div>
+            <div class="value">${kpiValueHtml(k)}</div>
           </div>
         `).join('');
 

@@ -46,6 +46,15 @@ def test_a_persian_page_writes_persian_digits_and_keeps_latin_where_it_must(flow
     switch_language(page, "en")                               # English pages are unchanged
     assert page.evaluate("() => [formatNum(1234567), Chart.defaults.locale, localCode('1110')]") == ["1,234,567", "en-US", "1110"]
     assert page.evaluate(mult) == "1,000×"
+    # the voucher form clears its totals bar with its lines once saved (scenario S2)
+    page.evaluate("() => { location.hash = 'transactions'; }")
+    for row, field in ((1, "debit"), (2, "credit")):
+        box = page.locator(f"#lines-tbody tr:nth-child({row}) .line-{field}")
+        box.fill("7.50")
+        box.dispatch_event("input")
+    wait_until(page, "() => (document.getElementById('bal-debit') || {}).innerText?.includes('7.50')")
+    page.evaluate("() => resetVoucherForm()")              # what a successful save ends with
+    assert "7.50" not in page.inner_text("#bal-debit") and "7.50" not in page.inner_text("#bal-credit")
     # an amount shows its currency's places, whole ones too; a count doesn't (scenario Q13)
     assert page.evaluate("""() => [formatAmount(950, 'GBP'), formatAmount(7.5, 'GBP'), formatAmount(0.125, 'GBP'),
                                    formatAmount(2500000, 'IRR'), formatAmount(-1234.5, 'KWD'), formatNum(12),

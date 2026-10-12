@@ -5,7 +5,7 @@
       const modal = document.getElementById('account-modal');
       const body = document.getElementById('account-modal-body');
       const title = document.getElementById('account-modal-title');
-      title.textContent = accountCode + ' — ' + t('loading');
+      title.textContent = localCode(accountCode) + ' — ' + t('loading');
       body.innerHTML = '<p class="empty-state">' + t('loading') + '</p>';
       modal.style.display = 'flex';
       try {
@@ -14,9 +14,9 @@
         const data = await res.json();
         _acctDetailLines = data.lines || [];
         _acctDetailMeta = { code: data.account_code, name: data.account_name, debit_turnover: data.debit_turnover, credit_turnover: data.credit_turnover, debit_balance: data.debit_balance, credit_balance: data.credit_balance };
-        title.textContent = data.account_code + ' — ' + data.account_name;
+        title.textContent = localCode(data.account_code) + ' — ' + data.account_name;
         const kolLine = data.parent_code
-          ? `<p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('ledgerKol'))}: <strong>${escapeHtml(data.parent_code)} — ${escapeHtml(data.parent_name || '')}</strong> · ${escapeHtml(t('ledgerMoin'))}: <strong>${escapeHtml(data.account_code)}</strong></p>`
+          ? `<p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('ledgerKol'))}: <strong>${escapeHtml(localCode(data.parent_code))} — ${escapeHtml(data.parent_name || '')}</strong> · ${escapeHtml(t('ledgerMoin'))}: <strong>${escapeHtml(data.account_code)}</strong></p>`
           : '';
         body.innerHTML = `
           ${kolLine}
@@ -77,8 +77,8 @@
       } else {
         const w = window.open('', '_blank');
         if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
-        w.document.write(`<html lang="${document.documentElement.lang}" dir="${document.documentElement.dir || 'ltr'}"><head><title>${escapeHtml(tf('printAccountTitle', { code: m.code }))}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:start}.num{text-align:end}h2{margin:0 0 4px}p{margin:2px 0;font-size:13px}</style></head><body>
-          <h2>${escapeHtml(m.code)} — ${escapeHtml(m.name)}</h2>
+        w.document.write(`<html lang="${document.documentElement.lang}" dir="${document.documentElement.dir || 'ltr'}"><head><title>${escapeHtml(tf('printAccountTitle', { code: localCode(m.code) }))}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:start}.num{text-align:end}h2{margin:0 0 4px}p{margin:2px 0;font-size:13px}</style></head><body>
+          <h2>${escapeHtml(localCode(m.code))} — ${escapeHtml(m.name)}</h2>
           <p>${escapeHtml(t('fieldTotalDebit'))}: ${formatNum(m.debit_turnover)} | ${escapeHtml(t('fieldTotalCredit'))}: ${formatNum(m.credit_turnover)}</p>
           <p>${escapeHtml(t('fieldDebitBalance'))}: ${formatNum(m.debit_balance)} | ${escapeHtml(t('fieldCreditBalance'))}: ${formatNum(m.credit_balance)}</p>
           <table><thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th class="num">${escapeHtml(t('tableDebit'))}</th><th class="num">${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('tableLineDescription'))}</th></tr></thead><tbody>
@@ -121,7 +121,7 @@
           tr.innerHTML = `
             <td>${escapeHtml(enumLabel('entType_', e.type))}</td>
             <td>${escapeHtml(e.name)}</td>
-            <td>${escapeHtml(e.code || '—')}</td>
+            <td>${escapeHtml(e.code ? localCode(e.code) : '—')}</td>
             <td>
               <button type="button" class="btn btn-secondary btn-sm edit-entity" data-entity-id="${e.id}" data-entity-type="${escapeHtml(e.type)}" data-entity-name="${escapeHtml(e.name)}" data-entity-code="${escapeHtml(e.code || '')}">${escapeHtml(t('btnEdit'))}</button>
               <button type="button" class="btn btn-danger btn-sm delete-entity" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}" style="margin-left:0.35rem;">${escapeHtml(t('btnDelete'))}</button>
@@ -2042,7 +2042,7 @@
         const cat = d.catalogue[d.source];
         const choices = [...cat.income, ...cat.expenses, d.excluded];
         wrap.innerHTML = `<table class="results-table" style="font-size:0.8rem;"><thead><tr><th>${escapeHtml(t('tableCode'))}</th><th>${escapeHtml(t('mtdAccount'))}</th><th>${escapeHtml(t('mtdCategory'))}</th></tr></thead><tbody>
-          ${d.accounts.map(a => `<tr><td dir="ltr">${escapeHtml(a.code)}</td><td>${escapeHtml(a.name)}</td><td>
+          ${d.accounts.map(a => `<tr><td dir="ltr">${escapeHtml(localCode(a.code))}</td><td>${escapeHtml(a.name)}</td><td>
             <select class="mtd-map" data-code="${escapeHtml(a.code)}" style="font-size:0.8rem;">
               <option value="">${escapeHtml(t('mtdDefault'))}: ${escapeHtml(mtdCat(a.default || '—'))}</option>
               ${choices.map(c => `<option value="${escapeHtml(c)}"${a.override === c ? ' selected' : ''}>${escapeHtml(mtdCat(c))}</option>`).join('')}

@@ -862,7 +862,7 @@
           _addExtraChart(t('chartTopAccountsDrCr'), {
             type: 'bar',
             data: {
-              labels: rows.map(r => r.account_code + ' ' + (r.account_name || '').slice(0, 20)),
+              labels: rows.map(r => localCode(r.account_code) + ' ' + (r.account_name || '').slice(0, 20)),
               datasets: [
                 { label: t('tableDebit'), data: rows.map(r => r.debit_turnover || 0), backgroundColor: palette[0] },
                 { label: t('tableCredit'), data: rows.map(r => r.credit_turnover || 0), backgroundColor: palette[1] }
@@ -878,7 +878,7 @@
           _addExtraChart(t('chartNetBalanceByAccount'), {
             type: 'bar',
             data: {
-              labels: rows.map(r => r.account_code),
+              labels: rows.map(r => localCode(r.account_code)),
               datasets: [{
                 label: t('legendNetBalance'),
                 data: rows.map(r => (r.debit_balance || 0) - (r.credit_balance || 0)),
@@ -1031,8 +1031,8 @@
       invReportPreviewEl.innerHTML = `
         ${period ? `<div class="report-meta" style="margin-bottom:0.75rem;">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
         <div class="detail-summary" style="margin-bottom:1rem;">
-          <div><span>${escapeHtml(t('invTotalItems'))}</span><strong>${rows.length}</strong></div>
-          <div><span>${escapeHtml(t('invTotalOnHand'))}</span><strong>${totalQty.toLocaleString('en-US')}</strong></div>
+          <div><span>${escapeHtml(t('invTotalItems'))}</span><strong>${localDigits(rows.length)}</strong></div>
+          <div><span>${escapeHtml(t('invTotalOnHand'))}</span><strong>${totalQty.toLocaleString(numLocale())}</strong></div>
           <div><span>${escapeHtml(t('fieldInventoryValue'))}</span><strong>${formatNum(totalValue)} ${currencyUnit()}</strong></div>
           <div><span>${escapeHtml(t('invTotalCogs'))}</span><strong>${formatNum(totalCOGS)} ${currencyUnit()}</strong></div>
         </div>
@@ -1052,9 +1052,9 @@
               <td><strong>${escapeHtml(r.item_name)}</strong></td>
               <td>${escapeHtml(r.sku || '—')}</td>
               <td>${escapeHtml(r.unit || t('invUnitDefault'))}</td>
-              <td class="num">${r.qty_in.toLocaleString('en-US')}</td>
-              <td class="num">${r.qty_out.toLocaleString('en-US')}</td>
-              <td class="num" style="font-weight:600;">${r.on_hand_qty.toLocaleString('en-US')}</td>
+              <td class="num">${r.qty_in.toLocaleString(numLocale())}</td>
+              <td class="num">${r.qty_out.toLocaleString(numLocale())}</td>
+              <td class="num" style="font-weight:600;">${r.on_hand_qty.toLocaleString(numLocale())}</td>
               <td class="num">${formatNum(r.average_cost)}</td>
               <td class="num">
                 <div style="display:flex;align-items:center;gap:0.4rem;justify-content:flex-end;">
@@ -1069,9 +1069,9 @@
           }).join('')}</tbody>
           <tfoot><tr style="font-weight:700;background:#f1f5f9;">
             <td colspan="3">${escapeHtml(t('tableTotal'))}</td>
-            <td class="num">${rows.reduce((s,r)=>s+r.qty_in,0).toLocaleString('en-US')}</td>
-            <td class="num">${rows.reduce((s,r)=>s+r.qty_out,0).toLocaleString('en-US')}</td>
-            <td class="num">${totalQty.toLocaleString('en-US')}</td>
+            <td class="num">${rows.reduce((s,r)=>s+r.qty_in,0).toLocaleString(numLocale())}</td>
+            <td class="num">${rows.reduce((s,r)=>s+r.qty_out,0).toLocaleString(numLocale())}</td>
+            <td class="num">${totalQty.toLocaleString(numLocale())}</td>
             <td class="num">—</td>
             <td class="num">${formatNum(totalValue)}</td>
             <td class="num" style="color:#c62828;">${formatNum(totalCOGS)}</td>
@@ -1106,9 +1106,9 @@
       invReportPreviewEl.innerHTML = `
         ${period ? `<div class="report-meta" style="margin-bottom:0.75rem;">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
         <div class="detail-summary" style="margin-bottom:1rem;">
-          <div><span>${escapeHtml(t('invTotalMovements'))}</span><strong>${rows.length}</strong></div>
-          <div><span>${escapeHtml(t('invQtyIn'))}</span><strong style="color:#2e7d32;"><bdi dir="ltr">+${qtyIn.toLocaleString('en-US')}</bdi></strong></div>
-          <div><span>${escapeHtml(t('invQtyOut'))}</span><strong style="color:#c62828;"><bdi dir="ltr">-${qtyOut.toLocaleString('en-US')}</bdi></strong></div>
+          <div><span>${escapeHtml(t('invTotalMovements'))}</span><strong>${localDigits(rows.length)}</strong></div>
+          <div><span>${escapeHtml(t('invQtyIn'))}</span><strong style="color:#2e7d32;"><bdi dir="ltr">+${qtyIn.toLocaleString(numLocale())}</bdi></strong></div>
+          <div><span>${escapeHtml(t('invQtyOut'))}</span><strong style="color:#c62828;"><bdi dir="ltr">-${qtyOut.toLocaleString(numLocale())}</bdi></strong></div>
           <div><span>${escapeHtml(t('invValueIn'))}</span><strong style="color:#2e7d32;">${formatNum(totalIn)}</strong></div>
           <div><span>${escapeHtml(t('invValueOut'))}</span><strong style="color:#c62828;">${formatNum(totalOut)}</strong></div>
         </div>
@@ -1118,9 +1118,9 @@
         <table class="mini-table"><thead><tr><th>${escapeHtml(t('stockColItem'))}</th><th class="num">${escapeHtml(t('invColIn'))}</th><th class="num">${escapeHtml(t('invColOut'))}</th><th class="num">${escapeHtml(t('invColAdj'))}</th><th class="num">${escapeHtml(t('invColNetValue'))}</th></tr></thead>
           <tbody>${Object.entries(byItem).map(([name, v]) => `<tr>
             <td><strong>${escapeHtml(name)}</strong></td>
-            <td class="num" style="color:#2e7d32;"><bdi dir="ltr">+${v.in.toLocaleString('en-US')}</bdi></td>
-            <td class="num" style="color:#c62828;"><bdi dir="ltr">-${v.out.toLocaleString('en-US')}</bdi></td>
-            <td class="num">${v.adj.toLocaleString('en-US')}</td>
+            <td class="num" style="color:#2e7d32;"><bdi dir="ltr">+${v.in.toLocaleString(numLocale())}</bdi></td>
+            <td class="num" style="color:#c62828;"><bdi dir="ltr">-${v.out.toLocaleString(numLocale())}</bdi></td>
+            <td class="num">${v.adj.toLocaleString(numLocale())}</td>
             <td class="num" style="font-weight:600;">${formatNum(v.value)}</td>
           </tr>`).join('')}</tbody>
         </table>
@@ -1141,7 +1141,7 @@
             <td>${escapeHtml(formatDisplayDate(r.movement_date))}</td>
             <td><strong>${escapeHtml(r.item_name)}</strong></td>
             <td><span style="display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.78rem;font-weight:600;color:${typeColor(r.movement_type)};background:${typeBg(r.movement_type)};">${escapeHtml(({ IN: t('movementIn'), OUT: t('movementOut'), ADJUSTMENT: t('movementAdjustment') })[r.movement_type] || r.movement_type)}</span></td>
-            <td class="num">${r.quantity.toLocaleString('en-US')}</td>
+            <td class="num">${r.quantity.toLocaleString(numLocale())}</td>
             <td class="num">${formatNum(r.unit_cost)}</td>
             <td class="num" style="font-weight:600;">${formatNum(r.movement_value)}</td>
             <td>${escapeHtml(r.reference || '—')}</td>
@@ -1868,7 +1868,7 @@
         if (!res.ok) return;
         const accs = await res.json();
         sel.innerHTML = accs.filter(a => (a.code || '').startsWith('1'))
-          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
       } catch (_) { /* offline */ }
     }
 
@@ -1965,7 +1965,7 @@
         // Only asset accounts can hold gold/currency.
         sel.innerHTML = accs
           .filter(a => (a.code || '').startsWith('1'))
-          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`)
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`)
           .join('');
         // Default to the gold savings account when the chart has one.
         const gold = accs.find(a => a.code === '1130');
@@ -1984,7 +1984,7 @@
         }
         wrap.innerHTML = `<table class="mini-table"><tbody>${rows.map(r => `
           <tr>
-            <td>${escapeHtml(r.account_name || r.account_code)}</td>
+            <td>${escapeHtml(r.account_name || localCode(r.account_code))}</td>
             <td>${escapeHtml(String(r.quantity))} ${escapeHtml(r.unit)}</td>
             <td style="text-align:end;"><button class="btn btn-secondary btn-sm nw-h-del" data-id="${escapeHtml(r.id)}" aria-label="${escapeHtml(t('btnDelete'))}" title="${escapeHtml(t('btnDelete'))}">×</button></td>
           </tr>`).join('')}</tbody></table>`;

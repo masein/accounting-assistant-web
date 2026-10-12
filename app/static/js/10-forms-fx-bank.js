@@ -44,7 +44,7 @@
         if (body) {
           body.innerHTML = rates.length
             ? rates.map(r => `<tr><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.jurisdiction)}</td>
-                <td>${r.rate}%</td><td>${escapeHtml(formatDisplayDate(r.effective_from))}</td><td>${escapeHtml(formatDisplayDate(r.effective_to) || '—')}</td></tr>`).join('')
+                <td>${localDigits(r.rate + '%')}</td><td>${escapeHtml(formatDisplayDate(r.effective_from))}</td><td>${escapeHtml(formatDisplayDate(r.effective_to) || '—')}</td></tr>`).join('')
             : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:0.5rem;">${t('taxNoRates')}</td></tr>`;
         }
       } catch (e) { /* ignore */ }
@@ -354,7 +354,7 @@
     // their order inside a Persian or Arabic sentence.
     function tfBdi(key, vars) {
       return escapeHtml(t(key)).replace(/\{(\w+)\}/g, (m, k) =>
-        (k in vars) ? '<bdi dir="ltr">' + escapeHtml(String(vars[k])) + '</bdi>' : m);
+        (k in vars) ? '<bdi dir="ltr">' + escapeHtml(typeof vars[k] === 'number' ? localDigits(vars[k]) : String(vars[k])) + '</bdi>' : m);
     }
 
     function renderRateFeedStatus(st) {
@@ -927,7 +927,7 @@
       const chosen = r.suggested_account_code || '';
       const opts = _bsAccounts.map(a =>
         `<option value="${escapeHtml(a.code)}"${a.code === chosen ? ' selected' : ''}>` +
-        `${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+        `${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
       return `<select class="bs-code-select" data-row-id="${escapeHtml(r.id)}">` +
              `<option value="">${escapeHtml(t('bsPickCategory'))}</option>${opts}</select>`;
     }
@@ -963,7 +963,7 @@
       const choices = await bsBankChoices();
       if (!choices.length || !stmt.bank_account_code) { el.style.display = 'none'; return; }
       const opts = choices.map(c => `<option value="${escapeHtml(c.code)}"${c.code === stmt.bank_account_code ? ' selected' : ''}>`
-        + `${escapeHtml(c.code)} — ${escapeHtml(c.bank || c.name)}</option>`).join('');
+        + `${escapeHtml(localCode(c.code))} — ${escapeHtml(c.bank || c.name)}</option>`).join('');
       const unsure = stmt.bank_account_source === 'default' && choices.length > 1;
       el.innerHTML = `<div style="display:flex;gap:0.45rem;align-items:center;flex-wrap:wrap;">
           <label for="bs-bank-account" style="font-weight:600;margin:0;">${escapeHtml(t('bsBankAccount'))}</label>
@@ -997,11 +997,11 @@
           const tr = document.createElement('tr');
           tr.style.background = statusBg;
           tr.innerHTML = `<td>${r.row_index}</td><td>${escapeHtml(formatDisplayDate(r.tx_date))}</td><td dir="auto">${escapeHtml(r.description || '')}</td>
-            <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString('en-US') : ''}</td>
-            <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString('en-US') : ''}</td>
-            <td>${r.balance != null ? r.balance.toLocaleString('en-US') : ''}</td>
+            <td style="color:#1565c0;">${r.debit ? r.debit.toLocaleString(numLocale()) : ''}</td>
+            <td style="color:#2e7d32;">${r.credit ? r.credit.toLocaleString(numLocale()) : ''}</td>
+            <td>${r.balance != null ? r.balance.toLocaleString(numLocale()) : ''}</td>
             <td>${bsCategoryCell(r)}</td>
-            <td style="color:${confColor}">${(r.confidence * 100).toFixed(0)}%</td>
+            <td style="color:${confColor}">${localDigits((r.confidence * 100).toFixed(0) + '%')}</td>
             <td>${escapeHtml(enumLabel('bsRecon_', r.recon_status))}</td>
             <td>${r.recon_status === 'unmatched' ? `<button class="btn btn-secondary btn-sm bs-create-btn" data-row-id="${r.id}" data-code="${r.suggested_account_code || ''}">${escapeHtml(t('bsCreateBtn'))}</button>` : r.user_approved ? '✓' : `<button class="btn btn-secondary btn-sm bs-approve-btn" data-row-id="${r.id}">${escapeHtml(t('btnApprove'))}</button>`}</td>`;
           body.appendChild(tr);
@@ -1062,7 +1062,7 @@
     async function recordFeeSuggestion(s) {
       const ok = await uiConfirm({
         title: t('bsRecordConfirmTitle'),
-        message: tf('bsRecordConfirmMsg', { desc: s.description || '', account: s.account_code + ' ' + s.account_name }),
+        message: tf('bsRecordConfirmMsg', { desc: s.description || '', account: localCode(s.account_code) + ' ' + s.account_name }),
       });
       if (!ok) return;
       try {
@@ -1159,7 +1159,7 @@
         } else if (f.kind === 'needs_confirmation' && f.matched_date) {
           txt += ' — ' + t('bsFindBook') + ': ' + (f.matched_date || '') + ' ' + (f.matched_description || '');
         } else if (f.kind === 'unrecorded' && f.suggested_account_code) {
-          txt += ' → ' + f.suggested_account_code + ' ' + (f.suggested_account_name || '');
+          txt += ' → ' + localCode(f.suggested_account_code) + ' ' + (f.suggested_account_name || '');
         }
         span.textContent = txt;
         row.appendChild(badge);

@@ -3070,6 +3070,14 @@
         return;
       }
       currentLanguage = normalized;
+      // charts' own numbers (doughnut tooltips and the rest without a callback) in the page's digits
+      if (window.Chart && window.Chart.defaults) window.Chart.defaults.locale = normalized === 'fa' ? 'fa-IR' : 'en-US';
+      // drawn before the language landed (at boot, or before a switch): the voucher form's Jalali hint
+      if (typeof updateJalaliHint === 'function') updateJalaliHint();
+      // the Excel import's multipliers are bare figures in the markup: «۱٬۰۰۰×» on a Persian page
+      if (typeof formatNum === 'function') {
+        document.querySelectorAll('#excel-import-multiplier option:not([data-i18n])').forEach((o) => { o.textContent = formatNum(Number(o.value)) + '×'; });
+      }
       if (persist) {
         localStorage.setItem('aa_ui_language', normalized);
       }

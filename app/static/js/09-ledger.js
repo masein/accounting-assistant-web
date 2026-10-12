@@ -24,7 +24,7 @@
       const topCredit = [...rows].sort((a, b) => (b.credit_turnover || 0) - (a.credit_turnover || 0))[0];
       // "1200 — Bank current account" instead of a bare account code.
       // isolated: a code and a Latin name keep their order in RTL text
-      const acctLabel = (r) => r ? '<bdi>' + escapeHtml(r.account_code + (r.account_name ? ' — ' + r.account_name : '')) + '</bdi>' : '—';
+      const acctLabel = (r) => r ? '<bdi>' + escapeHtml(localCode(r.account_code) + (r.account_name ? ' — ' + r.account_name : '')) + '</bdi>' : '—';
       ledgerKpisEl.innerHTML = `
         <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiShown'))}</div><div class="v">${formatNum(rows.length)}</div></div>
         <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiActive'))}</div><div class="v">${formatNum(active)}</div></div>
@@ -69,7 +69,7 @@
       row.style.display = 'grid';
       const maxN = Number(ledgerTopNEl.value || 12);
       const chartRows = rows.slice(0, maxN);
-      const labels = chartRows.map(r => r.account_code + ' ' + (r.account_name || '').slice(0, 16));
+      const labels = chartRows.map(r => localCode(r.account_code) + ' ' + (r.account_name || '').slice(0, 16));
       if (chartTurnover) chartTurnover.destroy();
       if (chartBalance) chartBalance.destroy();
       const colors = ['#0f766e', '#14b8a6', '#0ea5e9', '#f59e0b'];
@@ -96,7 +96,7 @@
         }
       });
       // each bar says which account, as the turnover chart's do (a bare code said little)
-      const balanceLabels = chartRows.map(r => r.account_code + ' ' + (r.account_name || '').slice(0, 16));
+      const balanceLabels = chartRows.map(r => localCode(r.account_code) + ' ' + (r.account_name || '').slice(0, 16));
       const balanceData = chartRows.map(r => accountNet(r));
       chartBalance = new Chart(document.getElementById('chart-balance'), {
         type: 'line',
@@ -153,7 +153,7 @@
           const gh = document.createElement('tr');
           gh.className = 'ledger-group-row';
           gh.innerHTML = `
-            <td style="font-weight:700;background:var(--bg-subtle,#f4f6f8);">${escapeHtml(g.code)}</td>
+            <td style="font-weight:700;background:var(--bg-subtle,#f4f6f8);">${escapeHtml(localCode(g.code))}</td>
             <td colspan="5" style="font-weight:700;background:var(--bg-subtle,#f4f6f8);">${escapeHtml(g.name || '')} <span style="color:var(--text-muted);font-weight:400;font-size:0.78rem;">(${escapeHtml(t('ledgerKol'))})</span></td>
           `;
           resultsTbody.appendChild(gh);
@@ -165,7 +165,7 @@
           tr.dataset.accountCode = r.account_code;
           tr.tabIndex = 0;   // opened from the keyboard too (Enter / Space), not only by a click
           tr.innerHTML = `
-            <td style="${grouped && g.code ? 'padding-inline-start:1.4rem;' : ''}">${r.account_code}</td>
+            <td style="${grouped && g.code ? 'padding-inline-start:1.4rem;' : ''}">${escapeHtml(localCode(r.account_code))}</td>
             <td>${r.account_name}</td>
             <td class="num">${formatNum(r.debit_turnover)}</td>
             <td class="num">${formatNum(r.credit_turnover)}</td>
@@ -182,7 +182,7 @@
           const sr = document.createElement('tr');
           sr.innerHTML = `
             <td></td>
-            <td style="color:var(--text-muted);font-size:0.8rem;">${escapeHtml(tf('ledgerKolTotal', { name: g.name || g.code }))}</td>
+            <td style="color:var(--text-muted);font-size:0.8rem;">${escapeHtml(tf('ledgerKolTotal', { name: g.name || localCode(g.code) }))}</td>
             <td class="num" style="font-weight:600;">${formatNum(st.dt)}</td>
             <td class="num" style="font-weight:600;">${formatNum(st.ct)}</td>
             <td class="num" style="font-weight:600;">${formatNum(st.db)}</td>

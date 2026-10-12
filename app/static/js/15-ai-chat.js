@@ -22,7 +22,8 @@
         try {
           const d = iso ? new Date(iso) : new Date();
           if (Number.isNaN(d.getTime())) return '';
-          const loc = { fa: 'fa-IR', ar: 'ar-EG', es: 'es-ES' }[_lang()] || 'en-GB';
+          // Arabic in Latin digits, like every figure (#336); Persian in its own
+          const loc = { fa: 'fa-IR', ar: 'ar-u-nu-latn', es: 'es-ES' }[_lang()] || 'en-GB';
           return d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
         } catch (_) { return ''; }
       }
@@ -386,9 +387,9 @@
       }
       function _fmtSize(bytes) {
         if (!bytes && bytes !== 0) return '';
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        if (bytes < 1024) return localDigits(bytes) + ' B';
+        if (bytes < 1024 * 1024) return localDigits(Math.round(bytes / 1024)) + ' KB';
+        return localDigits((bytes / (1024 * 1024)).toFixed(1)) + ' MB';
       }
 
       function renderPendingAttachments() {
@@ -714,7 +715,7 @@
         card.className = 'ai-card message-in';
         card.setAttribute('dir', 'auto');
         card.style.cssText = 'background:#f0fdfa; font-size:0.88rem;';
-        const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n);
+        const fmt = (n) => (typeof n === 'number' ? formatNum(n) : n);
         let html = '';
         if (intake.kind === 'bank_statement') {
           appendStatementCard(card, intake, fmt);
@@ -843,7 +844,7 @@
             const typeLabel = t('entType_' + ne.type) || ne.type;
             if (ne.type === 'bank' && ne.account_code) {
               const verb = ne.account_existing ? t('aiWillUseAccount') : t('aiWillCreateAccount');
-              line.textContent = '➕ ' + tf('aiWillCreateBank', { name: ne.name, verb, code: ne.account_code });
+              line.textContent = '➕ ' + tf('aiWillCreateBank', { name: ne.name, verb, code: localCode(ne.account_code) });
             } else {
               line.textContent = '➕ ' + tf('aiWillCreateEntity', { type: typeLabel, name: ne.name });
             }

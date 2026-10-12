@@ -35,6 +35,7 @@
       const s = String(v);
       // a date in the user's calendar: the general journal printed 2026-09-30 in a Jalali company
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return escapeHtml(formatDisplayDate(s));
+      if (/code$/i.test(key || '')) return escapeHtml(localCode(s));                   // an account code «۱۱۱۰»
       if ((key || '').toLowerCase().includes('id')) return escapeHtml(shortenUuid(s));
       return escapeHtml(localizeDynamicText(s));
     }
@@ -186,7 +187,7 @@
           type: 'bar',
           title: t('chartTopAccountsByTurnover'),
           data: {
-            labels: rows.map(r => r.account_code),
+            labels: rows.map(r => localCode(r.account_code)),
             datasets: [
               { label: t('tableDebit'), data: rows.map(r => safe(r.debit_turnover)), backgroundColor: palette[0] },
               { label: t('tableCredit'), data: rows.map(r => safe(r.credit_turnover)), backgroundColor: palette[1] }
@@ -385,13 +386,13 @@
       const fmtParens = (amount, forceParens) => {
         if (amount == null) return '-';
         if (amount === 0) return '·';
-        const n = Math.abs(amount).toLocaleString('en-US');
+        const n = formatNum(Math.abs(amount));
         return (amount < 0 || forceParens) ? '(' + n + ')' : n;
       };
       const fmtPct = (v) => {
         if (v == null) return '-';
         if (v === 0) return '·';
-        const n = Math.abs(Math.round(v)).toLocaleString('en-US');
+        const n = formatNum(Math.abs(Math.round(v)));
         return v < 0 ? '(' + n + ')' : n;
       };
       const bodyRows = rows.map(r => {
@@ -474,7 +475,7 @@
       const fmtParens = (n) => {
         if (n == null) return '-';
         if (n === 0) return '·';
-        const s = Math.abs(n).toLocaleString('en-US');
+        const s = formatNum(Math.abs(n));
         return n < 0 ? '(' + s + ')' : s;
       };
 
@@ -527,7 +528,7 @@
       const fmtParens = (amount, forceParens) => {
         if (amount == null) return '-';
         if (amount === 0) return '·';
-        const n = Math.abs(amount).toLocaleString('en-US');
+        const n = formatNum(Math.abs(amount));
         return (amount < 0 || forceParens) ? '(' + n + ')' : n;
       };
       const bodyRows = rows.map(r => {
@@ -589,7 +590,7 @@
       const fmtParens = (n) => {
         if (n == null) return '-';
         if (n === 0) return '·';
-        const s = Math.abs(n).toLocaleString('en-US');
+        const s = formatNum(Math.abs(n));
         return n < 0 ? '(' + s + ')' : s;
       };
       const header = `
@@ -739,18 +740,20 @@
 
     function _reportQuickSummary(report) {
       if (!report || !report.totals) return '';
-      const t = report.totals;
+      // "tot", not "t": the totals used to shadow t(), so these labels were English in every language
+      const tot = report.totals;
       const parts = [];
+      const add = (key, v) => parts.push(t(key) + ': ' + formatNum(v || 0));
       if (report.report_type === 'balance_sheet') {
-        if (t.assets != null) parts.push('Assets: ' + (t.assets || 0).toLocaleString('en-US'));
-        if (t.liabilities != null) parts.push('Liabilities: ' + (t.liabilities || 0).toLocaleString('en-US'));
-        if (t.equity != null) parts.push('Equity: ' + (t.equity || 0).toLocaleString('en-US'));
+        if (tot.assets != null) add('sectionAssets', tot.assets);
+        if (tot.liabilities != null) add('sectionLiabilities', tot.liabilities);
+        if (tot.equity != null) add('sectionEquity', tot.equity);
       } else if (report.report_type === 'income_statement') {
-        if (t.revenue != null) parts.push('Revenue: ' + (t.revenue || 0).toLocaleString('en-US'));
-        if (t.net_profit != null) parts.push('Net Profit: ' + (t.net_profit || 0).toLocaleString('en-US'));
+        if (tot.revenue != null) add('fieldRevenue', tot.revenue);
+        if (tot.net_profit != null) add('fieldNetProfit', tot.net_profit);
       } else if (report.report_type === 'cash_flow_statement') {
-        if (t.operating != null) parts.push('Operating: ' + (t.operating || 0).toLocaleString('en-US'));
-        if (t.net_cash_change != null) parts.push('Net Change: ' + (t.net_cash_change || 0).toLocaleString('en-US'));
+        if (tot.operating != null) add('fieldOperating', tot.operating);
+        if (tot.net_cash_change != null) add('fieldNetChange', tot.net_cash_change);
       }
       return parts.join(' · ');
     }
@@ -767,7 +770,7 @@
       if (a.ratios && Object.keys(a.ratios).length) {
         const chips = Object.entries(a.ratios).filter(([,v]) => v != null).map(([k,v]) => {
           const label = k.replace(/_/g, ' ').replace(/\bpct\b/, '%');
-          const val = typeof v === 'number' ? (Math.abs(v) > 100 ? v.toLocaleString('en-US') : v.toFixed(2)) : v;
+          const val = typeof v === 'number' ? (Math.abs(v) > 100 ? formatNum(Math.round(v)) : localDigits(v.toFixed(2))) : v;
           return `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:12px;background:#e3f2fd;font-size:0.78rem;">${escapeHtml(label)}: ${val}</span>`;
         });
         html += `<div style="margin:0.3rem 0;">${chips.join('')}</div>`;

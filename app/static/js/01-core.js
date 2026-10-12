@@ -111,6 +111,37 @@
       return { jy, jm, jd };
     }
 
+    // Digits as the page's language writes them (the owner's call, 2026-10-12):
+    // Persian digits, «٬» groups and «٫» decimals in Persian; Latin everywhere
+    // else, Arabic too (#336). For display only: what is parsed, exported or
+    // sent stays Latin (latinDigits turns a shown figure back).
+    const _FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+    function _uiIsPersian() {
+      return (typeof currentLanguage !== 'undefined' ? currentLanguage : 'en') === 'fa';
+    }
+    function localDigits(s) {
+      const str = String(s);
+      if (!_uiIsPersian()) return str;
+      // no lookbehind: older Safari can't parse it, and one parse error stops the whole script
+      return str.replace(/[0-9]/g, (d) => _FA_DIGITS[d]).replace(/([۰-۹]),(?=[۰-۹])/g, '$1٬')
+        .replace(/([۰-۹])\.(?=[۰-۹])/g, '$1٫').replace(/([۰-۹])%/g, '$1٪');
+    }
+    // An identifier the books write in digits (an account code «۱۱۱۰», an entity's code), in the
+    // page's digits and nothing else changed: «11.10» never reads as a decimal (the owner's call,
+    // 2026-10-12, as the phone shows them). Values, filters and exports keep Latin ones.
+    function localCode(s) {
+      const str = String(s == null ? '' : s);
+      return _uiIsPersian() ? str.replace(/[0-9]/g, (d) => _FA_DIGITS[d]) : str;
+    }
+    // The locale a figure's toLocaleString uses: Persian digits and «٬» in Persian, Latin elsewhere.
+    function numLocale() { return _uiIsPersian() ? 'fa-IR' : 'en-US'; }
+    function latinDigits(s) {
+      return String(s == null ? '' : s)
+        .replace(/[۰-۹]/g, (d) => String(_FA_DIGITS.indexOf(d)))
+        .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+        .replace(/٬/g, ',').replace(/٫/g, '.').replace(/٪/g, '%');
+    }
+
     // Format a date string (ISO YYYY-MM-DD or any Date-parseable form) for
     // display, using the active calendar setting. Returns the original
     // string when it can't be parsed.
@@ -130,9 +161,9 @@
       }
       if ((window.__DISPLAY_CALENDAR || 'gregorian') === 'jalali') {
         const { jy, jm, jd } = gregorianToJalali(y, mo, d);
-        return `${jy}/${String(jm).padStart(2,'0')}/${String(jd).padStart(2,'0')}`;
+        return localDigits(`${jy}/${String(jm).padStart(2,'0')}/${String(jd).padStart(2,'0')}`);
       }
-      return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      return localDigits(`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
     }
 
     // A range of dates, in the company's calendar: "1405/07/01 → 1405/07/30" as one

@@ -79,7 +79,7 @@
       const split = s.tafsili_split || {};
       const opening = s.opening || {};
       const v = s.validation || {};
-      const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n);
+      const fmt = (n) => (typeof n === 'number' ? n.toLocaleString(numLocale()) : n);
       const tierLabels = { group: t('migrationTierGroups'), kol: t('migrationTierKol'), moein: t('migrationTierMoein'), tafsili: t('migrationTierTafsili') };
       let html = '<div style="display:flex;gap:1.5rem;flex-wrap:wrap;font-size:0.9rem;">';
       Object.keys(tiers).forEach((k) => {
@@ -140,7 +140,7 @@
           + `${created} ${escapeHtml(t('migrationAccountsCreated'))}, ${updated} ${escapeHtml(t('migrationAccountsUpdated'))}, `
           + `${entCreated} ${escapeHtml(t('migrationEntitiesCreated'))}.<br>`
           + `${escapeHtml(t('migrationJournalPosted'))}: ${escapeHtml(formatDisplayDate(oj.opening_date) || '')}`
-          + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString('en-US')})` : '')
+          + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString(numLocale())})` : '')
           + (oj.replaced_previous ? ` ${escapeHtml(t('migrationJournalReplaced'))}` : '')
           + `</div>`;
         const resEl = document.getElementById('migration-result');
@@ -223,14 +223,14 @@
         const accts = acctsRes.ok ? await acctsRes.json() : [];
         const bankSel = document.getElementById('rec-bank');
         if (bankSel) {
-          const label = (b) => (b.bank && !String(b.name).includes(b.bank) ? b.bank + ' — ' : '') + b.name + ' (' + b.code + ')';
+          const label = (b) => (b.bank && !String(b.name).includes(b.bank) ? b.bank + ' — ' : '') + b.name + ' (' + localCode(b.code) + ')';
           bankSel.innerHTML = banks.map(b => `<option value="${escapeHtml(b.code)}">${escapeHtml(label(b))}</option>`).join('')
             || `<option value="">${escapeHtml(t('recNoBanks'))}</option>`;
         }
         const counterSel = document.getElementById('rec-counter');
         const pettySel = document.getElementById('petty-exp-cat');
         const opts = accts
-          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
         if (counterSel) counterSel.innerHTML = opts;
         if (pettySel) pettySel.innerHTML = `<option value="">${escapeHtml(t('pettyCatAuto'))}</option>` + opts;
       } catch (_) { /* selectors stay empty */ }
@@ -599,7 +599,7 @@
         _equityCurrency = data.currency || '';
         document.getElementById('equity-registered-capital').textContent = _eqFmt(data.registered_capital || 0);
         document.getElementById('equity-total-paidin').textContent = _eqFmt(data.total_paid_in || 0);
-        document.getElementById('equity-total-percent').textContent = (data.total_percent || 0) + '%';
+        document.getElementById('equity-total-percent').textContent = localDigits((data.total_percent || 0) + '%');
         const body = document.getElementById('equity-captable-body');
         if (!data.rows || !data.rows.length) {
           body.innerHTML = '<tr><td colspan="7" class="empty-state">' + escapeHtml(t('equityNoShareholders')) + '</td></tr>';
@@ -608,7 +608,7 @@
         body.innerHTML = data.rows.map(r => `
           <tr class="equity-row" data-entity-id="${escapeHtml(r.entity_id)}" data-name="${escapeHtml(r.entity_name || '')}" style="cursor:pointer;">
             <td>${escapeHtml(r.entity_name || '—')}</td>
-            <td class="num">${r.percent != null ? r.percent + '%' : '—'}</td>
+            <td class="num">${r.percent != null ? localDigits(r.percent + '%') : '—'}</td>
             <td class="num">${r.shares != null ? formatNum(r.shares) : '—'}</td>
             <td class="num">${formatNum(r.paid_in)}</td>
             <td class="num">${formatNum(r.dividends_declared)}</td>
@@ -748,7 +748,7 @@
         // expense — offer only those, plus a blank for tracking-only items.
         const opts = `<option value="">${escapeHtml(t('cmNoPosting'))}</option>` + _cmAccts
           .filter(a => (a.code || '').startsWith('2') || (a.code || '').startsWith('1'))
-          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`)
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`)
           .join('');
         sels.forEach(s => { if (s) s.innerHTML = opts; });
       } catch (_) { /* offline */ }
@@ -800,7 +800,7 @@
       bounce: 'cmActBounce', return: 'cmActReturn', endorse: 'cmActEndorse', sayad: 'cmActSayad', print: 'cmActPrint' };
 
     function cmRowHtml(r) {
-      const seq = (r.sequence && r.plan_total) ? ` (${r.sequence}/${r.plan_total})` : '';
+      const seq = (r.sequence && r.plan_total) ? ` (${localDigits(r.sequence + '/' + r.plan_total)})` : '';
       const who = r.direction === 'pay' ? t('cmDirPay') : t('cmDirReceive');
       const meta = [];
       if (r.reference) meta.push('#' + r.reference);
@@ -894,14 +894,14 @@
       document.getElementById('cm-step-date').value = step === 'print' ? row.due_date : localIsoDate();
       const bankSel = document.getElementById('cm-step-bank');
       bankSel.innerHTML = `<option value="">${escapeHtml(t('cmDefaultBank'))}</option>` + _cmBanks
-        .map(b => `<option value="${escapeHtml(b.code)}">${escapeHtml(b.name)} (${escapeHtml(b.code)})</option>`).join('');
+        .map(b => `<option value="${escapeHtml(b.code)}">${escapeHtml(b.name)} (${escapeHtml(localCode(b.code))})</option>`).join('');
       if (row.deposit_account_code) bankSel.value = row.deposit_account_code;
       document.getElementById('cm-step-sayad').value = row.sayad_id || '';
       document.getElementById('cm-step-to').value = '';
       document.getElementById('cm-step-note').value = '';
       document.getElementById('cm-step-acct').innerHTML = `<option value="">—</option>` + _cmAccts
         .filter(a => /^[12]/.test(a.code || ''))
-        .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+        .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
       show('cm-step-bank-row', ['deposit', 'redeposit', 'clear', 'settle'].includes(step));
       show('cm-step-sayad-row', step === 'sayad');
       show('cm-step-bill-row', step === 'endorse');
@@ -1433,7 +1433,8 @@
 
     function coaRender() {
       const box = document.getElementById('coa-tree');
-      const q = foldFa((document.getElementById('coa-filter').value || '').trim());
+      // codes show in Persian digits: «۱۱۱» typed finds 1110 as well as «111»
+      const q = latinDigits(foldFa((document.getElementById('coa-filter').value || '').trim()));
       const rows = coaFlatten(_coaTree, 0, []).filter((n) => !q || n.code.includes(q) || foldFa(n.name).includes(q));
       if (!rows.length) { box.innerHTML = '<p class="fc-note">' + escapeHtml(t('coaNone')) + '</p>'; return; }
       const head = ['coaCode', 'coaName', 'coaLevel', 'coaBalance', 'coaStatus', ''].map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
@@ -1448,7 +1449,7 @@
         const actions = (n.level !== 'DETAIL' && n.is_active ? act('child', 'coaAddChild') + ' ' : '')
           + '<details class="row-menu"><summary class="btn btn-secondary btn-sm" aria-label="' + escapeHtml(t('moreActions')) + '" title="'
           + escapeHtml(t('moreActions')) + '">⋯</summary><div class="row-menu-list">' + more + '</div></details>';
-        return '<tr' + (n.is_active ? '' : ' style="opacity:0.55;"') + '><td dir="ltr" style="padding-inline-start:' + (0.4 + n.depth * 1.1) + 'rem;">' + escapeHtml(n.code) + '</td>'
+        return '<tr' + (n.is_active ? '' : ' style="opacity:0.55;"') + '><td dir="ltr" style="padding-inline-start:' + (0.4 + n.depth * 1.1) + 'rem;">' + escapeHtml(localCode(n.code)) + '</td>'
           + '<td dir="auto">' + escapeHtml(n.name) + '</td><td>' + escapeHtml(t('coaLevel_' + n.level)) + '</td>'
           + '<td>' + escapeHtml(formatNum(n.total)) + '</td>'
           + '<td>' + (n.is_active ? '' : '<span class="alert-chip low">' + escapeHtml(t('coaInactive')) + '</span>')
@@ -1529,7 +1530,7 @@
       if (!body.name) { msg.textContent = t('coaNeedName'); return; }
       try {
         const d = await coaSend('/accounts', 'POST', body);
-        msg.textContent = tf('coaAdded', { code: d.code, name: d.name });
+        msg.textContent = tf('coaAdded', { code: localCode(d.code), name: d.name });
         document.getElementById('coa-new-name').value = '';
         document.getElementById('coa-new-code').value = '';
         loadChartOfAccounts();
@@ -1548,7 +1549,7 @@
           + '</th><th>' + escapeHtml(t('coaDebit')) + '</th><th>' + escapeHtml(t('coaCredit')) + '</th></tr></thead><tbody>'
           + postable.map((n) => {
             const ln = have[n.code] || {};
-            return '<tr><td dir="ltr">' + escapeHtml(n.code) + '</td><td dir="auto">' + escapeHtml(n.name) + '</td>'
+            return '<tr><td dir="ltr">' + escapeHtml(localCode(n.code)) + '</td><td dir="auto">' + escapeHtml(n.name) + '</td>'
               + '<td><input type="number" min="0" step="1" class="coa-dr" data-code="' + escapeHtml(n.code) + '" value="' + (ln.debit || '') + '" style="width:8rem;"></td>'
               + '<td><input type="number" min="0" step="1" class="coa-cr" data-code="' + escapeHtml(n.code) + '" value="' + (ln.credit || '') + '" style="width:8rem;"></td></tr>';
           }).join('') + '</tbody></table>';
@@ -1645,8 +1646,8 @@
           + escapeHtml(t('jiMapsTo')) + '</th></tr></thead><tbody>' + r.accounts.map((a) => {
             const pick = a.mapped_to || (a.suggestions[0] && a.suggestions[0].code) || '';
             const options = '<option value="">' + escapeHtml(t('jiChoose')) + '</option>' + (_jiChart || []).map((c) =>
-              '<option value="' + escapeHtml(c.code) + '"' + (c.code === pick ? ' selected' : '') + '>' + escapeHtml(c.code + ' — ' + c.name) + '</option>').join('');
-            return '<tr><td dir="auto">' + escapeHtml([a.code, a.name].filter(Boolean).join(' — ')) + (a.how ? ' <span class="fc-note">(' + escapeHtml(t('jiHow_' + a.how)) + ')</span>' : '') + '</td>'
+              '<option value="' + escapeHtml(c.code) + '"' + (c.code === pick ? ' selected' : '') + '>' + escapeHtml(localCode(c.code) + ' — ' + c.name) + '</option>').join('');
+            return '<tr><td dir="auto">' + escapeHtml([localCode(a.code || ''), a.name].filter(Boolean).join(' — ')) + (a.how ? ' <span class="fc-note">(' + escapeHtml(t('jiHow_' + a.how)) + ')</span>' : '') + '</td>'
               + '<td>' + escapeHtml(formatNum(a.debit)) + '</td><td>' + escapeHtml(formatNum(a.credit)) + '</td>'
               + '<td><select data-ji-account="' + escapeHtml(a.key) + '">' + options + '</select></td></tr>';
           }).join('') + '</tbody></table></div>';

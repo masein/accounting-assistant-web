@@ -549,11 +549,11 @@
     // Server: app/services/ai_usage.py — tokens over any 24 hours, 0 = unlimited.
     function aiTokens(n) {
       const v = Number(n) || 0;
-      if (v >= 1e6) return (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M';
+      if (v >= 1e6) return localDigits((v / 1e6).toFixed(v >= 1e7 ? 0 : 1)) + 'M';
       if (v >= 1e3) return Math.round(v / 1e3) + 'k';
       return String(v);
     }
-    function aiUsd(n) { const v = Number(n) || 0; return '$' + v.toFixed(v < 1 ? 4 : 2); }
+    function aiUsd(n) { const v = Number(n) || 0; return '$' + localDigits(v.toFixed(v < 1 ? 4 : 2)); }
     function aiMeter(used, budget) {
       if (!budget) return '';
       const pct = Math.min(100, Math.round(((Number(used) || 0) / budget) * 100));
@@ -704,7 +704,7 @@
       }
       list.innerHTML = _aiRevItems.map((s) => {
         const when = s.created_at ? formatDisplayDate(s.created_at.slice(0, 10)) + ' ' + s.created_at.slice(11, 16) : '';
-        const meta = [when, s.username || '—', s.channel, s.model, s.latency_ms != null ? (s.latency_ms / 1000).toFixed(1) + ' s' : null]
+        const meta = [when, s.username || '—', s.channel, s.model, s.latency_ms != null ? localDigits((s.latency_ms / 1000).toFixed(1)) + ' s' : null]
           .filter(Boolean).map(escapeHtml).join(' · ');
         const tools = (s.tools || []).length
           ? (s.tools || []).map((x) => '<span class="ai-rev-chip' + (x.ok ? '' : ' ai-rev-chip-bad') + '"'

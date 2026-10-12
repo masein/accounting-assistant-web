@@ -24,7 +24,7 @@ def test_an_upload_opens_its_rows_and_a_budget_names_its_account(flow_page):
         wait_until(page, "() => getComputedStyle(document.getElementById('bs-detail-wrap')).display !== 'none'"
                          " && document.querySelectorAll('#bs-rows-body tr').length >= 2")
         title = page.inner_text("#bs-detail-title")
-        assert title == "ux.csv (2 ردیف)", title          # no "Unknown —", no English "rows"
+        assert title == "ux.csv (۲ ردیف)", title          # no "Unknown —", no English "rows"
 
         accounts = page.evaluate("async () => (await (await fetch('/accounts')).json()).map(a => [a.code, a.name])")
         code, name = next((c, n) for c, n in accounts if c[0] in "56789" and not c.startswith("91") and len(c) >= 4)

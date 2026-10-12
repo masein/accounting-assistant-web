@@ -23,9 +23,9 @@ def test_the_voucher_form_says_what_is_wrong_in_persian(flow_page):
 
         debit = "#transaction-form .line-debit >> nth=0"
         page.fill(debit, "-5")
-        assert page.evaluate(MESSAGE, "#transaction-form .line-debit") == "نمی‌تواند کمتر از 0 باشد."
+        assert page.evaluate(MESSAGE, "#transaction-form .line-debit") == "نمی‌تواند کمتر از ۰ باشد."   # Persian digits (#338)
         page.fill(debit, "10.5")                                 # step 1
-        assert page.evaluate(MESSAGE, "#transaction-form .line-debit") == "با گام‌های 1 وارد کنید."
+        assert page.evaluate(MESSAGE, "#transaction-form .line-debit") == "با گام‌های ۱ وارد کنید."
         page.fill(debit, "10")
         assert page.evaluate(MESSAGE, "#transaction-form .line-debit") == ""
 

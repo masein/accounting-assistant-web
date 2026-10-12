@@ -101,6 +101,25 @@ def _create_tables():
 
 
 @pytest.fixture(autouse=True)
+def _no_posting_roles_left_behind():
+    """A migration test's chart suggests where entries post (posting_roles):
+    left in the shared database, it would move the next test's postings off
+    the seeded accounts. Cleared after every test."""
+    yield
+    from sqlalchemy import delete
+
+    from app.db.tenant import tenant_bypass
+    from app.models.app_setting import AppSetting
+    db = _TestSession()
+    try:
+        with tenant_bypass():
+            db.execute(delete(AppSetting).where(AppSetting.key == "posting_roles"))
+            db.commit()
+    finally:
+        db.close()
+
+
+@pytest.fixture(autouse=True)
 def _reset_auth_limiters():
     """Login attempts are limited per username AND per client IP; the whole
     suite comes from one IP ('testclient'), so start every test with clean

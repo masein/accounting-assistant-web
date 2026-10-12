@@ -886,6 +886,9 @@ def apply_batch(db: Session, batch: MigrationBatch, opening_date: date, opening:
     chart_stats = _merge_chart(db, payload)
     entity_stats, records = _import_entities(db, payload, locale)
     bank_records = [r for r in records if r["is_bank"]]
+    # where new entries post: the chart's own sub-ledgers (111201, 211101, ...)
+    from app.services import posting_roles
+    roles = posting_roles.apply_suggestions(db)
     if keep:
         txn, replaced, lines = None, False, []
         journal_info = {"kept": True, "transaction_id": str(existing.id),
@@ -928,6 +931,7 @@ def apply_batch(db: Session, batch: MigrationBatch, opening_date: date, opening:
             "replaced_previous": replaced,
         },
         "pending_records": pending_count,
+        "posting_roles": roles,
     }
     batch.result = result
     db.flush()

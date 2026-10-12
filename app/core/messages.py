@@ -696,6 +696,8 @@ PATTERNS: list[_Pattern] = [
               "ar": "انتهت صلاحية الاقتراح. اطلب من المساعد صياغة اقتراح جديد."}),
     _Pattern(r"^Transaction not found: (?P<id>\S+)$",
              {"fa": "سند پیدا نشد: {id}", "es": "Asiento no encontrado: {id}", "ar": "القيد غير موجود: {id}"}),
+    _Pattern(r"^Unknown posting category: (?P<c>.+)$",
+             {"fa": "نوع ثبت ناشناخته: {c}", "es": "Tipo de asiento desconocido: {c}", "ar": "نوع قيد غير معروف: {c}"}),
     _Pattern(r"^Account not found: (?P<code>.+)$",
              {"fa": "حساب پیدا نشد: {code}", "es": "Cuenta no encontrada: {code}", "ar": "الحساب غير موجود: {code}"}),
     _Pattern(r"^Entity not found: (?P<id>\S+)$",

@@ -235,7 +235,8 @@ def test_import_posts_ready_vouchers_once_and_remembers_choices(db, co):
         choice = {keys["Checking"]: "1110", keys["Owner's Equity"]: "3110", keys["Office Supplies"]: "6112"}
         out = ji.apply(db, q, account_map=choice)
         db.commit()
-    assert out == {"posted": 2, "skipped": {}, "voucher_count": 2, "bank_lines": 0, "posting_roles": {}}
+    assert out == {"posted": 2, "skipped": {}, "voucher_count": 2, "bank_lines": 0, "posting_roles": {},
+                   "accounts_created": 0}
     with use_company(co["cid"]):
         txns = db.execute(select(Transaction).where(Transaction.reference.like("IMPORT-quickbooks-%"))
                           .order_by(Transaction.date)).scalars().all()

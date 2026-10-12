@@ -39,6 +39,7 @@ import app.accountingassistant.android.util.Picked
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Text
@@ -48,6 +49,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,6 +68,7 @@ import app.accountingassistant.android.ui.components.Voucher
 import app.accountingassistant.android.ui.components.VoucherState
 import app.accountingassistant.android.ui.components.currencyName
 import app.accountingassistant.android.ui.components.currencySymbol
+import app.accountingassistant.android.ui.components.priced
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
 import app.accountingassistant.android.util.Numbers
 import kotlinx.coroutines.delay
@@ -114,6 +119,17 @@ fun ChatScreen(
     }
     // follow the newest item; an older page prepended keeps the place
     LaunchedEffect(state.items.lastOrNull()?.id) { if (state.items.isNotEmpty()) list.animateScrollToItem(state.items.lastIndex) }
+    // The composer floats over the list with whatever sits above it — a file waiting to be sent,
+    // a notice — so the list keeps clear of all of it, not a fixed 104dp: a chosen file covered
+    // the last answer (phone QA, 2026-10-12). When it grows, the conversation moves up with it.
+    var overlayPx by remember { mutableIntStateOf(0) }
+    var shownPx by remember { mutableIntStateOf(0) }
+    LaunchedEffect(overlayPx) {
+        val before = shownPx
+        shownPx = overlayPx
+        if (before > 0 && overlayPx > before) list.scrollBy((overlayPx - before).toFloat())
+    }
+    val listBottom = maxOf(104.dp, with(LocalDensity.current) { overlayPx.toDp() } + 6.dp)
 
     Box(Modifier.fillMaxSize().background(c.ground)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -144,7 +160,7 @@ fun ChatScreen(
             LazyColumn(
                 state = list,
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 104.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = listBottom),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 // keyed by block id; a repeated id must never crash the list
@@ -222,7 +238,8 @@ fun ChatScreen(
                 }
             }
         }
-        Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding().padding(10.dp),
+        Column(Modifier.align(Alignment.BottomCenter).onSizeChanged { overlayPx = it.height }
+                   .navigationBarsPadding().imePadding().padding(10.dp),
                verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val notice = when (state.notice) {
                 ChatUiState.Notice.Offline -> R.string.error_network
@@ -304,7 +321,10 @@ private fun TableCard(item: ChatItem.Table, lang: String) {
                         row.sub?.let { Text(Numbers.digits(it, lang), color = c.muted, fontSize = 11.sp) }
                     }
                     Column(horizontalAlignment = Alignment.End) {
-                        Text(Numbers.amount(row.value, lang), color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(700))
+                        // «£360» like the cards around it; a rial table keeps bare numbers, no unit on every row
+                        val shown = if (row.currency?.let { currencySymbol(it) } != null) priced(row.value, row.currency, lang)
+                                    else Numbers.amount(row.value, lang)
+                        Text(shown, color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(700))
                         row.gain?.let { g ->
                             Text(Numbers.signed(g, lang), color = if (g > 0) c.firouzeh else c.pomegranate,
                                  fontSize = 11.sp)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -174,7 +175,9 @@ fun Voucher(
             }
             Row(
                 Modifier.fillMaxWidth().onPlaced { foldY = it.positionInParent().y }
-                    .padding(start = 12.dp, end = if (state is VoucherState.Posted) 104.dp else 12.dp, top = 10.dp, bottom = 12.dp),
+                    .padding(start = 12.dp, end = if (state is VoucherState.Posted) 104.dp else 12.dp, top = 10.dp, bottom = 12.dp)
+                    // the seal (80dp, 6dp off the bottom) sits under the lines, not over the last amount
+                    .then(if (state is VoucherState.Posted) Modifier.heightIn(min = 64.dp) else Modifier),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -196,8 +199,8 @@ fun Voucher(
                         }
                     }
                     is VoucherState.Posted -> {
-                        UndoRing(secondsLeft = state.undoSecondsLeft, total = 120)
                         if (state.undoSecondsLeft > 0) {
+                            UndoRing(secondsLeft = state.undoSecondsLeft, total = 120)   // an empty ring stayed behind
                             FilledTonalButton(onClick = onUndo,
                                 colors = ButtonDefaults.filledTonalButtonColors(containerColor = c.firouzehSoft, contentColor = c.ink)) {
                                 val m = state.undoSecondsLeft / 60
@@ -306,4 +309,18 @@ fun currencySymbol(code: String): String? = when (code.uppercase()) {
     "USD" -> "$"
     "EUR" -> "€"
     else -> null
+}
+
+/**
+ * An amount as the card above it writes it: «£23,923», «−£50», «۴۹٬۶۰۰٬۰۰۰ ریال».
+ * The chart and the statement said «25,003 GBP» under a card saying «£23,923»
+ * (phone QA, 2026-10-12).
+ */
+fun priced(value: Long, currency: String?, lang: String): String {
+    val symbol = currency?.let { currencySymbol(it) }
+    return when {
+        symbol != null -> (if (value < 0) "−" else "") + symbol + Numbers.amount(kotlin.math.abs(value), lang)
+        currency != null -> Numbers.amount(value, lang) + " " + currencyName(currency, lang)
+        else -> Numbers.amount(value, lang)
+    }
 }

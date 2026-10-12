@@ -138,7 +138,9 @@ fun parseBlock(b: JsonObject): ChatItem {
             },
             needsApproval = b.bool("needs_approval"),
             phase = when (b.str("state")) {
-                "executed" -> ChatItem.Proposal.Phase.Posted
+                // the history's stamp says whether it was undone since (the state stays "executed")
+                "executed" -> if (b.obj("posted")?.bool("undone") == true) ChatItem.Proposal.Phase.Undone
+                              else ChatItem.Proposal.Phase.Posted
                 "cancelled" -> if (b.str("approval_status") == "rejected") ChatItem.Proposal.Phase.Rejected
                                else ChatItem.Proposal.Phase.Cancelled
                 "expired" -> ChatItem.Proposal.Phase.Cancelled
@@ -151,6 +153,9 @@ fun parseBlock(b: JsonObject): ChatItem {
                 ChatItem.Proposal.Approval(b.str("requested_by").orEmpty(), b.bool("mine")) else null,
             dateIso = b.obj("date")?.str("iso"),
             editable = (b["actions"] as? JsonArray)?.any { (it as? JsonPrimitive)?.contentOrNull == "edit" } == true,
+            // a posted card opened again keeps its seal's number and date
+            voucher = b.obj("posted")?.str("voucher"),
+            postedDate = b.obj("posted")?.obj("date")?.str("display"),
         )
         "chart" -> {
             fun point(o: JsonObject?) = o?.long("value")?.let { ChatItem.Chart.Point(o.str("x"), it) }

@@ -21,7 +21,7 @@ import app.accountingassistant.android.AccountantApp
 import app.accountingassistant.android.MainActivity
 import app.accountingassistant.android.R
 import app.accountingassistant.android.security.AppLock
-import app.accountingassistant.android.ui.components.currencyName
+import app.accountingassistant.android.ui.components.priced
 import app.accountingassistant.android.util.Dates
 import app.accountingassistant.android.util.Numbers
 import kotlinx.serialization.Serializable
@@ -55,7 +55,7 @@ fun widgetText(state: WidgetState, lang: String, words: (Int) -> String, formatt
         state.cash == null -> WidgetText(title, null, null, words(R.string.widget_loading))
         else -> WidgetText(
             title = title,
-            amount = Numbers.amount(state.cash, lang) + (state.cashCurrency?.let { " " + currencyName(it, lang) } ?: ""),
+            amount = priced(state.cash, state.cashCurrency, lang),
             line = state.budgetLeft?.let { formatted(R.string.widget_budget_left, Numbers.amount(it, lang)) },
             note = state.asOf?.let { formatted(R.string.widget_as_of, Dates.short(it, lang, state.calendar)) },
         )

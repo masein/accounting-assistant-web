@@ -1,5 +1,6 @@
 package app.accountingassistant.android
 
+import app.accountingassistant.android.ui.components.priced
 import app.accountingassistant.android.util.Numbers
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -41,5 +42,15 @@ class NumbersTest {
         assertEquals("40\u00A0%", Numbers.percent(0.4f, "es"))
         assertEquals("100%", Numbers.percent(1.3f, "en"))
         assertEquals("0%", Numbers.percent(0f, "en"))
+    }
+
+    /** The chart and the statement wrote «25,003 GBP» under a card saying «£23,923» (phone QA, 2026-10-12). */
+    @Test fun anAmountIsWrittenAsTheCardsWriteIt() {
+        assertEquals("£23,923", priced(23_923, "GBP", "en"))
+        assertEquals("−£50", priced(-50, "gbp", "en"))
+        assertEquals("€1,440", priced(1_440, "EUR", "es"))
+        assertEquals("۴۹٬۶۰۰٬۰۰۰ ریال", priced(49_600_000, "IRR", "fa"))
+        assertEquals("1,440 IRR", priced(1_440, "IRR", "en"))
+        assertEquals("1,440", priced(1_440, null, "en"))
     }
 }

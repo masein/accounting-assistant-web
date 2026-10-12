@@ -317,6 +317,7 @@ def mobile_thread_messages(thread_id: str, response: Response,
             tokens += [b["token"] for b in item["blocks"] if b.get("type") in ("proposal", "approval") and b.get("token")]
         out.append(item)
     states = _proposal_states(db, tokens)
+    stamps = _stamps(db, [p for p in states.values() if p.status == "executed"], user)
     replaced = {b["replaces"] for item in out for b in item.get("blocks") or [] if b.get("replaces")}
     for item in out:
         for b in item.get("blocks") or []:
@@ -325,6 +326,55 @@ def mobile_thread_messages(thread_id: str, response: Response,
                 b["approval_status"] = states[b["token"]].approval_status
                 if b["state"] == "cancelled" and b["token"] in replaced:
                     b["state"] = "replaced"
+                if b["token"] in stamps:
+                    b["posted"] = stamps[b["token"]]
+    return out
+
+
+def _stamps(db: Session, executed: list[AIProposal], user: SessionUser) -> dict[str, dict]:
+    """What a posted card's seal says when the thread is opened again: the
+    entry's reference and date, and whether it was undone since. The history
+    said only «executed», so every seal came back blank, and a voucher undone
+    under its card came back as posted (phone QA, 2026-10-12). Kept beside
+    "state" so an older app still reads "executed" as posted."""
+    from app.models.audit_log import AuditLog
+    from app.models.transaction import Transaction
+
+    audits = {a.id: a for a in db.execute(select(AuditLog).where(
+        AuditLog.id.in_([p.executed_audit_id for p in executed if p.executed_audit_id]))).scalars()} if executed else {}
+    txn_of: dict[str, uuid.UUID] = {}
+    for p in executed:
+        a = audits.get(p.executed_audit_id)
+        if a is None:
+            continue
+        ref = a.entity_id if a.entity_type == "transaction" else None
+        if ref is None and a.detail:           # a payment, an invoice: the entry is in the detail
+            try:
+                ref = (json.loads(a.detail) or {}).get("transaction_id")
+            except (ValueError, TypeError, AttributeError):
+                ref = None
+        try:
+            txn_of[str(p.confirmation_token)] = uuid.UUID(str(ref))
+        except (ValueError, TypeError):
+            pass
+    if not txn_of:
+        return {}
+    ids = [str(t) for t in txn_of.values()]
+    # an entry undone inside its window is soft-deleted, and still has its seal
+    txns = {t.id: t for t in db.execute(select(Transaction).where(Transaction.id.in_(list(txn_of.values())))
+                                        .execution_options(include_deleted=True)).scalars()}
+    undone = set(db.execute(select(AuditLog.entity_id).where(
+        AuditLog.action == "undo", AuditLog.entity_type == "transaction", AuditLog.entity_id.in_(ids))).scalars())
+    calendar, lang = _calendar(db), _user_language(db, user)
+    out = {}
+    for token, tid in txn_of.items():
+        t = txns.get(tid)
+        if t is None:
+            continue
+        iso = t.date.isoformat() if t.date else None
+        out[token] = {"voucher": t.reference or None,
+                      "date": {"iso": iso, "display": B.display_date(iso, calendar, lang)} if iso else None,
+                      "undone": t.deleted_at is not None or str(tid) in undone}
     return out
 
 

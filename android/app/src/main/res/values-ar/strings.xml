@@ -34,7 +34,7 @@
     <string name="listening">أستمع… اترك للإيقاف</string>
     <string name="attach_camera">التقط صورة</string>
     <string name="attach_photo">اختر صورة</string>
-    <string name="attach_file">اختر ملفًا (PDF، Excel)</string>
+    <string name="attach_file">اختر ملفًا (PDF، Excel، CSV)</string>
     <string name="uploading">جارٍ الرفع…</string>
     <string name="transcribing">أكتب ما قلته…</string>
     <string name="error_upload">لم يُرفع الملف. تحقق من الاتصال وحاول مرة أخرى.</string>

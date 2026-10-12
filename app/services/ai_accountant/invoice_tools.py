@@ -143,6 +143,10 @@ class ProposeRecordInvoicePaymentInput(BaseModel):
     method: str = Field("bank", description="bank | cash | transfer")
     bank_account_code: str | None = Field(None, description="Cash/bank account code the money moved through (optional; the default bank is used).")
     reference: str | None = None
+    bank_statement_row_id: str | None = Field(
+        None, description="When the payment is a bank statement row (review_bank_statement), the row's row_id: "
+                          "on confirm the row is marked as posted so it is never offered again.")
+    description: str | None = Field(None, description="What the card shows as its title (a statement row's text).")
 
 
 class ProposeRecordInvoicePayment(BaseTool):
@@ -165,7 +169,12 @@ class ProposeRecordInvoicePayment(BaseTool):
         excess = max(0, args.amount - balance)
         payload = {"invoice_id": str(inv.id), "invoice_number": inv.number, "amount": args.amount,
                    "date": when.isoformat(), "method": args.method, "bank_account_code": args.bank_account_code,
-                   "reference": args.reference, "currency": inv.currency}
+                   "reference": args.reference, "currency": inv.currency,
+                   "lines": _payment_lines(ctx, inv, args.amount, balance, args.bank_account_code)}
+        if args.bank_statement_row_id:
+            payload["bank_statement_row_id"] = args.bank_statement_row_id
+        if args.description:
+            payload["description"] = args.description[:1024]
         token = _register(ctx, self.name, payload)
         direction = "received from" if inv.kind == "sales" else "paid to"
         ent = ctx.db.get(Entity, inv.entity_id) if inv.entity_id else None
@@ -173,8 +182,33 @@ class ProposeRecordInvoicePayment(BaseTool):
                    f"for invoice {inv.number} on {when.isoformat()} ({args.method}). Balance before: {balance:,}; after: {max(0, balance - args.amount):,}.")
         if excess:
             summary += f" The {excess:,} above the balance is booked as {'customer credit' if inv.kind == 'sales' else 'a supplier advance'}."
-        return {"confirmation_token": str(token), "status": "pending", "summary": summary,
+        return {"confirmation_token": str(token), "status": "pending", "summary": summary, "tool_name": self.name,
                 "preview": {**payload, "balance_before": balance, "balance_after": max(0, balance - args.amount), "excess_to_credit": excess}}
+
+
+def _payment_lines(ctx: ToolContext, inv: Invoice, amount: int, balance: int, bank_code: str | None) -> list[dict]:
+    """The entry the payment will post (app.api.invoices._apply_payment), for
+    the card: the bank, the receivable or payable it clears, any excess."""
+    from app.api.invoices import _resolve_bank_code
+    from app.services.account_resolver import resolve_account_code
+    try:
+        bank = _resolve_bank_code(ctx.db, bank_code)
+        applied, excess = min(amount, balance), max(0, amount - balance)
+        if inv.kind == "sales":
+            out = [{"account_code": bank, "debit": amount, "credit": 0}]
+            if applied:
+                out.append({"account_code": resolve_account_code(ctx.db, "ar"), "debit": 0, "credit": applied})
+            if excess:
+                out.append({"account_code": resolve_account_code(ctx.db, "customer_credit"), "debit": 0, "credit": excess})
+            return out
+        out = []
+        if applied:
+            out.append({"account_code": resolve_account_code(ctx.db, "ap"), "debit": applied, "credit": 0})
+        if excess:
+            out.append({"account_code": resolve_account_code(ctx.db, "supplier_advance"), "debit": excess, "credit": 0})
+        return out + [{"account_code": bank, "debit": 0, "credit": amount}]
+    except Exception:  # noqa: BLE001 — the card just shows no lines; posting resolves them itself
+        return []
 
 
 class InvoiceLineIn(BaseModel):

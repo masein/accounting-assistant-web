@@ -471,7 +471,7 @@ def resolve_bank_account(db: Session, stmt: BankStatement) -> tuple[str | None, 
     In order: the one the user chose ("chosen"); the bank whose account number
     (or IBAN tail) the statement shows ("account_number"); the bank named
     exactly like it ("name"); the one bank of that name — ملت = Mellat =
-    بانک ملت ("bank"); else the chart's bank ("default"). Two candidates at
+    بانک ملت, Barclays = «Barclays Business» ("bank"); else the chart's bank ("default"). Two candidates at
     any step is not a guess — it falls through."""
     chosen = (stmt.bank_account_code or "").strip()
     if chosen and db.execute(select(Account.id).where(Account.code == chosen)).first():
@@ -495,6 +495,14 @@ def resolve_bank_account(db: Session, stmt: BankStatement) -> tuple[str | None, 
         canon = canonical_bank(name)
         if canon:
             hit = one([e for e in banks if canonical_bank(e.name) == canon])
+            if hit:
+                return hit, "bank"
+        # "Barclays" is the bank called "Barclays Business" — the name, whole
+        # words, inside one bank's name (a UK statement fell back to the
+        # chart's 1200 and none of its rows matched: phone QA, 2026-10-12).
+        if len(name) >= 3:
+            word = re.compile(rf"(?<!\w){re.escape(name.lower())}(?!\w)")
+            hit = one([e for e in banks if word.search((e.name or "").lower())])
             if hit:
                 return hit, "bank"
     return _default_bank_code(db), "default"

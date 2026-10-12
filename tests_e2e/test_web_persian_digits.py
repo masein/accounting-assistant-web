@@ -31,7 +31,7 @@ def test_a_persian_page_writes_persian_digits_and_keeps_latin_where_it_must(flow
     assert hint and not any(c in "0123456789" for c in hint), hint     # redrawn when the language changed
     shown = page.evaluate("""() => [formatNum(1234567), formatMoney(2500, 'GBP'), formatNum(-12.5),
                                     formatKpiValue(40, '%'), window.Chart && Chart.defaults.locale]""")
-    assert shown == ["۱٬۲۳۴٬۵۶۷", "£۲٬۵۰۰", "-۱۲٫۵۰", "۴۰٪", "fa-IR"], shown     # pence as pence: ۱۲٫۵۰
+    assert shown == ["۱٬۲۳۴٬۵۶۷", "£۲٬۵۰۰٫۰۰", "-۱۲٫۵۰", "۴۰٪", "fa-IR"], shown   # pounds with their places (P5)
     page.evaluate("() => { location.hash = 'accounts'; }")              # account codes read in Persian too
     wait_until(page, "() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '۱۱۱۰')")
     assert page.evaluate("() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '1110')") is False
@@ -46,4 +46,9 @@ def test_a_persian_page_writes_persian_digits_and_keeps_latin_where_it_must(flow
     switch_language(page, "en")                               # English pages are unchanged
     assert page.evaluate("() => [formatNum(1234567), Chart.defaults.locale, localCode('1110')]") == ["1,234,567", "en-US", "1110"]
     assert page.evaluate(mult) == "1,000×"
+    # an amount shows its currency's places, whole ones too; a count doesn't (scenario Q13)
+    assert page.evaluate("""() => [formatAmount(950, 'GBP'), formatAmount(7.5, 'GBP'), formatAmount(0.125, 'GBP'),
+                                   formatAmount(2500000, 'IRR'), formatAmount(-1234.5, 'KWD'), formatNum(12),
+                                   formatKpiValue(1138.17, 'GBP'), formatKpiValue(950, 'GBP'), formatKpiValue(3, 'months')]""") \
+        == ["950.00", "7.50", "0.125", "2,500,000", "-1,234.500", "12", "1,138.17 GBP", "950.00 GBP", "3 mo"]
     assert watch.problems() == [], watch.problems()

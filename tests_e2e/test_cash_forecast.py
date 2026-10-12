@@ -31,7 +31,7 @@ def test_forecast_explorer_runs_a_scenario(flow_page):
         assert rows.count() == 13
         # after 13 weeks the difference is the one-off, paid out
         diff = page.locator("#fc-result table.mini-table").first.locator("tbody tr").nth(1).locator("td").nth(3)
-        assert re.sub(r"\D", "", diff.inner_text()) == "1000000"
+        assert re.sub(r"[^\d.]", "", diff.inner_text()) == "1000000.00"     # pounds with their places (Q13)
 
         page.click("#fc-whatif button[type=reset]")
         assert page.locator("#fc-result").inner_text().strip() == ""

@@ -377,7 +377,21 @@
       const n = Number(v) || 0;
       return Math.sign(n) * Math.round(Math.abs(n) * f + 1e-9) / f;
     }
-    function fmtCurrency(v) { return formatNum(v) + ' ' + currencyUnit(); }
+    // An amount, with its currency's places on every figure: «950.00» beside «7.50» for
+    // pounds, rials as before (docs/PLAN_PENCE.md, P5). ``ccy`` defaults to the company's
+    // currency; a unit price's extra places stay («0.125»). Counts, percentages and
+    // chart axes keep formatNum.
+    function formatAmount(n, ccy) {
+      const v = Number(n == null || n === '' ? 0 : n);
+      const places = moneyPlaces(ccy);
+      if (!places || !isFinite(v) || Math.abs(v) >= 1e21) return formatNum(isFinite(v) ? v : n);
+      // to the 4 places the books keep (a sum made here carries float noise: 59849.020000000004),
+      // then the currency's places at least: 0.125 stays, 950 is 950.00
+      let s = v.toFixed(4);
+      while (s.endsWith('0') && s.length - s.indexOf('.') - 1 > places) s = s.slice(0, -1);
+      return formatNum(s === '-' + (0).toFixed(places) ? (0).toFixed(places) : s);
+    }
+    function fmtCurrency(v) { return formatAmount(v) + ' ' + currencyUnit(); }
     // Fetched once per page load (sign-in; a dashboard opened while that is out
     // shares it) — the dashboards used to refetch it on every open. Saving it
     // in Settings updates the cached value; ``force`` refetches.
@@ -450,7 +464,7 @@
     }
 
     function formatMoney(n, ccy) {
-      const num = formatNum(n || 0);
+      const num = formatAmount(n || 0, ccy);
       if (!ccy) return num;
       const sym = currencySymbol(ccy);
       // Symbols that look like prefixes (e.g. $, €, £) go before; words/codes after.
@@ -569,7 +583,7 @@
       // Everything else with a unit is a currency code (IRR, GBP, USD,
       // EUR, …). Display the formatted amount followed by the code.
       if (unit && String(unit).length > 0 && unit !== '%') {
-        return formatNum(v) + ' ' + unit;
+        return (/^[A-Z]{3}$/.test(String(unit)) ? formatAmount(v, unit) : formatNum(v)) + ' ' + unit;
       }
       return localDigits(String(v));
     }

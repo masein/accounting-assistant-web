@@ -143,10 +143,10 @@
           ['week_start', 'projected_inflow', 'projected_outflow', 'projected_net', 'projected_cash', 'risk'],
           (data.forecast_13_weeks || []).map(r => [
             escapeHtml(formatDisplayDate(r.week_start)),
-            formatNum(r.projected_inflow),
-            formatNum(r.projected_outflow),
-            formatNum(r.projected_net),
-            formatNum(r.projected_cash),
+            formatAmount(r.projected_inflow),
+            formatAmount(r.projected_outflow),
+            formatAmount(r.projected_net),
+            formatAmount(r.projected_cash),
             {__html: r.risk ? '<span class="alert-chip high">' + escapeHtml(t('risk')) + '</span>' : '<span class="alert-chip low">' + escapeHtml(t('ok')) + '</span>'}
           ])
         );
@@ -177,27 +177,27 @@
         renderMiniTable(
           'ar-aging-wrap',
           ['client', 'current', 'days_31_60', 'days_60_plus', 'total'],
-          (data.ar_aging || []).map(r => [escapeHtml(r.name), formatNum(r.current), formatNum(r.days_31_60), formatNum(r.days_60_plus), formatNum(r.total)])
+          (data.ar_aging || []).map(r => [escapeHtml(r.name), formatAmount(r.current), formatAmount(r.days_31_60), formatAmount(r.days_60_plus), formatAmount(r.total)])
         );
         renderMiniTable(
           'ap-aging-wrap',
           ['vendor', 'current', 'days_31_60', 'days_60_plus', 'total'],
-          (data.ap_aging || []).map(r => [escapeHtml(r.name), formatNum(r.current), formatNum(r.days_31_60), formatNum(r.days_60_plus), formatNum(r.total)])
+          (data.ap_aging || []).map(r => [escapeHtml(r.name), formatAmount(r.current), formatAmount(r.days_31_60), formatAmount(r.days_60_plus), formatAmount(r.total)])
         );
         renderMiniTable(
           'expense-category-wrap',
           ['category', 'amount'],
-          (data.expense_by_category || []).map(r => [escapeHtml(r.category), formatNum(r.amount)])
+          (data.expense_by_category || []).map(r => [escapeHtml(r.category), formatAmount(r.amount)])
         );
         renderMiniTable(
           'vendor-spend-wrap',
           ['vendor', 'amount'],
-          (data.spend_by_vendor || []).map(r => [escapeHtml(r.vendor), formatNum(r.amount)])
+          (data.spend_by_vendor || []).map(r => [escapeHtml(r.vendor), formatAmount(r.amount)])
         );
         renderMiniTable(
           'profitability-wrap',
           ['client', 'revenue', 'cost', 'profit', 'margin_pct'],
-          (data.profitability_by_client || []).map(r => [escapeHtml(localizeDynamicText(r.client)), formatNum(r.revenue), formatNum(r.cost), formatNum(r.profit), (r.margin_pct == null ? '—' : String(r.margin_pct))])
+          (data.profitability_by_client || []).map(r => [escapeHtml(localizeDynamicText(r.client)), formatAmount(r.revenue), formatAmount(r.cost), formatAmount(r.profit), (r.margin_pct == null ? '—' : String(r.margin_pct))])
         );
 
         const health = document.getElementById('health-wrap');
@@ -215,19 +215,19 @@
         `).join('');
         const topProfit = (data.profitability_by_client || [])[0];
         const topProfitText = topProfit
-          ? `${localizeDynamicText(topProfit.client)} (${formatNum(topProfit.profit || 0)} ${currencyUnit()})`
+          ? `${localizeDynamicText(topProfit.client)} (${formatAmount(topProfit.profit || 0)} ${currencyUnit()})`
           : t('na');
         // A list in the page's own type, dated in the company's calendar — it
         // was a monospace block dated "(2026-10-02)" in a Jalali company.
         const kpi = (key) => (data.kpis || []).find((k) => k.key === key)?.value;
         const overdue = (rows) => (rows || []).reduce((a, r) => a + (r.days_31_60 || 0) + (r.days_60_plus || 0), 0);
         const facts = [
-          [t('kpiCashOnHand'), `${formatNum(kpi('cash_on_hand') || 0)} ${currencyUnit()}`],
-          [t('ownerNetProfitMonth'), `${formatNum(kpi('monthly_net_profit') || 0)} ${currencyUnit()}`],
-          [t('kpiMonthlyBurnRate'), `${formatNum(kpi('burn_rate') || 0)} ${currencyUnit()}/${t('monthWord')}`],
+          [t('kpiCashOnHand'), `${formatAmount(kpi('cash_on_hand') || 0)} ${currencyUnit()}`],
+          [t('ownerNetProfitMonth'), `${formatAmount(kpi('monthly_net_profit') || 0)} ${currencyUnit()}`],
+          [t('kpiMonthlyBurnRate'), `${formatAmount(kpi('burn_rate') || 0)} ${currencyUnit()}/${t('monthWord')}`],
           [t('kpiRunway'), formatKpiValue(kpi('runway_months'), 'months')],
-          [t('ownerOverdueAR'), `${formatNum(overdue(data.ar_aging))} ${currencyUnit()}`],
-          [t('ownerOverdueAP'), `${formatNum(overdue(data.ap_aging))} ${currencyUnit()}`],
+          [t('ownerOverdueAR'), `${formatAmount(overdue(data.ar_aging))} ${currencyUnit()}`],
+          [t('ownerOverdueAP'), `${formatAmount(overdue(data.ap_aging))} ${currencyUnit()}`],
           [t('ownerDataHealth'), `${data.health_score || 0}/100`],
           [t('ownerMostProfitableClient'), topProfitText],
         ];
@@ -1033,8 +1033,8 @@
         <div class="detail-summary" style="margin-bottom:1rem;">
           <div><span>${escapeHtml(t('invTotalItems'))}</span><strong>${localDigits(rows.length)}</strong></div>
           <div><span>${escapeHtml(t('invTotalOnHand'))}</span><strong>${totalQty.toLocaleString(numLocale())}</strong></div>
-          <div><span>${escapeHtml(t('fieldInventoryValue'))}</span><strong>${formatNum(totalValue)} ${currencyUnit()}</strong></div>
-          <div><span>${escapeHtml(t('invTotalCogs'))}</span><strong>${formatNum(totalCOGS)} ${currencyUnit()}</strong></div>
+          <div><span>${escapeHtml(t('fieldInventoryValue'))}</span><strong>${formatAmount(totalValue)} ${currencyUnit()}</strong></div>
+          <div><span>${escapeHtml(t('invTotalCogs'))}</span><strong>${formatAmount(totalCOGS)} ${currencyUnit()}</strong></div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem;">
           <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="inv-report-preview" data-name="Inventory_Balance" data-format="csv">CSV</button>
@@ -1055,16 +1055,16 @@
               <td class="num">${r.qty_in.toLocaleString(numLocale())}</td>
               <td class="num">${r.qty_out.toLocaleString(numLocale())}</td>
               <td class="num" style="font-weight:600;">${r.on_hand_qty.toLocaleString(numLocale())}</td>
-              <td class="num">${formatNum(r.average_cost)}</td>
+              <td class="num">${formatAmount(r.average_cost)}</td>
               <td class="num">
                 <div style="display:flex;align-items:center;gap:0.4rem;justify-content:flex-end;">
-                  ${formatNum(r.inventory_value)}
+                  ${formatAmount(r.inventory_value)}
                   <span style="display:inline-block;width:40px;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
                     <span style="display:block;height:100%;width:${valPct}%;background:var(--primary);border-radius:3px;"></span>
                   </span>
                 </div>
               </td>
-              <td class="num" style="color:${r.cogs > 0 ? '#c62828' : 'var(--text)'};">${formatNum(r.cogs)}</td>
+              <td class="num" style="color:${r.cogs > 0 ? '#c62828' : 'var(--text)'};">${formatAmount(r.cogs)}</td>
             </tr>`;
           }).join('')}</tbody>
           <tfoot><tr style="font-weight:700;background:#f1f5f9;">
@@ -1073,8 +1073,8 @@
             <td class="num">${rows.reduce((s,r)=>s+r.qty_out,0).toLocaleString(numLocale())}</td>
             <td class="num">${totalQty.toLocaleString(numLocale())}</td>
             <td class="num">—</td>
-            <td class="num">${formatNum(totalValue)}</td>
-            <td class="num" style="color:#c62828;">${formatNum(totalCOGS)}</td>
+            <td class="num">${formatAmount(totalValue)}</td>
+            <td class="num" style="color:#c62828;">${formatAmount(totalCOGS)}</td>
           </tr></tfoot>
         </table>
         </div>
@@ -1109,8 +1109,8 @@
           <div><span>${escapeHtml(t('invTotalMovements'))}</span><strong>${localDigits(rows.length)}</strong></div>
           <div><span>${escapeHtml(t('invQtyIn'))}</span><strong style="color:#2e7d32;"><bdi dir="ltr">+${qtyIn.toLocaleString(numLocale())}</bdi></strong></div>
           <div><span>${escapeHtml(t('invQtyOut'))}</span><strong style="color:#c62828;"><bdi dir="ltr">-${qtyOut.toLocaleString(numLocale())}</bdi></strong></div>
-          <div><span>${escapeHtml(t('invValueIn'))}</span><strong style="color:#2e7d32;">${formatNum(totalIn)}</strong></div>
-          <div><span>${escapeHtml(t('invValueOut'))}</span><strong style="color:#c62828;">${formatNum(totalOut)}</strong></div>
+          <div><span>${escapeHtml(t('invValueIn'))}</span><strong style="color:#2e7d32;">${formatAmount(totalIn)}</strong></div>
+          <div><span>${escapeHtml(t('invValueOut'))}</span><strong style="color:#c62828;">${formatAmount(totalOut)}</strong></div>
         </div>
 
         <h4 style="margin:0.75rem 0 0.3rem;font-size:0.9rem;">${escapeHtml(t('invSummaryByItem'))}</h4>
@@ -1121,7 +1121,7 @@
             <td class="num" style="color:#2e7d32;"><bdi dir="ltr">+${v.in.toLocaleString(numLocale())}</bdi></td>
             <td class="num" style="color:#c62828;"><bdi dir="ltr">-${v.out.toLocaleString(numLocale())}</bdi></td>
             <td class="num">${v.adj.toLocaleString(numLocale())}</td>
-            <td class="num" style="font-weight:600;">${formatNum(v.value)}</td>
+            <td class="num" style="font-weight:600;">${formatAmount(v.value)}</td>
           </tr>`).join('')}</tbody>
         </table>
         </div>
@@ -1142,8 +1142,8 @@
             <td><strong>${escapeHtml(r.item_name)}</strong></td>
             <td><span style="display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.78rem;font-weight:600;color:${typeColor(r.movement_type)};background:${typeBg(r.movement_type)};">${escapeHtml(({ IN: t('movementIn'), OUT: t('movementOut'), ADJUSTMENT: t('movementAdjustment') })[r.movement_type] || r.movement_type)}</span></td>
             <td class="num">${r.quantity.toLocaleString(numLocale())}</td>
-            <td class="num">${formatNum(r.unit_cost)}</td>
-            <td class="num" style="font-weight:600;">${formatNum(r.movement_value)}</td>
+            <td class="num">${formatAmount(r.unit_cost)}</td>
+            <td class="num" style="font-weight:600;">${formatAmount(r.movement_value)}</td>
             <td>${escapeHtml(r.reference || '—')}</td>
             <td>${escapeHtml(r.description || '—')}</td>
           </tr>`).join('')}</tbody>
@@ -1314,7 +1314,7 @@
           <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">${rows.map(i =>
             `<span data-item-id="${escapeHtml(String(i.id))}" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;background:#f1f5f9;border-radius:6px;font-size:0.8rem;border:1px solid var(--border);">
               <strong>${escapeHtml(i.name)}</strong>${i.sku ? ` <span style="color:var(--text-muted);">(<bdi>${escapeHtml(i.sku)}</bdi>)</span>` : ''}${i.barcode ? ` <span style="color:var(--text-muted);" dir="ltr">▮ ${escapeHtml(i.barcode)}</span>` : ''}
-              ${i.list_price ? ` — ${formatNum(i.list_price)} ${currencyUnit()}` : ''}
+              ${i.list_price ? ` — ${formatAmount(i.list_price)} ${currencyUnit()}` : ''}
             </span>`
           ).join('')}</div>`;
           if (highlightId) flashRow(listEl.querySelector('[data-item-id="' + CSS.escape(String(highlightId)) + '"]'));
@@ -1444,7 +1444,7 @@
             <div style="margin-bottom:0.55rem;">
               <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
                 <span>${escapeHtml(r.category)}</span>
-                <span>${formatNum(r.actual_amount)} / ${formatNum(r.limit_amount)} (${escapeHtml(String(r.utilization_pct))}%)</span>
+                <span>${formatAmount(r.actual_amount)} / ${formatAmount(r.limit_amount)} (${escapeHtml(String(r.utilization_pct))}%)</span>
               </div>
               <div style="background:var(--border); border-radius:6px; height:8px; overflow:hidden;">
                 <div style="width:${Math.min(100, pct)}%; height:100%; background:${color};"></div>
@@ -1504,7 +1504,7 @@
       // the first lowest week, as the server reports it
       const low = rows.reduce((a, r) => (r.projected_cash < a.projected_cash ? r : a), rows[0]);
       const neg = rows.find((r) => r.projected_cash < 0);
-      const lowest = tf('forecastLowest', { amount: formatNum(low.projected_cash), week: formatDisplayDate(low.week_start) });
+      const lowest = tf('forecastLowest', { amount: formatAmount(low.projected_cash), week: formatDisplayDate(low.week_start) });
       el.textContent = neg ? tf('forecastNegative', { week: formatDisplayDate(neg.week_start) }) + ' · ' + lowest : lowest;
       el.classList.toggle('forecast-risk', !!neg);
     }
@@ -1517,10 +1517,10 @@
         lines.push(tf('forecastLateCustomer', { name: c.name || '—', days: c.days_late, n: c.paid_invoices }));
       });
       const d = data.doubtful || {};
-      if (d.count) lines.push(tf('forecastDoubtful', { n: d.count, days: d.after_days, amount: formatNum(d.total) }));
+      if (d.count) lines.push(tf('forecastDoubtful', { n: d.count, days: d.after_days, amount: formatAmount(d.total) }));
       const b = data.baseline || {};
       lines.push(b.weeks_of_history >= 4
-        ? tf('forecastUsualWeek', { inflow: formatNum(b.inflow), outflow: formatNum(b.outflow), weeks: b.weeks_of_history })
+        ? tf('forecastUsualWeek', { inflow: formatAmount(b.inflow), outflow: formatAmount(b.outflow), weeks: b.weeks_of_history })
         : t('forecastNoHistory'));
       return '<div class="forecast-learned">' + lines.map((l) => '<div>' + escapeHtml(l) + '</div>').join('') + '</div>';
     }
@@ -1533,13 +1533,13 @@
           + (i.overdue ? '<span class="alert-chip medium">' + escapeHtml(t('forecastOverdue')) + '</span>' : '')
           + (i.days_late ? '<span class="fc-note">(' + escapeHtml(tf('forecastPaysLate', { days: i.days_late })) + ')</span>' : '')
           + (i.covers_invoice ? '<span class="fc-note">(' + escapeHtml(tf('forecastCovers', { number: i.covers_invoice })) + ')</span>' : '')
-          + '<span class="fc-amt">' + escapeHtml(formatNum(i.amount)) + '</span></li>').join('');
+          + '<span class="fc-amt">' + escapeHtml(formatAmount(i.amount)) + '</span></li>').join('');
         const usual = (w.baseline_in || w.baseline_out)
-          ? '<div class="fc-note">' + escapeHtml(tf('forecastUsualLine', { inflow: formatNum(w.baseline_in), outflow: formatNum(w.baseline_out) })) + '</div>'
+          ? '<div class="fc-note">' + escapeHtml(tf('forecastUsualLine', { inflow: formatAmount(w.baseline_in), outflow: formatAmount(w.baseline_out) })) + '</div>'
           : '';
         return '<details class="fc-week' + (w.risk ? ' fc-risk' : '') + '"><summary><strong>'
           + escapeHtml(formatDisplayDate(w.week_start)) + '</strong> — '
-          + escapeHtml(tf('forecastWeekLine', { inflow: formatNum(w.inflow), outflow: formatNum(w.outflow), closing: formatNum(w.closing) }))
+          + escapeHtml(tf('forecastWeekLine', { inflow: formatAmount(w.inflow), outflow: formatAmount(w.outflow), closing: formatAmount(w.closing) }))
           + '</summary>' + (items ? '<ul class="fc-items">' + items + '</ul>' : '<div class="fc-note">' + escapeHtml(t('forecastNoItems')) + '</div>')
           + usual + '</details>';
       }).join('');
@@ -1567,7 +1567,7 @@
     function forecastWhatIfHtml(data) {
       const c = forecastChoices(data);
       const pick = (name, i) => '<label class="fc-pick"><input type="checkbox" name="' + name + '" value="' + escapeHtml(i.source_id) + '"> '
-        + escapeHtml(formatDisplayDate(i.date) + ' · ' + forecastItemLabel(i) + ' · ' + formatNum(i.amount)) + '</label>';
+        + escapeHtml(formatDisplayDate(i.date) + ' · ' + forecastItemLabel(i) + ' · ' + formatAmount(i.amount)) + '</label>';
       const none = '<div class="fc-note">' + escapeHtml(t('forecastNothingToPick')) + '</div>';
       const options = c.parties.map(([id, n]) => '<option value="' + escapeHtml(id) + '">' + escapeHtml(n) + '</option>').join('');
       return '<form id="fc-whatif" class="fc-whatif">'
@@ -1613,7 +1613,7 @@
     function forecastScenarioHtml(r) {
       const b = r.base;
       const s = r.scenario;
-      const cell = (v) => '<td>' + escapeHtml(formatNum(v)) + '</td>';
+      const cell = (v) => '<td>' + escapeHtml(formatAmount(v)) + '</td>';
       const head = '<tr><th></th><th>' + escapeHtml(t('forecastBase')) + '</th><th>' + escapeHtml(t('forecastScenario'))
         + '</th><th>' + escapeHtml(t('forecastDifference')) + '</th></tr>';
       const summary = '<table class="mini-table"><thead>' + head + '</thead><tbody>'
@@ -1699,7 +1699,7 @@
 
         const cats = data.expense_by_category || [];
         renderMiniTable('pd-cat-wrap', ['category', 'amount'],
-          cats.map(r => [escapeHtml(r.category), formatNum(r.amount)]));
+          cats.map(r => [escapeHtml(r.category), formatAmount(r.amount)]));
         const catCanvas = document.getElementById('pd-cat-chart');
         if (typeof Chart !== 'undefined' && catCanvas && cats.length) {
           if (_pdCatChart) _pdCatChart.destroy();
@@ -1800,7 +1800,7 @@
     // way round); numbers with a sign flip in right-to-left text. Isolate both.
     function rcName(text) { return `<bdi>${escapeHtml(text)}</bdi>`; }
     function rcSigned(n, suffix = '') {
-      return '\u2066' + (n > 0 ? '+' : '') + formatNum(n) + suffix + '\u2069';
+      return '\u2066' + (n > 0 ? '+' : '') + formatAmount(n) + suffix + '\u2069';
     }
 
     async function loadReportCard() {
@@ -1832,9 +1832,9 @@
         + `<div class="val">${escapeHtml(value)}</div>${sub ? `<div class="sub">${escapeHtml(sub)}</div>` : ''}</div>`;
       const rate = (r) => (r === null || r === undefined) ? '—' : `${formatNum(r)}%`;
       figs.innerHTML = [
-        fig(t('rcIncome'), formatNum(d.income), tf('rcLastMonth', { v: formatNum(prev.income || 0) })),
-        fig(t('rcSpending'), formatNum(d.spending), d.average_spending_3m == null ? '' : tf('rcAverage', { v: formatNum(d.average_spending_3m) })),
-        fig(t('rcSaved'), formatNum(d.saved), tf('rcLastMonth', { v: formatNum(prev.saved || 0) }), d.saved >= 0 ? 'good' : 'bad'),
+        fig(t('rcIncome'), formatAmount(d.income), tf('rcLastMonth', { v: formatAmount(prev.income || 0) })),
+        fig(t('rcSpending'), formatAmount(d.spending), d.average_spending_3m == null ? '' : tf('rcAverage', { v: formatAmount(d.average_spending_3m) })),
+        fig(t('rcSaved'), formatAmount(d.saved), tf('rcLastMonth', { v: formatAmount(prev.saved || 0) }), d.saved >= 0 ? 'good' : 'bad'),
         fig(t('rcRate'), rate(d.savings_rate), tf('rcLastMonth', { v: rate(prev.savings_rate) })),
       ].join('');
       const marks = { true: ['ok', '✓'], false: ['warn', '!'], null: ['info', '•'] };
@@ -1846,14 +1846,14 @@
       const bits = [];
       if (d.categories.length) {
         bits.push(`<p><strong>${escapeHtml(t('rcTopCategories'))}:</strong> ` + d.categories.map(c =>
-          `${rcName(c.category)} <bdi dir="ltr">${escapeHtml(formatNum(c.amount))}</bdi>`
+          `${rcName(c.category)} <bdi dir="ltr">${escapeHtml(formatAmount(c.amount))}</bdi>`
           + (c.change_pct == null ? '' : ` <span class="goal-meta">(${escapeHtml(rcSigned(c.change_pct, '%'))})</span>`)).join(' · ') + '</p>');
       }
       if (d.biggest_rise) {
         bits.push(`<p>${escapeHtml(tf('rcBiggestRise', { cat: '\u2068' + d.biggest_rise.category + '\u2069', v: rcSigned(d.biggest_rise.increase) }))}</p>`);
       }
       const nw = d.net_worth || {};
-      bits.push(`<p>${escapeHtml(tf('rcNetWorth', { v: rcSigned(nw.change || 0), end: formatNum(nw.end || 0) }))}</p>`);
+      bits.push(`<p>${escapeHtml(tf('rcNetWorth', { v: rcSigned(nw.change || 0), end: formatAmount(nw.end || 0) }))}</p>`);
       if (d.goals.length) {
         bits.push(`<p>${escapeHtml(t('goalsTitle'))}: ` + d.goals.map(g => `${rcName(g.name)} <bdi dir="ltr">${escapeHtml(formatNum(g.percent))}%</bdi>`).join(' · ') + '</p>');
       }
@@ -1890,9 +1890,9 @@
         if (g.reached) badge = `<span class="goal-badge ok">${escapeHtml(t('goalReached'))}</span>`;
         else if (g.on_track === true) badge = `<span class="goal-badge ok">${escapeHtml(t('goalOnTrack'))}</span>`;
         else if (g.on_track === false) badge = `<span class="goal-badge warn">${escapeHtml(t('goalBehind'))}</span>`;
-        const meta = [tf('goalProgress', { v: formatNum(g.current), target: formatNum(g.target_amount) })];
-        if (!g.reached && g.needed_per_month != null) meta.push(tf('goalNeeded', { v: formatNum(g.needed_per_month), date: g.target_date }));
-        if (!g.reached && g.pace_per_month > 0) meta.push(tf('goalPace', { v: formatNum(g.pace_per_month) }));
+        const meta = [tf('goalProgress', { v: formatAmount(g.current), target: formatAmount(g.target_amount) })];
+        if (!g.reached && g.needed_per_month != null) meta.push(tf('goalNeeded', { v: formatAmount(g.needed_per_month), date: g.target_date }));
+        if (!g.reached && g.pace_per_month > 0) meta.push(tf('goalPace', { v: formatAmount(g.pace_per_month) }));
         return `<div class="goal${g.reached ? ' reached' : ''}" data-id="${escapeHtml(g.id)}">
           <div class="goal-top"><span class="goal-name">${rcName(g.name)}</span>
             <span>${badge} <button type="button" class="btn btn-secondary btn-sm goal-del" data-id="${escapeHtml(g.id)}" aria-label="${escapeHtml(t('goalDelete'))}">×</button></span></div>
@@ -2001,19 +2001,19 @@
         const gain = d.unrealized_gain || 0;
         const gainColor = gain > 0 ? 'var(--success)' : (gain < 0 ? 'var(--danger)' : 'var(--text-muted)');
         headline.innerHTML = `
-          <div style="font-size:1.6rem; font-weight:700;">${escapeHtml(formatNum(d.net_worth))} ${escapeHtml(d.currency)}</div>
+          <div style="font-size:1.6rem; font-weight:700;">${escapeHtml(formatAmount(d.net_worth, d.currency))} ${escapeHtml(d.currency)}</div>
           <div style="font-size:0.82rem; color:var(--text-muted);">
-            ${escapeHtml(t('nwAssets'))}: ${escapeHtml(formatNum(d.total_assets))} ·
-            ${escapeHtml(t('nwDebts'))}: ${escapeHtml(formatNum(d.total_liabilities))}
+            ${escapeHtml(t('nwAssets'))}: ${escapeHtml(formatAmount(d.total_assets, d.currency))} ·
+            ${escapeHtml(t('nwDebts'))}: ${escapeHtml(formatAmount(d.total_liabilities, d.currency))}
           </div>
-          ${gain ? `<div style="font-size:0.82rem; color:${gainColor};">${escapeHtml(t('nwUnrealized'))}: ${escapeHtml(formatNum(gain))}</div>` : ''}
+          ${gain ? `<div style="font-size:0.82rem; color:${gainColor};">${escapeHtml(t('nwUnrealized'))}: ${escapeHtml(formatAmount(gain, d.currency))}</div>` : ''}
           ${(d.missing_rates || []).length ? `<div class="alert-chip medium" style="margin-top:0.35rem;">${escapeHtml(tf('nwMissingRate', { units: d.missing_rates.join(', ') }))}</div>` : ''}
         `;
 
         renderMiniTable('nw-breakdown', ['item', 'value'],
           [...d.assets, ...d.liabilities].map(l => [
             escapeHtml(l.account_name) + (l.revalued ? ' ★' : ''),
-            formatNum(l.market_value),
+            formatAmount(l.market_value, d.currency),
           ]));
 
         const canvas = document.getElementById('nw-trend-chart');

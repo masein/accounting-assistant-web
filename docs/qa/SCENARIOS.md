@@ -335,6 +335,7 @@ The books kept whole units, so a £7.50 bank fee went in as £7. Pounds, dollars
 | Q11d | Files [P5] | Export the journal, the trial balance and a statement to CSV and Excel with pence in them | CSV cells read 7.50; Excel cells hold the number 7.5 formatted `#,##0.00` (a rial file `#,##0`); totals add up to the penny |
 | Q11e | A cheque to the penny [P5] | Print a cheque for £1,234.56 (UK layout) and one for 1,234,560 rials (Iranian layout) | «£1,234.56» and «One thousand two hundred and thirty-four pounds and fifty-six pence»; the rial cheque as before («#۱٬۲۳۴٬۵۶۰#») |
 | Q12 | The phone [P2, P5] | Q4 and Q6 on the phone; the widget | «£7.50» on the cards, «£23,915.50» on the widget; nothing is cut to whole pounds |
+| Q13 | The web's figures [P5] | In a UK company open the dashboard, the ledger, the trial balance and statements, an invoice, payroll, the CFO page and the forecast; then an Iranian company's same pages; then Persian | Every amount in pounds shows its pence, whole ones too («£950.00», «1,138.17 GBP»), a unit price keeps its own places («0.125»); counts, percentages, quantities and chart axes don't («12 rows», «40%»); a rial page reads as before («2,500,000»); in Persian «۹۵۰٫۰۰» |
 
 ## R. The accountant on migrated books, AI on (2026-10-12)
 

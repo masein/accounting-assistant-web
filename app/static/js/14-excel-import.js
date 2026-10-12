@@ -163,7 +163,7 @@
           <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.3rem;">
             <strong>${escapeHtml(tf('xiVoucherNo', { n: v.voucher_number }))}</strong>
             <span><bdi>${escapeHtml(String(dateStr))}</bdi></span>
-            <span style="${balClass}">${escapeHtml(t('tableDebit'))} ${formatNum(v.total_debit)} · ${escapeHtml(t('tableCredit'))} ${formatNum(v.total_credit)}</span>
+            <span style="${balClass}">${escapeHtml(t('tableDebit'))} ${formatAmount(v.total_debit)} · ${escapeHtml(t('tableCredit'))} ${formatAmount(v.total_credit)}</span>
           </div>
           <table style="width:100%;font-size:0.75rem;border-collapse:collapse;">
             <tr style="background:var(--bg-surface);"><th style="text-align:start;padding:2px 4px;">${escapeHtml(t('fieldAccount'))}</th><th style="text-align:start;padding:2px 4px;">${escapeHtml(t('labelDescription'))}</th><th style="text-align:end;padding:2px 4px;">${escapeHtml(t('tableDebit'))}</th><th style="text-align:end;padding:2px 4px;">${escapeHtml(t('tableCredit'))}</th></tr>`;
@@ -172,8 +172,8 @@
           html += `<tr>
             <td style="padding:2px 4px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(acctPath)}">${escapeHtml(acctPath)}</td>
             <td style="padding:2px 4px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.description)}">${escapeHtml(l.description)}</td>
-            <td style="padding:2px 4px;text-align:end;">${l.debit ? formatNum(l.debit) : ''}</td>
-            <td style="padding:2px 4px;text-align:end;">${l.credit ? formatNum(l.credit) : ''}</td>
+            <td style="padding:2px 4px;text-align:end;">${l.debit ? formatAmount(l.debit) : ''}</td>
+            <td style="padding:2px 4px;text-align:end;">${l.credit ? formatAmount(l.credit) : ''}</td>
           </tr>`;
         });
         html += '</table></div>';

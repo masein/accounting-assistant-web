@@ -637,7 +637,7 @@
 
     // ═══════ Shareholders & Equity ═══════
     let _equityCurrency = '';
-    function _eqFmt(n) { return formatNum(n) + (_equityCurrency ? ' ' + _equityCurrency : ''); }
+    function _eqFmt(n) { return formatAmount(n) + (_equityCurrency ? ' ' + _equityCurrency : ''); }
     async function _equityShareholderOptions() {
       const res = await fetch(API + '/entities?type=shareholder');
       const rows = res.ok ? await res.json().catch(() => []) : [];
@@ -682,9 +682,9 @@
             <td>${escapeHtml(r.entity_name || '—')}</td>
             <td class="num">${r.percent != null ? localDigits(r.percent + '%') : '—'}</td>
             <td class="num">${r.shares != null ? formatNum(r.shares) : '—'}</td>
-            <td class="num">${formatNum(r.paid_in)}</td>
-            <td class="num">${formatNum(r.dividends_declared)}</td>
-            <td class="num ${r.dividends_outstanding > 0 ? 'ledger-negative' : ''}">${formatNum(r.dividends_outstanding)}</td>
+            <td class="num">${formatAmount(r.paid_in)}</td>
+            <td class="num">${formatAmount(r.dividends_declared)}</td>
+            <td class="num ${r.dividends_outstanding > 0 ? 'ledger-negative' : ''}">${formatAmount(r.dividends_outstanding)}</td>
             <td><button type="button" class="btn btn-secondary btn-sm equity-del" data-id="${escapeHtml(r.id)}" data-name="${escapeHtml(r.entity_name || '')}">${escapeHtml(t('btnDelete'))}</button></td>
           </tr>`).join('');
       } catch (err) {
@@ -785,11 +785,11 @@
         const data = await res.json();
         const rows = (data.rows || []).map(r => `
           <tr><td>${escapeHtml(formatDisplayDate(r.date || ''))}</td><td>${escapeHtml(r.description || r.reference || '')}</td>
-          <td class="num">${r.debit_effect ? formatNum(r.debit_effect) : ''}</td>
-          <td class="num">${r.credit_effect ? formatNum(r.credit_effect) : ''}</td>
-          <td class="num">${formatNum(r.running_balance)}</td></tr>`).join('');
+          <td class="num">${r.debit_effect ? formatAmount(r.debit_effect) : ''}</td>
+          <td class="num">${r.credit_effect ? formatAmount(r.credit_effect) : ''}</td>
+          <td class="num">${formatAmount(r.running_balance)}</td></tr>`).join('');
         body.innerHTML = `
-          <p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('equityLedgerHint'))} · ${escapeHtml(t('equityColOutstandingClaim'))}: <strong>${formatNum(data.closing_balance)}</strong></p>
+          <p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('equityLedgerHint'))} · ${escapeHtml(t('equityColOutstandingClaim'))}: <strong>${formatAmount(data.closing_balance)}</strong></p>
           <div style="max-height:400px;overflow:auto;"><table class="detail-table"><thead><tr>
             <th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelDescription'))}</th>
             <th class="num">${escapeHtml(t('equityColDebit'))}</th><th class="num">${escapeHtml(t('equityColCredit'))}</th>
@@ -835,7 +835,7 @@
         const res = await fetch(API + '/invoices?kind=' + kind);
         if (!res.ok) return;
         const rows = (await res.json()).filter(r => r.balance_due > 0 && !['draft', 'voided', 'canceled'].includes(r.status));
-        sel.innerHTML += rows.map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.number)} — ${escapeHtml(formatNum(r.balance_due))}</option>`).join('');
+        sel.innerHTML += rows.map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.number)} — ${escapeHtml(formatAmount(r.balance_due))}</option>`).join('');
       } catch (_) { /* offline */ }
     }
 
@@ -891,7 +891,7 @@
         <td class="cm-due" data-label="${escapeHtml(t('cmColDue'))}">${escapeHtml(formatDisplayDate(r.due_date))}</td>
         <td class="cm-what" dir="auto">${escapeHtml(r.title)}${escapeHtml(seq)} <span style="color:var(--text-muted); font-size:0.8rem;">${escapeHtml(who)}</span>
           ${meta.length ? `<div class="cm-meta" dir="auto">${escapeHtml(meta.join(' · '))}</div>` : ''}</td>
-        <td class="cm-amount" data-label="${escapeHtml(t('cmColAmount'))}">${escapeHtml(formatNum(r.amount))}</td>
+        <td class="cm-amount" data-label="${escapeHtml(t('cmColAmount'))}">${escapeHtml(formatAmount(r.amount))}</td>
         <td class="cm-status">${cmStatusChip(r)}</td>
         <td class="cm-act"><div class="cm-actions">${actions}</div></td>
       </tr>`;
@@ -921,7 +921,7 @@
           (await fetch(API + '/commitments/summary')).json(),
         ]);
         const kpi = (label, value) => `<div class="kpi-card"><div class="label">${escapeHtml(t(label))}</div><div class="value">${value}</div></div>`;
-        const money = (n) => `${escapeHtml(formatNum(n))} ${escapeHtml(currencyUnit())}`;
+        const money = (n) => `${escapeHtml(formatAmount(n))} ${escapeHtml(currencyUnit())}`;
         document.getElementById('cm-summary').innerHTML =
           kpi('cmYouOwe', money(sum.payable)) + kpi('cmOwedToYou', money(sum.receivable))
           + kpi('cmNextDue', sum.next_due_date ? escapeHtml(formatDisplayDate(sum.next_due_date)) : '—')
@@ -961,7 +961,7 @@
       const modal = document.getElementById('cm-step-modal');
       const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
       document.getElementById('cm-step-title').textContent = t(CM_STEP_LABEL[step]);
-      document.getElementById('cm-step-what').textContent = `${row.title} — ${formatNum(row.amount)} ${currencyUnit()}`;
+      document.getElementById('cm-step-what').textContent = `${row.title} — ${formatAmount(row.amount)} ${currencyUnit()}`;
       // a cheque is dated the day it falls due
       document.getElementById('cm-step-date').value = step === 'print' ? row.due_date : localIsoDate();
       const bankSel = document.getElementById('cm-step-bank');
@@ -1216,7 +1216,7 @@
             <div>
               <strong dir="auto">${escapeHtml(r.description)}</strong>
               <div style="font-size:0.8rem; color:var(--text-muted);">
-                ${escapeHtml(approx + formatNum(r.typical_amount))} ${escapeHtml(currencyUnit())} ·
+                ${escapeHtml(approx + formatAmount(r.typical_amount))} ${escapeHtml(currencyUnit())} ·
                 ${escapeHtml(freq)} · ${escapeHtml(tf('rdSeenTimes', { n: r.occurrences }))} ·
                 ${escapeHtml(tf('rdNextAbout', { d: formatDisplayDate(r.next_expected) }))}
               </div>
@@ -1328,7 +1328,7 @@
     }
 
     function assetMoneyByCurrency(map, field) {
-      return Object.entries(map || {}).map(([ccy, v]) => formatNum(field ? v[field] : v) + ' ' + ccy).join(' · ') || '0';
+      return Object.entries(map || {}).map(([ccy, v]) => formatAmount(field ? v[field] : v, ccy) + ' ' + ccy).join(' · ') || '0';
     }
 
     async function loadFixedAssets() {
@@ -1367,8 +1367,8 @@
           + '<td>' + escapeHtml(assetCategoryLabel(a.category)) + '</td>'
           + '<td>' + escapeHtml(formatDisplayDate(a.in_service_on)) + '</td>'
           + '<td>' + escapeHtml(assetTermsText(a)) + '</td>'
-          + '<td>' + escapeHtml(formatNum(a.cost)) + '</td><td>' + escapeHtml(formatNum(a.accumulated)) + '</td>'
-          + '<td>' + escapeHtml(formatNum(a.net_book_value)) + '</td><td>' + assetStatusChip(a) + '</td>'
+          + '<td>' + escapeHtml(formatAmount(a.cost)) + '</td><td>' + escapeHtml(formatAmount(a.accumulated)) + '</td>'
+          + '<td>' + escapeHtml(formatAmount(a.net_book_value)) + '</td><td>' + assetStatusChip(a) + '</td>'
           + '<td><button type="button" class="btn btn-secondary btn-sm asset-open" data-id="' + escapeHtml(a.id) + '">'
           + escapeHtml(t('assetDetails')) + '</button></td></tr>').join('') + '</tbody></table>';
         wrap.querySelectorAll('.asset-open').forEach((b) => b.addEventListener('click', () => assetShowDetail(b.dataset.id)));
@@ -1385,8 +1385,8 @@
         const res = await fetch(API + '/fixed-assets/' + encodeURIComponent(id));
         const a = await res.json();
         if (!res.ok) throw new Error(a.detail || t('msgFailed'));
-        const sched = (a.schedule || []).map((m) => '<tr><td>' + escapeHtml(m.label) + '</td><td>' + escapeHtml(formatNum(m.amount))
-          + '</td><td>' + escapeHtml(formatNum(m.closing_nbv)) + '</td><td>' + (m.posted ? '✓' : '') + '</td></tr>').join('');
+        const sched = (a.schedule || []).map((m) => '<tr><td>' + escapeHtml(m.label) + '</td><td>' + escapeHtml(formatAmount(m.amount))
+          + '</td><td>' + escapeHtml(formatAmount(m.closing_nbv)) + '</td><td>' + (m.posted ? '✓' : '') + '</td></tr>').join('');
         const dispose = a.status === 'active'
           ? '<h4>' + escapeHtml(t('assetDisposeTitle')) + '</h4><div class="row">'
             + '<div><label for="asset-dispose-on">' + escapeHtml(t('assetDisposeOn')) + '</label><input type="date" id="asset-dispose-on"></div>'
@@ -1394,7 +1394,7 @@
             + '<div style="display:flex; gap:0.5rem;"><button type="button" class="btn btn-secondary btn-sm" id="asset-dispose-preview">' + escapeHtml(t('assetRunPreview')) + '</button>'
             + '<button type="button" class="btn btn-danger btn-sm" id="asset-dispose-post">' + escapeHtml(t('assetDisposePost')) + '</button></div>'
             + '<div id="asset-dispose-result"></div>'
-          : '<p class="fc-note">' + escapeHtml(tf('assetDisposedOn', { date: formatDisplayDate(a.disposed_on), amount: formatNum(a.disposal_proceeds || 0) })) + '</p>';
+          : '<p class="fc-note">' + escapeHtml(tf('assetDisposedOn', { date: formatDisplayDate(a.disposed_on), amount: formatAmount(a.disposal_proceeds || 0) })) + '</p>';
         box.innerHTML = '<div style="display:flex; justify-content:space-between; gap:0.5rem; align-items:center;">'
           + '<h3 style="margin:0;" dir="auto">' + escapeHtml(a.number + ' — ' + a.name) + '</h3>'
           + '<button type="button" class="btn btn-secondary btn-sm" id="asset-detail-close">' + escapeHtml(t('assetClose')) + '</button></div>'
@@ -1420,7 +1420,7 @@
               const d = await r.json();
               if (!r.ok) throw new Error(d.detail || t('msgFailed'));
               out.innerHTML = '<p class="fc-note">' + escapeHtml(tf(d.gain ? 'assetDisposeGain' : 'assetDisposeLoss', {
-                nbv: formatNum(d.net_book_value), proceeds: formatNum(d.proceeds), amount: formatNum(d.gain || d.loss) })) + '</p>';
+                nbv: formatAmount(d.net_book_value), proceeds: formatAmount(d.proceeds), amount: formatAmount(d.gain || d.loss) })) + '</p>';
               if (!preview) { loadFixedAssets(); assetShowDetail(a.id); }
             } catch (err) {
               out.innerHTML = '<p class="fc-note fc-risk-text">' + escapeHtml(err.message || t('assetLoadError')) + '</p>';
@@ -1449,7 +1449,7 @@
           + '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('assetColMonth')) + '</th><th>' + escapeHtml(t('assetColDate'))
           + '</th><th>' + escapeHtml(t('assetColAssets')) + '</th><th>' + escapeHtml(t('assetColCharge')) + '</th></tr></thead><tbody>'
           + d.journals.map((j) => '<tr><td>' + escapeHtml(j.months.join(', ')) + '</td><td>' + escapeHtml(formatDisplayDate(j.date))
-            + '</td><td>' + escapeHtml(String(j.assets)) + '</td><td>' + escapeHtml(formatNum(j.amount) + ' ' + j.currency) + '</td></tr>').join('')
+            + '</td><td>' + escapeHtml(String(j.assets)) + '</td><td>' + escapeHtml(formatAmount(j.amount, j.currency) + ' ' + j.currency) + '</td></tr>').join('')
           + '</tbody></table>';
         if (!preview) loadFixedAssets();
       } catch (err) {
@@ -1524,7 +1524,7 @@
           + escapeHtml(t('moreActions')) + '">⋯</summary><div class="row-menu-list">' + more + '</div></details>';
         return '<tr' + (n.is_active ? '' : ' style="opacity:0.55;"') + '><td dir="ltr" style="padding-inline-start:' + (0.4 + n.depth * 1.1) + 'rem;">' + escapeHtml(localCode(n.code)) + '</td>'
           + '<td dir="auto">' + escapeHtml(n.name) + '</td><td>' + escapeHtml(t('coaLevel_' + n.level)) + '</td>'
-          + '<td>' + escapeHtml(formatNum(n.total)) + '</td>'
+          + '<td>' + escapeHtml(formatAmount(n.total)) + '</td>'
           + '<td>' + (n.is_active ? '' : '<span class="alert-chip low">' + escapeHtml(t('coaInactive')) + '</span>')
           + (n.protected ? ' <span class="fc-note">' + escapeHtml(t('coaProtected')) + '</span>' : '') + '</td>'
           + '<td class="row-actions">' + actions + '</td></tr>';
@@ -1649,7 +1649,7 @@
       const dr = lines.reduce((a, l) => a + l.debit, 0);
       const cr = lines.reduce((a, l) => a + l.credit, 0);
       document.getElementById('coa-opening-totals').textContent = tf(dr === cr ? 'coaOpeningBalanced' : 'coaOpeningDiff',
-        { debit: formatNum(dr), credit: formatNum(cr), diff: formatNum(Math.abs(dr - cr)) });
+        { debit: formatAmount(dr), credit: formatAmount(cr), diff: formatAmount(Math.abs(dr - cr)) });
     }
 
     async function coaSaveOpening() {
@@ -1661,7 +1661,7 @@
       if (!(await uiConfirm({ message: t('coaOpeningConfirm'), confirmLabel: t('coaOpeningSave') }))) return;
       try {
         const d = await coaSend('/accounts/opening-balances', 'PUT', { on, lines });
-        msg.textContent = d.adjustment ? tf('coaOpeningSavedAdj', { amount: formatNum(Math.abs(d.adjustment)) }) : t('coaOpeningSaved');
+        msg.textContent = d.adjustment ? tf('coaOpeningSavedAdj', { amount: formatAmount(Math.abs(d.adjustment)) }) : t('coaOpeningSaved');
         loadChartOfAccounts();
       } catch (err) { msg.textContent = err.message; }
     }
@@ -1759,15 +1759,15 @@
                 '<option value="' + escapeHtml(c.code) + '"' + (c.code === pick ? ' selected' : '') + '>' + escapeHtml(localCode(c.code) + ' — ' + c.name) + '</option>').join('')
               + creates.filter((x) => x !== a.create).map(createOpt).join('');
             return '<tr><td dir="auto">' + escapeHtml([localCode(a.code || ''), a.name].filter(Boolean).join(' — ')) + (a.how ? ' <span class="fc-note">(' + escapeHtml(t('jiHow_' + a.how)) + ')</span>' : '') + '</td>'
-              + '<td>' + escapeHtml(formatNum(a.debit)) + '</td><td>' + escapeHtml(formatNum(a.credit)) + '</td>'
+              + '<td>' + escapeHtml(formatAmount(a.debit)) + '</td><td>' + escapeHtml(formatAmount(a.credit)) + '</td>'
               + '<td><select data-ji-account="' + escapeHtml(a.key) + '" aria-label="' + escapeHtml(t('jiMapsTo') + ' — ' + (a.name || a.code || '')) + '">' + options + '</select></td></tr>';
           }).join('') + '</tbody></table></div>';
       }
       const problems = (r.vouchers || []).filter((v) => v.problem).slice(0, 30);
       if (problems.length) {
         html += '<h4 style="margin:0.8rem 0 0.3rem;">' + escapeHtml(t('jiProblems')) + '</h4><table class="mini-table"><tbody>' + problems.map((v) =>
-          '<tr><td>' + escapeHtml(v.number) + '</td><td>' + escapeHtml(formatDisplayDate(v.date)) + '</td><td>' + escapeHtml(formatNum(v.debit))
-          + ' / ' + escapeHtml(formatNum(v.credit)) + '</td><td>' + escapeHtml(t('jiProblem_' + v.problem)) + '</td></tr>').join('') + '</tbody></table>';
+          '<tr><td>' + escapeHtml(v.number) + '</td><td>' + escapeHtml(formatDisplayDate(v.date)) + '</td><td>' + escapeHtml(formatAmount(v.debit))
+          + ' / ' + escapeHtml(formatAmount(v.credit)) + '</td><td>' + escapeHtml(t('jiProblem_' + v.problem)) + '</td></tr>').join('') + '</tbody></table>';
       }
       html += '<div style="display:flex; gap:0.5rem; margin-top:0.8rem;"><button type="button" class="btn btn-secondary" id="ji-recheck">' + escapeHtml(t('jiRecheck'))
         + '</button><button type="button" class="btn btn-primary" id="ji-apply"' + ((r.counts && r.counts.ready) ? '' : ' disabled') + '>'

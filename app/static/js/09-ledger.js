@@ -28,8 +28,8 @@
       ledgerKpisEl.innerHTML = `
         <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiShown'))}</div><div class="v">${formatNum(rows.length)}</div></div>
         <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiActive'))}</div><div class="v">${formatNum(active)}</div></div>
-        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiMovement'))}</div><div class="v">${formatNum(totalMovement)} ${escapeHtml(currencyUnit())}</div></div>
-        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiNet'))}</div><div class="v ${net >= 0 ? 'ledger-positive' : 'ledger-negative'}">${formatNum(Math.abs(net))} ${escapeHtml(currencyUnit())} ${escapeHtml(t(net >= 0 ? 'balanceDr' : 'balanceCr'))}</div></div>
+        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiMovement'))}</div><div class="v">${formatAmount(totalMovement)} ${escapeHtml(currencyUnit())}</div></div>
+        <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiNet'))}</div><div class="v ${net >= 0 ? 'ledger-positive' : 'ledger-negative'}">${formatAmount(Math.abs(net))} ${escapeHtml(currencyUnit())} ${escapeHtml(t(net >= 0 ? 'balanceDr' : 'balanceCr'))}</div></div>
         <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiTopDebit'))}</div><div class="v" style="font-size:0.95rem;">${acctLabel(topDebit)}</div></div>
         <div class="ledger-kpi"><div class="k">${escapeHtml(t('ledgerKpiTopCredit'))}</div><div class="v" style="font-size:0.95rem;">${acctLabel(topCredit)}</div></div>
       `;
@@ -167,10 +167,10 @@
           tr.innerHTML = `
             <td style="${grouped && g.code ? 'padding-inline-start:1.4rem;' : ''}">${escapeHtml(localCode(r.account_code))}</td>
             <td>${r.account_name}</td>
-            <td class="num">${formatNum(r.debit_turnover)}</td>
-            <td class="num">${formatNum(r.credit_turnover)}</td>
-            <td class="num">${formatNum(r.debit_balance)}</td>
-            <td class="num ${net < 0 ? 'ledger-negative' : ''}">${formatNum(r.credit_balance)}</td>
+            <td class="num">${formatAmount(r.debit_turnover)}</td>
+            <td class="num">${formatAmount(r.credit_turnover)}</td>
+            <td class="num">${formatAmount(r.debit_balance)}</td>
+            <td class="num ${net < 0 ? 'ledger-negative' : ''}">${formatAmount(r.credit_balance)}</td>
           `;
           resultsTbody.appendChild(tr);
         });
@@ -183,10 +183,10 @@
           sr.innerHTML = `
             <td></td>
             <td style="color:var(--text-muted);font-size:0.8rem;">${escapeHtml(tf('ledgerKolTotal', { name: g.name || localCode(g.code) }))}</td>
-            <td class="num" style="font-weight:600;">${formatNum(st.dt)}</td>
-            <td class="num" style="font-weight:600;">${formatNum(st.ct)}</td>
-            <td class="num" style="font-weight:600;">${formatNum(st.db)}</td>
-            <td class="num" style="font-weight:600;">${formatNum(st.cb)}</td>
+            <td class="num" style="font-weight:600;">${formatAmount(st.dt)}</td>
+            <td class="num" style="font-weight:600;">${formatAmount(st.ct)}</td>
+            <td class="num" style="font-weight:600;">${formatAmount(st.db)}</td>
+            <td class="num" style="font-weight:600;">${formatAmount(st.cb)}</td>
           `;
           resultsTbody.appendChild(sr);
         }
@@ -199,10 +199,10 @@
         return acc;
       }, { debitTurnover: 0, creditTurnover: 0, debitBalance: 0, creditBalance: 0 });
       resultsFoot.style.display = 'table-row-group';
-      document.getElementById('foot-debit-turnover').textContent = formatNum(totals.debitTurnover);
-      document.getElementById('foot-credit-turnover').textContent = formatNum(totals.creditTurnover);
-      document.getElementById('foot-debit-balance').textContent = formatNum(totals.debitBalance);
-      document.getElementById('foot-credit-balance').textContent = formatNum(totals.creditBalance);
+      document.getElementById('foot-debit-turnover').textContent = formatAmount(totals.debitTurnover);
+      document.getElementById('foot-credit-turnover').textContent = formatAmount(totals.creditTurnover);
+      document.getElementById('foot-debit-balance').textContent = formatAmount(totals.debitBalance);
+      document.getElementById('foot-credit-balance').textContent = formatAmount(totals.creditBalance);
       renderLedgerKpis(rows);
       renderCharts(rows);
     }

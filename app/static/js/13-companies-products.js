@@ -226,11 +226,11 @@
         if (!rows.length) { wrap.innerHTML = '<span style="color:var(--text-muted);">' + escapeHtml(t('adjNone')) + '</span>'; return; }
         wrap.innerHTML = rows.map((a) => {
           const sched = (a.kind === 'prepayment' || a.kind === 'depreciation')
-            ? ` — ${a.periods_posted}/${a.periods}` + (a.net_book_value != null ? `, ${t('adjNbv')}: ${formatNum(a.net_book_value)}` : '')
+            ? ` — ${a.periods_posted}/${a.periods}` + (a.net_book_value != null ? `, ${t('adjNbv')}: ${formatAmount(a.net_book_value)}` : '')
             : (a.reversal_transaction_id ? ` — ${t('adjAutoReversed')}` : '');
           const canRelease = (a.kind === 'prepayment' || a.kind === 'depreciation') && a.status === 'active';
           return `<div style="padding:0.3rem 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; gap:0.5rem;">
-            <span>${escapeHtml(t('adj_' + a.kind) || a.kind)}: ${escapeHtml(a.description || '')} (${formatNum(a.amount)} ${escapeHtml(a.currency)})${escapeHtml(sched)}</span>
+            <span>${escapeHtml(t('adj_' + a.kind) || a.kind)}: ${escapeHtml(a.description || '')} (${formatAmount(a.amount, a.currency)} ${escapeHtml(a.currency)})${escapeHtml(sched)}</span>
             ${canRelease ? `<button type="button" class="btn btn-secondary btn-sm adj-release" data-id="${a.id}">${escapeHtml(t('adjRelease'))}</button>` : ''}
           </div>`;
         }).join('');
@@ -649,7 +649,7 @@
         const data = await res.json();
         if (!res.ok) { wrap.innerHTML = '<p style="color:#c62828;">' + escapeHtml(t('entTxLoadError')) + '</p>'; return; }
 
-        summaryEl.textContent = `${data.total_count} transaction${data.total_count !== 1 ? 's' : ''} | ${t('fieldTotalDebit')}: ${formatNum(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatNum(data.total_credit)}`;
+        summaryEl.textContent = `${data.total_count} transaction${data.total_count !== 1 ? 's' : ''} | ${t('fieldTotalDebit')}: ${formatAmount(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatAmount(data.total_credit)}`;
 
         if (!data.rows.length) {
           wrap.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">' + escapeHtml(t('noDataYet')) + '</p>';
@@ -686,7 +686,7 @@
         }</tbody></table>`;
         // Also show a single currency label above the table when all rows share one
         if (!showCcyCol && data.rows.length && data.rows[0].currency) {
-          summaryEl.textContent = `${data.total_count} transaction${data.total_count !== 1 ? 's' : ''} (${data.rows[0].currency}) | ${t('fieldTotalDebit')}: ${formatNum(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatNum(data.total_credit)}`;
+          summaryEl.textContent = `${data.total_count} transaction${data.total_count !== 1 ? 's' : ''} (${data.rows[0].currency}) | ${t('fieldTotalDebit')}: ${formatAmount(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatAmount(data.total_credit)}`;
         }
 
         // Pagination
@@ -737,9 +737,9 @@
           if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
           w.document.write(`<html lang="${document.documentElement.lang}" dir="${document.documentElement.dir || 'ltr'}"><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:start}.num{text-align:end}h2{margin:0 0 8px}</style></head><body>
             <h2>${escapeHtml(title)}</h2>
-            <p>${escapeHtml(tf('drillPrintSummary', { count: data.total_count, debit: formatNum(data.total_debit), credit: formatNum(data.total_credit) }))}</p>
+            <p>${escapeHtml(tf('drillPrintSummary', { count: data.total_count, debit: formatAmount(data.total_debit), credit: formatAmount(data.total_credit) }))}</p>
             <table><thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th>${escapeHtml(t('tableCode'))}</th><th>${escapeHtml(t('fieldAccount'))}</th><th class="num">${escapeHtml(t('tableDebit'))}</th><th class="num">${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('fieldEntities'))}</th></tr></thead><tbody>
-            ${rows.map(r=>`<tr><td>${escapeHtml(formatDisplayDate(r.date))}</td><td>${escapeHtml(r.reference||'')}</td><td>${escapeHtml(r.description||'')}</td><td>${escapeHtml(localCode(r.account_code))}</td><td>${escapeHtml(r.account_name||'')}</td><td class="num">${formatNum(r.debit||0)}</td><td class="num">${formatNum(r.credit||0)}</td><td>${(r.entity_names||[]).join(', ')}</td></tr>`).join('')}
+            ${rows.map(r=>`<tr><td>${escapeHtml(formatDisplayDate(r.date))}</td><td>${escapeHtml(r.reference||'')}</td><td>${escapeHtml(r.description||'')}</td><td>${escapeHtml(localCode(r.account_code))}</td><td>${escapeHtml(r.account_name||'')}</td><td class="num">${formatAmount(r.debit||0)}</td><td class="num">${formatAmount(r.credit||0)}</td><td>${(r.entity_names||[]).join(', ')}</td></tr>`).join('')}
             </tbody></table></body></html>`);
           w.document.close();
           setTimeout(() => w.print(), 300);
@@ -840,7 +840,7 @@
       content.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">
           <span style="font-size:0.85rem;color:var(--text-muted);">
-            ${data.items.length} products | ${t('fieldRevenue')}: ${formatNum(data.total_revenue)} | ${t('fieldCost')}: ${formatNum(data.total_cost)} | ${t('fieldProfit')}: ${formatNum(data.total_profit)} ${currencyUnit()}
+            ${data.items.length} products | ${t('fieldRevenue')}: ${formatAmount(data.total_revenue)} | ${t('fieldCost')}: ${formatAmount(data.total_cost)} | ${t('fieldProfit')}: ${formatAmount(data.total_profit)} ${currencyUnit()}
           </span>
           <span>
             <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="prod-content" data-name="Products_Catalog" data-format="csv">CSV</button>
@@ -856,9 +856,9 @@
             <tr style="cursor:pointer;" data-product="${escapeHtml(p.product_name)}">
               <td><strong>${escapeHtml(p.product_name)}</strong></td>
               <td>${escapeHtml(p.sku || '—')}</td>
-              <td>${formatNum(p.total_sales_revenue)}</td>
-              <td>${formatNum(p.total_purchase_cost)}</td>
-              <td style="color:${p.gross_profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(p.gross_profit)}</td>
+              <td>${formatAmount(p.total_sales_revenue)}</td>
+              <td>${formatAmount(p.total_purchase_cost)}</td>
+              <td style="color:${p.gross_profit >= 0 ? '#2e7d32' : '#c62828'};">${formatAmount(p.gross_profit)}</td>
               <td>${p.margin_pct != null ? localDigits(p.margin_pct + '%') : '—'}</td>
               <td>${localDigits(p.client_count)}</td>
               <td>${localDigits(p.supplier_count)}</td>
@@ -898,30 +898,30 @@
 
         body.innerHTML = `
           <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;">
-            <div class="kpi-card"><div class="label">${t('fieldRevenue')}</div><div class="value">${formatNum(d.total_revenue)}</div></div>
-            <div class="kpi-card"><div class="label">${t('fieldCost')}</div><div class="value">${formatNum(d.total_cost)}</div></div>
-            <div class="kpi-card"><div class="label">${t('fieldProfit')}</div><div class="value" style="color:${d.gross_profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(d.gross_profit)}</div></div>
+            <div class="kpi-card"><div class="label">${t('fieldRevenue')}</div><div class="value">${formatAmount(d.total_revenue)}</div></div>
+            <div class="kpi-card"><div class="label">${t('fieldCost')}</div><div class="value">${formatAmount(d.total_cost)}</div></div>
+            <div class="kpi-card"><div class="label">${t('fieldProfit')}</div><div class="value" style="color:${d.gross_profit >= 0 ? '#2e7d32' : '#c62828'};">${formatAmount(d.gross_profit)}</div></div>
             <div class="kpi-card"><div class="label">${t('fieldMarginPct')}</div><div class="value">${d.margin_pct != null ? localDigits(d.margin_pct + '%') : '—'}</div></div>
           </div>
 
           ${d.clients.length ? `
             <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(tf('prodClientsN', { n: d.clients.length }))}</h4>
             <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldRevenue')}</th><th>${t('fieldInvoiceCount')}</th></tr></thead><tbody>
-              ${d.clients.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${formatNum(c.revenue)}</td><td>${c.invoice_count}</td></tr>`).join('')}
+              ${d.clients.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${formatAmount(c.revenue)}</td><td>${c.invoice_count}</td></tr>`).join('')}
             </tbody></table>
           ` : ''}
 
           ${d.suppliers.length ? `
             <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(tf('prodSuppliersN', { n: d.suppliers.length }))}</h4>
             <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldCost')}</th><th>${t('fieldInvoiceCount')}</th></tr></thead><tbody>
-              ${d.suppliers.map(s => `<tr><td>${escapeHtml(s.name)}</td><td>${formatNum(s.cost)}</td><td>${s.invoice_count}</td></tr>`).join('')}
+              ${d.suppliers.map(s => `<tr><td>${escapeHtml(s.name)}</td><td>${formatAmount(s.cost)}</td><td>${s.invoice_count}</td></tr>`).join('')}
             </tbody></table>
           ` : ''}
 
           ${d.monthly_series.length ? `
             <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(t('prodMonthlyTrend'))}</h4>
             <table class="mini-table"><thead><tr><th>${t('fieldWeek')}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th></tr></thead><tbody>
-              ${d.monthly_series.map(m => `<tr><td>${escapeHtml(m.month)}</td><td>${formatNum(m.revenue)}</td><td>${formatNum(m.cost)}</td></tr>`).join('')}
+              ${d.monthly_series.map(m => `<tr><td>${escapeHtml(m.month)}</td><td>${formatAmount(m.revenue)}</td><td>${formatAmount(m.cost)}</td></tr>`).join('')}
             </tbody></table>
           ` : ''}
 
@@ -935,8 +935,8 @@
                 <td>${escapeHtml(formatDisplayDate(inv.issue_date))}</td>
                 <td>${escapeHtml(inv.entity_name || '—')}</td>
                 <td>${localDigits(inv.quantity)}</td>
-                <td>${formatNum(inv.unit_price)}</td>
-                <td>${formatNum(inv.line_total)}</td>
+                <td>${formatAmount(inv.unit_price)}</td>
+                <td>${formatAmount(inv.line_total)}</td>
               </tr>`).join('')}
             </tbody></table>
             </div>
@@ -983,9 +983,9 @@
             <tr>
               <td><strong>${escapeHtml(r.entity_name)}</strong></td>
               <td>${escapeHtml(r.entity_type)}</td>
-              <td>${r.products.map(p => `<span style="display:inline-block;background:#e2e8f0;border-radius:4px;padding:0.1rem 0.4rem;margin:0.1rem;font-size:0.78rem;">${escapeHtml(p.product_name)} (${formatNum(isClient ? p.revenue : p.cost)})</span>`).join(' ')}</td>
-              <td>${formatNum(r[valKey])}</td>
-              ${isClient ? `<td style="color:${r.profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(r.profit)}</td>` : ''}
+              <td>${r.products.map(p => `<span style="display:inline-block;background:#e2e8f0;border-radius:4px;padding:0.1rem 0.4rem;margin:0.1rem;font-size:0.78rem;">${escapeHtml(p.product_name)} (${formatAmount(isClient ? p.revenue : p.cost)})</span>`).join(' ')}</td>
+              <td>${formatAmount(r[valKey])}</td>
+              ${isClient ? `<td style="color:${r.profit >= 0 ? '#2e7d32' : '#c62828'};">${formatAmount(r.profit)}</td>` : ''}
             </tr>
           `).join('')}</tbody>
         </table>
@@ -1018,7 +1018,7 @@
       content.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">
           <span style="font-size:0.85rem;color:var(--text-muted);">
-            ${t('fieldRevenue')}: ${formatNum(data.total_revenue)} | ${t('fieldCost')}: ${formatNum(data.total_cost)} | ${t('fieldProfit')}: ${formatNum(data.total_profit)} | Avg Margin: ${data.avg_margin != null ? data.avg_margin + '%' : '—'}
+            ${t('fieldRevenue')}: ${formatAmount(data.total_revenue)} | ${t('fieldCost')}: ${formatAmount(data.total_cost)} | ${t('fieldProfit')}: ${formatAmount(data.total_profit)} | Avg Margin: ${data.avg_margin != null ? data.avg_margin + '%' : '—'}
           </span>
           <span>
             <button type="button" class="btn btn-secondary btn-sm" data-action="export-table" data-target="prod-content" data-name="Profitability" data-format="csv">CSV</button>
@@ -1032,9 +1032,9 @@
           <tbody>${data.by_product.map(p => `
             <tr>
               <td><strong>${escapeHtml(p.product_name)}</strong></td>
-              <td>${formatNum(p.revenue)}</td>
-              <td>${formatNum(p.cost)}</td>
-              <td style="color:${p.profit >= 0 ? '#2e7d32' : '#c62828'};font-weight:600;">${formatNum(p.profit)}</td>
+              <td>${formatAmount(p.revenue)}</td>
+              <td>${formatAmount(p.cost)}</td>
+              <td style="color:${p.profit >= 0 ? '#2e7d32' : '#c62828'};font-weight:600;">${formatAmount(p.profit)}</td>
               <td><span style="background:${p.margin_pct != null && p.margin_pct >= 20 ? '#dcfce7' : p.margin_pct != null && p.margin_pct < 0 ? '#fee2e2' : '#f1f5f9'};padding:0.15rem 0.5rem;border-radius:4px;font-size:0.82rem;">${p.margin_pct != null ? p.margin_pct + '%' : '—'}</span></td>
               <td>${escapeHtml(p.top_client || '—')}</td>
             </tr>
@@ -1051,9 +1051,9 @@
               <tr>
                 <td>${escapeHtml(cp.client_name)}</td>
                 <td>${escapeHtml(cp.product_name)}</td>
-                <td>${formatNum(cp.revenue)}</td>
-                <td>${formatNum(cp.cost)}</td>
-                <td style="color:${cp.profit >= 0 ? '#2e7d32' : '#c62828'};">${formatNum(cp.profit)}</td>
+                <td>${formatAmount(cp.revenue)}</td>
+                <td>${formatAmount(cp.cost)}</td>
+                <td style="color:${cp.profit >= 0 ? '#2e7d32' : '#c62828'};">${formatAmount(cp.profit)}</td>
               </tr>
             `).join('')}</tbody>
           </table>
@@ -1120,7 +1120,7 @@
           <span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(t('auditClickToInspect'))}</span>
         </div>
         <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${escapeHtml(f.detail)}</div>
-        ${f.amount ? `<div style="font-size:0.8rem;margin-top:0.15rem;">${escapeHtml(t('labelAmount'))}: <strong><bdi>${formatNum(Number(f.amount))}</bdi> ${escapeHtml(currencyUnit())}</strong></div>` : ''}`;
+        ${f.amount ? `<div style="font-size:0.8rem;margin-top:0.15rem;">${escapeHtml(t('labelAmount'))}: <strong><bdi>${formatAmount(Number(f.amount))}</bdi> ${escapeHtml(currencyUnit())}</strong></div>` : ''}`;
         div.addEventListener('mouseenter', () => div.style.background = '#f0f4f8');
         div.addEventListener('mouseleave', () => div.style.background = '#fafafa');
         div.addEventListener('click', () => openAuditDrilldown(f, idx));
@@ -1139,7 +1139,7 @@
         <p><strong>${escapeHtml(t('auditSeverity'))}:</strong> <span style="color:${finding.severity === 'critical' ? '#c62828' : '#f57f17'}">${escapeHtml(sev)}</span></p>
         <p><strong>${escapeHtml(t('labelCategory'))}:</strong> ${escapeHtml(auditLabel('auditCat_', finding.category))}</p>
         <p><strong>${escapeHtml(t('thDetail'))}:</strong> ${escapeHtml(finding.detail)}</p>
-        ${finding.amount ? `<p><strong>${escapeHtml(t('labelAmount'))}:</strong> <bdi>${formatNum(Number(finding.amount))}</bdi> ${escapeHtml(currencyUnit())}</p>` : ''}
+        ${finding.amount ? `<p><strong>${escapeHtml(t('labelAmount'))}:</strong> <bdi>${formatAmount(Number(finding.amount))}</bdi> ${escapeHtml(currencyUnit())}</p>` : ''}
         ${finding.entity_id ? `<p><strong>${escapeHtml(t('auditEntityId'))}:</strong> <bdi>${escapeHtml(finding.entity_id)}</bdi></p>` : ''}
       `;
       const statusEl = document.getElementById('audit-modal-status');
@@ -1196,10 +1196,10 @@
           items.forEach(it => {
             const overColor = it.days_overdue > 60 ? '#c62828' : it.days_overdue > 30 ? '#f57f17' : 'var(--text)';
             const bucket = it.aging_bucket === 'current' ? t('fieldCurrent') : it.aging_bucket;
-            html += `<tr><td>${escapeHtml(it.invoice_number || '')}</td><td><bdi>${escapeHtml(it.vendor)}</bdi></td><td>${formatNum(it.balance_due != null ? it.balance_due : it.amount)}</td><td>${escapeHtml(it.due_date ? formatDisplayDate(it.due_date) : '—')}</td><td><span class="badge">${escapeHtml(({ issued: t('optionStatusIssued'), partially_paid: t('optionStatusPartiallyPaid') })[it.status] || it.status)}</span></td><td>${escapeHtml(bucket)}</td><td style="color:${overColor};font-weight:600;">${it.days_overdue}</td></tr>`;
+            html += `<tr><td>${escapeHtml(it.invoice_number || '')}</td><td><bdi>${escapeHtml(it.vendor)}</bdi></td><td>${formatAmount(it.balance_due != null ? it.balance_due : it.amount)}</td><td>${escapeHtml(it.due_date ? formatDisplayDate(it.due_date) : '—')}</td><td><span class="badge">${escapeHtml(({ issued: t('optionStatusIssued'), partially_paid: t('optionStatusPartiallyPaid') })[it.status] || it.status)}</span></td><td>${escapeHtml(bucket)}</td><td style="color:${overColor};font-weight:600;">${it.days_overdue}</td></tr>`;
           });
           html += '</tbody></table></div>';
-          html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>${escapeHtml(t('apTotalPayable'))}:</strong> ${formatNum(data.total)} (${escapeHtml(tf('apItems', { n: data.count }))})</div>`;
+          html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>${escapeHtml(t('apTotalPayable'))}:</strong> ${formatAmount(data.total)} (${escapeHtml(tf('apItems', { n: data.count }))})</div>`;
           mgrReportPreviewEl.innerHTML = html;
           mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
           // AP chart by aging
@@ -1324,8 +1324,8 @@
       const v = await res.json();
       if (!res.ok) throw new Error(v.detail || t('msgFailed'));
       document.getElementById('stock-summary').textContent = tf('stockSummary', {
-        value: formatNum(v.totals.value), method: t('stockMethod_' + v.method),
-        other: formatNum(v.other_method.value), otherMethod: t('stockMethod_' + v.other_method.method),
+        value: formatAmount(v.totals.value), method: t('stockMethod_' + v.method),
+        other: formatAmount(v.other_method.value), otherMethod: t('stockMethod_' + v.other_method.method),
         low: v.totals.below_reorder });
       if (!v.rows.length) { table.innerHTML = '<p class="fc-note">' + escapeHtml(t('stockNone')) + '</p>'; return; }
       const head = ['stockColItem', 'stockColOnHand', 'stockColUnitCost', 'stockColValue', 'stockColCogs', 'stockReorderLevel', '']
@@ -1334,8 +1334,8 @@
         const chip = r.oversold ? '<span class="alert-chip high">' + escapeHtml(t('stockOversold')) + '</span>'
           : (r.below_reorder ? '<span class="alert-chip medium">' + escapeHtml(t('stockReorderNow')) + '</span>' : '');
         return '<tr><td dir="auto">' + escapeHtml(r.name) + (r.sku ? ' <span class="fc-note">(' + escapeHtml(r.sku) + ')</span>' : '') + '</td>'
-          + '<td>' + escapeHtml(formatNum(r.on_hand) + ' ' + (r.unit || '')) + '</td><td>' + escapeHtml(formatNum(r.unit_cost)) + '</td>'
-          + '<td>' + escapeHtml(formatNum(r.value)) + '</td><td>' + escapeHtml(formatNum(r.cogs)) + '</td>'
+          + '<td>' + escapeHtml(formatNum(r.on_hand) + ' ' + (r.unit || '')) + '</td><td>' + escapeHtml(formatAmount(r.unit_cost)) + '</td>'
+          + '<td>' + escapeHtml(formatAmount(r.value)) + '</td><td>' + escapeHtml(formatAmount(r.cogs)) + '</td>'
           + '<td>' + (r.reorder_level == null ? '—' : escapeHtml(formatNum(r.reorder_level))) + '</td><td>' + chip + '</td></tr>';
       }).join('') + '</tbody></table>';
     }
@@ -1400,7 +1400,7 @@
         [res, d] = await send(true);
       }
       if (!res.ok) { out.textContent = typeof d.detail === 'string' ? d.detail : t('stockLoadError'); return; }
-      out.textContent = tf('prodDone', { qty: formatNum(d.quantity), cost: formatNum(d.components_cost), unit: formatNum(d.unit_cost) });
+      out.textContent = tf('prodDone', { qty: formatNum(d.quantity), cost: formatAmount(d.components_cost), unit: formatAmount(d.unit_cost) });
       stockShowValuation().catch(() => {});
     }
 

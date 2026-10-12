@@ -52,7 +52,7 @@ def test_both_sides_party_by_party(flow_page):
         debtors, creditors = panels.nth(0).inner_text(), panels.nth(1).inner_text()
         assert client in debtors and client not in creditors
         row = panels.nth(1).locator("tr", has_text=supplier)
-        assert row.locator("td").last.inner_text().replace(",", "").strip() == "450"   # not 540
+        assert row.locator("td").last.inner_text().replace(",", "").strip() == "450.00"   # not 540; pounds with places (Q13)
         assert page.locator("#mgr-report-preview th").first.inner_text().strip()          # headed columns
         # the charts draw again (the donut at least)
         wait_until(page, "() => document.querySelectorAll('#mgr-extra-charts canvas, .report-chart-panel canvas').length > 0")

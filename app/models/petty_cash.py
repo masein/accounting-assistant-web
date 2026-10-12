@@ -20,12 +20,13 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class PettyCashAccount(Base, TenantMixin):
@@ -55,8 +56,8 @@ class PettyCashTransaction(Base, TenantMixin):
     )
     kind: Mapped[str] = mapped_column(String(16))  # deposit | expense | adjustment
     # positive minor units; adjustments carry their sign in `signed_amount`
-    amount: Mapped[int] = mapped_column(BigInteger)
-    signed_amount: Mapped[int] = mapped_column(BigInteger)  # +adds to the float, −spends it
+    amount: Mapped[int] = mapped_column(MoneyType())
+    signed_amount: Mapped[int] = mapped_column(MoneyType())  # +adds to the float, −spends it
     description: Mapped[str] = mapped_column(Text, default="")
     # expense category / deposit source (bank) / adjustment counter account
     counter_account_code: Mapped[str | None] = mapped_column(String(16), nullable=True)

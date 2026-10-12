@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.money import MoneyType
 
 
 class Company(Base):
@@ -28,7 +29,7 @@ class Company(Base):
     token_version: Mapped[int] = mapped_column(Integer, default=0)
     # Registered/authorised share capital (minor units) — raised by capital
     # increases and paid-in contributions; surfaced on the cap table.
-    registered_capital: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    registered_capital: Mapped[int] = mapped_column(MoneyType(), default=0, server_default="0")
     # AI token budgets over any 24 hours (app/services/ai_usage.py). NULL =
     # the platform default; 0 = unlimited. The company budget is set by the
     # super-admin, the per-user one by the company's owner.

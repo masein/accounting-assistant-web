@@ -27,12 +27,13 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 # kind
 INSTALLMENT = "installment"
@@ -67,7 +68,7 @@ class Commitment(Base, TenantMixin):
     kind: Mapped[str] = mapped_column(String(16), default=INSTALLMENT, index=True)
     direction: Mapped[str] = mapped_column(String(8), default=PAY, index=True)
     title: Mapped[str] = mapped_column(String(256))
-    amount: Mapped[int] = mapped_column(BigInteger, default=0)
+    amount: Mapped[int] = mapped_column(MoneyType(), default=0)
     due_date: Mapped[date] = mapped_column(Date, index=True)
     status: Mapped[str] = mapped_column(String(16), default=PENDING, index=True)
 

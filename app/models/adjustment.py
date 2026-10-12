@@ -3,12 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class Adjustment(Base, TenantMixin):
@@ -33,8 +34,8 @@ class Adjustment(Base, TenantMixin):
 
     # accrual: the accrual amount. prepayment: the total prepaid amount that
     # amortizes. depreciation: the asset cost.
-    amount: Mapped[int] = mapped_column(BigInteger, default=0)
-    residual: Mapped[int] = mapped_column(BigInteger, default=0)  # depreciation salvage value
+    amount: Mapped[int] = mapped_column(MoneyType(), default=0)
+    residual: Mapped[int] = mapped_column(MoneyType(), default=0)  # depreciation salvage value
     periods: Mapped[int] = mapped_column(Integer, default=1)       # release count (prepayment/depreciation)
     period_months: Mapped[int] = mapped_column(Integer, default=1)
     start_date: Mapped[date] = mapped_column(Date, index=True)

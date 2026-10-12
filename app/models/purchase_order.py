@@ -11,12 +11,13 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class PurchaseOrder(Base, TenantMixin):
@@ -65,8 +66,8 @@ class PurchaseOrderLine(Base, TenantMixin):
     # billed on a purchase invoice made from this order (roadmap §4.8); a
     # voided bill gives it back
     billed_qty: Mapped[float] = mapped_column(Numeric(18, 4), default=0, server_default="0")
-    unit_price: Mapped[int] = mapped_column(BigInteger, default=0)  # whole currency units
-    line_total: Mapped[int] = mapped_column(BigInteger, default=0)
+    unit_price: Mapped[int] = mapped_column(MoneyType(), default=0)  # whole currency units
+    line_total: Mapped[int] = mapped_column(MoneyType(), default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

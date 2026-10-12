@@ -71,10 +71,13 @@ def test_the_same_key_is_fine_across_companies_but_not_twice_in_one(db):
     db.rollback()
 
 
-def test_salaries_are_bigint():
+def test_salaries_are_money():
+    """Not 32-bit integers (a rial salary overflows them), and since the
+    pence (migration 075) exact numbers: a £12.21 hourly rate keeps its pence."""
+    from app.core.money import MoneyType
     from app.models.employee_pay import EmployeePayProfile
     for col in ("base_salary", "hourly_rate"):
-        assert isinstance(EmployeePayProfile.__table__.c[col].type, sa.BigInteger), col
+        assert isinstance(EmployeePayProfile.__table__.c[col].type, MoneyType), col
 
 
 def test_a_rial_salary_above_32_bits_round_trips(db):

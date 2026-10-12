@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class Invoice(Base, TenantMixin):
@@ -22,7 +23,7 @@ class Invoice(Base, TenantMixin):
     status: Mapped[str] = mapped_column(String(16), index=True, default="draft")  # draft | issued | paid | canceled
     issue_date: Mapped[date] = mapped_column(Date, index=True)
     due_date: Mapped[date] = mapped_column(Date, index=True)
-    amount: Mapped[int] = mapped_column(BigInteger, default=0)
+    amount: Mapped[int] = mapped_column(MoneyType(), default=0)
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True, index=True)

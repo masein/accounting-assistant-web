@@ -16,13 +16,14 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
-    BigInteger, Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func,
+    Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 QUOTE_STATUSES = ("draft", "sent", "accepted", "declined", "converted")
 
@@ -39,7 +40,7 @@ class Quote(Base, TenantMixin):
     issue_date: Mapped[date] = mapped_column(Date, index=True)
     valid_until: Mapped[date] = mapped_column(Date, index=True)
     # Tax-inclusive grand total, like ``invoices.amount``.
-    amount: Mapped[int] = mapped_column(BigInteger, default=0)
+    amount: Mapped[int] = mapped_column(MoneyType(), default=0)
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -73,9 +74,9 @@ class QuoteItem(Base, TenantMixin):
     position: Mapped[int] = mapped_column(default=0)
     product_name: Mapped[str] = mapped_column(String(256))
     quantity: Mapped[float] = mapped_column(Numeric(18, 4), default=1)
-    unit_price: Mapped[int] = mapped_column(BigInteger, default=0)
-    unit_cost: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    line_total: Mapped[int] = mapped_column(BigInteger, default=0)
+    unit_price: Mapped[int] = mapped_column(MoneyType(), default=0)
+    unit_cost: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
+    line_total: Mapped[int] = mapped_column(MoneyType(), default=0)
     tax_rate: Mapped[float] = mapped_column(Numeric(7, 4), default=0, server_default="0")
     taxable: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     tax_code: Mapped[str | None] = mapped_column(String(64), nullable=True)

@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, BigInteger, ForeignKey, Numeric, String
+from sqlalchemy import Boolean, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.money import MoneyType
 
 
 class DigestSetting(Base):
@@ -18,6 +19,6 @@ class DigestSetting(Base):
         UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), primary_key=True
     )
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
-    cash_threshold: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    cash_threshold: Mapped[int] = mapped_column(MoneyType(), nullable=False, default=0, server_default="0")
     runway_months: Mapped[float] = mapped_column(Numeric(6, 2), nullable=False, default=3, server_default="3")
     channel: Mapped[str] = mapped_column(String(16), nullable=False, default="all", server_default="all")

@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import BigInteger, ForeignKey, String, Text, func
+from sqlalchemy import ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class Entity(Base, TenantMixin):
@@ -74,7 +75,7 @@ class TransactionEntity(Base, TenantMixin):
     # when it is known — e.g. a migrated opening balance inside the single
     # aggregate opening journal. NULL = the whole transaction concerns the
     # entity (the normal voucher case).
-    amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    amount: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
 
     transaction: Mapped["Transaction"] = relationship("Transaction", back_populates="entity_links")
     entity: Mapped["Entity"] = relationship("Entity", back_populates="transaction_links")

@@ -11,12 +11,13 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class RecurringInvoice(Base, TenantMixin):
@@ -28,7 +29,7 @@ class RecurringInvoice(Base, TenantMixin):
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Single-amount template (used when ``items`` is empty).
-    amount: Mapped[int] = mapped_column(BigInteger, default=0)
+    amount: Mapped[int] = mapped_column(MoneyType(), default=0)
     # JSON list of invoice lines (the InvoiceItemCreate shape).
     items: Mapped[str] = mapped_column(Text, default="[]")
     frequency: Mapped[str] = mapped_column(String(16), default="monthly")   # weekly | monthly | quarterly | yearly

@@ -10,13 +10,14 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, String, func
+from sqlalchemy import Boolean, Date, DateTime, String, func
 from sqlalchemy.sql.expression import false as sa_false
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class SavingsGoal(Base, TenantMixin):
@@ -25,7 +26,7 @@ class SavingsGoal(Base, TenantMixin):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(128))
     account_code: Mapped[str] = mapped_column(String(64), index=True)
-    target_amount: Mapped[int] = mapped_column(BigInteger)
+    target_amount: Mapped[int] = mapped_column(MoneyType())
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false(), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

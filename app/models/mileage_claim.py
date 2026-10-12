@@ -11,12 +11,13 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class MileageClaim(Base, TenantMixin):
@@ -31,7 +32,7 @@ class MileageClaim(Base, TenantMixin):
     distance: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     unit: Mapped[str] = mapped_column(String(8), default="mile")  # mile | km
     rate: Mapped[float] = mapped_column(Numeric(12, 4), default=0)  # currency units per unit distance
-    amount: Mapped[int] = mapped_column(BigInteger, default=0)  # whole currency units
+    amount: Mapped[int] = mapped_column(MoneyType(), default=0)  # whole currency units
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     purpose: Mapped[str | None] = mapped_column(Text, nullable=True)
 

@@ -9,13 +9,14 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.sql.expression import false as sa_false
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class EmployeePayProfile(Base, TenantMixin):
@@ -32,8 +33,8 @@ class EmployeePayProfile(Base, TenantMixin):
     # hourly_rate is per hour for hourly staff.
     # BIGINT: a Rial salary overflows a 32-bit integer (production has always
     # been BIGINT; only fresh installs built from this model were INTEGER).
-    base_salary: Mapped[int] = mapped_column(BigInteger, default=0)
-    hourly_rate: Mapped[int] = mapped_column(BigInteger, default=0)
+    base_salary: Mapped[int] = mapped_column(MoneyType(), default=0)
+    hourly_rate: Mapped[int] = mapped_column(MoneyType(), default=0)
     # Standard hours in a pay period — the overtime threshold for hourly staff
     # and the proration baseline for a mid-period salary change.
     standard_hours: Mapped[float] = mapped_column(Numeric(8, 2), default=0)

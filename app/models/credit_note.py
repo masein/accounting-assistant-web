@@ -3,12 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class CreditNote(Base, TenantMixin):
@@ -31,7 +32,7 @@ class CreditNote(Base, TenantMixin):
     )
     kind: Mapped[str] = mapped_column(String(16), default="sales", index=True)  # sales | purchase
     date: Mapped[date] = mapped_column(Date, index=True)
-    amount: Mapped[int] = mapped_column(BigInteger)  # whole currency units, > 0
+    amount: Mapped[int] = mapped_column(MoneyType())  # whole currency units, > 0
     currency: Mapped[str] = mapped_column(String(8), default="IRR")
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 'reduction' = reduces the invoice (its revenue/expense and VAT);

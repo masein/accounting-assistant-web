@@ -21,6 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 # EquityEvent.event_type values.
 EQUITY_EVENT_TYPES = (
@@ -51,7 +52,7 @@ class Shareholding(Base, TenantMixin):
     shares: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     # Ownership percent (0–100), used to allocate dividends when shares aren't tracked.
     percent: Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
-    par_value: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    par_value: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
     since: Mapped[date | None] = mapped_column(Date, nullable=True)
     share_class: Mapped[str] = mapped_column(String(16), default="ordinary", server_default="ordinary")
     notes: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -74,7 +75,7 @@ class EquityEvent(Base, TenantMixin):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     event_type: Mapped[str] = mapped_column(String(32), index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
-    amount: Mapped[int] = mapped_column(BigInteger, default=0)  # minor units, always positive
+    amount: Mapped[int] = mapped_column(MoneyType(), default=0)  # minor units, always positive
     # The shareholder this movement belongs to (null = company-wide, e.g. a
     # capital increase from retained earnings not split by holder).
     entity_id: Mapped[uuid.UUID | None] = mapped_column(

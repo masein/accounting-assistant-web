@@ -3,12 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class TrialBalance(Base, TenantMixin):
@@ -38,10 +39,10 @@ class TrialBalanceLine(Base, TenantMixin):
     account_name: Mapped[str] = mapped_column(String(512))
     detail_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
-    debit_turnover: Mapped[int] = mapped_column(BigInteger, default=0)
-    credit_turnover: Mapped[int] = mapped_column(BigInteger, default=0)
-    debit_balance: Mapped[int] = mapped_column(BigInteger, default=0)
-    credit_balance: Mapped[int] = mapped_column(BigInteger, default=0)
+    debit_turnover: Mapped[int] = mapped_column(MoneyType(), default=0)
+    credit_turnover: Mapped[int] = mapped_column(MoneyType(), default=0)
+    debit_balance: Mapped[int] = mapped_column(MoneyType(), default=0)
+    credit_balance: Mapped[int] = mapped_column(MoneyType(), default=0)
 
     trial_balance: Mapped["TrialBalance"] = relationship("TrialBalance", back_populates="lines")
     account: Mapped["Account"] = relationship("Account")

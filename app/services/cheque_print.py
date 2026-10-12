@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.app_setting import AppSetting
+from app.core.money import json_dumps
 
 KEY = "cheque_print_layout"
 
@@ -68,7 +69,7 @@ def _row(db: Session) -> AppSetting | None:
 def get_layout(db: Session, locale: str | None = None) -> dict:
     """The company's layout for its locale, over the defaults."""
     loc = locale or locale_of(db)
-    base = json.loads(json.dumps(DEFAULTS[loc]))
+    base = json.loads(json_dumps(DEFAULTS[loc]))
     row = _row(db)
     saved = {}
     if row and row.value:
@@ -127,9 +128,9 @@ def save_layout(db: Session, layout: dict) -> dict:
             stored = {}
     stored[loc] = new
     if row is None:
-        db.add(AppSetting(key=KEY, value=json.dumps(stored)))
+        db.add(AppSetting(key=KEY, value=json_dumps(stored)))
     else:
-        row.value = json.dumps(stored)
+        row.value = json_dumps(stored)
     db.flush()
     return get_layout(db, loc)
 
@@ -140,7 +141,7 @@ def reset_layout(db: Session) -> dict:
     if row and row.value:
         stored = json.loads(row.value) or {}
         stored.pop(loc, None)
-        row.value = json.dumps(stored)
+        row.value = json_dumps(stored)
         db.flush()
     return get_layout(db, loc)
 

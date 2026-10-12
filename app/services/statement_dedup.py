@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.models.bank_statement import BankStatementRow
 from app.services.statement_categorizer import normalize_narration
+from app.core.money import plain
 
 
 def row_fingerprint(
@@ -48,7 +49,7 @@ def row_fingerprint(
     """
     ref = (reference or "").strip()
     key = ref.lower() if ref else normalize_narration(description)
-    base = f"{tx_date.isoformat()}|{int(debit)}|{int(credit)}|{key}"
+    base = f"{tx_date.isoformat()}|{plain(debit)}|{plain(credit)}|{key}"   # 7.5 stays 7.5; whole amounts as before
     return hashlib.sha256(base.encode("utf-8")).hexdigest()[:32]
 
 

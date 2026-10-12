@@ -46,6 +46,7 @@ from app.models.transaction import Transaction
 from app.schemas.entity import EntityLink
 from app.schemas.transaction import TransactionCreate, TransactionLineCreate
 from app.services.reporting.ledger_service import LedgerService
+from app.core.money import json_dumps
 
 PROPOSAL_TTL = timedelta(minutes=10)
 # The quick one-click undo window in the chat. Lengthened from 30s to 120s so
@@ -235,7 +236,7 @@ def approve_proposal(db: Session, *, confirmation_token: str, approver_user_id: 
     proposal.executed_at = datetime.now(timezone.utc)
     proposal.executed_audit_id = uuid.UUID(audit_id)
     log_audit_event(db, action="approve", entity_type="ai_proposal", entity_id=str(proposal.id),
-                    detail=json.dumps({"tool": proposal.tool_name, "amount": proposal.amount,
+                    detail=json_dumps({"tool": proposal.tool_name, "amount": proposal.amount,
                                        "requested_by": proposal.user_id, "approved_by": approver_user_id,
                                        "executed_audit_id": audit_id, "transaction_id": txn_id}),
                     user_id=approver_user_id, username=approver_username, ip_address=ip_address)
@@ -277,7 +278,7 @@ def reject_proposal(db: Session, *, confirmation_token: str, approver_user_id: s
     proposal.approved_at = datetime.now(timezone.utc)
     proposal.approval_note = (note or "").strip()[:1000] or None
     log_audit_event(db, action="reject", entity_type="ai_proposal", entity_id=str(proposal.id),
-                    detail=json.dumps({"tool": proposal.tool_name, "amount": proposal.amount,
+                    detail=json_dumps({"tool": proposal.tool_name, "amount": proposal.amount,
                                        "requested_by": proposal.user_id, "rejected_by": approver_user_id,
                                        "note": proposal.approval_note}),
                     user_id=approver_user_id, username=approver_username)

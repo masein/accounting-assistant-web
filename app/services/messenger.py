@@ -36,6 +36,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.messenger import MessengerLink, MessengerUpdate
+from app.core.money import json_dumps
 
 log = logging.getLogger("app.messenger")
 
@@ -131,7 +132,7 @@ def _save(db: Session, bots: dict[str, dict[str, Any]]) -> None:
     from app.core.secrets import encrypt_secret
     from app.db.tenant import tenant_bypass
     from app.models.app_setting import AppSetting
-    value = json.dumps({p: {**c, "token": encrypt_secret(c["token"])} for p, c in bots.items()})
+    value = json_dumps({p: {**c, "token": encrypt_secret(c["token"])} for p, c in bots.items()})
     with tenant_bypass():
         row = _row(db)
         if row is None:

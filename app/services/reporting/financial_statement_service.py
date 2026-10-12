@@ -36,6 +36,7 @@ from app.services.reporting.repository import (
     list_accounts,
     net_profit_to_date,
 )
+from app.core.money import plain
 
 
 @dataclass
@@ -64,7 +65,7 @@ def _rollup_account_tree(accounts: list[Account], amounts: dict[UUID, int]) -> d
         if node.id in visited:
             return 0  # cycle detected — break infinite recursion
         visited.add(node.id)
-        total = int(amounts.get(node.id, 0))
+        total = plain(amounts.get(node.id, 0))
         for ch in children.get(node.id, []):
             total += walk(ch, visited)
         totals[node.id] = total
@@ -100,7 +101,7 @@ def _build_section_tree(accounts: list[Account], totals: dict[UUID, int], sectio
     def build(acc: Account) -> StatementAccountNode | None:
         acc_type = classify_account_code(acc.code)
         children_nodes = [n for n in (build(ch) for ch in by_parent.get(acc.id, [])) if n is not None]
-        own_total = int(totals.get(acc.id, 0))
+        own_total = plain(totals.get(acc.id, 0))
         include_here = acc_type == section_type
         if not include_here and not children_nodes:
             return None
@@ -117,7 +118,7 @@ def _build_section_tree(accounts: list[Account], totals: dict[UUID, int], sectio
 
 
 def _sum_nodes(items: list[StatementAccountNode]) -> int:
-    return int(sum(n.balance for n in items))
+    return plain(sum(n.balance for n in items))
 
 
 def _safe_ratio(numerator: int | float, denominator: int | float) -> float | None:
@@ -453,7 +454,7 @@ def build_cash_flow_statement(
         cash_lines = [ln for ln in txn.lines if is_cash(ln.account.code or "")]
         if not cash_lines:
             continue
-        cash_delta = int(sum(line_net(ln, currency) for ln in cash_lines))
+        cash_delta = plain(sum(line_net(ln, currency) for ln in cash_lines))
         if cash_delta == 0:
             continue
         counter = [ln for ln in txn.lines if not is_cash(ln.account.code or "")]

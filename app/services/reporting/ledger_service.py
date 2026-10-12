@@ -31,6 +31,7 @@ from app.services.reporting.repository import (
 )
 from app.services.reporting.repository import line_dr_cr, resolve_currency_view
 from app.services.book_text import bt
+from app.core.money import plain
 
 
 def _to_journal_item(txn: Transaction, currency: str | None = None) -> JournalEntryRead:
@@ -44,8 +45,8 @@ def _to_journal_item(txn: Transaction, currency: str | None = None) -> JournalEn
         )
         for ln in txn.lines
     ]
-    total_debit = int(sum(ln.debit for ln in lines))
-    total_credit = int(sum(ln.credit for ln in lines))
+    total_debit = plain(sum(ln.debit for ln in lines))
+    total_credit = plain(sum(ln.credit for ln in lines))
     return JournalEntryRead(
         transaction_id=txn.id,
         date=txn.date,
@@ -270,8 +271,8 @@ class LedgerService:
                 TransactionLine(
                     transaction_id=rev.id,
                     account_id=line.account_id,
-                    debit=int(line.credit or 0),
-                    credit=int(line.debit or 0),
+                    debit=plain(line.credit or 0),
+                    credit=plain(line.debit or 0),
                     base_debit=line.base_credit,
                     base_credit=line.base_debit,
                     line_description=(line.line_description or bt(self.db, "reversal")),

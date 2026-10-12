@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.schemas.manager_report import CashFlowResponse
 from app.services.reporting.common import default_period
 from app.services.reporting.financial_statement_service import build_cash_flow_statement
+from app.core.money import plain
 
 
 class CashFlowService:
@@ -43,9 +44,9 @@ class CashFlowService:
             key = period_key(txn.date, granularity, cal)        # the company's calendar (§3.5)
 
             if cash_delta > 0:
-                inflows[key] += int(cash_delta)
+                inflows[key] += plain(cash_delta)
             else:
-                outflows[key] += int(abs(cash_delta))
+                outflows[key] += plain(abs(cash_delta))
 
             # Collect counterpart account names for description
             counterpart = ", ".join(

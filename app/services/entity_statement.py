@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from app.models.account import Account
 from app.models.entity import Entity
 from app.models.transaction import Transaction
+from app.core.money import plain
 
 # Entities whose control account is credit-normal: a positive remaining
 # balance means "we owe them".
@@ -104,8 +105,8 @@ def _movement_for(
         code = line.account.code if line.account is not None else ""
         if code and spec.matches(code):
             hit = True
-            debit += int(line.debit or 0)
-            credit += int(line.credit or 0)
+            debit += plain(line.debit or 0)
+            credit += plain(line.credit or 0)
     if hit:
         # Asset-side control (bank, client): a credit means value left the
         # entity's account (bank paid / customer settled) → Debtor; a debit
@@ -119,7 +120,7 @@ def _movement_for(
     # e.g. a migration opening journal split across counterparties.
     for link in txn.entity_links or []:
         if link.entity_id == entity_id and link.amount is not None:
-            amt = int(link.amount)
+            amt = plain(link.amount)
             return (abs(amt), 0, True) if amt < 0 else (0, amt, True)
 
     # Fallback 2: a journal linked to the entity with no receivable/payable
@@ -130,7 +131,7 @@ def _movement_for(
     for line in txn.lines:
         code = line.account.code if line.account is not None else ""
         if code and is_cash(code):
-            cash_moved += abs(int(line.debit or 0) - int(line.credit or 0))
+            cash_moved += abs(plain(line.debit or 0) - plain(line.credit or 0))
     if cash_moved:
         return cash_moved, cash_moved, True
     return 0, 0, False

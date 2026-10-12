@@ -14,6 +14,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from app.schemas.manager_report import ReportPeriod
+from app.core.money import Money
 
 
 class IranStatementRow(BaseModel):
@@ -25,9 +26,9 @@ class IranStatementRow(BaseModel):
         description="line | subtotal | total | header | spacer",
     )
     indent_level: int = 0
-    amount_current: int | None = 0
-    amount_prior: int | None = 0
-    amount_prior_beginning: int | None = Field(
+    amount_current: Money | None = 0
+    amount_prior: Money | None = 0
+    amount_prior_beginning: Money | None = Field(
         default=None,
         description="Restated opening balance of the prior period (third column on the Iranian Balance Sheet). Null when not applicable (e.g. flow statements).",
     )
@@ -74,7 +75,7 @@ class IranBalanceSheetResponse(BaseModel):
 class IranEquityMovementCell(BaseModel):
     """One cell in the Statement of Changes in Equity matrix."""
     component: str = Field(description="Equity component column key (e.g. 'capital', 'retained_earnings').")
-    amount: int | None = 0
+    amount: Money | None = 0
 
 
 class IranEquityMovementRow(BaseModel):
@@ -83,7 +84,7 @@ class IranEquityMovementRow(BaseModel):
     label_en: str | None = None
     row_type: str = "line"  # line | subtotal | total | header
     cells: list[IranEquityMovementCell]
-    total: int | None = 0
+    total: Money | None = 0
 
 
 class IranEquityComponent(BaseModel):

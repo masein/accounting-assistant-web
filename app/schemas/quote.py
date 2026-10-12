@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.schemas.invoice import InvoiceItemCreate, InvoiceItemRead
+from app.core.money import Money
 
 
 class QuoteCreate(BaseModel):
@@ -51,9 +52,9 @@ class QuoteRead(BaseModel):
     effective_status: str
     issue_date: date
     valid_until: date
-    amount: int
-    subtotal: int
-    tax_total: int
+    amount: Money
+    subtotal: Money
+    tax_total: Money
     currency: str
     description: str | None = None
     entity_id: UUID | None = None

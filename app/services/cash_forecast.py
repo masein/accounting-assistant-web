@@ -33,6 +33,7 @@ from typing import Any
 
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
+from app.core.money import plain
 
 WEEKS = 13
 HISTORY_WEEKS = 26
@@ -130,7 +131,7 @@ def resolve_scenario(db: Session, *, bounce_ids=(), bounce_matching: str | None 
     for o in one_offs or ():
         try:
             day = date.fromisoformat(str(o.get("date")))
-            amount = int(o.get("amount") or 0)
+            amount = plain(o.get("amount") or 0)
         except (TypeError, ValueError):
             notes.append(f"One-off {o!r} has no valid date or amount — ignored.")
             continue
@@ -190,7 +191,7 @@ def _open_invoices(db: Session, currency: str):
                                .group_by(CreditNote.invoice_id)).all())
     out = []
     for inv in invs:
-        due = int(inv.amount or 0) - int(paid.get(inv.id, 0)) - int(credited.get(inv.id, 0))
+        due = plain(inv.amount or 0) - plain(paid.get(inv.id, 0)) - plain(credited.get(inv.id, 0))
         if due > 0:
             out.append((inv, due))
     return out
@@ -227,7 +228,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
         when = max(when, today)
         if when > horizon_end:
             return None
-        item = {"kind": kind, "date": when.isoformat(), "amount": int(amount), "label": label,
+        item = {"kind": kind, "date": when.isoformat(), "amount": plain(amount), "label": label,
                 "name": name, "source_id": str(source_id) if source_id else None,
                 "entity_id": str(entity_id) if entity_id else None, "overdue": overdue,
                 "days_late": days_late, "note": note}
@@ -251,7 +252,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
     unpaired: dict = defaultdict(list)
     for c in sorted(commitments, key=lambda c: c.due_date):
         if c.entity_id and not c.invoice_id:
-            unpaired[(c.entity_id, c.direction, int(c.amount or 0))].append(c)
+            unpaired[(c.entity_id, c.direction, plain(c.amount or 0))].append(c)
     covers: dict = {}
     skip_commitments: set[str] = set()
     for inv, due_amount in _open_invoices(db, currency):
@@ -263,7 +264,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
             covers[c.id] = inv
             if str(inv.id) in scenario.skip_invoices:
                 skip_commitments.add(str(c.id))
-            due_amount -= int(c.amount or 0)
+            due_amount -= plain(c.amount or 0)
             if due_amount <= 0:
                 continue                         # the cheque is the whole payment
         if str(inv.id) in scenario.skip_invoices:
@@ -291,7 +292,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
         kind = "cheque" if c.kind == "cheque" else "installment"
         inv = covers.get(c.id)
         item = add(f"{kind}_{'in' if sign > 0 else 'out'}", c.due_date + timedelta(days=delay_for(c.entity_id)),
-                   sign * int(c.amount or 0), f"{kind.capitalize()}: {c.title}", name=c.title, source_id=c.id,
+                   sign * plain(c.amount or 0), f"{kind.capitalize()}: {c.title}", name=c.title, source_id=c.id,
                    entity_id=c.entity_id, overdue=c.due_date < today,
                    note=(f"pays invoice {inv.number}" if inv else None))
         if item is not None and inv is not None:
@@ -300,7 +301,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
     runs = db.execute(select(PayRun).where(PayRun.currency == currency)).scalars().all()
     for r in runs:
         if r.status != "paid" and r.pay_date and r.pay_date <= horizon_end:
-            add("payroll", r.pay_date, -int(r.total_net or 0), f"Payroll {r.period_start}–{r.period_end}",
+            add("payroll", r.pay_date, -plain(r.total_net or 0), f"Payroll {r.period_start}–{r.period_end}",
                 name=f"{r.period_start.isoformat()} – {r.period_end.isoformat()}", source_id=r.id,
                 overdue=r.pay_date < today)
     paid_runs = sorted((r for r in runs if r.status == "paid" and r.pay_date), key=lambda r: r.pay_date)
@@ -312,7 +313,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
         nxt = _add_months(last.pay_date, 1)
         while nxt <= horizon_end:
             if nxt > known:
-                add("payroll_projected", nxt, -int(last.total_net or 0), "Payroll (projected from the last run)")
+                add("payroll_projected", nxt, -plain(last.total_net or 0), "Payroll (projected from the last run)")
             nxt = _add_months(nxt, 1)
 
     if currency == base_currency:
@@ -327,7 +328,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
                 if rule.end_date and run_on > rule.end_date:
                     break
                 sign = 1 if (rule.direction or "").lower() == "receipt" else -1
-                add("recurring_in" if sign > 0 else "recurring_out", run_on, sign * int(rule.amount), rule.name,
+                add("recurring_in" if sign > 0 else "recurring_out", run_on, sign * plain(rule.amount), rule.name,
                     name=rule.name, source_id=rule.id, entity_id=rule.entity_id)
                 run_on, guard = _next_date(run_on, rule.frequency), guard + 1
 
@@ -336,7 +337,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
         try:
             amount = template_total(db, t, t.next_run_date)
         except Exception:  # noqa: BLE001 — a broken template must not break the forecast
-            amount = int(t.amount or 0)
+            amount = plain(t.amount or 0)
         n = int(t.occurrences or 0)
         issue = t.next_run_date
         late = lateness.get(t.entity_id, company_lateness)
@@ -353,7 +354,7 @@ def scheduled_items(db: Session, today: date, horizon_end: date, currency: str, 
     for o in scenario.one_offs:
         try:
             when = date.fromisoformat(str(o.get("date")))
-            amount = int(o.get("amount") or 0)
+            amount = plain(o.get("amount") or 0)
         except (TypeError, ValueError):
             continue
         label = str(o.get("label") or "One-off")
@@ -415,8 +416,8 @@ def baseline(db: Session, today: date, currency: str, locale: str) -> dict[str, 
     ):
         first_seen = day if first_seen is None or day < first_seen else first_seen
         wk = _week_start(day)
-        weekly_in[wk] += int(cash_in or 0)
-        weekly_out[wk] += int(cash_out or 0)
+        weekly_in[wk] += plain(cash_in or 0)
+        weekly_out[wk] += plain(cash_out or 0)
     if first_seen is None:
         return {"inflow": 0, "outflow": 0, "weeks_of_history": 0}
     weeks = [start + timedelta(weeks=i) for i in range(HISTORY_WEEKS)]
@@ -466,7 +467,8 @@ def forecast(db: Session, *, today: date | None = None, weeks: int = WEEKS, curr
         s_out = -sum(x["amount"] for x in scheduled if x["amount"] < 0)
         # the current week has only its remaining days of unscheduled flow
         share = (7 - today.weekday()) / 7 if i == 0 else 1
-        b_in, b_out = int(base["inflow"] * share), int(base["outflow"] * share)
+        # an estimate, in whole units; float(): the baseline can carry pence (a Decimal × a float raises)
+        b_in, b_out = int(float(base["inflow"]) * share), int(float(base["outflow"]) * share)
         inflow, outflow = s_in + b_in, s_out + b_out
         cash += inflow - outflow
         rows.append({"week_start": wk.isoformat(), "inflow": inflow, "outflow": outflow, "net": inflow - outflow,

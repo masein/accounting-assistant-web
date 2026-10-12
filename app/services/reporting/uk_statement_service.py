@@ -48,6 +48,7 @@ from app.services.reporting.repository import (
     account_turnovers_upto,
     list_accounts,
 )
+from app.core.money import plain
 
 
 def _shift_one_year(d: date) -> date:
@@ -171,9 +172,9 @@ def _uk_pl_to_date(
         d, c = turnovers.get(acc.id, (0, 0))
         balance = balance_from_turnovers(acc_type, d, c)
         if acc_type == REVENUE:
-            total += int(balance)
+            total += plain(balance)
         else:
-            total -= int(balance)
+            total -= plain(balance)
     return total
 
 
@@ -202,7 +203,7 @@ def _uk_balance_sheet_buckets(
             continue
         debit, credit = turnovers.get(acc.id, (0, 0))
         balance = balance_from_turnovers(classify_account_code(acc.code), debit, credit)
-        buckets[key] = buckets.get(key, 0) + int(balance)
+        buckets[key] = buckets.get(key, 0) + plain(balance)
     # Implicit closing: add un-closed P&L to retained earnings.
     pl_to_date = _uk_pl_to_date(db, accounts, as_of, currency)
     if pl_to_date:
@@ -369,7 +370,7 @@ def _uk_pl_buckets(
         # (clamping each account at zero dropped them and left the P&L out of
         # step with the balance sheet's profit)
         raw = balance_from_turnovers(classify_account_code(acc.code), debit, credit)
-        buckets[bucket] = buckets.get(bucket, 0) + int(raw)
+        buckets[bucket] = buckets.get(bucket, 0) + plain(raw)
     return buckets
 
 
@@ -377,7 +378,7 @@ def _charged(db: Session, accounts: list[Account], from_d: date, to_d: date, cur
              prefix: str) -> int:
     """An expense charged in the period on accounts under ``prefix``."""
     turnovers = {a: (d, c) for a, d, c in account_turnovers_between(db, from_d, to_d, currency=currency)}
-    return sum(int(d - c) for acc in accounts if (acc.code or "").startswith(prefix)
+    return sum(plain(d - c) for acc in accounts if (acc.code or "").startswith(prefix)
                for d, c in [turnovers.get(acc.id, (0, 0))])
 
 
@@ -515,7 +516,7 @@ def _equity_movements(db: Session, from_d: date, to_d: date, currency: str | Non
         for ln, bucket in eq:
             if bucket:
                 comp = bucket[1]
-                out[kind][comp] = out[kind].get(comp, 0) - int(line_net(ln, currency))   # credit = increase
+                out[kind][comp] = out[kind].get(comp, 0) - plain(line_net(ln, currency))   # credit = increase
     return out
 
 
@@ -610,7 +611,7 @@ def _uk_equity_balances(
 def _uk_equity_row(
     key: str, label: str, values: dict[str, int], *, row_type: str = "line",
 ) -> UKEquityMovementRow:
-    cells = [UKEquityMovementCell(component=k, amount=int(values.get(k, 0))) for k, _ in _UK_EQUITY_COMPONENTS]
+    cells = [UKEquityMovementCell(component=k, amount=plain(values.get(k, 0))) for k, _ in _UK_EQUITY_COMPONENTS]
     total = sum(c.amount or 0 for c in cells)
     return UKEquityMovementRow(key=key, label=label, row_type=row_type, cells=cells, total=total)
 
@@ -779,7 +780,7 @@ def _uk_cash_flow_buckets(
         cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("12")]
         if not cash_lines:
             continue
-        cash_delta = int(sum(line_net(ln, currency) for ln in cash_lines))
+        cash_delta = plain(sum(line_net(ln, currency) for ln in cash_lines))
         if cash_delta == 0:
             continue
         counters = [ln for ln in txn.lines if not (ln.account.code or "").startswith("12")]
@@ -830,7 +831,7 @@ def _uk_cash_reconciliation(db: Session, accounts: list[Account], from_d: date, 
     turn = {a: (d, c) for a, d, c in account_turnovers_between(db, from_d, to_d, currency=currency)}
 
     def movement(pred) -> int:            # debit − credit over the period
-        return sum(int(d - c) for acc in accounts if pred(acc.code or "")
+        return sum(plain(d - c) for acc in accounts if pred(acc.code or "")
                    for d, c in [turn.get(acc.id, (0, 0))])
 
     pl = _uk_pl_buckets(db, accounts, from_d, to_d, currency)
@@ -846,7 +847,7 @@ def _uk_cash_reconciliation(db: Session, accounts: list[Account], from_d: date, 
         for ln in txn.lines:
             c = ln.account.code or ""
             if c[:1] in "4567" or (c.startswith("8") and not c.startswith((_UK_DEPRECIATION, _UK_AMORTISATION))):
-                fixed_asset_pl += int(line_net(ln, currency))          # a loss (debit) is added back
+                fixed_asset_pl += plain(line_net(ln, currency))          # a loss (debit) is added back
     return {
         "operating_profit": operating,
         "depreciation": movement(lambda c: c.startswith(_UK_DEPRECIATION)),

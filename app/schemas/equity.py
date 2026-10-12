@@ -5,6 +5,7 @@ from datetime import date
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from app.core.money import Money
 
 
 # --- cap table --------------------------------------------------------------
@@ -33,21 +34,21 @@ class ShareholdingRead(BaseModel):
     entity_name: str | None = None
     shares: int | None = None
     percent: float | None = None
-    par_value: int | None = None
+    par_value: Money | None = None
     since: date | None = None
     share_class: str = "ordinary"
     # Derived from the ledger / equity events:
-    paid_in: int = 0
-    dividends_declared: int = 0
-    dividends_paid: int = 0
-    dividends_outstanding: int = 0
+    paid_in: Money = 0
+    dividends_declared: Money = 0
+    dividends_paid: Money = 0
+    dividends_outstanding: Money = 0
 
 
 class CapTableResponse(BaseModel):
-    registered_capital: int = 0
+    registered_capital: Money = 0
     currency: str | None = None
     total_percent: float = 0
-    total_paid_in: int = 0
+    total_paid_in: Money = 0
     rows: list[ShareholdingRead] = Field(default_factory=list)
 
 
@@ -71,7 +72,7 @@ class CapitalIncreaseRequest(BaseModel):
 
 class DividendAllocation(BaseModel):
     entity_id: UUID
-    amount: int = Field(..., gt=0)
+    amount: Money = Field(..., gt=0)
 
 
 class DividendDeclareRequest(BaseModel):
@@ -103,4 +104,4 @@ class EquityPostingResponse(BaseModel):
     event_ids: list[str] = Field(default_factory=list)
     summary_lines: list[str] = Field(default_factory=list)
     allocations: list[dict] = Field(default_factory=list)
-    registered_capital: int | None = None
+    registered_capital: Money | None = None

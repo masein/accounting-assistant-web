@@ -34,7 +34,8 @@ RECORDED = ROOT / "docs/contracts/conversations"
 
 # --- a validator for the subset of JSON Schema the contract uses --------------------------------
 
-_TYPES = {"string": str, "integer": int, "boolean": bool, "object": dict, "array": list, "null": type(None)}
+_TYPES = {"string": str, "integer": int, "number": (int, float), "boolean": bool, "object": dict, "array": list,
+          "null": type(None)}
 
 
 def _check(value, schema: dict, path: str, errors: list[str]) -> None:
@@ -55,7 +56,7 @@ def _check(value, schema: dict, path: str, errors: list[str]) -> None:
         errors.append(f"{path}: {value!r} is not one of {schema['enum']}")
     if "type" in schema:
         kinds = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
-        ok = any(isinstance(value, _TYPES[k]) and not (k == "integer" and isinstance(value, bool)) for k in kinds)
+        ok = any(isinstance(value, _TYPES[k]) and not (k in ("integer", "number") and isinstance(value, bool)) for k in kinds)
         if not ok:
             errors.append(f"{path}: {type(value).__name__} is not {kinds}")
             return

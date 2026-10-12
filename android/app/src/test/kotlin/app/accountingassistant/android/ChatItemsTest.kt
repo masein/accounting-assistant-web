@@ -21,7 +21,7 @@ class ChatItemsTest {
             "lines":[{"account":"6112","name":"اجاره","debit":80000000,"credit":0},
                      {"account":"1110","name":"بانک","debit":0,"credit":80000000}],
             "needs_approval":false,"state":"executed"}""")) as ChatItem.Proposal
-        assertEquals(80_000_000L, item.amount)
+        assertEquals(java.math.BigDecimal(80_000_000), item.amount)
         assertEquals("۱۸ مهر ۱۴۰۵", item.date)
         assertEquals(listOf("6112", "1110"), item.lines.map { it.code })
         assertEquals(ChatItem.Proposal.Phase.Posted, item.phase)          // redrawn from history
@@ -37,6 +37,23 @@ class ChatItemsTest {
         assertEquals("INV-1001", posted.voucher)
         assertEquals("11 Oct 2026", posted.postedDate)
         assertEquals(ChatItem.Proposal.Phase.Undone, card(true).phase)
+    }
+
+    /** £7.50 came in as nothing (a Long), and Edit kept only digits: «4.25» became 425 (docs/PLAN_PENCE.md). */
+    @Test fun penceArriveAndEditKeepsThem() {
+        val item = parseBlock(block("""{"type":"proposal","id":"proposal:t3","token":"t3","title":"Coffee",
+            "amount":{"value":7.5,"currency":"GBP"},"date":{"iso":"2026-10-11","display":"11 Oct 2026"},
+            "lines":[{"account":"7400","name":"Entertaining","debit":7.5,"credit":0},
+                     {"account":"1200","name":"Barclays","debit":0,"credit":7.5}],"needs_approval":false}""")) as ChatItem.Proposal
+        assertEquals(java.math.BigDecimal("7.5"), item.amount)
+        assertEquals(listOf(java.math.BigDecimal("7.5"), java.math.BigDecimal.ZERO), item.lines.map { it.debit })
+        assertTrue(item.amountEditable)
+        assertEquals("7.50", app.accountingassistant.android.ui.chat.typedAmount("7.505", "en", 2))
+        assertEquals("1,234.5", app.accountingassistant.android.ui.chat.typedAmount("1234.5", "en", 2))
+        assertEquals("۷٫۵", app.accountingassistant.android.ui.chat.typedAmount("۷٫۵", "fa", 2))
+        assertEquals("۸۵٬۰۰۰٬۰۰۰", app.accountingassistant.android.ui.chat.typedAmount("85000000.5", "fa", 0))  // rials: no decimals
+        assertEquals(EditRequest(amount = "4.25"), editChange(item, "en", editableDate(item.dateIso, "en"), item.title, "4.25"))
+        assertEquals(null, editChange(item, "en", editableDate(item.dateIso, "en"), item.title, "7.50"))   // the same amount
     }
 
     @Test fun anUnknownBlockFallsBackToItsSentence() {
@@ -78,7 +95,7 @@ class ChatItemsTest {
                      {"account":"1110","name":"بانک","debit":0,"credit":80000000}]}""")) as ChatItem.Proposal
         assertEquals("۱۴۰۵/۰۷/۱۸", editableDate(p.dateIso, "fa"))
         assertEquals(null, editChange(p, "fa", "۱۴۰۵/۰۷/۱۸", "Office rent", "۸۰۰۰۰۰۰۰"))
-        assertEquals(EditRequest(date = "1405/06/25", amount = 85_000_000),
+        assertEquals(EditRequest(date = "1405/06/25", amount = "85000000"),
                      editChange(p, "fa", "۱۴۰۵/۰۶/۲۵", "Office rent ", "۸۵٬۰۰۰٬۰۰۰"))
         val several = p.copy(lines = p.lines + p.lines)
         assertEquals(EditRequest(description = "Rent"), editChange(several, "en", "2026-10-10", "Rent", "1"))

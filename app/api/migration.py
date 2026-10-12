@@ -40,6 +40,7 @@ from app.schemas.migration import (
 )
 from app.services import migration_import as mig
 from app.services.audit_service import log_audit_event
+from app.core.money import json_dumps
 
 router = APIRouter(prefix="/migration", tags=["migration"])
 
@@ -80,7 +81,7 @@ def migration_import_preview(
     batch, summary, already_applied = mig.stage_preview_batch(db, parsed, token)
     log_audit_event(
         db, "migration_import_preview", "migration_batch", entity_id=str(batch.id),
-        detail=json.dumps({"files": summary["files"], "tiers": summary["tiers"]}, ensure_ascii=False),
+        detail=json_dumps({"files": summary["files"], "tiers": summary["tiers"]}, ensure_ascii=False),
     )
     db.commit()
 
@@ -122,7 +123,7 @@ def migration_import_confirm(
     result = mig.apply_batch(db, batch, opening_date, payload.opening)
     log_audit_event(
         db, "migration_import_apply", "migration_batch", entity_id=str(batch.id),
-        detail=json.dumps(result, ensure_ascii=False),
+        detail=json_dumps(result, ensure_ascii=False),
     )
     db.commit()
 
@@ -226,7 +227,7 @@ def migration_pending_resolve(
     rec.resolved_at = datetime.now(timezone.utc)
     log_audit_event(
         db, "migration_pending_resolve", "migration_pending_record", entity_id=str(rec.id),
-        detail=json.dumps({"entity_id": str(rec.entity_id), "patched_fields": sorted(fields)},
+        detail=json_dumps({"entity_id": str(rec.entity_id), "patched_fields": sorted(fields)},
                           ensure_ascii=False),
     )
     db.commit()
@@ -337,7 +338,7 @@ def journal_import_apply(body: JournalApplyIn, db: Session = Depends(get_db)) ->
     out = ji.apply(db, ji.settle_years(db, parsed, body.years), account_map=body.account_map,
                    currency=body.currency, link_parties=body.link_parties)
     log_audit_event(db, "journal_import", "migration", entity_id=body.token,
-                    detail=json.dumps({"preset": parsed["preset"], **out}, ensure_ascii=False))
+                    detail=json_dumps({"preset": parsed["preset"], **out}, ensure_ascii=False))
     drop_upload(db, _JOURNAL_KIND, body.token)
     db.commit()
     try:

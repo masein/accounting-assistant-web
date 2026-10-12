@@ -50,6 +50,7 @@ from .entity_create import (
     classify_entity_type,
     normalize_entity_type,
 )
+from app.core.money import Money
 
 
 logger = logging.getLogger(__name__)
@@ -93,9 +94,10 @@ def _anchor_bank_leg(db, row, lines) -> None:
     bank = bank_account_for_statement(db, stmt) if stmt is not None else None
     if not bank:
         return
-    amount = int(row.debit or 0) or int(row.credit or 0)
-    money_out = int(row.debit or 0) > 0
-    on_side = [ln for ln in lines if int((ln.credit if money_out else ln.debit) or 0) == amount]
+    from app.core.money import plain
+    amount = plain(row.debit or 0) or plain(row.credit or 0)
+    money_out = (row.debit or 0) > 0
+    on_side = [ln for ln in lines if plain((ln.credit if money_out else ln.debit) or 0) == amount]
     if any(ln.account_code == bank for ln in on_side):
         return
     cash = cash_account_predicate(get_reporting_locale(db))
@@ -111,7 +113,7 @@ def _anchor_bank_leg(db, row, lines) -> None:
     )
 
 
-def _guard_amount(ctx: ToolContext, proposed_total: int, *, record_amount: int | None = None) -> None:
+def _guard_amount(ctx: ToolContext, proposed_total, *, record_amount=None) -> None:
     """Block impossible or wildly-mismatched amounts before a proposal is
     registered. Raises ToolError (which the model surfaces to the user) so a
     bad figure is corrected/confirmed rather than one-click committed.
@@ -127,8 +129,9 @@ def _guard_amount(ctx: ToolContext, proposed_total: int, *, record_amount: int |
             f"or ask the user for the correct amount before proposing.",
             code="amount_out_of_range",
         )
-    sources = [int(record_amount)] if record_amount else \
-        [int(a) for a in (getattr(ctx, "source_amounts", None) or []) if a]
+    from app.core.money import plain
+    sources = [plain(record_amount)] if record_amount else \
+        [plain(a) for a in (getattr(ctx, "source_amounts", None) or []) if a]
     if not sources or proposed_total <= 0:
         return
     # Pass if ANY source amount is within the divergence factor of the
@@ -255,20 +258,20 @@ class ProposedLine(BaseModel):
         description="Exact account code from the chart of accounts (e.g. '1110', '6110').",
         min_length=1,
     )
-    debit: int = Field(
+    debit: Money = Field(
         0, ge=0,
         description=(
-            "Debit amount in WHOLE units of the transaction's currency (whole "
-            "pounds, whole euros, whole dollars, whole rials) — exactly the "
-            "number the user/document states. Do NOT convert to pence/cents/"
-            "minor units; do NOT multiply by 100. £300 is 300, not 30000."
+            "Debit amount in the transaction's currency, written as the user/"
+            "document writes it: pounds with their pence (£7.50 is 7.50), whole "
+            "rials (no decimals). Never in pence/cents: £300 is 300, not 30000; "
+            "never multiply by 100."
         ),
     )
-    credit: int = Field(
+    credit: Money = Field(
         0, ge=0,
         description=(
-            "Credit amount in WHOLE units of the transaction's currency — "
-            "same scale as debit. Never multiply by 100 / convert to minor units."
+            "Credit amount in the transaction's currency — same scale as debit "
+            "(£7.50 is 7.50; never multiplied by 100)."
         ),
     )
     line_description: str | None = Field(None, max_length=512)
@@ -446,7 +449,7 @@ class ProposeCreateTransaction(BaseTool):
                     "That bank statement row is a duplicate of one already imported — it must not be posted.",
                     code="statement_row_duplicate",
                 )
-            _guard_amount(ctx, total, record_amount=int(statement_row.debit or 0) or int(statement_row.credit or 0))
+            _guard_amount(ctx, total, record_amount=(statement_row.debit or 0) or (statement_row.credit or 0))
             args.date = statement_row.tx_date
             # …and so is the bank's narration: weaker models paraphrase or
             # garble Persian text when copying it into the proposal.

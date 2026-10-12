@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
 from app.utils.digits import ascii_digits
+from app.core.money import Money
 
 
 class ReportPeriod(BaseModel):
@@ -21,9 +22,9 @@ class StatementAccountNode(BaseModel):
     account_name: str
     account_type: str
     label_fa: str | None = None
-    balance: int = 0
-    debit_turnover: int = 0
-    credit_turnover: int = 0
+    balance: Money = 0
+    debit_turnover: Money = 0
+    credit_turnover: Money = 0
     children: list["StatementAccountNode"] = Field(default_factory=list)
     # True for lines the statement derives rather than reads from an account
     # (e.g. unclosed current-period earnings shown under equity).
@@ -35,7 +36,7 @@ class StatementSection(BaseModel):
     label: str
     label_fa: str
     items: list[StatementAccountNode] = Field(default_factory=list)
-    total: int = 0
+    total: Money = 0
 
 
 class FinancialAnalysis(BaseModel):
@@ -50,7 +51,7 @@ class BalanceSheetResponse(BaseModel):
     period: ReportPeriod
     comparative_period: ReportPeriod | None = None
     sections: dict[str, StatementSection]
-    totals: dict[str, int]
+    totals: dict[str, Money]
     analysis: FinancialAnalysis | None = None
 
 
@@ -58,14 +59,14 @@ class IncomeStatementResponse(BaseModel):
     report_type: str = "income_statement"
     period: ReportPeriod
     sections: dict[str, StatementSection]
-    totals: dict[str, int]
+    totals: dict[str, Money]
     analysis: FinancialAnalysis | None = None
 
 
 class CashFlowLine(BaseModel):
     account_code: str
     account_name: str
-    amount: int
+    amount: Money
     label_fa: str | None = None
 
 
@@ -74,22 +75,22 @@ class CashFlowSection(BaseModel):
     label: str
     label_fa: str
     lines: list[CashFlowLine] = Field(default_factory=list)
-    net: int = 0
+    net: Money = 0
 
 
 class CashFlowResponse(BaseModel):
     report_type: str = "cash_flow_statement"
     period: ReportPeriod
     sections: dict[str, CashFlowSection]
-    totals: dict[str, int]
+    totals: dict[str, Money]
     analysis: FinancialAnalysis | None = None
 
 
 class JournalLineRead(BaseModel):
     account_code: str
     account_name: str
-    debit: int
-    credit: int
+    debit: Money
+    credit: Money
     line_description: str | None = None
 
 
@@ -99,24 +100,24 @@ class JournalEntryRead(BaseModel):
     reference: str | None = None
     description: str | None = None
     lines: list[JournalLineRead]
-    total_debit: int
-    total_credit: int
+    total_debit: Money
+    total_credit: Money
 
 
 class PaginatedJournalResponse(BaseModel):
     report_type: str
     page: int
     page_size: int
-    total: int
+    total: Money
     items: list[JournalEntryRead]
 
 
 class LedgerAccountSummary(BaseModel):
     account_code: str
     account_name: str
-    debit_turnover: int
-    credit_turnover: int
-    balance: int
+    debit_turnover: Money
+    credit_turnover: Money
+    balance: Money
 
 
 class LedgerDetailRow(BaseModel):
@@ -124,9 +125,9 @@ class LedgerDetailRow(BaseModel):
     transaction_id: UUID
     reference: str | None = None
     description: str | None = None
-    debit: int
-    credit: int
-    running_balance: int
+    debit: Money
+    credit: Money
+    running_balance: Money
     line_description: str | None = None
 
 
@@ -136,17 +137,17 @@ class AccountLedgerResponse(BaseModel):
     account: LedgerAccountSummary
     page: int
     page_size: int
-    total: int
+    total: Money
     items: list[LedgerDetailRow]
 
 
 class TrialBalanceRow(BaseModel):
     account_code: str
     account_name: str
-    debit_turnover: int
-    credit_turnover: int
-    debit_balance: int
-    credit_balance: int
+    debit_turnover: Money
+    credit_turnover: Money
+    debit_balance: Money
+    credit_balance: Money
 
 
 class TrialBalanceResponse(BaseModel):
@@ -158,20 +159,20 @@ class TrialBalanceResponse(BaseModel):
     period: ReportPeriod
     page: int
     page_size: int
-    total: int
+    total: Money
     rows: list[TrialBalanceRow]
-    totals: dict[str, int]
+    totals: dict[str, Money]
 
 
 class DebtorCreditorRow(BaseModel):
     entity_id: UUID | None = None
     entity_name: str
     entity_type: str
-    current: int
+    current: Money
     days_31_60: int
     days_61_90: int
     days_90_plus: int
-    total: int
+    total: Money
 
 
 class DebtorCreditorResponse(BaseModel):
@@ -179,7 +180,7 @@ class DebtorCreditorResponse(BaseModel):
     period: ReportPeriod
     debtors: list[DebtorCreditorRow]
     creditors: list[DebtorCreditorRow]
-    totals: dict[str, int]
+    totals: dict[str, Money]
 
 
 class PersonRunningBalanceRow(BaseModel):
@@ -187,9 +188,9 @@ class PersonRunningBalanceRow(BaseModel):
     transaction_id: UUID
     reference: str | None = None
     description: str | None = None
-    debit_effect: int
-    credit_effect: int
-    running_balance: int
+    debit_effect: Money
+    credit_effect: Money
+    running_balance: Money
 
 
 class PersonRunningBalanceResponse(BaseModel):
@@ -199,7 +200,7 @@ class PersonRunningBalanceResponse(BaseModel):
     entity_name: str
     role: str
     rows: list[PersonRunningBalanceRow]
-    closing_balance: int
+    closing_balance: Money
 
 
 class CashBankStatementRow(BaseModel):
@@ -207,9 +208,9 @@ class CashBankStatementRow(BaseModel):
     transaction_id: UUID
     reference: str | None = None
     description: str | None = None
-    debit: int
-    credit: int
-    running_balance: int
+    debit: Money
+    credit: Money
+    running_balance: Money
 
 
 class CashBankStatementResponse(BaseModel):
@@ -218,7 +219,7 @@ class CashBankStatementResponse(BaseModel):
     account: LedgerAccountSummary
     page: int
     page_size: int
-    total: int
+    total: Money
     rows: list[CashBankStatementRow]
 
 
@@ -258,7 +259,7 @@ class InventoryItemRead(BaseModel):
     name: str
     unit: str
     is_active: bool
-    list_price: int = 0
+    list_price: Money = 0
     barcode: str | None = None
     reorder_level: float | None = None
     reorder_qty: float | None = None
@@ -285,8 +286,8 @@ class InventoryMovementRead(BaseModel):
     movement_date: date
     movement_type: str
     quantity: float
-    unit_cost: int
-    movement_value: int
+    unit_cost: Money
+    movement_value: Money
     reference: str | None = None
     description: str | None = None
 
@@ -299,9 +300,9 @@ class InventoryBalanceRow(BaseModel):
     qty_in: float
     qty_out: float
     on_hand_qty: float
-    average_cost: int
-    inventory_value: int
-    cogs: int
+    average_cost: Money
+    inventory_value: Money
+    cogs: Money
 
 
 class InventoryBalanceResponse(BaseModel):
@@ -316,16 +317,16 @@ class InventoryMovementResponse(BaseModel):
     period: ReportPeriod
     page: int
     page_size: int
-    total: int
+    total: Money
     rows: list[InventoryMovementRead]
 
 
 class SalesByProductRow(BaseModel):
     product_name: str
     quantity: float
-    sales_amount: int
-    estimated_cost: int
-    profit: int
+    sales_amount: Money
+    estimated_cost: Money
+    profit: Money
     margin_pct: float | None = None
 
 
@@ -336,7 +337,7 @@ class SalesByInvoiceRow(BaseModel):
     due_date: date
     status: str
     entity_name: str | None = None
-    amount: int
+    amount: Money
 
 
 class SalesPurchaseReportResponse(BaseModel):

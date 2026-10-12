@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.models.ai_accountant import AIProposal
 from app.models.app_setting import AppSetting
+from app.core.money import json_dumps
 
 SETTINGS_KEY = "ai_guardrails"
 APPROVAL_TTL = timedelta(days=7)
@@ -72,7 +73,7 @@ def save_settings(db: Session, *, approval_threshold: int | None) -> dict:
     if value is not None and value < 0:
         raise ValueError("The threshold can't be negative.")
     row = _row(db)
-    data = json.dumps({"approval_threshold": value})
+    data = json_dumps({"approval_threshold": value})
     if row is None:
         db.add(AppSetting(key=SETTINGS_KEY, value=data))
     else:
@@ -115,36 +116,39 @@ def _to_base(db: Session, amount: int, currency: str | None, on: date | None) ->
     from app.services.fx_base import base_currency
     base = base_currency(db)
     ccy = (currency or base).upper()
+    from app.core.money import exponent, plain
     if ccy == base.upper():
-        return int(amount)
+        return plain(amount)
     from app.services.fx_base import rate_to_base
+    from app.services.fx_service import convert_minor
     rate = rate_to_base(db, ccy, on or date.today(), base)
-    return int(round(amount * float(rate))) if rate else None
+    return convert_minor(amount, rate, exponent(base)) if rate else None
 
 
-def proposal_amount(db: Session, tool_name: str, payload: dict, result: dict | None = None) -> int | None:
+def proposal_amount(db: Session, tool_name: str, payload: dict, result: dict | None = None):
     """What the proposal moves, in the base currency; None when it moves no
     money — or when its currency has no rate (then treated as over any
     threshold)."""
     if tool_name in _NON_POSTING:
         return None
+    from app.core.money import to_decimal
     on = posting_date(tool_name, payload)
     ccy = payload.get("currency")
     if payload.get("lines") and tool_name in ("propose_create_transaction",):
-        gross = sum(int(ln.get("debit") or 0) for ln in payload["lines"])
+        gross = sum(to_decimal(ln.get("debit") or 0) for ln in payload["lines"])
     elif payload.get("lines") and tool_name == "propose_create_invoice":
         gross = sum(int(round(float(ln.get("quantity") or 0) * float(ln.get("unit_price") or 0)
                               * (1 + float(ln.get("tax_rate") or 0) / 100))) for ln in payload["lines"])
     elif payload.get("amount") is not None:
-        gross = int(payload["amount"])
+        gross = to_decimal(payload["amount"])
     elif payload.get("total_amount") is not None:
-        gross = int(payload["total_amount"])
+        gross = to_decimal(payload["total_amount"])
     else:
         preview = (result or {}).get("preview") or {}
         total = preview.get("total", preview.get("amount"))
         if total is None:
             return None
-        gross = int(total)
+        gross = to_decimal(total)
         ccy = ccy or preview.get("currency")
     return _to_base(db, gross, ccy, on)
 

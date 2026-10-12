@@ -26,8 +26,8 @@ import org.robolectric.annotation.GraphicsMode
 class WidgetTest {
     private val words: (Int) -> String = { RuntimeEnvironment.getApplication().getString(it) }
     private val formatted: (Int, String) -> String = { id, arg -> RuntimeEnvironment.getApplication().getString(id, arg) }
-    private val books = WidgetState(signedIn = true, books = "شرکت بازرگانی آرمان", cash = 49_600_000, cashCurrency = "IRR",
-                                    budgetLeft = 9_600_000, budgetCurrency = "IRR", asOf = "2026-10-10")
+    private val books = WidgetState(signedIn = true, books = "شرکت بازرگانی آرمان", cash = 49_600_000.0, cashCurrency = "IRR",
+                                    budgetLeft = 9_600_000.0, budgetCurrency = "IRR", asOf = "2026-10-10")
 
     @Test @Config(qualifiers = "+fa")
     fun theTwoNumbersInPersian() {
@@ -41,9 +41,10 @@ class WidgetTest {
     }
 
     @Test fun poundsWithTheirSign() {
-        val uk = WidgetState(signedIn = true, books = "Hartley & Co Ltd", cash = 23_923, cashCurrency = "GBP", asOf = "2026-10-12",
+        val uk = WidgetState(signedIn = true, books = "Hartley & Co Ltd", cash = 23_923.0, cashCurrency = "GBP", asOf = "2026-10-12",
                              calendar = "gregorian")
-        assertEquals("£23,923", widgetText(uk, "en", words, formatted).amount)
+        assertEquals("£23,923.00", widgetText(uk, "en", words, formatted).amount)
+        assertEquals("£23,915.50", widgetText(uk.copy(cash = 23_915.5), "en", words, formatted).amount)
     }
 
     @Test fun lockedOrSignedOutItShowsNoFigures() {

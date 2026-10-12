@@ -93,7 +93,9 @@ data class StateReply(val state: String, val mode: String? = null)
 
 /** Only the fields that change are sent. */
 @Serializable
-data class EditRequest(val date: String? = null, val description: String? = null, val amount: Long? = null)
+data class EditRequest(val date: String? = null, val description: String? = null,
+                       /** The new amount as written, «4.25» (the server reads it exactly, pence kept). */
+                       val amount: String? = null)
 
 /** The new draft, and the token it replaces. */
 @Serializable
@@ -199,10 +201,10 @@ data class SummaryReply(
 )
 
 @Serializable
-data class SummaryCash(val total: Long, val currency: String? = null)
+data class SummaryCash(val total: Double, val currency: String? = null)       // 23915.5: pence kept
 
 @Serializable
-data class SummaryBudget(val left: Long, val total: Long, val currency: String? = null)
+data class SummaryBudget(val left: Double, val total: Double, val currency: String? = null)
 
 /** What deserves a notification now (GET /feed); [key] is stable, so each is told once. */
 @Serializable

@@ -46,9 +46,12 @@ class NumbersTest {
 
     /** The chart and the statement wrote «25,003 GBP» under a card saying «£23,923» (phone QA, 2026-10-12). */
     @Test fun anAmountIsWrittenAsTheCardsWriteIt() {
-        assertEquals("£23,923", priced(23_923, "GBP", "en"))
-        assertEquals("−£50", priced(-50, "gbp", "en"))
-        assertEquals("€1,440", priced(1_440, "EUR", "es"))
+        assertEquals("£23,923.00", priced(23_923, "GBP", "en"))          // a currency with places shows them
+        assertEquals("−£50.00", priced(-50, "gbp", "en"))
+        assertEquals("€1,440.00", priced(1_440, "EUR", "es"))
+        assertEquals("£7.50", priced(java.math.BigDecimal("7.5"), "GBP", "en"))
+        assertEquals("£25,003", priced(25_003, "GBP", "en", compact = true))   // a chart stays compact
+        assertEquals("1.235 KWD", priced(java.math.BigDecimal("1.2345"), "KWD", "en"))
         assertEquals("۴۹٬۶۰۰٬۰۰۰ ریال", priced(49_600_000, "IRR", "fa"))
         assertEquals("1,440 IRR", priced(1_440, "IRR", "en"))
         assertEquals("1,440", priced(1_440, null, "en"))

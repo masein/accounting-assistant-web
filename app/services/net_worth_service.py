@@ -30,6 +30,7 @@ from app.models.personal_holding import PersonalHolding
 from app.models.transaction import Transaction, TransactionLine
 from app.services.fx_service import get_rate, get_reporting_currency
 from app.services.reporting.common import ASSET, LIABILITY, classify_account_code
+from app.core.money import plain
 
 # How many trailing months the trend covers, current month included.
 TREND_MONTHS = 12
@@ -106,7 +107,7 @@ def _balances_by_account(db: Session, on: date) -> dict[str, int]:
         # book values in the reporting currency: every line at its base
         # value (roadmap §4.6) — dollars were added to rials as they were
         nature = classify_account_code(code)
-        d, c = int(line.base_debit or 0), int(line.base_credit or 0)
+        d, c = plain(line.base_debit or 0), plain(line.base_credit or 0)
         if nature == ASSET:
             out[code] = out.get(code, 0) + d - c
         elif nature == LIABILITY:
@@ -158,7 +159,8 @@ def _market_value(
         rates.append(rate)
     if missing and not rates:
         return None, missing, None
-    return (int(total.quantize(Decimal(1), rounding=ROUND_HALF_UP)), missing,
+    from app.core.money import quantize
+    return (quantize(total, currency), missing,          # to the currency's places: pence for pounds
             (rates[0] if len(rates) == 1 else None))
 
 

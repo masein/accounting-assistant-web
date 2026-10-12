@@ -27,13 +27,13 @@ class ChatScreenScreenshotTest {
 
     private fun items(fa: Boolean) = listOf(
         ChatItem.User("u1", if (fa) "موجودی بانک چقدره؟ اجارهٔ مهر رو هم ثبت کن، ۸۰ میلیون" else "What's in the bank? And record October's rent, 800"),
-        ChatItem.Figure("f1", if (fa) "۱۱۱۰ بانک ملت" else "1200 Barclays", if (fa) 1_240_000_000 else 12_400, if (fa) "IRR" else "GBP"),
+        ChatItem.Figure("f1", if (fa) "۱۱۱۰ بانک ملت" else "1200 Barclays", java.math.BigDecimal(if (fa) "1240000000" else "12400.75"), if (fa) "IRR" else "GBP"),
         ChatItem.Proposal(
             id = "p1", token = "t1", title = if (fa) "اجارهٔ دفتر، مهر" else "Office rent, October",
-            amount = if (fa) 80_000_000 else 800, currency = if (fa) "IRR" else "GBP",
+            amount = java.math.BigDecimal(if (fa) 80_000_000 else 800), currency = if (fa) "IRR" else "GBP",
             date = if (fa) "۱۸ مهر ۱۴۰۵" else "10 Oct 2026",
-            lines = listOf(VoucherLine(if (fa) "6112" else "7100", if (fa) "اجاره" else "Rent", debit = if (fa) 80_000_000 else 800),
-                           VoucherLine(if (fa) "1110" else "1200", if (fa) "بانک ملت" else "Barclays", credit = if (fa) 80_000_000 else 800)),
+            lines = listOf(VoucherLine(if (fa) "6112" else "7100", if (fa) "اجاره" else "Rent", debit = java.math.BigDecimal(if (fa) 80_000_000 else 800)),
+                           VoucherLine(if (fa) "1110" else "1200", if (fa) "بانک ملت" else "Barclays", credit = java.math.BigDecimal(if (fa) 80_000_000 else 800))),
             needsApproval = false, editable = true,
         ),
         ChatItem.Words("w1", if (fa) "موجودی و پیش‌نویس سند اجاره آماده است. برای ثبت، «ثبت» را بزنید." else "Here's the balance, and the rent ready to post."),
@@ -65,7 +65,7 @@ class ChatScreenScreenshotTest {
     @Test @Config(qualifiers = "+fa")
     fun persianPostedInvoiceWithItsPdf() {
         val invoice = ChatItem.Proposal(
-            id = "p2", token = "t2", title = "فاکتور فروش INV-1042 · شرکت آریا", amount = 60_000_000, currency = "IRR",
+            id = "p2", token = "t2", title = "فاکتور فروش INV-1042 · شرکت آریا", amount = java.math.BigDecimal(60_000_000), currency = "IRR",
             date = "۱۸ مهر ۱۴۰۵", lines = emptyList(), needsApproval = false, phase = ChatItem.Proposal.Phase.Posted,
             voucher = "INV-1042", postedDate = "1405/07/18", undoUntil = Long.MAX_VALUE,
             document = ChatItem.File("f1", "invoice-INV-1042.pdf", "/api/mobile/v1/documents/invoices/1", "application/pdf"))
@@ -127,10 +127,10 @@ class ChatScreenScreenshotTest {
     fun englishOfflineOutboxDark() = outbox(fa = false, name = "chat-en-outbox-dark", dark = true)
 
     private fun voucherFor(fa: Boolean, approval: ChatItem.Proposal.Approval?) = ChatItem.Proposal(
-        id = "p9", token = "t9", title = if (fa) "اجارهٔ دفتر، مهر" else "Office rent, October", amount = 80_000_000,
+        id = "p9", token = "t9", title = if (fa) "اجارهٔ دفتر، مهر" else "Office rent, October", amount = java.math.BigDecimal(80_000_000),
         currency = "IRR", date = if (fa) "۱۸ مهر ۱۴۰۵" else "10 Oct 2026",
         lines = listOf(VoucherLine("6112", if (fa) "هزینهٔ اجاره" else "Rent", debit = 80_000_000),
-                       VoucherLine("1110", if (fa) "بانک ملت" else "Bank Mellat", credit = 80_000_000)),
+                       VoucherLine("1110", if (fa) "بانک ملت" else "Bank Mellat", credit = java.math.BigDecimal(80_000_000))),
         needsApproval = true, approval = approval, dateIso = "2026-10-10")
 
     @Test @Config(qualifiers = "+fa")
@@ -172,7 +172,7 @@ class ChatScreenScreenshotTest {
                         ChatItem.User("u1", "صورتحساب ملت شهریور", files = listOf("mellat-1405-06.xlsx")),
                         ChatItem.Statement("st1", "s9", "ملت", "2026-08-23", "2026-09-21", 12,
                                            mapOf("matched" to 8, "unrecorded" to 2, "needs_confirmation" to 1, "amount_mismatch" to 1),
-                                           gap = 90_000, currency = "IRR", clean = false),
+                                           gap = java.math.BigDecimal(90_000), currency = "IRR", clean = false),
                         ChatItem.Words("w1", "پس از این، ۱ ردیف دیگر مانده.", nextStatement = "s9"))),
                     lang = "fa", booksName = "شرکت بازرگانی آرمان", personalBooks = false,
                     onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
@@ -232,9 +232,9 @@ class ChatScreenScreenshotTest {
     @Test @Config(qualifiers = "+fa")
     fun persianPayHistoryWithThePayslip() {
         val table = ChatItem.Table("t1", "pay_history", listOf(
-            ChatItem.Table.Row("آبان ۱۴۰۵", "ثبت‌شده", 84_000_000, "IRR"),
-            ChatItem.Table.Row("مهر ۱۴۰۵", "پرداخت‌شده", 84_000_000, "IRR"),
-            ChatItem.Table.Row("شهریور ۱۴۰۵", "پرداخت‌شده", 82_500_000, "IRR")), title = "سارا احمدی")
+            ChatItem.Table.Row("آبان ۱۴۰۵", "ثبت‌شده", java.math.BigDecimal(84_000_000), "IRR"),
+            ChatItem.Table.Row("مهر ۱۴۰۵", "پرداخت‌شده", java.math.BigDecimal(84_000_000), "IRR"),
+            ChatItem.Table.Row("شهریور ۱۴۰۵", "پرداخت‌شده", java.math.BigDecimal(82_500_000), "IRR")), title = "سارا احمدی")
         compose.setContent {
             AccountantTheme(dark = false) {
                 ChatScreen(
@@ -261,12 +261,12 @@ class ChatScreenScreenshotTest {
                 ChatScreen(
                     state = ChatUiState(items = listOf(
                         ChatItem.User("u1", "دارایی خالص من چقدره؟"),
-                        ChatItem.Figure("f1", "دارایی خالص", 950_000_000, "IRR"),
+                        ChatItem.Figure("f1", "دارایی خالص", java.math.BigDecimal(950_000_000), "IRR"),
                         ChatItem.Chart("c1", "net_worth", "دارایی خالص، دوازده ماه گذشته", "IRR",
                                        months.zip(values) { m, v -> ChatItem.Chart.Point(m, v) }, null, null),
                         ChatItem.Table("t1", "holdings", listOf(
-                            ChatItem.Table.Row("طلا", "۲۵٫۵ گرم طلا", 600_000_000, "IRR", gain = 180_000_000),
-                            ChatItem.Table.Row("ارز", "۴۰۰ دلار", 240_000_000, "IRR", gain = 35_000_000))),
+                            ChatItem.Table.Row("طلا", "۲۵٫۵ گرم طلا", java.math.BigDecimal(600_000_000), "IRR", gain = java.math.BigDecimal(180_000_000)),
+                            ChatItem.Table.Row("ارز", "۴۰۰ دلار", java.math.BigDecimal(240_000_000), "IRR", gain = java.math.BigDecimal(35_000_000)))),
                         ChatItem.Words("w1", "دارایی خالص شما امروز: ۹۵۰٬۰۰۰٬۰۰۰ ریال؛ طلا و ارز به نرخ امروز ۲۱۵٬۰۰۰٬۰۰۰ بیشتر می‌ارزند."))),
                     lang = "fa", booksName = "دفتر شخصی", personalBooks = true,
                     onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
@@ -309,9 +309,9 @@ class ChatScreenScreenshotTest {
                 ChatScreen(
                     state = ChatUiState(items = listOf(
                         ChatItem.User("u1", "كم لدينا من المال؟"),
-                        ChatItem.Figure("f1", "النقد والبنوك", 49_600_000, "IRR"),
+                        ChatItem.Figure("f1", "النقد والبنوك", java.math.BigDecimal(49_600_000), "IRR"),
                         ChatItem.Statement("st1", "s9", "ملت", "2026-10-02", "2026-10-10", 18,
-                                           mapOf("matched" to 12, "unrecorded" to 6), gap = 100_400_000, currency = "IRR", clean = false),
+                                           mapOf("matched" to 12, "unrecorded" to 6), gap = java.math.BigDecimal(100_400_000), currency = "IRR", clean = false),
                         ChatItem.Words("w1", "قرأت كشف حساب ملت: 18 سطراً (من 2 أكتوبر 2026 إلى 10 أكتوبر 2026) وقارنتها بالدفاتر."))),
                     lang = "ar", booksName = "شركة آرمان", personalBooks = false,
                     onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},

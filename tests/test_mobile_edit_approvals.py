@@ -150,3 +150,25 @@ def test_n16_briefings_on_different_days_keep_unique_block_ids(client, db, co, p
     assert again["blocks"] and again["blocks"][0]["id"] != first["blocks"][0]["id"]
     ids = [b["id"] for m in client.get(f"{API}/threads/{thread}/messages", headers=phone).json() for b in m["blocks"]]
     assert len(ids) == len(set(ids)) == 2
+
+
+def test_q6_a_voucher_with_pence_and_its_edit(client, db, co, phone, scripted):
+    """«£3.99 for a coffee»: the card says £3.99, and Edit to «4.25» keeps the
+    pence (the phone kept only digits, so «4.25» became 425; the server cut it
+    to 4). No more places than the currency has: pounds 2, rials none."""
+    scripted(_calls(("propose_create_transaction", {"date": "2026-09-20", "description": "Coffee with a client",
+                                                    "currency": "GBP", "lines": [
+        {"account_code": "6112", "debit": 3.99, "credit": 0}, {"account_code": "1110", "debit": 0, "credit": 3.99}]})),
+             _text("Drafted."))
+    reply = client.post(f"{API}/chat", headers=phone, json={"message": "paid £3.99 for a coffee with a client"}).json()
+    card = next(b for b in reply["blocks"] if b["type"] == "proposal")
+    assert card["amount"]["value"] == 3.99 and [(ln["debit"], ln["credit"]) for ln in card["lines"]] == [(3.99, 0), (0, 3.99)]
+    r = client.post(f"{API}/proposals/{card['token']}/edit", headers=phone, json={"amount": "4.25"})
+    assert r.status_code == 200, r.text
+    new = r.json()["block"]
+    assert new["amount"]["value"] == 4.25 and [(ln["debit"], ln["credit"]) for ln in new["lines"]] == [(4.25, 0), (0, 4.25)]
+    r = client.post(f"{API}/proposals/{new['token']}/edit", headers=phone, json={"amount": "4.255"})
+    assert r.status_code == 422 and r.json()["detail"] == "The amount can have at most 2 decimal places in GBP."
+    rial = _draft(client, phone, scripted)["blocks"][0]["token"]
+    r = client.post(f"{API}/proposals/{rial}/edit", headers=phone, json={"amount": "85000000.5"})
+    assert r.status_code == 422 and r.json()["detail"] == "The amount can't have decimals in IRR."

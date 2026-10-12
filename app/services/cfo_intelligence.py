@@ -19,6 +19,7 @@ from app.models.transaction import Transaction, TransactionLine
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
 from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+from app.core.money import plain
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +307,7 @@ def ledger_balance(db: Session, codes: tuple[str, ...], currency: str | None, as
                 or_(*[Account.code.like(f"{c}%") for c in codes])))
     if not sums_base(currency):
         q = q.where(Transaction.currency == currency)
-    return int(db.execute(q).scalar() or 0)
+    return plain(db.execute(q).scalar() or 0)
 
 
 def _unposted_open(db: Session, kind: str, currency: str | None, as_of: date) -> int:
@@ -376,7 +377,7 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
             month = months[tdate] = _month_key(tdate, cal)
         code = code or ""
         # one currency's own amounts, else every currency at base value (roadmap §4.6)
-        d, c = (int(bdr or 0), int(bcr or 0)) if base_view else (int(dr or 0), int(cr or 0))
+        d, c = (plain(bdr or 0), plain(bcr or 0)) if base_view else (plain(dr or 0), plain(cr or 0))
         acc_type = classify_account_code(code)
         if acc_type == REVENUE:
             monthly_revenue[month] += c - d
@@ -740,16 +741,16 @@ def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en")
     kpi_map = {k.key: k for k in cfo.kpis}
 
     # Revenue & Profit
-    report.revenue_total = int(kpi_map.get("total_revenue", KPI(key="", label="", value=0)).value)
-    report.profit_total = int(kpi_map.get("net_profit", KPI(key="", label="", value=0)).value)
+    report.revenue_total = plain(kpi_map.get("total_revenue", KPI(key="", label="", value=0)).value)
+    report.profit_total = plain(kpi_map.get("net_profit", KPI(key="", label="", value=0)).value)
     report.profit_margin = float(kpi_map.get("net_margin", KPI(key="", label="", value=0)).value)
-    report.cash_position = int(kpi_map.get("cash_on_hand", KPI(key="", label="", value=0)).value)
+    report.cash_position = plain(kpi_map.get("cash_on_hand", KPI(key="", label="", value=0)).value)
     report.cash_runway_months = cfo.runway_months
     report.burn_rate = cfo.burn_rate
     report.health_grade = cfo.health_grade
     report.risk_score = cfo.risk_score
-    report.accounts_receivable = int(kpi_map.get("accounts_receivable", KPI(key="", label="", value=0)).value)
-    report.accounts_payable = int(kpi_map.get("accounts_payable", KPI(key="", label="", value=0)).value)
+    report.accounts_receivable = plain(kpi_map.get("accounts_receivable", KPI(key="", label="", value=0)).value)
+    report.accounts_payable = plain(kpi_map.get("accounts_payable", KPI(key="", label="", value=0)).value)
 
     # Revenue trend
     rev_trend_kpi = kpi_map.get("total_revenue")
@@ -797,24 +798,24 @@ def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en")
             continue
         acc_type = classify_account_code(acc.code)
         if acc_type == ASSET:
-            bal = int((td or 0) - (tc or 0))     # whole numbers: PostgreSQL sums come back as decimals
+            bal = plain((td or 0) - (tc or 0))     # ints when whole (PostgreSQL sums are decimals), pence kept
             report.total_assets += bal
             if bal != 0:
                 assets_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type == LIABILITY:
-            bal = int((tc or 0) - (td or 0))
+            bal = plain((tc or 0) - (td or 0))
             report.total_liabilities += bal
             if bal != 0:
                 liabilities_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type == EQUITY:
-            bal = int((tc or 0) - (td or 0))
+            bal = plain((tc or 0) - (td or 0))
             report.total_equity += bal
             if bal != 0:
                 equity_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type in (REVENUE, EXPENSE):
             # the period's result belongs to equity until the year is closed
             # into retained earnings; left out, the summary didn't balance
-            period_result += int((tc or 0) - (td or 0))
+            period_result += plain((tc or 0) - (td or 0))
     if period_result:
         report.total_equity += period_result
         equity_map["period_result"] = {"code": "", "name": _s(lang, "bs_period_result"), "balance": period_result}

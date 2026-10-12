@@ -67,7 +67,7 @@ def set_method(db: Session, method: str) -> str:
     if method not in METHODS:
         raise HTTPException(status_code=422, detail=f"Costing method must be one of {', '.join(METHODS)}.")
     row = db.execute(select(AppSetting).where(AppSetting.key == SETTING_KEY)).scalar_one_or_none()
-    value = json.dumps({"method": method})
+    value = json_dumps({"method": method})
     if row is None:
         db.add(AppSetting(key=SETTING_KEY, value=value))
     else:
@@ -336,6 +336,7 @@ DETECTORS = (("low_stock", detect_low_stock),)
 
 from app.services.insight_service import _TEMPLATES  # noqa: E402 — wording lives with the detector
 from app.services.book_text import bt
+from app.core.money import json_dumps
 
 _TEMPLATES.update({
     "low_stock": {

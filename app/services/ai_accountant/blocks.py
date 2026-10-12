@@ -17,6 +17,7 @@ from typing import Any, Iterable
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.core.money import json_amount
 
 # Data blocks drawn per reply at most, newest tool calls first kept.
 MAX_DATA_BLOCKS = 3
@@ -95,7 +96,7 @@ def proposal_block(db: Session, p: Any, *, calendar: str, lang: str, names: dict
         for ln in lines_in:
             code = str(ln.get("account_code") or "")
             lines.append({"account": code, "name": names.get(code, code),
-                          "debit": int(ln.get("debit") or 0), "credit": int(ln.get("credit") or 0)})
+                          "debit": json_amount(ln.get("debit") or 0), "credit": json_amount(ln.get("credit") or 0)})
         amount = sum(x["debit"] for x in lines)
     elif isinstance(preview, dict):
         for key in ("amount", "total", "gross", "net"):
@@ -141,20 +142,20 @@ def _balance_figure(result: dict, **_) -> dict | None:
     if "balance" not in result:
         return None
     return {"type": "figure", "label": f"{result.get('account_code', '')} {result.get('account_name', '')}".strip(),
-            "value": int(result["balance"]), "currency": result.get("currency"),
+            "value": json_amount(result["balance"]), "currency": result.get("currency"),
             "as_of": result.get("as_of"),
-            "fallback_text": f"{result.get('account_name', '')}: {int(result['balance']):,} {result.get('currency') or ''}".strip()}
+            "fallback_text": f"{result.get('account_name', '')}: {json_amount(result['balance']):,} {result.get('currency') or ''}".strip()}
 
 
 def _cash_figure(result: dict, lang: str = "en", **_) -> dict | None:
     """get_cash_position: every cash and bank account together, with each one."""
     if "total" not in result:
         return None
-    value = int(result["total"])
+    value = json_amount(result["total"])
     label = {"fa": "موجودی نقد و بانک", "es": "Efectivo y bancos", "ar": "النقد والبنوك"}.get(lang, "Cash and bank")
     return {"type": "figure", "label": label, "value": value, "currency": result.get("currency"),
             "as_of": result.get("as_of"),
-            "breakdown": [{"label": a.get("account_name") or a.get("account_code"), "value": int(a.get("balance") or 0)}
+            "breakdown": [{"label": a.get("account_name") or a.get("account_code"), "value": json_amount(a.get("balance") or 0)}
                           for a in result.get("accounts") or []],
             "fallback_text": f"{label}: {value:,} {result.get('currency') or ''}".strip()}
 
@@ -165,7 +166,7 @@ def _spending_table(result: dict, **_) -> dict | None:
     if not isinstance(rows, list) or not rows:
         return None
     out = [{"label": r.get("category_name") or r.get("category_code"), "sub": r.get("category_code"),
-            "value": int(r.get("amount") or 0), "currency": result.get("currency")} for r in rows[:8]]
+            "value": json_amount(r.get("amount") or 0), "currency": result.get("currency")} for r in rows[:8]]
     return {"type": "table", "kind": "spending", "rows": out,
             "totals": {"total": result.get("total"), "currency": result.get("currency")},
             "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in out)}
@@ -179,7 +180,7 @@ def _invoice_table(result: dict, **_) -> dict | None:
     for inv in rows[:8]:
         due = inv.get("balance_due", inv.get("amount_due", inv.get("amount")))
         out.append({"label": inv.get("party") or inv.get("entity_name") or inv.get("number") or "",
-                    "sub": inv.get("number"), "value": int(due or 0), "currency": inv.get("currency"),
+                    "sub": inv.get("number"), "value": json_amount(due or 0), "currency": inv.get("currency"),
                     "due_date": inv.get("due_date"), "state": inv.get("status")})
     return {"type": "table", "kind": "invoices", "rows": out, "count": int(result.get("count") or len(rows)),
             "totals": result.get("totals_by_currency") or {},
@@ -223,7 +224,7 @@ def _payroll(result: dict, lang: str = "en", calendar: str = "gregorian", **_) -
     words = _PAY_STATUS.get(lang, {})
     if isinstance(result.get("runs"), list) and result["runs"]:
         rows = [{"label": _pay_month(r["period_end"], calendar, lang), "sub": words.get(r["status"], r["status"]),
-                 "value": int(r.get("total_net") or 0), "currency": r.get("currency"), "state": r["status"]}
+                 "value": json_amount(r.get("total_net") or 0), "currency": r.get("currency"), "state": r["status"]}
                 for r in result["runs"][:8]]
         return [{"type": "table", "kind": "payroll_runs", "rows": rows,
                  "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in rows)}]
@@ -231,7 +232,7 @@ def _payroll(result: dict, lang: str = "en", calendar: str = "gregorian", **_) -
     if not isinstance(history, list) or not history:
         return None
     rows = [{"label": _pay_month(h["period_end"], calendar, lang), "sub": words.get(h["status"], h["status"]),
-             "value": int(h.get("net_pay") or 0), "currency": h.get("currency"), "state": h["status"]}
+             "value": json_amount(h.get("net_pay") or 0), "currency": h.get("currency"), "state": h["status"]}
             for h in history[:8]]
     out = [{"type": "table", "kind": "pay_history", "title": result.get("employee"), "rows": rows,
             "fallback_text": f"{result.get('employee')}: " + "; ".join(f"{r['label']} {r['value']:,}" for r in rows)}]
@@ -300,24 +301,24 @@ def _net_worth(result: dict, lang: str = "en", **_) -> list[dict] | None:
         return None
     cur = result.get("currency")
     label = {"fa": "دارایی خالص", "es": "Patrimonio neto", "ar": "صافي الثروة"}.get(lang, "Net worth")
-    out = [{"type": "figure", "label": label, "value": int(result["net_worth"]), "currency": cur,
+    out = [{"type": "figure", "label": label, "value": json_amount(result["net_worth"]), "currency": cur,
             "as_of": result.get("as_of"),
             "breakdown": [{"label": {"fa": "دارایی‌ها", "es": "Activos", "ar": "الأصول"}.get(lang, "Assets"),
-                           "value": int(result.get("total_assets") or 0)},
+                           "value": json_amount(result.get("total_assets") or 0)},
                           {"label": {"fa": "بدهی‌ها", "es": "Deudas", "ar": "الديون"}.get(lang, "Liabilities"),
-                           "value": int(result.get("total_liabilities") or 0)}],
-            "fallback_text": f"{label}: {int(result['net_worth']):,} {cur or ''}".strip()}]
+                           "value": json_amount(result.get("total_liabilities") or 0)}],
+            "fallback_text": f"{label}: {json_amount(result['net_worth']):,} {cur or ''}".strip()}]
     trend = [t for t in result.get("trend") or [] if t.get("date")]
     if len(trend) >= 2:
         title = {"fa": "دارایی خالص، دوازده ماه گذشته", "es": "Patrimonio neto, los últimos doce meses",
                  "ar": "صافي الثروة، آخر اثني عشر شهرًا"}.get(lang, "Net worth, the last twelve months")
         out.append({"type": "chart", "kind": "net_worth", "style": "line", "title": title, "currency": cur,
-                    "points": [{"x": t["date"], "value": int(t["value"])} for t in trend],
-                    "fallback_text": f"{title}: {int(trend[0]['value']):,} → {int(trend[-1]['value']):,} {cur or ''}".strip()})
+                    "points": [{"x": t["date"], "value": json_amount(t["value"])} for t in trend],
+                    "fallback_text": f"{title}: {json_amount(trend[0]['value']):,} → {json_amount(trend[-1]['value']):,} {cur or ''}".strip()})
     held = [a for a in result.get("assets") or [] if a.get("revalued")]
     if held:
         rows = [{"label": a.get("account_name") or a.get("account_code"), "sub": _quantity(a.get("quantity"), a.get("unit"), lang),
-                 "value": int(a.get("market_value") or 0), "currency": cur, "gain": int(a.get("unrealized_gain") or 0)}
+                 "value": json_amount(a.get("market_value") or 0), "currency": cur, "gain": int(a.get("unrealized_gain") or 0)}
                 for a in held[:8]]
         out.append({"type": "table", "kind": "holdings", "rows": rows,
                     "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in rows)})

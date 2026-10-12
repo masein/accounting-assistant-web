@@ -1210,8 +1210,9 @@ def trial_balance_by_currency(
                     block["converted_credit_balance"] = None
                 else:
                     block["converted_rate"] = rate
-                    block["converted_debit_balance"] = convert_minor(int(total_debit_balance), rate)
-                    block["converted_credit_balance"] = convert_minor(int(total_credit_balance), rate)
+                    from app.core.money import exponent
+                    block["converted_debit_balance"] = convert_minor(total_debit_balance, rate, exponent(tc))
+                    block["converted_credit_balance"] = convert_minor(total_credit_balance, rate, exponent(tc))
             if block.get("converted_debit_balance") is not None:
                 converted_grand_total_debit += block["converted_debit_balance"]
             if block.get("converted_credit_balance") is not None:

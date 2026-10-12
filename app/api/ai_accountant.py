@@ -114,8 +114,8 @@ class ChatProposal(BaseModel):
     expires_at: str | None = None
     # guardrails (§5.6): confirming sends it for a second person's approval
     needs_approval: bool = False
-    approval_threshold: int | None = None
-    amount_in_base: int | None = None
+    approval_threshold: Money | None = None
+    amount_in_base: Money | None = None
     # parties the card will create on Confirm ("Will create client: Aria")
     new_entities: list[dict] = []
 
@@ -237,6 +237,8 @@ async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> tuple[st
 
 
 import re as _re
+from app.core.money import Money
+from app.core.money import json_dumps
 
 # A message that IS a confirmation and nothing else ("confirm", "تایید کن",
 # "yes do it") — not a sentence that merely contains the word.
@@ -405,7 +407,7 @@ async def chat(
                 log_audit_event(
                     db, "migration_import_preview", "migration_batch",
                     entity_id=str(intake.payload.get("batch_id")),
-                    detail=json.dumps({"via": "chat", "files": [a.file_name for a in sheet_atts]},
+                    detail=json_dumps({"via": "chat", "files": [a.file_name for a in sheet_atts]},
                                       ensure_ascii=False),
                 )
             db.commit()
@@ -428,7 +430,7 @@ async def chat(
             log_audit_event(
                 db, "bank_statement_import", "bank_statement",
                 entity_id=str(sheet_turn.intake.get("statement_id") or ""),
-                detail=json.dumps({"via": "chat", "file": sheet_turn.intake.get("file_name"),
+                detail=json_dumps({"via": "chat", "file": sheet_turn.intake.get("file_name"),
                                    "status": sheet_turn.intake.get("status")}, ensure_ascii=False),
             )
             db.commit()
@@ -469,7 +471,7 @@ async def chat(
             log_audit_event(
                 db, "bank_statement_import", "bank_statement",
                 entity_id=str(stmt_turn.intake.get("statement_id") or ""),
-                detail=json.dumps({"via": "chat", "file": stmt_turn.intake.get("file_name"),
+                detail=json_dumps({"via": "chat", "file": stmt_turn.intake.get("file_name"),
                                    "status": stmt_turn.intake.get("status")}, ensure_ascii=False),
             )
             db.commit()
@@ -590,7 +592,7 @@ def list_sessions(
     # Postgres JSONB keeps raw Unicode — search both forms of the term.
     _term_likes = []
     if term:
-        variants = {term.lower(), json.dumps(term, ensure_ascii=True)[1:-1].lower()}
+        variants = {term.lower(), json_dumps(term, ensure_ascii=True)[1:-1].lower()}
         _term_likes = [f"%{v}%" for v in variants]
     if term:
         from sqlalchemy.orm import aliased
@@ -804,7 +806,7 @@ def save_guardrails(payload: GuardrailsUpdate, db: Session = Depends(get_db),
     out = guardrails.save_settings(db, approval_threshold=payload.approval_threshold)
     log_audit_event(db, action="update", entity_type="ai_guardrails", entity_id="approval_threshold",
                     user_id=user.user_id, username=user.username,
-                    detail=json.dumps({"from": before["approval_threshold"], "to": out["approval_threshold"]}))
+                    detail=json_dumps({"from": before["approval_threshold"], "to": out["approval_threshold"]}))
     db.commit()
     return {**out, "approvers": guardrails.approvers(db)}
 
@@ -877,7 +879,7 @@ def save_review_settings(payload: ReviewSettingsUpdate, db: Session = Depends(ge
     out = ai_review.save_settings(db, enabled=payload.enabled)
     log_audit_event(db, action="update", entity_type="ai_review", entity_id="enabled",
                     user_id=user.user_id, username=user.username,
-                    detail=json.dumps({"from": before, "to": out["enabled"]}))
+                    detail=json_dumps({"from": before, "to": out["enabled"]}))
     db.commit()
     return out
 

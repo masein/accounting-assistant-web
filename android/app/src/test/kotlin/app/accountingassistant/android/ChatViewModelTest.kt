@@ -270,14 +270,14 @@ class ChatViewModelTest {
         reply("""{"replaces":"t1","block":{"type":"proposal","id":"proposal:t2","token":"t2","title":"Office rent, Shahrivar",""" +
               """"amount":{"value":85000000,"currency":"IRR"},"lines":[]}}""")
         var said: String? = "pending"
-        vm.edit("proposal:t1", EditRequest(amount = 85_000_000)) { said = it }
+        vm.edit("proposal:t1", EditRequest(amount = "85000000")) { said = it }
         until { said != "pending" }
         assertEquals(null, said)
         val cards = vm.state.value.items.filterIsInstance<ChatItem.Proposal>()
         assertEquals(listOf("t1" to ChatItem.Proposal.Phase.Replaced, "t2" to ChatItem.Proposal.Phase.Draft), cards.map { it.token to it.phase })
         val sent = server.takeRequest()
         assertEquals("/api/mobile/v1/proposals/t1/edit", sent.url.encodedPath)
-        assertEquals("""{"amount":85000000}""", sent.body!!.utf8())
+        assertEquals("""{"amount":"85000000"}""", sent.body!!.utf8())         // as written: pence go exactly
         // a refusal is said in the sheet, and the card stays as it was
         reply("""{"detail":"این تاریخ خوانده نشد."}""", code = 422)
         vm.edit("proposal:t2", EditRequest(date = "someday")) { said = it }

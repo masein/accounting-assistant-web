@@ -5,6 +5,8 @@ difference as a realised FX gain or loss — so the receivable ends at zero in
 pounds when it ends at zero in dollars."""
 from __future__ import annotations
 
+from decimal import Decimal
+
 import uuid
 
 import pytest
@@ -82,7 +84,7 @@ def _base_by_code(db, cid, txn_id) -> dict[str, tuple[int, int, int, int]]:
     for code, d, c, bd, bc in rows:
         slot = out.setdefault(code, [0, 0, 0, 0])
         for i, v in enumerate((d, c, bd, bc)):
-            slot[i] += int(v or 0)
+            slot[i] += v or 0                      # exact: pence kept (an int() here cut them)
     return {k: tuple(v) for k, v in out.items()}
 
 
@@ -151,16 +153,16 @@ def test_a_base_currency_invoice_is_left_alone(uk, db):
 
 def test_part_payments_leave_no_penny_on_the_receivable(uk, db):
     api, cid = uk
-    _rate(api, "USD", 0.80, "2026-07-01")               # $101 booked at £80.80 → £81
+    _rate(api, "USD", 0.80, "2026-07-01")               # $101 booked at £80.80 (pence kept: it was £81)
     inv = _invoice(api, 101)
     _rate(api, "USD", 0.90, "2026-08-10")
-    first = _pay(api, inv, 50, "2026-08-20")                  # receivable share 50/101 × 81 = 40.1 → 40
+    first = _pay(api, inv, 50, "2026-08-20")                  # receivable share 50/101 × 80.80 = 40.00
     a = _base_by_code(db, cid, first["transaction_id"])
     assert a["1100"][3] == 40 and a["1200"][2] == 45 and a["4210"][3] == 5
     _rate(api, "USD", 0.70, "2026-09-01")
-    last = _pay(api, inv, 51, "2026-09-10")                   # the last takes what is left: 81 − 40
+    last = _pay(api, inv, 51, "2026-09-10")                   # the last takes what is left: 80.80 − 40
     b = _base_by_code(db, cid, last["transaction_id"])
-    assert b["1100"][3] == 41 and b["1200"][2] == 36 and b["7950"][2] == 5   # 35.7 → 36; loss 5
+    assert b["1100"][3] == Decimal("40.8") and b["1200"][2] == Decimal("35.7") and b["7950"][2] == Decimal("5.1")
     assert _balance(api, "1100", "USD") == 0 and _balance(api, "1100", "ALL") == 0
 
 

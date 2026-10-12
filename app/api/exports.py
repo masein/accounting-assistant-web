@@ -21,6 +21,7 @@ from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.invoice import Invoice
 from app.models.transaction import Transaction, TransactionLine
+from app.core.money import json_dumps
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
@@ -123,7 +124,7 @@ def create_monthly_snapshot(db: Session = Depends(get_db)) -> dict:
     entities = db.execute(select(Entity)).scalars().all()
     invoices = db.execute(select(Invoice)).scalars().all()
     with ZipFile(path, "w", compression=ZIP_DEFLATED) as z:
-        z.writestr("transactions.json", json.dumps([
+        z.writestr("transactions.json", json_dumps([
             {
                 "id": str(t.id),
                 "date": t.date.isoformat(),
@@ -136,11 +137,11 @@ def create_monthly_snapshot(db: Session = Depends(get_db)) -> dict:
             }
             for t in txns
         ], ensure_ascii=False, indent=2))
-        z.writestr("entities.json", json.dumps([
+        z.writestr("entities.json", json_dumps([
             {"id": str(e.id), "type": e.type, "name": e.name, "code": e.code}
             for e in entities
         ], ensure_ascii=False, indent=2))
-        z.writestr("invoices.json", json.dumps([
+        z.writestr("invoices.json", json_dumps([
             {"id": str(i.id), "number": i.number, "kind": i.kind, "status": i.status, "issue_date": i.issue_date.isoformat(), "due_date": i.due_date.isoformat(), "amount": i.amount}
             for i in invoices
         ], ensure_ascii=False, indent=2))

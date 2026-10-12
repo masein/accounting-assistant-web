@@ -6,6 +6,7 @@ from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+from app.core.money import Money
 
 
 class InvoiceItemBase(BaseModel):
@@ -99,7 +100,7 @@ class PaymentRead(BaseModel):
     id: UUID
     invoice_id: UUID
     date: _date
-    amount: int
+    amount: Money
     currency: str
     method: str
     direction: str
@@ -107,7 +108,7 @@ class PaymentRead(BaseModel):
     created_at: datetime
     # A foreign invoice settled at another rate than it was booked at: the
     # realised gain (+) or loss (−) in the base currency (roadmap §4.6).
-    realised_fx: int | None = None
+    realised_fx: Money | None = None
     base_currency: str | None = None
 
     model_config = {"from_attributes": True}
@@ -126,14 +127,14 @@ class CreditNoteCreate(BaseModel):
 
 class CreditRefund(BaseModel):
     """Pay back the credit an invoice gave rise to: all of it unless ``amount``."""
-    amount: int | None = Field(None, gt=0)
+    amount: Money | None = Field(None, gt=0)
     date: _date | None = None
     bank_account_code: str | None = Field(None, max_length=16)
 
 
 class CreditApply(BaseModel):
     """Settle an invoice from the party's credit: as much as it can unless ``amount``."""
-    amount: int | None = Field(None, gt=0)
+    amount: Money | None = Field(None, gt=0)
     date: _date | None = None
 
 
@@ -143,7 +144,7 @@ class CreditNoteRead(BaseModel):
     entity_id: UUID | None = None
     kind: str
     date: _date
-    amount: int
+    amount: Money
     currency: str
     reason: str | None = None
     note_type: str
@@ -160,19 +161,19 @@ class InvoiceRead(InvoiceBase):
     transaction_id: UUID | None = None
     scheduled_payment_date: date | None = None
     # Tax breakdown, computed from line items.
-    subtotal: int = 0
-    tax_total: int = 0
-    grand_total: int = 0
+    subtotal: Money = 0
+    tax_total: Money = 0
+    grand_total: Money = 0
     # AR/AP balance, computed from payments + credit notes.
-    amount_paid: int = 0
-    credited: int = 0
-    balance_due: int = 0
+    amount_paid: Money = 0
+    credited: Money = 0
+    balance_due: Money = 0
     # Paid beyond the invoice: customer credit / supplier advance, not "paid".
-    overpaid: int = 0
+    overpaid: Money = 0
     # what is left of the credit this invoice gave rise to (an overpayment, or a
     # credit note beyond what it owed), and the party's credit available to it
-    credit_available: int = 0
-    party_credit: int = 0
+    credit_available: Money = 0
+    party_credit: Money = 0
     # سامانه مودیان
     moadian_status: str | None = None
     moadian_taxid: str | None = None
@@ -196,7 +197,7 @@ class InvoiceOCRResult(BaseModel):
     vendor_name: str | None = None
     invoice_or_receipt_no: str | None = None
     date: str | None = None
-    amount: int | None = None
+    amount: Money | None = None
     currency: str | None = None
     confidence: float | None = None
     raw_text: str | None = None

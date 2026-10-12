@@ -44,13 +44,29 @@ fun editableDate(iso: String?, lang: String): String {
     } else Numbers.digits(d.toString(), lang)
 }
 
-/** What changed in the sheet, or null when nothing did. */
+/** What changed in the sheet, or null when nothing did. The amount goes as written, «4.25», pence kept. */
 fun editChange(item: ChatItem.Proposal, lang: String, date: String, description: String, amount: String): EditRequest? {
     val newDate = Numbers.normalise(date).trim().takeIf { it.isNotEmpty() && it != Numbers.normalise(editableDate(item.dateIso, lang)) }
     val newText = description.trim().takeIf { it != item.title.trim() }
-    val newAmount = Numbers.normalise(amount).filter { it.isDigit() }.toLongOrNull()?.takeIf { it > 0 && it != item.amount }
+    val newAmount = Numbers.parseAmount(amount)
+        ?.takeIf { it.signum() > 0 && (item.amount == null || it.compareTo(item.amount) != 0) }
     return if (newDate == null && newText == null && newAmount == null) null
-    else EditRequest(date = newDate, description = newText, amount = if (item.amountEditable) newAmount else null)
+    else EditRequest(date = newDate, description = newText,
+                     amount = if (item.amountEditable) newAmount?.stripTrailingZeros()?.toPlainString() else null)
+}
+
+/**
+ * An amount as it is typed: the whole part grouped («۸۰٬۰۰۰٬۰۰۰», a rial
+ * amount is long), then a decimal mark and at most [places] decimals («7.5»
+ * on the way to «7.50»). Digits only kept the whole part, so «7.50» became 750.
+ */
+fun typedAmount(typed: String, lang: String, places: Int): String {
+    val t = Numbers.normalise(typed).replace(",", "")
+    val dot = t.indexOf('.')
+    val whole = (if (dot >= 0) t.substring(0, dot) else t).filter { it.isDigit() }.take(15)
+    val frac = if (places > 0 && dot >= 0) t.substring(dot + 1).filter { it.isDigit() }.take(places) else null
+    val grouped = whole.toLongOrNull()?.let { Numbers.amount(it, lang) } ?: ""
+    return grouped + (frac?.let { (if (lang == "fa") "٫" else ".") + Numbers.digits(it, lang) } ?: "")
 }
 
 /**
@@ -64,7 +80,8 @@ fun EditVoucherSheet(item: ChatItem.Proposal, lang: String, onSave: (EditRequest
     val c = LocalAccountantColors.current
     var date by remember { mutableStateOf(editableDate(item.dateIso, lang)) }
     var description by remember { mutableStateOf(item.title) }
-    var amount by remember { mutableStateOf(item.amount?.let { Numbers.amount(it, lang) } ?: "") }
+    val places = Numbers.places(item.currency)
+    var amount by remember { mutableStateOf(item.amount?.let { Numbers.amount(it, lang, places) } ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -74,13 +91,10 @@ fun EditVoucherSheet(item: ChatItem.Proposal, lang: String, onSave: (EditRequest
             Text(stringResource(R.string.edit_title), color = c.ink, fontSize = 18.sp, fontWeight = FontWeight(700))
             OutlinedTextField(value = description, onValueChange = { description = it }, modifier = Modifier.fillMaxWidth(),
                               label = { Text(stringResource(R.string.edit_description)) })
-            // grouped as it is typed («۸۰٬۰۰۰٬۰۰۰»): a rial amount is long
-            OutlinedTextField(value = amount, onValueChange = { typed ->
-                                  val digits = Numbers.normalise(typed).filter { it.isDigit() }.take(15)
-                                  amount = digits.toLongOrNull()?.let { Numbers.amount(it, lang) } ?: ""
-                              }, modifier = Modifier.fillMaxWidth(),
+            OutlinedTextField(value = amount, onValueChange = { amount = typedAmount(it, lang, places) },
+                              modifier = Modifier.fillMaxWidth(),
                               enabled = item.amountEditable, singleLine = true,
-                              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                              keyboardOptions = KeyboardOptions(keyboardType = if (places > 0) KeyboardType.Decimal else KeyboardType.Number),
                               label = { Text(stringResource(R.string.edit_amount)) },
                               supportingText = if (item.amountEditable) null else { { Text(stringResource(R.string.edit_amount_locked)) } })
             OutlinedTextField(value = date, onValueChange = { date = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,

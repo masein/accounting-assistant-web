@@ -54,6 +54,7 @@ from app.schemas.transaction import (
     TransactionLineRead,
     TransactionRead,
 )
+from app.core.money import plain
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -130,8 +131,8 @@ def get_ledger_summary(
             "account_name": acc.name,
             "parent_code": parent.code if parent else None,
             "parent_name": parent.name if parent else None,
-            "debit_turnover": int(debit or 0),
-            "credit_turnover": int(credit or 0),
+            "debit_turnover": plain(debit or 0),
+            "credit_turnover": plain(credit or 0),
         }
     # Ending balance per account (debit balance = net debit, credit balance = net credit)
     for data in by_account.values():
@@ -482,7 +483,7 @@ def get_owner_dashboard(
         rev = vals["revenue"]
         cost = vals["cost"]
         profit = rev - cost
-        margin = round((profit / rev) * 100.0, 2) if rev > 0 else None
+        margin = round(float(profit / rev * 100), 2) if rev > 0 else None
         profitability_rows.append(ProfitabilityRow(client=client, revenue=rev, cost=cost, profit=profit, margin_pct=margin))
     profitability_rows.sort(key=lambda r: (-r.profit, r.client))
 

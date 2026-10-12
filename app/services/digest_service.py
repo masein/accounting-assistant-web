@@ -17,6 +17,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.models.digest_setting import DigestSetting
+from app.core.money import plain
 
 _DEFAULTS = {"enabled": False, "cash_threshold": 0, "runway_months": 3.0, "channel": "all"}
 _CHANNELS = {"all", "slack", "telegram", "email"}
@@ -84,7 +85,7 @@ def build_daily_digest(db: Session) -> dict:
     dash = get_owner_dashboard(currency=None, db=db)
     kpi = {k.key: k for k in dash.kpis}
     currency = kpi["cash_on_hand"].unit if "cash_on_hand" in kpi else ""
-    cash = int(kpi["cash_on_hand"].value) if "cash_on_hand" in kpi else 0
+    cash = plain(kpi["cash_on_hand"].value) if "cash_on_hand" in kpi else 0
     runway = float(kpi["runway_months"].value) if "runway_months" in kpi else -1.0
     ar_total = sum(r.total for r in dash.ar_aging)
     ap_total = sum(r.total for r in dash.ap_aging)

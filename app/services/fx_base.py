@@ -47,16 +47,19 @@ log = logging.getLogger("app.fx_base")
 
 # --- arithmetic -------------------------------------------------------------------------------------
 
-def to_base(amounts: list[tuple[int, int]], rate: float | Decimal) -> list[tuple[int, int]]:
+def to_base(amounts: list[tuple], rate: float | Decimal, places: int = 0) -> list[tuple]:
     """``[(debit, credit), ...]`` in the entry's currency → the same in base,
-    each rounded half-up, then nudged by whole units until debits equal
-    credits again (only when the entry balanced to begin with)."""
+    each rounded half-up to the base currency's ``places`` (pence for pounds,
+    whole rials), then nudged by one of its smallest units until debits equal
+    credits again (only when the entry balanced to begin with). Amounts keep
+    their pence: a £7.50 line at rate 1 is 7.50 in base, not 7."""
+    from app.core.money import plain, to_decimal
     r = Decimal(repr(float(rate))) if not isinstance(rate, Decimal) else rate
-    exact = [(Decimal(int(d or 0)) * r, Decimal(int(c or 0)) * r) for d, c in amounts]
-    out = [[int(d.quantize(Decimal(1), rounding=ROUND_HALF_UP)), int(c.quantize(Decimal(1), rounding=ROUND_HALF_UP))]
-           for d, c in exact]
-    if sum(int(d or 0) for d, _ in amounts) != sum(int(c or 0) for _, c in amounts):
-        return [tuple(x) for x in out]
+    unit = Decimal(1).scaleb(-places)
+    exact = [(to_decimal(d or 0) * r, to_decimal(c or 0) * r) for d, c in amounts]
+    out = [[d.quantize(unit, rounding=ROUND_HALF_UP), c.quantize(unit, rounding=ROUND_HALF_UP)] for d, c in exact]
+    if sum(to_decimal(d or 0) for d, _ in amounts) != sum(to_decimal(c or 0) for _, c in amounts):
+        return [(plain(d), plain(c)) for d, c in out]
     diff = sum(d for d, _ in out) - sum(c for _, c in out)
     while diff:
         # Candidates: lower a debit / raise a credit (diff > 0), or the reverse.
@@ -64,7 +67,7 @@ def to_base(amounts: list[tuple[int, int]], rate: float | Decimal) -> list[tuple
         best, best_err = None, None
         for i, ((ed, ec), (rd, rc)) in enumerate(zip(exact, out)):
             for side, e, rnd in ((0, ed, rd), (1, ec, rc)):
-                step = -1 if (diff > 0) == (side == 0) else 1
+                step = -unit if (diff > 0) == (side == 0) else unit
                 if (e == 0 and rnd == 0) or rnd + step < 0:
                     continue
                 err = (rnd - e) * (-step)        # how much this nudge corrects its own rounding
@@ -75,7 +78,7 @@ def to_base(amounts: list[tuple[int, int]], rate: float | Decimal) -> list[tuple
         i, side, step = best
         out[i][side] += step
         diff += step if side == 0 else -step
-    return [tuple(x) for x in out]
+    return [(plain(d), plain(c)) for d, c in out]
 
 
 # --- which rate ---------------------------------------------------------------------------------------
@@ -132,7 +135,9 @@ def convert_transaction(db: Session, txn: Transaction, *, relookup: bool = False
                 ln.base_debit = ln.base_credit = None
         return False
     amounts = [ln for ln in lines if (ln.debit or 0) or (ln.credit or 0)]
-    for ln, (bd, bc) in zip(amounts, to_base([(ln.debit or 0, ln.credit or 0) for ln in amounts], txn.fx_rate)):
+    from app.core.money import exponent
+    for ln, (bd, bc) in zip(amounts, to_base([(ln.debit or 0, ln.credit or 0) for ln in amounts], txn.fx_rate,
+                                             exponent(base))):
         ln.base_debit, ln.base_credit = bd, bc
     return True
 

@@ -21,6 +21,7 @@ from datetime import date
 from typing import Any
 
 from sqlalchemy.orm import Session
+from app.core.money import plain
 
 ALL = ("balance_sheet", "income_statement", "comprehensive_income", "changes_in_equity", "cash_flow")
 GENERIC = ("balance_sheet", "income_statement", "cash_flow")
@@ -104,7 +105,7 @@ def _flat(resp, lang: str, *, three: bool) -> list[dict]:
     for r in resp.rows:
         deduction = bool(getattr(r, "is_negative_presentation", False))
         vals = [r.amount_current, r.amount_prior] + ([getattr(r, "amount_prior_beginning", None)] if three else [])
-        vals = [None if v is None else (-abs(int(v)) if deduction else int(v)) for v in vals]
+        vals = [None if v is None else (-abs(plain(v)) if deduction else plain(v)) for v in vals]
         style = r.row_type if r.row_type in STYLES else "line"
         if style in ("header", "spacer"):
             vals = [None] * len(vals)
@@ -119,8 +120,8 @@ def _matrix(resp, lang: str) -> tuple[list[str], list[dict]]:
     for r in resp.rows:
         cells = {c.component: c.amount for c in r.cells}
         style = r.row_type if r.row_type in STYLES else "line"
-        vals = [None if cells.get(c.key) is None else int(cells.get(c.key) or 0) for c in comps] + [
-            None if r.total is None else int(r.total)]
+        vals = [None if cells.get(c.key) is None else plain(cells.get(c.key) or 0) for c in comps] + [
+            None if r.total is None else plain(r.total)]
         rows.append({"label": _label(r, lang), "indent": 0, "style": style,
                      "values": [None] * len(vals) if style in ("header", "spacer") else vals})
     return cols, rows
@@ -133,7 +134,7 @@ def _sections(resp, lang: str) -> list[dict]:
     def walk(node, depth):
         name = (node.label_fa if lang == "fa" and getattr(node, "label_fa", None) else node.account_name)
         out.append({"label": f"{node.account_code} {name}".strip(), "indent": depth + 1,
-                    "style": "line", "values": [int(node.balance or 0)]})
+                    "style": "line", "values": [plain(node.balance or 0)]})
         for ch in node.children or []:
             walk(ch, depth + 1)
 
@@ -147,12 +148,12 @@ def _sections(resp, lang: str) -> list[dict]:
         else:                                                      # cash-flow sections
             for ln in sec.lines:
                 out.append({"label": f"{ln.account_code} {(ln.label_fa if lang == 'fa' and ln.label_fa else ln.account_name)}",
-                            "indent": 1, "style": "line", "values": [int(ln.amount or 0)]})
+                            "indent": 1, "style": "line", "values": [plain(ln.amount or 0)]})
             total = sec.net
         out.append({"label": (WORDS[lang]["total"] + " " + (sec.label_fa if lang == "fa" else sec.label)).strip(),
-                    "indent": 0, "style": "subtotal", "values": [int(total or 0)]})
+                    "indent": 0, "style": "subtotal", "values": [plain(total or 0)]})
     for k, v in (resp.totals or {}).items():
-        out.append({"label": k.replace("_", " ").capitalize(), "indent": 0, "style": "total", "values": [int(v or 0)]})
+        out.append({"label": k.replace("_", " ").capitalize(), "indent": 0, "style": "total", "values": [plain(v or 0)]})
     return out
 
 

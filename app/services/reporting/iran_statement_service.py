@@ -60,6 +60,7 @@ from app.services.reporting.repository import (
     account_turnovers_upto,
     list_accounts,
 )
+from app.core.money import plain
 
 # AppSetting key for the issued-share count used to compute basic EPS.
 # When unset (or 0), EPS rows are returned as null and the front-end shows '-'.
@@ -567,9 +568,9 @@ def _ir_pl_to_date(
         d, c = turnovers.get(acc.id, (0, 0))
         balance = balance_from_turnovers(acc_type, d, c)
         if acc_type == REVENUE:
-            total += int(balance)
+            total += plain(balance)
         else:
-            total -= int(balance)
+            total -= plain(balance)
     return total
 
 
@@ -605,7 +606,7 @@ def _balance_sheet_buckets(
         # overdrawn cash account is a negative asset. Clamping to zero (the
         # old behaviour for non-retained buckets) hid the balance and broke
         # assets = equity + liabilities.
-        buckets[key] = buckets.get(key, 0) + int(balance)
+        buckets[key] = buckets.get(key, 0) + plain(balance)
     pl_to_date = _ir_pl_to_date(db, accounts, as_of, currency)
     if pl_to_date:
         buckets[("equity", "eq_retained_earnings")] = (
@@ -843,7 +844,7 @@ def _equity_matrix_row(
     label_en: str | None = None,
     row_type: str = "line",
 ) -> IranEquityMovementRow:
-    cells = [IranEquityMovementCell(component=k, amount=int(values.get(k, 0))) for k, _, _ in _EQUITY_COMPONENTS]
+    cells = [IranEquityMovementCell(component=k, amount=plain(values.get(k, 0))) for k, _, _ in _EQUITY_COMPONENTS]
     total = sum(c.amount or 0 for c in cells)
     return IranEquityMovementRow(key=key, label_fa=label_fa, label_en=label_en, row_type=row_type, cells=cells, total=total)
 
@@ -895,12 +896,12 @@ def _equity_period_movements(db: Session, from_d: date, to_d: date) -> dict[str,
     evs = db.execute(
         select(EquityEvent).where(EquityEvent.date >= from_d, EquityEvent.date <= to_d)
     ).scalars().all()
-    dividends = sum(int(e.amount or 0) for e in evs if e.event_type == "dividend_declared")
+    dividends = sum(plain(e.amount or 0) for e in evs if e.event_type == "dividend_declared")
     capital_added = sum(
-        int(e.amount or 0) for e in evs if e.event_type in ("contribution", "capital_increase")
+        plain(e.amount or 0) for e in evs if e.event_type in ("contribution", "capital_increase")
     )
     retained_capitalised = sum(
-        int(e.amount or 0)
+        plain(e.amount or 0)
         for e in evs
         if e.event_type == "capital_increase" and e.funded_from == "retained_earnings"
     )
@@ -1271,7 +1272,7 @@ def _cash_flow_buckets(
         cash_lines = [ln for ln in txn.lines if _is_cash_code(ln.account.code, lines)]
         if not cash_lines:
             continue
-        cash_delta = int(sum(line_net(ln, currency) for ln in cash_lines))
+        cash_delta = plain(sum(line_net(ln, currency) for ln in cash_lines))
         if cash_delta == 0:
             continue
         counters = [ln for ln in txn.lines if not _is_cash_code(ln.account.code, lines)]

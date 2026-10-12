@@ -150,3 +150,23 @@ Money = Annotated[
     WithJsonSchema({"type": "number", "description": "An amount in the currency's own unit (7.50 is £7.50)."}),
 ]
 """An amount in an API body: 950, 7.5 or "7.50"; whole amounts go back out as integers."""
+
+
+# --- JSON anywhere -------------------------------------------------------------------------------------
+
+def json_dumps(obj, *, fallback=None, **kw) -> str:
+    """``json.dumps`` that writes an amount with pence as a number (7.5) and a
+    whole one as an integer; anything else it can't write goes to ``fallback``
+    (``str`` for a date or an id), else it is an error. The engines use it for
+    every JSON column, so a reply's blocks, a tool's result or a proposal's
+    lines never fail to save because a figure has pence."""
+    import json
+
+    def default(o):
+        if isinstance(o, Decimal):
+            return json_amount(o)
+        if fallback is not None:
+            return fallback(o)
+        raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+
+    return json.dumps(obj, default=default, **kw)

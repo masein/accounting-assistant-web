@@ -47,6 +47,7 @@ from app.services.payroll_rules import (
 from app.services.payroll_service import PayrollInputError
 from app.services.period_service import assert_period_open
 from app.services.book_text import book_date, bt
+from app.core.money import json_dumps
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
 
@@ -984,7 +985,7 @@ def create_rule_set(payload: RuleSetCreate, db: Session = Depends(get_db)) -> di
     row = PayrollRuleSet(
         locale=loc, year=payload.year.strip(), name=payload.name.strip(),
         effective_from=payload.effective_from, effective_to=payload.effective_to,
-        params=json.dumps(payload.params.model_dump()),
+        params=json_dumps(payload.params.model_dump()),
     )
     db.add(row)
     db.flush()
@@ -1018,7 +1019,7 @@ def update_rule_set(rule_set_id: UUID, payload: RuleSetUpdate, db: Session = Dep
         before = parse_params(row.params).model_dump()
         after = payload.params.model_dump()
         changed = sorted(k for k in after if before.get(k) != after[k])
-        row.params = json.dumps(after)
+        row.params = json_dumps(after)
     log_audit_event(db, action="update", entity_type="payroll_rule_set", entity_id=str(row.id),
                     detail=f"Payroll rules {row.locale} {row.year} updated"
                            + (f" ({', '.join(changed)})" if changed else ""))

@@ -19,6 +19,7 @@ from app.models.recurring_invoice import RecurringInvoice
 from app.schemas.invoice import InvoiceItemCreate
 from app.services import recurring_invoice_service as svc
 from app.services.audit_service import log_audit_event
+from app.core.money import json_dumps
 
 router = APIRouter(prefix="/recurring-invoices", tags=["recurring-invoices"])
 
@@ -97,7 +98,7 @@ def _default_calendar(db: Session) -> str:
 
 
 def _items_json(items: list[InvoiceItemCreate]) -> str:
-    return json.dumps([it.model_dump(mode="json") for it in items])
+    return json_dumps([it.model_dump(mode="json") for it in items])
 
 
 @router.get("")

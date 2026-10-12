@@ -305,6 +305,13 @@ async def import_statement_bytes(
         total_rows=len(result.rows),
     )
     stmt.currency = (result.currency or "").strip().upper() or statement_currency(db, stmt)
+    # the reader keeps what the file says (7.50); the books keep the currency's
+    # places — pence for pounds, whole rials
+    from app.core.money import quantize
+    for r in result.rows:
+        r.debit, r.credit = quantize(r.debit or 0, stmt.currency), quantize(r.credit or 0, stmt.currency)
+        if r.balance is not None:
+            r.balance = quantize(r.balance, stmt.currency)
     db.add(stmt)
     db.flush()
 

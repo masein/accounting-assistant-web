@@ -37,8 +37,10 @@ def is_fx_line(line: TransactionLine) -> bool:
     return not (line.debit or 0) and not (line.credit or 0) and (line.line_description or "").startswith(FX_MARK)
 
 
-def _half_up(x: Decimal) -> int:
-    return int(x.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+def _half_up(x: Decimal, places: int = 0):
+    """Half-up to the base currency's places (pence for pounds, whole rials)."""
+    from app.core.money import plain
+    return plain(x.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
 
 
 def _control_account_id(db: Session, inv) -> object | None:
@@ -82,6 +84,8 @@ def settle(db: Session, txn: Transaction, inv) -> dict | None:
     there is nothing to settle (base-currency invoice, a rate still missing)."""
     from app.services.fx_base import base_currency, convert_transaction, to_base
     base = base_currency(db)
+    from app.core.money import exponent
+    places = exponent(base)
     if (inv.currency or base).upper() == base or txn.fx_role not in (None, SETTLEMENT):
         return None
     from app.services.period_service import is_period_locked
@@ -131,17 +135,17 @@ def settle(db: Session, txn: Transaction, inv) -> dict | None:
     if all_known and prior_foreign + this_foreign >= inv_foreign:
         carried = inv_base - prior_base                       # the last one takes what is left
     else:
-        carried = _half_up(Decimal(this_foreign) * Decimal(inv_base) / Decimal(inv_foreign))
+        carried = _half_up(Decimal(this_foreign) * Decimal(inv_base) / Decimal(inv_foreign), places)
 
     # Everything else at the payment's own rate.
     others = [ln for ln in lines if ln not in mine and not is_fx_line(ln) and ((ln.debit or 0) or (ln.credit or 0))]
-    for ln, (bd, bc) in zip(others, to_base([(ln.debit or 0, ln.credit or 0) for ln in others], txn.fx_rate)):
+    for ln, (bd, bc) in zip(others, to_base([(ln.debit or 0, ln.credit or 0) for ln in others], txn.fx_rate, places)):
         ln.base_debit, ln.base_credit = bd, bc
     # The control line(s) at the invoice's rate, split in proportion if several.
     left = carried
     for i, ln in enumerate(mine):
         share = left if i == len(mine) - 1 else _half_up(
-            Decimal(abs((ln.debit or 0) - (ln.credit or 0))) * Decimal(carried) / Decimal(this_foreign))
+            Decimal(abs((ln.debit or 0) - (ln.credit or 0))) * Decimal(carried) / Decimal(this_foreign), places)
         left -= share
         ln.base_debit, ln.base_credit = (share, 0) if (ln.debit or 0) else (0, share)
 

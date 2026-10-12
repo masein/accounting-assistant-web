@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.models.account import Account
 from app.schemas.account import AccountRead
 from app.utils.digits import ascii_digits
+from app.core.money import Money
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -54,8 +55,8 @@ class AccountUpdate(BaseModel):
 
 class OpeningLine(BaseModel):
     account_code: str = Field(..., max_length=16)
-    debit: int = Field(0, ge=0, le=10**15)
-    credit: int = Field(0, ge=0, le=10**15)
+    debit: Money = Field(0, ge=0, le=10**15)
+    credit: Money = Field(0, ge=0, le=10**15)
 
     @field_validator("account_code", mode="before")
     @classmethod

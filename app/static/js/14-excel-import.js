@@ -148,7 +148,7 @@
         const data = await res.json();
         const accounts = Array.isArray(data) ? data : (data.items || []);
         dl.innerHTML = accounts.map(a =>
-          `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} - ${escapeHtml(a.name)}</option>`
+          `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} - ${escapeHtml(a.name)}</option>`
         ).join('');
       } catch (e) {}
     }

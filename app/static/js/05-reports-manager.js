@@ -862,7 +862,7 @@
           _addExtraChart(t('chartTopAccountsDrCr'), {
             type: 'bar',
             data: {
-              labels: rows.map(r => r.account_code + ' ' + (r.account_name || '').slice(0, 20)),
+              labels: rows.map(r => localCode(r.account_code) + ' ' + (r.account_name || '').slice(0, 20)),
               datasets: [
                 { label: t('tableDebit'), data: rows.map(r => r.debit_turnover || 0), backgroundColor: palette[0] },
                 { label: t('tableCredit'), data: rows.map(r => r.credit_turnover || 0), backgroundColor: palette[1] }
@@ -878,7 +878,7 @@
           _addExtraChart(t('chartNetBalanceByAccount'), {
             type: 'bar',
             data: {
-              labels: rows.map(r => r.account_code),
+              labels: rows.map(r => localCode(r.account_code)),
               datasets: [{
                 label: t('legendNetBalance'),
                 data: rows.map(r => (r.debit_balance || 0) - (r.credit_balance || 0)),
@@ -1868,7 +1868,7 @@
         if (!res.ok) return;
         const accs = await res.json();
         sel.innerHTML = accs.filter(a => (a.code || '').startsWith('1'))
-          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
       } catch (_) { /* offline */ }
     }
 
@@ -1965,7 +1965,7 @@
         // Only asset accounts can hold gold/currency.
         sel.innerHTML = accs
           .filter(a => (a.code || '').startsWith('1'))
-          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`)
+          .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`)
           .join('');
         // Default to the gold savings account when the chart has one.
         const gold = accs.find(a => a.code === '1130');
@@ -1984,7 +1984,7 @@
         }
         wrap.innerHTML = `<table class="mini-table"><tbody>${rows.map(r => `
           <tr>
-            <td>${escapeHtml(r.account_name || r.account_code)}</td>
+            <td>${escapeHtml(r.account_name || localCode(r.account_code))}</td>
             <td>${escapeHtml(String(r.quantity))} ${escapeHtml(r.unit)}</td>
             <td style="text-align:end;"><button class="btn btn-secondary btn-sm nw-h-del" data-id="${escapeHtml(r.id)}" aria-label="${escapeHtml(t('btnDelete'))}" title="${escapeHtml(t('btnDelete'))}">×</button></td>
           </tr>`).join('')}</tbody></table>`;

@@ -35,6 +35,7 @@
       const s = String(v);
       // a date in the user's calendar: the general journal printed 2026-09-30 in a Jalali company
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return escapeHtml(formatDisplayDate(s));
+      if (/code$/i.test(key || '')) return escapeHtml(localCode(s));                   // an account code «۱۱۱۰»
       if ((key || '').toLowerCase().includes('id')) return escapeHtml(shortenUuid(s));
       return escapeHtml(localizeDynamicText(s));
     }
@@ -186,7 +187,7 @@
           type: 'bar',
           title: t('chartTopAccountsByTurnover'),
           data: {
-            labels: rows.map(r => r.account_code),
+            labels: rows.map(r => localCode(r.account_code)),
             datasets: [
               { label: t('tableDebit'), data: rows.map(r => safe(r.debit_turnover)), backgroundColor: palette[0] },
               { label: t('tableCredit'), data: rows.map(r => safe(r.credit_turnover)), backgroundColor: palette[1] }

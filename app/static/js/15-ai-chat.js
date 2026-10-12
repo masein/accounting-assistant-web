@@ -844,7 +844,7 @@
             const typeLabel = t('entType_' + ne.type) || ne.type;
             if (ne.type === 'bank' && ne.account_code) {
               const verb = ne.account_existing ? t('aiWillUseAccount') : t('aiWillCreateAccount');
-              line.textContent = '➕ ' + tf('aiWillCreateBank', { name: ne.name, verb, code: ne.account_code });
+              line.textContent = '➕ ' + tf('aiWillCreateBank', { name: ne.name, verb, code: localCode(ne.account_code) });
             } else {
               line.textContent = '➕ ' + tf('aiWillCreateEntity', { type: typeLabel, name: ne.name });
             }

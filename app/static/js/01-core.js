@@ -126,6 +126,13 @@
       return str.replace(/[0-9]/g, (d) => _FA_DIGITS[d]).replace(/([۰-۹]),(?=[۰-۹])/g, '$1٬')
         .replace(/([۰-۹])\.(?=[۰-۹])/g, '$1٫').replace(/([۰-۹])%/g, '$1٪');
     }
+    // An identifier the books write in digits (an account code «۱۱۱۰», an entity's code), in the
+    // page's digits and nothing else changed: «11.10» never reads as a decimal (the owner's call,
+    // 2026-10-12, as the phone shows them). Values, filters and exports keep Latin ones.
+    function localCode(s) {
+      const str = String(s == null ? '' : s);
+      return _uiIsPersian() ? str.replace(/[0-9]/g, (d) => _FA_DIGITS[d]) : str;
+    }
     // The locale a figure's toLocaleString uses: Persian digits and «٬» in Persian, Latin elsewhere.
     function numLocale() { return _uiIsPersian() ? 'fa-IR' : 'en-US'; }
     function latinDigits(s) {

@@ -200,7 +200,7 @@
             const opt = document.createElement('option');
             opt.value = e.id;
             opt.dataset.accountCode = (e.code || '').trim() || defaultCash;
-            opt.textContent = e.name + (e.code ? (' (' + e.code + ')') : '');
+            opt.textContent = e.name + (e.code ? (' (' + localCode(e.code) + ')') : '');
             bankSel.appendChild(opt);
           });
           bankSel.value = '';
@@ -298,8 +298,8 @@
             <td>${escapeHtml(({ payment: t('recDirPayment'), receipt: t('recDirReceipt') })[r.direction] || r.direction)}</td>
             <td>${escapeHtml(enumLabel('freq_', r.frequency))}</td>
             <td>${r.amount == null ? '—' : formatNum(r.amount)}</td>
-            <td>${escapeHtml(r.bank_account_code || r.bank_name || '—')}</td>
-            <td>${escapeHtml(r.counter_account_code || '—')}</td>
+            <td>${escapeHtml(r.bank_account_code ? localCode(r.bank_account_code) : (r.bank_name || '—'))}</td>
+            <td>${escapeHtml(r.counter_account_code ? localCode(r.counter_account_code) : '—')}</td>
             <td>${escapeHtml(formatDisplayDate(r.next_run_date))}</td>
             <td>${r.auto_post ? '✓' : '—'}</td>
             <td>${escapeHtml(enumLabel('riStatus_', r.status))}</td>

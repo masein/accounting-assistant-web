@@ -305,7 +305,7 @@
         accs.forEach(a => {
           const opt = document.createElement('option');
           opt.value = a.code;
-          opt.textContent = `${a.code} — ${a.name}`;
+          opt.textContent = `${localCode(a.code)} — ${a.name}`;
           dl.appendChild(opt);
         });
         accountDatalistLoaded = true;
@@ -675,7 +675,7 @@
               <td>${escapeHtml(formatDisplayDate(r.date))}</td>
               <td>${escapeHtml(r.reference || '—')}</td>
               <td>${escapeHtml(r.description || r.line_description || '—')}</td>
-              <td>${escapeHtml(r.account_code)}</td>
+              <td>${escapeHtml(localCode(r.account_code))}</td>
               <td>${escapeHtml(r.account_name)}</td>
               ${ccyCell}
               <td>${debitCell}</td>
@@ -739,7 +739,7 @@
             <h2>${escapeHtml(title)}</h2>
             <p>${escapeHtml(tf('drillPrintSummary', { count: data.total_count, debit: formatNum(data.total_debit), credit: formatNum(data.total_credit) }))}</p>
             <table><thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th>${escapeHtml(t('tableCode'))}</th><th>${escapeHtml(t('fieldAccount'))}</th><th class="num">${escapeHtml(t('tableDebit'))}</th><th class="num">${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('fieldEntities'))}</th></tr></thead><tbody>
-            ${rows.map(r=>`<tr><td>${escapeHtml(formatDisplayDate(r.date))}</td><td>${escapeHtml(r.reference||'')}</td><td>${escapeHtml(r.description||'')}</td><td>${escapeHtml(r.account_code)}</td><td>${escapeHtml(r.account_name||'')}</td><td class="num">${formatNum(r.debit||0)}</td><td class="num">${formatNum(r.credit||0)}</td><td>${(r.entity_names||[]).join(', ')}</td></tr>`).join('')}
+            ${rows.map(r=>`<tr><td>${escapeHtml(formatDisplayDate(r.date))}</td><td>${escapeHtml(r.reference||'')}</td><td>${escapeHtml(r.description||'')}</td><td>${escapeHtml(localCode(r.account_code))}</td><td>${escapeHtml(r.account_name||'')}</td><td class="num">${formatNum(r.debit||0)}</td><td class="num">${formatNum(r.credit||0)}</td><td>${(r.entity_names||[]).join(', ')}</td></tr>`).join('')}
             </tbody></table></body></html>`);
           w.document.close();
           setTimeout(() => w.print(), 300);

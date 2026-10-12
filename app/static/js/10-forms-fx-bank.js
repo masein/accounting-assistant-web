@@ -927,7 +927,7 @@
       const chosen = r.suggested_account_code || '';
       const opts = _bsAccounts.map(a =>
         `<option value="${escapeHtml(a.code)}"${a.code === chosen ? ' selected' : ''}>` +
-        `${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+        `${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
       return `<select class="bs-code-select" data-row-id="${escapeHtml(r.id)}">` +
              `<option value="">${escapeHtml(t('bsPickCategory'))}</option>${opts}</select>`;
     }
@@ -963,7 +963,7 @@
       const choices = await bsBankChoices();
       if (!choices.length || !stmt.bank_account_code) { el.style.display = 'none'; return; }
       const opts = choices.map(c => `<option value="${escapeHtml(c.code)}"${c.code === stmt.bank_account_code ? ' selected' : ''}>`
-        + `${escapeHtml(c.code)} — ${escapeHtml(c.bank || c.name)}</option>`).join('');
+        + `${escapeHtml(localCode(c.code))} — ${escapeHtml(c.bank || c.name)}</option>`).join('');
       const unsure = stmt.bank_account_source === 'default' && choices.length > 1;
       el.innerHTML = `<div style="display:flex;gap:0.45rem;align-items:center;flex-wrap:wrap;">
           <label for="bs-bank-account" style="font-weight:600;margin:0;">${escapeHtml(t('bsBankAccount'))}</label>
@@ -1062,7 +1062,7 @@
     async function recordFeeSuggestion(s) {
       const ok = await uiConfirm({
         title: t('bsRecordConfirmTitle'),
-        message: tf('bsRecordConfirmMsg', { desc: s.description || '', account: s.account_code + ' ' + s.account_name }),
+        message: tf('bsRecordConfirmMsg', { desc: s.description || '', account: localCode(s.account_code) + ' ' + s.account_name }),
       });
       if (!ok) return;
       try {
@@ -1159,7 +1159,7 @@
         } else if (f.kind === 'needs_confirmation' && f.matched_date) {
           txt += ' — ' + t('bsFindBook') + ': ' + (f.matched_date || '') + ' ' + (f.matched_description || '');
         } else if (f.kind === 'unrecorded' && f.suggested_account_code) {
-          txt += ' → ' + f.suggested_account_code + ' ' + (f.suggested_account_name || '');
+          txt += ' → ' + localCode(f.suggested_account_code) + ' ' + (f.suggested_account_name || '');
         }
         span.textContent = txt;
         row.appendChild(badge);

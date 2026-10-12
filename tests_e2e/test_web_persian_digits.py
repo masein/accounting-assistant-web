@@ -1,7 +1,7 @@
 """Persian digits on the web, safely (scenarios I12, I13; the owner's call,
 2026-10-12): a Persian page writes every figure in Persian digits, as the chat
 and the phone do; what a form holds, what is exported and what is sent stay
-Latin; English pages are unchanged."""
+Latin; account codes read in Persian too; English pages are unchanged."""
 from __future__ import annotations
 
 import os
@@ -32,11 +32,15 @@ def test_a_persian_page_writes_persian_digits_and_keeps_latin_where_it_must(flow
     shown = page.evaluate("""() => [formatNum(1234567), formatMoney(2500, 'GBP'), formatNum(-12.5),
                                     formatKpiValue(40, '%'), window.Chart && Chart.defaults.locale]""")
     assert shown == ["۱٬۲۳۴٬۵۶۷", "£۲٬۵۰۰", "-۱۲٫۵", "۴۰٪", "fa-IR"], shown
+    page.evaluate("() => { location.hash = 'accounts'; }")              # account codes read in Persian too
+    wait_until(page, "() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '۱۱۱۰')")
+    assert page.evaluate("() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '1110')") is False
+    assert page.evaluate("() => localCode('1110')") == "۱۱۱۰"
     with page.expect_download() as dl:                       # a CSV is read by other programs: Latin
         page.evaluate(TABLE)
     assert '"1,234,567"' in open(dl.value.path(), encoding="utf-8").read()
     os.makedirs(ARTIFACTS, exist_ok=True)
     page.screenshot(path=os.path.join(ARTIFACTS, "web-persian-digits.png"))
     switch_language(page, "en")                               # English pages are unchanged
-    assert page.evaluate("() => [formatNum(1234567), Chart.defaults.locale]") == ["1,234,567", "en-US"]
+    assert page.evaluate("() => [formatNum(1234567), Chart.defaults.locale, localCode('1110')]") == ["1,234,567", "en-US", "1110"]
     assert watch.problems() == [], watch.problems()

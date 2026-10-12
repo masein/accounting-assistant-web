@@ -121,8 +121,23 @@ def _holdings_by_account(db: Session) -> dict[str, list[PersonalHolding]]:
     return grouped
 
 
+def _first_postings(db: Session, codes: list[str]) -> dict[str, date]:
+    """When each account was first posted to: a holding counts from then."""
+    if not codes:
+        return {}
+    from sqlalchemy import func
+    rows = db.execute(
+        select(Account.code, func.min(Transaction.date))
+        .join(TransactionLine, TransactionLine.account_id == Account.id)
+        .join(Transaction, TransactionLine.transaction_id == Transaction.id)
+        .where(Account.code.in_(codes), Transaction.deleted_at.is_(None))
+        .group_by(Account.code)
+    ).all()
+    return {code: d for code, d in rows if d is not None}
+
+
 def _market_value(
-    db: Session, holdings: list[PersonalHolding], currency: str, on: date
+    db: Session, holdings: list[PersonalHolding], currency: str, on: date, *, strict: bool = False
 ) -> tuple[int | None, list[str], float | None]:
     """Current worth of the holdings backing one account.
 
@@ -135,7 +150,7 @@ def _market_value(
     missing: list[str] = []
     rates: list[float] = []
     for h in holdings:
-        rate = get_rate(db, h.unit, currency, on)
+        rate = get_rate(db, h.unit, currency, on, strict=strict)
         if rate is None:
             missing.append(h.unit)
             continue
@@ -205,10 +220,16 @@ def _compute_trend(
     """Month-end net worth, oldest first.
 
     Holdings are revalued at each month end's rate, so the curve moves with
-    prices as well as with saving. Quantities are current — the app doesn't
-    track when a holding was acquired — so early months assume today's
-    quantity; that is documented rather than hidden.
+    prices as well as with saving: a past month takes a rate dated on or
+    before it, or its book value when there was none. A holding whose
+    account was bought into is counted from that first posting; before it,
+    it wasn't held. Quantities are current (the app doesn't track partial
+    sales), and a holding never posted (inherited gold) is counted throughout;
+    both are documented rather than hidden. The phone's net worth line once
+    showed 380,000,000 of gold a year before it was bought, at yesterday's
+    rate (the personal-books pass, 2026-10-12).
     """
+    first_posted = _first_postings(db, list(holdings))
     series: list[tuple[str, int]] = []
     for end in _month_ends(as_of, TREND_MONTHS):
         balances = _balances_by_account(db, end)
@@ -221,9 +242,14 @@ def _compute_trend(
             nature = classify_account_code(code)
             value = book
             if nature == ASSET and code in holdings:
-                market, _missing, _rate = _market_value(db, holdings[code], currency, end)
-                if market is not None:
-                    value = market
+                started = first_posted.get(code)
+                if started is not None and end < started:
+                    value = 0                     # bought later: not held yet
+                else:
+                    # a month gone by takes the rate of its time, never one set since
+                    market, _missing, _rate = _market_value(db, holdings[code], currency, end, strict=end < as_of)
+                    if market is not None:
+                        value = market
             total += value if nature == ASSET else -value
         series.append((_month_key(end), total))
     return series

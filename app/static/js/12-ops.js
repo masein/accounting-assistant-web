@@ -61,7 +61,7 @@
         const chip = (r) => r.source === 'migration' ? t('postingRolesFromMigration') : (r.source === 'owner' && r.code !== r.default_code ? t('postingRolesByOwner') : '');
         el.innerHTML = '<div style="overflow-x:auto;"><table class="mini-table"><tbody>' + _migrationRoles.map((r) =>
           `<tr><td>${escapeHtml(t('postingRole_' + r.category))}</td>`
-          + `<td><select data-role="${escapeHtml(r.category)}" style="width:100%;max-width:24rem;">${opts(r)}</select></td>`
+          + `<td><select data-role="${escapeHtml(r.category)}" aria-label="${escapeHtml(t('postingRole_' + r.category))}" style="width:100%;max-width:24rem;">${opts(r)}</select></td>`
           + `<td class="fc-note">${escapeHtml(chip(r))}</td></tr>`).join('') + '</tbody></table></div>'
           + `<button type="button" class="btn btn-secondary btn-sm" data-action="migration-roles-save" style="margin-top:0.5rem;">${escapeHtml(t('postingRolesSave'))}</button>`
           + ' <span id="migration-roles-status" class="fc-note"></span>';

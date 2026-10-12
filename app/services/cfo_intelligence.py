@@ -6,10 +6,10 @@ and risk scoring. Pure computation — no LLM dependency.
 from __future__ import annotations
 
 import logging
+import string
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from statistics import mean
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -19,7 +19,7 @@ from app.models.transaction import Transaction, TransactionLine
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
 from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
-from app.core.money import plain
+from app.core.money import average, grouped, plain
 
 logger = logging.getLogger(__name__)
 
@@ -199,10 +199,29 @@ def _normalize_report_language(lang: str | None) -> str:
     return lang if lang in SUPPORTED_REPORT_LANGUAGES else "en"
 
 
+class _Amounts(string.Formatter):
+    """``{x:,}`` in these templates is an amount: it reads as ``grouped``
+    writes it, «1,000.02» with its pence and «2,500,000» whole, where
+    ``format`` wrote a £7.50 burn rate as «7.5» (docs/PLAN_PENCE.md, P5)."""
+
+    def format_field(self, value, format_spec):
+        if format_spec == ",":
+            return grouped(value)
+        return super().format_field(value, format_spec)
+
+
+_AMOUNTS = _Amounts()
+
+
+class _Template(str):
+    def format(self, *args, **kwargs):
+        return _AMOUNTS.vformat(self, args, kwargs)
+
+
 def _s(lang: str, key: str) -> str:
     """Localized template lookup with English fallback."""
     pack = _CFO_STRINGS.get(lang) or _CFO_STRINGS["en"]
-    return pack.get(key) or _CFO_STRINGS["en"][key]
+    return _Template(pack.get(key) or _CFO_STRINGS["en"][key])
 
 
 @dataclass
@@ -470,7 +489,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     ))
 
     # KPI: Monthly Avg Revenue
-    avg_rev = int(mean([data["monthly_revenue"].get(k, 0) for k in span])) if span else 0
+    avg_rev = average([data["monthly_revenue"].get(k, 0) for k in span], money)
     report.kpis.append(KPI(key="avg_monthly_revenue", label="Avg Monthly Revenue", value=avg_rev, unit=money))
 
     # KPI: Net Profit
@@ -491,7 +510,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
 
     # KPI: Burn Rate
     recent_exp = [data["monthly_expense"].get(k, 0) for k in span[-3:]]      # the latest three months
-    burn_rate = int(mean(recent_exp)) if recent_exp else 0
+    burn_rate = average(recent_exp, money)
     report.burn_rate = burn_rate
     report.kpis.append(KPI(key="burn_rate", label="Monthly Burn Rate", value=burn_rate, unit=money))
 
@@ -506,7 +525,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     elif no_cash:
         runway = 0.0
     else:
-        runway = data["total_cash"] / burn_rate
+        runway = float(data["total_cash"] / burn_rate)
     report.runway_months = round(runway, 1)
     report.kpis.append(KPI(
         key="runway_months", label="Cash Runway", value=round(runway, 1),

@@ -23,6 +23,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.money import to_places
 from app.models.account import Account
 from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction, TransactionLine
@@ -195,7 +196,7 @@ def detect_recurring(db: Session, *, today: date | None = None, txns: list | Non
         frequency, median_gap = cadence
 
         amounts = [r[1] for r in rows]
-        typical = int(statistics.median(amounts))
+        typical = to_places(statistics.median(amounts), base)
         spread = (max(amounts) - min(amounts)) / typical if typical else 1.0
         if spread > MAX_AMOUNT_VARIATION:
             continue

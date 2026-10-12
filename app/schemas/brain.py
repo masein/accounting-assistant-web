@@ -246,7 +246,7 @@ class CFOReportResponse(BaseModel):
     narrative: str
     risk_score: int
     runway_months: float
-    burn_rate: int
+    burn_rate: Money
     health_grade: str
     # The currency unit applied to every monetary KPI on this report.
     # Resolved server-side from the active reporting-currency AppSetting
@@ -262,7 +262,7 @@ class CEOReportResponse(BaseModel):
     profit_margin: float
     cash_position: Money
     cash_runway_months: float
-    burn_rate: int
+    burn_rate: Money
     health_grade: str
     risk_score: int
     total_assets: Money

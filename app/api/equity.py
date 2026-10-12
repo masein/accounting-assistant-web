@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.money import plain
+from app.core.money import plain, grouped
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.equity import EquityEvent, Shareholding
@@ -193,7 +193,7 @@ def delete_shareholding(shareholding_id: UUID, db: Session = Depends(get_db)) ->
     if owed:
         raise HTTPException(
             status_code=409,
-            detail=(f"{_entity_name(db, h.entity_id)} is still owed {owed:,} in declared dividends; "
+            detail=(f"{_entity_name(db, h.entity_id)} is still owed {grouped(owed)} in declared dividends; "
                     "pay them before removing the holding."),
         )
     db.delete(h)

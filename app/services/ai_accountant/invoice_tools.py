@@ -20,7 +20,7 @@ from app.models.invoice import Invoice
 
 from .base import BaseTool, ToolContext, ToolError, Replaceable
 from .time_tools import _find_entity, _register
-from app.core.money import Money, plain, round_amount, to_decimal
+from app.core.money import Money, plain, round_amount, to_decimal, grouped
 
 
 def _totals(ctx: ToolContext, inv: Invoice) -> tuple[int, int, int, int]:
@@ -179,10 +179,10 @@ class ProposeRecordInvoicePayment(BaseTool):
         token = _register(ctx, self.name, payload)
         direction = "received from" if inv.kind == "sales" else "paid to"
         ent = ctx.db.get(Entity, inv.entity_id) if inv.entity_id else None
-        summary = (f"Payment of {args.amount:,} {inv.currency} {direction} {ent.name if ent else 'the party'} "
-                   f"for invoice {inv.number} on {when.isoformat()} ({args.method}). Balance before: {balance:,}; after: {max(0, balance - args.amount):,}.")
+        summary = (f"Payment of {grouped(args.amount)} {inv.currency} {direction} {ent.name if ent else 'the party'} "
+                   f"for invoice {inv.number} on {when.isoformat()} ({args.method}). Balance before: {grouped(balance)}; after: {grouped(max(0, balance - args.amount))}.")
         if excess:
-            summary += f" The {excess:,} above the balance is booked as {'customer credit' if inv.kind == 'sales' else 'a supplier advance'}."
+            summary += f" The {grouped(excess)} above the balance is booked as {'customer credit' if inv.kind == 'sales' else 'a supplier advance'}."
         return {"confirmation_token": str(token), "status": "pending", "summary": summary, "tool_name": self.name,
                 "preview": {**payload, "balance_before": balance, "balance_after": max(0, balance - args.amount), "excess_to_credit": excess}}
 
@@ -267,8 +267,8 @@ class ProposeCreateInvoice(BaseTool):
                    "lines": lines, "description": args.description}
         token = _register(ctx, self.name, payload)
         summary = (f"{'Sales invoice' if kind == 'sales' else 'Purchase invoice'} {number} for {ent.name}: "
-                   f"{subtotal:,} {currency}" + (f" + tax {tax:,}" if tax else "") + f", issued {issue.isoformat()}, due {due.isoformat()}; "
-                   + "; ".join(f"{l['description']} × {l['quantity']:g} @ {l['unit_price']:,}" for l in lines))
+                   f"{grouped(subtotal)} {currency}" + (f" + tax {grouped(tax)}" if tax else "") + f", issued {issue.isoformat()}, due {due.isoformat()}; "
+                   + "; ".join(f"{l['description']} × {l['quantity']:g} @ {grouped(l['unit_price'])}" for l in lines))
         return {"confirmation_token": str(token), "status": "pending", "summary": summary,
                 "preview": {**payload, "subtotal": subtotal, "tax": tax, "total": subtotal + tax}}
 

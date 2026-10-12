@@ -20,7 +20,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.money import exponent, plain
+from app.core.money import exponent, plain, grouped
 
 from app.models.entity import Entity
 from app.models.equity import EquityEvent, Shareholding
@@ -233,7 +233,7 @@ def contribution(
     reg = _bump_registered_capital(db, amount) if to_capital else None
     return EquityPostingResult(
         transaction_ids=[str(txn.id)], event_ids=[str(ev.id)],
-        summary_lines=[f"DR {debit_code} {amount:,}", f"CR {credit_code} {amount:,}"],
+        summary_lines=[f"DR {debit_code} {grouped(amount)}", f"CR {credit_code} {grouped(amount)}"],
         allocations=[{"entity_id": str(ent.id), "entity_name": ent.name, "amount": amount}],
         registered_capital=reg,
     )
@@ -285,7 +285,7 @@ def capital_increase(
     reg = _bump_registered_capital(db, amount)
     return EquityPostingResult(
         transaction_ids=[str(txn.id)], event_ids=[str(ev.id)],
-        summary_lines=[f"DR {debit_code} {amount:,}", f"CR {capital_code} {amount:,}"],
+        summary_lines=[f"DR {debit_code} {grouped(amount)}", f"CR {capital_code} {grouped(amount)}"],
         registered_capital=reg,
     )
 
@@ -337,9 +337,9 @@ def declare_dividend(
         result.allocations.append({"entity_id": str(ent.id), "entity_name": ent.name, "amount": amt})
 
     result.summary_lines = [
-        f"DR {retained_code} {total_amount:,} (retained earnings)",
-        f"CR {payable_code} {total_amount:,} (dividends payable, split "
-        + ", ".join(f"{a['entity_name']} {a['amount']:,}" for a in result.allocations) + ")",
+        f"DR {retained_code} {grouped(total_amount)} (retained earnings)",
+        f"CR {payable_code} {grouped(total_amount)} (dividends payable, split "
+        + ", ".join(f"{a['entity_name']} {grouped(a['amount'])}" for a in result.allocations) + ")",
     ]
     return result
 
@@ -374,7 +374,7 @@ def pay_dividend(
     owed = dividend_outstanding(db, ent.id)
     if amount > owed:
         raise EquityError(
-            f"{ent.name} is owed {owed:,} in declared dividends; a payment of {amount:,} would exceed it."
+            f"{ent.name} is owed {grouped(owed)} in declared dividends; a payment of {grouped(amount)} would exceed it."
             + (" Declare the dividend first." if owed == 0 else "")
         )
     payable_code = resolve_account_code(db, "dividends_payable")
@@ -392,7 +392,7 @@ def pay_dividend(
               transaction=txn, entity_id=ent.id, description=bt(db, "eq_dividend_paid", name=ent.name))
     return EquityPostingResult(
         transaction_ids=[str(txn.id)], event_ids=[str(ev.id)],
-        summary_lines=[f"DR {payable_code} {amount:,}", f"CR {bank_code} {amount:,}"],
+        summary_lines=[f"DR {payable_code} {grouped(amount)}", f"CR {bank_code} {grouped(amount)}"],
         allocations=[{"entity_id": str(ent.id), "entity_name": ent.name, "amount": amount}],
     )
 
@@ -437,6 +437,6 @@ def shareholder_current_account(
               transaction=txn, entity_id=ent.id, description=bt(db, "eq_current_event", direction=book_value(db, direction), name=ent.name))
     return EquityPostingResult(
         transaction_ids=[str(txn.id)], event_ids=[str(ev.id)],
-        summary_lines=[f"DR {lines[0][0]} {amount:,}", f"CR {lines[1][0]} {amount:,}"],
+        summary_lines=[f"DR {lines[0][0]} {grouped(amount)}", f"CR {lines[1][0]} {grouped(amount)}"],
         allocations=[{"entity_id": str(ent.id), "entity_name": ent.name, "amount": amount}],
     )

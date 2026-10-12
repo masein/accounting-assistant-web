@@ -25,7 +25,7 @@ from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.services import purchase_billing, three_way_match
 from app.services.audit_service import log_audit_event
 from app.services.fx_service import get_reporting_currency
-from app.core.money import Money, plain, round_amount, to_decimal
+from app.core.money import Money, plain, round_amount, to_decimal, grouped
 
 router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders"])
 
@@ -287,7 +287,7 @@ def bill_po(po_id: UUID, payload: BillCreate, db: Session = Depends(get_db)) -> 
         db.rollback()
         raise HTTPException(status_code=e.status, detail=str(e))
     log_audit_event(db, action="bill", entity_type="purchase_order", entity_id=str(po.id),
-                    detail=f"Bill {inv.number} ({inv.amount:,} {inv.currency}) from PO {po.number}")
+                    detail=f"Bill {inv.number} ({grouped(inv.amount)} {inv.currency}) from PO {po.number}")
     db.commit()
     db.refresh(po)
     return {"invoice_id": str(inv.id), "invoice_number": inv.number, "amount": plain(inv.amount or 0),

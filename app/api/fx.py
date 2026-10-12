@@ -39,6 +39,7 @@ from app.services.fx_service import (
 )
 from app.services.reporting.repository import distinct_currencies, most_common_currency
 from app.services.book_text import book_date, bt
+from app.core.money import grouped
 
 router = APIRouter(prefix="/fx", tags=["fx"])
 
@@ -410,7 +411,7 @@ def revalue_foreign_currency_balances(
                 db.add(TransactionLine(
                     transaction_id=txn.id, account_id=by_code[ln.account_code].id, debit=0, credit=0,
                     base_debit=max(ln.adjustment, 0), base_credit=max(-ln.adjustment, 0),
-                    line_description=bt(db, "fx_revalued_line", ccy=fc, amount=f"{ln.source_balance:,}", rate=f"{rate:g}"),
+                    line_description=bt(db, "fx_revalued_line", ccy=fc, amount=f"{grouped(ln.source_balance)}", rate=f"{rate:g}"),
                 ))
             if net:
                 db.add(TransactionLine(

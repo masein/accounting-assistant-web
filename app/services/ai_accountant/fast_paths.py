@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.services.ai_accountant.base import ToolContext
-from app.core.money import plain
+from app.core.money import plain, grouped, grouped_fa
 
 MAX_LENGTH = 80
 
@@ -111,11 +111,7 @@ class FastAnswer:
 
 
 def _money(n: int, lang: str) -> str:
-    s = f"{int(n):,}"
-    if lang == "fa":
-        from app.utils.jalali import to_persian_digits
-        return to_persian_digits(s).replace(",", "٬")
-    return s
+    return grouped_fa(n) if lang == "fa" else grouped(n)
 
 
 def _cur(code: str | None, lang: str) -> str:
@@ -134,7 +130,7 @@ def _priced(n: int, code: str | None, lang: str) -> str:
     number then the code, «۲۳٬۹۲۳ ریال»."""
     code = (code or "").upper()
     if lang != "fa" and code in _SYMBOLS:
-        return ("-" if n < 0 else "") + _SYMBOLS[code] + _money(abs(int(n)), lang)
+        return ("-" if n < 0 else "") + _SYMBOLS[code] + _money(abs(n), lang)
     return f"{_money(n, lang)} {_cur(code, lang)}".strip()
 
 

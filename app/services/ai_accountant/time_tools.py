@@ -22,6 +22,7 @@ from app.models.time_billing import Project
 from .base import BaseTool, ToolContext, ToolError
 from .date_resolver import resolve_entry_date
 from .entity_create import classify_entity_type
+from app.core.money import grouped
 
 # ---------------------------------------------------------------------------
 # Name resolution helpers
@@ -353,13 +354,13 @@ class ProposeCreateInvoiceFromTime(BaseTool):
         for b in preview["groups"]:
             lines.append(f"  {b['project_name']}:")
             for ln in b["lines"]:
-                lines.append(f"    {ln['employee_name']} — {ln['hours']:g}h × {ln['rate']:g} = {ln['amount']:,} {cur}")
+                lines.append(f"    {ln['employee_name']} — {ln['hours']:g}h × {ln['rate']:g} = {grouped(ln['amount'])} {cur}")
         summary = (
             f"Draft invoice for {preview['client_name']} "
             f"({preview['period_from']} → {preview['period_to']}):\n"
             + "\n".join(lines)
-            + f"\n  Subtotal {preview['subtotal']:,} + VAT {preview['tax']:,} = "
-              f"Total {preview['total']:,} {cur}"
+            + f"\n  Subtotal {grouped(preview['subtotal'])} + VAT {grouped(preview['tax'])} = "
+              f"Total {grouped(preview['total'])} {cur}"
             + f"\n  Includes {preview['entry_count']} time entries ({preview['total_hours']:g} hrs)."
         )
         return {"confirmation_token": str(token), "status": "pending", "summary": summary,

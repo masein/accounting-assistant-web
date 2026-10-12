@@ -14,6 +14,7 @@ read, add up and print as they always did; only an amount with pence is a
 """
 from __future__ import annotations
 
+import re
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Annotated, Any, Union
 
@@ -88,6 +89,25 @@ def round_amount(value: Any, currency: str | None) -> int | Decimal:
     return quantize(value, currency)
 
 
+def to_places(value: Any, currency: str | None) -> int | Decimal:
+    """A figure worked out from amounts — a mean, a median, a pace — to
+    ``currency``'s places, half-up: £1,000.02, where ``int()`` said £1,000. A
+    currency without places still drops the fraction as ``int()`` did, so a
+    rial average reads as it always has (scenario Q11b)."""
+    if exponent(currency) == 0:
+        return int(to_decimal(value))
+    return quantize(value, currency)
+
+
+def average(values: Any, currency: str | None) -> int | Decimal:
+    """The mean of some amounts to ``currency``'s places (``to_places``):
+    £3,000.06 over three months is £1,000.02 a month."""
+    vals = [to_decimal(v) for v in values]
+    if not vals:
+        return 0
+    return to_places(sum(vals) / len(vals), currency)
+
+
 def places_of(value: Any) -> int:
     """How many decimal places ``value`` is written with (7.50 → 1: 7.5)."""
     d = to_decimal(value).normalize()
@@ -114,6 +134,50 @@ def json_amount(value: Any) -> int | float | None:
     p = plain(value)
     return p if isinstance(p, int) else float(p)
 
+
+def grouped(value: Any) -> str:
+    """An amount written in a sentence: «2,500,000», «7.50», «0.125». An
+    amount with pence shows at least two places (it read «7.5»); a whole one
+    reads exactly as ``f"{x:,}"`` wrote it, so rial text doesn't move
+    (docs/PLAN_PENCE.md, P5). Not money (a count) reads the same way."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, int):
+        return f"{value:,}"
+    try:
+        p = plain(value)
+    except (ValueError, TypeError):
+        return str(value)
+    if isinstance(p, int):
+        return f"{p:,}"
+    return f"{p:,.{max(2, places_of(p))}f}"
+
+
+
+_FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+_DECIMAL_POINT = re.compile(r"(?<=\d)\.(?=\d)")
+
+
+def persian_figures(text: str, *, thousands: str = "٬") -> str:
+    """``text`` with its figures as Persian writes them: Persian digits, «٬»
+    between thousands and «٫» for the decimal point (a «.» read as a stray
+    full stop: «۷.۵۰»). A full stop that ends a sentence stays one.
+    ``thousands=","`` keeps the comma where a page always printed one."""
+    return _DECIMAL_POINT.sub("٫", str(text).replace(",", thousands)).translate(_FA_DIGITS)
+
+
+def grouped_fa(value: Any) -> str:
+    """``grouped`` in Persian: «۲٬۵۰۰٬۰۰۰», «۷٫۵۰»."""
+    return persian_figures(grouped(value))
+
+
+def sheet_format(currency: str | None) -> str:
+    """A spreadsheet's number format for ``currency``: «#,##0.00» for pounds
+    (Excel showed £7.50 as «8»), «#,##0» for rials as before."""
+    places = exponent(currency)
+    return "#,##0" + ("." + "0" * places if places else "")
 
 # --- the column ---------------------------------------------------------------------------------------
 

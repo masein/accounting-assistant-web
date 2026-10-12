@@ -30,6 +30,7 @@ from decimal import Decimal, InvalidOperation
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.money import grouped
 from app.models.account import Account, AccountLevel
 from app.models.entity import Entity
 from app.models.migration import MigrationBatch, MigrationPendingRecord
@@ -429,8 +430,8 @@ def stage_preview_batch(
         summary["opening"]["suggested"] = "replace" if same else "keep"
         if not same:
             summary["validation"]["warnings"].append(
-                f"The books already hold opening balances of {total:,} dated {existing.date.isoformat()}; "
-                f"this file's are {new_total:,}. Unless you choose to replace them, they stay as they are "
+                f"The books already hold opening balances of {grouped(total)} dated {existing.date.isoformat()}; "
+                f"this file's are {grouped(new_total)}. Unless you choose to replace them, they stay as they are "
                 "and only the chart and contacts are imported"
             )
     else:

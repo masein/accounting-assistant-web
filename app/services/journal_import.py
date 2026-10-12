@@ -37,7 +37,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.services.book_text import bt
-from app.core.money import json_dumps
+from app.core.money import json_dumps, grouped
 
 MAX_ROWS = 50_000
 MAX_VOUCHERS = 10_000
@@ -102,7 +102,7 @@ def read_rows(filename: str, data: bytes) -> list[list[str | None]]:
     except Exception as exc:  # noqa: BLE001 — a corrupt workbook
         raise HTTPException(status_code=422, detail=f"Could not read the file: {exc}") from exc
     if len(rows) > MAX_ROWS:
-        raise HTTPException(status_code=422, detail=f"More than {MAX_ROWS:,} rows — split the export by year.")
+        raise HTTPException(status_code=422, detail=f"More than {grouped(MAX_ROWS)} rows — split the export by year.")
     return rows
 
 
@@ -120,7 +120,7 @@ def read_book(filename: str, data: bytes) -> list[tuple[str, list[list[str | Non
         for ws in wb.worksheets:
             rows = [[(str(c) if c is not None else None) for c in row] for row in ws.iter_rows(values_only=True)]
             if len(rows) > MAX_ROWS:
-                raise HTTPException(status_code=422, detail=f"More than {MAX_ROWS:,} rows — split the export by year.")
+                raise HTTPException(status_code=422, detail=f"More than {grouped(MAX_ROWS)} rows — split the export by year.")
             book.append((ws.title, rows))
         return book
     finally:
@@ -536,7 +536,7 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
         v = vouchers.get(key)
         if v is None:
             if len(vouchers) >= MAX_VOUCHERS:
-                raise HTTPException(status_code=422, detail=f"More than {MAX_VOUCHERS:,} vouchers — split the export.")
+                raise HTTPException(status_code=422, detail=f"More than {grouped(MAX_VOUCHERS)} vouchers — split the export.")
             label = str(cur_number).strip() if cur_number not in (None, "") else f"{cur_date.isoformat()}-{len(vouchers) + 1}"
             v = vouchers[key] = Voucher(key=key, number=label, on=cur_date, reference=cur_ref)
         party = _cell(row, cols.get("party"))

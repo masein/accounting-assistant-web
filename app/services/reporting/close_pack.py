@@ -35,7 +35,7 @@ from app.services.reporting.statement_export import (
     render_xlsx,
     tables,
 )
-from app.core.money import plain
+from app.core.money import grouped, persian_figures, plain
 
 BUCKETS = ("current", "1-30", "31-60", "61-90", "90+")
 MAX_BANK_LINES = 200
@@ -285,9 +285,8 @@ def recent_months(db: Session, lang: str, n: int = 12) -> list[dict]:
 
 
 def _money(v: int, m: Month) -> str:
-    from app.services.documents.formatting import to_persian_digits
-    text = f"{int(v):,}"
-    return to_persian_digits(text) if m.lang == "fa" else text
+    text = grouped(v)
+    return persian_figures(text, thousands=",") if m.lang == "fa" else text
 
 
 def _n(v, m: Month) -> str:

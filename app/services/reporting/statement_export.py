@@ -21,7 +21,7 @@ from datetime import date
 from typing import Any
 
 from sqlalchemy.orm import Session
-from app.core.money import plain
+from app.core.money import grouped, persian_figures, plain, sheet_format
 
 ALL = ("balance_sheet", "income_statement", "comprehensive_income", "changes_in_equity", "cash_flow")
 GENERIC = ("balance_sheet", "income_statement", "cash_flow")
@@ -255,9 +255,9 @@ def _num(v, lang: str) -> str:
         return ""
     if isinstance(v, str):                              # a date, a percentage — printed as it is
         return to_persian_digits(v) if lang == "fa" else v
-    text = f"{abs(int(v)):,}"
-    text = f"({text})" if int(v) < 0 else text
-    return to_persian_digits(text) if lang == "fa" else text
+    text = grouped(abs(v))
+    text = f"({text})" if v < 0 else text
+    return persian_figures(text, thousands=",") if lang == "fa" else text
 
 
 def render_pdf(db: Session, tabs: list[Table], meta: dict, *, cover: dict | None = None,
@@ -291,7 +291,8 @@ def render_xlsx(tabs: list[Table], meta: dict, *, company: str = "", extra_sheet
     rtl = meta["lang"] == "fa"
     wb = Workbook()
     wb.remove(wb.active)
-    money = "#,##0;(#,##0);-"
+    unit = sheet_format(meta.get("currency"))
+    money = f"{unit};({unit});-"
     thin = Side(style="thin", color="94A3B8")
 
     def plain(name, rows):

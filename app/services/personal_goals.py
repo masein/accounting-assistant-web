@@ -14,7 +14,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.money import plain
+from app.core.money import exponent, plain, to_decimal, to_places
 from app.models.account import Account
 from app.models.savings_goal import SavingsGoal
 from app.services.reporting.common import ASSET, classify_account_code
@@ -60,6 +60,8 @@ def progress(db: Session, goals: list[SavingsGoal], *, today: date | None = None
     if not goals:
         return []
     cal = company_calendar(db)
+    from app.services.fx_base import base_currency
+    ccy = base_currency(db)
     now = _values(db, today)
     before_day = pace_start(today, cal)
     before = _values(db, before_day)
@@ -72,19 +74,26 @@ def progress(db: Session, goals: list[SavingsGoal], *, today: date | None = None
         remaining = max(0, target - current)
         pace = (current - before.get(g.account_code, 0)) / PACE_MONTHS
         left = months_left(today, g.target_date, cal) if g.target_date else None
-        needed = None if left is None else (remaining if left == 0 else math.ceil(remaining / left))
+        needed = None if left is None else (remaining if left == 0 else _per_month(remaining, left, ccy))
         on_track = None if g.target_date is None else (remaining == 0 or (left > 0 and pace >= needed))
         out.append({
             "id": str(g.id), "name": g.name, "account_code": g.account_code, "account_name": names.get(g.account_code),
             "target_amount": target, "current": current, "remaining": remaining,
             "percent": round(min(100.0, current / target * 100), 1) if target else 0.0,
             "reached": current >= target, "target_date": g.target_date.isoformat() if g.target_date else None,
-            "months_left": left, "needed_per_month": needed, "pace_per_month": int(round(pace)),
+            "months_left": left, "needed_per_month": needed, "pace_per_month": to_places(pace, ccy) if exponent(ccy) else int(round(pace)),
             "on_track": on_track,
             "months_to_go": (math.ceil(remaining / pace) if pace > 0 and remaining else (0 if not remaining else None)),
             "archived": bool(g.archived),
         })
     return out
+
+
+def _per_month(remaining, months: int, ccy: str):
+    """What has to go in each month to reach the goal in time, rounded up to
+    the currency's smallest unit: £100 over 3 months is £33.34, not £34."""
+    scale = 10 ** exponent(ccy)
+    return plain(to_decimal(math.ceil(to_decimal(remaining) * scale / months)) / scale)
 
 
 def pace_start(today: date, cal: str) -> date:

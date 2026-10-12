@@ -240,17 +240,21 @@ _LEAVERS = {"en": " No longer paid: {}.", "fa": " دیگر پرداخت نمی�
 
 
 def _fmt(n: int | float | None) -> str:
+    """An amount in the base currency: to the penny for pounds (an average
+    read «£1,000» for £1,000.02), whole and rounded as always for rials."""
     if n is None:
         return "—"
-    return f"{int(round(n)):,}"
+    return grouped(round_amount(n, _BASE.get()))
 
 
 # The company's calendar for this run (roadmap §3.5): "this month" for an
 # Iranian company is مهر, not September. Set by compute_insights.
 from contextvars import ContextVar  # noqa: E402
-from app.core.money import plain
+from app.core.money import plain, grouped, round_amount
 
 _CALENDAR: ContextVar[str] = ContextVar("insight_calendar", default="gregorian")
+# ... and its base currency, whose places the amounts are written to
+_BASE: ContextVar[str | None] = ContextVar("insight_base_currency", default=None)
 # The entries of the last WINDOW days, loaded once per insights run and shared by
 # the detectors: each loaded its own overlapping window, and the first insights of
 # a day took 10.6 s on a year of books (performance pass, 2026-10-06).
@@ -485,7 +489,7 @@ def detect_expense_spikes(db: Session, today: date, *, txns: list[Transaction] |
         if cur <= 0 or len(base) < 2:
             continue
         avg = sum(base) / 3  # average over the three-month window, absent months count as zero
-        if avg <= 0 or cur < 1.5 * avg or (cur - avg) < avg * 0.5:
+        if avg <= 0 or cur * 2 < avg * 3 or (cur - avg) * 2 < avg:     # under 1.5× the average
             continue
         out.append(Insight(
             key=f"expense-spike-{code}-{cur_m}", kind="expense_spike", severity="warning",
@@ -522,7 +526,7 @@ def detect_revenue_drop(db: Session, today: date, *, txns: list[Transaction] | N
         return []
     avg = sum(prior) / len(prior)
     cur = rev.get(last_m, 0)
-    if avg <= 0 or cur >= 0.75 * avg:
+    if avg <= 0 or cur * 4 >= avg * 3:      # at least three quarters of the average
         return []
     pct = (avg - cur) / avg * 100
     return [Insight(
@@ -670,7 +674,7 @@ def detect_receivables_growth(db: Session, today: date) -> list[Insight]:
 
     now = balance(today)
     then = balance(today - timedelta(days=30))
-    if then <= 0 or now < 1.25 * then:
+    if then <= 0 or now * 4 < then * 5:     # under 1.25× a month ago
         return []
     pct = (now - then) / then * 100
     return [Insight(
@@ -736,12 +740,15 @@ def compute_insights(db: Session, *, today: date | None = None, use_cache: bool 
 
     today = today or date.today()
     from app.services.calendar_periods import company_calendar
+    from app.services.fx_base import base_currency
     cal_token = _CALENDAR.set(company_calendar(db))
+    base_token = _BASE.set(base_currency(db))
     rows_token = _ROWS.set({"today": today})
     try:
         return _compute_insights(db, today=today, use_cache=use_cache)
     finally:
         _ROWS.reset(rows_token)
+        _BASE.reset(base_token)
         _CALENDAR.reset(cal_token)
 
 
@@ -796,8 +803,8 @@ def _said(value: Any, lang: str) -> Any:
         from app.services.calendar_periods import month_label
         return month_label(value, lang)
     if lang == "fa" and isinstance(value, str) and _FIGURE.match(value):
-        from app.utils.jalali import to_persian_digits
-        return to_persian_digits(value).replace(",", "٬")
+        from app.core.money import persian_figures
+        return persian_figures(value)
     return value
 
 

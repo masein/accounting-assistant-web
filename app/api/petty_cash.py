@@ -33,7 +33,7 @@ from app.models.user import User
 from app.services.account_resolver import resolve_account_code
 from app.services.audit_service import log_audit_event
 from app.services.book_text import bt
-from app.core.money import Money, plain
+from app.core.money import Money, plain, grouped
 
 router = APIRouter(prefix="/petty-cash", tags=["petty-cash"])
 
@@ -320,8 +320,8 @@ def _assert_within_float(db: Session, account_id: uuid.UUID, amount: int) -> Non
     if amount > available:
         raise HTTPException(
             status_code=422,
-            detail=f"Expense {amount:,} exceeds the petty cash available ({available:,}"
-                   + (f" after {pending:,} pending)" if pending else ")") + ". Top up the float first.",
+            detail=f"Expense {grouped(amount)} exceeds the petty cash available ({grouped(available)}"
+                   + (f" after {grouped(pending)} pending)" if pending else ")") + ". Top up the float first.",
         )
 
 

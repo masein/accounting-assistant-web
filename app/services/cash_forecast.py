@@ -33,7 +33,7 @@ from typing import Any
 
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
-from app.core.money import plain
+from app.core.money import plain, grouped, to_places
 
 WEEKS = 13
 HISTORY_WEEKS = 26
@@ -100,7 +100,7 @@ def resolve_scenario(db: Session, *, bounce_ids=(), bounce_matching: str | None 
             notes.append(f"No pending cheque or installment matches '{bounce_matching}'.")
         for c in hits:
             sc.bounce_commitments.add(str(c.id))
-            notes.append(f"Assumed to bounce: {c.title} ({c.amount:,}, due {c.due_date.isoformat()}).")
+            notes.append(f"Assumed to bounce: {c.title} ({grouped(c.amount)}, due {c.due_date.isoformat()}).")
     wanted = [(raw, _uuid(raw)) for raw in skip_invoice_ids or ()]
     ids = [i for _r, i in wanted if i]
     open_ids = set(db.execute(select(Invoice.id).where(Invoice.id.in_(ids),
@@ -424,8 +424,9 @@ def baseline(db: Session, today: date, currency: str, locale: str) -> dict[str, 
     weeks = [w for w in weeks if w >= _week_start(first_seen)]   # a young company: only the weeks it existed
     if len(weeks) < 4:
         return {"inflow": 0, "outflow": 0, "weeks_of_history": len(weeks)}
-    return {"inflow": int(median(weekly_in.get(w, 0) for w in weeks)),
-            "outflow": int(median(weekly_out.get(w, 0) for w in weeks)), "weeks_of_history": len(weeks)}
+    return {"inflow": to_places(median(weekly_in.get(w, 0) for w in weeks), currency),
+            "outflow": to_places(median(weekly_out.get(w, 0) for w in weeks), currency),
+            "weeks_of_history": len(weeks)}
 
 
 # --- the forecast -----------------------------------------------------------------------------------------------

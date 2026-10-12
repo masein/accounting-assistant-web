@@ -21,7 +21,7 @@ from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.invoice import Invoice
 from app.models.transaction import Transaction, TransactionLine
-from app.core.money import json_dumps, plain
+from app.core.money import json_dumps, plain, sheet_format
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
@@ -99,7 +99,7 @@ def export_transactions_xlsx(
         ws.append(r)
         ws.cell(ws.max_row, 2).number_format = "yyyy-mm-dd"
         for col in (7, 8):
-            ws.cell(ws.max_row, col).number_format = "#,##0"
+            ws.cell(ws.max_row, col).number_format = sheet_format(r[9])
     ws.freeze_panes = "A2"
     for col, width in zip("ABCDEFGHIJ", (38, 12, 16, 40, 12, 28, 16, 16, 32, 10)):
         ws.column_dimensions[col].width = width

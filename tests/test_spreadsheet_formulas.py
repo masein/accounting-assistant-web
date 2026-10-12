@@ -158,5 +158,5 @@ def test_exports_open_cleanly_in_excel(books):
     assert ws["A1"].value == "transaction_id" and ws["A1"].font.bold and ws.freeze_panes == "A2"
     line = next(r for r in ws.iter_rows(min_row=2) if r[4].value == "7100")
     assert isinstance(line[1].value, datetime) and line[1].value.date().isoformat() == "2026-08-15"
-    assert line[6].value == 9000 and line[6].data_type == "n" and line[6].number_format == "#,##0"
+    assert line[6].value == 9000 and line[6].data_type == "n" and line[6].number_format == "#,##0.00"   # pounds (Q11d)
     assert line[7].value == 0 and line[3].value == EVIL and line[3].data_type == "s"

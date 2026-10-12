@@ -14,7 +14,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core.money import Money, plain
+from app.core.money import Money, plain, grouped
 
 from .base import BaseTool, ToolContext, ToolError, Replaceable
 from .time_tools import _find_entity, _register
@@ -292,7 +292,7 @@ class ProposeCreateRecurringRule(BaseTool):
                    "entity_id": str(ent.id) if ent else None, "party": ent.name if ent else None}
         token = _register(ctx, self.name, payload)
         verb = "Pay" if direction == "payment" else "Receive"
-        summary = (f"{verb} {args.amount:,} {frequency} from {args.start_date.isoformat()}"
+        summary = (f"{verb} {grouped(args.amount)} {frequency} from {args.start_date.isoformat()}"
                    + (f" until {args.end_date.isoformat()}" if args.end_date else "")
                    + f" — {args.name.strip()}: account {args.account_code}, "
                    + ("from" if direction == "payment" else "into") + f" {bank}"

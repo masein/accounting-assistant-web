@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.models.account import Account, AccountLevel
 from app.services.book_text import bt
-from app.core.money import plain
+from app.core.money import plain, grouped
 
 OPENING_REFERENCE = "OPENING-BALANCES"
 ADJUSTMENT_CODE = "3999"
@@ -150,7 +150,7 @@ def set_active(db: Session, acc: Account, active: bool) -> Account:
         raise HTTPException(status_code=409, detail=f"{acc.code} is used by automatic postings and must stay active.")
     d, c = _balances(db).get(acc.id, (0, 0))
     if d != c:
-        raise HTTPException(status_code=409, detail=f"{acc.code} still has a balance of {d - c:,} — clear it first.")
+        raise HTTPException(status_code=409, detail=f"{acc.code} still has a balance of {grouped(d - c)} — clear it first.")
     active_children = db.execute(select(Account.code).where(Account.parent_id == acc.id, Account.is_active.is_(True))
                                  ).scalars().all()
     if active_children:

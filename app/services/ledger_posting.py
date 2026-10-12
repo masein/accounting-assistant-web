@@ -36,6 +36,19 @@ def default_currency(db: Session, currency: str | None) -> str:
     return (get_reporting_currency(db) or "IRR").strip().upper()
 
 
+def assert_amount_places(currency: str, amounts) -> None:
+    """No amount with more places than its currency has: £7.505, or half a
+    rial. Pounds keep their pence (docs/PLAN_PENCE.md); a third decimal of a
+    pound, or any of a rial, is a mistake the person should hear about."""
+    from app.core.money import exponent, places_of
+    allowed = exponent(currency)
+    if any(places_of(v or 0) > allowed for v in amounts):
+        if allowed == 0:
+            raise HTTPException(status_code=400, detail=f"The amount can't have decimals in {currency}.")
+        raise HTTPException(status_code=400,
+                            detail=f"The amount can have at most {allowed} decimal places in {currency}.")
+
+
 def validate_balanced_lines(lines) -> None:
     """Reject an unbalanced or empty set of legs.
 
@@ -145,13 +158,15 @@ def create_transaction_from_payload(db: Session, payload: TransactionCreate) -> 
     # Block posting / back-dating into a closed (locked) period.
     from app.services.period_service import assert_period_open
     assert_period_open(db, payload.date)
+    # the company's base currency when none is given (it was a literal "IRR",
+    # so a UK company's entries came out in rials)
+    currency = default_currency(db, getattr(payload, "currency", None))
+    assert_amount_places(currency, (v for line in lines_data for v in (line.debit, line.credit)))
     transaction = Transaction(
         date=payload.date,
         reference=payload.reference,
         description=payload.description,
-        # the company's base currency when none is given (it was a literal
-        # "IRR", so a UK company's entries came out in rials)
-        currency=default_currency(db, getattr(payload, "currency", None)),
+        currency=currency,
         # the caller's rate, else the rate on file for the date (app/services/fx_base.py)
         fx_rate=getattr(payload, "fx_rate", None),
     )

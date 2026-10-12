@@ -32,6 +32,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.core.money import json_dumps
 
 log = logging.getLogger("app.rate_feeds")
 
@@ -171,7 +172,7 @@ def save_settings(db: Session, data: dict[str, Any]) -> dict[str, Any]:
             items.append({"unit": unit, "to": to, "path": path[:120], "multiply": format(mult.normalize(), "f")})
         feeds.append({"name": name, "url": encrypt_secret(url), "enabled": bool(f.get("enabled", True)),
                       "items": items})
-    value = json.dumps({"enabled": bool(data.get("enabled")), "ecb": bool(data.get("ecb", True)), "hour": hour,
+    value = json_dumps({"enabled": bool(data.get("enabled")), "ecb": bool(data.get("ecb", True)), "hour": hour,
                         "feeds": feeds})
     with tenant_bypass():
         row = _row(db, SETTINGS_KEY)
@@ -198,7 +199,7 @@ def _save_status(db: Session, status: dict[str, Any]) -> None:
     from app.models.app_setting import AppSetting
     with tenant_bypass():
         row = _row(db, STATUS_KEY)
-        value = json.dumps(status, ensure_ascii=False)
+        value = json_dumps(status, ensure_ascii=False)
         if row is None:
             db.add(AppSetting(key=STATUS_KEY, value=value, company_id=None))
         else:

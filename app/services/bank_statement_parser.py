@@ -9,6 +9,7 @@ import io
 import json
 import logging
 import re
+from decimal import Decimal
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -26,9 +27,9 @@ class ParsedRow:
     tx_date: date
     description: str = ""
     reference: str | None = None
-    debit: int = 0
-    credit: int = 0
-    balance: int | None = None
+    debit: int | Decimal = 0        # the statement's own unit: 7.5 is £7.50
+    credit: int | Decimal = 0
+    balance: int | Decimal | None = None
     counterparty: str | None = None
     raw_text: str = ""
     confidence: float = 1.0
@@ -61,22 +62,24 @@ def _normalize_digits(text: str) -> str:
     return text.translate(_PERSIAN_DIGIT_TABLE).translate(_ARABIC_DIGIT_TABLE)
 
 
-def _parse_amount(raw: str) -> int:
-    """Parse an amount string into integer Rials, handling various formats."""
-    if not raw:
+def _parse_amount(raw: str):
+    """An amount as the statement writes it, exactly: «7.50» is 7.5, «1,234.56»
+    and «1.234,56» are 1234.56, «(85.00)» is −85, Persian digits too. It was
+    ``int(float(...))``, so a £7.50 fee came in as £7 and a statement could
+    never reconcile to the penny (docs/PLAN_PENCE.md). Whole amounts are ints;
+    the import rounds the rest to the statement currency's places."""
+    from decimal import ROUND_HALF_UP, Decimal
+
+    from app.core.money import MAX_PLACES, plain
+    from app.services.journal_import import parse_amount as exact
+    if raw is None or str(raw).strip() == "":
         return 0
     text = _normalize_digits(str(raw).strip())
-    text = text.replace(",", "").replace("_", "").replace(" ", "")
-    neg = text.startswith("-") or text.startswith("(")
-    text = text.strip("-()").strip()
-    if not text:
-        return 0
-    try:
-        val = abs(int(float(text)))
-    except (ValueError, TypeError):
-        fa = parse_persian_number(raw)
-        val = fa if fa else 0
-    return -val if neg else val
+    val = exact(text)
+    if val == 0 and re.search(r"[^\d\s.,()\-+]", text):
+        fa = parse_persian_number(raw)          # «ده میلیون»: written out in words
+        val = Decimal(fa) if fa else Decimal(0)
+    return plain(val.quantize(Decimal(1).scaleb(-MAX_PLACES), rounding=ROUND_HALF_UP))
 
 
 def _parse_date(raw: str) -> date | None:
@@ -308,7 +311,7 @@ def parse_vision_rows(vision_rows: list[dict], bank_name: str = "") -> ParseResu
         if not tx_date:
             continue
         try:
-            amount = abs(int(r.get("amount") or 0))
+            amount = abs(_parse_amount(r.get("amount") or 0))     # keeps its pence (was int())
         except (TypeError, ValueError):
             continue
         if amount <= 0:
@@ -325,7 +328,7 @@ def parse_vision_rows(vision_rows: list[dict], bank_name: str = "") -> ParseResu
             description=desc,
             debit=debit,
             credit=credit,
-            balance=int(balance) if isinstance(balance, (int, float)) else None,
+            balance=_parse_amount(balance) if isinstance(balance, (int, float, str)) and str(balance).strip() else None,
             counterparty=_extract_counterparty(desc),
             raw_text=desc,
             confidence=0.85,

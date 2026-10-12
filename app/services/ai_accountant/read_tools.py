@@ -41,6 +41,7 @@ from app.services.reporting.common import (
 )
 
 from .base import BaseTool, ToolContext, ToolError
+from app.core.money import plain
 
 
 # Contact + bank fields shown to the model so questions like "what is this
@@ -379,8 +380,8 @@ class QueryLedger(BaseTool):
                     "date": txn.date.isoformat(),
                     "account_code": acc.code,
                     "account_name": acc.name,
-                    "debit": int(line.debit or 0),
-                    "credit": int(line.credit or 0),
+                    "debit": plain(line.debit or 0),
+                    "credit": plain(line.credit or 0),
                     "currency": txn.currency,
                     # the same in the base currency (None: no rate yet)
                     "base_debit": line.base_debit,
@@ -453,16 +454,16 @@ class GetAccountBalance(BaseTool):
             stmt = stmt.where(Transaction.currency == ccy)
         debit_sum, credit_sum = ctx.db.execute(stmt).one()
         acc_type = classify_account_code(code)
-        balance = balance_from_turnovers(acc_type, int(debit_sum or 0), int(credit_sum or 0))
+        balance = balance_from_turnovers(acc_type, plain(debit_sum or 0), plain(credit_sum or 0))
         return {
             "account_code": code,
             "account_name": acc.name,
             "account_type": acc_type,
             "as_of": as_of.isoformat(),
             "currency": ccy or base_currency(ctx.db),
-            "debit_total": int(debit_sum or 0),
-            "credit_total": int(credit_sum or 0),
-            "balance": int(balance),
+            "debit_total": plain(debit_sum or 0),
+            "credit_total": plain(credit_sum or 0),
+            "balance": plain(balance),
             **({"unconverted": note} if not ccy and (note := unconverted_note(ctx.db)) else {}),
         }
 

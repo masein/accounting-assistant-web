@@ -222,14 +222,16 @@ def convert(
     return float(amount) * rate
 
 
-def convert_minor(amount: int, rate: float) -> int:
-    """``amount × rate`` in whole units, exact and rounded half-up (away from
-    zero). Money must never go through a float product: a double holds every
-    integer only up to 9e15, and a large Iranian company's annual figures in
-    rial pass that; Python's round() is also half-to-even (2.5 → 2)."""
+def convert_minor(amount, rate: float, places: int = 0):
+    """``amount × rate`` rounded half-up (away from zero) to ``places`` — the
+    target currency's (pence for pounds, whole rials). Exact: money never goes
+    through a float product (a double holds every integer only up to 9e15, and
+    a large Iranian company's annual figures in rial pass that; Python's
+    round() is also half-to-even, 2.5 → 2). Whole results are ints."""
     from decimal import ROUND_HALF_UP, Decimal
-    product = Decimal(int(amount)) * Decimal(repr(float(rate)))
-    return int(product.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    from app.core.money import plain, to_decimal
+    product = to_decimal(amount) * Decimal(repr(float(rate)))
+    return plain(product.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
 
 
 def convert_or_none(
@@ -239,11 +241,12 @@ def convert_or_none(
     to_ccy: str,
     on: date | None = None,
 ) -> int | None:
-    """Convenience integer wrapper: exact, half-up; None if no rate."""
+    """Exact, half-up to ``to_ccy``'s places; None if no rate."""
+    from app.core.money import exponent
     rate = get_rate(db, from_ccy, to_ccy, on)
     if rate is None:
         return None
-    return convert_minor(int(round(float(amount))) if not isinstance(amount, int) else amount, rate)
+    return convert_minor(amount, rate, exponent(to_ccy))
 
 
 # A placeholder USD→IRR rate (150,000) used to be seeded here. Entries now

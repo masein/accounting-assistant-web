@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.app_setting import AppSetting
 from app.services.moadian.taxid import normalize_memory_id, valid_memory_id
+from app.core.money import json_dumps
 
 KEY = "moadian"
 DEFAULT_DEADLINE_DAYS = 12   # ماده ۲۲ قانون پایانه‌های فروشگاهی و سامانه مودیان
@@ -68,8 +69,8 @@ def save_settings(db: Session, **changes) -> dict:
         cur["deadline_days"] = d
     row = _row(db)
     if row is None:
-        db.add(AppSetting(key=KEY, value=json.dumps(cur)))
+        db.add(AppSetting(key=KEY, value=json_dumps(cur)))
     else:
-        row.value = json.dumps(cur)
+        row.value = json_dumps(cur)
     db.flush()
     return cur

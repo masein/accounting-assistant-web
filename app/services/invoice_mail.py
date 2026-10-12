@@ -28,6 +28,7 @@ from app.models.company_profile import CompanyProfile
 from app.models.entity import Entity
 from app.models.invoice import Invoice
 from app.models.invoice_email import InvoiceEmail
+from app.core.money import json_dumps
 
 SETTINGS_KEY = "invoice_mail"
 DEFAULT_REMINDER_DAYS = (3, 10, 20)
@@ -107,9 +108,9 @@ def save_settings(db: Session, **changes) -> dict:
         cur["payment_link"] = link[:500]
     row = _row(db)
     if row is None:
-        db.add(AppSetting(key=SETTINGS_KEY, value=json.dumps(cur)))
+        db.add(AppSetting(key=SETTINGS_KEY, value=json_dumps(cur)))
     else:
-        row.value = json.dumps(cur)
+        row.value = json_dumps(cur)
     db.flush()
     return cur
 

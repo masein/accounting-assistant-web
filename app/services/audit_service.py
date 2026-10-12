@@ -19,6 +19,7 @@ from app.models.audit_log import AuditLog, IntegrityCheck
 from app.models.transaction import Transaction, TransactionLine
 from app.models.account import Account
 from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+from app.core.money import json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -470,7 +471,7 @@ def run_full_audit(db: Session) -> AuditReport:
             check_type=name.lower().replace(" ", "_").replace("=", "_"),
             status=status,
             score=score,
-            detail=json.dumps([{"title": f.title, "detail": f.detail, "severity": f.severity} for f in check_findings]) if check_findings else None,
+            detail=json_dumps([{"title": f.title, "detail": f.detail, "severity": f.severity} for f in check_findings]) if check_findings else None,
         )
         db.add(ic)
 

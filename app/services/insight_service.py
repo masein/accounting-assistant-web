@@ -248,6 +248,7 @@ def _fmt(n: int | float | None) -> str:
 # The company's calendar for this run (roadmap §3.5): "this month" for an
 # Iranian company is مهر, not September. Set by compute_insights.
 from contextvars import ContextVar  # noqa: E402
+from app.core.money import plain
 
 _CALENDAR: ContextVar[str] = ContextVar("insight_calendar", default="gregorian")
 # The entries of the last WINDOW days, loaded once per insights run and shared by
@@ -464,7 +465,7 @@ def detect_expense_spikes(db: Session, today: date, *, txns: list[Transaction] |
         for ln in t.lines:
             code = ln.account.code or ""
             if classify_account_code(code) == EXPENSE:
-                per_acc[code][m] += int(ln.base_debit or 0) - int(ln.base_credit or 0)
+                per_acc[code][m] += plain(ln.base_debit or 0) - plain(ln.base_credit or 0)
                 names[code] = ln.account.name
     out: list[Insight] = []
     for code, months in per_acc.items():
@@ -480,7 +481,7 @@ def detect_expense_spikes(db: Session, today: date, *, txns: list[Transaction] |
             page="dashboard",
             params={"account": names.get(code, code), "ratio": f"{cur / avg:.1f}", "current": _fmt(cur),
                     "average": _fmt(avg), "month": cur_m},
-            amount=int(cur - avg),
+            amount=plain(cur - avg),
             data={"account_code": code, "account_name": names.get(code, code), "current": cur,
                   "average": int(avg), "month": cur_m},
         ))
@@ -502,7 +503,7 @@ def detect_revenue_drop(db: Session, today: date, *, txns: list[Transaction] | N
         m = _month_key(t.date)
         for ln in t.lines:
             if classify_account_code(ln.account.code or "") == REVENUE:
-                rev[m] += int(ln.base_credit or 0) - int(ln.base_debit or 0)
+                rev[m] += plain(ln.base_credit or 0) - plain(ln.base_debit or 0)
     last_m = _month_key(last_first)
     prior = [rev.get(_month_key(m), 0) for m in _iter_months(start, last_first) if _month_key(m) != last_m]
     prior = [v for v in prior if v > 0]
@@ -516,7 +517,7 @@ def detect_revenue_drop(db: Session, today: date, *, txns: list[Transaction] | N
     return [Insight(
         key=f"revenue-drop-{last_m}", kind="revenue_drop", severity="warning", page="dashboard",
         params={"pct": f"{pct:.0f}", "month": last_m, "current": _fmt(cur), "average": _fmt(avg)},
-        amount=int(avg - cur),
+        amount=plain(avg - cur),
         data={"month": last_m, "revenue": cur, "prior_average": int(avg), "pct": round(pct, 1)},
     )]
 
@@ -557,9 +558,9 @@ def detect_runway(db: Session, today: date) -> list[Insight]:
         for ln in t.lines:
             kind = classify_account_code(ln.account.code or "")
             if kind == EXPENSE:
-                net[m] += int(ln.base_debit or 0) - int(ln.base_credit or 0)
+                net[m] += plain(ln.base_debit or 0) - plain(ln.base_credit or 0)
             elif kind == REVENUE:
-                net[m] -= int(ln.base_credit or 0) - int(ln.base_debit or 0)
+                net[m] -= plain(ln.base_credit or 0) - plain(ln.base_debit or 0)
     if len(net) < 2:
         return []
     burn = int(sum(net.values()) / 3)
@@ -589,7 +590,7 @@ def detect_vendor_outliers(db: Session, today: date) -> list[Insight]:
     # (entity_id) -> [(date, amount, txn)]
     payments: dict = defaultdict(list)
     for t in txns:
-        paid = sum(int(ln.base_credit or 0) for ln in t.lines if is_cash(ln.account.code or ""))
+        paid = sum(plain(ln.base_credit or 0) for ln in t.lines if is_cash(ln.account.code or ""))
         if paid <= 0:
             continue
         for link in t.entity_links:

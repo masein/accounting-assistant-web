@@ -1604,8 +1604,8 @@
       return `
         <tr class="edit-tx-line-row">
           <td><input type="text" class="edit-tx-line-code" value="${escapeHtml(l.account_code || '')}" required></td>
-          <td><input type="number" class="edit-tx-line-debit" min="0" step="1" value="${Number(l.debit || 0)}"></td>
-          <td><input type="number" class="edit-tx-line-credit" min="0" step="1" value="${Number(l.credit || 0)}"></td>
+          <td><input type="number" class="edit-tx-line-debit" min="0" step="any" value="${Number(l.debit || 0)}"></td>
+          <td><input type="number" class="edit-tx-line-credit" min="0" step="any" value="${Number(l.credit || 0)}"></td>
           <td><input type="text" class="edit-tx-line-desc" value="${escapeHtml(l.line_description || '')}"></td>
           <td><button type="button" class="btn btn-secondary btn-sm edit-tx-line-remove">${escapeHtml(t('btnRemove'))}</button></td>
         </tr>
@@ -1714,16 +1714,16 @@
           const lineRows = Array.from(document.querySelectorAll('#edit-tx-lines-body .edit-tx-line-row'));
           const lines = lineRows.map((tr) => ({
             account_code: (tr.querySelector('.edit-tx-line-code').value || '').trim(),
-            debit: parseInt(tr.querySelector('.edit-tx-line-debit').value, 10) || 0,
-            credit: parseInt(tr.querySelector('.edit-tx-line-credit').value, 10) || 0,
+            debit: parseMoney(tr.querySelector('.edit-tx-line-debit').value),
+            credit: parseMoney(tr.querySelector('.edit-tx-line-credit').value),
             line_description: (tr.querySelector('.edit-tx-line-desc').value || '').trim() || null,
           })).filter((l) => l.account_code);
           if (lines.length < 2) {
             showAlert(t('msgKeepTwoLines'), true);
             return;
           }
-          const totalDebit = lines.reduce((s, l) => s + (l.debit || 0), 0);
-          const totalCredit = lines.reduce((s, l) => s + (l.credit || 0), 0);
+          const totalDebit = lines.reduce((s, l) => addMoney(s, l.debit || 0), 0);
+          const totalCredit = lines.reduce((s, l) => addMoney(s, l.credit || 0), 0);
           if (totalDebit !== totalCredit) {
             showAlert(t('msgDebitsEqualCredits'), true);
             return;

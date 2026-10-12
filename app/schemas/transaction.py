@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.entity import EntityLink
 from app.utils.digits import ascii_digits
+from app.core.money import Money
 
 # Maximum amount per line: 100 trillion Rials (10^14) — well above any realistic transaction
 MAX_LINE_AMOUNT = 100_000_000_000_000
@@ -17,8 +18,8 @@ MAX_LINE_AMOUNT = 100_000_000_000_000
 # ----- Single line (for create/update) -----
 class TransactionLineBase(BaseModel):
     account_code: str = Field(..., max_length=16, description="Account code (e.g. 1110, 2110)")
-    debit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Debit amount (smallest unit, e.g. Rials)")
-    credit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Credit amount (smallest unit)")
+    debit: Money = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Debit amount (smallest unit, e.g. Rials)")
+    credit: Money = Field(0, ge=0, le=MAX_LINE_AMOUNT, description="Credit amount (smallest unit)")
     line_description: Optional[str] = Field(None, max_length=512)
 
     @field_validator("account_code", mode="before")
@@ -43,11 +44,11 @@ class TransactionLineRead(BaseModel):
     id: UUID
     account_id: UUID
     account_code: str
-    debit: int
-    credit: int
+    debit: Money
+    credit: Money
     # the same in the company's base currency (None: no rate known yet)
-    base_debit: Optional[int] = None
-    base_credit: Optional[int] = None
+    base_debit: Optional[Money] = None
+    base_credit: Optional[Money] = None
     line_description: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -93,7 +94,7 @@ class TransactionEntityLinkRead(BaseModel):
     entity_name: str | None = None
     entity_type: str | None = None
     # signed minor-unit share of the journal (+ = debit), when known
-    amount: int | None = None
+    amount: Money | None = None
 
 
 class AttachmentRead(BaseModel):
@@ -109,7 +110,7 @@ class AttachmentOCRResponse(BaseModel):
     vendor_name: str | None = None
     invoice_or_receipt_no: str | None = None
     date: str | None = None
-    amount: int | None = None
+    amount: Money | None = None
     currency: str | None = None
     confidence: float | None = None
     raw_text: str | None = None
@@ -133,9 +134,9 @@ class EntityTransactionRead(TransactionRead):
     after the journal (Remaining). ``entity_placed`` is False when the journal
     could not be attributed to the entity's account — the columns then render
     blank instead of a guessed figure."""
-    entity_paid: int = 0
-    entity_received: int = 0
-    entity_balance: int = 0
+    entity_paid: Money = 0
+    entity_received: Money = 0
+    entity_balance: Money = 0
     entity_placed: bool = True
     # The entity's control account on the active chart (prefills manual entry).
     entity_control_account: Optional[str] = None
@@ -144,8 +145,8 @@ class EntityTransactionRead(TransactionRead):
 # ----- Import (bulk) -----
 class ImportTransactionLine(BaseModel):
     account_code: str
-    debit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT)
-    credit: int = Field(0, ge=0, le=MAX_LINE_AMOUNT)
+    debit: Money = Field(0, ge=0, le=MAX_LINE_AMOUNT)
+    credit: Money = Field(0, ge=0, le=MAX_LINE_AMOUNT)
     line_description: Optional[str] = None
 
     @model_validator(mode="after")

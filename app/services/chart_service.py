@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.models.account import Account, AccountLevel
 from app.services.book_text import bt
+from app.core.money import plain
 
 OPENING_REFERENCE = "OPENING-BALANCES"
 ADJUSTMENT_CODE = "3999"
@@ -66,7 +67,7 @@ def _balances(db: Session) -> dict:
     """account id → (debit, credit) over live journals (undone ones are
     excluded by the soft-delete filter)."""
     from app.models.transaction import TransactionLine
-    return {aid: (int(d or 0), int(c or 0)) for aid, d, c in db.execute(
+    return {aid: (plain(d or 0), plain(c or 0)) for aid, d, c in db.execute(
         select(TransactionLine.account_id, func.sum(TransactionLine.debit), func.sum(TransactionLine.credit))
         .group_by(TransactionLine.account_id))}
 
@@ -217,7 +218,7 @@ def get_opening(db: Session) -> dict[str, Any]:
                       .where(TransactionLine.transaction_id == t.id).order_by(Account.code)).all()
     return {"date": t.date.isoformat(), "transaction_id": str(t.id),
             "source": "migration" if t.reference != OPENING_REFERENCE else "manual",
-            "lines": [{"account_code": c, "account_name": n, "debit": int(d or 0), "credit": int(cr or 0)}
+            "lines": [{"account_code": c, "account_name": n, "debit": plain(d or 0), "credit": plain(cr or 0)}
                       for c, n, d, cr in rows]}
 
 

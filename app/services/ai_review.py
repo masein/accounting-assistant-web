@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.models.ai_accountant import AIReviewSample
 from app.models.app_setting import AppSetting
+from app.core.money import json_dumps
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ def get_settings(db: Session) -> dict:
 
 def save_settings(db: Session, *, enabled: bool) -> dict:
     row = _row(db)
-    data = json.dumps({"enabled": bool(enabled)})
+    data = json_dumps({"enabled": bool(enabled)})
     if row is None:
         db.add(AppSetting(key=SETTINGS_KEY, value=data))
     else:

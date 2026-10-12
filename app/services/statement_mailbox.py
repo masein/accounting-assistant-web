@@ -45,6 +45,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.app_setting import AppSetting
+from app.core.money import json_dumps
 
 log = logging.getLogger("app.statement_mailbox")
 
@@ -96,7 +97,7 @@ def _read(db: Session, key: str) -> dict[str, Any]:
 
 def _write(db: Session, key: str, value: dict[str, Any]) -> None:
     row = _row(db, key)
-    text = json.dumps(value, ensure_ascii=False)
+    text = json_dumps(value, ensure_ascii=False)
     if row is None:
         db.add(AppSetting(key=key, value=text))
     else:
@@ -459,7 +460,7 @@ def _record(db: Session, h: _Header, status: str, statement_ids: list[str], deta
     from app.models.statement_mail import StatementMailMessage
     db.add(StatementMailMessage(message_key=h.key, sender=h.sender[:254], subject=h.subject or None,
                                 received_at=h.received_at, status=status,
-                                statement_ids=json.dumps(statement_ids) if statement_ids else None,
+                                statement_ids=json_dumps(statement_ids) if statement_ids else None,
                                 detail=(detail or None) and detail[:500]))
     db.commit()
 

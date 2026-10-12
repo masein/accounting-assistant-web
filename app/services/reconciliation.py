@@ -110,7 +110,9 @@ def reconcile_row(
         if row_is_debit != txn_is_debit:
             continue
 
-        amount_match = 1.0 if row_amount == txn_amount else max(0, 1.0 - abs(row_amount - txn_amount) / max(row_amount, 1))
+        # a score, so a float: amounts with pence are Decimals, and float − Decimal raises
+        amount_match = 1.0 if row_amount == txn_amount else \
+            max(0.0, 1.0 - float(abs(row_amount - txn_amount)) / float(max(row_amount, 1)))
         date_dist = _date_distance(row.tx_date, txn.date)
         date_score = max(0, 1.0 - date_dist / max(date_tolerance + 1, 1))
 

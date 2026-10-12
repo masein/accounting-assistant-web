@@ -45,6 +45,7 @@ from .llm_protocol import (
     ToolCall,
     tool_to_openai,
 )
+from app.core.money import json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ def _chat_messages_to_openai_wire(messages: list[ChatMessage]) -> list[dict[str,
                         "type": "function",
                         "function": {
                             "name": tc.name,
-                            "arguments": json.dumps(tc.input, ensure_ascii=False),
+                            "arguments": json_dumps(tc.input, ensure_ascii=False),
                         },
                     }
                     for tc in m.tool_calls

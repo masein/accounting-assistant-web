@@ -68,20 +68,20 @@ class ContractTest {
     @Test fun theFieldsArriveWhereTheScreenReadsThem() {
         val r = recordings()
         val cash = parseBlock(r.getValue("cash-fa").first()) as ChatItem.Figure
-        assertEquals(1_240_000_000L, cash.value)
+        assertEquals(java.math.BigDecimal(1_240_000_000), cash.value)
         assertEquals("IRR", cash.currency)
         val draft = parseBlock(r.getValue("draft-fa").first()) as ChatItem.Proposal
-        assertEquals(80_000_000L, draft.amount)
+        assertEquals(java.math.BigDecimal(80_000_000), draft.amount)
         assertEquals("۱۸ مهر ۱۴۰۵", draft.date)
         assertEquals("2026-10-10", draft.dateIso)
-        assertEquals(listOf(80_000_000L to 0L, 0L to 80_000_000L), draft.lines.map { it.debit to it.credit })
+        assertEquals(listOf(java.math.BigDecimal(80_000_000) to java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO to java.math.BigDecimal(80_000_000)), draft.lines.map { it.debit to it.credit })
         assertTrue("a transaction draft offers Edit", draft.editable)
         assertTrue(draft.amountEditable)
         val approval = parseBlock(r.getValue("approval-fa").first()) as ChatItem.Proposal
         assertEquals(ChatItem.Proposal.Approval("maryam", mine = false), approval.approval)
         assertFalse("an approval card offers no Edit", approval.editable)
         val invoices = parseBlock(r.getValue("invoices-en").first()) as ChatItem.Table
-        assertEquals(listOf("Aria Co" to 60_000_000L, "Sepehr" to 30_000_000L), invoices.rows.map { it.label to it.value })
+        assertEquals(listOf("Aria Co" to java.math.BigDecimal(60_000_000), "Sepehr" to java.math.BigDecimal(30_000_000)), invoices.rows.map { it.label to it.value })
         val pdf = parseBlock(r.getValue("invoice-pdf-en").first()) as ChatItem.File
         assertTrue(pdf.path.startsWith("/api/mobile/v1/"))
         assertEquals("application/pdf", pdf.mime)
@@ -93,7 +93,7 @@ class ContractTest {
         assertEquals(12, st.rows)
         assertEquals(8, st.counts["matched"])
         assertEquals(2, st.counts["unrecorded"])
-        assertEquals(90_000L, st.gap)
+        assertEquals(java.math.BigDecimal(90_000), st.gap)
         assertFalse(st.clean)
     }
 
@@ -110,20 +110,20 @@ class ContractTest {
         val (table, payslip) = recordings().getValue("pay-history-fa").take(2).map(::parseBlock)
         table as ChatItem.Table
         assertEquals("Sara Ahmadi", table.title)
-        assertEquals(listOf("مهر ۱۴۰۵" to 84_000_000L, "شهریور ۱۴۰۵" to 84_000_000L), table.rows.map { it.label to it.value })   // by the month a period ends in
+        assertEquals(listOf("مهر ۱۴۰۵" to java.math.BigDecimal(84_000_000), "شهریور ۱۴۰۵" to java.math.BigDecimal(84_000_000)), table.rows.map { it.label to it.value })   // by the month a period ends in
         payslip as ChatItem.File
         assertTrue(payslip.path.startsWith("/api/mobile/v1/documents/payslips/"))
     }
 
     @Test fun netWorthIsAFigureItsMonthsAndTheGoldAtTodaysRate() {
         val (figure, chart, holdings) = recordings().getValue("net-worth-fa").take(3).map(::parseBlock)
-        assertEquals(950_000_000L, (figure as ChatItem.Figure).value)
+        assertEquals(java.math.BigDecimal(950_000_000), (figure as ChatItem.Figure).value)
         chart as ChatItem.Chart
         assertEquals("net_worth", chart.kind)
         assertEquals(12, chart.points.size)                               // no "start": the months are the history
         val gold = (holdings as ChatItem.Table).rows.single()
         assertEquals("۲۵٫۵ گرم طلا", gold.sub)
-        assertEquals(180_000_000L, gold.gain)
+        assertEquals(java.math.BigDecimal(180_000_000), gold.gain)
     }
 
     @Test fun aPostedBlockStampsTheVoucher() {

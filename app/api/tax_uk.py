@@ -18,6 +18,7 @@ from app.services.uk_mtd import itsa
 from app.services.uk_mtd import periods as P
 from app.services.uk_mtd import settings as S
 from app.services.uk_mtd.vat import vat_return
+from app.core.money import json_dumps
 
 router = APIRouter(prefix="/tax/uk", tags=["tax"])
 
@@ -222,10 +223,10 @@ def itsa_export(quarter: int = Query(..., ge=1, le=4), tax_year: str | None = No
     acc.column_dimensions["C"].width = 28
     body = wb.create_sheet("HMRC body")
     body.append(["Cumulative update request body (itemised)"])
-    body.append([json.dumps(up["hmrc_body"], indent=2)])
+    body.append([json_dumps(up["hmrc_body"], indent=2)])
     if up["hmrc_body_consolidated"]:
         body.append(["Consolidated expenses alternative"])
-        body.append([json.dumps(up["hmrc_body_consolidated"], indent=2)])
+        body.append([json_dumps(up["hmrc_body_consolidated"], indent=2)])
     from app.core.spreadsheet import no_formulas
     buf = io.BytesIO()
     no_formulas(wb).save(buf)

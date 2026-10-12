@@ -4,6 +4,7 @@ from datetime import date
 from uuid import UUID
 
 from pydantic import BaseModel
+from app.core.money import Money
 
 
 class LedgerSummaryRow(BaseModel):
@@ -12,10 +13,10 @@ class LedgerSummaryRow(BaseModel):
     # کل — the parent GROUP account this (معین) account rolls up into.
     parent_code: str | None = None
     parent_name: str | None = None
-    debit_turnover: int = 0
-    credit_turnover: int = 0
-    debit_balance: int = 0
-    credit_balance: int = 0
+    debit_turnover: Money = 0
+    credit_turnover: Money = 0
+    debit_balance: Money = 0
+    credit_balance: Money = 0
 
 
 class LedgerSummaryResponse(BaseModel):
@@ -24,18 +25,18 @@ class LedgerSummaryResponse(BaseModel):
     currency: str | None = None
     other_currencies: list[str] = []
     rows: list[LedgerSummaryRow]
-    total_debit_turnover: int
-    total_credit_turnover: int
-    total_debit_balance: int
-    total_credit_balance: int
+    total_debit_turnover: Money
+    total_credit_turnover: Money
+    total_debit_balance: Money
+    total_credit_balance: Money
 
 
 class AccountLineDetail(BaseModel):
     transaction_date: date
     reference: str | None
     description: str | None
-    debit: int = 0
-    credit: int = 0
+    debit: Money = 0
+    credit: Money = 0
     line_description: str | None
 
 
@@ -49,10 +50,10 @@ class AccountDetailResponse(BaseModel):
     # کل — parent GROUP account (this account is the معین level).
     parent_code: str | None = None
     parent_name: str | None = None
-    debit_turnover: int = 0
-    credit_turnover: int = 0
-    debit_balance: int = 0
-    credit_balance: int = 0
+    debit_turnover: Money = 0
+    credit_turnover: Money = 0
+    debit_balance: Money = 0
+    credit_balance: Money = 0
     lines: list[AccountLineDetail]
 
 
@@ -66,42 +67,42 @@ class KpiCard(BaseModel):
 
 class ForecastRow(BaseModel):
     week_start: date
-    projected_inflow: int
-    projected_outflow: int
-    projected_net: int
-    projected_cash: int
+    projected_inflow: Money
+    projected_outflow: Money
+    projected_net: Money
+    projected_cash: Money
     risk: bool = False
 
 
 class AgingRow(BaseModel):
     name: str
-    current: int = 0
-    days_31_60: int = 0
-    days_60_plus: int = 0
-    total: int = 0
+    current: Money = 0
+    days_31_60: Money = 0
+    days_60_plus: Money = 0
+    total: Money = 0
 
 
 class ExpenseCategoryRow(BaseModel):
     category: str
-    amount: int
+    amount: Money
 
 
 class VendorSpendRow(BaseModel):
     vendor: str
-    amount: int
+    amount: Money
 
 
 class MonthlySeriesRow(BaseModel):
     period: str          # "YYYY-MM" in the company's calendar ("1405-07" = Mehr 1405)
-    value: int
+    value: Money
     label: str | None = None
 
 
 class ProfitabilityRow(BaseModel):
     client: str
-    revenue: int
-    cost: int
-    profit: int
+    revenue: Money
+    cost: Money
+    profit: Money
     margin_pct: float | None = None
 
 
@@ -153,8 +154,8 @@ class TransactionSearchRow(BaseModel):
     currency: str = "IRR"
     account_code: str
     account_name: str
-    debit: int = 0
-    credit: int = 0
+    debit: Money = 0
+    credit: Money = 0
     line_description: str | None = None
     entity_names: list[str] = []
 
@@ -164,8 +165,8 @@ class TransactionSearchResponse(BaseModel):
     total_count: int
     page: int
     page_size: int
-    total_debit: int = 0
-    total_credit: int = 0
+    total_debit: Money = 0
+    total_credit: Money = 0
 
 
 class MissingReferenceRow(BaseModel):

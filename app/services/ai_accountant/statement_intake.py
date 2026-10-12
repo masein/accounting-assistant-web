@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.models.transaction import TransactionAttachment
 from app.services.book_text import bt
+from app.core.money import plain
 
 logger = logging.getLogger(__name__)
 _DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
@@ -502,7 +503,7 @@ async def ensure_statement_row_proposal(
     text = (assistant_text or "").translate(_DIGITS)
 
     def mentioned(amount) -> bool:
-        a = int(amount or 0)
+        a = plain(amount or 0)
         return bool(a) and (f"{a:,}" in text or re.search(rf"(?<!\d){a}(?!\d)", re.sub(r"[,٬]", "", text)) is not None)
 
     finding = next((f for f in candidates if mentioned(f.amount)), None)
@@ -520,7 +521,7 @@ async def ensure_statement_row_proposal(
                       chat_session_id=str(session_id) if session_id else None,
                       user_message=user_message)
     inv = open_invoice_for_row(db, finding.description, finding.direction, stmt.currency)
-    if inv is not None and int(finding.amount or 0) > 0:
+    if inv is not None and plain(finding.amount or 0) > 0:
         # Money from a customer against their invoice clears the receivable;
         # as a voucher it went to Sales and counted the sale twice (phone QA,
         # 2026-10-12: «ARIA DESIGN LTD INV-1001» was offered as 4000 Sales).
@@ -530,7 +531,7 @@ async def ensure_statement_row_proposal(
         )
         try:
             return await ProposeRecordInvoicePayment().run(ctx, ProposeRecordInvoicePaymentInput(
-                invoice=str(inv.id), amount=int(finding.amount), date=finding.tx_date, method="bank",
+                invoice=str(inv.id), amount=plain(finding.amount), date=finding.tx_date, method="bank",
                 bank_account_code=review.bank_account_code, reference=inv.number,
                 bank_statement_row_id=str(finding.row_id), description=finding.description))
         except (ToolError, ValueError) as e:
@@ -542,7 +543,7 @@ async def ensure_statement_row_proposal(
         )
     except Exception:
         return None
-    amount = int(finding.amount or 0)
+    amount = plain(finding.amount or 0)
     if amount <= 0:
         return None
     if finding.direction == "out":

@@ -4,8 +4,8 @@
       tr.className = 'line-row';
       tr.innerHTML = `
         <td><input type="text" class="line-code" placeholder="${escapeHtml(t('tableAccountCode'))}"></td>
-        <td><input type="number" class="line-debit" min="0" value="0" step="1"></td>
-        <td><input type="number" class="line-credit" min="0" value="0" step="1"></td>
+        <td><input type="number" class="line-debit" min="0" value="0" step="any"></td>
+        <td><input type="number" class="line-credit" min="0" value="0" step="any"></td>
         <td><input type="text" class="line-desc"></td>
         <td><button type="button" class="btn btn-secondary remove-line">${escapeHtml(t('btnRemove'))}</button></td>
       `;

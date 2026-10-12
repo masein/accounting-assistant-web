@@ -201,7 +201,8 @@ fun ChatScreen(
                         }
                         is ChatItem.Figure -> FigureCard(
                             label = item.label,
-                            value = (item.currency?.let { currencySymbol(it) } ?: "") + Numbers.amount(item.value, lang),
+                            value = (item.currency?.let { currencySymbol(it) } ?: "") +
+                                Numbers.amount(item.value, lang, Numbers.places(item.currency)),
                             unit = item.currency?.takeIf { currencySymbol(it) == null }?.let { currencyName(it, lang) },
                             delta = null, deltaIsBad = false,
                             freshness = null, series = emptyList())
@@ -209,7 +210,7 @@ fun ChatScreen(
                         is ChatItem.File -> FileCard(item, onOpen = { onFile(item, false) }, onShare = { onFile(item, true) })
                         is ChatItem.Proposal -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Voucher(
-                                lang = lang, amount = item.amount ?: 0, currency = item.currency ?: "",
+                                lang = lang, amount = item.amount ?: java.math.BigDecimal.ZERO, currency = item.currency ?: "",
                                 // the date in its own direction: "10 Oct 2026" inside Persian words stays in order
                                 summary = listOfNotNull(item.title, item.date?.let { "\u2068$it\u2069" }).joinToString(" · "),
                                 lines = item.lines, booksName = booksName, booksColor = booksColor,
@@ -323,10 +324,10 @@ private fun TableCard(item: ChatItem.Table, lang: String) {
                     Column(horizontalAlignment = Alignment.End) {
                         // «£360» like the cards around it; a rial table keeps bare numbers, no unit on every row
                         val shown = if (row.currency?.let { currencySymbol(it) } != null) priced(row.value, row.currency, lang)
-                                    else Numbers.amount(row.value, lang)
+                                    else Numbers.amount(row.value, lang, Numbers.places(row.currency))
                         Text(shown, color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(700))
                         row.gain?.let { g ->
-                            Text(Numbers.signed(g, lang), color = if (g > 0) c.firouzeh else c.pomegranate,
+                            Text(Numbers.signed(g, lang, Numbers.places(row.currency)), color = if (g.signum() > 0) c.firouzeh else c.pomegranate,
                                  fontSize = 11.sp)
                         }
                     }

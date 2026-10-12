@@ -19,6 +19,8 @@ from datetime import date
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
+
+from app.core.money import json_dumps as _json_dumps
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -60,6 +62,7 @@ if IS_SQLITE:
         _SQLALCHEMY_TEST_URL,
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+        json_serializer=_json_dumps,       # as the app's engines (amounts with pence)
     )
 
     @event.listens_for(_engine, "connect")
@@ -68,7 +71,7 @@ if IS_SQLITE:
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 else:
-    _engine = create_engine(_SQLALCHEMY_TEST_URL, pool_pre_ping=True)
+    _engine = create_engine(_SQLALCHEMY_TEST_URL, pool_pre_ping=True, json_serializer=_json_dumps)
 
 
 _TestSession = sessionmaker(bind=_engine, autoflush=False, autocommit=False)

@@ -11,6 +11,7 @@ from datetime import date
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from app.core.money import Money
 
 
 class BankStatementUploadResponse(BaseModel):
@@ -46,9 +47,9 @@ class BankStatementRowRead(BaseModel):
     tx_date: date
     description: str | None
     reference: str | None
-    debit: int
-    credit: int
-    balance: int | None
+    debit: Money
+    credit: Money
+    balance: Money | None
     counterparty: str | None
     confidence: float
     category: str | None
@@ -87,7 +88,7 @@ class FeeSuggestion(BaseModel):
     row_index: int
     tx_date: date
     description: str | None
-    amount: int  # positive minor units
+    amount: Money  # positive minor units
     direction: str  # "debit" (fee/charge out) or "credit" (interest in)
     kind: str  # "bank_fee" or "interest_income"
     account_code: str
@@ -104,7 +105,7 @@ class ReconcileResponse(BaseModel):
     missing_in_bank: int
     # Net unreconciled difference in minor units: sum of bank rows that didn't
     # match a ledger transaction. We report it exactly — never force-balance.
-    unreconciled_difference: int = 0
+    unreconciled_difference: Money = 0
     currency: str = "IRR"
     fee_suggestions: list[FeeSuggestion] = Field(default_factory=list)
 
@@ -130,13 +131,13 @@ class StatementFinding(BaseModel):
     row_index: int | None = None
     tx_date: date | None = None
     description: str | None = None
-    amount: int = 0                    # absolute minor units of the bank row / entry
+    amount: Money = 0                    # absolute minor units of the bank row / entry
     direction: str | None = None       # "out" (bank debit) | "in" (bank credit)
     suggested_account_code: str | None = None
     suggested_account_name: str | None = None
     category: str | None = None
     matched_transaction_id: UUID | None = None
-    matched_amount: int | None = None
+    matched_amount: Money | None = None
     matched_date: date | None = None
     matched_description: str | None = None
     transaction_id: UUID | None = None  # for missing_in_bank
@@ -145,13 +146,13 @@ class StatementFinding(BaseModel):
 
 
 class StatementBalanceCheck(BaseModel):
-    statement_closing: int | None = None
-    book_balance: int | None = None
-    gap: int | None = None
+    statement_closing: Money | None = None
+    book_balance: Money | None = None
+    gap: Money | None = None
     bank_account_code: str | None = None
     # Net of the still-unrecorded bank rows (in - out): when it equals the
     # gap, posting them closes the difference.
-    unrecorded_net: int = 0
+    unrecorded_net: Money = 0
     explained: bool = False
 
 
@@ -193,7 +194,7 @@ class AuditFindingRead(BaseModel):
     title: str
     detail: str
     entity_id: str | None = None
-    amount: int | None = None
+    amount: Money | None = None
     domain: str = "financial"
     verification_status: str = "pending"
     key: str | None = None   # what kind of finding (audit_service.FINDING_TEXT), for a client's own wording
@@ -206,8 +207,8 @@ class AuditReportResponse(BaseModel):
     checks_passed: int
     checks_failed: int
     total_transactions: int
-    liability_total: int = 0
-    liability_threshold: int = 0
+    liability_total: Money = 0
+    liability_threshold: Money = 0
 
 
 class AuditLogRead(BaseModel):
@@ -232,7 +233,7 @@ class CFOKpiRead(BaseModel):
 
 
 class CFOInsightRead(BaseModel):
-    priority: int
+    priority: Money
     category: str
     title: str
     body: str
@@ -255,18 +256,18 @@ class CFOReportResponse(BaseModel):
 
 
 class CEOReportResponse(BaseModel):
-    revenue_total: int
+    revenue_total: Money
     revenue_trend: float
-    profit_total: int
+    profit_total: Money
     profit_margin: float
-    cash_position: int
+    cash_position: Money
     cash_runway_months: float
     burn_rate: int
     health_grade: str
     risk_score: int
-    total_assets: int
-    total_liabilities: int
-    total_equity: int
+    total_assets: Money
+    total_liabilities: Money
+    total_equity: Money
     assets_breakdown: list[dict] = []
     liabilities_breakdown: list[dict] = []
     equity_breakdown: list[dict] = []
@@ -275,8 +276,8 @@ class CEOReportResponse(BaseModel):
     monthly_profit: list[dict]
     top_expenses: list[dict]
     alerts: list[dict]
-    accounts_receivable: int
-    accounts_payable: int
+    accounts_receivable: Money
+    accounts_payable: Money
     liability_ratio: float
     # Active reporting currency (same resolver as CFOReportResponse.currency).
     currency: str = "IRR"

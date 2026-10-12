@@ -40,6 +40,7 @@ from app.models.account import Account
 from app.models.entity import Entity, TransactionEntity
 from app.models.transaction import Transaction, TransactionAttachment, TransactionLine
 from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
+from app.core.money import plain
 
 UNASSIGNED_CLIENT = "Unassigned client"
 UNASSIGNED_VENDOR = "Unassigned vendor"
@@ -218,8 +219,8 @@ def fold_dashboard(
         .group_by(Transaction.date)
     ):
         month = month_of(day)
-        out.monthly_revenue[month] += int(rev_d or 0)
-        out.monthly_expense[month] += int(exp_d or 0)
+        out.monthly_revenue[month] += plain(rev_d or 0)
+        out.monthly_expense[month] += plain(exp_d or 0)
         out.txn_count += int(n)
         out.missing_reference += int(no_ref or 0)
         out.unlinked_entities += int(no_link or 0)
@@ -227,13 +228,13 @@ def fold_dashboard(
         out.missing_line_desc += int(n_blank or 0)
         out.expense_txn_count += int(n_exp or 0)
         out.expense_txn_with_attachment += int(n_exp_att or 0)
-        out.tax_and_liability_payable += int(liab_d or 0)
+        out.tax_and_liability_payable += plain(liab_d or 0)
         if unassigned_vendor:
-            out.spend_by_vendor[UNASSIGNED_VENDOR] += int(unassigned_vendor)
+            out.spend_by_vendor[UNASSIGNED_VENDOR] += plain(unassigned_vendor)
         if n_no_client:
             p = out.profitability[UNASSIGNED_CLIENT]
-            p["revenue"] += int(rev_no_client or 0)
-            p["cost"] += int(exp_no_client or 0)
+            p["revenue"] += plain(rev_no_client or 0)
+            p["cost"] += plain(exp_no_client or 0)
 
     # Expense by account: only the lines that increase an expense.
     for name, amount in run(
@@ -244,7 +245,7 @@ def fold_dashboard(
         .where(*live, is_exp, dr - cr > 0)
         .group_by(Account.name)
     ):
-        out.expense_by_category[name] = int(amount or 0)
+        out.expense_by_category[name] = plain(amount or 0)
 
     # Named parties: vendors get the journal's expense, clients its revenue
     # and cost. A party on a journal with neither still gets a (zero) row.
@@ -260,11 +261,11 @@ def fold_dashboard(
         .group_by(side, party)
     ):
         if kind == "v":
-            out.spend_by_vendor[name] += int(exp_p or 0)
+            out.spend_by_vendor[name] += plain(exp_p or 0)
         else:
             p = out.profitability[name]
-            p["revenue"] += int(rev_p or 0)
-            p["cost"] += int(exp_p or 0)
+            p["revenue"] += plain(rev_p or 0)
+            p["cost"] += plain(exp_p or 0)
 
     # Before the window: per journal, what it moves in receivables and current
     # liabilities and whom it names; summed per party, a balance still owed is
@@ -294,7 +295,7 @@ def fold_dashboard(
         ):
             j = seen.get(tid)
             if j is None:
-                j = seen[tid] = [int(recv or 0), int(liab or 0), [], []]
+                j = seen[tid] = [plain(recv or 0), plain(liab or 0), [], []]
             if has_link:
                 r = (link_role or "").lower()
                 n = link_name if link_name is not None else UNKNOWN_PARTY
@@ -334,7 +335,7 @@ def fold_dashboard(
     ):
         if tid != prev:
             prev = tid
-            j = (day, int(recv or 0), int(liab or 0), [], [])
+            j = (day, plain(recv or 0), plain(liab or 0), [], [])
             journals.append(j)
         if has_link:
             r = (link_role or "").lower()

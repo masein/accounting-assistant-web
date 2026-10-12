@@ -889,8 +889,8 @@
         tr.className = 'line-row';
         tr.innerHTML = `
           <td><input type="text" class="line-code" value="${(ln.account_code || '').replace(/"/g, '&quot;')}" required></td>
-          <td><input type="number" class="line-debit" min="0" value="${ln.debit || 0}" step="1"></td>
-          <td><input type="number" class="line-credit" min="0" value="${ln.credit || 0}" step="1"></td>
+          <td><input type="number" class="line-debit" min="0" value="${ln.debit || 0}" step="any"></td>
+          <td><input type="number" class="line-credit" min="0" value="${ln.credit || 0}" step="any"></td>
           <td><input type="text" class="line-desc" value="${(ln.line_description || '').replace(/"/g, '&quot;')}"></td>
           <td><button type="button" class="btn btn-secondary remove-line">${escapeHtml(t('btnRemove'))}</button></td>
         `;
@@ -907,8 +907,8 @@
       const rows = document.querySelectorAll('#lines-tbody tr');
       let totalDebit = 0, totalCredit = 0;
       rows.forEach(r => {
-        totalDebit += parseInt(r.querySelector('.line-debit')?.value) || 0;
-        totalCredit += parseInt(r.querySelector('.line-credit')?.value) || 0;
+        totalDebit = addMoney(totalDebit, parseMoney(r.querySelector('.line-debit')?.value));
+        totalCredit = addMoney(totalCredit, parseMoney(r.querySelector('.line-credit')?.value));
       });
       const dEl = document.getElementById('bal-debit');
       const cEl = document.getElementById('bal-credit');
@@ -998,16 +998,16 @@
       const rows = Array.from(linesTbody.querySelectorAll('.line-row'));
       const lines = rows.map(tr => ({
         account_code: asciiDigits(tr.querySelector('.line-code').value).trim(),   // «۶۱۱۲» is 6112
-        debit: parseInt(tr.querySelector('.line-debit').value, 10) || 0,
-        credit: parseInt(tr.querySelector('.line-credit').value, 10) || 0,
+        debit: parseMoney(tr.querySelector('.line-debit').value),
+        credit: parseMoney(tr.querySelector('.line-credit').value),
         line_description: tr.querySelector('.line-desc').value.trim() || null
       })).filter(l => l.account_code);
       if (lines.length < 2) {
         showAlert(t('msgTwoLinesNeeded'), true);
         return;
       }
-      const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
-      const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+      const totalDebit = lines.reduce((s, l) => addMoney(s, l.debit), 0);
+      const totalCredit = lines.reduce((s, l) => addMoney(s, l.credit), 0);
       if (totalDebit !== totalCredit) {
         showAlert(tf('msgVoucherUnbalanced', { debit: formatNum(totalDebit), credit: formatNum(totalCredit) }), true);
         return;

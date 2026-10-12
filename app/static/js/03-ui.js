@@ -332,8 +332,11 @@
       const s = String(n);
       const dot = s.indexOf('.');
       const head = dot < 0 ? s : s.slice(0, dot);
+      // pence as pence: 7.5 is «7.50», not «7.5» (docs/PLAN_PENCE.md); whole amounts as before
+      let tail = dot < 0 ? '' : s.slice(dot);
+      if (tail.length === 2) tail += '0';
       // in Persian «۱٬۲۳۴٬۵۶۷», as the chat and the phone write it (localDigits)
-      return localDigits(head.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (dot < 0 ? '' : s.slice(dot)));
+      return localDigits(head.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + tail);
     }
     // An exchange rate: every digit of a large one (a gold coin in rials), six
     // significant ones of a tiny one (rials into dollars), never 1e-7.
@@ -351,6 +354,15 @@
     // of hardcoding 'IRR' — keeps Iran/UK/etc. switching consistent.
     window.__REPORTING_CURRENCY = window.__REPORTING_CURRENCY || 'IRR';
     function currencyUnit() { return window.__REPORTING_CURRENCY || 'IRR'; }
+    // An amount as typed, exactly: «7.50» is 7.5 (pence kept, docs/PLAN_PENCE.md). parseInt
+    // cut it to 7, so a £7.50 entry posted from the phone lost its pence when saved here.
+    // The server refuses more places than the currency has (pounds 2, rials none).
+    function parseMoney(v) {
+      const n = parseFloat(String(v == null ? '' : v).replace(/[,\s٬]/g, '').replace('٫', '.'));
+      return isFinite(n) ? Math.round(n * 10000) / 10000 : 0;
+    }
+    // Sums of typed amounts, free of binary noise (0.1 + 0.2): to 4 places, as the books keep them.
+    function addMoney(a, b) { return Math.round((Number(a) + Number(b)) * 10000) / 10000; }
     function fmtCurrency(v) { return formatNum(v) + ' ' + currencyUnit(); }
     // Fetched once per page load (sign-in; a dashboard opened while that is out
     // shares it) — the dashboards used to refetch it on every open. Saving it

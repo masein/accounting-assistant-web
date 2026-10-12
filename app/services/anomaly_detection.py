@@ -37,6 +37,7 @@ from app.models.entity import Entity, TransactionEntity
 from app.models.transaction import Transaction, TransactionLine
 from app.services.insight_service import _TEMPLATES, Insight, _fmt
 from app.services.reporting.common import EXPENSE, classify_account_code
+from app.core.money import plain
 
 RECENT_DAYS = 30
 DUPLICATE_WINDOW_DAYS = 7
@@ -81,7 +82,7 @@ def supplier_payments(db: Session, since: date, until: date) -> list[Payment]:
         .where(*live)
     ):
         if is_cash(code or "") and credit:
-            paid[tid] += int(credit)
+            paid[tid] += plain(credit)
             meta[tid] = (d, (cur or "IRR").upper(), (ref or "").strip(), desc or "")
     out: list[Payment] = []
     for tid, eid, name in db.execute(
@@ -246,7 +247,7 @@ def detect_round_weekend(db: Session, today: date) -> list[Insight]:
         .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
         .where(Transaction.date >= since, Transaction.date <= today, Transaction.deleted_at.is_(None))
     ):
-        totals[tid] += int(debit or 0)
+        totals[tid] += plain(debit or 0)
         meta[tid] = (d, (cur or "IRR").upper(), desc or "")
     sizes = [v for v in totals.values() if v > 0]
     if len(sizes) < 10:
@@ -286,7 +287,7 @@ def detect_category_drift(db: Session, today: date) -> list[Insight]:
         if classify_account_code(code or "") != EXPENSE:
             continue
         bucket = "recent" if d >= recent_from else "base"
-        shares[bucket][code] += int(debit or 0) - int(credit or 0)
+        shares[bucket][code] += plain(debit or 0) - plain(credit or 0)
         names[code] = name
     recent_total = sum(v for v in shares["recent"].values() if v > 0)
     base_total = sum(v for v in shares["base"].values() if v > 0)

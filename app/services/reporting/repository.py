@@ -12,6 +12,7 @@ from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.transaction import Transaction, TransactionLine
+from app.core.money import plain
 
 
 # ``currency=BASE_VIEW``: every currency at once, each line at its base-currency
@@ -42,8 +43,8 @@ def amount_columns(currency: str | None):
 def line_dr_cr(line: TransactionLine, currency: str | None) -> tuple[int, int]:
     """A loaded line's (debit, credit) in the view a report shows."""
     if sums_base(currency):
-        return int(line.base_debit or 0), int(line.base_credit or 0)
-    return int(line.debit or 0), int(line.credit or 0)
+        return plain(line.base_debit or 0), plain(line.base_credit or 0)
+    return plain(line.debit or 0), plain(line.credit or 0)
 
 
 def line_net(line: TransactionLine, currency: str | None) -> int:
@@ -133,7 +134,7 @@ def account_turnovers_between(db: Session, from_date: date, to_date: date, curre
         .group_by(TransactionLine.account_id)
     )
     q = _currency_filter(q, currency)
-    return [(a, int(d or 0), int(c or 0)) for a, d, c in db.execute(q).all()]
+    return [(a, plain(d or 0), plain(c or 0)) for a, d, c in db.execute(q).all()]
 
 
 def account_turnovers_upto(db: Session, to_date: date, currency: str | None = None) -> list[tuple[UUID, int, int]]:
@@ -150,7 +151,7 @@ def account_turnovers_upto(db: Session, to_date: date, currency: str | None = No
         .group_by(TransactionLine.account_id)
     )
     q = _currency_filter(q, currency)
-    return [(a, int(d or 0), int(c or 0)) for a, d, c in db.execute(q).all()]
+    return [(a, plain(d or 0), plain(c or 0)) for a, d, c in db.execute(q).all()]
 
 
 def net_profit_to_date(db: Session, as_of: date, currency: str | None = None) -> int:
@@ -171,7 +172,7 @@ def net_profit_to_date(db: Session, as_of: date, currency: str | None = None) ->
             continue
         d, c = turnovers.get(acc.id, (0, 0))
         balance = balance_from_turnovers(acc_type, d, c)
-        total += int(balance) if acc_type == REVENUE else -int(balance)
+        total += plain(balance) if acc_type == REVENUE else -plain(balance)
     return total
 
 
@@ -250,7 +251,7 @@ def opening_balance_before(
     )
     q = _currency_filter(q, currency)
     d, c = db.execute(q).one()
-    return int(d or 0), int(c or 0)
+    return plain(d or 0), plain(c or 0)
 
 
 def trial_balance_rows(db: Session, from_date: date, to_date: date, currency: str | None = None) -> list[tuple[str, str, int, int]]:
@@ -269,7 +270,7 @@ def trial_balance_rows(db: Session, from_date: date, to_date: date, currency: st
         .order_by(Account.code)
     )
     q = _currency_filter(q, currency)
-    return [(code, name, int(d or 0), int(c or 0)) for code, name, d, c in db.execute(q).all()]
+    return [(code, name, plain(d or 0), plain(c or 0)) for code, name, d, c in db.execute(q).all()]
 
 
 # A migration's opening voucher and an imported journal carry each party's own
@@ -343,9 +344,9 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
     ap_q = _currency_filter(ap_q, currency)
     out: list[tuple[date, str, UUID | None, str, int]] = []
     for d, eid, name, delta in db.execute(ar_q).all():
-        out.append((d, "debtor", eid, name or "Unassigned", int(delta or 0)))
+        out.append((d, "debtor", eid, name or "Unassigned", plain(delta or 0)))
     for d, eid, name, delta in db.execute(ap_q).all():
-        out.append((d, "creditor", eid, name or "Unassigned", int(delta or 0)))
+        out.append((d, "creditor", eid, name or "Unassigned", plain(delta or 0)))
     # Those parties' shares, not the receivable and payable lines, which hold every
     # party's total at once (the report showed no one after a migration, 2026-10-12).
     shares_q = (
@@ -368,7 +369,7 @@ def debtor_creditor_movements(db: Session, from_date: date, to_date: date, curre
     net: dict = {}
     for d, eid, name, amount in db.execute(shares_q).all():
         cur = net.setdefault(eid, [name, []])
-        cur[1].append((d, int(amount)))
+        cur[1].append((d, plain(amount)))
     for eid, (name, moves) in net.items():
         total = sum(a for _d, a in moves)
         if total == 0:

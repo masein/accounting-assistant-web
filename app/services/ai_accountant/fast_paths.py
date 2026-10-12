@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.services.ai_accountant.base import ToolContext
+from app.core.money import plain
 
 MAX_LENGTH = 80
 
@@ -220,8 +221,8 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
             text = _say(f"{intent}_none", lang)
         else:
             # per currency, never added together
-            parts = [_priced(int(t["balance_due"] or 0), c, lang)
-                     for c, t in sorted(totals.items(), key=lambda kv: -int(kv[1].get("balance_due") or 0))]
+            parts = [_priced(plain(t["balance_due"] or 0), c, lang)
+                     for c, t in sorted(totals.items(), key=lambda kv: -plain(kv[1].get("balance_due") or 0))]
             key = f"{intent}_one" if r["count"] == 1 else intent       # «1 sales invoice is», not «1 … are»
             text = _say(key, lang, n=_money(r["count"], lang), amounts=" + ".join(parts))
     elif intent == "spending":

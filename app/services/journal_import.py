@@ -37,6 +37,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.services.book_text import bt
+from app.core.money import json_dumps
 
 MAX_ROWS = 50_000
 MAX_VOUCHERS = 10_000
@@ -571,9 +572,9 @@ def save_map(db: Session, mapping: dict[str, str]) -> None:
     merged = saved_map(db) | {k: v for k, v in mapping.items() if v}
     row = db.execute(select(AppSetting).where(AppSetting.key == MAP_KEY)).scalar_one_or_none()
     if row is None:
-        db.add(AppSetting(key=MAP_KEY, value=json.dumps(merged, ensure_ascii=False)))
+        db.add(AppSetting(key=MAP_KEY, value=json_dumps(merged, ensure_ascii=False)))
     else:
-        row.value = json.dumps(merged, ensure_ascii=False)
+        row.value = json_dumps(merged, ensure_ascii=False)
     db.flush()
 
 

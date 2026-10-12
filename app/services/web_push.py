@@ -38,6 +38,7 @@ from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.core.money import json_dumps
 
 log = logging.getLogger("app.web_push")
 
@@ -111,8 +112,8 @@ def vapid_authorization(endpoint: str, private_key: ec.EllipticCurvePrivateKey, 
     parts = urlsplit(endpoint)
     claims = {"aud": f"{parts.scheme}://{parts.netloc}", "exp": int((now or time.time()) + 12 * 3600),
               "sub": subject}
-    signing_input = (b64url(json.dumps({"typ": "JWT", "alg": "ES256"}, separators=(",", ":")).encode())
-                     + "." + b64url(json.dumps(claims, separators=(",", ":")).encode()))
+    signing_input = (b64url(json_dumps({"typ": "JWT", "alg": "ES256"}, separators=(",", ":")).encode())
+                     + "." + b64url(json_dumps(claims, separators=(",", ":")).encode()))
     der = private_key.sign(signing_input.encode("ascii"), ec.ECDSA(hashes.SHA256()))
     r, s = decode_dss_signature(der)
     jwt = signing_input + "." + b64url(r.to_bytes(32, "big") + s.to_bytes(32, "big"))
@@ -153,7 +154,7 @@ def vapid_keys(db: Session) -> tuple[ec.EllipticCurvePrivateKey, str]:
             if row is not None and row.value:
                 log.warning("stored VAPID key unreadable (AUTH_SECRET changed?) — new key; devices re-subscribe")
             key = ec.generate_private_key(ec.SECP256R1())
-            value = json.dumps({"private": encrypt_secret(b64url(_raw_private(key))),
+            value = json_dumps({"private": encrypt_secret(b64url(_raw_private(key))),
                                 "public": b64url(_public_bytes(key.public_key()))})
             if row is None:
                 db.add(AppSetting(key=VAPID_KEY, value=value, company_id=None))
@@ -186,7 +187,7 @@ def send(db: Session, sub, message: dict[str, Any], *, client=None) -> str:
     """Push one message to one subscription: "sent", "gone" (the device
     unsubscribed — the row is removed) or "failed"."""
     key, _public = vapid_keys(db)
-    body = encrypt(json.dumps(message, ensure_ascii=False).encode("utf-8"), sub.p256dh, sub.auth)
+    body = encrypt(json_dumps(message, ensure_ascii=False).encode("utf-8"), sub.p256dh, sub.auth)
     headers = {"Authorization": vapid_authorization(sub.endpoint, key, subject()),
                "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream",
                "TTL": str(TTL_SECONDS), "Urgency": "normal"}

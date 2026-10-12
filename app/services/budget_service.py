@@ -93,7 +93,7 @@ def budget_utilization(db: Session, month: str) -> list[dict]:
     for b in limits:
         actual = actual_for(b.category, by_account)
         code = _as_code(b.category)
-        util = (actual / b.limit_amount * 100.0) if b.limit_amount > 0 else 0.0
+        util = float(actual / b.limit_amount * 100) if b.limit_amount > 0 else 0.0
         rows.append({
             "id": str(b.id),
             "month": b.month,

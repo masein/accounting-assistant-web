@@ -15,6 +15,7 @@ from app.schemas.manager_report import (
 )
 from app.services.reporting.common import default_period
 from app.services.reporting.repository import invoices_between, purchase_items_between, sales_items_between
+from app.core.money import plain
 
 
 class SalesReportService:
@@ -30,8 +31,8 @@ class SalesReportService:
         for item, _inv in rows:
             key = (item.product_name or "Unspecified").strip() or "Unspecified"
             qty = float(item.quantity or 0)
-            sales = int(item.line_total or 0)
-            unit_cost = int(item.unit_cost or 0)
+            sales = plain(item.line_total or 0)
+            unit_cost = plain(item.unit_cost or 0)
             by_product[key]["quantity"] += qty
             by_product[key]["sales_amount"] += sales
             by_product[key]["estimated_cost"] += int(round(qty * unit_cost))
@@ -43,10 +44,10 @@ class SalesReportService:
         out: list[SalesByProductRow] = []
         total_sales = total_cost = 0
         for name, vals in by_product.items():
-            sales = int(vals["sales_amount"])
-            cost = int(vals["estimated_cost"])
+            sales = plain(vals["sales_amount"])
+            cost = plain(vals["estimated_cost"])
             profit = sales - cost
-            margin = (profit / sales * 100.0) if sales > 0 else None
+            margin = float(profit / sales * 100) if sales > 0 else None
             out.append(
                 SalesByProductRow(
                     product_name=name,
@@ -69,7 +70,7 @@ class SalesReportService:
                 "sales_amount": total_sales,
                 "estimated_cost": total_cost,
                 "profit": total_profit,
-                "margin_pct": round((total_profit / total_sales) * 100.0, 2) if total_sales > 0 else 0,
+                "margin_pct": round(float(total_profit / total_sales * 100), 2) if total_sales > 0 else 0,
             },
         )
 
@@ -82,7 +83,7 @@ class SalesReportService:
         for item, _inv in rows:
             key = (item.product_name or "Unspecified").strip() or "Unspecified"
             qty = float(item.quantity or 0)
-            amt = int(item.line_total or 0)
+            amt = plain(item.line_total or 0)
             by_product[key]["quantity"] += qty
             by_product[key]["amount"] += amt
 
@@ -93,7 +94,7 @@ class SalesReportService:
         out: list[SalesByProductRow] = []
         total_amount = 0
         for name, vals in by_product.items():
-            amount = int(vals["amount"])
+            amount = plain(vals["amount"])
             total_amount += amount
             out.append(
                 SalesByProductRow(
@@ -130,7 +131,7 @@ class SalesReportService:
         rows: list[SalesByInvoiceRow] = []
         total = 0
         for inv in invoices:
-            total += int(inv.amount or 0)
+            total += plain(inv.amount or 0)
             rows.append(
                 SalesByInvoiceRow(
                     invoice_id=inv.id,
@@ -139,7 +140,7 @@ class SalesReportService:
                     due_date=inv.due_date,
                     status=inv.status,
                     entity_name=(entities.get(inv.entity_id).name if inv.entity_id and entities.get(inv.entity_id) else None),
-                    amount=int(inv.amount or 0),
+                    amount=plain(inv.amount or 0),
                 )
             )
 

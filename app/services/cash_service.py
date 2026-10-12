@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.models.account import Account
 from app.models.transaction import Transaction, TransactionLine
+from app.core.money import plain
 
 
 def cash_account_predicate(locale: str | None) -> Callable[[str], bool]:
@@ -100,4 +101,4 @@ def cash_on_hand(
         q = q.where(Transaction.date <= as_of)
     if not sums_base(currency):
         q = q.where(Transaction.currency == currency)
-    return int(db.execute(q).scalar() or 0)
+    return plain(db.execute(q).scalar() or 0)

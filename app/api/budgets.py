@@ -13,6 +13,7 @@ from app.schemas.budget import (
 )
 from app.services.audit_service import log_audit_event
 from app.services.budget_service import budget_utilization, roll_forward
+from app.core.money import json_dumps
 
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
@@ -62,7 +63,7 @@ def update_budget(budget_id: UUID, payload: BudgetLimitUpdate, db: Session = Dep
         row.limit_amount = payload.limit_amount
     import json
     log_audit_event(db, action="update", entity_type="budget", entity_id=str(row.id),
-                    detail=json.dumps({"from": before, "to": {"month": row.month, "category": row.category,
+                    detail=json_dumps({"from": before, "to": {"month": row.month, "category": row.category,
                                                               "limit_amount": row.limit_amount}}, ensure_ascii=False))
     db.commit()
     db.refresh(row)
@@ -81,7 +82,7 @@ def roll_budgets_forward(payload: BudgetRollForward, db: Session = Depends(get_d
         raise HTTPException(status_code=422, detail=str(e))
     import json
     log_audit_event(db, action="roll_forward", entity_type="budget", entity_id=payload.from_month,
-                    detail=json.dumps({**out, "change_pct": payload.change_pct, "overwrite": payload.overwrite}))
+                    detail=json_dumps({**out, "change_pct": payload.change_pct, "overwrite": payload.overwrite}))
     db.commit()
     return out
 

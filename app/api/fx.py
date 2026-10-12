@@ -367,7 +367,8 @@ def revalue_foreign_currency_balances(
         if rate is None:
             errors.append(f"Missing rate {fc}->{base} on/before {on.isoformat()} for account {acc.code}")
             continue
-        value = convert_minor(foreign, rate)
+        from app.core.money import exponent
+        value = convert_minor(foreign, rate, exponent(base))
         revalue_lines.append(FXRevalueLine(
             account_code=acc.code, account_name=acc.name, source_currency=fc, source_balance=foreign,
             target_currency=base, rate=rate, target_balance=value, current_target_balance=carried,

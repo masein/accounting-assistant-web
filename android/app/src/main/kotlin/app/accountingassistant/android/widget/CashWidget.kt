@@ -35,9 +35,9 @@ data class WidgetState(
     /** The app lock is on: the widget never shows the books past it. */
     val locked: Boolean = false,
     val books: String = "",
-    val cash: Long? = null,
+    val cash: Double? = null,
     val cashCurrency: String? = null,
-    val budgetLeft: Long? = null,
+    val budgetLeft: Double? = null,
     val budgetCurrency: String? = null,
     val asOf: String? = null,
     /** The books' calendar, for the "as of" date. */
@@ -55,8 +55,10 @@ fun widgetText(state: WidgetState, lang: String, words: (Int) -> String, formatt
         state.cash == null -> WidgetText(title, null, null, words(R.string.widget_loading))
         else -> WidgetText(
             title = title,
-            amount = priced(state.cash, state.cashCurrency, lang),
-            line = state.budgetLeft?.let { formatted(R.string.widget_budget_left, Numbers.amount(it, lang)) },
+            amount = priced(java.math.BigDecimal.valueOf(state.cash), state.cashCurrency, lang),
+            line = state.budgetLeft?.let {
+                formatted(R.string.widget_budget_left, Numbers.amount(java.math.BigDecimal.valueOf(it), lang, Numbers.places(state.budgetCurrency)))
+            },
             note = state.asOf?.let { formatted(R.string.widget_as_of, Dates.short(it, lang, state.calendar)) },
         )
     }

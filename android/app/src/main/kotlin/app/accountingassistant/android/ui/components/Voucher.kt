@@ -53,7 +53,11 @@ import app.accountingassistant.android.ui.theme.LocalAccountantColors
 import app.accountingassistant.android.util.Numbers
 
 /** One line of a draft voucher: an account, and a debit or a credit. */
-data class VoucherLine(val code: String, val name: String, val debit: Long = 0, val credit: Long = 0)
+data class VoucherLine(val code: String, val name: String, val debit: java.math.BigDecimal = java.math.BigDecimal.ZERO,
+                       val credit: java.math.BigDecimal = java.math.BigDecimal.ZERO) {
+    constructor(code: String, name: String, debit: Long, credit: Long = 0) :
+        this(code, name, java.math.BigDecimal.valueOf(debit), java.math.BigDecimal.valueOf(credit))
+}
 
 sealed interface VoucherState {
     data object Draft : VoucherState
@@ -77,7 +81,7 @@ sealed interface VoucherState {
 @Composable
 fun Voucher(
     lang: String,
-    amount: Long,
+    amount: java.math.BigDecimal,
     currency: String,
     summary: String,
     lines: List<VoucherLine>,
@@ -146,7 +150,7 @@ fun Voucher(
                 }
                 Row(verticalAlignment = Alignment.Bottom) {
                     val symbol = currencySymbol(currency)
-                    Text((symbol ?: "") + Numbers.amount(amount, lang), style = FigureStyle, color = c.ink)
+                    Text((symbol ?: "") + Numbers.amount(amount, lang, Numbers.places(currency)), style = FigureStyle, color = c.ink)
                     if (symbol == null) {
                         Spacer(Modifier.width(6.dp))
                         Text(currencyName(currency, lang), color = c.muted, fontSize = 12.sp, fontWeight = FontWeight(600),
@@ -165,9 +169,9 @@ fun Voucher(
                         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(Numbers.digits(line.code, lang) + "  ", color = c.muted, fontSize = 10.5.sp)
                             Text(line.name, color = c.ink, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                            val (label, value) = if (line.debit > 0) stringResource(R.string.debit_short) to line.debit
+                            val (label, value) = if (line.debit.signum() > 0) stringResource(R.string.debit_short) to line.debit
                                                  else stringResource(R.string.credit_short) to line.credit
-                            Text("$label ${Numbers.amount(value, lang)}", color = c.ink, fontSize = 12.sp,
+                            Text("$label ${Numbers.amount(value, lang, Numbers.places(currency))}", color = c.ink, fontSize = 12.sp,
                                  style = FigureStyle.copy(fontSize = 12.sp, fontWeight = FontWeight(500)))
                         }
                     }
@@ -312,15 +316,24 @@ fun currencySymbol(code: String): String? = when (code.uppercase()) {
 }
 
 /**
- * An amount as the card above it writes it: «£23,923», «−£50», «۴۹٬۶۰۰٬۰۰۰ ریال».
- * The chart and the statement said «25,003 GBP» under a card saying «£23,923»
- * (phone QA, 2026-10-12).
+ * An amount as the cards write it: «£7.50», «£950.00», «−£50.00», «۴۹٬۶۰۰٬۰۰۰ ریال».
+ * A currency with places shows them (docs/PLAN_PENCE.md); [compact] keeps a
+ * chart's figures whole («£25,003»). The chart and the statement said «25,003 GBP»
+ * under a card saying «£23,923» (phone QA, 2026-10-12).
  */
-fun priced(value: Long, currency: String?, lang: String): String {
+fun priced(value: java.math.BigDecimal, currency: String?, lang: String, compact: Boolean = false): String {
+    val places = when {
+        compact -> 0
+        currency.isNullOrBlank() -> value.stripTrailingZeros().scale().coerceIn(0, 2)
+        else -> Numbers.places(currency)
+    }
     val symbol = currency?.let { currencySymbol(it) }
     return when {
-        symbol != null -> (if (value < 0) "−" else "") + symbol + Numbers.amount(kotlin.math.abs(value), lang)
-        currency != null -> Numbers.amount(value, lang) + " " + currencyName(currency, lang)
-        else -> Numbers.amount(value, lang)
+        symbol != null -> (if (value.signum() < 0) "−" else "") + symbol + Numbers.amount(value.abs(), lang, places)
+        !currency.isNullOrBlank() -> Numbers.amount(value, lang, places) + " " + currencyName(currency, lang)
+        else -> Numbers.amount(value, lang, places)
     }
 }
+
+fun priced(value: Long, currency: String?, lang: String, compact: Boolean = false): String =
+    priced(java.math.BigDecimal.valueOf(value), currency, lang, compact)

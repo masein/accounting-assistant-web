@@ -62,7 +62,7 @@ fun ChartCard(item: ChatItem.Chart, lang: String) {
     val lowest = item.lowest ?: item.points.minBy { it.value }
     val lowIndex = item.points.indexOfLast { it.x == lowest.x && it.value == lowest.value }.takeIf { it >= 0 }
         ?: values.indexOf(values.min())
-    val said = stringResource(R.string.chart_lowest, priced(lowest.value, item.currency, lang), Dates.short(lowest.x, lang, LocalCalendar.current))
+    val said = stringResource(R.string.chart_lowest, priced(lowest.value, item.currency, lang, compact = true), Dates.short(lowest.x, lang, LocalCalendar.current))
     Surface(color = c.surface, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, c.line), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val history = item.kind == "net_worth"            // the past up to today, not a forecast
@@ -72,7 +72,7 @@ fun ChartCard(item: ChatItem.Chart, lang: String) {
             }
             // the last value, said as what it is: "after 13 weeks", or today's with the change over the months
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(priced(values.last(), item.currency, lang), color = if (values.last() < 0) c.pomegranate else c.ink,
+                Text(priced(values.last(), item.currency, lang, compact = true), color = if (values.last() < 0) c.pomegranate else c.ink,
                      fontSize = 22.sp, fontWeight = FontWeight(800))
                 Spacer(Modifier.width(8.dp))
                 if (history) {

@@ -17,6 +17,7 @@ from app.db.session import get_db
 from app.models.commitment import NOTES, OPEN_STATUSES, PAY, PENDING, Commitment
 from app.services import cheque_print, cheques
 from app.services import commitment_service as svc
+from app.core.money import Money
 
 router = APIRouter(prefix="/commitments", tags=["commitments"])
 
@@ -82,12 +83,12 @@ class CommitmentRead(BaseModel):
     kind: str
     direction: str
     title: str
-    amount: int
+    amount: Money
     due_date: date
     status: str
     plan_id: UUID | None = None
     sequence: int | None = None
-    plan_total: int | None = None
+    plan_total: Money | None = None
     reference: str | None = None
     bank_name: str | None = None
     counterparty: str | None = None
@@ -108,8 +109,8 @@ class CommitmentRead(BaseModel):
 
 
 class CommitmentSummary(BaseModel):
-    payable: int
-    receivable: int
+    payable: Money
+    receivable: Money
     count: int
     next_due_date: date | None = None
     cheques_in_hand: int = 0

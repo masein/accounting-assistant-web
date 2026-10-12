@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
+from app.core.money import plain
 
 
 ASSET = "ASSET"
@@ -54,10 +55,10 @@ def balance_from_turnovers(account_type: str, debit_turnover: int, credit_turnov
     - credit-nature accounts (liability/equity/revenue): credit - debit
     """
     if account_type in (ASSET, EXPENSE):
-        return int(debit_turnover) - int(credit_turnover)
+        return plain(debit_turnover) - plain(credit_turnover)
     if account_type in (LIABILITY, EQUITY, REVENUE):
-        return int(credit_turnover) - int(debit_turnover)
-    return int(debit_turnover) - int(credit_turnover)
+        return plain(credit_turnover) - plain(debit_turnover)
+    return plain(debit_turnover) - plain(credit_turnover)
 
 
 def statement_sign_value(account_type: str, raw_balance: int) -> int:
@@ -65,7 +66,7 @@ def statement_sign_value(account_type: str, raw_balance: int) -> int:
     cash account is a negative asset, accumulated depreciation nets against
     cost) so that assets = liabilities + equity holds. Kept for callers that
     still want a clamped magnitude."""
-    return max(0, int(raw_balance))
+    return max(0, plain(raw_balance))
 
 
 @dataclass

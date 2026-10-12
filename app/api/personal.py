@@ -18,6 +18,7 @@ from app.db.session import get_db
 from app.models.account import Account
 from app.models.personal_holding import PersonalHolding
 from app.services.net_worth_service import compute_net_worth
+from app.core.money import Money
 
 router = APIRouter(prefix="/personal", tags=["personal"])
 
@@ -65,8 +66,8 @@ class HoldingRead(BaseModel):
 class NetWorthLine(BaseModel):
     account_code: str
     account_name: str
-    book_value: int
-    market_value: int
+    book_value: Money
+    market_value: Money
     unrealized_gain: int
     revalued: bool = False
     unit: str | None = None
@@ -79,9 +80,9 @@ class NetWorthResponse(BaseModel):
     currency: str
     assets: list[NetWorthLine]
     liabilities: list[NetWorthLine]
-    total_assets: int
-    total_liabilities: int
-    net_worth: int
+    total_assets: Money
+    total_liabilities: Money
+    net_worth: Money
     unrealized_gain: int
     trend: list[dict]
     # Units held but with no exchange rate on file — surfaced so the UI can say

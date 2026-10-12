@@ -42,6 +42,8 @@ from app.services.ai_accountant.execute_service import (
     execute_proposal,
     undo_action,
 )
+from app.core.money import plain
+from app.core.money import Money
 
 router = APIRouter(prefix=PREFIX, tags=["mobile"], dependencies=[Depends(check_app_version)])
 logger = logging.getLogger(__name__)
@@ -154,7 +156,9 @@ async def mobile_chat(payload: MobileChatPayload, db: Session = Depends(get_db),
 
 
 def _sse(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+    from app.core.money import json_dumps
+    # an amount with pence goes as a number, not as the text "7.5"
+    return f"event: {event}\ndata: {json_dumps(data, ensure_ascii=False, fallback=str)}\n\n"
 
 
 @router.post("/chat/stream")
@@ -418,7 +422,7 @@ def _posted(db: Session, user: SessionUser, token: str, result) -> dict:
             # the entry's own reference; a database id is no number to stamp
             voucher = txn.reference or None
             date_iso = txn.date.isoformat() if txn.date else None
-    undo = 0 if result.idempotent else int(UNDO_WINDOW.total_seconds())
+    undo = 0 if result.idempotent else plain(UNDO_WINDOW.total_seconds())
     return {"state": "posted", "block": B.posted_block(
         token=token, transaction_id=result.transaction_id, audit_log_id=result.audit_log_id, voucher=voucher,
         date_iso=date_iso, calendar=_calendar(db), lang=_user_language(db, user), undo_seconds=undo,
@@ -472,7 +476,7 @@ def mobile_cancel(token: str, db: Session = Depends(get_db), user: SessionUser =
 class EditPayload(BaseModel):
     date: str | None = Field(default=None, max_length=40)
     description: str | None = Field(default=None, max_length=1024)
-    amount: int | None = Field(default=None, gt=0)
+    amount: Money | None = Field(default=None, gt=0)
 
 
 @router.post("/proposals/{token}/edit")
@@ -680,7 +684,7 @@ def mobile_feed(db: Session = Depends(get_db), user: SessionUser = Depends(get_c
     for p in _waiting_for(db, user):
         d = guardrails.describe(db, p)
         payload = p.tool_input or {}
-        amount = sum(int(ln.get("debit") or 0) for ln in payload.get("lines") or []) or int(p.amount or 0)
+        amount = sum(plain(ln.get("debit") or 0) for ln in payload.get("lines") or []) or plain(p.amount or 0)
         cur = payload.get("currency") or ""
         body = body_t.format(title=payload.get("description") or d["summary"].splitlines()[0], amount=f"{amount:,}",
                              cur=cur, who=d["requested_by"])
@@ -712,8 +716,8 @@ async def mobile_summary(db: Session = Depends(get_db), user: SessionUser = Depe
     budget = await GetBudgetStatus().run(ctx, GetBudgetStatusInput())
     return {
         "as_of": cash.get("as_of"),
-        "cash": {"total": int(cash.get("total") or 0), "currency": cash.get("currency")},
-        "budget": {"left": int(budget["total_left"]), "total": int(budget["total_budget"]), "currency": budget.get("currency")}
+        "cash": {"total": plain(cash.get("total") or 0), "currency": cash.get("currency")},
+        "budget": {"left": plain(budget["total_left"]), "total": plain(budget["total_budget"]), "currency": budget.get("currency")}
         if budget.get("budgets") else None,
     }
 

@@ -59,7 +59,7 @@
       "properties": {
         "value": {
           "type": [
-            "integer",
+            "number",
             "null"
           ]
         },
@@ -69,7 +69,8 @@
             "null"
           ]
         }
-      }
+      },
+      "description": "An amount in the currency's own unit: whole amounts are integers, others numbers with their places (7.5 is £7.50; docs/PLAN_PENCE.md)."
     },
     "date": {
       "type": [
@@ -111,10 +112,10 @@
           "type": "string"
         },
         "debit": {
-          "type": "integer"
+          "type": "number"
         },
         "credit": {
-          "type": "integer"
+          "type": "number"
         }
       }
     },
@@ -174,7 +175,7 @@
           "type": "string"
         },
         "value": {
-          "type": "integer"
+          "type": "number"
         },
         "currency": {
           "type": [
@@ -204,7 +205,7 @@
                 ]
               },
               "value": {
-                "type": "integer"
+                "type": "number"
               }
             }
           }
@@ -271,7 +272,7 @@
                 ]
               },
               "value": {
-                "type": "integer"
+                "type": "number"
               },
               "currency": {
                 "type": [
@@ -349,7 +350,7 @@
         },
         "approval_threshold": {
           "type": [
-            "integer",
+            "number",
             "null"
           ]
         },
@@ -680,7 +681,7 @@
           ]
         },
         "value": {
-          "type": "integer"
+          "type": "number"
         }
       }
     },

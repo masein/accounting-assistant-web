@@ -35,6 +35,7 @@ from app.services.reporting.statement_export import (
     render_xlsx,
     tables,
 )
+from app.core.money import plain
 
 BUCKETS = ("current", "1-30", "31-60", "61-90", "90+")
 MAX_BANK_LINES = 200
@@ -318,10 +319,10 @@ def checklist(db: Session, m: Month) -> list[dict]:
         select(func.count(TransactionLine.id), func.coalesce(func.sum(TransactionLine.base_debit), 0),
                func.coalesce(func.sum(TransactionLine.base_credit), 0))
         .join(Transaction, Transaction.id == TransactionLine.transaction_id).where(*live)).one()
-    if int(dr) == int(cr):
+    if plain(dr) == plain(cr):
         add("balanced", "ok", W["balanced_ok"].format(n=_n(n_lines, m), amount=_money(dr, m)))
     else:
-        add("balanced", "warn", W["balanced_warn"].format(amount=_money(abs(int(dr) - int(cr)), m)))
+        add("balanced", "warn", W["balanced_warn"].format(amount=_money(abs(plain(dr) - plain(cr)), m)))
 
     statuses = dict(db.execute(select(BankStatementRow.recon_status, func.count(BankStatementRow.id))
                                .where(BankStatementRow.tx_date >= m.start, BankStatementRow.tx_date <= m.end)
@@ -409,7 +410,7 @@ def aging(db: Session, m: Month, kind: str) -> Table:
     by: dict[str, list[int]] = {}
     for it in rep["items"]:
         row = by.setdefault(it[party] or W["unknown"], [0] * len(BUCKETS))
-        row[BUCKETS.index(it["aging_bucket"])] += int(it["balance_due"])
+        row[BUCKETS.index(it["aging_bucket"])] += plain(it["balance_due"])
     rows, tot = [], [0] * (len(BUCKETS) + 1)
     for name in sorted(by, key=lambda k: -sum(by[k])):
         vals = by[name] + [sum(by[name])]
@@ -442,7 +443,7 @@ def bank(db: Session, m: Month) -> list[Table]:
         else:
             s["aside"] += 1
         if ln.balance is not None:
-            s["balance"] = int(ln.balance)                           # the last line's running balance
+            s["balance"] = plain(ln.balance)                           # the last line's running balance
     rows = []
     for sid, s in summary.items():
         st = statements.get(sid)
@@ -454,7 +455,7 @@ def bank(db: Session, m: Month) -> list[Table]:
     if open_lines:
         out.append(Table("bank_unmatched", W["bank_open"], m.label, list(W["bank_open_cols"]), [
             _line((ln.description or ln.counterparty or ln.reference or "—")[:90],
-                  [m.d(ln.tx_date), int(ln.debit or 0) or None, int(ln.credit or 0) or None]) for ln in open_lines],
+                  [m.d(ln.tx_date), plain(ln.debit or 0) or None, plain(ln.credit or 0) or None]) for ln in open_lines],
             flow=True))
     return out
 
@@ -499,8 +500,8 @@ def journal_csv(db: Session, m: Month) -> bytes:
             extra = [jdatetime.date.fromgregorian(date=t.date).strftime("%Y/%m/%d")]
         w.writerow([t.date.isoformat()] + extra + [
             t.reference or "", t.description or "", acc.code, acc.name, ln.line_description or "",
-            int(ln.debit or 0), int(ln.credit or 0), t.currency or "",
-            "" if ln.base_debit is None else int(ln.base_debit), "" if ln.base_credit is None else int(ln.base_credit)])
+            plain(ln.debit or 0), plain(ln.credit or 0), t.currency or "",
+            "" if ln.base_debit is None else plain(ln.base_debit), "" if ln.base_credit is None else plain(ln.base_credit)])
     return csv_bytes(buf)
 
 

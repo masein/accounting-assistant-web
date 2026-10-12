@@ -20,6 +20,7 @@ from app.services.ai_accountant.execute_service import (
     ProposalCancelled,
     _resolve_proposal,
 )
+from app.core.money import json_dumps
 
 EDITABLE = {"propose_create_transaction"}
 
@@ -29,7 +30,7 @@ class EditRefused(Exception):
 
 
 async def edit_proposal(db: Session, *, token: str, user, date: str | None = None,
-                        description: str | None = None, amount: int | None = None) -> dict[str, Any]:
+                        description: str | None = None, amount=None) -> dict[str, Any]:
     """The new draft (as a proposal tool returns it, with the approval note);
     the old one is cancelled. Raises EditRefused, PermissionDenied,
     ProposalCancelled or ProposalNotFound."""
@@ -47,7 +48,7 @@ async def edit_proposal(db: Session, *, token: str, user, date: str | None = Non
     if old.tool_name not in EDITABLE:
         raise EditRefused("This card can't be changed here. Tell the accountant what to change.")
 
-    payload = json.loads(json.dumps(old.tool_input or {}))
+    payload = json.loads(json_dumps(old.tool_input or {}))
     changes: dict[str, Any] = {}
     if date is not None and date.strip():
         on = parse_date(date)
@@ -63,13 +64,22 @@ async def edit_proposal(db: Session, *, token: str, user, date: str | None = Non
         changes["description"] = payload["description"]
     lines = payload.get("lines") or []
     if amount is not None:
-        debits = [ln for ln in lines if int(ln.get("debit") or 0) > 0]
-        credits = [ln for ln in lines if int(ln.get("credit") or 0) > 0]
+        from app.core.money import exponent, places_of, plain
+        debits = [ln for ln in lines if (ln.get("debit") or 0) > 0]
+        credits = [ln for ln in lines if (ln.get("credit") or 0) > 0]
         if len(debits) != 1 or len(credits) != 1:
             raise EditRefused("This voucher has several lines. Tell the accountant the new amounts.")
-        debits[0]["debit"] = int(amount)
-        credits[0]["credit"] = int(amount)
-        changes["amount"] = int(amount)
+        # pence kept (it was int(): £4.25 became £4); no more places than the currency has
+        cur = (payload.get("currency") or "").strip().upper()
+        if not cur:
+            from app.services.fx_base import base_currency
+            cur = base_currency(db)
+        allowed = exponent(cur)
+        if places_of(amount) > allowed:
+            if allowed == 0:
+                raise EditRefused(f"The amount can't have decimals in {cur}.")
+            raise EditRefused(f"The amount can have at most {allowed} decimal places in {cur}.")
+        debits[0]["debit"] = credits[0]["credit"] = changes["amount"] = plain(amount)
     if not changes:
         raise EditRefused("Nothing was changed.")
 
@@ -97,7 +107,7 @@ async def edit_proposal(db: Session, *, token: str, user, date: str | None = Non
     if old.approval_status == "requested":
         old.approval_status = "withdrawn"
     log_audit_event(db, action="update", entity_type="ai_proposal", entity_id=str(old.id),
-                    detail=json.dumps({"tool": old.tool_name, "replaced_by": result["confirmation_token"],
+                    detail=json_dumps({"tool": old.tool_name, "replaced_by": result["confirmation_token"],
                                        "changes": changes}, ensure_ascii=False),
                     user_id=str(user.user_id), username=user.username)
     db.commit()

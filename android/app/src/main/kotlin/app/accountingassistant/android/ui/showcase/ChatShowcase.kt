@@ -91,15 +91,17 @@ fun ChatShowcase(lang: String, startPosted: Boolean = false, fixedUndoSeconds: I
                 AssistantText(if (fa) "یک برداشت از کارت ملت. خرجِ چه بود؟"
                               else "A card payment from Barclays. What was it for?")
                 Choices(options = cats, selected = picked, onPick = { picked = it }, enabled = !posted)
+                // pounds with their pence (docs/PLAN_PENCE.md)
+                val spent = if (fa) java.math.BigDecimal(2_500_000) else java.math.BigDecimal("24.99")
                 Voucher(
                     lang = lang,
-                    amount = if (fa) 2_500_000 else 25,
+                    amount = spent,
                     currency = if (fa) "IRR" else "GBP",
                     summary = if (fa) "هزینهٔ ${catLines[picked]} · کارت ملت · ۱۸ مهر ۱۴۰۵"
                               else "${catLines[picked]} · Barclays card · 10 Oct 2026",
                     lines = listOf(
-                        VoucherLine(if (fa) "6110" else "7400", catLines[picked], debit = if (fa) 2_500_000 else 25),
-                        VoucherLine(if (fa) "1110" else "1200", if (fa) "بانک ملت" else "Barclays", credit = if (fa) 2_500_000 else 25),
+                        VoucherLine(if (fa) "6110" else "7400", catLines[picked], debit = spent),
+                        VoucherLine(if (fa) "1110" else "1200", if (fa) "بانک ملت" else "Barclays", credit = spent),
                     ),
                     booksName = if (fa) "دفتر شخصی" else "Personal",
                     booksColor = c.saffron,

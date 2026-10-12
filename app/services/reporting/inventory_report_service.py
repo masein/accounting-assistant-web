@@ -23,6 +23,7 @@ from app.services.reporting.repository import (
     list_inventory_items,
     paged_inventory_movements,
 )
+from app.core.money import plain
 
 
 class InventoryReportService:
@@ -34,7 +35,7 @@ class InventoryReportService:
         barcode = (payload.barcode or "").strip() or None
         self.assert_barcode_free(barcode)
         row = InventoryItem(sku=(payload.sku or "").strip() or None, name=payload.name.strip(),
-                            unit=(payload.unit or "unit").strip(), list_price=int(payload.list_price or 0),
+                            unit=(payload.unit or "unit").strip(), list_price=plain(payload.list_price or 0),
                             barcode=barcode, reorder_level=payload.reorder_level, reorder_qty=payload.reorder_qty)
         self.db.add(row)
         self.db.commit()
@@ -64,7 +65,7 @@ class InventoryReportService:
             movement_date=payload.movement_date,
             movement_type=InventoryMovementType(typ),
             quantity=float(payload.quantity),
-            unit_cost=int(payload.unit_cost or 0),
+            unit_cost=plain(payload.unit_cost or 0),
             reference=(payload.reference or "").strip() or None,
             description=(payload.description or "").strip() or None,
             invoice_id=payload.invoice_id,
@@ -80,7 +81,7 @@ class InventoryReportService:
             movement_date=row.movement_date,
             movement_type=row.movement_type.value,
             quantity=float(row.quantity),
-            unit_cost=int(row.unit_cost or 0),
+            unit_cost=plain(row.unit_cost or 0),
             movement_value=int(round(float(row.quantity) * int(row.unit_cost or 0))),
             reference=row.reference,
             description=row.description,
@@ -104,7 +105,7 @@ class InventoryReportService:
                 movement_date=mv.movement_date,
                 movement_type=mv.movement_type.value,
                 quantity=float(mv.quantity),
-                unit_cost=int(mv.unit_cost or 0),
+                unit_cost=plain(mv.unit_cost or 0),
                 movement_value=int(round(float(mv.quantity) * int(mv.unit_cost or 0))),
                 reference=mv.reference,
                 description=mv.description,
@@ -144,8 +145,8 @@ class InventoryReportService:
                 qty_out=round(float(st.qty_out), 4),
                 on_hand_qty=round(float(st.on_hand), 4),
                 average_cost=st.unit_cost,
-                inventory_value=int(st.value),
-                cogs=int(st.cogs),
+                inventory_value=plain(st.value),
+                cogs=plain(st.cogs),
             )
             out.append(row)
             total_value += row.inventory_value

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.app_setting import AppSetting
+from app.core.money import json_dumps
 
 KEY = "uk_mtd"
 INCOME_SOURCES = ("none", "self_employment", "uk_property")
@@ -90,8 +91,8 @@ def save_settings(db: Session, **changes) -> dict:
         cur["category_overrides"] = cleaned
     row = _row(db)
     if row is None:
-        db.add(AppSetting(key=KEY, value=json.dumps(cur)))
+        db.add(AppSetting(key=KEY, value=json_dumps(cur)))
     else:
-        row.value = json.dumps(cur)
+        row.value = json_dumps(cur)
     db.flush()
     return cur

@@ -34,6 +34,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.payroll_rules import PayrollRuleSet
+from app.core.money import json_dumps
 
 
 class TaxBracket(BaseModel):
@@ -194,7 +195,7 @@ def seed_payroll_rules(db: Session) -> int:
         db.add(PayrollRuleSet(
             locale=spec["locale"], year=spec["year"], name=spec["name"],
             effective_from=spec["effective_from"], effective_to=spec["effective_to"],
-            params=json.dumps(RuleParams.model_validate(spec["params"]).model_dump()),
+            params=json_dumps(RuleParams.model_validate(spec["params"]).model_dump()),
         ))
         inserted += 1
     if inserted:

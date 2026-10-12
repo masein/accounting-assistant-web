@@ -5,6 +5,8 @@ add currencies together, revaluation moves only base values, and a rate that
 arrives later converts the entries that were waiting for it."""
 from __future__ import annotations
 
+from decimal import Decimal
+
 import random
 import uuid
 from datetime import date
@@ -146,7 +148,7 @@ def test_the_rate_typed_on_the_voucher_wins(uk, db):
     _rate(api, "USD", "GBP", 0.80, "2026-08-01")
     out = _post(api, "2026-09-01", SALE, "USD", fx_rate=0.7777)
     t, lines = _txn(db, cid, out["id"])
-    assert t.fx_rate == pytest.approx(0.7777) and lines[0][3] == 78
+    assert t.fx_rate == pytest.approx(0.7777) and lines[0][3] == Decimal("77.77")    # $100 → £77.77 (pence kept)
 
 
 def test_no_rate_yet_the_entry_waits_and_converts_when_one_is_added(uk, db):
@@ -215,7 +217,7 @@ def test_lines_written_directly_also_get_base_amounts(uk, db):
             db.flush()                                                    # one at a time
         db.commit()
         lines = db.execute(select(TransactionLine).where(TransactionLine.transaction_id == t.id)).scalars().all()
-        assert sum(ln.base_debit for ln in lines) == sum(ln.base_credit for ln in lines) == 2   # 1.5 → 2, balanced
+        assert sum(ln.base_debit for ln in lines) == sum(ln.base_credit for ln in lines) == Decimal("1.5")   # pence kept, balanced
         assert t.fx_rate == 0.5
 
 

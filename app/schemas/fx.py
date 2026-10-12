@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from app.core.money import Money
 
 
 class ExchangeRateBase(BaseModel):
@@ -85,19 +86,19 @@ class FXRevalueLine(BaseModel):
     account_code: str
     account_name: str
     source_currency: str
-    source_balance: int
+    source_balance: Money
     target_currency: str
     rate: float
-    target_balance: int
-    current_target_balance: int
-    adjustment: int
+    target_balance: Money
+    current_target_balance: Money
+    adjustment: Money
 
 
 class FXRevalueResponse(BaseModel):
     as_of: date
     target_currency: str
     lines: list[FXRevalueLine]
-    total_adjustment: int
+    total_adjustment: Money
     # one entry per foreign currency; the first also as posted_transaction_id
     posted_transaction_id: Optional[UUID] = None
     posted_transaction_ids: list[UUID] = Field(default_factory=list)

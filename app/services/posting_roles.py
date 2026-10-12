@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.models.account import Account, AccountLevel
 from app.models.app_setting import AppSetting
+from app.core.money import json_dumps
 
 SETTINGS_KEY = "posting_roles"
 
@@ -101,7 +102,7 @@ def save(db: Session, changes: dict[str, str | None], *, source: str) -> dict[st
         else:
             data.pop(cat, None)
     row = _row(db)
-    value = json.dumps(data, ensure_ascii=False)
+    value = json_dumps(data, ensure_ascii=False)
     if row is None:
         db.add(AppSetting(key=SETTINGS_KEY, value=value))
     else:

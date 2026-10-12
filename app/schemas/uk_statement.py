@@ -9,6 +9,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from app.schemas.manager_report import ReportPeriod
+from app.core.money import Money
 
 
 class UKStatementRow(BaseModel):
@@ -19,8 +20,8 @@ class UKStatementRow(BaseModel):
         description="line | subtotal | total | header | spacer",
     )
     indent_level: int = 0
-    amount_current: int | None = 0
-    amount_prior: int | None = 0
+    amount_current: Money | None = 0
+    amount_prior: Money | None = 0
     is_negative_presentation: bool = Field(
         default=False,
         description="True for cost / deduction lines that the UI renders in parentheses.",
@@ -64,7 +65,7 @@ class UKEquityComponent(BaseModel):
 
 class UKEquityMovementCell(BaseModel):
     component: str
-    amount: int | None = 0
+    amount: Money | None = 0
 
 
 class UKEquityMovementRow(BaseModel):
@@ -72,7 +73,7 @@ class UKEquityMovementRow(BaseModel):
     label: str
     row_type: str = "line"
     cells: list[UKEquityMovementCell]
-    total: int | None = 0
+    total: Money | None = 0
 
 
 class UKChangesInEquityResponse(BaseModel):

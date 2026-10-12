@@ -19,6 +19,7 @@ from app.schemas.manager_report import (
 )
 from app.services.reporting.common import default_period
 from app.services.reporting.repository import debtor_creditor_movements
+from app.core.money import plain
 
 
 def _aging_bucket(days_old: int) -> str:
@@ -52,13 +53,13 @@ class OperationsReportService:
             bucket = _aging_bucket(days_old)
             target = deb if role == "debtor" else cred
             target[entity_id]["name"] = name or "Unassigned"
-            target[entity_id][bucket] += int(delta or 0)
+            target[entity_id][bucket] += plain(delta or 0)
 
         debtors: list[DebtorCreditorRow] = []
         creditors: list[DebtorCreditorRow] = []
         total_deb = total_cred = 0
         for entity_id, d in deb.items():
-            total = int(d["current"] + d["days_31_60"] + d["days_61_90"] + d["days_90_plus"])
+            total = plain(d["current"] + d["days_31_60"] + d["days_61_90"] + d["days_90_plus"])
             if total <= 0:
                 continue
             total_deb += total
@@ -67,15 +68,15 @@ class OperationsReportService:
                     entity_id=entity_id,
                     entity_name=d["name"],
                     entity_type=d["type"],
-                    current=int(d["current"]),
-                    days_31_60=int(d["days_31_60"]),
-                    days_61_90=int(d["days_61_90"]),
-                    days_90_plus=int(d["days_90_plus"]),
+                    current=plain(d["current"]),
+                    days_31_60=plain(d["days_31_60"]),
+                    days_61_90=plain(d["days_61_90"]),
+                    days_90_plus=plain(d["days_90_plus"]),
                     total=total,
                 )
             )
         for entity_id, d in cred.items():
-            total = int(d["current"] + d["days_31_60"] + d["days_61_90"] + d["days_90_plus"])
+            total = plain(d["current"] + d["days_31_60"] + d["days_61_90"] + d["days_90_plus"])
             if total <= 0:
                 continue
             total_cred += total
@@ -84,10 +85,10 @@ class OperationsReportService:
                     entity_id=entity_id,
                     entity_name=d["name"],
                     entity_type=d["type"],
-                    current=int(d["current"]),
-                    days_31_60=int(d["days_31_60"]),
-                    days_61_90=int(d["days_61_90"]),
-                    days_90_plus=int(d["days_90_plus"]),
+                    current=plain(d["current"]),
+                    days_31_60=plain(d["days_31_60"]),
+                    days_61_90=plain(d["days_61_90"]),
+                    days_90_plus=plain(d["days_90_plus"]),
                     total=total,
                 )
             )
@@ -160,7 +161,7 @@ class OperationsReportService:
             if role_key == "client":
                 if code != ar_code:
                     continue
-                delta = int(line.base_debit or 0) - int(line.base_credit or 0)
+                delta = plain(line.base_debit or 0) - plain(line.base_credit or 0)
                 running += delta
                 out.append(
                     PersonRunningBalanceRow(
@@ -176,7 +177,7 @@ class OperationsReportService:
             elif role_key in ("supplier", "payee"):
                 if not code.startswith(ap_prefix):
                     continue
-                delta = int(line.base_credit or 0) - int(line.base_debit or 0)
+                delta = plain(line.base_credit or 0) - plain(line.base_debit or 0)
                 running += delta
                 out.append(
                     PersonRunningBalanceRow(
@@ -195,7 +196,7 @@ class OperationsReportService:
                 # and falls when debited (dividend paid, withdrawal).
                 if code not in equity_codes:
                     continue
-                delta = int(line.base_credit or 0) - int(line.base_debit or 0)
+                delta = plain(line.base_credit or 0) - plain(line.base_debit or 0)
                 running += delta
                 out.append(
                     PersonRunningBalanceRow(
@@ -211,7 +212,7 @@ class OperationsReportService:
             else:
                 if code != (own_bank_code or bank_code):
                     continue
-                delta = int(line.base_debit or 0) - int(line.base_credit or 0)
+                delta = plain(line.base_debit or 0) - plain(line.base_credit or 0)
                 running += delta
                 out.append(
                     PersonRunningBalanceRow(

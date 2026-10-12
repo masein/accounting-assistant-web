@@ -65,7 +65,7 @@ fun StatementCard(item: ChatItem.Statement, lang: String, onFix: () -> Unit) {
                 // while rows are still to record the gap is expected to move (the server calls it
                 // info): an alarm only once they're in and it's still there
                 Text(stringResource(R.string.statement_gap,
-                                    priced(kotlin.math.abs(gap), item.currency, lang)),
+                                    priced(gap.abs(), item.currency, lang)),
                      color = if ((item.counts["unrecorded"] ?: 0) > 0) c.muted else c.pomegranate, fontSize = 13.sp)
             }
             if (item.clean) Text(stringResource(R.string.statement_clean), color = c.firouzeh, fontSize = 13.sp, fontWeight = FontWeight(600))

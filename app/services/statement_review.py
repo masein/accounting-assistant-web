@@ -40,6 +40,7 @@ from app.schemas.brain import (
     StatementFinding,
     StatementReviewResponse,
 )
+from app.core.money import plain
 
 # What the user should look at first: entries the books got wrong, then
 # entries the books are missing, then the closing-balance check (which moves
@@ -69,7 +70,7 @@ def book_balance_as_of(db: Session, account_code: str, as_of: date, currency: st
     )
     if currency:
         q = q.where(Transaction.currency == currency.strip().upper())
-    return int(db.execute(q).scalar() or 0)
+    return plain(db.execute(q).scalar() or 0)
 
 
 def _account_name(db: Session, code: str | None) -> str | None:
@@ -80,7 +81,7 @@ def _account_name(db: Session, code: str | None) -> str | None:
 
 
 def _txn_amount(txn: Transaction) -> int:
-    return sum(int(l.debit or 0) for l in txn.lines)
+    return sum(plain(l.debit or 0) for l in txn.lines)
 
 
 def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewResponse:
@@ -196,9 +197,9 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
         last = max(closing_rows, key=lambda r: (r.tx_date, r.row_index))
         as_of = stmt.to_date or last.tx_date
         book = book_balance_as_of(db, bank_code, as_of, currency=stmt.currency)
-        gap = int(last.balance) - book
+        gap = plain(last.balance) - book
         balance = StatementBalanceCheck(
-            statement_closing=int(last.balance), book_balance=book, gap=gap,
+            statement_closing=plain(last.balance), book_balance=book, gap=gap,
             bank_account_code=bank_code, unrecorded_net=unrecorded_net,
             explained=(gap == unrecorded_net),
         )

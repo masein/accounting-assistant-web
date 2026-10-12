@@ -511,13 +511,15 @@ _STATEMENT_PROMPT = (
     "and return ONLY a JSON array. Each element is one row:\n"
     '  {"date": string (the row date EXACTLY as printed, keep Jalali like '
     "1405/02/06 if shown), \"description\": string (the row narrative / "
-    'counterparty), "amount": integer (the transaction amount, positive, no '
-    'separators), "balance": integer or null (the running balance after the '
+    'counterparty), "amount": number (the transaction amount, positive, no '
+    'thousands separators), "balance": number or null (the running balance after the '
     'row), "direction": "debit" or "credit"}.\n'
     "direction is 'credit' for money IN (deposit / واریز / بستانکار) and "
     "'debit' for money OUT (withdrawal / برداشت / بدهکار). Convert Persian "
-    "digits (۰۱۲۳۴۵۶۷۸۹) to normal digits; amounts are WHOLE units, plain "
-    "integers (e.g. 133425600, not 133,425,600 or ۱۳۳٬۴۲۵٬۶۰۰). Include every "
+    "digits (۰۱۲۳۴۵۶۷۸۹) to normal digits; amounts are plain numbers in the "
+    "statement's currency, with no thousands separators, keeping any pence/cents "
+    "exactly as printed (7.50, 24515.50; rials 133425600, not 133,425,600 or "
+    "۱۳۳٬۴۲۵٬۶۰۰). Never multiply by 100. Include every "
     "row in order. If the document is not a statement or has no rows, return []."
 )
 

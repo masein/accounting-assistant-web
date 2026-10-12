@@ -169,9 +169,9 @@ class DebtorCreditorRow(BaseModel):
     entity_name: str
     entity_type: str
     current: Money
-    days_31_60: int
-    days_61_90: int
-    days_90_plus: int
+    days_31_60: Money
+    days_61_90: Money
+    days_90_plus: Money
     total: Money
 
 

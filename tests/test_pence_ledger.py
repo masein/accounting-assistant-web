@@ -179,6 +179,9 @@ def test_every_report_reads_pence(uk):
                 {"account_code": "1200", "debit": 0, "credit": "7.50"}])
     _post(api, [{"account_code": "1200", "debit": "600.99", "credit": 0},
                 {"account_code": "4000", "debit": 0, "credit": "600.99"}], when="2026-10-12", desc="Sale")
+    # an old receivable with pence: the aging buckets past 30 days are money too
+    _post(api, [{"account_code": "1100", "debit": "35.47", "credit": 0},
+                {"account_code": "4000", "debit": 0, "credit": "35.47"}], when="2026-07-01", desc="Old sale")
     failed = {}
     for path in REPORTS:
         r = api.get(path)

@@ -77,8 +77,8 @@ class ForecastRow(BaseModel):
 class AgingRow(BaseModel):
     name: str
     current: Money = 0
-    days_31_60: int = 0
-    days_60_plus: int = 0
+    days_31_60: Money = 0
+    days_60_plus: Money = 0
     total: Money = 0
 
 

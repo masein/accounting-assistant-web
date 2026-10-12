@@ -276,8 +276,8 @@ class CEOReportResponse(BaseModel):
     monthly_profit: list[dict]
     top_expenses: list[dict]
     alerts: list[dict]
-    accounts_receivable: int
-    accounts_payable: int
+    accounts_receivable: Money
+    accounts_payable: Money
     liability_ratio: float
     # Active reporting currency (same resolver as CFOReportResponse.currency).
     currency: str = "IRR"

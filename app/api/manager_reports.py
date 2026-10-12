@@ -782,12 +782,51 @@ def put_inventory_settings(body: InventorySettingsIn, db: Session = Depends(get_
     every report re-values history under the new method."""
     from app.services.audit_service import log_audit_event
     from app.services.inventory_costing import METHODS, get_method, set_method
+    from app.services import inventory_ledger
     before = get_method(db)
     method = set_method(db, body.method)
     log_audit_event(db, action="update", entity_type="inventory_settings", entity_id="costing",
                     detail=f"{before} → {method}")
+    inventory_ledger.sync(db)              # the new method's values reach the books (a catch-up if need be)
     db.commit()
     return {"method": method, "methods": list(METHODS)}
+
+
+class InventoryLedgerIn(BaseModel):
+    enabled: bool
+    from_date: date | None = Field(None, alias="from")
+
+    model_config = {"populate_by_name": True}
+
+
+@router.get("/inventory/ledger")
+def get_inventory_ledger(db: Session = Depends(get_db)) -> dict:
+    """Stock in the books (docs/PLAN_INVENTORY_GL.md): the switch, its start,
+    the stock account's balance beside the valuation, the last sync."""
+    from app.services.inventory_ledger import status
+    return status(db)
+
+
+@router.put("/inventory/ledger")
+def put_inventory_ledger(body: InventoryLedgerIn, db: Session = Depends(get_db)) -> dict:
+    """Switch stock posting on from a date (the stock on hand the day before
+    is brought onto the books), back on, or off."""
+    from app.services.audit_service import log_audit_event
+    from app.services.inventory_ledger import set_enabled, status
+    s = set_enabled(db, body.enabled, body.from_date)
+    log_audit_event(db, action="update", entity_type="inventory_settings", entity_id="ledger",
+                    detail=("on from " + str(s["from"])) if s["enabled"] else "off")
+    db.commit()
+    return status(db)
+
+
+@router.post("/inventory/ledger/sync")
+def sync_inventory_ledger(db: Session = Depends(get_db)) -> dict:
+    """Post what changed since the last sync (nothing when nothing did)."""
+    from app.services.inventory_ledger import status, sync
+    out = sync(db)
+    db.commit()
+    return {**out, "status": status(db)}
 
 
 @router.get("/inventory/valuation")
@@ -854,10 +893,13 @@ def inventory_production(body: ProductionIn, db: Session = Depends(get_db)) -> d
     components go out at cost and the product comes in at their total."""
     from app.services.audit_service import log_audit_event
     from app.services.inventory_costing import produce
+    from app.services import inventory_ledger
     item = _inventory_item(db, body.product_id)
+    inventory_ledger.guard(db, body.on or date.today())
     out = produce(db, item, body.quantity, on=body.on, reference=body.reference, allow_short=body.allow_short)
     log_audit_event(db, action="create", entity_type="production_run", entity_id=str(item.id),
                     detail=f"{out['quantity']} × {item.name} at {out['unit_cost']}")
+    inventory_ledger.sync(db)
     db.commit()
     return out
 

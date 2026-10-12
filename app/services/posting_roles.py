@@ -50,6 +50,10 @@ _RULES: list[tuple[str, str, tuple[tuple[str, ...], ...], tuple[str, ...]]] = [
     ("expense", "6", (("متفرقه",),), ()),
     ("bank_fee", "6", (("کارمزد",),), ("وام",)),
     ("depreciation_expense", "6", (("استهلاک",),), ()),
+    # stock in the books (docs/PLAN_INVENTORY_GL.md)
+    ("inventory", "1", (("موجودی", "کالا"), ("موجودی", "مواد")), ("نقد", "بانک")),
+    ("cogs", "5", (("بهای", "تمام"),), ()),
+    ("stock_adjustment", "5", (("ضایعات",), ("تعدیل", "موجودی")), ()),
 ]
 CATEGORIES = tuple(r[0] for r in _RULES)
 

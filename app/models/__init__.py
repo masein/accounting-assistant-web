@@ -42,7 +42,7 @@ from app.models.payment import Payment
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.models.push_subscription import PushSubscription
 from app.models.quote import Quote, QuoteItem
-from app.models.inventory import InventoryBomLine, InventoryItem, InventoryMovement, InventoryMovementType
+from app.models.inventory import InventoryBomLine, InventoryItem, InventoryMovement, InventoryMovementType, InventoryPosting
 from app.models.recurring import RecurringRule
 from app.models.recurring_invoice import RecurringInvoice
 from app.models.shared_state import BooksVersion, RateLimitEvent, UploadToken
@@ -102,6 +102,7 @@ __all__ = [
     "Payment",
     "InventoryItem",
     "InventoryMovement",
+    "InventoryPosting",
     "InventoryMovementType",
     "RecurringRule",
     "TaxRate",

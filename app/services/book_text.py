@@ -97,6 +97,12 @@ TEXT: dict[str, dict[str, str]] = {
     # ── fixed assets and adjustments ──
     "fa_acquisition": {"en": "Acquisition: {name}", "fa": "خرید دارایی: {name}"},
     "fa_depreciation": {"en": "Depreciation {label}", "fa": "استهلاک {label}"},
+    # ── stock in the books (docs/PLAN_INVENTORY_GL.md) ──
+    "stk_opening": {"en": "Stock on hand brought onto the books", "fa": "ثبت موجودی کالای ابتدای دوره در دفاتر"},
+    "stk_cogs": {"en": "Cost of goods sold — {label}", "fa": "بهای تمام‌شده کالای فروش‌رفته — {label}"},
+    "stk_adjust": {"en": "Stock adjustments — {label}", "fa": "تعدیل موجودی کالا — {label}"},
+    "stk_catch_up": {"en": "Stock catch-up from closed periods (costing method or earlier entries) — {label}",
+                     "fa": "تعدیل موجودی کالا بابت دوره‌های بسته‌شده (روش ارزیابی یا اسناد قبلی) — {label}"},
     "fa_gain": {"en": "Gain on disposal — {text}", "fa": "سود فروش دارایی — {text}"},
     "fa_loss": {"en": "Loss on disposal — {text}", "fa": "زیان فروش دارایی — {text}"},
     "fa_disposal": {"en": "Disposal: {name}", "fa": "واگذاری دارایی: {name}"},

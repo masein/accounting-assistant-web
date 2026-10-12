@@ -1,0 +1,313 @@
+"""Stock in the books: perpetual inventory postings (docs/PLAN_INVENTORY_GL.md).
+
+Stock is valued by ``inventory_costing`` (weighted average or FIFO, recomputed
+from every movement). Once a company switches this on, from a date it picks,
+the ledger's stock account follows that valuation:
+
+* the stock on hand the day before is brought onto the books once (``open``);
+* each month (in the company's calendar) gets at most two journals per sync:
+  the cost of what invoices sold (``cogs``: cost of sales debit, stock
+  credit), and everything else that moved the stock's value (``adjust``:
+  movements entered by hand, production's rounding, an invoice's posted
+  value against the engine's) through the stock adjustment account;
+* re-running posts only the difference against ``inventory_postings``, so a
+  back-dated movement is corrected in every open month. A closed month is
+  never touched; whatever changed there (a costing method switch) is caught
+  up in the first open month.
+
+A purchase invoice's own stock lines (phase G2) post their cost with the
+invoice and keep it on the movement (``ledger_value``); the sync leaves that
+part alone. So in every open month: stock's change in the books = what
+invoices posted + ``adjust`` − ``cogs`` = the valuation's change.
+"""
+from __future__ import annotations
+
+import json
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import date, timedelta
+from decimal import Decimal
+from typing import Any
+
+from fastapi import HTTPException
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.core.money import plain, to_decimal
+from app.models.app_setting import AppSetting
+from app.models.inventory import InventoryMovement, InventoryPosting
+
+SETTINGS_KEY = "inventory_ledger"
+OPEN, COGS, ADJUST, CATCHUP = "open", "cogs", "adjust", "catchup"
+
+
+# --- the switch -------------------------------------------------------------------------------------------------
+
+def _row(db: Session) -> AppSetting | None:
+    return db.execute(select(AppSetting).where(AppSetting.key == SETTINGS_KEY)).scalars().first()
+
+
+def get_settings(db: Session) -> dict[str, Any]:
+    row = _row(db)
+    try:
+        data = json.loads(row.value) if row and row.value else {}
+    except (TypeError, ValueError):
+        data = {}
+    return {"enabled": bool(data.get("enabled")), "from": data.get("from")}
+
+
+def start_date(db: Session) -> date | None:
+    """The day stock starts posting, or None while it's off."""
+    s = get_settings(db)
+    if not s["enabled"] or not s["from"]:
+        return None
+    return date.fromisoformat(s["from"])
+
+
+def _save(db: Session, enabled: bool, start: str | None) -> None:
+    value = json.dumps({"enabled": enabled, "from": start})
+    row = _row(db)
+    if row is None:
+        db.add(AppSetting(key=SETTINGS_KEY, value=value))
+    else:
+        row.value = value
+    db.flush()
+
+
+def set_enabled(db: Session, enabled: bool, from_date: date | None = None, *, today: date | None = None) -> dict:
+    """Switch stock posting on from ``from_date`` (the first time), back on
+    (from the same date: what was posted stays), or off (nothing is undone;
+    later movements just stop posting). The start date can't move once set:
+    the opening entry was posted at it."""
+    from app.services.period_service import assert_period_open
+    today = today or date.today()
+    current = get_settings(db)
+    if not enabled:
+        _save(db, False, current["from"])
+        return get_settings(db)
+    if current["from"]:
+        if from_date is not None and from_date.isoformat() != current["from"]:
+            raise HTTPException(status_code=422, detail=(
+                f"Stock has posted from {current['from']}; that date can't move. "
+                "Switch it back on from the same date."))
+        start = date.fromisoformat(current["from"])
+    else:
+        if from_date is None:
+            raise HTTPException(status_code=422, detail="Pick the date stock starts posting from.")
+        if from_date > today:
+            raise HTTPException(status_code=422, detail="The start date can't be in the future.")
+        assert_period_open(db, from_date)
+        start = from_date
+    _save(db, True, start.isoformat())
+    sync(db, today=today)
+    return get_settings(db)
+
+
+def guard(db: Session, on: date) -> None:
+    """While stock posts, a movement is a posting: refused in a closed period."""
+    if start_date(db) is not None:
+        from app.services.period_service import assert_period_open
+        assert_period_open(db, on)
+
+
+# --- the valuation, month by month ------------------------------------------------------------------------------
+
+@dataclass
+class _Period:
+    key: str                 # "open", or the month key ("2026-10", "1405-07")
+    start: date
+    end: date
+    value: Decimal = Decimal(0)        # stock's value at the end of the period, by the engine
+    sales_cogs: Decimal = Decimal(0)   # the cost of what invoices sold
+    invoiced_in: Decimal = Decimal(0)  # what invoices posted to stock themselves
+
+
+def _periods(db: Session, start: date, today: date) -> list[_Period]:
+    """The opening (everything before ``start``) and each month from
+    ``start``'s through today's, in the company's calendar."""
+    from app.services.calendar_periods import company_calendar, month_bounds_of, month_key
+    cal = company_calendar(db)
+    out = [_Period(OPEN, date.min, start - timedelta(days=1))]
+    d = start
+    while d <= today:
+        m_start, m_end = month_bounds_of(d, cal)
+        out.append(_Period(month_key(d, cal), max(m_start, start), m_end))
+        d = m_end + timedelta(days=1)
+    return out
+
+
+def _replay(db: Session, periods: list[_Period], today: date) -> None:
+    """Run the costing engine over every movement up to today, noting each
+    period's closing value, its sales' cost and what its invoices posted."""
+    from app.services import inventory_costing as ic
+    method = ic.get_method(db)
+    places = ic._places(db)
+    apply = ic._apply_fifo if method == ic.FIFO else ic._apply_weighted
+    states: dict = defaultdict(lambda: ic.ItemState(places=places))
+    total = Decimal(0)
+    i = 0
+    for mv in ic._movements(db, today):
+        while mv.movement_date > periods[i].end:
+            periods[i + 1].value = total
+            i += 1
+        qty = ic._qty(mv.quantity)
+        if qty <= 0:
+            continue
+        st = states[mv.item_id]
+        before = Decimal(st.value)
+        typ = mv.movement_type.value if hasattr(mv.movement_type, "value") else str(mv.movement_type)
+        cost = Decimal(apply(st, typ, qty, Decimal(str(mv.unit_cost or 0))))
+        total += Decimal(st.value) - before
+        p = periods[i]
+        p.value = total
+        if mv.invoice_id is not None and p.key != OPEN:
+            if typ == ic.OUT:
+                p.sales_cogs += cost
+            elif mv.ledger_value is not None:
+                p.invoiced_in += to_decimal(mv.ledger_value)
+    for j in range(i + 1, len(periods)):
+        periods[j].value = total
+
+
+def _effect(kind: str, amount: Decimal) -> Decimal:
+    """What a posted amount did to stock: cost of sales takes it down, the rest put it up."""
+    return -amount if kind == COGS else amount
+
+
+def _posted(db: Session) -> dict[tuple[str, str], Decimal]:
+    rows = db.execute(select(InventoryPosting.month, InventoryPosting.kind, func.sum(InventoryPosting.amount))
+                      .group_by(InventoryPosting.month, InventoryPosting.kind)).all()
+    return {(m, k): to_decimal(v or 0) for m, k, v in rows}
+
+
+# --- posting ----------------------------------------------------------------------------------------------------
+
+def _post(db: Session, *, on: date, kind: str, amount: Decimal, key: str, label: str):
+    """One journal moving ``amount`` (signed: stock up for open, adjust and
+    catchup; the cost of sales for cogs) between stock and its counterpart."""
+    from app.schemas.transaction import TransactionCreate, TransactionLineCreate
+    from app.services.account_resolver import resolve_account_code
+    from app.services.book_text import bt
+    from app.services.fx_base import base_currency
+    from app.services.ledger_posting import create_transaction_from_payload
+    stock = resolve_account_code(db, "inventory")
+    other = resolve_account_code(db, "cogs" if kind == COGS else "stock_adjustment")
+    up = -amount if kind == COGS else amount              # what stock went up by
+    value = plain(abs(up))
+    if kind == OPEN:
+        text = bt(db, "stk_opening")
+    elif kind == CATCHUP:
+        text = bt(db, "stk_catch_up", label=label)
+    else:
+        text = bt(db, "stk_cogs" if kind == COGS else "stk_adjust", label=label)
+    lines = ([TransactionLineCreate(account_code=stock, debit=value, credit=0, line_description=text[:512]),
+              TransactionLineCreate(account_code=other, debit=0, credit=value, line_description=text[:512])]
+             if up > 0 else
+             [TransactionLineCreate(account_code=other, debit=value, credit=0, line_description=text[:512]),
+              TransactionLineCreate(account_code=stock, debit=0, credit=value, line_description=text[:512])])
+    return create_transaction_from_payload(db, TransactionCreate(
+        date=on, reference="STK-OPEN" if kind == OPEN else f"STK-{key}", description=text[:2000],
+        currency=base_currency(db), lines=lines))
+
+
+def sync(db: Session, *, today: date | None = None) -> dict[str, Any]:
+    """Post what changed since the last sync; nothing when nothing did, or
+    while stock posting is off. Flushes; the caller commits.
+
+    Targets per open period: ``open`` (the opening value), ``cogs`` (its
+    sales' cost) and ``adjust`` (the rest of its change in value, less what
+    its invoices posted). The first open period after a closed one also has
+    ``catchup``: the valuation at the last closed period's end, less what
+    invoices and the sync had posted through it — non-zero only when
+    something moved a closed period's value (a costing method switch)."""
+    from app.services.book_text import book_language
+    from app.services.calendar_periods import company_calendar, month_label
+    from app.services.period_service import get_closed_period
+    today = today or date.today()
+    start = start_date(db)
+    if start is None:
+        return {"enabled": False, "posted": []}
+    periods = _periods(db, start, today)
+    _replay(db, periods, today)
+    posted = _posted(db)
+    closed = get_closed_period(db)
+    lang = "fa" if book_language(db) == "fa" else "en"
+    cal = company_calendar(db)
+
+    def on_of(p: _Period) -> date:
+        return start if p.key == OPEN else min(p.end, today)
+
+    is_closed = [closed is not None and on_of(p) <= closed for p in periods]
+    targets: dict[tuple[str, str], Decimal] = {}
+    invoiced = Decimal(0)            # what invoices posted to stock, through the period
+    synced_closed = Decimal(0)       # what the sync posted in closed periods, as stock's change
+    last_closed: _Period | None = None
+    prev_value = Decimal(0)
+    for p, shut in zip(periods, is_closed):
+        invoiced += p.invoiced_in
+        if shut:
+            last_closed = p
+            synced_closed += sum((_effect(k, v) for (m, k), v in posted.items() if m == p.key), Decimal(0))
+            invoiced_through_closed = invoiced
+            prev_value = p.value
+            continue
+        if p.key == OPEN:
+            targets[(OPEN, OPEN)] = p.value
+        else:
+            targets[(p.key, COGS)] = p.sales_cogs
+            targets[(p.key, ADJUST)] = p.value - prev_value + p.sales_cogs - p.invoiced_in
+            if last_closed is not None:
+                targets[(p.key, CATCHUP)] = last_closed.value - invoiced_through_closed - synced_closed
+                last_closed = None
+        prev_value = p.value
+
+    done: list[dict[str, Any]] = []
+    for p, shut in zip(periods, is_closed):
+        if shut:
+            continue
+        on = on_of(p)
+        label = p.key if p.key == OPEN else (month_label(p.key, lang) if cal == "jalali" else p.key)
+        for k in (OPEN, CATCHUP, COGS, ADJUST):
+            if (p.key, k) not in targets:
+                continue
+            diff = targets[(p.key, k)] - posted.get((p.key, k), Decimal(0))
+            if diff == 0:
+                continue
+            txn = _post(db, on=on, kind=k, amount=diff, key=p.key, label=label)
+            db.add(InventoryPosting(month=p.key, kind=k, amount=plain(diff), transaction_id=txn.id))
+            done.append({"period": p.key, "kind": k, "amount": plain(diff), "date": on.isoformat()})
+    db.flush()
+    return {"enabled": True, "from": start.isoformat(), "posted": done}
+
+
+# --- what the page shows ----------------------------------------------------------------------------------------
+
+def books_value(db: Session, as_of: date | None = None) -> int | Decimal:
+    """The stock account's balance in the base currency."""
+    from app.models.account import Account
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.account_resolver import find_account_code
+    code = find_account_code(db, "inventory")
+    if not code:
+        return 0
+    debit = func.coalesce(TransactionLine.base_debit, TransactionLine.debit)
+    credit = func.coalesce(TransactionLine.base_credit, TransactionLine.credit)
+    q = (select(func.coalesce(func.sum(debit), 0) - func.coalesce(func.sum(credit), 0))
+         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+         .join(Account, Account.id == TransactionLine.account_id)
+         .where(Account.code == code, Transaction.deleted_at.is_(None)))
+    if as_of is not None:
+        q = q.where(Transaction.date <= as_of)
+    return plain(db.execute(q).scalar() or 0)
+
+
+def status(db: Session, *, today: date | None = None) -> dict[str, Any]:
+    from app.services import inventory_costing as ic
+    today = today or date.today()
+    s = get_settings(db)
+    engine = plain(ic.valuation(db, as_of=today)["totals"]["value"])
+    books = books_value(db, today)
+    last = db.execute(select(func.max(InventoryPosting.created_at))).scalar()
+    return {**s, "books_value": books, "valuation": engine,
+            "difference": plain(to_decimal(books) - to_decimal(engine)) if s["from"] else None,
+            "last_sync": last.isoformat() if last else None}

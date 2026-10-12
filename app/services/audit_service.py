@@ -19,7 +19,7 @@ from app.models.audit_log import AuditLog, IntegrityCheck
 from app.models.transaction import Transaction, TransactionLine
 from app.models.account import Account
 from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
-from app.core.money import json_dumps, plain
+from app.core.money import json_dumps, plain, grouped, round_amount
 
 logger = logging.getLogger(__name__)
 
@@ -166,11 +166,11 @@ def check_accounting_equation(db: Session) -> list[AuditFinding]:
             severity="critical",
             category="equation",
             title="Accounting equation imbalance",
-            detail=f"Assets ({assets:,}) ≠ Liabilities ({liabilities:,}) + Equity ({equity:,}) + Retained ({retained:,}). Diff: {diff:,}",
+            detail=f"Assets ({grouped(assets)}) ≠ Liabilities ({grouped(liabilities)}) + Equity ({grouped(equity)}) + Retained ({grouped(retained)}). Diff: {grouped(diff)}",
             amount=diff,
             key="equation_imbalance",
-            params={"assets": f"{assets:,}", "liabilities": f"{liabilities:,}", "equity": f"{equity:,}",
-                    "retained": f"{retained:,}", "diff": f"{diff:,}"},
+            params={"assets": f"{grouped(assets)}", "liabilities": f"{grouped(liabilities)}", "equity": f"{grouped(equity)}",
+                    "retained": f"{grouped(retained)}", "diff": f"{grouped(diff)}"},
         ))
 
     return findings
@@ -195,11 +195,11 @@ def check_debit_credit_balance(db: Session) -> list[AuditFinding]:
             severity="critical",
             category="equation",
             title="Unbalanced transaction",
-            detail=f"Transaction {txn_id}: debit={td:,}, credit={tc:,}, diff={abs(td - tc):,}",
+            detail=f"Transaction {txn_id}: debit={grouped(td)}, credit={grouped(tc)}, diff={grouped(abs(td - tc))}",
             entity_id=str(txn_id),
             amount=abs(td - tc),
             key="unbalanced_journal",
-            params={"ref": str(txn_id)[:8], "debit": f"{td:,}", "credit": f"{tc:,}", "diff": f"{abs(td - tc):,}"},
+            params={"ref": str(txn_id)[:8], "debit": f"{grouped(td)}", "credit": f"{grouped(tc)}", "diff": f"{grouped(abs(td - tc))}"},
         ))
 
     return findings
@@ -238,11 +238,11 @@ def detect_duplicate_payments(db: Session, lookback_days: int = 90) -> list[Audi
                         severity="warning",
                         category="duplicate",
                         title="Potential duplicate payment",
-                        detail=f"Transactions {a.id} and {b.id} on {a.date}: same amount ({amt:,}), description similarity {sim:.0%}",
+                        detail=f"Transactions {a.id} and {b.id} on {a.date}: same amount ({grouped(amt)}), description similarity {sim:.0%}",
                         entity_id=str(a.id),
                         amount=amt,
                         key="duplicate_payment",
-                        params={"a": str(a.id)[:8], "b": str(b.id)[:8], "date": str(a.date), "amount": f"{amt:,}",
+                        params={"a": str(a.id)[:8], "b": str(b.id)[:8], "date": str(a.date), "amount": f"{grouped(amt)}",
                                 "similarity": f"{sim:.0%}"},
                     ))
 
@@ -267,10 +267,13 @@ def detect_anomalies(db: Session, lookback_days: int = 180) -> list[AuditFinding
             if classify_account_code(ln.account.code) == EXPENSE and ln.debit > 0:
                 monthly_category[ln.account.name][month] += ln.debit
 
+    from app.services.fx_base import base_currency
+    base = base_currency(db)
     for category, months in monthly_category.items():
         if len(months) < 3:
             continue
-        values = list(months.values())
+        # the test in floats: an amount with pence is a Decimal, and a Decimal times 1.5 raises
+        values = [float(v) for v in months.values()]
         avg = mean(values)
         if avg == 0:
             continue
@@ -280,15 +283,16 @@ def detect_anomalies(db: Session, lookback_days: int = 180) -> list[AuditFinding
         current_month = date.today().strftime("%Y-%m")
         current = months.get(current_month, 0)
         if current > threshold and current > avg * 1.5:
+            said_avg, said_threshold = grouped(round_amount(avg, base)), grouped(round_amount(threshold, base))
             findings.append(AuditFinding(
                 severity="warning",
                 category="anomaly",
                 title=f"Expense spike: {category}",
-                detail=f"{category} this month: {current:,} vs average {avg:,.0f} (threshold {threshold:,.0f})",
+                detail=f"{category} this month: {grouped(current)} vs average {said_avg} (threshold {said_threshold})",
                 amount=current,
                 key="expense_spike",
-                params={"category": str(category), "current": f"{current:,}", "average": f"{avg:,.0f}",
-                        "threshold": f"{threshold:,.0f}"},
+                params={"category": str(category), "current": f"{grouped(current)}", "average": said_avg,
+                        "threshold": said_threshold},
             ))
 
     return findings
@@ -319,11 +323,11 @@ def detect_negative_balances(db: Session) -> list[AuditFinding]:
                     severity="warning",
                     category="negative_balance",
                     title=f"Negative asset balance: {name}",
-                    detail=f"Account {code} ({name}) has negative balance: {balance:,}",
+                    detail=f"Account {code} ({name}) has negative balance: {grouped(balance)}",
                     entity_id=str(acc_id),
                     amount=balance,
                     key="negative_asset",
-                    params={"code": str(code), "name": str(name), "balance": f"{balance:,}"},
+                    params={"code": str(code), "name": str(name), "balance": f"{grouped(balance)}"},
                 ))
 
     return findings
@@ -390,11 +394,11 @@ def check_liability_threshold(db: Session, threshold: int = 0) -> list[AuditFind
             severity="critical",
             category="liability_threshold",
             title="Liabilities exceed threshold",
-            detail=f"Total liabilities ({total_liabilities:,}) exceed the defined threshold ({threshold:,}). Excess: {total_liabilities - threshold:,}",
+            detail=f"Total liabilities ({grouped(total_liabilities)}) exceed the defined threshold ({grouped(threshold)}). Excess: {grouped(total_liabilities - threshold)}",
             amount=total_liabilities,
             key="liability_threshold",
-            params={"total": f"{total_liabilities:,}", "threshold": f"{threshold:,}",
-                    "excess": f"{total_liabilities - threshold:,}"},
+            params={"total": f"{grouped(total_liabilities)}", "threshold": f"{grouped(threshold)}",
+                    "excess": f"{grouped(total_liabilities - threshold)}"},
             domain="treasury",
         ))
 

@@ -16,7 +16,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core.money import Money, plain
+from app.core.money import Money, plain, grouped
 
 from .base import BaseTool, ToolContext, ToolError
 from .time_tools import _register
@@ -169,7 +169,7 @@ class ProposeSetBudget(BaseTool):
         token = _register(ctx, self.name, payload)
         span = keys[0] if len(keys) == 1 else f"{keys[0]} to {keys[-1]} ({len(keys)} months)"
         changed = [c for c in changes if c["before"] is not None and c["before"] != args.amount]
-        summary = (f"Budget for {acc.code} {acc.name}: {args.amount:,} {payload['currency']} a month, {span}."
+        summary = (f"Budget for {acc.code} {acc.name}: {grouped(args.amount)} {payload['currency']} a month, {span}."
                    + (f" Replaces {len(changed)} existing limit(s)." if changed else ""))
         return {"confirmation_token": str(token), "status": "pending", "summary": summary,
                 "preview": {**payload, "changes": changes}}

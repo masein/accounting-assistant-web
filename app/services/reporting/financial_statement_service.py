@@ -36,7 +36,7 @@ from app.services.reporting.repository import (
     list_accounts,
     net_profit_to_date,
 )
-from app.core.money import plain
+from app.core.money import plain, grouped
 
 
 @dataclass
@@ -160,11 +160,11 @@ def _analyze_balance_sheet(
         warnings.append(f"High leverage: debt-to-equity ratio is {debt_to_equity:.2f}.")
 
     parts: list[str] = []
-    parts.append(f"Total assets: {total_assets:,}")
+    parts.append(f"Total assets: {grouped(total_assets)}")
     if working_capital >= 0:
-        parts.append(f"working capital is positive at {working_capital:,}")
+        parts.append(f"working capital is positive at {grouped(working_capital)}")
     else:
-        parts.append(f"working capital is negative at {working_capital:,}")
+        parts.append(f"working capital is negative at {grouped(working_capital)}")
     if current_ratio is not None:
         parts.append(f"current ratio {current_ratio:.2f}")
     summary = ". ".join(parts) + "."
@@ -196,12 +196,12 @@ def _analyze_income_statement(totals: dict[str, int]) -> FinancialAnalysis:
         warnings.append(f"Low gross margin at {gross_margin:.1f}%.")
 
     parts: list[str] = []
-    parts.append(f"Revenue: {revenue:,}")
+    parts.append(f"Revenue: {grouped(revenue)}")
     if gross_margin is not None:
         parts.append(f"gross margin {gross_margin:.1f}%")
     if net_margin is not None:
         parts.append(f"net margin {net_margin:.1f}%")
-    parts.append(f"net profit: {net_profit:,}")
+    parts.append(f"net profit: {grouped(net_profit)}")
     summary = ". ".join(parts) + "."
 
     return FinancialAnalysis(ratios=ratios, warnings=warnings, summary=summary)
@@ -223,13 +223,13 @@ def _analyze_cash_flow(totals: dict[str, int]) -> FinancialAnalysis:
     if operating < 0:
         warnings.append("Negative operating cash flow — the business is consuming cash from operations.")
     if net < 0:
-        warnings.append(f"Net cash decreased by {abs(net):,}.")
+        warnings.append(f"Net cash decreased by {grouped(abs(net))}.")
 
     parts: list[str] = []
-    parts.append(f"Operating cash flow: {operating:,}")
+    parts.append(f"Operating cash flow: {grouped(operating)}")
     fcf = operating + investing
-    parts.append(f"free cash flow: {fcf:,}")
-    parts.append(f"net cash change: {net:,}")
+    parts.append(f"free cash flow: {grouped(fcf)}")
+    parts.append(f"net cash change: {grouped(net)}")
     summary = ". ".join(parts) + "."
 
     return FinancialAnalysis(ratios=ratios, warnings=warnings, summary=summary)
@@ -304,8 +304,8 @@ def build_balance_sheet(
     if difference:
         analysis.warnings.insert(
             0,
-            f"Balance sheet does not balance: assets {totals['assets']:,} vs liabilities + equity "
-            f"{totals['liabilities_and_equity']:,} (difference {difference:,}). Check for unbalanced or "
+            f"Balance sheet does not balance: assets {grouped(totals['assets'])} vs liabilities + equity "
+            f"{grouped(totals['liabilities_and_equity'])} (difference {grouped(difference)}). Check for unbalanced or "
             "memo-account entries.",
         )
 

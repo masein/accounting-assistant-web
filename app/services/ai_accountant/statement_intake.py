@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.models.transaction import TransactionAttachment
 from app.services.book_text import bt
-from app.core.money import plain
+from app.core.money import plain, grouped, grouped_fa
 
 logger = logging.getLogger(__name__)
 _DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
@@ -60,11 +60,7 @@ def _n(n: int | None, lang: str) -> str:
     2026-10-11). "3500" in Western digits sat oddly inside Persian words."""
     if n is None:
         return "—"
-    text = f"{int(n):,}"
-    if lang == "fa":
-        from app.utils.jalali import to_persian_digits
-        return to_persian_digits(text).replace(",", "٬")
-    return text
+    return grouped_fa(n) if lang == "fa" else grouped(n)
 
 
 # What the assistant says about a statement, in the language the user wrote in
@@ -504,7 +500,7 @@ async def ensure_statement_row_proposal(
 
     def mentioned(amount) -> bool:
         a = plain(amount or 0)
-        return bool(a) and (f"{a:,}" in text or re.search(rf"(?<!\d){a}(?!\d)", re.sub(r"[,٬]", "", text)) is not None)
+        return bool(a) and (f"{grouped(a)}" in text or re.search(rf"(?<!\d){a}(?!\d)", re.sub(r"[,٬]", "", text)) is not None)
 
     finding = next((f for f in candidates if mentioned(f.amount)), None)
     if finding is None:

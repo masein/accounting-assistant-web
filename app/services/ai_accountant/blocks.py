@@ -17,7 +17,7 @@ from typing import Any, Iterable
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.core.money import json_amount
+from app.core.money import json_amount, grouped, persian_figures
 
 # Data blocks drawn per reply at most, newest tool calls first kept.
 MAX_DATA_BLOCKS = 3
@@ -101,7 +101,7 @@ def proposal_block(db: Session, p: Any, *, calendar: str, lang: str, names: dict
     elif isinstance(preview, dict):
         for key in ("amount", "total", "gross", "net"):
             if isinstance(preview.get(key), (int, float)):
-                amount = int(preview[key])
+                amount = json_amount(preview[key])
                 break
     currency = (preview.get("currency") if isinstance(preview, dict) else None) or None
     if currency is None and amount is not None:
@@ -146,7 +146,7 @@ def _balance_figure(result: dict, **_) -> dict | None:
     return {"type": "figure", "label": f"{result.get('account_code', '')} {result.get('account_name', '')}".strip(),
             "value": json_amount(result["balance"]), "currency": result.get("currency"),
             "as_of": result.get("as_of"),
-            "fallback_text": f"{result.get('account_name', '')}: {json_amount(result['balance']):,} {result.get('currency') or ''}".strip()}
+            "fallback_text": f"{result.get('account_name', '')}: {grouped(json_amount(result['balance']))} {result.get('currency') or ''}".strip()}
 
 
 def _cash_figure(result: dict, lang: str = "en", **_) -> dict | None:
@@ -159,7 +159,7 @@ def _cash_figure(result: dict, lang: str = "en", **_) -> dict | None:
             "as_of": result.get("as_of"),
             "breakdown": [{"label": a.get("account_name") or a.get("account_code"), "value": json_amount(a.get("balance") or 0)}
                           for a in result.get("accounts") or []],
-            "fallback_text": f"{label}: {value:,} {result.get('currency') or ''}".strip()}
+            "fallback_text": f"{label}: {grouped(value)} {result.get('currency') or ''}".strip()}
 
 
 def _spending_table(result: dict, **_) -> dict | None:
@@ -171,7 +171,7 @@ def _spending_table(result: dict, **_) -> dict | None:
             "value": json_amount(r.get("amount") or 0), "currency": result.get("currency")} for r in rows[:8]]
     return {"type": "table", "kind": "spending", "rows": out,
             "totals": {"total": result.get("total"), "currency": result.get("currency")},
-            "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in out)}
+            "fallback_text": "; ".join(f"{r['label']} {grouped(r['value'])}" for r in out)}
 
 
 def _invoice_table(result: dict, **_) -> dict | None:
@@ -186,14 +186,14 @@ def _invoice_table(result: dict, **_) -> dict | None:
                     "due_date": inv.get("due_date"), "state": inv.get("status")})
     return {"type": "table", "kind": "invoices", "rows": out, "count": int(result.get("count") or len(rows)),
             "totals": result.get("totals_by_currency") or {},
-            "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in out)}
+            "fallback_text": "; ".join(f"{r['label']} {grouped(r['value'])}" for r in out)}
 
 
 def _budget_table(result: dict, **_) -> dict | None:
     rows = result.get("budgets")
     if not isinstance(rows, list) or not rows:
         return None
-    out = [{"label": b.get("category"), "value": int(b.get("actual") or 0), "limit": int(b.get("budget") or 0),
+    out = [{"label": b.get("category"), "value": json_amount(b.get("actual") or 0), "limit": json_amount(b.get("budget") or 0),
             "used_pct": b.get("used_pct"), "state": b.get("state")} for b in rows[:8]]
     return {"type": "table", "kind": "budgets", "rows": out,
             "totals": {"budget": result.get("total_budget"), "actual": result.get("total_actual")},
@@ -229,7 +229,7 @@ def _payroll(result: dict, lang: str = "en", calendar: str = "gregorian", **_) -
                  "value": json_amount(r.get("total_net") or 0), "currency": r.get("currency"), "state": r["status"]}
                 for r in result["runs"][:8]]
         return [{"type": "table", "kind": "payroll_runs", "rows": rows,
-                 "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in rows)}]
+                 "fallback_text": "; ".join(f"{r['label']} {grouped(r['value'])}" for r in rows)}]
     history = result.get("history")
     if not isinstance(history, list) or not history:
         return None
@@ -237,7 +237,7 @@ def _payroll(result: dict, lang: str = "en", calendar: str = "gregorian", **_) -
              "value": json_amount(h.get("net_pay") or 0), "currency": h.get("currency"), "state": h["status"]}
             for h in history[:8]]
     out = [{"type": "table", "kind": "pay_history", "title": result.get("employee"), "rows": rows,
-            "fallback_text": f"{result.get('employee')}: " + "; ".join(f"{r['label']} {r['value']:,}" for r in rows)}]
+            "fallback_text": f"{result.get('employee')}: " + "; ".join(f"{r['label']} {grouped(r['value'])}" for r in rows)}]
     latest = history[0]
     if latest.get("run_id") and result.get("entity_id"):
         out.append(payslip_file(latest["run_id"], result["entity_id"], result.get("employee"), rows[0]["label"]))
@@ -270,11 +270,11 @@ def _forecast_chart(result: dict, lang: str = "en", **_) -> dict | None:
     lowest = result.get("lowest") or {}
     cur = result.get("currency")
     return {"type": "chart", "kind": "cash_forecast", "style": "line", "title": title, "currency": cur,
-            "start": {"x": result.get("as_of"), "value": int(result["opening_cash"])},
-            "points": [{"x": w["week_start"], "value": int(w["closing"])} for w in weeks],
-            "lowest": {"x": lowest.get("week_start"), "value": int(lowest.get("closing") or 0)} if lowest else None,
+            "start": {"x": result.get("as_of"), "value": json_amount(result["opening_cash"])},
+            "points": [{"x": w["week_start"], "value": json_amount(w["closing"])} for w in weeks],
+            "lowest": {"x": lowest.get("week_start"), "value": json_amount(lowest.get("closing") or 0)} if lowest else None,
             "first_negative": result.get("first_negative_week"),
-            "fallback_text": f"{title}: {int(result['opening_cash']):,} → {int(result.get('closing_cash') or 0):,} {cur or ''}".strip()}
+            "fallback_text": f"{title}: {grouped(result['opening_cash'])} → {grouped(result.get('closing_cash') or 0)} {cur or ''}".strip()}
 
 
 _UNITS = {
@@ -291,8 +291,7 @@ def _quantity(q: float | None, unit: str | None, lang: str) -> str | None:
     n = f"{q:,.3f}".rstrip("0").rstrip(".")
     words = _UNITS.get(lang, {}).get(unit) or _UNITS["en"].get(unit) or unit
     if lang == "fa":
-        from app.utils.jalali import to_persian_digits
-        n = to_persian_digits(n).replace(",", "٬").replace(".", "٫")
+        n = persian_figures(n)
     return f"{n} {words}"
 
 
@@ -309,21 +308,21 @@ def _net_worth(result: dict, lang: str = "en", **_) -> list[dict] | None:
                            "value": json_amount(result.get("total_assets") or 0)},
                           {"label": {"fa": "بدهی‌ها", "es": "Deudas", "ar": "الديون"}.get(lang, "Liabilities"),
                            "value": json_amount(result.get("total_liabilities") or 0)}],
-            "fallback_text": f"{label}: {json_amount(result['net_worth']):,} {cur or ''}".strip()}]
+            "fallback_text": f"{label}: {grouped(json_amount(result['net_worth']))} {cur or ''}".strip()}]
     trend = [t for t in result.get("trend") or [] if t.get("date")]
     if len(trend) >= 2:
         title = {"fa": "دارایی خالص، دوازده ماه گذشته", "es": "Patrimonio neto, los últimos doce meses",
                  "ar": "صافي الثروة، آخر اثني عشر شهرًا"}.get(lang, "Net worth, the last twelve months")
         out.append({"type": "chart", "kind": "net_worth", "style": "line", "title": title, "currency": cur,
                     "points": [{"x": t["date"], "value": json_amount(t["value"])} for t in trend],
-                    "fallback_text": f"{title}: {json_amount(trend[0]['value']):,} → {json_amount(trend[-1]['value']):,} {cur or ''}".strip()})
+                    "fallback_text": f"{title}: {grouped(json_amount(trend[0]['value']))} → {grouped(json_amount(trend[-1]['value']))} {cur or ''}".strip()})
     held = [a for a in result.get("assets") or [] if a.get("revalued")]
     if held:
         rows = [{"label": a.get("account_name") or a.get("account_code"), "sub": _quantity(a.get("quantity"), a.get("unit"), lang),
-                 "value": json_amount(a.get("market_value") or 0), "currency": cur, "gain": int(a.get("unrealized_gain") or 0)}
+                 "value": json_amount(a.get("market_value") or 0), "currency": cur, "gain": json_amount(a.get("unrealized_gain") or 0)}
                 for a in held[:8]]
         out.append({"type": "table", "kind": "holdings", "rows": rows,
-                    "fallback_text": "; ".join(f"{r['label']} {r['value']:,}" for r in rows)})
+                    "fallback_text": "; ".join(f"{r['label']} {grouped(r['value'])}" for r in rows)})
     return out
 
 

@@ -256,7 +256,8 @@ def test_the_pack_tables_aging_bank_and_budgets(company, db):
     budget = _rows(wb["Budget vs actual"])
     assert budget[rent] == [12_000, 9_000, 3_000, "75%"] and budget["Total"] == [12_000, 9_000, 3_000, "75%"]
     cells = [c for row in wb["Budget vs actual"].iter_rows(min_row=6) for c in row[1:4] if c.value is not None]
-    assert all(isinstance(c.value, int) and c.number_format == "#,##0;(#,##0);-" for c in cells)
+    # pounds show their pence in the sheet (scenario Q11d); a rial workbook keeps «#,##0»
+    assert all(isinstance(c.value, int) and c.number_format == "#,##0.00;(#,##0.00);-" for c in cells)
 
     r = api.get(URL, params={"month": "2026-08", "format": "pdf"})
     from pypdf import PdfReader

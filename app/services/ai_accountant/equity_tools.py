@@ -13,7 +13,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core.money import Money
+from app.core.money import Money, grouped
 from app.models.ai_accountant import AIProposal
 from app.models.entity import Entity
 
@@ -125,7 +125,7 @@ class ProposeContribution(BaseTool):
         payload = {"entity_id": str(ent.id), "entity_name": ent.name, "amount": amount,
                    "date": txn_date, "to_capital": bool(args.to_capital)}
         dest = "share capital" if args.to_capital else "current account"
-        summary = f"Proposed contribution: {ent.name} → {amount:,} to {dest} (DR bank / CR {dest})"
+        summary = f"Proposed contribution: {ent.name} → {grouped(amount)} to {dest} (DR bank / CR {dest})"
         token = _persist(ctx, self.name, payload)
         return _envelope(token, self.name, summary, payload)
 
@@ -157,7 +157,7 @@ class ProposeCapitalIncrease(BaseTool):
         payload = {"amount": amount, "source": args.source, "date": txn_date}
         src = {"retained_earnings": "retained earnings", "cash": "new cash",
                "revaluation_surplus": "revaluation surplus"}[args.source]
-        summary = f"Proposed capital increase: +{amount:,} share capital from {src}"
+        summary = f"Proposed capital increase: +{grouped(amount)} share capital from {src}"
         token = _persist(ctx, self.name, payload)
         return _envelope(token, self.name, summary, payload)
 
@@ -195,8 +195,8 @@ class ProposeDeclareDividend(BaseTool):
             ent = ctx.db.get(Entity, eid)
             alloc_preview.append({"entity_id": str(eid), "entity_name": (ent.name if ent else None), "amount": amt})
         payload = {"total_amount": amount, "date": txn_date, "allocations": alloc_preview}
-        split = ", ".join(f"{a['entity_name']} {a['amount']:,}" for a in alloc_preview)
-        summary = f"Proposed dividend: {amount:,} from retained earnings, split — {split}"
+        split = ", ".join(f"{a['entity_name']} {grouped(a['amount'])}" for a in alloc_preview)
+        summary = f"Proposed dividend: {grouped(amount)} from retained earnings, split — {split}"
         token = _persist(ctx, self.name, payload)
         return _envelope(token, self.name, summary, payload)
 
@@ -232,7 +232,7 @@ class ProposeCurrentAccount(BaseTool):
         payload = {"entity_id": str(ent.id), "entity_name": ent.name, "amount": amount,
                    "date": txn_date, "direction": args.direction}
         verb = "withdrew" if args.direction == "out" else "lent to the company"
-        summary = f"Proposed current-account movement: {ent.name} {verb} {amount:,}"
+        summary = f"Proposed current-account movement: {ent.name} {verb} {grouped(amount)}"
         token = _persist(ctx, self.name, payload)
         return _envelope(token, self.name, summary, payload)
 

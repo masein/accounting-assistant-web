@@ -8,7 +8,8 @@ file.
 
 * CSV: a risky cell gets a leading apostrophe. Every CSV the app writes goes
   through ``csv_writer``, which applies ``csv_safe`` to each cell.
-  A plain number such as ``-1500`` or ``1,250.50`` is left as it is.
+  A plain number such as ``-1500`` or ``1,250.50`` is left as it is; an
+  amount with pence is written with two places (7.50, not 7.5).
   ``csv_bytes`` adds the byte-order mark Excel needs to read Persian text
   (every importer in the app reads it back as utf-8-sig).
 * XLSX: openpyxl stores any string that starts with ``=`` as a formula.
@@ -19,6 +20,7 @@ file.
 from __future__ import annotations
 
 import re
+from decimal import Decimal
 from typing import Any, Iterable
 
 _TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
@@ -30,6 +32,10 @@ def csv_safe(value: Any) -> Any:
     apostrophe; None is blank; numbers and plain numeric text are unchanged."""
     if value is None:
         return ""
+    if isinstance(value, Decimal):
+        from app.core.money import places_of, plain
+        p = plain(value)
+        return p if isinstance(p, int) else f"{p:.{max(2, places_of(p))}f}"
     if not isinstance(value, str):
         return value
     if value[:1] in _TRIGGERS and not _NUMBER.fullmatch(value):

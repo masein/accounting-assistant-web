@@ -52,7 +52,7 @@ from .entity_create import (
     classify_entity_type,
     normalize_entity_type,
 )
-from app.core.money import Money
+from app.core.money import Money, grouped
 
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ def _anchor_bank_leg(db, row, lines) -> None:
         return
     raise ToolError(
         f"This row is on the statement of bank account {bank}: {'credit' if money_out else 'debit'} {bank} "
-        f"with {amount:,} (money {'out' if money_out else 'in'}), and put the other side on what the money was for.",
+        f"with {grouped(amount)} (money {'out' if money_out else 'in'}), and put the other side on what the money was for.",
         code="statement_row_bank_leg",
     )
 
@@ -151,8 +151,8 @@ def _guard_toman(ctx: ToolContext, proposed_total) -> None:
         from app.core.money import plain
         rials = plain(proposed_total * 10)
         raise ToolError(
-            f"The user gave {proposed_total:,} tomans, which is {rials:,} rials — the books are in rials. "
-            f"Propose {rials:,}.", code="toman_not_converted")
+            f"The user gave {grouped(proposed_total)} tomans, which is {grouped(rials)} rials — the books are in rials. "
+            f"Propose {grouped(rials)}.", code="toman_not_converted")
 
 
 def _guard_seed_accounts(ctx: ToolContext, lines) -> None:
@@ -201,7 +201,7 @@ def _guard_amount(ctx: ToolContext, proposed_total, *, record_amount=None) -> No
     row amounts in it."""
     if proposed_total > MAX_SANE_AMOUNT:
         raise ToolError(
-            f"Proposed amount {proposed_total:,} is impossibly large and was "
+            f"Proposed amount {grouped(proposed_total)} is impossibly large and was "
             f"almost certainly mis-read. Re-read the document's labelled total "
             f"or ask the user for the correct amount before proposing.",
             code="amount_out_of_range",
@@ -221,8 +221,8 @@ def _guard_amount(ctx: ToolContext, proposed_total, *, record_amount=None) -> No
             return
     closest = min(sources, key=lambda s: abs(s - proposed_total))
     raise ToolError(
-        f"Proposed total {proposed_total:,} does not match the amount found in "
-        f"the source (~{closest:,}). Don't propose this figure — confirm the "
+        f"Proposed total {grouped(proposed_total)} does not match the amount found in "
+        f"the source (~{grouped(closest)}). Don't propose this figure — confirm the "
         f"correct amount with the user, or use the document's labelled total.",
         code="amount_mismatch",
     )
@@ -688,14 +688,14 @@ class ProposeCreateTransaction(BaseTool):
         for ln in args.lines:
             acc = found[ln.account_code]
             if ln.debit:
-                summary_lines.append(f"  DR {ln.account_code} {acc.name}: {ln.debit:,}")
+                summary_lines.append(f"  DR {ln.account_code} {acc.name}: {grouped(ln.debit)}")
             else:
-                summary_lines.append(f"  CR {ln.account_code} {acc.name}: {ln.credit:,}")
+                summary_lines.append(f"  CR {ln.account_code} {acc.name}: {grouped(ln.credit)}")
         summary = (
             f"Proposed journal entry on {args.date.isoformat()} ({args.currency}):\n"
             f"  {args.description}\n"
             + "\n".join(summary_lines)
-            + f"\n  Total: {total:,} {args.currency}"
+            + f"\n  Total: {grouped(total)} {args.currency}"
         )
         for p in new_entity_previews:
             if p["type"] == "bank" and p.get("account_code"):
@@ -715,7 +715,7 @@ class ProposeCreateTransaction(BaseTool):
             if threshold > 0 and total > threshold:
                 needs_approval = True
                 summary += (
-                    f"\n  ⚠ Over the approval threshold ({threshold:,} {args.currency}) — "
+                    f"\n  ⚠ Over the approval threshold ({grouped(threshold)} {args.currency}) — "
                     f"needs approval before it is posted."
                 )
         except Exception:  # settings are best-effort; never block a proposal
@@ -1203,8 +1203,8 @@ class ProposeReverseTransaction(BaseTool):
         summary = (
             f"Reversal of {txn.reference or str(txn.id)[:8]} ({txn.date}): "
             + "; ".join(f"{'DR' if m['debit'] else 'CR'} {m['account_code']} "
-                        f"{(m['debit'] or m['credit']):,}" for m in mirrored[:4])
-            + f" · Total {total:,} {txn.currency or 'IRR'}"
+                        f"{grouped((m['debit'] or m['credit']))}" for m in mirrored[:4])
+            + f" · Total {grouped(total)} {txn.currency or 'IRR'}"
         )
         return {
             "confirmation_token": str(token),

@@ -60,6 +60,7 @@ from .read_tools import register_read_tools
 from .statement_tools import register_statement_tools
 from .insight_tools import register_insight_tools
 from .time_tools import register_time_tools
+from app.core.money import grouped, grouped_fa
 
 logger = logging.getLogger(__name__)
 
@@ -715,8 +716,7 @@ def _for_the_model(value, key: str = "", *, jalali: bool = False, persian: bool 
                     pass
             if (persian and _MONEY_KEY.search(k) and not isinstance(v, bool) and isinstance(v, (int, float, Decimal))
                     and abs(v) >= 1000):
-                from app.utils.jalali import to_persian_digits
-                out[f"{k}_fa"] = to_persian_digits(f"{v:,}").replace(",", "٬")
+                out[f"{k}_fa"] = grouped_fa(v)
         return out
     if isinstance(value, list):
         return [_for_the_model(v, key, jalali=jalali, persian=persian) for v in value]
@@ -792,7 +792,7 @@ def _true_figures(text: str, tool_call_log: list[dict]) -> str:
         if len(near) != 1:
             return token
         sep = "٬" if "٬" in token else ("،" if "،" in token else ",")
-        right = f"{near[0]:,}".replace(",", sep)
+        right = f"{grouped(near[0])}".replace(",", sep)
         if any("۰" <= ch <= "۹" for ch in token):
             from app.utils.jalali import to_persian_digits
             right = to_persian_digits(right)

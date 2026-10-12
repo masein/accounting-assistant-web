@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
-from statistics import mean
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -54,7 +53,7 @@ from app.schemas.transaction import (
     TransactionLineRead,
     TransactionRead,
 )
-from app.core.money import Money, plain
+from app.core.money import Money, average, plain, grouped
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -439,8 +438,9 @@ def get_owner_dashboard(
     # this month and the two before it, in the company's calendar (§3.5)
     recent_months = [p.key for p in last_n_months(today, 3, cal)][::-1]
     burn_values = [monthly_expense.get(m, 0) for m in recent_months]
-    burn_rate = int(mean(burn_values)) if burn_values else 0
-    runway_months = round(cash_on_hand / burn_rate, 1) if burn_rate > 0 else None
+    from app.services.fx_base import base_currency
+    burn_rate = average(burn_values, base_currency(db) if base_view else currency)
+    runway_months = round(float(cash_on_hand / burn_rate), 1) if burn_rate > 0 else None
 
     # The 13 weeks come from the forecast service (roadmap §5.3): open invoices
     # on each customer's learned payment habit, cheques, payroll, recurring
@@ -516,12 +516,12 @@ def get_owner_dashboard(
     if runway_months is not None and runway_months < 3 and enough_history:
         alerts.append(AlertItem(level="high", title="Cash runway is short", message=f"Estimated runway is {runway_months} months based on recent burn rate."))
     if overdue_ar > 0:
-        alerts.append(AlertItem(level="medium", title="Overdue receivables", message=f"Overdue AR is {overdue_ar:,}. Follow up collections."))
+        alerts.append(AlertItem(level="medium", title="Overdue receivables", message=f"Overdue AR is {grouped(overdue_ar)}. Follow up collections."))
     if overdue_ap > 0:
-        alerts.append(AlertItem(level="medium", title="Overdue payables", message=f"Overdue AP is {overdue_ap:,}. Plan vendor payments."))
+        alerts.append(AlertItem(level="medium", title="Overdue payables", message=f"Overdue AP is {grouped(overdue_ap)}. Plan vendor payments."))
     if health_score < 70 and folds.txn_count >= MIN_TXNS_FOR_ALERTS:
         alerts.append(AlertItem(level="medium", title="Book quality risk", message=f"Data quality score is {health_score}/100. Resolve missing references/entities/attachments."))
-    if burn_rate > 0 and monthly_expense.get(current_month, 0) > int(burn_rate * 1.5) and enough_history:
+    if burn_rate > 0 and monthly_expense.get(current_month, 0) * 2 > burn_rate * 3 and enough_history:
         alerts.append(AlertItem(level="low", title="Expense spike", message="This month expenses are significantly above recent average."))
 
     close_checklist = [
@@ -550,12 +550,12 @@ def get_owner_dashboard(
     top_profit = profitability_rows[0] if profitability_rows else None
     owner_pack = (
         f"# Owner Weekly Pack ({today.isoformat()})\n\n"
-        f"- Cash on hand: {cash_on_hand:,} {display_currency}\n"
-        f"- Net profit this month: {monthly_net:,} {display_currency}\n"
-        f"- Burn rate: {burn_rate:,} {display_currency}/month\n"
+        f"- Cash on hand: {grouped(cash_on_hand)} {display_currency}\n"
+        f"- Net profit this month: {grouped(monthly_net)} {display_currency}\n"
+        f"- Burn rate: {grouped(burn_rate)} {display_currency}/month\n"
         f"- Runway: {runway_months if runway_months is not None else 'N/A'} months\n"
-        f"- Overdue AR: {overdue_ar:,} {display_currency}\n"
-        f"- Overdue AP: {overdue_ap:,} {display_currency}\n"
+        f"- Overdue AR: {grouped(overdue_ar)} {display_currency}\n"
+        f"- Overdue AP: {grouped(overdue_ap)} {display_currency}\n"
         f"- Data health score: {health_score}/100\n"
         f"- Most profitable client: {(top_profit.client + ' (' + format(top_profit.profit, ',') + ' ' + display_currency + ')') if top_profit else 'N/A'}\n\n"
         f"## Priority Actions\n"

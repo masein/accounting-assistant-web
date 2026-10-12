@@ -27,6 +27,7 @@ from app.models.notification import Notification, Reminder
 from app.models.pay_run import PayRun
 from app.models.petty_cash import PettyCashTransaction
 from app.models.recurring import RecurringRule
+from app.core.money import grouped
 
 DUE_SOON_DAYS = 3
 
@@ -295,13 +296,13 @@ def _ai_budget(db: Session, seen: set[str], today: date) -> None:
     _upsert(db, seen, dedupe_key=f"ai-budget-{today.isoformat()}", kind="ai_budget",
             level="high" if used >= budget else "warning",
             title=(f"AI allowance used up ({pct}%)" if used >= budget else f"AI allowance {pct}% used"),
-            message=f"{used:,} of {budget:,} tokens in the last 24 hours. "
+            message=f"{grouped(used)} of {grouped(budget)} tokens in the last 24 hours. "
                     + ("AI features are paused until older use drops out of the window."
                        if used >= budget else "AI features pause when it reaches 100%.")
                     + " See Settings → AI usage.",
             link_page="settings",
             text_key="ai_budget_out" if used >= budget else "ai_budget_near",
-            params={"pct": pct, "used": f"{used:,}", "budget": f"{budget:,}"})
+            params={"pct": pct, "used": f"{grouped(used)}", "budget": f"{grouped(budget)}"})
 
 
 def _moadian_deadlines(db: Session, seen: set[str], today: date) -> None:
@@ -391,11 +392,11 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
             _upsert(db, seen, dedupe_key=f"inv-{inv.id}-overdue", kind="invoice_overdue",
                     level="high", title=f"Invoice {number} overdue",
                     message=f"{label} — {days} day(s) past due ({inv.due_date.isoformat()})"
-                            + (f"; {left:,} {inv.currency} still open" if part else ""),
+                            + (f"; {grouped(left)} {inv.currency} still open" if part else ""),
                     link_page="invoices", due_date=inv.due_date,
                     text_key="invoice_overdue_part" if part else "invoice_overdue",
                     params={"number": number, "side": side, "days": days, "date": inv.due_date.isoformat(),
-                            **({"amount": f"{left:,}", "currency": inv.currency} if part else {})})
+                            **({"amount": f"{grouped(left)}", "currency": inv.currency} if part else {})})
         elif inv.due_date <= soon:
             _upsert(db, seen, dedupe_key=f"inv-{inv.id}-due", kind="invoice_due",
                     level="warning", title=f"Invoice {number} due {inv.due_date.isoformat()}",
@@ -445,12 +446,12 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
             _upsert(db, seen, dedupe_key=f"ai-approval-{p.id}", kind="approvals", level="warning",
                     title=f"Approval needed: {(info['summary'] or p.tool_name)[:120]}",
                     message=(f"Asked by {info['requested_by']} in the AI chat"
-                             + (f" — {p.amount:,}" if p.amount is not None else "")
+                             + (f" — {grouped(p.amount)}" if p.amount is not None else "")
                              + ". Open the AI chat to approve or reject it."),
                     link_page="ai-accountant",
                     text_key="ai_approval" if p.amount is None else "ai_approval_amount",
                     params={"summary": (info["summary"] or p.tool_name)[:120], "who": info["requested_by"],
-                            **({} if p.amount is None else {"amount": f"{p.amount:,}"})})
+                            **({} if p.amount is None else {"amount": f"{grouped(p.amount)}"})})
     except Exception:  # noqa: BLE001 — never break the feed
         pass
 
@@ -489,11 +490,11 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
         _upsert(db, seen, dedupe_key=f"rec-{rule.id}-{rule.next_run_date.isoformat()}",
                 kind="recurring", level="info",
                 title=f"Recurring: {rule.name} due {rule.next_run_date.isoformat()}",
-                message=(f"{rule.direction} of {rule.amount:,}" if rule.amount else rule.direction),
+                message=(f"{rule.direction} of {grouped(rule.amount)}" if rule.amount else rule.direction),
                 link_page="recurring", due_date=rule.next_run_date,
                 text_key="recurring_due_amount" if rule.amount else "recurring_due",
                 params={"name": rule.name, "date": rule.next_run_date.isoformat(), "direction": rule.direction,
-                        **({"amount": f"{rule.amount:,}"} if rule.amount else {})})
+                        **({"amount": f"{grouped(rule.amount)}"} if rule.amount else {})})
 
     # --- user reminders ----------------------------------------------------
     reminders = db.execute(
@@ -537,13 +538,13 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
                 _upsert(db, seen, dedupe_key=f"cheque-sayad-{c.id}", kind="commitment", level="warning",
                         title=(f"Register cheque in Sayad: {c.title}" if c.direction == "pay"
                                else f"Confirm cheque in Sayad: {c.title}"),
-                        message=(f"{c.amount:,} due {c.due_date.isoformat()} — "
+                        message=(f"{grouped(c.amount)} due {c.due_date.isoformat()} — "
                                  + ("an issued cheque must be registered in the Sayad system (صیاد) to be honoured."
                                     if c.direction == "pay" else
                                     "confirm receiving it in the Sayad system (صیاد) through your bank's app.")),
                         link_page="commitments", due_date=c.due_date,
                         text_key="sayad_register" if c.direction == "pay" else "sayad_confirm",
-                        params={"title": c.title, "amount": f"{c.amount:,}", "date": c.due_date.isoformat()})
+                        params={"title": c.title, "amount": f"{grouped(c.amount)}", "date": c.due_date.isoformat()})
             overdue = c.due_date < today
             if not overdue and c.due_date > soon:
                 continue
@@ -564,11 +565,11 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
             verb = "to pay" if c.direction == "pay" else "to receive"
             _upsert(db, seen, dedupe_key=f"commitment-{c.id}", kind="commitment",
                     level=level, title=f"{noun}{seq}: {c.title}",
-                    message=f"{c.amount:,} {verb} — {when}",
+                    message=f"{grouped(c.amount)} {verb} — {when}",
                     link_page="commitments", due_date=c.due_date,
                     text_key="commitment",
                     params={"noun": "cheque" if c.kind == CHEQUE else "installment", "seq": seq, "title": c.title,
-                            "amount": f"{c.amount:,}", "verb": "pay" if c.direction == "pay" else "receive",
+                            "amount": f"{grouped(c.amount)}", "verb": "pay" if c.direction == "pay" else "receive",
                             "when": when_said})
     except Exception:
         # Never let this break the whole feed refresh.
@@ -592,12 +593,12 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
                     kind="budget", level="high" if over else "warning",
                     title=(f"Budget exceeded: {label}" if over
                            else f"Budget at {int(pct)}%: {label}"),
-                    message=(f"{row['actual_amount']:,} of {row['limit_amount']:,} "
+                    message=(f"{grouped(row['actual_amount'])} of {grouped(row['limit_amount'])} "
                              f"spent in {month} ({row['utilization_pct']:g}%)"),
                     link_page=_budget_link_page(db),
                     text_key="budget_over" if over else "budget_near",
-                    params={"category": label, "pct": int(pct), "actual": f"{row['actual_amount']:,}",
-                            "limit": f"{row['limit_amount']:,}", "month": month,
+                    params={"category": label, "pct": int(pct), "actual": f"{grouped(row['actual_amount'])}",
+                            "limit": f"{grouped(row['limit_amount'])}", "month": month,
                             "spent": f"{row['utilization_pct']:g}"})          # 120, not 120.0
     except Exception:
         # budget alerts must never break the whole feed refresh
@@ -622,8 +623,8 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
                 said.append({"key": "project_hours", "params": {"used": f"{u['hours_used']:g}",
                                                                 "budget": f"{u['budget_hours']:g}", "pct": u["hours_pct"]}})
             if u["amount_pct"] is not None:
-                parts.append(f"{u['amount_used']:,} of {u['budget_amount']:,} {u['currency']} ({u['amount_pct']}%)")
-                said.append({"key": "project_amount", "params": {"used": f"{u['amount_used']:,}", "budget": f"{u['budget_amount']:,}",
+                parts.append(f"{grouped(u['amount_used'])} of {grouped(u['budget_amount'])} {u['currency']} ({u['amount_pct']}%)")
+                said.append({"key": "project_amount", "params": {"used": f"{grouped(u['amount_used'])}", "budget": f"{grouped(u['budget_amount'])}",
                                                                  "currency": u["currency"], "pct": u["amount_pct"]}})
             over = u["status"] == "over"
             _upsert(db, seen, dedupe_key=f"project-budget-{p.id}", kind="budget",

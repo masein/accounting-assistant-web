@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.money import plain
+from app.core.money import average, grouped, persian_figures, plain
 from app.models.account import Account
 from app.models.transaction import Transaction, TransactionLine
 from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
@@ -106,9 +106,8 @@ def _rate(income: int, spending: int) -> float | None:
 
 
 def _fmt(n: int, lang: str) -> str:
-    from app.services.documents.formatting import to_persian_digits
-    text = f"{int(n):,}"
-    return to_persian_digits(text) if lang == "fa" else text
+    text = grouped(n)
+    return persian_figures(text, thousands=",") if lang == "fa" else text
 
 
 def report_card(db: Session, month: str | None = None, *, lang: str | None = None, today: date | None = None) -> dict:
@@ -131,7 +130,8 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     history = [_flows(db, *key_bounds(k)) for k in keys]
     p_income, p_spending, p_cats = history[0]
     past = [h[1] for h in history if h[0] or h[1]]
-    avg3 = round(sum(past) / len(past)) if past else None
+    from app.services.fx_base import base_currency
+    avg3 = average(past, base_currency(db)) if past else None
 
     top = sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]
     categories = [{"category": c, "amount": a, "previous": p_cats.get(c, 0),

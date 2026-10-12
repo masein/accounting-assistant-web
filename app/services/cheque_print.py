@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.app_setting import AppSetting
-from app.core.money import json_dumps
+from app.core.money import exponent, grouped_fa, json_dumps, quantize, to_decimal
 
 KEY = "cheque_print_layout"
 
@@ -181,7 +181,8 @@ def cheque_values(db: Session, row, *, payee: str | None = None, national_id: st
         ent = db.get(Entity, row.entity_id)
         name = name or getattr(ent, "name", "") or ""
         nid = getattr(ent, "national_id", None) or ""
-    amount = int(row.amount or 0)
+    # to the penny: a £1,234.56 cheque printed «£1,234.00» and «… pounds only» (P5)
+    amount = quantize(row.amount or 0, ccy)
     if loc == "ir":
         import jdatetime
         j = jdatetime.date.fromgregorian(date=when)
@@ -192,7 +193,7 @@ def cheque_values(db: Session, row, *, payee: str | None = None, national_id: st
             "national_id": to_persian_digits(nid or ""),
             "amount_words": amount_in_words(amount, ccy, "ir"),
             # guards either side: nothing can be written in front of or after the figures
-            "amount": "#" + to_persian_digits(f"{amount:,}").replace(",", "٬") + "#",
+            "amount": "#" + grouped_fa(amount) + "#",
         }
     from app.services.documents.formatting import CURRENCY_SYMBOL
     symbol = CURRENCY_SYMBOL.get(ccy, ccy + " ")
@@ -200,7 +201,7 @@ def cheque_values(db: Session, row, *, payee: str | None = None, national_id: st
         "date": when.strftime("%d/%m/%Y"),
         "payee": name,
         "amount_words": amount_in_words(amount, ccy, "uk") + " only",
-        "amount": f"{symbol}{amount:,}.00",
+        "amount": f"{symbol}{to_decimal(amount):,.{exponent(ccy)}f}",
     }
 
 

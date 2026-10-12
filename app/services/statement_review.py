@@ -40,7 +40,7 @@ from app.schemas.brain import (
     StatementFinding,
     StatementReviewResponse,
 )
-from app.core.money import plain
+from app.core.money import plain, grouped
 
 # What the user should look at first: entries the books got wrong, then
 # entries the books are missing, then the closing-balance check (which moves
@@ -155,9 +155,9 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
                         suggested_account_code=row.suggested_account_code,
                         suggested_account_name=name_of(row.suggested_account_code),
                         suggested_fix="review_entry",
-                        detail=(f"Bank shows {amount:,}, the closest book entry "
+                        detail=(f"Bank shows {grouped(amount)}, the closest book entry "
                                 f"({txn.date.isoformat()}, {txn.description or txn.reference or txn.id}) "
-                                f"shows {book_amount:,}."),
+                                f"shows {grouped(book_amount)}."),
                         **base,
                     ))
                 continue
@@ -213,7 +213,7 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
                 tx_date=as_of, amount=abs(gap), direction="in" if gap > 0 else "out",
                 suggested_account_code=bank_code, suggested_account_name=name_of(bank_code),
                 suggested_fix="post_row" if balance.explained else "review_entry",
-                detail=(f"Statement closes at {last.balance:,}; the books show {book:,} on "
+                detail=(f"Statement closes at {grouped(last.balance)}; the books show {grouped(book)} on "
                         f"{bank_code}. " + ("Posting the unrecorded rows closes the gap."
                                            if balance.explained else
                                            ("Post the unrecorded rows first, then re-check; the rest is "

@@ -46,7 +46,7 @@ from app.services.audit_service import log_audit_event
 from app.services.ledger_posting import assert_amount_places, default_currency
 from app.services.ocr_extract import OCRExtractError, extract_from_attachment
 from app.services.book_text import bt
-from app.core.money import plain, round_amount, to_decimal
+from app.core.money import plain, round_amount, to_decimal, grouped
 from app.services.documents.formatting import fmt_amount
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -1371,7 +1371,7 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
     for p in db.execute(select(Payment).where(Payment.invoice_id == invoice_id)).scalars().all():
         events.append(InvoiceTimelineEvent(
             at=p.created_at, event="payment",
-            detail=f"{p.amount:,} {p.currency} {'received' if p.direction == 'in' else 'paid'} ({p.method}).",
+            detail=f"{grouped(p.amount)} {p.currency} {'received' if p.direction == 'in' else 'paid'} ({p.method}).",
             params={"amount": plain(p.amount), "currency": p.currency, "direction": p.direction, "method": p.method},
         ))
     from app.models.invoice_email import InvoiceEmail
@@ -1394,19 +1394,19 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
             continue                                   # its payment row says it on this invoice
         params = {"amount": plain(n.amount), "currency": n.currency, "reason": n.reason, "kind": n.kind}
         if n.note_type == "reduction":
-            event, detail = "credit_note", f"Credit note {n.amount:,} {n.currency}" + (f": {n.reason}" if n.reason else ".")
+            event, detail = "credit_note", f"Credit note {grouped(n.amount)} {n.currency}" + (f": {n.reason}" if n.reason else ".")
         elif n.note_type == "credit":
-            event, detail = "credit", f"{n.amount:,} {n.currency} credit to the {'customer' if n.kind == 'sales' else 'company'}."
+            event, detail = "credit", f"{grouped(n.amount)} {n.currency} credit to the {'customer' if n.kind == 'sales' else 'company'}."
         elif n.note_type == "withdrawn":
-            event, detail = "credit_withdrawn", f"{n.amount:,} {n.currency} of the credit taken back: the cheque that paid it bounced or was returned."
+            event, detail = "credit_withdrawn", f"{grouped(n.amount)} {n.currency} of the credit taken back: the cheque that paid it bounced or was returned."
         else:
-            event, detail = "refund", f"{n.amount:,} {n.currency} of the credit refunded."
+            event, detail = "refund", f"{grouped(n.amount)} {n.currency} of the credit refunded."
         events.append(InvoiceTimelineEvent(at=n.created_at, event=event, detail=detail, params=params))
         for child in used_by.get(n.id, []):
             target = db.get(Invoice, child.invoice_id) if child.invoice_id else None
             events.append(InvoiceTimelineEvent(
                 at=child.created_at, event="credit_used",
-                detail=f"{child.amount:,} {child.currency} of the credit used on invoice {target.number if target else ''}.",
+                detail=f"{grouped(child.amount)} {child.currency} of the credit used on invoice {target.number if target else ''}.",
                 params={"amount": plain(child.amount), "currency": child.currency, "number": target.number if target else ""},
             ))
     events.sort(key=lambda e: e.at)
@@ -1554,7 +1554,7 @@ def invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Response:
     c.drawString(total_x + 5 * mm, total_y + 12 * mm, "TOTAL DUE")
     c.setFillColor(primary)
     c.setFont("Helvetica-Bold", 14)
-    c.drawRightString(total_x + total_w - 5 * mm, total_y + 5.5 * mm, f"{amount:,} {inv.currency}")
+    c.drawRightString(total_x + total_w - 5 * mm, total_y + 5.5 * mm, f"{grouped(amount)} {inv.currency}")
 
     # Footer
     c.setFillColor(muted)

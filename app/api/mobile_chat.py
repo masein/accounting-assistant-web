@@ -42,7 +42,7 @@ from app.services.ai_accountant.execute_service import (
     execute_proposal,
     undo_action,
 )
-from app.core.money import plain
+from app.core.money import plain, grouped
 from app.core.money import Money
 
 router = APIRouter(prefix=PREFIX, tags=["mobile"], dependencies=[Depends(check_app_version)])
@@ -686,11 +686,11 @@ def mobile_feed(db: Session = Depends(get_db), user: SessionUser = Depends(get_c
         payload = p.tool_input or {}
         amount = sum(plain(ln.get("debit") or 0) for ln in payload.get("lines") or []) or plain(p.amount or 0)
         cur = payload.get("currency") or ""
-        body = body_t.format(title=payload.get("description") or d["summary"].splitlines()[0], amount=f"{amount:,}",
+        body = body_t.format(title=payload.get("description") or d["summary"].splitlines()[0], amount=f"{grouped(amount)}",
                              cur=cur, who=d["requested_by"])
         if lang == "fa":
-            from app.services.documents.formatting import to_persian_digits
-            body = to_persian_digits(body).replace(",", "٬")
+            from app.core.money import persian_figures
+            body = persian_figures(body)
         items.append({"key": f"approval:{d['confirmation_token']}", "kind": "approval", "title": title_t, "body": body})
     if role_can(user.role, Perm.BOOKS_READ):
         from app.services.insight_service import chat_wording, compute_insights

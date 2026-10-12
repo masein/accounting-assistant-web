@@ -14,7 +14,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core.money import Money, plain
+from app.core.money import Money, plain, grouped
 from app.models.commitment import OPEN_STATUSES, Commitment
 
 from .base import BaseTool, ToolContext, ToolError, Replaceable
@@ -48,7 +48,7 @@ def find_commitment(ctx: ToolContext, ref: str) -> Commitment:
         raise ToolError(f"No cheque or installment matches {ref!r}", code="commitment_not_found")
     if len(open_rows) > 1:
         raise ToolError(f"{len(open_rows)} items match {ref!r}: " + "; ".join(
-            f"{r.title} ({r.amount:,}, due {r.due_date.isoformat()}, id {str(r.id)[:8]})" for r in open_rows[:5]) + " — ask which one.",
+            f"{r.title} ({grouped(r.amount)}, due {r.due_date.isoformat()}, id {str(r.id)[:8]})" for r in open_rows[:5]) + " — ask which one.",
             code="commitment_ambiguous")
     return open_rows[0]
 
@@ -114,7 +114,7 @@ class ProposeSettleCommitment(BaseTool):
                    "direction": c.direction, "kind": c.kind}
         token = _register(ctx, self.name, payload)
         verb = "paid" if c.direction == "pay" else "received"
-        summary = f"{c.kind.capitalize()} '{c.title}' ({c.amount:,}, due {c.due_date.isoformat()}) {verb} on {when.isoformat()}"
+        summary = f"{c.kind.capitalize()} '{c.title}' ({grouped(c.amount)}, due {c.due_date.isoformat()}) {verb} on {when.isoformat()}"
         if not c.counter_account_code and c.ledger_mode != "notes":
             summary += " — no counter account on the item, so it is marked settled without a ledger entry."
         return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": payload}
@@ -142,7 +142,7 @@ class ProposeBounceCheque(BaseTool):
         payload = {"commitment_id": str(c.id), "title": c.title, "amount": plain(c.amount or 0)}
         token = _register(ctx, self.name, payload)
         return {"confirmation_token": str(token), "status": "pending",
-                "summary": f"Cheque '{c.title}' ({c.amount:,}, due {c.due_date.isoformat()}) marked bounced — still owed.", "preview": payload}
+                "summary": f"Cheque '{c.title}' ({grouped(c.amount)}, due {c.due_date.isoformat()}) marked bounced — still owed.", "preview": payload}
 
 
 class ProposeCreateChequeInput(Replaceable):
@@ -187,7 +187,7 @@ class ProposeCreateCheque(BaseTool):
         token = _register(ctx, self.name, payload)
         who = "issued" if d == "pay" else "received"
         return {"confirmation_token": str(token), "status": "pending",
-                "summary": f"Cheque {who}: '{args.title}' {args.amount:,} due {args.due_date.isoformat()}"
+                "summary": f"Cheque {who}: '{args.title}' {grouped(args.amount)} due {args.due_date.isoformat()}"
                            + (f", no. {args.reference}" if args.reference else "")
                            + (f", Sayad {payload['sayad_id']}" if payload.get("sayad_id") else "")
                            + (f" — pays {payload['invoice']}" if payload.get("invoice") else ""),
@@ -240,7 +240,7 @@ class ProposeChequeStep(BaseTool):
         words = {"deposit": "deposited" + (" again" if c.status == "bounced" else ""), "return": "returned",
                  "endorse": f"passed on to {payload.get('bill') or args.to}"}[action]
         return {"confirmation_token": str(token), "status": "pending",
-                "summary": f"Cheque '{c.title}' ({c.amount:,}) {words} on {when.isoformat()}", "preview": payload}
+                "summary": f"Cheque '{c.title}' ({grouped(c.amount)}) {words} on {when.isoformat()}", "preview": payload}
 
 
 def register_commitment_tools(registry, *, personal: bool = False) -> None:

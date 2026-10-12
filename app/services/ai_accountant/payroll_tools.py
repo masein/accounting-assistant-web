@@ -23,7 +23,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core.money import plain
+from app.core.money import plain, grouped
 from app.models.employee_pay import EmployeePayProfile
 from app.models.pay_run import PayRun, PayRunLine
 
@@ -241,9 +241,9 @@ class ProposePostPayRun(BaseTool):
                    "on": r["pay_date"], "amount": r["total_gross"], "currency": run.currency}
         token = _register(ctx, self.name, payload)
         summary = (f"Post payroll {r['period_start']}–{r['period_end']} on {r['pay_date']} for {r['employees']} "
-                   f"employee(s): gross {r['total_gross']:,} {run.currency}; tax {r['total_tax']:,}, insurance "
-                   f"{r['total_social']:,}, deductions {r['total_deductions']:,}; net pay owed {r['total_net']:,}"
-                   + (f"; employer insurance {r['employer_social']:,}" if r["employer_social"] else "") + ".")
+                   f"employee(s): gross {grouped(r['total_gross'])} {run.currency}; tax {grouped(r['total_tax'])}, insurance "
+                   f"{grouped(r['total_social'])}, deductions {grouped(r['total_deductions'])}; net pay owed {grouped(r['total_net'])}"
+                   + (f"; employer insurance {grouped(r['employer_social'])}" if r["employer_social"] else "") + ".")
         return {"confirmation_token": str(token), "status": "pending", "summary": summary,
                 "preview": {**payload, **r, "lines": [{"name": ln.employee_name, "gross": plain(ln.gross or 0),
                                                        "net_pay": plain(ln.net_pay or 0)} for ln in run.lines]}}
@@ -276,7 +276,7 @@ class ProposePayPayRun(BaseTool):
                    "on": r["pay_date"], "amount": r["total_net"], "currency": run.currency,
                    "bank_account_code": args.bank_account_code}
         token = _register(ctx, self.name, payload)
-        summary = (f"Pay net salaries of {r['total_net']:,} {run.currency} for {r['period_start']}–{r['period_end']} "
+        summary = (f"Pay net salaries of {grouped(r['total_net'])} {run.currency} for {r['period_start']}–{r['period_end']} "
                    f"on {r['pay_date']} from " + (f"account {args.bank_account_code}" if args.bank_account_code else "the bank")
                    + f" ({r['employees']} employee(s)).")
         return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": {**payload, **r}}

@@ -17,7 +17,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.models.digest_setting import DigestSetting
-from app.core.money import plain
+from app.core.money import plain, grouped
 
 _DEFAULTS = {"enabled": False, "cash_threshold": 0, "runway_months": 3.0, "channel": "all"}
 _CHANNELS = {"all", "slack", "telegram", "email"}
@@ -162,9 +162,9 @@ def format_digest(company_name: str, d: dict, lang: str = "en") -> str:
         lines.append(say("low", why=why(_TEXT[r][lang] if r in _TEXT else r for r in d["low_cash_reasons"])))
     months = d["runway_months"] if d["runway_months"] is not None else _TEXT["na"][lang]
     lines += [
-        say("cash", amount=f"{d['cash_on_hand']:,}", cur=cur),
+        say("cash", amount=f"{grouped(d['cash_on_hand'])}", cur=cur),
         say("runway", months=months),
-        say("ar", amount=f"{d['ar_outstanding']:,}", cur=cur, overdue=f"{d['ar_overdue']:,}"),
-        say("ap", amount=f"{d['ap_outstanding']:,}", cur=cur, overdue=f"{d['ap_overdue']:,}"),
+        say("ar", amount=f"{grouped(d['ar_outstanding'])}", cur=cur, overdue=f"{grouped(d['ar_overdue'])}"),
+        say("ap", amount=f"{grouped(d['ap_outstanding'])}", cur=cur, overdue=f"{grouped(d['ap_overdue'])}"),
     ]
     return "\n".join(lines)

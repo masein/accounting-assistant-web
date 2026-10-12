@@ -37,7 +37,7 @@ from app.schemas.invoice import InvoiceCreate, InvoiceItemCreate, InvoiceRead
 from app.schemas.quote import QuoteConvert, QuoteCreate, QuoteRead, QuoteUpdate
 from app.services.audit_service import log_audit_event
 from app.services.book_text import bt
-from app.core.money import plain
+from app.core.money import plain, grouped
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
@@ -212,7 +212,7 @@ def create_quote(payload: QuoteCreate, db: Session = Depends(get_db)) -> QuoteRe
         _mark_status(q, status)
         db.flush()
         log_audit_event(db, action="create", entity_type="quote", entity_id=str(q.id),
-                        detail=f"Quote {q.number} created ({q.amount:,} {q.currency})")
+                        detail=f"Quote {q.number} created ({grouped(q.amount)} {q.currency})")
         db.commit()
     except DataError as e:
         db.rollback()

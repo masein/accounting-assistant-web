@@ -278,6 +278,28 @@ def test_trend_before_any_activity_is_zero(db):
     assert trend[-1][1] == 5_000_000
 
 
+def test_trend_counts_gold_from_its_purchase_at_the_rates_of_its_time(db):
+    """The phone's line showed the gold a year before it was bought, at
+    yesterday's rate (the personal-books pass, 2026-10-12)."""
+    _post(db, BANK, INCOME, 100_000_000, when=TODAY - timedelta(days=200))
+    _post(db, GOLD, BANK, 30_000_000, when=TODAY - timedelta(days=70))   # 10 g bought for 30m …
+    _hold(db, GOLD, "GOLD_GRAM", 10)
+    _rate(db, "GOLD_GRAM", 5_000_000)                                    # … the only rate: yesterday's
+    trend = compute_net_worth(db).trend
+    assert trend[0][1] == 0                                # a year ago: nothing, no gold at today's price
+    assert all(v <= 100_000_000 for _p, v in trend[:-1])   # no month gone by valued at a rate set since
+    assert trend[-1][1] == 120_000_000                     # today: 70m in the bank and 50m of gold
+
+
+def test_gold_never_posted_still_counts_where_it_has_a_rate(db):
+    # inherited gold, never posted: counted throughout, but a month only at a rate of its time
+    _hold(db, GOLD, "GOLD_GRAM", 10)
+    _rate(db, "GOLD_GRAM", 4_000_000, on=TODAY - timedelta(days=400))
+    _rate(db, "GOLD_GRAM", 5_000_000)
+    trend = compute_net_worth(db).trend
+    assert trend[0][1] == 40_000_000 and trend[-1][1] == 50_000_000
+
+
 # ---------------------------------------------------------------------------
 # Holdings API
 # ---------------------------------------------------------------------------

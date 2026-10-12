@@ -639,11 +639,11 @@ def mobile_feed(db: Session = Depends(get_db), user: SessionUser = Depends(get_c
             body = to_persian_digits(body).replace(",", "٬")
         items.append({"key": f"approval:{d['confirmation_token']}", "kind": "approval", "title": title_t, "body": body})
     if role_can(user.role, Perm.BOOKS_READ):
-        from app.services.insight_service import compute_insights
+        from app.services.insight_service import chat_wording, compute_insights
         for ins in compute_insights(db):
             if ins.severity not in ("warning", "high"):
                 continue
-            loc = ins.localize(lang)
+            loc = chat_wording(ins, lang)                  # «شهریور ۱۴۰۵», not «1405-06»
             items.append({"key": f"insight:{ins.key}", "kind": "insight", "title": loc["title"], "body": loc["message"]})
     return {"items": items[:20]}
 

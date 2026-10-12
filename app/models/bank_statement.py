@@ -8,7 +8,6 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
-    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -24,6 +23,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class BankStatement(Base, TenantMixin):
@@ -76,9 +76,9 @@ class BankStatementRow(Base, TenantMixin):
     tx_date: Mapped[date] = mapped_column(Date, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     reference: Mapped[str | None] = mapped_column(String(256), nullable=True)
-    debit: Mapped[int] = mapped_column(BigInteger, default=0)
-    credit: Mapped[int] = mapped_column(BigInteger, default=0)
-    balance: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    debit: Mapped[int] = mapped_column(MoneyType(), default=0)
+    credit: Mapped[int] = mapped_column(MoneyType(), default=0)
+    balance: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
     counterparty: Mapped[str | None] = mapped_column(String(256), nullable=True)
     raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 

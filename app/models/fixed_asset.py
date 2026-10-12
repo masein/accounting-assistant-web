@@ -9,12 +9,13 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 STRAIGHT_LINE = "straight_line"
 DECLINING_BALANCE = "declining_balance"
@@ -45,8 +46,8 @@ class FixedAsset(Base, TenantMixin):
     # the asset came into use — art. 6 of the art. 149 rules).
     depreciation_start: Mapped[date] = mapped_column(Date, index=True)
 
-    cost: Mapped[int] = mapped_column(BigInteger)                           # whole currency units
-    residual: Mapped[int] = mapped_column(BigInteger, default=0)
+    cost: Mapped[int] = mapped_column(MoneyType())                           # whole currency units
+    residual: Mapped[int] = mapped_column(MoneyType(), default=0)
     method: Mapped[str] = mapped_column(String(24), default=STRAIGHT_LINE)
     life_months: Mapped[int | None] = mapped_column(Integer, nullable=True)  # straight-line
     rate_bps: Mapped[int | None] = mapped_column(Integer, nullable=True)     # declining balance, per year
@@ -54,7 +55,7 @@ class FixedAsset(Base, TenantMixin):
     # Depreciation from before the register (an asset brought over from
     # another system): accumulated up to ``opening_date``; months before it
     # are never posted.
-    opening_accumulated: Mapped[int] = mapped_column(BigInteger, default=0)
+    opening_accumulated: Mapped[int] = mapped_column(MoneyType(), default=0)
     opening_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     asset_account_code: Mapped[str] = mapped_column(String(16))
@@ -66,7 +67,7 @@ class FixedAsset(Base, TenantMixin):
         UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
     )
     disposed_on: Mapped[date | None] = mapped_column(Date, nullable=True)
-    disposal_proceeds: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    disposal_proceeds: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
     disposal_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
     )
@@ -87,7 +88,7 @@ class FixedAssetDepreciation(Base, TenantMixin):
         UUID(as_uuid=True), ForeignKey("fixed_assets.id", ondelete="CASCADE"), index=True
     )
     period_start: Mapped[date] = mapped_column(Date)                        # first day of the month
-    amount: Mapped[int] = mapped_column(BigInteger)
+    amount: Mapped[int] = mapped_column(MoneyType())
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True, index=True
     )

@@ -310,4 +310,23 @@ The second real company kept its books in Excel by hand: two schools, each with 
 | P7 | A date with the wrong year [#343] | A 1404 journal with vouchers typed 1401/01/20, 1403/03/08 and 1400/11/29 | They are held back as «outside the file's year»; «use the file's year» posts them on 1404/01/20, 1404/03/08 and 1404/11/29, «keep the dates as written» posts them as typed |
 | P8 | A rial out [#343] | A voucher off by 1 rial; another off by 50 | The first posts with the rial on its largest line, counted as rounding; the second is refused as unbalanced |
 
-**Run order:** A → B → C → D → E → F → G → H → J → L → M → N → O → P; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+## Q. Keeping pence (2026-10-12, `docs/PLAN_PENCE.md`)
+
+The books kept whole units, so a £7.50 bank fee went in as £7. Pounds, dollars and euros keep their pence; rials don't change. Each scenario names the phase that delivers it.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| Q1 | Rial books don't move [P1] | Before and after the migration, open a rial company's dashboard, trial balance, balance sheet, P&L, ledger and debtors; export the journal | Every figure and every file is the same, byte for byte; no «.00» on a rial anywhere |
+| Q2 | A pound with pence in the ledger [P2] | In a UK company, record a journal: Dr 8000 Bank charges £7.50, Cr 1201 Barclays £7.50 | The entry, the ledger, the trial balance and the P&L show £7.50; the bank's balance falls by £7.50 |
+| Q3 | Too many places [P2] | Record £7.505 in a UK company, and 2,500,000.5 rials in an Iranian one | Both are refused with a sentence: pounds have 2 decimal places, rials none |
+| Q4 | A statement to the penny [P2] | Send the Barclays CSV with its £7.50 fee and £24,515.50 closing balance (web and phone); post both differences | The fee is £7.50; the gap before posting is £592.50 and «explained»; after posting it is £0.00 |
+| Q5 | Pence across currencies [P2] | In a rial company, record $12.34 at 600,000 rials per dollar; in a UK company, €10.01 at 0.85 | The rial company's base amount is 7,404,000 rials; the UK one's is £8.51 (8.5085 half-up); both entries balance in base |
+| Q6 | The chat's voucher with pence [P2] | Tell the accountant (and the phone) «paid £3.99 for a coffee with a client from Barclays» | The draft shows £3.99 on both lines, the posted entry is 3.99, and Edit can change it to £4.25 |
+| Q7 | An invoice to the penny [P3] | Invoice 3 × £19.99 + 20% VAT; record £30.00, then £41.96 | The total is £71.96 (59.97 + 11.99); the first payment leaves £41.96; the second closes it at £0.00; the PDF says «£71.96» and «seventy-one pounds and ninety-six pence» |
+| Q8 | VAT boxes to the penny [P3] | The quarter with Q7 and a £12.50 + VAT bill | Box 1 £11.99, box 4 £2.50, box 5 £9.49 (boxes 1–5 to the penny); box 6 £59 and box 7 £12 (boxes 6–9 in whole pounds, pence dropped, as HMRC asks) |
+| Q9 | A payslip to the penny [P4] | An hourly employee at £12.21 for 37.5 hours a week, a month's run | The gross is £1,984.13; tax and NI to the penny; the payslip and the posting agree |
+| Q10 | Mileage at 45p [P4] | Claim 123 miles at 45p | £55.35, not £55 |
+| Q11 | Words and files [P5] | Ask «how much cash do we have?», export the journal to Excel, print a cheque for £1,234.56 | «£23,915.50» in the answer; `#,##0.00` cells holding 7.5; the cheque reads «£1,234.56» and «one thousand two hundred and thirty-four pounds and fifty-six pence» |
+| Q12 | The phone [P2, P5] | Q4 and Q6 on the phone; the widget | «£7.50» on the cards, «£23,915.50» on the widget; nothing is cut to whole pounds |
+
+**Run order:** A → B → C → D → E → F → G → H → J → L → M → N → O → P → Q; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.

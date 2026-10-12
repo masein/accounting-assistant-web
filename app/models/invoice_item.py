@@ -3,12 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class InvoiceItem(Base, TenantMixin):
@@ -25,9 +26,9 @@ class InvoiceItem(Base, TenantMixin):
     po_line_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("purchase_order_lines.id", ondelete="SET NULL"), nullable=True, index=True)
     quantity: Mapped[float] = mapped_column(Numeric(18, 4), default=1)
-    unit_price: Mapped[int] = mapped_column(BigInteger, default=0)
-    unit_cost: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    line_total: Mapped[int] = mapped_column(BigInteger, default=0)
+    unit_price: Mapped[int] = mapped_column(MoneyType(), default=0)
+    unit_cost: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
+    line_total: Mapped[int] = mapped_column(MoneyType(), default=0)
     # VAT / sales-tax: percentage rate (e.g. 20 for 20%); taxable=False makes
     # the line exempt (contributes to subtotal but not to tax).
     tax_rate: Mapped[float] = mapped_column(Numeric(7, 4), default=0, server_default="0")

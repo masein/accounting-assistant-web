@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column, relationship, with_lo
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class Transaction(Base, TenantMixin):
@@ -71,14 +72,14 @@ class TransactionLine(Base, TenantMixin):
     )
     account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id"), index=True)
 
-    debit: Mapped[int] = mapped_column(BigInteger, default=0)
-    credit: Mapped[int] = mapped_column(BigInteger, default=0)
+    debit: Mapped[int] = mapped_column(MoneyType(), default=0)
+    credit: Mapped[int] = mapped_column(MoneyType(), default=0)
     # The same amounts in the company's base currency at the entry's fx_rate,
     # rounded half-up with the entry kept balanced. NULL while no rate is
     # known. A line with no foreign amount and a base amount is base-only (a
     # revaluation or a settlement difference).
-    base_debit: Mapped[int | None] = mapped_column(BigInteger, nullable=True, default=None)
-    base_credit: Mapped[int | None] = mapped_column(BigInteger, nullable=True, default=None)
+    base_debit: Mapped[int | None] = mapped_column(MoneyType(), nullable=True, default=None)
+    base_credit: Mapped[int | None] = mapped_column(MoneyType(), nullable=True, default=None)
     line_description: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     transaction: Mapped["Transaction"] = relationship("Transaction", back_populates="lines")

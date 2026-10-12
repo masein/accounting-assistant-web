@@ -8,12 +8,13 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class PayRun(Base, TenantMixin):
@@ -30,12 +31,12 @@ class PayRun(Base, TenantMixin):
     year_key: Mapped[str | None] = mapped_column(String(8), nullable=True)   # "1405" on a year-end run
 
     # Batch totals (whole currency units), summed from the lines.
-    total_gross: Mapped[int] = mapped_column(BigInteger, default=0)
-    total_tax: Mapped[int] = mapped_column(BigInteger, default=0)
-    total_social: Mapped[int] = mapped_column(BigInteger, default=0)
-    total_deductions: Mapped[int] = mapped_column(BigInteger, default=0)
-    total_net: Mapped[int] = mapped_column(BigInteger, default=0)
-    total_employer_social: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    total_gross: Mapped[int] = mapped_column(MoneyType(), default=0)
+    total_tax: Mapped[int] = mapped_column(MoneyType(), default=0)
+    total_social: Mapped[int] = mapped_column(MoneyType(), default=0)
+    total_deductions: Mapped[int] = mapped_column(MoneyType(), default=0)
+    total_net: Mapped[int] = mapped_column(MoneyType(), default=0)
+    total_employer_social: Mapped[int] = mapped_column(MoneyType(), default=0, server_default="0")
 
     # Ledger links: the gross→net accrual on post, the bank settlement on pay.
     post_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -79,23 +80,23 @@ class PayRunLine(Base, TenantMixin):
     proration: Mapped[float] = mapped_column(Numeric(6, 4), default=1)  # 1.0 = full period
 
     # Breakdown (whole currency units). taxable_base = gross − pre_tax_deductions.
-    gross: Mapped[int] = mapped_column(BigInteger, default=0)
-    pre_tax_deductions: Mapped[int] = mapped_column(BigInteger, default=0)
-    taxable_base: Mapped[int] = mapped_column(BigInteger, default=0)
-    income_tax: Mapped[int] = mapped_column(BigInteger, default=0)
-    social_security: Mapped[int] = mapped_column(BigInteger, default=0)
+    gross: Mapped[int] = mapped_column(MoneyType(), default=0)
+    pre_tax_deductions: Mapped[int] = mapped_column(MoneyType(), default=0)
+    taxable_base: Mapped[int] = mapped_column(MoneyType(), default=0)
+    income_tax: Mapped[int] = mapped_column(MoneyType(), default=0)
+    social_security: Mapped[int] = mapped_column(MoneyType(), default=0)
     # Statutory extras (0 in flat mode): fixed allowances included in gross,
     # the wage the insurance was computed on (after the ceiling), and the
     # employer's own insurance share — a cost, not a deduction from the employee.
-    allowances: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
-    insurable_wage: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
-    employer_social: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    allowances: Mapped[int] = mapped_column(MoneyType(), default=0, server_default="0")
+    insurable_wage: Mapped[int] = mapped_column(MoneyType(), default=0, server_default="0")
+    employer_social: Mapped[int] = mapped_column(MoneyType(), default=0, server_default="0")
     # Year-end runs: the two statutory amounts in gross, and the days of the
     # year they were pro-rated on.
-    eidi: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
-    sanavat: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    eidi: Mapped[int] = mapped_column(MoneyType(), default=0, server_default="0")
+    sanavat: Mapped[int] = mapped_column(MoneyType(), default=0, server_default="0")
     days_worked: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    net_pay: Mapped[int] = mapped_column(BigInteger, default=0)
+    net_pay: Mapped[int] = mapped_column(MoneyType(), default=0)
     # Snapshot of WHERE the net pay was disbursed, taken at pay time from the
     # employee entity's bank fields (e.g. "Bank Melli · IR12…"). Kept on the
     # line so the payslip stays correct even if the employee's bank changes.

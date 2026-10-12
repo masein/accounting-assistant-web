@@ -12,7 +12,6 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
-    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -28,6 +27,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class Project(Base, TenantMixin):
@@ -45,7 +45,7 @@ class Project(Base, TenantMixin):
     default_currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
     # budget (roadmap §4.7): hours, and fees at the billable rates; null = none
     budget_hours: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
-    budget_amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    budget_amount: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

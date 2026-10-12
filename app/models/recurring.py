@@ -3,12 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class RecurringRule(Base, TenantMixin):
@@ -27,7 +28,7 @@ class RecurringRule(Base, TenantMixin):
     name: Mapped[str] = mapped_column(String(256))
     direction: Mapped[str] = mapped_column(String(16), default="payment")  # payment | receipt
     frequency: Mapped[str] = mapped_column(String(16), default="monthly")  # daily | weekly | monthly | quarterly | yearly
-    amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    amount: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
     start_date: Mapped[date] = mapped_column(Date, index=True)
     next_run_date: Mapped[date] = mapped_column(Date, index=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)

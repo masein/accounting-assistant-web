@@ -30,6 +30,7 @@ _JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class AIProposal(Base, TenantMixin):
@@ -75,7 +76,7 @@ class AIProposal(Base, TenantMixin):
     )
     # what the card said, and what it moves in the base currency (guardrails)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
-    amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    amount: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
     approval_status: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     approval_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_by: Mapped[str | None] = mapped_column(String(64), nullable=True)

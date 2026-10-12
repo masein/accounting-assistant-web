@@ -4,12 +4,13 @@ import enum
 import uuid
 from datetime import date, datetime, timezone
 
-from sqlalchemy import BigInteger, Date, DateTime, Enum, ForeignKey, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.tenant import TenantMixin
+from app.core.money import MoneyType
 
 
 class InventoryMovementType(str, enum.Enum):
@@ -26,7 +27,7 @@ class InventoryItem(Base, TenantMixin):
     name: Mapped[str] = mapped_column(String(256), index=True)
     unit: Mapped[str] = mapped_column(String(32), default="unit")
     is_active: Mapped[bool] = mapped_column(default=True)
-    list_price: Mapped[int] = mapped_column(BigInteger, default=0, doc="Current list/selling price")
+    list_price: Mapped[int] = mapped_column(MoneyType(), default=0, doc="Current list/selling price")
     barcode: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     # Reorder point (roadmap §4.4): at or below it the item shows as low stock.
     reorder_level: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
@@ -53,7 +54,7 @@ class InventoryMovement(Base, TenantMixin):
         Enum(InventoryMovementType, name="inventory_movement_type"), index=True
     )
     quantity: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
-    unit_cost: Mapped[int] = mapped_column(BigInteger, default=0)
+    unit_cost: Mapped[int] = mapped_column(MoneyType(), default=0)
     reference: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     invoice_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id"), nullable=True, index=True)

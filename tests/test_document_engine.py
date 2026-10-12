@@ -29,7 +29,8 @@ from app.services.documents import formatting as F
 # Pure formatting (no DB)
 # ---------------------------------------------------------------------------
 def test_money_ltr_and_rtl():
-    assert F.fmt_money(1250, "GBP", "uk") == "£1,250"
+    assert F.fmt_money(1250, "GBP", "uk") == "£1,250.00"          # pounds show their pence (docs/PLAN_PENCE.md)
+    assert F.fmt_money("7.5", "GBP", "uk") == "£7.50"
     rtl = F.fmt_money(1250, "IRR", "ir")
     assert "۱٬۲۵۰" in rtl or "۱,۲۵۰" in rtl  # Persian digits
 

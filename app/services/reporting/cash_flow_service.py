@@ -56,7 +56,7 @@ class CashFlowService:
                 "date": txn.date.isoformat(),
                 "description": txn.description or counterpart,
                 "counterpart_accounts": counterpart,
-                "amount": int(cash_delta),
+                "amount": plain(cash_delta),
                 "type": "inflow" if cash_delta > 0 else "outflow",
             })
 

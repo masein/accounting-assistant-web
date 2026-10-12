@@ -15,7 +15,7 @@ from app.schemas.manager_report import (
 )
 from app.services.reporting.common import default_period
 from app.services.reporting.repository import invoices_between, purchase_items_between, sales_items_between
-from app.core.money import plain
+from app.core.money import plain, round_amount, to_decimal
 
 
 class SalesReportService:
@@ -35,7 +35,7 @@ class SalesReportService:
             unit_cost = plain(item.unit_cost or 0)
             by_product[key]["quantity"] += qty
             by_product[key]["sales_amount"] += sales
-            by_product[key]["estimated_cost"] += int(round(qty * unit_cost))
+            by_product[key]["estimated_cost"] += round_amount(to_decimal(repr(qty)) * to_decimal(unit_cost), _inv.currency)
 
         if product_name:
             filter_lower = product_name.lower()

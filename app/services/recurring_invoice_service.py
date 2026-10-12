@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.recurring_invoice import RecurringInvoice
+from app.core.money import plain
 
 FREQUENCIES = ("weekly", "monthly", "quarterly", "yearly")
 CALENDARS = ("gregorian", "jalali")
@@ -79,9 +80,9 @@ def template_total(db: Session, t: RecurringInvoice, on: date) -> int:
     from app.schemas.invoice import InvoiceItemCreate
     items = [InvoiceItemCreate(**it) for it in template_items(t)]
     if not items:
-        return int(t.amount or 0)
-    _rows, total = _build_invoice_items(items, None, db, on)
-    return int(total)
+        return plain(t.amount or 0)
+    _rows, total = _build_invoice_items(items, None, db, on, t.currency)
+    return plain(total)
 
 
 def _finished(t: RecurringInvoice, run_date: date) -> bool:
@@ -101,7 +102,7 @@ def _issue_one(db: Session, t: RecurringInvoice, run_date: date):
         number=suggest_number(db, Invoice, invoice_number_prefix(db), kind="sales"),
         kind="sales", status=t.issue_status or "issued", issue_date=run_date,
         due_date=run_date + timedelta(days=max(0, int(t.terms_days or 0))),
-        amount=int(t.amount or 0), currency=t.currency,
+        amount=plain(t.amount or 0), currency=t.currency,
         description=t.description or t.name, entity_id=t.entity_id,
         items=[InvoiceItemCreate(**it) for it in template_items(t)],
     ))

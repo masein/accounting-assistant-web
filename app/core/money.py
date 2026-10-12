@@ -78,6 +78,16 @@ def quantize(value: Any, currency: str | None) -> int | Decimal:
     return plain(d)
 
 
+def round_amount(value: Any, currency: str | None) -> int | Decimal:
+    """A figure the app makes — a line's total, its VAT, a share of tax — to
+    ``currency``'s places: half-up to the penny for pounds. A currency without
+    places keeps Python's ``round()`` (half to even) exactly as rial invoices
+    always were, so a rial invoice comes out as before (scenario Q1)."""
+    if exponent(currency) == 0:
+        return int(round(float(to_decimal(value))))
+    return quantize(value, currency)
+
+
 def places_of(value: Any) -> int:
     """How many decimal places ``value`` is written with (7.50 → 1: 7.5)."""
     d = to_decimal(value).normalize()
@@ -170,3 +180,60 @@ def json_dumps(obj, *, fallback=None, **kw) -> str:
         raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
 
     return json.dumps(obj, default=default, **kw)
+
+
+# --- API responses -------------------------------------------------------------------------------------
+
+def for_json(value: Any) -> Any:
+    """``value`` with every amount in its dicts and lists made a JSON number.
+
+    Pydantic writes a ``Decimal`` it finds in a ``dict`` or ``Any`` position as
+    a string: a route declared ``-> dict`` answered ``"1250.75"`` where the page
+    expected 1250.75 (and ``"1250.75" + 5`` is ``"1250.755"`` in JavaScript).
+    ``Money`` fields already go out as numbers; this does the same for amounts
+    inside plain containers, including those held in a response model's
+    ``dict`` and ``list`` fields. Whole amounts become ints, as everywhere."""
+    out, _changed = _for_json(value)
+    return out
+
+
+def _for_json(value: Any) -> tuple[Any, bool]:
+    from pydantic import BaseModel
+    if isinstance(value, Decimal):
+        return (json_amount(value) if value.is_finite() else str(value)), True
+    if isinstance(value, dict):
+        pairs = [(k, _for_json(v)) for k, v in value.items()]
+        if any(ch for _k, (_v, ch) in pairs):
+            return {k: v for k, (v, _ch) in pairs}, True
+        return value, False
+    if isinstance(value, (list, tuple)):
+        items = [_for_json(v) for v in value]
+        if any(ch for _v, ch in items):
+            new = [v for v, _ch in items]
+            return (new if isinstance(value, list) else type(value)(new)), True
+        return value, False
+    if isinstance(value, BaseModel):
+        update = {}
+        for name in type(value).model_fields:
+            v = getattr(value, name, None)
+            if isinstance(v, (dict, list, tuple, BaseModel)):
+                nv, ch = _for_json(v)
+                if ch:
+                    update[name] = nv
+        return (value.model_copy(update=update), True) if update else (value, False)
+    return value, False
+
+
+def install_json_numbers() -> None:
+    """Route every API response through ``for_json`` before FastAPI writes it
+    (once; ``app.main`` calls this)."""
+    import fastapi.routing as routing
+    if getattr(routing.serialize_response, "_amounts_as_numbers", False):
+        return
+    original = routing.serialize_response
+
+    async def serialize_response(*, response_content: Any, **kw: Any) -> Any:
+        return await original(response_content=for_json(response_content), **kw)
+
+    serialize_response._amounts_as_numbers = True  # type: ignore[attr-defined]
+    routing.serialize_response = serialize_response

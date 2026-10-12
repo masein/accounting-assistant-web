@@ -106,3 +106,23 @@ def test_a_journal_line_with_pence_round_trips(db):
                  key=lambda d: Decimal(d))
     assert got == [Decimal("7.5"), 950] and type(got[1]) is int
     db.rollback()
+
+
+def test_amounts_in_plain_dicts_go_out_as_numbers():
+    """Pydantic writes a Decimal in a dict as "7.5"; every response sends a number."""
+    from pydantic import BaseModel
+    from app.core.money import for_json
+
+    class Card(BaseModel):
+        total: Money = 0
+        rows: list[dict] = []
+
+    body = {"total": Decimal("1250.75"), "whole": Decimal("950"), "rows": [{"amount": Decimal("7.50")}],
+            "pair": (Decimal("0.5"), 2), "name": "rent", "card": Card(total=Decimal("7.5"), rows=[{"x": Decimal("3.25")}])}
+    out = for_json(body)
+    assert out["total"] == 1250.75 and isinstance(out["total"], float)
+    assert out["whole"] == 950 and type(out["whole"]) is int
+    assert out["rows"] == [{"amount": 7.5}] and out["pair"] == (0.5, 2) and out["name"] == "rent"
+    assert out["card"].model_dump(mode="json") == {"total": 7.5, "rows": [{"x": 3.25}]}
+    plain_body = {"a": 1, "b": ["x"]}
+    assert for_json(plain_body) is plain_body                      # nothing to change: nothing copied

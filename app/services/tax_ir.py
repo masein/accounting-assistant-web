@@ -106,11 +106,14 @@ def parse_season(year: int, season: int) -> Season:
 
 # --- amounts -----------------------------------------------------------------------------
 
-def _share(part: int, whole: int, amount: int) -> int:
-    """amount × part / whole, half-up to the rial."""
+def _share(part, whole, amount, places: int = 0):
+    """amount × part / whole, half-up to the rial — or to ``places`` (the
+    penny for pounds: the UK VAT return shares a credit note the same way)."""
     if not whole:
         return 0
-    return int((Decimal(amount) * Decimal(part) / Decimal(whole)).to_integral_value(rounding=ROUND_HALF_UP))
+    from app.core.money import plain, to_decimal
+    exact = to_decimal(amount) * to_decimal(part) / to_decimal(whole)
+    return plain(exact.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
 
 
 def invoice_split(inv: Invoice) -> dict[str, int]:

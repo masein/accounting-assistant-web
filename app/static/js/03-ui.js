@@ -363,6 +363,20 @@
     }
     // Sums of typed amounts, free of binary noise (0.1 + 0.2): to 4 places, as the books keep them.
     function addMoney(a, b) { return Math.round((Number(a) + Number(b)) * 10000) / 10000; }
+    // A currency's places (ISO 4217; rials none, dinars 3), as app/core/money.py.
+    function moneyPlaces(ccy) {
+      const c = String(ccy || currencyUnit()).toUpperCase();
+      if (['IRR', 'IRT', 'JPY', 'KRW', 'VND', 'CLP', 'ISK', 'PYG', 'UGX', 'XAF', 'XOF', 'XPF', 'BIF', 'DJF',
+           'GNF', 'KMF', 'RWF', 'VUV'].includes(c)) return 0;
+      if (['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND'].includes(c)) return 3;
+      return 2;
+    }
+    // A figure the page works out (a line's total, its VAT), half-up to the currency's places, as the server.
+    function roundMoney(v, ccy) {
+      const f = Math.pow(10, moneyPlaces(ccy));
+      const n = Number(v) || 0;
+      return Math.sign(n) * Math.round(Math.abs(n) * f + 1e-9) / f;
+    }
     function fmtCurrency(v) { return formatNum(v) + ' ' + currencyUnit(); }
     // Fetched once per page load (sign-in; a dashboard opened while that is out
     // shares it) — the dashboards used to refetch it on every open. Saving it
@@ -400,7 +414,11 @@
       const pref = String(preferredFormCurrency()).toUpperCase();
       ['inv-currency', 'txn-currency'].forEach((id) => {
         const sel = document.getElementById(id);
-        if (sel && [...sel.options].some((o) => o.value === pref)) sel.value = pref;
+        if (sel && sel.value !== pref && [...sel.options].some((o) => o.value === pref)) {
+          sel.value = pref;
+          // the totals already drawn follow it: an empty UK invoice said «0 ریال»
+          sel.dispatchEvent(new Event('change'));
+        }
       });
     }
 

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.core.money import plain, to_decimal
+
 # Default price tolerance: invoice may exceed the PO unit price by up to 1%
 # (rounding / minor fee) before it counts as an over-price discrepancy.
 DEFAULT_PRICE_TOLERANCE = 0.01
@@ -89,7 +91,7 @@ def match(
 
     for inv in invoice_lines:
         inv_qty = float(inv.get("quantity") or 0)
-        inv_price = int(inv.get("unit_price") or 0)
+        inv_price = plain(inv.get("unit_price") or 0)
         desc = inv.get("description") or ""
 
         po = None
@@ -114,7 +116,7 @@ def match(
 
         ordered = float(po.get("ordered_qty") or 0)
         received = float(po.get("received_qty") or 0)
-        po_price = int(po.get("unit_price") or 0)
+        po_price = plain(po.get("unit_price") or 0)
         ml = MatchLine(
             key=str(po.get("key") or inv.get("key") or ""),
             description=po.get("description") or desc,
@@ -135,7 +137,7 @@ def match(
                 "received_qty": received, "invoiced_qty": inv_qty,
             })
         # Over-price: invoice unit price above the PO price beyond tolerance.
-        threshold = po_price * (1 + price_tolerance)
+        threshold = to_decimal(po_price) * (1 + to_decimal(price_tolerance))   # a Decimal price × a float raised
         if inv_price > threshold:
             ml.discrepancies.append("over_price")
             discrepancies.append({

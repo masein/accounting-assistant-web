@@ -190,3 +190,36 @@ def test_every_report_reads_pence(uk):
     assert failed == {}, failed
     summary = api.get("/reports/ledger-summary").json()
     assert "7.5" in str(summary) or "7.50" in str(summary), summary
+
+
+def test_q2_a_voucher_confirmed_in_the_chat_keeps_its_pence(uk, db):
+    """The accountant's voucher card posted int(debit): a £7.50 fee went in as £7."""
+    import asyncio
+    api, cid = uk
+    from app.db.tenant import use_company
+    from app.services.ai_accountant.base import ToolContext
+    from app.services.ai_accountant.execute_service import execute_proposal
+    from app.services.ai_accountant.proposal_tools import ProposeCreateTransaction, ProposeCreateTransactionInput
+    with use_company(cid):
+        ctx = ToolContext(db=db, user_id="u1", username="t", user_message="the bank charged £7.50")
+        card = asyncio.run(ProposeCreateTransaction().run(ctx, ProposeCreateTransactionInput(
+            date="2026-10-11", description="Bank charges", currency="GBP",
+            lines=[{"account_code": "8000", "debit": "7.50", "credit": 0},
+                   {"account_code": "1200", "debit": 0, "credit": "7.50"}])))
+        execute_proposal(db, confirmation_token=card["confirmation_token"], actor_user_id="u1", actor_username="t")
+        db.commit()
+    assert _balance(db, cid, "1200") == Decimal("-7.5")
+
+
+def test_q2_opening_balances_and_the_csv_keep_pence(uk):
+    api, _ = uk
+    r = api.put("/accounts/opening-balances", json={"on": "2026-01-01", "lines": [
+        {"account_code": "1200", "debit": "1250.75", "credit": 0},
+        {"account_code": "3000", "debit": 0, "credit": "1250.75"}]})
+    assert r.status_code == 200, r.text
+    got = {ln["account_code"]: ln for ln in api.get("/accounts/opening-balances").json()["lines"]}
+    assert got["1200"]["debit"] == 1250.75 and got["3000"]["credit"] == 1250.75
+    _post(api, [{"account_code": "8000", "debit": "7.50", "credit": 0},
+                {"account_code": "1200", "debit": 0, "credit": "7.50"}])
+    csv = api.get("/exports/transactions.csv").text
+    assert "7.5" in csv and "1250.75" in csv, csv

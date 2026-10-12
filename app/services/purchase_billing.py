@@ -26,6 +26,7 @@ from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.services.book_text import bt
+from app.core.money import plain
 
 # who may set which status by hand (receipts set the received ones)
 MANUAL_TRANSITIONS = {
@@ -114,7 +115,7 @@ def bill_from_po(db: Session, po: PurchaseOrder, *, number: str | None = None, i
         kind="purchase", status="issued", issue_date=issue, due_date=due_date or issue + timedelta(days=30),
         amount=0, currency=po.currency, entity_id=po.entity_id,
         description=bt(db, "purchase_order", number=po.number) + (f" — {po.description}" if po.description else ""),
-        items=[InvoiceItemCreate(product_name=li.description[:256], quantity=float(qty), unit_price=int(li.unit_price or 0),
+        items=[InvoiceItemCreate(product_name=li.description[:256], quantity=float(qty), unit_price=plain(li.unit_price or 0),
                                  inventory_item_id=li.inventory_item_id, tax_rate=float(tax_rate or 0))
                for li, qty in wanted],
     )
@@ -142,7 +143,7 @@ def unbill_for_invoice(db: Session, invoice_id) -> int:
 def bills_for(db: Session, po: PurchaseOrder) -> list[dict]:
     rows = db.execute(select(Invoice).where(Invoice.purchase_order_id == po.id)
                       .order_by(Invoice.issue_date, Invoice.number)).scalars().all()
-    return [{"id": str(i.id), "number": i.number, "issue_date": i.issue_date.isoformat(), "amount": int(i.amount or 0),
+    return [{"id": str(i.id), "number": i.number, "issue_date": i.issue_date.isoformat(), "amount": plain(i.amount or 0),
              "currency": i.currency, "status": i.status} for i in rows]
 
 
@@ -174,14 +175,14 @@ def price_history(db: Session, *, inventory_item_id=None, q: str | None = None, 
         rows.append({"date": po.order_date.isoformat(), "source": "order", "number": po.number,
                      "supplier": names.get(po.entity_id), "supplier_id": str(po.entity_id) if po.entity_id else None,
                      "description": li.description, "quantity": float(li.ordered_qty or 0),
-                     "unit_price": int(li.unit_price or 0), "currency": po.currency})
+                     "unit_price": plain(li.unit_price or 0), "currency": po.currency})
     for it, inv in db.execute(select(InvoiceItem, Invoice).join(Invoice, InvoiceItem.invoice_id == Invoice.id)
                               .where(and_(*bill_cond), InvoiceItem.po_line_id.is_(None))   # a bill from a PO repeats its price
                               .order_by(Invoice.issue_date.desc()).limit(limit)).all():
         rows.append({"date": inv.issue_date.isoformat(), "source": "bill", "number": inv.number,
                      "supplier": names.get(inv.entity_id), "supplier_id": str(inv.entity_id) if inv.entity_id else None,
                      "description": it.product_name, "quantity": float(it.quantity or 0),
-                     "unit_price": int(it.unit_price or 0), "currency": inv.currency})
+                     "unit_price": plain(it.unit_price or 0), "currency": inv.currency})
     rows.sort(key=lambda r: (r["date"], r["source"] == "bill"), reverse=True)
     rows = rows[:limit]
     summary: dict[str, dict] = {}

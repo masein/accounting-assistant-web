@@ -40,6 +40,7 @@ from typing import Iterable
 from sqlalchemy import event, inspect, select
 from sqlalchemy.orm import Session
 
+from app.core.money import plain
 from app.models.transaction import Transaction, TransactionLine
 
 log = logging.getLogger("app.fx_base")
@@ -318,10 +319,10 @@ def line_amounts(line: TransactionLine, base_view: bool) -> tuple[int, int]:
     """(debit, credit) of a line in the view a report shows: its own currency
     or the base currency (0 while not converted)."""
     if base_view:
-        return int(line.base_debit or 0), int(line.base_credit or 0)
-    return int(line.debit or 0), int(line.credit or 0)
+        return plain(line.base_debit or 0), plain(line.base_credit or 0)
+    return plain(line.debit or 0), plain(line.credit or 0)
 
 
 def iter_base(lines: Iterable[TransactionLine]) -> Iterable[tuple[int, int]]:
     for ln in lines:
-        yield int(ln.base_debit or 0), int(ln.base_credit or 0)
+        yield plain(ln.base_debit or 0), plain(ln.base_credit or 0)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 import io
 import uuid
 from datetime import date, timedelta
@@ -41,9 +43,11 @@ from app.schemas.invoice import (
 )
 from app.services.account_resolver import AccountResolutionError, resolve_account_code
 from app.services.audit_service import log_audit_event
-from app.services.ledger_posting import default_currency
+from app.services.ledger_posting import assert_amount_places, default_currency
 from app.services.ocr_extract import OCRExtractError, extract_from_attachment
 from app.services.book_text import bt
+from app.core.money import plain, round_amount, to_decimal
+from app.services.documents.formatting import fmt_amount
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 OCR_UPLOAD_DIR = Path(__file__).resolve().parents[1] / "uploads" / "invoice_imports"
@@ -65,15 +69,20 @@ def _validate_status(status: str) -> str:
     return v
 
 
-def _line_tax(line_total: int, tax_rate, taxable: bool) -> int:
-    """Tax on one line: rounded ``line_total * rate/100`` for taxable lines,
-    0 for exempt lines."""
+def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None):
+    """Tax on one line: ``line_total * rate/100`` for taxable lines, 0 for
+    exempt lines — to the currency's places, half-up (£19.99 at 20% is £4.00,
+    it was £4 of whole pounds; docs/PLAN_PENCE.md). Without a currency, and in
+    rials, whole units exactly as before."""
     if not taxable:
         return 0
     rate = float(tax_rate or 0)
     if rate <= 0:
         return 0
-    return int(round(int(line_total or 0) * rate / 100.0))
+    from app.core.money import exponent, quantize, to_decimal
+    if currency is None or exponent(currency) == 0:
+        return int(round(int(line_total or 0) * rate / 100.0))
+    return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
 
 
 def _tax_breakdown(inv: Invoice) -> tuple[int, int, int]:
@@ -85,10 +94,10 @@ def _tax_breakdown(inv: Invoice) -> tuple[int, int, int]:
     """
     items = list(inv.items or [])
     if not items:
-        amount = int(inv.amount or 0)
+        amount = plain(inv.amount or 0)
         return amount, 0, amount
-    subtotal = sum(int(it.line_total or 0) for it in items)
-    tax_total = sum(_line_tax(it.line_total, it.tax_rate, it.taxable) for it in items)
+    subtotal = sum(plain(it.line_total or 0) for it in items)
+    tax_total = sum(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency) for it in items)
     return subtotal, tax_total, subtotal + tax_total
 
 
@@ -98,13 +107,13 @@ def _invoice_totals(db: Session, inv: Invoice) -> tuple[int, int, int]:
     'reduction'), not standalone overpayment credits. balance_due is clamped
     to >= 0 (overpayment surfaces as a separate entity credit, never a
     negative due)."""
-    paid = int(
+    paid = plain(
         db.execute(
             select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.invoice_id == inv.id)
         ).scalar()
         or 0
     )
-    credited = int(
+    credited = plain(
         db.execute(
             select(func.coalesce(func.sum(CreditNote.amount), 0)).where(
                 CreditNote.invoice_id == inv.id, CreditNote.note_type == "reduction"
@@ -119,7 +128,7 @@ def _totals_from(inv: Invoice, paid: int, credited: int) -> tuple[int, int, int]
     """(amount_paid, credited, balance_due) from the invoice's payment and
     reduction sums — the arithmetic of _invoice_totals, for one invoice or a
     whole list read in a few grouped queries."""
-    amount = int(inv.amount or 0)
+    amount = plain(inv.amount or 0)
     balance_due = max(0, amount - paid - credited)
     # amount_paid is what settled THIS invoice; anything above it is the
     # customer's credit / supplier advance (booked separately at payment time)
@@ -146,7 +155,7 @@ def _recompute_status(inv: Invoice, paid: int, credited: int, balance_due: int) 
     finding #44). Leaves draft/canceled/voided untouched."""
     if inv.status in ("draft", "canceled", "voided"):
         return
-    if int(inv.amount or 0) <= 0:
+    if (inv.amount or 0) <= 0:
         return
     if balance_due <= 0:
         inv.status = "paid" if paid > 0 else "credited"
@@ -158,10 +167,10 @@ def _recompute_status(inv: Invoice, paid: int, credited: int, balance_due: int) 
 
 def _overpayment(db: Session, inv: Invoice) -> int:
     """Payments received beyond the invoice amount (net of reductions)."""
-    raw = int(db.execute(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.invoice_id == inv.id)).scalar() or 0)
-    credited = int(db.execute(select(func.coalesce(func.sum(CreditNote.amount), 0)).where(
+    raw = plain(db.execute(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.invoice_id == inv.id)).scalar() or 0)
+    credited = plain(db.execute(select(func.coalesce(func.sum(CreditNote.amount), 0)).where(
         CreditNote.invoice_id == inv.id, CreditNote.note_type == "reduction")).scalar() or 0)
-    return max(0, raw - max(0, int(inv.amount or 0) - credited))
+    return max(0, raw - max(0, plain(inv.amount or 0) - credited))
 
 
 def _to_read(row: Invoice, pre: dict | None = None) -> InvoiceRead:
@@ -176,7 +185,7 @@ def _to_read(row: Invoice, pre: dict | None = None) -> InvoiceRead:
     if pre is not None:
         paid, credited, balance_due = _totals_from(row, pre["paid"], pre["credited"])
         data.amount_paid, data.credited, data.balance_due = paid, credited, balance_due
-        data.overpaid = max(0, pre["paid"] - max(0, int(row.amount or 0) - pre["credited"]))
+        data.overpaid = max(0, pre["paid"] - max(0, plain(row.amount or 0) - pre["credited"]))
         data.credit_available = pre["credit_available"]
         data.party_credit = pre["party_credit"]
         return data
@@ -215,7 +224,7 @@ def totals_for(db: Session, rows: list[Invoice]) -> dict:
     if not rows:
         return {}
     paid, reduced = _sums_for(db, [r.id for r in rows])
-    return {r.id: _totals_from(r, int(paid.get(r.id, 0) or 0), int(reduced.get(r.id, 0) or 0)) for r in rows}
+    return {r.id: _totals_from(r, plain(paid.get(r.id, 0) or 0), plain(reduced.get(r.id, 0) or 0)) for r in rows}
 
 
 def _to_read_many(db: Session, rows: list[Invoice]) -> list[InvoiceRead]:
@@ -231,7 +240,7 @@ def _to_read_many(db: Session, rows: list[Invoice]) -> list[InvoiceRead]:
     own = credits.by_invoice(db, ids)
     party = credits.by_party(db, {r.entity_id for r in rows if r.entity_id})
     return [_to_read(r, {
-        "paid": int(paid.get(r.id, 0) or 0), "credited": int(reduced.get(r.id, 0) or 0),
+        "paid": plain(paid.get(r.id, 0) or 0), "credited": plain(reduced.get(r.id, 0) or 0),
         "credit_available": own.get(r.id, 0),
         "party_credit": party.get((r.entity_id, r.kind, (r.currency or "").upper()), 0) if r.entity_id else 0,
     }) for r in rows]
@@ -277,7 +286,7 @@ def _post_entry(
             raise HTTPException(status_code=400, detail=f"Account not found: {code}")
         db.add(TransactionLine(
             transaction_id=txn.id, account_id=acc.id,
-            debit=int(debit), credit=int(credit), line_description=line_desc,
+            debit=plain(debit), credit=plain(credit), line_description=line_desc,
         ))
     for ent_id, role in (entity_links or []):
         if ent_id:
@@ -296,7 +305,7 @@ def _recognize_invoice(db: Session, inv: Invoice) -> None:
     Links the recognition transaction to the invoice."""
     if inv.transaction_id is not None or inv.status in ("draft", "canceled"):
         return
-    amount = int(inv.amount or 0)
+    amount = plain(inv.amount or 0)
     if amount <= 0:
         return
     # grand_total drives the AR/AP leg; the subtotal/tax split feeds the
@@ -360,7 +369,7 @@ def _resolve_bank_code(db: Session, code: str | None) -> str:
 
 def _build_invoice_items(
     payload_items: list, invoice_id: UUID,
-    db: Session | None = None, on_date: date | None = None,
+    db: Session | None = None, on_date: date | None = None, currency: str | None = None,
 ) -> tuple[list[InvoiceItem], int]:
     """Build InvoiceItem rows. Returns (rows, grand_total) where grand_total =
     Σ line_total + Σ per-line tax (only ``standard``-treatment lines charge tax),
@@ -375,12 +384,21 @@ def _build_invoice_items(
     rows: list[InvoiceItem] = []
     subtotal = 0
     tax_total = 0
+    cur = currency or (default_currency(db, None) if db is not None else None)
     for raw in payload_items or []:
         qty = float(raw.quantity or 0)
         if qty <= 0:
             continue
-        unit_price = int(raw.unit_price or 0)
-        line_total = max(0, int(raw.line_total if raw.line_total is not None else round(qty * unit_price)))
+        unit_price = plain(raw.unit_price or 0)
+        if raw.line_total is not None:
+            if cur:
+                assert_amount_places(cur, [raw.line_total])
+            line_total = max(0, plain(raw.line_total))
+        elif cur is None:
+            line_total = max(0, int(round(qty * float(unit_price))))
+        else:
+            # to the currency's places: 3 × £19.99 is £59.97 (whole rials as before, docs/PLAN_PENCE.md)
+            line_total = max(0, round_amount(to_decimal(repr(qty)) * to_decimal(unit_price), cur))
 
         treatment = (getattr(raw, "tax_treatment", "standard") or "standard").strip().lower()
         if treatment not in TREATMENTS:
@@ -398,14 +416,14 @@ def _build_invoice_items(
         charges_tax = explicit_taxable and treatment == "standard"
 
         subtotal += line_total
-        tax_total += _line_tax(line_total, tax_rate, charges_tax)
+        tax_total += _line_tax(line_total, tax_rate, charges_tax, cur)
         rows.append(
             InvoiceItem(
                 invoice_id=invoice_id,
                 product_name=raw.product_name.strip(),
                 quantity=qty,
                 unit_price=max(0, unit_price),
-                unit_cost=(int(raw.unit_cost) if raw.unit_cost is not None else None),
+                unit_cost=(plain(raw.unit_cost) if raw.unit_cost is not None else None),
                 line_total=line_total,
                 tax_rate=tax_rate,
                 taxable=charges_tax,
@@ -522,7 +540,7 @@ async def ocr_import_invoice(
     parsed_date = issue_date or _parse_yyyy_mm_dd(extracted.get("date")) or date.today()
     parsed_due = due_date or (parsed_date + timedelta(days=14))
     parsed_kind = _guess_kind_from_text(str(extracted.get("raw_text") or ""), k)
-    parsed_amount = int(extracted.get("amount") or 0)
+    parsed_amount = plain(extracted.get("amount") or 0)
     parsed_currency = default_currency(db, str(extracted.get("currency") or ""))[:8]
     parsed_ref = _safe_invoice_number(extracted.get("invoice_or_receipt_no"))
     parsed_desc = (description or "").strip() or (
@@ -560,7 +578,7 @@ async def ocr_import_invoice(
         )
         db.add(row)
         db.flush()
-        item_rows, items_total = _build_invoice_items(suggested.items, row.id, db, row.issue_date)
+        item_rows, items_total = _build_invoice_items(suggested.items, row.id, db, row.issue_date, row.currency)
         for item in item_rows:
             db.add(item)
         if item_rows:
@@ -589,14 +607,17 @@ def preview_invoice_pdf(payload: InvoiceCreate, db: Session = Depends(get_db)) -
     real document. Tenant-scoped (the Bill-To party is looked up in the caller's
     company; a cross-company entity_id just yields no party)."""
     kind = _validate_kind(payload.kind)
-    item_rows, items_total = _build_invoice_items(payload.items, uuid.uuid4(), db, payload.issue_date)
+    item_rows, items_total = _build_invoice_items(payload.items, uuid.uuid4(), db, payload.issue_date,
+                                                  default_currency(db, payload.currency))
+    if not item_rows:
+        assert_amount_places(default_currency(db, payload.currency), [payload.amount or 0])
     draft = Invoice(
         number=(payload.number or "DRAFT").strip() or "DRAFT",
         kind=kind,
         status=payload.status or "draft",
         issue_date=payload.issue_date,
         due_date=payload.due_date,
-        amount=items_total if item_rows else int(payload.amount or 0),
+        amount=items_total if item_rows else plain(payload.amount or 0),
         currency=default_currency(db, payload.currency),
         description=(payload.description or "").strip() or None,
         entity_id=payload.entity_id,
@@ -639,18 +660,20 @@ def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
         status=_validate_status(payload.status),
         issue_date=payload.issue_date,
         due_date=payload.due_date,
-        amount=int(payload.amount or 0),
+        amount=plain(payload.amount or 0),
         currency=default_currency(db, payload.currency),
         description=(payload.description or "").strip() or None,
         entity_id=payload.entity_id,
     )
     db.add(row)
     db.flush()
-    item_rows, items_total = _build_invoice_items(payload.items, row.id, db, row.issue_date)
+    item_rows, items_total = _build_invoice_items(payload.items, row.id, db, row.issue_date, row.currency)
     for item in item_rows:
         row.items.append(item)  # populate the relationship so tax breakdown sees them
     if item_rows:
         row.amount = items_total
+    else:
+        assert_amount_places(row.currency, [row.amount or 0])   # a typed total: no more places than its currency
     db.flush()
     # Recognise AR/AP at issue: DR debtors / CR revenue (sales) or
     # DR expense / CR creditors (purchase). Posts once, links the txn.
@@ -702,7 +725,7 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
         # Block only real changes: the edit dialog re-sends unchanged fields.
         sent = payload.model_dump(exclude_unset=True)
         current = {"number": row.number, "kind": row.kind, "issue_date": row.issue_date,
-                   "amount": int(row.amount or 0), "entity_id": row.entity_id,
+                   "amount": plain(row.amount or 0), "entity_id": row.entity_id,
                    "currency": (row.currency or "").upper()}
         touched = set()
         for key, now_val in current.items():
@@ -734,10 +757,11 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
         row.issue_date = payload.issue_date
     if payload.due_date is not None:
         row.due_date = payload.due_date
-    if payload.amount is not None:
-        row.amount = payload.amount
     if payload.currency is not None:
         row.currency = payload.currency.strip().upper() or "IRR"
+    if payload.amount is not None:
+        assert_amount_places(row.currency or default_currency(db, None), [payload.amount])
+        row.amount = payload.amount
     if payload.description is not None:
         row.description = payload.description.strip() or None
     if payload.entity_id is not None:
@@ -748,7 +772,7 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
         for item in list(row.items or []):
             db.delete(item)
         row.items.clear()
-        item_rows, items_total = _build_invoice_items(payload.items, row.id, db, row.issue_date)
+        item_rows, items_total = _build_invoice_items(payload.items, row.id, db, row.issue_date, row.currency)
         for item in item_rows:
             row.items.append(item)
         if item_rows:
@@ -807,6 +831,7 @@ def _apply_payment(
     """
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Payment amount must be greater than zero.")
+    assert_amount_places(inv.currency or default_currency(db, None), [amount])      # £7.505, half a rial
     _recognize_invoice(db, inv)
     db.flush()
     _paid, _credited, balance_due = _invoice_totals(db, inv)
@@ -840,7 +865,7 @@ def _apply_payment(
         audit_detail=f"Payment {amount} {inv.currency} on invoice {inv.number}",
     )
     payment = Payment(
-        invoice_id=inv.id, date=on, amount=int(amount), currency=inv.currency,
+        invoice_id=inv.id, date=on, amount=plain(amount), currency=inv.currency,
         method=(method or "bank"), direction=direction, transaction_id=txn.id,
     )
     db.add(payment)
@@ -848,7 +873,7 @@ def _apply_payment(
     if excess > 0:
         credit = CreditNote(
             invoice_id=inv.id, entity_id=inv.entity_id, kind=inv.kind, date=on,
-            amount=int(excess), currency=inv.currency,
+            amount=plain(excess), currency=inv.currency,
             reason=f"Overpayment on invoice {inv.number}", note_type="credit",
             transaction_id=txn.id,
         )
@@ -875,7 +900,7 @@ def add_payment(invoice_id: UUID, payload: PaymentCreate, db: Session = Depends(
     try:
         payment, _credit = _apply_payment(
             db, inv,
-            amount=int(payload.amount),
+            amount=plain(payload.amount),
             on=payload.date or date.today(),
             method=payload.method,
             bank_code=payload.bank_account_code,
@@ -900,13 +925,14 @@ def list_payments(invoice_id: UUID, db: Session = Depends(get_db)) -> list[Payme
     return [_payment_read(db, r) for r in rows]
 
 
-def _vat_share(inv: Invoice, gross: int) -> int:
+def _vat_share(inv: Invoice, gross):
     """The VAT inside ``gross`` of this invoice, in its own proportion (the VAT
     return and TTMS split a credit note the same way)."""
     _subtotal, tax_total, grand_total = _tax_breakdown(inv)
     if tax_total <= 0 or grand_total <= 0:
         return 0
-    return int(round(tax_total * gross / grand_total))
+    # to the invoice currency's places (pence for pounds; rials as before)
+    return round_amount(to_decimal(tax_total) * to_decimal(gross) / to_decimal(grand_total), inv.currency)
 
 
 @router.post("/{invoice_id}/credit-notes", response_model=CreditNoteRead, status_code=201)
@@ -925,11 +951,12 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
         raise HTTPException(status_code=409, detail=f"Cannot credit a {inv.status} invoice.")
     if payload.currency and payload.currency.strip().upper() != (inv.currency or "").upper():
         raise HTTPException(status_code=400, detail=f"Credit note currency must match the invoice ({inv.currency}).")
-    amount = int(payload.amount)
+    amount = plain(payload.amount)
+    assert_amount_places(inv.currency or default_currency(db, None), [amount])
     _recognize_invoice(db, inv)
     db.flush()
     _paid, credited, balance_due = _invoice_totals(db, inv)
-    creditable = max(0, int(inv.amount or 0) - credited)
+    creditable = max(0, plain(inv.amount or 0) - credited)
     if amount > creditable:
         raise HTTPException(
             status_code=400,
@@ -1045,7 +1072,7 @@ def refund_credit(invoice_id: UUID, payload: CreditRefund, db: Session = Depends
     available = credits.total(pairs)
     if available <= 0:
         raise HTTPException(status_code=409, detail="There is no credit to refund on this invoice.")
-    amount = int(payload.amount or available)
+    amount = plain(payload.amount or available)
     if amount > available:
         raise HTTPException(status_code=400, detail=f"Refund ({amount}) exceeds the credit left ({available}).")
     try:
@@ -1079,7 +1106,7 @@ def apply_credit(invoice_id: UUID, payload: CreditApply, db: Session = Depends(g
     available = credits.total(pairs)
     if available <= 0:
         raise HTTPException(status_code=409, detail="There is no credit to use for this invoice.")
-    amount = min(int(payload.amount or available), available, balance_due)
+    amount = min(plain(payload.amount or available), available, balance_due)
     on = payload.date or date.today()
     try:
         if inv.kind == "sales":
@@ -1345,7 +1372,7 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
         events.append(InvoiceTimelineEvent(
             at=p.created_at, event="payment",
             detail=f"{p.amount:,} {p.currency} {'received' if p.direction == 'in' else 'paid'} ({p.method}).",
-            params={"amount": int(p.amount), "currency": p.currency, "direction": p.direction, "method": p.method},
+            params={"amount": plain(p.amount), "currency": p.currency, "direction": p.direction, "method": p.method},
         ))
     from app.models.invoice_email import InvoiceEmail
     for m in db.execute(select(InvoiceEmail).where(InvoiceEmail.invoice_id == invoice_id)).scalars().all():
@@ -1365,7 +1392,7 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
     for n in notes:
         if n.note_type == "applied":
             continue                                   # its payment row says it on this invoice
-        params = {"amount": int(n.amount), "currency": n.currency, "reason": n.reason, "kind": n.kind}
+        params = {"amount": plain(n.amount), "currency": n.currency, "reason": n.reason, "kind": n.kind}
         if n.note_type == "reduction":
             event, detail = "credit_note", f"Credit note {n.amount:,} {n.currency}" + (f": {n.reason}" if n.reason else ".")
         elif n.note_type == "credit":
@@ -1380,7 +1407,7 @@ def invoice_timeline(invoice_id: UUID, db: Session = Depends(get_db)) -> list[In
             events.append(InvoiceTimelineEvent(
                 at=child.created_at, event="credit_used",
                 detail=f"{child.amount:,} {child.currency} of the credit used on invoice {target.number if target else ''}.",
-                params={"amount": int(child.amount), "currency": child.currency, "number": target.number if target else ""},
+                params={"amount": plain(child.amount), "currency": child.currency, "number": target.number if target else ""},
             ))
     events.sort(key=lambda e: e.at)
     return events
@@ -1408,7 +1435,7 @@ def invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Response:
         import logging
         logging.getLogger(__name__).exception("branded invoice PDF failed; using legacy layout")
 
-    amount = int(inv.amount or 0)
+    amount = plain(inv.amount or 0)
     issue = inv.issue_date.isoformat() if inv.issue_date else "-"
     due = inv.due_date.isoformat() if inv.due_date else "-"
     status = (inv.status or "issued").upper()
@@ -1507,8 +1534,8 @@ def invoice_pdf(invoice_id: UUID, db: Session = Depends(get_db)) -> Response:
         qty_text = f"{float(row.quantity):.2f}".rstrip("0").rstrip(".")
         c.drawString(table_left, y, (row.product_name or "Item")[:68])
         c.drawRightString(qty_right, y, qty_text or "1")
-        c.drawRightString(unit_right, y, f"{int(row.unit_price or 0):,}")
-        c.drawRightString(line_total_right, y, f"{int(row.line_total or 0):,} {inv.currency}")
+        c.drawRightString(unit_right, y, fmt_amount(row.unit_price or 0, inv.currency))
+        c.drawRightString(line_total_right, y, f"{fmt_amount(row.line_total or 0, inv.currency)} {inv.currency}")
         y -= row_h
     if len(item_rows) > len(visible_rows):
         c.setFont("Helvetica-Oblique", 8.5)

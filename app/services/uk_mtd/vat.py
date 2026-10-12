@@ -25,6 +25,7 @@ from app.models.invoice import Invoice
 from app.services.tax_ir import _share
 from app.services.tax_service import _line_tax, _notional_tax
 from app.services.uk_mtd.periods import VatPeriod
+from app.core.money import exponent, plain
 
 RECOGNISED = ("issued", "partially_paid", "paid", "credited")
 
@@ -33,16 +34,16 @@ def _split(inv: Invoice) -> dict[str, int]:
     """base (every line), vat (standard lines), reverse (notional VAT)."""
     items = list(inv.items or [])
     if not items:
-        return {"base": int(inv.amount or 0), "vat": 0, "reverse": 0}
+        return {"base": plain(inv.amount or 0), "vat": 0, "reverse": 0}
     base = vat = reverse = 0
     for it in items:
-        total = int(it.line_total or 0)
+        total = plain(it.line_total or 0)
         base += total
         treatment = getattr(it, "tax_treatment", "standard") or "standard"
         if treatment == "reverse_charge":
-            reverse += _notional_tax(total, it.tax_rate)
+            reverse += _notional_tax(total, it.tax_rate, inv.currency)
         elif treatment == "standard":
-            vat += _line_tax(total, it.tax_rate, it.taxable)
+            vat += _line_tax(total, it.tax_rate, it.taxable, inv.currency)
     return {"base": base, "vat": vat, "reverse": reverse}
 
 
@@ -58,7 +59,7 @@ def vat_return(db: Session, period: VatPeriod, *, currency: str) -> dict[str, An
     other_currency: list[dict] = []
     for inv in invoices:
         if (inv.currency or currency).upper() != currency:
-            other_currency.append({"number": inv.number, "currency": inv.currency, "amount": int(inv.amount or 0)})
+            other_currency.append({"number": inv.number, "currency": inv.currency, "amount": plain(inv.amount or 0)})
             continue
         s = _split(inv)
         if inv.kind == "sales":
@@ -79,24 +80,27 @@ def vat_return(db: Session, period: VatPeriod, *, currency: str) -> dict[str, An
         vat = 0
         if inv is not None:
             s = _split(inv)
-            vat = _share(s["vat"], s["base"] + s["vat"], int(cn.amount or 0))
+            vat = _share(s["vat"], s["base"] + s["vat"], plain(cn.amount or 0), exponent(currency))
         side = inv.kind if inv is not None else ("purchase" if cn.kind == "purchase" else "sales")
         counts["credit_notes"] += 1
         if side == "sales":
             box1 -= vat
-            box6 -= int(cn.amount or 0) - vat
+            box6 -= plain(cn.amount or 0) - vat
         else:
             box4 -= vat
-            box7 -= int(cn.amount or 0) - vat
+            box7 -= plain(cn.amount or 0) - vat
     box2 = box8 = box9 = 0
     box3 = box1 + box2
     box5 = abs(box3 - box4)
+    # HMRC: boxes 1-5 to the penny; boxes 6-9 in whole pounds, the pence left out
+    # (docs/PLAN_PENCE.md, scenario Q8) — on the return shown as in the body filed
+    box6, box7, box8, box9 = (int(b) for b in (box6, box7, box8, box9))
     body = {
         "periodKey": "",
         "vatDueSales": float(box1), "vatDueAcquisitions": float(box2), "totalVatDue": float(box3),
         "vatReclaimedCurrPeriod": float(box4), "netVatDue": float(box5),
-        "totalValueSalesExVAT": int(box6), "totalValuePurchasesExVAT": int(box7),
-        "totalValueGoodsSuppliedExVAT": int(box8), "totalAcquisitionsExVAT": int(box9),
+        "totalValueSalesExVAT": box6, "totalValuePurchasesExVAT": box7,
+        "totalValueGoodsSuppliedExVAT": box8, "totalAcquisitionsExVAT": box9,
         "finalised": False,
     }
     return {

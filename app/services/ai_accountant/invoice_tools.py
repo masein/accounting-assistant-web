@@ -20,6 +20,7 @@ from app.models.invoice import Invoice
 
 from .base import BaseTool, ToolContext, ToolError
 from .time_tools import _find_entity, _register
+from app.core.money import Money, plain, round_amount, to_decimal
 
 
 def _totals(ctx: ToolContext, inv: Invoice) -> tuple[int, int, int, int]:
@@ -34,7 +35,7 @@ def _read(ctx: ToolContext, inv: Invoice, today: _date) -> dict[str, Any]:
     return {
         "id": str(inv.id), "number": inv.number, "kind": inv.kind, "status": inv.status,
         "party": ent.name if ent else None, "issue_date": inv.issue_date.isoformat(),
-        "due_date": inv.due_date.isoformat(), "amount": int(inv.amount or 0), "currency": inv.currency,
+        "due_date": inv.due_date.isoformat(), "amount": plain(inv.amount or 0), "currency": inv.currency,
         "amount_paid": paid, "credited": credited, "balance_due": balance, "overpaid": overpaid,
         "overdue_days": max(0, (today - inv.due_date).days) if balance > 0 and inv.status not in ("draft", "voided", "canceled") else 0,
     }
@@ -127,7 +128,7 @@ class GetInvoice(BaseTool):
         inv = find_invoice(ctx, args.invoice)
         r = _read(ctx, inv, _date.today())
         pays = ctx.db.execute(select(Payment).where(Payment.invoice_id == inv.id).order_by(Payment.date)).scalars().all()
-        r["payments"] = [{"id": str(p.id), "date": p.date.isoformat(), "amount": int(p.amount or 0),
+        r["payments"] = [{"id": str(p.id), "date": p.date.isoformat(), "amount": plain(p.amount or 0),
                           "method": getattr(p, "method", None), "reference": getattr(p, "reference", None)} for p in pays]
         return r
 
@@ -138,7 +139,7 @@ class GetInvoice(BaseTool):
 
 class ProposeRecordInvoicePaymentInput(BaseModel):
     invoice: str = Field(..., description="Invoice number or id being paid.")
-    amount: int = Field(..., gt=0, description="Whole currency units in the invoice's currency.")
+    amount: Money = Field(..., gt=0, description="In the invoice's currency, pence included: £600.50 is 600.50 (never ×100).")
     date: _date | None = Field(None, description="Payment date (defaults to today).")
     method: str = Field("bank", description="bank | cash | transfer")
     bank_account_code: str | None = Field(None, description="Cash/bank account code the money moved through (optional; the default bank is used).")
@@ -214,7 +215,7 @@ def _payment_lines(ctx: ToolContext, inv: Invoice, amount: int, balance: int, ba
 class InvoiceLineIn(BaseModel):
     description: str = Field(..., min_length=1)
     quantity: float = Field(1, gt=0)
-    unit_price: int = Field(..., ge=0)
+    unit_price: Money = Field(..., ge=0, description="Pence included: £19.99 is 19.99 (never ×100).")
     tax_rate: float = Field(0, ge=0, le=100)
 
 
@@ -253,8 +254,11 @@ class ProposeCreateInvoice(BaseTool):
         currency = (args.currency or get_reporting_currency(ctx.db) or "IRR").upper()
         number = (args.number or f"{'INV' if kind == 'sales' else 'BILL'}-{issue.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}").strip()
         lines = [l.model_dump() for l in args.lines]
-        subtotal = sum(int(round(l["quantity"] * l["unit_price"])) for l in lines)
-        tax = sum(int(round(l["quantity"] * l["unit_price"] * l["tax_rate"] / 100)) for l in lines)
+        # as the invoice will: each line to the currency's places, then its VAT (app.api.invoices)
+        from app.api.invoices import _line_tax
+        totals = [round_amount(to_decimal(repr(float(l["quantity"]))) * to_decimal(l["unit_price"]), currency) for l in lines]
+        subtotal = sum(totals)
+        tax = sum(_line_tax(t, l["tax_rate"], True, currency) for t, l in zip(totals, lines))
         payload = {"kind": kind, "entity_id": str(ent.id), "party": ent.name, "number": number,
                    "issue_date": issue.isoformat(), "due_date": due.isoformat(), "currency": currency,
                    "lines": lines, "description": args.description}

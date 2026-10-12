@@ -240,7 +240,7 @@ def set_opening(db: Session, *, on, lines: list[dict[str, Any]], currency: str |
             raise HTTPException(status_code=422, detail=f"Account {code} is inactive.")
         if acc.level == AccountLevel.GROUP:
             raise HTTPException(status_code=422, detail=f"{code} is a group — enter balances on its accounts.")
-        d, c = int(ln.get("debit") or 0), int(ln.get("credit") or 0)
+        d, c = plain(ln.get("debit") or 0), plain(ln.get("credit") or 0)
         if d < 0 or c < 0 or (d and c):
             raise HTTPException(status_code=422, detail=f"{code}: enter a debit or a credit, not both.")
         merged[code] = merged.get(code, 0) + d - c

@@ -220,7 +220,7 @@
           value: String(balance || ''),
         });
         if (raw == null) return;
-        const amount = parseInt(raw, 10);
+        const amount = parseMoney(raw);              // pence kept (parseInt cut them)
         if (!amount || amount <= 0) { showAlert(t('invAmountInvalid'), true); return; }
         try {
           const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/payments', {
@@ -251,7 +251,7 @@
           value: '',
         });
         if (raw == null) return;
-        const amount = parseInt(raw, 10);
+        const amount = parseMoney(raw);
         if (!amount || amount <= 0) { showAlert(t('invAmountInvalid'), true); return; }
         const reason = await uiPrompt({ title: t('invCreditNote'), message: t('invCreditNoteReasonPrompt'), type: 'text', value: '' });
         if (reason == null) return;
@@ -296,7 +296,7 @@
           type: 'number', value: String(left), confirmLabel: t('invRefundCredit'),
         });
         if (raw == null) return;
-        const amount = parseInt(raw, 10);
+        const amount = parseMoney(raw);
         if (!amount || amount <= 0) { showAlert(t('invAmountInvalid'), true); return; }
         try {
           const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/refund-credit', {
@@ -391,7 +391,7 @@
         // only when the user chose another (JSON drops undefined)
         status: (() => { const sel = document.getElementById('invoice-edit-status');
                          return sel.value && sel.value !== sel.dataset.original ? sel.value : undefined; })(),
-        amount: parseInt(document.getElementById('invoice-edit-amount').value, 10) || 0,
+        amount: parseMoney(document.getElementById('invoice-edit-amount').value),
         currency: document.getElementById('invoice-edit-currency').value,
         issue_date,
         due_date,
@@ -650,7 +650,7 @@
         `<td><input type="text" class="il-desc" list="inv-products-datalist" value="${escapeHtml(p.description || '')}" placeholder="${escapeHtml(t('ibDescription'))}"></td>` +
         `<td class="ir-col"><input type="text" class="il-sstid" maxlength="13" inputmode="numeric" dir="ltr" value="${escapeHtml(p.sstid || '')}" placeholder="${escapeHtml(t('ibGoodsIdPh'))}"></td>` +
         `<td><input type="number" class="il-qty" min="0" step="0.01" value="${p.quantity != null ? p.quantity : 1}" style="text-align:end;"></td>` +
-        `<td><input type="number" class="il-price" min="0" step="1" value="${p.unit_price != null ? p.unit_price : 0}" style="text-align:end;"></td>` +
+        `<td><input type="number" class="il-price" min="0" step="any" value="${p.unit_price != null ? p.unit_price : 0}" style="text-align:end;"></td>` +
         `<td><select class="il-code">${invTaxCodeOptions(p.tax_code || '')}</select></td>` +
         `<td><input type="number" class="il-rate" min="0" max="100" step="0.5" value="${p.tax_rate != null ? p.tax_rate : 0}" style="text-align:end;"></td>` +
         `<td><select class="il-treat">${invTreatmentOptions(p.tax_treatment || 'standard')}</select></td>` +
@@ -695,10 +695,12 @@
         const price = parseFloat(tr.querySelector('.il-price').value) || 0;
         const rate = parseFloat(tr.querySelector('.il-rate').value) || 0;
         const treat = tr.querySelector('.il-treat').value;
-        const lt = Math.max(0, Math.round(qty * price));
+        // as the server: each line, then its VAT, half-up to the currency's places (£59.97, not 60)
+        const ccy = invCurrency();
+        const lt = Math.max(0, roundMoney(qty * price, ccy));
         tr.querySelector('.il-total').textContent = invFmt(lt);
-        sub += lt;
-        if (treat === 'standard') tax += Math.round(lt * rate / 100);
+        sub = addMoney(sub, lt);
+        if (treat === 'standard') tax = addMoney(tax, roundMoney(lt * rate / 100, ccy));
       });
       const g = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = invFmt(v); };
       g('inv-sub', sub); g('inv-tax-total', tax); g('inv-grand', sub + tax);
@@ -710,14 +712,14 @@
       document.querySelectorAll('#inv-items-body .inv-line').forEach(tr => {
         const desc = tr.querySelector('.il-desc').value.trim();
         const qty = parseFloat(tr.querySelector('.il-qty').value) || 0;
-        const price = parseInt(tr.querySelector('.il-price').value, 10) || 0;
+        const price = parseMoney(tr.querySelector('.il-price').value);
         if (!desc && qty <= 0) return;
         const rate = parseFloat(tr.querySelector('.il-rate').value) || 0;
         items.push({
           product_name: desc || t('itemWord'),
           quantity: qty > 0 ? qty : 1,
           unit_price: price,
-          line_total: Math.max(0, Math.round((qty > 0 ? qty : 1) * price)),
+          line_total: null,                        // the server works it out, to the currency's places
           tax_rate: rate, taxable: true,
           tax_code: tr.querySelector('.il-code').value || null,
           tax_treatment: tr.querySelector('.il-treat').value || 'standard',
@@ -747,7 +749,7 @@
         if (!items.length) { showAlert(t('invNeedLine'), true); return null; }
         body.items = items;
       } else {
-        const amount = parseInt(document.getElementById('inv-amount').value, 10) || 0;
+        const amount = parseMoney(document.getElementById('inv-amount').value);
         const taxRate = parseFloat(document.getElementById('inv-tax-rate').value) || 0;
         const taxCode = document.getElementById('inv-tax-code').value || null;
         const taxTreatment = document.getElementById('inv-tax-treatment').value || 'standard';

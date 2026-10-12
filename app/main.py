@@ -57,6 +57,7 @@ from app.api.tax_uk import router as tax_uk_router
 from app.api.time_tracking import router as time_tracking_router
 from app.api.transactions import router as transactions_router
 from app.core.config import settings
+from app.core.money import install_json_numbers
 from app.core.auth import (
     CSRF_COOKIE,
     CSRF_HEADER,
@@ -402,6 +403,7 @@ async def lifespan(app: FastAPI):
             _task.cancel()
 
 
+install_json_numbers()        # amounts in plain dicts go out as numbers, not "7.5" (docs/PLAN_PENCE.md)
 app = FastAPI(
     title="Accounting Assistant API",
     description="API for accounting data, accounts, and transactions",

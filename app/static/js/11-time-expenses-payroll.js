@@ -527,7 +527,7 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `<td><input type="text" class="po-l-desc" value="${escapeHtml(desc)}"><div class="po-l-hist fx-hint" style="margin:0.2rem 0 0;"></div></td>
         <td><input type="number" class="po-l-qty" min="0" step="0.01" value="${qty}" style="width:7rem;"></td>
-        <td><input type="number" class="po-l-price" min="0" value="${price}" style="width:8rem;"></td>
+        <td><input type="number" class="po-l-price" min="0" step="any" value="${price}" style="width:8rem;"></td>
         <td><button type="button" class="btn btn-secondary btn-sm po-l-del" aria-label="${escapeHtml(t('ibRemoveLine'))}" title="${escapeHtml(t('ibRemoveLine'))}">✕</button></td>`;
       document.getElementById('po-lines-body').appendChild(tr);
     }
@@ -581,7 +581,7 @@
       document.querySelectorAll('#po-lines-body tr').forEach(tr => {
         const desc = tr.querySelector('.po-l-desc').value.trim();
         const qty = parseFloat(tr.querySelector('.po-l-qty').value || '0');
-        const price = parseInt(tr.querySelector('.po-l-price').value || '0', 10);
+        const price = parseMoney(tr.querySelector('.po-l-price').value);       // pence kept
         if (desc && qty > 0) lines.push({ description: desc, ordered_qty: qty, unit_price: price });
       });
       if (!lines.length) { showAlert(t('poNeedLine'), true); return; }
@@ -717,7 +717,7 @@
     });
     document.getElementById('po-bill-btn').addEventListener('click', async () => {
       if (!poCurrentId || !poCurrent) return;
-      const total = poCurrent.lines.reduce((a, l) => a + Math.round(l.billable_qty * l.unit_price), 0);
+      const total = poCurrent.lines.reduce((a, l) => addMoney(a, roundMoney(l.billable_qty * l.unit_price, poCurrent.currency)), 0);
       const number = await uiPrompt({ title: t('poBillBtn'), message: tf('poBillPrompt', { amount: formatNum(total) + ' ' + poCurrent.currency }) });
       if (number === null) return;
       const res = await fetch(API + '/purchase-orders/' + poCurrentId + '/bill', {

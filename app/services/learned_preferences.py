@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.money import plain
 from app.models.learned_preference import LearnedPreference
 
 FUZZY = 0.6
@@ -102,7 +103,7 @@ def snapshot(txn) -> tuple[dict[str, int], dict[str, str]]:
     for ln in txn.lines or []:
         code = ln.account.code if ln.account is not None else None
         if code:
-            nets[code] = nets.get(code, 0) + int(ln.debit or 0) - int(ln.credit or 0)
+            nets[code] = nets.get(code, 0) + plain(ln.debit or 0) - plain(ln.credit or 0)
     links = {(lk.role or "").lower(): str(lk.entity_id) for lk in (txn.entity_links or []) if lk.entity_id}
     return nets, links
 

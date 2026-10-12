@@ -10,7 +10,7 @@ val LocalCalendar = staticCompositionLocalOf<String?> { null }
 
 /**
  * Dates in the books' calendar, as each language writes it: «۱۸ مهر» or
- * «۵ اکتبر» in Persian, "5 oct" in Spanish, «٥ أكتوبر» in Arabic, "5 Oct".
+ * «۵ اکتبر» in Persian, "5 oct" in Spanish, «5 أكتوبر» in Arabic, "5 Oct".
  * The server sends ISO dates and writes its replies in the same calendar.
  */
 object Dates {

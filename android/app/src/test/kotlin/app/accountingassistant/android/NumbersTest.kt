@@ -18,7 +18,9 @@ class NumbersTest {
     }
 
     @Test fun arabicUsesArabicIndicDigits() {
-        assertEquals("٢٬٥٠٠", Numbers.amount(2500, "ar"))
+        assertEquals("2,500", Numbers.amount(2500, "ar"))               // Western digits in Arabic, as on the web
+        // Android formats %d in the phone's locale: Arabic-Indic in Arabic, brought back to Western
+        assertEquals("18 أسطر", Numbers.digits("١٨ أسطر", "ar"))
     }
 
     @Test fun typedPersianAndArabicDigitsAreNormalised() {
@@ -35,7 +37,7 @@ class NumbersTest {
 
     @Test fun aShareIsWrittenTheWayEachLanguageWritesIt() {
         assertEquals("۴۰٪", Numbers.percent(0.4f, "fa"))
-        assertEquals("٤٠٪", Numbers.percent(0.4f, "ar"))
+        assertEquals("40%", Numbers.percent(0.4f, "ar"))
         assertEquals("40\u00A0%", Numbers.percent(0.4f, "es"))
         assertEquals("100%", Numbers.percent(1.3f, "en"))
         assertEquals("0%", Numbers.percent(0f, "en"))

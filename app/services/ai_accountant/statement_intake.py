@@ -53,20 +53,16 @@ def _message_language(message: str | None, fallback: str) -> str:
     return fallback
 
 
-_ARABIC_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
-
-
 def _n(n: int | None, lang: str) -> str:
-    """A count or an amount as the reader writes it: «۳٬۵۰۰» (fa), «٣٬٥٠٠» (ar),
-    "3,500" — "3500" in Western digits sat oddly inside Persian words."""
+    """A count or an amount as the reader writes it: «۳٬۵۰۰» in Persian, "3,500"
+    otherwise — Arabic too, in Western digits as everywhere (the owner's call,
+    2026-10-11). "3500" in Western digits sat oddly inside Persian words."""
     if n is None:
         return "—"
     text = f"{int(n):,}"
     if lang == "fa":
         from app.utils.jalali import to_persian_digits
         return to_persian_digits(text).replace(",", "٬")
-    if lang == "ar":
-        return text.translate(_ARABIC_DIGITS).replace(",", "٬")
     return text
 
 
@@ -144,14 +140,13 @@ def _say(lang: str, key: str, **kw) -> str:
 
 def _day(iso: str, lang: str, jalali: bool) -> str:
     """A statement's first or last day as the company's calendar writes it, in
-    the reader's language: «۱ مهر ۱۴۰۵», «۲۳ اوت ۲۰۲۶», "23 Aug 2026". An ISO
+    the reader's language: «۱ مهر ۱۴۰۵», «۲۳ اوت ۲۰۲۶», «23 أغسطس 2026», "23 Aug 2026". An ISO
     date inside Persian words used to turn round («21-09-2026»)."""
     from app.services.ai_accountant.blocks import display_date
     try:
-        day = display_date(str(iso)[:10], "jalali" if jalali else "gregorian", lang) or str(iso)
+        return display_date(str(iso)[:10], "jalali" if jalali else "gregorian", lang) or str(iso)
     except ValueError:
         return str(iso)
-    return day.translate(_ARABIC_DIGITS) if lang == "ar" else day        # one kind of digit in a sentence
 
 
 def bank_label(name: str | None, lang: str) -> str | None:

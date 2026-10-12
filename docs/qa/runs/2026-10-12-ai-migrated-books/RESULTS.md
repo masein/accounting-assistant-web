@@ -83,13 +83,13 @@ All on the same final code, each on its own copy of the books, the 52 scenarios 
 - a card must use the right accounts and amount;
 - a refused card must not exist.
 
-Cost uses list prices (USD per million tokens) where they are known here; the others need Metis's price list.
+Cost uses list prices (USD per million tokens) where they are known here; the others need Metis's price list. gpt-5.6-luna uses Metis's price, which the owner sent on 2026-10-12: $0.22 input, $0.022 cached input and $1.32 output per million tokens, up to a 270K context. Billing the uncached input at its $0.275 cache-write rate instead adds under $0.10.
 
 | Model | Passed | Median turn | Tokens in / out per question | $ per 1,000 questions |
 |---|---|---|---|---|
 | claude-sonnet-5-5 | 51/52 (98%) | 12.1 s | 84,077 / 676 | ≈ 44 at Sonnet 4.x prices |
 | gpt-4.1 | 50/52 (96%) | 9.0 s | 47,646 / 167 | 27.67 |
-| gpt-5.6-luna | 47/52 (90%) | 11.5 s | 53,200 / 189 | not known here |
+| gpt-5.6-luna | 47/52 (90%) | 11.5 s | 53,200 / 189 | 1.64 at Metis's price |
 | gpt-4.1-mini (today's) | 43/52 (82%) | 8.2 s | 49,350 / 145 | 5.75 |
 | gpt-5.4-mini | 43/52 (82%) | 10.1 s | 59,259 / 164 | not known here |
 | gpt-5-mini | 42/52 (80%) | 14.1 s | 57,675 / 719 | 3.43 |
@@ -108,9 +108,9 @@ About 95% of the input tokens are cached prompt (the system prompt and tool list
 ## Recommendation
 
 - **gpt-4.1-mini (today) passes 82% on these books.** Its misses are the hard ones: drafting a card it has everything for, choosing among similar accounts, retyping a name.
-- **gpt-5.6-luna passes 90%** for a price the September benchmark put at about half of gpt-4.1-mini's per turn. It is a little slower (11.5 s median). It is the candidate to switch to once its Metis price is confirmed.
+- **Switch to gpt-5.6-luna.** It passes 90%, eight points above today's model, for $1.64 per 1,000 questions, about 3.5× cheaper than gpt-4.1-mini's $5.75. It is a little slower (11.5 s median, against 8.2 s).
 - **gpt-4.1 (96%) and claude-sonnet-5-5 (98%) are the most accurate,** at roughly 5–8× today's cost.
-- **No cheaper model beats today's on accuracy.** gpt-5-mini is slightly cheaper but slower and no better; the nanos and Haiku are weaker.
+- **gpt-5.6-luna is the only model that is both cheaper and more accurate than today's.** gpt-5-mini is cheaper but slower and no better; the nanos and Haiku are weaker.
 
 Switch in Settings → AI providers (model) and Settings → chat provider shape, one choice for every company after finding 1.
 

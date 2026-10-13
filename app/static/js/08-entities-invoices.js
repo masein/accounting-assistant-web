@@ -7,6 +7,7 @@
       const title = document.getElementById('account-modal-title');
       title.textContent = localCode(accountCode) + ' — ' + t('loading');
       body.innerHTML = '<p class="empty-state">' + t('loading') + '</p>';
+      modal.querySelector('.modal-card').classList.remove('modal-wide');
       modal.style.display = 'flex';
       try {
         const res = await fetch(API + '/reports/accounts/' + encodeURIComponent(accountCode) + '/detail');
@@ -145,7 +146,10 @@
 
     document.getElementById('entities-tbody').addEventListener('click', (e) => {
       const btn = e.target.closest('.view-entity-txns');
-      if (btn) openEntityTransactions(btn.dataset.entityId, btn.dataset.entityName || '', btn.dataset.entityType || '');
+      if (btn) {
+        entityTxQuery = '';            // opened from the list: a clean search (an edit's return keeps it)
+        openEntityTransactions(btn.dataset.entityId, btn.dataset.entityName || '', btn.dataset.entityType || '');
+      }
       const editBtn = e.target.closest('.edit-entity');
       if (editBtn) editEntity(editBtn);
       const delBtn = e.target.closest('.delete-entity');
@@ -1535,6 +1539,8 @@
       currentEntityContext = { entityId, entityName, entityType: entityType || prevType || '', controlAccount: null };
       title.textContent = tf('entTxTitle', { name: entityName }) + ' — ' + t('loading');
       body.innerHTML = '<p class="empty-state">' + escapeHtml(t('loading')) + '</p>';
+      // nine columns: at the usual 860px the balance and the actions sat off the edge (U4)
+      modal.querySelector('.modal-card').classList.add('modal-wide');
       modal.style.display = 'flex';
       try {
         const res = await fetch(API + '/reports/entities/' + encodeURIComponent(entityId) + '/transactions');
@@ -1554,8 +1560,12 @@
         // Manual entry from the statement itself (QA: "no feature for adding
         // transactions manually") — opens the editor in create mode with the
         // entity already linked.
+        const search = transactions.length ? `
+            <input type="search" class="entity-tx-search" value="${escapeHtml(entityTxQuery)}" placeholder="${escapeHtml(t('entTxSearch'))}"
+              aria-label="${escapeHtml(t('entTxSearch'))}" autocomplete="off" style="flex:1; min-width:12rem; margin:0;">
+            <span class="entity-tx-count fc-note" aria-live="polite" style="align-self:center;"></span>` : '';
         const toolbar = `
-          <div style="display:flex; justify-content:flex-end; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+          <div style="display:flex; justify-content:flex-end; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.5rem;">${search}
             <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener" href="${API}/entities/${encodeURIComponent(entityId)}/statement.pdf">${escapeHtml(t('entStatementPdf'))}</a>
             <button type="button" class="btn btn-secondary btn-sm entity-statement-email">${escapeHtml(t('entStatementEmail'))}</button>
             <button type="button" class="btn btn-primary btn-sm entity-tx-add">${escapeHtml(t('entTxAddBtn'))}</button>
@@ -1566,19 +1576,23 @@
         }
         // Statement-of-account columns: Debtor = the entity paid / gave,
         // Creditor = the entity received, Remaining = running balance.
+        // Newest first: years of history opened on the oldest entry (the owner, 2026-10-13).
+        // The server's running balance is per row, so the top row reads today's balance.
         const money = (n, ccy) => (n ? formatMoney(n, ccy) : '');
+        const newestFirst = transactions.slice().reverse();
+        const withFiles = transactions.some((t0) => (t0.attachments || []).length);
         body.innerHTML = toolbar + `
-          <table class="detail-table">
+          <table class="detail-table ent-tx-table">
             <thead><tr>
               <th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('entTxColCcy'))}</th>
-              <th>${escapeHtml(t('labelDescription'))}</th><th>${escapeHtml(t('entTxColAttachments'))}</th>
+              <th>${escapeHtml(t('labelDescription'))}</th>${withFiles ? `<th>${escapeHtml(t('entTxColAttachments'))}</th>` : ''}
               <th class="num" title="${escapeHtml(t('entTxDebtorHint'))}">${escapeHtml(t('entTxDebtor'))}</th>
               <th class="num" title="${escapeHtml(t('entTxCreditorHint'))}">${escapeHtml(t('entTxCreditor'))}</th>
               <th class="num" title="${escapeHtml(t('entTxRemainingHint'))}">${escapeHtml(t('entTxRemaining'))}</th>
               <th>${escapeHtml(t('entTxColActions'))}</th>
             </tr></thead>
             <tbody>
-              ${transactions.map(t0 => {
+              ${newestFirst.map(t0 => {
                 const ccy = (t0.currency || 'IRR').toUpperCase();
                 const att = (t0.attachments || []);
                 const attHtml = att.length
@@ -1591,27 +1605,56 @@
                 const paid = placed ? money(t0.entity_paid, ccy) : '—';
                 const received = placed ? money(t0.entity_received, ccy) : '—';
                 const remaining = placed ? formatMoney(t0.entity_balance || 0, ccy) : '—';
-                return `<tr>
+                // what the search looks in: the date as shown and as stored, the reference,
+                // the description and the amounts, each as shown and as plain digits
+                const said = [formatDateDual(t0.date), t0.date, t0.reference, t0.description,
+                  paid, received, t0.entity_paid || '', t0.entity_received || ''].join(' ');
+                return `<tr class="entity-tx-row" data-q="${escapeHtml(entityTxFold(said))}">
                   <td>${escapeHtml(formatDateDual(t0.date))}</td>
-                  <td>${escapeHtml(t0.reference || '—')}</td>
+                  <td class="ent-tx-ref">${escapeHtml(t0.reference || '—')}</td>
                   <td><span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
                   <td dir="auto" class="ent-tx-desc">${escapeHtml(t0.description || '—')}</td>
-                  <td>${attHtml}</td>
+                  ${withFiles ? `<td>${attHtml}</td>` : ''}
                   <td class="num">${paid}</td>
                   <td class="num">${received}</td>
-                  <td class="num" style="font-weight:600;">${remaining}</td>
+                  <td class="num ent-tx-balance" style="font-weight:600;">${remaining}</td>
                   <td>
                     <button type="button" class="btn btn-secondary btn-sm entity-tx-edit" data-tx-id="${t0.id}">${escapeHtml(t('btnEdit'))}</button>
                     <button type="button" class="btn btn-danger btn-sm entity-tx-del" data-tx-id="${t0.id}" style="margin-left:0.35rem;">${escapeHtml(t('btnDelete'))}</button>
                   </td>
                 </tr>`;
               }).join('')}
+              <tr class="entity-tx-none" hidden><td colspan="${withFiles ? 9 : 8}" class="empty-state">${escapeHtml(t('entTxNoMatch'))}</td></tr>
             </tbody>
           </table>
         `;
+        const box = body.querySelector('.entity-tx-search');
+        box.addEventListener('input', () => { entityTxQuery = box.value; entityTxFilter(body); });
+        entityTxFilter(body);
       } catch (err) {
         body.innerHTML = '<p class="empty-state">' + escapeHtml(t('entTxLoadError')) + '</p>';
       }
+    }
+
+    // Both sides of a search compared alike: «ي/ك» as «ی/ک» (Sepidar's text), Persian digits as
+    // Latin, and no group separators, so «۴۸٬۴۷۸٬۵۰۰», «48,478,500» and «48478500» are one figure.
+    function entityTxFold(s) {
+      return latinDigits(foldFa(s)).replace(/,/g, '').replace(/\s+/g, ' ');
+    }
+
+    function entityTxFilter(body) {
+      const q = entityTxFold(entityTxQuery.trim());
+      const rows = [...body.querySelectorAll('tr.entity-tx-row')];
+      let shown = 0;
+      rows.forEach((tr) => {
+        const hit = !q || tr.dataset.q.includes(q);
+        tr.hidden = !hit;
+        if (hit) shown += 1;
+      });
+      const none = body.querySelector('tr.entity-tx-none');
+      if (none) none.hidden = shown > 0;
+      const count = body.querySelector('.entity-tx-count');
+      if (count) count.textContent = q ? tf('entTxShown', { n: formatNum(shown), total: formatNum(rows.length) }) : '';
     }
 
     function selectedEntityIdForRole(tx, role) {

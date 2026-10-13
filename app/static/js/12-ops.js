@@ -775,6 +775,7 @@
       const title = document.getElementById('account-modal-title');
       title.textContent = (name || '') + ' — ' + t('equityLedgerTitle');
       body.innerHTML = '<p class="empty-state">' + t('loading') + '</p>';
+      modal.querySelector('.modal-card').classList.remove('modal-wide');
       modal.style.display = 'flex';
       try {
         const yr = new Date().getFullYear();

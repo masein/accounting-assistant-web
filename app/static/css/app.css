@@ -378,6 +378,10 @@
       background: var(--card); border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
       max-width: 860px; width: 100%; max-height: 90vh; display: flex; flex-direction: column;
     }
+    /* a party's statement: nine columns, the balance and the actions in view (U4) */
+    .modal-card.modal-wide { max-width: min(1240px, 100%); }
+    .ent-tx-table td.ent-tx-ref { white-space: nowrap; font-size: 0.78rem; }
+    .ent-tx-table td.num { white-space: nowrap; }
     .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
     .modal-header h2 { margin: 0; font-size: 1.15rem; color: var(--primary); }
     .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); padding: 0.25rem; line-height: 1; }

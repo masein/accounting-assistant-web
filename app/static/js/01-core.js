@@ -636,6 +636,7 @@
     let selectedAttachments = [];
     let entityTransactionsCache = [];
     let currentEntityContext = null;
+    let entityTxQuery = '';            // the transactions window's search, kept while it re-renders
     let managerReportChart = null;
     let lastManagerReport = null;
     let inventoryReportChart = null;

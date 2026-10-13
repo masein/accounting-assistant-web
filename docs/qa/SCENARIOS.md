@@ -309,6 +309,7 @@ The second real company kept its books in Excel by hand: two schools, each with 
 | P6 | Closing a bank account [#343] | A voucher «بابت بستن حساب بانک سپه»; another «بابت بستن حسابهای موقت»; another «اختتامیه» | The first posts (it was taken for a year-end closing and dropped); the other two are still left out |
 | P7 | A date with the wrong year [#343] | A 1404 journal with vouchers typed 1401/01/20, 1403/03/08 and 1400/11/29 | They are held back as «outside the file's year»; «use the file's year» posts them on 1404/01/20, 1404/03/08 and 1404/11/29, «keep the dates as written» posts them as typed |
 | P8 | A rial out [#343] | A voucher off by 1 rial; another off by 50 | The first posts with the rial on its largest line, counted as rounding; the second is refused as unbalanced |
+| P9 | The next year's file, on the same page | Import 1404, whose apply creates 16 accounts; without reloading, read 1405 | Its accounts are offered in the boxes: the page reloads the chart after an import (it kept the list from before 1404, so 13 of 1405's boxes came up empty and the accounts had to be picked again) |
 
 ## Q. Keeping pence (2026-10-12, `docs/PLAN_PENCE.md`)
 

@@ -103,7 +103,7 @@ def test_an_iranian_company_gets_its_five_statements_in_persian(books):
     for r in js["rows"]:
         if r["row_type"] in ("header", "spacer") or r["amount_current"] is None:
             continue
-        want = -abs(r["amount_current"]) if r["is_negative_presentation"] else r["amount_current"]
+        want = r["amount_current"]
         assert sheet[r["label_fa"]][0] == want, r["label_fa"]
     # numbers are numbers, totals are bold
     cells = [c for row in wb["صورت سود و زیان"].iter_rows(min_row=6) for c in row[1:2] if c.value is not None]
@@ -143,7 +143,7 @@ def test_a_uk_company_gets_frs102_statements(books):
     sheet = _rows(wb["Balance sheet"])
     for r in js["rows"]:
         if r["row_type"] not in ("header", "spacer") and r["amount_current"] is not None:
-            want = -abs(r["amount_current"]) if r["is_negative_presentation"] else r["amount_current"]
+            want = r["amount_current"]
             assert sheet[r["label"]][0] == want, r["label"]
     equity = wb["Changes in equity"]
     assert [c.value for c in equity[5]][-1] == "Total"                     # the matrix: components, then total

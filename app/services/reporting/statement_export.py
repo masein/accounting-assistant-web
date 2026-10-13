@@ -9,8 +9,10 @@ prints them one per page under the company's letterhead (right to left, Jalali
 dates and Persian digits for an Iranian company) and ``render_xlsx`` writes
 one sheet each, with real numbers, bold totals and indented labels.
 
-Deductions the statements mark ``is_negative_presentation`` come out negative
-in the workbook — so a column still adds up — and in parentheses in the PDF.
+The statements send deductions already negative, so every figure keeps its
+sign: a column still adds up in the workbook and a negative one is in
+parentheses in the PDF. A cost line that nets to a credit (stock brought onto
+the books through cost of sales) stays a credit.
 """
 from __future__ import annotations
 
@@ -103,9 +105,8 @@ def _label(row, lang: str) -> str:
 def _flat(resp, lang: str, *, three: bool) -> list[dict]:
     out = []
     for r in resp.rows:
-        deduction = bool(getattr(r, "is_negative_presentation", False))
         vals = [r.amount_current, r.amount_prior] + ([getattr(r, "amount_prior_beginning", None)] if three else [])
-        vals = [None if v is None else (-abs(plain(v)) if deduction else plain(v)) for v in vals]
+        vals = [None if v is None else plain(v) for v in vals]
         style = r.row_type if r.row_type in STYLES else "line"
         if style in ("header", "spacer"):
             vals = [None] * len(vals)

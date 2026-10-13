@@ -26,6 +26,7 @@ TEXT: dict[str, dict[str, str]] = {
     "inv_revenue": {"en": "Invoice {number} — revenue", "fa": "فاکتور {number} — درآمد فروش"},
     "inv_vat_out": {"en": "Invoice {number} — output VAT", "fa": "فاکتور {number} — مالیات بر ارزش افزوده فروش"},
     "bill_expense": {"en": "Bill {number} — expense", "fa": "فاکتور خرید {number} — هزینه"},
+    "bill_stock": {"en": "Bill {number} — stock: {item}", "fa": "فاکتور خرید {number} — موجودی کالا: {item}"},
     "bill_payable": {"en": "Bill {number} — payable", "fa": "فاکتور خرید {number} — حساب پرداختنی"},
     "bill_vat_in": {"en": "Bill {number} — input VAT", "fa": "فاکتور خرید {number} — مالیات بر ارزش افزوده خرید"},
     "inv_receipt": {"en": "Invoice {number} receipt", "fa": "دریافت وجه فاکتور {number}"},

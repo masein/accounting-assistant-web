@@ -393,11 +393,13 @@
       const beginningDate = report.comparative_beginning_as_of || '';
       // Show beginning-of-prior column only when at least one row carries it (Balance Sheet only).
       const hasBeginning = !!beginningDate && rows.some(r => r && r.amount_prior_beginning != null);
-      const fmtParens = (amount, forceParens) => {
+      // the statements send deductions already negative: brackets follow the sign, so a
+      // cost line that nets to a credit (stock brought on, scenario T14) reads as one
+      const fmtParens = (amount) => {
         if (amount == null) return '-';
         if (amount === 0) return '·';
         const n = formatAmount(Math.abs(amount), report.currency);
-        return (amount < 0 || forceParens) ? '(' + n + ')' : n;
+        return amount < 0 ? '(' + n + ')' : n;
       };
       const fmtPct = (v) => {
         if (v == null) return '-';
@@ -419,10 +421,10 @@
           const blanks = hasBeginning ? 4 : 3;
           return `<tr>${labelCell}${`<td style="${baseStyle} ${bg}"></td>`.repeat(blanks)}</tr>`;
         }
-        const curCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_current, r.is_negative_presentation))}</td>`;
-        const priorCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior, r.is_negative_presentation))}</td>`;
+        const curCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_current))}</td>`;
+        const priorCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior))}</td>`;
         const beginningCell = hasBeginning
-          ? `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior_beginning, r.is_negative_presentation))}</td>`
+          ? `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior_beginning))}</td>`
           : '';
         const pctCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums; color:${(r.change_pct != null && r.change_pct < 0) ? '#b91c1c' : '#334155'};">${escapeHtml(fmtPct(r.change_pct))}</td>`;
         return `<tr>${labelCell}${curCell}${priorCell}${beginningCell}${pctCell}</tr>`;
@@ -535,11 +537,13 @@
       const rows = Array.isArray(report.rows) ? report.rows : [];
       const periodDate = (report.period && (report.period.to || report.period.to_date)) || report.as_of || '';
       const priorDate = (report.comparative_period && (report.comparative_period.to || report.comparative_period.to_date)) || report.comparative_as_of || '';
-      const fmtParens = (amount, forceParens) => {
+      // the statements send deductions already negative: brackets follow the sign, so a
+      // cost line that nets to a credit (stock brought on, scenario T14) reads as one
+      const fmtParens = (amount) => {
         if (amount == null) return '-';
         if (amount === 0) return '·';
         const n = formatAmount(Math.abs(amount), report.currency);
-        return (amount < 0 || forceParens) ? '(' + n + ')' : n;
+        return amount < 0 ? '(' + n + ')' : n;
       };
       const bodyRows = rows.map(r => {
         const isHeader = r.row_type === 'header';
@@ -554,8 +558,8 @@
         if (isHeader) {
           return `<tr>${labelCell}<td style="${baseStyle} ${bg}"></td><td style="${baseStyle} ${bg}"></td></tr>`;
         }
-        const curCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_current, r.is_negative_presentation))}</td>`;
-        const priorCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior, r.is_negative_presentation))}</td>`;
+        const curCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_current))}</td>`;
+        const priorCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior))}</td>`;
         return `<tr>${labelCell}${curCell}${priorCell}</tr>`;
       }).join('');
 

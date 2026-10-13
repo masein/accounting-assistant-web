@@ -647,7 +647,8 @@
       const tr = document.createElement('tr');
       tr.className = 'inv-line';
       tr.innerHTML =
-        `<td><input type="text" class="il-desc" list="inv-products-datalist" value="${escapeHtml(p.description || '')}" placeholder="${escapeHtml(t('ibDescription'))}"></td>` +
+        `<td><input type="text" class="il-desc" list="inv-products-datalist" value="${escapeHtml(p.description || '')}" placeholder="${escapeHtml(t('ibDescription'))}">` +
+        `<span class="il-stock alert-chip low" hidden title="${escapeHtml(t('ilStockHint'))}">${escapeHtml(t('ilStock'))}</span></td>` +
         `<td class="ir-col"><input type="text" class="il-sstid" maxlength="13" inputmode="numeric" dir="ltr" value="${escapeHtml(p.sstid || '')}" placeholder="${escapeHtml(t('ibGoodsIdPh'))}"></td>` +
         `<td><input type="number" class="il-qty" min="0" step="0.01" value="${p.quantity != null ? p.quantity : 1}" style="text-align:end;"></td>` +
         `<td><input type="number" class="il-price" min="0" step="any" value="${p.unit_price != null ? p.unit_price : 0}" style="text-align:end;"></td>` +
@@ -668,6 +669,8 @@
         if (desc) desc.placeholder = t('ibDescription');
         const sid = tr.querySelector('.il-sstid');
         if (sid) sid.placeholder = t('ibGoodsIdPh');
+        const stock = tr.querySelector('.il-stock');
+        if (stock) { stock.textContent = t('ilStock'); stock.title = t('ilStockHint'); }
         const code = tr.querySelector('.il-code');
         if (code) { const v = code.value; code.innerHTML = invTaxCodeOptions(v); code.value = v; }
         const treat = tr.querySelector('.il-treat');
@@ -724,6 +727,7 @@
           tax_code: tr.querySelector('.il-code').value || null,
           tax_treatment: tr.querySelector('.il-treat').value || 'standard',
           sstid: (tr.querySelector('.il-sstid').value || '').trim() || null,
+          inventory_item_id: tr.dataset.itemId || null,
         });
       });
       return items;
@@ -782,9 +786,42 @@
       if (e.target.classList.contains('il-desc')) {
         const price = _invProductPrice[e.target.value.trim().toLowerCase()];
         if (price != null) { const row = e.target.closest('tr'); const pe = row.querySelector('.il-price'); if (!parseFloat(pe.value)) pe.value = price; }
+        invLinkStock(e.target.closest('tr'));
       }
       invRecompute();
     });
+
+    // A line whose description is a stock item's name or code moves that item's
+    // stock once the invoice is issued (docs/PLAN_INVENTORY_GL.md): the line is
+    // linked and says so. The items join the description suggestions.
+    let _invStockItems = {};
+    async function invLoadStockItems() {
+      try {
+        const res = await fetch(API + '/manager-reports/inventory/items');
+        if (!res.ok) return;
+        const items = await res.json();
+        _invStockItems = {};
+        (items || []).filter((i) => i.is_active !== false).forEach((i) => {
+          _invStockItems[String(i.name).trim().toLowerCase()] = i;
+          if (i.sku) _invStockItems[String(i.sku).trim().toLowerCase()] = i;
+        });
+        const dl = document.getElementById('inv-products-datalist');
+        if (dl) {
+          const have = new Set([...dl.options].map((o) => o.value.toLowerCase()));
+          (items || []).filter((i) => i.is_active !== false && !have.has(String(i.name).toLowerCase())).forEach((i) => {
+            const o = document.createElement('option'); o.value = i.name; dl.appendChild(o);
+          });
+        }
+        document.querySelectorAll('#inv-items-body .inv-line').forEach(invLinkStock);
+      } catch (_) {}
+    }
+    function invLinkStock(tr) {
+      if (!tr) return;
+      const item = _invStockItems[(tr.querySelector('.il-desc').value || '').trim().toLowerCase()];
+      if (item) tr.dataset.itemId = item.id; else delete tr.dataset.itemId;
+      const badge = tr.querySelector('.il-stock');
+      if (badge) badge.hidden = !item;
+    }
     document.getElementById('inv-items-body').addEventListener('change', async (e) => {
       if (e.target.classList.contains('il-code')) {
         const row = e.target.closest('tr');
@@ -852,7 +889,7 @@
       applyDefaultFormCurrency();
       invSetMode('itemized');     // seeds the first empty line
       invRecompute();             // refresh totals with the initialized currency
-      invLoadProductDatalist();
+      invLoadProductDatalist().then(invLoadStockItems);
     }
 
     document.getElementById('inv-preview').addEventListener('click', async () => {

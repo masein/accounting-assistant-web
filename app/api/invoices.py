@@ -312,6 +312,10 @@ def _recognize_invoice(db: Session, inv: Invoice) -> None:
     # revenue/expense and VAT legs. amount == grand_total (kept in sync on
     # create/update), so net + tax always reconciles to amount.
     subtotal, tax_total, grand_total = _tax_breakdown(inv)
+    from app.services import inventory_ledger
+    stock = inventory_ledger.stock_lines(db, inv)        # lines that move stock (docs/PLAN_INVENTORY_GL.md)
+    if stock and inv.kind == "purchase":
+        inventory_ledger.assert_rate_known(db, inv)      # before anything posts
     if inv.kind == "sales":
         ar = resolve_account_code(db, "ar")
         rev = resolve_account_code(db, "revenue")
@@ -325,8 +329,14 @@ def _recognize_invoice(db: Session, inv: Invoice) -> None:
     else:
         exp = resolve_account_code(db, "expense")
         ap = resolve_account_code(db, "ap")
+        # a stock line's cost goes to stock, one journal line each; the rest is expense as before
+        stock_code = resolve_account_code(db, "inventory") if stock else None
+        to_stock = [(stock_code, plain(it.line_total or 0), 0, bt(db, "bill_stock", number=inv.number, item=it.product_name))
+                    for it in stock if plain(it.line_total or 0) > 0]
+        expense = subtotal - sum(dr for _c, dr, _cr, _d in to_stock)
         lines = [
-            (exp, subtotal, 0, bt(db, "bill_expense", number=inv.number)),
+            *to_stock,
+            *([(exp, expense, 0, bt(db, "bill_expense", number=inv.number))] if expense or not to_stock else []),
             (ap, 0, grand_total, bt(db, "bill_payable", number=inv.number)),
         ]
         if tax_total > 0:
@@ -341,6 +351,9 @@ def _recognize_invoice(db: Session, inv: Invoice) -> None:
         audit_detail=f"AR/AP recognition for invoice {inv.number}",
     )
     inv.transaction_id = txn.id
+    if stock:
+        inventory_ledger.record_invoice(db, inv, stock, txn)
+        inventory_ledger.sync(db)
 
 
 def _resolve_bank_code(db: Session, code: str | None) -> str:
@@ -1239,6 +1252,10 @@ def void_invoice(invoice_id: UUID, db: Session = Depends(get_db)) -> InvoiceRead
     _reverse_txn(db, inv.transaction_id, reference=f"VOID-{inv.number}",
                  description=bt(db, "void_invoice", number=inv.number))
     inv.status = "voided"
+    # its stock moves back on the day, as its journal does (docs/PLAN_INVENTORY_GL.md)
+    from app.services import inventory_ledger
+    inventory_ledger.reverse_invoice(db, inv, on=date.today())
+    inventory_ledger.sync(db)
     # Un-bill any time entries billed on this invoice so they can be re-invoiced
     # (atomic with the reversal) — never orphan or double-bill.
     from app.services.time_billing_service import unbill_for_invoice

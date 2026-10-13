@@ -161,10 +161,12 @@ def _replay(db: Session, periods: list[_Period], today: date) -> None:
         p = periods[i]
         p.value = total
         if mv.invoice_id is not None and p.key != OPEN:
-            if typ == ic.OUT:
-                p.sales_cogs += cost
-            elif mv.ledger_value is not None:
+            if mv.ledger_value is not None:          # a purchase's stock, or its void: the invoice posted it
                 p.invoiced_in += to_decimal(mv.ledger_value)
+            elif typ == ic.OUT:                      # sold
+                p.sales_cogs += cost
+            else:                                    # a voided sale's goods back, at their cost
+                p.sales_cogs -= cost
     for j in range(i + 1, len(periods)):
         periods[j].value = total
 
@@ -278,6 +280,109 @@ def sync(db: Session, *, today: date | None = None) -> dict[str, Any]:
             done.append({"period": p.key, "kind": k, "amount": plain(diff), "date": on.isoformat()})
     db.flush()
     return {"enabled": True, "from": start.isoformat(), "posted": done}
+
+
+# --- invoices (phase G2) ---------------------------------------------------------------------------------------
+
+def stock_lines(db: Session, inv) -> list:
+    """The lines of ``inv`` that move stock: those with an item, on an invoice
+    dated from the start (before it, and while off, invoices work as they
+    always did)."""
+    start = start_date(db)
+    if start is None or inv.issue_date is None or inv.issue_date < start:
+        return []
+    return [it for it in (inv.items or []) if getattr(it, "inventory_item_id", None)]
+
+
+def assert_rate_known(db: Session, inv) -> None:
+    """Stock is valued in the base currency: a purchase in another currency
+    needs that day's rate before its stock lines can post."""
+    from app.services.fx_base import base_currency, rate_to_base
+    ccy = (inv.currency or "").upper()
+    if ccy and ccy != base_currency(db).upper() and not rate_to_base(db, ccy, inv.issue_date):
+        raise HTTPException(status_code=422, detail=(
+            f"Add the exchange rate for {ccy} on {inv.issue_date.isoformat()} first: "
+            "stock is kept in the base currency."))
+
+
+def record_invoice(db: Session, inv, lines: list, txn=None) -> None:
+    """The movements an invoice's stock lines make, once it is recognised.
+
+    A purchase's lines come in at what the invoice posted to stock, in the base
+    currency: read back from its journal (``fx_base`` stamped it), shared out
+    over the lines, the last taking the rounding. A sale's lines go out, and
+    the sync posts their cost."""
+    from app.models.account import Account
+    from app.models.inventory import InventoryMovementType
+    from app.models.transaction import TransactionLine
+    if not lines:
+        return
+    existing = db.execute(select(func.count()).select_from(InventoryMovement)
+                          .where(InventoryMovement.invoice_id == inv.id)).scalar()
+    if existing:
+        return
+    if inv.kind == "purchase":
+        from app.services.account_resolver import resolve_account_code
+        code = resolve_account_code(db, "inventory")
+        base = db.execute(select(func.sum(TransactionLine.base_debit), func.count(TransactionLine.id),
+                                 func.count(TransactionLine.base_debit))
+                          .join(Account, Account.id == TransactionLine.account_id)
+                          .where(TransactionLine.transaction_id == txn.id, Account.code == code)).one()
+        if base[1] and base[2] < base[1]:
+            raise HTTPException(status_code=422, detail=(
+                f"Add the exchange rate for {inv.currency} on {inv.issue_date.isoformat()} first: "
+                "stock is kept in the base currency."))
+        total = to_decimal(base[0] or 0)
+        own = [to_decimal(it.line_total or 0) for it in lines]
+        whole = sum(own) or Decimal(1)
+        from app.services import inventory_costing as ic
+        places = ic._places(db)
+        shares, given = [], Decimal(0)
+        for i, amount in enumerate(own):
+            share = total - given if i == len(own) - 1 else (total * amount / whole).quantize(Decimal(1).scaleb(-places))
+            shares.append(share)
+            given += share
+        for it, value in zip(lines, shares):
+            qty = to_decimal(it.quantity or 0)
+            db.add(InventoryMovement(
+                item_id=it.inventory_item_id, movement_date=inv.issue_date, movement_type=InventoryMovementType.IN,
+                quantity=it.quantity, unit_cost=plain((value / qty).quantize(Decimal("0.0001"))) if qty else 0,
+                reference=inv.number, description=it.product_name, invoice_id=inv.id, ledger_value=plain(value)))
+    else:
+        for it in lines:
+            db.add(InventoryMovement(
+                item_id=it.inventory_item_id, movement_date=inv.issue_date, movement_type=InventoryMovementType.OUT,
+                quantity=it.quantity, unit_cost=0, reference=inv.number, description=it.product_name,
+                invoice_id=inv.id))
+    db.flush()
+
+
+def reverse_invoice(db: Session, inv, *, on: date) -> None:
+    """A voided invoice's stock moves back on the day it is voided, as its
+    journal does: a purchase's goods go out at what it posted, a sale's come
+    back at what they cost. The invoice's own movements stay, as history."""
+    from app.models.inventory import InventoryMovementType
+    from app.services import inventory_costing as ic
+    rows = db.execute(select(InventoryMovement).where(InventoryMovement.invoice_id == inv.id)
+                      .order_by(InventoryMovement.created_at)).scalars().all()
+    if not rows or any(r.movement_date == on and (r.reference or "").startswith("VOID-") for r in rows):
+        return
+    costs = ic.movement_costs(db) if inv.kind != "purchase" else {}
+    for mv in rows:
+        qty = to_decimal(mv.quantity or 0)
+        if inv.kind == "purchase":
+            back = InventoryMovement(
+                item_id=mv.item_id, movement_date=on, movement_type=InventoryMovementType.OUT, quantity=mv.quantity,
+                unit_cost=mv.unit_cost, reference=f"VOID-{inv.number}", description=mv.description, invoice_id=inv.id,
+                ledger_value=plain(-to_decimal(mv.ledger_value or 0)))
+        else:
+            cost = to_decimal(costs.get(mv.id, 0))
+            back = InventoryMovement(
+                item_id=mv.item_id, movement_date=on, movement_type=InventoryMovementType.IN, quantity=mv.quantity,
+                unit_cost=plain((cost / qty).quantize(Decimal("0.0001"))) if qty else 0,
+                reference=f"VOID-{inv.number}", description=mv.description, invoice_id=inv.id)
+        db.add(back)
+    db.flush()
 
 
 # --- what the page shows ----------------------------------------------------------------------------------------

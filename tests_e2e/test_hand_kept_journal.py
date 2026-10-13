@@ -44,3 +44,33 @@ def test_the_import_page_reads_a_schools_workbook(flow_page):
         page.select_option("#ji-sheet", "صورتحساب بانک")
     assert resp.value.json()["sheet"] == "صورتحساب بانک"                     # any sheet can be read
     assert watch.problems() == [], watch.problems()
+
+
+def test_the_next_file_sees_the_accounts_an_import_created(flow_page):
+    """P9: after an import the page reloads the chart, so the next year's file is
+    offered the accounts the last one created. The apply is answered here, so the
+    books stay untouched."""
+    page, watch = flow_page("e2e_handbook")
+    page.evaluate("() => { location.hash = 'migration'; }")
+    page.wait_for_load_state("networkidle")
+    loads = []
+    page.on("request", lambda r: loads.append(r.url) if "/accounts?limit=500" in r.url else None)
+    page.route("**/migration/journals/apply", lambda route: route.fulfill(
+        status=200, content_type="application/json",
+        body='{"posted": 2, "skipped": {}, "accounts_created": 1}'))
+
+    def preview():
+        page.set_input_files("#ji-file", BOOK)
+        with page.expect_response(lambda r: "/migration/journals/preview" in r.url):
+            page.click("#ji-preview-btn")
+        wait_until(page, "() => document.getElementById('ji-apply')")
+
+    preview()
+    before = len(loads)
+    assert before >= 1
+    page.click("#ji-apply")
+    page.click("#ui-confirm-ok")
+    wait_until(page, "() => !document.getElementById('ji-apply')")
+    preview()
+    assert len(loads) == before + 1, loads                                  # the chart is read again
+    assert watch.problems() == [], watch.problems()

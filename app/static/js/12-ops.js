@@ -1842,6 +1842,7 @@
           skipped: formatNum(Object.values(out.skipped || {}).reduce((a, b) => a + b, 0)) }))
           + (out.accounts_created ? ' ' + escapeHtml(tf('jiCreatedAccounts', { n: formatNum(out.accounts_created) })) : '') + '</p>';
         _ji = null;
+        _jiChart = null;            // the next file must see the accounts this one created (scenario P9)
       } catch (err) { document.getElementById('ji-msg').textContent = err.message; }
     }
 

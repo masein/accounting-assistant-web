@@ -396,3 +396,14 @@ The chat with a real model (Metis, `gpt-4.1-mini`) on the two migrated companies
 | T14 | A month whose cost of sales is a credit [G2] | Switch posting on from the 1st with £1,722 of stock on hand, in a month with £300 of purchases; sell 6 chairs (cost £454.98) | Cost of sales nets to a credit of £967.02 (the stock brought on is larger than the month's costs). The P&L, its PDF and its Excel show it as 967.02, a credit, and gross profit £1,687.02 adds up; it read «(967.02)», a cost, beside the same gross profit. An ordinary month still shows its cost of sales in brackets |
 
 **Run order:** A → B → C → D → E → F → G → H → J → L → M → N → O → P → Q → R → S → T; K on its own scratch database; I runs across all of it. Results go in `runs/<date>/RESULTS.md`.
+
+## U. A party's transactions window (2026-10-13)
+
+From the owner after the production imports: a party with years of history opened on its oldest entries, and nothing could be found in it.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| U1 | Newest first | A party with transactions on 1403/04/19, 1403/05/08 and 1403/06/07; open «تراکنش‌ها» from the parties list | 1403/06/07 is the top row. Each row's «مانده» is still the balance after that row, so the top one is the balance today. The PDF statement still reads oldest first, as a statement does |
+| U2 | Search | In the same window, type «طراحی» (the imported text reads «طراحي», with Sepidar's Arabic «ي»), then «۴۸٬۴۷۸٬۵۰۰», then «48478500», then «sepidar-6», then «۱۴۰۳/۰۵», then «zzz» | Only the matching rows show, with «۳ از ۴۱» beside the box; letters match in either form, digits in Persian or Latin, with or without separators. «zzz» shows «No transaction matches»; clearing the box shows every row again |
+| U3 | Searching, then editing | Search «تنخواه», edit one of the rows and save; then close the window and open another party's | Back in the list the search is still «تنخواه» and only its rows show. Another party, or opening from the list again, starts with an empty box |
+| U4 | The whole row in view | The same party at 1280 px, entries imported from Sepidar (references like «IMPORT-sepidar-6-2024-08-06», no attachments) | The window widens for a statement (up to 1240 px), each reference stays on one line, and the attachments column shows only when an entry has one: the «مانده» and the actions are in view without scrolling sideways (they sat past the edge, and each row was four lines tall). An account's detail and a shareholder's ledger keep the usual width |

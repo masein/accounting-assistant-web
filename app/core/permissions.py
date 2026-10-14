@@ -389,10 +389,10 @@ for _m, _p in [
     _add(_m, _p, Perm.BOOKS_WRITE)
 
 # --- Books: entities --------------------------------------------------------
-_reads(["/entities", "/entities/{entity_id}", "/entities/{entity_id}/statement.pdf"],
+_reads(["/entities", "/entities/{entity_id}", "/entities/{entity_id}/statement.pdf", "/entities/account-candidates"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 for _m, _p in [
-    ("POST", "/entities/resolve"), ("POST", "/entities"),
+    ("POST", "/entities/resolve"), ("POST", "/entities"), ("POST", "/entities/from-accounts"),
     ("PATCH", "/entities/{entity_id}"), ("DELETE", "/entities/{entity_id}"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)

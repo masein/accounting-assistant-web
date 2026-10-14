@@ -63,6 +63,13 @@ def control_spec_for(db: Session, entity: Entity) -> ControlSpec:
     """Resolve the control account(s) for ``entity`` on the active chart."""
     from app.services.account_resolver import resolve_account_code
 
+    if getattr(entity, "account_id", None):
+        # made from one of the chart's own debtor or creditor accounts (scenarios X1–X6):
+        # its statement is that account, read in the account's natural sense
+        code = db.execute(select(Account.code).where(Account.id == entity.account_id)).scalar()
+        if code:
+            from app.services.party_accounts import liability_side
+            return ControlSpec(frozenset({code}), (), liability_side(db, code))
     etype = (entity.type or "").strip().lower()
     if etype == "bank":
         own = (entity.code or "").strip()

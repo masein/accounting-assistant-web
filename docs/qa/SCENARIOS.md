@@ -419,3 +419,16 @@ From the owner's screenshots after the production imports.
 | V3 | Chart labels | The dashboard's «بیشترین هزینه‌ها» and the other charts, in Persian and in English | Legends, axes and tooltips use the page's own font (they fell back to Helvetica/Arial, unlike every other label), and their numbers are in the page's digits |
 | V4 | Buttons in a table cell | The companies console (AI budget · Suspend · Reset password) at 1280 px; a party's transactions (ویرایش · حذف) | A cell's buttons sit side by side with a gap and, when they must wrap, with a gap between the lines too; they touched, and the party's two were stacked |
 | V5 | Buttons under a field | Fixed assets → Month-end depreciation | Preview and Post depreciation sit a little below the «Up to» date, not touching it |
+
+## X. Parties from accounts (2026-10-14)
+
+The owner asked why «اجاره مدرسه» and the rest weren't in اشخاص. Rent is an expense account and stays in the chart. But the schools' hand-kept journals keep their people and organisations as accounts («دبیرستان منادی حق», «آقای صنعتی», «خانم آیت الهی», «تامین اجتماعی»), so the import made them accounts and only the bank became a party.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| X1 | What's offered | A school's imported books; open اشخاص → «Accounts that could be parties» | The debtor and creditor sub-accounts with entries are listed, with their balances: 115201 «دبیرستان منادی حق», 219603 «خانم آیت الهی», the loan 219701 «وام از بانک دی». Not offered: expenses («هزینه اجاره»), income, the bank, petty cash, fixed assets, accounts the posting roles use (trade debtors, wages payable, VAT), or an account that is already a party's |
+| X2 | Making parties | Tick «دبیرستان منادی حق» as a customer and «خانم آیت الهی» as a supplier, then make them | Both appear in اشخاص, each tied to its own account, and they are offered no more. Their past entries are linked to them |
+| X3 | Their transactions | Open «دبیرستان منادی حق»'s transactions; then «خانم آیت الهی»'s | Every entry on the account, newest first, with debtor, creditor and the running balance read off the account: the top row is what the school owes us (۹٬۲۳۸٬۴۸۷٬۴۵۲), and for «خانم آیت الهی» what we owe her (۸٬۵۴۱٬۴۵۹٬۰۱۳) |
+| X4 | New entries | Post a voucher to 115201 by hand, by chat or by import | It shows in «دبیرستان منادی حق»'s transactions and is linked to the party, with nobody picking her |
+| X5 | Their statement | The party's PDF statement for a period | The account's entries in the period, after a brought-forward balance; it was empty, because the statement read only invoices |
+| X6 | Who can | A viewer or an employee asks to make parties | Refused (BOOKS_WRITE); اشخاص is the owner's, CFO's and accountant's page |

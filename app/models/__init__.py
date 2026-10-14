@@ -131,3 +131,5 @@ __all__ = [
 # Every journal line gets its base-currency amounts on flush (roadmap §4.6).
 # Registered here so any code that can write a line has the hook.
 import app.services.fx_base  # noqa: E402,F401
+# its before_flush hook links a new entry on a party's own account to the party (scenario X4)
+import app.services.party_accounts  # noqa: E402,F401

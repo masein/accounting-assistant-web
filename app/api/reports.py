@@ -247,17 +247,19 @@ def get_entity_transactions(
             select(Account).where(Account.code == entity.code.strip())
         ).scalars().first()
         bank_account_id = acc.id if acc else None
+    # …and a party made from one of the chart's accounts: every entry on it, linked or not
+    own_account_id = getattr(entity, "account_id", None) or bank_account_id
     link_exists = (
         select(TransactionEntity.id)
         .where(TransactionEntity.transaction_id == Transaction.id,
                TransactionEntity.entity_id == entity_id)
         .exists()
     )
-    if bank_account_id is not None:
+    if own_account_id is not None:
         line_exists = (
             select(TransactionLine.id)
             .where(TransactionLine.transaction_id == Transaction.id,
-                   TransactionLine.account_id == bank_account_id)
+                   TransactionLine.account_id == own_account_id)
             .exists()
         )
         cond = or_(link_exists, line_exists)

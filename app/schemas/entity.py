@@ -74,6 +74,9 @@ class EntityUpdate(_IbanInput, EntityBillingFields):
 
 class EntityRead(EntityBase):
     id: UUID
+    # the chart account the party was made from (scenarios X1–X6); its statement reads it
+    account_id: UUID | None = None
+    account_code: str | None = None
 
     model_config = {"from_attributes": True}
 

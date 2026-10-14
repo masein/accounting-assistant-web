@@ -62,7 +62,16 @@ def list_entities(
     if search and search.strip():
         q = q.where(fold_sql(Entity.name).ilike(f"%{fold_fa(search.strip())}%"))
     entities = db.execute(q).scalars().all()
-    return [_strip_for_actor(EntityRead.model_validate(e)) for e in entities]
+    # a party made from an account shows that account's code (scenario X2)
+    from app.models.account import Account
+    own = {e.account_id for e in entities if e.account_id}
+    codes = dict(db.execute(select(Account.id, Account.code).where(Account.id.in_(own))).all()) if own else {}
+    out = []
+    for e in entities:
+        read = EntityRead.model_validate(e)
+        read.account_code = codes.get(e.account_id)
+        out.append(_strip_for_actor(read))
+    return out
 
 
 # Entities are readable with reports:read so a viewer can label dashboards,
@@ -177,6 +186,41 @@ def _check_bank_code(db: Session, code: str) -> None:
         pass
     if not any(code == r or code.startswith(r) for r in roots if r):
         raise HTTPException(status_code=422, detail=f"Account {code} isn't a bank or cash account. Leave the code empty to open one for this bank.")
+
+
+class _AccountPick(BaseModel):
+    account_id: UUID
+    type: str = Field(..., max_length=32, description="client, supplier, employee or shareholder")
+    name: str | None = Field(None, max_length=256, description="Defaults to the account's name")
+
+
+class FromAccounts(BaseModel):
+    accounts: list[_AccountPick] = Field(..., min_length=1, max_length=500)
+
+
+@router.get("/account-candidates")
+def account_candidates(db: Session = Depends(get_db)) -> dict:
+    """The chart's debtor and creditor accounts that could be parties (scenario X1): leaf
+    accounts with entries on a receivable, payable, advance or loan line, not a bank's,
+    not a posting role's, not a party's already."""
+    from app.services.party_accounts import candidates
+    return {"accounts": candidates(db)}
+
+
+@router.post("/from-accounts", status_code=201)
+def parties_from_accounts(payload: FromAccounts, db: Session = Depends(get_db)) -> dict:
+    """Each picked account becomes a party tied to it, its past entries linked (scenario X2)."""
+    from app.services.party_accounts import PartyAccountError, make_parties
+    try:
+        made = make_parties(db, [p.model_dump(mode="json") for p in payload.accounts])
+    except PartyAccountError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    for entity in made:
+        log_audit_event(db, action="create", entity_type="entity", entity_id=str(entity.id),
+                        detail=f"party {entity.name!r} made from account {entity.account_id}")
+    db.commit()
+    return {"created": [EntityRead.model_validate(e).model_dump(mode="json") for e in made]}
 
 
 @router.get("/{entity_id}", response_model=EntityRead)

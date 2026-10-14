@@ -81,6 +81,10 @@ object Numbers {
         }
     }
 
+    /** A recording's length, «۰:۰۷» (fa) or "0:07". */
+    fun duration(seconds: Long, lang: String): String =
+        digits("${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}", lang)
+
     /** Persian and Arabic digits typed by the user, back to Western ones. */
     fun normalise(text: String): String = text.map {
         val p = PERSIAN.indexOf(it)

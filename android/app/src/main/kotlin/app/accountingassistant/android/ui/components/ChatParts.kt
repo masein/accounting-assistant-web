@@ -263,6 +263,7 @@ fun Composer(
     onSpeakCancel: () -> Unit = {},
     level: () -> Float = { 0f },
     transcribing: Boolean = false,
+    lang: String = "en",
 ) {
     val c = LocalAccountantColors.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -308,7 +309,7 @@ fun Composer(
                     listening -> Row(verticalAlignment = Alignment.CenterVertically) {
                         RecordingDot()
                         Spacer(Modifier.width(6.dp))
-                        Text(Numbers.duration(elapsed / 1000), color = c.ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        Text(Numbers.duration(elapsed / 1000, lang), color = c.ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                              style = FigureStyle, maxLines = 1)
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
@@ -356,13 +357,14 @@ fun Composer(
                             if (transcribing) return@pointerInput
                             awaitEachGesture {
                                 val down = awaitFirstDown()
-                                val t0 = System.currentTimeMillis()
+                                var upAt = down.uptimeMillis              // the touch's own clock, not the wall's
                                 holding = true
                                 drag = 0f
                                 onSpeakStart()
                                 var cancelled = false
                                 while (true) {
                                     val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                    upAt = change.uptimeMillis
                                     if (!change.pressed) break
                                     val dx = change.position.x - down.position.x
                                     drag = max(0f, if (rtl) dx else -dx)
@@ -378,7 +380,7 @@ fun Composer(
                                         do { val e = awaitPointerEvent() } while (e.changes.any { it.pressed })
                                     }
                                     !nowListening -> Unit                  // the microphone was refused or is still asked for
-                                    System.currentTimeMillis() - t0 < 300 -> handsFree = true   // a tap: hands-free (W1)
+                                    upAt - down.uptimeMillis < 300 -> handsFree = true          // a tap: hands-free (W1)
                                     else -> onSpeakEnd()                   // let go after holding: write it (W3)
                                 }
                             }

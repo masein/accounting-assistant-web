@@ -223,8 +223,10 @@ class MainActivity : ComponentActivity() {
                         onSpeakStart = { if (runCatching { recorder.start() }.isSuccess) vm.listening(true) },
                         onSpeakEnd = {
                             vm.listening(false)
-                            recorder.stop()?.let { vm.heard(it.bytes, it.name, it.mime) }
+                            recorder.stop()?.let { vm.heard(it.bytes, it.name, it.mime) } ?: vm.tooShort()
                         },
+                        onSpeakCancel = { recorder.cancel(); vm.listening(false) },
+                        level = recorder::level,
                         onFile = { file, share ->
                             scope.launch {
                                 runCatching { app.api.download(file.path) }

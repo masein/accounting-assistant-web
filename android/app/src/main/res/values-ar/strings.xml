@@ -109,6 +109,24 @@
     <string name="reject_reason">السبب (اختياري)</string>
     <string name="crash_title">إرسال تقارير الأعطال</string>
     <string name="crash_hint">موضع العطل فقط، وليس رسائلك أو أرقامك أبداً.</string>
+    <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->
+    <string name="sms_title">قراءة رسائل البنك</string>
+    <string name="sms_hint">فقط من المرسلين الذين تقول إنهم بنكك: يذهب النص والمرسل والوقت إلى دفاترك، ولا يخرج شيء آخر من الهاتف.</string>
+    <string name="sms_denied">لم يسمح أندرويد بقراءة الرسائل. اسمح بذلك في إعدادات التطبيق لتشغيله.</string>
+    <string name="sms_none">عندما تصل رسالة من بنك، سنسألك هل مرسلها بنكك.</string>
+    <string name="sms_reading">تذهب إلى الدفاتر</string>
+    <string name="sms_ignored">تُتجاهل</string>
+    <string name="sms_waiting">%1$d بانتظارك</string>
+    <string name="sms_read">اقرأ</string>
+    <string name="sms_ignore">تجاهل</string>
+    <string name="sms_stop">أوقف القراءة</string>
+    <string name="sms_ask_title">هل %1$s بنكك؟</string>
+    <string name="sms_ask_body">%1$s: هل تذهب رسائله إلى دفاترك؟</string>
+    <string name="sms_ask_body_unknown">هل تذهب رسائله إلى دفاترك؟</string>
+    <string name="sms_locked_title">رسالة من بنك بانتظار قرارك</string>
+    <string name="sms_locked_body">افتح التطبيق للاختيار.</string>
+    <string name="sms_channel">رسائل البنك</string>
+    <string name="sms_channel_hint">يسأل هل المرسل بنكك.</string>
     <string name="statement_title">كشف حساب بنكي</string>
     <string name="statement_gap">يختلف الرصيد عن الدفاتر بمقدار %1$s</string>
     <string name="statement_clean">كل شيء يطابق الدفاتر.</string>

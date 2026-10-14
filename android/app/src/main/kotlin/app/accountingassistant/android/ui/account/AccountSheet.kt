@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -24,13 +26,17 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.accountingassistant.android.R
 import app.accountingassistant.android.data.DeviceDto
+import app.accountingassistant.android.sms.BankText
+import app.accountingassistant.android.sms.SmsSender
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
+import app.accountingassistant.android.util.Numbers
 
 /**
  * Behind the avatar: who you are and in which books, the phones signed in
@@ -53,12 +59,13 @@ fun AccountSheet(
     onCrashes: (Boolean) -> Unit = {},
     notifyOn: Boolean = false,
     onNotify: (Boolean) -> Unit = {},
+    sms: SmsSection? = null,
 ) {
     val c = LocalAccountantColors.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded)),
                      containerColor = c.surface) {
         AccountSheetContent(username, booksName, role, devices, lockAvailable, lockOn, onLock, onRevoke, onSignOut,
-                            crashesOn, onCrashes, notifyOn, onNotify)
+                            crashesOn, onCrashes, notifyOn, onNotify, sms)
     }
 }
 
@@ -68,9 +75,11 @@ fun AccountSheetContent(
     lockAvailable: Boolean, lockOn: Boolean, onLock: (Boolean) -> Unit, onRevoke: (String) -> Unit, onSignOut: () -> Unit,
     crashesOn: Boolean = true, onCrashes: (Boolean) -> Unit = {},
     notifyOn: Boolean = false, onNotify: (Boolean) -> Unit = {},
+    sms: SmsSection? = null,
 ) {
     val c = LocalAccountantColors.current
-    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 16.dp),
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()
+               .padding(horizontal = 20.dp).padding(bottom = 16.dp),
            verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Column {
             Text(username, color = c.ink, fontSize = 18.sp, fontWeight = FontWeight(800))
@@ -96,6 +105,7 @@ fun AccountSheetContent(
             Switch(checked = notifyOn, onCheckedChange = onNotify,
                    colors = SwitchDefaults.colors(checkedTrackColor = c.firouzeh, checkedThumbColor = c.onFirouzeh))
         }
+        if (sms != null) SmsSettings(sms)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.crash_title), color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700))
@@ -126,6 +136,69 @@ fun AccountSheetContent(
         }
         OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, c.line)) {
             Text(stringResource(R.string.sign_out), color = c.pomegranate, fontWeight = FontWeight(700))
+        }
+    }
+}
+
+/**
+ * «Read bank SMS» (the builds outside Play, roadmap ROADMAP_ANDROID_CHAT §7.1):
+ * the switch, and each sender the user was asked about with what happens to
+ * its messages.
+ */
+data class SmsSection(
+    val on: Boolean,
+    val denied: Boolean,
+    val senders: List<Pair<SmsSender, Int>>,
+    val onSwitch: (Boolean) -> Unit,
+    val onDecide: (sender: String, read: Boolean) -> Unit,
+)
+
+@Composable
+private fun SmsSettings(sms: SmsSection) {
+    val c = LocalAccountantColors.current
+    val lang = LocalConfiguration.current.locales[0].language
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.sms_title), color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700))
+            Text(stringResource(if (sms.denied) R.string.sms_denied else R.string.sms_hint),
+                 color = if (sms.denied) c.pomegranate else c.muted, fontSize = 12.5.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = sms.on, onCheckedChange = sms.onSwitch,
+               colors = SwitchDefaults.colors(checkedTrackColor = c.firouzeh, checkedThumbColor = c.onFirouzeh))
+    }
+    if (!sms.on) return
+    if (sms.senders.isEmpty()) Text(stringResource(R.string.sms_none), color = c.muted, fontSize = 12.5.sp)
+    sms.senders.forEach { (s, waiting) ->
+        Surface(shape = RoundedCornerShape(14.dp), color = c.surface,
+                border = BorderStroke(1.dp, if (s.read == null) c.firouzeh else c.line)) {
+            Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    val bank = BankText.displayName(s.bank, lang)
+                    Text(Numbers.digits(s.sender, lang) + (bank?.let { " · $it" } ?: ""), color = c.ink, fontSize = 14.sp,
+                         fontWeight = FontWeight(600))
+                    Text(when (s.read) {
+                        true -> stringResource(R.string.sms_reading)
+                        false -> stringResource(R.string.sms_ignored)
+                        null -> stringResource(R.string.sms_waiting, waiting)
+                    }, color = if (s.read == null) c.firouzeh else c.muted, fontSize = 12.sp)
+                }
+                when (s.read) {
+                    true -> TextButton(onClick = { sms.onDecide(s.sender, false) }) {
+                        Text(stringResource(R.string.sms_stop), color = c.pomegranate)
+                    }
+                    false -> TextButton(onClick = { sms.onDecide(s.sender, true) }) {
+                        Text(stringResource(R.string.sms_read), color = c.firouzeh)
+                    }
+                    null -> {
+                        TextButton(onClick = { sms.onDecide(s.sender, false) }) { Text(stringResource(R.string.sms_ignore), color = c.muted) }
+                        TextButton(onClick = { sms.onDecide(s.sender, true) }) {
+                            Text(stringResource(R.string.sms_read), color = c.firouzeh, fontWeight = FontWeight(700))
+                        }
+                    }
+                }
+            }
         }
     }
 }

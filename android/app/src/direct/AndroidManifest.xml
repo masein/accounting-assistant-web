@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Outside Play only: bank SMS read as they arrive (sms/SmsReading.kt; roadmap §7.1, §11.5).
+     Asked for when the user turns «Read bank SMS» on in the account sheet. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- RECEIVE_SMS implies a phone radio: a tablet without one still installs the app, it just gets no SMS -->
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <application>
+        <!-- only the phone's SMS service may send it messages -->
+        <receiver
+            android:name=".sms.BankSmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+        <!-- Read or Ignore, from the notification that asked about a sender -->
+        <receiver
+            android:name=".sms.BankSmsChoice"
+            android:exported="false" />
+    </application>
+</manifest>

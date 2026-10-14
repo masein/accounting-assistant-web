@@ -30,6 +30,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.accountingassistant.android.data.DeviceDto
 import app.accountingassistant.android.security.AppLock
 import app.accountingassistant.android.ui.account.AccountSheet
+import app.accountingassistant.android.ui.account.SmsSection
+import app.accountingassistant.android.sms.BankSmsWorker
+import app.accountingassistant.android.sms.SmsAsk
+import app.accountingassistant.android.sms.SmsSender
+import app.accountingassistant.android.sms.SmsSwitch
 import app.accountingassistant.android.ui.account.LockScreen
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.CompositionLocalProvider
@@ -86,6 +91,15 @@ class MainActivity : ComponentActivity() {
                 var signedIn by remember { mutableStateOf(false) }
                 var locked by remember { mutableStateOf(false) }
                 var lockOn by remember { mutableStateOf(false) }
+                // bank SMS, in the builds outside Play (sms/SmsReading.kt): on only once Android allows reading them
+                var smsOn by remember { mutableStateOf(SmsSwitch.on(this@MainActivity)) }
+                var smsDenied by remember { mutableStateOf(false) }
+                var smsSenders by remember { mutableStateOf(emptyList<Pair<SmsSender, Int>>()) }
+                val askToReadSms = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                    SmsSwitch.set(this@MainActivity, granted)
+                    smsOn = granted
+                    smsDenied = !granted
+                }
                 LaunchedEffect(Unit) {
                     signedIn = app.api.restore() != null
                     lockOn = lock.enabled()
@@ -97,6 +111,8 @@ class MainActivity : ComponentActivity() {
                         forgetThePerson()
                         signedIn = false
                         app.forgetOutbox()
+                        app.forgetBankSms()
+                        smsOn = false
                         Shortcuts.remove(this@MainActivity)
                         WidgetRefresh.forget(this@MainActivity)
                         FeedNotifier(this@MainActivity).forget()
@@ -243,6 +259,7 @@ class MainActivity : ComponentActivity() {
                             account = true
                             devices = null
                             scope.launch { devices = runCatching { app.api.devices() }.getOrDefault(emptyList()) }
+                            if (SmsSwitch.available) scope.launch { smsSenders = app.bankSms.senders() }
                         },
                     )
                     if (threadsOpen) {
@@ -265,6 +282,26 @@ class MainActivity : ComponentActivity() {
                                     askToNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 } else notifications(on)
                             },
+                            sms = if (!SmsSwitch.available) null else SmsSection(
+                                on = smsOn, denied = smsDenied, senders = smsSenders,
+                                onSwitch = { on ->
+                                    if (on && checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
+                                        askToReadSms.launch(Manifest.permission.RECEIVE_SMS)
+                                    } else {
+                                        SmsSwitch.set(this@MainActivity, on)
+                                        smsOn = on
+                                        smsDenied = false
+                                    }
+                                },
+                                onDecide = { sender, read ->
+                                    scope.launch {
+                                        app.bankSms.decide(sender, read)
+                                        if (read) BankSmsWorker.schedule(this@MainActivity)
+                                        SmsAsk(this@MainActivity).cancel(sender)
+                                        smsSenders = app.bankSms.senders()
+                                    }
+                                },
+                            ),
                             onRevoke = { id ->
                                 scope.launch {
                                     runCatching { app.api.revokeDevice(id) }
@@ -277,6 +314,8 @@ class MainActivity : ComponentActivity() {
                                     app.api.signOut()
                                     forgetThePerson()
                                     app.forgetOutbox()
+                                    app.forgetBankSms()
+                                    smsOn = false
                                     Shortcuts.remove(this@MainActivity)
                                     WidgetRefresh.forget(this@MainActivity)
                                     feed.forget()

@@ -35,14 +35,16 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit and screenshot tests
-        # runs every unit test, with the screenshot tests writing their images
-        run: ./gradlew --no-daemon :app:recordRoborazziDebug
-      - name: Debug build
-        run: ./gradlew --no-daemon :app:assembleDebug
+        # every unit test on the build outside Play (it has everything Play's has, and the SMS
+        # reading), with the screenshot tests writing their images; then Play's own build test:
+        # no SMS permission, no receiver (roadmap §7.1, §11.5)
+        run: ./gradlew --no-daemon :app:recordRoborazziDirectDebug :app:testPlayDebugUnitTest --tests '*StoreBuildTest*'
+      - name: Debug builds
+        run: ./gradlew --no-daemon :app:assembleDirectDebug :app:assemblePlayDebug
       - name: Lint
         # errors fail the build: it caught the app lock throwing on a locked phone (USE_BIOMETRIC) and an
         # Android 10 call reached on Android 9, which the emulator and the tests never did
-        run: ./gradlew --no-daemon :app:lintDebug
+        run: ./gradlew --no-daemon :app:lintDirectDebug :app:lintPlayDebug
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4

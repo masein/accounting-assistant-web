@@ -34,7 +34,7 @@
       const st = _wn.steps[_wn.idx];
       if (!st) return;
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-      set('whats-new-version', tf('wnVersion', { version: st.version, date: st.date || '' }) + ' · ' + tf('wnStep', { n: _wn.idx + 1, total: _wn.steps.length }));
+      set('whats-new-version', tf('wnVersion', { version: String(st.version).split('.').map(localDigits).join('.'), date: st.date || '' }) + ' · ' + tf('wnStep', { n: _wn.idx + 1, total: _wn.steps.length }));
       set('whats-new-step-title', _wnText(st.title));
       set('whats-new-step-body', _wnText(st.body));
       const dots = document.getElementById('whats-new-dots');

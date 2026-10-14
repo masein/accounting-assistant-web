@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 from datetime import date
+from datetime import date as _date
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -825,6 +827,38 @@ def sync_inventory_ledger(db: Session = Depends(get_db)) -> dict:
     """Post what changed since the last sync (nothing when nothing did)."""
     from app.services.inventory_ledger import status, sync
     out = sync(db)
+    db.commit()
+    return {**out, "status": status(db)}
+
+
+class InventoryCountLine(BaseModel):
+    item_id: UUID
+    counted: Decimal = Field(..., ge=0)
+
+
+class InventoryCountIn(BaseModel):
+    date: _date
+    lines: list[InventoryCountLine] = Field(..., min_length=1, max_length=2000)
+
+
+@router.get("/inventory/count-sheet")
+def inventory_count_sheet(as_of: date | None = Query(None), db: Session = Depends(get_db)) -> dict:
+    """Every active item with what is on hand on the day, to count against (scenario T20)."""
+    from app.services.inventory_ledger import count_sheet
+    on = as_of or date.today()
+    return {"date": on.isoformat(), "rows": count_sheet(db, on)}
+
+
+@router.post("/inventory/counts", status_code=201)
+def post_inventory_count(body: InventoryCountIn, db: Session = Depends(get_db)) -> dict:
+    """A stock count: each item counted that differs from what is on hand
+    gets one movement, and the stock in the books follows (scenarios T20, T21)."""
+    from app.services.audit_service import log_audit_event
+    from app.services.inventory_ledger import post_count, status
+    out = post_count(db, body.date, body.lines)
+    if out["adjusted"]:
+        log_audit_event(db, action="create", entity_type="inventory_count", entity_id=body.date.isoformat(),
+                        detail=", ".join(f"{a['name']} {a['difference']:+}" for a in out["adjusted"])[:500])
     db.commit()
     return {**out, "status": status(db)}
 

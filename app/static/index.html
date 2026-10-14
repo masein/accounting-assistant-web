@@ -1530,6 +1530,22 @@
         </div>
       </div>
 
+      <!-- A stock count (docs/PLAN_INVENTORY_GL.md, scenarios T20, T21) -->
+      <div class="panel" id="count-panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
+        <h3 style="margin:0 0 0.5rem;font-size:1rem;color:var(--primary);" data-i18n="countTitle">Stock count</h3>
+        <p class="fc-note" data-i18n="countHint">Count what is on the shelves and type it in. Each item that differs from what's on hand gets one movement on the day, and the books follow; items left blank aren't touched.</p>
+        <div class="form-grid" style="grid-template-columns: 1fr auto;align-items:end;">
+          <div>
+            <label for="count-date" data-i18n="countDate">Counted on</label>
+            <input type="date" id="count-date">
+          </div>
+          <div class="btn-cell"><button type="button" class="btn btn-secondary" id="count-load" data-i18n="countLoad">Show what's on hand</button></div>
+        </div>
+        <div id="count-sheet" style="overflow-x:auto;"></div>
+        <div class="btn-row" style="margin-top:0.5rem;"><button type="button" class="btn btn-primary" id="count-post" data-i18n="countPost" hidden>Post the count</button></div>
+        <div id="count-result" class="fc-note" role="status"></div>
+      </div>
+
       <!-- Recipes (bill of materials) and production (roadmap §4.4) -->
       <div class="panel" style="margin-bottom:1rem;padding:1rem 1.25rem;">
         <h3 style="margin:0 0 0.5rem;font-size:1rem;color:var(--primary);" data-i18n="bomTitle">Recipes and production</h3>
@@ -3166,6 +3182,29 @@
       <div style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem;">
         <button type="button" class="btn btn-secondary" id="ui-confirm-cancel" data-i18n="btnCancel">Cancel</button>
         <button type="button" class="btn btn-primary" id="ui-confirm-ok" data-i18n="btnConfirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+  <!-- Goods coming back on a credit note (docs/PLAN_INVENTORY_GL.md, scenarios T15–T18). -->
+  <div id="cn-returns-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="cn-returns-title" style="display: none;">
+    <div class="modal-card" style="max-width: 640px;">
+      <div class="modal-header">
+        <h2 id="cn-returns-title" data-i18n="cnReturnsTitle">Goods coming back</h2>
+        <button type="button" class="modal-close" data-i18n-aria-label="btnClose" aria-label="Close" id="cn-returns-close">×</button>
+      </div>
+      <div style="padding: 1rem 1.25rem; overflow-y: auto;">
+        <p id="cn-returns-hint" class="fc-note" style="margin-top:0;"></p>
+        <div style="overflow-x:auto;">
+          <table class="results-table" id="cn-returns-table">
+            <thead><tr><th data-i18n="cnReturnsItem">Item</th><th data-i18n="cnReturnsMoved">On the invoice</th><th data-i18n="cnReturnsBack">Already back</th><th data-i18n="cnReturnsQty">Coming back</th></tr></thead>
+            <tbody id="cn-returns-body"></tbody>
+          </table>
+        </div>
+        <div id="cn-returns-total" class="fc-note" role="status"></div>
+      </div>
+      <div class="btn-row" style="justify-content: flex-end; padding: 0 1.25rem 1.25rem;">
+        <button type="button" class="btn btn-secondary" id="cn-returns-none" data-i18n="cnReturnsNone">No goods back</button>
+        <button type="button" class="btn btn-primary" id="cn-returns-ok" data-i18n="btnContinue">Continue</button>
       </div>
     </div>
   </div>

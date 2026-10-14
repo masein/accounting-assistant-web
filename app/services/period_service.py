@@ -37,7 +37,12 @@ def get_closed_period(db: Session) -> date | None:
 
 def set_closed_period(db: Session, value: date | None) -> date | None:
     """Lock the books through ``value`` (inclusive), or clear the lock with
-    None."""
+    None. The months being closed get their stock postings first: a closed
+    month is never posted to again (docs/PLAN_INVENTORY_GL.md, scenario T23)."""
+    previous = get_closed_period(db)
+    if value is not None and (previous is None or value > previous):
+        from app.services import inventory_ledger
+        inventory_ledger.sync(db)
     iso = value.isoformat() if value else ""
     row = db.execute(
         select(AppSetting).where(AppSetting.key == CLOSED_PERIOD_KEY)

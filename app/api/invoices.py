@@ -948,6 +948,44 @@ def _vat_share(inv: Invoice, gross):
     return round_amount(to_decimal(tax_total) * to_decimal(gross) / to_decimal(grand_total), inv.currency)
 
 
+def _assert_rate_on(db: Session, currency: str | None, on: date) -> None:
+    """Stock is kept in the base currency: goods back on a foreign bill need the day's rate."""
+    from app.services.fx_base import base_currency, rate_to_base
+    ccy = (currency or "").upper()
+    if ccy and ccy != base_currency(db).upper() and not rate_to_base(db, ccy, on):
+        raise HTTPException(status_code=422, detail=(
+            f"Add the exchange rate for {ccy} on {on.isoformat()} first: stock is kept in the base currency."))
+
+
+@router.get("/{invoice_id}/stock-returns")
+def stock_returns(invoice_id: UUID, db: Session = Depends(get_db)) -> dict:
+    """What of an invoice's stock can come back on a credit note, line by item:
+    what it moved, what came back, what is left, and the price each unit was
+    invoiced at, without and with its tax (the credit note form suggests its
+    amount from these). ``enabled`` is whether stock posts at all."""
+    from app.models.inventory import InventoryItem
+    from app.services import inventory_ledger
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    enabled = inventory_ledger.start_date(db) is not None
+    rows = []
+    for item_id, q in (inventory_ledger.returnable(db, inv) if enabled else {}).items():
+        item = db.get(InventoryItem, item_id)
+        lines = [it for it in (inv.items or []) if it.inventory_item_id == item_id]
+        n = sum((to_decimal(it.quantity or 0) for it in lines), Decimal(0))
+        net = sum((to_decimal(it.line_total or 0) for it in lines), Decimal(0))
+        tax = sum((to_decimal(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency)) for it in lines),
+                  Decimal(0))
+        q6 = Decimal("0.000001")
+        rows.append({"item_id": str(item_id), "name": item.name if item else "", "unit": item.unit if item else "",
+                     "moved": plain(q["moved"]), "back": plain(q["back"]), "left": plain(q["left"]),
+                     "unit_price": plain((net / n).quantize(q6)) if n else 0,
+                     "unit_gross": plain(((net + tax) / n).quantize(q6)) if n else 0})
+    rows.sort(key=lambda r: r["name"].lower())
+    return {"enabled": enabled, "number": inv.number, "kind": inv.kind, "currency": inv.currency, "lines": rows}
+
+
 @router.post("/{invoice_id}/credit-notes", response_model=CreditNoteRead, status_code=201)
 def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = Depends(get_db)) -> CreditNoteRead:
     """A credit note against an invoice — paid or not (a return after payment
@@ -976,6 +1014,11 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
             detail=f"Credit note ({amount}) exceeds what is left to credit ({creditable}).",
         )
     on = payload.date or date.today()
+    # goods coming back with it, checked before anything posts (phase G3)
+    from app.services import inventory_ledger
+    returned = inventory_ledger.check_returns(db, inv, payload.returns, on)
+    if returned and inv.kind == "purchase":
+        _assert_rate_on(db, inv.currency, on)
     to_balance = min(amount, balance_due)
     excess = amount - to_balance
     vat = _vat_share(inv, amount)
@@ -998,7 +1041,18 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
                 lines.append((resolve_account_code(db, "ap"), to_balance, 0, bt(db, "credit_note_ap", number=inv.number)))
             if excess:
                 lines.append((resolve_account_code(db, "supplier_advance"), excess, 0, bt(db, "cn_supplier_credit", number=inv.number)))
-            lines.append((resolve_account_code(db, "expense"), 0, amount - vat, bt(db, "credit_note_purchase", number=inv.number)))
+            # goods back to the supplier leave stock at what the bill paid for
+            # them; the rest of the credit is off purchases (or, when the
+            # supplier kept some of it, a cost)
+            back = [(resolve_account_code(db, "inventory"), 0, round_amount(qty * price, inv.currency),
+                     bt(db, "cn_stock_back", item=item.name, number=inv.number)) for item, qty, price in returned]
+            back = [ln for ln in back if ln[2] > 0]
+            lines.extend(back)
+            rest = amount - vat - sum(ln[2] for ln in back)
+            if rest > 0 or not back:
+                lines.append((resolve_account_code(db, "expense"), 0, rest, bt(db, "credit_note_purchase", number=inv.number)))
+            elif rest < 0:
+                lines.append((resolve_account_code(db, "expense"), -rest, 0, bt(db, "cn_restocking", number=inv.number)))
             if vat:
                 lines.append((resolve_account_code(db, "vat_input"), 0, vat, bt(db, "cn_vat_in", number=inv.number)))
             role = "supplier"
@@ -1027,6 +1081,9 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
         )
         db.add(credit)
     db.flush()
+    if returned:
+        inventory_ledger.record_returns(db, inv, note, returned, on=on, txn=txn)
+        inventory_ledger.sync(db)
     from app.services.fx_settlement import settle
     settle(db, txn, inv)
     paid2, credited2, balance2 = _invoice_totals(db, inv)

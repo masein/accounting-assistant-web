@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from datetime import date as _date  # alias: fields literally named `date` shadow the type
 from typing import Optional
 from uuid import UUID
@@ -114,6 +115,13 @@ class PaymentRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class StockReturn(BaseModel):
+    """Goods coming back on a credit note: a customer's return, or ours to a
+    supplier (docs/PLAN_INVENTORY_GL.md, phase G3)."""
+    item_id: UUID
+    quantity: Decimal = Field(..., gt=0)
+
+
 class CreditNoteCreate(BaseModel):
     amount: Money = Field(..., gt=0, description="In the currency's own unit, > 0 (7.50 is £7.50)")
     date: _date | None = None
@@ -123,6 +131,8 @@ class CreditNoteCreate(BaseModel):
     # pay it back now (to this bank account, else the default one) or keep it
     refund: bool = False
     bank_account_code: str | None = Field(None, max_length=16)
+    # the invoice's stock that comes back with it (only while stock posts)
+    returns: list[StockReturn] = Field(default_factory=list, max_length=200)
 
 
 class CreditRefund(BaseModel):

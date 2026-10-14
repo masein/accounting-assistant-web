@@ -1311,7 +1311,9 @@
         product.innerHTML = opts;
         if (keep && _stockItems.some((i) => i.id === keep)) product.value = keep;
         if (!document.getElementById('prod-date').value) document.getElementById('prod-date').value = localIsoDate(new Date());
+        if (!document.getElementById('count-date').value) document.getElementById('count-date').value = localIsoDate(new Date());
         await Promise.all([stockShowValuation(), bomLoad(), stockLedgerLoad()]);
+        if (_countRows.length || _countLast) countRender(true);   // in the page's language again
       } catch (_) {
         table.innerHTML = '<p class="fc-note">' + escapeHtml(t('stockLoadError')) + '</p>';
       }
@@ -1450,6 +1452,84 @@
       showAlert(out.posted && out.posted.length ? tf('stockLedgerPosted', { n: out.posted.length }) : t('stockLedgerNothing'));
     }
 
+    // A stock count (docs/PLAN_INVENTORY_GL.md, scenarios T20, T21): what is on hand on the
+    // day beside a box for what was counted; only the items typed in are posted
+    let _countRows = [];
+    let _countLast = null;             // the last count posted, said again in another language
+    async function countLoad(keepResult = false) {
+      const on = document.getElementById('count-date');
+      if (!on.value) on.value = localIsoDate(new Date());
+      if (!keepResult) _countLast = null;
+      const res = await fetch(API + '/manager-reports/inventory/count-sheet?as_of=' + encodeURIComponent(on.value));
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { _countRows = []; countRender(); showAlert(d.detail || t('stockLoadError'), true); return; }
+      _countRows = d.rows || [];
+      countRender();
+    }
+    // the sheet from what was loaded; ``keep`` carries what was typed over (a language switch)
+    function countRender(keep = false) {
+      const sheet = document.getElementById('count-sheet');
+      const typed = {};
+      if (keep) sheet.querySelectorAll('.count-qty').forEach((el) => { typed[el.dataset.id] = el.value; });
+      document.getElementById('count-post').hidden = !_countRows.length;
+      countSay();
+      if (!_countRows.length) {
+        sheet.innerHTML = _countLast || keep ? '' : '<p class="fc-note">' + escapeHtml(t('stockNone')) + '</p>';
+        return;
+      }
+      sheet.innerHTML = `<table class="results-table"><thead><tr>
+          <th>${escapeHtml(t('countItem'))}</th><th>${escapeHtml(t('countOnHand'))}</th>
+          <th>${escapeHtml(t('countCounted'))}</th><th>${escapeHtml(t('countDiff'))}</th></tr></thead><tbody>${
+        _countRows.map((r, i) => `<tr>
+          <td dir="auto">${escapeHtml(r.name)}${r.sku ? ' <span class="fc-note">' + escapeHtml(r.sku) + '</span>' : ''}</td>
+          <td>${escapeHtml(formatNum(Number(r.on_hand)))} ${escapeHtml(r.unit || '')}</td>
+          <td><input type="number" class="count-qty" data-i="${i}" data-id="${escapeHtml(r.item_id)}" min="0" step="any"
+            value="${escapeHtml(typed[r.item_id] || '')}" style="width:8rem;"
+            aria-label="${escapeHtml(tf('countCountedFor', { name: r.name }))}"></td>
+          <td class="count-diff" data-i="${i}"></td></tr>`).join('')}</tbody></table>`;
+      countShowDiffs();
+    }
+    function countSay() {
+      const d = _countLast;
+      document.getElementById('count-result').textContent = !d ? '' : d.adjusted.length
+        ? tf('countDone', { n: formatNum(d.adjusted.length), list: d.adjusted.map((a) =>
+            a.name + ' ' + (Number(a.difference) > 0 ? '+' : '−') + formatNum(Math.abs(Number(a.difference)))
+            + ' (' + formatMoney(Math.abs(Number(a.value)), currencyUnit()) + ')').join(' · ') })
+        : t('countNothing');
+    }
+    function countTyped() {
+      return _countRows.map((r, i) => {
+        const raw = document.querySelector(`#count-sheet .count-qty[data-i="${i}"]`).value;
+        return raw === '' ? null : { r, i, n: parseMoney(latinDigits(raw)) };
+      }).filter(Boolean);
+    }
+    function countShowDiffs() {
+      document.querySelectorAll('#count-sheet .count-diff').forEach((cell) => { cell.textContent = ''; cell.classList.remove('pa-overdrawn'); });
+      countTyped().forEach(({ r, i, n }) => {
+        const diff = Math.round((n - Number(r.on_hand)) * 10000) / 10000;
+        const cell = document.querySelector(`#count-sheet .count-diff[data-i="${i}"]`);
+        cell.textContent = diff === 0 ? t('countSame') : (diff > 0 ? '+' : '−') + formatNum(Math.abs(diff));
+        cell.classList.toggle('pa-overdrawn', diff < 0);
+      });
+    }
+    async function countPost() {
+      const typed = countTyped();
+      if (!typed.length) { showAlert(t('countNothingTyped'), true); return; }
+      const on = document.getElementById('count-date').value;
+      const changed = typed.filter(({ r, n }) => n !== Number(r.on_hand)).length;
+      if (changed && !(await uiConfirm({ message: tf('countConfirm', { n: formatNum(changed), date: formatDisplayDate(on) }),
+                                        confirmLabel: t('countPost') }))) return;
+      const res = await fetch(API + '/manager-reports/inventory/counts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: on, lines: typed.map(({ r, n }) => ({ item_id: r.item_id, counted: n })) }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('msgFailed'), true); return; }
+      _countLast = d;
+      if (d.status) stockLedgerShow(d.status);
+      stockShowValuation().catch(() => {});
+      await countLoad(true).catch(() => {});            // the sheet again, with what's on hand now
+    }
+
     (function wireStockPanel() {
       const refresh = document.getElementById('stock-refresh');
       if (!refresh) return;
@@ -1470,6 +1550,9 @@
       });
       document.getElementById('bom-save').addEventListener('click', () => bomSave().catch(() => {}));
       document.getElementById('prod-run').addEventListener('click', () => prodRun().catch(() => {}));
+      document.getElementById('count-load').addEventListener('click', () => countLoad().catch(() => {}));
+      document.getElementById('count-sheet').addEventListener('input', countShowDiffs);
+      document.getElementById('count-post').addEventListener('click', () => countPost().catch(() => {}));
     })();
 
     // ═══════ Price Management ═══════

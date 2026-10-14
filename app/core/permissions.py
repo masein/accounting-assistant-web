@@ -330,7 +330,7 @@ for _m, _p in [
 
 # --- Books: invoices --------------------------------------------------------
 _reads(["/invoices", "/invoices/{invoice_id}/payments",
-        "/invoices/{invoice_id}/credit-notes",
+        "/invoices/{invoice_id}/credit-notes", "/invoices/{invoice_id}/stock-returns",
         "/invoices/{invoice_id}/payments/{payment_id}/receipt",
         "/invoices/{invoice_id}/timeline", "/invoices/{invoice_id}/pdf"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
@@ -677,7 +677,7 @@ _MR_READ = [
     "/manager-reports/inventory/balance", "/manager-reports/inventory/settings",
     "/manager-reports/inventory/valuation", "/manager-reports/inventory/low-stock",
     "/manager-reports/inventory/items/by-barcode/{barcode}", "/manager-reports/inventory/items/{item_id}/bom",
-    "/manager-reports/inventory/ledger",
+    "/manager-reports/inventory/ledger", "/manager-reports/inventory/count-sheet",
     "/manager-reports/sales/trend", "/manager-reports/sales/by-product", "/manager-reports/sales/by-invoice",
     "/manager-reports/purchases/by-product", "/manager-reports/purchases/by-invoice",
     "/manager-reports/journal/entries",
@@ -694,6 +694,7 @@ for _m, _p in [
     ("POST", "/manager-reports/inventory/production"),
     ("PUT", "/manager-reports/inventory/ledger"),
     ("POST", "/manager-reports/inventory/ledger/sync"),
+    ("POST", "/manager-reports/inventory/counts"),
     ("POST", "/manager-reports/journal/register"),
     ("PATCH", "/manager-reports/journal/{transaction_id}"),
     ("POST", "/manager-reports/journal/{transaction_id}/reverse"),

@@ -68,6 +68,9 @@ T = {
         "depreciation": "Depreciation posted",
         "depreciation_ok": "Every fixed asset's charge up to this month is posted.",
         "depreciation_warn": "Monthly depreciation charges up to this month not posted yet: {n} — run depreciation.",
+        "stock": "Stock in the books",
+        "stock_ok": "The stock account equals the stock's valuation at the month's end: {amount}.",
+        "stock_warn": "The stock account reads {books}, the valuation {value} — Inventory → Post now.",
         "fx": "Exchange rates in place",
         "fx_ok": "Every entry this month has its base-currency value.",
         "fx_warn": "Entries this month waiting for an exchange rate: {n} ({currencies}); they're left out of these totals.",
@@ -113,6 +116,9 @@ T = {
         "depreciation": "ثبت استهلاک",
         "depreciation_ok": "استهلاک همه دارایی‌های ثابت تا این ماه ثبت شده است.",
         "depreciation_warn": "{n} استهلاک ماهانه تا این ماه ثبت نشده است — استهلاک را اجرا کنید.",
+        "stock": "موجودی کالا در دفاتر",
+        "stock_ok": "حساب موجودی کالا در پایان ماه با ارزش موجودی انبار برابر است: {amount}.",
+        "stock_warn": "حساب موجودی کالا {books} است و ارزش موجودی انبار {value} — انبار ← ثبت اکنون.",
         "fx": "نرخ ارز",
         "fx_ok": "همه اسناد این ماه ارزش به ارز پایه دارند.",
         "fx_warn": "{n} سند این ماه منتظر نرخ ارز است ({currencies}) و در این جمع‌ها نیامده است.",
@@ -158,6 +164,9 @@ T = {
         'depreciation': 'Amortización contabilizada',
         'depreciation_ok': 'La amortización de cada activo fijo hasta este mes está contabilizada.',
         'depreciation_warn': 'Cargos mensuales de amortización hasta este mes sin contabilizar: {n}; ejecuta la amortización.',
+        'stock': 'Existencias en la contabilidad',
+        'stock_ok': 'La cuenta de existencias coincide con su valoración al cierre del mes: {amount}.',
+        'stock_warn': 'La cuenta de existencias marca {books} y la valoración {value}; Inventario → Contabilizar ahora.',
         'fx': 'Tipos de cambio disponibles',
         'fx_ok': 'Cada asiento de este mes tiene su valor en la moneda base.',
         'fx_warn': 'Asientos de este mes a la espera de un tipo de cambio: {n} ({currencies}); quedan fuera de estos totales.',
@@ -210,6 +219,9 @@ T = {
         'depreciation': 'ترحيل الإهلاك',
         'depreciation_ok': 'رُحّل إهلاك كل الأصول الثابتة حتى هذا الشهر.',
         'depreciation_warn': 'أقساط إهلاك شهرية حتى هذا الشهر لم تُرحّل بعد: {n} — شغّل الإهلاك.',
+        'stock': 'المخزون في الدفاتر',
+        'stock_ok': 'حساب المخزون يساوي تقييم المخزون في نهاية الشهر: {amount}.',
+        'stock_warn': 'حساب المخزون {books} والتقييم {value} — المخزون ← ترحيل الآن.',
         'fx': 'أسعار الصرف متوفرة',
         'fx_ok': 'لكل قيد هذا الشهر قيمته بالعملة الأساسية.',
         'fx_warn': 'قيود هذا الشهر بانتظار سعر صرف: {n} ({currencies})؛ وهي مستبعدة من هذه المجاميع.',
@@ -359,6 +371,18 @@ def checklist(db: Session, m: Month) -> list[dict]:
             add("depreciation", "warn", W["depreciation_warn"].format(n=_n(len(pending), m)))
         else:
             add("depreciation", "ok", W["depreciation_ok"])
+
+    # stock in the books (docs/PLAN_INVENTORY_GL.md): the stock account agrees with the valuation
+    from app.services import inventory_costing, inventory_ledger
+    start = inventory_ledger.start_date(db)
+    if start is not None and start <= m.end:
+        as_of = min(m.end, date.today())
+        books = inventory_ledger.books_value(db, as_of)
+        value = plain(inventory_costing.valuation(db, as_of=as_of)["totals"]["value"])
+        if plain(books) == value:
+            add("stock", "ok", W["stock_ok"].format(amount=_money(value, m)))
+        else:
+            add("stock", "warn", W["stock_warn"].format(books=_money(books, m), value=_money(value, m)))
 
     waiting = db.execute(select(Transaction.currency).where(*live, Transaction.fx_rate.is_(None),
                                                             Transaction.fx_role.is_(None))).scalars().all()

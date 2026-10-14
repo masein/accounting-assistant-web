@@ -359,30 +359,198 @@ def record_invoice(db: Session, inv, lines: list, txn=None) -> None:
 
 def reverse_invoice(db: Session, inv, *, on: date) -> None:
     """A voided invoice's stock moves back on the day it is voided, as its
-    journal does: a purchase's goods go out at what it posted, a sale's come
-    back at what they cost. The invoice's own movements stay, as history."""
+    journal does: each of its movements by its opposite. A purchase's goods go
+    out at what it posted, a sale's come back at what they cost, and goods
+    returned on its credit notes (whose journals the void reverses too) go
+    the other way again. The invoice's own movements stay, as history."""
     from app.models.inventory import InventoryMovementType
     from app.services import inventory_costing as ic
     rows = db.execute(select(InventoryMovement).where(InventoryMovement.invoice_id == inv.id)
                       .order_by(InventoryMovement.created_at)).scalars().all()
     if not rows or any(r.movement_date == on and (r.reference or "").startswith("VOID-") for r in rows):
         return
-    costs = ic.movement_costs(db) if inv.kind != "purchase" else {}
-    for mv in rows:
+    costs = ic.movement_costs(db) if any(r.ledger_value is None for r in rows) else {}
+
+    def typ_of(mv) -> str:
+        return mv.movement_type.value if hasattr(mv.movement_type, "value") else str(mv.movement_type)
+
+    # what comes back in goes first: taking a bill's goods out before the ones
+    # returned from it come back would run stock below zero, where the
+    # weighted average starts again at nothing
+    for mv in sorted(rows, key=lambda r: typ_of(r) != ic.OUT):
         qty = to_decimal(mv.quantity or 0)
-        if inv.kind == "purchase":
-            back = InventoryMovement(
-                item_id=mv.item_id, movement_date=on, movement_type=InventoryMovementType.OUT, quantity=mv.quantity,
-                unit_cost=mv.unit_cost, reference=f"VOID-{inv.number}", description=mv.description, invoice_id=inv.id,
-                ledger_value=plain(-to_decimal(mv.ledger_value or 0)))
-        else:
+        back_type = InventoryMovementType.IN if typ_of(mv) == ic.OUT else InventoryMovementType.OUT
+        if mv.ledger_value is not None:          # the invoice (or its credit note) posted it: take that back
+            unit, ledger = mv.unit_cost, plain(-to_decimal(mv.ledger_value))
+        else:                                    # a sale's goods, or a customer's return: at what they cost
             cost = to_decimal(costs.get(mv.id, 0))
-            back = InventoryMovement(
-                item_id=mv.item_id, movement_date=on, movement_type=InventoryMovementType.IN, quantity=mv.quantity,
-                unit_cost=plain((cost / qty).quantize(Decimal("0.0001"))) if qty else 0,
-                reference=f"VOID-{inv.number}", description=mv.description, invoice_id=inv.id)
-        db.add(back)
+            unit, ledger = plain((cost / qty).quantize(Decimal("0.0001"))) if qty else 0, None
+        db.add(InventoryMovement(
+            item_id=mv.item_id, movement_date=on, movement_type=back_type, quantity=mv.quantity, unit_cost=unit,
+            reference=f"VOID-{inv.number}", description=mv.description, invoice_id=inv.id, ledger_value=ledger))
     db.flush()
+
+
+# --- goods back on a credit note (phase G3) ---------------------------------------------------------------------
+
+def returnable(db: Session, inv) -> dict:
+    """item id → what of it ``inv`` moved, what came back on its credit notes,
+    and what is left to come back. Empty for an invoice that moved no stock."""
+    from app.services import inventory_costing as ic
+    own = ic.IN if inv.kind == "purchase" else ic.OUT
+    out: dict = {}
+    for mv in db.execute(select(InventoryMovement).where(InventoryMovement.invoice_id == inv.id)).scalars():
+        if (mv.reference or "").startswith("VOID-"):
+            continue
+        typ = mv.movement_type.value if hasattr(mv.movement_type, "value") else str(mv.movement_type)
+        row = out.setdefault(mv.item_id, {"moved": Decimal(0), "back": Decimal(0)})
+        if mv.credit_note_id is not None:
+            row["back"] += to_decimal(mv.quantity or 0)
+        elif typ == own:
+            row["moved"] += to_decimal(mv.quantity or 0)
+    for row in out.values():
+        row["left"] = max(Decimal(0), row["moved"] - row["back"])
+    return {k: v for k, v in out.items() if v["moved"] > 0}
+
+
+def check_returns(db: Session, inv, returns: list, on: date) -> list[tuple]:
+    """``returns`` ([{item_id, quantity}]) checked against what ``inv`` can
+    take back, before anything posts: [(item, quantity, net unit price)], the
+    price in the invoice's currency, from its lines."""
+    from app.models.inventory import InventoryItem
+    if not returns:
+        return []
+    if start_date(db) is None:
+        raise HTTPException(status_code=422, detail=(
+            "Turn on stock in the books (Inventory) to take goods back on a credit note."))
+    left = returnable(db, inv)
+    if not left:
+        raise HTTPException(status_code=422, detail=(
+            f"{inv.number} moved no stock: record goods coming back on the Inventory page."))
+    guard(db, on)
+    wanted: dict = defaultdict(Decimal)
+    for r in returns:
+        wanted[r.item_id] += to_decimal(r.quantity)
+    out = []
+    for item_id, qty in wanted.items():
+        item = db.get(InventoryItem, item_id)
+        name = item.name if item else str(item_id)
+        if item_id not in left:
+            raise HTTPException(status_code=422, detail=(
+                f"{name} wasn't on {inv.number}, so it can't come back on its credit note."))
+        if qty > left[item_id]["left"]:
+            raise HTTPException(status_code=422, detail=(
+                f"Only {_qty_text(left[item_id]['left'])} {name} can come back on {inv.number}."))
+        lines = [it for it in (inv.items or []) if it.inventory_item_id == item_id]
+        n = sum((to_decimal(it.quantity or 0) for it in lines), Decimal(0))
+        price = sum((to_decimal(it.line_total or 0) for it in lines), Decimal(0)) / n if n else Decimal(0)
+        out.append((item, qty, price))
+    return out
+
+
+def _qty_text(q: Decimal) -> str:
+    return format(q.normalize(), "f") if q != q.to_integral() else str(int(q))
+
+
+def record_returns(db: Session, inv, note, checked: list[tuple], *, on: date, txn=None) -> None:
+    """The movements of goods back on credit note ``note``. A customer's come
+    in at what they cost on that sale, and the sync takes their cost of sales
+    back. Ours to a supplier go out at what the credit note took off stock, in
+    the base currency (read back from its journal, as a bill's are)."""
+    from app.models.account import Account
+    from app.models.inventory import InventoryMovementType
+    from app.models.transaction import TransactionLine
+    from app.services import inventory_costing as ic
+    from app.services.book_text import bt
+    if not checked:
+        return
+    if inv.kind == "purchase":
+        from app.services.account_resolver import resolve_account_code
+        code = resolve_account_code(db, "inventory")
+        base = db.execute(select(func.sum(TransactionLine.base_credit), func.count(TransactionLine.id),
+                                 func.count(TransactionLine.base_credit))
+                          .join(Account, Account.id == TransactionLine.account_id)
+                          .where(TransactionLine.transaction_id == txn.id, Account.code == code)).one()
+        if base[1] and base[2] < base[1]:
+            raise HTTPException(status_code=422, detail=(
+                f"Add the exchange rate for {inv.currency} on {on.isoformat()} first: "
+                "stock is kept in the base currency."))
+        total = to_decimal(base[0] or 0)
+        own = [qty * price for _it, qty, price in checked]
+        whole = sum(own) or Decimal(1)
+        places = ic._places(db)
+        given = Decimal(0)
+        for i, ((item, qty, _price), amount) in enumerate(zip(checked, own)):
+            value = total - given if i == len(own) - 1 else (total * amount / whole).quantize(Decimal(1).scaleb(-places))
+            given += value
+            db.add(InventoryMovement(
+                item_id=item.id, movement_date=on, movement_type=InventoryMovementType.OUT, quantity=plain(qty),
+                unit_cost=plain((value / qty).quantize(Decimal("0.0001"))), reference=inv.number,
+                description=bt(db, "stk_returned_out", number=inv.number), invoice_id=inv.id,
+                credit_note_id=note.id, ledger_value=plain(-value)))
+    else:
+        costs = ic.movement_costs(db)
+        sold = db.execute(select(InventoryMovement).where(
+            InventoryMovement.invoice_id == inv.id, InventoryMovement.credit_note_id.is_(None),
+            InventoryMovement.movement_type == InventoryMovementType.OUT)).scalars().all()
+        for item, qty, _price in checked:
+            mine = [mv for mv in sold if mv.item_id == item.id and not (mv.reference or "").startswith("VOID-")]
+            n = sum((to_decimal(mv.quantity or 0) for mv in mine), Decimal(0))
+            cost = sum((to_decimal(costs.get(mv.id, 0)) for mv in mine), Decimal(0))
+            db.add(InventoryMovement(
+                item_id=item.id, movement_date=on, movement_type=InventoryMovementType.IN, quantity=plain(qty),
+                unit_cost=plain((cost / n).quantize(Decimal("0.0001"))) if n else 0, reference=inv.number,
+                description=bt(db, "stk_returned_in", number=inv.number), invoice_id=inv.id,
+                credit_note_id=note.id))
+    db.flush()
+
+
+# --- a stock count (phase G3) -----------------------------------------------------------------------------------
+
+def count_sheet(db: Session, on: date) -> list[dict[str, Any]]:
+    """Every active item with what is on hand on ``on``, to count against."""
+    from app.services import inventory_costing as ic
+    rows = ic.valuation(db, as_of=on)["rows"]
+    return [{"item_id": r["item_id"], "name": r["name"], "sku": r["sku"], "unit": r["unit"],
+             "on_hand": r["on_hand"], "unit_cost": r["unit_cost"]} for r in rows if r["is_active"]]
+
+
+def post_count(db: Session, on: date, counted: list) -> dict[str, Any]:
+    """A count ([{item_id, counted}]) against what is on hand on ``on``: one
+    movement per item that differs (stock found comes in at its unit cost,
+    stock missing goes out at its cost), «COUNT-<date>»; the sync posts them
+    with the month's adjustments. Items not counted are left alone."""
+    from app.models.inventory import InventoryItem, InventoryMovementType
+    from app.services import inventory_costing as ic
+    from app.services.book_text import bt
+    guard(db, on)
+    sheet = {r["item_id"]: r for r in count_sheet(db, on)}
+    made = []
+    for c in counted:
+        key = str(c.item_id)
+        item = db.get(InventoryItem, c.item_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Inventory item not found")
+        row = sheet.get(key, {"on_hand": 0.0, "unit_cost": 0})
+        on_hand = to_decimal(row["on_hand"])
+        diff = to_decimal(c.counted) - on_hand
+        if diff == 0:
+            continue
+        mv = InventoryMovement(
+            item_id=item.id, movement_date=on,
+            movement_type=InventoryMovementType.IN if diff > 0 else InventoryMovementType.OUT,
+            quantity=plain(abs(diff)), unit_cost=row["unit_cost"] if diff > 0 else 0,
+            reference=f"COUNT-{on.isoformat()}", description=bt(db, "stk_count"))
+        db.add(mv)
+        made.append((mv, item, on_hand, to_decimal(c.counted), diff))
+    db.flush()
+    costs = ic.movement_costs(db) if made else {}
+    out = [{"item_id": str(item.id), "name": item.name, "unit": item.unit, "on_hand": plain(on_hand),
+            "counted": plain(n), "difference": plain(diff),
+            "value": plain(to_decimal(costs.get(mv.id, 0)) * (1 if diff > 0 else -1))}
+           for mv, item, on_hand, n, diff in made]
+    posted = sync(db) if made else {"enabled": start_date(db) is not None, "posted": []}
+    return {"date": on.isoformat(), "adjusted": out, "posted": posted.get("posted", [])}
 
 
 # --- what the page shows ----------------------------------------------------------------------------------------

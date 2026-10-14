@@ -21,7 +21,9 @@ class GetInventory(BaseTool):
     description = (
         "Stock on hand per item with its unit cost and value (weighted average or FIFO, the company's "
         "setting), cost of goods sold to date, the total under the other method for comparison, and the "
-        "items at or below their reorder point with a suggested order quantity. Use it for 'how much "
+        "items at or below their reorder point with a suggested order quantity. When stock posts to the "
+        "books, ``books`` gives the stock account's balance beside the valuation: say the value is what the "
+        "books carry, or by how much they differ (then: Inventory → Post now). Use it for 'how much "
         "stock do we have', 'value of inventory', 'what do I need to reorder', 'موجودی انبار', "
         "'کالاهایی که باید سفارش بدم'. Pure read."
     )
@@ -38,7 +40,22 @@ class GetInventory(BaseTool):
         keep = ("name", "sku", "unit", "on_hand", "unit_cost", "value", "cogs", "reorder_level", "below_reorder",
                 "oversold")
         return {"as_of": v["as_of"], "method": v["method"], "totals": v["totals"], "other_method": v["other_method"],
-                "items": [{k: r[k] for k in keep} for r in v["rows"][:60]], "count": len(v["rows"])}
+                "items": [{k: r[k] for k in keep} for r in v["rows"][:60]], "count": len(v["rows"]),
+                "books": _books(ctx.db, v)}
+
+
+def _books(db, v: dict) -> dict[str, Any]:
+    """Stock in the books (docs/PLAN_INVENTORY_GL.md): whether it posts, and
+    the stock account's balance on the same day beside the valuation."""
+    from app.core.money import plain, to_decimal
+    from app.services import inventory_ledger
+    start = inventory_ledger.start_date(db)
+    if start is None:
+        return {"posting": False, "note": "Stock isn't posted to the books: the balance sheet carries none of it."}
+    books = inventory_ledger.books_value(db, date.fromisoformat(v["as_of"]))
+    value = plain(v["totals"]["value"])
+    return {"posting": True, "from": start.isoformat(), "books_value": books, "valuation": value,
+            "difference": plain(to_decimal(books) - to_decimal(value)), "agrees": plain(books) == value}
 
 
 def register_inventory_tools(registry) -> None:

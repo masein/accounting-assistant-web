@@ -311,11 +311,14 @@
       if (cnBtn && !cnBtn.disabled) {
         const id = cnBtn.dataset.id;
         const inv = _invoicesCache.find((x) => String(x.id) === String(id)) || {};
+        // goods coming back with it, when the invoice moved stock (phase G3)
+        const back = await cnPickReturns({ ...inv, id });
+        if (back == null) return;
         const raw = await uiPrompt({
           title: t('invCreditNote'),
-          message: t('invCreditNoteAmountPrompt'),
+          message: t(back.returns.length ? 'invCreditNoteAmountForGoods' : 'invCreditNoteAmountPrompt'),
           type: 'number',
-          value: '',
+          value: back.amount ? String(back.amount) : '',
         });
         if (raw == null) return;
         const amount = parseMoney(raw);
@@ -339,7 +342,7 @@
           const res = await fetch(API + '/invoices/' + encodeURIComponent(id) + '/credit-notes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, reason: reason || null, refund }),
+            body: JSON.stringify({ amount, reason: reason || null, refund, returns: back.returns }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) { showAlert(data.detail || t('invCreditNoteError'), true); return; }
@@ -664,6 +667,64 @@
         loadOwnerDashboard();
         return data;
       } catch (err) { showAlert(t('msgConnectionError') + err.message, true); return null; }
+    }
+
+    // Goods coming back on a credit note (docs/PLAN_INVENTORY_GL.md, scenarios T15–T18): the
+    // invoice's stock lines with what is left to come back. Resolves { returns, amount } —
+    // no returns for a credit without goods, and the goods' value at the invoice's prices
+    // to suggest as the amount — or null when the dialog is closed.
+    async function cnPickReturns(inv) {
+      let data = null;
+      try {
+        const res = await fetch(API + '/invoices/' + encodeURIComponent(inv.id) + '/stock-returns');
+        data = res.ok ? await res.json() : null;
+      } catch (_) { data = null; }
+      const lines = ((data && data.enabled && data.lines) || []).filter((l) => Number(l.left) > 0);
+      if (!lines.length) return { returns: [], amount: null };
+      return new Promise((resolve) => {
+        const modal = document.getElementById('cn-returns-modal');
+        const body = document.getElementById('cn-returns-body');
+        const total = document.getElementById('cn-returns-total');
+        document.getElementById('cn-returns-hint').textContent = tf(inv.kind === 'purchase' ? 'cnReturnsHintBill' : 'cnReturnsHintSale',
+          { number: inv.number || '' });
+        body.innerHTML = lines.map((l, i) => `<tr>
+            <td dir="auto">${escapeHtml(l.name)}</td>
+            <td>${escapeHtml(formatNum(Number(l.moved)))} ${escapeHtml(l.unit || '')}</td>
+            <td>${escapeHtml(formatNum(Number(l.back)))}</td>
+            <td><input type="number" class="cn-ret-qty" data-i="${i}" min="0" max="${escapeHtml(String(l.left))}" step="any"
+              placeholder="${escapeHtml(tf('cnReturnsUpTo', { n: formatNum(Number(l.left)) }))}"
+              aria-label="${escapeHtml(tf('cnReturnsQtyFor', { name: l.name }))}" style="width:9rem;"></td>
+          </tr>`).join('');
+        const picked = () => lines.map((l, i) => ({
+          l, q: parseMoney(latinDigits(body.querySelector(`.cn-ret-qty[data-i="${i}"]`).value || '')) }))
+          .filter((x) => x.q > 0);
+        const worth = () => roundMoney(picked().reduce((sum, x) => sum + x.q * Number(x.l.unit_gross || 0), 0), inv.currency);
+        const show = () => {
+          const v = worth();
+          total.textContent = v > 0 ? tf('cnReturnsWorth', { amount: formatMoney(v, inv.currency) }) : '';
+        };
+        const done = (val) => {
+          modal.__dialogCancel = null;
+          modal.style.display = 'none';
+          body.oninput = null;
+          resolve(val);
+        };
+        body.oninput = show;
+        show();
+        document.getElementById('cn-returns-ok').onclick = () => {
+          const p = picked();
+          const over = p.find((x) => x.q > Number(x.l.left));
+          if (over) { showAlert(tf('cnReturnsTooMany', { n: formatNum(Number(over.l.left)), name: over.l.name }), true); return; }
+          done({ returns: p.map((x) => ({ item_id: x.l.item_id, quantity: x.q })), amount: p.length ? worth() : null });
+        };
+        document.getElementById('cn-returns-none').onclick = () => done({ returns: [], amount: null });
+        document.getElementById('cn-returns-close').onclick = () => done(null);
+        modal.onclick = (e) => { if (e.target === modal) done(null); };
+        modal.__dialogCancel = () => done(null);
+        modal.style.display = 'flex';
+        const first = body.querySelector('.cn-ret-qty');
+        if (first) first.focus();
+      });
     }
 
     // one history line: when (in the company's calendar) and what, in the reader's

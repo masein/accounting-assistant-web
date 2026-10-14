@@ -65,6 +65,11 @@ class InventoryMovement(Base, TenantMixin):
     # currency (docs/PLAN_INVENTORY_GL.md): the sync posts any difference from
     # the costing engine's value. None for a movement entered by hand.
     ledger_value: Mapped[int | None] = mapped_column(MoneyType(), nullable=True)
+    # The credit note goods came back on (a customer's return, or ours to a
+    # supplier): tells a return from the invoice's own movement (phase G3).
+    credit_note_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("credit_notes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     # Set in Python (microseconds): SQLite's CURRENT_TIMESTAMP has one-second
     # resolution, so same-second movements sorted randomly by id.
     created_at: Mapped[datetime] = mapped_column(

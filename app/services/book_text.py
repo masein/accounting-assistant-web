@@ -43,6 +43,8 @@ TEXT: dict[str, dict[str, str]] = {
     # a credit note's VAT, and the part beyond what the invoice owed (the party's credit)
     "cn_vat_out": {"en": "Credit note — output VAT of {number}", "fa": "برگشت از فروش — مالیات بر ارزش افزوده فاکتور {number}"},
     "cn_vat_in": {"en": "Credit note — input VAT of {number}", "fa": "برگشت از خرید — مالیات بر ارزش افزوده فاکتور {number}"},
+    "cn_stock_back": {"en": "Credit note — {item} back to the supplier, of {number}", "fa": "برگشت از خرید — {item} به فروشنده، فاکتور {number}"},
+    "cn_restocking": {"en": "Credit note — kept by the supplier on the goods back, of {number}", "fa": "برگشت از خرید — کسر فروشنده از کالای برگشتی، فاکتور {number}"},
     "cn_customer_credit": {"en": "Credit note — customer's credit from {number}", "fa": "برگ بستانکار — بستانکاری مشتری از فاکتور {number}"},
     "cn_supplier_credit": {"en": "Credit note — supplier owes us for {number}", "fa": "برگ بستانکار — طلب از تأمین‌کننده بابت فاکتور {number}"},
     # paying a credit back, and using one on another invoice
@@ -102,6 +104,9 @@ TEXT: dict[str, dict[str, str]] = {
     "stk_opening": {"en": "Stock on hand brought onto the books", "fa": "ثبت موجودی کالای ابتدای دوره در دفاتر"},
     "stk_cogs": {"en": "Cost of goods sold — {label}", "fa": "بهای تمام‌شده کالای فروش‌رفته — {label}"},
     "stk_adjust": {"en": "Stock adjustments — {label}", "fa": "تعدیل موجودی کالا — {label}"},
+    "stk_count": {"en": "Stock count", "fa": "شمارش موجودی انبار"},
+    "stk_returned_in": {"en": "Returned by the customer — {number}", "fa": "برگشت از فروش — فاکتور {number}"},
+    "stk_returned_out": {"en": "Returned to the supplier — {number}", "fa": "برگشت از خرید — فاکتور {number}"},
     "stk_catch_up": {"en": "Stock catch-up from closed periods (costing method or earlier entries) — {label}",
                      "fa": "تعدیل موجودی کالا بابت دوره‌های بسته‌شده (روش ارزیابی یا اسناد قبلی) — {label}"},
     "fa_gain": {"en": "Gain on disposal — {text}", "fa": "سود فروش دارایی — {text}"},

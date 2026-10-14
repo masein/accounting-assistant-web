@@ -40,7 +40,7 @@ data class ChatUiState(
     /** The outbox message on its way now: it no longer waits for the network. */
     val sendingId: String? = null,
 ) {
-    enum class Notice { Offline, Failed, UploadFailed, VoiceFailed, Unreadable }
+    enum class Notice { Offline, Failed, UploadFailed, VoiceFailed, VoiceTooShort, Unreadable }
     /** [uploadedId] once on the server; [path] where the outbox keeps it when the upload waits. */
     data class Attachment(val id: String, val name: String, val mime: String = "",
                           val uploadedId: String? = id, val path: String? = null)
@@ -253,7 +253,10 @@ class ChatViewModel(
         gone?.path?.let { viewModelScope.launch { outbox.forget(it) } }
     }
 
-    fun listening(on: Boolean) = _state.update { it.copy(listening = on) }
+    fun listening(on: Boolean) = _state.update { it.copy(listening = on, notice = if (on) null else it.notice) }
+
+    /** Let go too soon to hold words: say how to record instead (scenario W5). */
+    fun tooShort() = _state.update { it.copy(listening = false, notice = ChatUiState.Notice.VoiceTooShort) }
 
     /** A voice note's words go into the composer, to check before sending. */
     fun heard(bytes: ByteArray, name: String, mime: String) {

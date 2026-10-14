@@ -32,6 +32,10 @@
     <string name="voucher_title">قيد</string>
     <string name="suggestions_intro">اسأل عن دفاترك أو أخبرني بما أسجّله. هذه تُجاب فورًا:</string>
     <string name="listening">أستمع… اترك للإيقاف</string>
+    <string name="slide_to_cancel">اسحب للإلغاء</string>
+    <string name="voice_cancel">إلغاء التسجيل</string>
+    <string name="voice_done">إنهاء وكتابته</string>
+    <string name="error_voice_short">أمسك الميكروفون للتسجيل، أو اضغطه مرة للتسجيل دون إمساك.</string>
     <string name="attach_camera">التقط صورة</string>
     <string name="attach_photo">اختر صورة</string>
     <string name="attach_file">اختر ملفًا (PDF، Excel، CSV)</string>

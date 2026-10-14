@@ -1161,6 +1161,8 @@
 
 /* Installable app (roadmap §4.10): the camera button only where there is a camera to point */
 .ai-camera-btn { display: none; }
+/* held and slid on a phone: no scrolling, no text selection, no long-press menu */
+.ai-mic-btn { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .ai-mic-btn.recording { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; animation: ai-mic-pulse 1.2s ease-in-out infinite; }
 .ai-mic-btn.busy { opacity: 0.6; cursor: progress; }
 /* Phones: with camera, attach and microphone the text box had no room —
@@ -1171,7 +1173,39 @@
   .ai-composer .ai-send { margin-inline-start: auto; }
 }
 @keyframes ai-mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); } 50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); } }
-@media (prefers-reduced-motion: reduce) { .ai-mic-btn.recording { animation: none; } }
+/* Recording a voice note (scenarios W1–W7): a bar in the text box's place — a red dot, the
+   time, the voice's level, the slide-to-cancel hint, ✕ and ✓; then «writing…» */
+.ai-rec { display: flex; align-items: center; gap: 0.55rem; flex: 1 1 auto; min-width: 0; padding-inline: 0.25rem; }
+.ai-rec[hidden] { display: none; }
+.ai-composer.is-recording .ai-input, .ai-composer.is-recording .ai-send, .ai-composer.is-recording #ai-acct-attach,
+.ai-composer.is-recording .ai-camera-btn, .ai-composer.is-recording #ai-acct-new-session { display: none; }
+/* hands-free: ✓ stops it; the microphone stays only while a finger holds it */
+.ai-composer.is-recording.hands-free .ai-mic-btn { display: none; }
+.ai-rec-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: #dc2626; animation: ai-rec-blink 1s ease-in-out infinite; }
+.ai-rec-time { flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 2.6rem; }
+.ai-rec-level { flex: 1 1 auto; min-width: 3rem; height: 28px; width: 100%; }
+.ai-rec-hint { flex: 0 0 auto; font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; transition: color 0.15s;
+  position: relative; z-index: 1; border-radius: 6px; padding-inline: 0.3rem; }
+.ai-rec-hint.near { color: #dc2626; font-weight: 600; }
+.ai-rec-done { color: #fff; background: var(--primary); border-color: var(--primary); }
+.ai-rec-cancel { color: #b91c1c; }
+.ai-rec.sliding .ai-rec-hint { transition: none; background: var(--card, #fff); }
+.ai-rec.sliding .ai-rec-level { opacity: 0.2; }
+.ai-rec.writing .ai-rec-dot, .ai-rec.writing .ai-rec-time, .ai-rec.writing .ai-rec-level,
+.ai-rec.writing .ai-rec-cancel, .ai-rec.writing .ai-rec-done { display: none; }
+.ai-rec.writing .ai-rec-hint { flex: 1 1 auto; color: var(--text); font-size: 0.9rem;
+  background: linear-gradient(90deg, var(--text-muted) 0%, var(--primary) 50%, var(--text-muted) 100%);
+  background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: ai-rec-shimmer 1.4s linear infinite; }
+.ai-mic-btn.holding { transform: scale(1.18); transition: transform 0.12s; }
+@keyframes ai-rec-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes ai-rec-shimmer { from { background-position: 200% 0; } to { background-position: 0 0; } }
+@media (max-width: 560px) { .ai-composer.is-recording .ai-rec { order: -1; flex: 1 1 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .ai-mic-btn.recording, .ai-rec-dot { animation: none; }
+  .ai-rec.writing .ai-rec-hint { animation: none; -webkit-text-fill-color: currentColor; background: none; }
+  .ai-mic-btn.holding { transform: none; }
+}
 @media (pointer: coarse) { .ai-camera-btn { display: inline-flex; } }
 
 /* Historical journal import (roadmap §4.11): the column mapper */

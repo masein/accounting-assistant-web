@@ -45,6 +45,10 @@
         <item>What\'s my net worth?</item>
     </string-array>
     <string name="listening">Listening… let go to stop</string>
+    <string name="slide_to_cancel">Slide to cancel</string>
+    <string name="voice_cancel">Cancel recording</string>
+    <string name="voice_done">Stop and write it</string>
+    <string name="error_voice_short">Hold the microphone to record, or tap it to record hands-free.</string>
     <string name="attach_camera">Take a photo</string>
     <string name="attach_photo">Choose a photo</string>
     <string name="attach_file">Choose a file (PDF, Excel, CSV)</string>

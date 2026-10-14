@@ -45,6 +45,10 @@
         <item>دارایی خالص من چقدره؟</item>
     </string-array>
     <string name="listening">در حال شنیدن… رها کن تا تمام شود</string>
+    <string name="slide_to_cancel">برای لغو بکشید</string>
+    <string name="voice_cancel">لغو ضبط</string>
+    <string name="voice_done">پایان و نوشتن</string>
+    <string name="error_voice_short">برای ضبط، میکروفون را نگه دارید، یا یک بار بزنید تا بدون نگه‌داشتن ضبط شود.</string>
     <string name="attach_camera">عکس بگیر</string>
     <string name="attach_photo">انتخاب عکس</string>
     <string name="attach_file">انتخاب فایل (PDF، اکسل، CSV)</string>

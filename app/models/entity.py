@@ -52,6 +52,11 @@ class Entity(Base, TenantMixin):
     payment_terms: Mapped[str | None] = mapped_column(String(128), nullable=True)
     currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The ledger account this party's statement reads, when it was made from one of the
+    # chart's debtor or creditor accounts (scenarios X1–X6); else the control account its
+    # type names (app/services/entity_statement.py).
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True, index=True)
 
     transaction_links: Mapped[list["TransactionEntity"]] = relationship(
         "TransactionEntity", back_populates="entity", cascade="all, delete-orphan"

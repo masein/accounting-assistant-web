@@ -164,6 +164,25 @@
           <div><label for="entity-sort_code" data-i18n="fldSortCode">Sort code</label><input type="text" id="entity-sort_code"></div>
         </div>
       </details>
+      <!-- the chart's own debtor and creditor accounts that could be parties (scenarios X1–X6) -->
+      <details id="party-accounts" class="party-accounts" hidden>
+        <summary id="party-accounts-summary"></summary>
+        <p class="fc-note" data-i18n="paHint">These accounts in your chart look like people or organisations you deal with. Tick the ones that are, say what each is, and make them parties: each keeps its account, its past entries and its balance, and new entries on it show in its transactions.</p>
+        <div class="table-scroll">
+          <table class="results-table" id="party-accounts-table">
+            <thead><tr>
+              <th><input type="checkbox" id="pa-all" data-i18n-aria-label="paAll" aria-label="Tick every account"></th>
+              <th data-i18n="paAccount">Account</th><th data-i18n="labelName">Name</th><th data-i18n="paUnder">Under</th>
+              <th class="num" data-i18n="paBalance">Balance</th><th data-i18n="labelType">Type</th>
+            </tr></thead>
+            <tbody id="party-accounts-tbody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" id="pa-make" data-i18n="paMake">Make the ticked ones parties</button>
+          <span id="pa-msg" class="fc-note" role="status"></span>
+        </div>
+      </details>
       <div class="row" style="margin-bottom: 0.75rem; gap: 0.5rem; align-items: flex-end;">
         <div>
           <label for="entity-filter-type" style="font-size:0.8rem;color:var(--text-muted);" data-i18n="entFilterByType">Filter by type</label>

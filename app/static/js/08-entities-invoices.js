@@ -97,8 +97,67 @@
       if (e.target.id === 'account-modal') e.target.style.display = 'none';
     };
 
+    // The chart's own debtor and creditor accounts that could be parties (scenarios X1–X6):
+    // a hand-kept journal keeps its people as accounts, so the import made no parties of them.
+    let _paRows = [];
+    async function loadPartyAccounts() {
+      const box = document.getElementById('party-accounts');
+      if (!box) return;
+      try {
+        const res = await fetch(API + '/entities/account-candidates');
+        _paRows = res.ok ? ((await res.json()).accounts || []) : [];
+      } catch (_) { _paRows = []; }
+      box.hidden = !_paRows.length;
+      if (!_paRows.length) { document.getElementById('party-accounts-tbody').innerHTML = ''; return; }
+      document.getElementById('party-accounts-summary').textContent = tf('paSummary', { n: formatNum(_paRows.length) });
+      const types = [['client', 'labelClient'], ['supplier', 'labelSupplier'], ['employee', 'optionEmployee'], ['shareholder', 'labelShareholder']];
+      document.getElementById('party-accounts-tbody').innerHTML = _paRows.map((a) => `<tr>
+          <td><input type="checkbox" class="pa-pick" data-id="${escapeHtml(a.account_id)}" aria-label="${escapeHtml(a.name)}"></td>
+          <td>${escapeHtml(localCode(a.code))}</td>
+          <td dir="auto">${escapeHtml(a.name)}</td>
+          <td dir="auto">${escapeHtml(a.group || '—')}</td>
+          <td class="num"><span class="nowrap">${escapeHtml(formatAmount(Math.abs(a.balance)))}</span>
+            <div class="fc-note">${escapeHtml(t(a.balance === 0 ? 'paSettled' : (a.side === 'receivable') === (a.balance > 0) ? 'paOwesUs' : 'paWeOwe'))}</div></td>
+          <td><select class="pa-type" data-id="${escapeHtml(a.account_id)}" aria-label="${escapeHtml(t('labelType'))}">${types.map(([v, k]) =>
+            `<option value="${v}"${v === a.suggested_type ? ' selected' : ''}>${escapeHtml(t(k))}</option>`).join('')}</select></td>
+        </tr>`).join('');
+      document.getElementById('pa-all').checked = false;
+      document.getElementById('pa-msg').textContent = '';
+    }
+    (function wirePartyAccounts() {
+      const all = document.getElementById('pa-all');
+      if (!all) return;
+      all.addEventListener('change', () => {
+        document.querySelectorAll('#party-accounts-tbody .pa-pick').forEach((cb) => { cb.checked = all.checked; });
+      });
+      document.getElementById('pa-make').addEventListener('click', async () => {
+        const msg = document.getElementById('pa-msg');
+        const picks = [...document.querySelectorAll('#party-accounts-tbody .pa-pick:checked')].map((cb) => ({
+          account_id: cb.dataset.id,
+          type: document.querySelector('#party-accounts-tbody .pa-type[data-id="' + CSS.escape(cb.dataset.id) + '"]').value,
+        }));
+        if (!picks.length) { msg.textContent = t('paPickOne'); return; }
+        const btn = document.getElementById('pa-make');
+        btn.disabled = true;
+        try {
+          const res = await fetch(API + '/entities/from-accounts', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accounts: picks }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { msg.textContent = typeof data.detail === 'string' ? data.detail : t('paFailed'); return; }
+          showAlert(tf('paMade', { n: formatNum((data.created || []).length) }));
+          await loadEntities();
+        } catch (_) {
+          msg.textContent = t('paFailed');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    })();
+
     async function loadEntities(highlightId) {
       if (!onPage('entities')) return;    // reloads when it opens (loadPageData)
+      loadPartyAccounts();
       // Also bound directly as an event listener — ignore Event arguments.
       if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
       const tbody = document.getElementById('entities-tbody');
@@ -122,11 +181,11 @@
           tr.innerHTML = `
             <td>${escapeHtml(enumLabel('entType_', e.type))}</td>
             <td>${escapeHtml(e.name)}</td>
-            <td>${escapeHtml(e.code ? localCode(e.code) : '—')}</td>
-            <td>
+            <td>${escapeHtml(e.code ? localCode(e.code) : e.account_code ? localCode(e.account_code) : '—')}</td>
+            <td><div class="cell-actions">
               <button type="button" class="btn btn-secondary btn-sm edit-entity" data-entity-id="${e.id}" data-entity-type="${escapeHtml(e.type)}" data-entity-name="${escapeHtml(e.name)}" data-entity-code="${escapeHtml(e.code || '')}">${escapeHtml(t('btnEdit'))}</button>
-              <button type="button" class="btn btn-danger btn-sm delete-entity" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}" style="margin-left:0.35rem;">${escapeHtml(t('btnDelete'))}</button>
-            </td>
+              <button type="button" class="btn btn-danger btn-sm delete-entity" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}">${escapeHtml(t('btnDelete'))}</button>
+            </div></td>
             <td><button type="button" class="btn btn-secondary btn-sm view-entity-txns" data-entity-id="${e.id}" data-entity-name="${escapeHtml(e.name)}" data-entity-type="${escapeHtml(e.type || '')}">${escapeHtml(t('entTxViewBtn'))}</button></td>
           `;
           tbody.appendChild(tr);

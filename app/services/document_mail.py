@@ -83,7 +83,10 @@ def _require_mail() -> None:
 # --- statements --------------------------------------------------------------------------------------------------
 
 def statement_events(db: Session, entity: Entity, start: date, end: date) -> tuple[list[dict], str]:
-    """A party's invoices (debit) and payments in (credit) between two dates, in date order."""
+    """A party's invoices (debit) and payments in (credit) between two dates, in date order.
+    A party made from one of the chart's accounts reads that account instead (scenario X5)."""
+    if getattr(entity, "account_id", None):
+        return _account_events(db, entity, start, end)
     events: list[dict] = []
     ccy = entity.currency
     invoices = db.execute(select(Invoice).where(Invoice.entity_id == entity.id).order_by(Invoice.issue_date)).scalars().all()
@@ -98,6 +101,46 @@ def statement_events(db: Session, entity: Entity, start: date, end: date) -> tup
                                "debit": 0, "credit": plain(pay.amount or 0)})
     events.sort(key=lambda e: e["date"])
     return events, ccy or ""
+
+
+def _account_events(db: Session, entity: Entity, start: date, end: date) -> tuple[list[dict], str]:
+    """The entries on the party's own account between two dates, after what was brought
+    forward. A creditor's columns are turned round, so the balance reads as what is owed
+    between us either way: what they owe us, or what we owe them."""
+    from sqlalchemy import func
+
+    from app.models.account import Account
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.documents.branding import build_brand
+    from app.services.documents.labels import labels_for
+    from app.services.party_accounts import liability_side
+
+    code = db.execute(select(Account.code).where(Account.id == entity.account_id)).scalar() or ""
+    flip = liability_side(db, code)
+    live = (Transaction.id == TransactionLine.transaction_id) & Transaction.deleted_at.is_(None)
+    dr, cr = db.execute(select(func.coalesce(func.sum(TransactionLine.debit), 0), func.coalesce(func.sum(TransactionLine.credit), 0))
+                        .join(Transaction, live).where(TransactionLine.account_id == entity.account_id,
+                                                       Transaction.date < start)).one()
+    events: list[dict] = []
+    bf = plain(dr) - plain(cr)
+    if flip:
+        bf = -bf
+    if bf:
+        label = labels_for(build_brand(db)["locale"])["opening_balance"]
+        events.append({"date": start, "description": label, "debit": max(bf, 0), "credit": max(-bf, 0)})
+    rows = db.execute(
+        select(Transaction.date, Transaction.description, TransactionLine.line_description,
+               TransactionLine.debit, TransactionLine.credit, Transaction.currency)
+        .join(Transaction, live)
+        .where(TransactionLine.account_id == entity.account_id, Transaction.date >= start, Transaction.date <= end)
+        .order_by(Transaction.date, Transaction.created_at, Transaction.id)).all()
+    ccy = entity.currency or ""
+    for day, desc, line_desc, debit, credit, currency in rows:
+        d, c = plain(debit or 0), plain(credit or 0)
+        events.append({"date": day, "description": line_desc or desc or "",
+                       "debit": c if flip else d, "credit": d if flip else c})
+        ccy = ccy or currency or ""
+    return events, ccy
 
 
 def statement_pdf(db: Session, entity: Entity, start: date, end: date) -> tuple[bytes, list[dict], str]:

@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.07.3"
+CURRENT_RELEASE = "2026.10.13"
 
 
 @dataclass(frozen=True)
@@ -1703,6 +1703,116 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "با انتخاب کارمند در صفحهٔ حقوق و دستمزد، فرم با پروفایل او پر می‌شود؛ پس اگر یک مورد را عوض کنید و ذخیره کنید، بقیه سر جایش می‌ماند — پیش‌تر فرم خالی روی آن ذخیره می‌شد. پروفایل تازه هم وقتی قوانین سال جاری ثبت شده باشد با «قوانین رسمی» شروع می‌شود تا بیمه و مالیات حساب شود، نه با نرخ‌های ثابت صفر درصد.",
                     "es": "Al elegir un empleado en la página de nómina, el formulario se llena con su perfil, así que cambiar una cosa y guardar conserva el resto; antes se guardaba el formulario vacío encima. Un perfil nuevo empieza en «Reglas legales» cuando están vigentes, de modo que se calculan el seguro y el impuesto, en lugar de tasas fijas del 0%.",
                     "ar": "عند اختيار موظف في صفحة الرواتب يمتلئ النموذج بملفه، فإذا غيّرت شيئًا واحدًا وحفظت يبقى الباقي كما هو — كان النموذج الفارغ يُحفظ فوقه. ويبدأ الملف الجديد على «القواعد النظامية» متى كانت سارية، فيُحتسب التأمين وضريبة الدخل بدل النسب الثابتة عند 0%.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.13",
+        date="2026-10-13",
+        highlights=(
+            Highlight(
+                key="old-books-import",
+                page="migration",
+                roles=("owner", "accountant"),                # the import page isn't a CFO's
+                title={
+                    "en": "Bring your old books: Sepidar or an Excel journal",
+                    "fa": "دفاتر قبلی را بیاورید: سپیدار یا دفتر روزنامهٔ اکسل",
+                    "es": "Trae tus libros anteriores: Sepidar o un diario en Excel",
+                    "ar": "انقل دفاترك السابقة: سبيدار أو دفتر يومية في Excel",
+                },
+                body={
+                    "en": "Migration reads a Sepidar export or a journal kept by hand in Excel. It finds the journal sheet in a workbook and its columns by their headings, places each account the chart lacks under the right heading, keeps every bank and party with its own balance, and asks before moving a voucher typed with the wrong year. Imported years match the old system's trial balance, account by account.",
+                    "fa": "«انتقال اطلاعات» خروجی سپیدار یا دفتر روزنامه‌ای را که دستی در اکسل نگه داشته‌اید می‌خواند: برگهٔ دفتر روزنامه را در فایل و ستون‌ها را از روی سرستون پیدا می‌کند، حساب‌هایی را که در کدینگ نیست زیر گروه درست می‌سازد، هر بانک و هر طرف حساب را با ماندهٔ خودش نگه می‌دارد و برای سندی که سالش اشتباه تایپ شده، پیش از جابه‌جایی می‌پرسد. سال‌های واردشده حساب‌به‌حساب با تراز آزمایشی سیستم قبلی یکی است.",
+                    "es": "Migración lee una exportación de Sepidar o un diario llevado a mano en Excel. Encuentra la hoja del diario y sus columnas por los encabezados, crea cada cuenta que falta en el plan bajo su grupo, conserva cada banco y cada tercero con su saldo y pregunta antes de mover un asiento escrito con el año equivocado. Los años importados cuadran con el balance de comprobación del sistema anterior, cuenta por cuenta.",
+                    "ar": "صفحة «الترحيل» تقرأ ملف تصدير من سبيدار أو دفتر يومية مسجلًا يدويًا في Excel: تجد ورقة اليومية في الملف وأعمدتها من عناوينها، وتنشئ كل حساب غير موجود في الدليل تحت مجموعته الصحيحة، وتحفظ لكل بنك وكل طرف رصيده، وتسأل قبل نقل قيد كُتبت سنته خطأً. السنوات المستوردة تطابق ميزان المراجعة في النظام السابق حسابًا بحساب.",
+                },
+            ),
+            Highlight(
+                key="stock-in-books",
+                page="inventory",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Stock in the books",
+                    "fa": "موجودی کالا در دفاتر",
+                    "es": "Las existencias en la contabilidad",
+                    "ar": "المخزون في الدفاتر",
+                },
+                body={
+                    "en": "Inventory → \"Stock in the books\": from the date you pick, stock posts to the ledger. A bill's stock lines go to Stocks instead of purchases, a sale's lines take their cost of sales each month, and counts and write-offs post too, so the balance sheet carries your stock and the profit and loss what was sold. An invoice line named like a stock item is marked \"Stock\".",
+                    "fa": "«انبار ← موجودی کالا در دفاتر»: از تاریخی که انتخاب می‌کنید، موجودی در دفاتر ثبت می‌شود. ردیف‌های کالای فاکتور خرید به‌جای خرید به حساب موجودی کالا می‌رود، بهای تمام‌شدهٔ ردیف‌های فروش هر ماه ثبت می‌شود و شمارش و ضایعات هم سند می‌خورد؛ پس ترازنامه موجودی شما را نشان می‌دهد و صورت سود و زیان بهای کالای فروش‌رفته را. ردیفی از فاکتور که نامش نام کالایی از انبار است، برچسب «کالای انبار» می‌گیرد.",
+                    "es": "Inventario → «Existencias en la contabilidad»: desde la fecha que elijas, las existencias se contabilizan. Las líneas de existencias de una factura de compra van a Existencias en lugar de compras, las de una venta registran su coste cada mes, y los recuentos y bajas también se contabilizan, así que el balance muestra tus existencias y la cuenta de resultados lo vendido. Una línea con el nombre de un artículo se marca «Existencias».",
+                    "ar": "المخزون ← «المخزون في الدفاتر»: من التاريخ الذي تختاره يُرحَّل المخزون إلى الدفاتر. تذهب بنود المخزون في فاتورة الشراء إلى حساب المخزون بدل المشتريات، وتُسجَّل تكلفة بنود البيع كل شهر، وتُرحَّل عمليات الجرد والشطب أيضًا؛ فتُظهر الميزانية مخزونك وقائمة الدخل تكلفة ما بِيع. وبند الفاتورة الذي يحمل اسم صنف في المخزون يُعلَّم «مخزون».",
+                },
+            ),
+            Highlight(
+                key="party-window",
+                page="entities",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "A party's transactions: newest first, with a search",
+                    "fa": "تراکنش‌های هر طرف حساب: تازه‌ترین در بالا، با جستجو",
+                    "es": "Las transacciones de un tercero: las más recientes primero, con búsqueda",
+                    "ar": "معاملات كل طرف: الأحدث أولًا، مع البحث",
+                },
+                body={
+                    "en": "A party's transactions open on the latest, with today's balance on the top row and each description shown whole. Type in the box to find an entry by date, reference, description or amount, in Persian or Latin digits, with or without separators. The PDF statement still reads in date order.",
+                    "fa": "پنجرهٔ تراکنش‌های هر طرف حساب از تازه‌ترین شروع می‌شود؛ ماندهٔ امروز در ردیف اول است و شرح هر تراکنش کامل دیده می‌شود. برای پیدا کردن تراکنش، تاریخ، مرجع، شرح یا مبلغ را در کادر جستجو بنویسید؛ با رقم فارسی یا لاتین، با جداکننده یا بی‌جداکننده. صورت‌حساب PDF همچنان به ترتیب تاریخ است.",
+                    "es": "Las transacciones de un tercero se abren por la más reciente, con el saldo de hoy en la primera fila y cada descripción completa. Escribe en el cuadro para encontrar un movimiento por fecha, referencia, descripción o importe, con o sin separadores. El extracto en PDF sigue en orden de fecha.",
+                    "ar": "تُفتح معاملات كل طرف على الأحدث، ورصيد اليوم في الصف الأول، وكل وصف يظهر كاملًا. اكتب في المربع لتجد قيدًا بالتاريخ أو المرجع أو الوصف أو المبلغ، بفواصل أو بدونها. ويبقى كشف الحساب PDF بترتيب التاريخ.",
+                },
+            ),
+            Highlight(
+                key="chat-quick-answers",
+                page="ai-accountant",
+                roles=_BOOKS,
+                title={
+                    "en": "Everyday questions answered straight from the books",
+                    "fa": "پرسش‌های روزمره، مستقیم از دفاتر",
+                    "es": "Las preguntas de cada día, respondidas desde los libros",
+                    "ar": "الأسئلة اليومية تُجاب مباشرة من الدفاتر",
+                },
+                body={
+                    "en": "\"How much cash do we have?\", \"Who owes us?\", \"What did we spend last month?\" and other common questions are answered from the books at once, the same figure every time, without waiting for the assistant. On books brought over from another system, the assistant reads the imported accounts and parties as your own.",
+                    "fa": "«چقدر نقد داریم؟»، «چه کسانی به ما بدهکارند؟»، «ماه پیش چقدر خرج کردیم؟» و پرسش‌های رایج دیگر فوراً از روی دفاتر پاسخ داده می‌شود، هر بار با همان عدد و بی‌انتظار برای دستیار. در دفاتری که از سیستم دیگری آمده، دستیار حساب‌ها و طرف‌حساب‌های واردشده را مثل حساب‌های خود شما می‌خواند.",
+                    "es": "«¿Cuánto efectivo tenemos?», «¿Quién nos debe?», «¿Cuánto gastamos el mes pasado?» y otras preguntas habituales se responden al instante desde los libros, con la misma cifra cada vez y sin esperar al asistente. En libros traídos de otro sistema, el asistente lee las cuentas y los terceros importados como propios.",
+                    "ar": "«كم لدينا من النقد؟» و«مَن مدين لنا؟» و«كم أنفقنا الشهر الماضي؟» وغيرها من الأسئلة الشائعة تُجاب فورًا من الدفاتر، بالرقم نفسه كل مرة ومن دون انتظار المساعد. وفي الدفاتر المنقولة من نظام آخر يقرأ المساعد الحسابات والأطراف المستوردة كأنها حساباتك.",
+                },
+            ),
+            Highlight(
+                key="pence",
+                page="invoices",
+                page_by_role={"personal": "personal-dashboard"},
+                roles=_BOOKS,
+                locales=("uk", "default"),
+                title={
+                    "en": "Every amount to the penny",
+                    "fa": "هر مبلغ تا آخرین پنی",
+                    "es": "Cada importe hasta el céntimo",
+                    "ar": "كل مبلغ حتى آخر بنس",
+                },
+                body={
+                    "en": "Amounts keep their pence everywhere: the ledger, bank statements, invoices and VAT, payroll, reports, files and cheques. £1,234.56 stays £1,234.56 instead of being rounded to the pound, and averages such as the burn rate are worked out to the penny.",
+                    "fa": "مبالغ همه‌جا با پنی نگه داشته می‌شوند: دفتر کل، صورت‌حساب‌های بانکی، فاکتورها و VAT، حقوق، گزارش‌ها، فایل‌ها و چک‌ها. ۱٬۲۳۴٫۵۶ پوند همان ۱٬۲۳۴٫۵۶ می‌ماند و به پوند گرد نمی‌شود، و میانگین‌هایی مثل نرخ مصرف نقدینگی هم تا پنی حساب می‌شود.",
+                    "es": "Los importes conservan los céntimos en todas partes: el mayor, los extractos bancarios, las facturas y el IVA, las nóminas, los informes, los archivos y los cheques. 1.234,56 £ sigue siendo 1.234,56 £ en lugar de redondearse a la libra, y promedios como el gasto mensual se calculan al céntimo.",
+                    "ar": "تحتفظ المبالغ بكسورها في كل مكان: دفتر الأستاذ وكشوف البنك والفواتير والقيمة المضافة والرواتب والتقارير والملفات والشيكات. يبقى 1,234.56 £ كما هو بدل التقريب إلى الجنيه، وتُحسب المتوسطات مثل معدل الإنفاق حتى البنس.",
+                },
+            ),
+            Highlight(
+                key="persian-digits",
+                page="dashboard",
+                locales=("ir",),
+                title={
+                    "en": "Persian digits on Persian pages",
+                    "fa": "رقم‌های فارسی در صفحه‌های فارسی",
+                    "es": "Cifras persas en las páginas en persa",
+                    "ar": "أرقام فارسية في الصفحات الفارسية",
+                },
+                body={
+                    "en": "With the app in Persian, amounts, dates and account codes are written in Persian digits, with «٬» between thousands. Search boxes take Persian or Latin digits alike, and files you download keep Latin ones.",
+                    "fa": "وقتی زبان برنامه فارسی است، مبلغ‌ها، تاریخ‌ها و کد حساب‌ها با رقم فارسی و جداکنندهٔ «٬» نوشته می‌شوند. در کادرهای جستجو می‌توانید رقم فارسی یا لاتین بنویسید، و فایل‌هایی که دانلود می‌کنید رقم لاتین دارند.",
+                    "es": "Con la aplicación en persa, los importes, las fechas y los códigos de cuenta se escriben con cifras persas y «٬» entre los miles. Los cuadros de búsqueda aceptan cifras persas o latinas, y los archivos que descargas mantienen las latinas.",
+                    "ar": "عندما تكون لغة التطبيق الفارسية تُكتب المبالغ والتواريخ ورموز الحسابات بالأرقام الفارسية مع «٬» بين الآلاف. وتقبل مربعات البحث الأرقام الفارسية أو اللاتينية، وتبقى الأرقام لاتينية في الملفات التي تنزّلها.",
                 },
             ),
         ),

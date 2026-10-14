@@ -59,6 +59,13 @@ def test_locale_limited_highlights(monkeypatch):
     assert "moadian-export" not in _keys(rn.whats_new_for("owner", since, locale="uk"))
     # Unknown locale (no company in the session) keeps every highlight.
     assert "moadian-export" in _keys(rn.whats_new_for("owner", since))
+    # Pence are for pounds and other currencies with decimals, Persian digits for Iranian books.
+    oct13 = "2026.10.07.3"
+    assert "pence" in _keys(rn.whats_new_for("owner", oct13, locale="uk"))
+    assert "pence" not in _keys(rn.whats_new_for("owner", oct13, locale="ir"))
+    assert "persian-digits" in _keys(rn.whats_new_for("owner", oct13, locale="ir"))
+    assert "persian-digits" not in _keys(rn.whats_new_for("owner", oct13, locale="uk"))
+    assert "old-books-import" not in _keys(rn.whats_new_for("cfo", oct13))           # not a page a CFO opens
     # A release whose only highlight is for another locale counts as seen.
     only_ir = next(r for r in rn.RELEASES if r.version == "2026.09.25.4")
     monkeypatch.setattr(rn, "RELEASES", (only_ir,))
@@ -93,7 +100,8 @@ def test_whats_new_for_role_and_last_seen():
             "per-currency-views", "chat-periods-cash", "balance-sheet-check",
             "payroll-statutory-rules", "ai-invoices-cheques", "quotes", "invoice-email-reminders",
             "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes", "ai-usage",
-            "seasonal-tax-reports", "uk-mtd", "bank-sms", "anomaly-insights", "cash-forecast", "fixed-assets", "inventory-costing", "chart-of-accounts", "installable-app", "push-notifications", "journal-import", "fx-rates", "base-currency-values", "realised-fx", "base-currency-everywhere", "correction-memory", "voice-notes", "messenger-bot", "jalali-reports", "cheque-lifecycle", "cheque-print", "uk-frs102-statements", "ai-approvals", "language-switch", "dashboard-aging-order", "statement-review-cards", "ai-review-queue", "budgets-edit-roll", "project-budgets", "po-bills-prices", "email-statements-payslips"} <= all_keys
+            "seasonal-tax-reports", "uk-mtd", "bank-sms", "anomaly-insights", "cash-forecast", "fixed-assets", "inventory-costing", "chart-of-accounts", "installable-app", "push-notifications", "journal-import", "fx-rates", "base-currency-values", "realised-fx", "base-currency-everywhere", "correction-memory", "voice-notes", "messenger-bot", "jalali-reports", "cheque-lifecycle", "cheque-print", "uk-frs102-statements", "ai-approvals", "language-switch", "dashboard-aging-order", "statement-review-cards", "ai-review-queue", "budgets-edit-roll", "project-budgets", "po-bills-prices", "email-statements-payslips", "old-books-import", "stock-in-books",
+            "party-window", "chat-quick-answers", "pence", "persian-digits"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -134,7 +142,8 @@ def test_whats_new_for_role_and_last_seen():
                                                                           "push-notifications",
                                                                           "language-switch",
                                                                           "persian-file-names",
-                                                                          "self-service-forms"}
+                                                                          "self-service-forms",
+                                                                          "persian-digits"}
 
     # include_all lists history regardless of what was seen.
     everything = rn.whats_new_for("owner", rn.CURRENT_RELEASE, include_all=True)

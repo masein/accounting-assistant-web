@@ -473,6 +473,7 @@ for _m, _p in [
     ("POST", "/api/mobile/v1/proposals/{token}/cancel"), ("POST", "/api/mobile/v1/postings/{audit_log_id}/undo"),
     ("POST", "/api/mobile/v1/proposals/{token}/edit"),
     ("POST", "/api/mobile/v1/statements/{statement_id}/next"),
+    ("POST", "/api/mobile/v1/bank-sms"),
     ("POST", "/api/mobile/v1/uploads"), ("POST", "/api/mobile/v1/transcribe"), ("POST", "/api/mobile/v1/briefing"),
     ("POST", "/api/mobile/v1/uploads/begin"), ("PUT", "/api/mobile/v1/uploads/{upload_id}"),
 ]:

@@ -34,6 +34,10 @@ The build started on 2026-10-10.
 - ✅ Most of P3.7 (#324): app shortcuts (photo a receipt, record spending, cash) and a home-screen widget (cash and the budget left) that hides its figures behind the app lock.
 - ✅ The `chart` block (#323): the 13-week cash forecast drawn natively, and a fast path for "will we have enough cash?" in four languages (a what-if stays with the model).
 - ✅ **P0.10** (#320): `docs/contracts/`, the block schema and recorded conversations, checked by the server and parsed by the Android tests; every mobile route in a table with its roles.
+- ◐ **P2.2, bank SMS** (scenarios Y1–Y10):
+  - the server's half is done: `POST /api/mobile/v1/bank-sms` takes the SMS the phone read, with the sender, the time and the bank the user named the sender as. Each becomes a row of the bank's SMS statement, as a pasted SMS does. The day an SMS arrived dates one that carries none.
+  - The feed and the briefing say «Mellat (1405/07): 2 to record», and the briefing's line has Next.
+  - The app's half (the `direct` build reads SMS from senders the user confirmed) comes next.
 - ◐ **P0.8** (#327): the fallback is done: `GET /api/mobile/v1/feed` with stable keys, read every hour by WorkManager and told as local notifications. **Still to do:** the push providers (a Firebase project, or Pushe, from the owner), which only have to wake the same sync sooner.
 
 **App (`android/`, Phase 1):**

@@ -692,6 +692,10 @@ def mobile_feed(db: Session = Depends(get_db), user: SessionUser = Depends(get_c
             from app.core.money import persian_figures
             body = persian_figures(body)
         items.append({"key": f"approval:{d['confirmation_token']}", "kind": "approval", "title": title_t, "body": body})
+    if role_can(user.role, Perm.BOOKS_WRITE):
+        for stmt, n in _sms_to_record(db):
+            title, body = _sms_line(stmt, n, lang)
+            items.append({"key": f"bank_sms:{stmt.id}:{n}", "kind": "bank_sms", "title": title, "body": body})
     if role_can(user.role, Perm.BOOKS_READ):
         from app.services.insight_service import chat_wording, compute_insights
         for ins in compute_insights(db):
@@ -700,6 +704,92 @@ def mobile_feed(db: Session = Depends(get_db), user: SessionUser = Depends(get_c
             loc = chat_wording(ins, lang)                  # «شهریور ۱۴۰۵», not «1405-06»
             items.append({"key": f"insight:{ins.key}", "kind": "insight", "title": loc["title"], "body": loc["message"]})
     return {"items": items[:20]}
+
+
+# --- bank SMS the phone read itself (roadmap ROADMAP_ANDROID_CHAT P2.2, §7.1) ----------------
+
+MAX_PHONE_SMS = 50
+
+
+class PhoneSms(BaseModel):
+    sender: str = Field(..., min_length=1, max_length=64)
+    text: str = Field(..., min_length=1, max_length=2000)
+    received_at: datetime | None = None
+    # the bank the user said this sender is (app/services/bank_sms.py BANKS), for a text that names none
+    bank: str | None = Field(None, max_length=32)
+
+
+class PhoneSmsBatch(BaseModel):
+    messages: list[PhoneSms] = Field(..., min_length=1)
+
+
+@router.post("/bank-sms")
+def mobile_bank_sms(payload: PhoneSmsBatch, db: Session = Depends(get_db),
+                    user: SessionUser = Depends(get_current_user)) -> dict:
+    """Bank SMS the phone read as they arrived, from senders the user said are
+    their bank: the builds outside Play (owner's decision, §11.5). Each becomes
+    a row of the bank's SMS statement to record, as a pasted one does
+    (app/services/bank_sms.py). A message already on file is known by its
+    text, so the phone may send one again. Only counts come back, and the
+    statements to review; the sender isn't kept."""
+    from app.services.audit_service import log_audit_event
+    from app.services.bank_sms import ingest
+    if len(payload.messages) > MAX_PHONE_SMS:
+        raise HTTPException(status_code=422, detail=f"At most {MAX_PHONE_SMS} messages at a time")
+    try:
+        out = ingest(db, [m.text for m in payload.messages],
+                     received=[m.received_at.date() if m.received_at else None for m in payload.messages],
+                     banks=[m.bank for m in payload.messages])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    log_audit_event(db, "bank_sms_forward", "bank_statement", entity_id=None,
+                    detail=f"from the phone: {out['added']} added, {out['duplicates']} already on file, "
+                           f"{len(out['unparsed'])} unread")
+    db.commit()
+    return {"received": out["received"], "added": out["added"], "duplicates": out["duplicates"],
+            "unread": len(out["unparsed"]), "statements": out["statements"]}
+
+
+def _sms_to_record(db: Session) -> list[tuple]:
+    """The bank SMS statements with rows the books don't have yet, from the
+    last two months: (statement, how many), most recent first."""
+    from app.models.bank_statement import BankStatement
+    from app.services.bank_sms import SOURCE_TYPE
+    from app.services.statement_review import build_statement_review
+    since = datetime.now(timezone.utc).date() - timedelta(days=62)
+    out = []
+    for stmt in db.execute(select(BankStatement).where(BankStatement.source_type == SOURCE_TYPE,
+                                                       BankStatement.to_date >= since)
+                           .order_by(BankStatement.to_date.desc()).limit(6)).scalars():
+        left = sum(1 for f in build_statement_review(db, stmt).findings
+                   if f.kind == "unrecorded" and f.suggested_fix == "post_row")
+        if left:
+            out.append((stmt, left))
+    return out[:3]
+
+
+_SMS_LINE = {
+    "en": ("Bank SMS to record", "{bank}: {n} to record."),
+    "fa": ("پیامک بانکی برای ثبت", "{bank}: {n} پیامک برای ثبت."),
+    "es": ("SMS bancarios por registrar", "{bank}: {n} por registrar."),
+    "ar": ("رسائل بنكية للتسجيل", "{bank}: {n} للتسجيل."),
+}
+
+
+def _sms_line(stmt, n: int, lang: str) -> tuple[str, str]:
+    """«ملت (۱۴۰۵/۰۷): ۲ پیامک برای ثبت.» — the bank by name in the reader's
+    language (the statement's own name is the books' «Mellat (SMS 1405/07)»)."""
+    from app.services.bank_sms import BANKS
+    from app.services.documents.formatting import to_persian_digits
+    _sms, bank, _account, month = ((stmt.source_filename or "").split(":") + ["", "", "", ""])[:4]
+    name = bank if bank in BANKS else ""
+    if lang == "fa":
+        fa = BANKS[name][0] if name else ""
+        name = fa if fa.startswith(("بانک", "پست")) else (f"بانک {fa}" if fa else "بانک")
+    label = f"{name or 'Bank'} ({month.replace('-', '/')})" if month else (name or "Bank")
+    title, body = _SMS_LINE.get(lang, _SMS_LINE["en"])
+    body = body.format(bank=label, n=n)
+    return title, to_persian_digits(body) if lang == "fa" else body
 
 
 # --- the home-screen widget (roadmap ROADMAP_ANDROID_CHAT P3.7) ------------------------------
@@ -833,7 +923,8 @@ def mobile_briefing(payload: BriefingPayload, db: Session = Depends(get_db),
     calendar = _calendar(db)
     text = briefing_text(compute_insights(db), lang)
     waiting = _waiting_for(db, user)
-    if not text and not waiting:
+    sms = _sms_to_record(db)
+    if not text and not waiting and not sms:
         return {"thread_id": payload.thread_id, "blocks": []}
     try:
         session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.thread_id)
@@ -846,6 +937,11 @@ def mobile_briefing(payload: BriefingPayload, db: Session = Depends(get_db),
     if text:
         blocks.append({"type": "text", "id": f"briefing:{mid}", "kind": "briefing", "text": text,
                        "fallback_text": text})
+    for stmt, n in sms:
+        # Next offers its first row as a voucher (/statements/{id}/next)
+        _title, line = _sms_line(stmt, n, lang)
+        blocks.append({"type": "text", "id": f"sms:{stmt.id}:{mid}", "kind": "statement_next",
+                       "statement_id": str(stmt.id), "text": line, "fallback_text": line})
     if waiting:
         line = _APPROVALS_LINE.get(lang, _APPROVALS_LINE["en"])(len(waiting))
         line = to_persian_digits(line) if lang == "fa" else line

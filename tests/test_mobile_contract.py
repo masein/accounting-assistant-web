@@ -288,6 +288,7 @@ MOBILE_ROUTES = {
     ("POST", "/api/mobile/v1/proposals/{token}/cancel"): BOOKS,
     ("POST", "/api/mobile/v1/proposals/{token}/edit"): BOOKS,
     ("POST", "/api/mobile/v1/statements/{statement_id}/next"): BOOKS,
+    ("POST", "/api/mobile/v1/bank-sms"): BOOKS,         # bank SMS read on the phone (§7.1)
     ("POST", "/api/mobile/v1/postings/{audit_log_id}/undo"): BOOKS,
     # a document from the books: whoever reads the books or the reports
     ("GET", "/api/mobile/v1/documents/invoices/{invoice_id}"): frozenset({"owner", "cfo", "accountant", "viewer", "personal"}),

@@ -407,3 +407,15 @@ From the owner after the production imports: a party with years of history opene
 | U2 | Search | In the same window, type «طراحی» (the imported text reads «طراحي», with Sepidar's Arabic «ي»), then «۴۸٬۴۷۸٬۵۰۰», then «48478500», then «sepidar-6», then «۱۴۰۳/۰۵», then «zzz» | Only the matching rows show, with «۳ از ۴۱» beside the box; letters match in either form, digits in Persian or Latin, with or without separators. «zzz» shows «No transaction matches»; clearing the box shows every row again |
 | U3 | Searching, then editing | Search «تنخواه», edit one of the rows and save; then close the window and open another party's | Back in the list the search is still «تنخواه» and only its rows show. Another party, or opening from the list again, starts with an empty box |
 | U4 | The whole row in view | The same party at 1280 px, entries imported from Sepidar (references like «IMPORT-sepidar-6-2024-08-06», no attachments) | The window widens for a statement (up to 1240 px), each reference stays on one line, and the attachments column shows only when an entry has one: the «مانده» and the actions are in view without scrolling sideways (they sat past the edge, and each row was four lines tall). An account's detail and a shareholder's ledger keep the usual width |
+
+## V. Persian figures and tidy buttons (2026-10-13)
+
+From the owner's screenshots after the production imports.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| V1 | The CFO's sentences in Persian | A rial company with a loss over the last 12 months; open the CFO page in Persian, and ask the chat «وضعیت سلامت مالی چطوره؟» | The summary, the insights and the answer write every figure in Persian digits with «٬» between thousands and «٫» for decimals, percentages as «۳۸٪», and the money as «ریال» («درآمد کل ۳۴٬۴۸۰٬۸۳۰٬۰۰۰ ریال»); it read «IRR 34,480,830,000». English, Spanish and Arabic keep Latin digits and the code |
+| V2 | No spending lately | A company whose last three months have no expenses (the schools' books end in Khordad), with cash in the bank | The summary says nothing was spent in the last three months, so there is no burn to measure a runway against; the runway card shows «ندارد» / "N/A" and the chat says the same. It read «با نرخ سوخت فعلی 0 در ماه، حدود 999.0 ماه دوام می‌آورد». The runway is not marked as a risk |
+| V3 | Chart labels | The dashboard's «بیشترین هزینه‌ها» and the other charts, in Persian and in English | Legends, axes and tooltips use the page's own font (they fell back to Helvetica/Arial, unlike every other label), and their numbers are in the page's digits |
+| V4 | Buttons in a table cell | The companies console (AI budget · Suspend · Reset password) at 1280 px; a party's transactions (ویرایش · حذف) | A cell's buttons sit side by side with a gap and, when they must wrap, with a gap between the lines too; they touched, and the party's two were stacked |
+| V5 | Buttons under a field | Fixed assets → Month-end depreciation | Preview and Post depreciation sit a little below the «Up to» date, not touching it |

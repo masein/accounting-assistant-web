@@ -84,11 +84,11 @@
             <td>${escapeHtml(suspended ? t('companiesStatusSuspended') : t('companiesStatusActive'))}</td>
             <td dir="ltr">${ai[c.id] ? escapeHtml(aiTokens(ai[c.id].tokens_24h) + ' / ' + (ai[c.id].budget ? aiTokens(ai[c.id].budget) : '∞') + (ai[c.id].budget_is_default ? '' : ' *')) : '—'}</td>
             <td>${rev[c.id] ? escapeHtml(tf('companiesAiReviewCell', { good: rev[c.id].good, bad: rev[c.id].bad, total: rev[c.id].samples })) : '—'}</td>
-            <td>
+            <td><div class="cell-actions">
               <button type="button" class="btn btn-secondary btn-sm co-ai" data-id="${escapeHtml(c.id)}" data-budget="${ai[c.id] && !ai[c.id].budget_is_default ? escapeHtml(String(ai[c.id].budget)) : ''}">${escapeHtml(t('companiesAiBudget'))}</button>
               <button type="button" class="btn btn-secondary btn-sm co-toggle" data-id="${escapeHtml(c.id)}" data-status="${nextStatus}">${escapeHtml(toggleLabel)}</button>
               <button type="button" class="btn btn-secondary btn-sm co-reset" data-id="${escapeHtml(c.id)}">${escapeHtml(t('companiesResetPw'))}</button>
-            </td>
+            </div></td>
           </tr>`;
         }).join('');
         tbody.querySelectorAll('img.co-logo').forEach(img => {
@@ -361,7 +361,7 @@
         document.getElementById('ceo-grade').style.color = d.health_grade <= 'B' ? '#2e7d32' : d.health_grade <= 'C' ? '#f57f17' : '#c62828';
         document.getElementById('ceo-risk').textContent = localDigits(d.risk_score + '/100');
         document.getElementById('ceo-risk').style.color = d.risk_score <= 30 ? '#2e7d32' : d.risk_score <= 60 ? '#f57f17' : '#c62828';
-        document.getElementById('ceo-runway').textContent = d.cash_runway_months + ' ' + t('monthsShort');
+        document.getElementById('ceo-runway').textContent = formatKpiValue(d.cash_runway_months, 'months');
         document.getElementById('ceo-margin').textContent = localDigits(d.profit_margin + '%');
         document.getElementById('ceo-margin').style.color = d.profit_margin >= 0 ? '#2e7d32' : '#c62828';
 

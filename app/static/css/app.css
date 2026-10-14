@@ -112,6 +112,12 @@
     /* the Jalali day printed under a Gregorian field says nothing a Jalali field doesn't */
     .jdate + .jalali-hint { display: none; }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
+    /* buttons under a form's fields, a little below them (they touched the field: scenario V5) */
+    .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    /* a table cell's buttons: side by side with a gap, and a gap between lines when they
+       wrap (they touched, or stacked: scenario V4) */
+    .cell-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+    .cell-actions.nowrap { flex-wrap: nowrap; }
     .row > * { flex: 1 1 180px; min-width: 0; }
     /* Kill the global 0.75rem margin-bottom on inputs/selects inside any flex/grid
        form row with flex-end alignment — otherwise the bottom margin is included

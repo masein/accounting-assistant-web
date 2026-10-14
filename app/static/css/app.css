@@ -1272,3 +1272,4 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 .party-accounts > summary { cursor: pointer; font-weight: 600; color: var(--primary); }
 .party-accounts[open] > summary { margin-bottom: 0.5rem; }
 .party-accounts .fc-note { margin-top: 0.15rem; }
+.party-accounts .pa-overdrawn { color: var(--danger, #b91c1c); font-weight: 600; }

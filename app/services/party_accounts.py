@@ -8,6 +8,9 @@ never reached اشخاص, and a party's window, statement and search had nothing
 receivable, payable, advance or loan line of the balance sheet, that aren't a bank's,
 aren't an account the posting roles use (trade debtors, VAT, wages payable: they hold
 many parties at once) and aren't a party's already. Expenses and income are never offered.
+Cash funds named for a bank or a person are offered too (X7, X8): «تنخواه گردان حساب بانک
+شهر» as a bank (its account its code, so the bank statement import offers it), «تنخواه گردان
+خانم آیت الهی» as an employee holding cash; a plain «صندوق» stays cash.
 
 ``make_parties`` turns the ones picked into parties tied to their account
 (``Entity.account_id``) and links every past entry on it. ``_link_new_entries`` links each
@@ -28,6 +31,8 @@ from app.models.entity import Entity, TransactionEntity
 from app.models.transaction import Transaction, TransactionLine
 
 PARTY_TYPES = ("client", "supplier", "employee", "shareholder")
+# what a cash fund can become (scenarios X7, X8): a bank account kept as petty cash, or cash a person holds
+FUND_TYPES = ("bank", "employee")
 # a party's role on the entries it is linked to (the voucher form's roles)
 _ROLE = {"client": "client", "supplier": "supplier", "employee": "payee", "shareholder": "shareholder", "bank": "bank"}
 
@@ -36,6 +41,21 @@ _IR_LINES = frozenset({"ca_trade_receivables", "ca_other", "nca_lt_receivables",
                        "cl_st_loans", "cl_other", "ncl_lt_payables", "ncl_lt_loans"})
 _UK_LINES = frozenset({"ca_debtors", "cl_creditors", "ncl_creditors"})
 _LIABILITY_SECTIONS = ("current_liabilities", "non_current_liabilities", "equity")
+_CASH_LINES = frozenset({"ca_cash"})
+# a fund's name says whose money it is: a bank's account, or a person holding cash
+_BANK_WORDS = ("بانک", "بنک", "بنك", "bank", "banco")
+_PERSON_WORDS = ("خانم", "آقای", "اقای", "آقا ", "دکتر", "مهندس", "mr ", "mr.", "mrs", "ms ", "ms.", "miss ",
+                 "sr.", "sra.", "السيد", "السيدة")
+
+
+def _fund_kind(name: str) -> str | None:
+    """«تنخواه گردان حساب بانک شهر» → bank; «تنخواه گردان خانم آیت الهی» → employee; «صندوق» → None."""
+    folded = (name or "").replace("ي", "ی").replace("ك", "ک").lower() + " "
+    if any(w in folded for w in _BANK_WORDS):
+        return "bank"
+    if any(w in folded for w in _PERSON_WORDS):
+        return "employee"
+    return None
 
 
 def _line_of(db: Session, code: str, *, uk: bool, lines: dict) -> tuple[str, str] | None:
@@ -100,13 +120,20 @@ def candidates(db: Session) -> list[dict]:
         if acc.code in roles or acc.code in banks or acc.id not in sums:
             continue
         found = _line_of(db, acc.code, uk=uk, lines=lines)
+        n, net = sums[acc.id]
+        group = names.get(acc.parent_id) if acc.parent_id else None
+        if found and found[1] in _CASH_LINES:
+            # a cash fund named for a bank or a person (X7); a plain cash box stays cash
+            kind = _fund_kind(acc.name)
+            if kind:
+                out.append({"account_id": str(acc.id), "code": acc.code, "name": acc.name, "group": group,
+                            "side": "cash", "balance": net, "entries": n, "suggested_type": kind})
+            continue
         if not found or found[1] not in (_UK_LINES if uk else _IR_LINES):
             continue
-        n, net = sums[acc.id]
         owes_us = found[0] not in _LIABILITY_SECTIONS
         out.append({
-            "account_id": str(acc.id), "code": acc.code, "name": acc.name,
-            "group": names.get(acc.parent_id) if acc.parent_id else None,
+            "account_id": str(acc.id), "code": acc.code, "name": acc.name, "group": group,
             "side": "receivable" if owes_us else "payable",
             # in the account's natural sense: what they owe us, or what we owe them
             "balance": net if owes_us else -net,
@@ -131,11 +158,13 @@ def make_parties(db: Session, picks: list[dict]) -> list[Entity]:
         if aid not in offered:
             raise PartyAccountError(f"Account {aid} can't be made a party: it isn't a debtor or creditor "
                                     "account with entries, or it is a party's already.")
-        if typ not in PARTY_TYPES:
-            raise PartyAccountError(f"Unknown party type {typ!r}.")
+        allowed = FUND_TYPES if offered[aid]["side"] == "cash" else PARTY_TYPES
+        if typ not in allowed:
+            raise PartyAccountError(f"Account {offered[aid]['code']} can become a {' or '.join(allowed)}, not a {typ}.")
         acc = db.get(Account, uuid.UUID(aid))
         name = (pick.get("name") or "").strip() or acc.name
-        entity = Entity(type=typ, name=name[:256], account_id=acc.id)
+        # a bank's code is its ledger account: the statement import and the forms find it by it (X8)
+        entity = Entity(type=typ, name=name[:256], account_id=acc.id, code=acc.code if typ == "bank" else None)
         db.add(entity)
         db.flush()
         txn_ids = {t for (t,) in db.execute(

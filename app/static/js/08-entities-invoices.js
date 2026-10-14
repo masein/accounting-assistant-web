@@ -111,14 +111,18 @@
       if (!_paRows.length) { document.getElementById('party-accounts-tbody').innerHTML = ''; return; }
       document.getElementById('party-accounts-summary').textContent = tf('paSummary', { n: formatNum(_paRows.length) });
       const types = [['client', 'labelClient'], ['supplier', 'labelSupplier'], ['employee', 'optionEmployee'], ['shareholder', 'labelShareholder']];
+      // a cash fund becomes a bank or a person holding cash (scenarios X7, X8)
+      const fundTypes = [['bank', 'labelBank'], ['employee', 'optionEmployee']];
+      const says = (a) => a.side === 'cash' ? (a.balance < 0 ? 'paOverdrawn' : 'paHeld')
+        : a.balance === 0 ? 'paSettled' : (a.side === 'receivable') === (a.balance > 0) ? 'paOwesUs' : 'paWeOwe';
       document.getElementById('party-accounts-tbody').innerHTML = _paRows.map((a) => `<tr>
           <td><input type="checkbox" class="pa-pick" data-id="${escapeHtml(a.account_id)}" aria-label="${escapeHtml(a.name)}"></td>
           <td>${escapeHtml(localCode(a.code))}</td>
           <td dir="auto">${escapeHtml(a.name)}</td>
           <td dir="auto">${escapeHtml(a.group || '—')}</td>
           <td class="num"><span class="nowrap">${escapeHtml(formatAmount(Math.abs(a.balance)))}</span>
-            <div class="fc-note">${escapeHtml(t(a.balance === 0 ? 'paSettled' : (a.side === 'receivable') === (a.balance > 0) ? 'paOwesUs' : 'paWeOwe'))}</div></td>
-          <td><select class="pa-type" data-id="${escapeHtml(a.account_id)}" aria-label="${escapeHtml(t('labelType'))}">${types.map(([v, k]) =>
+            <div class="fc-note${says(a) === 'paOverdrawn' ? ' pa-overdrawn' : ''}">${escapeHtml(t(says(a)))}</div></td>
+          <td><select class="pa-type" data-id="${escapeHtml(a.account_id)}" aria-label="${escapeHtml(t('labelType'))}">${(a.side === 'cash' ? fundTypes : types).map(([v, k]) =>
             `<option value="${v}"${v === a.suggested_type ? ' selected' : ''}>${escapeHtml(t(k))}</option>`).join('')}</select></td>
         </tr>`).join('');
       document.getElementById('pa-all').checked = false;

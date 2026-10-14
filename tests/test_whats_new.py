@@ -101,7 +101,8 @@ def test_whats_new_for_role_and_last_seen():
             "payroll-statutory-rules", "ai-invoices-cheques", "quotes", "invoice-email-reminders",
             "recurring-invoices", "moadian-export", "two-factor", "api-key-scopes", "ai-usage",
             "seasonal-tax-reports", "uk-mtd", "bank-sms", "anomaly-insights", "cash-forecast", "fixed-assets", "inventory-costing", "chart-of-accounts", "installable-app", "push-notifications", "journal-import", "fx-rates", "base-currency-values", "realised-fx", "base-currency-everywhere", "correction-memory", "voice-notes", "messenger-bot", "jalali-reports", "cheque-lifecycle", "cheque-print", "uk-frs102-statements", "ai-approvals", "language-switch", "dashboard-aging-order", "statement-review-cards", "ai-review-queue", "budgets-edit-roll", "project-budgets", "po-bills-prices", "email-statements-payslips", "old-books-import", "stock-in-books",
-            "party-window", "chat-quick-answers", "pence", "persian-digits"} <= all_keys
+            "party-window", "chat-quick-answers", "pence", "persian-digits",
+            "voice-recording", "parties-from-accounts", "cfo-runway"} <= all_keys
 
     # Up to date → nothing.
     assert rn.whats_new_for("owner", rn.CURRENT_RELEASE)["seen"] is True
@@ -256,3 +257,14 @@ def test_the_review_queue_is_announced_to_the_people_it_samples():
     assert keys("owner") == {"ai-review-queue"}
     assert keys("cfo") == keys("accountant") == {"ai-review-notice"}
     assert keys("employee") == keys("viewer") == keys("personal") == set()      # not sampled / no chat
+
+
+def test_the_2026_10_14_notes_reach_the_people_who_can_use_them():
+    """Voice for whoever chats, parties for the books people, the runway for the CFO page's."""
+    def keys(role):
+        rels = rn.whats_new_for(role, None, include_all=True)["releases"]
+        return {h["key"] for r in rels if r["version"] == "2026.10.14" for h in r["highlights"]}
+    assert keys("owner") == keys("cfo") == {"voice-recording", "parties-from-accounts", "cfo-runway"}
+    assert keys("accountant") == {"voice-recording", "parties-from-accounts"}
+    assert keys("personal") == {"voice-recording"}
+    assert keys("manager") == keys("employee") == keys("viewer") == set()

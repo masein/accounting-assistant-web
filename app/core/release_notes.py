@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.13"
+CURRENT_RELEASE = "2026.10.14"
 
 
 @dataclass(frozen=True)
@@ -1813,6 +1813,63 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "وقتی زبان برنامه فارسی است، مبلغ‌ها، تاریخ‌ها و کد حساب‌ها با رقم فارسی و جداکنندهٔ «٬» نوشته می‌شوند. در کادرهای جستجو می‌توانید رقم فارسی یا لاتین بنویسید، و فایل‌هایی که دانلود می‌کنید رقم لاتین دارند.",
                     "es": "Con la aplicación en persa, los importes, las fechas y los códigos de cuenta se escriben con cifras persas y «٬» entre los miles. Los cuadros de búsqueda aceptan cifras persas o latinas, y los archivos que descargas mantienen las latinas.",
                     "ar": "عندما تكون لغة التطبيق الفارسية تُكتب المبالغ والتواريخ ورموز الحسابات بالأرقام الفارسية مع «٬» بين الآلاف. وتقبل مربعات البحث الأرقام الفارسية أو اللاتينية، وتبقى الأرقام لاتينية في الملفات التي تنزّلها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.14",
+        date="2026-10-14",
+        highlights=(
+            Highlight(
+                key="voice-recording",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Voice notes: tap or hold, and cancel any time",
+                    "fa": "پیام صوتی: یک ضربه یا نگه‌داشتن، و لغو هر وقت خواستید",
+                    "es": "Notas de voz: toca o mantén, y cancela cuando quieras",
+                    "ar": "الملاحظات الصوتية: انقر أو اضغط مطولًا، وألغِ متى شئت",
+                },
+                body={
+                    "en": "Tap the microphone to talk hands-free, or hold it and let go when you're done. While you speak, a bar shows the time and your voice's level. ✕, Esc or sliding your finger away throws the recording away; ✓ or letting go shows \"Writing what you said…\" until the words land in the box, to check before you send.",
+                    "fa": "برای صحبت بی‌آنکه انگشت را نگه دارید، یک بار روی میکروفون بزنید؛ یا آن را نگه دارید و وقتی حرفتان تمام شد رها کنید. هنگام صحبت، نواری زمان و بلندی صدایتان را نشان می‌دهد. با ✕، کلید Esc یا کشیدن انگشت به کنار، ضبط دور ریخته می‌شود؛ با ✓ یا رها کردن، «در حال نوشتن آنچه گفتید…» می‌آید تا متن در کادر بنشیند و پیش از ارسال آن را ببینید.",
+                    "es": "Toca el micrófono para hablar sin mantenerlo pulsado, o mantenlo y suéltalo al terminar. Mientras hablas, una barra muestra el tiempo y el nivel de tu voz. ✕, Esc o deslizar el dedo a un lado descartan la grabación; ✓ o soltar muestran «Escribiendo lo que dijiste…» hasta que las palabras llegan al cuadro, para revisarlas antes de enviar.",
+                    "ar": "انقر على الميكروفون لتتحدث دون الضغط عليه، أو اضغط عليه مطولًا وارفع إصبعك حين تنتهي. أثناء الحديث يُظهر شريط الوقت ومستوى صوتك. بالنقر على ✕ أو مفتاح Esc أو سحب إصبعك جانبًا يُتجاهل التسجيل؛ وبالنقر على ✓ أو رفع الإصبع تظهر «جارٍ كتابة ما قلته…» حتى يصل النص إلى المربع، لتراجعه قبل الإرسال.",
+                },
+            ),
+            Highlight(
+                key="parties-from-accounts",
+                page="entities",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Parties from your chart's own accounts",
+                    "fa": "طرف حساب از حساب‌های کدینگ خودتان",
+                    "es": "Terceros a partir de las cuentas de tu plan",
+                    "ar": "أطراف من حسابات دليلك نفسه",
+                },
+                body={
+                    "en": "Books kept by hand often keep customers, suppliers, staff and cash funds as accounts. Entities now lists them under \"Accounts in your chart that could be parties\": tick each one, say what it is (a customer, supplier, employee or shareholder; for cash kept at a bank or by a person, a bank or an employee) and make it a party. It keeps its account and past entries, new entries on the account join it, and its transactions, balance and statement read from the account. A cash fund below zero is marked to check.",
+                    "fa": "در دفاتری که دستی نگه داشته می‌شوند، مشتری‌ها، تأمین‌کننده‌ها، کارکنان و تنخواه‌ها اغلب حساب‌اند. حالا «اشخاص» آن‌ها را زیر «حساب‌هایی از کدینگ شما که می‌توانند طرف حساب باشند» می‌آورد: هر کدام را تیک بزنید، بگویید چیست (مشتری، تأمین‌کننده، کارمند یا سهامدار؛ و برای پولی که در بانک یا نزد کسی است، بانک یا کارمند) و طرف حساب بسازید. حساب و سندهای گذشته‌اش با او می‌ماند، سندهای تازهٔ آن حساب هم به او وصل می‌شود، و تراکنش‌ها، مانده و صورت‌حسابش از همان حساب خوانده می‌شود. تنخواهی که منفی است، «منفی — بررسی شود» می‌خورد.",
+                    "es": "Los libros llevados a mano suelen tener a clientes, proveedores, personal y fondos de caja como cuentas. Entidades las muestra ahora en «Cuentas de tu plan que podrían ser terceros»: marca cada una, di qué es (cliente, proveedor, empleado o accionista; para el efectivo guardado en un banco o por una persona, banco o empleado) y conviértela en tercero. Conserva su cuenta y sus asientos anteriores, los asientos nuevos en la cuenta se le suman, y sus transacciones, su saldo y su extracto se leen de la cuenta. Un fondo de caja en negativo se marca para revisarlo.",
+                    "ar": "كثيرًا ما تجعل الدفاتر المسجلة يدويًا العملاء والموردين والموظفين وصناديق النقد حسابات. تعرضها صفحة «الكيانات» الآن تحت «حسابات في دليلك يمكن أن تكون أطرافًا»: علّم كل واحد منها وحدد ما هو (عميل أو مورد أو موظف أو مساهم؛ وللنقد المحفوظ في بنك أو لدى شخص: بنك أو موظف) واجعله طرفًا. يحتفظ بحسابه وقيوده السابقة، وتنضم إليه القيود الجديدة على الحساب، وتُقرأ معاملاته ورصيده وكشف حسابه من الحساب. ويُعلَّم صندوق النقد الذي رصيده بالسالب للمراجعة.",
+                },
+            ),
+            Highlight(
+                key="cfo-runway",
+                page="cfo",
+                roles=("owner", "cfo"),
+                title={
+                    "en": "No runway figure without spending to measure",
+                    "fa": "بقای مالی فقط وقتی خرجی برای سنجیدن هست",
+                    "es": "Sin runway cuando no hay gasto que medir",
+                    "ar": "لا رقم للسيولة المتبقية حين لا يوجد إنفاق يُقاس",
+                },
+                body={
+                    "en": "When nothing was spent in the last three months, CFO Mode's runway reads N/A and its summary says there's no burn to measure a runway against; it read 999 months. Chart labels now use the page's own font, and with the app in Persian the CFO's summary, insights and answers write their figures in Persian digits.",
+                    "fa": "وقتی در سه ماه اخیر هزینه‌ای ثبت نشده، «بقای مالی» در «حالت مدیر مالی» «ندارد» نشان می‌دهد و خلاصه می‌گوید نرخ سوختی نیست که دوام نقدینگی با آن سنجیده شود؛ پیش‌تر «۹۹۹ ماه» می‌نوشت. برچسب‌های نمودارها حالا با قلم خود صفحه نوشته می‌شوند، و خلاصه، بینش‌ها و پاسخ‌های مدیر مالی عددها را با رقم فارسی و «ریال» می‌نویسند.",
+                    "es": "Si no se gastó nada en los últimos tres meses, el runway del Modo CFO muestra N/D y el resumen explica que no hay gasto con el que medirlo; antes decía 999 meses. Las etiquetas de los gráficos usan ahora la fuente de la página, y con la aplicación en persa el resumen, los avisos y las respuestas escriben sus cifras con dígitos persas.",
+                    "ar": "إذا لم يُنفق شيء في الأشهر الثلاثة الأخيرة، تعرض «السيولة المتبقية» في «وضع المدير المالي» «غير متاح» ويوضح الملخص أنه لا يوجد معدل إنفاق تُقاس به؛ كانت تعرض 999 شهرًا. وتستخدم تسميات الرسوم البيانية الآن خط الصفحة نفسه، وعندما يكون التطبيق بالفارسية يكتب الملخص والتنبيهات والإجابات أرقامها بالأرقام الفارسية.",
                 },
             ),
         ),

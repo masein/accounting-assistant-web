@@ -159,3 +159,70 @@ def test_x6_only_the_books_writers_make_parties(ir, db, role):
     r = api.post("/entities/from-accounts", json={"accounts": [
         {"account_id": offered["115201"]["account_id"], "type": "client"}]})
     assert r.status_code == 403
+
+
+def _funds(api, db, cid):
+    """منادی حق's petty-cash group: bank accounts kept as funds, one a person holds, a cash box."""
+    from app.models.account import Account, AccountLevel
+    with use_company(cid):
+        by = {a.code: a for a in db.execute(select(Account)).scalars()}
+        fund = Account(code="1151", name="تنخواه گردان", level=AccountLevel.GENERAL, parent_id=by["11"].id,
+                       statement_line="ca_cash")
+        db.add(fund)
+        db.flush()
+        for code, name in (("115101", "تنخواه گردان حساب بانک شهر"), ("115103", "تنخواه گردان حساب بانک پارسیان"),
+                           ("115104", "تنخواه گردان خانم آیت الهی"), ("115105", "صندوق مدرسه")):
+            db.add(Account(code=code, name=name, level=AccountLevel.SUB, parent_id=fund.id))
+        db.commit()
+    _post(api, EARLY, [("115103", 30_144_519_169, 0), ("1110", 0, 30_144_519_169)])
+    _post(api, EARLY, [("6133", 5_504_920_857, 0), ("115101", 0, 5_504_920_857)], "paid from the Shahr fund")
+    _post(api, EARLY, [("115104", 7_661_132_620, 0), ("1110", 0, 7_661_132_620)])
+    _post(api, EARLY, [("115105", 1_000_000, 0), ("1110", 0, 1_000_000)])
+
+
+def test_x7_cash_funds_named_for_a_bank_or_a_person_are_offered(ir, db):
+    api, cid = ir
+    _school_chart(db, cid)
+    _funds(api, db, cid)
+    offered = _offered(api)
+    funds = {c: offered[c] for c in offered if c.startswith("1151")}
+    assert set(funds) == {"115101", "115103", "115104"}                     # not the «صندوق»
+    assert funds["115101"]["side"] == "cash" and funds["115101"]["suggested_type"] == "bank"
+    assert funds["115101"]["balance"] == -5_504_920_857                     # below zero: for the accountant
+    assert funds["115103"]["balance"] == 30_144_519_169
+    assert funds["115104"]["suggested_type"] == "employee"                  # a person holding cash
+    assert "1110" not in offered and "1160" not in offered                   # the cash and petty-cash roles
+
+
+def test_x8_a_fund_made_a_bank_takes_its_statements(ir, db):
+    from app.models.entity import Entity
+    from app.services.statement_import import bank_account_choices
+    api, cid = ir
+    _school_chart(db, cid)
+    _funds(api, db, cid)
+    offered = _offered(api)
+    r = api.post("/entities/from-accounts", json={"accounts": [
+        {"account_id": offered["115103"]["account_id"], "type": "bank"},
+        {"account_id": offered["115104"]["account_id"], "type": "employee"}]})
+    assert r.status_code == 201, r.text
+    made = {p["name"]: p for p in r.json()["created"]}
+    parsian = made["تنخواه گردان حساب بانک پارسیان"]
+    assert parsian["type"] == "bank" and parsian["code"] == "115103"           # its account is its code
+    with use_company(cid):
+        assert "115103" in {c["code"] for c in bank_account_choices(db)}       # the statement import offers it
+        assert db.get(Entity, uuid.UUID(made["تنخواه گردان خانم آیت الهی"]["id"])).code is None
+    rows = api.get(f"/reports/entities/{parsian['id']}/transactions").json()
+    assert rows[-1]["entity_balance"] == 30_144_519_169
+    rows = api.get(f"/reports/entities/{made['تنخواه گردان خانم آیت الهی']['id']}/transactions").json()
+    assert rows[-1]["entity_balance"] == 7_661_132_620                         # what she holds
+
+
+def test_x8_a_fund_is_a_bank_or_a_person_and_a_debtor_is_never_a_bank(ir, db):
+    api, cid = ir
+    _school(api, db, cid)
+    _funds(api, db, cid)
+    offered = _offered(api)
+    for code, typ in (("115101", "client"), ("115101", "supplier"), ("115201", "bank")):
+        r = api.post("/entities/from-accounts", json={"accounts": [{"account_id": offered[code]["account_id"], "type": typ}]})
+        assert r.status_code == 422, (code, typ, r.text)
+    assert {"115101", "115201"} <= set(_offered(api))                            # nothing made

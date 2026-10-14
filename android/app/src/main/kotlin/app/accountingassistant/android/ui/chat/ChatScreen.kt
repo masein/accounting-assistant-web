@@ -94,6 +94,8 @@ fun ChatScreen(
     onDetach: (String) -> Unit = {},
     onSpeakStart: () -> Unit = {},
     onSpeakEnd: () -> Unit = {},
+    onSpeakCancel: () -> Unit = {},
+    level: () -> Float = { 0f },
     userInitial: String = "",
     onAccount: () -> Unit = {},
     onFile: (ChatItem.File, Boolean) -> Unit = { _, _ -> },
@@ -247,6 +249,7 @@ fun ChatScreen(
                 ChatUiState.Notice.UploadFailed -> R.string.error_upload
                 ChatUiState.Notice.Unreadable -> R.string.error_unreadable
                 ChatUiState.Notice.VoiceFailed -> R.string.error_voice
+                ChatUiState.Notice.VoiceTooShort -> R.string.error_voice_short
                 else -> null
             }
             if (notice != null) {
@@ -255,10 +258,9 @@ fun ChatScreen(
                          modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                 }
             }
-            if (state.uploading || state.transcribing) {
-                val gone = state.uploadProgress.takeIf { state.uploading }
-                ThinkingRow(stringResource(if (state.uploading) R.string.uploading else R.string.transcribing) +
-                                (gone?.let { " " + Numbers.percent(it, lang) } ?: ""),
+            if (state.uploading) {
+                val gone = state.uploadProgress
+                ThinkingRow(stringResource(R.string.uploading) + (gone?.let { " " + Numbers.percent(it, lang) } ?: ""),
                             Modifier.padding(start = 8.dp), progress = gone)
             }
             if (state.attachments.isNotEmpty()) {
@@ -290,6 +292,7 @@ fun ChatScreen(
                 }
                 Composer(value = state.draft, onValueChange = onDraft, onSend = onSend, onAttach = { menu = true }, focus = focus,
                          onSpeakStart = { capture.speak(onSpeakStart) }, onSpeakEnd = onSpeakEnd,
+                         onSpeakCancel = onSpeakCancel, level = level, transcribing = state.transcribing, lang = lang,
                          listening = state.listening,
                          canSend = state.draft.isNotBlank() || state.attachments.isNotEmpty())
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {

@@ -1115,24 +1115,153 @@
         }
       });
       // Camera capture (phones): the photo goes through the same attach path.
-      // Voice notes (roadmap §5.7): record → /ai-accountant/transcribe → the
-      // text lands in the input for the user to check and send.
+      // Voice notes (roadmap §5.7; scenarios W1–W7): record → /ai-accountant/transcribe → the
+      // text lands in the input for the user to check and send. While it records a bar takes
+      // the text box's place: the time, the voice's level, ✕ and ✓. Tap the microphone to record
+      // hands-free (✓, Enter or the microphone to stop; ✕ or Esc to throw it away), or hold it
+      // and let go; while holding, sliding toward the start side throws the recording away.
       const micBtn = document.getElementById('ai-acct-mic');
+      const recBar = document.getElementById('ai-acct-rec');
+      const recTime = document.getElementById('ai-acct-rec-time');
+      const recLevel = document.getElementById('ai-acct-rec-level');
+      const recHint = document.getElementById('ai-acct-rec-hint');
+      const composer = micBtn ? micBtn.closest('.ai-composer') : null;
       const MIC_MAX_SECONDS = 120;
-      let _rec = null, _recChunks = [], _recTimer = null, _recStarted = 0;
+      const MIC_MIN_MS = 600;          // shorter is a stray touch, not words
+      const HOLD_MS = 350;             // a press longer than this is hold-to-talk; shorter, a tap
+      const CANCEL_PX = 90;            // slide this far toward the start side to throw it away
+      let _rec = null, _recChunks = [], _recTimer = null, _recStarted = 0, _recDiscard = false;
+      let _recStream = null, _recAudio = null, _recRaf = 0, _recLevels = [], _recLastBar = 0;
+      let _hold = null;                // { x, id, at } while the microphone is pressed
       function _micType() {
         const types = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm'];
         return types.find(tp => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(tp)) || '';
       }
+      const _recRtl = () => !!composer && getComputedStyle(composer).direction === 'rtl';
+      // «‹» is a mirrored glyph: it points to the start side in either direction
+      function _recHintText() {
+        if (_hold) return '‹ ' + t('aiRecSlide');
+        return window.matchMedia && matchMedia('(pointer: coarse)').matches ? '' : t('aiRecEsc');
+      }
       function _micTick() {
         const secs = Math.floor((Date.now() - _recStarted) / 1000);
-        statusEl.textContent = tf('aiMicRecording', { time: Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0') });
-        if (secs >= MIC_MAX_SECONDS && _rec && _rec.state === 'recording') _rec.stop();
+        recTime.textContent = localDigits(Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'));
+        if (secs >= MIC_MAX_SECONDS) _recStop(false);
+      }
+      // the voice's level as bars: the newest at the end, older ones moving toward the start
+      function _drawLevel(now) {
+        _recRaf = requestAnimationFrame(_drawLevel);
+        const cv = recLevel, dpr = window.devicePixelRatio || 1;
+        const w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
+        if (!w || !h) return;
+        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+        if (now - _recLastBar < 70) return;
+        _recLastBar = now;
+        let level = 0;
+        if (_recAudio) {
+          const buf = _recAudio.buf;
+          _recAudio.an.getByteTimeDomainData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+          level = Math.min(1, Math.sqrt(sum / buf.length) * 5);
+        }
+        const bar = 3 * dpr, gap = 2 * dpr, n = Math.max(4, Math.floor(w / (bar + gap)));
+        _recLevels.push(level);
+        while (_recLevels.length > n) _recLevels.shift();
+        const ctx = cv.getContext('2d');
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#dc2626';
+        const rtl = _recRtl(), len = _recLevels.length;
+        _recLevels.forEach((v, i) => {
+          const bh = Math.max(2 * dpr, v * h);
+          const slot = len - 1 - i;                     // 0 = the newest
+          const x = rtl ? slot * (bar + gap) : w - (slot + 1) * (bar + gap) + gap;
+          ctx.globalAlpha = 0.45 + 0.55 * (i / len);
+          ctx.fillRect(x, (h - bh) / 2, bar, bh);
+        });
+        ctx.globalAlpha = 1;
+      }
+      async function _recStart() {
+        if (_rec || !composer) return;
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (_) {
+          _hold = null;
+          micBtn.classList.remove('holding');
+          showAlert(t('aiMicDenied'), true);
+          return;
+        }
+        if (_rec) { stream.getTracks().forEach(tr => tr.stop()); return; }
+        const type = _micType();
+        _recStream = stream;
+        _rec = type ? new MediaRecorder(stream, { mimeType: type }) : new MediaRecorder(stream);
+        _recChunks = [];
+        _recDiscard = false;
+        _recLevels = [];
+        _rec.addEventListener('dataavailable', (e) => { if (e.data && e.data.size) _recChunks.push(e.data); });
+        _rec.addEventListener('stop', _recStopped);
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          const ac = new AC();
+          const an = ac.createAnalyser();
+          an.fftSize = 512;
+          ac.createMediaStreamSource(stream).connect(an);
+          _recAudio = { ac, an, buf: new Uint8Array(an.fftSize) };
+        } catch (_) { _recAudio = null; }          // no meter, still a recording
+        _rec.start();
+        _recStarted = Date.now();
+        composer.classList.add('is-recording');
+        composer.classList.toggle('hands-free', !_hold);
+        recBar.hidden = false;
+        recBar.classList.remove('writing', 'sliding');
+        recHint.classList.remove('near');
+        recHint.style.transform = '';
+        recHint.textContent = _recHintText();
+        micBtn.classList.add('recording');
+        micBtn.setAttribute('aria-pressed', 'true');
+        statusEl.textContent = '';
+        _micTick();
+        _recTimer = setInterval(_micTick, 250);
+        _recRaf = requestAnimationFrame(_drawLevel);
+      }
+      function _recStop(discard) {
+        if (!_rec || _rec.state !== 'recording') return;
+        _recDiscard = !!discard;
+        _rec.stop();
+      }
+      function _recRelease() {             // the microphone, the meter and the timer
+        clearInterval(_recTimer);
+        cancelAnimationFrame(_recRaf);
+        if (_recStream) _recStream.getTracks().forEach(tr => tr.stop());
+        if (_recAudio) { try { _recAudio.ac.close(); } catch (_) { /* closed */ } }
+        _recStream = null;
+        _recAudio = null;
+        _hold = null;
+        micBtn.classList.remove('recording', 'holding');
+        micBtn.setAttribute('aria-pressed', 'false');
+      }
+      function _recClose() {               // the text box back in its place
+        recBar.hidden = true;
+        recBar.classList.remove('writing', 'sliding');
+        composer.classList.remove('is-recording', 'hands-free');
+      }
+      function _recStopped() {
+        const took = Date.now() - _recStarted;
+        const blob = new Blob(_recChunks, { type: (_rec && _rec.mimeType) || _micType() || 'audio/webm' });
+        _rec = null;
+        _recChunks = [];
+        _recRelease();
+        if (_recDiscard) { _recClose(); statusEl.textContent = t('aiRecCancelled'); inputEl.focus(); return; }
+        if (!blob.size || took < MIC_MIN_MS) { _recClose(); statusEl.textContent = t('aiRecTooShort'); return; }
+        _micSend(blob);
       }
       async function _micSend(blob) {
         micBtn.classList.add('busy');
         micBtn.disabled = true;
-        statusEl.textContent = t('aiMicTranscribing');
+        recBar.classList.add('writing');
+        recHint.style.transform = '';
+        recHint.textContent = t('aiRecWriting');
         try {
           const fd = new FormData();
           fd.append('file', blob, 'voice-note');
@@ -1149,7 +1278,6 @@
           const cur = inputEl.value.trim();
           inputEl.value = cur ? cur + ' ' + data.text : data.text;
           inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-          inputEl.focus();
           statusEl.textContent = t('aiMicDone');
         } catch (_) {
           statusEl.textContent = '';
@@ -1157,40 +1285,65 @@
         } finally {
           micBtn.classList.remove('busy');
           micBtn.disabled = false;
+          _recClose();
+          inputEl.focus();
+          inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
         }
       }
-      if (micBtn && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder) {
+      if (micBtn && recBar && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder) {
         micBtn.hidden = false;
-        micBtn.addEventListener('click', async () => {
-          if (_rec && _rec.state === 'recording') { _rec.stop(); return; }
-          let stream;
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          } catch (_) {
-            showAlert(t('aiMicDenied'), true);
+        micBtn.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0 || micBtn.disabled || _rec) return;   // recording hands-free: the click stops it
+          e.preventDefault();
+          _hold = { x: e.clientX, id: e.pointerId, at: Date.now() };
+          try { micBtn.setPointerCapture(e.pointerId); } catch (_) { /* not capturable */ }
+          micBtn.classList.add('holding');
+          _recStart();
+        });
+        micBtn.addEventListener('pointermove', (e) => {
+          if (!_hold || e.pointerId !== _hold.id || !_rec) return;
+          const dx = e.clientX - _hold.x;
+          const d = Math.max(0, _recRtl() ? dx : -dx);          // how far toward the start side
+          recBar.classList.add('sliding');
+          recHint.style.transform = 'translateX(' + (_recRtl() ? d : -d) + 'px)';
+          recHint.classList.toggle('near', d > CANCEL_PX * 0.6);
+          if (d > CANCEL_PX) {
+            if (navigator.vibrate) navigator.vibrate(30);
+            _recStop(true);
+          }
+        });
+        micBtn.addEventListener('pointerup', (e) => {
+          if (!_hold || e.pointerId !== _hold.id) return;
+          const held = Date.now() - _hold.at;
+          _hold = null;
+          micBtn.classList.remove('holding');
+          recBar.classList.remove('sliding');
+          recHint.style.transform = '';
+          recHint.classList.remove('near');
+          if (held < HOLD_MS) {                                  // a tap: hands-free, ✓ stops it
+            if (_rec) composer.classList.add('hands-free');
+            recHint.textContent = _recHintText();
             return;
           }
-          const type = _micType();
-          _rec = type ? new MediaRecorder(stream, { mimeType: type }) : new MediaRecorder(stream);
-          _recChunks = [];
-          _rec.addEventListener('dataavailable', (e) => { if (e.data && e.data.size) _recChunks.push(e.data); });
-          _rec.addEventListener('stop', () => {
-            clearInterval(_recTimer);
-            stream.getTracks().forEach(tr => tr.stop());
-            micBtn.classList.remove('recording');
-            micBtn.setAttribute('aria-pressed', 'false');
-            const blob = new Blob(_recChunks, { type: (_rec && _rec.mimeType) || type || 'audio/webm' });
-            _rec = null;
-            if (blob.size) _micSend(blob);
-            else statusEl.textContent = '';
-          });
-          _rec.start();
-          _recStarted = Date.now();
-          micBtn.classList.add('recording');
-          micBtn.setAttribute('aria-pressed', 'true');
-          _micTick();
-          _recTimer = setInterval(_micTick, 500);
+          _recStop(false);                                       // let go after holding: write it
         });
+        micBtn.addEventListener('pointercancel', (e) => {
+          if (_hold && e.pointerId === _hold.id) _recStop(true);
+        });
+        micBtn.addEventListener('click', (e) => {
+          // Enter or Space on the button starts hands-free and stops it again; a press while
+          // recording hands-free stops and writes
+          if (e.detail === 0) { if (_rec) _recStop(false); else _recStart(); return; }
+          if (_rec && !_hold && Date.now() - _recStarted > HOLD_MS) _recStop(false);
+        });
+        document.getElementById('ai-acct-rec-cancel').addEventListener('click', () => _recStop(true));
+        document.getElementById('ai-acct-rec-done').addEventListener('click', () => _recStop(false));
+        document.addEventListener('keydown', (e) => {
+          if (!_rec || recBar.hidden) return;
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); _recStop(true); }
+          else if (e.key === 'Enter' && !_hold) { e.preventDefault(); e.stopPropagation(); _recStop(false); }
+        }, true);
+        window.addEventListener('pagehide', () => _recStop(true));
       }
 
       const cameraBtn = document.getElementById('ai-acct-camera-btn');

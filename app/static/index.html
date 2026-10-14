@@ -619,6 +619,19 @@
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/><path d="M8 22h8"/></svg>
             </button>
             <textarea id="ai-acct-input" class="ai-input" rows="1" data-i18n-placeholder="aiChatInputPlaceholder" placeholder="e.g. paid HSBC 1,000 yesterday for office supplies" autocomplete="off" aria-label="Message" dir="auto"></textarea>
+            <!-- recording a voice note (scenarios W1–W7): takes the text box's place while it runs -->
+            <div class="ai-rec" id="ai-acct-rec" hidden>
+              <button type="button" class="ai-icon-btn ai-rec-cancel" id="ai-acct-rec-cancel" data-i18n-title="aiRecCancel" data-i18n-aria-label="aiRecCancel" title="Cancel recording" aria-label="Cancel recording">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+              </button>
+              <span class="ai-rec-dot" aria-hidden="true"></span>
+              <span class="ai-rec-time" id="ai-acct-rec-time" aria-live="off">0:00</span>
+              <canvas class="ai-rec-level" id="ai-acct-rec-level" aria-hidden="true"></canvas>
+              <span class="ai-rec-hint" id="ai-acct-rec-hint" role="status" aria-live="polite"></span>
+              <button type="button" class="ai-icon-btn ai-rec-done" id="ai-acct-rec-done" data-i18n-title="aiRecDone" data-i18n-aria-label="aiRecDone" title="Stop and write it" aria-label="Stop and write it">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              </button>
+            </div>
             <button type="button" class="btn btn-primary ai-send" id="ai-acct-send" data-i18n-aria-label="send" aria-label="Send">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ai-send-icon"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
               <span data-i18n="send">Send</span>

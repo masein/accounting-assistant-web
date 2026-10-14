@@ -65,6 +65,26 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.accountingassistant.android.R
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.IntOffset
+import app.accountingassistant.android.util.Numbers
+import kotlinx.coroutines.delay
+import kotlin.math.max
 import app.accountingassistant.android.ui.theme.FigureStyle
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
 import app.accountingassistant.android.ui.theme.Vazirmatn
@@ -226,8 +246,11 @@ fun ThinkingRow(text: String, modifier: Modifier = Modifier, progress: Float? = 
 }
 
 /**
- * The floating composer: attach, type, then hold to speak or send. The one
- * translucent thing on the screen. While the mic is held it listens.
+ * The floating composer: attach, type, then speak or send. The one translucent thing on the
+ * screen. The microphone (scenarios W1–W6): hold it to talk and let go to have the words
+ * written in the box; slide toward the start side while holding to throw the recording away;
+ * tap it to record hands-free, then ✓ writes and ✕ throws away. While it records, a red dot,
+ * the time and bars that follow the voice take the text's place; then «writing…».
  */
 @Composable
 fun Composer(
@@ -237,48 +260,130 @@ fun Composer(
     modifier: Modifier = Modifier,
     listening: Boolean = false,
     canSend: Boolean = value.isNotBlank(),
+    onSpeakCancel: () -> Unit = {},
+    level: () -> Float = { 0f },
+    transcribing: Boolean = false,
+    lang: String = "en",
 ) {
     val c = LocalAccountantColors.current
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
+    val cancelPx = with(density) { 96.dp.toPx() }
+    val nowListening by rememberUpdatedState(listening)
+    var handsFree by remember { mutableStateOf(false) }
+    var holding by remember { mutableStateOf(false) }
+    var drag by remember { mutableFloatStateOf(0f) }           // px toward the start side
+    var elapsed by remember { mutableLongStateOf(0L) }
+    val levels = remember { mutableStateListOf<Float>() }
+    LaunchedEffect(listening) {
+        if (!listening) { handsFree = false; holding = false; drag = 0f; levels.clear(); elapsed = 0L; return@LaunchedEffect }
+        val t0 = System.currentTimeMillis()
+        while (true) {
+            elapsed = System.currentTimeMillis() - t0
+            levels.add(level())
+            while (levels.size > 40) levels.removeAt(0)
+            if (elapsed >= 120_000) { onSpeakEnd(); break }    // two minutes: stop and write (W6)
+            delay(80)
+        }
+    }
     Surface(shape = CircleShape, color = c.glass, border = BorderStroke(1.dp, c.line.copy(alpha = 0.6f)),
             shadowElevation = 6.dp, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onAttach, enabled = !listening,
-                       colors = IconButtonDefaults.iconButtonColors(containerColor = c.surface2, contentColor = c.ink),
-                       modifier = Modifier.size(38.dp)) {
-                Icon(AppIcons.Plus, contentDescription = stringResource(R.string.attach), modifier = Modifier.size(18.dp))
-            }
-            Box(Modifier.weight(1f).padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
-                if (listening) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        VoiceBars(Modifier.size(width = 54.dp, height = 22.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.listening), color = c.muted, fontSize = 13.sp, maxLines = 1)
-                    }
-                } else {
-                    if (value.isEmpty()) Text(stringResource(R.string.composer_hint), color = c.muted, fontSize = 14.sp, maxLines = 1)
-                    BasicTextField(value = value, onValueChange = onValueChange, cursorBrush = SolidColor(c.firouzeh),
-                        textStyle = TextStyle(color = c.ink, fontSize = 14.sp, fontFamily = Vazirmatn), maxLines = 4,
-                        modifier = Modifier.fillMaxWidth().let { m -> focus?.let { m.focusRequester(it) } ?: m })
+            if (listening && handsFree) {
+                val cancel = stringResource(R.string.voice_cancel)
+                IconButton(onClick = { handsFree = false; onSpeakCancel() },
+                           colors = IconButtonDefaults.iconButtonColors(containerColor = c.surface2, contentColor = c.pomegranate),
+                           modifier = Modifier.size(38.dp).semantics { contentDescription = cancel }) {
+                    Icon(AppIcons.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+            } else {
+                IconButton(onClick = onAttach, enabled = !listening && !transcribing,
+                           colors = IconButtonDefaults.iconButtonColors(containerColor = c.surface2, contentColor = c.ink),
+                           modifier = Modifier.size(38.dp)) {
+                    Icon(AppIcons.Plus, contentDescription = stringResource(R.string.attach), modifier = Modifier.size(18.dp))
                 }
             }
-            if (canSend && !listening) {
+            Box(Modifier.weight(1f).padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
+                when {
+                    listening -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        RecordingDot()
+                        Spacer(Modifier.width(6.dp))
+                        Text(Numbers.duration(elapsed / 1000, lang), color = c.ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                             style = FigureStyle, maxLines = 1)
+                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                            LevelBars(levels, Modifier.fillMaxWidth().height(24.dp).alpha(if (drag > 0f) 0.25f else 1f))
+                            if (holding) {
+                                val near = drag > cancelPx * 0.6f
+                                Text("‹ " + stringResource(R.string.slide_to_cancel), maxLines = 1, fontSize = 12.5.sp,
+                                     color = if (near) c.pomegranate else c.muted,
+                                     fontWeight = if (near) FontWeight.SemiBold else FontWeight.Normal,
+                                     modifier = Modifier.offset { IntOffset(if (rtl) drag.toInt() else -drag.toInt(), 0) }
+                                         .background(c.glass, RoundedCornerShape(6.dp)).padding(horizontal = 4.dp))
+                            }
+                        }
+                    }
+                    transcribing -> WritingText(stringResource(R.string.transcribing))
+                    else -> {
+                        if (value.isEmpty()) Text(stringResource(R.string.composer_hint), color = c.muted, fontSize = 14.sp, maxLines = 1)
+                        BasicTextField(value = value, onValueChange = onValueChange, cursorBrush = SolidColor(c.firouzeh),
+                            textStyle = TextStyle(color = c.ink, fontSize = 14.sp, fontFamily = Vazirmatn), maxLines = 4,
+                            modifier = Modifier.fillMaxWidth().let { m -> focus?.let { m.focusRequester(it) } ?: m })
+                    }
+                }
+            }
+            if (canSend && !listening && !transcribing) {
                 IconButton(onClick = onSend,
                            colors = IconButtonDefaults.iconButtonColors(containerColor = c.firouzeh, contentColor = c.onFirouzeh),
                            modifier = Modifier.size(38.dp)) {
                     Icon(AppIcons.Send, contentDescription = stringResource(R.string.send), modifier = Modifier.size(18.dp))
                 }
+            } else if (listening && handsFree) {
+                val done = stringResource(R.string.voice_done)
+                IconButton(onClick = { handsFree = false; onSpeakEnd() },
+                           colors = IconButtonDefaults.iconButtonColors(containerColor = c.firouzeh, contentColor = c.onFirouzeh),
+                           modifier = Modifier.size(44.dp).semantics { contentDescription = done }) {
+                    Icon(AppIcons.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                }
             } else {
                 val speak = stringResource(R.string.speak)
+                val grow by animateFloatAsState(if (holding) 1.25f else 1f, label = "mic-hold")
                 Box(
-                    Modifier.size(if (listening) 44.dp else 38.dp).clip(CircleShape)
+                    Modifier.size(if (listening) 44.dp else 38.dp).scale(grow).clip(CircleShape)
                         .background(if (listening) c.pomegranate else c.firouzeh)
                         .semantics { contentDescription = speak; role = Role.Button }
-                        .pointerInput(Unit) {
-                            detectTapGestures(onPress = {
+                        .pointerInput(transcribing) {
+                            if (transcribing) return@pointerInput
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                var upAt = down.uptimeMillis              // the touch's own clock, not the wall's
+                                holding = true
+                                drag = 0f
                                 onSpeakStart()
-                                tryAwaitRelease()
-                                onSpeakEnd()
-                            })
+                                var cancelled = false
+                                while (true) {
+                                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                    upAt = change.uptimeMillis
+                                    if (!change.pressed) break
+                                    val dx = change.position.x - down.position.x
+                                    drag = max(0f, if (rtl) dx else -dx)
+                                    change.consume()
+                                    if (drag > cancelPx) { cancelled = true; break }
+                                }
+                                holding = false
+                                drag = 0f
+                                when {
+                                    cancelled -> {                         // slid away: throw it away (W4)
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        if (nowListening) onSpeakCancel()
+                                        do { val e = awaitPointerEvent() } while (e.changes.any { it.pressed })
+                                    }
+                                    !nowListening -> Unit                  // the microphone was refused or is still asked for
+                                    upAt - down.uptimeMillis < 300 -> handsFree = true          // a tap: hands-free (W1)
+                                    else -> onSpeakEnd()                   // let go after holding: write it (W3)
+                                }
+                            }
                         },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -287,6 +392,49 @@ fun Composer(
             }
         }
     }
+}
+
+/** A red dot that breathes while recording; still, when animations are off. */
+@Composable
+private fun RecordingDot() {
+    val c = LocalAccountantColors.current
+    val t = rememberInfiniteTransition(label = "rec-dot")
+    val a by t.animateFloat(1f, 0.25f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "rec-dot-alpha")
+    Box(Modifier.size(9.dp).alpha(a).clip(CircleShape).background(c.pomegranate))
+}
+
+/** The voice's level as it comes: the newest bar at the end, older ones moving toward the start. */
+@Composable
+fun LevelBars(levels: List<Float>, modifier: Modifier = Modifier) {
+    val c = LocalAccountantColors.current
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Canvas(modifier) {
+        val bar = 3.dp.toPx()
+        val gap = 2.dp.toPx()
+        val n = (size.width / (bar + gap)).toInt().coerceAtLeast(1)
+        val shown = levels.takeLast(n)
+        shown.forEachIndexed { i, v ->
+            val slot = shown.size - 1 - i                         // 0 = the newest
+            val x = if (rtl) slot * (bar + gap) else size.width - (slot + 1) * (bar + gap) + gap
+            val h = max(2.dp.toPx(), v * size.height)
+            drawRoundRect(c.pomegranate.copy(alpha = 0.45f + 0.55f * (i + 1) / shown.size),
+                          topLeft = Offset(x, (size.height - h) / 2), size = androidx.compose.ui.geometry.Size(bar, h),
+                          cornerRadius = androidx.compose.ui.geometry.CornerRadius(bar / 2))
+        }
+    }
+}
+
+/** «Writing what you said…» with a light that passes over it. */
+@Composable
+private fun WritingText(text: String) {
+    val c = LocalAccountantColors.current
+    val t = rememberInfiniteTransition(label = "writing")
+    val x by t.animateFloat(-1f, 2f, infiniteRepeatable(tween(1400, easing = LinearEasing)), label = "writing-x")
+    val brush = androidx.compose.ui.graphics.Brush.linearGradient(
+        0f to c.muted, ((x - 0.3f).coerceIn(0f, 1f)) to c.muted, (x.coerceIn(0f, 1f)) to c.firouzeh,
+        ((x + 0.3f).coerceIn(0f, 1f)) to c.muted, 1f to c.muted,
+        start = Offset.Zero, end = Offset(600f, 0f))
+    Text(text, maxLines = 1, style = TextStyle(brush = brush, fontSize = 13.5.sp, fontFamily = Vazirmatn))
 }
 
 /** Listening: bars that rise and fall; still, when animations are off. */

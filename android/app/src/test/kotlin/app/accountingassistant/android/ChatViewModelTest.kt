@@ -120,6 +120,17 @@ class ChatViewModelTest {
         assertEquals("/api/mobile/v1/transcribe", server.takeRequest().url.encodedPath)
     }
 
+    @Test fun aTouchTooShortForWordsSaysHowToRecordAndSendsNothing() {
+        val vm = ChatViewModel(api, restore = false)
+        vm.listening(true)
+        vm.tooShort()                                          // W5: let go before any words
+        assertEquals(false, vm.state.value.listening)
+        assertEquals(ChatUiState.Notice.VoiceTooShort, vm.state.value.notice)
+        vm.listening(true)                                     // the next recording clears the hint
+        assertEquals(null, vm.state.value.notice)
+        assertEquals(0, server.requestCount)                   // nothing went to be transcribed
+    }
+
     @Test fun aDroppedStreamIsRetriedOnceWithTheSameId() = runBlocking {
         val vm = ChatViewModel(api, restore = false)
         // the stream breaks before its reply, then the plain chat answers

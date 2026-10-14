@@ -32,6 +32,16 @@ object AppIcons {
         }
     }
 
+    /** ✓: stop recording and write the words. */
+    val Check: ImageVector = icon("Check") {
+        stroke { moveTo(5f, 12.5f); lineTo(10f, 17.5f); lineTo(19f, 7f) }
+    }
+
+    /** ✕: throw the recording away. */
+    val Close: ImageVector = icon("Close") {
+        stroke { moveTo(6f, 6f); lineTo(18f, 18f); moveTo(18f, 6f); lineTo(6f, 18f) }
+    }
+
     val Send: ImageVector = icon("Send") {
         stroke { moveTo(12f, 19f); lineTo(12f, 5f); moveTo(6f, 11f); lineTo(12f, 5f); lineTo(18f, 11f) }
     }

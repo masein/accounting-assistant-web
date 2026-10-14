@@ -67,10 +67,28 @@ object Capture {
         }
 }
 
-/** Hold to talk: AAC in an .m4a, mono, small enough to send at once. */
+/** Hold to talk, or tap for hands-free: AAC in an .m4a, mono, small enough to send at once. */
 class VoiceRecorder(private val context: Context) {
     private var recorder: MediaRecorder? = null
     private var file: File? = null
+    private var startedAt = 0L
+
+    /** How loud the voice is right now, 0..1, for the level bars (scenario W1). */
+    fun level(): Float {
+        val r = recorder ?: return 0f
+        val amp = runCatching { r.maxAmplitude }.getOrDefault(0)   // since the last call, 0..32767
+        return kotlin.math.sqrt(amp / 32767f).coerceIn(0f, 1f)
+    }
+
+    /** Throw the recording away: nothing is kept or sent (scenarios W2, W4). */
+    fun cancel() {
+        val r = recorder ?: return
+        recorder = null
+        runCatching { r.stop() }
+        r.release()
+        file?.delete()
+        file = null
+    }
 
     fun start() {
         val f = File(context.cacheDir, "voice-${System.currentTimeMillis()}.m4a")
@@ -86,12 +104,20 @@ class VoiceRecorder(private val context: Context) {
         r.start()
         recorder = r
         file = f
+        startedAt = System.currentTimeMillis()
     }
 
-    /** The recording, or null when it was too short to hold any words. */
+    /** The recording, or null when it was too short to hold any words (scenario W5). */
     fun stop(): Picked? {
         val r = recorder ?: return null
         recorder = null
+        if (System.currentTimeMillis() - startedAt < MIN_MS) {
+            runCatching { r.stop() }
+            r.release()
+            file?.delete()
+            file = null
+            return null
+        }
         val ok = runCatching { r.stop() }.isSuccess          // stop() throws when nothing was recorded
         r.release()
         val f = file ?: return null
@@ -101,3 +127,6 @@ class VoiceRecorder(private val context: Context) {
         return bytes?.let { Picked(it, "voice-note.m4a", "audio/mp4") }
     }
 }
+
+/** Shorter than this is a stray touch, not words. */
+private const val MIN_MS = 600L

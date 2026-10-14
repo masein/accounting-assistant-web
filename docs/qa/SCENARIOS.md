@@ -419,6 +419,19 @@ From the owner's screenshots after the production imports.
 | V3 | Chart labels | The dashboard's «بیشترین هزینه‌ها» and the other charts, in Persian and in English | Legends, axes and tooltips use the page's own font (they fell back to Helvetica/Arial, unlike every other label), and their numbers are in the page's digits |
 | V4 | Buttons in a table cell | The companies console (AI budget · Suspend · Reset password) at 1280 px; a party's transactions (ویرایش · حذف) | A cell's buttons sit side by side with a gap and, when they must wrap, with a gap between the lines too; they touched, and the party's two were stacked |
 | V5 | Buttons under a field | Fixed assets → Month-end depreciation | Preview and Post depreciation sit a little below the «Up to» date, not touching it |
+## W. Recording a voice note (2026-10-14)
+
+From the owner: no way to cancel, a recording that barely shows it is recording, and words that don't reliably come back. The same on the web chat and the Android app.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| W1 | Tap, speak, done | Tap the microphone, speak for a few seconds, press ✓ | A recording bar takes the text box's place: a pulsing red dot, the time counting up, bars that rise and fall with the voice, «‹ Slide to cancel» (on a computer: «Esc to cancel»), ✕ and ✓. After ✓ the bar reads «Writing what you said…» and the words land in the text box, to check and send; nothing is sent by itself |
+| W2 | Cancel | Tap the microphone, speak, then press ✕; again, and press Esc | The recording is thrown away: nothing is transcribed, the text box comes back as it was, the microphone is released |
+| W3 | Hold to talk | Press and hold the microphone, speak, let go | The same bar while held; letting go writes the words into the box |
+| W4 | Slide to cancel | Hold the microphone, speak, slide the finger toward the start side (left in English, right in Persian) | The hint follows the finger and turns red near the end; past it the recording is thrown away with a short vibration, nothing transcribed |
+| W5 | Too short | Touch the microphone for a split second | Nothing is sent to be transcribed; a hint says to hold to record or tap for hands-free |
+| W6 | Two minutes | Record for two minutes | It stops by itself and writes the words |
+| W7 | Without the microphone | Refuse the browser's microphone permission | «The browser did not allow the microphone», the text box as it was |
 
 ## X. Parties from accounts (2026-10-14)
 

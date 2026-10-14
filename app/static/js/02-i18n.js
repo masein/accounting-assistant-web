@@ -3149,7 +3149,14 @@
       }
       currentLanguage = normalized;
       // charts' own numbers (doughnut tooltips and the rest without a callback) in the page's digits
-      if (window.Chart && window.Chart.defaults) window.Chart.defaults.locale = normalized === 'fa' ? 'fa-IR' : 'en-US';
+      if (window.Chart && window.Chart.defaults) {
+        window.Chart.defaults.locale = normalized === 'fa' ? 'fa-IR' : 'en-US';
+        // and the page's own font (app.css), not Chart.js's Helvetica/Arial (scenario V3)
+        window.Chart.defaults.font.family = {
+          fa: "'Vazirmatn', 'Tahoma', 'Segoe UI', sans-serif",
+          ar: "'Tajawal', 'Noto Naskh Arabic', 'Tahoma', sans-serif",
+        }[normalized] || "'Avenir Next', 'Trebuchet MS', 'Segoe UI', sans-serif";
+      }
       // drawn before the language landed (at boot, or before a switch): the voucher form's Jalali hint
       if (typeof updateJalaliHint === 'function') updateJalaliHint();
       // the Excel import's multipliers are bare figures in the markup: «۱٬۰۰۰×» on a Persian page

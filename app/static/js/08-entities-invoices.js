@@ -1618,10 +1618,10 @@
                   <td class="num">${paid}</td>
                   <td class="num">${received}</td>
                   <td class="num ent-tx-balance" style="font-weight:600;">${remaining}</td>
-                  <td>
+                  <td><div class="cell-actions nowrap">
                     <button type="button" class="btn btn-secondary btn-sm entity-tx-edit" data-tx-id="${t0.id}">${escapeHtml(t('btnEdit'))}</button>
-                    <button type="button" class="btn btn-danger btn-sm entity-tx-del" data-tx-id="${t0.id}" style="margin-left:0.35rem;">${escapeHtml(t('btnDelete'))}</button>
-                  </td>
+                    <button type="button" class="btn btn-danger btn-sm entity-tx-del" data-tx-id="${t0.id}">${escapeHtml(t('btnDelete'))}</button>
+                  </div></td>
                 </tr>`;
               }).join('')}
               <tr class="entity-tx-none" hidden><td colspan="${withFiles ? 9 : 8}" class="empty-state">${escapeHtml(t('entTxNoMatch'))}</td></tr>

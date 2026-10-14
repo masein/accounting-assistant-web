@@ -6,6 +6,7 @@ and risk scoring. Pure computation — no LLM dependency.
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 import string
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -19,7 +20,7 @@ from app.models.transaction import Transaction, TransactionLine
 from app.models.entity import Entity, TransactionEntity
 from app.models.invoice import Invoice
 from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
-from app.core.money import average, grouped, plain
+from app.core.money import average, grouped, grouped_fa, persian_figures, plain
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,8 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "narr_overview": "Over the past 12 months, total revenue was {revenue:,} {money} with total expenses of {expenses:,} {money}.",
         "narr_profitable": "The business is profitable with a net margin of {margin:.1f}%.",
         "narr_loss": "The business is running at a loss of {loss:,} {money}.",
+        "narr_cash_no_burn": "Cash on hand is {cash:,} {money}; nothing was spent in the last three months, so there is no burn rate to measure a runway against.",
+        "qa_runway_no_burn": "Cash on hand is {cash:,} {money}, and nothing was spent in the last three months, so there is no burn rate to measure a runway against.",
         "narr_cash": "Cash on hand is {cash:,} {money}, providing approximately {runway:.1f} months of runway at the current burn rate of {burn:,}/month.",
         "narr_key_concern": "Key concern: {title}.",
         "narr_grade": "Overall financial health grade: {grade}.",
@@ -98,10 +101,12 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "narr_overview": "در ۱۲ ماه گذشته، درآمد کل {revenue:,} {money} و هزینه کل {expenses:,} {money} بود.",
         "narr_profitable": "کسب‌وکار سودآور است و حاشیه سود خالص {margin:.1f}٪ دارد.",
         "narr_loss": "کسب‌وکار با زیان {loss:,} {money} مواجه است.",
+        "narr_cash_no_burn": "موجودی نقد {cash:,} {money} است؛ در سه ماه اخیر هزینه‌ای ثبت نشده، پس نرخ سوختی نیست که دوام نقدینگی با آن سنجیده شود.",
+        "qa_runway_no_burn": "موجودی نقد {cash:,} {money} است و در سه ماه اخیر هزینه‌ای ثبت نشده؛ پس نرخ سوختی نیست که دوام نقدینگی با آن سنجیده شود.",
         "narr_cash": "موجودی نقد {cash:,} {money} است که با نرخ سوخت فعلی {burn:,} در ماه، حدود {runway:.1f} ماه دوام می‌آورد.",
         "narr_key_concern": "نگرانی اصلی: {title}.",
         "narr_grade": "نمره کلی سلامت مالی: {grade}.",
-        "qa_health": "نمره سلامت مالی: {grade} (امتیاز ریسک: {risk}/100). {narrative}",
+        "qa_health": "نمره سلامت مالی: {grade} (امتیاز ریسک: {risk}/۱۰۰). {narrative}",
         "qa_runway": "با نرخ سوخت فعلی {burn:,} {money} در ماه و موجودی نقد {cash:,} {money}، کسب‌وکار می‌تواند حدود {runway:.1f} ماه به فعالیت ادامه دهد.",
         "qa_margin": "حاشیه سود خالص {margin}٪ است.",
         "qa_expenses_up": "هزینه‌ها نسبت به ماه قبل {pct}٪ افزایش یافت.",
@@ -138,6 +143,8 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "narr_overview": "En los últimos 12 meses, los ingresos totales fueron {revenue:,} {money} con gastos totales de {expenses:,} {money}.",
         "narr_profitable": "El negocio es rentable con un margen neto del {margin:.1f}%.",
         "narr_loss": "El negocio opera con una pérdida de {loss:,} {money}.",
+        "narr_cash_no_burn": "El efectivo disponible es {cash:,} {money}; no hubo gastos en los últimos tres meses, así que no hay ritmo de gasto con el que medir el margen.",
+        "qa_runway_no_burn": "El efectivo disponible es {cash:,} {money} y no hubo gastos en los últimos tres meses, así que no hay ritmo de gasto con el que medir el margen.",
         "narr_cash": "El efectivo disponible es {cash:,} {money}, lo que da aproximadamente {runway:.1f} meses de margen al ritmo de gasto actual de {burn:,}/mes.",
         "narr_key_concern": "Principal preocupación: {title}.",
         "narr_grade": "Calificación general de salud financiera: {grade}.",
@@ -178,6 +185,8 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "narr_overview": "خلال الـ 12 شهراً الماضية، بلغ إجمالي الإيرادات {revenue:,} {money} وإجمالي المصروفات {expenses:,} {money}.",
         "narr_profitable": "النشاط التجاري مربح بهامش صافٍ قدره {margin:.1f}٪.",
         "narr_loss": "النشاط التجاري يعمل بخسارة قدرها {loss:,} {money}.",
+        "narr_cash_no_burn": "النقد المتاح {cash:,} {money}؛ لم تُسجَّل مصروفات في الأشهر الثلاثة الأخيرة، فلا معدل إنفاق تُقاس به مدة كفاية النقد.",
+        "qa_runway_no_burn": "النقد المتاح {cash:,} {money} ولم تُسجَّل مصروفات في الأشهر الثلاثة الأخيرة، فلا معدل إنفاق تُقاس به مدة كفاية النقد.",
         "narr_cash": "النقد المتاح هو {cash:,} {money}، أي ما يعادل {runway:.1f} شهراً تقريباً بمعدل الإنفاق الحالي {burn:,} شهرياً.",
         "narr_key_concern": "أهم مصدر قلق: {title}.",
         "narr_grade": "التقييم العام للصحة المالية: {grade}.",
@@ -210,18 +219,45 @@ class _Amounts(string.Formatter):
         return super().format_field(value, format_spec)
 
 
+class _AmountsFa(_Amounts):
+    """The same in Persian: every figure in Persian digits, «٬» between thousands
+    and «٫» for decimals («۳۴٬۴۸۰٬۸۳۰٬۰۰۰», «۲٫۵», «۳۸٪»), where the sentences
+    read «IRR 34,480,830,000» (scenario V1). Only the filled-in fields change: a
+    Latin comma inside an account's name stays a comma."""
+
+    def format_field(self, value, format_spec):
+        if format_spec == ",":
+            return grouped_fa(value)
+        text = super().format_field(value, format_spec)
+        if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
+            return persian_figures(text)
+        return text.translate(_FA_DIGITS)               # a name or a month label: its digits only
+
+
 _AMOUNTS = _Amounts()
+_AMOUNTS_FA = _AmountsFa()
+_FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+# the money in a Persian sentence is a word, not a code
+_MONEY_FA = {"IRR": "ریال", "IRT": "تومان", "USD": "دلار", "EUR": "یورو", "GBP": "پوند"}
 
 
 class _Template(str):
+    lang = "en"
+
     def format(self, *args, **kwargs):
+        if self.lang == "fa":
+            if "money" in kwargs:
+                kwargs["money"] = _MONEY_FA.get(str(kwargs["money"]).upper(), kwargs["money"])
+            return _AMOUNTS_FA.vformat(self, args, kwargs)
         return _AMOUNTS.vformat(self, args, kwargs)
 
 
 def _s(lang: str, key: str) -> str:
     """Localized template lookup with English fallback."""
     pack = _CFO_STRINGS.get(lang) or _CFO_STRINGS["en"]
-    return _Template(pack.get(key) or _CFO_STRINGS["en"][key])
+    template = _Template(pack.get(key) or _CFO_STRINGS["en"][key])
+    template.lang = lang if key in pack else "en"
+    return template
 
 
 @dataclass
@@ -520,16 +556,22 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     # too, but not overdrawn: usually no bank balance has been recorded yet.
     no_cash = data["total_cash"] <= 0 and burn_rate > 0
     cash_state = "overdrawn" if data["total_cash"] < 0 else "empty"
-    if burn_rate <= 0:
-        runway = 999
+    # Nothing spent in the last three months: no burn to measure a runway against.
+    # It was 999 and read «حدود 999.0 ماه» (scenario V2); now -1, as the dashboard
+    # writes "not applicable", and never a risk.
+    no_burn = burn_rate <= 0
+    if no_burn:
+        runway = -1.0
     elif no_cash:
         runway = 0.0
     else:
         runway = float(data["total_cash"] / burn_rate)
+    short = not no_burn and runway < 3
+    limited = not no_burn and runway < 6
     report.runway_months = round(runway, 1)
     report.kpis.append(KPI(
         key="runway_months", label="Cash Runway", value=round(runway, 1),
-        unit="months", risk_level="danger" if runway < 3 else "caution" if runway < 6 else "normal",
+        unit="months", risk_level="danger" if short else "caution" if limited else "normal",
     ))
 
     # KPI: Receivables & Payables
@@ -566,7 +608,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
                 burn=burn_rate, cash=data["total_cash"], money=money),
         ))
         priority += 1
-    elif runway < 3:
+    elif short:
         report.insights.append(Insight(
             priority=priority, category="cash", severity="critical",
             title=_s(lang, "ins_runway_critical_title").format(runway=runway),
@@ -574,7 +616,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
                 burn=burn_rate, cash=data["total_cash"], runway=runway),
         ))
         priority += 1
-    elif runway < 6:
+    elif limited:
         report.insights.append(Insight(
             priority=priority, category="cash", severity="warning",
             title=_s(lang, "ins_runway_limited_title").format(runway=runway),
@@ -623,9 +665,9 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
     risk = 0
     if net_profit < 0:
         risk += 30
-    if runway < 3:
+    if short:
         risk += 35
-    elif runway < 6:
+    elif limited:
         risk += 15
     if rev_trend < -20:
         risk += 15
@@ -654,7 +696,8 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
         parts.append(_s(lang, "narr_profitable").format(margin=margin))
     else:
         parts.append(_s(lang, "narr_loss").format(loss=abs(net_profit), money=money))
-    parts.append(_s(lang, f"narr_cash_{cash_state}" if no_cash else "narr_cash").format(
+    narr_cash = "narr_cash_no_burn" if no_burn else f"narr_cash_{cash_state}" if no_cash else "narr_cash"
+    parts.append(_s(lang, narr_cash).format(
         cash=data["total_cash"], money=money, runway=runway, burn=burn_rate))
     if report.insights:
         top = report.insights[0]
@@ -683,8 +726,9 @@ def answer_cfo_question(db: Session, question: str, currency: str | None = None,
 
     if any(w in low for w in ("survive", "runway", "last", "بقا", "دوام", "sobrevivir", "aguantar", "البقاء", "الاستمرار")):
         cash_value = kpi_map.get("cash_on_hand", KPI(key="", label="", value=0)).value
-        key = (("qa_runway_overdrawn" if cash_value < 0 else "qa_runway_empty")
-               if (cash_value <= 0 and report.burn_rate > 0) else "qa_runway")
+        key = ("qa_runway_no_burn" if report.burn_rate <= 0
+               else ("qa_runway_overdrawn" if cash_value < 0 else "qa_runway_empty") if cash_value <= 0
+               else "qa_runway")
         return _s(lang, key).format(
             burn=report.burn_rate, money=money, cash=cash_value, runway=report.runway_months)
 

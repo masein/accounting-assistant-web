@@ -1209,7 +1209,8 @@
         document.getElementById('cfo-grade').style.color = data.health_grade <= 'B' ? '#2e7d32' : data.health_grade <= 'C' ? '#f57f17' : '#c62828';
         document.getElementById('cfo-risk').textContent = localDigits(data.risk_score + '/100');
         document.getElementById('cfo-risk').style.color = data.risk_score <= 30 ? '#2e7d32' : data.risk_score <= 60 ? '#f57f17' : '#c62828';
-        document.getElementById('cfo-runway').textContent = localDigits(data.runway_months) + ' ' + t('monthsShort');
+        // nothing spent lately is no runway to measure: «ندارد», not «۹۹۹ ماه» (scenario V2)
+        document.getElementById('cfo-runway').textContent = formatKpiValue(data.runway_months, 'months');
         // Sync the global from the server's response so every other
         // widget on the page picks up the right currency too.
         if (data.currency) window.__REPORTING_CURRENCY = data.currency;

@@ -380,9 +380,12 @@
       }
       const emps = (pk && pk.employees) || [];
       const sel = document.getElementById('exp-emp');
+      // with none, a short option that fits the box; the whole sentence on hover (it was cut off mid-word)
+      const none = pk && pk.restricted ? 'timeNotLinked' : 'expNoEmployees';
       sel.innerHTML = emps.length
         ? emps.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')
-        : `<option value="">${t(pk && pk.restricted ? 'timeNotLinked' : 'expNoEmployees')}</option>`;
+        : `<option value="">${t(pk && pk.restricted ? 'timeNotLinked' : 'expNoEmployeesShort')}</option>`;
+      sel.title = emps.length ? '' : t(none);
       updateMileageCalc();
       await loadExpenseClaims();
     }
@@ -543,7 +546,8 @@
         const sel = document.getElementById('po-supplier');
         sel.innerHTML = sups.length
           ? sups.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')
-          : `<option value="">${t('poNoSuppliers')}</option>`;
+          : `<option value="">${t('poNoSuppliersShort')}</option>`;
+        sel.title = sups.length ? '' : t('poNoSuppliers');
       } catch (e) { /* ignore */ }
       // Seed one empty line if the editor is empty.
       if (!document.getElementById('po-lines-body').children.length) poAddLineRow();

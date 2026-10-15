@@ -133,6 +133,16 @@
     .fx-rate-grid textarea {
       margin-bottom: 0;
     }
+    /* …and the Jalali date box with them: it kept its 0.75rem, so in a row of fields its column
+       stood 12px taller and the box rode above the others (the mileage claim, the purchase order,
+       the invoice's dates: owner's screenshots, 2026-10-15) */
+    .row .jdate, .form-grid .jdate, .fx-form-grid .jdate, .fx-rate-grid .jdate, .ledger-toolbar .jdate,
+    .fc-whatif .jdate, .prod-form-grid .jdate, .ai-runtime-bar .jdate {
+      margin-bottom: 0;
+    }
+    /* the voucher's fields carry a line of help under them (the reference, the currency) and the
+       date's is hidden: aligned at the bottom, the date box sat a line lower than the others */
+    #transaction-form > .row:first-child { align-items: flex-start; }
     /* Unified form grid for all sections */
     .form-grid {
       display: grid;

@@ -473,3 +473,14 @@ The owner decided (§11.5): apply for Play's exception, and read bank SMS automa
 | Y8 | Ignore [app] | Tap Ignore on another sender | The kept message is deleted; later ones from that sender are ignored. It is listed as ignored and can be changed |
 | Y9 | Offline [app] | An SMS from a read sender with no network | It waits on the phone, sealed, and goes when the network is back (WorkManager); signing out forgets what waits and the senders |
 | Y10 | The app lock [app] | The lock on, an SMS from a new bank sender | The notification says only that a message from a bank needs a choice, with no sender or bank, until the app is open |
+## Z. A person's money in the chat (2026-10-15)
+
+From the owner, on the phone with personal books: «من هشتاد و شش ریال و صد بیسه توی کیف پول سبزم دارم» was read as «۸۶٫۱ ریال» of the books' Iranian rials. The assistant then asked which account to set it against, twice; each suggested answer («افتتاحیه», «سرمایه») was "not found in the chart", and the last reply ended in a stray word. The card above, for «چقدر پول داریم؟», read "Cash and bank · 0 IRR" in English beside a Persian answer.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| Z1 | Money I already have | Personal books in Omani rials: «۸۶ ریال و ۱۰۰ بیسه توی کیف پول سبزم دارم»; «۲۰۰ ریال تو حساب بانکم دارم» | One card each, no questions: the green wallet's starting balance, 86.100 OMR, to cash on hand against opening net worth (described «کیف پول سبز — موجودی اولیه»); the bank's 200.000 to the bank account. Said in plain words: no debit, credit or "counter-account" |
+| Z2 | Money in another currency | The same wallet message in books that count in Iranian rials | No card and no guessed figure. The answer says the books count in Iranian rials and «بیسه» is Omani money, and how to count them in Omani rials (the account sheet on the phone, Settings on the web) |
+| Z3 | Choosing the currency | Personal books: the phone's account sheet → «Your books' currency» → Omani rial; on the web, Settings → Your currency | The books now count in Omani rials: the dashboard, the chat and the cards say OMR, with three places (86.100). Entries already made stay in their own currency. Only a person's own books offer it; a company's currency stays with the platform admin |
+| Z4 | The words for it | In books whose chart is in English, and in Persian: «افتتاحیه», «موجودی اولیه», «خالص دارایی», "opening balance" | Each finds Opening net worth (3110) first; none is "not found in the chart". «سرمایه» alone is left to the chart: in a person's books it is as often investment («سرمایه‌گذاری») |
+| Z5 | One language on a card | The app in English, the question in Persian: «چقدر پول داریم الان؟» | The card and the sentence are both Persian: «موجودی نقد و بانک»; asked in English, both are English |

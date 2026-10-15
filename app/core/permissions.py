@@ -200,6 +200,8 @@ _add("GET", "/api/mobile/v1/devices", ANY_ROLE)
 _add("DELETE", "/api/mobile/v1/devices/{device_id}", ANY_ROLE)
 _add("POST", "/api/mobile/v1/crashes", ANY_ROLE)                 # the app's own crash reports, no data from the books
 _add("GET", "/api/mobile/v1/feed", ANY_ROLE)                     # what to notify; each part checks its own right
+_add("GET", "/api/mobile/v1/books/currency", Perm.BOOKS_WRITE)    # a person's books' currency (scenario Z3)
+_add("PUT", "/api/mobile/v1/books/currency", Perm.BOOKS_WRITE)
 
 # --- Company settings & branding -------------------------------------------
 _add("GET", "/admin/company-profile", Perm.SETTINGS_READ)
@@ -642,6 +644,9 @@ _add("PATCH", "/personal/goals/{goal_id}", Perm.BOOKS_WRITE)
 _add("DELETE", "/personal/goals/{goal_id}", Perm.BOOKS_WRITE)
 # A shared household (§4.12) — personal books only, enforced in the service.
 _reads(["/personal/household"], Perm.BOOKS_READ)
+# a person's own books choose their currency (scenario Z3); the service refuses a company's
+_reads(["/personal/currency"], Perm.BOOKS_READ)
+_add("PUT", "/personal/currency", Perm.BOOKS_WRITE)
 _add("POST", "/personal/household/invites", Perm.BOOKS_WRITE)
 _add("DELETE", "/personal/household/invites/{invite_id}", Perm.BOOKS_WRITE)
 _add("DELETE", "/personal/household/members/{user_id}", Perm.BOOKS_WRITE)

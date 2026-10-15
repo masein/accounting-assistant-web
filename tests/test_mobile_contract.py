@@ -271,6 +271,9 @@ MOBILE_ROUTES = {
     ("DELETE", "/api/mobile/v1/devices/{device_id}"): ALL,
     ("POST", "/api/mobile/v1/crashes"): ALL,
     ("GET", "/api/mobile/v1/feed"): ALL,                  # what it holds follows the role
+    # a person's books choose their currency; a company's books are refused by the service (422)
+    ("GET", "/api/mobile/v1/books/currency"): BOOKS,
+    ("PUT", "/api/mobile/v1/books/currency"): BOOKS,
 
     # the chat: the web chat's rights (books:write; reading needs books:read). Managers,
     # employees and viewers wait for the owner's decision on staff chat (roadmap §11.7)

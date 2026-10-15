@@ -210,6 +210,29 @@ def mobile_language(payload: LanguageRequest, current=Depends(get_current_user),
     return {"language": lang}
 
 
+class CurrencyRequest(BaseModel):
+    currency: str = Field(min_length=3, max_length=8)
+
+
+@router.get("/books/currency")
+def mobile_books_currency(current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    """A person's books: the currency they count in and the ones to choose from (scenario Z3)."""
+    from app.services.books_currency import current as books_currency
+    user = _load_user(db, current)
+    return books_currency(db, current.company_id, (user.preferred_language if user else None) or "en")
+
+
+@router.put("/books/currency")
+def mobile_choose_currency(payload: CurrencyRequest, current=Depends(get_current_user),
+                           db: Session = Depends(get_db)) -> dict:
+    """Count a person's books in another currency; the phone's card names it at once."""
+    from app.services.books_currency import change, current as books_currency
+    out = change(db, current.company_id, payload.currency, user=current)
+    user = _load_user(db, current)
+    return {**books_currency(db, current.company_id, (user.preferred_language if user else None) or "en"),
+            "changed": out["changed"]}
+
+
 @router.delete("/session")
 def mobile_sign_out(request: Request, current=Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     """Sign this phone out (N4). The web and other phones stay signed in."""

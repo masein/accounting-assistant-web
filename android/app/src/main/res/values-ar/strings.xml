@@ -111,7 +111,7 @@
     <string name="crash_hint">موضع العطل فقط، وليس رسائلك أو أرقامك أبداً.</string>
     <!-- a person's books: the currency they count in (scenario Z3) -->
     <string name="currency_title">عملة دفاترك</string>
-    <string name="currency_hint">العملة التي يُحسب بها مالك. ما سُجّل سابقًا يبقى بعملته.</string>
+    <string name="currency_hint">العملة التي يُحسب بها مالك. اخترها قبل أول قيد.</string>
     <string name="currency_change">تغيير</string>
     <string name="currency_locked">في دفاترك قيود بالفعل، فتبقى عملتها كما هي.</string>
     <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->

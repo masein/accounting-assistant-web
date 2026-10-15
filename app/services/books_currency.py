@@ -23,14 +23,17 @@ def _company(db: Session, company_id):
         return db.get(Company, uuid.UUID(str(company_id))) if company_id else None
 
 
-def _entries_in_other_currencies(db: Session, company_id, new: str) -> int:
+def _entries_in_other_currencies(db: Session, company_id, new: str | None = None) -> int:
+    """Live entries not in ``new``; with no ``new``, every live entry."""
     from sqlalchemy import func, select
 
     from app.db.tenant import use_company
     from app.models.transaction import Transaction
+    q = select(func.count()).select_from(Transaction).where(Transaction.deleted_at.is_(None))
+    if new is not None:
+        q = q.where(func.upper(func.coalesce(Transaction.currency, "")) != new)
     with use_company(str(company_id)):
-        return int(db.execute(select(func.count()).select_from(Transaction).where(
-            Transaction.deleted_at.is_(None), func.upper(func.coalesce(Transaction.currency, "")) != new)).scalar() or 0)
+        return int(db.execute(q).scalar() or 0)
 
 
 def current(db: Session, company_id, lang: str) -> dict:
@@ -40,7 +43,7 @@ def current(db: Session, company_id, lang: str) -> dict:
     code = (c.base_currency or "IRR").upper()
     # whether it can still change: not once entries are made in it
     return {"currency": code, "name": name(code, lang), "options": options(lang),
-            "locked": bool(_entries_in_other_currencies(db, c.id, "\u0000"))}
+            "locked": bool(_entries_in_other_currencies(db, c.id))}
 
 
 def change(db: Session, company_id, code: str, *, user) -> dict:

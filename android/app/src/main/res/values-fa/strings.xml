@@ -111,7 +111,7 @@
     <string name="crash_hint">فقط جایی که برنامه خراب شد؛ هرگز پیام‌ها یا رقم‌های شما.</string>
     <!-- a person's books: the currency they count in (scenario Z3) -->
     <string name="currency_title">ارز دفاتر</string>
-    <string name="currency_hint">پول شما به این ارز شمرده می‌شود. ثبت‌های قبلی ارز خودشان را نگه می‌دارند.</string>
+    <string name="currency_hint">پول شما به این ارز شمرده می‌شود. پیش از اولین ثبت انتخابش کنید.</string>
     <string name="currency_change">تغییر</string>
     <string name="currency_locked">دفاتر شما ثبت دارد، پس ارزش همین می‌ماند.</string>
     <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->

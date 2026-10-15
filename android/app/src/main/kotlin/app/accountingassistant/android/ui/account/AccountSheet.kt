@@ -1,6 +1,7 @@
 package app.accountingassistant.android.ui.account
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -24,6 +27,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -32,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.accountingassistant.android.R
+import app.accountingassistant.android.data.CurrencyOption
 import app.accountingassistant.android.data.DeviceDto
 import app.accountingassistant.android.sms.BankText
 import app.accountingassistant.android.sms.SmsSender
@@ -60,12 +68,13 @@ fun AccountSheet(
     notifyOn: Boolean = false,
     onNotify: (Boolean) -> Unit = {},
     sms: SmsSection? = null,
+    currency: CurrencySection? = null,
 ) {
     val c = LocalAccountantColors.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded)),
                      containerColor = c.surface) {
         AccountSheetContent(username, booksName, role, devices, lockAvailable, lockOn, onLock, onRevoke, onSignOut,
-                            crashesOn, onCrashes, notifyOn, onNotify, sms)
+                            crashesOn, onCrashes, notifyOn, onNotify, sms, currency)
     }
 }
 
@@ -76,6 +85,7 @@ fun AccountSheetContent(
     crashesOn: Boolean = true, onCrashes: (Boolean) -> Unit = {},
     notifyOn: Boolean = false, onNotify: (Boolean) -> Unit = {},
     sms: SmsSection? = null,
+    currency: CurrencySection? = null,
 ) {
     val c = LocalAccountantColors.current
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()
@@ -86,6 +96,7 @@ fun AccountSheetContent(
             Text("$booksName · ${roleName(role)}", color = c.muted, fontSize = 13.sp)
         }
         HorizontalDivider(color = c.line)
+        if (currency != null) BooksCurrencySetting(currency)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.lock_title), color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700))
@@ -136,6 +147,50 @@ fun AccountSheetContent(
         }
         OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, c.line)) {
             Text(stringResource(R.string.sign_out), color = c.pomegranate, fontWeight = FontWeight(700))
+        }
+    }
+}
+
+/**
+ * A person's books: the currency they count in (scenario Z3). A person in
+ * Muscat counts Omani rials; personal books started in Iranian rials for
+ * everyone. Change opens the choices in place.
+ */
+data class CurrencySection(
+    val code: String,
+    val name: String,
+    val options: List<CurrencyOption>,
+    val onChoose: (String) -> Unit,
+)
+
+@Composable
+private fun BooksCurrencySetting(cur: CurrencySection) {
+    val c = LocalAccountantColors.current
+    var picking by rememberSaveable { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.currency_title), color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700))
+            Text(if (cur.name.isNotBlank()) "${cur.name} (${cur.code})" else cur.code, color = c.ink, fontSize = 13.5.sp)
+            Text(stringResource(R.string.currency_hint), color = c.muted, fontSize = 12.5.sp)
+        }
+        TextButton(onClick = { picking = !picking }, enabled = cur.options.isNotEmpty()) {
+            Text(stringResource(R.string.currency_change), color = c.firouzeh, fontWeight = FontWeight(700))
+        }
+    }
+    if (!picking) return
+    Surface(shape = RoundedCornerShape(14.dp), color = c.surface, border = BorderStroke(1.dp, c.line)) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            cur.options.forEach { o ->
+                Row(Modifier.fillMaxWidth().clickable { picking = false; if (o.code != cur.code) cur.onChoose(o.code) }
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = o.code == cur.code, onClick = null,
+                                colors = RadioButtonDefaults.colors(selectedColor = c.firouzeh))
+                    Spacer(Modifier.width(10.dp))
+                    Text(o.name, color = c.ink, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    Text(o.code, color = c.muted, fontSize = 12.sp)
+                }
+            }
         }
     }
 }

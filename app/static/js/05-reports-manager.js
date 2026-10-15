@@ -1673,10 +1673,47 @@
       }
     }
 
+    // A person's books: the currency they count in (scenario Z3). A company's stays with the platform admin.
+    async function loadBooksCurrency() {
+      const panel = document.getElementById('books-currency-panel');
+      if (!panel) return;
+      panel.hidden = currentRole !== 'personal';
+      if (panel.hidden) return;
+      const res = await fetch(API + '/personal/currency');
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { panel.hidden = true; return; }
+      const sel = document.getElementById('bc-select');
+      sel.innerHTML = (d.options || []).map((o) => `<option value="${escapeHtml(o.code)}">${escapeHtml(o.name)} (${escapeHtml(o.code)})</option>`).join('');
+      sel.value = d.currency;
+      sel.dataset.current = d.currency;
+      document.getElementById('bc-status').textContent = tf('bcNow', { name: d.name || d.currency });
+    }
+    async function saveBooksCurrency() {
+      const sel = document.getElementById('bc-select');
+      const code = sel.value;
+      if (!code || code === sel.dataset.current) return;
+      const label = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : code;
+      if (!(await uiConfirm({ message: tf('bcConfirm', { name: label }), confirmLabel: t('bcSave') }))) { sel.value = sel.dataset.current; return; }
+      const res = await fetch(API + '/personal/currency', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currency: code }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('msgFailed'), true); return; }
+      sel.dataset.current = d.currency;
+      document.getElementById('bc-status').textContent = tf('bcNow', { name: d.name || d.currency });
+      await loadReportingCurrency(true);                // every page's amounts in it now
+      loadPersonalDashboard();
+      showAlert(tf('bcDone', { name: d.name || d.currency }));
+    }
+    (function wireBooksCurrency() {
+      const btn = document.getElementById('bc-save');
+      if (btn) btn.addEventListener('click', () => saveBooksCurrency().catch(() => {}));
+    })();
+
     async function loadPersonalDashboard() {
       const grid = document.getElementById('pd-kpi-grid');
       if (!grid) return;
       loadInsightsPanel('pd-insights-wrap');
+      loadBooksCurrency().catch(() => {});
       try {
         if (!window.__FX_META) { try { await loadFxMetadata(); } catch (_) { /* offline */ } }
         await loadReportingCurrency();

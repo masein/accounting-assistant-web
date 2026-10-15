@@ -174,3 +174,14 @@ def test_z5_a_persian_question_on_an_english_phone_gets_a_persian_card(person):
     r = person["client"].post(f"{API}/chat", headers=phone, json={"message": "How much cash do we have?"})
     figure = next(b for b in r.json()["blocks"] if b["type"] == "figure")
     assert figure["label"] == "Cash and bank"
+
+
+def test_a_stray_latin_word_after_a_persian_reply_goes():
+    """«…را ندارم.cuntegn» on the owner's phone: the model's stray token, not the answer's."""
+    from app.services.ai_accountant.orchestrator import _no_stray_tail
+    said = "حساب «سرمایه» هم پیدا نشد؛ بنابراین هنوز امکان ثبت مطمئن این افتتاحیه را ندارم."
+    assert _no_stray_tail(said + "cuntegn") == said
+    assert _no_stray_tail(said + " cuntegn ") == said
+    assert _no_stray_tail(said) == said
+    assert _no_stray_tail("I've noted it. Thanks") == "I've noted it. Thanks"          # an English reply keeps its words
+    assert _no_stray_tail("فایل Excel را ببینید") == "فایل Excel را ببینید"              # a Latin word inside the answer stays

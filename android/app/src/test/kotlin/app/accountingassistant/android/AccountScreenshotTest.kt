@@ -5,11 +5,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import app.accountingassistant.android.data.CurrencyOption
 import app.accountingassistant.android.data.DeviceDto
 import app.accountingassistant.android.sms.SmsSender
 import app.accountingassistant.android.ui.account.AccountSheetContent
 import app.accountingassistant.android.ui.account.SmsSection
+import app.accountingassistant.android.ui.account.CurrencySection
 import app.accountingassistant.android.ui.account.LockScreen
 import app.accountingassistant.android.ui.theme.AccountantTheme
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
@@ -63,6 +67,27 @@ class AccountScreenshotTest {
             }
         }
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/account-sms-fa.png")
+    }
+
+    /** A person's books choose their currency (scenario Z3): Change opens the choices in place. */
+    @Test @Config(qualifiers = "+fa")
+    fun persianBooksCurrency() {
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                Box(Modifier.fillMaxSize().background(LocalAccountantColors.current.surface)) {
+                    AccountSheetContent(
+                        username = "masein", booksName = "masein", role = "personal", devices = emptyList(),
+                        lockAvailable = true, lockOn = true, onLock = {}, onRevoke = {}, onSignOut = {},
+                        currency = CurrencySection("IRR", "ریال ایران", listOf(
+                            CurrencyOption("IRR", "ریال ایران"), CurrencyOption("OMR", "ریال عمان"),
+                            CurrencyOption("AED", "درهم امارات"), CurrencyOption("USD", "دلار آمریکا"),
+                        ), onChoose = {}),
+                    )
+                }
+            }
+        }
+        compose.onNodeWithText("تغییر").performClick()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/account-currency-fa.png")
     }
 
     @Test @Config(qualifiers = "+fa-night")

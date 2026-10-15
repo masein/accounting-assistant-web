@@ -31,6 +31,9 @@ import app.accountingassistant.android.data.DeviceDto
 import app.accountingassistant.android.security.AppLock
 import app.accountingassistant.android.ui.account.AccountSheet
 import app.accountingassistant.android.ui.account.SmsSection
+import app.accountingassistant.android.ui.account.CurrencySection
+import app.accountingassistant.android.data.ApiError
+import app.accountingassistant.android.data.BooksCurrency
 import app.accountingassistant.android.sms.BankSmsWorker
 import app.accountingassistant.android.sms.SmsAsk
 import app.accountingassistant.android.sms.SmsSender
@@ -95,6 +98,8 @@ class MainActivity : ComponentActivity() {
                 var smsOn by remember { mutableStateOf(SmsSwitch.on(this@MainActivity)) }
                 var smsDenied by remember { mutableStateOf(false) }
                 var smsSenders by remember { mutableStateOf(emptyList<Pair<SmsSender, Int>>()) }
+                // a person's books: the currency they count in (scenario Z3)
+                var booksCurrency by remember { mutableStateOf<BooksCurrency?>(null) }
                 val askToReadSms = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                     SmsSwitch.set(this@MainActivity, granted)
                     smsOn = granted
@@ -260,6 +265,10 @@ class MainActivity : ComponentActivity() {
                             devices = null
                             scope.launch { devices = runCatching { app.api.devices() }.getOrDefault(emptyList()) }
                             if (SmsSwitch.available) scope.launch { smsSenders = app.bankSms.senders() }
+                            booksCurrency = null
+                            if (session?.company?.kind == "personal") {
+                                scope.launch { booksCurrency = runCatching { app.api.booksCurrency() }.getOrNull() }
+                            }
                         },
                     )
                     if (threadsOpen) {
@@ -281,6 +290,18 @@ class MainActivity : ComponentActivity() {
                                     checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                                     askToNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 } else notifications(on)
+                            },
+                            currency = booksCurrency?.let { bc ->
+                                CurrencySection(bc.currency, bc.name, bc.options, onChoose = { code ->
+                                    scope.launch {
+                                        runCatching { app.api.setBooksCurrency(code) }
+                                            .onSuccess { booksCurrency = it }
+                                            .onFailure { e ->
+                                                Toast.makeText(this@MainActivity, (e as? ApiError)?.message
+                                                    ?: getString(R.string.error_generic), Toast.LENGTH_LONG).show()
+                                            }
+                                    }
+                                })
                             },
                             sms = if (!SmsSwitch.available) null else SmsSection(
                                 on = smsOn, denied = smsDenied, senders = smsSenders,

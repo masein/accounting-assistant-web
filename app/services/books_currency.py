@@ -2,10 +2,10 @@
 
 A company's base currency stays with the platform admin (the companies
 console): its entries, rates and statements depend on it. A person's books are
-theirs, and they started in Iranian rials whoever opened them. Changing it
-recomputes every entry's base value, as the console does (fx_base.recompute_all):
-entries already made stay in their own currency, valued at the rate of their
-day where one is known."""
+theirs, and they started in Iranian rials whoever opened them. They change it
+only before the books hold entries in another currency: those would count as
+nothing until a rate for them is added, and three months of rials read 0.000
+OMR (the platform admin's console still rebases books that have entries)."""
 from __future__ import annotations
 
 import uuid
@@ -23,12 +23,24 @@ def _company(db: Session, company_id):
         return db.get(Company, uuid.UUID(str(company_id))) if company_id else None
 
 
+def _entries_in_other_currencies(db: Session, company_id, new: str) -> int:
+    from sqlalchemy import func, select
+
+    from app.db.tenant import use_company
+    from app.models.transaction import Transaction
+    with use_company(str(company_id)):
+        return int(db.execute(select(func.count()).select_from(Transaction).where(
+            Transaction.deleted_at.is_(None), func.upper(func.coalesce(Transaction.currency, "")) != new)).scalar() or 0)
+
+
 def current(db: Session, company_id, lang: str) -> dict:
     c = _company(db, company_id)
     if c is None or (c.kind or "") != "personal":
         raise HTTPException(status_code=422, detail="Only a person's own books choose their currency here.")
     code = (c.base_currency or "IRR").upper()
-    return {"currency": code, "name": name(code, lang), "options": options(lang)}
+    # whether it can still change: not once entries are made in it
+    return {"currency": code, "name": name(code, lang), "options": options(lang),
+            "locked": bool(_entries_in_other_currencies(db, c.id, "\u0000"))}
 
 
 def change(db: Session, company_id, code: str, *, user) -> dict:
@@ -45,6 +57,13 @@ def change(db: Session, company_id, code: str, *, user) -> dict:
     old = (c.base_currency or "IRR").upper()
     if new == old:
         return {"currency": new, "changed": False}
+    # entries in another currency would count as nothing until a rate is added: a person's
+    # books choose their currency before the first entry (the screenshots of 2026-10-15
+    # showed three months of rials at 0.000 OMR)
+    if _entries_in_other_currencies(db, c.id, new):
+        raise HTTPException(status_code=422, detail=(
+            f"These books already have entries in {name(old, 'en')}, so they keep counting in it. "
+            "A person's books choose their currency before the first entry."))
     c.base_currency = new
     audit_log(db, action="update", entity_type="company", entity_id=str(c.id), user_id=user.user_id,
               username=user.username, detail=f"the books' currency {old} → {new}")

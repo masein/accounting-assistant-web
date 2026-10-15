@@ -113,6 +113,7 @@
     <string name="currency_title">Your books\' currency</string>
     <string name="currency_hint">What your money is counted in. Entries already made keep their own currency.</string>
     <string name="currency_change">Change</string>
+    <string name="currency_locked">Your books already have entries, so their currency stays.</string>
     <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->
     <string name="sms_title">Read bank SMS</string>
     <string name="sms_hint">Only from senders you say are your bank: the text, its sender and its time go to your books. Nothing else leaves the phone.</string>

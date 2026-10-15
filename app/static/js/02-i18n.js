@@ -508,6 +508,7 @@
         bcNow: "Your books count in {name}.",
         bcConfirm: "Count your books in {name}? Entries already made keep their own currency.",
         bcDone: "Your books now count in {name}.",
+        bcLocked: "Your books already have entries, so their currency stays.",
         cpTitle: "Company profile & branding",
         cpDesc: "Your logo, brand colour and details appear on every invoice, receipt, statement, purchase order and payslip.",
         cpLegalName: "Legal name",

@@ -77,7 +77,7 @@ def scripted(monkeypatch):
 def test_z3_a_person_counts_their_books_in_omani_rials(person, db):
     api = person["web"]()
     now = api.get("/personal/currency").json()
-    assert now["currency"] == "IRR" and now["name"] == "Iranian rial"
+    assert now["currency"] == "IRR" and now["name"] == "Iranian rial" and now["locked"] is False
     assert {"code": "OMR", "name": "Omani rial"} in now["options"]
     r = api.put("/personal/currency", json={"currency": "omr"})
     assert r.status_code == 200, r.text
@@ -97,6 +97,24 @@ def test_z3_a_person_counts_their_books_in_omani_rials(person, db):
     with use_company(person["cid"]):
         details = [a.detail for a in db.execute(select(AuditLog).where(AuditLog.entity_type == "company")).scalars()]
     assert "the books' currency IRR → OMR" in details and "the books' currency OMR → AED" in details
+
+
+def test_z3_once_the_books_have_entries_their_currency_stays(person):
+    """Three months of rials read 0.000 OMR after a switch in the first screenshots: no rate, no value."""
+    api = person["web"]()
+    r = api.post("/transactions", json={"date": "2026-10-01", "description": "Cash in my wallet", "currency": "IRR",
+                                         "lines": [{"account_code": "1120", "debit": 50_000, "credit": 0},
+                                                   {"account_code": "3110", "debit": 0, "credit": 50_000}]})
+    assert r.status_code in (200, 201), r.text
+    assert api.get("/personal/currency").json()["locked"] is True
+    r = api.put("/personal/currency", json={"currency": "OMR"})
+    assert r.status_code == 422
+    assert r.json()["detail"] == ("These books already have entries in Iranian rial, so they keep counting in it. "
+                                  "A person's books choose their currency before the first entry.")
+    assert api.get("/personal/currency").json()["currency"] == "IRR"
+    from app.core.messages import localize_detail
+    # the currency by its Persian name, isolated for the right-to-left sentence
+    assert localize_detail(r.json()["detail"], "fa").startswith("این دفاتر از قبل ثبت‌هایی به \u2068ریال ایران\u2069 دارند")
 
 
 def test_z3_a_companys_currency_stays_with_the_platform_admin(client, db):
@@ -147,6 +165,7 @@ def test_z2_money_in_another_currency_is_named_not_guessed(person, scripted):
     [prompt] = scripted.prompts
     assert "These books count in IRR (Iranian rial; amounts have 0 decimal places)." in prompt
     assert "EVERYDAY MONEY IN ANOTHER CURRENCY" in prompt and "«ارز دفاتر»" in prompt
+    assert "The person can still change it: the books have no entries yet." in prompt
 
 
 # --- Z4: the words for opening net worth ----------------------------------------------------------------------

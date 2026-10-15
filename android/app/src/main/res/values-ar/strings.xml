@@ -113,6 +113,7 @@
     <string name="currency_title">عملة دفاترك</string>
     <string name="currency_hint">العملة التي يُحسب بها مالك. ما سُجّل سابقًا يبقى بعملته.</string>
     <string name="currency_change">تغيير</string>
+    <string name="currency_locked">في دفاترك قيود بالفعل، فتبقى عملتها كما هي.</string>
     <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->
     <string name="sms_title">قراءة رسائل البنك</string>
     <string name="sms_hint">فقط من المرسلين الذين تقول إنهم بنكك: يذهب النص والمرسل والوقت إلى دفاترك، ولا يخرج شيء آخر من الهاتف.</string>

@@ -113,6 +113,7 @@
     <string name="currency_title">La moneda de tus libros</string>
     <string name="currency_hint">En qué se cuenta tu dinero. Lo ya anotado conserva su moneda.</string>
     <string name="currency_change">Cambiar</string>
+    <string name="currency_locked">Tus libros ya tienen asientos, así que su moneda se queda.</string>
     <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->
     <string name="sms_title">Leer los SMS del banco</string>
     <string name="sms_hint">Solo de los remitentes que digas que son tu banco: el texto, el remitente y la hora van a tus libros. Nada más sale del teléfono.</string>

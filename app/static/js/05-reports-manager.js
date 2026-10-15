@@ -1686,7 +1686,11 @@
       sel.innerHTML = (d.options || []).map((o) => `<option value="${escapeHtml(o.code)}">${escapeHtml(o.name)} (${escapeHtml(o.code)})</option>`).join('');
       sel.value = d.currency;
       sel.dataset.current = d.currency;
-      document.getElementById('bc-status').textContent = tf('bcNow', { name: d.name || d.currency });
+      // once the books have entries their currency stays (they'd count as nothing without a rate)
+      sel.disabled = !!d.locked;
+      document.getElementById('bc-save').hidden = !!d.locked;
+      document.getElementById('bc-status').textContent = tf('bcNow', { name: d.name || d.currency })
+        + (d.locked ? ' ' + t('bcLocked') : '');
     }
     async function saveBooksCurrency() {
       const sel = document.getElementById('bc-select');

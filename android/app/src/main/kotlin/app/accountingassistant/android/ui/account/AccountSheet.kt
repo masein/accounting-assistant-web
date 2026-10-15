@@ -161,6 +161,8 @@ data class CurrencySection(
     val name: String,
     val options: List<CurrencyOption>,
     val onChoose: (String) -> Unit,
+    /** The books already have entries: the currency is shown, not offered. */
+    val locked: Boolean = false,
 )
 
 @Composable
@@ -171,13 +173,14 @@ private fun BooksCurrencySetting(cur: CurrencySection) {
         Column(Modifier.weight(1f)) {
             Text(stringResource(R.string.currency_title), color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700))
             Text(if (cur.name.isNotBlank()) "${cur.name} (${cur.code})" else cur.code, color = c.ink, fontSize = 13.5.sp)
-            Text(stringResource(R.string.currency_hint), color = c.muted, fontSize = 12.5.sp)
+            Text(stringResource(if (cur.locked) R.string.currency_locked else R.string.currency_hint), color = c.muted,
+                 fontSize = 12.5.sp)
         }
-        TextButton(onClick = { picking = !picking }, enabled = cur.options.isNotEmpty()) {
+        if (!cur.locked) TextButton(onClick = { picking = !picking }, enabled = cur.options.isNotEmpty()) {
             Text(stringResource(R.string.currency_change), color = c.firouzeh, fontWeight = FontWeight(700))
         }
     }
-    if (!picking) return
+    if (!picking || cur.locked) return
     Surface(shape = RoundedCornerShape(14.dp), color = c.surface, border = BorderStroke(1.dp, c.line)) {
         Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
             cur.options.forEach { o ->

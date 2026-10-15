@@ -700,6 +700,15 @@ class _Pattern:
         return self.text[lang].format(**parts)
 
 
+def _currency_names() -> dict:
+    """«Iranian rial» → «ریال ایران», for a message that names a currency (app/core/currencies.py)."""
+    from app.core.currencies import NAMES
+    return {lang: {row[0]: row[i] for row in NAMES.values()} for i, lang in ((1, "fa"), (2, "es"), (3, "ar"))}
+
+
+_CURRENCY_NAMES = _currency_names()
+
+
 PATTERNS: list[_Pattern] = [
     _Pattern(r"^Invalid confirmation_token format: (?P<t>.+)$",
              {"fa": "شناسهٔ تأیید نامعتبر است: {t}", "es": "Token de confirmación no válido: {t}", "ar": "رمز التأكيد غير صالح: {t}"}),
@@ -723,6 +732,14 @@ PATTERNS: list[_Pattern] = [
     _Pattern(r"^At most (?P<n>\d+) messages at a time$",
              {"fa": "هر بار حداکثر {n} پیامک.", "es": "Como máximo {n} mensajes a la vez.",
               "ar": "{n} رسالة على الأكثر في كل مرة."}),
+    _Pattern(r"^These books already have entries in (?P<cur>.+), so they keep counting in it\. "
+             r"A person's books choose their currency before the first entry\.$",
+             {"fa": "این دفاتر از قبل ثبت‌هایی به {cur} دارند، پس به همان ارز می‌مانند. دفاتر شخصی ارزشان را پیش از اولین ثبت انتخاب می‌کنند.",
+              "es": "Estos libros ya tienen asientos en {cur}, así que siguen en esa moneda. Los libros personales eligen su moneda antes del primer asiento.",
+              "ar": "في هذه الدفاتر قيود بعملة {cur} بالفعل، فتبقى بها. الدفاتر الشخصية تختار عملتها قبل أول قيد."},
+             values={"cur": _CURRENCY_NAMES},
+             example="These books already have entries in Iranian rial, so they keep counting in it. "
+                     "A person's books choose their currency before the first entry."),
     _Pattern(r"^Choose one of the listed currencies: (?P<list>.+)\.$",
              {"fa": "یکی از ارزهای فهرست را انتخاب کنید: {list}.", "es": "Elija una de las monedas de la lista: {list}.",
               "ar": "اختر إحدى العملات المدرجة: {list}."}),

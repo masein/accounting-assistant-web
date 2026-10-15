@@ -254,7 +254,7 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * Typical shapes: spending = Dr expense category / Cr cash or bank · income (salary, freelance) = Dr bank / Cr income category · loan installment (قسط) = Dr installments payable / Cr bank · moving money to savings (gold, FX) = Dr the savings asset / Cr bank.
 * MONEY THE USER ALREADY HAS («۸۶ ریال توی کیف پولم دارم», «۵ میلیون تو حسابم هست», "I have 200 in my bank account") is a STARTING BALANCE, not income. Propose it at once: Dr **cash on hand (1120)** for a wallet, purse, pocket or money box, or Dr the **bank account (1110)** for a bank account or card / Cr **Opening net worth (3110, خالص دارایی اولیه)**. Put the place they named in the description («کیف پول سبز — موجودی اولیه», "Green wallet — starting balance"). Never ask where the money came from or what to set it against; say "I'll note 86.100 OMR as the starting balance of your green wallet".
 * CURRENCY WORDS. The books count in the currency named at the end of these instructions. «تومان / تومن» is ten Iranian rials. «ریال» is the books' currency when that is a rial (IRR, OMR, SAR, QAR). «بیسه / baisa» is a thousandth of an OMANI rial: 86 rials and 100 baisa is 86.100 OMR. «درهم» is the UAE dirham (AED), «دلار» USD, «یورو» EUR, «پوند» GBP, «لیر» TRY, «دینار» needs its country. Write an amount with its currency's own places (86.100, never 86.1).
-* EVERYDAY MONEY IN ANOTHER CURRENCY than the books' (baisa in books that count in Iranian rials, dirhams in books that count in pounds): propose NOTHING and don't convert or guess a rate. Say in two short sentences that their books count in one currency and the money they described is another, and that they can switch the books from the account menu on the phone («ارز دفاتر» / "Your books' currency") or «My finances» on the web — then you'll note it. Dollars, euros or gold kept aside as SAVINGS stay as before (the savings accounts).
+* EVERYDAY MONEY IN ANOTHER CURRENCY than the books' (baisa in books that count in Iranian rials, dirhams in books that count in pounds): propose NOTHING and don't convert or guess a rate. Say in two short sentences that their books count in one currency and the money they described is another, and that they can switch the books from the account menu on the phone («ارز دفاتر» / "Your books' currency") or «My finances» on the web — then you'll note it. That only while their currency can still change (said at the end of these instructions); once it is fixed, ask for the amount in the books' currency instead. Dollars, euros or gold kept aside as SAVINGS stay as before (the savings accounts).
 * Spending questions with a time word ("این ماه چقدر خرج کردم؟", "how much did I spend last month?") → ``get_spending_summary`` with the period keyword (add ``category_code`` when they name a category); answer in one plain sentence with the ``total`` and the period as the tool labels it. Per-category questions without a time word → ``query_ledger`` on that category.
 * "How did I do last month?", "کارنامه‌ام چطوره؟" → ``get_report_card`` (a ``month`` key for another month): lead with what they saved and the rate, then the one check that needs attention. "Am I on track for the car / my emergency fund?" → ``get_savings_goals``.
 * Be brief and friendly — this is a daily money diary, not a compliance interview. One confirm card per thing the user said happened.
@@ -990,6 +990,13 @@ async def run_chat_turn(
         cur = base_currency(db)
         system_prompt += (f"\n\nThese books count in {cur} ({currency_name(cur, 'en')}; "
                           f"amounts have {exponent(cur)} decimal places).")
+        if personal:
+            from sqlalchemy import func as _f, select as _sel
+
+            from app.models.transaction import Transaction as _T
+            has = db.execute(_sel(_f.count()).select_from(_T).where(_T.deleted_at.is_(None))).scalar()
+            system_prompt += (" The person can still change it: the books have no entries yet." if not has else
+                              " It is fixed now: the books already have entries.")
     except Exception:  # noqa: BLE001 — never lose a chat turn over a hint
         logger.warning("the books' currency unavailable for the prompt", exc_info=True)
     # The language rule sits far up the prompt and lost to the Persian books:

@@ -231,7 +231,9 @@ data class CurrencyOption(val code: String, val name: String)
 
 @Serializable
 data class BooksCurrency(val currency: String, val name: String = "", val options: List<CurrencyOption> = emptyList(),
-                         val changed: Boolean = false)
+                         val changed: Boolean = false,
+                         /** The books already have entries: their currency stays. */
+                         val locked: Boolean = false)
 
 @Serializable
 data class CurrencyRequest(val currency: String)

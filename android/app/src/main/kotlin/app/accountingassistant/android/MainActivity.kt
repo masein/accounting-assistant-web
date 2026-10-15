@@ -292,7 +292,7 @@ class MainActivity : ComponentActivity() {
                                 } else notifications(on)
                             },
                             currency = booksCurrency?.let { bc ->
-                                CurrencySection(bc.currency, bc.name, bc.options, onChoose = { code ->
+                                CurrencySection(bc.currency, bc.name, bc.options, locked = bc.locked, onChoose = { code ->
                                     scope.launch {
                                         runCatching { app.api.setBooksCurrency(code) }
                                             .onSuccess { booksCurrency = it }

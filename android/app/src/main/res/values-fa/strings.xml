@@ -113,6 +113,7 @@
     <string name="currency_title">ارز دفاتر</string>
     <string name="currency_hint">پول شما به این ارز شمرده می‌شود. ثبت‌های قبلی ارز خودشان را نگه می‌دارند.</string>
     <string name="currency_change">تغییر</string>
+    <string name="currency_locked">دفاتر شما ثبت دارد، پس ارزش همین می‌ماند.</string>
     <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->
     <string name="sms_title">خواندن پیامک‌های بانک</string>
     <string name="sms_hint">فقط از فرستنده‌هایی که می‌گویید بانک شماست: متن، فرستنده و زمانش به دفاتر می‌رود و چیز دیگری از گوشی بیرون نمی‌رود.</string>

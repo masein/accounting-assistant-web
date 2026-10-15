@@ -503,6 +503,7 @@ window.I18N_PACKS.es = Object.assign({
         bcNow: "Tus libros cuentan en {name}.",
         bcConfirm: "¿Contar tus libros en {name}? Lo ya anotado conserva su moneda.",
         bcDone: "Tus libros cuentan ahora en {name}.",
+        bcLocked: "Tus libros ya tienen asientos, así que su moneda se queda.",
         cpTitle: "Perfil y marca de la empresa",
         cpDesc: "Su logotipo, color de marca y datos aparecen en cada factura, recibo, estado de cuenta, orden de compra y nómina.",
         cpLegalName: "Nombre legal",

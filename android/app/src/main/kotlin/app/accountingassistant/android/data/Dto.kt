@@ -225,5 +225,18 @@ data class PhoneSms(
 @Serializable
 data class PhoneSmsBatch(val messages: List<PhoneSms>)
 
+/** A person's books: the currency they count in, and the ones to choose from (scenario Z3). */
+@Serializable
+data class CurrencyOption(val code: String, val name: String)
+
+@Serializable
+data class BooksCurrency(val currency: String, val name: String = "", val options: List<CurrencyOption> = emptyList(),
+                         val changed: Boolean = false,
+                         /** The books already have entries: their currency stays. */
+                         val locked: Boolean = false)
+
+@Serializable
+data class CurrencyRequest(val currency: String)
+
 @Serializable
 data class BankSmsReply(val received: Int = 0, val added: Int = 0, val duplicates: Int = 0, val unread: Int = 0)

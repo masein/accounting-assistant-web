@@ -551,6 +551,11 @@ _ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
         "salary income": (["salary", "wages", "حقوق", "دستمزد"], ["4110"]),
         "freelance income": (["freelance", "project income", "درآمد آزاد", "پروژه"], ["4120"]),
         "loan / installment": (["loan", "installment", "وام", "قسط", "اقساط"], ["2110", "2120"]),
+        # money the person already had when they started (scenario Z4): a chart opened in English
+        # names it "Opening net worth", and «افتتاحیه» found nothing. Not «سرمایه»: in a person's
+        # books that is investment (سرمایه‌گذاری, 4130) as often as capital
+        "opening net worth": (["opening", "starting balance", "net worth", "افتتاحیه", "اولیه", "موجودی اولیه",
+                               "خالص دارایی"], ["3110"]),
     },
     "default": {
         "cash / bank": (["cash", "bank", "petty cash"], ["1110", "1200"]),

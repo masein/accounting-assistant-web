@@ -258,6 +258,16 @@ class ApiClient(
     /** What to notify: approvals waiting, the books' warnings (notify/Feed.kt). */
     suspend fun feed(): FeedReply = call<Unit, FeedReply>("GET", "/feed", null, serializer())
 
+    /** A person's books: the currency they count in, and the choices (scenario Z3). */
+    suspend fun booksCurrency(): BooksCurrency = call<Unit, BooksCurrency>("GET", "/books/currency", null, serializer())
+
+    /** Count a person's books in another currency; the session's books say so at once. */
+    suspend fun setBooksCurrency(code: String): BooksCurrency {
+        val r = call<CurrencyRequest, BooksCurrency>("PUT", "/books/currency", CurrencyRequest(code), serializer())
+        session?.let { s -> s.copy(company = s.company?.copy(baseCurrency = r.currency)).also { store.save(it); session = it } }
+        return r
+    }
+
     /** Bank SMS read on the phone, at most 50 at a time: each becomes a row to record. */
     suspend fun bankSms(messages: List<PhoneSms>): BankSmsReply =
         call("POST", "/bank-sms", PhoneSmsBatch(messages), serializer())

@@ -138,7 +138,10 @@ async def mobile_chat(payload: MobileChatPayload, db: Session = Depends(get_db),
     try:
         resp = await web_chat(ChatPayload(message=payload.message, session_id=payload.thread_id,
                                           attachment_ids=payload.attachment_ids), db=db, user=user)
-        lang = _user_language(db, user)
+        # the cards in the reply's language: «چقدر پول داریم؟» from a phone in English was
+        # answered in Persian under a "Cash and bank" card (scenario Z5)
+        from app.services.ai_accountant.orchestrator import _message_language
+        lang = _message_language(payload.message, _user_language(db, user))
         blocks = B.build_blocks(db, text=resp.text, proposals=resp.proposals, tool_calls=resp.tool_calls,
                                 intake=resp.intake, lang=lang, calendar=_calendar(db))
         _store_blocks(db, resp.session_id, blocks)

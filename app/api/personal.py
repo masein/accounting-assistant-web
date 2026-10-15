@@ -292,6 +292,25 @@ def _household_error(e) -> HTTPException:
     return HTTPException(status_code=e.status, detail=str(e))
 
 
+class CurrencyChoice(BaseModel):
+    currency: str = Field(..., min_length=3, max_length=8)
+
+
+@router.get("/currency")
+def books_currency(db: Session = Depends(get_db), user=Depends(_current_user)) -> dict:
+    """The currency these books count in, and the ones a person may choose (scenario Z3)."""
+    from app.services.books_currency import current
+    return current(db, user.company_id, _language_of(db, user.user_id))
+
+
+@router.put("/currency")
+def choose_books_currency(payload: CurrencyChoice, db: Session = Depends(get_db), user=Depends(_current_user)) -> dict:
+    """Count these personal books in another currency: a person in Muscat keeps Omani rials."""
+    from app.services.books_currency import change, current
+    out = change(db, user.company_id, payload.currency, user=user)
+    return {**current(db, user.company_id, _language_of(db, user.user_id)), "changed": out["changed"]}
+
+
 @router.get("/household")
 def household(db: Session = Depends(get_db), user=Depends(_current_user)) -> dict:
     """Who shares these books, and the invitations still open."""

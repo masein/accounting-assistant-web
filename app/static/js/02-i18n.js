@@ -2584,6 +2584,8 @@
         bscNoChange: "Nothing here moved between the two dates.",
         bscRowHint: "The accounts behind this line",
         chartBalanceChange: "What changed, line by line",
+        ddCount: "Entries: {n}",
+        ddSearch: "Search description, reference, party…",
         chartBSTrend: 'Assets / Liabilities / Equity over time',
         chartExpenseComposition: 'Expense composition',
         chartRevenueLines: 'Revenue / income lines',

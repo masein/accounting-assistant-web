@@ -533,7 +533,8 @@
     const _bsCcy = (report) => (report.metadata && report.metadata.currency) || '';
     const _bsSigned = (n, ccy) => {
       const v = Number(n) || 0;
-      return (v > 0 ? '+' : v < 0 ? '−' : '') + formatAmount(Math.abs(v), ccy || undefined);
+      // a left-to-right run: in Persian the sign stays before the figure («۴۴٬۳۴۰٬…+» it read)
+      return '\u2066' + (v > 0 ? '+' : v < 0 ? '−' : '') + formatAmount(Math.abs(v), ccy || undefined) + '\u2069';
     };
     const _bsPct = (part, whole) => (whole ? localDigits(Math.round(part / Math.abs(whole) * 100) + '%') : '—');
     const _bsDayAfter = (iso) => {

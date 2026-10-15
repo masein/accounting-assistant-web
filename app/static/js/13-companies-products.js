@@ -649,7 +649,7 @@
         const data = await res.json();
         if (!res.ok) { wrap.innerHTML = '<p style="color:#c62828;">' + escapeHtml(t('entTxLoadError')) + '</p>'; return; }
 
-        summaryEl.textContent = `${data.total_count} transaction${data.total_count !== 1 ? 's' : ''} | ${t('fieldTotalDebit')}: ${formatAmount(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatAmount(data.total_credit)}`;
+        summaryEl.textContent = `${tf('ddCount', { n: formatNum(data.total_count) })} | ${t('fieldTotalDebit')}: ${formatAmount(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatAmount(data.total_credit)}`;
 
         if (!data.rows.length) {
           wrap.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">' + escapeHtml(t('noDataYet')) + '</p>';
@@ -662,9 +662,9 @@
         const showCcyCol = ccySet.size > 1;
         const baseHeaders = [t('labelDate'), t('labelReference'), t('labelDescription'), t('tableAccountCode'), t('fieldAccount')];
         const amtHeaders = showCcyCol
-          ? ['Curr', t('tableDebit'), t('tableCredit')]
+          ? [t('invoiceCurrencyLabel'), t('tableDebit'), t('tableCredit')]
           : [t('tableDebit'), t('tableCredit')];
-        const headers = [...baseHeaders, ...amtHeaders, 'Entities'];
+        const headers = [...baseHeaders, ...amtHeaders, t('navEntities')];
         wrap.innerHTML = `<table class="mini-table"><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${
           data.rows.map(r => {
             const ccy = (r.currency || 'IRR').toUpperCase();
@@ -686,7 +686,7 @@
         }</tbody></table>`;
         // Also show a single currency label above the table when all rows share one
         if (!showCcyCol && data.rows.length && data.rows[0].currency) {
-          summaryEl.textContent = `${data.total_count} transaction${data.total_count !== 1 ? 's' : ''} (${data.rows[0].currency}) | ${t('fieldTotalDebit')}: ${formatAmount(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatAmount(data.total_credit)}`;
+          summaryEl.textContent = `${tf('ddCount', { n: formatNum(data.total_count) })} (${data.rows[0].currency}) | ${t('fieldTotalDebit')}: ${formatAmount(data.total_debit)} | ${t('fieldTotalCredit')}: ${formatAmount(data.total_credit)}`;
         }
 
         // Pagination

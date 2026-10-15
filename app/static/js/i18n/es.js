@@ -2376,6 +2376,8 @@ window.I18N_PACKS.es = Object.assign({
         bscNoChange: "Nada cambió aquí entre las dos fechas.",
         bscRowHint: "Las cuentas de esta partida",
         chartBalanceChange: "Qué cambió, partida por partida",
+        ddCount: "Asientos: {n}",
+        ddSearch: "Buscar en descripción, referencia o tercero…",
         chartBSTrend: 'Activos / Pasivos / Patrimonio en el tiempo',
         chartExpenseComposition: 'Composición de gastos',
         chartRevenueLines: 'Líneas de ingresos',

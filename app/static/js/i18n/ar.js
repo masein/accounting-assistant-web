@@ -2376,6 +2376,8 @@ window.I18N_PACKS.ar = Object.assign({
         bscNoChange: "لم يتغيّر شيء هنا بين التاريخين.",
         bscRowHint: "الحسابات وراء هذا البند",
         chartBalanceChange: "ما الذي تغيّر، بندًا بندًا",
+        ddCount: "عدد القيود: {n}",
+        ddSearch: "ابحث في الوصف أو المرجع أو الطرف…",
         chartBSTrend: 'الأصول / الخصوم / حقوق الملكية عبر الزمن',
         chartExpenseComposition: 'تركيبة المصروفات',
         chartRevenueLines: 'بنود الإيرادات',

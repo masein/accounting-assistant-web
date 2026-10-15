@@ -2579,6 +2579,8 @@ window.I18N_PACKS.fa = Object.assign({
         bscNoChange: "اینجا بین دو تاریخ چیزی تغییر نکرد.",
         bscRowHint: "حساب‌های این ردیف",
         chartBalanceChange: "چه چیزی تغییر کرد، ردیف به ردیف",
+        ddCount: "تعداد سند: {n}",
+        ddSearch: "جستجو در شرح، مرجع یا طرف حساب…",
         chartBSTrend: 'روند دارایی‌ها، بدهی‌ها و حقوق مالکانه',
         chartExpenseComposition: 'ترکیب هزینه‌ها',
         chartRevenueLines: 'اقلام درآمد',

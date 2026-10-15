@@ -212,3 +212,18 @@ data class FeedItem(val key: String, val kind: String = "", val title: String, v
 
 @Serializable
 data class FeedReply(val items: List<FeedItem> = emptyList())
+
+/** Bank SMS the phone read (roadmap ROADMAP_ANDROID_CHAT §7.1): the text, its sender, when it arrived. */
+@Serializable
+data class PhoneSms(
+    val sender: String,
+    val text: String,
+    @SerialName("received_at") val receivedAt: String,
+    val bank: String? = null,
+)
+
+@Serializable
+data class PhoneSmsBatch(val messages: List<PhoneSms>)
+
+@Serializable
+data class BankSmsReply(val received: Int = 0, val added: Int = 0, val duplicates: Int = 0, val unread: Int = 0)

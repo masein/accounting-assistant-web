@@ -109,6 +109,24 @@
     <string name="reject_reason">Motivo (opcional)</string>
     <string name="crash_title">Enviar informes de fallos</string>
     <string name="crash_hint">Dónde falló la app, nunca tus mensajes ni tus cifras.</string>
+    <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->
+    <string name="sms_title">Leer los SMS del banco</string>
+    <string name="sms_hint">Solo de los remitentes que digas que son tu banco: el texto, el remitente y la hora van a tus libros. Nada más sale del teléfono.</string>
+    <string name="sms_denied">Android no permitió leer SMS. Permítelo en los ajustes de la app para activarlo.</string>
+    <string name="sms_none">Cuando llegue un SMS de un banco, te preguntaremos si el remitente es tu banco.</string>
+    <string name="sms_reading">Va a los libros</string>
+    <string name="sms_ignored">Se ignora</string>
+    <string name="sms_waiting">%1$d esperan tu respuesta</string>
+    <string name="sms_read">Leer</string>
+    <string name="sms_ignore">Ignorar</string>
+    <string name="sms_stop">Dejar de leer</string>
+    <string name="sms_ask_title">¿Es %1$s tu banco?</string>
+    <string name="sms_ask_body">%1$s: ¿llevar sus SMS a tus libros?</string>
+    <string name="sms_ask_body_unknown">¿Llevar sus SMS a tus libros?</string>
+    <string name="sms_locked_title">Un mensaje de un banco espera tu decisión</string>
+    <string name="sms_locked_body">Abre la app para elegir.</string>
+    <string name="sms_channel">SMS del banco</string>
+    <string name="sms_channel_hint">Pregunta si un remitente es tu banco.</string>
     <string name="statement_title">Extracto bancario</string>
     <string name="statement_gap">El saldo difiere de los libros en %1$s</string>
     <string name="statement_clean">Todo cuadra con los libros.</string>

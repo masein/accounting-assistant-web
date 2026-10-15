@@ -14,8 +14,8 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * The opening scene in both languages and both themes, draft and stamped.
- * `./gradlew :app:recordRoborazziDebug` writes the images to
- * app/build/outputs/roborazzi; `verifyRoborazziDebug` compares against them.
+ * `./gradlew :app:recordRoborazziDirectDebug` writes the images to
+ * app/build/outputs/roborazzi; `verifyRoborazziDirectDebug` compares against them.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

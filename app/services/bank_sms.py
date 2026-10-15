@@ -297,22 +297,44 @@ def _feed(db, p: ParsedSms):
     return stmt
 
 
-def ingest(db, messages: list[str] | str, *, today: date | None = None) -> dict[str, Any]:
+def ingest(db, messages: list[str] | str, *, today: date | None = None,
+           received: list[date | None] | None = None, banks: list[str | None] | None = None) -> dict[str, Any]:
     """Parse and file bank SMS. Returns what was added, what was already on
     file, what could not be read (with the reason) and any balance gap — a
     balance that does not follow from the previous message means one was
-    missed."""
+    missed.
+
+    A phone that read the messages itself knows more than the text
+    (``received``, ``banks``: one per message): the day each arrived, which
+    dates a message that carries none and anchors a short one («07/01»), and
+    the bank the user said its sender is, for a message that names none."""
     from sqlalchemy import func, select
 
     from app.models.bank_statement import BankStatementRow
     from app.services.statement_categorizer import suggest_for_row
 
-    texts = split_messages(messages) if isinstance(messages, str) else [m for m in messages if (m or "").strip()]
+    if isinstance(messages, str):
+        texts, received, banks = split_messages(messages), None, None
+    else:
+        keep = [i for i, m in enumerate(messages) if (m or "").strip()]
+        texts = [messages[i] for i in keep]
+        received = [received[i] for i in keep] if received is not None else None
+        banks = [banks[i] for i in keep] if banks is not None else None
     if len(texts) > MAX_MESSAGES:
         raise ValueError(f"At most {MAX_MESSAGES} messages at a time")
     added, duplicates, unparsed, gaps = [], 0, [], []
     touched: dict[str, Any] = {}
-    parsed = [(t, parse_sms(t, today=today)) for t in texts]
+    parsed = []
+    for i, t in enumerate(texts):
+        on = received[i] if received is not None else None
+        p = parse_sms(t, today=min(on, today or date.today()) if on else today)
+        if p.tx_date is None and on is not None:
+            p.tx_date = on
+            p.problems = [x for x in p.problems if x != "no date found"]
+        hint = banks[i] if banks is not None else None
+        if p.bank is None and hint in BANKS:
+            p.bank = hint
+        parsed.append((t, p))
     # oldest first, so balances chain and row order follows the bank's
     parsed.sort(key=lambda x: ((x[1].tx_date or date.max), x[1].time or ""))
     for text, p in parsed:

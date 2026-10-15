@@ -258,6 +258,10 @@ class ApiClient(
     /** What to notify: approvals waiting, the books' warnings (notify/Feed.kt). */
     suspend fun feed(): FeedReply = call<Unit, FeedReply>("GET", "/feed", null, serializer())
 
+    /** Bank SMS read on the phone, at most 50 at a time: each becomes a row to record. */
+    suspend fun bankSms(messages: List<PhoneSms>): BankSmsReply =
+        call("POST", "/bank-sms", PhoneSmsBatch(messages), serializer())
+
     /** Cash today and this month's budget left: the home-screen widget. */
     suspend fun summary(): SummaryReply = call<Unit, SummaryReply>("GET", "/summary", null, serializer())
 

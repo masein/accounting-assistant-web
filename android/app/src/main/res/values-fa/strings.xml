@@ -109,6 +109,24 @@
     <string name="reject_reason">دلیل (اختیاری)</string>
     <string name="crash_title">فرستادن گزارش خرابی</string>
     <string name="crash_hint">فقط جایی که برنامه خراب شد؛ هرگز پیام‌ها یا رقم‌های شما.</string>
+    <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->
+    <string name="sms_title">خواندن پیامک‌های بانک</string>
+    <string name="sms_hint">فقط از فرستنده‌هایی که می‌گویید بانک شماست: متن، فرستنده و زمانش به دفاتر می‌رود و چیز دیگری از گوشی بیرون نمی‌رود.</string>
+    <string name="sms_denied">اندروید اجازهٔ خواندن پیامک را نداد. برای روشن کردن این گزینه، در تنظیمات برنامه اجازه دهید.</string>
+    <string name="sms_none">وقتی پیامکی از بانک برسد، می‌پرسیم فرستنده‌اش بانک شماست یا نه.</string>
+    <string name="sms_reading">به دفاتر می‌رود</string>
+    <string name="sms_ignored">نادیده گرفته می‌شود</string>
+    <string name="sms_waiting">%1$d پیامک منتظر شماست</string>
+    <string name="sms_read">بخوان</string>
+    <string name="sms_ignore">نادیده بگیر</string>
+    <string name="sms_stop">دیگر نخوان</string>
+    <string name="sms_ask_title">آیا %1$s بانک شماست؟</string>
+    <string name="sms_ask_body">%1$s: پیامک‌هایش به دفاتر برود؟</string>
+    <string name="sms_ask_body_unknown">پیامک‌هایش به دفاتر برود؟</string>
+    <string name="sms_locked_title">پیامکی از بانک منتظر تصمیم شماست</string>
+    <string name="sms_locked_body">برای انتخاب، برنامه را باز کنید.</string>
+    <string name="sms_channel">پیامک‌های بانک</string>
+    <string name="sms_channel_hint">می‌پرسد فرستنده‌ای بانک شماست یا نه.</string>
     <string name="statement_title">صورتحساب بانک</string>
     <string name="statement_gap">مانده با دفاتر %1$s فرق دارد</string>
     <string name="statement_clean">همه‌چیز با دفاتر می‌خواند.</string>

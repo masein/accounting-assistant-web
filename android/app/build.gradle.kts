@@ -26,6 +26,22 @@ android {
         buildConfigField("String", "API_BASE", "\"$apiBase\"")
     }
 
+    // Where the app is installed from (roadmap ROADMAP_ANDROID_CHAT §7.1, owner's decision §11.5):
+    // Play restricts reading SMS to apps it has granted an exception, so its build only takes an SMS
+    // shared into the app; outside Play (the direct APK, Bazaar once its rules are checked) the app
+    // reads bank SMS as they arrive, from senders the user names. The same id in both.
+    flavorDimensions += "store"
+    productFlavors {
+        create("play") {
+            dimension = "store"
+            buildConfigField("boolean", "READS_SMS", "false")
+        }
+        create("direct") {
+            dimension = "store"
+            buildConfigField("boolean", "READS_SMS", "true")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true

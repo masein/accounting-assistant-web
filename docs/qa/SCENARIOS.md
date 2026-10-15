@@ -456,3 +456,20 @@ The owner asked why «اجاره مدرسه» and the rest weren't in اشخاص
 | X6 | Who can | A viewer or an employee asks to make parties | Refused (BOOKS_WRITE); اشخاص is the owner's, CFO's and accountant's page |
 | X7 | Cash funds | منادی حق's books: «تنخواه گردان حساب بانک شهر», «تنخواه گردان حساب 4676400902 بانک ملت», «تنخواه گردان حساب بانک پارسیان», «تنخواه گردان خانم آیت الهی», a plain «صندوق» and the main bank account 1111 | The three bank funds are offered as banks, Mrs Ayatollahi's as an employee holding cash, each with its balance («موجودی»); the Shahr fund, at −5,504,920,857, says «منفی» in red, for the accountant to look at. Not offered: the «صندوق», the main bank account (a bank party's already), the chart's cash and petty-cash role accounts |
 | X8 | A bank made from a fund | Make the Shahr fund a bank | It is listed as a bank with its account as its code (۱۱۵۱۰۱), the bank statement import offers it, and its transactions are the fund's entries with its balance. A fund can't be made a customer or a supplier, nor a debtor account a bank |
+
+## Y. Bank SMS read on the phone (2026-10-14, `docs/ROADMAP_ANDROID_CHAT.md` P2.2, §7.1)
+
+The owner decided (§11.5): apply for Play's exception, and read bank SMS automatically in the builds outside Play (`direct`, Bazaar if it allows it). Sharing an SMS into the app stays in every build. Only messages from senders the user has said are their bank are read; only the sender, the time and the text leave the phone, and each becomes a row to record, as a pasted SMS does.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| Y1 | The phone sends bank SMS | `POST /api/mobile/v1/bank-sms` with two Mellat SMS (a withdrawal and a deposit, with balances), each with its sender and time | Both are rows of Mellat's SMS statement for the month, to record; the answer counts 2 added, 0 already on file, 0 unread, and names the statement. The audit log has «Bank SMS forwarded» with the phone's count. Sending them again adds nothing: 2 already on file |
+| Y2 | Who may | An employee, a manager or a viewer sends one | Refused (403), as for the chat; the owner, the CFO, the accountant and a personal user may |
+| Y3 | What isn't a movement | An SMS from the bank that is an OTP or an advert; 51 messages at once | The OTP is counted as unread and nothing is filed; 51 is refused in words and nothing is filed |
+| Y4 | Told on the phone | After Y1, the phone's hourly feed and the next briefing | The feed has «Bank SMS to record — Mellat: 2» (once; again only when the count changes). The briefing says the same with Next, which offers the first row as a voucher; when both are in the books, the line goes |
+| Y5 | The switch [app] | The `direct` build: Account → «Read bank SMS». The `play` build | `direct`: the switch asks for the SMS permission; refused, it stays off and says so. `play`: no switch, and no SMS permission in the build's manifest |
+| Y6 | A sender not yet known [app] | With the switch on, an SMS from 98700717: «بانک ملت … برداشت ۱٬۲۵۰٬۰۰۰ مانده ۸٬۴۰۰٬۰۰۰»; then one from a friend | The bank's is kept on the phone (sealed) and a notification asks «Is 98700717 your bank? (Mellat)» with Read and Ignore; no amount is shown. The friend's message is not kept, sent or told at all |
+| Y7 | Read [app] | Tap Read | The kept message goes to the books with its sender and time, and later ones from 98700717 go as they arrive. The sender is listed under the switch and can be removed |
+| Y8 | Ignore [app] | Tap Ignore on another sender | The kept message is deleted; later ones from that sender are ignored. It is listed as ignored and can be changed |
+| Y9 | Offline [app] | An SMS from a read sender with no network | It waits on the phone, sealed, and goes when the network is back (WorkManager); signing out forgets what waits and the senders |
+| Y10 | The app lock [app] | The lock on, an SMS from a new bank sender | The notification says only that a message from a bank needs a choice, with no sender or bank, until the app is open |

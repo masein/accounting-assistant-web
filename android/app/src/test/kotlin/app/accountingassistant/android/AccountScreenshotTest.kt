@@ -7,7 +7,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import app.accountingassistant.android.data.DeviceDto
+import app.accountingassistant.android.sms.SmsSender
 import app.accountingassistant.android.ui.account.AccountSheetContent
+import app.accountingassistant.android.ui.account.SmsSection
 import app.accountingassistant.android.ui.account.LockScreen
 import app.accountingassistant.android.ui.theme.AccountantTheme
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
@@ -40,6 +42,27 @@ class AccountScreenshotTest {
             }
         }
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/account-fa.png")
+    }
+
+    /** «Read bank SMS» outside Play (scenarios Y5–Y8): a sender to decide on, one read, one ignored. */
+    @Test @Config(qualifiers = "+fa")
+    fun persianBankSms() {
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                Box(Modifier.fillMaxSize().background(LocalAccountantColors.current.surface)) {
+                    AccountSheetContent(
+                        username = "maryam", booksName = "شرکت بازرگانی آرمان", role = "owner", devices = emptyList(),
+                        lockAvailable = true, lockOn = true, onLock = {}, onRevoke = {}, onSignOut = {},
+                        sms = SmsSection(on = true, denied = false, onSwitch = {}, onDecide = { _, _ -> }, senders = listOf(
+                            SmsSender("98700717", "Mellat", null) to 2,
+                            SmsSender("9830007", "Saman", true) to 0,
+                            SmsSender("100088", null, false) to 0,
+                        )),
+                    )
+                }
+            }
+        }
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/account-sms-fa.png")
     }
 
     @Test @Config(qualifiers = "+fa-night")

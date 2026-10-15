@@ -7,6 +7,10 @@ import app.accountingassistant.android.data.KeystoreSessionStore
 import app.accountingassistant.android.data.Outbox
 import app.accountingassistant.android.data.OutboxWorker
 import app.accountingassistant.android.data.SealedOutboxStore
+import app.accountingassistant.android.sms.BankSms
+import app.accountingassistant.android.sms.BankSmsWorker
+import app.accountingassistant.android.sms.SealedBankSmsStore
+import app.accountingassistant.android.sms.SmsSwitch
 import app.accountingassistant.android.util.Crashes
 import kotlinx.serialization.json.Json
 
@@ -31,6 +35,16 @@ class AccountantApp : Application() {
     suspend fun forgetOutbox() {
         OutboxWorker.cancel(this)
         outbox.clear()
+    }
+
+    /** Bank SMS read on the phone (the builds outside Play): one for the receiver, the sender and the sheet. */
+    val bankSms: BankSms by lazy { BankSms(SealedBankSmsStore(this, json)) }
+
+    /** Signed out: no SMS kept, no sender remembered, and no more read. */
+    suspend fun forgetBankSms() {
+        SmsSwitch.set(this, false)
+        BankSmsWorker.cancel(this)
+        bankSms.clear()
     }
 
     /** Crashes kept for the next launch: where, never what. */

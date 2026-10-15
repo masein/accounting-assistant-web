@@ -109,6 +109,24 @@
     <string name="reject_reason">Reason (optional)</string>
     <string name="crash_title">Send crash reports</string>
     <string name="crash_hint">Where the app went wrong, never your messages or figures.</string>
+    <!-- bank SMS read on the phone (sms/SmsReading.kt; the builds outside Play) -->
+    <string name="sms_title">Read bank SMS</string>
+    <string name="sms_hint">Only from senders you say are your bank: the text, its sender and its time go to your books. Nothing else leaves the phone.</string>
+    <string name="sms_denied">Android didn\'t allow reading SMS. Allow it in the app\'s settings to turn this on.</string>
+    <string name="sms_none">When a bank\'s SMS arrives, you\'ll be asked whether its sender is your bank.</string>
+    <string name="sms_reading">Read into the books</string>
+    <string name="sms_ignored">Ignored</string>
+    <string name="sms_waiting">%1$d waiting for you</string>
+    <string name="sms_read">Read</string>
+    <string name="sms_ignore">Ignore</string>
+    <string name="sms_stop">Stop</string>
+    <string name="sms_ask_title">Is %1$s your bank?</string>
+    <string name="sms_ask_body">%1$s: read its SMS into your books?</string>
+    <string name="sms_ask_body_unknown">Read its SMS into your books?</string>
+    <string name="sms_locked_title">A bank message needs your choice</string>
+    <string name="sms_locked_body">Open the app to choose.</string>
+    <string name="sms_channel">Bank SMS</string>
+    <string name="sms_channel_hint">Asks whether a sender is your bank.</string>
     <string name="statement_title">Bank statement</string>
     <string name="statement_gap">The balance differs from the books by %1$s</string>
     <string name="statement_clean">Everything matches the books.</string>

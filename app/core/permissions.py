@@ -664,7 +664,7 @@ _MR_READ = [
     "/manager-reports/financial/balance-sheet", "/manager-reports/financial/income-statement",
     "/manager-reports/financial/cash-flow", "/manager-reports/financial/cash-flow-periods",
     "/manager-reports/financial/balance-sheet-periods",
-    "/manager-reports/financial/iran/income-statement", "/manager-reports/financial/iran/balance-sheet",
+    "/manager-reports/financial/iran/income-statement", "/manager-reports/financial/iran/balance-sheet", "/manager-reports/financial/{statement}/balance-sheet/lines/{key}",
     "/manager-reports/financial/iran/changes-in-equity", "/manager-reports/financial/iran/comprehensive-income",
     "/manager-reports/financial/iran/cash-flow",
     "/manager-reports/financial/uk/balance-sheet", "/manager-reports/financial/uk/profit-and-loss",

@@ -520,11 +520,127 @@
       };
     }
 
+    // ═══════ What changed on the balance sheet (scenarios AA1–AA6) ═══════
+    // Assets rose from 27.95 to 47 billion rials and nothing said why: a section opens
+    // into its lines by change, a line into its accounts, an account into its entries.
+    const _BS_SECTIONS = [
+      { prefixes: ['nca_', 'ca_', 'fa_'], label: 'sectionAssets' },
+      { prefixes: ['ncl_', 'cl_'], label: 'sectionLiabilities' },
+      { prefixes: ['eq_'], label: 'sectionEquity' },
+    ];
+    const _bsStatement = (report) => ((report.report_type || '').startsWith('uk_') ? 'uk' : 'iran');
+    const _bsLabel = (row) => row.label || (currentLanguage !== 'fa' && row.label_en ? row.label_en : row.label_fa) || row.key;
+    const _bsCcy = (report) => (report.metadata && report.metadata.currency) || '';
+    const _bsSigned = (n, ccy) => {
+      const v = Number(n) || 0;
+      return (v > 0 ? '+' : v < 0 ? '−' : '') + formatAmount(Math.abs(v), ccy || undefined);
+    };
+    const _bsPct = (part, whole) => (whole ? localDigits(Math.round(part / Math.abs(whole) * 100) + '%') : '—');
+    const _bsDayAfter = (iso) => {
+      const d = new Date(iso + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() + 1);
+      return d.toISOString().slice(0, 10);
+    };
+    function _bsModal(title) {
+      document.getElementById('chart-modal-title').textContent = title;
+      document.getElementById('chart-modal-canvas').style.display = 'none';
+      document.getElementById('chart-modal-txn-area').style.display = 'none';
+      document.getElementById('chart-drilldown-modal').style.display = 'block';
+      return document.getElementById('chart-modal-body');
+    }
+    function _bsChangeCell(v, ccy) {
+      const color = v > 0 ? 'var(--success, #15803d)' : (v < 0 ? 'var(--danger, #b91c1c)' : 'var(--text-muted)');
+      return `<td class="num" style="color:${color};font-weight:600;white-space:nowrap;">${escapeHtml(_bsSigned(v, ccy))}</td>`;
+    }
+    // the lines of one section, biggest change first
+    function openBalanceSection(report, section) {
+      const sec = _BS_SECTIONS[section];
+      if (!sec) return;
+      const ccy = _bsCcy(report);
+      const lines = (report.rows || [])
+        .filter((r) => r.row_type === 'line' && sec.prefixes.some((p) => (r.key || '').startsWith(p)))
+        .map((r) => ({ row: r, cur: Number(r.amount_current) || 0, pri: Number(r.amount_prior) || 0 }))
+        .filter((x) => x.cur || x.pri)
+        .map((x) => ({ ...x, change: x.cur - x.pri }))
+        .sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+      const cur = lines.reduce((n, x) => n + x.cur, 0);
+      const pri = lines.reduce((n, x) => n + x.pri, 0);
+      const change = cur - pri;
+      const body = _bsModal(t(sec.label));
+      const from = formatDisplayDate(report.comparative_as_of || '');
+      const to = formatDisplayDate(report.as_of || '');
+      const moved = lines.filter((x) => x.change);
+      body.innerHTML = `<p class="bsc-summary">${escapeHtml(tf('bscSummary', { section: t(sec.label), prior: formatAmount(pri, ccy || undefined),
+          from, current: formatAmount(cur, ccy || undefined), to, change: _bsSigned(change, ccy), pct: _bsPct(change, pri) }))}</p>`
+        + (moved.length ? `<div style="overflow-x:auto;"><table class="mini-table bsc-table"><thead><tr>
+            <th>${escapeHtml(t('bscLine'))}</th><th>${escapeHtml(from)}</th><th>${escapeHtml(to)}</th>
+            <th>${escapeHtml(t('bscChange'))}</th><th>${escapeHtml(t('bscShare'))}</th></tr></thead><tbody>${
+          moved.map((x) => `<tr data-bs-line="${escapeHtml(x.row.key)}" style="cursor:pointer;">
+            <td dir="auto">${escapeHtml(_bsLabel(x.row))}</td>
+            <td class="num">${escapeHtml(formatAmount(x.pri, ccy || undefined))}</td>
+            <td class="num">${escapeHtml(formatAmount(x.cur, ccy || undefined))}</td>
+            ${_bsChangeCell(x.change, ccy)}
+            <td class="num">${escapeHtml(_bsPct(x.change, change))}</td></tr>`).join('')}</tbody></table></div>
+            <p class="fc-note">${escapeHtml(t('bscLineHint'))}</p>`
+          : `<p class="fc-note">${escapeHtml(t('bscNoChange'))}</p>`);
+      body.querySelectorAll('tr[data-bs-line]').forEach((tr) => tr.addEventListener('click', () =>
+        openBalanceLine(report, tr.dataset.bsLine, () => openBalanceSection(report, section))));
+    }
+    // the accounts behind one line, on both dates; an account opens its entries between them
+    async function openBalanceLine(report, key, back) {
+      const row = (report.rows || []).find((r) => r.key === key) || { key };
+      const ccy = _bsCcy(report);
+      const body = _bsModal(_bsLabel(row));
+      body.innerHTML = `<p class="fc-note">${escapeHtml(t('loading'))}</p>`;
+      const q = new URLSearchParams();
+      if (report.as_of) q.set('as_of', report.as_of);
+      if (report.comparative_as_of) q.set('comparative_as_of', report.comparative_as_of);
+      if (ccy) q.set('currency', ccy);
+      let d = null;
+      try {
+        const res = await fetch(API + '/manager-reports/financial/' + _bsStatement(report) + '/balance-sheet/lines/'
+          + encodeURIComponent(key) + '?' + q.toString());
+        d = res.ok ? await res.json() : null;
+      } catch (_) { d = null; }
+      if (!d) { body.innerHTML = `<p class="fc-note">${escapeHtml(t('msgFailed'))}</p>`; return; }
+      const from = formatDisplayDate(d.comparative_as_of);
+      const to = formatDisplayDate(d.as_of);
+      const backBtn = back ? `<button type="button" class="btn btn-secondary btn-sm bsc-back" style="margin-bottom:0.6rem;">${escapeHtml(t('bscBack'))}</button>` : '';
+      body.innerHTML = backBtn
+        + `<p class="bsc-summary">${escapeHtml(tf('bscSummary', { section: _bsLabel(row), prior: formatAmount(d.total.prior, ccy || undefined),
+            from, current: formatAmount(d.total.current, ccy || undefined), to, change: _bsSigned(d.total.change, ccy),
+            pct: _bsPct(d.total.change, d.total.prior) }))}</p>`
+        + (d.accounts.length ? `<div style="overflow-x:auto;"><table class="mini-table bsc-table"><thead><tr>
+            <th>${escapeHtml(t('bscAccount'))}</th><th>${escapeHtml(from)}</th><th>${escapeHtml(to)}</th>
+            <th>${escapeHtml(t('bscChange'))}</th></tr></thead><tbody>${
+          d.accounts.map((a) => {
+            const name = a.kind === 'pl_to_date' ? t('bscPlToDate') : `${localCode(a.code)} · ${a.name}`;
+            const open = a.code ? ` data-code="${escapeHtml(a.code)}" data-name="${escapeHtml(a.name || a.code)}" style="cursor:pointer;"` : '';
+            return `<tr${open}><td dir="auto">${escapeHtml(name)}</td>
+              <td class="num">${escapeHtml(formatAmount(a.prior, ccy || undefined))}</td>
+              <td class="num">${escapeHtml(formatAmount(a.current, ccy || undefined))}</td>${_bsChangeCell(a.change, ccy)}</tr>`;
+          }).join('')}</tbody></table></div>
+          <p class="fc-note">${escapeHtml(t('bscAccountHint'))}</p>`
+          : `<p class="fc-note">${escapeHtml(t('bscNoChange'))}</p>`);
+      const b = body.querySelector('.bsc-back');
+      if (b) b.addEventListener('click', back);
+      body.querySelectorAll('tr[data-code]').forEach((tr) => tr.addEventListener('click', () =>
+        showTransactionDrilldown(tr.dataset.name, { account_code: tr.dataset.code, from_date: _bsDayAfter(d.comparative_as_of), to_date: d.as_of })));
+    }
+
     function renderManagerReportChart(report, inputs) {
       if (!mgrReportChartPanelEl || !mgrReportChartEl) return;
       _destroyExtraCharts();
       const chart = renderReportChart(mgrReportChartEl, report, managerReportChart);
       managerReportChart = chart;
+      // a balance sheet's bars open what changed in that section (scenario AA1)
+      const bsType = (report.report_type || '').toLowerCase();
+      if (chart && (bsType === 'iran_balance_sheet' || bsType === 'uk_balance_sheet')) {
+        chart.options.onClick = (e, els) => { if (els.length) openBalanceSection(report, els[0].index); };
+        chart.options.onHover = (e, els) => { if (e.native && e.native.target) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
+        chart.options.plugins.subtitle = { display: true, text: t('bscChartHint'), padding: { bottom: 8 } };
+        chart.update('none');
+      }
       if (mgrReportChartTitleEl) {
         const spec = makeReportChartSpec(report);
         mgrReportChartTitleEl.textContent = spec ? (spec.title || t('reportChartTitle')) : t('reportChartTitle');
@@ -756,6 +872,20 @@
         _compositionPie(t('chartAssetComposition'), assetKeys);
         _compositionPie(t('chartLiabilityComposition'), liabKeys);
         _compositionPie(t('chartEquityComposition'), equityKeys);
+        // every line ranked by how much it moved between the two dates (scenario AA5)
+        const moved = (report.rows || []).filter((r) => r.row_type === 'line')
+          .map((r) => ({ r, change: (Number(r.amount_current) || 0) - (Number(r.amount_prior) || 0) }))
+          .filter((x) => x.change).sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 12);
+        if (moved.length) {
+          _addExtraChart(t('chartBalanceChange'), {
+            type: 'bar',
+            data: { labels: moved.map((x) => _bsLabel(x.r)),
+                    datasets: [{ label: t('bscChange'), data: moved.map((x) => x.change),
+                                 backgroundColor: moved.map((x) => (x.change > 0 ? palette[0] : palette[3])) }] },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                       scales: { x: { ticks: { callback: (v) => formatNum(v) } } } },
+          }, (e, els) => { if (els.length) openBalanceLine(report, moved[els[0].index].r.key, null); });
+        }
         // Trend across periods (uses default-locale endpoint; both locales share the chart of accounts ranges via classify_account_code).
         _addPeriodsTrend('/manager-reports/financial/balance-sheet-periods', t('chartBSTrend'),
           [
@@ -1287,6 +1417,12 @@
             runManagerReport();
           }
         });
+      });
+      // a balance-sheet line opens the accounts behind it (scenario AA2)
+      mgrReportPreviewEl.querySelectorAll('tr[data-bs-line]').forEach((tr) => {
+        tr.style.cursor = 'pointer';
+        tr.title = t('bscRowHint');
+        tr.addEventListener('click', () => openBalanceLine(data, tr.dataset.bsLine, null));
       });
       mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
       renderManagerReportChart(data, chartInputs);

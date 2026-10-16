@@ -273,8 +273,13 @@
           assetsCur = _amt(totalAssets, 'amount_current');
           assetsPri = _amt(totalAssets, 'amount_prior');
         }
-        const liabCur = Math.abs(_amt(totalLiab, 'amount_current'));
-        const liabPri = Math.abs(_amt(totalLiab, 'amount_prior'));
+        // a UK sheet's liabilities are its creditors within one year and after it, as its assets are
+        // fixed and current: the bar was the long-term ones only, so a company owing VAT showed none
+        // (QA 2026-10-16), and the window it opens (every cl_/ncl_ line) said otherwise
+        const ukLiab = (field) => Math.abs(_amt(_findRow('creditors_within_one_year'), field))
+                                  + Math.abs(_amt(_findRow('creditors_after_one_year'), field));
+        const liabCur = isUK ? ukLiab('amount_current') : Math.abs(_amt(totalLiab, 'amount_current'));
+        const liabPri = isUK ? ukLiab('amount_prior') : Math.abs(_amt(totalLiab, 'amount_prior'));
         const eqCur = _amt(totalEquity, 'amount_current');
         const eqPri = _amt(totalEquity, 'amount_prior');
         if ((assetsCur + liabCur + eqCur) === 0) return null;

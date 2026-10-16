@@ -805,6 +805,10 @@ def _said(value: Any, lang: str) -> Any:
     if lang == "fa" and isinstance(value, str) and _FIGURE.match(value):
         from app.core.money import persian_figures
         return persian_figures(value)
+    # a count kept as a number: «۰ سند برگشت خورده و 4 یادداشت» (deep browser test, 2026-10-16)
+    if lang == "fa" and isinstance(value, (int, float)) and not isinstance(value, bool):
+        from app.core.money import grouped_fa
+        return grouped_fa(value)
     return value
 
 

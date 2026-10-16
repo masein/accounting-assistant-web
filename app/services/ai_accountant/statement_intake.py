@@ -297,8 +297,13 @@ async def maybe_statement_intake(
             # balance, which a journal export (debit/credit too) doesn't have.
             dates, headers = statement_text_score(text)
             has_balance = any(w in text.lower() for w in ("balance", "مانده", "saldo", "الرصيد"))
+            # a file the bank named, with a running balance on dated rows, is its statement however
+            # short: «mellat-….csv» of two rows, shared from the bank's app with no words, went to
+            # the model and failed with none set up (QA 2026-10-16)
+            named = guess_bank_name(att.file_name or "") != "Unknown"
             found = (looks_like_bank_statement(filename=att.file_name or "", message=message or "")
-                     or (dates >= 3 and headers >= 2 and has_balance))
+                     or (dates >= 3 and headers >= 2 and has_balance)
+                     or (named and dates >= 1 and headers >= 2 and has_balance))
         else:
             found = looks_like_bank_statement(filename=att.file_name or "", message=message or "", text=text)
         if not found:

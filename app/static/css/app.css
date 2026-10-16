@@ -1089,7 +1089,8 @@
     /* reply, copy, share beside the meta line (scenarios AC1–AC4): on hover or focus; always on a touch screen */
     .msg-actions { display: inline-flex; align-items: center; gap: 0.1rem; position: relative; opacity: 0; transition: opacity 0.15s; }
     .msg-row:hover .msg-actions, .msg-row:focus-within .msg-actions, .ai-card:hover .msg-actions, .ai-card:focus-within .msg-actions { opacity: 1; }
-    @media (hover: none) { .msg-actions { opacity: 0.75; } }
+    /* on a touch screen each is a finger's size: they were 23 × 19 on a phone (QA 2026-10-16, I5) */
+    @media (hover: none) { .msg-actions { opacity: 0.75; } .msg-action { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; } }
     .msg-action { border: none; background: none; cursor: pointer; color: var(--text-muted); padding: 2px 4px; border-radius: 6px; line-height: 0; }
     .msg-action:hover, .msg-action:focus-visible { background: #e2e8f0; color: var(--text); }
     .msg-actions[data-note]::after { content: attr(data-note); font-size: 0.7rem; color: var(--primary); margin-inline-start: 0.3rem; font-weight: 600; }
@@ -1332,3 +1333,5 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 .party-accounts[open] > summary { margin-bottom: 0.5rem; }
 .party-accounts .fc-note { margin-top: 0.15rem; }
 .party-accounts .pa-overdrawn { color: var(--danger, #b91c1c); font-weight: 600; }
+/* a party's type picker keeps its words: on a phone it was squeezed to 26 px; the table scrolls instead (QA 2026-10-16, I5) */
+.party-accounts .pa-type { min-width: 8.5rem; min-height: 32px; }

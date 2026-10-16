@@ -33,12 +33,17 @@ python3 scripts/qa/results_md.py scripts/qa/out/results.jsonl > /tmp/results.md 
   | `qa_C.py`, `qa_C2.py` | C, bookkeeping |
   | `qa_D.py` | D, reports, plus E chat and migration |
   | `qa_G.py` | G (UK), H (personal) |
+  | `qa_J.py` | what shipped after the 2026-10-07 run: Q (pence), S2, T (stock in the books), U (a party's transactions), X (parties from accounts), Y (bank SMS from the phone), Z3 (a person's books currency), AA (what changed on the balance sheet), AC (reply, copy, share), AE (a phone-made voucher on the web) |
   | `qa_I.py` | I, every page × language × size, with its sections open; I11, the bell's panel and the account menu open |
 
   Later groups read the ids that earlier ones saved in `out/state.json`, so run them in order.
 - A page's sections fetch what they show when they open: `settle(page)` waits for the page's own requests in flight
   (counted by an init script), since `networkidle` returns at once once a page has been idle. `ux(..., scope="#id")`
   scans one open popup instead of the whole screen again.
+- Persian pages write their figures, dates and codes in Persian digits (#338): compare what a page says through
+  `lat(text)`, which turns them, and «٬» «٫», into Latin ones.
+- What needs the model (the chat's own proposals) is left to pytest: the AI is blanked. `qa_J.py` makes a voucher
+  the way the phone does without it, by walking a statement's differences (`/api/mobile/v1/statements/{id}/next`).
 - Output goes to `scripts/qa/out/` (git-ignored):
   - `results.jsonl`: one line per scenario, PASS or FAIL with notes;
   - `findings.jsonl`: the automated UI checks (I1–I9);

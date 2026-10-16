@@ -1051,6 +1051,22 @@
         }
       }
 
+      // tapping one sends it as a typed answer would be; the row goes once one is picked
+      function appendChoices(options) {
+        const row = document.createElement('div');
+        row.className = 'ai-choices';
+        options.slice(0, 4).forEach((o) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'chip';
+          b.textContent = String(o);
+          b.addEventListener('click', () => { row.remove(); sendMessage(String(o)); });
+          row.appendChild(b);
+        });
+        messagesEl.appendChild(row);
+        scrollToBottom(false);
+      }
+
       async function sendMessage(msg) {
         const text = (msg || '').trim();
         const attachments = pendingAttachments.slice();
@@ -1086,6 +1102,10 @@
           for (const proposal of (data.proposals || [])) {
             appendProposalCard(proposal);
           }
+          // a short question's answers to tap (ask_with_choices: «count the books in Omani rials, or keep them?»)
+          const ask = (data.tool_calls || []).slice().reverse()
+            .find((c) => c && c.name === 'ask_with_choices' && c.result && Array.isArray(c.result.options));
+          if (ask) appendChoices(ask.result.options);
           if (data.intake) appendIntakeCard(data.intake);
           statusEl.textContent = tf('aiChatStatusCounter', { turns: data.turns, calls: (data.tool_calls || []).length });
           loadSessions(sessionSearchEl ? sessionSearchEl.value.trim() : '');

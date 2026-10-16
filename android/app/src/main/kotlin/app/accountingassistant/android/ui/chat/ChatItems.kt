@@ -17,7 +17,9 @@ sealed interface ChatItem {
     data class User(override val id: String, val text: String, val files: List<String> = emptyList(),
                     val clientId: String? = null) : ChatItem
     /** The accountant's words; [nextStatement] offers the statement's next difference under them. */
-    data class Words(override val id: String, val text: String, val nextStatement: String? = null) : ChatItem
+    data class Words(override val id: String, val text: String, val nextStatement: String? = null,
+                     /** A short question's answers to tap («keep it in Omani rials»): sent as if typed. */
+                     val choices: List<String> = emptyList()) : ChatItem
     /** A chart from the books, drawn to scale: the cash forecast, week by week from today. */
     data class Chart(
         override val id: String,
@@ -121,7 +123,9 @@ fun parseBlock(b: JsonObject): ChatItem {
     val id = b.str("id") ?: b.hashCode().toString()
     return when (b.str("type")) {
         "text" -> ChatItem.Words(id, b.str("text").orEmpty(),
-                                 nextStatement = b.str("statement_id").takeIf { b.str("kind") == "statement_next" })
+                                 nextStatement = b.str("statement_id").takeIf { b.str("kind") == "statement_next" },
+                                 choices = (b["choices"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                                     ?.filter { it.isNotBlank() }?.take(4).orEmpty())
         // imported now, or before (then the card is the earlier import, as it stands)
         "intake" -> if (b.str("kind") == "bank_statement" && b.str("statement_id") != null &&
                         (b.str("status") == "imported" || (b.str("status") == "duplicate" && b.long("total_rows") != null)))

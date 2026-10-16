@@ -181,10 +181,13 @@ fun ChatScreen(
                                      modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
                             }
                         }
-                        is ChatItem.Words -> if (item.nextStatement == null) AssistantText(item.text)
+                        is ChatItem.Words -> if (item.nextStatement == null && item.choices.isEmpty()) AssistantText(item.text)
                             else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 AssistantText(item.text)
-                                NextDifferenceChip(onClick = { onStatementNext(item.nextStatement) })
+                                if (item.nextStatement != null) NextDifferenceChip(onClick = { onStatementNext(item.nextStatement) })
+                                // a short question's answers: tapping one sends it, as a typed answer would be
+                                if (item.choices.isNotEmpty()) Choices(options = item.choices, selected = null,
+                                                                       onPick = { onSuggestion(item.choices[it]) })
                             }
                         is ChatItem.Chart -> ChartCard(item, lang)
                         is ChatItem.Statement -> StatementCard(item, lang, onFix = { onStatementNext(item.statementId) })

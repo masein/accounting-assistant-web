@@ -123,6 +123,18 @@ def _cur(code: str | None, lang: str) -> str:
 _SYMBOLS = {"GBP": "£", "USD": "$", "EUR": "€"}
 
 
+def _in_currency(n, code: str, lang: str) -> str:
+    """«۷۷٫۵۰۰ ریال عمان», "77.500 OMR": to the currency's own places, named in Persian."""
+    from app.core.currencies import name as currency_name
+    from app.core.money import exponent, to_decimal
+    places = exponent(code)
+    figure = f"{int(to_decimal(n)):,}" if places == 0 else f"{to_decimal(n):,.{places}f}"
+    if lang == "fa":
+        from app.core.money import persian_figures
+        return f"{persian_figures(figure)} {'ریال' if code == 'IRR' else currency_name(code, 'fa')}"
+    return f"{figure} {code}"
+
+
 def _priced(n: int, code: str | None, lang: str) -> str:
     """An amount with its currency as the reader writes it: «£23,923» in
     English, Spanish and Arabic for a currency with a symbol (it read
@@ -137,6 +149,10 @@ def _priced(n: int, code: str | None, lang: str) -> str:
 _T = {
     "cash": {"en": "Cash and bank today: {total_p}.", "fa": "موجودی نقد و بانک امروز: {total} {cur}.",
              "es": "Efectivo y bancos hoy: {total_p}.", "ar": "النقد والبنوك اليوم: {total_p}."},
+    "cash_currencies": {"en": "Cash and bank today, each currency as it is: {list}.",
+                        "fa": "موجودی نقد و بانک امروز، هر ارز جداگانه: {list}.",
+                        "es": "Efectivo y bancos hoy, cada moneda tal cual: {list}.",
+                        "ar": "النقد والبنوك اليوم، كل عملة كما هي: {list}."},
     "receivables_one": {"en": "1 sales invoice is still open: {amounts} to collect.",
                         "fa": "۱ فاکتور فروش هنوز باز است: {amounts} طلب.",
                         "es": "1 factura de venta sigue abierta: {amounts} por cobrar.",
@@ -297,8 +313,14 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
                         amount_p=_priced(b["balance"], b.get("currency"), lang))
             return FastAnswer(intent=intent, text=text, tool_calls=calls)
         r = await run(GetCashPosition(), GetCashPositionInput())
-        text = _say("cash", lang, total=_money(r["total"], lang), cur=_cur(r.get("currency"), lang),
-                    total_p=_priced(r["total"], r.get("currency"), lang))
+        held = r.get("by_currency") or []
+        if len(held) > 1 or (len(held) == 1 and held[0]["currency"] != r.get("currency")):
+            # each currency on its own, nothing exchanged (scenario AB5)
+            sep = "، " if lang in ("fa", "ar") else " · "
+            text = _say("cash_currencies", lang, list=sep.join(_in_currency(h["total"], h["currency"], lang) for h in held))
+        else:
+            text = _say("cash", lang, total=_money(r["total"], lang), cur=_cur(r.get("currency"), lang),
+                        total_p=_priced(r["total"], r.get("currency"), lang))
     elif intent in ("receivables", "payables"):
         from app.services.ai_accountant.invoice_tools import ListInvoices, ListInvoicesInput
         kind = "sales" if intent == "receivables" else "purchase"

@@ -35,7 +35,8 @@ def cash_account_codes(db, *, locale: str | None, mode: str = "default") -> list
         code = acc.code or ""
         if is_cash(code):
             codes.add(code)
-        if mode == "personal" and code in ("1110", "1120"):
+        # …and the places under them: a wallet, a vault, a second bank account (scenario AB4)
+        if mode == "personal" and code.startswith(("1110", "1120")):
             codes.add(code)
     for ent in db.execute(select(Entity).where(Entity.type == "bank")).scalars().all():
         if ent.code:
@@ -54,7 +55,8 @@ class GetCashPosition(BaseTool):
         "How much money there is right now: the balance of EVERY cash and bank account "
         "(cash box, each bank account, card) as of a date, plus their total. Use it for "
         "'how much cash/money do we have', 'چقدر پول داریم', 'what's in the bank' — never "
-        "answer those from a single account. Pure read."
+        "answer those from a single account. ``holdings`` and ``by_currency`` give each place in the "
+        "currency its money is in (nothing exchanged): when there is more than one currency, say each one. Pure read."
     )
     InputSchema = GetCashPositionInput
 
@@ -83,12 +85,31 @@ class GetCashPosition(BaseTool):
             for code in codes
         ]
         total = sum(a["balance"] for a in accounts)
+        base = (get_reporting_currency(ctx.db) or "IRR").upper()
+        # each place in the currency its money is in, nothing exchanged (scenario AB5): a person
+        # keeps Omani rials in a wallet and dollars in a vault beside rials in the bank
+        own = ctx.db.execute(
+            select(Account.code, Account.name, func.upper(func.coalesce(Transaction.currency, base)),
+                   func.coalesce(func.sum(TransactionLine.debit), 0), func.coalesce(func.sum(TransactionLine.credit), 0))
+            .join(TransactionLine, TransactionLine.account_id == Account.id)
+            .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+            .where(Account.code.in_(codes), Transaction.deleted_at.is_(None), Transaction.date <= as_of)
+            .group_by(Account.code, Account.name, func.upper(func.coalesce(Transaction.currency, base)))
+        ).all()
+        holdings = [{"account_code": code, "account_name": name, "currency": ccy, "balance": plain(d or 0) - plain(c or 0)}
+                    for code, name, ccy, d, c in own if plain(d or 0) - plain(c or 0) != 0]
+        by_currency: dict[str, Any] = {}
+        for h in holdings:
+            by_currency[h["currency"]] = plain(by_currency.get(h["currency"], 0) + h["balance"])
         out: dict[str, Any] = {
             "as_of": as_of.isoformat(),
-            "currency": get_reporting_currency(ctx.db),
+            "currency": base,
             "accounts": accounts,
             "total": total,
             "account_count": len(accounts),
+            "holdings": holdings,
+            "by_currency": [{"currency": c, "total": t} for c, t in
+                            sorted(by_currency.items(), key=lambda kv: (kv[0] != base, kv[0]))],
         }
         from app.services.fx_base import unconverted_note
         if (left_out := unconverted_note(ctx.db)):

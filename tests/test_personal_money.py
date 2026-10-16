@@ -151,7 +151,7 @@ def test_z1_the_assistant_knows_the_books_currency_and_money_already_held(person
     assert r.status_code == 200, r.text
     prompt = scripted.prompts[0]
     assert "These books count in OMR (Omani rial; amounts have 3 decimal places)." in prompt
-    assert "STARTING BALANCE" in prompt and "Opening net worth (3110" in prompt and "86.100 OMR" in prompt
+    assert "STARTING BALANCE: call ``propose_money_place``" in prompt and "86.100 OMR" in prompt
     card = next(b for b in r.json()["blocks"] if b["type"] == "proposal")
     assert card["amount"] == {"value": 86.1, "currency": "OMR"}          # the phone writes it 86.100 (OMR's 3 places)
     assert [(ln["account"], ln["debit"], ln["credit"]) for ln in card["lines"]] == [("1120", 86.1, 0), ("3110", 0, 86.1)]
@@ -164,7 +164,7 @@ def test_z2_money_in_another_currency_is_named_not_guessed(person, scripted):
     person["client"].post(f"{API}/chat", headers=phone, json={"message": "I have 86 rials and 100 baisa in my green wallet"})
     [prompt] = scripted.prompts
     assert "These books count in IRR (Iranian rial; amounts have 0 decimal places)." in prompt
-    assert "EVERYDAY MONEY IN ANOTHER CURRENCY" in prompt and "«ارز دفاتر»" in prompt
+    assert "SEVERAL CURRENCIES" in prompt and "ask_with_choices" in prompt and "«ارز دفاتر»" in prompt
     assert "The person can still change it: the books have no entries yet." in prompt
 
 

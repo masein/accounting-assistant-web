@@ -59,6 +59,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
@@ -133,8 +137,24 @@ fun UserBubble(text: String, from: String? = null, modifier: Modifier = Modifier
 @Composable
 fun AssistantText(text: String, modifier: Modifier = Modifier) {
     val c = LocalAccountantColors.current
-    Text(text, color = c.ink, fontSize = 14.sp, lineHeight = 22.sp, modifier = modifier.fillMaxWidth(),
+    Text(boldMarks(text), color = c.ink, fontSize = 14.sp, lineHeight = 22.sp, modifier = modifier.fillMaxWidth(),
          style = TextStyle(textDirection = TextDirection.Content))
+}
+
+/**
+ * «**ریال ایران (IRR)**» as bold words, not with its stars: the model writes Markdown
+ * now and then, and the phone showed the marks (owner's phone, 2026-10-16). Only the
+ * paired «**» or «__»; a lone star stays.
+ */
+fun boldMarks(text: String): AnnotatedString = buildAnnotatedString {
+    var i = 0
+    val marks = Regex("""\*\*(.+?)\*\*|__(.+?)__""")
+    for (m in marks.findAll(text)) {
+        append(text.substring(i, m.range.first))
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(m.groupValues[1].ifEmpty { m.groupValues[2] }) }
+        i = m.range.last + 1
+    }
+    append(text.substring(i))
 }
 
 /** One question's likely answers as chips; the picked one is tinted firouzeh. */

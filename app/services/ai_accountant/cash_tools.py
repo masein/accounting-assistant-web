@@ -88,16 +88,22 @@ class GetCashPosition(BaseTool):
         base = (get_reporting_currency(ctx.db) or "IRR").upper()
         # each place in the currency its money is in, nothing exchanged (scenario AB5): a person
         # keeps Omani rials in a wallet and dollars in a vault beside rials in the bank
+        # grouped by the stored currency, read in Python: an expression with the base as a
+        # parameter is two different expressions to PostgreSQL in SELECT and GROUP BY
         own = ctx.db.execute(
-            select(Account.code, Account.name, func.upper(func.coalesce(Transaction.currency, base)),
+            select(Account.code, Account.name, Transaction.currency,
                    func.coalesce(func.sum(TransactionLine.debit), 0), func.coalesce(func.sum(TransactionLine.credit), 0))
             .join(TransactionLine, TransactionLine.account_id == Account.id)
             .join(Transaction, Transaction.id == TransactionLine.transaction_id)
             .where(Account.code.in_(codes), Transaction.deleted_at.is_(None), Transaction.date <= as_of)
-            .group_by(Account.code, Account.name, func.upper(func.coalesce(Transaction.currency, base)))
+            .group_by(Account.code, Account.name, Transaction.currency)
         ).all()
-        holdings = [{"account_code": code, "account_name": name, "currency": ccy, "balance": plain(d or 0) - plain(c or 0)}
-                    for code, name, ccy, d, c in own if plain(d or 0) - plain(c or 0) != 0]
+        merged: dict[tuple[str, str, str], Any] = {}
+        for code, name, ccy, d, c in own:
+            key = (code, name, (ccy or base).strip().upper())
+            merged[key] = plain(merged.get(key, 0) + plain(d or 0) - plain(c or 0))
+        holdings = [{"account_code": code, "account_name": name, "currency": ccy, "balance": bal}
+                    for (code, name, ccy), bal in merged.items() if bal != 0]
         by_currency: dict[str, Any] = {}
         for h in holdings:
             by_currency[h["currency"]] = plain(by_currency.get(h["currency"], 0) + h["balance"])

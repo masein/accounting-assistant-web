@@ -150,9 +150,18 @@ def _balance_figure(result: dict, **_) -> dict | None:
 
 
 def _cash_figure(result: dict, lang: str = "en", **_) -> dict | None:
-    """get_cash_position: every cash and bank account together, with each one."""
+    """get_cash_position: every cash and bank account together, with each one.
+    Money in more than one currency is a list of places, each in its own
+    currency (scenario AB5): one figure would add Omani rials to Iranian ones."""
     if "total" not in result:
         return None
+    held = result.get("by_currency") or []
+    if len(held) > 1 or (len(held) == 1 and held[0].get("currency") != result.get("currency")):
+        rows = [{"label": h.get("account_name") or h.get("account_code"), "sub": h.get("account_code"),
+                 "value": json_amount(h.get("balance") or 0), "currency": h.get("currency")}
+                for h in result.get("holdings") or []]
+        return {"type": "table", "kind": "holdings", "rows": rows,
+                "fallback_text": " · ".join(f"{grouped(x['total'])} {x['currency']}" for x in held)}
     value = json_amount(result["total"])
     label = {"fa": "موجودی نقد و بانک", "es": "Efectivo y bancos", "ar": "النقد والبنوك"}.get(lang, "Cash and bank")
     return {"type": "figure", "label": label, "value": value, "currency": result.get("currency"),
@@ -379,10 +388,18 @@ def build_blocks(db: Session, *, text: str | None, proposals: list | None, tool_
                  if isinstance(ln, dict)]
     names = _account_names(db, (ln.get("account_code") for ln in all_lines))
     for p in proposals or []:
+        preview = _get(p, "preview") or {}
+        if isinstance(preview, dict) and preview.get("new_account") and preview.get("account_code"):
+            names.setdefault(preview["account_code"], preview.get("place") or preview["account_code"])   # made on confirm
         blocks.append(proposal_block(db, p, calendar=calendar, lang=lang, names=names))
     if text and text.strip():
-        blocks.append({"type": "text", "id": f"text:{uuid.uuid4().hex[:8]}", "text": text.strip(),
-                       "fallback_text": text.strip()})
+        said = {"type": "text", "id": f"text:{uuid.uuid4().hex[:8]}", "text": text.strip(), "fallback_text": text.strip()}
+        # a short question's likely answers, to tap (ask_with_choices: «change the books' currency, or keep it?»)
+        options = next((((c.get("result") or {}).get("options") or []) for c in reversed(tool_calls or [])
+                        if c.get("name") == "ask_with_choices" and isinstance(c.get("result"), dict)), [])
+        if options:
+            said["choices"] = [str(o) for o in options][:4]
+        blocks.append(said)
     return blocks
 
 

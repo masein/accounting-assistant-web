@@ -481,7 +481,7 @@ From the owner, on the phone with personal books: «من هشتاد و شش ری
 | ID | Scenario | Steps | Expected |
 |---|---|---|---|
 | Z1 | Money I already have | Personal books in Omani rials: «۸۶ ریال و ۱۰۰ بیسه توی کیف پول سبزم دارم»; «۲۰۰ ریال تو حساب بانکم دارم» | One card each, no questions: the green wallet's starting balance, 86.100 OMR, to cash on hand against opening net worth (described «کیف پول سبز — موجودی اولیه»); the bank's 200.000 to the bank account. Said in plain words: no debit, credit or "counter-account" |
-| Z2 | Money in another currency | The same wallet message in books that count in Iranian rials | No card and no guessed figure. The answer says the books count in Iranian rials and «بیسه» is Omani money, and how to count them in Omani rials (the account sheet on the phone, «My finances» on the web) |
+| Z2 | Money in another currency | The same wallet message in books that count in Iranian rials | Replaced by AB1–AB2 (2026-10-16): never refused. While the books can still change, one question with two answers to tap (count the books in Omani rials, or keep this in its own currency); once they have entries, kept in its own currency, as a place of its own |
 | Z3 | Choosing the currency | Personal books: the phone's account sheet → «Your books' currency» → Omani rial; on the web, My finances → Your books' currency | The books now count in Omani rials: the dashboard, the chat and the cards say OMR, with three places (86.100). Once the books hold entries, the currency is shown but no longer offered («Your books already have entries, so their currency stays»), and the server refuses a change: those entries would count as nothing without a rate (three months of rials read 0.000 OMR in the first screenshots). Only a person's own books offer it; a company's currency stays with the platform admin |
 | Z4 | The words for it | In books whose chart is in English, and in Persian: «افتتاحیه», «موجودی اولیه», «خالص دارایی», "opening balance" | Each finds Opening net worth (3110) first; none is "not found in the chart". «سرمایه» alone is left to the chart: in a person's books it is as often investment («سرمایه‌گذاری») |
 | Z5 | One language on a card | The app in English, the question in Persian: «چقدر پول داریم الان؟» | The card and the sentence are both Persian: «موجودی نقد و بانک»; asked in English, both are English |
@@ -498,3 +498,17 @@ From the owner, on Manager reports → the balance sheet: assets went from 27,95
 | AA4 | The result not yet closed | Equity → retained earnings | The accounts under it, and a line for the profit or loss not yet closed into it, so the line still adds up |
 | AA5 | At a glance | The balance sheet's charts | A chart «What changed» ranks every line by its change (increases one colour, decreases another); clicking a bar opens AA2 |
 | AA6 | UK books | The same on a UK balance sheet (Cash at bank and in hand, Debtors…) | The same windows, in English, in pounds with pence |
+
+## AB. A person's money in several currencies (2026-10-16)
+
+From the owner, on the phone: «۷۷.۵ ریال عمان توی کیف پول سبز داریم» in books that count in Iranian rials was refused ("I won't record it or convert it; change your books' currency first"). It should have asked whether to change the books' currency or add the new one: a person keeps several currencies, in different wallets, vaults and bank accounts, and wants them all kept as they are, not exchanged.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| AB1 | Asked once, while it can still change | Personal books in Iranian rials with no entries yet: «۷۷.۵ ریال عمان توی کیف پول سبز داریم» | One short question with two answers to tap: count the books in Omani rials, or keep Iranian rials and keep this in Omani rials. Nothing posted yet |
+| AB2 | Keep it in its own currency | Tap «keep it in Omani rials» (or the books already have entries, so nothing is asked) | A card: «کیف پول سبز — موجودی اولیه», 77.500 OMR, a new place under cash on hand. Confirmed, the wallet is an account of its own and holds 77.500 OMR, not converted |
+| AB3 | Change the books' currency instead | AB1, tap «count the books in Omani rials» | A card «Count your books in Omani rials»; confirmed, the books count in OMR and the wallet's 77.500 is in the books' currency |
+| AB4 | Many places, many currencies | Then «۵۰۰ دلار توی گاوصندوق دارم», «۳٬۰۰۰٬۰۰۰ ریال تو حساب ملت دارم» | Each its own place (a vault under cash, a bank account under the bank), each in its own currency |
+| AB5 | How much money I have | «چقدر پول دارم؟» | Each currency on its own, nothing exchanged: «۷۷٫۵۰۰ ریال عمان · ۵۰۰ دلار · ۳٬۰۰۰٬۰۰۰ ریال», and a card listing each place with its currency |
+| AB6 | The same place again | «۵ ریال عمان از کیف پول سبز ناهار خریدم»; then «۱۰ ریال عمان دیگه هم توی کیف پول سبز هست» | The lunch is paid from the green wallet, found by its name, in Omani rials. A second starting balance for a place that already has one is not a second wallet: the assistant says what the wallet holds and asks where the extra came from |
+| AB7 | The reply on the phone | Any reply with bold words | Bold, not «**» around them; page names in the reply's language («امور مالی من», not "My finances") |

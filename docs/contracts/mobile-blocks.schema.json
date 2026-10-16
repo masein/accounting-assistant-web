@@ -148,6 +148,14 @@
         },
         "fallback_text": {
           "type": "string"
+        },
+        "choices": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "string"
+          },
+          "description": "A short question's likely answers, to tap under the words (sent as if typed)."
         }
       }
     },

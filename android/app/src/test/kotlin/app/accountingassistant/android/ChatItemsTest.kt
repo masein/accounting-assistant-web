@@ -56,6 +56,23 @@ class ChatItemsTest {
         assertEquals(null, editChange(item, "en", editableDate(item.dateIso, "en"), item.title, "7.50"))   // the same amount
     }
 
+    /** «Count the books in Omani rials, or keep this in its own currency?», with its answers to tap (scenario AB1). */
+    @Test fun aQuestionComesWithItsAnswersToTap() {
+        val item = parseBlock(block("""{"type":"text","id":"text:1","text":"ارز دفاتر ریال عمان شود، یا این پول به ریال عمان بماند؟",
+            "choices":["دفاتر به ریال عمان","ریال ایران بماند","  "],"fallback_text":"…"}""")) as ChatItem.Words
+        assertEquals(listOf("دفاتر به ریال عمان", "ریال ایران بماند"), item.choices)
+        val plain = parseBlock(block("""{"type":"text","id":"text:2","text":"ثبت شد.","fallback_text":"ثبت شد."}""")) as ChatItem.Words
+        assertTrue(plain.choices.isEmpty())
+    }
+
+    /** The model's «**…**» reads bold, without its stars (scenario AB7). */
+    @Test fun boldMarksBecomeBoldWords() {
+        val t = app.accountingassistant.android.ui.components.boldMarks("دفاتر شما با **ریال ایران (IRR)** ثبت می‌شوند؛ ۲ * ۳")
+        assertEquals("دفاتر شما با ریال ایران (IRR) ثبت می‌شوند؛ ۲ * ۳", t.text)
+        assertEquals(1, t.spanStyles.size)
+        assertEquals("ریال ایران (IRR)", t.text.substring(t.spanStyles[0].start, t.spanStyles[0].end))
+    }
+
     @Test fun anUnknownBlockFallsBackToItsSentence() {
         val item = parseBlock(block("""{"type":"hologram","id":"h1","fallback_text":"A chart of spending"}"""))
         assertTrue(item is ChatItem.Fallback)

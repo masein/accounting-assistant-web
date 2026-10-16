@@ -556,6 +556,8 @@ class TestPersonalMode:
             "propose_create_transaction",
             "propose_create_entity", "propose_update_entity", "propose_reverse_transaction",
             "list_commitments", "propose_settle_commitment", "propose_remember_preference",
+            # money where it's kept, in its own currency (scenarios AB1–AB6)
+            "propose_money_place", "propose_books_currency", "ask_with_choices",
             "get_report_card", "get_savings_goals", "get_net_worth",
         }
 

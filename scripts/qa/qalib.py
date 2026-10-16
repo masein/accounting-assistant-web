@@ -173,6 +173,15 @@ def clear_alert(page) -> None:
     page.evaluate("() => { const a = document.getElementById('alert'); if (a) { a.style.display = 'none'; a.textContent = ''; } }")
 
 
+# A Persian page writes its figures, dates and codes in Persian digits with «٬» and «٫»
+# (#338, the owner's call, 2026-10-12): checks compare what they read in Latin ones.
+_LATIN = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩٬٫", "01234567890123456789,.")
+
+
+def lat(text) -> str:
+    return str(text or "").translate(_LATIN)
+
+
 def iso(days: int = 0) -> str:
     return (date.today() + timedelta(days=days)).isoformat()
 

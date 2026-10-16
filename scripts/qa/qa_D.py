@@ -8,7 +8,7 @@ from datetime import date, timedelta
 sys.path.insert(0, "/qa")
 from playwright.sync_api import sync_playwright
 
-from qalib import BASE, OUT, Check, alert_text, api, clear_alert, go, new_session, settle, shot, ux, wait_until, confirm_shown
+from qalib import BASE, Check, OUT, alert_text, api, clear_alert, confirm_shown, go, lat, new_session, settle, shot, ux, wait_until
 
 FA = lambda s: any("؀" <= ch <= "ۿ" for ch in (s or ""))
 st = json.load(open(f"{OUT}/state.json"))
@@ -28,14 +28,14 @@ def d1_search(browser):
             c.ok(s == 200 and (bool(rows) == want), f"search «{q}» → {len(rows)} rows ({s})")
         go(page, "ledger")
         page.wait_for_timeout(800)
-        row = page.locator('.card[data-page="ledger"] tr').filter(has_text="6112").first
+        row = page.locator('.card[data-page="ledger"] tr').filter(has_text=re.compile("6112|۶۱۱۲")).first
         if row.count():
             row.click()
             page.wait_for_timeout(1200)
             modal = page.locator("#account-modal-body")
             c.ok(modal.is_visible(), "an account row opens its detail")
             txt = modal.inner_text() if modal.is_visible() else ""
-            c.ok("1405/07/07" in txt, "the rent line shows its Jalali date")
+            c.ok("1405/07/07" in lat(txt), "the rent line shows its Jalali date")
             c.shots.append(shot(page, "D1", "account-detail", full=False))
             ux(page, "D1", "account detail", lang="fa", shot_name="D1-account-detail.png")
             page.keyboard.press("Escape")
@@ -229,7 +229,7 @@ def d6_lock(browser):
         c.ok(res.value.status == 200, f"books locked ({res.value.status} {res.value.text()[:120]})")
         page.wait_for_timeout(500)
         stt = page.inner_text("#closed-period-status")
-        c.ok("1405/06/31" in stt, f"lock date shown in Jalali «{stt}»")
+        c.ok("1405/06/31" in lat(stt), f"lock date shown in Jalali «{stt}»")
         go(page, "transactions")
         page.fill("#date", "2026-09-10")
         rows = page.locator("#lines-tbody tr")
@@ -286,7 +286,7 @@ def d8_forecast(browser):
         c.ok(vis, "cash forecast shown")
         if vis:
             fs = page.inner_text("#forecast-summary")
-            c.ok(FA(fs) and "1405/" in fs or "مهر" in fs or "آبان" in fs, f"forecast in Persian with Jalali weeks «{fs[:160]}»")
+            c.ok(FA(fs) and ("1405/" in lat(fs) or "مهر" in fs or "آبان" in fs), f"forecast in Persian with Jalali weeks «{fs[:160]}»")
             c.shots.append(shot(page, "D8", "forecast", full=False, selector="#forecast-wrap"))
         s, ins = api(page, "GET", "/insights", None)
         c.note(f"insights → {s} {len(ins) if isinstance(ins, list) else (len(ins.get('items', [])) if isinstance(ins, dict) else '')}")

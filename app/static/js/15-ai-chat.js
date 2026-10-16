@@ -778,6 +778,79 @@
         return box;
       }
 
+      // ─── A person's voucher on its card (scenarios AD1–AD5), as the phone draws it ───
+      const _RTL_WORDS = /[\u0590-\u08FF]/;
+      function _voucherWhat(card) {
+        const date = card.date && card.date.display;
+        // beside Persian digits a middle dot reads as a zero («۲۴۰ مهر»): a comma there
+        const sep = date && _RTL_WORDS.test(date) ? '، ' : ' · ';
+        return [card.title, date].filter(Boolean).join(sep);
+      }
+      function _voucherSide(line) {
+        const out = Number(line.credit) > 0 && !(Number(line.debit) > 0);
+        return { side: t(out ? 'aiCardFrom' : 'aiCardTo'), value: out ? line.credit : line.debit };
+      }
+      function _voucherBody(card) {
+        const box = document.createElement('div');
+        box.className = 'ai-voucher';
+        const ccy = card.amount && card.amount.currency;
+        if (card.amount) {
+          const amt = document.createElement('div');
+          amt.className = 'ai-voucher-amount';
+          amt.setAttribute('dir', 'ltr');
+          amt.textContent = formatAmount(card.amount.value, ccy);
+          const unit = document.createElement('span');
+          unit.className = 'ai-voucher-ccy';
+          unit.textContent = ccy || '';
+          amt.appendChild(unit);
+          box.appendChild(amt);
+        }
+        const what = document.createElement('div');
+        what.className = 'ai-voucher-what';
+        what.setAttribute('dir', 'auto');
+        if (card.title) what.appendChild(document.createTextNode(card.title));
+        if (card.date && card.date.display) {
+          const date = card.date.display;
+          if (card.title) what.appendChild(document.createTextNode(_RTL_WORDS.test(date) ? '، ' : ' · '));
+          const bdi = document.createElement('bdi');        // the date in its own direction, in one piece
+          bdi.textContent = date;
+          what.appendChild(bdi);
+        }
+        box.appendChild(what);
+        const lines = document.createElement('div');
+        lines.className = 'ai-voucher-lines';
+        card.lines.forEach((line) => {
+          const row = document.createElement('div');
+          row.className = 'ai-voucher-line';
+          const { side, value } = _voucherSide(line);
+          const code = document.createElement('span');
+          code.className = 'ai-voucher-code';
+          code.textContent = localCode(line.account);
+          const name = document.createElement('span');
+          name.className = 'ai-voucher-name';
+          name.setAttribute('dir', 'auto');
+          name.textContent = line.name || line.account || '';
+          const amount = document.createElement('span');
+          amount.className = 'ai-voucher-side';
+          amount.textContent = side + ' ' + formatAmount(value, ccy);
+          row.appendChild(code);
+          row.appendChild(name);
+          row.appendChild(amount);
+          lines.appendChild(row);
+        });
+        box.appendChild(lines);
+        return box;
+      }
+      function _voucherText(card) {
+        const ccy = card.amount && card.amount.currency;
+        return [_voucherWhat(card),
+                card.amount ? formatAmount(card.amount.value, ccy) + ' ' + (ccy || '') : '',
+                ...card.lines.map((line) => {
+                  const { side, value } = _voucherSide(line);
+                  return localCode(line.account) + ' ' + (line.name || '') + '  ' + side + ' ' + formatAmount(value, ccy);
+                })].filter((x) => String(x).trim()).join('\n');
+      }
+
       // One message row: meta line (who + when) and a direction-neutral bubble.
       // role: 'user' | 'assistant' | 'system' (errors). opts.at = ISO time; opts.quote = what it answers.
       function appendBubble(role, text, opts) {
@@ -1012,9 +1085,11 @@
         const titleText = document.createElement('span');
         titleText.textContent = t('aiChatProposedAction');
         title.appendChild(titleText);
-        // copied and shared as its summary; a reply names the card, so a correction replaces this one
+        // copied and shared as it reads; a reply names the card, so a correction replaces this one
         const what = (proposal.preview && proposal.preview.description) || String(proposal.summary || '').split('\n')[0];
-        addMessageActions(title, () => String(proposal.summary || '').trim(),
+        const voucherCard = currentRole === 'personal' && proposal.card && Array.isArray(proposal.card.lines)
+          && proposal.card.lines.length ? proposal.card : null;
+        addMessageActions(title, () => voucherCard ? _voucherText(voucherCard) : String(proposal.summary || '').trim(),
                           () => _quoteOf('assistant', what, proposal.confirmation_token));
         const host = document.createElement('div');        // holds the swipe's arrow, which stays as the card slides
         host.className = 'ai-card-wrap';
@@ -1022,11 +1097,18 @@
         addSwipeReply(card, host, () => _quoteOf('assistant', what, proposal.confirmation_token));
         card.appendChild(title);
 
-        const summary = document.createElement('pre');
-        summary.className = 'ai-card-summary';
-        summary.setAttribute('dir', 'auto');
-        summary.textContent = proposal.summary || '';
-        card.appendChild(summary);
+        // a person's voucher as the card itself, its lines To and From (scenarios AD1–AD5);
+        // a company's, and a card that posts nothing, as the server's summary
+        const voucher = currentRole === 'personal' && proposal.card && Array.isArray(proposal.card.lines)
+          && proposal.card.lines.length ? proposal.card : null;
+        if (voucher) card.appendChild(_voucherBody(voucher));
+        else {
+          const summary = document.createElement('pre');
+          summary.className = 'ai-card-summary';
+          summary.setAttribute('dir', 'auto');
+          summary.textContent = proposal.summary || '';
+          card.appendChild(summary);
+        }
 
         // New entities to be created on Confirm (localized, alongside the entry).
         if (Array.isArray(proposal.new_entities) && proposal.new_entities.length) {

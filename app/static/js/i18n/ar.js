@@ -3054,6 +3054,8 @@ window.I18N_PACKS.ar = Object.assign({
         aiChatShareTelegram: 'تيليجرام',
         aiChatShareWhatsApp: 'واتساب',
         aiChatShareEmail: 'البريد الإلكتروني',
+        aiCardTo: 'إلى',
+        aiCardFrom: 'من',
         aiChatEmptyTitle: 'ماذا تريد أن تفعل؟',
         aiChatEmptyBody: 'سجّل دفعة، أو اسأل عن أرقامك، أو أسقط إيصالاً أو كشف حساب هنا. لا يُحفظ شيء حتى تؤكد بطاقة.',
         aiChatExample1: 'دفعت اليوم 2,500 إيجار المكتب من البنك',

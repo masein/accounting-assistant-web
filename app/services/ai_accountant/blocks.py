@@ -81,6 +81,19 @@ def _account_names(db: Session, codes: Iterable[str]) -> dict[str, str]:
 
 # --- proposals ------------------------------------------------------------------------
 
+def card_names(db: Session, proposals: list | None) -> dict[str, str]:
+    """The names of the accounts the cards' lines post to, by code; a place
+    the card makes on confirm («کیف پول سبز», 112001) by its own name."""
+    all_lines = [ln for p in (proposals or []) for ln in ((_get(p, "preview") or {}).get("lines") or [])
+                 if isinstance(ln, dict)]
+    names = _account_names(db, (ln.get("account_code") for ln in all_lines))
+    for p in proposals or []:
+        preview = _get(p, "preview") or {}
+        if isinstance(preview, dict) and preview.get("new_account") and preview.get("account_code"):
+            names.setdefault(preview["account_code"], preview.get("place") or preview["account_code"])   # made on confirm
+    return names
+
+
 _EDITABLE = {"propose_create_transaction"}           # kept in step with proposal_edit.EDITABLE (a test checks)
 
 
@@ -384,13 +397,8 @@ def build_blocks(db: Session, *, text: str | None, proposals: list | None, tool_
         blocks.append({"type": "intake",
                        "id": f"intake:{intake.get('kind')}:{intake.get('statement_id') or intake.get('batch_id') or ''}{again}",
                        **intake, "fallback_text": "" if (text and text.strip()) else (text or "")})
-    all_lines = [ln for p in (proposals or []) for ln in ((_get(p, "preview") or {}).get("lines") or [])
-                 if isinstance(ln, dict)]
-    names = _account_names(db, (ln.get("account_code") for ln in all_lines))
+    names = card_names(db, proposals)
     for p in proposals or []:
-        preview = _get(p, "preview") or {}
-        if isinstance(preview, dict) and preview.get("new_account") and preview.get("account_code"):
-            names.setdefault(preview["account_code"], preview.get("place") or preview["account_code"])   # made on confirm
         blocks.append(proposal_block(db, p, calendar=calendar, lang=lang, names=names))
     if text and text.strip():
         said = {"type": "text", "id": f"text:{uuid.uuid4().hex[:8]}", "text": text.strip(), "fallback_text": text.strip()}

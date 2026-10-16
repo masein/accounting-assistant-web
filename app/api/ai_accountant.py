@@ -100,10 +100,18 @@ class ProposalRead(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class ReplyTo(BaseModel):
+    """The message this one answers (scenarios AC4–AC7): whose it was, its words, a card's token."""
+    role: str = Field(default="assistant", max_length=16)
+    text: str = Field(default="", max_length=4000)
+    token: str | None = Field(default=None, max_length=64)
+
+
 class ChatPayload(BaseModel):
     message: str
     session_id: str | None = None
     attachment_ids: list[str] = []
+    reply_to: ReplyTo | None = None
 
 
 class ChatProposal(BaseModel):
@@ -264,6 +272,7 @@ def _deterministic_turn(
     *,
     intake: dict | None,
     tool_calls: list[dict] | None = None,
+    quote: dict | None = None,
 ) -> ChatResponse:
     """Persist a server-decided turn (path guard / smart-intake detection)
     into the session history — no LLM call, nothing written to the books."""
@@ -282,6 +291,8 @@ def _deterministic_turn(
     said = {"role": "user", "text": payload.message}
     if payload.attachment_ids:
         said["files"] = sent_files(db, payload.attachment_ids)
+    if quote:
+        said["reply_to"] = quote
     db.add(AIChatMessage(session_id=session.id, role="user", content=said, created_at=now))
     db.add(AIChatMessage(session_id=session.id, role="assistant",
                          content={"role": "assistant", "text": assistant_text},
@@ -326,6 +337,10 @@ async def chat(
     # model request).
     if not (payload.message or "").strip() and not payload.attachment_ids:
         raise HTTPException(status_code=422, detail="Type a message or attach a file.")
+    from app.services.ai_accountant import replies
+    reply = payload.reply_to
+    quote = replies.quoted(db, user_id=user.user_id, role=reply.role, text=reply.text,
+                           token=reply.token) if reply else None
 
     # A bare "confirm" typed into the chat while a card is pending: the model
     # cannot execute proposals and (observed on gpt-4o-mini) re-creates an
@@ -356,7 +371,7 @@ async def chat(
                      "I won't create a duplicate card — the existing one is still "
                      "waiting for your click."
             )
-            return _deterministic_turn(db, user, payload, text, intake=None)
+            return _deterministic_turn(db, user, payload, text, intake=None, quote=quote)
 
     # A message that is only a filesystem path (the old drag-drop failure
     # mode): don't let the model hallucinate file contents — ask for a real
@@ -369,7 +384,7 @@ async def chat(
             else "That's just a file path — I can't read files from a path. Please attach "
                  "the file itself with the paperclip 📎 or drag it into the chat."
         )
-        return _deterministic_turn(db, user, payload, text, intake=None)
+        return _deterministic_turn(db, user, payload, text, intake=None, quote=quote)
 
     # Partition attachments: spreadsheets go through smart intake; images/PDFs
     # keep the OCR path.
@@ -416,6 +431,7 @@ async def chat(
             return _deterministic_turn(
                 db, user, payload, intake.detected,
                 intake=localize_lists({"kind": intake.kind, **intake.payload}, _user_language(db, user)),
+                quote=quote,
             )
         if intake is not None:
             intake_context = "\n\n" + intake.context_text if intake.context_text else ""
@@ -436,12 +452,13 @@ async def chat(
             db.commit()
             from app.core.messages import localize_lists
             return _deterministic_turn(db, user, payload, sheet_turn.text,
-                                       intake=localize_lists(sheet_turn.intake, _user_language(db, user)))
+                                       intake=localize_lists(sheet_turn.intake, _user_language(db, user)), quote=quote)
 
     # A common question the books answer directly ("how much cash?", "who owes
     # us?"): the read tool runs without the model — exact, instant, no tokens,
     # and it works when the AI is down (roadmap ROADMAP_ANDROID_CHAT P0.6).
-    if not payload.attachment_ids:
+    # Not a reply: «و به دلار؟» under an answer is about that answer, which only the model reads.
+    if not payload.attachment_ids and quote is None:
         from app.services.ai_accountant import fast_paths
         from app.services.ai_accountant.orchestrator import _message_language
         fast = await fast_paths.answer(db, payload.message, user_id=user.user_id, username=user.username,
@@ -476,7 +493,7 @@ async def chat(
                                    "status": stmt_turn.intake.get("status")}, ensure_ascii=False),
             )
             db.commit()
-            return _deterministic_turn(db, user, payload, stmt_turn.text, intake=stmt_turn.intake)
+            return _deterministic_turn(db, user, payload, stmt_turn.text, intake=stmt_turn.intake, quote=quote)
         ocr_context, ocr_amounts = await _build_ocr_context(db, ocr_ids)
     ocr_context = (ocr_context or "") + intake_context
     turn_started = time.perf_counter()
@@ -492,6 +509,7 @@ async def chat(
             attachment_ids=payload.attachment_ids or None,
             source_amounts=ocr_amounts or None,
             mode="personal" if user.role == Role.PERSONAL else "default",
+            reply_to=quote,
         )
     except AIAccountantError as e:
         # the detail is for whoever configures the AI; the code lets the chat say it plainly.

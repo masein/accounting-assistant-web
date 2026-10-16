@@ -201,7 +201,13 @@ To undo or reverse an entry that is already recorded ("undo the last transaction
 
 # Confirmation is a BUTTON, not a message
 
-A proposal is recorded only when the user clicks Confirm on its card. If the user types "confirm" / "تایید کن" in chat, or asks why a proposed entry isn't showing: tell them to click Confirm (or Cancel) on the pending card — do NOT call the proposal tool again; an identical second card double-posts when both get confirmed. Never re-propose something that is already pending. When the user CORRECTS a pending card ("make it 2.5 million", «مبلغش رو … کن», "no, from the other bank", "change the date") propose the corrected card with ``replaces="previous"`` (or the old card's confirmation_token): the old card is withdrawn for them. Never tell the user to cancel the old card themselves.
+A proposal is recorded only when the user clicks Confirm on its card. If the user types "confirm" / "تایید کن" in chat, or asks why a proposed entry isn't showing: tell them to confirm (or cancel) it on the pending card itself — do NOT call the proposal tool again; an identical second card double-posts when both get confirmed. Never re-propose something that is already pending. When the user CORRECTS a pending card ("make it 2.5 million", «مبلغش رو … کن», "no, from the other bank", "change the date") propose the corrected card with ``replaces="previous"`` (or the old card's confirmation_token): the old card is withdrawn for them. Never tell the user to cancel the old card themselves.
+
+Never name a card's buttons or quote their labels («تأیید», «ثبت», "Confirm", "Post"): the phone and the web show them in the app's own language, which may not be the language of the chat (a Persian reply told the user to press «تأیید» on a card whose button said Post). Say the card is ready («کارت آماده است»), and that nothing is recorded until they confirm it on the card.
+
+# A reply to an earlier message
+
+A user turn that begins «[The user is replying to …: «…»]» answers that quoted message: read the user's words as being about it («و به دلار؟» under a cash answer asks the same in dollars). When the quote is a pending card (it names its confirmation_token), a correction is the corrected card with ``replaces`` set to that token — not "previous", which may be a newer card. Never say the bracketed line back to the user.
 
 # When the user asks a pure question (read-only)
 
@@ -923,6 +929,7 @@ async def run_chat_turn(
     registry: ToolRegistry | None = None,
     client: LLMClient | None = None,
     mode: str = "default",
+    reply_to: dict | None = None,
 ) -> ChatResult:
     """Drive one user-message turn through the AI accountant agent loop.
 
@@ -943,6 +950,9 @@ async def run_chat_turn(
 
     ``mode="personal"`` (personal-finance tenants) selects the trimmed
     personal tool registry and appends the personal-mode prompt addendum.
+
+    ``reply_to`` is the message this one answers (``replies.quoted``): the
+    model reads it ahead of the user's words, and it is kept beside them.
     """
     lang = _message_language(user_message, lang if lang in _LANG_NAMES else "en")
     attachment_ids = list(attachment_ids or [])
@@ -1029,11 +1039,16 @@ async def run_chat_turn(
         if turn_text:
             turn_text += "\n\n"
         turn_text += ocr_context
+    if reply_to:
+        from app.services.ai_accountant import replies
+        turn_text = replies.for_model(db, reply_to) + "\n\n" + (turn_text or "")
     user_turn = ChatMessage(role="user", text=turn_text)
     history.append(user_turn)
     stored = user_turn.to_dict()
-    if ocr_context:
+    if ocr_context or reply_to:
         stored["said"] = user_message or ""         # what the user typed: "text" also carries the document, for the model
+    if reply_to:
+        stored["reply_to"] = reply_to
     if attachment_ids:
         stored["files"] = sent_files(db, attachment_ids)
     _persist_message(db, session_id=chat_session.id, role="user", content=stored)

@@ -25,6 +25,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -110,14 +113,21 @@ fun BooksBadge(name: String, color: Color, onClick: () -> Unit, modifier: Modifi
 }
 
 /** What the person sent: a dark bubble on the right, in Persian and English alike. */
+/**
+ * What the user sent, in its bubble on the right. [quoteFrom] and [quoteText]:
+ * the message it answers, above its words (scenario AC4). [held] goes on the
+ * bubble itself: holding it down opens Reply, Copy, Share.
+ */
 @Composable
-fun UserBubble(text: String, from: String? = null, modifier: Modifier = Modifier, files: List<String> = emptyList()) {
+fun UserBubble(text: String, from: String? = null, modifier: Modifier = Modifier, files: List<String> = emptyList(),
+               quoteFrom: String? = null, quoteText: String? = null, held: Modifier = Modifier) {
     val c = LocalAccountantColors.current
     Box(modifier.fillMaxWidth(), contentAlignment = AbsoluteAlignment.CenterRight) {
         Surface(color = c.bubble, shape = AbsoluteRoundedCornerShape(18.dp, 18.dp, 6.dp, 18.dp),
-                modifier = Modifier.widthIn(max = 280.dp)) {
+                modifier = Modifier.widthIn(max = 280.dp).then(held)) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 if (from != null) Text(from, color = c.onBubble.copy(alpha = 0.7f), fontSize = 10.5.sp)
+                if (quoteText != null) Quoted(quoteFrom, quoteText, ink = c.onBubble, Modifier.padding(bottom = 6.dp))
                 files.forEach { name ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(AppIcons.Clip, contentDescription = null, tint = c.onBubble.copy(alpha = 0.8f), modifier = Modifier.size(13.dp))
@@ -128,6 +138,35 @@ fun UserBubble(text: String, from: String? = null, modifier: Modifier = Modifier
                 // each message in its own direction: "will we have enough cash?" keeps its question mark at the end
                 if (text.isNotEmpty()) Text(text, color = c.onBubble, fontSize = 14.sp, lineHeight = 21.sp,
                      style = TextStyle(fontFeatureSettings = "tnum", textDirection = TextDirection.Content))
+            }
+        }
+    }
+}
+
+/** A quoted message: a bar at its start, whose it was, its first words. */
+@Composable
+fun Quoted(from: String?, text: String, ink: Color, modifier: Modifier = Modifier, lines: Int = 2, accent: Color = ink) {
+    Row(modifier.height(IntrinsicSize.Min)) {
+        Box(Modifier.width(3.dp).fillMaxHeight().background(accent.copy(alpha = 0.6f), RoundedCornerShape(2.dp)))
+        Spacer(Modifier.width(8.dp))
+        Column {
+            if (from != null) Text(from, color = accent.copy(alpha = 0.9f), fontSize = 11.sp, fontWeight = FontWeight(700))
+            Text(text, color = ink.copy(alpha = 0.75f), fontSize = 12.5.sp, lineHeight = 18.sp, maxLines = lines,
+                 overflow = TextOverflow.Ellipsis, style = TextStyle(textDirection = TextDirection.Content))
+        }
+    }
+}
+
+/** Above the composer while a reply is being written: what it answers, and ✕ to answer nothing. */
+@Composable
+fun ReplyingTo(label: String, text: String, onDrop: () -> Unit, modifier: Modifier = Modifier) {
+    val c = LocalAccountantColors.current
+    Surface(shape = RoundedCornerShape(14.dp), color = c.surface, border = BorderStroke(1.dp, c.line), modifier = modifier.fillMaxWidth()) {
+        Row(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Quoted(label, text, ink = c.ink, Modifier.weight(1f), lines = 1, accent = c.firouzeh)
+            val drop = stringResource(R.string.reply_drop)
+            IconButton(onClick = onDrop, modifier = Modifier.semantics { contentDescription = drop }) {
+                Icon(AppIcons.Close, contentDescription = null, tint = c.muted, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -348,7 +387,8 @@ fun Composer(
                     else -> {
                         if (value.isEmpty()) Text(stringResource(R.string.composer_hint), color = c.muted, fontSize = 14.sp, maxLines = 1)
                         BasicTextField(value = value, onValueChange = onValueChange, cursorBrush = SolidColor(c.firouzeh),
-                            textStyle = TextStyle(color = c.ink, fontSize = 14.sp, fontFamily = Vazirmatn), maxLines = 4,
+                            // in the direction of what is typed: "and in dollars?" in the Persian app read «?and in dollars»
+                            textStyle = TextStyle(color = c.ink, fontSize = 14.sp, fontFamily = Vazirmatn, textDirection = TextDirection.Content), maxLines = 4,
                             modifier = Modifier.fillMaxWidth().let { m -> focus?.let { m.focusRequester(it) } ?: m })
                     }
                 }

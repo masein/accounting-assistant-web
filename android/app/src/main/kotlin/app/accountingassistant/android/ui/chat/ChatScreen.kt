@@ -1,5 +1,36 @@
 package app.accountingassistant.android.ui.chat
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.ComponentName
+import app.accountingassistant.android.MainActivity
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.widget.Toast
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.absoluteOffset
+import app.accountingassistant.android.ui.components.ReplyingTo
+import kotlin.math.roundToInt
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.absolutePadding
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.launch
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.AbsoluteAlignment
@@ -110,6 +141,8 @@ fun ChatScreen(
     /** A home-screen shortcut to carry out once (util/Shortcuts.kt). */
     action: String? = null,
     onActionDone: () -> Unit = {},
+    /** Reply to a message held down; null drops the reply (scenario AC4). */
+    onReply: (Quote?) -> Unit = {},
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -132,6 +165,10 @@ fun ChatScreen(
         if (before > 0 && overlayPx > before) list.scrollBy((overlayPx - before).toFloat())
     }
     val listBottom = maxOf(104.dp, with(LocalDensity.current) { overlayPx.toDp() } + 6.dp)
+    // a line's side, as the card says it: Dr and Cr, or To and From in a person's books (scenario AC8)
+    val sides = stringResource(if (personalBooks) R.string.side_to else R.string.debit_short) to
+        stringResource(if (personalBooks) R.string.side_from else R.string.credit_short)
+    val reply: (Quote) -> Unit = { onReply(it) }
 
     Box(Modifier.fillMaxSize().background(c.ground)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -169,7 +206,11 @@ fun ChatScreen(
                 items(state.items.distinctBy { it.id }, key = { it.id }) { item ->
                     when (item) {
                         is ChatItem.User -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            UserBubble(item.text, files = item.files)
+                            Held(item, lang, sides, reply) { held ->
+                                UserBubble(item.text, files = item.files, held = held,
+                                           quoteFrom = item.quote?.let { stringResource(if (it.mine) R.string.quote_self else R.string.quote_assistant) },
+                                           quoteText = item.quote?.text)
+                            }
                             // on its way now: the row below says what is happening, not "waiting for the network"
                             item.clientId?.takeIf { it != state.sendingId }?.let { state.queued[it] }?.let { q ->
                                 Queue(q, onRetry = { onRetry(q.clientId) }, onDiscard = { onDiscard(q.clientId) })
@@ -181,15 +222,17 @@ fun ChatScreen(
                                      modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
                             }
                         }
-                        is ChatItem.Words -> if (item.nextStatement == null && item.choices.isEmpty()) AssistantText(item.text)
+                        is ChatItem.Words -> if (item.nextStatement == null && item.choices.isEmpty())
+                                Held(item, lang, sides, reply) { held -> AssistantText(item.text, modifier = held) }
                             else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AssistantText(item.text)
+                                // only the words are held: a chip under them sends itself as the finger lifts
+                                Held(item, lang, sides, reply) { held -> AssistantText(item.text, modifier = held) }
                                 if (item.nextStatement != null) NextDifferenceChip(onClick = { onStatementNext(item.nextStatement) })
                                 // a short question's answers: tapping one sends it, as a typed answer would be
                                 if (item.choices.isNotEmpty()) Choices(options = item.choices, selected = null,
                                                                        onPick = { onSuggestion(item.choices[it]) })
                             }
-                        is ChatItem.Chart -> ChartCard(item, lang)
+                        is ChatItem.Chart -> Held(item, lang, sides, reply) { held -> Box(held) { ChartCard(item, lang) } }
                         is ChatItem.Statement -> StatementCard(item, lang, onFix = { onStatementNext(item.statementId) })
                         is ChatItem.Thinking -> ThinkingRow(
                             item.upload?.let { stringResource(R.string.uploading) + " " + Numbers.percent(it, lang) }
@@ -199,25 +242,25 @@ fun ChatScreen(
                             AssistantText(stringResource(R.string.suggestions_intro))
                             Choices(options = item.options, selected = null, onPick = { onSuggestion(item.options[it]) })
                         }
-                        is ChatItem.Fallback -> AssistantText(item.text)
+                        is ChatItem.Fallback -> Held(item, lang, sides, reply) { held -> AssistantText(item.text, modifier = held) }
                         is ChatItem.Problem -> Surface(shape = RoundedCornerShape(16.dp), color = c.saffronSoft) {
                             Text(problemText(item.code, item.detail), color = c.ink, fontSize = 13.5.sp, lineHeight = 21.sp,
                                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
                         }
-                        is ChatItem.Figure -> FigureCard(
+                        is ChatItem.Figure -> Held(item, lang, sides, reply) { held -> Box(held) { FigureCard(
                             label = item.label,
                             value = (item.currency?.let { currencySymbol(it) } ?: "") +
                                 Numbers.amount(item.value, lang, Numbers.places(item.currency)),
                             unit = item.currency?.takeIf { currencySymbol(it) == null }?.let { currencyName(it, lang) },
                             delta = null, deltaIsBad = false,
-                            freshness = null, series = emptyList())
-                        is ChatItem.Table -> TableCard(item, lang)
+                            freshness = null, series = emptyList()) } }
+                        is ChatItem.Table -> Held(item, lang, sides, reply) { held -> Box(held) { TableCard(item, lang) } }
                         is ChatItem.File -> FileCard(item, onOpen = { onFile(item, false) }, onShare = { onFile(item, true) })
-                        is ChatItem.Proposal -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        is ChatItem.Proposal -> Held(item, lang, sides, reply) { held -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Voucher(
                                 lang = lang, amount = item.amount ?: java.math.BigDecimal.ZERO, currency = item.currency ?: "",
-                                // the date in its own direction: "10 Oct 2026" inside Persian words stays in order
-                                summary = listOfNotNull(item.title, item.date?.let { "\u2068$it\u2069" }).joinToString(" · "),
+                                summary = summaryOf(item.title, item.date),
+                                bodyModifier = held, plainSides = personalBooks,
                                 lines = item.lines, booksName = booksName, booksColor = booksColor,
                                 state = when (item.phase) {
                                     ChatItem.Proposal.Phase.Draft -> item.approval?.let { VoucherState.ForApproval(it.askedBy, it.mine) }
@@ -239,7 +282,7 @@ fun ChatScreen(
                             )
                             item.document?.let { doc -> FileCard(doc, onOpen = { onFile(doc, false) }, onShare = { onFile(doc, true) }) }
                             item.error?.let { Text(it, color = c.pomegranate, fontSize = 12.sp) }
-                        }
+                        } }
                     }
                 }
             }
@@ -266,6 +309,10 @@ fun ChatScreen(
                 ThinkingRow(stringResource(R.string.uploading) + (gone?.let { " " + Numbers.percent(it, lang) } ?: ""),
                             Modifier.padding(start = 8.dp), progress = gone)
             }
+            state.replyTo?.let { q ->
+                ReplyingTo(stringResource(if (q.mine) R.string.replying_to_self else R.string.replying_to_assistant), q.text,
+                           onDrop = { onReply(null) })
+            }
             if (state.attachments.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     state.attachments.forEach { a ->
@@ -284,6 +331,8 @@ fun ChatScreen(
                 val capture = rememberCapture(onPicked = onPicked)
                 val focus = remember { FocusRequester() }
                 val askCash = stringResource(R.string.ask_cash)
+                // Reply opens the keyboard on the composer, under the quote
+                LaunchedEffect(state.replyTo) { if (state.replyTo != null) runCatching { focus.requestFocus() } }
                 LaunchedEffect(action) {
                     when (action) {
                         Shortcuts.PHOTO_RECEIPT -> capture.camera()
@@ -407,4 +456,134 @@ private fun Queue(q: Queued, onRetry: () -> Unit, onDiscard: () -> Unit) {
             discard()
         }
     }
+}
+
+/**
+ * A card's description and date. The date is isolated in the direction of
+ * its own words: «۲۴ مهر ۱۴۰۵» right to left, "10 Oct 2026" left to right. A
+ * first-strong isolate came out left to right on the owner's phone, «مهر
+ * ۲۴۱۴۰۵» (scenario AC9). A Persian or Arabic date follows a comma.
+ */
+internal fun summaryOf(title: String, date: String?): String {
+    val rtl = date?.any { Character.getDirectionality(it).let { d ->
+        d == Character.DIRECTIONALITY_RIGHT_TO_LEFT || d == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC } } == true
+    return listOfNotNull(title.ifBlank { null }, date?.let { (if (rtl) "\u2067" else "\u2066") + it + "\u2069" })
+        // beside Persian digits a middle dot reads as a zero, «۲۴۰ مهر»: a comma there
+        .joinToString(if (rtl) "، " else " · ")
+}
+
+/**
+ * Holding a message down (scenarios AC1–AC4): Reply, Copy, Share, where the
+ * finger is. Swiping it left is Reply (AC11): it follows the finger, the reply
+ * arrow comes up beside it, a tick past the line, and it springs back. [content]
+ * puts the modifier it is given on the part that can be held: the bubble, the
+ * words, a card above its fold. Never on a button: a button's own tap fires
+ * as the finger lifts, and Post would post.
+ */
+@Composable
+private fun Held(item: ChatItem, lang: String, sides: Pair<String, String>, onReply: (Quote) -> Unit,
+                 content: @Composable (Modifier) -> Unit) {
+    val text = remember(item, lang, sides) { item.asText(lang, sides) }
+    if (text == null) { content(Modifier); return }
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    var at by remember { mutableStateOf<IntOffset?>(null) }
+    var box by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var part by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val label = stringResource(R.string.msg_actions)
+    val copied = stringResource(R.string.msg_copied)
+    val c = LocalAccountantColors.current
+    val scope = rememberCoroutineScope()
+    val pull = remember { Animatable(0f) }
+    val density = LocalDensity.current
+    val line = with(density) { SWIPE_LINE.toPx() }
+    val most = with(density) { SWIPE_MOST.toPx() }
+    var armed by remember { mutableStateOf(false) }
+    val held = Modifier
+        .onGloballyPositioned { part = it }
+        .pointerInput(item.id) {
+            // left only, in the screen's own terms whichever way the page runs; past the line it gives slowly
+            detectHorizontalDragGestures(
+                onDragStart = { armed = false },
+                onDragEnd = {
+                    if (armed) item.quote(lang, sides)?.let(onReply)
+                    armed = false
+                    scope.launch { pull.animateTo(0f, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)) }
+                },
+                onDragCancel = { armed = false; scope.launch { pull.animateTo(0f) } },
+                onHorizontalDrag = { change, dx ->
+                    val next = (pull.value + dx * (if (-pull.value > line) 0.35f else 1f)).coerceIn(-most, 0f)
+                    if (next != pull.value || dx < 0) change.consume()
+                    scope.launch { pull.snapTo(next) }
+                    val past = -next >= line
+                    if (past != armed) {
+                        armed = past
+                        if (past) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                    }
+                },
+            )
+        }
+        .pointerInput(item.id) {
+            detectTapGestures(onLongPress = { p ->
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                val origin = box?.let { b -> part?.let { b.localPositionOf(it, p) } } ?: p
+                at = IntOffset(origin.x.roundToInt(), origin.y.roundToInt())
+            })
+        }
+        .semantics { onLongClick(label) { at = IntOffset.Zero; true } }
+    Box(Modifier.onGloballyPositioned { box = it }) {
+        val pulled = (-pull.value / line).coerceIn(0f, 1f)
+        if (pulled > 0f) {
+            // the arrow points the way the finger goes, in a right-to-left page too
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Surface(shape = CircleShape, color = if (armed) c.firouzeh else c.surface2,
+                        modifier = Modifier.align(AbsoluteAlignment.CenterRight).absolutePadding(right = 6.dp).size(32.dp)
+                            .graphicsLayer { alpha = pulled; scaleX = 0.6f + 0.4f * pulled; scaleY = 0.6f + 0.4f * pulled }) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(AppIcons.Reply, contentDescription = null, tint = if (armed) c.onFirouzeh else c.firouzeh,
+                             modifier = Modifier.size(17.dp))
+                    }
+                }
+            }
+        }
+        Box(Modifier.absoluteOffset { IntOffset(pull.value.roundToInt(), 0) }) { content(held) }
+        at?.let { offset ->
+            // where the finger is, from the left whichever way the page runs (offset() would mirror it)
+            Box(Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset { offset }.size(0.dp)) {
+                DropdownMenu(expanded = true, onDismissRequest = { at = null }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.msg_reply)) },
+                                     leadingIcon = { Icon(AppIcons.Reply, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                     onClick = { at = null; item.quote(lang, sides)?.let(onReply) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.msg_copy)) },
+                                     leadingIcon = { Icon(AppIcons.Copy, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                     onClick = {
+                                         at = null
+                                         copyText(context, text)
+                                         // Android 13 and later say it themselves
+                                         if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
+                                     })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.msg_share)) },
+                                     leadingIcon = { Icon(AppIcons.Share, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                     onClick = { at = null; shareText(context, text) })
+                }
+            }
+        }
+    }
+}
+
+/** How far a message is swiped left before letting go replies to it, and the most it moves. */
+private val SWIPE_LINE = 56.dp
+private val SWIPE_MOST = 84.dp
+
+private fun copyText(context: Context, text: String) {
+    context.getSystemService(ClipboardManager::class.java)
+        ?.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.app_name), text))
+}
+
+/** The phone's share sheet with the words: Telegram, WhatsApp, Gmail… but not this app, which takes shares too. */
+private fun shareText(context: Context, text: String) {
+    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+    val chooser = Intent.createChooser(send, null)
+        .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(context, MainActivity::class.java)))
+    runCatching { context.startActivity(chooser) }
 }

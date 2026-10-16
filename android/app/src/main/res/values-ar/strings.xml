@@ -221,4 +221,17 @@
     <string name="feed_locked_title">المحاسب</string>
     <string name="feed_locked_body">شيء في دفاترك يحتاج إلى انتباهك.</string>
     <string name="chart_change">%1$s خلال %2$d شهرًا</string>
+    <!-- a message held down: reply, copy, share (scenarios AC1–AC4); a person's voucher lines, to and from (AC8) -->
+    <string name="msg_reply">رد</string>
+    <string name="msg_copy">نسخ</string>
+    <string name="msg_share">مشاركة</string>
+    <string name="msg_copied">تم النسخ</string>
+    <string name="msg_actions">رد أو نسخ أو مشاركة</string>
+    <string name="replying_to_assistant">ردًا على المحاسب</string>
+    <string name="replying_to_self">ردًا على رسالتك</string>
+    <string name="reply_drop">إلغاء الرد</string>
+    <string name="quote_assistant">المحاسب</string>
+    <string name="quote_self">أنت</string>
+    <string name="side_to">إلى</string>
+    <string name="side_from">من</string>
 </resources>

@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.ai_accountant import ChatPayload, _user_language
+from app.api.ai_accountant import ChatPayload, ReplyTo, _user_language
 from app.api.ai_accountant import chat as web_chat
 from app.api.mobile import PREFIX, check_app_version
 from app.core.auth import SessionUser, get_current_user
@@ -56,6 +56,8 @@ class MobileChatPayload(BaseModel):
     # The phone's own id for this message: a retry after a dropped connection
     # gets the reply it already had instead of a second turn (P0.5).
     client_message_id: str | None = Field(default=None, max_length=64)
+    # the message this one answers: whose, its words, a card's token (scenarios AC4–AC7)
+    reply_to: ReplyTo | None = None
 
 
 def _calendar(db: Session) -> str:
@@ -137,7 +139,8 @@ async def mobile_chat(payload: MobileChatPayload, db: Session = Depends(get_db),
     started = datetime.now(timezone.utc) - timedelta(seconds=1)
     try:
         resp = await web_chat(ChatPayload(message=payload.message, session_id=payload.thread_id,
-                                          attachment_ids=payload.attachment_ids), db=db, user=user)
+                                          attachment_ids=payload.attachment_ids, reply_to=payload.reply_to),
+                              db=db, user=user)
         # the cards in the reply's language: «چقدر پول داریم؟» from a phone in English was
         # answered in Persian under a "Cash and bank" card (scenario Z5)
         from app.services.ai_accountant.orchestrator import _message_language
@@ -318,6 +321,9 @@ def mobile_thread_messages(thread_id: str, response: Response,
                 item["client_message_id"] = content["client_message_id"]
             if content.get("files"):
                 item["files"] = content["files"]
+            quote = content.get("reply_to")
+            if isinstance(quote, dict) and (quote.get("text") or "").strip():
+                item["reply_to"] = {"role": quote.get("role") or "assistant", "text": quote["text"]}
         else:
             item["blocks"] = content.get("blocks") or [{"type": "text", "id": f"text:{m.id}", "text": content.get("text") or "",
                                                         "fallback_text": content.get("text") or ""}]

@@ -54,6 +54,27 @@ object AppIcons {
         }
     }
 
+    /** ↩: answer this message. Turned round in a right-to-left layout. */
+    val Reply: ImageVector = ImageVector.Builder(
+        name = "Reply", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f, autoMirror = true,
+    ).apply {
+        stroke {
+            moveTo(9f, 14f); lineTo(4f, 9f); lineTo(9f, 4f)
+            moveTo(4f, 9f); lineTo(14f, 9f); curveTo(17.9f, 9f, 21f, 12.1f, 21f, 16f); lineTo(21f, 20f)
+        }
+    }.build()
+
+    /** Two sheets: copy the words. */
+    val Copy: ImageVector = icon("Copy") {
+        stroke {
+            moveTo(10f, 9f); lineTo(19f, 9f); curveTo(19.6f, 9f, 20f, 9.4f, 20f, 10f); lineTo(20f, 19f)
+            curveTo(20f, 19.6f, 19.6f, 20f, 19f, 20f); lineTo(10f, 20f); curveTo(9.4f, 20f, 9f, 19.6f, 9f, 19f)
+            lineTo(9f, 10f); curveTo(9f, 9.4f, 9.4f, 9f, 10f, 9f); close()
+            moveTo(15f, 9f); lineTo(15f, 5f); curveTo(15f, 4.4f, 14.6f, 4f, 14f, 4f); lineTo(5f, 4f)
+            curveTo(4.4f, 4f, 4f, 4.4f, 4f, 5f); lineTo(4f, 14f); curveTo(4f, 14.6f, 4.4f, 15f, 5f, 15f); lineTo(9f, 15f)
+        }
+    }
+
     val Clip: ImageVector = icon("Clip") {
         stroke {
             moveTo(21f, 11.5f); lineTo(12.5f, 20f); curveTo(10.3f, 22.2f, 6.7f, 22.2f, 4.5f, 20f)

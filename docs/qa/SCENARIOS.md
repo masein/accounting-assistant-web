@@ -512,3 +512,21 @@ From the owner, on the phone: «۷۷.۵ ریال عمان توی کیف پول �
 | AB5 | How much money I have | «چقدر پول دارم؟» | Each currency on its own, nothing exchanged: «۷۷٫۵۰۰ ریال عمان · ۵۰۰ دلار · ۳٬۰۰۰٬۰۰۰ ریال», and a card listing each place with its currency |
 | AB6 | The same place again | «۵ ریال عمان از کیف پول سبز ناهار خریدم»; then «۱۰ ریال عمان دیگه هم توی کیف پول سبز هست» | The lunch is paid from the green wallet, found by its name, in Omani rials. A second starting balance for a place that already has one is not a second wallet: the assistant says what the wallet holds and asks where the extra came from |
 | AB7 | The reply on the phone | Any reply with bold words | Bold, not «**» around them; page names in the reply's language («امور مالی من», not "My finances") |
+
+## AC. Reply, copy and share in the chat (2026-10-16)
+
+From the owner, on the phone: "I want to be able to reply, share or copy a message in the app's chat and on the web as well." On the card in the same screenshot, a person's books showed "Dr" and "Cr" beside the amounts, the date read «مهر ۲۴۱۴۰۵», and the reply said to press «تأیید» on a card whose button says Post.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| AC1 | Copy a message | Phone: long-press an answer (or your own message) → Copy. Web: point at a message → Copy | The words are on the clipboard as they read (bold words without «**»); the phone says Copied (Android 13 and later say it themselves), the web shows Copied |
+| AC2 | Copy a card | Phone: long-press a voucher above its fold → Copy. Web: Copy under a card | What it is and its date, the amount with its currency, and each line: code, name, side and amount, one per line |
+| AC3 | Share | Phone: long-press → Share. Web: Share | The phone's share sheet (Telegram, WhatsApp, Gmail…) with the same text. On the web, the browser's own share sheet where it has one (phones, Safari, Edge); otherwise Telegram, WhatsApp and e-mail |
+| AC4 | Reply to an answer | Long-press (web: point at) an answer → Reply; «و به دلار؟»; send | Above the composer: replying to the accountant, the answer's first words, ✕ to drop it. The message goes with the quote above its words, and the accountant answers about the quoted message. The thread opened again, on the phone or the web, still shows the quote |
+| AC5 | Reply to a card | Reply to a pending voucher with «مبلغش رو ۸۰ کن», while a newer card sits below it | One corrected card replaces the card replied to, not the newest one. A reply to a posted card is taken as a correction of what is posted, never a second copy of it |
+| AC6 | Offline | Phone offline: reply to a message and send | The message waits in the outbox with its quote and goes with it when the network is back |
+| AC7 | Only your own cards | A reply that names a card of someone else's | The quoted words go; the card is ignored, and nothing about it reaches the model |
+| AC8 | Plain sides in a person's books | Personal books: any voucher card on the phone | Each line says To or From («به», «از») where company books say Dr and Cr («بد», «بس») |
+| AC9 | The date in its place | The app in English, a Persian card dated ۲۴ مهر ۱۴۰۵ | The line reads «کیف پول سبز — موجودی اولیه · ۲۴ مهر ۱۴۰۵», right to left, the date in one piece |
+| AC10 | No button names | A draft card, asked in Persian with the app in English | The reply says the card is ready; it never names a button («دکمهٔ تأیید»), as the buttons are in the app's own language (Post, ثبت, Confirm) |
+| AC11 | Swipe to reply | Phone, or the web on a touch screen: swipe an answer, your own message or a card left | It follows the finger and a reply arrow comes up beside it; past the line the arrow fills (and the phone ticks). Let go there: replying to it, as AC4. A short swipe springs back and does nothing; a swipe right, or scrolling up and down, never replies. A card is swiped by its body, never from its buttons |

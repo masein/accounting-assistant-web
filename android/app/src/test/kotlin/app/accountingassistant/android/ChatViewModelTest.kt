@@ -11,6 +11,8 @@ import app.accountingassistant.android.data.StoredSession
 import app.accountingassistant.android.data.UserDto
 import app.accountingassistant.android.ui.chat.ChatItem
 import app.accountingassistant.android.ui.chat.ChatViewModel
+import app.accountingassistant.android.ui.chat.Quote
+import app.accountingassistant.android.data.ReplyDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -206,6 +208,51 @@ class ChatViewModelTest {
         val users = vm.state.value.items.filterIsInstance<ChatItem.User>()
         assertEquals(listOf("اجاره را ثبت کن", "و قبض برق"), users.map { it.text })
         assertTrue(outbox.entries.value.isEmpty())
+    }
+
+    /** Scenario AC4: a reply goes with its quote, shows it in its bubble, and the composer forgets it. */
+    @Test fun aReplyGoesWithWhatItQuotes() = runBlocking {
+        val vm = ChatViewModel(api, restore = false)
+        reply("event: reply\ndata: {\"thread_id\":\"t1\",\"blocks\":[{\"type\":\"text\",\"id\":\"w\",\"text\":\"حدود ۲۰۰ دلار\"}]}\n\n")
+        vm.reply(Quote(mine = false, text = "۷۷٫۵۰۰ ریال عمان در کیف پول سبز", token = null))
+        assertEquals("۷۷٫۵۰۰ ریال عمان در کیف پول سبز", vm.state.value.replyTo?.text)
+        vm.edit("و به دلار؟")
+        vm.send()
+        assertEquals(null, vm.state.value.replyTo)                                 // the strip above the composer goes
+        val bubble = vm.state.value.items.filterIsInstance<ChatItem.User>().single()
+        assertEquals(Quote(false, "۷۷٫۵۰۰ ریال عمان در کیف پول سبز"), bubble.quote)
+        until { vm.state.value.items.last() is ChatItem.Words }
+        val sent = server.takeRequest().body!!.utf8()
+        assertTrue(sent, sent.contains("\"reply_to\":{\"role\":\"assistant\",\"text\":\"۷۷٫۵۰۰ ریال عمان در کیف پول سبز\"}"))
+        // the next message answers nothing
+        reply("event: reply\ndata: {\"thread_id\":\"t1\",\"blocks\":[]}\n\n")
+        vm.edit("ممنون")
+        vm.send()
+        until { !vm.state.value.sending }
+        assertTrue(!server.takeRequest().body!!.utf8().contains("reply_to"))
+    }
+
+    /** Scenario AC6: offline, the reply waits in the outbox with its quote, a card's token too. */
+    @Test fun offlineAReplyWaitsWithItsQuote() = runBlocking {
+        val outbox = Outbox(MemoryOutboxStore(), api)
+        val vm = ChatViewModel(api, restore = false, outbox = outbox)
+        offline = true
+        vm.reply(Quote(mine = false, text = "کیف پول سبز — موجودی اولیه · 77.500 OMR", token = "tok-1"))
+        vm.edit("مبلغش رو ۸۰ کن")
+        vm.send()
+        until { !vm.state.value.sending }
+        assertEquals(ReplyDto("assistant", "کیف پول سبز — موجودی اولیه · 77.500 OMR", "tok-1"), outbox.entries.value.single().replyTo)
+    }
+
+    /** Scenario AC4: the thread opened again keeps the quote above the message. */
+    @Test fun reopeningShowsWhatAMessageReplied() = runBlocking {
+        reply("""[{"id":"t1","title":"پول","message_count":2}]""")
+        reply("""[{"id":"s1","role":"user","text":"و به دلار؟","reply_to":{"role":"assistant","text":"۷۷٫۵۰۰ ریال عمان"}},""" +
+              """{"id":"s2","role":"assistant","blocks":[{"type":"text","id":"b1","text":"حدود ۲۰۰ دلار"}]}]""")
+        reply("""{"thread_id":"t1","blocks":[]}""")
+        val vm = ChatViewModel(api)
+        until { vm.state.value.items.any { it is ChatItem.Words } }
+        assertEquals(Quote(false, "۷۷٫۵۰۰ ریال عمان"), vm.state.value.items.filterIsInstance<ChatItem.User>().single().quote)
     }
 
     /** Scenario N39: a message that carried only a statement comes back with its name, not as an empty bubble. */

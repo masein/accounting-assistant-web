@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.14"
+CURRENT_RELEASE = "2026.10.16"
 
 
 @dataclass(frozen=True)
@@ -1870,6 +1870,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "وقتی در سه ماه اخیر هزینه‌ای ثبت نشده، بقای مالی در حالت مدیر مالی به‌جای «۹۹۹ ماه» می‌نویسد «ندارد»، و خلاصه می‌گوید نرخ سوختی نیست که دوام نقدینگی با آن سنجیده شود. برچسب‌های نمودارها حالا با قلم خود صفحه نوشته می‌شوند، و خلاصه، بینش‌ها و پاسخ‌های مدیر مالی عددها را با رقم فارسی و «ریال» می‌نویسند.",
                     "es": "Si no se gastó nada en los últimos tres meses, el runway del Modo CFO muestra N/D y el resumen explica que no hay gasto con el que medirlo; antes decía 999 meses. Las etiquetas de los gráficos usan ahora la fuente de la página, y con la aplicación en persa el resumen, los avisos y las respuestas escriben sus cifras con dígitos persas.",
                     "ar": "إذا لم يُنفق شيء في الأشهر الثلاثة الأخيرة، تعرض «السيولة المتبقية» في «وضع المدير المالي» «غير متاح» ويوضح الملخص أنه لا يوجد معدل إنفاق تُقاس به؛ كانت تعرض 999 شهرًا. وتستخدم تسميات الرسوم البيانية الآن خط الصفحة نفسه، وعندما يكون التطبيق بالفارسية يكتب الملخص والتنبيهات والإجابات أرقامها بالأرقام الفارسية.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.16",
+        date="2026-10-16",
+        highlights=(
+            Highlight(
+                key="chat-replies",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Reply, copy and share in the chat",
+                    "fa": "پاسخ، کپی و ارسال در گفتگو",
+                    "es": "Responder, copiar y compartir en el chat",
+                    "ar": "الرد والنسخ والمشاركة في المحادثة",
+                },
+                body={
+                    "en": "Point at a message on the web, or hold it down in the app, for Reply, Copy and Share; or swipe it left to reply, on the phone and on a touch screen. Reply puts the message above the box, and the assistant reads your answer as being about it; reply to a card to change that very card. Share opens the phone's share sheet, or Telegram, WhatsApp and e-mail. In personal books, a card's lines in the app now say To and From instead of Dr and Cr.",
+                    "fa": "در وب نشانگر را روی پیام ببرید، یا در اپ پیام را نگه دارید: پاسخ، کپی و ارسال؛ یا برای پاسخ، پیام را به چپ بکشید، در گوشی و روی صفحهٔ لمسی. با «پاسخ» پیام بالای کادر می‌نشیند و دستیار پیام شما را دربارهٔ همان می‌خواند؛ با پاسخ به یک کارت، همان کارت اصلاح می‌شود. «ارسال» صفحهٔ اشتراک‌گذاری گوشی را باز می‌کند، یا تلگرام، واتس‌اپ و ایمیل را. در دفاتر شخصی، ردیف‌های کارت در اپ حالا به‌جای «بد» و «بس» می‌گویند «به» و «از».",
+                    "es": "Señala un mensaje en la web, o mantenlo pulsado en la app, para Responder, Copiar y Compartir; o deslízalo a la izquierda para responder, en el teléfono y en una pantalla táctil. Responder pone el mensaje sobre el cuadro, y el asistente lee tu respuesta como referida a él; responde a una tarjeta para cambiar esa misma tarjeta. Compartir abre el menú de compartir del teléfono, o Telegram, WhatsApp y correo. En los libros personales, las líneas de una tarjeta en la app dicen ahora A y De en lugar de D y H.",
+                    "ar": "أشر إلى رسالة على الويب، أو اضغط عليها مطولًا في التطبيق، لتظهر: رد ونسخ ومشاركة؛ أو اسحبها إلى اليسار للرد، في الهاتف وعلى شاشة اللمس. يضع «رد» الرسالة فوق المربع، ويقرأ المساعد إجابتك على أنها تخصها؛ رُدّ على بطاقة لتغيير تلك البطاقة نفسها. وتفتح «مشاركة» قائمة المشاركة في الهاتف، أو تيليجرام وواتساب والبريد. وفي الدفاتر الشخصية تقول أسطر البطاقة في التطبيق الآن «إلى» و«من» بدلًا من «مدين» و«دائن».",
                 },
             ),
         ),

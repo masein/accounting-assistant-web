@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, "/qa")
 from playwright.sync_api import sync_playwright
 
-from qalib import OUT, Check, alert_text, api, clear_alert, go, new_session, shot, ux, wait_until
+from qalib import Check, OUT, alert_text, api, clear_alert, go, lat, new_session, shot, ux, wait_until
 
 FA = lambda s: any("؀" <= ch <= "ۿ" for ch in (s or ""))
 st = json.load(open(f"{OUT}/state.json"))
@@ -52,7 +52,7 @@ def c12_statement(browser):
         else:
             c.ok(body.get("total_rows") == 5, f"5 rows read ({body.get('total_rows')})")
             rows = page.inner_text("#bs-rows-body") if page.locator("#bs-rows-body").is_visible() else ""
-            c.ok("1405/07/07" in rows, "row dates shown in Jalali")
+            c.ok("1405/07/07" in lat(rows), "row dates shown in Jalali")
             c.ok("unmatched" not in rows and "matched" not in rows, "recon status in Persian")
             ux(page, "C12", "statement rows", lang="fa", shot_name="C12-after-upload.png")
         # the same file again
@@ -192,8 +192,8 @@ def c16_time(browser):
         if btn.count():
             btn.click(); page.wait_for_timeout(800)
             pv = page.inner_text("#tm-preview") if page.locator("#tm-preview").is_visible() else ""
-            c.ok("18,750,000" in pv, f"preview 12.5 × 1,500,000 = 18,750,000 «{pv[:160]}»")
-            c.ok("1405/" in pv, "preview range in Jalali")
+            c.ok("18,750,000" in lat(pv), f"preview 12.5 × 1,500,000 = 18,750,000 «{pv[:160]}»")
+            c.ok("1405/" in lat(pv), "preview range in Jalali")
             c.shots.append(shot(page, "C16", "preview"))
             with page.expect_response(lambda r: "invoice" in r.url and r.request.method == "POST") as res:
                 page.click("#tm-preview-confirm")
@@ -296,7 +296,7 @@ def c19_assets(browser):
         pv = page.inner_text("#asset-run-result")
         c.ok(FA(pv), f"preview in Persian «{pv[:160]}»")
         # depreciation starts the month after entering service (Article 149): 4 months, not 5 (run 1 ✳)
-        months = pv.count("10,000,000")
+        months = lat(pv).count("10,000,000")
         c.ok(months == 4, f"4 months × 10,000,000 previewed ({months} rows)")
         c.shots.append(shot(page, "C19", "assets"))
         ux(page, "C19", "fixed assets", lang="fa", shot_name="C19-assets.png")
@@ -334,7 +334,7 @@ def c20_equity(browser):
         clear_alert(page)
         page.wait_for_timeout(700)
         cap = page.inner_text("#equity-captable-body")
-        c.ok("60,000,000" in cap and "40,000,000" in cap, f"dividend split 60/40 «{cap[:200]}»")
+        c.ok("60,000,000" in lat(cap) and "40,000,000" in lat(cap), f"dividend split 60/40 «{cap[:200]}»")
         c.shots.append(shot(page, "C20", "equity"))
         ux(page, "C20", "equity", lang="fa", shot_name="C20-equity.png")
     finally:
@@ -401,8 +401,8 @@ def c22_fx(browser):
             c.ok(res.value.status in (200, 201), f"USD→IRR rate saved ({res.value.status} {res.value.text()[:150]})")
             page.wait_for_timeout(700)
             hist = page.inner_text("#fx-rates-wrap") if page.locator("#fx-rates-wrap").count() else ""
-            c.ok("980,000" in hist or "۹۸۰" in hist, "rate listed")
-            c.ok("1405/07/09" in hist, "effective date in Jalali")
+            c.ok("980,000" in lat(hist), "rate listed")
+            c.ok("1405/07/09" in lat(hist), "effective date in Jalali")
             c.shots.append(shot(page, "C22", "fx", full=False, selector="#fx-rates-wrap"))
         else:
             c.ok(False, "no FX rate form in settings")

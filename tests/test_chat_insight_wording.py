@@ -24,3 +24,12 @@ def test_other_languages_name_the_month_in_their_words_with_western_digits():
     assert "شهريور 1405" in ar["title"] and not any(ch in "٠١٢٣٤٥٦٧٨٩" for ch in ar["title"] + ar["message"]), ar
     # the insight itself keeps its plain values for the pages and the data
     assert DROP.params["month"] == "1405-06" and DROP.localize("fa")["title"] != chat_wording(DROP, "fa")["title"]
+
+
+def test_a_count_kept_as_a_number_is_written_in_persian_digits():
+    """«در ۳۰ روز: 0 سند برگشت خورده و 4 یادداشت بستانکار» in a Persian briefing (deep browser test, 2026-10-16)."""
+    ins = Insight(key="reversal-x", kind="reversal_pattern", severity="warning", page="ledger",
+                  params={"name": "فروشگاه مهرگان", "undone": 0, "credits": 4})
+    said = chat_wording(ins, "fa")["message"]
+    assert "۰ سند برگشت خورده و ۴ یادداشت" in said and not any(ch.isascii() and ch.isdigit() for ch in said), said
+    assert "0 entries undone and 4 credit notes" in chat_wording(ins, "en")["message"]

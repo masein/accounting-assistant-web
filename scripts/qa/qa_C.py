@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, "/qa")
 from playwright.sync_api import sync_playwright
 
-from qalib import OUT, Check, alert_text, api, clear_alert, go, iso, new_session, shot, ux, wait_until, confirm_shown
+from qalib import Check, OUT, alert_text, api, clear_alert, confirm_shown, go, iso, lat, new_session, shot, ux, wait_until
 
 FA = lambda s: any("؀" <= ch <= "ۿ" for ch in (s or ""))
 STATE = f"{OUT}/state.json"
@@ -75,7 +75,7 @@ def c1_voucher(browser):
         body = page.inner_text("#ui-confirm-message")
         c.shots.append(shot(page, "C1", "confirm", full=False))
         c.ok("Date:" not in body and "Debit entries" not in body, f"the confirmation is in Persian «{body[:120]}»")
-        c.ok("1405/07/07" in body, "the confirmation shows the Jalali date")
+        c.ok("1405/07/07" in lat(body), "the confirmation shows the Jalali date")
         with page.expect_response(lambda r: r.url.rstrip("/").endswith("/transactions") and r.request.method == "POST") as res:
             page.click("#ui-confirm-ok")
         c.ok(res.value.status in (200, 201), f"voucher saved ({res.value.status} {res.value.text()[:150]})")
@@ -265,6 +265,11 @@ def c6_c7_quote_credit_void(browser):
         inv3 = res3.json() if res3.status in (200, 201) else {}
         clear_alert(page)
         page.locator(f'.inv-credit-note[data-id="{inv2.get("id")}"]').locator('xpath=ancestor::details[1]/summary').click(); page.locator(f'.inv-credit-note[data-id="{inv2.get("id")}"]').click()  # under ⋯ (#277)
+        # the amount is asked once the page knows whether goods can come back (#366): wait for it
+        try:
+            page.wait_for_selector("#ui-prompt-modal", state="visible", timeout=6000)
+        except Exception:
+            pass
         if page.locator("#ui-prompt-modal").is_visible():
             page.fill("#ui-prompt-input", "1000000"); page.click("#ui-prompt-ok"); page.wait_for_timeout(400)
             if page.locator("#ui-prompt-modal").is_visible():
@@ -274,7 +279,13 @@ def c6_c7_quote_credit_void(browser):
         c7.note(f"credit note: «{m}»")
         c7.ok(FA(m), "credit note message Persian")
         clear_alert(page)
-        page.locator(f'.inv-void[data-id="{inv3.get("id")}"]').locator('xpath=ancestor::details[1]/summary').click(); page.locator(f'.inv-void[data-id="{inv3.get("id")}"]').click()  # under ⋯ (#277)
+        menu = page.locator(f'.inv-void[data-id="{inv3.get("id")}"]').locator('xpath=ancestor::details[1]/summary')
+        try:
+            menu.click(timeout=8000)
+        except Exception:
+            c7.shots.append(shot(page, "C7", "void-menu-blocked", full=False))
+            raise
+        page.locator(f'.inv-void[data-id="{inv3.get("id")}"]').click()  # under ⋯ (#277)
         if confirm_shown(page):
             page.click("#ui-confirm-ok")
         elif page.locator("#ui-prompt-modal").is_visible():
@@ -392,7 +403,7 @@ def c23_credit_paid(browser):
         c.ok(confirm_shown(page), "the history opens")
         hist = page.inner_text("#ui-confirm-message")
         raw = re.search(r"\d{4}-\d{2}-\d{2}T|credit_note|Credit note", hist)
-        c.ok(FA(hist) and "1405/" in hist and not raw, f"history in Persian, Jalali, no raw timestamps or keys «{' | '.join(hist.splitlines())[:300]}»")
+        c.ok(FA(hist) and "1405/" in lat(hist) and not raw, f"history in Persian, Jalali, no raw timestamps or keys «{' | '.join(hist.splitlines())[:300]}»")
         c.shots.append(shot(page, "C23", "history", full=False))
         page.click("#ui-confirm-ok")
         c.shots.append(shot(page, "C23", "after"))
@@ -457,7 +468,7 @@ def c9_c10_cheques(browser):
         c10.ok(res.value.status in (200, 201), f"plan created ({res.value.status} {res.value.text()[:150]})")
         page.wait_for_timeout(800)
         rows = page.inner_text("#cm-rows")
-        c10.ok("1405/07/30" in rows, "first instalment shown on 1405/07/30 (22 Oct)")
+        c10.ok("1405/07/30" in lat(rows), "first instalment shown on 1405/07/30 (22 Oct)")
         c10.ok("(1/12)" in rows or "(۱/۱۲)" in rows, "numbered 1/12")
         c10.shots.append(shot(page, "C10", "plan"))
     finally:

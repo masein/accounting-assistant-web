@@ -541,4 +541,16 @@ From the owner, after AC8: on the web, a draft card in a person's books still sh
 | AD2 | In English | The same with the question in English | "To" and "From", the date in English |
 | AD3 | Copy and reply | Copy the card; reply to it | Copied as it reads (what it is and the date, the amount, each line with To or From); a reply names the card (AC5) |
 | AD4 | Cards without lines | A card that posts nothing to the books (count the books in Omani rials, remember a preference) | Its sentence as before |
-| AD5 | Company books | A company's draft card on the web | As before: the summary, DR and CR |
+| AD5 | Company books | A company's draft card on the web | Replaced by AE3 (2026-10-16): the card itself too, its lines Dr and Cr («بد», «بس») |
+
+## AE. The web chat keeps its cards (2026-10-16)
+
+From the owner's list of what the web lacked beside the phone: a web conversation opened again brought back only its words, and every card in it was gone (the draft, the posted one, the cancelled one). The phone redraws them. And a company's draft card on the web was the server's English summary, «Proposed journal entry on … DR … CR …», in Persian too.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| AE1 | A conversation opened again | Draft a card; open another conversation; come back to this one (or reload the page) | The card is under the answer it came with, as it was drawn: amount, what and when, lines. Still pending (and not past its ten minutes): Confirm and Cancel work |
+| AE2 | Each card as it stands | A conversation with a posted card, a cancelled one, one replaced by a correction, one left past ten minutes, one sent for approval | Posted: «Recorded», its reference and date, no buttons («Undone» when it was undone since). Cancelled, replaced, expired: struck through with what happened, no buttons. Waiting for approval: says so, no buttons |
+| AE3 | A company's card | A company's draft card on the web, in Persian and in English | The card itself: the amount with its currency, what it is and its date, each line with «بد» or «بس» (Dr / Cr) and its amount; parties it will create and the approval line as before. No "Proposed journal entry" |
+| AE4 | Only yours | A conversation's cards | Only cards the user made in that conversation come back; another user's conversation is still refused |
+| AE5 | A starting balance corrected | Personal books: a wallet's starting-balance card, then «مبلغش رو ۸۰ کن» (or a reply to the card) | One card for 80 replaces it; the first can no longer be confirmed, and comes back replaced. Before, the wallet's card took no correction and both stayed confirmable |

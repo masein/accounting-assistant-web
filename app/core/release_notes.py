@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.16"
+CURRENT_RELEASE = "2026.10.16.1"
 
 
 @dataclass(frozen=True)
@@ -1893,6 +1893,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "در وب نشانگر را روی پیام ببرید، یا در اپ پیام را نگه دارید: پاسخ، کپی و ارسال؛ یا برای پاسخ، پیام را به چپ بکشید، در گوشی و روی صفحهٔ لمسی. با «پاسخ» پیام بالای کادر می‌نشیند و دستیار پیام شما را دربارهٔ همان می‌خواند؛ با پاسخ به یک کارت، همان کارت اصلاح می‌شود. «ارسال» صفحهٔ اشتراک‌گذاری گوشی را باز می‌کند، یا تلگرام، واتس‌اپ و ایمیل را. در دفاتر شخصی، کارت حالا مبلغ، شرح و تاریخ را نشان می‌دهد و ردیف‌هایش به‌جای «بد» و «بس» می‌گویند «به» و «از»، در اپ و در وب.",
                     "es": "Señala un mensaje en la web, o mantenlo pulsado en la app, para Responder, Copiar y Compartir; o deslízalo a la izquierda para responder, en el teléfono y en una pantalla táctil. Responder pone el mensaje sobre el cuadro, y el asistente lee tu respuesta como referida a él; responde a una tarjeta para cambiar esa misma tarjeta. Compartir abre el menú de compartir del teléfono, o Telegram, WhatsApp y correo. En los libros personales, una tarjeta muestra ahora su importe, qué es y su fecha, y líneas que dicen A y De en lugar de D y H, en la app y en la web.",
                     "ar": "أشر إلى رسالة على الويب، أو اضغط عليها مطولًا في التطبيق، لتظهر: رد ونسخ ومشاركة؛ أو اسحبها إلى اليسار للرد، في الهاتف وعلى شاشة اللمس. يضع «رد» الرسالة فوق المربع، ويقرأ المساعد إجابتك على أنها تخصها؛ رُدّ على بطاقة لتغيير تلك البطاقة نفسها. وتفتح «مشاركة» قائمة المشاركة في الهاتف، أو تيليجرام وواتساب والبريد. وفي الدفاتر الشخصية تعرض البطاقة الآن مبلغها ووصفها وتاريخها، وتقول أسطرها «إلى» و«من» بدلًا من «مدين» و«دائن»، في التطبيق وعلى الويب.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.16.1",
+        date="2026-10-16",
+        highlights=(
+            Highlight(
+                key="chat-cards-kept",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "A conversation keeps its cards",
+                    "fa": "گفتگو کارت‌هایش را نگه می‌دارد",
+                    "es": "Una conversación conserva sus tarjetas",
+                    "ar": "المحادثة تحتفظ ببطاقاتها",
+                },
+                body={
+                    "en": "Open a conversation again on the web and its cards are back under their answers, each as it stands: one still waiting can be confirmed, a posted one shows its reference and date, a cancelled or expired one says so. Every draft entry is now drawn as the card itself, the amount, what it is and its date, and each line with Dr and Cr (To and From in personal books), instead of the summary written for the assistant.",
+                    "fa": "گفتگویی را در وب دوباره باز کنید: کارت‌هایش زیر پاسخ‌هایشان برمی‌گردند، هر کدام همان‌طور که حالا هست: کارتی که هنوز منتظر است تأییدشدنی است، کارت ثبت‌شده شماره و تاریخش را دارد، و کارت لغوشده یا منقضی همین را می‌گوید. هر پیش‌نویس سند حالا خود کارت است: مبلغ، شرح و تاریخ، و هر ردیف با «بد» و «بس» («به» و «از» در دفاتر شخصی)، به‌جای خلاصه‌ای که برای دستیار نوشته شده بود.",
+                    "es": "Abre de nuevo una conversación en la web y sus tarjetas vuelven bajo sus respuestas, cada una como está: la que aún espera se puede confirmar, la registrada muestra su referencia y su fecha, la cancelada o caducada lo dice. Cada borrador de asiento se muestra ahora como la tarjeta misma: el importe, qué es y su fecha, y cada línea con D y H (A y De en los libros personales), en lugar del resumen escrito para el asistente.",
+                    "ar": "افتح محادثة من جديد على الويب فتعود بطاقاتها تحت إجاباتها، كل منها كما هي الآن: ما زال ينتظر يمكن تأكيده، والمسجّلة تُظهر مرجعها وتاريخها، والملغاة أو المنتهية تقول ذلك. وكل مسودة قيد تُعرض الآن بطاقةً بنفسها: المبلغ ووصفها وتاريخها، وكل سطر بـ«مدين» و«دائن» («إلى» و«من» في الدفاتر الشخصية)، بدلًا من الملخص المكتوب للمساعد.",
                 },
             ),
         ),

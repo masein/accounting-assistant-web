@@ -69,15 +69,66 @@ def test_a_persons_card_is_the_card_itself_to_and_from(flow_page):
         assert "۱۱۲۰۰۱ کیف پول سبز  به ۷۷٫۵۰۰" in copied and "DR" not in copied, copied
         assert watch.problems() == [], watch.problems()
     finally:
-        page.evaluate("""() => { const s = document.getElementById('topbar-language'); s.value = 'en';
-            s.dispatchEvent(new Event('change', { bubbles: true })); }""")
+        switch_language(page, "en")                    # and wait until it is saved: the next test is in English
 
 
-def test_a_companys_card_keeps_its_summary(flow_page):
-    """AD5: a company's books are not a person's: the summary, as before."""
+def test_a_companys_card_is_the_card_too_dr_and_cr(flow_page):
+    """AE3 (it was AD5, the summary): a company's card is the card itself, its lines Dr and Cr."""
     page, watch = flow_page("e2e_cards")
     _open_chat(page)
     card = _ask(page)
-    expect(card.locator(".ai-card-summary")).to_contain_text("DR 112001")
-    expect(card.locator(".ai-voucher")).to_have_count(0)
+    expect(card.locator(".ai-card-summary")).to_have_count(0)
+    lines = card.locator(".ai-voucher-line")
+    expect(lines.nth(0).locator(".ai-voucher-side")).to_have_text("Dr 77.500")
+    expect(lines.nth(1).locator(".ai-voucher-side")).to_have_text("Cr 77.500")
+    assert "Proposed journal entry" not in card.inner_text()
     assert watch.problems() == [], watch.problems()
+
+
+def _stored(token, state, **extra):
+    return {"confirmation_token": token, "tool_name": "propose_money_place", "summary": SUMMARY,
+            "preview": {"description": CARD["title"]}, "card": CARD, "state": state, "approval_status": None,
+            "posted": None, "new_entities": [], **extra}
+
+
+HISTORY = [
+    {"id": "m1", "role": "user", "content": {"role": "user", "text": "کیف پول‌ها"}, "created_at": "2026-10-16T09:00:00+00:00", "cards": []},
+    {"id": "m2", "role": "assistant", "content": {"role": "assistant", "text": "چهار کارت."}, "created_at": "2026-10-16T09:00:05+00:00",
+     "cards": [_stored("7f1c2a9e-0000-4000-8000-0000000000a1", "executed",
+                       posted={"voucher": "JE-0042", "date": {"iso": "2026-10-16", "display": "۲۴ مهر ۱۴۰۵"}, "undone": False}),
+               _stored("7f1c2a9e-0000-4000-8000-0000000000a2", "cancelled"),
+               _stored("7f1c2a9e-0000-4000-8000-0000000000a3", "expired"),
+               _stored("7f1c2a9e-0000-4000-8000-0000000000a4", "pending")]},
+]
+
+
+def test_a_conversation_opened_again_keeps_its_cards(flow_page):
+    """AE1, AE2: the cards come back under their answer, each as it stands."""
+    page, watch = flow_page("e2e_cards")
+    sessions = [{"id": "s-hist", "title": "کیف پول‌ها", "created_at": "2026-10-16T09:00:00+00:00",
+                 "updated_at": "2026-10-16T09:00:05+00:00", "message_count": 2}]
+    page.route("**/ai-accountant/sessions", lambda route: route.fulfill(
+        status=200, content_type="application/json", body=json.dumps(sessions, ensure_ascii=False)))
+    page.route("**/ai-accountant/sessions/s-hist/messages", lambda route: route.fulfill(
+        status=200, content_type="application/json", body=json.dumps(HISTORY, ensure_ascii=False)))
+    try:
+        switch_language(page, "fa")
+        page.evaluate("() => { currentRole = 'personal'; }")
+        _open_chat(page)
+        cards = page.locator("#ai-acct-messages .ai-card")
+        expect(cards).to_have_count(4)
+        posted, cancelled, expired, pending = (cards.nth(i) for i in range(4))
+        expect(posted.locator(".ai-card-posted")).to_have_text("ثبت شد، JE-۰۰۴۲، ۲۴ مهر ۱۴۰۵")   # in the page's digits
+        expect(posted.locator(".ai-card-actions")).to_have_count(0)
+        expect(cancelled.locator(".ai-card-gone")).to_contain_text("لغو")
+        expect(expired.locator(".ai-card-gone")).to_contain_text("منقضی")
+        expect(pending.locator(".ai-card-actions button.btn-primary")).to_be_enabled()   # still works
+        expect(pending.locator(".ai-voucher-side").first).to_have_text("به ۷۷٫۵۰۰")
+        expect(posted.locator(".ai-card-head")).to_contain_text("سند")                    # no longer "please confirm"
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "chat-history-cards-fa.png"))
+        page.evaluate("() => { document.getElementById('ai-acct-messages').scrollTop = 0; }")
+        page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "chat-history-cards-fa-top.png"))
+        assert watch.problems() == [], watch.problems()
+    finally:
+        switch_language(page, "en")                    # and wait until it is saved: the next test is in English

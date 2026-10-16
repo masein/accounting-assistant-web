@@ -1,6 +1,9 @@
 package app.accountingassistant.android.ui.chat
 
 import app.accountingassistant.android.ui.components.VoucherLine
+import app.accountingassistant.android.ui.components.boldMarks
+import app.accountingassistant.android.ui.components.priced
+import app.accountingassistant.android.util.Numbers
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -13,9 +16,9 @@ import kotlinx.serialization.json.longOrNull
 sealed interface ChatItem {
     val id: String
 
-    /** What the user sent; [clientId] is the phone's id for it (its outbox entry while it waits). */
+    /** What the user sent; [clientId] is the phone's id for it (its outbox entry while it waits); [quote] what it answers. */
     data class User(override val id: String, val text: String, val files: List<String> = emptyList(),
-                    val clientId: String? = null) : ChatItem
+                    val clientId: String? = null, val quote: Quote? = null) : ChatItem
     /** The accountant's words; [nextStatement] offers the statement's next difference under them. */
     data class Words(override val id: String, val text: String, val nextStatement: String? = null,
                      /** A short question's answers to tap («keep it in Omani rials»): sent as if typed. */
@@ -93,6 +96,50 @@ sealed interface ChatItem {
     data class Earlier(override val id: String = "earlier") : ChatItem
     /** A first-run hint: questions the books can answer at once. */
     data class Suggestions(override val id: String = "suggestions", val options: List<String>) : ChatItem
+}
+
+/** A message a reply answers: the user's own ([mine]) or the accountant's, its words, a card's token. */
+data class Quote(val mine: Boolean, val text: String, val token: String? = null)
+
+/** How much of a message a quote keeps: the server keeps 400 characters of it. */
+private const val QUOTE_CHARS = 400
+
+/**
+ * An item as words to copy or share (scenarios AC1–AC3): a message as it
+ * reads, bold words without their «**»; a card as what it is and its date,
+ * its amount, and each line with its side ([sides]: Dr and Cr, or To and
+ * From in a person's books). Null for what has nothing to say.
+ */
+fun ChatItem.asText(lang: String, sides: Pair<String, String>): String? = when (this) {
+    is ChatItem.User -> text.ifBlank { files.joinToString("\n") }
+    is ChatItem.Words -> boldMarks(text).text
+    is ChatItem.Fallback -> text
+    is ChatItem.Proposal -> buildList {
+        add(listOfNotNull(title.ifBlank { null }, date).joinToString(" · "))
+        amount?.let { add(priced(it, currency, lang)) }
+        lines.forEach { line ->
+            val (side, value) = if (line.debit.signum() > 0) sides.first to line.debit else sides.second to line.credit
+            add("${Numbers.digits(line.code, lang)} ${line.name}  $side ${Numbers.amount(value, lang, Numbers.places(currency))}")
+        }
+    }.filter { it.isNotBlank() }.joinToString("\n")
+    is ChatItem.Figure -> "$label: ${priced(value, currency, lang)}"
+    is ChatItem.Table -> (listOfNotNull(title) + rows.map { r ->
+        r.label + (r.sub?.let { " (${Numbers.digits(it, lang)})" } ?: "") + ": " + priced(r.value, r.currency, lang)
+    }).joinToString("\n")
+    is ChatItem.Chart -> title
+    is ChatItem.Statement -> listOfNotNull(bank, listOfNotNull(from, to).joinToString(" – ").ifBlank { null })
+        .joinToString(" · ").let { Numbers.digits(it, lang) }
+    is ChatItem.File -> name
+    else -> null
+}?.trim()?.takeIf { it.isNotEmpty() }
+
+/** What a reply to this item quotes: a card by its title and amount, and its token. */
+fun ChatItem.quote(lang: String, sides: Pair<String, String>): Quote? {
+    val words = when (this) {
+        is ChatItem.Proposal -> listOfNotNull(title.ifBlank { null }, amount?.let { priced(it, currency, lang) }).joinToString(" · ")
+        else -> asText(lang, sides)
+    }?.replace(Regex("\\s+"), " ")?.trim()?.take(QUOTE_CHARS)?.takeIf { it.isNotEmpty() } ?: return null
+    return Quote(mine = this is ChatItem.User, text = words, token = (this as? ChatItem.Proposal)?.token?.ifBlank { null })
 }
 
 private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull

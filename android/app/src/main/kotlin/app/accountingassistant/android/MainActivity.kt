@@ -258,6 +258,7 @@ class MainActivity : ComponentActivity() {
                         onThreads = { threadsOpen = true; vm.loadThreads() },
                         onRetry = vm::retry, onDiscard = vm::discard, onEarlier = vm::earlier,
                         onApprove = vm::approve, onReject = vm::reject, onEdit = vm::edit, onStatementNext = vm::nextDifference,
+                        onReply = vm::reply,
                         action = pendingShortcut, onActionDone = { shortcut.value = null },
                         userInitial = session?.user?.username?.take(1)?.uppercase() ?: "",
                         onAccount = {

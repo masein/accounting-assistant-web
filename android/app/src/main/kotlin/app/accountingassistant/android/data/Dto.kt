@@ -69,7 +69,13 @@ data class ChatRequest(
     @SerialName("attachment_ids") val attachmentIds: List<String> = emptyList(),
     /** The phone's own id for the message: a retry gets the reply it already had. */
     @SerialName("client_message_id") val clientMessageId: String? = null,
+    /** The message this one answers (scenarios AC4–AC7). */
+    @SerialName("reply_to") val replyTo: ReplyDto? = null,
 )
+
+/** A message quoted by a reply: whose it was ("assistant", "user"), its words, a card's token. */
+@Serializable
+data class ReplyDto(val role: String = "assistant", val text: String = "", val token: String? = null)
 
 @Serializable
 data class LanguageRequest(val language: String)
@@ -132,6 +138,8 @@ data class ThreadMessageDto(
     @SerialName("client_message_id") val clientMessageId: String? = null,
     /** The files a message of the user's carried. */
     val files: List<SentFileDto> = emptyList(),
+    /** What a message of the user's replied to. */
+    @SerialName("reply_to") val replyTo: ReplyDto? = null,
 )
 
 @Serializable

@@ -270,7 +270,8 @@
             const said = typeof c.said === 'string' ? c.said
               : (typeof c.text === 'string' ? c.text : (typeof c.content === 'string' ? c.content : ''));  // legacy shape
             const files = (Array.isArray(c.files) ? c.files : []).map((f) => ({ file_name: f.name, content_type: f.content_type }));
-            if (said.trim() || files.length) appendUserTurn(said, files, m.created_at, false);
+            const quote = c.reply_to && typeof c.reply_to === 'object' ? c.reply_to : null;
+            if (said.trim() || files.length) appendUserTurn(said, files, m.created_at, false, quote);
             return;
           }
           const text = (typeof c.text === 'string' && c.text.trim())
@@ -613,8 +614,172 @@
         return out.join('');
       }
 
+      // ─── Reply, copy, share on a message (scenarios AC1–AC4) ───
+      // replyTo: the message the next one answers, {role, text, token?}, shown above the composer
+      let replyTo = null;
+      const QUOTE_CHARS = 400;               // the server keeps as much
+      const _ACTION_ICONS = {
+        reply: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="flip-rtl"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a7 7 0 0 1 7 7v4"/></svg>',
+        copy: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M15 9V5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15H9"/></svg>',
+        share: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>',
+      };
+      function _quoteOf(role, text, token) {
+        const words = String(text || '').replace(/\s+/g, ' ').trim().slice(0, QUOTE_CHARS);
+        if (!words && !token) return null;
+        return { role: role === 'user' ? 'user' : 'assistant', text: words, token: token || null };
+      }
+      async function _copyText(text) {
+        try { await navigator.clipboard.writeText(text); return true; } catch (_) { /* older browsers, an http page */ }
+        const box = document.createElement('textarea');
+        box.value = text;
+        box.setAttribute('readonly', '');
+        box.style.cssText = 'position:fixed;inset-inline-start:-9999px;top:0;';
+        document.body.appendChild(box);
+        box.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+        box.remove();
+        return ok;
+      }
+      // the browser's own share sheet where it has one (phones, Safari, Edge); else Telegram, WhatsApp, e-mail
+      function _shareText(text, anchor) {
+        if (navigator.share) { navigator.share({ text }).catch(() => {}); return; }
+        document.querySelectorAll('.msg-share-menu').forEach((m) => m.remove());
+        const menu = document.createElement('div');
+        menu.className = 'msg-share-menu';
+        menu.setAttribute('role', 'menu');
+        const q = encodeURIComponent(text);
+        [['aiChatShareTelegram', 'https://t.me/share/url?url=' + q],
+         ['aiChatShareWhatsApp', 'https://wa.me/?text=' + q],
+         ['aiChatShareEmail', 'mailto:?body=' + q]].forEach(([key, href]) => {
+          const a = document.createElement('a');
+          a.href = href;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.setAttribute('role', 'menuitem');
+          a.textContent = t(key);
+          a.addEventListener('click', () => menu.remove());
+          menu.appendChild(a);
+        });
+        anchor.parentNode.appendChild(menu);
+        const away = (ev) => { if (!menu.contains(ev.target) && ev.target !== anchor) { menu.remove(); document.removeEventListener('click', away, true); } };
+        setTimeout(() => document.addEventListener('click', away, true), 0);
+      }
+      // Reply, Copy, Share beside a message's meta line: shown on hover or focus, always on a touch screen
+      function addMessageActions(host, getText, getQuote) {
+        const bar = document.createElement('span');
+        bar.className = 'msg-actions';
+        const button = (key, icon, onClick) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'msg-action';
+          b.title = t(key);
+          b.setAttribute('aria-label', t(key));
+          b.innerHTML = icon;
+          b.addEventListener('click', onClick);
+          bar.appendChild(b);
+          return b;
+        };
+        button('aiChatReply', _ACTION_ICONS.reply, () => setReply(getQuote()));
+        button('aiChatCopy', _ACTION_ICONS.copy, async () => {
+          if (!(await _copyText(getText()))) return;
+          bar.dataset.note = t('aiChatCopied');
+          clearTimeout(bar._note);
+          bar._note = setTimeout(() => { delete bar.dataset.note; }, 1600);
+        });
+        button('aiChatShare', _ACTION_ICONS.share, (ev) => _shareText(getText(), ev.currentTarget));
+        host.appendChild(bar);
+        return bar;
+      }
+      // Swipe a message left on a touch screen to reply (scenario AC11): it follows the finger, the reply
+      // arrow comes up beside it (filled past the line, with a tick where the phone can), and it springs back.
+      // [moving] is what slides; [host] holds the arrow. Vertical scrolling stays the browser's (touch-action).
+      const SWIPE_LINE = 56, SWIPE_MOST = 84;
+      function addSwipeReply(moving, host, getQuote) {
+        const arrow = document.createElement('span');
+        arrow.className = 'msg-swipe-arrow';
+        arrow.setAttribute('aria-hidden', 'true');
+        arrow.innerHTML = _ACTION_ICONS.reply.replace(' class="flip-rtl"', '');
+        host.classList.add('swipeable');
+        host.appendChild(arrow);
+        moving.classList.add('swipe-move');
+        let x0 = null, y0 = 0, dx = 0, armed = false;
+        const show = () => {
+          moving.style.transform = dx ? 'translateX(' + dx + 'px)' : '';
+          host.style.setProperty('--pull', String(Math.min(1, -dx / SWIPE_LINE)));
+          arrow.classList.toggle('armed', armed);
+        };
+        moving.addEventListener('pointerdown', (e) => {
+          if (e.pointerType !== 'touch') return;
+          x0 = e.clientX; y0 = e.clientY; dx = 0; armed = false;
+        });
+        moving.addEventListener('pointermove', (e) => {
+          if (x0 === null) return;
+          let d = Math.min(0, e.clientX - x0);
+          if (Math.abs(e.clientY - y0) > Math.abs(d) && !dx) return;      // a scroll, not a swipe
+          if (-d > SWIPE_LINE) d = -(SWIPE_LINE + (-d - SWIPE_LINE) * 0.35);
+          dx = Math.max(d, -SWIPE_MOST);
+          host.classList.add('swiping');
+          const past = -dx >= SWIPE_LINE;
+          if (past && !armed && navigator.vibrate) { try { navigator.vibrate(8); } catch (_) { /* not allowed here */ } }
+          armed = past;
+          show();
+        });
+        const end = (cancelled) => {
+          if (x0 === null) return;
+          const reply = armed && !cancelled;
+          x0 = null; dx = 0; armed = false;
+          host.classList.remove('swiping');
+          show();
+          if (reply) setReply(getQuote());
+        };
+        moving.addEventListener('pointerup', () => end(false));
+        moving.addEventListener('pointercancel', () => end(true));
+      }
+
+      // above the composer while a reply is written: what it answers, and ✕ to answer nothing
+      const replyStrip = document.createElement('div');
+      replyStrip.className = 'ai-reply-strip';
+      replyStrip.hidden = true;
+      if (attachmentsEl && attachmentsEl.parentNode) attachmentsEl.parentNode.insertBefore(replyStrip, attachmentsEl);
+      function renderReplyStrip() {
+        replyStrip.innerHTML = '';
+        replyStrip.hidden = !replyTo;
+        if (!replyTo) return;
+        replyStrip.appendChild(_quoteBlock(replyTo, t(replyTo.role === 'user' ? 'aiChatReplyingToYou' : 'aiChatReplyingToAssistant')));
+        const drop = document.createElement('button');
+        drop.type = 'button';
+        drop.className = 'ai-icon-btn ai-reply-drop';
+        drop.title = t('aiChatReplyDrop');
+        drop.setAttribute('aria-label', t('aiChatReplyDrop'));
+        drop.textContent = '✕';
+        drop.addEventListener('click', () => setReply(null));
+        replyStrip.appendChild(drop);
+      }
+      function setReply(quote) {
+        replyTo = quote || null;
+        renderReplyStrip();
+        if (replyTo) inputEl.focus();
+      }
+      // a quoted message: whose it was, its first words, in the direction of its words. Its own dir
+      // also keeps the bubble's dir="auto" on the user's words, not on an English label above them.
+      function _quoteBlock(quote, label) {
+        const box = document.createElement('div');
+        box.className = 'msg-quote';
+        box.setAttribute('dir', /^[^A-Za-z\u0590-\u08FF]*[\u0590-\u08FF]/.test(quote.text || '') ? 'rtl' : 'ltr');
+        const who = document.createElement('div');
+        who.className = 'msg-quote-who';
+        who.textContent = label || t(quote.role === 'user' ? 'aiChatYou' : 'aiChatAssistant');
+        const words = document.createElement('div');
+        words.className = 'msg-quote-text';
+        words.textContent = quote.text || '';
+        box.appendChild(who);
+        box.appendChild(words);
+        return box;
+      }
+
       // One message row: meta line (who + when) and a direction-neutral bubble.
-      // role: 'user' | 'assistant' | 'system' (errors). opts.at = ISO time.
+      // role: 'user' | 'assistant' | 'system' (errors). opts.at = ISO time; opts.quote = what it answers.
       function appendBubble(role, text, opts) {
         opts = opts || {};
         clearEmptyState();
@@ -633,6 +798,13 @@
         bubble.setAttribute('dir', 'auto');
         if (kind === 'assistant') bubble.innerHTML = _renderChatMarkdown(text);
         else bubble.textContent = text;
+        if (opts.quote && opts.quote.text) bubble.insertBefore(_quoteBlock(opts.quote), bubble.firstChild);
+        if (kind !== 'system') {
+          // the words as they read (Markdown drawn, not its marks); a quote above them is not copied
+          const words = () => kind === 'assistant' ? (bubble.innerText || bubble.textContent || '').trim() : String(text || '');
+          addMessageActions(meta, words, () => _quoteOf(kind, words()));
+          addSwipeReply(bubble, wrap, () => _quoteOf(kind, words()));
+        }
         const body = document.createElement('div');
         body.className = 'msg-body';
         body.appendChild(bubble);
@@ -840,6 +1012,14 @@
         const titleText = document.createElement('span');
         titleText.textContent = t('aiChatProposedAction');
         title.appendChild(titleText);
+        // copied and shared as its summary; a reply names the card, so a correction replaces this one
+        const what = (proposal.preview && proposal.preview.description) || String(proposal.summary || '').split('\n')[0];
+        addMessageActions(title, () => String(proposal.summary || '').trim(),
+                          () => _quoteOf('assistant', what, proposal.confirmation_token));
+        const host = document.createElement('div');        // holds the swipe's arrow, which stays as the card slides
+        host.className = 'ai-card-wrap';
+        host.appendChild(card);
+        addSwipeReply(card, host, () => _quoteOf('assistant', what, proposal.confirmation_token));
         card.appendChild(title);
 
         const summary = document.createElement('pre');
@@ -902,7 +1082,7 @@
         buttons.appendChild(confirmBtn);
         buttons.appendChild(cancelBtn);
         card.appendChild(buttons);
-        messagesEl.appendChild(card);
+        messagesEl.appendChild(host);
         scrollToBottom(true);
       }
 
@@ -1033,8 +1213,8 @@
 
       // Render the user's turn, showing any attached document names as
       // chips beneath the text so the upload is visible in the transcript.
-      function appendUserTurn(text, attachments, at, animate) {
-        const wrap = appendBubble('user', text || '', { at: at || new Date().toISOString(), animate });
+      function appendUserTurn(text, attachments, at, animate, quote) {
+        const wrap = appendBubble('user', text || '', { at: at || new Date().toISOString(), animate, quote });
         if (attachments && attachments.length) {
           const bubble = wrap.querySelector('.msg');
           if (bubble) {
@@ -1072,7 +1252,9 @@
         const attachments = pendingAttachments.slice();
         // A turn needs either text or at least one attached document.
         if (!text && !attachments.length) return;
-        appendUserTurn(text, attachments);
+        const quote = replyTo;
+        setReply(null);
+        appendUserTurn(text, attachments, undefined, undefined, quote);
         inputEl.value = '';
         autosizeInput();
         pendingAttachments = [];
@@ -1087,6 +1269,7 @@
               message: text,
               session_id: sessionId,
               attachment_ids: attachments.map((a) => a.id),
+              reply_to: quote || null,
             }),
           });
           const data = await readJsonSafe(r);

@@ -2,6 +2,11 @@ package app.accountingassistant.android
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.isPopup
+import app.accountingassistant.android.ui.chat.Quote
 import app.accountingassistant.android.data.Queued
 import app.accountingassistant.android.ui.chat.ChatItem
 import app.accountingassistant.android.ui.chat.ChatScreen
@@ -321,4 +326,47 @@ class ChatScreenScreenshotTest {
         compose.mainClock.advanceTimeBy(1500)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-ar-western-digits.png")
     }
+
+    // --- reply, copy, share (scenarios AC1–AC9) --------------------------------------------------
+
+    private val walletCard = ChatItem.Proposal(
+        id = "p9", token = "t9", title = "کیف پول سبز — موجودی اولیه", amount = java.math.BigDecimal("77.5"), currency = "OMR",
+        date = "۲۴ مهر ۱۴۰۵",
+        lines = listOf(VoucherLine("112001", "کیف پول سبز", debit = java.math.BigDecimal("77.5")),
+                       VoucherLine("3110", "خالص دارایی اولیه", credit = java.math.BigDecimal("77.5"))),
+        needsApproval = false)
+
+    private fun personal(state: ChatUiState, lang: String) {
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(state = state, lang = lang, booksName = "masein", personalBooks = true,
+                           onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {})
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+    }
+
+    /** The owner's screenshot: the app in English, a Persian card in a person's books, a reply on its way. */
+    @Test @Config(qualifiers = "+en")
+    fun aPersonsCardInAnEnglishAppAndAReply() {
+        personal(ChatUiState(items = listOf(
+            ChatItem.User("u1", "دفاتر روی ریال ایران بماند و کیف پول با ریال عمان ثبت شود"),
+            walletCard,
+            ChatItem.Words("w1", "ثبت موجودی اولیه کیف پول سبز به مبلغ ۷۷٫۵۰۰ ریال عمان برای ۲۴ مهر ۱۴۰۵ آماده است."),
+            ChatItem.User("u2", "مبلغش رو ۸۰ کن", quote = Quote(false, "کیف پول سبز — موجودی اولیه · 77.500 OMR", "t9"))),
+            replyTo = Quote(false, "ثبت موجودی اولیه کیف پول سبز به مبلغ ۷۷٫۵۰۰ ریال عمان برای ۲۴ مهر ۱۴۰۵ آماده است.")), "en")
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-en-personal-reply.png")
+    }
+
+    /** Holding an answer down: Reply, Copy, Share where the finger is. */
+    @Test @Config(qualifiers = "+fa")
+    fun holdingAnAnswerOpensReplyCopyShare() {
+        personal(ChatUiState(items = listOf(ChatItem.User("u1", "چقدر پول دارم؟"), walletCard,
+            ChatItem.Words("w1", "در **کیف پول سبز** ۷۷٫۵۰۰ ریال عمان دارید."))), "fa")
+        compose.onNodeWithText("ریال عمان دارید", substring = true).performTouchInput { longClick(center) }
+        compose.mainClock.advanceTimeBy(800)
+        compose.onNodeWithText("پاسخ").assertExists()
+        compose.onNode(isPopup()).captureRoboImage("build/outputs/roborazzi/chat-fa-hold-menu.png")
+    }
 }
+

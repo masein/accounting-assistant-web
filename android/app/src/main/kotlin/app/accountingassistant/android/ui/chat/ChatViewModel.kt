@@ -8,6 +8,7 @@ import app.accountingassistant.android.data.MemoryOutboxStore
 import app.accountingassistant.android.data.Outbox
 import app.accountingassistant.android.data.Queued
 import app.accountingassistant.android.data.QueuedFile
+import app.accountingassistant.android.data.ReplyDto
 import app.accountingassistant.android.data.ThreadDto
 import app.accountingassistant.android.data.ThreadMessageDto
 import app.accountingassistant.android.data.NetworkError
@@ -39,6 +40,8 @@ data class ChatUiState(
     val queued: Map<String, Queued> = emptyMap(),
     /** The outbox message on its way now: it no longer waits for the network. */
     val sendingId: String? = null,
+    /** The message the next one answers, shown above the composer until it goes (scenario AC4). */
+    val replyTo: Quote? = null,
 ) {
     enum class Notice { Offline, Failed, UploadFailed, VoiceFailed, VoiceTooShort, Unreadable }
     /** [uploadedId] once on the server; [path] where the outbox keeps it when the upload waits. */
@@ -136,10 +139,14 @@ class ChatViewModel(
         }
     }
 
-    private fun bubble(q: Queued) = ChatItem.User(q.clientId, q.text, q.files.map { it.name }, clientId = q.clientId)
+    private fun bubble(q: Queued) = ChatItem.User(q.clientId, q.text, q.files.map { it.name }, clientId = q.clientId,
+                                                  quote = q.replyTo?.let(::quoteOf))
+
+    private fun quoteOf(r: ReplyDto) = Quote(mine = r.role == "user", text = r.text, token = r.token)
 
     private fun itemsOf(m: ThreadMessageDto): List<ChatItem> =
-        if (m.role == "user") listOf(ChatItem.User(m.id, m.text.orEmpty(), m.files.map { it.name }, clientId = m.clientMessageId))
+        if (m.role == "user") listOf(ChatItem.User(m.id, m.text.orEmpty(), m.files.map { it.name }, clientId = m.clientMessageId,
+                                                   quote = m.replyTo?.takeIf { it.text.isNotBlank() }?.let(::quoteOf)))
         else parseBlocks(m.blocks)
 
     /** A conversation's latest page with its cards redrawn, and what still waits to go to it. */
@@ -282,7 +289,7 @@ class ChatViewModel(
         if (threadId == _state.value.threadId) return
         newest = null
         oldest = null
-        _state.update { it.copy(items = listOf(ChatItem.Thinking()), threadId = threadId, notice = null) }
+        _state.update { it.copy(items = listOf(ChatItem.Thinking()), threadId = threadId, notice = null, replyTo = null) }
         viewModelScope.launch {
             val items = page(threadId)
             _state.update {
@@ -300,7 +307,7 @@ class ChatViewModel(
         oldest = null
         _state.update {
             it.copy(items = if (suggestions.isEmpty()) emptyList() else listOf(ChatItem.Suggestions(options = suggestions)),
-                    threadId = null, draft = "", attachments = emptyList(), notice = null)
+                    threadId = null, draft = "", attachments = emptyList(), notice = null, replyTo = null)
         }
     }
 
@@ -312,6 +319,9 @@ class ChatViewModel(
 
     fun edit(text: String) = _state.update { it.copy(draft = text) }
 
+    /** Answer [quote] with the next message, or no longer ([quote] null). */
+    fun reply(quote: Quote?) = _state.update { it.copy(replyTo = quote) }
+
     fun send() {
         val st = _state.value
         val text = st.draft.trim()
@@ -322,9 +332,10 @@ class ChatViewModel(
             threadId = st.threadId, newThread = if (st.threadId == null) newKey else null,
             files = files.map { QueuedFile(it.name, it.mime, it.path, it.uploadedId) }, queuedAt = now(),
             userId = api.session?.user?.id,
+            replyTo = st.replyTo?.let { ReplyDto(if (it.mine) "user" else "assistant", it.text, it.token) },
         )
         _state.update {
-            it.copy(draft = "", sending = true, notice = null, attachments = emptyList(),
+            it.copy(draft = "", sending = true, notice = null, attachments = emptyList(), replyTo = null,
                     items = it.items.filterNot { item -> item is ChatItem.Suggestions } + bubble(q))
         }
         viewModelScope.launch {

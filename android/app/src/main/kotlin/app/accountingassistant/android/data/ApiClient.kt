@@ -84,8 +84,8 @@ class ApiClient(
     // --- the chat ----------------------------------------------------------------------------
 
     suspend fun chat(message: String, threadId: String?, attachmentIds: List<String> = emptyList(),
-                     clientMessageId: String? = null): ChatReply =
-        call("POST", "/chat", ChatRequest(message, threadId, attachmentIds, clientMessageId), serializer())
+                     clientMessageId: String? = null, replyTo: ReplyDto? = null): ChatReply =
+        call("POST", "/chat", ChatRequest(message, threadId, attachmentIds, clientMessageId, replyTo), serializer())
 
     /**
      * The same turn, streamed: [onStatus] hears each step as it happens
@@ -93,8 +93,9 @@ class ApiClient(
      * connection is a [NetworkError]; retry with the same [clientMessageId].
      */
     suspend fun chatStream(message: String, threadId: String?, attachmentIds: List<String>, clientMessageId: String,
-                           onStatus: (String) -> Unit): ChatReply = withContext(Dispatchers.IO) {
-        val payload = json.encodeToString(ChatRequest.serializer(), ChatRequest(message, threadId, attachmentIds, clientMessageId))
+                           replyTo: ReplyDto? = null, onStatus: (String) -> Unit): ChatReply = withContext(Dispatchers.IO) {
+        val payload = json.encodeToString(ChatRequest.serializer(),
+                                          ChatRequest(message, threadId, attachmentIds, clientMessageId, replyTo))
         var renewed = false
         while (true) {
             val token = session?.accessToken

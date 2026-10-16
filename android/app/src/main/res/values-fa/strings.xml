@@ -193,4 +193,17 @@
     <string name="feed_locked_title">حسابدار</string>
     <string name="feed_locked_body">چیزی در دفاترتان نیاز به توجه دارد.</string>
     <string name="chart_change">%1$s در %2$d ماه</string>
+    <!-- a message held down: reply, copy, share (scenarios AC1–AC4); a person's voucher lines, to and from (AC8) -->
+    <string name="msg_reply">پاسخ</string>
+    <string name="msg_copy">کپی</string>
+    <string name="msg_share">ارسال</string>
+    <string name="msg_copied">کپی شد</string>
+    <string name="msg_actions">پاسخ، کپی یا ارسال</string>
+    <string name="replying_to_assistant">در پاسخ به حسابدار</string>
+    <string name="replying_to_self">در پاسخ به پیام خودتان</string>
+    <string name="reply_drop">بدون پاسخ</string>
+    <string name="quote_assistant">حسابدار</string>
+    <string name="quote_self">شما</string>
+    <string name="side_to">به</string>
+    <string name="side_from">از</string>
 </resources>

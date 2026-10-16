@@ -193,4 +193,17 @@
     <string name="feed_locked_title">Contador</string>
     <string name="feed_locked_body">Algo en tus libros necesita tu atención.</string>
     <string name="chart_change">%1$s en %2$d meses</string>
+    <!-- a message held down: reply, copy, share (scenarios AC1–AC4); a person's voucher lines, to and from (AC8) -->
+    <string name="msg_reply">Responder</string>
+    <string name="msg_copy">Copiar</string>
+    <string name="msg_share">Compartir</string>
+    <string name="msg_copied">Copiado</string>
+    <string name="msg_actions">Responder, copiar o compartir</string>
+    <string name="replying_to_assistant">Respondiendo al contable</string>
+    <string name="replying_to_self">Respondiendo a tu mensaje</string>
+    <string name="reply_drop">No responder</string>
+    <string name="quote_assistant">El contable</string>
+    <string name="quote_self">Tú</string>
+    <string name="side_to">A</string>
+    <string name="side_from">De</string>
 </resources>

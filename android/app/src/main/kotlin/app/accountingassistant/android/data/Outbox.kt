@@ -44,6 +44,8 @@ data class Queued(
     /** The server refused it (its code, its words): it waits for Try again or Don't send. */
     val failure: String? = null,
     val detail: String? = null,
+    /** The message it answers: it waits, and goes, with its quote (scenario AC6). */
+    val replyTo: ReplyDto? = null,
 )
 
 /** Where the outbox keeps its messages and files between launches. */
@@ -230,9 +232,9 @@ class Outbox(
                         ids += id
                     }
                     val reply = try {
-                        api.chatStream(q.text, q.threadId, ids, q.clientId) { step -> _sending.value = Sending(q.clientId, step) }
+                        api.chatStream(q.text, q.threadId, ids, q.clientId, q.replyTo) { step -> _sending.value = Sending(q.clientId, step) }
                     } catch (e: NetworkError) {
-                        api.chat(q.text, q.threadId, ids, q.clientId)     // one quiet retry, same id
+                        api.chat(q.text, q.threadId, ids, q.clientId, q.replyTo)     // one quiet retry, same id
                     }
                     val answered = q
                     change { list ->

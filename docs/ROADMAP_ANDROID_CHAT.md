@@ -34,6 +34,7 @@ The build started on 2026-10-10.
 - ✅ Most of P3.7 (#324): app shortcuts (photo a receipt, record spending, cash) and a home-screen widget (cash and the budget left) that hides its figures behind the app lock.
 - ✅ The `chart` block (#323): the 13-week cash forecast drawn natively, and a fast path for "will we have enough cash?" in four languages (a what-if stays with the model).
 - ✅ **P0.10** (#320): `docs/contracts/`, the block schema and recorded conversations, checked by the server and parsed by the Android tests; every mobile route in a table with its roles.
+- ✅ Reply, copy and share (scenarios AC1–AC11, 2026-10-16): hold a message or a card above its fold for Reply, Copy, Share (the phone's share sheet), or swipe it left to reply (it follows the finger, the arrow fills past 56dp with a tick, and it springs back). `reply_to` (`role`, `text`, a card's `token`) goes with `/chat` and `/chat/stream`, waits in the outbox, and comes back on the user's message in `/threads/{id}/messages`. The model reads the quote ahead of the user's words; a card's token is kept only when the card is the user's own, and a correction then replaces that card. The web chat has the same three beside each message's time.
 - ◐ **P2.2, bank SMS** (scenarios Y1–Y10, PR #367):
   - the server's half: `POST /api/mobile/v1/bank-sms` takes the SMS the phone read, with the sender, the time and the bank the user named the sender as. Each becomes a row of the bank's SMS statement, as a pasted SMS does. The day an SMS arrived dates one that carries none.
   - The feed and the briefing say «Mellat (1405/07): 2 to record», and the briefing's line has Next.
@@ -711,7 +712,7 @@ Mechanics:
 | `PUT /api/mobile/v1/devices/{id}/push` | Register a push target (`fcm`, `pushe`, …) |
 | `GET /api/mobile/v1/books` · `POST /books/switch` | Memberships and the active books (P2.1) |
 | `GET /api/mobile/v1/threads?since=` · `GET /threads/{id}/messages?after=` | Sync |
-| `POST /api/mobile/v1/chat/messages` | Send (text, attachment ids, `client_message_id`) → `turn_id` |
+| `POST /api/mobile/v1/chat/messages` | Send (text, attachment ids, `client_message_id`, `reply_to`) → `turn_id` |
 | `GET /api/mobile/v1/chat/turns/{id}/events` | SSE: progress and blocks |
 | `POST /api/mobile/v1/proposals/{token}/confirm` · `/cancel` · `/edit` | Proposal lifecycle |
 | `POST /api/mobile/v1/postings/{audit_id}/undo` · `/reverse` | Undo, reverse |

@@ -193,4 +193,17 @@
     <string name="feed_locked_title">Accountant</string>
     <string name="feed_locked_body">Something in your books needs attention.</string>
     <string name="chart_change">%1$s in %2$d months</string>
+    <!-- a message held down: reply, copy, share (scenarios AC1–AC4); a person's voucher lines, to and from (AC8) -->
+    <string name="msg_reply">Reply</string>
+    <string name="msg_copy">Copy</string>
+    <string name="msg_share">Share</string>
+    <string name="msg_copied">Copied</string>
+    <string name="msg_actions">Reply, copy or share</string>
+    <string name="replying_to_assistant">Replying to the accountant</string>
+    <string name="replying_to_self">Replying to yourself</string>
+    <string name="reply_drop">Don\'t reply to it</string>
+    <string name="quote_assistant">The accountant</string>
+    <string name="quote_self">You</string>
+    <string name="side_to">To</string>
+    <string name="side_from">From</string>
 </resources>

@@ -6,6 +6,10 @@ import app.accountingassistant.android.ui.chat.editChange
 import app.accountingassistant.android.ui.chat.editableDate
 import app.accountingassistant.android.ui.chat.parseBlock
 import app.accountingassistant.android.ui.chat.parseBlocks
+import app.accountingassistant.android.ui.chat.Quote
+import app.accountingassistant.android.ui.chat.asText
+import app.accountingassistant.android.ui.chat.quote
+import app.accountingassistant.android.ui.chat.summaryOf
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -143,5 +147,39 @@ class ChatItemsTest {
                                    "fallback_text":"$words"}"""),
                          block("""{"type":"text","id":"t2","text":"$words"}"""))
         assertEquals(listOf("t2"), parseBlocks(old).map { it.id })
+    }
+
+    private val wallet = """{"type":"proposal","id":"proposal:t9","token":"t9","title":"کیف پول سبز — موجودی اولیه",
+        "amount":{"value":77.5,"currency":"OMR"},"date":{"iso":"2026-10-16","display":"۲۴ مهر ۱۴۰۵"},
+        "lines":[{"account":"112001","name":"کیف پول سبز","debit":77.5,"credit":0},
+                 {"account":"3110","name":"خالص دارایی اولیه","debit":0,"credit":77.5}],"needs_approval":false}"""
+
+    /** Scenarios AC2, AC8: a card copied as it reads, its lines To and From in a person's books. */
+    @Test fun aCardCopiesAsWhatItIsItsAmountAndItsLines() {
+        val card = parseBlock(block(wallet))
+        assertEquals("کیف پول سبز — موجودی اولیه · ۲۴ مهر ۱۴۰۵\n77.500 OMR\n" +
+                     "112001 کیف پول سبز  To 77.500\n3110 خالص دارایی اولیه  From 77.500",
+                     card.asText("en", "To" to "From"))
+        assertEquals("۳۱۱۰ خالص دارایی اولیه  بس ۷۷٫۵۰۰", card.asText("fa", "بد" to "بس")!!.lines().last())
+        // a reply to it quotes its title and amount, and names the card
+        assertEquals(Quote(false, "کیف پول سبز — موجودی اولیه · 77.500 OMR", "t9"), card.quote("en", "Dr" to "Cr"))
+    }
+
+    /** Scenario AC1: the words as they read, bold without its stars; a long one quoted in short. */
+    @Test fun wordsCopyWithoutTheirMarksAndAQuoteIsShort() {
+        val words = ChatItem.Words("w", "در **کیف پول سبز** ۷۷٫۵۰۰ ریال عمان دارید.")
+        assertEquals("در کیف پول سبز ۷۷٫۵۰۰ ریال عمان دارید.", words.asText("fa", "بد" to "بس"))
+        val long = ChatItem.Words("w2", "word\n".repeat(200)).quote("en", "Dr" to "Cr")!!
+        assertEquals(400, long.text.length)
+        assertTrue(long.text.startsWith("word word") && long.token == null && !long.mine)
+        assertEquals(Quote(true, "و به دلار؟"), ChatItem.User("u", "و به دلار؟").quote("fa", "بد" to "بس"))
+        assertEquals(null, ChatItem.Thinking().asText("en", "Dr" to "Cr"))
+    }
+
+    /** Scenario AC9: the date in the direction of its own words, inside a line that follows its first word. */
+    @Test fun aCardsDateIsIsolatedInItsOwnDirection() {
+        assertEquals("کیف پول سبز، \u2067۲۴ مهر ۱۴۰۵\u2069", summaryOf("کیف پول سبز", "۲۴ مهر ۱۴۰۵"))
+        assertEquals("Office rent · \u206610 Oct 2026\u2069", summaryOf("Office rent", "10 Oct 2026"))
+        assertEquals("Office rent", summaryOf("Office rent", null))
     }
 }

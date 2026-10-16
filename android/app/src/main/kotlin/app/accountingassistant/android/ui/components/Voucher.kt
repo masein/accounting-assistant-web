@@ -45,6 +45,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.accountingassistant.android.R
@@ -97,6 +99,10 @@ fun Voucher(
     footer: @Composable (() -> Unit)? = null,
     onApprove: () -> Unit = {},
     onReject: () -> Unit = {},
+    /** On the card above its fold, never on its buttons: holding it down opens Reply, Copy, Share. */
+    bodyModifier: Modifier = Modifier,
+    /** A person's books: each line says To or From, not Dr and Cr (scenario AC8). */
+    plainSides: Boolean = false,
 ) {
     val c = LocalAccountantColors.current
     val view = LocalView.current
@@ -132,7 +138,7 @@ fun Voucher(
                     }
                 },
         ) {
-            Column(Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp),
+            Column(bodyModifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp),
                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
@@ -157,7 +163,8 @@ fun Voucher(
                              modifier = Modifier.padding(bottom = 4.dp))
                     }
                 }
-                Text(summary, color = c.muted, fontSize = 12.sp)
+                // in its own direction: a Persian description starts on the right in an English app (scenario AC9)
+                Text(summary, color = c.muted, fontSize = 12.sp, style = TextStyle(textDirection = TextDirection.Content))
                 if (lines.isNotEmpty()) Column(
                     Modifier.fillMaxWidth().padding(top = 2.dp)
                         .drawWithCache {
@@ -169,8 +176,9 @@ fun Voucher(
                         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(Numbers.digits(line.code, lang) + "  ", color = c.muted, fontSize = 10.5.sp)
                             Text(line.name, color = c.ink, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                            val (label, value) = if (line.debit.signum() > 0) stringResource(R.string.debit_short) to line.debit
-                                                 else stringResource(R.string.credit_short) to line.credit
+                            val (label, value) = if (line.debit.signum() > 0)
+                                stringResource(if (plainSides) R.string.side_to else R.string.debit_short) to line.debit
+                            else stringResource(if (plainSides) R.string.side_from else R.string.credit_short) to line.credit
                             Text("$label ${Numbers.amount(value, lang, Numbers.places(currency))}", color = c.ink, fontSize = 12.sp,
                                  style = FigureStyle.copy(fontSize = 12.sp, fontWeight = FontWeight(500)))
                         }

@@ -274,11 +274,14 @@
             if (said.trim() || files.length) appendUserTurn(said, files, m.created_at, false, quote);
             return;
           }
+          // the cards that came with this answer, each as it stands now (scenarios AE1–AE2)
+          const cards = Array.isArray(m.cards) ? m.cards : [];
           const text = (typeof c.text === 'string' && c.text.trim())
             ? c.text
             : (typeof c.content === 'string' ? c.content : null);  // legacy shape
           if (!text) return;  // skip tool turns / empty tool-call turns
           if (m.role === 'assistant') appendBubble('assistant', text, { at: m.created_at, animate: false });
+          cards.forEach((card) => appendProposalCard(card, { stored: true }));
         });
         renderEmptyState();
         scrollToBottom(true);
@@ -786,9 +789,16 @@
         const sep = date && _RTL_WORDS.test(date) ? '، ' : ' · ';
         return [card.title, date].filter(Boolean).join(sep);
       }
+      // a person's lines To and From; a company's Dr and Cr («بد», «بس») (scenario AE3)
       function _voucherSide(line) {
         const out = Number(line.credit) > 0 && !(Number(line.debit) > 0);
-        return { side: t(out ? 'aiCardFrom' : 'aiCardTo'), value: out ? line.credit : line.debit };
+        const personal = currentRole === 'personal';
+        return { side: t(out ? (personal ? 'aiCardFrom' : 'aiCardCr') : (personal ? 'aiCardTo' : 'aiCardDr')),
+                 value: out ? line.credit : line.debit };
+      }
+      // a card that posts to the books is drawn as the card itself; one that posts nothing keeps its sentence
+      function _voucherOf(proposal) {
+        return proposal.card && Array.isArray(proposal.card.lines) && proposal.card.lines.length ? proposal.card : null;
       }
       function _voucherBody(card) {
         const box = document.createElement('div');
@@ -1060,7 +1070,9 @@
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
-      function appendProposalCard(proposal) {
+      // opts.stored: a card from a conversation opened again, drawn as it stands now (scenarios AE1–AE2)
+      function appendProposalCard(proposal, opts) {
+        opts = opts || {};
         clearEmptyState();
         const card = document.createElement('div');
         card.className = 'ai-card message-in';
@@ -1087,8 +1099,7 @@
         title.appendChild(titleText);
         // copied and shared as it reads; a reply names the card, so a correction replaces this one
         const what = (proposal.preview && proposal.preview.description) || String(proposal.summary || '').split('\n')[0];
-        const voucherCard = currentRole === 'personal' && proposal.card && Array.isArray(proposal.card.lines)
-          && proposal.card.lines.length ? proposal.card : null;
+        const voucherCard = _voucherOf(proposal);
         addMessageActions(title, () => voucherCard ? _voucherText(voucherCard) : String(proposal.summary || '').trim(),
                           () => _quoteOf('assistant', what, proposal.confirmation_token));
         const host = document.createElement('div');        // holds the swipe's arrow, which stays as the card slides
@@ -1097,11 +1108,8 @@
         addSwipeReply(card, host, () => _quoteOf('assistant', what, proposal.confirmation_token));
         card.appendChild(title);
 
-        // a person's voucher as the card itself, its lines To and From (scenarios AD1–AD5);
-        // a company's, and a card that posts nothing, as the server's summary
-        const voucher = currentRole === 'personal' && proposal.card && Array.isArray(proposal.card.lines)
-          && proposal.card.lines.length ? proposal.card : null;
-        if (voucher) card.appendChild(_voucherBody(voucher));
+        // a voucher as the card itself (scenarios AD1–AD4, AE3); a card that posts nothing as its sentence
+        if (voucherCard) card.appendChild(_voucherBody(voucherCard));
         else {
           const summary = document.createElement('pre');
           summary.className = 'ai-card-summary';
@@ -1164,8 +1172,49 @@
         buttons.appendChild(confirmBtn);
         buttons.appendChild(cancelBtn);
         card.appendChild(buttons);
+        if (opts.stored) _showStoredState(card, proposal);
         messagesEl.appendChild(host);
         scrollToBottom(true);
+      }
+
+      // A card from a conversation opened again, as it stands now (scenario AE2): still pending, its
+      // buttons work; posted, its reference and date; otherwise what became of it, and no buttons.
+      function _showStoredState(card, proposal) {
+        const state = proposal.state || 'pending';
+        if (state === 'pending' && proposal.approval_status !== 'requested') return;
+        const buttons = card.querySelector('.ai-card-actions');
+        const note = document.createElement('div');
+        // settled: no longer "please confirm" above it
+        const head = card.querySelector('.ai-card-head > span:not(.ai-card-icon)');
+        if (head && state !== 'pending') head.textContent = t('aiCardEntry');
+        if (state === 'executed') {
+          if (buttons) buttons.remove();
+          const posted = proposal.posted || {};
+          card.classList.add('is-posted');
+          note.className = 'ai-card-posted';
+          // each part in its own direction («JE-۰۰۴۲» beside a Persian date jumbled), a comma between
+          // them on a right-to-left page, where a middle dot reads as a zero
+          const sep = document.documentElement.dir === 'rtl' ? '، ' : ' · ';
+          note.appendChild(document.createTextNode(t(posted.undone ? 'aiCardUndone' : 'aiCardPosted')));
+          [posted.voucher ? localCode(posted.voucher) : '', posted.date && posted.date.display].filter(Boolean)
+            .forEach((part) => {
+              note.appendChild(document.createTextNode(sep));
+              const b = document.createElement('bdi');
+              b.textContent = part;
+              note.appendChild(b);
+            });
+        } else if (state === 'pending') {                    // sent for approval: someone else decides
+          if (buttons) buttons.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+          note.className = 'ai-card-note ai-card-approval';
+          note.textContent = '⏳ ' + t('aiSentForApproval');
+        } else {
+          if (buttons) buttons.remove();
+          card.classList.add('is-cancelled');
+          note.className = 'ai-card-gone';
+          note.textContent = t({ replaced: 'aiChatReplaced', expired: 'aiCardExpired', rejected: 'aiCardRejected' }[state]
+                               || 'aiChatCancelled');
+        }
+        card.appendChild(note);
       }
 
       async function executeProposal(cardEl, token) {

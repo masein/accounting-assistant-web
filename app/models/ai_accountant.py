@@ -67,8 +67,10 @@ class AIProposal(Base, TenantMixin):
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, default="pending", server_default="pending"
     )
+    # to the microsecond, as the chat's messages: a card is found under the answer it came with
+    # (the database's now() is per second on SQLite, and a card looked older than that answer)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now(), nullable=False
     )
     executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     executed_audit_id: Mapped[uuid.UUID | None] = mapped_column(

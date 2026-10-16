@@ -167,6 +167,8 @@ class ChatMessageRead(BaseModel):
     role: str
     content: dict
     created_at: str
+    # on an answer: the cards that came with it, each as it stands now (scenarios AE1–AE4)
+    cards: list[dict] = []
 
 
 _SUPPORTED_CHAT_LANGUAGES = ("en", "fa", "es", "ar")
@@ -785,15 +787,74 @@ def list_messages(
         .scalars()
         .all()
     )
+    cards = _history_cards(db, sid, user, rows)
     return [
         ChatMessageRead(
             id=str(m.id),
             role=m.role,
             content=m.content,
             created_at=m.created_at.isoformat() if m.created_at else "",
+            cards=cards.get(str(m.id), []),
         )
         for m in rows
     ]
+
+
+def _history_cards(db: Session, sid: uuid.UUID, user: SessionUser, rows: list[AIChatMessage]) -> dict[str, list[dict]]:
+    """The cards this user made in this conversation, by the answer each came
+    with (the first answer after it), each as it stands now: pending, posted
+    with its reference and date, cancelled, replaced, rejected or expired. A web
+    conversation opened again brought back only its words (scenarios AE1–AE4)."""
+    proposals = db.execute(select(AIProposal).where(AIProposal.session_id == str(sid),
+                                                    AIProposal.user_id == str(user.user_id))
+                           .order_by(AIProposal.created_at)).scalars().all()
+    answers = [m for m in rows if m.role == "assistant" and str((m.content or {}).get("text") or "").strip()]
+    if not proposals or not answers:
+        return {}
+    from app.api.mobile_chat import _stamps
+    from app.models.audit_log import AuditLog
+    from app.services.ai_accountant import blocks as B
+    from app.services.ai_accountant.proposal_tools import PROPOSAL_TTL
+    from app.services.locale_service import get_display_calendar
+
+    items = [{"confirmation_token": str(p.confirmation_token), "tool_name": p.tool_name, "summary": p.summary or "",
+              "preview": p.tool_input if isinstance(p.tool_input, dict) else {}} for p in proposals]
+    names = B.card_names(db, items)
+    stamps = _stamps(db, [p for p in proposals if p.status == "executed"], user)
+    cancelled = [str(p.id) for p in proposals if p.status == "cancelled"]
+    replaced = set()
+    if cancelled:
+        for entity_id, detail in db.execute(select(AuditLog.entity_id, AuditLog.detail).where(
+                AuditLog.entity_type == "ai_proposal", AuditLog.entity_id.in_(cancelled))).all():
+            if detail and "replaced_by" in detail:
+                replaced.add(str(entity_id))
+    calendar, lang = get_display_calendar(db), _user_language(db, user)
+    now = datetime.now(timezone.utc)
+
+    def utc(dt: datetime) -> datetime:                # SQLite gives them back without their zone
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+    out: dict[str, list[dict]] = {}
+    for p, item in zip(proposals, items):
+        made = utc(p.created_at)
+        state = p.status
+        if state == "pending" and p.approval_status != "requested" and made + PROPOSAL_TTL < now:
+            state = "expired"
+        elif state == "cancelled" and p.approval_status == "rejected":
+            state = "rejected"
+        elif state == "cancelled" and str(p.id) in replaced:
+            state = "replaced"
+        card = None
+        if item["preview"].get("lines"):
+            b = B.proposal_block(db, item, calendar=calendar, lang=lang, names=names)
+            card = {k: b[k] for k in ("title", "amount", "date", "lines")}
+        parties = [e for e in (item["preview"].get("new_entities") or []) if isinstance(e, dict) and e.get("name")]
+        answer = next((m for m in answers if utc(m.created_at) >= made), answers[-1])
+        out.setdefault(str(answer.id), []).append({
+            **item, "card": card, "state": state, "approval_status": p.approval_status,
+            "posted": stamps.get(item["confirmation_token"]), "new_entities": parties,
+        })
+    return out
 
 
 @router.post("/execute", response_model=ExecuteResponse)

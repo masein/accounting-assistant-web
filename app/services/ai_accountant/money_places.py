@@ -20,6 +20,7 @@ from datetime import date as _date
 from types import SimpleNamespace
 from typing import Any, Literal
 
+from app.services.ai_accountant.base import Replaceable
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -49,7 +50,7 @@ def find_place(db, name: str, parent_code: str):
     return parent, None
 
 
-class ProposeMoneyPlaceInput(BaseModel):
+class ProposeMoneyPlaceInput(Replaceable):
     place: str = Field(..., min_length=1, max_length=120,
                        description="What the person calls the place, as they said it: «کیف پول سبز», «گاوصندوق», «حساب ملت», 'blue wallet'.")
     kind: Literal["cash", "bank"] = Field(..., description="cash: a wallet, purse, pocket, vault, safe or box of notes. bank: a bank account or a card.")

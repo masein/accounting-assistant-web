@@ -3068,6 +3068,8 @@ window.I18N_PACKS.fa = Object.assign({
         aiChatShareTelegram: 'تلگرام',
         aiChatShareWhatsApp: 'واتس‌اپ',
         aiChatShareEmail: 'ایمیل',
+        aiCardTo: 'به',
+        aiCardFrom: 'از',
         aiChatEmptyTitle: 'چه کاری می‌خواهید انجام دهید؟',
         aiChatEmptyBody: 'پرداختی را ثبت کنید، دربارهٔ ارقامتان بپرسید، یا رسید و صورتحساب بانکی را همین‌جا رها کنید. تا کارتی را تأیید نکنید چیزی ذخیره نمی‌شود.',
         aiChatExample1: 'امروز ۲٬۵۰۰٬۰۰۰ اجارهٔ دفتر از بانک پرداخت کردم',

@@ -3054,6 +3054,8 @@ window.I18N_PACKS.es = Object.assign({
         aiChatShareTelegram: 'Telegram',
         aiChatShareWhatsApp: 'WhatsApp',
         aiChatShareEmail: 'Correo',
+        aiCardTo: 'A',
+        aiCardFrom: 'De',
         aiChatEmptyTitle: '¿Qué quieres hacer?',
         aiChatEmptyBody: 'Registra un pago, pregunta por tus cifras o suelta aquí un recibo o extracto bancario. Nada se guarda hasta que confirmes una tarjeta.',
         aiChatExample1: 'Pagué hoy 2.500 de alquiler de la oficina desde el banco',

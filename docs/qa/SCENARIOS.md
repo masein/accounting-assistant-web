@@ -530,3 +530,15 @@ From the owner, on the phone: "I want to be able to reply, share or copy a messa
 | AC9 | The date in its place | The app in English, a Persian card dated ۲۴ مهر ۱۴۰۵ | The line reads «کیف پول سبز — موجودی اولیه · ۲۴ مهر ۱۴۰۵», right to left, the date in one piece |
 | AC10 | No button names | A draft card, asked in Persian with the app in English | The reply says the card is ready; it never names a button («دکمهٔ تأیید»), as the buttons are in the app's own language (Post, ثبت, Confirm) |
 | AC11 | Swipe to reply | Phone, or the web on a touch screen: swipe an answer, your own message or a card left | It follows the finger and a reply arrow comes up beside it; past the line the arrow fills (and the phone ticks). Let go there: replying to it, as AC4. A short swipe springs back and does nothing; a swipe right, or scrolling up and down, never replies. A card is swiped by its body, never from its buttons |
+
+## AD. A person's card on the web (2026-10-16)
+
+From the owner, after AC8: on the web, a draft card in a person's books still showed the server's own summary, in English, with "DR" and "CR" («Proposed journal entry on 2026-10-16 (OMR): DR 112001 کیف پول سبز: 77.5 …»). The phone already showed the card itself, with To and From.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| AD1 | The card itself | Personal books on the web: «۷۷٫۵ ریال عمان توی کیف پول سبز داریم» → its draft card | The amount large with its currency (77.500 OMR), what it is and its date («کیف پول سبز — موجودی اولیه، ۲۴ مهر ۱۴۰۵»), and each line: its code, its name, «به» or «از» and the amount. No "Proposed journal entry", no DR or CR |
+| AD2 | In English | The same with the question in English | "To" and "From", the date in English |
+| AD3 | Copy and reply | Copy the card; reply to it | Copied as it reads (what it is and the date, the amount, each line with To or From); a reply names the card (AC5) |
+| AD4 | Cards without lines | A card that posts nothing to the books (count the books in Omani rials, remember a preference) | Its sentence as before |
+| AD5 | Company books | A company's draft card on the web | As before: the summary, DR and CR |

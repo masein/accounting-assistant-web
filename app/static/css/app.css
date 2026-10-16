@@ -1113,6 +1113,17 @@
     .msg-swipe-arrow { position: absolute; right: 0.4rem; top: 50%; width: 30px; height: 30px; margin-top: -15px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #e6f4f3; color: var(--primary); opacity: var(--pull, 0); transform: scale(calc(0.6 + 0.4 * var(--pull, 0))); pointer-events: none; transition: background 0.12s, color 0.12s; }
     .msg-swipe-arrow.armed { background: var(--primary); color: #fff; }
     .ai-card-wrap { position: relative; }
+    /* a person's voucher on its card (scenarios AD1–AD5), as the phone draws it */
+    .ai-voucher { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.6rem; }
+    .ai-voucher-amount { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; text-align: start; unicode-bidi: plaintext; }
+    [dir="rtl"] .ai-voucher-amount { text-align: right; }
+    .ai-voucher-ccy { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-inline-start: 0.4rem; }
+    .ai-voucher-what { font-size: 0.85rem; color: var(--text-muted); unicode-bidi: plaintext; text-align: start; }
+    .ai-voucher-lines { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.35rem 0.7rem; background: #f1f5f9; border-radius: 10px; }
+    .ai-voucher-line { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.88rem; padding: 0.15rem 0; }
+    .ai-voucher-code { color: var(--text-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+    .ai-voucher-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .ai-voucher-side { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .msg-attach { margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
     .msg-attach span { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.1rem 0.5rem; background: rgba(255, 255, 255, 0.22); border-radius: 10px; font-size: 0.75rem; }
 

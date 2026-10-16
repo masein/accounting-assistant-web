@@ -126,6 +126,9 @@ class ChatProposal(BaseModel):
     amount_in_base: Money | None = None
     # parties the card will create on Confirm ("Will create client: Aria")
     new_entities: list[dict] = []
+    # the voucher as the phone draws it: what, when, how much, each line with its account's name
+    # (scenarios AD1–AD5); None for a card that posts nothing to the books
+    card: dict | None = None
 
 
 class ChatResponse(BaseModel):
@@ -556,6 +559,9 @@ async def chat(
                            lang=_user_language(db, user), channel="web",
                            latency_ms=int((time.perf_counter() - turn_started) * 1000),
                            personal=user.role == Role.PERSONAL)
+    from app.services.ai_accountant.orchestrator import _message_language
+    cards = _voucher_cards(db, result.proposals,
+                           lang=_message_language(payload.message, _user_language(db, user)))
     return ChatResponse(
         session_id=result.session_id,
         text=result.text,
@@ -570,6 +576,7 @@ async def chat(
                 approval_threshold=p.get("approval_threshold"),
                 amount_in_base=p.get("amount_in_base"),
                 new_entities=list(p.get("new_entities") or []),
+                card=cards.get(str(p["confirmation_token"])),
             )
             for p in result.proposals
         ],
@@ -577,6 +584,26 @@ async def chat(
         stop_reason=result.stop_reason,
         turns=result.turns,
     )
+
+
+def _voucher_cards(db: Session, proposals: list[dict], *, lang: str) -> dict[str, dict]:
+    """Each voucher card's title, date, amount and lines, by token, as the phone's
+    card says them (blocks.proposal_block): a person's card on the web showed the
+    server's English summary, «DR 112001 کیف پول سبز: 77.5» (scenario AD1)."""
+    out: dict[str, dict] = {}
+    try:
+        from app.services.ai_accountant import blocks as B
+        from app.services.locale_service import get_display_calendar
+        calendar = get_display_calendar(db)
+        names = B.card_names(db, proposals)
+        for p in proposals or []:
+            if not ((p.get("preview") or {}).get("lines") if isinstance(p.get("preview"), dict) else None):
+                continue
+            b = B.proposal_block(db, p, calendar=calendar, lang=lang, names=names)
+            out[str(p["confirmation_token"])] = {k: b[k] for k in ("title", "amount", "date", "lines")}
+    except Exception:  # noqa: BLE001 — the summary still says it
+        logger.warning("voucher cards for the web chat failed", exc_info=True)
+    return out
 
 
 def _session_to_read(session: AIChatSession, count: int, snippet: str | None = None) -> ChatSessionRead:

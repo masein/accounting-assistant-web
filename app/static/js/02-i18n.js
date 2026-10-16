@@ -3076,6 +3076,8 @@
         aiChatShareTelegram: 'Telegram',
         aiChatShareWhatsApp: 'WhatsApp',
         aiChatShareEmail: 'E-mail',
+        aiCardTo: 'To',
+        aiCardFrom: 'From',
         aiChatEmptyTitle: 'What would you like to do?',
         aiChatEmptyBody: 'Record a payment, ask about your numbers, or drop a receipt or bank statement here. Nothing is saved until you confirm a card.',
         aiChatExample1: 'Paid 2,500,000 for office rent from the bank today',

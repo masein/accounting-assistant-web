@@ -427,7 +427,9 @@
           ? `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior_beginning))}</td>`
           : '';
         const pctCell = `<td style="${baseStyle} ${weight} ${bg} text-align:center; font-variant-numeric:tabular-nums; color:${(r.change_pct != null && r.change_pct < 0) ? '#b91c1c' : '#334155'};">${escapeHtml(fmtPct(r.change_pct))}</td>`;
-        return `<tr>${labelCell}${curCell}${priorCell}${beginningCell}${pctCell}</tr>`;
+        // a balance-sheet line opens the accounts behind it (scenarios AA2)
+        const bsLine = report.report_type === 'iran_balance_sheet' && r.row_type === 'line' ? ` data-bs-line="${escapeHtml(r.key || '')}"` : '';
+        return `<tr${bsLine}>${labelCell}${curCell}${priorCell}${beginningCell}${pctCell}</tr>`;
       }).join('');
 
       const titleMap = {
@@ -560,7 +562,8 @@
         }
         const curCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_current))}</td>`;
         const priorCell = `<td style="${baseStyle} ${weight} ${bg} text-align:right; font-variant-numeric:tabular-nums;">${escapeHtml(fmtParens(r.amount_prior))}</td>`;
-        return `<tr>${labelCell}${curCell}${priorCell}</tr>`;
+        const bsLine = report.report_type === 'uk_balance_sheet' && r.row_type === 'line' ? ` data-bs-line="${escapeHtml(r.key || '')}"` : '';
+        return `<tr${bsLine}>${labelCell}${curCell}${priorCell}</tr>`;
       }).join('');
 
       const titleMap = {

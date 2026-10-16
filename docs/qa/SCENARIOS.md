@@ -485,3 +485,16 @@ From the owner, on the phone with personal books: «من هشتاد و شش ری
 | Z3 | Choosing the currency | Personal books: the phone's account sheet → «Your books' currency» → Omani rial; on the web, My finances → Your books' currency | The books now count in Omani rials: the dashboard, the chat and the cards say OMR, with three places (86.100). Once the books hold entries, the currency is shown but no longer offered («Your books already have entries, so their currency stays»), and the server refuses a change: those entries would count as nothing without a rate (three months of rials read 0.000 OMR in the first screenshots). Only a person's own books offer it; a company's currency stays with the platform admin |
 | Z4 | The words for it | In books whose chart is in English, and in Persian: «افتتاحیه», «موجودی اولیه», «خالص دارایی», "opening balance" | Each finds Opening net worth (3110) first; none is "not found in the chart". «سرمایه» alone is left to the chart: in a person's books it is as often investment («سرمایه‌گذاری») |
 | Z5 | One language on a card | The app in English, the question in Persian: «چقدر پول داریم الان؟» | The card and the sentence are both Persian: «موجودی نقد و بانک»; asked in English, both are English |
+
+## AA. What changed on the balance sheet (2026-10-15)
+
+From the owner, on Manager reports → the balance sheet: assets went from 27,954,918,967 to about 47 billion rials between the two dates, and nothing said why. Was it cash, or something else? The chart showed three totals; the table showed each line's percentage, not what each line added.
+
+| ID | Scenario | Steps | Expected |
+|---|---|---|---|
+| AA1 | What changed, by line | Click «دارایی‌ها» on the balance sheet's chart | A window: assets from the earlier figure to the later, the change and its percentage, and each asset line that moved, biggest change first: earlier, later, the change in rials and its share of the whole change («موجودی نقد +۱۲٬۳۰۰٬۰۰۰٬۰۰۰ — ۶۴٪ از افزایش»). Lines that didn't move are left out. Liabilities and equity the same |
+| AA2 | Behind a line | Click «موجودی نقد» in that window, or its row in the table | The accounts that make up the line (each bank, the cash box), each with its earlier and later balance and change, biggest first; they add up to the line. Back returns to the lines |
+| AA3 | The entries | Click one account | Its entries between the two dates (the day after the earlier date to the later one), searchable, as the other drill-downs |
+| AA4 | The result not yet closed | Equity → retained earnings | The accounts under it, and a line for the profit or loss not yet closed into it, so the line still adds up |
+| AA5 | At a glance | The balance sheet's charts | A chart «What changed» ranks every line by its change (increases one colour, decreases another); clicking a bar opens AA2 |
+| AA6 | UK books | The same on a UK balance sheet (Cash at bank and in hand, Debtors…) | The same windows, in English, in pounds with pence |

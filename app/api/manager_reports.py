@@ -135,6 +135,27 @@ def iran_income_statement(
     )
 
 
+@router.get("/financial/{statement}/balance-sheet/lines/{key}")
+def balance_sheet_line_accounts(
+    statement: str,
+    key: str,
+    as_of: date | None = Query(None),
+    comparative_as_of: date | None = Query(None),
+    currency: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """The accounts behind one balance-sheet line, on both dates, biggest
+    change first: what made assets rise (scenarios AA1–AA6). The dates default
+    as the statement's do: today, and a year before."""
+    from app.services.reporting.balance_change import line_accounts
+    from app.services.reporting.iran_statement_service import _shift_one_year
+    if statement not in ("iran", "uk"):
+        raise HTTPException(status_code=404, detail="Not Found")
+    on = as_of or date.today()
+    return line_accounts(db, statement=statement, key=key, as_of=on,
+                         comparative_as_of=comparative_as_of or _shift_one_year(on), currency=currency)
+
+
 @router.get("/financial/iran/balance-sheet", response_model=IranBalanceSheetResponse)
 def iran_balance_sheet(
     as_of: date | None = Query(None),

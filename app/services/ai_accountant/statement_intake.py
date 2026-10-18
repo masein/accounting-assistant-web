@@ -296,7 +296,8 @@ async def maybe_statement_intake(
             # its test is its header words and dated rows — and a running
             # balance, which a journal export (debit/credit too) doesn't have.
             dates, headers = statement_text_score(text)
-            has_balance = any(w in text.lower() for w in ("balance", "مانده", "saldo", "الرصيد"))
+            # «موجودی» is the balance column of Parsian's export and other Iranian banks' (2026-10-18)
+            has_balance = any(w in text.lower() for w in ("balance", "مانده", "موجودی", "saldo", "الرصيد", "رصيد"))
             # a file the bank named, with a running balance on dated rows, is its statement however
             # short: «mellat-….csv» of two rows, shared from the bank's app with no words, went to
             # the model and failed with none set up (QA 2026-10-16)

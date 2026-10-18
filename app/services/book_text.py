@@ -137,6 +137,9 @@ TEXT: dict[str, dict[str, str]] = {
     "fee_note": {"en": "Transaction fee - {method} via {bank}", "fa": "کارمزد تراکنش - {method} از طریق {bank}"},
     "fee_deduction": {"en": "Bank fee deduction - {bank}", "fa": "کسر کارمزد بانک - {bank}"},
     "stmt_row": {"en": "Bank statement row #{n}", "fa": "ردیف {n} صورت‌حساب بانکی"},
+    # a statement posted by the user's rules, a voucher a day (scenarios AF2–AF6)
+    "stmt_day": {"en": "{bank} statement — {date}", "fa": "گردش {bank} — {date}"},
+    "reversed_statement_day": {"en": "Reversal of {reference}", "fa": "برگشت سند {reference}"},
     "quote_invoice": {"en": "Quote {number}", "fa": "پیش‌فاکتور {number}"},
     "imported_voucher": {"en": "Imported voucher {number}", "fa": "سند واردشده {number}"},
     # ── accounts the system opens itself ──

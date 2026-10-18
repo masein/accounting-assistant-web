@@ -902,7 +902,9 @@
       function appendStatementCard(card, intake, fmt) {
         const c = intake.counts || {};
         // no bank found in the file or the message: no "— Unknown" after the title
-        const bank = intake.bank_name && intake.bank_name !== 'Unknown' ? ' — ' + intake.bank_name : '';
+        // the bank as the reader writes it («پارسیان», not "Parsian" on a Persian page)
+        const name = intake.bank_label || (intake.bank_name !== 'Unknown' ? intake.bank_name : '');
+        const bank = name ? ' — ' + name : '';
         let html = '<div style="font-weight:600;margin-bottom:0.3rem;">' + escapeHtml(t('chatStmtTitle') + bank) + '</div>';
         if (intake.status === 'duplicate') {
           html += '<div>' + escapeHtml(t('chatStmtDuplicateFile')) + '</div>';
@@ -1413,6 +1415,9 @@
           }
           sessionId = data.session_id;
           if (data.text) appendBubble('assistant', data.text, { at: new Date().toISOString() });
+          // a statement read from the file comes before the card made of it (scenario AF2)
+          const intakeFirst = data.intake && (data.proposals || []).length;
+          if (intakeFirst) appendIntakeCard(data.intake);
           for (const proposal of (data.proposals || [])) {
             appendProposalCard(proposal);
           }
@@ -1420,7 +1425,7 @@
           const ask = (data.tool_calls || []).slice().reverse()
             .find((c) => c && c.name === 'ask_with_choices' && c.result && Array.isArray(c.result.options));
           if (ask) appendChoices(ask.result.options);
-          if (data.intake) appendIntakeCard(data.intake);
+          if (data.intake && !intakeFirst) appendIntakeCard(data.intake);
           statusEl.textContent = tf('aiChatStatusCounter', { turns: data.turns, calls: (data.tool_calls || []).length });
           loadSessions(sessionSearchEl ? sessionSearchEl.value.trim() : '');
         } catch (e) {

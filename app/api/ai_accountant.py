@@ -269,6 +269,39 @@ def _is_bare_confirmation(message: str | None) -> bool:
     return bool(message) and bool(_CONFIRM_RE.match(message))
 
 
+# Words that say what to do with a statement's rows, not only that it is one: «… مبالغی که علامت +
+# دارند در بدهکار حساب بانک دی و بستانکار درآمد شهریه … ثبت شوند» (the owner's father, 2026-10-18).
+# «ثبتشون کن» alone stays the import's own summary and its step-by-step review.
+_SIDE_WORDS = ("بدهکار", "بستانکار", "علامت", "debit", "credit", "debe", "haber", "مدين", "دائن")
+_POST_WORDS = ("ثبت", "سند", "بزن", "record", "post", "book", "registra", "asiento", "سجّل", "سجل", "قيد")
+
+
+def _gives_rules(message: str | None) -> bool:
+    low = " ".join((message or "").split()).lower()
+    if not low:
+        return False
+    return any(w in low for w in _SIDE_WORDS) or (len(low.split()) >= 10 and any(w in low for w in _POST_WORDS))
+
+
+def _statement_handoff(db: Session, turn, message: str | None) -> str | None:
+    """The model's context for a statement just imported, when the user's words say what to do with its
+    rows (scenario AF2); None when they don't, and the import's own summary answers."""
+    sid = (turn.intake or {}).get("statement_id")
+    if not sid or not _gives_rules(message):
+        return None
+    from app.services.ai_accountant.statement_posting import context_for_model
+    text = context_for_model(db, sid)
+    return "\n\n" + text if text else None
+
+
+_NO_AI_FOR_RULES = {
+    "en": "I imported the statement, but the assistant isn't available to apply your rules right now. Try again in a few minutes, or post the rows from the Bank statements page.",
+    "fa": "صورتحساب وارد شد، اما دستیار الان در دسترس نیست تا قاعده‌های شما را اعمال کند. چند دقیقهٔ دیگر دوباره بفرستید، یا ردیف‌ها را از صفحهٔ صورتحساب‌های بانکی ثبت کنید.",
+    "es": "Importé el extracto, pero el asistente no está disponible para aplicar tus reglas ahora. Inténtalo de nuevo en unos minutos o registra las filas desde la página de extractos bancarios.",
+    "ar": "استوردت الكشف، لكن المساعد غير متاح الآن لتطبيق قواعدك. حاول بعد دقائق، أو سجّل الصفوف من صفحة كشوف الحساب البنكية.",
+}
+
+
 def _deterministic_turn(
     db: Session,
     user: SessionUser,
@@ -278,6 +311,7 @@ def _deterministic_turn(
     intake: dict | None,
     tool_calls: list[dict] | None = None,
     quote: dict | None = None,
+    user_saved: bool = False,
 ) -> ChatResponse:
     """Persist a server-decided turn (path guard / smart-intake detection)
     into the session history — no LLM call, nothing written to the books."""
@@ -298,7 +332,8 @@ def _deterministic_turn(
         said["files"] = sent_files(db, payload.attachment_ids)
     if quote:
         said["reply_to"] = quote
-    db.add(AIChatMessage(session_id=session.id, role="user", content=said, created_at=now))
+    if not user_saved:          # a turn the model began has kept the user's words already
+        db.add(AIChatMessage(session_id=session.id, role="user", content=said, created_at=now))
     db.add(AIChatMessage(session_id=session.id, role="assistant",
                          content={"role": "assistant", "text": assistant_text},
                          created_at=now + timedelta(milliseconds=1)))
@@ -411,14 +446,17 @@ async def chat(
             ocr_ids.append(att_id)
 
     intake_context = ""
+    stmt_handoff = None          # a statement imported from the file, handed to the model with the user's rules
     if sheet_atts or ocr_ids:
         from app.services.ai_accountant import progress
         progress.emit("reading_files", lang=_user_language(db, user))
     if sheet_atts:
         from app.core.permissions import Perm, role_can
 
+        from app.services.ai_accountant.orchestrator import _message_language as _said_in
         intake = build_spreadsheet_intake(
-            db, sheet_atts, can_migrate=role_can(user.role, Perm.MIGRATION_WRITE)
+            db, sheet_atts, can_migrate=role_can(user.role, Perm.MIGRATION_WRITE),
+            lang=_said_in(payload.message, _user_language(db, user)),     # «به نظر فهرست سندهاست …» (AF8)
         )
         if intake is not None and intake.kind in ("chart_export", "transactions"):
             # Deterministic detection + confirm card — no LLM call, no silent
@@ -455,9 +493,12 @@ async def chat(
                                    "status": sheet_turn.intake.get("status")}, ensure_ascii=False),
             )
             db.commit()
-            from app.core.messages import localize_lists
-            return _deterministic_turn(db, user, payload, sheet_turn.text,
-                                       intake=localize_lists(sheet_turn.intake, _user_language(db, user)), quote=quote)
+            handoff = _statement_handoff(db, sheet_turn, payload.message)
+            if handoff is None:
+                from app.core.messages import localize_lists
+                return _deterministic_turn(db, user, payload, sheet_turn.text,
+                                           intake=localize_lists(sheet_turn.intake, _user_language(db, user)), quote=quote)
+            stmt_handoff, intake_context = sheet_turn, handoff
 
     # A common question the books answer directly ("how much cash?", "who owes
     # us?"): the read tool runs without the model — exact, instant, no tokens,
@@ -475,7 +516,16 @@ async def chat(
     # From here on the turn uses the AI (OCR, statement vision, the model
     # loop): per-user / per-company limits and the 24-hour token budget.
     from app.services.ai_usage import guard_ai_request
-    guard_ai_request(db)
+    try:
+        guard_ai_request(db)
+    except Exception:
+        if stmt_handoff is None:
+            raise
+        # the statement is in; the rules wait for the assistant (scenario AF7)
+        from app.services.ai_accountant.orchestrator import _message_language as _said_in
+        lang_ = _said_in(payload.message, _user_language(db, user))
+        return _deterministic_turn(db, user, payload, stmt_handoff.text + "\n\n" + _NO_AI_FOR_RULES.get(lang_, _NO_AI_FOR_RULES["en"]),
+                                   intake=stmt_handoff.intake, quote=quote)
 
     ocr_context = ""
     ocr_amounts: list[int] = []
@@ -498,10 +548,19 @@ async def chat(
                                    "status": stmt_turn.intake.get("status")}, ensure_ascii=False),
             )
             db.commit()
-            return _deterministic_turn(db, user, payload, stmt_turn.text, intake=stmt_turn.intake, quote=quote)
-        ocr_context, ocr_amounts = await _build_ocr_context(db, ocr_ids)
+            handoff = _statement_handoff(db, stmt_turn, payload.message)
+            if handoff is None:
+                return _deterministic_turn(db, user, payload, stmt_turn.text, intake=stmt_turn.intake, quote=quote)
+            stmt_handoff, intake_context = stmt_turn, handoff
+        else:
+            ocr_context, ocr_amounts = await _build_ocr_context(db, ocr_ids)
     ocr_context = (ocr_context or "") + intake_context
     turn_started = time.perf_counter()
+    if stmt_handoff is not None and not payload.session_id:
+        # the conversation first, so a turn the model can't finish still answers in it (AF7)
+        from app.services.ai_accountant.orchestrator import _get_or_create_session
+        payload = payload.model_copy(update={"session_id": str(_get_or_create_session(db, user_id=user.user_id, session_id=None).id)})
+        db.commit()
     try:
         result = await run_chat_turn(
             db,
@@ -511,12 +570,19 @@ async def chat(
             session_id=payload.session_id,
             lang=_user_language(db, user),
             ocr_context=ocr_context or None,
-            attachment_ids=payload.attachment_ids or None,
+            # a statement's file isn't a receipt to pin on each of its vouchers
+            attachment_ids=(payload.attachment_ids or None) if stmt_handoff is None else None,
             source_amounts=ocr_amounts or None,
             mode="personal" if user.role == Role.PERSONAL else "default",
             reply_to=quote,
         )
     except AIAccountantError as e:
+        if stmt_handoff is not None:
+            # the statement is in; the rules wait for the assistant (scenario AF7)
+            from app.services.ai_accountant.orchestrator import _message_language as _said_in
+            lang_ = _said_in(payload.message, _user_language(db, user))
+            return _deterministic_turn(db, user, payload, stmt_handoff.text + "\n\n" + _NO_AI_FOR_RULES.get(lang_, _NO_AI_FOR_RULES["en"]),
+                                       intake=stmt_handoff.intake, quote=quote, user_saved=True)
         # the detail is for whoever configures the AI; the code lets the chat say it plainly.
         # An empty provider account isn't "try again in a moment" (Metis 402 "Insufficient
         # credit, please top up", model benchmark 2026-10-12): the reason says so.
@@ -585,7 +651,14 @@ async def chat(
         tool_calls=result.tool_calls,
         stop_reason=result.stop_reason,
         turns=result.turns,
+        # the statement imported from the file stays on screen beside the card made of it (AF2)
+        intake=_localized_intake(db, user, stmt_handoff.intake) if stmt_handoff is not None else None,
     )
+
+
+def _localized_intake(db: Session, user: SessionUser, intake: dict) -> dict:
+    from app.core.messages import localize_lists
+    return localize_lists(intake, _user_language(db, user))
 
 
 def _voucher_cards(db: Session, proposals: list[dict], *, lang: str) -> dict[str, dict]:

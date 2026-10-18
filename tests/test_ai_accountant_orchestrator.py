@@ -520,9 +520,10 @@ class TestRegistry:
         reg = build_default_registry()
         names = {t.name for t in reg}
         assert names == {
+            "ask_with_choices",
             "find_entity", "list_entities", "query_ledger",
             "get_account_balance", "search_accounts", "get_financial_statement",
-            "get_tax_summary", "get_company_defaults", "review_bank_statement", "get_insights",
+            "get_tax_summary", "get_company_defaults", "review_bank_statement", "propose_post_statement", "get_insights",
             "get_spending_summary", "get_cash_position", "get_cash_forecast",
             "propose_create_transaction",
             "propose_create_entity", "propose_update_entity", "propose_reverse_transaction",
@@ -551,7 +552,7 @@ class TestPersonalMode:
         assert names == {
             "find_entity", "list_entities", "query_ledger",
             "get_account_balance", "search_accounts", "get_financial_statement",
-            "get_tax_summary", "get_company_defaults", "review_bank_statement", "get_insights",
+            "get_tax_summary", "get_company_defaults", "review_bank_statement", "propose_post_statement", "get_insights",
             "get_spending_summary", "get_cash_position", "get_cash_forecast",
             "propose_create_transaction",
             "propose_create_entity", "propose_update_entity", "propose_reverse_transaction",

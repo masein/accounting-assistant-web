@@ -371,6 +371,14 @@ def _dispatch(db: Session, proposal: AIProposal, *, actor_user_id: str, actor_us
             actor_username=actor_username,
             ip_address=ip_address,
         )
+    elif proposal.tool_name == "propose_post_statement":
+        from app.services.ai_accountant.statement_posting import execute_statement_posting
+        txn_id, audit_id = execute_statement_posting(
+            db, proposal,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+        )
     elif proposal.tool_name == "propose_remember_preference":
         from app.services.ai_accountant.time_execute import _audit
         from app.services.learned_preferences import remember
@@ -668,6 +676,8 @@ def _resolve_undoable_audit(db: Session, audit_log_id: str, actor_user_id: str) 
         )
     if audit.entity_type == "payment" and audit.action == "create":
         return audit                           # a payment on an invoice (_perform_payment_undo)
+    if audit.entity_type == "statement_posting" and audit.action == "create":
+        return audit                           # a statement's vouchers, all of them (undo_statement_posting)
     if audit.entity_type != "transaction" or audit.action != "create":
         raise UndoNotApplicable(
             f"Reverse is only implemented for transaction creates (got "
@@ -880,6 +890,10 @@ def undo_action(
     if audit.entity_type == "payment":
         return _perform_payment_undo(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
                                      ip_address=ip_address, tool_name="undo_action", delete=True)
+    if audit.entity_type == "statement_posting":
+        from app.services.ai_accountant.statement_posting import undo_statement_posting
+        return undo_statement_posting(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
+                                      ip_address=ip_address, delete=True, tool_name="undo_action")
     if _entry_in_closed_period(db, audit):
         return _perform_reversal(
             db, audit,
@@ -929,6 +943,10 @@ def reverse_action(
     if audit.entity_type == "payment":
         return _perform_payment_undo(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
                                      ip_address=ip_address, tool_name="reverse_action", delete=False)
+    if audit.entity_type == "statement_posting":
+        from app.services.ai_accountant.statement_posting import undo_statement_posting
+        return undo_statement_posting(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
+                                      ip_address=ip_address, delete=False, tool_name="reverse_action")
     return _perform_reversal(
         db, audit,
         actor_user_id=actor_user_id,

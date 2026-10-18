@@ -17,6 +17,7 @@ import uuid
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
 from sqlalchemy import select
 
 from tests.test_ai_guardrails import _calls, _text
@@ -28,6 +29,15 @@ AMIR = [("333.77", "Muscat Airbnb"), ("851.06", "Muscat Airbnb"), ("525.63", "Mu
         ("331.63", "Wattala Airbnb"), ("490.00", "Yerevan Airbnb"), ("350.00", "Yerevan Airbnb")]
 MESSAGE = ("Amir payed for these:\n\n" + "\n".join(f"${a} - {w}" for a, w in AMIR)
            + "\n\ni should pay him back someday keep track of the payments")
+
+
+@pytest.fixture(autouse=True)
+def _a_list_is_many_requests(monkeypatch):
+    """Nine cards, nine confirms and the questions after are more than a minute's share of requests for the
+    suite's one client ('testclient'): the full run answered the last question 429."""
+    import app.main as main_mod
+    from app.core.rate_limit import RateLimiter
+    monkeypatch.setattr(main_mod, "_api_limiter", RateLimiter(max_requests=100_000, window_seconds=60))
 
 
 def _card(desc, dr, cr, amount, *, new=None, currency="USD"):

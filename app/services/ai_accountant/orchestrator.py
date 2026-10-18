@@ -260,8 +260,10 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * SPEAK HUMAN, NOT ACCOUNTANT. Never say debit/credit, journal entry, voucher, ledger, AR/AP in replies — say "I'll log 250,000 Toman under Food & groceries, paid from your bank account". (Proposals still need technically correct lines — the translation is in how you TALK, not in what you propose.)
 * The chart of accounts is a set of everyday categories (خوراک، حمل‌ونقل، اجاره، اقساط…). Resolve them with ``search_accounts`` exactly as usual. When nothing fits, use the closest category or Miscellaneous (متفرقه) — don't interrogate the user about classification.
 * Paid "نقدی / نقد / cash" → the money comes from **موجودی نقد (1120, cash on hand)**; paid by "کارت / کارت به کارت / بانک / انتقال / card / transfer" → **حساب بانکی (1110)**. ``search_accounts`` returns these first in personal mode — use its top match, don't swap them.
-* Most entries have NO counterparty entity. Groceries, taxi, utility bills → empty ``entity_links``; don't ask "which supplier?". Create an entity only for a real recurring party the user names (their landlord, a person who owes them money, their bank).
+* Most entries have NO counterparty entity. Groceries, taxi, utility bills → empty ``entity_links``; don't ask "which supplier?". Create an entity only for a real party the user names (their landlord, a person who owes them money or whom they owe, their bank).
 * Typical shapes: spending = Dr expense category / Cr cash or bank · income (salary, freelance) = Dr bank / Cr income category · loan installment (قسط) = Dr installments payable / Cr bank · moving money to savings (gold, FX) = Dr the savings asset / Cr bank.
+* MONEY BETWEEN THE USER AND A PERSON. Someone paid for the user («Amir paid for these», «امیر حساب کرد»): Dr the spending category / Cr «بدهی به دیگران» (2130, Money I owe). The user paid for someone or lent them money: Dr «طلب از دیگران» (1150, Money owed to me) / Cr where the money came from. Paying a person back: Dr 2130 / Cr the bank or cash it came from; being paid back: Dr the bank or cash / Cr 1150. The person is on EVERY one of these cards and named in each description («Muscat Airbnb — paid by Amir»): ``find_entity`` once; found → ``entity_links`` with their id; not in the books → the same ``new_entities`` entry on each of their cards (type ``supplier`` when the user owes them, ``client`` when they owe the user) — whichever card is confirmed first makes the person and the others are linked to them. "How much do I owe Amir?", «کی به من بدهکاره؟», "who do I owe?" → ``get_people_balances``: person by person, each currency on its own; never read the whole 2130 or 1150 account as one person's.
+* A LIST in one message («$333.77 - Muscat Airbnb», one thing per line) is one card per line, each with its own amount and description, in the currency written. Stays, hotels, flights and trip tickets go under «سفر» (Travel).
 * MONEY THE USER ALREADY HAS IN A PLACE («۸۶ ریال توی کیف پولم دارم», «۵۰۰ دلار توی گاوصندوق دارم», «۳ میلیون تو حساب ملت هست», "I have 200 in my bank account") is a STARTING BALANCE: call ``propose_money_place`` with the place as they named it (a wallet, purse, vault, safe or box is ``cash``; a bank account or card is ``bank``), the money's OWN currency and the amount. It makes the place an account of its own the first time and records what is there against Opening net worth. Never ask where the money came from or what to set it against. A place that already has its starting balance is refused: then ask where the extra money came from.
 * SEVERAL CURRENCIES. A person keeps money in several currencies, in several places — rials in a bank at home, Omani rials in a wallet, dollars in a vault — and wants each kept AS IT IS, never exchanged. Money in another currency than the books' is recorded in that currency (``propose_money_place``, or any entry with its ``currency``); never refuse it, never convert it, never ask for a rate. When it is the first money in another currency and the books' currency can still change (said at the end of these instructions), ASK ONCE first, in one short sentence, and offer the two answers with ``ask_with_choices``: count the books in that currency (then ``propose_books_currency``), or keep the books' currency and keep this money in its own (then ``propose_money_place``). Once the books have entries, don't ask: keep it in its own currency.
 * CURRENCY WORDS: «تومان / تومن» is ten Iranian rials. «ریال» alone is the books' currency when that is a rial (IRR, OMR, SAR, QAR); «ریال عمان» is OMR. «بیسه / baisa» is a thousandth of an OMANI rial: 86 rials and 100 baisa is 86.100 OMR. «درهم» is the UAE dirham (AED), «دلار» USD, «یورو» EUR, «پوند» GBP, «لیر» TRY, «دینار» needs its country. Write an amount with its currency's own places (77.500 OMR, never 77.5).
@@ -311,6 +313,154 @@ _STATUS_STRINGS = {
 def _status(lang: str, key: str) -> str:
     pack = _STATUS_STRINGS.get(lang) or _STATUS_STRINGS["en"]
     return pack.get(key) or _STATUS_STRINGS["en"][key]
+
+
+def _fold_party_into(db, txn: dict, party: dict, user_message: str | None = None, *,
+                     classify: bool = True) -> None:
+    """Add the party to the transaction's persisted new_entities + card so
+    Confirm creates and links it. Creating a party is get-or-create by type and
+    name, so on several cards the first confirmed makes it and the others link
+    to it. Idempotent by name. The folded type is re-derived deterministically
+    from the transaction context (a freelancer/contractor paid for services is
+    a supplier, not an employee) — unless ``classify`` is off: a party already
+    on another card keeps that card's type, or each card would make its own."""
+    name_l = (party.get("name") or "").strip().lower()
+    preview = txn.get("preview") or {}
+    ptype = party.get("type")
+    if classify:
+        from app.services.ai_accountant.entity_create import any_staff_cost, classify_entity_type
+        debit_codes = [ln.get("account_code") for ln in (preview.get("lines") or []) if ln.get("debit")]
+        staff = any_staff_cost(db, debit_codes) if debit_codes else None
+        text = f"{user_message or ''} {preview.get('description') or ''}"
+        ptype = classify_entity_type(party.get("type"), text=text, staff_cost=staff)
+    party = {**party, "type": ptype, "role": party.get("role") or ptype}
+    from uuid import UUID
+
+    from app.models.ai_accountant import AIProposal
+    try:
+        row = db.execute(
+            select(AIProposal).where(
+                AIProposal.confirmation_token == UUID(str(txn.get("confirmation_token")))
+            )
+        ).scalar_one_or_none()
+        if row is None or row.status != "pending":
+            return
+        tool_input = dict(row.tool_input or {})
+        ne_list = list(tool_input.get("new_entities") or [])
+        if not any((e.get("name") or "").strip().lower() == name_l for e in ne_list):
+            # Preserve an existing-account link for a bank party; otherwise
+            # the execute path allocates a new GL bank account on Confirm.
+            existing_code = party.get("account_code") if party.get("account_existing") else None
+            ne_list.append({
+                "name": party.get("name"), "type": ptype,
+                "role": party.get("role"),
+                "existing_account_code": existing_code,
+                **({"shared": True} if party.get("shared") else {}),
+            })
+        tool_input["new_entities"] = ne_list
+        row.tool_input = tool_input          # reassign so the JSON change persists
+        db.commit()
+    except Exception:
+        db.rollback()
+        return
+    # Update the card payload + summary shown to the user.
+    txn["preview"] = tool_input
+    card_list = list(txn.get("new_entities") or [])
+    if not any((e.get("name") or "").strip().lower() == name_l for e in card_list):
+        card_list.append(party)
+        txn["new_entities"] = card_list
+        label = party.get("type")
+        if party.get("type") == "bank" and party.get("account_code"):
+            txn["summary"] = (txn.get("summary") or "") + (
+                f"\n  Will create bank: {party.get('name')} → new cash account {party['account_code']}"
+            )
+        else:
+            txn["summary"] = (txn.get("summary") or "") + f"\n  Will create {label}: {party.get('name')}"
+
+
+def _named_in(text: str | None, name: str | None) -> bool:
+    """``name`` as whole words in ``text``, case and letterforms aside."""
+    from app.services.ai_accountant.entity_create import normalize_match_name
+    t, n = normalize_match_name(text), normalize_match_name(name)
+    return bool(n) and re.search(rf"(?<!\w){re.escape(n)}(?!\w)", t) is not None
+
+
+def _link_party(db, txn: dict, entity) -> None:
+    """Link an existing party to a pending transaction card: its persisted
+    ``entity_links`` and the card the user sees."""
+    from uuid import UUID
+
+    from app.models.ai_accountant import AIProposal
+    from app.services.ai_accountant.proposal_tools import _default_role_for_type
+    link = {"entity_id": str(entity.id), "role": _default_role_for_type(entity.type)}
+    try:
+        row = db.execute(select(AIProposal).where(
+            AIProposal.confirmation_token == UUID(str(txn.get("confirmation_token"))))).scalar_one_or_none()
+        if row is None or row.status != "pending":
+            return
+        tool_input = dict(row.tool_input or {})
+        if any(str(e.get("entity_id")) == link["entity_id"] for e in tool_input.get("entity_links") or []):
+            return
+        tool_input["entity_links"] = [*(tool_input.get("entity_links") or []), link]
+        row.tool_input = tool_input              # reassign so the JSON change persists
+        db.commit()
+    except Exception:  # best-effort; never break the turn
+        db.rollback()
+        return
+    txn["preview"] = tool_input
+
+
+def _people_on_every_card(db, proposals: list, *, personal: bool, user_message: str | None = None) -> None:
+    """Whoever an entry is with is on every card of theirs this turn
+    (2026-10-18, scenarios AG1–AG6). «Amir paid for these» and nine lines gave
+    nine cards: only the first made and named Amir; the other eight named no
+    one, and neither did «I paid Amir back 1000 dollars in cash». Model-agnostic:
+    (1) a party one card makes goes on every other entry card that names no
+    party yet and whose description names them (the fullest name named) —
+    whichever is confirmed first makes them, the rest link to them;
+    (2) in a person's books, a card of money owed between the user and someone
+    (Money I owe, Money owed to me) that names one person already in the books
+    is linked to them."""
+    txns = [p for p in proposals if p.get("tool_name") == "propose_create_transaction"]
+    if not txns:
+        return
+    from app.services.ai_accountant.entity_create import normalize_match_name
+    made: dict[str, dict] = {}
+    for t in txns:
+        for ne in t.get("new_entities") or []:
+            if ne.get("name") and ne.get("type") != "bank":
+                made.setdefault(normalize_match_name(ne["name"]), ne)
+    for t in txns:
+        preview = t.get("preview") or {}
+        if preview.get("new_entities") or preview.get("entity_links"):
+            continue                              # the card names its party already
+        named = {k for k, party in made.items() if _named_in(preview.get("description"), party["name"])}
+        # the fullest name named: «paid by Amir Reza» is Amir Reza's, not Amir's too
+        named = {k for k in named if not any(o != k and _named_in(o, k) for o in named)}
+        for key in named:
+            party = made[key]
+            _fold_party_into(db, t, {**{k: party.get(k) for k in ("name", "type", "role")}, "shared": True},
+                             user_message, classify=False)
+            party["shared"] = True                # the card that made them says so too: made once, not on each
+    if not personal:
+        return
+    from app.models.entity import Entity
+    from app.services.ai_accountant.personal_tools import owed_between_people
+    people = None
+    for t in txns:
+        preview = t.get("preview") or {}
+        if preview.get("entity_links") or preview.get("new_entities"):
+            continue
+        if not any(owed_between_people(ln.get("account_code")) for ln in preview.get("lines") or []):
+            continue
+        if people is None:
+            people = db.execute(select(Entity).where(Entity.type != "bank")).scalars().all()
+        named = [e for e in people if _named_in(preview.get("description"), e.name)]
+        # the fullest name named («Amir Reza», not «Amir» inside it); one name is one person
+        names = {normalize_match_name(e.name) for e in named}
+        names = {n for n in names if not any(o != n and _named_in(o, n) for o in names)}
+        if len(names) == 1:
+            _link_party(db, t, next(e for e in named if normalize_match_name(e.name) in names))
 
 
 def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int,
@@ -381,58 +531,6 @@ def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int,
         except Exception:  # best-effort; never break the turn
             db.rollback()
 
-    def _fold_into(txn: dict, party: dict) -> None:
-        """Add the party to the transaction's persisted new_entities + card so
-        Confirm creates and links it. Idempotent by name. The folded type is
-        re-derived deterministically from the transaction context (a freelancer/
-        contractor paid for services is a supplier, not an employee)."""
-        name_l = (party.get("name") or "").strip().lower()
-        preview = txn.get("preview") or {}
-        from app.services.ai_accountant.entity_create import any_staff_cost, classify_entity_type
-        debit_codes = [ln.get("account_code") for ln in (preview.get("lines") or []) if ln.get("debit")]
-        staff = any_staff_cost(db, debit_codes) if debit_codes else None
-        text = f"{user_message or ''} {preview.get('description') or ''}"
-        ptype = classify_entity_type(party.get("type"), text=text, staff_cost=staff)
-        party = {**party, "type": ptype, "role": party.get("role") or ptype}
-        try:
-            row = db.execute(
-                select(AIProposal).where(
-                    AIProposal.confirmation_token == UUID(str(txn.get("confirmation_token")))
-                )
-            ).scalar_one_or_none()
-            if row is None or row.status != "pending":
-                return
-            tool_input = dict(row.tool_input or {})
-            ne_list = list(tool_input.get("new_entities") or [])
-            if not any((e.get("name") or "").strip().lower() == name_l for e in ne_list):
-                # Preserve an existing-account link for a bank party; otherwise
-                # the execute path allocates a new GL bank account on Confirm.
-                existing_code = party.get("account_code") if party.get("account_existing") else None
-                ne_list.append({
-                    "name": party.get("name"), "type": ptype,
-                    "role": party.get("role"),
-                    "existing_account_code": existing_code,
-                })
-            tool_input["new_entities"] = ne_list
-            row.tool_input = tool_input          # reassign so the JSON change persists
-            db.commit()
-        except Exception:
-            db.rollback()
-            return
-        # Update the card payload + summary shown to the user.
-        txn["preview"] = tool_input
-        card_list = list(txn.get("new_entities") or [])
-        if not any((e.get("name") or "").strip().lower() == name_l for e in card_list):
-            card_list.append(party)
-            txn["new_entities"] = card_list
-            label = party.get("type")
-            if party.get("type") == "bank" and party.get("account_code"):
-                txn["summary"] = (txn.get("summary") or "") + (
-                    f"\n  Will create bank: {party.get('name')} → new cash account {party['account_code']}"
-                )
-            else:
-                txn["summary"] = (txn.get("summary") or "") + f"\n  Will create {label}: {party.get('name')}"
-
     dropped: set[int] = set()
     for ent in entities:
         party = _party(ent)
@@ -444,7 +542,7 @@ def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int,
         # LINKS it (time tools already bundle creation, so no fold needed there).
         txn_match = next((t for t in txns if _references(t, party["name"])), None)
         if txn_match is not None:
-            _fold_into(txn_match, party)
+            _fold_party_into(db, txn_match, party, user_message)
         _cancel(ent.get("confirmation_token"))
         dropped.add(id(ent))
 
@@ -898,6 +996,65 @@ def _replay_history(db: Session, session_id: uuid.UUID) -> list[ChatMessage]:
         # Older assistant + tool entries from before this refactor are
         # dropped on replay — they're in Anthropic-block shape and would
         # confuse an OpenAI adapter. The user can /reset the session.
+    return _cards_as_they_stand(db, history)
+
+
+_CARD_STATES = {
+    "executed": "The user confirmed it: it is in the books now. Speak of it as recorded.",
+    "cancelled": "The user cancelled it, or it was replaced: nothing of it was recorded.",
+    "expired": "It expired before the user confirmed it: nothing of it was recorded.",
+}
+
+
+def _cards_as_they_stand(db: Session, history: list[ChatMessage]) -> list[ChatMessage]:
+    """A card's tool result was saved saying «pending», and replayed so for
+    ever: right after the user confirmed nine cards the model said «once you
+    confirm the nine pending cards» (2026-10-18, scenario AG8). Each card's
+    result is replayed with what became of it: confirmed, cancelled or expired."""
+    import json as _json
+
+    pending: dict[int, dict] = {}
+    for i, msg in enumerate(history):
+        if msg.role != "tool" or msg.is_error or not msg.text or '"confirmation_token"' not in msg.text:
+            continue
+        try:
+            body = _json.loads(msg.text)
+        except ValueError:
+            continue
+        if isinstance(body, dict) and body.get("status") == "pending" and body.get("confirmation_token"):
+            pending[i] = body
+    if not pending:
+        return history
+    tokens = []
+    for body in pending.values():
+        try:
+            tokens.append(uuid.UUID(str(body["confirmation_token"])))
+        except ValueError:
+            pass
+    if not tokens:
+        return history
+    from datetime import datetime, timezone
+
+    from app.models.ai_accountant import AIProposal
+    from .proposal_tools import PROPOSAL_TTL
+    rows = {str(tok): (status, made, approval) for tok, status, made, approval in db.execute(
+        select(AIProposal.confirmation_token, AIProposal.status, AIProposal.created_at, AIProposal.approval_status)
+        .where(AIProposal.confirmation_token.in_(tokens))).all()}
+    now = datetime.now(timezone.utc)
+    for i, body in pending.items():
+        hit = rows.get(str(body["confirmation_token"]))
+        if hit is None:
+            continue
+        state, made, approval = hit
+        if made is not None and made.tzinfo is None:     # SQLite gives them back without their zone
+            made = made.replace(tzinfo=timezone.utc)
+        if state == "pending" and approval != "requested" and made is not None and made + PROPOSAL_TTL < now:
+            state = "expired"
+        if state not in _CARD_STATES:
+            continue
+        old = history[i]
+        history[i] = ChatMessage(role="tool", tool_call_id=old.tool_call_id, text=_json.dumps(
+            {**body, "status": state, "next_steps": _CARD_STATES[state]}, default=str))
     return history
 
 
@@ -1140,6 +1297,7 @@ async def run_chat_turn(
                 history.append(trm)
                 _persist_message(db, session_id=chat_session.id, role="tool", content=trm.to_dict())
             _collapse_redundant_entity_proposals(db, proposals, 0, user_message)
+            _people_on_every_card(db, proposals, personal=personal, user_message=user_message)
             return ChatResult(
                 session_id=session_uuid_str,
                 text=(assistant_msg.text or "").strip() or _status(lang, "tool_budget"),
@@ -1153,6 +1311,7 @@ async def run_chat_turn(
             # standalone create and the transaction/time action are often in
             # different LLM turns), so a redundant standalone create is dropped.
             _collapse_redundant_entity_proposals(db, proposals, 0, user_message)
+            _people_on_every_card(db, proposals, personal=personal, user_message=user_message)
             return ChatResult(
                 session_id=session_uuid_str,
                 text=final_text,
@@ -1295,6 +1454,7 @@ async def run_chat_turn(
         fallback_text = _status(lang, "max_turns_candidates").format(candidates=listed)
     else:
         fallback_text = _status(lang, "max_turns_dead_end")
+    _people_on_every_card(db, proposals, personal=personal, user_message=user_message)
     return ChatResult(
         session_id=session_uuid_str,
         text=fallback_text,

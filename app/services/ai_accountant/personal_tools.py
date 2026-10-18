@@ -1,5 +1,6 @@
 """Personal-mode read tools (roadmap 2026-09 §4.12): the monthly report card
-and the savings goals, as the "My finances" page shows them."""
+and the savings goals, as the "My finances" page shows them; and the money
+between the user and other people, person by person (scenarios AG3–AG6)."""
 from __future__ import annotations
 
 from typing import Any
@@ -92,7 +93,109 @@ class GetNetWorth(BaseTool):
                 "missing_rates": sorted(set(nw.missing_rates))}
 
 
+# A person's chart (app/db/seed.py PERSONAL_SEED_ACCOUNTS): «بدهی به دیگران»
+# (Money I owe) and «طلب از دیگران» (Money owed to me), and any account the
+# user opened under them.
+MONEY_I_OWE, MONEY_OWED_TO_ME = "2130", "1150"
+
+
+def owed_between_people(code: str | None) -> bool:
+    """Is ``code`` money owed between the user and another person?"""
+    code = (code or "").strip()
+    return any(code == c or code.startswith(c) for c in (MONEY_I_OWE, MONEY_OWED_TO_ME))
+
+
+class GetPeopleBalancesInput(BaseModel):
+    person: str | None = Field(None, description="One person's name, or find_entity's id; leave out for everyone.")
+
+
+class GetPeopleBalances(BaseTool):
+    name = "get_people_balances"
+    category = "read"
+    description = (
+        "Money between the user and other people, person by person, each currency on its own: what the user owes "
+        "each person («بدهی به دیگران», Money I owe) and what each person owes the user («طلب از دیگران», Money "
+        "owed to me), from the entries that name that person. Use for 'how much do I owe Amir?', «چقدر به امیر "
+        "بدهکارم؟», 'who owes me?', «به کی بدهکارم؟». Amounts on those accounts that name no one are given apart "
+        "(``not_tied_to_anyone``). Never answer one person's debt from the whole account. Pure read."
+    )
+    InputSchema = GetPeopleBalancesInput
+
+    async def run(self, ctx: ToolContext, args: GetPeopleBalancesInput) -> dict[str, Any]:
+        import uuid
+        from datetime import date as _date
+
+        from sqlalchemy import select
+
+        from app.core.money import plain
+        from app.models.account import Account
+        from app.models.entity import Entity, TransactionEntity
+        from app.models.transaction import Transaction, TransactionLine
+        from app.services.ai_accountant.entity_create import normalize_match_name
+        from app.utils.text import fold_fa
+
+        rows = ctx.db.execute(
+            select(Transaction.id, Transaction.currency, Account.code, TransactionLine.debit, TransactionLine.credit)
+            .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+            .join(Account, Account.id == TransactionLine.account_id)
+            .where(Transaction.deleted_at.is_(None))
+        ).all()
+        rows = [r for r in rows if owed_between_people(r.code)]
+        whose: dict[Any, Entity] = {}
+        if rows:
+            links = ctx.db.execute(
+                select(TransactionEntity.transaction_id, Entity)
+                .join(Entity, Entity.id == TransactionEntity.entity_id)
+                .where(TransactionEntity.transaction_id.in_({r.id for r in rows}), Entity.type != "bank")
+                .order_by(Entity.name)).all()
+            for txn_id, ent in links:
+                whose.setdefault(txn_id, ent)          # one person per entry: the first it names
+        people: dict[str, dict[str, Any]] = {}
+        loose = {"you_owe": {}, "owes_you": {}}
+
+        def add(book: dict, cur: str, amount) -> None:
+            book[cur] = book.get(cur, 0) + amount
+
+        for r in rows:
+            cur = (r.currency or "").upper()
+            side, amount = (("you_owe", r.credit - r.debit) if r.code.startswith(MONEY_I_OWE)
+                            else ("owes_you", r.debit - r.credit))
+            ent = whose.get(r.id)
+            if ent is None:
+                add(loose[side], cur, amount)
+                continue
+            # one person by name: «Amir» made as someone owed and again as someone owing is still Amir
+            person = people.setdefault(normalize_match_name(ent.name), {"person": ent.name, "entity_id": str(ent.id),
+                                                                        "you_owe": {}, "owes_you": {}})
+            add(person[side], cur, amount)
+
+        def settled(book: dict) -> dict:
+            return {cur: plain(v) for cur, v in sorted(book.items()) if v}
+
+        out_people = [{**p, "you_owe": settled(p["you_owe"]), "owes_you": settled(p["owes_you"])}
+                      for p in sorted(people.values(), key=lambda p: fold_fa(p["person"]).lower())]
+        asked = (args.person or "").strip()
+        if asked:
+            try:
+                ent = ctx.db.get(Entity, uuid.UUID(asked))
+                asked = ent.name if ent is not None else asked
+            except ValueError:
+                pass
+            needle = fold_fa(asked).lower()
+            out_people = [p for p in out_people if needle in fold_fa(p["person"]).lower()]
+        else:
+            out_people = [p for p in out_people if p["you_owe"] or p["owes_you"]]
+        out: dict[str, Any] = {"as_of": _date.today().isoformat(), "people": out_people,
+                               "not_tied_to_anyone": {k: settled(v) for k, v in loose.items()}}
+        if asked and not out_people:
+            out["note"] = f"No entry names {args.person!r}: nothing owed either way."
+        elif asked and all(not p["you_owe"] and not p["owes_you"] for p in out_people):
+            out["note"] = "All settled: nothing owed either way."
+        return out
+
+
 def register_personal_tools(registry) -> None:
     registry.register(GetReportCard())
     registry.register(GetSavingsGoals())
     registry.register(GetNetWorth())
+    registry.register(GetPeopleBalances())

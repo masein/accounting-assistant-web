@@ -209,6 +209,17 @@ _T = {
                         "fa": "به کسی بدهکار نیستیم: نه فاکتور خرید بازی هست و نه بستانکاری در دفاتر.",
                         "es": "No debemos nada a nadie: ninguna factura de proveedor abierta y ningún acreedor en los libros.",
                         "ar": "لا ندين لأحد: لا فاتورة مورد مفتوحة ولا دائن في الدفاتر."},
+    # a person's books: money between them and other people, person by person (scenario AG4)
+    "people_payables": {"en": "You owe {list}.", "fa": "بدهی‌های شما: {list}.", "es": "Debes: {list}.",
+                        "ar": "ديونك: {list}."},
+    "people_receivables": {"en": "Owed to you: {list}.", "fa": "طلب‌های شما: {list}.", "es": "Te deben: {list}.",
+                           "ar": "مستحق لك: {list}."},
+    "people_payables_nobody": {"en": "You owe nobody anything.", "fa": "به کسی بدهکار نیستید.",
+                               "es": "No le debes nada a nadie.", "ar": "لا تدين لأحد بشيء."},
+    "people_receivables_nobody": {"en": "Nobody owes you anything.", "fa": "کسی به شما بدهکار نیست.",
+                                  "es": "Nadie te debe nada.", "ar": "لا أحد يدين لك بشيء."},
+    "people_loose": {"en": " And {amounts} that names no one.", "fa": " و {amounts} که به نام کسی نیست.",
+                     "es": " Y {amounts} sin nombre de nadie.", "ar": " و{amounts} لا يحمل اسم أحد."},
     "budget_none": {"en": "No budgets are set for this month.", "fa": "برای این ماه بودجه‌ای تعیین نشده است.",
                     "es": "No hay presupuestos para este mes.", "ar": "لا توجد ميزانيات لهذا الشهر."},
 }
@@ -321,6 +332,34 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
         else:
             text = _say("cash", lang, total=_money(r["total"], lang), cur=_cur(r.get("currency"), lang),
                         total_p=_priced(r["total"], r.get("currency"), lang))
+    elif intent in ("receivables", "payables") and mode == "personal":
+        # a person owes people, not suppliers: «who do I owe?» read the invoices and said
+        # nobody, with Amir owed 3,555.06 USD (scenario AG4)
+        from app.services.ai_accountant.personal_tools import GetPeopleBalances, GetPeopleBalancesInput
+        r = await run(GetPeopleBalances(), GetPeopleBalancesInput())
+        side = "owes_you" if intent == "receivables" else "you_owe"
+        people = [x for x in r["people"] if x[side]]
+        from sqlalchemy import select as _select
+        from app.models.entity import Entity
+        from app.services.ai_accountant.orchestrator import _named_in
+        named = [e.name for e in db.execute(_select(Entity).where(Entity.type != "bank")).scalars()
+                 if _named_in(message, e.name)]
+        if named:
+            # «how much do I owe Amir?»: Amir alone; someone with nothing on this side, the model says so
+            people = [x for x in people if any(_named_in(x["person"], n) for n in named)]
+            if not people:
+                return None
+        sep = "، " if lang in ("fa", "ar") else ", "
+
+        def owed(book: dict) -> str:
+            return " + ".join(_in_currency(v, c, lang) for c, v in book.items())
+        def who(name: str) -> str:                 # a Latin name kept whole in a right-to-left sentence
+            return f"\u2068{name}\u2069" if lang in ("fa", "ar") else name
+        text = (_say(f"people_{intent}", lang, list=sep.join(f"{who(x['person'])} {owed(x[side])}" for x in people))
+                if people else _say(f"people_{intent}_nobody", lang))
+        loose = (r.get("not_tied_to_anyone") or {}).get(side) or {}
+        if loose and not named:
+            text += _say("people_loose", lang, amounts=owed(loose))
     elif intent in ("receivables", "payables"):
         from app.services.ai_accountant.invoice_tools import ListInvoices, ListInvoicesInput
         kind = "sales" if intent == "receivables" else "purchase"

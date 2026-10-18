@@ -544,6 +544,8 @@ _ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
         "education": (["education", "school", "course", "book", "آموزش", "کلاس", "شهریه", "کتاب"], ["6160"]),
         "clothing": (["clothes", "clothing", "پوشاک", "لباس", "کفش"], ["6170"]),
         "leisure / dining": (["restaurant", "cafe", "lunch", "dinner", "leisure", "cinema", "رستوران", "کافه", "ناهار", "شام", "تفریح", "سینما"], ["6180"]),
+        "travel": (["travel", "hotel", "airbnb", "hostel", "flight", "airfare", "vacation", "holiday",
+                    "سفر", "مسافرت", "هتل", "اقامت", "پرواز", "بلیط هواپیما"], ["6185"]),
         "subscriptions": (["subscription", "اشتراک"], ["6190"]),
         "family / gifts": (["gift", "family", "هدیه", "کادو", "خانواده"], ["6195"]),
         "bank fees": (["bank fee", "fee", "کارمزد"], ["6210"]),
@@ -551,6 +553,10 @@ _ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
         "salary income": (["salary", "wages", "حقوق", "دستمزد"], ["4110"]),
         "freelance income": (["freelance", "project income", "درآمد آزاد", "پروژه"], ["4120"]),
         "loan / installment": (["loan", "installment", "وام", "قسط", "اقساط"], ["2110", "2120"]),
+        # money between the person and someone else (scenarios AG1–AG6); matched as substrings, so no
+        # bare «lent» (excellent), «trip» (Stripe) or «visa» (a Visa card)
+        "money I owe": (["i owe", "owe him", "owe her", "paid for me", "بدهی به", "بدهکارم", "قرض گرفتم"], ["2130"]),
+        "money owed to me": (["owed to me", "owes me", "lent to", "i lent", "طلب از", "طلبکارم", "قرض دادم"], ["1150"]),
         # money the person already had when they started (scenario Z4): a chart opened in English
         # names it "Opening net worth", and «افتتاحیه» found nothing. Not «سرمایه»: in a person's
         # books that is investment (سرمایه‌گذاری, 4130) as often as capital

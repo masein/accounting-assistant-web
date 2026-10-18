@@ -222,6 +222,7 @@ PERSONAL_SEED_ACCOUNTS = [
     ("6160", "آموزش", "Education", AccountLevel.GENERAL),
     ("6170", "پوشاک", "Clothing", AccountLevel.GENERAL),
     ("6180", "تفریح و رستوران", "Leisure & dining out", AccountLevel.GENERAL),
+    ("6185", "سفر", "Travel", AccountLevel.GENERAL),          # added 2026-10-18 (migration 079 for books kept from before)
     ("6190", "اشتراک‌ها", "Subscriptions", AccountLevel.GENERAL),
     ("6195", "خانواده و هدایا", "Family & gifts", AccountLevel.GENERAL),
     # Other

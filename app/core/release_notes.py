@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.18"
+CURRENT_RELEASE = "2026.10.18.1"
 
 
 @dataclass(frozen=True)
@@ -1939,6 +1939,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "خروجی خود بانک را (با مبلغ‌های + و − و ستون موجودی) در گفتگو بیندازید و بگویید ردیف‌ها کجا بروند: واریزها به درآمد شهریه، برداشت‌ها به مخارج مدرسه، کارمزدهای بانک به کارمزد بانکی. یک کارت برای کل صورتحساب می‌آید، هر روز یک سند، از قدیم به جدید، و هر ردیف با شرح خودش؛ با تأیید، همهٔ ردیف‌ها ثبت‌شده علامت می‌خورند و «برگرداندن» همه را پس می‌گیرد. حسابی که نام ببرید و در کدینگ نباشد، به‌صورت گزینه پیشنهاد می‌شود، نه حدس.",
                     "es": "Suelta en el chat la exportación de tu banco (importes con + y −, columna de saldo) y di adónde van las filas: los ingresos a matrículas, los pagos a gastos del colegio, las comisiones a gastos bancarios. Recibes una tarjeta para todo el extracto, un asiento por día, del más antiguo al más reciente, con la descripción de cada fila; al confirmarla, cada fila queda registrada y Deshacer lo revierte todo. Una cuenta que nombres y no esté en tu plan se ofrece como opciones, nunca se adivina.",
                     "ar": "أسقط في المحادثة تصدير بنكك نفسه (مبالغ بإشارتي + و− وعمود الرصيد) وقل أين تذهب الصفوف: الإيداعات إلى إيراد الرسوم، والسحوبات إلى مصاريف المدرسة، وعمولات البنك إلى المصاريف البنكية. تأتيك بطاقة واحدة للكشف كله، قيد لكل يوم من الأقدم إلى الأحدث، ولكل صف وصفه؛ وعند التأكيد يُعلَّم كل صف مسجلًا، و«تراجع» يعيدها كلها. والحساب الذي تذكره وليس في دليلك يُعرض عليك خيارات ولا يُخمَّن.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.18.1",
+        date="2026-10-18",
+        highlights=(
+            Highlight(
+                key="people-you-owe",
+                page="ai-accountant",
+                roles=("personal",),
+                title={
+                    "en": "Who you owe, and who owes you, person by person",
+                    "fa": "به کی بدهکارید و کی به شما، نفر به نفر",
+                    "es": "A quién debes y quién te debe, persona por persona",
+                    "ar": "لمن تدين ومن يدين لك، شخصًا شخصًا",
+                },
+                body={
+                    "en": "Tell the assistant a friend paid for things — «Amir paid for these» and a list, one per line — and each line becomes a card with that person on it, in the currency you wrote. Paying them back, or lending and being paid back, names them too. Ask «how much do I owe Amir?» or «who owes me?» and you get each person on their own, in each currency. Your books also have a Travel category now, for stays, hotels and flights.",
+                    "fa": "به دستیار بگویید دوستی هزینه‌ای را برایتان داده — «امیر این‌ها را حساب کرد» و یک فهرست، هر قلم در یک خط — و هر خط یک کارت می‌شود به نام همان شخص، با ارزی که نوشته‌اید. پس دادن پول به او، یا قرض دادن و پس گرفتن، هم به نام همان شخص ثبت می‌شود. بپرسید «چقدر به امیر بدهکارم؟» یا «کی به من بدهکاره؟» تا هر شخص جدا و هر ارز جدا گفته شود. دفترتان حالا دستهٔ «سفر» هم دارد، برای اقامت، هتل و پرواز.",
+                    "es": "Dile al asistente que un amigo pagó por ti — «Amir pagó esto» y una lista, una cosa por línea — y cada línea se convierte en una tarjeta con esa persona, en la moneda que escribiste. Devolverle el dinero, o prestar y que te devuelvan, también la nombra. Pregunta «¿cuánto le debo a Amir?» o «¿quién me debe?» y verás a cada persona por separado, en cada moneda. Tus cuentas tienen ahora además una categoría Viajes, para alojamientos, hoteles y vuelos.",
+                    "ar": "أخبر المساعد أن صديقًا دفع عنك — «دفع أمير هذه» وقائمة، بند في كل سطر — فيصير كل سطر بطاقة باسم ذلك الشخص، بالعملة التي كتبتها. وردّ المال إليه، أو الإقراض والاسترداد، يُسجَّل باسمه أيضًا. اسأل «كم أدين لأمير؟» أو «من يدين لي؟» فتعرف كل شخص على حدة وبكل عملة. وفي دفاترك الآن فئة «السفر» للإقامة والفنادق والرحلات الجوية.",
                 },
             ),
         ),

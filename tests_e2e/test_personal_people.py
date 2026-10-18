@@ -44,7 +44,7 @@ def _ask(page, reply, words, tag):
 
 
 def test_every_card_names_amir_made_once(flow_page):
-    page, watch = flow_page("e2e_cards")
+    page, watch = flow_page("e2e_people")      # its own user: sharing e2e_cards ran its third test past 120 requests a minute
     page.evaluate("() => { location.hash = 'ai-accountant'; }")
     page.wait_for_load_state("networkidle")
     page.wait_for_selector("#ai-acct-input")

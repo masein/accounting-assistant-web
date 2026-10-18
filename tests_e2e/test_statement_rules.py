@@ -53,3 +53,33 @@ def test_the_statement_and_one_card_for_it(flow_page):
         assert watch.problems() == [], watch.problems()
     finally:
         switch_language(page, "en")
+
+
+def test_a_new_bank_on_the_card(flow_page):
+    """AF9: the file really is Parsian's — the card's bank line is the bank it makes on confirm (the real
+    model's card, 2026-10-18)."""
+    page, watch = flow_page("e2e_stmtrules")
+    new = "بانک پارسیان (تازه)"
+    lines = [{**ln, "account": "111002", "name": new} if ln["account"] == "111001" else ln for ln in CARD["lines"]]
+    reply = {**REPLY, "text": "کارت آماده است: سمت بانکی روی حساب جدید «بانک پارسیان» (۱۱۱۰۰۲) که با تأیید همین کارت ساخته می‌شود.",
+             "proposals": [{**REPLY["proposals"][0], "card": {**CARD, "lines": lines},
+                            "preview": {**REPLY["proposals"][0]["preview"], "new_bank_name": "بانک پارسیان",
+                                        "account_code": "111002", "place": new}}]}
+    page.route("**/ai-accountant/chat", lambda route: route.fulfill(
+        status=200, content_type="application/json", body=json.dumps(reply, ensure_ascii=False)))
+    page.evaluate("() => { location.hash = 'ai-accountant'; }")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_selector("#ai-acct-input")
+    try:
+        switch_language(page, "fa")
+        page.fill("#ai-acct-input", "ساخت حساب جدید «بانک پارسیان»")
+        page.click("#ai-acct-send")
+        card = page.locator(f'.ai-card[data-token="{TOKEN}"]')
+        expect(card).to_be_visible()
+        expect(card.locator(".ai-voucher-line").filter(has_text=new)).to_have_count(2)   # Dr in, Cr out
+        expect(card).not_to_contain_text("بانک دی")
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "chat-statement-new-bank-fa.png"))
+        assert watch.problems() == [], watch.problems()
+    finally:
+        switch_language(page, "en")

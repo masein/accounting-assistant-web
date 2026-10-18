@@ -574,3 +574,18 @@ From the owner's father, at مدرسه فرهنگ نو, on production: he droppe
 | AF8 | In the reader's language | A journal export dropped in Persian | «به نظر فهرست سندهاست — …», not "Looks like a transaction list" |
 | AF9 | It really is Parsian's account | The same file and rules, and the books have no account for Parsian: «این حساب پارسیان است، نه بانک دی» (or tap «یک حساب تازه برای بانک پارسیان») | One card, its bank line «بانک پارسیان (تازه)». Confirmed: «بانک پارسیان» is made, a bank party with its own account beside the bank the books keep (111002 beside «بانک دی» 111001, the code the card showed); the statement is Parsian's; the vouchers post to it. The next Parsian statement finds that account by itself, with nothing asked |
 | AF10 | The bank is in the books already | The books have «تنخواه گردان حساب بانک پارسیان» (or a Parsian bank party) | The assistant is told the books' account for Parsian and offers it; a «new» Parsian account is never made beside it |
+
+## AG. Money between you and a person, in a person's books (2026-10-18)
+
+From the owner, in his own personal books: «Amir payed for these:» and nine lines, «$333.77 - Muscat Airbnb» … «$350.00 - Yerevan Airbnb», then «i should pay him back someday keep track of the payments». Run with the real model on a throwaway book: nine cards in USD, each owed to Amir, 4,555.06 in all. But only the first card made and named Amir; the other eight named no one, nor did «I paid Amir back 1000 dollars in cash». «How much do I owe Amir?» was answered from the whole «بدهی به دیگران» account, right only while Amir is the one person in it. The stays went under «متفرقه», as a person's books had no travel category. And right after the nine were confirmed the assistant still called them pending.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AG1 | A list someone paid for | The message above, in books with no Amir | One card per line, in USD, each «— paid by Amir»: the stay or ticket under «سفر» (Travel), the same amount owed to Amir («بدهی به دیگران»). Every card names Amir |
+| AG2 | Confirmed in any order | Confirm the nine cards, the last first | One Amir is made; all nine entries are his |
+| AG3 | How much do I owe him | «How much do I owe Amir?» | 4,555.06 USD, from the entries that are Amir's |
+| AG4 | Two people | Also «Sara paid 40 dollars for my taxi», then «how much do I owe Amir?» | Amir is still 4,555.06 USD; Sara is 40 USD; «who do I owe?» lists both, each in its currency |
+| AG5 | Paying him back | «I paid Amir back 1000 dollars in cash today» | One card: 1,000 USD off what I owe, from the cash, naming Amir. Confirmed, Amir is 3,555.06 USD |
+| AG6 | Someone owes me | «I lent Reza 200 dollars from my card», later «Reza paid me back 50» | Reza owes 200, then 150, both naming Reza; «who owes me?» says Reza 150 USD |
+| AG7 | Travel in the books | Any person's books, new or kept from before this change | A «سفر» (Travel) category under living expenses; «hotel», «Airbnb», «flight» find it |
+| AG8 | It knows what I confirmed | Confirm cards, then ask anything about them | The assistant speaks of them as in the books, never as waiting for confirmation; cancelled ones as cancelled |

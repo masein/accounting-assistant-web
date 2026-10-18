@@ -559,7 +559,7 @@ class TestPersonalMode:
             "list_commitments", "propose_settle_commitment", "propose_remember_preference",
             # money where it's kept, in its own currency (scenarios AB1–AB6)
             "propose_money_place", "propose_books_currency", "ask_with_choices",
-            "get_report_card", "get_savings_goals", "get_net_worth",
+            "get_report_card", "get_savings_goals", "get_net_worth", "get_people_balances",
         }
 
     def test_personal_mode_prompt_and_tools(self, db: Session) -> None:

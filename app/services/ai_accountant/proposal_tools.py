@@ -46,7 +46,6 @@ from .base import BaseTool, ToolContext, ToolError, Replaceable
 from .date_resolver import resolve_entry_date
 from .entity_create import (
     EntityCreateError,
-    _next_bank_account_code,
     _validate_name,
     any_staff_cost,
     classify_entity_type,
@@ -639,13 +638,10 @@ class ProposeCreateTransaction(BaseTool):
                     preview["account_code"] = ne.existing_account_code.strip()
                     preview["account_existing"] = True
                 else:
-                    from app.services.locale_service import get_reporting_locale
-                    try:
-                        preview["account_code"] = _next_bank_account_code(
-                            ctx.db, (get_reporting_locale(ctx.db) or "default"))
-                        preview["account_existing"] = False
-                    except EntityCreateError:
-                        preview["account_code"] = None
+                    # the code confirm will give it: beside the chart's banks (111002), else the locale's range
+                    from app.services.ai_accountant.entity_create import predicted_bank_account_code
+                    preview["account_code"] = predicted_bank_account_code(ctx.db)
+                    preview["account_existing"] = False
             new_entity_previews.append(preview)
 
         # Persist the proposal. tool_input is the validated dict; we
@@ -863,7 +859,6 @@ class ProposeCreateEntity(BaseTool):
                                    "role": _default_role_for_type(etype)}
         summary = f"Proposed new {etype}: {clean}"
         if etype == "bank":
-            from app.services.locale_service import get_reporting_locale
             if args.existing_account_code and ctx.db.execute(
                 select(Account.id).where(Account.code == args.existing_account_code.strip())
             ).first():
@@ -871,13 +866,11 @@ class ProposeCreateEntity(BaseTool):
                 preview["account_existing"] = True
                 summary = f"Proposed new bank: {clean} → use cash account {preview['account_code']}"
             else:
-                try:
-                    preview["account_code"] = _next_bank_account_code(
-                        ctx.db, (get_reporting_locale(ctx.db) or "default"))
-                    preview["account_existing"] = False
+                from app.services.ai_accountant.entity_create import predicted_bank_account_code
+                preview["account_code"] = predicted_bank_account_code(ctx.db)
+                preview["account_existing"] = False
+                if preview["account_code"]:
                     summary = f"Proposed new bank: {clean} → new cash account {preview['account_code']}"
-                except EntityCreateError:
-                    preview["account_code"] = None
 
         # Fold provided contact + bank details into the ONE card. Missing key
         # details are noted in the summary but NEVER block creation.

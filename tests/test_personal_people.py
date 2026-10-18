@@ -82,6 +82,7 @@ def test_ag1_ag2_every_card_names_amir_and_one_amir_is_made_in_any_order(person,
         stored = {str(p.confirmation_token): p.tool_input for p in db.execute(select(AIProposal)).scalars()}
     for c in cards:
         assert [(e["name"], e["type"]) for e in stored[c["token"]]["new_entities"]] == [("Amir", "supplier")], c
+    assert all(stored[c["token"]]["new_entities"][0].get("shared") for c in cards[1:])   # «made once» on the card
     for c in reversed(cards):                                   # the last first
         _confirm(person, phone, c["token"])
     from app.models.entity import Entity, TransactionEntity

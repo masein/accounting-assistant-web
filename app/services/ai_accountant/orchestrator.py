@@ -355,6 +355,7 @@ def _fold_party_into(db, txn: dict, party: dict, user_message: str | None = None
                 "name": party.get("name"), "type": ptype,
                 "role": party.get("role"),
                 "existing_account_code": existing_code,
+                **({"shared": True} if party.get("shared") else {}),
             })
         tool_input["new_entities"] = ne_list
         row.tool_input = tool_input          # reassign so the JSON change persists
@@ -438,8 +439,9 @@ def _people_on_every_card(db, proposals: list, *, personal: bool, user_message: 
         named = {k for k in named if not any(o != k and _named_in(o, k) for o in named)}
         for key in named:
             party = made[key]
-            _fold_party_into(db, t, {k: party.get(k) for k in ("name", "type", "role")}, user_message,
-                             classify=False)
+            _fold_party_into(db, t, {**{k: party.get(k) for k in ("name", "type", "role")}, "shared": True},
+                             user_message, classify=False)
+            party["shared"] = True                # the card that made them says so too: made once, not on each
     if not personal:
         return
     from app.models.entity import Entity

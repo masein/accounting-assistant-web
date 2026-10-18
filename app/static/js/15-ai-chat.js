@@ -1131,7 +1131,9 @@
               const verb = ne.account_existing ? t('aiWillUseAccount') : t('aiWillCreateAccount');
               line.textContent = '➕ ' + tf('aiWillCreateBank', { name: ne.name, verb, code: localCode(ne.account_code) });
             } else {
-              line.textContent = '➕ ' + tf('aiWillCreateEntity', { type: typeLabel, name: ne.name });
+              // in a person's books Amir is a person, not a supplier; on several cards he is made once
+              const type = currentRole === 'personal' && ne.type !== 'employee' ? t('entType_person') : typeLabel;
+              line.textContent = '➕ ' + tf(ne.shared ? 'aiWillCreateShared' : 'aiWillCreateEntity', { type, name: ne.name });
             }
             box.appendChild(line);
           });

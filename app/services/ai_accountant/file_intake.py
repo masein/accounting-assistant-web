@@ -153,11 +153,76 @@ def _raw_rows(name: str, data: bytes) -> list[list[Any]]:
     return mig._rows_from_csv(data)
 
 
+# The detection line, in the reader's language: a Persian chat was told "Looks like a
+# transaction list — 96 rows…" (the owner's father, 2026-10-18).
+_SAID = {
+    "chart_denied": {
+        "en": "Looks like a chart-of-accounts export, but importing it needs the Owner or Accountant role — attached for questions only.",
+        "fa": "به نظر خروجی کدینگ حساب‌هاست، اما وارد کردنش نقش مالک یا حسابدار می‌خواهد؛ فقط برای پرسش پیوست شد.",
+        "es": "Parece una exportación del plan de cuentas, pero importarla requiere el rol de Propietario o Contable; adjunta solo para preguntas.",
+        "ar": "يبدو أنه تصدير لدليل الحسابات، لكن استيراده يتطلب دور المالك أو المحاسب؛ أُرفق للأسئلة فقط.",
+    },
+    "chart": {
+        "en": "Looks like a chart-of-accounts export ({tiers}) — preview staged.",
+        "fa": "به نظر خروجی کدینگ حساب‌هاست ({tiers})؛ پیش‌نمایش آماده است.",
+        "es": "Parece una exportación del plan de cuentas ({tiers}); vista previa lista.",
+        "ar": "يبدو أنه تصدير لدليل الحسابات ({tiers})؛ المعاينة جاهزة.",
+    },
+    "transactions": {
+        "en": "Looks like a transaction list — {rows} rows, {vouchers} voucher(s), {unmapped} unmapped account(s).",
+        "fa": "به نظر فهرست سندهاست: {rows} ردیف، {vouchers} سند، {unmapped} حساب بی‌نگاشت.",
+        "es": "Parece una lista de asientos: {rows} filas, {vouchers} asiento(s), {unmapped} cuenta(s) sin asignar.",
+        "ar": "يبدو أنها قائمة قيود: {rows} صفًا، {vouchers} قيدًا، {unmapped} حسابًا غير مربوط.",
+    },
+    "context": {
+        "en": "Attached for questions — not recognized as a chart export or transaction list.",
+        "fa": "برای پرسش پیوست شد؛ نه کدینگ حساب‌ها شناخته شد و نه فهرست سند.",
+        "es": "Adjunto para preguntas: no se reconoce como plan de cuentas ni como lista de asientos.",
+        "ar": "أُرفق للأسئلة؛ لم يُعرف كدليل حسابات ولا كقائمة قيود.",
+    },
+}
+
+
+def _said(lang: str, key: str, **params) -> str:
+    text = _SAID[key].get(lang) or _SAID[key]["en"]
+    if lang == "fa":
+        from app.utils.jalali import to_persian_digits
+        params = {k: to_persian_digits(v) if isinstance(v, int) else v for k, v in params.items()}
+    return text.format(**params)
+
+
+# A bank's own export: a running balance and amounts on dated rows, and no account columns.
+# It is a statement, not a journal: the journal parser read one as 83 vouchers with every
+# description an account of its own (the owner's father, 2026-10-18), and the statement
+# import never saw it.
+_BALANCE_HEADS = ("موجودی", "مانده", "balance", "saldo", "الرصيد", "رصيد")
+_ACCOUNT_HEADS = ("کد حساب", "كد حساب", "عنوان حساب", "حساب کل", "حساب معین", "حساب معين", "account code",
+                  "account name", "account title", "nominal", "معین", "تفصیلی", "تفصيلي")
+
+
+def _statement_shaped(files: list[tuple[str, bytes]]) -> bool:
+    try:
+        rows = _raw_rows(*files[0])
+    except Exception:  # noqa: BLE001 — unreadable here is the other paths' business
+        return False
+    from app.services.statement_import import _norm
+    for row in rows[:6]:
+        heads = [_norm(str(c)) for c in row if isinstance(c, str) and c.strip()]
+        if len(heads) < 3:
+            continue
+        if any(any(w in h for w in _ACCOUNT_HEADS) for h in heads):
+            return False
+        if any(any(w in h for w in _BALANCE_HEADS) for h in heads):
+            return True
+    return False
+
+
 def build_spreadsheet_intake(
-    db: Session, attachments: list, *, can_migrate: bool
+    db: Session, attachments: list, *, can_migrate: bool, lang: str = "en"
 ) -> IntakeResult | None:
     """Classify the spreadsheet attachments of a chat turn and build the
-    intake card. ``can_migrate`` gates the chart route (migration:write)."""
+    intake card. ``can_migrate`` gates the chart route (migration:write).
+    None for a bank's own export: the statement import takes it."""
     files: list[tuple[str, bytes]] = []
     for att in attachments:
         data = _read_attachment(att)
@@ -173,8 +238,7 @@ def build_spreadsheet_intake(
         if not can_migrate:
             return IntakeResult(
                 kind="context",
-                detected=("Looks like a chart-of-accounts export, but importing it needs the "
-                          "Owner or Accountant role — attached for questions only."),
+                detected=_said(lang, "chart_denied"),
                 context_text="\n\n".join(_sheet_digest(n, d) for n, d in files),
                 payload={"denied": "migration"},
             )
@@ -185,8 +249,7 @@ def build_spreadsheet_intake(
         batch, summary, already_applied = mig.stage_preview_batch(db, chart, token)
         return IntakeResult(
             kind="chart_export",
-            detected=(f"Looks like a chart-of-accounts export "
-                      f"({', '.join(sorted(tiers_present))}) — preview staged."),
+            detected=_said(lang, "chart", tiers=", ".join(sorted(tiers_present))),
             payload={
                 "token": token,
                 "batch_id": str(batch.id),
@@ -197,6 +260,8 @@ def build_spreadsheet_intake(
             },
         )
 
+    if _statement_shaped(files):
+        return None
     txn = _try_transactions(db, files)
     if txn is not None:
         result = txn["result"]
@@ -220,8 +285,8 @@ def build_spreadsheet_intake(
                 unmapped += 1
         return IntakeResult(
             kind="transactions",
-            detected=(f"Looks like a transaction list — {result.total_rows} rows, "
-                      f"{result.total_vouchers} voucher(s), {unmapped} unmapped account(s)."),
+            detected=_said(lang, "transactions", rows=result.total_rows, vouchers=result.total_vouchers,
+                           unmapped=unmapped),
             payload={
                 "file_token": txn["token"],
                 "jalali_year": result.jalali_year,
@@ -238,6 +303,6 @@ def build_spreadsheet_intake(
 
     return IntakeResult(
         kind="context",
-        detected="Attached for questions — not recognized as a chart export or transaction list.",
+        detected=_said(lang, "context"),
         context_text="\n\n".join(_sheet_digest(n, d) for n, d in files),
     )

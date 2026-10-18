@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.16.1"
+CURRENT_RELEASE = "2026.10.18"
 
 
 @dataclass(frozen=True)
@@ -1916,6 +1916,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "گفتگویی را در وب دوباره باز کنید: کارت‌هایش زیر پاسخ‌هایشان برمی‌گردند، هر کدام همان‌طور که حالا هست: کارتی که هنوز منتظر است تأییدشدنی است، کارت ثبت‌شده شماره و تاریخش را دارد، و کارت لغوشده یا منقضی همین را می‌گوید. هر پیش‌نویس سند حالا خود کارت است: مبلغ، شرح و تاریخ، و هر ردیف با «بد» و «بس» («به» و «از» در دفاتر شخصی)، به‌جای خلاصه‌ای که برای دستیار نوشته شده بود.",
                     "es": "Abre de nuevo una conversación en la web y sus tarjetas vuelven bajo sus respuestas, cada una como está: la que aún espera se puede confirmar, la registrada muestra su referencia y su fecha, la cancelada o caducada lo dice. Cada borrador de asiento se muestra ahora como la tarjeta misma: el importe, qué es y su fecha, y cada línea con D y H (A y De en los libros personales), en lugar del resumen escrito para el asistente.",
                     "ar": "افتح محادثة من جديد على الويب فتعود بطاقاتها تحت إجاباتها، كل منها كما هي الآن: ما زال ينتظر يمكن تأكيده، والمسجّلة تُظهر مرجعها وتاريخها، والملغاة أو المنتهية تقول ذلك. وكل مسودة قيد تُعرض الآن بطاقةً بنفسها: المبلغ ووصفها وتاريخها، وكل سطر بـ«مدين» و«دائن» («إلى» و«من» في الدفاتر الشخصية)، بدلًا من الملخص المكتوب للمساعد.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.18",
+        date="2026-10-18",
+        highlights=(
+            Highlight(
+                key="statement-by-your-rules",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "A bank statement posted by your rules, a voucher a day",
+                    "fa": "صورتحساب بانک با قاعده‌های خودتان، هر روز یک سند",
+                    "es": "Un extracto bancario registrado con tus reglas, un asiento por día",
+                    "ar": "كشف البنك يُرحَّل بقواعدك، قيد لكل يوم",
+                },
+                body={
+                    "en": "Drop your bank's own export into the chat (its amounts signed + and −, its balance column) and say where the rows go: money in to tuition income, money out to school expenses, the bank's fees to bank charges. You get one card for the whole statement, a voucher for each day, oldest first, with each row's own words on its lines; confirmed, every row is marked recorded, and Undo takes them all back. An account you name that isn't in your chart is offered as choices, never guessed.",
+                    "fa": "خروجی خود بانک را (با مبلغ‌های + و − و ستون موجودی) در گفتگو بیندازید و بگویید ردیف‌ها کجا بروند: واریزها به درآمد شهریه، برداشت‌ها به مخارج مدرسه، کارمزدهای بانک به کارمزد بانکی. یک کارت برای کل صورتحساب می‌آید، هر روز یک سند، از قدیم به جدید، و هر ردیف با شرح خودش؛ با تأیید، همهٔ ردیف‌ها ثبت‌شده علامت می‌خورند و «برگرداندن» همه را پس می‌گیرد. حسابی که نام ببرید و در کدینگ نباشد، به‌صورت گزینه پیشنهاد می‌شود، نه حدس.",
+                    "es": "Suelta en el chat la exportación de tu banco (importes con + y −, columna de saldo) y di adónde van las filas: los ingresos a matrículas, los pagos a gastos del colegio, las comisiones a gastos bancarios. Recibes una tarjeta para todo el extracto, un asiento por día, del más antiguo al más reciente, con la descripción de cada fila; al confirmarla, cada fila queda registrada y Deshacer lo revierte todo. Una cuenta que nombres y no esté en tu plan se ofrece como opciones, nunca se adivina.",
+                    "ar": "أسقط في المحادثة تصدير بنكك نفسه (مبالغ بإشارتي + و− وعمود الرصيد) وقل أين تذهب الصفوف: الإيداعات إلى إيراد الرسوم، والسحوبات إلى مصاريف المدرسة، وعمولات البنك إلى المصاريف البنكية. تأتيك بطاقة واحدة للكشف كله، قيد لكل يوم من الأقدم إلى الأحدث، ولكل صف وصفه؛ وعند التأكيد يُعلَّم كل صف مسجلًا، و«تراجع» يعيدها كلها. والحساب الذي تذكره وليس في دليلك يُعرض عليك خيارات ولا يُخمَّن.",
                 },
             ),
         ),

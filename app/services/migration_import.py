@@ -581,19 +581,11 @@ def _new_bank_account(db: Session, parent: Account | None, detail_code: str, nam
     year's chart or another's (the next free 111x did: 1113 is a ledger in
     Sepidar's numbering). Without a bank row in the file, the usual bank
     account."""
-    from app.services.ai_accountant.entity_create import _resolve_bank_account
-
-    def taken(code: str) -> bool:
-        return db.execute(select(Account.id).where(Account.code == code)).first() is not None
+    from app.services.ai_accountant.entity_create import _bank_account_under, _resolve_bank_account
 
     if parent is not None:
-        candidates = ([parent.code + detail_code] if detail_code.isdigit() else []) \
-            + [f"{parent.code}{n:03d}" for n in range(1, 1000)]
-        code = next((c for c in candidates if not taken(c)), None)
+        code = _bank_account_under(db, parent, name, detail_code)
         if code is not None:
-            db.add(Account(code=code, name=bt(db, "bank_account_name", name=name),
-                           level=AccountLevel.DETAIL, parent_id=parent.id))
-            db.flush()
             return code
     code, _created = _resolve_bank_account(db, name, None, locale)
     return code

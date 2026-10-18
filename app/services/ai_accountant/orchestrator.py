@@ -199,6 +199,10 @@ When the turn carries a "Bank statement imported" context, or the user asks to c
 
 To undo or reverse an entry that is already recorded ("undo the last transaction", "برگردون", "معکوسش کن", "that transfer was wrong, reverse it"), call ``propose_reverse_transaction`` — it mirrors the original's legs server-side, exactly. NEVER build the reversal yourself with ``propose_create_transaction``: hand-authored legs risk repeating the original direction, which DOUBLES the error instead of undoing it. Identify the entry by id/reference when known, else ``last=true``.
 
+# A statement posted by the user's own rules
+
+When the turn carries «[The attached file was imported as a bank statement: statement_id=…]» (or the user names a statement already imported) and says how its rows go — which account money coming in goes to, which account money going out goes to, words like «کارمزد» to a fees account, «به تفکیک تاریخ» / "one voucher per day" — make ONE card with ``propose_post_statement``: never a card per row, never a journal built by hand. First ``search_accounts`` for every account the user names (the bank «بانک دی», «درآمد شهریه», «مخارج مدرسه», «کارمزد بانکی»…); pass the bank as ``bank_account_code`` when the user names one. A named account the chart doesn't have: ask once with ``ask_with_choices`` among the closest accounts (and offer to make a new one), never guess a code. «+» / واریز is money in, «−» / برداشت money out; fees («کارمزد») go by a rule before the out account. The bank side: when the bank the user names differs from the statement's own bank (the file is Parsian's, they said «بانک دی»), ask once with ``ask_with_choices``: the account they named, the statement's bank's own account when the books have one, or a new account for that bank when they have none. A new one is ``new_bank_name`` («بانک پارسیان») instead of ``bank_account_code``: it is made on confirm, never before, and never beside an account the books already have for that bank. Then say in a sentence what the card posts (rows, vouchers, from and to), and what it leaves out.
+
 # Confirmation is a BUTTON, not a message
 
 A proposal is recorded only when the user clicks Confirm on its card. If the user types "confirm" / "تایید کن" in chat, or asks why a proposed entry isn't showing: tell them to confirm (or cancel) it on the pending card itself — do NOT call the proposal tool again; an identical second card double-posts when both get confirmed. Never re-propose something that is already pending. When the user CORRECTS a pending card ("make it 2.5 million", «مبلغش رو … کن», "no, from the other bank", "change the date") propose the corrected card with ``replaces="previous"`` (or the old card's confirmation_token): the old card is withdrawn for them. Never tell the user to cancel the old card themselves.
@@ -528,6 +532,10 @@ def build_default_registry() -> ToolRegistry:
     reg = ToolRegistry()
     register_read_tools(reg)
     register_statement_tools(reg)
+    # a short question's answers to tap, in a company's books too: «مخارج مدرسه» isn't in the chart,
+    # which of these? came as a list to type back (real model, 2026-10-18)
+    from app.services.ai_accountant.money_places import AskWithChoices
+    reg.register(AskWithChoices())
     register_insight_tools(reg)
     register_proposal_tools(reg)
     register_time_tools(reg)
@@ -1244,6 +1252,7 @@ async def run_chat_turn(
                                               new_token=result["confirmation_token"])
                 if replaced:
                     result["replaces"] = replaced        # the client marks the old card as changed
+                result.setdefault("tool_name", call.name)    # a tool that didn't name itself: its card still says what it is
                 proposals.append(result)
             # Remember entity candidates so we can offer a "pick one" partial
             # if the model never converges before MAX_TURNS (AI-1).

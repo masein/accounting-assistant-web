@@ -101,3 +101,5 @@ class ReviewBankStatement(BaseTool):
 
 def register_statement_tools(registry) -> None:
     registry.register(ReviewBankStatement())
+    from app.services.ai_accountant.statement_posting import ProposePostStatement
+    registry.register(ProposePostStatement())       # a whole statement by the user's rules (scenarios AF2–AF6)

@@ -130,6 +130,23 @@ def test_a_csv_statement_in_chat_is_imported_without_the_ai(auth_client, db, no_
     assert stmt is not None and stmt.source_type == "csv"
 
 
+def test_a_short_statement_shared_without_words_is_imported(db, tmp_path):
+    """Two rows in a file the bank named, shared in from the bank's app with no message: it went
+    to the model, and failed with none set up (deep browser test, 2026-10-16)."""
+    from app.services.ai_accountant.statement_intake import maybe_statement_intake
+    path = tmp_path / "mellat-1405-07.csv"
+    path.write_text("تاریخ,شرح,برداشت,واریز,مانده\n1405/07/12,خرید تونر,1800000,,100000000\n"
+                    "1405/07/13,واریز نقدی,,5000000,105000000\n", encoding="utf-8")
+    att = TransactionAttachment(file_name="mellat-1405-07.csv", file_path=str(path), content_type="text/csv")
+    turn = asyncio.run(maybe_statement_intake(db, user_role="owner", attachments=[att], message="", lang="fa"))
+    assert turn is not None and turn.intake["status"] == "imported" and turn.intake["total_rows"] == 2, turn
+    # a bank's name alone isn't enough: a price list named for one still goes to the assistant
+    path2 = tmp_path / "mellat-prices.csv"
+    path2.write_text("Product,Price\nPaper,250000\n", encoding="utf-8")
+    att2 = TransactionAttachment(file_name="mellat-prices.csv", file_path=str(path2), content_type="text/csv")
+    assert asyncio.run(maybe_statement_intake(db, user_role="owner", attachments=[att2], message="", lang="fa")) is None
+
+
 def test_the_summary_dates_follow_the_companys_calendar():
     from app.services.ai_accountant.statement_intake import _reply
     intake = {"bank_name": "Mellat", "total_rows": 3, "from_date": "2026-09-23", "to_date": "2026-10-01", "counts": {}}

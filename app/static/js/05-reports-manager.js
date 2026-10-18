@@ -1327,9 +1327,11 @@
         const type = (mgrReportTypeEl.value || '').trim();
         const endpoint = managerEndpointFor(type);
         const ir = (window.__REPORTING_LOCALE === 'ir');
+        const uk = (window.__REPORTING_LOCALE === 'uk');
         const q = new URLSearchParams();
-        if (type === 'balance_sheet' && ir) {
-          // Iranian balance-sheet endpoint uses `as_of` / `comparative_as_of`.
+        if (type === 'balance_sheet' && (ir || uk)) {
+          // The Iranian and the UK balance sheets read `as_of` / `comparative_as_of`: a UK sheet was
+          // sent `to_date`, which it ignored, and always compared today with a year before (QA 2026-10-16)
           if (mgrToDateEl.value) q.set('as_of', mgrToDateEl.value);
           if (mgrFromDateEl.value) q.set('comparative_as_of', mgrFromDateEl.value);
         } else if (type === 'balance_sheet') {

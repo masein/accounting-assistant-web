@@ -18,6 +18,7 @@ import openpyxl
 import pytest
 from sqlalchemy import select
 
+from app.models.account import Account
 from app.models.bank_statement import BankStatement, BankStatementRow
 from app.models.transaction import Transaction
 from app.services.ai_accountant.llm_protocol import ChatMessage, LLMResponse, LLMUsage, ToolCall
@@ -259,3 +260,59 @@ def test_a_fee_rule_picks_the_banks_fees_not_payments_carrying_one():
     assert is_fee("برداشت کارمزد دستور پرداخت ساتنا 0504170541000892 به بانک ملت")
     assert not is_fee("تراکنش به همراه کارمزد با مشخصات :  رهگیری: 14050617054200620677 بابت بازپرداخت شهریه")
     assert not is_fee("شاپرک تجمیعی . رهگیری :050623061100000438269121974160")
+
+
+def test_af9_it_really_is_parsians_a_new_bank_made_on_confirm(auth_client, db, school, monkeypatch):
+    """«این حساب پارسیان است، نه بانک دی»: the books have no Parsian account; the card makes one on confirm."""
+    from app.models.entity import Entity
+    from app.services.statement_import import bank_account_for_statement
+    model = _Model(school, bank_account_code=None, new_bank_name="بانک پارسیان")
+    _with_model(monkeypatch, model)
+    body = _chat(auth_client, RULES, _upload(auth_client))
+    context = " ".join(m.text or "" for m in model.sent[0] if m.role == "user")
+    assert "NO account for Parsian" in context and "new_bank_name" in context
+    card = body["proposals"][0]
+    assert card["preview"]["new_bank_name"] == "بانک پارسیان"
+    assert any("بانک پارسیان" in ln["name"] for ln in card["card"]["lines"])          # its line on the card, by its name
+    assert db.execute(select(Entity).where(Entity.name == "بانک پارسیان")).scalars().first() is None   # nothing made yet
+    r = auth_client.post("/ai-accountant/execute", json={"confirmation_token": card["confirmation_token"]})
+    assert r.status_code == 200, r.text
+    db.expire_all()
+    bank = db.execute(select(Entity).where(Entity.type == "bank", Entity.name == "بانک پارسیان")).scalars().one()
+    stmt = db.get(BankStatement, uuid.UUID(card["preview"]["statement_id"]))
+    assert bank.code and stmt.bank_account_code == bank.code
+    assert card["preview"]["account_code"] == bank.code                               # the card said the code it got
+    made = db.execute(select(Account).where(Account.code == bank.code)).scalars().one()
+    dey = db.execute(select(Account).where(Account.code == school["bank"])).scalars().one()
+    assert made.parent_id == dey.parent_id and len(made.code) == len(dey.code)        # beside بانک دی (111002), not 1201
+    assert made.level == dey.level
+    rows = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == stmt.id)).scalars().all()
+    txn = db.get(Transaction, rows[0].created_transaction_id)
+    assert bank.code in {ln.account.code for ln in txn.lines}                          # the vouchers post to it
+    # the next Parsian statement finds it, nothing asked
+    nxt = _chat(auth_client, "", _upload(auth_client))
+    assert bank_account_for_statement(db, db.get(BankStatement, uuid.UUID(nxt["intake"]["statement_id"]))) == bank.code
+
+
+def test_af10_a_bank_in_the_books_is_used_never_made_twice(auth_client, db, school, monkeypatch):
+    """The books have a Parsian bank (this one, or one an earlier test made): it is used, none is made beside it."""
+    from app.models.entity import Entity
+
+    def parsian():
+        db.expire_all()
+        return {e.code for e in db.execute(select(Entity).where(Entity.type == "bank",
+                                                               Entity.name.like("%پارسیان%"))).scalars()}
+    if not parsian():
+        made = auth_client.post("/entities", json={"type": "bank", "name": "بانک پارسیان شعبه مرکزی"})
+        assert made.status_code in (200, 201), made.text
+    before = parsian()
+    model = _Model(school, bank_account_code=None, new_bank_name="بانک پارسیان")
+    _with_model(monkeypatch, model)
+    body = _chat(auth_client, RULES, _upload(auth_client))
+    context = " ".join(m.text or "" for m in model.sent[0] if m.role == "user")
+    assert "The books' own account for this bank" in context
+    card = body["proposals"][0]
+    assert "new_bank_name" not in card["preview"] and card["preview"]["bank_account_code"] in before
+    r = auth_client.post("/ai-accountant/execute", json={"confirmation_token": card["confirmation_token"]})
+    assert r.status_code == 200, r.text
+    assert parsian() == before                                                      # no second Parsian

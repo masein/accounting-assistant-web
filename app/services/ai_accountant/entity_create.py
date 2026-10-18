@@ -11,7 +11,9 @@ Type normalization (stated in the PR): contractor / freelancer / subcontractor
 Banks are special: a bank entity is only usable as a payment source/destination
 if its ``Entity.code`` points to a real GL cash account (payment posting does
 ``Account.code == bank_entity.code``). So creating a bank also links or creates
-a GL bank account in the locale's cash range (UK ``12xx``, Iran ``111x``).
+a GL bank account: under a migrated chart's bank sub-ledger, beside the banks the
+books already keep (111001 → 111002), else in the locale's cash range (UK
+``12xx``, Iran ``111x``).
 """
 from __future__ import annotations
 
@@ -21,7 +23,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.account import Account
+from app.models.account import Account, AccountLevel
 from app.models.entity import Entity
 from app.services.book_text import bt
 
@@ -188,6 +190,71 @@ def _next_bank_account_code(db: Session, locale: str) -> str:
     raise EntityCreateError(f"No free bank account code left in the {prefix}xx range.")
 
 
+def _free_code_under(db: Session, parent: Account, detail_code: str = "", width: int = 3) -> str | None:
+    """The first free detail code under ``parent``: the group's code and a
+    number ``width`` digits wide (111005 + 001 → 111005001; 1110 + 02 →
+    111002), the bank's own detail code first; None when all are taken."""
+    candidates = ([parent.code + detail_code] if detail_code.isdigit() else []) \
+        + [f"{parent.code}{n:0{width}d}" for n in range(1, 10 ** width)]
+    taken = set(db.execute(select(Account.code).where(Account.code.like(f"{parent.code}%"))).scalars())
+    return next((c for c in candidates if c not in taken), None)
+
+
+def _bank_account_under(db: Session, parent: Account, name: str, detail_code: str = "",
+                        width: int = 3) -> str | None:
+    """A bank's own account under ``parent``, at its siblings' level (a detail
+    account under an empty one); None when no code is free."""
+    code = _free_code_under(db, parent, detail_code, width)
+    if code is None:
+        return None
+    level = db.execute(select(Account.level).where(Account.parent_id == parent.id)
+                       .order_by(Account.code).limit(1)).scalar() or AccountLevel.DETAIL
+    db.add(Account(code=code, name=bt(db, "bank_account_name", name=name),
+                   level=level, parent_id=parent.id))
+    db.flush()
+    return code
+
+
+def _banks_group(db: Session) -> tuple[Account, int] | None:
+    """The group the books' own banks sit in as detail accounts — its code and
+    a two- or three-digit number: 111001 «بانک دی» under 1110 «موجودی نقد و
+    بانک», a chart imported from an Excel journal — and that number's width. A
+    new bank goes beside them (111002), not on the locale's next free code:
+    1201 in a UK-reporting book, its fixed assets there (2026-10-18). Only
+    under the chart's own bank account: a seeded chart's 1111 sits under the
+    group 11, and a bank isn't put at 1101 beside it."""
+    from app.services.account_resolver import find_account_code
+
+    top_code = find_account_code(db, "bank")
+    top = db.execute(select(Account).where(Account.code == top_code)).scalars().first() if top_code else None
+    if top is None or not top.is_active:
+        return None
+    kids = db.execute(select(Account.code).where(Account.parent_id == top.id, Account.is_active.is_(True))
+                      .order_by(Account.code)).scalars()
+    width = next((len(rest) for code in kids
+                  if code.startswith(top.code) and (rest := code[len(top.code):]).isdigit() and len(rest) in (2, 3)),
+                 None)
+    return (top, width) if width else None
+
+
+def predicted_bank_account_code(db: Session, locale: str | None = None) -> str | None:
+    """The code ``create_entity`` will give a new bank, for a card shown before
+    it is made; None where it's chosen only then (a migrated chart's bank
+    sub-ledger) or no code is free."""
+    from app.services.locale_service import get_reporting_locale
+    from app.services.posting_roles import override_code
+
+    if override_code(db, "bank"):
+        return None
+    group = _banks_group(db)
+    if group is not None:
+        return _free_code_under(db, group[0], width=group[1])
+    try:
+        return _next_bank_account_code(db, (locale or get_reporting_locale(db) or "default").strip().lower())
+    except EntityCreateError:
+        return None
+
+
 # Contact + bank fields the AI may gather when creating a party.
 DETAIL_FIELDS = ("phone", "email", "address", "tax_id", "economic_code",
                  "contact_person", "bank_name", "account_holder",
@@ -270,6 +337,11 @@ def _resolve_bank_account(
         from app.services.migration_import import _new_bank_account
         parent = db.execute(select(Account).where(Account.code == parent_code)).scalars().first()
         return _new_bank_account(db, parent, "", name, loc), True
+    group = _banks_group(db)
+    if group is not None:
+        code = _bank_account_under(db, group[0], name, width=group[1])
+        if code is not None:
+            return code, True
     code = _next_bank_account_code(db, loc)
     _ensure_account(db, code, bt(db, "bank_account_name", name=name), loc)
     return code, True

@@ -46,6 +46,11 @@ class ProposePostStatementInput(Replaceable):
     bank_account_code: str | None = Field(
         None, description="The bank side in the books, when the user names one («بانک دی»); "
                           "otherwise the statement's own bank account.")
+    new_bank_name: str | None = Field(
+        None, max_length=120,
+        description="Instead of bank_account_code: the statement's bank has no account in the books and the user "
+                    "wants one («بانک پارسیان»). It is made on confirm, a bank party with its own account, and the "
+                    "statement's next imports find it. Never when the books have an account for that bank already.")
     money_in_account_code: str | None = Field(
         None, description="The other side for money coming in («+», واریز) that no rule picks: credited.")
     money_out_account_code: str | None = Field(
@@ -98,6 +103,27 @@ def _postable(db: Session, code: str | None) -> tuple[str, str] | None:
     if db.execute(select(Account.id).where(Account.parent_id == acc.id).limit(1)).first() is not None:
         return None
     return acc.code, acc.name
+
+
+def _bank_named(db: Session, name: str) -> tuple[str, str] | None:
+    """The books' own account for the bank ``name`` means («بانک پارسیان» → «تنخواه گردان حساب بانک پارسیان», a
+    Parsian bank party), or None: a second account for the same bank is never made (AF10)."""
+    from app.services.statement_import import bank_account_choices, canonical_bank
+    want = canonical_bank(name)
+    folded = _fold(name).strip()
+    for c in bank_account_choices(db):
+        label = c.get("bank") or c.get("name") or ""
+        if (want and canonical_bank(label) == want) or (_fold(c.get("name")).strip() == folded):
+            found = _postable(db, c["code"])
+            if found:
+                return found
+    return None
+
+
+def _predicted_bank_code(db: Session) -> str:
+    """The code a new bank account will take, for the card; the real one is made on confirm."""
+    from app.services.ai_accountant.entity_create import predicted_bank_account_code
+    return predicted_bank_account_code(db) or "NEW"      # a migrated chart's sub-ledger numbers it then
 
 
 def plan(db: Session, stmt: BankStatement, *, bank: str, money_in: str | None, money_out: str | None,
@@ -179,7 +205,15 @@ class ProposePostStatement(BaseTool):
             stmt = None
         if stmt is None:
             raise ToolError("No bank statement with that id in these books.", code="not_found")
-        bank = _postable(ctx.db, args.bank_account_code or bank_account_for_statement(ctx.db, stmt))
+        new_bank = (args.new_bank_name or "").strip() or None
+        if new_bank:
+            same = _bank_named(ctx.db, new_bank)
+            if same is not None:           # the books have it already: post there, never a second one (AF10)
+                bank, new_bank = same, None
+            else:
+                bank = (_predicted_bank_code(ctx.db), f"{new_bank} (new)")
+        else:
+            bank = _postable(ctx.db, args.bank_account_code or bank_account_for_statement(ctx.db, stmt))
         if bank is None:
             raise ToolError("Say which bank account in the books this statement is (search_accounts for it): "
                             f"{args.bank_account_code or 'none is set for this statement'} can't take entries.",
@@ -223,6 +257,9 @@ class ProposePostStatement(BaseTool):
                        key=lambda ln: (ln["debit"] == 0, ln["account_code"]))
         total = sum(ln["debit"] for ln in lines)
         payload = {"statement_id": str(stmt.id), "bank_account_code": bank[0],
+                   # a bank made on confirm (AF9): the card names it by the words the user gave
+                   **({"new_bank_name": new_bank, "new_account": True, "account_code": bank[0], "place": f"{new_bank} (تازه)"
+                       if persian else f"{new_bank} (new)"} if new_bank else {}),
                    "money_in_account_code": args.money_in_account_code,
                    "money_out_account_code": args.money_out_account_code, "rules": rules, "per": args.per,
                    "row_ids": [rid for v in made["vouchers"] for rid in v["rows"]],
@@ -259,7 +296,16 @@ def execute_statement_posting(db: Session, proposal, *, actor_user_id: str, acto
     stmt = db.get(BankStatement, uuid.UUID(p["statement_id"]))
     if stmt is None:
         raise ValueError("that statement is no longer in these books")
-    made = plan(db, stmt, bank=p["bank_account_code"], money_in=p.get("money_in_account_code"),
+    bank_code = p["bank_account_code"]
+    new_bank = None
+    if p.get("new_bank_name"):
+        # the statement's bank, made now: a bank party with its own account; its next statements find it (AF9)
+        from app.services.ai_accountant.entity_create import create_entity
+        made_bank = create_entity(db, name=p["new_bank_name"], type_="bank")
+        bank_code, new_bank = made_bank.account_code, {"entity_id": str(made_bank.entity.id), "code": made_bank.account_code,
+                                                       "created": made_bank.created}
+        stmt.bank_account_code = bank_code
+    made = plan(db, stmt, bank=bank_code, money_in=p.get("money_in_account_code"),
                 money_out=p.get("money_out_account_code"), rules=p.get("rules") or [], per=p.get("per") or "day",
                 row_ids=p.get("row_ids"))
     if not made["vouchers"]:
@@ -292,7 +338,7 @@ def execute_statement_posting(db: Session, proposal, *, actor_user_id: str, acto
             select(BankStatementRow).where(BankStatementRow.statement_id == stmt.id)).scalars()) else "reviewing"
     audit_id = _audit(db, proposal, entity_type="statement_posting", entity_id=str(stmt.id),
                       detail={"transaction_ids": txn_ids, "transaction_id": txn_ids[0], "rows": made["rows"],
-                              "vouchers": len(txn_ids)},
+                              "vouchers": len(txn_ids), **({"new_bank": new_bank} if new_bank else {})},
                       actor_user_id=actor_user_id, actor_username=actor_username, ip_address=ip_address)
     return txn_ids[0], audit_id
 
@@ -358,8 +404,20 @@ def context_for_model(db: Session, statement_id: str) -> str:
     ins = [r for r in open_rows if (r.credit or 0) > 0]
     outs = [r for r in open_rows if (r.debit or 0) > 0]
     fees = [r for r in open_rows if (r.debit or 0) > 0 and is_fee(r.description)]
-    bank = bank_account_for_statement(db, stmt)
+    from app.services.statement_import import resolve_bank_account
+    bank, how = resolve_bank_account(db, stmt)
     bank_name = (_postable(db, bank) or (bank, ""))[1] if bank else ""
+    own = _bank_named(db, stmt.bank_name or "") if (stmt.bank_name or "Unknown") != "Unknown" else None
+    from app.services.ai_accountant.statement_intake import bank_label
+    fa_bank = bank_label(stmt.bank_name, "fa") or stmt.bank_name
+    if own is not None:
+        whose = f" The books' own account for this bank: {own[0]} {own[1]}."
+    elif how == "default" and (stmt.bank_name or "Unknown") != "Unknown":
+        whose = (f" The books have NO account for {stmt.bank_name} («{fa_bank}»): the statement fell back to the chart's "
+                 f"bank account. If the rows are that bank's, offer to make one (new_bank_name «بانک {fa_bank}»), and use "
+                 "an account the user names otherwise.")
+    else:
+        whose = ""
     dates = sorted(r.tx_date for r in rows)
     from app.utils.jalali import format_jalali_long
     span = (f"from {dates[0]} ({format_jalali_long(dates[0])}) to {dates[-1]} ({format_jalali_long(dates[-1])})"
@@ -371,6 +429,6 @@ def context_for_model(db: Session, statement_id: str) -> str:
             f"out totalling {sum(plain(r.debit) for r in outs)}; {len(fees)} of the money-out rows are the bank's own "
             f"fees, totalling {sum(plain(r.debit) for r in fees)} (a rule on «کارمزد» picks those, never «تراکنش به همراه "
             "کارمزد», a payment that carries a fee). "
-            f"The statement's own bank account in the books: {bank or 'none set'} {bank_name}. To post its rows by "
+            f"The statement's own bank account in the books: {bank or 'none set'} {bank_name}.{whose} To post its rows by "
             "the user's rules, call propose_post_statement with this statement_id, after search_accounts for every "
             "account the user names.]")

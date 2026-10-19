@@ -18,6 +18,8 @@ Tools in this file:
 from __future__ import annotations
 
 import difflib
+import re
+from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any, Literal
 
@@ -693,6 +695,26 @@ class SearchAccounts(BaseTool):
             .where(Transaction.deleted_at.is_(None))
             .group_by(TransactionLine.account_id)).all())
         established = sum(used.values()) >= _ESTABLISHED_LINES
+        # A heading takes no entries: the assistant offered 6211 «مخارج مدرسه», which it
+        # had just been told can't take one; its accounts are offered instead. And the
+        # codes an account had in the user's own books find it: «باید ۱۳۰۰ میبوده»
+        # found nothing (2026-10-19, scenarios AH7, AH8).
+        kids_of: dict = defaultdict(list)
+        for acc in rows:
+            if acc.parent_id is not None:
+                kids_of[acc.parent_id].append(acc)
+
+        def old_codes(acc) -> list[str]:
+            return [c for c in (getattr(acc, "source_codes", None) or "").split(",") if c]
+
+        def leaves(acc) -> list:
+            out = []
+            for kid in sorted(kids_of.get(acc.id, []), key=lambda a: a.code):
+                out.extend(leaves(kid) if kids_of.get(kid.id) else [kid])
+            return out
+
+        q_codes = set(re.findall(r"\d+", q))
+        headings: list[tuple[float, Account]] = []
         scored: list[tuple[float, Account, str]] = []
         for acc in rows:
             # Only postable (leaf) accounts — group/header accounts can't take
@@ -713,6 +735,12 @@ class SearchAccounts(BaseTool):
             if _synonym_match(q, name_l):
                 score = max(score, 0.88)
             by_name = q in name_l or q in code_l or _synonym_match(q, name_l)
+            if q_codes & set(old_codes(acc)):
+                score, by_name = max(score, 0.99), True       # its code in the user's own books
+            if kids_of.get(acc.id):
+                if score >= 0.45:
+                    headings.append((score, acc))
+                continue
             in_use = bool(used.get(acc.id))
             # Strong boost when the chart actually has an alias's preferred code —
             # one the books use, or any in books with no history yet; an unused
@@ -726,6 +754,17 @@ class SearchAccounts(BaseTool):
             if score >= 0.45:
                 scored.append((score, acc, acc_type, by_name))
 
+        under: dict = {}
+        for h_score, heading in sorted(headings, key=lambda x: -x[0]):
+            for leaf in leaves(heading):
+                if leaf.id in under or getattr(leaf, "level", None) == AccountLevel.GROUP:
+                    continue
+                under[leaf.id] = heading
+                leaf_type = classify_account_code(leaf.code or "")
+                if args.account_type and leaf_type != args.account_type:
+                    continue
+                scored = [x for x in scored if x[1].id != leaf.id]
+                scored.append((round(h_score * 0.98, 3), leaf, leaf_type, True))
         # An account named for what was asked beats one only an alias points to:
         # «اجاره» is the rent account, not the company's general expense.
         if any(by_name and sc >= 0.85 for sc, _a, _t, by_name in scored):
@@ -753,11 +792,20 @@ class SearchAccounts(BaseTool):
                     "type": acc_type,
                     "normal_balance": _normal_balance(acc_type),
                     "confidence": round(score, 3),
+                    **({"old_codes": old_codes(acc)} if old_codes(acc) else {}),
+                    **({"under": under[acc.id].name} if acc.id in under else {}),
                     **({"learned": True} if learned_acc is not None and acc.code == learned_acc.code else {}),
                 }
                 for (score, acc, acc_type) in top
             ],
         }
+        if headings:
+            h = max(headings, key=lambda x: x[0])[1]
+            codes = old_codes(h)
+            out["heading_note"] = (
+                f"«{h.name}» ({h.code}{', ' + ', '.join(codes) + ' in the user’s own books' if codes else ''}) is a "
+                "heading: it takes no entries. Its accounts are listed instead — ask which with ask_with_choices; never "
+                "offer the heading, and never make an account just to have the user's old number.")
         if learned_acc is not None:
             out["learned_note"] = (f"The user chose {learned_acc.code} ({learned_acc.name}) before for "
                                    f"\"{learned.preference.label}\" — use it unless they say otherwise now.")

@@ -135,28 +135,31 @@ def test_chart_export_drop_routes_to_migration_preview(auth_client):
 
 
 def test_transaction_csv_drop_proposes_entries(auth_client, db):
+    """A journal whose accounts sit in columns of their own («Title 1…3»): the card opens the
+    journal import on the same upload, its account columns are chosen there, and the voucher
+    goes in whole (scenario AH3). The chat had its own old parser for this (2026-10-19)."""
     att = _upload_attachment(auth_client, "transactions.csv", TXN_CSV, "text/csv")
     resp = _chat(auth_client, "این تراکنش‌ها را ثبت کن", attachment_ids=[att["id"]])
     assert resp.status_code == 200, resp.text
     intake = resp.json()["intake"]
-    assert intake["kind"] == "transactions"
-    assert intake["total_vouchers"] == 1
-    assert intake["balanced_vouchers"] == 1
-    assert intake["unmapped_accounts"] == 0
-    mappings = intake["account_mappings"]
-    assert {m["account_code"] for m in mappings} == {"6112", "1110"}
+    assert intake["kind"] == "journals"
+    [f] = intake["files"]
+    assert f["needs_columns"] is True and f["file_name"] == "transactions.csv"
 
-    n_before = len(db.execute(select(Transaction)).scalars().all())
-    c = auth_client.post("/transactions/excel-import/confirm", json={
-        "file_token": intake["file_token"],
-        "jalali_year": intake["jalali_year"],
-        "account_mappings": mappings,
-        "amount_multiplier": 1,
-        "currency": "IRR",
-    })
+    # the journal page on the same upload: its account columns chosen
+    columns = {"date": 2, "voucher": 1, "description": 6, "debit": 7, "credit": 8,
+               "account_name": 5, "account_name_general": 4}
+    r = auth_client.post("/migration/journals/review", json={"token": f["token"], "columns": columns})
+    assert r.status_code == 200, r.text
+    review = r.json()
+    assert review["voucher_count"] == 1 and review["needs"] == []
+    account_map = {a["key"]: ("6112" if a["name"] == "اینترنت" else "1110") for a in review["accounts"]}
+    n_before = len(db.execute(select(Transaction).where(Transaction.deleted_at.is_(None))).scalars().all())
+    c = auth_client.post("/migration/journals/apply", json={"token": f["token"], "columns": columns,
+                                                           "account_map": account_map})
     assert c.status_code == 200, c.text
-    assert c.json()["imported"] == 1
-    assert len(db.execute(select(Transaction)).scalars().all()) == n_before + 1
+    assert c.json()["posted"] == 1
+    assert len(db.execute(select(Transaction).where(Transaction.deleted_at.is_(None))).scalars().all()) == n_before + 1
 
 
 def test_unrecognized_sheet_becomes_qa_context(db, tmp_path):

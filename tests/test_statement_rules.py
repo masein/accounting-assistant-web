@@ -247,7 +247,7 @@ def test_af8_a_journal_is_said_in_the_readers_language(db, tmp_path):
     db.add(att)
     db.flush()
     intake = build_spreadsheet_intake(db, [att], can_migrate=True, lang="fa")
-    assert intake is not None and intake.kind == "transactions", intake and intake.kind
+    assert intake is not None and intake.kind == "journals", intake and intake.kind
     assert intake.detected.startswith("به نظر فهرست سندهاست") and "transaction list" not in intake.detected
 
 

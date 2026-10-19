@@ -97,7 +97,9 @@ def _postable(db: Session, code: str | None) -> tuple[str, str] | None:
     if not code:
         return None
     from app.models.account import Account, AccountLevel
-    acc = db.execute(select(Account).where(Account.code == str(code).strip(), Account.is_active.is_(True))).scalars().first()
+    from app.services.account_resolver import account_by_source_code
+    acc = db.execute(select(Account).where(Account.code == str(code).strip(), Account.is_active.is_(True))).scalars().first() \
+        or account_by_source_code(db, str(code))            # the user's own code (scenario AH7)
     if acc is None or acc.level == AccountLevel.GROUP:
         return None
     if db.execute(select(Account.id).where(Account.parent_id == acc.id).limit(1)).first() is not None:

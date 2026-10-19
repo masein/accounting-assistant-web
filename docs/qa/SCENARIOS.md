@@ -589,3 +589,21 @@ From the owner, in his own personal books: «Amir payed for these:» and nine li
 | AG6 | Someone owes me | «I lent Reza 200 dollars from my card», later «Reza paid me back 50» | Reza owes 200, then 150, both naming Reza; «who owes me?» says Reza 150 USD |
 | AG7 | Travel in the books | Any person's books, new or kept from before this change | A «سفر» (Travel) category under living expenses; «hotel», «Airbnb», «flight» find it |
 | AG8 | It knows what I confirmed | Confirm cards, then ask anything about them | The assistant speaks of them as in the books, never as waiting for confirmation; cancelled ones as cancelled |
+
+## AH. A school's journals dropped in the chat, and its own codes (2026-10-19)
+
+From the owner, on production, in منادی حق's books: «این فایل های اکسل دو سال گذشته مدرسه هست» with manadi-1404.xlsx and manadi-1405.xlsx. The chat read only the first file, with an old parser. It took the date column for the voucher number and the ledger code (1100, 1300) for a "day code", and called a 1404 file 1405. It dated 6 of 124 vouchers, all 2027-01-30, and «اعمال شد — 6 سند» posted those six with only the lines whose account had matched (2 of 18): one-sided vouchers a year ahead. Asked «سند هارو ببینم», the assistant said nothing was in the books and asked for the files again. In the same books, «کدینگ مخارج مدرسه اشتباه ست باید ۱۳۰۰ میبوده» found nothing. The import had given the school's accounts the app's codes (their 1300 «مخارج مدرسه» became 6211 and 6132, two headings, because its bank fees went under 62 and the rest under 61). The assistant offered 6211, which it had just said takes no entries, and offered to create an expense account at 1300 (assets, in the app's numbering). It typed its choices as bullets.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AH1 | Both years, read right | Drop manadi-1404.xlsx and manadi-1405.xlsx in the chat with «این فایل های اکسل دو سال گذشته مدرسه هست» | One card per file, by the journal importer the migration page uses: 1404 has 199 vouchers from ۲۹ فروردین ۱۴۰۴ to ۲۹ اسفند ۱۴۰۴, and 1405 has 53. Each card says how many are ready, how many accounts it will create, and what is held back (already in the books, an opening repeated) |
+| AH2 | Import from the card | Tap «وارد کن» on a card whose vouchers are all ready | Every ready voucher is posted whole, on its own date. The answer, saved in the conversation, says how many and from when to when. «سند هارو ببینم» then lists them |
+| AH3 | Accounts to match first | A file with an account the chart can't place | The card doesn't import. «تطبیق حساب‌ها» opens the journal import page on the same file, with nothing to upload again |
+| AH4 | Never part of a voucher | The old Excel import page, with an account left unmatched | Vouchers with an unmatched line aren't posted at all; the others are, whole |
+| AH5 | The six misread vouchers are gone | After the deploy | Vouchers whose number is a date (V1404/01/29) and that sit on another date are removed, with an audit row each. The import can then be done again |
+| AH6 | One «مخارج مدرسه» | After the deploy, and on any new import | The two headings an import made of one ledger are one: its bank fees under the same «مخارج مدرسه» as the rest, the empty one put away |
+| AH7 | My own codes | «کد ۱۳۰۰»، «۱۳۰۲ ملزومات»، search for 111004 | The account that had that code in the school's file is found; cards and the chart show both, «۶۱۳۲ مخارج مدرسه (۱۳۰۰)» |
+| AH8 | A heading isn't offered | Ask to post to «مخارج مدرسه» | The assistant offers its accounts (کارمزد, ملزومات, پذیرایی, تعمیرات, قبوض…), never the heading, and never «create 1300» |
+| AH9 | Choices are chips | Any question with options | Tappable choices, never a typed list of bullets |
+| AH10 | One code, several accounts | A file whose 1305 is three accounts | The review says so; searching 1305 offers the three |
+| AH11 | Said once, in the reader's language | The detection line and the card | «به نظر فهرست سندهاست» and «حساب نگاشت‌نشده» on both, in Persian digits |

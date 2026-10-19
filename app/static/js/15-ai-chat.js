@@ -966,6 +966,83 @@
       }
 
       // ─── Smart-intake cards (spreadsheet drops) ───
+      // A journal drop: one card per file, read by the journal importer the
+      // migration page uses — in the same words as the line above it. Ready
+      // vouchers go in whole from here; accounts to match open that page on the
+      // same upload (scenarios AH1–AH3, AH11).
+      function appendJournalCards(intake) {
+        clearEmptyState();
+        (intake.files || []).forEach((f) => {
+          const card = document.createElement('div');
+          card.className = 'ai-card message-in ai-journal-card';
+          card.setAttribute('dir', 'auto');
+          const title = document.createElement('div');
+          title.className = 'ai-journal-title';
+          title.textContent = t('chatIntakeTxnTitle');
+          const said = document.createElement('div');
+          said.className = 'ai-journal-said';
+          said.setAttribute('dir', 'auto');
+          said.textContent = f.said || f.file_name || '';
+          card.appendChild(title);
+          card.appendChild(said);
+          if ((f.notes || []).length) {
+            const notes = document.createElement('ul');
+            notes.className = 'ai-journal-notes';
+            f.notes.forEach((n) => {
+              const li = document.createElement('li');
+              li.setAttribute('dir', 'auto');
+              li.textContent = n;
+              notes.appendChild(li);
+            });
+            card.appendChild(notes);
+          }
+          const row = document.createElement('div');
+          row.className = 'ai-journal-actions';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          if (f.needs_columns || f.unplaced_accounts || f.stray_years) {
+            btn.className = 'btn btn-secondary btn-sm';
+            btn.textContent = t('chatJournalMatch');
+            btn.addEventListener('click', () => {
+              if (typeof window.openJournalImport === 'function') window.openJournalImport(f.token, f.file_name, sessionId);
+            });
+            row.appendChild(btn);
+          } else if (f.ready) {
+            btn.className = 'btn btn-primary btn-sm';
+            btn.textContent = tf('chatJournalImport', { n: formatNum(f.ready) });
+            btn.addEventListener('click', async () => {
+              btn.disabled = true;
+              try {
+                const res = await fetch(API + '/migration/journals/apply', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ token: f.token, file_name: f.file_name, session_id: sessionId || undefined }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : t('msgFailed'));
+                btn.textContent = '✓ ' + t('chatIntakeApplied');
+                appendBubble('assistant', data.said || t('chatIntakeApplied'));
+              } catch (e) {
+                appendBubble('system', '⚠ ' + e.message);
+                btn.disabled = false;
+              }
+            });
+            row.appendChild(btn);
+          }
+          // an earlier import's misread vouchers: listed on the migration page, removed there (scenario AH5)
+          if (intake.repairs && f === intake.files[0]) {
+            const fix = document.createElement('button');
+            fix.type = 'button';
+            fix.className = 'btn btn-secondary btn-sm';
+            fix.textContent = t('migrationNav');
+            fix.addEventListener('click', () => { if (typeof showPage === 'function') showPage('migration'); });
+            row.appendChild(fix);
+          }
+          if (row.childNodes.length) card.appendChild(row);
+          messagesEl.appendChild(card);
+        });
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
       function appendIntakeCard(intake) {
         clearEmptyState();
         const card = document.createElement('div');
@@ -974,6 +1051,10 @@
         card.style.cssText = 'background:#f0fdfa; font-size:0.88rem;';
         const fmt = (n) => (typeof n === 'number' ? formatNum(n) : n);
         let html = '';
+        if (intake.kind === 'journals') {
+          appendJournalCards(intake);
+          return;
+        }
         if (intake.kind === 'bank_statement') {
           appendStatementCard(card, intake, fmt);
           messagesEl.appendChild(card);
@@ -1007,16 +1088,6 @@
           if (warns.length) {
             html += '<div style="color:var(--text-muted);margin-top:0.25rem;font-size:0.8rem;">' + warns.map(escapeHtml).join('<br>') + '</div>';
           }
-        } else if (intake.kind === 'transactions') {
-          html += '<div style="font-weight:600;margin-bottom:0.3rem;">' + escapeHtml(t('chatIntakeTxnTitle')) + '</div>';
-          html += '<div>' + fmt(intake.total_rows) + ' ' + escapeHtml(t('chatIntakeRows')) + ' · '
-            + fmt(intake.total_vouchers) + ' ' + escapeHtml(t('chatIntakeVouchers'))
-            + (intake.unmapped_accounts ? ' · <span style="color:var(--danger,#dc3545);">' + fmt(intake.unmapped_accounts) + ' ' + escapeHtml(t('chatIntakeUnmapped')) + '</span>' : '')
-            + '</div>';
-          const errs = intake.errors || [];
-          if (errs.length) {
-            html += '<div style="color:var(--danger,#dc3545);margin-top:0.25rem;font-size:0.8rem;">' + errs.slice(0, 5).map(escapeHtml).join('<br>') + '</div>';
-          }
         }
         card.innerHTML = html;
         const btnRow = document.createElement('div');
@@ -1044,21 +1115,6 @@
                 + ', ' + ((ents.banks_created || 0) + (ents.counterparties_created || 0)) + ' ' + t('migrationEntitiesCreated')
                 + '. ' + t((r.opening_journal || {}).kept ? 'migrationOpeningKept' : 'migrationJournalPosted')
                 + ': ' + formatDisplayDate((r.opening_journal || {}).opening_date || ''));
-            } else {
-              res = await fetch(API + '/transactions/excel-import/confirm', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  file_token: intake.file_token,
-                  jalali_year: intake.jalali_year,
-                  account_mappings: intake.account_mappings || [],
-                  amount_multiplier: 1,
-                  currency: 'IRR',
-                }),
-              });
-              data = await res.json().catch(() => ({}));
-              if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : t('msgFailed'));
-              appendBubble('assistant', t('chatIntakeApplied') + ' — ' + (data.imported || 0) + ' ' + t('chatIntakeVouchers')
-                + ((data.errors || []).length ? ' · ' + data.errors.slice(0, 3).join(' | ') : ''));
             }
             confirmBtn.textContent = '✓';
           } catch (e) {

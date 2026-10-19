@@ -203,6 +203,10 @@ To undo or reverse an entry that is already recorded ("undo the last transaction
 
 When the turn carries «[The attached file was imported as a bank statement: statement_id=…]» (or the user names a statement already imported) and says how its rows go — which account money coming in goes to, which account money going out goes to, words like «کارمزد» to a fees account, «به تفکیک تاریخ» / "one voucher per day" — make ONE card with ``propose_post_statement``: never a card per row, never a journal built by hand. First ``search_accounts`` for every account the user names (the bank «بانک دی», «درآمد شهریه», «مخارج مدرسه», «کارمزد بانکی»…); pass the bank as ``bank_account_code`` when the user names one. A named account the chart doesn't have: ask once with ``ask_with_choices`` among the closest accounts (and offer to make a new one), never guess a code. «+» / واریز is money in, «−» / برداشت money out; fees («کارمزد») go by a rule before the out account. The bank side: when the bank the user names differs from the statement's own bank (the file is Parsian's, they said «بانک دی»), ask once with ``ask_with_choices``: the account they named, the statement's bank's own account when the books have one, or a new account for that bank when they have none. A new one is ``new_bank_name`` («بانک پارسیان») instead of ``bank_account_code``: it is made on confirm, never before, and never beside an account the books already have for that bank. Then say in a sentence what the card posts (rows, vouchers, from and to), and what it leaves out.
 
+# Options are buttons, not a list
+
+Whenever you ask the user to pick between options (accounts, banks, «create a new one or use this one»), call ``ask_with_choices`` with them — never type them as a bulleted or numbered list. Offer only what can be done: an account ``search_accounts`` gives as a heading (``heading_note``) takes no entries, so offer its accounts, never the heading. A code the user gives that the chart lacks («باید ۱۳۰۰ میبوده») may be the code from their own books: ``search_accounts`` with that code finds the account it became (``old_codes``); never offer to make an account just to have that number (1300 is an asset code here).
+
 # Confirmation is a BUTTON, not a message
 
 A proposal is recorded only when the user clicks Confirm on its card. If the user types "confirm" / "تایید کن" in chat, or asks why a proposed entry isn't showing: tell them to confirm (or cancel) it on the pending card itself — do NOT call the proposal tool again; an identical second card double-posts when both get confirmed. Never re-propose something that is already pending. When the user CORRECTS a pending card ("make it 2.5 million", «مبلغش رو … کن», "no, from the other bank", "change the date") propose the corrected card with ``replaces="previous"`` (or the old card's confirmation_token): the old card is withdrawn for them. Never tell the user to cancel the old card themselves.
@@ -376,6 +380,37 @@ def _fold_party_into(db, txn: dict, party: dict, user_message: str | None = None
             )
         else:
             txn["summary"] = (txn.get("summary") or "") + f"\n  Will create {label}: {party.get('name')}"
+
+
+# A list the user is asked to pick from, typed out: «لطفاً یکی را انتخاب کنید:» then
+# «• ۶۲۱۱ «مخارج مدرسه»» and «• ۶۱۳۲ «مخارج مدرسه»», twice, with nothing to tap
+# (2026-10-19, scenario AH9).
+_CHOICE_BULLET = re.compile(r"^\s*(?:[•\-*–·]|[0-9۰-۹]+[.)])\s+(.+?)\s*$")
+_ASKS = re.compile(r"[?؟]|\b(choose|pick|select|which|prefer)\b|انتخاب|کدام|کدوم|مشخص کنید|بگویید|"
+                   r"\b(elige|elija|selecciona|cuál)\b|اختر|أي", re.IGNORECASE)
+
+
+def _choices_as_chips(text: str, calls: list) -> str:
+    """Options the model typed as a list after a question become the buttons
+    ``ask_with_choices`` draws (2 to 4 short ones); its text keeps the question.
+    A list of facts after a colon stays as it is."""
+    if not text or any(c.get("name") == "ask_with_choices" for c in calls):
+        return text
+    lines = text.rstrip().splitlines()
+    items: list[str] = []
+    while lines and (m := _CHOICE_BULLET.match(lines[-1])):
+        items.insert(0, m.group(1))
+        lines.pop()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if not 2 <= len(items) <= 4 or not lines or not _ASKS.search(lines[-1]):
+        return text
+    options = [re.sub(r"\*\*|__|`", "", it).strip() for it in items]
+    if any(not o or len(o) > 60 for o in options):
+        return text
+    calls.append({"tool_use_id": f"chips-{uuid.uuid4().hex[:8]}", "name": "ask_with_choices",
+                  "input": {"question": lines[-1].strip(), "options": options}, "result": {"options": options}})
+    return "\n".join(lines).rstrip()
 
 
 def _named_in(text: str | None, name: str | None) -> bool:
@@ -1307,6 +1342,7 @@ async def run_chat_turn(
 
         if stop_reason == "end_turn" or not assistant_msg.tool_calls:
             final_text = _no_stray_tail(_true_figures(assistant_msg.text or "", tool_call_log))
+            final_text = _choices_as_chips(final_text, tool_call_log)
             # Final one-card pass over EVERY proposal raised this chat turn (the
             # standalone create and the transaction/time action are often in
             # different LLM turns), so a redundant standalone create is dropped.

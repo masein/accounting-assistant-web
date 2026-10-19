@@ -1159,6 +1159,18 @@
     .ai-card-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .ai-card.is-done { opacity: 0.92; }
     .ai-card.is-cancelled { opacity: 0.55; }
+    /* an account's code in the user's own books, beside its name (scenario AH7) */
+    .coa-old-code { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
+    /* what a misread import left, to put right on the user's word (scenarios AH5, AH6) */
+    .ji-repairs { border-inline-start: 4px solid var(--danger, #dc3545); margin: 0.6rem 0; }
+    .ji-repairs h4 { margin: 0 0 0.4rem; }
+    .ji-repairs-list { margin: 0.2rem 0 0.6rem; padding-inline-start: 1.1rem; font-size: 0.85rem; }
+    /* a journal file dropped in the chat (scenarios AH1–AH3) */
+    .ai-journal-card { background: #f0fdfa; font-size: 0.88rem; }
+    .ai-journal-title { font-weight: 600; margin-bottom: 0.3rem; }
+    .ai-journal-said { unicode-bidi: plaintext; text-align: start; }
+    .ai-journal-notes { margin: 0.35rem 0 0; padding-inline-start: 1.1rem; color: var(--text-muted); font-size: 0.82rem; line-height: 1.6; }
+    .ai-journal-actions { margin-top: 0.6rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
     .ai-empty { margin: auto; max-width: 560px; text-align: center; padding: 2rem 1rem; color: var(--text-muted); }
     .ai-empty-icon { width: 52px; height: 52px; border-radius: 16px; background: #e6f4f3; color: var(--primary); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; }

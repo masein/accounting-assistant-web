@@ -67,14 +67,19 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Log in to the legacy mirror only when credentials are configured (it
-      # accepts anonymous push today, so this no-ops by default).
+      # accepts anonymous push today, so this no-ops by default). Best-effort,
+      # like the mirror push: the mirror answered 502 at login on 2026-10-19 and
+      # failed the whole job before the required GHCR push — production, which
+      # pulls from GHCR, got nothing.
       - name: Log in to the mirror registry (if credentials are set)
+        continue-on-error: true
         env:
           REG_USER: ${{ secrets.REGISTRY_USERNAME }}
           REG_PASS: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
           if [ -n "$REG_USER" ]; then
-            echo "$REG_PASS" | docker login "$MIRROR_REGISTRY" -u "$REG_USER" --password-stdin
+            echo "$REG_PASS" | docker login "$MIRROR_REGISTRY" -u "$REG_USER" --password-stdin \
+              || echo "::warning::mirror login to $MIRROR_REGISTRY failed — the mirror push will be skipped"
           else
             echo "No REGISTRY_USERNAME configured — mirror push is anonymous."
           fi

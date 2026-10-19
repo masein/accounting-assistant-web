@@ -224,3 +224,36 @@ def reset_company_password(company_id: UUID, payload: PasswordReset, db: Session
                         detail=_json.dumps({"company_id": str(company.id), "username": user.username}))
         db.commit()
         return {"ok": True, "username": user.username}
+
+
+class ResetBooksIn(BaseModel):
+    confirm: str = Field(..., max_length=200)     # the company's name, typed
+
+
+@router.get("/{company_id}/books")
+def company_books(company_id: UUID, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+    """What a reset of this company's books would remove — nothing changes (scenario AI1)."""
+    from app.services import books_reset
+    with tenant_bypass():
+        company = db.get(Company, company_id)
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+        name = company.name
+    return {"name": name, **books_reset.summary(db, company_id)}
+
+
+@router.post("/{company_id}/reset-books")
+def reset_company_books(company_id: UUID, payload: ResetBooksIn, db: Session = Depends(get_db),
+                        caller=Depends(require_superadmin)) -> dict:
+    """Empty a company's books and seed its chart again, to import them anew;
+    its logins, profile and configuration stay (scenarios AI2–AI5). The
+    company's name, typed, is the confirmation."""
+    from app.services import books_reset
+    with tenant_bypass():
+        company = db.get(Company, company_id)
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+        name = (company.name or "").strip()
+    if payload.confirm.strip() != name:
+        raise HTTPException(status_code=422, detail="Type the company's name exactly to reset its books.")
+    return books_reset.reset(db, company_id, actor_user_id=str(caller.user_id), actor_username=caller.username)

@@ -549,71 +549,21 @@ def reset_db(
     if locale_norm not in SUPPORTED_LOCALES:
         raise HTTPException(status_code=400, detail=f"Unsupported locale '{locale}'. Supported: {sorted(SUPPORTED_LOCALES)}")
 
-    # Delete in strict dependency order (children before parents).
+    # The company's books, every table of them (books_reset): this list was kept by
+    # hand and missed the chats, imports, petty cash, fixed assets and the settings
+    # naming the old accounts — and it emptied every company's payment methods.
+    from app.db.tenant import get_current_company
+    from app.services import books_reset
+    cid = get_current_company()
+    if not cid and getattr(_, "is_superadmin", False):
+        # with no company open this emptied every company's books: a company's are reset
+        # from the companies console (scenario AI5)
+        raise HTTPException(status_code=400, detail="Open a company first: its books are reset from Companies.")
     try:
-        # Bank statements aren't wiped by the business-table reset, so they
-        # accumulate across resets (and across locale switches — stale IRR
-        # statements survive a UK reload). Clear them first so the list
-        # reflects only the freshly seeded demo, and so a re-seeded demo
-        # statement isn't buried under leftovers.
-        db.execute(delete(BankStatementRow))
-        db.execute(delete(BankStatement))
-        # Payroll children — pay-run lines + runs + pay profiles. PayRun FKs
-        # transactions.id (SET NULL) but nothing cascades it, so wipe explicitly.
-        db.execute(delete(PayRunLine))
-        db.execute(delete(PayRun))
-        db.execute(delete(EmployeePayProfile))
-        # Purchase orders + receipts — FK entities/invoices/inventory with no
-        # ondelete, so clear them before those parents.
-        db.execute(delete(GoodsReceiptLine))
-        db.execute(delete(GoodsReceipt))
-        db.execute(delete(PurchaseOrderLine))
-        db.execute(delete(PurchaseOrder))
-        # Mileage claims FK entities + transactions (SET NULL); wipe before them.
-        db.execute(delete(MileageClaim))
-        # Shareholder equity: events FK transactions/entities (SET NULL) so they
-        # would SURVIVE the wipe with nulled refs and keep feeding ghost rows
-        # into the changes-in-equity statement; shareholdings FK entities.
-        # Wipe both explicitly, and reset the company's registered capital.
-        db.execute(delete(EquityEvent))
-        db.execute(delete(Shareholding))
-        # Inbound time entries parked for review are business data too.
-        db.execute(delete(PendingTimeEntry))
-        # Time billing: entries → overrides → projects, all FK entities/invoices.
-        db.execute(delete(TimeEntry))
-        db.execute(delete(BillingRateOverride))
-        db.execute(delete(Project))
-        db.execute(delete(TransactionEntity))
-        db.execute(delete(TransactionAttachment))
-        db.execute(delete(TransactionLine))
-        db.execute(delete(TransactionFeeApplication))
-        db.execute(delete(TransactionFee))
-        db.execute(delete(PaymentMethod))
-        db.execute(delete(InventoryMovement))
-        # AR/AP + period-close children that FK transactions.id (and invoices.id)
-        # with no ondelete — must go before Invoice/Transaction or the delete
-        # 500s with a ForeignKeyViolation once any of these rows exist.
-        db.execute(delete(CreditNote))
-        db.execute(delete(Payment))
-        db.execute(delete(Adjustment))
-        db.execute(delete(InvoiceItem))
-        db.execute(delete(InventoryItem))
-        db.execute(delete(Invoice))  # can reference Transaction via transaction_id
-        db.execute(delete(Transaction))
-        db.execute(delete(RecurringRule))
-        db.execute(delete(BudgetLimit))
-        db.execute(delete(TrialBalanceLine))
-        db.execute(delete(TrialBalance))
-        db.execute(delete(TaxRate))
-        db.execute(delete(Entity))
-        db.execute(delete(Account))
-        # Registered capital is derived from (now-wiped) contributions and
-        # capital increases — reset it so the cap table starts clean.
-        from app.services.fx_service import _current_company_row
-        company = _current_company_row(db)
-        if company is not None:
-            company.registered_capital = 0
+        _before, files = books_reset.wipe(db, UUID(str(cid)) if cid else None)
+        db.execute(delete(TaxRate))                  # re-seeded below for the chart's locale
         db.commit()
+        books_reset.remove_files(files)
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}") from e

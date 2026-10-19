@@ -88,6 +88,7 @@
               <button type="button" class="btn btn-secondary btn-sm co-ai" data-id="${escapeHtml(c.id)}" data-budget="${ai[c.id] && !ai[c.id].budget_is_default ? escapeHtml(String(ai[c.id].budget)) : ''}">${escapeHtml(t('companiesAiBudget'))}</button>
               <button type="button" class="btn btn-secondary btn-sm co-toggle" data-id="${escapeHtml(c.id)}" data-status="${nextStatus}">${escapeHtml(toggleLabel)}</button>
               <button type="button" class="btn btn-secondary btn-sm co-reset" data-id="${escapeHtml(c.id)}">${escapeHtml(t('companiesResetPw'))}</button>
+              <button type="button" class="btn btn-danger btn-sm co-wipe" data-id="${escapeHtml(c.id)}">${escapeHtml(t('companiesResetBooks'))}</button>
             </div></td>
           </tr>`;
         }).join('');
@@ -141,6 +142,38 @@
         const toggle = e.target.closest('.co-toggle');
         const reset = e.target.closest('.co-reset');
         const aiBtn = e.target.closest('.co-ai');
+        const wipe = e.target.closest('.co-wipe');
+        if (wipe) {
+          // a company's books cleared to import them again: what goes is said first,
+          // and the company's name typed back confirms it (scenarios AI1–AI3)
+          const id = wipe.dataset.id;
+          let books;
+          try {
+            const res = await fetch(API + '/admin/companies/' + id + '/books');
+            books = await res.json();
+            if (!res.ok) throw new Error(books.detail || t('companiesUpdateFailed'));
+          } catch (err) { showAlert(err.message || t('companiesUpdateFailed'), true); return; }
+          const tables = books.tables || {};
+          const sep = ['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ';
+          const list = ['transactions', 'accounts', 'entities', 'bank_statements', 'invoices', 'ai_chat_sessions']
+            .filter((k) => tables[k]).map((k) => formatNum(tables[k]) + ' ' + t('booksTbl_' + k)).join(sep);
+          const ok = await uiConfirmTyped({
+            title: t('companiesResetBooks'), confirmLabel: t('companiesResetBooks'), expect: books.name,
+            message: tf('companiesResetBooksMsg', { name: books.name, list: list || '—', rows: formatNum(books.rows || 0) }),
+          });
+          if (!ok) return;
+          try {
+            const res = await fetch(API + '/admin/companies/' + id + '/reset-books', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ confirm: books.name }),
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) { showAlert(d.detail || t('companiesUpdateFailed'), true); return; }
+            showAlert(tf('companiesResetBooksDone', { name: books.name, rows: formatNum(d.rows || 0) }));
+            loadCompanies();
+          } catch (_) { showAlert(t('companiesUpdateFailed'), true); }
+          return;
+        }
         if (aiBtn) {
           const raw = await uiPrompt({ title: t('companiesAiBudget'), message: t('companiesAiBudgetPrompt'), value: aiBtn.dataset.budget || '' });
           if (raw === null) return;

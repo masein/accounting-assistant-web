@@ -229,6 +229,7 @@ for _m, _p in [
     ("GET", "/admin/companies"), ("POST", "/admin/companies"),
     ("GET", "/admin/companies/{company_id}/logo"), ("PATCH", "/admin/companies/{company_id}"),
     ("POST", "/admin/companies/{company_id}/reset-password"),
+    ("GET", "/admin/companies/{company_id}/books"), ("POST", "/admin/companies/{company_id}/reset-books"),
     ("GET", "/admin/jobs/status"),
     ("GET", "/admin/ai-config"), ("PATCH", "/admin/ai-config"),
     ("GET", "/admin/anthropic-config"), ("PATCH", "/admin/anthropic-config"),

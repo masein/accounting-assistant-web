@@ -28,6 +28,15 @@ def _iso(value: str, lang: str) -> str:
 
 
 EXACT: dict[str, dict[str, str]] = {
+    # a company's books cleared from the companies console (scenarios AI2, AI5)
+    "Type the company's name exactly to reset its books.": {
+        "fa": "برای پاک کردن دفاتر، نام شرکت را دقیقاً بنویسید.",
+        "es": "Escribe el nombre exacto de la empresa para vaciar sus libros.",
+        "ar": "اكتب اسم الشركة بالضبط لإفراغ دفاترها."},
+    "Open a company first: its books are reset from Companies.": {
+        "fa": "اول یک شرکت را باز کنید؛ دفاتر هر شرکت از صفحهٔ «شرکت‌ها» پاک می‌شود.",
+        "es": "Abre primero una empresa: sus libros se vacían desde Empresas.",
+        "ar": "افتح شركة أولًا: تُفرغ دفاترها من صفحة «الشركات»."},
     # stock in the books (docs/PLAN_INVENTORY_GL.md)
     "Pick the date stock starts posting from.": {
         "fa": "تاریخ شروع ثبت موجودی در دفاتر را انتخاب کنید.",

@@ -607,3 +607,16 @@ From the owner, on production, in منادی حق's books: «این فایل ه�
 | AH9 | Choices are chips | Any question with options | Tappable choices, never a typed list of bullets |
 | AH10 | One code, several accounts | A file whose 1305 is three accounts | The review says so; searching 1305 offers the three |
 | AH11 | Said once, in the reader's language | The detection line and the card | «به نظر فهرست سندهاست» and «حساب نگاشت‌نشده» on both, in Persian digits |
+## AI. A company's books cleared, to import them again (2026-10-19)
+
+The two schools (منادی حق, فرهنگ نو) were imported before the journal importer kept their own codes and made one heading per ledger, and a misread chat import left one-sided vouchers in one of them. The owner chose to clear both and import the files again. A company could only be suspended; a login can't move to another company; and the owner's own «پاک کردن دفاتر» in Settings wiped a hand-kept list of tables (no chats, imports, petty cash, fixed assets, the settings naming the old accounts) and emptied every company's payment methods.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AI1 | What would go | Platform admin → Companies → «پاک کردن دفاتر» on a school | Before anything changes: what the school holds — vouchers, accounts, parties, statements, imports, chats… each with its count |
+| AI2 | Typed, or nothing | Type a name that isn't the school's | Refused; nothing changes |
+| AI3 | Cleared | Type the school's name | Every entry, account, party, statement, import, invoice, payroll and chat of that school goes; its chart is seeded again as a new company's; its journal account map, posting roles and closed period go with the old accounts |
+| AI4 | What stays | After AI3 | The school itself, its logins (the father signs in as before), its profile and configuration (calendar, currency, AI, mail), its tax and exchange rates, its AI spending, and its audit trail — with a row for the reset |
+| AI5 | Nobody else's | After AI3 | Every other company is as it was, payment methods included |
+| AI6 | Import again | Drop the school's files in the chat after AI3 | Every voucher goes in, with the school's own codes beside the app's and one heading per ledger |
+| AI7 | The owner's own wipe | Settings → «پاک کردن دفاتر» in the school | The same complete wipe of its own books, as before typed by its name, its chart re-seeded |

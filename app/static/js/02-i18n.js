@@ -1812,6 +1812,7 @@
         auditAct_2fa_recovery_codes_replaced: 'Recovery codes replaced',
         auditAct_2fa_reset: 'Two-step sign-in reset',
         auditAct_approve: 'Approved',
+        auditAct_reset_books: 'Books reset',
         auditAct_archive: 'Archived',
         auditAct_bank_mailbox_check: 'Statement mailbox checked',
         auditAct_bank_sms_forward: 'Bank SMS forwarded',

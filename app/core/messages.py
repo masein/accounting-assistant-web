@@ -28,6 +28,15 @@ def _iso(value: str, lang: str) -> str:
 
 
 EXACT: dict[str, dict[str, str]] = {
+    # a company's books cleared from the companies console (scenarios AI2, AI5)
+    "Type the company's name exactly to reset its books.": {
+        "fa": "برای پاک کردن دفاتر، نام شرکت را دقیقاً بنویسید.",
+        "es": "Escribe el nombre exacto de la empresa para vaciar sus libros.",
+        "ar": "اكتب اسم الشركة بالضبط لإفراغ دفاترها."},
+    "Open a company first: its books are reset from Companies.": {
+        "fa": "اول یک شرکت را باز کنید؛ دفاتر هر شرکت از صفحهٔ «شرکت‌ها» پاک می‌شود.",
+        "es": "Abre primero una empresa: sus libros se vacían desde Empresas.",
+        "ar": "افتح شركة أولًا: تُفرغ دفاترها من صفحة «الشركات»."},
     # stock in the books (docs/PLAN_INVENTORY_GL.md)
     "Pick the date stock starts posting from.": {
         "fa": "تاریخ شروع ثبت موجودی در دفاتر را انتخاب کنید.",
@@ -1155,10 +1164,6 @@ PATTERNS: list[_Pattern] = [
              {"fa": "در دفاتر تراز افتتاحیه‌ای به جمع {old} با تاریخ {date} هست؛ جمع این فایل {new} است. اگر جایگزینی را انتخاب نکنید، همان می‌ماند و فقط کدینگ و اشخاص وارد می‌شوند",
               "es": "Los libros ya tienen saldos de apertura de {old} con fecha {date}; los de este archivo suman {new}. Si no eliges reemplazarlos, se quedan como están y solo se importan el plan de cuentas y los contactos",
               "ar": "في الدفاتر أرصدة افتتاحية مجموعها {old} بتاريخ {date}؛ ومجموع هذا الملف {new}. ما لم تختر استبدالها تبقى كما هي، ولا يُستورد إلا دليل الحسابات وجهات الاتصال"}),
-    _Pattern(r"^Type the company's name exactly to reset its books\.$",
-             {"fa": "برای پاک کردن دفاتر، نام شرکت را دقیقاً بنویسید.",
-              "es": "Escribe el nombre exacto de la empresa para vaciar sus libros.",
-              "ar": "اكتب اسم الشركة بالضبط لإفراغ دفاترها."}),
     _Pattern(r"^Voucher (?P<v>\S+): could not determine date \(day code: (?P<c>[^)]*)\)$",
              {"fa": "سند {v}: تاریخ مشخص نشد (کد روز: {c})", "es": "Asiento {v}: no se pudo determinar la fecha (código de día: {c})",
               "ar": "القيد {v}: تعذّر تحديد التاريخ (رمز اليوم: {c})"}),

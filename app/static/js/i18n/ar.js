@@ -1763,6 +1763,7 @@ window.I18N_PACKS.ar = Object.assign({
         auditAct_2fa_recovery_codes_replaced: 'استبدال رموز الاسترداد',
         auditAct_2fa_reset: 'إعادة تعيين التحقق بخطوتين',
         auditAct_approve: 'موافقة',
+        auditAct_reset_books: 'إفراغ الدفاتر',
         auditAct_archive: 'أرشفة',
         auditAct_bank_mailbox_check: 'فحص صندوق بريد الكشوف',
         auditAct_bank_sms_forward: 'إعادة توجيه رسالة البنك',

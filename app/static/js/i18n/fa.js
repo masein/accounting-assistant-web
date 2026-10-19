@@ -1807,6 +1807,7 @@ window.I18N_PACKS.fa = Object.assign({
         auditAct_2fa_recovery_codes_replaced: 'تعویض کدهای بازیابی',
         auditAct_2fa_reset: 'بازنشانی ورود دومرحله‌ای',
         auditAct_approve: 'تأیید',
+        auditAct_reset_books: 'پاک کردن دفاتر',
         auditAct_archive: 'بایگانی',
         auditAct_bank_mailbox_check: 'بررسی صندوق ایمیل صورتحساب',
         auditAct_bank_sms_forward: 'دریافت پیامک بانکی',

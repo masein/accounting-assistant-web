@@ -1763,6 +1763,7 @@ window.I18N_PACKS.es = Object.assign({
         auditAct_2fa_recovery_codes_replaced: 'Códigos de recuperación reemplazados',
         auditAct_2fa_reset: 'Verificación en dos pasos restablecida',
         auditAct_approve: 'Aprobación',
+        auditAct_reset_books: 'Libros vaciados',
         auditAct_archive: 'Archivado',
         auditAct_bank_mailbox_check: 'Buzón de extractos revisado',
         auditAct_bank_sms_forward: 'SMS bancario reenviado',

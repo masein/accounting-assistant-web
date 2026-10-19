@@ -1085,6 +1085,17 @@ def excel_import_confirm(
             errors.append(f"Voucher {v.voucher_number}: unbalanced (debit={v.total_debit}, credit={v.total_credit})")
             continue
 
+        # A voucher goes in whole or not at all: its lines with no account used
+        # to be dropped after it was made, and six of a school's vouchers went
+        # in one-sided (2026-10-19, scenario AH4)
+        unplaced = [line for line in v.lines
+                    if existing_accounts.get(acct_map.get(f"{line.title1}||{line.title2}||{line.title3}") or "") is None]
+        if unplaced:
+            for line in unplaced:
+                errors.append(f"Voucher {v.voucher_number}, row {line.row_index}: "
+                              f"no account mapping for [{line.title1} > {line.title2} > {line.title3}]")
+            continue
+
         # Build description from first line
         descriptions = [l.description for l in v.lines if l.description]
         desc = descriptions[0] if descriptions else f"Excel import voucher {v.voucher_number}"

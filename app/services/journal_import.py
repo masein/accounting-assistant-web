@@ -309,6 +309,9 @@ def parse_date(raw: Any, *, order: str = "dmy") -> date | None:
         return _gregorian_or_jalali(y, mo, d)
     if re.fullmatch(r"\d{5}(\.\d+)?", s):                       # an Excel serial
         return date(1899, 12, 30) + timedelta(days=int(float(s)))
+    m = re.fullmatch(r"(1[34]\d{2}|20\d{2})(\d{2})(\d{2})(?:\.0)?", s)   # year, month, day run together: 14040101
+    if m:
+        return _gregorian_or_jalali(*map(int, m.groups()))
     m = re.fullmatch(r"(\d{1,2})[ -]([a-z]{3})[a-z]*[ ,-]+(\d{4})", s)
     if m and m.group(2) in _MONTHS:
         return _safe(int(m.group(3)), _MONTHS[m.group(2)], int(m.group(1)))
@@ -359,6 +362,7 @@ class Line:
     currency: str | None = None
     exact: Decimal = Decimal(0)
     ledger: str = ""                     # the line's ledger (کل) title, when a sub-ledger named it
+    ledger_code: str = ""                # and the ledger's code in the file (1300 over 1301–1306)
 
     @property
     def account_key(self) -> str:
@@ -512,12 +516,13 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
         code = re.sub(r"\.0$", "", _ascii(_cell(row, cols.get("account_code")) or ""))
         name = str(_cell(row, cols.get("account_name")) or "").strip()
         ledger = str(_cell(row, cols.get("account_name_general")) or "").strip()
+        ledger_code = re.sub(r"\.0$", "", _ascii(_cell(row, cols.get("account_code_general")) or ""))
         if code and not name and ledger:
             name = ledger                    # a sub-ledger code with no title: its ledger's («—» was created)
         if not code and not name:
             # no sub-ledger on this line: its ledger (a hand-kept journal fills
             # «کد حساب معین» only where the ledger has sub-ledgers)
-            code = re.sub(r"\.0$", "", _ascii(_cell(row, cols.get("account_code_general")) or ""))
+            code, ledger_code = ledger_code, ""
             name, ledger = ledger, ""
         if "amount" in cols and not ("debit" in cols and "credit" in cols):
             amt = parse_amount(_cell(row, cols["amount"]))
@@ -541,6 +546,7 @@ def parse_file(rows: list[list], *, preset: str = "auto", columns: dict[str, int
             v = vouchers[key] = Voucher(key=key, number=label, on=cur_date, reference=cur_ref)
         party = _cell(row, cols.get("party"))
         v.lines.append(Line(row=i, account_code=code, account_name=name, ledger=ledger,
+                            ledger_code=ledger_code if ledger and ledger_code != code else "",
                             description=str(_cell(row, cols.get("description")) or "").strip(),
                             debit=0, credit=0, exact=exact,
                             party=str(party).strip() if party is not None else None,
@@ -677,12 +683,31 @@ def create_account_for(db: Session, name: str, target: str, ledger: str = "") ->
             db.flush()
         return acc
 
+    def heading_named(wanted: str) -> Account | None:
+        """The heading an earlier line made for this ledger, under whichever group."""
+        for acc in db.execute(select(Account).where(Account.level != AccountLevel.GROUP,
+                                                    Account.is_active.is_(True))).scalars():
+            if _norm(acc.name) == _norm(wanted) and db.execute(
+                    select(Account.id).where(Account.parent_id == acc.id).limit(1)).first() is not None:
+                return acc
+        return None
+
+    def ledger_group(wanted: str, fallback: Account) -> str:
+        """Where a ledger's heading goes, by its own title: «مخارج مدرسه» under
+        61 even when the line that makes it is its bank fees (62)."""
+        plan = _create_plan(db, wanted, {c for (c,) in db.execute(select(Account.code)).all()}) or ""
+        group = plan[4:] if plan.startswith("new:") else ""
+        return group if group in CREATE_GROUPS else fallback.code
+
     parent = db.execute(select(Account).where(Account.code == target.split(":", 1)[1])).scalars().first()
     if parent is None:
         raise HTTPException(status_code=422, detail=f"Account not found: {target.split(':', 1)[1]}")
     ledger = (ledger or "").strip()[:512]
     if ledger and parent.level == AccountLevel.GROUP and _norm(ledger) != _norm(title):
-        parent = child_named(parent, ledger) or make(parent.code, ledger)
+        # one heading per ledger: its bank fees going to 62 and the rest to 61 made
+        # «مخارج مدرسه» twice, 6211 and 6132 (2026-10-19, scenario AH6)
+        parent = child_named(parent, ledger) or heading_named(ledger) \
+            or make(ledger_group(ledger, parent), ledger)
     found = child_named(parent, title)
     return found.code if found is not None else make(parent.code, title).code
 
@@ -927,6 +952,84 @@ def _assess(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | Non
     return accounts, problems
 
 
+def remember_codes(db: Session, parsed: dict[str, Any], accounts: list[dict[str, Any]], *,
+                   only_existing: bool = False) -> int:
+    """Keep the file's codes on the accounts they became («1302 ملزومات اداری»
+    → 613202; its ledger's 1300 → the heading over it), so a search by them
+    finds the account and cards show both (scenario AH7). ``only_existing``:
+    only accounts the chart had already, by the user's choice, code or name.
+    Returns how many accounts got a code."""
+    from app.models.account import Account
+    targets: dict[str, list[str]] = {}
+
+    def add(app_code: str | None, file_code: str | None) -> None:
+        file_code = (file_code or "").strip()
+        if app_code and file_code and not app_code.startswith("new:") and file_code != app_code:
+            got = targets.setdefault(app_code, [])
+            if file_code not in got:
+                got.append(file_code)
+
+    mapped = {}
+    for a in accounts:
+        if only_existing and a.get("how") not in ("chosen", "code", "name"):
+            continue
+        mapped[a["key"]] = a.get("mapped_to")
+        add(a.get("mapped_to"), a.get("code"))
+    by_code = {acc.code: acc for acc in db.execute(select(Account).where(Account.code.in_(
+        [c for c in mapped.values() if c and not c.startswith("new:")] or ["-"]))).scalars()}
+    # a heading takes the code most of its ledger's lines give it: a few rows of
+    # منادی حق's file call «مخارج مدرسه» 1110, the rest 1300
+    seen: dict[str, Counter] = defaultdict(Counter)
+    for v in parsed["vouchers"]:
+        for ln in v.lines:
+            acc = by_code.get(mapped.get(ln.account_key) or "")
+            if acc is None or not ln.ledger_code or acc.parent_id is None:
+                continue
+            parent = db.get(Account, acc.parent_id)
+            if parent is not None and _norm(parent.name) == _norm(ln.ledger):
+                seen[parent.code][ln.ledger_code] += 1
+    for heading, counts in seen.items():
+        add(heading, min(counts, key=lambda c: (-counts[c], c)))
+    changed = 0
+    for acc in db.execute(select(Account).where(Account.code.in_(list(targets) or ["-"]))).scalars():
+        have = [c for c in (acc.source_codes or "").split(",") if c]
+        merged = have + [c for c in targets[acc.code] if c not in have]
+        if merged != have:
+            acc.source_codes = ",".join(merged)[:255]
+            changed += 1
+    db.flush()
+    return changed
+
+
+def codes_reused(vouchers: list[Voucher]) -> list[dict[str, Any]]:
+    """A code the file gives to more than one account: منادی حق's 1305 is
+    «سهم هزینه مشترک», «قبوض» and «کارمزد بانکی» (scenario AH10)."""
+    names: dict[str, dict[str, str]] = {}
+    for v in vouchers:
+        for ln in v.lines:
+            if ln.account_code and ln.account_name:
+                names.setdefault(ln.account_code, {}).setdefault(_norm(ln.account_name), ln.account_name)
+    return [{"code": code, "names": list(found.values())} for code, found in sorted(names.items()) if len(found) > 1]
+
+
+# Why a voucher is held back, in the reader's language (scenario AH2).
+HELD_FOR = {
+    "already_imported": {"en": "already in the books", "fa": "از قبل در دفاتر", "es": "ya en los libros",
+                         "ar": "موجود مسبقًا في الدفاتر"},
+    "opening_repeat": {"en": "a repeated opening", "fa": "افتتاحیهٔ تکراری", "es": "apertura repetida",
+                       "ar": "قيد افتتاحي مكرر"},
+    "year_end_closing": {"en": "a year-end closing", "fa": "اختتامیهٔ پایان سال", "es": "cierre de ejercicio",
+                         "ar": "قيد إقفال نهاية السنة"},
+    "unbalanced": {"en": "not balanced", "fa": "تراز نیست", "es": "descuadrado", "ar": "غير متوازن"},
+    "future": {"en": "dated in the future", "fa": "با تاریخ آینده", "es": "con fecha futura", "ar": "بتاريخ مستقبلي"},
+    "closed_period": {"en": "in a closed period", "fa": "در دورهٔ بسته", "es": "en un periodo cerrado",
+                      "ar": "في فترة مقفلة"},
+    "out_of_year": {"en": "in another year", "fa": "در سال دیگر", "es": "en otro año", "ar": "في سنة أخرى"},
+    "unmapped_account": {"en": "an account to match", "fa": "حساب نگاشت‌نشده", "es": "una cuenta por asignar",
+                         "ar": "حساب غير مربوط"},
+}
+
+
 def _group_labels(db: Session) -> list[dict[str, str]]:
     from app.models.account import Account
     rows = db.execute(select(Account.code, Account.name).where(Account.code.in_(CREATE_GROUPS))).all()
@@ -956,6 +1059,7 @@ def review(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | None
         "file_year": parsed.get("file_year"), "stray_years": len(parsed.get("stray_years") or ()),
         "years_mode": parsed.get("years_mode"), "create_groups": _group_labels(db),
         "debit_total": sum(v.debit for v in vouchers), "credit_total": sum(v.credit for v in vouchers),
+        "codes_reused": codes_reused(vouchers),
     }
 
 
@@ -1020,6 +1124,7 @@ def apply(db: Session, parsed: dict[str, Any], *, account_map: dict[str, str], c
         posted += 1
     save_map(db, {a["key"]: a["mapped_to"] for a in accounts
                   if a["mapped_to"] and a["how"] != "code" and not a["mapped_to"].startswith("new:")})
+    remember_codes(db, parsed, accounts)
     db.flush()
     # the books now say which twin sub-ledger is in use (rial or foreign-currency
     # petty cash, ...): suggest again where new entries post

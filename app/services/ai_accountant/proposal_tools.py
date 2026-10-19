@@ -574,7 +574,13 @@ class ProposeCreateTransaction(BaseTool):
         _guard_direction(ctx, args)
         _guard_receipt_account(ctx, args)
 
-        # Resolve and validate every account code referenced in the lines.
+        # Resolve and validate every account code referenced in the lines. A code from
+        # the user's own books (1302) is the account it became (613102, scenario AH7).
+        from app.services.account_resolver import account_by_source_code
+        for ln in args.lines:
+            became = account_by_source_code(ctx.db, ln.account_code)
+            if became is not None:
+                ln.account_code = became.code
         codes = [ln.account_code for ln in args.lines]
         existing = ctx.db.execute(
             select(Account).where(Account.code.in_(codes))

@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.auth import SessionUser, get_current_user
 from app.core.messages import localize_detail, request_language, said, say_all
 from app.db.session import get_db
 from app.models.entity import Entity
@@ -269,6 +270,50 @@ class JournalReviewIn(BaseModel):
 class JournalApplyIn(JournalReviewIn):
     link_parties: bool = True
     currency: str | None = Field(None, max_length=8)
+    # applied from a chat's card: what was imported is said in that chat too, so the
+    # assistant knows (it answered «سند هارو ببینم» with "nothing is in the books", AH2)
+    session_id: str | None = Field(None, max_length=64)
+    file_name: str | None = Field(None, max_length=120)
+
+
+# What an apply did, in the reader's language (scenario AH2).
+_JOURNAL_SAID = {
+    "posted": {"en": "Imported {n} vouchers from {file}, {start} to {end}.",
+               "fa": "{n} سند از {file} وارد دفاتر شد، از {start} تا {end}.",
+               "es": "Se importaron {n} asientos de {file}, del {start} al {end}.",
+               "ar": "استُورد {n} قيدًا من {file}، من {start} إلى {end}."},
+    "nothing": {"en": "Nothing was imported from {file}.", "fa": "از {file} سندی وارد نشد.",
+                "es": "No se importó nada de {file}.", "ar": "لم يُستورد شيء من {file}."},
+    "held": {"en": " Held back: {list}.", "fa": " کنار ماند: {list}.", "es": " Retenidos: {list}.",
+             "ar": " حُجز: {list}."},
+}
+def _journal_said(db: Session, lang: str, out: dict, parsed: dict, file_name: str) -> str:
+    from app.services import journal_import as ji
+    from app.services.ai_accountant.blocks import display_date
+    from app.services.locale_service import get_display_calendar
+    lang = lang if lang in ("en", "fa", "es", "ar") else "en"
+    fa = lang == "fa"
+
+    def n(value: int) -> str:
+        if fa:
+            from app.utils.jalali import to_persian_digits
+            return to_persian_digits(value)
+        return str(value)
+    calendar = get_display_calendar(db)
+    if lang in ("fa", "ar"):
+        file_name = f"\u2068{file_name}\u2069"              # a Latin file name kept whole in a right-to-left line
+    dates = sorted(v.on for v in parsed["vouchers"] if v.on)
+    if out.get("posted"):
+        text = _JOURNAL_SAID["posted"][lang].format(
+            n=n(out["posted"]), file=file_name,
+            start=display_date(dates[0].isoformat(), calendar, lang) if dates else "",
+            end=display_date(dates[-1].isoformat(), calendar, lang) if dates else "")
+    else:
+        text = _JOURNAL_SAID["nothing"][lang].format(file=file_name)
+    held = [f"{n(count)} {(ji.HELD_FOR.get(why) or {}).get(lang) or why}" for why, count in (out.get("skipped") or {}).items()]
+    if held:
+        text += _JOURNAL_SAID["held"][lang].format(list=("، " if lang in ("fa", "ar") else ", ").join(held))
+    return text
 
 
 def _journal_path(token: str):
@@ -331,11 +376,13 @@ def journal_import_review(body: JournalReviewIn, db: Session = Depends(get_db)) 
 
 
 @router.post("/journals/apply")
-def journal_import_apply(body: JournalApplyIn, db: Session = Depends(get_db)) -> dict:
+def journal_import_apply(body: JournalApplyIn, request: Request, db: Session = Depends(get_db),
+                         user: SessionUser = Depends(get_current_user)) -> dict:
     from app.core.shared_state import drop_upload
     from app.services import journal_import as ji
     parsed, _sheet, _sheets = _journal_parse(db, body.token, body.preset, body.columns, body.sheet)
-    out = ji.apply(db, ji.settle_years(db, parsed, body.years), account_map=body.account_map,
+    parsed = ji.settle_years(db, parsed, body.years)
+    out = ji.apply(db, parsed, account_map=body.account_map,
                    currency=body.currency, link_parties=body.link_parties)
     log_audit_event(db, "journal_import", "migration", entity_id=body.token,
                     detail=json_dumps({"preset": parsed["preset"], **out}, ensure_ascii=False))
@@ -345,4 +392,47 @@ def journal_import_apply(body: JournalApplyIn, db: Session = Depends(get_db)) ->
         _journal_path(body.token).unlink()
     except OSError:
         pass
+    out["said"] = _journal_said(db, request_language(request.headers), out, parsed,
+                                (body.file_name or "").strip() or body.token[:8])
+    if body.session_id:
+        _say_in_chat(db, body.session_id, user, out["said"])
+    return out
+
+
+def _say_in_chat(db: Session, session_id: str, user: "SessionUser", text: str) -> None:
+    """The import's outcome as the assistant's message in the chat it came from."""
+    from app.models.ai_accountant import AIChatSession
+    from app.services.ai_accountant.orchestrator import _persist_message
+    try:
+        sid = UUID(str(session_id))
+    except ValueError:
+        return
+    chat = db.get(AIChatSession, sid)
+    if chat is None or str(chat.user_id) != str(user.user_id):
+        return                                   # someone else's chat: nothing is said there
+    _persist_message(db, session_id=sid, role="assistant", content={"role": "assistant", "text": text})
+
+
+class JournalRepairsIn(BaseModel):
+    vouchers: list[str] = Field(default_factory=list, max_length=500)
+    headings: list[str] = Field(default_factory=list, max_length=50)
+
+
+@router.get("/journals/repairs")
+def journal_repairs(db: Session = Depends(get_db)) -> dict:
+    """What a misread journal import left in the books: vouchers numbered by a date
+    and sitting a year away, one ledger made into two headings (scenarios AH5, AH6).
+    Nothing is changed."""
+    from app.services import journal_repairs
+    return journal_repairs.find(db)
+
+
+@router.post("/journals/repairs")
+def journal_repairs_apply(body: JournalRepairsIn, db: Session = Depends(get_db),
+                          user: SessionUser = Depends(get_current_user)) -> dict:
+    """Put right exactly what the user confirmed of that list."""
+    from app.services import journal_repairs
+    out = journal_repairs.apply(db, vouchers=journal_repairs._ids(body.vouchers), headings=body.headings,
+                                actor_user_id=str(user.user_id), actor_username=user.username)
+    db.commit()
     return out

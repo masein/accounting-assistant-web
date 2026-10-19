@@ -15,5 +15,6 @@ class AccountRead(BaseModel):
     parent_id: UUID | None
     detail_type: str | None
     is_active: bool = True
+    source_codes: str | None = None          # its codes in the books it came from (scenario AH7)
 
     model_config = {"from_attributes": True}

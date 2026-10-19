@@ -458,7 +458,7 @@ async def chat(
             db, sheet_atts, can_migrate=role_can(user.role, Perm.MIGRATION_WRITE),
             lang=_said_in(payload.message, _user_language(db, user)),     # «به نظر فهرست سندهاست …» (AF8)
         )
-        if intake is not None and intake.kind in ("chart_export", "transactions"):
+        if intake is not None and intake.kind in ("chart_export", "journals"):
             # Deterministic detection + confirm card — no LLM call, no silent
             # writes: Confirm goes through the existing gated endpoints.
             if intake.kind == "chart_export":

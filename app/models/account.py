@@ -37,6 +37,11 @@ class Account(Base, TenantMixin):
     # title («پیش پرداخت‌ها» → prepayments), inherited by the accounts under
     # it; empty: the code prefixes decide (app/services/reporting/statement_lines.py).
     statement_line: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # The codes this account had in the books it came from: a school's 1300 for
+    # its «مخارج مدرسه», 6132 here. Found by them and shown beside the app's
+    # code (2026-10-19, scenario AH7). Comma-separated; empty for an account
+    # made here.
+    source_codes: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

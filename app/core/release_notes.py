@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.18.1"
+CURRENT_RELEASE = "2026.10.19"
 
 
 @dataclass(frozen=True)
@@ -1962,6 +1962,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "به دستیار بگویید دوستی هزینه‌ای را برایتان داده — «امیر این‌ها را حساب کرد» و یک فهرست، هر قلم در یک خط — و هر خط یک کارت می‌شود به نام همان شخص، با ارزی که نوشته‌اید. پس دادن پول به او، یا قرض دادن و پس گرفتن، هم به نام همان شخص ثبت می‌شود. بپرسید «چقدر به امیر بدهکارم؟» یا «کی به من بدهکاره؟» تا هر شخص جدا و هر ارز جدا گفته شود. دفترتان حالا دستهٔ «سفر» هم دارد، برای اقامت، هتل و پرواز.",
                     "es": "Dile al asistente que un amigo pagó por ti — «Amir pagó esto» y una lista, una cosa por línea — y cada línea se convierte en una tarjeta con esa persona, en la moneda que escribiste. Devolverle el dinero, o prestar y que te devuelvan, también la nombra. Pregunta «¿cuánto le debo a Amir?» o «¿quién me debe?» y verás a cada persona por separado, en cada moneda. Tus cuentas tienen ahora además una categoría Viajes, para alojamientos, hoteles y vuelos.",
                     "ar": "أخبر المساعد أن صديقًا دفع عنك — «دفع أمير هذه» وقائمة، بند في كل سطر — فيصير كل سطر بطاقة باسم ذلك الشخص، بالعملة التي كتبتها. وردّ المال إليه، أو الإقراض والاسترداد، يُسجَّل باسمه أيضًا. اسأل «كم أدين لأمير؟» أو «من يدين لي؟» فتعرف كل شخص على حدة وبكل عملة. وفي دفاترك الآن فئة «السفر» للإقامة والفنادق والرحلات الجوية.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.19",
+        date="2026-10-19",
+        highlights=(
+            Highlight(
+                key="journals-in-chat-old-codes",
+                page="ai-accountant",
+                roles=("owner", "accountant"),
+                title={
+                    "en": "Your old journals in the chat, and your own account codes",
+                    "fa": "دفاتر قبلی‌تان در گفتگو، و کدهای حساب خودتان",
+                    "es": "Tus diarios anteriores en el chat, y tus propios códigos de cuenta",
+                    "ar": "دفاترك السابقة في المحادثة، ورموز حساباتك الخاصة",
+                },
+                body={
+                    "en": "Drop your journals in the chat — every file, each with a card that says how many vouchers it holds and from when to when — and import a file's ready vouchers from its card; each goes in whole, and the chat says what went in. Accounts to match open the journal import on the same file. The codes your accounts had in your own books are kept: type 1300 or 1302 and the account they became is found, and cards show both codes. An earlier import that read a file wrongly is listed on the Migration page, to remove on your word.",
+                    "fa": "دفاترتان را در گفتگو بیندازید — همهٔ فایل‌ها، هر کدام با کارتی که می‌گوید چند سند دارد و از کی تا کی — و سندهای آمادهٔ هر فایل را از کارتش وارد کنید؛ هر سند کامل وارد می‌شود و گفتگو می‌گوید چه وارد شد. حساب‌هایی که باید تطبیق شوند، صفحهٔ ورود سندها را روی همان فایل باز می‌کنند. کدهای حساب‌ها در دفاتر خودتان نگه داشته می‌شود: ۱۳۰۰ یا ۱۳۰۲ را بنویسید تا حسابی که شده‌اند پیدا شود، و کارت‌ها هر دو کد را نشان می‌دهند. ورود قبلی که فایلی را نادرست خوانده بود، در صفحهٔ «مهاجرت» فهرست می‌شود تا با تأیید شما حذف شود.",
+                    "es": "Suelta tus diarios en el chat — todos los archivos, cada uno con una tarjeta que dice cuántos asientos tiene y de cuándo a cuándo — e importa desde su tarjeta los asientos listos; cada uno entra entero y el chat dice qué entró. Las cuentas por asignar abren la importación de diarios con el mismo archivo. Se guardan los códigos que tus cuentas tenían en tus propios libros: escribe 1300 o 1302 y aparece la cuenta en que se convirtieron, y las tarjetas muestran ambos códigos. Una importación anterior que leyó mal un archivo aparece en Migración, para quitarla cuando lo confirmes.",
+                    "ar": "أسقط دفاترك في المحادثة — كل الملفات، ولكل ملف بطاقة تقول كم قيدًا فيه ومن متى إلى متى — واستورد القيود الجاهزة من بطاقته؛ يدخل كل قيد كاملًا وتقول المحادثة ما الذي دخل. والحسابات التي يلزم ربطها تفتح استيراد القيود على الملف نفسه. وتُحفظ رموز حساباتك في دفاترك: اكتب 1300 أو 1302 فيظهر الحساب الذي صارت إليه، وتعرض البطاقات الرمزين. واستيراد سابق قرأ ملفًا خطأً يظهر في صفحة «الترحيل» لحذفه بتأكيدك.",
                 },
             ),
         ),

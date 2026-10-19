@@ -179,6 +179,7 @@ def tree(db: Session, *, include_inactive: bool = True) -> list[dict[str, Any]]:
     nodes = {a.id: {"id": str(a.id), "code": a.code, "name": a.name, "level": a.level.value,
                     "parent_id": str(a.parent_id) if a.parent_id else None, "detail_type": a.detail_type,
                     "is_active": a.is_active, "protected": a.code in protected,
+                    "source_codes": [c for c in (a.source_codes or "").split(",") if c],   # its codes in the user's own books
                     "balance": bal.get(a.id, (0, 0))[0] - bal.get(a.id, (0, 0))[1], "total": 0, "children": []}
              for a in accounts if include_inactive or a.is_active}
     roots = []

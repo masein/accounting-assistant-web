@@ -79,6 +79,18 @@ def _account_names(db: Session, codes: Iterable[str]) -> dict[str, str]:
     return {str(code): name for code, name in rows}
 
 
+def _old_codes(db: Session, codes: Iterable[str]) -> dict[str, str]:
+    """An account's first code in the user's own books, by its code here: a
+    card says «۶۱۳۱۰۲ ملزومات اداری (۱۳۰۲)», both (scenario AH7)."""
+    from app.models.account import Account
+    codes = sorted({str(c) for c in codes if c})
+    if not codes:
+        return {}
+    rows = db.execute(select(Account.code, Account.source_codes)
+                      .where(Account.code.in_(codes), Account.source_codes.isnot(None))).all()
+    return {str(code): old.split(",")[0] for code, old in rows if old}
+
+
 # --- proposals ------------------------------------------------------------------------
 
 def card_names(db: Session, proposals: list | None) -> dict[str, str]:
@@ -106,9 +118,17 @@ def proposal_block(db: Session, p: Any, *, calendar: str, lang: str, names: dict
     amount = None
     if isinstance(lines_in, list) and lines_in:
         names = names if names is not None else _account_names(db, (ln.get("account_code") for ln in lines_in))
+        olds = _old_codes(db, (ln.get("account_code") for ln in lines_in))
         for ln in lines_in:
             code = str(ln.get("account_code") or "")
-            lines.append({"account": code, "name": names.get(code, code),
+            name = names.get(code, code)
+            if olds.get(code):
+                old = olds[code]
+                if lang == "fa":
+                    from app.utils.jalali import to_persian_digits
+                    old = to_persian_digits(old)
+                name = f"{name} ({old})"
+            lines.append({"account": code, "name": name,
                           "debit": json_amount(ln.get("debit") or 0), "credit": json_amount(ln.get("credit") or 0)})
         amount = sum(x["debit"] for x in lines)
     elif isinstance(preview, dict):

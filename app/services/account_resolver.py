@@ -322,3 +322,20 @@ def resolve_posting_accounts(db: Session, *, locale: str | None = None) -> dict[
         except AccountResolutionError:
             continue
     return out
+
+
+def account_by_source_code(db: Session, code: str | None) -> Account | None:
+    """The one active account entries can post to whose code in the user's own
+    books (``source_codes``) was ``code``: a school's 1302 «ملزومات اداری», now
+    613102 (scenario AH7). None when the chart has that code itself, none or
+    several accounts had it, or it was a heading's."""
+    from app.models.account import AccountLevel
+    code = (code or "").strip()
+    if not code or db.execute(select(Account.id).where(Account.code == code)).first() is not None:
+        return None
+    hits = [a for a in db.execute(select(Account).where(Account.is_active.is_(True),
+                                                        Account.source_codes.like(f"%{code}%"))).scalars()
+            if code in (a.source_codes or "").split(",") and a.level != AccountLevel.GROUP]
+    hits = [a for a in hits
+            if db.execute(select(Account.id).where(Account.parent_id == a.id).limit(1)).first() is None]
+    return hits[0] if len(hits) == 1 else None

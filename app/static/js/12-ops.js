@@ -42,7 +42,49 @@
       const map = { address: 'migFieldAddress', phone: 'migFieldPhone', iban: 'migFieldIban', account_number: 'migFieldAccountNumber', email: 'migFieldEmail' };
       return map[f] ? t(map[f]) : f;
     }
-    function migrationInitPage() { migrationLoadPending(); migrationLoadRoles(); }
+    function migrationInitPage() { migrationLoadPending(); migrationLoadRoles(); jiLoadRepairs(); }
+
+    // What a misread journal import left: vouchers numbered by a date and sitting a year
+    // away, one ledger made into two headings. Listed; put right only when the user
+    // confirms this list (scenarios AH5, AH6).
+    async function jiLoadRepairs() {
+      const box = document.getElementById('ji-repairs');
+      if (!box) return;
+      box.innerHTML = '';
+      let r;
+      try {
+        const res = await fetch(API + '/migration/journals/repairs');
+        if (!res.ok) return;
+        r = await res.json();
+      } catch (_) { return; }
+      const vouchers = r.vouchers || [];
+      const headings = r.headings || [];
+      if (!vouchers.length && !headings.length) return;
+      let html = '<div class="panel ji-repairs"><h4>' + escapeHtml(t('jiRepairsTitle')) + '</h4>';
+      if (vouchers.length) {
+        html += '<p class="fc-note">' + escapeHtml(tf('jiRepairsVouchers', { n: formatNum(vouchers.length) })) + '</p><ul class="ji-repairs-list">'
+          + vouchers.map((v) => '<li>' + escapeHtml(tf('jiRepairsVoucher', { ref: '\u2068' + localDigits(v.reference) + '\u2069', date: formatDisplayDate(v.date),
+            debit: formatAmount(v.debit), credit: formatAmount(v.credit) })) + '</li>').join('') + '</ul>';
+      }
+      headings.forEach((h) => h.merge.forEach((m) => {
+        html += '<p class="fc-note" dir="auto">' + escapeHtml(tf('jiRepairsHeading', { name: h.name, from: localCode(m.code),
+          into: localCode(h.keep), n: formatNum(m.accounts.length) })) + '</p>';
+      }));
+      html += '<button type="button" class="btn btn-danger btn-sm" id="ji-repairs-apply">' + escapeHtml(t('jiRepairsApply')) + '</button></div>';
+      box.innerHTML = html;
+      document.getElementById('ji-repairs-apply').addEventListener('click', async () => {
+        if (!(await uiConfirm({ message: tf('jiRepairsConfirm', { v: formatNum(vouchers.length),
+          h: formatNum(headings.reduce((a, h) => a + h.merge.length, 0)) }), confirmLabel: t('jiRepairsApply') }))) return;
+        try {
+          const out = await jiSend('/migration/journals/repairs', {
+            vouchers: vouchers.map((v) => v.id),
+            headings: headings.flatMap((h) => h.merge.map((m) => m.code)),
+          });
+          box.innerHTML = '<p class="fc-note">' + escapeHtml(tf('jiRepairsDone', { v: formatNum(out.removed), h: formatNum(out.merged) })) + '</p>';
+          _jiChart = null;
+        } catch (err) { box.innerHTML = '<p class="fc-risk-text">' + escapeHtml(err.message) + '</p>'; }
+      });
+    }
 
     // Where each kind of entry posts: a migrated chart's own sub-ledgers
     // (111201 receivables, 211101 salaries payable, ...) or the chart's
@@ -1509,7 +1551,9 @@
       const box = document.getElementById('coa-tree');
       // codes show in Persian digits: «۱۱۱» typed finds 1110 as well as «111»
       const q = latinDigits(foldFa((document.getElementById('coa-filter').value || '').trim()));
-      const rows = coaFlatten(_coaTree, 0, []).filter((n) => !q || n.code.includes(q) || foldFa(n.name).includes(q));
+      // the codes an account had in the user's own books find it too: «۱۳۰۰» is «مخارج مدرسه» (scenario AH7)
+      const rows = coaFlatten(_coaTree, 0, []).filter((n) => !q || n.code.includes(q) || foldFa(n.name).includes(q)
+        || (n.source_codes || []).some((c) => c.includes(q)));
       if (!rows.length) { box.innerHTML = '<p class="fc-note">' + escapeHtml(t('coaNone')) + '</p>'; return; }
       const head = ['coaCode', 'coaName', 'coaLevel', 'coaBalance', 'coaStatus', ''].map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
       box.innerHTML = '<table class="mini-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows.map((n) => {
@@ -1524,7 +1568,10 @@
           + '<details class="row-menu"><summary class="btn btn-secondary btn-sm" aria-label="' + escapeHtml(t('moreActions')) + '" title="'
           + escapeHtml(t('moreActions')) + '">⋯</summary><div class="row-menu-list">' + more + '</div></details>';
         return '<tr' + (n.is_active ? '' : ' style="opacity:0.55;"') + '><td dir="ltr" style="padding-inline-start:' + (0.4 + n.depth * 1.1) + 'rem;">' + escapeHtml(localCode(n.code)) + '</td>'
-          + '<td dir="auto">' + escapeHtml(n.name) + '</td><td>' + escapeHtml(t('coaLevel_' + n.level)) + '</td>'
+          + '<td dir="auto">' + escapeHtml(n.name)
+          + ((n.source_codes || []).length ? ' <span class="coa-old-code" title="' + escapeHtml(t('coaOldCodeTitle')) + '">'
+            + escapeHtml(tf('coaOldCode', { codes: n.source_codes.map(localCode).join(['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ') })) + '</span>' : '')
+          + '</td><td>' + escapeHtml(t('coaLevel_' + n.level)) + '</td>'
           + '<td>' + escapeHtml(formatAmount(n.total)) + '</td>'
           + '<td>' + (n.is_active ? '' : '<span class="alert-chip low">' + escapeHtml(t('coaInactive')) + '</span>')
           + (n.protected ? ' <span class="fc-note">' + escapeHtml(t('coaProtected')) + '</span>' : '') + '</td>'
@@ -1717,6 +1764,11 @@
       }
       html += '<p class="fc-note">' + escapeHtml(tf('jiSummary', { vouchers: formatNum(r.voucher_count), lines: formatNum(r.line_count),
         from: r.from ? formatDisplayDate(r.from) : '—', to: r.to ? formatDisplayDate(r.to) : '—', preset: jiPresetName(r.preset) })) + '</p>';
+      // one code the file gives to several accounts (منادی حق's 1305): each is kept apart (scenario AH10)
+      (r.codes_reused || []).slice(0, 5).forEach((c) => {
+        html += '<div class="fc-note" style="margin:0.2rem 0;">' + escapeHtml(tf('jiCodeReused', { code: localDigits(c.code),
+          n: formatNum(c.names.length), names: c.names.join(['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ') })) + '</div>';
+      });
       // vouchers typed in another year (1400/11/29 in a 1404 journal): move them or keep them
       if (r.stray_years) {
         const year = localDigits(r.file_year);
@@ -1794,6 +1846,8 @@
       const body = { token: _ji.token, preset: document.getElementById('ji-preset').value, columns: _jiSheetChanged ? {} : columns, account_map };
       if (_jiSheet) body.sheet = _jiSheet;
       if (_jiYears) body.years = _jiYears;
+      // opened from a chat's card: the outcome is said in that chat too (scenario AH3)
+      if (_ji.session_id) { body.session_id = _ji.session_id; body.file_name = _ji.filename || undefined; }
       _jiSheetChanged = false;
       return body;
     }
@@ -1846,6 +1900,24 @@
         _jiChart = null;            // the next file must see the accounts this one created (scenario P9)
       } catch (err) { document.getElementById('ji-msg').textContent = err.message; }
     }
+
+    // A journal dropped in the chat, with accounts to match: this page on the same
+    // upload, nothing to choose again (scenario AH3).
+    window.openJournalImport = async (token, fileName, sessionId) => {
+      if (typeof showPage === 'function') showPage('migration');
+      const box = document.getElementById('ji-result');
+      if (!box) return;
+      box.innerHTML = '<p class="fc-note">' + escapeHtml(t('loading')) + '</p>';
+      try {
+        await jiChart();
+        _jiSheet = null; _jiYears = null; _jiSheetChanged = false;
+        const r = await jiSend('/migration/journals/review', { token, preset: 'auto', columns: {}, account_map: {} });
+        _ji = { ...r, token, filename: fileName || '', session_id: sessionId || null };
+        _jiSheet = _ji.sheet || null;
+        jiRender(_ji);
+        box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (err) { box.innerHTML = '<p class="fc-risk-text">' + escapeHtml(err.message) + '</p>'; }
+    };
 
     (function wireJournalImport() {
       const btn = document.getElementById('ji-preview-btn');

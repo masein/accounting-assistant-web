@@ -328,6 +328,8 @@ for _m, _p in [
     ("POST", "/migration/journals/preview"),
     ("POST", "/migration/journals/review"),
     ("POST", "/migration/journals/apply"),
+    ("GET", "/migration/journals/repairs"),
+    ("POST", "/migration/journals/repairs"),
 ]:
     _add(_m, _p, Perm.MIGRATION_WRITE)
 

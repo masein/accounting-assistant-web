@@ -397,7 +397,18 @@ def _net_worth(result: dict, lang: str = "en", **_) -> list[dict] | None:
     return out
 
 
+def _affordability(result: dict, lang: str = "en", **_) -> dict | None:
+    """Can I afford it? as the review's card (scenario AM9)."""
+    if not result.get("verdict"):
+        return None
+    from app.services.affordability import card
+    c = card(result, lang)
+    return {"type": "review", **c,
+            "fallback_text": "\n".join([c["title"], c["headline"]["label"], *c["facts"], *(i["text"] for i in c["ideas"])])}
+
+
 RENDERERS = {
+    "check_affordability": _affordability,
     "get_net_worth": _net_worth,
     "get_cash_forecast": _forecast_chart,
     "get_payroll": _payroll,

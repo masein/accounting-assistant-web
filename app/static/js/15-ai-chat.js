@@ -1636,13 +1636,15 @@
       function appendReviewCard(card, { animate = true } = {}) {
         const ccy = card.currency || '';
         const wrap = _el('div', 'msg-row assistant');
-        const el = _el('article', 'ai-review-card mood-' + (card.mood || 'calm') + (animate && !_calm() ? ' is-new' : ''));
+        const el = _el('article', 'ai-review-card mood-' + (card.mood || 'calm') + ' kind-' + (card.kind || 'weekly')
+                       + (animate && !_calm() ? ' is-new' : ''));
         el.setAttribute('dir', 'auto');
         const head = _el('header', 'ai-review-head');
         const emoji = _el('span', 'ai-review-emoji', card.emoji || '🙂');
         emoji.setAttribute('aria-hidden', 'true');
         const titles = _el('div', 'ai-review-titles');
-        const badge = { weekly: 'aiReviewWeekly', monthly: 'aiReviewMonthly', nudge: 'aiReviewNudgeBadge' }[card.kind];
+        const badge = { weekly: 'aiReviewWeekly', monthly: 'aiReviewMonthly', nudge: 'aiReviewNudgeBadge',
+                        afford: 'aiReviewAffordBadge' }[card.kind];
         if (badge) titles.appendChild(_el('span', 'ai-review-badge', t(badge)));
         titles.appendChild(_el('div', 'ai-review-title', card.title || ''));
         head.append(emoji, titles);
@@ -1822,6 +1824,8 @@
           }
           sessionId = data.session_id;
           if (data.text) appendBubble('assistant', data.text, { at: new Date().toISOString() });
+          // «can I afford it?» answered as the review's card (scenario AM9)
+          (data.review_cards || []).forEach((card) => appendReviewCard(card));
           // a statement read from the file comes before the card made of it (scenario AF2)
           const intakeFirst = data.intake && (data.proposals || []).length;
           if (intakeFirst) appendIntakeCard(data.intake);

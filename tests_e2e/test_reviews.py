@@ -105,3 +105,37 @@ def test_the_switches_are_the_readers_own(flow_page):
         weekly.check()
     assert page.evaluate("async () => (await fetch('/ai-accountant/review-prefs')).json()")["weekly"] is True
     assert watch.problems() == [], watch.problems()
+
+
+def test_can_i_afford_it_as_a_card(flow_page):
+    """AM9: «می‌خوام یه ماشین ۳۰ میلیون تومنی بخرم، می‌تونم؟» — save first: the price counted up, now and after
+    against the cushion, the ring of what the free money covers, and the goal to make."""
+    page, watch = flow_page("e2e_reviews")
+    page.route("**/ai-accountant/reviews", lambda route: route.fulfill(
+        status=200, content_type="application/json", body=json.dumps({"session_id": None, "reviews": []})))
+    page.route("**/ai-accountant/chat", lambda route: route.fulfill(
+        status=200, content_type="application/json",
+        body=json.dumps({"session_id": "s-am", "turns": 2, "stop_reason": "end_turn", "tool_calls": [], "proposals": [],
+                         "text": "فعلاً نه به‌صورت نقد؛ ماهی حدود ۱۵ میلیون ریال کنار بگذارید.",
+                         "review_cards": [CARDS["afford_fa"]]}, ensure_ascii=False)))
+    try:
+        switch_language(page, "fa")
+        page.evaluate("() => { location.hash = 'ai-accountant'; }")
+        page.wait_for_load_state("networkidle")
+        page.fill("#ai-acct-input", "می‌خوام یه ماشین ۳۰ میلیون تومنی بخرم، می‌تونم؟")
+        page.click("#ai-acct-send")
+        card = page.locator(".ai-review-card.mood-watch")
+        expect(card).to_be_visible()
+        expect(card.locator(".ai-review-emoji")).to_have_text("🐷")
+        expect(card.locator(".ai-review-badge")).to_have_text("می‌تونم بخرم؟")
+        expect(card.locator(".ai-review-headline .ai-review-label")).to_have_text("ماهی ۱۵٬۰۰۰٬۰۰۰ ریال ایران کنار بگذارید، حدود ۱۴ ماه")
+        expect(card.locator(".ai-review-col")).to_have_count(2)
+        expect(card.locator(".ai-review-ring-pct")).to_have_text("۳۲٪ از قیمت")
+        expect(card.locator(".ai-review-idea")).to_have_count(2)
+        card.scroll_into_view_if_needed()
+        page.wait_for_timeout(1300)
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        card.screenshot(path=os.path.join(ARTIFACTS, "afford-fa.png"))
+        assert watch.problems() == [], watch.problems()
+    finally:
+        switch_language(page, "en")

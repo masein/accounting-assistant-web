@@ -33,7 +33,7 @@ class ContractTest {
 
     @Test fun everyRecordedConversationIsHere() {
         assertTrue("run tests/test_mobile_contract.py to record them", dir.isDirectory)
-        assertEquals(setOf("approval-fa", "balance-en", "budgets-fa", "cash-fa", "draft-fa", "forecast-fa", "intake-en",
+        assertEquals(setOf("afford-fa", "approval-fa", "balance-en", "budgets-fa", "cash-fa", "draft-fa", "forecast-fa", "intake-en",
                            "invoice-pdf-en", "invoices-en", "net-worth-fa", "pay-history-fa", "payroll-runs-fa", "posted-fa", "review-fa",
                            "review-month-en", "spending-fa", "statement-fa"), recordings().keys)
     }

@@ -841,7 +841,8 @@
           "enum": [
             "weekly",
             "monthly",
-            "nudge"
+            "nudge",
+            "afford"
           ]
         },
         "mood": {
@@ -980,7 +981,10 @@
           }
         },
         "categories_title": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "categories": {
           "type": "array",

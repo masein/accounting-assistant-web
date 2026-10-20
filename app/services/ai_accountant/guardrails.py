@@ -45,6 +45,7 @@ _NON_POSTING = frozenset({
     "propose_books_currency",                                  # a person's books' currency, before any entry
     "propose_rename_place",                                    # a wallet's name; its entries stay
     "propose_review_prefs",                                    # which of the app's own messages a person gets
+    "propose_savings_goal",                                    # a goal and its savings place; nothing posted
 })
 
 

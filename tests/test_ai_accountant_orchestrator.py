@@ -539,6 +539,7 @@ class TestRegistry:
             "get_budget_status", "propose_set_budget", "get_close_checklist",
             "list_purchase_orders", "list_recurring_rules", "get_cap_table", "get_exchange_rates", "get_petty_cash",
             "get_audit_trail", "propose_lock_period", "propose_create_recurring_rule", "propose_review_prefs",
+            "check_affordability",
         }
 
 
@@ -561,6 +562,7 @@ class TestPersonalMode:
             "propose_money_place", "propose_books_currency", "ask_with_choices",
             "propose_rename_place",                 # a wallet renamed, its account itself (scenario AK5)
             "get_budget_status", "propose_set_budget", "propose_review_prefs",   # a review's suggestions (AL9, AL14)
+            "check_affordability", "propose_savings_goal",                     # can I afford it? (AM1–AM10)
             "get_report_card", "get_savings_goals", "get_net_worth", "get_people_balances",
         }
 

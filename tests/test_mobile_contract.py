@@ -191,6 +191,12 @@ def _conversations(db) -> dict[str, list[dict]]:
             "counts": {"matched": 8, "unrecorded": 2, "needs_confirmation": 1, "amount_mismatch": 1, "missing_in_bank": 0,
                        "duplicates": 0},
             "balance": {"gap": 90_000, "explained": False}, "clean": False, "findings_preview": []}),
+        "afford-fa": turn(text="فعلاً نه به‌صورت نقد؛ ماهی حدود ۱۵ میلیون ریال کنار بگذارید.", calls=[("check_affordability", {
+            "item": "ماشین", "price": 300_000_000, "currency": "IRR", "price_base": 300_000_000, "base": "IRR", "rate": None,
+            "calendar": "jalali", "today": "2026-10-20", "cash": 120_000_000, "after": -180_000_000, "cushion": 25_000_000,
+            "due_30": 0, "free": 95_000_000, "income": 40_000_000, "spending": 25_000_000, "months": 3, "goals_need": 0,
+            "spare": 15_000_000, "spare_free": 15_000_000, "short": 205_000_000, "wait_months": 14, "plan": None,
+            "plan_each": None, "verdict": "save"})]),
         "review-fa": _review("weekly", "fa", {
             "personal": True, "currency": "OMR", "calendar": "jalali", "start": "2026-10-17", "end": "2026-10-23",
             "entries": 9, "income": 600, "spent": 41.5, "usual": 30.25,

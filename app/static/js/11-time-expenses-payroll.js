@@ -1211,11 +1211,14 @@
         body.innerHTML = '';
         logs.forEach(l => {
           const tr = document.createElement('tr');
+          const detail = auditDetail(l.detail);
+          // values read out of JSON (a Persian description) take their own direction; the server's own notes stay as written
+          const dir = detail === String(l.detail || '') ? 'ltr' : 'auto';
           tr.innerHTML = `<td style="font-size:0.8rem;white-space:nowrap;"><bdi>${escapeHtml(auditWhen(l.timestamp))}</bdi></td>
             <td>${escapeHtml(auditLabel('auditAct_', l.action))}</td><td>${escapeHtml(auditLabel('auditEnt_', l.entity_type))}</td>
             <td style="font-size:0.8rem;">${escapeHtml((l.entity_id || '').substring(0, 8))}</td>
             <td>${escapeHtml(l.username || '—')}</td>
-            <td style="font-size:0.8rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;"><bdi dir="auto">${escapeHtml(auditDetail(l.detail).substring(0, 120))}</bdi></td>`;
+            <td style="font-size:0.8rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;"><bdi dir="${dir}">${escapeHtml(detail.substring(0, 120))}</bdi></td>`;
           body.appendChild(tr);
         });
       } catch (e) { /* ignore */ }

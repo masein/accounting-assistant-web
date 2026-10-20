@@ -164,8 +164,9 @@ class ProposeSetBudget(BaseTool):
         existing = {b.month: plain(b.limit_amount) for b in ctx.db.execute(
             select(BudgetLimit).where(BudgetLimit.month.in_(keys), BudgetLimit.category.ilike(acc.name))).scalars()}
         changes = [{"month": k, "before": existing.get(k), "after": args.amount} for k in keys]
+        from app.services.book_text import bt
         payload = {"category": acc.name, "account_code": acc.code, "amount": args.amount, "months": keys,
-                   "currency": base_currency(ctx.db)}
+                   "currency": base_currency(ctx.db), "description": bt(ctx.db, "budget_card", name=acc.name)}
         token = _register(ctx, self.name, payload)
         span = keys[0] if len(keys) == 1 else f"{keys[0]} to {keys[-1]} ({len(keys)} months)"
         changed = [c for c in changes if c["before"] is not None and c["before"] != args.amount]

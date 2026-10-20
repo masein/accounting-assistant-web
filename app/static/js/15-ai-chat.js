@@ -320,6 +320,63 @@
           loadSessions('');
         } catch (_) { /* briefing is best effort */ }
       }
+      // The app's own weekly and monthly reviews, and its nudge (scenarios AL1–AL13): not once a day like
+      // the briefing — a review made after the day's briefing still comes the next time the chat is opened.
+      async function maybeReviews() {
+        try {
+          const r = await fetch(API + '/ai-accountant/reviews', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId }),
+          });
+          const data = await readJsonSafe(r);
+          if (!r.ok || !data || !Array.isArray(data.reviews) || !data.reviews.length) return;
+          sessionId = data.session_id || sessionId;
+          const empty = messagesEl.querySelector('.ai-empty');
+          if (empty) empty.remove();
+          data.reviews.forEach((rv) => {
+            appendBubble('assistant', rv.text);
+            if (Array.isArray(rv.choices) && rv.choices.length) appendChoices(rv.choices);
+          });
+          loadSessions('');
+        } catch (_) { /* best effort */ }
+      }
+      // Which of them this person gets (AL14): their own switches, beside what the assistant learned.
+      const REVIEW_SWITCHES = [['weekly', 'aiReviewWeekly'], ['monthly', 'aiReviewMonthly'],
+                               ['suggestions', 'aiReviewSuggestions'], ['nudge', 'aiReviewNudge']];
+      async function aiLoadReviewPrefs() {
+        const box = document.getElementById('ai-reviews-prefs');
+        const list = document.getElementById('ai-reviews-prefs-list');
+        if (!box || !list) return;
+        let prefs = null;
+        try {
+          const r = await fetch(API + '/ai-accountant/review-prefs');
+          if (r.ok) prefs = await r.json();
+        } catch (_) { /* hidden */ }
+        if (!prefs) return;
+        list.innerHTML = '';
+        REVIEW_SWITCHES.forEach(([kind, label]) => {
+          const row = document.createElement('label');
+          row.className = 'ai-review-switch';
+          const box_ = document.createElement('input');
+          box_.type = 'checkbox';
+          box_.checked = prefs[kind] !== false;
+          box_.dataset.kind = kind;
+          box_.addEventListener('change', async () => {
+            prefs[kind] = box_.checked;
+            try {
+              const r = await fetch(API + '/ai-accountant/review-prefs', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(prefs),
+              });
+              if (!r.ok) throw new Error(String(r.status));
+            } catch (_) { box_.checked = !box_.checked; prefs[kind] = box_.checked; }
+          });
+          const span = document.createElement('span');
+          span.textContent = t(label);
+          row.append(box_, span);
+          list.appendChild(row);
+        });
+        box.hidden = false;
+      }
       // Dashboard "Ask the AI" buttons (and the migration page) land here:
       // the chat is opened — its latest session restored — before sending.
       window.aiChatAsk = async (text) => {
@@ -345,7 +402,7 @@
         renderEmptyState();
         statusEl.textContent = t('aiChatNewStarted');
         loadSessions('');
-        maybeBriefing();
+        maybeReviews().then(maybeBriefing);
       }
       if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
       if (sessionSearchEl) {
@@ -365,8 +422,10 @@
             await loadSessions('');
             aiLoadPreferences(false);
             aiLoadApprovals();
+            aiLoadReviewPrefs();
             if (_sessionsCache.length) await openSession(_sessionsCache[0].id);
             else { setChatTitle(t('chatUntitled')); renderEmptyState(); }
+            await maybeReviews();
             maybeBriefing();
           })();
         }

@@ -538,7 +538,7 @@ class TestRegistry:
             "get_payroll", "propose_run_payroll", "propose_post_pay_run", "propose_pay_pay_run",
             "get_budget_status", "propose_set_budget", "get_close_checklist",
             "list_purchase_orders", "list_recurring_rules", "get_cap_table", "get_exchange_rates", "get_petty_cash",
-            "get_audit_trail", "propose_lock_period", "propose_create_recurring_rule",
+            "get_audit_trail", "propose_lock_period", "propose_create_recurring_rule", "propose_review_prefs",
         }
 
 
@@ -560,6 +560,7 @@ class TestPersonalMode:
             # money where it's kept, in its own currency (scenarios AB1–AB6)
             "propose_money_place", "propose_books_currency", "ask_with_choices",
             "propose_rename_place",                 # a wallet renamed, its account itself (scenario AK5)
+            "get_budget_status", "propose_set_budget", "propose_review_prefs",   # a review's suggestions (AL9, AL14)
             "get_report_card", "get_savings_goals", "get_net_worth", "get_people_balances",
         }
 

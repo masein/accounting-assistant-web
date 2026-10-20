@@ -705,6 +705,8 @@ def mobile_feed(db: Session = Depends(get_db), user: SessionUser = Depends(get_c
         for stmt, n in _sms_to_record(db):
             title, body = _sms_line(stmt, n, lang)
             items.append({"key": f"bank_sms:{stmt.id}:{n}", "kind": "bank_sms", "title": title, "body": body})
+    from app.services.proactive_reviews import feed_items
+    items.extend(feed_items(db, user, lang))          # a week's or a month's review, the nudge (AL5)
     if role_can(user.role, Perm.BOOKS_READ):
         from app.services.insight_service import chat_wording, compute_insights
         for ins in compute_insights(db):
@@ -933,7 +935,9 @@ def mobile_briefing(payload: BriefingPayload, db: Session = Depends(get_db),
     text = briefing_text(compute_insights(db), lang)
     waiting = _waiting_for(db, user)
     sms = _sms_to_record(db)
-    if not text and not waiting and not sms:
+    from app.services.proactive_reviews import take_for_chat
+    reviews = take_for_chat(db, user, lang)         # the app's own reviews come first (AL4); seen once committed
+    if not text and not waiting and not sms and not reviews:
         return {"thread_id": payload.thread_id, "blocks": []}
     try:
         session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.thread_id)
@@ -942,7 +946,7 @@ def mobile_briefing(payload: BriefingPayload, db: Session = Depends(get_db),
     # ids unique to this message: a thread holds a briefing a day, and the
     # phone keys its list by block id
     mid = uuid.uuid4()
-    blocks = []
+    blocks = [b for r in reviews for b in r["blocks"]]
     if text:
         blocks.append({"type": "text", "id": f"briefing:{mid}", "kind": "briefing", "text": text,
                        "fallback_text": text})

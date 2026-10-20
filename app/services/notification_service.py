@@ -16,6 +16,7 @@ push; this feed backs the in-app bell.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -30,6 +31,7 @@ from app.models.recurring import RecurringRule
 from app.core.money import grouped
 
 DUE_SOON_DAYS = 3
+log = logging.getLogger(__name__)
 
 # kind → roles that see company-wide (user_id IS NULL) rows of that kind
 KIND_ROLES = {
@@ -48,6 +50,7 @@ KIND_ROLES = {
     "insight": ("owner", "cfo", "accountant", "personal"),
     "bank_mail": ("owner", "cfo", "accountant", "personal"),
     "reminder": (),  # always personal
+    "review": (),    # a reader's own (user_id): the app's weekly and monthly reviews, its nudge
 }
 
 
@@ -654,6 +657,8 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
         # insights must never break the whole feed refresh
         pass
 
+    _reviews(db, seen)
+
     _store(db, seen.pending)
 
     # --- resolve rows whose source condition cleared -----------------------
@@ -669,6 +674,26 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
             open_count += 1
     db.commit()
     return open_count
+
+
+def _reviews(db: Session, seen: set[str]) -> None:
+    """A week's or a month's review, or a nudge, not yet seen: one row for each
+    reader who wants it, in their language — the bell, and so a web push
+    (scenario AL5). Seen in the chat, it leaves the bell."""
+    try:
+        from app.services import proactive_reviews as R
+        people = R.readers(db)
+        for user in people:
+            lang = user.preferred_language or "en"
+            for review in R.unseen(db, user):
+                said = R.render(review, lang)
+                _upsert(db, seen, dedupe_key=f"review-{review.id}-{user.id}", kind="review", level="info",
+                        title={"weekly": "Your weekly review is ready", "monthly": "Your monthly review is ready"}
+                        .get(review.kind, "Anything to record?"),
+                        message=said["headline"][:500], link_page="ai-accountant", user_id=str(user.id),
+                        text_key=f"review_{review.kind}", params={"headline": said["headline"][:500]})
+    except Exception:  # a review must never break the bell
+        log.warning("review notifications failed", exc_info=True)
 
 
 def _advance(d: date, repeat: str) -> date:

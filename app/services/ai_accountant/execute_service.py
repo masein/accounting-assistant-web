@@ -371,6 +371,14 @@ def _dispatch(db: Session, proposal: AIProposal, *, actor_user_id: str, actor_us
             actor_username=actor_username,
             ip_address=ip_address,
         )
+    elif proposal.tool_name == "propose_review_prefs":
+        from app.services.ai_accountant.review_tools import execute_review_prefs
+        txn_id, audit_id = execute_review_prefs(
+            db, proposal,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+        )
     elif proposal.tool_name == "propose_post_statement":
         from app.services.ai_accountant.statement_posting import execute_statement_posting
         txn_id, audit_id = execute_statement_posting(

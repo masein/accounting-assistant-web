@@ -209,6 +209,18 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
          "ar": "متكرر: {name}، يستحق في {date}"},
         {"en": "{direction} of {amount}", "fa": "{direction} به مبلغ {amount}", "es": "{direction} de {amount}",
          "ar": "{direction} بمبلغ {amount}"}),
+    # the app's own reviews and nudge (scenarios AL1–AL13): the headline is already in the reader's language
+    "review_weekly": _both(
+        {"en": "Your weekly review is ready", "fa": "مرور هفتگی آماده است", "es": "Tu resumen semanal está listo",
+         "ar": "مراجعتك الأسبوعية جاهزة"},
+        {"en": "{headline}", "fa": "{headline}", "es": "{headline}", "ar": "{headline}"}),
+    "review_monthly": _both(
+        {"en": "Your monthly review is ready", "fa": "مرور ماهانه آماده است", "es": "Tu resumen mensual está listo",
+         "ar": "مراجعتك الشهرية جاهزة"},
+        {"en": "{headline}", "fa": "{headline}", "es": "{headline}", "ar": "{headline}"}),
+    "review_nudge": _both(
+        {"en": "Anything to record?", "fa": "چیزی برای ثبت هست؟", "es": "¿Algo que registrar?", "ar": "هل هناك ما نسجّله؟"},
+        {"en": "{headline}", "fa": "{headline}", "es": "{headline}", "ar": "{headline}"}),
     "reminder": _both(
         {"en": "{title}", "fa": "{title}", "es": "{title}", "ar": "{title}"},
         {"en": "{note} — due {date}", "fa": "{note} — سررسید {date}", "es": "{note} — vence el {date}", "ar": "{note} — يستحق في {date}"}),

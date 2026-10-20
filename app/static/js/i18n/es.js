@@ -2991,6 +2991,8 @@ window.I18N_PACKS.es = Object.assign({
         bsReadStopped: 'La lectura del extracto se detuvo antes de terminar. Sube el archivo de nuevo para leerlo.',
         chatStmtReading: 'Leyendo: {done} de {total} páginas…',
         chatStmtReadingTitle: 'Extracto bancario',
+        aiCardPerson: 'Persona: {name}',
+        aiCardParty: 'Tercero: {name}',
         chatStmtContinue: 'Continuar con tus instrucciones',
         fieldDate: 'fecha',
         fieldAmount: 'importe',

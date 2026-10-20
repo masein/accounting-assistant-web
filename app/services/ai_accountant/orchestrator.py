@@ -211,7 +211,7 @@ Whenever you ask the user to pick between options (accounts, banks, «create a n
 
 A proposal is recorded only when the user clicks Confirm on its card. If the user types "confirm" / "تایید کن" in chat, or asks why a proposed entry isn't showing: tell them to confirm (or cancel) it on the pending card itself — do NOT call the proposal tool again; an identical second card double-posts when both get confirmed. Never re-propose something that is already pending. When the user CORRECTS a pending card ("make it 2.5 million", «مبلغش رو … کن», "no, from the other bank", "change the date") propose the corrected card with ``replaces="previous"`` (or the old card's confirmation_token): the old card is withdrawn for them. Never tell the user to cancel the old card themselves.
 
-Never name a card's buttons or quote their labels («تأیید», «ثبت», "Confirm", "Post"): the phone and the web show them in the app's own language, which may not be the language of the chat (a Persian reply told the user to press «تأیید» on a card whose button said Post). Say the card is ready («کارت آماده است»), and that nothing is recorded until they confirm it on the card.
+Never name a card's buttons or quote their labels («تأیید», «ثبت», "Confirm", "Post"): the phone and the web show them in the app's own language, which may not be the language of the chat (a Persian reply told the user to press «تأیید» on a card whose button said Post). Say the card is ready («کارت آماده است»). Don't add that nothing is recorded until they confirm: the reply stays under the card after it is confirmed, where that reads false (a posted lunch said «تا تأیید کارت، چیزی ثبت نمی‌شود», 2026-10-20).
 
 # A reply to an earlier message
 
@@ -265,6 +265,9 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * The chart of accounts is a set of everyday categories (خوراک، حمل‌ونقل، اجاره، اقساط…). Resolve them with ``search_accounts`` exactly as usual. When nothing fits, use the closest category or Miscellaneous (متفرقه) — don't interrogate the user about classification.
 * Paid "نقدی / نقد / cash" → the money comes from **موجودی نقد (1120, cash on hand)**; paid by "کارت / کارت به کارت / بانک / انتقال / card / transfer" → **حساب بانکی (1110)**. ``search_accounts`` returns these first in personal mode — use its top match, don't swap them.
 * Most entries have NO counterparty entity. Groceries, taxi, utility bills → empty ``entity_links``; don't ask "which supplier?". Create an entity only for a real party the user names (their landlord, a person who owes them money or whom they owe, their bank).
+* SOMEONE THE USER WAS WITH IS NOT A PARTY. «ناهار با امیر», "dinner with Sara", «با بچه‌ها رفتیم سینما»: the user paid for their own meal or outing, and the person was only there. No ``new_entities``, no ``entity_links``, and don't say they were added. They are a party only when money is owed between them and the user (they paid, the user paid for them or lent to them, or someone is paying back): then use 2130 or 1150 as below. A person already in the books is linked with ``entity_links`` (``find_entity``), never made again.
+* A MEAL OUT IS DINING OUT. Lunch, dinner, a restaurant, a café, takeaway («ناهار»، «شام»، «رستوران»، «کافه») goes under «تفریح و رستوران» (Leisure & dining out), even if it has never been used. «خوراک و سوپرمارکت» (Food & groceries) is food bought for home: the supermarket, fruit, bread.
+* RENAMING A PLACE. When the user wants a wallet, vault or bank account called something else («اسم کیف پول سبز رو بکن کیف پول قشنگم», "call my blue wallet the travel wallet"), call ``propose_rename_place`` with the name it has now (or its code) and the new name. Its card renames the account itself, keeping its entries. Never only remember the new words for it with ``propose_remember_preference``: then the cards still show the old name.
 * Typical shapes: spending = Dr expense category / Cr cash or bank · income (salary, freelance) = Dr bank / Cr income category · loan installment (قسط) = Dr installments payable / Cr bank · moving money to savings (gold, FX) = Dr the savings asset / Cr bank.
 * MONEY BETWEEN THE USER AND A PERSON. Someone paid for the user («Amir paid for these», «امیر حساب کرد»): Dr the spending category / Cr «بدهی به دیگران» (2130, Money I owe). The user paid for someone or lent them money: Dr «طلب از دیگران» (1150, Money owed to me) / Cr where the money came from. Paying a person back: Dr 2130 / Cr the bank or cash it came from; being paid back: Dr the bank or cash / Cr 1150. The person is on EVERY one of these cards and named in each description («Muscat Airbnb — paid by Amir»): ``find_entity`` once; found → ``entity_links`` with their id; not in the books → the same ``new_entities`` entry on each of their cards (type ``supplier`` when the user owes them, ``client`` when they owe the user) — whichever card is confirmed first makes the person and the others are linked to them. "How much do I owe Amir?", «کی به من بدهکاره؟», "who do I owe?" → ``get_people_balances``: person by person, each currency on its own; never read the whole 2130 or 1150 account as one person's.
 * A LIST in one message («$333.77 - Muscat Airbnb», one thing per line) is one card per line, each with its own amount and description, in the currency written. Stays, hotels, flights and trip tickets go under «سفر» (Travel).
@@ -445,6 +448,62 @@ def _link_party(db, txn: dict, entity) -> None:
     txn["preview"] = tool_input
 
 
+# «ناهار با امیر», "dinner with Sara and Ali", «مع أحمد»: whoever comes after "with" was only there
+_WITH = re.compile(r"(?:^|\s)(?:با|همراه|همراهِ|همراه\s+ی|with|con|مع)"
+                   r"(?:\s+\S+(?:\s+\S+)?\s*(?:\s(?:و|and|y)|[,،]))*\s*$", re.IGNORECASE)
+
+
+def _only_with(texts: list[str | None], name: str | None) -> bool:
+    """Is ``name`` named in ``texts`` only as company — each time just after
+    "with" («با», "with", "con", «مع»), or after another name joined to it —
+    never as who paid, was paid or owes (scenario AK2)? False when not named."""
+    from app.services.ai_accountant.entity_create import normalize_match_name
+    n = normalize_match_name(name)
+    if not n:
+        return False
+    seen = False
+    for text in texts:
+        t = normalize_match_name(text)
+        for m in re.finditer(rf"(?<!\w){re.escape(n)}(?!\w)", t):
+            seen = True
+            if not _WITH.search(t[:m.start()].rstrip()):
+                return False
+    return seen
+
+
+def _drop_party(db, txn: dict, *, name: str | None = None, entity_id: str | None = None) -> None:
+    """Take a party off a pending card: a new one by ``name``, a linked one by ``entity_id``."""
+    from uuid import UUID
+
+    from app.models.ai_accountant import AIProposal
+    from app.services.ai_accountant.entity_create import normalize_match_name
+    key = normalize_match_name(name) if name else None
+
+    def keep_new(e: dict) -> bool:
+        return key is None or normalize_match_name(e.get("name")) != key
+
+    def keep_link(e: dict) -> bool:
+        return entity_id is None or str(e.get("entity_id")) != str(entity_id)
+    try:
+        row = db.execute(select(AIProposal).where(
+            AIProposal.confirmation_token == UUID(str(txn.get("confirmation_token"))))).scalar_one_or_none()
+        if row is None or row.status != "pending":
+            return
+        tool_input = dict(row.tool_input or {})
+        tool_input["new_entities"] = [e for e in tool_input.get("new_entities") or [] if keep_new(e)]
+        tool_input["entity_links"] = [e for e in tool_input.get("entity_links") or [] if keep_link(e)]
+        row.tool_input = tool_input              # reassign so the JSON change persists
+        db.commit()
+    except Exception:  # best-effort; never break the turn
+        db.rollback()
+        return
+    txn["preview"] = tool_input
+    if name:
+        txn["new_entities"] = [e for e in txn.get("new_entities") or [] if keep_new(e)]
+        txn["summary"] = "\n".join(ln for ln in (txn.get("summary") or "").splitlines()
+                                   if not (ln.strip().startswith("Will create") and ln.rstrip().endswith(f": {name}")))
+
+
 def _people_on_every_card(db, proposals: list, *, personal: bool, user_message: str | None = None) -> None:
     """Whoever an entry is with is on every card of theirs this turn
     (2026-10-18, scenarios AG1–AG6). «Amir paid for these» and nine lines gave
@@ -496,6 +555,42 @@ def _people_on_every_card(db, proposals: list, *, personal: bool, user_message: 
         names = {n for n in names if not any(o != n and _named_in(o, n) for o in names)}
         if len(names) == 1:
             _link_party(db, t, next(e for e in named if normalize_match_name(e.name) in names))
+    _no_company_parties(db, txns, people, user_message)
+
+
+def _no_company_parties(db, txns: list, people, user_message: str | None) -> None:
+    """In a person's books (2026-10-20, scenarios AK2, AK3): «ناهار با امیر», paid from
+    the wallet, made Amir a "new counterparty" of a lunch he only shared — so a card
+    that moves no money between the user and someone names nobody the message has
+    only as company; and a person already in the books is linked, never made again
+    (types are guessed per message, and a supplier Amir beside a client Amir is two)."""
+    from app.models.entity import Entity
+    from app.services.ai_accountant.entity_create import normalize_match_name
+    from app.services.ai_accountant.personal_tools import owed_between_people
+    if people is None:
+        people = db.execute(select(Entity).where(Entity.type != "bank")).scalars().all()
+    by_name = {normalize_match_name(e.name): e for e in people}
+    for t in txns:
+        preview = t.get("preview") or {}
+        owed = any(owed_between_people(ln.get("account_code")) for ln in preview.get("lines") or [])
+        texts = [preview.get("description"), user_message]
+        for ne in list(preview.get("new_entities") or []):
+            if not ne.get("name") or ne.get("type") == "bank":
+                continue
+            if not owed and _only_with(texts, ne["name"]):
+                _drop_party(db, t, name=ne["name"])
+            elif (there := by_name.get(normalize_match_name(ne["name"]))) is not None:
+                _drop_party(db, t, name=ne["name"])
+                _link_party(db, t, there)
+        if owed:
+            continue
+        for link in list((t.get("preview") or {}).get("entity_links") or []):
+            try:
+                entity = db.get(Entity, uuid.UUID(str(link.get("entity_id"))))
+            except (ValueError, TypeError):
+                continue
+            if entity is not None and entity.type != "bank" and _only_with(texts, entity.name):
+                _drop_party(db, t, entity_id=str(entity.id))
 
 
 def _collapse_redundant_entity_proposals(db, proposals: list, turn_start: int,
@@ -942,7 +1037,10 @@ def _true_figures(text: str, tool_call_log: list[dict]) -> str:
     digits off (or reordered) from exactly one figure a tool did, is that
     figure, written as the reply wrote it (three digits for one of ten digits
     or more). Anything else is left alone: a sum the model worked out is not
-    near a single tool figure."""
+    near a single tool figure. Nor is a round one, a sum or difference of two
+    the tools gave, or one whose first digit is another: «بدهی‌تان ۳٬۰۰۰٬۰۰۰
+    ریال باقی می‌ماند», 5,000,000 owed less 2,000,000 paid, went out as
+    «۲٬۰۰۰٬۰۰۰», the card's own amount (2026-10-20)."""
     figures: set[int] = set()
     for entry in tool_call_log or []:
         _tool_figures(entry.get("result"), figures)
@@ -953,10 +1051,12 @@ def _true_figures(text: str, tool_call_log: list[dict]) -> str:
         token = m.group(0)
         digits = re.sub(r"[,٬،]", "", token).translate(_FA_DIGITS)
         n = int(digits)
-        if n in figures:
+        if n in figures or len(digits.rstrip("0")) <= 4:    # 3,000,000 is worked out, never a slip copying a figure
             return token
+        if any(n in (a + b, abs(a - b)) for a in figures for b in figures if a != b):
+            return token                                    # what's left, or a total, of the tools' own figures
         slips = 3 if len(digits) >= 10 else 2           # «۲۱٬۷۱۲٬۱۰۰٬۲۸۳» is three digits off 21,721,200,283
-        near = [f for f in figures if len(str(f)) == len(digits)
+        near = [f for f in figures if len(str(f)) == len(digits) and str(f)[0] == digits[0]
                 and (sorted(str(f)) == sorted(digits) or sum(a != b for a, b in zip(str(f), digits)) <= slips)]
         if len(near) != 1:
             return token

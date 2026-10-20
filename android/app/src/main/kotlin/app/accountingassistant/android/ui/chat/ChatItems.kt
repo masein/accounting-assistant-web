@@ -72,8 +72,11 @@ sealed interface ChatItem {
         val dateIso: String? = null,
         /** The server offers Edit for this card (its tool can be changed from the phone). */
         val editable: Boolean = false,
+        /** Who the card names: already in the books, or made when it's confirmed (scenario AK4). */
+        val people: List<Person> = emptyList(),
     ) : ChatItem {
         enum class Phase { Draft, Posting, Posted, Waiting, Cancelled, Undone, Rejected, Replaced }
+        data class Person(val name: String, val new: Boolean)
         data class Approval(val askedBy: String, val mine: Boolean)
         /** Edit can change the amount only when one line is debited and one credited. */
         val amountEditable: Boolean get() = lines.count { it.debit.signum() > 0 } == 1 && lines.count { it.credit.signum() > 0 } == 1
@@ -212,6 +215,9 @@ fun parseBlock(b: JsonObject): ChatItem {
                 ChatItem.Proposal.Approval(b.str("requested_by").orEmpty(), b.bool("mine")) else null,
             dateIso = b.obj("date")?.str("iso"),
             editable = (b["actions"] as? JsonArray)?.any { (it as? JsonPrimitive)?.contentOrNull == "edit" } == true,
+            people = b["people"].array().mapNotNull { p ->
+                p.str("name")?.takeIf { it.isNotBlank() }?.let { ChatItem.Proposal.Person(it, p.bool("new")) }
+            },
             // a posted card opened again keeps its seal's number and date
             voucher = b.obj("posted")?.str("voucher"),
             postedDate = b.obj("posted")?.obj("date")?.str("display"),

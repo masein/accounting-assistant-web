@@ -261,6 +261,7 @@ fun ChatScreen(
                                 lang = lang, amount = item.amount ?: java.math.BigDecimal.ZERO, currency = item.currency ?: "",
                                 summary = summaryOf(item.title, item.date),
                                 bodyModifier = held, plainSides = personalBooks,
+                                people = item.people.map { it.name to it.new },
                                 lines = item.lines, booksName = booksName, booksColor = booksColor,
                                 state = when (item.phase) {
                                     ChatItem.Proposal.Phase.Draft -> item.approval?.let { VoucherState.ForApproval(it.askedBy, it.mine) }

@@ -559,6 +559,7 @@ class TestPersonalMode:
             "list_commitments", "propose_settle_commitment", "propose_remember_preference",
             # money where it's kept, in its own currency (scenarios AB1–AB6)
             "propose_money_place", "propose_books_currency", "ask_with_choices",
+            "propose_rename_place",                 # a wallet renamed, its account itself (scenario AK5)
             "get_report_card", "get_savings_goals", "get_net_worth", "get_people_balances",
         }
 
@@ -648,6 +649,18 @@ class TestTheModelsSlips:
         text = "هزینه‌ها ۲۱٬۷۱۲٬۱۰۰٬۲۸۳ ریال؛ تسهیلات ۱٬۰۱۷٬۵۱۷٬۲۵۳؛ حقوق 843,110,379؛ جمع 1,860,626,632"
         assert _true_figures(text, log) == \
             "هزینه‌ها ۲۱٬۷۲۱٬۲۰۰٬۲۸۳ ریال؛ تسهیلات ۱٬۰۱۷٬۵۱۶٬۲۵۳؛ حقوق 843,110,379؛ جمع 1,860,626,632"
+
+    def test_what_the_model_worked_out_is_left_as_it_said(self) -> None:
+        """«۲۰۰ هزار تومان از پول امیر رو پس دادم»: 5,000,000 owed less 2,000,000 is «۳٬۰۰۰٬۰۰۰» left — not the
+        card's 2,000,000, one digit off it (2026-10-20, scenario AK2)."""
+        from app.services.ai_accountant.orchestrator import _true_figures
+        card = [{"result": {"preview": {"lines": [{"debit": 2_000_000}, {"credit": 2_000_000}]}}}]
+        said = "کارت آماده است: از کیف پول قشنگم به امیر، بدهی‌تان ۳٬۰۰۰٬۰۰۰ ریال باقی می‌ماند."
+        assert _true_figures(said, card) == said                                      # round: worked out
+        log = [{"result": {"owed": 5_544_811_663, "paid": 2_000_000}}]
+        assert _true_figures("left: 5,542,811,663", log) == "left: 5,542,811,663"      # 5,544,811,663 − 2,000,000
+        assert _true_figures("total 6,544,811,663", [{"result": {"total": 5_544_811_663}}]) == "total 6,544,811,663"
+        assert _true_figures("total 5,544,811,633", [{"result": {"total": 5_544_811_663}}]) == "total 5,544,811,663"
 
     def test_a_refused_card_is_tried_once_more(self, db: Session) -> None:
         def rent(amount):

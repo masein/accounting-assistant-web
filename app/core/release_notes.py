@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.20"
+CURRENT_RELEASE = "2026.10.20.1"
 
 
 @dataclass(frozen=True)
@@ -2008,6 +2008,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "صورتحسابی که فقط تصویر است — مثلاً ۲۲ صفحهٔ بانک دی — حالا تا صفحهٔ آخر خوانده می‌شود، چند صفحه با هم، و شما کارتان را ادامه می‌دهید؛ کارتش نشان می‌دهد تا کجا خوانده شده. مانده از هر ردیف به ردیف بعد بررسی می‌شود: مبلغی که یک رقمش نادرست خوانده شده از روی مانده‌های دو طرفش درست و نام برده می‌شود، و ردیفی که باز جور نباشد با صفحه و ردیفش گفته می‌شود. اگر با دستورتان در گفتگو بیندازید، وقتی خوانده شد «ادامه با دستور شما» آن را اعمال می‌کند.",
                     "es": "Un extracto que solo son imágenes — por ejemplo, las 22 páginas del Day Bank — ahora se lee hasta la última página, unas pocas a la vez, mientras sigues trabajando; su tarjeta muestra el avance. El saldo se comprueba de cada fila a la siguiente: un importe mal leído en un dígito se corrige con los saldos de ambos lados y se indica, y una fila que aun así no cuadra se señala por su página y fila. Si lo sueltas en el chat con tus instrucciones, «Continuar con tus instrucciones» las aplica cuando termina de leerse.",
                     "ar": "الكشف الذي هو صور فقط — صفحات بنك دي الاثنتان والعشرون مثلًا — يُقرأ الآن حتى صفحته الأخيرة، بضع صفحات معًا، وأنت تتابع عملك؛ وتُظهر بطاقته إلى أين وصلت القراءة. ويُفحص الرصيد من كل صف إلى الذي يليه: المبلغ الذي قُرئ أحد أرقامه خطأً يُصحَّح من الرصيدين على جانبيه ويُذكر، والصف الذي يبقى غير متّسق يُسمّى بصفحته وصفّه. وإذا أسقطته في المحادثة مع تعليماتك، يطبّقها زر «المتابعة بتعليماتك» بعد انتهاء القراءة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.20.1",
+        date="2026-10-20",
+        highlights=(
+            Highlight(
+                key="personal-lunch-wallet-names",
+                page="ai-accountant",
+                roles=("personal",),
+                title={
+                    "en": "A wallet renamed for real, and a lunch out is dining out",
+                    "fa": "تغییر واقعی نام کیف پول، و ناهار بیرون در «تفریح و رستوران»",
+                    "es": "Renombrar de verdad una cartera, y una comida fuera es «ocio y restaurantes»",
+                    "ar": "إعادة تسمية المحفظة فعلًا، والغداء في الخارج تحت «الترفيه والمطاعم»",
+                },
+                body={
+                    "en": "Ask the assistant to call a wallet or account something else and a card renames it, so every card and report shows the new name. A lunch, dinner or café goes under Leisure & dining out, not groceries. A friend you only ate with isn't added to your people, and someone already in your books is never added twice. Each card shows the person it names, on the phone as on the web.",
+                    "fa": "از دستیار بخواهید اسم کیف پول یا حسابی را عوض کند؛ یک کارت اسمش را عوض می‌کند و از آن به بعد همهٔ کارت‌ها و گزارش‌ها اسم تازه را نشان می‌دهند. ناهار، شام و کافه در «تفریح و رستوران» ثبت می‌شود، نه «خوراک و سوپرمارکت». دوستی که فقط با او غذا خورده‌اید به اشخاص اضافه نمی‌شود و کسی که در دفترتان هست دوباره ساخته نمی‌شود. هر کارت شخصی را که نام می‌برد نشان می‌دهد، در گوشی و در وب.",
+                    "es": "Pide al asistente que llame de otra forma a una cartera o cuenta y una tarjeta la renombra, así cada tarjeta e informe muestra el nombre nuevo. Una comida, una cena o un café van a Ocio y restaurantes, no a la compra. Un amigo con quien solo comiste no se añade a tus personas, y alguien que ya está en tus cuentas nunca se añade dos veces. Cada tarjeta muestra la persona que nombra, en el móvil y en la web.",
+                    "ar": "اطلب من المساعد تسمية محفظة أو حساب باسم آخر فتغيّره بطاقة، فتُظهر كل البطاقات والتقارير الاسم الجديد. والغداء والعشاء والمقهى تحت «الترفيه والمطاعم» لا «الطعام والبقالة». والصديق الذي أكلت معه فقط لا يُضاف إلى أشخاصك، ومن هو في دفاترك لا يُضاف مرتين. وتُظهر كل بطاقة الشخص الذي تسمّيه، في الهاتف والويب.",
                 },
             ),
         ),

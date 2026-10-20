@@ -636,3 +636,19 @@ From the owner: «20261015_133322_receipt.pdf», Day Bank's own statement of ف�
 | AJ7 | A scanned statement called a receipt | Drop it with no words | Recognised as a bank statement from its first page, not read as a receipt |
 | AJ8 | Stopped half-way | The server restarts while it reads | Not left «reading» for ever: said to have stopped, and the same file can be uploaded again |
 | AJ9 | Short ones as before | A 1–2 page PDF or a photo | Read at once, as before, with its balance check |
+
+## AK. A lunch with a friend, from the phone (2026-10-20)
+
+From the owner's phone, in their personal books, which count in Omani rials: «ناهار با امیر ۷ ریال عمان از کیف پول قشنگم». The card posted 7.000 OMR to 6110 «خوراک و سوپرمارکت» (Food & groceries) from 112001 «کیف پول سبز». The reply said «کیف پول قشنگم» and «امیر هم به‌عنوان طرف معامله جدید به کارت اضافه شده», but the card showed no Amir, and under the posted card the reply still said «تا تأیید کارت، چیزی ثبت نمی‌شود». «کیف پول قشنگم» is the green wallet: the owner had asked for it to be renamed, the assistant could only remember the new words for it, and the account kept its old name. The dining-out category 6180 had never been used, and in books with 30 or more lines an unused category ranked as a fallback, below groceries, which was in use.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AK1 | A meal out is dining out | Personal books with entries in 6110 and none in 6180: «ناهار با امیر ۷ ریال از کیف پول» | The card debits 6180 «تفریح و رستوران», never 6110. «شام»، «رستوران»، «کافه» are dining out too. «خرید سوپرمارکت» and «میوه» stay food & groceries. A category the person has never used still ranks as itself in their books |
+| AK2 | Company is not a party | «ناهار با امیر …», paid from the wallet | No party on the card: Amir isn't made, linked or listed in People for a lunch he only shared. «امیر حساب کرد» (Amir paid), «به امیر قرض دادم» (lent to Amir) and «پول امیر رو دادم» (paid Amir back) still name him (AG1–AG6) |
+| AK3 | One Amir | Amir is already in the books, as the person who paid for the trips (AG). A new card names «امیر» as a new person, of any type | The card links the Amir already there; nobody new is made, and People has one Amir |
+| AK4 | The person on the phone's card | A card that names a person | Phone and web: «شخص: امیر» under the description, or «شخص جدید: امیر» when confirming makes them. In a company's books: «طرف حساب: …» |
+| AK5 | A wallet renamed | «اسم کیف پول سبز رو بکن کیف پول قشنگم» | One confirm card: «112001 کیف پول سبز ← کیف پول قشنگم». Once confirmed, the account itself is «کیف پول قشنگم» on every card, balance and report, with its entries and starting balance kept. A wording is never only remembered in place of a rename |
+| AK6 | Both names, put right | Books where 112001 is «کیف پول سبز» and «کیف پول قشنگم» was only remembered for it: ask for the rename again | The card renames 112001 to «کیف پول قشنگم»: one name, the one asked for |
+| AK7 | A bank renamed with its account | A bank party whose account was made from its name (e.g. «حساب بانکی ملت»), renamed «ملت مرکزی» | The party and its account are renamed together. An account named some other way, such as an imported chart's «بانک ملت شعبه ۱۲ حساب ۱۲۳», keeps its name |
+| AK8 | The reply doesn't go stale | A card is proposed, then confirmed | The reply says the card is ready. It doesn't add «تا تأیید کارت، چیزی ثبت نمی‌شود», which reads false under a posted card |
+| AK9 | What's left, as worked out | Owing Amir 5,000,000, «۲۰۰ هزار تومان از پول امیر رو پس دادم» | The reply's «۳٬۰۰۰٬۰۰۰ ریال باقی می‌ماند» reaches the phone as written. The real model wrote 3,000,000, and the miscopy fix turned it into the card's 2,000,000, one digit off. Round figures, sums or differences of the tools' figures, and a different first digit are never treated as miscopies; 21,712,100,283 for 21,721,200,283 still is |

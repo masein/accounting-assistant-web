@@ -30,6 +30,7 @@
           "credit": 80000000
         }
       ],
+      "people": [],
       "new_entities": [],
       "needs_approval": true,
       "approval_threshold": null,

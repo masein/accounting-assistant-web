@@ -103,6 +103,8 @@ fun Voucher(
     bodyModifier: Modifier = Modifier,
     /** A person's books: each line says To or From, not Dr and Cr (scenario AC8). */
     plainSides: Boolean = false,
+    /** Who the card names, each with whether confirming makes them (scenario AK4). */
+    people: List<Pair<String, Boolean>> = emptyList(),
 ) {
     val c = LocalAccountantColors.current
     val view = LocalView.current
@@ -165,6 +167,17 @@ fun Voucher(
                 }
                 // in its own direction: a Persian description starts on the right in an English app (scenario AC9)
                 Text(summary, color = c.muted, fontSize = 12.sp, style = TextStyle(textDirection = TextDirection.Content))
+                // «شخص: امیر» — in a company's books «طرف حساب: …»; one confirming makes says it's new
+                people.forEach { (name, new) ->
+                    val label = when {
+                        plainSides && new -> R.string.voucher_person_new
+                        plainSides -> R.string.voucher_person
+                        new -> R.string.voucher_party_new
+                        else -> R.string.voucher_party
+                    }
+                    Text(stringResource(label, name), color = c.ink, fontSize = 12.sp, fontWeight = FontWeight(600),
+                         style = TextStyle(textDirection = TextDirection.Content))
+                }
                 if (lines.isNotEmpty()) Column(
                     Modifier.fillMaxWidth().padding(top = 2.dp)
                         .drawWithCache {

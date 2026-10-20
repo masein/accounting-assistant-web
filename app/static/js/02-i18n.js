@@ -3013,6 +3013,8 @@
         bsReadStopped: 'Reading the statement stopped before it was done. Upload the file again to read it.',
         chatStmtReading: 'Reading: {done} of {total} pages…',
         chatStmtReadingTitle: 'Bank statement',
+        aiCardPerson: 'Person: {name}',
+        aiCardParty: 'Party: {name}',
         chatStmtContinue: 'Continue with your instructions',
         fieldDate: 'date',
         fieldAmount: 'amount',

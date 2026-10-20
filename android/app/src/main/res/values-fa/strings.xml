@@ -29,6 +29,10 @@
     <string name="send">فرستادن</string>
     <string name="voucher_undone">برگردانده شد؛ دفاتر مثل قبل است</string>
     <string name="voucher_cancelled">لغو شد</string>
+    <string name="voucher_person">شخص: %1$s</string>
+    <string name="voucher_person_new">شخص جدید: %1$s</string>
+    <string name="voucher_party">طرف حساب: %1$s</string>
+    <string name="voucher_party_new">طرف حساب جدید: %1$s</string>
     <string name="voucher_title">سند</string>
     <string name="suggestions_intro">از دفاترت بپرس یا بگو چه ثبت کنم. این‌ها فوری جواب می‌گیرند:</string>
     <string-array name="suggestions">

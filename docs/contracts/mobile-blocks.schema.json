@@ -350,6 +350,18 @@
             "$ref": "#/$defs/line"
           }
         },
+        "people": {
+          "type": "array",
+          "description": "Who the card names, under its description: already in the books (new false) or made on confirm (new true). Scenario AK4.",
+          "items": {
+            "type": "object",
+            "required": ["name", "new"],
+            "properties": {
+              "name": {"type": "string"},
+              "new": {"type": "boolean"}
+            }
+          }
+        },
         "new_entities": {
           "type": "array"
         },

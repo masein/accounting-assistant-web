@@ -73,6 +73,16 @@ import kotlin.random.Random
 /** Reviews already shown moving in this process: scrolled back into view, a card stays still. */
 private val moved = mutableSetOf<String>()
 
+/**
+ * Item ``i`` of ``n``'s share of the card's progress ``p``: each starts ``step`` after the one before, after
+ * ``delay``, and every one ends at 1 when ``p`` does (an item stopping at 0.82 left an idea half faded).
+ */
+internal fun stagger(p: Float, i: Int, n: Int, step: Float = 0.08f, delay: Float = 0f): Float {
+    if (p >= 1f) return 1f
+    val span = (1f - delay - step * (n - 1).coerceAtLeast(0)).coerceAtLeast(0.2f)
+    return ((p - delay - step * i) / span).coerceIn(0f, 1f)
+}
+
 private fun moodColor(mood: String, c: AccountantColors): Color = when (mood) {
     "good" -> if (c.isDark) Color(0xFF34D399) else Color(0xFF0F9D6E)
     "watch" -> c.saffron
@@ -192,7 +202,7 @@ fun ReviewCard(item: ChatItem.Review, lang: String, onAsk: (String) -> Unit, mod
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         item.categoriesTitle?.let { Text(it, color = c.muted, fontSize = 12.sp, fontWeight = FontWeight(700)) }
                         item.categories.forEachIndexed { i, cat ->
-                            val q = FastOutSlowInEasing.transform(((p * 1.3f) - 0.2f - i * 0.08f).coerceIn(0f, 1f))
+                            val q = FastOutSlowInEasing.transform(stagger(p, i, item.categories.size, delay = 0.15f))
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                     Text(cat.name, color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(600), modifier = Modifier.weight(1f),
@@ -231,7 +241,7 @@ fun ReviewCard(item: ChatItem.Review, lang: String, onAsk: (String) -> Unit, mod
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         item.ideasTitle?.let { Text(it, color = c.muted, fontSize = 12.sp, fontWeight = FontWeight(700)) }
                         item.ideas.forEachIndexed { i, idea ->
-                            val q = ((p * 1.5f) - 0.5f - i * 0.18f).coerceIn(0f, 1f)
+                            val q = stagger(p, i, item.ideas.size, step = 0.15f, delay = 0.35f)
                             Surface(shape = RoundedCornerShape(16.dp), color = c.surface, border = BorderStroke(1.dp, mood.copy(alpha = 0.26f)),
                                     modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = q; translationY = (1f - q) * 18.dp.toPx() }) {
                                 Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -288,7 +298,7 @@ private fun Bars(chart: ChatItem.Review.Chart, mood: Color, p: Float) {
             val barW = minOf(slot, if (pair) 14.dp.toPx() else 30.dp.toPx())
             val radius = CornerRadius(7.dp.toPx())
             bars.forEachIndexed { i, bar ->
-                val q = FastOutSlowInEasing.transform(((p * 1.25f) - i * 0.07f).coerceIn(0f, 1f))
+                val q = FastOutSlowInEasing.transform(stagger(p, i, n, step = 0.07f))
                 val left = if (rtl) size.width - (i + 1) * slot - i * gap else i * (slot + gap)
                 val tint = if (bar.current) mood else mood.copy(alpha = 0.3f)
                 val h = size.height * (bar.value.toFloat() / max) * q

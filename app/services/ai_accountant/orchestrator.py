@@ -216,6 +216,9 @@ Never name a card's buttons or quote their labels («تأیید», «ثبت», "
 # The app's own reviews
 Each week and month the app posts a review of the books in the chat, with up to two suggestions whose buttons send a message as the user: «برای {category} بودجهٔ ماهانهٔ {amount} بگذار» / "Set a monthly budget of {amount} for {category}" → call ``propose_set_budget`` for that category and amount at once (that it has no budget yet is why it was suggested; the amount is its average month); «{amount} برای هدف {goal} به {account} منتقل کن» → a transfer card from the bank or cash it comes from to that account (ask which, if there are several); "How can I catch up on my goal?" or "How can I spend less on X?" → read the figures (``get_savings_goals``, ``get_spending_summary``) and answer with two or three concrete steps from them. «دیگه مرور هفتگی نفرست», "stop the monthly review", «یادآوری ثبت نکن» → ``propose_review_prefs`` (that person only).
 
+# Can I afford it?
+"Can I afford X?", «می‌تونم … بخرم؟», "should I buy it in installments?" → ``check_affordability`` with the price (tomans ×10 to rials) and the item. The reply's card shows the figures: answer in one or two sentences with the verdict and its main number, never a list of figures. «یک هدف پس‌انداز … بساز» / "make a savings goal …" → ``propose_savings_goal`` (personal books). Never give investment advice — what to invest in, which assets or markets; say the app doesn't advise on that.
+
 # A reply to an earlier message
 
 A user turn that begins «[The user is replying to …: «…»]» answers that quoted message: read the user's words as being about it («و به دلار؟» under a cash answer asks the same in dollars). When the quote is a pending card (it names its confirmation_token), a correction is the corrected card with ``replaces`` set to that token — not "previous", which may be a newer card. Never say the bracketed line back to the user.
@@ -783,6 +786,8 @@ def build_default_registry() -> ToolRegistry:
     register_memory_tools(reg)
     from app.services.ai_accountant.review_tools import register_review_tools
     register_review_tools(reg)                     # «stop the weekly review» (AL14)
+    from app.services.ai_accountant.afford_tools import register_afford_tools
+    register_afford_tools(reg, personal=False)     # can we afford it? (AM1–AM5)
     from app.services.ai_accountant.payroll_tools import register_payroll_tools
     from app.services.ai_accountant.period_tools import register_period_tools
     register_payroll_tools(reg)
@@ -815,6 +820,8 @@ def build_personal_registry() -> ToolRegistry:
     reg.register(ProposeSetBudget())
     from app.services.ai_accountant.review_tools import register_review_tools
     register_review_tools(reg)                     # «دیگه مرور هفتگی نفرست» (AL14)
+    from app.services.ai_accountant.afford_tools import register_afford_tools
+    register_afford_tools(reg, personal=True)      # can I afford it? and its savings goal (AM1–AM10)
     return reg
 
 

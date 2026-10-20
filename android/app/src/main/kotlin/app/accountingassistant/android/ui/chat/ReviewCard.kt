@@ -140,6 +140,7 @@ fun ReviewCard(item: ChatItem.Review, lang: String, onAsk: (String) -> Unit, mod
                         val badge = when (item.kind) {
                             "weekly" -> R.string.review_weekly
                             "monthly" -> R.string.review_monthly
+                            "afford" -> R.string.review_afford
                             else -> R.string.review_nudge
                         }
                         Surface(color = mood.copy(alpha = 0.15f), shape = CircleShape) {
@@ -153,7 +154,10 @@ fun ReviewCard(item: ChatItem.Review, lang: String, onAsk: (String) -> Unit, mod
 
                 item.headline?.let { h ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(h.label, color = c.muted, fontSize = 12.sp)
+                        // can I afford it? — the answer is the headline, the price under it (AM9)
+                        if (item.kind == "afford") Text(h.label, color = mood, fontSize = 16.sp, fontWeight = FontWeight(800),
+                                                        style = TextStyle(textDirection = TextDirection.Content))
+                        else Text(h.label, color = c.muted, fontSize = 12.sp)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             val shown = h.value.multiply(BigDecimal(p.toDouble())).setScale(places, RoundingMode.HALF_UP)
                             val symbol = currencySymbol(item.currency ?: "")

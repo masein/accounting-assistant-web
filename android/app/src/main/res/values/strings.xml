@@ -35,6 +35,7 @@
     <string name="voucher_party_new">New party: %1$s</string>
     <string name="review_weekly">Weekly review</string>
     <string name="review_monthly">Monthly review</string>
+    <string name="review_afford">Can I afford it?</string>
     <string name="review_nudge">Reminder</string>
     <string name="voucher_title">Voucher</string>
     <string name="suggestions_intro">Ask about your books, or tell me what to record. These answer at once:</string>

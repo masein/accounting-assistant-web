@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.20.2"
+CURRENT_RELEASE = "2026.10.20.3"
 
 
 @dataclass(frozen=True)
@@ -2054,6 +2054,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "اول هر هفته و هر ماه، دستیار خودش دفترتان را مرور می‌کند، در کارتی با نمودار: خرج هفته در برابر هفته‌های معمول، کجا خرج شد، درآمد، کی به کی بدهکار است؛ و برای شرکت، ورود و خروج پول، نقدینگی و دوامش، فاکتورهای سررسیدگذشته و صورت‌حساب‌های پیش رو. حداکثر دو پیشنهاد هم با آن می‌آید، هر کدام با یک دکمه: کنار گذاشتن پول برای یک هدف، بودجه برای دسته‌ای که خرجش بالا رفته، بودجه‌ای که نزدیک است رد شود، کسی که یک ماه است بدهکار است. در گفتگو و به‌صورت اعلان می‌آید؛ هر کدام را در «مرورها و یادآوری‌ها» خاموش کنید، یا فقط بگویید.",
                     "es": "Al empezar cada semana y cada mes, el asistente revisa tus cuentas por su cuenta, en una tarjeta con gráficos: lo gastado frente a una semana normal, en qué se fue, los ingresos, quién debe a quién; en una empresa, el dinero que entró y salió, la caja y cuánto dura, las facturas vencidas y las que vencen. Trae hasta dos ideas, cada una con un botón: apartar dinero para una meta, un presupuesto para una categoría disparada, un presupuesto a punto de superarse, alguien que debe desde hace un mes. Llega al chat y como notificación; desactiva lo que quieras en Resúmenes y avisos, o simplemente dilo.",
                     "ar": "في بداية كل أسبوع وكل شهر يراجع المساعد دفاترك من تلقاء نفسه في بطاقة برسوم بيانية: ما أنفقته مقارنةً بأسبوعك المعتاد، وأين ذهب، والدخل، ومن يدين لمن؛ وللشركة: المال الداخل والخارج، والنقد ومدة تغطيته، والفواتير المتأخرة والمستحقة. ويأتي معه اقتراحان على الأكثر، لكل منهما زر: ادّخار مال لهدف، أو ميزانية لفئة ارتفع إنفاقها، أو ميزانية على وشك التجاوز، أو شخص مدين منذ شهر. يصلك في المحادثة وكإشعار؛ أوقف أيًّا منها من «المراجعات والتذكيرات» أو قل ذلك فحسب.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.20.3",
+        date="2026-10-20",
+        highlights=(
+            Highlight(
+                key="can-i-afford-it",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Can I afford it?",
+                    "fa": "می‌تونم بخرمش؟",
+                    "es": "¿Me lo puedo permitir?",
+                    "ar": "هل أستطيع شراءه؟",
+                },
+                body={
+                    "en": "Ask the assistant whether you can buy something — «can I afford a 1,200 phone?». It reads your books: the money you have, what you usually earn and spend, payments coming up, what your goals need. The answer comes as a card: buy it now, wait a month or two, pay in installments (how many, how much), or save first, and how long. Saving first? One tap makes it a savings goal, and the weekly review reminds you.",
+                    "fa": "از دستیار بپرسید می‌توانید چیزی را بخرید یا نه — «می‌تونم یه گوشی ۲۰ میلیونی بخرم؟». دفترتان را می‌خواند: پولی که دارید، درآمد و خرج معمولتان، پرداخت‌های پیش رو، و آنچه هدف‌هایتان لازم دارند. جواب به‌صورت کارت می‌آید: همین حالا بخرید، یکی‌دو ماه صبر کنید، قسطی بخرید (چند قسط و هر قسط چقدر)، یا اول پس‌انداز کنید و چقدر طول می‌کشد. اگر پس‌انداز لازم است، با یک لمس هدف پس‌انداز می‌سازید و مرور هفتگی یادآوری می‌کند.",
+                    "es": "Pregunta al asistente si puedes comprar algo — «¿me puedo permitir un móvil de 1.200?». Lee tus cuentas: el dinero que tienes, lo que sueles ganar y gastar, los pagos que vienen y lo que necesitan tus metas. La respuesta llega como tarjeta: cómpralo ya, espera un mes o dos, págalo a plazos (cuántos y de cuánto) o ahorra antes y cuánto tardarás. ¿Hay que ahorrar? Con un toque lo conviertes en una meta de ahorro y el resumen semanal te lo recuerda.",
+                    "ar": "اسأل المساعد إن كنت تستطيع شراء شيء — «هل أستطيع شراء هاتف بـ1200؟». يقرأ دفاترك: المال المتوفر، وما تكسبه وتنفقه عادة، والمدفوعات القادمة، وما تحتاجه أهدافك. ويأتي الجواب في بطاقة: اشترِه الآن، أو انتظر شهرًا أو شهرين، أو ادفع بالتقسيط (كم قسطًا وكم كل قسط)، أو ادّخر أولًا وكم يستغرق ذلك. وإن لزم الادخار، تنشئ هدف ادخار بلمسة وتذكّرك المراجعة الأسبوعية.",
                 },
             ),
         ),

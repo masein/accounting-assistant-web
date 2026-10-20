@@ -35,6 +35,7 @@
     <string name="voucher_party_new">طرف حساب جدید: %1$s</string>
     <string name="review_weekly">مرور هفتگی</string>
     <string name="review_monthly">مرور ماهانه</string>
+    <string name="review_afford">می‌تونم بخرم؟</string>
     <string name="review_nudge">یادآوری</string>
     <string name="voucher_title">سند</string>
     <string name="suggestions_intro">از دفاترت بپرس یا بگو چه ثبت کنم. این‌ها فوری جواب می‌گیرند:</string>

@@ -142,6 +142,8 @@ class ChatResponse(BaseModel):
     # ...card data}. The UI renders it with its own Confirm targeting the
     # existing migration / excel-import confirm endpoints.
     intake: dict | None = None
+    # «can I afford it?» as the review's card, in the reader's language (scenario AM9)
+    review_cards: list[dict] = []
 
 
 class ChatSessionCreate(BaseModel):
@@ -628,8 +630,9 @@ async def chat(
                            latency_ms=int((time.perf_counter() - turn_started) * 1000),
                            personal=user.role == Role.PERSONAL)
     from app.services.ai_accountant.orchestrator import _message_language
-    cards = _voucher_cards(db, result.proposals,
-                           lang=_message_language(payload.message, _user_language(db, user)))
+    reply_lang = _message_language(payload.message, _user_language(db, user))
+    cards = _voucher_cards(db, result.proposals, lang=reply_lang)
+    review_cards = _review_cards(db, result.tool_calls, lang=reply_lang)
     return ChatResponse(
         session_id=result.session_id,
         text=result.text,
@@ -653,7 +656,20 @@ async def chat(
         turns=result.turns,
         # the statement imported from the file stays on screen beside the card made of it (AF2)
         intake=_localized_intake(db, user, stmt_handoff.intake) if stmt_handoff is not None else None,
+        review_cards=review_cards,
     )
+
+
+def _review_cards(db: Session, tool_calls: list[dict] | None, *, lang: str) -> list[dict]:
+    """The cards the turn's read tools draw as a review would (check_affordability), for the web."""
+    try:
+        from app.services.ai_accountant import blocks as B
+        from app.services.locale_service import get_display_calendar
+        return [{k: v for k, v in b.items() if k not in ("type", "id", "tool", "fallback_text")}
+                for b in B.data_blocks(tool_calls, lang=lang, calendar=get_display_calendar(db)) if b.get("type") == "review"]
+    except Exception:  # noqa: BLE001 — the words still say it
+        logger.warning("review cards for the web chat failed", exc_info=True)
+        return []
 
 
 def _localized_intake(db: Session, user: SessionUser, intake: dict) -> dict:

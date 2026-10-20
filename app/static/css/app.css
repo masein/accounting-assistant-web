@@ -1396,6 +1396,8 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 }
 .ai-review-title { font-weight: 700; font-size: 0.98rem; color: var(--text); text-wrap: balance; }
 .ai-review-label { font-size: 0.76rem; color: var(--text-muted); }
+/* can I afford it? — the answer is the headline, the price under it (scenario AM9) */
+.ai-review-card.kind-afford .ai-review-headline > .ai-review-label { font-size: 1.02rem; font-weight: 800; color: var(--mood); text-wrap: balance; }
 .ai-review-figure-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.35rem 0.55rem; }
 .ai-review-figure { font-size: 1.9rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.15; }
 .ai-review-ccy { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); }

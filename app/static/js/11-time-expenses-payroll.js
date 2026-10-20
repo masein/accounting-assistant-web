@@ -1184,6 +1184,24 @@
       return formatDisplayDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
     }
 
+    // A detail kept as JSON (a voucher's snapshot, a chat card's link) is read as its values,
+    // «۱۴۰۵/۰۷/۲۱ · X-875 · هزینهٔ هفته», never as the JSON with its Persian escaped (deep test
+    // 2026-10-20, finding 6). Ids, lists and empty values stay out.
+    function auditDetail(text) {
+      const s = String(text || '');
+      if (s.charAt(0) !== '{') return s;
+      let o;
+      try { o = JSON.parse(s); } catch (_) { return s; }
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return s;
+      const parts = [];
+      Object.keys(o).forEach((k) => {
+        const v = o[k];
+        if (v === null || v === undefined || v === '' || typeof v === 'object' || /(^|_)ids?$/.test(k)) return;
+        parts.push(k === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? formatDisplayDate(String(v)) : String(v));
+      });
+      return parts.join(' · ');
+    }
+
     async function loadAuditLogs() {
       try {
         const res = await fetch(bsAPI + '/audit/logs?limit=30');
@@ -1197,7 +1215,7 @@
             <td>${escapeHtml(auditLabel('auditAct_', l.action))}</td><td>${escapeHtml(auditLabel('auditEnt_', l.entity_type))}</td>
             <td style="font-size:0.8rem;">${escapeHtml((l.entity_id || '').substring(0, 8))}</td>
             <td>${escapeHtml(l.username || '—')}</td>
-            <td style="font-size:0.8rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;"><bdi dir="ltr">${escapeHtml((l.detail || '').substring(0, 120))}</bdi></td>`;
+            <td style="font-size:0.8rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;"><bdi dir="auto">${escapeHtml(auditDetail(l.detail).substring(0, 120))}</bdi></td>`;
           body.appendChild(tr);
         });
       } catch (e) { /* ignore */ }

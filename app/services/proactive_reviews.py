@@ -571,13 +571,13 @@ W: dict[str, dict[str, str]] = {
                     "es": "Caja: {cash}, unos {months} meses a este ritmo.",
                     "ar": "النقد: {cash}، يكفي نحو {months} أشهر بهذا المعدل."},
     "cash": {"en": "Cash: {cash}.", "fa": "موجودی نقد: {cash}.", "es": "Caja: {cash}.", "ar": "النقد: {cash}."},
-    "overdue": {"en": "{count} invoices overdue, {total} in all; the oldest is {oldest}, {days} days.",
+    "overdue": {"en": "Overdue invoices: {count}, {total} in all; the oldest is {oldest}, {days} days.",
                 "fa": "{count} فاکتور سررسیدگذشته، روی هم {total}؛ قدیمی‌ترین: {oldest}، {days} روز.",
-                "es": "{count} facturas vencidas, {total} en total; la más antigua, {oldest}, {days} días.",
+                "es": "Facturas vencidas: {count}, {total} en total; la más antigua, {oldest}, {days} días.",
                 "ar": "{count} فواتير متأخرة بإجمالي {total}؛ أقدمها {oldest} منذ {days} يومًا."},
-    "bills_due": {"en": "{count} bills fall due in the next 7 days: {total}.",
+    "bills_due": {"en": "Bills due in the next 7 days: {count}, {total}.",
                   "fa": "{count} صورت‌حساب خرید تا ۷ روز دیگر سررسید می‌شود: {total}.",
-                  "es": "{count} facturas de compra vencen en los próximos 7 días: {total}.",
+                  "es": "Facturas de compra que vencen en 7 días: {count}, {total}.",
                   "ar": "{count} فواتير شراء تستحق خلال 7 أيام: {total}."},
     "month_flows": {"en": "Income {income}, spending {spent}, saved {saved} ({rate} of income).",
                     "fa": "درآمد {income}، خرج {spent}، پس‌انداز {saved} ({rate} از درآمد).",
@@ -700,9 +700,9 @@ S: dict[str, dict[str, dict[str, str]]] = {
         "ask": {"en": "Show my repeating payments", "fa": "پرداخت‌های تکراری‌ام را نشان بده",
                 "es": "Muéstrame mis pagos recurrentes", "ar": "اعرض مدفوعاتي المتكررة"}},
     "overdue_invoices": {
-        "say": {"en": "{count} invoices are overdue, {total} in all — {oldest} for {days} days.",
+        "say": {"en": "Overdue invoices: {count}, {total} in all — {oldest} for {days} days.",
                 "fa": "{count} فاکتور سررسیدگذشته دارید، روی هم {total} — {oldest} {days} روز.",
-                "es": "{count} facturas están vencidas, {total} en total; {oldest}, {days} días.",
+                "es": "Facturas vencidas: {count}, {total} en total; {oldest}, {days} días.",
                 "ar": "{count} فواتير متأخرة بإجمالي {total} — {oldest} منذ {days} يومًا."},
         "ask": {"en": "Which invoices are overdue?", "fa": "کدام فاکتورها سررسیدشان گذشته؟",
                 "es": "¿Qué facturas están vencidas?", "ar": "ما الفواتير المتأخرة؟"}},
@@ -714,7 +714,24 @@ S: dict[str, dict[str, dict[str, str]]] = {
 }
 
 
-def _say(table: dict, key: str, lang: str, **params) -> str:
+_RTL_LETTER = re.compile(r"[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]")
+_LATIN_LETTER = re.compile(r"[A-Za-z]")
+
+
+def _own_direction(value, lang: str):
+    """A name written the other way keeps its own order inside the sentence, between isolates: an English
+    review read «the oldest is 10 ,(فروشگاه مهرگان (شعبه ۲ days» (deep test 2026-10-20)."""
+    if not isinstance(value, str):
+        return value
+    other = _LATIN_LETTER.search(value) and not _RTL_LETTER.search(value) if lang in ("fa", "ar") \
+        else _RTL_LETTER.search(value)
+    return f"\u2068{value}\u2069" if other else value
+
+
+def _say(table: dict, key: str, lang: str, *, isolate: bool = True, **params) -> str:
+    """``isolate=False`` for a button's question: it is sent as the user's own words, isolates and all."""
+    if isolate:
+        params = {k: _own_direction(v, lang) for k, v in params.items()}
     return table[key][lang if lang in table[key] else "en"].format(**params)
 
 
@@ -752,7 +769,7 @@ def _suggestion(s: dict, lang: str, ccy: str, cal: str) -> tuple[str, str]:
     if "names" in p:
         p["names"] = _sep(lang).join(p["names"])
     table = S[s["key"]]
-    return _say(table, "say", lang, **p), _say(table, "ask", lang, **p)
+    return _say(table, "say", lang, **p), _say(table, "ask", lang, isolate=False, **p)
 
 
 def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bool = True) -> dict:

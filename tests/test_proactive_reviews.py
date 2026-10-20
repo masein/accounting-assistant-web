@@ -103,7 +103,8 @@ def test_al1_a_persons_week_against_their_usual_week(person, db):
     from app.services.proactive_reviews import render
     en = render(review, "en")
     assert "You spent 5,000,000 Iranian rial this week — 67% more than your usual week (3,000,000 Iranian rial)." in en["text"]
-    assert "Income: 10,000,000 Iranian rial." in en["text"] and "Biggest spend: شام تولد" in en["text"]
+    assert "Income: 10,000,000 Iranian rial." in en["text"] and "Biggest spend: \u2068شام تولد\u2069" in en["text"]
+    assert "“\u2068" + dining + "\u2069” was 200% above usual" in en["text"]      # a Persian name keeps its order in English
     assert en["choices"] == [f"Set a monthly budget of 3,000,000 Iranian rial for {dining}"]     # its average month
     assert en["headline"].startswith("You spent 5,000,000")
     fa = render(review, "fa")                                                     # AL16
@@ -334,6 +335,23 @@ def test_al12_a_companys_most_pressing_first(person, db):
     with _in(person["cid"]):
         out = suggestions(db, "weekly", facts, MONDAY)
     assert [s["key"] for s in out] == ["runway", "overdue_invoices"]
+
+
+def test_al16_a_companys_week_in_english_names_a_persian_debtor_in_order():
+    """Deep test 2026-10-20: «1 invoices overdue», and the debtor's Persian name scrambled the English sentence
+    («the oldest is 10 ,(فروشگاه مهرگان (شعبه ۲ days»). The name now sits between isolates; Persian is as before."""
+    from app.models.proactive_review import ProactiveReview
+    from app.services.proactive_reviews import render
+    shop = "فروشگاه مهرگان (شعبه ۲)"
+    review = ProactiveReview(id=uuid.uuid4(), kind="weekly", period_key="2026-10-12", created_at=datetime.now(timezone.utc), facts={
+        "personal": False, "start": "2026-10-12", "end": "2026-10-18", "calendar": "gregorian", "currency": "IRR",
+        "income": 50_000_000, "spent": 8_000_000, "usual": 10_000_000, "usual_income": 20_000_000, "entries": 2,
+        "cash": 100_000_000, "runway": 12.0, "receivables": 7_000_000, "payables": 0, "top": [], "suggestions": [],
+        "overdue": {"count": 1, "total": 7_000_000, "oldest": shop, "days": 10}, "bills_due": {"count": 1, "total": 2_000_000}})
+    en = render(review, "en")["text"]
+    assert f"Overdue invoices: 1, 7,000,000 Iranian rial in all; the oldest is \u2068{shop}\u2069, 10 days." in en
+    assert "Bills due in the next 7 days: 1, 2,000,000 Iranian rial." in en
+    assert f"قدیمی‌ترین: {shop}،" in render(review, "fa")["text"]                   # no isolates in its own language
 
 
 def test_al2_a_companys_readers_are_its_owner_cfo_and_accountant(db):

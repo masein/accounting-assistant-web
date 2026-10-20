@@ -485,6 +485,7 @@ for _m, _p in [
     _add(_m, _p, Perm.BOOKS_WRITE)
 # What the assistant learned from corrections (roadmap §5.4).
 _reads(["/ai-accountant/preferences"], Perm.BOOKS_READ)
+_reads(["/ai-accountant/statements/{statement_id}/card"], Perm.BANK_READ)   # a statement read in the background (AJ6)
 _add("POST", "/ai-accountant/transcribe", Perm.BOOKS_WRITE)      # voice notes (roadmap §5.7)
 # Messenger bots (roadmap §5.7): a chat linked to a login can use the assistant.
 _reads(["/ai-accountant/messenger"], Perm.BOOKS_READ)
@@ -516,7 +517,7 @@ _add("POST", "/api/mobile/v1/approvals/{token}/reject", Perm.APPROVALS_WRITE)
 # --- Books: bank statements & reconcile (brain) ----------------------------
 # Reads expose bank account numbers -> BANK_READ.
 _reads(["/brain/bank-statements", "/brain/bank-statements/{statement_id}", "/brain/bank-accounts",
-        "/brain/ocr-health"], Perm.BANK_READ)
+        "/brain/ocr-health", "/brain/bank-statements/{statement_id}/reading"], Perm.BANK_READ)
 for _m, _p in [
     ("POST", "/brain/bank-statements/upload"),
     ("POST", "/brain/bank-statements/{statement_id}/reconcile"),

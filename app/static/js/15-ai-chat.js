@@ -899,6 +899,72 @@
       }
 
       // ─── Bank statement card: imported + checked against the books ───
+      // A statement of pictures read after the reply, a page at a time: how far, then its
+      // card; with instructions, «ادامه با دستور شما» sends the same words and files again,
+      // which find the statement read (scenarios AJ1, AJ6).
+      function appendReadingCard(card, intake, turn, fmt) {
+        const name = intake.bank_label || (intake.bank_name !== 'Unknown' ? intake.bank_name : '');
+        card.classList.add('ai-reading-card');
+        const title = document.createElement('div');
+        title.className = 'ai-reading-title';
+        title.textContent = t('chatStmtReadingTitle') + (name ? ' — ' + name : '');   // not «imported» yet
+        const line = document.createElement('div');
+        line.className = 'ai-reading-line';
+        const bar = document.createElement('div');
+        bar.className = 'ai-reading-bar';
+        const fill = document.createElement('span');
+        bar.appendChild(fill);
+        card.append(title, line, bar);
+        const show = (done, total) => {
+          line.textContent = tf('chatStmtReading', { done: formatNum(done || 0), total: formatNum(total || 0) });
+          fill.style.width = (total ? Math.round((100 * (done || 0)) / total) : 0) + '%';
+        };
+        show(intake.pages_read, intake.pages_total);
+        let tries = 0;
+        const tick = async () => {
+          if (!card.isConnected) return;                     // another conversation opened
+          tries += 1;
+          let d = null;
+          try {
+            const r = await fetch(API + '/ai-accountant/statements/' + encodeURIComponent(intake.statement_id) + '/card');
+            if (r.ok) d = await r.json();
+          } catch (_) { /* ask again */ }
+          if (!d || d.status === 'reading') {
+            if (d) show(d.pages_read, d.pages_total);
+            if (tries < 600) setTimeout(tick, 3000);
+            return;
+          }
+          card.classList.remove('ai-reading-card');
+          card.innerHTML = '';
+          if (d.intake) {
+            appendStatementCard(card, d.intake, fmt);
+            if (intake.rules && turn) {
+              const go = document.createElement('button');
+              go.type = 'button';
+              go.className = 'btn btn-primary btn-sm ai-reading-continue';
+              go.textContent = t('chatStmtContinue');
+              go.addEventListener('click', () => {
+                go.disabled = true;
+                pendingAttachments = (turn.attachments || []).slice();
+                renderPendingAttachments();
+                sendMessage(turn.text);
+              });
+              const row = document.createElement('div');
+              row.className = 'ai-journal-actions';
+              row.appendChild(go);
+              card.appendChild(row);
+            }
+          } else {
+            const fail = document.createElement('div');
+            fail.style.color = 'var(--danger,#dc3545)';
+            fail.textContent = d.text || t('bsReadStopped');
+            card.append(title, fail);
+          }
+          if (d.text) appendBubble('assistant', d.text);
+        };
+        setTimeout(tick, 2500);
+      }
+
       function appendStatementCard(card, intake, fmt) {
         const c = intake.counts || {};
         // no bank found in the file or the message: no "— Unknown" after the title
@@ -931,6 +997,12 @@
               + (b.explained ? ' · ' + escapeHtml(t('chatStmtGapExplained')) : '') + '</div>';
           }
           if (intake.clean) html += '<div style="margin-top:0.3rem;color:var(--success,#059669);font-weight:600;">' + escapeHtml(t('chatStmtClean')) + '</div>';
+          // a statement of pictures: what was read, and its balance's check (AJ2–AJ4)
+          if (intake.read_report && typeof window.statementReadingSummary === 'function') {
+            const rep = intake.read_report;
+            const ok = rep.balance && rep.balance.links && !rep.balance.broken_count && !(rep.failed_pages || []).length;
+            html += '<div class="ai-reading-report' + (ok ? ' is-ok' : ' is-warn') + '">' + escapeHtml(window.statementReadingSummary(rep)) + '</div>';
+          }
         }
         card.innerHTML = html;
         if (intake.status === 'needs_password') {
@@ -1053,6 +1125,12 @@
         let html = '';
         if (intake.kind === 'journals') {
           appendJournalCards(intake);
+          return;
+        }
+        if (intake.kind === 'bank_statement' && intake.status === 'reading') {
+          appendReadingCard(card, intake, lastTurn, fmt);
+          messagesEl.appendChild(card);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
           return;
         }
         if (intake.kind === 'bank_statement') {
@@ -1438,11 +1516,13 @@
         scrollToBottom(false);
       }
 
+      let lastTurn = null;               // the words and files a «reading» card can send again (AJ6)
       async function sendMessage(msg) {
         const text = (msg || '').trim();
         const attachments = pendingAttachments.slice();
         // A turn needs either text or at least one attached document.
         if (!text && !attachments.length) return;
+        lastTurn = { text, attachments };
         const quote = replyTo;
         setReply(null);
         appendUserTurn(text, attachments, undefined, undefined, quote);

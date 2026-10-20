@@ -485,7 +485,7 @@ def test_a_daily_limit_keeps_the_ai_allowance_for_the_company(co, db, monkeypatc
         reads.append(path)
         return [{"date": "2026-09-20", "description": f"POS {len(reads)}", "amount": 1000 * len(reads),
                  "balance": None, "direction": "debit"}]
-    monkeypatch.setattr(ocr, "extract_statement_rows", rows)
+    monkeypatch.setattr(ocr, "extract_statement_pages", __import__("tests.conftest", fromlist=["x"]).as_statement_pages(rows))
     inbox = [_mail(MELLAT, f"PDF {i}", [(f"s{i}.pdf", _pdf(f"s{i}"), "application/pdf")]) for i in range(3)]
     inbox.append(_mail(MELLAT, "CSV", [("s.csv", CSV_A, "text/csv")]))
     _serve(monkeypatch, FakeIMAP(inbox))

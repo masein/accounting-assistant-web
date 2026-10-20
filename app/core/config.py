@@ -119,6 +119,10 @@ class Settings(BaseSettings):
     # configured backend, so it self-disables when no backend is set — and
     # the test suite turns it off outright to stay hermetic.
     statement_llm_categorization: bool = True
+    # A scanned statement of more than a couple of pages is read after the upload returns,
+    # page by page (scenario AJ1). Tests read it within the request instead: their app
+    # loop ends with each request.
+    statement_read_inline: bool = False
     auth_cookie_name: str = "aa_session"
     auth_session_hours: int = 24
     # Phone app sessions (/api/mobile/v1, roadmap ROADMAP_ANDROID_CHAT P0.1): a

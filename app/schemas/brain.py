@@ -39,6 +39,9 @@ class BankStatementUploadResponse(BaseModel):
     # `password_wrong` when one was sent and didn't open it.
     needs_password: bool = False
     password_wrong: bool = False
+    # a scanned statement read in the background (status "reading"), and what was read (scenarios AJ1–AJ4)
+    pages_total: int | None = None
+    read_report: dict | None = None
 
 
 class BankStatementRowRead(BaseModel):
@@ -78,6 +81,10 @@ class BankStatementRead(BaseModel):
     bank_account_code: str | None = None
     bank_account_name: str | None = None
     bank_account_source: str | None = None
+    # a scanned statement read in the background: how far, and what was read (scenarios AJ1–AJ4)
+    pages_total: int | None = None
+    pages_read: int | None = None
+    read_report: dict | None = None
     rows: list[BankStatementRowRead] = Field(default_factory=list)
 
 

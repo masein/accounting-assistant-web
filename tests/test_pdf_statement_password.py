@@ -90,7 +90,7 @@ def ocr_seen(monkeypatch):
                  "direction": "debit"},
                 {"date": "2026-09-21", "description": "Salary", "amount": 90_000_000, "balance": None,
                  "direction": "credit"}]
-    monkeypatch.setattr(ocr, "extract_statement_rows", rows)
+    monkeypatch.setattr(ocr, "extract_statement_pages", __import__("tests.conftest", fromlist=["x"]).as_statement_pages(rows))
     return seen
 
 

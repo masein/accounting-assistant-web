@@ -50,6 +50,11 @@ class BankStatement(Base, TenantMixin):
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
     # pending -> parsed -> reviewing -> approved -> committed
     total_rows: Mapped[int] = mapped_column(Integer, default=0)
+    # a scanned statement read in the background, page by page (migration 081, scenario AJ1):
+    # how far, and what was read — pages, rows, the running balance's check, unread pages (JSON)
+    pages_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pages_read: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    read_report: Mapped[str | None] = mapped_column(Text, nullable=True)
     matched_rows: Mapped[int] = mapped_column(Integer, default=0)
     new_rows: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

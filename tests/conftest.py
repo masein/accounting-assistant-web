@@ -339,3 +339,14 @@ def make_transaction(db: Session):
         return tx
 
     return _factory
+
+
+def as_statement_pages(rows_fn):
+    """A test's scripted ``extract_statement_rows`` as the page-by-page reader the
+    import calls (``extract_statement_pages``, scenario AJ1): one page, every row."""
+    async def pages(path, content_type, *, on_page=None):
+        rows = await rows_fn(path, content_type)
+        if on_page is not None:
+            on_page(1, 1)
+        return {"rows": [{**r, "page": 1} for r in rows], "pages": 1, "pages_read": 1, "failed_pages": [], "beyond": 0}
+    return pages

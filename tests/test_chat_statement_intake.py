@@ -49,7 +49,7 @@ def vision_rows(monkeypatch):
     async def fail_receipt(*a, **k):  # the receipt path must not be used for a statement
         raise AssertionError("receipt OCR must not run for a statement")
 
-    monkeypatch.setattr(ocr, "extract_statement_rows", fake_rows)
+    monkeypatch.setattr(ocr, "extract_statement_pages", __import__("tests.conftest", fromlist=["x"]).as_statement_pages(fake_rows))
     monkeypatch.setattr(ocr, "extract_from_attachment", fail_receipt)
     return VISION_ROWS
 
@@ -219,7 +219,7 @@ def test_unreadable_statement_gets_a_clear_reply(db, tmp_path, monkeypatch):
     async def empty(path, content_type):
         return {"raw_text": ""}
 
-    monkeypatch.setattr(ocr, "extract_statement_rows", nothing)
+    monkeypatch.setattr(ocr, "extract_statement_pages", __import__("tests.conftest", fromlist=["x"]).as_statement_pages(nothing))
     monkeypatch.setattr(ocr, "extract_from_attachment", empty)
     p = tmp_path / "saman-statement.pdf"
     p.write_bytes(FAKE_PDF + b"% unreadable\n")

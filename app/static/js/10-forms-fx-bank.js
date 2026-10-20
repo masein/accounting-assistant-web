@@ -825,6 +825,63 @@
       return map;
     }
 
+    // What a statement of pictures' reading found, in the page's language: pages, rows,
+    // the running balance's check, pages it couldn't read (scenarios AJ2–AJ4). The chat uses it too.
+    function statementReadingSummary(report) {
+      if (!report) return '';
+      if (report.stopped || report.error) return t('bsReadStopped');
+      const check = report.balance || {};
+      const agrees = check.links && !check.broken_count;
+      let out = tf(agrees ? 'bsReadAll' : 'bsReadRows', { pages: formatNum(report.pages || 0), rows: formatNum(report.rows || 0) });
+      const mended = report.mended || [];
+      if (mended.length) {
+        const sep = ['fa', 'ar'].includes(currentLanguage) ? '؛ ' : '; ';
+        out += ' ' + tf('bsReadMended', { n: formatNum(mended.length), items: mended.slice(0, 3).map(m => tf('bsReadMendedItem',
+          { page: formatNum(m.page), row: formatNum(m.row), read: formatNum(m.read), amount: formatNum(m.amount) })).join(sep) });
+      }
+      const broken = check.broken || [];
+      if (broken.length) {
+        out += ' ' + tf('bsReadBroken', { page: formatNum(broken[0].page), row: formatNum(broken[0].row) });
+        if ((check.broken_count || 0) > 1) out += ' ' + tf('bsReadMoreBroken', { n: formatNum(check.broken_count) });
+      }
+      const failed = report.failed_pages || [];
+      if (failed.length) out += ' ' + tf('bsReadFailed', { pages: failed.map(formatNum).join(['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ') });
+      if (report.beyond) out += ' ' + tf('bsReadBeyond', { n: formatNum((report.pages || 0) - report.beyond) });
+      return out;
+    }
+    window.statementReadingSummary = statementReadingSummary;
+
+    // A long statement of pictures is read after the upload returns: how far, then its rows (scenario AJ1).
+    async function followStatementReading(id, statusEl) {
+      for (let tries = 0; tries < 600; tries++) {
+        let d = null;
+        try {
+          const r = await fetch(bsAPI + '/bank-statements/' + id + '/reading');
+          if (r.ok) d = await r.json();
+        } catch (_) { /* a moment's network trouble: ask again */ }
+        if (d && d.status !== 'reading') {
+          if (d.status === 'failed') {
+            statusEl.textContent = statementReadingSummary(d.read_report || { error: true });
+            statusEl.className = 'alert alert-error';
+            await loadBankStatements();
+            return;
+          }
+          statusEl.textContent = tf('bsParsed', { rows: d.total_rows, bank: d.bank_name, type: 'PDF' })
+            + ' ' + statementReadingSummary(d.read_report);
+          statusEl.className = 'alert';
+          await loadBankStatements();
+          await loadStatementDetail(id);
+          document.getElementById('bs-detail-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+        if (d) {
+          statusEl.textContent = tf('bsReading', { done: formatNum(d.pages_read || 0), total: formatNum(d.pages_total || 0) });
+          statusEl.className = 'alert';
+        }
+        await new Promise((res) => setTimeout(res, 3000));
+      }
+    }
+
     async function doUploadStatement(file, bankName, { columnMap = null, confirmDuplicate = false, pdfPassword = null } = {}) {
       const statusEl = document.getElementById('bs-upload-status');
       statusEl.style.display = 'block';
@@ -857,6 +914,18 @@
           if (!map) { statusEl.style.display = 'none'; return; }
           return doUploadStatement(file, bankName, { columnMap: map, confirmDuplicate, pdfPassword });
         }
+        // Read after the upload returns, page by page: follow it (scenario AJ1).
+        if (data.status === 'reading' && data.id) {
+          statusEl.textContent = tf('bsReading', { done: formatNum(0), total: formatNum(data.pages_total || 0) });
+          await loadBankStatements();
+          return followStatementReading(data.id, statusEl);
+        }
+        // the same file, still being read: follow that one, nothing to ask
+        if (data.duplicate && data.duplicate_of) {
+          const r = await fetch(bsAPI + '/bank-statements/' + data.duplicate_of + '/reading').catch(() => null);
+          const d = r && r.ok ? await r.json().catch(() => null) : null;
+          if (d && d.status === 'reading') return followStatementReading(data.duplicate_of, statusEl);
+        }
         // Identical file already imported → confirm before re-importing.
         if (data.duplicate) {
           const ok = await uiConfirm({ title: t('bsDupTitle'), message: t('bsDupConfirmMsg') });
@@ -866,6 +935,7 @@
         let msg = tf('bsParsed', { rows: data.total_rows, bank: data.bank_name, type: String(data.source_type || '').toUpperCase() });
         if (data.skipped_rows) msg += ' ' + tf('bsSkipped', { n: data.skipped_rows });
         if (data.duplicate_rows) msg += ' ' + tf('bsAlreadyImported', { n: data.duplicate_rows });
+        if (data.read_report) msg += ' ' + statementReadingSummary(data.read_report);
         statusEl.textContent = msg;
         statusEl.className = 'alert';
         await loadBankStatements();

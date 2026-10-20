@@ -127,8 +127,85 @@ _T: dict[str, dict[str, str]] = {
                       "fa": "ستون‌های این صورتحساب را نشناختم. آن را در صفحهٔ «صورتحساب‌های بانکی» بارگذاری کنید تا ستون‌ها را دستی مشخص کنید.",
                       "es": "No distinguí las columnas del extracto. Súbelo en la página de extractos para asignarlas a mano.",
                       "ar": "لم أميّز أعمدة الكشف. ارفعه في صفحة كشوف الحسابات لتحديد الأعمدة يدوياً."},
+    # a statement of pictures read page by page, after the reply (scenarios AJ1, AJ6)
+    "reading": {"en": "I'm reading the {bank} statement — {pages} pages of pictures, a page at a time; its card shows how far.",
+                "fa": "صورتحساب {bank} را می‌خوانم — {pages} صفحه تصویر، صفحه به صفحه؛ کارتش نشان می‌دهد تا کجا خوانده شده.",
+                "es": "Estoy leyendo el extracto de {bank}: {pages} páginas de imágenes, una a una; su tarjeta muestra el avance.",
+                "ar": "أقرأ كشف {bank} — {pages} صفحة من الصور، صفحة صفحة؛ وتُظهر بطاقته إلى أين وصلت."},
+    "reading_rules": {"en": " When it's read, “Continue with your instructions” applies them.",
+                      "fa": " وقتی خوانده شد، «ادامه با دستور شما» آن‌ها را اعمال می‌کند.",
+                      "es": " Cuando esté leído, «Continuar con tus instrucciones» las aplica.",
+                      "ar": " عند انتهاء القراءة، يطبّقها زر «المتابعة بتعليماتك»."},
+    "read_all": {"en": "{pages} pages, {rows} rows read; the balance agrees from each row to the next.",
+                 "fa": "{pages} صفحه، {rows} ردیف خوانده شد؛ مانده‌ها از هر ردیف به ردیف بعد جور است.",
+                 "es": "{pages} páginas y {rows} filas leídas; el saldo cuadra de cada fila a la siguiente.",
+                 "ar": "قُرئت {pages} صفحة و{rows} صفًا؛ والرصيد متّسق من كل صف إلى الذي يليه."},
+    "read_rows": {"en": "{pages} pages, {rows} rows read.", "fa": "{pages} صفحه، {rows} ردیف خوانده شد.",
+                  "es": "{pages} páginas y {rows} filas leídas.", "ar": "قُرئت {pages} صفحة و{rows} صفًا."},
+    "read_broken": {"en": " The balance doesn't follow on page {page}, row {row} — check that row.",
+                    "fa": " مانده در صفحهٔ {page}، ردیف {row} جور نیست — آن ردیف را بررسی کنید.",
+                    "es": " El saldo no cuadra en la página {page}, fila {row}: revisa esa fila.",
+                    "ar": " الرصيد غير متّسق في الصفحة {page}، الصف {row} — راجع ذلك الصف."},
+    "read_more_broken": {"en": " ({n} such rows in all.)", "fa": " (روی هم {n} ردیف چنین است.)",
+                         "es": " ({n} filas así en total.)", "ar": " ({n} صفوف كهذه في المجموع.)"},
+    "read_mended": {"en": " {n} misread amount(s) set right from the balances on either side: {items}.",
+                    "fa": " {n} مبلغ نادرست خوانده شده بود و از روی مانده‌های دو طرفش درست شد: {items}.",
+                    "es": " {n} importe(s) mal leído(s), corregido(s) con los saldos de ambos lados: {items}.",
+                    "ar": " {n} مبلغًا قُرئ خطأً وصُحّح من الرصيدين على جانبيه: {items}."},
+    "read_mended_item": {"en": "page {page}, row {row}: {read} → {amount}", "fa": "صفحهٔ {page}، ردیف {row}: {read} ← {amount}",
+                         "es": "página {page}, fila {row}: {read} → {amount}", "ar": "الصفحة {page}، الصف {row}: {read} ← {amount}"},
+    "read_failed_pages": {"en": " Page {pages} couldn't be read.", "fa": " صفحهٔ {pages} خوانده نشد.",
+                          "es": " No se pudo leer la página {pages}.", "ar": " تعذّرت قراءة الصفحة {pages}."},
+    "read_beyond": {"en": " Only the first {n} pages are read; send the rest as another file.",
+                    "fa": " فقط {n} صفحهٔ اول خوانده می‌شود؛ بقیه را در فایل دیگری بفرستید.",
+                    "es": " Solo se leen las primeras {n} páginas; envía el resto en otro archivo.",
+                    "ar": " تُقرأ أول {n} صفحة فقط؛ أرسل الباقي في ملف آخر."},
+    "read_stopped": {"en": "Reading the statement stopped before it was done. Send the file again to read it.",
+                     "fa": "خواندن صورتحساب پیش از پایان متوقف شد. فایل را دوباره بفرستید تا خوانده شود.",
+                     "es": "La lectura del extracto se detuvo antes de terminar. Envía el archivo de nuevo para leerlo.",
+                     "ar": "توقفت قراءة الكشف قبل اكتمالها. أرسل الملف مرة أخرى لقراءته."},
 }
 _LANGS = ("en", "fa", "es", "ar")
+
+
+def reading_said(report: dict | None, lang: str) -> str:
+    """What a statement of pictures' reading found, in a sentence or two (scenarios AJ2–AJ4)."""
+    if not report:
+        return ""
+    if report.get("stopped") or report.get("error"):
+        return _say(lang, "read_stopped")
+    check = report.get("balance") or {}
+    pages, rows = _n(report.get("pages") or 0, lang), _n(report.get("rows") or 0, lang)
+    agrees = check.get("links") and not check.get("broken_count")
+    text = _say(lang, "read_all" if agrees else "read_rows", pages=pages, rows=rows)
+    mended = report.get("mended") or []
+    if mended:
+        items = ("؛ " if lang in ("fa", "ar") else "; ").join(
+            _say(lang, "read_mended_item", page=_n(m["page"], lang), row=_n(m["row"], lang),
+                 read=_n(m["read"], lang), amount=_n(m["amount"], lang)) for m in mended[:3])
+        text += _say(lang, "read_mended", n=_n(len(mended), lang), items=items)
+    broken = check.get("broken") or []
+    if broken:
+        text += _say(lang, "read_broken", page=_n(broken[0]["page"], lang), row=_n(broken[0]["row"], lang))
+        if (check.get("broken_count") or 0) > 1:
+            text += _say(lang, "read_more_broken", n=_n(check["broken_count"], lang))
+    failed = report.get("failed_pages") or []
+    if failed:
+        sep = "، " if lang in ("fa", "ar") else ", "
+        text += _say(lang, "read_failed_pages", pages=sep.join(_n(p, lang) for p in failed))
+    if report.get("beyond"):
+        text += _say(lang, "read_beyond", n=_n((report.get("pages") or 0) - report["beyond"], lang))
+    return text
+
+
+def reading_intake(db, statement_id, *, lang: str, file_name: str | None, rules: bool) -> dict[str, Any]:
+    """The card of a statement still being read: its bank, its pages, how far (scenarios AJ1, AJ6)."""
+    from app.models.bank_statement import BankStatement
+    stmt = db.get(BankStatement, statement_id)
+    return {"kind": "bank_statement", "status": "reading", "statement_id": str(statement_id),
+            "bank_name": stmt.bank_name if stmt else None, "bank_label": bank_label(stmt.bank_name if stmt else None, lang),
+            "file_name": file_name, "pages_total": stmt.pages_total if stmt else None,
+            "pages_read": stmt.pages_read if stmt else 0, "rules": bool(rules)}
 
 
 def _say(lang: str, key: str, **kw) -> str:
@@ -307,10 +384,25 @@ async def maybe_statement_intake(
                      or (named and dates >= 1 and headers >= 2 and has_balance))
         else:
             found = looks_like_bank_statement(filename=att.file_name or "", message=message or "", text=text)
+        head_bank = None
+        if ctype == "application/pdf" and not (text or "").strip():
+            # pictures, no text: its first page says whether it's a statement, and whose — a
+            # Day Bank statement saved as «…_receipt.pdf» was a receipt (2026-10-20, scenario AJ7)
+            from app.services.ocr_extract import pdf_page_count, read_statement_head
+            if found or pdf_page_count(path) >= 3:
+                try:
+                    head = await read_statement_head(str(path), ctype)
+                except Exception:  # noqa: BLE001 — the budget, a model down: decide without it
+                    head = {}
+                found = found or bool(head.get("is_bank_statement"))
+                if head.get("bank"):
+                    head_bank = guess_bank_name(head["bank"])
         if not found:
             continue
 
         bank_name = guess_bank_name(att.file_name or "", message or "", document_text=text)
+        if bank_name == "Unknown" and head_bank:
+            bank_name = head_bank
         # Answer in the language the user wrote in, not the UI language: a
         # Persian message got an English summary (QA 2026-09-24).
         lang = _message_language(message, lang)
@@ -332,6 +424,20 @@ async def maybe_statement_intake(
 
         from app.services.locale_service import get_display_calendar
         jalali = get_display_calendar(db) == "jalali"
+        from app.models.bank_statement import BankStatement
+        reading_id = result.id if result.status == "reading" else None
+        if result.status == "duplicate" and result.duplicate_of:
+            earlier = db.get(BankStatement, result.duplicate_of)
+            reading_id = result.duplicate_of if earlier is not None and earlier.status == "reading" else None
+        if reading_id is not None:
+            # read after this reply, page by page; the card shows how far (scenarios AJ1, AJ6)
+            from app.api.ai_accountant import _gives_rules
+            intake = reading_intake(db, reading_id, lang=lang, file_name=att.file_name, rules=_gives_rules(message))
+            text_out = _say(lang, "reading", bank=intake["bank_label"] or intake["bank_name"] or "",
+                            pages=_n(intake["pages_total"] or 0, lang))
+            if intake["rules"]:
+                text_out += _say(lang, "reading_rules")
+            return StatementTurn(text=text_out, intake=intake)
         if result.status == "duplicate" and result.duplicate_of:
             # the statement already here, with where it stands: the phone draws its card again
             intake = {
@@ -353,12 +459,17 @@ async def maybe_statement_intake(
             "kind": "bank_statement",
             "status": "imported",
             "statement_id": str(result.id),
-            "bank_name": bank_name,
-            "bank_label": bank_label(bank_name, lang),
+            "bank_name": result.bank_name or bank_name,
+            "bank_label": bank_label(result.bank_name or bank_name, lang),
             "file_name": att.file_name,
             **_review_fields(db, result.id),
         }
-        return StatementTurn(text=_reply(lang, intake, jalali=jalali), intake=intake)
+        said = _reply(lang, intake, jalali=jalali)
+        if result.read_report:
+            # a statement of pictures: what was read, and its balance's check (scenarios AJ2–AJ4)
+            intake["read_report"] = result.read_report
+            said += " " + reading_said(result.read_report, lang)
+        return StatementTurn(text=said, intake=intake)
     return None
 
 

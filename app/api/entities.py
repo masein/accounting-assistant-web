@@ -323,6 +323,7 @@ def update_entity(
         if typ not in VALID_ENTITY_TYPES:
             raise HTTPException(status_code=400, detail="Invalid entity type")
         entity.type = typ
+    old_name = entity.name
     if payload.name is not None:
         name = payload.name.strip()
         if not name:
@@ -330,6 +331,10 @@ def update_entity(
         entity.name = name
     if payload.code is not None:
         entity.code = payload.code.strip() or None
+    if entity.name != old_name:
+        # a bank's own account follows its new name, as the chat's rename card does (AK7, deep test 2026-10-20)
+        from app.services.ai_accountant.entity_create import rename_bank_account_with
+        rename_bank_account_with(db, entity, old_name)
     for f in ("legal_name", "address", "email", "phone", "website", "tax_id",
               "economic_code", "national_id", "province", "city", "postal_code",
               "bank_name", "account_holder", "account_number", "iban", "sort_code",

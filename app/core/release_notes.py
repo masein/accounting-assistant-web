@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.20.3"
+CURRENT_RELEASE = "2026.10.20.4"
 
 
 @dataclass(frozen=True)
@@ -2077,6 +2077,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "از دستیار بپرسید می‌توانید چیزی را بخرید یا نه — «می‌تونم یه گوشی ۲۰ میلیونی بخرم؟». دفترتان را می‌خواند: پولی که دارید، درآمد و خرج معمولتان، پرداخت‌های پیش رو، و آنچه هدف‌هایتان لازم دارند. جواب به‌صورت کارت می‌آید: همین حالا بخرید، یکی‌دو ماه صبر کنید، قسطی بخرید (چند قسط و هر قسط چقدر)، یا اول پس‌انداز کنید و چقدر طول می‌کشد. اگر پس‌انداز لازم است، با یک لمس هدف پس‌انداز می‌سازید و مرور هفتگی یادآوری می‌کند.",
                     "es": "Pregunta al asistente si puedes comprar algo — «¿me puedo permitir un móvil de 1.200?». Lee tus cuentas: el dinero que tienes, lo que sueles ganar y gastar, los pagos que vienen y lo que necesitan tus metas. La respuesta llega como tarjeta: cómpralo ya, espera un mes o dos, págalo a plazos (cuántos y de cuánto) o ahorra antes y cuánto tardarás. ¿Hay que ahorrar? Con un toque lo conviertes en una meta de ahorro y el resumen semanal te lo recuerda.",
                     "ar": "اسأل المساعد إن كنت تستطيع شراء شيء — «هل أستطيع شراء هاتف بـ1200؟». يقرأ دفاترك: المال المتوفر، وما تكسبه وتنفقه عادة، والمدفوعات القادمة، وما تحتاجه أهدافك. ويأتي الجواب في بطاقة: اشترِه الآن، أو انتظر شهرًا أو شهرين، أو ادفع بالتقسيط (كم قسطًا وكم كل قسط)، أو ادّخر أولًا وكم يستغرق ذلك. وإن لزم الادخار، تنشئ هدف ادخار بلمسة وتذكّرك المراجعة الأسبوعية.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.20.4",
+        date="2026-10-20",
+        highlights=(
+            Highlight(
+                key="reviews-with-pence",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "Reviews in pounds and Omani rials, and a bank renamed with its account",
+                    "fa": "مرور هفتگی در پوند و ریال عمان، و تغییر نام بانک همراه حسابش",
+                    "es": "Resúmenes en libras y riales omaníes, y un banco renombrado con su cuenta",
+                    "ar": "المراجعات بالجنيه والريال العُماني، وإعادة تسمية البنك مع حسابه",
+                },
+                body={
+                    "en": "Weekly and monthly reviews, and Can I afford it?, now work in books whose amounts have pence or baisa: before, the review didn't show and the phone's morning message could fail. Renaming a bank on the Entities page renames its account too, and the morning briefing isn't repeated when you open the chat on another device.",
+                    "fa": "مرور هفتگی و ماهانه و «می‌تونم بخرمش؟» حالا در دفترهایی هم که مبلغ‌هایشان اعشار دارد (پنس، بیسه) کار می‌کند؛ پیش از این مرور نشان داده نمی‌شد و پیام صبح گوشی ممکن بود نرسد. تغییر نام بانک در صفحهٔ اشخاص حسابش را هم تغییر می‌دهد، و خلاصهٔ صبح با باز کردن گفتگو در دستگاه دیگر تکرار نمی‌شود.",
+                    "es": "Los resúmenes semanales y mensuales, y ¿Me lo puedo permitir?, ya funcionan en libros con importes con decimales (peniques, baisas): antes el resumen no aparecía y el mensaje de la mañana del móvil podía fallar. Renombrar un banco en Entidades renombra también su cuenta, y el resumen de la mañana no se repite al abrir el chat en otro dispositivo.",
+                    "ar": "المراجعات الأسبوعية والشهرية و«هل أستطيع شراءه؟» تعمل الآن في الدفاتر التي لمبالغها كسور (بنس، بيسة): من قبل لم تظهر المراجعة وقد تتعطل رسالة الصباح في الهاتف. وإعادة تسمية بنك في صفحة الكيانات تعيد تسمية حسابه أيضًا، ولا يتكرر موجز الصباح عند فتح المحادثة على جهاز آخر.",
                 },
             ),
         ),

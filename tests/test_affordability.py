@@ -95,6 +95,30 @@ def test_am8_another_currency(person, db, monkeypatch):
     assert (f["price"], f["currency"], f["price_base"], f["verdict"]) == (100, "USD", 50_000_000, "now")
 
 
+def test_am3_am8_omani_rials_with_baisa(person, db, monkeypatch):
+    """Found by the deep test of 2026-10-20: in books whose amounts have places (the owner's own count in Omani
+    rials) half the spare was a Decimal times a float, and so was a dollar price times its rate: TypeError."""
+    from decimal import Decimal
+
+    from app.models.company import Company
+    from app.services import fx_base
+    import uuid
+    cid = person["cid"]
+    with _in(cid):
+        db.get(Company, uuid.UUID(cid)).base_currency = "OMR"
+        db.commit()
+    _books(db, cid, income=Decimal("400.250"), spending=Decimal("250.125"), opening=Decimal("75.000"))
+    f = _check(db, cid, Decimal("900.500"))
+    assert (f["cash"], f["cushion"], f["spare"]) == (Decimal("525.375"), Decimal("250.125"), Decimal("150.125"))
+    assert (f["verdict"], f["plan"], f["wait_months"]) == ("installments", 12, 5)
+    assert f["plan_each"] == Decimal("75.042")                                   # 900.500 / 12, to the baisa
+    monkeypatch.setattr(fx_base, "rate_to_base", lambda db_, ccy, on, base=None: 0.385 if ccy == "USD" else None)
+    f = _check(db, cid, Decimal("100.50"), currency="USD")
+    assert (f["price_base"], f["verdict"]) == (Decimal("38.693"), "now")
+    from app.services.affordability import card
+    assert card(f, "fa")["headline"]["value"] == Decimal("38.693")               # the card counts in the books' rials
+
+
 def test_am10_too_new_to_tell(person, db):
     _post(db, person["cid"], TODAY - timedelta(days=3), "موجودی اولیه", "1110", "3110", 10_000_000)
     f = _check(db, person["cid"], 30_000_000)

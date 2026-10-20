@@ -136,6 +136,53 @@ def test_al1_the_jalali_week_runs_saturday_to_friday(person, db):
     assert "مرور هفته، ۲۵ مهر تا ۱ آبان ۱۴۰۵" in render(review, "fa")["text"]
 
 
+def _omani(db, cid):
+    from app.models.company import Company
+    with _in(cid):
+        db.get(Company, uuid.UUID(cid)).base_currency = "OMR"
+        db.commit()
+
+
+def test_al1_al9_a_week_in_omani_rials_with_baisa(person, db):
+    """Found by the deep test of 2026-10-20: a review of books whose amounts have places — the UK's pence, the
+    owner's own Omani rials — kept 2459.97 as the text "2459.97", and the card compared it with a number, so
+    the bell, the chat and the phone's briefing lost it; and a category running hot multiplied a Decimal by a float."""
+    from decimal import Decimal
+    cid = person["cid"]
+    _omani(db, cid)
+    for w in range(1, 5):
+        day = MONDAY - timedelta(days=7 * (w + 1) - 2)
+        _post(db, cid, day, "سوپرمارکت", "6110", "1110", Decimal("20.250"))
+        _post(db, cid, day, "رستوران", "6180", "1110", Decimal("10.125"))
+    last = MONDAY - timedelta(days=5)
+    _post(db, cid, last, "سوپرمارکت", "6110", "1110", Decimal("20.250"))
+    _post(db, cid, last, "شام تولد", "6180", "1110", Decimal("30.500"))
+    _post(db, cid, last, "حقوق", "1110", "4110", Decimal("100.750"))
+    assert _make(db, cid) == ["weekly"]
+    [review] = _reviews(db, cid)
+    f = review.facts
+    assert (f["spent"], f["usual"], f["income"], f["currency"]) == (50.75, 30.375, 100.75, "OMR")    # numbers, not text
+    assert f["top"][0]["amount"] == 30.5 and f["top"][0]["usual"] == 10.125
+    assert [s["key"] for s in f["suggestions"]] == ["hot_category"]
+    from app.services.proactive_reviews import render
+    fa = render(review, "fa")
+    assert "۵۰٫۷۵۰ ریال عمان" in fa["text"] and fa["card"]["mood"] == "watch"
+    assert fa["card"]["headline"]["value"] == 50.75 and fa["card"]["chart"]["usual"] == 30.375
+    # one kept before the fix, its figures as text, reads the same
+    from app.models.proactive_review import ProactiveReview
+
+    def as_text(v):
+        if isinstance(v, float):
+            return str(v)
+        if isinstance(v, dict):
+            return {k: as_text(x) for k, x in v.items()}
+        return [as_text(x) for x in v] if isinstance(v, list) else v
+    old = ProactiveReview(id=review.id, kind=review.kind, period_key=review.period_key, facts=as_text(f),
+                          created_at=review.created_at)
+    assert old.facts["spent"] == "50.75"
+    assert render(old, "fa") == fa and render(old, "en") == render(review, "en")
+
+
 # --- AL4, AL5: in the chat once, as a notification until then ----------------------------------------------------
 
 def test_al4_al5_the_phone_is_told_then_shown_it_once(person, db):

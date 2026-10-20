@@ -612,7 +612,7 @@ def _execute_update_entity(
     """Apply a confirmed propose_update_entity (rename / retype). Returns
     (None, audit_log_id) — no transaction is involved."""
     from app.models.entity import Entity
-    from app.services.ai_accountant.entity_create import _VALID_TYPES
+    from app.services.ai_accountant.entity_create import _VALID_TYPES, rename_bank_account_with
 
     payload_dict = dict(proposal.tool_input)
     try:
@@ -629,7 +629,7 @@ def _execute_update_entity(
         raise HTTPException(status_code=400, detail=f"Invalid entity type {new_type!r}.")
     if new_name:
         entity.name = new_name
-        _rename_bank_account_with(db, entity, old_name)
+        rename_bank_account_with(db, entity, old_name)
     if new_type:
         entity.type = new_type
     # Fill contact/bank details on the SAME record (e.g. completing an imported
@@ -671,28 +671,6 @@ def _execute_update_entity(
 # ---------------------------------------------------------------------------
 # Undo
 # ---------------------------------------------------------------------------
-
-
-def _rename_bank_account_with(db: Session, entity, old_name: str) -> None:
-    """A bank party's own account follows its new name when it was named for
-    it — «ملت» or «حساب بانکی ملت» — so the cards don't keep the old one; an
-    account named some other way (an imported chart's «بانک ملت شعبه ۱۲») keeps
-    its name (scenario AK7)."""
-    if entity.type != "bank" or not entity.code:
-        return
-    from app.models.account import Account
-    from app.services.book_text import bt
-    from app.utils.text import fold_fa
-    acc = db.execute(select(Account).where(Account.code == entity.code)).scalars().first()
-    if acc is None:
-        return
-
-    def fold(s: str | None) -> str:
-        return " ".join(fold_fa((s or "").lower()).split())
-    if fold(acc.name) == fold(old_name):
-        acc.name = entity.name
-    elif fold(acc.name) == fold(bt(db, "bank_account_name", name=old_name)):
-        acc.name = bt(db, "bank_account_name", name=entity.name)
 
 
 def _resolve_undoable_audit(db: Session, audit_log_id: str, actor_user_id: str) -> AuditLog:

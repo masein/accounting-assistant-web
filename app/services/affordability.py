@@ -32,7 +32,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.money import average, plain, to_places
+from app.core.money import average, plain, to_decimal, to_places
 
 HISTORY_MONTHS = 3
 DUE_DAYS = 30
@@ -98,7 +98,7 @@ def check(db: Session, *, price, currency: str | None = None, item: str | None =
         rate = rate_to_base(db, ccy, today)
         if not rate:
             raise AffordError("no_rate", f"No {ccy}→{base} rate on file: ask for the price in {base}.")
-        price_base = plain(to_places(price * rate, base))
+        price_base = plain(to_places(to_decimal(price) * to_decimal(rate), base))   # a float rate, exactly
 
     cal = company_calendar(db)
     last = previous_month_key(today, cal)
@@ -137,7 +137,7 @@ def check(db: Session, *, price, currency: str | None = None, item: str | None =
         facts["wait_months"] = math.ceil(short / spare_free)
         for n in PLANS:
             each = price_base / n
-            if each <= spare_free * SHARE_OF_SPARE:
+            if each <= spare_free * to_decimal(SHARE_OF_SPARE):          # baisa and pence are Decimals
                 facts["plan"], facts["plan_each"] = n, plain(to_places(each, base))
                 break
     if facts["wait_months"] is not None and facts["wait_months"] <= WAIT_MONTHS:

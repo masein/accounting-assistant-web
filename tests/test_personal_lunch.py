@@ -182,7 +182,7 @@ def test_ak7_a_bank_party_takes_the_account_named_for_it(person, db):
     from types import SimpleNamespace
 
     from app.models.account import Account, AccountLevel
-    from app.services.ai_accountant.execute_service import _rename_bank_account_with
+    from app.services.ai_accountant.entity_create import rename_bank_account_with
     from app.services.book_text import bt
     with _in(person["cid"]):
         for before, old, after in ((bt(db, "bank_account_name", name="ملت"), "ملت", bt(db, "bank_account_name", name="ملت مرکزی")),
@@ -191,10 +191,27 @@ def test_ak7_a_bank_party_takes_the_account_named_for_it(person, db):
             code = f"1110{uuid.uuid4().int % 10_000:04d}"
             db.add(Account(code=code, name=before, level=AccountLevel.DETAIL))
             db.flush()
-            _rename_bank_account_with(db, SimpleNamespace(type="bank", code=code, name="ملت مرکزی"), old)
+            rename_bank_account_with(db, SimpleNamespace(type="bank", code=code, name="ملت مرکزی"), old)
             db.flush()                                   # as the rename's own flush does
             assert db.execute(select(Account.name).where(Account.code == code)).scalar_one() == after
         db.rollback()
+
+
+def test_ak7_a_bank_renamed_on_the_parties_page_takes_its_account(auth_client, db):
+    """Found by the deep test of 2026-10-20: the Parties page renamed the bank and left its account
+    «حساب بانکی تجارت» — only the chat's card renamed both."""
+    from app.models.account import Account
+    tag = uuid.uuid4().hex[:6]
+    bank = auth_client.post("/entities", json={"type": "bank", "name": f"تجارت {tag}"}).json()
+    name = lambda: db.execute(select(Account.name).where(Account.code == bank["code"])).scalar_one()   # noqa: E731
+    before = name()
+    assert f"تجارت {tag}" in before
+    assert auth_client.patch(f"/entities/{bank['id']}", json={"name": f"تجارت مرکزی {tag}"}).status_code == 200
+    db.expire_all()
+    assert name() == before.replace(f"تجارت {tag}", f"تجارت مرکزی {tag}")
+    assert auth_client.patch(f"/entities/{bank['id']}", json={"notes": "شعبه مرکزی"}).status_code == 200
+    db.expire_all()
+    assert f"تجارت مرکزی {tag}" in name()                                       # nothing else renames it
 
 
 # --- AK8: the reply doesn't go stale --------------------------------------------------------------------------

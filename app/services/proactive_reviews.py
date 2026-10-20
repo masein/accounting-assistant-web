@@ -22,6 +22,7 @@ off (``users.review_prefs``).
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -29,7 +30,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.money import average, grouped, grouped_fa, plain
+from app.core.money import average, grouped, grouped_fa, json_dumps, plain
 from app.models.proactive_review import ProactiveReview, ProactiveReviewSeen
 
 log = logging.getLogger(__name__)
@@ -258,8 +259,9 @@ def suggestions(db: Session, kind: str, facts: dict, today: date) -> list[dict]:
     budgeted = {_label(r) for r in _budget_rows(db, today)}
     spent = facts.get("spent") or 0
     for c in facts.get("top") or []:
-        if c.get("usual") and c["amount"] >= HOT * c["usual"] and spent and c["amount"] >= HOT_SHARE * spent \
-                and c["name"] not in budgeted:
+        # float(): books with pence or baisa hold Decimals, and a Decimal times a float is a TypeError
+        if c.get("usual") and float(c["amount"]) >= HOT * float(c["usual"]) and spent \
+                and float(c["amount"]) >= HOT_SHARE * float(spent) and c["name"] not in budgeted:
             # the button says how much, or the assistant reads the budgets, finds none, and stops (2026-10-20)
             out.append({"key": "hot_category", "params": {"category": c["name"],
                                                           "pct": round((c["amount"] / c["usual"] - 1) * 100),
@@ -415,8 +417,24 @@ def _make(db: Session, kind: str, key: str, facts: dict, today: date) -> Proacti
 
 
 def _jsonable(value):
+    """Kept as JSON with an amount as a number: 2459.97, not the text "2459.97" (deep test 2026-10-20)."""
     import json
-    return json.loads(json.dumps(value, default=str))
+    return json.loads(json_dumps(value, fallback=str))
+
+
+_TEXT_AMOUNT = re.compile(r"-?\d+\.\d+")
+
+
+def _figures(value):
+    """The facts with their amounts as numbers. Those kept on 2026-10-20, before the fix, held an amount with
+    places as text ("2459.97"), and the card compared it with a number. A date or a code has no point in it."""
+    if isinstance(value, str):
+        return float(value) if _TEXT_AMOUNT.fullmatch(value) else value
+    if isinstance(value, dict):
+        return {k: _figures(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_figures(v) for v in value]
+    return value
 
 
 def generate_due(db: Session, today: date | None = None) -> list[str]:
@@ -741,7 +759,7 @@ def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bo
     """What a reader is shown: a headline (the notification), the chat's words for the web, the phone's
     blocks (words, a table of categories, the ideas with a button each), and the buttons' questions."""
     lang = lang if lang in ("en", "fa", "es", "ar") else "en"
-    f = review.facts or {}
+    f = _figures(review.facts or {})
     cal, ccy = f.get("calendar", "gregorian"), f.get("currency", "")
     personal = f.get("personal")
     lines: list[str] = []
@@ -847,7 +865,7 @@ def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bo
 
 
 def _mood(review: ProactiveReview) -> str:
-    f = review.facts or {}
+    f = _figures(review.facts or {})
     if review.kind == "nudge":
         return "nudge"
     spent, income = f.get("spent") or 0, f.get("income") or 0
@@ -889,7 +907,7 @@ def _card(review: ProactiveReview, lang: str, *, title: str, lines: list[str], r
     """The review as a card for the phone and the web (scenario AL17): its mood and emoji, a headline that
     counts up, its change against the usual, a chart, the categories as bars, the ideas with a button each.
     Words come said; numbers come raw, for the bars to be drawn to scale."""
-    f = review.facts or {}
+    f = _figures(review.facts or {})
     cal, ccy = f.get("calendar", "gregorian"), f.get("currency", "")
     m = lambda v: _money(v, ccy, lang)        # noqa: E731
     mood = _mood(review)

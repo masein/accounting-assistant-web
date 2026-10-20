@@ -352,3 +352,23 @@ def _attach_bank_account(
 ) -> str:
     code, _created = _resolve_bank_account(db, name, existing_account_code, locale)
     return code
+
+
+def rename_bank_account_with(db: Session, entity, old_name: str) -> None:
+    """A bank party's own account follows its new name when it was named for
+    it — «ملت» or «حساب بانکی ملت» — so the cards don't keep the old one; an
+    account named some other way (an imported chart's «بانک ملت شعبه ۱۲») keeps
+    its name (scenario AK7). The chat's rename card and the Parties page both come here."""
+    if entity.type != "bank" or not entity.code:
+        return
+    from app.utils.text import fold_fa
+    acc = db.execute(select(Account).where(Account.code == entity.code)).scalars().first()
+    if acc is None:
+        return
+
+    def fold(s: str | None) -> str:
+        return " ".join(fold_fa((s or "").lower()).split())
+    if fold(acc.name) == fold(old_name):
+        acc.name = entity.name
+    elif fold(acc.name) == fold(bt(db, "bank_account_name", name=old_name)):
+        acc.name = bt(db, "bank_account_name", name=entity.name)
